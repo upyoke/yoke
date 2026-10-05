@@ -86,7 +86,9 @@ def _valid_sort(value: Any, view_id: str = "items") -> bool:
 def _valid_location(location: Any) -> bool:
     return (
         isinstance(location, str)
-        and location.startswith("#/")
+        and location.startswith("/")
+        and not location.startswith("//")
+        and "#" not in location
         and len(location) <= 4096
         and not any(ord(char) < 32 for char in location)
     )
@@ -180,7 +182,7 @@ def handle_screen_selection_set(
     if location is not None and not _valid_location(location):
         return _store.error(
             "payload_invalid",
-            "location must be a dashboard hash route of at most 4096 characters; "
+            "location must be a dashboard path route of at most 4096 characters; "
             "navigate to a dashboard page and retry",
             jsonpath="$.payload.location",
         )

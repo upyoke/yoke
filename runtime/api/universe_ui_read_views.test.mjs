@@ -73,7 +73,7 @@ for (const [view, functionId] of [
     t.after(() => { globalThis.fetch = originalFetch; });
     globalThis.fetch = () => response(200, {});
     const documentNode = new FakeDocument();
-    documentNode.defaultView.location.hash = `#/${view}`;
+    documentNode.defaultView.location.href = `/${view}`;
     const root = documentNode.createElement("div");
     const requests = [];
     const client = {
@@ -151,7 +151,7 @@ test("Ouroboros reads observations and keeps review state visible", async (t) =>
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/ouroboros?project=1";
+  documentNode.defaultView.location.href = "/ouroboros?project=1";
   const root = documentNode.createElement("div");
   const requests = [];
   const client = {
@@ -221,11 +221,11 @@ test("Ouroboros reads observations and keeps review state visible", async (t) =>
   ]);
   assert.equal(
     byClass(root, "row-link").find((node) => node.textContent === "Retries preserve typed input").href,
-    "#/ouroboros/22?project=1",
+    "/ouroboros/22?project=1",
   );
   assert.equal(
     byClass(root, "row-link").find((node) => node.textContent === "YOK-90").href,
-    "#/items/90?project=1",
+    "/items/90?project=1",
   );
   mounted.unmount();
 });
@@ -235,7 +235,7 @@ test("Ouroboros field-note drill-in keeps its promoted Dash reachable", async (t
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/ouroboros/22?project=1";
+  documentNode.defaultView.location.href = "/ouroboros/22?project=1";
   const root = documentNode.createElement("div");
   const requests = [];
   const client = {
@@ -298,7 +298,7 @@ test("Ouroboros field-note drill-in keeps its promoted Dash reachable", async (t
   );
   assert.equal(
     byClass(root, "item-action")[0].href,
-    "#/items/90?project=1",
+    "/items/90?project=1",
   );
   mounted.unmount();
 });

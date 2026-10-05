@@ -55,7 +55,7 @@ def test_browser_gate_emits_coordinates_sends_enter_and_heartbeats(
         if 'tell application "Safari"' in command:
             return completed(
                 command,
-                stdout=("approved|https://app.stage.upyoke.com/orgs/acme#/frontier\n"),
+                stdout=("approved|https://app.stage.upyoke.com/orgs/acme/frontier\n"),
             )
         return completed(command)
 
@@ -94,7 +94,7 @@ def test_browser_gate_emits_coordinates_sends_enter_and_heartbeats(
     assert result.browser_evidence == {
         "approval_entry": "/connect",
         "browser": "Safari",
-        "result_url": "https://app.stage.upyoke.com/orgs/acme",
+        "result_url": "https://app.stage.upyoke.com/orgs/acme/frontier",
         "visible_control": "Approve machine",
     }
 
@@ -147,8 +147,7 @@ def test_browser_gate_accepts_completion_after_browser_automation_failure() -> N
     browser_evidence = {"browser": "Safari", "state": "browser_tab_missing"}
     transcripts = iter(
         (
-            "One-time code: AB12-CD34\n"
-            "Open: https://app.stage.upyoke.com/connect\n",
+            "One-time code: AB12-CD34\nOpen: https://app.stage.upyoke.com/connect\n",
             "One-time code: AB12-CD34\nYoke token connected.\n",
         )
     )

@@ -11,7 +11,7 @@ your organization.
 
 On Yoke Cloud, an organization wraps a hosted universe. Members, billing, and
 machine access are organization concerns. The workbench URL looks like
-`app.upyoke.com/orgs/<slug>#/...`.
+`app.upyoke.com/orgs/<slug>/...`.
 
 ## Project
 

@@ -23,7 +23,7 @@ function stubFetch(t) {
 
 async function mountAt(hash, client) {
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = hash;
+  documentNode.defaultView.location.href = hash || "/";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client });
   await settle();
@@ -88,7 +88,7 @@ function claimedEverywhereClient() {
 
 test("every claimed card carries its holder, whichever band drew it", async (t) => {
   stubFetch(t);
-  const { root, mounted } = await mountAt("#/frontier?project=1", claimedEverywhereClient());
+  const { root, mounted } = await mountAt("/frontier?project=1", claimedEverywhereClient());
 
   assert.ok(byClass(band(root, "active"), "work-item-card-ref")
     .some((node) => node.textContent === "YOK-9"));

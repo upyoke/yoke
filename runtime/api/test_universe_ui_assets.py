@@ -112,7 +112,9 @@ def test_responsive_shell_uses_a_drawer_and_search_overlay():
     # The context group stops being one unbreakable block at the drawer
     # breakpoint, so the header's own wrapping can move its controls to a
     # second row rather than pushing the last one off the side.
-    assert (".universe-app-root .context-side {\n    display: contents;\n  }") in compact
+    assert (
+        ".universe-app-root .context-side {\n    display: contents;\n  }"
+    ) in compact
     phone = responsive.split("@media (max-width: 640px)", 1)[1]
     assert ".header-project-context" in phone
     # On a phone the dialog IS the screen rather than a panel floating over it.
@@ -128,10 +130,10 @@ def test_page_module_exports_the_mount_contract():
     assert 'fetch("/assets/' not in page_module
 
 
-def test_shell_static_references_are_host_prefix_safe():
+def test_local_shell_static_references_resolve_from_deep_paths():
     shell = files("yoke_core.ui").joinpath("static", "index.html").read_text()
     assert 'class="local-universe-page"' in shell
-    assert '="/assets/' not in shell
+    assert '="./assets/' not in shell
     for asset_name in (
         "app.js",
         "app.css",
@@ -139,7 +141,7 @@ def test_shell_static_references_are_host_prefix_safe():
         "theme.css",
         "favicon.svg",
     ):
-        assert f"./assets/{asset_name}" in shell
+        assert f"/assets/{asset_name}" in shell
 
 
 def test_hosted_frame_harness_mirrors_the_platform_slot_shapes():
@@ -242,8 +244,12 @@ def test_page_module_wires_the_workbench_shell():
     # functions behind them cannot drift apart.
     domains = static_root.joinpath("universe_search_domains.js").read_text()
     for reference in (
-        "items.search.run", "sessions.list", "strategy.doc.list",
-        "qa.plan.list", "events.query.run", "packs.list",
+        "items.search.run",
+        "sessions.list",
+        "strategy.doc.list",
+        "qa.plan.list",
+        "events.query.run",
+        "packs.list",
     ):
         assert reference in domains, reference
     # The controls module composes the dialog; it owns no read of its own.

@@ -19,7 +19,7 @@ export async function itemDraftStorage(context) {
     if (profile.status !== 200 || !profile.envelope.success || actor == null) return null;
     const universe = organization.envelope?.result?.slug;
     if (organization.status !== 200 || !organization.envelope.success || !universe) return null;
-    const key = `yoke:item-draft:${JSON.stringify([location.origin, location.pathname, universe, actor])}`;
+    const key = `yoke:item-draft:${JSON.stringify([location.origin, context.basePath || "", universe, actor])}`;
     return {
       read(projects, initialProjectId) {
         try {

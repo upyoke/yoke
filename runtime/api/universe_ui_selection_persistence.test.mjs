@@ -85,21 +85,21 @@ test("each view's remembered selection and focus are independent of every other 
 test("ordinary detail, focus, global, and workflow links carry each view's own remembered scope", () => {
   const state = createProjectSelection(null);
   state.seed("items", ["1", "2"]);
-  assert.equal(withProjectSelection("#/items/42?project=2", state),
-    "#/items/42?project=2&selection=1,2");
+  assert.equal(withProjectSelection("/items/42?project=2", state),
+    "/items/42?project=2&selection=1,2");
   state.seed("architecture", "all");
-  assert.equal(withProjectSelection("#/architecture?project=2", state),
-    "#/architecture?project=2&selection=all");
+  assert.equal(withProjectSelection("/architecture?project=2", state),
+    "/architecture?project=2&selection=all");
   state.seed("github", "all");
-  assert.equal(withProjectSelection("#/github?project=2", state), "#/github?project=2");
+  assert.equal(withProjectSelection("/github?project=2", state), "/github?project=2");
   state.seed("workflows", ["2"]);
-  assert.equal(withProjectSelection("#/workflows/dash", state), "#/workflows/dash?selection=2");
+  assert.equal(withProjectSelection("/workflows/dash", state), "/workflows/dash?selection=2");
   state.seed("organization", ["1", "2"]);
-  assert.equal(withProjectSelection("#/organization", state), "#/organization?project=1,2");
+  assert.equal(withProjectSelection("/organization", state), "/organization?project=1,2");
   state.seed("items", ["1"]);
-  assert.equal(withProjectSelection("#/items?project=all", state), "#/items?project=all");
-  assert.equal(withProjectSelection("#/items/42?project=2&selection=all", state),
-    "#/items/42?project=2&selection=all");
+  assert.equal(withProjectSelection("/items?project=all", state), "/items?project=all");
+  assert.equal(withProjectSelection("/items/42?project=2&selection=all", state),
+    "/items/42?project=2&selection=all");
 });
 
 test("a failed persistence write surfaces a notice; the in-memory value stays usable", async () => {
@@ -142,17 +142,17 @@ test("late-rendered and retained host anchors track their own view's selection, 
   state.seed("strategy", ["1", "2"]);
   const navigation = createSelectionNavigation(root, documentNode.defaultView, state);
   const anchor = documentNode.createElement("a");
-  anchor.setAttribute("href", "#/strategy/PLAN?project=2");
+  anchor.setAttribute("href", "/strategy/PLAN?project=2");
   root.appendChild(anchor);
   observeChanges([{ type: "childList", addedNodes: [anchor] }]);
-  assert.equal(anchor.getAttribute("href"), "#/strategy/PLAN?project=2&selection=1,2");
+  assert.equal(anchor.getAttribute("href"), "/strategy/PLAN?project=2&selection=1,2");
   state.setSelectionFor("strategy", "all");
   navigation.refresh();
-  assert.equal(anchor.getAttribute("href"), "#/strategy/PLAN?project=2&selection=all");
+  assert.equal(anchor.getAttribute("href"), "/strategy/PLAN?project=2&selection=all");
   // Workflows has never been touched, so navigating there uses its own
   // default — never Strategy's remembered value.
-  navigation.navigate("#/workflows/dash");
-  assert.equal(documentNode.defaultView.location.hash, "#/workflows/dash?selection=all");
+  navigation.navigate("/workflows/dash");
+  assert.equal(documentNode.defaultView.location.href, "/workflows/dash?selection=all");
   navigation.dispose();
   assert.equal(disconnected, true);
 });
@@ -168,7 +168,7 @@ test("row pointer and keyboard navigation use the same selection as the row anch
   const row = documentNode.createElement("tr");
   row.setAttribute("role", "link");
   const link = documentNode.createElement("a");
-  link.setAttribute("href", "#/items/42?project=2");
+  link.setAttribute("href", "/items/42?project=2");
   row.appendChild(link);
   row.querySelector = () => link;
   root.appendChild(row);
@@ -176,7 +176,7 @@ test("row pointer and keyboard navigation use the same selection as the row anch
     let prevented = false, stopped = false;
     handlers[type]({ type, target: row, key: "Enter", button: 0,
       preventDefault() { prevented = true; }, stopPropagation() { stopped = true; } });
-    assert.equal(documentNode.defaultView.location.hash, "#/items/42?project=2&selection=1,2");
+    assert.equal(documentNode.defaultView.location.href, "/items/42?project=2&selection=1,2");
     assert.ok(prevented && stopped);
   }
   navigation.dispose();
@@ -186,8 +186,8 @@ test("normalization and selection changes retain a view's own query fields", () 
   const state = createProjectSelection(null);
   state.seed("items", ["1", "2"]);
   assert.equal(selectionRoute({ view: "items", detail: "new" }, state, null,
-    "#/items/new?workflow=dash&return=workflows"),
-  "#/items/new?workflow=dash&return=workflows&selection=1,2");
+    "/items/new?workflow=dash&return=workflows"),
+  "/items/new?workflow=dash&return=workflows&selection=1,2");
 });
 
 async function mountAt(t, hash, client = preferenceClient()) {
@@ -196,19 +196,19 @@ async function mountAt(t, hash, client = preferenceClient()) {
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
   const windowNode = documentNode.defaultView;
-  windowNode.location.hash = hash;
+  windowNode.location.href = hash || "/";
   const replacements = [];
   windowNode.history = { replaceState(_state, _title, route) {
     replacements.push(route);
-    windowNode.location.hash = route;
+    windowNode.location.href = route;
   } };
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client });
   t.after(() => mounted.unmount());
   await settle();
   async function navigate(route) {
-    windowNode.location.hash = route;
-    windowNode.dispatchEvent(new Event("hashchange"));
+    windowNode.location.href = route;
+    windowNode.dispatchEvent(new Event("popstate"));
     await settle();
   }
   return { root, windowNode, mounted, client, navigate, replacements };
@@ -221,56 +221,56 @@ function selected(root) {
 
 test("each screen's own remembered selection renders in its own chip state and survives the round trip", async (t) => {
   const client = preferenceClient();
-  const { root, windowNode, navigate } = await mountAt(t, "#/items?project=1", client);
+  const { root, windowNode, navigate } = await mountAt(t, "/items?project=1", client);
   assert.deepEqual(selected(root), ["ALP"]);
 
-  await navigate("#/workflows");
+  await navigate("/workflows");
   // Unscoped chrome hides the picker; Items' remembered pair is untouched.
   assert.equal(byClass(root, "header-project-context")[0].hidden, true);
   assert.equal(scopeChips(root).length, 0);
-  assert.equal(windowNode.location.hash, "#/workflows?project=all");
+  assert.equal(windowNode.location.href, "/workflows?project=all");
 
-  await navigate("#/items");
+  await navigate("/items");
   assert.deepEqual(selected(root), ["ALP"]);
   assert.deepEqual(itemsCalls(client).at(-1).payload.projects, ["1"]);
 
-  await navigate("#/projects");
+  await navigate("/projects");
   assert.equal(byClass(root, "header-project-context")[0].hidden, true);
-  assert.equal(windowNode.location.hash, "#/projects?project=all");
+  assert.equal(windowNode.location.href, "/projects?project=all");
 });
 
 test("history restores explicit All and selection without adding history entries", async (t) => {
-  const { root, windowNode, navigate, replacements } = await mountAt(t, "#/items");
-  assert.equal(windowNode.location.hash, "#/items?project=all");
-  await navigate("#/items?project=2");
+  const { root, windowNode, navigate, replacements } = await mountAt(t, "/items");
+  assert.equal(windowNode.location.href, "/items?project=all");
+  await navigate("/items?project=2");
   assert.deepEqual(selected(root), ["BET"]);
-  await navigate("#/items?project=all");
+  await navigate("/items?project=all");
   assert.deepEqual(selected(root), ["All"]);
-  await navigate("#/items?project=2");
+  await navigate("/items?project=2");
   assert.deepEqual(selected(root), ["BET"]);
-  assert.deepEqual(replacements, ["#/items?project=all"]);
+  assert.deepEqual(replacements, ["/items", "/items?project=all"]);
 });
 
 test("reload and host remount restore each view's own saved selection; a fresh actor starts independently", async (t) => {
   const client = preferenceClient();
-  const first = await mountAt(t, "#/items?project=1", client);
+  const first = await mountAt(t, "/items?project=1", client);
   assert.deepEqual(client.state.views.items?.selection, ["1"]);
   first.mounted.unmount();
 
   // Same server-backed state (the same actor, a reload or a second tab),
   // same view: the remembered selection survives.
-  const next = await mountAt(t, "#/items", client);
+  const next = await mountAt(t, "/items", client);
   assert.deepEqual(selected(next.root), ["ALP"]);
   next.mounted.unmount();
 
   // Events was never touched, even under the same persisted state: it
   // starts at its own default rather than inheriting Items' pair.
-  const events = await mountAt(t, "#/events", client);
+  const events = await mountAt(t, "/events", client);
   assert.deepEqual(selected(events.root), ["All"]);
   events.mounted.unmount();
 
   // A fresh actor — a client with nothing saved yet — starts independently.
-  const other = await mountAt(t, "#/items", preferenceClient());
+  const other = await mountAt(t, "/items", preferenceClient());
   assert.deepEqual(selected(other.root), ["All"]);
 });
 
@@ -287,12 +287,12 @@ test("a denied save resolves normally but still surfaces the notice through the 
     }
     return baseCall(request);
   };
-  const { root, navigate } = await mountAt(t, "#/items", client);
+  const { root, navigate } = await mountAt(t, "/items", client);
   // One navigation, one settle — no second navigation to force a repaint.
   // The failed (but resolved, never rejected) save must trigger its own
   // re-render once it settles; if that wiring regresses, this fails instead
   // of a second navigation quietly masking the missing repaint.
-  await navigate("#/items?project=2");
+  await navigate("/items?project=2");
   assert.match(byClass(root, "scope-context-note")[0].textContent, /could not be saved/);
 });
 
@@ -313,7 +313,7 @@ test("an unsuccessful initial read never lets a default clobber the server's rea
   };
   // The route names a project that differs from what the server actually
   // holds for Items — normally this would persist as the new value.
-  const { root } = await mountAt(t, "#/items?project=2", client);
+  const { root } = await mountAt(t, "/items?project=2", client);
   assert.equal(listCalls, 2);
   // The failed read never marked this mount ready, so the mismatch was
   // never written back over the actor's real saved selection.
@@ -328,15 +328,15 @@ test("detail focus preserves multi-selection and inaccessible focus never reads 
   // Three projects, so `selection=1,2` is a genuine multi-member scope the
   // detail has to keep separate from its own `project=1` focus.
   const { root, client, navigate } = await mountAt(
-    t, "#/strategy/PLAN-1?project=1&selection=1,2", preferenceClient({}, threeProjectClient),
+    t, "/strategy/PLAN-1?project=1&selection=1,2", preferenceClient({}, threeProjectClient),
   );
   assert.deepEqual(selected(root), ["ALP", "BET"]);
-  assert.equal(byClass(root, "breadcrumb-parent")[0].href, "#/strategy?project=1,2");
+  assert.equal(byClass(root, "breadcrumb-parent")[0].href, "/strategy?project=1,2");
   const resourceCalls = () => client.requests.filter(
     (request) => !request.function.startsWith("ui_preferences."),
   ).length;
   const before = resourceCalls();
-  await navigate("#/strategy/PLAN-1?project=removed&selection=1,2");
+  await navigate("/strategy/PLAN-1?project=removed&selection=1,2");
   assert.match(root.textContent, /Project unavailable/);
   assert.equal(resourceCalls(), before);
 });

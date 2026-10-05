@@ -118,8 +118,8 @@ test("arrow keys walk the results and Enter follows the active one", async (t) =
   );
   key("Enter");
   assert.equal(
-    documentNode.defaultView.location.hash,
-    "#/sessions/session-rebaseline?project=1",
+    documentNode.defaultView.location.href,
+    "/sessions/session-rebaseline?project=1&selection=all",
   );
   assert.equal(byClass(root, "header-search-overlay")[0].hidden, true);
 });
@@ -159,7 +159,7 @@ test("a route change closes the dialog rather than leaving its backdrop over the
 
   // The navigation the dialog did not make: Back, a pasted hash, a link
   // elsewhere in the shell. All of them reach the shell as one event.
-  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  documentNode.defaultView.dispatchEvent(new Event("popstate"));
   await settle();
 
   assert.equal(overlay.hidden, true, "the dialog closes with the route");
@@ -176,7 +176,7 @@ test("repeated route changes with the dialog shut stay a no-op", async (t) => {
 
   assert.equal(overlay.hidden, true);
   for (let index = 0; index < 3; index += 1) {
-    documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+    documentNode.defaultView.dispatchEvent(new Event("popstate"));
   }
   await settle();
   assert.equal(overlay.hidden, true, "closing what is already shut changes nothing");

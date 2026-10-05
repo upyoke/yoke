@@ -104,7 +104,7 @@ function mechanicRow(
     const link = el(
       documentNode, "a", "workflow-home-link", `${destination} →`,
     );
-    link.href = `#/${route}`;
+    link.href = `/${route}`;
     row.appendChild(link);
   }
   if (action) {

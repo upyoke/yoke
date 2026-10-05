@@ -60,7 +60,7 @@ async function mount(runs) {
     "deployment_runs.list": { rows: runs },
   });
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/frontier?project=1";
+  documentNode.defaultView.location.href = "/frontier?project=1";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client });
   await settle();
@@ -154,7 +154,7 @@ test("a mixed project run keeps candidate delivery beside real membership", asyn
     );
     assert.equal(
       byClass(box, "item-deployment-run")[0].href,
-      "#/deployments/runs/run-mixed?project=2",
+      "/deployments/runs/run-mixed?project=2",
     );
   } finally {
     mounted.unmount();

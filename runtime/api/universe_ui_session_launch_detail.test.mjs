@@ -62,12 +62,12 @@ function page(overrides = {}) {
   });
 }
 
-async function mountAt(t, client, hash = "#/launches?project=1") {
+async function mountAt(t, client, hash = "/launches?project=1") {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = hash;
+  documentNode.defaultView.location.href = hash || "/";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client });
   await settle();

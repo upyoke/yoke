@@ -47,10 +47,7 @@ async function mountAt(t, hash, client) {
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
   const windowNode = documentNode.defaultView;
-  windowNode.location.hash = hash;
-  windowNode.history = { replaceState(_state, _title, route) {
-    windowNode.location.hash = route;
-  } };
+  windowNode.location.href = hash || "/";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client });
   t.after(() => mounted.unmount());
@@ -71,7 +68,7 @@ async function mountAt(t, hash, client) {
 
 test("adding the last missing project is All, and the next click narrows from it", async (t) => {
   const client = preferenceClient({}, threeProjectClient);
-  const app = await mountAt(t, "#/items", client);
+  const app = await mountAt(t, "/items", client);
 
   await app.click("ALP");
   await app.click("BET");
@@ -83,7 +80,7 @@ test("adding the last missing project is All, and the next click narrows from it
   await app.click("GAM");
   assert.deepEqual(app.on(), ["All"]);
   assert.equal(client.state.views.items.selection, "all");
-  assert.equal(app.windowNode.location.hash, "#/items?project=all");
+  assert.equal(app.windowNode.location.href, "/items?project=all");
   assert.equal(itemsCalls(client).at(-1).payload.projects, undefined);
 
   // And because it is All, the next click narrows to that one project
@@ -99,9 +96,9 @@ test("a stored full-roster member list resolves to All on the first render", asy
   const client = preferenceClient(
     { items: { selection: ["1", "2", "3"], focus: null } }, threeProjectClient,
   );
-  const app = await mountAt(t, "#/items", client);
+  const app = await mountAt(t, "/items", client);
   assert.deepEqual(app.on(), ["All"]);
-  assert.equal(app.windowNode.location.hash, "#/items?project=all");
+  assert.equal(app.windowNode.location.href, "/items?project=all");
   // Written back in the canonical form, so the next mount reads one scope
   // in one shape rather than healing it again.
   assert.equal(client.state.views.items.selection, "all");
@@ -109,9 +106,9 @@ test("a stored full-roster member list resolves to All on the first render", asy
 
 test("a route naming every project resolves to All rather than pinning the set", async (t) => {
   const client = preferenceClient({}, threeProjectClient);
-  const app = await mountAt(t, "#/items?project=1,2,3", client);
+  const app = await mountAt(t, "/items?project=1,2,3", client);
   assert.deepEqual(app.on(), ["All"]);
-  assert.equal(app.windowNode.location.hash, "#/items?project=all");
+  assert.equal(app.windowNode.location.href, "/items?project=all");
   // Resolving the existing All scope does not save a selection change.
   // Navigation saves only the last location with that canonical scope once.
   assert.equal(client.state.views.items, undefined);
@@ -119,7 +116,7 @@ test("a route naming every project resolves to All rather than pinning the set",
     (request) => request.function === "ui_preferences.screen_selection.set",
   );
   assert.equal(saves.length, 1);
-  assert.deepEqual(saves[0].payload, { view_id: "items", location: "#/items?project=all" });
+  assert.deepEqual(saves[0].payload, { view_id: "items", location: "/items?project=all" });
 });
 
 test("a screen's own links carry the canonical form of what it remembers", async (t) => {
@@ -134,10 +131,10 @@ test("a screen's own links carry the canonical form of what it remembers", async
     },
     threeProjectClient,
   );
-  const app = await mountAt(t, "#/strategy", client);
+  const app = await mountAt(t, "/strategy", client);
   const scoped = byClass(app.root, "nav-link")
     .map((link) => link.href)
-    .filter((href) => href && (href.startsWith("#/items") || href.startsWith("#/frontier")));
+    .filter((href) => href && (href.startsWith("/items") || href.startsWith("/frontier")));
   assert.ok(scoped.length >= 2, `expected scoped nav links, got ${scoped}`);
   for (const href of scoped) {
     assert.match(href, /project=all/, `${href} should carry the canonical All scope`);

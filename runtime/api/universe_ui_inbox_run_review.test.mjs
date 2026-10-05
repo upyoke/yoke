@@ -78,7 +78,7 @@ test("an open run QA review lists the run's checks, then asks for the decision",
   const card = byClass(inboxSection(main, "waiting"), "review-card")[0];
   const title = byClass(card, "review-title")[0];
   assert.equal(title.textContent, `Run approval · ${RUN}`);
-  assert.equal(title.children[0].href, `#/deployments/runs/${RUN}?project=10`);
+  assert.equal(title.children[0].href, `/deployments/runs/${RUN}?project=10`);
   assert.ok(client.requests.some((request) => request.function === "qa.activity.list"
     && request.payload.deployment_run_id === RUN && request.payload.project === "10"));
 
@@ -86,7 +86,7 @@ test("an open run QA review lists the run's checks, then asks for the decision",
   const current = checks.children.filter((node) => node.classList.contains("run-qa-check"));
   assert.equal(current.length, 2);
   assert.equal(byClass(current[0], "run-qa-check-name")[0].children[0].href,
-    "#/qa-activity/31974?project=10");
+    "/qa-activity/31974?project=10");
   assert.equal(byClass(current[0], "run-qa-check-outcome")[0].textContent, "Passed");
   assert.equal(byClass(current[0], "run-qa-check-reason").length, 0);
   // Each screenshot once, under the check that took it.

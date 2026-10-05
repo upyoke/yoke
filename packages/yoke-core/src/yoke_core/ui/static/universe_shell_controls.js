@@ -1,3 +1,4 @@
+import { ROUTE_NAVIGATION_EVENT } from "./universe_path_navigation.js";
 // Interactive controls that belong to the universe frame rather than a view:
 // the universe-wide search dialog and the persistent environment/footer strip.
 
@@ -78,7 +79,7 @@ function resultLink(documentNode, entry) {
   return link;
 }
 
-function createSearch(documentNode, client) {
+function createSearch(documentNode, client, navigate) {
   const windowNode = documentNode.defaultView;
   const controlId = ++shellControlSequence;
   const history = createSearchHistory(client);
@@ -260,8 +261,9 @@ function createSearch(documentNode, client) {
     }
     if (event.key === "Enter" && activeIndex >= 0) {
       event.preventDefault();
-      const href = resultLinks[activeIndex].href;
-      windowNode.location.hash = href.slice(href.indexOf("#"));
+      const link = resultLinks[activeIndex];
+      const href = link.getAttribute("href") || link.href;
+      navigate(href);
       dialog.close();
     }
   });
@@ -277,7 +279,7 @@ function createSearch(documentNode, client) {
 }
 
 export function createShellControls({ documentNode, client, options }) {
-  const search = createSearch(documentNode, client);
+  const search = createSearch(documentNode, client, options.navigate);
   const { footer, dispose: disposeFooter } = createFooter(documentNode, options);
   const windowNode = documentNode.defaultView;
   // Both of search's keyboard contracts are window-level, because a modal
@@ -309,11 +311,13 @@ export function createShellControls({ documentNode, client, options }) {
   const onRouteChange = () => {
     if (search.isOpen()) search.close();
   };
-  windowNode.addEventListener("hashchange", onRouteChange);
+  windowNode.addEventListener("popstate", onRouteChange);
+  windowNode.addEventListener(ROUTE_NAVIGATION_EVENT, onRouteChange);
   return {
     dispose() {
       windowNode.removeEventListener("keydown", onWindowKeydown);
-      windowNode.removeEventListener("hashchange", onRouteChange);
+      windowNode.removeEventListener("popstate", onRouteChange);
+    windowNode.removeEventListener(ROUTE_NAVIGATION_EVENT, onRouteChange);
       search.close();
       disposeFooter();
     },

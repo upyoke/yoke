@@ -26,7 +26,7 @@ function stubFetch(t) {
 }
 
 async function mountAt(documentNode, hash) {
-  documentNode.defaultView.location.hash = hash;
+  documentNode.defaultView.location.href = hash || "/";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client: workbenchClient() });
   await settle();
@@ -35,7 +35,7 @@ async function mountAt(documentNode, hash) {
 
 test("a band is a native disclosure carrying its own count", async (t) => {
   stubFetch(t);
-  const { mounted, root } = await mountAt(new FakeDocument(), "#/frontier?project=1");
+  const { mounted, root } = await mountAt(new FakeDocument(), "/frontier?project=1");
   const bands = byClass(root, "work-band");
   assert.equal(bands.every((node) => node.tagName === "DETAILS"), true);
   assert.equal(bands.every((node) => node.children[0].tagName === "SUMMARY"), true);
@@ -57,7 +57,7 @@ test("a band is a native disclosure carrying its own count", async (t) => {
 
 test("strategy cards carry badge, slug, age, claim and summary once", async (t) => {
   stubFetch(t);
-  const { mounted, root } = await mountAt(new FakeDocument(), "#/strategy?project=1");
+  const { mounted, root } = await mountAt(new FakeDocument(), "/strategy?project=1");
   // Standing direction and plans are separate bands; the archive keeps its
   // own, still reachable.
   assert.equal(
@@ -104,7 +104,7 @@ test("strategy cards carry badge, slug, age, claim and summary once", async (t) 
 
 test("a shipping card carries its release, stages and carried work", async (t) => {
   stubFetch(t);
-  const { mounted, root } = await mountAt(new FakeDocument(), "#/shipping?project=1");
+  const { mounted, root } = await mountAt(new FakeDocument(), "/shipping?project=1");
   assert.equal(byClass(root, "title")[0].textContent, "Shipping");
   // No count in the page title, and no band around the cards.
   assert.equal(byClass(root, "work-band").length, 0);
@@ -117,7 +117,7 @@ test("a shipping card carries its release, stages and carried work", async (t) =
 test("a closed band remains closed across a complete rerender", async (t) => {
   stubFetch(t);
   const documentNode = new FakeDocument();
-  const first = await mountAt(documentNode, "#/frontier?project=1");
+  const first = await mountAt(documentNode, "/frontier?project=1");
   const waiting = byClass(first.root, "work-band")[0];
   const done = byClass(first.root, "work-band")[3];
   waiting.open = false;
@@ -126,7 +126,7 @@ test("a closed band remains closed across a complete rerender", async (t) => {
   done.dispatchEvent(new Event("toggle"));
   first.mounted.unmount();
 
-  const second = await mountAt(documentNode, "#/frontier?project=1");
+  const second = await mountAt(documentNode, "/frontier?project=1");
   const next = byClass(second.root, "work-band");
   assert.equal(next[0].open, false);
   assert.equal(next[1].open, true);

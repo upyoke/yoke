@@ -52,7 +52,7 @@ def test_document_drift_is_detected(tmp_path):
     first_entrypoint = load_contract(target_root / CONTRACT_REL).entrypoints[0].asset
     index.write_text(
         index.read_text(encoding="utf-8").replace(
-            f'<link rel="stylesheet" href="./assets/{first_entrypoint}">', "", 1
+            f'<link rel="stylesheet" href="/assets/{first_entrypoint}">', "", 1
         ),
         encoding="utf-8",
     )

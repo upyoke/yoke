@@ -26,18 +26,18 @@ import {
 } from "./universe_ui_read_views_test_support.mjs";
 
 test("a drill-in route survives the round trip and never outlives its view", () => {
-  assert.deepEqual(parseUniverseRoute("#/items/42?project=3"), {
+  assert.deepEqual(parseUniverseRoute("/items/42?project=3"), {
     view: "items", tab: null, detail: "42", project: "3", selection: null,
   });
-  assert.equal(buildUniverseRoute("items", "3", "42"), "#/items/42?project=3");
+  assert.equal(buildUniverseRoute("items", "3", "42"), "/items/42?project=3");
   const odd = "YOK 7/a";
   assert.equal(
     parseUniverseRoute(buildUniverseRoute("items", "3", odd)).detail, odd,
   );
-  assert.deepEqual(parseUniverseRoute("#/unknown/42"), {
+  assert.deepEqual(parseUniverseRoute("/unknown/42"), {
     view: "strategy", tab: null, detail: null, project: null, selection: null,
   });
-  assert.equal(buildUniverseRoute("unknown", null, "42"), "#/strategy");
+  assert.equal(buildUniverseRoute("unknown", null, "42"), "/strategy");
 });
 
 test("a strategy doc drill-in reads the body through strategy.surface.get", async (t) => {
@@ -45,7 +45,7 @@ test("a strategy doc drill-in reads the body through strategy.surface.get", asyn
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/strategy/PLAN-1?project=1";
+  documentNode.defaultView.location.href = "/strategy/PLAN-1?project=1";
   const root = documentNode.createElement("div");
   const requests = [];
   const client = {
@@ -115,7 +115,7 @@ test("events at All merge newest-first across buckets and name their source", as
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/events";
+  documentNode.defaultView.location.href = "/events";
   const root = documentNode.createElement("div");
   const rowsByProject = {
     // Bucket order alone would render alpha's block before beta's newer
@@ -216,7 +216,7 @@ test("events at All merge newest-first across buckets and name their source", as
     byClass(root, "event-card")[1]
       .children.flatMap(allNodes)
       .find((node) => node.classList.contains("row-link")).href,
-    "#/items/7?project=2",
+    "/items/7?project=2",
   );
 
   // Filters are local: narrowing the rendered stream does not make another

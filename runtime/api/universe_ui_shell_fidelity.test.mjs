@@ -143,7 +143,7 @@ test("shared shell search, footer, identity, and route navigation are live", asy
   // The item leads, and it is offered at all only because the row is read
   // the way items.search.run writes it.
   assert.equal(links.length, 2);
-  assert.equal(links[0].href, "#/items/2228?project=1");
+  assert.equal(links[0].href, "/items/2228?project=1");
   // Results sit under their domain's heading, so the domain is named once.
   assert.equal(
     byClass(root, "header-search-section-label")[0].textContent, "Items",
@@ -154,7 +154,7 @@ test("shared shell search, footer, identity, and route navigation are live", asy
     "YOK-2228 · yoke · implementing");
   // A session result opens that session's own page rather than the roster it
   // would have to be found in a second time.
-  assert.equal(links[1].href, "#/sessions/session-shell?project=1");
+  assert.equal(links[1].href, "/sessions/session-shell?project=1");
   // Items are matched by the server, so the typed query travels with the
   // request — the browser never filters a prefetched roster it could outgrow.
   assert.deepEqual(searchRequests.at(-1), { keywords: "shell", limit: 6 });
@@ -167,7 +167,7 @@ test("shared shell search, footer, identity, and route navigation are live", asy
     await settleSearch();
     assert.deepEqual(searchRequests.at(-1), { keywords, limit: 6 });
     const matched = byClass(root, "header-search-result");
-    assert.equal(matched[0].href, "#/items/2228?project=1");
+    assert.equal(matched[0].href, "/items/2228?project=1");
   }
 
   // A session past the roster's recency window is read by its own id, so a
@@ -179,7 +179,7 @@ test("shared shell search, footer, identity, and route navigation are live", asy
   const archived = byClass(root, "header-search-result");
   assert.equal(archived.length, 1);
   assert.equal(archived[0].href,
-    `#/sessions/${ARCHIVED_SESSION_ID}?project=1`);
+    `/sessions/${ARCHIVED_SESSION_ID}?project=1`);
 
   // A query the client could not have matched locally still resolves: the
   // item's own text says nothing about the number the operator typed.
@@ -188,7 +188,7 @@ test("shared shell search, footer, identity, and route navigation are live", asy
   await settleSearch();
   assert.deepEqual(searchRequests.at(-1), { keywords: "YOK-21", limit: 6 });
   assert.equal(byClass(root, "header-search-result")[0].href,
-    "#/items/2228?project=1");
+    "/items/2228?project=1");
 
   // A burst of keystrokes settles into one request rather than one each.
   const beforeBurst = searchRequests.length;
@@ -206,15 +206,15 @@ test("shared shell search, footer, identity, and route navigation are live", asy
 
   input.dispatchEvent(keyEvent("ArrowDown"));
   // Browser anchor properties resolve to absolute URLs, including scope.
-  byClass(root, "header-search-result")[0].href =
-    "https://example.test/#/items/2228?project=1&selection=1,2";
+  byClass(root, "header-search-result")[0].setAttribute("href",
+    "/items/2228?project=1&selection=1");
   input.dispatchEvent(keyEvent("Enter"));
-  assert.equal(documentNode.defaultView.location.hash,
-    "#/items/2228?project=1&selection=1,2");
+  assert.equal(documentNode.defaultView.location.href,
+    "/items/2228?project=1&selection=1");
   const main = byClass(root, "content")[0];
   main.scrollTop = 600;
-  documentNode.defaultView.location.hash = "#/sessions?project=1";
-  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  documentNode.defaultView.location.href = "/sessions?project=1";
+  documentNode.defaultView.dispatchEvent(new Event("popstate"));
   // Route navigation leaves the content element alone; document history
   // restoration is exercised by the document-scroll controller tests.
   assert.equal(main.scrollTop, 600);
@@ -274,8 +274,8 @@ test("compact route changes reveal the active destination without moving the des
 
   assert.equal(scrollCalls.length, 0);
   navDirection = "row";
-  documentNode.defaultView.location.hash = "#/sessions?project=1";
-  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  documentNode.defaultView.location.href = "/sessions?project=1";
+  documentNode.defaultView.dispatchEvent(new Event("popstate"));
   await settle();
 
   assert.equal(
@@ -288,8 +288,8 @@ test("compact route changes reveal the active destination without moving the des
   );
   const compactScrollCount = scrollCalls.length;
   navDirection = "column";
-  documentNode.defaultView.location.hash = "#/items?project=1";
-  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  documentNode.defaultView.location.href = "/items?project=1";
+  documentNode.defaultView.dispatchEvent(new Event("popstate"));
   await settle();
   assert.equal(scrollCalls.length, compactScrollCount);
 

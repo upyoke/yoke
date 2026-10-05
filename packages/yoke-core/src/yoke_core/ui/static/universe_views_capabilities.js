@@ -30,7 +30,7 @@ function capabilityOrder(row) {
 
 function wireCapabilityRouteRow(documentNode, record, href) {
   const navigate = () => {
-    documentNode.defaultView.location.hash = href;
+    documentNode.defaultView.location.href = href;
   };
   record.classList.add("capability-route-row");
   record.setAttribute("role", "link");

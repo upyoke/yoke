@@ -63,7 +63,7 @@ async function mountAt(t, hash, client) {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = hash;
+  documentNode.defaultView.location.href = hash || "/";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client });
   await settle();
@@ -86,22 +86,22 @@ test("a destination's second segment is a drill-in, and only where one exists", 
 });
 
 test("routes round-trip, and an unknown view falls back without its segment", () => {
-  assert.deepEqual(parseUniverseRoute("#/environments?project=3"), {
+  assert.deepEqual(parseUniverseRoute("/environments?project=3"), {
     view: "environments", tab: null, detail: null, project: "3", selection: null,
   });
   assert.equal(
-    buildUniverseRoute("environments", "3"), "#/environments?project=3",
+    buildUniverseRoute("environments", "3"), "/environments?project=3",
   );
-  assert.deepEqual(parseUniverseRoute("#/deployments"), {
+  assert.deepEqual(parseUniverseRoute("/deployments"), {
     view: "deployments", tab: null, detail: null, project: null, selection: null,
   });
   // A tabbed destination spends its first segment on the tab and its second
   // on the drill-in under it.
-  assert.deepEqual(parseUniverseRoute("#/deployments/runs?project=3"), {
+  assert.deepEqual(parseUniverseRoute("/deployments/runs?project=3"), {
     view: "deployments", tab: "runs", detail: null, project: "3", selection: null,
   });
   assert.deepEqual(
-    parseUniverseRoute("#/deployments/runs/run-20260101-001"),
+    parseUniverseRoute("/deployments/runs/run-20260101-001"),
     {
       view: "deployments",
       tab: "runs",
@@ -112,15 +112,15 @@ test("routes round-trip, and an unknown view falls back without its segment", ()
   );
   assert.equal(
     buildUniverseRoute("deployments", "3", "runs", "run-20260101-001"),
-    "#/deployments/runs/run-20260101-001?project=3",
+    "/deployments/runs/run-20260101-001?project=3",
   );
   // A second segment is a drill-in now, so it survives on a view that exists…
-  assert.equal(parseUniverseRoute("#/qa-plans/7?project=2").detail, "7");
+  assert.equal(parseUniverseRoute("/qa-plans/7?project=2").detail, "7");
   // …and falls with the view when that view does not.
-  const unknown = parseUniverseRoute("#/nonsense/7?project=2");
+  const unknown = parseUniverseRoute("/nonsense/7?project=2");
   assert.equal(unknown.view, NAV[0].id);
   assert.equal(unknown.detail, null);
-  const removedInfrastructure = parseUniverseRoute("#/infrastructure?project=2");
+  const removedInfrastructure = parseUniverseRoute("/infrastructure?project=2");
   assert.equal(removedInfrastructure.view, NAV[0].id);
   assert.equal(removedInfrastructure.detail, null);
 });
@@ -128,7 +128,7 @@ test("routes round-trip, and an unknown view falls back without its segment", ()
 test("a deep-linked destination is the active nav item and keeps its scope", async (t) => {
   const client = deliveryClient();
   const { documentNode, root, mounted } = await mountAt(
-    t, "#/environments?project=1", client,
+    t, "/environments?project=1", client,
   );
 
   // The facet IS the destination now, so it is what the sidebar lights.
@@ -164,14 +164,14 @@ test("a deep-linked destination is the active nav item and keeps its scope", asy
   );
   // The deep link survives untouched.
   assert.equal(
-    documentNode.defaultView.location.hash, "#/environments?project=1",
+    documentNode.defaultView.location.href, "/environments?project=1",
   );
   mounted.unmount();
 });
 
 test("a destination's page head names the destination, not a parent view", async (t) => {
   const client = deliveryClient();
-  const { root, mounted } = await mountAt(t, "#/environments?project=1", client);
+  const { root, mounted } = await mountAt(t, "/environments?project=1", client);
 
   const content = byClass(root, "content")[0];
   assert.ok(content.children[0].classList.contains("page-head"));
@@ -235,7 +235,7 @@ test("Runs fills from deployment runs, newest first, with grounded status pills"
       throw new Error(`unexpected function ${request.function}`);
     },
   };
-  const { root, mounted } = await mountAt(t, "#/deployments/runs?project=1", client);
+  const { root, mounted } = await mountAt(t, "/deployments/runs?project=1", client);
 
   // The paged read carries the view's scope inside its opt-in page envelope
   // and keeps the proxy's server-side global target default.
@@ -291,7 +291,7 @@ test("unscoped destinations hide the project selector; scoped ones restore it", 
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
   const windowNode = documentNode.defaultView;
-  windowNode.location.hash = "#/items?project=1";
+  windowNode.location.href = "/items?project=1";
   const root = documentNode.createElement("div");
   const base = twoProjectClient();
   const client = {
@@ -318,24 +318,24 @@ test("unscoped destinations hide the project selector; scoped ones restore it", 
   assert.deepEqual(selected(), ["ALP"]);
 
   const go = async (hash) => {
-    windowNode.location.hash = hash;
-    windowNode.dispatchEvent(new Event("hashchange"));
+    windowNode.location.href = hash || "/";
+    windowNode.dispatchEvent(new Event("popstate"));
     await settle();
   };
 
-  await go("#/workflows");
+  await go("/workflows");
   assert.equal(projectContext().hidden, true);
   assert.equal(byClass(root, "scope-chip").length, 0);
 
-  await go("#/items");
+  await go("/items");
   assert.equal(projectContext().hidden, false);
   assert.deepEqual(selected(), ["ALP"]);
 
-  await go("#/workflows/dash");
+  await go("/workflows/dash");
   assert.equal(projectContext().hidden, true);
   assert.equal(byClass(root, "scope-chip").length, 0);
 
-  await go("#/items");
+  await go("/items");
   assert.equal(projectContext().hidden, false);
   assert.deepEqual(selected(), ["ALP"]);
 });

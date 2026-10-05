@@ -40,7 +40,7 @@ test("a multi view defaults to the whole universe: All chip on, unfiltered read"
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/items";
+  documentNode.defaultView.location.href = "/items";
   const root = documentNode.createElement("div");
   const client = twoProjectClient();
 
@@ -60,7 +60,7 @@ test("a multi view defaults to the whole universe: All chip on, unfiltered read"
   assert.deepEqual(
     itemsCalls(client).map((request) => request.payload.projects), [undefined],
   );
-  assert.equal(documentNode.defaultView.location.hash, "#/items?project=all");
+  assert.equal(documentNode.defaultView.location.href, "/items?project=all");
   mounted.unmount();
 });
 
@@ -69,7 +69,7 @@ test("chips narrow to one, widen to a pair, and empty back out to All", async (t
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/items";
+  documentNode.defaultView.location.href = "/items";
   const root = documentNode.createElement("div");
   // Three projects, so a two-member selection is a genuine subset rather
   // than the whole roster under another name.
@@ -88,7 +88,7 @@ test("chips narrow to one, widen to a pair, and empty back out to All", async (t
 
   // One project: the read carries it and the hash names it.
   const narrowed = await click("ALP");
-  assert.equal(documentNode.defaultView.location.hash, "#/items?project=1");
+  assert.equal(documentNode.defaultView.location.href, "/items?project=1");
   assert.deepEqual(narrowed.map((request) => request.payload.projects), [["1"]]);
   assert.deepEqual(
     scopeChips(root).map((chip) => chip.classList.contains("on")),
@@ -104,7 +104,7 @@ test("chips narrow to one, widen to a pair, and empty back out to All", async (t
   // each other, so a fan-out could not serve a newest-first page across the
   // pair at all. Each row still retains its own project for drill-in.
   const paired = await click("BET");
-  assert.equal(documentNode.defaultView.location.hash, "#/items?project=1,2");
+  assert.equal(documentNode.defaultView.location.href, "/items?project=1,2");
   assert.deepEqual(
     paired.map((request) => request.payload.projects), [["1", "2"]],
   );
@@ -126,15 +126,15 @@ test("chips narrow to one, widen to a pair, and empty back out to All", async (t
     allNodes(root)
       .filter((node) => node.classList && node.classList.contains("row-link"))
       .map((node) => node.href),
-    ["#/items/11?project=1", "#/items/21?project=2"],
+    ["/items/11?project=1", "/items/21?project=2"],
   );
 
   // Removing members one at a time: the last removal returns to "all",
   // whose read omits the project filter and whose route names All.
   await click("ALP");
-  assert.equal(documentNode.defaultView.location.hash, "#/items?project=2");
+  assert.equal(documentNode.defaultView.location.href, "/items?project=2");
   const widened = await click("BET");
-  assert.equal(documentNode.defaultView.location.hash, "#/items?project=all");
+  assert.equal(documentNode.defaultView.location.href, "/items?project=all");
   assert.deepEqual(
     widened.map((request) => request.payload.projects), [undefined],
   );
@@ -150,7 +150,7 @@ test("strategy at All fans out one call per roster project", async (t) => {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/strategy";
+  documentNode.defaultView.location.href = "/strategy";
   const root = documentNode.createElement("div");
   const client = twoProjectClient();
   const mounted = mountUniverseApp(root, { client });
@@ -177,7 +177,7 @@ test("strategy at All fans out one call per roster project", async (t) => {
   );
   assert.deepEqual(
     byClass(root, "strategy-doc-card").map((node) => node.href),
-    ["#/strategy/PLAN-1?project=1", "#/strategy/PLAN-2?project=2"],
+    ["/strategy/PLAN-1?project=1", "/strategy/PLAN-2?project=2"],
   );
   mounted.unmount();
 });
@@ -188,22 +188,22 @@ test("each screen keeps its own remembered scope across nav round trips", async 
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
   const windowNode = documentNode.defaultView;
-  windowNode.location.hash = "#/items?project=2";
+  windowNode.location.href = "/items?project=2";
   const root = documentNode.createElement("div");
   const client = twoProjectClient();
   const mounted = mountUniverseApp(root, { client });
   await settle();
 
   const navigate = async (hash) => {
-    windowNode.location.hash = hash;
-    windowNode.dispatchEvent(new Event("hashchange"));
+    windowNode.location.href = hash || "/";
+    windowNode.dispatchEvent(new Event("popstate"));
     await settle();
   };
 
   // Events has never been touched, so it starts at its own default — never
   // Items' "2" — and the trip does not rewrite Items' remembered choice.
-  await navigate("#/events");
-  assert.equal(windowNode.location.hash, "#/events?project=all");
+  await navigate("/events");
+  assert.equal(windowNode.location.href, "/events?project=all");
   const itemsLink = byClass(root, "nav-link").find((link) =>
     allNodes(link).some(
       (node) => node.classList.contains("txt") &&
@@ -211,7 +211,7 @@ test("each screen keeps its own remembered scope across nav round trips", async 
     ));
   // The nav link still carries Items' OWN remembered selection, not
   // whatever Events (the currently active screen) happens to be showing.
-  assert.equal(itemsLink.href, "#/items?project=2");
+  assert.equal(itemsLink.href, "/items?project=2");
 
   // ...and following it restores that scope's read.
   await navigate(itemsLink.href);
@@ -232,7 +232,7 @@ test("an explicit QA Activity All route overrides its remembered project scope",
     scopeForEntry(entry, "buzz", projects, selections),
     ["buzz"],
   );
-  const route = parseUniverseRoute("#/qa-activity?project=all");
+  const route = parseUniverseRoute("/qa-activity?project=all");
   assert.equal(route.view, "qa-activity");
   assert.equal(route.project, "all");
   assert.equal(
@@ -274,7 +274,7 @@ test("a multi view still reads an empty universe, unfiltered", async (t) => {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/items";
+  documentNode.defaultView.location.href = "/items";
   const root = documentNode.createElement("div");
   const requests = [];
   const client = {

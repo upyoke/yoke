@@ -39,13 +39,13 @@ selection and focus IDs are revalidated against the accessible project
 roster on every render.
 
 The same preference pair remembers the actor's last dashboard location,
-including its hash query. The list response carries `last_location`; a
+including its query string. The list response carries `last_location`; a
 navigation sends `view_id` and `location` in the set payload. A set payload
 with `location` writes only the location, leaving selection and focus untouched.
 It is stored under `screen.location.last` in
 `actor_ui_preferences`, independently of `screen.selection.<view id>`.
 Signing back in or opening a bare dashboard entry restores that location
-before the first page renders. An explicit hash route always wins and
+before the first page renders. An explicit path route always wins and
 becomes the remembered location, including an explicit default screen.
 Restoration checks the accessible project roster and the detail's current
 resource authority; unknown, removed, or inaccessible locations silently
@@ -70,13 +70,13 @@ inert and widen that universe's scoped reads to unfiltered.
 Routes use `project=all` or comma-separated project IDs for selection on list
 and global destinations. On detail and single-project destinations, `project`
 addresses the resource/focus and `selection` carries the remembered selection:
-`#/strategy/PLAN?project=2&selection=1,2`. An explicit deep-link selection wins;
+`/strategy/PLAN?project=2&selection=1,2`. An explicit deep-link selection wins;
 without `selection`, an explicit `project` initializes selection. An absent
 scope preserves that destination's current preference. The shell replaces an
 incomplete URL with its resolved scope without adding a history entry, so
 back/forward can restore All independently of later changes.
 
-Hosts use the exported `withProjectSelection(hash, selections)` for ordinary
+Hosts use the exported `withProjectSelection(href, selections, basePath)` for ordinary
 navigation, where `selections` is the shared per-screen state object; it looks
 up the TARGET route's own view to decide what to carry, never the currently
 active screen's value. The shared shell applies it to its own and

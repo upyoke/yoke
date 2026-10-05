@@ -106,7 +106,7 @@ async function mountAt(t, hash, client) {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = hash;
+  documentNode.defaultView.location.href = hash || "/";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client });
   await settle();
@@ -157,7 +157,7 @@ test("a member's QA review is offered once, on that member's row", async (t) => 
       : inbox(request)
   );
   const { root, mounted } = await mountAt(
-    t, "#/deployments/runs/run-20260726-001?project=1", client,
+    t, "/deployments/runs/run-20260726-001?project=1", client,
   );
 
   const approvals = allNodes(root).filter(

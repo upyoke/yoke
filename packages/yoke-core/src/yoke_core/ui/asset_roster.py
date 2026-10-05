@@ -42,6 +42,7 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "universe_tab_bar.js": "text/javascript; charset=utf-8",
     "universe_shell_footer.js": "text/javascript; charset=utf-8",
     "universe_destinations.js": "text/javascript; charset=utf-8",
+    "universe_path_navigation.js": "text/javascript; charset=utf-8",
     "universe_navigation.js": "text/javascript; charset=utf-8",
     "universe_nav_sidebar.js": "text/javascript; charset=utf-8",
     "universe_nav_icons.js": "text/javascript; charset=utf-8",

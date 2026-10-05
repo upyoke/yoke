@@ -47,7 +47,7 @@ function client(answer) {
 
 async function mountActors(answer, mode = "local") {
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/actors";
+  documentNode.defaultView.location.href = "/actors";
   const root = documentNode.createElement("div");
   const reads = client(answer);
   const mounted = mountUniverseApp(root, {
@@ -111,7 +111,7 @@ test("empty, loading and refused reads retain a meaningful Actors screen", async
   let release;
   const pending = new Promise((resolve) => { release = resolve; });
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/actors";
+  documentNode.defaultView.location.href = "/actors";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, {
     client: client(() => pending),

@@ -10,7 +10,7 @@ async function mountDashboard(t) {
   const document = new FakeDocument();
   const window = document.defaultView;
   const writes = [];
-  window.location.hash = "#/members";
+  window.location.href = "/members";
   window.history = {
     state: { __NA: true, host: "preserved" },
     scrollRestoration: "auto",

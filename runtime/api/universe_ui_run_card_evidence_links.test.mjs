@@ -28,7 +28,7 @@ function screenshotArtifact(overrides = {}) {
     requirement_id: 21583,
     metadata: {
       label: "sample-qa-evidence-inbox",
-      route: "/orgs/upyoke#/inbox?project=1",
+      route: "/orgs/upyoke/inbox?project=1",
       step_index: 21,
       browser: "chromium",
     },
@@ -97,7 +97,7 @@ test("the run ID is the card's only link to run detail", () => {
   const runName = byClass(card, "shipping-run-id")[0];
   assert.equal(runName.tagName, "A");
   assert.equal(runName.textContent, "run-20260910-006");
-  assert.equal(runName.href, "#/deployments/runs/run-20260910-006?project=1");
+  assert.equal(runName.href, "/deployments/runs/run-20260910-006?project=1");
   assert.deepEqual(
     byClass(card, "shipping-run-flow").map((node) => node.tagName), ["STRONG"],
   );
@@ -151,7 +151,7 @@ test("a caption is the step it was taken at, hyperlinked to that evidence", asyn
   // printed under it.
   assert.equal(
     byClass(strip, "review-shot")[0].title,
-    "sample-qa-evidence-inbox · /orgs/upyoke#/inbox?project=1 · step 21 · chromium",
+    "sample-qa-evidence-inbox · /orgs/upyoke/inbox?project=1 · step 21 · chromium",
   );
 
   step.dispatchEvent(new Event("click"));

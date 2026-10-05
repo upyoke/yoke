@@ -108,7 +108,7 @@ test("a check links its QA case and omits a routine passing reason", () => {
   const name = byClass(first, "run-qa-check-name")[0];
   assert.equal(name.textContent, "Browser inspection");
   assert.equal(name.children[0].tagName, "A");
-  assert.equal(name.children[0].href, "#/qa-activity/8?project=1");
+  assert.equal(name.children[0].href, "/qa-activity/8?project=1");
   assert.equal(byClass(first, "run-qa-check-reason").length, 0);
   assert.equal(allNodes(qa).some((node) => node.tagName === "SUMMARY"
     && node.textContent === "Details"), false);
@@ -212,11 +212,11 @@ test("only the run ID opens run detail; the card itself is not a link", () => {
   const { documentNode, card } = render("pending");
   assert.equal(card.getAttribute("role"), null);
   assert.equal(card.getAttribute("tabindex"), null);
-  documentNode.defaultView.location.hash = "#/unchanged";
+  documentNode.defaultView.location.href = "/unchanged";
   card.dispatchEvent(new Event("click"));
-  assert.equal(documentNode.defaultView.location.hash, "#/unchanged");
+  assert.equal(documentNode.defaultView.location.href, "/unchanged");
   assert.equal(byClass(card, "shipping-run-id")[0].href,
-    "#/deployments/runs/run-current-qa?project=1");
+    "/deployments/runs/run-current-qa?project=1");
 });
 
 test("carried item reference and title both link to the item", () => {

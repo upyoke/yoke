@@ -119,7 +119,7 @@ function entrySurfaceRows(documentNode, workflow, host) {
       ...declaredCopy,
       title: ENTRY_SURFACE_COPY[workflow.id]?.[surfaceId]?.title ||
         `Enter ${workflow.name || workflow.id} on the web`,
-      route: `#/items/new?workflow=${encodeURIComponent(workflow.id)}`,
+      route: `/items/new?workflow=${encodeURIComponent(workflow.id)}`,
       routeLabel: declaredCopy.routeLabel || "open →",
     } : declaredCopy;
     const rendered = detailRow(
@@ -172,7 +172,7 @@ function gateRows(documentNode, workflow, gates, catalogById, host) {
     );
     if (gate.id === "qa_verification") {
       const link = el(documentNode, "a", "workflow-home-link", "QA →");
-      link.href = "#/qa";
+      link.href = "/qa-activity";
       rendered.row.appendChild(link);
     }
     host.appendChild(rendered.row);

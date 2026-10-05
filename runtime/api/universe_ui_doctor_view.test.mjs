@@ -41,7 +41,7 @@ function doctorClient(lastRunResult) {
 
 async function mountDoctor(hash, lastRunResult) {
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = hash;
+  documentNode.defaultView.location.href = hash || "/";
   const root = documentNode.createElement("div");
   const client = doctorClient(lastRunResult);
   const mounted = mountUniverseApp(root, { client });
@@ -54,7 +54,7 @@ test("a completed run renders the fact line, stat tiles, and pilled checks", asy
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
 
-  const { root, client, mounted } = await mountDoctor("#/doctor?project=1", {
+  const { root, client, mounted } = await mountDoctor("/doctor?project=1", {
     never_run: false,
     ran_at: "2026-07-16T00:00:00Z",
     scope: "quick",
@@ -115,7 +115,7 @@ test("a universe whose doctor never ran shows the command to run, as text", asyn
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
 
-  const { root, client, mounted } = await mountDoctor("#/doctor", {
+  const { root, client, mounted } = await mountDoctor("/doctor", {
     never_run: true,
   });
 
@@ -142,7 +142,7 @@ test("a journal-truncated run keeps its honesty: dashes and the rerun hint", asy
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
 
-  const { root, mounted } = await mountDoctor("#/doctor", {
+  const { root, mounted } = await mountDoctor("/doctor", {
     never_run: false,
     ran_at: "2026-07-15T00:00:00Z",
     scope: null,

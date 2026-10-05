@@ -43,7 +43,7 @@ class HostedStylesheetContract:
 
 
 DOCUMENT_PREFIXES = {
-    "index.html": "./assets/",
+    "index.html": "/assets/",
     "hosted-frame-harness.html": "./",
 }
 

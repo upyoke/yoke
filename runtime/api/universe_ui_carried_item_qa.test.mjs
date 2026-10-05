@@ -73,7 +73,7 @@ test("the check this run recorded leads without other runs or pre-merge checks",
   const current = section.children[1];
   assert.equal(byClass(current, "run-qa-check-mark")[0].textContent, "✓");
   assert.equal(byClass(current, "run-qa-check-name")[0].children[0].href,
-    "#/qa-activity/14?project=1");
+    "/qa-activity/14?project=1");
   assert.equal(byClass(current, "run-qa-check-outcome")[0].textContent, "Passed");
   // The output is its own chip in the check's strip.
   assert.equal(byClass(current, "review-text-chip").length, 1);
@@ -141,7 +141,7 @@ test("a carried title the run payload omits is read from the item", async () => 
   appendCarriedItemHeading(documentNode, host, items[0], 1, titles);
   const title = byClass(host, "carried-item-title")[0];
   assert.equal(title.textContent, "Title of YOK-3416");
-  assert.equal(title.href, "#/items/3416?project=1");
+  assert.equal(title.href, "/items/3416?project=1");
 });
 
 test("a repaint reuses a ready artifact read and retries a failed one", async () => {

@@ -24,7 +24,7 @@ test("Capabilities shows stored types with derived kind, state, and freshness", 
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/capabilities?project=1";
+  documentNode.defaultView.location.href = "/capabilities?project=1";
   const root = documentNode.createElement("div");
   const requests = [];
   const client = {
@@ -143,7 +143,7 @@ test("Capabilities shows stored types with derived kind, state, and freshness", 
   const machineLink = allNodes(root).find(
     (node) => node.classList?.contains("row-link"),
   );
-  assert.equal(machineLink.href, "#/capabilities/test-machine?project=1");
+  assert.equal(machineLink.href, "/capabilities/test-machine?project=1");
   const machineRow = machineLink.parentNode.parentNode;
   assert.equal(machineRow.tagName, "TR");
   assert.equal(machineRow.attributes.get("role"), "link");
@@ -154,24 +154,24 @@ test("Capabilities shows stored types with derived kind, state, and freshness", 
   );
   machineRow.dispatchEvent(new Event("click"));
   assert.equal(
-    documentNode.defaultView.location.hash,
-    "#/capabilities/test-machine?project=1",
+    documentNode.defaultView.location.href,
+    "/capabilities/test-machine?project=1",
   );
-  documentNode.defaultView.location.hash = "#/capabilities?project=1";
+  documentNode.defaultView.location.href = "/capabilities?project=1";
   const enter = keyEvent("Enter");
   machineRow.dispatchEvent(enter);
   assert.equal(enter.defaultPrevented, true);
   assert.equal(
-    documentNode.defaultView.location.hash,
-    "#/capabilities/test-machine?project=1",
+    documentNode.defaultView.location.href,
+    "/capabilities/test-machine?project=1",
   );
-  documentNode.defaultView.location.hash = "#/capabilities?project=1";
+  documentNode.defaultView.location.href = "/capabilities?project=1";
   const space = keyEvent(" ");
   machineRow.dispatchEvent(space);
   assert.equal(space.defaultPrevented, true);
   assert.equal(
-    documentNode.defaultView.location.hash,
-    "#/capabilities/test-machine?project=1",
+    documentNode.defaultView.location.href,
+    "/capabilities/test-machine?project=1",
   );
   assert.deepEqual(
     allNodes(root)
@@ -187,7 +187,7 @@ test("Capabilities renders its honest empty state", async (t) => {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/capabilities";
+  documentNode.defaultView.location.href = "/capabilities";
   const root = documentNode.createElement("div");
   const requests = [];
   const client = {
@@ -239,7 +239,7 @@ test("Capabilities all-project table renders the served project emoji", async (t
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/capabilities";
+  documentNode.defaultView.location.href = "/capabilities";
   const root = documentNode.createElement("div");
   const client = {
     async call(request) {
