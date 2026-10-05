@@ -1,4 +1,4 @@
-# QA CLI Reference
+# QA CLI Reference (internal)
 
 The QA platform exposes public Yoke CLI adapters for registered `qa.*`
 function ids. The implementation still lives in modules such as
@@ -141,7 +141,7 @@ the exact deployed candidate; a newer deployment cannot certify an older run.
 | `yoke qa plan get` | `PLAN_ID_OR_SLUG --project P` or `--plan-id PLAN_ID_OR_SLUG --project P` | Get one project plan |
 | `yoke qa requirement update` | `--requirement-id N --field FIELD (--value VALUE \| --null)` | Update one mutable field |
 | `yoke qa requirement waive` | `--requirement-id N --rationale TEXT` | Authorize progress without recording a passing verdict |
-| `yoke qa run add` | `--requirement-id N --performed-by T [--qa-kind K] [--verdict V] [--verdict-reason R] [--head-sha SHA] [opts]` | Start a run before attaching evidence; blocking passes stamp `verification_tree.head_sha` |
+| `yoke qa run add` | Read `yoke qa run add --help` | Start a run before attaching evidence |
 | `yoke qa run complete` | `--requirement-id N --run-id N [--verdict V] [--verdict-reason R] [--execution-status captured\|capture_failed] [opts]` | Complete a run; agent `undetermined` requires a linked artifact and halts for owner/operator review |
 | `yoke qa run record-verdict` | `--requirement-id N --performed-by T --verdict V [--verdict-reason R] [opts]` | One-shot verdict; agent `undetermined` is refused because this surface cannot attach evidence |
 | `yoke qa run list` | `[--requirement-id N]` | List runs |

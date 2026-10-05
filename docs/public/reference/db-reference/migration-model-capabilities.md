@@ -212,7 +212,7 @@ python3 -m yoke_core.tools.adopt_migration_content_identity stage-db-admin \
   --wheel <attested-yoke-core-wheel> \
   --manifest <attested-migration-history.json> \
   --release-evidence <attested-migration-history-record.json> \
-  --repository upyoke/yoke --source-commit <full-commit> \
+  --repository owner/example-project --source-commit <full-commit> \
   --manifest-sha256 <sha256> \
   --adopted-by operator:<name> --prepare
 ```

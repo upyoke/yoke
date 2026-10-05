@@ -11,7 +11,7 @@ matching-pattern: docs/archive/decisions/portability-baseline-live-apply.md
 
 ## Stale-shape trigger condition (pre-deletion)
 
-Before this slice, `cmd_init` in `runtime/api/domain/events_writes.py`
+Before this slice, `cmd_init` in `packages/yoke-core/src/yoke_core/domain/events_writes.py`
 shelled out to a private helper, `_ensure_events_schema`, that detected
 a pre-current `events` table shape and rebuilt it in place via a
 `DROP + ALTER TABLE ... RENAME` sequence.  The helper triggered when
@@ -31,12 +31,12 @@ fingerprint under `migration_name='events-schema-rebuild'`.
 
 The entire rebuild branch is retired.  Specifically:
 
-- `runtime/api/domain/events_writes.py` — the `_ensure_events_schema`
+- `packages/yoke-core/src/yoke_core/domain/events_writes.py` — the `_ensure_events_schema`
   function and its invocation inside `cmd_init` are both removed.  The
   private envelope-repair helper `_repair_events_envelopes` and its
   companion script `.agents/skills/yoke/scripts/repair-events-envelopes.py`
   are deleted alongside, since they existed only as rebuild scaffolding.
-- `runtime/api/domain/events_crud.py` — the re-exports for both
+- `packages/yoke-core/src/yoke_core/domain/events_crud.py` — the re-exports for both
   `_ensure_events_schema` and `_repair_events_envelopes` are removed,
   and the internal `_events_columns` helper (used only by the retired
   rebuild path) is deleted.
@@ -46,7 +46,7 @@ The entire rebuild branch is retired.  Specifically:
   pre-I4 legacy-schema fixture test in
   `runtime/api/test_events_migration.py` (the retained tests cover
   the durable `cmd_prune` audit-fingerprint contract only).
-- `runtime/api/engines/doctor_hc_db_events.py` — the remediation
+- `packages/yoke-core/src/yoke_core/engines/doctor_hc_db_events.py` — the remediation
   pointer to the deleted `backfill_lifetime_activity` tool is rewritten
   to reference this decision record instead.
 
@@ -59,7 +59,7 @@ immediately preceding the YOK-1483 landing and read:
 - `runtime/api/test_events_migration.py` — `_OLD_SUN867_SCHEMA` and
   `_CLEAN_SUN867_SCHEMA` fixture blocks;
 - `runtime/api/test_events_crud_full.py::TestCmdInit::test_init_rebuilds_legacy_events_schema_and_nulls_invalid_envelopes`;
-- `runtime/api/domain/events_writes.py::_ensure_events_schema` as it
+- `packages/yoke-core/src/yoke_core/domain/events_writes.py::_ensure_events_schema` as it
   existed under I3 (YOK-1482).
 
 The companion owner `runtime/api/tools/backfill_lifetime_activity.py`

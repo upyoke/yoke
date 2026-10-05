@@ -155,7 +155,7 @@ Unlike `unsupported_path` (an `escalate` reason that describes a harness capabil
  "provider": "anthropic",
  "model": "claude-opus-4-7",
  "capabilities": ["browser", "shell", "file_write", "github"],
- "workspace": "/Users/bee/yoke",
+ "workspace": "/home/example/project",
  "execution_lane": "DARIUS",
  "offered_at": "2026-03-31T12:00:00Z",
  "supported_paths": ["shepherd", "advance"]

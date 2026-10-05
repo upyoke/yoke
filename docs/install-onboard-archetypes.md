@@ -1,4 +1,4 @@
-# External user archetypes — install and onboard
+# External user archetypes — install and onboard (internal)
 
 Research of the **current** public installer and onboard surfaces, confronted
 with a sampled population of projects and users. This is not a plan to change
@@ -120,5 +120,4 @@ transcript · literal `/yoke onboard` skill transcript · **Test setup**
 (reality / bind / onboard / the question that should be asked) · crux ·
 ledger IDs. The shared surface map is
 [test-setup.md](install-onboard-archetypes/test-setup.md). Follow-up items
-are indexed in the [gap ledger](install-onboard-archetypes/gap-ledger.md)
-(YOK-2464–YOK-2474 and YOK-2477–YOK-2481).
+are indexed in the [support reference](install-onboard-archetypes/gap-ledger.md).

@@ -16,7 +16,7 @@ out_of_scope:
 ## What this records
 
 Yoke's control-plane authority is Postgres; the local SQLite backend is
-retired. `runtime/api/domain/db_backend.py` rejects any attempt to select the
+retired. `packages/yoke-core/src/yoke_core/domain/db_backend.py` rejects any attempt to select the
 `sqlite` backend and keeps only a temporary sqlite3-shaped Postgres *facade*
 while the remaining `?`-paramstyle SQL call-sites convert.
 

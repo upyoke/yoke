@@ -64,7 +64,7 @@ Order of operations within the implementation slice:
 
 1. The migration module file is added under `runtime/api/domain/migrations/`.
 2. The doctor's static table-shape contract entry for `events_envelope_backup`
-   is removed from `runtime/api/engines/doctor_hc_db_project.py` so the
+   is removed from `packages/yoke-core/src/yoke_core/engines/doctor_hc_db_project.py` so the
    doctor does not flag "Missing table" the moment the live apply lands.
 3. The two-unit governed apply runs against the validation surface
    (rehearsal) and the authoritative DB (live apply) via
@@ -82,7 +82,7 @@ Order of operations within the implementation slice:
 ## Why table-level coverage was added in this slice
 
 `HC-retired-schema-resurrection` and the destructive post-state gate inside
-`runtime/api/domain/db_mutation_gate.py::_verify_destructive_post_state`
+`packages/yoke-core/src/yoke_core/domain/db_mutation_gate.py::_verify_destructive_post_state`
 previously skipped registry entries whose `column` field was omitted. A
 table-level retirement entry was therefore not protective coverage. This
 slice extends both surfaces to handle table-level entries: the doctor probes

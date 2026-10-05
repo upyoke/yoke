@@ -12,7 +12,7 @@ verifies it FAILs.
 
 The following lines reproduce historical terminal-soup recipes whose
 function-call replacements are listed in
-``runtime/api/service_client_structured_api_adapter_inventory.py``:
+``packages/yoke-core/src/yoke_core/api/service_client_structured_api_adapter_inventory.py``:
 
 * Capability probe via shell choreography (covered by
   ``projects.capability.has``):

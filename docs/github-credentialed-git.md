@@ -1,4 +1,4 @@
-# The credentialed git environment
+# The credentialed git environment (internal)
 
 Git commands against GitHub prefer the machine's stored authorization. When
 none is stored, they may try the user's own git credentials non-interactively.
@@ -11,16 +11,9 @@ and the session-start main-checkout fast-forward.
 
 ## Why it exists
 
-Onboarding already cloned your project with the stored credential. Everything
-after onboarding used to run on whatever credentials the surrounding shell
-happened to carry. On a machine that onboarded through the wizard, a repo-local
-credential helper covered that up. A fresh user — no SSH key, no `gh` login —
-hit it directly: the first push stalled until its timeout and reported nothing
-anyone could act on. The doctor's fetch had a 15-second ceiling, which read as
-a hang rather than as the authentication failure it was.
+A shared credentialed environment gives every remote Git operation the same authorization and bounded, non-interactive failure behavior.
 
-The fix is one conversion rather than a credential added per call site, because
-a call site that is easy to miss is exactly the one a fresh user finds.
+
 
 ## What it decides, per command
 

@@ -1,4 +1,4 @@
-# Test setup — first-class onboard dimension
+# Test setup — first-class onboard dimension (internal)
 
 Done and merged gates run the project's **registered verification command**
 through QA plan cases (`qa.plan.materialize` then `yoke qa case run`). Install
@@ -90,8 +90,7 @@ pattern).
    `ci.yml` land), never declaring the capability or plan — closed by the
    step-2 box plus the step-5 binding; the box has no silent default, so
    the profile cannot be confirmed without an answer.
-Two mis-binds that used to live in this list are now structurally refused
-rather than documented against: treating Jenkins / GitLab CI / Bitbucket
+Registration refuses two invalid bindings: treating Jenkins / GitLab CI / Bitbucket
 Pipelines / `fastlane` as `ci_workflow_file`, and declaring `command-ci`
 against a workflow that deploys. Registration reads the named file and
 refuses one the gate cannot start, naming any other CI system the repository

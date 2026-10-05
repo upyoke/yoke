@@ -201,7 +201,7 @@ form for URL, paste-versus-file selection, and the corresponding credential.
 
 ### Wave 5: Machine GitHub App Connection
 
-The canonical append-only `GITHUB-*` table lives in [Installer GitHub App live testing](installer-github-app-testing.md); the campaign loader composes that sibling catalog with this guide and rejects duplicate scenario ids across both documents.
+The canonical append-only `GITHUB-*` table lives in the registered installer campaign plan (`yoke qa plan get installer-campaign --project P --full`); the campaign loader composes that sibling catalog with this guide and rejects duplicate scenario ids across both documents.
 
 ### Wave 6: Project Source Picker
 
@@ -750,7 +750,7 @@ browser screenshot is the required fallback.
 ### Session Registration And Telemetry
 
 Run the external-project session, control-plane, and CloudWatch checks in
-[`installer-session-telemetry.md`](installer-session-telemetry.md).
+[`installer-session-telemetry.md`](../installer-session-telemetry.md).
 
 ### Visual User Testing Mode
 

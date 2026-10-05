@@ -1,38 +1,10 @@
-# Gap ledger — install and onboard vs external archetypes
+# Install and onboard support
 
-Each row is a missing or unteachable declaration. Severity classes:
+Internal: source-maintainer reference for external project archetypes.
 
-- **blocker** — the archetype cannot complete install or cannot reach `done`
-  without lying to Usher/idea.
-- **friction** — they can proceed only by skipping and ignoring stock
-  proposals.
-- **missing-config-surface** — no place to declare the structure they have.
-- **missing-teaching** — the surface exists but the named path is wrong or
-  incomplete.
-
-Follow-up items are filed on project `yoke` after this document; IDs are
-filled in the last column.
-
-| ID | Severity | Lifecycle claim | Missing / unteachable declaration | Archetypes | Item |
-|---|---|---|---|---|---|
-| G-windows-native | blocker | installed | Native OS gate is a one-line `fail`; no WSL recipe (unlike uv-decline) | A04 A08 | YOK-2464 |
-| G-hosting-aws-only | missing-config-surface | deployed | Wizard declares AWS, self-hosted, or deferred; managed `vps-hosting` remains EC2-only and no PaaS apply exists | A02 A04 A11 | YOK-2465 |
-| G-deferred-hosting-flows | blocker | deployed / released | `/yoke onboard` step 5 still registers stage/prod and flows when hosting is deferred | A01 A02 A05 A09 A10 A12 | YOK-2466 |
-| G-forge-github-only | missing-config-surface | merged | Skip GitHub works; GitLab/Bitbucket cannot bind, clone-list, or merge-queue | A06 A11 | YOK-2469 |
-| G-handoff-cursor | taught | installed | Shim hand-off names Claude Code, Codex, or Cursor then `/yoke onboard` | A01 A03 A05 A09 | YOK-2468 |
-| G-app-store | missing-config-surface | deployed | No TestFlight/Play/`fastlane` runner; app-store delivery remains external to Yoke | A09 | YOK-2470 |
-| G-selfhost-not-in-wizard | friction | installed | Resolved: picker previews and performs guarded Compose first boot, captures the token, activates the local connection, and offers setup or handoff exits; the manual reference remains | A06 A07 | YOK-2471 |
-| G-migration-undeclared | closed | migrated | Closed: the step-2 profile carries a governed-database box and step 5 records the answer on `migration-model-setup` — a declared `migration_model`, a named model to attach later, or an affirmative `not-needed` stating that work items keep `db_claim` `none` | A03 A06 A07 | YOK-2472 |
-| G-byo-aws-identity | missing-config-surface | deployed | AWS accepts guided or existing access keys; role, SSO/OIDC, instance-profile, and web-identity execution remain unsupported | A03 A07 | YOK-2473 |
-| G-idea-default-flow | blocker | released | `infer-and-create.md`: non-empty deploy-defaults **always** assigned | all with a default flow | YOK-2474 |
-| G-test-setup-unasked | blocker | merged / done | Wizard and profile never ask how tests run; gates still expect a registered command | all | YOK-2477 |
-| G-no-tests-posture | closed | merged / done | Closed: command absence seeds a blocking `no_tests_declared` floor where the registered command would run; an optional-QA workflow declares no gate | A01 A05 A08 A10 A12 | YOK-2478 |
-| G-scaffold-tests-unregistered | friction | merged / done | `webapp-scaffold` lands tests + `ci.yml`; onboard does not declare `ci_workflow_file` or `registered-command-*` | A01 A12 | YOK-2477 |
-| G-ci-workflow-undeclared | closed | merged / done | Closed: the step-1 survey classifies each workflow by purpose and the step-2 profile proposes `ci_workflow_file` for the test workflow only | A02 A03 A04 A07 A09 | YOK-2479 |
-| G-command-ci-misbind | closed | merged / done | Closed: registration reads the named file and refuses one the gate cannot start — absent, not an Actions workflow, or no `workflow_dispatch` / `yoke_dispatch_id` input — naming any other CI system the repo carries | A03 A04 A06 A09 A11 | YOK-2479 |
-| G-qa-plan-needs-env | closed | merged / done | Closed: registered `quick`/`full` plans carry a project target; deployed scopes select an environment or runtime base URL. Generic plan creation remains intentionally environment-bound | A01 A09 A12 | YOK-2480 |
-| G-legacy-suite-unmapped | missing-config-surface | merged / done | JUnit/Jenkins, PHPUnit, XCTest, monorepo many suites have no scope map | A06 A07 A09 A11 | YOK-2481 |
-| G-merge-queue-github-only | closed | merged / done | Closed: the `requires` list on the capability template is enforced at row creation, plus the `merge_group` trigger it cannot express; a project without GitHub is refused by name and keeps the standalone merge engine | A06 A07 A11 | YOK-2479 |
+Current support comes from the project execution profile, declared capabilities,
+and registered command refusals. Use the declaration and recovery guidance below
+to assess a target; do not infer support from a past work-item outcome.
 
 ## Declare / refuse / instead (crux)
 

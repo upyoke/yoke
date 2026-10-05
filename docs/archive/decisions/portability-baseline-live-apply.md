@@ -62,7 +62,7 @@ YOK-1476 amendment.
 ## Consequences
 
 - **Cutover-ready:** the live DB's DDL now matches the portable baseline in
-  `runtime/api/domain/schema.py`. A future Postgres cutover no longer has to
+  `packages/yoke-core/src/yoke_core/domain/schema.py`. A future Postgres cutover no longer has to
   discover and rewrite SQLite-specific DDL mid-migration.
 - **`migration_audit` remains a known exception.** A later one-shot
   migration (running outside `GovernedMigration`, since it'd be rebuilding

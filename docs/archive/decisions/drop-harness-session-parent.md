@@ -34,7 +34,7 @@ A repository-wide `git grep` against the live tree before this migration applied
 
 Five test files that previously seeded the column for cascade-specific assertions were either deleted (cascade-only tests) or trimmed to drop the column from their DDL fixtures (`test_claims_work_release_session_scoped`, `test_lint_session_cwd_parallel_fanout`, `test_sessions_lifecycle_destructive_guard_defer_refresh`).
 
-The carve-out: five unrelated helpers under `runtime/api/domain/advance_skip_finalize.py`, `runtime/api/domain/conduct_reviewed_handoff.py`, `runtime/api/service_client_work_claims.py`, `runtime/api/service_client_work_claims_identity.py`, and its test use `effective_session_id` as a local variable / dataclass field for session-resolver bookkeeping. That usage is semantically unrelated to the dropped envelope field; YOK-1880 AC-5 explicitly carves it out.
+The carve-out: five unrelated helpers under `packages/yoke-core/src/yoke_core/domain/advance_skip_finalize.py`, `packages/yoke-core/src/yoke_core/domain/conduct_reviewed_handoff.py`, `packages/yoke-core/src/yoke_core/api/service_client_work_claims.py`, `packages/yoke-core/src/yoke_core/api/service_client_work_claims_identity.py`, and its test use `effective_session_id` as a local variable / dataclass field for session-resolver bookkeeping. That usage is semantically unrelated to the dropped envelope field; YOK-1880 AC-5 explicitly carves it out.
 
 ## Apply timeline
 

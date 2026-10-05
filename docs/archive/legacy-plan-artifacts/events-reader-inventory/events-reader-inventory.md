@@ -45,9 +45,9 @@ new state) → write-path owner.
 
 | # | Reader | Behavior | Replacement | Write owner |
 |---|---|---|---|---|
-| 3 | `runtime/api/domain/item_execution_status_helpers.py` (latest event per item) | `item_execution_status` read-model "events" section (latest event name/severity/age) | latest `item_status_transitions` row + Family 3 activity columns | as #2 |
-| 4 | `runtime/api/domain/backlog_github_body_budget.py` (`_evidence_summary`) | Compact GitHub mirror renders "recent evidence" from latest item event | latest `item_status_transitions` row | as #2 |
-| 5 | `runtime/api/domain/backlog_github_sync_cli.py` (`_select_event_derived_candidates`) | Sync candidate selection scans `HarnessToolCallCompleted` envelopes for a body-too-long marker — a work queue inferred from telemetry | Item-side flag (e.g. `github_body_compact_pending` on `items` or a sync-state row) | `backlog_github_body_budget` budget-violation path sets; sync clears |
+| 3 | `packages/yoke-core/src/yoke_core/domain/item_execution_status_helpers.py` (latest event per item) | `item_execution_status` read-model "events" section (latest event name/severity/age) | latest `item_status_transitions` row + Family 3 activity columns | as #2 |
+| 4 | `packages/yoke-core/src/yoke_core/domain/backlog_github_body_budget.py` (`_evidence_summary`) | Compact GitHub mirror renders "recent evidence" from latest item event | latest `item_status_transitions` row | as #2 |
+| 5 | `packages/yoke-core/src/yoke_core/domain/backlog_github_sync_cli.py` (`_select_event_derived_candidates`) | Sync candidate selection scans `HarnessToolCallCompleted` envelopes for a body-too-long marker — a work queue inferred from telemetry | Item-side flag (e.g. `github_body_compact_pending` on `items` or a sync-state row) | `backlog_github_body_budget` budget-violation path sets; sync clears |
 
 ### Family 3 — Session liveness, reclaim, cleanup, reactivation, orphan sweep, claim-acquire freshness
 
@@ -57,45 +57,45 @@ release-intent columns. The events ledger is the ONLY store for these today.
 
 | # | Reader | Behavior | Replacement | Write owner |
 |---|---|---|---|---|
-| 6 | `runtime/api/domain/session_reclaim_activity.py` (`_max_tool_event_at` → `latest_activity`) | THE activity hub: MAX(created_at) of `HarnessToolCallCompleted/Failed` per session. Fans out to `scheduler_claims` (stale reclaim), `sessions_render_reclaim(_item)`, `chain_head_freshness`, `sessions_cleanup`, `harness_sessions_claims_acquire`, `item_execution_status`, `doctor_hc_agents_sessions` | `harness_sessions.last_tool_call_at` | Observe pipeline (`observe.py`/`observe_event_emission.insert_event` call sites) updates in same txn as telemetry insert |
-| 7 | `runtime/api/domain/sessions_cleanup.py` (tool count + latest per session) | 30-min stale sweep; `never_engaged` needs "zero tool calls ever" | + `harness_sessions.tool_call_count` (or `first_tool_call_at`) | as #6 |
+| 6 | `packages/yoke-core/src/yoke_core/domain/session_reclaim_activity.py` (`_max_tool_event_at` → `latest_activity`) | THE activity hub: MAX(created_at) of `HarnessToolCallCompleted/Failed` per session. Fans out to `scheduler_claims` (stale reclaim), `sessions_render_reclaim(_item)`, `chain_head_freshness`, `sessions_cleanup`, `harness_sessions_claims_acquire`, `item_execution_status`, `doctor_hc_agents_sessions` | `harness_sessions.last_tool_call_at` | Observe pipeline (`observe.py`/`observe_event_emission.insert_event` call sites) updates in same txn as telemetry insert |
+| 7 | `packages/yoke-core/src/yoke_core/domain/sessions_cleanup.py` (tool count + latest per session) | 30-min stale sweep; `never_engaged` needs "zero tool calls ever" | + `harness_sessions.tool_call_count` (or `first_tool_call_at`) | as #6 |
 | 8 | `runtime/harness/harness_sessions_claims_acquire.py` (MAX tool event per conflicting session) | Claim-acquire conflict freshness: reclaim-vs-refuse | `last_tool_call_at` | as #6 |
 | 9 | `runtime/harness/harness_sessions_inventory.py` (NOT EXISTS events since cutoff) | Stale-session inventory listing | `last_tool_call_at` | as #6 |
-| 10 | `runtime/api/domain/sessions_lifecycle_reactivation.py` (`SessionReactivatedWithReleasedClaims`/`HarnessSessionResumeBlockShown`/`SessionReactivationReacquiredClaims` scan) | Pending "SESSION RESUMED" block: render-once state machine stored as events | `harness_sessions.pending_resume_notice` JSON (written at reactivation, cleared at render) | `register_session` reactivation writes; hook-runner render clears |
-| 11 | `runtime/api/domain/sessions_orphan_tool_call_sweep.py` (Started-without-Completed) | Session-end sweep synthesizes completion events so activity/duration stay sane | New `session_tool_calls` rolling state table (session_id, tool_use_id, tool_name, started/completed_at, outcome, command summary; short retention). Open rows = orphans; sweep becomes table maintenance (Risk R3) | Observe pipeline inserts on Started, completes on Completed/Failed |
-| 12 | `runtime/api/domain/events_current_episode.py` (`resolve_current_episode_boundary` over `HarnessSessionResumed/Started`) | Episode boundary = session truth from events; consumed by `harness_sessions_claims` (`who-claims --current-episode`) + `sessions_lifecycle_resumption_emit` | `harness_sessions.episode_started_at` (set at register + resume) | `register_session`/resumption path |
-| 13 | `runtime/api/domain/lint_claim_ownership_mutations.py` (recent session Bash completions) | PreToolUse guardrail gates on recent command history | `session_tool_calls` (needs command text — Risk R4) | as #11 |
-| 14 | `runtime/api/domain/lint_long_command_polling_evaluate.py` (recent Bash tool calls) | Polling-loop deny gate | `session_tool_calls` | as #11 |
-| 15 | `runtime/api/domain/lint_long_command_polling_monitor_duplicate.py` (Monitor `HarnessToolCallStarted` rows) | Duplicate-Monitor-arming deny gate | `session_tool_calls` | as #11 |
+| 10 | `packages/yoke-core/src/yoke_core/domain/sessions_lifecycle_reactivation.py` (`SessionReactivatedWithReleasedClaims`/`HarnessSessionResumeBlockShown`/`SessionReactivationReacquiredClaims` scan) | Pending "SESSION RESUMED" block: render-once state machine stored as events | `harness_sessions.pending_resume_notice` JSON (written at reactivation, cleared at render) | `register_session` reactivation writes; hook-runner render clears |
+| 11 | `packages/yoke-core/src/yoke_core/domain/sessions_orphan_tool_call_sweep.py` (Started-without-Completed) | Session-end sweep synthesizes completion events so activity/duration stay sane | New `session_tool_calls` rolling state table (session_id, tool_use_id, tool_name, started/completed_at, outcome, command summary; short retention). Open rows = orphans; sweep becomes table maintenance (Risk R3) | Observe pipeline inserts on Started, completes on Completed/Failed |
+| 12 | `packages/yoke-core/src/yoke_core/domain/events_current_episode.py` (`resolve_current_episode_boundary` over `HarnessSessionResumed/Started`) | Episode boundary = session truth from events; consumed by `harness_sessions_claims` (`who-claims --current-episode`) + `sessions_lifecycle_resumption_emit` | `harness_sessions.episode_started_at` (set at register + resume) | `register_session`/resumption path |
+| 13 | `packages/yoke-core/src/yoke_core/domain/lint_claim_ownership_mutations.py` (recent session Bash completions) | PreToolUse guardrail gates on recent command history | `session_tool_calls` (needs command text — Risk R4) | as #11 |
+| 14 | `packages/yoke-core/src/yoke_core/domain/lint_long_command_polling_evaluate.py` (recent Bash tool calls) | Polling-loop deny gate | `session_tool_calls` | as #11 |
+| 15 | `packages/yoke-core/src/yoke_core/domain/lint_long_command_polling_monitor_duplicate.py` (Monitor `HarnessToolCallStarted` rows) | Duplicate-Monitor-arming deny gate | `session_tool_calls` | as #11 |
 
 ### Family 4 — Dispatcher idempotency
 
 | # | Reader | Behavior | Replacement | Write owner |
 |---|---|---|---|---|
-| 16 | `runtime/api/domain/yoke_function_dispatch.py` (`_idempotency_lookup`: last 200 `YokeFunctionCalled` envelopes scanned for `context.request_id`) | Replay/collision decision per function call | New `function_call_ledger`: `request_id` unique, `function_id`, `result` JSON, `created_at`; TTL prune | Dispatcher writes alongside `emit_function_called` (`yoke_function_dispatch_events`) |
+| 16 | `packages/yoke-core/src/yoke_core/domain/yoke_function_dispatch.py` (`_idempotency_lookup`: last 200 `YokeFunctionCalled` envelopes scanned for `context.request_id`) | Replay/collision decision per function call | New `function_call_ledger`: `request_id` unique, `function_id`, `result` JSON, `created_at`; TTL prune | Dispatcher writes alongside `emit_function_called` (`yoke_function_dispatch_events`) |
 
 ### Family 5 — Frontier/recent-owner and chain/task freshness
 
 | # | Reader | Behavior | Replacement | Write owner |
 |---|---|---|---|---|
-| 17 | `runtime/api/domain/frontier_recent_owner.py` (`WorkReleased` → `context.release_reason_intent`) | `routed_ownership_exclusions` — frontier routing + offer-lane defense (`frontier_compute`, `sessions_offer_ownership_guard`, `sessions_offer_envelope_merge`, `service_client_ownership_guard`) | `work_claims.release_reason_intent` column (`release_reason` exists; intent lives only in the event) | Release path (`sessions_lifecycle_release`) |
-| 18 | `runtime/api/domain/idea_claim_events.py` (`_lookup_claim_reason_intent`: `WorkClaimed` envelope by claim_id) | At release, recovers why the claim was acquired (idea-release classification/emission) | `work_claims.reason` + `reason_intent` written at acquire | `claims.work.acquire` path |
-| 19 | `runtime/api/domain/chain_head_freshness.py` (`latest_task_event_at` for `(item_id, task_num)` + `latest_activity`) | `/yoke conduct` re-entry: resumable/busy/blocked | Task half: `epic_tasks.last_activity_at` (or latest task transition row); session half: `last_tool_call_at` | Epic-task mutation paths stamp `last_activity_at` |
+| 17 | `packages/yoke-core/src/yoke_core/domain/frontier_recent_owner.py` (`WorkReleased` → `context.release_reason_intent`) | `routed_ownership_exclusions` — frontier routing + offer-lane defense (`frontier_compute`, `sessions_offer_ownership_guard`, `sessions_offer_envelope_merge`, `service_client_ownership_guard`) | `work_claims.release_reason_intent` column (`release_reason` exists; intent lives only in the event) | Release path (`sessions_lifecycle_release`) |
+| 18 | `packages/yoke-core/src/yoke_core/domain/idea_claim_events.py` (`_lookup_claim_reason_intent`: `WorkClaimed` envelope by claim_id) | At release, recovers why the claim was acquired (idea-release classification/emission) | `work_claims.reason` + `reason_intent` written at acquire | `claims.work.acquire` path |
+| 19 | `packages/yoke-core/src/yoke_core/domain/chain_head_freshness.py` (`latest_task_event_at` for `(item_id, task_num)` + `latest_activity`) | `/yoke conduct` re-entry: resumable/busy/blocked | Task half: `epic_tasks.last_activity_at` (or latest task transition row); session half: `last_tool_call_at` | Epic-task mutation paths stamp `last_activity_at` |
 | 20 | chain reads in `doctor_hc_routed_ownership.py` (MAX step / last checkpoint from `ChainStepCompleted`; last `HarnessSessionOffered`) | Stuck-routed-session detection (audit surface, but chain state has no table owner) | `harness_sessions.last_chain_step` + `last_checkpoint_at` (offer time derivable from `offered_at`/`offer_envelope`) | Chain checkpoint handler (the `ChainStepCompleted` emitter) |
 
 ### Family 6 — DB-claim prose gate
 
 | # | Reader | Behavior | Replacement | Write owner |
 |---|---|---|---|---|
-| 21 | `runtime/api/domain/db_claim_prose_check_state.py` (`_read_latest_reviewed_negative_claim_event`: latest completed `DbClaimAmended` with `new_profile.state=='none' && validation_result=='pass'`) | Prose-vs-claim gate escape hatch (`db_claim_prose_check` + `_triggers`) | Attestation into `items.db_mutation_profile` JSON (e.g. `reviewed_negative` + `validated_at`) — column exists; only the reviewed bit lives in events | `db_claim.amend` handler stamps at amend time |
+| 21 | `packages/yoke-core/src/yoke_core/domain/db_claim_prose_check_state.py` (`_read_latest_reviewed_negative_claim_event`: latest completed `DbClaimAmended` with `new_profile.state=='none' && validation_result=='pass'`) | Prose-vs-claim gate escape hatch (`db_claim_prose_check` + `_triggers`) | Attestation into `items.db_mutation_profile` JSON (e.g. `reviewed_negative` + `validated_at`) — column exists; only the reviewed bit lives in events | `db_claim.amend` handler stamps at amend time |
 
 ### Family 7 — Path context / continuity / override provenance
 
 | # | Reader | Behavior | Replacement | Write owner |
 |---|---|---|---|---|
-| 22 | `runtime/api/domain/path_claims_override.py` (`list_override_events`/`is_active_override` over `PathClaimOverride`, 29 rows) | `is_active_override` GATES overlap classification (`path_claims_overlap`, `path_claims_read`, `idea_readiness_repair_cross_item_overlap`, `handlers/claims_path`) — a live gate, sharper than provenance | New `path_claim_overrides` table (claim ids, operator, reason, created_at); evidence rendering re-points | `invoke_override` (`path_claims_dispatch_override`) |
-| 23 | `runtime/api/domain/path_context.py` (`_verify_event_exists`) | Context authoring REQUIRES `recorded_event_id` in events — correctness depends on telemetry + retention (WARN pruned 90d) | Drop live FK verification (keep opaque provenance string) or copy provenance at write. Recommend drop: retention already makes it unsound (Risk R5) | n/a |
-| 24 | `runtime/api/domain/path_continuity.py` (`_verify_event_exists`) | Same contract for continuity | Same as #23 | n/a |
+| 22 | `packages/yoke-core/src/yoke_core/domain/path_claims_override.py` (`list_override_events`/`is_active_override` over `PathClaimOverride`, 29 rows) | `is_active_override` GATES overlap classification (`path_claims_overlap`, `path_claims_read`, `idea_readiness_repair_cross_item_overlap`, `handlers/claims_path`) — a live gate, sharper than provenance | New `path_claim_overrides` table (claim ids, operator, reason, created_at); evidence rendering re-points | `invoke_override` (`path_claims_dispatch_override`) |
+| 23 | `packages/yoke-core/src/yoke_core/domain/path_context.py` (`_verify_event_exists`) | Context authoring REQUIRES `recorded_event_id` in events — correctness depends on telemetry + retention (WARN pruned 90d) | Drop live FK verification (keep opaque provenance string) or copy provenance at write. Recommend drop: retention already makes it unsound (Risk R5) | n/a |
+| 24 | `packages/yoke-core/src/yoke_core/domain/path_continuity.py` (`_verify_event_exists`) | Same contract for continuity | Same as #23 | n/a |
 
 `path_integrity_fixtures_helpers.py` (fixture inserting events rows for the FK)
 follows #23/#24.
@@ -104,15 +104,15 @@ follows #23/#24.
 
 | # | Reader | Live evidence | Disposition |
 |---|---|---|---|
-| 25 | `runtime/api/engines/done_transition_deploy_gates.py` (`event_type='deployment'` fallback + `_count_deployment_events`) | **0 rows in 1.4M** — fallback can never pass | DELETE fallback; `deployment_runs`/`deployment_run_items` already own the concept |
-| — | `runtime/api/engines/resync_doctor_output.py` (`event_type='sync_failure'`, 2 sites) | **0 rows** | DELETE or re-point at a real sync-failure store |
-| — | `runtime/api/engines/doctor_hc_db_project_orphans.py` (deployment-event branches) | **0 rows** | DELETE the deployment branch |
+| 25 | `packages/yoke-core/src/yoke_core/engines/done_transition_deploy_gates.py` (`event_type='deployment'` fallback + `_count_deployment_events`) | **0 rows in 1.4M** — fallback can never pass | DELETE fallback; `deployment_runs`/`deployment_run_items` already own the concept |
+| — | `packages/yoke-core/src/yoke_core/engines/resync_doctor_output.py` (`event_type='sync_failure'`, 2 sites) | **0 rows** | DELETE or re-point at a real sync-failure store |
+| — | `packages/yoke-core/src/yoke_core/engines/doctor_hc_db_project_orphans.py` (deployment-event branches) | **0 rows** | DELETE the deployment branch |
 
 ### Plan-missed app-state reader
 
 | # | Reader | Behavior | Replacement | Write owner |
 |---|---|---|---|---|
-| 26 | `runtime/api/domain/drift_review.py` (checkpoint = MAX `StrategizeCompleted`/`DriftReviewCompleted` per project, 28 rows; delivered-since = `ItemStatusChanged` → release/done) | Drift-review scoping decisions | New `strategy_checkpoints` (project_id, kind, created_at); delivered-since re-points at `item_status_transitions` | strategize/drift-review completion paths |
+| 26 | `packages/yoke-core/src/yoke_core/domain/drift_review.py` (checkpoint = MAX `StrategizeCompleted`/`DriftReviewCompleted` per project, 28 rows; delivered-since = `ItemStatusChanged` → release/done) | Drift-review scoping decisions | New `strategy_checkpoints` (project_id, kind, created_at); delivered-since re-points at `item_status_transitions` | strategize/drift-review completion paths |
 
 Also missed by the plan (rows above): #4–5 (GitHub sync), #13–15 (lint
 guardrails), #18 (claim reason recovery), #12 (episode boundary).
@@ -121,7 +121,7 @@ guardrails), #18 (claim reason recovery), #12 (episode boundary).
 
 | Reader | What it reads | Recommendation |
 |---|---|---|
-| `runtime/api/engines/doctor.py` | `HarnessSessionEndDeferred` without later `Ended` (20 rows) | Keep-as-audit; optional `harness_sessions.deferred_end_pending` re-point later |
+| `packages/yoke-core/src/yoke_core/engines/doctor.py` | `HarnessSessionEndDeferred` without later `Ended` (20 rows) | Keep-as-audit; optional `harness_sessions.deferred_end_pending` re-point later |
 | `doctor_hc_agents_sessions.py` | sweep-ran marker; `WorkReclaimed` + post-reclaim activity | Keep-as-audit (verifying behavior against telemetry is the point); activity check may re-point at `session_tool_calls` |
 | `doctor_hc_stop_hook_chain.py` | `ChainEndDeferred` without `HarnessSessionEnded` | Keep-as-audit; re-point when chain state lands |
 | `doctor_hc_routed_ownership.py` | WorkReleased intent + ChainStepCompleted subqueries | Re-point with Slice D (mirrors `frontier_recent_owner` exactly) |

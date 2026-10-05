@@ -4,8 +4,8 @@
 
 `path_context_values.recorded_event_id` and
 `path_moves.recorded_event_id` are **opaque provenance strings**. The
-writers (`runtime/api/domain/path_context.py` `put_context_value`,
-`runtime/api/domain/path_continuity.py` `record_workflow_observed_move`
+writers (`packages/yoke-core/src/yoke_core/domain/path_context.py` `put_context_value`,
+`packages/yoke-core/src/yoke_core/domain/path_continuity.py` `record_workflow_observed_move`
 / `record_operator_adjudicated_move`) require the string to be
 non-empty but no longer verify it against the `events` table. The
 verification helpers were deleted in B8 Slice E.

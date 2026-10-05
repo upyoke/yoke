@@ -14,7 +14,7 @@ The destructive cutover that lands `path_moves` and `path_context_values`
 and migrates `path_posture` / `doc_links` rows out of the
 Project Structure policy table runs through the explicit-exception
 pathway via
-[`runtime.api.domain.migration_harness.record_audit_fingerprint`](../../../runtime/api/domain/migration_harness_audit.py),
+[`runtime.api.domain.migration_harness.record_audit_fingerprint`](../../../packages/yoke-core/src/yoke_core/domain/migration_harness_audit.py),
 not the two-unit governed apply contract.
 
 ## Why exception pathway, not governed runner

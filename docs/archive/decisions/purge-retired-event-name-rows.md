@@ -56,7 +56,7 @@ expected delta by design** — the whole point is to delete rows — and the
 exact delta depends on whatever retired-name historical rows happen to
 sit in the events table at apply time. Wrapping in `GovernedMigration`
 is incompatible with the delete-by-name shape, exactly as
-`runtime/api/domain/events_prune.py` (whose paired record at
+`packages/yoke-core/src/yoke_core/domain/events_prune.py` (whose paired record at
 [events-prune.md](events-prune.md) was the model) is incompatible for
 delete-by-age.
 
@@ -101,7 +101,7 @@ deleted; the audit row is the durable evidence the cleanup happened.
 The drop-once nature of this migration only addresses historical rows.
 A future producer could in principle re-introduce the same retired
 names. The companion guard
-`runtime/api/domain/events_retired_name_guard.py` is wired into the
+`packages/yoke-core/src/yoke_core/domain/events_retired_name_guard.py` is wired into the
 two sanctioned insertion paths — `runtime.api.domain.events.emit_event`
 and `runtime.api.domain.events_writes.cmd_insert` — to refuse any
 `event_registry.status='retired'` name before the row is written. When
