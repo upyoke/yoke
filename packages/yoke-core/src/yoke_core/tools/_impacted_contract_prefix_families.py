@@ -52,6 +52,7 @@ AGENT_SKILL_CONTRACT_TESTS = (
     "runtime/api/test_skill_doc_regressions_conduct_simulation.py",
     "runtime/api/test_skill_doc_regressions_conduct_task_claims.py",
     "runtime/api/test_skill_doc_regressions_dash_qa_gate_order.py",
+    "runtime/api/test_skill_doc_regressions_dash_source_checks.py",
     "runtime/api/test_skill_doc_regressions_engineer.py",
     "runtime/api/test_skill_doc_regressions_file_budget.py",
     "runtime/api/test_skill_doc_regressions_file_budget_agents.py",
