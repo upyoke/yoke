@@ -5,6 +5,10 @@ from __future__ import annotations
 import json
 import time
 from concurrent.futures import ThreadPoolExecutor
+from types import SimpleNamespace
+from uuid import uuid4
+
+from psycopg.conninfo import conninfo_to_dict
 
 import pytest
 
@@ -16,6 +20,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.check_claim_boundary_audit_summary import audit_summary
 from yoke_core.domain.events_function_index import (
     FUNCTION_INDEX_NAME,
+    _connection_dsn,
     ensure_function_index,
     function_lookup_sql,
     verify_function_index,
@@ -45,6 +50,20 @@ def _ensure(conn):
     conn.commit()
     with serving_build_authority():
         ensure_function_index(conn)
+
+
+def test_secondary_connection_retains_private_credential_and_target(env):
+    info = env["conn"].info
+    marker = uuid4().hex
+    redacted = info.dsn
+    copy = _connection_dsn(
+        SimpleNamespace(info=SimpleNamespace(dsn=redacted, password=marker))
+    )
+    parameters = conninfo_to_dict(copy)
+    assert parameters["password"] == marker
+    assert parameters["dbname"] == info.dbname
+    assert parameters["user"] == info.user
+    assert "password" not in conninfo_to_dict(redacted)
 
 
 def test_decoded_identifiers_and_missing_indexed_subject_remain_candidates(env):
@@ -168,7 +187,7 @@ def test_concurrent_builder_uses_own_autocommit_connection(env, monkeypatch):
                 observed.append(self.inner.autocommit)
                 # Both DDL and this independent writer use the actual target,
                 # without changing the caller's transaction mode.
-                with original(conn.info.dsn, autocommit=True) as writer:
+                with original(_connection_dsn(conn), autocommit=True) as writer:
                     writer.execute("SET lock_timeout='1s'")
                     writer.execute(
                         "INSERT INTO events (event_id, source_type, session_id, severity, "
@@ -208,13 +227,13 @@ def test_event_insert_succeeds_while_concurrent_build_waits_for_writer(env):
         "'YokeFunctionCalled', '2020-01-01T00:00:00Z')"
     )
     # Hold a writer transaction so the concurrent build stays observable.
-    with db_backend.connect_psycopg(conn.info.dsn) as held_writer:
+    with db_backend.connect_psycopg(_connection_dsn(conn)) as held_writer:
         held_writer.execute(statement, ("held-writer",))
         with ThreadPoolExecutor(max_workers=1) as pool:
             build = pool.submit(_ensure, conn)
             try:
                 with db_backend.connect_psycopg(
-                    conn.info.dsn, autocommit=True
+                    _connection_dsn(conn), autocommit=True
                 ) as writer:
                     deadline = time.monotonic() + 5
                     while not writer.execute(

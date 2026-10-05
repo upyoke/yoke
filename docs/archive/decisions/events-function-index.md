@@ -19,6 +19,9 @@ competing boots with a session advisory lock, builds concurrently, and validates
 the catalog. Event writers remain free to insert. A failed concurrent build
 can leave an invalid index; retry drops only this named index after verifying
 its table and operator class, then rebuilds concurrently.
+The secondary connection preserves the caller's private connection password:
+psycopg intentionally omits it from `info.dsn`. That value remains private
+and is never included in progress, catalog evidence, or audit descriptions.
 
 This is a named `record_audit_fingerprint` exception to transactional DDL.
 The receipt uses `exception_reason=events-function-index`; no rollback copy

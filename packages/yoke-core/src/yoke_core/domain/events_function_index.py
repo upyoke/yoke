@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from psycopg.conninfo import make_conninfo
 
 from yoke_contracts.control_plane_locality import local_authority_exempt
 from yoke_contracts.schema_authority import refuse_without_serving_build_authority
@@ -22,6 +23,12 @@ def function_identity_sql(column: str = "envelope") -> str:
 def function_lookup_sql(column: str = "envelope") -> str:
     """Bound B-tree keys even for oversized unrelated historical identifiers."""
     return f"left({function_identity_sql(column)}, {FUNCTION_LOOKUP_CHARS})"
+
+
+def _connection_dsn(conn: Any) -> str:
+    # psycopg deliberately redacts info.dsn. Reopening the same connection
+    # needs its actual credential; retain it only in this private value.
+    return make_conninfo(conn.info.dsn, password=conn.info.password)
 
 
 def _index_state(conn: Any):
@@ -73,7 +80,7 @@ def ensure_function_index(conn: Any) -> None:
         "building the events function index",
         administering_env=administered_postgres.administering_target(connection=conn),
     )
-    dsn = conn.info.dsn
+    dsn = _connection_dsn(conn)
     with db_backend.connect_psycopg(dsn, autocommit=True) as index_conn:
         # Serialize competing boots, without locking event writers. The lock
         # identity derives from the index's canonical name.
