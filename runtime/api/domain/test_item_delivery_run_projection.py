@@ -86,5 +86,5 @@ def test_card_completion_matches_cross_project_delivery_despite_cancelled_duplic
     row = result["rows"][1]
     assert row["started_at"] == "2026-01-01T00:05:00Z"
     assert row["completed_at"] == (
-        "2026-01-01T01:00:00Z" if status == "succeeded" else ""
+        "2026-01-01T01:00:00Z" if status == "succeeded" else None
     )
