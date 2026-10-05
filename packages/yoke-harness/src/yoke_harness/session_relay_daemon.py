@@ -16,8 +16,8 @@ instead:
 * because the loop is never blocked, its own claim keeps the machine's
   ``session_relays`` row and surface inventory continuously published —
   the state gap that appears while a long job holds a one-shot process;
-* termination interrupts main-thread IO and bounds settlement below the host
-  logout budget; release repinning retains its longer settlement window.
+* termination interrupts main-thread IO and bounds settlement below the loaded
+  service manager's stop deadline; release repinning retains its own window.
   Durable leases, native custody and pending reports survive interrupted jobs.
 
 Failure bursts log immediately, periodically, and on recovery. Transient
@@ -46,6 +46,7 @@ from yoke_harness.session_relay_supervision import RelayStopRequested, Superviso
 from yoke_harness.session_relay_poll_health import reset_poll_outcome
 from yoke_harness.session_relay_schedule import relay_run_lock, relay_state_dir
 from yoke_harness.session_relay_process_restart import exec_relay_release
+from yoke_harness.session_relay_stop_deadline import read_stop_settlement_seconds
 
 
 # How long the loop waits between cadence checks. The server owns the poll
@@ -56,7 +57,6 @@ IDLE_TICK_SECONDS = 0.5
 # work. A native launch that has not settled by then is already supervised
 # by its own attempt record, so waiting past this only delays the restart.
 DRAIN_TIMEOUT_SECONDS = 120
-LOGOUT_SETTLEMENT_SECONDS = 2.0
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -160,6 +160,7 @@ def serve_forever(
     machine stops it.
     """
     stop = _StopRequest()
+    stop_settlement_seconds = read_stop_settlement_seconds()
     prior_handlers = _install_signal_handlers(stop) if install_signals else {}
     try:
         return _serve_under_lock(
@@ -170,6 +171,7 @@ def serve_forever(
             stop_after_cycles=stop_after_cycles,
             idle_tick_seconds=idle_tick_seconds,
             drain_timeout_seconds=drain_timeout_seconds,
+            stop_settlement_seconds=stop_settlement_seconds,
             max_job_workers=max_job_workers,
             reload_argv=reload_argv,
             reload_exec=reload_exec,
@@ -191,6 +193,7 @@ def _serve_under_lock(
     stop_after_cycles: int | None,
     idle_tick_seconds: float,
     drain_timeout_seconds: float,
+    stop_settlement_seconds: float,
     max_job_workers: int,
     reload_argv: Sequence[str] | None,
     reload_exec: Callable[..., None],
@@ -277,7 +280,7 @@ def _serve_under_lock(
             supervisor.drain(timeout=drain_timeout_seconds)
         except RelayStopRequested:
             supervisor.pool.shutdown(wait=False, cancel_futures=True)
-            remaining = stop.requested_at + LOGOUT_SETTLEMENT_SECONDS - time.monotonic()
+            remaining = stop.requested_at + stop_settlement_seconds - time.monotonic()
             supervisor.drain(timeout=remaining)
         finally:
             supervisor.pool.shutdown(wait=False, cancel_futures=True)

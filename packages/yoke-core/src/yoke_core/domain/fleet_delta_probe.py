@@ -166,7 +166,6 @@ def run(
                 stream=stream,
                 call=call,
                 state=report_state,
-                report=current.landing_report,
                 snapshot=current,
             )
             previous = current
