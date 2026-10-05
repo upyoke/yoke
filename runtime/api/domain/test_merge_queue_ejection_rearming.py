@@ -1,6 +1,10 @@
 """Each arming earns its own notice, and queued notices retain visibility."""
 
 from dataclasses import replace
+from types import SimpleNamespace
+
+from yoke_core.domain.merge_queue_landing_marker import point_item_at_pull_request
+from yoke_core.domain.merge_queue_landing_pending import mark_landing_pending
 
 from runtime.api.domain.merge_queue_observer_test_helpers import (
     ARMED_AWAITING_CHECKS,
@@ -51,11 +55,7 @@ def test_disarm_then_rearm_same_commit_sends_a_second_notice():
     assert observe(conn, read_state=lambda *_: (disarmed, None))["ejected"] == 1
     first_id = ejected_message_id(conn)
     acknowledge(conn, first_id)
-    conn.execute(
-        "UPDATE items SET merge_queue_enqueued_at=? WHERE id=101",
-        (INJECTED_TEXT,),
-    )
-    conn.commit()
+    point_item_at_pull_request(conn, 101, "42", enqueued_at=INJECTED_TEXT)
 
     # The worker re-arms the unchanged head, whose required checks go red.
     assert failed_checks(conn)["ejected"] == 1
@@ -114,3 +114,88 @@ def test_a_pending_notice_keeps_the_admission_until_injection():
     inject(conn, ejected_message_id(conn))
     failed_checks(conn)
     assert marker(conn) is None
+
+
+def test_an_already_armed_retry_preserves_its_recorded_episode():
+    writes = []
+    episode = "2026-08-27T17:00:00Z"
+
+    def dispatch(*, function_id, target, payload):
+        if function_id == "items.detail.get":
+            return SimpleNamespace(
+                success=True,
+                result={
+                    "item": {
+                        "merge_queue": {
+                            "pr_number": "42",
+                            "enqueued_at": episode,
+                        }
+                    }
+                },
+            )
+        writes.append(payload)
+        return SimpleNamespace(success=True, result=payload)
+
+    assert mark_landing_pending(
+        101,
+        "42",
+        dispatch=dispatch,
+        now=INJECTED_AT,
+        preserve_existing=True,
+    ) == (episode, "")
+    assert writes == [{"pr_number": "42", "enqueued_at": episode}]
+
+
+def test_a_new_arming_does_not_reuse_an_existing_episode():
+    writes = []
+
+    def dispatch(*, function_id, target, payload):
+        assert function_id == "merge_queue.landing_pending.mark"
+        writes.append(payload)
+        return SimpleNamespace(success=True, result=payload)
+
+    assert mark_landing_pending(
+        101,
+        "42",
+        dispatch=dispatch,
+        now=INJECTED_AT,
+    ) == (INJECTED_TEXT, "")
+    assert writes == [{"pr_number": "42", "enqueued_at": INJECTED_TEXT}]
+
+
+def test_an_unreadable_existing_episode_refuses_before_marking():
+    calls = []
+
+    def dispatch(*, function_id, target, payload):
+        calls.append(function_id)
+        return SimpleNamespace(success=False, error=SimpleNamespace(message="offline"))
+
+    episode, error = mark_landing_pending(
+        101,
+        "42",
+        dispatch=dispatch,
+        now=INJECTED_AT,
+        preserve_existing=True,
+    )
+    assert episode == ""
+    assert "landing_episode_unreadable" in error
+    assert "offline" in error
+    assert "re-enter yoke merge item" in error
+    assert calls == ["items.detail.get"]
+
+
+def test_two_armings_in_one_second_have_distinct_episode_timestamps():
+    writes = []
+
+    def dispatch(*, function_id, target, payload):
+        writes.append(payload)
+        return SimpleNamespace(success=True, result=payload)
+
+    for microsecond in (1, 2):
+        mark_landing_pending(
+            101,
+            "42",
+            dispatch=dispatch,
+            now=INJECTED_AT.replace(microsecond=microsecond),
+        )
+    assert writes[0]["enqueued_at"] != writes[1]["enqueued_at"]

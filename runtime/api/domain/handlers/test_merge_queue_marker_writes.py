@@ -197,7 +197,7 @@ class TestLandingPendingMarker:
             _item_envelope(
                 MARK,
                 item_id=item_id,
-                payload={"pr_number": "42", "enqueued_at": "2026-08-27T18:05:00Z"},
+                payload={"pr_number": "42", "enqueued_at": "2026-08-27T18:00:00Z"},
             )
         )
         assert first.primary_success and second.primary_success
@@ -241,10 +241,6 @@ class TestLandingPendingMarker:
                     changed_at="2026-08-27T18:01:00Z",
                 ),
             )
-            conn.execute(
-                "UPDATE items SET merge_queue_enqueued_at=NULL WHERE id=%s",
-                (item_id,),
-            )
             conn.commit()
         finally:
             conn.close()
@@ -257,6 +253,7 @@ class TestLandingPendingMarker:
             )
         )
         assert rearmed.primary_success
+        assert rearmed.result_payload["enqueued_at"] == "2026-08-27T18:05:00Z"
         conn = connect_test_db(db)
         try:
             assert read_landing_record(conn, item_id) is None
