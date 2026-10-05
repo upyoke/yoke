@@ -69,7 +69,10 @@ export function renderNewItemForm(context, main, projectId, options) {
     instruction.rows = 3;
     instruction.value = draft.instruction || "";
     draft.instructionControl = instruction;
-    for (const control of [title, instruction]) control.addEventListener("input", () => draft.save?.());
+    for (const control of [title, instruction]) {
+      control.addEventListener("input", () => draft.scheduleSave());
+      control.addEventListener("blur", () => draft.save?.());
+    }
     const render = () => {
       const directWorkflow = ["dash", "blitz"].includes(selected.id);
       const pathSurveyPolicy = pathSurveyPolicyFor(selected);

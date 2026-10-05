@@ -65,7 +65,7 @@ test("an environment run still names what it deploys, not empty membership", asy
   const body = gateText(main);
   assert.ok(!body.includes("0 changes"), body);
   assert.ok(!body.includes("Linked items"), body);
-  assert.ok(body.includes("Also includes 1 commits made outside Yoke"), body);
+  assert.ok(body.includes("Also includes 1 commit made outside Yoke"), body);
   assert.ok(body.includes("9911aa22bb33"), body);
   assert.ok(body.includes("Author unavailable"), body);
   assertNoDetails(main);

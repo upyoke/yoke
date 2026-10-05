@@ -260,7 +260,7 @@ export function outcomeNode(
   return wrap;
 }
 
-export function qaPanel(documentNode, title, count = null, hint = null) {
+export function qaPanel(documentNode, title, count = null) {
   const root = el(documentNode, "section", "panel");
   const header = el(documentNode, "div", "panel-header");
   const heading = el(documentNode, "h2", null, title);
@@ -270,11 +270,6 @@ export function qaPanel(documentNode, title, count = null, hint = null) {
     ));
   }
   header.appendChild(heading);
-  if (hint) {
-    header.appendChild(el(
-      documentNode, "span", "qa-panel-context", hint,
-    ));
-  }
   root.appendChild(header);
   const body = el(documentNode, "div", "panel-body");
   root.appendChild(body);

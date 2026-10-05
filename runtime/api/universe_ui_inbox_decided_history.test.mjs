@@ -13,6 +13,7 @@ import test from "node:test";
 
 import { byClass, settle } from "./universe_ui_dom_test_support.mjs";
 import {
+  deploymentRequestRow,
   inboxSection as section,
   ok,
   qaRequestRow,
@@ -73,4 +74,22 @@ test("a settled QA review is not offered as one still needing a review", async (
 
   assert.deepEqual([...pending.keys()], ["21583"]);
   assert.equal(pending.get("90210"), undefined);
+});
+
+test("only pending release approvals expand carried work and read item evidence", async () => {
+  const pending = deploymentRequestRow({ id: 101 });
+  const decided = deploymentRequestRow({ id: 102, status: "resolved", decided_by_you: true,
+    your_decision: { action: "approve" }, actions: [], can_act: false });
+  const { main } = renderInbox("all", [pending, decided]);
+  await settle();
+  const waiting = section(main, WAITING), history = section(main, DECIDED);
+  assert.equal(byClass(waiting, "approval-carried").length, 1);
+  assert.ok(byClass(waiting, "release-member").length > 0);
+  assert.equal(byClass(history, "approval-carried").length, 0);
+  assert.equal(byClass(history, "release-member").length, 0);
+  assert.equal(byClass(history, "review-action").length, 0);
+  assert.match(history.textContent, /Carries · 2 items/);
+  const { client } = renderInbox("all", [decided]);
+  await settle();
+  assert.equal(client.requests.filter((request) => request.function === "qa.activity.list").length, 0);
 });

@@ -121,7 +121,6 @@ function epicPanels(context, documentNode, item) {
         "Worktree plan",
         item.narrative.worktree_plan,
         "No worktree plan recorded.",
-        { detail: "intent · lanes activate per task at conduct" },
       ),
       ...filledNarrativePanels(
         documentNode,
@@ -148,7 +147,6 @@ function sourceFieldNotePanel(documentNode, item) {
   const { panel, body } = workflowPanel(
     documentNode,
     "Promoted from field note",
-    { detail: note.category },
   );
   body.appendChild(el(
     documentNode,

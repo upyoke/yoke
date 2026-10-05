@@ -159,8 +159,9 @@ class FakeWindow extends EventTarget {
   }
 }
 
-export class FakeDocument {
+export class FakeDocument extends EventTarget {
   constructor() {
+    super();
     this.defaultView = new FakeWindow();
     this.activeElement = null;
     this.body = new FakeNode(this, "body");

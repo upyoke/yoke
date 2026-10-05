@@ -79,7 +79,7 @@ function strategySpark(documentNode, days) {
 
 export function strategyWriteActivity(documentNode, writes) {
   const { panel, body } = workflowPanel(
-    documentNode, "Writes", { detail: "last 120 days" },
+    documentNode, "Writes",
   );
   const counts = new Map();
   for (const row of writes) {

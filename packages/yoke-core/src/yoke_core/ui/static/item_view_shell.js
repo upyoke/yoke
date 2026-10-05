@@ -75,7 +75,6 @@ export function textPanel(
   options = {},
 ) {
   const { panel, body } = workflowPanel(documentNode, title, {
-    detail: options.detail,
   });
   const clean = String(text || "").trim();
   body.appendChild(renderMarkdown(documentNode, clean, {
