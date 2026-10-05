@@ -96,7 +96,7 @@ test("a Dash item lists its releases newest first and names its flow", async () 
   assert.equal(flow.children[2].textContent, "selected on this item");
   assert.deepEqual(
     byClass(root, "item-delivery-role").map((node) => node.textContent),
-    ["this item's release", "this item's release"],
+    ["Also in", "Also in"],
   );
   assert.deepEqual(
     byClass(root, "item-delivery-target").map((node) => node.textContent),
@@ -223,7 +223,7 @@ test("a Blitz item carried by several releases lists every one of them", async (
   assert.equal(flow.children[2].textContent, "selected on this item");
 });
 
-test("a carrying run on another flow is participation, not this item's release", async () => {
+test("run roles are not guessed when completion authority is absent", async () => {
   const documentNode = new FakeDocument();
   const root = documentNode.createElement("div");
   const dash = detailItem("dash");
@@ -247,7 +247,7 @@ test("a carrying run on another flow is participation, not this item's release",
   );
   assert.deepEqual(
     byClass(root, "item-delivery-role").map((node) => node.textContent),
-    ["also carried", "this item's release"],
+    ["Also in", "Also in"],
   );
   assert.deepEqual(
     byClass(root, "item-delivery-target").map((node) => node.textContent),

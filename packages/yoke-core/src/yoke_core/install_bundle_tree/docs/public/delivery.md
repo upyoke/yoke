@@ -134,3 +134,19 @@ There is no separate Hosting destination. Hosting shows up as:
 
 Disable a flow definition to stop new assignments while retaining history.
 Definitions referenced by runs are immutable.
+
+## Item Delivery card
+
+The item page names the run selected by the same completion-authority read
+as the done gate: **Delivered by** when delivery succeeded, **Delivering**
+while it is in flight, and **Also in** for other carrying runs. A release
+from another project can deliver the item when its recorded bound source
+has completion authority; matching flow names alone do not prove delivery.
+Each run shows its flow → target environment. Terminal runs show **finished**
+(succeeded) or **ended** (failed/cancelled) from `completed_at`; executing
+runs show their current stage and **started** from `started_at` (or
+`created_at` before execution starts). A missing terminal timestamp is
+reported as unavailable rather than substituted with the creation time.
+The **Item’s flow** row is omitted when that flow delivered the item. When
+another flow delivered it, the selected flow says **not used: delivered by
+the run above**.
