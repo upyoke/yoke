@@ -1,4 +1,4 @@
-"""Deployment-destination routing for ``yoke onboard`` without the TUI.
+"""Deployment-destination routing for ``yoke setup`` without the TUI.
 
 Non-interactive parity lane: ``--local`` / ``--connect URL`` / the
 destination environment override route to the same three destinations the
@@ -74,7 +74,7 @@ def test_local_and_connect_flags_are_mutually_exclusive(
 ) -> None:
     rc = yoke_operations_cli.main(
         [
-            "onboard",
+            "setup",
             "--local",
             "--connect",
             "https://x.test",
@@ -99,7 +99,7 @@ def test_local_flag_rejects_sign_in_inputs(
     scratch_home: Path, capsys, extra: list[str]
 ) -> None:
     rc = yoke_operations_cli.main(
-        ["onboard", "--local", "--non-interactive", "--json", *extra]
+        ["setup", "--local", "--non-interactive", "--json", *extra]
     )
 
     assert rc == 2
@@ -111,7 +111,7 @@ def test_connect_flag_conflicting_api_url_is_rejected(
 ) -> None:
     rc = yoke_operations_cli.main(
         [
-            "onboard",
+            "setup",
             "--connect",
             "https://a.test",
             "--api-url",
@@ -133,7 +133,7 @@ def test_destination_override_invalid_value_errors(
 ) -> None:
     monkeypatch.setenv(onboard_destinations.DESTINATION_OVERRIDE, "sideways")
 
-    rc = yoke_operations_cli.main(["onboard", "--non-interactive", "--json"])
+    rc = yoke_operations_cli.main(["setup", "--non-interactive", "--json"])
 
     assert rc == 2
     assert onboard_destinations.DESTINATION_OVERRIDE in capsys.readouterr().err
@@ -150,7 +150,7 @@ def test_destination_override_env_var_routes_local(
         onboard_destinations.DESTINATION_LOCAL,
     )
 
-    rc = yoke_operations_cli.main(["onboard", "--non-interactive", "--json"])
+    rc = yoke_operations_cli.main(["setup", "--non-interactive", "--json"])
 
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
@@ -184,7 +184,7 @@ def test_local_apply_lands_config_like_yoke_init_local(
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(onboard_home))
     rc = yoke_operations_cli.main(
         [
-            "onboard",
+            "setup",
             "--local",
             "--non-interactive",
             "--yes",
@@ -219,7 +219,7 @@ def test_local_apply_adds_connection_beside_existing_hosted(
 
     rc = yoke_operations_cli.main(
         [
-            "onboard",
+            "setup",
             "--local",
             "--non-interactive",
             "--yes",
@@ -249,7 +249,7 @@ def test_legacy_api_url_lane_stamps_server_destination(
     self-hosted onboarding to the local default."""
     rc = yoke_operations_cli.main(
         [
-            "onboard",
+            "setup",
             "a-plausible-team-server-actor-token-value",
             "--non-interactive",
             "--quick",

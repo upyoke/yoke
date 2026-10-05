@@ -122,7 +122,7 @@ class InstallOptions:
     yes: bool
     dry_run: bool
     base_url: str
-    no_onboard: bool
+    no_setup: bool
 
 
 def main(argv: Iterable[str] | None = None) -> int:
@@ -146,7 +146,7 @@ def parse_args(argv: Iterable[str] | None = None) -> InstallOptions:
     )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
-        "--no-onboard", action="store_true", default=_env_truthy("YOKE_NO_ONBOARD")
+        "--no-setup", action="store_true", default=_env_truthy("YOKE_NO_SETUP")
     )
     parser.add_argument(
         "--base-url",
@@ -160,7 +160,7 @@ def parse_args(argv: Iterable[str] | None = None) -> InstallOptions:
         yes=bool(args.yes),
         dry_run=bool(args.dry_run),
         base_url=args.base_url.rstrip("/"),
-        no_onboard=bool(args.no_onboard),
+        no_setup=bool(args.no_setup),
     )
 
 

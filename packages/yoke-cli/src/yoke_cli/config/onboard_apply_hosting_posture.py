@@ -1,4 +1,4 @@
-"""Record the hosting decision on the project during ``yoke onboard`` apply.
+"""Record the hosting decision on the project during ``yoke setup`` apply.
 
 The wizard collects the answer before Review, but until it is written down it
 lives only in the process that asked. That was the whole shape of the gap this
@@ -43,12 +43,14 @@ def record(
     note = (provider_note or "").strip()
     if note:
         payload["provider"] = note
-    ops = [{
-        "op": "put",
-        "family": hosting_posture.HOSTING_POSTURE_FAMILY,
-        "attachment": "project",
-        "payload": payload,
-    }]
+    ops = [
+        {
+            "op": "put",
+            "family": hosting_posture.HOSTING_POSTURE_FAMILY,
+            "attachment": "project",
+            "payload": payload,
+        }
+    ]
     with machine_config_path(config_path):
         response = call_dispatcher(
             function_id="project_structure.patch.apply",
@@ -59,7 +61,9 @@ def record(
         message = response.error.message if response.error else "unknown error"
         code = response.error.code if response.error else "unknown_error"
         raise ProjectDispatchError(
-            "project_structure.patch.apply", code, message,
+            "project_structure.patch.apply",
+            code,
+            message,
         )
     return response.result or {}
 

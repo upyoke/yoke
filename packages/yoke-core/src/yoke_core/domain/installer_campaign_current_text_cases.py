@@ -12,7 +12,7 @@ from yoke_core.domain.installer_campaign_key_settle_cases import (
 )
 
 
-_RETIRED_STARTUP_TEXT = "Starting Yoke onboard"
+_RETIRED_STARTUP_TEXT = "Starting Yoke setup"
 
 
 def _current_text_case(source: dict[str, Any]) -> dict[str, Any]:
@@ -21,9 +21,7 @@ def _current_text_case(source: dict[str, Any]) -> dict[str, Any]:
         return case
     for config in case["method_config"]["baseline_configs"].values():
         config["expected_text"] = [
-            text
-            for text in config["expected_text"]
-            if text != _RETIRED_STARTUP_TEXT
+            text for text in config["expected_text"] if text != _RETIRED_STARTUP_TEXT
         ]
     return case
 

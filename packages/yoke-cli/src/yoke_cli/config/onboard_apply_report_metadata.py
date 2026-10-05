@@ -9,7 +9,7 @@ from typing import Any, Mapping
 from yoke_cli.config import install_binding, onboard_github_snapshot
 
 
-RESUME_COMMAND = "yoke onboard"
+RESUME_COMMAND = "yoke setup"
 
 _AUTH_HEADER_RE = re.compile(
     r"(Authorization:\s*)(Bearer|token)\s+[-._A-Za-z0-9]+",

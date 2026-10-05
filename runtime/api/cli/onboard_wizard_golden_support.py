@@ -1,4 +1,4 @@
-"""Shared harness for the ``yoke onboard`` Textual SVG golden gates.
+"""Shared harness for the ``yoke setup`` Textual SVG golden gates.
 
 The gates live in :mod:`test_onboard_wizard_goldens` (PATH / Connect / GitHub),
 :mod:`test_onboard_wizard_goldens_project` (Project / Finish),

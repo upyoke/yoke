@@ -11,7 +11,7 @@ Open Ubuntu and follow [Install](install.md):
 
 ```bash
 curl -fsSL https://upyoke.com/install | sh
-yoke onboard
+yoke setup
 ```
 
 Keep repositories in the Linux filesystem, for example `~/projects/my-app`.
@@ -29,7 +29,7 @@ and no need to type a privilege command yourself. If the machine cannot grant
 access, setup names the reason and asks you to rerun `yoke wsl setup` in an
 Ubuntu terminal with administrator access.
 
-Install and `yoke onboard` also converge the Windows user's
+Install and `yoke setup` also converge the Windows user's
 `%UserProfile%\.wslconfig` to `[general] instanceIdleTimeout=-1`, preserving
 other settings and comments. This disables distro idle shutdown so the relay
 and background work keep running after every WSL terminal closes. The setting

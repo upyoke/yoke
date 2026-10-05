@@ -148,13 +148,13 @@ def test_command_recipe_removes_staged_file_after_success(
         commands.append(command)
         return completed(
             command,
-            stdout="ready" if command == "yoke onboard" else "",
+            stdout="ready" if command == "yoke setup" else "",
         )
 
     result = execute_terminal_recipe(
         run,
         upload_bytes=lambda path, content: uploads.append((path, content)) or True,
-        entry_surface="yoke onboard",
+        entry_surface="yoke setup",
         required_completion="done",
         config=recipe(
             stage_files=[
@@ -200,7 +200,7 @@ def test_partial_staging_failure_removes_files_already_uploaded(
     result = execute_terminal_recipe(
         run,
         upload_bytes=upload,
-        entry_surface="yoke onboard",
+        entry_surface="yoke setup",
         required_completion="done",
         config=recipe(
             stage_files=[
@@ -241,7 +241,7 @@ def test_staged_file_cleanup_failure_fails_an_otherwise_green_case(
     result = execute_terminal_recipe(
         run,
         upload_bytes=lambda _path, _content: True,
-        entry_surface="yoke onboard",
+        entry_surface="yoke setup",
         required_completion="done",
         config=recipe(
             stage_files=[
@@ -273,16 +273,14 @@ def test_staged_secret_is_detected_and_redacted_from_evidence(
         return completed(
             command,
             stdout=(
-                "ready credential=stage-token-value"
-                if command == "yoke onboard"
-                else ""
+                "ready credential=stage-token-value" if command == "yoke setup" else ""
             ),
         )
 
     result = execute_terminal_recipe(
         run,
         upload_bytes=lambda _path, _content: True,
-        entry_surface="yoke onboard",
+        entry_surface="yoke setup",
         required_completion="done",
         config=recipe(
             stage_files=[

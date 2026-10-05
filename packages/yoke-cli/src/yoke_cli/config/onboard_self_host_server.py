@@ -1,4 +1,4 @@
-"""Safe, resumable self-host bootstrap operations for ``yoke onboard``."""
+"""Safe, resumable self-host bootstrap operations for ``yoke setup``."""
 
 from __future__ import annotations
 

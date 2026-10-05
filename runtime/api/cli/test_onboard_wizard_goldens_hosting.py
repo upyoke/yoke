@@ -24,7 +24,7 @@ from runtime.api.cli.onboard_wizard_golden_support import (  # noqa: E402
 from yoke_cli.config import aws_admin_capability  # noqa: E402
 from yoke_cli.config import onboard_project  # noqa: E402
 
-_TITLE = "yoke onboard · Hosting"
+_TITLE = "yoke setup · Hosting"
 # Pinned so the link's version segment is deterministic; the golden normalizer
 # rewrites it to {{VERSION}}, and a fixed length keeps the SVG coordinates
 # stable the way the PATH-readiness gate does.

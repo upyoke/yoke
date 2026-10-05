@@ -31,7 +31,7 @@ def test_onboard_checklist_model_renders_deterministic_json(
                 layer="machine",
                 title="Machine config",
                 status="needed",
-                hint="Run yoke onboard --yes before project setup.",
+                hint="Run yoke setup --yes before project setup.",
                 details=("Stores API URL and a token-file reference.",),
             ),
             checklist.ChecklistRow(
@@ -168,7 +168,7 @@ def test_onboard_checklist_handoff_json_summarizes_rows(
 
     assert payload == {
         "schema_version": 1,
-            "handoff_to": "yoke onboard",
+        "handoff_to": "yoke onboard",
         "machine_config_path": str(machine_config),
         "checkout": {"path": str(checkout), "project_id": 7},
         "rows": [

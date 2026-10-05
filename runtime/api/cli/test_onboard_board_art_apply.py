@@ -1,4 +1,4 @@
-"""Apply-time board-art materialization and close-out for ``yoke onboard``."""
+"""Apply-time board-art materialization and close-out for ``yoke setup``."""
 
 from __future__ import annotations
 
@@ -47,11 +47,13 @@ def test_rebuild_board_forces_rebuild_and_requires_file(
         lambda _repo_arg=None: tmp_path,
     )
     assert art_apply.rebuild_board(tmp_path) == board_path
-    assert calls == [{
-        "repo_arg": str(tmp_path),
-        "force": True,
-        "emit": False,
-    }]
+    assert calls == [
+        {
+            "repo_arg": str(tmp_path),
+            "force": True,
+            "emit": False,
+        }
+    ]
 
 
 def test_rebuild_board_raises_when_success_does_not_write_file(
@@ -80,10 +82,7 @@ def test_rebuild_board_raises_when_success_does_not_write_file(
         art_apply.rebuild_board(tmp_path)
 
 
-def test_rebuild_board_requires_configured_board_path(
-    tmp_path: Path,
-    monkeypatch,
-):
+def test_rebuild_board_requires_configured_board_path(tmp_path: Path, monkeypatch):
     from yoke_cli.board import rebuild as rebuild_mod
 
     reported_path = tmp_path / ".yoke" / "OTHER.md"
@@ -117,7 +116,8 @@ def test_after_apply_marks_report_failed_when_board_rebuild_fails(
     report_path = tmp_path / "report.json"
     report_path.write_text(_apply_report_payload(), encoding="utf-8")
     monkeypatch.setattr(
-        art_apply, "rebuild_board",
+        art_apply,
+        "rebuild_board",
         lambda _repo_root: (_ for _ in ()).throw(RuntimeError("no board")),
     )
     shell = _BoardArtShell()
@@ -157,6 +157,7 @@ def test_repo_root_prefers_report_then_fallback(tmp_path: Path):
     assert art_apply.repo_root_from_report({}, str(tmp_path)) == tmp_path
     assert art_apply.repo_root_from_report({}, None) is None
 
+
 def test_after_apply_hands_over_a_clean_checkout(tmp_path: Path, monkeypatch):
     """A fresh install: Apply commits its art, so nothing is left uncommitted."""
     from yoke_core.domain import json_helper
@@ -180,12 +181,10 @@ def test_after_apply_hands_over_a_clean_checkout(tmp_path: Path, monkeypatch):
     assert shell._board_art_after_apply(report) is True
 
     assert _git(root, "status", "--porcelain", "--branch").splitlines()[1:] == []
-    assert "## Master Map" in (root / ".yoke" / "board-art").read_text(
-        encoding="utf-8"
-    )
-    detail = json_helper.loads_text(
-        report_path.read_text(encoding="utf-8")
-    )["steps"][0]["detail"]
+    assert "## Master Map" in (root / ".yoke" / "board-art").read_text(encoding="utf-8")
+    detail = json_helper.loads_text(report_path.read_text(encoding="utf-8"))["steps"][
+        0
+    ]["detail"]
     assert detail["commit_status"] == "created"
     assert detail["commit_sha"] == _git(root, "rev-parse", "HEAD").strip()
     assert detail["committed_paths"] == [".yoke/board-art"]
@@ -193,7 +192,8 @@ def test_after_apply_hands_over_a_clean_checkout(tmp_path: Path, monkeypatch):
 
 
 def test_after_apply_over_an_existing_yoke_layer_stays_clean(
-    tmp_path: Path, monkeypatch,
+    tmp_path: Path,
+    monkeypatch,
 ):
     """Converging over an installed layer whose art already matches commits
     nothing, and still hands over a clean checkout."""
@@ -212,7 +212,8 @@ def test_after_apply_over_an_existing_yoke_layer_stays_clean(
 
 
 def test_after_apply_refuses_when_the_art_write_is_left_uncommitted(
-    tmp_path: Path, monkeypatch,
+    tmp_path: Path,
+    monkeypatch,
 ):
     """A post-commit write that never got committed is named, not shipped."""
     root = _installed_checkout(tmp_path / "repo")
@@ -225,9 +226,7 @@ def test_after_apply_refuses_when_the_art_write_is_left_uncommitted(
     shell = _BoardArtShell()
 
     with pytest.raises(WizardApplyError) as raised:
-        shell._board_art_after_apply(
-            {"project_onboarding": {"checkout": str(root)}}
-        )
+        shell._board_art_after_apply({"project_onboarding": {"checkout": str(root)}})
 
     assert ".yoke/board-art" in str(raised.value)
     assert "git add -A && git commit" in str(raised.value)
@@ -244,27 +243,37 @@ def test_commit_board_art_verifies_installer_paths_only_after_it_committed(
 
     receipt = art_apply.commit_board_art(
         root,
-        {"project_onboarding": {"install": {
-            "created_settings_files": [".claude/settings.json"],
-            "commit": {"status": "skipped", "reason": "no-commit"},
-        }}},
+        {
+            "project_onboarding": {
+                "install": {
+                    "created_settings_files": [".claude/settings.json"],
+                    "commit": {"status": "skipped", "reason": "no-commit"},
+                }
+            }
+        },
     )
 
     assert receipt["verified_paths"] == [".yoke/board-art"]
     with pytest.raises(ProjectInstallError, match=r"\.claude/settings\.json"):
         art_apply.commit_board_art(
             root,
-            {"project_onboarding": {"install": {
-                "created_settings_files": [".claude/settings.json"],
-                "commit": {"status": "created", "sha": "abc123"},
-            }}},
+            {
+                "project_onboarding": {
+                    "install": {
+                        "created_settings_files": [".claude/settings.json"],
+                        "commit": {"status": "created", "sha": "abc123"},
+                    }
+                }
+            },
         )
 
 
 def _git(root: Path, *args: str) -> str:
     return subprocess.run(
         ["git", "-C", str(root), *args],
-        capture_output=True, text=True, check=True,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout
 
 
@@ -296,34 +305,37 @@ def _apply_report_payload() -> str:
     from yoke_cli.config import onboard_apply_report
     from yoke_core.domain import json_helper
 
-    return json_helper.dumps_compact({
-        "run_id": "run-test",
-        "steps": [{
-            "step_id": "10-project-write-board-art",
-            "action": art_apply.BOARD_ART_STEP_ACTION,
-            "status": "done",
-        }],
-        "final_status": "done",
-        "resume_command": onboard_apply_report.RESUME_COMMAND,
-    }) + "\n"
+    return (
+        json_helper.dumps_compact(
+            {
+                "run_id": "run-test",
+                "steps": [
+                    {
+                        "step_id": "10-project-write-board-art",
+                        "action": art_apply.BOARD_ART_STEP_ACTION,
+                        "status": "done",
+                    }
+                ],
+                "final_status": "done",
+                "resume_command": onboard_apply_report.RESUME_COMMAND,
+            }
+        )
+        + "\n"
+    )
 
 
 class _BoardArtShell(BoardArtFlow):
     def __init__(self) -> None:
+        variant = art.generate_variant(
+            kind="ASCII", word="EXT", seed_text="seed", attempt=0
+        )
         self.result = WizardResult(
             config_path="cfg",
             env_name="prod",
             api_url="https://x",
             project_checkout="",
             board_art_word="EXT",
-            board_art_variants=[
-                art.generate_variant(
-                    kind="ASCII",
-                    word="EXT",
-                    seed_text="seed",
-                    attempt=0,
-                )
-            ],
+            board_art_variants=[variant],
         )
         self.report_path = None
         self.resume_command = None

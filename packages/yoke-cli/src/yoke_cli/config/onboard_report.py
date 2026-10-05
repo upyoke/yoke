@@ -1,4 +1,4 @@
-"""Report assembly and rendering for ``yoke onboard``."""
+"""Report assembly and rendering for ``yoke setup``."""
 
 from __future__ import annotations
 

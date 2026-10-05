@@ -71,7 +71,7 @@ def _resolve_configured_project(start: Path, *, explicit: bool) -> Path:
         return _normalized_path(projects[0].checkout)
     if not projects:
         raise BoardProjectResolutionError(
-            "no projects are registered in machine config; run `yoke onboard` "
+            "no projects are registered in machine config; run `yoke setup` "
             "or `yoke project register` first."
         )
     configured = ", ".join(

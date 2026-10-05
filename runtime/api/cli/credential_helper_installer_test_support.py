@@ -172,7 +172,7 @@ def _run_real_installer(
         yes=True,
         dry_run=False,
         base_url=DISTRIBUTION_PROD_URL,
-        no_onboard=True,
+        no_setup=True,
     )
     out = io.StringIO()
     installer = installer_mod.Installer(

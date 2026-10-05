@@ -189,7 +189,7 @@ def test_onboard_create_project_permission_denied_is_friendly(
         config = write_https_config(tmp_path, "product-token", api.url)
         rc = yoke_operations_cli.main(
             [
-                "onboard",
+                "setup",
                 "--config",
                 str(config),
                 "--env",

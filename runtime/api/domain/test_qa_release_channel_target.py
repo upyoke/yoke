@@ -158,7 +158,7 @@ def test_external_distribution_binding_is_generic_and_exact() -> None:
             "base_url": target["endpoints"]["installer_base_url"],
             "channel": target["endpoints"]["release_channel"],
             "evidence_name": "external-release",
-            "no_onboard": True,
+            "no_setup": True,
             "remove_existing_launcher": True,
         },
     }
@@ -186,7 +186,7 @@ def test_self_hosted_distribution_binding_accepts_local_http_target() -> None:
             "base_url": target["endpoints"]["installer_base_url"],
             "channel": target["endpoints"]["release_channel"],
             "evidence_name": "local-release",
-            "no_onboard": True,
+            "no_setup": True,
             "remove_existing_launcher": True,
         },
     }

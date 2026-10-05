@@ -119,7 +119,7 @@ def test_hosted_destination_rejects_every_manual_token_source(
 ) -> None:
     rc = yoke_operations_cli.main(
         [
-            "onboard",
+            "setup",
             "--connect",
             "https://app.upyoke.com",
             "--non-interactive",
@@ -140,7 +140,7 @@ def test_hosted_destination_rejects_noninteractive_fresh_connection(
 ) -> None:
     rc = yoke_operations_cli.main(
         [
-            "onboard",
+            "setup",
             "--connect",
             "https://app.upyoke.com",
             "--non-interactive",
@@ -166,7 +166,7 @@ def test_hosted_api_url_rejects_manual_token_without_touching_local_connection(
 
     rc = yoke_operations_cli.main(
         [
-            "onboard",
+            "setup",
             "a-plausible-hosted-actor-token-value",
             "--non-interactive",
             "--quick",

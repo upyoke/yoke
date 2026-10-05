@@ -16,26 +16,8 @@ from yoke_cli.config import github_publish
 from yoke_cli.config import project_publish_support as pub
 from yoke_cli.config.project_onboard_support import ProjectOnboardError
 
-
-def _git(root: Path, *args: str) -> None:
-    subprocess.run(["git", *args], cwd=root, check=True,
-                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-
-def _init_repo(root: Path, branch: str = "main") -> None:
-    root.mkdir(parents=True, exist_ok=True)
-    _git(root, "init", "--initial-branch", branch)
-    _git(root, "config", "user.email", "t@example.com")
-    _git(root, "config", "user.name", "Test")
-
-
-@pytest.fixture(autouse=True)
-def _local_git_transport(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        pub,
-        "run_git",
-        lambda root, *args, **_kwargs: _git(root, *args),
-    )
+from .project_publish_test_helpers import _git, _init_repo
+from .project_publish_test_helpers import _local_git_transport  # noqa: F401
 
 
 def test_is_git_repo_distinguishes_plain_folder(tmp_path: Path) -> None:
@@ -82,8 +64,10 @@ def test_ensure_initial_commit_creates_commit_only_when_unborn(tmp_path: Path) -
 
     pub.ensure_initial_commit(repo, "main")
     head = subprocess.run(
-        ["git", "rev-parse", "--verify", "HEAD"], cwd=repo,
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        ["git", "rev-parse", "--verify", "HEAD"],
+        cwd=repo,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
     )
     assert head.returncode == 0
     first = head.stdout.decode().strip()
@@ -91,26 +75,34 @@ def test_ensure_initial_commit_creates_commit_only_when_unborn(tmp_path: Path) -
     # A second call with an existing HEAD must not add another commit.
     pub.ensure_initial_commit(repo, "main")
     head2 = subprocess.run(
-        ["git", "rev-parse", "--verify", "HEAD"], cwd=repo,
+        ["git", "rev-parse", "--verify", "HEAD"],
+        cwd=repo,
         stdout=subprocess.PIPE,
     )
     assert head2.stdout.decode().strip() == first
 
 
-def test_create_and_publish_inits_commits_and_pushes(tmp_path: Path, monkeypatch) -> None:
+def test_create_and_publish_inits_commits_and_pushes(
+    tmp_path: Path, monkeypatch
+) -> None:
     # A bare repo stands in for the GitHub remote; the https_remote builder is
     # redirected to it so the real push lands locally without an SSH host-key
     # prompt or any git@github.com transport.
     bare = tmp_path / "remote.git"
-    subprocess.run(["git", "init", "--bare", str(bare)], check=True,
-                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    subprocess.run(
+        ["git", "init", "--bare", str(bare)],
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
 
     checkout = tmp_path / "code" / "widget"
     checkout.mkdir(parents=True)
     (checkout / "README.md").write_text("# widget\n", encoding="utf-8")
 
     monkeypatch.setattr(
-        github_publish, "create_repo",
+        github_publish,
+        "create_repo",
         lambda *a, **k: {"full_name": "octocat/widget", "private": True},
     )
     monkeypatch.setattr(pub, "https_remote", lambda repo, **_: str(bare))
@@ -122,7 +114,10 @@ def test_create_and_publish_inits_commits_and_pushes(tmp_path: Path, monkeypatch
 
     token = "ghs_publish_secret_token"
     request = pub.PublishRequest(
-        owner="octocat", name="widget", user_login="octocat", token=token,
+        owner="octocat",
+        name="widget",
+        user_login="octocat",
+        token=token,
     )
     created = pub.create_and_publish(checkout, request, default_branch="main")
 
@@ -131,8 +126,11 @@ def test_create_and_publish_inits_commits_and_pushes(tmp_path: Path, monkeypatch
     assert pub.has_remote(checkout) is True
     # The bare remote now has the pushed default branch.
     branches = subprocess.run(
-        ["git", "branch", "--list"], cwd=bare,
-        stdout=subprocess.PIPE, text=True, check=True,
+        ["git", "branch", "--list"],
+        cwd=bare,
+        stdout=subprocess.PIPE,
+        text=True,
+        check=True,
     )
     assert "main" in branches.stdout
     # SECURITY: the push carried the token only as a request-scoped header — it
@@ -155,7 +153,8 @@ def test_create_and_publish_denied_push_raises_typed_naming_error(
     checkout.mkdir()
 
     monkeypatch.setattr(
-        github_publish, "create_repo",
+        github_publish,
+        "create_repo",
         lambda *a, **k: {"full_name": "octocat/widget", "private": True},
     )
     monkeypatch.setattr(pub, "init_repo_if_needed", lambda root, branch: True)
@@ -171,7 +170,10 @@ def test_create_and_publish_denied_push_raises_typed_naming_error(
     monkeypatch.setattr(pub, "publish_to_remote", _denied_push)
 
     request = pub.PublishRequest(
-        owner="octocat", name="widget", user_login="octocat", token="ghs_x",
+        owner="octocat",
+        name="widget",
+        user_login="octocat",
+        token="ghs_x",
     )
     with pytest.raises(pub.GitHubPublishError) as excinfo:
         pub.create_and_publish(checkout, request, default_branch="main")
@@ -188,7 +190,8 @@ def test_create_and_publish_non_403_push_error_names_repo_and_resume(
     checkout.mkdir()
 
     monkeypatch.setattr(
-        github_publish, "create_repo",
+        github_publish,
+        "create_repo",
         lambda *a, **k: {"full_name": "octocat/widget", "private": True},
     )
     monkeypatch.setattr(pub, "init_repo_if_needed", lambda root, branch: True)
@@ -204,14 +207,17 @@ def test_create_and_publish_non_403_push_error_names_repo_and_resume(
     monkeypatch.setattr(pub, "publish_to_remote", _network_push)
 
     request = pub.PublishRequest(
-        owner="octocat", name="widget", user_login="octocat", token="ghs_x",
+        owner="octocat",
+        name="widget",
+        user_login="octocat",
+        token="ghs_x",
     )
     with pytest.raises(pub.GitHubPublishError) as excinfo:
         pub.create_and_publish(checkout, request, default_branch="main")
     message = str(excinfo.value)
     assert "octocat/widget" in message
     assert "Could not resolve host" in message
-    assert "re-run yoke onboard to resume the push" in message
+    assert "re-run yoke setup to resume the push" in message
 
 
 def test_create_and_publish_retries_push_when_origin_already_matches(
@@ -219,8 +225,12 @@ def test_create_and_publish_retries_push_when_origin_already_matches(
 ) -> None:
     """A retry after remote-add-but-before-push reuses origin and pushes."""
     bare = tmp_path / "remote.git"
-    subprocess.run(["git", "init", "--bare", str(bare)], check=True,
-                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    subprocess.run(
+        ["git", "init", "--bare", str(bare)],
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
 
     checkout = tmp_path / "code"
     _init_repo(checkout)
@@ -231,9 +241,11 @@ def test_create_and_publish_retries_push_when_origin_already_matches(
 
     create_calls = {"count": 0}
     monkeypatch.setattr(
-        github_publish, "create_repo",
+        github_publish,
+        "create_repo",
         lambda *a, **k: create_calls.__setitem__(
-            "count", create_calls["count"] + 1,
+            "count",
+            create_calls["count"] + 1,
         ),
     )
     monkeypatch.setattr(pub, "https_remote", lambda repo, **_: str(bare))
@@ -241,12 +253,17 @@ def test_create_and_publish_retries_push_when_origin_already_matches(
         github_publish,
         "verify_resumable_repo",
         lambda *args, **kwargs: {
-            "full_name": "octocat/widget", "private": True, "reused": True,
+            "full_name": "octocat/widget",
+            "private": True,
+            "reused": True,
         },
     )
 
     request = pub.PublishRequest(
-        owner="octocat", name="widget", user_login="octocat", token="ghs_x",
+        owner="octocat",
+        name="widget",
+        user_login="octocat",
+        token="ghs_x",
     )
     created = pub.create_and_publish(checkout, request, default_branch="main")
 
@@ -254,8 +271,11 @@ def test_create_and_publish_retries_push_when_origin_already_matches(
     assert created["reused"] is True
     assert create_calls["count"] == 0
     branches = subprocess.run(
-        ["git", "branch", "--list"], cwd=bare,
-        stdout=subprocess.PIPE, text=True, check=True,
+        ["git", "branch", "--list"],
+        cwd=bare,
+        stdout=subprocess.PIPE,
+        text=True,
+        check=True,
     )
     assert "main" in branches.stdout
 
@@ -270,9 +290,7 @@ def test_publish_origin_mismatch_never_echoes_embedded_credentials(
     monkeypatch.setattr(
         pub.project_clone_resume,
         "remote_url",
-        lambda *_args: (
-            f"https://octocat:{secret}@github.com/foreign/repository.git"
-        ),
+        lambda *_args: f"https://octocat:{secret}@github.com/foreign/repository.git",
     )
     monkeypatch.setattr(
         pub.project_clone_resume,
@@ -290,43 +308,3 @@ def test_publish_origin_mismatch_never_echoes_embedded_credentials(
 
     assert secret not in str(caught.value)
     assert "different origin" in str(caught.value)
-
-
-def test_create_and_publish_private_default_in_request() -> None:
-    request = pub.PublishRequest(
-        owner="octocat", name="widget", user_login="octocat", token="ghs_x",
-    )
-    assert request.private is True
-    assert request.api_url == "https://api.github.com"
-
-
-def test_create_repo_call_uses_request_private_flag(tmp_path: Path, monkeypatch) -> None:
-    bare = tmp_path / "remote.git"
-    subprocess.run(["git", "init", "--bare", str(bare)], check=True,
-                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    checkout = tmp_path / "code"
-    checkout.mkdir()
-    monkeypatch.setattr(pub, "https_remote", lambda repo, **_: str(bare))
-    monkeypatch.setenv("GIT_AUTHOR_NAME", "Test")
-    monkeypatch.setenv("GIT_AUTHOR_EMAIL", "t@example.com")
-    monkeypatch.setenv("GIT_COMMITTER_NAME", "Test")
-    monkeypatch.setenv("GIT_COMMITTER_EMAIL", "t@example.com")
-
-    seen: dict = {}
-
-    def _fake_create(*args, **kwargs):
-        seen.update(kwargs)
-        return {"full_name": f"{kwargs['owner']}/{kwargs['name']}", "private": True}
-
-    monkeypatch.setattr(github_publish, "create_repo", _fake_create)
-
-    request = pub.PublishRequest(
-        owner="acme-inc", name="thing", user_login="octocat", token="ghs_x",
-        private=True,
-    )
-    pub.create_and_publish(checkout, request, default_branch="main")
-
-    assert seen["owner"] == "acme-inc"
-    assert seen["name"] == "thing"
-    assert seen["user_login"] == "octocat"
-    assert seen["private"] is True

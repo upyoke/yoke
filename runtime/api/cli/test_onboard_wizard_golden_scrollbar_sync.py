@@ -32,7 +32,7 @@ from runtime.api.cli.onboard_wizard_golden_support import (  # noqa: E402
 from yoke_cli.config import project_git_probe  # noqa: E402
 from yoke_cli.config import project_git_transport  # noqa: E402
 
-TITLE = "yoke onboard · Review"
+TITLE = "yoke setup · Review"
 
 # One row taller than the body actually is — the stale copy that stops the thumb
 # short of the track end and adds the end-cap glyph.
@@ -133,7 +133,8 @@ def _stub_source_branch(monkeypatch):
         ),
     )
     monkeypatch.setattr(
-        project_git_transport, "remote_default_branch",
+        project_git_transport,
+        "remote_default_branch",
         lambda url, token=None, github_web_url=None: "main",
     )
 

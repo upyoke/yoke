@@ -33,7 +33,7 @@ def register_project(
     Re-pointing an already-claimed ``(env, project_id)`` slot at a different
     checkout moves shared routing every other reader resolves against —
     worktree preparation included — so it requires ``reassign=True`` from an
-    explicit setup/operator-authorized caller (``yoke onboard``, ``yoke
+    explicit setup/operator-authorized caller (``yoke setup``, ``yoke
     project install``/``create``/``import``). Registering a slot with no
     existing checkout, or re-registering the same checkout, is ordinary
     first-time setup and always proceeds without it.
@@ -56,7 +56,10 @@ def register_project(
     payload, cfg_path = _load_payload(path)
     env = _registration_env(payload)
     displaced = contract.existing_checkout_for_slot(
-        payload.get("projects"), checkout=str(root), project_id=normalized, env=env,
+        payload.get("projects"),
+        checkout=str(root),
+        project_id=normalized,
+        env=env,
     )
     if displaced is not None and not reassign:
         raise MachineConfigWriteError(
@@ -64,7 +67,7 @@ def register_project(
             f"{displaced!r}; registering {root} would move shared checkout "
             "routing out from under every other reader (worktree "
             "preparation included). Pass --reassign only for a deliberate "
-            "setup/operator-authorized move (yoke onboard, yoke project "
+            "setup/operator-authorized move (yoke setup, yoke project "
             "install/create/import) — routine agent execution must not "
             "silently repoint an existing project's checkout."
         )

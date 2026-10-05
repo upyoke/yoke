@@ -14,7 +14,7 @@ def _installer(monkeypatch, runner, *, resolve_bin=True):
         yes=True,
         dry_run=False,
         base_url="https://api.upyoke.com",
-        no_onboard=True,
+        no_setup=True,
     )
     installer = module.Installer(options, runner=runner, stdout=io.StringIO())
     if resolve_bin:

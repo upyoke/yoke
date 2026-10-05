@@ -239,7 +239,7 @@ def _config(command: str, disposition: str) -> str:
     by_command = {
         "yoke github connect": "machine config path and GitHub App authorization source",
         "yoke github disconnect": "machine config path and local authorization removal",
-        "yoke onboard": "target config path, env, API URL, GitHub App authorization, optional local checkout handoff inputs",
+        "yoke setup": "target config path, env, API URL, GitHub App authorization, optional local checkout handoff inputs",
         "yoke dev setup": "Yoke source checkout; optional local-postgres DSN inputs",
         "yoke dev db-admin setup": (
             "named HTTPS control-plane env plus project/env deploy settings"

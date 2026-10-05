@@ -94,12 +94,12 @@ def test_required_terminal_completion_has_distinct_not_reached_outcome(
         "yoke_core.domain.ssh_mac_terminal_legacy.wait_for_text",
         lambda *_args, **_kwargs: TerminalWaitResult(
             False,
-            "Usage: yoke onboard [OPTIONS]",
+            "Usage: yoke setup [OPTIONS]",
         ),
     )
 
     result = control.run_terminal_case(
-        entry_surface="yoke onboard",
+        entry_surface="yoke setup",
         required_completion="review",
         steps=[{"key": "review", "expect": "Review"}],
         capture_checkpoints=[],
@@ -112,7 +112,7 @@ def test_required_terminal_completion_has_distinct_not_reached_outcome(
             "key": "review",
             "expect": "Review",
             "reached": False,
-            "transcript": "Usage: yoke onboard [OPTIONS]",
+            "transcript": "Usage: yoke setup [OPTIONS]",
         }
     ]
     assert result.evidence["expected_not_observed"] == "Review"

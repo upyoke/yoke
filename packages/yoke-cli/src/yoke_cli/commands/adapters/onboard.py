@@ -1,4 +1,4 @@
-"""Machine and project onboarding adapter for ``yoke onboard``."""
+"""Machine and project onboarding adapter for ``yoke setup``."""
 
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ from yoke_cli.config import github_user_tokens
 
 
 ONBOARD_USAGE = (
-    "yoke onboard [--quick | --advanced] [--local | --connect URL] [--json] "
+    "yoke setup [--quick | --advanced] [--local | --connect URL] [--json] "
     "[--non-interactive] [--config PATH] --env ENV --api-url URL "
     "[TOKEN | --token-file PATH | --token-stdin] [--yes] "
     "[--machine-github connect|disabled] "
@@ -47,7 +47,7 @@ ONBOARD_USAGE = (
 
 
 def onboard(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(prog="yoke onboard")
+    parser = argparse.ArgumentParser(prog="yoke setup")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--quick", action="store_true")
     mode.add_argument("--advanced", action="store_true")

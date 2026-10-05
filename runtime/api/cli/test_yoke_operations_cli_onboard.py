@@ -37,11 +37,11 @@ def _isolate_machine_side_effects(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_onboard_help_exits_cleanly(capsys) -> None:
-    rc = yoke_operations_cli.main(["onboard", "--help"])
+    rc = yoke_operations_cli.main(["setup", "--help"])
 
     assert rc == 0
     out = capsys.readouterr().out
-    assert "yoke onboard" in out
+    assert "yoke setup" in out
     assert "[--config PATH]" in out
 
 
@@ -55,7 +55,7 @@ def test_onboard_dry_run_prints_write_plan_without_mutation(
 
     rc = yoke_operations_cli.main(
         [
-            "onboard",
+            "setup",
             "--non-interactive",
             "--advanced",
             "--config",
@@ -101,7 +101,7 @@ def test_onboard_non_interactive_defaults_config_path(
 
     rc = yoke_operations_cli.main(
         [
-            "onboard",
+            "setup",
             "--non-interactive",
             "--quick",
             "--env",
@@ -129,7 +129,7 @@ def test_onboard_yes_writes_machine_config_after_identity_check(
     with _registry_server(expected_token="actor-token") as api_url:
         rc = yoke_operations_cli.main(
             [
-                "onboard",
+                "setup",
                 "actor-token",
                 "--non-interactive",
                 "--quick",
@@ -171,7 +171,7 @@ def test_onboard_yes_accepts_versioned_api_base(
         versioned_api_url = api_url + "/v1"
         rc = yoke_operations_cli.main(
             [
-                "onboard",
+                "setup",
                 "actor-token",
                 "--non-interactive",
                 "--quick",
@@ -206,7 +206,7 @@ def test_onboard_yes_refuses_to_replace_existing_token(
 
     rc = yoke_operations_cli.main(
         [
-            "onboard",
+            "setup",
             "yoke_v1_new",
             "--non-interactive",
             "--quick",
@@ -231,7 +231,7 @@ def test_onboard_yes_refuses_to_replace_existing_token(
 
 
 def test_onboard_missing_required_flags_exits_nonzero(capsys) -> None:
-    rc = yoke_operations_cli.main(["onboard", "--non-interactive"])
+    rc = yoke_operations_cli.main(["setup", "--non-interactive"])
 
     assert rc == 2
     assert "--api-url" in capsys.readouterr().err
@@ -249,7 +249,7 @@ def test_onboard_json_missing_flags_does_not_launch_wizard(
     monkeypatch.setattr(sys, "stdin", stdin)
     monkeypatch.setattr(sys, "stdout", stdout)
 
-    rc = yoke_operations_cli.main(["onboard", "--json"])
+    rc = yoke_operations_cli.main(["setup", "--json"])
 
     assert rc == 2
     assert stdout.getvalue() == ""
@@ -266,7 +266,7 @@ def test_onboard_non_tty_does_not_launch_wizard(
     monkeypatch.setattr(sys, "stdin", io.StringIO(""))
     monkeypatch.setattr(sys, "stdout", io.StringIO())
 
-    rc = yoke_operations_cli.main(["onboard"])
+    rc = yoke_operations_cli.main(["setup"])
 
     assert rc == 2
     assert "--api-url" in capsys.readouterr().err

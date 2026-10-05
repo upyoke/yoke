@@ -20,7 +20,7 @@ from yoke_harness.test_machine_types import HostActionResult
 _CURRENT_RELEASE_CHANNEL = "latest"
 _INSTALLER_CHANNEL_ENV = "YOKE_CHANNEL"
 _INSTALLER_CONFIRM_ENV = "YOKE_INSTALL_YES"
-_INSTALLER_NO_ONBOARD_ENV = "YOKE_NO_ONBOARD"
+_INSTALLER_NO_ONBOARD_ENV = "YOKE_NO_SETUP"
 
 
 class SshHostBaselines:
@@ -134,7 +134,7 @@ class SshHostBaselines:
                                 "/bin/sh",
                                 INSTALLER_TEMP_PATH,
                                 "--yes",
-                                "--no-onboard",
+                                "--no-setup",
                             ]
                         ),
                         1200,

@@ -1,4 +1,4 @@
-"""PATH-readiness flow for the ``yoke onboard`` wizard.
+"""PATH-readiness flow for the ``yoke setup`` wizard.
 
 The flow diagnoses PATH and delegates shell configuration to uv.
 """

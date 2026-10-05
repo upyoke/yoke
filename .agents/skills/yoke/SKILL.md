@@ -37,7 +37,7 @@ Three routing facts that decide where a request goes before any file is read:
 - `/yoke onboard [--project P] [--run-id RUN]` makes an already-wired project
   execution-ready — strategy docs, execution profile, Packs, hosting,
   environments, a gated first deploy, and seeded first work. Machine and
-  project **wire-up** is the terminal `yoke onboard` wizard instead; this skill
+  project **wire-up** is the terminal `yoke setup` wizard instead; this skill
   never reimplements it.
 - `/yoke simulate PREFIX-N` and `/yoke simulate --system` are a harness slash
   skill only — there is no terminal `yoke simulate` adapter.

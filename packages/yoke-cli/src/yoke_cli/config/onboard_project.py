@@ -1,4 +1,4 @@
-"""Project handoff helpers for the product ``yoke onboard`` wizard."""
+"""Project handoff helpers for the product ``yoke setup`` wizard."""
 
 from __future__ import annotations
 

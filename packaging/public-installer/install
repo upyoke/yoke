@@ -15,7 +15,7 @@ channel="${YOKE_CHANNEL:-}"
 version="${YOKE_VERSION:-}"
 yes="${YOKE_INSTALL_YES:-}"
 dry_run=""
-no_onboard="${YOKE_NO_ONBOARD:-}"
+no_setup="${YOKE_NO_SETUP:-}"
 base_url="${YOKE_INSTALL_BASE_URL:-https://api.upyoke.com}"
 prompt_in_default=0
 prompt_out_default=0
@@ -74,7 +74,7 @@ if [ -n "$uv_bin_dir" ]; then
 fi
 
 usage() {
-  printf '%s\n' "usage: install [--channel CHANNEL] [--version VERSION] [--yes] [--dry-run] [--no-onboard]"
+  printf '%s\n' "usage: install [--channel CHANNEL] [--version VERSION] [--yes] [--dry-run] [--no-setup]"
   printf '%s\n' "Install Yoke, or rerun the same command to upgrade/reinstall it."
   printf '%s\n' "The installer selects Yoke packages from the Yoke index and dependencies from public PyPI."
 }
@@ -212,11 +212,11 @@ run_prompt_command() {
 }
 
 onboard_disabled() {
-  truthy "$no_onboard"
+  truthy "$no_setup"
 }
 
 print_onboard_next() {
-  printf '%sRun yoke onboard to finish setting up your machine & projects.\n' "$(gutter)"
+  printf '%sRun yoke setup to finish setting up your machine & projects.\n' "$(gutter)"
 }
 
 onboard_terminal_ready() {
@@ -300,7 +300,7 @@ print_path_guidance_after_onboard() {
 # wizard by absolute path so the launch does not depend on a not-yet-reloaded
 # shell — no extra consent prompt; the wizard leads with the PATH step, so
 # quitting it is always safe. A --yes / noninteractive run prints the exact next
-# command instead (the wizard is interactive-only); --no-onboard suppresses the
+# command instead (the wizard is interactive-only); --no-setup suppresses the
 # launch entirely.
 offer_onboard() {
   [ -n "$dry_run" ] && return 0
@@ -319,11 +319,11 @@ offer_onboard() {
   fi
   yoke_bin=$(command -v yoke)
   if plain_glyphs; then
-    printf '%sStarting Yoke onboard...\n' "$(gutter)"
+    printf '%sStarting Yoke setup...\n' "$(gutter)"
   else
-    printf '%sStarting Yoke onboard…\n' "$(gutter)"
+    printf '%sStarting Yoke setup…\n' "$(gutter)"
   fi
-  run_prompt_command "\"$yoke_bin\" onboard --post-install" || fail "Yoke onboard did not finish; see the summary above."
+  run_prompt_command "\"$yoke_bin\" setup --post-install" || fail "Yoke setup did not finish; see the summary above."
   onboard_launched=1
 }
 
@@ -544,8 +544,8 @@ while [ "$#" -gt 0 ]; do
       dry_run=1
       shift
       ;;
-    --no-onboard)
-      no_onboard=1
+    --no-setup)
+      no_setup=1
       shift
       ;;
     --help|-h)
@@ -637,11 +637,11 @@ if plain_glyphs; then
   helper_plain_glyphs=1
 fi
 
-# Scope YOKE_NO_ONBOARD to the helper child via env so it never disables this
+# Scope YOKE_NO_SETUP to the helper child via env so it never disables this
 # shim's own onboarding offer below. Hand the shim's own presentation decisions
 # to install.py so its setup log matches the welcome banner exactly (it can't
 # re-derive the tty once it runs under `uv run`).
-env YOKE_NO_ONBOARD=1 YOKE_INSTALL_FORCE_COLOR="$welcome_color" \
+env YOKE_NO_SETUP=1 YOKE_INSTALL_FORCE_COLOR="$welcome_color" \
   YOKE_INSTALL_FORCE_PLAIN="$helper_plain_glyphs" \
   $python_runner "$@" < "$command_stdin"
 install_rc=$?

@@ -1,4 +1,4 @@
-"""Deployment-destination vocabulary for ``yoke onboard``.
+"""Deployment-destination vocabulary for ``yoke setup``.
 
 One shared Yoke engine, three deployment destinations: the machine's own
 embedded local universe, a self-hosted team server, or the hosted platform
@@ -73,10 +73,7 @@ def is_hosted_url(api_url: object) -> bool:
         and parsed.netloc == platform.netloc
         and not parsed.query
         and not parsed.fragment
-        and (
-            not parsed.path
-            or bool(re.fullmatch(r"/api/orgs/[^/]+", parsed.path))
-        )
+        and (not parsed.path or bool(re.fullmatch(r"/api/orgs/[^/]+", parsed.path)))
         for platform in _HOSTED_PLATFORM_URLS
     )
 
@@ -87,10 +84,7 @@ def hosted_environment_for_url(api_url: object) -> str | None:
         return None
     parsed = urllib.parse.urlsplit(str(api_url or "").strip().rstrip("/"))
     for env_name, platform in _HOSTED_ENVIRONMENTS:
-        if (
-            parsed.scheme == platform.scheme
-            and parsed.netloc == platform.netloc
-        ):
+        if parsed.scheme == platform.scheme and parsed.netloc == platform.netloc:
             return env_name
     return None
 

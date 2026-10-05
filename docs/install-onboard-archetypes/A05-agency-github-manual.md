@@ -11,7 +11,7 @@ engagement. Each client is a separate Yoke project. Deploys are FTP or
 
 | | |
 |---|---|
-| Fits | Re-run `yoke onboard` / existing folder. Stored destination picker if a token exists. Machine GitHub reuse. Skip hosting. Multiple projects on one local universe. |
+| Fits | Re-run `yoke setup` / existing folder. Stored destination picker if a token exists. Machine GitHub reuse. Skip hosting. Multiple projects on one local universe. |
 | Breaks | One wizard hosting credential is **per project slug** (`capability-secrets/<project>/aws-admin`). FTP/ZIP is not a flow. Agency org vs personal GitHub owner picker. |
 | Gaps | Multi-project teaching. "Client has no deploy environment" as a first-class profile. |
 
@@ -19,9 +19,9 @@ engagement. Each client is a separate Yoke project. Deploys are FTP or
 
 Re-run `curl -fsSL https://upyoke.com/install | sh` upgrades lockstep packages
 (`yoke-cli`, `yoke-contracts`, `yoke-harness`, `yoke-core`) then
-`Starting Yoke onboard…` again.
+`Starting Yoke setup…` again.
 
-Or she runs `yoke onboard` directly.
+Or she runs `yoke setup` directly.
 
 If a stored connection exists (`_stored_yoke_token_available`):
 

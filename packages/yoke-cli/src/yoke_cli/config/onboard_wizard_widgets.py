@@ -1,4 +1,4 @@
-"""Reusable widgets for the full-screen ``yoke onboard`` wizard.
+"""Reusable widgets for the full-screen ``yoke setup`` wizard.
 
 The stepper and the arrow-key selection list are presentation-only; they hold
 no onboarding logic. They render the wizard's phase model and the per-step

@@ -52,10 +52,10 @@ from yoke_contracts.machine_config import schema as machine_schema
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE, TRANSPORT_HTTPS
 
 
-_BARE_ONBOARD_COMMAND = "yoke onboard"
-_NONINTERACTIVE_ONBOARD_COMMAND = (
-    "yoke onboard --non-interactive --local --yes   (machine-local universe)\n"
-    "  yoke onboard --non-interactive --env <env> --api-url <url> "
+_BARE_SETUP_COMMAND = "yoke setup"
+_NONINTERACTIVE_SETUP_COMMAND = (
+    "yoke setup --non-interactive --local --yes   (machine-local universe)\n"
+    "  yoke setup --non-interactive --env <env> --api-url <url> "
     "--token-file <path> --yes"
 )
 
@@ -94,11 +94,7 @@ def _render_help() -> str:
     tool_shaped_groups: dict[str, list[tuple[str, str]]] = {}
     for cli_form, usage in TOOL_SHAPED_USAGE.items():
         tokens = cli_form.split()
-        family = (
-            tokens[1]
-            if len(tokens) > 1 and tokens[0] == "yoke"
-            else "tool-shaped"
-        )
+        family = tokens[1] if len(tokens) > 1 and tokens[0] == "yoke" else "tool-shaped"
         tool_shaped_groups.setdefault(family, []).append((cli_form, usage))
 
     for family in sorted(set(family_groups.keys()) | set(tool_shaped_groups.keys())):
@@ -145,16 +141,16 @@ def _emit_version() -> int:
     return 0
 
 
-def _emit_bare_onboard_route(problem: str, *, interactive: bool) -> int:
+def _emit_bare_setup_route(problem: str, *, interactive: bool) -> int:
     print(f"yoke: machine config is not ready: {problem}", file=sys.stderr)
     if interactive:
-        print(f"Start setup with `{_BARE_ONBOARD_COMMAND}`.", file=sys.stderr)
+        print(f"Start setup with `{_BARE_SETUP_COMMAND}`.", file=sys.stderr)
     else:
         print(
-            "Run onboarding explicitly. For automation:",
+            "Run setup explicitly. For automation:",
             file=sys.stderr,
         )
-        print(f"  {_NONINTERACTIVE_ONBOARD_COMMAND}", file=sys.stderr)
+        print(f"  {_NONINTERACTIVE_SETUP_COMMAND}", file=sys.stderr)
     print("Help is still available with `yoke --help`.", file=sys.stderr)
     return 1
 
@@ -195,8 +191,10 @@ def _machine_config_ready(explicit_env: Optional[str]) -> tuple[bool, str]:
     except machine_config.MachineConfigError as exc:
         return False, str(exc)
     errors = [
-        issue for issue in machine_schema.validate_payload(
-            payload, explicit_env=explicit_env,
+        issue
+        for issue in machine_schema.validate_payload(
+            payload,
+            explicit_env=explicit_env,
         )
         if issue.severity == "error"
     ]
@@ -287,8 +285,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     if not argv:
         ready, problem = _machine_config_ready(global_env)
         if not ready:
-            return _emit_bare_onboard_route(
-                problem, interactive=_stdin_is_interactive(),
+            return _emit_bare_setup_route(
+                problem,
+                interactive=_stdin_is_interactive(),
             )
         return _emit_help(explicit_env=global_env)
 
@@ -303,13 +302,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     except KeyError:
         # Tool-shaped commands (git hook bodies, QA case/substrate tools,
         # the client-local installer/onboarding flows) carry no function
-        # id; they route here only after registry resolution misses. A
-        # concrete tool-shaped match wins over group-prefix help, mirroring
-        # how a registry hit wins: only fall back to group help when nothing
-        # runnable matches. Without this, a bare tool-shaped command that is
-        # also a registered group prefix (`yoke onboard` wizard, with
-        # `onboard checklist` registered) would be shadowed by its own group
-        # listing instead of launching.
+        # id; they route here only after registry resolution misses.
+        # Concrete client-local commands win over prefix-group help, just as
+        # registered commands do. Bare onboard now falls through to the
+        # project-readiness group; only setup launches the machine wizard.
         tool_shaped = resolve_tool_shaped(argv)
         if tool_shaped is not None:
             adapter, remaining = tool_shaped
@@ -327,9 +323,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         # because the code that must not open a connection is the engine work
         # the adapter runs locally — worktree preflight, merge, resync,
         # GitHub sync — not the relay call itself.
-        with _control_plane_locality(global_env), propagated_session_identity(
-            argv
-        ):
+        with _control_plane_locality(global_env), propagated_session_identity(argv):
             try:
                 return sandbox_denial.run(adapter, remaining, argv)
             except SystemExit as exc:

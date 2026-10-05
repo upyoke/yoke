@@ -62,7 +62,7 @@ def test_terminal_mode_launches_and_drives_terminal_app_without_a_multiplexer(
     result = execute_terminal_recipe(
         run,
         upload_bytes=lambda _path, _content: True,
-        entry_surface="yoke onboard",
+        entry_surface="yoke setup",
         required_completion="done",
         config=config,
         evidence_parent=tmp_path / "evidence",
@@ -129,7 +129,7 @@ def test_terminal_app_recipe_captures_the_visible_window_region(
     result = execute_terminal_recipe(
         run,
         upload_bytes=lambda _path, _content: True,
-        entry_surface="yoke onboard",
+        entry_surface="yoke setup",
         required_completion="done",
         config=config,
         evidence_parent=tmp_path / "evidence",

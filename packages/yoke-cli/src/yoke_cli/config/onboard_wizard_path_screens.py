@@ -1,4 +1,4 @@
-"""PATH-readiness screen builders for the ``yoke onboard`` wizard.
+"""PATH-readiness screen builders for the ``yoke setup`` wizard.
 
 Pure functions that turn a PATH diagnosis or repair plan into the widgets a
 step mounts. The readiness screen summarizes the affected files; its optional

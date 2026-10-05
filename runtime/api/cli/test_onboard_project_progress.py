@@ -85,7 +85,7 @@ def test_apply_report_records_project_substep_statuses(
     with ProjectOnboardApi(project=_project_row()) as api:
         rc = yoke_operations_cli.main(
             [
-                "onboard",
+                "setup",
                 "actor-token",
                 "--non-interactive",
                 "--quick",

@@ -80,24 +80,26 @@ class ChecklistRowSpec:
 SOURCE_DEV_ROW_ID = "source-dev-admin-branch"
 SETUP_HANDOFF_ROW_ID = "setup-checklist-handoff"
 
+# Keep the declarative checklist table compact and scan-friendly.
+# fmt: off
 ROW_SPECS = (
     ChecklistRowSpec("package-install", "1", "Package install", LAYER_MACHINE,
                      "public installer", "Install the Yoke CLI package."),
     ChecklistRowSpec("machine-profile", "2", "Machine profile", LAYER_MACHINE,
-                     "yoke onboard", "Create ~/.yoke and secret storage."),
+                     "yoke setup", "Create ~/.yoke and secret storage."),
     ChecklistRowSpec("yoke-connection", "3", "Yoke connection", LAYER_MACHINE,
-                     "yoke onboard", "Store API auth by secret reference."),
+                     "yoke setup", "Store API auth by secret reference."),
     ChecklistRowSpec("project-permission", "4", "Project permission",
-                     LAYER_PROJECT, "yoke onboard / admin",
+                     LAYER_PROJECT, "yoke setup / admin",
                      "Verify the actor can create or bind the project."),
     ChecklistRowSpec("machine-github-connection", "5",
                      "Machine GitHub connection", LAYER_MACHINE,
-                     "yoke onboard", "Verify GitHub identity and repo access."),
+                     "yoke setup", "Verify GitHub identity and repo access."),
     ChecklistRowSpec("project-source-choice", "6", "Project source choice",
-                     LAYER_PROJECT, "yoke onboard",
+                     LAYER_PROJECT, "yoke setup",
                      "Choose create, clone, local checkout, or machine-only."),
     ChecklistRowSpec("project-identity", "7", "Project identity",
-                     LAYER_PROJECT, "yoke onboard",
+                     LAYER_PROJECT, "yoke setup",
                      "Bind project metadata and repository identity."),
     ChecklistRowSpec("checkout-binding", "8", "Checkout binding", LAYER_PROJECT,
                      "yoke project install",
@@ -110,7 +112,7 @@ ROW_SPECS = (
                      LAYER_PROJECT, "explicit source-dev/admin setup",
                      "Only for Yoke source or explicit admin setup."),
     ChecklistRowSpec(SETUP_HANDOFF_ROW_ID, "10", "Setup checklist + handoff",
-                     LAYER_AGENTIC, "yoke onboard",
+                     LAYER_AGENTIC, "yoke setup",
                      "Produce the resumable handoff context."),
     ChecklistRowSpec("repo-survey", "11", "Repo survey", LAYER_AGENTIC,
                      HANDOFF_TO, "Ground docs, manifests, CI, and project shape."),
@@ -169,10 +171,12 @@ ROW_SPECS = (
                      LAYER_VERIFICATION, "All layers",
                      "Keep doctor, events, and learning active."),
 )
+# fmt: on
 
 ROW_IDS = tuple(spec.row_id for spec in ROW_SPECS)
 PROJECT_ROW_IDS = tuple(
-    spec.row_id for spec in ROW_SPECS
+    spec.row_id
+    for spec in ROW_SPECS
     if spec.layer != LAYER_MACHINE and spec.row_id != SETUP_HANDOFF_ROW_ID
 )
 

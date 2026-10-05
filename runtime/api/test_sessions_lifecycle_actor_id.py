@@ -109,10 +109,13 @@ class TestRegisterSessionActorId:
             _register(conn, session_id="sess-actor-bad", actor_id=424242)
         assert excinfo.value.code == "SESSION_ACTOR_INVALID"
         assert "424242" in excinfo.value.message
-        assert conn.execute(
-            "SELECT COUNT(*) FROM harness_sessions WHERE session_id = %s",
-            ("sess-actor-bad",),
-        ).fetchone()[0] == 0
+        assert (
+            conn.execute(
+                "SELECT COUNT(*) FROM harness_sessions WHERE session_id = %s",
+                ("sess-actor-bad",),
+            ).fetchone()[0]
+            == 0
+        )
 
     def test_register_binds_the_recorded_operating_actor(self, conn):
         """The fresh-install case: nobody passes an actor, and the row still
@@ -137,7 +140,9 @@ class TestRegisterSessionActorId:
         assert stored != namesake
 
     def test_register_refuses_when_no_operating_actor_is_recorded(
-        self, conn, machine_config,
+        self,
+        conn,
+        machine_config,
     ):
         """No binding is an unanswered question, not an invitation to guess."""
         _forget_the_binding(machine_config)
@@ -153,7 +158,7 @@ class TestRegisterSessionActorId:
         with pytest.raises(SessionError) as excinfo:
             _register(conn, session_id="sess-actor-none")
         assert excinfo.value.code == "SESSION_ACTOR_MISSING"
-        assert "yoke onboard" in excinfo.value.message
+        assert "yoke setup" in excinfo.value.message
 
     def test_reregistration_backfills_a_row_that_predates_binding(self, conn):
         """Rows written before binding existed heal on the next registration

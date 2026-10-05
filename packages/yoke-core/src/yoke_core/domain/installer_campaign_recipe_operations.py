@@ -129,7 +129,7 @@ def installed_yoke(
         "installer.current-release-prepare",
         base_url=base_url,
         channel=channel,
-        no_onboard=True,
+        no_setup=True,
         remove_existing_launcher=True,
         evidence_name=evidence_name,
     )

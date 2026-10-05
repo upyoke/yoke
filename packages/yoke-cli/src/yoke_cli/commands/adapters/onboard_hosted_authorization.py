@@ -49,7 +49,7 @@ def usage_error(
         )
     if not resuming and not should_prompt:
         return (
-            "Yoke Cloud onboarding requires browser approval; run `yoke onboard "
+            "Yoke Cloud onboarding requires browser approval; run `yoke setup "
             "--connect https://app.upyoke.com` interactively"
         )
     return None

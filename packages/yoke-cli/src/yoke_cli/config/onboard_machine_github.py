@@ -1,4 +1,4 @@
-"""Machine GitHub branch for ``yoke onboard``."""
+"""Machine GitHub branch for ``yoke setup``."""
 
 from __future__ import annotations
 
@@ -84,9 +84,7 @@ def apply(
             )
         else:
             if api_url and local_connection_selected:
-                requested_endpoint = github_origin.validate_github_api_endpoint(
-                    api_url
-                )
+                requested_endpoint = github_origin.validate_github_api_endpoint(api_url)
                 bundled_endpoint = github_origin.validate_github_api_endpoint(
                     github_app_public_profile.bundled_local_product_profile().api_url
                 )

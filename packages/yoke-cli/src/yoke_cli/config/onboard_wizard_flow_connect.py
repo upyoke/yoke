@@ -1,4 +1,4 @@
-"""Sign-in transitions for the ``yoke onboard`` wizard's Account step.
+"""Sign-in transitions for the ``yoke setup`` wizard's Account step.
 
 A mixin composed alongside :class:`onboard_wizard_flow.WizardFlow` into
 :class:`onboard_wizard_app.OnboardWizardApp`. It owns the sign-in lanes the

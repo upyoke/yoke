@@ -161,7 +161,7 @@ def run_installer(
 ) -> subprocess.CompletedProcess[str]:
     """Run a previously fetched installer, pinned to *target*'s exact version.
 
-    Every caller passes ``--yes --no-onboard`` and a resolved version, so a
+    Every caller passes ``--yes --no-setup`` and a resolved version, so a
     reinstall this pins never re-resolves the channel a second time. The
     installer script has no dependencies beyond the standard library, so it
     runs under the caller's own interpreter rather than a fresh ``uv``
@@ -181,7 +181,7 @@ def run_installer(
             "--version",
             target.version,
             "--yes",
-            "--no-onboard",
+            "--no-setup",
             "--base-url",
             target.base_url,
             "--channel",

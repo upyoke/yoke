@@ -1,4 +1,4 @@
-"""Deployment-destination flag surface for the ``yoke onboard`` adapter.
+"""Deployment-destination flag surface for the ``yoke setup`` adapter.
 
 Owns the ``--local`` / ``--connect URL`` group and the resolution that
 folds flags, the destination environment override, and a resumed run's

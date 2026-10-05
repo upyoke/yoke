@@ -1,4 +1,4 @@
-"""Resume and preserve-checkout helpers for ``yoke onboard``."""
+"""Resume and preserve-checkout helpers for ``yoke setup``."""
 
 from __future__ import annotations
 
@@ -16,7 +16,8 @@ def use_different_folder(
 ) -> int:
     try:
         result = onboard_apply_resume.preserve_checkout_for_new_target(
-            run_id, confirmed=confirmed,
+            run_id,
+            confirmed=confirmed,
         )
     except onboard_apply_resume.OnboardApplyResumeError as exc:
         print(f"error: {exc}", file=sys.stderr)

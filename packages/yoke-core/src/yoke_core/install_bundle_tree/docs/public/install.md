@@ -2,7 +2,7 @@
 
 ```bash
 curl -fsSL https://upyoke.com/install | sh
-yoke onboard
+yoke setup
 yoke status
 ```
 
@@ -39,7 +39,7 @@ home, use the exact directory and `chmod` command named in the refusal.
 
 ## Onboard wizard
 
-`yoke onboard` is a full-screen wizard:
+`yoke setup` is a full-screen wizard:
 
 1. **Install / PATH** — confirm the CLI
 2. **Account** — where Yoke lives (this machine / team server / upyoke.com)

@@ -1,4 +1,4 @@
-"""Board-art navigation for the ``yoke onboard`` wizard.
+"""Board-art navigation for the ``yoke setup`` wizard.
 
 The flow previews an editable progress map, then lets the operator generate,
 customize, and save ASCII, Mixed, or image-backed headers. Drafts stay in

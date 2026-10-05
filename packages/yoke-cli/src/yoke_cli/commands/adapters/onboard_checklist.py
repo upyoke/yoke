@@ -42,14 +42,19 @@ def onboard_checklist_cmd(args: List[str]) -> int:
     parser.add_argument("--json", dest="json_mode", action="store_true")
     parser.add_argument("--run-id", dest="run_id", default=None)
     parser.add_argument(
-        "--branch", choices=BRANCHES, default="local-checkout",
+        "--branch",
+        choices=BRANCHES,
+        default="local-checkout",
     )
     parser.add_argument("--project-root", dest="project_root", default=None)
     parser.add_argument("--project-id", dest="project_id", type=int, default=None)
     parser.add_argument("--project-slug", dest="project_slug", default=None)
     parser.add_argument("--github-repo", dest="github_repo", default=None)
     parser.add_argument(
-        "--row-status", dest="row_status", action="append", default=[],
+        "--row-status",
+        dest="row_status",
+        action="append",
+        default=[],
     )
     parser.add_argument("--evidence", action="append", default=[])
     parser.add_argument("--blocker", action="append", default=[])
@@ -98,8 +103,12 @@ def _init(args: List[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke onboard checklist init")
     parser.add_argument("--config", dest="config_path", default=None)
     parser.add_argument("--checkout", dest="checkout_path", default=None)
-    parser.add_argument("--project", dest="project", default=None,
-                        help="Project slug or numeric id (standalone init).")
+    parser.add_argument(
+        "--project",
+        dest="project",
+        default=None,
+        help="Project slug or numeric id (standalone init).",
+    )
     parser.add_argument("--project-id", dest="project_id", type=int, default=None)
     parser.add_argument("--json", dest="json_mode", action="store_true")
     attach_help_trailer(parser)
@@ -159,17 +168,15 @@ def _run_payload(parsed: argparse.Namespace) -> dict[str, Any]:
         "project_slug": parsed.project_slug,
         "github_repo": parsed.github_repo,
         "row_status": _parse_assignments(
-            parsed.row_status, "status", allowed_values=CHECKLIST_STATUSES,
+            parsed.row_status,
+            "status",
+            allowed_values=CHECKLIST_STATUSES,
         ),
         "evidence": _parse_assignments(parsed.evidence, "evidence"),
         "blocker": _parse_assignments(parsed.blocker, "blocker"),
         "note": _parse_assignments(parsed.note, "note"),
     }
-    return {
-        key: value
-        for key, value in payload.items()
-        if value not in (None, {}, [])
-    }
+    return {key: value for key, value in payload.items() if value not in (None, {}, [])}
 
 
 def _parse_assignments(
@@ -217,7 +224,9 @@ def _write_project_view(
 
 
 def _record_for_render(result: Mapping[str, Any]) -> dict[str, Any]:
-    summary = result.get("summary") if isinstance(result.get("summary"), Mapping) else {}
+    summary = (
+        result.get("summary") if isinstance(result.get("summary"), Mapping) else {}
+    )
     status = str(summary.get("status") or result.get("status") or "unknown")
     return {
         "run_id": result.get("run_id") or "unknown",
@@ -244,7 +253,7 @@ def _render_init_human(response: FunctionCallResponse, stdout, stderr) -> None:
         f"  project_id: {payload.get('project_id')}",
         "",
         "Next:",
-        "  - yoke onboard",
+        "  - yoke setup",
         "",
     ]
     print("\n".join(lines), file=stdout)

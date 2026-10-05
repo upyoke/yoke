@@ -34,7 +34,7 @@ def test_document_failure_names_the_step_and_existing_capture(
     )
     commands = Commands(tmp_path, {})
     with pytest.raises(SmokeFailure, match="command_json_invalid: step=onboard") as exc:
-        commands.document("onboard", ["yoke", "onboard"], cwd=tmp_path)
+        commands.document("onboard", ["yoke", "setup"], cwd=tmp_path)
     capture = tmp_path / "01-onboard.txt"
     assert str(capture) in str(exc.value)
     assert f"stdout:\n{stdout}" in capture.read_text()

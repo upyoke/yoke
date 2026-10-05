@@ -72,7 +72,7 @@ Coverage: every axis value appears. The sample is not a market-share ranking.
 ## Two surfaces, one journey
 
 1. **Wire-up** — `curl -fsSL https://upyoke.com/install | sh` then the Textual
-   wizard `yoke onboard` (PATH, Account, GitHub, Project, Hosting, Review).
+   wizard `yoke setup` (PATH, Account, GitHub, Project, Hosting, Review).
 2. **Execution-ready** — harness skill `/yoke onboard`: strategy docs,
    execution profile, Packs, hosting verification, environments/flows, gated
    first deploy, seeded work.

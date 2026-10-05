@@ -35,14 +35,13 @@ def test_yes_mode_prints_next_without_launching_onboard(tmp_path: Path) -> None:
 
     assert result.returncode == 0
     assert (
-        "Run yoke onboard to finish setting up your machine & projects."
-        in result.stdout
+        "Run yoke setup to finish setting up your machine & projects." in result.stdout
     )
-    assert "Starting Yoke onboard" not in result.stdout
+    assert "Starting Yoke setup" not in result.stdout
     assert onboard_log.read_text(encoding="utf-8") == ""
 
 
-def test_no_onboard_env_suppresses_onboard_offer(tmp_path: Path) -> None:
+def test_no_setup_env_suppresses_onboard_offer(tmp_path: Path) -> None:
     bin_dir = _bin(tmp_path)
     write_uv_stub(bin_dir, install_py_body=FAKE_INSTALL_PY)
     write_executable(bin_dir / "yoke", "#!/bin/sh\nexit 0\n")
@@ -50,11 +49,12 @@ def test_no_onboard_env_suppresses_onboard_offer(tmp_path: Path) -> None:
     result = run_shim(
         bin_dir,
         args=("--yes",),
-        env_extra={"YOKE_INSTALL_YES": "1", "YOKE_NO_ONBOARD": "1"},
+        env_extra={"YOKE_INSTALL_YES": "1", "YOKE_NO_SETUP": "1"},
     )
 
     assert result.returncode == 0
-    assert "onboard" not in result.stdout.lower()
+    assert "Starting Yoke setup" not in result.stdout
+    assert "Run yoke setup" not in result.stdout
 
 
 def test_interactive_success_launches_onboard_by_absolute_path(tmp_path: Path) -> None:
@@ -89,8 +89,8 @@ def test_interactive_success_launches_onboard_by_absolute_path(tmp_path: Path) -
     launched_path = logged.split(" ", 1)[0]
     assert launched_path.startswith("/")
     assert launched_path.endswith("/yoke")
-    assert logged.endswith("onboard --post-install")
-    assert "☀ Starting Yoke onboard…" in result.stdout
+    assert logged.endswith("setup --post-install")
+    assert "☀ Starting Yoke setup…" in result.stdout
     assert "Next: make it execution-ready." in result.stdout
     assert "(uv updated your shell configuration)" in result.stdout
     assert "1  open a new terminal" in result.stdout
@@ -133,7 +133,7 @@ def test_screen_mode_success_guidance_uses_ascii_glyphs(tmp_path: Path) -> None:
     )
 
     assert result.returncode == 0
-    assert "* Starting Yoke onboard..." in result.stdout
+    assert "* Starting Yoke setup..." in result.stdout
     assert "Yoke installation complete." in result.stdout
     assert "  | Next: make it execution-ready." in result.stdout
     assert "  |   1  open a new terminal" in result.stdout

@@ -1,4 +1,4 @@
-"""Replay-safe input metadata for ``yoke onboard`` apply reports."""
+"""Replay-safe input metadata for ``yoke setup`` apply reports."""
 
 from __future__ import annotations
 
@@ -17,7 +17,9 @@ _PROJECT_MODES_THAT_CREATE_CHECKOUTS = {
 
 def build(kwargs: Mapping[str, Any]) -> dict[str, Any]:
     """Return a JSON-safe snapshot of non-secret apply inputs."""
-    project_mode = _text(kwargs.get("project_mode") or onboard_project.PROJECT_MODE_MACHINE_ONLY)
+    project_mode = _text(
+        kwargs.get("project_mode") or onboard_project.PROJECT_MODE_MACHINE_ONLY
+    )
     checkout = _text(kwargs.get("project_checkout"))
     return {
         "config_path": _text(kwargs.get("config_path")),
@@ -114,9 +116,7 @@ def _publish(value: Any) -> dict[str, Any] | None:
         "api_url": _text(getattr(value, "api_url", "")),
         "web_url": _text(getattr(value, "web_url", "")),
         "private": bool(getattr(value, "private", True)),
-        "create_repository": bool(
-            getattr(value, "create_repository", True)
-        ),
+        "create_repository": bool(getattr(value, "create_repository", True)),
         "repository_id": getattr(value, "repository_id", None),
         "installation_id": getattr(value, "installation_id", None),
     }
@@ -128,9 +128,7 @@ def _clone(value: Any) -> dict[str, Any] | None:
     return {
         "outcome": _text(getattr(value, "outcome", "")),
         "keep_upstream": bool(getattr(value, "keep_upstream", True)),
-        "use_machine_github": bool(
-            getattr(value, "use_machine_github", False)
-        ),
+        "use_machine_github": bool(getattr(value, "use_machine_github", False)),
         "fork_api_url": _text(getattr(value, "fork_api_url", "")),
         "fork_web_url": _text(getattr(value, "fork_web_url", "")),
         "publish": _publish(getattr(value, "publish", None)),

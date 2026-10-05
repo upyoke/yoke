@@ -1,4 +1,4 @@
-"""Deployment-destination picker for the ``yoke onboard`` wizard.
+"""Deployment-destination picker for the ``yoke setup`` wizard.
 
 This mixin opens the Account step with one question — where should this Yoke
 live — and routes to the matching connection lane:

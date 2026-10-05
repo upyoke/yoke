@@ -8,7 +8,7 @@ it.
 
 ## What the two surfaces actually ask
 
-**Wizard (`yoke onboard`).** PATH, Account, GitHub, Project, Hosting, Review.
+**Wizard (`yoke setup`).** PATH, Account, GitHub, Project, Hosting, Review.
 No test, CI, QA-plan, or merge-queue question exists
 (`onboard_wizard_steps.py` step map).
 

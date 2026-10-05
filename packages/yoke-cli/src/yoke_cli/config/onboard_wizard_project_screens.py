@@ -1,4 +1,4 @@
-"""Project-source presentation helpers for the ``yoke onboard`` wizard.
+"""Project-source presentation helpers for the ``yoke setup`` wizard.
 
 Body builders and option rows for the project-step screens that branch off the
 source-select: the "Also publish to GitHub?" follow-up, the GitHub owner picker,

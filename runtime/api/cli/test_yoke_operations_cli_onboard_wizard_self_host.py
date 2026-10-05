@@ -1,4 +1,4 @@
-"""Pilot coverage for guided self-host first boot inside ``yoke onboard``."""
+"""Pilot coverage for guided self-host first boot inside ``yoke setup``."""
 
 from __future__ import annotations
 

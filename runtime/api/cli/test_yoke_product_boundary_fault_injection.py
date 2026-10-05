@@ -12,7 +12,6 @@ from runtime.api.cli.product_boundary_test_support import (
 )
 
 
-
 def test_version_does_not_import_source_authority(tmp_path: Path) -> None:
     run = _run_product_cli(tmp_path, ["--version"])
 
@@ -55,7 +54,7 @@ def test_product_local_help_commands_do_not_import_source_authority(
 ) -> None:
     commands = (
         (("db", "read", "--help"), "usage: yoke db read"),
-        (("onboard", "--help"), "usage: yoke onboard"),
+        (("setup", "--help"), "usage: yoke setup"),
         (("project", "install", "--help"), "usage: yoke project install"),
         (("dev", "setup", "--help"), "usage: yoke dev setup"),
         (
@@ -154,8 +153,13 @@ def test_ordinary_packaged_refresh_does_not_import_core(
     run = _run_product_cli(
         tmp_path,
         [
-            "project", "refresh", str(target), "--project-id", "7",
-            "--config", str(tmp_path / "home/.yoke/config.json"),
+            "project",
+            "refresh",
+            str(target),
+            "--project-id",
+            "7",
+            "--config",
+            str(tmp_path / "home/.yoke/config.json"),
         ],
         config_payload={
             "schema_version": 1,
@@ -176,8 +180,7 @@ def test_ordinary_packaged_refresh_does_not_import_core(
     assert run.returncode == 1
     assert "yoke_core" not in run.boundary["blocked_attempts"]
     assert not any(
-        str(name).startswith("yoke_core.")
-        for name in run.boundary["blocked_attempts"]
+        str(name).startswith("yoke_core.") for name in run.boundary["blocked_attempts"]
     )
     assert run.boundary["forbidden_loaded"] == []
     assert not (target / ".yoke/install-manifest.json").exists()
@@ -195,8 +198,7 @@ def test_status_fails_when_hook_runtime_package_is_missing(
     report = json.loads(run.stdout)
     assert run.returncode == 1
     assert any(
-        issue["code"] == "import_missing"
-        and "yoke_harness" in issue["message"]
+        issue["code"] == "import_missing" and "yoke_harness" in issue["message"]
         for issue in report["issues"]
     )
 
@@ -209,10 +211,15 @@ def test_source_refresh_preview_diagnoses_without_hook_runtime(
     run = _run_product_cli(
         tmp_path,
         [
-            "project", "refresh", str(target),
-            "--source-checkout", str(REPO_ROOT),
-            "--project-id", "8",
-            "--project-slug", "preview-project",
+            "project",
+            "refresh",
+            str(target),
+            "--source-checkout",
+            str(REPO_ROOT),
+            "--project-id",
+            "8",
+            "--project-slug",
+            "preview-project",
             "--json",
         ],
         include_harness=False,

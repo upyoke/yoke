@@ -258,7 +258,7 @@ def probe_upgrade(
     installer = temporary / "install.py"
     installer.write_text(
         "import argparse, subprocess, sys\n"
-        "p=argparse.ArgumentParser(); p.add_argument('--version'); p.add_argument('--yes',action='store_true'); p.add_argument('--no-onboard',action='store_true'); p.add_argument('--base-url'); p.add_argument('--channel'); a=p.parse_args()\n"
+        "p=argparse.ArgumentParser(); p.add_argument('--version'); p.add_argument('--yes',action='store_true'); p.add_argument('--no-setup',action='store_true'); p.add_argument('--base-url'); p.add_argument('--channel'); a=p.parse_args()\n"
         f"raise SystemExit(subprocess.call([sys.executable,'-m','pip','install','--force-reinstall','--no-deps',{str(cli_wheel)!r}]))\n"
     )
     command(

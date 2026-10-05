@@ -32,7 +32,7 @@ def test_onboard_local_checkout_dry_run_previews_project_handoff(
 
     rc = yoke_operations_cli.main(
         [
-            "onboard",
+            "setup",
             "--non-interactive",
             "--advanced",
             "--config",
@@ -97,7 +97,7 @@ def test_onboard_create_repo_dry_run_uses_project_create_branch(
 
     rc = yoke_operations_cli.main(
         [
-            "onboard",
+            "setup",
             "--non-interactive",
             "--quick",
             "--config",
@@ -156,7 +156,7 @@ def test_onboard_clone_remote_dry_run_uses_project_import_branch(
 
     rc = yoke_operations_cli.main(
         [
-            "onboard",
+            "setup",
             "--non-interactive",
             "--quick",
             "--config",
@@ -245,7 +245,7 @@ def test_noninteractive_remote_secret_never_reaches_preview_or_apply_error(
 
     rc = yoke_operations_cli.main(
         [
-            "onboard",
+            "setup",
             "--non-interactive",
             "--quick",
             "--config",

@@ -29,7 +29,7 @@ The install-time prerequisite set is just a shell, `curl`, and `uv` (installed
 on consent when missing). Everything else is deferred until it is needed:
 
 - A Yoke actor token for the target env.
-- `git`: needed only at the `yoke onboard` project step, and only for a
+- `git`: needed only at the `yoke setup` project step, and only for a
   create, clone, import, or local-checkout mode. Machine-only onboarding needs
   no git.
 - Optional: a Yoke GitHub App connection for GitHub product commands.
@@ -44,7 +44,7 @@ of its own. See [docs/browser-substrate.md](browser-substrate.md).
 
 The public installer ensures `uv` is present, then uses it to install `yoke`
 on a supported Python and link it onto PATH. It auto-launches
-`yoke onboard` when interactive.
+`yoke setup` when interactive.
 
 ```bash
 curl -fsSL https://upyoke.com/install | sh
@@ -133,7 +133,7 @@ consent to replace the destination universe; it atomically revokes imported
 tokens and browser sessions before minting one fresh org-admin token. See
 [Self-Host Yoke](self-host.md) for recovery details.
 
-The `yoke onboard` wizard below drives the same birth machinery when its
+The `yoke setup` wizard below drives the same birth machinery when its
 deployment-destination picker answers "This machine" (or with `--local` /
 `YOKE_ONBOARD_DESTINATION=local` non-interactively), so either entry point
 lands the identical `local` connection. Connected setups (hosted or
@@ -143,7 +143,7 @@ entries selected via `yoke env use` or `--env`.
 
 ### 3. Onboard the Machine
 
-`yoke onboard` is a full-screen wizard. A fixed Install, Account, GitHub,
+`yoke setup` is a full-screen wizard. A fixed Install, Account, GitHub,
 Project, Hosting, Review stepper stays on screen while the body changes; use the
 arrow keys, wheel/trackpad, or the
 scrollbar, redrawing in place. Mouse reporting stays on for that, at the
@@ -176,7 +176,7 @@ pick **A team server** and use only a URL that machine can reach; each teammate
 should receive a separately minted token rather than the first-admin token.
 
 ```bash
-yoke onboard
+yoke setup
 yoke status
 ```
 
@@ -187,9 +187,9 @@ hosted platform's prod env, and a self-hosted deployment passes its own
 entry it writes is the API authority either way:
 
 ```bash
-yoke onboard --local --non-interactive --yes   # machine-local universe
+yoke setup --local --non-interactive --yes   # machine-local universe
 
-yoke onboard --yes \
+yoke setup --yes \
   --config ~/.yoke/config.json \
   --env prod \
   --api-url https://app.upyoke.com/api/orgs/upyoke \
@@ -200,7 +200,7 @@ yoke status
 At the Project step, **Edit Yoke source** accepts a checkout or public fork without official-project access. It supplies the local CLI, harness, and local-universe engine.
 Guided same-machine self-hosting builds the server image from it; remote servers keep their deployed build.
 
-`yoke onboard` creates the machine profile, stores the env credential as an
+`yoke setup` creates the machine profile, stores the env credential as an
 owner-only machine secret under `~/.yoke/secrets/`, validates the active env,
 and applies without printing token values. `yoke status` is the first
 diagnostic to run after setup or when a project command cannot resolve context.
@@ -221,7 +221,7 @@ permissions, local overrides, and disconnect/unbind/revoke operations.
 
 ### 5. Set Up a Project
 
-The `yoke onboard` wizard's Project step is the primary way to pick a project
+The `yoke setup` wizard's Project step is the primary way to pick a project
 source (machine-only, create, clone, import, local checkout, or source-dev/admin
 opt-in). The standalone commands below script a single mode non-interactively.
 
@@ -343,7 +343,7 @@ See [Yoke Source-Dev/Admin Setup](local-setup-reference.md#yoke-source-devadmin-
 
 Yoke's control-plane authority is the configured env. Do not copy local DB
 files into a checkout. Moving a machine means installing the product CLI,
-running or restoring `yoke onboard` machine config, reconnecting secrets, and
+running or restoring `yoke setup` machine config, reconnecting secrets, and
 then reinstalling each project checkout.
 
 Database recovery is a source-dev/admin operation through the managed

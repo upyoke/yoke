@@ -91,7 +91,7 @@ def test_path_diagnosis(monkeypatch: pytest.MonkeyPatch) -> None:
     async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
         a._goto_path_diagnosis()
 
-    assert_golden("path_diagnosis", render(app, drive, title="yoke onboard · Install"))
+    assert_golden("path_diagnosis", render(app, drive, title="yoke setup · Install"))
 
 
 def test_path_diagnosis_allclear(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -102,7 +102,7 @@ def test_path_diagnosis_allclear(monkeypatch: pytest.MonkeyPatch) -> None:
         a._goto_path_diagnosis()
 
     assert_golden(
-        "path_diagnosis_allclear", render(app, drive, title="yoke onboard · Install")
+        "path_diagnosis_allclear", render(app, drive, title="yoke setup · Install")
     )
 
 
@@ -125,7 +125,7 @@ def test_path_preview(monkeypatch: pytest.MonkeyPatch) -> None:
     async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
         a._goto_path_preview()
 
-    assert_golden("path_preview", render(app, drive, title="yoke onboard · Install"))
+    assert_golden("path_preview", render(app, drive, title="yoke setup · Install"))
 
 
 # --------------------------------------------------------------------------- #
@@ -141,7 +141,7 @@ def test_connect_destination_picker() -> None:
 
     assert_golden(
         "connect_destination_picker",
-        render(app, drive, title="yoke onboard · Account"),
+        render(app, drive, title="yoke setup · Account"),
     )
 
 
@@ -153,7 +153,7 @@ def test_connect_local_universe() -> None:
 
     assert_golden(
         "connect_local_universe",
-        render(app, drive, title="yoke onboard · Universe"),
+        render(app, drive, title="yoke setup · Universe"),
     )
 
 
@@ -165,7 +165,7 @@ def test_connect_server_form() -> None:
 
     assert_golden(
         "connect_server_form",
-        render(app, drive, title="yoke onboard · Account"),
+        render(app, drive, title="yoke setup · Account"),
     )
 
 
@@ -176,7 +176,7 @@ def test_connect_token_method() -> None:
         a._goto_token_source()
 
     assert_golden(
-        "connect_token_method", render(app, drive, title="yoke onboard · Account")
+        "connect_token_method", render(app, drive, title="yoke setup · Account")
     )
 
 
@@ -187,7 +187,7 @@ def test_connect_token_paste() -> None:
         a._after_token_source("prompt")
 
     assert_golden(
-        "connect_token_paste", render(app, drive, title="yoke onboard · Account")
+        "connect_token_paste", render(app, drive, title="yoke setup · Account")
     )
 
 
@@ -198,7 +198,7 @@ def test_connect_token_file_input() -> None:
         a._after_token_source("file")
 
     assert_golden(
-        "connect_token_file_input", render(app, drive, title="yoke onboard · Account")
+        "connect_token_file_input", render(app, drive, title="yoke setup · Account")
     )
 
 
@@ -213,7 +213,7 @@ def test_connect_token_error() -> None:
         )
 
     assert_golden(
-        "connect_token_error", render(app, drive, title="yoke onboard · Account")
+        "connect_token_error", render(app, drive, title="yoke setup · Account")
     )
 
 
@@ -229,7 +229,7 @@ def test_github_connect_account() -> None:
         a._goto_machine_github()
 
     assert_golden(
-        "github_connect_account", render(app, drive, title="yoke onboard · GitHub")
+        "github_connect_account", render(app, drive, title="yoke setup · GitHub")
     )
 
 
@@ -254,7 +254,7 @@ def test_github_app_connect_pending(monkeypatch: pytest.MonkeyPatch) -> None:
         a._on_machine_github("connect")
 
     assert_golden(
-        "github_app_connect_pending", render(app, drive, title="yoke onboard · GitHub")
+        "github_app_connect_pending", render(app, drive, title="yoke setup · GitHub")
     )
 
 
@@ -267,7 +267,7 @@ def test_github_app_connect_error() -> None:
         )
 
     assert_golden(
-        "github_app_connect_error", render(app, drive, title="yoke onboard · GitHub")
+        "github_app_connect_error", render(app, drive, title="yoke setup · GitHub")
     )
 
 
@@ -279,7 +279,7 @@ def test_github_app_connected_summary() -> None:
 
     assert_golden(
         "github_app_connected_summary",
-        render(app, drive, title="yoke onboard · GitHub"),
+        render(app, drive, title="yoke setup · GitHub"),
     )
 
 
@@ -292,7 +292,7 @@ def test_github_app_connected_repository_access() -> None:
 
     assert_golden(
         "github_app_connected_repository_access",
-        render(app, drive, title="yoke onboard · GitHub"),
+        render(app, drive, title="yoke setup · GitHub"),
     )
 
 

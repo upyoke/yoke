@@ -56,7 +56,7 @@ def _project_screen_case(source: dict[str, Any]) -> dict[str, Any]:
     if case["case_key"] == "apply-handoff":
         config = case["method_config"]
         config["expected_text"] = [
-            text for text in config["expected_text"] if text != "Starting Yoke onboard"
+            text for text in config["expected_text"] if text != "Starting Yoke setup"
         ]
         return case
     if case["case_key"] != "cold-start-hosted":

@@ -54,7 +54,7 @@ def persist_install_glue(
     except MachineConfigError as exc:
         install_report.setdefault("warnings", []).append(
             "harness machine report was not persisted: "
-            f"{exc}. Write this machine's config first (`yoke onboard`), "
+            f"{exc}. Write this machine's config first (`yoke setup`), "
             "then retry install or `yoke harness machine-report upsert`. "
             "The server does not guess a machine."
         )

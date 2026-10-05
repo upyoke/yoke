@@ -20,7 +20,7 @@ def test_representative_product_client_rows_are_separate_from_source_dev():
     rows = _rows()
     assert rows["yoke status"].disposition == inventory.PRODUCT_CLIENT
     assert rows["yoke status"].transport_branch == "product-client-local"
-    assert rows["yoke onboard"].disposition == inventory.PRODUCT_CLIENT
+    assert rows["yoke setup"].disposition == inventory.PRODUCT_CLIENT
     assert rows["yoke project install"].disposition == inventory.PRODUCT_CLIENT
     assert (
         rows["yoke project install"].transport_branch == "project-install-https-bundle"

@@ -22,7 +22,7 @@ from runtime.api.cli.onboard_wizard_golden_support import (  # noqa: E402
     render,
 )
 
-_TITLE = "yoke onboard · Board art"
+_TITLE = "yoke setup · Board art"
 
 
 def _seed_project(app: Any) -> None:

@@ -36,7 +36,7 @@ def test_onboard_yes_writes_machine_config_and_project_handoff(
     ) as api:
         rc = yoke_operations_cli.main(
             [
-                "onboard",
+                "setup",
                 "actor-token",
                 "--non-interactive",
                 "--quick",

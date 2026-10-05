@@ -1,4 +1,4 @@
-"""Apply/report adapter helpers for ``yoke onboard``."""
+"""Apply/report adapter helpers for ``yoke setup``."""
 
 from __future__ import annotations
 

@@ -150,7 +150,7 @@ _EXIT_REMEDIATION = (
     "To add it later, run:\n"
     "  uv tool update-shell\n"
     "\n"
-    "Run yoke onboard to finish setting up your machine & projects.\n"
+    "Run yoke setup to finish setting up your machine & projects.\n"
 )
 
 
@@ -161,7 +161,7 @@ def test_exit_remediation() -> None:
     # asserted present in the surfaces that produce them so the golden can never
     # drift away from live behavior.
     shim_text = INSTALL_SHIM_PATH.read_text(encoding="utf-8")
-    assert "Run yoke onboard to finish setting up your machine & projects." in shim_text
+    assert "Run yoke setup to finish setting up your machine & projects." in shim_text
     install_py = (INSTALL_SHIM_PATH.parent / "install.py").read_text(encoding="utf-8")
     assert "uv tool update-shell" in install_py
     _assert_golden("exit_remediation.txt", _EXIT_REMEDIATION)
@@ -249,7 +249,7 @@ def _run_install(*, uv_stdout: str, uv_rc: int = 0, uv_stderr: str = "") -> str:
         yes=False,
         dry_run=False,
         base_url="https://api.upyoke.com",
-        no_onboard=True,
+        no_setup=True,
     )
     installer = installer_mod.Installer(
         options,

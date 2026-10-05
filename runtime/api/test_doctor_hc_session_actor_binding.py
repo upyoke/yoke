@@ -228,7 +228,7 @@ def test_reports_the_resolver_reason_when_no_operating_actor_exists(conn):
     _insert_session(conn, "unbound", None)
     record = _run(conn, fix=True)
     assert record.verdict == "FAIL"
-    assert "yoke onboard" in record.detail
+    assert "yoke setup" in record.detail
     still_null = conn.execute(
         "SELECT COUNT(*) FROM harness_sessions WHERE actor_id IS NULL"
     ).fetchone()[0]

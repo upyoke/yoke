@@ -13,7 +13,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 <!-- END GENERATED: field-note-directive -->
 
 This guide preserves the former Live TUI campaign mechanics for the public
-installer and `yoke onboard`. Current campaigns use the registered QA plans,
+installer and `yoke setup`. Current campaigns use the registered QA plans,
 Machine methods, and Test Mac operations described in
 [`docs/testing-verification.md`](../testing-verification.md).
 
@@ -141,9 +141,9 @@ should usually run alone because they may intentionally leave partial state.
 
 | ID | Profile | Flow | Assertions |
 | --- | --- | --- | --- |
-| `INSTALL-SMOKE-001` | `bare-no-uv` | Interactive installer, accept uv, auto-launch onboard | Welcome renders; uv consent default is Yes; `Starting Yoke onboard` appears; wizard opens directly at PATH readiness with installed-version status |
-| `INSTALL-SMOKE-002` | `bare-no-uv` | Installer `--yes` | No TUI launch; prints `Run yoke onboard`; `yoke --version` works |
-| `INSTALL-SMOKE-003` | `prepared-yoke` | Launch `yoke onboard` directly | PATH readiness appears without a congratulations click-through; no crash |
+| `INSTALL-SMOKE-001` | `bare-no-uv` | Interactive installer, accept uv, auto-launch onboard | Welcome renders; uv consent default is Yes; `Starting Yoke setup` appears; wizard opens directly at PATH readiness with installed-version status |
+| `INSTALL-SMOKE-002` | `bare-no-uv` | Installer `--yes` | No TUI launch; prints `Run yoke setup`; `yoke --version` works |
+| `INSTALL-SMOKE-003` | `prepared-yoke` | Launch `yoke setup` directly | PATH readiness appears without a congratulations click-through; no crash |
 | `INSTALL-SMOKE-004` | `prepared-yoke` | Machine-only stage onboarding through explicit test preset | Stage is absent from the ordinary picker; test-only/disposable/no-live-operations warning is inline; Apply succeeds and `yoke status` reaches stage |
 | `INSTALL-SMOKE-005` | `prepared-yoke` | Machine-only prod onboarding | Apply succeeds against prod with prod token; active env is prod |
 
@@ -158,7 +158,7 @@ should usually run alone because they may intentionally leave partial state.
 | `INSTALL-UV-005` | `bare-no-uv` | Script-file invocation with piped `y\n` | Prompt reads stdin safely; no `/dev/tty` noise |
 | `INSTALL-UV-006` | `bare-no-uv` | Piped shell invocation without `--yes` and no tty | Friendly failure/decline behavior; no raw tty errors |
 | `INSTALL-UV-007` | `bare-no-uv` | `YOKE_INSTALL_YES=1` | No welcome prompt; installs quietly |
-| `INSTALL-UV-008` | `bare-no-uv` | `YOKE_NO_ONBOARD=1` | Installs but never offers or launches onboard |
+| `INSTALL-UV-008` | `bare-no-uv` | `YOKE_NO_SETUP=1` | Installs but never offers or launches onboard |
 | `INSTALL-UV-009` | `prepared-yoke` | Re-run installer | Already-installed or reinstall success screen; no duplicate PATH damage |
 | `INSTALL-UV-010` | `fault-injection` | Bad channel pointer | Failure screen names reason and rerun path |
 | `INSTALL-UV-011` | `fault-injection` | Package index unreachable | Failure screen is actionable; no Python traceback |
@@ -646,7 +646,7 @@ curl -fsSL https://api.stage.upyoke.com/install | bash
 ```
 
 Manual proof path: accept uv install if missing, accept PATH repair, confirm
-handoff into `yoke onboard`, pick upyoke.com on the destination picker, choose
+handoff into `yoke setup`, pick upyoke.com on the destination picker, choose
 stage, use `/tmp/yoke-stage.token`, choose the GitHub App connection or
 disabled skip, clone/import under `~/code`, apply, and record the report
 path.
@@ -689,7 +689,7 @@ YOKE_ENV=prod yoke status
 Interactive fallback for configuring prod without touching a project:
 
 ```bash
-yoke onboard --env prod --api-url https://app.upyoke.com/api/orgs/upyoke \
+yoke setup --env prod --api-url https://app.upyoke.com/api/orgs/upyoke \
   --token-file /tmp/yoke-prod.token --project-mode machine-only --yes
 yoke env use prod
 ```
@@ -705,7 +705,7 @@ product installer without launching the wizard:
 
 ```bash
 ssh -tt -e none "$MAC_SSH_HOST"
-curl -fsSL https://api.upyoke.com/install | bash -s -- --yes --no-onboard
+curl -fsSL https://api.upyoke.com/install | bash -s -- --yes --no-setup
 export PATH="$HOME/.local/bin:$PATH"
 yoke --version
 yoke init --local --json
@@ -787,7 +787,7 @@ onboarding so the visual run starts from a clean Terminal.app command:
 
 ```bash
 ssh "$MAC_SSH_HOST" \
-  'curl -fsSL https://api.stage.upyoke.com/install | bash -s -- --yes --no-onboard'
+  'curl -fsSL https://api.stage.upyoke.com/install | bash -s -- --yes --no-setup'
 ssh "$MAC_SSH_HOST" \
   "$MAC_HOME/.local/bin/yoke --version; $MAC_HOME/.local/bin/yoke status"
 ```
@@ -809,7 +809,7 @@ tell application "Terminal"
   set bounds of wizardWindow to {66, 90, 1566, 820}
   do shell script "printf %s " & quoted form of ((id of wizardWindow) as text) & " > /tmp/yoke-installer-window-id"
   delay 0.5
-  do script "printf '\\033c'; exec $HOME/.local/bin/yoke onboard --post-install" in wizardTab
+  do script "printf '\\033c'; exec $HOME/.local/bin/yoke setup --post-install" in wizardTab
 end tell
 OSA
 cat /tmp/yoke-installer-window-id
@@ -818,12 +818,12 @@ REMOTE
 
 #### Capturing The Shim Hand-Off Visually
 
-The launch above starts `yoke onboard` directly, so the public installer shim is
+The launch above starts `yoke setup` directly, so the public installer shim is
 no longer running by the time the wizard exits. Anything the shim prints after
 the wizard — the post-onboard hand-off block, which clears the wizard's display
 and is the last thing a real user sees — cannot appear in that flow. When the
 hand-off block is what you are testing, launch the full installer in the window
-instead of the wizard binary, and drop the `--yes --no-onboard` preinstall step so
+instead of the wizard binary, and drop the `--yes --no-setup` preinstall step so
 the shim owns the whole run:
 
 ```bash
@@ -836,7 +836,7 @@ key codes, same region-screenshot helper. Two extra notes for this variant:
 - The wizard has to run all the way to a successful Apply. Quitting sets the
   wizard's exit code to 130 — the `^c` binding and the `Quit` rows share one
   action — and the shim runs the wizard as `run_prompt_command … || fail`, so any
-  nonzero exit aborts the shim before the hand-off block and prints `Yoke onboard
+  nonzero exit aborts the shim before the hand-off block and prints `Yoke setup
   did not finish` instead. There is no shortcut to this screen: reaching it means
   completing onboarding. The `This machine` destination is the cheapest complete
   path, because local birth needs no hosted credential.
@@ -1016,16 +1016,16 @@ sees the real terminal size while input comes from a FIFO:
   --fifo /tmp/yoke-visible-tui.fifo --log /tmp/yoke-visible-tui-pty.log \
   --status /tmp/yoke-visible-tui.status -- \
   /usr/bin/env TERM=xterm-256color YOKE_ENV=stage \
-"$MAC_HOME/.local/bin/yoke" onboard --post-install
+"$MAC_HOME/.local/bin/yoke" setup --post-install
 ```
 
-To run `yoke onboard` from the operator machine with no human at the keyboard
+To run `yoke setup` from the operator machine with no human at the keyboard
 while seeing each rendered screen:
 
 1. Install non-interactively so no consent prompt blocks the run:
-   `curl -fsSL https://api.stage.upyoke.com/install | bash -s -- --yes --no-onboard`.
-   Then invoke `yoke` by absolute path because `--no-onboard` skips PATH repair.
-2. Run `yoke onboard` under the bridge above inside a Terminal.app window. Input
+   `curl -fsSL https://api.stage.upyoke.com/install | bash -s -- --yes --no-setup`.
+   Then invoke `yoke` by absolute path because `--no-setup` skips PATH repair.
+2. Run `yoke setup` under the bridge above inside a Terminal.app window. Input
    comes from the FIFO, not the keyboard. Create the wizard window, set its final
    bounds, and only then launch the bridge in that existing window:
 
@@ -1123,7 +1123,7 @@ on-disk ground truth:
 
 Two gotchas:
 
-- `--no-onboard` skips the wizard's PATH repair. A bare `--no-onboard` install
+- `--no-setup` skips the wizard's PATH repair. A bare `--no-setup` install
   leaves `yoke`/`uv` visible only to interactive shells because the managed block
   lands in `~/.zshrc`. The wizard's PATH step writes `.zprofile` and `.zshenv`,
   and only then does a one-shot non-interactive SSH command resolve `yoke`.
@@ -1138,7 +1138,7 @@ Board rendering caveat: Terminal.app and iTerm2-style terminals render rich art.
 GNU Screen, dumb terminals, and one-shot SSH commands with no `TERM` render plain
 ASCII plus a terminal-mode explanation. This applies only to terminal board
 commands such as `yoke board` and `yoke board rebuild --print`; it must not block
-`yoke onboard`. Use `--no-pager` for one-shot SSH smokes so the command cannot
+`yoke setup`. Use `--no-pager` for one-shot SSH smokes so the command cannot
 stop inside `less`.
 
 ### Git And Xcode

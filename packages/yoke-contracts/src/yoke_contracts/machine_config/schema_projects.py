@@ -1,10 +1,6 @@
 """Project-entry contract + shared issue primitives.
 
-Sibling of :mod:`machine_config_contract` (split under the authored-file
-cap). Hosts :class:`ValidationIssue` and the small string/issue helpers
-too, so the dependency stays one-directional: the contract front door
-imports from here and re-exports; this module imports nothing back.
-
+The contract front door re-exports these issue and project-entry helpers.
 Project ids are numbered per universe (each connection env's ``projects``
 table starts at 1), so ``projects`` is a flat list of ``{checkout,
 project_id, env}`` entries. The same checkout appears once per env it
@@ -12,7 +8,6 @@ lives in — the rows are identical apart from ``env`` (and any per-env
 id). Resolution matches a checkout AND the active/requested env. A bare
 untagged entry (legacy, pre-stamp) resolves only under the active env.
 A legacy checkout-keyed object is still read (normalized to the list form).
-Machine ``board`` keys are retired; normalize drops them.
 """
 
 from __future__ import annotations
@@ -34,9 +29,9 @@ class ValidationIssue:
     message: str
     path: str = ""
     hint: str = ""
+
     def as_dict(self) -> dict[str, str]:
-        data = {"severity": self.severity, "code": self.code,
-                "message": self.message}
+        data = {"severity": self.severity, "code": self.code, "message": self.message}
         if self.path:
             data["path"] = self.path
         if self.hint:
@@ -176,7 +171,7 @@ def reassign_ambient_session_refusal(session_id: str) -> str:
     """Refusal text for a ``--reassign`` call bound to a harness session.
 
     ``register_project``'s ``reassign`` gate exists for a deliberate
-    setup/operator-authorized checkout move (``yoke onboard``, ``yoke
+    setup/operator-authorized checkout move (``yoke setup``, ``yoke
     project install``/``create``/``import``). A call carrying a resolvable
     session id is a routine agent invocation instead — every Dash/Engineer/
     Conduct/Tester worker always has one by construction — so it is refused
@@ -187,7 +182,7 @@ def reassign_ambient_session_refusal(session_id: str) -> str:
         "id means a harness is driving this call, not a bare operator "
         "terminal. Moving an already-registered project's checkout out from "
         "under every other reader is reserved for a deliberate setup/"
-        "operator-authorized action (yoke onboard, yoke project install/"
+        "operator-authorized action (yoke setup, yoke project install/"
         "create/import) run with no harness session bound to the process."
     )
 
@@ -216,8 +211,9 @@ def existing_checkout_for_slot(
     for entry in normalize_projects(projects):
         if _path_key(Path(entry["checkout"]).expanduser()) == checkout_key:
             continue
-        entry_env = (str(entry["env"]).strip()
-                     if _is_nonempty_str(entry.get("env")) else None)
+        entry_env = (
+            str(entry["env"]).strip() if _is_nonempty_str(entry.get("env")) else None
+        )
         if entry["project_id"] == target_id and _env_collides(entry_env, env_key):
             return str(entry["checkout"])
     return None
@@ -245,7 +241,10 @@ def upsert_project_entry(
     env_key = str(env).strip() if _is_nonempty_str(env) else None
     target_id = int(project_id)
     displaced = existing_checkout_for_slot(
-        projects, checkout=checkout, project_id=target_id, env=env_key,
+        projects,
+        checkout=checkout,
+        project_id=target_id,
+        env=env_key,
     )
     displaced_key = (
         _path_key(Path(displaced).expanduser()) if displaced is not None else None
@@ -253,8 +252,9 @@ def upsert_project_entry(
     kept: list[dict[str, Any]] = []
     for entry in normalize_projects(projects):
         same_checkout = _path_key(Path(entry["checkout"]).expanduser()) == checkout_key
-        entry_env = (str(entry["env"]).strip()
-                     if _is_nonempty_str(entry.get("env")) else None)
+        entry_env = (
+            str(entry["env"]).strip() if _is_nonempty_str(entry.get("env")) else None
+        )
         if same_checkout and entry_env == env_key:
             continue  # replace this checkout's row for this env
         if (
@@ -264,7 +264,8 @@ def upsert_project_entry(
             continue  # another checkout held this (env, project_id) slot
         kept.append(entry)
     new_entry: dict[str, Any] = {
-        "checkout": str(checkout), "project_id": target_id,
+        "checkout": str(checkout),
+        "project_id": target_id,
     }
     if env_key is not None:
         new_entry["env"] = env_key
@@ -315,7 +316,7 @@ def normalize_project_id(value: Any) -> Optional[int]:
 def _strip_worktree_path(path: Path) -> Path:
     parts = list(path.parts)
     if ".worktrees" in parts:
-        return Path(*parts[:parts.index(".worktrees")])
+        return Path(*parts[: parts.index(".worktrees")])
     for i in range(len(parts) - 1):
         if parts[i] == ".claude" and parts[i + 1] == "worktrees":
             return Path(*parts[:i])
@@ -337,9 +338,13 @@ def _nonempty_str(value: Any, default: str) -> str:
     return value.strip() if isinstance(value, str) and value.strip() else default
 
 
-def _error(code: str, message: str, *, path: str = "", hint: str = "") -> ValidationIssue:
+def _error(
+    code: str, message: str, *, path: str = "", hint: str = ""
+) -> ValidationIssue:
     return ValidationIssue("error", code, message, path=path, hint=hint)
 
 
-def _warn(code: str, message: str, *, path: str = "", hint: str = "") -> ValidationIssue:
+def _warn(
+    code: str, message: str, *, path: str = "", hint: str = ""
+) -> ValidationIssue:
     return ValidationIssue("warning", code, message, path=path, hint=hint)

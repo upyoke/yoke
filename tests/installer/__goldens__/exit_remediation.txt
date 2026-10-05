@@ -2,4 +2,4 @@ Open a new terminal to use Yoke.
 To add it later, run:
   uv tool update-shell
 
-Run yoke onboard to finish setting up your machine & projects.
+Run yoke setup to finish setting up your machine & projects.
