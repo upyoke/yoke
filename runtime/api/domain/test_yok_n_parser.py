@@ -65,7 +65,7 @@ class TestParseItemId:
         finally:
             conn.close()
 
-    def test_bare_number_uses_project_context_when_operator_mode_enabled(
+    def test_bare_number_resolves_within_each_explicit_project(
         self,
         ref_db: str,
     ) -> None:
@@ -76,7 +76,6 @@ class TestParseItemId:
                     "42",
                     project="alpha",
                     conn=conn,
-                    allow_bare_internal=False,
                 )
                 == 1001
             )
@@ -85,23 +84,23 @@ class TestParseItemId:
                     "42",
                     project="beta",
                     conn=conn,
-                    allow_bare_internal=False,
                 )
                 == 2001
             )
         finally:
             conn.close()
 
-    def test_bare_number_without_project_rejected_in_operator_mode(self) -> None:
-        with pytest.raises(ValueError, match="project-local"):
-            parse_item_id("123", allow_bare_internal=False)
-
-    def test_bare_integer_string_requires_project_context_by_default(self) -> None:
-        with pytest.raises(ValueError, match="project-local"):
+    def test_bare_number_without_project_is_refused(self) -> None:
+        with pytest.raises(ValueError, match="names a project sequence but no project"):
             parse_item_id("123")
 
-    def test_bare_integer_string_internal_id_requires_explicit_opt_in(self) -> None:
-        assert parse_item_id("123", allow_bare_internal=True) == 123
+    def test_bare_integer_string_requires_project_context_by_default(self) -> None:
+        with pytest.raises(ValueError, match="names a project sequence but no project"):
+            parse_item_id("123")
+
+    def test_bare_integer_string_is_never_an_internal_id(self) -> None:
+        with pytest.raises(ValueError, match="pass the public ref"):
+            parse_item_id("123")
 
     def test_python_int_is_internal_id(self) -> None:
         assert parse_item_id(123) == 123
@@ -133,10 +132,10 @@ class TestParseItemId:
         finally:
             conn.close()
 
-    def test_project_qualifier_is_retired(self, ref_db: str) -> None:
+    def test_project_qualified_form_is_invalid(self, ref_db: str) -> None:
         conn = connect_test_db(ref_db)
         try:
-            with pytest.raises(ValueError, match="retired"):
+            with pytest.raises(ValueError, match="invalid item ref"):
                 parse_item_id("alpha/TST-42", conn=conn)
         finally:
             conn.close()
@@ -216,7 +215,7 @@ class TestDispatcherItemRefResolution:
         assert response is not None and not response.success
         assert response.error is not None
         assert response.error.code == "public_ref_unresolved"
-        assert "project-local" in response.error.message
+        assert "names a project sequence but no project" in response.error.message
 
     def test_bare_number_does_not_guess_session_item_project_context(
         self,
@@ -245,7 +244,7 @@ class TestDispatcherItemRefResolution:
         response = resolve_target_public_ref(request)
         assert response is not None and not response.success
         assert response.error is not None
-        assert "project-local" in response.error.message
+        assert "names a project sequence but no project" in response.error.message
         assert request.target.item_id is None
 
     def test_explicit_prefix_overrides_session_item_project_context(
@@ -290,7 +289,7 @@ class TestDispatcherItemRefResolution:
         response = resolve_target_public_ref(self._request("alpha/TST-42"))
         assert response is not None and not response.success
         assert response.error is not None
-        assert "retired" in response.error.message
+        assert "invalid item ref" in response.error.message
 
 
 class TestClientProjectContext:

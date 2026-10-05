@@ -272,10 +272,10 @@ def resolve_deployment_member_item_id(
         return (None, None, None)
     try:
         from yoke_core.domain import db_helpers
-        from yoke_core.domain.project_identity import resolve_item_id
+        from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 
         with db_helpers.connect() as conn:
-            resolved = resolve_item_id(conn, str(member_ref))
+            resolved = resolve_item_ref_or_none(conn, str(member_ref))
     except Exception as exc:  # noqa: BLE001 - a refusal must name its cause
         return (
             None,

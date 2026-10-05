@@ -117,10 +117,9 @@ def _resolve_item_ref(conn, raw: str) -> int | None:
     Bare strings resolve as project-local sequences; ``PREFIX-seq`` refs are
     self-describing. Returns ``None`` when the ref does not resolve.
     """
-    from yoke_core.domain.project_identity_item_ref import resolve_cli_item_ref
+    from yoke_core.domain.yok_n_parser import parse_item_argument
 
-    arg = str(raw).strip()
-    return resolve_cli_item_ref(conn, arg)
+    return parse_item_argument(str(raw).strip(), conn=conn)
 
 
 def _parse_item_filters(

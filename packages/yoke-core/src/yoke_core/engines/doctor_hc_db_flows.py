@@ -18,7 +18,8 @@ from typing import List
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows, query_scalar
-from yoke_core.domain.project_identity import render_item_ref, resolve_item_id
+from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 from yoke_core.domain.time_parse import age_hours_since
 from yoke_core.domain.time_sql import now_sql
 from yoke_core.domain.sql_json import json_valid_expr
@@ -96,7 +97,7 @@ def hc_orphaned_ephemeral(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         "ORDER BY id",
     )
     for env in env_rows:
-        item_id = resolve_item_id(conn, str(env["ee_item"]))
+        item_id = resolve_item_ref_or_none(conn, str(env["ee_item"]))
         if item_id is None:
             continue
         status = query_scalar(

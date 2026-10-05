@@ -17,7 +17,7 @@ from typing import Any, Iterable, Mapping, Sequence
 
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
-from yoke_core.domain.project_identity import resolve_item_id
+from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.session_item_stage_failures import (
     launch_failures,
@@ -91,7 +91,7 @@ def _focused_item_id(conn: Any, row: Mapping[str, Any]) -> int | None:
         *db_backend.database_error_types(conn),
     )
     try:
-        found = resolve_item_id(
+        found = resolve_item_ref_or_none(
             conn,
             public_ref,
             project=row.get("current_item_project_id") or row.get("project_id"),

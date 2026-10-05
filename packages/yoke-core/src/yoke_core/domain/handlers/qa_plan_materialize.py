@@ -115,10 +115,10 @@ def handle_materialize(request: FunctionCallRequest) -> HandlerOutcome:
                     from yoke_core.domain.deployment_qa_stage_materialization import (
                         materialize_deployment_qa_stage,
                     )
-                    from yoke_core.domain.project_identity import resolve_item_id
+                    from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 
                     member_id = (
-                        resolve_item_id(conn, payload.deployment_member)
+                        resolve_item_ref_or_none(conn, payload.deployment_member)
                         if payload.deployment_member is not None
                         else None
                     )
@@ -230,10 +230,10 @@ def handle_rematerialize(request: FunctionCallRequest) -> HandlerOutcome:
                     transition_id=str(payload.transition_id),
                 )
             else:
-                from yoke_core.domain.project_identity import resolve_item_id
+                from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 
                 member_id = (
-                    resolve_item_id(conn, payload.deployment_member)
+                    resolve_item_ref_or_none(conn, payload.deployment_member)
                     if payload.deployment_member is not None
                     else None
                 )
