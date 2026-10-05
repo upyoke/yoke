@@ -8,7 +8,7 @@ from typing import Any, Callable, Optional
 from yoke_core.domain.db_helpers import connect
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.domain.project_identity import render_item_ref
-from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 
 
 RECENT_DENIAL_LOOKBACK_SECONDS = 1800
@@ -17,7 +17,7 @@ RECENT_DENIAL_LOOKBACK_SECONDS = 1800
 def recent_claim_denial_holder(
     db_path: Optional[str],
     session_id: str,
-    item_id: int,
+    item_ref: str,
     lookback_seconds: int = RECENT_DENIAL_LOOKBACK_SECONDS,
     *,
     connector: Callable[[Optional[str]], Any] = connect,
@@ -29,6 +29,9 @@ def recent_claim_denial_holder(
     conn = None
     try:
         conn = connector(db_path or None)
+        item_id = resolve_item_ref_or_none(conn, item_ref)
+        if item_id is None:
+            return None
         rows = conn.execute(
             "SELECT command_summary FROM session_tool_calls "
             "WHERE session_id=%s AND tool_name='Bash' "
@@ -36,18 +39,11 @@ def recent_claim_denial_holder(
             "AND started_at > %s ORDER BY started_at DESC LIMIT 100",
             (session_id, cutoff.strftime("%Y-%m-%dT%H:%M:%SZ")),
         ).fetchall()
-        # An operator types the item's public ref, which carries the
-        # project prefix; the legacy internal-id token stays matchable
-        # for command summaries recorded before refs were rendered.
-        item_bare = str(item_id)
-        item_tokens = {render_item_ref(conn, int(item_id)), f"YOK-{item_bare}"}
+        item_tokens = {render_item_ref(conn, item_id), item_ref}
         attempted = any(
             isinstance(row[0], str)
             and "claim-work" in row[0]
-            and (
-                any(tok in row[0] for tok in item_tokens)
-                or f"--item {item_bare}" in row[0]
-            )
+            and any(tok in row[0] for tok in item_tokens)
             for row in rows
         )
         if not attempted:
@@ -86,8 +82,7 @@ def spoof_reason(family: str, foreign_session: str) -> str:
     )
 
 
-def recent_denial_reason(family: str, item_id: int, holder: str) -> str:
-    public_ref = item_ref_for_id(int(item_id))
+def recent_denial_reason(family: str, public_ref: str, holder: str) -> str:
     return attach_check_id(
         "BLOCKED: claim-boundary bypass after live claim denial.\n\n"
         f"Mutation family: {family}\nItem: {public_ref}\n"

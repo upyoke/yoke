@@ -29,33 +29,36 @@ from . import db_backend
 USAGE = (
     "sections subcommands:\n"
     "\n"
-    "  upsert <item-id> <section-name> --content-file <path> "
+    "  upsert <PREFIX-N> <section-name> --content-file <path> "
     "[--ordering N] [--source S]\n"
     "                                        Insert or update a section\n"
-    "  get <item-id> <section-name>          Get section content\n"
-    "  list <item-id>                        List all sections "
+    "  get <PREFIX-N> <section-name>          Get section content\n"
+    "  list <PREFIX-N>                        List all sections "
     "(pipe-delimited)\n"
-    "  delete <item-id> <section-name>       Delete a section\n"
+    "  delete <PREFIX-N> <section-name>       Delete a section\n"
 )
 
 UPSERT_USAGE = (
     "Usage: python3 -m yoke_core.domain.sections upsert "
-    "<item-id> <section-name> --content-file <path> "
+    "<PREFIX-N> <section-name> --content-file <path> "
     "[--ordering N] [--source S]"
 )
-GET_USAGE = "Usage: python3 -m yoke_core.domain.sections get <item-id> <section-name>"
-LIST_USAGE = "Usage: python3 -m yoke_core.domain.sections list <item-id>"
-DELETE_USAGE = "Usage: python3 -m yoke_core.domain.sections delete <item-id> <section-name>"
+GET_USAGE = "Usage: python3 -m yoke_core.domain.sections get <PREFIX-N> <section-name>"
+LIST_USAGE = "Usage: python3 -m yoke_core.domain.sections list <PREFIX-N>"
+DELETE_USAGE = "Usage: python3 -m yoke_core.domain.sections delete <PREFIX-N> <section-name>"
 
 
 # Deferred imports inside ``cmd_*`` handlers are load-bearing: top-level imports
 # cycle through ``sections.py -> sections_cli.py -> sections.py`` under ``-m``.
 
 def _coerce_item_id(raw: str, err: TextIO) -> Optional[int]:
+    """Resolve the operator's item argument (``PREFIX-N``) to its row id."""
+    from yoke_core.domain.yok_n_parser import parse_item_argument
+
     try:
-        return int(raw)
-    except (TypeError, ValueError):
-        print("Error: invalid item id: {}".format(raw), file=err)
+        return parse_item_argument(raw)
+    except ValueError as exc:
+        print("Error: {}".format(exc), file=err)
         return None
 
 

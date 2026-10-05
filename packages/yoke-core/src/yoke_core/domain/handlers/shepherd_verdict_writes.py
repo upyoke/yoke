@@ -62,7 +62,9 @@ def _item_ref(request: FunctionCallRequest) -> tuple[str | None, HandlerOutcome 
             "shepherd verdict writes require target.kind='item' with item_id",
             jsonpath="$.target.item_id",
         )
-    return f"YOK-{int(item_id)}", None
+    from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+
+    return item_ref_for_id(int(item_id)), None
 
 
 def _run_with_conn(fn, *args, **kwargs) -> str:

@@ -75,7 +75,7 @@ def _call(function_id: str, item: str, project: Optional[str]) -> Dict[str, Any]
 
 
 def item_target(item: str, project: Optional[str]) -> TargetRef:
-    return TargetRef(kind="item", public_ref=item, project=project or None)
+    return TargetRef(kind="item", public_ref=item, project_id=project or None)
 
 
 def _require_claim(item: str, project: Optional[str]) -> None:

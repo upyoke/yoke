@@ -229,8 +229,9 @@ def handle_qa_requirement_add_batch(
         if row_item is not None and int(row_item) != int(item_id):
             return _error(
                 "payload_invalid",
-                f"row {idx} names item_id={row_item} but the claim-verified "
-                f"target is {item_ref_for_id(item_id)}; one batch covers one item",
+                f"row {idx} names a different item than the claim-verified "
+                f"target {item_ref_for_id(item_id)}; one batch covers one item — "
+                "omit the row's item",
                 jsonpath=f"{jsonpath}.item_id",
             )
         for foreign in ("epic_id", "task_num", "deployment_run_id"):
