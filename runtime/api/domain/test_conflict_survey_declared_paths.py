@@ -13,7 +13,7 @@ from __future__ import annotations
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain.conflict_survey import record_conflict_survey, survey_conflicts
 
-from yoke_core.domain.conflict_survey_blockers import git_touched_paths
+from yoke_core.domain.conflict_survey_worktree_paths import git_touched_paths
 from yoke_core.domain.conflict_survey_declared_paths import (
     matching_scope,
     matching_scopes,
@@ -58,7 +58,9 @@ class TestRecordedSurveyIsACoordinationSignal:
         assert first.clear is True
 
         second = survey_conflicts(
-            test_db, item_id=second_id, touch_paths=[shared_path],
+            test_db,
+            item_id=second_id,
+            touch_paths=[shared_path],
         )
 
         assert second.clear is False
@@ -80,7 +82,9 @@ class TestRecordedSurveyIsACoordinationSignal:
         )
 
         second = survey_conflicts(
-            test_db, item_id=second_id, touch_paths=[shared_path],
+            test_db,
+            item_id=second_id,
+            touch_paths=[shared_path],
         )
 
         assert second.clear is True
@@ -93,7 +97,9 @@ class TestRecordedSurveyIsACoordinationSignal:
         _record_survey(test_db, item_id=first_id, paths=[shared_path])
 
         second = survey_conflicts(
-            test_db, item_id=second_id, touch_paths=[shared_path],
+            test_db,
+            item_id=second_id,
+            touch_paths=[shared_path],
         )
 
         assert second.clear is True
@@ -106,7 +112,9 @@ class TestRecordedSurveyIsACoordinationSignal:
         _record_survey(test_db, item_id=first_id, paths=[shared_path])
 
         second = survey_conflicts(
-            test_db, item_id=second_id, touch_paths=[shared_path],
+            test_db,
+            item_id=second_id,
+            touch_paths=[shared_path],
         )
 
         assert second.clear is True
@@ -133,7 +141,9 @@ class TestRecordedSurveyIsACoordinationSignal:
         test_db.commit()
 
         second = survey_conflicts(
-            test_db, item_id=second_id, touch_paths=[shared_path],
+            test_db,
+            item_id=second_id,
+            touch_paths=[shared_path],
         )
 
         assert second.clear is True
@@ -152,7 +162,9 @@ class TestRecordedSurveyIsACoordinationSignal:
         )
 
         second = survey_conflicts(
-            test_db, item_id=second_id, touch_paths=[shared_path],
+            test_db,
+            item_id=second_id,
+            touch_paths=[shared_path],
         )
 
         assert {row.kind for row in second.blockers} == {"frontier_scope"}
@@ -160,21 +172,23 @@ class TestRecordedSurveyIsACoordinationSignal:
     def test_every_shared_survey_path_appears_as_its_own_blocker(self, test_db):
         first_id, second_id = 2244, 2245
         snapshot = (
-            "packages/yoke-core/src/yoke_core/domain/"
-            "qa_plan_requirement_snapshot.py"
+            "packages/yoke-core/src/yoke_core/domain/qa_plan_requirement_snapshot.py"
         )
         tables = (
-            "packages/yoke-core/src/yoke_core/domain/"
-            "schema_api_context_tables_qa.py"
+            "packages/yoke-core/src/yoke_core/domain/schema_api_context_tables_qa.py"
         )
         insert_item(test_db, id=first_id, workflow_id="dash")
         insert_item(test_db, id=second_id, workflow_id="dash")
         _record_survey(test_db, item_id=first_id, paths=[snapshot, tables])
         second = _record_survey(
-            test_db, item_id=second_id, paths=[snapshot, tables],
+            test_db,
+            item_id=second_id,
+            paths=[snapshot, tables],
         )
         first_view = survey_conflicts(
-            test_db, item_id=first_id, touch_paths=[snapshot, tables],
+            test_db,
+            item_id=first_id,
+            touch_paths=[snapshot, tables],
         )
 
         def owned_survey_paths(survey, owner_id):
@@ -203,7 +217,9 @@ class TestRecordedSurveyIsACoordinationSignal:
         )
 
         second = survey_conflicts(
-            test_db, item_id=second_id, touch_paths=[budgeted, surveyed],
+            test_db,
+            item_id=second_id,
+            touch_paths=[budgeted, surveyed],
         )
 
         by_path = {row.path: row.kind for row in second.blockers}
@@ -234,7 +250,9 @@ class TestSectionStoredFileBudget:
         )
 
         survey = survey_conflicts(
-            test_db, item_id=candidate_id, touch_paths=[shared_path],
+            test_db,
+            item_id=candidate_id,
+            touch_paths=[shared_path],
         )
 
         assert survey.clear is False
@@ -252,7 +270,9 @@ class TestWorktreeSignalSeesUncommittedWork:
 
         def run(*argv):
             subprocess.run(
-                ["git", "-C", str(lane), *argv], check=True, capture_output=True,
+                ["git", "-C", str(lane), *argv],
+                check=True,
+                capture_output=True,
             )
 
         run("init", "-q", "-b", "main")

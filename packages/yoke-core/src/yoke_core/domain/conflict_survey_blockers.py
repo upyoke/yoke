@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
 from typing import Any
 
 from yoke_core.domain import db_backend
@@ -13,6 +12,7 @@ from yoke_core.domain.conflict_survey_declared_paths import (
     matching_scopes,
 )
 from yoke_core.domain.conflict_survey_models import ConflictMatch
+from yoke_core.domain.conflict_survey_worktree_paths import git_touched_paths
 from yoke_core.domain.file_budget_paths import (
     FILE_BUDGET_SECTION,
     extract_file_budget_paths,
@@ -56,18 +56,28 @@ def _matching_reportable_scope(
 
 
 def _append_matches(
-    blockers: list[ConflictMatch], seen: set[tuple[str, int, str]], *,
-    kind: str, owner_item_id: int, paths: tuple[str, ...],
-    state: str, detail: str,
+    blockers: list[ConflictMatch],
+    seen: set[tuple[str, int, str]],
+    *,
+    kind: str,
+    owner_item_id: int,
+    paths: tuple[str, ...],
+    state: str,
+    detail: str,
 ) -> None:
     for path in paths:
         key = (kind, owner_item_id, path)
         if key not in seen:
             seen.add(key)
-            blockers.append(ConflictMatch(
-                kind=kind, owner_item_id=owner_item_id, path=path,
-                state=state, detail=detail,
-            ))
+            blockers.append(
+                ConflictMatch(
+                    kind=kind,
+                    owner_item_id=owner_item_id,
+                    path=path,
+                    state=state,
+                    detail=detail,
+                )
+            )
 
 
 def _path_claim_blockers(
@@ -132,42 +142,6 @@ def _path_claim_blockers(
                     )
                 )
     return blockers
-
-
-def _git_lines(worktree_path: str, argv: list[str]) -> list[str]:
-    try:
-        result = subprocess.run(
-            ["git", "-C", worktree_path, *argv],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=3,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return []
-    if result.returncode != 0:
-        return []
-    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
-
-
-def git_touched_paths(worktree_path: str, integration_target: str) -> list[str]:
-    """Return changed paths from a live worktree when git can read it.
-
-    Three reads, because committed history alone hides an agent that is
-    mid-edit: the branch's own commits against the integration target,
-    tracked edits not yet committed, and files git is not tracking yet.
-    Ignored files stay out, so lane scratch never reads as declared work.
-    """
-    if not worktree_path:
-        return []
-    touched: list[str] = []
-    for argv in (
-        ["diff", "--name-only", f"{integration_target}...HEAD"],
-        ["diff", "--name-only", "HEAD"],
-        ["ls-files", "--others", "--exclude-standard"],
-    ):
-        touched.extend(_git_lines(worktree_path, argv))
-    return list(dict.fromkeys(touched))
 
 
 def _item_coordination_blockers(
@@ -270,7 +244,9 @@ def _item_coordination_blockers(
             conn,
             touch_paths=touch_paths,
             other_paths=[
-                *git_touched_paths(str(row.get("worktree_path") or ""), integration_target),
+                *git_touched_paths(
+                    str(row.get("worktree_path") or ""), integration_target
+                ),
                 *declared,
             ],
             project_id=int(item["project_id"]),
@@ -296,26 +272,39 @@ def _item_coordination_blockers(
         if stronger:
             if row.get("work_claim_id") is not None:
                 kind, state, detail = (
-                    "work_claim", "active", f"active work claim {row['work_claim_id']}",
+                    "work_claim",
+                    "active",
+                    f"active work claim {row['work_claim_id']}",
                 )
             elif row.get("worktree_path"):
                 kind, state, detail = (
-                    "worktree", "active",
+                    "worktree",
+                    "active",
                     f"in-flight branch {row.get('worktree_branch') or ''}".strip(),
                 )
             else:
                 kind, state, detail = (
-                    "frontier_scope", str(row["status"]),
+                    "frontier_scope",
+                    str(row["status"]),
                     "non-terminal item declares this path in its File Budget",
                 )
             _append_matches(
-                blockers, seen, kind=kind, owner_item_id=owner_id,
-                paths=stronger, state=state, detail=detail,
+                blockers,
+                seen,
+                kind=kind,
+                owner_item_id=owner_id,
+                paths=stronger,
+                state=state,
+                detail=detail,
             )
         if survey_only:
             _append_matches(
-                blockers, seen, kind="survey_scope", owner_item_id=owner_id,
-                paths=survey_only, state=str(row["status"]),
+                blockers,
+                seen,
+                kind="survey_scope",
+                owner_item_id=owner_id,
+                paths=survey_only,
+                state=str(row["status"]),
                 detail=(
                     "non-terminal item declares this path in its recorded "
                     f"{CONFLICT_SURVEY_SECTION}"
