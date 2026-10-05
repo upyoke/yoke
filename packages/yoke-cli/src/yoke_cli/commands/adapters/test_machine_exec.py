@@ -134,6 +134,14 @@ def test_machine_exec(args: List[str]) -> int:
         )
     except RemoteExecRefusal as refusal:
         return _refuse(refusal.code, str(refusal), refusal.recovery)
+    if parsed.admin and completed.returncode:
+        _refuse(
+            "test_machine_admin_command_failed",
+            f"administrator command exited {completed.returncode}; see the redacted output above",
+            "Correct the reported command failure and retry. If sudo rejected "
+            "authentication, verify the registered user's sudo rights and "
+            "reimport its administrator password as test-machine:NAME.desktop_password.",
+        )
     if completed.returncode and settings["os"] == "macos":
         from yoke_harness.ssh_mac_gui_session import (
             classify_macos_session_context_failure,

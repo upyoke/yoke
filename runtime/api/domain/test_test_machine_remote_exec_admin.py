@@ -18,8 +18,9 @@ PASSWORD = "private-$-pässword"
 
 
 @pytest.mark.parametrize("os_name", ["linux", "macos"])
+@pytest.mark.parametrize("returncode", [0, 7])
 def test_admin_cli_reads_only_named_machine_secret_and_passes_it_to_product(
-    monkeypatch, tmp_path, os_name
+    monkeypatch, tmp_path, capsys, os_name, returncode
 ):
     calls = []
     reads = []
@@ -53,15 +54,20 @@ def test_admin_cli_reads_only_named_machine_secret_and_passes_it_to_product(
     monkeypatch.setattr(
         "yoke_harness.test_machine_remote_exec.run_remote_command",
         lambda **kwargs: (
-            calls.append(kwargs) or subprocess.CompletedProcess([], 0, "", "")
+            calls.append(kwargs) or subprocess.CompletedProcess([], returncode, "", "")
         ),
     )
     assert (
         adapter.test_machine_exec(["--project", "demo", "--admin", "--", "id", "-u"])
-        == 0
+        == returncode
     )
     assert reads == [("demo", "test-machine:fixture", "desktop_password")]
     assert calls[0]["administrator_password"] == PASSWORD
+    output = capsys.readouterr()
+    assert PASSWORD not in output.out + output.err
+    if returncode:
+        assert "test_machine_admin_command_failed" in output.err
+        assert "exited 7" in output.err
 
 
 @pytest.mark.parametrize("os_name", ["linux", "macos"])
