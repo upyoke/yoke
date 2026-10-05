@@ -11,6 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from yoke_core.tools import _impacted_unbounded_paths, impacted_tests, watch_pytest
+from yoke_core.tools import watch_pytest_project_python as project_python
 from yoke_core.tools._impacted_contract_tests import (
     DIRECT_WORKFLOW_PREPARE_TESTS,
     DONE_TRANSITION_CLOSE_OUT_TESTS,
@@ -308,8 +309,7 @@ def test_fallback_rules_covers_every_rule_the_selector_can_emit() -> None:
 
 
 def test_wrapper_prints_prose_reason_and_telemetry(capsys, monkeypatch) -> None:
-    # Both land in the run's captures: prose for the agent reading along,
-    # telemetry for grouping widenings across many runs.
+    monkeypatch.setattr(project_python, "resolve_test_roots", lambda _: ("tests/",))
     selection = Selection(
         full_sweep=True,
         reason="runtime/api/conftest.py is shared pytest infrastructure",
@@ -328,6 +328,7 @@ def test_wrapper_prints_prose_reason_and_telemetry(capsys, monkeypatch) -> None:
 
 
 def test_wrapper_passes_bounded_through_to_selection(monkeypatch) -> None:
+    monkeypatch.setattr(project_python, "resolve_test_roots", lambda _: ("tests/",))
     seen: dict = {}
 
     def record(repo_root, base, *, bounded=False):
