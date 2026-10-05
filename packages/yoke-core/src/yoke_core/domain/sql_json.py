@@ -98,4 +98,37 @@ def json_valid_expr(column_expr: str) -> str:
     return f"({column_expr} IS JSON)"
 
 
-__all__ = ["JSONB_COLUMNS", "json_get", "json_set_expr", "json_valid_expr"]
+def _nul_safe_text(column: str) -> str:
+    """Read JSON text through jsonb, keeping unsupported NUL as a control byte.
+
+    JSON text permits escaped NUL; jsonb rejects it. SOH preserves the control
+    character classification (including invalid raw JSON inside a preview)
+    while domain identifiers remain ASCII. Literal backslash sequences stay.
+    """
+    pattern = r"(?<!\\)((?:\\\\)*)\\u0000"
+    replacement = r"\1\\u0001"
+    return (
+        f"(CASE WHEN strpos({column}, chr(92) || 'u0000') > 0 THEN "
+        f"regexp_replace({column}, '{pattern}', '{replacement}', 'g') "
+        f"ELSE {column} END)"
+    )
+
+
+def jsonb_text_expr(column: str) -> str:
+    """Read NUL-safe JSON text as jsonb."""
+    return _nul_safe_text(column) + "::jsonb"
+
+
+def json_text_expr(column: str) -> str:
+    """Read NUL-safe JSON text without building unrelated jsonb fields."""
+    return _nul_safe_text(column) + "::json"
+
+
+__all__ = [
+    "JSONB_COLUMNS",
+    "json_get",
+    "json_set_expr",
+    "json_valid_expr",
+    "jsonb_text_expr",
+    "json_text_expr",
+]

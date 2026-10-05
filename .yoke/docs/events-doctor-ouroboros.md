@@ -29,19 +29,20 @@ WSL it also warns when systemd is not PID 1. See
 [Yoke on Windows (WSL)](windows-wsl.md) for the recovery steps. These machine
 checks report N/A on other operating systems.
 
-Each check has a 45-second budget. Python work, database cancellation,
-and the shared HTTP and subprocess helpers enforce that budget without
-leaving a check running after it reports failure. A timeout reports
-`doctor_check_budget_exhausted` and incomplete evidence; it never counts
-as a pass. PostgreSQL cancellation drains its protocol before Python
-interruption; recovery failures remain visible as incomplete results.
-Project checks must use bounded I/O helpers for blocking work.
+Each check has a 45-second budget. PostgreSQL statements use the remaining
+budget as a statement timeout; long checks check the clock between steps.
+Doctor installs no Python tracer and never interrupts driver frames. The shared
+HTTP and subprocess helpers consume the same deadline. A timeout reports
+`HC-check-incomplete` with `doctor_check_budget_exhausted` and a recovery step;
+partial pass/fail verdicts are discarded. Transaction recovery completes before
+the next check runs, and recovery failures remain visible in the incomplete result.
+Project checks must use bounded I/O helpers and clock checks between long steps.
 
-The claim-boundary audit inspects the last 24 hours and names that window
-in its verdict; its configured event-id cutoff still applies. Historical
-event-outcome drift reads at most 1,001 candidates and reports
-`doctor_ledger_scan_limit_exceeded` when more than 1,000 require inspection.
-That report fails with incomplete evidence instead of passing a sample.
+The claim-boundary audit inspects the full audit history, retaining its explicit
+configured event-id cutoff. Historical event-outcome drift also inspects every
+candidate. Both compute totals and correlation in SQL and return only bounded
+finding previews; neither a time window nor a candidate-row cap hides history.
+A statement timeout or exhausted clock budget reports incomplete evidence.
 
 HTTPS chunks carry one check and spend at most 60 seconds across at most
 two attempts, including retry delays. The remote roster has a 15-minute
