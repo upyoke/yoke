@@ -128,7 +128,7 @@ test("a landing names the release that delivered it, or that none has", async ()
   const release = byClass(root, "item-landing-release");
   assert.equal(release.length, 1);
   assert.equal(release[0].textContent, "run-20260919-012");
-  assert.equal(release[0].href, "#/deployments/runs/run-20260919-012?project=7");
+  assert.equal(release[0].href, "/deployments/runs/run-20260919-012?project=7");
   assert.deepEqual(
     byClass(root, "item-landing-undelivered").map((node) => node.textContent),
     ["not delivered", "not delivered"],

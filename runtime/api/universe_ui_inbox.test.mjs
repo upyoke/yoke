@@ -73,7 +73,7 @@ test("Inbox renders its sections, the served counts, and one card shape", async 
   assert.equal(byClass(card, "review-title")[0].tagName, "DIV");
   assert.deepEqual(
     byClass(card, "review-link").map((node) => [node.textContent, node.href]),
-    [["YOK-1907", "#/items/1907?project=10"]],
+    [["YOK-1907", "/items/1907?project=10"]],
   );
   assert.equal(byClass(card, "gate-details").length, 0);
   assert.ok(!card.textContent.includes("What changed on the branch"));
@@ -255,15 +255,15 @@ test("message acknowledgement failures stay visible and retryable", async () => 
 
 test("all four request kinds link to their one subject home", () => {
   const cases = [
-    ["deployment_stage_approval", "deployment_stage", {}, "#/deployments/runs?project=10"],
+    ["deployment_stage_approval", "deployment_stage", {}, "/deployments/runs?project=10"],
     [
       "qa_needs_review",
       "qa_requirement",
       { plan_id: 7, case_name: "checkout-flow" },
-      "#/qa-plans/7?project=10",
+      "/qa-plans/7?project=10",
     ],
-    ["lifecycle_transition_approval", "item_transition", { item_ref: "YOK-7" }, "#/items/7?project=10"],
-    ["machine_approval", "machine_auth_request", {}, "#/machines"],
+    ["lifecycle_transition_approval", "item_transition", { item_ref: "YOK-7" }, "/items/7?project=10"],
+    ["machine_approval", "machine_auth_request", {}, "/machines"],
   ];
   for (const [kind, subjectType, subjectContext, expected] of cases) {
     assert.equal(inboxPresentation.subjectHref(requestRow({
@@ -274,10 +274,10 @@ test("all four request kinds link to their one subject home", () => {
     kind: "qa_needs_review",
     subject_type: "qa_requirement",
     subject_context: {},
-  })), "#/qa-activity?project=10");
+  })), "/qa-activity?project=10");
   assert.equal(inboxPresentation.subjectHref(requestRow({
     subject_context: { item_id: 2262 },
-  })), "#/items?project=10");
+  })), "/items?project=10");
 });
 
 test("an every-approver gate the viewer answered sits under Decided with its progress",

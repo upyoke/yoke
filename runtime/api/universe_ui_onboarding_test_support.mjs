@@ -196,7 +196,7 @@ export function activationClient(activation, overrides = {}) {
 
 export async function mountWorkbench(client, capabilities) {
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/frontier?project=1";
+  documentNode.defaultView.location.href = "/frontier?project=1";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, {
     client, ...(capabilities ? { capabilities } : {}),

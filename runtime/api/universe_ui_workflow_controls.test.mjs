@@ -46,11 +46,11 @@ test("workflow tabs use the decided built-in order and open Dash first", async (
   ]);
 
   byClass(root, "tab-link")[2].dispatchEvent(new Event("click"));
-  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  documentNode.defaultView.dispatchEvent(new Event("popstate"));
   await settle();
   assert.equal(
-    documentNode.defaultView.location.hash,
-    "#/workflows/issue?selection=all",
+    documentNode.defaultView.location.href,
+    "/workflows/issue?selection=all",
   );
   assert.equal(
     byClass(root, "tab-link")[2].attributes.get("aria-selected"),
@@ -70,7 +70,7 @@ test("a workflow detail route selects the linked definition", async (t) => {
   const { root, mounted } = await mountWorkflows(
     t,
     workflowsClient(workflows),
-    "#/workflows/epic",
+    "/workflows/epic",
   );
 
   assert.deepEqual(classText(root, "tab-link"), ["Dash", "Epic"]);
@@ -89,10 +89,10 @@ test("saving a workflow after switching tabs preserves the selected workflow", a
     workflowFixture({ id: "dash", name: "Dash" }),
     workflowFixture({ id: "issue", name: "Issue" }),
   ]);
-  const { documentNode, root, mounted } = await mountWorkflows(t, client, "#/workflows/dash");
-  // Native history updates do not emit hashchange, so this remains the same mounted view.
+  const { documentNode, root, mounted } = await mountWorkflows(t, client, "/workflows/dash");
+  // Native history updates do not emit popstate, so this remains the same mounted view.
   documentNode.defaultView.history = { replaceState(_state, _title, route) {
-    documentNode.defaultView.location.hash = route;
+    documentNode.defaultView.location.href = route;
   } };
   byClass(root, "tab-link").find((node) => node.textContent === "Issue")
     .dispatchEvent(new Event("click"));
@@ -105,7 +105,7 @@ test("saving a workflow after switching tabs preserves the selected workflow", a
   await settle();
   const selected = byClass(root, "tab-link").find((node) => node.attributes.get("aria-selected") === "true");
   assert.equal(selected.textContent, "Issue");
-  assert.match(documentNode.defaultView.location.hash, /workflows\/issue/);
+  assert.match(documentNode.defaultView.location.href, /workflows\/issue/);
   mounted.unmount();
 });
 

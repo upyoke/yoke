@@ -103,7 +103,7 @@ async function mountBand(band, runsFor = () => [], facts = {}, repository = "") 
       ))],
     } } }) : call(request);
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/frontier?project=1";
+  documentNode.defaultView.location.href = "/frontier?project=1";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client });
   await settle();
@@ -166,7 +166,7 @@ for (const band of BANDS) {
     assert.deepEqual(byClass(box, "item-deployment-environment").map((node) => node.textContent), ["prod", "stage"]);
     assert.deepEqual(byClass(box, "item-deployment-outcome").map((node) => node.textContent), ["✓ deployed", "✓ in build"]);
     assert.deepEqual(byClass(box, "item-deployment-relation").map((node) => node.textContent), ["member", "carried"]);
-    assert.equal(byClass(box, "item-deployment-run")[0].href, "#/deployments/runs/run-prod?project=1");
+    assert.equal(byClass(box, "item-deployment-run")[0].href, "/deployments/runs/run-prod?project=1");
     assert.equal(byClass(box, "state-pill").length, 0);
     assert.equal(byClass(box, "item-deployment-flow").length, 0);
     assert.equal(byClass(box, "item-deployment-wait").length, 0);

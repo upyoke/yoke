@@ -102,8 +102,8 @@ test("a pending review is offered on its own member's row only", async (t) => {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash =
-    "#/deployments/runs/run-20260726-001?project=1";
+  documentNode.defaultView.location.href =
+    "/deployments/runs/run-20260726-001?project=1";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client: client() });
   await settle();
@@ -144,7 +144,7 @@ test("a Shipping card offers a member's review once as well", async (t) => {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/shipping?project=1";
+  documentNode.defaultView.location.href = "/shipping?project=1";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client: client() });
   await settle();

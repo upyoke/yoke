@@ -117,7 +117,7 @@ test("an explicit workflow link takes precedence over the saved draft workflow",
   const { mount, main, state, document } = fixture();
   await mount(); fill(main);
   state.workflows = ["dash", "task"];
-  document.defaultView.location.hash = "#/items/new?workflow=task";
+  document.defaultView.location.href = "/items/new?workflow=task";
   await mount();
   assert.equal(input(main, "INPUT").value, "Fix layout");
   assert.ok(allNodes(main).some((node) => node.tagName === "BUTTON" && node.textContent === "Create task"));

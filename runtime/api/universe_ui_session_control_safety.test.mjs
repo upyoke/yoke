@@ -30,7 +30,7 @@ async function mountAt(t, hash, client) {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = hash;
+  documentNode.defaultView.location.href = hash || "/";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client });
   await settle();
@@ -107,7 +107,7 @@ test("uncertain launches require reconciliation before retry", async (t) => {
     },
   };
   const { root, mounted } = await mountAt(
-    t, "#/launches?project=1", client,
+    t, "/launches?project=1", client,
   );
   button(root, "Details").dispatchEvent(new Event("click"));
   await settle();

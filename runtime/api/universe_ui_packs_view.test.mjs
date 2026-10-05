@@ -21,7 +21,7 @@ test("Packs separates Installed and Available with row-owned previews", async (t
   globalThis.fetch = () => response(200, {});
 
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/packs";
+  documentNode.defaultView.location.href = "/packs";
   const root = documentNode.createElement("div");
   const requests = [];
   const client = {

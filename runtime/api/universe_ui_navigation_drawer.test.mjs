@@ -22,7 +22,7 @@ async function mountDrawer(t, initiallyNarrow = true) {
   documentNode.defaultView.getComputedStyle = (node) => ({
     display: node.classList.contains("navigation-toggle") && !narrow ? "none" : "block",
   });
-  documentNode.defaultView.location.hash = "#/strategy";
+  documentNode.defaultView.location.href = "/strategy";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client: injectedClient("drawer") });
   await settle();

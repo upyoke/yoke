@@ -85,7 +85,7 @@ test("Escape closes the surface and returns focus to its trigger", () => {
 test("navigating away closes the surface", () => {
   const menu = surface();
 
-  menu.windowNode.dispatchEvent(new Event("hashchange"));
+  menu.windowNode.dispatchEvent(new Event("popstate"));
   assert.equal(menu.isOpen(), false);
   menu.dispose();
 });
@@ -108,13 +108,13 @@ test("dispose leaves no listener behind", () => {
   const menu = surface();
   const counts = menu.windowNode.listenerCounts;
   assert.deepEqual(
-    ["click", "keydown", "hashchange"].map((type) => counts.get(type)),
+    ["click", "keydown", "popstate"].map((type) => counts.get(type)),
     [1, 1, 1],
   );
 
   menu.dispose();
   assert.deepEqual(
-    ["click", "keydown", "hashchange"].map((type) => counts.get(type)),
+    ["click", "keydown", "popstate"].map((type) => counts.get(type)),
     [0, 0, 0],
   );
   clickAt(menu.windowNode, menu.outside);
@@ -161,7 +161,7 @@ function actorClient() {
 
 async function mountActorMenu() {
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/frontier";
+  documentNode.defaultView.location.href = "/frontier";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client: actorClient() });
   await settle();
@@ -178,8 +178,8 @@ test("the actor menu closes when its Profile item navigates", async () => {
 
   // What the reported defect was: the item IS the route link, so the page
   // underneath changed while the panel stayed open over it.
-  surfaceUnderTest.documentNode.defaultView.location.hash = "#/profile";
-  surfaceUnderTest.documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  surfaceUnderTest.documentNode.defaultView.location.href = "/profile";
+  surfaceUnderTest.documentNode.defaultView.dispatchEvent(new Event("popstate"));
   assert.equal(surfaceUnderTest.menu.hidden, true);
   assert.equal(surfaceUnderTest.chip.getAttribute("aria-expanded"), "false");
   surfaceUnderTest.mounted.unmount();

@@ -41,11 +41,36 @@ export function defaultTabFor(view) {
 // deserves its own sidebar entry. A destination declares tabs only where its
 // facets are two readings of one subject — Deployments, whose Flows define
 // what its Runs execute. A tabbed destination's drill-in follows its tab, so
-// a run reads `#/deployments/runs/<run id>` and its breadcrumb can name the
+// a run reads `/deployments/runs/<run id>` and its breadcrumb can name the
 // tab it came from. A drill-in is still not a destination: it has no entry,
 // and its parent view stays the active one.
-export function parseUniverseRoute(hash) {
-  const raw = String(hash || "").replace(/^#\/?/, "");
+export function normalizeRouteBase(basePath = "") {
+  if (basePath === "" || basePath === "/") return "";
+  if (!/^\/(?!\/)[^?#]*$/.test(basePath)) {
+    throw new TypeError("dashboard_base_path_invalid: pass an absolute path without query or fragment");
+  }
+  return basePath.replace(/\/+$/, "");
+}
+
+export function routePath(href, basePath = "") {
+  const base = normalizeRouteBase(basePath);
+  const url = new URL(String(href || "/"), "http://workbench.invalid");
+  if (url.pathname !== base && !url.pathname.startsWith(`${base}/`)) return "";
+  return `${url.pathname.slice(base.length)}${url.search}`;
+}
+
+export function routeHref(href, basePath = "") {
+  const base = normalizeRouteBase(basePath);
+  const text = String(href || "");
+  if (!text.startsWith("/") || text.startsWith("//")) return null;
+  const relative = base && (text === base || text.startsWith(`${base}/`))
+    ? text.slice(base.length) : text;
+  const view = relative.split(/[/?#]/)[1];
+  return NAV.some((entry) => entry.id === view) ? `${base}${relative}` : null;
+}
+
+export function parseUniverseRoute(href, basePath = "") {
+  const raw = routePath(href, basePath).replace(/^\//, "");
   const [pathPart, queryPart] = raw.split("?");
   const [viewPart, firstSegment, secondSegment] = pathPart.split("/");
   const view = NAV.some((entry) => entry.id === viewPart)
@@ -71,6 +96,7 @@ export function buildUniverseRoute(
   project,
   segment = null,
   detail = null,
+  basePath = "",
 ) {
   const resolvedView = NAV.some((entry) => entry.id === view)
     ? view : NAV[0].id;
@@ -83,7 +109,7 @@ export function buildUniverseRoute(
   const query = project
     ? `?project=${encodeURIComponent(project).replace(/%2C/g, ",")}`
     : "";
-  return `#/${resolvedView}${segmentPart}${detailPart}${query}`;
+  return `${normalizeRouteBase(basePath)}/${resolvedView}${segmentPart}${detailPart}${query}`;
 }
 
 // Deployments keeps its runs on one tab and a single run hangs off it, so one

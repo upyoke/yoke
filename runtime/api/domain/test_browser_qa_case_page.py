@@ -37,9 +37,7 @@ def db_path(tmp_path):
 def _artifact_metadata(db_path: str) -> list[dict]:
     conn = connect_test_db(db_path)
     try:
-        rows = conn.execute(
-            "SELECT metadata FROM qa_artifacts ORDER BY id"
-        ).fetchall()
+        rows = conn.execute("SELECT metadata FROM qa_artifacts ORDER BY id").fetchall()
     finally:
         conn.close()
     return [json.loads(row[0]) for row in rows]
@@ -49,14 +47,17 @@ class TestCaseOwnsItsPage:
     def test_case_opens_and_closes_its_own_page(self, db_path: str) -> None:
         _seed_item(db_path, 700)
         _seed_requirement(
-            db_path, 700, "browser-check",
+            db_path,
+            700,
+            "browser-check",
             {"base_url": "http://localhost:9999", "steps": _browser_check_steps()},
         )
         opened: list[dict] = []
         closed: list[str] = []
 
         result = _run_scenario(
-            db_path, 700,
+            db_path,
+            700,
             execute_step_responses=[{"success": True, "artifacts": []}],
             opened_pages=opened,
             closed_pages=closed,
@@ -69,7 +70,9 @@ class TestCaseOwnsItsPage:
     def test_case_opens_at_the_viewport_it_declares(self, db_path: str) -> None:
         _seed_item(db_path, 701)
         _seed_requirement(
-            db_path, 701, "browser-check",
+            db_path,
+            701,
+            "browser-check",
             {
                 "base_url": "http://localhost:9999",
                 "viewport": {"width": 375, "height": 812},
@@ -79,7 +82,8 @@ class TestCaseOwnsItsPage:
         opened: list[dict] = []
 
         _run_scenario(
-            db_path, 701,
+            db_path,
+            701,
             execute_step_responses=[{"success": True, "artifacts": []}],
             opened_pages=opened,
         )
@@ -89,7 +93,9 @@ class TestCaseOwnsItsPage:
     def test_every_step_addresses_the_case_page(self, db_path: str) -> None:
         _seed_item(db_path, 702)
         _seed_requirement(
-            db_path, 702, "browser-check",
+            db_path,
+            702,
+            "browser-check",
             {"base_url": "http://localhost:9999", "steps": _browser_check_steps()},
         )
         addressed: list[str] = []
@@ -98,24 +104,23 @@ class TestCaseOwnsItsPage:
             addressed.append(page_id)
             return {"success": True, "artifacts": []}
 
-        with mock.patch.object(
-            browser_qa, "_execute_step", side_effect=_record_step
-        ):
+        with mock.patch.object(browser_qa, "_execute_step", side_effect=_record_step):
             _run_scenario(db_path, 702, execute_step_responses=None)
 
         assert addressed == [FAKE_PAGE_ID, FAKE_PAGE_ID]
 
-    def test_a_case_that_cannot_open_a_page_refuses_by_name(
-        self, db_path: str
-    ) -> None:
+    def test_a_case_that_cannot_open_a_page_refuses_by_name(self, db_path: str) -> None:
         _seed_item(db_path, 703)
         _seed_requirement(
-            db_path, 703, "browser-check",
+            db_path,
+            703,
+            "browser-check",
             {"base_url": "http://localhost:9999", "steps": _browser_check_steps()},
         )
 
         result = _run_scenario(
-            db_path, 703,
+            db_path,
+            703,
             execute_step_responses=[{"success": True, "artifacts": []}],
             open_page_error="daemon opened no page",
         )
@@ -127,7 +132,9 @@ class TestCaseOwnsItsPage:
     def test_an_unusable_declared_viewport_is_refused(self, db_path: str) -> None:
         _seed_item(db_path, 704)
         _seed_requirement(
-            db_path, 704, "browser-check",
+            db_path,
+            704,
+            "browser-check",
             {
                 "base_url": "http://localhost:9999",
                 "viewport": {"width": 0, "height": 812},
@@ -136,7 +143,8 @@ class TestCaseOwnsItsPage:
         )
 
         result = _run_scenario(
-            db_path, 704,
+            db_path,
+            704,
             execute_step_responses=[{"success": True, "artifacts": []}],
         )
 
@@ -150,11 +158,13 @@ class TestCaptureRecordsWhatWasObserved:
     ) -> None:
         _seed_item(db_path, 705)
         _seed_requirement(
-            db_path, 705, "browser-inspection",
+            db_path,
+            705,
+            "browser-inspection",
             {
                 "base_url": "http://localhost:9999",
                 "steps": [
-                    {"action": "navigate", "route": "/#/shipping"},
+                    {"action": "navigate", "route": "/shipping"},
                     {"action": "screenshot", "capture": True, "label": "shipping"},
                 ],
             },
@@ -163,19 +173,20 @@ class TestCaptureRecordsWhatWasObserved:
         shot.write_bytes(b"PNG")
 
         _run_scenario(
-            db_path, 705,
+            db_path,
+            705,
             execute_step_responses=[
                 {
                     "success": True,
                     "artifacts": [],
                     "viewport": {"width": 1440, "height": 900},
-                    "url": "http://localhost:9999/#/shipping",
+                    "url": "http://localhost:9999/shipping",
                 },
                 {
                     "success": True,
                     "artifacts": [str(shot)],
                     "viewport": {"width": 1440, "height": 900},
-                    "url": "http://localhost:9999/#/shipping?project=yoke",
+                    "url": "http://localhost:9999/shipping?project=yoke",
                 },
             ],
         )
@@ -184,9 +195,8 @@ class TestCaptureRecordsWhatWasObserved:
         assert len(recorded) == 1
         assert recorded[0]["viewport"] == {"width": 1440, "height": 900}
         assert (
-            recorded[0]["observed_url"]
-            == "http://localhost:9999/#/shipping?project=yoke"
+            recorded[0]["observed_url"] == "http://localhost:9999/shipping?project=yoke"
         )
         # The route the case navigated to stays beside what was observed, so
         # the two can be compared rather than conflated.
-        assert recorded[0]["route"] == "/#/shipping"
+        assert recorded[0]["route"] == "/shipping"

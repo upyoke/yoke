@@ -141,11 +141,11 @@ test("Items is one workflow roster with distinct owner and claim facts", async (
   assert.ok(!itemText(root).includes("priority"));
   const hrefs = byClass(root, "row-link").map((node) => node.href);
   assert.deepEqual(hrefs, [
-    "#/items/12?project=7",
-    "#/items/13?project=7",
+    "/items/12?project=7",
+    "/items/13?project=7",
   ]);
   assert.equal(byClass(root, "panel-count")[0].textContent, "· 2");
-  assert.equal(byClass(root, "item-action")[0].href, "#/items/new?project=7");
+  assert.equal(byClass(root, "item-action")[0].href, "/items/new?project=7");
 });
 
 test("Items projects its scope copy and actions into the shared page head", async () => {
@@ -168,7 +168,7 @@ test("Items projects its scope copy and actions into the shared page head", asyn
     pageHead.actions.map((node) => node.textContent),
     ["Filter", "New item"],
   );
-  assert.equal(pageHead.actions[1].href, "#/items/new?project=7");
+  assert.equal(pageHead.actions[1].href, "/items/new?project=7");
   assert.equal(byClass(root, "item-roster-toolbar").length, 0);
   assert.equal(
     byClass(root, "empty")[0].textContent,
@@ -296,10 +296,10 @@ test("Items rows retain native links and open from the row surface", async () =>
   assert.equal(row.attributes.get("role"), "link");
   row.dispatchEvent(new Event("click"));
   assert.equal(
-    documentNode.defaultView.location.hash,
-    "#/items/12?project=7",
+    documentNode.defaultView.location.href,
+    "/items/12?project=7",
   );
-  assert.equal(byClass(root, "row-link")[0].href, "#/items/12?project=7");
+  assert.equal(byClass(root, "row-link")[0].href, "/items/12?project=7");
 });
 
 test("Items exposes a unified-read failure instead of substituting legacy UI", async () => {

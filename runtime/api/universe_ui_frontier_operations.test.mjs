@@ -19,7 +19,7 @@ function stubFetch(t) {
 
 async function mountAt(hash, client) {
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = hash;
+  documentNode.defaultView.location.href = hash || "/";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client });
   await settle();
@@ -37,7 +37,7 @@ test("Shipping shows every run in its window, newest first", async (t) => {
     created_at: new Date(Date.now() - index * 60_000).toISOString(),
     stages: [{ name: "deploy", state: "active" }],
   }));
-  const { mounted, root } = await mountAt("#/shipping?project=1", workbenchClient({
+  const { mounted, root } = await mountAt("/shipping?project=1", workbenchClient({
     "deployment_runs.list": { rows: runs },
   }));
 
@@ -67,7 +67,7 @@ test("a waiting run names the project deploy lock holding it", async (t) => {
       previous: [], previous_remainder: 0,
     },
   };
-  const { mounted, root } = await mountAt("#/shipping?project=1", workbenchClient({
+  const { mounted, root } = await mountAt("/shipping?project=1", workbenchClient({
     "sessions.list": { rows: [holder] },
   }));
 
@@ -126,7 +126,7 @@ test("Active membership follows live claims, not lifecycle status", async (t) =>
     ...base("s-ended", "ended", 120),
     claims: [{ target_kind: "item", public_ref: "YOK-7", target: "YOK-7" }],
   };
-  const { mounted, root } = await mountAt("#/frontier?project=1", workbenchClient({
+  const { mounted, root } = await mountAt("/frontier?project=1", workbenchClient({
     "sessions.list": {
       rows: [holding, base("s-idle", "active", 60), ended],
     },
@@ -155,7 +155,7 @@ test("Active membership follows live claims, not lifecycle status", async (t) =>
 
 test("a Waiting card ends at its reason chip; Ready keeps its next step", async (t) => {
   stubFetch(t);
-  const { mounted, root } = await mountAt("#/frontier?project=1", workbenchClient());
+  const { mounted, root } = await mountAt("/frontier?project=1", workbenchClient());
 
   // The band heading and the card's own reason chip both already say the
   // card is waiting, so a meta line under them repeated the word and spent
@@ -197,7 +197,7 @@ test("the overflow tile says See more... and fills the row it sits in", async (t
     finished: true,
     finished_at: new Date(Date.now() - (index + 1) * hour).toISOString(),
   }));
-  const { mounted, root } = await mountAt("#/frontier?project=1", workbenchClient({
+  const { mounted, root } = await mountAt("/frontier?project=1", workbenchClient({
     "items.overview.list": { rows: finished },
   }));
   const tiles = byClass(root, "see-more-card");
@@ -210,7 +210,7 @@ test("the overflow tile says See more... and fills the row it sits in", async (t
 
 test("a card's age follows its status chip inline, not on a line of its own", async (t) => {
   stubFetch(t);
-  const { mounted, root } = await mountAt("#/frontier?project=1", workbenchClient());
+  const { mounted, root } = await mountAt("/frontier?project=1", workbenchClient());
 
   const card = byClass(root, "work-item-card")[0];
   const head = byClass(card, "work-item-card-head")[0];
@@ -255,7 +255,7 @@ test("Release shows every card it holds, and Done alone truncates", async (t) =>
     updated_at: new Date(Date.now() - (index + 1) * hour).toISOString(),
     merged_at: new Date(Date.now() - (index + 1) * hour).toISOString(),
   }));
-  const { mounted, root } = await mountAt("#/frontier?project=1", workbenchClient({
+  const { mounted, root } = await mountAt("/frontier?project=1", workbenchClient({
     "items.overview.list": { rows: releasing },
   }));
 

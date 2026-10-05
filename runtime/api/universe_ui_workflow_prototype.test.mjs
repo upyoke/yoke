@@ -97,7 +97,7 @@ test("workflow tabs switch immediately and remember each selected stage", async 
     state: null,
     replaceState(state, _title, route) {
       this.state = state;
-      documentNode.defaultView.location.hash = route;
+      documentNode.defaultView.location.href = route;
       replacedRoutes.push(route);
     },
   };
@@ -124,9 +124,9 @@ test("workflow tabs switch immediately and remember each selected stage", async 
     ["implementing"],
   );
   assert.deepEqual(replacedRoutes, [
-    "#/workflows/blitz",
-    "#/workflows/dash",
-    "#/workflows/blitz",
+    "/workflows/blitz",
+    "/workflows/dash",
+    "/workflows/blitz",
   ]);
   assert.equal(
     client.requests.filter(

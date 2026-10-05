@@ -35,13 +35,13 @@ function stubFetch(t) {
 }
 
 async function navigate(windowNode, hash) {
-  windowNode.location.hash = hash;
-  windowNode.dispatchEvent(new Event("hashchange"));
+  windowNode.location.href = hash || "/";
+  windowNode.dispatchEvent(new Event("popstate"));
   await settle();
 }
 
 async function mountAt(documentNode, hash, client) {
-  documentNode.defaultView.location.hash = hash;
+  documentNode.defaultView.location.href = hash || "/";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client });
   await settle();
@@ -54,7 +54,7 @@ test("a project change repaints Frontier from held data with zero reads", async 
   const windowNode = documentNode.defaultView;
   const client = multiProjectWorkbenchClient();
   const { root, mounted } = await mountAt(
-    documentNode, "#/frontier?project=1", client,
+    documentNode, "/frontier?project=1", client,
   );
 
   const before = contentRequestCount(client);
@@ -67,14 +67,14 @@ test("a project change repaints Frontier from held data with zero reads", async 
   const pageHead = byClass(root, "page-head")[0];
   const waiting = byClass(root, "work-band-waiting")[0];
 
-  await navigate(windowNode, "#/frontier?project=2");
+  await navigate(windowNode, "/frontier?project=2");
   assert.equal(contentRequestCount(client), before);
   assert.deepEqual(activeRefs(root), ["BET-20"]);
   assert.equal(byClass(root, "scope-bar")[0], scopeBar);
   assert.equal(byClass(root, "page-head")[0], pageHead);
   assert.equal(byClass(root, "work-band-waiting")[0], waiting);
 
-  await navigate(windowNode, "#/frontier?project=all");
+  await navigate(windowNode, "/frontier?project=all");
   assert.equal(contentRequestCount(client), before);
   assert.deepEqual(activeRefs(root).sort(), ["BET-20", "YOK-9"]);
   mounted.unmount();
@@ -85,7 +85,7 @@ test("prefix chips repaint the held scope in place", async (t) => {
   const documentNode = new FakeDocument();
   const client = multiProjectWorkbenchClient();
   const { root, mounted } = await mountAt(
-    documentNode, "#/frontier?project=1", client,
+    documentNode, "/frontier?project=1", client,
   );
   const before = contentRequestCount(client);
   const chip = (label) => byClass(root, "scope-chip")
@@ -101,13 +101,13 @@ test("prefix chips repaint the held scope in place", async (t) => {
   assert.equal(contentRequestCount(client), before);
   assert.deepEqual(activeRefs(root).sort(), ["BET-20", "YOK-9"]);
   assert.deepEqual(chipState(), [["All", true], ["YOK", false], ["BET", false]]);
-  assert.equal(documentNode.defaultView.location.hash, "#/frontier?project=all");
+  assert.equal(documentNode.defaultView.location.href, "/frontier?project=all");
 
   chip("YOK").dispatchEvent(new Event("click"));
   await settle();
   assert.equal(contentRequestCount(client), before);
   assert.deepEqual(activeRefs(root), ["YOK-9"]);
-  assert.equal(documentNode.defaultView.location.hash, "#/frontier?project=1");
+  assert.equal(documentNode.defaultView.location.href, "/frontier?project=1");
   mounted.unmount();
 });
 
@@ -117,7 +117,7 @@ test("Strategy reads only the projects in scope, and rereads on a change", async
   const windowNode = documentNode.defaultView;
   const client = multiProjectWorkbenchClient();
   const { root, mounted } = await mountAt(
-    documentNode, "#/strategy?project=1", client,
+    documentNode, "/strategy?project=1", client,
   );
   // One read per project in scope rather than one per project in the
   // universe: a corpus is per-project, so a narrowed scope is a smaller read
@@ -125,11 +125,11 @@ test("Strategy reads only the projects in scope, and rereads on a change", async
   assert.equal(callCount(client, "strategy.surface.list"), 1);
   assert.deepEqual(docSlugs(root), ["MISSION"]);
 
-  await navigate(windowNode, "#/strategy?project=2");
+  await navigate(windowNode, "/strategy?project=2");
   assert.equal(callCount(client, "strategy.surface.list"), 2);
   assert.deepEqual(docSlugs(root), ["BETA-PLAN"]);
 
-  await navigate(windowNode, "#/strategy?project=all");
+  await navigate(windowNode, "/strategy?project=all");
   assert.deepEqual(docSlugs(root).sort(), ["BETA-PLAN", "MISSION"]);
   mounted.unmount();
 });
@@ -140,15 +140,15 @@ test("a failed project document read does not poison another scope", async (t) =
   const windowNode = documentNode.defaultView;
   const client = multiProjectWorkbenchClient({ failProject: "2" });
   const { root, mounted } = await mountAt(
-    documentNode, "#/strategy?project=1", client,
+    documentNode, "/strategy?project=1", client,
   );
 
   assert.equal(byClass(root, "work-band-error").length, 0);
   // Every band of the failed scope says the read failed, rather than one of
   // them rendering an empty corpus as if that were the answer.
-  await navigate(windowNode, "#/strategy?project=2");
+  await navigate(windowNode, "/strategy?project=2");
   assert.equal(byClass(root, "work-band-error").length, 3);
-  await navigate(windowNode, "#/strategy?project=1");
+  await navigate(windowNode, "/strategy?project=1");
   assert.equal(byClass(root, "work-band-error").length, 0);
   assert.deepEqual(docSlugs(root), ["MISSION"]);
   mounted.unmount();
@@ -198,13 +198,13 @@ test("a full-roster scope reaches the Items see-more link as All", async (t) => 
   const documentNode = new FakeDocument();
   const client = overflowingDoneClient();
   const { root, mounted } = await mountAt(
-    documentNode, "#/frontier?project=1,2", client,
+    documentNode, "/frontier?project=1,2", client,
   );
   const seeMore = byClass(root, "see-more-card")[0];
   assert.ok(seeMore, "the Done band should overflow into a see-more card");
   // All is the absent parameter in an authored route; the shell's own link
   // rewrite spells it `project=all` when it resolves the click. What must
   // never appear here is a member list naming the roster.
-  assert.equal(seeMore.href, "#/items");
+  assert.equal(seeMore.href, "/items");
   mounted.unmount();
 });

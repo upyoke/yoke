@@ -82,14 +82,14 @@ test("one-argument mount preserves the local client and DOM shape", async (t) =>
   // and its two keyboard contracts are its own. It does take the route
   // change, though, because a modal that outlives the screen it opened over
   // keeps swallowing clicks on the next one.
-  assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 4);
+  assert.equal(documentNode.defaultView.listenerCounts.get("popstate"), 4);
   assert.equal(documentNode.defaultView.listenerCounts.get("keydown"), 4);
   assert.equal(documentNode.defaultView.listenerCounts.get("click"), 2);
   mounted.unmount();
   mounted.unmount();
   assert.equal(root.children.length, 0);
   assert.ok(!root.classList.contains("universe-app-root"));
-  assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 0);
+  assert.equal(documentNode.defaultView.listenerCounts.get("popstate"), 0);
   assert.equal(documentNode.defaultView.listenerCounts.get("keydown"), 0);
   assert.equal(documentNode.defaultView.listenerCounts.get("click"), 0);
 });
@@ -104,7 +104,7 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
   };
 
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/strategy";
+  documentNode.defaultView.location.href = "/strategy";
   const firstRoot = documentNode.createElement("div");
   const secondRoot = documentNode.createElement("div");
   secondRoot.classList.add("universe-app-root");
@@ -173,7 +173,7 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
   // two sets against the plain mount's three. Every mount adds one more:
   // the search dialog closes itself on a route change, so a dialog left
   // open cannot go on swallowing clicks over the next screen.
-  assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 7);
+  assert.equal(documentNode.defaultView.listenerCounts.get("popstate"), 7);
   // Host actions are not chrome: a mount carrying them draws nothing until
   // the Organization view asks for them, and the topbar never does.
   assert.equal(byClass(firstRoot, "capability-actions").length, 0);
@@ -253,8 +253,8 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
   // Organization renders the host actions as real buttons in the view:
   // the optionless action wears its own label, the optioned one wears one
   // button per option. The topbar stays bare either way.
-  documentNode.defaultView.location.hash = "#/organization";
-  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  documentNode.defaultView.location.href = "/organization";
+  documentNode.defaultView.dispatchEvent(new Event("popstate"));
   await settle();
   assert.equal(byClass(firstHeader, "capability-actions").length, 0);
   const firstContent = byClass(firstRoot, "content")[0];
@@ -281,8 +281,8 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
 
   // Back on a scoped view so the teardown half below exercises a route
   // that reads through each mount's own client.
-  documentNode.defaultView.location.hash = "#/strategy";
-  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  documentNode.defaultView.location.href = "/strategy";
+  documentNode.defaultView.dispatchEvent(new Event("popstate"));
   await settle();
 
   const firstCallsBeforeUnmount = firstClient.requests.length;
@@ -292,14 +292,14 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
     [topbarStartSlot, topbarEndSlot, navigationStartSlot,
       navigationEndSlot, contentBeforeSlot, contentAfterSlot]
   )) assert.equal(slot.parentNode, null);
-  assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 4);
-  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  assert.equal(documentNode.defaultView.listenerCounts.get("popstate"), 4);
+  documentNode.defaultView.dispatchEvent(new Event("popstate"));
   await settle();
   assert.equal(firstClient.requests.length, firstCallsBeforeUnmount);
   assert.ok(secondClient.requests.length > secondCallsBeforeHash);
 
   secondMount.unmount();
-  assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 0);
+  assert.equal(documentNode.defaultView.listenerCounts.get("popstate"), 0);
   assert.ok(secondRoot.classList.contains("universe-app-root"));
 });
 
@@ -344,5 +344,5 @@ test("header identity follows the host boundary and local actor", async (t) => {
 
   hostedMount.unmount();
   localMount.unmount();
-  assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 0);
+  assert.equal(documentNode.defaultView.listenerCounts.get("popstate"), 0);
 });

@@ -1,18 +1,18 @@
-import { NAV, parseUniverseRoute, buildUniverseRoute } from "./universe_navigation.js";
+import { NAV, parseUniverseRoute, buildUniverseRoute, routePath } from "./universe_navigation.js";
 import { DETAIL_RENDERERS } from "./universe_views.js";
 import { callFunction } from "./universe_view_support.js";
 
-const bareLocation = (hash) => !hash || /^#\/?$/.test(hash);
+const bareLocation = (href, base) => href === (base || "/") || href === `${base}/`;
 
 // Only a bare entry spends this read. Resource checks use the same authority
 // as the page itself; a stored route is never evidence of current access.
-export async function locationResolves(client, hash, projects, sections = {}) {
-  if (typeof hash !== "string" || !hash.startsWith("#/")) return false;
-  const path = hash.slice(2).split("?")[0].split("/");
+export async function locationResolves(client, href, projects, sections = {}, basePath = "") {
+  if (typeof href !== "string" || !href.startsWith("/")) return false;
+  const path = routePath(href, basePath).slice(1).split("?")[0].split("/");
   const entry = NAV.find((candidate) => candidate.id === path[0]);
   if (!entry || (entry.hostFed && !sections[entry.id])) return false;
   let route;
-  try { route = parseUniverseRoute(hash); } catch { return false; }
+  try { route = parseUniverseRoute(href, basePath); } catch { return false; }
   if (path.length > (route.tab ? 3 : 2) || path.some((part) => !part)) return false;
   const accessible = (id) => projects.some((row) => String(row.id) === id);
   for (const scope of [route.project, route.selection]) {
@@ -77,53 +77,51 @@ export async function locationResolves(client, hash, projects, sections = {}) {
   } catch { return false; }
 }
 
-export function createLocationPreference({ client, windowNode, selections, isMounted, onFallback }) {
-  const entryHash = windowNode.location.hash || "";
+export function createLocationPreference({ client, windowNode, navigation, selections, isMounted, onFallback }) {
+  const entryHref = navigation.current();
   let lastSaved = null;
   let writes = Promise.resolve();
   let restored = null;
   return {
     client: {
       async call(request, init) {
-        const hash = restored;
+        const href = restored;
         const result = await client.call(request, init);
         const code = result.envelope?.error?.code || "";
         // A global page can lose permission too. Its own renderer supplies
         // the access verdict, without adding a duplicate permission read.
         const denied = [401, 403, 404].includes(result.status) ||
           /not_found|not_allowed|forbidden|denied|unauthorized|permission|authz/.test(code);
-        if (hash && denied && isMounted() && windowNode.location.hash === hash) {
+        if (href && denied && isMounted() && routePath(navigation.current(), navigation.basePath) === href) {
           restored = null;
-          windowNode.location.hash = buildUniverseRoute(NAV[0].id);
+          navigation.replace(buildUniverseRoute(NAV[0].id));
           onFallback?.();
         }
         return result;
       },
     },
     async restore(projects, sections) {
-      if (!bareLocation(entryHash) || windowNode.location.hash !== entryHash) return;
+      if (!bareLocation(entryHref, navigation.basePath) || navigation.current() !== entryHref) return;
       const saved = selections.lastLocation;
       if (!saved) return;
       const valid = await locationResolves(client, saved, projects, sections);
       // A navigation or unmount during the resource read wins too.
-      if (!isMounted() || windowNode.location.hash !== entryHash) return;
-      const hash = valid ? saved : buildUniverseRoute(NAV[0].id);
-      restored = valid ? hash : null;
-      if (windowNode.history?.replaceState) {
-        windowNode.history.replaceState(windowNode.history.state, "", hash);
-      } else windowNode.location.hash = hash;
+      if (!isMounted() || navigation.current() !== entryHref) return;
+      const href = valid ? saved : buildUniverseRoute(NAV[0].id);
+      restored = valid ? href : null;
+      navigation.replace(href);
     },
     remember() {
-      const location = windowNode.location.hash;
+      const location = navigation.current();
       if (restored && location !== restored) restored = null;
       if (!selections.ready || !location || location === lastSaved) return;
       lastSaved = location;
-      const { view } = parseUniverseRoute(location);
+      const { view } = parseUniverseRoute(location, navigation.basePath);
       // Serialize navigation writes: an earlier request cannot arrive last
       // and turn Back/Forward or a rapid click sequence into stale state.
       writes = writes.then(async () => {
         const result = await callFunction(client, "ui_preferences.screen_selection.set", {
-          view_id: view, location,
+          view_id: view, location: routePath(location, navigation.basePath),
         });
         if (!result.envelope?.success) throw new Error("location save failed");
       })

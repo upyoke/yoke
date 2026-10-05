@@ -40,7 +40,7 @@ async function mountAt(t, hash, client) {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = hash;
+  documentNode.defaultView.location.href = hash || "/";
   const root = documentNode.createElement("div");
   mountUniverseApp(root, { client });
   await settle();
@@ -54,7 +54,7 @@ function pageText(root) {
 test("an undeclared map explains itself and names the draft recipe", async (t) => {
   const calls = [];
   const root = await mountAt(
-    t, "#/architecture/demo", architectureClient({ declared: false }, calls),
+    t, "/architecture/demo", architectureClient({ declared: false }, calls),
   );
   const text = pageText(root);
   assert.match(text, /declares no architecture map yet/);
@@ -92,7 +92,7 @@ test("health renders above the declared map from one read", async (t) => {
     exemption_patterns: 1,
   };
   const root = await mountAt(
-    t, "#/architecture/demo", architectureClient(health, calls),
+    t, "/architecture/demo", architectureClient(health, calls),
   );
   const text = pageText(root);
   assert.match(text, /75% of 4 python files/);
@@ -108,7 +108,7 @@ test("health renders above the declared map from one read", async (t) => {
 });
 
 test("zero assessed files cannot claim healthy coverage", async (t) => {
-  const root = await mountAt(t, "#/architecture/demo", architectureClient({
+  const root = await mountAt(t, "/architecture/demo", architectureClient({
     declared: true, python_paths: 0, coverage_pct: 100,
     forbidden_edge_count: 0, cross_cutting_count: 0,
     layers: [{ id: "domain", may_depend_on: [] }],
@@ -120,7 +120,7 @@ test("zero assessed files cannot claim healthy coverage", async (t) => {
 });
 
 test("missing examples do not hide a nonzero violation count", async (t) => {
-  const root = await mountAt(t, "#/architecture/demo", architectureClient({
+  const root = await mountAt(t, "/architecture/demo", architectureClient({
     declared: true, python_paths: 2, coverage_pct: 100,
     forbidden_edge_count: 3, cross_cutting_count: 1,
   }, []));

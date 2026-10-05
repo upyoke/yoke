@@ -200,7 +200,7 @@ export async function mountAt(t, hash) {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = hash;
+  documentNode.defaultView.location.href = hash || "/";
   const root = documentNode.createElement("div");
   const client = qaClient();
   const mounted = mountUniverseApp(root, { client });

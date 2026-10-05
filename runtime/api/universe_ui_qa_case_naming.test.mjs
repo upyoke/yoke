@@ -100,8 +100,8 @@ test("activity links each case by name and the row itself does not navigate", as
   assert.deepEqual(
     links.map((link) => [link.textContent, link.href]),
     [
-      ["Browser inspection · run-20260927-004", "#/qa-activity/32037?project=1"],
-      ["Command check · PLAT-151", "#/qa-activity/31877?project=1"],
+      ["Browser inspection · run-20260927-004", "/qa-activity/32037?project=1"],
+      ["Command check · PLAT-151", "/qa-activity/31877?project=1"],
     ],
   );
   assert.equal(byClass(root, "qa-clickable-row").length, 0);

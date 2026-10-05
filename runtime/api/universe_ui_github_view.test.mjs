@@ -98,7 +98,7 @@ async function mountGithub(t, client, options = {}) {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = options.hash || "#/github?project=1";
+  documentNode.defaultView.location.href = options.hash || "/github?project=1";
   const root = documentNode.createElement("div");
   const sections = typeof options.sections === "function"
     ? options.sections(documentNode) : options.sections;

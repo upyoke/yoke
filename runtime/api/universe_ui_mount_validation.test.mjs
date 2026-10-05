@@ -112,21 +112,21 @@ test("a synchronously throwing client still returns a cleanup handle", async (t)
 });
 
 test("route helpers are deterministic and platform-neutral", () => {
-  assert.deepEqual(parseUniverseRoute("#/strategy?project=abc%201"), {
+  assert.deepEqual(parseUniverseRoute("/strategy?project=abc%201"), {
     view: "strategy", tab: null, detail: null, project: "abc 1", selection: null,
   });
   // An unrecognised view falls back to the first destination in the nav.
-  assert.deepEqual(parseUniverseRoute("#/unknown"), {
+  assert.deepEqual(parseUniverseRoute("/unknown"), {
     view: "strategy", tab: null, detail: null, project: null, selection: null,
   });
   // Board rendering remains a CLI/local artifact; it is not a web route.
-  assert.deepEqual(parseUniverseRoute("#/board"), {
+  assert.deepEqual(parseUniverseRoute("/board"), {
     view: "strategy", tab: null, detail: null, project: null, selection: null,
   });
   assert.equal(buildUniverseRoute("strategy", "abc 1"),
-    "#/strategy?project=abc%201");
-  assert.equal(buildUniverseRoute("unknown", null), "#/strategy");
-  assert.equal(buildUniverseRoute("board", null), "#/strategy");
+    "/strategy?project=abc%201");
+  assert.equal(buildUniverseRoute("unknown", null), "/strategy");
+  assert.equal(buildUniverseRoute("board", null), "/strategy");
 });
 
 test("every nav destination declares how it takes project scope", () => {
@@ -153,7 +153,7 @@ test("every nav destination declares how it takes project scope", () => {
   // any destination, and no project narrows a host-owned screen.
   for (const hostFed of ["members", "billing"]) {
     assert.equal(universeNavScope(hostFed), "none");
-    assert.deepEqual(parseUniverseRoute(`#/${hostFed}`), {
+    assert.deepEqual(parseUniverseRoute(`/${hostFed}`), {
       view: hostFed, tab: null, detail: null, project: null, selection: null,
     });
   }

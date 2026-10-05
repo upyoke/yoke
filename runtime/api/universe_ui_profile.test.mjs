@@ -82,9 +82,9 @@ function profileClient(profile = profileAnswer()) {
   };
 }
 
-async function mountProfile(client, hash = "#/profile") {
+async function mountProfile(client, hash = "/profile") {
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = hash;
+  documentNode.defaultView.location.href = hash || "/";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client });
   await settle();
@@ -122,7 +122,7 @@ test("profile draws five cards from one read", async () => {
   const machineLink = allNodes(root).find(
     (n) => n.tagName === "A" && n.textContent === "Machine →",
   );
-  assert.equal(machineLink.href, `#/machines/${MACHINE_ID}`);
+  assert.equal(machineLink.href, `/machines/${MACHINE_ID}`);
   assert.equal(displayTimeZoneValue(), "Europe/Berlin");
   mounted.unmount();
 });
@@ -208,7 +208,7 @@ test("reset clears the hidden count and disables itself", async () => {
 
 test("the actor menu names the person and links to Profile; the sidebar does not", async () => {
   const client = profileClient();
-  const { root, mounted } = await mountProfile(client, "#/frontier");
+  const { root, mounted } = await mountProfile(client, "/frontier");
   const chip = byClass(root, "actor-chip")[0];
   assert.equal(chip.tagName, "BUTTON");
   assert.equal(byClass(root, "actor-name")[0].textContent, "Ben");
@@ -222,7 +222,7 @@ test("the actor menu names the person and links to Profile; the sidebar does not
   );
   const link = byClass(root, "actor-menu-link")[0];
   assert.equal(link.textContent, "Profile");
-  assert.equal(link.href, "#/profile");
+  assert.equal(link.href, "/profile");
   const sidebarLabels = byClass(root, "nav-link")
     .map((n) => byClass(n, "txt")[0].textContent);
   assert.equal(sidebarLabels.includes("Profile"), false);

@@ -22,7 +22,7 @@ function stubFetch(t) {
 
 async function mountFrontier(client) {
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/frontier?project=1";
+  documentNode.defaultView.location.href = "/frontier?project=1";
   const root = documentNode.createElement("div");
   mountUniverseApp(root, { client });
   await settle();
@@ -69,7 +69,7 @@ test("the item reads do not wait for the release roster", async (t) => {
   };
 
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/frontier?project=1";
+  documentNode.defaultView.location.href = "/frontier?project=1";
   const root = documentNode.createElement("div");
   mountUniverseApp(root, { client });
   await settle();

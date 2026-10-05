@@ -39,6 +39,9 @@ from __future__ import annotations
 import socket
 import threading
 import webbrowser
+from urllib.parse import urlencode
+from starlette.requests import Request
+from yoke_core.ui.dashboard_routes import is_dashboard_path
 from typing import Any, Dict, Optional
 
 from yoke_contracts.runtime_identity import SERVED_BUILD_PATH
@@ -229,17 +232,24 @@ def create_ui_app(token: str, *, port: int = DEFAULT_UI_PORT):
 
     @app.get("/")
     def app_shell(
-        # NOTE: parameter annotations here must resolve from module globals
-        # (postponed annotations + FastAPI's type-hint resolution); a
-        # locally-imported type like Request silently degrades to a query
-        # parameter and breaks the route with a 422.
+        request: Request,
         query_token: Optional[str] = Query(default=None, alias="token"),
     ) -> Response:
+        if not is_dashboard_path(request.url.path):
+            raise HTTPException(status_code=404, detail="unknown dashboard route")
         if query_token and token_matches(query_token, token):
             # Exchange the query token for an HttpOnly cookie and bounce
             # to the bare URL: the cookie authenticates the follow-up
             # request, and the tokened URL drops out of browser history.
-            redirect: Response = RedirectResponse(url="/", status_code=303)
+            query = urlencode(
+                [
+                    (key, value)
+                    for key, value in request.query_params.multi_items()
+                    if key != "token"
+                ]
+            )
+            url = request.url.path + (f"?{query}" if query else "")
+            redirect: Response = RedirectResponse(url=url, status_code=303)
             redirect.set_cookie(
                 cookie_name,
                 token,
@@ -286,6 +296,7 @@ def create_ui_app(token: str, *, port: int = DEFAULT_UI_PORT):
         payload, status_code = proxy_function_call(envelope)
         return JSONResponse(payload, status_code=status_code)
 
+    app.get("/{path:path}")(app_shell)
     return app
 
 

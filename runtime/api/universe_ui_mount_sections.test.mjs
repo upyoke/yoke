@@ -25,7 +25,7 @@ test("host-fed sections light their nav entries and render as the view", async (
   globalThis.fetch = () => response(200, {});
 
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/members";
+  documentNode.defaultView.location.href = "/members";
   const root = documentNode.createElement("div");
   const membersPanel = documentNode.createElement("section");
   const billingPanel = documentNode.createElement("section");
@@ -54,8 +54,8 @@ test("host-fed sections light their nav entries and render as the view", async (
 
   // Routing to the other host-fed view swaps sections and releases the
   // outgoing node completely — it never strands in a discarded subtree.
-  documentNode.defaultView.location.hash = "#/billing";
-  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  documentNode.defaultView.location.href = "/billing";
+  documentNode.defaultView.dispatchEvent(new Event("popstate"));
   await settle();
   assert.ok(allNodes(root).includes(billingPanel));
   assert.equal(membersPanel.parentNode, null);
@@ -72,7 +72,7 @@ test("a host-fed deep link without its section stays honest", async (t) => {
   globalThis.fetch = () => response(200, {});
 
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/members";
+  documentNode.defaultView.location.href = "/members";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client: injectedClient("local") });
   await settle();
@@ -97,7 +97,7 @@ test("a section for a workbench view appends after the view's own output", async
   globalThis.fetch = () => response(200, {});
 
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/strategy";
+  documentNode.defaultView.location.href = "/strategy";
   const root = documentNode.createElement("div");
   const extra = documentNode.createElement("aside");
   const mounted = mountUniverseApp(root, {
@@ -123,8 +123,8 @@ test("a section for a workbench view appends after the view's own output", async
   assert.equal(strategyLinks.length, 1);
 
   // Leaving the view releases the section node; unmount keeps it released.
-  documentNode.defaultView.location.hash = "#/items";
-  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  documentNode.defaultView.location.href = "/items";
+  documentNode.defaultView.dispatchEvent(new Event("popstate"));
   await settle();
   assert.equal(extra.parentNode, null);
   mounted.unmount();
@@ -142,7 +142,7 @@ test("host sections remain visible when GitHub has no project yet", async (t) =>
   // picker for a `beforeScope` section to sit above.
   for (const placement of ["inView", "beforeScope"]) {
     const documentNode = new FakeDocument();
-    documentNode.defaultView.location.hash = "#/github";
+    documentNode.defaultView.location.href = "/github";
     const root = documentNode.createElement("div");
     const hostSection = documentNode.createElement("aside");
     const client = {
@@ -186,7 +186,7 @@ test("a beforeScope section sits above the picker, an inView section below", asy
 
   const mountWith = async (placement) => {
     const documentNode = new FakeDocument();
-    documentNode.defaultView.location.hash = "#/github?project=1";
+    documentNode.defaultView.location.href = "/github?project=1";
     const root = documentNode.createElement("div");
     const hostSection = documentNode.createElement("aside");
     const client = {
@@ -245,7 +245,7 @@ test("a section entry is told from a spec by being a node, not by its keys", asy
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/members";
+  documentNode.defaultView.location.href = "/members";
   const root = documentNode.createElement("div");
   // A <template> owns a `content` property of its own, so an entry sniffed
   // for a `content` key would read this Element as a placement spec and hand

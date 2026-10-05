@@ -18,7 +18,7 @@ test("strategy cards carry the corpus facts from one read", async (t) => {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/strategy";
+  documentNode.defaultView.location.href = "/strategy";
   const root = documentNode.createElement("div");
   const requests = [];
   const client = {

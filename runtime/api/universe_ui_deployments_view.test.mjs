@@ -31,7 +31,7 @@ async function mountAt(t, hash, client) {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = hash;
+  documentNode.defaultView.location.href = hash || "/";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client });
   await settle();
@@ -94,7 +94,7 @@ test("Runs is one eight-column table whose rows open the run page", async (t) =>
       throw new Error(`unexpected function ${request.function}`);
     },
   };
-  const { root, mounted } = await mountAt(t, "#/deployments/runs", client);
+  const { root, mounted } = await mountAt(t, "/deployments/runs", client);
 
   // "all" is one unfiltered call over the whole universe.
   assert.deepEqual(
@@ -131,7 +131,7 @@ test("Runs is one eight-column table whose rows open the run page", async (t) =>
   assert.equal(byClass(statusCell, "delivery-run-status").length, 1);
   assert.equal(
     byClass(root, "delivery-run-id")[0].href,
-    "#/deployments/runs/run-20260101-001?project=2",
+    "/deployments/runs/run-20260101-001?project=2",
   );
   assert.equal(byClass(root, "delivery-run-card").length, 0);
   // Every cell names its column, which is what lets a phone stack the row
@@ -213,7 +213,7 @@ test("an approval-paused table row links its item and Inbox decision", async (t)
   };
   const { root, mounted } = await mountAt(
     t,
-    "#/deployments/runs?project=1",
+    "/deployments/runs?project=1",
     client,
   );
 
@@ -223,12 +223,12 @@ test("an approval-paused table row links its item and Inbox decision", async (t)
     ),
     ["complete", "active", "pending"],
   );
-  assert.equal(byClass(root, "delivery-member")[0].href, "#/items/2228?project=1");
+  assert.equal(byClass(root, "delivery-member")[0].href, "/items/2228?project=1");
   assert.equal(byClass(root, "delivery-member")[0].textContent, "YOK-2228");
   assert.equal(byClass(root, "delivery-member")[0].title, "Ship the release");
   assert.equal(
     byClass(root, "delivery-run-id")[0].href,
-    "#/deployments/runs/run-20260726-001?project=1",
+    "/deployments/runs/run-20260726-001?project=1",
   );
   // A suspended run reports its request, not the status it held when it
   // stopped.
@@ -237,7 +237,7 @@ test("an approval-paused table row links its item and Inbox decision", async (t)
   );
   const footer = byClass(root, "delivery-waiting-link")[0];
   assert.equal(footer.textContent, "1 run waiting on you →");
-  assert.equal(footer.href, "#/inbox?project=1");
+  assert.equal(footer.href, "/inbox?project=1");
   assert.equal(byClass(root, "metric").length, 0);
   mounted.unmount();
 });
@@ -293,7 +293,7 @@ test("a page-shaped list row shows flow, stages, and derived carried items", asy
       throw new Error(`unexpected function ${request.function}`);
     },
   };
-  const { root, mounted } = await mountAt(t, "#/deployments/runs?project=1", client);
+  const { root, mounted } = await mountAt(t, "/deployments/runs?project=1", client);
   const cells = allNodes(root).filter((node) => node.tagName === "TD").map(cellText);
 
   assert.equal(
@@ -310,7 +310,7 @@ test("a page-shaped list row shows flow, stages, and derived carried items", asy
   );
   assert.equal(
     byClass(root, "delivery-run-id")[0].href,
-    "#/deployments/runs/run-20260911-001?project=1",
+    "/deployments/runs/run-20260911-001?project=1",
   );
   mounted.unmount();
 });

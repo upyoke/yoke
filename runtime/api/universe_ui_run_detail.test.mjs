@@ -111,7 +111,7 @@ async function mountAt(t, hash, client) {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = hash;
+  documentNode.defaultView.location.href = hash || "/";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client });
   await settle();
@@ -138,7 +138,7 @@ test("the run page reads the run by id and draws it in the page's shape", async 
     happened_at: "2026-07-26T10:05:00Z",
     artifacts: [{ id: 41, artifact_type: "screenshot", content_type: "image/png" }],
   }]);
-  const { root, mounted } = await mountAt(t, "#/deployments/runs/run-20260726-001?project=1", client);
+  const { root, mounted } = await mountAt(t, "/deployments/runs/run-20260726-001?project=1", client);
 
   // One run, found by its id through the same paged read the table uses.
   const read = client.requests.find((request) => request.function === "deployment_runs.list");
@@ -220,7 +220,7 @@ test("a run with nothing waiting says what it is doing instead", async (t) => {
     completed_at: new Date().toISOString(),
     stages: [{ name: "build", state: "complete" }, { name: "release", state: "complete" }],
   }));
-  const { root, mounted } = await mountAt(t, "#/deployments/runs/run-20260726-001?project=1", client);
+  const { root, mounted } = await mountAt(t, "/deployments/runs/run-20260726-001?project=1", client);
   assert.equal(byClass(root, "run-badge")[0].textContent, "succeeded");
   // Stages beside the work, run QA below the carried items.
   const decision = byClass(root, "run-work")[0];
@@ -236,8 +236,8 @@ test("a run with nothing waiting says what it is doing instead", async (t) => {
 });
 
 for (const route of [
-  "#/deployments/runs/run-20260726-001?selection=all",
-  "#/deployments/runs/run-20260726-001?project=1",
+  "/deployments/runs/run-20260726-001?selection=all",
+  "/deployments/runs/run-20260726-001?project=1",
 ]) {
   test(`a mixed-project run shows every authorized member from ${route}`, async (t) => {
     const yokeRef = ["YOK", 2228].join("-");
@@ -260,12 +260,12 @@ for (const route of [
     // Each carried title links to the same item as its reference.
     assert.deepEqual(byClass(root, "carried-item-title").map((node) => [
       node.tagName, node.textContent, node.href]), [
-      ["A", "Ship the release", "#/items/2228?project=1"],
-      ["A", "Build the host", "#/items/149?project=2"],
+      ["A", "Ship the release", "/items/2228?project=1"],
+      ["A", "Build the host", "/items/149?project=2"],
     ]);
     assert.equal(byClass(root, "run-fact-value")[0].textContent, "0.1.1+launch.379");
     assert.equal(byClass(root, "run-items")[0].children.find(
-      (node) => node.textContent === platformRef).href, "#/items/149?project=2");
+      (node) => node.textContent === platformRef).href, "/items/149?project=2");
     assert.ok(client.requests.some((request) => request.function === "qa.activity.list"
       && request.payload.project === "1" && request.payload.deployment_run_id));
     assert.ok(client.requests.some((request) => request.function === "qa.activity.list"
@@ -287,7 +287,7 @@ test("a cancelled run keeps its history and names what carried the work after", 
     ],
   );
   const { root, mounted } = await mountAt(
-    t, "#/deployments/runs/run-20260726-001?project=1", client,
+    t, "/deployments/runs/run-20260726-001?project=1", client,
   );
 
   // No boilerplate about what a stopped run's evidence answers for.
@@ -298,17 +298,17 @@ test("a cancelled run keeps its history and names what carried the work after", 
     siblings.map((node) => node.children[0].textContent), ["run-20260726-004"],
   );
   assert.equal(
-    siblings[0].children[0].href, "#/deployments/runs/run-20260726-004?project=1",
+    siblings[0].children[0].href, "/deployments/runs/run-20260726-004?project=1",
   );
   mounted.unmount();
 });
 
 test("an inaccessible or missing run says so rather than drawing an empty page", async (t) => {
   const client = runClient(null);
-  const { root, mounted } = await mountAt(t, "#/deployments/runs/run-nope?project=1", client);
+  const { root, mounted } = await mountAt(t, "/deployments/runs/run-nope?project=1", client);
   const text = allNodes(root).map((node) => node.textContent || "").join(" ");
   assert.match(text, /There is no accessible run called run-nope/);
-  assert.equal(byClass(root, "review-link")[0].href, "#/deployments/runs?project=1");
+  assert.equal(byClass(root, "review-link")[0].href, "/deployments/runs?project=1");
   mounted.unmount();
 });
 
@@ -317,7 +317,7 @@ test("a run page leaves run-less item QA on the item", async (t) => {
     requirement_id: 26134, deployment_run_id: null, item_id: 2262,
     method_name: "Browser inspection", outcome: "undetermined", artifacts: [],
   }]);
-  const { root } = await mountAt(t, "#/deployments/runs/run-20260726-001?project=1", client);
+  const { root } = await mountAt(t, "/deployments/runs/run-20260726-001?project=1", client);
   await settle();
   assert.equal(byClass(byClass(root, "run-items")[0], "carried-item-evidence").length, 0);
 });

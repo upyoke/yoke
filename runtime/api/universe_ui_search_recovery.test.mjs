@@ -122,7 +122,7 @@ test("a late domain preserves the selected result, its identity and keyboard foc
   assert.equal(documentNode.activeElement, selected);
   input.focus();
   press(input, "Enter");
-  assert.equal(documentNode.defaultView.location.hash, selected.href);
+  assert.equal(documentNode.defaultView.location.href, selected.href);
 });
 
 test("ArrowUp starts at the last result and clearing the query clears selection", async (t) => {

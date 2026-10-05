@@ -40,7 +40,7 @@ test("a removal names and links its recorded later holder", () => {
   assert.equal(byClass(box, "item-deployment-outcome")[0].textContent,
     "○ removed · QA cancelled · rides run-later");
   assert.equal(byClass(box, "overview-card-link")[0].href,
-    "#/deployments/runs/run-later?project=7");
+    "/deployments/runs/run-later?project=7");
 });
 
 test("a newer real membership replaces the removal row", () => {

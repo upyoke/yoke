@@ -166,7 +166,7 @@ test("Strategy corpus matches the prototype hierarchy with real read facts", asy
   // The card itself is the link to the document.
   const card = byClass(main, "strategy-doc-card")[0];
   assert.equal(card.tagName, "A");
-  assert.equal(card.href, "#/strategy/WORKFLOW-TYPES?project=1");
+  assert.equal(card.href, "/strategy/WORKFLOW-TYPES?project=1");
 });
 
 test("Strategy detail exposes document, history, diff, and restore", async () => {
@@ -212,7 +212,7 @@ test("Strategy detail exposes document, history, diff, and restore", async () =>
   assert.match(rendered, /Inspect documents, compare revisions/);
   assert.doesNotMatch(rendered, /\bcomments?\b/i);
   assert.match(rendered, /item-owned\s+·\s+YOK-2001/);
-  assert.equal(allNodes(main).find((node) => node.textContent === "YOK-2001 →").href, "#/items/2001?project=1");
+  assert.equal(allNodes(main).find((node) => node.textContent === "YOK-2001 →").href, "/items/2001?project=1");
   assert.match(rendered, /Blitz v2/);
   assert.match(rendered, /Purpose/);
   assert.doesNotMatch(rendered, /<h1>/);

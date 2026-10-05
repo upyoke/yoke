@@ -50,8 +50,7 @@ class TestSessionTokenGate:
         assert response.status_code == 303
         assert response.headers["location"] == "/"
         assert (
-            ui_server.session_cookie_name(ui_server.DEFAULT_UI_PORT)
-            in response.cookies
+            ui_server.session_cookie_name(ui_server.DEFAULT_UI_PORT) in response.cookies
         )
 
     def test_two_views_on_different_ports_keep_separate_sessions(self):
@@ -79,3 +78,33 @@ class TestSessionTokenGate:
     def test_empty_token_never_matches(self):
         with pytest.raises(ui_server.UiServerError):
             ui_server.create_ui_app("")
+
+
+@pytest.mark.parametrize(
+    "path", ["/shipping", "/items/42", "/deployments/flows/flow-id"]
+)
+def test_deep_path_token_exchange_and_reload(ui_client, path):
+    response = ui_client.get(f"{path}?project=2&token={_TOKEN}", follow_redirects=False)
+    assert response.status_code == 303
+    assert response.headers["location"] == f"{path}?project=2"
+    page = ui_client.get(response.headers["location"])
+    assert page.status_code == 200
+    assert 'from "/assets/app.js"' in page.text
+    assert 'href="/assets/app.css"' in page.text
+    assert ui_client.get(path).status_code == 200
+    assert ui_client.get("/assets/universe_path_navigation.js").status_code == 200
+
+
+def test_unknown_path_is_not_dashboard_shell(ui_client):
+    ui_client.get(f"/?token={_TOKEN}")
+    assert ui_client.get("/unknown").status_code == 404
+    assert ui_client.get("/api/missing").status_code == 404
+
+
+def test_published_dashboard_contract_matches_runtime_nav():
+    from pathlib import Path
+    from yoke_core.ui.dashboard_routes import load_dashboard_routes, render_contract
+    import json
+
+    root = Path(__file__).resolve().parents[2]
+    assert load_dashboard_routes() == json.loads(render_contract(root))

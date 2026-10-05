@@ -1,3 +1,4 @@
+import { createPathNavigation } from "./universe_path_navigation.js";
 // Deployments → Flows: a searchable list of flow definitions grouped by
 // project beside the selected flow. On a narrow content pane the list comes
 // first and a chosen flow opens alone, with "‹ All flows" to return.
@@ -124,12 +125,8 @@ export function renderDeliveryFlowExplorer(body, panel, sourceRows, selectedId =
   ));
 
   const rowLinks = new Map();
-  const updateRoute = (href) => {
-    if (!href) return;
-    const view = documentNode.defaultView;
-    if (view?.history?.pushState) view.history.pushState(null, "", href);
-    else if (view?.location) view.location.hash = href;
-  };
+  const navigation = options.navigation || createPathNavigation(documentNode.defaultView);
+  const updateRoute = (href) => { if (href) navigation.navigate(href); };
   const select = (row) => {
     state.selected = row;
     state.open = true;
@@ -140,7 +137,6 @@ export function renderDeliveryFlowExplorer(body, panel, sourceRows, selectedId =
     paint();
     updateRoute(options.flowHref?.(row.id));
     detail.focus();
-    page.scrollIntoView?.({ block: "start" });
   };
 
   const paintList = (visible) => {
@@ -195,7 +191,7 @@ export function renderDeliveryFlowExplorer(body, panel, sourceRows, selectedId =
       onBack: () => {
         state.open = false;
         page.classList.remove("is-detail-open");
-        updateRoute(options.listHref);
+        navigation.back(options.listHref);
         (rowLinks.get(String(state.selected?.id)) || search).focus();
       },
     });

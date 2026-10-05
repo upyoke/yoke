@@ -79,7 +79,7 @@ test("Epic detail reports task completion and its narrower fact spine", async ()
   ]);
   assert.equal(
     byClass(byClass(root, "item-facts")[0], "row-link")[0].href,
-    "#/workflows/epic",
+    "/workflows/epic",
   );
   assert.deepEqual(
     byClass(root, "item-posture-label").map((node) => node.textContent),
@@ -150,8 +150,8 @@ for (const workflowId of ["issue", "dash"]) {
     assert.deepEqual(
       byClass(root, "item-proof-plan").map((node) => node.href),
       [
-        "#/qa-plans/3?project=7",
-        "#/qa-plans/4?project=7",
+        "/qa-plans/3?project=7",
+        "/qa-plans/4?project=7",
       ],
     );
     assert.match(
@@ -227,7 +227,7 @@ for (const workflowId of ["issue", "dash"]) {
     );
     assert.equal(
       byClass(byClass(root, "item-facts")[0], "row-link")[0].href,
-      `#/workflows/${workflowId}`,
+      `/workflows/${workflowId}`,
     );
     // The card itself navigates nowhere, so its text is selectable, and the
     // method definition is a named link beside the evidence rather than the
@@ -237,8 +237,8 @@ for (const workflowId of ["issue", "dash"]) {
     assert.deepEqual(
       byClass(proofRow, "item-proof-link-out").map((node) => node.href),
       [
-        "#/qa-methods/browser-inspection?project=7",
-        "#/qa-activity?project=7",
+        "/qa-methods/browser-inspection?project=7",
+        "/qa-activity?project=7",
       ],
     );
     // The evidence is the thumbnail strip every review surface draws.
@@ -311,6 +311,6 @@ test("promoted Dash detail links back to its source field note", async () => {
     byClass(root, "item-action").find(
       (node) => node.textContent === "Open field note #22890",
     ).href,
-    "#/ouroboros/22890?project=7",
+    "/ouroboros/22890?project=7",
   );
 });

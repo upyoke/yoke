@@ -140,7 +140,7 @@ def test_location_survives_navigation_and_selection_only_writes(test_db):
             "SELECT id FROM actors WHERE kind = 'human' ORDER BY id LIMIT 1"
         ).fetchone()[0]
     )
-    location = "#/items/example?project=1&selection=all&return=workflows"
+    location = "/items/example?project=1&selection=all&return=workflows"
     done = _set({"view_id": "items", "location": location}, actor)
     assert done.primary_success
     assert done.result_payload == {"view_id": "items", "location": location}
@@ -163,7 +163,7 @@ def test_location_survives_navigation_and_selection_only_writes(test_db):
         )
     )
     assert other.result_payload["last_location"] is None
-    updated = "#/sessions?project=all"
+    updated = "/sessions?project=all"
     _set({"view_id": "sessions", "location": updated}, actor)
     assert _list(actor) == {"sessions": {"selection": ["1"], "focus": "1"}}
     assert (
@@ -178,7 +178,16 @@ def test_location_survives_navigation_and_selection_only_writes(test_db):
 
 
 @pytest.mark.parametrize(
-    "location", ["https://example.com", "", 4, "#/items\n", "#/" + "a" * 4096]
+    "location",
+    [
+        "https://example.com",
+        "//example.com/items",
+        "#/items",
+        "",
+        4,
+        "/items\n",
+        "/" + "a" * 4096,
+    ],
 )
 def test_location_refuses_invalid_payload_before_writing(test_db, location):
     refused = _set({"view_id": "items", "location": location}, "1")
@@ -195,7 +204,7 @@ def test_items_sort_is_actor_scoped_and_leaves_selection_and_location(test_db):
         {"view_id": "items", "selection": ["1"], "focus": "1"}, actor_id=first
     ).primary_success
     assert _set(
-        {"view_id": "items", "location": "#/items?project=1"}, actor_id=first
+        {"view_id": "items", "location": "/items?project=1"}, actor_id=first
     ).primary_success
     chosen = {"column": "title", "direction": "asc"}
     assert _set({"view_id": "items", "sort": chosen}, actor_id=first).primary_success
@@ -204,7 +213,7 @@ def test_items_sort_is_actor_scoped_and_leaves_selection_and_location(test_db):
     ).result_payload
     assert response["sorts"] == {"items": chosen}
     assert response["views"]["items"] == {"selection": ["1"], "focus": "1"}
-    assert response["last_location"] == "#/items?project=1"
+    assert response["last_location"] == "/items?project=1"
     assert (
         handle_screen_selection_list(
             _request("ui_preferences.screen_selection.list", actor_id=second)

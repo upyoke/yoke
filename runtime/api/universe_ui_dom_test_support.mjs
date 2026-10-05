@@ -142,7 +142,41 @@ export class FakeNode extends EventTarget {
 class FakeWindow extends EventTarget {
   constructor() {
     super();
-    this.location = { hash: "#/items" };
+    this.Event = Event;
+    let url = new URL("http://workbench.invalid/items");
+    this.location = {
+      get href() { return `${url.pathname}${url.search}${url.hash}`; },
+      set href(value) { url = new URL(value, url); },
+      get pathname() { return url.pathname; },
+      get search() { return url.search; },
+      get hash() { return url.hash; },
+      set hash(value) { url.hash = value; },
+    };
+    const entries = [{ href: this.location.href, state: null }];
+    let index = 0;
+    this.history = {
+      get state() { return entries[index].state; },
+      replaceState: (state, _title, href) => {
+        this.location.href = href;
+        entries[index] = { href: this.location.href, state };
+      },
+      pushState: (state, _title, href) => {
+        this.location.href = href;
+        entries.splice(++index, entries.length, { href: this.location.href, state });
+      },
+      back: () => {
+        if (index === 0) return;
+        this.location.href = entries[--index].href;
+        this.dispatchEvent(new Event("popstate"));
+      },
+      forward: () => {
+        if (index + 1 === entries.length) return;
+        this.location.href = entries[++index].href;
+        this.dispatchEvent(new Event("popstate"));
+      },
+    };
+    this.scrollCalls = [];
+    this.scrollTo = (...args) => this.scrollCalls.push(args);
     this.listenerCounts = new Map();
   }
 
