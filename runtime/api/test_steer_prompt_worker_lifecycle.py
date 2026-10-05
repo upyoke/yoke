@@ -70,9 +70,11 @@ class TestSteerWorkerLifecycle:
         assert "Single-item mandate (steering)" in text
         assert "Do NOT create or dispatch any deployment run" in text
         assert "yoke workflows item get PREFIX-N" in text
-        assert "/yoke refine PREFIX-N" in text
-        assert "/yoke blitz PREFIX-N" in text
-        assert "/yoke shepherd" in text
+        assert "yoke workflows version get <workflow> <version> --json" in text
+        assert "rendered `entrypoint`" in text
+        assert "launch mandate uses the same entrypoint mapping" in _words(text)
+        for copied_chain in ("- Dash:", "- Task:", "- Issue:", "- Blitz:", "- Epic:"):
+            assert copied_chain not in text
         assert "yoke say --item PREFIX-N --stdin" in text
         # The DONE target is the steering ROLE. A session id there would not
         # survive the seat that launched the worker being released.

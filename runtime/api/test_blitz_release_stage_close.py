@@ -53,7 +53,10 @@ def test_blitz_docs_do_not_name_the_missing_close_transition() -> None:
     assert "--from reviewing-implementation --to release" in corpus
     assert "--from release --to done" in corpus
     assert "or `release`" in corpus
-    assert "-> release -> done" in help_text
+    assert "yoke workflows item get PREFIX-N --json" in help_text
+    assert "yoke workflows version get <workflow> <version> --json" in help_text
+    assert "including the release wait" in help_text
+    assert "BLITZ FLOW" not in help_text
     assert "blitz → release → done" in workflows
 
 
