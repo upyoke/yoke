@@ -218,5 +218,5 @@ Use the same handoff when downshifting the next mechanical leg.
 
 A native resume retains that session's attested selection: Claude restores
 it, and Codex and Cursor re-send it. Prefer a pinned version over a mutable
-alias. To change the model for the item, launch a successor with a new
-selection through restaffing; do not edit the running session's model.
+alias. To change the model for the item, restaff it: launch a successor with a new
+selection through rule 9; do not edit the running session's model.
