@@ -242,7 +242,7 @@ fi
 When `_merged_caveats` is non-empty, dispatch the
 `items.structured_field.replace` function call (envelope in
 [`../idea/body-and-sync-functions.md`](../idea/body-and-sync-functions.md))
-with `target = {kind: "item", item_id: $_num}` and `payload =
+with `target = {kind: "item", item_id: $_item_id}` and `payload =
 {field: "shepherd_caveats", content: "$_merged_caveats", source:
 "shepherd"}`. Three cases handled: **(1) No existing content** —
 creates a single `### {_transition}` subsection. **(2) New

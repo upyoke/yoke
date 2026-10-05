@@ -2,7 +2,7 @@
 
 Covers the `refined_idea_to_planning` Architect phase and the `planning_to_plan_drafted` transition: status transition, PRD gate, Architect invocation, DB writes, Simulator loop, and Boss handoff.
 
-**Inherited from router:** `MAX_ATTEMPTS`, `MAX_SIMULATOR_FIX_CYCLES`, `_num`, `_workflow_id`, `_title`, `_item_status`, `_epic`, `_scholar_context`, `_prior_caveats`, `_transition`, `_attempt`, `_session_id`, `_worker_name`.
+**Inherited from router:** `MAX_ATTEMPTS`, `MAX_SIMULATOR_FIX_CYCLES`, `_num`, `_item_id`, `_workflow_id`, `_title`, `_item_status`, `_epic`, `_scholar_context`, `_prior_caveats`, `_transition`, `_attempt`, `_session_id`, `_worker_name`.
 
 **After this step completes:** Continue with Boss review in `boss-verdict.md`.
 
@@ -19,12 +19,12 @@ begins — this makes the active planning work visible on the board.
 The status is set here, not after Boss review. Dispatch
 `lifecycle.transition.execute` (envelope in
 [`../idea/body-and-sync-functions.md`](../idea/body-and-sync-functions.md))
-with `target = {kind: "item", item_id: $_num}` and `payload =
+with `target = {kind: "item", item_id: $_item_id}` and `payload =
 {target_status: "planning", source_status: "refined-idea"}`.
 
 ### 1. Derive epic ID
 ```bash
-_epic_id=$_num # numeric item ID (already parsed in step 1)
+_epic_id=$_item_id # database item ID from the immutable item pin
 ```
 
 ### 2. PRD quality gate (pre-Architect validation)
@@ -85,7 +85,7 @@ via `python3` slicing) before dispatching.
 Two dispatches, in order:
 
 1. `items.structured_field.replace` with `target = {kind: "item",
-   item_id: $_num}`, `payload = {field: "technical_plan", content:
+   item_id: $_item_id}`, `payload = {field: "technical_plan", content:
    "$_tech_plan_content", source: "shepherd"}`. If `success=false`,
    log `ERROR: structured field write failed for technical_plan on
    PREFIX-$_num. STOP -- do not advance status.` and treat as NOT_READY.
