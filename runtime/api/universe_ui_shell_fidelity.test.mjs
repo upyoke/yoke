@@ -30,7 +30,7 @@ function keyEvent(key, extras = {}) {
   return event;
 }
 
-test("shared shell search, footer, identity, and scroll contract are live", async (t) => {
+test("shared shell search, footer, identity, and route navigation are live", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -215,7 +215,9 @@ test("shared shell search, footer, identity, and scroll contract are live", asyn
   main.scrollTop = 600;
   documentNode.defaultView.location.hash = "#/sessions?project=1";
   documentNode.defaultView.dispatchEvent(new Event("hashchange"));
-  assert.equal(main.scrollTop, 0);
+  // Route navigation leaves the content element alone; document history
+  // restoration is exercised by the document-scroll controller tests.
+  assert.equal(main.scrollTop, 600);
 
   // Escape dismisses the footer's identity panel the same way it dismisses
   // search.
