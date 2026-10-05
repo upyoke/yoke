@@ -45,14 +45,7 @@ _SUPPRESSION_SIGIL = "doc-drift-allow:"
 # Pre-existing drift in files claimed by other live work items. Each entry
 # is ``(rule_label, "<relative-path>:<line>")``. Drain the allowlist as
 # the owning work items land.
-_KNOWN_LEGACY_OFFENDERS: frozenset = frozenset(
-    {
-        # merge/post-merge.md — no active sibling claim, but file is part
-        # of the sub-issue 14a packet teaching slice (not YOK-1748's scope).
-        ("lifecycle.transition envelope without .execute",
-         ".agents/skills/yoke/merge/post-merge.md:48"),
-    }
-)
+_KNOWN_LEGACY_OFFENDERS: frozenset = frozenset()
 
 
 # ---------------------------------------------------------------------------
@@ -105,7 +98,7 @@ _TOKEN_RULES: Tuple[TokenRule, ...] = (
         pattern=re.compile(
             r'"payload"\s*:\s*\{[^}]*?"from"\s*:\s*"[^"]*"\s*,\s*"to"\s*:\s*"[^"]*"'
         ),
-        canonical='`payload.target_status` + optional `payload.source_status`',
+        canonical="`payload.target_status` + optional `payload.source_status`",
     ),
     TokenRule(
         label="dependency-add source=agent",
@@ -294,9 +287,7 @@ class TestSkillDocFencedCommandLint:
             if lint_fn(fenced.command) is None:
                 continue
             rel = fenced.md_path.relative_to(SKILLS.parent.parent.parent)
-            offenders.append(
-                f"{rel}:{fenced.line_number}: {fenced.command[:120]}"
-            )
+            offenders.append(f"{rel}:{fenced.line_number}: {fenced.command[:120]}")
         assert not offenders, (
             f"Fenced ``items update --stdin`` example matched {lint_name}. "
             f"{remediation}, or append ``{SUPPRESSION_MARKER}<reason>`` to "

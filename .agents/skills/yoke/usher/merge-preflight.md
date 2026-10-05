@@ -21,7 +21,7 @@ Covers merge Steps 1 through 5: require integration simulation, verify epic-leve
  > Run `/yoke simulate {epic-id}` to check for integration gaps across worktrees before merging.
  >
  > To bypass this check, re-run with `--skip-simulation`:
- > `/yoke merge {epic-id} --skip-simulation`
+ > `usher’s internal generated-task merge step with an explicitly authorized simulation override`
 
  **`--skip-simulation` override:** If the user passes `--skip-simulation`, skip the simulation check entirely and proceed to Step 2 regardless of whether a canonical simulation report exists. This is intended for cases where the user has already verified integration manually or the epic has a single worktree with no cross-branch risk.
 

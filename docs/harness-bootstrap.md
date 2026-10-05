@@ -115,7 +115,7 @@ These are called by operator commands or other sub-skills. They have SKILL.md fi
 | Sub-skill | Called by | Purpose |
 |-----------|----------|---------|
 | `/yoke advance YOK-N [status]` | conduct, usher, item-bound dispatch | Internal advance targets other than `implementation` |
-| `/yoke merge {epic-id}` | usher | Sequential PR + CI + merge per branch |
+| `usher/merge-generated-tasks.md` | usher | Sequential PR + CI + merge per branch |
 | `/yoke approve YOK-N` | usher | Approve a deployment stage |
 | `/yoke amend {epic-id}` | conduct | Add, split, reassign, or remove tasks |
 

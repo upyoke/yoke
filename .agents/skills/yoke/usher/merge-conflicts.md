@@ -29,7 +29,7 @@ Classifications:
  - **Structural patterns** (imports, exports, registrations): merge both sides' additions
  - When uncertain, prefer the branch version for files the branch intentionally modified, and the main version for drift
 4. `git add <resolved-files> && git commit` (or `git rebase --continue`)
-5. Re-run `/yoke merge {epic-id}` — it will resume from the resolved state
+5. Re-run `usher’s internal generated-task merge step` — it will resume from the resolved state
 
 **Safety boundary:** If you cannot confidently determine the correct resolution for a conflict, halt and report the conflict to the operator rather than guessing. The additive classification is a strong signal but not the only one — use your understanding of the codebase.
 
@@ -45,11 +45,9 @@ If the merge fails with exit code 1 (test failure, push failure, CI failure, or 
 3. `git rebase origin/main`
 4. Resolve conflicts in the listed files
 5. `git add <resolved-files> && git rebase --continue`
-6. Re-run `/yoke merge {epic-id}` — it will skip already-merged branches and resume from the failed one
+6. Re-run `usher’s internal generated-task merge step` — it will skip already-merged branches and resume from the failed one
 
-**If conflicts are complex**, dispatch an integration-fix task instead of resolving manually:
-1. Create a task: `/yoke idea "Integration fix: {branch} rebase conflicts after {previous-branch} merge"`
-2. Dispatch it to the existing worktree to let the Engineer resolve the conflicts
+**If conflicts are complex**, keep them in the current item. Report the conflicting paths and required decision when a confident resolution is unavailable; resume this internal step after resolving and committing the lane.
 
 **Prevention tip:** Have the Architect assign shared files (router configs, index files) to a single worktree so cross-branch conflicts are rare.
 

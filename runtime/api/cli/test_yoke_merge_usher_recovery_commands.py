@@ -20,7 +20,7 @@ from runtime.api.test_constants import TEST_ITEM_REF
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 CONDUCT_VERIFY = ".agents/skills/yoke/conduct/dispatch-context-verify.md"
-MERGE_SKILL = ".agents/skills/yoke/merge/SKILL.md"
+MERGE_SKILL = ".agents/skills/yoke/usher/merge-generated-tasks.md"
 USHER_COLLECT = ".agents/skills/yoke/usher/collect.md"
 
 

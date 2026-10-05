@@ -29,7 +29,7 @@ Operator: `/yoke charge` · `/yoke feed` · `/yoke strategize` ·
 `/yoke help`
 
 Internal, called by an orchestration command rather than an operator:
-`/yoke merge` · `/yoke approve` · `/yoke amend`, plus
+`/yoke approve` · `/yoke amend`, plus
 `/yoke advance` targets other than `implementation`.
 
 Three routing facts that decide where a request goes before any file is read:

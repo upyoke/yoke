@@ -217,7 +217,7 @@ These are called by operator commands or other sub-skills. They have their own S
 | Command | Called by | Description |
 |---|---|---|
 | `/yoke advance PREFIX-N [status]` | conduct, usher, item-bound dispatch | Internal advance targets other than `implementation` |
-| `/yoke merge {epic-id}` | usher | Sequential PR + CI + merge per branch |
+| `usher/merge-generated-tasks.md` | usher | Sequential PR + CI + merge per branch |
 | `/yoke approve PREFIX-N` | usher | Approve a deployment stage awaiting human approval |
 | `/yoke amend {epic-id}` | conduct | Add, split, reassign, or remove tasks after sync |
 | `/yoke simulate {epic-id}` | conduct | Trace cross-task paths for integration gaps (`--system` for Ouroboros audit) |

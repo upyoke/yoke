@@ -50,7 +50,7 @@ All five fixed in one session. See individual backlog items for details.
 - 008 (S): /yoke standup bare invocation — cross-project aggregate standup with Ouroboros curator-filed tickets section
 - 009 (S): Documentation sweep — all 6 docs updated (root SKILL.md, CLAUDE.md, commands.md, agents.md, scripts.md, OVERVIEW.md), counts verified from disk (16 scripts, 29 commands), Ouroboros branded throughout
 
-**Next:** Integration simulation + merge via `/yoke merge ouroboros`.
+**Next:** Integration simulation + merge via usher’s internal generated-task merge procedure.
 
 ### YOK-96 Safe Worktree Lifecycle — Pipeline Complete
 
