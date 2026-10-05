@@ -18,18 +18,16 @@ The lines are silent unless a caller installed a sink.
 from __future__ import annotations
 
 from typing import Any
-import sys
-import threading
 
 from yoke_contracts.doctor_budget import (
     CHECK_BUDGET_S,
     DoctorBudgetExhausted,
     check_budget,
-    remaining_seconds,
 )
 
 from yoke_contracts.control_plane_locality import RemoteControlPlaneConnectionError
 from yoke_core.engines import doctor_progress
+from yoke_core.engines.doctor_database_budget import bounded_connection
 from yoke_core.engines.doctor_registry_types import HealthCheck
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
@@ -85,7 +83,8 @@ def _run_isolated(
     recorded_before = len(rec.results)
     try:
         with check_budget():
-            _run_bounded(conn, args, rec, health_check)
+            with bounded_connection(conn) as budget_conn:
+                health_check.fn(budget_conn, args, rec)
     except DoctorBudgetExhausted:
         recovery_detail = ""
         try:
@@ -95,10 +94,7 @@ def _run_isolated(
                 f" Transaction recovery failed: {exc}. "
                 "Recovery: restore the database connection and rerun Doctor."
             )
-        for row in rec.results[recorded_before:]:
-            if row.result == "PASS":
-                row.result = "FAIL"
-                row.detail = "Incomplete check: " + row.detail
+        del rec.results[recorded_before:]
         rec.record(
             "HC-check-incomplete",
             health_check.name,
@@ -143,59 +139,6 @@ def _run_isolated(
             "FAIL",
             f"Internal error closing {health_check.slug}: {exc}",
         )
-
-
-def _run_bounded(conn, args, rec, health_check):
-    """Interrupt Python work and cancel a blocked database query at the bound.
-
-    No abandoned check thread can keep running a --fix after we answer. The
-    trace belongs to this executing thread; HTTP and subprocess transports
-    consume the same context deadline for blocking work.
-    """
-    previous_trace = sys.gettrace()
-    ticks = 0
-
-    def trace(frame, event, arg):
-        nonlocal ticks
-        ticks += 1
-        if ticks % 256 == 0:
-            # Unwinding psycopg leaves libpq ACTIVE: even rollback then fails.
-            # Let cancellation drain the protocol before interrupting Python.
-            ancestor = frame
-            while ancestor and not str(
-                ancestor.f_globals.get("__name__", "")
-            ).startswith("psycopg"):
-                ancestor = ancestor.f_back
-            if ancestor is None:
-                remaining_seconds(CHECK_BUDGET_S)
-        if previous_trace:
-            previous_trace(frame, event, arg)
-        return trace
-
-    cancel = getattr(conn, "cancel_safe", None)
-    postgres_cancel = callable(cancel)
-    if not callable(cancel):
-        cancel = getattr(conn, "interrupt", None)
-    timer = None
-    if callable(cancel):
-
-        def cancel_query():
-            try:
-                cancel(timeout=1) if postgres_cancel else cancel()
-            except Exception:
-                pass  # The executing thread still reports its budget failure.
-
-        timer = threading.Timer(remaining_seconds(CHECK_BUDGET_S), cancel_query)
-        timer.daemon = True
-        timer.start()
-    try:
-        sys.settrace(trace)
-        health_check.fn(conn, args, rec)
-    finally:
-        sys.settrace(previous_trace)
-        if timer:
-            timer.cancel()
-            timer.join()
 
 
 __all__ = ["INTERNAL_ERROR_CHECK_ID", "execute_check_isolated"]

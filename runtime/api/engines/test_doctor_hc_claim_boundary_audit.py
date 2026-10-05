@@ -131,10 +131,6 @@ def _sid(label: str) -> str:
 
 @pytest.fixture
 def env(tmp_path: Path, monkeypatch) -> Iterator[dict]:
-    monkeypatch.setattr(
-        "yoke_core.engines.doctor_hc_claim_boundary_audit._audit_since",
-        lambda: "2026-05-16T12:00:00Z",
-    )
     with init_test_db(tmp_path, apply_schema=apply_fixture_schema_ddl) as db_path:
         conn = connect_test_db(db_path)
         try:

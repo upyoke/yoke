@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 import sys
-import threading
 import time
 
 from yoke_contracts import doctor_budget
@@ -70,7 +69,7 @@ def test_control_plane_refusal_is_actionable_and_does_not_stop_roster() -> None:
     assert "local_authority_exempt" in refusal.detail
 
 
-def test_cpu_check_exhaustion_retains_findings_and_never_passes(monkeypatch):
+def test_safe_point_exhaustion_discards_partial_verdicts(monkeypatch):
     monkeypatch.setattr(doctor_budget, "CHECK_BUDGET_S", 0.02)
     previous = sys.gettrace()
 
@@ -78,7 +77,7 @@ def test_cpu_check_exhaustion_retains_findings_and_never_passes(monkeypatch):
         rec.record("HC-early", "Early evidence", "PASS", "partial scan")
         try:
             while True:
-                pass
+                doctor_budget.remaining_seconds(doctor_budget.CHECK_BUDGET_S)
         except Exception:
             rec.record("HC-swallowed", "Swallowed exception", "PASS", "")
 
@@ -90,37 +89,48 @@ def test_cpu_check_exhaustion_retains_findings_and_never_passes(monkeypatch):
     )
     assert time.monotonic() - started < 1
     assert sys.gettrace() is previous
-    assert [row.result for row in rec.results] == ["PASS", "FAIL", "FAIL"]
+    assert [row.result for row in rec.results] == ["PASS", "FAIL"]
     assert "doctor_check_budget_exhausted" in rec.results[-1].detail
     assert "--only slow" in rec.results[-1].detail
 
 
-def test_database_wait_is_cancelled_and_roster_can_continue(monkeypatch):
-    monkeypatch.setattr(doctor_budget, "CHECK_BUDGET_S", 0.02)
-    released = threading.Event()
+def test_check_never_installs_a_trace(monkeypatch):
+    def forbidden(*args):
+        raise AssertionError("Doctor installed a Python tracer")
 
-    class Connection:
-        def cancel_safe(self, *, timeout):
-            released.set()
+    previous = sys.gettrace()
+    monkeypatch.setattr(sys, "settrace", forbidden)
 
-        def rollback(self):
-            pass
-
-    def blocked(conn, args, rec):
-        assert released.wait(1)
-        rec.record("HC-late", "Late result", "PASS", "")
+    def check(conn, args, rec):
+        assert sys.gettrace() is previous
+        rec.record("HC-trace-free", "Trace free", "PASS", "")
 
     rec = RecordCollector()
     execute_check_isolated(
-        Connection(),
-        DoctorArgs(),
-        rec,
-        HealthCheck("database-wait", "Database wait", blocked),
+        object(), DoctorArgs(), rec, HealthCheck("trace-free", "Trace free", check)
     )
-    assert released.is_set()
-    assert rec.fail_count >= 1
-    assert rec.pass_count == 0
-    assert "doctor_check_budget_exhausted" in rec.results[-1].detail
+    assert rec.results[0].result == "PASS"
+
+
+def test_non_database_connections_reach_the_check_unchanged():
+    from yoke_core.engines.doctor_https_compose import UnavailableControlPlane
+
+    class MinimalConnection:
+        def execute(self, *_args):
+            return self
+
+    for native_conn in (MinimalConnection(), UnavailableControlPlane()):
+
+        def check(conn, args, rec):
+            assert conn is native_conn
+            rec.record("HC-source", "Source check", "PASS", "")
+
+        rec = RecordCollector()
+        execute_check_isolated(
+            native_conn, DoctorArgs(), rec, HealthCheck("source", "Source", check)
+        )
+        assert [row.check_id for row in rec.results] == ["HC-source"]
+        assert rec.results[0].result == "PASS"
 
 
 def test_http_and_subprocess_timeouts_share_check_deadline(monkeypatch):
@@ -168,13 +178,14 @@ def test_postgres_budget_exhaustion_preserves_protocol_and_next_check(monkeypatc
     assert [row.result for row in rec.results] == ["FAIL", "PASS"]
 
 
-def test_trace_deadline_during_active_postgres_protocol(monkeypatch):
+def test_deadline_is_checked_after_active_postgres_protocol(monkeypatch):
     from yoke_core.domain import db_backend
 
     monkeypatch.setattr(doctor_budget, "CHECK_BUDGET_S", 0.02)
     rec = RecordCollector()
     with db_backend.connect() as conn:
         native_wait = conn.wait
+        native_conn = conn
 
         def delayed_wait(gen, *args, **kwargs):
             def delay_protocol():
@@ -192,7 +203,7 @@ def test_trace_deadline_during_active_postgres_protocol(monkeypatch):
 
         def query(conn, args, rec):
             with monkeypatch.context() as patch:
-                patch.setattr(conn, "wait", delayed_wait)
+                patch.setattr(native_conn, "wait", delayed_wait)
                 conn.execute("SELECT pg_sleep(0.01)")
 
         execute_check_isolated(
@@ -220,3 +231,46 @@ def test_budget_recovery_failure_still_records_incomplete(monkeypatch):
     )
     assert rec.results[-1].check_id == "HC-check-incomplete"
     assert "Transaction recovery failed: connection lost" in rec.results[-1].detail
+
+
+def test_statement_timeout_escapes_best_effort_after_commit(monkeypatch):
+    from yoke_core.domain import db_backend
+
+    monkeypatch.setattr(doctor_budget, "CHECK_BUDGET_S", 0.02)
+
+    def check(conn, args, rec):
+        conn.execute("SELECT 1")
+        conn.commit()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT pg_sleep(0.2)")
+        except db_backend.database_error_types(conn):
+            rec.record("HC-swallowed", "Swallowed", "PASS", "")
+
+    rec = RecordCollector()
+    with db_backend.connect() as conn:
+        execute_check_isolated(
+            conn, DoctorArgs(), rec, HealthCheck("query", "Query", check)
+        )
+        assert conn.execute("SHOW statement_timeout").fetchone()[0] == "0"
+    assert len(rec.results) == 1
+    assert rec.results[0].check_id == "HC-check-incomplete"
+
+
+def test_autocommit_timeout_is_enforced_and_restored(monkeypatch):
+    from yoke_core.domain import db_backend
+
+    monkeypatch.setattr(doctor_budget, "CHECK_BUDGET_S", 0.02)
+    rec = RecordCollector()
+    with db_backend.connect() as conn:
+        conn.autocommit = True
+        conn.execute("SET statement_timeout='2s'")
+
+        def check(conn, args, rec):
+            conn.execute("SELECT pg_sleep(0.2)")
+
+        execute_check_isolated(
+            conn, DoctorArgs(), rec, HealthCheck("query", "Query", check)
+        )
+        assert conn.execute("SHOW statement_timeout").fetchone()[0] == "2s"
+    assert rec.results[0].check_id == "HC-check-incomplete"

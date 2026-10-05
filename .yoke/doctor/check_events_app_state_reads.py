@@ -132,6 +132,7 @@ ALLOWED_EVENTS_READERS: tuple[str, ...] = (
     f"{_CORE_DOMAIN_SOURCE_ROOT}/check_claim_boundary_audit_correlation.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/check_claim_boundary_audit_cutoff.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/check_claim_boundary_audit_select.py",
+    f"{_CORE_DOMAIN_SOURCE_ROOT}/check_claim_boundary_audit_summary.py",
     # -- emission-side capability probes (SELECT 1 ... LIMIT 1)
     f"{_CORE_DOMAIN_SOURCE_ROOT}/epic_cascade.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/observe_event_emission.py",
