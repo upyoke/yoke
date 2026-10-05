@@ -16,6 +16,8 @@ import textwrap
 from typing import Any
 from unittest.mock import patch
 
+import pytest
+
 from yoke_core.domain.gh_rest_transport import (
     RestAuthError,
     RestResponse,
@@ -105,6 +107,20 @@ def _auth(project: str = "yoke", repo: str = "upyoke/yoke") -> ProjectGithubAuth
 
 def _canonical_skip(project: str = "yoke") -> str:
     return GH_APP_AUTH_UNAVAILABLE_SKIP_REASON.format(project=project)
+
+
+@pytest.mark.parametrize(
+    "check", [hc_orphaned_gh_issues, hc_gh_orphan_detection, hc_wrong_repo_issues]
+)
+def test_unselected_project_is_not_applicable_without_auth_or_database(check):
+    rec = RecordCollector()
+    with patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured") as auth:
+        check(None, DoctorArgs(), rec)
+    auth.assert_not_called()
+    assert rec.results[0].result == "N/A"
+    assert "no project selected" in rec.results[0].detail.lower()
+    assert "--project" in rec.results[0].detail
+    assert "None" not in rec.results[0].detail
 
 
 class TestOrphanedGhIssuesNoPat:

@@ -21,6 +21,7 @@ import yoke_core.engines.doctor_hc_worktrees as _wt
 import yoke_core.engines.doctor_report as _base
 from yoke_core.engines.doctor_hc_gh_skip import (
     GH_APP_AUTH_UNAVAILABLE_SKIP_REASON,
+    GH_PROJECT_NOT_SELECTED_REASON,
 )
 from yoke_core.engines.doctor_hc_worktrees_gh_rest import (
     list_issues_by_labels_rest,
@@ -30,6 +31,14 @@ from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 def hc_orphaned_gh_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """Find workflow-labeled repository issues not linked to backlog items."""
+    if not args.project:
+        rec.record(
+            "HC-orphaned-gh-issues",
+            "Orphaned GitHub issues",
+            "N/A",
+            GH_PROJECT_NOT_SELECTED_REASON,
+        )
+        return
     if not _wt._github_auth_configured(args.project, db_path=args.db_path):
         rec.record(
             "HC-orphaned-gh-issues",

@@ -1,4 +1,4 @@
-"""Canonical SKIP reason for unavailable project GitHub App auth.
+"""Canonical applicability and auth reasons for Doctor GitHub checks.
 
 Every doctor HC and resync output path that depends on project GitHub auth
 routes its unavailable-auth SKIP through this single constant so the operator
@@ -13,6 +13,9 @@ GH_APP_AUTH_UNAVAILABLE_SKIP_REASON = (
     "connect GitHub, add repository access, bind the project repo, or switch "
     "the project to disabled"
 )
+GH_PROJECT_NOT_SELECTED_REASON = (
+    "No project selected; use --project to select the project for this GitHub check"
+)
 
 
 def skip_reason(project: str) -> str:
@@ -20,4 +23,8 @@ def skip_reason(project: str) -> str:
     return GH_APP_AUTH_UNAVAILABLE_SKIP_REASON.format(project=project)
 
 
-__all__ = ["GH_APP_AUTH_UNAVAILABLE_SKIP_REASON", "skip_reason"]
+__all__ = [
+    "GH_APP_AUTH_UNAVAILABLE_SKIP_REASON",
+    "GH_PROJECT_NOT_SELECTED_REASON",
+    "skip_reason",
+]

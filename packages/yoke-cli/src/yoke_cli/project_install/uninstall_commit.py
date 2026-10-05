@@ -36,8 +36,13 @@ def prepare(
             ) from exc
         branch = str(result.get("value") or "").strip()
         try:
+            if not branch:
+                raise ProjectInstallError(
+                    "project default_branch is empty; configure the project's "
+                    "default branch, then retry project uninstall"
+                )
             checkout_gate.assert_ready_for_write(
-                root, default_branch=branch, require_default_branch=bool(branch)
+                root, default_branch=branch, require_default_branch=True
             )
         except ProjectInstallError as exc:
             raise ProjectInstallError(

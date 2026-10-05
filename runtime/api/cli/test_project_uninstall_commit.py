@@ -98,3 +98,26 @@ def test_unreadable_project_branch_preserves_install(checkout, monkeypatch):
     ):
         uninstall(checkout)
     assert (checkout / ".yoke/install-manifest.json").is_file()
+
+
+@pytest.mark.parametrize("default_branch", [None, "", "   "])
+@pytest.mark.parametrize("branch", ["main", "feature"])
+def test_unset_project_branch_refuses_before_removal(
+    checkout, monkeypatch, default_branch, branch
+):
+    if branch != "main":
+        git(checkout, "switch", "-c", branch)
+    monkeypatch.setattr(
+        uninstall_commit, "dispatch", lambda *a: {"value": default_branch}
+    )
+    before = git(checkout, "rev-parse", "HEAD")
+    manifest = checkout / ".yoke/install-manifest.json"
+    manifest_before = manifest.read_bytes()
+    with pytest.raises(
+        ProjectInstallError,
+        match="project_uninstall_checkout_refused: project default_branch is empty",
+    ):
+        uninstall(checkout)
+    assert manifest.read_bytes() == manifest_before
+    assert git(checkout, "rev-parse", "HEAD") == before
+    assert not git(checkout, "status", "--porcelain")

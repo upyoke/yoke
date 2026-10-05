@@ -177,6 +177,8 @@ stops removal and names the recovery. Hosted-only clients see no data warning.
 
 Next, the command lists registered checkouts with a Yoke install manifest.
 Choose all, none, or a selection to also run `yoke project uninstall` on.
+A Git checkout must be on the project's configured default branch before its
+layer is removed. An unset default branch refuses until it is configured.
 It then removes the relay and stops its workers, removes the selected project
 layers, disconnects Yoke's GitHub credentials and checkout helpers, stops the
 local UI and embedded Postgres, tears down local self-host stacks including

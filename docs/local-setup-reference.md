@@ -24,7 +24,7 @@ yoke project refresh ~/work/my-app --config ~/.yoke/config.json
 yoke project uninstall ~/work/my-app --config ~/.yoke/config.json
 ```
 
-Project uninstall requires the project default branch, refuses a dirty checkout, commits the removed layer locally,
+Project uninstall requires a configured project default branch, refuses an unset branch or dirty checkout, commits the removed layer locally,
 and preserves project edits and strategy documents. Push that removal commit.
 
 On a git checkout, install and refresh refuse a dirty working tree and refuse

@@ -85,6 +85,10 @@ See [GitHub](../github.md#merge-connectivity-and-issue-mirroring).
   message when the target project is disabled, instead of creating an
   issue there.
 
+Without a selected project, Doctor's `orphaned-gh-issues`,
+`gh-orphan-detection`, and `wrong-repo-issues` checks report N/A with the
+reason "No project selected". Use `--project` to select their project.
+
 ## Rebinding a project repository — ordering
 
 Changing the verified App binding does not move existing issues. If the

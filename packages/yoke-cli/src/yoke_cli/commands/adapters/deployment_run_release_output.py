@@ -26,7 +26,7 @@ A promotion that rewrites a version pin pushes a real commit no backlog item
 authored, and the next release's composition validation finds nothing to
 attribute it to. Recording it here attributes it to the run that produced it,
 so that release validates without a hand-written composition_resolution while
-Commits made outside Yoke ship with the release and are listed separately.
+commits made outside Yoke ship with the release and are listed separately.
 
 Omit --commit and the branch this run's own flow bound for that project is
 resolved instead, so no caller has to name a repository branch the control
