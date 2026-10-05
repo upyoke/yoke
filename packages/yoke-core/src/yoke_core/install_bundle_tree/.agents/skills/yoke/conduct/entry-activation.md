@@ -33,34 +33,13 @@ fi
 
 ### S2a. Workflow Binding, Status, and Acceptance Criteria Gates
 
-**Workflow binding gate:**
-```bash
-_workflow_id=$(yoke items get PREFIX-${N} workflow_id)
-```
-
-If `_workflow_id` is not `epic`, halt immediately:
-> Error: /yoke conduct is not the registered skill for workflow
-> '{_workflow_id}' on PREFIX-{N}.
->
-> Issue implementation routes through /yoke advance (main-session inline implementation).
-> Run '/yoke advance PREFIX-{N} implementation' to begin issue implementation.
-
-**Status gate:**
-```bash
-_item_status=$(yoke items get ${N} status)
-```
-
-If the query returns empty, stop: `Item PREFIX-{N} not found.`
-
-- `planned`: proceed (epic entry point).
-- `implementing`: proceed (re-entry, resuming in-progress work).
-- `reviewing-implementation`: proceed (re-entry, resuming review cycle).
-- `reviewed-implementation`: stop — `PREFIX-{N} has completed implementation review. Run '/yoke polish PREFIX-{N}'.`
-- `done`: stop — `PREFIX-{N} is already done.`
-- `implemented`: stop — `PREFIX-{N} is already implemented. Run '/yoke usher PREFIX-{N}'.`
-- `polishing-implementation`: stop — `PREFIX-{N} is already in polish. Run '/yoke polish PREFIX-{N}'.`
-- `idea`: hard-block — `PREFIX-{N} is at status 'idea'. Run '/yoke shepherd PREFIX-{N}'.`
-- Otherwise: hard-block — `PREFIX-{N} is at status '{_item_status}', not 'planned', 'implementing', or 'reviewing-implementation'.`
+**Workflow binding and status gate:** Re-read
+`yoke workflows item get PREFIX-N --json` and apply the gate in
+[`entry-gates.md`](entry-gates.md) gate 1 against the exact pinned definition.
+Retain `CONDUCT_BINDING`, the definition, and its live stage. Proceed only
+while the stage is inside that binding's half-open segment and `skill_id`
+is `conduct`; otherwise use its named refusal and rendered recovery.
+Do not maintain a second workflow-name or status allowlist here.
 
 **Acceptance criteria gate:**
 ```bash
@@ -117,8 +96,11 @@ fi
 
 ### S4. Enter Epic Task Fan-Out Flow
 
-`_workflow_id` is guaranteed to be `epic` by the binding gate in S2a. Proceed
-directly to **S6 (Epic Task Fan-Out Flow)**.
+S2a established that `conduct` owns the live stage. Use the retained pinned
+`policies.generated_children` and `policies.worktrees` to resolve the
+generated task graph and its registered lanes, then proceed to **S6 (Epic
+Task Fan-Out Flow)**. The epic-task surfaces name the task graph; they do
+not require the parent workflow to be named `epic`.
 
 ---
 
