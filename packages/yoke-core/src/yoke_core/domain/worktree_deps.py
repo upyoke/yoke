@@ -1,8 +1,4 @@
-"""Dependency detection and installation helpers for worktrees.
-
-Extracted from worktree.py. Callers import these from worktree.py which
-re-exports them.
-"""
+"""Dependency detection and installation helpers exported by worktree.py."""
 
 from __future__ import annotations
 
@@ -14,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
+from yoke_contracts.playwright_cache import resolve_playwright_cache
 from yoke_core.domain import runtime_settings
 from yoke_core.domain.worktree_python_dependency_owner import (
     uv_provisioned_projects,
@@ -24,10 +21,6 @@ from yoke_core.domain.worktree_python_dependency_owner import (
 DEPS_INSTALL_TIMEOUT_CONFIG = "worktree_dep_install_timeout_seconds"
 DEFAULT_DEPS_INSTALL_TIMEOUT_SECONDS = 600
 
-
-# ---------------------------------------------------------------------------
-# Internal subprocess helper (local copy — avoids circular import with worktree.py)
-# ---------------------------------------------------------------------------
 
 def _run(
     cmd: List[str],
@@ -43,83 +36,83 @@ def _run(
     """
     try:
         return subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout, cwd=cwd,
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=cwd,
         )
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
         return subprocess.CompletedProcess(
-            cmd, returncode=1, stdout="",
+            cmd,
+            returncode=1,
+            stdout="",
             stderr=f"{cmd[0] if cmd else '<empty>'}: {type(exc).__name__}: {exc}",
         )
 
 
-# ---------------------------------------------------------------------------
-# DepInstallSpec and detector tables
-# ---------------------------------------------------------------------------
-
 @dataclass
 class DepInstallSpec:
     """Describes a dependency install action."""
-    tool: str       # e.g., "npm", "pip", "yarn"
+
+    tool: str  # e.g., "npm", "pip", "yarn"
     command: List[str]  # full command
-    cwd: str        # directory to run in
-    label: str      # human-readable description
+    cwd: str  # directory to run in
+    label: str  # human-readable description
 
 
 # Detection order: lockfile-first, then fallback
 _ROOT_DETECTORS = [
-    ("package-lock.json", "npm",   ["npm", "ci"],                           "npm ci"),
-    ("yarn.lock",         "yarn",  ["yarn", "install", "--frozen-lockfile"], "yarn install --frozen-lockfile"),
-    ("pnpm-lock.yaml",   "pnpm",  ["pnpm", "install", "--frozen-lockfile"],"pnpm install --frozen-lockfile"),
-    ("package.json",      "npm",   ["npm", "install"],                      "npm install"),
+    ("package-lock.json", "npm", ["npm", "ci"], "npm ci"),
+    (
+        "yarn.lock",
+        "yarn",
+        ["yarn", "install", "--frozen-lockfile"],
+        "yarn install --frozen-lockfile",
+    ),
+    (
+        "pnpm-lock.yaml",
+        "pnpm",
+        ["pnpm", "install", "--frozen-lockfile"],
+        "pnpm install --frozen-lockfile",
+    ),
+    ("package.json", "npm", ["npm", "install"], "npm install"),
 ]
 
 # Convention detectors for a lane whose Python dependencies nothing else
 # owns. A uv-managed lane is NOT one of those: see `uv_provisioned_projects`.
 _PYTHON_DETECTORS = [
-    ("requirements.txt", "pip",    ["pip", "install", "-r", "requirements.txt"], "pip install -r requirements.txt"),
-    ("Pipfile.lock",     "pipenv", ["pipenv", "install"],                        "pipenv install"),
+    (
+        "requirements.txt",
+        "pip",
+        ["pip", "install", "-r", "requirements.txt"],
+        "pip install -r requirements.txt",
+    ),
+    ("Pipfile.lock", "pipenv", ["pipenv", "install"], "pipenv install"),
 ]
 
 _OTHER_DETECTORS = [
-    ("Gemfile.lock", "bundle", ["bundle", "install"],   "bundle install"),
-    ("go.sum",       "go",     ["go", "mod", "download"], "go mod download"),
+    ("Gemfile.lock", "bundle", ["bundle", "install"], "bundle install"),
+    ("go.sum", "go", ["go", "mod", "download"], "go mod download"),
 ]
 
 
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
-def resolve_playwright_cache(project_id: Optional[str], worktree_path: Optional[str]) -> Optional[str]:
-    """Resolve the Playwright browser cache path.
-
-    - With project ID: ``$HOME/.yoke/playwright-cache/{project}``
-    - Without project but with worktree: ``{worktree}/.playwright-cache``
-    - Neither: ``None``
-    """
-    if project_id:
-        return os.path.join(os.path.expanduser("~"), ".yoke", "playwright-cache", project_id)
-    if worktree_path:
-        return os.path.join(worktree_path, ".playwright-cache")
-    return None
-
-
 def detect_deps(worktree_path: str) -> List[DepInstallSpec]:
-    """Detect dependency files in *worktree_path* and return install specs.
-
-    Returns an empty list if no dependency files are found.
-    Handles root-level detection first, then nested fallback.
-    """
+    """Return root-first install specs, or an empty list when none are found."""
     specs: List[DepInstallSpec] = []
 
     # --- Root-level Node.js ---
     node_found = False
     for filename, tool, cmd, label in _ROOT_DETECTORS:
         if os.path.isfile(os.path.join(worktree_path, filename)):
-            specs.append(DepInstallSpec(
-                tool=tool, command=cmd, cwd=worktree_path,
-                label=f"Detected {filename} — running {label}",
-            ))
+            specs.append(
+                DepInstallSpec(
+                    tool=tool,
+                    command=cmd,
+                    cwd=worktree_path,
+                    label=f"Detected {filename} — running {label}",
+                )
+            )
             node_found = True
             break  # First match wins (lockfile priority)
 
@@ -132,28 +125,34 @@ def detect_deps(worktree_path: str) -> List[DepInstallSpec]:
     else:
         for filename, tool, cmd, label in _PYTHON_DETECTORS:
             if os.path.isfile(os.path.join(worktree_path, filename)):
-                specs.append(DepInstallSpec(
-                    tool=tool, command=cmd, cwd=worktree_path,
-                    label=f"Detected {filename} — running {label}",
-                ))
+                specs.append(
+                    DepInstallSpec(
+                        tool=tool,
+                        command=cmd,
+                        cwd=worktree_path,
+                        label=f"Detected {filename} — running {label}",
+                    )
+                )
                 python_found = True
                 break
 
     # --- Root-level other (Ruby, Go) ---
     for filename, tool, cmd, label in _OTHER_DETECTORS:
         if os.path.isfile(os.path.join(worktree_path, filename)):
-            specs.append(DepInstallSpec(
-                tool=tool, command=cmd, cwd=worktree_path,
-                label=f"Detected {filename} — running {label}",
-            ))
+            specs.append(
+                DepInstallSpec(
+                    tool=tool,
+                    command=cmd,
+                    cwd=worktree_path,
+                    label=f"Detected {filename} — running {label}",
+                )
+            )
 
     # --- Nested fallback ---
     # A uv-managed lane keeps its Python axis owned while still allowing a
     # nested Node app to be detected: the two are independent.
     if not node_found and not specs:
-        nested_spec = _detect_nested_deps(
-            worktree_path, skip_python=python_found
-        )
+        nested_spec = _detect_nested_deps(worktree_path, skip_python=python_found)
         if nested_spec:
             specs.extend(nested_spec)
 
@@ -165,26 +164,27 @@ def _detect_nested_deps(
     *,
     skip_python: bool = False,
 ) -> List[DepInstallSpec]:
-    """Search up to 3 levels deep for dependency files.
+    """Search three levels deep, skipping installers absent from PATH.
 
-    A nested lockfile carried by the repo does not by itself prove the
-    installer is set up on this host. When the install tool is not on
-    PATH, emit one informational line and skip — the prior behavior
-    queued the install, hit FileNotFoundError, and surfaced N
-    signal-less "non-fatal" warnings (one per worktree).
-
-    ``skip_python`` is set when something else already owns the lane's
-    Python environment. Without it, a uv-managed repository that happens
-    to carry a nested ``requirements.txt`` for another purpose had that
-    file installed with pip on every single preparation.
+    A lockfile alone does not prove its installer is available. Skip with
+    an informational line rather than a content-free install failure.
+    ``skip_python`` preserves a lane environment owned by another installer.
     """
     specs: List[DepInstallSpec] = []
 
     # Node.js nested detection (priority order)
     node_searches = [
         ("package-lock.json", ["npm", "ci"], "npm ci"),
-        ("yarn.lock", ["yarn", "install", "--frozen-lockfile"], "yarn install --frozen-lockfile"),
-        ("pnpm-lock.yaml", ["pnpm", "install", "--frozen-lockfile"], "pnpm install --frozen-lockfile"),
+        (
+            "yarn.lock",
+            ["yarn", "install", "--frozen-lockfile"],
+            "yarn install --frozen-lockfile",
+        ),
+        (
+            "pnpm-lock.yaml",
+            ["pnpm", "install", "--frozen-lockfile"],
+            "pnpm install --frozen-lockfile",
+        ),
         ("package.json", ["npm", "install"], "npm install"),
     ]
 
@@ -201,10 +201,14 @@ def _detect_nested_deps(
                 )
                 node_found = True  # don't fall through to other Node candidates
                 break
-            specs.append(DepInstallSpec(
-                tool=cmd[0], command=cmd, cwd=nested_dir,
-                label=f"Detected nested {filename} at {rel} — running {label}",
-            ))
+            specs.append(
+                DepInstallSpec(
+                    tool=cmd[0],
+                    command=cmd,
+                    cwd=nested_dir,
+                    label=f"Detected nested {filename} at {rel} — running {label}",
+                )
+            )
             node_found = True
             break
 
@@ -220,12 +224,14 @@ def _detect_nested_deps(
                     file=sys.stderr,
                 )
             else:
-                specs.append(DepInstallSpec(
-                    tool="pip",
-                    command=["pip", "install", "-r", "requirements.txt"],
-                    cwd=nested_dir,
-                    label=f"Detected nested requirements.txt at {rel} — running pip install",
-                ))
+                specs.append(
+                    DepInstallSpec(
+                        tool="pip",
+                        command=["pip", "install", "-r", "requirements.txt"],
+                        cwd=nested_dir,
+                        label=f"Detected nested requirements.txt at {rel} — running pip install",
+                    )
+                )
 
     return specs
 
@@ -253,10 +259,7 @@ def install_worktree_deps(
     *,
     scripts_dir: Optional[str] = None,
 ) -> int:
-    """Auto-install project dependencies in a worktree.
-
-    Returns 0 on success, 1 on failure.
-    """
+    """Install project dependencies; return 0 on success, 1 on failure."""
     if not os.path.isdir(worktree_path):
         print(f"Error: worktree path does not exist: {worktree_path}", file=sys.stderr)
         return 1
@@ -265,8 +268,7 @@ def install_worktree_deps(
         from yoke_core.api.repo_root import find_repo_root
 
         scripts_dir = str(
-            find_repo_root(Path(__file__))
-            / ".agents" / "skills" / "yoke" / "scripts"
+            find_repo_root(Path(__file__)) / ".agents" / "skills" / "yoke" / "scripts"
         )
 
     # --- Playwright cache isolation ---
@@ -284,10 +286,16 @@ def install_worktree_deps(
     if project_id:
         setup_cmd = _get_setup_command(project_id, scripts_dir)
         if setup_cmd:
-            print(f"Installing deps via project setup_command: {setup_cmd}", file=sys.stderr)
+            print(
+                f"Installing deps via project setup_command: {setup_cmd}",
+                file=sys.stderr,
+            )
             r = subprocess.run(
-                setup_cmd, shell=True, cwd=worktree_path,
-                capture_output=False, timeout=install_timeout,
+                setup_cmd,
+                shell=True,
+                cwd=worktree_path,
+                capture_output=False,
+                timeout=install_timeout,
             )
             return r.returncode
 
@@ -311,12 +319,7 @@ def install_worktree_deps(
 
 
 def _get_setup_command(project_id: str, scripts_dir: str) -> Optional[str]:
-    """Get the project's ``setup_command`` capability, if any.
-
-    Routes through ``yoke_core.domain.projects.cmd_capability_get_settings`` in
-    place of the retired ``project-db.sh`` shell shim. ``scripts_dir`` is
-    retained in the signature for call-site compatibility but is unused.
-    """
+    """Read the setup_command capability; scripts_dir is an unused caller argument."""
     from yoke_core.domain import projects
 
     try:
@@ -327,6 +330,7 @@ def _get_setup_command(project_id: str, scripts_dir: str) -> Optional[str]:
         return None
     # Extract command from JSON: {"command": "..."}
     import json
+
     try:
         data = json.loads(raw.strip())
         return data.get("command")

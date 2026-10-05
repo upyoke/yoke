@@ -4,11 +4,38 @@ from __future__ import annotations
 
 import os
 import subprocess
+import tempfile
 from pathlib import Path
 
 from yoke_cli import browser_node_toolchain
+from yoke_contracts.playwright_cache import (
+    YOKE_BROWSER_CACHE_PROJECT,
+    resolve_playwright_cache,
+)
 from yoke_harness import browser_runtime_home
 from yoke_harness.browser_system_dependencies import ensure_system_dependencies
+
+
+def _command_output_tail(result: subprocess.CompletedProcess) -> str:
+    return "\n".join(
+        f"{label} (last 20 lines, at most 4000 characters):\n"
+        + ("\n".join((output or "").splitlines()[-20:])[-4000:] or "<empty>")
+        for label, output in (("stdout", result.stdout), ("stderr", result.stderr))
+    )
+
+
+def _ensure_cache_writable(cache: Path) -> None:
+    try:
+        cache.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryFile(dir=cache) as probe:
+            probe.write(b"yoke-browser-cache-write-check")
+            probe.flush()
+    except OSError as exc:
+        raise RuntimeError(
+            f"browser_cache_not_writable: {cache}: {exc}; "
+            "make this directory and its parents writable by the current user, "
+            "then retry yoke qa browser setup"
+        ) from exc
 
 
 def ensure_browser_runtime(browser: Path | None = None, toolchain=None, *, emit=print):
@@ -28,6 +55,10 @@ def _ensure_browser_runtime(browser: Path | None = None, toolchain=None, *, emit
     toolchain = toolchain or browser_node_toolchain.ensure_node_toolchain(emit=emit)
     _log = emit
     env = toolchain.command_env()
+    cache = resolve_playwright_cache(YOKE_BROWSER_CACHE_PROJECT, None)
+    assert cache is not None
+    _ensure_cache_writable(Path(cache))
+    env["PLAYWRIGHT_BROWSERS_PATH"] = cache
     node_modules = browser / "node_modules"
     pw_modules = node_modules / "playwright"
     autoinstall = os.environ.get("YOKE_BROWSER_AUTOINSTALL", "1")
@@ -49,7 +80,9 @@ def _ensure_browser_runtime(browser: Path | None = None, toolchain=None, *, emit
         )
         if result.returncode != 0:
             raise RuntimeError(
-                f"[browser-auto-bootstrap] npm install failed: {result.stderr}"
+                f"browser_npm_install_failed: exit {result.returncode}\n"
+                + _command_output_tail(result)
+                + "\ncheck network and runtime permissions, then retry yoke qa browser setup"
             )
         _log("[browser-auto-bootstrap] npm install completed successfully")
 
@@ -76,9 +109,9 @@ def _ensure_browser_runtime(browser: Path | None = None, toolchain=None, *, emit
         )
         if result.returncode != 0:
             raise RuntimeError(
-                "browser_install_failed: "
-                + (result.stderr or result.stdout)
-                + "; check network and runtime permissions, then retry yoke qa browser setup"
+                f"browser_install_failed: exit {result.returncode}\n"
+                + _command_output_tail(result)
+                + "\ncheck network and runtime permissions, then retry yoke qa browser setup"
             )
         _log("[browser-auto-bootstrap] Chromium installed successfully")
     ensure_system_dependencies(
