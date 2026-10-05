@@ -2,7 +2,7 @@
 
 Covers steps 5f–5i: the 5-layer verdict parsing chain, verdict persistence, reflection capture, and the caveat resolution gate.
 
-**Inherited from router/boss-verdict.md:** `_num`, `_transition`, `_attempt`, `_session_id`, `_worker_name`, `_boss_raw_output`, `_pre_boss_verdict_max_id`, `_db_boss_row_id`.
+**Inherited from router/boss-verdict.md:** `_num`, `_verdict_item`, `_transition`, `_attempt`, `_session_id`, `_worker_name`, `_boss_raw_output`, `_pre_boss_verdict_max_id`, `_db_boss_row_id`.
 
 ---
 
@@ -18,7 +18,7 @@ Search for a line matching `^VERDICT:\s*(READY|NOT_READY|CAVEATS)\s*$` (case-sen
 **Layer 2: DB fallback query** (existing).
 If Layer 1 fails, check whether the Boss persisted its verdict to the DB directly:
 ```bash
-_db_boss_row=$(yoke db read --format lines "SELECT id, verdict, COALESCE(caveats,'') FROM shepherd_verdicts WHERE item='YOK-$_num' AND transition='$_transition' AND worker='$_worker_name' AND id > $_pre_boss_verdict_max_id ORDER BY id DESC LIMIT 1")
+_db_boss_row=$(yoke db read --format lines "SELECT id, verdict, COALESCE(caveats,'') FROM shepherd_verdicts WHERE item='$_verdict_item' AND transition='$_transition' AND worker='$_worker_name' AND id > $_pre_boss_verdict_max_id ORDER BY id DESC LIMIT 1")
 _db_boss_row_id=$(printf '%s' "$_db_boss_row" | cut -d'|' -f1)
 _db_boss_verdict=$(printf '%s' "$_db_boss_row" | cut -d'|' -f2)
 _db_boss_caveats=$(printf '%s' "$_db_boss_row" | cut -d'|' -f3-)

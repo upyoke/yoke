@@ -19,10 +19,17 @@ After the worker completes (or directly for the final review edge), invoke the B
 
 **No-agent-error framing for verdicts.** When the Boss returns NOT_READY, the shepherd should interpret the rejection as identifying a systemic gap — not an agent failure. If the PM's spec was rejected, the dispatch context may have been insufficient. If the Architect's plan was rejected, the spec may have been ambiguous. Log the systemic interpretation in the Ouroboros reflection.
 
+Before these diagnostic reads, set `_verdict_item` from the persisted item-key
+contract of `shepherd.verdict.run` (owner module
+`yoke_core.domain.handlers.shepherd_verdict_writes`). Use its fixed storage
+prefix with the resolved internal `_num`; never substitute the project
+prefix or public sequence. This existing storage contract is independent of
+the public `_item_ref` used by command adapters.
+
 Before invocation, compute repeated Boss output failures for this item/transition:
 
 ```bash
-_boss_unparseable_count=$(yoke db read --format lines "SELECT COUNT(*) FROM shepherd_verdicts WHERE item='YOK-$_num' AND transition='$_transition' AND caveats LIKE '%[UNPARSEABLE_BOSS_OUTPUT]%'")
+_boss_unparseable_count=$(yoke db read --format lines "SELECT COUNT(*) FROM shepherd_verdicts WHERE item='$_verdict_item' AND transition='$_transition' AND caveats LIKE '%[UNPARSEABLE_BOSS_OUTPUT]%'")
 _boss_model_override=""
 if [ "$_boss_unparseable_count" -ge 2 ]; then
  _boss_model_override="opus"
@@ -33,7 +40,7 @@ fi
 Capture the current verdict-row high-water mark before invoking the Boss. Layer 2 may only reuse rows inserted after this point; older rows belong to prior attempts and must not satisfy the current parse.
 
 ```bash
-_pre_boss_verdict_max_id=$(yoke db read --format lines "SELECT COALESCE(MAX(id), 0) FROM shepherd_verdicts WHERE item='YOK-$_num' AND transition='$_transition' AND worker='$_worker_name'")
+_pre_boss_verdict_max_id=$(yoke db read --format lines "SELECT COALESCE(MAX(id), 0) FROM shepherd_verdicts WHERE item='$_verdict_item' AND transition='$_transition' AND worker='$_worker_name'")
 ```
 
 **Boss invocation:**
