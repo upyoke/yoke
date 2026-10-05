@@ -105,10 +105,12 @@ Require all of the following before status advancement:
   body or child-item plan;
 - `execution.item_claim` still identifies the current Refine item claim.
 
-Record `EXECUTION_SLUG` for the final summary. After the lifecycle transition
-and item-claim release, hand off with:
+Record `EXECUTION_SLUG` for the final summary. After the lifecycle transition,
+read the fresh item's `next_skill_id` using
+[the shared handoff recipe](../shared/stage-handoff.md). Release the item claim
+and hand off with:
 
 ```text
-Next step: /yoke blitz $ITEM_REF
+Next step: /yoke {NEXT_SKILL_ID} {ITEM_REF}
 Execution document: $EXECUTION_SLUG
 ```

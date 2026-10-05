@@ -74,7 +74,9 @@ EPIC_TASKS=$(yoke epic-tasks list --epic "$ITEM_NUM" 2>/dev/null) || true
 ```
 
 If all fields are empty or trivial, emit:
-> **Advisory:** PREFIX-N has minimal content. Consider populating the body first or running `/yoke shepherd PREFIX-N` before refining.
+> **Advisory:** PREFIX-N has minimal content. Populate the missing structured
+> artifacts through its pinned authoring segment before refining. Read
+> `yoke items detail get PREFIX-N --json` to resolve that workflow pin.
 
 Proceed anyway — refinement can still add structure to sparse items.
 

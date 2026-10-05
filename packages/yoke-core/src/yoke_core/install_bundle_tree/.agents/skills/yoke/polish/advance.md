@@ -49,21 +49,27 @@ Before status advancement, capture the details you will present after cleanup is
 
 ## 12. Advance to implemented
 
-After all polish work is verified complete and tests pass, advance to `implemented`. Use `/yoke advance` so the canonical advance skill runs the polishing-implementation → implemented gate, rebuilds the rendered body, and syncs GitHub.
+After all polish work is verified complete and tests pass, advance to `implemented`
+through `lifecycle.transition.execute`, which runs the target gates and syncs GitHub.
 
 ```bash
-/yoke advance "$ITEM_REF" implemented
+yoke lifecycle transition "$ITEM_REF" --to implemented
 ```
 
 Final output should include:
 > **PREFIX-{N}** polished: `polishing-implementation` -> `implemented`
-> The scheduler will route this item to `/yoke usher` for merge and deploy.
+> Next bound skill: `/yoke {NEXT_SKILL_ID} {ITEM_REF}`.
 
-`implemented` is a hard handoff point for this command. Do **not** continue into usher, merge, PR creation, or deployment from the polish flow. Any merge/deploy work must begin through an explicit `/yoke usher` command entrypoint.
+Resolve `NEXT_SKILL_ID` from a fresh item detail read using
+[the shared handoff recipe](../shared/stage-handoff.md).
+
+`implemented` is a hard handoff point for this command. Do **not** continue
+into merge, PR creation, or deployment from the polish flow. The next bound
+skill begins through its fresh command entrypoint.
 
 **If any step above failed or tests are failing:** Do NOT advance to `implemented`. Leave the item at `polishing-implementation` and report the failure.
 
-Function-call equivalent (for dispatch-surface callers — `/yoke advance` builds this envelope internally):
+Function-call equivalent (the CLI above builds this envelope internally):
 
 ```jsonc
 {
