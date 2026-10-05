@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Iterable, List, Sequence
 
 from yoke_core.api.repo_root import find_repo_root
+from yoke_core.engines.doctor_parallel_reads import bounded_read_map
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 from yoke_core.engines.doctor_tree_scan import GENERATED_TREE_NAMES, iter_tree_files
 from yoke_project_checks._declare import self_project_checks
@@ -64,15 +65,6 @@ def _parse(path: Path) -> ast.Module:
     return ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
 
 
-def _parsed_python_files(repo_root, roots):
-    from yoke_core.engines.doctor_parallel_reads import bounded_read_map
-
-    def parse(path):
-        return path, _parse(path)
-
-    yield from bounded_read_map(parse, _python_files(repo_root, roots))
-
-
 def _imports(tree: ast.AST) -> Iterable[tuple[str, int]]:
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -89,10 +81,11 @@ def scan_source_namespace_edges(
     registry_root: str = HOOK_REGISTRY_ROOT,
 ) -> List[HookBoundaryFinding]:
     """Find direct and registry-mediated edges to source-only hook modules."""
-    findings: List[HookBoundaryFinding] = []
-    for path, tree in _parsed_python_files(repo_root, package_roots):
+
+    def import_findings(path):
+        findings = []
         relpath = path.relative_to(repo_root).as_posix()
-        for imported, line in _imports(tree):
+        for imported, line in _imports(_parse(path)):
             if imported == SOURCE_HOOK_PREFIX or imported.startswith(
                 SOURCE_HOOK_PREFIX + "."
             ):
@@ -103,10 +96,12 @@ def scan_source_namespace_edges(
                         f"imports source-only module {imported}",
                     )
                 )
+        return findings
 
-    for path, tree in _parsed_python_files(repo_root, (registry_root,)):
+    def registry_findings(path):
+        findings = []
         relpath = path.relative_to(repo_root).as_posix()
-        for node in ast.walk(tree):
+        for node in ast.walk(_parse(path)):
             if (
                 isinstance(node, ast.Constant)
                 and isinstance(node.value, str)
@@ -119,6 +114,17 @@ def scan_source_namespace_edges(
                         f"registry names source-only module {node.value}",
                     )
                 )
+        return findings
+
+    findings: List[HookBoundaryFinding] = []
+    for rows in bounded_read_map(
+        import_findings, _python_files(repo_root, package_roots)
+    ):
+        findings.extend(rows)
+    for rows in bounded_read_map(
+        registry_findings, _python_files(repo_root, (registry_root,))
+    ):
+        findings.extend(rows)
     return findings
 
 

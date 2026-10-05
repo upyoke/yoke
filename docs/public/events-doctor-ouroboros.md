@@ -47,7 +47,10 @@ work only when a mandatory leading sequence or every complete literal choice is 
 patterns without a provable candidate retain the entire line scan. The original per-pattern tests, path exemptions, slash
 normalization, line matching and full-tree coverage remain the same.
 Provenance, hook-boundary and file-line checks overlap their complete inventories'
-independent reads. The item-reference check reads each source once for its six
+independent reads. Hook and platform namespace boundaries also evaluate each
+file's complete AST predicates in that bounded pool; ordered results retain
+every finding without serializing the full AST walk on the traced caller.
+The item-reference check reads each source once for its six
 scans; historical-reference scanning avoids AST work only when no reference
 matches anywhere in the file. The add-column and ambient-connection guards
 likewise prefetch every scoped source without changing their AST predicates.
