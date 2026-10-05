@@ -2,7 +2,7 @@
 
 Each command is a nested skill at `.agents/skills/yoke/{name}/SKILL.md`. Harnesses expose those commands through their native skill or slash-command surfaces; the shared `SKILL.md` frontmatter is the single authored metadata source. Non-native harness surfaces invoke the same commands through their harness adapter's route wrapper (see the Harness Bootstrap Contract, yoke source-repo doc `docs/harness-bootstrap.md`, for command classification and the Hook Parity Map, yoke source-repo doc `docs/hook-parity-map.md`, for hook availability by harness). Render the operator-readable Atlas of the Yoke agent-facing surfaces (function ids, wrapped `yoke` subcommands, tool-shaped CLI adapters, permanent boundaries, pending rows, live contradictions) locally with `python3 -m yoke_core.tools.atlas_render_docs render`; each command below resolves to one or more registered function calls.
 
-Yoke has **21 operator commands** (the primary interface) and **6 internal sub-skills** (called by other commands, not typically invoked directly). Large skills are decomposed into phase sub-files; top-level SKILL.md files should stay compact orchestration surfaces that delegate detailed sub-protocols to phase files. The 350-line file limit is implemented by `yoke_core.domain.file_line_check`, exposed to agents as `yoke check file-line`, and enforced everywhere the files themselves are readable — the pre-commit hook, the Dash survey's per-path sizing, and `HC-file-line-limit` in doctor. Lifecycle status writes do not enforce it: a control plane reached over https holds no checkout, so the limit is checked where the checkout is. **File Budget** is an independent pinned workflow policy: when enabled it shapes implementation before coding; when off, the same 350-line enforcement remains. File Budget/path-claim parity applies only when both effective axes are enabled. A small temporary-exception list covers strategic docs and prompt source-of-truth surfaces.
+Yoke has **21 operator commands** (the primary interface) and **5 internal sub-skills** (called by other commands, not typically invoked directly). Large skills are decomposed into phase sub-files; top-level SKILL.md files should stay compact orchestration surfaces that delegate detailed sub-protocols to phase files. The 350-line file limit is implemented by `yoke_core.domain.file_line_check`, exposed to agents as `yoke check file-line`, and enforced everywhere the files themselves are readable — the pre-commit hook, the Dash survey's per-path sizing, and `HC-file-line-limit` in doctor. Lifecycle status writes do not enforce it: a control plane reached over https holds no checkout, so the limit is checked where the checkout is. **File Budget** is an independent pinned workflow policy: when enabled it shapes implementation before coding; when off, the same 350-line enforcement remains. File Budget/path-claim parity applies only when both effective axes are enabled. A small temporary-exception list covers strategic docs and prompt source-of-truth surfaces.
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
@@ -221,7 +221,6 @@ These are called by operator commands or other sub-skills. They have their own S
 | `/yoke merge {epic-id}` | usher | Sequential PR + CI + merge per branch |
 | `/yoke approve PREFIX-N` | usher | Approve a deployment stage awaiting human approval |
 | `/yoke amend {epic-id}` | conduct | Add, split, reassign, or remove tasks after sync |
-| `/yoke plan {epic-id}` | shepherd, conduct | Architect planning: task decomposition or lightweight plan |
 | `/yoke simulate {epic-id}` | conduct | Trace cross-task paths for integration gaps (`--system` for Ouroboros audit) |
 
 `simulate` is decomposed into `simulate/epic-flow.md`, `simulate/dispatch-prompts.md`, `simulate/autofix-loop.md`, and `simulate/system.md`.
@@ -271,12 +270,6 @@ Human approval gate for the Usher deployment pipeline. Uses the run-based deploy
 ### amend
 
 Add, split, reassign, or remove tasks after sync. Routes mutations through the `workflow_item.epic_task.*` function family (`workflow_item.epic_task.add`, `workflow_item.epic_task.split`, `workflow_item.epic_task.reassign`, `workflow_item.epic_task.remove`, `workflow_item.epic_task.metadata_update`, `workflow_item.epic_task.body_replace`) and `workflow_item.epic_progress_note.append`. See [.yoke/docs/reference/db-reference/functions.md](db-reference/functions.md). Re-verifies worktree overlap. Creates new worktrees as needed.
-
-### plan
-
-Explore scans the codebase. Architect output follows the selected workflow
-policy: item-level execution gets a lightweight `## Technical Plan`; a
-task-graph workflow gets task decomposition plus a worktree plan.
 
 ### simulate
 

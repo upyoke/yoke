@@ -145,14 +145,17 @@ def prepare_update(
                         success=False,
                         error=(
                             f"Cannot set epic {item.ref} to '{value}' "
-                            f"-- no epic_tasks found. Run '/yoke plan {item.ref}' first."
+                            f"-- no epic_tasks found. Run '/yoke shepherd {item.ref}' first."
                         ),
                         error_code="GATE_EPIC_TASKS",
                         item_id=item.id,
                     )
 
         # Done-ceremony nonce gate: mutation layer trusts caller assertion
-        if value == "done" and workflow.policies["delivery"] in _RELEASE_CEREMONY_DELIVERY_POLICIES:
+        if (
+            value == "done"
+            and workflow.policies["delivery"] in _RELEASE_CEREMONY_DELIVERY_POLICIES
+        ):
             if not gate.force and not gate.done_nonce_verified:
                 return MutationResult(
                     success=False,

@@ -5,8 +5,7 @@ calling session's active path claim has no worktree binding
 (no active universal lane) and the target is not in the claim's covered
 roots — the canonical ``worktree-unresolved`` denial. That posture is
 correct for implementation-phase sessions but wrong for planning
-sessions (``/yoke idea``, ``/yoke refine``, ``/yoke shepherd``,
-``/yoke plan``) whose item is
+sessions (``/yoke idea``, ``/yoke refine``, ``/yoke shepherd``) whose item is
 pre-implementation by design — those sessions never bind a worktree and
 their canonical scratch target is the helper-resolved
 ``project_scratch_dir.dispatch_inputs_dir(...)`` tree.

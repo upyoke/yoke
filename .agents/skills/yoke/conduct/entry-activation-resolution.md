@@ -31,7 +31,7 @@ _synced_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_task
 
 **If NOT synced:**
 
-1. Pre-check: `_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='$_epic_id'")`. If 0, stop: `No tasks found for PREFIX-{N}. Run '/yoke plan {_epic_id}' first.`
+1. Pre-check: `_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='$_epic_id'")`. If 0, stop: `No tasks found for PREFIX-{N}. Run '/yoke shepherd {_epic_id}' first.`
 
 2. Auto-sync: Print `Epic PREFIX-{N} not yet synced to GitHub. Running sync automatically...` then:
  ```bash

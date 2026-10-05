@@ -203,7 +203,7 @@ _epic_id={N}
 _task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id=${_epic_id}")
 ```
 
-If `_task_count` is 0, **block**: point to `/yoke plan PREFIX-{N}`.
+If `_task_count` is 0, **block**: point to `/yoke shepherd PREFIX-{N}`.
 
 ## Generated-Task Completion Gate (step 5a)
 
