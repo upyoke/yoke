@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 
 from yoke_harness import browser_client
 from yoke_harness.browser_client_readiness import DAEMON_LOG_NAME
+from yoke_harness.browser_daemon_profile import recover_unhealthy_daemon
 
 
 def _log(message: str) -> None:
@@ -19,8 +20,8 @@ def ensure_daemon_running(project: Optional[str] = None) -> Optional[str]:
 
     An authorized profile makes every context the daemon hands out signed into
     whatever the operator signed into; a project with no profile keeps the
-    previous clean-context behavior. ``daemon_start`` restarts a daemon that
-    is live on a different project's profile rather than reusing it.
+    clean-context behavior. Every profile owns an independent daemon;
+    another project's live capture is never stopped or reused.
     """
     from yoke_cli.config.browser_profile import resolve_authorized_profile
     from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
@@ -32,35 +33,11 @@ def ensure_daemon_running(project: Optional[str] = None) -> Optional[str]:
     _log(profile_note)
     profile = str(profile_path) if profile_path else None
 
-    state = browser_client.DaemonState.load()
-    if (
-        state
-        and browser_client.daemon_running(state)
-        and state.profile_dir == (profile or "")
-    ):
-        try:
-            browser_client.daemon_health(state=state, timeout=1)
-        except RuntimeError as exc:
-            _log(
-                "Browser daemon process is alive but not ready; "
-                f"recovering endpoint={state.endpoint} pid={state.pid}: {exc}"
-            )
-            try:
-                browser_client.daemon_stop()
-            except Exception:
-                pass
-        else:
-            return None
     last_error: Optional[str] = None
     _log("Ensuring the browser daemon is running...")
     for attempt in range(1, 4):
-        if attempt > 1:
-            _log(f"Retry {attempt}/3: cleaning up stale state...")
-            try:
-                browser_client.daemon_stop()
-            except Exception:
-                pass
         try:
+            recover_unhealthy_daemon(browser_client, profile)
             browser_client.daemon_start(profile_dir=profile)
             message = (
                 "Browser daemon started"
@@ -72,7 +49,7 @@ def ensure_daemon_running(project: Optional[str] = None) -> Optional[str]:
         except RuntimeError as exc:
             last_error = str(exc)
             _log(f"Browser daemon startup failed (attempt {attempt}/3): {exc}")
-    diagnostics = collect_daemon_diagnostics()
+    diagnostics = collect_daemon_diagnostics(profile_dir=profile or "")
     parts = [f"Browser daemon failed to start after 3 attempts: {last_error}"]
     if diagnostics.get("log_tail"):
         parts.append(f"daemon log tail: {diagnostics['log_tail'][-500:]}")
@@ -83,9 +60,9 @@ def ensure_daemon_running(project: Optional[str] = None) -> Optional[str]:
     return " | ".join(parts)
 
 
-def collect_daemon_diagnostics() -> Dict[str, Any]:
+def collect_daemon_diagnostics(*, profile_dir: str | None = None) -> Dict[str, Any]:
     diagnostics: Dict[str, Any] = {}
-    daemon_log = browser_client._browser_dir() / DAEMON_LOG_NAME
+    daemon_log = browser_client._state_file_path(profile_dir).parent / DAEMON_LOG_NAME
     try:
         if daemon_log.exists():
             diagnostics["log_tail"] = "\n".join(
@@ -94,11 +71,17 @@ def collect_daemon_diagnostics() -> Dict[str, Any]:
     except OSError:
         pass
     try:
-        diagnostics["daemon_status"] = browser_client.daemon_status()
+        diagnostics["daemon_status"] = browser_client.daemon_status(
+            profile_dir=profile_dir
+        )
     except Exception:
         pass
     try:
-        diagnostics["daemon_health"] = browser_client.daemon_health()
+        diagnostics["daemon_health"] = browser_client.daemon_health(
+            state=browser_client.DaemonState.load(
+                browser_client._state_file_path(profile_dir)
+            )
+        )
     except Exception:
         pass
     return diagnostics

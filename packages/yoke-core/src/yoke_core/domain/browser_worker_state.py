@@ -5,7 +5,7 @@ This sibling owns:
 - Path helpers (``_browser_dir``, ``_state_file``, ``_tunnel_pid_file``)
   anchored on the machine-level browser runtime directory
   (``~/.yoke/browser-runtime/``) so local and remote execution write
-  the same state files ``browser_client`` reads.
+  the throwaway-profile state file ``browser_client`` reads.
 - Process-liveness helpers (``_pid_alive``, ``_read_pid_file``).
 - ``.daemon-state.json`` I/O (``_load_state``, ``_write_state``,
   ``_remove_state``, ``_local_daemon_running``).
@@ -27,10 +27,13 @@ import os
 from pathlib import Path
 from typing import Optional
 
+from yoke_harness.browser_daemon_profile import state_file_path
+
 
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
+
 
 def _browser_dir(root: Optional[Path] = None) -> Path:
     """Return the local state-file directory.
@@ -46,7 +49,7 @@ def _browser_dir(root: Optional[Path] = None) -> Path:
 
 
 def _state_file(root: Optional[Path] = None) -> Path:
-    return _browser_dir(root) / ".daemon-state.json"
+    return state_file_path(_browser_dir(root), "")
 
 
 def _tunnel_pid_file(root: Optional[Path] = None) -> Path:
@@ -56,6 +59,7 @@ def _tunnel_pid_file(root: Optional[Path] = None) -> Path:
 # ---------------------------------------------------------------------------
 # Process liveness helpers
 # ---------------------------------------------------------------------------
+
 
 def _pid_alive(pid: int) -> bool:
     if pid <= 0:
@@ -104,6 +108,7 @@ def _resolve_pid_alive():
 # State file I/O
 # ---------------------------------------------------------------------------
 
+
 def _load_state(root: Optional[Path] = None) -> Optional[dict]:
     path = _state_file(root)
     if not path.is_file():
@@ -149,6 +154,7 @@ def _local_daemon_running(root: Optional[Path] = None) -> bool:
 # ---------------------------------------------------------------------------
 # Tunnel PID file helpers
 # ---------------------------------------------------------------------------
+
 
 def _tunnel_alive(root: Optional[Path] = None) -> bool:
     pid = _read_pid_file(_tunnel_pid_file(root))

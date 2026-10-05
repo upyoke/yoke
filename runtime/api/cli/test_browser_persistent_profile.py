@@ -180,25 +180,19 @@ def test_daemon_start_reuses_a_daemon_on_the_same_profile(
     assert result["status"] == "already_running"
 
 
-def test_daemon_start_restarts_on_a_different_profile(tmp_path, monkeypatch) -> None:
+def test_daemon_start_refuses_foreign_profile_state(tmp_path, monkeypatch) -> None:
     launched = _stub_daemon_start(
-        monkeypatch,
-        tmp_path,
-        [_healthy_state("/profiles/beta"), _healthy_state("/profiles/acme")],
+        monkeypatch, tmp_path, [_healthy_state("/profiles/beta")]
     )
     monkeypatch.setattr(browser_client, "daemon_running", lambda state=None: True)
-    stopped: list[bool] = []
-    monkeypatch.setattr(
-        browser_client,
-        "daemon_stop",
-        lambda: stopped.append(True) or "stopped",
-    )
+    stopped = []
+    monkeypatch.setattr(browser_client, "daemon_stop", lambda **kw: stopped.append(kw))
 
-    result = browser_client.daemon_start(profile_dir="/profiles/acme")
+    with pytest.raises(RuntimeError, match="browser_daemon_profile_mismatch"):
+        browser_client.daemon_start(profile_dir="/profiles/acme")
 
-    assert stopped == [True]
-    assert result["status"] == "started"
-    assert ["--profile-dir", "/profiles/acme"] == launched[0][-4:-2]
+    assert stopped == []
+    assert launched == []
 
 
 def test_ensure_daemon_running_uses_the_projects_profile(

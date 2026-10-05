@@ -10,8 +10,6 @@ from __future__ import annotations
 import argparse
 
 
-
-
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="browser_client",
@@ -27,9 +25,10 @@ def build_parser() -> argparse.ArgumentParser:
     ds = dsub.add_parser("start")
     ds.add_argument("--port", type=int)
     ds.add_argument("--headed", action="store_true")
-    ds.add_argument("--project", default=None)
     ds.add_argument("--idle-timeout", type=int, dest="idle_timeout")
     dsub.add_parser("stop")
+    for command in dsub.choices.values():
+        command.add_argument("--project", default=None)
 
     # snapshot
     s = sub.add_parser("snapshot")
@@ -48,15 +47,20 @@ def build_parser() -> argparse.ArgumentParser:
     sd.add_argument("--output-dir", dest="output_dir")
     sd.add_argument("--threshold", type=float)
 
+    for command in ssub.choices.values():
+        command.add_argument("--project", default=None)
+
     # exec
     e = sub.add_parser("exec")
     esub = e.add_subparsers(dest="exec_cmd")
     es = esub.add_parser("step")
+    es.add_argument("--project", default=None)
     es.add_argument("step_json")
     es.add_argument("--base-url", required=True, dest="base_url")
     es.add_argument("--output-dir", dest="output_dir")
     es.add_argument(
-        "--page-id", dest="page_id",
+        "--page-id",
+        dest="page_id",
         help="Page to act on (default: the shared diagnostic page).",
     )
 

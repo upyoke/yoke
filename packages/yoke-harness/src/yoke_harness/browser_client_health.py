@@ -48,9 +48,9 @@ def daemon_health(
     return probe_daemon_health(selected, timeout=timeout)
 
 
-def daemon_status() -> Dict[str, Any]:
+def daemon_status(*, profile_dir: str | None = None) -> Dict[str, Any]:
     client = _client()
-    state = client.DaemonState.load()
+    state = client.DaemonState.load(client._state_file_path(profile_dir))
     if state is None:
         return {"status": "not_running"}
     if client.daemon_running(state):
