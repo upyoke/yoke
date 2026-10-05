@@ -19,12 +19,13 @@ function keyEvent(key) {
   return event;
 }
 
-test("Capabilities shows stored types with derived kind, state, and freshness", async (t) => {
+for (const basePath of ["", "/orgs/acme"]) {
+test(`Capabilities shows stored types and scoped row navigation at ${basePath || "root"}`, async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.href = "/capabilities?project=1";
+  documentNode.defaultView.location.href = `${basePath}/capabilities?project=1`;
   const root = documentNode.createElement("div");
   const requests = [];
   const client = {
@@ -88,7 +89,8 @@ test("Capabilities shows stored types with derived kind, state, and freshness", 
     },
   };
 
-  const mounted = mountUniverseApp(root, { client });
+  const mounted = mountUniverseApp(root, { client, basePath });
+  t.after(() => mounted.unmount());
   await settle();
 
   assert.doesNotMatch(
@@ -152,35 +154,26 @@ test("Capabilities shows stored types with derived kind, state, and freshness", 
     machineRow.attributes.get("aria-label"),
     "Open Test Lab capability",
   );
-  machineRow.dispatchEvent(new Event("click"));
-  assert.equal(
-    documentNode.defaultView.location.href,
-    "/capabilities/test-machine?project=1",
-  );
-  documentNode.defaultView.location.href = "/capabilities?project=1";
-  const enter = keyEvent("Enter");
-  machineRow.dispatchEvent(enter);
-  assert.equal(enter.defaultPrevented, true);
-  assert.equal(
-    documentNode.defaultView.location.href,
-    "/capabilities/test-machine?project=1",
-  );
-  documentNode.defaultView.location.href = "/capabilities?project=1";
-  const space = keyEvent(" ");
-  machineRow.dispatchEvent(space);
-  assert.equal(space.defaultPrevented, true);
-  assert.equal(
-    documentNode.defaultView.location.href,
-    "/capabilities/test-machine?project=1",
-  );
   assert.deepEqual(
     allNodes(root)
       .filter((node) => node.tagName === "TIME")
       .map((node) => node.attributes.get("datetime")),
     ["2026-07-15T12:10:00.000Z", "2026-07-15T12:00:00.000Z"],
   );
-  mounted.unmount();
+  for (const key of [null, "Enter", " "]) {
+    const row = allNodes(root).find(node => node.classList?.contains("capability-route-row"));
+    const event = key === null ? new Event("click") : keyEvent(key);
+    row.dispatchEvent(event);
+    if (key !== null) assert.equal(event.defaultPrevented, true);
+    assert.equal(documentNode.defaultView.location.href,
+      `${basePath}/capabilities/test-machine?project=1&selection=1`);
+    assert.equal(documentNode.defaultView.history.state.yokeDashboard.position, 1);
+    documentNode.defaultView.history.back();
+    assert.equal(documentNode.defaultView.location.href, `${basePath}/capabilities?project=1`);
+    await settle();
+  }
 });
+}
 
 test("Capabilities renders its honest empty state", async (t) => {
   const originalFetch = globalThis.fetch;
