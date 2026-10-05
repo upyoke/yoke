@@ -45,7 +45,7 @@ def _patch_checkout_project(
     monkeypatch: pytest.MonkeyPatch, project_id: int | None = 1
 ) -> None:
     monkeypatch.setattr(
-        "yoke_core.domain.project_scratch_identity.canonical_project_id",
+        "yoke_core.domain.project_scratch_identity.resolve_project_namespace",
         lambda ref: {"yoke": "1", "externalwebapp": "2"}.get(ref, ref),
     )
     monkeypatch.setattr(

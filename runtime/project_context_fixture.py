@@ -8,6 +8,6 @@ def bound_project_context(monkeypatch):
     """Declare the seeded project as this test caller's selected project."""
     monkeypatch.setenv("YOKE_PROJECT", "yoke")
     monkeypatch.setattr(
-        "yoke_core.domain.project_scratch_identity.canonical_project_id",
+        "yoke_core.domain.project_scratch_identity.resolve_project_namespace",
         lambda ref: "1" if ref == "yoke" else ref,
     )

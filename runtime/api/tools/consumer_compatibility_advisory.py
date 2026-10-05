@@ -49,9 +49,10 @@ _PACKAGE_SOURCE_ROOT = "packages/yoke-core/src/"
 #: Declaration-emitting sources for the same contract, which change the
 #: shared surface without changing a shipped asset byte-for-byte.
 _CONTRACT_SOURCE_ROOT = "packages/yoke-core/src/yoke_core/ui/contracts/"
-#: Control-plane schema and boot-seed sources exercised by the hosted
-#: consumer's pristine-tenant candidate check.
+#: Control-plane schema, boot seeds and scratch paths exercised by the
+#: hosted consumer's candidate service check.
 _CONTROL_PLANE_DOMAIN_ROOT = "packages/yoke-core/src/yoke_core/domain/"
+_WATCHER_TOOLS_ROOT = "packages/yoke-core/src/yoke_core/tools/"
 _MODEL_REFERENCE_CONTRACT_ROOT = (
     "packages/yoke-contracts/src/yoke_contracts/model_reference_"
 )
@@ -66,10 +67,15 @@ def host_consumed_paths() -> Tuple[str, ...]:
     )
 
 
-def _touches_control_plane_data(path: str) -> bool:
-    """Whether *path* can change hosted control-plane schema or boot seeds."""
+def _touches_control_plane_runtime(path: str) -> bool:
+    """Whether *path* changes hosted data or the consumer's capture runtime."""
     if path.startswith(_MODEL_REFERENCE_CONTRACT_ROOT):
         return True
+    if path.startswith(_WATCHER_TOOLS_ROOT):
+        relative = path[len(_WATCHER_TOOLS_ROOT) :]
+        return relative == "_watch_capture_binding.py" or relative.startswith(
+            "watch_pytest"
+        )
     if not path.startswith(_CONTROL_PLANE_DOMAIN_ROOT):
         return False
 
@@ -81,6 +87,8 @@ def _touches_control_plane_data(path: str) -> bool:
         or relative.startswith("schema_")
         or relative.endswith("_schema.py")
         or relative.startswith("migrations/")
+        or relative.startswith("project_scratch_")
+        or relative == "qa_artifacts.py"
     )
 
 
@@ -93,7 +101,7 @@ def touches_hosted_consumer_surface(paths: Sequence[str]) -> Tuple[str, ...]:
         if (
             path in consumed
             or path.startswith(_CONTRACT_SOURCE_ROOT)
-            or _touches_control_plane_data(path)
+            or _touches_control_plane_runtime(path)
         )
     )
 

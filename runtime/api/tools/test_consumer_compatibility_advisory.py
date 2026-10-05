@@ -101,6 +101,33 @@ def test_an_unrelated_domain_change_does_not_put_the_consumer_in_play() -> None:
     assert advisory.touches_hosted_consumer_surface([path]) == ()
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        "packages/yoke-core/src/yoke_core/domain/project_scratch_identity.py",
+        "packages/yoke-core/src/yoke_core/domain/project_scratch_dir.py",
+        "packages/yoke-core/src/yoke_core/domain/qa_artifacts.py",
+        "packages/yoke-core/src/yoke_core/tools/_watch_capture_binding.py",
+        "packages/yoke-core/src/yoke_core/tools/watch_pytest.py",
+    ],
+)
+def test_capture_runtime_changes_dispatch_the_consumer(monkeypatch, capsys, path):
+    _scope_of(monkeypatch, path)
+    monkeypatch.setenv(gate.CONSUMER_TOKEN_ENV, "scoped-token")
+    checked = []
+
+    def prove(candidate, consumer_ref, *, timeout_sec, exact_pair):
+        checked.append(candidate)
+        assert consumer_ref == gate.CONSUMER_TRUNK_REF
+        assert exact_pair is False
+        return 0, "consumer candidate service suite passed", "b" * 40
+
+    monkeypatch.setattr(gate, "prove", prove)
+    assert advisory.main(["--base", "origin/main", "--candidate-sha", CANDIDATE]) == 0
+    assert checked == [CANDIDATE]
+    assert "consumer candidate service suite passed" in capsys.readouterr().out
+
+
 def test_a_run_without_the_scoped_credential_says_it_did_not_check(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],

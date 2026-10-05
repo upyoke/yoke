@@ -2,7 +2,8 @@
 
 Yoke-owned transient paths use ``YOKE_SCRATCH_ROOT``,
 ``~/.yoke/config.json:temp_root``, or OS temp with project/session/run
-segments; project references resolve to numeric ids before becoming paths.
+segments; connected project references resolve to numeric ids. Offline
+callers retain their explicit slug without a control-plane lookup.
 Repo-local data dirs are never the default. Cross-process
 coordination surfaces (hook markers, harness runtime cache) stay
 project-stable — no session/run segments — so sibling hook processes of
@@ -75,12 +76,12 @@ def scratch_project(project: str) -> Iterator[None]:
 
 
 def resolve_active_project(project: str | None = None) -> str:
-    """Return the caller's numeric project id, or refuse a project-scoped path."""
-    from yoke_core.domain.project_scratch_identity import canonical_project_id
+    """Return the caller's shared scratch namespace, or refuse a missing project."""
+    from yoke_core.domain.project_scratch_identity import resolve_project_namespace
     from yoke_core.domain.project_selection import required_local_project
 
     selected = required_local_project(Path.cwd(), project or _scratch_project.get())
-    return canonical_project_id(selected)
+    return resolve_project_namespace(selected)
 
 
 def scratch_root(
