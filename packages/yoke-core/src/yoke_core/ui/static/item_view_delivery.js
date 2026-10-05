@@ -1,11 +1,4 @@
-// How one item ships: the flow it is bound to, and every release that has
-// carried it.
-//
-// An item page could say what the work is and never say whether it had
-// shipped, so the reader went to Deployments and searched for the ref. The
-// releases are read through the item itself, newest first. A run on the
-// selected (or default) flow is this item's release; a same-project run of
-// another flow is participation and is labeled as such.
+// Run roles use the same completion authority as the item done gate.
 
 import {
   deploymentFlowHref,
@@ -22,9 +15,9 @@ import { callFunction, el, statePill } from "./universe_view_support.js";
 // mechanics read serves is the answer. Neither is guessed: when the read
 // carries no default for this item's workflow and project, the panel says the
 // binding is unresolved rather than asserting one applies.
-function flowLine(documentNode, item, resolved) {
+function flowLine(documentNode, item, resolved, deliveredByOtherFlow = false) {
   const line = el(documentNode, "div", "item-delivery-flow");
-  line.appendChild(el(documentNode, "span", "item-delivery-label", "Flow"));
+  line.appendChild(el(documentNode, "span", "item-delivery-label", "Item’s flow"));
   if (resolved?.flowId) {
     const link = el(documentNode, "a", "mono", String(resolved.flowId));
     link.href = deploymentFlowHref(item.project.id, resolved.flowId);
@@ -33,7 +26,9 @@ function flowLine(documentNode, item, resolved) {
       documentNode,
       "span",
       "item-delivery-flow-source",
-      resolved.source === "item"
+      deliveredByOtherFlow
+        ? "not used: delivered by the run above"
+        : resolved.source === "item"
         ? "selected on this item"
         : "this project's default for its workflow",
     ));
@@ -85,46 +80,36 @@ async function resolveFlow(context, item) {
     : { flowId: null, reason: "none_declared" };
 }
 
-function deliveryRow(documentNode, item, run, resolved) {
+function deliveryRow(documentNode, item, run, completion) {
   const row = el(documentNode, "div", "item-delivery-run");
   const link = el(documentNode, "a", "mono", String(run.id));
   link.href = deploymentRunHref(item.project.id, run.id);
   row.appendChild(link);
   const pill = statePill(documentNode, run.status, run.status);
   if (pill) row.appendChild(pill);
-  const selectedFlow = resolved?.flowId ? String(resolved.flowId) : "";
-  const runFlow = String(run.flow || "");
-  const isRelease = Boolean(selectedFlow && runFlow === selectedFlow);
+  const closesItem = String(completion?.id || "") === String(run.id);
+  const delivered = closesItem && completion.status === "succeeded";
   row.appendChild(el(
-    documentNode,
-    "span",
-    isRelease ? "item-delivery-role is-release" : "item-delivery-role",
-    isRelease ? "this item's release" : "also carried",
+    documentNode, "span",
+    closesItem ? "item-delivery-role is-release" : "item-delivery-role",
+    delivered ? "Delivered by" : closesItem ? "Delivering" : "Also in",
   ));
-  if (runFlow) {
-    row.appendChild(el(
-      documentNode, "span", "item-delivery-run-flow", runFlow,
-    ));
-  }
-  row.appendChild(el(
-    documentNode,
-    "span",
-    "item-delivery-target",
+  const flow = el(documentNode, "div", "item-delivery-run-flow");
+  flow.appendChild(el(documentNode, "span", "mono", String(run.flow || "")));
+  flow.appendChild(el(documentNode, "span", "", " → "));
+  flow.appendChild(el(
+    documentNode, "span", "item-delivery-target",
     run.target_environment || run.target_tier || NO_ENVIRONMENT_LABEL,
   ));
-  if (run.current_stage) {
-    row.appendChild(el(
-      documentNode, "span", "item-delivery-stage", String(run.current_stage),
-    ));
-  }
-  if (run.created_at) {
-    row.appendChild(el(
-      documentNode,
-      "span",
-      "item-delivery-when",
-      relativeAgePhrase(run.created_at),
-    ));
-  }
+  row.appendChild(flow);
+  const terminal = ["succeeded", "cancelled", "failed"].includes(run.status);
+  const timestamp = terminal ? run.completed_at : run.started_at || run.created_at;
+  const when = terminal
+    ? `${run.status === "succeeded" ? "finished" : "ended"} ${timestamp
+      ? relativeAgePhrase(timestamp) : "time unavailable"}`
+    : `${run.current_stage ? `at ${run.current_stage} · ` : ""}started ${timestamp
+      ? relativeAgePhrase(timestamp) : "time unavailable"}`;
+  row.appendChild(el(documentNode, "span", "item-delivery-when", when));
   return row;
 }
 
@@ -140,9 +125,9 @@ export function itemDeliveryPanel(context, item) {
   const { panel, body } = workflowPanel(documentNode, "Delivery");
   const flowHost = el(documentNode, "div", "item-delivery-flow-host");
   flowHost.appendChild(el(documentNode, "span", "item-muted", "resolving flow…"));
-  body.appendChild(flowHost);
   const runs = el(documentNode, "div", "item-delivery-runs", "loading releases…");
   body.appendChild(runs);
+  body.appendChild(flowHost);
   const resolvedFlow = resolveFlow(context, item);
   resolvedFlow.then((resolved) => {
     if (!context.isMounted()) return;
@@ -177,6 +162,16 @@ export function itemDeliveryPanel(context, item) {
       return;
     }
     const rows = newestFirst(result.rows || []);
+    // Older serving builds omit completion_run: report participation until
+    // authority is available rather than guessing it from a flow name.
+    const completion = result.completion_run || null;
+    const deliveredRun = rows.find((run) => run.id === completion?.id
+      && completion.status === "succeeded");
+    if (deliveredRun && String(deliveredRun.flow) === resolved?.flowId) {
+      flowHost.replaceChildren();
+    } else {
+      flowHost.replaceChildren(flowLine(documentNode, item, resolved, Boolean(deliveredRun)));
+    }
     if (!rows.length) {
       runs.replaceChildren(el(
         documentNode, "p", "item-muted", "No release has carried this item.",
@@ -184,7 +179,7 @@ export function itemDeliveryPanel(context, item) {
       return;
     }
     runs.replaceChildren(
-      ...rows.map((run) => deliveryRow(documentNode, item, run, resolved)),
+      ...rows.map((run) => deliveryRow(documentNode, item, run, completion)),
     );
   })();
   return panel;

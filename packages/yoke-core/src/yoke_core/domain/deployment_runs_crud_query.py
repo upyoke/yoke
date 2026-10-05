@@ -160,7 +160,7 @@ def cmd_find_by_item(
             conn,
             f"SELECT dr.id, dr.status, COALESCE(dr.current_stage,''), "
             f"dr.created_at, dr.flow, COALESCE(e.name,''), "
-            f"COALESCE(dr.target_tier,'') "
+            f"COALESCE(dr.target_tier,''), dr.started_at, dr.completed_at "
             f"FROM deployment_runs dr "
             f"JOIN deployment_run_items dri ON dri.run_id = dr.id "
             f"LEFT JOIN environments e ON e.id = dr.target_environment_id "

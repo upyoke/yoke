@@ -33,6 +33,7 @@ class DeploymentRunsFindByItemRequest(BaseModel):
 
 class DeploymentRunsFindByItemResponse(BaseModel):
     item_id: int
+    completion_run: Optional[Dict[str, Any]] = None
     fields: List[str]
     rows: List[Dict[str, Any]]
 
@@ -101,11 +102,24 @@ def handle_deployment_runs_find_by_item(
         "flow",
         "target_environment",
         "target_tier",
+        "started_at",
+        "completed_at",
     )
     raw = cmd_find_by_item(int(request.target.item_id), status=payload.status)
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.deployment_qa_source_obligation import latest_completion_run
+
+    conn = connect()
+    try:
+        completion = latest_completion_run(
+            conn, int(request.target.item_id), skip_terminal_failures=True
+        )
+    finally:
+        conn.close()
     return HandlerOutcome(
         result_payload={
             "item_id": int(request.target.item_id),
+            "completion_run": completion,
             "fields": list(fields),
             "rows": _pipe_rows(raw, fields),
         },
