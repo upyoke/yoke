@@ -240,11 +240,15 @@ or Chrome and proves a sandboxed launch and test-page navigation before
 saving the absolute executable in `settings.browser_executable_path` in machine
 config. Every runtime process receives a projection of this one setting;
 Playwright launches use `executablePath`, and authorization spawns that same
-binary. A saved system selection is re-proven without repeating the failed
+binary. Both daemon clients and authorization use the environment returned by
+the shared setup resolver; status rechecks the saved executable with the same
+sandboxed test-page probe without changing config. A saved system selection
+is re-proven without repeating the failed
 download; an available bundled browser takes precedence and clears it. The
 successful launch proves the system browser's own libraries and sandbox;
 bundled-browser dependency provisioning still checks the bundled builds.
-If neither path works, an HTML block response is reported as
+If neither path works, an HTML block response or a ZIP central-directory
+signature failure is reported as
 `browser_download_blocked`, naming `cdn.playwright.dev`,
 `playwright.download.prss.microsoft.com`, and `playwright.azureedge.net` to allow.
 

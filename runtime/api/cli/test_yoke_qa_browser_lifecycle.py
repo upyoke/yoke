@@ -53,9 +53,7 @@ def _readiness_patches(runtime_dir: Path, *, toolchain, chromium_probe: str | No
             "yoke_cli.browser_node_toolchain.resolve_node_toolchain",
             return_value=toolchain,
         ),
-        patch(
-            "yoke_cli.commands.qa_browser_lifecycle.subprocess.run", side_effect=probe
-        ),
+        patch("yoke_harness.browser_setup.subprocess.run", side_effect=probe),
     )
 
 

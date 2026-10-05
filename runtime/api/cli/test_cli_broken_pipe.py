@@ -4,6 +4,8 @@ import os
 import subprocess
 import sys
 
+import pytest
+
 from yoke_cli.cli_output import quiet_closed_stdout
 
 
@@ -33,3 +35,38 @@ def test_buffered_stdout_flush_is_inside_the_closed_pipe_boundary(monkeypatch):
 
     monkeypatch.setattr(sys, "stdout", ClosedOutput())
     assert quiet_closed_stdout(lambda: 0)() == 0
+
+
+@pytest.mark.parametrize(
+    "transport",
+    [
+        "sender, receiver = socket.socketpair(); receiver.close(); sender.send(b'x')",
+        "child = subprocess.Popen([sys.executable, '-c', 'pass'], stdin=subprocess.PIPE); "
+        "child.wait(); child.stdin.write(b'x'); child.stdin.flush()",
+    ],
+    ids=["socket", "subprocess"],
+)
+def test_non_stdout_broken_pipes_remain_nonzero_errors(transport):
+    code = (
+        "import socket, subprocess, sys\n"
+        "from yoke_cli.cli_output import quiet_closed_stdout\n"
+        "@quiet_closed_stdout\n"
+        "def operation():\n"
+        f"    {transport}\n"
+        "operation()\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True
+    )
+    assert result.returncode != 0
+    assert "BrokenPipeError" in result.stderr
+
+
+def test_stderr_broken_pipe_is_not_stdout_success(monkeypatch):
+    class ClosedErrorOutput:
+        def write(self, value):
+            raise BrokenPipeError("stderr closed")
+
+    monkeypatch.setattr(sys, "stderr", ClosedErrorOutput())
+    with pytest.raises(BrokenPipeError, match="stderr closed"):
+        quiet_closed_stdout(lambda: print("failure", file=sys.stderr))()

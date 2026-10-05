@@ -55,8 +55,10 @@ def test_install_failure_preserves_warning_and_download_error(
         browser_setup.ensure_browser_runtime(browser, toolchain, emit=lambda _: None)
     message = str(failure.value)
     assert (
-        f"browser_{'npm_install' if command == 'npm' else 'install'}_failed" in message
-    )
+        "browser_npm_install_failed" if command == "npm" else "browser_download_blocked"
+    ) in message
+    if command == "npx":
+        assert "playwright.download.prss.microsoft.com" in message
     assert "exit 1" in message
     assert "stdout (last 20 lines" in message
     assert "stderr (last 20 lines" in message
