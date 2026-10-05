@@ -273,7 +273,7 @@ def attach_driver(
     )
     if response.success:
         result = dict(response.result or {})
-    return result
+        return result
     code = response.error.code if response.error else ""
     if code in REGISTRY_SKEW_CODES:
         return {}
