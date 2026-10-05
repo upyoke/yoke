@@ -161,7 +161,7 @@ for (const band of BANDS) {
     ], { delivery: { merges: 3, deployed: 1, not_deployed: 2 } });
     t.after(() => mounted.unmount());
 
-    assert.equal(byClass(box, "item-delivery-flow")[0].textContent, FLOW);
+    assert.equal(byClass(box, "item-card-delivery-flow")[0].textContent, FLOW);
     assert.equal(byClass(box, "item-delivery-merges").length, 0);
     assert.deepEqual(byClass(box, "item-deployment-environment").map((node) => node.textContent), ["prod", "stage"]);
     assert.deepEqual(byClass(box, "item-deployment-outcome").map((node) => node.textContent), ["✓ deployed", "✓ in build"]);
@@ -220,7 +220,7 @@ test("the header resolves the item's single flow without repeating its source", 
     [{ completion_flow_source: "unreadable" }, "its project default could not be read"],
   ]) {
     const { mounted, box } = await mountBand(BANDS[0], () => [], facts);
-    assert.equal(byClass(box, "item-delivery-flow")[0].textContent, expected);
+    assert.equal(byClass(box, "item-card-delivery-flow")[0].textContent, expected);
     mounted.unmount();
   }
 });

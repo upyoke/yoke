@@ -213,13 +213,6 @@ export function createWorkbenchChrome({
 
   const navEl = el(documentNode, "nav", "sidenav");
   navEl.id = "universe-navigation";
-  // Only ever visible while the drawer is: at full width the sidebar is part
-  // of the page and has nothing to close.
-  const navigationClose = el(
-    documentNode, "button", "navigation-close", "Close navigation ×",
-  );
-  navigationClose.type = "button";
-  navigationClose.hidden = true;
   const navigationScrim = el(
     documentNode, "button", "navigation-scrim",
   );
@@ -229,7 +222,6 @@ export function createWorkbenchChrome({
   const main = el(documentNode, "main", "content");
   const body = el(documentNode, "div", "workbench-body");
   const shell = el(documentNode, "div", "shell");
-  navEl.appendChild(navigationClose);
   navEl.appendChild(onboarding.host);
   appendSlot(navEl, resolvedSlots.navigationStart, mountedSlotNodes);
   shell.appendChild(navEl);
@@ -263,7 +255,7 @@ export function createWorkbenchChrome({
 
   const disposeNavigation = attachNavigationDrawer({
     documentNode, header, shell, navigation: navEl, toggle: navigationToggle,
-    close: navigationClose, scrim: navigationScrim, body,
+    scrim: navigationScrim, body,
     footer: controls.footer, main, links: navLinks,
   });
   // Revealed panels — a claiming session, a status reason, a deploy-lock

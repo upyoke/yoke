@@ -4,7 +4,6 @@
 
 .universe-app-root .navigation-toggle,
 .universe-app-root .header-search-button,
-.universe-app-root .navigation-close,
 .universe-app-root .navigation-scrim {
   display: none;
 }
@@ -190,25 +189,6 @@
     transition: transform 160ms ease;
   }
   .universe-app-root .shell.side-open > .sidenav { transform: translateX(0); }
-  /* The drawer's own way out, pinned to the top of the scroll so a long
-     destination list never strands it above the fold. */
-  .universe-app-root .navigation-close {
-    position: sticky;
-    top: -12px;
-    z-index: 1;
-    display: block;
-    width: 100%;
-    min-height: 44px;
-    margin: -12px 0 8px;
-    padding: 8px 10px;
-    border: 0;
-    border-bottom: 1px solid var(--yoke-border);
-    background: var(--yoke-surface);
-    color: var(--yoke-ink);
-    font: 600 13px var(--yoke-font-sans);
-    cursor: pointer;
-  }
-  .universe-app-root .navigation-close[hidden] { display: none; }
   .universe-app-root .navigation-scrim {
     position: fixed;
     z-index: 40;
@@ -282,20 +262,15 @@
 
 @media (max-width: 640px) {
   .universe-app-root .topbar {
-    gap: 7px;
-    padding: 8px 10px;
+    gap: 6px;
+    padding: 8px;
   }
-  /* Universe and Actor stay on the compact first row; Projects owns the
-     row below. */
-  .universe-app-root .header-project-context {
-    flex: 1 0 100%;
-    width: 100%;
-    order: 20;
-  }
-  .universe-app-root .header-scope-host,
-  .universe-app-root .header-scope-host .scope-bar {
-    width: 100%;
-  }
+  /* Context controls keep their content width and wrap in reading order. */
+  .universe-app-root .header-context-control { gap: 3px; padding-inline: 5px; }
+  .universe-app-root .header-universe-context { order: 10; }
+  .universe-app-root .header-actor-context { order: 11; }
+  .universe-app-root .header-project-context { flex: 0 1 auto; order: 12; }
+  .universe-app-root button.actor-chip { font-size: 12.5px; min-height: 22px; }
   /* A phone has no room for a panel floating over a page: the dialog IS the
      screen here, so it fills it rather than centring inside a viewport it
      already covers. */
@@ -323,20 +298,20 @@
     padding-inline: 10px;
   }
   .universe-app-root .app-footer-mark,
-  .universe-app-root .app-footer-environment,
-  .universe-app-root .actor-name { display: none; }
-  .universe-app-root .app-footer-links {
-    width: 100%;
-    margin-left: 0;
-  }
+  .universe-app-root .app-footer-environment { display: none; }
 }
 
 @media (hover: none) {
   .universe-app-root button,
   .universe-app-root .nav-link,
-  .universe-app-root .scope-chip,
   .universe-app-root .item-button { min-height: 40px; min-width: 40px; }
-  .universe-app-root .header-context-control { height: auto; min-height: 40px; }
+  .universe-app-root .header-context-control { min-height: 40px; }
+  /* Context chips fit the same 22px circle as the actor avatar. */
+  .universe-app-root .header-scope-host .scope-chip {
+    height: 22px;
+    min-height: 22px;
+    padding-block: 0;
+  }
   .universe-app-root .activation-dismiss { opacity: 1; }
   /* Touch has no persistent hover state. */
   .universe-app-root .strategy-doc-card:hover {

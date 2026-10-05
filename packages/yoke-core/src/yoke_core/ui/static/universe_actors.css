@@ -39,6 +39,9 @@
   line-height: 1.5;
 }
 
+/* Credential inventory identifiers must wrap inside their own column. */
+.universe-app-root .actors-key { overflow-wrap: anywhere; }
+
 .universe-app-root .actors-key + .actors-key {
   margin-top: 5px;
 }

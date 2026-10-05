@@ -185,7 +185,7 @@ test("Done lists every environment under the item's single flow", async (t) => {
     ["run-preview", "run-0"],
   );
   assert.deepEqual(
-    byClass(box, "item-delivery-flow").map((node) => node.textContent),
+    byClass(box, "item-card-delivery-flow").map((node) => node.textContent),
     ["yoke-hosted-stage"],
   );
   mounted.unmount();

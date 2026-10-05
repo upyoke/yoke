@@ -24,6 +24,8 @@
 
 .universe-app-root .session-roster-filter {
   display: inline-flex;
+  box-sizing: border-box;
+  height: var(--session-control-height);
   width: max-content;
   min-width: 0;
   min-height: var(--session-control-height);
@@ -58,10 +60,10 @@
 }
 
 .universe-app-root .session-filter-search-icon {
+  width: 18px;
+  height: 18px;
   flex: 0 0 auto;
   color: var(--yoke-muted);
-  font-size: 13px;
-  line-height: 1;
 }
 
 .universe-app-root .session-roster-filter input,
@@ -293,8 +295,10 @@
 }
 
 .universe-app-root .session-filter-clear,
-.universe-app-root .session-filter-action {
-  min-height: 34px;
+.universe-app-root .session-filter-actions .session-filter-action {
+  box-sizing: border-box;
+  height: var(--session-control-height);
+  min-height: var(--session-control-height);
 }
 
 .universe-app-root .session-filter-clear {

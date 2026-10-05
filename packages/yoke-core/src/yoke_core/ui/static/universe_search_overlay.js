@@ -16,7 +16,7 @@ function el(documentNode, tag, className, text) {
 // A drawn glyph rather than a font character: the ⌕ codepoint renders at
 // wildly different sizes across fonts, so an SVG is the only way the icon is
 // the same size in the field and in the button.
-function magnifier(documentNode, className) {
+export function magnifier(documentNode, className) {
   if (typeof documentNode.createElementNS !== "function") {
     return el(documentNode, "span", className, "⌕");
   }

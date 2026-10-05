@@ -1,7 +1,6 @@
-/* Headings consume spare space on their own flex line. Action-only rows
-   shrink to their content when it fits and fill the available width when
-   they wrap: fitting actions sit right, wrapped actions start at the left.
-   Neither trailing auto margins nor right-aligned prose indent new lines. */
+/* Text copy consumes spare space on its own flex line; badges keep their
+   natural width. Fitting action-only groups reach the right edge, while
+   wrapped groups and values start at the left edge of their own line. */
 .universe-app-root :is(
   .wrapping-row,
   .activation-head,
@@ -102,7 +101,6 @@
   .frontier-panel-detail,
   .inbox-message-meta,
   .inbox-message-sender,
-  .navigation-close,
   .runtime-identity-help-value,
   .session-launch-state,
   .session-message-recipient-status,
@@ -124,20 +122,28 @@
   align-items: flex-start;
 }
 
-/* A leading fact fills only the line it occupies. */
-.universe-app-root :is(
-  .wrapping-row, .activation-head, .machine-detail-fact, .machine-harness-row,
-  .machine-head, .page-head, .panel-header, .item-roster-toolbar, .qa-method-foot, .qa-plan-outcome,
-  .review-foot, .review-head, .run-card h2, .runtime-identity-help-row,
-  .secondary-card-header, .event-header, .session-holding-history,
-  .session-message-header, .session-top, .strategy-doc-metadata,
-  .strategy-spark-label, .test-machine-head, .workflow-dialog-footer,
-  .workflow-panel-meta
-) > :first-child {
+/* Only text copy consumes spare space; badges and pills retain intrinsic
+   width. Copy grows on its own line, leaving wrapped actions and values
+   at the left edge without a blanket first-child rule. */
+.universe-app-root :is(.page-head, .test-machine-head) > .h,
+.universe-app-root .panel-header > :is(h2, h3),
+.universe-app-root .activation-head > .activation-title,
+.universe-app-root .machine-head > .machine-names,
+.universe-app-root .review-head > .review-head-copy,
+.universe-app-root :is(.secondary-card-header, .event-header) > div:has(> :is(h3, .event-name)),
+.universe-app-root .workflow-dialog-footer > .workflow-dialog-impact,
+.universe-app-root .runtime-identity-help-label,
+.universe-app-root .strategy-spark-label > span:not([class]),
+.universe-app-root .qa-method-foot > span:not([class]) {
   flex-grow: 1;
 }
 
-/* fit-content clamps to the parent's width before wrapping the buttons. */
+.universe-app-root .review-foot > .review-who,
+.universe-app-root .item-roster-toolbar > .item-roster-note { flex-grow: 1; }
+
+/* A fitting action-only group reaches the right edge. At its maximum
+   width, wrapped buttons start left inside the group. Groups paired with
+   growing copy follow that copy and start left when taking their own line. */
 .universe-app-root :is(
   .app-footer-links, .deployment-terminalization-actions, .head-actions,
   .instruction-editor-actions, .item-form-actions,
@@ -155,11 +161,8 @@
   justify-content: flex-start;
 }
 
-.universe-app-root .workflow-dialog-footer.actions-only > :first-child {
-  flex-grow: 0;
-}
-
 /* Header action groups follow the growing heading, including on a new line. */
+.universe-app-root .session-roster-filters > .session-filter-actions,
 .universe-app-root :is(.page-head, .review-foot, .workflow-dialog-footer:not(.actions-only)) > :is(
   .head-actions, .review-actions, .workflow-dialog-actions
 ) {
