@@ -20,6 +20,7 @@ from yoke_contracts.install_binding import (
     source_checkout_root,
 )
 from yoke_contracts.machine_config.schema import mapped_checkouts
+from yoke_contracts.project_defaults import default_project_for_directory
 from yoke_core.domain.project_selection import required_local_project
 from yoke_contracts.server_mode import SERVER_MODE_ENV, SERVER_MODE_SELF_HOST
 
@@ -82,12 +83,21 @@ def self_project_names(conn) -> frozenset:
     An unmapped source checkout does not identify a project. Its self-scoped
     checks report not applicable until the checkout is registered.
     """
-    for checkout, project_id in _mapped_checkouts():
+    source = running_source_root()
+    checkouts = ([source] if source else []) + [
+        checkout for checkout, _project_id in _mapped_checkouts()
+    ]
+    for checkout in checkouts:
         try:
             root = Path(checkout).expanduser()
         except (TypeError, ValueError):
             continue
         if not is_yoke_source_checkout(root):
+            continue
+        # Use the CLI's ancestor/worktree and active-universe mapping rather
+        # than interpreting the machine config's raw checkout entries again.
+        project_id = default_project_for_directory(root)
+        if project_id is None:
             continue
         names = {str(project_id)}
         slug = _project_slug(conn, project_id)

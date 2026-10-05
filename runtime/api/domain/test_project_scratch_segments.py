@@ -93,11 +93,11 @@ def test_watcher_capture_lands_under_the_resolved_session(
     monkeypatch.setenv("YOKE_SESSION_ID", "worker-session")
     monkeypatch.setenv("YOKE_RUN_ID", "run-1")
 
-    raw, progress = scratch.mint_watcher_capture_pair("pytest", project="yoke")
+    raw, progress = scratch.mint_watcher_capture_pair("pytest", project="1")
 
     expected = (
         tmp_path
-        / "yoke"
+        / "1"
         / "sessions"
         / "worker-session"
         / "runs"

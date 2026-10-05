@@ -14,11 +14,13 @@ The answer is a listing of what that machine holds for the session plus the tail
 
 Three kinds, and they are keyed differently on disk:
 
-- **`watcher`** — captures under the session's own scratch subtree, keyed by session id. The project segment above `sessions/` is resolved from the writing process's configuration, which the relay does not share, so the listing walks every project segment; a session id is unique across them. Entries are named `<run>/<file>` so two runs of one session never collide.
+- **`watcher`** — captures under the session's own scratch subtree, keyed by session id. The project segment above `sessions/` is the numeric project id: explicit ids, slugs, `YOKE_PROJECT`, checkout mappings, and request bindings converge on that namespace. The relay listing walks every project segment; a session id is unique across them. Entries are named `<run>/<file>` so two runs of one session never collide.
 - **`relay`** — the relay service's own `relay.stdout.log` and `relay.stderr.log`. Machine-scoped rather than session-scoped: they are what the relay itself said while it was failing to serve that session.
 - **`diagnostic`** — the private `nd-` captures a native failure left behind. These are **not** keyed by session on disk, so the machine cannot answer "what do you hold for this session" about them on its own. The control plane can: every reference was reported to it by the attempt that produced it, and those attempts name the session (`session_message_attempts.target_session_id`, and `session_launch_attempts` joined through `session_launches.registered_session_id` / `native_session_id`). So the job carries the explicit reference list, resolved control-plane-side, and the relay reads only those.
 
 Selection order: `--evidence-id` names one exact `nd-` reference — what the fleet report links; `--file` names one entry from a previous listing; with neither, the newest file of the requested `--kind` is read. `--kind` alone narrows the listing.
+
+The API-server process log is machine-scoped at `<scratch-root>/storage/api-server/yoke-api-server.log`, with `YOKE_API_LOG` as its explicit override. Starting that universe-serving process from an unmapped directory requires no project or session identity. Project-scoped scratch writers still refuse when the caller supplies no project and the checkout has no mapping.
 
 ## Bounds
 
