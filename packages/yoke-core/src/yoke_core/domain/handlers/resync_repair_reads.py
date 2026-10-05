@@ -83,17 +83,18 @@ def _placeholder(conn: Any) -> str:
 
 
 def handle_item_lookup(request: FunctionCallRequest) -> HandlerOutcome:
-    """Look up an item by its text-cast id reference.
+    """Look up an item by its public ref (or the engine's own id token).
 
-    Preserves the engine's exact ``CAST(id AS TEXT) = CAST(? AS TEXT)``
-    match (the reference may be a non-numeric slug fragment) and returns
-    the id, the item's rendered public ref, and its status. Rendering the
+    The reference is a ``PREFIX-N`` ref or the internal id the resync engine
+    carries; anything else (a slug fragment) names no item. Returns the id,
+    the item's rendered public ref, and its status. Rendering the
     ref here keeps ref composition on the side that can read the project's
     prefix and the item's project sequence, so no caller reconstructs a
     public ref from the internal id. A missing row is a valid
     ``found=False`` answer; the caller decides whether that is an empty
     title prefix or a ``None`` status probe.
     """
+    from yoke_core.domain.item_ref_resolution import internal_item_key
     from yoke_core.domain.project_identity import render_item_ref
 
     try:
@@ -104,11 +105,10 @@ def handle_item_lookup(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         with _connect_rw() as conn:
             p = _placeholder(conn)
+            item_id = internal_item_key(conn, body.ref)
             row = conn.execute(
-                "SELECT id, status FROM items "
-                f"WHERE CAST(id AS TEXT) = CAST({p} AS TEXT) LIMIT 1",
-                (body.ref,),
-            ).fetchone()
+                f"SELECT id, status FROM items WHERE id = {p}", (item_id,),
+            ).fetchone() if item_id is not None else None
             public_ref = render_item_ref(conn, int(row[0])) if row else ""
     except Exception as exc:  # noqa: BLE001 - surfaced so the caller aborts
         return _err("item_lookup_failed", str(exc))
@@ -131,14 +131,15 @@ def handle_item_lookup(request: FunctionCallRequest) -> HandlerOutcome:
 def handle_epic_task_repair_read(request: FunctionCallRequest) -> HandlerOutcome:
     """Return the parent id/public ref + the epic task's title/status.
 
-    Runs the engine's exact two inline reads on one connection: the parent
-    item id (by text-cast id) and the ``epic_tasks`` title/status row. The
+    Runs two reads on one connection: the parent item id (from its public
+    ref or the engine's id token) and the ``epic_tasks`` title/status row. The
     parent's public ref is rendered here, where the project's prefix and
     the item's project sequence are readable, so the caller never composes
     a ref from the internal id. A missing task row yields
     ``task_found=False``; the caller aborts the repair with the same "row
     not found" error.
     """
+    from yoke_core.domain.item_ref_resolution import internal_item_key
     from yoke_core.domain.project_identity import render_item_ref
 
     try:
@@ -149,16 +150,15 @@ def handle_epic_task_repair_read(request: FunctionCallRequest) -> HandlerOutcome
     try:
         with _connect_rw() as conn:
             p = _placeholder(conn)
+            epic_id = internal_item_key(conn, body.epic_ref)
             parent_row = conn.execute(
-                "SELECT id FROM items "
-                f"WHERE CAST(id AS TEXT) = CAST({p} AS TEXT) LIMIT 1",
-                (body.epic_ref,),
-            ).fetchone()
+                f"SELECT id FROM items WHERE id = {p}", (epic_id,),
+            ).fetchone() if epic_id is not None else None
             task_row = conn.execute(
                 "SELECT title, status FROM epic_tasks "
                 f"WHERE epic_id = {p} AND task_num = {p}",
-                (body.epic_ref, body.task_num),
-            ).fetchone()
+                (epic_id, body.task_num),
+            ).fetchone() if epic_id is not None else None
             # render_item_ref tolerates schemas without project tables and
             # falls back to the default-prefix + internal-id form.
             parent_ref = (
@@ -205,10 +205,14 @@ def handle_epic_task_body(request: FunctionCallRequest) -> HandlerOutcome:
         return _err("payload_invalid", f"epic_task_body payload invalid: {exc}")
 
     from yoke_core.domain.epic_resolution import task_get_body
+    from yoke_core.domain.item_ref_resolution import internal_item_key
 
     try:
         with _connect_rw() as conn:
-            text = task_get_body(conn, str(body.epic_ref), int(body.task_num)) or ""
+            epic_id = internal_item_key(conn, body.epic_ref)
+            if epic_id is None:
+                raise LookupError(f"epic {body.epic_ref!r} not found")
+            text = task_get_body(conn, str(epic_id), int(body.task_num)) or ""
     except Exception as exc:  # noqa: BLE001 - surfaced so the caller degrades to ""
         return _err("epic_task_body_failed", str(exc))
 

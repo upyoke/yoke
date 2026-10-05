@@ -226,36 +226,6 @@ def allocate_project_sequence(conn: Any, project_id: int) -> int:
     return int(current_max) + 1 if current_max is not None else 1
 
 
-def resolve_item_id(
-    conn: Any,
-    raw_ref: str | int,
-    *,
-    project: Optional[Union[str, int]] = None,
-) -> Optional[int]:
-    """Resolve ``PREFIX-N`` or project-context bare sequence to internal id."""
-    if isinstance(raw_ref, int):
-        return raw_ref
-    prefix, sequence = parse_public_item_ref(raw_ref)
-    if sequence is None:
-        return None
-    if prefix is None:
-        if project is None:
-            return None
-        ident = resolve_project(conn, project, required=True)
-    else:
-        ident = resolve_project_for_public_prefix(conn, prefix, required=True)
-    assert ident is not None
-    p = placeholder(conn)
-    row = conn.execute(
-        f"""SELECT id FROM items
-            WHERE project_id = {p} AND project_sequence = {p}""",
-        (ident.id, sequence),
-    ).fetchone()
-    if row is None:
-        return None
-    return int(row_value(row, "id", 0))
-
-
 def render_item_ref(
     conn: Any,
     item_id: int,
@@ -326,7 +296,6 @@ __all__ = [
     "item_project_join_select",
     "placeholder",
     "render_item_ref",
-    "resolve_item_id",
     "resolve_project",
     "resolve_project_for_public_prefix",
     "resolve_project_id",

@@ -190,7 +190,7 @@ def test_item_happy_path_calls_backlog_execute_update(repair_db, capsys):
     assert seen_env["YOKE_CLAIM_BYPASS"] == "repair-status:test-repair"
 
     # The sync addresses the item by its public ref: a digit string is a
-    # project-local sequence resolved with allow_bare_internal=False, so the
+    # project-local sequence that needs project context, so the
     # internal id would address a different row — or none.
     assert len(sync_calls) == 1
     assert sync_calls[0][0] == "YOK-9"

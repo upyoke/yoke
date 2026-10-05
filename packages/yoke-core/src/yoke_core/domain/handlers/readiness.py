@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+from yoke_core.domain.handler_item_target import request_item_id
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
@@ -56,14 +57,6 @@ def _err(code: str, message: str) -> HandlerOutcome:
         primary_success=False,
         error=FunctionError(code=code, message=message),
     )
-
-
-def _target_item_id(request: FunctionCallRequest, payload_item_id: object) -> int:
-    if payload_item_id is not None:
-        return int(payload_item_id)
-    if request.target.item_id is not None:
-        return int(request.target.item_id)
-    raise ValueError("readiness function requires a resolved item target")
 
 
 def _unavailable_repair_payload(
@@ -192,7 +185,7 @@ def _check_payload(
 def handle_check(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         body = ReadinessCheckRequest.model_validate(request.payload)
-        item_id = _target_item_id(request, body.item_id)
+        item_id = request_item_id(request, body.item_id)
     except Exception as exc:
         return _err("payload_invalid", f"readiness.check.run payload invalid: {exc}")
 
@@ -223,7 +216,7 @@ def handle_check(request: FunctionCallRequest) -> HandlerOutcome:
 def handle_repair_stale_count(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         body = ReadinessRepairRequest.model_validate(request.payload)
-        item_id = _target_item_id(request, body.item_id)
+        item_id = request_item_id(request, body.item_id)
     except Exception as exc:
         return _err(
             "payload_invalid",
@@ -273,7 +266,7 @@ def handle_repair_stale_count(request: FunctionCallRequest) -> HandlerOutcome:
 def handle_repair_claim_coverage(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         body = ReadinessRepairRequest.model_validate(request.payload)
-        item_id = _target_item_id(request, body.item_id)
+        item_id = request_item_id(request, body.item_id)
     except Exception as exc:
         return _err(
             "payload_invalid",

@@ -9,26 +9,16 @@ from yoke_contracts.dependency_values import VALID_GATE_POINTS, VALID_SOURCES
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_scalar
 from yoke_core.domain.dependency_satisfaction import require_authorable_satisfaction
-from yoke_core.domain.item_ref_columns import resolve_column_item_ref
+from yoke_core.domain.item_ref_resolution import resolve_item_ref
 from yoke_core.domain.path_claims_blocked_reason_refresh import (
     refresh_blocked_reason_for_edge_change,
 )
-from yoke_core.domain.shepherd_records import (
-    normalize_item_id,
-    now_iso,
-    read_stdin_safe,
-)
+from yoke_core.domain.shepherd_records import now_iso, read_stdin_safe
 
 
 def _edge_ids(conn, dependent: str, blocking: str) -> tuple[int, int]:
-    """Resolve API tokens to the integer ids stored on the edge."""
-    dep_id = resolve_column_item_ref(conn, normalize_item_id(dependent, conn))
-    blk_id = resolve_column_item_ref(conn, normalize_item_id(blocking, conn))
-    if dep_id is None or blk_id is None:
-        raise LookupError(
-            f"item not found for dependency {dependent}->{blocking}"
-        )
-    return dep_id, blk_id
+    """Resolve the edge's two public refs to the integer ids it stores."""
+    return resolve_item_ref(conn, dependent), resolve_item_ref(conn, blocking)
 
 
 def _refresh_blocked_reasons(conn, dep_id: int, blk_id: int) -> None:
@@ -234,9 +224,7 @@ def cmd_dependency_reconcile(
 ) -> str:
     if source not in VALID_SOURCES:
         raise ValueError(f"source must be {', '.join(sorted(VALID_SOURCES))}")
-    scope_id = resolve_column_item_ref(conn, normalize_item_id(scope_item, conn))
-    if scope_id is None:
-        raise LookupError(f"item not found: {scope_item}")
+    scope_id = resolve_item_ref(conn, scope_item)
     if gate_point_filter and gate_point_filter not in VALID_GATE_POINTS:
         raise ValueError(f"invalid gate_point: {gate_point_filter}")
 

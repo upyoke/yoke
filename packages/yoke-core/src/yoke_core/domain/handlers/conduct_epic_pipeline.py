@@ -45,6 +45,8 @@ class PipelineUpdateStatusResponse(BaseModel):
 class ProceedTriageHandoffRequest(BaseModel):
     recommendation: str = "PROCEED"
     gap_summary: str = ""
+    filed_public_refs: List[str] = Field(default_factory=list)
+    # The pre-public-ref key for the same refs, still sent by older clients.
     filed_item_ids: List[str] = Field(default_factory=list)
     session_id: Optional[str] = None
 
@@ -162,7 +164,7 @@ def handle_proceed_triage_handoff(request: FunctionCallRequest) -> HandlerOutcom
             epic_id,
             recommendation=payload.recommendation,
             gap_summary=payload.gap_summary,
-            filed_item_ids=payload.filed_item_ids,
+            filed_item_ids=payload.filed_public_refs or payload.filed_item_ids,
             session_id=session_id,
         )
     result = ProceedTriageHandoffResponse(

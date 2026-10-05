@@ -129,14 +129,11 @@ def _normalize_item_ref(conn: Any, raw: Optional[str]) -> Optional[str]:
     text = str(raw).strip()
     if not text:
         return None
+    from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
     from yoke_core.domain.project_identity import render_item_ref
-    from yoke_core.domain.yok_n_parser import parse_item_argument
 
-    try:
-        return render_item_ref(conn, parse_item_argument(text, conn=conn))
-    except ValueError:
-        pass
-    return text
+    item_id = resolve_item_ref_or_none(conn, text)
+    return text if item_id is None else render_item_ref(conn, item_id)
 
 
 # ---------------------------------------------------------------------------

@@ -31,6 +31,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+from yoke_core.domain.handler_item_target import request_item_id
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
@@ -87,14 +88,6 @@ def _placeholder(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _resolved_epic_id(request: FunctionCallRequest, payload_epic_id: object) -> int:
-    if payload_epic_id is not None:
-        return int(payload_epic_id)
-    if request.target.item_id is not None:
-        return int(request.target.item_id)
-    raise ValueError("resolved epic target required")
-
-
 def handle_epic_task_statuses(request: FunctionCallRequest) -> HandlerOutcome:
     """Return every epic task's ``task_num`` + ``status`` in task-num order.
 
@@ -104,7 +97,7 @@ def handle_epic_task_statuses(request: FunctionCallRequest) -> HandlerOutcome:
     """
     try:
         body = EpicTaskStatusesRequest.model_validate(request.payload)
-        epic_id = _resolved_epic_id(request, body.epic_id)
+        epic_id = request_item_id(request, body.epic_id)
     except Exception as exc:  # noqa: BLE001 - surface a structured payload error
         return _err("payload_invalid", f"epic_task_statuses payload invalid: {exc}")
 

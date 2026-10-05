@@ -1,7 +1,7 @@
 """The done transition addresses its discovery scan by public item ref.
 
 A Python ``int`` is ``items.id``; a digit *string* is a project-local
-public sequence resolved with ``allow_bare_internal=False``. Handing the
+public sequence that needs project context. Handing the
 internal id to the scan made it refuse every item whose id was not also a
 live sequence — and the closeout recorded step 9 complete anyway, so a
 scan that never ran looked exactly like one that found nothing.

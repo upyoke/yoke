@@ -192,7 +192,7 @@ def lookup_statuses(
     for sid in yok_ids:
         try:
             internal_by_ref[sid] = parse_item_id(
-                sid, conn=conn, allow_bare_internal=False,
+                sid, conn=conn,
             )
         except Exception:
             # Read-only advisory validator: an unresolvable ref (unknown

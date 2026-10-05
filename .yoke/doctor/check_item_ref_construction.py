@@ -5,7 +5,7 @@ A ratchet enforcing the display/internal split for item references:
 - DISPLAY is ``{public_item_prefix}-{project_sequence}`` produced only by the
   canonical formatter (``render_item_ref`` / ``format_item_ref``).
 - INTERNAL code addresses items by the bare integer ``items.id`` and resolves a
-  user token via ``resolve_item_id`` — never by stripping a prefix.
+  user token via ``item_ref_resolution.resolve_item_ref`` — never by stripping a prefix.
 
 The scanner (``yoke_core.domain.lint_item_ref_construction``) flags any literal
 ref-prefix token in Python source outside the formatter/resolver and tests.
@@ -148,7 +148,7 @@ def hc_item_ref_construction(conn, args: DoctorArgs, rec: RecordCollector) -> No
         _TITLE,
         "FAIL",
         "Item-ref parser policy drift. Use render_item_ref / "
-        "format_item_ref for display and resolve_item_id for lookups; never "
+        "format_item_ref for display and item_ref_resolution.resolve_item_ref for lookups; never "
         "build or parse a ref inline, never pass str(item_id) to an "
         "items CLI / sync_done_item boundary, and never interpolate an "
         "never interpolate an items.id into message text a person reads, and never build a git search key from a display renderer:\n"

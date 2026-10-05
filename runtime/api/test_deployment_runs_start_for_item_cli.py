@@ -151,7 +151,7 @@ def test_start_for_item_via_db_router_main(monkeypatch, tmp_path):
         rc = db_router.main(["runs", "start-for-item", "YOK-1"])
     assert rc == 0
     mock_parser.assert_called_once_with(
-        "YOK-1", project=None, conn=None, allow_bare_internal=False,
+        "YOK-1", project=None, conn=None,
     )
     mock_composer.assert_called_once()
     assert mock_composer.call_args.args[0] == 42

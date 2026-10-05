@@ -75,12 +75,16 @@ def handle_epic_task_github_issue_set(
         return _err("payload_invalid", f"epic_task_github_issue_set invalid: {exc}")
 
     from yoke_core.domain.epic_task_crud import task_update_field
+    from yoke_core.domain.item_ref_resolution import internal_item_key
 
     try:
         with _connect_rw() as conn:
+            epic_id = internal_item_key(conn, body.epic_ref)
+            if epic_id is None:
+                raise LookupError(f"epic {body.epic_ref!r} not found")
             task_update_field(
                 conn,
-                str(body.epic_ref),
+                str(epic_id),
                 int(body.task_num),
                 "github_issue",
                 body.issue_ref,
