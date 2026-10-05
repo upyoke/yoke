@@ -14,7 +14,7 @@ needs the empty-branch recovery. The phase steps do not need it.
 - `--skip-refine` — Optional. Operator-asserted fast path across a pinned `refine` skill segment's gate-free bookkeeping rungs. The internal skip handler (`yoke_core.domain.advance_skip`; no registered product CLI wrapper) validates the current stage against its allowlist and advances to that binding's handoff. It emits a `SkipHopPerformed` event. Use when refine deliberation is unnecessary (low-risk content swaps, copy edits). Do NOT pass a target status with this flag.
 
 Both skip flags:
-- Are operator-discoverable via `/yoke advance --help` and via `/yoke do` routing when the mission declares a skip.
+- Are operator-discoverable via `/yoke advance --help` when the mission declares a skip.
 - Emit an `ItemStatusChanged` event with `source=skip-polish` or `source=skip-refine` (honest telemetry for Ouroboros).
 - Use distinct `YOKE_CLAIM_BYPASS` reasons (`skip-polish`, `skip-refine`) so the pre-implementation safety invariant (claim-bypass only for gate-free bookkeeping rungs) stays intact.
 - Refuse invalid current statuses with a clear error. The bypass is operator-asserted, not auto-inferred.

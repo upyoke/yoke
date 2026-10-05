@@ -2,7 +2,7 @@
 
 The no-flags ``end_session`` branch previously rejected with
 ``ACTIVE_CLAIM`` whenever the session still held work-claims, forcing
-operators (and the ``/yoke do`` loop) to manually release each claim
+operators (and the ``session-offer`` loop) to manually release each claim
 before retrying. This helper centralises the inverse: enumerate the
 session's active claims and release each through the typed work-claim
 release path so item, epic_task, and process targets all use the same

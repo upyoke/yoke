@@ -1,27 +1,4 @@
-"""Process-offer policy gate regressions for ``decide_next_action``.
-
-The drift case (Strategize disabled with a runnable item
-available) and the disabled-process swap case share the
-same swap-to-CHARGE shape and are covered by
-``test_drift_strategize_with_disabled_policy_swaps_to_runnable``.
-Skip-memory recording tests live in the sibling
-``test_session_decision_process_skip_recording`` module so this file
-stays under the 350-line cap.
-
-* Process-backed actions (``STRATEGIZE``, ``FEED``) are filtered through
-  the per-process policy before being returned.
-* When the recommended process is disabled and runnable items exist on
-  the frontier, the gate selects the first runnable item as a ``CHARGE``
-  and records the skipped process under ``context['skipped_process']``.
-* When the recommended process is disabled and no runnable items
-  exist, the gate returns a non-chainable ``WAIT`` carrying
-  ``context['wait_reason'] = 'process_suppressed_no_alternative'`` and
-  a ``context['suppressed_process_recommendation']`` payload naming
-  the direct command and the disabling config key. The disabled
-  process never surfaces as a terminal ``ESCALATE``.
-* When no policy is plumbed through, the original action is returned
-  unchanged (legacy callers stay unbroken).
-"""
+"""Process-offer policy filtering and fallback regressions for decide_next_action."""
 
 from __future__ import annotations
 
@@ -114,8 +91,12 @@ class TestIsProcessActionDisabled:
 
     def test_returns_none_for_non_process_action(self):
         policy = ProcessOfferPolicy()  # all disabled
-        for kind in (ActionKind.RESUME, ActionKind.CHARGE,
-                     ActionKind.WAIT, ActionKind.ESCALATE):
+        for kind in (
+            ActionKind.RESUME,
+            ActionKind.CHARGE,
+            ActionKind.WAIT,
+            ActionKind.ESCALATE,
+        ):
             action = _make_action(kind)
             assert is_process_action_disabled(action, policy) is None
 
@@ -247,7 +228,7 @@ class TestDecideNextActionWiring:
     def test_drift_strategize_with_disabled_policy_swaps_to_runnable(self):
         # Reproduction: drift recommends Strategize first
         # (step-3 chain shape), the policy disables Strategize for
-        # /yoke do, and a runnable item exists. The gate selects
+        # session-offer, and a runnable item exists. The gate selects
         # that item as a CHARGE candidate rather than short-circuiting
         # frontier scheduling on Strategize.
         frontier = _drift_frontier(runnable_items=[RUNNABLE_A])
@@ -329,12 +310,14 @@ class TestDriftFrontierOnlyDisabledFeedNoRunnable:
     def test_response_is_non_terminal_wait_never_escalate(self):
         # After a merge burst, drift fires with classification='frontier_only'
         # but zero runnable items survive. With do_process_offer_feed=false,
-        # the suppressed-WAIT shape is non-terminal so /yoke do does not
+        # the suppressed-WAIT shape is non-terminal so session-offer does not
         # stall, and original_context.trigger='drift_review' preserves the
         # drift cursor advance.
         frontier = _drift_frontier(classification="frontier_only", runnable_items=[])
         result = decide_next_action(
-            _make_offer(), frontier, process_offer_policy=ProcessOfferPolicy(),
+            _make_offer(),
+            frontier,
+            process_offer_policy=ProcessOfferPolicy(),
         )
         assert result.action == ActionKind.WAIT
         assert result.action != ActionKind.ESCALATE

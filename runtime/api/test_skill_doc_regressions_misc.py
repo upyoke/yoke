@@ -153,8 +153,6 @@ class TestSameSessionWorktreeScopeDocs:
             "advance": SKILLS / "advance" / "SKILL.md",
             "advance_worktree": SKILLS / "advance" / "worktree.md",
             "conduct": SKILLS / "conduct" / "SKILL.md",
-            "do_routing": SKILLS / "do" / "loop-routing.md",
-            "do_followups": SKILLS / "do" / "loop-followups.md",
         }
 
     def test_shared_docs_teach_claim_based_authority(self, docs):
@@ -184,15 +182,6 @@ class TestSameSessionWorktreeScopeDocs:
         text = _read(docs["conduct"])
         assert "same-session" in text or "same harness session" in text
         assert "no manual relaunch" in text
-
-    def test_do_routing_no_worktree_handoff_terminator(self, docs):
-        text = _read(docs["do_routing"])
-        assert "worktree-handoff" not in text
-        assert "Do not re-offer" not in text
-
-    def test_do_followups_no_session_end_for_worktree_scope_movement(self, docs):
-        text = _read(docs["do_followups"])
-        assert "worktree-handoff" not in text
 
 
 class TestWorktreeHandoffEmittedRetired:
@@ -284,14 +273,3 @@ class TestPortableOwnerReferences:
         assert "They do not drain claims." in text
         assert "item-worktree auto-commit" in text
         assert "HarnessSessionStopped" in text
-
-    def test_do_wait_reports_runnable_elsewhere_payload(self):
-        text = _read(REPO / ".agents/skills/yoke/do/loop-routing-wait.md")
-        start = text.index("**Runnable-elsewhere branch.**")
-        end = text.index("**Lane-filtered branch.**")
-        branch = text[start:end]
-        for (
-            field
-        ) in "runnable_elsewhere group.project group.public_refs checkout_path".split():
-            assert field in branch
-        assert "No actionable work exists" not in branch

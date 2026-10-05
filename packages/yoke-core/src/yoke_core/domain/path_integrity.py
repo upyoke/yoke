@@ -26,7 +26,7 @@ What the verifier does NOT do
 
 * It never reads live git state. Snapshot idempotency is asserted by
   comparing stored rows, not by re-running the scanner.
-* It never blocks ``/yoke do`` / ``advance`` / ``conduct`` / ``usher``
+* It never blocks ``session-offer`` / ``advance`` / ``conduct`` / ``usher``
   / ``charge``. Shadow-mode reporting only.
 * It never claims path-target identity, never makes scheduler
   decisions, never rewrites repaired substrate without an explicit
@@ -102,9 +102,7 @@ def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _project_has_substrate(
-    conn: Any, project_id: int
-) -> bool:
+def _project_has_substrate(conn: Any, project_id: int) -> bool:
     p = _p(conn)
     row = conn.execute(
         f"SELECT EXISTS(SELECT 1 FROM path_targets WHERE project_id={p})",
@@ -116,9 +114,7 @@ def _project_has_substrate(
 def _all_registered_projects(
     conn: Any,
 ) -> List[int]:
-    rows = conn.execute(
-        "SELECT id FROM projects ORDER BY id"
-    ).fetchall()
+    rows = conn.execute("SELECT id FROM projects ORDER BY id").fetchall()
     return [int(r[0]) for r in rows]
 
 
@@ -177,12 +173,18 @@ def verify_project(
 
     if resolved_project_id is None:
         run_id = open_run(
-            conn, project_id=None, commit_sha=commit_sha,
+            conn,
+            project_id=None,
+            commit_sha=commit_sha,
         )
         close_run(
-            conn, run_id=run_id, project_id=None,
-            status=STATUS_SKIPPED, failure_count=0,
-            unrepaired_failure_count=0, skip_reason=SKIP_NO_PROJECT,
+            conn,
+            run_id=run_id,
+            project_id=None,
+            status=STATUS_SKIPPED,
+            failure_count=0,
+            unrepaired_failure_count=0,
+            skip_reason=SKIP_NO_PROJECT,
             commit_sha=commit_sha,
         )
         return run_id
@@ -190,33 +192,49 @@ def verify_project(
 
     if not _project_has_substrate(conn, project_id):
         run_id = open_run(
-            conn, project_id=project_id, commit_sha=commit_sha,
+            conn,
+            project_id=project_id,
+            commit_sha=commit_sha,
         )
         close_run(
-            conn, run_id=run_id, project_id=project_id,
-            status=STATUS_SKIPPED, failure_count=0,
-            unrepaired_failure_count=0, skip_reason=SKIP_NO_SUBSTRATE,
+            conn,
+            run_id=run_id,
+            project_id=project_id,
+            status=STATUS_SKIPPED,
+            failure_count=0,
+            unrepaired_failure_count=0,
+            skip_reason=SKIP_NO_SUBSTRATE,
             commit_sha=commit_sha,
         )
         return run_id
 
     snapshot_id, resolved_sha, skip_reason = _resolve_target_snapshot_id(
-        conn, project_id, commit_sha,
+        conn,
+        project_id,
+        commit_sha,
     )
     if skip_reason is not None:
         run_id = open_run(
-            conn, project_id=project_id, commit_sha=commit_sha,
+            conn,
+            project_id=project_id,
+            commit_sha=commit_sha,
         )
         close_run(
-            conn, run_id=run_id, project_id=project_id,
-            status=STATUS_SKIPPED, failure_count=0,
-            unrepaired_failure_count=0, skip_reason=skip_reason,
+            conn,
+            run_id=run_id,
+            project_id=project_id,
+            status=STATUS_SKIPPED,
+            failure_count=0,
+            unrepaired_failure_count=0,
+            skip_reason=skip_reason,
             commit_sha=commit_sha,
         )
         return run_id
 
     run_id = open_run(
-        conn, project_id=project_id, commit_sha=resolved_sha,
+        conn,
+        project_id=project_id,
+        commit_sha=resolved_sha,
     )
     failure_count = 0
     for invariant_kind, fn in INVARIANT_FUNCS:
@@ -224,14 +242,20 @@ def verify_project(
             details = dict(details)
             details.setdefault("snapshot_id", snapshot_id)
             record_failure(
-                conn, run_id=run_id, project_id=project_id,
+                conn,
+                run_id=run_id,
+                project_id=project_id,
                 invariant_kind=invariant_kind,
-                target_id=target_id, details=details,
+                target_id=target_id,
+                details=details,
             )
             failure_count += 1
     status = STATUS_PASSED if failure_count == 0 else STATUS_FAILED
     close_run(
-        conn, run_id=run_id, project_id=project_id, status=status,
+        conn,
+        run_id=run_id,
+        project_id=project_id,
+        status=status,
         failure_count=failure_count,
         unrepaired_failure_count=failure_count,
         commit_sha=resolved_sha,
@@ -286,6 +310,7 @@ def has_green_run(
 
 def main(argv: Optional[List[str]] = None) -> int:
     from yoke_core.domain.path_integrity_cli import main as _cli_main
+
     return _cli_main(argv)
 
 

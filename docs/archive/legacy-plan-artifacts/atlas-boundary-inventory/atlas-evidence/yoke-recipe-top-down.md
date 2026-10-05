@@ -62,7 +62,7 @@ Main session runs in one of these contexts at any given time:
 | `/yoke conduct` | Epic execution loop | Dispatch engineer → tester → next-task. Handle rework. |
 | `/yoke polish` | Worktree finalize | Re-run pytest, doctor, simplify pass, transition →implemented |
 | `/yoke usher` | Merge + deploy | watch_merge, wait CI, transition →release→done, deploy |
-| `/yoke do` / `/yoke charge` | Frontier dispatch | Read NextAction, choose next, chain forward |
+| `session-offer` / `/yoke charge` | Frontier dispatch | Read NextAction, choose next, chain forward |
 | `/yoke curate` | Ouroboros loop | Read entries, cluster, file follow-ups |
 
 ### B-2. Subagent contexts
@@ -198,7 +198,7 @@ These are the foundational operations that show up everywhere. If an agent can't
 | U-USH-3 | Transition implemented → release → done | M-2 twice |
 | U-USH-4 | Run deploy engine | `engines.deploy <project>` |
 
-#### `/yoke do` / `/yoke charge` (main session)
+#### `session-offer` / `/yoke charge` (main session)
 | ID | Recipe | What it does |
 |---|---|---|
 | D-1 | Read frontier | `curl http://127.0.0.1:8765/v1/charge/frontier` or `db_router shepherd next-action` |
@@ -418,7 +418,7 @@ Bottom-up patterns where the top-down model didn't predict heavy usage:
 
 Top-down doesn't have a "read skill body" recipe because we assume the agent has the relevant skill content loaded at session start. But 11.9k `sed -n` reads of skill bodies + docs suggest agents are re-reading skill bodies mid-session, or reading docs that aren't in the packet. **Either packet is too small (we should pull more into it), or agents are doing on-demand discovery that we don't expect.**
 
-**Action:** investigate WHICH files are most-read via `sed -n`. The top breakdown shows `.agents/skills/yoke/do/loop.md`, `do/loop-followups.md`, `do/loop-routing.md`, `do/SKILL.md`, `polish/parse-and-context`, `usher/finalize.md` are common targets. These are deep skill bodies the agent reads when chained skills don't have their full body in the prompt.
+**Action:** investigate WHICH files are most-read via `sed -n`. The top breakdown shows `polish/parse-and-context`, `usher/finalize.md` are common targets. These are deep skill bodies the agent reads when chained skills don't have their full body in the prompt.
 
 ### F-2: `env-var prefixed Python invocations` — 6,424 calls
 

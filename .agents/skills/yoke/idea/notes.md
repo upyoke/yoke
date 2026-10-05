@@ -9,8 +9,8 @@
   `/yoke blitz` begins at `refined-idea`.
 - Status is always `idea` for new items. Follow the workflow-specific
   handoff in `infer-and-create.md`: Issue and Epic use `/yoke shepherd`;
-  Blitz uses `/yoke refine` and then `/yoke blitz`. Task uses `/yoke do`
-  or `/yoke advance` into implementing, then Dash close-out to done.
+  Blitz uses `/yoke refine` and then `/yoke blitz`. For Task, read
+  `yoke workflows item get PREFIX-N` and follow its pinned skill binding.
 - The PREFIX-N ID is permanent — it never changes even after GitHub sync.
 - Items are auto-synced to GitHub on creation. If GitHub sync is unavailable, the item is created locally and can be synced later through the internal item sync repair path; do not teach that repair path as normal product flow.
 - This is a write command — it creates a file and inserts a DB row.

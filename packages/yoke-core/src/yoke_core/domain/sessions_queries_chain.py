@@ -203,7 +203,7 @@ def read_chain_skip_memory(
 
     Each entry is a dict carrying at minimum ``item_id`` and ``skip_reason``.
     The list is empty when the session has no envelope or no entries yet.
-    The memory is per-chain — `/yoke do` loops should clear it via the
+    The memory is per-chain — `session-offer` loops should clear it via the
     same envelope path between chains; the offer flow only appends and reads.
     """
     row = conn.execute(

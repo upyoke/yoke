@@ -1,6 +1,6 @@
 # Charge Frontier
 
-The charge frontier is the computation that determines which backlog items are eligible for work right now, ranks them by priority, and classifies each into a downstream delivery adapter. It powers the `/yoke charge` command and the `/yoke do` session orchestrator.
+The charge frontier is the computation that determines which backlog items are eligible for work right now, ranks them by priority, and classifies each into a downstream delivery adapter. It powers `/yoke charge` and steering frontier reads.
 
 ## Overview
 

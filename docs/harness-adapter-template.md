@@ -144,7 +144,7 @@ The shared registry distinguishes two kinds of Yoke surfaces:
 
 - **Entrypoints** are top-level `/yoke` operator commands (Tier 1 in the [bootstrap contract](harness-bootstrap.md) section 3). Yoke-owned harnesses inherit these commands from shared Yoke code unless their manifest declares a concrete limitation.
 
-- **Downstream paths** are the delivery lanes that `/yoke do` routes into after the session offer. When `/yoke do` decides the next action, it checks the shared registry plus manifest-declared disabled paths to determine whether the harness can execute the chosen lane. If not, it falls back truthfully.
+- **Downstream paths** are the delivery lanes that `session-offer` routes into after the session offer. When `session-offer` decides the next action, it checks the shared registry plus manifest-declared disabled paths to determine whether the harness can execute the chosen lane. If not, it falls back truthfully.
 
 A harness with `command_source: "shared_yoke_registry"` inherits the shared operator and downstream surfaces. If a substrate cannot support one of those surfaces, declare the matching `disabled_entrypoints` or `disabled_downstream_paths` entry and document the limitation. Work requiring a disabled downstream path falls back rather than failing silently.
 
@@ -158,7 +158,7 @@ For harnesses with a manifest, Yoke core derives the effective `downstream_paths
 
 ## Part 3: Session-Offer Builder
 
-The session-offer builder translates the adapter's runtime identity and declared limitations into the format that `/yoke do` expects. Truthful downstream-path support is derived server-side from the shared registry plus manifest limitations; it is never passed as an argument.
+The session-offer builder translates the adapter's runtime identity and declared limitations into the format that `session-offer` expects. Truthful downstream-path support is derived server-side from the shared registry plus manifest limitations; it is never passed as an argument.
 
 ### Requirements
 
@@ -193,7 +193,7 @@ The route wrapper provides bootstrap and identity guidance for shared Yoke comma
 
 ### Requirements
 
-- Accept a routing decision from `/yoke do` (or from the operator directly).
+- Accept a routing decision from `session-offer` (or from the operator directly).
 - Check the requested command against shared registry support plus manifest-declared disabled entrypoints/downstream paths.
 - If the command is supported, hand off to the corresponding `/yoke` command through the harness-native skill or prompt surface.
 - If the command is not supported, return a clear unsupported-path response. Do not attempt the command. Do not silently skip it.
@@ -226,9 +226,9 @@ Every adapter must include a smoke-test matrix that validates both operating mod
 |-----------|--------------|---------------|
 | Bootstrap loads required files | Yes | Yes |
 | `/yoke idea` files an item | Yes | Yes |
-| `/yoke do` constructs a session offer with correct identity | Yes | Yes |
-| `/yoke do` routes to a supported downstream path | Yes | Yes |
-| `/yoke do` falls back for an unsupported downstream path | Yes | Yes |
+| `session-offer` constructs a session offer with correct identity | Yes | Yes |
+| `session-offer` routes to a supported downstream path | Yes | Yes |
+| `session-offer` falls back for an unsupported downstream path | Yes | Yes |
 | Lint hooks fire on Bash commands | N/A | Yes |
 | Post-processing hooks fire on Bash commands | N/A | Yes |
 
@@ -242,7 +242,7 @@ Every adapter must include a smoke-test matrix that validates both operating mod
 
 ## Canonical Downstream Path Vocabulary
 
-The canonical downstream paths are delivery lanes that `/yoke do` can route into. These values live in the shared Yoke registry:
+The canonical downstream paths are delivery lanes that `session-offer` can route into. These values live in the shared Yoke registry:
 
 | Path | Description | What it routes to |
 |------|-------------|-------------------|

@@ -244,7 +244,6 @@ Stage executor types: `auto`, `health-check`, `warm-up`, `environment-activate`,
 | `/yoke shepherd YOK-N`        | Advance: idea → refined-idea (or planned for epics).                                     |
 | `/yoke usher [YOK-N]`         | Deployment pipeline. Halts on capability gaps and approval gates.                        |
 | `/yoke approve YOK-N`         | Approve a Yoke-handled human gate.                                                     |
-| `/yoke do`                    | Autonomous session orchestrator.                                                         |
 | `/yoke charge`                | Direct-mode: next runnable item from the frontier.                                       |
 | `/yoke feed`                  | Direct-mode: refresh frontier, materialize new work.                                     |
 | `/yoke strategize`            | Direct-mode: guided SML review.                                                          |

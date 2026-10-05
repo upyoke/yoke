@@ -1,6 +1,6 @@
 # Session-Offer Contract
 
-> Authoritative specification for the `/yoke do` session-offer request/response
+> Authoritative specification for the internal session-offer request/response
 > envelope, identity model, event shapes, and correlation semantics.
 
 Version: 3.3.0
@@ -203,7 +203,7 @@ The decision engine evaluates in this fixed priority order:
 
 ### Shared Scheduler
 
-Both `/yoke do` and `/yoke charge` consume the same shared scheduler
+The session-offer adapter and `/yoke charge` consume the same shared scheduler
 (`yoke_core.domain.scheduler`). The scheduler computes a single
 project-scoped frontier with:
 
@@ -224,7 +224,7 @@ envelope. The charge endpoint exposes the raw scheduler result via
 
 ### Workspace-home assignment
 
-Argless `/yoke do` and `/yoke charge` still compute the all-projects
+Unscoped session offers and `/yoke charge` compute the all-projects
 schedule, then keep only the invoking session's workspace project
 (machine checkout mapping, falling back to `harness_sessions.project_id`
 over HTTPS). `--project` or `--item` bypasses the filter. An unmapped
@@ -305,7 +305,7 @@ The session-offer loop always emits the core lineage events: `HarnessSessionOffe
 
 ## 7. Adapter Implementation Guide
 
-Operator-facing wrappers should expose `/yoke do` and keep any direct
+The session-offer adapter is internal; keep any direct
 `session-offer` invocation internal to the adapter or skill implementation.
 
 To implement a session-offer adapter:

@@ -2,7 +2,7 @@
 
 Read-only CLI surface over
 :func:`yoke_core.domain.sessions_offer_ownership_guard.evaluate_ownership_guard`.
-Called by ``/yoke do``'s ``resume`` dispatch before re-dispatching an
+Called by ``session-offer``'s ``resume`` dispatch before re-dispatching an
 item-scoped routed handler so the loop can detect mid-step claim loss
 before issuing a stale dispatch.
 
@@ -54,7 +54,8 @@ def cmd_ownership_guard(args: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="ownership-guard", add_help=False)
     parser.add_argument("--session-id", default=None)
     parser.add_argument(
-        "--item", required=True,
+        "--item",
+        required=True,
         help="Item target (YOK-N or bare numeric)",
     )
 
@@ -81,7 +82,9 @@ def cmd_ownership_guard(args: list[str]) -> int:
     conn = _get_db_readonly()
     try:
         result = evaluate_ownership_guard(
-            conn, session_id=parsed.session_id, item_id=item_id,
+            conn,
+            session_id=parsed.session_id,
+            item_id=item_id,
         )
     finally:
         conn.close()

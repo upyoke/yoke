@@ -4,7 +4,7 @@ description: "Advance a backlog item to the next status in its lifecycle, or to 
 argument-hint: "{PREFIX-N} [status]"
 ---
 
-# Sub-skill called by conduct, usher, do/loop, and routed dispatch.
+# Sub-skill called by conduct, usher, and item-bound dispatch.
 # The `implementation` form (`/yoke advance PREFIX-N implementation`) is also
 # operator-facing for workflows whose pinned definition binds `advance` across
 # implementation entry. Other advance targets remain internal-only.

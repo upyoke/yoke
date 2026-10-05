@@ -76,7 +76,7 @@ def _strip_title(entry_text: str, yok_id: str) -> str:
 
     Handles both prevalent MASTER-PLAN.md shapes:
 
-    - Landed:   ``N. — `Define the /yoke do ...```
+    - Landed:   ``N. — `Define the session-offer ...```
     - Remaining: ``N. `Add /yoke feed ...```
     """
     # Drop the PREFIX-N ref (with optional backticks, parens, em-dash)
@@ -150,7 +150,7 @@ def parse_frontier_entries(
     rank_landed = 0
     phase_bullets: List[str] = []
 
-    for line in lines[backlog_start + 1:]:
+    for line in lines[backlog_start + 1 :]:
         stripped = line.strip()
 
         # Stop at the next top-level section.

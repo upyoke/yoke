@@ -328,7 +328,7 @@ retained claim should query the events ledger first:
 
 ## Routing And Session Offer
 
-Routing decisions (which command to invoke for an item at a given status, which lane to run in, how `/yoke do` chains) are owned by the core scheduler and session-offer path, not by this document. The canonical sources are:
+The pinned workflow binding selects the skill for an item's live stage. Steering owns staffing; the shared scheduler computes the runnable frontier. The canonical sources are:
 
 - [session-offer.md](./session-offer.md) — request/response envelope, `NextAction` shape, chainability rules
 - [charge-frontier.md](./charge-frontier.md) — frontier computation, status-to-adapter mapping, ranking

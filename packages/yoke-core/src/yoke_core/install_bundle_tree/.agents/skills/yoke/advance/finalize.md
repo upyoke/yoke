@@ -229,10 +229,9 @@ After every advance, emit this structured block. It survives context compaction 
 - **Test command:** {_cmd_full or "yoke watch pytest --impacted main --bounded" (yoke default — impacted selection, bounded so an unbounded verdict is reported rather than widened; it executes on the project CI against the pushed lane commit, so commit and let CI run it; `--local` is only a small targeted check expected to finish in about one minute; CI on the merge path owns the full sweep, see docs/testing-verification.md)}
 - **Advance to reviewed-implementation:** `/yoke advance PREFIX-{N} reviewed-implementation`
 - **Phase docs already loaded:** preflight, worktree, environment, finalize, implementing
-- **Do-loop context (if inside /yoke do):** step {step}/{MAX_CHAIN_STEPS}, chainable={chainable}. Whether this advance is a completed handler depends on `{_target}` — do NOT treat every advance as a finished chain step.
-  - When `{_target}` is `implementing` or `reviewing-implementation`: the advance contract is NOT complete. Stay in this same session and worktree, run the implementation/review/fix/verify loop, and proceed to `/yoke advance PREFIX-{N} reviewed-implementation` only when review actually passes. Returning to /yoke do Step C (chain decision) before that point treats `reviewing-implementation` as a completed handler when it isn't, and burns a chain step against the same item.
-  - When `{_target}` is `reviewed-implementation` (real review boundary): the advance contract IS complete. The claim was already released in step 6b with `handoff-to-polish`. Return to /yoke do Step C (chain decision) so the chain checkpoint persists and the loop can decide whether to re-offer (typically for polish).
-  - For any other target (planning hops, `implemented`, `release`, `done` bookkeeping): return to /yoke do Step C (chain decision) after this advance completes so the chain checkpoint persists and the loop can decide whether to re-offer.
+- **Segment boundary:** Continue review in the same session and worktree until
+  the pinned binding ends. At that boundary, report the live stage and
+  `next_skill_id`; the next skill starts as a fresh command entrypoint.
 ```
 
 Emit this block as regular output text (not a comment or hidden metadata). The block serves two purposes:
@@ -254,7 +253,7 @@ If the operator explicitly wants usher next, start `/yoke usher PREFIX-{N}` as a
 still owns the stage:** The item has entered the review phase. This is still
 implementation work in the same implementation-lane worktree, not a new
 manual-only checkpoint. Do **not** stop here during an autonomous `/yoke
-advance` or `/yoke do` run. Stay in the existing worktree, perform the
+advance` run. Stay in the existing worktree, perform the
 review/fix/verify loop immediately, and when the branch is actually ready for
 `reviewed-implementation` run:
  > `/yoke advance PREFIX-{N} reviewed-implementation`
@@ -266,11 +265,8 @@ is complete and the pinned definition hands the item to `polish`. The claim
 was already released in step 6b with reason `handoff-to-polish`. This is a
 command boundary: stop the inner advance flow here and do **not** continue
 directly into polish from the same finalize pass; polish is a fresh command
-entrypoint that must claim the item itself. When the advance is running inside
-a routed `/yoke do` chain, return to the loop's chain decision step (`/yoke do`
-Step C) so the loop can re-offer. When invoked directly outside `/yoke do`,
-emit exactly one boundary message and stop the turn:
- > **Next step:** Return to `/yoke do` Step C (chain decision) so the routed loop can pick up the next step, or stop and leave the item ready for a fresh command entrypoint. Direct operator invocation of any command remains available outside the routed flow.
+entrypoint that must claim the item itself. Report the live stage and the
+item's `next_skill_id`, then stop at this command boundary.
 
 **Test pass is not gate satisfaction.** A green test suite means the
 implementation behaves as expected; the **reviewed-implementation gate**

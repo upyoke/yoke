@@ -1,17 +1,4 @@
-"""Clause-level wrapping classifiers for the shell-quoted-function-payload lint.
-
-Sibling of :mod:`lint_shell_quoted_function_payload_classify`. Splits the
-wrapping-shell evaluation (``is_read_wrapping``, ``is_best_effort_wrapping``,
-``is_substantive_read_wrapping``) out of the classify module so both
-modules stay under the 350-line authored-file cap.
-
-The classify module owns tokenization, the help-invocation short-circuit,
-adapter-registry lookups, and the ``_ScanState`` / ``_find_boundary``
-primitives the wrapper splitter depends on. This module owns the
-clause-level read-only / best-effort / substantive classification used
-by the lint hot path to decide whether a given wrapping shape is benign
-for a registered or domain-only hit.
-"""
+"""Clause-level wrapping classifiers for shell-quoted function payloads."""
 
 from __future__ import annotations
 
@@ -45,10 +32,24 @@ _STATEMENT_SEPARATORS = ("\n",)
 # first so ``2>&1`` wins over ``2>`` and ``>>`` wins over ``>``.
 _REDIRECT_OPS = ("2>&1", "<<<", "<<-", ">>", "2>", ">&", "<<", ">", "<")
 
-_READ_PIPE_VERBS = frozenset({
-    "head", "tail", "grep", "wc", "jq", "awk", "sed", "cut",
-    "sort", "uniq", "less", "more", "nl", "cat",
-})
+_READ_PIPE_VERBS = frozenset(
+    {
+        "head",
+        "tail",
+        "grep",
+        "wc",
+        "jq",
+        "awk",
+        "sed",
+        "cut",
+        "sort",
+        "uniq",
+        "less",
+        "more",
+        "nl",
+        "cat",
+    }
+)
 
 _BENIGN_PRINT_VERBS = frozenset({"echo", "printf"})
 
@@ -56,9 +57,7 @@ _BEST_EFFORT_NOOP_CLAUSES = frozenset({"true", "exit 0", ":"})
 
 _STATUS_CAPTURE_RE = re.compile(r"^[A-Za-z_]\w*=\$\?$")
 
-_VAR_REF_RE = re.compile(
-    r"""^['"]?\$\{?([A-Za-z_]\w*)\}?['"]?$"""
-)
+_VAR_REF_RE = re.compile(r"""^['"]?\$\{?([A-Za-z_]\w*)\}?['"]?$""")
 
 
 def is_read_wrapping(
@@ -163,7 +162,7 @@ def is_best_effort_wrapping(
     A best-effort wrapper composes ONLY of stdout/stderr redirects to
     free paths (``/dev/null``, ``/tmp/...``, mktemp-bound variables)
     plus a final ``|| true`` / ``|| exit 0`` short-circuit. This is
-    the idiomatic shape ``/yoke do`` Step B uses for
+    the idiomatic shape ``session-offer`` Step B uses for
     ``session-heartbeat`` and ``session-checkpoint`` — the mutation
     must run but its outcome must not crash the loop.
 
@@ -301,7 +300,7 @@ def _is_substantive_read_clause(
         return False
     for op in _REDIRECT_OPS:
         if stripped.startswith(op):
-            target = stripped[len(op):].strip()
+            target = stripped[len(op) :].strip()
             if not target or target in ("1", "2"):
                 return False
             return _is_free_path_target(target, mktemp_vars)
@@ -315,7 +314,7 @@ def _redirect_target_is_free(
     stripped: str,
     mktemp_vars: FrozenSet[str],
 ) -> bool:
-    target = stripped[len(op):].strip()
+    target = stripped[len(op) :].strip()
     if op == "2>&1" and target == "":
         return True
     if op == ">&" and target in ("1", "2"):
@@ -324,7 +323,8 @@ def _redirect_target_is_free(
 
 
 def _is_free_path_target(
-    target: str, mktemp_vars: FrozenSet[str],
+    target: str,
+    mktemp_vars: FrozenSet[str],
 ) -> bool:
     if not target:
         return False
@@ -342,5 +342,9 @@ def _extract_var_name(target: str) -> Optional[str]:
     return match.group(1) if match else None
 
 
-__all__ = ["is_best_effort_wrapping", "is_read_wrapping",
-    "is_substantive_read_wrapping", "is_write_output_consumer_only"]
+__all__ = [
+    "is_best_effort_wrapping",
+    "is_read_wrapping",
+    "is_substantive_read_wrapping",
+    "is_write_output_consumer_only",
+]
