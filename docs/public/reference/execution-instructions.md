@@ -13,6 +13,15 @@ and name the selection to correct; invalid bucket names refuse as `payload_inval
 Targets come from the item's pinned workflow definition's `board_bucket`,
 so custom stage ids work without being added to a separate instruction map.
 
+In the dashboard's Workflows page, the Execution instructions panel shows each
+instruction's delivery points and selected stage buckets beneath its scope.
+Choose New instruction or Edit to change the three delivery checkboxes and
+stage-bucket checkboxes. New instructions select Before creation + On every
+read. Bucket controls are disabled until When entering stage is selected;
+toggling it off keeps the draft's bucket choices. Saving requires at least one
+delivery point and, for stage delivery, at least one bucket. An invalid draft
+shows the required correction in the editor before any write is sent.
+
 Before filing, read `yoke workflow execution-instruction resolve --workflow W
 --project P --full`. Its default delivery point is `before_creation`; the
 `--execution-instructions-considered` attestation covers only those instructions.
