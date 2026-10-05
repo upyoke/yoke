@@ -126,7 +126,9 @@ def test_hooks_evaluate_runs_claim_ownership_guard_server_side(client) -> None:
     assert "yoke_core.domain.lint_workspace_cwd_match" not in payload["degraded"]
 
 
-@pytest.mark.parametrize("executor", ["claude", "codex-cli", "cursor"])
+@pytest.mark.parametrize(
+    "executor", ["claude-cli", "claude-desktop", "codex-cli", "cursor"]
+)
 @pytest.mark.parametrize(
     ("event_name", "posture"),
     [
@@ -207,3 +209,27 @@ def test_lifecycle_uses_wire_project_without_server_checkout(
         / "hook-markers"
         / f"dispatch-server-{event_name}-{session_id}"
     ).exists()
+
+
+@pytest.mark.parametrize(
+    "executor", ["claude-cli", "claude-desktop", "codex-cli", "cursor"]
+)
+@pytest.mark.parametrize(
+    "event_name", ["SessionStart", "UserPromptSubmit", "Stop", "SessionEnd"]
+)
+def test_missing_wire_project_never_reaches_remote_entry(
+    client, monkeypatch, executor, event_name
+):
+    def unexpected_evaluation(**kwargs):
+        pytest.fail("missing wire project must be refused before remote_entry")
+
+    monkeypatch.setattr(
+        "yoke_core.api.routes.hooks.evaluate_remote", unexpected_evaluation
+    )
+    response = client.post(
+        "/v1/hooks/evaluate",
+        json=_request_body(event_name=event_name, executor=executor, project_id=None),
+    )
+    assert response.status_code == 200
+    assert response.json()["outcome"] == "denied"
+    assert "no configured project id" in response.json()["stdout"]
