@@ -3,7 +3,6 @@ import {
   callFunction,
   el,
   loadSection,
-  portabilityMode,
   renderTable,
   section,
 } from "./universe_view_support.js";
@@ -15,65 +14,36 @@ import {
   renderProjectLaneSummary,
 } from "./universe_views_project_lanes.js";
 
-function createProjectNote(documentNode, capabilities) {
-  const panel = section(documentNode, "Create project");
-  panel.classList.add("create-project-note");
-  panel.renderEnvelope(
-    { status: 200, envelope: { success: true, result: {} } },
-    (body) => {
-      const mode = portabilityMode(capabilities);
-      if (mode === "hosted") {
-        body.appendChild(el(
-          documentNode,
-          "p",
-          "secondary-muted",
-          "Use the hosted project setup section below. It will register the " +
-            "project in this universe after the host finishes provisioning it.",
-        ));
-        return;
-      }
-      body.appendChild(el(
-        documentNode,
-        "p",
-        "secondary-muted",
-        "Create from a checkout with the registered operator command:",
-      ));
-      const line = el(documentNode, "div", "project-create-line");
-      line.appendChild(el(
-        documentNode,
-        "code",
-        null,
-        "yoke projects create --slug <slug> --name <name> "
-        + "--public-item-prefix <PREFIX>",
-      ));
-      body.appendChild(line);
-    },
-  );
-  return panel;
-}
-
 export function renderProjectsView(context, main, includeRetired = false) {
   const documentNode = context.document;
-  const panel = section(documentNode, "Projects");
-  const label = el(documentNode, "label", "project-inventory-filter");
-  const checkbox = el(documentNode, "input");
-  checkbox.type = "checkbox";
-  checkbox.checked = includeRetired;
-  checkbox.addEventListener("change", () => renderProjectsView(context, main, checkbox.checked));
-  label.appendChild(checkbox);
-  label.appendChild(documentNode.createTextNode(" Include retired projects"));
-  main.replaceChildren(label, panel, createProjectNote(
-    documentNode,
-    context.capabilities,
-  ));
+  const filters = el(documentNode, "div", "session-roster-filters");
+  const label = el(documentNode, "label", "session-roster-filter");
+  label.appendChild(el(documentNode, "span", "session-filter-label", "State"));
+  const state = el(documentNode, "select", "session-filter-control");
+  for (const [value, text] of [["active", "Active"], ["all", "All"]]) {
+    const option = el(documentNode, "option", null, text);
+    option.value = value;
+    state.appendChild(option);
+  }
+  state.value = includeRetired ? "all" : "active";
+  state.addEventListener("change", () => renderProjectsView(context, main, state.value === "all"));
+  label.appendChild(state);
+  filters.appendChild(label);
+  const inventory = el(documentNode, "div", "project-inventory", "loading…");
+  main.replaceChildren(filters, inventory);
+  const host = {
+    renderEnvelope(result, render) {
+      inventory.replaceChildren();
+      render(inventory, result);
+    },
+  };
   loadSection(
     context,
-    panel,
+    host,
     "projects.list",
     { include_summary: true, ...(includeRetired ? { include_retired: true } : {}) },
     (body, callResult) => {
       const rows = (callResult.envelope.result || {}).rows || [];
-      panel.setCount(rows.length);
       const sum = (key) => rows.reduce(
         (total, row) => total + (Number(row[key]) || 0),
         0,

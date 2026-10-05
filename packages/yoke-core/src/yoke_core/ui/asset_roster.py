@@ -29,6 +29,7 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "hosted_frame_workflow_epic_fixture.js": "text/javascript; charset=utf-8",
     "app.js": "text/javascript; charset=utf-8",
     "universe_app_shell_support.js": "text/javascript; charset=utf-8",
+    "universe_document_scroll.js": "text/javascript; charset=utf-8",
     "universe_location_preference.js": "text/javascript; charset=utf-8",
     "contract.js": "text/javascript; charset=utf-8",
     "contract-version.js": "text/javascript; charset=utf-8",

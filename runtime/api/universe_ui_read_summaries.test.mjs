@@ -113,23 +113,26 @@ test("Projects is an aggregate roster and each project opens its settings", asyn
       "#/projects/2",
     ],
   );
-  assert.equal(
-    allNodes(root).find(
-      (node) => node.tagName === "CODE" &&
-        node.textContent ===
-          "yoke projects create --slug <slug> --name <name> " +
-            "--public-item-prefix <PREFIX>",
-    ).textContent,
-    "yoke projects create --slug <slug> --name <name> " +
-      "--public-item-prefix <PREFIX>",
-  );
-
-  const filter = byClass(root, "project-inventory-filter")[0].children[0];
-  filter.checked = true;
+  assert.equal(byClass(root, "create-project-note").length, 0);
+  assert.equal(byClass(root, "panel").length, 0);
+  assert.equal(allNodes(byClass(root, "view-host")[0]).filter((node) => node.tagName === "H2").length, 0);
+  const inventory = byClass(root, "project-inventory")[0];
+  assert.equal(inventory.children[0].className, "metric-strip");
+  assert.equal(inventory.children[1].className, "table-wrap");
+  const filter = byClass(root, "session-filter-control")[0];
+  assert.equal(filter.tagName, "SELECT");
+  assert.equal(filter.value, "active");
+  assert.deepEqual(filter.children.map((node) => node.textContent), ["Active", "All"]);
+  filter.value = "all";
   filter.dispatchEvent(new Event("change"));
   await settle();
   assert.ok(requests.some((request) => request.payload?.include_retired === true));
   assert.ok(root.textContent.includes("Fixture"));
+  const active = byClass(root, "session-filter-control")[0];
+  active.value = "active";
+  active.dispatchEvent(new Event("change"));
+  await settle();
+  assert.equal(root.textContent.includes("Fixture"), false);
 
   documentNode.defaultView.location.hash = "#/projects/1";
   documentNode.defaultView.dispatchEvent(new Event("hashchange"));

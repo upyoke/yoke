@@ -64,7 +64,15 @@ export function attachNavigationDrawer({
     main.tabIndex = -1;
     main.focus?.();
   };
+  const measureHeader = () => {
+    const height = header.getBoundingClientRect?.().height;
+    if (height) shell.style.setProperty("--yoke-app-header-height", `${height}px`);
+  };
+  const headerObserver = windowNode.ResizeObserver
+    ? new windowNode.ResizeObserver(measureHeader) : null;
+  headerObserver?.observe(header);
   const onResize = () => {
+    measureHeader();
     const active = documentNode.activeElement;
     paint();
     if (!open && active === close) controlsWithin(navigation, windowNode)[0]?.focus?.();
@@ -94,9 +102,11 @@ export function attachNavigationDrawer({
   windowNode.addEventListener("resize", onResize);
   // Chrome is constructed before it is attached. The first CSS measurement
   // must happen after mounting, otherwise detached styles guess the mode.
-  queueMicrotask(() => { if (!disposed) paint(); });
+  queueMicrotask(() => { if (!disposed) { measureHeader(); paint(); } });
   return () => {
     disposed = true;
+    headerObserver?.disconnect();
+    shell.style.removeProperty("--yoke-app-header-height");
     open = false;
     paint();
     navigation.inert = false;

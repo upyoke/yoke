@@ -157,3 +157,14 @@ test("drawer tab order stays visible and skips collapsed destinations", async (t
   assert.equal(documentNode.activeElement, close);
   mounted.unmount();
 });
+
+test("sidebar inset follows a wrapping header and releases its observer", async (t) => {
+  const { documentNode, root, mounted } = await mountDrawer(t, false);
+  const header = byClass(root, "topbar")[0];
+  const shell = byClass(root, "shell")[0];
+  header.getBoundingClientRect = () => ({ height: 96 });
+  documentNode.defaultView.dispatchEvent(new Event("resize"));
+  assert.equal(shell.style.getPropertyValue("--yoke-app-header-height"), "96px");
+  mounted.unmount();
+  assert.equal(shell.style.getPropertyValue("--yoke-app-header-height"), "");
+});

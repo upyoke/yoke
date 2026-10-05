@@ -28,8 +28,7 @@
        mistake this page for the app: everything below it is the real frame
        with sample platform chrome occupying the mount slots. */
     :root {
-      /* One value decides how tall the bar stands and how much room it costs
-         the frame beneath it. */
+      /* The harness bar has one height. */
       --harness-bar-height: 34px;
     }
     .harness-meta {
@@ -37,8 +36,7 @@
       align-items: center;
       gap: 12px;
       padding: 0 16px;
-      /* Border-box so the rule beneath the bar is part of its one height and
-         the frame's inset stays exact. */
+      /* Include the border in the bar height. */
       box-sizing: border-box;
       height: var(--harness-bar-height);
       background: #111318;
@@ -53,15 +51,7 @@
     }
     .harness-meta b { font-weight: 600; }
     .harness-meta span { opacity: .75; }
-    /* The host container, shaped the way a host's really is: a plain wrapper
-       that declares no definite height of its own. The platform's does the
-       same, so a frame that goes back to sizing itself from an ancestor
-       collapses here — on a laptop — instead of in the hosted product. The
-       inset for the bar above rides on this container as a host declares it,
-       not on an ancestor's height. */
-    .harness-host-container {
-      --yoke-app-frame-height: calc(100dvh - var(--harness-bar-height));
-    }
+    /* Host chrome and the mounted app share ordinary document flow. */
     /* The harness's own stand-in for a host's contentBefore block. Quiet
        panel dress so a frame check reads layout, not a styling defect. */
     .harness-content-notice {
@@ -240,11 +230,6 @@
         contentAfter: sampleReservedContentAfter(),
       },
       sections: {
-        projects: sampleHostSection(
-          "Create project",
-          "Sample hosted project setup supplied by the platform. In the " +
-            "product this section owns repository selection and provisioning.",
-        ),
         members: sampleHostSection(
           "Members",
           "Sample member roster supplied by the host platform.",

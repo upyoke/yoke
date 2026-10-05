@@ -88,7 +88,7 @@ test("the shell paints the line immediately and replaces it on first render", as
   await settle();
   await settle();
   assert.equal(byClass(root, "route-loading").length, 0);
-  assert.equal(byClass(root, "panel").length > 0, true);
+  assert.equal(byClass(root, "project-inventory").length, 1);
   mounted.unmount();
 });
 
@@ -115,7 +115,7 @@ test("a stuck steering-color read no longer holds the first content paint", asyn
   await settle();
 
   assert.equal(byClass(root, "route-loading").length, 0);
-  assert.equal(byClass(root, "panel").length > 0, true);
+  assert.equal(byClass(root, "project-inventory").length, 1);
   assert.ok(client.requests.includes("sessions.steering_groups.list"));
   mounted.unmount();
 });
