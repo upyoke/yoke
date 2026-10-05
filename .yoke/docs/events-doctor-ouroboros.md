@@ -6,6 +6,12 @@ Workbench **Events** is the audit stream: lifecycle, claims, deploy, doctor
 findings, function calls. Filter by name and time when debugging "what
 happened."
 
+Account acquisition is durable state: a signed-in flow creating an actor stores
+the verified consent cookie's visitor identity, first touch, and last touch in
+`actors.attribution`. Later sign-ins preserve that acquisition snapshot. A flow
+without consent creates an actor with no attribution. The event ledger is never
+used to reconstruct this account fact and may be pruned independently.
+
 **Search loaded events** searches the entries already loaded and offers
 observed names as suggestions. Advanced filters keep the precise server-side
 event name, source, severity and time constraints. The loaded scope remains

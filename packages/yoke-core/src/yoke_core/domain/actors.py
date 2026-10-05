@@ -34,6 +34,7 @@ mode the central helper exists to prevent.
 from __future__ import annotations
 
 import os
+import json
 from datetime import datetime, timezone
 from typing import Any, List, Optional
 
@@ -103,18 +104,32 @@ def seed_system_actor(
     return actor_id
 
 
-def seed_human_actor(conn: Any, name: str = "") -> int:
+def seed_human_actor(
+    conn: Any, name: str = "", *, attribution: dict | None = None
+) -> int:
     """Insert a new human actor row and return its id.
 
     Human actors are not de-duplicated by any column, name included; the
-    caller decides identity. ``name`` is what to call the new person and
+    caller decides identity. Verified consented attribution is written with
+    the new actor, never reconstructed from telemetry. ``name`` is what to call the new person and
     may be blank, shared with an existing actor, or changed later.
     """
     p = _placeholder(conn)
+    columns = "kind, system_component, name, created_at"
+    values = f"'human', NULL, {p}, {p}"
+    params = (str(name or "").strip(), _now())
+    if attribution is not None:
+        if not all(
+            attribution.get(key) for key in ("visitor_id", "first_touch", "last_touch")
+        ):
+            raise ValueError(
+                "actor_attribution_invalid: pass the verified consent cookie record"
+            )
+        columns += ", attribution"
+        values += f", {p}"
+        params += (json.dumps(attribution, separators=(",", ":")),)
     cur = conn.execute(
-        "INSERT INTO actors (kind, system_component, name, created_at) "
-        f"VALUES ('human', NULL, {p}, {p}) RETURNING id",
-        (str(name or "").strip(), _now()),
+        f"INSERT INTO actors ({columns}) VALUES ({values}) RETURNING id", params
     )
     actor_id = int(cur.fetchone()[0])
     conn.commit()

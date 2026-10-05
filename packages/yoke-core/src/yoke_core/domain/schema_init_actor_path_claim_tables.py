@@ -70,6 +70,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain.schema_init_apply import execute_schema_script
+from yoke_core.domain.schema_common import _add_column_if_not_exists
 
 
 _REQUIRED_TABLES = (
@@ -90,6 +91,7 @@ _ACTOR_IDENTITY_SQL = """
             status TEXT NOT NULL DEFAULT 'active'
                 CHECK(status IN ('active','disabled')),
             created_at TEXT NOT NULL,
+            attribution TEXT,
             CHECK (
                 (kind = 'system' AND system_component IS NOT NULL)
                 OR
@@ -121,6 +123,7 @@ _PATH_CLAIM_TASK_BINDING_SQL = """
 def create_actor_identity_tables(conn: Any) -> None:
     """Create durable actor identity tables and indexes (idempotent)."""
     execute_schema_script(conn, _ACTOR_IDENTITY_SQL)
+    _add_column_if_not_exists(conn, "actors", "attribution", "TEXT")
     conn.commit()
 
 

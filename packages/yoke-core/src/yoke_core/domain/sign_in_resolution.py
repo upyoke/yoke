@@ -105,9 +105,13 @@ def _admitted_name(email: str, name_claim: Optional[str]) -> str:
     return email.partition("@")[0].strip() or "member"
 
 
-def _create_named_actor(conn: Any, *, email: str, name_claim: Optional[str]) -> int:
+def _create_named_actor(
+    conn: Any, *, email: str, name_claim: Optional[str], attribution: dict | None
+) -> int:
     """Create the human actor an admitting rung just decided to admit."""
-    return seed_human_actor(conn, _admitted_name(email, name_claim))
+    return seed_human_actor(
+        conn, _admitted_name(email, name_claim), attribution=attribution
+    )
 
 
 def _grant_invite_role(conn: Any, invite: Invite, actor_id: int) -> None:
@@ -194,6 +198,7 @@ def resolve_sign_in(
     claims: Mapping[str, Any],
     *,
     allow_unverified_email: bool = False,
+    attribution: dict | None = None,
 ) -> SignInResolution:
     """Walk the resolution ladder for one verified id_token's claims.
 
@@ -263,6 +268,7 @@ def resolve_sign_in(
                 conn,
                 email=email,
                 name_claim=name_claim,
+                attribution=attribution,
             )
         link_external_identity(
             conn,
@@ -301,6 +307,7 @@ def resolve_sign_in(
             conn,
             email=email,
             name_claim=name_claim,
+            attribution=attribution,
         )
         link_external_identity(
             conn,

@@ -12,9 +12,14 @@ ACTOR_TABLES: dict[str, dict] = {
             ("name", "TEXT"),
             ("status", "TEXT"),
             ("created_at", "TEXT"),
+            ("attribution", "TEXT"),
         ],
         "notes": (
             "Actor identity referenced by work_claims.actor_id, "
+            "attribution is the verified consent cookie's visitor_id, first_touch "
+            "and last_touch JSON captured when a signed-in flow creates the actor. "
+            "It is a durable acquisition snapshot, never derived from events and "
+            "never overwritten by later sign-ins. "
             "path_claims.registered_by_actor_id, and similar foreign keys. kind "
             "is 'human' or 'system'; system_component is the bound "
             "component name when kind is system-attributed. name is the ONE "
