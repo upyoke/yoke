@@ -76,10 +76,14 @@ class BudgetConnection:
 @contextmanager
 def bounded_connection(conn):
     # Non-database checks and minimal doubles need no SQL adapter.
-    if not callable(getattr(conn, "execute", None)):
+    if not all(callable(getattr(conn, name, None)) for name in ("execute", "cursor")):
         yield conn
         return
-    restore = db_backend.connection_is_postgres(conn) and conn.autocommit
+    is_postgres = db_backend.connection_is_postgres(conn)
+    if is_postgres and not hasattr(conn, "autocommit"):
+        yield conn
+        return
+    restore = is_postgres and conn.autocommit
     prior = conn.execute("SHOW statement_timeout").fetchone()[0] if restore else None
     try:
         yield BudgetConnection(conn)

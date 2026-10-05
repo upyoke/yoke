@@ -112,6 +112,27 @@ def test_check_never_installs_a_trace(monkeypatch):
     assert rec.results[0].result == "PASS"
 
 
+def test_non_database_connections_reach_the_check_unchanged():
+    from yoke_core.engines.doctor_https_compose import UnavailableControlPlane
+
+    class MinimalConnection:
+        def execute(self, *_args):
+            return self
+
+    for native_conn in (MinimalConnection(), UnavailableControlPlane()):
+
+        def check(conn, args, rec):
+            assert conn is native_conn
+            rec.record("HC-source", "Source check", "PASS", "")
+
+        rec = RecordCollector()
+        execute_check_isolated(
+            native_conn, DoctorArgs(), rec, HealthCheck("source", "Source", check)
+        )
+        assert [row.check_id for row in rec.results] == ["HC-source"]
+        assert rec.results[0].result == "PASS"
+
+
 def test_http_and_subprocess_timeouts_share_check_deadline(monkeypatch):
     from yoke_cli.transport.response_deadline_read import deadline_after
     from yoke_core.engines import doctor_report
