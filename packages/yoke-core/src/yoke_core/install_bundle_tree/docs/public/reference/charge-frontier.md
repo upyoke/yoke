@@ -220,7 +220,7 @@ The `/yoke charge` SKILL.md uses the frontier computation to drive the full char
    and reports blockers. A missing entrypoint on a runnable step refuses as
    `entrypoint_unavailable`: inspect the item's pin with
    `yoke workflows item get PREFIX-N --json`, read its definition with
-   `yoke workflows version get WORKFLOW VERSION --json`, and refresh the
+   `yoke workflows version get <workflow> <version> --json`, and refresh the
    schedule against a serving build that exposes the entrypoint.
 
 ### Arguments

@@ -75,7 +75,7 @@ raw frontier category (`adapter`) is for ranking diagnostics.
 If `entrypoint` is absent or null for a non-`wait` step, stop with
 `entrypoint_unavailable` and the item and `next_step` named. Re-read
 `yoke workflows item get PREFIX-N --json` and
-`yoke workflows version get WORKFLOW VERSION --json`, then refresh
+`yoke workflows version get <workflow> <version> --json`, then refresh
 `yoke charge schedule --item PREFIX-N --json` against a serving build that
 exposes the entrypoint. Do not reconstruct the command from a copied table.
 An older serving response may omit this field; that is a diagnosed refusal,

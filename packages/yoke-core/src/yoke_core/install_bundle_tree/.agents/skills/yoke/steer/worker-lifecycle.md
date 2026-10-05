@@ -527,7 +527,7 @@ Ending a turn sends no Fleet message. Send the DONE report deliberately, as `pri
 The server parameterizes that shape from the item's pinned skill binding.
 `charge.schedule` returns its `next_step` and the rendered `entrypoint`; the
 launch mandate uses the same entrypoint mapping. Read
-`yoke workflows version get WORKFLOW VERSION --json` for the ordered stages,
+`yoke workflows version get <workflow> <version> --json` for the ordered stages,
 transitions, and half-open skill intervals instead of copying a workflow chain.
 
 At every live stage, re-read `yoke workflows item get PREFIX-N` and follow its

@@ -83,7 +83,7 @@ AUTONOMOUS MODE
 WORKFLOW ROUTING
  yoke workflows item get PREFIX-N --json
   Read the item's pinned workflow version, live stage, and next bound skill.
- yoke workflows version get WORKFLOW VERSION --json
+ yoke workflows version get <workflow> <version> --json
   Read that immutable definition's stages, transitions, gates, and skill bindings.
   The binding's half-open interval owns the live stage; its through_stage_id
   is the next command and claim handoff. Use the returned next_skill_id.
