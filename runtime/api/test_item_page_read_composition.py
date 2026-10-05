@@ -181,7 +181,7 @@ def _instructions(monkeypatch, conn, rows):
     )
 
 
-def test_detail_withholds_instruction_prose_but_never_their_existence(
+def test_detail_serves_instructions_independently_of_content_selection(
     monkeypatch,
 ):
     conn = _connection()
@@ -192,15 +192,12 @@ def test_detail_withholds_instruction_prose_but_never_their_existence(
 
     assert outcome.primary_success
     result = outcome.result_payload
-    assert result["execution_instructions"] == []
+    assert result["execution_instructions"] == rows
     assert result["include"] == []
     index = result["item"]["content_index"]["execution_instructions"]
     assert index["count"] == 1
     assert index["bytes"] == len("Cover the full scope.")
-    assert index["read"] == (
-        "yoke workflow execution-instruction resolve "
-        "--workflow dash --project acme --full"
-    )
+    assert index["read"] == (f"yoke items get {result['item']['public_ref']} status")
 
 
 def test_detail_serves_instruction_prose_with_the_content_it_governs(

@@ -72,14 +72,7 @@ class ItemDetailGetRequest(BaseModel):
 
 class ItemDetailGetResponse(BaseModel):
     item: dict[str, Any]
-    # Operator execution instructions resolved from the item's pinned
-    # workflow and project — a separate field, never spliced into item
-    # content, so structured-field writes cannot round-trip it back.
-    # Served with their prose exactly when this response carries item
-    # content, the rule ``items.get.run`` already applies to its own body
-    # projection: authority travels with the content it governs. Empty and
-    # withheld are told apart by ``item.content_index.execution_instructions``,
-    # whose ``count`` is zero only when no instruction governs the item.
+    # Read delivery always includes live-bucket instructions, independent of content selection.
     execution_instructions: list[dict[str, Any]]
     #: The sections this response actually served, echoed so a caller reading
     #: an absent section knows it was not asked for rather than not stored.
@@ -257,7 +250,6 @@ def handle_item_detail_get(request: FunctionCallRequest) -> HandlerOutcome:
     except Exception as exc:
         return _error("payload_invalid", str(exc), "$.payload")
     from yoke_contracts.item_content_sections import (
-        CONTENT_BEARING_SECTIONS,
         DETAIL_INCLUDE_SECTIONS,
     )
     from yoke_core.domain.item_content_index import instruction_index
@@ -284,14 +276,12 @@ def handle_item_detail_get(request: FunctionCallRequest) -> HandlerOutcome:
         instructions = resolve_for_item(conn, int(request.target.item_id))
     item["content_index"]["execution_instructions"] = instruction_index(
         instructions,
-        workflow_id=str(item["workflow"]["id"]),
-        project_slug=str(item["project"]["slug"]),
+        public_ref=str(item["public_ref"]),
     )
-    serves_content = any(name in include for name in CONTENT_BEARING_SECTIONS)
     return HandlerOutcome(
         result_payload={
             "item": item,
-            "execution_instructions": instructions if serves_content else [],
+            "execution_instructions": instructions,
             "include": include,
         },
         primary_success=True,

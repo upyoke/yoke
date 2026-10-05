@@ -45,9 +45,7 @@ def _dsn_dbname(dsn: str) -> Optional[str]:
 def is_test_isolated_database() -> bool:
     """Return whether the active Postgres authority is a disposable test DB."""
     dbname = _dsn_dbname(os.environ.get(db_backend.PG_DSN_ENV, ""))
-    return bool(
-        dbname and dbname.startswith(db_backend.POSTGRES_TEST_DB_PREFIX)
-    )
+    return bool(dbname and dbname.startswith(db_backend.POSTGRES_TEST_DB_PREFIX))
 
 
 def is_test_isolation(db_path: Optional[str] = None) -> bool:
@@ -88,7 +86,9 @@ def enforce_item_entry_allowed(
 
 
 def execution_instructions_refusal_message(
-    *, workflow: str, project: Optional[str] = None,
+    *,
+    workflow: str,
+    project: Optional[str] = None,
 ) -> str:
     """Return the refusal that names this create's own retrieval command."""
     return (
@@ -110,7 +110,7 @@ def enforce_execution_instructions_considered(
     """Return an error when a non-web filer has not attested the read.
 
     The attestation is deliberately a bare boolean: it records that this
-    filer retrieved the operator execution-instruction blocks for the
+    filer retrieved the Before creation execution-instruction blocks for the
     target workflow and project before authoring, and nothing more. No
     content hash, no staleness window — a filer who read stale
     instructions is a different problem from one who never read any.
@@ -127,7 +127,8 @@ def enforce_execution_instructions_considered(
     if dry_run or is_test_isolated_database():
         return None
     return execution_instructions_refusal_message(
-        workflow=workflow, project=project,
+        workflow=workflow,
+        project=project,
     )
 
 

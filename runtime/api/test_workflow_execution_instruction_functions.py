@@ -291,7 +291,7 @@ def test_item_detail_returns_instructions_as_a_separate_field(monkeypatch):
     assert "execution_instructions" not in outcome.result_payload["item"]
 
 
-def test_item_detail_names_the_instructions_a_content_free_read_withholds(
+def test_item_detail_attaches_instructions_to_a_content_free_read(
     monkeypatch,
 ):
     conn = _UnclosableConnection(_connection())
@@ -300,16 +300,13 @@ def test_item_detail_names_the_instructions_a_content_free_read_withholds(
     outcome = _detail_outcome(monkeypatch, conn, {})
 
     assert outcome.primary_success
-    assert outcome.result_payload["execution_instructions"] == []
+    assert len(outcome.result_payload["execution_instructions"]) == 1
     index = outcome.result_payload["item"]["content_index"]
     assert index["execution_instructions"]["count"] == 1
-    assert (
-        "workflow execution-instruction resolve"
-        in (index["execution_instructions"]["read"])
-    )
+    assert "yoke items get" in (index["execution_instructions"]["read"])
 
 
-def test_items_get_attaches_instructions_only_for_body_reads(monkeypatch):
+def test_items_get_attaches_instructions_for_body_and_scalar_reads(monkeypatch):
     conn = _connection()
     instruction_id = _seed_resolved_instruction(conn)
     monkeypatch.setattr(db_helpers, "connect", lambda *a, **k: conn)
@@ -335,4 +332,6 @@ def test_items_get_attaches_instructions_only_for_body_reads(monkeypatch):
     status_request = body_request.model_copy(update={"payload": {"fields": ["status"]}})
     status_outcome = reads.handle_items_get(status_request)
     assert status_outcome.primary_success
-    assert "execution_instructions" not in status_outcome.result_payload
+    assert [
+        row["id"] for row in status_outcome.result_payload["execution_instructions"]
+    ] == [instruction_id]

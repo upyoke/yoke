@@ -117,7 +117,7 @@ def render_item_entry_surface_block() -> list[str]:
         "in idea mode — the entry-surface token is caller-asserted and "
         "skips skill-side scaffolding. Operator/debug, `--dry-run`, and "
         "test isolation retain the low-level adapter. `/yoke idea` "
-        "attests with `--execution-instructions-considered` after `yoke "
+        "attests the Before creation delivery with `--execution-instructions-considered` after `yoke "
         "workflow execution-instruction resolve --workflow W --project P "
         "--full`; "
         "every non-web surface is refused without that attestation, and "

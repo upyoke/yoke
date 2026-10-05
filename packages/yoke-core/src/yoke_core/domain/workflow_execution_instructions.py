@@ -16,7 +16,18 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from yoke_contracts.read_detail import DETAIL_FULL, excerpt
+from yoke_core.domain.execution_instruction_delivery import (
+    DeliveryPoint,
+    InstructionDelivery,
+    delivery_from_row,
+    item_stage_bucket,
+    matches_delivery,
+    save_delivery,
+)
+from yoke_core.domain.execution_instruction_projection import (
+    resolve_read_command,
+    instruction_descriptors,
+)
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.workflow_execution_instructions_schema import (
@@ -39,14 +50,20 @@ class EmptyExecutionInstructionError(ValueError):
 
 
 def resolve_execution_instructions(
-    conn: Any, *, workflow_id: str, project_id: int
+    conn: Any,
+    *,
+    workflow_id: str,
+    project_id: int,
+    delivery_point: DeliveryPoint = "before_creation",
+    stage_bucket: str | None = None,
 ) -> List[Dict[str, Any]]:
     """Return the instructions an item on this scope must obey."""
     p = _p(conn)
     rows = conn.execute(
         f"""
         SELECT i.id, i.content, i.applies_to_all_workflows,
-               i.applies_to_all_projects
+               i.applies_to_all_projects, i.before_creation, i.on_every_read,
+               i.when_entering_stage, i.stage_buckets
         FROM {WORKFLOW_EXECUTION_INSTRUCTIONS_TABLE} i
         WHERE (i.applies_to_all_workflows = 1 OR EXISTS (
                   SELECT 1 FROM {INSTRUCTION_WORKFLOWS_TABLE} w
@@ -59,69 +76,29 @@ def resolve_execution_instructions(
         """,
         (workflow_id, project_id),
     ).fetchall()
-    return [
+    instructions = [
         {
             "id": row[0],
             "content": row[1],
             "applies_to_all_workflows": bool(row[2]),
             "applies_to_all_projects": bool(row[3]),
+            **delivery_from_row(row[4:8]),
         }
         for row in rows
     ]
 
-
-def resolve_read_command(workflow: str, project: str) -> str:
-    """The command that serves this scope's instruction prose in full."""
-    return (
-        "yoke workflow execution-instruction resolve "
-        f"--workflow {workflow} --project {project} --full"
-    )
-
-
-def resolve_projection(
-    instructions: List[Dict[str, Any]],
-    *,
-    workflow: str,
-    project: str,
-    detail: str,
-) -> List[Dict[str, Any]]:
-    """Serve the prose on ``full``, and one descriptor each otherwise."""
-    if detail == DETAIL_FULL:
-        return instructions
-    return instruction_descriptors(
-        instructions, read=resolve_read_command(workflow, project)
-    )
-
-
-def instruction_descriptors(
-    instructions: List[Dict[str, Any]], *, read: str
-) -> List[Dict[str, Any]]:
-    """Name each resolved instruction without repeating its prose.
-
-    A filer reads the instructions, obeys them, and attests that it did;
-    echoing the same kilobytes back in the create receipt taught the filer
-    nothing it had not just read. A descriptor keeps what a receipt is for
-    — which instructions this item is bound by, and where to read them in
-    full — and ``read`` carries that command so a reader who does need the
-    text is never left guessing.
-
-    The heading is the instruction's own first line, which is where
-    operators already put what the block is about.
-    """
     return [
-        {
-            "id": instruction["id"],
-            "title": excerpt(instruction.get("content")),
-            "content_characters": len(str(instruction.get("content") or "")),
-            "applies_to_all_workflows": instruction["applies_to_all_workflows"],
-            "applies_to_all_projects": instruction["applies_to_all_projects"],
-            "read": read,
-        }
-        for instruction in instructions
+        i for i in instructions if matches_delivery(i, delivery_point, stage_bucket)
     ]
 
 
-def resolve_for_item(conn: Any, item_id: int) -> List[Dict[str, Any]]:
+def resolve_for_item(
+    conn: Any,
+    item_id: int,
+    *,
+    delivery_point: DeliveryPoint = "on_every_read",
+    stage_id: str | None = None,
+) -> List[Dict[str, Any]]:
     """Resolve instructions from an item's pinned workflow and project."""
     row = conn.execute(
         f"SELECT workflow_id, project_id FROM items WHERE id = {_p(conn)}",
@@ -129,19 +106,21 @@ def resolve_for_item(conn: Any, item_id: int) -> List[Dict[str, Any]]:
     ).fetchone()
     if row is None or row[0] is None:
         return []
+    stage_delivery = conn.execute(
+        f"SELECT 1 FROM {WORKFLOW_EXECUTION_INSTRUCTIONS_TABLE} WHERE when_entering_stage = 1 LIMIT 1"
+    ).fetchone()
+    bucket = item_stage_bucket(conn, item_id, stage_id) if stage_delivery else None
     return resolve_execution_instructions(
-        conn, workflow_id=str(row[0]), project_id=int(row[1])
+        conn,
+        workflow_id=str(row[0]),
+        project_id=int(row[1]),
+        delivery_point=delivery_point,
+        stage_bucket=bucket,
     )
 
 
 def item_instruction_descriptors(conn: Any, item_id: int) -> List[Dict[str, Any]]:
-    """Descriptors for the instructions an item is bound by, and their read.
-
-    One row read serves both halves — the scope the item pins, and the
-    command that returns that scope's prose — and both come from the
-    stored row rather than from whatever a caller passed, so an item filed
-    without an explicit project still gets a command that runs.
-    """
+    """Describe the Before creation instructions the filer attested."""
     p = _p(conn)
     row = conn.execute(
         f"SELECT i.workflow_id, i.project_id, pr.slug FROM items i "
@@ -160,8 +139,7 @@ def item_instruction_descriptors(conn: Any, item_id: int) -> List[Dict[str, Any]
 
 def _require_row(conn: Any, instruction_id: int) -> None:
     row = conn.execute(
-        f"SELECT 1 FROM {WORKFLOW_EXECUTION_INSTRUCTIONS_TABLE} "
-        f"WHERE id = {_p(conn)}",
+        f"SELECT 1 FROM {WORKFLOW_EXECUTION_INSTRUCTIONS_TABLE} WHERE id = {_p(conn)}",
         (instruction_id,),
     ).fetchone()
     if row is None:
@@ -175,12 +153,14 @@ def create_instruction(
     *,
     content: str,
     actor_id: Optional[int] = None,
+    delivery: dict[str, Any] | None = None,
 ) -> int:
     """Insert one instruction row (unscoped until set_instruction_scope)."""
     if not content.strip():
         raise EmptyExecutionInstructionError(
             "an execution instruction requires non-empty content"
         )
+    InstructionDelivery.model_validate(delivery or {})
     now = iso8601_now()
     p = _p(conn)
     row = conn.execute(
@@ -190,6 +170,7 @@ def create_instruction(
         f"VALUES ({p}, 0, 0, {p}, {p}, {p}) RETURNING id",
         (content, actor_id, now, now),
     ).fetchone()
+    save_delivery(conn, int(row[0]), delivery)
     return int(row[0])
 
 
@@ -199,6 +180,7 @@ def update_instruction(
     *,
     content: str,
     actor_id: Optional[int] = None,
+    delivery: dict[str, Any] | None = None,
 ) -> None:
     """Rewrite one instruction's prose; scope is set separately."""
     _require_row(conn, instruction_id)
@@ -206,6 +188,7 @@ def update_instruction(
         raise EmptyExecutionInstructionError(
             "execution instruction content cannot be blanked"
         )
+    save_delivery(conn, instruction_id, delivery)
     p = _p(conn)
     conn.execute(
         f"UPDATE {WORKFLOW_EXECUTION_INSTRUCTIONS_TABLE} "
@@ -224,6 +207,7 @@ def set_instruction_scope(
     project_ids: List[int],
     applies_to_all_workflows: bool = False,
     actor_id: Optional[int] = None,
+    delivery: dict[str, Any] | None = None,
 ) -> None:
     """Replace an instruction's workflow and project bindings.
 
@@ -232,10 +216,10 @@ def set_instruction_scope(
     unchecking All restores the previous selection instead of discarding it.
     """
     _require_row(conn, instruction_id)
+    save_delivery(conn, instruction_id, delivery)
     p = _p(conn)
     conn.execute(
-        f"DELETE FROM {INSTRUCTION_WORKFLOWS_TABLE} "
-        f"WHERE instruction_id = {p}",
+        f"DELETE FROM {INSTRUCTION_WORKFLOWS_TABLE} WHERE instruction_id = {p}",
         (instruction_id,),
     )
     for workflow_id in dict.fromkeys(workflow_ids):
@@ -245,8 +229,7 @@ def set_instruction_scope(
             (instruction_id, workflow_id),
         )
     conn.execute(
-        f"DELETE FROM {INSTRUCTION_PROJECTS_TABLE} "
-        f"WHERE instruction_id = {p}",
+        f"DELETE FROM {INSTRUCTION_PROJECTS_TABLE} WHERE instruction_id = {p}",
         (instruction_id,),
     )
     for project_id in dict.fromkeys(project_ids):
@@ -276,7 +259,8 @@ def list_instructions(conn: Any) -> List[Dict[str, Any]]:
         f"""
         SELECT id, content, applies_to_all_workflows,
                applies_to_all_projects, updated_by_actor_id,
-               created_at, updated_at
+               created_at, updated_at, before_creation, on_every_read,
+               when_entering_stage, stage_buckets
         FROM {WORKFLOW_EXECUTION_INSTRUCTIONS_TABLE}
         ORDER BY applies_to_all_workflows DESC,
                  applies_to_all_projects DESC, id
@@ -303,6 +287,7 @@ def list_instructions(conn: Any) -> List[Dict[str, Any]]:
                 "updated_by_actor_id": row[4],
                 "created_at": row[5],
                 "updated_at": row[6],
+                **delivery_from_row(row[7:11]),
                 "workflow_ids": [w[0] for w in workflow_rows],
                 "project_ids": [p_row[0] for p_row in project_rows],
             }
@@ -315,17 +300,14 @@ def delete_instruction(conn: Any, instruction_id: int) -> None:
     _require_row(conn, instruction_id)
     p = _p(conn)
     conn.execute(
-        f"DELETE FROM {INSTRUCTION_WORKFLOWS_TABLE} "
-        f"WHERE instruction_id = {p}",
+        f"DELETE FROM {INSTRUCTION_WORKFLOWS_TABLE} WHERE instruction_id = {p}",
         (instruction_id,),
     )
     conn.execute(
-        f"DELETE FROM {INSTRUCTION_PROJECTS_TABLE} "
-        f"WHERE instruction_id = {p}",
+        f"DELETE FROM {INSTRUCTION_PROJECTS_TABLE} WHERE instruction_id = {p}",
         (instruction_id,),
     )
     conn.execute(
-        f"DELETE FROM {WORKFLOW_EXECUTION_INSTRUCTIONS_TABLE} "
-        f"WHERE id = {p}",
+        f"DELETE FROM {WORKFLOW_EXECUTION_INSTRUCTIONS_TABLE} WHERE id = {p}",
         (instruction_id,),
     )
