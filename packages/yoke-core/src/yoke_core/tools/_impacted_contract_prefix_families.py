@@ -30,6 +30,7 @@ AGENT_SKILL_CONTRACT_TESTS = (
     "runtime/api/engines/test_doctor_skill_entrypoint_disclosure.py",
     "runtime/api/test_active_context_concision.py",
     "runtime/api/test_agent_authored_filing_instruction_resolution.py",
+    "runtime/api/test_blitz_release_stage_close.py",
     "runtime/api/test_browser_case_docs.py",
     "runtime/api/test_canonical_xdist_teaching.py",
     "runtime/api/test_direct_workflow_skills.py",

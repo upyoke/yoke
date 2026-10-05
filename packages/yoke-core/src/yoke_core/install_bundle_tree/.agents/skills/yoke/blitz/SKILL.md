@@ -29,8 +29,8 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Input and invariants
 
-- `{PREFIX-N}` must resolve to a Blitz at `refined-idea`, `implementing`, or
-  `reviewing-implementation`.
+- `{PREFIX-N}` must resolve to a Blitz at `refined-idea`, `implementing`,
+  `reviewing-implementation`, or `release`.
 - Exactly one execution strategy document must already be linked by the
   refine flow. Do not copy it into an item body or generate child items.
 - The item claim owns execution. The item-owned document claim owns plan

@@ -85,7 +85,9 @@ def archive_completed_blitz_document(
                 raise BlitzDocumentArchiveError(
                     "the completed Blitz still owns its execution-document claim"
                 )
-            retained_ref = str(live.get("public_ref") or render_item_ref(conn, live['item_id']))
+            retained_ref = str(
+                live.get("public_ref") or render_item_ref(conn, live["item_id"])
+            )
             return BlitzDocumentArchiveReceipt(
                 slug=slug,
                 changed=False,
@@ -107,7 +109,7 @@ def archive_completed_blitz_document(
         f"{BLITZ_DOCUMENT_ARCHIVE_FAILURE}: could not archive strategy "
         f"document {slug!r} while completing Blitz {render_item_ref(conn, item_id)}; the done "
         "transition was rolled back. Recovery: restore strategy-document "
-        "write availability, then retry the reviewing-implementation -> done "
+        "write availability, then retry the release -> done "
         f"transition. Cause: {cause}"
     )
 
