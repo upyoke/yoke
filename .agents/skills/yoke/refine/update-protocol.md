@@ -173,7 +173,8 @@ Final output should include:
 > Next skill: `/yoke {ITEM_NEXT_SKILL}`
 
 When `ITEM_NEXT_SKILL=blitz`, include the verified execution-document slug
-and the exact `/yoke blitz PREFIX-{N}` handoff.
+and the handoff rendered from the fresh item's `next_skill_id` through
+[the shared handoff recipe](../shared/stage-handoff.md).
 
 GitHub body sync runs implicitly on the lifecycle transition; explicit
 re-sync is not required.
@@ -238,7 +239,7 @@ After status advancement and claim release, emit:
 
 Include the served status transition and next-skill note from step 9. When
 `ITEM_NEXT_SKILL=blitz`, also include the linked execution-document slug
-and `/yoke blitz PREFIX-{N}` handoff.
+and the handoff rendered from the fresh item's `next_skill_id`.
 
 ### 12. Completion
 

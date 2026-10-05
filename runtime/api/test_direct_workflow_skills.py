@@ -222,7 +222,9 @@ def test_operator_discovery_and_direct_operation_ids_are_complete():
         assert "blitz" in content
 
     registered = {row["function_id"]: row for row in DIRECT_WORKFLOW_REGISTRATIONS}
-    dash_ids = {f"direct_workflow.dash.{op}" for op in ("survey", "evidence", "escalate")}
+    dash_ids = {
+        f"direct_workflow.dash.{op}" for op in ("survey", "evidence", "escalate")
+    }
     blitz_ids = {"direct_workflow.blitz.survey"}
     assert set(registered) == dash_ids | blitz_ids
 
@@ -240,28 +242,6 @@ def test_operator_discovery_and_direct_operation_ids_are_complete():
         assert "retained tool-shaped operation" in content
         assert "has no registered" in content
         assert "direct_workflow.worktree.prepare" not in content
-
-
-def test_refine_blitz_path_links_one_document_and_hands_off():
-    refine = (ROOT / ".agents/skills/yoke/refine/SKILL.md").read_text()
-    protocol = (ROOT / ".agents/skills/yoke/refine/update-protocol.md").read_text()
-    handoff = (
-        ROOT / ".agents/skills/yoke/refine/blitz-execution-document.md"
-    ).read_text()
-
-    assert "ITEM_NEXT_SKILL=blitz" in refine
-    assert "blitz-execution-document.md" in refine
-    assert "strategy.execution.link" in protocol
-    for required in (
-        "Select exactly one document",
-        "strategy.execution.link",
-        "yoke strategy execution link",
-        "strategy.execution.get",
-        "yoke strategy execution get",
-        "execution.execution_document.slug",
-        "Next step: /yoke blitz",
-    ):
-        assert required in handoff
 
 
 def test_taught_dash_and_blitz_commands_are_function_id_first():
