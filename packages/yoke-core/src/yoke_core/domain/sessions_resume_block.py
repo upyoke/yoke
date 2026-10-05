@@ -62,7 +62,7 @@ def render_resume_block_lines(notice: Dict[str, Any]) -> List[str]:
     lines.extend(
         [
             "To resume work explicitly:",
-            "  /yoke do                # let the scheduler decide",
+            "  /yoke charge            # select a runnable item",
             '  yoke claims work acquire --item YOK-N --reason "<intent>"',
         ]
     )

@@ -8,7 +8,7 @@ argument-hint: "{PREFIX-N}"
 
 Standalone capability for refining backlog item artifacts. Reads the item's structured fields, critiques them for completeness, clarity, and testability, and writes improved content back through sanctioned Yoke update surfaces.
 
-This is an explicit, operator-invoked capability that Codex can execute directly. It does not require `/yoke do`, lane-aware routing, or lifecycle-family ownership wiring. `{PREFIX-N}` accepts prefixed IDs, zero-padded prefixed IDs, or bare numeric IDs.
+This is an explicit, operator-invoked capability that Codex can execute directly. `{PREFIX-N}` accepts prefixed IDs, zero-padded prefixed IDs, or bare numeric IDs.
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.

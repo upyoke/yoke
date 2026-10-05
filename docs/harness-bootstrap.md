@@ -72,7 +72,6 @@ These are the top-level `/yoke` commands that constitute the safe operator inter
 | `/yoke refine YOK-N` | Critique and improve item artifacts | Safe: structured-field refinement only, no worktree or code edits |
 | `/yoke polish YOK-N` | Review and finish implementation in existing worktree lane(s) | Safe: scoped to one item's recorded implementation lanes and explicit verification |
 | `/yoke help` | Show command reference | Safe: read-only |
-| `/yoke do` | Autonomous session orchestrator | Safe: offers session to decision engine, routes to chosen mode |
 | `/yoke charge` | Pick up next runnable item from frontier | Safe: confirms with operator before dispatch |
 | `/yoke feed` | Refresh stale frontier items, reconcile frontier facts, and materialize strategy-backed work | Safe: updates structured item fields, creates idea records, refreshes dependency graph |
 | `/yoke strategize` | Guided Strategic Markdown Layer review | Safe: multi-checkpoint interactive loop with operator approval at each stage |
@@ -90,7 +89,6 @@ These are the commands listed in section 2 above. They are the sanctioned extern
 **Examples:**
 
 - `/yoke idea` -- create a new backlog item
-- `/yoke do` -- autonomous session orchestrator
 - `/yoke shepherd YOK-N` -- drive item through lifecycle
 - `/yoke conduct YOK-N` -- Engineer/Tester execution loop
 - `/yoke advance YOK-N implementation` -- issue implementation entry (opens worktree)
@@ -116,11 +114,10 @@ These are called by operator commands or other sub-skills. They have SKILL.md fi
 
 | Sub-skill | Called by | Purpose |
 |-----------|----------|---------|
-| `/yoke advance YOK-N [status]` | conduct, usher, do/loop, routed dispatch | Internal advance targets other than `implementation` |
+| `/yoke advance YOK-N [status]` | conduct, usher, item-bound dispatch | Internal advance targets other than `implementation` |
 | `/yoke merge {epic-id}` | usher | Sequential PR + CI + merge per branch |
 | `/yoke approve YOK-N` | usher | Approve a deployment stage |
 | `/yoke amend {epic-id}` | conduct | Add, split, reassign, or remove tasks |
-| `/yoke plan {epic-id}` | shepherd, conduct | Architect planning: task decomposition |
 
 ### Tier 3: Raw internal Python entrypoints
 
@@ -146,7 +143,7 @@ All zero-shell scripts that previously filled this role were retired in the zero
 
 ## 4. Session Identity Expectations
 
-When a harness connects to Yoke, Yoke needs to know certain facts about the session to make routing and fallback decisions. These identity fields are not required at bootstrap time, but must be available by the time `/yoke do` evaluates what work to route.
+When a harness connects to Yoke, Yoke needs to know certain facts about the session to make routing and fallback decisions. These identity fields are not required at bootstrap time, but must be available by the time `session-offer` evaluates what work to route.
 
 ### Required identity fields
 

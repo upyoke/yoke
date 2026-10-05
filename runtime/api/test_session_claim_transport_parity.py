@@ -3,7 +3,7 @@
 The bug this suite backstops: a mutating operation that bypasses the
 connection-keyed dispatcher and hardcodes the local backend silently
 writes the wrong authority when the active connection is https (the class
-that broke ``/yoke do`` session establishment). Every ``yoke <subcommand>``
+that broke ``session-offer`` session establishment). Every ``yoke <subcommand>``
 adapter funnels through ``call_dispatcher``, whose relay branch routes to
 the server on an active https connection. This test asserts that invariant
 holds for EVERY registered session/claim mutating function id — data-driven
@@ -36,8 +36,7 @@ def _mutating_session_and_claim_function_ids() -> list[str]:
     return sorted(
         entry.function_id
         for entry in list_entries()
-        if entry.side_effects
-        and entry.function_id.startswith(("sessions.", "claims."))
+        if entry.side_effects and entry.function_id.startswith(("sessions.", "claims."))
     )
 
 
@@ -58,7 +57,9 @@ def test_mutation_routes_via_https_relay(function_id, monkeypatch):
     from yoke_cli.transport import https as https_mod
 
     conn = HttpsConnection(
-        api_url="https://api.example", token="tok", env="prod",
+        api_url="https://api.example",
+        token="tok",
+        env="prod",
     )
     monkeypatch.setattr(https_mod, "resolve_https_connection", lambda: conn)
     captured = {}

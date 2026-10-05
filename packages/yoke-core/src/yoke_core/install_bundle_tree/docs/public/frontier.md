@@ -9,7 +9,6 @@ harness executes.
 |---|---|
 | `/yoke charge` | Pick up the next runnable item and dispatch |
 | `/yoke feed` | Maintain dependency graph; optionally materialize ideas from strategy |
-| `/yoke do` | Session offer — engine chooses resume / charge / feed / strategize / wait / escalate |
 
 ## Read the board
 

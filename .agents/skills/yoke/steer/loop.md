@@ -250,7 +250,7 @@ unclaimed reaches you through the available list of the report you already
 read above (`yoke steering report get` between wakes).
 
 Launch per [`worker-lifecycle.md`](worker-lifecycle.md) — item-bound and
-CLI-only, never a hand-rolled spawn and never `/yoke do`.
+CLI-only, through the registered launch surface.
 
 Before switching topics or ending any pass, reconcile **all runnable scoped
 work** against the standing plan and live schedule. Verify current ownership,

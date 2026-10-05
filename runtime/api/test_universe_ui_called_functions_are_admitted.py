@@ -13,29 +13,63 @@ from __future__ import annotations
 import re
 from importlib.resources import files
 
-from yoke_core.ui import asset_roster, function_proxy
+import pytest
 
-#: `callFunction(client, "id", …)` and `sessionControlCall(context, "id", …)`
-#: are the two shapes a static module uses to reach the proxy. The id is
-#: always the first string argument after the client or context.
+from runtime.api.universe_ui_server_test_support import (
+    _TOKEN,
+    ui_client as ui_client,
+)
+from yoke_core.domain.handlers.__init_register__ import register_all_handlers
+from yoke_core.domain.yoke_function_registry import lookup
+from yoke_core.ui import function_proxy
+
+#: Direct calls and read helpers whose id follows the client/context.
 _CALL_SITE = re.compile(
-    r"""(?:callFunction|sessionControlCall)\s*\(\s*[^,()]+,\s*["']([a-z_][\w.]*)["']""",
+    r"""(?:callFunction|sessionControlCall|readCase|readOptionalCase|call)"""
+    r"""\s*\(\s*[^,()]+,\s*["']([a-z_]\w*(?:\.\w+)+)["']""",
 )
 
-#: Some callers build the envelope themselves and name the id as a field.
-_ENVELOPE_FIELD = re.compile(r"""\bfunction:\s*["']([a-z_][\w.]*)["']""")
+#: Section loaders pass the id after both context and panel/scope.
+_SECTION_CALL = re.compile(
+    r"""(?:loadSection|loadProjectCalls)\s*\(\s*[^,()]+,\s*[^,()]+,"""
+    r"""\s*["']([a-z_]\w*(?:\.\w+)+)["']""",
+)
+
+#: Scoped loaders and explicit envelopes store the id in a field.
+_ENVELOPE_FIELD = re.compile(
+    r"""\b(?:function|functionId):\s*["']([a-z_]\w*(?:\.\w+)+)["']"""
+)
+
+#: Small wrappers accept an id first; constants/ternaries feed dynamic calls.
+_INDIRECT_CALL = re.compile(
+    r"""(?:read|mutation|readCalls)\s*\(\s*["']([a-z_]\w*(?:\.\w+)+)["']"""
+)
+_ID_ASSIGNMENT = re.compile(r"\b(?:functionId|[A-Z_]*FUNCTION)\s*=([^;]+);")
+_ID_LITERAL = re.compile(r"""["']([a-z_]\w*(?:\.\w+)+)["']""")
+
+
+def _ids_in_source(text: str) -> set[str]:
+    ids = set()
+    for pattern in (_CALL_SITE, _SECTION_CALL, _ENVELOPE_FIELD, _INDIRECT_CALL):
+        ids.update(pattern.findall(text))
+    for assignment in _ID_ASSIGNMENT.findall(text):
+        ids.update(_ID_LITERAL.findall(assignment))
+    # Registered ids also cover wrappers, computed call selections, and object
+    # arguments that the bounded call-site expressions above cannot parse.
+    ids.update(value for value in _ID_LITERAL.findall(text) if lookup(value))
+    return ids
 
 
 def _called_function_ids() -> dict[str, set[str]]:
     """Map each function id the workbench calls to the modules calling it."""
     static = files("yoke_core.ui").joinpath("static")
+    register_all_handlers()
     callers: dict[str, set[str]] = {}
-    for name in asset_roster.ASSET_CONTENT_TYPES:
-        if not name.endswith(".js"):
+    for source in static.iterdir():
+        if not source.name.endswith(".js"):
             continue
-        text = static.joinpath(name).read_text()
-        for function_id in _CALL_SITE.findall(text) + _ENVELOPE_FIELD.findall(text):
-            callers.setdefault(function_id, set()).add(name)
+        for function_id in _ids_in_source(source.read_text()):
+            callers.setdefault(function_id, set()).add(source.name)
     return callers
 
 
@@ -61,3 +95,28 @@ def test_the_scan_finds_the_call_sites_it_is_guarding():
     assert len(called) > 40, f"only found {len(called)} call sites"
     assert "items.search.run" in called
     assert "profile.get" in called
+    assert called["projects.lane_summary.get"] == {"universe_views_project_lanes.js"}
+    assert "machine.detail" in called
+    assert "overview.module.restore" in called
+    assert "ui_preferences.search_history.record" in called
+
+
+def test_missing_lane_summary_entry_fails_the_roster_check(monkeypatch):
+    monkeypatch.setattr(
+        function_proxy,
+        "UI_READ_FUNCTION_ALLOWLIST",
+        function_proxy.UI_READ_FUNCTION_ALLOWLIST - {"projects.lane_summary.get"},
+    )
+    with pytest.raises(AssertionError, match=r"projects\.lane_summary\.get"):
+        test_every_called_function_is_on_a_roster()
+
+
+def test_lane_summary_read_passes_through_the_local_ui_proxy(ui_client, test_db):
+    response = ui_client.post(
+        f"/api/functions/call?token={_TOKEN}",
+        json={"function": "projects.lane_summary.get", "payload": {"project": "yoke"}},
+    )
+    assert response.status_code == 200
+    envelope = response.json()
+    assert envelope["success"] is True, envelope
+    assert isinstance(envelope["result"]["lanes"], list)

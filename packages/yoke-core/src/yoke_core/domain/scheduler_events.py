@@ -299,7 +299,7 @@ def emit_chain_budget_unused(
     candidate_trail: Optional[list[Mapping[str, Any]]] = None,
     project: str = "",
 ) -> None:
-    """Emit ``ChainBudgetUnused`` on a terminal /yoke do checkpoint with budget remaining.
+    """Emit ``ChainBudgetUnused`` on a terminal session-offer checkpoint with budget remaining.
 
     Terminal reasons: ``all_candidates_blocked``, ``all_candidates_stale``,
     ``all_candidates_disabled_process``, ``mixed_unavailable``.

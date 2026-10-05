@@ -1,4 +1,4 @@
-"""Forward-guard against /yoke do keepalive reintroduction.
+"""Forward-guard against session-offer keepalive reintroduction.
 
 The background keepalive loop and its shell-PID kill pattern were
 removed by the keepalive-elimination change. This test ensures no future
@@ -97,7 +97,7 @@ def test_no_live_mention_of_keepalive_pattern(pattern_name: str, pattern: str):
                 rel = path.relative_to(_REPO_ROOT)
                 offenders.append(f"{rel}:{lineno}: {line.strip()[:200]}")
     assert not offenders, (
-        f"Forbidden /yoke do keepalive pattern '{pattern_name}' "
+        f"Forbidden session-offer keepalive pattern '{pattern_name}' "
         "reintroduced in live source. Each occurrence below must be "
         "removed — the background keepalive loop and PID-kill pattern "
         "were eliminated:\n  " + "\n  ".join(offenders[:50])
@@ -106,15 +106,8 @@ def test_no_live_mention_of_keepalive_pattern(pattern_name: str, pattern: str):
 
 def test_service_client_sessions_keepalive_module_deleted():
     """The whole keepalive module was deleted by FR-1(c)."""
-    candidate = (
-        _REPO_ROOT
-        / "runtime"
-        / "api"
-        / "service_client_sessions_keepalive.py"
-    )
-    assert not candidate.exists(), (
-        f"{candidate} must remain deleted (FR-1(c))."
-    )
+    candidate = _REPO_ROOT / "runtime" / "api" / "service_client_sessions_keepalive.py"
+    assert not candidate.exists(), f"{candidate} must remain deleted (FR-1(c))."
 
 
 def test_session_heartbeat_no_longer_accepts_keepalive():

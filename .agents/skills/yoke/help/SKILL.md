@@ -21,7 +21,6 @@ Show the following reference:
 Yoke -- Your operating system for software delivery
 
 COMMANDS
- /yoke do Autonomous orchestrator — decision engine picks next action
  /yoke charge Direct-mode: pick up next runnable item from frontier
  /yoke feed [--no-new-items] Direct-mode: maintain frontier dependency graph and optionally materialize new work from strategy layer
  /yoke strategize Direct-mode: guided SML review (research, propose, approve)
@@ -76,7 +75,6 @@ LOCAL TERMINAL HELPERS
   Sourced effective-dated catalog reads, review, and publication. Use `/yoke models` for the full recipe.
 
 AUTONOMOUS MODE
- /yoke do -> decision engine picks the best next action
  /yoke charge -> directly pick up and begin work
  /yoke feed -> maintain frontier graph + materialize work from strategy layer
  /yoke strategize -> refresh + research + propose + approve SML changes
@@ -107,7 +105,7 @@ DEPENDENCY INSPECTION
  usher --dry-run shows the dependency edges driving merge order.
 
 INTERNAL (called by orchestration commands, not operator-facing)
- advance targets other than implementation, merge, approve, amend, plan
+ advance targets other than implementation, merge, approve, amend
 
 For full documentation, see README.md
 ```

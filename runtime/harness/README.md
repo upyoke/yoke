@@ -53,7 +53,7 @@ Every adapter implements the parts defined in the [Harness Adapter Template](../
 
 1. **Bootstrap Loader** -- loads the [Harness Bootstrap Contract](../../docs/harness-bootstrap.md) startup reads
 2. **Capability Manifest** -- `manifest.json` declaring identity, affordances, and substrate limitations
-3. **Session-Offer Builder** -- translates identity plus shared registry support into `/yoke do` session-offer parameters
+3. **Session-Offer Builder** -- translates identity plus shared registry support into `session-offer` session-offer parameters
 4. **Route Wrapper** -- the harness-native skill or prompt surface that hands operator commands to `/yoke` (the repo-local `.agents/skills/yoke` tree both harnesses read)
 5. **Smoke-Test Matrix** -- tests for wrapper-only and hook-enhanced modes
 6. **Agent Adapter Renderer Pass** -- a renderer pass under `python3 -m yoke_core.domain.agents_render` that fans the canonical bodies at `runtime/agents/{agent}.md` into the harness's native adapter shape (`.md` for Claude, `.toml` for Codex, …). Skill phase files dispatch agents through shared dispatch descriptors that name the agent by descriptor; the harness adapter handles the harness-native call. See [`docs/harness-substrate.md`](../../docs/harness-substrate.md).

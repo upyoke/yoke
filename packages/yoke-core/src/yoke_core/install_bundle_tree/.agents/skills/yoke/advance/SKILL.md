@@ -4,7 +4,7 @@ description: "Advance a backlog item to the next status in its lifecycle, or to 
 argument-hint: "{PREFIX-N} [status]"
 ---
 
-# Sub-skill called by conduct, usher, do/loop, and routed dispatch.
+# Sub-skill called by conduct, usher, and item-bound dispatch.
 # The `implementation` form (`/yoke advance PREFIX-N implementation`) is also
 # operator-facing for workflows whose pinned definition binds `advance` across
 # implementation entry. Other advance targets remain internal-only.
@@ -73,5 +73,12 @@ recovered worktree. Do not surface the worktree path and stop, and never ask
 "Want me to review now?" unless a real blocker prevents continued work.
 
 ## Start
+
+Stamp the session mode on entry so a claimed item at the binding's handoff
+stage paints its first working stage active:
+
+```text
+yoke sessions touch --mode advance
+```
 
 Read [`parse-and-target.md`](parse-and-target.md) and follow it.

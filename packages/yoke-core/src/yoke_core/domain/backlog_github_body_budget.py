@@ -127,9 +127,7 @@ def _evidence_summary(
     row = latest_transition(conn, item_id)
     if row is None:
         return "no recent evidence"
-    task_part = (
-        f" (task {row['task_num']})" if row.get("task_num") is not None else ""
-    )
+    task_part = f" (task {row['task_num']})" if row.get("task_num") is not None else ""
     return (
         f"latest transition: {row.get('from_status') or '?'} -> "
         f"{row['to_status']}{task_part} at {row['created_at']}"
@@ -139,7 +137,9 @@ def _evidence_summary(
 def _lifecycle_commands(status: str, public_ref: str) -> list[str]:
     template = _COMMANDS_BY_LIFECYCLE.get(status)
     if not template:
-        return [f"`/yoke do {public_ref}` — pick the next available action."]
+        return [
+            f"`yoke workflows item get {public_ref}` — read the bound skill for the live stage."
+        ]
     return [line.format(id=public_ref) for line in template]
 
 
@@ -167,10 +167,7 @@ def render_compact_mirror(
     body_lines: list[str] = []
     body_lines.append(f"# [{subject_ref}] {title}".rstrip())
     body_lines.append("")
-    body_lines.append(
-        "Full body lives in the Yoke DB — "
-        f"`{body_command}`"
-    )
+    body_lines.append(f"Full body lives in the Yoke DB — `{body_command}`")
     body_lines.append("")
     body_lines.append("## Identity")
     body_lines.append(f"- **Reference:** {subject_ref}")
@@ -242,7 +239,10 @@ def select_and_write_body_file(
     one shared call site.
     """
     body, mode = select_body_for_github(
-        full_body, item_fields=item_fields, conn=conn, item_id=item_id,
+        full_body,
+        item_fields=item_fields,
+        conn=conn,
+        item_id=item_id,
     )
     # delete=False because the caller owns the file lifetime and unlinks
     # via :func:`unlink_quiet` after gh consumes ``--body-file``.
@@ -256,7 +256,9 @@ def select_and_write_body_file(
 
 
 def compact_subject_ref(
-    item_fields: dict[str, Any], conn: Optional[Any], item_id: int,
+    item_fields: dict[str, Any],
+    conn: Optional[Any],
+    item_id: int,
 ) -> str:
     """Name the mirror's subject the way its body and its notice both do."""
     return _fallback_public_ref(

@@ -282,7 +282,8 @@ During an autonomous `/yoke advance PREFIX-{N} implementation` run, do **not** p
 
 `reviewed-implementation` is the terminal state for the advance skill itself. Stop the inner advance flow here: do **not** invoke `/yoke polish`, `/yoke usher`, or any other command from inside the advance prose; polish is a fresh command entrypoint that must claim the item itself. Do **not** skip from `reviewing-implementation` directly to `implemented`.
 
-When the advance reaches `reviewed-implementation` inside a routed `/yoke do` chain, return to the loop's chain decision step (`/yoke do` Step C) so it can re-offer (typically into polish). When the advance is invoked directly by the operator outside `/yoke do`, emit the next-step guidance from finalize and stop the turn.
+At the pinned binding's boundary, emit the next-step guidance from finalize
+and stop the turn. The next skill takes its own claim at a fresh entrypoint.
 
 ## d. The done-gate checks these automatically
 

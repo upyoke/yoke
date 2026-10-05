@@ -1,7 +1,7 @@
 """— regression coverage for the canonical model-resolution
 surface on ``service_client session-offer``.
 
-Before the rip-out, ``/yoke do`` substituted a model identifier into
+Before the rip-out, ``session-offer`` substituted a model identifier into
 the ``session-offer`` command line (and the substitution silently
 dropped the ``[variant]`` suffix observed live on 2026-05-15). Now the
 loop omits ``--model`` entirely; ``session-offer`` reads the canonical
@@ -57,8 +57,7 @@ class TestSessionOfferModelResolution:
 
         conn = connect_test_db(db)
         row = conn.execute(
-            "SELECT model, requested_model FROM harness_sessions "
-            "WHERE session_id = %s",
+            "SELECT model, requested_model FROM harness_sessions WHERE session_id = %s",
             (sid,),
         ).fetchone()
         conn.close()
@@ -67,7 +66,9 @@ class TestSessionOfferModelResolution:
         assert row["model"] is None
 
     def test_session_offer_falls_back_to_the_requested_model_when_row_absent(
-        self, session_offer_db, monkeypatch,  # noqa: F811
+        self,
+        session_offer_db,  # noqa: F811
+        monkeypatch,
     ):
         """When no ``harness_sessions`` row exists for the supplied
         session id, the offer surface still resolves a model via
@@ -78,7 +79,8 @@ class TestSessionOfferModelResolution:
         # is populated; the offer below targets a DIFFERENT session id
         # that has no row.
         _pre_register_session(
-            session_offer_db["db_path"], "sibling-sess",
+            session_offer_db["db_path"],
+            "sibling-sess",
             workspace=session_offer_db["tmp_dir"],
         )
         # Run session-offer against an unknown session id WITHOUT --model.

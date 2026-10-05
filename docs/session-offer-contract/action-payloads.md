@@ -193,7 +193,7 @@ session is not sent into yoke work or told only about platform blockers.
    "checkout_path": "/Users/bee/yoke"
   }
  ],
- "runnable_elsewhere_note": "nothing runnable in platform; 2 runnable in yoke (YOK-N, YOK-M) — invoke /yoke do from /Users/bee/yoke"
+ "runnable_elsewhere_note": "nothing runnable in platform; 2 runnable in yoke (YOK-N, YOK-M) — invoke /yoke charge from /Users/bee/yoke"
 }
 ```
 
@@ -287,7 +287,7 @@ When the decision engine recommended a process-backed action (`feed` or `strateg
 }
 ```
 
-The `original_context` payload preserves `trigger="drift_review"` so `should_emit_drift_review_checkpoint` still advances the drift cursor on this path — drift-review threshold semantics are not regressed. The operator-facing `/yoke do` rendering names the suppressed recommendation, the disabling `config_key`, and the `direct_command` so the operator can run the direct command manually or flip the config flag in machine config.
+The `original_context` payload preserves `trigger="drift_review"` so `should_emit_drift_review_checkpoint` still advances the drift cursor on this path — drift-review threshold semantics are not regressed. The operator-facing `session-offer` rendering names the suppressed recommendation, the disabling `config_key`, and the `direct_command` so the operator can run the direct command manually or flip the config flag in machine config.
 
 ## escalate
 
@@ -332,6 +332,6 @@ python3 -m yoke_core.domain.item_execution_status YOK-N            # text
 python3 -m yoke_core.domain.item_execution_status YOK-N --json     # JSON
 ```
 
-The projection composes existing item, work-claim, path-claim, Progress Log, File Budget, QA gate, and event facts into a single dict. It is read-only — never mutates rows, never parses chat-transcript text — and is the recommended diagnostic when a `/yoke do` chain ends in `escalate`, `wait`, or a `recoverable_substrate` skip and the operator needs to see what the loop saw.
+The projection composes existing item, work-claim, path-claim, Progress Log, File Budget, QA gate, and event facts into a single dict. It is read-only — never mutates rows, never parses chat-transcript text — and is the recommended diagnostic when a `session-offer` chain ends in `escalate`, `wait`, or a `recoverable_substrate` skip and the operator needs to see what the loop saw.
 
 The living execution-plan / journal projection is the future absorption target for this read model.

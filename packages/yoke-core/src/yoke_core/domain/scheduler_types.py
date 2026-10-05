@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 
 from yoke_contracts.project_contract.project_keys import DEFAULT_WIP_CAP
 
+
 class NextStep(str, Enum):
     """Scheduler-level action for an item on the frontier.
 
@@ -108,6 +109,7 @@ def is_assignable_claim_state(state: ClaimState) -> bool:
 # ---------------------------------------------------------------------------
 # SML state
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class SMLState:
@@ -223,7 +225,7 @@ class ScheduledStep:
 class SchedulerResult:
     """Result of the shared frontier-step scheduler.
 
-    Both ``/yoke do`` and ``/yoke charge`` consume this result.
+    Both ``session-offer`` and ``/yoke charge`` consume this result.
 
     Attributes:
         project_scope: The list of project ids this result was computed

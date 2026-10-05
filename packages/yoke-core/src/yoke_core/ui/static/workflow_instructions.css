@@ -67,11 +67,22 @@
   white-space: pre-wrap;
   font-weight: 400;
 }
-.universe-app-root .workflow-instruction-reach {
+.universe-app-root .workflow-instruction-reach,
+.universe-app-root .workflow-instruction-delivery {
   display: block;
   margin-top: 2px;
   color: var(--yoke-muted);
   font-size: 12px;
+}
+.universe-app-root .instruction-delivery,
+.universe-app-root .instruction-stage-buckets {
+  border: 0;
+  padding: 0;
+  margin: 12px 0;
+  min-width: 0;
+}
+.universe-app-root .instruction-stage-buckets .instruction-checkbox-group {
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
 }
 .universe-app-root .workflow-instruction-actions {
   display: flex;

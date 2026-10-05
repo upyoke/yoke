@@ -1,6 +1,6 @@
 """Filter argless frontier assignment to the session's workspace project.
 
-Argless ``/yoke do`` and ``/yoke charge`` still compute the all-projects
+Argless ``session-offer`` and ``/yoke charge`` still compute the all-projects
 schedule so other projects remain visible, then keep only the invoking
 workspace's project for claiming. An explicit ``--project`` or ``--item``
 bypasses the filter. An unmapped folder assigns nothing and returns a
@@ -68,18 +68,24 @@ def apply_workspace_home_filter(
         home_steps: List[Any] = []
         elsewhere_steps = ranked
     else:
-        home_steps = [step for step in ranked if _step_is_home(step, home_project_id, home_slug)]
+        home_steps = [
+            step for step in ranked if _step_is_home(step, home_project_id, home_slug)
+        ]
         elsewhere_steps = [step for step in ranked if step not in home_steps]
     groups = group_runnable_elsewhere(elsewhere_steps, conn)
     assignable_home = [
         step for step in home_steps if is_assignable_claim_state(step.claim_state)
     ]
     schedule.ranked_steps = home_steps
-    schedule.conduct_eligible = [
-        step
-        for step in list(getattr(schedule, "conduct_eligible", []) or [])
-        if _step_is_home(step, home_project_id, home_slug)
-    ] if home_project_id is not None else []
+    schedule.conduct_eligible = (
+        [
+            step
+            for step in list(getattr(schedule, "conduct_eligible", []) or [])
+            if _step_is_home(step, home_project_id, home_slug)
+        ]
+        if home_project_id is not None
+        else []
+    )
     schedule.selected_step = assignable_home[0] if assignable_home else None
     schedule.runnable_elsewhere = groups
     schedule.workspace_home_project = home_slug
@@ -93,7 +99,9 @@ def apply_workspace_home_filter(
     return schedule
 
 
-def group_runnable_elsewhere(steps: List[Any], conn: Any = None) -> List[Dict[str, Any]]:
+def group_runnable_elsewhere(
+    steps: List[Any], conn: Any = None
+) -> List[Dict[str, Any]]:
     """Group assignable non-home steps by project for the operator reply."""
     from yoke_core.domain.project_checkout_locations import checkout_for_project_id
     from yoke_core.domain.sessions_queries_base import display_claim_item_id
@@ -111,7 +119,9 @@ def group_runnable_elsewhere(steps: List[Any], conn: Any = None) -> List[Dict[st
     for slug in sorted(buckets):
         refs = buckets[slug]
         project_id = _project_id_for_slug(conn, slug)
-        checkout = checkout_for_project_id(project_id) if project_id is not None else None
+        checkout = (
+            checkout_for_project_id(project_id) if project_id is not None else None
+        )
         groups.append(
             {
                 "project": slug,
@@ -137,7 +147,9 @@ def build_runnable_elsewhere_context(
         "workspace_unmapped": unmapped,
         "runnable_elsewhere": list(groups),
         "runnable_elsewhere_note": render_runnable_elsewhere_note(
-            groups, home_project=home_project, unmapped=unmapped,
+            groups,
+            home_project=home_project,
+            unmapped=unmapped,
         ),
     }
 
@@ -155,7 +167,7 @@ def render_runnable_elsewhere_note(
         refs = ", ".join(group.get("public_refs") or [])
         parts.append(
             f"{group['count']} runnable in {group['project']} ({refs})"
-            f" — invoke /yoke do from {checkout}"
+            f" — invoke /yoke charge from {checkout}"
         )
     elsewhere = "; ".join(parts) if parts else "no runnable items in other projects"
     if unmapped:
@@ -168,7 +180,9 @@ def enrich_elsewhere_checkout_paths(payload: Dict[str, Any]) -> Dict[str, Any]:
     """Fill blank checkout paths from this machine's mapping (HTTPS client)."""
     from yoke_core.domain.project_checkout_locations import checkout_for_project_id
 
-    context = payload.get("context") if isinstance(payload.get("context"), dict) else payload
+    context = (
+        payload.get("context") if isinstance(payload.get("context"), dict) else payload
+    )
     groups = context.get("runnable_elsewhere") if isinstance(context, dict) else None
     if not isinstance(groups, list):
         return payload
@@ -184,10 +198,12 @@ def enrich_elsewhere_checkout_paths(payload: Dict[str, Any]) -> Dict[str, Any]:
     if isinstance(payload.get("context"), dict):
         note = payload["context"].get("runnable_elsewhere_note")
         if note:
-            payload["context"]["runnable_elsewhere_note"] = render_runnable_elsewhere_note(
-                groups,
-                home_project=payload["context"].get("workspace_home_project"),
-                unmapped=bool(payload["context"].get("workspace_unmapped")),
+            payload["context"]["runnable_elsewhere_note"] = (
+                render_runnable_elsewhere_note(
+                    groups,
+                    home_project=payload["context"].get("workspace_home_project"),
+                    unmapped=bool(payload["context"].get("workspace_unmapped")),
+                )
             )
     return payload
 
@@ -241,7 +257,9 @@ def _project_id_for_slug(conn: Any, slug: str) -> Optional[int]:
         return None
 
 
-def _step_is_home(step: Any, home_project_id: Optional[int], home_slug: Optional[str]) -> bool:
+def _step_is_home(
+    step: Any, home_project_id: Optional[int], home_slug: Optional[str]
+) -> bool:
     if home_project_id is None:
         return False
     label = (getattr(step, "project", None) or "").strip()

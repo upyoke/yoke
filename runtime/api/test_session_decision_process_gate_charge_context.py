@@ -19,7 +19,7 @@ disabled-process CHARGE swap path:
   and does not invent scheduler context.
 - Explicit branch coverage for the assignable-runnable +
   no-scheduler-context case (backward-compat non-scheduler charge
-  shape that ``/yoke do`` will not dispatch).
+  shape that ``session-offer`` will not dispatch).
 - When the fallback attaches scheduler context, ``selected_item``
   matches the scheduler-selected item rather than ``runnable_items[0]``.
 
@@ -75,9 +75,14 @@ def _scheduler_frontier(
     runnable_items: list[str] | None = None,
 ) -> FrontierState:
     """Frontier where the scheduler selected ``selected_item``."""
-    items = runnable_items if runnable_items is not None else [
-        selected_item, RUNNABLE_SECONDARY,
-    ]
+    items = (
+        runnable_items
+        if runnable_items is not None
+        else [
+            selected_item,
+            RUNNABLE_SECONDARY,
+        ]
+    )
     return FrontierState(
         sml_coherent=True,
         runnable_items=list(items),
@@ -205,12 +210,16 @@ class TestSharedHelperShape:
         frontier = _scheduler_frontier()
 
         normal_action = decide_charge_action(
-            offer=_dummy_offer(), frontier=frontier,
-            correlation="corr", lane_allowed_paths=None,
+            offer=_dummy_offer(),
+            frontier=frontier,
+            correlation="corr",
+            lane_allowed_paths=None,
         )
         assert normal_action is not None
         gate_action = apply_process_offer_gate(
-            _make_action(ActionKind.FEED), frontier, "corr",
+            _make_action(ActionKind.FEED),
+            frontier,
+            "corr",
             ProcessOfferPolicy(),
         )
 

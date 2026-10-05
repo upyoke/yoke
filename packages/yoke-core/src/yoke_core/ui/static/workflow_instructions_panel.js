@@ -1,5 +1,6 @@
 import { callFunction, el, renderError } from "./universe_view_support.js";
 import { openExecutionInstructionEditor } from "./execution_instruction_editor.js";
+import { instructionDeliveryHint } from "./execution_instruction_delivery.js";
 import { button, workflowPanel } from "./workflow_view_primitives.js";
 
 function countNoun(count, noun) {
@@ -55,7 +56,7 @@ async function call(client, functionId, payload) {
 }
 
 /**
- * Save one instruction's prose and scope, creating it first when new.
+ * Save one instruction's prose, delivery, and scope, creating it first when new.
  *
  * Content and scope are two functions because they are two different
  * decisions with different authority; an editor that changed both presents
@@ -66,11 +67,13 @@ async function persist(client, instruction, draft) {
     ? instruction.id
     : (await call(client, "workflow.execution_instruction.create", {
       content: draft.content,
+      ...draft.delivery,
     })).instruction_id;
   if (instruction.id != null) {
     await call(client, "workflow.execution_instruction.update", {
       instruction_id: id,
       content: draft.content,
+      ...draft.delivery,
     });
   }
   await call(client, "workflow.execution_instruction.set_scope", {
@@ -233,6 +236,10 @@ export function workflowInstructionsPanel(documentNode, client, context = {}) {
     summary.appendChild(el(
       documentNode, "span", "workflow-instruction-reach",
       instructionReachHint(instruction),
+    ));
+    summary.appendChild(el(
+      documentNode, "span", "workflow-instruction-delivery",
+      instructionDeliveryHint(instruction),
     ));
     row.appendChild(summary);
     const actions = el(documentNode, "div", "workflow-instruction-actions");

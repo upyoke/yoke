@@ -310,7 +310,7 @@ def test_onboard_seeds_work_through_the_idea_intake_shape():
     # One batched confirmation, then serial filing.
     assert "one confirmation for the whole batch" in text
     assert "one at a time" in text
-    assert "/yoke do" in text
+    assert "/yoke steer" in text and "/yoke charge" in text
 
 
 def test_onboard_honors_the_web_views_and_steers_boundary():

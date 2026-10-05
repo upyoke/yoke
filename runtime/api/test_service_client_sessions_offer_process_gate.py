@@ -1,6 +1,6 @@
 """Service-client session-offer regressions for the disabled-process gate.
 
-Reproduces the original ``/yoke do`` failure shape: a ``NextAction``
+Reproduces the original ``session-offer`` failure shape: a ``NextAction``
 with ``action="charge"`` rewritten by the process-offer gate must carry
 ``context.scheduler.next_step`` whenever ``FrontierState.scheduler_context``
 is available, so the loop's charge handler can dispatch through the
@@ -89,12 +89,15 @@ class TestSessionOfferProcessGateCharge:
     """Service-client surface for the disabled-process CHARGE swap."""
 
     def test_disabled_strategize_with_scheduler_yields_charge_with_scheduler(
-        self, session_offer_db, monkeypatch, capsys,
+        self,
+        session_offer_db,
+        monkeypatch,
+        capsys,
     ):
         """When the gate rewrites a disabled process action
         into a CHARGE and ``frontier.scheduler_context`` is populated, the
         emitted ``NextAction.context`` exposes ``scheduler.next_step`` so
-        ``/yoke do``'s charge handler can dispatch through the canonical
+        ``session-offer``'s charge handler can dispatch through the canonical
         scheduler routing path."""
         from yoke_core.api import service_client
         from yoke_core.api import service_client_sessions_offer as offer_module
@@ -102,7 +105,8 @@ class TestSessionOfferProcessGateCharge:
         _write_disabled_process_config(session_offer_db["db_path"])
         sid = "process-gate-strategize-runnable"
         _pre_register_session(
-            session_offer_db["db_path"], sid,
+            session_offer_db["db_path"],
+            sid,
             executor="claude-code",
             workspace=session_offer_db["tmp_dir"],
         )
@@ -120,9 +124,12 @@ class TestSessionOfferProcessGateCharge:
             lambda *_args, **_kwargs: None,
         )
 
-        rc = service_client.cmd_session_offer([
-            "--session-id", sid,
-        ])
+        rc = service_client.cmd_session_offer(
+            [
+                "--session-id",
+                sid,
+            ]
+        )
         captured = capsys.readouterr()
         assert rc == 0, f"stderr: {captured.err}"
         data = json.loads(captured.out)
@@ -132,7 +139,7 @@ class TestSessionOfferProcessGateCharge:
         assert data["chainable"] is True
         ctx = data["context"]
 
-        # Scheduler routing metadata IS present so /yoke do
+        # Scheduler routing metadata IS present so session-offer
         # can dispatch via context.scheduler.next_step.
         scheduler = ctx["scheduler"]
         assert scheduler["next_step"] == "advance"
@@ -153,7 +160,10 @@ class TestSessionOfferProcessGateCharge:
         assert ctx["runnable_items"] == runnable
 
     def test_disabled_strategize_no_runnable_returns_suppressed_wait(
-        self, session_offer_db, monkeypatch, capsys,
+        self,
+        session_offer_db,
+        monkeypatch,
+        capsys,
     ):
         """No-runnable disabled-process path returns suppressed-WAIT
         (non-terminal) and does not invent scheduler context."""
@@ -164,7 +174,8 @@ class TestSessionOfferProcessGateCharge:
         _write_disabled_process_config(session_offer_db["db_path"])
         sid = "process-gate-strategize-empty"
         _pre_register_session(
-            session_offer_db["db_path"], sid,
+            session_offer_db["db_path"],
+            sid,
             executor="claude-code",
             workspace=session_offer_db["tmp_dir"],
         )
@@ -180,7 +191,8 @@ class TestSessionOfferProcessGateCharge:
             )
 
         monkeypatch.setattr(
-            offer_module, "_build_frontier_state_from_schedule",
+            offer_module,
+            "_build_frontier_state_from_schedule",
             _empty_frontier_factory,
         )
         monkeypatch.setattr(
@@ -195,9 +207,12 @@ class TestSessionOfferProcessGateCharge:
             ),
         )
 
-        rc = service_client.cmd_session_offer([
-            "--session-id", sid,
-        ])
+        rc = service_client.cmd_session_offer(
+            [
+                "--session-id",
+                sid,
+            ]
+        )
         captured = capsys.readouterr()
         assert rc == 0, f"stderr: {captured.err}"
         data = json.loads(captured.out)

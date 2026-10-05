@@ -1,7 +1,7 @@
 """Handler for the transport-keyed ``sessions.begin`` function id.
 
 Session establishment is the twin of the operator-debug ``session-begin``
-service-client command, exposed as a dispatched function so the ``/yoke do``
+service-client command, exposed as a dispatched function so the ``session-offer``
 bootstrap routes it through the connection-keyed transport (https relay to
 the connected server for a prod bootstrap; in-process dispatch for a local
 universe). The registration/lane/idempotency core is shared with the

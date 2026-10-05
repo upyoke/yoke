@@ -5,7 +5,7 @@ means the holding session intends to resume on the item once its blocking
 precondition clears. Releasing such a claim before the routed handler has
 recorded a durable terminal checkpoint reproduces an incident.
 The evaluator gates the release for item targets only — epic_task and
-process targets carry no routed-handler frame semantics in ``/yoke do``.
+process targets carry no routed-handler frame semantics in ``session-offer``.
 A persisted chain checkpoint is "terminal evidence" when ``chainable=False``
 OR ``handler_outcome`` is in :data:`TERMINAL_OUTCOMES`. A missing checkpoint
 means the session never started a routed chain and the release is allowed.
@@ -137,10 +137,14 @@ def emit_release_refused(
     }
     _sa._emit_event(
         EVENT_ITEM_CLAIM_RELEASE_REFUSED,
-        event_kind="system", event_type="session_lifecycle",
-        source_type="backend", session_id=session_id,
-        item_id=item_id_for_event, context=envelope,
-        outcome="refused", severity="WARN",
+        event_kind="system",
+        event_type="session_lifecycle",
+        source_type="backend",
+        session_id=session_id,
+        item_id=item_id_for_event,
+        context=envelope,
+        outcome="refused",
+        severity="WARN",
     )
     return {
         "released": False,
@@ -171,8 +175,10 @@ def emit_release_override(
     item_id_for_event = _target_item_id(target)
     _sa._emit_event(
         EVENT_ITEM_CLAIM_RELEASE_OVERRIDE,
-        event_kind="system", event_type="session_lifecycle",
-        source_type="backend", session_id=session_id,
+        event_kind="system",
+        event_type="session_lifecycle",
+        source_type="backend",
+        session_id=session_id,
         item_id=item_id_for_event,
         context={
             "prior_owner_session_id": session_id,
@@ -183,7 +189,8 @@ def emit_release_override(
             "target_kind": target.kind,
             "target_label": target.render(),
         },
-        outcome="completed", severity="WARN",
+        outcome="completed",
+        severity="WARN",
     )
 
 

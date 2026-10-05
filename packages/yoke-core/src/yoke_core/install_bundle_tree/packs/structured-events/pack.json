@@ -3,7 +3,7 @@
   "slug": "structured-events",
   "name": "Structured Events",
   "description": "Adds reusable Python and TypeScript helpers for recording consistent product events and user attribution, with API examples and tests.",
-  "latest_version": "1.1.0",
+  "latest_version": "2.0.0",
   "versions": {
     "1.0.0": {
       "source": "versions/1.0.0/files",
@@ -23,84 +23,19 @@
         "additionalProperties": false
       },
       "files": [
-        {
-          "source": "docs/packs/structured-events/README.md",
-          "target": "docs/packs/structured-events/README.md",
-          "mode": "0644",
-          "render": "install"
-        },
-        {
-          "source": "events/README.md",
-          "target": "events/README.md",
-          "mode": "0644",
-          "render": "install"
-        },
-        {
-          "source": "events/api-route.ts",
-          "target": "events/api-route.ts",
-          "mode": "0644",
-          "render": "install"
-        },
-        {
-          "source": "events/events.py",
-          "target": "events/events.py",
-          "mode": "0644",
-          "render": "install"
-        },
-        {
-          "source": "events/events.ts",
-          "target": "events/events.ts",
-          "mode": "0644",
-          "render": "install"
-        },
-        {
-          "source": "events/events_attribution.ts",
-          "target": "events/events_attribution.ts",
-          "mode": "0644",
-          "render": "install"
-        },
-        {
-          "source": "events/events_props.py",
-          "target": "events/events_props.py",
-          "mode": "0644",
-          "render": "install"
-        },
-        {
-          "source": "events/events_props.ts",
-          "target": "events/events_props.ts",
-          "mode": "0644",
-          "render": "install"
-        },
-        {
-          "source": "events/events_types.ts",
-          "target": "events/events_types.ts",
-          "mode": "0644",
-          "render": "install"
-        },
-        {
-          "source": "events/test_events.py",
-          "target": "events/test_events.py",
-          "mode": "0644",
-          "render": "install"
-        },
-        {
-          "source": "events/test_events_emit.py",
-          "target": "events/test_events_emit.py",
-          "mode": "0644",
-          "render": "install"
-        },
-        {
-          "source": "events/test_events_ts.py",
-          "target": "events/test_events_ts.py",
-          "mode": "0644",
-          "render": "install"
-        },
-        {
-          "source": "events/test_events_ts_api.py",
-          "target": "events/test_events_ts_api.py",
-          "mode": "0644",
-          "render": "install"
-        }
+        {"source": "docs/packs/structured-events/README.md", "target": "docs/packs/structured-events/README.md", "mode": "0644", "render": "install"},
+        {"source": "events/README.md", "target": "events/README.md", "mode": "0644", "render": "install"},
+        {"source": "events/api-route.ts", "target": "events/api-route.ts", "mode": "0644", "render": "install"},
+        {"source": "events/events.py", "target": "events/events.py", "mode": "0644", "render": "install"},
+        {"source": "events/events.ts", "target": "events/events.ts", "mode": "0644", "render": "install"},
+        {"source": "events/events_attribution.ts", "target": "events/events_attribution.ts", "mode": "0644", "render": "install"},
+        {"source": "events/events_props.py", "target": "events/events_props.py", "mode": "0644", "render": "install"},
+        {"source": "events/events_props.ts", "target": "events/events_props.ts", "mode": "0644", "render": "install"},
+        {"source": "events/events_types.ts", "target": "events/events_types.ts", "mode": "0644", "render": "install"},
+        {"source": "events/test_events.py", "target": "events/test_events.py", "mode": "0644", "render": "install"},
+        {"source": "events/test_events_emit.py", "target": "events/test_events_emit.py", "mode": "0644", "render": "install"},
+        {"source": "events/test_events_ts.py", "target": "events/test_events_ts.py", "mode": "0644", "render": "install"},
+        {"source": "events/test_events_ts_api.py", "target": "events/test_events_ts_api.py", "mode": "0644", "render": "install"}
       ],
       "verification": [
         {
@@ -128,84 +63,19 @@
         "additionalProperties": false
       },
       "files": [
-        {
-          "source": "docs/packs/structured-events/README.md",
-          "target": "docs/packs/structured-events/README.md",
-          "mode": "0644",
-          "render": "install"
-        },
-        {
-          "source": "events/README.md",
-          "target": "events/README.md",
-          "mode": "0644",
-          "render": "install"
-        },
-        {
-          "source": "events/api-route.ts",
-          "target": "events/api-route.ts",
-          "mode": "0644",
-          "render": "install"
-        },
-        {
-          "source": "events/events.py",
-          "target": "events/events.py",
-          "mode": "0644",
-          "render": "install"
-        },
-        {
-          "source": "events/events.ts",
-          "target": "events/events.ts",
-          "mode": "0644",
-          "render": "install"
-        },
-        {
-          "source": "events/events_attribution.ts",
-          "target": "events/events_attribution.ts",
-          "mode": "0644",
-          "render": "install"
-        },
-        {
-          "source": "events/events_props.py",
-          "target": "events/events_props.py",
-          "mode": "0644",
-          "render": "install"
-        },
-        {
-          "source": "events/events_props.ts",
-          "target": "events/events_props.ts",
-          "mode": "0644",
-          "render": "install"
-        },
-        {
-          "source": "events/events_types.ts",
-          "target": "events/events_types.ts",
-          "mode": "0644",
-          "render": "install"
-        },
-        {
-          "source": "events/test_events.py",
-          "target": "events/test_events.py",
-          "mode": "0644",
-          "render": "install"
-        },
-        {
-          "source": "events/test_events_emit.py",
-          "target": "events/test_events_emit.py",
-          "mode": "0644",
-          "render": "install"
-        },
-        {
-          "source": "events/test_events_ts.py",
-          "target": "events/test_events_ts.py",
-          "mode": "0644",
-          "render": "install"
-        },
-        {
-          "source": "events/test_events_ts_api.py",
-          "target": "events/test_events_ts_api.py",
-          "mode": "0644",
-          "render": "install"
-        }
+        {"source": "docs/packs/structured-events/README.md", "target": "docs/packs/structured-events/README.md", "mode": "0644", "render": "install"},
+        {"source": "events/README.md", "target": "events/README.md", "mode": "0644", "render": "install"},
+        {"source": "events/api-route.ts", "target": "events/api-route.ts", "mode": "0644", "render": "install"},
+        {"source": "events/events.py", "target": "events/events.py", "mode": "0644", "render": "install"},
+        {"source": "events/events.ts", "target": "events/events.ts", "mode": "0644", "render": "install"},
+        {"source": "events/events_attribution.ts", "target": "events/events_attribution.ts", "mode": "0644", "render": "install"},
+        {"source": "events/events_props.py", "target": "events/events_props.py", "mode": "0644", "render": "install"},
+        {"source": "events/events_props.ts", "target": "events/events_props.ts", "mode": "0644", "render": "install"},
+        {"source": "events/events_types.ts", "target": "events/events_types.ts", "mode": "0644", "render": "install"},
+        {"source": "events/test_events.py", "target": "events/test_events.py", "mode": "0644", "render": "install"},
+        {"source": "events/test_events_emit.py", "target": "events/test_events_emit.py", "mode": "0644", "render": "install"},
+        {"source": "events/test_events_ts.py", "target": "events/test_events_ts.py", "mode": "0644", "render": "install"},
+        {"source": "events/test_events_ts_api.py", "target": "events/test_events_ts_api.py", "mode": "0644", "render": "install"}
       ],
       "verification": [
         {
@@ -214,6 +84,73 @@
         }
       ],
       "prerequisites": []
+    },
+    "2.0.0": {
+      "source": "versions/2.0.0/files",
+      "documentation": "docs/packs/structured-events/README.md",
+      "dependencies": [],
+      "settings_schema": {
+        "type": "object",
+        "properties": {
+          "project_name": {
+            "type": "string",
+            "description": "Project value used when installing the Structured Events Pack."
+          }
+        },
+        "required": [
+          "project_name"
+        ],
+        "additionalProperties": false
+      },
+      "files": [
+        {"source": "docs/packs/structured-events/README.md", "target": "docs/packs/structured-events/README.md", "mode": "0644", "render": "install"},
+        {"source": "events/README.md", "target": "events/README.md", "mode": "0644", "render": "install"},
+        {"source": "events/api-route.ts", "target": "events/api-route.ts", "mode": "0644", "render": "install"},
+        {"source": "events/attribution_rules.json", "target": "events/attribution_rules.json", "mode": "0644", "render": "install"},
+        {"source": "events/events.py", "target": "events/events.py", "mode": "0644", "render": "install"},
+        {"source": "events/events.ts", "target": "events/events.ts", "mode": "0644", "render": "install"},
+        {"source": "events/events_attribution.py", "target": "events/events_attribution.py", "mode": "0644", "render": "install"},
+        {"source": "events/events_attribution.ts", "target": "events/events_attribution.ts", "mode": "0644", "render": "install"},
+        {"source": "events/events_consent.ts", "target": "events/events_consent.ts", "mode": "0644", "render": "install"},
+        {"source": "events/events_cookie.py", "target": "events/events_cookie.py", "mode": "0644", "render": "install"},
+        {"source": "events/events_cookie.ts", "target": "events/events_cookie.ts", "mode": "0644", "render": "install"},
+        {"source": "events/events_delivery.py", "target": "events/events_delivery.py", "mode": "0644", "render": "install"},
+        {"source": "events/events_navigation.ts", "target": "events/events_navigation.ts", "mode": "0644", "render": "install"},
+        {"source": "events/events_props.py", "target": "events/events_props.py", "mode": "0644", "render": "install"},
+        {"source": "events/events_props.ts", "target": "events/events_props.ts", "mode": "0644", "render": "install"},
+        {"source": "events/events_types.ts", "target": "events/events_types.ts", "mode": "0644", "render": "install"},
+        {"source": "events/test_attribution.py", "target": "events/test_attribution.py", "mode": "0644", "render": "install"},
+        {"source": "events/test_browser.mjs", "target": "events/test_browser.mjs", "mode": "0644", "render": "install"},
+        {"source": "events/test_events.py", "target": "events/test_events.py", "mode": "0644", "render": "install"},
+        {"source": "events/test_events_emit.py", "target": "events/test_events_emit.py", "mode": "0644", "render": "install"}
+      ],
+      "verification": [
+        {
+          "name": "python-contracts",
+          "command": "python3 -m pytest events"
+        },
+        {
+          "name": "browser-contracts",
+          "command": "node --experimental-strip-types --test events/test_browser.mjs"
+        }
+      ],
+      "prerequisites": [
+        {
+          "tool": "node",
+          "minimum_version": "22.6.0",
+          "probe": {
+            "executable": "node",
+            "version_args": [
+              "--version"
+            ]
+          },
+          "install": {
+            "darwin": "brew install node",
+            "linux": "Install Node.js 22.6 or newer from https://nodejs.org/en/download",
+            "windows": "winget install OpenJS.NodeJS.LTS"
+          }
+        }
+      ]
     }
   }
 }

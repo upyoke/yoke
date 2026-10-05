@@ -22,7 +22,7 @@ Unknown / unconfigured lanes still return `WAIT` with
 
 ## Consequences
 
-- `/yoke do` does not pass `--lane`; the session-row default stands.
+- `session-offer` does not pass `--lane`; the session-row default stands.
 - The `--lane` flag remains on `yoke sessions offer` for callers that
   need an override.
 - Historical `events` rows under the previous override name stay in

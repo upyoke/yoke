@@ -1,6 +1,6 @@
 """Tests for the transport-keyed ``sessions.begin`` function surface.
 
-Covers three layers of the session-establishment path that ``/yoke do``
+Covers three layers of the session-establishment path that ``session-offer``
 bootstrap depends on:
 
 * The ``sessions.begin`` registration/authz/adapter coherence (a new
@@ -183,12 +183,18 @@ def _ok_response(request: FunctionCallRequest) -> FunctionCallResponse:
 _CLI_SESSION = "sid-cli"
 
 _BEGIN_ARGS = [
-    "--executor", "claude-code",
-    "--provider", "anthropic",
-    "--requested-model", TEST_MODEL_ID,
-    "--workspace", "/ws",
-    "--project", "1",
-    "--session-id", _CLI_SESSION,
+    "--executor",
+    "claude-code",
+    "--provider",
+    "anthropic",
+    "--requested-model",
+    TEST_MODEL_ID,
+    "--workspace",
+    "/ws",
+    "--project",
+    "1",
+    "--session-id",
+    _CLI_SESSION,
     "--json",
 ]
 
@@ -229,10 +235,14 @@ class TestAdapterTransportRouting:
 
         monkeypatch.setattr(helpers_mod, "ensure_handlers_loaded", lambda: None)
         conn = HttpsConnection(
-            api_url="https://api.example", token="tok", env="prod",
+            api_url="https://api.example",
+            token="tok",
+            env="prod",
         )
         monkeypatch.setattr(
-            https_mod, "resolve_https_connection", lambda: conn,
+            https_mod,
+            "resolve_https_connection",
+            lambda: conn,
         )
         captured = {}
 
@@ -259,7 +269,9 @@ class TestAdapterTransportRouting:
 
         monkeypatch.setattr(helpers_mod, "ensure_handlers_loaded", lambda: None)
         monkeypatch.setattr(
-            https_mod, "resolve_https_connection", lambda: None,
+            https_mod,
+            "resolve_https_connection",
+            lambda: None,
         )
 
         def forbidden_relay(*args, **kwargs):
@@ -285,10 +297,16 @@ class TestAdapterTransportRouting:
         from yoke_cli.commands.adapters.sessions import sessions_begin
 
         monkeypatch.setattr(machine_config, "project_id", lambda path: None)
-        rc = sessions_begin([
-            "--executor", "claude-code",
-            "--provider", "anthropic",
-            "--requested-model", TEST_MODEL_ID,
-            "--workspace", "/unmapped",
-        ])
+        rc = sessions_begin(
+            [
+                "--executor",
+                "claude-code",
+                "--provider",
+                "anthropic",
+                "--requested-model",
+                TEST_MODEL_ID,
+                "--workspace",
+                "/unmapped",
+            ]
+        )
         assert rc == 2

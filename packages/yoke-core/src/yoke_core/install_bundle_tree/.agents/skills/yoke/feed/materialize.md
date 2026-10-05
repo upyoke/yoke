@@ -151,7 +151,7 @@ size — a large change stated as one instruction is still a Dash:
   ```
 
   This files without executing. The item lands at `idea` with `workflow=dash`
-  and reaches a `/yoke do` or `/yoke charge` session as `next_step=dash`.
+  and reaches a `/yoke charge` session as `next_step=dash`.
 - When that concrete instruction is laneless and merge-free, file the floor
   alternative instead: `yoke task "<title>" "<instruction>"
   --execution-instructions-considered --json`. Task has no optional

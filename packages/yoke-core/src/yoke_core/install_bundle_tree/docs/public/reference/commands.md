@@ -2,7 +2,7 @@
 
 Each command is a nested skill at `.agents/skills/yoke/{name}/SKILL.md`. Harnesses expose those commands through their native skill or slash-command surfaces; the shared `SKILL.md` frontmatter is the single authored metadata source. Non-native harness surfaces invoke the same commands through their harness adapter's route wrapper (see the Harness Bootstrap Contract, yoke source-repo doc `docs/harness-bootstrap.md`, for command classification and the Hook Parity Map, yoke source-repo doc `docs/hook-parity-map.md`, for hook availability by harness). Render the operator-readable Atlas of the Yoke agent-facing surfaces (function ids, wrapped `yoke` subcommands, tool-shaped CLI adapters, permanent boundaries, pending rows, live contradictions) locally with `python3 -m yoke_core.tools.atlas_render_docs render`; each command below resolves to one or more registered function calls.
 
-Yoke has **21 operator commands** (the primary interface) and **6 internal sub-skills** (called by other commands, not typically invoked directly). Large skills are decomposed into phase sub-files; top-level SKILL.md files should stay compact orchestration surfaces that delegate detailed sub-protocols to phase files. The 350-line file limit is implemented by `yoke_core.domain.file_line_check`, exposed to agents as `yoke check file-line`, and enforced everywhere the files themselves are readable — the pre-commit hook, the Dash survey's per-path sizing, and `HC-file-line-limit` in doctor. Lifecycle status writes do not enforce it: a control plane reached over https holds no checkout, so the limit is checked where the checkout is. **File Budget** is an independent pinned workflow policy: when enabled it shapes implementation before coding; when off, the same 350-line enforcement remains. File Budget/path-claim parity applies only when both effective axes are enabled. A small temporary-exception list covers strategic docs and prompt source-of-truth surfaces.
+Yoke has **21 operator commands** (the primary interface) and **5 internal sub-skills** (called by other commands, not typically invoked directly). Large skills are decomposed into phase sub-files; top-level SKILL.md files should stay compact orchestration surfaces that delegate detailed sub-protocols to phase files. The 350-line file limit is implemented by `yoke_core.domain.file_line_check`, exposed to agents as `yoke check file-line`, and enforced everywhere the files themselves are readable — the pre-commit hook, the Dash survey's per-path sizing, and `HC-file-line-limit` in doctor. Lifecycle status writes do not enforce it: a control plane reached over https holds no checkout, so the limit is checked where the checkout is. **File Budget** is an independent pinned workflow policy: when enabled it shapes implementation before coding; when off, the same 350-line enforcement remains. File Budget/path-claim parity applies only when both effective axes are enabled. A small temporary-exception list covers strategic docs and prompt source-of-truth surfaces.
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
@@ -28,7 +28,6 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 | `/yoke advance PREFIX-N implementation` | Issue implementation entry: create or re-enter the worktree in the same harness session (no relaunch), then run the implementation/review loop under the work-claim acquired in preflight |
 | `/yoke polish PREFIX-N` | Review and finish implementation in the item's existing worktree lane(s) |
 | `/yoke help` | Show command reference (also: `/yoke` with no args) |
-| `/yoke do` | Autonomous session orchestrator -- offers session to decision engine, routes to chosen mode |
 | `/yoke charge` | Direct-mode entrypoint -- pick up next runnable item from frontier, begin implementation |
 | `/yoke feed [--no-new-items] [PREFIX-N ...]` | Direct-mode entrypoint -- refresh stale frontier items, maintain dependency graph truth, and materialize new work from strategy |
 | `/yoke strategize` | Direct-mode entrypoint -- guided SML review (research, propose, approve) |
@@ -156,11 +155,11 @@ Show the Yoke command reference and quick-start guide. Also triggered by `/yoke`
 
 Autonomous session orchestrator. Offers the current session to Yoke's decision engine, which inspects the frontier (runnable items, blocked items, SML state) and returns a `NextAction` directive. The directive is routed to the appropriate mode handler (charge, feed, strategize, wait, escalate). After a chainable mode completes, the loop re-offers automatically up to `max_chain_steps` times.
 
-Operator-facing callers should enter this flow via `/yoke do`. The underlying session-offer adapter is an internal skill implementation detail, not a separate operator command.
+The session-offer adapter is an internal surface. Operators use `/yoke steer` to staff work or `/yoke charge` to select a runnable item.
 
 **Arguments:** none. The session model is read from the current `harness_sessions` row (cross-reference: see your `harness_sessions` packet stanza), which stores the provider-attested served value and the launch request in separate columns; the harness requested-model detector is the fallback when the stored row is absent. When the session belongs to a project, the session lane is resolved from that project's DB-backed `session-routing` capability. The resolver walks the exact executor key (`executor_default_lane_claude_vscode`) -> wildcard key with the longest non-wildcard prefix (`executor_default_lane_claude*`) -> global `executor_default_lane_unknown` -> hardcoded `primary` chain inside that one project policy. Machine config is only the no-project/operator fallback.
 
-**Environment variables:** `YOKE_EXECUTOR` (harness executor identity — explicit override, stored verbatim). When unset, Yoke hook helpers compose `{family}-{surface}` from the runtime entrypoint: Claude sessions read `CLAUDE_CODE_ENTRYPOINT` (observed values `claude-desktop`, `claude-vscode`, and print-mode `sdk-cli`, which aliases to `claude-cli`); Codex sessions use the full entrypoint resolver (env -> transcript -> cache) and yield values such as `codex-cli`, `codex-vscode`, `codex-desktop`. Sessions with no surface signal fall back to the coarse `claude-code` / `codex` family value. The surface-specific form is **input** to session-begin; `harness_sessions.executor` stores only the canonical `harness_id` enum (`claude-code` / `codex`) — the harness identity canonicalizer runs at write time, and the original surface-specific value is preserved in `harness_sessions.executor_surface` for operator-facing UI. Both columns are **write-once** — written at initial `register_session` INSERT and persisted across reactivation; the canonical id and the display alias never change mid-session. `YOKE_PROVIDER` (model provider; defaults to `openai` for Codex-family sessions, otherwise `anthropic`). `supported_paths` is derived server-side from the shared registry plus the family manifest. The offer surface accepts no row-answered identity argument — not `--supported-paths`, `--executor`, `--provider`, `--workspace`, or `--model` — because every one of them is answered by the session row registration wrote. `--lane` remains as the deliberate operator re-route; `/yoke do` never sends it.
+**Environment variables:** `YOKE_EXECUTOR` (harness executor identity — explicit override, stored verbatim). When unset, Yoke hook helpers compose `{family}-{surface}` from the runtime entrypoint: Claude sessions read `CLAUDE_CODE_ENTRYPOINT` (observed values `claude-desktop`, `claude-vscode`, and print-mode `sdk-cli`, which aliases to `claude-cli`); Codex sessions use the full entrypoint resolver (env -> transcript -> cache) and yield values such as `codex-cli`, `codex-vscode`, `codex-desktop`. Sessions with no surface signal fall back to the coarse `claude-code` / `codex` family value. The surface-specific form is **input** to session-begin; `harness_sessions.executor` stores only the canonical `harness_id` enum (`claude-code` / `codex`) — the harness identity canonicalizer runs at write time, and the original surface-specific value is preserved in `harness_sessions.executor_surface` for operator-facing UI. Both columns are **write-once** — written at initial `register_session` INSERT and persisted across reactivation; the canonical id and the display alias never change mid-session. `YOKE_PROVIDER` (model provider; defaults to `openai` for Codex-family sessions, otherwise `anthropic`). `supported_paths` is derived server-side from the shared registry plus the family manifest. The offer surface accepts no row-answered identity argument — not `--supported-paths`, `--executor`, `--provider`, `--workspace`, or `--model` — because every one of them is answered by the session row registration wrote. `--lane` remains an internal diagnostic override.
 
 **Events:** Canonical `HarnessSessionOffered` and `NextActionChosen` events are emitted by the shared session-offer path, not by the loop directly. `ChainStepCompleted` is emitted after each handler returns, recording step, action, chainable, and handler outcome for chain-decision telemetry. All harnesses produce identical event lineage.
 
@@ -213,11 +212,10 @@ These are called by operator commands or other sub-skills. They have their own S
 
 | Command | Called by | Description |
 |---|---|---|
-| `/yoke advance PREFIX-N [status]` | conduct, usher, do/loop, routed dispatch | Internal advance targets other than `implementation` |
+| `/yoke advance PREFIX-N [status]` | conduct, usher, item-bound dispatch | Internal advance targets other than `implementation` |
 | `/yoke merge {epic-id}` | usher | Sequential PR + CI + merge per branch |
 | `/yoke approve PREFIX-N` | usher | Approve a deployment stage awaiting human approval |
 | `/yoke amend {epic-id}` | conduct | Add, split, reassign, or remove tasks after sync |
-| `/yoke plan {epic-id}` | shepherd, conduct | Architect planning: task decomposition or lightweight plan |
 | `/yoke simulate {epic-id}` | conduct | Trace cross-task paths for integration gaps (`--system` for Ouroboros audit) |
 
 `simulate` is decomposed into `simulate/epic-flow.md`, `simulate/dispatch-prompts.md`, `simulate/autofix-loop.md`, and `simulate/system.md`.
@@ -267,12 +265,6 @@ Human approval gate for the Usher deployment pipeline. Uses the run-based deploy
 ### amend
 
 Add, split, reassign, or remove tasks after sync. Routes mutations through the `workflow_item.epic_task.*` function family (`workflow_item.epic_task.add`, `workflow_item.epic_task.split`, `workflow_item.epic_task.reassign`, `workflow_item.epic_task.remove`, `workflow_item.epic_task.metadata_update`, `workflow_item.epic_task.body_replace`) and `workflow_item.epic_progress_note.append`. See [.yoke/docs/reference/db-reference/functions.md](db-reference/functions.md). Re-verifies worktree overlap. Creates new worktrees as needed.
-
-### plan
-
-Explore scans the codebase. Architect output follows the selected workflow
-policy: item-level execution gets a lightweight `## Technical Plan`; a
-task-graph workflow gets task decomposition plus a worktree plan.
 
 ### simulate
 

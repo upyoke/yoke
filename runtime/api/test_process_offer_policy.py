@@ -1,4 +1,4 @@
-"""Coverage for the ``/yoke do`` process-offer policy and chain budget.
+"""Coverage for the ``session-offer`` process-offer policy and chain budget.
 
 Split from the routing-config tests alongside the module itself: where a
 session runs and whether an autonomous loop may dispatch a process at

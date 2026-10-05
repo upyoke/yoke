@@ -94,7 +94,7 @@ def end_session(
             supplied.
 
     The legacy ``ACTIVE_CLAIM`` rejection no longer fires on the
-    no-flags branch: explicit ``session-end`` (CLI / ``/yoke do`` loop
+    no-flags branch: explicit ``session-end`` (CLI / ``session-offer`` loop
     cleanup) now auto-releases active work-claims with
     ``release_reason='session_ended'`` via
     :func:`release_session_claims`. The CHAIN_PENDING guard above still

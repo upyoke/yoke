@@ -10,6 +10,8 @@ and the tests that prove it.
 
 from __future__ import annotations
 
+from yoke_core.tools._impacted_pack_contracts import PACK_PREFIX_CONTRACTS
+
 from yoke_contracts.project_contract.install_manifest import (
     PACKAGED_INSTALL_BUNDLE_TREE_REL,
 )
@@ -63,7 +65,7 @@ AGENT_SKILL_CONTRACT_TESTS = (
     "runtime/api/test_skill_doc_regressions_onboard_delivery.py",
     "runtime/api/test_skill_doc_regressions_onboard_no_tests.py",
     "runtime/api/test_skill_doc_regressions_path_claim_coordination.py",
-    "runtime/api/test_skill_doc_regressions_plan_merge.py",
+    "runtime/api/test_skill_doc_regressions_merge.py",
     "runtime/api/test_skill_doc_regressions_refine_obvious_file_budget.py",
     "runtime/api/test_skill_doc_regressions_refine_polish.py",
     "runtime/api/test_skill_doc_regressions_refine_release_sequencing.py",
@@ -71,6 +73,7 @@ AGENT_SKILL_CONTRACT_TESTS = (
     "runtime/api/test_skill_doc_regressions_strategize.py",
     "runtime/api/test_skill_doc_regressions_usher_collect.py",
     "runtime/api/test_skill_prose_schema_drift.py",
+    "runtime/api/test_skill_workflow_authority.py",
     "runtime/api/test_steer_prompt.py",
     "runtime/api/test_steer_prompt_worker_lifecycle.py",
     # Keep the roster's own completeness check in every skill selection.
@@ -245,6 +248,7 @@ SOURCE_RECIPE_SOURCE_PREFIXES = (
 )
 
 PREFIX_CONTRACT_TESTS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
+    *PACK_PREFIX_CONTRACTS,
     (
         "core_module_importability",
         ("packages/yoke-core/src/yoke_core/",),

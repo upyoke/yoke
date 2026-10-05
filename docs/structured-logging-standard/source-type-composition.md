@@ -96,10 +96,10 @@ Emission pattern: Explicit calls from application code via events.py module
 
 ## Source Type: frontend
 
-Envelope composition: event_props + system_props + org_props + session_props + page_props + device_props + marketing_attribution_props (on acquisition) + context; the authenticated receiver stamps actor_props
+Envelope composition: event_props + system_props + org_props + session_props + page_props + device_props + marketing_attribution_props (every consented event after capture) + context; the authenticated receiver stamps actor_props
 
 Required groups: event_props, system_props, session_props, page_props, device_props
-Conditional groups: org_props (when org context exists), marketing_attribution_props (on acquisition events)
+Conditional groups: org_props (when org context exists), marketing_attribution_props (when consented capture succeeds)
 Emission pattern: Client-side SDK calls, batched to /api/events endpoint
 
 ```json
@@ -136,13 +136,18 @@ Emission pattern: Client-side SDK calls, batched to /api/events endpoint
  "os": "macOS 14.2",
  "device_type": "desktop",
 
- "utm_source": "google",
- "utm_medium": "cpc",
- "utm_campaign": "spring-2026",
- "utm_term": "software delivery",
- "utm_content": "ad-variant-a",
- "referrer_domain": "google.com",
- "acquisition_channel": "paid",
+ "visitor_id": "anonymous-visitor-uuid",
+ "first_touch": {
+  "utm_source": "google", "utm_medium": "cpc", "utm_campaign": "spring-2026",
+  "acquisition_channel": "paid_search", "referrer_domain": "google.com",
+  "captured_at": "2026-03-12T16:00:00.000Z"
+ },
+ "last_touch": {
+  "utm_source": "google", "utm_medium": "cpc", "utm_campaign": "spring-2026",
+  "acquisition_channel": "paid_search", "referrer_domain": "google.com",
+  "captured_at": "2026-03-12T16:00:00.000Z"
+ },
+ "is_bot": false,
 
  "context": {
  "tab": "orders",

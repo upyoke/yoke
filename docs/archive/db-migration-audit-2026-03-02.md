@@ -136,7 +136,6 @@ These files are generated from DB and should NEVER be edited directly:
 | 4 | `/yoke groom vet` | `groom/vet/SKILL.md` line 20 | Full item spec for quality vetting | `yoke-db.sh items get N body` |
 | 5 | `yoke-final-boss.md` | Agent def lines 36, 47 | ALL sprint item bodies for GO/NO-GO verdict (already queries DB for item *list* but reads bodies from .md!) | `yoke-db.sh items get N body` per item |
 | 6 | `doctor.sh` HC-21 | Script lines 1113-1146 | All item bodies for bug-adjacent language scan | `yoke-db.sh query "SELECT id, body FROM items WHERE body IS NOT NULL"` |
-| 7 | `/yoke plan` | `plan/SKILL.md` line 53 | Item body/spec as planning input — hedges "from DB or .md" | Remove .md alternative, keep DB-only path |
 | 8 | `/yoke wrapup` | `wrapup/SKILL.md` line 144 | Item bodies to update with ouroboros entries | `yoke-db.sh items get N body` |
 | 9 | `/yoke promote` | `promote/SKILL.md` line 76 | Item spec for review before promotion | `yoke-db.sh items get N body` |
 | 10 | `rebuild-board.sh` | Script line 373 | `epic` frontmatter field from worktree branch via `git show` | **Hardest to fix** — branch may have data not yet in DB. Needs design decision. |
