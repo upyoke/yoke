@@ -85,7 +85,7 @@ def uninstall(
         set(manifest.get("created_settings_files", [])),
     )
     project_worktrees_ignore.report(root, apply=False)
-    commit_paths = uninstall_commit.prepare(root, manifest)
+    commit_paths = uninstall_commit.prepare(root, manifest, config_path)
     removed, skipped, absent, warnings = files_layer.remove_manifest_files(
         root, dict(manifest.get("files") or {})
     )

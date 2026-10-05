@@ -9,6 +9,8 @@ through one canonical telemetry surface.
 """
 
 from __future__ import annotations
+from pathlib import Path
+from yoke_contracts.project_defaults import default_project_for_directory
 
 import json
 import os
@@ -121,7 +123,7 @@ def emit_session_hook_failed(
             session_id=session_id or "unknown",
             severity="WARN",
             outcome="failed",
-            project="yoke",
+            project=default_project_for_directory(Path.cwd()),
             hook_event_name=hook_event,
             context=context,
         )
@@ -191,7 +193,7 @@ def emit_harness_session_sent_first_user_prompt_submit(
             severity="INFO",
             outcome="completed",
             session_id=session_id,
-            project="yoke",
+            project=default_project_for_directory(Path.cwd()),
             context={"hook": "UserPromptSubmit"},
         )
     except Exception:

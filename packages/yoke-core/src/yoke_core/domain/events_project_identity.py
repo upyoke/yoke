@@ -80,6 +80,37 @@ def _session_project_id(conn: Any, session_id: str) -> Optional[int]:
     return project_id if project_id > 0 else None
 
 
+def working_project_for_event(
+    *,
+    conn: Any = None,
+    session_id: str = "",
+    item_id: Optional[int] = None,
+    directory: Any = None,
+) -> Any:
+    """Use the event's durable owner, or its mapped caller checkout.
+
+    Server-side writers pass their connection; their process directory is
+    unrelated to the caller's project. Local hooks may pass a caller directory.
+    Unknown ownership remains unscoped.
+    """
+    if conn is not None:
+        if item_id is not None:
+            row = conn.execute(
+                f"SELECT project_id FROM items WHERE id = {_placeholder(conn)}",
+                (item_id,),
+            ).fetchone()
+            if row is not None:
+                return _row_value(row, "project_id", 0)
+        project = _session_project_id(conn, session_id) if session_id else None
+        if project is not None:
+            return project
+    if directory is not None:
+        from yoke_contracts.project_defaults import default_project_for_directory
+
+        return default_project_for_directory(directory)
+    return None
+
+
 def resolve_project_id_for_event(
     conn: Optional[Any],
     db_path: Optional[str],
@@ -174,9 +205,7 @@ def resolve_envelope_project_id_for_event(
 
     # No context project, no session project: the event indexes as
     # global rather than being attributed to any particular project.
-    return resolve_project_id_for_event(
-        conn, db_path, envelope.get("project")
-    )
+    return resolve_project_id_for_event(conn, db_path, envelope.get("project"))
 
 
 def resolve_item_id_for_event(
@@ -193,8 +222,7 @@ def resolve_item_id_for_event(
 
     prefix, _ = parse_public_item_ref(item_id)
     if (
-        project is None
-        or str(project).strip().lower() in GLOBAL_EVENT_PROJECT_TOKENS
+        project is None or str(project).strip().lower() in GLOBAL_EVENT_PROJECT_TOKENS
     ) and prefix is None:
         return normalize_event_item_id(item_id)
     if conn is not None:

@@ -197,16 +197,16 @@ def test_onboard_wsl_failure_is_not_reported_ready(monkeypatch):
     monkeypatch.setattr(wsl, "is_wsl", lambda: True)
 
     def fail(**kw):
-        raise RuntimeError("wsl_lifetime_version_unsupported: run wsl --update")
+        raise RuntimeError("wsl_lifetime_config_invalid: repair config")
 
     monkeypatch.setattr(wsl_systemd, "setup", fail)
     report = {}
-    with pytest.raises(RuntimeError, match="wsl_lifetime_version_unsupported"):
+    with pytest.raises(RuntimeError, match="wsl_lifetime_config_invalid"):
         setup.setup_wsl(report)
     assert "wsl_setup" not in report
 
 
-def test_prepare_runs_wsl_check_on_wsl_only(tmp_path, monkeypatch):
+def test_prepare_never_writes_wsl_configuration(tmp_path, monkeypatch):
     from yoke_harness import wsl
 
     monkeypatch.setattr(setup, "setup_directories", lambda *args: None)
@@ -218,7 +218,7 @@ def test_prepare_runs_wsl_check_on_wsl_only(tmp_path, monkeypatch):
     assert not calls
     monkeypatch.setattr(wsl, "is_wsl", lambda: True)
     setup.prepare(tmp_path / "config.json")
-    assert calls == ["wsl"]
+    assert not calls
 
 
 def test_apply_rechecks_wsl_before_relay(monkeypatch, tmp_path):
@@ -244,3 +244,20 @@ def test_apply_rechecks_wsl_before_relay(monkeypatch, tmp_path):
         environment="prod",
     )
     assert events == ["wsl", "relay"]
+
+
+def test_apply_finishes_with_an_old_wsl_warning(monkeypatch, capsys):
+    from yoke_harness import wsl, wsl_systemd, wsl_lifetime
+
+    monkeypatch.setattr(wsl, "is_wsl", lambda: True)
+    monkeypatch.setattr(wsl_systemd, "is_wsl", lambda: True)
+    monkeypatch.setattr(wsl_systemd, "_setup_systemd", lambda **kw: "already_running")
+    monkeypatch.setattr(wsl_lifetime, "_windows_command", lambda name: name)
+    monkeypatch.setattr(wsl_lifetime, "_run", lambda command: "WSL version: 2.5.3.0")
+    monkeypatch.setattr(
+        wsl_lifetime, "_config_path", lambda: pytest.fail("unsupported version")
+    )
+    report = {}
+    setup.setup_wsl(report)
+    assert report["wsl_setup"]["status"] == "already_running"
+    assert "Warning:" in capsys.readouterr().err

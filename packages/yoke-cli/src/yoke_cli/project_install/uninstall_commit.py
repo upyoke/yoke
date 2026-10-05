@@ -7,9 +7,12 @@ from typing import Any
 
 from yoke_cli.project_install import checkout_gate, installed_output_paths
 from yoke_cli.project_install.files import ProjectInstallError
+from yoke_cli.config.project_onboard_support import dispatch
 
 
-def prepare(root: Path, manifest: dict[str, Any]) -> list[str]:
+def prepare(
+    root: Path, manifest: dict[str, Any], config_path: str | Path | None = None
+) -> list[str]:
     # A clean tree also means a clean index; the shared commit helper must never
     # incorporate an operator's already-staged changes into an uninstall commit.
     if checkout_gate.is_git_checkout(root):
@@ -20,6 +23,27 @@ def prepare(root: Path, manifest: dict[str, Any]) -> list[str]:
                 f"{root}, then retry project uninstall. Dirty paths:\n"
                 + "\n".join(dirty)
             )
+        try:
+            result = dispatch(
+                "projects.get",
+                {"project": str(manifest["project_id"]), "field": "default_branch"},
+                config_path,
+            )
+        except (KeyError, RuntimeError) as exc:
+            raise ProjectInstallError(
+                f"project_uninstall_default_branch_unavailable: {exc}. "
+                "Check yoke env list and the project's default branch, then retry."
+            ) from exc
+        branch = str(result.get("value") or "").strip()
+        try:
+            checkout_gate.assert_ready_for_write(
+                root, default_branch=branch, require_default_branch=bool(branch)
+            )
+        except ProjectInstallError as exc:
+            raise ProjectInstallError(
+                "project_uninstall_checkout_refused: "
+                + str(exc).replace(" or pass --force", "")
+            ) from exc
     return installed_output_paths.normalized(
         [
             *installed_output_paths.manifest_owned_paths(manifest),

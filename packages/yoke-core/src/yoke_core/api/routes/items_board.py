@@ -6,7 +6,7 @@ column, including computed stats and active-run signals.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from fastapi import Query
 from fastapi.routing import APIRouter
@@ -26,7 +26,7 @@ def _p(conn) -> str:
 
 @router.get("/board", response_model=_main.BoardResponse)
 def get_board(
-    project: Optional[str] = Query("yoke", description="Project to show board for"),
+    project: str = Query(..., min_length=1, description="Project to show board for"),
 ) -> _main.BoardResponse:
     """Return board state: items grouped by status for a project."""
     conn = _main.get_db_readonly()
@@ -59,13 +59,15 @@ def get_board(
         for r in rows:
             d = dict(r)
             item_obj = _main._row_to_item(r, include_body=False)
-            items_for_board.append(board.ItemForBoard(
-                item=item_obj,
-                status=d["status"],
-                frozen_value=d.get("frozen"),
-                has_active_run=bool(d.get("has_active_run")),
-                workflow_id=d.get("workflow_id"),
-            ))
+            items_for_board.append(
+                board.ItemForBoard(
+                    item=item_obj,
+                    status=d["status"],
+                    frozen_value=d.get("frozen"),
+                    has_active_run=bool(d.get("has_active_run")),
+                    workflow_id=d.get("workflow_id"),
+                )
+            )
 
         projection = board.project_board(
             items=items_for_board,

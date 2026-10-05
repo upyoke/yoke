@@ -133,8 +133,13 @@ def test_version_refusal_never_reads_or_writes_profile(monkeypatch, version, rea
     monkeypatch.setattr(
         lifetime, "_config_path", lambda: pytest.fail("unsupported version")
     )
-    with pytest.raises(RuntimeError, match=reason + ".*wsl --update"):
-        lifetime.setup()
+    if reason == "wsl_lifetime_version_unsupported":
+        logs = []
+        assert not lifetime.setup(emit=logs.append)
+        assert "Warning:" in logs[0] and "wsl --update" in logs[0]
+    else:
+        with pytest.raises(RuntimeError, match=reason + ".*wsl --update"):
+            lifetime.setup()
 
 
 @pytest.mark.parametrize("encoding", ["utf-8", "utf-16", "utf-16-le"])
@@ -200,3 +205,12 @@ def test_setup_reports_change_and_restart(tmp_path, monkeypatch):
     assert "restart is required" in logs[-1]
     assert not lifetime.setup(emit=logs.append)
     assert "already disabled" in logs[-1]
+
+
+def test_setup_warns_and_skips_when_windows_interop_is_missing(monkeypatch):
+    monkeypatch.setattr(lifetime.shutil, "which", lambda name: None)
+    monkeypatch.setattr(lifetime, "_config_path", lambda: pytest.fail("no interop"))
+    logs = []
+    assert not lifetime.setup(emit=logs.append)
+    assert "Warning: wsl_windows_interop_unavailable" in logs[0]
+    assert "wsl --update" in logs[0]

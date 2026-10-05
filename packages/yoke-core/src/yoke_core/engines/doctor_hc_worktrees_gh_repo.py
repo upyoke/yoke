@@ -58,12 +58,12 @@ def _p(conn) -> str:
 
 def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """Check verified repository bindings using one inventory per repository."""
-    if not _wt._github_auth_configured("yoke", db_path=args.db_path):
+    if not _wt._github_auth_configured(args.project, db_path=args.db_path):
         rec.record(
             "HC-wrong-repo-issues",
             "Wrong-repo GitHub issues",
             "SKIP",
-            GH_APP_AUTH_UNAVAILABLE_SKIP_REASON.format(project="yoke"),
+            GH_APP_AUTH_UNAVAILABLE_SKIP_REASON.format(project=args.project),
         )
         return
     if not _base._table_exists(conn, "projects"):

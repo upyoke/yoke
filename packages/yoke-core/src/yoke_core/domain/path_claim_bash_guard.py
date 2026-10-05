@@ -10,6 +10,7 @@ orientation, refinement, or verification.
 """
 
 from __future__ import annotations
+from yoke_core.domain.events_project_identity import working_project_for_event
 
 import json
 import os
@@ -234,7 +235,11 @@ def _emit_denial(
             session_id=record.session_id,
             severity="WARN",
             outcome=outcome,
-            project="yoke",
+            project=working_project_for_event(
+                conn=conn,
+                session_id=record.session_id,
+                directory=_resolve_cwd(record)[0] if conn is None else None,
+            ),
             context={
                 "bash_verb": verdict.bash_verb,
                 "target_path": verdict.target_path,

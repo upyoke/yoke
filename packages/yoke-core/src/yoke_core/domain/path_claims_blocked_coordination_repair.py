@@ -32,6 +32,7 @@ no-op.
 """
 
 from __future__ import annotations
+from yoke_core.domain.events_project_identity import working_project_for_event
 
 from typing import Any, List, Optional
 
@@ -68,7 +69,7 @@ def _emit_repair_event(
             session_id=session_id,
             severity="INFO",
             outcome="completed",
-            project="yoke",
+            project=working_project_for_event(conn=conn, item_id=item_id),
             item_id=item_id,
             context={
                 "claim_id": claim_id,

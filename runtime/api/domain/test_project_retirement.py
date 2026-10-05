@@ -91,6 +91,25 @@ def test_retirement_leaves_transaction_commit_with_the_caller(conn):
     )
 
 
+def test_retirement_does_not_remove_project_permissions(conn, monkeypatch):
+    from types import SimpleNamespace
+    from yoke_core.domain import actor_permissions
+    from yoke_core.domain.actor_project_visibility import (
+        actor_project_ids_with_permission,
+    )
+
+    retire(conn)
+    seen = []
+
+    def decision(connection, *, actor_id, project_id, permission_key):
+        seen.append((actor_id, project_id, permission_key))
+        return SimpleNamespace(allowed=project_id == 30)
+
+    monkeypatch.setattr(actor_permissions, "permission_decision", decision)
+    assert actor_project_ids_with_permission(conn, 12, "items.read") == {30}
+    assert (12, 30, "items.read") in seen
+
+
 def test_open_item_refusal_uses_pinned_terminal_membership(conn):
     insert_item(
         conn, id=300, workflow_id="dash", project="fixture", status="implementing"

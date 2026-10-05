@@ -56,10 +56,10 @@ projections. It normalizes the affected modes to `disabled`. Use `--project
 `disabled` is independent of the GitHub App repo binding: a project can
 keep the binding for explicitly selected CI, PR/queue, or deployment operations
 while never mirroring backlog content to that repo's issue tracker. A direct
-standalone merge in disabled mode lands locally without App admission, push,
-or post-push checks, even when the checkout has a remote; the outcome says
-GitHub is not connected. Item evidence and lifecycle close-out still run.
-See [GitHub](../github.md#merging-with-github-skipped).
+standalone merge uses the active App binding to decide whether it needs App
+admission, publication, and post-push checks. Disabled issue mirroring does
+not turn those merge gates off.
+See [GitHub](../github.md#merge-connectivity-and-issue-mirroring).
 
 ## Disabled semantics
 

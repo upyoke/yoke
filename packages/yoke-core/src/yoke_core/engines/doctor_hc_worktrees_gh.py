@@ -79,12 +79,12 @@ _DELEGATED_HC_LABELS = {
 
 def hc_gh_orphan_detection(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """Find issue-search results not linked to items or epic tasks."""
-    if not _wt._github_auth_configured("yoke", db_path=args.db_path):
+    if not _wt._github_auth_configured(args.project, db_path=args.db_path):
         rec.record(
             "HC-gh-orphan-detection",
             "GitHub orphan detection",
             "SKIP",
-            GH_APP_AUTH_UNAVAILABLE_SKIP_REASON.format(project="yoke"),
+            GH_APP_AUTH_UNAVAILABLE_SKIP_REASON.format(project=args.project),
         )
         return
 

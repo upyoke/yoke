@@ -190,8 +190,21 @@ def _enable(path: Path) -> bool:
 
 
 def setup(*, emit=print) -> bool:
-    _check_version()
-    path = _config_path()
+    try:
+        _check_version()
+        path = _config_path()
+    except RuntimeError as exc:
+        if not str(exc).startswith(
+            (
+                "wsl_lifetime_version_unsupported:",
+                "wsl_windows_interop_unavailable:",
+                "wsl_windows_command_unavailable:",
+                "wsl_windows_command_failed:",
+            )
+        ):
+            raise
+        emit(f"Warning: {exc} WSL lifetime setup was skipped. {RECOVERY}")
+        return False
     changed = _enable(path)
     if changed:
         emit(
