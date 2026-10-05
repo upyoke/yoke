@@ -51,6 +51,7 @@ def test_candidate_command_records_fail_on_source_rebinding(
     head = "a" * 40
     case = {
         "project": "fixture",
+        "project_id": 1,
         "requirement_id": 41,
         "item_id": None,
         "case_key": "candidate-source",
@@ -89,6 +90,7 @@ def test_command_environment_only_binds_candidate_cases(
     case = {
         "project": "fixture",
         "requirement_id": 42,
+        "project_id": 1,
         "item_id": 9 if lane_bound else None,
         "case_key": "candidate-environment",
         "execution_target": {"deployment": {"release_lineage": head}},

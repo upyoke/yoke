@@ -13,12 +13,12 @@ from yoke_core.hooks.session_dispatch_first_prompt import first_prompt
 
 def test_all_lifecycle_marker_owners_use_bound_project(monkeypatch, tmp_path):
     monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path))
-    monkeypatch.setenv("YOKE_PROJECT", "unrelated-server-project")
-    with scratch.scratch_project("request-project"):
+    monkeypatch.setenv("YOKE_PROJECT", "9")
+    with scratch.scratch_project("7"):
         codex_payload.write_runtime_cache("session", '{"source":"startup"}')
         assert codex_payload.read_runtime_cache_field("session", "source") == "startup"
         assert codex_payload.session_marker_path("session").startswith(
-            str(tmp_path / "request-project")
+            str(tmp_path / "7")
         )
         assert first_prompt("session", codex=True)
         assert first_prompt("session", codex=False)
@@ -30,13 +30,13 @@ def test_all_lifecycle_marker_owners_use_bound_project(monkeypatch, tmp_path):
         assert not orientation.record_orientation_attempt("session")
         orientation.confirm_orientation_delivery()
         assert orientation.orientation_delivered("session")
-    assert not (tmp_path / "unrelated-server-project").exists()
-    assert scratch.resolve_active_project() == "unrelated-server-project"
+    assert not (tmp_path / "9").exists()
+    assert scratch.resolve_active_project() == "9"
 
 
 def test_concurrent_project_bindings_do_not_leak_on_exception(monkeypatch, tmp_path):
     monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path))
-    monkeypatch.setenv("YOKE_PROJECT", "outside-request")
+    monkeypatch.setenv("YOKE_PROJECT", "3")
     barrier = Barrier(2)
 
     def run(project):
@@ -49,7 +49,7 @@ def test_concurrent_project_bindings_do_not_leak_on_exception(monkeypatch, tmp_p
         return scratch.resolve_active_project()
 
     with ThreadPoolExecutor(max_workers=2) as pool:
-        assert list(pool.map(run, ["one", "two"])) == ["outside-request"] * 2
+        assert list(pool.map(run, ["1", "2"])) == ["3"] * 2
 
 
 def test_missing_bound_project_is_not_swallowed():

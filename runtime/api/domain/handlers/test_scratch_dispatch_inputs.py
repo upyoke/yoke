@@ -30,7 +30,7 @@ def _make_request(payload: dict, target_kind: str = "global") -> FunctionCallReq
         request_id="req-test",
         actor=ActorContext(session_id="sid"),
         target=TargetRef(kind=target_kind),
-        payload={"project": "fixture", **payload},
+        payload={"project": "1", **payload},
     )
 
 

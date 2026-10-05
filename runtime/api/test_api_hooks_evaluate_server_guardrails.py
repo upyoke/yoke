@@ -200,12 +200,10 @@ def test_lifecycle_uses_wire_project_without_server_checkout(
             (session_id,),
         ).fetchall()
         assert any(row["hook_event_name"] == event_name for row in telemetry)
-        project = conn.execute("SELECT slug FROM projects WHERE id=1").fetchone()[
-            "slug"
-        ]
+        project = conn.execute("SELECT id FROM projects WHERE id=1").fetchone()["id"]
     assert (
         tmp_path
-        / project
+        / str(project)
         / "hook-markers"
         / f"dispatch-server-{event_name}-{session_id}"
     ).exists()
