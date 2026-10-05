@@ -336,4 +336,3 @@ Project context is loaded by multiple commands, not just conduct.
 - **QA platform.** QA requirements, runs, and artifacts are exposed through `yoke qa ...` adapters such as `yoke qa requirement list`, `yoke qa run list`, and `yoke qa artifact add`. Items must have explicit `qa_requirements` before entering `reviewing-implementation`. Transition gating is enforced by the QA gates domain layer. See `.yoke/docs/reference/qa-platform.md`.
 - **Self-serve body pattern.** Pipeline commands pass only metadata to subagents; subagents read the authoritative body from the DB themselves.
 - **Post-merge pipeline (Usher).** After merge and QA, items reach `implemented`. The Usher creates deployment runs and owns the `implemented -> release -> done` transition. Items may halt at `needs-capability` or `awaiting-approval`.
-

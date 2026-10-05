@@ -16,14 +16,6 @@ function reference, a sibling-plan gap above the 330-line threshold,
 a mismatch between the File Budget and the path-claim's coverage when both
 axes are enabled).
 
-Refine used to release the work claim and exit on **any** non-empty
-readiness output. That conflated "the spec needs human judgement" with
-"the spec recorded a stale numeric count in its File Budget" — and
-``/yoke do`` then treated the released claim as a completed handler,
-re-offered, and often re-selected a different item. The mechanical
-case is a self-contained repair that should not require the operator
-to come back.
-
 The classifier and helper here let refine repair stale-count drift in
 place, re-run the readiness check, and continue the same routed
 handler without releasing the claim or surrendering the chain step.

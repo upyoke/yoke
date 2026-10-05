@@ -1,6 +1,6 @@
 # /yoke steer — standing loop
 
-Strategy document writes: create with `--summary TEXT` and `--state TEXT`, one non-empty plain-text line each. Summary is bounded by `SUMMARY_MAX_CHARS` and State by `STATE_MAX_CHARS` from `yoke_contracts.project_contract.strategy_doc_fields`; the command’s `--help` prints both current limits. Replace, section-replace, and ingest keep exactly one Summary and one State heading, with the current `(N chars max)` suffix; legacy headings normalize on save. State is free text. Revision restore accepts optional `--summary` / `--state` to repair an invalid old revision; coordination append cannot target these fields. Read the write command’s `--help` before acting.
+Strategy document writes: read the selected command’s `--help` for required fields and limits; the canonical contract is `.yoke/docs/reference/db-reference/functions-strategy.md`.
 
 Run this loop after each steering acquire atomically holds a project seat and
 its paired strategy-doc lock. Routine resume reads only the Live Status
@@ -76,14 +76,10 @@ the preview. Between wakes, pull (omit `--project`):
 yoke steering report get
 ```
 
-The report already answers, from live control-plane state, every check that
-used to be a hand query here — one section per finding, each listed below
-with what to do about it, and idle holders keyed on `last_tool_call_at`
-rather than any liveness label. Do not re-run those queries by hand: a seat
-that did burned a pass rediscovering what the report on screen already told
-it. A section with nothing to say prints nothing, so a short report is a
-quiet fleet rather than a broken detector: failures are silences, and the
-report scans them every pass.
+The report answers these checks from live control-plane state, with one
+section per finding and idle holders keyed on `last_tool_call_at`.
+Use it directly. Empty sections print nothing; a short report means the
+detectors have no findings to report.
 
 Read [fleet-findings.md](fleet-findings.md) completely and act on every
 finding before continuing this pass.
@@ -282,25 +278,9 @@ fix, re-verify, re-land, re-enter release. The registered rework transition
 is a backward move the declared-transition gate leaves to rework rather
 than refusing.
 
-`lifecycle.transition` requires the calling session to hold the item's
-work claim, so the steering seat does not make this move on a worker-held
-item — it would be refused `claim_required`, and taking the claim to force
-it would evict the worker mid-lane. Steering names the correction to the
-holder; the holder transitions its own item:
-
-```text
-yoke say --item PREFIX-N --stdin <<'EOF'
-REWORK PREFIX-N: <what to correct, and the evidence it fails>
-EOF
-```
-
-```text
-yoke lifecycle transition PREFIX-N --to implementing --reason "steering rework: <what to correct>"
-```
-
-The first command is steering's; the second is the holder's. When the item
-has no live holder, steering acquires the claim itself and then transitions
-— `yoke claims work holder-get PREFIX-N` answers which case this is.
+Follow the [worker rework-claim procedure](worker-lifecycle.md) to route
+the correction to the live holder, or acquire the claim when no holder exists.
+That document owns the transition recipe and holder-authority rule.
 
 **An item with an unresolved vetting problem is not admitted to a
 release** — leave it out of the batch below rather than deploying it and
@@ -419,8 +399,7 @@ Add `--plan PLAN` only when this run stage names no cases. Then re-drive
 `{RUN_ID}` through its existing pinned runner. Item QA evidence has its own member subject and cannot credit this run-scoped stage.
 A case that failed because the case itself was wrong is corrected with a plan containing only its corrected case: `--plan CORRECTED --replaces CASE_KEY=FAILED_REQUIREMENT_ID`. This correction is allowed even when the stage names admitted cases. The failed case leaves the roster and is superseded when the correction passes review, so never supersede it by hand.
 
-A member whose own item-scoped QA clears no longer needs a manual merge
-close-out. A final member on a selected flow without run QA or run approval closes from its
+Item-scoped QA acceptance triggers automatic member close-out. A final member on a selected flow without run QA or run approval closes from its
 landing and final production QA acceptance or explicit
 `post_deploy_no_obligation` discharge while sibling item QA keeps the run
 executing. A flow with run QA or run approval holds every final member through all

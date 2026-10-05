@@ -155,14 +155,6 @@ captured *before* preflight, the canonical DB has already moved past those
 variables. The operator gets a wrong picture of the chain's residual side
 effects.
 
-A 2026-05-07 chain run produced this exact failure: chain step 2 dispatched
-through ``worktree_preflight`` for an item that began at ``refined-idea``,
-preflight flipped the item status field to ``implementing``, the chain exited with
-``chainable=false``, and the agent's free-form summary then claimed the item
-was "back at ``refined-idea``". The operator's first follow-up was "why is X
-now implementing again?" — the canonical state had already been mutated; the
-summary was wrong.
-
 This is the chain-summary mirror of `advance/finalize.md`'s `Compact-Resistant
 Summary`, which prints `Transition: {_status} → {_target}` from in-flow
 variables. Finalize gets away with in-flow values because it composes its

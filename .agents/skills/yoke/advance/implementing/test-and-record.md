@@ -187,7 +187,7 @@ If the item declares `mutation_intent="apply"` with one or more entries in `migr
   **The module is permanent.** Add it to the ordered history as
   `NNNN_slug.py`, commit it, and leave it there forever. It is never deleted
   after applying; a module that is gone cannot be applied by a universe that
-  never received it, which is exactly how installs used to diverge silently.
+  never received it.
   The body must be safe to re-run and must NOT commit — the applier commits
   each entry together with its ledger row, which is what makes "applied but
   unrecorded" impossible.
