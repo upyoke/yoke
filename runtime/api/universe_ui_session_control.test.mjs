@@ -206,7 +206,7 @@ test("organization Fleet edits only changed registry-backed settings", async (t)
   mounted.unmount();
 });
 
-test("roster keeps exact message actions on open sessions only", async (t) => {
+test("roster keeps exact message actions on every session", async (t) => {
   const requests = [];
   const base = {
     execution_lane: "DARIUS", mode: "wait", executor: "codex",
@@ -256,16 +256,13 @@ test("roster keeps exact message actions on open sessions only", async (t) => {
   );
   const text = allNodes(root).map((node) => node._textContent).join(" ");
   assert.ok(text.includes("Relay:") && text.includes("studio"));
-  assert.ok(text.includes(
-    "Messaging unavailable: this executor surface has no supported "
-    + "delivery hook.",
-  ));
+  assert.ok(!text.includes("Messaging unavailable"));
   const endedCard = byClass(root, "session-card").find(
     (card) => card.getAttribute("data-session-id") === "ended-wakeable",
   );
-  assert.equal(button(endedCard, "Message"), undefined);
-  assert.equal(byClass(endedCard, "session-messaging-blocked").length, 0);
-  assert.equal(byClass(endedCard, "session-latest-message").length, 0);
+  assert.ok(button(endedCard, "Message"));
+  assert.equal(byClass(endedCard, "session-message-delivery-note").length, 0);
+  assert.equal(byClass(endedCard, "session-latest-message").length, 1);
   const activeCard = byClass(root, "session-card").find(
     (card) => card.getAttribute("data-session-id") === "messageable",
   );

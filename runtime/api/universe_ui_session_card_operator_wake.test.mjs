@@ -21,11 +21,7 @@ test("Message button explains a quiet desktop chat waits on its operator", async
   const documentNode = new FakeDocument();
   documentNode.defaultView.location.href = "/sessions?project=1";
   const root = documentNode.createElement("div");
-  // Yoke never resumes this window, so delivery stays available and the
-  // Message button remains, because the hook still carries the message on
-  // the operator's next turn. The card already shows the wait in its parked
-  // badge and footer, so that mechanic rides the button's tooltip instead of
-  // a standalone line.
+  // The operator owns the wake; hooks deliver the queued message next turn.
   const rows = [
     {
       session_id: "desk-1", liveness: "stale",
@@ -51,13 +47,16 @@ test("Message button explains a quiet desktop chat waits on its operator", async
   ).children[1];
   state.value = "";
   state.dispatchEvent(new Event("change"));
-  assert.equal(byClass(root, "session-messaging-blocked").length, 0);
+  assert.equal(byClass(root, "session-message-delivery-note").length, 1);
   const buttons = byClass(byClass(root, "session-card")[0], "item-button");
   assert.deepEqual(buttons.map((button) => button.textContent), ["Message"]);
   assert.equal(
     buttons[0].getAttribute("data-tooltip"),
-    "Waiting for the operator to wake it: a message is delivered when they "
-      + "next type anything in this chat.",
+    "Queued — delivered when you wake this session.",
+  );
+  assert.equal(
+    byClass(root, "session-message-delivery-note")[0].textContent,
+    "Queued — delivered when you wake this session.",
   );
   mounted.unmount();
 });
