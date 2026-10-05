@@ -47,6 +47,7 @@ const html = (assets) => `<!doctype html><html><head>
   </style></head><body><main class="universe-app-root">
   <div id="delivery" class="proof"></div>
   <div id="specimens"></div>
+  <div id="grids"></div>
   <footer class="proof-footer">Styles: candidate checkout;
     fixture data; no control-plane universe</footer>
   </main><script type="module">
@@ -92,6 +93,37 @@ const html = (assets) => `<!doctype html><html><head>
     renderInboxView({ document, isMounted: () => true, projects: () => [{ id: 1, slug: "Demo" }],
       client: { call: async (request) => ({ status: 200, envelope: { success: true,
         result: request.function === "inbox.list" ? { needs_decision: rows, messages: [] } : { rows: [] } } }) } }, inboxHost, "all");
+    const gridKinds = [
+      ["Sessions", "session-grid", "session-card"],
+      ["Machines", "machines-grid", "machine-card"],
+      ["Frontier", "work-card-grid", "work-item-card"],
+      ["Inbox", "work-card-grid", "work-item-card"],
+      ["Strategy", "work-card-grid", "work-item-card"],
+      ["Strategy documents", "strategy-doc-grid", "strategy-doc-card"],
+      ["Work sessions", "work-session-grid", "session-card"],
+      ["Shipping runs", "work-card-grid shipping-run-grid", "shipping-run-card"],
+    ];
+    for (const [label, gridClass, cardClass] of gridKinds) {
+      const specimen = document.createElement("section");
+      specimen.className = "proof grid-proof";
+      specimen.dataset.label = label;
+      const header = document.createElement("div");
+      header.className = "panel-header";
+      header.textContent = label;
+      specimen.append(header);
+      for (const count of [8, 1]) {
+        const grid = document.createElement("div");
+        grid.className = gridClass;
+        for (let index = 0; index < count; index += 1) {
+          const card = document.createElement("article");
+          card.className = cardClass;
+          card.textContent = "Card " + (index + 1);
+          grid.append(card);
+        }
+        specimen.append(grid);
+      }
+      document.getElementById("grids").append(specimen);
+    }
     window.proofReady = true;
   </script></body></html>`;
 
@@ -119,7 +151,7 @@ try {
   await page.goto(`http://127.0.0.1:${server.address().port}/`);
   await page.waitForFunction(() => window.proofReady
     && document.querySelector('[data-fold="section:inbox-waiting"] .approval-carried'));
-  for (const width of [268, 350, 1100]) {
+  for (const width of [268, 350, 1100, 1250]) {
     await page.setViewportSize({ width: width + 40, height: 1000 });
     await page.evaluate((value) => {
       document.documentElement.style.setProperty("--proof-width", `${value}px`);
@@ -140,6 +172,19 @@ try {
           rowLeftGap: row.getBoundingClientRect().left - row.parentElement.getBoundingClientRect().left };
       });
       return {
+        grids: [...document.querySelectorAll(".grid-proof")].map((specimen) => {
+          const [header, full, sparse] = specimen.children;
+          const cards = [...full.children].map((card) => card.getBoundingClientRect());
+          const firstRow = cards.filter((card) => Math.abs(card.top - cards[0].top) < 1);
+          const sparseCard = sparse.firstChild.getBoundingClientRect();
+          return { label: specimen.dataset.label, columns: firstRow.length,
+            rightGap: header.getBoundingClientRect().right - firstRow.at(-1).right,
+            leftGap: cards[0].left - header.getBoundingClientRect().left,
+            sparseLeftGap: sparseCard.left - cards[0].left,
+            sparseWidthGap: sparseCard.width - cards[0].width,
+            overflowing: full.scrollWidth > full.clientWidth + 1
+              || sparse.scrollWidth > sparse.clientWidth + 1 };
+        }),
         captions: document.querySelectorAll(".qa-panel-context,.panel-hint").length,
         pendingCarried: document.querySelector('[data-fold="section:inbox-waiting"] .approval-carried') !== null,
         decidedCarried: document.querySelector('[data-fold="section:inbox-decided"] .approval-carried') !== null,
@@ -157,6 +202,15 @@ try {
     assert.equal(result.decidedControls, 0);
     assert.equal(result.inboxAlign, "left");
     assert.equal(result.overflowing, 0, `Overflow at ${width}px`);
+    for (const grid of result.grids) {
+      assert(Math.abs(grid.rightGap) < 1, `${grid.label} last column must reach the header edge at ${width}px`);
+      assert(Math.abs(grid.leftGap) < 1, `${grid.label} first column must align with the header`);
+      assert(Math.abs(grid.sparseLeftGap) < 1, `${grid.label} sparse band must align with populated bands`);
+      assert(Math.abs(grid.sparseWidthGap) < 1, `${grid.label} sparse band must preserve empty column slots`);
+      assert.equal(grid.overflowing, false, `${grid.label} must not scroll horizontally`);
+      if (width === 268) assert.equal(grid.columns, 1, `${grid.label} must stack on phones`);
+      if (width >= 1100) assert(grid.columns >= 3, `${grid.label} must exercise desktop columns`);
+    }
     for (const row of result.measurements) {
       assert.equal(row.align, "left", row.label);
       if (width === 268) assert(row.wrapped, `${row.label} must exercise a second line`);
