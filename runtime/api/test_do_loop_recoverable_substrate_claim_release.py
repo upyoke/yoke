@@ -1,7 +1,7 @@
 # ruff: noqa: F811
 """Regression coverage for the claim-release side of recoverable substrate skips.
 
-When ``/yoke do`` records a ``recoverable_substrate`` chain-skip
+When ``session-offer`` records a ``recoverable_substrate`` chain-skip
 checkpoint, the routed handler has already failed before useful work
 began. Skip memory carries the dedup key so the next offer avoids the
 same item, but the session's item work-claim must also be released --

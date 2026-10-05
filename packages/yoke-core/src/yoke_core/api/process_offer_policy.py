@@ -1,4 +1,4 @@
-"""The ``/yoke do`` process-offer policy and chain budget.
+"""The ``session-offer`` process-offer policy and chain budget.
 
 Split from :mod:`yoke_core.api.routing_config`, which resolves where a
 session runs (its lane and that lane's allowed actions). This module
@@ -54,9 +54,9 @@ def _parse_bool(raw: Optional[str], default: bool) -> bool:
 
 @dataclass(frozen=True)
 class ProcessOfferPolicy:
-    """Config-gated per-process-key dispatch policy for ``/yoke do``.
+    """Config-gated per-process-key dispatch policy for ``session-offer``.
 
-    ``/yoke do`` consults a config-backed policy before returning or dispatching
+    ``session-offer`` consults a config-backed policy before returning or dispatching
     a process-backed action (``STRATEGIZE``, ``FEED``, ``DOCTOR``, future).
     When a project policy is supplied, ``session-routing`` is the complete
     project authority.  Machine config is only the no-project fallback.
@@ -120,7 +120,7 @@ def _offer_entries(raw: Dict[str, str]) -> "tuple[Optional[bool], Dict[str, bool
     for key, value in raw.items():
         if not key.startswith(_PROCESS_OFFER_PREFIX):
             continue
-        suffix = key[len(_PROCESS_OFFER_PREFIX):]
+        suffix = key[len(_PROCESS_OFFER_PREFIX) :]
         if not suffix or suffix == "default":
             continue
         per_process[suffix.lower()] = _parse_bool(value, default=False)
@@ -134,7 +134,7 @@ def load_process_offer_policy(
     project_settings: Optional[Mapping[str, str]] = None,
     shared_project_source: Optional[str] = None,
 ) -> ProcessOfferPolicy:
-    """Load the ``/yoke do`` process-offer policy.
+    """Load the ``session-offer`` process-offer policy.
 
     Machine scope reads ``config_path`` only when no DB project settings are
     supplied.  ``project_dir`` is accepted for old callers and ignored.
@@ -149,8 +149,7 @@ def load_process_offer_policy(
             {str(k): str(v) for k, v in project_settings.items()}
         )
         shared_project_source = (
-            shared_project_source
-            or f"project capability {PROJECT_ROUTING_CAPABILITY}"
+            shared_project_source or f"project capability {PROJECT_ROUTING_CAPABILITY}"
         )
     return ProcessOfferPolicy(
         default_enabled=(
@@ -170,7 +169,6 @@ def get_max_chain_steps(config_path: str | Path) -> int:
         return int(raw.get("max_chain_steps", _MAX_CHAIN_STEPS_DEFAULT))
     except (ValueError, TypeError):
         return _MAX_CHAIN_STEPS_DEFAULT
-
 
 
 __all__ = [

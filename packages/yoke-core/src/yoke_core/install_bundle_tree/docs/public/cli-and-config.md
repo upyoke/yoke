@@ -19,7 +19,7 @@ yoke board rebuild --print-only
 yoke doctor
 ```
 
-Harness skills (`/yoke do`, `/yoke idea`, …) call the same function-call
+Harness skills (`/yoke steer`, `/yoke idea`, …) call the same function-call
 surface; CLI adapters are the operator/debug shape. Prefer
 `yoke <subcommand> --help` for flags.
 

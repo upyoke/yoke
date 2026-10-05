@@ -16,17 +16,8 @@ function reference, a sibling-plan gap above the 330-line threshold,
 a mismatch between the File Budget and the path-claim's coverage when both
 axes are enabled).
 
-Refine used to release the work claim and exit on **any** non-empty
-readiness output. That conflated "the spec needs human judgement" with
-"the spec recorded a stale numeric count in its File Budget" — and
-``/yoke do`` then treated the released claim as a completed handler,
-re-offered, and often re-selected a different item. The mechanical
-case is a self-contained repair that should not require the operator
-to come back.
-
-The classifier and helper here let refine repair stale-count drift in
-place, re-run the readiness check, and continue the same routed
-handler without releasing the claim or surrendering the chain step.
+Mechanical stale-count drift is repaired in place. The work claim stays
+held while refine re-runs readiness and continues its artifact review.
 
 ## The classifier
 
@@ -219,29 +210,6 @@ The helper applies the matching amendment via the existing
 (mixed widen+narrow, zero or multiple non-terminal exclusive claims,
 non-recoverable codes mixed in) surface structured `refused_paths`
 entries and fall through into the rest of refine.
-
-## /yoke do contract
-
-A successful refine-entry stale-count repair is **continuation of the
-same routed handler**, not a new chain step:
-
-- The work claim stays held by the refine session — there is no
-  release-and-re-claim choreography for repair-only.
-- ``/yoke do``'s scheduler does not see a released claim, so it
-  does not re-offer with a different item between the repair and the
-  rest of refine.
-- The chain step counter does not bump just because the repair
-  happened. The handler ``completed`` outcome (or its eventual
-  replacement) is recorded once when refine finishes the whole
-  ``idea -> refining-idea -> refined-idea`` arc.
-
-If the repair refuses (sibling-plan gap, ambiguous match, structured
-write refusal), refine releases the claim with reason
-`readiness-check-blocked` and exits 1. ``/yoke do`` records that
-exit through the existing handler-outcome path; the chain step then
-honors the operator's expected behavior (no special-case wiring is
-required because the helper failure resolves to the same shape as
-the prior unrecoverable branch).
 
 ## What the helper deliberately does NOT do
 

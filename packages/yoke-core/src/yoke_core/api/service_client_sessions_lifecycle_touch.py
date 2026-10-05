@@ -58,16 +58,21 @@ def cmd_session_heartbeat(args: list[str]) -> int:
     conn = _get_db_readwrite()
     try:
         from yoke_core.domain.sessions import SessionError
+
         try:
             result = domain_heartbeat(conn, parsed.session_id)
             print(json.dumps({"success": True, "session": result}))
         except SessionError as exc:
-            print(json.dumps({
-                "success": True,
-                "already_ended": True,
-                "code": exc.code,
-                "message": exc.message,
-            }))
+            print(
+                json.dumps(
+                    {
+                        "success": True,
+                        "already_ended": True,
+                        "code": exc.code,
+                        "message": exc.message,
+                    }
+                )
+            )
         return 0
     finally:
         conn.close()
@@ -106,6 +111,7 @@ def cmd_session_touch(args: list[str]) -> int:
     conn = _get_db_readwrite()
     try:
         from yoke_core.domain.sessions import SessionError
+
         try:
             result = domain_heartbeat(conn, parsed.session_id)
             if parsed.mode is not None:
@@ -115,16 +121,17 @@ def cmd_session_touch(args: list[str]) -> int:
             return 0
         except SessionError as exc:
             if exc.code == "NOT_FOUND":
-                msg = (f"Error: session {parsed.session_id} not found. "
-                       "Ensure session-begin was called at session start.")
+                msg = (
+                    f"Error: session {parsed.session_id} not found. "
+                    "Ensure session-begin was called at session start."
+                )
             elif exc.code == "SESSION_ENDED":
                 # The domain message already names the populated re-register
                 # command; substituting local prose here would drop it.
                 msg = f"Error: {exc.message}"
             else:
                 msg = f"Error: {exc.message}"
-            print(json.dumps({"error": exc.code, "message": msg}),
-                  file=sys.stderr)
+            print(json.dumps({"error": exc.code, "message": msg}), file=sys.stderr)
             return 1
     finally:
         conn.close()
@@ -143,20 +150,32 @@ def _validate_active_session(conn, session_id: str) -> bool:
     ).fetchone()
 
     if row is None:
-        print(json.dumps({
-            "success": False,
-            "error": ("Error: no active session. Session must be started by "
-                      "harness hook or /yoke do before claiming work."),
-        }), file=sys.stderr)
+        print(
+            json.dumps(
+                {
+                    "success": False,
+                    "error": (
+                        "Error: no active session. Session must be started by "
+                        "opening harness hook before claiming work."
+                    ),
+                }
+            ),
+            file=sys.stderr,
+        )
         return False
 
     if row["ended_at"] is not None:
         from yoke_core.domain.sessions_ended_recovery import session_ended_message
 
-        print(json.dumps({
-            "success": False,
-            "error": f"Error: {session_ended_message(conn, session_id)}",
-        }), file=sys.stderr)
+        print(
+            json.dumps(
+                {
+                    "success": False,
+                    "error": f"Error: {session_ended_message(conn, session_id)}",
+                }
+            ),
+            file=sys.stderr,
+        )
         return False
 
     return True

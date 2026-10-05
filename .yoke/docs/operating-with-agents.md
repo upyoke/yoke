@@ -6,7 +6,7 @@ loads skills and hooks; Yoke owns state, approvals, and evidence.
 ## Session loop
 
 ```text
-/yoke do          # engine picks next action
+/yoke steer       # staff work from strategy
 /yoke charge      # run frontier head
 /yoke feed        # refresh frontier / materialize from strategy
 /yoke strategize  # guided strategy review

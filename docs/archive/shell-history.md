@@ -374,7 +374,7 @@ Python entrypoints under `runtime/api/domain/` plus the data artifacts under `ru
 
 ### runtime/harness/codex/manifest.json
 
-**Purpose:** Capability manifest (data only, not a script) declaring Codex adapter identity, `bootstrap.spec_path`, supported entrypoints (`/yoke idea`, `/yoke do`, `/yoke refine`, `/yoke polish`), downstream paths, and optional local affordances. Read by Yoke core for server-side `supported_paths` derivation (YOK-1299) and by `codex_entry.py` for identity resolution.
+**Purpose:** Capability manifest (data only, not a script) declaring Codex adapter identity, `bootstrap.spec_path`, supported entrypoints (`/yoke idea`, `session-offer`, `/yoke refine`, `/yoke polish`), downstream paths, and optional local affordances. Read by Yoke core for server-side `supported_paths` derivation (YOK-1299) and by `codex_entry.py` for identity resolution.
 
 ### runtime/api/domain/codex_hooks.py
 

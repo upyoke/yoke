@@ -26,8 +26,8 @@ web workbench and the CLI both talk to that universe.
 4. Verify through attached QA
 5. Usher: merge, deploy, record evidence, mark done
 
-`/yoke do` offers the session to Yoke's decision engine when you want the
-system to pick the next useful move. Direct commands remain available.
+`/yoke steer` staffs work from strategy. `/yoke charge` selects a runnable
+item from the frontier for the current session.
 
 ## Read next
 

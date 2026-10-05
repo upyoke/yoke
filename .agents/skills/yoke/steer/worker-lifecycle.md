@@ -111,7 +111,7 @@ run it down. Level counts only when headrooms are comparable, and avoid a
 surface under 100% for long items. There is no per-surface session cap; a
 surface absent from the launch-balance line cannot accept one at all.
 
-## 4. Route one item through its pinned workflow, never via `/yoke do`
+## 4. Route one item through its pinned workflow
 
 Before authoring the launch, read the pinned workflow and scheduler route:
 
@@ -123,7 +123,7 @@ yoke charge schedule --project {_project} --item PREFIX-N --json
 The launch prompt names exactly one item, the returned routed entrypoint, and
 that workflow's remaining legs. One worker owns the item across those legs.
 Work arriving in any workflow stays there; never convert or re-file it to make
-it Dash-shaped. Chaining `/yoke do` duplicates the steerer-owned selection.
+it Dash-shaped. The worker executes only its assigned item; steering owns selection.
 
 ## 5. Workers self-end after their DONE report — once the item is done
 

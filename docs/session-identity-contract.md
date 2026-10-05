@@ -314,7 +314,7 @@ outcome of either path to the operator exactly once per reactivation cycle.
 `HarnessSessionResumeBlockShown` marks the render so subsequent prompts in
 the same cycle do not re-render. A subsequent reactivation re-arms the block.
 
-`/yoke do` and `/yoke charge` continue to route to the scheduler-selected
+`session-offer` and `/yoke charge` continue to route to the scheduler-selected
 downstream skill; the slim resume block names the prior targets explicitly so
 the operator can intervene whenever Path B fell through to advisory.
 

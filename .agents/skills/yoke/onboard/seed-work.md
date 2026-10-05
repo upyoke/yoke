@@ -138,4 +138,4 @@ If any required row is still `unknown`, `needed`, or `blocked`, mark `lifecycle-
 
 ## 5. Hand Off
 
-Finish with the summary the router's Handoff section defines: project, run id, rows, docs, Packs, capabilities (redacted), environments, deploy URL plus smoke result or the explicit deferral, seeded ids, remaining blockers. The session ends with queued work, not a finished configuration screen: point the operator at `/yoke do` to start the build loop — the loop itself is outside this skill.
+Finish with the summary the router's Handoff section defines: project, run id, rows, docs, Packs, capabilities (redacted), environments, deploy URL plus smoke result or the explicit deferral, seeded ids, remaining blockers. The session ends with queued work, not a finished configuration screen: point the operator at `/yoke steer` to staff the queued work, or `/yoke charge` to pick up a runnable item.

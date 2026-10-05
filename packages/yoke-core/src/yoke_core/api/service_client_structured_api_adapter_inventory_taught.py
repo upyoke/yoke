@@ -35,7 +35,7 @@ _NOTE = (
 
 
 def _service_client_taught() -> List[AdapterEntry]:
-    """Session + orchestration adapters taught by ``/yoke do`` etc."""
+    """Session + orchestration adapters taught by ``session-offer`` etc."""
     sc = "python3 -m yoke_core.api.service_client"
     reads = (
         ("evaluate-gate", "evaluate_gate"),
@@ -56,18 +56,22 @@ def _service_client_taught() -> List[AdapterEntry]:
     )
     out: List[AdapterEntry] = []
     for sub, slug in reads:
-        out.append(AdapterEntry(
-            function_id=f"internal.service_client.{slug}",
-            cli_invocation=f"{sc} {sub}",
-            notes=_NOTE,
-            read_shape=True,
-        ))
+        out.append(
+            AdapterEntry(
+                function_id=f"internal.service_client.{slug}",
+                cli_invocation=f"{sc} {sub}",
+                notes=_NOTE,
+                read_shape=True,
+            )
+        )
     for sub, slug in writes:
-        out.append(AdapterEntry(
-            function_id=f"internal.service_client.{slug}",
-            cli_invocation=f"{sc} {sub}",
-            notes=_NOTE,
-        ))
+        out.append(
+            AdapterEntry(
+                function_id=f"internal.service_client.{slug}",
+                cli_invocation=f"{sc} {sub}",
+                notes=_NOTE,
+            )
+        )
     return out
 
 

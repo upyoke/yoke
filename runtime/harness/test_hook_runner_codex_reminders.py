@@ -55,7 +55,7 @@ class TestCodexReminderInstallAdvisory(unittest.TestCase):
         # and independent of registry contents.
         patcher_prompt = mock.patch(
             "yoke_core.domain.harness_capability_registry.prompt_reminder_lines",
-            return_value=["  /yoke do  -- continue work"],
+            return_value=["  /yoke refine  -- review work"],
         )
         patcher_paths = mock.patch(
             "yoke_core.domain.harness_capability_registry.shared_downstream_paths",

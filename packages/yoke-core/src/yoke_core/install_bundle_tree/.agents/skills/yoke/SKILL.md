@@ -21,7 +21,7 @@ then read the one file the subcommand owns.
 
 ## Subcommands
 
-Operator: `/yoke do` · `/yoke charge` · `/yoke feed` · `/yoke strategize` ·
+Operator: `/yoke charge` · `/yoke feed` · `/yoke strategize` ·
 `/yoke steer` · `/yoke onboard` · `/yoke idea` · `/yoke dash` · `/yoke blitz` ·
 `/yoke shepherd` · `/yoke conduct` · `/yoke usher` · `/yoke doctor` ·
 `/yoke models` · `/yoke resync` · `/yoke curate` · `/yoke wrapup` ·

@@ -102,7 +102,7 @@ def session_offer_with_ownership(
             upstream by ``resolve_session_project_scope``; ``None`` is
             normalized to ``[]`` (defensive — production callers always
             pass an explicit list).
-        apply_workspace_home_filter: When true (argless ``/yoke do``),
+        apply_workspace_home_filter: When true (argless ``session-offer``),
             keep only the workspace-home project for claiming and stash
             other projects' runnable steps as elsewhere. Explicit
             ``--project`` leaves this false.
@@ -163,7 +163,7 @@ def session_offer_with_ownership(
         raise SessionError(
             "NO_SESSION",
             f"No active session found for '{session_id}'. "
-            "Session must be started by harness hook or /yoke do before offering work.",
+            "Session must be registered by the opening harness hook before offering work.",
         )
     if row[0] is not None:
         raise SessionError(

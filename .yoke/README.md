@@ -47,7 +47,7 @@ including the starter board art — renders from Python
   `merge_conflict_threshold`, `max_attempts`, and `file_line_limit`; board
   appearance and scope live under `project-policy.settings.board`.
 - Session routing (authoritative DB): `session-routing` capability settings
-  for default lanes, lane allowlists, and `/yoke do` process-offer policy.
+  for default lanes, lane allowlists, and `session-offer` process-offer policy.
 - Machine checkout binding (`~/.yoke/config.json`): maps this checkout to the
   connected universe's project id; it carries no board policy.
 - Generated board view: always written to `.yoke/BOARD.md`. Generated output

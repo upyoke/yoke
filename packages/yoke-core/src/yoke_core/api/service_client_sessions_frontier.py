@@ -44,7 +44,9 @@ def build_frontier_state_from_schedule(
     scheduler-internal ids are rendered as public refs resolved from ``conn``
     in one read, so divergent project sequences surface the true ref.
     """
-    skip_ids = {normalize_claim_item_id(str(x)) for x in (skip_memory_item_ids or set())}
+    skip_ids = {
+        normalize_claim_item_id(str(x)) for x in (skip_memory_item_ids or set())
+    }
 
     # The projection renders a ref for every ranked, blocked, and exceptional
     # step, so the whole set resolves in one read before any of it is built.
@@ -59,9 +61,12 @@ def build_frontier_state_from_schedule(
     )
 
     selected_step = schedule.selected_step
-    if selected_step is not None and normalize_claim_item_id(str(selected_step.item_id)) in skip_ids:
+    if (
+        selected_step is not None
+        and normalize_claim_item_id(str(selected_step.item_id)) in skip_ids
+    ):
         # Scheduler's top pick is in skip-memory; promote the next surviving
-        # ranked step so /yoke do charge dispatch still gets scheduler_context.
+        # ranked step so session-offer charge dispatch still gets scheduler_context.
         # Same filter shape as the runnable_items projection below.
         selected_step = next(
             (
@@ -77,7 +82,9 @@ def build_frontier_state_from_schedule(
     if selected_step:
         ss = selected_step
         scheduler_ctx = {
-            "next_step": ss.next_step.value if hasattr(ss.next_step, "value") else str(ss.next_step),
+            "next_step": ss.next_step.value
+            if hasattr(ss.next_step, "value")
+            else str(ss.next_step),
             "workflow_id": ss.workflow_id,
             "workflow_version_id": ss.workflow_version_id,
             "workflow_version": ss.workflow_version,
@@ -104,21 +111,25 @@ def build_frontier_state_from_schedule(
         bs_ref = _ref(bs.item_id)
         for ge in bs.gate_evaluations:
             if not ge.satisfied:
-                blocked_details_list.append({
-                    "item_id": bs_ref,
-                    "blocking_item": ge.blocking_item,
-                    "gate_point": ge.gate_point,
-                    "satisfaction": ge.satisfaction,
-                    "rationale": getattr(ge, "rationale", ""),
-                    "reason": ge.reason,
-                })
+                blocked_details_list.append(
+                    {
+                        "item_id": bs_ref,
+                        "blocking_item": ge.blocking_item,
+                        "gate_point": ge.gate_point,
+                        "satisfaction": ge.satisfaction,
+                        "rationale": getattr(ge, "rationale", ""),
+                        "reason": ge.reason,
+                    }
+                )
         intrinsic_reasons = getattr(bs, "blocked_reasons", None) or []
         if intrinsic_reasons:
-            intrinsic_reasons_list.append({
-                "item_id": bs_ref,
-                "status": getattr(bs, "status", ""),
-                "reasons": list(intrinsic_reasons),
-            })
+            intrinsic_reasons_list.append(
+                {
+                    "item_id": bs_ref,
+                    "status": getattr(bs, "status", ""),
+                    "reasons": list(intrinsic_reasons),
+                }
+            )
     lane_filtered_items = getattr(schedule, "lane_filtered_items", None)
     runnable = [
         _ref(s.item_id)
@@ -131,7 +142,9 @@ def build_frontier_state_from_schedule(
         blocked_items=[_ref(s.item_id) for s in schedule.blocked_steps],
         exceptional_items=[_ref(s.item_id) for s in schedule.exceptional_steps],
         blocked_details=blocked_details_list if blocked_details_list else None,
-        intrinsic_blocked_reasons=intrinsic_reasons_list if intrinsic_reasons_list else None,
+        intrinsic_blocked_reasons=intrinsic_reasons_list
+        if intrinsic_reasons_list
+        else None,
         sml_coherent=schedule.sml_state.coherent,
         drift_review=drift_review_dict,
         selected_item=selected_item,
@@ -140,7 +153,8 @@ def build_frontier_state_from_schedule(
         lane_filtered_count=getattr(schedule, "lane_filtered_count", 0),
         lane_filtered_items=list(lane_filtered_items) if lane_filtered_items else None,
         last_completed_step=last_completed_step,
-        runnable_elsewhere=list(getattr(schedule, "runnable_elsewhere", None) or []) or None,
+        runnable_elsewhere=list(getattr(schedule, "runnable_elsewhere", None) or [])
+        or None,
         workspace_home_project=getattr(schedule, "workspace_home_project", None),
     )
 

@@ -57,7 +57,6 @@ def _read(path: Path) -> str:
 # versions currently bind them.
 SHARED_WORKFLOW_ENTRYPOINTS = {
     "/yoke idea",
-    "/yoke do",
     "/yoke refine",
     "/yoke advance",
     "/yoke polish",
@@ -316,3 +315,13 @@ class TestLifecycleDocsAlignWithManifest:
             "lifecycle.md registered skill table must list advance"
         )
         assert "from_stage_id <= current_stage < through_stage_id" in section
+
+
+def test_operator_commands_resolve_to_existing_skills():
+    from yoke_core.domain.harness_capability_registry import safe_operator_surface
+
+    for command in safe_operator_surface():
+        skill_id = command.entrypoint.split()[-1]
+        assert (REPO / ".agents/skills/yoke" / skill_id / "SKILL.md").is_file()
+        packaged = REPO / "packages/yoke-core/src/yoke_core/install_bundle_tree"
+        assert (packaged / ".agents/skills/yoke" / skill_id / "SKILL.md").is_file()

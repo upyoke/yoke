@@ -15,7 +15,7 @@ target-kind identifiers (`item_id`, `epic_id`+`task_num`, or
 
 This is Option B from the YOK-1855 vetting session. Option A (preserve
 the `ACTIVE_CLAIM` rejection and document the manual `claim-release`
-prerequisite in `/yoke do` Step D) was considered and rejected.
+prerequisite in `session-offer` Step D) was considered and rejected.
 
 ## Why
 
@@ -44,7 +44,7 @@ Three reasons drove the flip:
    CLAUDE.md's Yoke Authority rule, "Yoke is designed for the
    operator to kick off work and walk away." A cleanup step the loop
    could not autonomously execute was a regression of that principle,
-   not a feature. Recipe-event evidence showed every `/yoke do`
+   not a feature. Recipe-event evidence showed every `session-offer`
    cleanup cycle hitting this on the first try and requiring manual
    `release-work-claim` before retrying `session-end`.
 
@@ -55,7 +55,7 @@ Three reasons drove the flip:
    on laptop sleep / app reload / brief disconnect / idle timeout)
    lives in the `SessionEnd` *hook* path, not the explicit CLI path,
    and that protection stays intact under Option B because the
-   no-flags CLI / `/yoke do` loop is asking to end deliberately.
+   no-flags CLI / `session-offer` loop is asking to end deliberately.
 
 ## Evidence
 
@@ -101,9 +101,6 @@ Three reasons drove the flip:
 - `runtime/api/service_client_sessions_lifecycle_end.py` — success
   JSON gains the top-level `released_claims` field. Error JSON for
   `CHAIN_PENDING` / `TRANSIENT_END_DEFERRED` unchanged.
-- `.agents/skills/yoke/do/loop-followups.md` Step D — updated to
-  document the auto-release semantics and the `released_claims`
-  payload.
 
 ## Trade-offs
 

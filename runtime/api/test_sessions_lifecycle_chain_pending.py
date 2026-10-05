@@ -2,7 +2,7 @@
 
 Sibling of ``test_sessions_lifecycle_chain.py`` and
 ``test_sessions_lifecycle_chain_override.py``. Covers the structural
-fix that protects in-flight ``/yoke do`` chains across an early
+fix that protects in-flight ``session-offer`` chains across an early
 claim release (advance/finalize step 6b's ``handoff-to-polish`` /
 ``handoff-to-usher``) so the Stop hook can no longer silently end a
 session whose chain checkpoint still has budget remaining.

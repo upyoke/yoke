@@ -2,7 +2,7 @@
 """Unit tests for handler-outcome classification helpers.
 
 Outcome classification, chain labels, and skip/handoff records at the helper
-surface. ``/yoke do`` integration regressions and the
+surface. ``session-offer`` integration regressions and the
 recoverable-substrate reproduction live in the sibling module
 ``runtime.api.test_do_loop_recoverable_substrate``.
 """
@@ -168,10 +168,7 @@ class TestRenderChainSummaryLabel:
         assert render_chain_summary_label(OUTCOME_BLOCKED) == "handler blocked"
 
     def test_unknown_outcome_falls_back_to_completed(self):
-        assert (
-            render_chain_summary_label("future_outcome")
-            == "handler completed"
-        )
+        assert render_chain_summary_label("future_outcome") == "handler completed"
 
     def test_none_falls_back_to_completed(self):
         assert render_chain_summary_label(None) == "handler completed"
@@ -293,9 +290,13 @@ class TestRecordRecoverableSubstrateSkip:
             bare.commit()
             with patch("yoke_core.domain.events.emit_event"):
                 record_recoverable_substrate_skip(
-                    bare, session_id="sess-bare-row", chain_step=1,
-                    project="yoke", item_id=1599,
-                    routed_action="advance", failure_class="cwd_drift",
+                    bare,
+                    session_id="sess-bare-row",
+                    chain_step=1,
+                    project="yoke",
+                    item_id=1599,
+                    routed_action="advance",
+                    failure_class="cwd_drift",
                     remediation_owner=f"YOK-{1599}",
                 )
             envelope_raw = bare.execute(
@@ -318,9 +319,7 @@ class TestRecordInteractiveCheckpointHandoff:
     def test_writes_chain_checkpoint_with_interactive_outcome(self, conn):
         _register(conn, session_id="sess-checkpoint")
         with patch("yoke_core.domain.events.emit_event"):
-            with patch(
-                "yoke_core.domain.sessions_analytics._emit_event"
-            ):
+            with patch("yoke_core.domain.sessions_analytics._emit_event"):
                 checkpoint = record_interactive_checkpoint_handoff(
                     conn,
                     session_id="sess-checkpoint",

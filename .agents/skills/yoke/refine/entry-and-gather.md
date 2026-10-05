@@ -37,7 +37,7 @@ true. Read and follow
 table (`pass` / `pure_stale_count` auto-fix / `FILE_BUDGET_NOT_IN_CLAIM`
 auto-widen / `mixed_stale_count` continuation / `unrecoverable`
 terminal block), the routing rationale, exact registered commands, claim
-release behavior, and `/yoke do` chain-step contract. Run it only when
+release behavior.  Run it only when
 `REFINE_ARTIFACT_SCOPE=item_artifact` and
 `ITEM_STATUS=REFINE_SOURCE_STATUS`.
 

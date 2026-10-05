@@ -139,7 +139,7 @@ The system must remain safe if the hook is missing or the Codex version is too o
 The first Codex proving slice should only claim support for:
 
 - safe entry via `/yoke idea`
-- safe entry via `/yoke do`
+- safe entry via `session-offer`
 - one explicit review/polish lane that needs only a small downstream Yoke command surface
 
 It must not imply blanket parity for every Yoke command.
@@ -163,7 +163,7 @@ This support declaration is how Yoke decides whether Codex can take the next ste
 
 ### 6. Put all routing and fallback in Yoke core
 
-`/yoke do` should consume the support declaration and:
+`session-offer` should consume the support declaration and:
 
 - route work only when the downstream path is supported
 - fall back truthfully when it is not
@@ -272,7 +272,7 @@ Each harness should fit this manifest shape conceptually:
   "supports": {
     "entrypoints": [
       "/yoke idea",
-      "/yoke do"
+      "session-offer"
     ],
     "downstream_paths": [
       "review_polish_v1"
@@ -309,7 +309,7 @@ And each concrete harness adapter should ship this checklist:
 
 For Codex, the first useful harness instantiation should be:
 
-- wrapper-only safe entry for `/yoke idea` and `/yoke do`
+- wrapper-only safe entry for `/yoke idea` and `session-offer`
 - hook-enhanced bootstrap via `SessionStart`
 - hook-enhanced prompt guidance via `UserPromptSubmit`
 - hook-enhanced Bash preflight guardrails and timing via `PreToolUse`
@@ -359,11 +359,11 @@ This is the operator-relevant map of what Yoke should actually try to port in `Y
 1. A Yoke-owned harness bootstrap contract doc
 2. A reusable harness-adapter template / manifest definition
 3. A Codex-specific thin bootstrap wrapper over that contract
-4. A Codex support-declaration surface consumed by `/yoke do`
+4. A Codex support-declaration surface consumed by `session-offer`
 5. An optional Codex hook pack gated by runtime/version support
 6. A small hook-parity map for the tested Codex subset versus the Yoke/Claude expectations it is meant to cover
-7. Core routing updates so `/yoke do` uses support declarations plus truthful fallback
-8. A proof script/test matrix for `/yoke idea`, `/yoke do`, and one explicit review/polish lane in both wrapper-only and hook-enhanced modes
+7. Core routing updates so `session-offer` uses support declarations plus truthful fallback
+8. A proof script/test matrix for `/yoke idea`, `session-offer`, and one explicit review/polish lane in both wrapper-only and hook-enhanced modes
 
 ## Non-goals for this slice
 
@@ -381,10 +381,10 @@ This is the operator-relevant map of what Yoke should actually try to port in `Y
 2. Add the Yoke-owned neutral bootstrap contract
 3. Define the reusable harness-adapter template / manifest shape
 4. Add the thin Codex bootstrap adapter
-5. Add support declaration plus `/yoke do` fallback logic
+5. Add support declaration plus `session-offer` fallback logic
 6. Add the optional Codex hook pack with explicit version gating
 7. Add the tested four-hook parity map and wire the supported subset into hook-enhanced Codex mode
-8. Prove `/yoke idea`, `/yoke do`, and one review/polish lane in wrapper-only mode and hook-enhanced mode
+8. Prove `/yoke idea`, `session-offer`, and one review/polish lane in wrapper-only mode and hook-enhanced mode
 9. Leave full telemetry follow-through to `YOK-1187`
 
 ## Validation
@@ -392,7 +392,7 @@ This is the operator-relevant map of what Yoke should actually try to port in `Y
 The first slice is complete only when:
 
 1. Codex can load the shared startup expectations through a thin adapter
-2. Codex can safely enter through `/yoke idea` and `/yoke do`
+2. Codex can safely enter through `/yoke idea` and `session-offer`
 3. Yoke core can tell which downstream path Codex supports
 4. Unsupported work falls back cleanly
 5. Wrapper-only mode remains safe when hook affordances are unavailable

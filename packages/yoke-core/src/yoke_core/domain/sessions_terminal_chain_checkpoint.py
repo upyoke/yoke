@@ -3,7 +3,7 @@
 Terminal item cleanup releases work claims in item-lock order, then closes
 the affected sessions under session locks after that transaction commits.
 This module owns the matching checkpoint update.  The consumed outcome keeps
-``chainable=True`` so a live ``/yoke do`` process may still take its next
+``chainable=True`` so a live ``session-offer`` process may still take its next
 offer, while the idle-session guard can distinguish finished work from budget
 that is still waiting for a process to continue it.
 """

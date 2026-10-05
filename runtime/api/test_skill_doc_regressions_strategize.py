@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 
 from runtime.api.skill_doc_regressions_test_helpers import (
     SKILLS,
@@ -28,29 +27,12 @@ class TestStrategize:
         skill_dir = self.STRATEGIZE_DIR
         assert skill_dir.is_dir()
         phase_files = [
-            p for p in skill_dir.iterdir()
-            if p.suffix == ".md" and p.name != "SKILL.md"
+            p for p in skill_dir.iterdir() if p.suffix == ".md" and p.name != "SKILL.md"
         ]
         assert phase_files, (
             "strategize/ must contain at least one phase sub-file "
             "(research / propose / approve)"
         )
-
-    def test_do_skill_references_strategize(self):
-        """`/yoke do` must reference strategize in its skill tree.
-
-        The reference can live in SKILL.md or one of its phase sub-files
-        (loop.md today); either location is acceptable.
-        """
-        do_dir = SKILLS / "do"
-        if not do_dir.is_dir():
-            pytest.skip("/yoke do skill not present")
-        found = False
-        for md in do_dir.rglob("*.md"):
-            if "strategize" in _read(md).lower():
-                found = True
-                break
-        assert found, "/yoke do must hand off to strategize somewhere in its skill tree"
 
     def test_router_lists_strategize(self):
         router_text = _read(SKILLS / "SKILL.md")
@@ -114,12 +96,13 @@ class TestStrategize:
         from — outside the strategize review loop.
         """
         text = _read(self.STRATEGIZE_DIR / "SKILL.md")
-        assert (
-            'SML_SLUGS="MISSION LANDSCAPE VISION MASTER-PLAN CURRENT-PLAN"'
-            in text
-        )
+        assert 'SML_SLUGS="MISSION LANDSCAPE VISION MASTER-PLAN CURRENT-PLAN"' in text
         for slug in (
-            "MISSION", "LANDSCAPE", "VISION", "MASTER-PLAN", "CURRENT-PLAN",
+            "MISSION",
+            "LANDSCAPE",
+            "VISION",
+            "MASTER-PLAN",
+            "CURRENT-PLAN",
         ):
             assert slug in text, f"strategize roster missing {slug!r}"
 

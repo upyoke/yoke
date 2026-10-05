@@ -21,7 +21,7 @@ def _create(monkeypatch, *extra_args: str) -> dict:
         return 0
 
     monkeypatch.setattr(launches, "dispatch_and_emit", _dispatch)
-    monkeypatch.setattr(sys, "stdin", io.StringIO("start /yoke do"))
+    monkeypatch.setattr(sys, "stdin", io.StringIO("start /yoke charge"))
     monkeypatch.setattr(
         "yoke_contracts.machine_config.runtime.load_config",
         lambda path=None: {

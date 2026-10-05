@@ -59,7 +59,9 @@ class TestFileBudgetIdeaSeeding:
     def test_body_and_sync_minimal_body_includes_file_budget(self, docs):
         text = _read(docs["body_and_sync"])
         # Title-only intake fallback must still mention File Budget.
-        assert "implementation-bearing intake" in text or "implementation-bearing" in text
+        assert (
+            "implementation-bearing intake" in text or "implementation-bearing" in text
+        )
         # The minimal-body section explicitly covers File Budget.
         idx = text.find("If the user provided no body content")
         assert idx >= 0
@@ -141,10 +143,10 @@ class TestFileBudgetConductDispatch:
     @pytest.fixture
     def docs(self) -> dict[str, Path]:
         return {
-            "dispatch_context_gates": SKILLS
+            "dispatch_context_gates": SKILLS / "conduct" / "dispatch-context-gates.md",
+            "engineer_tester_dispatch": SKILLS
             / "conduct"
-            / "dispatch-context-gates.md",
-            "engineer_tester_dispatch": SKILLS / "conduct" / "engineer-tester-dispatch.md",
+            / "engineer-tester-dispatch.md",
         }
 
     def test_engineer_dispatch_packet_mentions_file_budget(self, docs):
@@ -180,7 +182,11 @@ class TestFileBudgetArchitect:
     def docs(self) -> dict[str, Path]:
         return {
             "architect": REPO / "runtime" / "agents" / "architect.md",
-            "hard_constraints": REPO / "runtime" / "agents" / "architect" / "hard-constraints.md",
+            "hard_constraints": REPO
+            / "runtime"
+            / "agents"
+            / "architect"
+            / "hard-constraints.md",
         }
 
     def test_hard_constraints_extends_350_with_file_budget(self, docs):
@@ -191,13 +197,19 @@ class TestFileBudgetArchitect:
         assert "File Budget" in text
         assert "upstream" in text.lower()
         # The contract requires named files and single responsibilities.
-        assert "single responsibility" in text.lower() or "single responsibilities" in text.lower()
+        assert (
+            "single responsibility" in text.lower()
+            or "single responsibilities" in text.lower()
+        )
 
     def test_hard_constraints_warns_about_oversized_module_responsibilities(self, docs):
         text = _read(docs["hard_constraints"])
         assert "300" in text  # design target visible in plan-time guidance
         # The architect must split before implementation, not after.
-        assert "BEFORE planning concludes" in text or "before implementation" in text.lower()
+        assert (
+            "BEFORE planning concludes" in text
+            or "before implementation" in text.lower()
+        )
 
     def test_architect_md_points_to_constraint(self, docs):
         text = _read(docs["architect"])
@@ -221,7 +233,6 @@ class TestRefineRecoverableReadinessRepair:
             "refine_readiness_repair": SKILLS / "refine" / "readiness-repair.md",
             "idea_body_and_sync": SKILLS / "idea" / "body-and-sync.md",
             "advance_preflight_checks": SKILLS / "advance" / "preflight-checks.md",
-            "do_loop_routing": SKILLS / "do" / "loop-routing.md",
         }
 
     def test_refine_classifies_recoverable_readiness_codes(self, docs):
@@ -279,9 +290,9 @@ class TestRefineRecoverableReadinessRepair:
         # `if [ "$?" -ne 0 ]; then ... release-work-claim ... exit 1`
         # block with no classification is exactly the contradiction this
         # work item exists to delete.
-        assert 'readiness-check-blocked' in text
+        assert "readiness-check-blocked" in text
         # The release/exit must be conditional on the unrecoverable case.
-        assert 'unrecoverable' in text
+        assert "unrecoverable" in text
         # The mixed-recoverable path must NOT release; it falls through.
         assert "recoverable-mixed" in text or "continuing into refine" in text
 
@@ -298,18 +309,7 @@ class TestRefineRecoverableReadinessRepair:
         assert "classify_readiness_issues" in repair
         # The phase doc must explain why the helper exists (chain step
         # contract) — that is the operator-facing rationale.
-        assert "chain step" in repair.lower()
-
-    def test_do_loop_routing_treats_repair_as_handler_continuation(self, docs):
-        # /yoke do prose teaches that successful
-        # refine-entry metadata repair is continuation of the same routed
-        # handler — no work-claim release, no chain step consumption for
-        # the repair.
-        text = _read(docs["do_loop_routing"])
-        assert "idea_readiness_repair" in text
-        assert "readiness-repair" in text
-        # The chain semantics must be explicit, not implied.
-        assert "claim stays held" in text or "no separate chain step" in text
+        assert "work claim stays" in repair.lower()
 
     def test_idea_readiness_classifies_as_repair_before_block(self, docs):
         text = _read(docs["idea_body_and_sync"])

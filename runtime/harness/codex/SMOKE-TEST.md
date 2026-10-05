@@ -38,7 +38,7 @@ server-side from the shared registry plus the manifest's declared
 limitations. Harnesses do not self-report them.
 
 ```sh
-/yoke do
+session-offer
 ```
 
 **Verify:**
@@ -268,9 +268,9 @@ The session-offer path emits these canonical events regardless of harness:
 1. **HarnessSessionOffered** -- emitted before decision-engine evaluation; includes `supported_paths`
 2. **NextActionChosen** -- emitted after the engine returns a directive; includes `action`, `reason`, `correlation_id`
 
-In wrapper-only mode, these events are emitted by the shared session-offer path (`service_client.py` / API endpoint), not by the entry launcher. The launcher prints or exports the identity contract (`YOKE_EXECUTOR`, `YOKE_PROVIDER`, `YOKE_MODEL`), and Yoke core derives `supported_paths` from the shared registry plus manifest limitations keyed by `executor`. Operators still enter this flow through `/yoke do`; the direct `service_client.py session-offer` call is an internal implementation detail of the shared loop.
+In wrapper-only mode, these events are emitted by the shared session-offer path (`service_client.py` / API endpoint), not by the entry launcher. The launcher prints or exports the identity contract (`YOKE_EXECUTOR`, `YOKE_PROVIDER`, `YOKE_MODEL`), and Yoke core derives `supported_paths` from the shared registry plus manifest limitations keyed by `executor`. Operators still enter this flow through `session-offer`; the direct `service_client.py session-offer` call is an internal implementation detail of the shared loop.
 
-To verify lineage after a `/yoke do` invocation:
+To verify lineage after a `session-offer` invocation:
 
 ```sh
 python3 -m yoke_core.cli.db_router query \

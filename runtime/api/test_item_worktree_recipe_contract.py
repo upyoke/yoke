@@ -43,7 +43,6 @@ RECIPE_PATHS = (
     "advance/browser-qa.md",
     "advance/project-e2e.md",
     "advance/worktree.md",
-    "do/loop-followups.md",
     "usher/deploy.md",
     "shared/tester-dispatch-template.md",
     "wrapup/SKILL.md",
@@ -179,10 +178,5 @@ def test_terminal_handoff_releases_claims_before_idle_hook_cleanup(
     root: Path,
 ) -> None:
     advance = (root / "advance/parse-and-target.md").read_text()
-    followups = (root / "do/loop-followups.md").read_text()
 
     assert "yoke claims work release --all-mine" in advance
-    assert "yoke claims work release --all-mine" in followups
-    assert "Stop and SessionEnd never release active claims" in followups
-    assert "closes only an already claim-free session" in followups
-    assert "HarnessSessionEndReleasedClaims" not in followups

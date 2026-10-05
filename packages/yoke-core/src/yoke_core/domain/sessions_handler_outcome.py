@@ -1,8 +1,8 @@
-"""Handler-outcome classification for ``/yoke do`` chain accounting.
+"""Handler-outcome classification for ``session-offer`` chain accounting.
 
 Routed handlers (``/yoke advance``,
 ``/yoke strategize``, future) report back to the chain via a discrete
-``handler_outcome`` field on the chain checkpoint. ``/yoke do``'s
+``handler_outcome`` field on the chain checkpoint. ``session-offer``'s
 Step C reads the outcome and decides whether to bump the useful chain
 step, preserve the work claim, or terminate the chain.
 
@@ -30,7 +30,7 @@ Outcomes:
   stage. A live loop may re-offer, but an idle hook has no unfinished
   item work to preserve.
 
-The chain summary surface in ``/yoke do`` consumes
+The chain summary surface in ``session-offer`` consumes
 :func:`render_chain_summary_label` so prose and runtime stay in sync.
 """
 
@@ -110,7 +110,7 @@ TERMINAL_OUTCOMES = frozenset(
 
 
 # Operator-facing labels for each outcome. The chain
-# summary block in ``/yoke do`` reads this map; prose and tests
+# summary block in ``session-offer`` reads this map; prose and tests
 # reference the constants so a label change requires one edit.
 _OUTCOME_LABELS = {
     OUTCOME_COMPLETED: "handler completed",
@@ -123,7 +123,7 @@ _OUTCOME_LABELS = {
 
 
 def is_non_useful_step(handler_outcome: Optional[str]) -> bool:
-    """Whether ``/yoke do`` should leave the useful step counter unchanged."""
+    """Whether ``session-offer`` should leave the useful step counter unchanged."""
     if not handler_outcome:
         return False
     return handler_outcome in NON_USEFUL_STEP_OUTCOMES
@@ -280,7 +280,7 @@ def record_interactive_checkpoint_handoff(
 def render_chain_summary_label(handler_outcome: Optional[str]) -> str:
     """Map a handler outcome to the operator-facing chain summary label.
 
-    ``/yoke do``'s end-of-step summary reads this label
+    ``session-offer``'s end-of-step summary reads this label
     so an ``implementation slice committed`` is never reported as
     ``CHAIN STEP N/M COMPLETE``. Unknown outcomes fall back to the
     completed label so older callers stay safe.

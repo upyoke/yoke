@@ -1,4 +1,4 @@
-"""Runtime ownership guard for ``/yoke do``'s resume dispatch.
+"""Runtime ownership guard for ``session-offer``'s resume dispatch.
 
 The guard answers one question before the loop re-dispatches an
 item-scoped routed handler: *does this session still own ``YOK-N``,
@@ -21,7 +21,7 @@ When neither shape holds the call returns ``owned=False`` and, when
 some other session now holds a live claim on the item,
 ``holder_session_id`` names that session so callers can render a
 diagnosis. The guard is **read-only** — it never releases or transforms
-a claim. On ``owned=False`` the ``/yoke do`` loop terminates the chain
+a claim. On ``owned=False`` the ``session-offer`` loop terminates the chain
 step with a structured non-chainable checkpoint; it does NOT call
 ``release-work-claim`` on a claim the session no longer owns.
 

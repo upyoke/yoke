@@ -229,7 +229,7 @@ DB-owned execution truth and project policy:
   checked-in policy in `.yoke/project.config` so the offline pre-commit
   hook can enforce it in a fresh clone.
 - Session routing (`project_capabilities.type='session-routing'`): shared
-  lane defaults, lane path allowlists, and `/yoke do` process-offer policy.
+  lane defaults, lane path allowlists, and `session-offer` process-offer policy.
 - Capabilities (`project_capabilities` + `capability_secrets`):
   `yoke projects capability has` and
   `yoke projects capability-secret set`.

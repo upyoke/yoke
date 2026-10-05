@@ -147,7 +147,7 @@ class TestRenderCompactMirror:
         out = bb.render_compact_mirror(
             fields, conn=evidence_conn, item_id=MIRROR_ITEM_ID
         )
-        assert f"/yoke do {MIRROR_ITEM_REF}" in out
+        assert f"yoke workflows item get {MIRROR_ITEM_REF}" in out
 
     def test_missing_evidence_falls_back_to_no_recent_evidence(self):
         empty = _disposable_conn(_TRANSITIONS_DDL)
