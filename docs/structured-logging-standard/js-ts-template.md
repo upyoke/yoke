@@ -1,6 +1,6 @@
 # JS/TS frontend template
 
-Install [Structured Events Pack 2.0.0](../../packs/structured-events/versions/2.0.0/files/events/README.md),
+Install [Structured Events Pack 2.0.1](../../packs/structured-events/versions/2.0.1/files/events/README.md),
 including all sibling modules and attribution_rules.json. The executable Pack
 is the template; this standard does not duplicate its code.
 
@@ -25,7 +25,10 @@ URL snapshots keep rapid navigation accurate. Install once; do not manually
 emit a second initial view. [Google's SPA guidance](https://developers.google.com/analytics/devguides/collection/ga4/single-page-applications)
 also describes tracking history changes.
 
-One fetch per batch; failed sends requeue stable event ids, 429 honors Retry-After,
+One fetch per batch; only network failures, 429 and 5xx requeue stable event ids.
+429 honors Retry-After; other HTTP refusals discard the batch and report the
+collector error and recovery. Queues hold at most 500 pending events, dropping
+the oldest on append and the newest pending events when preserving retry ids,
 and overlapping flushes share an in-flight promise. Visibility hidden flushes
 through the same path. The receiver deduplicates event_id. Memory queues are
 disposable and product work never depends on delivery. URLs strip sensitive query

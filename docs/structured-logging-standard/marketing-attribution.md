@@ -1,6 +1,6 @@
 # Marketing attribution
 
-The executable reference is [Structured Events Pack 2.0.0](../../packs/structured-events/versions/2.0.0/files/events/README.md).
+The executable reference is [Structured Events Pack 2.0.1](../../packs/structured-events/versions/2.0.1/files/events/README.md).
 Python and TypeScript share attribution_rules.json. Install the whole bundle;
 this standard does not maintain another implementation.
 
@@ -17,6 +17,12 @@ updates on external-referrer or campaign/click-id visits; direct/internal visits
 preserve it. Configure the owned registrable site domain so sibling subdomains
 are internal. Exact/dot-boundary suffix matching prevents netflix.com from
 matching x.com. Regional search domains include google.co.uk.
+
+Click IDs override manual/referrer classification: gclid and msclkid map to
+paid_search; fbclid and li_fat_id map to paid_social, even without UTMs.
+When multiple IDs occur, the shared rule order is gclid, msclkid, fbclid, li_fat_id.
+This is the Pack's paid fallback policy. GA4's integrated advertising channels
+also use campaign/network metadata unavailable from a click ID alone.
 
 Attach attribution to **every consented frontend event** when capture succeeds.
 Backend conversion code uses the same consented group and persists required
@@ -40,3 +46,7 @@ persistence with the project's durable visitor owner. Cookie-only writes have
 last-response-wins semantics across tabs and a bounded payload. The Pack guide
 names signing settings, refusals and the server-record alternative.
 No compatibility reader for the old mutable cookie/session shape is provided.
+
+Invalid or rotated signed cookies are discarded with attribution_cookie_reminted.
+After consent, capture mints a fresh visitor and cookie using the current secret.
+Site domains are case-insensitive, trim a trailing dot and remove leading www.
