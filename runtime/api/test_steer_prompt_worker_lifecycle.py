@@ -144,7 +144,7 @@ class TestSteerRestaff:
         assert "Keep the uncommitted work" in claim
         assert "yoke items progress-log append ITEM" in claim
         isolate = _words(_read(_DASH_DIR / "survey-and-isolate.md"))
-        assert "skip this when resuming an item already past `idea`" in isolate
+        assert "Skip activation when resuming an already-active lane" in isolate
 
 
 class TestSteerDiscoveryAndPacket:
