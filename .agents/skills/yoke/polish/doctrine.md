@@ -15,13 +15,13 @@ first action.
 - No "just in case" fallbacks for scenarios that aren't real.
 - No stale TODOs, FIXMEs, or "remove after migration" comments when the migration is complete.
 
-**Dead weight has zero tolerance.** If the implementation obsoletes something, that something must be deleted — not left behind. This includes: orphaned utility functions that only served removed code, test fixtures and mocks that only exercised removed behavior, config keys and feature flags for features that no longer exist, migration scripts for data that has already been fully cleaned up, documentation sections that describe removed functionality, and re-exports or type aliases that nothing imports.
+**Dead weight has zero tolerance.** If the implementation obsoletes something, that something must be deleted — not left behind. This includes: orphaned utility functions that only served removed code, test fixtures and mocks that only exercised removed behavior, config keys and feature flags for features that no longer exist, documentation sections that describe removed functionality, and re-exports or type aliases that nothing imports.
 
-**Simplest migration wins.** If the implementation includes migration logic, verify it's actually needed. If all the old data has already been cleaned up, delete the migration script. If there are no live consumers of the old interface, delete the compatibility shim. Default to hard cutover — only keep graceful migration when there's provably live data or users that need it.
+**Migration history is permanent.** Never delete an ordered migration module: an installation that has not received it still needs to apply it. Follow the governed migration contract in `.yoke/docs/reference/agent-rules/databases.md`. Remove unused compatibility code only when it is outside that permanent history and has no live consumers.
 
 **Be the giant.** We stand on inherited shoulders; leave a leg up for the next agent. Your polished code and commit messages are the current handoff: clean commits, well-named functions, and accurate comments. Do not restate the implementation transcript. Sloppy commits with "fix stuff" messages force the next person to re-investigate.
 
-**No such thing as "agent error."** When the review reveals that the Engineer produced incomplete or incorrect code, never frame this as "the engineer made a mistake." The cause is always systemic: the task spec was ambiguous, an interface contract was incomplete, a file was too large for the agent to read fully (P-50: files past agent read limits cause context corruption), or the dispatch context was missing critical paths. Frame every issue as what the SYSTEM should change to prevent it. Fix the code, but also note the systemic cause for the review report.
+**No such thing as "agent error."** When the review reveals that the Engineer produced incomplete or incorrect code, never frame this as "the engineer made a mistake." The cause is always systemic: the task spec was ambiguous, an interface contract was incomplete, a file exceeded the harness read limit, or the dispatch context was missing critical paths. Frame every issue as what the SYSTEM should change to prevent it. Fix the code, but also note the systemic cause for the review report.
 
 **Events table for debugging.** When investigating unexpected behavior or test failures during polish, query the events table for recent telemetry: `yoke events tail --limit 20` or `yoke events anomalies --since "4 hours ago"`. Anomaly flags (nonzero_exit, benign_failure, generated_view_write) and tool call timing reveal what happened during the Engineer's session and whether the failure was systemic or code-specific.
 
@@ -31,11 +31,11 @@ first action.
 
 ## Simplify Anchor (reuse / quality / efficiency)
 
-The polish Philosophy above (`Clean-slate after every change`, `Dead weight has zero tolerance`, `Simplest migration wins`) IS the simplify three-axis vocabulary at the polish stage. The shared definition, including the future-concept pull-forward lens, lives in `AGENTS.md`'s `## Simplify — three-axis doctrine` section; polish anchors that vocabulary under explicit headings:
+The polish Philosophy above (`Clean-slate after every change`, `Dead weight has zero tolerance`, `Migration history is permanent`) IS the simplify three-axis vocabulary at the polish stage. The shared definition, including the future-concept pull-forward lens, lives in `AGENTS.md`'s `## Simplify — three-axis doctrine` section; polish anchors that vocabulary under explicit headings:
 
 - **Reuse** — clean-slate after every change; rewrite to describe the present rather than amending; remove compatibility shims, re-exports, and aliases nothing imports.
 - **Quality** — dead weight has zero tolerance; orphaned helpers, dead config, dead tests, defensive code for impossible states all get deleted; only non-obvious WHY comments remain; names and current-state docs describe current function/purpose/mechanics rather than planning provenance.
-- **Efficiency** — simplest migration wins; default to hard cutover; flag unnecessary indirection, redundant computation, multi-step pipelines that could collapse into one operation; justify infrastructure against existing surfaces.
+- **Efficiency** — retain ordered migration history; remove unused compatibility code; flag unnecessary indirection, redundant computation, multi-step pipelines that could collapse into one operation; justify infrastructure against existing surfaces.
 - **Future-concept lens** — if the diff touches actors, sessions, heartbeats, ownership, leases, claims, approvals, overrides, evidence, run records, journals, packets, locks, or shared-state coordination, treat the surface as an end-state v0 or require a deletion / absorption target.
 
 Polish runs the three axes as a **single sequential pass** at the start of the polish flow (see the Named simplify pass below) — **NOT** parallel three-sub-agent fan-out. v0 keeps the pass sequential by design; parallel-fan-out is explicitly deferred to v1.
