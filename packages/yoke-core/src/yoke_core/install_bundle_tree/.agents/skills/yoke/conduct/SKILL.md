@@ -1,12 +1,13 @@
 ---
 name: conduct
-description: "Single-item execution orchestrator for epic items. Starts from `planned`, resumes at `implementing` / `reviewing-implementation`, runs Engineer + Tester plus integration simulation, and hands the parent epic off at `reviewed-implementation` for `/yoke polish`."
+description: "Execute the pinned workflow segment bound to conduct through generated task lanes, the Engineer/Tester loop, and integration simulation."
 argument-hint: "PREFIX-N [--max-attempts N] [--no-chain]"
 ---
 
 # /yoke conduct PREFIX-N
 
-Run a single backlog item through the Engineer/Tester loop (epic items only).
+Run a single backlog item through the Engineer/Tester loop when its pinned
+workflow binds `conduct` at the live stage.
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
@@ -16,21 +17,15 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Workflow binding gate
 
-**Conduct is bound to the Epic workflow.** If the target item's
-`workflow_id` is not `epic`, reject immediately:
+**The live skill binding authorizes Conduct.** Read the item's pinned
+workflow definition and select the binding containing its current stage;
+proceed only when that binding's `skill_id` is `conduct`. The binding's
+half-open segment, ordered by the definition's `stages`, owns entry and
+re-entry; workflow names and remembered status lists do not.
 
-```
-Error: /yoke conduct is not the registered skill for workflow '{workflow_id}' on PREFIX-{N}.
-
-Issue implementation routes through /yoke advance (main-session inline implementation).
-Issue refinement routes through /yoke refine.
-Issue polish routes through /yoke polish.
-
-Run '/yoke advance PREFIX-{N} implementation' to begin issue implementation.
-```
-
-Check the workflow binding early (in S2 or before the status gate) and halt
-before any worktree or status mutation.
+Follow the exact read and refusal recipe in [`entry-gates.md`](entry-gates.md)
+before any worktree or status mutation. Retain the selected segment for
+activation and stop at its `through_stage_id` handoff boundary.
 
 ## Phase map — read one file, at the phase it governs
 

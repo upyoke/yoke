@@ -43,8 +43,11 @@ Never dispatch other agent types (designer, boss, shepherd, etc.) from the condu
 - **Thin conduct principle.** The conduct loop orchestrates -- it never implements. All code, test, and doc work happens in Engineer/Tester subagents via the Agent tool. The conduct loop reads specs, runs status commands, launches subagents, and parses verdicts. Nothing else.
 - **Parallel dispatch.** Engineers are dispatched in parallel (multiple Agent tool calls in the same response), then Testers are dispatched in parallel. The fan-out batch is sized by `_task_ids` from S6c (every chain head that survives same-worktree and dependency filtering) and the live entry is `engineer-tester-loop.md` Branch B, which consumes `dispatch-context-dispatch.md` (5g/5h) and `dispatch-context-prompts.md` (5i). Single-task batches degenerate to `engineer-tester-dispatch.md`. After all batch members reach a terminal task status, the integration simulation gate runs before post-pass processing. The conduct loop does not run done-transitions -- those are deferred to the merge/advance flow.
 - **Retry budget is configurable and defaults to 5.** The conduct `--max-attempts` flag defaults to 5 total Engineer/Tester cycles per item. Users can override with `--max-attempts N` when they know a specific set of items needs a different retry budget. The retry set is processed separately from the primary set -- failed items are retried after successful items complete post-pass processing.
-- **Workflow routing.** The conduct loop verifies its registered Epic workflow
-  binding at entry and routes its task graph through the fan-out path. Task
+- **Workflow routing.** The conduct loop verifies that the live stage falls inside
+  the pinned segment bound to `conduct` before any mutation. It derives task
+  graph and lane shape from the pinned policies, then uses the fan-out path.
+  Outside that segment it stops with the selected binding and its rendered
+  recovery, as taught in `entry-gates.md`; workflow names are not a gate. Task
   rows use registered `yoke workflow-item epic-task update-status` only for
   non-pipeline status writes; conduct dispatch/retry transitions keep the
   retained internal status pipeline because it owns dispatch attempts, history,
