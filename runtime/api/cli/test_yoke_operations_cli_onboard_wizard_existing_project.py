@@ -134,9 +134,11 @@ def test_local_checkout_manifest_project_id_skips_project_setup(
     assert len(app.result.board_art_variants) == 1
 
 
+@pytest.mark.parametrize("columns", [40, 80])
 def test_stored_checkout_project_id_shows_confirmation_picker(
     tmp_path,
     monkeypatch,
+    columns,
 ) -> None:
     checkout = tmp_path / "externalwebapp"
     checkout.mkdir()
@@ -168,7 +170,7 @@ def test_stored_checkout_project_id_shows_confirmation_picker(
     )
 
     async def scenario() -> None:
-        async with app.run_test() as pilot:
+        async with app.run_test(size=(columns, 32)) as pilot:
             await advance_past_path(pilot)
             await pilot.press("down")  # machine github: Skip for now
             await pilot.press("enter")

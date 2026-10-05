@@ -112,11 +112,11 @@ def download_failure(result, tail: str) -> RuntimeError:
             "<!doctype html",
             "site unavailable",
             "openresty",
-            "end of central directory record signature not found",
         )
     )
     reason = (
-        "browser_download_blocked: the network returned an HTML block page instead of a browser zip"
+        f"browser_download_blocked: exit {result.returncode}; "
+        "the network returned an HTML block page instead of a browser zip"
         if blocked
         else f"browser_install_failed: exit {result.returncode}"
     )
