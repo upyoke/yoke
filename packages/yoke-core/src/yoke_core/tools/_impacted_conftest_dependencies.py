@@ -30,7 +30,8 @@ def conftest_collection_probes(changed: Iterable[str], index: ImportIndex) -> se
     tests = sorted(path for path in index.module_of if is_test_file(path))
     probes: set[str] = set()
     for owner in owners:
-        prefix = str(PurePosixPath(owner).parent) + "/"
+        parent = PurePosixPath(owner).parent
+        prefix = "" if str(parent) == "." else str(parent) + "/"
         descendant = next((path for path in tests if path.startswith(prefix)), None)
         if descendant:
             probes.add(descendant)
