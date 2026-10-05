@@ -39,7 +39,7 @@ from yoke_core.domain.session_liveness_pump import SessionLivenessPump
 # Re-exported so wrappers keep importing one watcher entrypoint.
 from yoke_core.tools._watch_capture_binding import (  # noqa: F401
     bind_capture_paths,
-    mint_capture_paths,
+    mint_cli_capture_paths as mint_capture_paths,
     misplaced_capture_flags,
     misplaced_capture_rejection,
     note_claimed_capture,

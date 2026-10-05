@@ -9,22 +9,19 @@ Read the title, any body/description the user provided, and recent conversation 
 
 ### a. Infer project
 
-First, query available projects:
-```bash
-_project_list=$(yoke db read --format lines "SELECT id FROM projects ORDER BY id" 2>/dev/null || true)
+Use an explicit project named in the request, `YOKE_PROJECT`, or the caller's
+registered checkout mapping. Never select a conventional slug, a config default,
+or the sole roster member when context is absent. To show the caller's accessible
+projects, use the registered read:
+
+```text
+yoke projects list
 ```
 
-- If `_project_list` is empty or contains exactly one project, auto-select it (or `default_project` from config if empty):
- ```bash
- _project=$(python3 -m yoke_core.domain.runtime_settings get default_project yoke)
- _project=${_project:-yoke}
- ```
- Print: `Project: {_project} (auto-selected)`
-
-- If `_project_list` contains multiple projects, infer from title/body keywords:
- - Keywords mentioning a specific project's domain, repo name, or technologies -> that project
- - Keywords like "Pack", "yoke script", "SKILL.md", "backlog" -> `yoke`
- - If truly ambiguous, ask ONE binary question: "Is this for {project-A} or {project-B}?"
+If the request and caller context identify no project, report `project_required`
+with that roster and ask which project owns the change. A roster read failure
+must stay visible; it is not permission to guess. Cross-project requests need
+one linked item per project.
 
 After project is decided, resolve and print this machine's local checkout for that project when one exists; when `_project != yoke` that checkout is the only valid root for File Budget enumeration and path-claim authoring. Absence of a local checkout is a setup problem, not permission to inspect the Yoke repo for target-project files. See [file-budget.md](file-budget.md) for the project-relative path rule.
 

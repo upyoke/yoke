@@ -87,10 +87,11 @@ def stream_command(
     # reaping, so binding it lazily keeps that a call-time edge.
     from yoke_core.tools._watch_runner import (
         TIMEOUT_EXIT,
-        mint_capture_paths,
         run_watcher,
     )
     from yoke_core.tools._watch_throttle import Classification, LineClass
+
+    from yoke_core.tools._watch_capture_binding import mint_capture_paths
 
     relay = Classification(LineClass.URGENT)
 

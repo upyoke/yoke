@@ -40,6 +40,7 @@ import sys
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
+from yoke_contracts.project_defaults import MissingProjectError
 from yoke_core.domain.project_scratch_dir import mint_watcher_capture_pair
 
 #: First line a bound watcher writes into its progress capture. The
@@ -81,6 +82,16 @@ def mint_capture_paths(kind: str, *, project: str | None = None) -> tuple[Path, 
     return raw_path, progress_path
 
 
+def mint_cli_capture_paths(kind: str) -> tuple[Path, Path]:
+    """Refuse an unbound watcher before capture creation without a traceback."""
+    try:
+        return mint_capture_paths(kind)
+    except MissingProjectError as exc:
+        message = str(exc).replace("pass --project P", "set YOKE_PROJECT=P")
+        print(message, file=sys.stderr)
+        raise SystemExit(2) from None
+
+
 def stamp_writer(progress_capture: Path, kind: str) -> None:
     """Claim *progress_capture* for this process.
 
@@ -103,7 +114,7 @@ def bind_capture_paths(namespace: Any, kind: str) -> tuple[Path, Path]:
     raw = getattr(namespace, "raw_capture", None)
     progress = getattr(namespace, "progress_capture", None)
     if raw is None or progress is None:
-        minted_raw, minted_progress = mint_capture_paths(kind)
+        minted_raw, minted_progress = mint_cli_capture_paths(kind)
         raw = raw or minted_raw
         progress = progress or minted_progress
     stamp_writer(progress, kind)

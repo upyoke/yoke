@@ -130,3 +130,29 @@ def test_dispatch_handler_refuses_missing_payload_project_before_path_resolution
     assert not outcome.primary_success
     assert outcome.error.code == "project_required"
     assert "caller-project" in outcome.error.message
+
+
+@pytest.mark.parametrize("streaming_pair", [False, True])
+def test_unbound_watcher_refuses_without_traceback(monkeypatch, capsys, streaming_pair):
+    from argparse import Namespace
+    from yoke_core.tools import _watch_capture_binding, _watch_runner
+
+    def refuse(*args, **kwargs):
+        raise MissingProjectError(
+            "project_required: no project given — pass --project P. "
+            "Accessible projects: platform, yoke."
+        )
+
+    monkeypatch.setattr(_watch_capture_binding, "mint_watcher_capture_pair", refuse)
+    with pytest.raises(SystemExit) as outcome:
+        if streaming_pair:
+            _watch_runner.mint_capture_paths("pytest")
+        else:
+            _watch_runner.bind_capture_paths(Namespace(), "pytest")
+    assert outcome.value.code == 2
+    message = capsys.readouterr().err
+    assert "project_required" in message
+    assert "YOKE_PROJECT=P" in message
+    assert "platform, yoke" in message
+    assert "Traceback" not in message
+    assert "--project" not in message
