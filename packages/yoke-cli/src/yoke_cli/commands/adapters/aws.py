@@ -11,6 +11,10 @@ from typing import Any, Dict, List, Optional
 
 from yoke_cli.commands._helpers import ensure_handlers_loaded, parse_or_usage_error
 from yoke_cli.config.project_selection import required_project_context
+from yoke_cli.config.project_slug_lookup import (
+    ProjectSlugLookupError,
+    resolve_project_slug,
+)
 from yoke_contracts.project_defaults import MissingProjectError
 from yoke_cli.commands.adapters.aws_admin_status import (
     aws_admin_status_report,
@@ -79,11 +83,6 @@ def aws_admin_status(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, AWS_ADMIN_STATUS_USAGE)
     if parsed is None:
         return 2
-
-    from yoke_cli.config.project_slug_lookup import (
-        ProjectSlugLookupError,
-        resolve_project_slug,
-    )
 
     try:
         slug = resolve_project_slug(parsed.project or _default_project())
@@ -162,8 +161,8 @@ def aws_exec(args: List[str]) -> int:
         return 2
 
     try:
-        project = required_project_context(parsed.project)
-    except MissingProjectError as exc:
+        project = resolve_project_slug(required_project_context(parsed.project))
+    except (MissingProjectError, ProjectSlugLookupError) as exc:
         print(str(exc), file=sys.stderr)
         return 2
     try:

@@ -15,7 +15,7 @@ from yoke_core.domain.work_claim_targets import (
     exact_match_clause,
     make_epic_task_target,
     make_item_target,
-    make_process_target,
+    resolve_process_target,
 )
 from yoke_core.domain.project_attribution import required_project
 
@@ -70,7 +70,8 @@ def session_claim_id_for_target(
         with db_helpers.connect() as conn:
             p = _placeholder(conn)
             if process_key:
-                claim_target = make_process_target(
+                claim_target = resolve_process_target(
+                    conn,
                     str(process_key).strip().upper(),
                     required_project(
                         project,

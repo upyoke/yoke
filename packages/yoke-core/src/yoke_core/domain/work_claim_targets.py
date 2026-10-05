@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
-from typing import Any, Dict, Mapping, Optional
+from typing import Any, Collection, Dict, Mapping, Optional
 
 from yoke_core.domain.work_claim_scope_shape import (
     ALL_TARGET_KINDS,
@@ -150,9 +150,7 @@ class WorkClaimTarget:
             return f"{item_ref_for_id(int(self.epic_id))} task {self.task_num}"
         if self.kind == TARGET_KIND_STEERING:
             if self.document:
-                return (
-                    f"steering for {self.document} in project {self.project_id}"
-                )
+                return f"steering for {self.document} in project {self.project_id}"
             return f"steering for project {self.project_id}"
         if self.kind == TARGET_KIND_MIGRATION_SERIALIZATION:
             return (
@@ -190,6 +188,23 @@ def make_process_target(process_key: str, project: str) -> WorkClaimTarget:
         },
         process_project=project,
     )
+
+
+def resolve_process_target(
+    conn: Any,
+    process_key: str,
+    project: str,
+    *,
+    visible_project_ids: Collection[int] | None = None,
+) -> WorkClaimTarget:
+    """Resolve a request's project reference before constructing its lock key."""
+    from yoke_core.domain.function_target_row_project import (
+        resolve_authorized_project_id,
+        slug_for_project_id,
+    )
+
+    project_id = resolve_authorized_project_id(conn, project, visible_project_ids)
+    return make_process_target(process_key, slug_for_project_id(conn, project_id))
 
 
 def make_steering_target(
@@ -273,14 +288,18 @@ def validate_target(target: WorkClaimTarget) -> None:
 # SQL helpers stay lazy so schema_init can import kinds without a cycle.
 def __getattr__(name: str):
     if name not in {
-        "conflict_match_clause", "exact_match_clause",
-        "scope_int_sql", "scope_text_sql",
+        "conflict_match_clause",
+        "exact_match_clause",
+        "scope_int_sql",
+        "scope_text_sql",
     }:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
     from yoke_core.domain import work_claim_target_sql as sql
+
     value = getattr(sql, name)
     globals()[name] = value
     return value
+
 
 __all__ = [
     "ALL_TARGET_KINDS",
@@ -308,6 +327,7 @@ __all__ = [
     "make_item_target",
     "make_migration_serialization_target",
     "make_process_target",
+    "resolve_process_target",
     "make_qa_admission_target",
     "make_route_qualification_target",
     "make_steering_target",
