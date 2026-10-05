@@ -28,29 +28,27 @@ def test_shared_card_tracks_hold_still_whatever_a_section_holds():
     )
 
 
-def test_card_track_bounds_match_the_approved_prototype():
-    """Bounds and gaps are the prototype's, per collection.
+def test_card_tracks_fill_width_with_collection_minima_and_gaps():
+    """Fractional tracks fill the available width while retaining empty slots.
 
-    Work, session and frontier cards are its .fr-grid/.sess-grid — 268px to
-    360px at a 12px gap, so a short row stops rather than spanning a wide
-    screen. Strategy documents are its .doc-row — 280px wide enough for a
-    whole summary, taking the width it is given, at a 10px gap. Machines are
-    its .mach-grid, 340px to 380px.
+    Work and session cards keep a 268px minimum and 12px gaps. Strategy
+    documents keep a 280px minimum and 10px gaps; machines keep a 340px
+    minimum. Every collection inherits the shared fractional maximum.
     """
     responsive = _responsive()
     shared = responsive.split(".universe-app-root {", 1)[1].split("}", 1)[0]
     assert "--yoke-card-track-min: 268px" in shared
-    assert "--yoke-card-track-max: 360px" in shared
+    assert "--yoke-card-track-max: 1fr" in shared
     assert "--yoke-card-grid-gap: 12px" in shared
     # Each collection names itself twice: once in the shared selector list and
     # once in its own override, which is the later of the two.
     docs = responsive.rsplit(".strategy-doc-grid {", 1)[1].split("}", 1)[0]
     assert "--yoke-card-track-min: 280px" in docs
-    assert "--yoke-card-track-max: 1fr" in docs
+    assert "--yoke-card-track-max" not in docs
     assert "--yoke-card-grid-gap: 10px" in docs
     machines = responsive.rsplit(".machines-grid {", 1)[1].split("}", 1)[0]
     assert "--yoke-card-track-min: 340px" in machines
-    assert "--yoke-card-track-max: 380px" in machines
+    assert "--yoke-card-track-max" not in machines
 
 
 def test_the_overflow_tile_is_a_full_height_card_with_a_centred_label():
