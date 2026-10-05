@@ -164,8 +164,9 @@ def test_two_profiles_capture_concurrently_without_page_or_cookie_loss(
                 == "running"
             )
             capture(profiles[0], sibling, "sibling")
-            # The second profile's idle shutdown removes only its own state.
-            browser_client.daemon_start(profile_dir=profiles[1], idle_timeout=250)
+            # Leave time for the 250ms readiness poll before testing idle exit.
+            # The second profile's shutdown still removes only its own state.
+            browser_client.daemon_start(profile_dir=profiles[1], idle_timeout=2000)
             deadline = time.monotonic() + 10
             while time.monotonic() < deadline:
                 if (
