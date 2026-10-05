@@ -34,7 +34,7 @@ returns `{ "count": N }` instead of entry bodies:
 
 To filter by project:
 ```bash
-yoke ouroboros entry list --unreviewed --project yoke --limit 50
+yoke ouroboros entry list --unreviewed --project P --limit 50
 ```
 
 Read one full entry by id (preserves newlines in `body`):

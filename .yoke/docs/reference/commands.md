@@ -337,14 +337,3 @@ Project context is loaded by multiple commands, not just conduct.
 - **Self-serve body pattern.** Pipeline commands pass only metadata to subagents; subagents read the authoritative body from the DB themselves.
 - **Post-merge pipeline (Usher).** After merge and QA, items reach `implemented`. The Usher creates deployment runs and owns the `implemented -> release -> done` transition. Items may halt at `needs-capability` or `awaiting-approval`.
 
-## Archived Commands
-
-These commands have been removed or tombstoned. Their SKILL.md files contain redirect stubs pointing to the replacement command.
-
-| Removed Command | Replacement |
-|---|---|
-| `/yoke weave` | `/yoke usher` (merge + deploy in one pipeline) |
-| `/yoke dispatch` | `/yoke conduct PREFIX-N` |
-| `/yoke deploy` | `/yoke usher PREFIX-N` |
-| `/yoke status` | Read generated `.yoke/BOARD.md` directly |
-| `/yoke next` | `/yoke charge --dry-run` for the ranked runnable frontier |

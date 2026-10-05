@@ -245,14 +245,7 @@ waived or superseded so there was nothing left to run. Three do not:
 authorized reviewer turned the stage's own acceptance requirement down,
 and `blocked` means a scoped case holds a determinate failing verdict.
 
-`blocked` exists because `waiting` used to cover it. A case whose latest
-verdict was `fail` and a case that had never run produced the same
-answer, so "this run cannot finish as it stands" was not a state the
-system could be in — a release with three red requirements reported
-nothing at all for four hours before a person cancelled it. Splitting the
-two changes what the operator is told and nothing about what makes a
-stage acceptable: `blocked` carries `accepted=False` exactly as `waiting`
-did, and no gate reads differently because of it.
+Both `blocked` and `waiting` carry `accepted=False`; neither satisfies the stage acceptance gate.
 
 Every unaccepted answer carries `case_failures`, one record per blocking
 case with a `kind` beside its sentence, because four reasons a case is

@@ -2,7 +2,7 @@
 
 This file holds only Claude-Code-specific session rules, in their **normative short form**. **For every harness-neutral rule — worktree discipline, commit discipline, bug discipline, deployment rules, lifecycle, simplify, DB access — read `AGENTS.md` at your repo root.** If a rule belongs in Codex sessions too, it lives in AGENTS.md, not here.
 
-The reasoning, recovery paths, watcher inventory, and worked failure modes behind everything below are in [`.yoke/docs/reference/agent-rules/claude-sessions.md`](.yoke/docs/reference/agent-rules/claude-sessions.md). Read the relevant part **before** the action it governs. That split exists because this file is delivered through a finite startup channel; what sat past the cut was in force and unread.
+The reasoning, recovery paths, watcher inventory, and worked failure modes behind everything below are in the repo-root-relative `.yoke/docs/reference/agent-rules/claude-sessions.md`. Read the relevant part **before** the action it governs. That split exists because this file is delivered through a finite startup channel; what sat past the cut was in force and unread.
 
 Paths here are repo-root-relative, because this file is read from `.claude/rules/` in an installed project and from `runtime/harness/claude/rules/` in the Yoke source tree.
 

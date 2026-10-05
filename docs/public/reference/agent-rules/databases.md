@@ -55,7 +55,7 @@ Block messages name BOTH axes so the operator knows which side to amend. Note: p
 - **Silent class relaxation is forbidden.** Tightening (`pre_merge_safe → pre_merge_breaking`) is recorded as a `class_escalations` entry on the attestation. Scanner-detected banned patterns always tighten.
 
 ### Joint-gate dependency awareness
-The cross-item overlap detector honors `item_dependencies`: when a candidate item and a non-terminal other are linked by a blocks/depends-on edge, overlapping `rebuild`, data-kind, and schema-only declarations on shared surfaces no longer block the candidate's transition (operator-authored ordering already enforces non-simultaneous live application). Disjoint-table and disjoint-column cases are unaffected.
+The cross-item overlap detector honors `item_dependencies`: when a candidate item and a non-terminal other are linked by a blocks/depends-on edge, overlapping `rebuild`, data-kind, and schema-only declarations on shared surfaces do not block the candidate's transition (operator-authored ordering already enforces non-simultaneous live application). Disjoint-table and disjoint-column cases are unaffected.
 
 ### Stranded-lease recovery
 - **Human-only operator release.** `yoke coordination-claim release --project P --key LIVE_DB_MIGRATION:<model_name> --reason "..."` emits a WARN `OperatorLeaseRelease` event before the release mutation lands. It refuses to run from a hook context and records the operator reason permanently on the claim row. Sticky claim kinds have no automatic reclaim, so this is the only early release.

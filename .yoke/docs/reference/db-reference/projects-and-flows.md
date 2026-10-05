@@ -272,7 +272,7 @@ stored disabled; activation refuses until the engine supports version 2.
 Delivery custody is `takes_delivery_custody`, not a side effect of that
 version: a v2 flow can take none, and adding `stage_kind` changes no
 enrollment. Create accepts `--takes-delivery-custody true|false`; omitting it
-stores the behavior the schema version used to imply.
+stores `true` for schema version 2 or later and `false` for version 1.
 
 **`human-approval` step runner:** Halts the run at the stage until the
 declared approval policy is satisfied. The driver does not derive the verdict

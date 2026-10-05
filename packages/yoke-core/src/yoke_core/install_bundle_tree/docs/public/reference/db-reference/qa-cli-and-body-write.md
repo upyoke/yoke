@@ -74,7 +74,7 @@ yoke qa run list --requirement-id 1
 # item: a stage credits only requirements bound to both.
 yoke qa plan run \
  --deployment-run-id run-YYYYMMDD-NNN --stage item-qa --member PREFIX-N \
- --plan installer-campaign --project yoke
+ --plan installer-campaign --project P
 
 # Attach an artifact
 yoke qa artifact add \
@@ -194,4 +194,4 @@ GitHub rejects issue bodies above ~65,536 characters. Before calling GitHub's is
 
 ### Canonical Write Pattern
 
-All agents should use structured field writes. Do not call lower-level item helpers directly, do not edit `.md` files and hope the content propagates. Raw body writes and `ingest-body` are no longer supported.
+All agents should use structured field writes. Do not call lower-level item helpers directly, do not edit `.md` files and hope the content propagates. Raw body writes are unsupported.

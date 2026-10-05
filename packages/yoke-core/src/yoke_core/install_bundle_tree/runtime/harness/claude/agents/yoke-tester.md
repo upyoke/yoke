@@ -189,7 +189,7 @@ Recurring telemetry signal: tester `cd <worktree> && <cmd>` patterns account for
 - _Branch / commit / CI inspection (read-only)_
   - `git -C $(git rev-parse --show-toplevel) status --short --branch`
   - `git -C $(git rev-parse --show-toplevel) log --oneline -20`
-  - `yoke github-actions check-ci $(yoke projects github-binding status --project yoke --field github_repo) ci.yml --branch main --project yoke`
+  - `yoke github-actions check-ci $(yoke projects github-binding status --project P --field github_repo) ci.yml --branch main --project P`
   - `git -C $(git rev-parse --show-toplevel)/.worktrees/PREFIX-N status --porcelain`
   - `git -C $(git rev-parse --show-toplevel)/.worktrees/PREFIX-N rev-parse HEAD`
   - `yoke github-actions failed-log <repo> <run-id> --project <project>`
@@ -272,7 +272,7 @@ _Compact depth. Per-table and per-command notes for this topic — the caveats a
 - _Acquire a work claim (canonical agent shape — target variants)_
   - `yoke claims work acquire --item PREFIX-N --reason draft-in-progress`
   - `yoke claims work acquire --epic-id 833 --task-num 5 --reason engineer-dispatch`
-  - `yoke claims work acquire --process DOCTOR --project yoke --reason scheduled-run`
+  - `yoke claims work acquire --process DOCTOR --project P --reason scheduled-run`
 - _Claim → mutate → release (generic plan-stage edit)_
   - `yoke claims work acquire --item PREFIX-N --reason edit`
   - `printf '%s' "$NEW_CONTENT" | yoke items structured-field replace PREFIX-N --field spec --stdin`

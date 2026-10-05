@@ -95,7 +95,7 @@ CHECK (
 )
 ```
 
-**Indexes:** Base subject indexes remain on item, epic task, and deployment run. Plan-case materialization uses separate partial unique indexes for legacy run, run+stage, and run+stage+member subjects. Scoped keys include the execution-target digest after plan, case key, and host baseline so a superseding receipt preserves old evidence while allowing a fresh exact-target execution.
+**Indexes:** See the canonical [QA schema reference](db-reference/qa-and-sessions.md) for subject indexes and scoped execution keys.
 
 ### qa_runs
 
@@ -135,15 +135,7 @@ created_at TEXT NOT NULL
 
 **Index:** `idx_qa_artifacts_run(qa_run_id)`
 
-**Artifact handles:** `artifact_handle` is the only file reference — a typed JSON document naming
-where bytes live. All submitted files and inline bytes use the configured project S3 store; upload
-completes before its row is recorded. Only a genuinely unconfigured bucket selects permanent
-server-local storage; hosted tenants use `YOKE_QA_ARTIFACT_BROKER_URL`,
-`YOKE_QA_ARTIFACT_BROKER_TOKEN_FILE`, `YOKE_QA_ARTIFACT_BUCKET`, and immutable
-`YOKE_QA_ARTIFACT_PREFIX` settings. Invalid configured storage returns its real error without a row
-or local downgrade. Existing readable local handles and repo baselines remain supported, but bare
-paths are refused. Gates check local files and accept valid S3 handles structurally without an
-added network call.
+**Artifact handles:** Use the [artifact storage contract](db-reference/qa-and-sessions.md) for typed handles, configured storage and gate validation.
 
 ## success_policy JSON Schema
 
