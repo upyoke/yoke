@@ -2,7 +2,7 @@
 
 Drives the real FastAPI app against an in-process stub OIDC provider:
 start -> provider redirect -> callback (code exchange + id_token
-verification + resolution ladder) -> web-session cookie -> landing page.
+verification + resolution ladder) -> web-session cookie -> workbench.
 """
 
 from __future__ import annotations
@@ -20,12 +20,9 @@ from runtime.api.oidc_provider_test_helpers import StubOidcProvider
 # referential and only resolve cleanly in this order.
 import yoke_core.api.main  # noqa: F401  (import-order anchor)
 from yoke_core.api import app_factory
-from yoke_core.api.http_auth import (
-    OIDC_CALLBACK_PATH,
-    OIDC_START_PATH,
-    WEB_SESSION_COOKIE_NAME,
-)
+from yoke_core.api.http_auth import OIDC_CALLBACK_PATH, OIDC_START_PATH
 from yoke_core.api.routes.web_sign_in import FLOW_COOKIE_NAME
+from yoke_core.api.web_session_auth import WEB_SESSION_COOKIE_NAME
 from yoke_core.domain.actor_invites import (
     INVITE_STATUS_ACCEPTED,
     create_invite,
@@ -155,12 +152,15 @@ class TestFullFlow:
         # Flow state is single-use: the callback deletes its cookie.
         assert FLOW_COOKIE_NAME not in client.cookies
 
-        landing = client.get("/")
-        assert landing.status_code == 200
-        assert "pat" in landing.text
-        assert "Default Org" in landing.text
-        assert "yoke connect" in landing.text
-        assert "Engine version" in landing.text
+        workbench = client.get("/")
+        assert workbench.status_code == 200
+        assert "mountUniverseApp" in workbench.text
+        actor_id = resolve_external_identity(
+            db_conn, issuer=provider.issuer, subject="subject-1",
+        )
+        assert f'"currentActor":{{"id":"{actor_id}","kind":"human"}}' in (
+            workbench.text
+        )
 
     def test_invite_flow_accepts_invite_and_grants_role(
         self, db_conn, client, door_env, provider,
@@ -284,17 +284,25 @@ class TestCookieAuthorizationBoundary:
         assert _sign_in(client, provider).status_code == 303
         return client
 
-    def test_cookie_never_authorizes_writes(
+    def test_cookie_authorizes_function_calls_only(
         self, db_conn, client, door_env, provider,
     ):
         signed_in = self._signed_in_client(db_conn, client, provider)
-        for method, target in (
-            ("POST", "/v1/functions/call"),
-            ("POST", "/v1/items"),
-            ("POST", "/v1/items/1/approve"),
-        ):
-            resp = signed_in.request(method, target, json={})
-            assert resp.status_code == 401, (method, target)
+        same_origin = {"Origin": "http://testserver"}
+        call = signed_in.post(
+            "/v1/functions/call",
+            json={
+                "function": "ui_preferences.nav_group.list",
+                "version": "v1",
+                "target": {"kind": "global"},
+                "payload": {},
+            },
+            headers=same_origin,
+        )
+        assert call.status_code == 200, call.text
+        for target in ("/v1/items", "/v1/items/1/approve"):
+            resp = signed_in.post(target, json={}, headers=same_origin)
+            assert resp.status_code == 401, target
             assert resp.json()["error"]["code"] == "authentication_required"
 
     def test_cookie_failures_indistinguishable_from_absence(

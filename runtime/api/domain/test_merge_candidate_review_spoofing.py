@@ -5,8 +5,8 @@ travels as the caller wrote it. So a worker could name the steering seat's
 session, or name no session at all and take the browser branch. Neither is
 closed by a server check alone on a workstation where every surface shares
 one operator credential -- the first is stopped at the hook before the
-command runs, the second by an origin mark the UI server sets around its
-own dispatch and no envelope can carry.
+command runs, the second by an origin mark a workbench host sets around
+its own dispatch and no envelope can carry.
 """
 
 from __future__ import annotations
@@ -107,8 +107,7 @@ def test_another_posture_key_is_not_session_bound() -> None:
 def test_the_session_s_own_id_is_allowed() -> None:
     assert (
         _deny(
-            "yoke decision-requests resolve 77 approve "
-            f"--session-id {WORKER_SESSION}"
+            f"yoke decision-requests resolve 77 approve --session-id {WORKER_SESSION}"
         )
         is None
     )

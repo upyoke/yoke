@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from fastapi.routing import APIRouter
 
 from yoke_core.api.http_auth import require_auth_context
-from yoke_core.api.routes.functions import _status_for_response
+from yoke_core.api.function_call_status import status_for_response
 from yoke_core.domain.db_read_constants import DB_READ_FUNCTION_ID
 from yoke_core.domain.yoke_function_dispatch import dispatch
 
@@ -34,7 +34,7 @@ def read_db(request: Request, payload: Dict[str, Any]) -> JSONResponse:
         ambient_session_id="",
     )
     body = response.model_dump()
-    return JSONResponse(content=body, status_code=_status_for_response(body))
+    return JSONResponse(content=body, status_code=status_for_response(body))
 
 
 __all__ = ["router"]

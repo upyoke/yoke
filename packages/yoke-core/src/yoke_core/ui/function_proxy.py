@@ -213,6 +213,9 @@ def proxy_function_call(
     envelope: Dict[str, Any],
 ) -> Tuple[Dict[str, Any], int]:
     """Dispatch one browser envelope; return ``(payload, status_code)``."""
+    from yoke_contracts.session_control.sender_surface import (
+        with_web_form_sender_surface,
+    )
     from yoke_contracts.ui_browser_origin import ui_browser_origin
     from yoke_contracts.api.function_call import (
         ActorContext,
@@ -292,16 +295,7 @@ def proxy_function_call(
             {"error": {"code": "target_invalid", "message": str(exc)}},
             422,
         )
-    payload = dict(envelope.get("payload") or {})
-    if function_id in {
-        "session_control.message.send",
-        "session_control.launch.create",
-    }:
-        from yoke_contracts.session_control.sender_surface import (
-            WEB_FORM_SENDER_SURFACE,
-        )
-
-        payload["sender_surface"] = WEB_FORM_SENDER_SURFACE
+    payload = with_web_form_sender_surface(function_id, envelope.get("payload") or {})
     if relayed:
         # The envelope's own actor and session fields never travel: the
         # relay's credential is the identity, and this process adds none.

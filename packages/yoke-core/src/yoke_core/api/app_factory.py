@@ -24,12 +24,18 @@ from yoke_contracts.engine_version import (
 )
 from yoke_core.api.http_auth import (
     AUTH_STATE_ATTR,
-    LANDING_PATH,
-    WEB_AUTH_STATE_ATTR,
     authenticate_request,
-    authenticate_web_session,
     is_public_path,
-    is_web_session_get_path,
+)
+from yoke_core.api.routes.workbench import (
+    is_workbench_page,
+    is_workbench_public_path,
+)
+from yoke_core.api.web_session_auth import (
+    WEB_AUTH_STATE_ATTR,
+    authenticate_web_session,
+    authenticate_web_session_function_call,
+    is_web_session_function_call,
 )
 from yoke_core.api.observability import (
     REQUEST_ID_HEADER,
@@ -170,21 +176,28 @@ async def _authenticate(request) -> tuple[Any, JSONResponse | None]:
     and a denial response, never both.
     """
     path = request.url.path
-    if is_public_path(path):
+    if is_public_path(path) or is_workbench_public_path(path):
         return None, None
-    if is_web_session_get_path(request.method, path):
-        # Browser web-session cookie: read-only allowlisted GET surfaces
-        # only (see http_auth.WEB_SESSION_GET_PATHS for the CSRF
-        # rationale). Writes always take the bearer path.
+    if is_workbench_page(request.method, path):
+        # The workbench shell for a signed-in browser, or the sign-in page.
+        # Invalid and absent cookies land on the same signed-out page, so a
+        # probing client learns nothing about session existence.
         web_auth = await run_in_threadpool(authenticate_web_session, request)
         if web_auth is not None:
             setattr(request.state, WEB_AUTH_STATE_ATTR, web_auth)
-            return web_auth, None
-    if request.method == "GET" and path == LANDING_PATH:
-        # Anonymous landing page: renders the signed-out shell. Invalid and
-        # absent cookies land here identically, so a probing client learns
-        # nothing about session existence.
-        return None, None
+        return web_auth, None
+    if is_web_session_function_call(request):
+        # The signed-in workbench's reads and writes: the cookie stands for
+        # the session's actor once the same-origin check passes (see
+        # web_session_auth for the CSRF rules). A bearer header, when
+        # present, takes the branch below instead.
+        web_call = await run_in_threadpool(
+            authenticate_web_session_function_call, request
+        )
+        if not hasattr(web_call, "actor_id"):
+            return None, web_call
+        setattr(request.state, WEB_AUTH_STATE_ATTR, web_call)
+        return web_call, None
     auth = await run_in_threadpool(authenticate_request, request)
     if not hasattr(auth, "actor_id"):
         return None, auth
@@ -274,10 +287,8 @@ def _include_routes(application: FastAPI) -> FastAPI:
     from yoke_core.api.routes.universe_portability import (
         router as universe_portability_router,
     )
-    from yoke_core.api.routes.web_sign_in import (
-        landing_router as web_landing_router,
-        router as web_sign_in_router,
-    )
+    from yoke_core.api.routes.web_sign_in import router as web_sign_in_router
+    from yoke_core.api.routes.workbench import router as workbench_router
 
     v1_router.include_router(items_router)
     v1_router.include_router(auth_identity_router)
@@ -293,6 +304,7 @@ def _include_routes(application: FastAPI) -> FastAPI:
     v1_router.include_router(web_sign_in_router)
 
     application.include_router(v1_router)
-    # The signed-in landing page lives at the site root, outside /v1.
-    application.include_router(web_landing_router, dependencies=admission)
+    # The workbench lives at the site root, outside /v1. Included last: its
+    # deep-path catch-all must never shadow an API route.
+    application.include_router(workbench_router, dependencies=admission)
     return application
