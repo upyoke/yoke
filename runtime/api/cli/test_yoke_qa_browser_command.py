@@ -7,8 +7,13 @@ import json
 from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
 
+import pytest
+
 from yoke_cli.commands.qa_browser import qa_browser_screenshot, qa_browser_step
 from yoke_cli.commands.tool_shaped import resolve_tool_shaped
+
+
+pytestmark = pytest.mark.usefixtures("bound_project_context")
 
 
 class TestTokenRouting:
@@ -52,7 +57,9 @@ class TestScreenshotAdapter:
             return_value="daemon start failed after retries",
         ):
             rc, _out, err = self._run(
-                "https://x.example/route", "--output", "/tmp/shot.png",
+                "https://x.example/route",
+                "--output",
+                "/tmp/shot.png",
             )
         assert rc == 2
         assert "browser daemon unavailable" in err
@@ -62,21 +69,30 @@ class TestScreenshotAdapter:
 
         def fake_snapshot(url, *, annotate, output_path, viewport):
             captured.update(
-                url=url, annotate=annotate,
-                output_path=output_path, viewport=viewport,
+                url=url,
+                annotate=annotate,
+                output_path=output_path,
+                viewport=viewport,
             )
             return {"ok": True, "outputPath": output_path}
 
-        with patch(
-            "yoke_harness.browser_qa_daemon.ensure_daemon_running",
-            return_value=None,
-        ), patch(
-            "yoke_harness.browser_client.snapshot_screenshot",
-            side_effect=fake_snapshot,
+        with (
+            patch(
+                "yoke_harness.browser_qa_daemon.ensure_daemon_running",
+                return_value=None,
+            ),
+            patch(
+                "yoke_harness.browser_client.snapshot_screenshot",
+                side_effect=fake_snapshot,
+            ),
         ):
             rc, out, _err = self._run(
-                "https://x.example/route", "--output", "/tmp/shot.png",
-                "--viewport", "1280x720", "--annotate",
+                "https://x.example/route",
+                "--output",
+                "/tmp/shot.png",
+                "--viewport",
+                "1280x720",
+                "--annotate",
             )
         assert rc == 0
         assert captured == {
@@ -89,30 +105,41 @@ class TestScreenshotAdapter:
 
     def test_project_flag_selects_the_authorized_profile(self):
         """The daemon opens the same project's profile `authorize` signed in."""
-        with patch(
-            "yoke_harness.browser_qa_daemon.ensure_daemon_running",
-            return_value=None,
-        ) as ensure, patch(
-            "yoke_harness.browser_client.snapshot_screenshot",
-            return_value={"ok": True},
+        with (
+            patch(
+                "yoke_harness.browser_qa_daemon.ensure_daemon_running",
+                return_value=None,
+            ) as ensure,
+            patch(
+                "yoke_harness.browser_client.snapshot_screenshot",
+                return_value={"ok": True},
+            ),
         ):
             rc, _out, _err = self._run(
-                "https://x.example/route", "--output", "/tmp/shot.png",
-                "--project", "acme",
+                "https://x.example/route",
+                "--output",
+                "/tmp/shot.png",
+                "--project",
+                "acme",
             )
         assert rc == 0
         ensure.assert_called_once_with("acme")
 
     def test_capture_runtime_error_exits_one(self):
-        with patch(
-            "yoke_harness.browser_qa_daemon.ensure_daemon_running",
-            return_value=None,
-        ), patch(
-            "yoke_harness.browser_client.snapshot_screenshot",
-            side_effect=RuntimeError("daemon http 500"),
+        with (
+            patch(
+                "yoke_harness.browser_qa_daemon.ensure_daemon_running",
+                return_value=None,
+            ),
+            patch(
+                "yoke_harness.browser_client.snapshot_screenshot",
+                side_effect=RuntimeError("daemon http 500"),
+            ),
         ):
             rc, _out, err = self._run(
-                "https://x.example/route", "--output", "/tmp/shot.png",
+                "https://x.example/route",
+                "--output",
+                "/tmp/shot.png",
             )
         assert rc == 1
         assert "daemon http 500" in err
@@ -126,9 +153,7 @@ class TestStepAdapter:
         return rc, out.getvalue(), err.getvalue()
 
     def test_invalid_step_json_is_usage_error(self):
-        rc, _out, err = self._run(
-            "--base-url", "https://x.example", "--step-json", "["
-        )
+        rc, _out, err = self._run("--base-url", "https://x.example", "--step-json", "[")
         assert rc == 2
         assert "invalid step JSON" in err
 
@@ -137,25 +162,34 @@ class TestStepAdapter:
 
         def fake_execute(step, base_url, *, output_dir, page_id):
             captured.update(
-                step=step, base_url=base_url, output_dir=output_dir,
+                step=step,
+                base_url=base_url,
+                output_dir=output_dir,
                 page_id=page_id,
             )
             return {"ok": True, "url": base_url}
 
-        with patch(
-            "yoke_harness.browser_qa_daemon.ensure_daemon_running",
-            return_value=None,
-        ), patch(
-            "yoke_harness.browser_client.ensure_page",
-            return_value="exploratory",
-        ), patch(
-            "yoke_harness.browser_client.execute_step",
-            side_effect=fake_execute,
+        with (
+            patch(
+                "yoke_harness.browser_qa_daemon.ensure_daemon_running",
+                return_value=None,
+            ),
+            patch(
+                "yoke_harness.browser_client.ensure_page",
+                return_value="exploratory",
+            ),
+            patch(
+                "yoke_harness.browser_client.execute_step",
+                side_effect=fake_execute,
+            ),
         ):
             rc, out, _err = self._run(
-                "--base-url", "https://x.example",
-                "--step-json", '{"action":"click","selector":"#continue"}',
-                "--output-dir", "/tmp/browser-proof",
+                "--base-url",
+                "https://x.example",
+                "--step-json",
+                '{"action":"click","selector":"#continue"}',
+                "--output-dir",
+                "/tmp/browser-proof",
             )
         assert rc == 0
         assert captured == {

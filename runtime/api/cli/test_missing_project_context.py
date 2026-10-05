@@ -75,3 +75,76 @@ def test_dash_forwards_the_callers_selection(
         args += ["--project", explicit]
     assert dash_file.dash_file(args) == 0
     assert seen[0]["payload"]["project"] == expected
+
+
+@pytest.mark.parametrize(
+    "operation,args",
+    [
+        (
+            "qa_browser_screenshot",
+            ["https://example.test", "--output", "/tmp/proof.png"],
+        ),
+        (
+            "qa_browser_step",
+            ["--base-url", "https://example.test", "--step-json", "{}"],
+        ),
+        ("qa_browser_status", ["--json"]),
+        ("qa_browser_setup", ["--dry-run", "--json"]),
+    ],
+)
+def test_browser_commands_refuse_before_daemon_work(
+    monkeypatch, capsys, operation, args
+):
+    from yoke_cli.commands import qa_browser, qa_browser_lifecycle
+
+    monkeypatch.delenv("YOKE_PROJECT", raising=False)
+    monkeypatch.setattr(
+        project_selection, "default_project_for_directory", lambda _p: None
+    )
+    monkeypatch.setattr(
+        "yoke_cli.commands._helpers.ensure_handlers_loaded", lambda: None
+    )
+    monkeypatch.setattr(
+        "yoke_cli.transport.dispatcher.call_dispatcher",
+        lambda **_kw: SimpleNamespace(
+            success=True, result={"rows": [{"slug": "mine"}]}
+        ),
+    )
+    monkeypatch.setattr(
+        "yoke_harness.browser_runtime_home.ensure_materialized",
+        lambda: pytest.fail("missing project must not materialize the browser"),
+    )
+    module = qa_browser if hasattr(qa_browser, operation) else qa_browser_lifecycle
+    assert getattr(module, operation)(args) == 2
+    output = capsys.readouterr()
+    assert "project_required" in output.out + output.err
+    assert "Accessible projects: mine" in output.out + output.err
+    assert "Traceback" not in output.out + output.err
+
+
+def test_browser_client_no_args_does_not_resolve_project(monkeypatch):
+    from yoke_core.domain.browser_client import main
+
+    monkeypatch.setattr("sys.argv", ["browser_client"])
+    monkeypatch.setattr(
+        "yoke_cli.config.browser_profile.required_project_context",
+        lambda *_a, **_kw: pytest.fail("help must not resolve a project"),
+    )
+    assert main() == 3
+
+
+def test_browser_client_missing_project_returns_named_refusal(monkeypatch, capsys):
+    from yoke_core.domain.browser_client import main
+
+    monkeypatch.setattr("sys.argv", ["browser_client", "daemon", "status"])
+
+    def refuse(*_a, **_kw):
+        raise MissingProjectError(
+            "project_required: no project given — pass --project P. Accessible projects: mine."
+        )
+
+    monkeypatch.setattr(
+        "yoke_cli.config.browser_profile.required_project_context", refuse
+    )
+    assert main() == 2
+    assert "Accessible projects: mine" in capsys.readouterr().err

@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 from typing import Any, Dict, Optional
 
+from yoke_contracts.project_defaults import MissingProjectError
 from yoke_harness import browser_client
 from yoke_harness.browser_client_readiness import DAEMON_LOG_NAME
 from yoke_harness.browser_daemon_profile import recover_unhealthy_daemon
@@ -28,7 +29,7 @@ def ensure_daemon_running(project: Optional[str] = None) -> Optional[str]:
 
     try:
         profile_path, profile_note = resolve_authorized_profile(project)
-    except ProjectSlugLookupError as exc:
+    except (ProjectSlugLookupError, MissingProjectError) as exc:
         return str(exc)
     _log(profile_note)
     profile = str(profile_path) if profile_path else None

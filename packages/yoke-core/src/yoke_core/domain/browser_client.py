@@ -44,6 +44,8 @@ CLI usage::
     python3 -m yoke_core.domain.browser_client snapshot diff <url> --baseline <path> --viewport WxH
     python3 -m yoke_core.domain.browser_client exec step '<json>' --base-url <url>
 
+Commands require --project P, YOKE_PROJECT, or a caller checkout binding.
+Missing context reports project_required and accessible projects.
 All output is JSON on stdout.  Errors go to stderr. Exit codes mirror the
 shell convention: 0 = success, 1 = failed, 2 = daemon not running,
 3 = usage error.
@@ -67,7 +69,7 @@ from yoke_cli.transport.response_limits import DEFAULT_JSON_RESPONSE_LIMIT_BYTES
 from yoke_contracts.browser_daemon_api import EXEC_STEP_PATH
 from yoke_harness import browser_runtime_home
 from yoke_harness.browser_daemon_profile import state_file_path
-from yoke_core.domain.browser_client_cli import _cli_daemon, _cli_exec, _cli_snapshot
+from yoke_core.domain.browser_client_cli import run_cli
 from yoke_core.domain.browser_client_lifecycle import (  # noqa: F401
     daemon_start,
     daemon_stop,
@@ -331,18 +333,7 @@ def main() -> int:
 
     parser = build_parser()
     args = parser.parse_args()
-    from yoke_harness.browser_daemon_profile import project_scope
-
-    with project_scope(getattr(args, "project", None)):
-        if args.cmd == "daemon":
-            return _cli_daemon(args)
-        elif args.cmd == "snapshot":
-            return _cli_snapshot(args)
-        elif args.cmd == "exec":
-            return _cli_exec(args)
-        else:
-            parser.print_help()
-            return 3
+    return run_cli(args, parser)
 
 
 if __name__ == "__main__":
