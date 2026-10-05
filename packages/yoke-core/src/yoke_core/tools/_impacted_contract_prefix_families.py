@@ -70,6 +70,7 @@ AGENT_SKILL_CONTRACT_TESTS = (
     "runtime/api/test_skill_doc_regressions_strategize.py",
     "runtime/api/test_skill_doc_regressions_usher_collect.py",
     "runtime/api/test_skill_prose_schema_drift.py",
+    "runtime/api/test_skill_workflow_authority.py",
     "runtime/api/test_steer_prompt.py",
     "runtime/api/test_steer_prompt_worker_lifecycle.py",
     # Keep the roster's own completeness check in every skill selection.
