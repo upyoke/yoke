@@ -31,7 +31,10 @@ from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,
 )
-from yoke_core.engines.doctor_source_root import bound_source_root
+from yoke_core.engines.doctor_source_root import (
+    bound_source_root,
+    preferred_source_checkout,
+)
 
 
 _NO_CHECKOUT_DETAIL = "this runner has no checkout for it"
@@ -49,7 +52,7 @@ def checkout_root_for_project(project: str) -> Optional[Path]:
     if root is None:
         return None
     path = Path(root)
-    return path if path.is_dir() else None
+    return preferred_source_checkout(path) if path.is_dir() else None
 
 
 def machine_has_checkout_for(project: str) -> bool:
@@ -224,9 +227,7 @@ def run_local_source_checks(
                     if not owned:
                         note_missing_control_plane(rec.results[pre:], project)
                 for record in rec.results[pre:]:
-                    doctor_progress.check_finished(
-                        record.check_id, record.result
-                    )
+                    doctor_progress.check_finished(record.check_id, record.result)
     finally:
         if owned:
             try:
@@ -254,20 +255,13 @@ def merge_relayed_with_local(
     local_results: Sequence[Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
     """Replace relayed N/A rows with locally executed verdicts."""
-    by_slug = {
-        _hc_key(row.get("hc")): row
-        for row in local_results
-        if row.get("hc")
-    }
+    by_slug = {_hc_key(row.get("hc")): row for row in local_results if row.get("hc")}
     merged: List[Dict[str, Any]] = []
     replaced: set[str] = set()
     for row in relayed_results:
         slug = _hc_key(row.get("hc"))
         local = by_slug.get(slug)
-        if (
-            local is not None
-            and str(row.get("severity") or "").upper() == "N/A"
-        ):
+        if local is not None and str(row.get("severity") or "").upper() == "N/A":
             merged.append(dict(local))
             replaced.add(slug)
         else:

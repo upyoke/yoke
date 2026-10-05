@@ -207,3 +207,55 @@ def test_https_only_composes_local_runtime_verdict() -> None:
     assert result["composed"] == "local_runtime"
     persist.assert_called_once()
     assert persist.call_args.args[0]["pass_count"] == 1
+
+
+def test_full_scope_composes_the_complete_caller_project_roster(monkeypatch):
+    from yoke_core.engines import doctor_https_only as local
+    from yoke_cli.commands.adapters import doctor_https_compose as compose
+    from yoke_cli.commands.adapters import doctor_https_run as runner
+
+    monkeypatch.setattr(
+        local, "caller_project_local_slugs", lambda project: {"last", "first"}
+    )
+    payload = {"project": "yoke", "full": True}
+    assert local.prepare_https_only_payload(payload) == (payload, ["first", "last"])
+    rows = [
+        {"hc": "HC-" + slug, "severity": "PASS", "name": slug, "detail": ""}
+        for slug in ("first", "last")
+    ]
+    monkeypatch.setattr(
+        compose, "requested_local_machine_slugs", lambda payload: ([], [])
+    )
+    monkeypatch.setattr(compose, "machine_has_checkout_for", lambda project: False)
+    monkeypatch.setattr(compose, "false_na_local_runtime_slugs", lambda rows: [])
+    monkeypatch.setattr(
+        compose,
+        "run_local_project_checks",
+        lambda **kwargs: rows if kwargs["slugs"] == ["first", "last"] else [],
+    )
+    monkeypatch.setattr(
+        runner, "persist_composed_receipt", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        runner,
+        "collect_chunked",
+        lambda **kwargs: FunctionCallResponse(
+            success=True,
+            function="doctor.run.run",
+            version="v1",
+            request_id="test",
+            result={"project": "yoke", "results": []},
+        ),
+    )
+    with redirect_stdout(StringIO()) as stdout:
+        assert (
+            dispatch_chunked(
+                payload=payload,
+                session_id="test",
+                json_mode=True,
+                chunk_max_checks=1,
+                timeout_s=30,
+            )
+            == 0
+        )
+    assert json.loads(stdout.getvalue())["result"]["results"] == rows

@@ -27,6 +27,10 @@ from yoke_core.domain import db_backend, machine_config
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.project_checkout_locations import checkout_for_project
 from yoke_core.domain.project_identity import resolve_project_id
+from yoke_core.engines.doctor_source_root import (
+    bound_source_root_or_none,
+    preferred_source_checkout,
+)
 from yoke_core.engines.doctor_applicability import (
     CHECKOUT_BEARING_RUNTIMES,
     DoctorContext,
@@ -134,10 +138,15 @@ def resolve_context(conn, args, *, runtime: Optional[str] = None) -> DoctorConte
     checkout = None
     names = self_project_names(conn)
     if resolved_runtime in CHECKOUT_BEARING_RUNTIMES:
-        try:
-            checkout = checkout_for_project(conn, project)
-        except Exception:  # noqa: BLE001 - context reads are advisory
-            checkout = None
+        bound = bound_source_root_or_none()
+        if bound:
+            checkout = Path(bound)
+        else:
+            try:
+                mapped = checkout_for_project(conn, project)
+                checkout = preferred_source_checkout(mapped) if mapped else None
+            except Exception:  # noqa: BLE001 - context reads are advisory
+                checkout = None
         if checkout is None and project in {str(name) for name in names}:
             # The checkout map did not answer, but the engine is running
             # from the source tree the self project owns — that tree is the

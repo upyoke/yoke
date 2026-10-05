@@ -1,9 +1,9 @@
-"""Honor caller-checkout project-local slugs on https ``doctor.run --only``.
+"""Caller-checkout project checks and scope selection for HTTPS Doctor.
 
 Relayed ``doctor.run.run`` validates ``only=`` against the server roster.
 Project-local checks live in the caller's ``.yoke/doctor/`` folder and are
-executed on the client anyway, so undeployed checkout-declared slugs must
-be stripped from the relayed payload and run locally.
+executed on the client, including the complete roster in full mode. Explicit
+checkout-declared slugs are stripped from the relayed payload and run locally.
 """
 
 from __future__ import annotations
@@ -81,11 +81,14 @@ def prepare_https_only_payload(
     only_raw = out.get("only")
     project = str(out.get("project") or "")
     if not only_raw or not isinstance(only_raw, str):
+        if out.get("full"):
+            return out, sorted(caller_project_local_slugs(project))
         return out, []
     if checkout_root_for_project(project) is None:
         return out, []
     local_slugs, relay_only = partition_only_slugs(
-        only_raw, caller_project_local_slugs(project),
+        only_raw,
+        caller_project_local_slugs(project),
     )
     if not local_slugs:
         return out, []
@@ -106,6 +109,7 @@ def run_local_project_checks(
     project: str,
     slugs: Sequence[str],
     fix: bool = False,
+    full: bool = False,
 ) -> List[Dict[str, Any]]:
     """Execute named project-local HCs against *project*'s own checkout.
 
@@ -113,14 +117,14 @@ def run_local_project_checks(
     keeps a check that resolves the repository root — as most do — on that
     tree rather than on the caller's.
     """
-    if not slugs:
+    if not slugs and not full:
         return []
     root = checkout_root_for_project(project)
     if root is None:
         return []
     wanted = set(slugs)
     args = DoctorArgs(
-        only=",".join(sorted(wanted)),
+        only=None if full else ",".join(sorted(wanted)),
         quick=False,
         project=str(project),
         fix=fix,
@@ -134,11 +138,12 @@ def run_local_project_checks(
     try:
         discovery = discover_project_checks(root)
         record_discovery_failures(
-            Roster(discovery_failures=list(discovery.failures)), rec,
+            Roster(discovery_failures=list(discovery.failures)),
+            rec,
         )
         with bound_source_root(root):
             for hc in discovery.checks:
-                if hc.slug not in wanted:
+                if not full and hc.slug not in wanted:
                     continue
                 pre = len(rec.results)
                 # Withheld, then emitted below: without a control plane
@@ -149,9 +154,7 @@ def run_local_project_checks(
                     if not owned:
                         note_missing_control_plane(rec.results[pre:], project)
                 for record in rec.results[pre:]:
-                    doctor_progress.check_finished(
-                        record.check_id, record.result
-                    )
+                    doctor_progress.check_finished(record.check_id, record.result)
     finally:
         if owned:
             try:

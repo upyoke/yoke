@@ -33,13 +33,7 @@ terminal statuses are excluded as intentional historical provenance, per
 from __future__ import annotations
 
 import re
-from concurrent.futures import ThreadPoolExecutor
-
-from yoke_contracts.doctor_budget import (
-    CHECK_BUDGET_S,
-    DoctorBudgetExhausted,
-    remaining_seconds,
-)
+from yoke_core.engines.doctor_parallel_reads import bounded_read_map
 from pathlib import Path
 
 from yoke_core.engines.doctor_hc_obsoleted_terms_allowlists import (
@@ -128,17 +122,7 @@ def _read_scan_file(path: Path):
 
 def _read_scan_files(repo_root: Path):
     """Overlap filesystem latency without changing path or finding order."""
-    pool = ThreadPoolExecutor(max_workers=8)
-    try:
-        yield from pool.map(
-            _read_scan_file,
-            _iter_scan_paths(repo_root),
-            timeout=remaining_seconds(CHECK_BUDGET_S),
-        )
-    except TimeoutError as exc:
-        raise DoctorBudgetExhausted("doctor_check_budget_exhausted") from exc
-    finally:
-        pool.shutdown(wait=False, cancel_futures=True)
+    yield from bounded_read_map(_read_scan_file, _iter_scan_paths(repo_root))
 
 
 def _required_literal_prefix(pattern: re.Pattern) -> str:

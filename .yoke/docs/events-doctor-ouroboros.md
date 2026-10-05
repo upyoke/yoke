@@ -36,8 +36,7 @@ the caller's trace is restored afterwards. Database operations defer Python
 deadline exceptions until the driver returns, so protocol frames are never
 interrupted. PostgreSQL connections lacking `autocommit` refuse with
 `doctor_postgres_autocommit_unavailable` and teach the required connection.
-The shared
-HTTP and subprocess helpers consume the same deadline. A timeout reports
+The shared HTTP and subprocess helpers consume the same deadline. A timeout reports
 `HC-check-incomplete` with `doctor_check_budget_exhausted` and a recovery step;
 partial pass/fail verdicts are discarded. Transaction recovery completes before
 the next check runs, and recovery failures remain visible in the incomplete result.
@@ -47,6 +46,15 @@ path and finding order. A conservative literal-prefix test avoids per-line regex
 work only when a required prefix is absent; patterns without a provable prefix
 retain the entire line scan. The original per-pattern tests, path exemptions, slash
 normalization, line matching and full-tree coverage remain the same.
+Worktree-health likewise overlaps every lane's independent status read under
+that deadline. Delegated sync avoids fetching comparison fields when linkage
+has already found no paired subjects; its orphan classifications still run.
+
+A full HTTPS report includes the caller's complete project-local check roster.
+Source checks retain the runner's scoped checkout binding without local SQL.
+When the imported engine runs from a linked lane of the mapped project repo,
+that lane supplies candidate source; another project's checkout keeps its own
+binding. Missing control-plane reads remain visible as N/A rather than a pass.
 
 The claim-boundary audit inspects the full audit history, retaining its explicit
 configured event-id cutoff. Historical event-outcome drift also inspects every

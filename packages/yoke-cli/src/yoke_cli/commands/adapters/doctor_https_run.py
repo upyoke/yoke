@@ -136,13 +136,14 @@ def dispatch_chunked(
     results = list(result.get("results") or [])
     project = str(result.get("project") or payload.get("project") or "")
     composed: list[str] = []
-    if local_project_slugs:
+    if local_project_slugs or payload.get("full"):
         results = merge_relayed_with_local(
             results,
             run_local_project_checks(
                 project=project,
                 slugs=local_project_slugs,
                 fix=bool(payload.get("fix")),
+                full=bool(payload.get("full")),
             ),
         )
         composed.append("local_project_checks")
