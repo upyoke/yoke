@@ -20,13 +20,15 @@ def test_fresh_init_creates_execution_instruction_tables(tmp_path: Path) -> None
             assert _table_exists(conn, WORKFLOW_EXECUTION_INSTRUCTIONS_TABLE)
             assert _table_exists(conn, INSTRUCTION_WORKFLOWS_TABLE)
             assert _table_exists(conn, INSTRUCTION_PROJECTS_TABLE)
-            cols = set(
-                _get_columns(conn, WORKFLOW_EXECUTION_INSTRUCTIONS_TABLE)
-            )
+            cols = set(_get_columns(conn, WORKFLOW_EXECUTION_INSTRUCTIONS_TABLE))
             assert {
-                "id", "content", "applies_to_all_workflows",
-                "applies_to_all_projects", "updated_by_actor_id",
-                "created_at", "updated_at",
+                "id",
+                "content",
+                "applies_to_all_workflows",
+                "applies_to_all_projects",
+                "updated_by_actor_id",
+                "created_at",
+                "updated_at",
             } <= cols
         finally:
             conn.close()
@@ -44,3 +46,28 @@ def test_init_replay_is_idempotent_for_execution_instructions(
             assert _table_exists(conn, WORKFLOW_EXECUTION_INSTRUCTIONS_TABLE)
         finally:
             conn.close()
+
+
+def test_delivery_columns_preserve_existing_rows_on_additive_convergence():
+    import sqlite3
+    from yoke_core.domain.workflow_execution_instructions_schema import (
+        ensure_workflow_execution_instructions_schema,
+    )
+
+    conn = sqlite3.connect(":memory:")
+    conn.executescript("""
+        CREATE TABLE workflows (id TEXT PRIMARY KEY);
+        CREATE TABLE projects (id INTEGER PRIMARY KEY);
+        CREATE TABLE workflow_execution_instructions (
+            id INTEGER PRIMARY KEY, content TEXT NOT NULL,
+            applies_to_all_workflows INTEGER NOT NULL DEFAULT 0,
+            applies_to_all_projects INTEGER NOT NULL DEFAULT 0,
+            updated_by_actor_id INTEGER, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+        INSERT INTO workflow_execution_instructions (id, content, created_at, updated_at)
+            VALUES (1, 'Existing rule', 'now', 'now');
+    """)
+    ensure_workflow_execution_instructions_schema(conn)
+    ensure_workflow_execution_instructions_schema(conn)
+    assert conn.execute(
+        "SELECT before_creation, on_every_read, when_entering_stage, stage_buckets FROM workflow_execution_instructions"
+    ).fetchone() == (1, 1, 0, "[]")

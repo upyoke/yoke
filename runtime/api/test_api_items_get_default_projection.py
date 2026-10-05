@@ -28,6 +28,11 @@ def _request(payload=None) -> FunctionCallRequest:
 
 
 class TestItemsGetDefaultProjection(unittest.TestCase):
+    def setUp(self):
+        patcher = patch.object(reads, "_read_instructions", return_value=[])
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_default_projection_includes_structured_and_additional_fields(self):
         # Empty payload.fields must project every allowed field so
         # `yoke items get ITEM --json` does not hide technical_plan etc.
@@ -37,12 +42,17 @@ class TestItemsGetDefaultProjection(unittest.TestCase):
             queried.append(col)
             return f"seeded-{col}"
 
-        with patch(
-            "yoke_core.domain.items_queries.query_item",
-            side_effect=fake_query_item,
-        ), patch(
-            "yoke_core.domain.item_completion_flow_projection.completion_flow_values",
-            return_value={42: {"value": "default-flow", "source": "project_default"}},
+        with (
+            patch(
+                "yoke_core.domain.items_queries.query_item",
+                side_effect=fake_query_item,
+            ),
+            patch(
+                "yoke_core.domain.item_completion_flow_projection.completion_flow_values",
+                return_value={
+                    42: {"value": "default-flow", "source": "project_default"}
+                },
+            ),
         ):
             outcome = reads.handle_items_get(_request({}))
         self.assertTrue(outcome.primary_success)
@@ -52,8 +62,14 @@ class TestItemsGetDefaultProjection(unittest.TestCase):
             self.assertEqual(fields[field], f"seeded-{field}")
         for field in ADDITIONAL_SCALAR_FIELDS:
             self.assertIn(field, fields)
-        self.assertEqual(queried, [field for field in DEFAULT_GET_FIELDS if field != "deployment_flow"])
-        self.assertEqual(fields["deployment_flow"], {"value": "default-flow", "source": "project_default"})
+        self.assertEqual(
+            queried,
+            [field for field in DEFAULT_GET_FIELDS if field != "deployment_flow"],
+        )
+        self.assertEqual(
+            fields["deployment_flow"],
+            {"value": "default-flow", "source": "project_default"},
+        )
         self.assertEqual(set(fields), set(DEFAULT_GET_FIELDS))
 
     def test_explicit_field_subset_still_projects_only_requested(self):

@@ -40,6 +40,7 @@ from yoke_contracts.api.function_call import (
     HandlerOutcome,
 )
 
+
 class AppendRequest(BaseModel):
     headline: str
     content: str
@@ -65,6 +66,7 @@ class GetRequest(BaseModel):
 class GetResponse(BaseModel):
     item_id: int
     content: str
+    execution_instructions: list[dict[str, Any]]
 
 
 def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
@@ -75,17 +77,29 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
 
     content = get_section(int(target.item_id), PROGRESS_LOG_SECTION)
     if content is None:
-        return HandlerOutcome(primary_success=False, error=FunctionError(
-            code="not_found", message=f"Progress Log not found on item {target.item_id}",
-        ))
-    return HandlerOutcome(primary_success=True, result_payload={
-        "item_id": int(target.item_id), "content": content,
-    })
+        return HandlerOutcome(
+            primary_success=False,
+            error=FunctionError(
+                code="not_found",
+                message=f"Progress Log not found on item {target.item_id}",
+            ),
+        )
+    from yoke_core.domain.execution_instruction_delivery import item_instructions
+
+    return HandlerOutcome(
+        primary_success=True,
+        result_payload={
+            "item_id": int(target.item_id),
+            "content": content,
+            "execution_instructions": item_instructions(int(target.item_id)),
+        },
+    )
 
 
 def _bad_request(message: str) -> HandlerOutcome:
     return HandlerOutcome(
-        result_payload={}, primary_success=False,
+        result_payload={},
+        primary_success=False,
         error=FunctionError(code="invalid_payload", message=message),
     )
 
@@ -111,7 +125,8 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
     )
     if not result.success:
         return HandlerOutcome(
-            result_payload={}, primary_success=False,
+            result_payload={},
+            primary_success=False,
             error=FunctionError(
                 code="write_failed",
                 message=result.error or "progress_log append failed",
@@ -138,7 +153,9 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
                 step="github_sync",
                 detail=result.warning,
             )
-        ] if result.warning else [],
+        ]
+        if result.warning
+        else [],
     )
 
 
@@ -176,8 +193,10 @@ REGISTRATIONS: List[Dict[str, Any]] = [
 
 
 __all__ = [
-    "AppendRequest", "AppendResponse",
+    "AppendRequest",
+    "AppendResponse",
     "handle_append",
-    "PROGRESS_LOG_SECTION", "PROGRESS_LOG_ORDERING",
+    "PROGRESS_LOG_SECTION",
+    "PROGRESS_LOG_ORDERING",
     "REGISTRATIONS",
 ]

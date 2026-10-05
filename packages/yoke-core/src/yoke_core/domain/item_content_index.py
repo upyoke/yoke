@@ -73,25 +73,15 @@ def build_content_index(
 def instruction_index(
     instructions: Sequence[Mapping[str, Any]],
     *,
-    workflow_id: str,
-    project_slug: str,
+    public_ref: str,
 ) -> dict[str, Any]:
-    """Report how much operator authority applies, and how to read all of it.
-
-    ``count`` is what makes an empty ``execution_instructions`` list readable:
-    zero means no instruction governs this item, and non-zero means the bodies
-    were not served on this read and ``read`` returns every one of them.
-    """
+    """Index the instructions served on every read, including live-bucket rules."""
     return {
         "count": len(instructions),
         "bytes": sum(
-            len(str(row.get("content") or "").encode("utf-8"))
-            for row in instructions
+            len(str(row.get("content") or "").encode("utf-8")) for row in instructions
         ),
-        "read": (
-            "yoke workflow execution-instruction resolve "
-            f"--workflow {workflow_id} --project {project_slug} --full"
-        ),
+        "read": f"yoke items get {public_ref} status",
     }
 
 

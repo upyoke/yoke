@@ -95,6 +95,7 @@ class LifecycleTransitionResponse(BaseModel):
     from_status: str
     to_status: str
     reason: Optional[str] = None
+    execution_instructions: list[dict] = Field(default_factory=list)
     log: str = ""
 
 
@@ -268,6 +269,8 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
             gate_failure_message(result, "lifecycle transition failed"),
         )
 
+    from yoke_core.domain.execution_instruction_delivery import item_instructions
+
     response = LifecycleTransitionResponse(
         item_id=item_id,
         from_status=current,
@@ -276,6 +279,11 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
         if payload.target_status == "cancelled"
         else payload.reason,
         log=captured.getvalue(),
+        execution_instructions=item_instructions(
+            item_id,
+            delivery_point="when_entering_stage",
+            stage_id=payload.target_status,
+        ),
     )
     return HandlerOutcome(
         result_payload=response.model_dump(),

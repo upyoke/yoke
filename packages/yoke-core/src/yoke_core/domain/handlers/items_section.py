@@ -1,33 +1,14 @@
-"""Handlers for the ``items.section.*`` function family.
+"""Typed section writes and reads over the sections domain owner.
 
-Three function ids:
-
-- ``items.section.upsert`` — insert or replace an ``item_sections`` row
-  via :func:`yoke_core.domain.sections.upsert_section`, then re-render
-  the item body. Accepts ``target.kind="section"`` with ``item_id`` and
-  ``section_name``.
-- ``items.section.delete`` — drop an ``item_sections`` row via
-  :func:`yoke_core.domain.sections.delete_section` and re-render.
-- ``items.section.get`` — read-only fetch via
-  :func:`yoke_core.domain.sections.get_section` (no mutation, no
-  events).
-
-Each handler is a thin Pydantic-shaped wrapper around the existing
-``sections`` domain owner. The owner handles connection lifecycle,
-``COALESCE`` ordering preservation, and source attribution. The
-handler maps the typed envelope to/from that owner.
-
-Future-concept absorption target: when the execution journal
-lands, ``items.section.upsert`` / ``items.section.delete`` become
-journal-emit + ``sections.*`` pairs and these handlers merge into the
-journal hot path. ``items.section.get`` stays a read-only fast path.
+Reads attach the item's execution instructions; writes preserve the existing
+render, sync, and source-attribution contracts.
 """
 
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from yoke_core.domain import sections as _sections
 from yoke_core.domain.backlog_queries import VALID_STRUCTURED_FIELDS
@@ -83,20 +64,23 @@ class GetResponse(BaseModel):
     item_id: int
     section_name: str
     found: bool
+    execution_instructions: list[dict[str, Any]] = Field(default_factory=list)
     content: str = ""
     line_count: int = 0
 
 
 def _bad_request(message: str) -> HandlerOutcome:
     return HandlerOutcome(
-        result_payload={}, primary_success=False,
+        result_payload={},
+        primary_success=False,
         error=FunctionError(code="invalid_payload", message=message),
     )
 
 
 def _not_found(message: str) -> HandlerOutcome:
     return HandlerOutcome(
-        result_payload={}, primary_success=False,
+        result_payload={},
+        primary_success=False,
         error=FunctionError(code="target_not_found", message=message),
     )
 
@@ -148,7 +132,8 @@ def handle_upsert(request: FunctionCallRequest) -> HandlerOutcome:
         return _bad_request(f"payload invalid: {exc}")
     if not payload.content or not payload.content.strip():
         return HandlerOutcome(
-            result_payload={}, primary_success=False,
+            result_payload={},
+            primary_success=False,
             error=FunctionError(
                 code="empty_body",
                 message="refusing section upsert with empty content",
@@ -163,12 +148,17 @@ def handle_upsert(request: FunctionCallRequest) -> HandlerOutcome:
         source=payload.source,
     )
     render_ok = _sections._rerender_body(
-        item_id, "upsert", None, _NullSink(), _NullSink(),
+        item_id,
+        "upsert",
+        None,
+        _NullSink(),
+        _NullSink(),
     )
     _sections._emit_section_event("SectionUpserted", item_id, section_name)
     if not render_ok:
         return HandlerOutcome(
-            result_payload={}, primary_success=False,
+            result_payload={},
+            primary_success=False,
             error=FunctionError(
                 code="render_failed",
                 message="body render failed after section upsert",
@@ -176,7 +166,8 @@ def handle_upsert(request: FunctionCallRequest) -> HandlerOutcome:
         )
 
     sync_ok, sync_reason = _sections.sync_body_after_section_mutation(
-        item_id, "upsert",
+        item_id,
+        "upsert",
     )
 
     persisted = _sections.get_section(item_id, section_name) or ""
@@ -199,9 +190,7 @@ def handle_upsert(request: FunctionCallRequest) -> HandlerOutcome:
         verification="ok" if persisted == payload.content else "drift",
     )
     warnings = (
-        [_github_sync_degraded_warning("body_sync", sync_reason)]
-        if not sync_ok
-        else []
+        [_github_sync_degraded_warning("body_sync", sync_reason)] if not sync_ok else []
     )
     return HandlerOutcome(
         result_payload=response.model_dump(),
@@ -220,7 +209,9 @@ def handle_delete(request: FunctionCallRequest) -> HandlerOutcome:
     existing = _sections.get_section(item_id, section_name)
     if existing is None:
         response = DeleteResponse(
-            item_id=item_id, section_name=section_name, deleted=False,
+            item_id=item_id,
+            section_name=section_name,
+            deleted=False,
         )
         return HandlerOutcome(
             result_payload=response.model_dump(),
@@ -229,14 +220,19 @@ def handle_delete(request: FunctionCallRequest) -> HandlerOutcome:
 
     _sections.delete_section(item_id=item_id, section_name=section_name)
     render_ok = _sections._rerender_body(
-        item_id, "delete", None, _NullSink(), _NullSink(),
+        item_id,
+        "delete",
+        None,
+        _NullSink(),
+        _NullSink(),
     )
     _sections._emit_section_event("SectionDeleted", item_id, section_name)
 
     warnings: List[FunctionWarning] = []
     if render_ok:
         sync_ok, sync_reason = _sections.sync_body_after_section_mutation(
-            item_id, "delete",
+            item_id,
+            "delete",
         )
         if not sync_ok:
             warnings.append(
@@ -244,7 +240,9 @@ def handle_delete(request: FunctionCallRequest) -> HandlerOutcome:
             )
 
     response = DeleteResponse(
-        item_id=item_id, section_name=section_name, deleted=True,
+        item_id=item_id,
+        section_name=section_name,
+        deleted=True,
     )
     return HandlerOutcome(
         result_payload=response.model_dump(),
@@ -267,10 +265,13 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
         return _not_found(
             f"section {section_name!r} not found on {item_ref_for_id(item_id)}",
         )
+    from yoke_core.domain.execution_instruction_delivery import item_instructions
+
     response = GetResponse(
         item_id=item_id,
         section_name=section_name,
         found=True,
+        execution_instructions=item_instructions(item_id),
         content=content,
         line_count=_line_count(content),
     )
@@ -330,9 +331,14 @@ REGISTRATIONS: List[Dict[str, Any]] = [
 
 
 __all__ = [
-    "UpsertRequest", "UpsertResponse",
-    "DeleteRequest", "DeleteResponse",
-    "GetRequest", "GetResponse",
-    "handle_upsert", "handle_delete", "handle_get",
+    "UpsertRequest",
+    "UpsertResponse",
+    "DeleteRequest",
+    "DeleteResponse",
+    "GetRequest",
+    "GetResponse",
+    "handle_upsert",
+    "handle_delete",
+    "handle_get",
     "REGISTRATIONS",
 ]
