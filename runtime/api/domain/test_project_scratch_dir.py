@@ -273,7 +273,7 @@ def test_bad_env_override_degrades_to_tmpdir_fallback(
         assert scratch.scratch_root("yoke") == (
             tmp_path
             / "yoke-scratch"
-            / "1"
+            / "yoke"
             / "sessions"
             / "test-session"
             / "runs"

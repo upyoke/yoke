@@ -18,7 +18,6 @@ from runtime.api.api_workflow_test_helpers import (
 from runtime.api.fixtures.file_test_db import init_test_db
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from yoke_core.hooks import (
-    helpers as hook_helpers,
     helpers_markers as hook_helpers_markers,
 )
 
@@ -45,21 +44,13 @@ if not (
 
 @pytest.fixture(autouse=True)
 def clean_markers(tmp_path, monkeypatch):
-    """Isolate marker files per test via a tmp-rooted YOKE_SCRATCH_ROOT.
-
-    The module-level CURRENT_ITEM_MARKER / DONE_ITEM_MARKER constants
-    are computed at import time from the ambient scratch root, so under
-    pytest-xdist they collide across workers. Per-test isolation: point
-    YOKE_SCRATCH_ROOT at tmp_path and recompute the constants for the
-    duration of the test.
-    """
+    """Give marker operations an explicit synthetic project and isolated root."""
     monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path))
-    current_path = str(hook_marker_path("current-item"))
-    done_path = str(hook_marker_path("done-item"))
-    monkeypatch.setattr(hook_helpers_markers, "CURRENT_ITEM_MARKER", current_path)
-    monkeypatch.setattr(hook_helpers_markers, "DONE_ITEM_MARKER", done_path)
-    monkeypatch.setattr(hook_helpers, "CURRENT_ITEM_MARKER", current_path)
-    monkeypatch.setattr(hook_helpers, "DONE_ITEM_MARKER", done_path)
+    monkeypatch.setattr(
+        hook_helpers_markers,
+        "hook_marker_path",
+        lambda name: hook_marker_path(name, project="fixture"),
+    )
     yield
 
 

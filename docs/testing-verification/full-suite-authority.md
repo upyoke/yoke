@@ -1,7 +1,6 @@
 # Full-suite authority: CI
 
-How local verification is scoped, why the gate run is the one full
-execution for a tree, and how to read a selection that widened.
+How verification is scoped, the one full execution per tree, and widening telemetry.
 Companion to [`docs/testing-verification.md`](../testing-verification.md).
 
 The full suite — the project's Project Structure `test_roots` attachments,
@@ -72,7 +71,8 @@ Local verification stays change-scoped:
   keys, digit-prefixed migration modules) are edges; so is a `.py` path named
   (`ROOT / "pkg" / "thing.py"`) when it names one file; an imported
   NAME resolves through re-export chains to its defining module (aliases and
-  star re-exports too); and an always-run floor of contract tests runs on
+  star re-exports too); implicit conftest consumers retain a descendant collection probe even in bounded runs;
+  and an always-run floor of contract tests runs on
   every selection (CLI registry, operation inventory, adapter parity, Atlas
   integrity, generated-artifact parity/drift, plus a fresh-universe birth from
   the published engine wheel). CLI changes also select the product-wheel project
