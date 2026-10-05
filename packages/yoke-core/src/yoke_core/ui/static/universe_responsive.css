@@ -113,12 +113,12 @@
    collapsed them, so one card became one full-width track and three became
    thirds while the section below drew four; sections are read as a set, so
    their columns line up whatever each one holds. min(100%, min-track) stacks
-   on a pane narrower than the track without clipping. A document card then
-   takes the width it is given, while work, session and machine cards stop at
-   a maximum rather than stretching a short row across a whole wide screen. */
+   on a pane narrower than the track without clipping. Fractional tracks
+   distribute leftover width to the right edge while empty slots preserve
+   matching column edges across sparse and populated sections. */
 .universe-app-root {
   --yoke-card-track-min: 268px;
-  --yoke-card-track-max: 360px;
+  --yoke-card-track-max: 1fr;
   --yoke-card-grid-gap: 12px;
 }
 .universe-app-root .session-grid,
@@ -134,12 +134,10 @@
 }
 .universe-app-root .strategy-doc-grid {
   --yoke-card-track-min: 280px;
-  --yoke-card-track-max: 1fr;
   --yoke-card-grid-gap: 10px;
 }
 .universe-app-root .machines-grid {
   --yoke-card-track-min: 340px;
-  --yoke-card-track-max: 380px;
 }
 .universe-app-root .navigation-toggle {
   padding: 9px;
