@@ -13,7 +13,7 @@ Read and follow: `boss-verdict-transitions.md` (steps 5j, 5l, 5m: verdict result
 
 ## 5e. Invoke Boss
 
-After the worker completes (or directly for `planning_to_plan_drafted`), invoke the Boss:
+After the worker completes (or directly for the final review edge), invoke the Boss:
 
 **Do NOT pass artifact content inline.** The Boss agent reads the authoritative artifact from the DB itself using scope-aware `yoke items get` calls. The shepherd sends only metadata. This prevents stale/summarized content from reaching the quality gate.
 
@@ -22,7 +22,7 @@ After the worker completes (or directly for `planning_to_plan_drafted`), invoke 
 Before invocation, compute repeated Boss output failures for this item/transition:
 
 ```bash
-_boss_unparseable_count=$(yoke db read --format lines "SELECT COUNT(*) FROM shepherd_verdicts WHERE item='PREFIX-$_num' AND transition='$_transition' AND caveats LIKE '%[UNPARSEABLE_BOSS_OUTPUT]%'")
+_boss_unparseable_count=$(yoke db read --format lines "SELECT COUNT(*) FROM shepherd_verdicts WHERE item='YOK-$_num' AND transition='$_transition' AND caveats LIKE '%[UNPARSEABLE_BOSS_OUTPUT]%'")
 _boss_model_override=""
 if [ "$_boss_unparseable_count" -ge 2 ]; then
  _boss_model_override="opus"
@@ -33,7 +33,7 @@ fi
 Capture the current verdict-row high-water mark before invoking the Boss. Layer 2 may only reuse rows inserted after this point; older rows belong to prior attempts and must not satisfy the current parse.
 
 ```bash
-_pre_boss_verdict_max_id=$(yoke db read --format lines "SELECT COALESCE(MAX(id), 0) FROM shepherd_verdicts WHERE item='PREFIX-$_num' AND transition='$_transition' AND worker='$_worker_name'")
+_pre_boss_verdict_max_id=$(yoke db read --format lines "SELECT COALESCE(MAX(id), 0) FROM shepherd_verdicts WHERE item='YOK-$_num' AND transition='$_transition' AND worker='$_worker_name'")
 ```
 
 **Boss invocation:**
@@ -54,9 +54,9 @@ _pre_boss_verdict_max_id=$(yoke db read --format lines "SELECT COALESCE(MAX(id),
 
  {if _sim_report: "Simulator report:\n{_sim_report}"}
 
- {if _transition is "refined_idea_to_planning": "DEPLOYMENT FLOW CHECK: Verify the spec includes a ## Definition of Done section with Project, Flow, and Rationale fields identifying a deployment flow. If the section is missing or the flow ID is not recognized, issue CAVEATS (not NOT_READY) noting the missing deployment flow selection. This is advisory, not blocking."}
+ {if _transition is "$_plan_transition": "DEPLOYMENT FLOW CHECK: Verify the spec includes a ## Definition of Done section with Project, Flow, and Rationale fields identifying a deployment flow. If the section is missing or the flow ID is not recognized, issue CAVEATS (not NOT_READY) noting the missing deployment flow selection. This is advisory, not blocking."}
 
- {if _transition is "planning_to_plan_drafted": "EVENT COVERAGE CHECK: Review the task list and worktree plan. If this epic adds new user-facing workflows, status transitions, or system operations, verify that corresponding yoke events emit calls are included in the task specs. Flag any gaps as caveats."}
+ {if _transition is "$_review_transition": "EVENT COVERAGE CHECK: Review the task list and worktree plan. If this epic adds new user-facing workflows, status transitions, or system operations, verify that corresponding yoke events emit calls are included in the task specs. Flag any gaps as caveats."}
 
  Mandatory review points for this gate:
  - Check self-consistency across the artifact: requirements, ACs, caveats, and narrative must agree.
@@ -71,9 +71,7 @@ _pre_boss_verdict_max_id=$(yoke db read --format lines "SELECT COALESCE(MAX(id),
  Do NOT persist your verdict to the DB. Return it as text only. The shepherd handles all verdict persistence.
 ```
 
-Where `scope` maps to:
-- `refined_idea_to_planning` -> `scope=plan`
-- `planning_to_plan_drafted` -> `scope=plan` (final review of all artifacts)
+Every edge uses `scope=plan`; the final edge reviews all persisted artifacts.
 
 Store this mapped value in `_scope` for parsing and fallback logic.
 

@@ -54,19 +54,15 @@ Create a new backlog item. Infers type, priority, project, deployment flow, depe
 
 ### shepherd
 
-Advance an epic from `refined-idea` to `planned` through quality-gated transitions. Epic-only (issues use `/yoke refine` instead). For each transition: Worker produces the artifact, Boss reviews, the verdict is persisted, and the pipeline advances or retries.
+Execute the planning segment selected by the item's immutable Shepherd binding and generated-task policy. Read the ordered stages and declared edges; stage names and the handoff come from the binding. Each edge has a persisted verdict key derived from its source and target, with hyphens normalized to underscores and joined by `_to_`.
 
-**Modes:** Standalone mode (interactive, pauses between transitions) and subagent mode (`--subagent --session <id>`, autonomous).
+The first edge runs the conditional PM/design gates, Architect, and Simulator. Later edges review persisted artifacts; the final edge runs handoff quality gates and Boss review. A one-edge segment performs both roles before handoff. Accepted verdicts advance only the declared edge, with retries bounded at three attempts. Missing edges or an unsupported policy refuse with the pinned version and recovery named.
 
-**Transition routing:**
-- `refined_idea_to_planning` -- PM spec-writing gate (invoked when the spec lacks required PRD sections) + Architect decomposes into epic tasks or produces a lightweight technical plan. Simulator runs the plan-phase simulation with the auto-fix loop (max 2 cycles).
-- `planning_to_plan_drafted` -- No worker; runs quality gates (missing AC hard-block, missing deployment flow hard-block, Pack-reuse stance advisory for non-yoke items, vague AC advisory, scope overlap advisory, epic task independence advisory), then Boss final review.
+Resume from verdict history, artifacts, and live status. A Designer SKIPPED verdict skips only design. No legacy subagent invocation mode is supported. After handoff, refresh `items.detail.get` to report the actual stage and next bound skill.
 
-**Resume support:** Queries `shepherd_verdicts` table. Completed (READY/CAVEATS/SKIPPED) transitions are skipped. BLOCKED transitions halt. NOT_READY transitions resume at the next attempt (max 3). Re-anchoring blocks between transitions prevent context pollution from instruction-like spec bodies.
+**Structured fields:** `shepherd_log` and `shepherd_caveats` hold verdict evidence; Progress Log holds resumable execution context. The item body renders from these fields.
 
-**Structured field isolation:** Shepherd writes to `shepherd_log` and `shepherd_caveats` fields -- the body is automatically re-rendered by `render-body.sh`. Body content isolation rules prevent spec content from leaking into orchestration context.
-
-**Phase files:** `design-and-plan.md`, `planning-to-planned-gates.md`, `boss-verdict.md`, `finalize.md`.
+**Phase files:** `entry.md`, `transitions.md`, `design-and-plan.md`, `planning-gates.md`, `boss-verdict.md`, `finalize.md`.
 
 ### conduct
 

@@ -341,7 +341,7 @@ You receive these via your Task prompt:
 
 - **scope**: `spec` | `prd` | `plan` — which type of artifact is being evaluated
 - **item_id**: PREFIX-N identifier
-- **transition**: full transition name (e.g., `planning_to_plan_drafted`, `refined_idea_to_planning`) — used for verdict persistence
+- **transition**: edge verdict key derived from the pinned source and target stage ids — used for verdict persistence
 - **worker_name**: worker name for this transition (e.g., `review`, PM name) — used for verdict persistence
 
 The caller may also include inline artifact content for convenience, but you MUST NOT rely on it. Always read the authoritative source yourself (step 1 below).
@@ -432,7 +432,7 @@ Focus on: task granularity (session-fit), interface contracts between tasks, dep
 **Durable naming validation:** When the plan creates or renames live codebase surfaces, reject provenance-shaped names. The task may mention the planning artifact as context, but the proposed implementation names must stand alone to a future repository reader who cannot see the plan.
 
 **FR Coverage Validation (mandatory for `scope=plan`):**
-When evaluating at `scope=plan` (the `refined_idea_to_planning` and `planning_to_plan_drafted` transitions), you MUST verify FR-to-task coverage as part of the PM Perspective:
+When evaluating at `scope=plan` (the pinned Shepherd plan-production and final review edges), you MUST verify FR-to-task coverage as part of the PM Perspective:
 
 1. Extract all FR-N identifiers from the spec body (the `## Requirements` / `### Functional Requirements` section).
 2. Check for a `### FR Traceability` section in the `## Technical Plan`.
@@ -448,7 +448,7 @@ When evaluating plans that target a specific project (not `yoke` itself), check:
 3. If a relevant Pack exists but the plan does not publish a new version for a general improvement → CAVEATS noting "Existing Pack may need a new version for this reusable capability."
 4. Reject plans that require project customizations to flow back into the Pack or introduce drift policing, automatic pruning, or whole-project synchronization.
 
-**Lifecycle note:** Shepherd `scope=plan` reviews are epic-only (`refined_idea_to_planning`, `planning_to_plan_drafted`). Do NOT apply epic plan-artifact requirements to issue or bug work handled outside shepherd.
+**Lifecycle note:** Shepherd `scope=plan` reviews require the generated-task planning policy and use binding-derived edges. Do NOT apply epic plan-artifact requirements to issue or bug work handled outside shepherd.
 
 ## Verdict
 

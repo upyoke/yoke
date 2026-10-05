@@ -1,109 +1,66 @@
-# /yoke shepherd steps 1–2 — parse the argument and read the item
+# Shepherd entry — read the item and its pinned binding
 
-## 1. Parse Arguments
+## Parse and read
 
-Extract the numeric ID from `PREFIX-N` and detect standalone vs subagent mode.
+Use the supplied item reference unchanged; resolve its bare integer `item_id`
+from `items.detail.get` for function-call targets. A public sequence number is
+not an `items.id` value. Load the pin and its exact logical version:
 
-## 2. Read Item
-
-Load the immutable item pin and then its exact logical version:
-
-```bash
-_num={N}
-_item_pin_json=$(yoke workflows item get "PREFIX-$_num" --json) || {
- echo "Item PREFIX-{N} not found."
- exit 1
-}
-_workflow_id=$(printf '%s' "$_item_pin_json" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["result"]["workflow_id"])')
-_workflow_version=$(printf '%s' "$_item_pin_json" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["result"]["workflow_version"])')
-_item_status=$(printf '%s' "$_item_pin_json" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["result"]["status"])')
-_title=$(yoke items get $_num title)
-_pinned_definition_json=$(yoke workflows version get \
- "$_workflow_id" "$_workflow_version" --json) || {
- echo "Pinned workflow $_workflow_id@$_workflow_version is unavailable."
- exit 1
-}
+```text
+yoke workflows item get PREFIX-N --json
+yoke workflows version get WORKFLOW VERSION --json
+yoke items detail get PREFIX-N --json
 ```
 
-If any query returns empty, stop with `Item PREFIX-{N} not found.`
+Set `_num` to the resolved bare `item_id`, `_item_ref` to the supplied public
+reference, `_epic_id` to `_num`, and `_session_id` to the verified ambient
+session identity. In prompt/report placeholders, `PREFIX-{N}` means that
+original public reference, never a reference constructed from `_num`.
+Keep the item title, live status, original status, resolved `item_id`, and
+pinned definition. Preserve the supplied reference as `ITEM` for CLI reads.
+Missing reads stop with `shepherd_pin_unavailable`; name the failed read and
+recover that pin before any write.
 
-Interpret the ordered stages, the unique Shepherd binding, and its policy
-contract from that response:
+## Interpret the segment
 
-```bash
-_shepherd_context_json=$(printf '%s' "$_pinned_definition_json" | python3 -c '
-import json,sys
-status=sys.argv[1]
-definition=json.load(sys.stdin)["result"]["definition"]
-stages=[stage["id"] for stage in definition["stages"]]
-position=stages.index(status)
-bindings=definition["skill_bindings"]
-shepherd=[row for row in bindings if row["skill_id"] == "shepherd"]
-if len(shepherd) != 1:
-    raise SystemExit("definition must contain exactly one shepherd binding")
-binding=shepherd[0]
-start=stages.index(binding["from_stage_id"])
-stop=stages.index(binding["through_stage_id"])
-current=""
-for row in bindings:
-    row_start=stages.index(row["from_stage_id"])
-    row_stop=stages.index(row["through_stage_id"])
-    if row_start <= position < row_stop:
-        current=row["skill_id"]
-        break
-policies=definition["policies"]
-segment=stages[start:stop + 1]
-supported=(
-    policies["generated_children"] == "epic_tasks"
-    and segment == ["refined-idea", "planning", "plan-drafted"]
-)
-location="before" if position < start else ("after" if position >= stop else "active")
-print(json.dumps({
-    "current_skill": current,
-    "source_stage": binding["from_stage_id"],
-    "through_stage": binding["through_stage_id"],
-    "path_claims": policies["path_claims"],
-    "location": location,
-    "supported": supported,
-}))
-' "$_item_status") || {
- echo "Cannot interpret the pinned Shepherd segment for PREFIX-{N}."
- exit 1
-}
-_current_skill=$(printf '%s' "$_shepherd_context_json" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["current_skill"])')
-_shepherd_source_stage=$(printf '%s' "$_shepherd_context_json" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["source_stage"])')
-_shepherd_through_stage=$(printf '%s' "$_shepherd_context_json" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["through_stage"])')
-_path_claim_policy=$(printf '%s' "$_shepherd_context_json" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["path_claims"])')
-_shepherd_location=$(printf '%s' "$_shepherd_context_json" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["location"])')
-_shepherd_supported=$(printf '%s' "$_shepherd_context_json" | python3 -c \
- 'import json,sys; print(str(json.load(sys.stdin)["supported"]).lower())')
+Read the ordered `stages`, `transitions`, `skill_bindings`, and `policies`.
+Find the unique binding with `skill_id="shepherd"`. Its half-open interval
+owns execution; its `through_stage_id` is the handoff, not another working
+stage. Derive, without literal stage ids:
+
+- `_shepherd_source_stage`: the binding's `from_stage_id`.
+- `_shepherd_through_stage`: the binding's `through_stage_id`.
+- `_shepherd_segment`: the ordered stages from source through handoff inclusive.
+- `_shepherd_edges`: consecutive `(source_stage, target_stage)` pairs in that
+  segment. Each pair must exist in the definition's `transitions`.
+- For each edge, `_transition`: source with hyphens replaced by underscores,
+  then `_to_`, then target with hyphens replaced by underscores. These are
+  durable verdict keys; reject collisions between normalized edge keys.
+- `_plan_transition`: the first edge's verdict key; `_review_transition`:
+  the final edge's verdict key. A one-edge segment has the same key for both.
+- `_current_skill`: the binding whose interval contains the live stage.
+- `_path_claim_policy` and `_file_budget_policy`: the item read's
+  `result.effective_policies.path_claims` and `.file_budget` independently.
+
+The planning contract requires `policies.generated_children="epic_tasks"`
+and a non-empty sequence of declared consecutive edges. Stage names and
+edge count are definition-owned. An absent/ambiguous binding, unsupported
+child policy, missing edge, or verdict-key collision stops with
+`shepherd_segment_unsupported`, names the failed condition and pin, and asks
+for a corrected published workflow version. Never substitute the built-in
+segment or repin the item implicitly.
+
+If the live stage is at or past the handoff, stop as a no-op. If it precedes
+entry or the current bound skill differs, report the current bound skill
+from the definition. Do not infer a route from `workflow_id`.
+
+After validation passes, stamp the mode and acquire the claim:
+
+```text
+yoke sessions touch --mode shepherd
+yoke claims work acquire --item ITEM --reason "Execute pinned Shepherd segment"
 ```
 
-If `_shepherd_supported` is not `true`, stop with a contract error: this skill
-cannot execute the planning shape published by that pinned version.
-
-If `_shepherd_location` is `after`, stop as a no-op: the item has crossed the
-binding's `through_stage_id`. If the location is `before` or
-`_current_skill` is not `shepherd`, reject with the current registered
-skill and route to `/yoke {_current_skill} PREFIX-{N}`. Never infer that
-route from `_workflow_id`.
-
-After validation passes, register the work claim:
-
-```bash
-# Session touch + claim
-yoke sessions touch --mode shepherd >/dev/null 2>&1 || true
-yoke claims work acquire \
- --item "PREFIX-$_num"
-```
-
+A failed mode/claim write stops; do not swallow the refusal.
 
 Next: [`transitions.md`](transitions.md).

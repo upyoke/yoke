@@ -1,20 +1,20 @@
 # Shepherd: PM Spec Gate and Design Gate
 
-Covers steps 5a and 5b: PM spec-writing gate (conditional) and design gate (conditional), plus Designer invocation when the design gate fires. Both gates apply during `refined_idea_to_planning`.
+Covers steps 5a and 5b: PM spec-writing gate (conditional) and design gate (conditional), plus Designer invocation when the design gate fires. Both gates apply during the plan-production edge.
 
-**Inherited from router:** `MAX_ATTEMPTS`, `_num`, `_workflow_id`, `_title`, `_item_status`, `_epic`, `_scholar_context`, `_prior_caveats`, `_transition`, `_attempt`, `_session_id`, `_worker_name`.
+**Inherited from router:** `MAX_ATTEMPTS`, `_num`, `_workflow_id`, `_title`, `_item_status`, `_scholar_context`, `_prior_caveats`, `_transition`, `_attempt`, `_session_id`, `_worker_name`.
 
 ---
 
-## 5a. PM Spec-Writing Gate (conditional, evaluated during `refined_idea_to_planning`)
+## 5a. PM Spec-Writing Gate (conditional, evaluated during the plan-production edge)
 
-Items arrive at shepherd at `refined-idea` (refined via `/yoke refine`). The refine skill improves the idea but does not write the structured PRD sections required by the Architect's PRD validation gate. The PM spec-writing gate ensures a structured spec exists before the Architect is invoked.
+Items arrive at the binding's `_shepherd_source_stage`. The refine skill improves the idea but does not write the structured PRD sections required by the Architect's PRD validation gate. The PM spec-writing gate ensures a structured spec exists before the Architect is invoked.
 
 **Pre-check: Run PRD validator silently.** This registered read-only
 readiness gate dispatches through the Yoke function-call transport.
 
 ```bash
-yoke readiness prd-validate "PREFIX-$_num" >/dev/null 2>&1
+yoke readiness prd-validate "$_item_ref" >/dev/null 2>&1
 _prd_precheck_rc=$?
 ```
 
@@ -25,9 +25,9 @@ If exit code is 1 (FAIL), invoke the PM.
 **Pre-write spec snapshot to a file-backed input path.** Before invoking the PM, capture the current spec in a shell variable as a rollback baseline AND write it to a stable per-dispatch file that the PM Reads as its single canonical input. The Product Manager is `Read, Grep, Glob` only (no Bash, no DB packet); the orchestrator owns the DB read and hands PM a path to Read. The inline-embed shape is intentionally avoided — a single source of truth eliminates the "truncated inline copy while the prose still claims full embedding" failure mode.
 
 ```bash
-_pre_pm_spec=$(yoke items get $_num spec)
+_pre_pm_spec=$(yoke items get "$_item_ref" spec)
 if [ -z "$_pre_pm_spec" ]; then
- _pre_pm_spec=$(yoke items get $_num body)
+ _pre_pm_spec=$(yoke items get "$_item_ref" body)
  _pre_pm_source="body"
 else
  _pre_pm_source="spec"
@@ -124,7 +124,7 @@ fi
  - ## Acceptance Criteria — MUST be present with '- [ ] AC-{N}: {description}'
  checkboxes. Each AC must be specific and independently testable, aligned with
  the functional requirements. Conduct requires ACs to verify each item — items
- without ACs will be hard-blocked at the planning_to_plan_drafted gate.
+ without ACs will be hard-blocked at the {_review_transition} gate.
 
  If you defer any work from scope (e.g., "deferred to a follow-up", "out of scope"),
  you MUST include a ## Deferred Items section with a table tracking each deferral.
@@ -177,13 +177,13 @@ fi
 **Post-write content verification (hard gate).** Re-read `items.spec` from the DB:
 
 ```bash
-_verify_spec=$(yoke items get $_num spec)
+_verify_spec=$(yoke items get "$_item_ref" spec)
 if [ -z "$_verify_spec" ]; then
- echo "WARNING: spec read returned empty for PREFIX-$_num in FR-A3 verification — retrying after 1s" >&2
+ echo "WARNING: spec read returned empty for $_item_ref in FR-A3 verification — retrying after 1s" >&2
  sleep 1
- _verify_spec=$(yoke items get $_num spec)
+ _verify_spec=$(yoke items get "$_item_ref" spec)
  if [ -n "$_verify_spec" ]; then
- echo "RECOVERED: spec re-read succeeded for PREFIX-$_num in FR-A3 verification" >&2
+ echo "RECOVERED: spec re-read succeeded for $_item_ref in FR-A3 verification" >&2
  fi
 fi
 ```
@@ -212,18 +212,18 @@ If verification passes:
 
 ---
 
-## 5b. Design Gate (evaluated during `refined_idea_to_planning`)
+## 5b. Design Gate (evaluated during the plan-production edge)
 
-This gate is conditional. The design gate uses a unified heuristic in both standalone and subagent mode (no user interaction).
+This gate is conditional; use the same artifact-based heuristic on every invocation.
 
 **Step 1: Existing design check.** Read the item's canonical structured field:
  ```bash
- _design_spec=$(yoke items get "PREFIX-$_num" design_spec)
+ _design_spec=$(yoke items get "$_item_ref" design_spec)
  ```
 If `_design_spec` is non-empty, skip design. Log: `Design gate: SKIP -- design already exists for PREFIX-{N}`. Persist a SKIPPED pseudo-verdict:
 
 ```bash
-yoke shepherd verdict --item "PREFIX-$_num" --transition "$_transition" --worker "$_worker_name" --verdict "SKIPPED" --caveats "design gate: existing design"
+yoke shepherd verdict --item "$_item_ref" --transition "$_transition" --worker "$_worker_name" --verdict "SKIPPED" --caveats "design gate: existing design"
 ```
 
 **Step 2: Judgment-based design evaluation.** Read the item title and spec. Answer one question:
@@ -243,18 +243,18 @@ A design spec is NOT warranted when:
 - **Needs design:** Log: `Design gate: INCLUDE -- {one-sentence rationale, e.g., "item creates a new settings form with multiple input fields and validation"}`. Proceed to invoke Designer.
 - **Skip design:** Log: `Design gate: SKIP -- {one-sentence rationale, e.g., "item modifies shepherd SKILL.md files, no user-facing UI"}`. Persist a SKIPPED pseudo-verdict as above.
 
-**Resume behavior:** A `SKIPPED` verdict in `shepherd_verdicts` for `refined_idea_to_planning` is treated as equivalent to `READY` for resume purposes in step 4 (in the router).
+**Resume behavior:** A Designer `SKIPPED` verdict skips only the Designer. It does not satisfy the Architect, Simulator, or Boss review for this edge.
 
 ---
 
-## 5d. Invoke Worker (refined_idea_to_planning -- Designer)
+## 5d. Invoke Worker ({_plan_transition} -- Designer)
 
 Invoke the Designer. The Product Designer is `Read, Grep, Glob` only (no Bash, no DB packet) — the same read-only contract as the Product Manager (see the PM spec snapshot step above for the rationale). The orchestrator owns the DB read and hands Designer a path to Read. Capture the current spec/body and build a `_pre_designer_context_block` using the same file-backed pattern the PM spec snapshot establishes for `_pre_pm_context_block` (input file under the gitignored scratch root, no inline data fence):
 
 ```bash
-_pre_designer_spec=$(yoke items get $_num spec)
+_pre_designer_spec=$(yoke items get "$_item_ref" spec)
 if [ -z "$_pre_designer_spec" ]; then
- _pre_designer_spec=$(yoke items get $_num body)
+ _pre_designer_spec=$(yoke items get "$_item_ref" body)
  _pre_designer_source="body"
 else
  _pre_designer_source="spec"
@@ -311,5 +311,5 @@ Use the `items.structured_field.replace` function call
 The rendered-body re-sync is part of the handler's side-effect chain.
 
 If the dispatch returns `success=false`, log
-`ERROR: structured field write failed for design_spec on PREFIX-$_num.
+`ERROR: structured field write failed for design_spec on $_item_ref.
 STOP -- do not advance status.` and treat as NOT_READY.

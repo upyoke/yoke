@@ -161,11 +161,10 @@ it.
 **If `--force`:** Skip with warning:
 > **Warning:** Shepherd lifecycle gate overridden with --force.
 
-**Required verdicts by target:**
-
-| Target | Required verdict |
-|---|---|
-| `implementing` or later | `planning_to_plan_drafted` = `READY`, `SKIPPED`, or `CAVEATS` (legacy `planned_to_ready` accepted as pre-2026-04-07 compat) |
+**Required verdict:** the final edge of the item's pinned Shepherd binding
+must have READY, SKIPPED, or CAVEATS from its plan review. Derive its verdict
+key from the source and target stage ids, replacing hyphens with underscores
+and joining with `_to_`. There is no historical verdict-name fallback.
 
 **Check:**
 ```bash
@@ -173,17 +172,12 @@ _gate_reason=$(python3 -m yoke_core.domain.shepherd_gate check "PREFIX-{N}")
 _gate_exit=$?
 ```
 
-`planning_to_plan_drafted` is the terminal verdict the `shepherd` skill
-writes before its pinned handoff. The helper also accepts the legacy
-`planned_to_ready` transition for items that passed the pre-2026-04-07
-pipeline; no modern producer writes that name.
-
 If `_gate_exit` is non-zero (no qualifying verdict), **block** with `$_gate_reason` followed by this remediation:
 > **Blocked:** PREFIX-{N} has no qualifying shepherd verdict for the Shepherd Lifecycle Gate.
 >
 > Inspect the verdict history directly: `yoke db read --format lines "SELECT id, transition, verdict, created_at FROM shepherd_verdicts WHERE item='PREFIX-{N}' ORDER BY id DESC"`.
 >
-> If the modern verdict (`planning_to_plan_drafted`) is missing after the
+> If the binding-derived final-edge verdict is missing after the
 > pinned shepherd handoff, the upstream shepherd run did not emit it. Re-run
 > `/yoke shepherd PREFIX-{N}` only while the current stage still belongs to that
 > binding; otherwise file a follow-up work item against the shepherd producer.

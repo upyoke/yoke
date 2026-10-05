@@ -18,7 +18,7 @@ Search for a line matching `^VERDICT:\s*(READY|NOT_READY|CAVEATS)\s*$` (case-sen
 **Layer 2: DB fallback query** (existing).
 If Layer 1 fails, check whether the Boss persisted its verdict to the DB directly:
 ```bash
-_db_boss_row=$(yoke db read --format lines "SELECT id, verdict, COALESCE(caveats,'') FROM shepherd_verdicts WHERE item='PREFIX-$_num' AND transition='$_transition' AND worker='$_worker_name' AND id > $_pre_boss_verdict_max_id ORDER BY id DESC LIMIT 1")
+_db_boss_row=$(yoke db read --format lines "SELECT id, verdict, COALESCE(caveats,'') FROM shepherd_verdicts WHERE item='YOK-$_num' AND transition='$_transition' AND worker='$_worker_name' AND id > $_pre_boss_verdict_max_id ORDER BY id DESC LIMIT 1")
 _db_boss_row_id=$(printf '%s' "$_db_boss_row" | cut -d'|' -f1)
 _db_boss_verdict=$(printf '%s' "$_db_boss_row" | cut -d'|' -f2)
 _db_boss_caveats=$(printf '%s' "$_db_boss_row" | cut -d'|' -f3-)
@@ -95,7 +95,7 @@ if [ "$_verdict_source" = "layer2_db" ] && [ -n "$_db_boss_row_id" ]; then
  _verdict_id="$_db_boss_row_id"
  echo "Verdict already persisted by Boss during this invocation (Layer 2 recovery) — reusing row $_verdict_id"
 else
- _verdict_id=$(yoke shepherd verdict --item "PREFIX-$_num" --transition "$_transition" --worker "$_worker_name" --verdict "$_verdict" --caveats "$_caveats_text")
+ _verdict_id=$(yoke shepherd verdict --item "$_item_ref" --transition "$_transition" --worker "$_worker_name" --verdict "$_verdict" --caveats "$_caveats_text")
 fi
 ```
 
@@ -107,8 +107,8 @@ Set `_verdict_source` during the parsing chain in step 5f:
 - Layer 5 (unparseable): `_verdict_source="layer5_unparseable"`
 
 Where:
-- `_worker_name` is the worker that produced the artifact (PM, Designer, Architect, or "review" for planning_to_plan_drafted)
-- `_session_id` is the session ID (from `--session` arg, or empty in standalone mode)
+- `_worker_name` is the worker that produced the artifact (PM, Designer, Architect, or "review" for {_review_transition})
+- `_session_id` is the calling session's verified ambient identity
 - `_db_boss_row_id` is the Layer 2 row ID captured from rows created after `_pre_boss_verdict_max_id`
 - `_verdict_id` is the row ID of the newly inserted verdict row (or reused row for Layer 2), used when persisting caveat dispositions in step 5i
 
@@ -134,7 +134,7 @@ For each extracted entry, persist via:
 ```bash
 yoke ouroboros entry insert \
  --agent "{agent}" \
- --context "shepherd PREFIX-$_num $_transition" \
+ --context "shepherd $_item_ref $_transition" \
  --category "{category}" \
  --observation "{observation}"
 ```
@@ -165,7 +165,7 @@ When the verdict is **CAVEATS**, every caveat must be triaged before the pipelin
 
 ```bash
 yoke shepherd caveat-disposition \
- --item "PREFIX-$_num" --transition "$_transition" --attempt "$_attempt" \
+ --item "$_item_ref" --transition "$_transition" --attempt "$_attempt" \
  --caveat-num "$_caveat_num" --caveat-text "$_caveat_text" \
  --disposition "$_disposition" --resolution-details "$_resolution_details" \
  --verdict-id "$_verdict_id"
@@ -206,7 +206,7 @@ Caveat triage for PREFIX-{N} at {_transition}:
 # Build subsection; use awk (not sed) to avoid BSD sed failures with markdown
 # metacharacters like **bold**, [links](url), |pipes|.
 _new_subsection=$(printf '### %s\n\n%s\n' "$_transition" "$_caveats_list")
-_existing_caveats=$(yoke items get $_num shepherd_caveats 2>/dev/null)
+_existing_caveats=$(yoke items get "$_item_ref" shepherd_caveats 2>/dev/null)
 
 if [ -n "$_existing_caveats" ]; then
  _has_transition=$(printf '%s\n' "$_existing_caveats" | grep -c "^### ${_transition}$" || true)
@@ -250,8 +250,6 @@ transition** — preserves prior subsections, appends new one.
 **(3) Same transition (retry)** — replaces only the matching
 subsection.
 
-**Mode differences:**
-- **Standalone mode:** The shepherd may ask the user for guidance on ambiguous caveats (resolve vs. defer).
-- **Subagent mode:** Triage autonomously. Default to DEFERRED when uncertain -- over-communicating to the next worker is safer than silently assuming something is resolved. Use ANALYZED only when the reasoning is clear and defensible; when in doubt, prefer DEFERRED.
+**Caveat decisions:** Triage within the authorized scope. Ask for guidance when an ambiguous caveat needs an operator decision; preserve the evidence and Progress Log checkpoint. Use ANALYZED only when the reasoning is clear and defensible.
 
 **Atomicity.** Structured field writes are atomic -- they cannot corrupt other fields. The body is re-rendered from all fields by the internal body renderer.
