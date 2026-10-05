@@ -56,6 +56,7 @@ def _register_render_relationship(conn, *, item_id: int) -> dict[str, int]:
     }
     set_render_relationship(
         conn,
+        project_id=1,
         target_path=RENDERED,
         source_paths=[SOURCE_A, SOURCE_B],
         recorded_event_id="render-target-survey-test",

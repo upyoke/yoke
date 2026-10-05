@@ -94,6 +94,11 @@ def cmd_create_item(args: list[str]) -> int:
         validate_and_lookup_flow_project,
     )
 
+    from yoke_core.domain.workflow_registry import (
+        WorkflowRegistryError,
+        resolve_current_workflow_pin,
+    )
+
     deployment_flow = normalize_deployment_flow_value(deployment_flow)
     conn = _get_db_readonly()
     try:
@@ -115,10 +120,6 @@ def cmd_create_item(args: list[str]) -> int:
             return 1
         flow_project, flow_err = validate_and_lookup_flow_project(
             conn, deployment_flow, project
-        )
-        from yoke_core.domain.workflow_registry import (
-            WorkflowRegistryError,
-            resolve_current_workflow_pin,
         )
         from yoke_core.domain.workflow_runtime import load_workflow_runtime
 

@@ -55,8 +55,12 @@ def db_with_item(db_path):
 class TestQueryItemsList:
     def test_returns_all_items(self, db_with_item):
         insert_item(
-            item_id=2, title="Second", workflow="issue",
-            status="idea", db_path=db_with_item,
+            project="yoke",
+            item_id=2,
+            title="Second",
+            workflow="issue",
+            status="idea",
+            db_path=db_with_item,
         )
         result = query_items_list(db_path=db_with_item)
         lines = result.strip().split("\n")
@@ -64,6 +68,7 @@ class TestQueryItemsList:
 
     def test_filter_by_status(self, db_with_item):
         insert_item(
+            project="yoke",
             item_id=2,
             title="Implementing",
             workflow="issue",
@@ -76,16 +81,44 @@ class TestQueryItemsList:
         assert "Implementing" in lines[0]
 
     def test_filter_by_workflow(self, db_path):
-        insert_item(item_id=1, title="Epic", workflow="epic", status="idea", db_path=db_path)
-        insert_item(item_id=2, title="Issue", workflow="issue", status="idea", db_path=db_path)
+        insert_item(
+            project="yoke",
+            item_id=1,
+            title="Epic",
+            workflow="epic",
+            status="idea",
+            db_path=db_path,
+        )
+        insert_item(
+            project="yoke",
+            item_id=2,
+            title="Issue",
+            workflow="issue",
+            status="idea",
+            db_path=db_path,
+        )
         result = query_items_list(workflow="epic", db_path=db_path)
         lines = result.strip().split("\n")
         assert len(lines) == 1
         assert "Epic" in lines[0]
 
     def test_filter_by_priority(self, db_path):
-        insert_item(item_id=1, title="High", workflow="issue", priority="high", db_path=db_path)
-        insert_item(item_id=2, title="Low", workflow="issue", priority="low", db_path=db_path)
+        insert_item(
+            project="yoke",
+            item_id=1,
+            title="High",
+            workflow="issue",
+            priority="high",
+            db_path=db_path,
+        )
+        insert_item(
+            project="yoke",
+            item_id=2,
+            title="Low",
+            workflow="issue",
+            priority="low",
+            db_path=db_path,
+        )
         result = query_items_list(priority="high", db_path=db_path)
         lines = result.strip().split("\n")
         assert len(lines) == 1
@@ -102,9 +135,15 @@ class TestQueryItemsList:
         assert result == ""
 
     def test_ordered_by_id(self, db_path):
-        insert_item(item_id=5, title="Fifth", workflow="issue", db_path=db_path)
-        insert_item(item_id=3, title="Third", workflow="issue", db_path=db_path)
-        insert_item(item_id=8, title="Eighth", workflow="issue", db_path=db_path)
+        insert_item(
+            project="yoke", item_id=5, title="Fifth", workflow="issue", db_path=db_path
+        )
+        insert_item(
+            project="yoke", item_id=3, title="Third", workflow="issue", db_path=db_path
+        )
+        insert_item(
+            project="yoke", item_id=8, title="Eighth", workflow="issue", db_path=db_path
+        )
         result = query_items_list(db_path=db_path)
         lines = result.strip().split("\n")
         ids = [line.split("|")[0] for line in lines]
@@ -172,10 +211,21 @@ class TestCLIMain:
 
     def test_insert_subcommand(self, db_path, monkeypatch, capsys):
         monkeypatch.setenv("YOKE_DB", db_path)
-        rc = main([
-            "insert", "--id", "50", "--title", "CLI insert",
-            "--status", "idea", "--workflow", "issue",
-        ])
+        rc = main(
+            [
+                "insert",
+                "--project",
+                "yoke",
+                "--id",
+                "50",
+                "--title",
+                "CLI insert",
+                "--status",
+                "idea",
+                "--workflow",
+                "issue",
+            ]
+        )
         assert rc == 0
         assert query_item(50, "title", db_path=db_path) == "CLI insert"
 
@@ -204,7 +254,9 @@ class TestCLIMain:
         rc = main(["update-multi", "1", "noequalssign"])
         assert rc == 2
 
-    def test_update_structured_subcommand(self, db_with_item, monkeypatch, tmp_path, capsys):
+    def test_update_structured_subcommand(
+        self, db_with_item, monkeypatch, tmp_path, capsys
+    ):
         monkeypatch.setenv("YOKE_DB", db_with_item)
         content_file = tmp_path / "spec.md"
         content_file.write_text("# Spec\nLine 1\nLine 2\n")
@@ -212,7 +264,9 @@ class TestCLIMain:
         assert rc == 0
         assert query_item(1, "spec", db_path=db_with_item) == "# Spec\nLine 1\nLine 2\n"
 
-    def test_update_structured_subcommand_stdin(self, db_with_item, monkeypatch, capsys):
+    def test_update_structured_subcommand_stdin(
+        self, db_with_item, monkeypatch, capsys
+    ):
         monkeypatch.setenv("YOKE_DB", db_with_item)
         monkeypatch.setattr(sys, "stdin", io.StringIO("# Spec\nFrom stdin\n"))
         rc = main(["update-structured", "1", "spec", "--stdin"])
@@ -227,14 +281,16 @@ class TestCLIMain:
         content_file.write_text("# Spec\nFrom file\n", encoding="utf-8")
         monkeypatch.setattr(sys, "stdin", io.StringIO("# Spec\nFrom stdin\n"))
 
-        rc = main([
-            "update-structured",
-            "1",
-            "spec",
-            "--body-file",
-            str(content_file),
-            "--stdin",
-        ])
+        rc = main(
+            [
+                "update-structured",
+                "1",
+                "spec",
+                "--body-file",
+                str(content_file),
+                "--stdin",
+            ]
+        )
 
         captured = capsys.readouterr()
         assert rc == 2
@@ -255,21 +311,38 @@ class TestCLIMain:
         assert data["success"] is False
         assert "requires --body-file or --stdin" in data["error"]
 
-    def test_insert_with_body_file_ignored(self, db_path, monkeypatch, tmp_path, capsys):
+    def test_insert_with_body_file_ignored(
+        self, db_path, monkeypatch, tmp_path, capsys
+    ):
         """body param is accepted for compat but ignored."""
         monkeypatch.setenv("YOKE_DB", db_path)
         body_file = tmp_path / "body.md"
         body_file.write_text("Body from file")
-        rc = main([
-            "insert", "--id", "60", "--title", "File body",
-            "--workflow", "issue",
-            "--body-file", str(body_file),
-        ])
+        rc = main(
+            [
+                "insert",
+                "--project",
+                "yoke",
+                "--id",
+                "60",
+                "--title",
+                "File body",
+                "--workflow",
+                "issue",
+                "--body-file",
+                str(body_file),
+            ]
+        )
         assert rc == 0
         # body is no longer stored — rendered from structured fields
         assert query_item(60, "title", db_path=db_path) == "File body"
 
     def test_insert_subcommand_requires_workflow(self, db_path, monkeypatch, capsys):
         monkeypatch.setenv("YOKE_DB", db_path)
-        assert main(["insert", "--id", "61", "--title", "Unclassified"]) == 1
+        assert (
+            main(
+                ["insert", "--project", "yoke", "--id", "61", "--title", "Unclassified"]
+            )
+            == 1
+        )
         assert "workflow is required" in capsys.readouterr().err

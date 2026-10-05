@@ -21,7 +21,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from yoke_contracts.session_identity import resolve_env_session_id
-from yoke_core.domain.project_scratch_dir import harness_runtime_cache_path, hook_marker_path
+from yoke_contracts.project_defaults import MissingProjectError
+from yoke_core.domain.project_scratch_dir import (
+    harness_runtime_cache_path,
+    hook_marker_path,
+)
 
 GIT_TIMEOUT_S = 5
 
@@ -49,6 +53,7 @@ def _parse_payload(payload: str) -> Dict[str, Any]:
     if not isinstance(data, dict):
         return {}
     from yoke_core.hooks.codex_exec_workdir import enrich_payload_workdir
+
     return enrich_payload_workdir(data)
 
 
@@ -189,7 +194,7 @@ def read_runtime_cache_field(session_id: str, field: str) -> str:
     try:
         with open(runtime_cache_path(session_id), "r", encoding="utf-8") as handle:
             data = json.load(handle)
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError, MissingProjectError):
         return ""
     if not isinstance(data, dict):
         return ""

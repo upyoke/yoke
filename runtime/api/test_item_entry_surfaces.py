@@ -75,7 +75,9 @@ class TestEntrySurfaceGate:
         assert error == MISSING_ENTRY_SURFACE_MESSAGE
 
     def test_test_isolation_uses_active_postgres_authority(
-        self, tmp_path, monkeypatch,
+        self,
+        tmp_path,
+        monkeypatch,
     ):
         token = str(tmp_path / "compatibility-token.db")
         monkeypatch.setenv(
@@ -95,10 +97,15 @@ class TestExecuteCreateEntrySurface:
     def test_dry_run_works_without_surface(self, tmp_db, monkeypatch):
         monkeypatch.delenv(ITEM_ENTRY_SURFACE_ENV, raising=False)
         out = io.StringIO()
-        with _patch_externals(), mock.patch.dict(
-            os.environ, {"YOKE_DB": tmp_db},
+        with (
+            _patch_externals(),
+            mock.patch.dict(
+                os.environ,
+                {"YOKE_DB": tmp_db},
+            ),
         ):
             result = backlog.execute_create(
+                project="yoke",
                 title="Dry run only",
                 workflow="issue",
                 dry_run=True,
@@ -109,10 +116,15 @@ class TestExecuteCreateEntrySurface:
 
     def test_explicit_surface_allows_create(self, tmp_db, monkeypatch):
         monkeypatch.delenv(ITEM_ENTRY_SURFACE_ENV, raising=False)
-        with _patch_externals(), mock.patch.dict(
-            os.environ, {"YOKE_DB": tmp_db},
+        with (
+            _patch_externals(),
+            mock.patch.dict(
+                os.environ,
+                {"YOKE_DB": tmp_db},
+            ),
         ):
             result = backlog.execute_create(
+                project="yoke",
                 title="Harness-created item",
                 workflow="issue",
                 entry_surface="harness_skill",
@@ -120,31 +132,42 @@ class TestExecuteCreateEntrySurface:
         assert result["success"] is True
 
     def test_environment_surface_allows_create(self, tmp_db):
-        with _patch_externals(), mock.patch.dict(
-            os.environ,
-            {
-                "YOKE_DB": tmp_db,
-                ITEM_ENTRY_SURFACE_ENV: "harness_skill",
-            },
+        with (
+            _patch_externals(),
+            mock.patch.dict(
+                os.environ,
+                {
+                    "YOKE_DB": tmp_db,
+                    ITEM_ENTRY_SURFACE_ENV: "harness_skill",
+                },
+            ),
         ):
             result = backlog.execute_create(
+                project="yoke",
                 title="Environment-routed item",
                 workflow="issue",
             )
         assert result["success"] is True
 
     def test_missing_surface_blocks_when_test_bypass_is_disabled(
-        self, tmp_db, monkeypatch,
+        self,
+        tmp_db,
+        monkeypatch,
     ):
         monkeypatch.delenv(ITEM_ENTRY_SURFACE_ENV, raising=False)
         monkeypatch.setattr(
             "yoke_core.domain.item_entry_surface.is_test_isolation",
             lambda _db_path: False,
         )
-        with _patch_externals(), mock.patch.dict(
-            os.environ, {"YOKE_DB": tmp_db},
+        with (
+            _patch_externals(),
+            mock.patch.dict(
+                os.environ,
+                {"YOKE_DB": tmp_db},
+            ),
         ):
             result = backlog.execute_create(
+                project="yoke",
                 title="Unrouted item",
                 workflow="issue",
             )
@@ -164,12 +187,14 @@ class TestCreateAdapters:
             return {"success": True, "item_id": 1}
 
         monkeypatch.setattr(backlog_module, "execute_create", _record)
-        rc = adapter.cmd_execute_create_cli([
-            "--entry-surface",
-            "harness_skill",
-            "Harness title",
-            "issue",
-        ])
+        rc = adapter.cmd_execute_create_cli(
+            [
+                "--entry-surface",
+                "harness_skill",
+                "Harness title",
+                "issue",
+            ]
+        )
         assert rc == 0
         assert captured["workflow"] == "issue"
         assert captured["entry_surface"] == "harness_skill"

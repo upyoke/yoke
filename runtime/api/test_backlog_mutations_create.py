@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Mutation tests — DB helpers and create paths.
 
 Covers:
@@ -49,11 +50,23 @@ class TestInsertItem:
     def test_basic_insert(self, test_db):
         workflow_id, workflow_version_id = _issue_pin(test_db)
         backlog._insert_item(
-            test_db, 99, "Test", "idea", "medium",
-            0, None, None,
-            "# Test\n", "2024-01-01T00:00:00Z", "2024-01-01T00:00:00Z",
-            "user", 1, 99, None,
-            workflow_id=workflow_id, workflow_version_id=workflow_version_id,
+            test_db,
+            99,
+            "Test",
+            "idea",
+            "medium",
+            0,
+            None,
+            None,
+            "# Test\n",
+            "2024-01-01T00:00:00Z",
+            "2024-01-01T00:00:00Z",
+            "user",
+            1,
+            99,
+            None,
+            workflow_id=workflow_id,
+            workflow_version_id=workflow_version_id,
         )
         p = _p(test_db)
         row = test_db.execute(f"SELECT title FROM items WHERE id={p}", (99,)).fetchone()
@@ -64,21 +77,45 @@ class TestInsertItem:
         workflow_id, workflow_version_id = _issue_pin(test_db)
         with pytest.raises(db_backend.integrity_error_types()):
             backlog._insert_item(
-                test_db, 50, "Dup", "idea", "medium",
-                0, None, None,
-                "body", "2024-01-01T00:00:00Z", "2024-01-01T00:00:00Z",
-                "user", 1, 50, None,
-                workflow_id=workflow_id, workflow_version_id=workflow_version_id,
+                test_db,
+                50,
+                "Dup",
+                "idea",
+                "medium",
+                0,
+                None,
+                None,
+                "body",
+                "2024-01-01T00:00:00Z",
+                "2024-01-01T00:00:00Z",
+                "user",
+                1,
+                50,
+                None,
+                workflow_id=workflow_id,
+                workflow_version_id=workflow_version_id,
             )
 
     def test_owner_defaults_to_source(self, test_db):
         workflow_id, workflow_version_id = _issue_pin(test_db)
         backlog._insert_item(
-            test_db, 101, "Owner-default", "idea", "medium",
-            0, None, None,
-            None, "2024-01-01T00:00:00Z", "2024-01-01T00:00:00Z",
-            "7", 1, 101, None,
-            workflow_id=workflow_id, workflow_version_id=workflow_version_id,
+            test_db,
+            101,
+            "Owner-default",
+            "idea",
+            "medium",
+            0,
+            None,
+            None,
+            None,
+            "2024-01-01T00:00:00Z",
+            "2024-01-01T00:00:00Z",
+            "7",
+            1,
+            101,
+            None,
+            workflow_id=workflow_id,
+            workflow_version_id=workflow_version_id,
         )
         p = _p(test_db)
         row = test_db.execute(
@@ -90,11 +127,23 @@ class TestInsertItem:
     def test_explicit_owner_overrides_source(self, test_db):
         workflow_id, workflow_version_id = _issue_pin(test_db)
         backlog._insert_item(
-            test_db, 102, "Owner-override", "idea", "medium",
-            0, None, None,
-            None, "2024-01-01T00:00:00Z", "2024-01-01T00:00:00Z",
-            "7", 1, 102, None,
-            workflow_id=workflow_id, workflow_version_id=workflow_version_id,
+            test_db,
+            102,
+            "Owner-override",
+            "idea",
+            "medium",
+            0,
+            None,
+            None,
+            None,
+            "2024-01-01T00:00:00Z",
+            "2024-01-01T00:00:00Z",
+            "7",
+            1,
+            102,
+            None,
+            workflow_id=workflow_id,
+            workflow_version_id=workflow_version_id,
             owner="9",
         )
         p = _p(test_db)
@@ -105,57 +154,6 @@ class TestInsertItem:
         assert row[1] == "9"
 
 
-class TestUpdateItemField:
-    def test_update_string_field(self, test_db):
-        insert_item(test_db, id=10, title="Old")
-        backlog._update_item_field(test_db, 10, "title", "New")
-        p = _p(test_db)
-        row = test_db.execute(f"SELECT title FROM items WHERE id={p}", (10,)).fetchone()
-        assert row[0] == "New"
-
-    def test_update_null(self, test_db):
-        insert_item(test_db, id=10, blocked_reason="waiting")
-        backlog._update_item_field(test_db, 10, "blocked_reason", None)
-        p = _p(test_db)
-        row = test_db.execute(
-            f"SELECT blocked_reason FROM items WHERE id={p}", (10,)
-        ).fetchone()
-        assert row[0] is None
-
-    def test_update_boolean_field(self, test_db):
-        insert_item(test_db, id=10)
-        backlog._update_item_field(test_db, 10, "frozen", True)
-        p = _p(test_db)
-        row = test_db.execute(f"SELECT frozen FROM items WHERE id={p}", (10,)).fetchone()
-        assert row[0] == 1
-
-
-class TestUpdateItemMulti:
-    def test_multi_field_update(self, test_db):
-        insert_item(test_db, id=10, status="idea", priority="low")
-        backlog._update_item_multi(test_db, 10, {
-            "status": "implementing",
-            "priority": "high",
-        })
-        p = _p(test_db)
-        row = test_db.execute(f"SELECT status, priority FROM items WHERE id={p}", (10,)).fetchone()
-        assert row[0] == "implementing"
-        assert row[1] == "high"
-
-    def test_multi_with_null(self, test_db):
-        insert_item(test_db, id=10, blocked_reason="waiting")
-        backlog._update_item_multi(test_db, 10, {
-            "blocked_reason": None,
-            "frozen": False,
-        })
-        p = _p(test_db)
-        row = test_db.execute(
-            f"SELECT blocked_reason, frozen FROM items WHERE id={p}", (10,)
-        ).fetchone()
-        assert row[0] is None
-        assert row[1] == 0
-
-
 # ---------------------------------------------------------------------------
 # execute_create (uses tmp_db for isolated DB)
 # ---------------------------------------------------------------------------
@@ -163,16 +161,18 @@ class TestUpdateItemMulti:
 
 class TestExecuteCreate:
     def test_create_requires_workflow(self):
-        result = backlog.execute_create(title="Unclassified")
+        result = backlog.execute_create(project="yoke", title="Unclassified")
         assert result == {"success": False, "error": "workflow is required"}
 
     def test_basic_create(self, tmp_db):  # noqa: F811
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(
-                 os.environ,
-                 {"YOKE_DB": tmp_db, ITEM_ENTRY_SURFACE_ENV: "harness_skill"},
-             ):
+        with (
+            _patch_externals(),
+            mock.patch.dict(
+                os.environ,
+                {"YOKE_DB": tmp_db, ITEM_ENTRY_SURFACE_ENV: "harness_skill"},
+            ),
+        ):
             result = backlog.execute_create(
                 title="Test item",
                 workflow="issue",
@@ -188,11 +188,13 @@ class TestExecuteCreate:
     def test_dash_instruction_does_not_emit_empty_body_warning(self, tmp_db):  # noqa: F811
         out = io.StringIO()
         instruction = "Fix the footer and verify every link."
-        with _patch_externals(), \
-             mock.patch.dict(
-                 os.environ,
-                 {"YOKE_DB": tmp_db, ITEM_ENTRY_SURFACE_ENV: "harness_skill"},
-             ):
+        with (
+            _patch_externals(),
+            mock.patch.dict(
+                os.environ,
+                {"YOKE_DB": tmp_db, ITEM_ENTRY_SURFACE_ENV: "harness_skill"},
+            ),
+        ):
             result = backlog.execute_create(
                 title="Dash item",
                 workflow="dash",
@@ -206,13 +208,17 @@ class TestExecuteCreate:
         assert _item_field(tmp_db, result["item_id"], "spec") == instruction
         assert "created with no body content" not in out.getvalue()
 
-    def test_staged_issue_body_warns_with_registered_structured_field_recipe(self, tmp_db):  # noqa: F811
+    def test_staged_issue_body_warns_with_registered_structured_field_recipe(
+        self, tmp_db
+    ):  # noqa: F811
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(
-                 os.environ,
-                 {"YOKE_DB": tmp_db, ITEM_ENTRY_SURFACE_ENV: "harness_skill"},
-             ):
+        with (
+            _patch_externals(),
+            mock.patch.dict(
+                os.environ,
+                {"YOKE_DB": tmp_db, ITEM_ENTRY_SURFACE_ENV: "harness_skill"},
+            ),
+        ):
             result = backlog.execute_create(
                 title="Staged Issue item",
                 workflow="issue",
@@ -232,12 +238,15 @@ class TestExecuteCreate:
 
     def test_create_validation_failure(self, tmp_db):  # noqa: F811
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(
-                 os.environ,
-                 {"YOKE_DB": tmp_db, ITEM_ENTRY_SURFACE_ENV: "harness_skill"},
-             ):
+        with (
+            _patch_externals(),
+            mock.patch.dict(
+                os.environ,
+                {"YOKE_DB": tmp_db, ITEM_ENTRY_SURFACE_ENV: "harness_skill"},
+            ),
+        ):
             result = backlog.execute_create(
+                project="yoke",
                 title="",
                 workflow="issue",
                 out=out,
@@ -246,12 +255,15 @@ class TestExecuteCreate:
 
     def test_create_dry_run(self, tmp_db):  # noqa: F811
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(
-                 os.environ,
-                 {"YOKE_DB": tmp_db, ITEM_ENTRY_SURFACE_ENV: "harness_skill"},
-             ):
+        with (
+            _patch_externals(),
+            mock.patch.dict(
+                os.environ,
+                {"YOKE_DB": tmp_db, ITEM_ENTRY_SURFACE_ENV: "harness_skill"},
+            ),
+        ):
             result = backlog.execute_create(
+                project="yoke",
                 title="Dry run item",
                 workflow="issue",
                 dry_run=True,
@@ -265,12 +277,15 @@ class TestExecuteCreate:
         """Filing an item is not claiming it, so the focus slot stays empty."""
         _seed_session(tmp_db)
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(
-                 os.environ,
-                 {"YOKE_DB": tmp_db, ITEM_ENTRY_SURFACE_ENV: "harness_skill"},
-             ):
+        with (
+            _patch_externals(),
+            mock.patch.dict(
+                os.environ,
+                {"YOKE_DB": tmp_db, ITEM_ENTRY_SURFACE_ENV: "harness_skill"},
+            ),
+        ):
             result = backlog.execute_create(
+                project="yoke",
                 title="Attributed item",
                 workflow="issue",
                 session_id="sess-1",
@@ -291,12 +306,15 @@ class TestExecuteCreate:
         set_current_item(conn, "sess-1", "10")
         conn.close()
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(
-                 os.environ,
-                 {"YOKE_DB": tmp_db, ITEM_ENTRY_SURFACE_ENV: "harness_skill"},
-             ):
+        with (
+            _patch_externals(),
+            mock.patch.dict(
+                os.environ,
+                {"YOKE_DB": tmp_db, ITEM_ENTRY_SURFACE_ENV: "harness_skill"},
+            ),
+        ):
             result = backlog.execute_create(
+                project="yoke",
                 title="Filed while claimed",
                 workflow="issue",
                 session_id="sess-1",

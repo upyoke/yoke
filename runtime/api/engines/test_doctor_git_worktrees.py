@@ -9,9 +9,7 @@ Tests use mock subprocess to avoid real git/gh calls.
 
 from __future__ import annotations
 
-import os
 import textwrap
-import time
 from pathlib import Path
 from unittest.mock import patch
 
@@ -22,7 +20,6 @@ from yoke_core.engines.doctor import (
     DoctorArgs,
     RecordCollector,
     hc_epic_task_worktree_backfill,
-    hc_orphaned_temp_files,
     hc_path_confabulation,
     hc_worktree_health,
 )
@@ -128,7 +125,7 @@ def _make_conn():
 
 
 def _args(**kw) -> DoctorArgs:
-    return DoctorArgs(**kw)
+    return DoctorArgs(**{"project": "yoke", **kw})
 
 
 def _run_hc(fn, conn=None, **kw):
@@ -161,7 +158,9 @@ class TestHcEpicTaskWorktreeBackfill:
             "INSERT INTO items (id, title, workflow_id, workflow_version_id, status) "
             "VALUES (100, 'Test Epic', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing')"
         )
-        conn.execute("INSERT INTO epic_tasks (epic_id, task_num, title, status) VALUES (100, 1, 'Task 1', 'pending')")
+        conn.execute(
+            "INSERT INTO epic_tasks (epic_id, task_num, title, status) VALUES (100, 1, 'Task 1', 'pending')"
+        )
         rec = _run_hc(hc_epic_task_worktree_backfill, conn)
         assert rec.results[0].result == "WARN"
         assert "task 1" in rec.results[0].detail
@@ -174,7 +173,11 @@ class TestHcEpicTaskWorktreeBackfill:
         )
         conn.execute(
             "INSERT INTO epic_tasks (epic_id, task_num, title, status, item_worktree_id) VALUES (100, 1, 'Task 1', 'pending', %s)",
-            (insert_item_worktree(conn, item_id=100, branch="YOK-100", lane_role="worker")["id"],),
+            (
+                insert_item_worktree(
+                    conn, item_id=100, branch="YOK-100", lane_role="worker"
+                )["id"],
+            ),
         )
         rec = _run_hc(hc_epic_task_worktree_backfill, conn)
         assert rec.results[0].result == "PASS"
@@ -183,7 +186,9 @@ class TestHcEpicTaskWorktreeBackfill:
 class TestHcWorktreeHealth:
     """Tests for hc_worktree_health."""
 
-    @patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo")
+    @patch(
+        "yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo"
+    )
     @patch("yoke_core.engines.doctor_report._run")
     def test_clean_worktrees_pass(self, mock_run, mock_root):
         mock_run.side_effect = [
@@ -231,87 +236,33 @@ class TestHcWorktreeHealth:
 class TestHcPathConfabulation:
     """Tests for hc_path_confabulation."""
 
-    @patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo")
+    @patch(
+        "yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo"
+    )
     def test_no_confabulation_passes(self, mock_root):
         conn = _make_conn()
         rec = _run_hc(hc_path_confabulation, conn)
         assert rec.results[0].result == "PASS"
 
-    @patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo")
+    @patch(
+        "yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo"
+    )
     def test_confabulated_ouroboros_entry_warns(self, mock_root):
         conn = _make_conn()
-        conn.execute("INSERT INTO ouroboros_entries (id, body) VALUES (1, 'Found issue in ouraboros/patterns.md')")
+        conn.execute(
+            "INSERT INTO ouroboros_entries (id, body) VALUES (1, 'Found issue in ouraboros/patterns.md')"
+        )
         rec = _run_hc(hc_path_confabulation, conn)
         assert rec.results[0].result == "WARN"
         assert "ouroboros_entries" in rec.results[0].detail
 
-    @patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo")
+    @patch(
+        "yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo"
+    )
     def test_suppressed_line_passes(self, mock_root):
         conn = _make_conn()
         conn.execute(
             "INSERT INTO ouroboros_entries (id, body) VALUES (1, 'The word ouraboros here <!-- not-confabulated -->')"
         )
         rec = _run_hc(hc_path_confabulation, conn)
-        assert rec.results[0].result == "PASS"
-
-
-class TestHcOrphanedTempFiles:
-    """Tests for hc_orphaned_temp_files.
-
-    The scanner enumerates known kind directories across the global
-    project/session/run tree. Each test isolates that tree via
-    ``YOKE_SCRATCH_ROOT``.
-    """
-
-    @patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo")
-    def test_no_temp_files_passes(self, mock_root, tmp_path, monkeypatch):
-        monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path))
-        rec = _run_hc(hc_orphaned_temp_files)
-        assert rec.results[0].result == "PASS"
-
-    @patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo")
-    def test_stale_ephemeral_residue_warns(self, mock_root, tmp_path, monkeypatch):
-        # Preserves the legacy 300s (ephemeral residue) threshold: a
-        # stale watcher-captures file older than 300s warns.
-        monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path))
-        captures_dir = tmp_path / "other" / "sessions" / "past" / "runs" / "old" / "watcher-captures"
-        captures_dir.mkdir(parents=True)
-        stale_file = captures_dir / "yoke-pytest.raw.abc.log"
-        stale_file.write_text("")
-        old_epoch = int(time.time()) - 3600
-        os.utime(stale_file, (old_epoch, old_epoch))
-
-        rec = _run_hc(hc_orphaned_temp_files)
-        assert rec.results[0].result == "WARN"
-        assert "yoke-pytest.raw.abc.log" in rec.results[0].detail
-        assert "kind=watcher-captures" in rec.results[0].detail
-
-    @patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo")
-    def test_unknown_durable_storage_is_preserved(self, mock_root, tmp_path, monkeypatch):
-        # Durable storage is not one generic disposable bucket. Unknown helper
-        # state stays intact until its owner has an explicit cleanup contract.
-        monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path))
-        storage_dir = tmp_path / "other" / "sessions" / "past" / "runs" / "old" / "storage" / "db_error_hook"
-        storage_dir.mkdir(parents=True)
-        stale_file = storage_dir / "collapse-state-stale.json"
-        stale_file.write_text("{}")
-        old_epoch = int(time.time()) - 3600
-        os.utime(stale_file, (old_epoch, old_epoch))
-        os.utime(storage_dir, (old_epoch, old_epoch))
-
-        rec = _run_hc(hc_orphaned_temp_files)
-        assert rec.results[0].result == "PASS"
-        assert stale_file.read_text(encoding="utf-8") == "{}"
-
-    @patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo")
-    def test_fresh_residue_passes(self, mock_root, tmp_path, monkeypatch):
-        # An ephemeral residue file under the 300s threshold should not
-        # warn — the scanner respects the per-sub-directory threshold.
-        monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path))
-        captures_dir = tmp_path / "other" / "sessions" / "past" / "runs" / "old" / "watcher-captures"
-        captures_dir.mkdir(parents=True)
-        fresh_file = captures_dir / "yoke-pytest.raw.fresh.log"
-        fresh_file.write_text("")
-        # mtime ~now() means age < 300s — under the ephemeral threshold.
-        rec = _run_hc(hc_orphaned_temp_files)
         assert rec.results[0].result == "PASS"

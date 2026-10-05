@@ -18,10 +18,8 @@ RUN_ID = "test-run"
 def _configure_scratch(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(scratch.ENV_KEY, SCRATCH_ROOT)
     monkeypatch.setenv("YOKE_RUN_ID", RUN_ID)
-    monkeypatch.delenv("YOKE_PROJECT", raising=False)
-    monkeypatch.setattr(
-        scratch_roots, "ensure_writable_dir", lambda path: True
-    )
+    monkeypatch.setenv("YOKE_PROJECT", "fixture")
+    monkeypatch.setattr(scratch_roots, "ensure_writable_dir", lambda path: True)
 
 
 def _dispatch_target(
@@ -65,7 +63,7 @@ def _apply_widener_schema() -> None:
             " version INTEGER NOT NULL, definition_json TEXT NOT NULL,"
             " definition_digest TEXT NOT NULL);"
             "CREATE TABLE IF NOT EXISTS harness_sessions("
-            " session_id TEXT PRIMARY KEY, current_item_id INTEGER);"
+            " session_id TEXT PRIMARY KEY, current_item_id INTEGER);",
         )
         conn.commit()
     finally:

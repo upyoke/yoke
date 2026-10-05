@@ -32,13 +32,13 @@ def test_relationship_refresh_relays_when_no_local_authority(monkeypatch):
     )
 
     written = subject.record_render_relationships_to_canonical_db(
-        session_id="session-1"
+        project_id="yoke", session_id="session-1"
     )
 
     assert written == 14
     relay.assert_called_once_with(
         "agents.render_relationships.record",
-        {"session_id": "session-1"},
+        {"project": "yoke", "session_id": "session-1"},
     )
 
 
@@ -83,7 +83,7 @@ def test_record_render_relationships_looks_up_paths_in_one_query(tmp_path):
             return original(sql, params)
 
         conn.execute = counting  # type: ignore[method-assign]
-        written = record_render_relationships(conn)
+        written = record_render_relationships(conn, project_id=1)
         assert written == len(relationships)
         assert lookups["n"] == 1
     finally:

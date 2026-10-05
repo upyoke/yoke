@@ -36,6 +36,7 @@ def _seed_item_with_spec(
     spec: str,
 ) -> None:
     insert_item(
+        project="yoke",
         item_id=item_id,
         title=title,
         workflow=ITEM_WORKFLOW,
@@ -66,12 +67,17 @@ def _seed_path_target(
 
 
 def _seed_claim(
-    conn, *, item_id: int,
-    integration_target: str = "main", state: str = "active",
+    conn,
+    *,
+    item_id: int,
+    integration_target: str = "main",
+    state: str = "active",
 ) -> int:
     if conn.execute("SELECT id FROM actors WHERE id = 1").fetchone() is None:
-        conn.execute("INSERT INTO actors (id, name, kind, created_at) "
-                     "VALUES (1, 'yoke', 'system', '2026-05-01T00:00:00Z')")
+        conn.execute(
+            "INSERT INTO actors (id, name, kind, created_at) "
+            "VALUES (1, 'yoke', 'system', '2026-05-01T00:00:00Z')"
+        )
     p = _p(conn)
     cur = conn.execute(
         "INSERT INTO path_claims "
@@ -114,11 +120,16 @@ def test_build_coordination_context_returns_typed_dict_keys(env):
     )
 
     expected_keys = {
-        "candidate_item_id", "candidate_spec",
-        "conflicting_claim_id", "conflicting_item_id",
-        "conflicting_item_spec", "conflicting_claim_state",
-        "shared_paths", "shared_path_metadata",
-        "suggested_commands", "decision_options",
+        "candidate_item_id",
+        "candidate_spec",
+        "conflicting_claim_id",
+        "conflicting_item_id",
+        "conflicting_item_spec",
+        "conflicting_claim_state",
+        "shared_paths",
+        "shared_path_metadata",
+        "suggested_commands",
+        "decision_options",
         "rationale_checklist",
     }
     assert set(ctx.keys()) == expected_keys
@@ -153,8 +164,10 @@ def test_build_coordination_context_shared_path_metadata(env):
     _seed_item_with_spec(env["db_path"], 220, "B", "b")
     parent = _seed_path_target(conn, path_string="docs", kind="directory")
     _seed_path_target(
-        conn, path_string=".yoke/docs/reference/lifecycle.md",
-        kind="file", parent_target_id=parent,
+        conn,
+        path_string=".yoke/docs/reference/lifecycle.md",
+        kind="file",
+        parent_target_id=parent,
     )
     _seed_path_target(conn, path_string="AGENTS.md")
     claim_id = _seed_claim(conn, item_id=220)
@@ -169,7 +182,9 @@ def test_build_coordination_context_shared_path_metadata(env):
     md = ctx["shared_path_metadata"]
     assert len(md) == 3
     assert {entry["path"] for entry in md} == {
-        "AGENTS.md", ".yoke/docs/reference/lifecycle.md", "no/such/path",
+        "AGENTS.md",
+        ".yoke/docs/reference/lifecycle.md",
+        "no/such/path",
     }
     for entry in md:
         assert set(entry.keys()) == {"path", "kind", "lineage_depth"}
@@ -181,7 +196,9 @@ def test_build_coordination_context_shared_path_metadata(env):
     assert nested["kind"] == "file"
 
 
-def test_build_coordination_context_suggested_commands_include_all_decision_options(env):
+def test_build_coordination_context_suggested_commands_include_all_decision_options(
+    env,
+):
     conn = env["conn"]
     _seed_item_with_spec(env["db_path"], 130, "Cand", "c")
     _seed_item_with_spec(env["db_path"], 230, "Other", "o")
@@ -201,10 +218,10 @@ def test_build_coordination_context_suggested_commands_include_all_decision_opti
     # tracks project_sequence rather than the internal items.id.
     cand_token = render_item_ref(conn, 130)
     other_token = render_item_ref(conn, 230)
-    has_coordination = any(
-        "--gate-point coordination_only" in c for c in cmds)
+    has_coordination = any("--gate-point coordination_only" in c for c in cmds)
     has_activation = any(
-        "--gate-point activation" in c and "fact:merged" in c for c in cmds)
+        "--gate-point activation" in c and "fact:merged" in c for c in cmds
+    )
     has_escalate = any("path-claim-override" in c for c in cmds)
     assert has_coordination
     assert has_activation
@@ -227,26 +244,40 @@ def test_suggested_commands_rationale_distinguishes_independence_from_directiona
     _seed_path_target(conn, path_string=".yoke/docs/reference/lifecycle.md")
     claim_id = _seed_claim(conn, item_id=231)
     ctx = pccd.build_coordination_context(
-        conn, candidate_item_id=131,
+        conn,
+        candidate_item_id=131,
         conflicting_claim_id=claim_id,
         shared_paths=[".yoke/docs/reference/lifecycle.md"],
     )
     cmds = ctx["suggested_commands"]
     coord_cmd = next(c for c in cmds if "--gate-point coordination_only" in c)
     activation_cmd = next(
-        c for c in cmds if "--gate-point activation" in c
-        and "fact:merged" in c)
-    for token in ("decision=coordination_only", "independence_evidence",
-                  ".yoke/docs/reference/lifecycle.md", f"conflicting_claim_id={claim_id}"):
+        c for c in cmds if "--gate-point activation" in c and "fact:merged" in c
+    )
+    for token in (
+        "decision=coordination_only",
+        "independence_evidence",
+        ".yoke/docs/reference/lifecycle.md",
+        f"conflicting_claim_id={claim_id}",
+    ):
         assert token in coord_cmd
-    for token in ("decision=directional", "why_order_matters",
-                  ".yoke/docs/reference/lifecycle.md", f"conflicting_claim_id={claim_id}"):
+    for token in (
+        "decision=directional",
+        "why_order_matters",
+        ".yoke/docs/reference/lifecycle.md",
+        f"conflicting_claim_id={claim_id}",
+    ):
         assert token in activation_cmd
     checklist = ctx["rationale_checklist"]
     assert isinstance(checklist, list) and len(checklist) >= 4
     joined = "\n".join(checklist)
-    for token in ("decision=", "shared_paths", "conflicting_claim_id",
-                  "independence_evidence", "why_order_matters"):
+    for token in (
+        "decision=",
+        "shared_paths",
+        "conflicting_claim_id",
+        "independence_evidence",
+        "why_order_matters",
+    ):
         assert token in joined
 
 
@@ -275,6 +306,7 @@ def test_build_coordination_context_empty_spec_passes_through(env):
     conn = env["conn"]
     # Insert the candidate without writing a spec.
     insert_item(
+        project="yoke",
         item_id=150,
         title="Sparse candidate",
         workflow=ITEM_WORKFLOW,

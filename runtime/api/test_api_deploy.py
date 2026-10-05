@@ -1,5 +1,6 @@
 # ruff: noqa: F811
 """Deploy/charge-frontier tests extracted from test_api.py."""
+
 from __future__ import annotations
 
 import pytest
@@ -28,7 +29,7 @@ class TestChargeFrontierEndpoint:
 
     def test_frontier_returns_valid_json(self):
         """GET /v1/charge/frontier returns valid JSON with correct structure."""
-        resp = self.client.get("/v1/charge/frontier")
+        resp = self.client.get("/v1/charge/frontier?project=yoke")
         assert resp.status_code == 200
         data = resp.json()
         assert "runnable" in data
@@ -37,7 +38,7 @@ class TestChargeFrontierEndpoint:
         assert "wip_cap" in data
         assert "wip_active" in data
         assert "conduct_eligible" in data
-        # Verify we got the expected items (yoke project by default)
+        # Verify we got the expected items (explicitly selected yoke project)
         runnable_ids = [item["item_id"] for item in data["runnable"]]
         assert "YOK-20" in runnable_ids
         assert "YOK-21" in runnable_ids
@@ -67,13 +68,13 @@ class TestChargeFrontierEndpoint:
 
     def test_frontier_omitted_wip_cap_uses_project_default(self):
         """Omitting wip_cap resolves the project-policy / source default."""
-        resp = self.client.get("/v1/charge/frontier")
+        resp = self.client.get("/v1/charge/frontier?project=yoke")
         assert resp.status_code == 200
         assert resp.json()["wip_cap"] == DEFAULT_WIP_CAP
 
     def test_frontier_wip_cap_override(self):
         """WIP cap parameter overrides default."""
-        resp = self.client.get("/v1/charge/frontier?wip_cap=1")
+        resp = self.client.get("/v1/charge/frontier?project=yoke&wip_cap=1")
         assert resp.status_code == 200
         data = resp.json()
         assert data["wip_cap"] == 1
@@ -83,22 +84,33 @@ class TestChargeFrontierEndpoint:
 
     def test_frontier_item_has_all_fields(self):
         """Pydantic model fields match FrontierItem dataclass fields 1:1."""
-        resp = self.client.get("/v1/charge/frontier")
+        resp = self.client.get("/v1/charge/frontier?project=yoke")
         assert resp.status_code == 200
         data = resp.json()
         assert len(data["runnable"]) > 0
         item = data["runnable"][0]
         expected_fields = {
-            "item_id", "title", "status", "priority", "project",
-            "workflow_id", "workflow_version_id", "workflow_version",
-            "stage_index", "adapter", "blocked_by", "blocked_reasons",
-            "unblocks_count", "downstream_depth", "created_at",
+            "item_id",
+            "title",
+            "status",
+            "priority",
+            "project",
+            "workflow_id",
+            "workflow_version_id",
+            "workflow_version",
+            "stage_index",
+            "adapter",
+            "blocked_by",
+            "blocked_reasons",
+            "unblocks_count",
+            "downstream_depth",
+            "created_at",
         }
         assert set(item.keys()) == expected_fields
 
     def test_frontier_blocked_item_has_reasons(self):
         """Blocked items include blocked_by and blocked_reasons."""
-        resp = self.client.get("/v1/charge/frontier")
+        resp = self.client.get("/v1/charge/frontier?project=yoke")
         assert resp.status_code == 200
         data = resp.json()
         blocked = data["blocked"]
@@ -115,7 +127,7 @@ class TestChargeFrontierEndpoint:
 
     def test_frontier_frozen_items_separate(self):
         """Frozen items appear in the frozen list, not runnable."""
-        resp = self.client.get("/v1/charge/frontier")
+        resp = self.client.get("/v1/charge/frontier?project=yoke")
         assert resp.status_code == 200
         data = resp.json()
         frozen_ids = [item["item_id"] for item in data["frozen"]]
@@ -125,9 +137,9 @@ class TestChargeFrontierEndpoint:
 
     def test_frontier_invalid_wip_cap(self):
         """Invalid wip_cap returns 422."""
-        resp = self.client.get("/v1/charge/frontier?wip_cap=0")
+        resp = self.client.get("/v1/charge/frontier?project=yoke&wip_cap=0")
         assert resp.status_code == 422
-        resp = self.client.get("/v1/charge/frontier?wip_cap=999")
+        resp = self.client.get("/v1/charge/frontier?project=yoke&wip_cap=999")
         assert resp.status_code == 422
 
 
@@ -147,22 +159,35 @@ class TestChargeScheduleEndpoint:
 
     def test_schedule_omitted_wip_cap_uses_project_default(self):
         """Omitting wip_cap resolves the project-policy / source default."""
-        resp = self.client.get("/v1/charge/schedule")
+        resp = self.client.get("/v1/charge/schedule?project=yoke")
         assert resp.status_code == 200
         assert resp.json()["wip_cap"] == DEFAULT_WIP_CAP
 
     def test_schedule_step_has_all_fields(self):
         """Shared scheduler surface exposes downstream_depth on scheduled steps."""
-        resp = self.client.get("/v1/charge/schedule")
+        resp = self.client.get("/v1/charge/schedule?project=yoke")
         assert resp.status_code == 200
         data = resp.json()
         assert len(data["ranked_steps"]) > 0
         step = data["ranked_steps"][0]
         expected_fields = {
-            "item_id", "workflow_id", "workflow_version_id",
-            "workflow_version", "status", "title", "priority",
-            "next_step", "rank", "claim_state", "gate_evaluations",
-            "explanation", "adapter", "blocked_by", "blocked_reasons",
-            "unblocks_count", "downstream_depth", "created_at",
+            "item_id",
+            "workflow_id",
+            "workflow_version_id",
+            "workflow_version",
+            "status",
+            "title",
+            "priority",
+            "next_step",
+            "rank",
+            "claim_state",
+            "gate_evaluations",
+            "explanation",
+            "adapter",
+            "blocked_by",
+            "blocked_reasons",
+            "unblocks_count",
+            "downstream_depth",
+            "created_at",
         }
         assert set(step.keys()) == expected_fields

@@ -138,3 +138,63 @@ def test_unmapped_tooling_does_not_read_another_projects_declarations(
     roots.resolve_test_roots.cache_clear()
     assert roots.resolve_test_roots(str(tmp_path)) == ()
     assert residue.declared_disposable_roots(tmp_path) == frozenset()
+
+
+@pytest.mark.parametrize("project", [None, "", "  "])
+def test_render_refresh_refuses_missing_project_before_writes(
+    test_db, monkeypatch, project
+):
+    from yoke_core.domain.handlers.orchestration_agents import (
+        handle_agents_render_relationships_record,
+    )
+
+    monkeypatch.setattr(
+        "yoke_core.domain.db_helpers.connect", lambda: nullcontext(test_db)
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.actor_project_visibility.actor_visible_project_ids",
+        lambda _conn, _actor: set(),
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.agents_render_path_context.record_render_relationships",
+        lambda *_args, **_kwargs: pytest.fail("missing project must never write"),
+    )
+    result = handle_agents_render_relationships_record(
+        FunctionCallRequest(
+            function="agents.render_relationships.record",
+            actor=ActorContext(session_id="missing-project-test"),
+            target=TargetRef(kind="global"),
+            payload={"project": project},
+        )
+    )
+    assert result.primary_success is False
+    assert result.error.code == "project_required"
+    assert result.error.message.endswith("Accessible projects: none.")
+
+
+def test_render_refresh_uses_the_client_project(test_db, monkeypatch):
+    from unittest.mock import Mock
+    from yoke_core.domain.handlers.orchestration_agents import (
+        handle_agents_render_relationships_record,
+    )
+
+    monkeypatch.setattr(
+        "yoke_core.domain.db_helpers.connect", lambda: nullcontext(test_db)
+    )
+    recorder = Mock(return_value=7)
+    monkeypatch.setattr(
+        "yoke_core.domain.agents_render_path_context.record_render_relationships",
+        recorder,
+    )
+    result = handle_agents_render_relationships_record(
+        FunctionCallRequest(
+            function="agents.render_relationships.record",
+            actor=ActorContext(session_id="selected-project-test"),
+            target=TargetRef(kind="global"),
+            payload={"project": "client-project", "session_id": "session-1"},
+        )
+    )
+    assert result.primary_success is True
+    recorder.assert_called_once_with(
+        test_db, project_id="client-project", session_id="session-1"
+    )

@@ -23,12 +23,11 @@ def _make_args() -> MagicMock:
 # test_no_drift_passes
 # ---------------------------------------------------------------------------
 
+
 def test_no_drift_passes(monkeypatch):
     from yoke_project_checks.check_agents import hc_agent_canonical_drift
 
-    monkeypatch.setattr(
-        "yoke_core.domain.agents_render.detect_drift", lambda: []
-    )
+    monkeypatch.setattr("yoke_core.domain.agents_render.detect_drift", lambda: [])
     rec = _make_rec()
     hc_agent_canonical_drift(None, _make_args(), rec)
     rec.record.assert_called_once_with(
@@ -42,6 +41,7 @@ def test_no_drift_passes(monkeypatch):
 # ---------------------------------------------------------------------------
 # test_drift_fails
 # ---------------------------------------------------------------------------
+
 
 def test_drift_fails(monkeypatch):
     from yoke_project_checks.check_agents import hc_agent_canonical_drift
@@ -64,15 +64,14 @@ def test_drift_fails(monkeypatch):
 # test_detection_exception_fails
 # ---------------------------------------------------------------------------
 
+
 def test_detection_exception_fails(monkeypatch):
     from yoke_project_checks.check_agents import hc_agent_canonical_drift
 
     def _boom():
         raise RuntimeError("no such file")
 
-    monkeypatch.setattr(
-        "yoke_core.domain.agents_render.detect_drift", _boom
-    )
+    monkeypatch.setattr("yoke_core.domain.agents_render.detect_drift", _boom)
     rec = _make_rec()
     hc_agent_canonical_drift(None, _make_args(), rec)
     rec.record.assert_called_once()
@@ -86,6 +85,7 @@ def test_detection_exception_fails(monkeypatch):
 # test_run_checks_nonzero_on_drift
 # ---------------------------------------------------------------------------
 
+
 def test_run_checks_nonzero_on_drift(monkeypatch, tmp_path):
     from yoke_core.engines.doctor import DoctorArgs, run_checks
 
@@ -93,8 +93,18 @@ def test_run_checks_nonzero_on_drift(monkeypatch, tmp_path):
         "yoke_core.domain.agents_render.detect_drift",
         lambda: ["yoke-architect.md: bytes differ"],
     )
+    from yoke_core.engines.doctor_context import running_source_root
+
+    monkeypatch.setattr(
+        "yoke_core.engines.doctor_context._mapped_checkouts",
+        lambda: [(str(running_source_root()), 1)],
+    )
     exit_code = run_checks(
-        DoctorArgs(only="agent-canonical-drift", db_path=str(tmp_path / "doctor.db"))
+        DoctorArgs(
+            project="yoke",
+            only="agent-canonical-drift",
+            db_path=str(tmp_path / "doctor.db"),
+        )
     )
     assert exit_code == 1
 
@@ -102,6 +112,7 @@ def test_run_checks_nonzero_on_drift(monkeypatch, tmp_path):
 # ---------------------------------------------------------------------------
 # test_registered_as_project_check
 # ---------------------------------------------------------------------------
+
 
 def _registered_agent_canonical_drift_checks():
     """Rows for the drift check among this repo's own discovered checks."""
@@ -130,6 +141,7 @@ def test_registered_as_project_check():
 # ---------------------------------------------------------------------------
 # test_slug_vs_record_id_convention
 # ---------------------------------------------------------------------------
+
 
 def test_slug_vs_record_id_convention():
     """The HealthCheck slug has no HC- prefix; rec.record() uses HC- prefix."""

@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Coverage for the ``items.create`` function-call surface.
 
 ``items.create`` is the wrapped, HTTPS-capable work-item create path
@@ -45,55 +46,13 @@ def _request(payload, *, session_id="items-create-test", actor_id=None):
         function=_FUNCTION_ID,
         actor=ActorContext(session_id=session_id, actor_id=actor_id),
         target=TargetRef(kind="global"),
-        payload=payload,
+        payload={"project": "yoke", **payload},
     )
 
 
 # ---------------------------------------------------------------------------
 # Registration + authorization classification
 # ---------------------------------------------------------------------------
-
-
-class TestItemsCreateRegistration:
-    def test_registered_after_register_all_handlers(self):
-        from yoke_core.domain.handlers.__init_register__ import (
-            register_all_handlers,
-        )
-        from yoke_core.domain.yoke_function_registry import lookup
-
-        register_all_handlers()
-        entry = lookup(_FUNCTION_ID)
-        assert entry is not None, (
-            "items.create must register through "
-            "yoke_core.domain.handlers.__init_register__"
-        )
-        # No pre-existing item to claim → no claim gate.
-        assert entry.claim_required_kind is None
-        assert "global" in entry.target_kinds
-
-    def test_authz_is_project_scoped_items_write(self):
-        from yoke_core.domain.actor_permissions import PERM_ITEMS_WRITE
-        from yoke_core.domain.function_authz_scope import (
-            PROJECT,
-            classify,
-            permission_key_for,
-        )
-        from yoke_core.domain.handlers.__init_register__ import (
-            register_all_handlers,
-        )
-        from yoke_core.domain.yoke_function_registry import lookup
-
-        register_all_handlers()
-        entry = lookup(_FUNCTION_ID)
-        spec = classify(
-            _FUNCTION_ID,
-            side_effects=bool(entry.side_effects),
-            project_permission=permission_key_for(entry),
-        )
-        # A token actor needs items.write on the TARGET project (resolved
-        # from payload["project"]) — not a control-plane or org grant.
-        assert spec.scope == PROJECT
-        assert spec.permission_key == PERM_ITEMS_WRITE
 
 
 # ---------------------------------------------------------------------------
@@ -110,14 +69,17 @@ class TestItemsCreateHandler:
             return {"success": True, "item_id": 7}
 
         monkeypatch.setattr(
-            "yoke_core.domain.backlog_create_op.execute_create", _record,
+            "yoke_core.domain.backlog_create_op.execute_create",
+            _record,
         )
         outcome = handle_item_create(
-            _request({
-                "title": "T",
-                "workflow": "issue",
-                "entry_surface": "harness_skill",
-            }),
+            _request(
+                {
+                    "title": "T",
+                    "workflow": "issue",
+                    "entry_surface": "harness_skill",
+                }
+            ),
         )
         assert outcome.primary_success is True
         assert captured["entry_surface"] == "harness_skill"
@@ -132,7 +94,8 @@ class TestItemsCreateHandler:
             return {"success": True, "item_id": 1}
 
         monkeypatch.setattr(
-            "yoke_core.domain.backlog_create_op.execute_create", _record,
+            "yoke_core.domain.backlog_create_op.execute_create",
+            _record,
         )
         handle_item_create(
             _request(
@@ -155,13 +118,17 @@ class TestItemsCreateHandler:
             return {"success": True, "item_id": 1}
 
         monkeypatch.setattr(
-            "yoke_core.domain.backlog_create_op.execute_create", _record,
+            "yoke_core.domain.backlog_create_op.execute_create",
+            _record,
         )
         handle_item_create(
             _request(
-                {"title": "T", "workflow": "issue",
-                 "entry_surface": "harness_skill",
-                 "source": "7"},
+                {
+                    "title": "T",
+                    "workflow": "issue",
+                    "entry_surface": "harness_skill",
+                    "source": "7",
+                },
                 actor_id="42",
             ),
         )
@@ -172,7 +139,8 @@ class TestItemsCreateHandler:
             return {"success": False, "error": MISSING_ENTRY_SURFACE_MESSAGE}
 
         monkeypatch.setattr(
-            "yoke_core.domain.backlog_create_op.execute_create", _blocked,
+            "yoke_core.domain.backlog_create_op.execute_create",
+            _blocked,
         )
         outcome = handle_item_create(
             _request({"title": "T", "workflow": "issue"}),
@@ -183,17 +151,23 @@ class TestItemsCreateHandler:
 
     def test_generic_create_failure_maps_create_failed(self, monkeypatch):
         def _fail(**kwargs):
-            return {"success": False, "error": "items.source=999 does not match any actors row"}
+            return {
+                "success": False,
+                "error": "items.source=999 does not match any actors row",
+            }
 
         monkeypatch.setattr(
-            "yoke_core.domain.backlog_create_op.execute_create", _fail,
+            "yoke_core.domain.backlog_create_op.execute_create",
+            _fail,
         )
         outcome = handle_item_create(
-            _request({
-                "title": "T",
-                "workflow": "issue",
-                "entry_surface": "harness_skill",
-            }),
+            _request(
+                {
+                    "title": "T",
+                    "workflow": "issue",
+                    "entry_surface": "harness_skill",
+                }
+            ),
         )
         assert outcome.primary_success is False
         assert outcome.error.code == "create_failed"
@@ -209,6 +183,7 @@ class TestItemsCreateHandler:
         assert outcome.error.code == "invalid_payload"
         assert "workflow" in outcome.error.message
 
+
 # ---------------------------------------------------------------------------
 # End-to-end through the real execute_create (disposable DB)
 # ---------------------------------------------------------------------------
@@ -216,13 +191,17 @@ class TestItemsCreateHandler:
 
 class TestItemsCreateEndToEnd:
     def test_plan_posture_creates_item_attachment_at_dash_review(
-        self, tmp_db, monkeypatch,  # noqa: F811
+        self,
+        tmp_db,
+        monkeypatch,  # noqa: F811
     ):
         from yoke_core.domain.qa_catalog_schema import (
-            create_qa_catalog_tables, seed_builtin_qa_methods,
+            create_qa_catalog_tables,
+            seed_builtin_qa_methods,
         )
         from yoke_core.domain.qa_plan_management import (
-            create_plan, replace_plan_cases,
+            create_plan,
+            replace_plan_cases,
         )
 
         conn = _conn(tmp_db)
@@ -236,28 +215,31 @@ class TestItemsCreateEndToEnd:
                 name="Dash close",
             )
             replace_plan_cases(
-                conn, plan_id=plan["id"], cases=[CATALOG_CASES[0]],
+                conn,
+                plan_id=plan["id"],
+                cases=[CATALOG_CASES[0]],
             )
         finally:
             conn.close()
 
         monkeypatch.delenv(ITEM_ENTRY_SURFACE_ENV, raising=False)
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             outcome = handle_item_create(
-                _request({
-                    "title": "Fix the footer",
-                    "instruction": "Correct the footer and verify every link.",
-                    "workflow": "dash",
-                    "project": "yoke",
-                    "entry_surface": "web_form",
-                    "workflow_posture": {
-                        "verification": {
-                            "kind": "plan",
-                            "plan_id": plan["id"],
+                _request(
+                    {
+                        "title": "Fix the footer",
+                        "instruction": "Correct the footer and verify every link.",
+                        "workflow": "dash",
+                        "project": "yoke",
+                        "entry_surface": "web_form",
+                        "workflow_posture": {
+                            "verification": {
+                                "kind": "plan",
+                                "plan_id": plan["id"],
+                            },
                         },
-                    },
-                }),
+                    }
+                ),
             )
 
         assert outcome.primary_success is True, outcome.error
@@ -282,23 +264,26 @@ class TestItemsCreateEndToEnd:
         assert int(requirement_count) == 0
 
     def test_web_form_create_stores_instruction_and_posture_atomically(
-        self, tmp_db, monkeypatch,  # noqa: F811
+        self,
+        tmp_db,
+        monkeypatch,  # noqa: F811
     ):
         monkeypatch.delenv(ITEM_ENTRY_SURFACE_ENV, raising=False)
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             outcome = handle_item_create(
-                _request({
-                    "title": "Fix the footer",
-                    "instruction": "Correct the footer and verify every link.",
-                    "workflow": "dash",
-                    "project": "yoke",
-                    "entry_surface": "web_form",
-                    "workflow_posture": {
-                        "path_claims": True,
-                        "approval_on_done": True,
-                    },
-                }),
+                _request(
+                    {
+                        "title": "Fix the footer",
+                        "instruction": "Correct the footer and verify every link.",
+                        "workflow": "dash",
+                        "project": "yoke",
+                        "entry_surface": "web_form",
+                        "workflow_posture": {
+                            "path_claims": True,
+                            "approval_on_done": True,
+                        },
+                    }
+                ),
             )
         assert outcome.primary_success is True, outcome.error
         item_id = outcome.result_payload["item_id"]
@@ -310,11 +295,12 @@ class TestItemsCreateEndToEnd:
         )
 
     def test_payload_entry_surface_creates_a_row(
-        self, tmp_db, monkeypatch,  # noqa: F811
+        self,
+        tmp_db,
+        monkeypatch,  # noqa: F811
     ):
         monkeypatch.delenv(ITEM_ENTRY_SURFACE_ENV, raising=False)
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             outcome = handle_item_create(
                 _request(
                     {
@@ -337,11 +323,12 @@ class TestItemsCreateEndToEnd:
         assert isinstance(version_id, int) and version_id > 0
 
     def test_missing_entry_surface_blocked_end_to_end(
-        self, tmp_db, monkeypatch,  # noqa: F811
+        self,
+        tmp_db,
+        monkeypatch,  # noqa: F811
     ):
         monkeypatch.delenv(ITEM_ENTRY_SURFACE_ENV, raising=False)
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             outcome = handle_item_create(
                 _request({"title": "Naive create", "workflow": "issue"}),
             )

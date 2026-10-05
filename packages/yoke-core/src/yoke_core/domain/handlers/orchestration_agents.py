@@ -121,6 +121,7 @@ class AgentsRenderCheckResponse(BaseModel):
 
 
 class AgentsRenderRelationshipsRecordRequest(BaseModel):
+    project: str | None = None
     session_id: str = ""
 
 
@@ -185,8 +186,21 @@ def handle_agents_render_relationships_record(
     )
 
     with db_helpers.connect() as conn:
+        if not str(payload.project or "").strip():
+            from yoke_core.domain.project_selection import missing_project_on_connection
+
+            return HandlerOutcome(
+                primary_success=False,
+                error=FunctionError(
+                    code="project_required",
+                    message=missing_project_on_connection(
+                        conn, actor_id=request.actor.actor_id
+                    ),
+                ),
+            )
         written = record_render_relationships(
             conn,
+            project_id=payload.project,
             session_id=payload.session_id,
         )
         conn.commit()
@@ -197,9 +211,11 @@ def handle_agents_render_relationships_record(
 
 
 __all__ = [
-    "AgentsRenderRunRequest", "AgentsRenderRunResponse",
+    "AgentsRenderRunRequest",
+    "AgentsRenderRunResponse",
     "handle_agents_render_run",
-    "AgentsRenderCheckRequest", "AgentsRenderCheckResponse",
+    "AgentsRenderCheckRequest",
+    "AgentsRenderCheckResponse",
     "handle_agents_render_check",
     "AgentsRenderRelationshipsRecordRequest",
     "AgentsRenderRelationshipsRecordResponse",

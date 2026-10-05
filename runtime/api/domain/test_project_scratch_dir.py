@@ -102,7 +102,7 @@ def test_accessors_return_expected_absolute_shapes(
         tmp_path / "root" / "1" / "harness-runtime-cache" / "model.json"
     )
     assert scratch.watcher_capture_path("pytest", "raw", "abc").name == (
-        "1-pytest.raw.abc.log"
+        "yoke-pytest.raw.abc.log"
     )
     assert scratch.storage_path("codex", "model-cache.json") == (
         tmp_path
@@ -173,8 +173,8 @@ def test_mint_watcher_capture_pair_shares_nonce(
     raw, progress = scratch.mint_watcher_capture_pair("pytest")
 
     assert raw.parent == progress.parent
-    assert raw.name.startswith("1-pytest.raw.")
-    assert progress.name.startswith("1-pytest.progress.")
+    assert raw.name.startswith("yoke-pytest.raw.")
+    assert progress.name.startswith("yoke-pytest.progress.")
     assert raw.name.rsplit(".", 2)[1] == progress.name.rsplit(".", 2)[1]
 
 
@@ -290,7 +290,9 @@ def test_resolution_error_only_when_tmpdir_fallback_unwritable(
     # No configured override (env + machine temp_root both absent) isolates the
     # pure tmpdir-fallback path this test asserts, without the override-root
     # "falling back" warning a configured machine temp_root would otherwise emit.
-    monkeypatch.setattr(machine_runtime, "temp_root", lambda path=None: None)
+    monkeypatch.setattr(
+        roots, "scratch_root_candidates", lambda: (tmp_path / "yoke-scratch",)
+    )
     monkeypatch.setattr(scratch.tempfile, "gettempdir", lambda: str(tmp_path))
     monkeypatch.setattr(roots, "ensure_writable_dir", lambda path: False)
 
