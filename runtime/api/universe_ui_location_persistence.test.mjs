@@ -184,7 +184,8 @@ test("navigation during a saved-resource read wins over restoration", async () =
   assert.equal(windowNode.location.href, "/inbox");
 });
 
-test("navigation writes are serialized, deduplicated and failures teach recovery", async () => {
+test("navigation writes stay serialized and failures only log coded diagnostics", async (t) => {
+  const warnings = t.mock.method(console, "warn", () => {});
   const selections = createProjectSelection(null);
   selections.markReady();
   const windowNode = new FakeDocument().defaultView;
@@ -196,7 +197,11 @@ test("navigation writes are serialized, deduplicated and failures teach recovery
     client: { call(request) {
       writes.push(request.payload.location);
       if (writes.length === 1) return new Promise((resolve) => { finish = resolve; });
-      return Promise.resolve({ status: 200, envelope: { success: false } });
+      if (writes.length === 2) return Promise.resolve({
+        status: 400, envelope: { success: false, error: { code: "payload_invalid" } },
+      });
+      if (writes.length === 3) throw new Error("connection lost");
+      return Promise.resolve(ok({}));
     } }, windowNode, navigation, selections, isMounted: () => true,
   });
   preference.remember();
@@ -209,7 +214,55 @@ test("navigation writes are serialized, deduplicated and failures teach recovery
   finish(ok({}));
   await settle();
   assert.deepEqual(writes, ["/items?project=all", "/sessions?project=all"]);
-  assert.match(selections.notice, /Last page could not be saved.*Reload to retry/);
+  assert.equal(selections.notice, "");
+  assert.deepEqual(warnings.mock.calls[0].arguments, [
+    "Last page save failed", { code: "payload_invalid", status: 400 },
+  ]);
+  windowNode.location.href = "/inbox?project=all";
+  preference.remember();
+  await settle();
+  assert.equal(selections.notice, "");
+  assert.deepEqual(warnings.mock.calls[1].arguments, [
+    "Last page save failed", {
+      code: "location_save_network_failed", message: "Error: connection lost",
+    },
+  ]);
+  windowNode.location.href = "/strategy?project=all";
+  preference.remember();
+  await settle();
+  assert.equal(writes.at(-1), "/strategy?project=all");
+  assert.equal(warnings.mock.calls.length, 2);
+});
+
+test("a failed last-page save leaves the mounted header clean", async (t) => {
+  const warnings = t.mock.method(console, "warn", () => {});
+  const client = preferenceClient();
+  const baseCall = client.call.bind(client);
+  client.call = async (request) => request.payload?.location
+    ? { status: 400, envelope: { success: false, error: { code: "payload_invalid" } } }
+    : baseCall(request);
+  const mounted = await mountAt(t, "/orgs/acme/strategy", client, "/orgs/acme");
+  for (const view of ["items", "sessions", "strategy"]) {
+    await mounted.navigate(`/orgs/acme/${view}?project=1`);
+    assert.doesNotMatch(mounted.root.textContent, /Last page|payload_invalid|Reload to retry/);
+  }
+  assert.ok(warnings.mock.calls.length >= 3);
+  assert.ok(warnings.mock.calls.every((call) => call.arguments[1].code === "payload_invalid"));
+});
+
+test("hosted navigation saves path-only locations and restores them on a bare visit", async (t) => {
+  const client = preferenceClient();
+  const mounted = await mountAt(t, "/orgs/acme/strategy", client, "/orgs/acme");
+  for (const view of ["items", "sessions", "strategy"]) {
+    await mounted.navigate(`/orgs/acme/${view}?project=1`);
+    assert.equal(client.state.last_location, `/${view}?project=1`);
+  }
+  const writes = client.requests.filter((request) => request.payload?.location);
+  assert.ok(writes.every((request) => request.payload.location.startsWith("/") &&
+    !request.payload.location.includes("#") && !request.payload.location.includes("/orgs/")));
+  mounted.app.unmount();
+  const restored = await mountAt(t, "/orgs/acme", preferenceClient(client.state), "/orgs/acme");
+  assert.equal(restored.windowNode.location.href, "/orgs/acme/strategy?project=1");
 });
 
 test("hosted bare entry retains restored access-loss fallback after remembering", async (t) => {
