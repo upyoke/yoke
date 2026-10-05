@@ -51,8 +51,8 @@ def test_qa_topic_includes_gate_preview_with_both_target_forms() -> None:
     assert "--item" in body
     assert "--epic-id" in body
     assert "--task-num" in body
-    # The recipe must instruct routing through advance.
-    assert "/yoke advance" in body
+    # The recipe moves the item with the plain transition, which runs the gate.
+    assert "yoke lifecycle transition PREFIX-N --to reviewed-implementation" in body
 
 
 def test_qa_topic_includes_requirement_list_recipe_matching_cli() -> None:
@@ -143,13 +143,11 @@ def test_taught_items_get_fields_match_handler_allowlist() -> None:
         for row in CORE_COMMANDS
         if row["purpose"] == "Read structured item field(s) — concrete examples"
     )
-    taught_segment = entry["notes"].split("Valid fields: ", 1)[1].split(
-        ". For body-section", 1
-    )[0]
+    taught_segment = (
+        entry["notes"].split("Valid fields: ", 1)[1].split(". For body-section", 1)[0]
+    )
     taught_fields = {
-        field.strip()
-        for field in taught_segment.split(",")
-        if field.strip()
+        field.strip() for field in taught_segment.split(",") if field.strip()
     }
 
     assert taught_fields == set(ALLOWED_GET_FIELDS)
@@ -179,7 +177,10 @@ def test_execution_agents_receive_project_and_qa_topics() -> None:
     assert seed.ROLE_TOPICS["engineer_agent"] == ("core", "claims", "qa", "project")
     assert seed.ROLE_TOPICS["tester_agent"] == ("core", "claims", "qa", "project")
     assert seed.ROLE_TOPICS["qa_walker_agent"] == (
-        "core", "claims", "qa", "project",
+        "core",
+        "claims",
+        "qa",
+        "project",
     )
     for role in ("architect_agent", "simulator_agent", "boss_agent"):
         assert seed.ROLE_TOPICS[role] == ("core", "claims"), (

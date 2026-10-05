@@ -1,8 +1,9 @@
 # Advance — Deployed-Stack QA
 
 Called by the advance router when the workflow transition is `release`.
-Materializes and executes the project's attached deployed-stack QA plan cases.
-Skip for every other transition.
+Materializes and executes the project's attached deployed-stack QA plan cases;
+the `release` transition refuses until they pass (see
+[`preflight.md`](preflight.md)). Skip for every other transition.
 
 For `worktrees=worker_and_integration_lanes`, execute the release case on each
 task lane through the pinned `conduct` skill; the parent item has no single

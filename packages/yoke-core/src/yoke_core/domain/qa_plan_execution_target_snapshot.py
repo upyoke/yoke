@@ -31,9 +31,13 @@ def execution_target_for_roster(
         if not isinstance(target, dict) or not digest
     ]
     if not targets or missing:
-        ids = ", ".join(
-            str(row.get("requirement_id") or row.get("id") or "?") for row in missing
-        ) or "<none>"
+        ids = (
+            ", ".join(
+                str(row.get("requirement_id") or row.get("id") or "?")
+                for row in missing
+            )
+            or "<none>"
+        )
         raise QaPlanExecutionStateError(
             "materialized QA roster lacks an execution target"
             + (f" for requirement {ids}" if missing else "")
@@ -42,8 +46,6 @@ def execution_target_for_roster(
             "`yoke qa requirement update --requirement-id <id> --field "
             "target_env --value <environment>`, then create the executable "
             "roster with `yoke qa plan_execution begin` or `yoke qa case run`. "
-            "The harness skill `/yoke advance PREFIX-N STAGE` is not a CLI "
-            "command. "
             + _captured_inspection_review_recovery()
         )
     if len({canonical(target) for target in targets}) != 1 or len(set(digests)) != 1:

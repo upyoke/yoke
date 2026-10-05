@@ -10,7 +10,6 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from .db_helpers import connect
-from .qa_terminal_settlement import terminal_transition_result
 from .workflow_gate_catalog import (
     GATE_ARCHITECTURE_IMPACT,
     GATE_CONFLICT_SURVEY,
@@ -91,26 +90,18 @@ def _run_authoritative_status_gate(
             workflow_conn.close()
     else:
         workflow = load_item_workflow_runtime(conn, item_id)
-    terminal_gate = terminal_transition_result(conn, item_id, target_status, workflow)
-    if terminal_gate:
-        return terminal_gate
-    from yoke_core.domain.closure_status_gate import evaluate_for_status_write
+    from yoke_core.domain.workflow_structural_status_gates import evaluate_unlisted
 
-    closure_gate = evaluate_for_status_write(
-        item_id=item_id, target_status=target_status, db_path=db_path, conn=conn,
+    unlisted_result = evaluate_unlisted(
+        item_id=item_id,
+        target_status=target_status,
+        workflow=workflow,
+        force=force,
+        db_path=db_path,
+        conn=conn,
     )
-    if closure_gate is not None:
-        return closure_gate
-    if workflow.workflow_id == "dash":
-        from yoke_core.domain.dash_posture_gate import evaluate as evaluate_posture
-
-        posture_result = evaluate_posture(
-            item_id=item_id,
-            target_status=target_status,
-            db_path=db_path,
-        )
-        if posture_result is not None:
-            return posture_result
+    if unlisted_result is not None:
+        return unlisted_result
     failures: list[dict] = []
     gate_refs = select_stage_gates(
         workflow.gates_for_stage(target_status),

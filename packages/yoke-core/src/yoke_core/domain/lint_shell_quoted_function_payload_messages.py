@@ -45,7 +45,7 @@ CONCRETE_READ_EXAMPLE: str = (
     "  # stderr, stdout empty), so a missing section in a parallel tool-call\n"
     "  # batch does not cancel siblings:\n"
     "  python3 -m yoke_core.cli.db_router items get YOK-N body "
-    "--section \"## File Budget\"\n\n"
+    '--section "## File Budget"\n\n'
     "  # Full rendered body (large items): write to a temp file, then read\n"
     "  # the file with your harness Read tool. The render auto-paginates so\n"
     "  # piping to head/tail is never the answer:\n"
@@ -64,7 +64,8 @@ def resolve_mode(payload: object | None = None) -> str:
     from yoke_core.domain import lint_config
 
     return lint_config.resolve_mode_for_payload(
-        "lint_shell_quoted_function_payload", payload,
+        "lint_shell_quoted_function_payload",
+        payload,
     )
 
 
@@ -199,9 +200,7 @@ def build_domain_remediation(
     tail_disp = command_tail.strip() or "(no subcommand)"
     if registered_subs:
         sub_lines = "\n".join(f"  - {sub}" for sub in registered_subs if sub)
-        sub_block = (
-            "\nRegistered subcommands in this domain:\n" + sub_lines + "\n"
-        )
+        sub_block = "\nRegistered subcommands in this domain:\n" + sub_lines + "\n"
     else:
         sub_block = "\n"
     return (
@@ -224,18 +223,17 @@ def build_domain_remediation(
     )
 
 
-def build_skill_orchestrated_note(
+def build_lifecycle_transition_note(
     adapter_key: str,
     function_id: str,
-    canonical_skill: str,
-    caveat: str,
+    cli_invocation: str,
 ) -> str:
     return (
         "NOTE: detected adapter "
-        f"``{adapter_key}`` matches inventory entry ``{function_id}``, "
-        "which is skill-orchestrated. Canonical agent path: "
-        f"``{canonical_skill}``. Direct use is valid at the DB layer but "
-        f"{caveat}"
+        f"``{adapter_key}`` writes lifecycle status through the raw item "
+        f"adapter. Canonical agent path: ``{cli_invocation}`` "
+        f"(``{function_id}``), which evaluates every listed and structural "
+        "gate of the item's pinned workflow definition."
     )
 
 
@@ -245,6 +243,6 @@ __all__ = [
     "build_payload_remediation",
     "build_choreography_remediation",
     "build_domain_remediation",
-    "build_skill_orchestrated_note",
+    "build_lifecycle_transition_note",
     "resolve_mode",
 ]

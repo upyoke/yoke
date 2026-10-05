@@ -1,9 +1,9 @@
-"""Advance preflight — Shepherd Lifecycle Gate.
+"""Shepherd verdict lookup behind the lifecycle shepherd-verdict gate.
 
-Python owner for the advance preflight "Shepherd Lifecycle Gate" described in
-``.agents/skills/yoke/advance/preflight-checks.md``. The gate fires when an
-epic is advancing to ``implementing`` or later and verifies the shepherd
-pipeline signed off on the plan before any implementation work begins.
+:mod:`yoke_core.domain.workflow_task_graph_status_gates` calls
+:func:`check_gate` on the transition where a ``shepherd``-bound definition's
+implementation binding starts work, so implementation begins only after the
+shepherd pipeline signed off on the plan.
 
 Modern shepherd writes ``planning_to_plan_drafted`` as its terminal verdict
 (via ``cmd_verdict`` in ``yoke_core.domain.shepherd``). The gate accepts
@@ -100,8 +100,7 @@ def check_gate(
                 transition=CURRENT_TRANSITION,
                 verdict=current,
                 reason=(
-                    f"Gate satisfied by {CURRENT_TRANSITION}={current} "
-                    f"on {public_ref}."
+                    f"Gate satisfied by {CURRENT_TRANSITION}={current} on {public_ref}."
                 ),
             )
         legacy = _lookup_latest_verdict(c, verdict_key, LEGACY_TRANSITION)

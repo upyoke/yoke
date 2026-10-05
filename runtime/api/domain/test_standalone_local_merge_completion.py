@@ -46,6 +46,9 @@ def test_local_merge_item_records_evidence_and_reaches_done(
         project="local-project",
         status="reviewing-implementation",
         architecture_impact="none",
+        # The relay that stamps the landing is not wired here; the release
+        # wait's merge-record gate reads this recorded landing instead.
+        merged_at="2026-01-01T00:00:00Z",
     )
     ref = project_identity.render_item_ref(test_db, item_id)
     target = make_item_target(item_id)
@@ -90,6 +93,7 @@ def test_local_merge_item_records_evidence_and_reaches_done(
         ),
     )
     monkeypatch.setattr(cli.pending, "clear_after_close_out", lambda *_a: "")
+
     monkeypatch.setattr(cli, "record_terminal_lane_close_out", lambda *_a, **_k: None)
     transitions = []
 

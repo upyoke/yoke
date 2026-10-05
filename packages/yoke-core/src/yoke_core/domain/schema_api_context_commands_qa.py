@@ -290,9 +290,9 @@ QA_COMMANDS: list[dict] = [
         "notes": (
             "Registered read qa.gate_summary.run. Use --item for a standalone "
             "issue, or --epic-id E --task-num K for an epic task. The summary "
-            "is diagnostic only — even with passing tests, route via "
-            "`/yoke advance PREFIX-N reviewed-implementation` (never raw items "
-            "update) so the gate runs and claim handoff fires."
+            "is diagnostic only — even with passing tests, move the item with "
+            "`yoke lifecycle transition PREFIX-N --to reviewed-implementation` "
+            "(never raw items update), which evaluates the gate."
         ),
     },
     {
@@ -306,8 +306,8 @@ QA_COMMANDS: list[dict] = [
             "Registered read qa.gate_summary.run (works over https — "
             "replaces the checkout-shaped db_router gate-summary "
             "agent leg). Diagnostic only — never mutates "
-            "qa_runs/qa_requirements. Run before /yoke advance "
-            "reviewed-implementation or /yoke polish to see which "
+            "qa_runs/qa_requirements. Run before a transition into "
+            "reviewed-implementation or implemented to see which "
             "blocking requirements still need passing runs. Use "
             "--epic-id E --task-num K for epic tasks; the bare call "
             "prints the summary JSON."

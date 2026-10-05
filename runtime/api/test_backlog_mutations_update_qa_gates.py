@@ -27,6 +27,10 @@ from yoke_core.domain import backlog
 from yoke_core.domain.qa_gates import LatestCodeRef
 
 
+#: The release wait is entered only by a recorded landing.
+_LANDED = "2026-01-01T00:00:00Z"
+
+
 class TestExecuteUpdate:
     """ExecuteUpdate sub-scenarios: QA gates."""
 
@@ -39,11 +43,13 @@ class TestExecuteUpdate:
             success_policy='{"type":"browser_scenario"}',
         )
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(
-                 os.environ,
-                 {"YOKE_DB": tmp_db, "YOKE_CLAIM_BYPASS": "test-bypass"},
-             ):
+        with (
+            _patch_externals(),
+            mock.patch.dict(
+                os.environ,
+                {"YOKE_DB": tmp_db, "YOKE_CLAIM_BYPASS": "test-bypass"},
+            ),
+        ):
             result = backlog.execute_update(
                 item_id=10,
                 field="status",
@@ -56,7 +62,7 @@ class TestExecuteUpdate:
         assert _item_field(tmp_db, 10, "status") == "polishing-implementation"
 
     def test_release_blocks_unsatisfied_blocking_verification_reqs(self, tmp_db):  # noqa: F811
-        _seed_item(tmp_db, id=10, status="implemented")
+        _seed_item(tmp_db, id=10, status="implemented", merged_at=_LANDED)
         _seed_qa_requirement(
             tmp_db,
             item_id=10,
@@ -64,11 +70,13 @@ class TestExecuteUpdate:
             success_policy='{"type":"browser_scenario"}',
         )
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(
-                 os.environ,
-                 {"YOKE_DB": tmp_db, "YOKE_CLAIM_BYPASS": "test-bypass"},
-             ):
+        with (
+            _patch_externals(),
+            mock.patch.dict(
+                os.environ,
+                {"YOKE_DB": tmp_db, "YOKE_CLAIM_BYPASS": "test-bypass"},
+            ),
+        ):
             result = backlog.execute_update(
                 item_id=10,
                 field="status",
@@ -84,11 +92,13 @@ class TestExecuteUpdate:
         """Dash declares no ``qa_verification`` gate at that stage."""
         _seed_item(tmp_db, id=10, status="implementing", workflow_id="dash")
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(
-                 os.environ,
-                 {"YOKE_DB": tmp_db, "YOKE_CLAIM_BYPASS": "test-bypass"},
-             ):
+        with (
+            _patch_externals(),
+            mock.patch.dict(
+                os.environ,
+                {"YOKE_DB": tmp_db, "YOKE_CLAIM_BYPASS": "test-bypass"},
+            ),
+        ):
             result = backlog.execute_update(
                 item_id=10,
                 field="status",
@@ -101,14 +111,20 @@ class TestExecuteUpdate:
 
     def test_dash_release_needs_no_qa_requirements_when_unattached(self, tmp_db):  # noqa: F811
         _seed_item(
-            tmp_db, id=10, status="reviewing-implementation", workflow_id="dash",
+            tmp_db,
+            id=10,
+            status="reviewing-implementation",
+            workflow_id="dash",
+            merged_at=_LANDED,
         )
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(
-                 os.environ,
-                 {"YOKE_DB": tmp_db, "YOKE_CLAIM_BYPASS": "test-bypass"},
-             ):
+        with (
+            _patch_externals(),
+            mock.patch.dict(
+                os.environ,
+                {"YOKE_DB": tmp_db, "YOKE_CLAIM_BYPASS": "test-bypass"},
+            ),
+        ):
             result = backlog.execute_update(
                 item_id=10,
                 field="status",
@@ -121,7 +137,11 @@ class TestExecuteUpdate:
 
     def test_dash_release_blocks_unsatisfied_attached_qa(self, tmp_db):  # noqa: F811
         _seed_item(
-            tmp_db, id=10, status="reviewing-implementation", workflow_id="dash",
+            tmp_db,
+            id=10,
+            status="reviewing-implementation",
+            workflow_id="dash",
+            merged_at=_LANDED,
         )
         _seed_qa_requirement(
             tmp_db,
@@ -130,11 +150,13 @@ class TestExecuteUpdate:
             success_policy='{"type":"browser_scenario"}',
         )
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(
-                 os.environ,
-                 {"YOKE_DB": tmp_db, "YOKE_CLAIM_BYPASS": "test-bypass"},
-             ):
+        with (
+            _patch_externals(),
+            mock.patch.dict(
+                os.environ,
+                {"YOKE_DB": tmp_db, "YOKE_CLAIM_BYPASS": "test-bypass"},
+            ),
+        ):
             result = backlog.execute_update(
                 item_id=10,
                 field="status",
@@ -161,11 +183,13 @@ class TestExecuteUpdate:
             verdict="pass",
         )
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(
-                 os.environ,
-                 {"YOKE_DB": tmp_db, "YOKE_CLAIM_BYPASS": "test-bypass"},
-             ):
+        with (
+            _patch_externals(),
+            mock.patch.dict(
+                os.environ,
+                {"YOKE_DB": tmp_db, "YOKE_CLAIM_BYPASS": "test-bypass"},
+            ),
+        ):
             result = backlog.execute_update(
                 item_id=10,
                 field="status",
@@ -187,11 +211,13 @@ class TestExecuteUpdate:
             success_policy='{"type":"browser_scenario"}',
         )
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(
-                 os.environ,
-                 {"YOKE_DB": tmp_db, "YOKE_CLAIM_BYPASS": "test-bypass"},
-             ):
+        with (
+            _patch_externals(),
+            mock.patch.dict(
+                os.environ,
+                {"YOKE_DB": tmp_db, "YOKE_CLAIM_BYPASS": "test-bypass"},
+            ),
+        ):
             result = backlog.execute_update(
                 item_id=10,
                 field="status",
@@ -219,11 +245,13 @@ class TestExecuteUpdate:
             verdict="pass",
         )
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(
-                 os.environ,
-                 {"YOKE_DB": tmp_db, "YOKE_CLAIM_BYPASS": "test-bypass"},
-             ):
+        with (
+            _patch_externals(),
+            mock.patch.dict(
+                os.environ,
+                {"YOKE_DB": tmp_db, "YOKE_CLAIM_BYPASS": "test-bypass"},
+            ),
+        ):
             result = backlog.execute_update(
                 item_id=10,
                 field="status",
@@ -237,7 +265,9 @@ class TestExecuteUpdate:
         assert _item_field(tmp_db, 10, "status") == "reviewing-implementation"
 
     def test_release_blocks_browser_pass_against_stale_sha(self, tmp_db, tmp_path):  # noqa: F811
-        _seed_item(tmp_db, id=10, status="implemented", project="testproj")
+        _seed_item(
+            tmp_db, id=10, status="implemented", project="testproj", merged_at=_LANDED
+        )
         req_id = _seed_qa_requirement(
             tmp_db,
             item_id=10,
@@ -256,19 +286,21 @@ class TestExecuteUpdate:
         artifact.write_bytes(b"PNG")
         _seed_qa_artifact(tmp_db, run_id=run_id, artifact_path=str(artifact))
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch(
-                 "yoke_core.domain.qa_gates._resolve_latest_code_ref",
-                 return_value=LatestCodeRef(
-                     branch="YOK-10",
-                     sha="freshsha",
-                     timestamp="2025-01-01T00:00:00Z",
-                 ),
-             ), \
-             mock.patch.dict(
-                 os.environ,
-                 {"YOKE_DB": tmp_db, "YOKE_CLAIM_BYPASS": "test-bypass"},
-             ):
+        with (
+            _patch_externals(),
+            mock.patch(
+                "yoke_core.domain.qa_gates._resolve_latest_code_ref",
+                return_value=LatestCodeRef(
+                    branch="YOK-10",
+                    sha="freshsha",
+                    timestamp="2025-01-01T00:00:00Z",
+                ),
+            ),
+            mock.patch.dict(
+                os.environ,
+                {"YOKE_DB": tmp_db, "YOKE_CLAIM_BYPASS": "test-bypass"},
+            ),
+        ):
             result = backlog.execute_update(
                 item_id=10,
                 field="status",
