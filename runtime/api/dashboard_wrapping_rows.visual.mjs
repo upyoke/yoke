@@ -90,7 +90,6 @@ const html = (assets) => `<!doctype html><html><head>
     renderInboxView({ document, isMounted: () => true, projects: () => [{ id: 1, slug: "Demo" }],
       client: { call: async (request) => ({ status: 200, envelope: { success: true,
         result: request.function === "inbox.list" ? { needs_decision: rows, messages: [] } : { rows: [] } } }) } }, inboxHost, "all");
-    await new Promise((resolve) => setTimeout(resolve, 100));
     window.proofReady = true;
   </script></body></html>`;
 
@@ -116,7 +115,8 @@ const browser = await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage({ viewport: { width: 800, height: 1000 } });
   await page.goto(`http://127.0.0.1:${server.address().port}/`);
-  await page.waitForFunction(() => window.proofReady);
+  await page.waitForFunction(() => window.proofReady
+    && document.querySelector('[data-fold="section:inbox-waiting"] .approval-carried'));
   for (const width of [268, 350, 1100]) {
     await page.setViewportSize({ width: width + 40, height: 1000 });
     await page.evaluate((value) => {
@@ -163,8 +163,7 @@ try {
         assert(Math.abs(row.rowLeftGap) < 1, `${row.label} wrapped row is indented`);
       }
       else {
-        assert(Math.abs(row.rightGap) < 1, `${row.label} fitting content must reach the right edge`);
-        assert(Math.abs(row.rowRightGap) < 1, `${row.label} fitting row must sit at the right edge`);
+        assert(Math.abs(row.rowLeftGap) < 1, `${row.label} standalone row must start left`);
       }
     }
   }

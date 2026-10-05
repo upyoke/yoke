@@ -1,3 +1,4 @@
+import { magnifier } from "./universe_search_overlay.js";
 import { attachTooltip } from "./universe_tooltip.js";
 import { el } from "./universe_view_support.js";
 
@@ -59,7 +60,7 @@ export function sessionRosterFilters(documentNode, onChange) {
   search.control.placeholder = "Search sessions, items, models, operators";
   search.control.setAttribute("aria-label", "Search");
   search.wrapper.replaceChildren(
-    el(documentNode, "span", "session-filter-search-icon", "⌕"),
+    magnifier(documentNode, "session-filter-search-icon"),
     search.control,
   );
   controls.search = search.control;

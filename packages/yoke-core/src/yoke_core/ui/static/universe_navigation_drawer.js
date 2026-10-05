@@ -17,7 +17,7 @@ function controlsWithin(node, windowNode) {
 }
 
 export function attachNavigationDrawer({
-  documentNode, header, shell, navigation, toggle, close, scrim,
+  documentNode, header, shell, navigation, toggle, scrim,
   body, footer, main, links,
 }) {
   const windowNode = documentNode.defaultView;
@@ -33,7 +33,6 @@ export function attachNavigationDrawer({
     for (const background of [header, body, footer]) background.inert = open;
     scrim.hidden = !open;
     scrim.tabIndex = -1;
-    close.hidden = !open;
     toggle.setAttribute("aria-expanded", String(open));
     toggle.setAttribute("aria-label", open ? "Close navigation" : "Open navigation");
     if (open) {
@@ -56,7 +55,7 @@ export function attachNavigationDrawer({
     if (!isNarrow()) return;
     open = true;
     paint();
-    close.focus?.();
+    controlsWithin(navigation, windowNode)[0]?.focus?.();
   };
   const onDestination = () => {
     if (!open) return;
@@ -73,9 +72,7 @@ export function attachNavigationDrawer({
   headerObserver?.observe(header);
   const onResize = () => {
     measureHeader();
-    const active = documentNode.activeElement;
     paint();
-    if (!open && active === close) controlsWithin(navigation, windowNode)[0]?.focus?.();
   };
   const onKeydown = (event) => {
     if (!open) return;
@@ -95,7 +92,6 @@ export function attachNavigationDrawer({
   };
   const onDismiss = () => dismiss();
   toggle.addEventListener("click", onToggle);
-  close.addEventListener("click", onDismiss);
   scrim.addEventListener("click", onDismiss);
   for (const link of links.values()) link.addEventListener("click", onDestination);
   windowNode.addEventListener("keydown", onKeydown, true);
@@ -111,7 +107,6 @@ export function attachNavigationDrawer({
     paint();
     navigation.inert = false;
     toggle.removeEventListener("click", onToggle);
-    close.removeEventListener("click", onDismiss);
     scrim.removeEventListener("click", onDismiss);
     for (const link of links.values()) link.removeEventListener("click", onDestination);
     windowNode.removeEventListener("keydown", onKeydown, true);

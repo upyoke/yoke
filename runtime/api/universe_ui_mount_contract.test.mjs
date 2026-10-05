@@ -206,12 +206,10 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
   assert.equal(byClass(secondRoot, "org-context")[0].textContent, "second org");
   assert.equal(byClass(secondRoot, "actor-chip").length, 1);
   const firstNavigation = byClass(firstRoot, "sidenav")[0];
-  // The drawer's own close control leads, because at narrow width it is the
-  // way out of a panel covering the page; the onboarding marker follows it,
-  // and the host's slot opens the destinations below both.
-  assert.ok(firstNavigation.children[0].classList.contains("navigation-close"));
-  assert.ok(firstNavigation.children[1].classList.contains("onboarding-control"));
-  assert.equal(firstNavigation.children[2], navigationStartSlot);
+  // Onboarding leads the navigation, followed by the host's destination slot.
+  assert.equal(byClass(firstNavigation, "navigation-close").length, 0);
+  assert.ok(firstNavigation.children[0].classList.contains("onboarding-control"));
+  assert.equal(firstNavigation.children[1], navigationStartSlot);
   assert.equal(
     firstNavigation.children[firstNavigation.children.length - 1],
     navigationEndSlot,

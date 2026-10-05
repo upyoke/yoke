@@ -191,7 +191,7 @@
   color: var(--yoke-muted);
   font-size: 12px;
 }
-.universe-app-root .item-delivery-flow {
+.universe-app-root .item-card-delivery-flow {
   margin: 0;
   overflow-wrap: anywhere;
 }
