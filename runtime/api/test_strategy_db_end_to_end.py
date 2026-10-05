@@ -39,6 +39,8 @@ from yoke_core.domain.strategy_docs_paths import strategy_view_path
 from yoke_core.domain.yoke_function_registry import reset_registry_for_tests
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 OPERATOR = "e2e-operator"
 OTHER = "e2e-other-session"
 PROJECT = 1  # the Yoke project in the schema seed
@@ -84,7 +86,7 @@ def _cli(*argv: str, session_id: str = OPERATOR) -> tuple:
 def _envelope(*argv: str, session_id: str = OPERATOR) -> dict:
     _, stdout, stderr = _cli(*argv, "--json", session_id=session_id)
     text = stdout if stdout.strip() else stderr
-    return json.loads(text[text.index("{"):])
+    return json.loads(text[text.index("{") :])
 
 
 def _claims_cli(*argv: str, session_id: str = OPERATOR) -> dict:
@@ -95,7 +97,7 @@ def _claims_cli(*argv: str, session_id: str = OPERATOR) -> dict:
         with redirect_stdout(out), redirect_stderr(err):
             cli_main([*argv, "--json"])
     text = out.getvalue() if out.getvalue().strip() else err.getvalue()
-    return json.loads(text[text.index("{"):])
+    return json.loads(text[text.index("{") :])
 
 
 def _row(db_path: str, slug: str) -> dict:
@@ -152,14 +154,10 @@ def test_operator_lifecycle_end_to_end(world, tmp_path: Path) -> None:
         assert parsed.body == _row(db, slug)["content"]
 
     # 3. Re-render is byte-idempotent (no wall-clock anywhere).
-    before = {
-        s: strategy_view_path(checkout, s).read_bytes() for s in CORPUS_SLUGS
-    }
+    before = {s: strategy_view_path(checkout, s).read_bytes() for s in CORPUS_SLUGS}
     rc, _, _ = _cli("strategy", "render", "--target-root", root)
     assert rc == 0
-    after = {
-        s: strategy_view_path(checkout, s).read_bytes() for s in CORPUS_SLUGS
-    }
+    after = {s: strategy_view_path(checkout, s).read_bytes() for s in CORPUS_SLUGS}
     assert before == after
 
     # 4. Operator edits PAD in their "editor"; dry-run previews, writes
@@ -168,7 +166,12 @@ def test_operator_lifecycle_end_to_end(world, tmp_path: Path) -> None:
     edited = pad_base["content"] + "\nE2E pen edit.\n"
     _edit_body(checkout, "PAD", edited)
     rc, stdout, _ = _cli(
-        "strategy", "ingest", "PAD", "--dry-run", "--target-root", root,
+        "strategy",
+        "ingest",
+        "PAD",
+        "--dry-run",
+        "--target-root",
+        root,
     )
     assert rc == 0 and "changed" in stdout
     assert _row(db, "PAD") == pad_base
@@ -188,12 +191,18 @@ def test_operator_lifecycle_end_to_end(world, tmp_path: Path) -> None:
     content_file = tmp_path / "vision-next.md"
     vision_base = _row(db, "VISION")
     content_file.write_text(
-        vision_base["content"] + "\nSharper E2E vision.\n", encoding="utf-8",
+        vision_base["content"] + "\nSharper E2E vision.\n",
+        encoding="utf-8",
     )
     envelope = _envelope(
-        "strategy", "doc", "replace", "VISION",
-        "--content-file", str(content_file),
-        "--base-updated-at", vision_base["updated_at"],
+        "strategy",
+        "doc",
+        "replace",
+        "VISION",
+        "--content-file",
+        str(content_file),
+        "--base-updated-at",
+        vision_base["updated_at"],
     )
     assert envelope["success"] is False
     assert envelope["error"]["code"] == "strategy_claim_required"
@@ -201,8 +210,13 @@ def test_operator_lifecycle_end_to_end(world, tmp_path: Path) -> None:
     # 6. Acquire the STRATEGIZE claim through the real CLI — a pure
     #    process lock: zero linked path claims (the retired linkage).
     acquired = _claims_cli(
-        "claims", "work", "acquire", "--process", "STRATEGIZE",
-        "--reason", "e2e lifecycle",
+        "claims",
+        "work",
+        "acquire",
+        "--process",
+        "STRATEGIZE",
+        "--reason",
+        "e2e lifecycle",
     )
     assert acquired["success"] is True
     claim_id = int(acquired["result"]["claim_id"])
@@ -210,16 +224,26 @@ def test_operator_lifecycle_end_to_end(world, tmp_path: Path) -> None:
 
     # 7. Claim held: CAS replace succeeds; the SAME base now conflicts.
     envelope = _envelope(
-        "strategy", "doc", "replace", "VISION",
-        "--content-file", str(content_file),
-        "--base-updated-at", vision_base["updated_at"],
+        "strategy",
+        "doc",
+        "replace",
+        "VISION",
+        "--content-file",
+        str(content_file),
+        "--base-updated-at",
+        vision_base["updated_at"],
     )
     assert envelope["success"] is True
     assert any('"source": "replace"' in e for e in _replaced_event_envelopes(db))
     stale = _envelope(
-        "strategy", "doc", "replace", "VISION",
-        "--content-file", str(content_file),
-        "--base-updated-at", vision_base["updated_at"],
+        "strategy",
+        "doc",
+        "replace",
+        "VISION",
+        "--content-file",
+        str(content_file),
+        "--base-updated-at",
+        vision_base["updated_at"],
     )
     assert stale["success"] is False
     assert stale["error"]["code"] == "replace_conflict"
@@ -230,14 +254,23 @@ def test_operator_lifecycle_end_to_end(world, tmp_path: Path) -> None:
     _cli("strategy", "render", "--target-root", root)  # pick up VISION
     _edit_body(checkout, "MISSION", _row(db, "MISSION")["content"] + "\nX.\n")
     bounced = _envelope(
-        "strategy", "ingest", "MISSION", "--target-root", root,
+        "strategy",
+        "ingest",
+        "MISSION",
+        "--target-root",
+        root,
         session_id=OTHER,
     )
     assert bounced["success"] is False
     assert bounced["error"]["code"] == "ingest_blocked_by_live_process_claim"
     assert OPERATOR in bounced["error"]["message"]
     preview = _envelope(
-        "strategy", "ingest", "MISSION", "--dry-run", "--target-root", root,
+        "strategy",
+        "ingest",
+        "MISSION",
+        "--dry-run",
+        "--target-root",
+        root,
         session_id=OTHER,
     )
     assert preview["success"] is True
@@ -245,12 +278,21 @@ def test_operator_lifecycle_end_to_end(world, tmp_path: Path) -> None:
     # 9. Release the claim via the real CLI; the other session's ingest
     #    now lands.
     released = _claims_cli(
-        "claims", "work", "release", "--claim-id", str(claim_id),
-        "--reason", "e2e done",
+        "claims",
+        "work",
+        "release",
+        "--claim-id",
+        str(claim_id),
+        "--reason",
+        "e2e done",
     )
     assert released["success"] is True
     landed = _envelope(
-        "strategy", "ingest", "MISSION", "--target-root", root,
+        "strategy",
+        "ingest",
+        "MISSION",
+        "--target-root",
+        root,
         session_id=OTHER,
     )
     assert landed["success"] is True
@@ -274,23 +316,33 @@ def test_operator_lifecycle_end_to_end(world, tmp_path: Path) -> None:
     try:
         with pytest.MonkeyPatch.context() as mp:
             mp.setattr(
-                hc, "_mapped_checkouts", lambda: [(checkout, PROJECT)],
+                hc,
+                "_mapped_checkouts",
+                lambda: [(checkout, PROJECT)],
             )
             collector = _Collector()
             hc.hc_strategy_render_staleness(
-                conn, SimpleNamespace(quick=True), collector,
+                conn,
+                SimpleNamespace(quick=True),
+                collector,
             )
             assert collector.records[-1][2] == "PASS"
             conn.execute(
                 f"UPDATE {sd.STRATEGY_DOCS_TABLE} SET content = %s, "
                 "updated_at = %s WHERE project_id = %s AND slug = %s",
-                ("# WISPS\n\nmoved without render\n", "2026-06-12T00:00:00Z",
-                 PROJECT, "WISPS"),
+                (
+                    "# WISPS\n\nmoved without render\n",
+                    "2026-06-12T00:00:00Z",
+                    PROJECT,
+                    "WISPS",
+                ),
             )
             conn.commit()
             collector = _Collector()
             hc.hc_strategy_render_staleness(
-                conn, SimpleNamespace(quick=True), collector,
+                conn,
+                SimpleNamespace(quick=True),
+                collector,
             )
             assert collector.records[-1][2] == "WARN"
             assert "WISPS" in collector.records[-1][3]

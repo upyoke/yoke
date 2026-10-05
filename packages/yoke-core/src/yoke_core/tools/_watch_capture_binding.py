@@ -65,7 +65,7 @@ def writer_marker_line(kind: str, *, pid: int | None = None) -> str:
     return f"# watch_{kind} writer_pid={os.getpid() if pid is None else pid}\n"
 
 
-def mint_capture_paths(kind: str) -> tuple[Path, Path]:
+def mint_capture_paths(kind: str, *, project: str | None = None) -> tuple[Path, Path]:
     """Mint ``(raw, progress)`` capture file paths under the scratch root.
 
     Thin wrapper over
@@ -75,7 +75,7 @@ def mint_capture_paths(kind: str) -> tuple[Path, Path]:
     progress files. Both files are created empty so downstream callers
     that ``stat`` the path before opening it observe an existing file.
     """
-    raw_path, progress_path = mint_watcher_capture_pair(kind)
+    raw_path, progress_path = mint_watcher_capture_pair(kind, project=project)
     raw_path.touch()
     progress_path.touch()
     return raw_path, progress_path

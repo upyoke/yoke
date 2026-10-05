@@ -14,6 +14,10 @@ from unittest import mock
 
 from yoke_core.domain import items, schema
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 def _init_db(tmp_path: Path) -> str:
     db_path = str(tmp_path / "yoke.db")
@@ -27,6 +31,7 @@ def _seed_item(db_path: str, item_id: int, title: str) -> None:
         item_id=item_id,
         title=title,
         workflow="issue",
+        project="yoke",
         db_path=db_path,
     )
 
@@ -100,14 +105,8 @@ def test_non_spec_structured_field_is_not_dedented(tmp_path: Path) -> None:
     db_path = _init_db(tmp_path)
     _seed_item(db_path, 45, "Design spec item")
 
-    indented_design = (
-        "    ## Design\n"
-        "    - First\n"
-        "    - Second\n"
-    )
-    items.update_structured_field(
-        45, "design_spec", indented_design, db_path=db_path
-    )
+    indented_design = "    ## Design\n    - First\n    - Second\n"
+    items.update_structured_field(45, "design_spec", indented_design, db_path=db_path)
 
     stored = items.query_item(45, "design_spec", db_path=db_path)
     assert stored == indented_design

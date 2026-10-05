@@ -56,6 +56,7 @@ def _materialized_command_requirement(conn) -> int:
         plan_id=plan["id"],
         cases=[
             {
+                "project": "fixture",
                 "case_key": "backend",
                 "position": 1,
                 "method_id": "command",

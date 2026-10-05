@@ -32,6 +32,7 @@ def _candidate(root):
 def _execute(root, command, *, lane=False, endpoint_only=False):
     head = "c" * 40
     case = {
+        "project": "fixture",
         "requirement_id": 41,
         "item_id": 9 if lane else None,
         "case_key": "candidate-imports",

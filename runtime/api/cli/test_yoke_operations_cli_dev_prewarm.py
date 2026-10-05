@@ -7,6 +7,10 @@ from types import SimpleNamespace
 
 from yoke_cli import main as yoke_operations_cli
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 def test_registry_and_inventory_track_dev_prewarm() -> None:
     # `yoke dev path-snapshot-prewarm` is a source-dev/admin client-local
@@ -42,27 +46,34 @@ def test_dev_prewarm_calls_snapshot_builders(monkeypatch, capsys) -> None:
         if name == "yoke_core.domain.db_helpers":
             return SimpleNamespace(connect=lambda: conn)
         if name == "yoke_core.domain.path_snapshots":
+
             def build_head_snapshot(got_conn, project_id: str) -> int:
                 assert got_conn is conn
                 calls.append(("head", project_id))
                 return 101
+
             return SimpleNamespace(build_head_snapshot=build_head_snapshot)
         if name == "yoke_core.domain.path_snapshots_integration_warm":
+
             def ensure_integration_target_snapshot(got_conn, project_id: str) -> int:
                 assert got_conn is conn
                 calls.append(("integration", project_id))
                 return 202
+
             return SimpleNamespace(
-                ensure_integration_target_snapshot=(
-                    ensure_integration_target_snapshot
-                )
+                ensure_integration_target_snapshot=(ensure_integration_target_snapshot)
             )
         raise AssertionError(name)
 
     monkeypatch.setattr(mod.importlib, "import_module", fake_import_module)
-    rc = yoke_operations_cli.main([
-        "dev", "path-snapshot-prewarm", "externalwebapp", "--json",
-    ])
+    rc = yoke_operations_cli.main(
+        [
+            "dev",
+            "path-snapshot-prewarm",
+            "externalwebapp",
+            "--json",
+        ]
+    )
 
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)

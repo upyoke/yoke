@@ -21,6 +21,8 @@ from yoke_core.domain.verification_tree_binding import TreeBindingVerdict
 from yoke_core.tools import run_tests, watch_pytest
 from yoke_core.tools._impacted_selection import Selection
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 REFUSAL = "REFUSAL: cd to the claimed worktree"
 NOTICE = "NOTICE: running the other tree"
 
@@ -42,7 +44,9 @@ class TestWatchPytestBinding:
     """``watch_pytest.main`` returns ``3`` and prints the refusal."""
 
     def test_main_exits_3_when_binding_refuses(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture,
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture,
     ) -> None:
         _refuse(monkeypatch)
         assert watch_pytest.main(["--", "runtime/api/", "-q"]) == 3
@@ -52,7 +56,9 @@ class TestWatchPytestBinding:
         assert captured.out == ""
 
     def test_allow_flag_runs_and_prints_the_notice(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture,
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture,
         tmp_path: Path,
     ) -> None:
         _bind(watch_pytest, monkeypatch, notice=NOTICE)
@@ -60,7 +66,9 @@ class TestWatchPytestBinding:
         from yoke_core.tools import _pytest_parallel
 
         monkeypatch.setattr(
-            _pytest_parallel, "_read_free_ram_mb", lambda: 1_000_000,
+            _pytest_parallel,
+            "_read_free_ram_mb",
+            lambda: 1_000_000,
         )
         rc = watch_pytest.main(
             [
@@ -74,7 +82,9 @@ class TestWatchPytestBinding:
         assert NOTICE in capsys.readouterr().err
 
     def test_allow_flag_is_position_tolerant(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture,
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture,
         tmp_path: Path,
     ) -> None:
         # ``passthrough`` is a REMAINDER list, so a flag after ``--``
@@ -84,7 +94,9 @@ class TestWatchPytestBinding:
         from yoke_core.tools import _pytest_parallel
 
         monkeypatch.setattr(
-            _pytest_parallel, "_read_free_ram_mb", lambda: 1_000_000,
+            _pytest_parallel,
+            "_read_free_ram_mb",
+            lambda: 1_000_000,
         )
         rc = watch_pytest.main(
             [
@@ -98,14 +110,18 @@ class TestWatchPytestBinding:
         assert NOTICE in capsys.readouterr().err
 
     def test_main_passes_through_on_a_clean_verdict(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
     ) -> None:
         _bind(watch_pytest, monkeypatch)
         monkeypatch.setenv("TMPDIR", str(tmp_path))
         from yoke_core.tools import _pytest_parallel
 
         monkeypatch.setattr(
-            _pytest_parallel, "_read_free_ram_mb", lambda: 1_000_000,
+            _pytest_parallel,
+            "_read_free_ram_mb",
+            lambda: 1_000_000,
         )
         rc = watch_pytest.main(
             ["--print-streaming-pair", "--", "runtime/api/", "-q"],
@@ -191,7 +207,9 @@ class TestWatchPytestBinding:
         assert trigger in output
 
     def test_nested_pytest_rejection_still_wins(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture,
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture,
     ) -> None:
         # Callers that grep for the nested-pytest message keep working:
         # argument-shape rejections rank ahead of the binding check.
@@ -209,7 +227,9 @@ class TestRunTestsBinding:
     """``run_tests.run`` refuses before pytest is launched."""
 
     def test_run_refuses_and_never_launches_pytest(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture,
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture,
         tmp_path: Path,
     ) -> None:
         launched: list[object] = []
@@ -225,7 +245,9 @@ class TestRunTestsBinding:
         assert REFUSAL in capsys.readouterr().err
 
     def test_binding_is_judged_against_the_resolved_root(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
     ) -> None:
         # The tree pytest will collect from is the resolved repo root,
         # not the directory the caller happened to be standing in.
@@ -236,14 +258,18 @@ class TestRunTestsBinding:
             return TreeBindingVerdict(refusal=REFUSAL)
 
         monkeypatch.setattr(
-            run_tests.verification_tree_binding, "evaluate_run", _evaluate,
+            run_tests.verification_tree_binding,
+            "evaluate_run",
+            _evaluate,
         )
         run_tests.run(["tests"], repo_root=tmp_path)
         assert seen["tree"] == str(tmp_path.resolve())
         assert seen["allow_mismatch"] is False
 
     def test_allow_flag_runs_and_prints_the_notice(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture,
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture,
         tmp_path: Path,
     ) -> None:
         launched: list[object] = []
@@ -267,14 +293,17 @@ class TestRunTestsBinding:
         target = tmp_path / "test_sample.py"
         target.write_text("def test_ok():\n    assert True\n", encoding="utf-8")
         rc = run_tests.run(
-            [str(target)], repo_root=tmp_path, allow_tree_mismatch=True,
+            [str(target)],
+            repo_root=tmp_path,
+            allow_tree_mismatch=True,
         )
         assert rc == 0
         assert launched
         assert NOTICE in capsys.readouterr().err
 
     def test_cli_forwards_the_allow_flag(
-        self, monkeypatch: pytest.MonkeyPatch,
+        self,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         seen: dict[str, object] = {}
 

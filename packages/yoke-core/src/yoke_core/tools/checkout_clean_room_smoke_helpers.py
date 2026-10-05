@@ -13,7 +13,6 @@ from typing import Any, Mapping
 SMOKE_EVENT_NAME = "CheckoutCleanRoomSmoke"
 SMOKE_EVENT_TYPE = "checkout_clean_room"
 DEFAULT_ENV = "prod"
-DEFAULT_PROJECT_ID = 1
 BASE_PATH = "/usr/bin:/bin:/usr/sbin:/sbin"
 FORBIDDEN_AMBIENT_ENV = (
     "YOKE_PG_DSN",
@@ -125,7 +124,8 @@ def assert_status_clean_room(
         )
     ambient = report.get("ambient_env") or {}
     inherited = [
-        key for key in FORBIDDEN_AMBIENT_ENV
+        key
+        for key in FORBIDDEN_AMBIENT_ENV
         if isinstance(ambient.get(key), Mapping) and ambient[key].get("set")
     ]
     if inherited:
@@ -139,7 +139,7 @@ def assert_event_visible(
 ) -> None:
     if not response.get("success"):
         raise SmokeError("yoke events query failed in clean clone")
-    rows = (((response.get("result") or {}).get("rows")) or [])
+    rows = ((response.get("result") or {}).get("rows")) or []
     if not rows:
         raise SmokeError("yoke events query did not return the smoke event")
     envelope = rows[0].get("envelope") or ""

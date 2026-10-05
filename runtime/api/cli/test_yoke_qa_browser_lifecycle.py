@@ -17,6 +17,10 @@ from yoke_cli.commands.qa_browser_lifecycle import (
 )
 from yoke_cli.commands.tool_shaped import resolve_tool_shaped
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 HOST_TOOLCHAIN = NodeToolchain(
     bin_dir=Path("/usr/local/bin"), version="v20.0.0", source="host_path"
@@ -174,23 +178,29 @@ class TestStatusAdapter:
 
 class TestSetupAdapter:
     def test_toolchain_step_reports_no_action_when_a_node_is_already_usable(self):
-        with patch(
-            "yoke_cli.browser_node_toolchain.resolve_node_toolchain",
-            return_value=HOST_TOOLCHAIN,
-        ), patch(
-            "yoke_cli.browser_node_toolchain.provision_managed_toolchain"
-        ) as provision:
+        with (
+            patch(
+                "yoke_cli.browser_node_toolchain.resolve_node_toolchain",
+                return_value=HOST_TOOLCHAIN,
+            ),
+            patch(
+                "yoke_cli.browser_node_toolchain.provision_managed_toolchain"
+            ) as provision,
+        ):
             assert _ensure_node_toolchain(emit=lambda _line: None) == []
         provision.assert_not_called()
 
     def test_toolchain_step_provisions_node_when_the_host_has_none(self):
-        with patch(
-            "yoke_cli.browser_node_toolchain.resolve_node_toolchain",
-            return_value=None,
-        ), patch(
-            "yoke_cli.browser_node_toolchain.provision_managed_toolchain",
-            return_value=MANAGED_TOOLCHAIN,
-        ) as provision:
+        with (
+            patch(
+                "yoke_cli.browser_node_toolchain.resolve_node_toolchain",
+                return_value=None,
+            ),
+            patch(
+                "yoke_cli.browser_node_toolchain.provision_managed_toolchain",
+                return_value=MANAGED_TOOLCHAIN,
+            ) as provision,
+        ):
             actions = _ensure_node_toolchain(emit=lambda _line: None)
 
         provision.assert_called_once()
@@ -207,12 +217,15 @@ class TestSetupAdapter:
         refusal = NodeToolchainError(
             "no Node here.", code="node_download_failed", recovery="check the network"
         )
-        with patch(
-            "yoke_harness.browser_runtime_home.ensure_materialized",
-            return_value=Path("/machine/browser-runtime"),
-        ), patch(
-            "yoke_cli.commands.qa_browser_lifecycle._ensure_node_toolchain",
-            side_effect=refusal,
+        with (
+            patch(
+                "yoke_harness.browser_runtime_home.ensure_materialized",
+                return_value=Path("/machine/browser-runtime"),
+            ),
+            patch(
+                "yoke_cli.commands.qa_browser_lifecycle._ensure_node_toolchain",
+                side_effect=refusal,
+            ),
         ):
             out = io.StringIO()
             with redirect_stdout(out), redirect_stderr(io.StringIO()):
@@ -226,15 +239,19 @@ class TestSetupAdapter:
         assert "check the network" in payload["error"]
 
     def test_setup_dry_run_materializes_without_starting_daemon(self):
-        with patch(
-            "yoke_harness.browser_runtime_home.ensure_materialized",
-            return_value=Path("/machine/browser-runtime"),
-        ) as materialize, patch(
-            "yoke_cli.commands.qa_browser_lifecycle._browser_readiness",
-            return_value={"daemon": {"status": "not_running"}},
-        ), patch(
-            "yoke_harness.browser_client.daemon_start",
-        ) as daemon_start:
+        with (
+            patch(
+                "yoke_harness.browser_runtime_home.ensure_materialized",
+                return_value=Path("/machine/browser-runtime"),
+            ) as materialize,
+            patch(
+                "yoke_cli.commands.qa_browser_lifecycle._browser_readiness",
+                return_value={"daemon": {"status": "not_running"}},
+            ),
+            patch(
+                "yoke_harness.browser_client.daemon_start",
+            ) as daemon_start,
+        ):
             out = io.StringIO()
             with redirect_stdout(out), redirect_stderr(io.StringIO()):
                 rc = qa_browser_setup(["--dry-run", "--json"])
@@ -249,13 +266,17 @@ class TestSetupAdapter:
         assert payload["readiness"]["daemon"]["status"] == "not_running"
 
     def test_setup_dry_run_text_reports_daemon_status(self):
-        with patch(
-            "yoke_harness.browser_runtime_home.ensure_materialized",
-            return_value=Path("/machine/browser-runtime"),
-        ), patch(
-            "yoke_cli.commands.qa_browser_lifecycle._browser_readiness",
-            return_value={"daemon": {"status": "not_running"}},
-        ), patch("yoke_harness.browser_client.daemon_start") as daemon_start:
+        with (
+            patch(
+                "yoke_harness.browser_runtime_home.ensure_materialized",
+                return_value=Path("/machine/browser-runtime"),
+            ),
+            patch(
+                "yoke_cli.commands.qa_browser_lifecycle._browser_readiness",
+                return_value={"daemon": {"status": "not_running"}},
+            ),
+            patch("yoke_harness.browser_client.daemon_start") as daemon_start,
+        ):
             out = io.StringIO()
             with redirect_stdout(out), redirect_stderr(io.StringIO()):
                 rc = qa_browser_setup(["--dry-run"])
@@ -273,29 +294,43 @@ class TestSetupAdapter:
                 "bin_dir": str(MANAGED_TOOLCHAIN.bin_dir),
             }
         ]
-        with patch(
-            "yoke_harness.browser_runtime_home.ensure_materialized",
-            return_value=Path("/machine/browser-runtime"),
-        ), patch(
-            "yoke_cli.commands.qa_browser_lifecycle._ensure_node_toolchain",
-            return_value=provisioned,
-        ), patch(
-            "yoke_cli.commands.qa_browser_lifecycle._browser_readiness",
-            return_value={"daemon": {"status": "not_running"}},
-        ), patch(
-            "yoke_harness.browser_client.daemon_start",
-            return_value={"status": "started", "pid": 123},
-        ) as daemon_start:
+        with (
+            patch(
+                "yoke_harness.browser_runtime_home.ensure_materialized",
+                return_value=Path("/machine/browser-runtime"),
+            ),
+            patch(
+                "yoke_cli.commands.qa_browser_lifecycle._ensure_node_toolchain",
+                return_value=provisioned,
+            ),
+            patch(
+                "yoke_cli.commands.qa_browser_lifecycle._browser_readiness",
+                return_value={"daemon": {"status": "not_running"}},
+            ),
+            patch(
+                "yoke_harness.browser_client.daemon_start",
+                return_value={"status": "started", "pid": 123},
+            ) as daemon_start,
+        ):
             out = io.StringIO()
             with redirect_stdout(out), redirect_stderr(io.StringIO()):
-                rc = qa_browser_setup([
-                    "--port", "9876", "--headed", "--idle-timeout", "60",
-                    "--json",
-                ])
+                rc = qa_browser_setup(
+                    [
+                        "--port",
+                        "9876",
+                        "--headed",
+                        "--idle-timeout",
+                        "60",
+                        "--json",
+                    ]
+                )
 
         assert rc == 0
         daemon_start.assert_called_once_with(
-            profile_dir=None, port=9876, headed=True, idle_timeout=60_000,
+            profile_dir=None,
+            port=9876,
+            headed=True,
+            idle_timeout=60_000,
         )
         payload = json.loads(out.getvalue())
         assert payload["prerequisite_actions"] == provisioned

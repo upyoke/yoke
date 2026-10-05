@@ -19,6 +19,10 @@ from yoke_core.tools.impacted_tests import Selection, build_import_index, select
 
 from runtime.api.tools.test_impacted_tests import _tiny_repo, _with_floor, _write
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 def test_bounded_selection_declines_to_widen(tmp_path: Path) -> None:
     index = build_import_index(_tiny_repo(tmp_path))

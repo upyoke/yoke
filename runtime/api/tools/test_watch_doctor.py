@@ -20,6 +20,8 @@ from yoke_core.tools import watch_doctor
 from yoke_core.tools._watch_runner import filter_match
 from yoke_core.tools._watch_throttle import LineClass
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 class TestDoctorClassifier:
     @pytest.mark.parametrize(
@@ -156,7 +158,10 @@ class TestDoctorArgv:
 
     def test_argv_with_no_passthrough_still_names_the_subcommand(self) -> None:
         assert watch_doctor._doctor_argv([])[1:] == [
-            "-m", "yoke_cli.main", "doctor", "run",
+            "-m",
+            "yoke_cli.main",
+            "doctor",
+            "run",
         ]
 
 
@@ -207,9 +212,9 @@ class TestArgparseHelpExample:
             watch_doctor._parse_args(["--help"])
         assert excinfo.value.code == 0
         rendered = capsys.readouterr().out
-        assert (
-            "yoke watch doctor -- --quick" in rendered
-        ), "argparse --help output must teach the canonical -- --quick form"
+        assert "yoke watch doctor -- --quick" in rendered, (
+            "argparse --help output must teach the canonical -- --quick form"
+        )
 
     def test_help_documents_bare_form_too(
         self, capsys: pytest.CaptureFixture[str]

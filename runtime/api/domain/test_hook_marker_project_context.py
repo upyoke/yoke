@@ -63,3 +63,70 @@ def test_unattributed_model_and_entrypoint_cache_reads_are_empty(monkeypatch):
     monkeypatch.setattr(codex_model, "_runtime_cache_path", refuse)
     assert codex_model.resolve_from_cache("thread") is None
     assert codex_model.resolve_entrypoint_from_cache("thread") is None
+
+
+def test_polling_lint_import_has_no_project_or_filesystem_resolution(monkeypatch):
+    from yoke_core.domain import lint_long_command_polling_extract as extract
+
+    def refuse(*args, **kwargs):
+        raise AssertionError("classification attempted scratch write resolution")
+
+    monkeypatch.setattr(project_scratch_dir, "scratch_root", refuse)
+    monkeypatch.setattr(project_scratch_dir, "global_scratch_root", refuse)
+    importlib.reload(extract)
+    assert extract._TEMP_PREFIXES
+
+
+def test_command_capture_uses_case_project_instead_of_server_context(
+    tmp_path, monkeypatch
+):
+    from yoke_core.domain.qa_case_command_stream import stream_command
+
+    monkeypatch.setenv("YOKE_PROJECT", "server-project")
+    monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
+    result = stream_command(
+        "printf caller-output",
+        cwd=str(tmp_path),
+        env={"YOKE_PROJECT": "caller-project"},
+        timeout_seconds=10,
+    )
+    assert result.exit_code == 0
+    assert "caller-project" in result.capture_path.parts
+    assert "server-project" not in result.capture_path.parts
+
+
+def test_dispatch_handler_refuses_missing_payload_project_before_path_resolution(
+    monkeypatch,
+):
+    from contextlib import nullcontext
+    from yoke_contracts.api.function_call import (
+        ActorContext,
+        FunctionCallRequest,
+        TargetRef,
+    )
+    from yoke_core.domain import db_helpers, project_selection
+    from yoke_core.domain.handlers import scratch_dispatch_inputs as handler
+
+    monkeypatch.setenv("YOKE_PROJECT", "server-project")
+    monkeypatch.setattr(db_helpers, "connect", lambda: nullcontext(object()))
+    monkeypatch.setattr(
+        project_selection,
+        "missing_project_on_connection",
+        lambda conn, actor_id: "project_required: Accessible projects: caller-project",
+    )
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("missing payload reached project-scoped path resolver")
+
+    monkeypatch.setattr(handler, "dispatch_inputs_dir", forbidden)
+    outcome = handler.handle_dispatch_inputs(
+        FunctionCallRequest(
+            function="scratch.dispatch_inputs",
+            actor=ActorContext(actor_id="2", session_id="s"),
+            target=TargetRef(kind="global"),
+            payload={"item_id": 42, "session_id": "s", "attempt": 1},
+        )
+    )
+    assert not outcome.primary_success
+    assert outcome.error.code == "project_required"
+    assert "caller-project" in outcome.error.message

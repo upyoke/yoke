@@ -9,6 +9,8 @@ import pytest
 from runtime.api.fixtures import pg_testdb
 from yoke_core.domain import backlog_github_body_budget as bb
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 # ---------------------------------------------------------------------------
 # Pure predicate
@@ -89,7 +91,8 @@ def _disposable_conn(ddl: Optional[str] = None) -> Any:
     """
     name = pg_testdb.create_test_database()
     conn = pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name,
+        pg_testdb.connect_test_database(name),
+        name,
     )
     conn.autocommit = True
     if ddl:
@@ -137,7 +140,8 @@ class TestRenderCompactMirror:
         assert "latest transition: refined-idea -> implementing" in out
 
     def test_unknown_status_falls_back_to_do(
-        self, evidence_conn: Any,
+        self,
+        evidence_conn: Any,
     ):
         fields = {"title": "x", "status": "unknown-status", "workflow_id": "issue"}
         out = bb.render_compact_mirror(
@@ -148,7 +152,9 @@ class TestRenderCompactMirror:
     def test_missing_evidence_falls_back_to_no_recent_evidence(self):
         empty = _disposable_conn(_TRANSITIONS_DDL)
         out = bb.render_compact_mirror(
-            {"title": "x", "status": "idea"}, conn=empty, item_id=1,
+            {"title": "x", "status": "idea"},
+            conn=empty,
+            item_id=1,
         )
         assert "no recent evidence" in out
 
@@ -157,7 +163,9 @@ class TestRenderCompactMirror:
         broken = _disposable_conn()
         # No item_status_transitions table → execute() raises.
         out = bb.render_compact_mirror(
-            {"title": "x", "status": "idea"}, conn=broken, item_id=1,
+            {"title": "x", "status": "idea"},
+            conn=broken,
+            item_id=1,
         )
         assert "no recent evidence" in out
 
@@ -175,7 +183,8 @@ class TestRenderCompactMirror:
         assert long_title not in out
 
     def test_compact_mirror_fits_under_budget(
-        self, evidence_conn: Any,
+        self,
+        evidence_conn: Any,
     ):
         """The compact mirror itself MUST fit under the budget."""
         long_title = "x" * 5000  # title truncates to ~500 chars
@@ -210,7 +219,8 @@ class TestSelectBodyForGithub:
         assert mode == "full"
 
     def test_over_budget_returns_compact(
-        self, evidence_conn: Any,
+        self,
+        evidence_conn: Any,
     ):
         big_body = "a" * (bb.GITHUB_BODY_BUDGET_BYTES + 100)
         chosen, mode = bb.select_body_for_github(
@@ -231,7 +241,9 @@ class TestSelectBodyForGithub:
 
 class TestSelectAndWriteBodyFile:
     def test_writes_full_body_to_temp_file_when_under_budget(
-        self, evidence_conn: Any, tmp_path,
+        self,
+        evidence_conn: Any,
+        tmp_path,
     ):
         full_body = "tiny body content"
         path, mode = bb.select_and_write_body_file(
@@ -249,7 +261,8 @@ class TestSelectAndWriteBodyFile:
             bb.unlink_quiet(path)
 
     def test_writes_compact_mirror_when_over_budget(
-        self, evidence_conn: Any,
+        self,
+        evidence_conn: Any,
     ):
         big_body = "a" * (bb.GITHUB_BODY_BUDGET_BYTES + 100)
         path, mode = bb.select_and_write_body_file(
@@ -273,6 +286,7 @@ class TestSelectAndWriteBodyFile:
 class TestEmitCompactNotice:
     def test_emits_only_on_compact_mode(self, capsys):
         import sys
+
         # The caller passes the reference it already resolved for the
         # mirror it wrote; the notice has no connection of its own.
         bb.emit_compact_notice("full", MIRROR_ITEM_REF, sys.stderr)

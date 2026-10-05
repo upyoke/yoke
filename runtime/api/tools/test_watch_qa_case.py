@@ -24,6 +24,8 @@ from yoke_core.tools._watch_runner import filter_match
 from yoke_core.tools._watch_throttle import Classification, LineClass
 from yoke_core.tools.watch_tail import EXIT_SENTINEL
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 def classify(line: str) -> Classification:
     """Classify one line through a classifier that has seen nothing yet.
@@ -120,41 +122,38 @@ class TestWorkflowStateChanges:
     """
 
     def _poll(self, state: str, elapsed: int) -> str:
-        return (
-            f"  Workflow status: {state} (elapsed: {elapsed}s, next poll: 30s)"
-        )
+        return f"  Workflow status: {state} (elapsed: {elapsed}s, next poll: 30s)"
 
     def test_same_state_repeats_are_silent(self) -> None:
         classifier = watch_qa_case.QaCaseLineClassifier()
-        assert (
-            classifier(self._poll("in_progress", 60)).cls is LineClass.PROGRESS
-        )
+        assert classifier(self._poll("in_progress", 60)).cls is LineClass.PROGRESS
         for elapsed in (120, 180, 240):
-            assert (
-                classifier(self._poll("in_progress", elapsed)).cls
-                is LineClass.NOISE
-            )
+            assert classifier(self._poll("in_progress", elapsed)).cls is LineClass.NOISE
 
     def test_each_state_transition_wakes(self) -> None:
         classifier = watch_qa_case.QaCaseLineClassifier()
-        polls = (("queued", 16), ("queued", 46), ("in_progress", 76),
-                 ("in_progress", 106), ("completed", 136))
+        polls = (
+            ("queued", 16),
+            ("queued", 46),
+            ("in_progress", 76),
+            ("in_progress", 106),
+            ("completed", 136),
+        )
         observed = [classifier(self._poll(s, e)).cls for s, e in polls]
         assert observed == [
-            LineClass.PROGRESS, LineClass.NOISE, LineClass.PROGRESS,
-            LineClass.NOISE, LineClass.PROGRESS,
+            LineClass.PROGRESS,
+            LineClass.NOISE,
+            LineClass.PROGRESS,
+            LineClass.NOISE,
+            LineClass.PROGRESS,
         ]
 
     def test_other_lines_do_not_disturb_the_remembered_state(self) -> None:
         """A poll repeat stays silent across intervening gate output."""
         classifier = watch_qa_case.QaCaseLineClassifier()
-        assert (
-            classifier(self._poll("in_progress", 60)).cls is LineClass.PROGRESS
-        )
+        assert classifier(self._poll("in_progress", 60)).cls is LineClass.PROGRESS
         classifier("# qa case run: requirement=1 attached run=2 https://x/2")
-        assert (
-            classifier(self._poll("in_progress", 120)).cls is LineClass.NOISE
-        )
+        assert classifier(self._poll("in_progress", 120)).cls is LineClass.NOISE
 
     def test_a_new_run_starts_with_no_remembered_state(self) -> None:
         """One classifier per run; a fresh gate run wakes on its first poll."""

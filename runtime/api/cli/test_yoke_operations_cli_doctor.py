@@ -23,6 +23,8 @@ from yoke_contracts.api.function_call import (
     FunctionError,
 )
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 _CAPTURED_REQUESTS: List[FunctionCallRequest] = []
 

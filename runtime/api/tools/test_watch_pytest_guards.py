@@ -24,6 +24,8 @@ import pytest
 from yoke_core.tools import _watch_pytest_args, watch_pytest
 from yoke_core.tools._watch_throttle import LineClass
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 class TestCollectionErrorRelay:
     @pytest.mark.parametrize(

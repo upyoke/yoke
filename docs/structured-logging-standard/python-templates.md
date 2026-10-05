@@ -60,7 +60,7 @@ emit_event(
 2. Sets `event_time` to current UTC if not provided
 3. Resolves `session_id` from: `$CLAUDE_CODE_SESSION_ID` > hook JSON payload > `$(date +%s)-$$` fallback
 4. Resolves `environment` from `$YOKE_ENV` or defaults to `development`
-5. Resolves `project` from `$YOKE_PROJECT` or defaults to `yoke`
+5. Resolves `project` from explicit caller context, `$YOKE_PROJECT`, or caller checkout binding; unresolved telemetry stays unattributed
 6. Checks write-side severity config before inserting (skips if below threshold)
 7. Enforces envelope size limits (64KB max, 2KB per context field, 4KB stacktrace)
 8. Inserts the built JSON envelope via `yoke_core.domain.events.emit_event`
@@ -81,7 +81,7 @@ $CLAUDE_CODE_SESSION_ID (if set in environment)
 environment="${YOKE_ENV:-development}"
 service="${SERVICE:-cli}"
 service_version="${SERVICE_VERSION:-}"
-project="${YOKE_PROJECT:-yoke}"
+project="${YOKE_PROJECT:-}"
 ```
 
 ## Template 2: Python Emitter (events.py)

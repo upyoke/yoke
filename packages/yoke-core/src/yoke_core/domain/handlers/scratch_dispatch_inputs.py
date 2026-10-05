@@ -14,7 +14,6 @@ from pydantic import BaseModel, Field
 
 from yoke_core.domain.project_scratch_dir import (
     dispatch_inputs_dir,
-    resolve_active_project,
 )
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -24,13 +23,20 @@ from yoke_contracts.api.function_call import (
 
 
 class DispatchInputsRequest(BaseModel):
-    item_id: int = Field(..., description="Bare integer item id (YOK-N's numeric tail).")
+    project: str | None = None
+    item_id: int = Field(
+        ..., description="Bare integer items.id, resolved from the public ref."
+    )
     session_id: str = Field(..., min_length=1, description="Harness session id.")
-    attempt: int = Field(..., ge=1, description="Per-dispatch attempt counter (1-based).")
+    attempt: int = Field(
+        ..., ge=1, description="Per-dispatch attempt counter (1-based)."
+    )
 
 
 class DispatchInputsResponse(BaseModel):
-    path: str = Field(..., description="Absolute filesystem path to the dispatch-inputs directory.")
+    path: str = Field(
+        ..., description="Absolute filesystem path to the dispatch-inputs directory."
+    )
 
 
 def _bad_request(message: str) -> HandlerOutcome:
@@ -52,9 +58,26 @@ def handle_dispatch_inputs(request: FunctionCallRequest) -> HandlerOutcome:
     except Exception as exc:
         return _bad_request(f"payload invalid: {exc}")
 
-    project = resolve_active_project()
+    project = str(payload.project or "").strip()
+    if not project:
+        from yoke_core.domain import db_helpers
+        from yoke_core.domain.project_selection import missing_project_on_connection
+
+        with db_helpers.connect() as conn:
+            return HandlerOutcome(
+                primary_success=False,
+                error=FunctionError(
+                    code="project_required",
+                    message=missing_project_on_connection(
+                        conn, actor_id=request.actor.actor_id
+                    ),
+                ),
+            )
     path = dispatch_inputs_dir(
-        project, payload.item_id, payload.session_id, payload.attempt,
+        project,
+        payload.item_id,
+        payload.session_id,
+        payload.attempt,
     )
     response = DispatchInputsResponse(path=str(path))
     return HandlerOutcome(

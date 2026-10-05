@@ -102,13 +102,17 @@ class TestMainCLI:
             return ([], [], [], {})
 
         with (
-            mock.patch("yoke_core.engines.resync._resolve_yoke_root", return_value=db_dir),
+            mock.patch(
+                "yoke_core.engines.resync._resolve_yoke_root", return_value=db_dir
+            ),
             mock.patch("yoke_core.engines.resync.stage1_linkage", fake_linkage),
-            mock.patch("yoke_core.engines.resync.stage1_5_heavy_fetch", return_value={}),
+            mock.patch(
+                "yoke_core.engines.resync.stage1_5_heavy_fetch", return_value={}
+            ),
             mock.patch("yoke_core.engines.resync.stage2_compare", return_value=[]),
             mock.patch("sys.stdout", StringIO()),
         ):
-            rc = main(["--detect-only"])
+            rc = main(["--detect-only", "--project", "yoke"])
 
         assert rc == 0
         assert observed == {"db_path": "", "yoke_root": db_dir}
@@ -150,13 +154,19 @@ class TestMainCLI:
             return ([], [], [], {})
 
         with (
-            mock.patch("yoke_core.engines.resync._resolve_yoke_root", return_value=db_dir),
+            mock.patch(
+                "yoke_core.engines.resync._resolve_yoke_root", return_value=db_dir
+            ),
             mock.patch("yoke_core.engines.resync.stage1_linkage", fake_linkage),
-            mock.patch("yoke_core.engines.resync.stage1_5_heavy_fetch", return_value={}),
+            mock.patch(
+                "yoke_core.engines.resync.stage1_5_heavy_fetch", return_value={}
+            ),
             mock.patch("yoke_core.engines.resync.stage2_compare", return_value=[]),
             mock.patch("sys.stdout", StringIO()),
         ):
-            rc = main(["--detect-only", "--doctor-format", "--db-path", "/tmp/doctor.db"])
+            rc = main(
+                ["--detect-only", "--doctor-format", "--db-path", "/tmp/doctor.db"]
+            )
 
         assert rc == 0
         assert observed == {"db_path": "/tmp/doctor.db", "yoke_root": db_dir}
@@ -175,9 +185,13 @@ class TestMainCLI:
             return ([], [], [], {})
 
         with (
-            mock.patch("yoke_core.engines.resync._resolve_yoke_root", return_value=db_dir),
+            mock.patch(
+                "yoke_core.engines.resync._resolve_yoke_root", return_value=db_dir
+            ),
             mock.patch("yoke_core.engines.resync.stage1_linkage", fake_linkage),
-            mock.patch("yoke_core.engines.resync.stage1_5_heavy_fetch", return_value={}),
+            mock.patch(
+                "yoke_core.engines.resync.stage1_5_heavy_fetch", return_value={}
+            ),
             mock.patch("yoke_core.engines.resync.stage2_compare", return_value=[]),
             mock.patch("sys.stdout", StringIO()),
         ):
@@ -211,7 +225,7 @@ class TestMainCLI:
             mock.patch("sys.stdout", StringIO()),
             mock.patch("sys.stderr", StringIO()),
         ):
-            rc = main(["--detect-only"])
+            rc = main(["--detect-only", "--project", "yoke"])
 
         assert rc == 2
 
@@ -244,19 +258,25 @@ class TestMainCLI:
         def fake_linkage(db_path, yoke_root):
             return (
                 [],  # paired
-                [LocalOrphan("YOK-99", "/tmp/099.md", "backlog", "yoke", item_id=99)],  # local orphans
+                [
+                    LocalOrphan("YOK-99", "/tmp/099.md", "backlog", "yoke", item_id=99)
+                ],  # local orphans
                 [],  # gh orphans
                 {},  # gh_by_project
             )
 
         with (
-            mock.patch("yoke_core.engines.resync._resolve_yoke_root", return_value=db_dir),
+            mock.patch(
+                "yoke_core.engines.resync._resolve_yoke_root", return_value=db_dir
+            ),
             mock.patch("yoke_core.engines.resync.stage1_linkage", fake_linkage),
-            mock.patch("yoke_core.engines.resync.stage1_5_heavy_fetch", return_value={}),
+            mock.patch(
+                "yoke_core.engines.resync.stage1_5_heavy_fetch", return_value={}
+            ),
             mock.patch("yoke_core.engines.resync.stage2_compare", return_value=[]),
             mock.patch("sys.stdout", StringIO()),
         ):
-            rc = main(["--detect-only"])
+            rc = main(["--detect-only", "--project", "yoke"])
 
         assert rc == 1  # local orphan = drift
 
@@ -274,13 +294,19 @@ class TestExitCodes:
         db_dir = os.path.dirname(test_db)
 
         with (
-            mock.patch("yoke_core.engines.resync._resolve_yoke_root", return_value=db_dir),
-            mock.patch("yoke_core.engines.resync.stage1_linkage", return_value=([], [], [], {})),
-            mock.patch("yoke_core.engines.resync.stage1_5_heavy_fetch", return_value={}),
+            mock.patch(
+                "yoke_core.engines.resync._resolve_yoke_root", return_value=db_dir
+            ),
+            mock.patch(
+                "yoke_core.engines.resync.stage1_linkage", return_value=([], [], [], {})
+            ),
+            mock.patch(
+                "yoke_core.engines.resync.stage1_5_heavy_fetch", return_value={}
+            ),
             mock.patch("yoke_core.engines.resync.stage2_compare", return_value=[]),
             mock.patch("sys.stdout", StringIO()),
         ):
-            rc = main(["--detect-only"])
+            rc = main(["--detect-only", "--project", "yoke"])
 
         assert rc == 0
 
@@ -289,9 +315,15 @@ class TestExitCodes:
         db_dir = os.path.dirname(test_db)
 
         with (
-            mock.patch("yoke_core.engines.resync._resolve_yoke_root", return_value=db_dir),
-            mock.patch("yoke_core.engines.resync.stage1_linkage", return_value=([], [], [], {})),
-            mock.patch("yoke_core.engines.resync.stage1_5_heavy_fetch", return_value={}),
+            mock.patch(
+                "yoke_core.engines.resync._resolve_yoke_root", return_value=db_dir
+            ),
+            mock.patch(
+                "yoke_core.engines.resync.stage1_linkage", return_value=([], [], [], {})
+            ),
+            mock.patch(
+                "yoke_core.engines.resync.stage1_5_heavy_fetch", return_value={}
+            ),
             mock.patch("yoke_core.engines.resync.stage2_compare", return_value=[]),
             mock.patch("sys.stdout", StringIO()),
         ):

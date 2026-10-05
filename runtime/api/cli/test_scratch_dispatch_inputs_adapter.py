@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-import io
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
 from yoke_cli.commands.adapters.misc import scratch_dispatch_inputs
 from yoke_core.domain import project_scratch_dir as scratch
+
+pytestmark = pytest.mark.usefixtures("bound_project_context")
 
 
 @pytest.fixture
@@ -32,8 +32,7 @@ def _stub_dispatch_resolution(monkeypatch: pytest.MonkeyPatch) -> None:
     # The adapter resolves the numeric id through the dispatcher (relay
     # contract); these tests cover the path computation, not resolution.
     monkeypatch.setattr(
-        "yoke_cli.commands.adapters.misc."
-        "resolve_item_id_via_dispatch",
+        "yoke_cli.commands.adapters.misc.resolve_item_id_via_dispatch",
         _stub_resolve,
     )
 

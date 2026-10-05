@@ -55,9 +55,9 @@ class TestAddColumnMigrations:
             workflow_id, workflow_version_id = _issue_pin(conn)
             conn.execute(
                 "INSERT INTO items "
-                "(id, project_sequence, title, workflow_id, "
+                "(id, project_id, project_sequence, title, workflow_id, "
                 "workflow_version_id, status, priority, created_at, updated_at) "
-                "VALUES (1, 1, 'old', %s, %s, 'idea', 'medium', "
+                "VALUES (1, 1, 1, 'old', %s, %s, 'idea', 'medium', "
                 "'2025-01-01', '2025-01-01')",
                 (workflow_id, workflow_version_id),
             )
@@ -66,16 +66,16 @@ class TestAddColumnMigrations:
             assert row[0] == "2"
             conn.close()
 
-    def test_project_identity_defaults_to_yoke(self, tmp_path: Path) -> None:
-        """Project identity defaults to the seeded Yoke project id."""
+    def test_explicit_project_identity_is_preserved(self, tmp_path: Path) -> None:
+        """Explicit project identity points to the seeded project."""
         with init_test_db(tmp_path) as db_path:
             conn = _connect(db_path)
             workflow_id, workflow_version_id = _issue_pin(conn)
             conn.execute(
                 "INSERT INTO items "
-                "(id, project_sequence, title, workflow_id, "
+                "(id, project_id, project_sequence, title, workflow_id, "
                 "workflow_version_id, status, priority, created_at, updated_at) "
-                "VALUES (1, 1, 'test', %s, %s, 'idea', 'medium', "
+                "VALUES (1, 1, 1, 'test', %s, %s, 'idea', 'medium', "
                 "'2025-01-01', '2025-01-01')",
                 (workflow_id, workflow_version_id),
             )
@@ -96,10 +96,18 @@ class TestAddColumnMigrations:
             conn = _connect(db_path)
             cols = _column_names(conn, "items")
             conn.close()
-        for col in ("spec", "design_spec", "technical_plan", "worktree_plan",
-                     "shepherd_log", "shepherd_caveats", "test_results",
-                     "deploy_log"):
+        for col in (
+            "spec",
+            "design_spec",
+            "technical_plan",
+            "worktree_plan",
+            "shepherd_log",
+            "shepherd_caveats",
+            "test_results",
+            "deploy_log",
+        ):
             assert col in cols, f"Missing structured column: {col}"
+
 
 class TestQaExecutionStatusMigration:
     """ALTER TABLE adds execution_status and partitions existing browser rows."""
@@ -175,7 +183,10 @@ class TestQaExecutionStatusMigration:
             conn = _connect(db_path)
             self._seed_qa_row(conn, item_id=7, qa_kind="browser_smoke", verdict="pass")
             self._seed_qa_row(
-                conn, item_id=7, qa_kind="ac_verification", verdict="pass",
+                conn,
+                item_id=7,
+                qa_kind="ac_verification",
+                verdict="pass",
                 success_policy="visible change [requires_screenshot_evidence]",
             )
             conn.commit()

@@ -100,7 +100,9 @@ def stream_command(
 
     from yoke_core.domain.qa_case_candidate_source import candidate_source
 
-    raw_capture, progress_capture = mint_capture_paths(CAPTURE_KIND)
+    raw_capture, progress_capture = mint_capture_paths(
+        CAPTURE_KIND, project=env.get("YOKE_PROJECT")
+    )
     destination = sys.stderr if stream is None else stream
     product_env = product_command_environment(env)
     evidence = None

@@ -10,6 +10,10 @@ from yoke_core.tools._impacted_selection import Selection
 from yoke_core.tools._watch_throttle import Classification, LineClass
 from yoke_core.tools.watch_pytest_project_python import BOUNDED_DEFERRAL_VERDICT
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 def _bounded_selection() -> Selection:
     return Selection(

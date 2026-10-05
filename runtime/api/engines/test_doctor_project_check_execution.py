@@ -19,6 +19,8 @@ from yoke_core.engines.doctor_project_checks import (
 )
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 

@@ -8,6 +8,10 @@ from pathlib import Path
 from yoke_core.domain import lint_command_extract as extract
 from yoke_core import domain as domain_pkg
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 def test_extracts_tool_input_command() -> None:
     assert (

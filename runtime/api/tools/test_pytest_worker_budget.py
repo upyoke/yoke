@@ -11,6 +11,8 @@ import pytest
 from yoke_core.tools import gate_admission, pytest_worker_budget as budget
 from yoke_core.tools import watch_pytest
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 def _scratch_lock_base() -> int:
     return int(uuid.uuid4().int % 1_000_000) + 0x7B000000
@@ -21,9 +23,13 @@ def test_requested_workers_reads_explicit_auto_and_absent() -> None:
     assert budget.requested_workers(["--numprocesses=3"], {}) == 3
     assert budget.requested_workers(["-n", "0"], {}) == 1
     assert budget.requested_workers(["tests/"], {}) == 1
-    assert budget.requested_workers(
-        ["-n", "auto"], {budget.PYTEST_XDIST_AUTO_WORKERS_ENV: "4"},
-    ) == 4
+    assert (
+        budget.requested_workers(
+            ["-n", "auto"],
+            {budget.PYTEST_XDIST_AUTO_WORKERS_ENV: "4"},
+        )
+        == 4
+    )
     assert budget.requested_workers(["-n", "auto"], {}) == budget.core_count()
 
 
@@ -78,7 +84,9 @@ def test_grant_environment_mirrors_the_held_marker(monkeypatch) -> None:
 def test_descendant_of_a_granted_run_does_not_arbitrate(monkeypatch) -> None:
     monkeypatch.setenv(budget.HELD_ENV, "4")
     monkeypatch.setattr(
-        budget, "_acquire", lambda *a, **k: pytest.fail("must not arbitrate"),
+        budget,
+        "_acquire",
+        lambda *a, **k: pytest.fail("must not arbitrate"),
     )
     with budget.granted_workers(["-n", "auto"], {}) as grant:
         assert grant.workers is None
@@ -124,19 +132,24 @@ def test_granted_workers_rewrites_args_and_publishes_the_marker(monkeypatch) -> 
     monkeypatch.setenv(budget.BUDGET_ENV, "2")
     monkeypatch.setenv(budget.LOCK_BASE_ENV, str(_scratch_lock_base()))
     monkeypatch.setattr(budget, "load_backoff", lambda request, **k: (request, None))
-    with budget.granted_workers(["-n", "auto"], {budget.PYTEST_XDIST_AUTO_WORKERS_ENV: "4"}) as grant:
+    with budget.granted_workers(
+        ["-n", "auto"], {budget.PYTEST_XDIST_AUTO_WORKERS_ENV: "4"}
+    ) as grant:
         assert grant.workers == 2
         assert grant.apply(["-n", "auto", "x.py"]) == ["-n", "2", "x.py"]
         assert budget.Grant.environment({})[budget.HELD_ENV] == "2"
     assert budget.HELD_ENV not in __import__("os").environ
 
 
-def test_granted_workers_skips_load_backoff_on_a_dedicated_hosted_runner(monkeypatch) -> None:
+def test_granted_workers_skips_load_backoff_on_a_dedicated_hosted_runner(
+    monkeypatch,
+) -> None:
     monkeypatch.delenv(budget.HELD_ENV, raising=False)
     monkeypatch.setenv(budget.BUDGET_ENV, "2")
     monkeypatch.setenv(budget.LOCK_BASE_ENV, str(_scratch_lock_base()))
     monkeypatch.setattr(
-        budget, "load_backoff",
+        budget,
+        "load_backoff",
         lambda *a, **k: pytest.fail("must not back off on a dedicated hosted runner"),
     )
     env = {"GITHUB_ACTIONS": "true", "RUNNER_ENVIRONMENT": "github-hosted"}
@@ -181,7 +194,11 @@ def test_local_postgres_auto_worker_env_reaches_runner(monkeypatch, tmp_path):
     monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path))
     monkeypatch.delenv("CI", raising=False)
     monkeypatch.delenv("PYTEST_XDIST_AUTO_NUM_WORKERS", raising=False)
-    monkeypatch.setattr(watch_pytest.verification_tree_binding, "evaluate_run", lambda **_: watch_pytest.verification_tree_binding.TreeBindingVerdict())
+    monkeypatch.setattr(
+        watch_pytest.verification_tree_binding,
+        "evaluate_run",
+        lambda **_: watch_pytest.verification_tree_binding.TreeBindingVerdict(),
+    )
     monkeypatch.setattr(
         watch_pytest._source_pythonpath,
         "import_origin_refusal",

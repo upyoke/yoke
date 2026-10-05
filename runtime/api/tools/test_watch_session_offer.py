@@ -20,6 +20,8 @@ from yoke_core.tools import _watch_runner, watch_session_offer
 from yoke_core.tools._watch_runner import filter_match
 from yoke_core.tools._watch_throttle import LineClass
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 class TestSessionOfferClassifier:
     @pytest.mark.parametrize(
@@ -76,7 +78,8 @@ class TestUnionPattern:
             "=== session-offer ===",
         ):
             assert filter_match(
-                watch_session_offer.SESSION_OFFER_PROGRESS_PATTERN, line,
+                watch_session_offer.SESSION_OFFER_PROGRESS_PATTERN,
+                line,
             )
 
     def test_urgent_lines_match_union(self) -> None:
@@ -86,7 +89,8 @@ class TestUnionPattern:
             "Warning: lane override",
         ):
             assert filter_match(
-                watch_session_offer.SESSION_OFFER_PROGRESS_PATTERN, line,
+                watch_session_offer.SESSION_OFFER_PROGRESS_PATTERN,
+                line,
             )
 
 
@@ -96,16 +100,24 @@ class TestNestedSessionOfferRejection:
         [
             ["python3", "-m", "yoke_core.api.service_client", "session-offer"],
             [
-                "python3", "-m", "yoke_core.api.service_client",
-                "session-offer", "--executor", "claude-code",
+                "python3",
+                "-m",
+                "yoke_core.api.service_client",
+                "session-offer",
+                "--executor",
+                "claude-code",
             ],
             ["python", "-m", "yoke_core.api.service_client", "session-offer"],
             [
-                "/usr/bin/python3", "-m", "yoke_core.api.service_client",
+                "/usr/bin/python3",
+                "-m",
+                "yoke_core.api.service_client",
                 "session-offer",
             ],
             [
-                "sys.executable", "-m", "yoke_core.api.service_client",
+                "sys.executable",
+                "-m",
+                "yoke_core.api.service_client",
                 "session-offer",
             ],
         ],
@@ -131,13 +143,23 @@ class TestNestedSessionOfferRejection:
 
 class TestSessionOfferArgv:
     def test_argv_includes_module_and_subcommand(self) -> None:
-        argv = watch_session_offer._session_offer_argv([
-            "--executor", "claude-code", "--workspace", "/repo",
-        ])
+        argv = watch_session_offer._session_offer_argv(
+            [
+                "--executor",
+                "claude-code",
+                "--workspace",
+                "/repo",
+            ]
+        )
         assert argv[0] == sys.executable
         assert argv[1:] == [
-            "-m", "yoke_core.api.service_client", "session-offer",
-            "--executor", "claude-code", "--workspace", "/repo",
+            "-m",
+            "yoke_core.api.service_client",
+            "session-offer",
+            "--executor",
+            "claude-code",
+            "--workspace",
+            "/repo",
         ]
 
 
@@ -145,10 +167,16 @@ class TestPrintStreamingPair:
     def test_print_streaming_pair_emits_three_line_block(
         self, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        rc = watch_session_offer.main([
-            "--print-streaming-pair", "--",
-            "--executor", "claude-code", "--workspace", "/repo",
-        ])
+        rc = watch_session_offer.main(
+            [
+                "--print-streaming-pair",
+                "--",
+                "--executor",
+                "claude-code",
+                "--workspace",
+                "/repo",
+            ]
+        )
         assert rc == 0
         out = capsys.readouterr().out
         module_anchor = f"cd {shlex.quote(os.getcwd())} && uv run --frozen python3 -m"
@@ -164,9 +192,14 @@ class TestPrintStreamingPair:
     def test_print_streaming_pair_flag_position_tolerant(
         self, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        rc = watch_session_offer.main([
-            "--", "--executor", "claude-code", "--print-streaming-pair",
-        ])
+        rc = watch_session_offer.main(
+            [
+                "--",
+                "--executor",
+                "claude-code",
+                "--print-streaming-pair",
+            ]
+        )
         assert rc == 0
         out = capsys.readouterr().out
         assert "yoke_core.tools.watch_session_offer" in out
@@ -175,9 +208,7 @@ class TestPrintStreamingPair:
 
 class TestPassthroughSeparator:
     def test_leading_separator_is_stripped(self) -> None:
-        ns = watch_session_offer._parse_args(
-            ["--", "--executor", "claude-code"]
-        )
+        ns = watch_session_offer._parse_args(["--", "--executor", "claude-code"])
         stripped = watch_session_offer._strip_separator(list(ns.passthrough))
         assert stripped == ["--executor", "claude-code"]
 
@@ -255,8 +286,6 @@ class TestSentinelAutoExit:
         )
         assert rc == 0
         progress_text = progress.read_text(encoding="utf-8")
-        progress_lines = [
-            line for line in progress_text.splitlines() if line.strip()
-        ]
+        progress_lines = [line for line in progress_text.splitlines() if line.strip()]
         # Sentinel is "# watch_session-offer exit=0" with the kind verbatim.
         assert progress_lines[-1].startswith("# watch_session-offer exit=0")

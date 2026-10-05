@@ -16,6 +16,7 @@ import pytest
 from runtime.api.source_pythonpath_test_helpers import SOURCE_PYTHONPATH
 from yoke_core.tools import _run_tests_args, gate_admission, run_tests
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
 
 
 # ---------------------------------------------------------------------------
@@ -27,7 +28,7 @@ class TestBuildPytestArgv:
     def test_defaults_use_configured_testpaths(self):
         argv = run_tests.build_pytest_argv([])
         defaults = list(run_tests.DEFAULT_TESTPATHS)
-        assert argv[-len(defaults):] == defaults
+        assert argv[-len(defaults) :] == defaults
         assert "-ra" in argv
 
     def test_explicit_paths_override_defaults(self):
@@ -128,7 +129,6 @@ class TestRepoRoot:
         assert found == Path.cwd() or found.is_absolute()
 
 
-
 # ---------------------------------------------------------------------------
 # Live smoke: run the runner as a subprocess against a trivial passing test.
 # ---------------------------------------------------------------------------
@@ -146,8 +146,7 @@ def mini_repo(tmp_path: Path) -> Path:
     )
     (pkg / "__init__.py").write_text("")
     (pkg / "test_ok.py").write_text(
-        "def test_one():\n    assert 1 + 1 == 2\n"
-        "def test_two():\n    assert True\n"
+        "def test_one():\n    assert 1 + 1 == 2\ndef test_two():\n    assert True\n"
     )
     return root
 

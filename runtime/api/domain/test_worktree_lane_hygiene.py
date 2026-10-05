@@ -11,6 +11,10 @@ from yoke_core.domain.worktree_lane_hygiene import purge_lane_bytecode_caches
 from yoke_core.domain.worktree_provision import provision_worktree_test_environment
 from yoke_core.domain.worktree_test_environment import PROOF_DIRECTORY_NAME
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 def _import_value(root: Path) -> str:
     env = {**os.environ, "PYTHONPATH": str(root)}

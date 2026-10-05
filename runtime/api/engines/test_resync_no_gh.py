@@ -147,7 +147,7 @@ class TestMainFailsClosedWithoutGh:
                 mock.patch("sys.stdout", StringIO()),
                 mock.patch("sys.stderr", StringIO()),
             ):
-                rc = resync_mod.main(["--detect-only"])
+                rc = resync_mod.main(["--detect-only", "--project", "yoke"])
         assert rc == 2
 
     def test_no_legacy_skip_print_on_no_github_auth(
@@ -167,7 +167,7 @@ class TestMainFailsClosedWithoutGh:
                     return_value=yoke_root,
                 ),
             ):
-                resync_mod.main(["--detect-only"])
+                resync_mod.main(["--detect-only", "--project", "yoke"])
         out = capsys.readouterr()
         # The retired legacy line must not appear in the engine output.
         assert "gh CLI not available" not in out.out

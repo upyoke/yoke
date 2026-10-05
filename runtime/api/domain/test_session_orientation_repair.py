@@ -30,6 +30,8 @@ from yoke_core.domain import session_orientation as so
 from yoke_core.domain import session_orientation_delivery as delivery
 from yoke_core.domain.project_scratch_roots import ENV_KEY as SCRATCH_ROOT_ENV_KEY
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 @pytest.fixture()
 def project(tmp_path: Path) -> Path:

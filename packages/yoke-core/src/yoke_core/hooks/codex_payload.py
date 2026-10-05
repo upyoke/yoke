@@ -205,34 +205,13 @@ def read_runtime_cache_field(session_id: str, field: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Tool-event normalization shim
+# Cross-harness tool-event normalization
 # ---------------------------------------------------------------------------
-#
-# Local typed shape that mirrors the cross-harness ``ToolEventRecord``
-# contract documented in worktree H's task body. When task 003 (worktree H) lands
-# in ``yoke_core.domain.observe_normalization``, this shim is replaced
-# wholesale by ``from yoke_core.domain.observe_normalization import
-# ToolEventRecord`` so call sites do not have to move. Field names are
-# identical to the documented contract.
-
-# ``tool_kind`` is the tool-class-neutral discriminator. ``apply_patch``
-# rides the same cross-harness shape Claude's ``Write``/``Edit`` already
-# feeds; the discriminator is what H/R/P sibling worktrees branch on to apply
-# patch-scoped guardrails (path-claim check, observe coverage, etc.).
 
 
 @dataclass
 class ToolEventRecord:
-    """Cross-harness normalized tool-event shape (local shim).
-
-    Mirrors the documented contract from worktree H. ``tool_kind`` collapses
-    Claude/Codex tool-name variance into a small enumeration; downstream
-    code branches on ``tool_kind``, never on the harness-native
-    ``tool_name`` string.
-
-    Replacement target: worktree H's ``yoke_core.domain.observe_normalization
-    .ToolEventRecord`` (same field names).
-    """
+    """Normalized fields used by tool-kind-specific guardrails."""
 
     tool_kind: str = ""
     tool_name: str = ""
@@ -258,7 +237,7 @@ _PATCH_TOOL_KINDS = {
 def normalize_tool_event(payload: str, hook_event: str) -> ToolEventRecord:
     """Build a :class:`ToolEventRecord` from a raw Codex hook payload.
 
-    Recognizes the patch/edit/write tool kinds documented for this worktree
+    Recognizes patch/edit/write tool kinds
     plus ``Bash`` (kept lightweight — full Bash normalization stays in the
     existing observe pipeline). For ``apply_patch``, ``changed_paths`` is
     populated from the patch body via

@@ -37,7 +37,7 @@ Every event is a row in the `events` table. The canonical columns are:
 | `actor_id` | INTEGER | No | Authenticated or named system actor; references `actors(id)` |
 | `environment` | TEXT | No | `prod`, `stage`, `local` |
 | `service` | TEXT | Yes | Emitting service (default `cli`) |
-| `project` | TEXT | Yes | Project scope (default `yoke`) |
+| `project` | TEXT | Yes | Caller project attribution; unresolved telemetry stays global |
 | `item_id` | TEXT | No | Backlog item reference (canonical bare-numeric text; display layers may render `YOK-N`) |
 | `task_num` | INTEGER | No | Epic task number (when item_id is an epic) |
 | `agent` | TEXT | No | Agent name (e.g., `engineer`, `tester`) |
@@ -239,7 +239,7 @@ yoke events emit \
 
 Indexed `events.project_id` uses `resolve_envelope_project_id_for_event` on both the native writer and `cmd_insert`: context `project_id` / `detail.project_id`, then the registered session project for `SESSION_SCOPED_EVENT_TYPES` (including `tool_call` denials), then the boundary project token. `cmd_insert` builds that input from row identity plus parseable envelope context; stored envelope session/type/project never replace the row. Unresolvable tokens stay global (`NULL`). Scripts must still pass context fields the observe hook would populate.
 
-If `--project` is omitted but `--item-id` is present, the CLI emitter resolves project from the `items` row before falling back to `yoke`. A session-scoped event still follows the registered session project, so a non-Yoke session's denial is visible under that project even when the emitting process defaults to `yoke`.
+If `--project` is omitted but `--item-id` is present, the CLI emitter resolves project from the `items` row. Otherwise it uses explicit caller environment or checkout binding; unresolved telemetry remains global (`NULL`). A session-scoped event follows its registered session project.
 
 `yoke_core.domain.events.emit_event` should be called with bare numeric `--item-id` values. Stored `events.item_id` values are canonical bare-numeric text.
 

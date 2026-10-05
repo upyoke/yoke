@@ -10,6 +10,10 @@ from runtime.api.cli.product_boundary_test_support import (
     _run_product_cli,
 )
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 def test_qa_browser_group_help_lists_setup_and_status_without_source_import(
     tmp_path: Path,
@@ -38,7 +42,8 @@ def test_qa_browser_setup_dry_run_runs_from_clean_client(
     tmp_path: Path,
 ) -> None:
     run = _run_product_cli(
-        tmp_path, ["qa", "browser", "setup", "--dry-run", "--json"],
+        tmp_path,
+        ["qa", "browser", "setup", "--dry-run", "--json"],
     )
 
     assert run.returncode == 0

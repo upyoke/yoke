@@ -31,6 +31,8 @@ from yoke_core.hooks.cursor_adapter import CAPABILITY as CURSOR_CAPABILITY
 from yoke_core.hooks import runner as runner_module
 from yoke_core.hooks.adapter_capability import AdapterCapability
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 _CAPABILITIES = (CLAUDE_CAPABILITY, CODEX_CAPABILITY, CURSOR_CAPABILITY)
 
@@ -82,11 +84,15 @@ def _module_ids_in_registry() -> set[str]:
 
 
 @pytest.mark.parametrize(
-    "capability", _CAPABILITIES, ids=lambda c: c.family,
+    "capability",
+    _CAPABILITIES,
+    ids=lambda c: c.family,
 )
 @pytest.mark.parametrize(("event_name", "matcher"), _all_chain_keys())
 def test_filtered_chain_matches_universal_ordering(
-    event_name: str, matcher: str, capability: AdapterCapability,
+    event_name: str,
+    matcher: str,
+    capability: AdapterCapability,
 ) -> None:
     """Each harness's filtered chain equals the universal-source chain.
 
@@ -99,7 +105,9 @@ def test_filtered_chain_matches_universal_ordering(
 
 
 @pytest.mark.parametrize(
-    "capability", _CAPABILITIES, ids=lambda c: c.family,
+    "capability",
+    _CAPABILITIES,
+    ids=lambda c: c.family,
 )
 def test_declared_omissions_name_modules_present_in_their_chain(
     capability: AdapterCapability,
@@ -177,19 +185,22 @@ def test_obsoleted_service_bridge_has_no_live_references() -> None:
     runtime_dir = repo_root / "runtime"
     completed = subprocess.run(
         ["grep", "-rn", "--exclude-dir=__pycache__", target, str(runtime_dir)],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     if completed.returncode == 1:
         return  # grep exit 1 = no matches at all
     hits = [
-        line for line in completed.stdout.splitlines()
+        line
+        for line in completed.stdout.splitlines()
         if line.strip()
         and "/docs/archive/" not in line
         and Path(__file__).name not in line
         and "check_obsoleted_terms.py" not in line
     ]
-    assert hits == [], (
-        f"{target} still referenced in live runtime tree:\n" + "\n".join(hits)
+    assert hits == [], f"{target} still referenced in live runtime tree:\n" + "\n".join(
+        hits
     )
 
 

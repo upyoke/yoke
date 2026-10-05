@@ -20,6 +20,8 @@ from yoke_core.tools import _watch_runner, watch_advance
 from yoke_core.tools._watch_runner import filter_match
 from yoke_core.tools._watch_throttle import LineClass
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 class TestAdvanceClassifier:
     @pytest.mark.parametrize(
@@ -111,9 +113,19 @@ class TestNestedAdvanceRejection:
         "args",
         [
             ["python3", "-m", "yoke_core.engines.advance_implementation_entry"],
-            ["python3", "-m", "yoke_core.engines.advance_implementation_entry", "--item", "YOK-1"],
+            [
+                "python3",
+                "-m",
+                "yoke_core.engines.advance_implementation_entry",
+                "--item",
+                "YOK-1",
+            ],
             ["python", "-m", "yoke_core.engines.advance_implementation_entry"],
-            ["/usr/bin/python3", "-m", "yoke_core.engines.advance_implementation_entry"],
+            [
+                "/usr/bin/python3",
+                "-m",
+                "yoke_core.engines.advance_implementation_entry",
+            ],
             ["sys.executable", "-m", "yoke_core.engines.advance_implementation_entry"],
         ],
     )
@@ -267,7 +279,5 @@ class TestSentinelAutoExit:
         assert rc == 0
         # The sentinel is the LAST line of the progress capture.
         progress_text = progress.read_text(encoding="utf-8")
-        progress_lines = [
-            line for line in progress_text.splitlines() if line.strip()
-        ]
+        progress_lines = [line for line in progress_text.splitlines() if line.strip()]
         assert progress_lines[-1].startswith("# watch_advance exit=0")

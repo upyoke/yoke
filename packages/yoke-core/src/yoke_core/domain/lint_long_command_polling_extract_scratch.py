@@ -1,24 +1,15 @@
-"""Helper-resolved scratch-path recognition for the polling lint.
+"""Recognize configured and legacy scratch roots without selecting a project.
 
-The polling lint needs to know which paths are Yoke-owned ephemeral
-scratch — the helper-resolved roots under ``project_scratch_dir`` and
-the legacy ``tempfile.gettempdir()`` prefixes that still see live
-writers. Centralizing the classification here keeps the parent extract
-module under the 350-line cap (AD-8 defensive sibling extraction) and
-gives downstream callers (denial messages, audit emission) one place
-to ask "is this a Yoke scratch path?".
-
-Functions here are pure: they read from environment + the scratch
-helper at call time and have no filesystem side effects.
+Classification reads the shared root candidate inventory. It neither chooses
+a writer's project nor probes or creates directories at import time.
 """
 
 from __future__ import annotations
 
-import os
 import tempfile
 from typing import Iterable
 
-from yoke_core.domain import project_scratch_dir
+from yoke_contracts.machine_config.scratch_roots import scratch_root_candidates
 
 __all__ = [
     "is_helper_resolved_scratch_path",
@@ -46,25 +37,13 @@ def _legacy_tmp_roots() -> Iterable[str]:
 def scratch_path_roots() -> list[str]:
     """Return absolute roots a Yoke scratch artefact may live under.
 
-    Order is deterministic: helper-resolved scratch root first (the
-    canonical write target for new callers), then the legacy tempdir
+    Order is deterministic: configured global scratch candidates first, then the legacy tempdir
     prefixes that retain live writers. Duplicates are filtered.
     """
 
-    roots: list[str] = []
-
-    try:
-        helper_root = str(project_scratch_dir.scratch_root()).rstrip("/")
-    except project_scratch_dir.ScratchRootResolutionError:
-        helper_root = ""
-    if helper_root and helper_root not in roots:
-        roots.append(helper_root)
-
-    override_env = os.environ.get(project_scratch_dir.ENV_KEY, "").strip()
-    if override_env:
-        normalized = override_env.rstrip("/")
-        if normalized and normalized not in roots:
-            roots.append(normalized)
+    roots = list(
+        dict.fromkeys(str(path).rstrip("/") for path in scratch_root_candidates())
+    )
 
     for legacy in _legacy_tmp_roots():
         normalized = legacy.rstrip("/")

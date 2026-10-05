@@ -11,6 +11,8 @@ from yoke_cli.commands.adapters import doctor_https_run as doctor
 from yoke_cli.main import main as cli_main
 from yoke_contracts.api.function_call import FunctionCallResponse
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 @pytest.mark.parametrize(
     "scope, remote_only",

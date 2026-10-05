@@ -139,9 +139,9 @@ item_id INTEGER NOT NULL -- backlog item ID
 category TEXT NOT NULL DEFAULT 'improvements' -- features|improvements|bug_fixes|internal
 title TEXT NOT NULL
 version TEXT NOT NULL
-project TEXT NOT NULL DEFAULT 'yoke' -- project scope
+project_id INTEGER NOT NULL REFERENCES projects(id) -- explicit attribution
 created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
-UNIQUE(item_id, version, project)
+UNIQUE(item_id, version, project_id)
 CHECK(category IN ('features','improvements','bug_fixes','internal'))
 ```
 

@@ -29,9 +29,11 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 __all__ = [
-    "ouroboros_entry_list", "ouroboros_entry_get",
+    "ouroboros_entry_list",
+    "ouroboros_entry_get",
     "scratch_dispatch_inputs",
-    "OUROBOROS_ENTRY_LIST_USAGE", "OUROBOROS_ENTRY_GET_USAGE",
+    "OUROBOROS_ENTRY_LIST_USAGE",
+    "OUROBOROS_ENTRY_GET_USAGE",
     "SCRATCH_DISPATCH_INPUTS_USAGE",
 ]
 
@@ -52,7 +54,8 @@ def ouroboros_entry_list(args: List[str]) -> int:
         description=OUROBOROS_ENTRY_LIST_USAGE,
     )
     parser.add_argument(
-        "--unreviewed", action="store_true",
+        "--unreviewed",
+        action="store_true",
         help="Only entries not yet reviewed or archived.",
     )
     parser.add_argument(
@@ -64,15 +67,20 @@ def ouroboros_entry_list(args: List[str]) -> int:
         ),
     )
     parser.add_argument(
-        "--limit", type=int, default=None,
+        "--limit",
+        type=int,
+        default=None,
         help="Maximum rows to return (default 50, max 500).",
     )
     parser.add_argument(
-        "--offset", type=int, default=None,
+        "--offset",
+        type=int,
+        default=None,
         help="Rows to skip before the page (default 0).",
     )
     parser.add_argument(
-        "--count", action="store_true",
+        "--count",
+        action="store_true",
         help="Return the matching row count instead of entry bodies.",
     )
     add_session_arg(parser)
@@ -159,9 +167,7 @@ def scratch_dispatch_inputs(args: List[str]) -> int:
 
     import sys
 
-    scratch_dir = importlib.import_module(
-        "yoke_core.domain.project_scratch_dir"
-    )
+    scratch_dir = importlib.import_module("yoke_core.domain.project_scratch_dir")
     parser = argparse.ArgumentParser(
         prog="yoke scratch dispatch-inputs",
         description=SCRATCH_DISPATCH_INPUTS_USAGE,
@@ -175,7 +181,9 @@ def scratch_dispatch_inputs(args: List[str]) -> int:
 
     try:
         item_id = resolve_item_id_via_dispatch(
-            parsed.item, parsed.project, parsed.session_id,
+            parsed.item,
+            parsed.project,
+            parsed.session_id,
         )
     except ValueError as exc:
         return usage_error(str(exc))
@@ -188,7 +196,13 @@ def scratch_dispatch_inputs(args: List[str]) -> int:
     if not parsed.session_id.strip():
         return usage_error("session_id must be non-empty")
 
-    project = scratch_dir.resolve_active_project()
+    from yoke_cli.config.project_selection import required_project_context
+    from yoke_contracts.project_defaults import MissingProjectError
+
+    try:
+        project = required_project_context(parsed.project)
+    except MissingProjectError as exc:
+        return usage_error(str(exc))
     path = scratch_dir.dispatch_inputs_dir(project, item_id, parsed.session_id, attempt)
     sys.stdout.write(f"{path}\n")
     sys.stdout.flush()
