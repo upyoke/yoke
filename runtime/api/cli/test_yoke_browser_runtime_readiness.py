@@ -49,7 +49,7 @@ def _prepare_daemon_launch(tmp_path, monkeypatch):
     monkeypatch.setattr(
         browser_client,
         "_state_file_path",
-        lambda: browser / ".daemon-state.json",
+        lambda profile_dir=None: browser / ".daemon-state.json",
     )
     monkeypatch.setattr(
         browser_client.DaemonState,
@@ -194,11 +194,11 @@ def test_itemless_capture_recovers_pid_without_healthy_endpoint() -> None:
         assert ensure_daemon_running() is None
 
     health.assert_called_once_with(state=state, timeout=1)
-    stop.assert_called_once_with()
+    stop.assert_called_once_with(profile_dir="")
     start.assert_called_once_with(profile_dir=None)
 
 
-def test_itemless_capture_reuses_daemon_only_after_health_check() -> None:
+def test_itemless_capture_checks_health_before_scoped_daemon_start() -> None:
     state = browser_client.DaemonState(
         pid=888,
         token="token",
@@ -225,4 +225,4 @@ def test_itemless_capture_reuses_daemon_only_after_health_check() -> None:
         assert ensure_daemon_running() is None
 
     health.assert_called_once_with(state=state, timeout=1)
-    start.assert_not_called()
+    start.assert_called_once_with(profile_dir=None)

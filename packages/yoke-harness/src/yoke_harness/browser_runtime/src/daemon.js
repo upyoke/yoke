@@ -24,10 +24,10 @@ const registerExecRoutes = require('./routes/exec-routes');
 
 function parseArgs(argv) {
   const args = {
-    port: 9222,
+    port: 0,
     headed: false,
     idleTimeoutMs: 10 * 60 * 1000, // 10 minutes
-    stateFile: path.join(__dirname, '..', '.daemon-state.json'),
+    stateFile: null,
     profileDir: '',
   };
 
@@ -55,6 +55,11 @@ function parseArgs(argv) {
         console.error(`Unknown argument: ${argv[i]}`);
         process.exit(3);
     }
+  }
+  if (!args.stateFile) {
+    const profile = args.profileDir ? fs.realpathSync(args.profileDir) : '';
+    const key = profile ? crypto.createHash('sha256').update(profile).digest('hex') : 'throwaway';
+    args.stateFile = path.join(__dirname, '..', 'daemons', key, '.daemon-state.json');
   }
   return args;
 }
@@ -124,7 +129,7 @@ function handleStaleState(stateFile) {
 async function main() {
   const args = parseArgs(process.argv);
 
-  // AC-9: Handle stale state file
+  // Handle state left by a previous process.
   handleStaleState(args.stateFile);
 
   const token = crypto.randomBytes(24).toString('hex');
@@ -173,7 +178,7 @@ async function main() {
       await new Promise((resolve) => server.close(resolve));
     }
 
-    // AC-6/AC-7: Remove state file on clean shutdown
+    // This daemon removes only its own profile state.
     removeStateFile(args.stateFile);
     console.log('Shutdown complete.');
 
@@ -193,15 +198,16 @@ async function main() {
     onStop: () => shutdown(true),
   });
 
-  // Register route modules (GAP #3 pattern: each module is (app, browserManager) => void)
+  // Register the snapshot and execution routes.
   registerSnapshotRoutes(app, browserManager);
   registerExecRoutes(app, browserManager);
 
   // Start server
   server = app.listen(args.port, () => {
-    const endpoint = `http://127.0.0.1:${args.port}`;
+    const port = server.address().port;
+    const endpoint = `http://127.0.0.1:${port}`;
 
-    // AC-2: Write state file
+    // Publish this profile's bound endpoint.
     const state = {
       pid: process.pid,
       token,
@@ -209,7 +215,7 @@ async function main() {
       browserType: 'chromium',
       startedAt: new Date().toISOString(),
       health: 'healthy',
-      port: args.port,
+      port,
       profileDir: args.profileDir,
     };
 
@@ -225,7 +231,7 @@ async function main() {
   process.on('SIGTERM', () => shutdown(true));
   process.on('SIGINT', () => shutdown(true));
 
-  // AC-8: On uncaught exception, mark state as crashed (leave state file)
+  // On an uncaught exception, retain diagnostic state.
   process.on('uncaughtException', (err) => {
     console.error('Uncaught exception:', err);
     const existing = readStateFile(args.stateFile);

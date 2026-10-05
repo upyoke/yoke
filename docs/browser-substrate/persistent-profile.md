@@ -147,19 +147,25 @@ cookie store — the refusal from a damaged store names this command. The
 directory to delete is resolved from the project reference rather than accepted
 from the caller, so the only profile the command can remove is the one named.
 
-Chromium locks a profile directory and the daemon is a machine singleton, so
-`authorize` stops a running daemon first. The next case run starts it again on
-the profile you just signed into.
+Chromium locks a profile directory, so `authorize` stops only the daemon
+holding the requested project's profile. Other profiles' captures stay open.
+The next case run starts that profile's daemon again.
 
 ## How a run uses it
 
 `daemon_start(profile_dir=...)` launches Playwright's persistent context on
-that directory instead of a throwaway browser. A daemon already running on a
-*different* profile is stopped and restarted rather than reused — reusing it
-would hand this project's workers another project's signed-in session. The
-daemon records the directory as `profileDir` in
-`~/.yoke/browser-runtime/.daemon-state.json`, which is how that comparison is
-made.
+that directory. Each canonical profile path owns one daemon, reused by all
+workers for that profile. Its state and log live under
+`~/.yoke/browser-runtime/daemons/<sha256-of-profile-path>/`; the separate
+`throwaway` key serves callers with no authorized profile. The OS assigns
+an available port, and the state file publishes the actual endpoint.
+
+A QA capture binds all requests, health checks and owned pages to its profile.
+Starting, stopping or idling out another profile's daemon never touches it.
+Same-profile cases use distinct owned pages and share cookies by design;
+different profiles have separate browser contexts and cookie jars. Startup
+retries stop only a verifiably unhealthy daemon for the requested profile,
+and preserve a healthy daemon even after a transient startup failure.
 
 A project with no profile is not a refusal: it gets a clean throwaway context,
 exactly as before profiles existed. The startup log still names the situation,

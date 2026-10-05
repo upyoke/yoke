@@ -23,6 +23,7 @@ from yoke_cli.transport.bounded_json_http import (
 from yoke_cli import browser_node_toolchain
 from yoke_cli.transport.response_limits import DEFAULT_JSON_RESPONSE_LIMIT_BYTES
 from yoke_harness import browser_runtime_home
+from yoke_harness.browser_daemon_profile import canonical_profile, state_file_path
 from yoke_harness.browser_client_readiness import start_daemon
 from yoke_harness.browser_setup import ensure_browser_runtime
 
@@ -65,8 +66,8 @@ def _browser_dir() -> Path:
     return browser_runtime_home.ensure_materialized()
 
 
-def _state_file_path() -> Path:
-    return _browser_dir() / ".daemon-state.json"
+def _state_file_path(profile_dir: str | None = None) -> Path:
+    return state_file_path(_browser_dir(), profile_dir)
 
 
 def _log(message: str) -> None:
@@ -173,12 +174,12 @@ def daemon_start(
 ) -> Dict[str, Any]:
     """Start the daemon, optionally on one project's persistent profile.
 
-    The daemon is a machine singleton, so a live daemon on a different profile
-    is stopped and restarted rather than reused — reusing it would hand this
-    project's workers another project's signed-in session.
+    Each profile owns its state, log and endpoint. Other profiles' live
+    captures remain open, and same-profile workers reuse the healthy daemon.
     """
-    requested_profile = str(profile_dir or "")
-    state = DaemonState.load()
+    requested_profile = canonical_profile(profile_dir)
+    state_path = _state_file_path(requested_profile)
+    state = DaemonState.load(state_path)
     if state and daemon_running(state):
         if state.profile_dir == requested_profile:
             try:
@@ -193,20 +194,13 @@ def daemon_start(
                 "endpoint": state.endpoint,
                 "pid": state.pid,
             }
-        _log(
-            "Browser daemon is running on a different browser profile "
-            f"({state.profile_dir or 'none'}); restarting it on "
-            f"{requested_profile or 'a throwaway profile'}."
+        raise RuntimeError(
+            "browser_daemon_profile_mismatch: state belongs to another profile; "
+            "inspect this profile's state file and rerun `yoke qa browser setup`"
         )
-        try:
-            daemon_stop()
-        except RuntimeError:
-            # The daemon exited between the liveness check and the stop.
-            pass
 
     browser = _browser_dir()
     daemon_js = browser / "src" / "daemon.js"
-    state_path = _state_file_path()
     toolchain = browser_node_toolchain.ensure_node_toolchain(emit=_log)
     if not daemon_js.exists():
         raise RuntimeError(f"daemon.js not found at {daemon_js}")
@@ -228,11 +222,17 @@ def daemon_start(
     command.extend(["--state-file", str(state_path)])
 
     state_path.parent.mkdir(parents=True, exist_ok=True)
-    return start_daemon(command, env, browser)
+    return start_daemon(
+        command,
+        env,
+        state_path.parent,
+        load_state=lambda: DaemonState.load(state_path),
+    )
 
 
-def daemon_stop() -> str:
-    state = DaemonState.load()
+def daemon_stop(*, profile_dir: str | None = None) -> str:
+    state_path = _state_file_path(profile_dir)
+    state = DaemonState.load(state_path)
     if state is None or not daemon_running(state):
         raise RuntimeError("daemon not running")
     try:
@@ -249,7 +249,7 @@ def daemon_stop() -> str:
         os.kill(state.pid, signal.SIGKILL)
     except (OSError, ProcessLookupError):
         pass
-    _state_file_path().unlink(missing_ok=True)
+    state_path.unlink(missing_ok=True)
     return "stopped"
 
 

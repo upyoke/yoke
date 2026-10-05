@@ -20,13 +20,17 @@ def setup(tmp_path, monkeypatch):
     monkeypatch.setattr(
         command.browser_node_toolchain, "ensure_node_toolchain", lambda: toolchain
     )
-    monkeypatch.setattr(browser_profile, "profile_project_key", lambda value: "project")
+    monkeypatch.setattr(
+        browser_profile, "profile_project_key", lambda value, **kwargs: "project"
+    )
     monkeypatch.setattr(
         browser_profile, "ensure_profile_dir", lambda value: tmp_path / "profile"
     )
     monkeypatch.setattr(command, "keep_sign_in_cookies", lambda profile: 0)
     monkeypatch.setattr(
-        command, "_stop_daemon_holding_profile", lambda client: events.append("stop")
+        command,
+        "_stop_daemon_holding_profile",
+        lambda client, profile_dir: events.append("stop"),
     )
 
     def provision(browser, selected, *, emit):

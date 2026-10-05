@@ -28,6 +28,8 @@ import subprocess
 import time
 from typing import Any, Dict, List, Optional
 
+from yoke_harness.browser_daemon_profile import canonical_profile
+
 
 def daemon_start(
     port: Optional[int] = None,
@@ -38,9 +40,8 @@ def daemon_start(
     """Start the browser daemon.
 
     ``profile_dir`` is one project's persistent browser profile. A daemon
-    already running on a different profile is stopped and restarted on the
-    requested one, because the daemon is a machine singleton and reusing it
-    would hand this project's workers another project's signed-in session.
+    on that profile is reused after a health check. Each other profile has
+    its own state, log and endpoint, so its captures stay open.
 
     Returns JSON status dict.
     """
@@ -52,25 +53,20 @@ def daemon_start(
     )
     from yoke_harness import browser_client_readiness, browser_runtime_home
 
-    requested_profile = str(profile_dir or "")
-    state = _bc.DaemonState.load()
+    requested_profile = canonical_profile(profile_dir)
+    state_path = _bc._state_file_path(requested_profile)
+    state = _bc.DaemonState.load(state_path)
     if state and _bc.daemon_running(state):
         if state.profile_dir == requested_profile:
+            _bc.daemon_health(state=state, timeout=1)
             return {"status": "already_running", "endpoint": state.endpoint}
-        _bc._log(
-            "Browser daemon is running on a different browser profile "
-            f"({state.profile_dir or 'none'}); restarting it on "
-            f"{requested_profile or 'a throwaway profile'}."
+        raise RuntimeError(
+            "browser_daemon_profile_mismatch: state belongs to another profile; "
+            "inspect this profile's state file and rerun `yoke qa browser setup`"
         )
-        try:
-            daemon_stop()
-        except RuntimeError:
-            # The daemon exited between the liveness check and the stop.
-            pass
 
     browser = _bc._browser_dir()
     daemon_js = browser / "src" / "daemon.js"
-    state_path = _bc._state_file_path()
 
     # Preflight: the Node toolchain, provisioned when this host has none.
     toolchain = browser_node_toolchain.ensure_node_toolchain(emit=_bc._log)
@@ -160,18 +156,19 @@ def daemon_start(
     return browser_client_readiness.start_daemon(
         cmd,
         env,
-        browser,
-        load_state=_bc.DaemonState.load,
-        probe_health=lambda _state: _bc.daemon_health(),
+        state_path.parent,
+        load_state=lambda: _bc.DaemonState.load(state_path),
+        probe_health=lambda state: _bc.daemon_health(state=state, timeout=1),
         sleep=time.sleep,
     )
 
 
-def daemon_stop() -> str:
+def daemon_stop(*, profile_dir: str | None = None) -> str:
     """Stop the browser daemon.  Returns 'stopped'."""
     from yoke_core.domain import browser_client as _bc
 
-    state = _bc.DaemonState.load()
+    state_path = _bc._state_file_path(profile_dir)
+    state = _bc.DaemonState.load(state_path)
     if state is None or not _bc.daemon_running(state):
         raise RuntimeError("daemon not running")
 
@@ -195,7 +192,7 @@ def daemon_stop() -> str:
     except (OSError, ProcessLookupError):
         pass
 
-    sf = _bc._state_file_path()
+    sf = state_path
     if sf.exists():
         sf.unlink(missing_ok=True)
 

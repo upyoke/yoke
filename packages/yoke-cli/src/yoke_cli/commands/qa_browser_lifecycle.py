@@ -248,7 +248,9 @@ def _browser_readiness(
         "node": node,
         "npm_dependencies": {"status": "ready" if deps_ready else "missing"},
         "chromium": {"status": chromium},
-        "daemon": browser_client.daemon_status(),
+        "daemon": browser_client.daemon_status(
+            profile_dir=_profile_dir_arg(project) or ""
+        ),
         "profile": _profile_readiness(project),
         "repairs": repairs,
     }

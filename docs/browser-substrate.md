@@ -34,7 +34,7 @@ modules below for source-development diagnostics.
  | |
  v v
 +-------------------+ +------------------+
-| qa_artifacts | | .daemon-state.json|
+| qa_artifacts | | profile state     |
 | (yoke_core.domain.qa) | | (runtime state) |
 +-------------------+ +------------------+
 ```
@@ -57,13 +57,15 @@ All JS paths below are the packaged sources; the daemon runs from their material
 | `yoke_harness.browser_runtime_home` | `packages/yoke-harness/src/yoke_harness/browser_runtime_home.py` | Single machine-runtime and hash-gated materialization owner |
 | `yoke_core.domain.browser_client` | `packages/yoke-core/src/yoke_core/domain/browser_client.py` | Python daemon client: state, HTTP, lifecycle, exec, snapshot |
 | `yoke_core.domain.browser_qa` | `packages/yoke-core/src/yoke_core/domain/browser_qa.py` | Internal per-requirement Browser scenario orchestration used by the shared case runner |
-| `yoke_core.domain.browser_worker` | `packages/yoke-core/src/yoke_core/domain/browser_worker.py` | Remote browser worker via SSH tunnel |
 
 ## Daemon Lifecycle
 
 ### State File
 
-On startup, the daemon writes `~/.yoke/browser-runtime/.daemon-state.json` (permissions 0600) containing:
+Each profile has its own daemon. On startup it writes
+`~/.yoke/browser-runtime/daemons/<profile-key>/.daemon-state.json` (permissions
+0600). The key is the SHA-256 of the canonical profile path, or `throwaway`
+for a clean context. The OS assigns the port; the state publishes its endpoint:
 
 ```json
 {
@@ -79,8 +81,10 @@ On startup, the daemon writes `~/.yoke/browser-runtime/.daemon-state.json` (perm
 ```
 
 `profileDir` is the project's persistent browser profile, empty when the
-daemon runs on a throwaway context. A daemon live on a different profile is
-restarted rather than reused; see
+daemon runs on a throwaway context. Same-profile workers reuse the healthy
+daemon and own separate pages; different profiles run independent daemons.
+Stop, status, health, retry cleanup and idle exit apply only to the selected
+profile. Its startup log is beside its state file. See
 [Persistent Browser Profile](browser-substrate/persistent-profile.md).
 
 The Python client (`yoke_core.domain.browser_client`) reads this file to discover the daemon endpoint and bearer token.
@@ -89,16 +93,16 @@ The Python client (`yoke_core.domain.browser_client`) reads this file to discove
 
 ```sh
 # Start daemon (headless by default)
-python3 -m yoke_core.domain.browser_client daemon start [--port 9222] [--headed] [--idle-timeout 600000]
+python3 -m yoke_core.domain.browser_client daemon start [--project P] [--port PORT] [--headed] [--idle-timeout 600000]
 
 # Stop daemon (sends /api/stop, then SIGTERM, then SIGKILL)
-python3 -m yoke_core.domain.browser_client daemon stop
+python3 -m yoke_core.domain.browser_client daemon stop [--project P]
 
 # Check daemon status (running/crashed/not_running)
-python3 -m yoke_core.domain.browser_client daemon status
+python3 -m yoke_core.domain.browser_client daemon status [--project P]
 
 # Get daemon health JSON from the running process
-python3 -m yoke_core.domain.browser_client daemon health
+python3 -m yoke_core.domain.browser_client daemon health [--project P]
 ```
 
 ### Idle Shutdown
@@ -164,43 +168,6 @@ python3 -m yoke_core.domain.browser_client exec step '<step-json>' --base-url <u
 
 `yoke qa case run` executes one immutable Browser case and validates deployed
 code freshness. Direct Advance and Conduct/Tester share this [runner](browser-substrate/scenario-orchestration.md).
-
-## Remote Browser Worker
-
-Runs browser commands on a remote machine via SSH, with a tunnel from local to the remote daemon's HTTP port.
-
-```sh
-# Start remote daemon + SSH tunnel
-python3 -m yoke_core.domain.browser_worker start <host> [--port 9222] [--local-port 19222]
-
-# Stop tunnel and remote daemon
-python3 -m yoke_core.domain.browser_worker stop <host>
-
-# Check tunnel and remote daemon status
-python3 -m yoke_core.domain.browser_worker status <host>
-```
-
-### Configuration
-
-Remote worker config is stored in `project_capabilities` with `type='remote-browser'`:
-
-```json
-{
- "host": "remote.example.com",
- "user": "deploy",
- "key_path": "/path/to/key",
- "browser_path": "/opt/yoke/browser",
- "port": 9222
-}
-```
-
-### Tunnel Lifecycle
-
-1. Verify remote host is reachable via SSH
-2. Start daemon on remote host (`node src/daemon.js`)
-3. Create SSH tunnel (`ssh -L localPort:127.0.0.1:remotePort`)
-4. Write local state file pointing to `http://127.0.0.1:{localPort}`
-5. All `yoke_core.domain.browser_client` snapshot and exec commands work transparently
 
 ## QA Artifact Integration
 

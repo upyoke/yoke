@@ -73,9 +73,9 @@ Worked examples:
   yoke browser authorize --project yoke
   yoke browser authorize --url https://app.upyoke.com
 
-The browser daemon is a machine singleton and Chromium locks a profile
-directory, so a running daemon is stopped first; the next case run starts it
-again on the profile you just signed into.
+Chromium locks a profile directory, so only the daemon using this project's
+profile is stopped first. Other projects' captures stay open; the next case
+run starts this profile's daemon again.
 
 Sites that authenticate with a session cookie -- one with no expiry, which
 an ordinary browser drops when it quits -- would otherwise lose the sign-in
@@ -165,7 +165,9 @@ def browser_authorize(args: List[str]) -> int:
     except RuntimeError as exc:
         return _fail(parsed.json_mode, str(exc), code=2)
 
-    _stop_daemon_holding_profile(browser_client)
+    _stop_daemon_holding_profile(
+        browser_client, str(browser_profile.profile_dir(parsed.project))
+    )
 
     removed = (
         browser_profile.remove_profile_dir(parsed.project) if parsed.reset else None
@@ -237,19 +239,21 @@ def browser_authorize(args: List[str]) -> int:
     return 0
 
 
-def _stop_daemon_holding_profile(browser_client) -> None:
+def _stop_daemon_holding_profile(browser_client, profile_dir: str) -> None:
     """Release the profile lock a running daemon would otherwise hold.
 
     Chromium takes an exclusive lock on a profile directory, so a live daemon
-    on this profile would make the sign-in window fail to open. The daemon is
-    a machine singleton and every case run starts it on demand, so stopping it
-    costs nothing.
+    on this profile would make the sign-in window fail to open. Each case
+    starts its own profile's daemon on demand, so stopping that daemon
+    releases this profile for the sign-in window; other profiles stay open.
     """
-    state = browser_client.DaemonState.load()
+    state = browser_client.DaemonState.load(
+        browser_client._state_file_path(profile_dir)
+    )
     if state is None or not browser_client.daemon_running(state):
         return
     try:
-        browser_client.daemon_stop()
+        browser_client.daemon_stop(profile_dir=profile_dir)
     except RuntimeError:
         # Already gone between the check and the stop.
         pass

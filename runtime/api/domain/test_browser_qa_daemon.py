@@ -273,7 +273,10 @@ class TestCollectDaemonDiagnostics:
 
     def test_collects_daemon_log_tail(self, tmp_path: Path) -> None:
         """Daemon log content is captured in diagnostics."""
-        daemon_log = tmp_path / DAEMON_LOG_NAME
+        from yoke_harness.browser_daemon_profile import state_file_path
+
+        daemon_log = state_file_path(tmp_path, "").parent / DAEMON_LOG_NAME
+        daemon_log.parent.mkdir(parents=True)
         daemon_log.write_text("line1\nline2\nERROR: port already in use\n")
 
         with (

@@ -158,7 +158,12 @@ _RETIRED_FLOW_DECLARATION_CONTRACT_PATTERN = (
     r"yoke_contracts\.project_contract\.deployment_flows\b"
 )
 
+_RETIRED_SSH_BROWSER_WORKER_PATTERN = r"\bbrowser_worker(?:_[a-z]+)*\b"
+_RETIRED_SSH_BROWSER_CAPABILITY_PATTERN = r"\bremote[-_]browser\b"
+
 OBSOLETED_TERM_PATTERNS: tuple[str, ...] = (
+    _RETIRED_SSH_BROWSER_WORKER_PATTERN,
+    _RETIRED_SSH_BROWSER_CAPABILITY_PATTERN,
     *_coordination_terms.COORDINATION_LEASE_RETIREMENT_PATTERNS,
     _RETIRED_PARENT_EPIC_SYMBOL_PATTERN,
     # CLI-argument form of the same retired parent-epic item field. The shape is
@@ -220,6 +225,8 @@ OBSOLETED_TERM_PATTERNS: tuple[str, ...] = (
 )
 
 OBSOLETED_TERM_LABELS: dict[str, str] = {
+    _RETIRED_SSH_BROWSER_WORKER_PATTERN: "SSH browser worker (removed unused modules)",
+    _RETIRED_SSH_BROWSER_CAPABILITY_PATTERN: "SSH browser capability (removed unused type)",
     **_workbench_terms.WORKBENCH_RETIREMENT_LABELS,
     **_coordination_terms.COORDINATION_LEASE_RETIREMENT_LABELS,
     _RETIRED_FLOW_RECONCILE_CLI_PATTERN: (

@@ -65,7 +65,7 @@ Records individual QA executions against a requirement. Multiple runs per requir
 ```sql
 id INTEGER PRIMARY KEY
 qa_requirement_id INTEGER NOT NULL -- FK to qa_requirements(id)
-performed_by TEXT NOT NULL -- how it ran: agent, shell, playwright, manual, github-actions, remote-browser
+performed_by TEXT NOT NULL -- how it ran: agent, shell, playwright, manual, github-actions
 qa_kind TEXT NOT NULL -- what was tested (denormalized from requirement for query convenience)
 verdict TEXT -- CHECK: pass | fail | undetermined | error (nullable until inspection writes it)
 verdict_reason TEXT -- required when undetermined; agent outcomes also require linked evidence

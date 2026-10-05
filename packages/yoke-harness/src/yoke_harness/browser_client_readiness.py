@@ -75,6 +75,7 @@ def start_daemon(
 
     ``wait_seams`` pass through to :func:`wait_for_daemon_ready`.
     """
+    runtime_dir.mkdir(parents=True, exist_ok=True)
     log_file = runtime_dir / DAEMON_LOG_NAME
     proc = launch_daemon(command, env, log_file)
     return wait_for_daemon_ready(proc, log_file, **wait_seams)
