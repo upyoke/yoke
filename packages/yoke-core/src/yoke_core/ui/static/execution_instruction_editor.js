@@ -1,5 +1,8 @@
 import { el } from "./universe_view_support.js";
 import { button, workflowPanel } from "./workflow_view_primitives.js";
+import {
+  deliveryControls, deliveryValidationError, instructionDelivery,
+} from "./execution_instruction_delivery.js";
 
 function fieldLabel(documentNode, text) {
   return el(documentNode, "div", "workflow-field-label", text);
@@ -34,6 +37,7 @@ export function openExecutionInstructionEditor({
   const existing = instruction.id != null;
   const state = {
     content: instruction.content || "",
+    delivery: instructionDelivery(instruction),
     appliesToAllWorkflows: Boolean(instruction.applies_to_all_workflows),
     workflowIds: new Set(instruction.workflow_ids || []),
     appliesToAllProjects: Boolean(instruction.applies_to_all_projects),
@@ -53,6 +57,8 @@ export function openExecutionInstructionEditor({
     documentNode, "textarea", "instruction-content-input", state.content,
     (value) => { state.content = value; },
   ));
+
+  body.appendChild(deliveryControls(documentNode, state.delivery, checkboxRow));
 
   body.appendChild(fieldLabel(documentNode, "Workflows"));
   if (!existing) {
@@ -163,6 +169,12 @@ export function openExecutionInstructionEditor({
     "workflow-button primary",
   );
   saveButton.addEventListener("click", async () => {
+    const invalid = deliveryValidationError(state.delivery);
+    if (invalid) {
+      error.textContent = invalid;
+      error.hidden = false;
+      return;
+    }
     const buttons = [cancelButton, deleteButton, saveButton].filter(Boolean);
     for (const node of buttons) node.disabled = true;
     saveButton.textContent = "Saving…";
@@ -170,6 +182,7 @@ export function openExecutionInstructionEditor({
     try {
       await save({
         content: state.content,
+        delivery: { ...state.delivery, stage_buckets: [...state.delivery.stage_buckets] },
         appliesToAllWorkflows: state.appliesToAllWorkflows,
         workflowIds: [...state.workflowIds],
         appliesToAllProjects: state.appliesToAllProjects,
