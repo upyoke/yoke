@@ -1,57 +1,55 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { attachDocumentScroll } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_document_scroll.js";
+import { mountUniverseApp } from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
+import { FakeDocument, injectedClient, response, settle } from "./universe_ui_dom_test_support.mjs";
 
-function fixture() {
-  const window = new EventTarget();
-  let frame, resize, disconnected = false;
-  let available = 0;
-  window.history = { state: { host: "preserved" }, scrollRestoration: "auto",
-    replaceState(state) { this.state = state; } };
+async function mountDashboard(t) {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = () => response(200, {});
+  t.after(() => { globalThis.fetch = originalFetch; });
+  const document = new FakeDocument();
+  const window = document.defaultView;
+  const writes = [];
+  window.location.hash = "#/members";
+  window.history = {
+    state: { __NA: true, host: "preserved" },
+    scrollRestoration: "auto",
+    pushState(...args) { writes.push(["push", ...args]); },
+    replaceState(...args) { writes.push(["replace", ...args]); },
+  };
   window.scrollX = 0;
   window.scrollY = 0;
-  window.scrollTo = (x, y) => { window.scrollX = x; window.scrollY = Math.min(y, available); };
-  window.requestAnimationFrame = (callback) => { frame = callback; return 1; };
-  window.cancelAnimationFrame = () => { frame = null; };
-  window.ResizeObserver = class {
-    constructor(callback) { resize = callback; }
-    observe() {}
-    disconnect() { disconnected = true; }
-  };
-  const dispose = attachDocumentScroll({}, window);
-  return { window, dispose, disconnected: () => disconnected,
-    grow(height) { available = height; resize(); },
-    tick() { const callback = frame; frame = null; callback?.(); },
-    visit(state) {
-      window.history.state = state;
-      const event = new Event("popstate"); event.state = state;
-      window.dispatchEvent(event);
-    } };
+  window.requestAnimationFrame = () => 1;
+  window.cancelAnimationFrame = () => {};
+  window.ResizeObserver = class { observe() {} disconnect() {} };
+  const root = document.createElement("div");
+  const mounted = mountUniverseApp(root, {
+    client: injectedClient("host"),
+    sections: { members: document.createElement("section") },
+  });
+  t.after(() => mounted.unmount());
+  await settle();
+  writes.length = 0;
+  return { window, writes, mounted };
 }
 
-test("Back restores the history entry once asynchronous content can hold it", () => {
-  const f = fixture();
-  f.grow(1000); f.tick();
-  f.window.scrollTo(0, 600); f.window.dispatchEvent(new Event("scroll"));
-  const saved = f.window.history.state;
-  assert.equal(saved.host, "preserved");
-  f.visit(null); f.tick();
-  assert.equal(f.window.scrollY, 0);
-  f.grow(0); f.visit(saved); f.tick();
-  f.window.dispatchEvent(new Event("scroll"));
-  assert.equal(f.window.history.state, saved);
-  f.grow(1000); f.tick();
-  assert.equal(f.window.scrollY, 600);
-  f.dispose();
-  assert.equal(f.window.history.scrollRestoration, "auto");
-  assert.equal(f.disconnected(), true);
+test("scrolling the mounted dashboard document never writes history", async (t) => {
+  const { window, writes } = await mountDashboard(t);
+  const state = window.history.state;
+  for (let y = 0; y < 250; y += 1) {
+    window.scrollY = y;
+    window.dispatchEvent(new Event("scroll"));
+  }
+  assert.deepEqual(writes, []);
+  assert.equal(window.history.state, state);
 });
 
-test("reader input cancels a pending position rather than jumping later", () => {
-  const f = fixture();
-  f.visit({ universeDocumentScroll: { x: 0, y: 600 } }); f.tick();
-  f.window.dispatchEvent(new Event("wheel"));
-  f.grow(1000); f.tick();
-  assert.equal(f.window.scrollY, 0);
-  f.dispose();
+test("the dashboard leaves native scroll restoration enabled throughout its mount", async (t) => {
+  const { window, mounted } = await mountDashboard(t);
+  assert.equal(window.history.scrollRestoration, "auto");
+  window.dispatchEvent(new Event("scroll"));
+  window.dispatchEvent(new Event("popstate"));
+  assert.equal(window.history.scrollRestoration, "auto");
+  mounted.unmount();
+  assert.equal(window.history.scrollRestoration, "auto");
 });

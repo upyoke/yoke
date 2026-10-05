@@ -52,7 +52,6 @@ import { createProjectSelection, knownProjectId, selectionParam } from "./univer
 import { createSelectionNavigation, selectionRoute } from "./universe_selection_routes.js";
 import { routeLoadingLine } from "./universe_route_loading.js";
 import { createSteeringGroupColors } from "./universe_steering_group_color.js";
-import { attachDocumentScroll } from "./universe_document_scroll.js";
 import { createLocationPreference } from "./universe_location_preference.js";
 export { withProjectSelection } from "./universe_selection_routes.js";
 // A host owns its slot DOM, so it cannot inherit the app's own dismissal —
@@ -134,7 +133,6 @@ export function mountUniverseApp(rootNode, options = {}) {
 
   const detachRootClass = attachMountRootClass(rootNode);
   rootNode.replaceChildren(header, shell);
-  const disposeDocumentScroll = attachDocumentScroll(rootNode, windowNode);
   main.replaceChildren(routeLoadingLine(documentNode));
 
   // The mark uses currentColor, so it must live in the DOM (an <img src>
@@ -340,7 +338,6 @@ export function mountUniverseApp(rootNode, options = {}) {
     mounted = false;
     if (typeof context.abortView === "function") context.abortView();
     navigation.dispose();
-    disposeDocumentScroll();
     windowNode.removeEventListener("hashchange", heldScope.onHashChange);
     disposeChrome();
     detachMountedSlots(rootNode, [...mountedSlotNodes, ...sectionNodes]);
