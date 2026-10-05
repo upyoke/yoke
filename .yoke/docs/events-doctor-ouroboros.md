@@ -49,7 +49,12 @@ normalization, line matching and full-tree coverage remain the same.
 Provenance, hook-boundary and file-line checks overlap their complete inventories'
 independent reads. The item-reference check reads each source once for its six
 scans; historical-reference scanning avoids AST work only when no reference
-matches anywhere in the file. Exemptions and finding order remain unchanged.
+matches anywhere in the file. The add-column and ambient-connection guards
+likewise prefetch every scoped source without changing their AST predicates.
+CLI help coverage overlaps all isolated entrypoint processes, each using the
+remaining deadline. Atlas captures its complete help roster in one isolated,
+deadline-bound child; stdout redirection stays serial within that child.
+Exemptions and finding order remain unchanged.
 Worktree-health likewise overlaps every lane's independent status read under
 that deadline. Delegated sync avoids fetching comparison fields when linkage
 has already found no paired subjects; its orphan classifications still run.

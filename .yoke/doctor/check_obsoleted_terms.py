@@ -171,7 +171,7 @@ def _required_literal_prefix(pattern: re.Pattern) -> str:
             break
         if char == "\\":
             index += 1
-            if index == len(source) or source[index] not in r".\-_/(){}[]+*?^$|":
+            if index == len(source) or source[index] not in r".\-_/(){}[]+*?^$|#":
                 break
             char = source[index]
         literal.append(char)
@@ -197,6 +197,18 @@ def _required_candidate(pattern):
                 required += r"\s+" + re.escape(suffix)
         return re.compile(required, pattern.flags)
     source = re.sub(r"^\(\?[aiLmsux]+\)", "", pattern.pattern)
+    leading = source.removeprefix(r"\b").removeprefix("^")
+    removable = re.match(
+        r"^(?:[A-Za-z`_]\?|\[[A-Za-z]+\]|\(\?:[A-Za-z\\+ ]+\)\?)", leading
+    )
+    if removable:
+        try:
+            tail = re.compile(leading[removable.end() :], pattern.flags)
+        except re.error:
+            tail = None
+        suffix = _required_literal_prefix(tail) if tail is not None else ""
+        if suffix:
+            return re.compile(re.escape(suffix), pattern.flags)
     choice = re.fullmatch(r"\\b\(([A-Za-z0-9_|]+)\)\\b", source)
     if choice:
         words = choice.group(1).split("|")

@@ -43,12 +43,12 @@ def _repo_root() -> Path:
 
 def _build_audit_report() -> dict:
     from yoke_core.tools.atlas_integrity_audit import build_report
-    return build_report(_repo_root())
+    from yoke_core.engines.doctor_cli_help_capture import collect_help_pages_isolated
+
+    return build_report(_repo_root(), help_collector=collect_help_pages_isolated)
 
 
-def _check_wrapped_tracker_in_cli(
-    report: dict, fails: List[str]
-) -> None:
+def _check_wrapped_tracker_in_cli(report: dict, fails: List[str]) -> None:
     cli_forms = {row["cli_form"] for row in report["yoke_cli"]["rows"]}
     dispatcher_rows = [
         row
@@ -58,7 +58,9 @@ def _check_wrapped_tracker_in_cli(
     wrapped_rows = [
         r for r in report["operation_tracker"]["rows"] if r["status"] == "wrapped"
     ]
-    missing = [r["shell_form"] for r in wrapped_rows if r["shell_form"] not in cli_forms]
+    missing = [
+        r["shell_form"] for r in wrapped_rows if r["shell_form"] not in cli_forms
+    ]
     for shell_form in missing:
         fails.append(
             f"- wrapped tracker row `{shell_form}` is missing from the "
@@ -88,14 +90,11 @@ def _check_wrapped_tracker_in_cli(
             )
 
 
-def _check_cli_function_ids_registered(
-    report: dict, fails: List[str]
-) -> None:
-    registry_ids = {
-        row["function_id"] for row in report["function_registry"]["rows"]
-    }
+def _check_cli_function_ids_registered(report: dict, fails: List[str]) -> None:
+    registry_ids = {row["function_id"] for row in report["function_registry"]["rows"]}
     missing = [
-        row for row in report["yoke_cli"]["rows"]
+        row
+        for row in report["yoke_cli"]["rows"]
         if row.get("dispatch_kind", "dispatcher") == "dispatcher"
         if row["function_id"] not in registry_ids
     ]
@@ -107,9 +106,7 @@ def _check_cli_function_ids_registered(
         )
 
 
-def _check_subcommand_help_coverage(
-    report: dict, fails: List[str]
-) -> None:
+def _check_subcommand_help_coverage(report: dict, fails: List[str]) -> None:
     per = report["help_pages"]["per_subcommand"]
     for tokens, status in sorted(per.items()):
         body = (status.get("body") or "").strip()
@@ -139,6 +136,7 @@ def _check_taught_command_resolution(report: dict, fails: List[str]) -> None:
 
 def _check_atlas_staleness(report: dict, fails: List[str]) -> None:
     from yoke_core.tools.atlas_render_docs import is_stale, render
+
     body = render(report)
     if is_stale(_repo_root(), body=body):
         fails.append(
@@ -148,9 +146,7 @@ def _check_atlas_staleness(report: dict, fails: List[str]) -> None:
         )
 
 
-def _check_function_inventory_replacement_state(
-    report: dict, fails: List[str]
-) -> None:
+def _check_function_inventory_replacement_state(report: dict, fails: List[str]) -> None:
     path = _repo_root() / "docs" / "function-inventory.md"
     if not path.exists():
         return
@@ -171,7 +167,9 @@ def _check_function_inventory_replacement_state(
 
 
 def hc_atlas_integrity(
-    conn: Any, args: DoctorArgs, rec: RecordCollector,
+    conn: Any,
+    args: DoctorArgs,
+    rec: RecordCollector,
 ) -> None:
     """Run every Atlas hard-fact check and record one combined verdict."""
     try:
@@ -179,7 +177,9 @@ def hc_atlas_integrity(
         report = _build_audit_report()
     except Exception as exc:  # pragma: no cover - audit infra failure
         rec.record(
-            _HC_ID, _HC_NAME, "WARN",
+            _HC_ID,
+            _HC_NAME,
+            "WARN",
             f"audit build failed: {type(exc).__name__}: {exc}",
         )
         return
@@ -210,5 +210,5 @@ from yoke_project_checks._declare import (  # noqa: E402
 )
 
 PROJECT_HEALTH_CHECKS = self_project_checks(
-    ('atlas-integrity', 'Atlas integrity', hc_atlas_integrity),
+    ("atlas-integrity", "Atlas integrity", hc_atlas_integrity),
 )

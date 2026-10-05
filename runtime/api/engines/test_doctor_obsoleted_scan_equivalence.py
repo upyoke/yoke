@@ -120,7 +120,7 @@ def test_parallel_read_timeout_discards_partial_results(monkeypatch):
     assert [r.check_id for r in rec.results] == ["HC-check-incomplete"]
 
 
-def test_complete_candidate_tree_finishes_within_doctor_budget(monkeypatch, capsys):
+def test_complete_candidate_tree_finishes_within_doctor_budget(monkeypatch):
     import time
     from pathlib import Path
 
@@ -177,11 +177,10 @@ def test_complete_candidate_tree_finishes_within_doctor_budget(monkeypatch, caps
         HealthCheck("obsoleted-terms", "Complete candidate tree", check),
     )
     elapsed = time.monotonic() - started
-    with capsys.disabled():
-        print(
-            f"Complete candidate retired-term scan: {elapsed:.3f}s; "
-            f"budget {CHECK_BUDGET_S}s; stages={stages}"
-        )
+    print(
+        f"Complete candidate retired-term scan: {elapsed:.3f}s; "
+        f"budget {CHECK_BUDGET_S}s; stages={stages}"
+    )
     assert [(r.check_id, r.result) for r in rec.results] == [
         ("HC-obsoleted-terms", "PASS")
     ], rec.results
@@ -230,3 +229,25 @@ def test_command_prefix_avoids_generic_product_name_candidates():
     candidate = scan._required_candidate(re.compile(r"\byoke\s+retired-command\b"))
     assert candidate.search("yoke retired-command")
     assert not candidate.search("yoke current-command")
+
+
+@pytest.mark.parametrize(
+    "pattern,text",
+    [
+        (r"`?epic`?\s*field", "epic field"),
+        (r"\b[Ss]unday\b", "Sun" + "day"),
+        (r"(?i)\b[s]undaydo\b", "SUN" + "DAYDO"),
+        (r"(?:yoke\s+)?shepherd\s+dependency-add", "shepherd " + "dependency-add"),
+        (r"\#/" + r"overview\b", "#/" + "overview"),
+        (r"a?foo|other", "other"),
+        (r"[aA]foo|other", "other"),
+        (r"(?:word)?foo|other", "other"),
+        (r"[aA]*foo", "foo"),
+        (r"[aA]foo?", "afo"),
+    ],
+)
+def test_required_tail_filter_never_discards_a_valid_match(pattern, text):
+    compiled = re.compile(pattern)
+    assert compiled.search(text)
+    candidate = scan._required_candidate(compiled)
+    assert candidate is None or candidate.search(text)
