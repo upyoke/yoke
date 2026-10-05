@@ -1,5 +1,10 @@
 # Decision: normalize-event-severity-casing
 
+> Historical record. Source names and procedures below describe the recorded
+> implementation, including retired files; they are not current execution paths.
+> See [archive usage](../README.md) for the current authority.
+
+
 **Status:** decided · paired one-shot retention-exception migration
 
 **Migration module:** `runtime/api/domain/migrations/normalize_event_severity_casing.py`

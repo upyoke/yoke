@@ -7,6 +7,11 @@ retired-without-apply: false
 
 # Retirement decision — drop `harness_sessions.parent_session_id` + index
 
+> Historical record. Source names and procedures below describe the recorded
+> implementation, including retired files; they are not current execution paths.
+> See [archive usage](../README.md) for the current authority.
+
+
 ## Why this exists
 
 The `harness_sessions.parent_session_id` column and its companion index `idx_harness_sessions_parent` were authored as the structural anchor of the Codex parent→child identity-propagation model. The column was set when a child subagent session was auto-registered after consuming a `subagent_dispatch_pending` row, and four caller sites then walked one hop through `sessions_parent_cascade.resolve_one_deep_parent` to inherit the parent's claims and actor identity:

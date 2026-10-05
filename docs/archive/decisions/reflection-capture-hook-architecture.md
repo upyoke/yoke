@@ -1,5 +1,10 @@
 # Reflection-capture moves from skill-prose recipe to PostToolUse Agent-tool hook
 
+> Historical record. Source names and procedures below describe the recorded
+> implementation, including retired files; they are not current execution paths.
+> See [archive usage](../README.md) for the current authority.
+
+
 ## Status
 
 Accepted. Landed in YOK-1832 (claim 287).

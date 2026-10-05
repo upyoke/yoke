@@ -1,5 +1,10 @@
 # strategy_docs_per_project — exception-path authoritative apply
 
+> Historical record. Source names and procedures below describe the recorded
+> implementation, including retired files; they are not current execution paths.
+> See [archive usage](../README.md) for the current authority.
+
+
 - date: 2026-06-11
 - pathway: `record_audit_fingerprint` exception (operator-mandated, ceremony-free)
 - caller: `runtime/api/tools/apply_strategy_docs_cutover.py` (one-shot; deleted with the module at retire time)

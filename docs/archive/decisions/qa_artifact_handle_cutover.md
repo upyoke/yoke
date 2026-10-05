@@ -1,5 +1,10 @@
 # qa_artifact_handle_cutover — exception-path authoritative apply
 
+> Historical record. Source names and procedures below describe the recorded
+> implementation, including retired files; they are not current execution paths.
+> See [archive usage](../README.md) for the current authority.
+
+
 - date: 2026-06-12
 - pathway: `record_audit_fingerprint` exception (operator-mandated, ceremony-free)
 - caller: `runtime/api/tools/apply_qa_artifact_handle_cutover.py` (one-shot; deleted with the module at retire time)

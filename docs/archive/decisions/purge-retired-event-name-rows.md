@@ -9,6 +9,11 @@ retired-without-apply: false
 
 # `purge-retired-event-name-rows` exception pathway
 
+> Historical record. Source names and procedures below describe the recorded
+> implementation, including retired files; they are not current execution paths.
+> See [archive usage](../README.md) for the current authority.
+
+
 ## What this records
 
 A one-shot retention-only migration in

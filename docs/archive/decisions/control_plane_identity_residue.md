@@ -1,5 +1,10 @@
 # Apply the control-plane identity residue migration via the exception path
 
+> Historical record. Source names and procedures below describe the recorded
+> implementation, including retired files; they are not current execution paths.
+> See [archive usage](../README.md) for the current authority.
+
+
 ## Decision
 
 Apply `runtime/api/domain/migrations/control_plane_identity_residue.py` to the

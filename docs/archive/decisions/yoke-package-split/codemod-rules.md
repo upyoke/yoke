@@ -1,5 +1,10 @@
 # Codemod Rules — frozen prefix rewrites (YOK-1902)
 
+> Historical record. Source names and procedures below describe the recorded
+> implementation, including retired files; they are not current execution paths.
+> See [archive usage](../../README.md) for the current authority.
+
+
 The bulk move is a **scripted codemod** keyed to these rules. They are an **ordered
 rule list** (most-specific / longest-prefix first), NOT an unordered dict. The
 machine-readable form lives in `packages/_codemod/rules.py` (Slice 1); this file is

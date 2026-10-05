@@ -8,6 +8,11 @@ retired-without-apply: true
 
 # `add_harness_sessions_main_drift_columns` decision record
 
+> Historical record. Source names and procedures below describe the recorded
+> implementation, including retired files; they are not current execution paths.
+> See [archive usage](../README.md) for the current authority.
+
+
 ## What this records
 
 Same-slice retirement of the governed migration module

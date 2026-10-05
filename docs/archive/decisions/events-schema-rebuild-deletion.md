@@ -9,6 +9,11 @@ matching-pattern: docs/archive/decisions/portability-baseline-live-apply.md
 
 # `events-schema-rebuild` deletion
 
+> Historical record. Source names and procedures below describe the recorded
+> implementation, including retired files; they are not current execution paths.
+> See [archive usage](../README.md) for the current authority.
+
+
 ## Stale-shape trigger condition (pre-deletion)
 
 Before this slice, `cmd_init` in `packages/yoke-core/src/yoke_core/domain/events_writes.py`

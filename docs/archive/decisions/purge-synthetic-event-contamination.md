@@ -7,6 +7,11 @@ ticket: YOK-1704 task 8
 
 # `purge_synthetic_event_contamination` decision record
 
+> Historical record. Source names and procedures below describe the recorded
+> implementation, including retired files; they are not current execution paths.
+> See [archive usage](../README.md) for the current authority.
+
+
 ## What this records
 
 The governed migration module

@@ -1,5 +1,10 @@
 # B8 Phase 1 — Live `events`-Reader Inventory (G3.P5.I7)
 
+> Historical record. Source names and procedures below describe the recorded
+> implementation, including retired files; they are not current execution paths.
+> See [archive usage](../../README.md) for the current authority.
+
+
 Read-only analysis for the Wave 3 / B8 build phase: the `events` table becomes
 telemetry-only; app-state reads are purged. Grounded against worktree
 `g3w3-events-inventory` (main @ 32c5d4d37) and the live cloud-prod ledger

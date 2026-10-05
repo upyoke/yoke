@@ -1,5 +1,10 @@
 # Shell Scripts Reference — Historical Archive
 
+> Historical record. Source names and procedures below describe the recorded
+> implementation, including retired files; they are not current execution paths.
+> See [archive usage](README.md) for the current authority.
+
+
 > **This file is the historical shell reference for Yoke. All scripts listed here have been deleted and replaced by Python entrypoints. See `docs/scripts.md` for the current Python entrypoints table.**
 
 ---

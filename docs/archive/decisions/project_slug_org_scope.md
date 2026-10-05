@@ -1,5 +1,10 @@
 # Apply the org-scoped project slug migration via the exception path
 
+> Historical record. Source names and procedures below describe the recorded
+> implementation, including retired files; they are not current execution paths.
+> See [archive usage](../README.md) for the current authority.
+
+
 ## Decision
 
 Apply `runtime/api/domain/migrations/project_slug_org_scope.py` to the Yoke

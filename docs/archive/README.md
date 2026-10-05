@@ -19,12 +19,15 @@ migration proofs, and incident follow-ups.
 - Active operator guidance (keep in `docs/`).
 - Current reference docs (keep in `docs/`).
 - Living architecture docs (keep in `docs/`).
-- Per-project surfaces — those live under `projects/{project}/`.
+- Project-local policy and operational guidance — keep those in the project's
+  own checkout.
 
 ## Using archived content
 
-Archive files are read-only for practical purposes. Links inside archived
-files may point at retired commands, deleted paths, or obsoleted surface
-names; that is expected. When a current doc needs content from an archive
-file, copy the still-accurate portion over to the live doc and rewrite it
-as present-tense current-state prose — do not link out to the archive.
+Archived source names identify historical implementations. Do not execute an
+archived command or resolve an old identifier as a current file. Current
+migration authority is the [database doctrine](../public/reference/agent-rules/databases.md);
+current operations are the registered `yoke` commands and their `--help`.
+Repair broken navigational links; retain retired names only where they explain
+the historical record. When a current doc needs content from an archive,
+copy the still-accurate portion into the live doc as present-tense guidance.

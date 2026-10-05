@@ -1,5 +1,10 @@
 # `portability_baseline_2026_04` applied to the live DB post-YOK-1476
 
+> Historical record. Source names and procedures below describe the recorded
+> implementation, including retired files; they are not current execution paths.
+> See [archive usage](../README.md) for the current authority.
+
+
 ## Context
 
 YOK-1476 landed the portable-DDL baseline (no `AUTOINCREMENT`, no

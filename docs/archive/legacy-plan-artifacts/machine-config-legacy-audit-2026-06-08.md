@@ -1,5 +1,10 @@
 # I4C Legacy Config/Local-Shape Audit
 
+> Historical record. Source names and procedures below describe the recorded
+> implementation, including retired files; they are not current execution paths.
+> See [archive usage](../README.md) for the current authority.
+
+
 Scope: final G3.P1.I4C cleanup evidence for machine config and board config.
 
 ## Purged
