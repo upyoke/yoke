@@ -86,3 +86,44 @@ def test_atlas_child_timeout_discards_partial_doctor_verdicts(monkeypatch):
         object(), DoctorArgs(), rec, HealthCheck("atlas", "Atlas", check)
     )
     assert [row.check_id for row in rec.results] == ["HC-check-incomplete"]
+
+
+def test_entrypoint_child_timeout_is_incomplete_not_a_subprocess_failure(
+    monkeypatch, tmp_path
+):
+    import subprocess
+    from yoke_project_checks import check_cli_help_handler as help_check
+    from yoke_core.api import service_client
+    from yoke_core.cli import db_router_dispatch
+    from yoke_core.engines.doctor_check_execution import execute_check_isolated
+    from yoke_core.engines.doctor_registry_types import HealthCheck
+
+    monkeypatch.setattr(help_check, "_resolve_repo_root", lambda: str(tmp_path))
+    monkeypatch.setattr(service_client, "COMMANDS", {"slow": None})
+    monkeypatch.setattr(db_router_dispatch, "_DOMAIN_PY_MODULES", {})
+
+    @contextmanager
+    def scratch(**kwargs):
+        yield tmp_path
+
+    def timed_out(argv, **kwargs):
+        raise subprocess.TimeoutExpired(argv, kwargs["timeout"])
+
+    monkeypatch.setattr(help_check, "scratch_subdir", scratch)
+    monkeypatch.setattr(help_check.subprocess, "run", timed_out)
+    rec = RecordCollector()
+    execute_check_isolated(
+        object(),
+        DoctorArgs(),
+        rec,
+        HealthCheck(
+            help_check.HC_SLUG,
+            help_check.HC_LABEL,
+            help_check.hc_cli_help_handler_present,
+        ),
+    )
+    [row] = rec.results
+    assert row.check_id == "HC-check-incomplete"
+    assert row.check_name == help_check.HC_LABEL
+    assert "doctor_check_budget_exhausted" in row.detail
+    assert "subprocess error" not in row.detail

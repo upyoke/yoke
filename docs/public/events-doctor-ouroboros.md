@@ -55,20 +55,26 @@ scans; historical-reference scanning avoids AST work only when no reference
 matches anywhere in the file. The add-column and ambient-connection guards
 likewise prefetch every scoped source without changing their AST predicates.
 CLI help coverage overlaps all isolated entrypoint processes, each using the
-remaining deadline. Atlas captures its complete help roster in one isolated,
+remaining deadline; child timeouts deterministically report `HC-check-incomplete`.
+Atlas captures its complete help roster in one isolated,
 deadline-bound child; stdout redirection stays serial within that child.
 Exemptions and finding order remain unchanged.
 Worktree-health likewise overlaps every lane's independent status read under
-that deadline. Delegated sync avoids fetching comparison fields when linkage
+that deadline and resolves disposable roots per lane when no repository root
+is available. Delegated sync avoids fetching comparison fields when linkage
 has already found no paired subjects; its orphan classifications still run.
 
 A full HTTPS report includes the caller's complete project-local check roster.
 Mixed source/backlog checks retain their own named N/A when direct database
 authority is unavailable; that surface limit is never an internal-error verdict.
+Completed source findings survive alongside the DB-half N/A, including multiple
+verdicts from the same check; composition never overwrites those findings.
 Source checks retain the runner's scoped checkout binding without local SQL.
 When the imported engine runs from a linked lane of the mapped project repo,
 that lane supplies candidate source; another project's checkout keeps its own
 binding. Missing control-plane reads remain visible as N/A rather than a pass.
+Git identity read failures surface `doctor_source_checkout_fallback`, the mapped
+checkout used, and recovery instructions instead of silently switching trees.
 Composition preserves every named incomplete or internal error; distinct check
 failures never replace one another merely because they share a reserved HC id.
 

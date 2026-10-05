@@ -1,9 +1,8 @@
 """Compose machine-local doctor checks with relayed control-plane ones.
 
-An https client holds machine state and source checkouts the hosted runner
-does not. Relayed ``doctor.run.run`` correctly N/As checks that need either
-on the server; this module re-runs those checks on the client and merges
-them into one report.
+An HTTPS client holds machine state and source checkouts the hosted runner
+lacks. This module executes those checks locally and composes every verdict
+with the relayed report.
 """
 
 from __future__ import annotations
@@ -113,7 +112,7 @@ def note_missing_control_plane(
     project: str,
     check: HealthCheck,
 ) -> List[CheckResult]:
-    """Replace incomplete mixed-check evidence with its named surface N/A."""
+    """Name the unavailable DB half without erasing completed source verdicts."""
     for record in records:
         if record.result != "FAIL":
             continue
@@ -127,7 +126,6 @@ def note_missing_control_plane(
             "checkout but no local-postgres authority for "
             "the DB half of the check"
         )
-        return [record]
     return list(records)
 
 
@@ -262,20 +260,24 @@ def merge_relayed_with_local(
             else (slug, None)
         )
 
-    by_slug = {identity(row): row for row in local_results if row.get("hc")}
+    by_slug: Dict[tuple, List[Dict[str, Any]]] = {}
+    for row in local_results:
+        if row.get("hc"):
+            by_slug.setdefault(identity(row), []).append(row)
     merged: List[Dict[str, Any]] = []
     replaced = set()
     for row in relayed_results:
         slug = identity(row)
         local = by_slug.get(slug)
         if local is not None and str(row.get("severity") or "").upper() == "N/A":
-            merged.append(dict(local))
+            if slug not in replaced:
+                merged.extend(dict(record) for record in local)
             replaced.add(slug)
         else:
             merged.append(dict(row))
-    for slug, row in by_slug.items():
+    for slug, rows in by_slug.items():
         if slug not in replaced:
-            merged.append(dict(row))
+            merged.extend(dict(row) for row in rows)
     return merged
 
 

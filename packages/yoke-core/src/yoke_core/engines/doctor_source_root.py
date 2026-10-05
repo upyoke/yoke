@@ -24,6 +24,7 @@ from contextvars import ContextVar
 from pathlib import Path
 from typing import Iterator, Optional
 import subprocess
+import warnings
 
 from yoke_contracts.install_binding import source_checkout_root
 from yoke_contracts.doctor_budget import remaining_seconds
@@ -75,12 +76,22 @@ def preferred_source_checkout(mapped: Path) -> Path:
             text=True,
             timeout=remaining_seconds(5),
         )
-        return result.stdout.strip() if result.returncode == 0 else None
+        if result.returncode or not result.stdout.strip():
+            raise OSError(
+                f"Git identity read failed for {root}: "
+                f"exit={result.returncode}, {result.stderr.strip() or 'empty common dir'}"
+            )
+        return result.stdout.strip()
 
     try:
         selected = common_dir(source)
         if selected and selected == common_dir(mapped):
             return source
-    except (OSError, subprocess.TimeoutExpired):
-        pass
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        warnings.warn(
+            f"doctor_source_checkout_fallback: {exc}; using mapped checkout {mapped}. "
+            "Recovery: restore Git access and rerun Doctor to verify the source lane.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
     return mapped

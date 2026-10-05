@@ -1,12 +1,9 @@
 """Worktree health check — uncommitted, stale, and stranded lanes.
 
 HC-worktree-health inspects every worktree, local branch and item lane.
-The configured directory and universal ``item_worktrees`` registry supply ownership. A lane whose item is terminal but
-which is still on disk is reported with the reason it survived — the same
-proofs the landing cleanup and the merged-lane sweep apply — rolled up on
-one line ("N released lanes still on disk: dirty (...), locked (...),
-unregistered directory (...)") ahead of the per-lane detail, so an operator
-sees what needs a decision before reading the list.
+The ``item_worktrees`` registry supplies ownership. Terminal lanes still on
+disk report the cleanup proof that preserved them, with an operator-first
+summary ahead of each lane's detail.
 
 Lane reads run on the checkout machine, with ownership served through
 ``doctor_worktree_lane_authority``. Unreadable ownership reports N/A. Independent
@@ -156,7 +153,7 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
         if lane.path:
             by_path.setdefault(lane.path, []).append(lane)
 
-    roots = declared_disposable_roots(repo_root) if repo_root else frozenset()
+    roots = declared_disposable_roots(repo_root) if repo_root else None
     paths = [
         e["path"]
         for e in entries
@@ -169,7 +166,8 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
 
     def read_residue(path):
         root = str(repo_root or Path(path).parents[1])
-        return assess_lane_residue(_git_for_repo(root), path, roots)
+        lane_roots = roots if roots is not None else declared_disposable_roots(root)
+        return assess_lane_residue(_git_for_repo(root), path, lane_roots)
 
     residues = dict(zip(paths, bounded_read_map(read_residue, paths)))
 
