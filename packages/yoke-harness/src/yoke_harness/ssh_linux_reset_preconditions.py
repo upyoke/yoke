@@ -1,11 +1,10 @@
-"""Read-only Linux reset admission and opaque live Claude credential retention."""
+"""Linux reset credential admission and opaque live Claude credential retention."""
 
 from __future__ import annotations
 
 import json
 import re
 from pathlib import Path, PurePosixPath
-import shlex
 import subprocess
 from typing import Any
 
@@ -24,14 +23,6 @@ DESKTOP_PROGRAM = (
     Path(linux_desktop_state.__file__)
     .read_text()
     .replace("from __future__ import annotations", "")
-    + r"""
-def desktop_precondition():
-    try:
-        if human_desktop_exists(home, owned_desktop()):
-            refuse("linux_reset_desktop_logged_in", recovery="operator is logged in to the desktop; log out first")
-    except (OSError, RuntimeError, ValueError, subprocess.TimeoutExpired):
-        refuse("linux_reset_desktop_state_unknown", recovery="Repair /proc or loginctl access, then retry; desktop logout was not proved.")
-"""
 )
 
 
@@ -81,31 +72,7 @@ def restore_claude(stash):
 
 
 def reset_preflight(control: Any, destination: str) -> HostActionResult:
-    """Refuse before archive cleanup; select Claude solely from sealed probes."""
-    program = (
-        "import json, os, pathlib, shutil, sys\nhome = pathlib.Path(sys.argv[1])\n"
-        "def refuse(reason, entry=None, recovery=None):\n"
-        ' print(json.dumps({"ok":False,"reason":reason,"recovery":recovery})); sys.exit(64)\n'
-        + DESKTOP_PROGRAM
-        + '\ndesktop_precondition()\nprint(json.dumps({"ok":True}))\n'
-    )
-    observed = control._run(
-        shlex.join(["/usr/bin/python3", "-c", program, control.home])
-    )
-    try:
-        evidence = json.loads(observed.stdout)
-    except (ValueError, TypeError):
-        evidence = {}
-    if not isinstance(evidence, dict):
-        evidence = {}
-    if observed.returncode or evidence.get("ok") is not True:
-        evidence.setdefault(
-            "recovery",
-            "Repair the read-only Linux desktop admission command, then retry.",
-        )
-        return HostActionResult(
-            False, evidence, evidence.get("reason", "linux_golden_operation_failed")
-        )
+    """Validate credentials before archive cleanup; select Claude from sealed probes."""
     try:
         document = control.read_remote_text(destination + GOLDEN_PROBES_SUFFIX)
     except RuntimeError:

@@ -3,11 +3,11 @@
 Preparing, signing in, saving, restoring and repairing a Test Machine has one
 complete ordered procedure per OS in the Machine QA Pack:
 
-- [macOS](../../packs/machine-qa/versions/1.3.8/files/docs/packs/machine-qa/macos-host-provisioning.md)
-- [Linux](../../packs/machine-qa/versions/1.3.8/files/docs/packs/machine-qa/linux-host-provisioning.md)
-- [Windows/WSL2](../../packs/machine-qa/versions/1.3.8/files/docs/packs/machine-qa/windows-host-provisioning.md)
+- [macOS](../../packs/machine-qa/versions/1.3.12/files/docs/packs/machine-qa/macos-host-provisioning.md)
+- [Linux](../../packs/machine-qa/versions/1.3.12/files/docs/packs/machine-qa/linux-host-provisioning.md)
+- [Windows/WSL2](../../packs/machine-qa/versions/1.3.12/files/docs/packs/machine-qa/windows-host-provisioning.md)
 
-The [provisioning index](../../packs/machine-qa/versions/1.3.8/files/docs/packs/machine-qa/host-provisioning.md) installs
+The [provisioning index](../../packs/machine-qa/versions/1.3.12/files/docs/packs/machine-qa/host-provisioning.md) installs
 as `docs/packs/machine-qa/host-provisioning.md`. This page explains the model
 behind its evidence, without providing a second preparation procedure.
 
@@ -51,6 +51,12 @@ Compose labels protect unrelated workloads; PID start times protect reused
 process ids; service inventory checks protect against deleted definitions whose
 jobs remain loaded. A failed prerequisite preserves its diagnostic in the
 operation receipt, and a partial restore cannot establish a new baseline.
+
+Linux golden capture proves its own reset roundtrip and sealed probes, starts
+the fixture desktop through xrdp, validates a non-blank screenshot, and ends the
+session before registration. Its receipt names the failing step when any check
+fails. Desktop discovery counts active logged-in fixture users, excluding
+greeters, closing sessions and other users. Reset ends the fixture desktop.
 
 Linux user-service mutations share the relay's 180-second operation budget;
 inventory probes retain a 30-second limit. Timeout receipts name the command
@@ -99,15 +105,12 @@ checks. Its existing retained host-command keeps the candidate terminal alive;
 `yoke qa browser setup` and `yoke qa browser step` drive candidate Chromium one
 observed step at a time. Read those commands' `--help` before execution. Do not
 add an approval command or extend the scripted terminal recipe contract.
-Agents complete setup and password-free authorization from the test account's
-already signed-in saved identity-provider session, only for their own fresh
-link. This includes the test account's consent/Authorize click for a native
-harness login, such as Claude Code in Safari on test-mac. Verify the fresh link
-belongs to this execution and the visible signed-in identity is the intended
-test account before clicking; an unproved identity or unrelated link is a
-handoff. The user enters passwords, MFA or passkeys, chooses or switches
-accounts, and handles personal permission prompts and system/security settings,
-including OS privacy/TCC dialogs. Agents never enter or extract credentials.
+Follow the Machine QA Pack's [setup responsibilities](../../packs/machine-qa/versions/1.3.12/files/docs/packs/machine-qa/setup-responsibilities.md).
+Agents complete every software-capable setup step and system permission prompt.
+Only browser sign-in and OS permissions that software cannot grant need the
+operator. Product code alone enters passwords from stored secrets; nobody types
+them by hand. Verify a fresh authorization link belongs to this execution and
+the visible signed-in identity is the intended test account before clicking.
 Actual candidate application UI and terminal completion are separate proofs
 from the snapshot seal. Scripted terminal cases keep their current route.
 The proven Mac Safari route remains in place until the walker has completed a
