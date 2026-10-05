@@ -100,6 +100,8 @@ def test_compact_work_keeps_bound_project_item_routes_and_derivation():
         {
             "items": [],
             "commits": ["a" * 40],
+            "commit_subjects": {"a" * 40: "Maintenance"},
+            "commit_authors": {"a" * 40: "A maintainer"},
             "bound_projects": [
                 {
                     "project_id": 2,
@@ -110,7 +112,9 @@ def test_compact_work_keeps_bound_project_item_routes_and_derivation():
             ],
         }
     )
-    assert "commits" not in result
+    assert result["commits"] == ["a" * 40]
+    assert result["commit_subjects"]["a" * 40] == "Maintenance"
+    assert result["commit_authors"]["a" * 40] == "A maintainer"
     assert result["bound_projects"][0]["project_id"] == 2
     assert result["bound_projects"][0]["items"][0]["project_sequence"] == 1
     assert result["bound_projects"][0]["derivation"]["contents_known"] is True

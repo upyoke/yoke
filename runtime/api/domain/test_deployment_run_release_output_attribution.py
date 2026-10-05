@@ -1,9 +1,8 @@
 """Carried work reads the release that wrote a commit, and only then.
 
 A promotion that rewrites a version pin pushes a commit no backlog item
-authored. Left unexplained it is unattributed carried work, and the next
-release refuses to compose. The run that produced it records its output,
-and attribution reads that record.
+authored. The producing run may record its output, and attribution reads
+that record before classifying other commits as made outside Yoke.
 
 What these tests hold down is the ordering: the record is consulted only for
 a commit attribution had already given up on, and explaining one commit
@@ -66,10 +65,10 @@ def test_a_recorded_pin_commit_composes_without_a_hand_written_resolution(
     assert carried_membership_refusal(test_db, "run-release-output-002") is None
 
 
-def test_an_unexplained_commit_beside_a_recorded_one_still_refuses(
+def test_an_outside_commit_beside_a_recorded_one_does_not_block(
     test_db: Any, release_source: dict[str, Any]
 ) -> None:
-    """Attributing release output waives nothing else in the same range."""
+    """Release output and outside commits retain distinct carried records."""
     record_release_output(
         test_db,
         run_id=release_source["producer"],
@@ -93,9 +92,9 @@ def test_an_unexplained_commit_beside_a_recorded_one_still_refuses(
 
     carried = carried_work_of(test_db, "run-release-output-003")
     assert carried["commits"] == [release_source["maintenance"]]
-    refusal = carried_membership_refusal(test_db, "run-release-output-003")
-    assert refusal is not None
-    assert "carries 1 commit(s)" in refusal
-    assert "yoke merge-receipt commits attest" in refusal
-    assert f"--commit {release_source['maintenance']}" in refusal
-    assert "composition_resolution" not in refusal
+    assert (
+        carried["commit_subjects"][release_source["maintenance"]]
+        == "Routine maintenance"
+    )
+    assert carried["commit_authors"][release_source["maintenance"]] == "Yoke Test"
+    assert carried_membership_refusal(test_db, "run-release-output-003") is None

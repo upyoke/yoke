@@ -14,6 +14,13 @@ subject:
 Flows is the tab Deployments opens on. Runs live at `#/deployments/runs`, and
 one run at `#/deployments/runs/<run id>`.
 
+Commits made outside Yoke ship without an item or attestation. Run pages,
+Shipping cards, Runs tables and release approvals show **Also includes N
+commits made outside Yoke**. Expand it to see each project's short commit SHA,
+subject and author. Optional `yoke merge-receipt commits attest` ties a commit
+to its owning item; installer refresh commits follow the same rule as any hotfix
+or bot commit.
+
 **Flows** lists every definition you can read, grouped by project with the
 projects in the current scope first, and searches names,
 IDs, stages and environments. Disabled definitions stay hidden until **Show

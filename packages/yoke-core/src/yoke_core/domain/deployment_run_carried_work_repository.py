@@ -2,10 +2,8 @@
 
 A control plane serving an HTTPS-only project holds no checkout of that
 project, so the comparison runs over the binding the project already
-authorized. One compare read returns the exact commit set between two
-lineages together with each commit's parents, message, and time, which is
-every fact the local checkout was consulted for — the first-parent range is
-then walked out of that graph rather than approximated.
+authorized. The comparison supplies each commit's parents, message, author,
+and time; the first-parent range is walked out of that graph.
 """
 
 from __future__ import annotations
@@ -165,6 +163,9 @@ class RepositoryProviderSource:
     def commit_time(self, sha: str) -> str:
         commit = self._graph.get(sha.lower(), {})
         return str(commit.get("committed_at") or "")
+
+    def commit_author(self, sha: str) -> str:
+        return str(self._graph.get(sha.lower(), {}).get("author") or "")
 
     def carrying_commit(
         self,

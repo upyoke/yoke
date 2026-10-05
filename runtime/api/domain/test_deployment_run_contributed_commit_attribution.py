@@ -8,14 +8,13 @@ production release it from different baselines, and stage releases twice.
 Every commit the item contributed is the item's in whichever release first
 carries it — once per environment, so a commit stage already shipped is not
 stage's again while production still sees it as new. The pin stays release
-output. The hotfix stays unattributed despite naming the item, and the
-refusal names it by sha and subject beside the executable receipt repair.
+output. The hotfix stays outside Yoke despite naming the item; optional
+attestation can credit it to the item without gating the release.
 """
 
 from __future__ import annotations
 
 import subprocess
-import shlex
 from pathlib import Path
 from typing import Any
 
@@ -32,9 +31,6 @@ from yoke_cli.commands.adapters import merge_receipt_commits as adapter
 from yoke_core.domain.deployment_run_carried_work import derive_carried_work
 from yoke_core.domain.deployment_run_release_output_record import (
     record_release_output,
-)
-from yoke_core.domain.deployment_run_unattributed_commits import (
-    unattributed_commits_refusal,
 )
 from yoke_core.domain.item_merge_commit_attestation import attest_commits
 from yoke_core.domain.item_merge_contributed_commits import before_landing
@@ -187,71 +183,47 @@ def test_a_repeated_stage_release_does_not_count_shipped_commits_again(
     assert carried["commits"] == [release["hotfix"]]
 
 
-def test_a_commit_naming_an_item_is_refused_by_sha_and_subject(
+def test_a_commit_naming_an_item_is_carried_with_its_subject_and_author(
     test_db: Any,
     release: dict[str, Any],
 ) -> None:
     carried = derive_carried_work(test_db, "run-prod-2")
+    sha = release["hotfix"]
+    assert sha in carried["commits"]
+    assert carried["commit_subjects"][sha].startswith(
+        "Hotfix pushed straight to main for"
+    )
+    assert carried["commit_authors"][sha] == "Yoke Test"
+    assert carried["derivation"]["reason"] == "complete"
 
-    refusal = unattributed_commits_refusal("run-prod-2", carried)
 
-    assert f"{release['hotfix']} Hotfix pushed straight to main for" in refusal
-    assert "yoke merge-receipt commits attest PREFIX-N" in refusal
-    assert f"--commit {release['hotfix']}" in refusal
-    assert "composition_resolution" not in refusal
-
-
-def test_printed_recovery_clears_attribution_without_a_persisted_run(
+def test_optional_attestation_moves_an_outside_commit_under_its_item(
     test_db: Any,
     release: dict[str, Any],
     monkeypatch,
 ) -> None:
-    carried = derive_carried_work(test_db, "run-prod-2")
-    refused_run = "run-not-created"
-    carried["project"] = project_slug(test_db)
-    refusal = unattributed_commits_refusal(refused_run, carried)
-    assert (
-        test_db.execute(
-            "SELECT id FROM deployment_runs WHERE id=%s",
-            (refused_run,),
-        ).fetchone()
-        is None
-    )
-    command = refusal.split("Recovery:\n", 1)[1].splitlines()[0]
-    words = shlex.split(command)
-    assert words[:4] == ["yoke", "merge-receipt", "commits", "attest"]
-    assert words[4] == "PREFIX-N"
-    words[4] = release["ref"]
-    words[-1] = "the item's follow-up, pushed without a lane"
-
-    def dispatch_repair(**kwargs):
+    def dispatch_attestation(**kwargs):
         assert kwargs["function_id"] == "merge_receipt.commits.attest"
         assert kwargs["target"].public_ref == release["ref"]
-        assert kwargs["target"].project_id == carried["project"]
         attest_commits(test_db, item_id=ITEM_ID, **kwargs["payload"])
         test_db.commit()
         return 0
 
-    monkeypatch.setattr(adapter, "dispatch_and_emit", dispatch_repair)
-    assert adapter.merge_receipt_commits_attest(words[4:]) == 0
-
+    monkeypatch.setattr(adapter, "dispatch_and_emit", dispatch_attestation)
+    assert (
+        adapter.merge_receipt_commits_attest(
+            [
+                release["ref"],
+                "--commit",
+                release["hotfix"],
+                "--reason",
+                "the item's follow-up, pushed without a lane",
+            ]
+        )
+        == 0
+    )
     carried = derive_carried_work(test_db, "run-prod-2")
-
     assert _credited(carried) == [*release["item"], release["hotfix"]]
     assert carried["commits"] == []
-    assert unattributed_commits_refusal("run-prod-2", carried) == ""
-
-
-def test_recovery_fills_every_offending_sha_and_quotes_project() -> None:
-    shas = ["a" * 40, "b" * 40]
-    project = "project with spaces"
-    refusal = unattributed_commits_refusal(
-        "missing-run",
-        {
-            "commits": shas,
-            "project": project,
-        },
-    )
-    words = shlex.split(refusal.split("Recovery:\n", 1)[1].splitlines()[0])
-    assert [words[i + 1] for i, word in enumerate(words) if word == "--commit"] == shas
-    assert words[words.index("--project") + 1] == project
+    assert carried["commit_subjects"] == {}
+    assert carried["commit_authors"] == {}

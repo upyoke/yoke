@@ -3,6 +3,7 @@
 // evidence its checks captured.
 
 import { itemDrillInHref } from "./universe_item_routes.js";
+import { appendOutsideCommits, outsideCommitCount } from "./universe_outside_commits.js";
 import { el, labelCellsByColumn, statePill } from "./universe_view_support.js";
 import { relativeTime } from "./universe_time.js";
 import { renderStageStrip } from "./universe_stage_strip.js";
@@ -39,7 +40,7 @@ function carriesCell(documentNode, row) {
   const cell = el(documentNode, "td");
   const items = carriedItems(row);
   const members = el(documentNode, "div", "delivery-origin-items");
-  if (!items.length) {
+  if (!items.length && !outsideCommitCount(row)) {
     members.appendChild(el(documentNode, "span", "secondary-muted", "environment run"));
   }
   for (const member of items.slice(0, CARRIED_ITEMS_SHOWN)) {
@@ -51,6 +52,7 @@ function carriesCell(documentNode, row) {
     ));
   }
   cell.appendChild(members);
+  appendOutsideCommits(documentNode, cell, row);
   return cell;
 }
 

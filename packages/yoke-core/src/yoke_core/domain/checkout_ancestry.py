@@ -84,8 +84,8 @@ def carrying_commit(
 
 def commit_facts(
     repo_root: str, shas: Iterable[str]
-) -> dict[str, tuple[str, str]]:
-    """Return ``sha -> (committer ISO time, message)`` in one ``git log``.
+) -> dict[str, tuple[str, str, str]]:
+    """Return ``sha -> (committer ISO time, message, author)`` in one git read.
 
     A failed read yields an empty map, matching per-sha ``git show``
     returning empty strings.
@@ -97,17 +97,17 @@ def commit_facts(
         repo_root,
         "log",
         "--no-walk",
-        "--format=%H%x00%cI%x00%B%x00",
+        "--format=%H%x00%cI%x00%B%x00%an%x00",
         *unique,
     )
-    facts: dict[str, tuple[str, str]] = {}
+    facts: dict[str, tuple[str, str, str]] = {}
     parts = raw.split("\0")
     index = 0
-    while index + 2 < len(parts):
+    while index + 3 < len(parts):
         sha, when, message = parts[index], parts[index + 1], parts[index + 2]
         if sha:
-            facts[sha] = (when, message.rstrip("\n"))
-        index += 3
+            facts[sha.strip()] = (when, message.rstrip("\n"), parts[index + 3])
+        index += 4
     return facts
 
 

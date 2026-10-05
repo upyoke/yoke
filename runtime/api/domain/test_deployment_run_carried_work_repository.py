@@ -27,6 +27,7 @@ def _commit(sha: str, *, parents: tuple[str, ...], message: str = "") -> dict[st
         "commit": {
             "message": message or f"commit {sha[:7]}",
             "committer": {"date": "2026-09-15T00:00:00Z"},
+            "author": {"name": "A contributor"},
         },
         "parents": [{"sha": parent} for parent in parents],
     }
@@ -108,6 +109,7 @@ def test_the_first_parent_range_is_walked_out_of_the_compared_graph(
     # The side of the merge that is not the first parent is excluded, exactly
     # as `rev-list --first-parent` excludes it in a checkout.
     assert commits == (MERGE, TIP)
+    assert source.commit_author(TIP) == "A contributor"
 
 
 def test_a_full_sha_resolves_without_spending_a_request(

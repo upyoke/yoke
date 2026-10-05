@@ -271,6 +271,9 @@ def test_history_query_presents_flow_stages_and_derived_carried_items(
         "derivation": {"status": "derived", "reason": "complete"},
         "items": [{"ref": "YOK-3080", "item_id": 3207}],
         "bound_projects": [],
+        "commits": [],
+        "commit_subjects": {},
+        "commit_authors": {},
     }
 
 
@@ -293,6 +296,8 @@ def test_history_query_keeps_bound_project_carried_item_routes(monkeypatch):
                             "project": "consumer",
                             "items": [item],
                             "commits": ["a" * 40],
+                            "commit_subjects": {"a" * 40: "Consumer maintenance"},
+                            "commit_authors": {"a" * 40: "A maintainer"},
                             "derivation": {"status": "derived"},
                         }
                     ],
@@ -309,6 +314,9 @@ def test_history_query_keeps_bound_project_carried_item_routes(monkeypatch):
             "items": [item],
             "derivation": {"status": "derived"},
             "bound_projects": [],
+            "commits": ["a" * 40],
+            "commit_subjects": {"a" * 40: "Consumer maintenance"},
+            "commit_authors": {"a" * 40: "A maintainer"},
         }
     ]
 

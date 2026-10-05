@@ -2,6 +2,7 @@
 // sent to you, and what you have already decided.
 
 import { appendCarriedItemHeading } from "./universe_carried_item_titles.js";
+import { appendOutsideCommits } from "./universe_outside_commits.js";
 import {
   callFunction,
   el,
@@ -22,6 +23,7 @@ import {
 } from "./universe_sessions_holdings_disclosure.js";
 import {
   appendCarriedItemEvidence,
+  EMPTY_CARRIED_ITEM_FACTS,
   loadCarriedItemEvidence,
 } from "./universe_carried_item_evidence.js";
 import {
@@ -91,6 +93,11 @@ function approvalCarried(row) {
 // block is its own request with its own answer — so the block carries it in
 // its shape rather than in a sentence repeated on every card that has one.
 function appendApprovalCarried(context, card, row, facts, onDecide) {
+  if (row.kind === "deployment_stage_approval") {
+    appendOutsideCommits(context.document, card, {
+      carried_work: row.subject_context?.carried, project: projectLabel(context, row),
+    });
+  }
   const { items, basis } = approvalCarried(row);
   if (!items.length) return;
   const documentNode = context.document;
@@ -229,7 +236,6 @@ export function renderInboxView(context, main, scope) {
     }), "Nothing is waiting on you.");
     // What each carried item proved is a second read, so the Inbox paints
     // its decisions first and fills that context in when it lands.
-    appendCarriedContext(pending, cards);
 
     const allMessages = result.messages || [];
     const noticeRows = allMessages.filter((row) => NOTICE_LABELS[row.notice_kind]);
@@ -260,6 +266,7 @@ export function renderInboxView(context, main, scope) {
       row, { compact: true, projectLabel: rowProject(row) },
     )]));
     cardList(documentNode, decided.body, [...decidedCards.values()], "");
+    appendCarriedContext([...pending, ...done], new Map([...cards, ...decidedCards]));
     appendRunReviewChecks(new Map([...cards, ...decidedCards]));
   };
 
@@ -284,8 +291,8 @@ export function renderInboxView(context, main, scope) {
   // deployment cards use, so the association labels cannot drift apart.
   const appendCarriedContext = async (pending, cards) => {
     const subjects = pending.flatMap((row) => approvalCarried(row).items);
-    if (!subjects.length) return;
-    const facts = await loadCarriedItemEvidence(context, subjects);
+    const facts = subjects.length
+      ? await loadCarriedItemEvidence(context, subjects) : EMPTY_CARRIED_ITEM_FACTS;
     if (!context.isMounted()) return;
     for (const [row, card] of cards) {
       appendApprovalCarried(context, card, row, facts, resolve);

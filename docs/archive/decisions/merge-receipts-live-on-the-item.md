@@ -28,7 +28,7 @@ the five readers wanted from the receipt is the opposite of disposable:
   against from the same receipt. An expired receipt rejects valid proof.
 - Release attribution maps range commits back to items from the same recorded
   lineage. An expired receipt silently drops an item from a release's carried
-  work, leaving its commits for the release to refuse as unattributed.
+  work, leaving its commits displayed as made outside Yoke.
 
 The item is the durable owner those facts already belong to: the receipt
 describes that item's merge, and it should last exactly as long as the item.
@@ -41,7 +41,7 @@ A receipt once named only the two ends of a landing: the implementation
 commit and the merge commit. A release reads its target's first-parent
 history, and a branch that landed by fast forward — synced with its target
 first or not — puts every one of its commits on that line, so a release
-carrying a five-commit landing found three of them unowned and refused.
+carrying a five-commit landing found three of them unowned.
 Crediting them by the item reference in their messages would have made a
 message ownership evidence, and crediting every ancestor of the landed commit
 would have handed the item whatever its branch syncs brought in.
@@ -53,10 +53,10 @@ second. It is taken before the merge, when the target itself says where the
 contribution starts — a fast forward erases that boundary — and re-derived
 afterwards only where the landing left a merge commit whose other parent still
 marks it. An item recorded before that, or by a landing that left nothing to
-derive from, is repaired by attesting its commits to its own receipt
+derive from, may optionally attest its commits to its own receipt
 (`merge_receipt.commits.attest`), stored beside the derived set with the
-reason given; the run's `composition_resolution` stays reserved for code no
-backlog item owns.
+reason given. Unowned commits ship without a resolution or attestation, and
+the release lists them by project with their subject and author.
 
 ## The failure record is current state, not chronology
 

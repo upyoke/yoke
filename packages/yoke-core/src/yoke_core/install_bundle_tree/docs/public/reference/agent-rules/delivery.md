@@ -29,7 +29,7 @@ the run's own candidate, so the run delivers two projects, not one.
   deployment-runs release-output record RUN-ID --project P`, stored as
   `outputs` on that project's `bound_sources` entry — and carried-work
   attribution reads that record only for a commit no item claimed, so the
-  item always wins and unexplained real code still refuses. Omit `--commit`
+  item always wins; other commits ship as work made outside Yoke. Omit `--commit`
   and the branch the run itself bound names the commit. Recording is refused
   by name for a commit an item already owns, one the run merely pinned, and
   one that does not descend from that pinned source.
@@ -108,7 +108,7 @@ learns the other's part from its own skill. The split is the whole rule:
   enrolls it; `add-item` reverses the removal while created. Unsettled independent members may also be removed while executing at item QA or failed at `item-qa-failed`, with the same shared-gate guards: outstanding run-bound member requirements are retracted; standing plans and passing evidence remain. A live item QA runner skips a member only when its membership row is absent and the run records its removal, then continues the remaining members; an unrecorded missing member still fails loudly. Resume the failed run with `yoke watch deploy -- RUN-ID --from-stage item-qa`; every other failed stage still refuses removal. Before creating a release pair, inspect the
   delivery-ready items' selected completion flows and choose their flow. A
   refused creation or start names independent blockers together, including
-  each mismatched member flow and unattributed commits. Use a run of the
+  each mismatched member flow. Use a run of the
   selected flow, or deliberately reconcile item flows, then revalidate;
   never silently change an item's flow. An item a cancelled run left behind
   needs no attaching, and `yoke steering report get` names any landed item no
@@ -118,12 +118,13 @@ learns the other's part from its own skill. The split is the whole rule:
   member QA. A separate Removed section says "QA cancelled — rides" and names
   the newer run holding the item, or "a later release" when none holds it yet.
   For red member QA, `yoke deployment-runs remove-item RUN ITEM --reason R` lets an independent run finish while the member waits for its next release; see `remove-item --help`. Settlement automatically releases members whose current candidate is outside the frozen lineage.
-- **An unattributed carried commit is named, never waived blind.** Composition
-  refuses with each commit's SHA and subject. An item's own commit its receipt
-  did not record is attested to that item —
-  `yoke merge-receipt commits attest PREFIX-N --commit SHA --reason R` — and
-  creation or start retried. Refused creation leaves no run to update;
-  resolve ownership first if no item owns a commit. Read `attest --help`.
+- **Commits made outside Yoke ship without an item.** Composition never
+  blocks on commit ownership. Carried work records each commit's SHA, subject
+  and author under its project. Run pages, Shipping cards, Runs tables and
+  release approvals show "Also includes N commits made outside Yoke", with an
+  expandable commit list. Optional `yoke merge-receipt commits attest PREFIX-N
+  --commit SHA --reason R` ties this item's work to its receipt; read `attest
+  --help`. Installer refreshes follow the same rule as any other outside commit.
 - **The attach says what the run can do for the member.** Two independent
   capabilities: a run **checks** a member only through an item-scoped QA
   stage, and **closes** one only as that item's completion flow or as another
