@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from typing import Mapping
 
+# The machine administrator password, also used for its desktop login.
 DESKTOP_PASSWORD_KEY = "desktop_password"
 DESKTOP_SETTING_KEYS = frozenset(
     {

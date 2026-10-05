@@ -80,6 +80,7 @@ def run_remote_command(
     yoke_home: Path,
     environ: Mapping[str, str] = os.environ,
     popen: Callable[..., subprocess.Popen] = subprocess.Popen,
+    administrator_password: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Tee output live with inherited stdin; return bounded diagnostic tails.
 
@@ -103,6 +104,10 @@ def run_remote_command(
             "(`ssh-add -l` lists it) and run from a shell that exports "
             f"{SSH_AUTH_SOCK_ENV}.",
         )
+    from yoke_harness.test_machine_admin import administrator_command
+
+    if administrator_password is not None:
+        command = administrator_command(command)
     known_hosts = known_hosts_path(yoke_home)
     create_private_directory(known_hosts.parent)
     argv = remote_exec_argv(
@@ -112,14 +117,19 @@ def run_remote_command(
         command=command,
     )
     try:
-        process = popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        input_options = (
+            {"stdin": subprocess.PIPE} if administrator_password is not None else {}
+        )
+        process = popen(
+            argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **input_options
+        )
     except OSError as exc:
         raise RemoteExecRefusal(
             "test_machine_ssh_unavailable",
             f"could not start ssh: {exc}",
             "Install OpenSSH's `ssh` client on this machine and put it on PATH.",
         ) from exc
-    completed = _stream_command(argv, process=process)
+    completed = _stream_command(argv, process=process, password=administrator_password)
     if completed.returncode == SSH_CONNECTION_FAILURE_EXIT:
         raise RemoteExecRefusal(
             "test_machine_ssh_failed",
@@ -136,15 +146,26 @@ def run_remote_command(
 
 
 def _stream_command(
-    argv: list[str], *, process: subprocess.Popen
+    argv: list[str], *, process: subprocess.Popen, password: str | None = None
 ) -> subprocess.CompletedProcess[str]:
     """Drain both pipes without line buffering or retaining the full output."""
+    from yoke_harness.test_machine_admin import PasswordRedactor
+
     encoding = locale.getpreferredencoding(False)
+    secret = password.encode("utf-8") if password is not None else b""
     with process:
         assert process.stdout is not None and process.stderr is not None
         tails = {process.stdout: bytearray(), process.stderr: bytearray()}
         with selectors.DefaultSelector() as selector:
             try:
+                if password is not None:
+                    assert process.stdin is not None
+                    try:
+                        process.stdin.write(secret + b"\n")
+                        process.stdin.close()
+                    except BrokenPipeError:
+                        # SSH may have already refused; drain its diagnosed failure.
+                        pass
                 for stream, destination in (
                     (process.stdout, sys.stdout),
                     (process.stderr, sys.stderr),
@@ -153,21 +174,24 @@ def _stream_command(
                         errors="backslashreplace"
                     )
                     selector.register(
-                        stream, selectors.EVENT_READ, (destination, decoder)
+                        stream,
+                        selectors.EVENT_READ,
+                        (destination, decoder, PasswordRedactor(secret)),
                     )
                 while selector.get_map():
                     for key, _ in selector.select():
                         stream = key.fileobj
                         chunk = os.read(stream.fileno(), _READ_CHUNK_BYTES)
-                        destination, decoder = key.data
-                        destination.write(decoder.decode(chunk, final=not chunk))
+                        destination, decoder, redactor = key.data
+                        safe = redactor.feed(chunk, final=not chunk)
+                        destination.write(decoder.decode(safe, final=not chunk))
                         destination.flush()
+                        tail = tails[stream]
+                        tail.extend(safe)
+                        del tail[:-DIAGNOSTIC_TAIL_BYTES]
                         if not chunk:
                             selector.unregister(stream)
                             continue
-                        tail = tails[stream]
-                        tail.extend(chunk)
-                        del tail[:-DIAGNOSTIC_TAIL_BYTES]
                 returncode = process.wait()
             except BaseException:
                 process.kill()

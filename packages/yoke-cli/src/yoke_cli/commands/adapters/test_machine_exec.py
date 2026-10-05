@@ -22,9 +22,7 @@ from yoke_cli.config import machine_config
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
 
 
-EXEC_USAGE = (
-    "yoke test-machine exec --project P [--machine NAME] [--session-id S] -- ARGV..."
-)
+EXEC_USAGE = "yoke test-machine exec --project P [--machine NAME] [--admin] [--session-id S] -- ARGV..."
 _REFUSED_EXIT = 1
 
 
@@ -71,6 +69,13 @@ def test_machine_exec(args: List[str]) -> int:
     )
     parser.add_argument("--project", required=True)
     parser.add_argument("--machine")
+    parser.add_argument(
+        "--admin",
+        action="store_true",
+        help="Run through sudo on macOS or Linux using the machine's stored "
+        "desktop_password administrator credential on private stdin. "
+        "Output is redacted; the administrator command receives no stdin.",
+    )
     add_session_arg(parser)
     parsed = parse_or_usage_error(parser, args[:split], EXEC_USAGE)
     if parsed is None:
@@ -107,6 +112,15 @@ def test_machine_exec(args: List[str]) -> int:
     )
 
     try:
+        admin_options = {}
+        if parsed.admin:
+            from yoke_harness.test_machine_admin import administrator_password
+
+            admin_options["administrator_password"] = administrator_password(
+                project=parsed.project,
+                machine=detail["machine"],
+                os_name=settings["os"],
+            )
         if settings["os"] == "windows":
             from yoke_harness.windows_wsl_command import windows_wsl_command
 
@@ -116,9 +130,18 @@ def test_machine_exec(args: List[str]) -> int:
             user=str(settings["user"]),
             command=command,
             yoke_home=machine_config.yoke_home(),
+            **admin_options,
         )
     except RemoteExecRefusal as refusal:
         return _refuse(refusal.code, str(refusal), refusal.recovery)
+    if parsed.admin and completed.returncode:
+        _refuse(
+            "test_machine_admin_command_failed",
+            f"administrator command exited {completed.returncode}; see the redacted output above",
+            "Correct the reported command failure and retry. If sudo rejected "
+            "authentication, verify the registered user's sudo rights and "
+            "reimport its administrator password as test-machine:NAME.desktop_password.",
+        )
     if completed.returncode and settings["os"] == "macos":
         from yoke_harness.ssh_mac_gui_session import (
             classify_macos_session_context_failure,

@@ -35,7 +35,10 @@ MACHINE_LOCAL_SECRET_KEYS_BY_CAPABILITY = {
 
 
 def machine_local_capability_secret_keys(cap_type: str) -> frozenset[str]:
-    """Return machine-local secret keys for a capability type."""
+    """Return local secret keys; desktop_password is the machine admin password.
+
+    Named test machines use it for desktop access and administrator commands.
+    """
     if re.fullmatch(
         re.escape(TEST_MACHINE_CAPABILITY) + r":[A-Za-z0-9][A-Za-z0-9._-]{0,79}",
         cap_type,
