@@ -271,7 +271,10 @@ class Installer:
         finally:
             os.unlink(config_path)
         shell_update = self.capture_runner(["uv", "tool", "update-shell"])
-        if shell_update.returncode:
+        shell_unknown = bool(shell_update.returncode) and (
+            "current shell could not be determined" in shell_update.stderr
+        )
+        if shell_update.returncode and not shell_unknown:
             raise InstallError(
                 "uv_shell_update_failed: "
                 + shell_update.stderr.strip()
@@ -303,7 +306,14 @@ class Installer:
             print(self._say(f"Yoke v{display} already installed"), file=self.stdout)
         else:
             print(self._say(f"Yoke v{display} is ready"), file=self.stdout)
-        self._advise_path()
+        if shell_unknown:
+            bin_dir = shlex.quote(os.path.dirname(yoke_bin))
+            print(
+                self._say(f'Add Yoke to PATH: export PATH={bin_dir}:"$PATH"'),
+                file=self.stdout,
+            )
+        else:
+            self._advise_path()
 
     def install_command(
         self, spec: str, *, config_path: str | None = None
