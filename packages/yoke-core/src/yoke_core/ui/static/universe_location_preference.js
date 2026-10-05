@@ -113,7 +113,7 @@ export function createLocationPreference({ client, windowNode, navigation, selec
     },
     remember() {
       const location = navigation.current();
-      if (restored && location !== restored) restored = null;
+      if (restored && routePath(location, navigation.basePath) !== restored) restored = null;
       if (!selections.ready || !location || location === lastSaved) return;
       lastSaved = location;
       const { view } = parseUniverseRoute(location, navigation.basePath);

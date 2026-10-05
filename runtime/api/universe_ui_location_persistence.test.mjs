@@ -31,7 +31,7 @@ function preferenceClient(state = { views: {}, last_location: null }) {
   };
 }
 
-async function mountAt(t, hash, client) {
+async function mountAt(t, hash, client, basePath = "") {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = () => response(200, {});
   t.after(() => { globalThis.fetch = originalFetch; });
@@ -40,7 +40,7 @@ async function mountAt(t, hash, client) {
   windowNode.location.href = hash || "/";
   windowNode.history = { replaceState(_state, _title, route) { windowNode.location.href = route; } };
   const root = documentNode.createElement("div");
-  const app = mountUniverseApp(root, { client });
+  const app = mountUniverseApp(root, { client, basePath });
   t.after(() => app.unmount());
   await settle();
   return { root, windowNode, app, async navigate(route) {
@@ -210,4 +210,16 @@ test("navigation writes are serialized, deduplicated and failures teach recovery
   await settle();
   assert.deepEqual(writes, ["/items?project=all", "/sessions?project=all"]);
   assert.match(selections.notice, /Last page could not be saved.*Reload to retry/);
+});
+
+test("hosted bare entry retains restored access-loss fallback after remembering", async (t) => {
+  const client = preferenceClient({ views: {}, last_location: "/actors?project=all" });
+  const baseCall = client.call.bind(client);
+  client.call = async (request) => request.function === "actors.roster"
+    ? { status: 403, envelope: { success: false, error: { code: "permission_denied" } } }
+    : baseCall(request);
+  const mounted = await mountAt(t, "/orgs/acme", client, "/orgs/acme");
+  assert.equal(mounted.windowNode.location.href, "/orgs/acme/strategy?project=all");
+  assert.equal(client.state.last_location, "/strategy?project=all");
+  assert.doesNotMatch(mounted.root.textContent, /permission_denied/);
 });
