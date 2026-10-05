@@ -5,7 +5,7 @@ import { shippingRunCard } from "../../packages/yoke-core/src/yoke_core/ui/stati
 import { renderRunsTable } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_delivery_runs_table.js";
 import { renderRunDetailView } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_run_detail.js";
 import { renderInboxView } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_inbox.js";
-import { outsideCommitCount } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_outside_commits.js";
+import { appendOutsideCommits, outsideCommitCount } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_outside_commits.js";
 
 const first = "a".repeat(40);
 const second = "b".repeat(40);
@@ -97,4 +97,11 @@ test("older serving responses and empty releases have no invented outside work",
   const card = shippingRunCard(ctx, row, "all");
   assert.equal(byClass(card, "outside-commits").length, 0);
   assert.match(card.textContent, /environment run/);
+});
+
+test("a single outside commit uses the singular label", () => {
+  const document = new FakeDocument(), host = document.createElement("div");
+  appendOutsideCommits(document, host, { carried_work: { commits: [first] } });
+  assert.equal(byClass(host, "outside-commits-summary")[0].textContent,
+    "Also includes 1 commit made outside Yoke");
 });

@@ -92,8 +92,7 @@
 .qa-project,
 .qa-plan-link small,
 .qa-evidence small,
-.qa-attachment span,
-.qa-panel-context {
+.qa-attachment span {
   color: var(--yoke-muted);
   font-size: 11.5px;
 }

@@ -266,7 +266,11 @@ export function renderInboxView(context, main, scope) {
       row, { compact: true, projectLabel: rowProject(row) },
     )]));
     cardList(documentNode, decided.body, [...decidedCards.values()], "");
-    appendCarriedContext([...pending, ...done], new Map([...cards, ...decidedCards]));
+    for (const [row, card] of decidedCards) {
+      const count = approvalCarried(row).items.length;
+      if (count) card.appendChild(el(documentNode, "p", "release-batch-title", `Carries · ${count} item${count === 1 ? "" : "s"}`));
+    }
+    appendCarriedContext(pending, cards);
     appendRunReviewChecks(new Map([...cards, ...decidedCards]));
   };
 

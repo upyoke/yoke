@@ -86,18 +86,10 @@ function capabilityCell(context, row, project) {
 
 function renderCases(context, plan, proofs, reload, overlayHost) {
   const documentNode = context.document;
-  const countNote = !proofs.length
-    ? "success policy: no cases declared"
-    : proofs.length === plan.cases.length
-    ? `success policy: all ${plan.cases.length} ${
-      plan.cases.length === 1 ? "case passes" : "cases pass"
-    }`
-    : `success policy: all ${proofs.length} case-baseline proofs pass`;
   const result = qaPanel(
     documentNode,
     "Case sequence",
     plan.cases.length,
-    countNote,
   );
   result.body.classList.add("qa-case-panel-body");
   if (!proofs.length) {
@@ -218,7 +210,6 @@ function renderAttachments(documentNode, plan) {
     documentNode,
     "Attached to",
     null,
-    "project defaults · item attachments",
   );
   if (!plan.attachments.length) {
     result.body.appendChild(el(

@@ -43,6 +43,7 @@ function fill(main) {
     const control = input(main, tag);
     control.value = value;
     control.dispatchEvent(new Event("input"));
+    control.dispatchEvent(new Event("blur"));
   }
 }
 
@@ -161,7 +162,8 @@ test("edits made during creation survive and remain usable in the same form", as
   instruction.dispatchEvent(new Event("input"));
   const saved = [...entries.values()][0];
   complete(); await settle();
-  assert.equal([...entries.values()][0], saved);
+  assert.notEqual([...entries.values()][0], saved);
+  assert.equal(JSON.parse([...entries.values()][0]).instruction, instruction.value);
   assert.equal(state.navigated.length, 0);
   assert.equal(input(main, "FORM"), form);
   assert.match(main.textContent, /Created.*Your newer draft is kept/);
@@ -178,3 +180,39 @@ test("an unmounted create completion clears only its submitted draft without nav
   assert.equal(entries.size, 0);
   assert.equal(state.navigated.length, 0);
 });
+
+test("typing saves once after the pause, while blur flushes immediately", async () => {
+  const { mount, main, entries } = fixture();
+  await mount();
+  const before = [...entries.values()][0];
+  const title = input(main, "INPUT");
+  title.value = "One";
+  title.dispatchEvent(new Event("input"));
+  await new Promise((resolve) => setTimeout(resolve, 550));
+  title.value = "Two";
+  title.dispatchEvent(new Event("input"));
+  await new Promise((resolve) => setTimeout(resolve, 550));
+  assert.equal([...entries.values()][0], before);
+  await new Promise((resolve) => setTimeout(resolve, 550));
+  assert.equal(JSON.parse([...entries.values()][0]).title, "Two");
+  title.value = "Blurred";
+  title.dispatchEvent(new Event("input"));
+  title.dispatchEvent(new Event("blur"));
+  const flushed = [...entries.values()][0];
+  assert.equal(JSON.parse(flushed).title, "Blurred");
+  await new Promise((resolve) => setTimeout(resolve, 1100));
+  assert.equal([...entries.values()][0], flushed);
+});
+
+for (const event of ["pagehide", "visibilitychange"]) {
+  test(`${event} flushes a pending draft save`, async () => {
+    const { mount, main, entries, document } = fixture();
+    await mount();
+    const title = input(main, "INPUT");
+    title.value = "Leaving";
+    title.dispatchEvent(new Event("input"));
+    document.visibilityState = "hidden";
+    (event === "pagehide" ? document.defaultView : document).dispatchEvent(new Event(event));
+    assert.equal(JSON.parse([...entries.values()][0]).title, "Leaving");
+  });
+}

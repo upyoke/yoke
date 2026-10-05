@@ -62,3 +62,22 @@ export async function itemDraftStorage(context) {
     };
   } catch { return null; }
 }
+
+// Typing shares one pending save; explicit saves and leaving the view flush it.
+export function draftAutosave(context, write) {
+  let timer = null;
+  const cancel = () => { clearTimeout(timer); timer = null; };
+  const save = () => { cancel(); return write(); };
+  const schedule = () => { cancel(); timer = setTimeout(save, 1000); };
+  const documentNode = context.document;
+  const windowNode = documentNode.defaultView;
+  const hidden = () => { if (documentNode.visibilityState === "hidden") save(); };
+  windowNode?.addEventListener("pagehide", save);
+  documentNode.addEventListener("visibilitychange", hidden);
+  context.signal?.addEventListener("abort", () => {
+    if (timer !== null) save();
+    windowNode?.removeEventListener("pagehide", save);
+    documentNode.removeEventListener("visibilitychange", hidden);
+  }, { once: true });
+  return { save, schedule, cancel, flush: () => { if (timer !== null) save(); } };
+}

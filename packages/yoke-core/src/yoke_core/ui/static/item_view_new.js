@@ -1,4 +1,4 @@
-import { itemDraftStorage } from "./item_draft_storage.js";
+import { draftAutosave, itemDraftStorage } from "./item_draft_storage.js";
 import { callFunction, el, renderError } from "./universe_view_support.js";
 import { itemIntakeField, loadVerificationCatalog, webWorkflowSteer } from "./item_intake_controls.js";
 import { renderNewItemForm } from "./item_new_form.js";
@@ -18,8 +18,13 @@ export function renderNewItemView(context, main, initialProjectId) {
   let storage = null;
   let restored = false;
   let retryLoad = () => loadProjects();
-  draft.save = () => storage?.save(projectId, draft);
-  draft.discard = (revision) => storage?.clear(revision);
+  const autosave = draftAutosave(context, () => storage?.save(projectId, draft));
+  draft.save = autosave.save;
+  draft.scheduleSave = autosave.schedule;
+  draft.discard = (revision) => {
+    if (revision === undefined) autosave.cancel(); else autosave.flush();
+    return storage?.clear(revision);
+  };
   const valid = (result) => result.status === 200 && result.envelope.success;
   const showFailure = (result) => {
     main.replaceChildren(itemIntakeField(documentNode, "Project", selector));

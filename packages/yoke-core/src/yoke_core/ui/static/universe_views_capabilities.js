@@ -149,12 +149,6 @@ export function renderCapabilitiesView(context, main, scope) {
     return project?.emoji ? `${project.emoji} ${label}` : label;
   };
   const panel = section(documentNode, "Capabilities");
-  panel.children[0].appendChild(el(
-    documentNode,
-    "span",
-    "panel-hint",
-    scope === "all" ? "across all projects" : "selected projects",
-  ));
   main.replaceChildren(panel);
   const buckets = scopeBuckets(scope, projects, false);
   loadScopedSection(

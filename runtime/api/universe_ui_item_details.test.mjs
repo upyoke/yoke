@@ -54,7 +54,7 @@ test("Epic detail reports task completion and its narrower fact spine", async ()
   assert.match(rendered, /Shepherd log/);
   assert.match(rendered, /Ready to execute/);
   assert.match(rendered, /Worktree plan/);
-  assert.match(rendered, /intent · lanes activate per task at conduct/);
+  assert.doesNotMatch(rendered, /intent · lanes activate per task at conduct/);
   assert.match(rendered, /Technical plan/);
   assert.match(rendered, /Touch the footer renderer first/);
   assert.match(rendered, /Shepherd caveats/);
@@ -179,7 +179,7 @@ for (const workflowId of ["issue", "dash"]) {
       assert.match(rendered, /Acceptance criteria/);
       assert.match(rendered, /Focus stays put/);
       assert.match(rendered, /File budget\s+1 file/);
-      assert.match(rendered, /is this item proven\? one place/);
+      assert.doesNotMatch(rendered, /is this item proven\? one place/);
       assert.match(rendered, /Progress Log/);
       assert.equal(byClass(root, "rich-check").length, 1);
     }

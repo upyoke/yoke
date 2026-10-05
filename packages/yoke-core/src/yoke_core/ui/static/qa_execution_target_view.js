@@ -20,7 +20,6 @@ export function renderExecutionTarget(documentNode, plan) {
     documentNode,
     "Execution target",
     null,
-    "immutable when cases materialize",
   );
   const target = plan.execution_target;
   if (!target) {

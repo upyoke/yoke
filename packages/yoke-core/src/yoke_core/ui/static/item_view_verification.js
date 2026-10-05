@@ -165,9 +165,6 @@ export function verificationPanel(context, item) {
   const { panel, body } = workflowPanel(
     documentNode,
     "Verification",
-    workflowId === "issue"
-      ? { detail: "is this item proven? one place" }
-      : {},
   );
   body.className += " item-stack";
   if (

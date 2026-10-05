@@ -90,7 +90,7 @@ test("initial roster reads restore saved sorting or default without writing eith
   }
 });
 
-test("focus refresh adopts another context's sort, preserves filters, and cleans up on navigation", async () => {
+test("returning focus leaves the open roster unchanged; reopening reads the saved sort", async () => {
   const document = new FakeDocument(), controller = new AbortController();
   let stored = { column: "title", direction: "asc" };
   const requests = [];
@@ -109,18 +109,24 @@ test("focus refresh adopts another context's sort, preserves filters, and cleans
   await loader.loadMore();
   assert.equal(requests.at(-1).payload.cursor, "next");
   stored = { column: "title", direction: "desc" };
+  const beforeFocus = requests.length;
   document.defaultView.dispatchEvent(new Event("focus"));
+  document.visibilityState = "visible";
+  document.dispatchEvent(new Event("visibilitychange"));
   await settle();
-  assert.equal(requests.at(-1).payload.sort_direction, "desc");
+  assert.equal(requests.length, beforeFocus);
+  assert.equal(requests.at(-1).payload.sort_direction, "asc");
   assert.equal(requests.at(-1).payload.workflow, "dash");
-  assert.equal("cursor" in requests.at(-1).payload, false);
+  assert.equal(requests.at(-1).payload.cursor, "next");
   assert.deepEqual(preferences.selectionFor("items"), ["7"]);
+  await createRosterLoader({ context, scope: ["7"] }).start();
+  assert.equal(requests.at(-1).payload.sort_direction, "desc");
   controller.abort();
   const count = requests.length;
   document.defaultView.dispatchEvent(new Event("focus"));
   await settle();
   assert.equal(requests.length, count);
-  assert.equal(document.defaultView.listenerCounts.get("focus"), 0);
+  assert.equal(document.defaultView.listenerCounts.get("focus") || 0, 0);
 });
 
 test("a late refresh cannot replace a newer local choice or swallow its save failure", async () => {

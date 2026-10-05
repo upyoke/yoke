@@ -19,12 +19,6 @@ import {
 
 export function secretPanel(documentNode, detail) {
   const built = panel(documentNode, "Credential references");
-  built.header.appendChild(el(
-    documentNode,
-    "span",
-    "panel-hint",
-    "executing-machine presence only · values never render",
-  ));
   for (const secret of orderedMachineSecrets(detail.secrets)) {
     const row = el(documentNode, "div", "secret test-machine-secret");
     const copy = el(documentNode, "div");

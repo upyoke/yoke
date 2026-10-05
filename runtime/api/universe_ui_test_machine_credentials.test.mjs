@@ -27,7 +27,7 @@ test("browser preserves unknown executing-machine credential state", async () =>
   const credential = byClass(main, "test-machine-secret")[0];
   assert.match(text(credential), /unknown on this browser/);
   assert.doesNotMatch(text(credential), /missing/);
-  assert.match(text(main), /executing-machine presence only/);
+  assert.doesNotMatch(text(main), /executing-machine presence only/);
 });
 
 test("credential state distinguishes stored, missing, and unknown", () => {

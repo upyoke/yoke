@@ -284,8 +284,6 @@ export function renderStages(
     version: workflow.current_version,
     inlineVersion: true,
     status: workflow.status,
-    detail: workflow.published_at
-      ? `published ${relativeAge(workflow.published_at)}` : "",
   });
   const flow = el(documentNode, "div", "workflow-lifecycle");
   stages.forEach((stage, index) => {
