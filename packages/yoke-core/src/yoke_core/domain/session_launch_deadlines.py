@@ -1,4 +1,14 @@
-"""Deadline convergence for queued and in-flight session launches."""
+"""Deadline convergence for queued and in-flight session launches.
+
+A launch's ``deadline_at`` is a spawn window, and the window starts when a
+relay picks the launch up — not when it was created. One machine drains its
+queue one native create at a time, so a launch created in a burst can wait
+many minutes behind its siblings; charging that wait against its window
+expired healthy launches before they ever ran. While a launch waits for
+pickup its window does not run. The queue is bounded instead by its relay
+staying connected, and by ``LAUNCH_QUEUE_WAIT_SECONDS`` for a relay that stays
+connected yet never takes it.
+"""
 
 from __future__ import annotations
 
@@ -6,8 +16,10 @@ from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_launch_closure_evidence import (
+    TRANSPORT_RELAY_CONNECTED,
     closure_evidence,
     open_attempt,
+    relay_transport_state,
 )
 from yoke_core.domain.session_launch_native_progress import native_attempt_pending
 from yoke_core.domain.session_relay_evidence import merge_redacted_evidence
@@ -22,8 +34,16 @@ from yoke_core.domain.session_launch_store import (
     utc_now,
     value,
 )
-from yoke_core.domain.session_launch_types import LAUNCH_LEASE_SECONDS, LaunchRecord
-from .session_launch_delivery_state import IN_FLIGHT_LAUNCH_STATES
+from yoke_core.domain.session_launch_types import (
+    LAUNCH_LEASE_SECONDS,
+    MAX_LAUNCH_DEADLINE_SECONDS,
+    LaunchRecord,
+    SessionLaunchError,
+)
+from .session_launch_delivery_state import (
+    IN_FLIGHT_LAUNCH_STATES,
+    QUEUED_LAUNCH_STATES,
+)
 
 
 def _deadline_candidates(
@@ -52,6 +72,69 @@ def _deadline_candidates(
 
 
 _LAUNCH_LEASE_EXPIRED_CODE = "launch_lease_expired"
+LAUNCH_QUEUE_WAIT_SECONDS = MAX_LAUNCH_DEADLINE_SECONDS
+_QUEUE_WAIT_EXPIRY = "queue_wait_expiry"
+
+
+def _queued_since(launch: LaunchRecord) -> str:
+    return launch.assigned_at or launch.created_at
+
+
+def queue_wait_exhausted(conn: Any, launch: LaunchRecord, *, now: str) -> str | None:
+    """Name why a launch still waiting for pickup must close, else ``None``."""
+    current = parse_time(now)
+    if current >= parse_time(
+        add_seconds(_queued_since(launch), LAUNCH_QUEUE_WAIT_SECONDS)
+    ):
+        return _QUEUE_WAIT_EXPIRY
+    if current >= parse_time(launch.deadline_at) and (
+        relay_transport_state(conn, relay_id=launch.assigned_relay_id, now=now)
+        != TRANSPORT_RELAY_CONNECTED
+    ):
+        return "deadline_expiry"
+    return None
+
+
+def extend_launch_message_expiry(
+    conn: Any, *, message_id: str, expires_at: str
+) -> None:
+    """Realign the instruction message TTL to the launch's live deadline.
+
+    The message is created under the launch's create-time deadline, and both
+    pickup and retry move that deadline later. A recipient inserted under the
+    stale TTL is swept to ``expired`` within a second and the mandate is never
+    delivered. Only ever extend, never shorten.
+    """
+    p = marker(conn)
+    conn.execute(
+        f"UPDATE session_messages SET expires_at={p} "
+        f"WHERE message_id={p} AND expires_at < {p}",
+        (expires_at, message_id, expires_at),
+    )
+
+
+def start_pickup_window(conn: Any, launch: LaunchRecord, *, now: str) -> str:
+    """Return the deadline a launch's spawn window runs to from this pickup.
+
+    The window keeps the length it was requested with, measured from when the
+    launch was queued, and the instruction message follows it. A launch whose
+    queue wait is already exhausted is closed with its evidence and refused.
+    """
+    reason = queue_wait_exhausted(conn, launch, now=now)
+    if reason is not None:
+        _expire_at_deadline(conn, launch, now=now, closure_reason=reason)
+        conn.commit()
+        raise SessionLaunchError(
+            "expired",
+            f"launch waited past its queue bound ({reason}); "
+            f"retry it with `yoke session-control launch retry {launch.launch_id}`",
+        )
+    window = parse_time(launch.deadline_at) - parse_time(_queued_since(launch))
+    deadline = add_seconds(now, int(window.total_seconds()))
+    extend_launch_message_expiry(
+        conn, message_id=launch.message_id, expires_at=deadline
+    )
+    return deadline
 
 
 def _expire_launching(
@@ -111,6 +194,7 @@ def _expire_at_deadline(
     launch: LaunchRecord,
     *,
     now: str,
+    closure_reason: str = "deadline_expiry",
 ) -> LaunchRecord:
     """Close a launch at its deadline, saying what the server last observed.
 
@@ -147,7 +231,7 @@ def _expire_at_deadline(
         conn,
         launch=launch,
         result_code=result_code,
-        closure_reason="deadline_expiry",
+        closure_reason=closure_reason,
         relay_id=launch.assigned_relay_id,
         machine_id=launch.assigned_machine_id,
         started_at=launch.awaiting_registration_at or launch.launching_at,
@@ -199,6 +283,14 @@ def settle_launch_deadlines(
                     changed.append(
                         _expire_launching(conn, launch, attempt=row, now=current)
                     )
+            elif launch.state in QUEUED_LAUNCH_STATES:
+                reason = queue_wait_exhausted(conn, launch, now=current)
+                if reason is not None:
+                    changed.append(
+                        _expire_at_deadline(
+                            conn, launch, now=current, closure_reason=reason
+                        )
+                    )
             elif deadline_passed:
                 changed.append(_expire_at_deadline(conn, launch, now=current))
         conn.commit()
@@ -208,4 +300,10 @@ def settle_launch_deadlines(
         raise
 
 
-__all__ = ["settle_launch_deadlines"]
+__all__ = [
+    "LAUNCH_QUEUE_WAIT_SECONDS",
+    "extend_launch_message_expiry",
+    "queue_wait_exhausted",
+    "settle_launch_deadlines",
+    "start_pickup_window",
+]

@@ -46,6 +46,7 @@ def _prepared_launch(conn):
     conn.execute(
         "UPDATE session_launches SET native_session_id=?,registered_session_id=?,"
         "result_code=?,result_evidence=?,attestation_hash=?,deadline_at=?,"
+        "assigned_at=?,"
         "native_launch_pid=?,native_launch_phase=?,native_launch_observed_at=?,"
         "spawn_duration_ms=? "
         "WHERE launch_id=?",
@@ -69,6 +70,7 @@ def _prepared_launch(conn):
             ),
             "sha256:secret-attestation",
             "2099-01-01T00:00:00Z",
+            "2098-12-31T23:50:00Z",
             4242,
             "spawn_completed_after_bound",
             "2026-08-22T12:03:10Z",

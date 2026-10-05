@@ -76,7 +76,7 @@ FLEET_KEY_SPECS: dict[str, FleetKeySpec] = {
     "fleet.launch_deadline_minutes": FleetKeySpec(
         10,
         int,
-        "Minutes allowed for a launched conversation to register.",
+        "Minutes allowed for a launched conversation to register, from relay pickup.",
         1,
     ),
     "fleet.relay_poll_seconds": FleetKeySpec(

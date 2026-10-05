@@ -91,19 +91,21 @@ def test_retry_mutation_settles_deadline_before_applying_retry(monkeypatch) -> N
     conn = launch_connection()
     add_relay(
         conn,
-        last_seen_at="2026-08-22T12:10:30Z",
-        connected_until="2026-08-22T12:30:00Z",
+        last_seen_at="2026-08-22T12:59:30Z",
+        connected_until="2026-08-22T13:30:00Z",
     )
     launch = assigned_launch(conn, key="handler-retry")
     _wire_handler(monkeypatch, conn)
     monkeypatch.setattr(handlers, "_fleet_policy", lambda *_args: 10)
+    # A connected relay keeps a queued launch waiting, so only the queue
+    # bound closes it for the retry to reopen.
     monkeypatch.setattr(
         "yoke_core.domain.session_launch_deadlines.utc_now",
-        lambda: "2026-08-22T12:11:00Z",
+        lambda: "2026-08-22T13:00:00Z",
     )
     monkeypatch.setattr(
         "yoke_core.domain.session_launch_requests.utc_now",
-        lambda: "2026-08-22T12:11:00Z",
+        lambda: "2026-08-22T13:00:00Z",
     )
 
     retried = handlers.handle_launch_retry(
@@ -112,7 +114,7 @@ def test_retry_mutation_settles_deadline_before_applying_retry(monkeypatch) -> N
 
     assert retried.primary_success, retried.error
     assert retried.result_payload["launch"]["state"] == "assigned"
-    assert get_launch(conn, launch.launch_id).deadline_at == "2026-08-22T12:21:00Z"
+    assert get_launch(conn, launch.launch_id).deadline_at == "2026-08-22T13:10:00Z"
 
 
 def test_create_reads_the_organization_surface_fallback_gate(monkeypatch) -> None:

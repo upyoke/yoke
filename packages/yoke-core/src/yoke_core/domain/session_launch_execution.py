@@ -7,6 +7,7 @@ from typing import Any
 from uuid import uuid4
 
 from yoke_core.domain.session_launch_closure_evidence import closure_evidence
+from yoke_core.domain.session_launch_deadlines import start_pickup_window
 from yoke_core.domain.session_launch_native_progress import native_launch_updates
 from yoke_core.domain.session_launch_registered_session_binding import (
     bind_existing_registered_session,
@@ -171,16 +172,7 @@ def claim_assigned_launch(
             or launch.assigned_machine_id != machine_id
         ):
             raise SessionLaunchError("relay_mismatch", "launch is assigned elsewhere")
-        if parse_time(current) >= parse_time(launch.deadline_at):
-            update_launch(
-                conn,
-                launch_id,
-                state="expired",
-                completed_at=current,
-                result_code="launch_deadline",
-            )
-            conn.commit()
-            raise SessionLaunchError("expired", "launch deadline has passed")
+        deadline = start_pickup_window(conn, launch, now=current)
 
         attempt_id = str(uuid4())
         lease_id = str(uuid4())
@@ -208,6 +200,7 @@ def claim_assigned_launch(
             launch_id,
             state="launching",
             launching_at=current,
+            deadline_at=deadline,
             attestation_hash=attestation_digest(attestation),
             attestation_consumed_at=None,
             result_code=None,
@@ -216,7 +209,7 @@ def claim_assigned_launch(
         conn.commit()
         lease_expires = min(
             parse_time(add_seconds(current, LAUNCH_LEASE_SECONDS)),
-            parse_time(launch.deadline_at),
+            parse_time(deadline),
         ).strftime("%Y-%m-%dT%H:%M:%SZ")
         return LaunchClaim(
             launch=launched,
