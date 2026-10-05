@@ -120,7 +120,7 @@ def test_parallel_read_timeout_discards_partial_results(monkeypatch):
     assert [r.check_id for r in rec.results] == ["HC-check-incomplete"]
 
 
-def test_complete_candidate_tree_finishes_within_doctor_budget():
+def test_complete_candidate_tree_finishes_within_doctor_budget(monkeypatch, capsys):
     import time
     from pathlib import Path
 
@@ -130,6 +130,34 @@ def test_complete_candidate_tree_finishes_within_doctor_budget():
     from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
     root = Path(__file__).resolve().parents[3]
+    original_reads = scan._read_scan_files
+    stages = {}
+
+    def measured_reads(root):
+        iterator = iter(original_reads(root))
+        files = chars = 0
+        read_wait = 0.0
+        began = time.monotonic()
+        try:
+            while True:
+                before = time.monotonic()
+                try:
+                    path, text = next(iterator)
+                except StopIteration:
+                    break
+                read_wait += time.monotonic() - before
+                files += 1
+                chars += len(text or "")
+                yield path, text
+        finally:
+            stages.update(
+                files=files,
+                chars=chars,
+                read_wait=read_wait,
+                matching=time.monotonic() - began - read_wait,
+            )
+
+    monkeypatch.setattr(scan, "_read_scan_files", measured_reads)
 
     def check(conn, args, rec):
         hits = scan.scan_repo(root)
@@ -149,9 +177,11 @@ def test_complete_candidate_tree_finishes_within_doctor_budget():
         HealthCheck("obsoleted-terms", "Complete candidate tree", check),
     )
     elapsed = time.monotonic() - started
-    print(
-        f"Complete candidate retired-term scan: {elapsed:.3f}s; budget {CHECK_BUDGET_S}s"
-    )
+    with capsys.disabled():
+        print(
+            f"Complete candidate retired-term scan: {elapsed:.3f}s; "
+            f"budget {CHECK_BUDGET_S}s; stages={stages}"
+        )
     assert [(r.check_id, r.result) for r in rec.results] == [
         ("HC-obsoleted-terms", "PASS")
     ], rec.results
@@ -173,3 +203,30 @@ def test_literal_choices_cannot_discard_a_valid_match(pattern, text):
         assert compiled.search(text)
     candidate = scan._required_candidate(compiled)
     assert candidate is None or candidate.search(text)
+
+
+@pytest.mark.parametrize(
+    "pattern,text",
+    [
+        (r"\byoke\s+retired-command\b", "yoke retired-command"),
+        (r"yoke\s+abc?", "yoke ab"),
+        (r"yoke\s+abc|different", "different"),
+        (r"yoke\s+(?:abc|def)", "yoke def"),
+        (r"(?i)yoke\s+indigo", "YOKE \u0131ndigo"),
+        (r"yoke\s+foo\s+bar", "yoke foo bar"),
+        (r"yoke\s+foo(?:bar)?", "yoke foo"),
+        (r"yoke\s+foo\b", "yoke\nfoo"),
+        (r"(?:yoke\s+foo)", "yoke foo"),
+    ],
+)
+def test_whitespace_prefix_preserves_every_valid_match(pattern, text):
+    compiled = re.compile(pattern)
+    assert compiled.search(text)
+    candidate = scan._required_candidate(compiled)
+    assert candidate is None or candidate.search(text)
+
+
+def test_command_prefix_avoids_generic_product_name_candidates():
+    candidate = scan._required_candidate(re.compile(r"\byoke\s+retired-command\b"))
+    assert candidate.search("yoke retired-command")
+    assert not candidate.search("yoke current-command")

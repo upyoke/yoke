@@ -183,7 +183,19 @@ def _required_candidate(pattern):
     """A leading literal or a complete choice of literal words is mandatory."""
     prefix = _required_literal_prefix(pattern)
     if prefix:
-        return re.compile(re.escape(prefix), pattern.flags)
+        required = re.escape(prefix)
+        source = re.sub(r"^\(\?[aiLmsux]+\)", "", pattern.pattern)
+        source = source.removeprefix(r"\b").removeprefix("^")
+        marker = source.find(r"\s+")
+        if marker >= 0 and source[:marker] in {prefix, required}:
+            try:
+                tail = re.compile(source[marker + 3 :], pattern.flags)
+            except re.error:
+                tail = None
+            suffix = _required_literal_prefix(tail) if tail is not None else ""
+            if suffix:
+                required += r"\s+" + re.escape(suffix)
+        return re.compile(required, pattern.flags)
     source = re.sub(r"^\(\?[aiLmsux]+\)", "", pattern.pattern)
     choice = re.fullmatch(r"\\b\(([A-Za-z0-9_|]+)\)\\b", source)
     if choice:

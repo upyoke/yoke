@@ -43,7 +43,7 @@ the next check runs, and recovery failures remain visible in the incomplete resu
 Project checks must use bounded I/O helpers for blocking operations.
 The obsoleted-term scan overlaps independent file reads while preserving
 path and finding order. A conservative required-literal test avoids per-line regex
-work only when a leading literal or every complete literal choice is absent;
+work only when a mandatory leading sequence or every complete literal choice is absent;
 patterns without a provable candidate retain the entire line scan. The original per-pattern tests, path exemptions, slash
 normalization, line matching and full-tree coverage remain the same.
 Provenance, hook-boundary and file-line checks overlap their complete inventories'
