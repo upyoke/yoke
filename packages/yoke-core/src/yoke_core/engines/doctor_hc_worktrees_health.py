@@ -1,29 +1,19 @@
 """Worktree health check — uncommitted, stale, and stranded lanes.
 
-Cluster: HC-worktree-health (single HC). Inspects ``git worktree list``,
-the configured ``.worktrees`` directory, local item branches, and the
-universal ``item_worktrees`` registry. A lane whose item is terminal but
+HC-worktree-health inspects every worktree, local branch and item lane.
+The configured directory and universal ``item_worktrees`` registry supply ownership. A lane whose item is terminal but
 which is still on disk is reported with the reason it survived — the same
 proofs the landing cleanup and the merged-lane sweep apply — rolled up on
 one line ("N released lanes still on disk: dirty (...), locked (...),
 unregistered directory (...)") ahead of the per-lane detail, so an operator
 sees what needs a decision before reading the list.
 
-Both halves of that answer must run on the machine holding the checkout,
-because only it can see the lanes. The control-plane half is read through the
-registered relayed surfaces in ``doctor_worktree_lane_authority``, never local
-SQL. A project that relays to a control plane over https has a checkout but no
-local database, so a SQL-reading version of this check could never run for a
-hosted or external project at all, and their released lanes accumulated
-unseen. A control plane that cannot serve those reads is reported N/A with
-that reason, never as a pass or a failure about the project.
+Lane reads run on the checkout machine, with ownership served through
+``doctor_worktree_lane_authority``. Unreadable ownership reports N/A. Independent
+residue reads overlap under the shared deadline; every lane remains checked.
 
-Item lanes are not the only managed worktrees here. A self-deploy run pins its
-driver source in a detached ``.worktrees/deploy-<run-id>`` tree that no item
-owns, so the ownership reads above have nothing to say about it and it used to
-be reported as nothing at all — while still consuming the checkout's lane cap.
-Those are reported from their run's own status instead, and retired under
-``--fix`` once the run is over.
+Detached self-deploy driver trees are checked against their run status and
+retired under ``--fix`` once the run is over.
 """
 
 from __future__ import annotations
@@ -57,6 +47,7 @@ from yoke_core.engines.doctor_report import (
     RecordCollector,
 )
 from yoke_core.engines.doctor_tree_scan import list_directory
+from yoke_core.engines.doctor_parallel_reads import bounded_read_map
 
 _TERMINAL = ("done", "cancelled")
 # Summary order: what needs an operator first, what the next landing sweeps last.
@@ -134,12 +125,7 @@ def _summary(stranded: Dict[str, List[str]]) -> str:
 
 
 def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
-    """HC-worktree-health: Worktree health.
-
-    Takes the runner's connection positionally and never uses it: every
-    control-plane fact here arrives over the relayed surface, which is what
-    lets the check run on any machine holding the checkout.
-    """
+    """HC-worktree-health: Worktree health (ownership reads relay)."""
     issues: List[str] = []
     fixed: List[str] = []
     stranded: Dict[str, List[str]] = {}
@@ -170,6 +156,23 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
         if lane.path:
             by_path.setdefault(lane.path, []).append(lane)
 
+    roots = declared_disposable_roots(repo_root) if repo_root else frozenset()
+    paths = [
+        e["path"]
+        for e in entries
+        if e.get("branch") not in ("main", "master")
+        and Path(e["path"]).is_dir()
+        and not run_id_for_driver_worktree(
+            Path(e["path"]), Path(repo_root or Path(e["path"]).parents[1])
+        )
+    ]
+
+    def read_residue(path):
+        root = str(repo_root or Path(path).parents[1])
+        return assess_lane_residue(_git_for_repo(root), path, roots)
+
+    residues = dict(zip(paths, bounded_read_map(read_residue, paths)))
+
     for entry in entries:
         wt_path = entry.get("path", "")
         branch = entry.get("branch", "")
@@ -177,18 +180,14 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
             continue
         root = str(repo_root or Path(wt_path).parents[1])
         if run_id_for_driver_worktree(Path(wt_path), Path(root)):
-            # A deploy-run driver tree has no branch and no owning item, so
-            # every reading below would describe it as a nameless lane nobody
-            # owns. Its own pass answers for it.
+            # Detached deploy drivers are answered from their run status below.
             continue
 
         # Named or project-declared ignored caches are disposable; anything
         # else is lane content.
         residue = None
         if Path(wt_path).is_dir():
-            residue = assess_lane_residue(
-                _git_for_repo(root), wt_path, declared_disposable_roots(root)
-            )
+            residue = residues.get(wt_path) or read_residue(wt_path)
             if not residue.disposable:
                 issues.append(
                     f"- Worktree {branch} at {wt_path} holds content cleanup "
@@ -287,14 +286,25 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
                             "(unregistered directory preserved for inspection)"
                         )
 
-    # Detect stale local branches for done/cancelled items
+    # Enumerate once rather than launching Git for every historical lane row.
+    branch_refs = _base._run(
+        ["git", "for-each-ref", "--format=%(refname:lstrip=2)", "refs/heads"]
+    )
+    if branch_refs.returncode:
+        rec.record(
+            "HC-worktree-health",
+            "Worktree health",
+            "FAIL",
+            "Local branch inventory unreadable; retry after Git recovers.",
+        )
+        return
+    local_branches = set(branch_refs.stdout.splitlines())
     live_branches = {entry.get("branch", "") for entry in entries}
     for lane in lanes:
         if lane.status not in _TERMINAL:
             continue
         branch = lane.branch
-        br = _base._run(["git", "rev-parse", "--verify", branch])
-        if repo_root and br.returncode == 0 and branch not in live_branches:
+        if repo_root and branch in local_branches and branch not in live_branches:
             assessment = assess_landed_lane(
                 repo_root=str(repo_root),
                 branch=branch,

@@ -282,3 +282,21 @@ def test_remote_status_lookup_relays_through_registered_items_read(
             {"project": "yoke", "fields": ["id", "status"]},
         )
     ]
+
+
+def test_absent_reference_avoids_ast_work_without_changing_inventory(
+    tmp_path, monkeypatch
+):
+    from yoke_core.domain import lint_yok_n_cruft_scan as scanner
+
+    source = tmp_path / "runtime" / "ordinary.py"
+    source.parent.mkdir()
+    source.write_text('"""Ordinary prose."""\n')
+    monkeypatch.setattr(
+        scanner,
+        "_python_exempt_line_ranges",
+        lambda text: pytest.fail("no reference requires no AST"),
+    )
+    result = scanner.scan(tmp_path)
+    assert result.scanned_files == 1
+    assert result.hits == []

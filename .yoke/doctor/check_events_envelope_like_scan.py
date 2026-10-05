@@ -63,7 +63,6 @@ ALLOWED_ENVELOPE_LIKE_READERS: tuple[str, ...] = (
     # Claim-boundary audit: bounded by the indexed `event_name` plus the
     # audit's configured `events.id` cutoff, and reached only from an
     # operator-invoked doctor run, never from a request path.
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/check_claim_boundary_audit_select.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/check_claim_boundary_audit_summary.py",
     # apply_patch smoke probe: bounded by the indexed `event_name`, and
     # reached only from an operator-invoked doctor run.

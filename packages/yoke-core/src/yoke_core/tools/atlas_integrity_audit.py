@@ -71,14 +71,19 @@ def _resolve_seed_contradiction(
     if seed["id"] == "function-inventory-empty-registry-mismatch":
         if not doc_state.get("exists"):
             row["status"] = "resolved"
-            row["resolution_note"] = "docs/function-inventory.md deleted (replaced by docs/atlas.md)"
+            row["resolution_note"] = (
+                "docs/function-inventory.md deleted (replaced by docs/atlas.md)"
+            )
         elif not doc_state.get("claims_empty_registry"):
             row["status"] = "resolved"
-            row["resolution_note"] = "docs/function-inventory.md no longer claims an empty registry"
+            row["resolution_note"] = (
+                "docs/function-inventory.md no longer claims an empty registry"
+            )
     elif seed["id"] == "claims-work-holder-get-flag-vs-positional":
         help_text = (
             cli_help.get("per_subcommand", {})
-            .get("claims work holder-get", {}).get("body", "")
+            .get("claims work holder-get", {})
+            .get("body", "")
         )
         if "--item" in help_text:
             row["status"] = "resolved"
@@ -110,41 +115,59 @@ def _build_followup_candidates(
     candidates: List[Dict[str, Any]] = []
     pending = [r for r in operation_tracker["rows"] if r["status"] == "pending"]
     if pending:
-        candidates.append({
-            "id": "pending-cli-adapter-conversions",
-            "category": "cloud_blocker",
-            "title": f"{len(pending)} handler-registration rows await a yoke CLI adapter",
-            "evidence": [
-                {"shell_form": r["shell_form"], "proposed_function_id": r.get("proposed_function_id")}
-                for r in pending
-            ],
-        })
+        candidates.append(
+            {
+                "id": "pending-cli-adapter-conversions",
+                "category": "cloud_blocker",
+                "title": f"{len(pending)} handler-registration rows await a yoke CLI adapter",
+                "evidence": [
+                    {
+                        "shell_form": r["shell_form"],
+                        "proposed_function_id": r.get("proposed_function_id"),
+                    }
+                    for r in pending
+                ],
+            }
+        )
     open_rows = [r for r in contradictions if r["status"] == "open"]
     if open_rows:
-        candidates.append({
-            "id": "open-contradictions",
-            "category": "teaching_drift",
-            "title": f"{len(open_rows)} open promise-vs-live contradictions",
-            "evidence": [{"id": r["id"], "surface": r["surface"]} for r in open_rows],
-        })
+        candidates.append(
+            {
+                "id": "open-contradictions",
+                "category": "teaching_drift",
+                "title": f"{len(open_rows)} open promise-vs-live contradictions",
+                "evidence": [
+                    {"id": r["id"], "surface": r["surface"]} for r in open_rows
+                ],
+            }
+        )
     if field_notes.get("read_surface_status") != "agent_facing":
-        candidates.append({
-            "id": "field-note-read-surface-gap",
-            "category": "teaching_drift",
-            "title": "Field-note hotspot read through the agent-facing surface is unhealthy",
-            "evidence": [field_notes.get("read_surface_status", "unknown")],
-        })
+        candidates.append(
+            {
+                "id": "field-note-read-surface-gap",
+                "category": "teaching_drift",
+                "title": "Field-note hotspot read through the agent-facing surface is unhealthy",
+                "evidence": [field_notes.get("read_surface_status", "unknown")],
+            }
+        )
     failed = [v for v in recipes["verdicts"] if not v["ok"]]
     if failed:
-        candidates.append({
-            "id": "failing-skill-recipes",
-            "category": "teaching_drift",
-            "title": f"{len(failed)} skill-body recipes fail smoke dispatch",
-            "evidence": [
-                {"file": v["file"], "line": v["line_number"], "recipe": v["recipe"], "error": v["error"]}
-                for v in failed
-            ],
-        })
+        candidates.append(
+            {
+                "id": "failing-skill-recipes",
+                "category": "teaching_drift",
+                "title": f"{len(failed)} skill-body recipes fail smoke dispatch",
+                "evidence": [
+                    {
+                        "file": v["file"],
+                        "line": v["line_number"],
+                        "recipe": v["recipe"],
+                        "error": v["error"],
+                    }
+                    for v in failed
+                ],
+            }
+        )
     return candidates
 
 
@@ -179,13 +202,16 @@ def _summary(
 
 
 def build_report(
-    target_root: Path, *, generated_at: str | None = None,
+    target_root: Path,
+    *,
+    generated_at: str | None = None,
+    help_collector=None,
 ) -> Dict[str, Any]:
     """Collect every live surface and return the stable JSON report dict."""
     function_registry = collect_function_registry()
     yoke_cli = collect_subcommand_registry()
     operation_tracker = collect_operation_tracker()
-    help_pages = collect_help_pages(yoke_cli)
+    help_pages = (help_collector or collect_help_pages)(yoke_cli)
     teaching_places = collect_teaching_places(target_root)
     recipes = collect_recipes(target_root)
     taught_commands = collect_taught_commands(target_root)
@@ -197,8 +223,10 @@ def build_report(
         for seed in SEED_CONTRADICTIONS
     ]
     followup = _build_followup_candidates(
-        operation_tracker=operation_tracker, contradictions=contradictions,
-        field_notes=field_notes, recipes=recipes,
+        operation_tracker=operation_tracker,
+        contradictions=contradictions,
+        field_notes=field_notes,
+        recipes=recipes,
     )
     if generated_at is None:
         generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -216,8 +244,13 @@ def build_report(
         "contradictions": contradictions,
         "followup_candidates": followup,
         "summary": _summary(
-            function_registry, yoke_cli, operation_tracker, help_pages,
-            recipes, field_notes, contradictions,
+            function_registry,
+            yoke_cli,
+            operation_tracker,
+            help_pages,
+            recipes,
+            field_notes,
+            contradictions,
         ),
     }
 
@@ -251,10 +284,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         description="Read-only audit of Yoke's live agent-facing surfaces.",
     )
     parser.add_argument("--target-root", default=None)
-    parser.add_argument("--output", default=None,
-                        help="Write JSON report to PATH (stdout when omitted).")
-    parser.add_argument("--print-summary", action="store_true",
-                        help="Also print summary block to stderr.")
+    parser.add_argument(
+        "--output",
+        default=None,
+        help="Write JSON report to PATH (stdout when omitted).",
+    )
+    parser.add_argument(
+        "--print-summary",
+        action="store_true",
+        help="Also print summary block to stderr.",
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
     target_root = _resolve_target_root(args.target_root)
     report = build_report(target_root)
@@ -262,8 +301,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         output = Path(args.output).resolve()
         write_report(report, output)
         if args.print_summary:
-            print(json.dumps(report["summary"], indent=2, sort_keys=True),
-                  file=sys.stderr)
+            print(
+                json.dumps(report["summary"], indent=2, sort_keys=True), file=sys.stderr
+            )
         print(output)
     else:
         sys.stdout.write(serialise(report))

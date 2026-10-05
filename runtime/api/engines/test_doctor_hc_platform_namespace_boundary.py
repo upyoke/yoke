@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from threading import Event
 
 from yoke_core.api.repo_root import find_repo_root
 from yoke_project_checks import check_platform_namespace_boundary as hc
@@ -84,9 +85,7 @@ def test_unparseable_source_falls_back_to_line_scan(tmp_path: Path) -> None:
     _write(
         tmp_path,
         "packs/example/versions/1.0.0/files/service.py",
-        "def {{handler_name}}():\n"
-        f"    import {NS}\n"
-        f"    import {NS}_adjacent\n",
+        f"def {{{{handler_name}}}}():\n    import {NS}\n    import {NS}_adjacent\n",
     )
 
     findings = hc.scan_python_imports(tmp_path)
@@ -128,16 +127,12 @@ def test_pyproject_dependency_shapes_fail(tmp_path: Path) -> None:
 def test_pyproject_mixed_case_dependency_fails(tmp_path: Path) -> None:
     # PEP 503: requirement names are case-insensitive, so a re-cased
     # platform distribution must not slip past the scan.
-    mixed = "".join(
-        ch.upper() if i % 2 == 0 else ch for i, ch in enumerate(NS)
-    )
+    mixed = "".join(ch.upper() if i % 2 == 0 else ch for i, ch in enumerate(NS))
     assert mixed != NS
     _write(
         tmp_path,
         "pyproject.toml",
-        "[project]\n"
-        'name = "product"\n'
-        f'dependencies = ["{mixed}>=1.0"]\n',
+        f'[project]\nname = "product"\ndependencies = ["{mixed}>=1.0"]\n',
     )
 
     findings = hc.scan_pyproject_dependencies(tmp_path)
@@ -151,9 +146,7 @@ def test_nested_package_pyproject_is_scanned(tmp_path: Path) -> None:
     _write(
         tmp_path,
         "packages/yoke-core/pyproject.toml",
-        "[project]\n"
-        'name = "yoke-core"\n'
-        f'dependencies = ["{NS}"]\n',
+        f'[project]\nname = "yoke-core"\ndependencies = ["{NS}"]\n',
     )
 
     findings = hc.scan_pyproject_dependencies(tmp_path)
@@ -167,7 +160,7 @@ def test_pyproject_unrelated_names_pass(tmp_path: Path) -> None:
         "pyproject.toml",
         "[project]\n"
         'name = "product"\n'
-        f'# docs live at api.{NS}.com\n'
+        f"# docs live at api.{NS}.com\n"
         f'dependencies = ["yoke-core", "not{NS}", "requests"]\n',
     )
 
@@ -196,3 +189,32 @@ def test_registered_as_project_check() -> None:
         hc.hc_platform_namespace_boundary.__name__,
     )
     assert matches[0].name == hc.HC_DESC
+
+
+def test_parallel_reads_preserve_finding_order_and_unreadable_skip(
+    tmp_path, monkeypatch
+):
+    for name in ("a", "b", "unreadable"):
+        _write(tmp_path, f"runtime/{name}.py", f"import {NS}\n")
+    original = Path.read_text
+    second_read = Event()
+    completed = []
+
+    def read(path, **kwargs):
+        if path.name == "unreadable.py":
+            raise OSError("unreadable source")
+        if path.name == "a.py":
+            assert second_read.wait(5)
+        text = original(path, **kwargs)
+        completed.append(path.name)
+        if path.name == "b.py":
+            second_read.set()
+        return text
+
+    monkeypatch.setattr(Path, "read_text", read)
+    findings = hc.scan_python_imports(tmp_path)
+    assert completed == ["b.py", "a.py"]
+    assert [(row.relpath, row.line_no) for row in findings] == [
+        ("runtime/a.py", 1),
+        ("runtime/b.py", 1),
+    ]

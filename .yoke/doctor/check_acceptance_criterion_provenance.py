@@ -73,6 +73,7 @@ from yoke_core.engines.doctor_report import (
     _resolve_repo_root,
 )
 from yoke_core.engines.doctor_tree_scan import iter_tree_files
+from yoke_core.engines.doctor_parallel_reads import bounded_read_map
 
 _HC_SLUG = "acceptance-criterion-provenance"
 _HC_NAME = "No acceptance-criterion provenance in live prose"
@@ -133,10 +134,7 @@ LABEL_FORMAT_UNDER_TEST: tuple[str, ...] = (
 )
 
 _EXEMPT_PREFIXES = (
-    LABEL_FORMAT_SURFACES
-    + LABEL_FORMAT_UNDER_TEST
-    + GENERATED_MIRRORS
-    + ARCHIVE_ROOTS
+    LABEL_FORMAT_SURFACES + LABEL_FORMAT_UNDER_TEST + GENERATED_MIRRORS + ARCHIVE_ROOTS
 )
 
 #: Trees whose prose this check owns.
@@ -155,30 +153,36 @@ def _is_exempt(relative_path: str) -> bool:
     return any(relative_path.startswith(prefix) for prefix in _EXEMPT_PREFIXES)
 
 
+def _scan_paths(repo_root):
+    for root_name in _SCAN_ROOTS:
+        root = repo_root / root_name
+        if root.is_dir():
+            for path in sorted(iter_tree_files(root)):
+                if path.suffix in _SCAN_SUFFIXES and path.is_file():
+                    relative = path.relative_to(repo_root).as_posix()
+                    if not _is_exempt(relative):
+                        yield path
+
+
+def _read_source(path):
+    try:
+        return path, path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return path, None
+
+
 def scan_acceptance_criterion_provenance(repo_root: Path) -> list[str]:
     """Return ``path:line: text`` for every non-exempt criterion label."""
     hits: list[str] = []
-    for root_name in _SCAN_ROOTS:
-        root = repo_root / root_name
-        if not root.is_dir():
+    for path, text in bounded_read_map(_read_source, _scan_paths(repo_root)):
+        if text is None or "AC-" not in text:
             continue
-        for path in sorted(iter_tree_files(root)):
-            if path.suffix not in _SCAN_SUFFIXES or not path.is_file():
+        relative = path.relative_to(repo_root).as_posix()
+        for number, line in enumerate(text.splitlines(), 1):
+            if _CHECKBOX_LABEL.search(line):
                 continue
-            relative = path.relative_to(repo_root).as_posix()
-            if _is_exempt(relative):
-                continue
-            try:
-                text = path.read_text(encoding="utf-8")
-            except (OSError, UnicodeDecodeError):
-                continue
-            if "AC-" not in text:
-                continue
-            for number, line in enumerate(text.splitlines(), 1):
-                if _CHECKBOX_LABEL.search(line):
-                    continue
-                if _PROVENANCE.search(line):
-                    hits.append(f"{relative}:{number}: {line.strip()[:110]}")
+            if _PROVENANCE.search(line):
+                hits.append(f"{relative}:{number}: {line.strip()[:110]}")
     return hits
 
 

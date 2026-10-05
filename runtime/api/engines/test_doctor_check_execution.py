@@ -94,22 +94,19 @@ def test_safe_point_exhaustion_discards_partial_verdicts(monkeypatch):
     assert "--only slow" in rec.results[-1].detail
 
 
-def test_check_never_installs_a_trace(monkeypatch):
-    def forbidden(*args):
-        raise AssertionError("Doctor installed a Python tracer")
-
+def test_check_restores_the_callers_trace():
     previous = sys.gettrace()
-    monkeypatch.setattr(sys, "settrace", forbidden)
 
     def check(conn, args, rec):
-        assert sys.gettrace() is previous
-        rec.record("HC-trace-free", "Trace free", "PASS", "")
+        assert sys.gettrace() is not previous
+        rec.record("HC-trace", "Trace", "PASS", "")
 
     rec = RecordCollector()
     execute_check_isolated(
-        object(), DoctorArgs(), rec, HealthCheck("trace-free", "Trace free", check)
+        object(), DoctorArgs(), rec, HealthCheck("trace", "Trace", check)
     )
     assert rec.results[0].result == "PASS"
+    assert sys.gettrace() is previous
 
 
 def test_non_database_connections_reach_the_check_unchanged():
@@ -153,12 +150,13 @@ def test_http_and_subprocess_timeouts_share_check_deadline(monkeypatch):
 def test_postgres_budget_exhaustion_preserves_protocol_and_next_check(monkeypatch):
     from yoke_core.domain import db_backend
 
-    monkeypatch.setattr(doctor_budget, "CHECK_BUDGET_S", 0.02)
+    # A real protocol round trip needs room on shared CI workers.
+    monkeypatch.setattr(doctor_budget, "CHECK_BUDGET_S", 0.5)
     rec = RecordCollector()
     args = DoctorArgs()
 
     def blocked(conn, args, rec):
-        conn.execute("SELECT pg_sleep(0.2)")
+        conn.execute("SELECT pg_sleep(2)")
 
     def following(conn, args, rec):
         assert conn.execute("SELECT 1").fetchone()[0] == 1

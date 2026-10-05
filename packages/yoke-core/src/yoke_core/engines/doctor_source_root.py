@@ -23,6 +23,10 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
 from typing import Iterator, Optional
+import subprocess
+
+from yoke_contracts.install_binding import source_checkout_root
+from yoke_contracts.doctor_budget import remaining_seconds
 
 _BOUND_SOURCE_ROOT: ContextVar[Optional[str]] = ContextVar(
     "yoke_doctor_source_root",
@@ -49,3 +53,34 @@ def bound_source_root_or_none() -> Optional[str]:
 
 
 __all__ = ["bound_source_root", "bound_source_root_or_none"]
+
+
+def preferred_source_checkout(mapped: Path) -> Path:
+    """Prefer this engine's source lane only when it belongs to the mapped repo."""
+    source = source_checkout_root(__file__)
+    if source is None or source == mapped:
+        return mapped
+
+    def common_dir(root):
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(root),
+                "rev-parse",
+                "--path-format=absolute",
+                "--git-common-dir",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=remaining_seconds(5),
+        )
+        return result.stdout.strip() if result.returncode == 0 else None
+
+    try:
+        selected = common_dir(source)
+        if selected and selected == common_dir(mapped):
+            return source
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    return mapped

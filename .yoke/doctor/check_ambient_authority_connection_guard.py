@@ -33,6 +33,7 @@ from pathlib import Path
 from typing import Iterator, List, Optional, Sequence
 
 from yoke_core.api.repo_root import find_repo_root
+from yoke_core.engines.doctor_parallel_reads import prefetched_text_reader
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 from yoke_core.engines.doctor_tree_scan import GENERATED_TREE_NAMES, iter_tree_files
 
@@ -143,9 +144,11 @@ def _unguarded_calls(tree: ast.Module) -> Iterator[ast.Call]:
     yield from visit(tree, False)
 
 
-def _scan_one(repo_root: Path, path: Path) -> List[UnguardedConnection]:
+def _scan_one(
+    repo_root: Path, path: Path, *, read_text=None
+) -> List[UnguardedConnection]:
     try:
-        source = path.read_text(encoding="utf-8")
+        source = (read_text or Path.read_text)(path, encoding="utf-8")
     except OSError:
         return []
     # Cheap reject before paying for a parse: the composition needs both names.
@@ -183,8 +186,10 @@ def scan_for_unguarded_connections(
 ) -> List[UnguardedConnection]:
     """Return every undeclared raw driver connect to the ambient authority."""
     findings: List[UnguardedConnection] = []
-    for path in _scanned_files(repo_root, roots if roots is not None else SCAN_ROOTS):
-        findings.extend(_scan_one(repo_root, path))
+    paths = list(_scanned_files(repo_root, roots if roots is not None else SCAN_ROOTS))
+    read_text = prefetched_text_reader(paths)
+    for path in paths:
+        findings.extend(_scan_one(repo_root, path, read_text=read_text))
     return findings
 
 

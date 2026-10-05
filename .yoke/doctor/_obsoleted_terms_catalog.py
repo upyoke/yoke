@@ -161,7 +161,11 @@ _RETIRED_FLOW_DECLARATION_CONTRACT_PATTERN = (
 _RETIRED_SSH_BROWSER_WORKER_PATTERN = r"\bbrowser_worker(?:_[a-z]+)*\b"
 _RETIRED_SSH_BROWSER_CAPABILITY_PATTERN = r"\bremote[-_]browser\b"
 
+_RETIRED_CLAIM_AUDIT_SCANNERS_PATTERN = (
+    r"yoke_core\.domain\.check_claim_boundary_audit(?:_(?:select|rows|path_claims))?\b"
+)
 OBSOLETED_TERM_PATTERNS: tuple[str, ...] = (
+    _RETIRED_CLAIM_AUDIT_SCANNERS_PATTERN,
     _RETIRED_SSH_BROWSER_WORKER_PATTERN,
     _RETIRED_SSH_BROWSER_CAPABILITY_PATTERN,
     *_coordination_terms.COORDINATION_LEASE_RETIREMENT_PATTERNS,
@@ -225,6 +229,7 @@ OBSOLETED_TERM_PATTERNS: tuple[str, ...] = (
 )
 
 OBSOLETED_TERM_LABELS: dict[str, str] = {
+    _RETIRED_CLAIM_AUDIT_SCANNERS_PATTERN: "removed row-by-row claim audit scanners",
     _RETIRED_SSH_BROWSER_WORKER_PATTERN: "SSH browser worker (removed unused modules)",
     _RETIRED_SSH_BROWSER_CAPABILITY_PATTERN: "SSH browser capability (removed unused type)",
     **_workbench_terms.WORKBENCH_RETIREMENT_LABELS,

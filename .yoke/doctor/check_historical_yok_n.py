@@ -12,6 +12,7 @@ from pathlib import Path
 
 from yoke_core.domain.agents_render_conditional import RENDERED_AGENT_DIRS
 from yoke_core.domain.lint_yok_n_cruft import scan
+from yoke_core.engines.doctor_parallel_reads import bounded_read_map
 from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,
@@ -79,7 +80,7 @@ def hc_historical_yok_n_cruft(conn, args: DoctorArgs, rec: RecordCollector) -> N
     repo_root_resolved = repo_root.resolve()
 
     db_path = getattr(args, "db_path", None)
-    result = scan(repo_root, db_path=db_path)
+    result = scan(repo_root, db_path=db_path, read_map=bounded_read_map)
 
     # Drop hits under generated-output trees (see ``_GENERATED_OUTPUT_ROOTS``):
     # rendered/snapshot YOK-N tokens are not authored provenance, and their
@@ -125,11 +126,16 @@ def hc_historical_yok_n_cruft(conn, args: DoctorArgs, rec: RecordCollector) -> N
         "\n".join(lines) + extra,
     )
 
+
 # Slug and display name are the ones this check has always reported under.
 from yoke_project_checks._declare import (  # noqa: E402
     self_project_checks,
 )
 
 PROJECT_HEALTH_CHECKS = self_project_checks(
-    ('historical-yok-n-cruft', 'Historical YOK-N references in live prose', hc_historical_yok_n_cruft),
+    (
+        "historical-yok-n-cruft",
+        "Historical YOK-N references in live prose",
+        hc_historical_yok_n_cruft,
+    ),
 )

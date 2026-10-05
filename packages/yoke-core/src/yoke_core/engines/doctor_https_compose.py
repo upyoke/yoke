@@ -26,12 +26,16 @@ from yoke_core.engines.doctor_applicability_declarations import (
 from yoke_core.engines import doctor_progress
 from yoke_core.engines.doctor_check_execution import execute_check_isolated
 from yoke_core.engines.doctor_registry import HEALTH_CHECKS
+from yoke_core.engines.doctor_registry_types import HealthCheck
 from yoke_core.engines.doctor_report import (
     CheckResult,
     DoctorArgs,
     RecordCollector,
 )
-from yoke_core.engines.doctor_source_root import bound_source_root
+from yoke_core.engines.doctor_source_root import (
+    bound_source_root,
+    preferred_source_checkout,
+)
 
 
 _NO_CHECKOUT_DETAIL = "this runner has no checkout for it"
@@ -49,7 +53,7 @@ def checkout_root_for_project(project: str) -> Optional[Path]:
     if root is None:
         return None
     path = Path(root)
-    return path if path.is_dir() else None
+    return preferred_source_checkout(path) if path.is_dir() else None
 
 
 def machine_has_checkout_for(project: str) -> bool:
@@ -107,20 +111,15 @@ def false_na_local_runtime_slugs(
 def note_missing_control_plane(
     records: Sequence[CheckResult],
     project: str,
-) -> None:
-    """Rewrite DB-dependent FAILs as N/A when no local control plane exists.
-
-    A checkout-holding https client can read the tree but has no
-    local-postgres authority, so the DB half of a mixed check fails for a
-    reason that says nothing about the project. Reporting that as a
-    failure would be a lie; reporting it as not-applicable, with the
-    reason, is the honest answer.
-    """
+    check: HealthCheck,
+) -> List[CheckResult]:
+    """Replace incomplete mixed-check evidence with its named surface N/A."""
     for record in records:
         if record.result != "FAIL":
             continue
         if "no local control-plane" not in (record.detail or ""):
             continue
+        record.check_id, record.check_name = f"HC-{check.slug}", check.name
         record.result = "N/A"
         record.detail = (
             f"reads the {project} source tree and needs "
@@ -128,6 +127,8 @@ def note_missing_control_plane(
             "checkout but no local-postgres authority for "
             "the DB half of the check"
         )
+        return [record]
+    return list(records)
 
 
 def run_local_runtime_checks(
@@ -201,7 +202,6 @@ def run_local_source_checks(
         fix=fix,
         runtime=RUNTIME_LOCAL,
     )
-    # Scope flags for roster filtering when only= is set; still pass through.
     del full
     rec = RecordCollector()
     conn = local_connection_or_none(connect)
@@ -216,17 +216,15 @@ def run_local_source_checks(
                 if hc.slug not in wanted:
                     continue
                 pre = len(rec.results)
-                # Withheld, then emitted below: without a control plane
-                # this check's failure is the runner's, and the rewrite
-                # that says so happens after the call returns.
+                # Emit after converting missing control-plane authority to N/A.
                 with doctor_progress.verdicts_withheld():
                     execute_check_isolated(conn, args, rec, hc)
                     if not owned:
-                        note_missing_control_plane(rec.results[pre:], project)
+                        rec.results[pre:] = note_missing_control_plane(
+                            rec.results[pre:], project, hc
+                        )
                 for record in rec.results[pre:]:
-                    doctor_progress.check_finished(
-                        record.check_id, record.result
-                    )
+                    doctor_progress.check_finished(record.check_id, record.result)
     finally:
         if owned:
             try:
@@ -254,20 +252,23 @@ def merge_relayed_with_local(
     local_results: Sequence[Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
     """Replace relayed N/A rows with locally executed verdicts."""
-    by_slug = {
-        _hc_key(row.get("hc")): row
-        for row in local_results
-        if row.get("hc")
-    }
-    merged: List[Dict[str, Any]] = []
-    replaced: set[str] = set()
-    for row in relayed_results:
+
+    def identity(row):
         slug = _hc_key(row.get("hc"))
+        # Reserved errors describe individual checks, not one shared slot.
+        return (
+            (slug, row.get("name"))
+            if slug in {"check-incomplete", "internal-error"}
+            else (slug, None)
+        )
+
+    by_slug = {identity(row): row for row in local_results if row.get("hc")}
+    merged: List[Dict[str, Any]] = []
+    replaced = set()
+    for row in relayed_results:
+        slug = identity(row)
         local = by_slug.get(slug)
-        if (
-            local is not None
-            and str(row.get("severity") or "").upper() == "N/A"
-        ):
+        if local is not None and str(row.get("severity") or "").upper() == "N/A":
             merged.append(dict(local))
             replaced.add(slug)
         else:

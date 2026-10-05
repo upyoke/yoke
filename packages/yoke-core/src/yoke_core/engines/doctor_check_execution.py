@@ -28,6 +28,7 @@ from yoke_contracts.doctor_budget import (
 from yoke_contracts.control_plane_locality import RemoteControlPlaneConnectionError
 from yoke_core.engines import doctor_progress
 from yoke_core.engines.doctor_database_budget import bounded_connection
+from yoke_core.engines.doctor_wall_clock_budget import run_wall_clock_bounded
 from yoke_core.engines.doctor_registry_types import HealthCheck
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
@@ -84,7 +85,7 @@ def _run_isolated(
     try:
         with check_budget():
             with bounded_connection(conn) as budget_conn:
-                health_check.fn(budget_conn, args, rec)
+                run_wall_clock_bounded(health_check.fn, budget_conn, args, rec)
     except DoctorBudgetExhausted:
         recovery_detail = ""
         try:
@@ -102,7 +103,7 @@ def _run_isolated(
             f"doctor_check_budget_exhausted: {health_check.slug} exceeded "
             f"its {CHECK_BUDGET_S:g}s check budget; evidence is incomplete. "
             f"Recovery: retry `yoke watch doctor -- --only {health_check.slug}` "
-            "after the named database or provider recovers; narrow or optimize "
+            "after the named database or provider recovers; optimize "
             "the check if the budget is exhausted again." + recovery_detail,
         )
         return

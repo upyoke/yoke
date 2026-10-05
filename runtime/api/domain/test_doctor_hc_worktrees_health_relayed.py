@@ -38,7 +38,9 @@ _PORCELAIN = (
 
 
 def _completed(stdout: str = "", returncode: int = 0) -> subprocess.CompletedProcess:
-    return subprocess.CompletedProcess(args=["git"], returncode=returncode, stdout=stdout, stderr="")
+    return subprocess.CompletedProcess(
+        args=["git"], returncode=returncode, stdout=stdout, stderr=""
+    )
 
 
 class _Assessment:
@@ -63,16 +65,18 @@ def relayed_client(monkeypatch):
     def fake_run(cmd, *_a, **_kw):
         if cmd[:3] == ["git", "worktree", "list"]:
             return _completed(_PORCELAIN)
+        if cmd[:2] == ["git", "for-each-ref"]:
+            return _completed("PLAT-139\n")
         return _completed("", returncode=1)
 
     monkeypatch.setattr(hc._base, "_run", fake_run)
     monkeypatch.setattr(hc._base, "_resolve_repo_root", lambda: "/repo")
     monkeypatch.setattr(hc, "declared_disposable_roots", lambda _root: frozenset())
     monkeypatch.setattr(hc, "assess_lane_residue", lambda *_a, **_kw: _Residue())
-    monkeypatch.setattr(hc.Path, "is_dir", lambda self: str(self) == "/repo/.worktrees/PLAT-139")
     monkeypatch.setattr(
-        hc, "assess_landed_lane", lambda **_kw: _Assessment(safe=True)
+        hc.Path, "is_dir", lambda self: str(self) == "/repo/.worktrees/PLAT-139"
     )
+    monkeypatch.setattr(hc, "assess_landed_lane", lambda **_kw: _Assessment(safe=True))
 
     def fake_prune(**kwargs):
         calls["prune"].append(kwargs)
@@ -209,3 +213,32 @@ def test_unreachable_authority_fails_closed(monkeypatch, relayed_client) -> None
     _run_check(DoctorArgs(project="platform", fix=True))
 
     assert not relayed_client["prune"]
+
+
+def test_historical_lane_count_does_not_launch_one_git_read_per_row(
+    monkeypatch, relayed_client
+):
+    lanes = [
+        dict(_LANE, branch=f"old-{i}", path=f"/repo/.worktrees/old-{i}")
+        for i in range(1000)
+    ]
+    _install_relay(
+        monkeypatch,
+        relayed_client,
+        inventory={"lanes": lanes},
+        verdict={"prunable": True},
+    )
+    calls = []
+
+    def run(cmd, **kwargs):
+        calls.append(cmd)
+        normalized = ["git", *cmd[3:]] if cmd[:2] == ["git", "-C"] else cmd
+        if normalized[:3] == ["git", "worktree", "list"]:
+            return _completed("worktree /repo\nbranch refs/heads/main\n\n")
+        if cmd[:2] == ["git", "for-each-ref"]:
+            return _completed("main\n")
+        raise AssertionError(cmd)
+
+    monkeypatch.setattr(hc._base, "_run", run)
+    assert _run_check(DoctorArgs(project="platform")).results[0].result == "PASS"
+    assert len(calls) <= 3

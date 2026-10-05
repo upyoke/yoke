@@ -239,6 +239,7 @@ def scan(
     *,
     db_path: Optional[str] = None,
     extra_paths: Sequence[Path] = (),
+    read_map=map,
 ) -> LintResult:
     """Scan *repo_root* for historical YOK-N cruft and return a :class:`LintResult`."""
     result = LintResult()
@@ -246,12 +247,19 @@ def scan(
     work_items: set[str] = set()
     per_file_matches: list[tuple[Path, int, str, str]] = []
 
-    for f in _iter_scan_paths(repo_root, extra_paths=extra_paths):
+    def read_source(path):
         try:
-            text = f.read_text(encoding="utf-8", errors="replace")
+            return path, path.read_text(encoding="utf-8", errors="replace")
         except OSError:
+            return path, None
+
+    paths = _iter_scan_paths(repo_root, extra_paths=extra_paths)
+    for f, text in read_map(read_source, paths):
+        if text is None:
             continue
         result.scanned_files += 1
+        if _YOKE_REF.search(text) is None:
+            continue
         exempt_lines: set[int] = set()
         if f.suffix == ".py":
             exempt_lines = _python_exempt_line_ranges(text)

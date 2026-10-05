@@ -49,7 +49,9 @@ _BARE_CLI_TOKEN_RE = re.compile(
 )
 
 
-def scan_bare_internal_cli_token(repo_root: Path) -> List[RefLiteralHit]:
+def scan_bare_internal_cli_token(
+    repo_root: Path, *, read_text=Path.read_text
+) -> List[RefLiteralHit]:
     """Return every bare-id-as-item-ref CLI construction in shippable source."""
     root = repo_root.resolve()
     hits: List[RefLiteralHit] = []
@@ -65,7 +67,7 @@ def scan_bare_internal_cli_token(repo_root: Path) -> List[RefLiteralHit]:
             if is_exempt_relpath(rel):
                 continue
             try:
-                source = path.read_text(encoding="utf-8")
+                source = read_text(path, encoding="utf-8")
             except (OSError, UnicodeDecodeError):
                 continue
             for match in _BARE_CLI_TOKEN_RE.finditer(source):
