@@ -1,7 +1,7 @@
 ---
 name: simulate
 description: Run the Simulator to trace cross-task integration paths and find gaps. Auto-detects plan phase or integration phase. --system for Ouroboros system-wide consistency audit.
-argument-hint: "{epic-id} | --system"
+argument-hint: "{epic-id} [--auto-fix] | --system"
 ---
 
 # Harness slash skill. Conduct invokes the epic flow internally, and operators may invoke either epic simulation or the system-wide audit directly. There is no terminal `yoke simulate` adapter; dispatch uses the harness skill surface.
@@ -20,6 +20,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 - `{epic-id}` — Epic ID (the numeric `id` of the epic backlog item, which equals the `epic_id` foreign key in `epic_tasks`)
 - `--system` — Run a system-wide consistency audit (no epic name required). Checks all agents, SKILLs, scripts, rules, hooks, and docs for internal consistency. Produces a report only — no auto-fix.
+- `--auto-fix` — Automatically accept the shared Architect plan-fix loop and re-simulations; code gaps return to the caller rather than being reported clean. Conduct invokes this mode internally with its persisted report.
 - `--force-integration` — Run integration simulation even if some tasks are incomplete (traces completed work only)
 
 ## Philosophy
@@ -37,7 +38,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 | System audit | `--system` is present | [`system.md`](system.md) |
 | Epic simulation | An epic id was given | [`epic-flow.md`](epic-flow.md) |
 | Dispatch the Simulator | A phase is about to invoke the Simulator | [`dispatch-prompts.md`](dispatch-prompts.md) |
-| Auto-fix | Fixable gaps remain and the operator approved auto-fix | [`autofix-loop.md`](autofix-loop.md) |
+| Auto-fix | Fixable gaps remain and auto-fix was approved or `--auto-fix` is set | [`autofix-loop.md`](autofix-loop.md) |
 
 ## Steps
 
@@ -57,7 +58,7 @@ yoke sessions touch \
 3. **Use [dispatch-prompts.md](dispatch-prompts.md) when invoking the Simulator.**
  It contains the canonical prompts for plan simulations and both integration modes.
 
-4. **If fixable gaps remain and the operator approves auto-fix, read and follow [autofix-loop.md](autofix-loop.md).**
+4. **If fixable gaps remain and the operator approves auto-fix or `--auto-fix` is set, read and follow [autofix-loop.md](autofix-loop.md).**
  This phase owns Architect fix mode, DB writes, change summaries, and the capped re-simulation loop.
 
 ## Notes

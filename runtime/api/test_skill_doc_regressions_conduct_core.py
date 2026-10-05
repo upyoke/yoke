@@ -144,7 +144,9 @@ class TestConductPhasedRead:
         """One phase table, on the entrypoint. A second copy drifts."""
         assert not (conduct_dir / "single-item.md").exists()
         router = _read(conduct_dir / "SKILL.md")
-        assert len(router.splitlines()) < 120, "the entrypoint routes, it does not teach"
+        assert len(router.splitlines()) < 120, (
+            "the entrypoint routes, it does not teach"
+        )
         for phase_file in self.PHASE_FILES:
             assert phase_file in router, phase_file
 
@@ -292,7 +294,8 @@ class TestConductFanOutEntryPath:
     def test_dispatch_context_and_prompts_match_fan_out(self):
         context = _read(self.CONDUCT / "dispatch-context.md")
         prompts = _read(self.CONDUCT / "dispatch-context-prompts.md")
-        epic_prompts = prompts.split("### Issue Item Tester Prompt Template", 1)[0]
+        epic_prompts = prompts
+        shared = _read(SKILLS / "shared" / "tester-dispatch-template.md")
         for needle in (
             "Epic Fan-Out Enumeration",
             "_task_ids",
@@ -301,10 +304,13 @@ class TestConductFanOutEntryPath:
             assert needle in context, f"dispatch-context.md missing {needle}"
         for needle in (
             "Implement PREFIX-{N} task {_task_id}",
-            "Validate PREFIX-{N} task {_task_id}",
             "epic-task body-get --epic {_epic_id} --task-num {_task_id}",
         ):
             assert needle in epic_prompts, f"epic prompts missing {needle}"
+        assert "../shared/tester-dispatch-template.md" in epic_prompts
+        assert 'DispatchDescriptor(role="tester"' not in epic_prompts
+        assert "task-num: {task_num}" in shared
+        assert "review-insert --epic {epic_id} --task-num {task_num}" in shared
         for needle in (
             "Anticipated path coverage (pre-authorized)",
             "_anticipated_paths_block_{_task_id}",

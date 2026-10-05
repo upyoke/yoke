@@ -2,7 +2,7 @@
 
 Extracted from `dispatch-context.md`. Referenced from `5f-issue.2` (Build Context Block) and `5f-epic.6` (Build Context Block).
 
-This sub-step is called as the **final sub-step** of both `5f-issue.2` (Build Context Block) and `5f-epic.6` (Build Context Block). It appends project-specific context to the existing context block for every item with a project, including Yoke itself. The same context fields (test plans, repo path, ephemeral URL) are documented in `shared/tester-dispatch-template.md` for use by non-conduct flows.
+This sub-step is called as the **final sub-step** of both `5f-issue.2` (Build Context Block) and `5f-epic.6` (Build Context Block). It appends project-specific context to the existing context block for every item with a project, including Yoke itself. The shared `shared/tester-dispatch-template.md` owns all Tester prompt variants; this step supplies their test plans, repo path, and ephemeral URL.
 
 **1. Query the item's project:**
 ```bash

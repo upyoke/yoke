@@ -41,11 +41,17 @@ class TestConductSimulationReadback:
     def docs(self) -> dict[str, Path]:
         return {
             "simulation_gate": SKILLS / "conduct" / "simulation-gate.md",
-            "simulation_gate_criteria": SKILLS / "conduct" / "simulation-gate-criteria.md",
-            "simulation_gate_escalation": SKILLS / "conduct" / "simulation-gate-escalation.md",
+            "simulation_gate_criteria": SKILLS
+            / "conduct"
+            / "simulation-gate-criteria.md",
+            "simulation_gate_escalation": SKILLS
+            / "conduct"
+            / "simulation-gate-escalation.md",
             "autofix": SKILLS / "conduct" / "simulation-autofix.md",
-            "autofix_patching": SKILLS / "conduct" / "simulation-autofix-patching.md",
-            "autofix_verification": SKILLS / "conduct" / "simulation-autofix-verification.md",
+            "autofix_patching": SKILLS / "simulate" / "autofix-loop.md",
+            "autofix_verification": SKILLS
+            / "conduct"
+            / "simulation-autofix-verification.md",
         }
 
     def test_simulation_gate_initializes_local_result(self, docs):
@@ -75,11 +81,15 @@ class TestConductSimulationReadback:
         assert (
             'echo "{simulator_output}" | sh "$SCRIPT_DIR/yoke-db.sh" epic simulation-upsert'
             not in text
-        ), "inline simulation-upsert (shell form) must be absent from simulation-gate files"
+        ), (
+            "inline simulation-upsert (shell form) must be absent from simulation-gate files"
+        )
         assert (
             'echo "{simulator_output}" | python3 -m yoke_core.cli.db_router epic simulation-upsert'
             not in text
-        ), "inline simulation-upsert (Python form) must be absent from simulation-gate files"
+        ), (
+            "inline simulation-upsert (Python form) must be absent from simulation-gate files"
+        )
 
     def test_simulation_gate_references_auto_handoff(self, docs):
         """simulation gate now relies on auto-handoff from persist_and_verify."""
@@ -106,13 +116,25 @@ class TestConductSimulationReadback:
         assert "SELECT task_num, title, depends_on FROM epic_tasks" not in text
 
     def test_autofix_uses_persist_helper(self, docs):
-        # Content split to simulation-autofix-patching.md and simulation-autofix-verification.md
-        text = _read_bundle(docs["autofix"], docs["autofix_patching"], docs["autofix_verification"])
+        # Shared loop and Conduct amend-cycle persistence
+        text = _read_bundle(
+            docs["autofix"], docs["autofix_patching"], docs["autofix_verification"]
+        )
         assert "yoke_core.domain.persist_simulation" in text
+        adapter = _read(docs["autofix"])
+        assert "../simulate/SKILL.md" in adapter
+        assert "../simulate/autofix-loop.md" in adapter
+        assert "--force-integration --auto-fix" in adapter
+        assert "AUTOFIX_CODE_GAPS" in adapter
+        assert 'DispatchDescriptor(role="architect")' not in adapter
+        assert not (SKILLS / "conduct" / "simulation-autofix-patching.md").exists()
+        assert not (SKILLS / "conduct" / "simulation-autofix-inputs.md").exists()
 
     def test_autofix_has_no_inline_upsert(self, docs):
-        # Check all autofix split files
-        text = _read_bundle(docs["autofix"], docs["autofix_patching"], docs["autofix_verification"])
+        # Check shared autofix and caller adapter
+        text = _read_bundle(
+            docs["autofix"], docs["autofix_patching"], docs["autofix_verification"]
+        )
         assert (
             'yoke-db.sh" epic simulation-upsert "$_epic_id" "integration" < "$_sim_tmp"'
             not in text
@@ -199,9 +221,9 @@ class TestConductSimulatorEpicAttestation:
         assert "_epic_id lost between dispatches" in text
 
     def test_autofix_resimulation_prompts_require_epic_attestation(self):
-        patching = _read(SKILLS / "conduct" / "simulation-autofix-patching.md")
+        patching = _read(SKILLS / "simulate" / "autofix-loop.md")
         verification = _read(SKILLS / "conduct" / "simulation-autofix-verification.md")
-        assert "EPIC: PREFIX-{_item_id}" in patching
+        assert "identity-attested" in patching
         assert "EPIC: PREFIX-{_item_id}" in verification
         assert "exit 16" in patching
         assert "exit 17" in patching
@@ -209,13 +231,15 @@ class TestConductSimulatorEpicAttestation:
         assert "exit 17" in verification
 
     def test_autofix_attestation_failures_halt_not_gap_downgrade(self):
-        patching = _read(SKILLS / "conduct" / "simulation-autofix-patching.md")
+        patching = _read(SKILLS / "simulate" / "autofix-loop.md")
         verification = _read(SKILLS / "conduct" / "simulation-autofix-verification.md")
-        assert "**If `_persist_rc` is 16 or 17" in patching
-        assert "Return `AUTOFIX_HALTED`" in patching
-        assert "not architectural gaps" in patching
+        assert "wrong-epic body (exit 16)" in patching
+        assert "returns `AUTOFIX_HALTED`" in patching
+        assert "It is not another plan gap" in patching
         assert "**`_persist_rc` is 16 or 17:**" in verification
-        assert "without treating the identity failure as an ordinary gap" in verification
+        assert (
+            "without treating the identity failure as an ordinary gap" in verification
+        )
 
     def test_compressed_context_includes_commit_boundary_evidence(self, docs):
         criteria = _read(docs["criteria"])
@@ -240,7 +264,10 @@ class TestConductSimulatorEpicAttestation:
         assert "Worktree-State Authority" in text
         assert "a task's resolved worktree checkout is the authority" in text
         assert "whether the item/epic has one worktree or many" in text
-        assert "Main is the base/integration target, not evidence of unmerged task state" in text
+        assert (
+            "Main is the base/integration target, not evidence of unmerged task state"
+            in text
+        )
         assert "report evidence missing instead of substituting main" in text
 
     def test_integration_prompts_anchor_actual_code_to_worktrees(self, docs):
@@ -248,16 +275,24 @@ class TestConductSimulatorEpicAttestation:
         prompts = _read(docs["dispatch_prompts"])
         flow = _read(docs["epic_flow"])
         autofix = _read_bundle(
-            SKILLS / "conduct" / "simulation-autofix-patching.md",
+            SKILLS / "simulate" / "autofix-loop.md",
             SKILLS / "conduct" / "simulation-autofix-verification.md",
         )
         combined = "\n".join((criteria, prompts, flow, autofix))
-        assert combined.count("Worktree-State Authority") >= 5
-        assert combined.count("Main is the base/integration target, not evidence of unmerged task state") >= 5
-        assert combined.count("whether the item/epic has one worktree or many") >= 5
+        assert combined.count("Worktree-State Authority") >= 4
+        assert (
+            combined.count(
+                "Main is the base/integration target, not evidence of unmerged task state"
+            )
+            >= 4
+        )
+        assert combined.count("whether the item/epic has one worktree or many") >= 4
         assert "## Worktree Authorities" in prompts
         assert "## Worktree Authorities" in criteria
         assert "_worktree_list" in criteria
         assert "epic_dispatch_chains" in combined
         assert "worktree_path" in combined
-        assert "report evidence missing instead of inspecting main as a substitute" in combined
+        assert (
+            "report evidence missing instead of inspecting main as a substitute"
+            in combined
+        )
