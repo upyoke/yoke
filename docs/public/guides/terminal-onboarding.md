@@ -1,5 +1,14 @@
 # Copy links and codes during onboarding
 
+Run `yoke setup` for machine setup. Bare `yoke onboard` points there and lists
+the project commands, including `yoke onboard project`. Selection rows fit the
+terminal's available width, including 80 columns and narrower; a long label
+or description is shortened, and the selected description appears below.
+
+`yoke uninstall` also handles unfinished setup: absent GitHub authorization
+or an absent active connection skips disconnect with a reason, so an otherwise
+clean machine can finish removal.
+
 Choosing **Don't set up a project now · just the machine** still connects
 your account. The finish screen lists your accessible projects with their
 work-item prefixes, plus commands to file and browse work from any folder
@@ -39,6 +48,15 @@ On a Linux desktop without one, it uses Yoke's Chromium runtime, installing it
 through the same setup and cache browser QA uses. The wizard shows a progress
 screen while preparing the browser; the approval link and one-time code remain
 visible, with the copy keys available. Later browser QA reuses that download.
+If the bundled-browser download fails, setup checks installed Chromium/Chrome
+browsers with a sandboxed test-page launch. Only a successful executable is
+saved in machine config at `settings.browser_executable_path`. Setup, browser
+QA and browser authorization use that same selection; no browser is copied
+into Playwright's cache. Later setup prefers an available bundled browser and
+clears the system selection after verifying its dependencies. If an HTML block
+page replaces the download and no installed browser works, allow
+`cdn.playwright.dev`, `playwright.download.prss.microsoft.com`, and
+`playwright.azureedge.net`, then retry `yoke qa browser setup`.
 On a machine without a graphical display, opening the link attempts nothing and
 says “No browser available here. Open this link on any device”. A failed
 installation or open shows the same recovery with the failure reason; it only

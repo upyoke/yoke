@@ -94,7 +94,8 @@ function buildLaunchArgs({ profileDir, url }) {
 
 /** The Chromium the daemon drives, so the profile's cookies stay readable. */
 function resolveExecutablePath() {
-  const executablePath = require('playwright').chromium.executablePath();
+  const executablePath = require('./browser-executable').executablePath()
+    || require('playwright').chromium.executablePath();
   if (!executablePath) {
     throw new Error(
       'Playwright reported no Chromium executable. Run '

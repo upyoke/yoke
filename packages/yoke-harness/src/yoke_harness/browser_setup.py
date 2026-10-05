@@ -8,11 +8,15 @@ import tempfile
 from pathlib import Path
 
 from yoke_cli import browser_node_toolchain
+from yoke_cli.config import browser_executable
+from yoke_cli.config import machine_config
+from yoke_cli.config.machine_config_file import ensure_owner_only_directory
 from yoke_contracts.playwright_cache import (
     YOKE_BROWSER_CACHE_PROJECT,
     resolve_playwright_cache,
 )
 from yoke_harness import browser_runtime_home
+from yoke_harness import browser_system_browser
 from yoke_harness.browser_system_dependencies import ensure_system_dependencies
 
 
@@ -40,6 +44,7 @@ def _ensure_cache_writable(cache: Path) -> None:
 
 def ensure_browser_runtime(browser: Path | None = None, toolchain=None, *, emit=print):
     try:
+        ensure_owner_only_directory(machine_config.yoke_home())
         return _ensure_browser_runtime(browser, toolchain, emit=emit)
     except OSError as exc:
         raise RuntimeError(
@@ -59,6 +64,8 @@ def _ensure_browser_runtime(browser: Path | None = None, toolchain=None, *, emit
     assert cache is not None
     _ensure_cache_writable(Path(cache))
     env["PLAYWRIGHT_BROWSERS_PATH"] = cache
+    saved = browser_executable.configured()
+    browser_executable.project_environment(env, None)
     node_modules = browser / "node_modules"
     pw_modules = node_modules / "playwright"
     autoinstall = os.environ.get("YOKE_BROWSER_AUTOINSTALL", "1")
@@ -95,7 +102,13 @@ def _ensure_browser_runtime(browser: Path | None = None, toolchain=None, *, emit
     )
     chromium_status = result.stdout.strip() if result.returncode == 0 else "error"
     if chromium_status != "ok":
+        if saved and browser_system_browser.use_installed(
+            browser, toolchain, env, emit=_log, saved=saved
+        ):
+            return env
         if autoinstall == "0":
+            if browser_system_browser.use_installed(browser, toolchain, env, emit=_log):
+                return env
             raise RuntimeError(
                 "[browser-auto-bootstrap] BLOCKED: Chromium binary missing"
             )
@@ -108,10 +121,10 @@ def _ensure_browser_runtime(browser: Path | None = None, toolchain=None, *, emit
             env=env,
         )
         if result.returncode != 0:
-            raise RuntimeError(
-                f"browser_install_failed: exit {result.returncode}\n"
-                + _command_output_tail(result)
-                + "\ncheck network and runtime permissions, then retry yoke qa browser setup"
+            if browser_system_browser.use_installed(browser, toolchain, env, emit=_log):
+                return env
+            raise browser_system_browser.download_failure(
+                result, _command_output_tail(result)
             )
         _log("[browser-auto-bootstrap] Chromium installed successfully")
     ensure_system_dependencies(
@@ -121,4 +134,6 @@ def _ensure_browser_runtime(browser: Path | None = None, toolchain=None, *, emit
         emit=_log,
         autoinstall=autoinstall != "0",
     )
+    if saved:
+        browser_executable.save(None)
     return env
