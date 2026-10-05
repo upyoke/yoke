@@ -10,6 +10,8 @@ and the tests that prove it.
 
 from __future__ import annotations
 
+from yoke_core.tools._impacted_pack_contracts import PACK_PREFIX_CONTRACTS
+
 from yoke_contracts.project_contract.install_manifest import (
     PACKAGED_INSTALL_BUNDLE_TREE_REL,
 )
@@ -244,6 +246,7 @@ SOURCE_RECIPE_SOURCE_PREFIXES = (
 )
 
 PREFIX_CONTRACT_TESTS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
+    *PACK_PREFIX_CONTRACTS,
     (
         "core_module_importability",
         ("packages/yoke-core/src/yoke_core/",),

@@ -23,10 +23,16 @@ EXPECTED_TOOLS = {
     "registry-oidc": {"pulumi"},
     "self-hosted-runners": {"pulumi"},
     "smoke-testing": set(),
-    "structured-events": set(),
+    "structured-events": {"node"},
     "vps-hosting": {"pulumi", "ssh"},
     "webapp-environment-infrastructure": {"pulumi"},
     "webapp-scaffold": {"node", "npm"},
+}
+
+# Immutable historical versions keep their original tool contract.
+VERSION_TOOL_OVERRIDES = {
+    ("structured-events", "1.0.0"): set(),
+    ("structured-events", "1.1.0"): set(),
 }
 
 _DIRECT_INVOCATIONS = {
@@ -77,7 +83,10 @@ def test_every_shipped_pack_version_declares_a_complete_tool_contract() -> None:
             declarations = record["prerequisites"]
             tools = {row["tool"] for row in declarations}
             assert len(tools) == len(declarations), (path, version)
-            assert tools == EXPECTED_TOOLS[descriptor["slug"]], (path, version)
+            expected = VERSION_TOOL_OVERRIDES.get(
+                (descriptor["slug"], version), EXPECTED_TOOLS[descriptor["slug"]]
+            )
+            assert tools == expected, (path, version)
             for row in declarations:
                 assert set(row["install"]) == {"darwin", "linux", "windows"}
                 assert row["probe"]["version_args"]

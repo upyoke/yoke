@@ -20,7 +20,13 @@ let timerId = 0;
 const timers = new Map();
 globalThis.setTimeout = (fn, delay) => { timers.set(++timerId, { fn, delay }); return timerId; };
 globalThis.clearTimeout = id => timers.delete(id);
-const tick = async () => { for (let i = 0; i < 20; i++) await new Promise(setImmediate); };
+const waitFor = async (condition) => {
+  const deadline = performance.now() + 5000;
+  while (!await condition()) {
+    assert.ok(performance.now() < deadline, 'browser_contract_timeout: expected asynchronous work to complete');
+    await new Promise(setImmediate);
+  }
+};
 
 const { configureEvents, setConsent, emitEvent, flushEvents, getStoredAttribution } = await import('./events.ts');
 const { startPageViews } = await import('./events_navigation.ts');
@@ -38,6 +44,8 @@ let failDelete = false;
 globalThis.fetch = async (url, options) => {
   if (url.endsWith('/attribution')) {
     captureCount++;
+    // Exercise completion waits beyond the old fixed event-loop turn budget.
+    for (let i = 0; i < 40; i++) await new Promise(setImmediate);
     if (options.method === 'DELETE' && failDelete) return new Response('', { status: 503 });
     const response = await attribution(new Request('https://app.example.com' + url, {
       ...options, headers: { ...options.headers, Origin: 'https://app.example.com', Cookie: serverCookie },
@@ -58,11 +66,11 @@ test('consent, server persistence, SPA views, failures, and revocation', async (
   configureEvents({ publishableKey: 'public' });
   const cleanup = startPageViews();
   assert.equal(emitEvent({ name: 'PageViewed', kind: 'analytics', eventType: 'page_view' }), null);
-  await tick();
+  await new Promise(setImmediate);
   assert.equal(captureCount, 0);
   assert.equal(serverCookie, '');
   await setConsent(true);
-  await tick();
+  await waitFor(async () => { await flushEvents(); return batches.length === 1; });
   const first = getStoredAttribution();
   assert.equal(first.first_touch.acquisition_channel, 'ai_assistant');
   assert.ok(first.visitor_id);
@@ -77,9 +85,11 @@ test('consent, server persistence, SPA views, failures, and revocation', async (
   location = new URL('https://app.example.com/back');
   window.dispatchEvent(new Event('popstate'));
   history.replaceState({}, '', '/back'); // State-only update is not another page.
-  await tick();
-  await flushEvents();
-  const views = batches[1].events;
+  await waitFor(async () => {
+    await flushEvents();
+    return batches.slice(1).flatMap(batch => batch.events).length === 3;
+  });
+  const views = batches.slice(1).flatMap(batch => batch.events);
   assert.deepEqual(views.map(e => e.page_path), ['/orders', '/orders', '/back']);
   assert.equal(views[0].referrer, 'https://app.example.com/?utm_source=chatgpt.com');
   assert.ok(views.every(e => e.visitor_id === first.visitor_id));
@@ -117,7 +127,7 @@ test('consent, server persistence, SPA views, failures, and revocation', async (
   mode = 'success';
   document.visibilityState = 'hidden';
   document.dispatchEvent(new Event('visibilitychange'));
-  await tick();
+  await waitFor(() => batches.length === before + 1);
   assert.equal(batches.length, before + 1);
   cleanup();
 
