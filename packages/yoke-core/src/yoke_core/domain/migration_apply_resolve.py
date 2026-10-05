@@ -1,6 +1,4 @@
-"""Project, capability, item, and module resolution for migration apply.
-
-"""
+"""Project, capability, item, and module resolution for migration apply."""
 
 from __future__ import annotations
 
@@ -21,9 +19,19 @@ from yoke_core.domain.migration_model_capability_validation import (
     validate as validate_capability,
 )
 from yoke_core.domain.migration_apply_contract import (
+    CompatibilityClassError,
     MigrationApplyError,
     ProfileNotApplyError,
     _safe_parse_json_dict,
+)
+from yoke_core.domain.db_mutation_gate_strategy import evaluate_strategy_matrix
+from yoke_core.domain.migration_model_capability_defaults import resolve_model
+from yoke_core.domain.projects_breakage_policy import (
+    BreakagePolicyError,
+    resolve_breakage_policy,
+)
+from yoke_core.domain.migration_history_integration import (
+    require_rehearsal_history_extension,
 )
 from yoke_core.domain.migration_history import (
     load_migration_module,
@@ -44,6 +52,60 @@ def _placeholder(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
+def resolve_rehearsal_targets(control_conn, resolved, worktree_path: Path):
+    """Validate the item/model and prove validation differs from authority."""
+    # Target provisioning imports the resolver through its worktree adapter.
+    from yoke_core.domain.migration_apply_targets import (
+        assert_distinct_database_targets,
+        resolve_authoritative_db_target,
+        resolve_connection_env_var,
+        resolve_validation_db_target,
+    )
+
+    project, profile = resolved.project, resolved.profile
+    if not project:
+        raise MigrationApplyError(
+            "governed migration subject has no project; cannot resolve model"
+        )
+    try:
+        breakage_policy = resolve_breakage_policy(control_conn, project)
+    except BreakagePolicyError as exc:
+        raise CompatibilityClassError(str(exc)) from exc
+    errors = evaluate_strategy_matrix(breakage_policy=breakage_policy, profile=profile)
+    if errors:
+        raise CompatibilityClassError(
+            f"Migration subject fails the governed-runner gate matrix on "
+            f"breakage_policy={breakage_policy!r}: {'; '.join(errors)}"
+        )
+    capability = _resolve_capability_settings(control_conn, project)
+    try:
+        model = resolve_model(capability, profile["model_name"])
+    except KeyError as exc:
+        raise MigrationApplyError(
+            f"model '{profile['model_name']}' not declared on project '{project}'"
+        ) from exc
+    runner_config = (model.get("runner") or {}).get("config") or {}
+    require_rehearsal_history_extension(
+        worktree_path=worktree_path,
+        modules_dir=str(runner_config.get("modules_dir") or ""),
+        integration_target=resolved.integration_target,
+        migration_modules=profile["migration_modules"],
+    )
+    authority = resolve_authoritative_db_target(
+        _resolve_repo_path(control_conn, project), model
+    )
+    validation = resolve_validation_db_target(
+        worktree_path=worktree_path,
+        project=project,
+        model_name=profile["model_name"],
+        model=model,
+        authoritative_target=authority,
+        control_db_path=control_conn_db_path(control_conn),
+    )
+    assert_distinct_database_targets(authority, validation)
+    return model, authority, validation, resolve_connection_env_var(model)
+
+
 def _operational_error_types(conn) -> tuple:
     return db_backend.operational_error_types(conn)
 
@@ -59,9 +121,7 @@ def _resolve_repo_path(conn: Any, project: str) -> Path:
     return checkout
 
 
-def _resolve_capability_settings(
-    conn: Any, project: str
-) -> Dict[str, Any]:
+def _resolve_capability_settings(conn: Any, project: str) -> Dict[str, Any]:
     """Resolve the migration_model capability row for *project*.
 
     ``conn`` is the control-plane connection already owned by the caller.
@@ -115,7 +175,9 @@ def _resolve_item_worktree_path(conn, item_id: int) -> Optional[str]:
 
 
 def default_worktree_path(
-    conn, item_id: int, override: Optional[Path] = None,
+    conn,
+    item_id: int,
+    override: Optional[Path] = None,
 ) -> Path:
     """rehearse / live-apply worktree default: override > item.worktree > cwd."""
     if override is not None:
@@ -143,9 +205,7 @@ def _load_item(conn: Any, item_id: int) -> Dict[str, Any]:
         (item_id,),
     ).fetchone()
     if row is None:
-        raise MigrationApplyError(
-            f"Item {render_item_ref(conn, item_id)} not found"
-        )
+        raise MigrationApplyError(f"Item {render_item_ref(conn, item_id)} not found")
     return dict(row)
 
 
@@ -153,7 +213,8 @@ def _resolve_profile_or_raise(item: Mapping[str, Any]) -> Dict[str, Any]:
     public_ref = format_item_ref(
         item.get("project"),
         item.get("public_item_prefix"),
-        item.get("project_sequence"))
+        item.get("project_sequence"),
+    )
     raw = item.get("db_mutation_profile")
     parsed = _safe_parse_json_dict(raw)
     if not parsed or parsed.get("state") == STATE_NONE:

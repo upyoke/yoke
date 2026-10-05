@@ -6,48 +6,58 @@ import json
 from functools import partial
 from pathlib import Path
 from typing import Any, List, Optional
+from yoke_contracts.schema_authority import serving_build_authority
 
 from yoke_core.domain import db_helpers
 from yoke_core.domain.db_compatibility_attestation import (
     _safe_parse_dict as _safe_parse_attestation,
 )
-from yoke_core.domain.db_mutation_gate_strategy import evaluate_strategy_matrix
-from yoke_core.domain.migration_model_capability_defaults import resolve_model
-from yoke_core.domain.projects_breakage_policy import BreakagePolicyError, resolve_breakage_policy
 from yoke_core.domain.schema_fingerprint import (
     UnsupportedFingerprintKindError,
 )
 from yoke_core.domain.migration_apply_audit import (
-    _insert_audit_row, _update_audit_state,
+    _insert_audit_row,
+    _update_audit_state,
 )
 from yoke_core.domain.migration_apply_targets import (
-    assert_distinct_database_targets, connect_db_target,
+    connect_db_target,
     ensure_migration_audit_table_for_target,
-    fingerprint_db_target, resolve_authoritative_db_target,
-    resolve_connection_env_var, resolve_validation_db_target,
+    fingerprint_db_target,
 )
 from yoke_core.domain import migration_territory_claim
 from yoke_core.domain.migration_apply_contract import (
-    FAIL_TEST_APPLY, FAIL_TEST_VERIFY, STATE_PLANNED,
-    STATE_REHEARSED, STATE_TEST_APPLIED, STATE_TEST_COPY_CREATED,
-    STATE_TEST_VERIFIED, CompatibilityClassError, MigrationApplyError,
-    ModuleAttemptResult, ModuleContractError, ModuleResolutionError,
-    RehearseResult, _now,
+    FAIL_TEST_APPLY,
+    FAIL_TEST_VERIFY,
+    STATE_PLANNED,
+    STATE_REHEARSED,
+    STATE_TEST_APPLIED,
+    STATE_TEST_COPY_CREATED,
+    STATE_TEST_VERIFIED,
+    MigrationApplyError,
+    ModuleAttemptResult,
+    ModuleContractError,
+    ModuleResolutionError,
+    RehearseResult,
+    _now,
 )
 from yoke_core.domain.migration_apply_resolve import (
-    _resolve_capability_settings,
-    _resolve_repo_path, control_conn_db_path,
-    default_worktree_path, resolve_runner_input,
+    default_worktree_path,
+    resolve_rehearsal_targets,
+    resolve_runner_input,
 )
 from yoke_core.domain.migration_apply_runners import dispatch_handle
-from yoke_core.domain.migration_history_integration import (
-    require_rehearsal_history_extension,
-)
 from yoke_core.domain.migration_apply_verify import (
-    _append_rehearsal_outcomes, _row_count_map, _run_baseline_verify,
-    _run_module_invariants, _run_rehearsal_commands,
+    _append_rehearsal_outcomes,
+    _row_count_map,
+    _run_baseline_verify,
+    _run_module_invariants,
+    _run_rehearsal_commands,
 )
-from yoke_core.domain.migration_harness_checks import pg_insert_migration_audit_row, pg_update_migration_audit_state
+from yoke_core.domain.migration_harness_checks import (
+    pg_insert_migration_audit_row,
+    pg_update_migration_audit_state,
+)
+
 
 def rehearse(
     item_id: int,
@@ -90,67 +100,28 @@ def _rehearse_inner(
     profile = resolved.profile
     project = resolved.project
     project_id = resolved.project_id
-    if not project:
-        raise MigrationApplyError(
-            "governed migration subject has no project; cannot resolve model"
-        )
-    try:
-        breakage_policy = resolve_breakage_policy(control_conn, project)
-    except BreakagePolicyError as exc:
-        raise CompatibilityClassError(str(exc)) from exc
-    matrix_errors = evaluate_strategy_matrix(
-        breakage_policy=breakage_policy, profile=profile,
+    model, authoritative_db, validation_target, env_var = resolve_rehearsal_targets(
+        control_conn, resolved, worktree_path
     )
-    if matrix_errors:
-        raise CompatibilityClassError(
-            f"Migration subject fails the governed-runner gate matrix on "
-            f"breakage_policy={breakage_policy!r}: {'; '.join(matrix_errors)}"
-        )
-
-    capability = _resolve_capability_settings(control_conn, project)
-    try:
-        model = resolve_model(capability, profile["model_name"])
-    except KeyError as exc:
-        raise MigrationApplyError(
-            f"model '{profile['model_name']}' not declared on project '{project}'"
-        ) from exc
-
-    repo_path = _resolve_repo_path(control_conn, project)
-    runner_config = (model.get("runner") or {}).get("config") or {}
-    require_rehearsal_history_extension(
-        worktree_path=worktree_path,
-        modules_dir=str(runner_config.get("modules_dir") or ""),
-        integration_target=resolved.integration_target,
-        migration_modules=profile["migration_modules"],
-    )
-    authoritative_db = resolve_authoritative_db_target(repo_path, model)
-    env_var = resolve_connection_env_var(model)
-
-    validation_target = resolve_validation_db_target(
-        worktree_path=worktree_path,
-        project=project,
-        model_name=profile["model_name"],
-        model=model,
-        authoritative_target=authoritative_db,
-        control_db_path=control_conn_db_path(control_conn),
-    )
-    assert_distinct_database_targets(authoritative_db, validation_target)
     # Held past this call on purpose -- see migration_territory_claim.
     lease = migration_territory_claim.enter(
-        control_conn, project=project, model_name=profile["model_name"],
-        item_id=int(item_id), session_id=session_id,
+        control_conn,
+        project=project,
+        model_name=profile["model_name"],
+        item_id=int(item_id),
+        session_id=session_id,
     )
 
-    affected_tables = sorted({
-        str(s.get("table") or "")
-        for s in (profile.get("affected_surfaces") or [])
-        if s.get("table")
-    })
+    affected_tables = sorted(
+        {
+            str(s.get("table") or "")
+            for s in (profile.get("affected_surfaces") or [])
+            if s.get("table")
+        }
+    )
     count_preserving = bool(profile.get("count_preserving", True))
 
-    attestation = _safe_parse_attestation(
-        resolved.attestation_raw
-    ) or {}
+    attestation = _safe_parse_attestation(resolved.attestation_raw) or {}
     rehearsal_commands = list(attestation.get("rehearsal_commands") or [])
 
     result = RehearseResult(
@@ -162,9 +133,7 @@ def _rehearse_inner(
         rehearsed_at=None,
     )
 
-    # Audit rows live on the MODEL's authoritative DB, not the
-    # control-plane DB. ensure_migration_audit_table bootstraps the
-    # table on first apply against a non-Yoke project's authoritative DB.
+    # Audit receipts belong to the model's authority, not the control plane.
     audit_conn = connect_db_target(authoritative_db)
     try:
         ensure_migration_audit_table_for_target(authoritative_db, audit_conn)
@@ -201,20 +170,28 @@ def _rehearse_inner(
                 )
                 # test_copy_created
                 update_audit_state(
-                    attempt.audit_id, STATE_TEST_COPY_CREATED,
+                    attempt.audit_id,
+                    STATE_TEST_COPY_CREATED,
                 )
                 attempt.state = STATE_TEST_COPY_CREATED
 
-                # test_applied: import + apply module against validation DB.
+                # Apply only to the already verified distinct validation DB.
                 try:
                     handle = dispatch_handle(
-                        model=model, repo_path=worktree_path,
+                        model=model,
+                        repo_path=worktree_path,
                         identifier=identifier,
-                        project=project, model_name=profile["model_name"],
+                        project=project,
+                        model_name=profile["model_name"],
                     )
-                except (MigrationApplyError, ModuleResolutionError, ModuleContractError) as exc:
+                except (
+                    MigrationApplyError,
+                    ModuleResolutionError,
+                    ModuleContractError,
+                ) as exc:
                     update_audit_state(
-                        attempt.audit_id, FAIL_TEST_APPLY,
+                        attempt.audit_id,
+                        FAIL_TEST_APPLY,
                         extra={"failure_reason": str(exc)},
                     )
                     attempt.state = FAIL_TEST_APPLY
@@ -224,20 +201,21 @@ def _rehearse_inner(
                 val_conn = connect_db_target(validation_target)
                 try:
                     try:
-                        handle.apply(val_conn)
+                        with serving_build_authority():
+                            handle.apply(val_conn)
                         val_conn.commit()
                     except Exception as exc:  # noqa: BLE001
                         update_audit_state(
-                            attempt.audit_id, FAIL_TEST_APPLY,
+                            attempt.audit_id,
+                            FAIL_TEST_APPLY,
                             extra={"failure_reason": str(exc)},
                         )
                         attempt.state = FAIL_TEST_APPLY
-                        attempt.error = (
-                            f"module apply() raised on validation DB: {exc}"
-                        )
+                        attempt.error = f"module apply() raised on validation DB: {exc}"
                         continue
                     update_audit_state(
-                        attempt.audit_id, STATE_TEST_APPLIED,
+                        attempt.audit_id,
+                        STATE_TEST_APPLIED,
                     )
                     attempt.state = STATE_TEST_APPLIED
 
@@ -270,14 +248,17 @@ def _rehearse_inner(
                 }
                 if outcomes:
                     _append_rehearsal_outcomes(
-                        control_conn, item_id, outcomes,
+                        control_conn,
+                        item_id,
+                        outcomes,
                     )
                 if cmd_err:
                     verify_failures.append(cmd_err)
 
                 if verify_failures:
                     update_audit_state(
-                        attempt.audit_id, FAIL_TEST_VERIFY,
+                        attempt.audit_id,
+                        FAIL_TEST_VERIFY,
                         extra={
                             "baseline_verify_result": json.dumps(baseline_result),
                             "author_verify_result": json.dumps(author_verify_result),
@@ -291,7 +272,8 @@ def _rehearse_inner(
                     continue
 
                 update_audit_state(
-                    attempt.audit_id, STATE_TEST_VERIFIED,
+                    attempt.audit_id,
+                    STATE_TEST_VERIFIED,
                     extra={
                         "baseline_verify_result": json.dumps(baseline_result),
                         "author_verify_result": json.dumps(author_verify_result),
@@ -306,7 +288,8 @@ def _rehearse_inner(
                     fingerprint = fingerprint_db_target(authoritative_db)
                 except UnsupportedFingerprintKindError as exc:
                     update_audit_state(
-                        attempt.audit_id, FAIL_TEST_VERIFY,
+                        attempt.audit_id,
+                        FAIL_TEST_VERIFY,
                         extra={"failure_reason": str(exc)},
                     )
                     attempt.state = FAIL_TEST_VERIFY
@@ -314,7 +297,8 @@ def _rehearse_inner(
                     continue
                 rehearsed_at = _now()
                 update_audit_state(
-                    attempt.audit_id, STATE_REHEARSED,
+                    attempt.audit_id,
+                    STATE_REHEARSED,
                     extra={
                         "source_fingerprint": fingerprint,
                         "rehearsed_at": rehearsed_at,
@@ -328,7 +312,8 @@ def _rehearse_inner(
             except Exception as exc:  # noqa: BLE001 — preserve partial state
                 if attempt.audit_id is not None:
                     update_audit_state(
-                        attempt.audit_id, FAIL_TEST_VERIFY,
+                        attempt.audit_id,
+                        FAIL_TEST_VERIFY,
                         extra={"failure_reason": str(exc)},
                     )
                 attempt.state = FAIL_TEST_VERIFY
