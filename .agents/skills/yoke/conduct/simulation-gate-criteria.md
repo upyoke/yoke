@@ -2,7 +2,7 @@
 
 Invoked from `simulation-gate.md` S6h after the skip check. Covers Simulator dispatch (standard and compressed modes), scope estimation, the Simulator output gate (auto-retry with escalating strategies), and simulation result persistence/verification.
 
-**Inherited:** `MAIN_ROOT`, `_epic_id`, `N`, `_worktree_path`, `_worktree_branch`, `_max_attempts`, `MAX_SIMULATOR_REPROMPTS`, `MAX_ARCHITECT_FIX_ITERATIONS`, `_project`, `_workspace`.
+**Inherited:** `MAIN_ROOT`, `_epic_id`, `N`, `_worktree_path`, `_worktree_branch`, `_max_attempts`, `MAX_SIMULATOR_REPROMPTS`, `_project`, `_workspace`.
 
 **Produces:** `_local_result` (`CLEAN` or `GAPS FOUND`) and `_verified_verdict` (after persistence).
 

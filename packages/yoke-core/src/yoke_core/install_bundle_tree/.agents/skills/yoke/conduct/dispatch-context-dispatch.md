@@ -142,7 +142,7 @@ If any merge fails due to conflicts for a specific task:
 
 ## 5i. Parallel Tester Dispatch
 
-See [dispatch-context-prompts.md](dispatch-context-prompts.md) for the full Tester dispatch rules, diff preparation, task-lane and minimal prompt templates, and post-Tester cleanup.
+See [dispatch-context-prompts.md](dispatch-context-prompts.md) for Tester dispatch rules, diff preparation, and post-Tester cleanup. Render normal and minimal prompts from [the shared Tester template](../shared/tester-dispatch-template.md).
 
 For Tester model escalation: Track `_tester_output_failures_{_id}` -- how many times the Tester has returned no parseable verdict for this item (no DB review AND no verdict in text output). This is distinct from a legitimate FAIL verdict. Model escalation is handled by the Tester output gate's fallback chain in `engineer-tester-closeout.md` Step 9: retry 1 uses a minimal prompt (no inline diff) with the default model, retry 2 uses the minimal prompt with `model: "opus"`, and exhaustion falls back to conduct direct verification (see [dispatch-context-gates.md](dispatch-context-gates.md) section 5i-conduct-verify).
 

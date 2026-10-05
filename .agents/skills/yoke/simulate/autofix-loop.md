@@ -1,101 +1,134 @@
-# Simulate Phase: Architect Auto-Fix Loop
+# Simulate: Shared Architect Auto-Fix Loop
 
-This phase owns the optional Architect-assisted fix cycle after a simulation report contains fixable `[CRITICAL]` or `[WARNING]` gaps.
+This is the single plan-fix loop for direct Simulate and Conduct's internal
+invocation. The Simulator and Architect are read-only; the dispatching skill
+writes the returned plan changes through registered item surfaces.
 
-## 8. Offer Auto-Fix
+## Entry and caller contract
 
-After displaying the simulation summary, check whether the report contains fixable gaps.
+Retain the epic's internal `_epic_id`, resolved parent `public_ref` and
+`item_id`, `phase`, current persisted report and `_simulator_output`, and
+registered lane authorities. Never construct a public ref from an internal id.
+Direct invocation has `caller=simulate`. Conduct supplies `caller=conduct`,
+`phase=integration`, an already persisted initial report, and its task-pipeline
+context; start here without repeating the initial simulation.
 
-- If the report contains `[CRITICAL]` or `[WARNING]`, prompt:
- ```text
- Auto-fix? The Architect will apply the gap report's fix guidance to the task specs. (y/n)
- ```
-- For integration-phase simulations, append:
- ```text
- Note: Code-level gaps will be skipped — only plan-level fixes will be applied. Code fixes require `/yoke amend`.
- ```
-- If only `[NOTE]` gaps or no gaps exist, skip auto-fix entirely.
+`--auto-fix` means automatic acceptance of plan fixes and re-simulation.
+Without it, prompt `Auto-fix? The Architect will apply the report's fix guidance
+to the task specs. (y/n)` and stop if declined. For integration, explain that
+code fixes require an amend cycle; direct Simulate does not execute them.
+Only `[CRITICAL]` or `[WARNING]` gaps enter the loop. Notes alone need no fixes.
 
-If the operator declines, stop. Otherwise initialize `iteration=1`.
+The Architect iteration limit is **3**, owned here. Initialize
+`iteration=1` and `_code_level_gaps` empty. Never reset iteration when returning
+to severity/context gathering after a re-simulation.
 
-## 9. Invoke The `yoke-architect` Subagent In Fix Mode
+## Classify and gather
 
-Display:
+On each iteration, parse the current report's severity, fix guidance, and
+`Fix level:` fields. Extract code gaps with their gap number, title, severity,
+root cause, affected tasks/files, and fix guidance into `_code_level_gaps`.
+
+- All fixable gaps are code-level: skip the Architect and return
+  `AUTOFIX_CODE_GAPS` with that context.
+- Plan or mixed gaps remain: gather their context for the Architect.
+- A missing fix-level classification is a named `simulation_fix_level_missing`
+  refusal. Return `AUTOFIX_HALTED`; recovery is a corrected Simulator report
+  classifying each fixable gap as plan, code, or mixed. Do not silently guess.
+
+Read the current report with:
 
 ```text
-Fix iteration {iteration}/3
+yoke workflow-item epic-task simulation-get --epic <epic-id> --phase <phase>
 ```
 
-Read the gap report from DB:
+Read all tasks from `yoke epic-tasks list --epic <epic-id>` and each body with
+`yoke workflow-item epic-task body-get --epic <epic-id> --task-num <task-num>`.
+Include the parent spec and worktree plan plus the current report in context.
 
-```bash
-yoke workflow-item epic-task simulation-get --epic "{epic-id}" --phase "{phase}"
-```
+## Dispatch Architect in fix mode
 
-Use this prompt:
+Use `DispatchDescriptor(role="architect")`, rendered through
+`yoke_core.domain.dispatch_descriptors.render_for_harness` for the active
+harness. Fill its prompt with:
 
 ```text
 Fix mode.
-Item ID: PREFIX-{item_id}
+Item: {public_ref}
+Repository root: {main_root}
 
 ## Gap Report
-{contents of simulation report}
+{current persisted report}
 
-Read the authoritative item spec from the DB:
-yoke items get PREFIX-{item_id} spec
+Read the authoritative parent spec:
+yoke items get {public_ref} spec
 
 ## Task Content
-{for each task: task number, title, and body content}
+{each task's number, title and complete body, headed ### Task NNN}
 
 ## Instructions
-Apply the fix guidance from the gap report to the affected tasks and worktree plan.
-Produce: modified task content (full content, each preceded by `### Task NNN`), modified Worktree Plan section if applicable, and a change summary table with columns: Gap #, Severity, Task Modified, Change Description.
-Only modify tasks referenced in the gap report's fix guidance.
-Skip gaps requiring code changes (note as `requires /yoke amend` in the change summary).
+Apply the report's fix guidance to affected task specs and the worktree plan.
+Only modify tasks referenced in that guidance.
+Return full modified task bodies headed ### Task NNN, a modified Worktree Plan
+when needed, and a change summary table:
+Gap # | Severity | Task Modified | Change Description
+Skip code changes; mark those entries "requires /yoke amend".
 ```
 
-The trigger phrase `Fix mode.` activates the Architect's fix-mode behavior.
+Capture reflections through the harness's existing reflection contract.
+Show the change summary, and add its code-only entries to `_code_level_gaps`.
 
-## 10. Write Fixes To DB
+## Persist plan fixes
 
-Parse the Architect output for task headers such as `### Task 001` and extract the content following each header.
+Only update task bodies named as actually modified in the change summary.
+Call `workflow_item.epic_task.body_replace` with target
+`{kind: "epic_task", epic_id: <internal-id>, task_num: <task-number>}` and
+payload `{body: <full-modified-body>}`.
 
-Parse the change summary table to determine which tasks were actually modified. Only update tasks that appear in the change summary.
+For a changed worktree plan, call `items.structured_field.replace` with target
+`{kind: "item", item_id: <internal-id>}` and payload
+`{field: "worktree_plan", content: <full-plan>, source: "simulate"}`.
+See [the structured write envelopes](../idea/body-and-sync-functions.md).
+Do not update a task merely because its body was echoed in the response.
+Any failed write returns `AUTOFIX_HALTED` with its refusal and recovery.
 
-Write each modified task body back to the DB via the
-`workflow_item.epic_task.body_replace` function call (envelope in
-[`../idea/body-and-sync-functions.md`](../idea/body-and-sync-functions.md)):
-`target = {kind: "epic_task", epic_id: <epic-id>, task_num:
-<task_num>}`, `payload = {body: "<modified task body content>"}`.
+If no plan changes were made, return `AUTOFIX_CODE_GAPS` when code gaps exist.
+Otherwise return `AUTOFIX_HALTED` with `simulation_fix_no_change`: the Architect
+produced no applicable fix; recovery is to correct the gap guidance or plan.
 
-If the Worktree Plan changed, dispatch `items.structured_field.replace`
-on the parent epic with `target = {kind: "item", item_id: <epic-id>}`
-and `payload = {field: "worktree_plan", content: "<updated worktree
-plan>", source: "simulate"}`.
+## Re-simulate and evaluate
 
-## 11. Display The Change Summary
+Without `--auto-fix`, ask `Re-simulate to verify fixes? (y/n)` and stop if
+declined. Automatic mode proceeds immediately.
 
-Show the Architect's change summary table to the operator. It should include:
-- Gap number
-- Severity
-- File or task modified
-- Change description
+Run [epic-flow.md](epic-flow.md) steps 3–7 for the retained phase, refreshing
+all task bodies, reviews, contracts, lane authorities and diffs. Use its
+canonical Simulator prompts and compressed/standard selection; do not invoke
+this auto-fix phase recursively. Conduct context uses the retained
+`persist_simulation` boundary in epic-flow's persistence step, so the verdict
+is identity-attested and the reviewed-handoff occurs on CLEAN.
 
-## 12. Re-Simulation Loop
+- A successfully persisted `CLEAN` returns `AUTOFIX_CLEAN`; show the iteration
+  count. Never infer success from an unpersisted local verdict.
+- An absent verdict, persistence failure, wrong-epic body (exit 16), or
+  missing-epic body (exit 17) returns `AUTOFIX_HALTED`, preserving the exact
+  diagnostic. Recovery is to correct the report identity/format or the named
+  persistence failure, then re-run the simulation. It is not another plan gap.
+- `GAPS FOUND`: replace `_simulator_output` and the retained report with the
+  newly persisted report. Reclassify remaining gaps; return
+  `AUTOFIX_CODE_GAPS` immediately when all remaining fixable gaps are code-level.
+- If plan gaps remain and `iteration < 3`, increment iteration and return to
+  classification/context gathering. Interactive mode asks before each pass;
+  automatic mode proceeds without prompts.
+- At the limit, return `AUTOFIX_CODE_GAPS` when code gaps remain (including any
+  unresolved plan gaps for final verification), otherwise `AUTOFIX_HALTED` with
+  `simulation_fix_iterations_exhausted`. Surface the remaining report and
+  recovery: correct its unresolved guidance manually and re-simulate.
 
-Prompt:
+## Return to the caller
 
-```text
-Re-simulate to verify fixes? (y/n)
-```
-
-- If the operator declines, stop.
-- If the operator accepts, re-run the epic simulation flow.
-
-After re-simulation:
-- If the result is clean, report:
- ```text
- All gaps resolved after {iteration} fix iteration(s). Safe to proceed.
- ```
-- If gaps remain and `iteration < 3`, increment `iteration` and return to step 8
-- If gaps remain and `iteration == 3`, stop and report the remaining gaps with guidance to resolve them manually or via `/yoke amend`
+Direct Simulate displays remaining code gaps with amend guidance and stops;
+it never reports them as clean. Conduct consumes `AUTOFIX_CODE_GAPS` through
+its single Engineer/Tester amend cycle, then checks final simulation and the
+reviewed-handoff. `AUTOFIX_HALTED` preserves all work and the named recovery.
+An internal invocation restores the caller's session mode before returning.

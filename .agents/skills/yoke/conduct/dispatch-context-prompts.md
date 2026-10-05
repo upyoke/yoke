@@ -1,6 +1,6 @@
 # Dispatch Context — Prompt Templates
 
-Extracted from `dispatch-context.md`. Engineer and Tester prompt templates and dispatch rules.
+Extracted from `dispatch-context.md`. Engineer prompt template, Tester diff preparation, and shared dispatch rules.
 
 ---
 
@@ -123,126 +123,14 @@ else
 fi
 ```
 
-### Epic Item Tester Prompt Template
+### Tester prompt construction
 
-(conduct-specific; shared context fields documented in `shared/tester-dispatch-template.md`)
-
-**Dispatch:** descriptor `DispatchDescriptor(role="tester")` rendered via `yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`. Result-schema markers: `VERDICT: PASS|FAIL`, `---REFLECTION-START---`. The descriptor's `prompt: |` block is filled with:
-```
- Validate PREFIX-{N} task {_task_id}: {task title}
-
- Sprint: {SPRINT} | Track: {TRACK}
-
-	 Read the authoritative task spec from the DB before validating:
-	 yoke workflow-item epic-task body-get --epic {_epic_id} --task-num {_task_id}
-
- {For epics only — include this block verbatim:}
- Epic DB identifiers (use these EXACTLY for review-insert; pass the report via --body-file <path>):
- epic-id: {_epic_id}
- task-num: {_task_id}
-
- {For epics: interface contracts from dependency tasks}
- {For epics: downstream task bodies for path-tracing}
-
- {For every project-owned item — include this block:}
- Project Test Commands:
- Quick: {_cmd_quick}
- Full: {_cmd_full}
- E2E: {_cmd_e2e}
- Smoke: {_cmd_smoke}
- Ephemeral URL: {_ephemeral_url}
-
- {If per-task diff was NOT size-gated (_task_diff_{_id} exists):}
- Engineer's changes for this task (diff from task start):
- {_task_diff_{_id}}
-
- {If per-task diff WAS size-gated (_task_diff_file_{_id} exists):}
- Engineer's changes for this task ({_task_diff_line_count_{_id}} lines, diff from task start):
- {_task_diff_stat_{_id}}
- Per-task diff ({_task_diff_line_count_{_id}} lines) written to: {_task_diff_file_{_id}}
- Read this file for line-level detail.
-
- {On retry where per-attempt diff was NOT size-gated (_attempt_diff_{_id} exists):}
- Engineer's changes this attempt only (diff from attempt start):
- {_attempt_diff_{_id}}
-
- {On retry where per-attempt diff WAS size-gated (_attempt_diff_file_{_id} exists):}
- Engineer's changes this attempt only ({_attempt_diff_line_count_{_id}} lines):
- {_attempt_diff_stat_{_id}}
- Per-attempt diff ({_attempt_diff_line_count_{_id}} lines) written to: {_attempt_diff_file_{_id}}
- Read this file for line-level detail.
-
- Full branch diff (all tasks from main) is available at: {_full_diff_file_{_id}}
- Read this file only if you need cross-task context for your review.
-
- Regression detection: When checking "no regressions" or "existing tests
- still pass," compare failing test NAMES between main and the branch —
- not just counts. A test that passes on main but fails on the branch is
- a regression even if total failure counts match. See step 5a in the
- Tester agent definition for the full procedure.
-
-	 Review the engineer's work against the acceptance criteria in the spec.
-	 Check codebase-reader naming: new or renamed surfaces must describe current function/purpose/mechanics rather than the work item, plan, phase, task, AC, branch, worktree, or batch that produced them.
-	 Run tests. Return a verdict line:
- VERDICT: PASS or VERDICT: FAIL followed by details.
-
- OUTPUT DISCIPLINE: End with VERDICT line and a brief summary. Do not echo the full spec or diff back.
-```
-
-### Issue Item Tester Prompt Template
-
-(canonical source for conduct; see also `shared/tester-dispatch-template.md` for the portable version used by advance and other flows)
-
-**Dispatch:** descriptor `DispatchDescriptor(role="tester", extras=(("model","opus"),) if _tester_output_failures_{_id} >= 2 else ())` rendered via `yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`. Result-schema markers: `VERDICT: PASS|FAIL`, `---REFLECTION-START---`. The descriptor's `prompt: |` block is filled with:
-```
- Validate PREFIX-{_id}: {_title}
-
- Sprint: {SPRINT} | Track: {TRACK}
-
- Read the authoritative task spec from the DB before validating:
- yoke items get PREFIX-{_id} spec
-
- {For every project-owned item — include this block:}
- Project Test Commands:
- Quick: {_cmd_quick}
- Full: {_cmd_full}
- E2E: {_cmd_e2e}
- Smoke: {_cmd_smoke}
- Ephemeral URL: {_ephemeral_url}
-
- {If full diff was NOT size-gated (_full_diff_{_id} exists):}
- Engineer's changes (full diff from main):
- {_full_diff_{_id}}
-
- {If full diff WAS size-gated (_full_diff_file_{_id} exists):}
- Engineer's changes ({_full_diff_line_count_{_id}} lines, full diff from main):
- {_full_diff_stat_{_id}}
- Full diff ({_full_diff_line_count_{_id}} lines) written to: {_full_diff_file_{_id}}
- Read this file for line-level detail.
-
- {On retry where per-attempt diff was NOT size-gated (_attempt_diff_{_id} exists):}
- Engineer's changes (this attempt only):
- {_attempt_diff_{_id}}
-
- {On retry where per-attempt diff WAS size-gated (_attempt_diff_file_{_id} exists):}
- Engineer's changes this attempt only ({_attempt_diff_line_count_{_id}} lines):
- {_attempt_diff_stat_{_id}}
- Per-attempt diff ({_attempt_diff_line_count_{_id}} lines) written to: {_attempt_diff_file_{_id}}
- Read this file for line-level detail.
-
-	 Regression detection: When checking "no regressions" or "existing tests
-	 still pass," compare failing test NAMES between main and the branch —
-	 not just counts. A test that passes on main but fails on the branch is
-	 a regression even if total failure counts match. See step 5a in the
-	 Tester agent definition for the full procedure.
-
-	 Review the engineer's work against the acceptance criteria in the spec.
-	 Check codebase-reader naming: new or renamed surfaces must describe current function/purpose/mechanics rather than the work item, plan, phase, task, AC, branch, worktree, or batch that produced them.
-	 Run tests. Return a verdict line:
- VERDICT: PASS or VERDICT: FAIL followed by details.
-
- OUTPUT DISCIPLINE: End with VERDICT line and a brief summary. Do not echo the full spec or diff back.
-```
+Read and render [the shared Tester template](../shared/tester-dispatch-template.md)
+for both item and generated-task validation. It owns the descriptor, required
+QA/project context, task review identity, diff slots, verdict, and naming checks.
+Use the per-task variables prepared above for each batch member; include its
+context block, dependency interfaces, downstream task bodies, and retry diff.
+Do not build a separate Conduct prompt.
 
 **AUTONOMOUS CONTINUATION REQUIRED:** The subagent has returned. IMMEDIATELY continue to the next step below. Do NOT stop, do NOT wait for user input, do NOT generate a conversational summary and pause. Emit a one-line checkpoint: `[CONTINUE] Tester returned for PREFIX-{N}. Next: verdict processing (step 5j)` — then execute that step.
 
@@ -256,4 +144,4 @@ rm -f "$_attempt_diff_file_{_id}" # Both: per-attempt retry diff temp file
 
 ---
 ## 5i-minimal
-<!-- Extracted to dispatch-context-prompts-minimal.md — see that file for the full minimal Tester prompt variant. -->
+<!-- Extracted to dispatch-context-prompts-minimal.md — see that adapter for the shared minimal Tester variant. -->

@@ -23,8 +23,8 @@ Referenced by the conduct phase files (`entry-activation.md`, `engineer-tester-l
 | `5g. Engineer Prompt Template` | [dispatch-context-prompts.md](dispatch-context-prompts.md) | Engineer prompt template |
 | `5g Post-Return Submission Gates` | [dispatch-context-gates.md](dispatch-context-gates.md) | Submission gate, dirty-exit, rescue sweep |
 | `5h. Main Merge Before Tester` | [dispatch-context-dispatch.md](dispatch-context-dispatch.md) | Pre-Tester main merge |
-| `5i. Tester Dispatch` | [dispatch-context-prompts.md](dispatch-context-prompts.md) | Tester prompt templates and diff preparation |
-| `5i-minimal` | [dispatch-context-prompts.md](dispatch-context-prompts.md) | Minimal Tester prompt (no inline diff) |
+| `5i. Tester Dispatch` | [dispatch-context-prompts.md](dispatch-context-prompts.md) | Diff preparation and shared Tester template |
+| `5i-minimal` | [dispatch-context-prompts.md](dispatch-context-prompts.md) | Shared minimal Tester variant (no inline diff) |
 | `5i-conduct-verify` | [dispatch-context-gates.md](dispatch-context-gates.md) | Conduct direct verification fallback |
 | `5m. Ouroboros Reflection Capture` | [dispatch-context-artifacts.md](dispatch-context-artifacts.md) | Post-subagent reflection capture |
 | `5n. Tester Artifact Commit` | [dispatch-context-artifacts.md](dispatch-context-artifacts.md) | Commit Tester artifacts |
@@ -218,6 +218,6 @@ Sections extracted from this file for size management:
 
 - **[dispatch-context-gates.md](dispatch-context-gates.md)** — Gates, pre-conditions, and validation steps: Epic Sync Gate, Simulation Gap Gate, Same-Worktree Protection, Dependency Verification, Ephemeral Environment Lifecycle (E1-E5), Post-Return Submission Gates, Conduct Direct Verification Fallback.
 
-- **[dispatch-context-prompts.md](dispatch-context-prompts.md)** — Prompt templates and LLM call specs: Engineer Prompt Template, Tester Dispatch (diff preparation, epic/issue prompt templates), Minimal Tester Prompt, post-Tester cleanup.
+- **[dispatch-context-prompts.md](dispatch-context-prompts.md)** — Prompt templates and LLM call specs: Engineer Prompt Template, Tester diff preparation and shared template invocation, minimal retry adapter, post-Tester cleanup.
 
 - **[dispatch-context-artifacts.md](dispatch-context-artifacts.md)** — Artifact formats, output capture, and QA lifecycle: Ouroboros Reflection Capture, Tester Artifact Commit, Epic-Task QA Lifecycle, QA Quick Reference.

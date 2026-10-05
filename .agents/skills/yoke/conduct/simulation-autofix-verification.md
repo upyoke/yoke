@@ -1,6 +1,6 @@
 # Simulation Auto-Fix — Verification Protocol (AF10–AF19)
 
-Amend Cycle. Invoked from `simulation-autofix-patching.md` when code-level gaps remain. Creates a fix task, dispatches Engineer/Tester, and re-simulates. Maximum 1 amend cycle.
+Amend Cycle. Invoked from `simulation-autofix.md` after Simulate returns `AUTOFIX_CODE_GAPS`. Creates a fix task, dispatches Engineer/Tester, and re-simulates. Maximum 1 amend cycle.
 
 **Inherited:** `MAIN_ROOT`, `_epic_id`, `_item_id`, `_worktree_path`, `_worktree_branch`, `_max_attempts`, `_code_level_gaps`.
 
@@ -164,18 +164,12 @@ If conflicts: re-dispatch Engineer to resolve. If still unresolved after re-disp
 
 ### AF17. Dispatch Tester for Fix Task
 
-**Dispatch:** descriptor `DispatchDescriptor(role="tester")` rendered via `yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`. Result-schema markers: `VERDICT: PASS|FAIL`, `---REFLECTION-START---`. The descriptor's `prompt: |` block is filled with:
-```
- Validate fix task for PREFIX-{_item_id}: Fix integration simulation gaps (amend cycle)
- Repository root: {MAIN_ROOT}
- Read the authoritative task spec:
- yoke workflow-item epic-task body-get --epic "{_epic_id}" --task-num "{_fix_task_num}"
- Engineer's changes (full diff from main): {git diff main...{_worktree_branch}}
- Engineer's changes (this attempt only): {git diff {ATTEMPT_BASELINE_fix}..{_worktree_branch}}
- Regression detection: Compare failing test NAMES between main and the branch.
- Review engineer's work against acceptance criteria. Run tests.
- VERDICT: PASS or VERDICT: FAIL followed by details.
-```
+Render [the shared Tester template](../shared/tester-dispatch-template.md)
+for `_fix_task_num`, using its registered lane, parent/task specs, project QA
+roster, dependency context, changed files, and size-gated diffs from
+`ATTEMPT_BASELINE_fix` and main. Include exact `_epic_id` and `_fix_task_num`
+for `review-insert`. Use the normal and minimal retry variants from that same
+template; a text verdict without the durable review is insufficient.
 
 ### AF18. Process Tester Verdict
 

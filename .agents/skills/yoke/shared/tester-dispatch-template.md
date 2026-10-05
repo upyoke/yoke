@@ -1,195 +1,140 @@
 # Shared Tester Dispatch Template
 
-Referenced by:
-- `conduct/dispatch-context.md` (item-level and generated-task prompt templates)
-- `advance/implementing/SKILL.md` (ad-hoc Tester dispatch outside conduct)
+This is the only Tester prompt template. Conduct uses it for sequential,
+batch, retry, and simulation-fix dispatches; other implementation flows use
+it for item validation. Callers prepare context and select a variant here,
+then render one prompt. Do not maintain caller-local prompt copies.
 
-This file defines the **minimum structured context** that any Tester dispatch MUST include. Without this context, the Tester agent improvises its validation approach — guessing test commands, missing changed files, and producing suboptimal results (see).
+## Dispatch contract
 
----
+Use `DispatchDescriptor(role="tester")` rendered via
+`yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`.
+Conduct's output gate adds `extras=(("model", "opus"),)` after its second
+missing verdict. Result markers are `VERDICT: PASS|FAIL` and
+`---REFLECTION-START---`.
 
-## When to dispatch a Tester
+A Tester validates materialized agent requirements, deliberate implementation
+review, or explicitly requested validation. Browser and exploratory missions
+use the ordered plan runner's typed dispatch contract instead.
 
-A Tester dispatch is appropriate when:
-1. The item has `qa_requirements` rows that need agent verification (not browser-substrate)
-2. The item needs deliberate agent verification before a `reviewed-implementation` or `done` transition outside the conduct pipeline
-3. The operator explicitly requests Tester validation
+## Required context
 
-Browser and exploratory mission cases execute through the ordered plan runner
-and the advance QA gate. Do not invent an ad-hoc Tester prompt for those cases;
-follow the typed dispatch contract returned by the plan runner.
+Populate these fields before dispatch. Use registered reads; Git remains an
+external command. Keep internal item ids separate from public refs and local
+task numbers.
 
----
-
-## Required context block
-
-Every Tester dispatch prompt MUST include the following structured context. Use the bash commands shown to populate each field.
-
-### 1. Item identity and spec
-
-The dispatching skill reads the spec via the `items.get.run` function
-call (`target = {kind: "item", item_id: <N>}`, `payload = {fields:
-["spec"]}`) and embeds it inline in the Tester prompt:
-
-```
-Validate PREFIX-{N}: {title}
-
-{spec content from items.get.run result.fields.spec}
-```
-
-### 2. Project Test Plans
-
-**Always include this block** — even when no plan is attached. It prevents the
-Tester from guessing test commands or bypassing the method contracts.
-
-Read the item's project via the `items.get.run` function call
-(envelope in
-[`../idea/body-and-sync-functions.md`](../idea/body-and-sync-functions.md))
-with `target = {kind: "item", item_id: <N>}` and `payload = {fields:
-["project"]}`. The response carries `result.fields.project`.
-
-Project verification lives in attached QA plans. List the item's materialized
-requirements and include every row with a non-null `plan_id`:
-
-```bash
-_item_project=$(yoke items get "PREFIX-{N}" project)
-_qa_requirements=$(yoke qa requirement list --item "PREFIX-{N}" --json)
-```
-
-The snapshot includes the case key, method id, instructions, expected outcome,
-method configuration, transition, and host baseline. Do not extract and run a
-Command method's shell text yourself. Execute the complete roster through the
-ordered runner so each method selects its executor, verdict path, and evidence:
-
-```bash
-yoke qa plan run --item "PREFIX-{N}" --transition <transition>
-```
-
-When the result is `state="awaiting_agent_review"` (exit `12`), the returned
-`review_bundle.dispatch` is the complete dispatch authority. Immediately invoke
-the named path. A `subagent` dispatch uses its `subagent_type`, prompt, and
-immutable bundle. A `main_agent_mission` dispatch stays with the main agent,
-which sends each typed walker dispatch to an informed subagent or a separate
-target-machine session, handles `HUMAN_GATE` returns through the Progress Log
-and operator channel, aggregates the written report, and runs the exact
-`submit_command`. Never treat missing or pending dispatch as human review.
-Submit `undetermined` only with attached evidence; it halts the item until an
-owner/operator resolves the Inbox request. An unexecuted case records
-failed/`blocked_on_precondition` and asks no human to review missing evidence.
-
-### 3. Changed files and diff
-
-Read the item's active implementation branch via the `item_worktrees.get`
-function call (`payload = {"lane_role": "implementation"}`). The response
-carries `result.worktree.branch`. Then collect the changed files and diff
-summary via `git` — `git` is a retained-boundary external command
-and stays on the shell surface:
-
-```bash
-# {_wt_branch} comes from the item_worktrees.get response above.
-# Convention: this item-level branch lookup is for a
-# single_implementation_lane policy. For generated tasks, conduct
-# dispatches a Tester per task with the task's own worktree branch
-# rather than the parent item's primary worktree.
-if [ -n "$_wt_branch" ] && [ "$_wt_branch" != "null" ]; then
- _changed_files=$(git diff --name-only main..."$_wt_branch" 2>/dev/null) || true
- _diff_stat=$(git diff --stat main..."$_wt_branch" 2>/dev/null) || true
-fi
-```
-
-Include in the prompt:
-```
-Changed files:
-{_changed_files}
-
-Diff summary:
-{_diff_stat}
-```
-
-For the full diff, either inline it (if small) or write to a temp file and reference it:
-```
-Full diff from main available via:
-git diff main...{_wt_branch}
-```
-
-### 4. Worktree path
-
-Read the item's project via the `items.get.run` function call (or
-reuse the `_item_project` shell variable from step 2). Read the lane's
-own absolute path from its registered row rather than composing one: the
-item's project may be checked out anywhere on this machine, and the row
-already records where its lane landed.
-
-```bash
-_worktree_path=$(yoke item-worktrees get PREFIX-{N} \
- --lane-role implementation --field path)
-```
-
-Include in the prompt:
-```
-Worktree: {_worktree_path}
-Main repo root: {REPO_ROOT}
-```
-
-### 5. Ephemeral URL (capable projects)
-
-Read the environment for the item's project and actual worktree branch through
-the registered `yoke ephemeral-env get <project> <branch> --json` wrapper.
-Skip only projectless items; Yoke follows the same lookup as every other
-project.
-
-Run the wrapper once and set `_ephemeral_url` from
-`result.environment.url` only when `result.environment.status` is healthy;
-otherwise use `none`.
-
-Include in the prompt:
-```
-Ephemeral URL: {_ephemeral_url}
-```
-
----
+1. **Identity and spec:** `yoke items get PREFIX-N spec` supplies the parent
+   spec. For generated tasks, also read
+   `yoke workflow-item epic-task body-get --epic <epic-id> --task-num <task-num>`.
+   Include the task spec and parent context. Include exact `epic-id` and
+   `task-num` for the durable review, dependency interface contracts, and
+   downstream task bodies needed for path tracing.
+2. **Project QA:** read `yoke items get PREFIX-N project` and
+   `yoke qa requirement list --item PREFIX-N --json`. Always include the
+   Project Test Plan Cases block, even when no plan is attached. Include every
+   materialized row with a non-null `plan_id`: case key, method, instructions,
+   expected outcome, method configuration, transition, and host baseline.
+   Execute the immutable roster with
+   `yoke qa plan run --item PREFIX-N --transition <transition>`.
+   Do not extract Command shell text and execute it separately.
+3. **Lane and changes:** an item with a single implementation lane uses
+   `yoke item-worktrees get PREFIX-N --lane-role implementation --field path`
+   and `item_worktrees.get` with `payload = {"lane_role": "implementation"}`
+   returning `result.worktree.branch` for `single_implementation_lane`.
+   For generated tasks, use the task's own worktree branch and registered lane,
+   never the parent's primary lane. Include the
+   absolute worktree path, main checkout root, changed files, and diff stat.
+4. **Diffs:** capture `git -C <worktree> diff main...HEAD` to a temp file.
+   Conduct's task diff is `TASK_BASELINE..HEAD`; on retry include
+   `ATTEMPT_BASELINE..HEAD`. Inline a diff only at or below 300 lines;
+   otherwise include its full stat and capture path. Never truncate with
+   `...`. The minimal retry variant includes changed files and capture paths
+   without inline diffs. Preserve captures until review/artifact processing
+   finishes. Read watcher capture paths from the wrapper, never construct them.
+5. **Project commands and environment:** include the caller's resolved Quick,
+   Full, E2E, and Smoke commands when present. Read
+   `yoke ephemeral-env get <project> <actual-lane-branch> --json` once;
+   use `result.environment.url` only for a healthy environment, otherwise
+   `none`. Skip the lookup only for projectless items.
 
 ## Complete prompt template
 
-**Dispatch:** descriptor `DispatchDescriptor(role="tester")` rendered via `yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`. Result-schema markers: `VERDICT: PASS|FAIL`, `---REFLECTION-START---`. The descriptor's `prompt: |` block is filled with:
+Fill the slots below. Omit task-only or retry-only blocks when inapplicable.
+For batch dispatch, resolve every slot from that task's context, lane, and
+baselines; never reuse a sibling's identifiers or diff.
+
+```text
+Validate {public_ref}{if generated task: " task {task_num}"}: {title}
+
+Spec:
+{spec_content; generated task spec plus parent context when applicable}
+
+{if generated task:}
+Epic DB identifiers (use exactly for review-insert):
+epic-id: {epic_id}
+task-num: {task_num}
+{dependency interface contracts and downstream task bodies}
+{caller-provided Active Path Claim Coverage, read-only for validation}
+
+Project Test Plan Cases:
+{plan_case_rows or "none attached"}
+Execute the immutable roster with:
+yoke qa plan run --item {public_ref} --transition {transition}
+If it returns awaiting_agent_review (exit 12), immediately execute the
+returned typed reviewer dispatch and exact verdict submission contract.
+
+{if resolved project commands are present:}
+Project Test Commands:
+Quick: {cmd_quick}
+Full: {cmd_full}
+E2E: {cmd_e2e}
+Smoke: {cmd_smoke}
+Ephemeral URL: {ephemeral_url}
+
+Worktree: {worktree_path}
+Main repo root: {main_root}
+Use absolute paths and module invocations. Shell variables do not persist
+across tool calls.
+
+Changed files:
+{changed_files}
+Diff summary:
+{diff_stat}
+
+{normal variant: task/full diff inline, or full stat and capture path}
+{on implementation retry: attempt diff inline, or full stat and capture path}
+Full branch diff: {full_diff_file or exact git command for registered branch}
+
+{minimal output-gate retry variant:}
+Your previous invocation produced no parseable verdict. No inline diff is
+provided. Read the changed files and captured diffs directly, run the required
+checks, and return a deterministic verdict. Keep this prompt under 2000 tokens
+excluding the spec; preserve required identity and QA context.
+
+Review the implementation against the spec's acceptance criteria.
+Check codebase-reader naming: surfaces describe current function, purpose,
+mechanics, or domain role rather than planning provenance.
+Run the resolved tests and materialized plan cases. Compare failing test NAMES
+between main and the branch for regressions, not just failure counts.
+
+{if generated task:}
+Write the review body to a temp file, then persist it with:
+yoke workflow-item epic-task review-insert --epic {epic_id} --task-num {task_num} --verdict <pass|fail> --body-file <review-path>
+A text verdict alone cannot satisfy Conduct's durable-review gate.
+
+OUTPUT DISCIPLINE: End with VERDICT: PASS or VERDICT: FAIL and a brief summary.
+Do not echo the full spec or diff. Include the delimited reflection envelope
+required by the Tester agent definition.
 ```
- Validate PREFIX-{N}: {title}
 
- Spec (read via items.get.run by the dispatcher; embedded inline):
- {spec_content}
+## Ordered QA review continuation
 
- Project Test Plan Cases:
- {_plan_case_rows or "none attached"}
- Execute the immutable roster with:
- yoke qa plan run --item PREFIX-{N} --transition <transition>
- If it returns awaiting_agent_review, immediately execute the returned typed
- reviewer dispatch and exact verdict submission contract before continuing.
- Ephemeral URL: {_ephemeral_url}
-
- Worktree: {_worktree_path}
- Main repo root: {REPO_ROOT}
-
- Changed files:
- {_changed_files}
-
- Diff summary:
- {_diff_stat}
-
- Full diff from main available via:
- git diff main...PREFIX-{N}
-
- Review the implementation against the acceptance criteria in the spec.
- Execute the materialized plan cases above through the shared case runner.
- Return a verdict line:
- VERDICT: PASS or VERDICT: FAIL followed by details.
-
- OUTPUT DISCIPLINE: End with VERDICT line and a brief summary. Do not echo the full spec or diff back.
-```
-
----
-
-## Conduct vs. advance usage
-
-**Conduct** (`dispatch-context.md`): Populates this context as part of its structured `5f-project` sub-step and the item-level/generated-task Tester prompt templates. The context is built during conduct batch preparation with additional retry-specific fields (per-attempt diffs, dispatch chain tracking).
-
-**Advance** (`advance/implementing/SKILL.md`): References this template when the implementing agent needs to dispatch a Tester for ad-hoc validation outside the conduct pipeline. The advance flow builds the context inline using the same DB queries documented above.
+An `awaiting_agent_review` result is dispatch authority, not evidence of human
+review. A `subagent` dispatch uses its returned type, prompt, and immutable
+bundle. A `main_agent_mission` stays with the main agent, which sends each typed
+walker dispatch to an informed subagent or target-machine session, handles
+`HUMAN_GATE` through the Progress Log and operator channel, aggregates the
+report, and executes the exact `submit_command`. Submit `undetermined` only
+with attached evidence; it halts until the owner resolves the Inbox request.
+An unexecuted case records failed/`blocked_on_precondition` and does not ask a
+human to review missing evidence.

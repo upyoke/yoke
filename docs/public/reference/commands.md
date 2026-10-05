@@ -286,7 +286,7 @@ Auto-detects phase: plan (all tasks still pre-implementation, typically `planned
 
 **Integration simulation:** Compressed two-phase mode is the default. Uses extracted contracts, file overlap matrix, dependency edges, diff stats, and review summaries instead of full content. Simulator must produce a bounded preliminary verdict (Phase A, no tool calls) before selective verification (Phase B, max 5 file reads). Standard (full-context) path only used when `sim_force_standard_integration=true` in config.
 
-**Auto-fix (steps 8-12):** After gaps are found, offers to invoke the Architect in fix mode to revise task specs. Loop caps at 3 iterations. Code-level gaps are skipped -- only plan-level fixes applied.
+**Auto-fix:** `simulate/autofix-loop.md` owns the shared Architect loop, capped at three passes. Direct use asks before fixes and re-simulation; `--auto-fix` accepts both automatically. Conduct delegates internally and routes remaining code gaps to its single amend cycle.
 
 **System-wide simulation** (`--system`): Ouroboros audit of all Yoke components for consistency drift. Checks stale references, cross-agent assumption mismatches, hook references, and rule-implementation contradictions. Report saved to `yoke/ouroboros/health/` (local, gitignored). No auto-fix -- file work items via `/yoke idea`.
 
@@ -296,7 +296,7 @@ These are shared files used by multiple commands but are not slash commands them
 
 ### `shared/tester-dispatch-template.md`
 
-Defines the minimum structured context that any Tester dispatch MUST include. Referenced by `conduct/dispatch-context.md` (issue and epic task prompt templates) and `advance/implementing/SKILL.md` (ad-hoc Tester dispatch outside conduct). The template specifies required context blocks: item identity and spec, project test commands, changed files, QA requirements, ephemeral URL, and project context. Without this template, the Tester agent improvises its validation approach.
+The sole Tester prompt template for item, generated-task, retry, and simulation-fix dispatches. Conduct and other implementation flows supply identity/spec, QA roster, project commands, registered lane, changed files, size-gated diffs, and ephemeral URL. Normal and minimal variants preserve the durable generated-task review receipt.
 
 ## Conduct Flags
 
