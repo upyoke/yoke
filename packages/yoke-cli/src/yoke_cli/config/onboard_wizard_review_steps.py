@@ -125,7 +125,8 @@ def finish_body(
     else:
         widgets.extend(render_plan_summary(plan))
     widgets.extend(
-        Static(line, classes="onboard-plan-line") for line in (status_lines or [])
+        Static(line, markup=False, classes="onboard-plan-line")
+        for line in (status_lines or [])
     )
     for line in notes or []:
         widgets.append(Static(f"Note: {escape(line)}", classes="onboard-note"))

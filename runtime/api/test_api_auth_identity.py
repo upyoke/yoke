@@ -45,6 +45,7 @@ def test_auth_identity_returns_actor_org_roles_and_visible_projects() -> None:
     assert body["orgs"][0]["roles"] == ["admin"]
     projects = {row["slug"]: row for row in body["projects"]}
     assert "yoke" in projects
+    assert projects["yoke"]["public_item_prefix"] == "YOK"
     assert {"admin", "owner"} <= set(projects["yoke"]["roles"])
 
 

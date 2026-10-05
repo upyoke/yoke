@@ -98,7 +98,7 @@ def _visible_projects(
     p = _p(conn)
     placeholders = ",".join(p for _ in visible_ids)
     rows = conn.execute(
-        "SELECT pr.id, pr.slug, pr.name, pr.org_id, o.slug, o.name "
+        "SELECT pr.id, pr.slug, pr.name, pr.org_id, o.slug, o.name, pr.public_item_prefix "
         "FROM projects pr "
         "LEFT JOIN organizations o ON o.id = pr.org_id "
         f"WHERE pr.id IN ({placeholders}) "
@@ -109,7 +109,7 @@ def _visible_projects(
     ).fetchall()
     direct_roles = _project_roles(conn, actor_id)
     projects: list[dict[str, Any]] = []
-    for project_id, slug, name, org_id, org_slug, org_name in rows:
+    for project_id, slug, name, org_id, org_slug, org_name, prefix in rows:
         numeric_project_id = int(project_id)
         numeric_org_id = int(org_id) if org_id is not None else None
         org_roles = org_roles_by_id.get(numeric_org_id or 0, ())
@@ -119,6 +119,7 @@ def _visible_projects(
                 "id": numeric_project_id,
                 "slug": str(slug),
                 "name": str(name),
+                "public_item_prefix": str(prefix),
                 "org": {
                     "id": numeric_org_id,
                     "slug": str(org_slug) if org_slug is not None else "",
