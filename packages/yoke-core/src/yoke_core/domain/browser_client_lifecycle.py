@@ -46,7 +46,10 @@ def daemon_start(
     """
     from yoke_cli import browser_node_toolchain
     from yoke_core.domain import browser_client as _bc
-    from yoke_core.domain.worktree import resolve_playwright_cache
+    from yoke_contracts.playwright_cache import (
+        YOKE_BROWSER_CACHE_PROJECT,
+        resolve_playwright_cache,
+    )
     from yoke_harness import browser_client_readiness, browser_runtime_home
 
     requested_profile = str(profile_dir or "")
@@ -75,7 +78,7 @@ def daemon_start(
         raise RuntimeError(f"daemon.js not found at {daemon_js}")
 
     # Resolve Playwright cache
-    pw_cache = resolve_playwright_cache("yoke", None) or ""
+    pw_cache = resolve_playwright_cache(YOKE_BROWSER_CACHE_PROJECT, None) or ""
 
     env = toolchain.command_env()
     if pw_cache:

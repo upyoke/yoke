@@ -11,6 +11,10 @@ import pytest
 
 from yoke_cli.config import hosted_machine_browser as browser
 from yoke_cli.config import onboard_browser_runtime as runtime
+from yoke_contracts.playwright_cache import (
+    YOKE_BROWSER_CACHE_PROJECT,
+    resolve_playwright_cache,
+)
 
 URL = "https://example.invalid/connect?user_code=ABCD&other=value"
 DESKTOP = {"DISPLAY": ":0"}
@@ -79,6 +83,8 @@ def test_runtime_uses_the_qa_installer_and_reuses_its_cache(
 ):
     home = tmp_path / "browser-runtime"
     home.mkdir()
+    monkeypatch.setenv("HOME", str(tmp_path))
+    cache = resolve_playwright_cache(YOKE_BROWSER_CACHE_PROJECT, None)
     modules = home / "node_modules/playwright"
     if installed:
         modules.mkdir(parents=True)
@@ -103,7 +109,7 @@ def test_runtime_uses_the_qa_installer_and_reuses_its_cache(
     def run(argv, **kwargs):
         nonlocal present
         calls.append(argv)
-        assert kwargs["env"]["PLAYWRIGHT_BROWSERS_PATH"] == "shared-cache"
+        assert kwargs["env"]["PLAYWRIGHT_BROWSERS_PATH"] == cache
         if argv[1:] == ["install"]:
             modules.mkdir(parents=True)
         if argv[1:] == ["playwright", "install", "chromium"]:
@@ -117,7 +123,7 @@ def test_runtime_uses_the_qa_installer_and_reuses_its_cache(
     def launch(argv, **kwargs):
         launches.append(argv)
         assert kwargs["cwd"] == home
-        assert kwargs["env"]["PLAYWRIGHT_BROWSERS_PATH"] == "shared-cache"
+        assert kwargs["env"]["PLAYWRIGHT_BROWSERS_PATH"] == cache
         return process
 
     monkeypatch.setattr(runtime.subprocess, "Popen", launch)
