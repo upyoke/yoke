@@ -145,10 +145,7 @@ test("expanded body survives switching the workflow tab", async (t) => {
     return inner(request);
   };
   const { documentNode, root, mounted } = await mountWorkflows(t, client);
-  documentNode.defaultView.history = {
-    state: null,
-    replaceState(state) { this.state = state; },
-  };
+
   await settleUntil(() => byClass(root, "workflow-instruction-expand").length);
   const expand = byClass(root, "workflow-instruction-expand")[0];
   expand.dispatchEvent(new Event("click"));

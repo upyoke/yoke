@@ -83,18 +83,18 @@ test("Pack sources and Test Machine capability relations keep their prototype ro
     source_ref: "machine-qa",
   }, "yoke", false);
 
-  assert.equal(byClass(source, "qa-source-link")[0].href, "#/packs?project=1");
+  assert.equal(byClass(source, "qa-source-link")[0].href, "/packs?project=1");
   assert.equal(byClass(cardSource, "qa-source-link").length, 0);
   assert.equal(cardSource.textContent, "Pack");
   assert.equal(
     capabilityRoute(primitiveContext, "yoke", "test-machine"),
-    "#/capabilities/test-machine?project=1",
+    "/capabilities/test-machine?project=1",
   );
 });
 
 test("QA methods is its own destination and opens contract detail", async (t) => {
   const { root, client, mounted } = await mountAt(
-    t, "#/qa-methods?project=1",
+    t, "/qa-methods?project=1",
   );
 
   // No facet strip: each QA facet is a destination in the sidebar, so the
@@ -142,9 +142,9 @@ test("QA methods is its own destination and opens contract detail", async (t) =>
 
   const methodLink = byClass(root, "qa-method-card")[0];
   assert.equal(methodLink.tagName, "A");
-  assert.equal(methodLink.href, "#/qa-methods/command?project=1");
-  root.ownerDocument.defaultView.location.hash = methodLink.href;
-  root.ownerDocument.defaultView.dispatchEvent(new Event("hashchange"));
+  assert.equal(methodLink.href, "/qa-methods/command?project=1");
+  root.ownerDocument.defaultView.location.href = methodLink.href;
+  root.ownerDocument.defaultView.dispatchEvent(new Event("popstate"));
   await settle();
   const detailText = allNodes(root).map((node) => node.textContent).join(" ");
   assert.equal(byClass(root, "breadcrumb").length, 1);
@@ -168,7 +168,7 @@ test("QA methods is its own destination and opens contract detail", async (t) =>
 
 test("Plans renders the durable objects and the full case-detail composition", async (t) => {
   const { root, client, mounted } = await mountAt(
-    t, "#/qa-plans?project=1",
+    t, "/qa-plans?project=1",
   );
 
   assert.equal(byClass(root, "qa-plans-table").length, 1);
@@ -199,9 +199,9 @@ test("Plans renders the durable objects and the full case-detail composition", a
 
   const planLink = byClass(root, "qa-plan-button")[0];
   assert.equal(planLink.tagName, "A");
-  assert.equal(planLink.href, "#/qa-plans/7?project=1");
-  root.ownerDocument.defaultView.location.hash = planLink.href;
-  root.ownerDocument.defaultView.dispatchEvent(new Event("hashchange"));
+  assert.equal(planLink.href, "/qa-plans/7?project=1");
+  root.ownerDocument.defaultView.location.href = planLink.href;
+  root.ownerDocument.defaultView.dispatchEvent(new Event("popstate"));
   await settle();
   const detailText = allNodes(root).map((node) => node.textContent).join(" ");
   assert.equal(byClass(root, "breadcrumb").length, 1);

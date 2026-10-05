@@ -19,7 +19,7 @@ test("Message button explains a quiet desktop chat waits on its operator", async
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/sessions?project=1";
+  documentNode.defaultView.location.href = "/sessions?project=1";
   const root = documentNode.createElement("div");
   // Yoke never resumes this window, so delivery stays available and the
   // Message button remains, because the hook still carries the message on

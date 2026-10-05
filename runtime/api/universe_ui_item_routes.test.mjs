@@ -9,11 +9,11 @@ test("item drill-in routes pair a sequence with its numeric project", () => {
   assert.equal(itemDrillInHref({
     projectId: 1,
     projectSequence: 2228,
-  }), "#/items/2228?project=1");
+  }), "/items/2228?project=1");
   assert.equal(itemDrillInHref({
     projectId: "1",
     publicRef: "YOK-2228",
-  }), "#/items/2228?project=1");
+  }), "/items/2228?project=1");
 });
 
 test("item drill-in routes reject ambient and internal identities", () => {

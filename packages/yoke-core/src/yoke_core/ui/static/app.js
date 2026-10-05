@@ -1,6 +1,6 @@
 // Read-only, hand-authored universe app. `mountUniverseApp(rootNode, options?)`
 // accepts same-realm clients, host slots, and sections without forking the UI.
-// Hash routes preserve shared selection and independent resource focus. NAV owns
+// Path routes preserve shared selection and independent resource focus. NAV owns
 // the flat destination arc; host-fed Members and Billing contribute only their
 // body while the workbench retains routing and page chrome.
 
@@ -52,6 +52,7 @@ import { createProjectSelection, knownProjectId, selectionParam } from "./univer
 import { createSelectionNavigation, selectionRoute } from "./universe_selection_routes.js";
 import { routeLoadingLine } from "./universe_route_loading.js";
 import { createSteeringGroupColors } from "./universe_steering_group_color.js";
+import { ROUTE_NAVIGATION_EVENT } from "./universe_path_navigation.js";
 import { createLocationPreference } from "./universe_location_preference.js";
 export { withProjectSelection } from "./universe_selection_routes.js";
 // A host owns its slot DOM, so it cannot inherit the app's own dismissal —
@@ -94,16 +95,16 @@ export function mountUniverseApp(rootNode, options = {}) {
     () => renderRoute(),
     (viewId, sort) => saveScreenSelection(client, viewId, null, null, sort),
   );
-  const navigation = createSelectionNavigation(rootNode, windowNode, scopeSelections);
+  const navigation = createSelectionNavigation(rootNode, windowNode, scopeSelections, options.basePath);
   const locationPreference = createLocationPreference({
-    client, windowNode, selections: scopeSelections, isMounted: () => mounted, onFallback: renderRoute,
+    client, windowNode, navigation, selections: scopeSelections, isMounted: () => mounted, onFallback: renderRoute,
   });
   const steeringColors = createSteeringGroupColors(client, () => mounted);
   const context = {
     client: locationPreference.client,
     document: documentNode,
     isMounted: () => mounted,
-    navigate: navigation.navigate,
+    navigate: navigation.navigate, back: navigation.back, basePath: navigation.basePath,
     // Share the accessible roster already held by the scope pickers.
     projects: () => projects,
     // Ranked from the app-wide group set below, never each page's own rows.
@@ -125,7 +126,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     context,
     documentNode,
     mountedSlotNodes,
-    options,
+    options: { ...options, navigate: navigation.navigate },
     resolvedSections,
     resolvedSlots,
     slots,
@@ -156,13 +157,13 @@ export function mountUniverseApp(rootNode, options = {}) {
     navEntry, serializeScope, parseUniverseRoute,
     navLinks, nav: NAV, buildUniverseRoute, rememberedScopeParam,
     resolveRoute,
-    refreshLinks: navigation.refresh,
+    refreshLinks: navigation.refresh, navigation, routeInPlace: (route) => context.routeInPlace?.(route),
   });
 
   function resolveRoute(route, entry) {
     const scope = scopeForEntry(entry, route.project, projects, scopeSelections, route.selection);
     const project = route.detail ? route.project : (entry.scope === SCOPE_SINGLE ? scope : null);
-    navigation.replace(selectionRoute(route, scopeSelections, project, windowNode.location.hash));
+    navigation.replace(selectionRoute(route, scopeSelections, project, navigation.current()));
     locationPreference.remember();
     return scope;
   }
@@ -172,21 +173,20 @@ export function mountUniverseApp(rootNode, options = {}) {
     replaceViewAbort(context);
     detachMountedSlots(rootNode, sectionNodes);
     heldScope.reset(); // a full render drops any held scoped view
+    context.routeInPlace = null;
     setScopeVisible(false);
-    const route = parseUniverseRoute(windowNode.location.hash);
+    const route = parseUniverseRoute(navigation.current(), navigation.basePath);
     const entry = navEntry(route.view);
     const scope = resolveRoute(route, entry);
     const picker = createProjectControls({
-      documentNode, windowNode, entry, route, scope, projects, scopeSelections, renderRoute,
+      documentNode, windowNode, entry, route, scope, projects, scopeSelections, renderRoute, navigation,
       onSelectionChange(next) {
         scopeSelections.setSelectionFor(entry.id, next);
         const focus = route.detail ? route.project : scopeForEntry(
           entry, null, projects, scopeSelections, selectionParam(next),
         );
         scopeSelections.saveFor(entry.id);
-        windowNode.location.hash = selectionRoute(route, scopeSelections, focus, windowNode.location.hash);
-        if (entry.scope === SCOPE_NONE || entry.scope === SCOPE_SINGLE || route.detail) renderRoute();
-        else heldScope.applyScopeInPlace(next);
+        navigation.navigate(selectionRoute(route, scopeSelections, focus, navigation.current()), { projectSwitch: true });
       },
     });
     if (picker) {
@@ -197,8 +197,6 @@ export function mountUniverseApp(rootNode, options = {}) {
     // under different tabs, and its renderer decides which.
     const breadcrumbNavigation = (breadcrumb) => ({
       tab: route.tab,
-      // The trail itself, for a drill-in whose heading row is where it
-      // belongs rather than a line of its own above it.
       breadcrumb,
       setDetailLabel(label) {
         if (!mounted || main.children[0] !== breadcrumb) return;
@@ -289,8 +287,6 @@ export function mountUniverseApp(rootNode, options = {}) {
         breadcrumbNavigation(breadcrumb));
       return;
     }
-    // The picker lives in the top chrome. A separate view-owned host still
-    // precedes the view (the Overview pins its activation stack there).
     const viewHost = el(documentNode, "div", "view-host"), aboveScope = el(documentNode, "div", "view-above-scope");
     const pageHead = createPageHead(documentNode, entry);
     main.replaceChildren(
@@ -313,7 +309,8 @@ export function mountUniverseApp(rootNode, options = {}) {
     heldScope.register(entry.id, scope, picker, handle);
   }
 
-  windowNode.addEventListener("hashchange", heldScope.onHashChange);
+  windowNode.addEventListener("popstate", heldScope.onRouteChange);
+  windowNode.addEventListener(ROUTE_NAVIGATION_EVENT, heldScope.onRouteChange);
 
   const projectsFetched = loadProjectRoster(client, (rows) => {
     projects = rows;
@@ -325,7 +322,6 @@ export function mountUniverseApp(rootNode, options = {}) {
 
   const preferencesFetched = loadScreenSelections(client, scopeSelections);
 
-  // Decoration does not gate the first content paint.
   steeringColors.refresh();
 
   Promise.all([projectsFetched, preferencesFetched])
@@ -338,7 +334,8 @@ export function mountUniverseApp(rootNode, options = {}) {
     mounted = false;
     if (typeof context.abortView === "function") context.abortView();
     navigation.dispose();
-    windowNode.removeEventListener("hashchange", heldScope.onHashChange);
+    windowNode.removeEventListener("popstate", heldScope.onRouteChange);
+    windowNode.removeEventListener(ROUTE_NAVIGATION_EVENT, heldScope.onRouteChange);
     disposeChrome();
     detachMountedSlots(rootNode, [...mountedSlotNodes, ...sectionNodes]);
     rootNode.replaceChildren();

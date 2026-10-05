@@ -276,16 +276,28 @@ def test_hc_id_matches_registered_string(db_conn, isolated_config) -> None:
     assert rec.results[-1].check_id == f"HC-{HC_ID}"
 
 
-def test_oversized_ledger_reports_incomplete_instead_of_sample_pass(
-    db_conn, isolated_config, monkeypatch
-):
-    monkeypatch.setattr(
-        "yoke_core.engines.doctor_hc_event_outcome_drift._SCAN_ROW_LIMIT", 2
-    )
+def test_large_ledger_is_fully_aggregated(db_conn, isolated_config):
     _set_cutover_marker(isolated_config, "2026-03-01T00:00:00Z")
-    for _ in range(3):
-        _seed_event(db_conn, created_at="2026-04-01T00:00:00Z")
-    rec = _run(db_conn)
-    assert rec.results[-1].result == "FAIL"
-    assert "doctor_ledger_scan_limit_exceeded" in rec.results[-1].detail
-    assert "evidence is incomplete" in rec.results[-1].detail
+    db_conn.execute("""
+        INSERT INTO events (event_id, event_name, event_outcome, exit_code, created_at)
+        SELECT 'bulk-' || n, 'HarnessToolCallCompleted', 'completed', 0,
+               '2026-04-01T00:00:00Z' FROM generate_series(1, 10000) n
+    """)
+    db_conn.commit()
+    assert _run(db_conn).results[-1].result == "PASS"
+    _seed_event(db_conn, created_at="2026-04-01T00:00:00Z", exit_code=7)
+    result = _run(db_conn).results[-1]
+    assert result.result == "FAIL"
+    assert "1 post-cutover row" in result.detail
+
+
+def test_nul_in_envelope_does_not_hide_drift(db_conn, isolated_config):
+    _set_cutover_marker(isolated_config, "2026-03-01T00:00:00Z")
+    _seed_event(
+        db_conn,
+        created_at="2026-04-01T00:00:00Z",
+        envelope={"context": {"detail": {"error": "\x00", "payload": "file\x00"}}},
+    )
+    result = _run(db_conn).results[-1]
+    assert result.result == "FAIL"
+    assert "1 post-cutover row" in result.detail

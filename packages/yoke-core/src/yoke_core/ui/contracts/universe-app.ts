@@ -206,6 +206,8 @@ export interface UniverseRuntimeIdentity {
 }
 
 export interface UniverseAppOptions {
+  /** Absolute mount path without query/fragment; empty for the local workbench. */
+  readonly basePath?: string;
   readonly client?: UniverseFunctionClient;
   readonly capabilities?: UniverseCapabilities;
   readonly slots?: UniverseAppSlots;
@@ -245,22 +247,21 @@ export interface UniverseAppMount {
  * its body, and its nav entry appears exactly when that section is supplied.
  */
 export type UniverseRouteView =
-  | "overview" | "sessions" | "inbox" | "organization" | "workflows"
-  | "projects" | "github" | "actors" | "members" | "billing"
-  | "strategy" | "items" | "deployments" | "environments" | "flows"
-  | "databases" | "infrastructure" | "qa-methods" | "qa-plans"
-  | "qa-activity" | "capabilities" | "packs" | "architecture"
-  | "messages" | "events" | "doctor" | "ouroboros" | "machines";
+  | "strategy" | "frontier" | "shipping" | "machines" | "sessions" | "inbox"
+  | "profile" | "organization" | "workflows" | "projects" | "github" | "actors"
+  | "members" | "billing" | "items" | "deployments" | "environments" | "databases"
+  | "qa-methods" | "qa-plans" | "qa-activity" | "capabilities" | "packs"
+  | "architecture" | "messages" | "launches" | "events" | "doctor" | "ouroboros";
 
 /**
  * The optional second segment identifies a detail within a destination.
  * Views interpret that identifier, including the workflow being inspected.
- * Unknown destinations fall back to Overview without carrying their detail.
+ * Unknown destinations fall back to Strategy without carrying their detail.
  */
 export interface UniverseRoute {
   readonly view: UniverseRouteView;
-  /** Always null; named navigation destinations are represented by view. */
-  readonly tab: null;
+  /** Deployments has flows/runs tabs; other destinations have none. */
+  readonly tab: "flows" | "runs" | null;
   /** The drill-in row within the view, when the route names one. */
   readonly detail: string | null;
   readonly project: string | null;
@@ -278,19 +279,20 @@ export interface UniverseRoute {
 export type UniverseScope = "multi" | "single" | "none";
 
 /** Canonical value; the runtime module is emitted from this source. */
-export const UNIVERSE_APP_CONTRACT_VERSION = 9 as const;
+export const UNIVERSE_APP_CONTRACT_VERSION = 10 as const;
 
 export declare function createHttpFunctionClient(
   options?: HttpFunctionClientOptions,
 ): UniverseFunctionClient;
 
-export declare function parseUniverseRoute(hash: string): UniverseRoute;
+export declare function parseUniverseRoute(href: string, basePath?: string): UniverseRoute;
 
 /** Preserve selection on ordinary host navigation and detail links. Explicit
  * selection wins; project continues to address a detail/focus resource. */
 export declare function withProjectSelection(
-  hash: string,
-  selection: "all" | readonly string[],
+  href: string,
+  selections: { selectionFor(view: string): "all" | readonly string[] },
+  basePath?: string,
 ): string;
 
 /** `segment` is the view's second path segment: a tab id for a view that
@@ -299,12 +301,14 @@ export declare function buildUniverseRoute(
   view: UniverseRouteView | string,
   project?: string | null,
   segment?: string | null,
+  detail?: string | null,
+  basePath?: string,
 ): string;
 
 /**
  * Wires the dismissal every transient surface in the frame shares onto one
  * the host owns: a click outside it closes it, Escape closes it and returns
- * focus to `trigger`, and a hash navigation closes it — the gesture a menu
+ * focus to `trigger`, and a route navigation closes it — the gesture a menu
  * cannot observe for itself when its own item is the route link.
  *
  * `root` is the element the surface lives in (a click inside it is not an

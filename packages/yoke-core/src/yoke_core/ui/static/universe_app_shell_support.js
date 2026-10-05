@@ -62,7 +62,7 @@ export function loadScreenSelections(client, scopeSelections) {
 
 export function createProjectControls(deps) {
   const { documentNode, windowNode, entry, route, scope, projects,
-    scopeSelections, onSelectionChange, renderRoute } = deps;
+    scopeSelections, onSelectionChange, renderRoute, navigation } = deps;
   if (scopeForRoute(entry, route) === SCOPE_NONE) {
     if (!scopeSelections.notice) return null;
     const note = documentNode.createElement("span");
@@ -81,8 +81,7 @@ export function createProjectControls(deps) {
       onSelect(next) {
         scopeSelections.setFocusFor(entry.id, next);
         scopeSelections.saveFor(entry.id);
-        windowNode.location.hash = selectionRoute(route, scopeSelections, next, windowNode.location.hash);
-        renderRoute();
+        navigation.navigate(selectionRoute(route, scopeSelections, next, navigation.current()), { projectSwitch: true });
       },
     });
     const label = focus.children[0];
@@ -170,7 +169,7 @@ export function createHeldScopeController(deps) {
   const {
     windowNode, scopeSelections, renderRoute, projectsRef,
     navEntry, serializeScope, parseUniverseRoute,
-    navLinks, nav, buildUniverseRoute, rememberedScopeParam, resolveRoute, refreshLinks,
+    navLinks, nav, buildUniverseRoute, rememberedScopeParam, resolveRoute, refreshLinks, navigation, routeInPlace,
   } = deps;
   let active = null;
   function refreshNavHrefs(activeId) {
@@ -203,13 +202,18 @@ export function createHeldScopeController(deps) {
     active.rescope(next);
     refreshNavHrefs(active.viewId);
   }
-  function onHashChange() {
-    const route = parseUniverseRoute(windowNode.location.hash);
+  function onRouteChange() {
+    const route = parseUniverseRoute(navigation.current(), navigation.basePath);
+    if (routeInPlace?.(route)) {
+      resolveRoute(route, navEntry(route.view));
+      refreshNavHrefs(route.view);
+      return;
+    }
     if (active && active.viewId === route.view && !route.detail && !route.tab) {
       const entry = navEntry(route.view);
       const next = resolveRoute(route, entry);
       // A chip click already applied this scope directly; the browser's
-      // follow-on hashchange is a no-op. A different hash (direct edit /
+      // follow-on navigation event is a no-op. A different path (direct edit /
       // back-forward) rescopes in place, still with no refetch.
       if (serializeScope(next) === serializeScope(active.currentScope)) return;
       applyScopeInPlace(next);
@@ -217,5 +221,5 @@ export function createHeldScopeController(deps) {
     }
     renderRoute();
   }
-  return { refreshNavHrefs, reset, register, applyScopeInPlace, onHashChange };
+  return { refreshNavHrefs, reset, register, applyScopeInPlace, onRouteChange };
 }

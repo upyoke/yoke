@@ -56,7 +56,7 @@ function mountClient({ pending = [], failing = [] } = {}) {
 
 async function mountAt(hash, client) {
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = hash;
+  documentNode.defaultView.location.href = hash || "/";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client });
   return { documentNode, mounted, root };
@@ -76,7 +76,7 @@ test("the pending content area carries one announced line, not a skeleton", () =
 test("the shell paints the line immediately and replaces it on first render", async (t) => {
   stubFetch(t);
   const client = mountClient();
-  const { root, mounted } = await mountAt("#/projects", client);
+  const { root, mounted } = await mountAt("/projects", client);
 
   // Synchronously after mount — before any read can have resolved.
   assert.equal(byClass(root, "route-loading").length, 1);
@@ -95,7 +95,7 @@ test("the shell paints the line immediately and replaces it on first render", as
 test("a failed roster read replaces the line with its error, never leaves it spinning", async (t) => {
   stubFetch(t);
   const { root, mounted } = await mountAt(
-    "#/projects", mountClient({ failing: ["projects.list"] }),
+    "/projects", mountClient({ failing: ["projects.list"] }),
   );
   await settle();
   await settle();
@@ -110,7 +110,7 @@ test("a stuck steering-color read no longer holds the first content paint", asyn
   // The steering-group read only tints cards. It never resolves, and the
   // screen still paints.
   const client = mountClient({ pending: ["sessions.steering_groups.list"] });
-  const { root, mounted } = await mountAt("#/projects", client);
+  const { root, mounted } = await mountAt("/projects", client);
   await settle();
   await settle();
 

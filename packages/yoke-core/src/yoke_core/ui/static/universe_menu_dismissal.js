@@ -1,3 +1,4 @@
+import { ROUTE_NAVIGATION_EVENT } from "./universe_path_navigation.js";
 // One dismissal contract for the transient surfaces the universe frame opens
 // over its content: the actor menu, the cross-screen search results, and the
 // footer panels. An open surface has to close on the three gestures a person
@@ -37,13 +38,15 @@ export function attachMenuDismissal(
   const onKeydown = (event) => {
     if (event.key === "Escape") dismiss(true);
   };
-  const onHashChange = () => dismiss(false);
+  const onRouteChange = () => dismiss(false);
   windowNode.addEventListener("click", onClick);
   windowNode.addEventListener("keydown", onKeydown);
-  windowNode.addEventListener("hashchange", onHashChange);
+  windowNode.addEventListener("popstate", onRouteChange);
+  windowNode.addEventListener(ROUTE_NAVIGATION_EVENT, onRouteChange);
   return () => {
     windowNode.removeEventListener("click", onClick);
     windowNode.removeEventListener("keydown", onKeydown);
-    windowNode.removeEventListener("hashchange", onHashChange);
+    windowNode.removeEventListener("popstate", onRouteChange);
+    windowNode.removeEventListener(ROUTE_NAVIGATION_EVENT, onRouteChange);
   };
 }

@@ -27,7 +27,7 @@ test("removed members never contribute to carried counts or their QA", () => {
   assert.deepEqual(byClass(removed, "release-removed-note").map((n) => n.textContent),
     ["QA cancelled — rides run-later", "QA cancelled — rides a later release"]);
   assert.equal(byClass(removed, "overview-card-link")[0].href,
-    "#/deployments/runs/run-later?project=1");
+    "/deployments/runs/run-later?project=1");
   assert.equal(byClass(removed, "carried-item-evidence").length, 0);
   assert.equal(byClass(removed, "run-qa-check").length, 0);
 });

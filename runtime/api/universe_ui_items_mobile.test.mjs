@@ -14,7 +14,7 @@ const fixture = {
 for (const scope of [["1"], ["1", "2"]]) {
   test(`narrow item cards keep correct value labels for ${scope.length} projects`, () => {
     const document = new FakeDocument();
-    const root = itemTable(document, [fixture], () => "#/items/example", scope,
+    const root = itemTable(document, [fixture], () => "/items/example", scope,
       [{ id: 1, slug: "demo" }], { column: "updated_at", direction: "desc" }, () => {});
     assert.equal(byClass(root, "table-stacks-narrow").length, 1);
     const row = byClass(root, "item-roster-row")[0];
@@ -32,12 +32,12 @@ for (const scope of [["1"], ["1", "2"]]) {
 
 test("card headers preserve all existing sort actions and row navigation", () => {
   const document = new FakeDocument(), sorted = [];
-  const root = itemTable(document, [fixture], () => "#/items/example", ["1"], [],
+  const root = itemTable(document, [fixture], () => "/items/example", ["1"], [],
     { column: "updated_at", direction: "desc" }, (key) => sorted.push(key));
   const header = byClass(root, "item-roster-sort")[0];
   assert.equal(byClass(header, "item-sort-button").length, 7);
   for (const button of byClass(header, "item-sort-button")) button.dispatchEvent(new Event("click"));
   assert.deepEqual(sorted, ["id", "title", "workflow", "status", "owner", "claimed_by", "updated_at"]);
   byClass(root, "item-roster-row")[0].dispatchEvent(new Event("click"));
-  assert.equal(document.defaultView.location.hash, "#/items/example");
+  assert.equal(document.defaultView.location.href, "/items/example");
 });

@@ -85,7 +85,7 @@ test("Evidence view actions expose local and stranded dispositions honestly", as
 
 test("Activity folds hidden QA plumbing into readable outcomes", async (t) => {
   const { root, client, mounted } = await mountAt(
-    t, "#/qa-activity?project=1",
+    t, "/qa-activity?project=1",
   );
 
   assert.equal(byClass(root, "qa-stat").length, 5);
@@ -125,7 +125,7 @@ test("Activity folds hidden QA plumbing into readable outcomes", async (t) => {
   // its evidence once the columns are stacked.
   assert.equal(
     byClass(root, "qa-activity-link")[1].href,
-    "#/qa-activity/32?project=1",
+    "/qa-activity/32?project=1",
   );
   assert.deepEqual(
     client.requests.find(
@@ -235,8 +235,8 @@ test("Activity labels every merged row with its owning project", async () => {
   assert.deepEqual(
     byClass(root, "qa-activity-link").map((node) => node.href),
     [
-      "#/qa-plans/2?project=2", "#/qa-activity/2?project=2",
-      "#/qa-plans/1?project=1", "#/qa-activity/1?project=1",
+      "/qa-plans/2?project=2", "/qa-activity/2?project=2",
+      "/qa-plans/1?project=1", "/qa-activity/1?project=1",
     ],
   );
 });
@@ -293,7 +293,7 @@ test("a row's linked artifacts render as thumbnails, and a pending review points
   assert.match(visibleText(root, " "), /proof\.png/);
   const review = byClass(root, "qa-activity-review")[0];
   assert.equal(byClass(review, "review-pill")[0].textContent, "needs your review →");
-  assert.equal(byClass(review, "review-pill")[0].href, "#/inbox?project=1");
+  assert.equal(byClass(review, "review-pill")[0].href, "/inbox?project=1");
 });
 
 test("a case attached without a plan reads as such and is named by its method", async () => {
@@ -343,5 +343,5 @@ test("a case attached without a plan reads as such and is named by its method", 
   // for itself, and still opens its own page.
   const caseLink = byClass(row, "qa-activity-link")[0];
   assert.equal(caseLink.textContent, "Browser inspection · case 26759");
-  assert.equal(caseLink.href, "#/qa-activity/26759?project=1");
+  assert.equal(caseLink.href, "/qa-activity/26759?project=1");
 });

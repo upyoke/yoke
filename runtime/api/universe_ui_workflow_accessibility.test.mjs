@@ -81,21 +81,21 @@ test("web entry links select supported workflows and retain item scope", async (
     t, client,
   );
 
-  documentNode.defaultView.location.hash = "#/items?project=1";
-  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  documentNode.defaultView.location.href = "/items?project=1";
+  documentNode.defaultView.dispatchEvent(new Event("popstate"));
   await settle();
-  documentNode.defaultView.location.hash = "#/workflows/issue";
-  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  documentNode.defaultView.location.href = "/workflows/issue";
+  documentNode.defaultView.dispatchEvent(new Event("popstate"));
   await settle();
   const link = byClass(root, "workflow-entry-link")[0];
   assert.equal(
     classText(root, "workflow-detail-row-title")[0],
     "Enter Issue on the web",
   );
-  assert.equal(link.href, "#/items/new?workflow=issue");
+  assert.equal(link.href, "/items/new?workflow=issue");
 
-  documentNode.defaultView.location.hash = link.href;
-  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  documentNode.defaultView.location.href = link.href;
+  documentNode.defaultView.dispatchEvent(new Event("popstate"));
   await settle();
   assert.deepEqual(byClass(root, "title").map((node) => node.textContent), [
     "New Issue",

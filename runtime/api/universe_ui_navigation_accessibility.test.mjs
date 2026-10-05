@@ -29,7 +29,7 @@ test("Items leads Diagnostics and the active route is announced", async (t) => {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/items";
+  documentNode.defaultView.location.href = "/items";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client: injectedClient("nav") });
   t.after(() => mounted.unmount());
@@ -39,8 +39,8 @@ test("Items leads Diagnostics and the active route is announced", async (t) => {
   assert.equal(items.parentNode.id, "universe-nav-group-items-diagnostics");
   assert.ok(byClass(items.parentNode, "nav-link")[0] === items, "Items is first in Diagnostics");
   assert.equal(items.getAttribute("aria-current"), "page");
-  documentNode.defaultView.location.hash = "#/strategy";
-  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  documentNode.defaultView.location.href = "/strategy";
+  documentNode.defaultView.dispatchEvent(new Event("popstate"));
   await settle();
   assert.equal(items.getAttribute("aria-current"), null);
   assert.equal(links.find((node) => node.textContent === "Strategy").getAttribute("aria-current"), "page");

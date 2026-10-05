@@ -43,7 +43,7 @@ async function mountAt(t, hash, handlers) {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = hash;
+  documentNode.defaultView.location.href = hash || "/";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client: pageClient(handlers) });
   await settle();
@@ -70,7 +70,7 @@ test("message failures give plain recovery without leaking routing internals", (
 test("message history leads with readable content and accessible receipts", async (t) => {
   const fullBody = "Please verify the production delivery receipt.\n"
     + "Show this entire peer-authored message without treating <button>Do not run</button> as markup.";
-  const { root, mounted } = await mountAt(t, "#/messages?project=1", {
+  const { root, mounted } = await mountAt(t, "/messages?project=1", {
     "session_control.message.list": () => ok({
       messages: [{
         message_id: "message-opaque-id",
@@ -168,7 +168,7 @@ test("message history leads with readable content and accessible receipts", asyn
 });
 
 test("the machine roster reads a registered machine through its relay", async (t) => {
-  const relay = await mountAt(t, "#/machines?project=1", {
+  const relay = await mountAt(t, "/machines?project=1", {
     "sessions.list": () => ok({ rows: [] }),
     "machine.list": () => ok({
       machines: [{
@@ -206,7 +206,7 @@ test("roster filters are named, clearable, and distinguish filtered emptiness", 
     actor_id: 1, actor_kind: "human", actor_label: "Ben", claims: [],
     messageability: { messageable: true },
   };
-  const { root, mounted } = await mountAt(t, "#/sessions?project=1", {
+  const { root, mounted } = await mountAt(t, "/sessions?project=1", {
     "sessions.list": (request) => ok({
       rows: request.payload.open ? [row] : [],
     }),
@@ -234,7 +234,7 @@ test("roster State uses accepted liveness values while kill cause stays on the c
     actor_id: 1, actor_kind: "human", actor_label: "Ben", claims: [],
     messageability: { messageable: false },
   };
-  const { root, mounted } = await mountAt(t, "#/sessions?project=1", {
+  const { root, mounted } = await mountAt(t, "/sessions?project=1", {
     "sessions.list": (request) => request.payload.open ? ok({ rows: [] }) : ok({
       rows: request.payload.history ? [
           {

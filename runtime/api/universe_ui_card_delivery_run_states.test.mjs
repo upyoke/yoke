@@ -85,7 +85,7 @@ test("an older in-flight run shows its stage and elapsed time", async (t) => {
     },
   });
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/frontier?project=1";
+  documentNode.defaultView.location.href = "/frontier?project=1";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client });
   t.after(() => mounted.unmount());

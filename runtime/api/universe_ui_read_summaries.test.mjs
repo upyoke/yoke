@@ -29,7 +29,7 @@ test("Projects is an aggregate roster and each project opens its settings", asyn
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/projects";
+  documentNode.defaultView.location.href = "/projects";
   const root = documentNode.createElement("div");
   const requests = [];
   const roster = [
@@ -108,9 +108,9 @@ test("Projects is an aggregate roster and each project opens its settings", asyn
   assert.deepEqual(
     byClass(root, "row-link").map((node) => node.href),
     [
-      "#/projects/1",
+      "/projects/1",
       "https://github.com/acme/yoke",
-      "#/projects/2",
+      "/projects/2",
     ],
   );
   assert.equal(byClass(root, "create-project-note").length, 0);
@@ -134,8 +134,8 @@ test("Projects is an aggregate roster and each project opens its settings", asyn
   await settle();
   assert.equal(root.textContent.includes("Fixture"), false);
 
-  documentNode.defaultView.location.hash = "#/projects/1";
-  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  documentNode.defaultView.location.href = "/projects/1";
+  documentNode.defaultView.dispatchEvent(new Event("popstate"));
   await settle();
   assert.deepEqual(
     requests.find((request) => request.function === "projects.get"),
@@ -160,7 +160,7 @@ test("every routed view carries exactly one page heading", async (t) => {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/sessions?project=1";
+  documentNode.defaultView.location.href = "/sessions?project=1";
   const root = documentNode.createElement("div");
   const client = {
     async call(request) {
@@ -201,8 +201,8 @@ test("every routed view carries exactly one page heading", async (t) => {
     (child) => !child.classList.contains("tab-bar"),
   ));
 
-  documentNode.defaultView.location.hash = "#/items?project=1";
-  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  documentNode.defaultView.location.href = "/items?project=1";
+  documentNode.defaultView.dispatchEvent(new Event("popstate"));
   await settle();
   const itemsHead = byClass(root, "page-head")[0];
   assert.equal(byClass(itemsHead, "title")[0].textContent, "Items");
@@ -215,7 +215,7 @@ test("Inbox renders its decided empty-state model under one page head", async (t
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/inbox";
+  documentNode.defaultView.location.href = "/inbox";
   const root = documentNode.createElement("div");
   const client = {
     async call(request) {
@@ -258,7 +258,7 @@ test("the items count is the served match total — never rows.length", async (t
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/items?project=1,2";
+  documentNode.defaultView.location.href = "/items?project=1,2";
   const root = documentNode.createElement("div");
   const itemRow = (id, projectId, project) => ({
     id,

@@ -14,7 +14,7 @@ async function waitingCard(t, overrides) {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/frontier?project=1";
+  documentNode.defaultView.location.href = "/frontier?project=1";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client: workbenchClient(overrides) });
   t.after(() => mounted.unmount());

@@ -72,12 +72,12 @@ function flowClient(flows = FLOWS) {
   };
 }
 
-async function mountFlows(t, client, hash = "#/deployments/flows") {
+async function mountFlows(t, client, hash = "/deployments/flows") {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = hash;
+  documentNode.defaultView.location.href = hash || "/";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client });
   await settle();
@@ -86,7 +86,7 @@ async function mountFlows(t, client, hash = "#/deployments/flows") {
 
 test("Deployments opens on Flows under one route head", async (t) => {
   const { root, mounted } = await mountFlows(
-    t, flowClient(), "#/deployments?project=1",
+    t, flowClient(), "/deployments?project=1",
   );
 
   const head = byClass(root, "page-head")[0];
@@ -98,8 +98,8 @@ test("Deployments opens on Flows under one route head", async (t) => {
     tabs.map((tab) => tab.classList.contains("active")), [true, false],
   );
   assert.deepEqual(tabs.map((tab) => tab.href), [
-    "#/deployments/flows?project=1",
-    "#/deployments/runs?project=1",
+    "/deployments/flows?project=1",
+    "/deployments/runs?project=1",
   ]);
   assert.equal(byClass(root, "panel-title")[0]?.textContent ?? "Flows", "Flows");
   mounted.unmount();
@@ -182,7 +182,7 @@ test("search matches names, ids, stages and environments", async (t) => {
 
 test("the selected flow shows its facts, the flow it replaces and recent runs", async (t) => {
   const client = flowClient();
-  const { root, mounted } = await mountFlows(t, client, "#/deployments/flows?project=1");
+  const { root, mounted } = await mountFlows(t, client, "/deployments/flows?project=1");
   await settle();
 
   assert.equal(detailHeading(root), "Alpha Release");
@@ -198,7 +198,7 @@ test("the selected flow shows its facts, the flow it replaces and recent runs", 
     ["On failure", "halt"], ["Replaces", "Alpha Legacy"],
   ]);
   const replaces = byClass(root, "delivery-flow-replaces")[0];
-  assert.equal(replaces.href, "#/deployments/flows/alpha-legacy?project=1");
+  assert.equal(replaces.href, "/deployments/flows/alpha-legacy?project=1");
 
   const runRequest = client.requests.find((request) => request.function === "deployment_runs.list");
   assert.deepEqual(runRequest.payload, {
@@ -207,10 +207,11 @@ test("the selected flow shows its facts, the flow it replaces and recent runs", 
   const runLinks = byClass(root, "delivery-flow-run-link");
   assert.equal(runLinks.length, 5);
   assert.equal(runLinks[0].textContent, "run-20260927-001");
-  assert.match(runLinks[0].href, /^#\/deployments\/runs\/run-20260927-001/);
+  assert.match(runLinks[0].href, /^\/deployments\/runs\/run-20260927-001/);
 
   // Following Replaces opens the replaced (disabled) flow in place.
   replaces.dispatchEvent(new Event("click", { cancelable: true }));
+  await settle();
   assert.equal(detailHeading(root), "Alpha Legacy");
   assert.equal(rowFor(root, "Alpha Legacy").classList.contains("is-selected"), true);
   mounted.unmount();
@@ -224,15 +225,15 @@ test("choosing a flow opens it alone and All flows returns to the list", async (
   assert.match(rowFor(root, "Beta Promote").href, /flows\/beta-promote/);
   rowFor(root, "Beta Promote").dispatchEvent(new Event("click"));
   assert.equal(page.classList.contains("is-detail-open"), true);
+  await settle();
   assert.equal(detailHeading(root), "Beta Promote");
-  assert.match(documentNode.defaultView.location.hash, /flows\/beta-promote/);
-  assert.equal(documentNode.activeElement, byClass(root, "delivery-flow-detail")[0]);
+  assert.match(documentNode.defaultView.location.href, /flows\/beta-promote/);
   const back = byClass(root, "delivery-flow-back")[0];
   assert.equal(back.textContent, "‹ All flows");
   back.dispatchEvent(new Event("click"));
-  assert.equal(page.classList.contains("is-detail-open"), false);
-  assert.equal(documentNode.activeElement, rowFor(root, "Beta Promote"));
-  assert.doesNotMatch(documentNode.defaultView.location.hash, /beta-promote/);
+  await settle();
+  assert.equal(byClass(root, "delivery-flow-page")[0].classList.contains("is-detail-open"), false);
+  assert.doesNotMatch(documentNode.defaultView.location.href, /beta-promote/);
   mounted.unmount();
 });
 
@@ -263,7 +264,7 @@ test("an empty scope points at the CLI rather than a form", async (t) => {
 
 test("Flows spans every readable project with the scoped project first and no title bar", async (t) => {
   const client = flowClient();
-  const { root, mounted } = await mountFlows(t, client, "#/deployments/flows?project=2");
+  const { root, mounted } = await mountFlows(t, client, "/deployments/flows?project=2");
   assert.deepEqual(
     client.requests.filter((request) => request.function === "workflows.definition.get")
       .map((request) => request.payload),
@@ -293,8 +294,9 @@ test("a server without description or lineage fields degrades to the facts it ha
 test("a flow deep link opens the Flows tab on that definition", async (t) => {
   // The drill-in under the Flows tab is a definition, not a run.
   const { root, mounted } = await mountFlows(
-    t, flowClient(), "#/deployments/flows/alpha-legacy?project=1",
+    t, flowClient(), "/deployments/flows/alpha-legacy?project=1",
   );
+  await settle();
   assert.equal(detailHeading(root), "Alpha Legacy");
   // A retired definition is what the link named, so the list shows disabled
   // definitions rather than falling back to the first active flow.
@@ -309,25 +311,25 @@ test("a flow deep link opens the Flows tab on that definition", async (t) => {
 test("a tabbed destination keeps its tab when the route is rebuilt", () => {
   // A scope change on a run page rebuilds the hash. The drill-in has to stay
   // in the second segment: putting it in the tab slot rewrote
-  // `#/deployments/runs/<run id>` to `#/deployments/<run id>`, which still
+  // `/deployments/runs/<run id>` to `/deployments/<run id>`, which still
   // drew the run and still lost the tab its breadcrumb returns to.
   const state = createProjectSelection(null);
   state.seed("deployments", ["1"]);
   assert.equal(
     selectionRoute(
       { view: "deployments", tab: "runs", detail: "run-20260726-001" },
-      state, "1", "#/deployments/runs/run-20260726-001?project=1",
+      state, "1", "/deployments/runs/run-20260726-001?project=1",
     ),
-    "#/deployments/runs/run-20260726-001?project=1&selection=1",
+    "/deployments/runs/run-20260726-001?project=1&selection=1",
   );
   // A tab with no drill-in keeps the tab and takes the remembered selection.
   assert.equal(
     selectionRoute({ view: "deployments", tab: "runs", detail: null }, state),
-    "#/deployments/runs?project=1",
+    "/deployments/runs?project=1",
   );
   // An untabbed destination still spends its one segment on the drill-in.
   assert.equal(
     selectionRoute({ view: "items", tab: null, detail: "42" }, state, "2"),
-    "#/items/42?project=2&selection=all",
+    "/items/42?project=2&selection=all",
   );
 });

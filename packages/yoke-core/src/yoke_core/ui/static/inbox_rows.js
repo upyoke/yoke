@@ -77,7 +77,7 @@ export function appendActorMessageRow(context, body, message, acknowledge) {
     String(message.body || "Message body unavailable"),
   ));
   const link = el(documentNode, "a", "review-link", "Messages");
-  link.href = "#/messages";
+  link.href = "/messages";
   main.appendChild(link);
   wrap.appendChild(main);
   // Who sent it and when, in a column of their own on the right. They used

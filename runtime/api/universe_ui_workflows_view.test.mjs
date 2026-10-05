@@ -128,7 +128,7 @@ test("Dash entry surfaces use the prototype filing copy", async (t) => {
     true,
   );
   const newItemLink = byClass(root, "workflow-entry-link")[0];
-  assert.equal(newItemLink.href, "#/items/new?workflow=dash");
+  assert.equal(newItemLink.href, "/items/new?workflow=dash");
   assert.equal(
     newItemLink.parentNode.classList.contains("workflow-detail-row"),
     true,
@@ -260,7 +260,7 @@ test("disabled workflows remain selectable and render their registry state", asy
   );
 
   byClass(root, "tab-link")[1].dispatchEvent(new Event("click"));
-  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  documentNode.defaultView.dispatchEvent(new Event("popstate"));
   await settle();
   assert.equal(
     byClass(root, "tab-link")[1].attributes.get("aria-selected"),
@@ -317,7 +317,7 @@ test("Blitz mechanics link back to Strategy with the prototype skill copy", asyn
     byClass(root, "workflow-home-link").find(
       (node) => node.textContent === "Strategy →",
     )?.href,
-    "#/strategy",
+    "/strategy",
   );
   mounted.unmount();
 });

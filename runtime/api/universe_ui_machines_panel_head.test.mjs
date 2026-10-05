@@ -48,7 +48,7 @@ test("a durable machine record names its machine and owner in the card head", ()
   assert.equal(byClass(host, "machine-card-footer")[0].children.length, 1);
   assert.equal(
     byClass(host, "machine-detail-link")[0].href,
-    "#/machines/machine-registered",
+    "/machines/machine-registered",
   );
 });
 

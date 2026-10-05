@@ -95,7 +95,7 @@ async function mountAt(t, hash, client) {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = hash;
+  documentNode.defaultView.location.href = hash || "/";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client });
   await settle();
@@ -105,7 +105,7 @@ async function mountAt(t, hash, client) {
 test("Environments joins branch and latest-run reads without inventing policy", async (t) => {
   const client = deliveryClient();
   const { root, mounted } = await mountAt(
-    t, "#/environments?project=1", client,
+    t, "/environments?project=1", client,
   );
 
   assert.equal(byClass(root, "stub-panel").length, 0);
@@ -190,7 +190,7 @@ test("Environment inventory fans out at All and labels each project", async (t) 
     },
   };
   const { root, mounted } = await mountAt(
-    t, "#/environments", client,
+    t, "/environments", client,
   );
 
   assert.deepEqual(
@@ -259,7 +259,7 @@ test("Environment inventory fans out at All and labels each project", async (t) 
 test("Databases renders declared models and labels every unserved steering fact", async (t) => {
   const client = deliveryClient();
   const { root, mounted } = await mountAt(
-    t, "#/databases?project=1", client,
+    t, "/databases?project=1", client,
   );
 
   assert.deepEqual(

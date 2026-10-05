@@ -38,13 +38,13 @@ function makeRowNavigable(documentNode, row, href) {
   row.setAttribute("aria-label", `Open ${row.children[0]?.textContent || "item"}`);
   row.addEventListener("click", (event) => {
     if (eventCameFromControl(event, row)) return;
-    documentNode.defaultView.location.hash = href;
+    documentNode.defaultView.location.href = href;
   });
   row.addEventListener("keydown", (event) => {
     if (eventCameFromControl(event, row)) return;
     if (!["Enter", " "].includes(event.key)) return;
     if (typeof event.preventDefault === "function") event.preventDefault();
-    documentNode.defaultView.location.hash = href;
+    documentNode.defaultView.location.href = href;
   });
 }
 

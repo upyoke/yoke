@@ -53,7 +53,7 @@ test("an item's own QA shows in its Carries entry", async () => {
   assert.equal(byClass(section, "run-qa-head")[0].children[0].textContent, "Item QA");
   const row = byClass(section, "run-qa-check")[0];
   assert.equal(byClass(row, "run-qa-check-name")[0].children[0].href,
-    "#/qa-activity/26134?project=1");
+    "/qa-activity/26134?project=1");
   assert.equal(byClass(evidence, "run-qa-history").length, 0);
   // Each screenshot is its own control inside that entry.
   assert.equal(byClass(evidence, "review-shot").length, 2);

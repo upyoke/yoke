@@ -32,10 +32,6 @@ from yoke_core.domain.work_claim_targets import make_item_target
 
 @pytest.fixture
 def env(tmp_path: Path, monkeypatch) -> Iterator[dict]:
-    monkeypatch.setattr(
-        "yoke_core.engines.doctor_hc_claim_boundary_audit._audit_since",
-        lambda: "2026-05-16T12:00:00Z",
-    )
     with init_test_db(tmp_path, apply_schema=apply_fixture_schema_ddl) as db_path:
         conn = connect_test_db(db_path)
         try:
@@ -296,7 +292,7 @@ def test_apply_event_id_cutoff_helper_appends_clause():
     assert params == ["x", 500]
 
 
-def test_audit_window_excludes_older_events_and_reports_scope(env, patch_cutoff):
+def test_audit_includes_old_events(env, patch_cutoff):
     conn = env["conn"]
     patch_cutoff(0)
     holder, other = _sid("h"), _sid("i")
@@ -313,28 +309,5 @@ def test_audit_window_excludes_older_events_and_reports_scope(env, patch_cutoff)
         created_at="2026-05-16T11:59:59Z",
     )
     rec = _run(conn)
-    assert rec.results[0].result == "PASS"
-    assert "24-hour audit window" in rec.results[0].detail
-    _add_event_with_id(
-        conn,
-        target_id=2,
-        name="YokeFunctionCalled",
-        sid=other,
-        item_id=904,
-        context={"function": "items.structured_field.replace"},
-        created_at="2026-05-16T12:00:00Z",
-    )
-    rec = _run(conn)
     assert rec.results[0].result == "FAIL"
-    assert "24-hour audit window" in rec.results[0].detail
-
-
-def test_audit_window_is_last_day_utc():
-    from datetime import datetime, timezone
-    from yoke_core.engines.doctor_hc_claim_boundary_audit import _audit_since
-
-    since = datetime.strptime(_audit_since(), "%Y-%m-%dT%H:%M:%SZ").replace(
-        tzinfo=timezone.utc
-    )
-    age = (datetime.now(timezone.utc) - since).total_seconds()
-    assert 86400 <= age < 86402
+    assert "full audit history" in rec.results[0].detail

@@ -194,6 +194,7 @@ function renderDeliveryFlowsView(context, main, scope, selectedFlowId = null) {
       ));
       renderDeliveryFlowExplorer(body, panel, rows, selectedFlowId, {
         actorNames,
+        navigation: context.navigate ? { navigate: context.navigate, back: context.back } : null,
         leadingProjects: scopedProjectSlugs(scope, context.projects()),
         listHref: buildUniverseRoute("deployments", scopeKey, "flows"),
         flowHref: (flowId) => buildUniverseRoute("deployments", scopeKey, "flows", String(flowId)),

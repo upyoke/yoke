@@ -92,15 +92,9 @@ test("workflow tabs switch immediately and remember each selected stage", async 
     prototypeWorkflow("blitz"),
   ]);
   const { documentNode, root, mounted } = await mountWorkflows(t, client);
-  const replacedRoutes = [];
-  documentNode.defaultView.history = {
-    state: null,
-    replaceState(state, _title, route) {
-      this.state = state;
-      documentNode.defaultView.location.hash = route;
-      replacedRoutes.push(route);
-    },
-  };
+  const navigatedRoutes = [];
+  documentNode.defaultView.addEventListener("yoke:navigate", () => navigatedRoutes.push(documentNode.defaultView.location.href));
+
 
   byClass(root, "workflow-stage")[1].dispatchEvent(new Event("click"));
   byClass(root, "tab-link").find(
@@ -123,10 +117,10 @@ test("workflow tabs switch immediately and remember each selected stage", async 
     classText(root, "workflow-stage-detail-label"),
     ["implementing"],
   );
-  assert.deepEqual(replacedRoutes, [
-    "#/workflows/blitz",
-    "#/workflows/dash",
-    "#/workflows/blitz",
+  assert.deepEqual(navigatedRoutes, [
+    "/workflows/blitz?selection=all",
+    "/workflows/dash?selection=all",
+    "/workflows/blitz?selection=all",
   ]);
   assert.equal(
     client.requests.filter(

@@ -27,10 +27,11 @@ Outcomes:
 from __future__ import annotations
 
 from yoke_core.domain import db_backend
-import json
-import re
-from typing import Any, List, Optional, Tuple
+from typing import Any
 
+from yoke_contracts.doctor_budget import CHECK_BUDGET_S, remaining_seconds
+
+from yoke_core.domain.sql_json import jsonb_text_expr
 from yoke_core.domain.runtime_settings import get_int, get_str
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
@@ -41,8 +42,7 @@ _TARGET_EVENT_OUTCOME = "completed"
 _CUTOVER_CONFIG_KEY = "event_outcome_drift_cutover_at"
 _TOLERANCE_CONFIG_KEY = "event_outcome_drift_pre_cutover_warn_max"
 _DEFAULT_TOLERANCE = 10000
-_SCAN_ROW_LIMIT = 1000
-_EXIT_RE = re.compile(r"Exit code (\d+)")
+_LIST_PREVIEW = 5
 
 
 def _p(conn: Any) -> str:
@@ -69,67 +69,45 @@ def _has_completed_backfill_audit(conn: Any) -> bool:
     return row is not None
 
 
-def _has_drift_shape(envelope_text: Optional[str], exit_code: Optional[int]) -> bool:
-    """A row has the drift shape when its exit_code is positive OR the
-    envelope carries a non-empty top-level error / preview-nonzero-exit
-    signal that the historical false-success bug used to hide."""
-    if exit_code is not None and exit_code > 0:
-        return True
-    if not envelope_text:
-        return False
-    try:
-        env = json.loads(envelope_text)
-    except (TypeError, ValueError):
-        return False
-    if not isinstance(env, dict):
-        return False
-    detail = (env.get("context") or {}).get("detail") or {}
-    error = detail.get("error")
-    if isinstance(error, str) and error.strip():
-        return True
-    preview = detail.get("tool_response_preview")
-    if isinstance(preview, str):
-        m = _EXIT_RE.search(preview)
-        if m and int(m.group(1)) > 0:
-            return True
-    return False
-
-
-def _partition_drift_rows(
-    conn: Any, cutover_at: str
-) -> Tuple[List[Tuple[str, str]], int]:
-    """Return (post_cutover_failures, pre_cutover_residual_count).
-
-    post_cutover_failures: list of (event_id, created_at) for rows
-    after the marker that still show the drift shape (regression).
-    pre_cutover_residual_count: bare count of rows before the marker
-    that the conservative backfill could not reclassify.
-    """
-    p = _p(conn)
-    cursor = conn.execute(
-        "SELECT event_id, created_at, envelope, exit_code FROM events "
-        f"WHERE event_name = {p} AND event_outcome = {p} ORDER BY id DESC LIMIT {p}",
-        (_TARGET_EVENT_NAME, _TARGET_EVENT_OUTCOME, _SCAN_ROW_LIMIT + 1),
-    )
-    rows = cursor.fetchall()
-    if len(rows) > _SCAN_ROW_LIMIT:
-        raise ValueError(
-            "doctor_ledger_scan_limit_exceeded: event-outcome-drift has more "
-            f"than {_SCAN_ROW_LIMIT} candidate rows; evidence is incomplete. "
-            "Recovery: optimize the historical drift audit before rerunning "
-            "`yoke watch doctor -- --only event-outcome-drift`; do not treat "
-            "a bounded sample as a clean ledger."
+def _partition_drift_rows(conn: Any, cutover_at: str) -> tuple[int, int, list]:
+    """Count the entire ledger in SQL; return only a bounded failure preview."""
+    sql = rf"""
+        WITH candidates AS (
+            SELECT event_id, created_at, exit_code,
+                CASE WHEN envelope IS JSON OBJECT THEN {jsonb_text_expr("envelope")}
+                     ELSE '{{}}'::jsonb END AS env
+            FROM events WHERE event_name=%s AND event_outcome=%s
+        ), drift AS (
+            SELECT event_id, created_at FROM candidates
+            WHERE exit_code > 0
+                OR (jsonb_typeof(env #> '{{context,detail,error}}') = 'string'
+                    AND (env #>> '{{context,detail,error}}') ~ '\S')
+                OR (jsonb_typeof(env #> '{{context,detail,tool_response_preview}}') = 'string'
+                    AND COALESCE(substring(env #>> '{{context,detail,tool_response_preview}}'
+                        FROM 'Exit code ([0-9]+)'), '0') ~ '[1-9]')
         )
-    post: List[Tuple[str, str]] = []
-    pre_residual = 0
-    for event_id, created_at, envelope_text, exit_code in rows:
-        if not _has_drift_shape(envelope_text, exit_code):
-            continue
-        if created_at and created_at > cutover_at:
-            post.append((event_id, created_at))
-        else:
-            pre_residual += 1
-    return post, pre_residual
+        SELECT COUNT(*) FILTER (WHERE created_at > %s),
+               COUNT(*) FILTER (WHERE created_at <= %s OR created_at IS NULL),
+               (SELECT COALESCE(json_agg(sample), '[]'::json) FROM (
+                   SELECT event_id, created_at FROM drift WHERE created_at > %s
+                   ORDER BY created_at, event_id LIMIT %s
+               ) sample)
+        FROM drift
+    """
+    remaining_seconds(CHECK_BUDGET_S)
+    row = conn.execute(
+        sql,
+        (
+            _TARGET_EVENT_NAME,
+            _TARGET_EVENT_OUTCOME,
+            cutover_at,
+            cutover_at,
+            cutover_at,
+            _LIST_PREVIEW,
+        ),
+    ).fetchone()
+    remaining_seconds(CHECK_BUDGET_S)
+    return int(row[0]), int(row[1]), row[2]
 
 
 def hc_event_outcome_drift(conn: Any, args: DoctorArgs, rec: RecordCollector) -> None:
@@ -159,10 +137,7 @@ def hc_event_outcome_drift(conn: Any, args: DoctorArgs, rec: RecordCollector) ->
     tolerance = get_int(_TOLERANCE_CONFIG_KEY, _DEFAULT_TOLERANCE)
 
     try:
-        post_failures, pre_residual = _partition_drift_rows(conn, cutover_at)
-    except ValueError as exc:
-        rec.record(f"HC-{HC_ID}", HC_NAME, "FAIL", str(exc))
-        return
+        post_count, pre_residual, sample = _partition_drift_rows(conn, cutover_at)
     except db_backend.database_error_types(conn) as exc:
         rec.record(
             f"HC-{HC_ID}",
@@ -172,18 +147,17 @@ def hc_event_outcome_drift(conn: Any, args: DoctorArgs, rec: RecordCollector) ->
         )
         return
 
-    if post_failures:
-        sample = post_failures[:5]
+    if post_count:
         lines = [
-            f"{len(post_failures)} post-cutover row(s) (after "
+            f"{post_count} post-cutover row(s) (after "
             f"{cutover_at}) still record event_outcome='completed' "
             "despite drift-shape evidence — regression in the live "
             "emitters. Sample:",
         ]
-        for event_id, created_at in sample:
-            lines.append(f"- event_id={event_id} created_at={created_at}")
-        if len(post_failures) > len(sample):
-            lines.append(f"- ... +{len(post_failures) - len(sample)} more")
+        for row in sample:
+            lines.append(f"- event_id={row['event_id']} created_at={row['created_at']}")
+        if post_count > len(sample):
+            lines.append(f"- ... +{post_count - len(sample)} more")
         rec.record(f"HC-{HC_ID}", HC_NAME, "FAIL", "\n".join(lines))
         return
 

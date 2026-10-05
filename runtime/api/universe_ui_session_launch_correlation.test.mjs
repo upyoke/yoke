@@ -21,7 +21,7 @@ async function mountAt(t, hash, client) {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = hash;
+  documentNode.defaultView.location.href = hash || "/";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client });
   await settle();
@@ -117,7 +117,7 @@ test("launch cards show identity correlation and exact registered-session links"
     },
   };
   const { root, mounted } = await mountAt(
-    t, "#/launches?project=1", client,
+    t, "/launches?project=1", client,
   );
   // Identity, delivery, and evidence live in the expanded record, which the
   // list fetches one row at a time.
@@ -155,7 +155,7 @@ test("launch cards show identity correlation and exact registered-session links"
   const link = byClass(root, "session-result-link").find(
     (node) => node.textContent.includes("session-matched"),
   );
-  assert.equal(link.href, "#/sessions/session-matched?project=1");
+  assert.equal(link.href, "/sessions/session-matched?project=1");
   const rendered = allNodes(root).map((node) => node.textContent).join(" ");
   assert.match(rendered, /adapter revision: adapter-v2/);
   for (const safeFact of [
@@ -215,7 +215,7 @@ test("registered-session drill-in uses the exact session lookup", async (t) => {
     },
   };
   const { root, mounted } = await mountAt(
-    t, "#/sessions/session-matched?project=1", client,
+    t, "/sessions/session-matched?project=1", client,
   );
 
   const lookup = requests.find(

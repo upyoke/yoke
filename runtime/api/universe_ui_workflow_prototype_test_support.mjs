@@ -193,7 +193,7 @@ export async function selectWorkflow(documentNode, root, name) {
   );
   assert.ok(tab, `${name} tab exists`);
   tab.dispatchEvent(new Event("click"));
-  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  documentNode.defaultView.dispatchEvent(new Event("popstate"));
   await settle();
 }
 

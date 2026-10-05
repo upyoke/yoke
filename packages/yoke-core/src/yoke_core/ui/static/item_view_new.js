@@ -5,7 +5,7 @@ import { renderNewItemForm } from "./item_new_form.js";
 
 export function renderNewItemView(context, main, initialProjectId) {
   const documentNode = context.document;
-  const query = String(documentNode.defaultView?.location?.hash || "").split("?", 2)[1] || "";
+  const query = documentNode.defaultView?.location?.search || "";
   const requestedWorkflowId = new URLSearchParams(query).get("workflow");
   const draft = { workflowId: requestedWorkflowId };
   const selector = el(documentNode, "select", "item-form-control item-project-select");

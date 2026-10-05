@@ -11,8 +11,8 @@ subject:
 | **Environments** | Deploy targets |
 | **Databases** | Declared DB models, posture, apply records — see [databases-and-migrations.md](databases-and-migrations.md) |
 
-Flows is the tab Deployments opens on. Runs live at `#/deployments/runs`, and
-one run at `#/deployments/runs/<run id>`.
+Flows is the tab Deployments opens on. Runs live at `/deployments/runs`, and
+one run at `/deployments/runs/<run id>`.
 
 Commits made outside Yoke ship without an item or attestation. Run pages,
 Shipping cards, Runs tables and release approvals show **Also includes N

@@ -21,7 +21,7 @@ test("Sessions renders resolved local identity and the exact empty state", async
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/sessions?project=1";
+  documentNode.defaultView.location.href = "/sessions?project=1";
   const root = documentNode.createElement("div");
   let rows = [{
     session_id: "local-1", liveness: "active",
@@ -52,7 +52,7 @@ test("Sessions renders resolved local identity and the exact empty state", async
   mounted.unmount();
 
   const emptyDocument = new FakeDocument();
-  emptyDocument.defaultView.location.hash = "#/sessions?project=1";
+  emptyDocument.defaultView.location.href = "/sessions?project=1";
   const emptyRoot = emptyDocument.createElement("div");
   rows = [];
   const emptyMount = mountUniverseApp(emptyRoot, {
@@ -137,7 +137,7 @@ test("Sessions reports a scoped read failure without presenting cleanup as avail
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/sessions?project=1";
+  documentNode.defaultView.location.href = "/sessions?project=1";
   const root = documentNode.createElement("div");
   const base = sessionsClient([], []);
   const client = {
@@ -200,7 +200,7 @@ test("Sessions states its spend without a coverage count under it", async (t) =>
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/sessions?project=1";
+  documentNode.defaultView.location.href = "/sessions?project=1";
   const root = documentNode.createElement("div");
   const rows = [{
     session_id: "priced-1", liveness: "active", executor: "claude-cli",

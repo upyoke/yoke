@@ -25,13 +25,13 @@ test("a query reaches all six domains across every project", async (t) => {
   ]);
   const results = byClass(root, "header-search-result");
   assert.deepEqual(results.map((node) => node.href), [
-    "#/items/2228?project=1",
-    "#/sessions/session-rebaseline?project=1",
+    "/items/2228?project=1",
+    "/sessions/session-rebaseline?project=1",
     // The strategy doc lives in the OTHER project and is found anyway.
-    "#/strategy/REBASELINE-PLAN?project=3",
-    "#/qa-plans/298?project=1",
-    "#/events?project=1",
-    "#/packs",
+    "/strategy/REBASELINE-PLAN?project=3",
+    "/qa-plans/298?project=1",
+    "/events?project=1",
+    "/packs",
   ]);
   // Each result says which project it is in, because scope never narrowed.
   assert.match(byClass(root, "header-search-meta")[2].textContent, /platform/);

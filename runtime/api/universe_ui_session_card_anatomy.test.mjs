@@ -24,7 +24,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   Date.now = () => Date.parse("2026-07-26T12:05:00Z");
   t.after(() => { Date.now = originalNow; });
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/sessions?project=1";
+  documentNode.defaultView.location.href = "/sessions?project=1";
   const root = documentNode.createElement("div");
   const requests = [];
   let reclaimed = false;
@@ -207,7 +207,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
     "Executor version:", "Messageable:", "Stale cleanup:", "Why active:",
     "Machine:",
   ]) assert.ok(!visibleText(root).includes(gone), gone);
-  assert.equal(byClass(root, "session-item-link")[0].href, "#/items/2228?project=1");
+  assert.equal(byClass(root, "session-item-link")[0].href, "/items/2228?project=1");
   const cardText = cards.map(visibleText);
   for (const expected of [
     "claude-code", "YOK-2228", "Execute WORKFLOW-TYPES",
@@ -285,7 +285,7 @@ test("Sessions cards fold every state signal into one pill", async (t) => {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/sessions?project=1";
+  documentNode.defaultView.location.href = "/sessions?project=1";
   const root = documentNode.createElement("div");
   const rows = [
     {

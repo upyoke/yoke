@@ -85,13 +85,13 @@ test("a Dash item lists its releases newest first and names its flow", async () 
   );
   assert.equal(
     byClass(root, "item-delivery-run")[0].children[0].href,
-    "#/deployments/runs/run-20260726-002?project=7",
+    "/deployments/runs/run-20260726-002?project=7",
   );
   // The flow the item names deep-links to that definition, not to the catalog.
   const flow = byClass(root, "item-delivery-flow")[0];
   assert.equal(flow.children[1].textContent, "acme-stage-then-prod");
   assert.equal(
-    flow.children[1].href, "#/deployments/flows/acme-stage-then-prod?project=7",
+    flow.children[1].href, "/deployments/flows/acme-stage-then-prod?project=7",
   );
   assert.equal(flow.children[2].textContent, "selected on this item");
   assert.deepEqual(
@@ -126,7 +126,7 @@ test("an item with no selection names the project default it actually resolves",
   const flow = byClass(root, "item-delivery-flow")[0];
   assert.equal(flow.children[1].textContent, "acme-default-flow");
   assert.equal(
-    flow.children[1].href, "#/deployments/flows/acme-default-flow?project=7",
+    flow.children[1].href, "/deployments/flows/acme-default-flow?project=7",
   );
   assert.equal(
     flow.children[2].textContent, "this project's default for its workflow",

@@ -24,7 +24,7 @@ test("an epic's detail carries its tasks; an issue's does not", async (t) => {
 
   const drillInto = async (workflowId) => {
     const documentNode = new FakeDocument();
-    documentNode.defaultView.location.hash = "#/items/7?project=1";
+    documentNode.defaultView.location.href = "/items/7?project=1";
     const root = documentNode.createElement("div");
     const requests = [];
     const client = {
@@ -122,7 +122,7 @@ test("Items roster names projects but keeps blocking details out", async (t) => 
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/items";
+  documentNode.defaultView.location.href = "/items";
   const root = documentNode.createElement("div");
   let itemsRequest = null;
   const client = {
@@ -189,7 +189,7 @@ test("Items roster names projects but keeps blocking details out", async (t) => 
   ));
   assert.deepEqual(
     byClass(root, "row-link").map((node) => node.href),
-    ["#/items/1?project=1", "#/items/2?project=1"],
+    ["/items/1?project=1", "/items/2?project=1"],
   );
   // The roster requests its page size and default ordering at an unfiltered scope.
   assert.deepEqual(itemsRequest.payload, { page_size: ROSTER_PAGE_SIZE, sort_column: "updated_at", sort_direction: "desc" });

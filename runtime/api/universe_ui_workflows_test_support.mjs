@@ -211,12 +211,12 @@ export function workflowsClient(workflows) {
   };
 }
 
-export async function mountWorkflows(t, client, hash = "#/workflows") {
+export async function mountWorkflows(t, client, hash = "/workflows") {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = hash;
+  documentNode.defaultView.location.href = hash || "/";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client });
   await settle();

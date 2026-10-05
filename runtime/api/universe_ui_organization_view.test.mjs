@@ -42,7 +42,7 @@ function shellClient() {
 
 async function mountOrganization(options = {}) {
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/organization";
+  documentNode.defaultView.location.href = "/organization";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, {
     client: shellClient(), ...options,

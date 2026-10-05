@@ -101,7 +101,7 @@ async function mountProject(t, projectId, apiClient) {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = `#/projects/${projectId}`;
+  documentNode.defaultView.location.href = `/projects/${projectId}`;
   const root = documentNode.createElement("div");
   mountUniverseApp(root, { client: apiClient });
   await settle();

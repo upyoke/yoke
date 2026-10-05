@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "localBasePath": "",
+  "hostedBasePathTemplate": "/orgs/{slug}",
+  "views": [
+    "strategy",
+    "frontier",
+    "shipping",
+    "machines",
+    "sessions",
+    "inbox",
+    "profile",
+    "organization",
+    "workflows",
+    "projects",
+    "github",
+    "actors",
+    "members",
+    "billing",
+    "items",
+    "deployments",
+    "environments",
+    "databases",
+    "qa-methods",
+    "qa-plans",
+    "qa-activity",
+    "capabilities",
+    "packs",
+    "architecture",
+    "messages",
+    "launches",
+    "events",
+    "doctor",
+    "ouroboros"
+  ],
+  "tabs": {
+    "deployments": [
+      "flows",
+      "runs"
+    ]
+  }
+}

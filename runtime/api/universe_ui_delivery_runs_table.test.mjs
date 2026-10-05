@@ -53,7 +53,7 @@ test("the run ID links to the run and the flow name is plain text", () => {
   const runId = byClass(body, "delivery-run-id")[0];
   assert.equal(runId.tagName, "A");
   assert.equal(runId.textContent, "run-20260927-001");
-  assert.equal(runId.href, "#/deployments/runs/run-20260927-001?project=1");
+  assert.equal(runId.href, "/deployments/runs/run-20260927-001?project=1");
   // One link per row: nothing else in the release cell navigates.
   const releaseCell = allNodes(body).find((node) => node.tagName === "TD");
   assert.equal(allNodes(releaseCell).filter((node) => node.tagName === "A").length, 1);

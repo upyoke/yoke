@@ -51,7 +51,7 @@ test("Sessions contains a long relay name and unequal multi-claim cards", async 
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/sessions?project=1";
+  documentNode.defaultView.location.href = "/sessions?project=1";
   const root = documentNode.createElement("div");
   const longMachineName = "beebauman-macbook-pro-16.fios-router.home";
   const mounted = mountUniverseApp(root, {
@@ -141,7 +141,7 @@ test("Sessions lists every work claim and coordination lease a session holds", a
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/sessions?project=1";
+  documentNode.defaultView.location.href = "/sessions?project=1";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, {
     client: sessionsClient([
@@ -220,11 +220,11 @@ test("Sessions lists every work claim and coordination lease a session holds", a
   assert.equal(byClass(root, "session-work-role").length, 0);
   assert.equal(
     byClass(root, "session-item-link")[0].href,
-    "#/items/2228?project=1",
+    "/items/2228?project=1",
   );
   assert.equal(
     byClass(root, "session-item-link")[1].href,
-    "#/items/2100?project=1",
+    "/items/2100?project=1",
   );
   assert.deepEqual(
     countTiles(root).map(
@@ -247,7 +247,7 @@ test("Sessions separates a filed item's attribution from the claim it holds", as
   Date.now = () => Date.parse("2026-07-26T12:05:00Z");
   t.after(() => { Date.now = originalNow; });
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/sessions?project=1";
+  documentNode.defaultView.location.href = "/sessions?project=1";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, {
     client: sessionsClient([

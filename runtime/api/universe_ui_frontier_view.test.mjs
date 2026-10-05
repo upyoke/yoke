@@ -25,7 +25,7 @@ function stubFetch(t) {
 
 async function mountAt(hash, client) {
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = hash;
+  documentNode.defaultView.location.href = hash || "/";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client });
   await settle();
@@ -37,7 +37,7 @@ const band = (root, key) => byClass(root, `work-band-${key}`)[0];
 test("Frontier is five bands of work under one page heading", async (t) => {
   stubFetch(t);
   const client = workbenchClient();
-  const { root, mounted } = await mountAt("#/frontier?project=1", client);
+  const { root, mounted } = await mountAt("/frontier?project=1", client);
 
   // One heading, from the destination itself, and no count in it: the bands
   // under it carry their own.
@@ -68,7 +68,7 @@ test("Frontier is five bands of work under one page heading", async (t) => {
 
 test("an item card is readable text with its own links and controls", async (t) => {
   stubFetch(t);
-  const { root, mounted } = await mountAt("#/frontier?project=1", workbenchClient());
+  const { root, mounted } = await mountAt("/frontier?project=1", workbenchClient());
 
   // Not one card-wide anchor: the card carries controls, and an interactive
   // control inside a link is neither keyboard-reachable nor clickable
@@ -79,11 +79,11 @@ test("an item card is readable text with its own links and controls", async (t) 
   );
   assert.deepEqual(
     byClass(root, "work-item-card-ref").map((node) => node.href),
-    ["#/items/7?project=1", "#/items/9?project=1", "#/items/6?project=1"],
+    ["/items/7?project=1", "/items/9?project=1", "/items/6?project=1"],
   );
   assert.deepEqual(
     byClass(root, "overview-card-link").map((node) => node.href),
-    ["#/items/7?project=1", "#/items/9?project=1", "#/items/6?project=1"],
+    ["/items/7?project=1", "/items/9?project=1", "/items/6?project=1"],
   );
   assert.equal(
     allNodes(root).filter(
@@ -98,7 +98,7 @@ test("an item card is readable text with its own links and controls", async (t) 
 
 test("a condition is a pill; its whole reason is one press away", async (t) => {
   stubFetch(t);
-  const { root, mounted } = await mountAt("#/frontier?project=1", workbenchClient());
+  const { root, mounted } = await mountAt("/frontier?project=1", workbenchClient());
 
   const pills = byClass(root, "item-status-pill");
   assert.deepEqual(
@@ -129,7 +129,7 @@ test("a condition is a pill; its whole reason is one press away", async (t) => {
 
 test("Done says its lifecycle once and names where the work went", async (t) => {
   stubFetch(t);
-  const { root, mounted } = await mountAt("#/frontier?project=1", workbenchClient());
+  const { root, mounted } = await mountAt("/frontier?project=1", workbenchClient());
 
   const done = band(root, "done");
   const text = descendantText(done);
@@ -143,7 +143,7 @@ test("Done says its lifecycle once and names where the work went", async (t) => 
   const deployment = byClass(done, "item-deployment")[0];
   assert.ok(deployment);
   assert.equal(byClass(deployment, "item-deployment-run")[0].href,
-    "#/deployments/runs/run-0?project=1");
+    "/deployments/runs/run-0?project=1");
   assert.match(descendantText(deployment), /stage/);
   assert.match(descendantText(deployment), /✓ deployed/);
   mounted.unmount();
@@ -152,7 +152,7 @@ test("Done says its lifecycle once and names where the work went", async (t) => 
 test("Done lists every environment under the item's single flow", async (t) => {
   stubFetch(t);
   const { root, mounted } = await mountAt(
-    "#/frontier?project=1",
+    "/frontier?project=1",
     workbenchClient({
       "deployment_runs.list": { rows: [{
         id: "run-preview",
@@ -194,7 +194,7 @@ test("Done lists every environment under the item's single flow", async (t) => {
 test("Active is claimed work, and Ready omits what a session holds", async (t) => {
   stubFetch(t);
   const { root, mounted } = await mountAt(
-    "#/frontier?project=1",
+    "/frontier?project=1",
     workbenchClient({ "sessions.list": { rows: [claimingSession()] } }),
   );
 
@@ -241,7 +241,7 @@ test("work whose only claimant is gone waits, and says whose fault that is", asy
     native_process: { state: "gone" },
   };
   const { root, mounted } = await mountAt(
-    "#/frontier?project=1",
+    "/frontier?project=1",
     workbenchClient({ "sessions.list": { rows: [gone] } }),
   );
 
@@ -299,7 +299,7 @@ function releasingClient() {
 
 test("a release item is drawn once, and only in Release", async (t) => {
   stubFetch(t);
-  const { root, mounted } = await mountAt("#/frontier?project=1", releasingClient());
+  const { root, mounted } = await mountAt("/frontier?project=1", releasingClient());
 
   assert.deepEqual(
     byClass(root, "work-item-card").map(
@@ -324,7 +324,7 @@ test("a release item is drawn once, and only in Release", async (t) => {
 
 test("Release sits between Active and Done", async (t) => {
   stubFetch(t);
-  const { root, mounted } = await mountAt("#/frontier?project=1", releasingClient());
+  const { root, mounted } = await mountAt("/frontier?project=1", releasingClient());
 
   const keys = ["waiting", "ready", "active", "release", "done"];
   const bands = byClass(root, "work-band");
@@ -337,7 +337,7 @@ test("Release sits between Active and Done", async (t) => {
 
 test("Release says what an empty one means", async (t) => {
   stubFetch(t);
-  const { root, mounted } = await mountAt("#/frontier?project=1", workbenchClient());
+  const { root, mounted } = await mountAt("/frontier?project=1", workbenchClient());
 
   assert.equal(
     byClass(band(root, "release"), "work-band-empty")[0].textContent,

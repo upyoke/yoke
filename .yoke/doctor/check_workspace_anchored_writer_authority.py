@@ -65,6 +65,7 @@ IN_SCOPE_WRITERS = (
     "packages/yoke-core/src/yoke_core/domain/install_bundle_tree_sync.py",
     "packages/yoke-core/src/yoke_core/domain/populate_registry_render.py",
     "packages/yoke-core/src/yoke_core/ui/hosted_stylesheet_entrypoints.py",
+    "packages/yoke-core/src/yoke_core/ui/dashboard_routes.py",
     "packages/yoke-core/src/yoke_core/tools/atlas_integrity_audit.py",
     "packages/yoke-core/src/yoke_core/tools/atlas_render_docs.py",
     "packages/yoke-core/src/yoke_core/tools/render_field_note_inline.py",
@@ -100,7 +101,9 @@ def _scan_one(repo_root: Path, relpath: str) -> Optional[WriterScanResult]:
     has_write = any(tok in text for tok in WRITE_HOT_PATH_TOKENS)
     calls_helper = HELPER_SYMBOL in text
     return WriterScanResult(
-        relpath=relpath, has_write_hot_path=has_write, calls_helper=calls_helper,
+        relpath=relpath,
+        has_write_hot_path=has_write,
+        calls_helper=calls_helper,
     )
 
 
@@ -136,14 +139,18 @@ def scan_for_bypass(
 
 
 def hc_workspace_anchored_writer_authority(
-    conn, args: DoctorArgs, rec: RecordCollector,
+    conn,
+    args: DoctorArgs,
+    rec: RecordCollector,
 ) -> None:
     """Doctor entry. Scans the in-scope writers; FAILs on bypass."""
     repo_root = _project_root()
     in_scope_bypasses, _extra = scan_for_bypass(repo_root)
     if not in_scope_bypasses:
         rec.record(
-            HC_NAME, HC_DESC, "PASS",
+            HC_NAME,
+            HC_DESC,
+            "PASS",
             f"{len(IN_SCOPE_WRITERS)} workspace-anchored writer(s) call "
             f"{HELPER_SYMBOL}.",
         )
@@ -175,5 +182,9 @@ from yoke_project_checks._declare import (  # noqa: E402
 )
 
 PROJECT_HEALTH_CHECKS = self_project_checks(
-    ('workspace-anchored-writer-authority', 'Workspace-anchored writers must call assert_target_under_session_work_authority before writing', hc_workspace_anchored_writer_authority),
+    (
+        "workspace-anchored-writer-authority",
+        "Workspace-anchored writers must call assert_target_under_session_work_authority before writing",
+        hc_workspace_anchored_writer_authority,
+    ),
 )

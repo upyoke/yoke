@@ -25,7 +25,7 @@ async function mountAt(t, hash, client) {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = hash;
+  documentNode.defaultView.location.href = hash || "/";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client });
   await settle();
@@ -56,7 +56,7 @@ test("message history directs new composition to the roster", async (t) => {
     }),
   });
   const { root, mounted } = await mountAt(
-    t, "#/messages?project=1", client,
+    t, "/messages?project=1", client,
   );
   assert.equal(button(root, "Compose message"), undefined);
   assert.ok(allNodes(root).some(
@@ -107,7 +107,7 @@ test("message receipts expose recipient delivery and wake state", async (t) => {
     "session_control.message.cancel": () => ok({ message: {} }),
   });
   const { root, mounted } = await mountAt(
-    t, "#/messages?project=1", client,
+    t, "/messages?project=1", client,
   );
   assert.equal(byClass(root, "session-message-card")[0].getAttribute(
     "data-message-state",
@@ -160,7 +160,7 @@ test("relay tab renders public machine facts without native controls", async (t)
     }),
   });
   const { root, mounted } = await mountAt(
-    t, "#/machines?project=1", client,
+    t, "/machines?project=1", client,
   );
   const text = allNodes(root).map((node) => node._textContent).join(" ");
   assert.ok(text.includes("studio"));
@@ -192,7 +192,7 @@ test("organization Fleet edits only changed registry-backed settings", async (t)
       return ok({ org_id: 1, changed_paths: ["fleet.relay_poll_seconds"] });
     },
   });
-  const { root, mounted } = await mountAt(t, "#/organization", client);
+  const { root, mounted } = await mountAt(t, "/organization", client);
   const controls = byClass(root, "session-control-input");
   controls[0].value = "45";
   button(root, "Save fleet policy").dispatchEvent(new Event("click"));
@@ -243,7 +243,7 @@ test("roster keeps exact message actions on open sessions only", async (t) => {
     }),
   });
   const { root, mounted } = await mountAt(
-    t, "#/sessions?project=1", client,
+    t, "/sessions?project=1", client,
   );
   const filters = byClass(root, "session-roster-filter");
   const state = filters.find((field) => field.children[0].textContent === "State")

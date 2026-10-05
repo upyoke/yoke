@@ -84,21 +84,6 @@ function renderFailure(documentNode, tabs, intro, content, callResult) {
   intro.hidden = true;
   content.replaceChildren(failure.panel);
 }
-function replaceWorkflowRoute(documentNode, context, workflowId) {
-  const route = buildUniverseRoute("workflows", null, workflowId);
-  const history = documentNode.defaultView?.history;
-  if (history && typeof history.replaceState === "function") {
-    try {
-      history.replaceState(history.state ?? null, "", route);
-      return true;
-    } catch {
-      // A constrained host may deny History writes; hash navigation remains
-      // the compatible fallback and the app router will render the route.
-    }
-  }
-  context.navigate(route);
-  return false;
-}
 export function renderWorkflowsView(context, main, _scope, routeWorkflowId) {
   const documentNode = context.document;
   const instructionsHost = el(
@@ -233,9 +218,7 @@ export function renderWorkflowsView(context, main, _scope, routeWorkflowId) {
       selectedWorkflowId,
       (workflowId) => {
         selectedWorkflowId = workflowId;
-        if (replaceWorkflowRoute(
-          documentNode, context, selectedWorkflowId,
-        )) render();
+        context.navigate(buildUniverseRoute("workflows", null, selectedWorkflowId));
       },
     );
     renderSelectedWorkflow(
@@ -259,6 +242,14 @@ export function renderWorkflowsView(context, main, _scope, routeWorkflowId) {
         versionDefinitionCache,
       },
     );
+  };
+  context.routeInPlace = (route) => {
+    if (route.view !== "workflows" || !workflows.length) return false;
+    const next = route.detail || workflows[0].id;
+    if (!workflows.some((workflow) => workflow.id === next)) return false;
+    selectedWorkflowId = next;
+    render();
+    return true;
   };
   const mountInstructions = () => {
     if (instructionsMounted) return;

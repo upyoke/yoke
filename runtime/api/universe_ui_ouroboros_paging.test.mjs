@@ -90,7 +90,7 @@ test("the first read asks for a compact roster page and reports matching vs load
   assert.ok(loadMoreButton(root), "a remaining cursor offers Load more");
   const link = byClass(root, "row-link")[0];
   assert.equal(link.textContent, "A useful observation");
-  assert.equal(link.href, "#/ouroboros/9?project=1");
+  assert.equal(link.href, "/ouroboros/9?project=1");
 });
 
 test("Load more appends the next page without duplicating ids", async () => {
@@ -119,7 +119,7 @@ test("Load more appends the next page without duplicating ids", async () => {
   const ids = byClass(root, "row-link")
     .filter((node) => node.href && node.href.includes("/ouroboros/"))
     .map((node) => node.href);
-  assert.deepEqual(ids, ["#/ouroboros/12?project=1", "#/ouroboros/8?project=1"]);
+  assert.deepEqual(ids, ["/ouroboros/12?project=1", "/ouroboros/8?project=1"]);
   assert.equal(loadMoreButton(root), null);
 });
 
@@ -246,7 +246,7 @@ test("focused project asks for one ordered page with an explicit authorization t
   assert.deepEqual(requests[0].payload.sort, { column: "timestamp", direction: "desc" });
   const links = byClass(root, "row-link").filter(node => node.href?.includes("/ouroboros/"));
   assert.deepEqual(links.map(node => node.textContent), ["first", "second"]);
-  assert.deepEqual(links.map(node => node.href), ["#/ouroboros/4?project=alpha", "#/ouroboros/10?project=alpha"]);
+  assert.deepEqual(links.map(node => node.href), ["/ouroboros/4?project=alpha", "/ouroboros/10?project=alpha"]);
   assert.match(visibleText(root, " "), /Filed at/);
   assert.ok(byClass(root, "table-stacks-narrow").length);
 });

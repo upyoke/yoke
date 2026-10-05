@@ -39,7 +39,7 @@ function retiredTable(documentNode, machines) {
   for (const machine of machines) {
     const row = el(documentNode, "tr");
     const link = el(documentNode, "a", "row-link", machine.name);
-    link.href = `#/machines/${encodeURIComponent(machine.machine_id)}`;
+    link.href = `/machines/${encodeURIComponent(machine.machine_id)}`;
     const name = el(documentNode, "td");
     name.appendChild(link);
     row.appendChild(name);
