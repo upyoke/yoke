@@ -29,8 +29,9 @@ Enrollment checks each shipped project's recorded commit. Membership still
 names one item in one project; the run may close items across bound projects.
 
 Two things enrollment deliberately does not do. It never invents attribution:
-an underivable carried set or an unattributed commit stays a refusal, because
-enrolling from a set nobody could compute would waive coverage silently. And
+an underivable carried set stays a refusal, because enrolling from an unknown
+set would waive coverage silently. Commits no item owns ship as recorded
+commits made outside Yoke. And
 it never recomputes membership a previous run already froze — a retry inherits
 its predecessor's members so the same candidate keeps delivering the same
 items, and re-deriving would let a moved baseline rewrite that answer.
