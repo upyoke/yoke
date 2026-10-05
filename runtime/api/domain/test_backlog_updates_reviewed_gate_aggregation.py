@@ -35,6 +35,12 @@ def _aggregate_reviewed(*, arch=None, boundary=None, qa=None, item_id: int = 42)
         )
         s.enter_context(
             mock.patch(
+                "yoke_core.domain.workflow_structural_status_gates.evaluate",
+                return_value=None,
+            )
+        )
+        s.enter_context(
+            mock.patch(
                 "yoke_core.domain.backlog_architecture_gate_runner._run_architecture_impact_gate",
                 return_value=arch,
             )

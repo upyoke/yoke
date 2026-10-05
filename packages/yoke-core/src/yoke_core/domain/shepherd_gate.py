@@ -1,9 +1,9 @@
 """Shepherd verdict lookup behind the lifecycle shepherd-verdict gate.
 
 :mod:`yoke_core.domain.workflow_task_graph_status_gates` calls
-:func:`check_gate` on every transition past the implementation binding's
-entry stage of a definition that binds ``shepherd``, so implementation work
-starts only after the shepherd pipeline signed off on the plan.
+:func:`check_gate` on the transition where a ``shepherd``-bound definition's
+implementation binding starts work, so implementation begins only after the
+shepherd pipeline signed off on the plan.
 
 Modern shepherd writes ``planning_to_plan_drafted`` as its terminal verdict
 (via ``cmd_verdict`` in ``yoke_core.domain.shepherd``). The gate accepts

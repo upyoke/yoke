@@ -131,6 +131,7 @@ def test_shepherd_verdict_gates_the_start_of_implementation(gate_conn):
     assert failure["error_code"] == "GATE_SHEPHERD_VERDICT"
     _verdict(gate_conn, 76, "planning_to_plan_drafted", "NEEDS_WORK")
     assert _run(evaluate_shepherd_verdict, gate_conn, 76, "implementing") is not None
+    assert _run(evaluate_shepherd_verdict, gate_conn, 76, "done") is None
     _verdict(gate_conn, 76, "planning_to_plan_drafted", "READY")
     assert _run(evaluate_shepherd_verdict, gate_conn, 76, "implementing") is None
 

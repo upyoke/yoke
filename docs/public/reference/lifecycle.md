@@ -187,10 +187,10 @@ when an active skill binding says so.
 ## QA And Lifecycle
 
 QA evidence is recorded in `qa_requirements`, `qa_runs`, and `qa_artifacts`,
-not in lifecycle status names. The transition materializes the requirements
-its attachments bind to it before any gate runs, and the stage name alone does
-not imply a fixed QA recipe; [Lifecycle Gates](lifecycle-gates.md) names which
-requirements each target stage enforces.
+not in lifecycle status names. A transition is QA-gated only when the target
+stage in the item's pinned definition references the `qa_verification` gate.
+Project and item attachments materialize the requirements for that transition;
+the stage name alone does not imply a fixed QA recipe.
 
 ## Post-Merge Behavior
 

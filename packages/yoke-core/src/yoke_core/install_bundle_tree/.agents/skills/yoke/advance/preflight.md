@@ -29,15 +29,13 @@ workflow version without being listed.
 | Dependencies — integration edges | Entering any stage the definition treats as merged (the release wait, the terminal stage) | `GATE_HARD_BLOCKS_UNSATISFIED` | skips |
 | Dependencies — closure edges | Entering `done` | `GATE_CLOSURE_UNSATISFIED` | never |
 | File Budget coverage | Working stages from the lane-taking stage on, when effective File Budget and path claims are both enabled; task-graph parents are covered per task by their planning handoff | `GATE_SPEC_COVERAGE` | never |
-| Delivery flow | Entering the lane-taking stage, unless the definition's delivery is `merge_free`: the item pin or the project's workflow delivery default must resolve | `GATE_DELIVERY_FLOW_UNRESOLVED` | skips |
-| Shepherd verdict | The definition binds `shepherd`, and the target is past the implementation binding's entry stage: shepherd's `planning_to_plan_drafted` verdict is `READY`, `SKIPPED`, or `CAVEATS` | `GATE_SHEPHERD_VERDICT` | skips |
+| Shepherd verdict | The definition binds `shepherd`, and the target is the first stage past the implementation binding's entry stage: shepherd's `planning_to_plan_drafted` verdict is `READY`, `SKIPPED`, or `CAVEATS` | `GATE_SHEPHERD_VERDICT` | skips |
 | Generated-task existence | `_generated_children=epic_tasks`, from the implementation binding's entry stage on | `GATE_EPIC_TASKS` | never |
 | Generated-task completion | `_generated_children=epic_tasks`, from the implementation binding's handoff stage on: every task has reached that stage | `GATE_EPIC_TASKS_INCOMPLETE` | skips |
 | Deferred items | A task-graph parent entering `done`: no UNFILED entry under `## Deferred Items` and no deferral language without a filed item reference | `GATE_DEFERRED_ITEMS_UNFILED` | skips |
 | Merge record | Entering a non-terminal stage the definition treats as merged (the release wait): `items.merged_at` is recorded, or the execution evidence attests a no-change result | `GATE_MERGE_UNRECORDED` | skips |
 | Done ceremony | Entering `done` under a release-stage delivery: the close-out nonce that `yoke merge item` and the done ceremony stamp | `GATE_DONE_NONCE` | skips |
-| QA — listed | Stages listing `qa_verification`: every blocking verification requirement has a current pass or a waiver | `GATE_QA_*` | skips |
-| QA — attached transition | Any other stage with plan cases attached to that transition: those cases have a current pass | `GATE_QA_ATTACHED_TRANSITION` | skips |
+| QA | Stages listing `qa_verification`: every blocking verification requirement has a current pass or a waiver — including cases bound to an earlier stage, which this next QA-gated stage enforces | `GATE_QA_*` | skips |
 
 `--force` here is the engine's internal override for sanctioned callers; the
 `yoke lifecycle transition` CLI carries no such flag.
@@ -48,7 +46,7 @@ response carries `skill_handoff` naming that skill; the next leg is that
 skill's fresh command and claim.
 
 **QA cases are materialized by the transition itself** before any gate runs.
-Run them before retrying: [`browser-qa.md`](browser-qa.md) for Browser-method
+Run them before the QA-gated transition: [`browser-qa.md`](browser-qa.md) for Browser-method
 cases, [`project-e2e.md`](project-e2e.md) for deployed-stack cases at
 `release`.
 
@@ -76,6 +74,10 @@ Refine segment.
 
 ## Advisories before implementation (not gates)
 
+- **Deployment flow.** An item with no flow pin and no project delivery
+  default delivers merge-only, so a missing flow is not a refusal; pin one
+  with `yoke items scalar update PREFIX-N --field deployment_flow --value FLOW`
+  when the work must ship through a deployment run.
 - **GitHub issue.** Lifecycle sync links and comments on the item's issue as a
   side effect of the transition. A missing link with an unresolvable project
   GitHub App binding is repaired per the github-auth-resolver doctor output;

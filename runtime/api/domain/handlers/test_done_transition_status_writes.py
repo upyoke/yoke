@@ -72,7 +72,12 @@ class TestItemStatusSet:
         # No work_claims row is seeded: without the claim bypass the status
         # write would be denied. The request-scoped bypass makes it land.
         _seed_item(
-            tmp_db, id=44, workflow_id="issue", status="implemented", project="yoke"
+            tmp_db,
+            id=44,
+            workflow_id="issue",
+            status="implemented",
+            project="yoke",
+            merged_at="2026-01-01T00:00:00Z",
         )
         with _patch_externals(), monkeypatch.context() as m:
             m.setenv("YOKE_DB", tmp_db)
@@ -98,7 +103,9 @@ class TestItemStatusSet:
         assert _item_field(tmp_db, 44, "status") == "release"
 
     def test_refused_write_reports_why_in_the_result_payload(
-        self, tmp_db, monkeypatch,
+        self,
+        tmp_db,
+        monkeypatch,
     ):
         """The gate's own narrative is lost over an https relay.
 

@@ -18,11 +18,9 @@ from __future__ import annotations
 
 from typing import Any, Callable, Optional
 
-from yoke_core.domain import qa_attached_transition_gate
 from yoke_core.domain import db_helpers
 from yoke_core.domain.workflow_delivery_status_gates import (
     activation_stage_index,
-    evaluate_delivery_flow,
     evaluate_dependency_edges,
     evaluate_merge_record,
 )
@@ -81,12 +79,10 @@ _NEVER_BYPASSED: tuple[Evaluator, ...] = (
 )
 _FORCE_BYPASSABLE: tuple[Evaluator, ...] = (
     evaluate_dependency_edges,
-    evaluate_delivery_flow,
     evaluate_shepherd_verdict,
     evaluate_task_completion,
     evaluate_deferred_items,
     evaluate_merge_record,
-    qa_attached_transition_gate.evaluate,
 )
 
 

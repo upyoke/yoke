@@ -10,7 +10,7 @@ binding — the bound skill that executes the graph — delimits three facts:
 * deferred work: the successful terminal stage refuses unfiled deferrals.
 
 A definition with a ``shepherd`` binding also requires shepherd's terminal
-plan verdict before its implementation binding starts work. None of these
+plan verdict on the transition where its implementation binding starts work. None of these
 is listed on a stage; each holds for a plain ``lifecycle.transition``.
 """
 
@@ -48,6 +48,23 @@ def _reached(workflow: Any, target_status: str, stage_id: str) -> bool:
     return workflow.has_reached_stage(target_status, str(stage_id))
 
 
+def _task_registry_present(conn: Any, item_id: int, target_status: str) -> bool:
+    """Record a gate absence rather than crash on a universe with no tasks table."""
+    if _table_exists(conn, "epic_tasks"):
+        return True
+    from yoke_core.domain.workflow_gate_absence import record_gate_absence
+
+    record_gate_absence(
+        gate_id="task_graph",
+        item_id=int(item_id),
+        target_status=target_status,
+        reason="task_registry_absent",
+        detail="this universe has no epic_tasks registry to read",
+        conn=conn,
+    )
+    return False
+
+
 def _task_rows(conn: Any, item_id: int) -> list:
     return query_rows(
         conn,
@@ -65,6 +82,8 @@ def evaluate_task_existence(
     if not generates_task_graph(workflow) or binding is None:
         return None
     if not _reached(workflow, target_status, binding["from_stage_id"]):
+        return None
+    if not _task_registry_present(conn, item_id, target_status):
         return None
     if _task_rows(conn, item_id):
         return None
@@ -90,6 +109,8 @@ def evaluate_task_completion(
         return None
     handoff = str(binding["through_stage_id"])
     if not _reached(workflow, target_status, handoff):
+        return None
+    if not _task_registry_present(conn, item_id, target_status):
         return None
     rows = _task_rows(conn, item_id)
     unfinished = [
@@ -163,10 +184,8 @@ def evaluate_shepherd_verdict(
     binding = implementation_binding(workflow)
     if binding is None:
         return None
-    position = workflow.stage_index(target_status)
-    start = workflow.stage_index(str(binding["from_stage_id"]))
-    if start is None or position <= start:
-        return None
+    if target_status != workflow.next_stage_id(str(binding["from_stage_id"])):
+        return None  # checked once, where implementation work begins
     if not _table_exists(conn, "shepherd_verdicts"):
         from yoke_core.domain.workflow_gate_absence import record_gate_absence
 

@@ -90,6 +90,18 @@ def test_local_merge_item_records_evidence_and_reaches_done(
         ),
     )
     monkeypatch.setattr(cli.pending, "clear_after_close_out", lambda *_a: "")
+
+    def stamp_landing(stamped_id, **_kwargs):
+        test_db.execute(
+            "UPDATE items SET merged_at = '2026-01-01T00:00:00Z' WHERE id = %s",
+            (int(stamped_id),),
+        )
+        test_db.commit()
+        return None
+
+    monkeypatch.setattr(
+        "yoke_core.domain.standalone_item_merge.stamp_merged_at", stamp_landing
+    )
     monkeypatch.setattr(cli, "record_terminal_lane_close_out", lambda *_a, **_k: None)
     transitions = []
 

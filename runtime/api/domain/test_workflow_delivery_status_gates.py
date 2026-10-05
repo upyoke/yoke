@@ -12,7 +12,6 @@ from runtime.api.domain.structural_status_gate_test_helpers import (
 from yoke_core.domain import workflow_structural_status_gates as composer
 from yoke_core.domain.workflow_delivery_status_gates import (
     activation_stage_index,
-    evaluate_delivery_flow,
     evaluate_dependency_edges,
     evaluate_merge_record,
 )
@@ -72,58 +71,6 @@ def test_listed_activation_gate_is_not_evaluated_twice(gate_conn, monkeypatch):
     _deps(gate_conn, 30, "implementing")
     _deps(gate_conn, 30, "reviewing-implementation")
     assert calls == ["activation"]
-
-
-def test_pinned_item_flow_satisfies_the_delivery_gate(gate_conn):
-    insert_item(gate_conn, 40, workflow="dash", status="idea")
-    workflow = runtime_for(gate_conn, 40)
-    gate_conn.execute("UPDATE items SET deployment_flow = 'fixture-flow' WHERE id = 40")
-    assert (
-        evaluate_delivery_flow(
-            conn=gate_conn,
-            item_id=40,
-            target_status="implementing",
-            workflow=workflow,
-        )
-        is None
-    )
-
-
-def test_delivery_flow_refusal_names_the_missing_default(gate_conn, monkeypatch):
-    from yoke_core.domain import deployment_item_flow_resolution as flows
-
-    insert_item(gate_conn, 41, workflow="dash", status="idea")
-    monkeypatch.setattr(
-        flows,
-        "item_completion_flow_facts",
-        lambda conn, ids: {
-            41: flows.ItemCompletionFlowFact("", flows.FLOW_SOURCE_NONE)
-        },
-    )
-    failure = evaluate_delivery_flow(
-        conn=gate_conn,
-        item_id=41,
-        target_status="implementing",
-        workflow=runtime_for(gate_conn, 41),
-    )
-    assert failure is not None
-    assert failure["error_code"] == "GATE_DELIVERY_FLOW_UNRESOLVED"
-    assert "delivery-default set" in failure["error"]
-    assert "retry the transition" in failure["error"]
-    assert "items scalar update" in failure["remediation_hint"]
-
-
-def test_merge_free_delivery_owes_no_flow(gate_conn):
-    insert_item(gate_conn, 42, workflow="task", status="idea")
-    assert (
-        evaluate_delivery_flow(
-            conn=gate_conn,
-            item_id=42,
-            target_status="implementing",
-            workflow=runtime_for(gate_conn, 42),
-        )
-        is None
-    )
 
 
 def _merge(conn, item_id, target="release"):

@@ -8,9 +8,9 @@ Covers the lifecycle shepherd-verdict gate's three required states:
    the gate for pre-2026-04-07 compatibility.
 3. Absence of any qualifying verdict blocks the gate.
 
-The lifecycle engine evaluates this lookup on every transition past a
-shepherd-bound definition's implementation entry; this test pins the
-verdict contract against drift.
+The lifecycle engine evaluates this lookup where a shepherd-bound
+definition's implementation work begins; this test pins the verdict
+contract against drift.
 """
 
 from __future__ import annotations

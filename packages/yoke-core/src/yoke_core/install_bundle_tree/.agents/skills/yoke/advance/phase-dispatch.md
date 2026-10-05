@@ -29,13 +29,13 @@ The phase reference docs ([`preflight.md`](preflight.md), [`activation.md`](acti
 
 **Gates:** Read `.agents/skills/yoke/advance/preflight.md`
 - The inventory of every gate the transition enforces — dependency edges,
-  File Budget coverage, delivery flow, shepherd verdict, generated-task
+  File Budget coverage, shepherd verdict, generated-task
   existence and completion, deferred items, merge record, done ceremony, and
   QA — with when each holds, its refusal code, and its recovery.
 
 **Browser QA:** Read `.agents/skills/yoke/advance/browser-qa.md`
 - Applies when the target transition has attached Browser-method cases; run
-  them before the transition, which refuses while they are unrun.
+  them before the QA-gated transition, which refuses while they are unrun.
 
 **Deployed-stack QA:** Read `.agents/skills/yoke/advance/project-e2e.md`
 - Applies to: workflow transition = `release`

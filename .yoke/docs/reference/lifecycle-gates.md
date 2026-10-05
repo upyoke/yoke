@@ -22,23 +22,21 @@ without being listed.
 | Integration dependency edges | Entering any stage the definition treats as merged | `GATE_HARD_BLOCKS_UNSATISFIED` |
 | Closure dependency edges | Entering `done` | `GATE_CLOSURE_UNSATISFIED` |
 | File Budget coverage | Working stages, when effective File Budget and path claims are both enabled | `GATE_SPEC_COVERAGE` |
-| Delivery flow | A released item taking its lane: the item pin or the project delivery default resolves | `GATE_DELIVERY_FLOW_UNRESOLVED` |
 | Shepherd verdict | A shepherd-bound definition starting implementation | `GATE_SHEPHERD_VERDICT` |
 | Task-graph existence | A task-graph parent from its executing binding's entry stage | `GATE_EPIC_TASKS` |
 | Task-graph completion | A task-graph parent from its executing binding's handoff stage | `GATE_EPIC_TASKS_INCOMPLETE` |
 | Deferred items | A task-graph parent entering `done` with unfiled deferrals | `GATE_DEFERRED_ITEMS_UNFILED` |
 | Merge record | Entering the release wait without `merged_at` or attested no-change evidence | `GATE_MERGE_UNRECORDED` |
 | Done ceremony | Entering `done` under a release-stage delivery without the close-out nonce | `GATE_DONE_NONCE` |
-| Attached-transition QA | A stage not listing `qa_verification` whose transition has unrun blocking cases | `GATE_QA_ATTACHED_TRANSITION` |
 
 ## QA
 
 The transition materializes the requirements its project and item
 attachments bind to it before any gate runs. A target stage that lists
 `qa_verification` requires every blocking verification requirement on the
-item to pass or be waived; any other target stage still requires the blocking
-cases attached to that same transition to pass. Run them with
-`yoke qa plan run --item PREFIX-N --transition STAGE`, then retry.
+item to pass or be waived, including cases bound to an earlier stage that
+precedes it. Run them with `yoke qa plan run --item PREFIX-N --transition
+STAGE` before the QA-gated transition.
 
 ## Overrides and handoffs
 
