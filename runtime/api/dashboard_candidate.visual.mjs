@@ -32,11 +32,16 @@ try {
       const page = await context.newPage();
       const url = new URL(`/${route}`, target); url.search = new URL(target).search;
       await page.goto(url.href); await page.locator(ready).first().waitFor();
-      const data = await page.locator(ready).evaluateAll((nodes) => nodes.map((n) => ({
-        text: n.textContent.trim(), width: n.getBoundingClientRect().width,
-        grow: getComputedStyle(n).flexGrow,
-      })));
-      assert(data.length > 0 && data.every((n) => n.width > 0 && n.width < 100 && n.grow === "0"),
+      const data = await page.locator(ready).evaluateAll((nodes) => nodes.map((n) => {
+        const value = { text: n.textContent.trim(), width: n.getBoundingClientRect().width,
+          grow: getComputedStyle(n).flexGrow };
+        const clone = n.cloneNode(true);
+        Object.assign(clone.style, { position: "absolute", width: "max-content", maxWidth: "none" });
+        n.parentElement.append(clone);
+        value.naturalWidth = clone.getBoundingClientRect().width; clone.remove();
+        return value;
+      }));
+      assert(data.length > 0 && data.every((n) => n.width > 0 && n.width <= n.naturalWidth + 1 && n.grow === "0"),
         JSON.stringify({ route, width, data }));
       measurements.pages.push({ route, width, data });
       if (route === "sessions") await page.locator(".session-roster-filters").screenshot({
