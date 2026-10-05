@@ -52,7 +52,11 @@ resource authority; unknown, removed, or inaccessible locations silently
 open the default destination. A navigation during restoration wins over
 the saved route. Writes are serialized and repeated renders of the same
 location do not write again. Failed preference reads leave persistence off
-for that mount, and a failed location save displays a reload-to-retry notice.
+for that mount. Last-page saves are a silent background convenience: a failed
+save never adds a notice to the header or project picker. It logs the server's
+error code and HTTP status to the console; a transport failure logs
+`location_save_network_failed`. Hosted saves strip the dashboard base path
+and persist a path route such as `/sessions?project=all`, without a fragment.
 An older serving build that omits `last_location` retains the usual default
 entry behavior until the updated server is deployed.
 

@@ -195,6 +195,21 @@ def test_location_refuses_invalid_payload_before_writing(test_db, location):
     assert _list("1") == {}
 
 
+def test_hosted_path_location_saves_and_reads_back(test_db):
+    actor = str(
+        test_db.execute(
+            "SELECT id FROM actors WHERE kind = 'human' ORDER BY id LIMIT 1"
+        ).fetchone()[0]
+    )
+    location = "/sessions?project=all"
+    outcome = _set({"view_id": "sessions", "location": location}, actor)
+    assert outcome.primary_success, outcome.error
+    restored = handle_screen_selection_list(
+        _request("ui_preferences.screen_selection.list", actor_id=actor)
+    )
+    assert restored.result_payload["last_location"] == location
+
+
 def test_items_sort_is_actor_scoped_and_leaves_selection_and_location(test_db):
     from yoke_core.domain.actors import seed_human_actor
 

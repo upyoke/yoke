@@ -123,12 +123,17 @@ export function createLocationPreference({ client, windowNode, navigation, selec
         const result = await callFunction(client, "ui_preferences.screen_selection.set", {
           view_id: view, location: routePath(location, navigation.basePath),
         });
-        if (!result.envelope?.success) throw new Error("location save failed");
+        if (!result.envelope?.success) {
+          console.warn("Last page save failed", {
+            code: result.envelope?.error?.code || "location_save_failed",
+            status: result.status,
+          });
+        }
       })
-        .catch(() => {
-          if (isMounted()) selections.setNotice(
-            "Last page could not be saved. Reload to retry.",
-          );
+        .catch((error) => {
+          console.warn("Last page save failed", {
+            code: "location_save_network_failed", message: String(error),
+          });
         });
     },
   };
