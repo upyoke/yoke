@@ -16,7 +16,10 @@ def review_databases():
     names = [pg_testdb.create_test_database() for _ in range(2)]
     connections = [pg_testdb.connect_test_database(name) for name in names]
     try:
-        yield names, connections
+        # Review uses the fixture authority, while convergence may explicitly
+        # bind a different database for its independent audit connection.
+        with db_backend.bound_pg_dsn(pg_testdb.dsn_for_test_database(names[0])):
+            yield names, connections
     finally:
         for connection in connections:
             connection.close()
@@ -60,11 +63,6 @@ def test_review_schema_matches_fresh_boot_and_repairs_drift(
     names, (fixture, fresh) = review_databases
     monkeypatch.setattr(review, "serving_connection", lambda: ("review", None))
     monkeypatch.setattr(db_helpers, "connect", lambda: nullcontext(fixture))
-    monkeypatch.setattr(
-        db_backend,
-        "resolve_pg_dsn",
-        lambda: pg_testdb.dsn_for_test_database(names[0]),
-    )
     with serving_build_authority():
         converge_core_schema(
             fresh,
