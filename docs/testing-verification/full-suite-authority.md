@@ -80,7 +80,7 @@ Local verification stays change-scoped:
   including when a bounded run defers a near-total remainder, so the branch's
   own tests cannot be dropped for the floor alone. Every floor member but the last is fast; that one builds an
   artifact and boots a database, and is on the floor because a deferred test
-  is how the engine last shipped unable to make one. The conservative
+  is how the engine last shipped unable to make one. Pack payloads also select catalog/prerequisite contracts and structured-events its installed Python/Node contract, even under bounded deferral. The conservative
   full-sweep fallback (non-Python changes, conftest or shared-fixture edits,
   test tooling) still catches what reachability cannot bound.
 - **At the review gate** — the project-default plan case blocks the

@@ -88,7 +88,7 @@ Frontend-specific fields for page/view events.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `page_url` | TEXT | Yes (for page events) | Full URL including query string. |
+| `page_url` | TEXT | Yes (for page events) | URL with sensitive query parameters, userinfo and fragment stripped. |
 | `page_path` | TEXT | Yes (for page events) | URL path without query string or domain. |
 | `page_title` | TEXT | No | Document title. |
 | `referrer` | TEXT | No | Full referrer URL (from `document.referrer`). |
@@ -106,33 +106,17 @@ Frontend-specific fields for device/browser context.
 
 ### marketing_attribution_props
 
-Included on acquisition events and optionally on all frontend events for attribution analysis.
+Included on every consented frontend event when server capture succeeds. Storage is consent-gated; required signup facts belong to the account/actor owner.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `utm_source` | TEXT | No | Campaign source. E.g., `google`, `newsletter`. |
-| `utm_medium` | TEXT | No | Campaign medium. E.g., `cpc`, `email`, `organic`. |
-| `utm_campaign` | TEXT | No | Campaign name. |
-| `utm_term` | TEXT | No | Paid search term. |
-| `utm_content` | TEXT | No | Ad variation identifier. |
-| `referrer_domain` | TEXT | No | Extracted domain from referrer. E.g., `google.com`. |
-| `acquisition_channel` | TEXT | No | Inferred channel: `direct`, `organic`, `referral`, `paid`, `email`, `social`. |
+| `visitor_id` | TEXT | Yes after capture | Persistent anonymous id from server-set cookie. |
+| `first_touch` | OBJECT | Yes after capture | Immutable first acquisition touch. |
+| `last_touch` | OBJECT | Yes after capture | Updated on external-referrer or campaign/click-id visits. |
 
-### Group Requirements Per Source Type
-
-| Property Group | agent | backend | frontend | system |
-|---|---|---|---|---|
-| event_props | **Required** | **Required** | **Required** | **Required** |
-| system_props | **Required** | **Required** | **Required** | **Required** |
-| actor_props | -- | **Required** | Receiver-stamped | -- |
-| org_props | -- | Conditional | Conditional | -- |
-| session_props | **Required** | **Required** | **Required** | **Required** |
-| request_props | **Required** | **Required** | Optional | Optional |
-| error_props | On error | On error | On error | On error |
-| agent_props | **Required** | -- | -- | -- |
-| page_props | -- | -- | **Required** | -- |
-| device_props | -- | -- | **Required** | -- |
-| marketing_attribution_props | -- | -- | On acquisition | -- |
-| context | Optional | Optional | Optional | Optional |
+Each touch contains the five classic UTMs, utm_id, utm_source_platform, gclid,
+fbclid, msclkid, li_fat_id, referrer_domain, acquisition_channel and captured_at.
+Values are nullable except channel and time. See [attribution](marketing-attribution.md)
+for rules and server storage. Device props also include is_bot from user agent.
 
 ---
