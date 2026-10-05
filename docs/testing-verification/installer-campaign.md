@@ -30,4 +30,3 @@ the registered replacement records the installation in the function-call ledger.
 Existing execution snapshots keep their original definitions and evidence; any
 `requirements_behind_plan` returned by replacement need their named refresh path
 before reuse, rather than being rewritten as part of the installation.
-
