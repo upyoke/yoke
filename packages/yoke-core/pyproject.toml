@@ -80,6 +80,7 @@ where = ["src"]
     "migrations/*.json",
 ]
 "yoke_core.ui" = ["static/*", "contracts/*"]
+"yoke_core.frontend_events" = ["attribution_rules.json"]
 "yoke_core.install_bundle_tree" = [
     "AGENTS.md",
     "CODEX.md",

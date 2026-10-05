@@ -1,9 +1,19 @@
 """HTTP bearer-token auth boundary for the Yoke FastAPI surface.
 
+<<<<<<< HEAD
 The bearer API token is the credential for every non-public API path. The
 browser's web-session cookie — the other credential this server accepts,
 for the workbench pages and ``POST /v1/functions/call`` — lives in
 :mod:`yoke_core.api.web_session_auth`.
+=======
+Two credentials, deliberately asymmetric:
+
+* **Bearer API token** — the credential for operational mutations and
+  non-allowlisted surfaces. Anonymous frontend analytics routes separately
+  enforce an exact serving origin, publishable key, and shared rate budget.
+* **Web-session cookie** — minted by the browser sign-in door; accepted
+  ONLY for the GET read surfaces named in :data:`WEB_SESSION_GET_PATHS`.
+>>>>>>> 207518bec0 (Wire anonymous workbench collector and consent pending Pack adoption)
 """
 
 from __future__ import annotations

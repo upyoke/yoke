@@ -11,6 +11,14 @@ from __future__ import annotations
 
 
 AUTH_TABLES: dict[str, dict] = {
+    "frontend_event_rate_limits": {
+        "columns": [
+            ("client_key", "TEXT"),
+            ("window_start", "INTEGER"),
+            ("request_count", "INTEGER"),
+        ],
+        "notes": "Disposable shared anonymous collector request counters. client_key hashes trusted transport client identity and organization; counters are atomic and independent of events retention.",
+    },
     "roles": {
         "columns": [
             ("id", "INTEGER"),
@@ -76,11 +84,15 @@ AUTH_TABLES: dict[str, dict] = {
             ("slug", "TEXT"),
             ("name", "TEXT"),
             ("created_at", "TEXT"),
+            ("events_signing_key", "TEXT"),
         ],
         "notes": (
             "Instance/auth scope above projects. Every project belongs to exactly "
             "one org via projects.org_id; the seeded 'default' org owns all "
             "projects today."
+            " events_signing_key is private server-owned attribution signing state, "
+            "never public configuration. frontend_events_storage.collector_identity "
+            "initializes it atomically; only its SHA-256 digest is publishable."
         ),
     },
     "actor_org_roles": {

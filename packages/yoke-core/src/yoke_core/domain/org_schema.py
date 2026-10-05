@@ -13,6 +13,7 @@ from typing import Any
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
+from yoke_core.domain.frontend_events_schema import create_frontend_event_tables
 
 
 REQUIRED_ORG_TABLES = ("organizations", "actor_org_roles")
@@ -33,7 +34,9 @@ def _now() -> str:
 
 def create_org_tables(conn: Any) -> None:
     """Create org tables + ``projects.org_id`` FK, idempotently."""
-    execute_schema_script(conn, """
+    execute_schema_script(
+        conn,
+        """
         CREATE TABLE IF NOT EXISTS organizations (
             id INTEGER PRIMARY KEY,
             slug TEXT NOT NULL UNIQUE,
@@ -55,7 +58,8 @@ def create_org_tables(conn: Any) -> None:
             ON actor_org_roles(org_id);
         CREATE INDEX IF NOT EXISTS idx_actor_org_roles_role
             ON actor_org_roles(role_id);
-    """)
+    """,
+    )
     # ``projects`` is created by the core schema; add the owning-org FK here so
     # both fresh-init and the migration converge on the same shape.
     if not _column_exists(conn, "projects", "org_id"):
@@ -70,6 +74,9 @@ def create_org_tables(conn: Any) -> None:
         )
     conn.commit()
 
+    create_frontend_event_tables(conn)
+    conn.commit()
+
 
 def ensure_project_slug_org_scope(conn: Any) -> None:
     """Ensure project slugs are unique inside their owning org."""
@@ -80,9 +87,7 @@ def ensure_project_slug_org_scope(conn: Any) -> None:
         "GROUP BY org_id, slug HAVING COUNT(*) > 1 ORDER BY org_id, slug LIMIT 5"
     ).fetchall()
     if rows:
-        samples = ", ".join(
-            f"{row[0]}:{row[1]} ({row[2]})" for row in rows
-        )
+        samples = ", ".join(f"{row[0]}:{row[1]} ({row[2]})" for row in rows)
         raise AssertionError(f"duplicate project slugs within org: {samples}")
     if db_backend.connection_is_postgres(conn):
         conn.execute("ALTER TABLE projects ALTER COLUMN org_id SET NOT NULL")
@@ -101,8 +106,7 @@ def _sync_org_identity_sequence(conn: Any) -> None:
     seq = row[0] if row else None
     if seq:
         conn.execute(
-            "SELECT setval(%s, "
-            "(SELECT COALESCE(MAX(id), 1) FROM organizations))",
+            "SELECT setval(%s, (SELECT COALESCE(MAX(id), 1) FROM organizations))",
             (seq,),
         )
 
@@ -110,8 +114,7 @@ def _sync_org_identity_sequence(conn: Any) -> None:
 def _set_project_org_default(conn: Any, org_id: int) -> None:
     if db_backend.connection_is_postgres(conn):
         conn.execute(
-            "ALTER TABLE projects ALTER COLUMN org_id SET DEFAULT "
-            f"{int(org_id)}"
+            f"ALTER TABLE projects ALTER COLUMN org_id SET DEFAULT {int(org_id)}"
         )
 
 
@@ -126,9 +129,7 @@ def org_id_by_slug(conn: Any, slug: str) -> int | None:
 def rename_org(conn: Any, slug: str, name: str) -> None:
     """Set the display name on the org identity card addressed by slug."""
     p = _p(conn)
-    conn.execute(
-        f"UPDATE organizations SET name = {p} WHERE slug = {p}", (name, slug)
-    )
+    conn.execute(f"UPDATE organizations SET name = {p} WHERE slug = {p}", (name, slug))
     conn.commit()
 
 
@@ -141,9 +142,7 @@ def seed_default_org(conn: Any) -> int:
     universe receives the neutral default identity.
     """
     p = _p(conn)
-    rows = conn.execute(
-        "SELECT id FROM organizations ORDER BY id"
-    ).fetchall()
+    rows = conn.execute("SELECT id FROM organizations ORDER BY id").fetchall()
     if len(rows) > 1:
         raise AssertionError(
             "universe requires exactly one organization identity card; "
@@ -161,9 +160,7 @@ def seed_default_org(conn: Any) -> int:
         org_id = org_id_by_slug(conn, DEFAULT_ORG_SLUG)
         assert org_id is not None
     _sync_org_identity_sequence(conn)
-    conn.execute(
-        f"UPDATE projects SET org_id = {p} WHERE org_id IS NULL", (org_id,)
-    )
+    conn.execute(f"UPDATE projects SET org_id = {p} WHERE org_id IS NULL", (org_id,))
     _set_project_org_default(conn, org_id)
     ensure_project_slug_org_scope(conn)
     conn.commit()
@@ -171,7 +168,8 @@ def seed_default_org(conn: Any) -> int:
 
 
 def ensure_org_identity_card(
-    conn: Any, name: str | None = None,
+    conn: Any,
+    name: str | None = None,
 ) -> dict[str, str]:
     """Ensure the single-row org identity card, applying an optional name.
 

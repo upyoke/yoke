@@ -55,6 +55,7 @@ import { createSteeringGroupColors } from "./universe_steering_group_color.js";
 import { ROUTE_NAVIGATION_EVENT } from "./universe_path_navigation.js";
 import { createLocationPreference } from "./universe_location_preference.js";
 import { purgeObsoleteItemDrafts } from "./item_draft_storage.js";
+import { mountWorkbenchTelemetry } from "./workbench_telemetry.js";
 export { withProjectSelection } from "./universe_selection_routes.js";
 // A host owns its slot DOM, so it cannot inherit the app's own dismissal —
 // and should not write a second one. Contract: `contracts/universe-app.ts`.
@@ -136,6 +137,7 @@ export function mountUniverseApp(rootNode, options = {}) {
 
   const detachRootClass = attachMountRootClass(rootNode);
   rootNode.replaceChildren(header, shell);
+  const disposeTelemetry = mountWorkbenchTelemetry(rootNode, windowNode);
   main.replaceChildren(routeLoadingLine(documentNode));
 
   // The mark uses currentColor, so it must live in the DOM (an <img src>
@@ -334,6 +336,7 @@ export function mountUniverseApp(rootNode, options = {}) {
 
   return createUnmountHandle(UNIVERSE_APP_CONTRACT_VERSION, () => {
     mounted = false;
+    disposeTelemetry();
     if (typeof context.abortView === "function") context.abortView();
     navigation.dispose();
     windowNode.removeEventListener("popstate", heldScope.onRouteChange);

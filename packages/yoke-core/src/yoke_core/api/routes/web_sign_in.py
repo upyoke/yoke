@@ -200,10 +200,23 @@ def oidc_callback(request: Request) -> Response:
         )
 
     with db_helpers.connect() as conn:
+        from yoke_core.api.frontend_events_config import verified_attribution
+
+        try:
+            acquisition = verified_attribution(request)
+        except ValueError:
+            _log.warning(
+                "attribution_cookie_invalid: clear analytics consent and capture again; signing in without attribution"
+            )
+            acquisition = None
         resolution = resolve_sign_in(
             conn,
             claims,
             allow_unverified_email=config.allow_unverified_email,
+<<<<<<< HEAD
+=======
+            attribution=acquisition,
+>>>>>>> 207518bec0 (Wire anonymous workbench collector and consent pending Pack adoption)
         )
         if not resolution.succeeded or resolution.actor_id is None:
             return _sign_in_error_page(
@@ -229,8 +242,52 @@ def oidc_callback(request: Request) -> Response:
     return redirect
 
 
+<<<<<<< HEAD
 def signed_out_page() -> HTMLResponse:
     """The sign-in surface the workbench shows a browser without a session."""
+=======
+def _signed_in_page(actor_id: int) -> HTMLResponse:
+    with db_helpers.connect() as conn:
+        org_id = default_org_id(conn)
+        row = conn.execute(
+            "SELECT name FROM organizations WHERE id = "
+            + ("%s" if _is_pg(conn) else "?"),
+            (org_id,),
+        ).fetchone()
+        org_name = str(row[0]) if row else "this organization"
+        try:
+            label = actor_name(conn, actor_id)
+        except ActorError:
+            label = f"actor {actor_id}"
+    packet = build_runtime_identity(
+        portability_mode=PORTABILITY_SELFHOST,
+        install=detect_install(yoke_core.__file__),
+    )
+    build = packet["build"]
+    build_row = f"<p>Build: {html.escape(build)}</p>" if build else ""
+    return _page(
+        f"Yoke — {org_name}",
+        f"<p>Signed in as <strong>{html.escape(label)}</strong> "
+        f"({html.escape(org_name)}).</p>"
+        f"<p>Engine version: {html.escape(packet['version'])}</p>"
+        f"<p>Install: {html.escape(packet['install_kind'])}</p>"
+        f"{build_row}"
+        f"<p>Environment: {html.escape(packet['environment_label'])}</p>"
+        "<p>This browser session is read-only. To work against this "
+        "server, attach a CLI with <code>yoke connect &lt;server-url&gt; "
+        "--token-stdin</code> using an API token — see "
+        "<code>docs/self-host.md</code> in the Yoke repository.</p>",
+    )
+
+
+def _is_pg(conn) -> bool:
+    from yoke_core.domain import db_backend
+
+    return db_backend.connection_is_postgres(conn)
+
+
+def _signed_out_page() -> HTMLResponse:
+>>>>>>> 207518bec0 (Wire anonymous workbench collector and consent pending Pack adoption)
     try:
         config = resolve_oidc_config()
     except OidcConfigError as exc:
@@ -245,7 +302,11 @@ def signed_out_page() -> HTMLResponse:
     if config is not None:
         body = (
             f'<p><a href="{OIDC_START_PATH}">Sign in</a> with your '
+<<<<<<< HEAD
             "organization's identity provider to open the workbench.</p>"
+=======
+            "organization's identity provider.</p>"
+>>>>>>> 207518bec0 (Wire anonymous workbench collector and consent pending Pack adoption)
         )
     else:
         body = (

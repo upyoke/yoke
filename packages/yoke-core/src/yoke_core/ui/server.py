@@ -16,16 +16,14 @@ Security model:
   universe the page does not name.
 * One random session token per run, minted and compared by
   :mod:`yoke_core.ui.session_gate`. Every
-  route — the app shell, static assets, the served-build identity path,
-  and the function proxy — requires it. The token arrives as a ``?token=`` query parameter on the first hit;
+  workbench route requires it. The anonymous analytics collector separately
+  enforces its exact origin, publishable key, and shared rate budget.
+  The token arrives as a ``?token=`` query parameter on the first hit;
   the app shell exchanges it for an HttpOnly cookie and 303-redirects to
   the bare URL, so asset and API requests authenticate via the cookie and
   the tokened form drops out of browser history. That cookie is named
   after the bind port (:func:`~yoke_core.ui.session_gate.session_cookie_name`),
-  because cookies are
-  not scoped by port and two loopback views would otherwise evict each
-  other's session. The tokened URL is the user's door: print it to the
-  caller's terminal, never into event streams or logs.
+  because cookies are not port-scoped. Print the door URL only to the terminal.
 * The function proxy accepts only the function ids in
   :data:`UI_READ_FUNCTION_ALLOWLIST` — a closed, read-only roster — plus
   the two actor-scoped Overview dismissal writes in
@@ -176,11 +174,7 @@ def _local_host_packet(environment: str) -> Dict[str, Any]:
 
 
 def create_ui_app(token: str, *, port: int = DEFAULT_UI_PORT):
-    """Build the FastAPI app; every route requires the session token.
-
-    ``port`` is the loopback port this app will be bound to. It names the
-    session cookie, so a view on one port cannot evict a view on another.
-    """
+    """Build the loopback app with port-scoped workbench session cookies."""
     from fastapi import FastAPI, HTTPException, Query
     from fastapi.responses import JSONResponse, RedirectResponse, Response
 
@@ -195,9 +189,16 @@ def create_ui_app(token: str, *, port: int = DEFAULT_UI_PORT):
     cookie_name = session_cookie_name(port)
 
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+    from yoke_core.api.routes.frontend_events import router as events_router
+
+    app.include_router(events_router)
 
     @app.middleware("http")
     async def session_token_gate(request, call_next):
+        from yoke_core.api.frontend_events_config import COLLECTOR_PATHS
+
+        if request.url.path in COLLECTOR_PATHS:
+            return await call_next(request)
         candidate = (
             request.query_params.get("token") or request.cookies.get(cookie_name) or ""
         )
