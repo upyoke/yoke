@@ -69,8 +69,11 @@ its checks using the installed executable's absolute path and prints
 command in your shell; add the same directory to your shell's startup PATH to
 keep it available in future terminals. Other shell-update failures stop the
 installer with `uv_shell_update_failed`.
-Open a new terminal, then open Claude
-Code, Codex, or Cursor in your project folder and run `/yoke onboard`.
+Open a new terminal. If you chose machine-only setup, the finish screen lists
+the projects your account can access and commands to file and browse work
+from any folder, plus your connection's dashboard link. Run `yoke setup`
+when you want to prepare a project's code on this machine. Once that project
+is wired, open Claude Code, Codex, or Cursor in its folder and run `/yoke onboard`.
 
 ```bash
 yoke status          # machine, env, credentials, checkouts

@@ -275,13 +275,6 @@ class ApplyFlow:
             _View(STEP_FINISH, self._build_apply_success, self._on_apply_success)
         )
 
-    def _build_apply_success(self) -> list:
-        return steps.apply_success_body_from_report(
-            self.report_path,
-            getattr(self, "_applied_report", None),
-            board_art_committed=getattr(self, "_board_art_committed", False),
-        )
-
     def _on_apply_success(self, choice: str) -> None:
         if choice == "show-report":
             return

@@ -1,5 +1,14 @@
 # Copy links and codes during onboarding
 
+Choosing **Don't set up a project now · just the machine** still connects
+your account. The finish screen lists your accessible projects with their
+work-item prefixes, plus commands to file and browse work from any folder
+and the dashboard link for the connection. Filing a Dash first requires
+reading the project's execution instructions; the screen shows that command
+and the required `--execution-instructions-considered` flag. If your account
+has no projects, it says so and omits the filing and browsing commands.
+To prepare a project's code on this machine later, run `yoke setup`.
+
 Review names the setup commit's remote and branch before Apply. With stored
 GitHub authorization, Apply commits Yoke setup and attempts to push it; branch
 protection can require a review proposal instead. Without that authorization,

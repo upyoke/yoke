@@ -139,6 +139,7 @@ def _verify_with_function_probe(base_url: str, token: str) -> dict[str, Any]:
                             "id": row.get("id"),
                             "slug": row.get("slug"),
                             "name": row.get("name"),
+                            "public_item_prefix": row.get("public_item_prefix"),
                             "roles": [],
                         }
                         for row in rows
