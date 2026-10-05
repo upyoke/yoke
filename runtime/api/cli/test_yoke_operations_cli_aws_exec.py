@@ -27,6 +27,7 @@ def _aws_cli_present(monkeypatch):
             version="aws-cli/2.0.0",
         ),
     )
+    monkeypatch.setattr(aws_adapter, "resolve_project_slug", lambda ref: ref)
 
 
 class Completed:
@@ -245,3 +246,41 @@ def test_aws_exec_requires_aws_args(capsys):
 
     assert rc == 2
     assert "missing AWS CLI arguments" in capsys.readouterr().err
+
+
+def test_aws_exec_checkout_id_resolves_before_machine_credentials(monkeypatch):
+    from yoke_cli.config import project_slug_lookup
+
+    monkeypatch.setattr(aws_adapter, "required_project_context", lambda _: "7")
+    monkeypatch.setattr(
+        aws_adapter, "resolve_project_slug", project_slug_lookup.resolve_project_slug
+    )
+    from yoke_cli.transport import dispatcher
+    from yoke_cli.commands import _helpers
+
+    monkeypatch.setattr(_helpers, "ensure_handlers_loaded", lambda: None)
+    reads = []
+
+    def read_project(**kwargs):
+        reads.append(kwargs)
+        return FunctionCallResponse(
+            success=True,
+            function="projects.get",
+            version="v1",
+            result={"value": "acme"},
+        )
+
+    monkeypatch.setattr(dispatcher, "call_dispatcher", read_project)
+    credentials = []
+    fake_remote = types.SimpleNamespace(
+        aws_machine_capability_env=lambda project, region: (
+            credentials.append((project, region)) or {}
+        )
+    )
+    monkeypatch.setattr(aws_adapter.importlib, "import_module", lambda _: fake_remote)
+    monkeypatch.setattr(
+        aws_adapter.subprocess, "run", lambda *args, **kwargs: Completed(0)
+    )
+    assert aws_adapter.aws_exec(["--region", "us-east-1", "--", "sts"]) == 0
+    assert reads[0]["payload"] == {"project": "7", "field": "slug"}
+    assert credentials == [("acme", "us-east-1")]

@@ -111,6 +111,7 @@ def test_failed_ci_artifact_round_trips_across_scratch_runs(
             "ci-run-output.txt",
         )
         evidence.write_bytes(b"failed CI output")
+        assert evidence.relative_to(tmp_path / "scratch").parts[0] == "1"
         conn.execute(
             "UPDATE qa_runs SET performed_by='ci_run', verdict='fail' WHERE id=%s",
             (run_id,),

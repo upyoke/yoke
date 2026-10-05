@@ -235,7 +235,11 @@ def verify_claim(
                 target,
                 actor_session,
                 process_key=process_key,
-                project=payload.get("project"),
+                project=str(
+                    request.options.get("authorized_project_id")
+                    or payload.get("project")
+                    or ""
+                ),
             )
             if resolved is None:
                 if process_key:

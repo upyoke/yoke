@@ -49,7 +49,7 @@ def clean_markers(tmp_path, monkeypatch):
     monkeypatch.setattr(
         hook_helpers_markers,
         "hook_marker_path",
-        lambda name: hook_marker_path(name, project="fixture"),
+        lambda name: hook_marker_path(name, project="1"),
     )
     yield
 

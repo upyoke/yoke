@@ -146,7 +146,8 @@ def is_sanctioned_artifact_path(
 
     candidate = Path(path).expanduser().resolve(strict=False)
     project_root = (
-        project_scratch_dir.global_scratch_root() / safe_segment(project)
+        project_scratch_dir.global_scratch_root()
+        / safe_segment(project_scratch_dir.resolve_active_project(project))
     ).resolve(strict=False)
     try:
         relative = candidate.relative_to(project_root)

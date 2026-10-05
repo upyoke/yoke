@@ -126,6 +126,12 @@ class TestSessionClaimIdForTarget(unittest.TestCase):
             "CREATE TABLE work_claims (id INTEGER PRIMARY KEY, "
             "session_id TEXT, target_kind TEXT, scope TEXT, released_at TEXT);",
         )
+        self.conn.execute(
+            "CREATE TABLE projects (id INTEGER PRIMARY KEY, slug TEXT, "
+            "name TEXT, public_item_prefix TEXT)"
+        )
+        self.conn.execute("INSERT INTO projects VALUES (1, 'yoke', 'Yoke', 'YOK')")
+        self.conn.commit()
         from contextlib import contextmanager
 
         @contextmanager

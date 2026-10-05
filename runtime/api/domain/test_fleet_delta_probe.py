@@ -291,7 +291,7 @@ def test_a_non_positive_interval_is_a_usage_error() -> None:
 
 def test_projects_default_to_the_checkout_project(monkeypatch: Any) -> None:
     monkeypatch.setenv("YOKE_PROJECT", "yoke")
-    assert fleet_delta_probe.resolve_projects(None) == ["yoke"]
+    assert fleet_delta_probe.resolve_projects(None) == ["1"]
     assert fleet_delta_probe.resolve_projects(["platform"]) == ["platform"]
 
 

@@ -90,6 +90,7 @@ def _err(code: str, message: str, *, jsonpath: Optional[str] = None) -> HandlerO
 
 def _connect_rw() -> Any:
     from yoke_core.domain import db_helpers
+
     return db_helpers.connect()
 
 
@@ -129,7 +130,6 @@ def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
         target = _spec_to_target(target_spec)
     except _TargetSpecError as exc:
         return _err("payload_invalid", str(exc), jsonpath="$.target")
-
     from yoke_core.domain.sessions_lifecycle_claim import (
         SessionError,
         claim_work,
@@ -138,8 +138,29 @@ def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
     session_id = request.actor.session_id
     with _connect_rw() as conn:
         try:
+            if target_spec.kind == "process":
+                from yoke_core.domain.work_claim_targets import resolve_process_target
+
+                target = resolve_process_target(
+                    conn,
+                    target_spec.process_key,
+                    str(
+                        request.options.get("authorized_project_id")
+                        or target_spec.project
+                    ),
+                    visible_project_ids=request.options.get("visible_project_ids"),
+                )
+        except LookupError as exc:
+            return _err(
+                "project_not_found",
+                f"{exc}; pass --project with an accessible project id or slug",
+                jsonpath="$.target.project",
+            )
+        try:
             row = claim_work(
-                conn, session_id=session_id, target=target,
+                conn,
+                session_id=session_id,
+                target=target,
                 reason=body.reason,
             )
         except SessionError as exc:
@@ -147,6 +168,7 @@ def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
             return _err(code, f"{exc.code}: {exc}")
 
     from yoke_core.domain.work_claim_targets import from_row as target_from_row
+
     acquired_target = target_from_row(row)
 
     return HandlerOutcome(
@@ -195,9 +217,7 @@ def handle_release(request: FunctionCallRequest) -> HandlerOutcome:
         "release_reason": row["release_reason"],
     }
     if "linked_path_claim_ids" in row:
-        payload_out["linked_path_claim_ids"] = list(
-            row["linked_path_claim_ids"] or []
-        )
+        payload_out["linked_path_claim_ids"] = list(row["linked_path_claim_ids"] or [])
     return HandlerOutcome(result_payload=payload_out)
 
 

@@ -30,7 +30,7 @@ def test_env_override_wins_and_relative_roots_are_machine_home_relative(
     monkeypatch.setenv(roots.ENV_KEY, "tmp")
 
     assert scratch.scratch_root("yoke") == (
-        yoke_home / "tmp" / "yoke" / "sessions" / "test-session" / "runs" / "test-run"
+        yoke_home / "tmp" / "1" / "sessions" / "test-session" / "runs" / "test-run"
     )
 
 
@@ -49,7 +49,7 @@ def test_machine_temp_root_when_env_missing(
     )
 
     assert scratch.scratch_root("yoke") == (
-        configured / "yoke" / "sessions" / "test-session" / "runs" / "test-run"
+        configured / "1" / "sessions" / "test-session" / "runs" / "test-run"
     )
 
 
@@ -68,7 +68,7 @@ def test_machine_config_temp_root_when_env_missing(
     )
 
     assert scratch.scratch_root("yoke") == (
-        configured / "yoke" / "sessions" / "test-session" / "runs" / "test-run"
+        configured / "1" / "sessions" / "test-session" / "runs" / "test-run"
     )
 
 
@@ -97,7 +97,7 @@ def test_os_tmpdir_fallback_includes_project(
     assert resolved == (
         tmp_path
         / "yoke-scratch"
-        / "externalwebapp"
+        / "2"
         / "sessions"
         / "externalwebapp-session"
         / "runs"
@@ -123,10 +123,10 @@ def test_override_root_appends_project_session_and_run_segments(
     monkeypatch.setenv(roots.ENV_KEY, str(override_root))
 
     assert scratch.scratch_root("yoke") == (
-        override_root / "yoke" / "sessions" / "sess" / "runs" / "run"
+        override_root / "1" / "sessions" / "sess" / "runs" / "run"
     )
     assert scratch.scratch_root("externalwebapp") == (
-        override_root / "externalwebapp" / "sessions" / "sess" / "runs" / "run"
+        override_root / "2" / "sessions" / "sess" / "runs" / "run"
     )
 
 

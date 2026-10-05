@@ -133,7 +133,7 @@ def test_the_command_prints_the_report_and_exits_zero(monkeypatch, capsys) -> No
     _store(*hosting.REQUIRED_CREDENTIAL_KEYS)
     monkeypatch.setattr(aws, "_aws_admin_settings_or_none", lambda _project: None)
     monkeypatch.setattr(
-        "yoke_cli.config.project_slug_lookup.resolve_project_slug",
+        "yoke_cli.commands.adapters.aws.resolve_project_slug",
         lambda reference, **_kwargs: _PROJECT,
     )
 
@@ -153,7 +153,7 @@ def test_complete_status_verifies_with_boto3_when_aws_cli_is_absent(
     monkeypatch.setenv("PATH", "")
     monkeypatch.setattr(aws, "_aws_admin_settings_or_none", lambda _project: _ROW)
     monkeypatch.setattr(
-        "yoke_cli.config.project_slug_lookup.resolve_project_slug",
+        "yoke_cli.commands.adapters.aws.resolve_project_slug",
         lambda reference, **_kwargs: _PROJECT,
     )
     monkeypatch.setattr(
@@ -184,7 +184,7 @@ def test_failed_live_verification_names_secret_reset_and_retry(
     _store(*hosting.REQUIRED_CREDENTIAL_KEYS)
     monkeypatch.setattr(aws, "_aws_admin_settings_or_none", lambda _project: _ROW)
     monkeypatch.setattr(
-        "yoke_cli.config.project_slug_lookup.resolve_project_slug",
+        "yoke_cli.commands.adapters.aws.resolve_project_slug",
         lambda reference, **_kwargs: _PROJECT,
     )
     monkeypatch.setattr(
@@ -215,7 +215,7 @@ def test_the_human_form_names_the_missing_half_and_its_command(
     _store(*hosting.REQUIRED_CREDENTIAL_KEYS)
     monkeypatch.setattr(aws, "_aws_admin_settings_or_none", lambda _project: None)
     monkeypatch.setattr(
-        "yoke_cli.config.project_slug_lookup.resolve_project_slug",
+        "yoke_cli.commands.adapters.aws.resolve_project_slug",
         lambda reference, **_kwargs: _PROJECT,
     )
 

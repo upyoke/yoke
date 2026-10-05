@@ -96,6 +96,10 @@ def test_run_checks_nonzero_on_drift(monkeypatch, tmp_path):
     from yoke_core.engines.doctor_context import running_source_root
 
     monkeypatch.setattr(
+        "yoke_core.engines.doctor_context.default_project_for_directory",
+        lambda root: "1",
+    )
+    monkeypatch.setattr(
         "yoke_core.engines.doctor_context._mapped_checkouts",
         lambda: [(str(running_source_root()), 1)],
     )

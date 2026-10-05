@@ -13,8 +13,10 @@ from functools import partial
 from typing import Any, Dict, List
 from unittest import mock
 
+from runtime.api.domain.browser_qa_run_recorder import _FakeRunRecorder
 from runtime.api.domain.browser_qa_ephemeral_fixtures import (
     _fetch_context_from_test_db,
+    ensure_ephemeral_table,
 )
 from yoke_core.domain import browser_qa, db_backend
 from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
@@ -26,11 +28,10 @@ def _placeholder(conn) -> str:
 
 
 def _seed_item(db_path: str, item_id: int, title: str = "Test item") -> None:
+    ensure_ephemeral_table(db_path)
     conn = connect_test_db(db_path)
     p = _placeholder(conn)
-    workflow_id, workflow_version_id = resolve_current_workflow_pin(
-        conn, "issue"
-    )
+    workflow_id, workflow_version_id = resolve_current_workflow_pin(conn, "issue")
     conn.execute(
         f"""
         INSERT INTO items (
@@ -104,108 +105,6 @@ def _browser_check_steps(
     ]
 
 
-class _FakeRunRecorder:
-    """Record scenario runs and artifacts directly in a per-test database."""
-
-    def __init__(self, db_path: str) -> None:
-        self.db_path = db_path
-
-    def record_run(
-        self,
-        req_id: int,
-        qa_kind: str,
-        verdict: str | None = None,
-        raw_result: str | None = None,
-        *,
-        actor=None,
-    ) -> int:
-        conn = connect_test_db(self.db_path)
-        p = _placeholder(conn)
-        cur = conn.execute(
-            f"""
-            INSERT INTO qa_runs (qa_requirement_id, performed_by, qa_kind, verdict, raw_result, created_at)
-            VALUES ({p}, 'browser_substrate', {p}, {p}, {p}, {p})
-            RETURNING id
-            """,
-            (
-                req_id,
-                qa_kind,
-                verdict,
-                raw_result,
-                "2026-01-01T00:00:00Z",
-            ),
-        )
-        run_id = int(cur.fetchone()[0])
-        conn.commit()
-        conn.close()
-        return run_id
-
-    def complete_run(
-        self,
-        run_id: int,
-        requirement_id: int,
-        verdict: str | None = None,
-        raw_result: str | None = None,
-        *,
-        execution_status: str | None = None,
-        capture_degraded_reason: str | None = None,
-        actor=None,
-    ) -> None:
-        conn = connect_test_db(self.db_path)
-        p = _placeholder(conn)
-        conn.execute(
-            f"UPDATE qa_runs SET verdict = {p}, execution_status = {p}, "
-            f"capture_degraded_reason = {p}, raw_result = {p}, "
-            f"completed_at = {p} WHERE id = {p}",
-            (
-                verdict,
-                execution_status,
-                capture_degraded_reason,
-                raw_result,
-                "2026-01-01T00:00:01Z",
-                run_id,
-            ),
-        )
-        conn.commit()
-        conn.close()
-
-    def record_artifact(
-        self, run_id: int, requirement_id: int, artifact_type: str,
-        content_type: str, artifact_handle: dict, metadata: str, *, actor=None,
-        raise_on_failure: bool = False,
-    ) -> int:
-        from yoke_core.domain.qa_artifact_handle import serialize_handle
-
-        conn = connect_test_db(self.db_path)
-        p = _placeholder(conn)
-        cur = conn.execute(
-            f"""
-            INSERT INTO qa_artifacts (qa_run_id, artifact_type, content_type, artifact_handle, metadata, created_at)
-            VALUES ({p}, {p}, {p}, {p}, {p}, {p})
-            RETURNING id
-            """,
-            (run_id, artifact_type, content_type, serialize_handle(artifact_handle), metadata, "2026-01-01T00:00:00Z"),
-        )
-        art_id = int(cur.fetchone()[0])
-        conn.commit()
-        conn.close()
-        return art_id
-
-    def record_artifact_file(
-        self, run_id: int, requirement_id: int, file_path: str,
-        content_type: str, artifact_type: str, metadata: str, *, actor=None,
-    ) -> int:
-        """Stand in for persistence while scenario tests exercise orchestration."""
-        filename = str(file_path).rsplit("/", 1)[-1]
-        return self.record_artifact(
-            run_id, requirement_id, artifact_type, content_type,
-            {"backend": "s3", "bucket": "test-artifacts",
-             "key": f"qa/test/{run_id}/{filename}"},
-            metadata, actor=actor,
-        )
-
-
-
 #: The page id a patched daemon hands a scenario under test.
 FAKE_PAGE_ID = "page-under-test"
 
@@ -265,7 +164,9 @@ def _patch_external_deps(
             return_value=None if daemon_ok else "daemon mock failure",
         ),
         mock.patch.object(browser_qa, "_record_run", side_effect=recorder.record_run),
-        mock.patch.object(browser_qa, "_complete_run", side_effect=recorder.complete_run),
+        mock.patch.object(
+            browser_qa, "_complete_run", side_effect=recorder.complete_run
+        ),
         mock.patch.object(
             browser_qa, "_record_artifact", side_effect=recorder.record_artifact
         ),
@@ -305,7 +206,9 @@ def _patch_external_deps(
                 return execute_step_responses.pop(0)
             return execute_step_responses[0]
 
-        patches.append(mock.patch.object(browser_qa, "_execute_step", side_effect=_fake_step))
+        patches.append(
+            mock.patch.object(browser_qa, "_execute_step", side_effect=_fake_step)
+        )
 
     return patches
 

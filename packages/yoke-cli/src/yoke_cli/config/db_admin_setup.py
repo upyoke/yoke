@@ -75,8 +75,9 @@ def build_report(
     env_name = _safe_label(env_name, what="environment")
     selected_admin_env = admin_env or admin_env_name(env_name)
     selected_port = int(local_port or default_local_port(env_name))
-    selected_secret_label = secret_label or secret_name(project, env_name)
     env = _resolve_environment(project, env_name)
+    project = str(env.project)
+    selected_secret_label = secret_label or secret_name(project, env_name)
     if env.activation_state == "render_only" and not allow_render_only:
         raise DbAdminSetupError(
             f"{project}/{env_name} is declared render_only; set "

@@ -18,7 +18,7 @@ RUN_ID = "test-run"
 def _configure_scratch(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(scratch.ENV_KEY, SCRATCH_ROOT)
     monkeypatch.setenv("YOKE_RUN_ID", RUN_ID)
-    monkeypatch.setenv("YOKE_PROJECT", "fixture")
+    monkeypatch.setenv("YOKE_PROJECT", "1")
     monkeypatch.setattr(scratch_roots, "ensure_writable_dir", lambda path: True)
 
 

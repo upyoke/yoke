@@ -34,7 +34,7 @@ from yoke_core.domain import session_ambient_identity
 # harness family the probe models: a real launched Claude worker.
 session_ambient_identity.nearest_harness_family = lambda: "claude-code"
 
-raw, _progress = mint_watcher_capture_pair("pytest", project="yoke")
+raw, _progress = mint_watcher_capture_pair("pytest", project="1")
 print(json.dumps({
     "session_id": session_ambient_identity.resolve_ambient_session_id(),
     "watcher_capture": str(raw),
@@ -114,7 +114,7 @@ def test_spawned_worker_mints_captures_under_its_own_session(
     scratch_root = (tmp_path / "scratch").resolve()
 
     assert capture.resolve().relative_to(scratch_root).parts[:6] == (
-        "yoke",
+        "1",
         "sessions",
         WORKER_SESSION_ID,
         "runs",
