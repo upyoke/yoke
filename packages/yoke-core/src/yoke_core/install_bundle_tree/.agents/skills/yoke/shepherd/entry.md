@@ -24,7 +24,8 @@ recover that pin before any write.
 ## Interpret the segment
 
 Read the ordered `stages`, `transitions`, `skill_bindings`, and `policies`.
-Find the unique binding with `skill_id="shepherd"`. Its half-open interval
+Find the unique binding in `definition["skill_bindings"]` with
+`skill_id="shepherd"`. Its half-open interval
 owns execution; its `through_stage_id` is the handoff, not another working
 stage. Derive, without literal stage ids:
 
@@ -42,7 +43,7 @@ stage. Derive, without literal stage ids:
 - `_path_claim_policy` and `_file_budget_policy`: the item read's
   `result.effective_policies.path_claims` and `.file_budget` independently.
 
-The planning contract requires `policies.generated_children="epic_tasks"`
+The planning contract requires `policies["generated_children"] == "epic_tasks"`
 and a non-empty sequence of declared consecutive edges. Stage names and
 edge count are definition-owned. An absent/ambiguous binding, unsupported
 child policy, missing edge, or verdict-key collision stops with
