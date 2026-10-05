@@ -31,7 +31,6 @@ SESSION_MODES: FrozenSet[str] = frozenset(
         "feed",
         "idea",
         "operator",
-        "plan",
         "polish",
         "refine",
         "resume",

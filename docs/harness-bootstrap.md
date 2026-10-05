@@ -118,7 +118,6 @@ These are called by operator commands or other sub-skills. They have SKILL.md fi
 | `/yoke merge {epic-id}` | usher | Sequential PR + CI + merge per branch |
 | `/yoke approve YOK-N` | usher | Approve a deployment stage |
 | `/yoke amend {epic-id}` | conduct | Add, split, reassign, or remove tasks |
-| `/yoke plan {epic-id}` | shepherd, conduct | Architect planning: task decomposition |
 
 ### Tier 3: Raw internal Python entrypoints
 

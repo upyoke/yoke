@@ -10,7 +10,7 @@ Check that `epic_tasks` rows exist for this epic in the DB:
 _task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='{epic-id}'")
 ```
 
-If `_task_count` is `0`, tell the operator to run `/yoke plan {epic-id}` first.
+If `_task_count` is `0`, tell the operator to run `/yoke shepherd {epic-id}` first.
 
 ## 2. Auto-Detect Simulation Phase
 
