@@ -116,7 +116,7 @@ def _holding_sessions(current: FleetSnapshot) -> Iterable[SessionRow]:
 
 
 def idle_holder_candidates(current: FleetSnapshot) -> list[SessionRow]:
-    """Silent live holders whose landing readbacks must be checked first."""
+    """Silent live holders classified using the light roster's landing facts."""
     return [
         row
         for row in _holding_sessions(current)
@@ -130,7 +130,7 @@ def idle_holder_alarms(current: FleetSnapshot, state: DeltaState) -> list[str]:
 
     A session that stamped ``parked`` declared its wait and is excluded;
     a healthy in-flight landing also declares work the queue is driving.
-    Dead and failed landings, or a delivered completion wake, retain alarms.
+    Once a landing is recorded as merged, the ordinary idle threshold applies.
     """
     lines: list[str] = []
     live: set[str] = set()

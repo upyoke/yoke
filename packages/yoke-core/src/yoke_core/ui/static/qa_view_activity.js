@@ -295,12 +295,6 @@ export async function renderQaActivity(context, main, scope) {
   const panel = el(documentNode, "section", "panel");
   const header = el(documentNode, "div", "panel-header");
   header.appendChild(el(documentNode, "h2", null, "Recent case runs"));
-  header.appendChild(el(
-    documentNode,
-    "span",
-    "qa-panel-context",
-    "requirements, runs and artifacts rendered as one outcome",
-  ));
   panel.appendChild(header);
   const body = el(documentNode, "div", "panel-body");
   body.appendChild(activityHistory(context, rows, (host, page) => {

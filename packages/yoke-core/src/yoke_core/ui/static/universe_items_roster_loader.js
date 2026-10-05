@@ -151,17 +151,9 @@ export function createRosterLoader({ context, scope, onChange }) {
     }).finally(() => { refresh = null; });
     return refresh;
   };
-  const windowNode = context.document.defaultView;
-  const onVisible = () => {
-    if (context.document.visibilityState === "visible") refreshSort();
-  };
-  windowNode?.addEventListener?.("focus", refreshSort);
-  context.document.addEventListener?.("visibilitychange", onVisible);
   signal?.addEventListener("abort", () => {
     sequence += 1;
     clearTimeout(debounceTimer);
-    windowNode?.removeEventListener?.("focus", refreshSort);
-    context.document.removeEventListener?.("visibilitychange", onVisible);
   }, { once: true });
 
   return {

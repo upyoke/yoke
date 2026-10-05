@@ -89,11 +89,7 @@
   background: var(--yoke-accent);
 }
 
-.universe-app-root .panel-hint {
-  color: var(--yoke-muted);
-  font-size: 11px;
-  font-weight: 400;
-}
+
 
 .universe-app-root .test-machine-action-status {
   max-width: 260px;

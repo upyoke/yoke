@@ -123,29 +123,12 @@ def landing_readbacks(
 
 
 def landing_wait_pending(row: Mapping[str, Any]) -> bool:
-    """A healthy landing excuses silence until its completion wake arrives.
-
-    A merged landing awaiting notice delivery is still a legitimate wait.
-    Missing fields from an older serving build retain the prior idle alarm.
-    """
+    """Only a healthy open or queued PR excuses holder silence."""
     return row.get("wake_delivered") is False and (
-        row.get("merged") is True
-        or (
-            row.get("in_flight") is True
-            and row.get("closed") is False
-            and row.get("merged") is False
-            and not row.get("failed_checks")
-        )
-    )
-
-
-def report_landing_waits(report: Mapping[str, Any]) -> frozenset[str]:
-    """Reuse the held-scope report's readbacks for the fleet delta alarm."""
-    return frozenset(
-        str(row["public_ref"])
-        for scope in report.get("scopes", (report,))
-        for row in scope.get("landings", ())
-        if row.get("public_ref") and landing_wait_pending(row)
+        row.get("in_flight") is True
+        and row.get("closed") is False
+        and row.get("merged") is False
+        and not row.get("failed_checks")
     )
 
 

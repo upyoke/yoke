@@ -9,7 +9,6 @@ recoveries differ: one sends a person to the screen, the other to the probe.
 from __future__ import annotations
 
 import re
-import shlex
 from typing import Any
 
 from yoke_contracts.machine_qa_terminal_bridge import (
@@ -100,13 +99,7 @@ def read_screen_saver_idle_seconds(
     """Read the console user's current-host preference without changing it."""
     if not console_user or console_user in {"root", "loginwindow", "_mbsetupuser"}:
         return None
-    result = run(
-        "/usr/bin/sudo -n -H -u "
-        + shlex.quote(console_user)
-        + " /usr/bin/"
-        + SCREEN_SAVER_READ_COMMAND,
-        timeout=10,
-    )
+    result = run("/usr/bin/" + SCREEN_SAVER_READ_COMMAND, timeout=10)
     if result.returncode:
         detail = (result.stderr or "") + (result.stdout or "")
         if "idleTime" in detail and "does not exist" in detail:

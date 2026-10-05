@@ -1,6 +1,7 @@
-"""The fleet alarm reads the same landing facts as the held-scope report."""
+"""Light probe landing facts and due-only full report composition."""
 
 from datetime import datetime, timedelta, timezone
+import io
 from types import SimpleNamespace
 
 import pytest
@@ -12,29 +13,19 @@ from yoke_core.domain.fleet_delta_snapshot import (
     FRONTIER_FUNCTION,
     SESSIONS_FUNCTION,
     STEERING_REPORT_FUNCTION,
-    FleetReadError,
     read_snapshot,
 )
+from yoke_core.domain.steering_fleet_report_landings import landing_wait_pending
 
 NOW = datetime(2026, 8, 28, 17, 0, tzinfo=timezone.utc)
 HELD_REF = "held-candidate"
-HEALTHY = {
-    "public_ref": HELD_REF,
-    "in_flight": True,
-    "merged": False,
-    "closed": False,
-    "failed_checks": [],
-    "wake_delivered": False,
-}
+HEALTHY = dict(
+    in_flight=True, merged=False, closed=False, failed_checks=[], wake_delivered=False
+)
 
 
-def _snapshot(readbacks, *, report_ok=True, held=HELD_REF):
+def _snapshot(*, awaiting_landing=False):
     calls = []
-    report = {
-        "scopes": [{"landings": readbacks}],
-        "fingerprint": "same",
-        "body": "report",
-    }
 
     def call(function, payload):
         calls.append(function)
@@ -45,46 +36,65 @@ def _snapshot(readbacks, *, report_ok=True, held=HELD_REF):
                         "session_id": "holder",
                         "mode": "dash",
                         "activity_at": (NOW - timedelta(hours=1)).isoformat(),
-                        "claims": [{"target_kind": "item", "target": held}],
+                        "claims": [
+                            {
+                                "target_kind": "item",
+                                "target": HELD_REF,
+                                "item_awaiting_landing": awaiting_landing,
+                            }
+                        ],
                     }
                 ]
             },
             FRONTIER_FUNCTION: {},
             ENVELOPES_FUNCTION: {},
-            STEERING_REPORT_FUNCTION: report,
         }
-        if function == STEERING_REPORT_FUNCTION and not report_ok:
-            return SimpleNamespace(
-                success=False,
-                error=SimpleNamespace(code="unreadable", message="retry report"),
-            )
+        assert function != STEERING_REPORT_FUNCTION
         return SimpleNamespace(success=True, result=results[function])
 
-    snapshot = read_snapshot(["project"], call=call, now=NOW, self_session_id="seat")
-    return snapshot, calls
+    return read_snapshot(["project"], call=call, now=NOW, self_session_id="seat"), calls
 
 
-def test_healthy_landing_excludes_idle_alarm_and_due_report_reuses_its_read():
-    import io
-
-    snapshot, calls = _snapshot([HEALTHY])
+def test_probe_uses_roster_landing_wait_without_reading_full_report():
+    snapshot, calls = _snapshot(awaiting_landing=True)
     assert idle_holder_alarms(snapshot, DeltaState()) == []
-    assert calls.count(STEERING_REPORT_FUNCTION) == 1
+    assert STEERING_REPORT_FUNCTION not in calls
+    assert snapshot.landing_waits == frozenset({HELD_REF})
 
-    def policy_only(function, payload):
-        assert function != STEERING_REPORT_FUNCTION
-        return SimpleNamespace(success=True, result={"settings_json": "{}"})
 
-    output = io.StringIO()
-    append_steering_reports(
-        ["project"],
-        observed_at=NOW,
-        stream=output,
-        call=policy_only,
-        state=ReportState(),
-        report=snapshot.landing_report,
-    )
-    assert output.getvalue() == "report\n"
+@pytest.mark.parametrize("awaiting_landing", [False, None])
+def test_merged_or_missing_landing_fact_retains_normal_idle_alarm(awaiting_landing):
+    snapshot, calls = _snapshot(awaiting_landing=awaiting_landing)
+    assert "ALARM idle-holder" in idle_holder_alarms(snapshot, DeltaState())[0]
+    assert STEERING_REPORT_FUNCTION not in calls
+
+
+def test_full_report_is_read_only_when_due_even_with_idle_holder():
+    snapshot, _ = _snapshot()
+    calls = []
+
+    def call(function, payload):
+        calls.append(function)
+        result = (
+            {"fingerprint": "same", "body": "report"}
+            if function == STEERING_REPORT_FUNCTION
+            else {"settings_json": "{}"}
+        )
+        return SimpleNamespace(success=True, result=result)
+
+    state = ReportState()
+    stream = io.StringIO()
+    for minute in (0, 1, 2):
+        append_steering_reports(
+            ["project"],
+            observed_at=NOW + timedelta(minutes=minute),
+            stream=stream,
+            call=call,
+            state=state,
+            snapshot=snapshot,
+        )
+        assert calls.count(STEERING_REPORT_FUNCTION) == (1 if minute < 2 else 2)
+    assert stream.getvalue() == "report\n"
 
 
 @pytest.mark.parametrize(
@@ -94,32 +104,10 @@ def test_healthy_landing_excludes_idle_alarm_and_due_report_reuses_its_read():
         {"closed": True},
         {"in_flight": None},
         {"failed_checks": [{"name": "tests", "conclusion": "FAILURE"}]},
+        {"merged": True},
         {"wake_delivered": True},
     ],
 )
-def test_dead_failed_unreadable_and_delivered_landings_alarm(overrides):
-    snapshot, _ = _snapshot([{**HEALTHY, **overrides}])
-    assert "ALARM idle-holder" in idle_holder_alarms(snapshot, DeltaState())[0]
-
-
-def test_a_landing_belonging_to_another_holder_does_not_hide_the_alarm():
-    snapshot, _ = _snapshot([{**HEALTHY, "public_ref": "other-candidate"}])
-    assert "ALARM idle-holder" in idle_holder_alarms(snapshot, DeltaState())[0]
-
-
-def test_merged_landing_alarms_only_after_the_completion_wake_is_delivered():
-    merged = {**HEALTHY, "in_flight": False, "closed": True, "merged": True}
-    before, _ = _snapshot([merged])
-    after, _ = _snapshot([{**merged, "wake_delivered": True}])
-    assert idle_holder_alarms(before, DeltaState()) == []
-    assert "ALARM idle-holder" in idle_holder_alarms(after, DeltaState())[0]
-
-
-def test_an_unreadable_report_refuses_the_pass_instead_of_guessing_a_wait():
-    with pytest.raises(FleetReadError, match="steering.report.get: unreadable"):
-        _snapshot([], report_ok=False)
-
-
-def test_a_serving_build_without_landing_fields_keeps_the_prior_alarm():
-    snapshot, _ = _snapshot([{"public_ref": HELD_REF}])
-    assert "ALARM idle-holder" in idle_holder_alarms(snapshot, DeltaState())[0]
+def test_only_healthy_open_or_queued_landing_excuses_silence(overrides):
+    assert landing_wait_pending(HEALTHY)
+    assert not landing_wait_pending({**HEALTHY, **overrides})

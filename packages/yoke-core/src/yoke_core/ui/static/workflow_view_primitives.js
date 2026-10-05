@@ -111,11 +111,6 @@ export function workflowPanel(documentNode, title, options = {}) {
       `current · v${options.version}`,
     ));
   }
-  if (options.detail) {
-    meta.appendChild(el(
-      documentNode, "span", "workflow-panel-detail", options.detail,
-    ));
-  }
   if (meta.children.length) header.appendChild(meta);
   panel.appendChild(header);
   const body = el(documentNode, "div", "panel-body");

@@ -20,7 +20,6 @@ export function renderEvidence(context, plan) {
     documentNode,
     title,
     caseEvidence.length === 1 ? null : artifacts.length,
-    null,
   );
   if (!artifacts.length) {
     result.body.appendChild(el(

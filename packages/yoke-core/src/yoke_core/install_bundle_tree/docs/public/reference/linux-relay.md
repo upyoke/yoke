@@ -49,8 +49,11 @@ the existing launcher and release installer; `yoke relay uninstall` disables
 and removes it. Logs stay in the selected relay's state directory.
 
 TERM interrupts the current poll or maintenance call and closes job admission.
-The relay gives active settlements at most two seconds from the signal, below
-Ubuntu's five-second user-manager logout stop budget. Blocked network workers do
+At startup the relay reads the loaded systemd user unit's `TimeoutStopUSec`
+(or launchd's exit timeout on macOS). Active settlements use that allowance
+from the signal, reserving ten percent, capped at one second, for interpreter
+exit. If the deadline cannot be read, `relay_stop_deadline_unavailable` names
+the diagnostic recovery and uses a conservative five-second allowance. Blocked network workers do
 not hold Python open at exit. Existing server leases, native process custody,
 and pending report files remain available for reconciliation on the next login.
 Release repinning uses its longer settlement window. Yoke changes neither

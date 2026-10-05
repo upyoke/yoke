@@ -100,7 +100,7 @@ def append_steering_reports(
             minutes=interval
         ):
             return
-        # Retain every held document seat; reuse this pass's landing read.
+        # Retain every held document seat; compose only on a due pass.
         result = (
             report
             if report is not None

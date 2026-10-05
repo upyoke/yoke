@@ -26,7 +26,7 @@ export function appendOutsideCommits(documentNode, host, row) {
   const disclosure = el(documentNode, "details", "outside-commits");
   disclosure.appendChild(el(
     documentNode, "summary", "outside-commits-summary",
-    `Also includes ${count} commits made outside Yoke`,
+    `Also includes ${count} commit${count === 1 ? "" : "s"} made outside Yoke`,
   ));
   for (const group of groups) {
     const project = el(documentNode, "div", "outside-commits-project");

@@ -68,7 +68,7 @@ test("plan roster, detail, and activity all explain their empty state", async ()
   await renderQaPlanDetail(uiContext, host, ["1"], "12");
   const detail = text(host);
   assert.match(detail, /No cases declared in this test plan yet\./);
-  assert.match(detail, /success policy: no cases declared/);
+  assert.doesNotMatch(detail, /success policy: no cases declared/);
   assert.match(detail, /not attached yet/);
   assert.match(detail, /No case evidence captured yet\./);
   assert.match(detail, /no runs yet — the plan waits/);
@@ -152,7 +152,7 @@ test("a lease-waiting case explains contention without offering actions", async 
   await renderQaPlanDetail(uiContext, host, ["1"], "13");
 
   assert.equal(byClass(host, "qa-case-actions")[0].textContent, "—");
-  assert.match(text(host), /success policy: all 1 case passes/);
+  assert.doesNotMatch(text(host), /success policy: all 1 case passes/);
   assert.match(
     byClass(host, "pill").find((node) => node.textContent === "in use")
       .getAttribute("data-tooltip"),

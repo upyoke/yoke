@@ -7,6 +7,7 @@ from yoke_contracts.machine_config.directories import create_private_directory
 from dataclasses import replace
 from hashlib import sha256
 import json
+import logging
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
@@ -40,6 +41,7 @@ RELAY_REPORT_TIMEOUT_SECONDS = 10  # Reports are small control-plane writes.
 Dispatcher = Callable[..., Any]
 _REPORT_IDENTITY_FIELDS = ("relay_id", "machine_id", "job_kind", "job_id", "lease_id")
 _REPORT_REQUIRED_FIELDS = (*_REPORT_IDENTITY_FIELDS, "result")
+_LOGGER = logging.getLogger(__name__)
 
 
 def _directory(state_dir: Path | None) -> Path:
@@ -114,7 +116,7 @@ def deliver_terminal_report(
     state_dir: Path | None,
     timeout_s: int,
 ) -> Any:
-    """Preserve permanent rejections; custody retries wakes and evidence."""
+    """Preserve settlement rejections; drop permanently rejected evidence."""
     safe = _safe_payload(payload)
     if safe is None:
         raise ValueError("relay report payload is invalid")
@@ -138,6 +140,14 @@ def deliver_terminal_report(
 
     code = response_error_code(response)
     if is_permanent_report_rejection(response, job_kind=str(safe["job_kind"])):
+        if safe["job_kind"] == "evidence":
+            _LOGGER.warning(
+                "relay_evidence_report_dropped: job=%s server_reason=%s; "
+                "permanently rejected evidence will not retry",
+                safe["job_id"],
+                code,
+            )
+            return response
         if custody_retries:
             pending = _write_pending(safe, state_dir)
             quarantine_report(pending, safe, state_dir, error_code=code, attempts=1)

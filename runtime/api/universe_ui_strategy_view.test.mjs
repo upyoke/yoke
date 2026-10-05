@@ -150,7 +150,8 @@ test("Strategy corpus matches the prototype hierarchy with real read facts", asy
   );
 
   // Write history sits below the documents, from the same read.
-  assert.match(rendered, /Writes\s+last 120 days/);
+  assert.match(rendered, /Writes/);
+  assert.doesNotMatch(rendered, /last 120 days/);
   assert.match(rendered, /Strategy-doc writes 1 this week/);
   const spark = byClass(main, "strategy-spark")[0];
   assert.equal(spark.tagName, "SVG");

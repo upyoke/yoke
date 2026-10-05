@@ -228,7 +228,7 @@ test("Plans renders the durable objects and the full case-detail composition", a
   assert.match(detailText, /cold-start-hosted/);
   assert.match(detailText, /@fresh-host/);
   assert.match(detailText, /@shell-preconfigured/);
-  assert.match(detailText, /all 5 case-baseline proofs pass/);
+  assert.doesNotMatch(detailText, /all 5 case-baseline proofs pass/);
   assert.match(detailText, /union: gate not satisfied/);
   assert.match(detailText, /Attached to/);
   assert.match(detailText, /Evidence by case/);

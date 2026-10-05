@@ -1,8 +1,7 @@
-/* Shared flow for dashboard headings, facts, metadata, and actions. Keep
-   every line left-aligned, at card widths as well as narrow viewports.
-   A trailing auto margin or space-between would indent a new flex line;
-   text-align:right would indent prose wrapping inside a flex item.
-   Existing semantic classes share this primitive rather than page overrides. */
+/* Headings consume spare space on their own flex line. Action-only rows
+   shrink to their content when it fits and fill the available width when
+   they wrap: fitting actions sit right, wrapped actions start at the left.
+   Neither trailing auto margins nor right-aligned prose indent new lines. */
 .universe-app-root :is(
   .wrapping-row,
   .activation-head,
@@ -104,8 +103,6 @@
   .inbox-message-meta,
   .inbox-message-sender,
   .navigation-close,
-  .panel-hint,
-  .qa-panel-context,
   .runtime-identity-help-value,
   .session-launch-state,
   .session-message-recipient-status,
@@ -125,4 +122,46 @@
   .workflow-version-actions
 ) {
   align-items: flex-start;
+}
+
+/* A leading fact fills only the line it occupies. */
+.universe-app-root :is(
+  .wrapping-row, .activation-head, .machine-detail-fact, .machine-harness-row,
+  .machine-head, .page-head, .panel-header, .item-roster-toolbar, .qa-method-foot, .qa-plan-outcome,
+  .review-foot, .review-head, .run-card h2, .runtime-identity-help-row,
+  .secondary-card-header, .event-header, .session-holding-history,
+  .session-message-header, .session-top, .strategy-doc-metadata,
+  .strategy-spark-label, .test-machine-head, .workflow-dialog-footer,
+  .workflow-panel-meta
+) > :first-child {
+  flex-grow: 1;
+}
+
+/* fit-content clamps to the parent's width before wrapping the buttons. */
+.universe-app-root :is(
+  .app-footer-links, .deployment-terminalization-actions, .head-actions,
+  .instruction-editor-actions, .item-form-actions,
+  .machines-failure, .qa-action-dialog-buttons, .review-actions,
+  .run-decision-ask, .secondary-action-row, .session-filter-actions,
+  .test-machine-actions, .test-machine-dialog-actions,
+  .workflow-dialog-footer.actions-only, .workflow-dialog-actions,
+  .workflow-instruction-actions
+) {
+  box-sizing: border-box;
+  width: fit-content;
+  max-width: 100%;
+  margin-inline-start: auto;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.universe-app-root .workflow-dialog-footer.actions-only > :first-child {
+  flex-grow: 0;
+}
+
+/* Header action groups follow the growing heading, including on a new line. */
+.universe-app-root :is(.page-head, .review-foot, .workflow-dialog-footer:not(.actions-only)) > :is(
+  .head-actions, .review-actions, .workflow-dialog-actions
+) {
+  margin-inline-start: 0;
 }

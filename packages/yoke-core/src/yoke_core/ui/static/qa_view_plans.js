@@ -184,7 +184,6 @@ export async function renderQaPlans(context, main, scope) {
     documentNode,
     "Test plans",
     rows.length,
-    "authored in your harness — the web renders and steers",
   );
   renderPlanTable(context, result.body, rows);
   const note = el(documentNode, "div", "qa-panel-note");

@@ -7,14 +7,18 @@ from hashlib import sha256
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from yoke_harness import session_relay
 from yoke_harness.session_relay_health import (
     PENDING_REPORT_DIR_NAME,
     QUARANTINED_REPORT_DIR_NAME,
+    RELAY_HEALTH_FILE_NAME,
     observe_relay_health,
 )
 from yoke_harness.session_relay_inventory import RelayInventory
 from yoke_harness.session_relay_report_delivery import deliver_terminal_report
+from yoke_harness.session_relay_report_retry import retry_pending_reports
 
 
 MACHINE_ID = "11111111-1111-4111-8111-111111111111"
@@ -166,7 +170,9 @@ def test_missing_launch_lease_keeps_existing_retry_policy(tmp_path: Path) -> Non
     assert observe_relay_health(tmp_path)["quarantine_count"] == 0
 
 
-def test_permanently_rejected_evidence_is_visible_in_health(tmp_path: Path) -> None:
+def test_permanently_rejected_evidence_is_logged_and_dropped(
+    tmp_path: Path, caplog
+) -> None:
     payload = {**_payload(), "job_kind": "evidence"}
     deliver_terminal_report(
         lambda **kwargs: _rejected(),
@@ -176,6 +182,15 @@ def test_permanently_rejected_evidence_is_visible_in_health(tmp_path: Path) -> N
         timeout_s=10,
     )
     health = observe_relay_health(tmp_path)
-    assert health["state"] == "quarantined"
-    assert health["quarantined_reports"][0]["job_kind"] == "evidence"
-    assert health["quarantined_reports"][0]["error_code"] == "report_conflict"
+    assert health["state"] == "healthy"
+    assert health["quarantine_count"] == 0
+    assert health["pending_reports"] == 0
+    assert not (tmp_path / RELAY_HEALTH_FILE_NAME).exists()
+    assert caplog.text.count("relay_evidence_report_dropped") == 1
+    assert "server_reason=report_conflict" in caplog.text
+    assert retry_pending_reports(
+        lambda **kwargs: pytest.fail("dropped evidence must not retry"),
+        session_relay.RELAY_REPORT_FUNCTION_ID,
+        state_dir=tmp_path,
+        timeout_s=10,
+    )

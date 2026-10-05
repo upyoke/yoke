@@ -33,10 +33,10 @@ def host(tmp_path, monkeypatch):
         return marker.open("r+")
 
     monkeypatch.setattr(state, "ownership_file", ownership)
-    monkeypatch.setattr(state, "graphical_sessions", lambda: [])
+    monkeypatch.setattr(state, "graphical_sessions", lambda **kw: [])
     monkeypatch.setattr(state, "human_desktop_exists", lambda *a: False)
     monkeypatch.setattr(state, "rdp_connected", lambda *a: False)
-    monkeypatch.setattr(state, "desktop_sessions", lambda: [])
+    monkeypatch.setattr(state, "desktop_sessions", lambda **kw: [])
     return marker
 
 
@@ -47,7 +47,7 @@ def test_start_and_reuse_keep_password_only_on_stdin(host, monkeypatch, display)
 
     def run(argv, **kw):
         calls.append((argv, kw))
-        monkeypatch.setattr(state, "desktop_sessions", lambda: [session])
+        monkeypatch.setattr(state, "desktop_sessions", lambda **kw: [session])
         return subprocess.CompletedProcess(argv, 0, "ok data=1 display=:10\n", "")
 
     monkeypatch.setattr(state.subprocess, "run", run)
@@ -73,7 +73,7 @@ def test_no_start_with_existing_human_or_ambiguous_desktop(host, monkeypatch, bl
     elif blocked == "rdp":
         monkeypatch.setattr(state, "rdp_connected", lambda *a: True)
     else:
-        monkeypatch.setattr(state, "desktop_sessions", lambda: [SESSION, SESSION])
+        monkeypatch.setattr(state, "desktop_sessions", lambda **kw: [SESSION, SESSION])
     monkeypatch.setattr(
         state.subprocess, "run", lambda *a, **kw: pytest.fail("must not start")
     )
@@ -82,7 +82,7 @@ def test_no_start_with_existing_human_or_ambiguous_desktop(host, monkeypatch, bl
 
 
 def test_existing_human_xfce_is_reused_without_password(host, monkeypatch):
-    monkeypatch.setattr(state, "desktop_sessions", lambda: [SESSION])
+    monkeypatch.setattr(state, "desktop_sessions", lambda **kw: [SESSION])
     monkeypatch.setattr(
         state.subprocess, "run", lambda *a, **kw: pytest.fail("must not start")
     )
@@ -162,15 +162,12 @@ def test_transport_diagnostic_is_redacted():
 
 
 @pytest.mark.parametrize("human", [False, True])
-def test_reset_stops_owned_desktop_only_when_no_human_has_adopted_it(
+def test_reset_ends_fixture_desktop_even_when_human_adopted_it(
     host, monkeypatch, human
 ):
-    monkeypatch.setattr(
-        state, "owned_desktop", lambda: {**SESSION, "rdp_port": state.RDP_PORT}
-    )
     monkeypatch.setattr(state, "human_desktop_exists", lambda *a: human)
     live = [SESSION]
-    monkeypatch.setattr(state, "desktop_sessions", lambda: live)
+    monkeypatch.setattr(state, "desktop_sessions", lambda **kw: live)
     signals = []
 
     def kill(pid, number):
@@ -178,31 +175,15 @@ def test_reset_stops_owned_desktop_only_when_no_human_has_adopted_it(
         live.clear()
 
     monkeypatch.setattr(state.os, "kill", kill)
-    if human:
-        with pytest.raises(RuntimeError, match="desktop_logged_in"):
-            state.stop_owned_desktop()
-        assert not signals
-    else:
-        state.stop_owned_desktop()
-        assert signals == [(SESSION["pid"], state.signal.SIGTERM)]
-        assert host.read_text() == ""
-
-
-def test_reset_never_signals_recycled_pid(host, monkeypatch):
-    monkeypatch.setattr(
-        state, "owned_desktop", lambda: {**SESSION, "rdp_port": state.RDP_PORT}
-    )
-    monkeypatch.setattr(
-        state, "desktop_sessions", lambda: [{**SESSION, "start": "new-process"}]
-    )
-    monkeypatch.setattr(state.os, "kill", lambda *a: pytest.fail("recycled PID"))
-    state.stop_owned_desktop()
+    state.stop_desktop()
+    assert signals == [(SESSION["pid"], state.signal.SIGTERM)]
+    assert host.read_text() == ""
 
 
 @pytest.mark.parametrize(
     "human", ["mounted", "child-mount", "xfce", "graphical", "rdp", "none"]
 )
-def test_startup_and_reset_use_same_human_probe(tmp_path, monkeypatch, human):
+def test_startup_detects_real_fixture_desktops(tmp_path, monkeypatch, human):
     proc = tmp_path / "proc"
     (proc / "self").mkdir(parents=True)
     home = tmp_path / "home"
@@ -212,9 +193,9 @@ def test_startup_and_reset_use_same_human_probe(tmp_path, monkeypatch, human):
         else "/other"
     )
     (proc / "self/mountinfo").write_text(f"1 2 0:0 / {target} rw - tmpfs tmpfs rw\n")
-    if human == "xfce":
-        (proc / "42").mkdir()
-        (proc / "42/comm").write_text("xfce4-session\n")
+    monkeypatch.setattr(
+        state, "desktop_sessions", lambda **kw: [SESSION] if human == "xfce" else []
+    )
     real_path = type(tmp_path)
     monkeypatch.setattr(
         state, "Path", lambda value: proc if str(value) == "/proc" else real_path(value)
@@ -228,7 +209,7 @@ def test_startup_and_reset_use_same_human_probe(tmp_path, monkeypatch, human):
     monkeypatch.setattr(state, "rdp_connected", lambda *a: human == "rdp")
     owned = {**SESSION, "rdp_port": state.RDP_PORT} if human == "rdp" else None
     assert state.human_desktop_exists(home, owned) == (human != "none")
-    assert "human_desktop_exists(home, owned_desktop())" in DESKTOP_PROGRAM
+    assert "linux_reset_desktop_logged_in" not in DESKTOP_PROGRAM
 
 
 def test_machine_password_is_read_from_exact_capability_and_added_to_redaction(
