@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from shlex import quote
-from urllib.parse import urlsplit, urlunsplit
 
 from textual.widgets import Static
 
@@ -58,9 +57,11 @@ def machine_finish_lines(result) -> list[str]:
         )
     else:
         lines.append("Your account has no projects yet.")
-    dashboard = _dashboard_url(result.api_url)
-    if dashboard:
-        lines.append(f"Or open the dashboard: {dashboard}")
+    hosted_env = onboard_destinations.hosted_environment_for_url(result.api_url)
+    if hosted_env:
+        lines.append(f"Or open the dashboard: {platform_url_for_env(hosted_env)}")
+    else:
+        lines.append("Or open the workbench: yoke ui up")
     lines.extend(
         [
             "",
@@ -75,14 +76,3 @@ def machine_finish_widgets(result) -> list[Static]:
         Static(line, markup=False, classes="onboard-plan-line")
         for line in machine_finish_lines(result)
     ]
-
-
-def _dashboard_url(api_url: str) -> str:
-    hosted_env = onboard_destinations.hosted_environment_for_url(api_url)
-    if hosted_env:
-        return platform_url_for_env(hosted_env)
-    parsed = urlsplit(api_url)
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        return ""
-    path = parsed.path.rstrip("/").removesuffix("/v1")
-    return urlunsplit((parsed.scheme, parsed.netloc, path, "", ""))

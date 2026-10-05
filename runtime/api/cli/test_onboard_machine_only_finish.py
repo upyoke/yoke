@@ -111,8 +111,18 @@ def test_older_server_projects_without_prefix_remain_usable():
     app.result.api_url = "https://team.example.test/yoke/v1/"
     lines = machine_finish_lines(app.result)
     assert "Your projects: widget" in lines
-    assert "Or open the dashboard: https://team.example.test/yoke" in lines
+    assert "Or open the workbench: yoke ui up" in lines
+    assert not any(line.startswith("Or open the dashboard:") for line in lines)
     assert "  yoke items list --project widget" in lines
+
+
+def test_hosted_dashboard_follows_connection_environment():
+    app = _connected_app()
+    app.result.api_url = "https://app.stage.upyoke.com/api/orgs/acme"
+    assert (
+        "Or open the dashboard: https://app.stage.upyoke.com"
+        in machine_finish_lines(app.result)
+    )
 
 
 def test_project_labels_are_literal_rich_text():

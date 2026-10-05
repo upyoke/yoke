@@ -71,7 +71,8 @@ keep it available in future terminals. Other shell-update failures stop the
 installer with `uv_shell_update_failed`.
 Open a new terminal. If you chose machine-only setup, the finish screen lists
 the projects your account can access and commands to file and browse work
-from any folder, plus your connection's dashboard link. Run `yoke setup`
+from any folder, plus your hosted dashboard link (or `yoke ui up` for a team
+server's workbench). Run `yoke setup`
 when you want to prepare a project's code on this machine. Once that project
 is wired, open Claude Code, Codex, or Cursor in its folder and run `/yoke onboard`.
 

@@ -3,7 +3,8 @@
 Choosing **Don't set up a project now · just the machine** still connects
 your account. The finish screen lists your accessible projects with their
 work-item prefixes, plus commands to file and browse work from any folder
-and the dashboard link for the connection. Filing a Dash first requires
+and the hosted dashboard link for the connection (or `yoke ui up` for a
+team server's workbench). Filing a Dash first requires
 reading the project's execution instructions; the screen shows that command
 and the required `--execution-instructions-considered` flag. If your account
 has no projects, it says so and omits the filing and browsing commands.
