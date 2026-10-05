@@ -36,16 +36,15 @@ from yoke_core.domain.project_github_capability_settings import (
 # capabilities-by-type
 # ---------------------------------------------------------------------------
 
+
 def list_capability_settings_by_type(
     cap_type: str,
     db_path: Optional[str] = None,
 ) -> List[str]:
     """Return every non-sensitive settings JSON for a given capability type.
 
-    Used by cross-project capability lookups such as the remote-browser
-    config scan in ``browser_worker`` — there is no single project that
-    owns those rows, so we query ``project_capabilities`` by type and
-    return the list in table order.
+    Query ``project_capabilities`` by type and return the settings in
+    project-id order for cross-project capability lookups.
     """
     conn = connect(db_path)
     try:
@@ -59,9 +58,11 @@ def list_capability_settings_by_type(
     finally:
         conn.close()
 
+
 # ---------------------------------------------------------------------------
 # capability-list
 # ---------------------------------------------------------------------------
+
 
 def cmd_capability_list(
     project: str,
@@ -84,6 +85,7 @@ def cmd_capability_list(
 # ---------------------------------------------------------------------------
 # capability-get-secret
 # ---------------------------------------------------------------------------
+
 
 def cmd_capability_get_secret(
     project: str,
@@ -114,7 +116,9 @@ def cmd_capability_get_secret(
             ident = resolve_project(conn, project, required=True)
             assert ident is not None
             return capability_machine_secrets.read_machine_capability_secret(
-                ident.slug, cap_type, key,
+                ident.slug,
+                cap_type,
+                key,
             )
         project_id = resolve_project_id(conn, project)
         row = query_one(
@@ -145,6 +149,7 @@ def cmd_capability_get_secret(
 # ---------------------------------------------------------------------------
 # capability-set-secret
 # ---------------------------------------------------------------------------
+
 
 def capability_secret_value_from_args(args: Any) -> str:
     sources = [
@@ -192,7 +197,10 @@ def cmd_capability_set_secret(
         assert ident is not None
         if is_machine_local_capability_secret(cap_type, key):
             path = capability_machine_secrets.store_machine_capability_secret(
-                ident.slug, cap_type, key, value,
+                ident.slug,
+                cap_type,
+                key,
+                value,
             )
             from yoke_core.domain.projects_machine_secret_metadata import (
                 sync_machine_secret_metadata,
@@ -215,8 +223,16 @@ def cmd_capability_set_secret(
             "(project_id, type, key, value, source, created_at) "
             "VALUES (%s, %s, %s, %s, %s, %s) "
             "ON CONFLICT(project_id, type, key) DO UPDATE SET value=%s, source=%s",
-            (project_id, cap_type, key, value, "literal", iso8601_now(),
-             value, "literal"),
+            (
+                project_id,
+                cap_type,
+                key,
+                value,
+                "literal",
+                iso8601_now(),
+                value,
+                "literal",
+            ),
         )
         conn.commit()
         return (
@@ -247,8 +263,7 @@ def cmd_capability_mark_machine_secret_file(
 
         sync_machine_secret_metadata(conn, ident.id, cap_type, key, Path(path))
         conn.execute(
-            "DELETE FROM capability_secrets "
-            "WHERE project_id=%s AND type=%s AND key=%s",
+            "DELETE FROM capability_secrets WHERE project_id=%s AND type=%s AND key=%s",
             (ident.id, cap_type, key),
         )
         conn.commit()
@@ -264,6 +279,7 @@ def cmd_capability_mark_machine_secret_file(
 # capability-list-secrets
 # ---------------------------------------------------------------------------
 
+
 def cmd_capability_list_secrets(
     project: str,
     cap_type: str,
@@ -277,7 +293,8 @@ def cmd_capability_list_secrets(
         assert ident is not None
         if is_machine_local_capability_secret(cap_type):
             keys = capability_machine_secrets.list_machine_capability_secret_keys(
-                ident.slug, cap_type,
+                ident.slug,
+                cap_type,
             )
         else:
             keys = []
@@ -288,7 +305,8 @@ def cmd_capability_list_secrets(
             (project_id, cap_type),
         )
         keys.extend(
-            str(r["key"]) for r in rows
+            str(r["key"])
+            for r in rows
             if not is_machine_local_capability_secret(cap_type, str(r["key"]))
         )
         return "\n".join(sorted(set(keys)))

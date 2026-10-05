@@ -57,7 +57,6 @@ All JS paths below are the packaged sources; the daemon runs from their material
 | `yoke_harness.browser_runtime_home` | `packages/yoke-harness/src/yoke_harness/browser_runtime_home.py` | Single machine-runtime and hash-gated materialization owner |
 | `yoke_core.domain.browser_client` | `packages/yoke-core/src/yoke_core/domain/browser_client.py` | Python daemon client: state, HTTP, lifecycle, exec, snapshot |
 | `yoke_core.domain.browser_qa` | `packages/yoke-core/src/yoke_core/domain/browser_qa.py` | Internal per-requirement Browser scenario orchestration used by the shared case runner |
-| `yoke_core.domain.browser_worker` | `packages/yoke-core/src/yoke_core/domain/browser_worker.py` | Remote browser worker via SSH tunnel |
 
 ## Daemon Lifecycle
 
@@ -169,43 +168,6 @@ python3 -m yoke_core.domain.browser_client exec step '<step-json>' --base-url <u
 
 `yoke qa case run` executes one immutable Browser case and validates deployed
 code freshness. Direct Advance and Conduct/Tester share this [runner](browser-substrate/scenario-orchestration.md).
-
-## Remote Browser Worker
-
-Runs browser commands on a remote machine via SSH, with a tunnel from local to the remote daemon's HTTP port.
-
-```sh
-# Start remote daemon + SSH tunnel
-python3 -m yoke_core.domain.browser_worker start <host> [--port 9222] [--local-port 19222]
-
-# Stop tunnel and remote daemon
-python3 -m yoke_core.domain.browser_worker stop <host>
-
-# Check tunnel and remote daemon status [--project P]
-python3 -m yoke_core.domain.browser_worker status <host>
-```
-
-### Configuration
-
-Remote worker config is stored in `project_capabilities` with `type='remote-browser'`:
-
-```json
-{
- "host": "remote.example.com",
- "user": "deploy",
- "key_path": "/path/to/key",
- "browser_path": "/opt/yoke/browser",
- "port": 9222
-}
-```
-
-### Tunnel Lifecycle
-
-1. Verify remote host is reachable via SSH
-2. Start daemon on remote host (`node src/daemon.js`)
-3. Create SSH tunnel (`ssh -L localPort:127.0.0.1:remotePort`)
-4. Write local state file pointing to `http://127.0.0.1:{localPort}`
-5. All `yoke_core.domain.browser_client` snapshot and exec commands work transparently
 
 ## QA Artifact Integration
 

@@ -39,7 +39,6 @@ New qa_kinds can be added without schema changes. The column is free-form text, 
 | `playwright` | Playwright browser automation framework |
 | `manual` | Human performs the QA step and records result |
 | `github-actions` | GitHub Actions workflow execution |
-| `remote-browser` | Remote browser service (screenshot capture, DOM inspection) |
 
 ### Layer 3: capability_requirements -- What runtime access is needed?
 
@@ -105,7 +104,7 @@ Records individual QA executions against a requirement. Multiple runs per requir
 ```sql
 id INTEGER PRIMARY KEY
 qa_requirement_id INTEGER NOT NULL -- FK to qa_requirements(id)
-performed_by TEXT NOT NULL -- how it ran: agent, shell, playwright, manual, github-actions, remote-browser
+performed_by TEXT NOT NULL -- how it ran: agent, shell, playwright, manual, github-actions
 qa_kind TEXT NOT NULL -- denormalized from requirement for query convenience
 verdict TEXT -- CHECK: pass | fail | undetermined | error (nullable: started but not completed)
 verdict_reason TEXT -- required when undetermined; agent outcomes also require linked evidence
