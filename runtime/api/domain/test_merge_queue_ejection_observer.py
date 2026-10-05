@@ -56,13 +56,12 @@ def test_a_dirty_pull_request_tells_the_holder_to_rebase_and_regate():
     assert record.state == CONFLICTED
     assert "mergeStateStatus=DIRTY" in record.narrative
 
-    # Acceptance clears the admission immediately; recipient delivery is the
-    # ordinary pending-message path's responsibility.
+    # Pending acceptance retains the admission until recipient delivery.
     marker = conn.execute(
         "SELECT merge_queue_pr_number,merge_queue_enqueued_at FROM items WHERE id=101"
     ).fetchone()
     assert marker[0] == "42"
-    assert marker[1] is None
+    assert marker[1] == "2026-08-27T17:00:00Z"
     record = read_landing_record(conn, 101)
     assert record is not None
     assert record.state == CONFLICTED
@@ -72,7 +71,14 @@ def test_a_dirty_pull_request_tells_the_holder_to_rebase_and_regate():
     # Reporting the same ejection again is not.
     settled = observe(conn, now=INJECTED_AT)
     assert settled["checked"] == 1
-    assert settled["ejected"] == 0
+    assert settled["ejected"] == 1
+    assert (
+        conn.execute(
+            "SELECT merge_queue_enqueued_at FROM items WHERE id=101"
+        ).fetchone()[0]
+        is None
+    )
+    assert observe(conn, now=INJECTED_AT)["ejected"] == 0
     assert message_count(conn) == 1
 
 
@@ -117,7 +123,7 @@ def test_one_notice_failure_does_not_stop_other_items_from_refreshing(monkeypatc
             "SELECT id,merge_queue_enqueued_at FROM items WHERE id IN (101,102)"
         )
     }
-    assert markers == {101: "2026-08-27T17:00:00Z", 102: None}
+    assert markers == {101: "2026-08-27T17:00:00Z", 102: "2026-08-27T17:00:00Z"}
     refresh = read_refresh(conn, 1)
     assert refresh.completed_at
     assert refresh.last_error == ""
