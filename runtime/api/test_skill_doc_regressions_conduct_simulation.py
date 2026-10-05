@@ -130,6 +130,26 @@ class TestConductSimulationReadback:
         assert not (SKILLS / "conduct" / "simulation-autofix-patching.md").exists()
         assert not (SKILLS / "conduct" / "simulation-autofix-inputs.md").exists()
 
+    def test_autofix_nonblocking_reports_return_without_clean_handoff(self, docs):
+        loop = _read(docs["autofix_patching"])
+        entry = loop.split("## Classify and gather", 1)[0]
+        assert "NOTE-only gaps return `AUTOFIX_NOT_REQUIRED`" in entry
+        assert "No CRITICAL gaps and recommendation `PROCEED`" in entry
+        assert "including WARNING gaps" in entry
+        assert "does not write a passing verdict" in entry
+        assert "after each persisted `GAPS FOUND` re-simulation" in entry
+        adapter = _read(docs["autofix"])
+        assert "`AUTOFIX_NOT_REQUIRED`: return it" in adapter
+        escalation = _read(docs["simulation_gate_escalation"])
+        branch = escalation.split("**If auto-fix returns `AUTOFIX_NOT_REQUIRED`:**", 1)[
+            1
+        ].split("**If auto-fix returns `AUTOFIX_CLEAN`:**", 1)[0]
+        assert "execute Branch 1 above" in branch
+        assert "registered PROCEED triage write" in branch
+        assert "NOTE-only with a non-PROCEED or absent recommendation" in branch
+        assert "simulation_nonblocking_recommendation_unresolved" in branch
+        assert "Do not manufacture" in branch
+
     def test_autofix_has_no_inline_upsert(self, docs):
         # Check shared autofix and caller adapter
         text = _read_bundle(
