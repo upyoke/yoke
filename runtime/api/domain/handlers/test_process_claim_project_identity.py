@@ -23,7 +23,11 @@ from yoke_core.domain.yoke_function_dispatch_claims_resolve import (
 
 
 @pytest.fixture
-def claim_db(tmp_path):
+def claim_db(tmp_path, monkeypatch):
+    # These sessions model live holders; stale-session cleanup is a separate gate.
+    monkeypatch.setattr(
+        "yoke_core.domain.sessions.clean_stale_harness_sessions", lambda conn: None
+    )
     with init_test_db(tmp_path) as db_path:
         with connect_test_db(db_path) as conn:
             seed_test_holder_session(conn, "strategy-holder")
@@ -84,7 +88,7 @@ def test_processes_exclude_each_other_across_project_references(
     assert _acquire(first, process=process).primary_success
     refused = _acquire(second, process=other, session="feed-holder")
     assert not refused.primary_success
-    assert refused.error.code == "already_claimed"
+    assert refused.error.code == "already_claimed", refused.error
 
 
 @pytest.mark.parametrize("acquire_ref,release_ref", [("1", "yoke"), ("yoke", "1")])
@@ -122,7 +126,13 @@ def test_unknown_project_refuses_without_acquiring(claim_db):
 )
 def test_ambiguous_slug_uses_authorized_project_context(claim_db, options):
     with connect_test_db(claim_db) as conn:
-        conn.execute("UPDATE projects SET slug = 'yoke' WHERE id = 2")
+        org = conn.execute(
+            "INSERT INTO organizations (slug, name, created_at) "
+            "VALUES ('other', 'Other', '2026-01-01T00:00:00Z') RETURNING id"
+        ).fetchone()[0]
+        conn.execute(
+            "UPDATE projects SET org_id = %s, slug = 'yoke' WHERE id = 2", (org,)
+        )
         conn.commit()
     acquired = _acquire("yoke", options=options)
     assert acquired.primary_success, acquired.error
