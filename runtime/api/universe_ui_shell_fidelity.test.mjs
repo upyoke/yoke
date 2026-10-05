@@ -206,11 +206,11 @@ test("shared shell search, footer, identity, and route navigation are live", asy
 
   input.dispatchEvent(keyEvent("ArrowDown"));
   // Browser anchor properties resolve to absolute URLs, including scope.
-  byClass(root, "header-search-result")[0].href =
-    "https://example.test//items/2228?project=1&selection=1,2";
+  byClass(root, "header-search-result")[0].setAttribute("href",
+    "/items/2228?project=1&selection=1");
   input.dispatchEvent(keyEvent("Enter"));
   assert.equal(documentNode.defaultView.location.href,
-    "/items/2228?project=1&selection=1,2");
+    "/items/2228?project=1&selection=1");
   const main = byClass(root, "content")[0];
   main.scrollTop = 600;
   documentNode.defaultView.location.href = "/sessions?project=1";

@@ -169,7 +169,7 @@ export function createHeldScopeController(deps) {
   const {
     windowNode, scopeSelections, renderRoute, projectsRef,
     navEntry, serializeScope, parseUniverseRoute,
-    navLinks, nav, buildUniverseRoute, rememberedScopeParam, resolveRoute, refreshLinks, navigation,
+    navLinks, nav, buildUniverseRoute, rememberedScopeParam, resolveRoute, refreshLinks, navigation, routeInPlace,
   } = deps;
   let active = null;
   function refreshNavHrefs(activeId) {
@@ -204,6 +204,11 @@ export function createHeldScopeController(deps) {
   }
   function onRouteChange() {
     const route = parseUniverseRoute(navigation.current(), navigation.basePath);
+    if (routeInPlace?.(route)) {
+      resolveRoute(route, navEntry(route.view));
+      refreshNavHrefs(route.view);
+      return;
+    }
     if (active && active.viewId === route.view && !route.detail && !route.tab) {
       const entry = navEntry(route.view);
       const next = resolveRoute(route, entry);

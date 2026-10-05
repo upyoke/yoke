@@ -130,10 +130,10 @@ def test_page_module_exports_the_mount_contract():
     assert 'fetch("/assets/' not in page_module
 
 
-def test_shell_static_references_are_host_prefix_safe():
+def test_local_shell_static_references_resolve_from_deep_paths():
     shell = files("yoke_core.ui").joinpath("static", "index.html").read_text()
     assert 'class="local-universe-page"' in shell
-    assert '="/assets/' not in shell
+    assert '="./assets/' not in shell
     for asset_name in (
         "app.js",
         "app.css",

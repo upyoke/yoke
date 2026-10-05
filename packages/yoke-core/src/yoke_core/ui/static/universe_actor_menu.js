@@ -67,7 +67,7 @@ export function createActorMenu(documentNode, client, actor) {
   };
   chip.addEventListener("click", () => setOpen(menu.hidden));
   // Activating the item closes the menu itself, because reaching the page
-  // the menu is already on changes no hash for the dismissal to observe.
+  // the menu is already on emits no navigation event for the dismissal to observe.
   profileLink.addEventListener("click", () => setOpen(false));
   const disposeDismissal = attachMenuDismissal(documentNode, {
     root: host,

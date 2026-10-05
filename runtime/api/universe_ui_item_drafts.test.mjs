@@ -31,6 +31,7 @@ function fixture({ projects = [{ id: 7, slug: "acme", name: "Acme" }] } = {}) {
   context.client.call = (request) => request.function === "projects.list" && request.payload.for_item_creation
     ? Promise.resolve(ok({ creation_scoped: true, rows: projects })) : call(request);
   context.projects = () => projects;
+  context.basePath = "/orgs/acme";
   context.isMounted = () => state.mounted;
   context.navigate = (href) => state.navigated.push(href);
   const main = document.createElement("main");
@@ -48,15 +49,15 @@ function fill(main) {
 }
 
 test("new item survives remount, stays isolated by actor/universe, and discards explicitly", async () => {
-  const { mount, main, state, document } = fixture();
+  const { mount, main, state, context } = fixture();
   await mount(); fill(main); await mount();
   assert.equal(input(main, "INPUT").value, "Fix layout");
   assert.equal(input(main, "TEXTAREA").value, "Preserve the useful draft.");
   state.actor = 8; await mount();
   assert.equal(input(main, "INPUT").value, "");
-  state.actor = 7; document.defaultView.location.pathname = "/other/work"; await mount();
+  state.actor = 7; context.basePath = "/orgs/other"; await mount();
   assert.equal(input(main, "INPUT").value, "");
-  document.defaultView.location.pathname = "/acme/work"; await mount();
+  context.basePath = "/orgs/acme"; await mount();
   allNodes(main).find((node) => node.tagName === "A" && node.textContent === "Discard draft").dispatchEvent(new Event("click"));
   await mount();
   assert.equal(input(main, "INPUT").value, "");

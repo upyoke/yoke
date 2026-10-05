@@ -48,9 +48,6 @@ async function mountAt(t, hash, client) {
   const documentNode = new FakeDocument();
   const windowNode = documentNode.defaultView;
   windowNode.location.href = hash || "/";
-  windowNode.history = { replaceState(_state, _title, route) {
-    windowNode.location.href = route;
-  } };
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client });
   t.after(() => mounted.unmount());

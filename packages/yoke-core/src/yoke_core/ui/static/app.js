@@ -104,7 +104,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     client: locationPreference.client,
     document: documentNode,
     isMounted: () => mounted,
-    navigate: navigation.navigate, back: navigation.back,
+    navigate: navigation.navigate, back: navigation.back, basePath: navigation.basePath,
     // Share the accessible roster already held by the scope pickers.
     projects: () => projects,
     // Ranked from the app-wide group set below, never each page's own rows.
@@ -157,7 +157,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     navEntry, serializeScope, parseUniverseRoute,
     navLinks, nav: NAV, buildUniverseRoute, rememberedScopeParam,
     resolveRoute,
-    refreshLinks: navigation.refresh, navigation,
+    refreshLinks: navigation.refresh, navigation, routeInPlace: (route) => context.routeInPlace?.(route),
   });
 
   function resolveRoute(route, entry) {
@@ -173,6 +173,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     replaceViewAbort(context);
     detachMountedSlots(rootNode, sectionNodes);
     heldScope.reset(); // a full render drops any held scoped view
+    context.routeInPlace = null;
     setScopeVisible(false);
     const route = parseUniverseRoute(navigation.current(), navigation.basePath);
     const entry = navEntry(route.view);

@@ -8,6 +8,8 @@ import { mountUniverseApp } from "../../packages/yoke-core/src/yoke_core/ui/stat
 import { FakeDocument, byClass, response, settle } from "./universe_ui_dom_test_support.mjs";
 import { threeProjectClient, scopeChips } from "./universe_ui_read_views_test_support.mjs";
 
+import { workflowsClient, workflowFixture } from "./universe_ui_workflows_test_support.mjs";
+
 const BASE = "/orgs/acme";
 
 test("every destination builds and parses beneath either mount base", () => {
@@ -133,4 +135,24 @@ test("mounted project chips and browser history use the same scoped route", asyn
   assert.equal(window.location.href, `${BASE}/items?project=1`);
   assert.deepEqual(window.scrollCalls, [[0, 0]]);
   assert.ok(byClass(root, "scope-bar").length);
+});
+
+test("hosted workflow tab keeps its base and returns through native history", async (t) => {
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = () => response(200, {});
+  t.after(() => { globalThis.fetch = previousFetch; });
+  const document = new FakeDocument(), window = document.defaultView;
+  window.location.href = `${BASE}/workflows/dash`;
+  const root = document.createElement("div");
+  const client = workflowsClient([workflowFixture({ id: "dash", name: "Dash" }), workflowFixture({ id: "blitz", name: "Blitz" })]);
+  const mounted = mountUniverseApp(root, { client, basePath: BASE });
+  t.after(() => mounted.unmount());
+  await settle();
+  byClass(root, "tab-link").find(node => node.textContent === "Blitz").dispatchEvent(new Event("click"));
+  assert.equal(window.location.href, `${BASE}/workflows/blitz?selection=all`);
+  assert.deepEqual(window.scrollCalls, [[0, 0]]);
+  window.history.back();
+  assert.equal(window.location.href, `${BASE}/workflows/dash?selection=all`);
+  assert.equal(byClass(root, "tab-link").find(node => node.getAttribute("aria-selected") === "true").textContent, "Dash");
+  assert.deepEqual(window.scrollCalls, [[0, 0]]);
 });

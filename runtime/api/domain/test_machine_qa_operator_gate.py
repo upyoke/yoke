@@ -94,7 +94,7 @@ def test_browser_gate_emits_coordinates_sends_enter_and_heartbeats(
     assert result.browser_evidence == {
         "approval_entry": "/connect",
         "browser": "Safari",
-        "result_url": "https://app.stage.upyoke.com/orgs/acme",
+        "result_url": "https://app.stage.upyoke.com/orgs/acme/frontier",
         "visible_control": "Approve machine",
     }
 

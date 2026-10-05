@@ -148,7 +148,9 @@ class FakeWindow extends EventTarget {
       get href() { return `${url.pathname}${url.search}${url.hash}`; },
       set href(value) { url = new URL(value, url); },
       get pathname() { return url.pathname; },
+      set pathname(value) { url.pathname = value; },
       get search() { return url.search; },
+      set search(value) { url.search = value; },
       get hash() { return url.hash; },
       set hash(value) { url.hash = value; },
     };

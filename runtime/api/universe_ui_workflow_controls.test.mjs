@@ -90,10 +90,6 @@ test("saving a workflow after switching tabs preserves the selected workflow", a
     workflowFixture({ id: "issue", name: "Issue" }),
   ]);
   const { documentNode, root, mounted } = await mountWorkflows(t, client, "/workflows/dash");
-  // Native history updates do not emit popstate, so this remains the same mounted view.
-  documentNode.defaultView.history = { replaceState(_state, _title, route) {
-    documentNode.defaultView.location.href = route;
-  } };
   byClass(root, "tab-link").find((node) => node.textContent === "Issue")
     .dispatchEvent(new Event("click"));
   allNodes(root).find((node) => node.tagName === "BUTTON" && node.textContent === "Inspect")

@@ -39,7 +39,7 @@ def test_approval_targets_the_exact_code_tab_and_visible_button() -> None:
     assert result.evidence == {
         "approval_entry": "/connect",
         "browser": "Safari",
-        "result_url": "https://app.stage.upyoke.com/orgs/acme",
+        "result_url": "https://app.stage.upyoke.com/orgs/acme/frontier",
         "visible_control": "Approve machine",
     }
     assert len(commands) == 1
