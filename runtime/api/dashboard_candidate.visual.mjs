@@ -1,13 +1,18 @@
 // Capture the real claimed review server, proving its committed source first.
 // YOKE_REVIEW_URL names the tokenized URL printed by serve_workbench_for_review.
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const [modulePath, output] = process.argv.slice(2);
 const target = process.env.YOKE_REVIEW_URL;
-const candidate = JSON.parse(process.env.YOKE_QA_CANDIDATE_TREE || "null");
+// Deployment-bound cases carry the marker; lane cases run in their claimed cwd.
+const candidate = JSON.parse(process.env.YOKE_QA_CANDIDATE_TREE || "null") || {
+  head_sha: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
+};
+assert.equal(execFileSync("git", ["status", "--porcelain"], { encoding: "utf8" }).trim(), "");
 assert(modulePath && output && target && candidate?.head_sha,
   "Require Playwright, output directory, review URL and QA candidate identity.");
 const identity = new URL("/served-build", target);
@@ -34,6 +39,9 @@ try {
       assert(data.length > 0 && data.every((n) => n.width > 0 && n.width < 100 && n.grow === "0"),
         JSON.stringify({ route, width, data }));
       measurements.pages.push({ route, width, data });
+      if (route === "sessions") await page.locator(".session-roster-filters").screenshot({
+        path: path.join(output, `filters-${width}.png`),
+      });
       await page.screenshot({ path: path.join(output, `${route}-${width}.png`), fullPage: true });
       await context.close();
     }
