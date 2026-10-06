@@ -1,8 +1,8 @@
 # Yoke release notes
 
-This directory retains authored notes from releases cut before release notes
-moved into immutable annotated tag messages. Historical notes are not
-backfilled or rewritten; new releases do not add files here.
+This guide covers release creation and provenance verification. Release notes
+are the immutable annotated tag messages, published with the corresponding
+GitHub Releases; this directory contains no per-release notes.
 
 ## Cut a release
 
