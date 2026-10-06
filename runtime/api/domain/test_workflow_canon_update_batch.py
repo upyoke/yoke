@@ -7,6 +7,8 @@ somewhere in the middle neither stops the rest nor hides which one it was.
 
 from __future__ import annotations
 
+from runtime.api.workflow_version_test_helpers import publish_as_history
+
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -18,7 +20,6 @@ from yoke_core.domain.handlers.workflows_canon_update import (
 )
 from yoke_core.domain.workflow_registry import (
     list_current_workflows,
-    publish_workflow_version,
 )
 
 
@@ -58,9 +59,7 @@ def _fall_behind(conn, *workflow_ids: str) -> None:
     """Put each named workflow on a generation that is not the newest."""
     for workflow_id in workflow_ids:
         older = canon_generations(workflow_id)[-2]
-        publish_workflow_version(
-            conn, workflow_id=workflow_id, definition=dict(older.definition),
-        )
+        publish_as_history(conn, workflow_id, older.definition)
 
 
 def test_several_behind_workflows_are_all_brought_current(test_db):

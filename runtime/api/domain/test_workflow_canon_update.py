@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from unittest import mock
-
-from yoke_core.domain import workflow_registry
+from runtime.api.workflow_version_test_helpers import publish_as_history
 from yoke_core.domain.workflow_definition_builders import (
     with_generated_epic_tasks,
 )
@@ -21,7 +19,6 @@ from yoke_core.domain.handlers.workflows_canon_update import (
 )
 from yoke_core.domain.workflow_registry import (
     list_current_workflows,
-    publish_workflow_version,
     set_current_workflow_version,
 )
 from yoke_core.domain.workflow_schema import (
@@ -50,26 +47,11 @@ def _workflow(conn, workflow_id="issue"):
     )
 
 
-def _publish_as_history(conn, workflow_id, definition):
-    """Publish *definition* the way this universe did when it was current.
-
-    Older generations are real history, and history is older than the skill
-    registry the current validator describes: an earlier issue generation
-    binds a skill since retired. A universe holding such a row published it
-    while it was valid, so this reproduces that publication rather than
-    asking today's validator to accept it.
-    """
-    with mock.patch.object(workflow_registry, "validate_workflow_definition"):
-        return publish_workflow_version(
-            conn, workflow_id=workflow_id, definition=definition,
-        )
-
-
 def _publish_older_generation(conn, workflow_id="issue"):
     """Put this universe on a published generation that is not the newest."""
     generations = canon_generations(workflow_id)
     older = generations[-2]
-    published = _publish_as_history(conn, workflow_id, dict(older.definition))
+    published = publish_as_history(conn, workflow_id, dict(older.definition))
     return older, published
 
 
@@ -148,7 +130,7 @@ def test_applying_an_update_the_universe_lacks_publishes_it(test_db):
     older = generations[-2]
     # Roll onto the older generation, then drop the newest row so this
     # universe genuinely does not hold the update yet.
-    published = _publish_as_history(test_db, "issue", dict(older.definition))
+    published = publish_as_history(test_db, "issue", dict(older.definition))
     test_db.execute(
         "ALTER TABLE workflow_versions DISABLE TRIGGER "
         f"{WORKFLOW_VERSIONS_IMMUTABLE_TRIGGER}"
@@ -206,7 +188,7 @@ def test_a_conflicting_update_is_refused_rather_than_picking_a_side(test_db):
         "file_budget": "required_per_task",
     }
     with_generated_epic_tasks(edited)
-    published = _publish_as_history(test_db, "issue", edited)
+    published = publish_as_history(test_db, "issue", edited)
     _set_baseline(test_db, int(published["version_id"]), older.canon_version)
 
     preview = _preview({"workflow_id": "issue"})

@@ -9,6 +9,8 @@ rollback.
 
 from __future__ import annotations
 
+from runtime.api.workflow_version_test_helpers import publish_as_history
+
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -21,7 +23,6 @@ from yoke_core.domain.handlers.workflows_canon_follow import (
 from yoke_core.domain.workflow_registry import (
     converge_builtin_workflows,
     list_current_workflows,
-    publish_workflow_version,
     set_current_workflow_version,
 )
 
@@ -68,9 +69,7 @@ def _version_holding(conn, canon_version: int, workflow_id: str = "issue") -> in
 def _publish_older_generation(conn, workflow_id: str = "issue") -> dict:
     """Put this universe on a published generation that is not the newest."""
     older = canon_generations(workflow_id)[-2]
-    return publish_workflow_version(
-        conn, workflow_id=workflow_id, definition=dict(older.definition),
-    )
+    return publish_as_history(conn, workflow_id, older.definition)
 
 
 def test_the_read_reports_following_and_the_last_automatic_adoption(test_db):
