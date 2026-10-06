@@ -208,7 +208,7 @@ def land_item_through_merge_queue(
         # refused is what turns a red gate into a wait nothing ends:
         # merge-when-ready takes, and every later read sees an armed
         # landing waiting for an entry GitHub will never create.
-        red_checks = red_entry_checks_refusal(ctx, pr_num)
+        red_checks = red_entry_checks_refusal(ctx, pr_num, sleep=sleep)
         if red_checks:
             return fail_landing(pr_num, red_checks, tuple(warnings))
         entry = enter_merge_queue(ctx, pr_num)

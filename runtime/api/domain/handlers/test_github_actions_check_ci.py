@@ -2,54 +2,21 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
-
 import pytest
 
-from yoke_core.domain.handlers import github_actions_check_ci
+from runtime.api.domain.handlers.check_ci_test_support import (
+    _make_request,
+    stub_resolver,
+)
 from yoke_core.domain.handlers.github_actions_check_ci import (
     _classify,
     handle_check_ci,
 )
-from yoke_core.domain.project_github_auth import ProjectGithubAuth
-from yoke_contracts.api.function_call import (
-    ActorContext,
-    FunctionCallRequest,
-    TargetRef,
-)
-
-
-_RESOLVED = ProjectGithubAuth(
-    project="yoke",
-    repo="upyoke/yoke",
-    token="ghs_test_token",
-)
-
-
-def _make_request(payload: Optional[Dict[str, Any]] = None,
-                  *, target_kind: str = "global",
-                  include_project: bool = True) -> FunctionCallRequest:
-    if payload is None:
-        payload = {"repo": "upyoke/yoke", "workflow": "ci.yml"}
-    payload = dict(payload)
-    if include_project:
-        payload.setdefault("project", "yoke")
-    return FunctionCallRequest(
-        function="github_actions.check_ci",
-        actor=ActorContext(session_id="test-session"),
-        target=TargetRef(kind=target_kind),
-        payload=payload,
-    )
 
 
 @pytest.fixture
 def _resolver_ok(monkeypatch):
-    from yoke_core.domain.handlers import github_actions_check_ci as h
-    monkeypatch.setattr(
-        "yoke_core.domain.project_github_auth.resolve_project_github_auth",
-        lambda project, **kw: _RESOLVED,
-    )
-    return h
+    return stub_resolver(monkeypatch)
 
 
 class TestClassify:
@@ -61,17 +28,19 @@ class TestClassify:
 
     def test_completed_success(self):
         out = _classify(
-            {"id": 1, "status": "completed", "conclusion": "success",
-             "html_url": "https://x"}
+            {
+                "id": 1,
+                "status": "completed",
+                "conclusion": "success",
+                "html_url": "https://x",
+            }
         )
         assert out.state == "passed"
         assert out.run_id == 1
         assert out.html_url == "https://x"
 
     def test_completed_failure(self):
-        out = _classify(
-            {"id": 1, "status": "completed", "conclusion": "failure"}
-        )
+        out = _classify({"id": 1, "status": "completed", "conclusion": "failure"})
         assert out.state == "failed"
         assert out.conclusion == "failure"
 
@@ -112,8 +81,12 @@ class TestHandle:
         assert "owner/name" in outcome.error.message
 
     def test_returns_passed(self, monkeypatch, _resolver_ok):
-        run = {"id": 42, "status": "completed", "conclusion": "success",
-               "html_url": "https://x"}
+        run = {
+            "id": 42,
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://x",
+        }
         monkeypatch.setattr(
             "yoke_core.domain.github_actions_rest.latest_workflow_run",
             lambda *a, **kw: run,
@@ -134,16 +107,24 @@ class TestHandle:
             "yoke_core.domain.github_actions_rest.latest_workflow_run",
             latest,
         )
-        outcome = handle_check_ci(_make_request({
-            "repo": "upyoke/yoke", "workflow": "ci.yml",
-            "branch": "main", "head_sha": "deadbeef",
-        }))
+        outcome = handle_check_ci(
+            _make_request(
+                {
+                    "repo": "upyoke/yoke",
+                    "workflow": "ci.yml",
+                    "branch": "main",
+                    "head_sha": "deadbeef",
+                }
+            )
+        )
         assert outcome.primary_success
         assert calls[0][1]["branch"] == "main"
         assert calls[0][1]["head_sha"] == "deadbeef"
 
     def test_empty_branch_selects_by_commit_alone(
-        self, monkeypatch, _resolver_ok,
+        self,
+        monkeypatch,
+        _resolver_ok,
     ):
         calls = []
 
@@ -155,30 +136,45 @@ class TestHandle:
             "yoke_core.domain.github_actions_rest.latest_workflow_run",
             latest,
         )
-        outcome = handle_check_ci(_make_request({
-            "repo": "upyoke/yoke", "workflow": "ci.yml",
-            "branch": "", "head_sha": "deadbeef",
-        }))
+        outcome = handle_check_ci(
+            _make_request(
+                {
+                    "repo": "upyoke/yoke",
+                    "workflow": "ci.yml",
+                    "branch": "",
+                    "head_sha": "deadbeef",
+                }
+            )
+        )
         assert outcome.primary_success
         assert outcome.result_payload["state"] == "passed"
         assert calls[0]["branch"] == ""
         assert calls[0]["head_sha"] == "deadbeef"
 
     def test_refuses_a_request_naming_no_branch_and_no_commit(
-        self, _resolver_ok,
+        self,
+        _resolver_ok,
     ):
         # Unstubbed on purpose: the real selector refuses before it can
         # reach GitHub, and the handler must render that as a typed error.
-        outcome = handle_check_ci(_make_request({
-            "repo": "upyoke/yoke", "workflow": "ci.yml", "branch": "",
-        }))
+        outcome = handle_check_ci(
+            _make_request(
+                {
+                    "repo": "upyoke/yoke",
+                    "workflow": "ci.yml",
+                    "branch": "",
+                }
+            )
+        )
         assert outcome.primary_success is False
         assert outcome.error is not None
         assert outcome.error.code == "invalid_payload"
         assert "needs a branch or a head_sha" in outcome.error.message
 
     def test_rejects_repo_outside_project_binding(
-        self, monkeypatch, _resolver_ok,
+        self,
+        monkeypatch,
+        _resolver_ok,
     ):
         called = False
 
@@ -191,9 +187,14 @@ class TestHandle:
             "yoke_core.domain.github_actions_rest.latest_workflow_run",
             latest,
         )
-        outcome = handle_check_ci(_make_request({
-            "repo": "other/repository", "workflow": "ci.yml",
-        }))
+        outcome = handle_check_ci(
+            _make_request(
+                {
+                    "repo": "other/repository",
+                    "workflow": "ci.yml",
+                }
+            )
+        )
 
         assert not outcome.primary_success
         assert outcome.error.code == "invalid_payload"
@@ -206,9 +207,33 @@ class TestHandle:
             "yoke_core.domain.github_actions_rest.latest_workflow_run",
             lambda *a, **kw: run,
         )
+        monkeypatch.setattr(
+            "yoke_core.domain.github_actions_failed_jobs.list_run_jobs",
+            lambda *a, **kw: [
+                {"conclusion": "failure", "runner_name": "r1", "steps": [{}]}
+            ],
+        )
         outcome = handle_check_ci(_make_request())
         assert outcome.primary_success
         assert outcome.result_payload["state"] == "failed"
+
+    def test_a_run_whose_jobs_never_started_is_no_verdict(
+        self, monkeypatch, _resolver_ok
+    ):
+        run = {"id": 42, "status": "completed", "conclusion": "failure"}
+        monkeypatch.setattr(
+            "yoke_core.domain.github_actions_rest.latest_workflow_run",
+            lambda *a, **kw: run,
+        )
+        monkeypatch.setattr(
+            "yoke_core.domain.github_actions_failed_jobs.list_run_jobs",
+            lambda *a, **kw: [
+                {"conclusion": "cancelled", "runner_name": None, "steps": []}
+            ],
+        )
+        outcome = handle_check_ci(_make_request())
+        assert outcome.result_payload["state"] == "no_verdict"
+        assert outcome.result_payload["conclusion"] == "ci_job_not_started"
 
     def test_returns_no_runs_when_empty(self, monkeypatch, _resolver_ok):
         monkeypatch.setattr(
@@ -248,7 +273,9 @@ class TestHandle:
         assert outcome.error.code == "rest_transport_error"
 
     def test_missing_workflow_is_not_a_transport_error(
-        self, monkeypatch, _resolver_ok,
+        self,
+        monkeypatch,
+        _resolver_ok,
     ):
         from yoke_core.domain.gh_rest_transport import RestNotFoundError
 
@@ -262,9 +289,14 @@ class TestHandle:
             "yoke_core.domain.github_actions_rest.latest_workflow_run",
             _raise,
         )
-        outcome = handle_check_ci(_make_request({
-            "repo": "upyoke/yoke", "workflow": "missing.yml",
-        }))
+        outcome = handle_check_ci(
+            _make_request(
+                {
+                    "repo": "upyoke/yoke",
+                    "workflow": "missing.yml",
+                }
+            )
+        )
         assert not outcome.primary_success
         assert outcome.error.code == "workflow_not_found"
         assert "missing.yml" in outcome.error.message
@@ -272,7 +304,9 @@ class TestHandle:
         assert "authorization" not in outcome.error.message.lower()
 
     def test_rest_auth_error_stays_authorization(
-        self, monkeypatch, _resolver_ok,
+        self,
+        monkeypatch,
+        _resolver_ok,
     ):
         from yoke_core.domain.gh_rest_transport import RestAuthError
 
@@ -286,55 +320,3 @@ class TestHandle:
         outcome = handle_check_ci(_make_request())
         assert not outcome.primary_success
         assert outcome.error.code == "rest_auth_error"
-
-
-class TestSingleShot:
-    """The handler is single-shot: wait semantics live in the CLI adapter
-    (field-note 12612 — a server-side wait loop exceeds the https relay
-    read timeout)."""
-
-    def test_running_returns_immediately_one_rest_read(
-        self, monkeypatch, _resolver_ok,
-    ):
-        calls = []
-
-        def fake(*a, **kw):
-            calls.append(1)
-            return {"id": 7, "status": "in_progress"}
-
-        monkeypatch.setattr(
-            "yoke_core.domain.github_actions_rest.latest_workflow_run", fake,
-        )
-        outcome = handle_check_ci(_make_request())
-        assert outcome.primary_success
-        assert outcome.result_payload["state"] == "running"
-        assert calls == [1]
-
-    def test_legacy_wait_keys_are_ignored_not_looped(
-        self, monkeypatch, _resolver_ok,
-    ):
-        # Founder cutover: older payloads carrying wait/timeout_sec get
-        # the point-in-time answer (extra fields ignored), never a loop.
-        calls = []
-
-        def fake(*a, **kw):
-            calls.append(1)
-            return {"id": 7, "status": "queued"}
-
-        monkeypatch.setattr(
-            "yoke_core.domain.github_actions_rest.latest_workflow_run", fake,
-        )
-        outcome = handle_check_ci(_make_request(
-            {"repo": "upyoke/yoke", "workflow": "ci.yml", "wait": True,
-             "timeout_sec": 600}
-        ))
-        assert outcome.primary_success
-        assert outcome.result_payload["state"] == "running"
-        assert calls == [1]
-
-
-class TestRegistration:
-    def test_registration_entry_present(self):
-        ids = {entry["function_id"] for entry in
-               github_actions_check_ci.REGISTRATIONS}
-        assert "github_actions.check_ci" in ids

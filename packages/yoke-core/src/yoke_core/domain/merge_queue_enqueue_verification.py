@@ -32,12 +32,17 @@ a bounded probe.
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from typing import Callable, Optional
 
+from yoke_core.domain.merge_queue_entry_check_redispatch import (
+    redispatch_no_verdict_checks,
+)
 from yoke_core.domain.merge_queue_entry_checks import (
     describe_failed_checks,
     failed_required_checks,
+    only_no_verdict,
     regate_instruction,
 )
 from yoke_core.domain.merge_queue_readback_outcomes import (
@@ -296,6 +301,7 @@ def red_entry_checks_refusal(
     pr_num: str,
     *,
     read_checks: Callable[..., object] = read_required_checks,
+    sleep: Callable[[float], None] = time.sleep,
 ) -> str:
     """Refuse to arm a pull request its required checks have already failed.
 
@@ -304,6 +310,10 @@ def red_entry_checks_refusal(
     entry GitHub is never going to create. Reading the rollup before the
     mutation is what keeps the ordering honest. An unreadable rollup is
     not a refusal — the admission read-back after arming asks again.
+
+    A set whose only red checks were cancelled or never started is not
+    refused: those checks are re-run on the same head, and arming proceeds
+    once GitHub shows them replaced.
     """
     checks, checks_error = read_checks(ctx, pr_num)
     if checks_error or checks is None:
@@ -311,6 +321,14 @@ def red_entry_checks_refusal(
     failed = failed_required_checks(checks)
     if not failed:
         return ""
+    if only_no_verdict(failed):
+        return redispatch_no_verdict_checks(
+            ctx,
+            pr_num,
+            failed,
+            read_checks=read_checks,
+            sleep=sleep,
+        )
     return (
         f"pull request {pr_num} was not armed for the merge queue: "
         f"{regate_instruction(failed)}."

@@ -241,16 +241,19 @@ An unreadable or incomplete listing is a read error, never proof of a stall.
 The failure trace recognizes the stall line as the bridge's terminal cause.
 The case gate force-cancels a confirmed stalled run and
 redispatches once against the same already-pushed head; it does not push the
-lane again. If the replacement also never creates a job, the gate force-cancels
-it and fails immediately as `ci_run_never_started` instead of consuming the
-rest of the case budget. `yoke watch qa-case` emits each named state
+lane again. A run that concluded after its jobs were cancelled or failed to
+start before any runner took them reports the effective conclusion
+`ci_job_not_started` — a named no verdict, never `test_failure` — and is
+redispatched once the same way. If the replacement also starts no job, the gate
+fails immediately with failure class `ci_job_not_started` instead of consuming
+the rest of the case budget. `yoke watch qa-case` emits each named state
 immediately rather than treating it as the healthy
 `waiting_on=progress_throttle` condition.
 
-The terminal recovery names the next action: create an empty commit, then
-rerun the same requirement. The gate rebases that new head, pushes the empty
-commit once, and records the replacement run as authoritative; do not push the
-lane by hand:
+The terminal recovery is a re-dispatch on the same commit: rerun the same
+requirement. A rerun never rejoins a run that concluded with no verdict — the
+dispatch re-issues under a request id keyed by that run — so it starts a fresh
+run without a new commit; do not push the lane by hand:
 
 ```sh
 yoke qa case run --requirement-id REQUIREMENT_ID

@@ -102,8 +102,9 @@ class RemoteRoute:
 
         The correlated dispatch replays a request id it has seen: a second
         invocation on the same commit with the same arguments rejoins the
-        run already in flight (or already concluded) instead of paying for
-        a duplicate.
+        run already in flight (or already concluded with a verdict) instead
+        of paying for a duplicate. A run that concluded with no verdict is
+        re-dispatched under a key derived from this one.
         """
         digest = hashlib.sha256(
             "\0".join((self.base_sha, *self.pytest_args)).encode("utf-8")

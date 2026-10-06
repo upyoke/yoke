@@ -13,7 +13,8 @@ be a green for tests that never ran.
 Dispatch reuses the deployment layer's correlated workflow dispatch, which
 replays a request id it has already seen. The request id is a function of
 the commit and the selection, so a second invocation on the same tree
-rejoins the run in flight rather than dispatching twice.
+rejoins the run in flight rather than dispatching twice — unless that run
+concluded with no verdict, which is re-dispatched instead.
 """
 
 from __future__ import annotations
@@ -24,9 +25,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from yoke_contracts.github_workflow_dispatch import (
-    WORKFLOW_DISPATCH_CORRELATION_INPUT,
-)
+from yoke_core.domain.ci_job_outcome import CI_JOB_NOT_STARTED, REDISPATCH_RECOVERY
 from yoke_core.tools.pytest_remote_selection import (
     EXIT_CANCELLED,
     EXIT_TIMED_OUT,
@@ -52,6 +51,7 @@ CONCLUSION_EXIT = {
     "failure": 1,
     "timed_out": EXIT_TIMED_OUT,
     "cancelled": EXIT_CANCELLED,
+    CI_JOB_NOT_STARTED: EXIT_CANCELLED,
 }
 
 
@@ -129,37 +129,34 @@ def dispatch(
     dispatch_id: str,
     timeout_seconds: int,
 ) -> tuple[str, str] | None:
-    """Dispatch or rejoin the run; return ``(run_id, source)`` or None."""
-    from yoke_core.domain.deploy_pipeline_github_workflow_dispatch import (
-        trigger_with_recovery_retries,
+    """Dispatch or rejoin the run; return ``(run_id, source)`` or None.
+
+    A rejoined run that concluded with no verdict is re-dispatched rather
+    than reported again (:mod:`yoke_core.domain.ci_run_redispatch`).
+    """
+    from yoke_core.domain.ci_run_redispatch import (
+        RedispatchChainExhausted,
+        dispatch_correlated,
     )
-    from yoke_core.domain.deploy_pipeline_github_workflow_reconciliation import (
-        _trigger_args,
-        decode_trigger_result,
-    )
-    from yoke_core.domain.deploy_pipeline_reporting import _github_actions
 
     inputs = {
         "head_sha": head_sha,
         "base_sha": base_sha,
         "pytest_args": shlex.join(pytest_args),
     }
-    args = _trigger_args(
-        repo,
-        workflow,
-        branch,
-        inputs,
-        request_id=dispatch_id,
-        correlation_input=WORKFLOW_DISPATCH_CORRELATION_INPUT,
-    )
-    result = trigger_with_recovery_retries(
-        args,
-        github_actions=_github_actions,
-        project=project,
-        sd=None,
-        timeout_sec=timeout_seconds,
-    )
-    run_id, dispatched = decode_trigger_result(result)
+    try:
+        result, run_id, dispatched = dispatch_correlated(
+            project=project,
+            repo=repo,
+            workflow=workflow,
+            branch=branch,
+            request_id=dispatch_id,
+            timeout_seconds=timeout_seconds,
+            inputs=inputs,
+        )
+    except RedispatchChainExhausted as exc:
+        _error(str(exc))
+        return None
     if result.returncode != 0 or not run_id:
         detail = failure_detail(result)
         _error(
@@ -253,14 +250,16 @@ def run(
 
         if warning := resolve_received_wait(run_id=run_id, conclusion=conclusion):
             _say(warning)
-        if conclusion != "success":
+        if conclusion not in ("success", CI_JOB_NOT_STARTED):
             relay_failed_log(project=project, repo=repo, run_id=run_id)
     exit_code = CONCLUSION_EXIT.get(conclusion, EXIT_UNREACHABLE)
     recovery = ""
-    if conclusion not in ("success", "failure"):
+    if conclusion == CI_JOB_NOT_STARTED:
+        recovery = f"; {REDISPATCH_RECOVERY}, or re-run with {LOCAL_FLAG}"
+    elif conclusion not in ("success", "failure"):
         recovery = (
-            "; the run reached no verdict — re-run the same command to "
-            f"dispatch again, or re-run with {LOCAL_FLAG}"
+            "; the run reached no verdict — re-run the same command, which "
+            f"dispatches a fresh run, or re-run with {LOCAL_FLAG}"
         )
     _say(
         f"concluded {conclusion} exit={exit_code} run={run_id} {url} "
@@ -318,8 +317,6 @@ __all__ = [
     "failure_detail",
     "main",
     "publish",
-    "record_wait",
-    "relay_failed_log",
     "run",
 ]
 

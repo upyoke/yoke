@@ -27,10 +27,6 @@ import subprocess
 from pathlib import Path
 from typing import Mapping
 
-from yoke_contracts.github_workflow_dispatch import (
-    WORKFLOW_DISPATCH_CORRELATION_INPUT,
-)
-
 from yoke_core.domain.qa_case_ci_authority import (
     GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV as GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV,
     github_actions_authority as github_actions_authority,
@@ -198,7 +194,9 @@ def push_lane(
         timeout=600,
     )
     lane_head_record.record_published_lane_head(
-        project, str(checkout), source_ref=source_ref,
+        project,
+        str(checkout),
+        source_ref=source_ref,
     )
 
 
@@ -233,31 +231,28 @@ def dispatch_workflow(
     producer candidate this run must build against, so they travel with
     every dispatch — the first one, the never-started redispatch, and the
     merge boundary's. A case declaring none dispatches exactly as before.
-    """
-    from yoke_core.domain.deploy_pipeline_github_workflow_dispatch import (
-        trigger_with_recovery_retries,
-    )
-    from yoke_core.domain.deploy_pipeline_github_workflow_reconciliation import (
-        _trigger_args,
-    )
-    from yoke_core.domain.deploy_pipeline_reporting import _github_actions
 
-    args = _trigger_args(
-        repo,
-        workflow,
-        branch,
-        dict(inputs or {}),
-        request_id=request_id,
-        correlation_input=WORKFLOW_DISPATCH_CORRELATION_INPUT,
+    A replay that lands on a run which concluded with no verdict is
+    re-dispatched (:mod:`yoke_core.domain.ci_run_redispatch`), so re-running
+    a gate never rejoins a run that tested nothing.
+    """
+    from yoke_core.domain.ci_run_redispatch import (
+        RedispatchChainExhausted,
+        dispatch_correlated,
     )
-    result = trigger_with_recovery_retries(
-        args,
-        github_actions=_github_actions,
-        project=project,
-        sd=None,
-        timeout_sec=timeout_seconds,
-    )
-    run_id = result.stdout.strip()
+
+    try:
+        result, run_id, _dispatched = dispatch_correlated(
+            project=project,
+            repo=repo,
+            workflow=workflow,
+            branch=branch,
+            request_id=request_id,
+            timeout_seconds=timeout_seconds,
+            inputs=inputs,
+        )
+    except RedispatchChainExhausted as exc:
+        raise QaCaseExecutionError(str(exc)) from exc
     if result.returncode != 0 or not run_id:
         detail = (result.stderr or result.stdout or "").strip()
         raise QaCaseExecutionError(

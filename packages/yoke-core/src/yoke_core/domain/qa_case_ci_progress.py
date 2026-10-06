@@ -7,6 +7,8 @@ import sys
 from collections.abc import Iterator
 from typing import TextIO
 
+from yoke_core.domain.ci_job_outcome import CI_JOB_NOT_STARTED
+
 PROGRESS_PREFIX = "# qa case run:"
 
 
@@ -181,8 +183,9 @@ def announce_never_started_retry(
 ) -> None:
     """Name the one automatic replacement for a run that never started."""
     _emit(
-        f"requirement={requirement_id} ci_run_never_started run={run_id} "
-        f"repo={repo}; force-cancel settled; redispatching once",
+        f"requirement={requirement_id} {CI_JOB_NOT_STARTED} run={run_id} "
+        f"repo={repo}; no job started, so the run has no verdict; "
+        "redispatching once",
         stream=stream,
     )
 
@@ -191,16 +194,17 @@ def announce_never_started_terminal(
     requirement_id: int,
     *,
     repo: str,
-    branch: str,
     run_id: str,
     stream: TextIO | None = None,
 ) -> str:
-    """Emit and return the named failure after the replacement also stalls."""
+    """Emit and return the named no-verdict after the replacement also stalls."""
     message = (
-        f"requirement={requirement_id} ci_run_never_started run={run_id} "
-        f"repo={repo}; the automatic redispatch also remained pending with "
-        "zero jobs. Recovery: create an empty commit, then re-run the QA case "
-        f"so the gate can push an empty commit on {branch}; do not push by hand"
+        f"requirement={requirement_id} {CI_JOB_NOT_STARTED} run={run_id} "
+        f"repo={repo}; the automatic redispatch also started no job, so there "
+        "is still no verdict. Recovery: re-dispatch — re-run the QA case, "
+        "which dispatches a fresh run on the same commit. If runs keep "
+        f"starting no job, open https://github.com/{repo}/actions to see why "
+        "(runner labels, pool capacity)"
     )
     _emit(message, stream=stream)
     return message

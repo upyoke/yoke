@@ -89,9 +89,12 @@ The waiter requires a complete GitHub concurrency-group listing with no configur
 groups before naming it `ci_run_never_started`. Configured concurrency waits keep
 being awaited until completion or the overall timeout; missing queue evidence is
 a read error, never a stall. The gate force-cancels a confirmed stall and redispatches once without
-another push. If the replacement also never starts, the case fails immediately
-with the same name and tells the worker to create an empty commit and rerun the
-case so the gate pushes the new head; the worker still never pushes by hand.
+another push. A run whose jobs were cancelled or failed to start before any
+runner took them concludes as `ci_job_not_started`: a named no verdict, never a
+test failure, redispatched once the same way. If the replacement also never
+starts, the case fails immediately as `ci_job_not_started`; re-dispatch by
+rerunning the same case, which starts a fresh run on the same commit rather than
+rejoining the dead one. The worker never pushes by hand.
 
 A project also declaring the merge-queue capability verifies
 pull-request-first: after the shared rebase and single push, the executor opens

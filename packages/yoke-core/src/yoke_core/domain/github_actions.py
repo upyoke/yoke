@@ -249,13 +249,16 @@ def cmd_check_ci(
     )
 
     def _bound_latest_run() -> Optional[Dict[str, Any]]:
-        return latest_workflow_run(
+        from yoke_core.domain.ci_job_outcome import with_effective_conclusion
+
+        run = latest_workflow_run(
             repo,
             workflow,
             branch=branch,
             head_sha=head_sha,
             token=token,
         )
+        return with_effective_conclusion(repo, run, token=token)
 
     try:
         check_ci_command(

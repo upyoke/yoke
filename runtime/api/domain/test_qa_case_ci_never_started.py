@@ -10,6 +10,7 @@ from yoke_core.domain import (
     qa_case_ci_never_started,
     qa_case_ci_superseded_run,
 )
+from yoke_core.domain.ci_job_outcome import CI_JOB_NOT_STARTED
 from yoke_core.domain.github_actions_run_stall import (
     CI_RUN_NEVER_STARTED_REASON,
 )
@@ -98,7 +99,9 @@ def test_replacement_that_never_starts_fails_by_name_with_recovery(
     assert result.run_id == "99"
     assert result.exit_code == 1
     assert CI_RUN_NEVER_STARTED_REASON in result.output
-    assert "push an empty commit" in result.output
+    assert CI_JOB_NOT_STARTED in result.output
+    assert "re-run the QA case" in result.output
+    assert "empty commit" not in result.output
     dispatch.assert_called_once()
     assert cancel.call_args_list == [
         mock.call(project="yoke", repo="acme/widgets", run_id="77"),
@@ -106,6 +109,32 @@ def test_replacement_that_never_starts_fails_by_name_with_recovery(
     ]
     progress = capsys.readouterr().err
     assert "redispatching once" in progress
-    assert CI_RUN_NEVER_STARTED_REASON in progress
-    assert "do not push by hand" in progress
+    assert CI_JOB_NOT_STARTED in progress
+    assert "dispatches a fresh run on the same commit" in progress
     assert resolved == []
+
+
+def test_concluded_run_whose_jobs_never_started_is_redispatched_without_cancel(
+    monkeypatch,
+):
+    not_started = f"failed:{CI_JOB_NOT_STARTED} — no job got a runner"
+    result, dispatch, cancel, resolved = _await(
+        monkeypatch,
+        [(1, not_started), (0, "success")],
+    )
+
+    assert result.run_id == "99"
+    assert result.exit_code == 0
+    dispatch.assert_called_once()
+    cancel.assert_not_called()
+    assert resolved == [{"run_id": "99", "conclusion": "success"}]
+
+
+def test_real_failure_is_not_redispatched(monkeypatch):
+    result, dispatch, cancel, resolved = _await(monkeypatch, [(1, "failed:failure")])
+
+    assert result.run_id == "77"
+    assert result.exit_code == 1
+    dispatch.assert_not_called()
+    cancel.assert_not_called()
+    assert resolved == [{"run_id": "77", "conclusion": "failure"}]

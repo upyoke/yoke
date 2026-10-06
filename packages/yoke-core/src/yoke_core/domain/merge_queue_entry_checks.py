@@ -18,6 +18,12 @@ consumes it without repeating the GitHub read.
 A red set also makes the server observer disarm merge-when-ready so a later
 green on the same pull request cannot auto-merge without this gate recording
 a new verdict. Re-running ``yoke merge item`` after a fix re-arms as usual.
+
+Not every red conclusion is a verdict. A required check that was cancelled
+or never started — its job queued until GitHub gave up on a runner — says
+nothing about the head, so its recovery is not a fix on the lane: re-running
+``yoke merge item`` re-runs those checks on the same head
+(:mod:`yoke_core.domain.merge_queue_entry_check_redispatch`).
 """
 
 from __future__ import annotations
@@ -42,6 +48,23 @@ RED_CONCLUSIONS = frozenset(
         "timed_out",
     }
 )
+
+
+#: Required-check conclusions that carry no verdict about the head: the
+#: check was cancelled or never started, so the recovery is a re-run.
+NO_VERDICT_CONCLUSIONS = frozenset({"cancelled", "startup_failure", "stale"})
+
+
+def no_verdict_checks(failed: Sequence[LandingCheck]) -> tuple[LandingCheck, ...]:
+    """The red checks that were cancelled or never started."""
+    return tuple(
+        check for check in failed if check.conclusion in NO_VERDICT_CONCLUSIONS
+    )
+
+
+def only_no_verdict(failed: Sequence[LandingCheck]) -> bool:
+    """True when every red check is a no-verdict one, so a re-run recovers."""
+    return bool(failed) and len(no_verdict_checks(failed)) == len(failed)
 
 
 def failed_required_checks(
@@ -71,13 +94,25 @@ def describe_failed_checks(failed: Sequence[LandingCheck]) -> str:
     return ", ".join(check.describe() for check in failed) or "none"
 
 
+def _recovery(failed: Sequence[LandingCheck]) -> str:
+    if only_no_verdict(failed):
+        return (
+            "they were cancelled or never started, which is no verdict about "
+            "the head — re-run `yoke merge item`, which re-runs them on the "
+            "same head"
+        )
+    return (
+        "fix it on the lane, commit, re-run the verification gate, and "
+        "re-run `yoke merge item`"
+    )
+
+
 def regate_instruction(failed: Sequence[LandingCheck]) -> str:
     """Name the red required checks and what the holder does about them."""
     return (
         f"its required checks already concluded red "
         f"({describe_failed_checks(failed)}), so GitHub will not enqueue "
-        "it — fix it on the lane, commit, re-run the verification gate, "
-        "and re-run `yoke merge item`"
+        f"it — {_recovery(failed)}"
     )
 
 
@@ -117,17 +152,19 @@ def entry_checks_refusal(
         f"entry-checks-failed: pull request {pr_num} head {sha} has "
         f"required checks that already concluded red "
         f"({describe_failed_checks(failed)}). GitHub will not enqueue it. "
-        f"Observed {observed}. Fix on the lane, commit, re-run the "
-        f"verification gate, and re-run `yoke merge item`. {disarm_note}"
+        f"Observed {observed}. Recovery: {_recovery(failed)}. {disarm_note}"
     )
 
 
 __all__ = [
     "ENTRY_CHECKS_FAILED",
+    "NO_VERDICT_CONCLUSIONS",
     "RED_CONCLUSIONS",
     "describe_failed_checks",
     "disarm_merge_when_ready",
     "entry_checks_refusal",
     "failed_required_checks",
+    "no_verdict_checks",
+    "only_no_verdict",
     "regate_instruction",
 ]

@@ -16,6 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Mapping, Optional
 
+from yoke_core.domain.ci_job_outcome import CI_JOB_NOT_STARTED
 from yoke_core.domain.github_actions_failed_jobs import (
     LOG_AVAILABLE,
     FailedJob,
@@ -73,8 +74,10 @@ def build_failed_job_report(
             f"No failed jobs yet in run {run_id} — {run_url}"
             if unfinished
             else (
-                f"No failed jobs in run {run_id}. Its conclusion may be "
-                f"cancelled or a startup failure — open {run_url}."
+                f"No failed jobs in run {run_id}: nothing it ran reported a "
+                "failure, so the run reached no verdict (cancelled, or "
+                f"{CI_JOB_NOT_STARTED} when its jobs never started). "
+                f"Re-dispatch: re-run the command that started it — open {run_url}."
             )
         )
         return FailedJobReport(
