@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from yoke_contracts.skill_registry import IMPLEMENTATION_SKILL_IDS
+
 from dataclasses import dataclass
 
 from yoke_core.domain.workflow_definition_builders import (
-    IMPLEMENTATION_WORKFLOW_SKILL_IDS,
     WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE,
 )
 from yoke_core.domain.workflow_gate_catalog import GATE_PLAN_SIMULATION
@@ -17,7 +18,7 @@ from yoke_contracts.item_worktrees import (
     WORKFLOW_WORKTREES_NONE,
 )
 
-_LANE_RELEASE_RECOVERY_SKILL_IDS = IMPLEMENTATION_WORKFLOW_SKILL_IDS | {"polish"}
+_LANE_RELEASE_RECOVERY_SKILL_IDS = IMPLEMENTATION_SKILL_IDS | {"polish"}
 
 LANE_IMPLEMENTATION = ITEM_WORKTREE_LANE_IMPLEMENTATION
 LANE_WORKER = ITEM_WORKTREE_LANE_WORKER

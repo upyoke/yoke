@@ -1,6 +1,7 @@
 ---
 name: onboard
 description: "Make a wired project execution-ready — strategy docs, execution profile, scaffold and infra Packs, hosting, environments, a gated first deploy, and seeded first work."
+# argument-hint is generated from yoke_contracts.skill_registry.
 argument-hint: "[--project P] [--run-id RUN]"
 ---
 

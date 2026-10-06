@@ -1,6 +1,7 @@
 ---
 name: approve
 description: "Record your decision on a deployment run paused at a Yoke human-approval stage."
+# argument-hint is generated from yoke_contracts.skill_registry.
 argument-hint: "RUN-ID [--note \"...\"]"
 ---
 

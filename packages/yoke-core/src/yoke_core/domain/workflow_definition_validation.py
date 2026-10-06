@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from yoke_contracts.skill_registry import TASK_PRODUCING_SKILL_IDS
+
 from typing import Any, Mapping, Optional
 
 from yoke_core.domain.approval_policy import parse_approval_policy
 from yoke_core.domain.workflow_definition_builders import (
     ENTRY_SURFACE_IDS,
-    TASK_PRODUCING_PLANNING_SKILL_IDS,
     WORKFLOW_DEFINITION_SCHEMA_VERSION,
     WORKFLOW_FILE_BUDGET_OPTIONAL,
     WORKFLOW_FILE_BUDGET_REQUIRED,
@@ -189,11 +190,11 @@ def _validate_generated_children_producer(
         )
         if isinstance(binding, Mapping)
     }
-    if not bound & TASK_PRODUCING_PLANNING_SKILL_IDS:
+    if not bound & TASK_PRODUCING_SKILL_IDS:
         raise WorkflowDefinitionError(
             "policies.generated_children=epic_tasks requires a skill binding "
             "that produces tasks: "
-            f"{sorted(TASK_PRODUCING_PLANNING_SKILL_IDS)}"
+            f"{sorted(TASK_PRODUCING_SKILL_IDS)}"
         )
 
 

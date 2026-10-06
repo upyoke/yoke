@@ -1,6 +1,7 @@
 ---
 name: conduct
 description: "Execute the pinned workflow segment bound to conduct through generated task lanes, the Engineer/Tester loop, and integration simulation."
+# argument-hint is generated from yoke_contracts.skill_registry.
 argument-hint: "PREFIX-N [--max-attempts N] [--no-chain]"
 ---
 

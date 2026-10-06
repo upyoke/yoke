@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from yoke_contracts.skill_registry import STAGE_SKILL_IDS
+from yoke_contracts.skill_registry import SKILLS_BY_ID, STAGE_SKILL_IDS
 from yoke_core.domain.harness_capability_registry import (
     compact_entrypoint_display,
     safe_operator_surface_entrypoints,
@@ -36,7 +36,6 @@ def _repo_root() -> Path:
 
 
 REPO = _repo_root()
-EXPECTED_IMPLEMENT_COMMAND = "/yoke implement PREFIX-N"
 
 
 def _read(rel_path: str) -> str:
@@ -49,7 +48,7 @@ def test_codex_hook_orientation_lists_registry_implement_path():
     # Registry-based source-of-truth checks retained after the cutover.
     # The Codex per-event orientation rendering helpers were deleted with the
     # legacy ``codex_hooks`` module; the registry is the contract surface.
-    assert EXPECTED_IMPLEMENT_COMMAND in compact_entrypoint_display()
+    assert SKILLS_BY_ID["implement"].display in compact_entrypoint_display()
     assert set(shared_downstream_paths()) == STAGE_SKILL_IDS
 
 
@@ -89,7 +88,9 @@ def test_hook_parity_map_matches_codex_shared_registry_summary():
     assert "four downstream paths" not in text
 
 
-def test_command_references_teach_implement_and_internal_advance():
+def test_command_references_teach_implement_and_retire_advance():
+    skill = SKILLS_BY_ID["implement"]
+    assert "PREFIX-N" in skill.arguments
     for rel_path in (
         ".yoke/docs/reference/commands.md",
         ".agents/skills/yoke/SKILL.md",
@@ -98,7 +99,9 @@ def test_command_references_teach_implement_and_internal_advance():
         text = _read(rel_path)
         # These files ship verbatim into target projects, so they teach the
         # generic ``PREFIX-N`` placeholder rather than this repo's item prefix.
-        assert "/yoke implement PREFIX-N" in text
+        assert skill.entrypoint in text
+        if rel_path != ".agents/skills/yoke/SKILL.md":
+            assert skill.display in text
         assert "/yoke " + "advance PREFIX-N implementation" not in text
         assert "other than `implementation`" not in text
         assert "advance targets other than implementation" not in text

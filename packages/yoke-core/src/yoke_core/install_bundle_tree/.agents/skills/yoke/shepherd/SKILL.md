@@ -1,6 +1,7 @@
 ---
 name: shepherd
 description: "Execute a pinned Shepherd planning segment through its quality gates"
+# argument-hint is generated from yoke_contracts.skill_registry.
 argument-hint: "{PREFIX-N}"
 ---
 

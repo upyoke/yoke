@@ -1,6 +1,7 @@
 ---
 name: implement
 description: "Implement an item across the stages its workflow binds to implement: engine entry, implementation, and the review loop to the binding's handoff."
+# argument-hint is generated from yoke_contracts.skill_registry.
 argument-hint: "{PREFIX-N} [--no-worktree] [--force] [--qa-bypass]"
 ---
 

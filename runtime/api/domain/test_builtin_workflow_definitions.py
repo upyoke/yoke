@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.skill_registry import STAGE_SKILL_IDS
+
 from copy import deepcopy
 
 import pytest
@@ -9,7 +11,6 @@ import pytest
 from yoke_core.domain.builtin_workflow_definitions import (
     BUILTIN_WORKFLOW_IDS,
     ENTRY_SURFACE_IDS,
-    REGISTERED_WORKFLOW_SKILL_IDS,
     builtin_workflow_definition,
     builtin_workflow_definitions,
     builtin_workflow_version_history,
@@ -170,7 +171,7 @@ def test_definition_references_only_closed_catalog_and_registered_vocabulary():
         assert set(definition["entry_surfaces"]) <= ENTRY_SURFACE_IDS
         assert {
             row["skill_id"] for row in definition["skill_bindings"]
-        } <= REGISTERED_WORKFLOW_SKILL_IDS
+        } <= STAGE_SKILL_IDS
         assert {
             gate["id"] for stage in definition["stages"] for gate in stage["gates"]
         } <= catalog_ids

@@ -1,6 +1,8 @@
 ---
 name: implementing
 description: "Implementation kickoff inside /yoke implement: QA seeding, project context, test commands, and implementation guidance. Called after the item enters its implementation stage."
+# argument-hint is generated from yoke_contracts.skill_registry.
+argument-hint: ""
 ---
 
 # Implementing Sub-skill

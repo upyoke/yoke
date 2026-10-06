@@ -1,16 +1,16 @@
 ---
 name: models
 description: Research, review, and publish effective-dated model catalog revisions.
+# argument-hint is generated from yoke_contracts.skill_registry.
 argument-hint: "lookup MODEL_ID | get | validate | diff | publish | revisions | restore"
 ---
 
 # /yoke models
 
-Research and publish the sourced model catalog in the control-plane database.
-Each complete revision has a UTC `effective_at`. Session cost uses the revision
-effective at the session's stored initial `offered_at`, including after
-reactivation. Raw usage remains stored; derived API-equivalent cost remains a
-read-time estimate, with its revision ID shown beside it.
+Catalog revisions have a UTC `effective_at`. Session cost uses the revision effective
+at the session's stored initial `offered_at`, including after reactivation.
+Raw usage stays stored. Derived API-equivalent cost is a read-time estimate
+shown with its revision ID.
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.

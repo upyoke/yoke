@@ -1,6 +1,7 @@
 ---
 name: resync
 description: Detect and repair drift between local backlog items and their GitHub issues. Default mode is detect-only (read-only); use --fix for auto-repair.
+# argument-hint is generated from yoke_contracts.skill_registry.
 argument-hint: "[--fix]"
 ---
 

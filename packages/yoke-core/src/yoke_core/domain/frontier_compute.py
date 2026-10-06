@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.skill_registry import IMPLEMENTATION_SKILL_IDS
+
 import logging
 import time
 from typing import Any, Dict, List, Optional, Tuple
@@ -31,10 +33,8 @@ from .project_scope import normalize_project_scope
 from .project_settings import resolve_default_wip_cap
 from .queries import is_blocked, is_frozen
 from .runtime_settings import get_seconds
-from .workflow_definition_builders import (
-    IMPLEMENTATION_WORKFLOW_SKILL_IDS,
-)
 from .workflow_runtime import ENGINE_WAIT_STAGE_IDS
+
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
@@ -98,20 +98,17 @@ def compute_frontier(
         conn,
         {
             dep_item: [
-                (d.blocking_item, d.blocking_status or "unknown")
-                for d in details
+                (d.blocking_item, d.blocking_status or "unknown") for d in details
             ]
             for dep_item, details in activation_blocks.items()
         },
     )
-    blocker_details_map: Dict[int, List[Dict[str, Any]]] = (
-        remap_ref_keys_to_internal(
-            conn,
-            {
-                dep_item: [d.to_dict() for d in details]
-                for dep_item, details in activation_blocks.items()
-            },
-        )
+    blocker_details_map: Dict[int, List[Dict[str, Any]]] = remap_ref_keys_to_internal(
+        conn,
+        {
+            dep_item: [d.to_dict() for d in details]
+            for dep_item, details in activation_blocks.items()
+        },
     )
 
     cursor.execute(UNBLOCKS_COUNT_SQL)
@@ -125,7 +122,8 @@ def compute_frontier(
     wip_active_items: List[int] = []
 
     recent_owner_window_s = get_seconds(
-        "session_reactivation_reacquire_window_s", 300,
+        "session_reactivation_reacquire_window_s",
+        300,
     )
     defended_items = routed_ownership_exclusions(
         conn,
@@ -153,18 +151,12 @@ def compute_frontier(
         adapter = classify_next_action(workflow, status)
         if adapter == AdapterCategory.SKIP:
             continue
-        if (
-            status in ENGINE_WAIT_STAGE_IDS
-            and status != "blocked"
-        ):
+        if status in ENGINE_WAIT_STAGE_IDS and status != "blocked":
             continue
         stage_index = workflow.stage_index(status)
-        if (
-            not is_frozen(item["frozen"])
-            and workflow.skill_has_started(
-                status,
-                IMPLEMENTATION_WORKFLOW_SKILL_IDS,
-            )
+        if not is_frozen(item["frozen"]) and workflow.skill_has_started(
+            status,
+            IMPLEMENTATION_SKILL_IDS,
         ):
             wip_active += 1
             wip_active_items.append(internal_item_id)
@@ -181,9 +173,7 @@ def compute_frontier(
             stage_index=stage_index if stage_index is not None else -1,
             adapter=adapter,
             stage_count=len(workflow.stages),
-            stage_label=str(
-                (workflow.stage(status) or {}).get("label") or status
-            ),
+            stage_label=str((workflow.stage(status) or {}).get("label") or status),
             probe_path_claim_activation=(
                 workflow.requires_item_path_claim_probe(status)
             ),
@@ -223,9 +213,8 @@ def compute_frontier(
                 for detail in fi.blocker_details
             )
 
-        idea_incomplete = (
-            status == workflow.stage_ids[0]
-            and is_idea_body_incomplete(item)
+        idea_incomplete = status == workflow.stage_ids[0] and is_idea_body_incomplete(
+            item
         )
         if idea_incomplete:
             fi.blocked_reasons.append(

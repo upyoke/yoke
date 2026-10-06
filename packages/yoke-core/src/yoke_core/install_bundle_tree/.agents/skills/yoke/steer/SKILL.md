@@ -1,6 +1,7 @@
 ---
 name: steer
 description: "Direct-mode entrypoint — itemless steering loop over a strategy doc, defaulting to CURRENT-PLAN."
+# argument-hint is generated from yoke_contracts.skill_registry.
 argument-hint: "[STRATEGY-DOC-SLUG] [--project P ...]"
 ---
 

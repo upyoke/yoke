@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
+from yoke_contracts.skill_registry import STAGE_SKILL_IDS
+
 from collections import deque
 from typing import Any, Mapping
 
-from yoke_core.domain.workflow_definition_builders import (
-    REGISTERED_WORKFLOW_SKILL_IDS,
-)
 from yoke_core.domain.workflow_definition_validation_support import (
     WorkflowDefinitionError,
     require_exact_keys,
@@ -17,11 +16,13 @@ from yoke_core.domain.workflow_definition_validation_support import (
 )
 
 _TRANSITION_KEYS = frozenset({"from_stage_id", "to_stage_id"})
-_BINDING_KEYS = frozenset({
-    "skill_id",
-    "from_stage_id",
-    "through_stage_id",
-})
+_BINDING_KEYS = frozenset(
+    {
+        "skill_id",
+        "from_stage_id",
+        "through_stage_id",
+    }
+)
 
 
 def validate_transition_graph(
@@ -57,9 +58,7 @@ def validate_transition_graph(
             transition.get("to_stage_id"), f"{path}.to_stage_id"
         )
         if before not in stage_id_set or after not in stage_id_set:
-            raise WorkflowDefinitionError(
-                f"{path} references an undeclared stage"
-            )
+            raise WorkflowDefinitionError(f"{path} references an undeclared stage")
         if before == after:
             raise WorkflowDefinitionError(f"{path} cannot be a self transition")
         edges.append((before, after))
@@ -82,9 +81,7 @@ def validate_transition_graph(
                 f"non-terminal stage {stage_id!r} has no outgoing transition"
             )
     if incoming[stage_ids[0]]:
-        raise WorkflowDefinitionError(
-            "initial stage cannot have incoming transitions"
-        )
+        raise WorkflowDefinitionError("initial stage cannot have incoming transitions")
 
     visited = {stage_ids[0]}
     pending = deque([stage_ids[0]])
@@ -110,17 +107,13 @@ def validate_skill_bindings(
     stage_index = {stage_id: index for index, stage_id in enumerate(stage_ids)}
     covered: set[tuple[str, str]] = set()
     for index, raw_binding in enumerate(
-        require_sequence(
-            definition.get("skill_bindings"), "skill_bindings"
-        )
+        require_sequence(definition.get("skill_bindings"), "skill_bindings")
     ):
         path = f"skill_bindings[{index}]"
         binding = require_mapping(raw_binding, path)
         require_exact_keys(binding, _BINDING_KEYS, path)
-        skill_id = require_nonempty_text(
-            binding.get("skill_id"), f"{path}.skill_id"
-        )
-        if skill_id not in REGISTERED_WORKFLOW_SKILL_IDS:
+        skill_id = require_nonempty_text(binding.get("skill_id"), f"{path}.skill_id")
+        if skill_id not in STAGE_SKILL_IDS:
             raise WorkflowDefinitionError(
                 f"{path}.skill_id references unknown skill {skill_id!r}"
             )
@@ -137,7 +130,8 @@ def validate_skill_bindings(
                 f"{path} must cover at least one forward transition"
             )
         covered.update(
-            edge for edge in edges
+            edge
+            for edge in edges
             if stage_index[before] <= stage_index[edge[0]]
             and stage_index[edge[1]] <= stage_index[through]
         )

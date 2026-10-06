@@ -1,6 +1,7 @@
 ---
 name: strategize
 description: "Direct-mode entrypoint — guided SML review across the MISSION, LANDSCAPE, VISION, MASTER-PLAN, and CURRENT-PLAN strategy docs."
+# argument-hint is generated from yoke_contracts.skill_registry.
 argument-hint: "[--model MODEL]"
 ---
 
