@@ -10,6 +10,8 @@ from yoke_contracts.machine_config.settings_keys import (
     machine_setting_default,
 )
 
+from yoke_contracts.skill_registry import STAGE_SKILL_IDS
+
 from . import db_backend
 from .runtime_settings import get_int
 from .schema_common import _table_exists
@@ -324,26 +326,12 @@ def _emit_session_event(
 # Shared downstream dispatch paths
 # ---------------------------------------------------------------------------
 
-# Canonical downstream path names keyed by scheduler next_step values. This is
-# the single definition used by claimed-work path derivation and the
-# routable-action catalog. Add a new scheduler next_step here once.
+# Claims and dispatch consume the same current stage-skill inventory.
 _NEXT_STEP_TO_PATH: Dict[str, str] = {
-    "refine": "refine",
-    "shepherd": "shepherd",
-    "conduct": "conduct",
-    "implement": "implement",
-    "blitz": "blitz",
-    "dash": "dash",
-    "polish": "polish",
-    "usher": "usher",
+    skill_id: skill_id for skill_id in STAGE_SKILL_IDS
 }
 
 
 def lifecycle_dispatch_paths() -> frozenset:
-    """Return every lifecycle path a scheduler next_step can dispatch onto.
-
-    The routable-action catalog derives its lifecycle membership from here
-    rather than restating the tokens, so adding a next_step above is the
-    only edit a new lifecycle destination needs.
-    """
-    return frozenset(_NEXT_STEP_TO_PATH.values())
+    """Return current stage-skill paths supported by the scheduler."""
+    return STAGE_SKILL_IDS

@@ -6,22 +6,20 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, List
 
+from yoke_contracts.skill_registry import STAGE_SKILL_IDS
 from yoke_contracts.project_contract.project_keys import DEFAULT_WIP_CAP
 
 
-class AdapterCategory(str, Enum):
-    """Downstream adapter that should handle a frontier item."""
-
-    IMPLEMENT = "implement"
-    BLITZ = "blitz"
-    SHEPHERD = "shepherd"
-    REFINE = "refine"
-    CONDUCT = "conduct"
-    DASH = "dash"
-    POLISH = "polish"
-    USHER = "usher"
-    WAIT = "wait"
-    SKIP = "skip"
+# Stage adapters derive from the inventory, alongside frontier-only outcomes.
+AdapterCategory = Enum(
+    "AdapterCategory",
+    {
+        **{skill_id.upper(): skill_id for skill_id in sorted(STAGE_SKILL_IDS)},
+        "WAIT": "wait",
+        "SKIP": "skip",
+    },
+    type=str,
+)
 
 
 @dataclass

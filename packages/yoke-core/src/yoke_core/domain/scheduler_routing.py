@@ -5,22 +5,18 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
+from yoke_contracts.skill_registry import STAGE_SKILL_IDS
+
 from .frontier import AdapterCategory
 from .scheduler_types import NextStep, RoutingOverride
 
 ROUTING_OVERRIDE_PATH_CLAIM_BLOCKED = "path_claim_activation_blocked"
 
 _ADAPTER_TO_STEP: Dict[AdapterCategory, NextStep] = {
-    AdapterCategory.IMPLEMENT: NextStep.IMPLEMENT,
-    AdapterCategory.BLITZ: NextStep.BLITZ,
-    AdapterCategory.CONDUCT: NextStep.CONDUCT,
-    AdapterCategory.DASH: NextStep.DASH,
-    AdapterCategory.POLISH: NextStep.POLISH,
-    AdapterCategory.REFINE: NextStep.REFINE,
-    AdapterCategory.SHEPHERD: NextStep.SHEPHERD,
-    AdapterCategory.USHER: NextStep.USHER,
-    AdapterCategory.WAIT: NextStep.WAIT,
-    AdapterCategory.SKIP: NextStep.WAIT,
+    adapter: NextStep(adapter.value)
+    if adapter.value in STAGE_SKILL_IDS
+    else NextStep.WAIT
+    for adapter in AdapterCategory
 }
 
 

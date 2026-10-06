@@ -70,6 +70,7 @@ IN_SCOPE_WRITERS = (
     "packages/yoke-core/src/yoke_core/tools/atlas_integrity_audit.py",
     "packages/yoke-core/src/yoke_core/tools/atlas_render_docs.py",
     "packages/yoke-core/src/yoke_core/tools/render_field_note_inline.py",
+    "packages/yoke-core/src/yoke_core/tools/render_skill_registry_inline.py",
 )
 
 

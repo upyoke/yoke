@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_contracts.skill_registry import SKILLS_BY_ID
 from yoke_contracts.session_control.models import LaunchCreateRequest
 from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 from yoke_core.domain.session_launch_mandate_teaching import STANDING_TEACHINGS
@@ -12,43 +13,6 @@ from yoke_core.domain.session_launch_types import LaunchRequest, SessionLaunchEr
 from yoke_core.domain.session_workflow_routing import live_next_step
 from yoke_core.domain.workflow_registry import WorkflowRegistryError
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
-
-
-_ENTRYPOINTS = {
-    "dash": "/yoke dash {ref}",
-    "refine": "/yoke refine {ref}",
-    "implement": "/yoke implement {ref}",
-    "polish": "/yoke polish {ref}",
-    "blitz": "/yoke blitz {ref}",
-    "shepherd": "/yoke shepherd {ref}",
-    "conduct": "/yoke conduct {ref}",
-    "usher": "/yoke usher {ref}",
-}
-_REMAINING_LEGS = {
-    "dash": "the Dash leg to its merge/evidence close",
-    "refine": (
-        "refine to refined-idea, then implementation, polish, and that "
-        "binding's merge boundary"
-    ),
-    "implement": (
-        "implementation and polish per the live bindings, then that "
-        "binding's merge boundary"
-    ),
-    "polish": "polish per the live bindings, then that binding's merge boundary",
-    "blitz": (
-        "the Blitz leg after the strategy-document handoff, through its "
-        "merge/evidence close"
-    ),
-    "shepherd": (
-        "the shepherd, conduct, and usher chain named by the live bindings, "
-        "stopping before any deployment run"
-    ),
-    "conduct": (
-        "the conduct and usher chain named by the live bindings, stopping "
-        "before any deployment run"
-    ),
-    "usher": "usher through merge; do not create a deployment run",
-}
 
 
 _DELIBERATE_CLOSE = (
@@ -136,8 +100,10 @@ def compose_single_item_mandate(
 
 def item_entrypoint(next_step: str, public_ref: str) -> str | None:
     """Render the launch command for a bound skill; unlaunchable steps return None."""
-    template = _ENTRYPOINTS.get(next_step)
-    return template.format(ref=public_ref) if template else None
+    skill = SKILLS_BY_ID.get(next_step)
+    return (
+        f"{skill.entrypoint} {public_ref}" if skill and skill.kind == "stage" else None
+    )
 
 
 def _route_for_item(conn: Any, public_ref: str, project_id: int) -> tuple[str, str]:
@@ -168,13 +134,15 @@ def _route_for_item(conn: Any, public_ref: str, project_id: int) -> tuple[str, s
         item_id=item_id,
     )
     entrypoint = item_entrypoint(str(step or ""), public_ref)
-    remaining = _REMAINING_LEGS.get(str(step or ""))
-    if not entrypoint or not remaining:
+    if not entrypoint:
         raise SessionLaunchError(
             "mandate_unroutable",
             f"item {public_ref} has no launchable route (next_step={step!r})",
         )
-    return entrypoint, remaining
+    return (
+        entrypoint,
+        "the remaining legs named by the live workflow bindings through merge/evidence close",
+    )
 
 
 def compose_item_launch_instructions(

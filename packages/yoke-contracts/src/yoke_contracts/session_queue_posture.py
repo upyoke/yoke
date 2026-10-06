@@ -8,38 +8,20 @@ refused at the flag, with the vocabulary named, than relayed and bounced.
 from __future__ import annotations
 
 from typing import FrozenSet
+from yoke_contracts.skill_registry import SKILL_SESSION_MODES
 
 
 SESSION_MODE_PARKED = "parked"
 SESSION_MODE_DEFAULT = "wait"
-# Grounded stamps: skill ``--mode`` values, NextAction kinds, and packet
-# posture. Every skill that stamps a posture on entry needs its own value
-# here, or the stamp its body teaches is refused.
-SESSION_MODES: FrozenSet[str] = frozenset(
+# Non-skill postures describe scheduling and recovery.
+SESSION_MODES: FrozenSet[str] = SKILL_SESSION_MODES | frozenset(
     (
         SESSION_MODE_DEFAULT,
         SESSION_MODE_PARKED,
-        "blitz",
         "busy",
-        "charge",
-        "conduct",
-        "curate",
-        "dash",
-        "doctor",
         "escalate",
-        "feed",
-        "idea",
-        "implement",
         "operator",
-        "polish",
-        "refine",
         "resume",
-        "shepherd",
-        "simulate",
-        "steer",
-        "strategize",
-        "usher",
-        "wrapup",
     )
 )
 

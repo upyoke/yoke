@@ -69,7 +69,10 @@ class RenderResult:
 
 
 def rewrite_between_markers(
-    original: str, replacement: str, *, slug: str,
+    original: str,
+    replacement: str,
+    *,
+    slug: str,
 ) -> str | None:
     """Return rewritten content; None when markers are missing or ill-formed."""
     begin, end = begin_marker(slug), end_marker(slug)
@@ -119,9 +122,7 @@ def render_blocks(
     for rel_path in inventory:
         abs_path = target_root / rel_path
         if not abs_path.exists():
-            missing_files.append(
-                FileRenderOutcome(path=rel_path, state="missing_file")
-            )
+            missing_files.append(FileRenderOutcome(path=rel_path, state="missing_file"))
             continue
 
         original = abs_path.read_text(encoding="utf-8")
@@ -135,7 +136,9 @@ def render_blocks(
             continue
 
         rewritten = rewrite_between_markers(
-            original, content_for_path(rel_path), slug=slug,
+            original,
+            content_for_path(rel_path),
+            slug=slug,
         )
         if rewritten is None:
             missing_markers.append(
@@ -144,9 +147,7 @@ def render_blocks(
             continue
 
         if rewritten == original:
-            unchanged.append(
-                FileRenderOutcome(path=rel_path, state="unchanged")
-            )
+            unchanged.append(FileRenderOutcome(path=rel_path, state="unchanged"))
             continue
 
         changed.append(FileRenderOutcome(path=rel_path, state="rendered"))
@@ -211,6 +212,7 @@ def format_drift_summary(
 FAMILY_MODULES: tuple[str, ...] = (
     "yoke_core.tools.render_field_note_inline",
     "yoke_core.tools.render_read_recipe_inline",
+    "yoke_core.tools.render_skill_registry_inline",
 )
 
 

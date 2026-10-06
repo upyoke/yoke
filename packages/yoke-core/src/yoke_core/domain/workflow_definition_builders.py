@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, Optional, Sequence
 
+from yoke_contracts.skill_registry import (
+    STAGE_SKILL_IDS,
+    IMPLEMENTATION_SKILL_IDS,
+    TASK_PRODUCING_SKILL_IDS,
+)
 from yoke_contracts.item_worktrees import WORKFLOW_WORKTREES_NONE
 from yoke_contracts.lifecycle_status import (
     LEGACY_STATUS_BUCKETS,
@@ -28,30 +33,9 @@ WORKFLOW_DELIVERY_MERGE_FREE = "merge_free"
 WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE = "continuous_slice_then_release_stage"
 WORKFLOW_QA_OPTIONAL = "optional"
 WORKFLOW_QA_OPTIONAL_ITEM_ATTACHMENT = "optional_item_attachment"
-REGISTERED_WORKFLOW_SKILL_IDS = frozenset(
-    {
-        "blitz",
-        "conduct",
-        "dash",
-        "implement",
-        "polish",
-        "refine",
-        "shepherd",
-        "usher",
-    }
-)
-IMPLEMENTATION_WORKFLOW_SKILL_IDS = frozenset(
-    {
-        "blitz",
-        "conduct",
-        "dash",
-        "implement",
-    }
-)
-#: Skills whose planning phase writes ``epic_tasks`` rows. A definition may only
-#: declare ``generated_children="epic_tasks"`` when it binds one of these, or it
-#: promises decomposition no skill in its own lifecycle ever produces.
-TASK_PRODUCING_PLANNING_SKILL_IDS = frozenset({"shepherd"})
+REGISTERED_WORKFLOW_SKILL_IDS = STAGE_SKILL_IDS
+IMPLEMENTATION_WORKFLOW_SKILL_IDS = IMPLEMENTATION_SKILL_IDS
+TASK_PRODUCING_PLANNING_SKILL_IDS = TASK_PRODUCING_SKILL_IDS
 ENTRY_SURFACE_IDS = frozenset(
     {
         "cli",

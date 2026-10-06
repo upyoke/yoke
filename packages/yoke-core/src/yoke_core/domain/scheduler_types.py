@@ -6,34 +6,19 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from yoke_contracts.skill_registry import STAGE_SKILL_IDS
 from yoke_contracts.project_contract.project_keys import DEFAULT_WIP_CAP
 
 
-class NextStep(str, Enum):
-    """Scheduler-level action for an item on the frontier.
-
-    Values:
-        REFINE: Issue needs refinement (idea/refining-idea).
-        SHEPHERD: Pre-ready epic -- needs maturation via shepherd pipeline.
-        CONDUCT: Epic implementation work (ready/active/review).
-        IMPLEMENT: Issue implementation work (refined-idea/implementing/
-            reviewing-implementation). Routes to /yoke implement
-            for main-session issue implementation.
-        POLISH: Item needs finishing review
-            (reviewed-implementation/polishing-implementation).
-        USHER: Passed/validate/release/implemented -- merge and deploy.
-        WAIT: Blocked, exceptional, or no action available.
-    """
-
-    REFINE = "refine"
-    SHEPHERD = "shepherd"
-    CONDUCT = "conduct"
-    IMPLEMENT = "implement"
-    BLITZ = "blitz"
-    DASH = "dash"
-    POLISH = "polish"
-    USHER = "usher"
-    WAIT = "wait"
+# Stage actions derive from skill metadata; scheduling outcomes stay local.
+NextStep = Enum(
+    "NextStep",
+    {
+        **{skill_id.upper(): skill_id for skill_id in sorted(STAGE_SKILL_IDS)},
+        "WAIT": "wait",
+    },
+    type=str,
+)
 
 
 # ---------------------------------------------------------------------------

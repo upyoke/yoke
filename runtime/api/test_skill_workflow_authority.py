@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from yoke_contracts.skill_registry import SKILLS_BY_ID
 
 ROOT = Path(__file__).parents[2]
 SKILLS = ROOT / ".agents" / "skills" / "yoke"
@@ -88,11 +89,7 @@ def test_skill_tree_uses_registered_lifecycle_transitions() -> None:
         assert not list((root / retired).glob("*.md"))
         for path in root.rglob("*.md"):
             assert "/yoke " + retired not in path.read_text(), path
-    help_text = _read("help", "SKILL.md")
-    internal_commands = help_text.split("INTERNAL (", 1)[1].split(
-        "For full documentation", 1
-    )[0]
-    assert retired not in internal_commands
+    assert retired not in SKILLS_BY_ID
     review = _read("implement", "review.md")
     assert "lifecycle.transition.execute" in review
     assert "yoke lifecycle transition" in review
