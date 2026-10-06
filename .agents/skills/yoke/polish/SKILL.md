@@ -20,15 +20,19 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 - `{PREFIX-N}` — Backlog item ID. Accepts `PREFIX-N`, zero-padded IDs, or a bare number.
 
-## Modes
+## Workflow segment
 
-Polish always advances status on successful completion, whether invoked directly (e.g., `/yoke polish PREFIX-N`) or via scheduler routing.
+Read `yoke workflows item get ITEM --json`, then its exact pin with
+`yoke workflows version get WORKFLOW VERSION --json`. Polish owns the
+half-open `definition.skill_bindings` interval containing the live stage
+only when that binding's `skill_id` is `polish`. Its `from_stage_id` is
+the entry and its `through_stage_id` is the handoff boundary.
 
-### Lifecycle transitions
-- `reviewed-implementation` -> `polishing-implementation` (set immediately when polish starts)
-- `polishing-implementation` -> `implemented` (set on successful completion)
-
-If polish fails, cannot resolve the worktree, or leaves verification failing, the item must NOT auto-advance to `implemented`. Once polish starts, the item stays at `polishing-implementation`.
+Activate and complete through the definition's forward transitions using
+`yoke lifecycle transition`. A resumed working stage stays in place during
+review. Successful polish stops at the bound handoff stage and renders
+`next_skill_id` from a fresh item read. Failed verification leaves the item
+at its current working stage; it cannot cross the handoff boundary.
 
 ## Constraints
 
@@ -37,7 +41,8 @@ If polish fails, cannot resolve the worktree, or leaves verification failing, th
 - Commits follow standard Yoke commit discipline (specific files, descriptive messages).
 - Both standalone and routed modes advance status on successful completion.
 - Respect existing uncommitted work in the item's worktree. Do not discard or reset unrelated edits.
-- **Never push branches or create pull requests.** Polish commits locally only. Pushing and PR creation belong to usher.
+- **Never push branches or create pull requests by hand.** Commit locally;
+  the registered CI verification gate owns any required publication.
 
 ## Phase map — read one file, at the phase it governs
 
@@ -52,7 +57,7 @@ execute them in sequence, one at a time.
 | 6. Review | Examines the worktree diff against `main`, runs the verification checklist, walks the review dimensions, emits a structured report. | [`review.md`](review.md) |
 | 7. Apply finishing fixes | AC closure, test co-modification, dead-code deletion, blast-radius cleanup, documentation freshness, and the DB-claim stop-and-amend gate. | [`fixes.md`](fixes.md) |
 | 8–9. Verify and commit | Runs the project's registered test commands, then commits with a scoped `git add`. No push, no pull request. | [`verify-and-commit.md`](verify-and-commit.md) |
-| 10–15. Advance to implemented | Re-runs browser QA and project E2E against the polish commit, captures the summary, advances to `implemented`, releases the claim. | [`advance.md`](advance.md) |
+| 10–15. Complete the bound segment | Re-runs attached QA against the polish commit, captures the summary, transitions to the binding's handoff stage, releases the claim. | [`advance.md`](advance.md) |
 
 Polish runs the three simplify axes as a **single sequential pass**, not a
 parallel three-sub-agent fan-out. v0 keeps the pass sequential by design.

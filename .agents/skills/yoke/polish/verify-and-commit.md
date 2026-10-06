@@ -9,13 +9,14 @@ Covers polish steps 8 and 9: run verification against the fixes, then commit.
 
 ## 8. Run Verification
 
-Materialize the project-default and item-attached plans for the workflow's
-review transition:
+Resolve `NEXT_STAGE` from the live polish interval and its unique forward
+edge as taught in [`advance.md`](advance.md). Materialize the effective
+project-default and item-attached plans for that declared target:
 
 ```bash
 yoke qa plan materialize \
   --item "PREFIX-{N}" \
-  --transition reviewing-implementation \
+  --transition "$NEXT_STAGE" \
   --json
 yoke qa requirement list --item "PREFIX-{N}" --json
 ```
@@ -46,7 +47,7 @@ the registered replace adapter; do not skip this write because a later
 usher/merge gate can also read the field.
 
 A CI-routed Command case (`command-ci`) already records `verification_tree.head_sha`
-and a conclusion on the run. The polish→implemented gate accepts that recorded
+and a conclusion on the run. The bound polish completion gate accepts that recorded
 verdict without a hand-fetched pytest banner in `items.test_results`.
 
 **This is the one full execution.** Iterate with the cheap layers while

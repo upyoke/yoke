@@ -1,34 +1,63 @@
-# Polish — Advance To Implemented
+# Polish — Complete The Bound Segment
 
 Covers polish steps 10 through 15: rerun attached QA cases, capture the final
 summary, advance status, release the claim, emit the final output, and confirm
 completion.
 
-**Context variables** (set by earlier phases): `ITEM_REF`, `ITEM_NUM`, `WORKTREE_PATH`, `WORKTREE_PATHS`.
+**Context variables** (set by earlier phases): `ITEM_REF`, `ITEM_NUM`,
+`WORKTREE_PATH`, `WORKTREE_PATHS`, `POLISH_THROUGH_STAGE`, `LIVE_STAGE`,
+`NEXT_STAGE`.
 
 ---
 
 ## 10. Inspect Outstanding QA Requirements (read-only)
 
-Before rerunning attached cases, inspect the outstanding QA evidence so you
-know exactly which blocking requirements still need passing runs. This is a
-typed read-only diagnostic:
+Refresh `yoke workflows item get ITEM --json` and read its exact pin with
+`yoke workflows version get WORKFLOW VERSION --json`. Set `LIVE_STAGE` to
+the returned status and require the half-open `definition.skill_bindings`
+interval containing it to belong to `polish`. Retain its `through_stage_id`
+as `POLISH_THROUGH_STAGE`.
+
+Set `NEXT_STAGE` to the unique forward target in `definition.transitions`
+whose `from_stage_id` equals `LIVE_STAGE`, ordered by `definition.stages`
+to exclude rework edges. It must stay inside the interval or equal its
+handoff boundary. If no unique edge exists, stop with
+`workflow_next_stage_ambiguous`; if it skips the boundary, stop with
+`polish_segment_invalid`. Name the live stage and ask the workflow owner
+to repair or select a declared route. Never choose a literal target.
+
+Inspect outstanding QA evidence for that target:
 
 ```bash
-yoke qa gate-summary --item "$ITEM_REF" --target implemented
+yoke qa gate-summary --item "$ITEM_REF" --target "$NEXT_STAGE"
 ```
 
-Use `--target reviewed-implementation` to scope to verification-phase only; the bare call prints the summary JSON (add `--json` for the full typed envelope). Do not compose raw `qa_requirements` SQL during polish — `qa.gate_summary.run` is the canonical surface and matches the gate semantics in `yoke_core.domain.qa_gates`. The old checkout-local db-router QA summary is operator-debug fallback only, not the agent-facing teaching shape.
+The target is definition-derived. Do not compose raw `qa_requirements` SQL
+during polish — `qa.gate_summary.run` is the canonical typed diagnostic.
 
 ## 10b. Re-run Attached Cases
 
-Materialize the `implemented` transition and execute every outstanding
-method-backed case through `yoke qa case run`. For Browser methods, follow
-`.agents/skills/yoke/advance/browser-qa.md` with target semantics
-`implemented`, including the current branch/SHA freshness check. Deployed-stack
-cases belong to `release`; polish must not pull them forward.
+Materialize and list cases for `NEXT_STAGE`:
 
-If any case blocks, leave the item at `polishing-implementation` and report the
+```text
+yoke qa plan materialize --item "$ITEM_REF" --transition "$NEXT_STAGE" --json
+yoke qa requirement list --item "$ITEM_REF" --json
+```
+
+Run every outstanding, non-waived case bound to that target through its
+registered runner. For Browser methods, execute the ordered plan against
+a target serving the committed lane, with current branch/SHA freshness:
+
+```text
+yoke qa plan run --item "$ITEM_REF" --transition "$NEXT_STAGE" --base-url <candidate-url> --expected-branch <lane-branch> --expected-sha <lane-head-sha>
+```
+
+For targeted recovery, use `yoke qa case run --requirement-id <id>`.
+Follow the runner's returned review dispatch and submission recipe;
+pending review is not a pass. Delivery cases belong to the definition's
+delivery stages outside the polish interval; do not pull them forward.
+
+If any case blocks, leave the item at `LIVE_STAGE` and report the
 failed requirement/run instead of advancing.
 
 ## 11. Capture Final Summary
@@ -47,27 +76,34 @@ Before status advancement, capture the details you will present after cleanup is
 {Brief summary of what was fixed and why}
 ```
 
-## 12. Advance to implemented
+## 12. Transition To The Bound Handoff
 
-After all polish work is verified complete and tests pass, advance to `implemented`
-through `lifecycle.transition.execute`, which runs the target gates and syncs GitHub.
+After all polish work is committed and verification passes, take the
+declared edge through `lifecycle.transition.execute`, which runs the
+target gates and syncs GitHub:
 
 ```bash
-yoke lifecycle transition "$ITEM_REF" --to implemented
+yoke lifecycle transition "$ITEM_REF" --from "$LIVE_STAGE" --to "$NEXT_STAGE" --reason "Polish verified"
 ```
 
-Final output should include:
-> **PREFIX-{N}** polished: `polishing-implementation` -> `implemented`
+Refresh the pin after success. If its status is still inside the polish
+interval, repeat steps 10–12 for the next declared edge, including its
+target's QA. Stop immediately when status equals `POLISH_THROUGH_STAGE`.
+Do not cross it under this command or repeat a transition already recorded.
+
+Final output should name the actual stage reached:
+> **PREFIX-{N}** polished: `{entry working stage}` -> `{POLISH_THROUGH_STAGE}`
 > Next bound skill: `/yoke {NEXT_SKILL_ID} {ITEM_REF}`.
 
 Resolve `NEXT_SKILL_ID` from a fresh item detail read using
 [the shared handoff recipe](../shared/stage-handoff.md).
 
-`implemented` is a hard handoff point for this command. Do **not** continue
+`POLISH_THROUGH_STAGE` is a hard handoff point for this command. Do **not** continue
 into merge, PR creation, or deployment from the polish flow. The next bound
 skill begins through its fresh command entrypoint.
 
-**If any step above failed or tests are failing:** Do NOT advance to `implemented`. Leave the item at `polishing-implementation` and report the failure.
+**If any step above failed or tests are failing:** Do not advance. Leave
+the item at its current working stage and report the failed gate and repair.
 
 Function-call equivalent (the CLI above builds this envelope internally):
 
@@ -77,7 +113,7 @@ Function-call equivalent (the CLI above builds this envelope internally):
   "actor": {"session_id": "<this-session>"},
   "target": {"kind": "item", "item_id": $ITEM_NUM, "public_ref": "$ITEM_REF"},
   "intent": "polish_complete",
-  "payload": {"source_status": "polishing-implementation", "target_status": "implemented"},
+  "payload": {"source_status": "$LIVE_STAGE", "target_status": "$NEXT_STAGE"},
   "options": {"sync_github_body": true}
 }
 ```
@@ -131,11 +167,11 @@ Polish is complete when:
 - Identified issues have been fixed
 - Tests pass (or are not configured)
 - Changes are committed (or none were needed)
-- Status has been advanced to `implemented`
+- Status has reached `POLISH_THROUGH_STAGE` from the pinned binding
 - The item claim has been released with reason `completed`
 - The final report names the resolved worktree path or worktree lane set and the verification that ran
 - The operator has been shown what changed in the final output
-- The polish flow has stopped at `implemented` without invoking usher or merge steps
+- The polish flow has stopped at its bound handoff without merge or delivery steps
 
 Polish is NOT complete if:
 - The worktree is in a failing test state — fix before reporting

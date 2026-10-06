@@ -31,7 +31,10 @@ class TestRefinePolishSkill:
         name = request.param
         doc = SKILLS / name / "SKILL.md"
         assert doc.is_file()
-        final_heading = {"refine": "### 11. Final Output", "polish": "## 14. Final Output"}[name]
+        final_heading = {
+            "refine": "### 11. Final Output",
+            "polish": "## 14. Final Output",
+        }[name]
         return name, doc, final_heading
 
     def test_no_pre_release_report_step(self, skill_doc):
@@ -116,8 +119,8 @@ class TestPolishActivationOrdering:
     """Polish must front-load claim and status activation before context gathering.
 
     The activation step (claims.work.acquire — which atomically touches the
-    session row inside the same transaction — plus the polishing-implementation
-    lifecycle.transition) must appear as an explicit early step BEFORE any
+    session row inside the same transaction — plus the bound working-stage
+    lifecycle transition) must appear as an explicit early step BEFORE any
     context gathering, diff review, or survey sections. If prompt drift moves
     the activation later, these tests fail.
     """
@@ -134,7 +137,10 @@ class TestPolishActivationOrdering:
         for idx, line in enumerate(lines, start=1):
             if "claims.work.acquire" in line and claim_line is None:
                 claim_line = idx
-            if re.match(r"^#{2,3}\s+\d+\.\s+Gather Context", line) and gather_line is None:
+            if (
+                re.match(r"^#{2,3}\s+\d+\.\s+Gather Context", line)
+                and gather_line is None
+            ):
                 gather_line = idx
         assert claim_line is not None, "polish/SKILL.md missing claims.work.acquire"
         assert gather_line is not None, "polish/SKILL.md missing Gather Context heading"
@@ -143,22 +149,28 @@ class TestPolishActivationOrdering:
             f"Gather Context at line {gather_line}"
         )
 
-    def test_polishing_status_transition_in_activation_block(self, polish_doc: str):
-        """polishing-implementation transition must be in the activation step, before Gather Context."""
+    def test_bound_status_transition_in_activation_block(self, polish_doc: str):
+        """The declared entry transition must precede context gathering."""
         lines = polish_doc.splitlines()
         transition_line = None
         gather_line = None
         for idx, line in enumerate(lines, start=1):
-            if "polishing-implementation" in line and "status" in line and transition_line is None:
+            if (
+                'yoke lifecycle transition "$ITEM_REF" --from "$LIVE_STAGE"' in line
+                and transition_line is None
+            ):
                 transition_line = idx
-            if re.match(r"^#{2,3}\s+\d+\.\s+Gather Context", line) and gather_line is None:
+            if (
+                re.match(r"^#{2,3}\s+\d+\.\s+Gather Context", line)
+                and gather_line is None
+            ):
                 gather_line = idx
         assert transition_line is not None, (
-            "polish/SKILL.md missing polishing-implementation status transition"
+            "polish/SKILL.md missing definition-derived entry transition"
         )
         assert gather_line is not None, "polish/SKILL.md missing Gather Context heading"
         assert transition_line < gather_line, (
-            f"polish/SKILL.md: polishing-implementation transition at line {transition_line} "
+            f"polish/SKILL.md: bound entry transition at line {transition_line} "
             f"must appear before Gather Context at line {gather_line}"
         )
 

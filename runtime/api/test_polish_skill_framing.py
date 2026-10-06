@@ -43,14 +43,14 @@ OPERATION_PAIRS: tuple[tuple[str, str, str, str], ...] = (
     ),
     (
         "parse-and-claim.md",
-        "lifecycle reviewed-implementation -> polishing-implementation",
-        r"yoke lifecycle transition[^\n]+--to polishing-implementation",
+        "lifecycle enters the bound working stage",
+        r'yoke lifecycle transition[^\n]+--from "\$LIVE_STAGE" --to "\$NEXT_STAGE"',
         r'"function":\s*"lifecycle\.transition\.execute"',
     ),
     (
         "advance.md",
-        "lifecycle polishing-implementation -> implemented",
-        r"yoke lifecycle transition[^\n]+--to implemented",
+        "lifecycle completes the bound segment",
+        r'yoke lifecycle transition[^\n]+--from "\$LIVE_STAGE" --to "\$NEXT_STAGE"',
         r'"function":\s*"lifecycle\.transition\.execute"',
     ),
     (
@@ -134,6 +134,19 @@ def test_polish_lifecycle_envelopes_use_canonical_shape(
             f"{filename}: retained lifecycle envelope uses legacy "
             f'"to" payload key — use "target_status" instead.'
         )
+    for filename in ("parse-and-claim.md", "advance.md"):
+        text = polish_texts[filename]
+        assert "definition.skill_bindings" in text
+        assert "definition.transitions" in text
+        assert "definition.stages" in text
+        assert "workflow_next_stage_ambiguous" in text
+        assert "POLISH_THROUGH_STAGE" in text
+        assert not re.search(
+            r"reviewed-implementation|polishing-implementation|\bimplemented\b", text
+        ), f"{filename}: polish routing must not name literal stage ids"
+    assert "skip the entry transition" in polish_texts["parse-and-claim.md"]
+    assert "repeat steps 10–12" in polish_texts["advance.md"]
+    assert "shared handoff recipe" in polish_texts["advance.md"]
 
 
 def test_leading_cli_examples_omit_session_id(polish_texts: dict[str, str]) -> None:
