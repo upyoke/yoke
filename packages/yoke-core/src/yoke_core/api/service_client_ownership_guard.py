@@ -33,8 +33,8 @@ from yoke_core.api.service_client_shared import (
     SESSION_REQUIRED_ERROR,
     _get_db_readonly,
     _resolve_session_id,
-    normalize_claim_item_id,
 )
+from yoke_core.domain.yok_n_parser import parse_item_argument
 
 
 OWNERSHIP_GUARD_EXIT_OK = 0
@@ -56,7 +56,7 @@ def cmd_ownership_guard(args: list[str]) -> int:
     parser.add_argument(
         "--item",
         required=True,
-        help="Item target (YOK-N or bare numeric)",
+        help="Item public ref (PREFIX-N)",
     )
 
     try:
@@ -73,14 +73,13 @@ def cmd_ownership_guard(args: list[str]) -> int:
         print(SESSION_REQUIRED_ERROR, file=sys.stderr)
         return OWNERSHIP_GUARD_EXIT_USAGE
 
-    try:
-        item_id = int(normalize_claim_item_id(parsed.item))
-    except (ValueError, TypeError) as exc:
-        print(f"Error: --item not parseable: {exc}", file=sys.stderr)
-        return OWNERSHIP_GUARD_EXIT_USAGE
-
     conn = _get_db_readonly()
     try:
+        try:
+            item_id = parse_item_argument(parsed.item, conn=conn)
+        except ValueError as exc:
+            print(f"Error: --item: {exc}", file=sys.stderr)
+            return OWNERSHIP_GUARD_EXIT_USAGE
         result = evaluate_ownership_guard(
             conn,
             session_id=parsed.session_id,

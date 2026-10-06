@@ -131,8 +131,8 @@ def cmd_db_claim_amend(args: list[str]) -> int:
                 "success": False,
                 "code": "USAGE",
                 "message": (
-                    f"invalid item ref {parsed.item!r}; expected PREFIX-N, "
-                    "or bare N with project context"
+                    f"invalid item ref {parsed.item!r}: pass the public ref "
+                    "(PREFIX-N), or a bare number together with an explicit project"
                 ),
             }),
             file=sys.stderr,

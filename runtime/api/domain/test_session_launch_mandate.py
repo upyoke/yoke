@@ -269,7 +269,7 @@ def test_raw_instructions_refuse_an_empty_body() -> None:
 def test_unroutable_live_step_refuses_composition(monkeypatch) -> None:
     from yoke_core.domain import session_launch_mandate as mandate
 
-    monkeypatch.setattr(mandate, "resolve_item_id", lambda *_a, **_k: 12)
+    monkeypatch.setattr(mandate, "resolve_item_ref_or_none", lambda *_a, **_k: 12)
     monkeypatch.setattr(
         mandate, "load_item_workflow_runtime", lambda *_a, **_k: object()
     )

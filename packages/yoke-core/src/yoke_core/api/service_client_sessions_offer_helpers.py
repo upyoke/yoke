@@ -125,10 +125,10 @@ def validate_charge_claim_invariant(
     # comparing (project sequences may diverge from internal ids). The
     # conn-less fallback keeps the legacy numeric-tail comparison.
     if conn is not None:
-        from yoke_core.domain.item_ref_resolution import resolve_internal_item_id
+        from yoke_core.domain.item_ref_resolution import internal_item_key
 
-        selected_norm = resolve_internal_item_id(conn, ctx_selected)
-        claim_norm = resolve_internal_item_id(conn, claim_item)
+        selected_norm = internal_item_key(conn, ctx_selected)
+        claim_norm = internal_item_key(conn, claim_item)
     else:
         selected_norm = normalize_item_id(ctx_selected)
         claim_norm = normalize_item_id(claim_item)

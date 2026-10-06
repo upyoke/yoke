@@ -51,11 +51,6 @@ BASELINE: dict[str, dict[str, object]] = {
         "reason": "doc_comment_only",
         "note": "documents legacy YOK-{internal_id} worktree naming scheme",
     },
-    "packages/yoke-core/src/yoke_core/domain/lint_claim_ownership_denials.py": {
-        "count": 1,
-        "reason": "legacy_key_lookup",
-        "note": "match pre-render claim-work command summaries that used internal-id token",
-    },
     "packages/yoke-core/src/yoke_core/domain/lint_shell_quoted_function_payload.py": {
         "count": 1,
         "reason": "token_recognition",

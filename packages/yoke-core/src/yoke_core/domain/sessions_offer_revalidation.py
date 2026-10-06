@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, Tuple
 
 from . import db_backend
-from .item_ref_resolution import resolve_internal_item_id
+from .item_ref_resolution import internal_item_key
 from .scheduler_events import emit_chain_budget_unused, emit_scheduler_offer_skipped
 from .scheduler_skip_reasons import (
     SKIP_REASON_STALE_LIFECYCLE,
@@ -75,7 +75,7 @@ def revalidate_candidate_status(
     ``ScheduledStep``. Returns ``(is_valid, current_status)``. The
     candidate is invalid when the row is missing or the status changed.
     """
-    bare = resolve_internal_item_id(conn, item_id)
+    bare = internal_item_key(conn, item_id)
     if bare is None:
         return False, None
     row = conn.execute(
@@ -102,7 +102,7 @@ def holder_session_for_item(conn: Any, item_id: Any) -> Dict[str, Any]:
     Returns ``{"holder_unknown": True}`` when no live claim row is found
     (the lookup may race against release).
     """
-    bare = resolve_internal_item_id(conn, item_id)
+    bare = internal_item_key(conn, item_id)
     if bare is None:
         return {}
     item_scope = scope_int_sql(conn, "scope", "item_id")

@@ -18,10 +18,8 @@ from yoke_core.domain.backlog_queries import (
     _resolve_write_db_path,
 )
 from yoke_core.domain import backlog_rendering as _rendering
-from yoke_core.domain.item_ref_columns import (
-    render_column_item_ref,
-    resolve_column_item_ref,
-)
+from yoke_core.domain.item_ref_columns import render_column_item_ref
+from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 from yoke_core.domain.project_identity import render_item_ref
 
 
@@ -121,7 +119,7 @@ def execute_close(
         # deterministic deletions commit atomically.
         dependency_ref = render_column_item_ref(conn, item_id)
         resolution_id = (
-            resolve_column_item_ref(conn, normalized_resolution_ref)
+            resolve_item_ref_or_none(conn, normalized_resolution_ref)
             if normalized_resolution_ref
             else None
         )

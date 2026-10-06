@@ -2,7 +2,7 @@
 
 A Python ``int`` is ``items.id``. A digit *string* passed to ``items get`` /
 ``items update`` / ``sync_done_item`` / ``run_scan`` is a project-local
-public sequence under the default project (``allow_bare_internal=False``).
+public sequence that resolves only with project context.
 That swap is how a deploy stamp printed success while writing no row — or
 the wrong row — for a non-default-project item, and how the done
 transition's discovery scan refused every item whose internal id was not
@@ -31,7 +31,7 @@ from yoke_core.domain.lint_item_ref_construction import (
 
 
 #: Functions whose leading positional argument is an operator-facing item
-#: reference, resolved with ``allow_bare_internal=False``.
+#: reference, resolved as a public ref or a project sequence.
 _ITEM_REF_BOUNDARIES = ("sync_done_item", "sync_body", "run_scan")
 
 _BARE_CLI_TOKEN_RE = re.compile(

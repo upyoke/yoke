@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+from yoke_core.domain.handler_item_target import request_item_id
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
@@ -104,8 +105,11 @@ def handle_holder_get(request: FunctionCallRequest) -> HandlerOutcome:
         return _holder_for_path(body.path)
 
     item_id = body.item_id
-    if item_id is None and request.target.item_id is not None:
-        item_id = int(request.target.item_id)
+    if request.target.item_id is not None:
+        try:
+            item_id = request_item_id(request, body.item_id)
+        except ValueError as exc:
+            return _err("payload_invalid", f"holder.get: {exc}")
     if item_id is None:
         return _err(
             "payload_invalid",
@@ -164,8 +168,11 @@ def handle_holder_list(request: FunctionCallRequest) -> HandlerOutcome:
     except Exception as exc:
         return _err("payload_invalid", f"holder.list payload invalid: {exc}")
 
-    if body.item_id is None and request.target.item_id is not None:
-        body.item_id = int(request.target.item_id)
+    if request.target.item_id is not None:
+        try:
+            body.item_id = request_item_id(request, body.item_id)
+        except ValueError as exc:
+            return _err("payload_invalid", f"holder.list: {exc}")
     if body.item_id is None and not body.session_id:
         return _err(
             "payload_invalid",

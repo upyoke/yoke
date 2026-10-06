@@ -15,6 +15,7 @@ from pathlib import Path
 from unittest import mock
 
 from yoke_core.domain import sections
+from runtime.api.test_constants import TEST_ITEM_REF
 from runtime.api.domain.sections_test_helpers import (  # noqa: F401 — fixtures
     _RecordingEmitter,
     _RecordingRenderer,
@@ -59,15 +60,15 @@ class TestMainDispatcher:
             rc = sections.main(
                 [
                     "upsert",
-                    "42",
+                    TEST_ITEM_REF,
                     "Design",
                     "--content-file",
                     str(content_file),
                 ]
             )
         assert rc == 0
-        assert "Upserted section: Design for item 42" in out.getvalue()
-        assert "Body regenerated for item 42" in out.getvalue()
+        assert f"Upserted section: Design for item {TEST_ITEM_REF}" in out.getvalue()
+        assert f"Body regenerated for item {TEST_ITEM_REF}" in out.getvalue()
         assert sections.get_section(42, "Design", db_path=db_path) == "cli content\n"
 
 
@@ -86,9 +87,9 @@ class TestEventFallback:
         content_file.write_text("body", encoding="utf-8")
         rc, out, err = _run_cli(
             sections.cmd_upsert,
-            ["42", "Design", "--content-file", str(content_file)],
+            [TEST_ITEM_REF, "Design", "--content-file", str(content_file)],
             db_path=db_path,
         )
         assert rc == 0
-        assert "Upserted section: Design for item 42" in out
+        assert f"Upserted section: Design for item {TEST_ITEM_REF}" in out
         assert sections.get_section(42, "Design", db_path=db_path) == "body"

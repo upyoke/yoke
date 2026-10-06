@@ -11,6 +11,7 @@ from runtime.api.api_items_test_helpers import (
     _client_for_db,
     make_test_db_fixture,
 )
+from runtime.api.fixtures.backlog import insert_item
 from runtime.api.test_api_hooks_evaluate_route import _request_body
 from yoke_core.domain.work_claim_targets import make_item_target
 
@@ -37,6 +38,9 @@ def _seed_recent_claim_denial_state(
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     conn = db_helpers.connect()
     try:
+        # The guard resolves the command's public ref, so the item exists
+        # (its project sequence equals its id in this fixture project).
+        insert_item(conn, id=item_id, title="claim-guard item")
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS session_tool_calls (
@@ -101,7 +105,7 @@ def test_hooks_evaluate_runs_claim_ownership_guard_server_side(client) -> None:
                 "tool_input": {
                     "command": (
                         "python3 -m yoke_core.cli.db_router "
-                        f"items update {item_id} status implementing"
+                        f"items update YOK-{item_id} status implementing"
                     )
                 },
                 "cwd": "/client/repo",

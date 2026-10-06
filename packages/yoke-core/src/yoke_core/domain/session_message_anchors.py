@@ -18,7 +18,8 @@ from typing import Any, Mapping
 
 from yoke_contracts.session_control.models import RecipientSelector
 from yoke_core.domain import db_backend
-from yoke_core.domain.project_identity import resolve_item_id, resolve_project
+from yoke_core.domain.project_identity import resolve_project
+from yoke_core.domain.item_ref_resolution import ItemRefError, resolve_item_ref
 from yoke_core.domain.session_message_types import SessionMessageError
 from yoke_core.domain.work_claim_targets import TARGET_KIND_STEERING
 
@@ -37,26 +38,22 @@ def _item_project_id(conn: Any, item_id: int) -> int:
         f"SELECT project_id FROM items WHERE id={marker}", (item_id,)
     ).fetchone()
     if row is None:
-        raise SessionMessageError("target_not_found", f"item id {item_id} not found")
+        raise SessionMessageError(
+            "target_not_found", "item anchor names no project-owned item"
+        )
     return int(row[0])
 
 
 def _resolve_item_ref(conn: Any, raw: str) -> tuple[int, int]:
     try:
-        item_id = resolve_item_id(conn, raw)
-    except LookupError as exc:
+        item_id = resolve_item_ref(conn, raw)
+    except ItemRefError as exc:
         raise SessionMessageError(
             "target_not_found",
-            str(exc),
+            f"item anchor: {exc}",
             jsonpath="$.payload.selector.public_refs",
         ) from exc
-    if item_id is None:
-        raise SessionMessageError(
-            "target_not_found",
-            f"item anchor {raw!r} was not found; use a qualified public item ref",
-            jsonpath="$.payload.selector.public_refs",
-        )
-    return int(item_id), _item_project_id(conn, int(item_id))
+    return item_id, _item_project_id(conn, item_id)
 
 
 def _resolve_epic_task(conn: Any, raw: str) -> tuple[int, int, int]:
@@ -174,5 +171,3 @@ def anchor_hits(
 
 
 __all__ = ["STEERING_EVIDENCE", "anchor_hits"]
-
-

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_contracts.session_control.models import LaunchCreateRequest
-from yoke_core.domain.project_identity import resolve_item_id
+from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 from yoke_core.domain.session_launch_mandate_teaching import STANDING_TEACHINGS
 from yoke_core.domain.session_launch_store import marker, value
 from yoke_core.domain.session_launch_types import LaunchRequest, SessionLaunchError
@@ -141,7 +141,7 @@ def item_entrypoint(next_step: str, public_ref: str) -> str | None:
 
 
 def _route_for_item(conn: Any, public_ref: str, project_id: int) -> tuple[str, str]:
-    item_id = resolve_item_id(conn, public_ref, project=project_id)
+    item_id = resolve_item_ref_or_none(conn, public_ref, project=project_id)
     if item_id is None:
         raise SessionLaunchError(
             "assignment_item_not_found",

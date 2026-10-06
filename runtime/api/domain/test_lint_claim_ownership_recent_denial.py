@@ -24,6 +24,10 @@ from runtime.api.domain.test_lint_claim_ownership_mutations import (
 )
 
 
+#: Internal item id -> project sequence for the seeded ``YOK`` project.
+ITEMS = {1718: 18, 1712: 12}
+
+
 def _state_schema(
     rows: list[tuple[str, str]],
     holders: list[tuple[str, int, bool]],
@@ -52,6 +56,22 @@ def _state_schema(
                 "claimed_at TEXT NOT NULL, last_heartbeat TEXT NOT NULL, "
                 "released_at TEXT, release_reason TEXT)"
             )
+            conn.execute(
+                "CREATE TABLE projects (id INTEGER PRIMARY KEY, slug TEXT, "
+                "name TEXT, public_item_prefix TEXT)"
+            )
+            conn.execute(
+                "CREATE TABLE items (id INTEGER PRIMARY KEY, project_id INTEGER, "
+                "project_sequence INTEGER)"
+            )
+            conn.execute("INSERT INTO projects VALUES (1, 'yoke', 'Yoke', 'YOK')")
+            # Internal ids and project sequences diverge, as they do live.
+            for item_id, sequence in ITEMS.items():
+                conn.execute(
+                    "INSERT INTO items (id, project_id, project_sequence) "
+                    "VALUES (%s, 1, %s)",
+                    (item_id, sequence),
+                )
             now = iso8601_now()
             for idx, (session_id, command) in enumerate(rows, start=1):
                 conn.execute(
@@ -104,11 +124,11 @@ class TestRecentDenialBranch(unittest.TestCase):
         rows = [
             (
                 _AMBIENT,
-                "python3 -m yoke_core.api.service_client claim-work --item YOK-1718",
+                "python3 -m yoke_core.api.service_client claim-work --item YOK-18",
             )
         ]
         holders = [("holder-xyz", 1718, False)]
-        cmd = "python3 -m yoke_core.cli.db_router items update 1718 spec --stdin"
+        cmd = "python3 -m yoke_core.cli.db_router items update YOK-18 spec --stdin"
         with _seed_state_db(rows, holders) as db_path:
             with mock.patch.object(lint, "_resolve_db_path", return_value=db_path):
                 verdict = lint.evaluate_payload(_payload(cmd))
@@ -125,44 +145,44 @@ class TestRecentDenialBranch(unittest.TestCase):
                 [
                     (
                         _AMBIENT,
-                        "python3 -m yoke_core.api.service_client claim-work --item YOK-1712",
+                        "python3 -m yoke_core.api.service_client claim-work --item YOK-12",
                     )
                 ],
                 [("holder-xyz", 1712, False)],
-                "python3 -m yoke_core.cli.db_router items update 9999 spec --stdin",
+                "python3 -m yoke_core.cli.db_router items update YOK-99 spec --stdin",
             ),
             (
                 "different session attempted, not ambient",
                 [
                     (
                         "other-session",
-                        "python3 -m yoke_core.api.service_client claim-work --item YOK-1718",
+                        "python3 -m yoke_core.api.service_client claim-work --item YOK-18",
                     )
                 ],
                 [("holder-xyz", 1718, False)],
-                "python3 -m yoke_core.cli.db_router items update 1718 spec --stdin",
+                "python3 -m yoke_core.cli.db_router items update YOK-18 spec --stdin",
             ),
             (
                 "claim-work succeeded (ambient is the holder)",
                 [
                     (
                         _AMBIENT,
-                        "python3 -m yoke_core.api.service_client claim-work --item YOK-1718",
+                        "python3 -m yoke_core.api.service_client claim-work --item YOK-18",
                     )
                 ],
                 [(_AMBIENT, 1718, False)],
-                "python3 -m yoke_core.cli.db_router items update 1718 spec --stdin",
+                "python3 -m yoke_core.cli.db_router items update YOK-18 spec --stdin",
             ),
             (
                 "holder released since the denial",
                 [
                     (
                         _AMBIENT,
-                        "python3 -m yoke_core.api.service_client claim-work --item YOK-1718",
+                        "python3 -m yoke_core.api.service_client claim-work --item YOK-18",
                     )
                 ],
                 [("holder-xyz", 1718, True)],
-                "python3 -m yoke_core.cli.db_router items update 1718 spec --stdin",
+                "python3 -m yoke_core.cli.db_router items update YOK-18 spec --stdin",
             ),
         ]:
             with self.subTest(label):
@@ -175,7 +195,7 @@ class TestRecentDenialBranch(unittest.TestCase):
                         self.assertIsNone(lint.evaluate_payload(_payload(cmd)))
 
     def test_db_unavailable_fails_open(self) -> None:
-        cmd = "python3 -m yoke_core.cli.db_router items update 1718 spec --stdin"
+        cmd = "python3 -m yoke_core.cli.db_router items update YOK-18 spec --stdin"
         with mock.patch.object(lint, "_resolve_db_path", return_value=None):
             # Postgres ignores a null path and would reach the DSN; force the
             # connect to fail so the fail-open branch is what's exercised.
@@ -190,7 +210,7 @@ class TestRecentDenialBranch(unittest.TestCase):
                 self.assertIsNone(lint.evaluate_payload(_payload(cmd)))
 
     def test_null_command_summary_rows_fail_open(self) -> None:
-        cmd = "python3 -m yoke_core.cli.db_router items update 1718 spec --stdin"
+        cmd = "python3 -m yoke_core.cli.db_router items update YOK-18 spec --stdin"
         with _seed_state_db([], [("holder-xyz", 1718, False)]) as db_path:
             conn = db_backend.connect()
             try:

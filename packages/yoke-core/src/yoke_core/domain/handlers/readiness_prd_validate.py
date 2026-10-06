@@ -41,11 +41,11 @@ class ReadinessPrdValidateResponse(BaseModel):
 
 
 def handle_prd_validate(request: FunctionCallRequest) -> HandlerOutcome:
-    from yoke_core.domain.handlers.readiness import _target_item_id
+    from yoke_core.domain.handler_item_target import request_item_id
 
     try:
         body = ReadinessPrdValidateRequest.model_validate(request.payload)
-        item_id = _target_item_id(request, body.item_id)
+        item_id = request_item_id(request, body.item_id)
     except Exception as exc:
         return HandlerOutcome(
             primary_success=False,

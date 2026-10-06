@@ -62,12 +62,12 @@ class TestDbClaimAmendDispatch:
         monkeypatch.setattr(
             dispatch_module, "verify_claim", lambda *a, **kw: None,
         )
-        from yoke_core.domain import yok_n_parser
+        from yoke_core.domain import item_ref_resolution
 
         monkeypatch.setattr(
-            yok_n_parser,
-            "parse_item_id",
-            lambda value, **_kwargs: {
+            item_ref_resolution,
+            "resolve_item_ref",
+            lambda _conn, value, **_kwargs: {
                 TEST_ITEM_REF: TEST_ITEM_ID,
                 "YOK-7": 7,
                 "5": 5,

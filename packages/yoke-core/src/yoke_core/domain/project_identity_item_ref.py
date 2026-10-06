@@ -1,34 +1,14 @@
-"""CLI/API item-reference resolution at the public identity boundary.
+"""Public-ref rendering for callers that hold an internal item id.
 
-Splits the higher-level resolver surface out of ``project_identity`` (which
-owns the storage-level primitives ``resolve_item_id`` / ``resolve_project``).
-This module retains the invocation adapter used by older direct CLI paths but
-delegates token interpretation to :mod:`yoke_core.domain.yok_n_parser`.
+Item-token *resolution* belongs to
+:mod:`yoke_core.domain.item_ref_resolution`; this module renders the other
+direction for server-side callers that address an item by ``items.id``.
 """
 
 from __future__ import annotations
 
-from typing import Any, Optional, Union
 
-from yoke_core.domain.yok_n_parser import parse_item_argument
 from yoke_core.domain.project_identity import render_item_ref, unresolved_item_ref
-
-
-def resolve_cli_item_ref(
-    conn: Any,
-    raw: str | int,
-    *,
-    project_context: Optional[Union[str, int]] = None,
-) -> int:
-    """Resolve a CLI/API item token to the internal ``items.id``.
-
-    Token shapes:
-    - ``PREFIX-seq`` -> by public prefix (self-describing)
-    - bare ``seq``   -> sequence within explicit or mapped-checkout context
-    A real ``int`` is an already-resolved internal row id (passthrough); that
-    path is for internal callers, never the string boundary.
-    """
-    return parse_item_argument(raw, project=project_context, conn=conn)
 
 
 def item_ref_for_id(item_id: int) -> str:
@@ -75,5 +55,4 @@ def item_subject_ref(token: int | str) -> str:
 __all__ = [
     "item_ref_for_id",
     "item_subject_ref",
-    "resolve_cli_item_ref",
 ]

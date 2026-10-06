@@ -28,7 +28,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -56,6 +56,9 @@ class ItemStatusSetResponse(BaseModel):
 
 
 class EpicTaskStatusSetRequest(BaseModel):
+    # A wire public ref resolves onto this engine key as an int.
+    model_config = ConfigDict(coerce_numbers_to_str=True)
+
     epic_id: str = Field(..., min_length=1)
     task_num: str = Field(..., min_length=1)
     status: str = Field(..., min_length=1)

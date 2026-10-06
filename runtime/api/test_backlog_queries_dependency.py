@@ -89,10 +89,10 @@ class TestExecuteCloseDependencyReconciliation:
         ]
         assert recon["preserved_ambiguous"] == []
 
-    def test_close_matches_absorbed_inbound_row_with_numeric_resolution_ref(
+    def test_close_keeps_a_bare_number_resolution_ref_as_free_text(
         self, tmp_db
     ):
-        """Numeric stored refs stay unchanged while typed ids drive matching."""
+        """A bare number names no item, so it never absorbs a dependent row."""
         _seed_item(tmp_db, id=1218, status="refined-idea")
         _seed_item(tmp_db, id=1185, status="implementing")
         _seed_dependency(
@@ -111,16 +111,8 @@ class TestExecuteCloseDependencyReconciliation:
 
         assert result["success"] is True
         assert _item_field(tmp_db, 1218, "resolution_ref") == "1185"
-        assert _dependency_rows(tmp_db, blocking="YOK-1218") == []
-        recon = result["dependency_reconciliation"]
-        assert recon["absorbed_inbound_removed"] == [
-            {
-                "dependent_item": "YOK-1185",
-                "gate_point": "integration",
-                "satisfaction": "fact:merged",
-            }
-        ]
-        assert recon["preserved_ambiguous"] == []
+        assert _dependency_rows(tmp_db, blocking="YOK-1218") != []
+        assert result["dependency_reconciliation"]["absorbed_inbound_removed"] == []
 
     def test_close_preserves_ambiguous_inbound_rows_and_warns(self, tmp_db):
         """Inbound rows with no deterministic rule are preserved + warned."""

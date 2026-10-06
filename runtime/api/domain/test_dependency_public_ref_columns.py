@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from runtime.api.fixtures.backlog import insert_item
 from yoke_contracts.api.function_call import (
     ActorContext,
@@ -25,6 +27,7 @@ from yoke_core.domain.path_claims_dependency_resolver_coordination import (
 )
 from yoke_core.domain.project_seed_test_helpers import seed_project_identities
 from yoke_core.domain.item_dependency import cmd_dependency_add
+from yoke_core.domain.item_ref_resolution import ItemRefError
 from yoke_core.domain.item_dependency_enrich import cmd_dependency_enrich
 from yoke_core.domain.item_dependency_read import dependency_rows
 
@@ -87,14 +90,15 @@ def test_domain_writer_stores_item_ids_not_public_refs(test_db):
     assert _stored_ids(test_db) == [(DEPENDENT_ID, BLOCKER_ID)]
 
 
-def test_writer_resolves_a_bare_internal_id_to_the_same_row(test_db):
+def test_writer_refuses_a_bare_number_instead_of_reading_an_internal_id(test_db):
     _seed_diverged_pair(test_db)
 
-    cmd_dependency_add(
-        test_db, str(DEPENDENT_ID), str(BLOCKER_ID), "operator",
-    )
+    with pytest.raises(ItemRefError, match="names a project sequence but no project"):
+        cmd_dependency_add(
+            test_db, str(DEPENDENT_ID), str(BLOCKER_ID), "operator",
+        )
 
-    assert _stored_ids(test_db) == [(DEPENDENT_ID, BLOCKER_ID)]
+    assert _stored_ids(test_db) == []
 
 
 def test_dispatcher_target_stores_the_internal_id(test_db):

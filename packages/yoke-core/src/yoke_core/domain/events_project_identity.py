@@ -8,7 +8,7 @@ from typing import Any, Optional
 from yoke_core.domain import db_backend
 from yoke_core.domain.events_crud import normalize_event_item_id
 from yoke_core.domain.project_identity import resolve_project_id
-from yoke_core.domain.yok_n_parser import parse_item_id
+from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 
 GLOBAL_EVENT_PROJECT_TOKENS = {"", "all", "global", "multi"}
 SESSION_SCOPED_EVENT_TYPES = {
@@ -211,33 +211,35 @@ def resolve_envelope_project_id_for_event(
 def resolve_item_id_for_event(
     conn: Optional[Any],
     db_path: Optional[str],
-    item_id: Optional[str],
-    *,
-    project: Any,
+    item_id: Any,
 ) -> Optional[str]:
-    """Resolve public item refs to internal ids; leave work-unit sentinels alone."""
-    if item_id is None:
+    """Normalize an emitter's item token to the bare internal id the index stores.
+
+    Emitters are engine code: an int or digit string is the internal id, a
+    ``PREFIX-N`` ref resolves through the one item resolver, and work-unit
+    sentinels normalize to ``None``. A number is never re-read as a project
+    sequence.
+    """
+    if item_id is None or isinstance(item_id, bool):
         return None
+    if isinstance(item_id, int):
+        return str(item_id)
     from yoke_contracts.public_ref import parse_public_item_ref
 
-    prefix, _ = parse_public_item_ref(item_id)
-    if (
-        project is None or str(project).strip().lower() in GLOBAL_EVENT_PROJECT_TOKENS
-    ) and prefix is None:
-        return normalize_event_item_id(item_id)
+    text = str(item_id).strip()
+    prefix, sequence = parse_public_item_ref(text)
+    if prefix is None or sequence is None:
+        return normalize_event_item_id(text)
     if conn is not None:
-        try:
-            return str(parse_item_id(item_id, project=project, conn=conn))
-        except Exception:
-            return normalize_event_item_id(item_id)
+        resolved = resolve_item_ref_or_none(conn, text)
+        return None if resolved is None else str(resolved)
     try:
         own_conn = db_backend.connect(db_path)
     except Exception:
-        return normalize_event_item_id(item_id)
+        return None
     try:
-        return str(parse_item_id(item_id, project=project, conn=own_conn))
-    except Exception:
-        return normalize_event_item_id(item_id)
+        resolved = resolve_item_ref_or_none(own_conn, text)
+        return None if resolved is None else str(resolved)
     finally:
         own_conn.close()
 

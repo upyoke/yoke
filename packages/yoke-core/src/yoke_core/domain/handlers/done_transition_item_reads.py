@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -84,6 +84,9 @@ class BlockedGateResponse(BaseModel):
 
 
 class EpicTaskListRequest(BaseModel):
+    # A wire public ref resolves onto this engine key as an int.
+    model_config = ConfigDict(coerce_numbers_to_str=True)
+
     epic_id: str = Field(..., min_length=1)
 
 
@@ -92,6 +95,9 @@ class EpicTaskListResponse(BaseModel):
 
 
 class EpicTaskGithubIssuesRequest(BaseModel):
+    # A wire public ref resolves onto this engine key as an int.
+    model_config = ConfigDict(coerce_numbers_to_str=True)
+
     epic_id: str = Field(..., min_length=1)
     task_nums: List[str] = Field(default_factory=list)
 

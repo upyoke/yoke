@@ -195,4 +195,4 @@ def test_block_rejects_wrong_arity(capsys: pytest.CaptureFixture[str]) -> None:
 
 def test_invalid_id_reports_dispatch_refusal(capsys: pytest.CaptureFixture[str]) -> None:
     assert scalar.cmd_freeze(["not-an-id"]) == 1
-    assert "expected PREFIX-N" in capsys.readouterr().err
+    assert "pass the public ref (PREFIX-N" in capsys.readouterr().err

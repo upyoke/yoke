@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from . import db_backend
-from .item_ref_resolution import resolve_internal_item_id
+from .item_ref_resolution import internal_item_key
 
 
 @dataclass(frozen=True)
@@ -28,7 +28,7 @@ def revalidate_candidate_snapshot(
     expected_workflow_version_id: int,
 ) -> CandidateSnapshotValidation:
     """Compare live status and workflow pin with one ``ScheduledStep``."""
-    internal_id = resolve_internal_item_id(conn, item_id)
+    internal_id = internal_item_key(conn, item_id)
     if internal_id is None:
         return CandidateSnapshotValidation(False, None, None, None)
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"

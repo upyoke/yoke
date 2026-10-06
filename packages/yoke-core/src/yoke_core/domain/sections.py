@@ -83,12 +83,12 @@ def _rerender_body(
     out: TextIO,
     err: TextIO,
 ) -> bool:
-    """Re-render the item body via the in-process render owner.
+    """Re-render the item body via ``render_body.render_item``.
 
-    Returns ``True`` on success (emits "Body regenerated…" to *out*);
-    returns ``False`` on failure (emits the failure line to *err*). The
-    Body rendering is owned by ``yoke_core.domain.render_body.render_item``.
+    ``True`` on success ("Body regenerated…" to *out*), else ``False``.
     """
+    from yoke_core.domain.sections_cli import _public_item_ref
+
     sink = StringIO()
     err_sink = StringIO()
     try:
@@ -102,12 +102,12 @@ def _rerender_body(
     except Exception:
         rc = 1
     if rc == 0:
-        print("Body regenerated for item {}".format(item_id), file=out)
+        print("Body regenerated for item {}".format(_public_item_ref(item_id, db_path)), file=out)
         return True
     print(
         "Error: body regeneration failed for item {} after section {}; "
         "section mutation was written but body is stale. Skipping GitHub sync.".format(
-            item_id, action
+            _public_item_ref(item_id, db_path), action
         ),
         file=err,
     )

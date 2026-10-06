@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -14,6 +14,9 @@ from yoke_contracts.api.function_call import (
 
 
 class EventsEmitRequest(BaseModel):
+    # A wire public ref resolves onto this engine key as an int.
+    model_config = ConfigDict(coerce_numbers_to_str=True)
+
     name: str
     kind: str
     type: str

@@ -78,7 +78,7 @@ class TestItemGetCLI:
         db_path = item_query_env["db_path"]
         result = _run_db_router(db_path, "item-get", "1", "status")
         assert result.returncode == 1
-        assert "bare numeric item refs are project-local" in result.stderr
+        assert "names a project sequence but no project" in result.stderr
 
 
 class TestItemRowCLI:

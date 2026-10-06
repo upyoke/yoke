@@ -30,6 +30,8 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ValidationError
 
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
@@ -121,7 +123,7 @@ def handle_deployment_item_stamp(request: FunctionCallRequest) -> HandlerOutcome
                 conn.rollback()
                 return _err(
                     "item_not_found",
-                    f"no items row with id={item_id}; stamp not applied",
+                    f"{ITEM_NOT_FOUND}; stamp not applied",
                 )
             previous = "" if prior_row[0] is None else str(prior_row[0])
             _update_item_multi(
@@ -140,7 +142,7 @@ def handle_deployment_item_stamp(request: FunctionCallRequest) -> HandlerOutcome
                 conn.rollback()
                 return _err(
                     "stamp_verification_failed",
-                    f"items.id={item_id}: {body.field} did not read back as "
+                    f"{render_item_ref(conn, item_id)}: {body.field} did not read back as "
                     f"{body.value!r}; transaction rolled back",
                 )
             conn.commit()

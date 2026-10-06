@@ -80,7 +80,7 @@ def test_missing_context_refuses_before_identity_read(monkeypatch) -> None:
     identity_read = Mock(side_effect=AssertionError("identity read must not run"))
     monkeypatch.setattr(yok_n_parser, "_resolve_over_open_path", identity_read)
 
-    with pytest.raises(ValueError, match="bare numeric item refs are project-local"):
+    with pytest.raises(ValueError, match="names a project sequence but no project"):
         parse_item_argument("2318")
     identity_read.assert_not_called()
 
@@ -116,7 +116,7 @@ def test_done_transition_missing_context_has_no_side_effect(
     monkeypatch.setattr(done_transition, "run", run)
 
     assert done_transition.main(["2318"]) == 2
-    assert "bare numeric item refs are project-local" in capsys.readouterr().err
+    assert "names a project sequence but no project" in capsys.readouterr().err
     run.assert_not_called()
 
 
@@ -235,7 +235,7 @@ def test_operator_boundaries_preserve_missing_context_teaching(
     detail = _invoke_missing_context_boundary(boundary, monkeypatch)
     captured = capsys.readouterr()
 
-    assert "bare numeric item refs are project-local" in (
+    assert "names a project sequence but no project" in (
         detail + captured.out + captured.err
     )
     identity_read.assert_not_called()

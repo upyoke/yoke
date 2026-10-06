@@ -70,7 +70,7 @@ def _assert_item_id_matches_ref(
     sequence and the rendered ``PREFIX-N`` form of the same item agree.
     """
     resolved = parse_item_id_or_none(
-        expected_ref, project=project, conn=conn, allow_bare_internal=False,
+        expected_ref, project=project, conn=conn,
     )
     if resolved is None or int(resolved) != int(item_id):
         raise ItemIdRefMismatch(

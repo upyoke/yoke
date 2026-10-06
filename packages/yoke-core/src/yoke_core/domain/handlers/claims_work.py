@@ -118,15 +118,8 @@ def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
         return _err("payload_invalid", f"acquire payload invalid: {exc}")
 
     target_spec = body.target
-    if (
-        target_spec.kind == "item"
-        and target_spec.item_id is None
-        and request.target.item_id is not None
-    ):
-        # Dispatcher-resolved envelope target carries the id when the
-        # client shipped a raw public_ref (relay contract).
-        target_spec.item_id = int(request.target.item_id)
     try:
+        _adopt_envelope_target(target_spec, request)
         target = _spec_to_target(target_spec)
     except _TargetSpecError as exc:
         return _err("payload_invalid", str(exc), jsonpath="$.target")
@@ -228,6 +221,31 @@ def handle_release(request: FunctionCallRequest) -> HandlerOutcome:
 
 class _TargetSpecError(ValueError):
     pass
+
+
+def _adopt_envelope_target(spec: _WorkTargetSpec, request: FunctionCallRequest) -> None:
+    """Fill the claim target from the dispatcher-resolved envelope target.
+
+    The client ships the item as ``target.public_ref`` (an ``epic_task``
+    ref names the epic); the dispatcher resolved it and the permission and
+    claim checks ran against it, so a body id that disagrees is refused.
+    """
+    envelope = request.target
+    pairs = []
+    if spec.kind == "item" and envelope.item_id is not None:
+        pairs = [("item_id", envelope.item_id)]
+    elif spec.kind == "epic_task" and envelope.kind == "epic_task":
+        pairs = [("epic_id", envelope.epic_id), ("task_num", envelope.task_num)]
+    for field, value in pairs:
+        if value is None:
+            continue
+        supplied = getattr(spec, field)
+        if supplied is not None and int(supplied) != int(value):
+            raise _TargetSpecError(
+                f"target.{field} disagrees with the envelope target; address "
+                "the item by target.public_ref (PREFIX-N) alone"
+            )
+        setattr(spec, field, int(value))
 
 
 def _spec_to_target(spec: _WorkTargetSpec):

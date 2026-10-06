@@ -11,8 +11,8 @@ from yoke_core.domain.item_terminal_resources import (
 from yoke_core.domain.project_identity import (
     placeholder,
     render_item_ref,
-    resolve_item_id,
 )
+from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 from yoke_core.domain.session_launch_types import SessionLaunchError
 
 
@@ -33,7 +33,7 @@ def refuse_terminal_assigned_item(
     """
     if not workflow_pin_schema_present(conn):
         return
-    item_id = resolve_item_id(conn, public_ref, project=project_id)
+    item_id = resolve_item_ref_or_none(conn, public_ref, project=project_id)
     if item_id is None or item_is_terminal(conn, item_id) is not True:
         return
     raise SessionLaunchError(
@@ -49,7 +49,7 @@ def lock_assigned_item(conn: Any, *, public_ref: str, project_id: int) -> None:
 
     if not db_backend.connection_is_postgres(conn):
         return
-    item_id = resolve_item_id(conn, public_ref, project=project_id)
+    item_id = resolve_item_ref_or_none(conn, public_ref, project=project_id)
     if item_id is not None:
         conn.execute(
             f"SELECT id FROM items WHERE id={placeholder(conn)} FOR UPDATE", (item_id,)
@@ -65,7 +65,7 @@ def refuse_held_assigned_item(
     """Refuse existing staffing or a live holder inside the create transaction."""
     if not workflow_pin_schema_present(conn):
         return
-    item_id = resolve_item_id(conn, public_ref, project=project_id)
+    item_id = resolve_item_ref_or_none(conn, public_ref, project=project_id)
     if item_id is None:
         return
     from yoke_contracts.session_control.liveness import live_session_sql
@@ -131,7 +131,7 @@ def assignment_session_name(
     project_id: int,
 ) -> str:
     """Return ``PREFIX-N: title`` from authoritative item columns."""
-    item_id = resolve_item_id(conn, public_ref, project=project_id)
+    item_id = resolve_item_ref_or_none(conn, public_ref, project=project_id)
     if item_id is None:
         raise SessionLaunchError(
             "assignment_item_not_found",

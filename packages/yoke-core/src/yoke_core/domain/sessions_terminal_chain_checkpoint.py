@@ -17,7 +17,7 @@ from typing import Any, Optional
 
 from . import db_backend
 from .claim_chain_state import stamp_chain_checkpoint
-from .project_identity import resolve_item_id
+from .item_ref_resolution import internal_item_key
 from .sessions_queries_base import _now_iso
 
 
@@ -35,20 +35,6 @@ class TerminalItemSessionCloseout:
 
     focus_released: tuple[str, ...] = ()
     checkpoint_consumed: tuple[str, ...] = ()
-
-
-def _resolved_item_id(conn: Any, raw_item_id: Any) -> Optional[int]:
-    if isinstance(raw_item_id, int):
-        return raw_item_id
-    text = str(raw_item_id or "").strip()
-    if not text:
-        return None
-    if text.isdigit():
-        return int(text)
-    try:
-        return resolve_item_id(conn, text)
-    except (LookupError, TypeError, ValueError):
-        return None
 
 
 def _checkpoint_for_envelope(envelope: Mapping[str, Any]) -> Optional[dict[str, Any]]:
@@ -84,7 +70,7 @@ def consume_terminal_item_checkpoint(
     checkpoint = _checkpoint_for_envelope(envelope)
     if checkpoint is None or not bool(checkpoint.get("chainable")):
         return False
-    if _resolved_item_id(conn, checkpoint.get("item_id")) != int(item_id):
+    if internal_item_key(conn, checkpoint.get("item_id")) != int(item_id):
         return False
     if checkpoint.get("handler_outcome") == OUTCOME_TERMINAL_ITEM_CLOSED:
         return False
@@ -133,8 +119,8 @@ def preserve_consumed_terminal_outcome(
         return handler_outcome, chain_summary_label
     if previous_checkpoint.get("handler_outcome") != OUTCOME_TERMINAL_ITEM_CLOSED:
         return handler_outcome, chain_summary_label
-    previous_item = _resolved_item_id(conn, previous_checkpoint.get("item_id"))
-    current_item = _resolved_item_id(conn, item_id)
+    previous_item = internal_item_key(conn, previous_checkpoint.get("item_id"))
+    current_item = internal_item_key(conn, item_id)
     if previous_item is None or previous_item != current_item:
         return handler_outcome, chain_summary_label
     return OUTCOME_TERMINAL_ITEM_CLOSED, TERMINAL_ITEM_CLOSED_LABEL
