@@ -6,11 +6,7 @@ from typing import Any, Optional
 
 from yoke_core.domain.db_helpers import iso8601_now, query_one, query_rows
 from yoke_core.domain.project_identity import render_item_ref
-from yoke_core.domain.qa_plan_management import (
-    QaPlanError,
-    _placeholder,
-    _plan_row,
-)
+from yoke_core.domain.qa_plan_management import QaPlanError, _placeholder, _plan_row
 from yoke_core.domain.qa_plan_case_definition import case_baselines, plan_cases
 from yoke_core.domain.qa_plan_requirement_snapshot import (
     existing_requirement_id,
@@ -18,9 +14,7 @@ from yoke_core.domain.qa_plan_requirement_snapshot import (
     require_existing_target,
     require_requirement_id_target,
 )
-from yoke_core.domain.qa_deployment_member_attached_plans import (
-    attachments_still_owed,
-)
+from yoke_core.domain.qa_deployment_member_attached_plans import attachments_still_owed
 from yoke_core.domain.qa_plan_attachment_reads import live_item_attachment_sql
 from yoke_core.domain.qa_plan_attachment_validation import (
     refuse_unreachable_plan_attachment,
@@ -47,7 +41,9 @@ from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
-PROJECT_DEFAULT_QA_POLICIES = frozenset({"project_transition_defaults", "project_and_task_attachments"})
+PROJECT_DEFAULT_QA_POLICIES = frozenset(
+    {"project_transition_defaults", "project_and_task_attachments"}
+)
 
 
 def workflow_uses_project_testing_defaults(conn: Any, item_id: int) -> bool:
@@ -88,7 +84,13 @@ def attach_plan_to_item(
         qa_phase=qa_phase,
     )
     refuse_unreachable_plan_attachment(
-        conn, item_id=int(item_id), plan=plan, transition_id=transition_id, qa_phase=qa_phase, acknowledge=acknowledge_unreachable_target)
+        conn,
+        item_id=int(item_id),
+        plan=plan,
+        transition_id=transition_id,
+        qa_phase=qa_phase,
+        acknowledge=acknowledge_unreachable_target,
+    )
     now = iso8601_now()
     if _column_exists(conn, "qa_plan_item_attachments", "retracted_at"):
         existing = query_one(
@@ -216,7 +218,9 @@ def materialize_for_item(
     snapshots: dict[int, tuple[Any, dict, list[Any], list[int], dict]] = {}
     for plan_id, attachment in attachments.items():
         plan = _plan_row(conn, plan_id)
-        execution_target = resolve_plan_execution_target(conn, plan_id=plan_id)
+        execution_target = resolve_plan_execution_target(
+            conn, plan_id=plan_id, require_runtime_match=False
+        )
         existing_rows = query_rows(
             conn,
             "SELECT id,execution_target_json,execution_target_digest "
@@ -258,9 +262,7 @@ def materialize_for_item(
             existing.extend(existing_ids)
             continue
         for case in cases:
-            for baseline_position, baseline in enumerate(
-                case_baselines(case), start=1
-            ):
+            for baseline_position, baseline in enumerate(case_baselines(case), start=1):
                 requirement_id = insert_requirement(
                     conn,
                     item_id=item_id,
@@ -290,14 +292,14 @@ def materialize_for_item(
                             conn,
                             requirement_id=requirement_id,
                             execution_target=execution_target,
-                            subject=(f"{render_item_ref(conn, item_id)} transition {transition_id!r}"),
+                            subject=(
+                                f"{render_item_ref(conn, item_id)} transition {transition_id!r}"
+                            ),
                         )
                     )
     if commit:
         conn.commit()
-    return _materialized(
-        int(item_id), transition_id, attachments, created, existing
-    )
+    return _materialized(int(item_id), transition_id, attachments, created, existing)
 
 
 def _materialized(

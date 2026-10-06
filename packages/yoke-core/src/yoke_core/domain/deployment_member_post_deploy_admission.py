@@ -110,6 +110,19 @@ def stage_target_admits(
     return not declared or dynamic or declared in environments
 
 
+def requirement_target_environment(target_env: Any, execution_target_json: Any) -> str:
+    """A named case target or the immutable destination of a plan-backed case."""
+    declared = str(target_env or "").strip()
+    if declared or not execution_target_json:
+        return declared
+    target = (
+        dict(execution_target_json)
+        if isinstance(execution_target_json, Mapping)
+        else json.loads(str(execution_target_json))
+    )
+    return str((target.get("environment") or {}).get("name") or "")
+
+
 def outstanding_post_deploy_requirements(
     conn: Any, item_id: int
 ) -> tuple[dict[str, Any], ...]:
@@ -126,8 +139,13 @@ def outstanding_post_deploy_requirements(
         if _column_exists(conn, "qa_requirements", "superseded_by_requirement_id")
         else ""
     )
+    target_column = (
+        "execution_target_json"
+        if _column_exists(conn, "qa_requirements", "execution_target_json")
+        else "NULL"
+    )
     rows = conn.execute(
-        "SELECT id,target_env,plan_id FROM qa_requirements WHERE item_id=%s "
+        f"SELECT id,target_env,plan_id,{target_column} FROM qa_requirements WHERE item_id=%s "
         "AND qa_phase=%s AND deployment_run_id IS NULL AND waived_at IS NULL"
         f"{supersession} AND {unretracted_requirement_sql(conn)} ORDER BY id",
         (int(item_id), POST_DEPLOY_PHASE),
@@ -136,7 +154,9 @@ def outstanding_post_deploy_requirements(
     return tuple(
         {
             "id": int(_cell(row, "id", 0)),
-            "target_env": str(_cell(row, "target_env", 1) or ""),
+            "target_env": requirement_target_environment(
+                _cell(row, "target_env", 1), _cell(row, "execution_target_json", 3)
+            ),
         }
         for row in rows
         if _cell(row, "plan_id", 2) not in withdrawn_plans
@@ -157,7 +177,12 @@ def post_deploy_admission_split(
     environments, dynamic = run_qa_stage_targets(conn, run_id)
     admitted: list[int] = []
     unadmitted: list[dict[str, Any]] = []
+    from yoke_core.domain.deployment_run_member_targeting import supplemental_qa_run
+
+    supplemental = supplemental_qa_run(conn, run_id=run_id, item_id=item_id)
     for row in outstanding_post_deploy_requirements(conn, int(item_id)):
+        if supplemental and not row["target_env"]:
+            continue
         if stage_target_admits(
             row["target_env"], environments=environments, dynamic=dynamic
         ):
@@ -191,7 +216,15 @@ def unadmitted_post_deploy_notice(
         _, unadmitted = post_deploy_admission_split(
             conn, run_id=run_id, item_id=int(item_id)
         )
+        from yoke_core.domain.deployment_run_member_targeting import (
+            companion_admits_requirement,
+        )
+
         for row in unadmitted:
+            if companion_admits_requirement(
+                conn, run_id=run_id, item_id=int(item_id), requirement_id=row["id"]
+            ):
+                continue
             declared = row["target_env"] or "(none declared)"
             labels.append(
                 f"{render_item_ref(conn, int(item_id))} requirement "

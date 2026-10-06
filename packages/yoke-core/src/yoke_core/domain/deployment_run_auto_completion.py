@@ -170,6 +170,10 @@ def _readiness(conn: Any, run_id: str) -> tuple[dict[str, Any] | None, str]:
         item_id = int(_row_value(member, "item_id", 0))
         if str(_row_value(member, "delivery_intent", 1) or "") != "final":
             continue
+        from yoke_core.domain.deployment_run_member_targeting import supplemental_qa_run
+
+        if supplemental_qa_run(conn, run_id=run_id, item_id=item_id):
+            continue
         item_status = str(_row_value(member, "status", 2) or "")
         if shared:
             if item_status not in {"release", "done"} or not satisfied_delivery_member(

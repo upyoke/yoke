@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_core.domain.deployment_run_member_targeting import supplemental_qa_run
 from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_item_flow_resolution import (
     item_completion_flow,
@@ -50,7 +51,9 @@ def _bound_sources_column(conn: Any) -> str:
     return f"'' AS {BOUND_SOURCES_FIELD}"
 
 
-def completion_runs(conn: Any, item_id: int) -> list[dict[str, Any]]:
+def completion_runs(
+    conn: Any, item_id: int, *, include_qa: bool = False
+) -> list[dict[str, Any]]:
     """Newest-first memberships that can close this item, of any status.
 
     Freshness is ``created_at`` (then ``id``). ``release_lineage`` and
@@ -89,12 +92,17 @@ def completion_runs(conn: Any, item_id: int) -> list[dict[str, Any]]:
             item_project,
         )
         run_flow = str(_row_value(row, "flow", 5) or "")
-        if not membership_closes_item(
-            run_flow=run_flow,
-            completion_flow=flow,
-            run_project_id=int(_row_value(row, "project_id", 3)),
-            item_project_id=item_project,
-            source_sha=source_sha,
+        if not include_qa and (
+            supplemental_qa_run(
+                conn, run_id=str(_row_value(row, "id", 0)), item_id=item_id
+            )
+            or not membership_closes_item(
+                run_flow=run_flow,
+                completion_flow=flow,
+                run_project_id=int(_row_value(row, "project_id", 3)),
+                item_project_id=item_project,
+                source_sha=source_sha,
+            )
         ):
             continue
         status = str(_row_value(row, "status", 1) or "")
@@ -115,7 +123,48 @@ def completion_runs(conn: Any, item_id: int) -> list[dict[str, Any]]:
 
 def succeeded_completion_runs(conn: Any, item_id: int) -> list[dict[str, Any]]:
     """The closing memberships whose run succeeded — delivery that happened."""
-    return [run for run in completion_runs(conn, item_id) if run["status"] == "succeeded"]
+    return [
+        run for run in completion_runs(conn, item_id) if run["status"] == "succeeded"
+    ]
 
 
 __all__ = ["completion_runs", "succeeded_completion_runs"]
+
+
+def latest_qa_member_run(
+    conn: Any, *, item_id: int, target_env: str
+) -> dict[str, Any] | None:
+    """Newest live or delivered member capable of answering this source target.
+
+    An explicit target can be answered by a supplemental member. Untargeted
+    intake remains with final delivery; neither a differently targeted sibling
+    nor a cancelled attempt can shadow the member that owes this proof.
+    """
+    from yoke_core.domain.deployment_member_post_deploy_admission import (
+        run_qa_stage_targets,
+        stage_target_admits,
+    )
+
+    from yoke_core.domain.deployment_qa_member_scope import legacy_run_credits_run_wide
+
+    finals = completion_runs(conn, item_id)
+    current_final = next(
+        (run for run in finals if run["status"] not in {"failed", "cancelled"}), None
+    )
+    for run in completion_runs(conn, item_id, include_qa=bool(target_env)):
+        if supplemental_qa_run(conn, run_id=run["id"], item_id=item_id) and (
+            current_final is None
+            or run["release_lineage"] != current_final["release_lineage"]
+        ):
+            continue
+        if run["status"] in {"failed", "cancelled"}:
+            continue
+        if not target_env or (
+            run in finals
+            and legacy_run_credits_run_wide(conn, run_id=run["id"], item_id=item_id)
+        ):
+            return run
+        environments, dynamic = run_qa_stage_targets(conn, run["id"])
+        if stage_target_admits(target_env, environments=environments, dynamic=dynamic):
+            return run
+    return None

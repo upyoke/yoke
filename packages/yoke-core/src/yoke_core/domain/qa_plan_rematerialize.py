@@ -112,7 +112,9 @@ def rematerialize_for_item(
     now = iso8601_now()
     for plan_id, attachment in attachments.items():
         plan = _plan_row(conn, plan_id)
-        execution_target = resolve_plan_execution_target(conn, plan_id=plan_id)
+        execution_target = resolve_plan_execution_target(
+            conn, plan_id=plan_id, require_runtime_match=False
+        )
         # Before the strict reuse check, let go of any stored target the plan
         # no longer resolves to. Rematerializing is exactly the moment a moved
         # environment binding can be honored, because every retained row is
@@ -138,9 +140,7 @@ def rematerialize_for_item(
                 f"QA plan {plan_id} has no cases and cannot be materialized"
             )
         for case in cases:
-            for baseline_position, baseline in enumerate(
-                case_baselines(case), start=1
-            ):
+            for baseline_position, baseline in enumerate(case_baselines(case), start=1):
                 key = (str(case["case_key"]), baseline)
                 requirement_id = existing_ids.get(key)
                 if requirement_id is None:

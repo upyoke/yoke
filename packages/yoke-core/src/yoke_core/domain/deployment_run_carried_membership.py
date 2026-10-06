@@ -42,6 +42,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, Iterable
 
+from yoke_core.domain.deployment_run_member_targeting import run_needs_member
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.deployment_item_flow_resolution import (
@@ -245,7 +246,9 @@ def enroll_carried_members(
     candidates = [
         item_id
         for item_id in carried
-        if item_id not in members and item_requires_release_membership(conn, item_id)
+        if item_id not in members
+        and item_requires_release_membership(conn, item_id)
+        and run_needs_member(conn, run_id=run_id, item_id=item_id)
     ]
     blocked = {
         dependent for dependent, _, _ in unshipped_dependency_pairs(conn, candidates)

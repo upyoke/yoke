@@ -72,6 +72,22 @@ the run's own candidate, so the run delivers two projects, not one.
   with different branches are refused: delivery could not then say which
   commit the release shipped for that project.
 
+## QA across release targets
+
+A release pair can admit the same item to both target runs. A supplemental
+persistent-environment run enrolls only members with explicit post-deploy
+obligations for that environment; untargeted cases remain with final delivery.
+Each run freezes only obligations its QA target can answer. Custody for one
+QA target does not reserve another target or the final delivery. Composition
+continues to name obligations no composed member run can answer.
+
+All records, claims, receipts and QA evidence remain on the connected control
+plane. The deployment execution target supplies the stage URL and deployed
+revision; observing stage requires no stage control-plane connection. The
+item's completion flow remains its final delivery authority. Its done gate
+requires accepted admitted copies for every stage and production obligation,
+so passing production cannot hide a failed or pending stage case.
+
 ## Release-time roles
 
 A run that carries members is acted on by two different sessions, and neither
@@ -188,3 +204,7 @@ item-bound batch release, plus the itemless environment release).
 - **Improve the Pack when the general capability evolves.** Publish a new Pack version, then let each project choose whether and when to update it. Project-only behavior remains project-owned and need not flow back into the Pack.
 - **Project config lives in DB settings/capabilities or project-local `.yoke/` policy docs.** Use `project_capabilities`, `sites.settings`, and `environments.settings` for credentials and runtime config. Pack install settings only specialize generic source for the target project; runtime-generated files land in scratch/deploy-run output or the target project repo.
 - **Provider credentials are capability-owned, not ambient shell.** For AWS, the source of truth is the project `aws-admin` capability: non-secret settings in `project_capabilities`, while secret material lives in machine-local capability secret files under `~/.yoke/secrets/capability-secrets/<project>/aws-admin/`. The `capability_secrets` table is not the storage shape for `aws-admin` secrets. A naked `aws ...` command may fail even when the project is correctly configured because the credentials are not exported into the shell. Use Yoke-owned capability resolver surfaces to materialize credentials into a subprocess env without printing secret values; when a resolver has not yet been wrapped, treat it as a source-dev/admin helper rather than an agent recipe. Verify by listing keys/settings or redacted evidence; never log raw secret values.
+
+Plan authoring and intake materialization may record another environment on the
+control plane. Standalone QA dispatch still obeys the runtime execution
+restriction; deployment QA uses the run receipt to authorize its deployed target.

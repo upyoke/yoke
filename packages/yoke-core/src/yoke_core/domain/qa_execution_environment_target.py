@@ -20,7 +20,6 @@ from yoke_core.domain import qa_case_environment_coherence as case_coherence
 from yoke_core.domain.environment_declared_facts import (
     MissingEnvironmentFact,
     hosted_endpoints,
-    load_environment_settings,
     restricts_qa_to_self,
 )
 from yoke_core.domain.qa_project_execution_target import (
@@ -225,13 +224,9 @@ def validate_plan_target_environment(
         )
     except ValueError as exc:
         raise QaExecutionTargetError(str(exc)) from exc
-    environment_name = target["environment_name"]
-    require_runtime_target(
-        {"environment": {"name": environment_name}},
-        runtime_settings=load_environment_settings(
-            conn, int(project_id), runtime_environment_name()
-        ),
-    )
+    # Authoring records a future destination on this control plane; dispatch
+    # enforces runtime restrictions when it resolves an execution target.
+    del target
 
 
 def _known_yoke_hosts() -> set[str]:
