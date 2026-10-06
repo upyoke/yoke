@@ -21,6 +21,10 @@ Do not copy a progression into operator logic or documentation. Use
 `yoke workflows definition get` for current definitions. A live item loads the
 exact pinned version, so a newer one cannot alter work in flight, and a forward
 move it does not declare is refused before the target stage materializes.
+Backward rework uses `definition.stages` order and needs no declared edge:
+`yoke_core.domain.workflow_declared_transitions.undeclared_forward_transition`
+checks only forward moves. The holder uses `yoke lifecycle transition` to return
+to the requested earlier stage; ordinary claim and target-stage checks still apply.
 
 ### Exceptional Item States
 
