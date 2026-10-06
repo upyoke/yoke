@@ -82,13 +82,16 @@ const html = (assets) => `<!doctype html><html><head>
     document.getElementById("specimens").append(inbox);
     const inboxHost = document.createElement("section");
     inboxHost.className = "proof";
+    inboxHost.id = "inbox-approvals";
     document.getElementById("specimens").append(inboxHost);
     const subject = { run_id: "sample-release", stage: "approve",
       carried: { items: [{ item_id: 17, ref: "DEMO-17", title: "Dashboard corrections" }], commits: [] },
       release_effect: { consequence: "deploys", headline: "Deploy dashboard corrections" } };
-    const rows = [{ id: 1, kind: "deployment_stage_approval", status: "pending", project_id: 1,
-      subject_context: subject, actions: ["approve", "reject"], can_act: true },
-      { id: 2, kind: "deployment_stage_approval", status: "resolved", project_id: 1,
+    const rows = [...Array.from({ length: 8 }, (_, index) => ({
+      id: index + 1, kind: "deployment_stage_approval", status: "pending", project_id: 1,
+      subject_context: { ...subject, run_id: "sample-release-" + (index + 1) },
+      actions: ["approve", "reject"], can_act: true })),
+      { id: 9, kind: "deployment_stage_approval", status: "resolved", project_id: 1,
       subject_context: subject, actions: [], can_act: false, decided_by_you: true, your_decision: { action: "approve" } }];
     renderInboxView({ document, isMounted: () => true, projects: () => [{ id: 1, slug: "Demo" }],
       client: { call: async (request) => ({ status: 200, envelope: { success: true,
@@ -97,7 +100,6 @@ const html = (assets) => `<!doctype html><html><head>
       ["Sessions", "session-grid", "session-card"],
       ["Machines", "machines-grid", "machine-card"],
       ["Frontier", "work-card-grid", "work-item-card"],
-      ["Inbox", "work-card-grid", "work-item-card"],
       ["Strategy", "work-card-grid", "work-item-card"],
       ["Strategy documents", "strategy-doc-grid", "strategy-doc-card"],
       ["Work sessions", "work-session-grid", "session-card"],
@@ -160,6 +162,11 @@ try {
       const delivery = document.querySelector(".workflow-panel-header");
       const meta = document.querySelector(".workflow-panel-meta");
       const left = (node) => node.getBoundingClientRect().left;
+      const waiting = document.querySelector('[data-fold="section:inbox-waiting"]');
+      const decided = document.querySelector('[data-fold="section:inbox-decided"]');
+      const pendingCards = [...waiting.querySelectorAll(".review-card")];
+      const sparseCard = decided.querySelector(".review-card").getBoundingClientRect();
+      const header = waiting.querySelector("summary").getBoundingClientRect();
       const measurements = [...document.querySelectorAll(".proof-row")].map((row) => {
         const [first, trailing] = row.children;
         const style = getComputedStyle(row);
@@ -172,6 +179,16 @@ try {
           rowLeftGap: row.getBoundingClientRect().left - row.parentElement.getBoundingClientRect().left };
       });
       return {
+        inbox: {
+          pendingCount: pendingCards.length,
+          decidedCount: decided.querySelectorAll(".review-card").length,
+          leftGap: pendingCards[0].getBoundingClientRect().left - header.left,
+          rightGap: header.right - pendingCards[0].getBoundingClientRect().right,
+          sparseLeftGap: sparseCard.left - header.left,
+          sparseWidthGap: sparseCard.width - pendingCards[0].getBoundingClientRect().width,
+          stacked: pendingCards.every((card, index) => !index
+            || card.getBoundingClientRect().top >= pendingCards[index - 1].getBoundingClientRect().bottom),
+        },
         grids: [...document.querySelectorAll(".grid-proof")].map((specimen) => {
           const [header, full, sparse] = specimen.children;
           const cards = [...full.children].map((card) => card.getBoundingClientRect());
@@ -195,6 +212,9 @@ try {
       };
     });
     await page.screenshot({ path: path.join(outputDir, `wrapping-${width}.png`), fullPage: true });
+    await page.locator("#inbox-approvals").screenshot({
+      path: path.join(outputDir, `inbox-approvals-${width}.png`),
+    });
     console.log(JSON.stringify({ width, ...result }));
     assert.equal(result.captions, 0);
     assert.equal(result.pendingCarried, true);
@@ -202,6 +222,12 @@ try {
     assert.equal(result.decidedControls, 0);
     assert.equal(result.inboxAlign, "left");
     assert.equal(result.overflowing, 0, `Overflow at ${width}px`);
+    assert.equal(result.inbox.pendingCount, 8);
+    assert.equal(result.inbox.decidedCount, 1);
+    assert.equal(result.inbox.stacked, true, "Inbox approval lists keep one full-width card per row");
+    for (const gap of ["leftGap", "rightGap", "sparseLeftGap", "sparseWidthGap"]) {
+      assert(Math.abs(result.inbox[gap]) < 1, `Inbox ${gap} must align at ${width}px`);
+    }
     for (const grid of result.grids) {
       assert(Math.abs(grid.rightGap) < 1, `${grid.label} last column must reach the header edge at ${width}px`);
       assert(Math.abs(grid.leftGap) < 1, `${grid.label} first column must align with the header`);
