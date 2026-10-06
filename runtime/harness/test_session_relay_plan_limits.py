@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from yoke_contracts.session_control.plan_limit_parsers import (
     parse_claude_usage,
     parse_codex_rate_limits,
@@ -184,11 +185,22 @@ def test_cursor_parser_keeps_both_monthly_included_usage_pools() -> None:
     assert other_models["resets_at"] == "2026-09-07T01:00:04Z"
 
 
-def test_cursor_model_prefixes_choose_the_matching_included_usage_pool() -> None:
-    assert cursor_scope_for_model("cursor-grok-4") == CURSOR_MODELS_SCOPE
-    assert cursor_scope_for_model("composer-1.5") == CURSOR_MODELS_SCOPE
-    assert cursor_scope_for_model("claude-4.1-opus") == CURSOR_OTHER_MODELS_SCOPE
-    assert cursor_scope_for_model(None) == CURSOR_OTHER_MODELS_SCOPE
+@pytest.mark.parametrize(
+    ("model", "scope"),
+    [
+        ("grok-4.7-medium", CURSOR_MODELS_SCOPE),
+        ("grok-4.7-xhigh-fast", CURSOR_MODELS_SCOPE),
+        ("cursor-grok-4.6-low", CURSOR_MODELS_SCOPE),
+        ("composer-2.5", CURSOR_MODELS_SCOPE),
+        ("claude-opus-5-5-high", CURSOR_OTHER_MODELS_SCOPE),
+        ("gpt-5.6-sol-high", CURSOR_OTHER_MODELS_SCOPE),
+        (None, CURSOR_OTHER_MODELS_SCOPE),
+    ],
+)
+def test_cursor_model_family_chooses_the_matching_included_usage_pool(
+    model: str | None, scope: str
+) -> None:
+    assert cursor_scope_for_model(model) == scope
 
 
 def test_sanitize_drops_token_bearing_keys() -> None:
