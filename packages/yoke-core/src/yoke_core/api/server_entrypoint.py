@@ -49,6 +49,7 @@ class ServerSettings:
     log_level: str
     port: int
     workers: int
+    trusted_proxies: str
 
 
 def _parse_port(value: str) -> int:
@@ -107,6 +108,11 @@ def build_parser(env: Optional[Mapping[str, str]] = None) -> argparse.ArgumentPa
         type=_parse_workers,
         help="Uvicorn worker count.",
     )
+    parser.add_argument(
+        "--trusted-proxies",
+        default=source.get("YOKE_API_TRUSTED_PROXIES", "127.0.0.1"),
+        help="Trusted proxy IPs/CIDRs, comma-separated; empty trusts none (self-host).",
+    )
     return parser
 
 
@@ -121,6 +127,7 @@ def resolve_settings(
         log_level=parsed.log_level,
         port=parsed.port,
         workers=parsed.workers,
+        trusted_proxies=parsed.trusted_proxies,
     )
 
 
@@ -287,6 +294,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             workers=settings.workers,
             access_log=False,
             log_config=None,
+            **({"forwarded_allow_ips": settings.trusted_proxies} if not hosted else {}),
         )
 
     with universe_startup_lock.server_startup_guard(db_backend.resolve_pg_dsn()):

@@ -127,6 +127,9 @@ Docker bypasses ufw/firewalld for published ports; bind to `127.0.0.1`
 behind a TLS reverse proxy, or restrict access upstream. `yoke self-host init`
 warns when the configured publish address is beyond loopback, including on
 `--protect-existing --start`; the warning never blocks setup or startup.
+Set `YOKE_API_TRUSTED_PROXIES` in `.env` to the proxy IPs/CIDRs seen by core;
+restart with `yoke self-host init --dir PATH --protect-existing --start`.
+See [proxy forwarding](self-host-browser-sign-in.md#proxy-forwarding) for headers and trust.
 
 ## Engineer machines
 
@@ -336,8 +339,6 @@ leaves the machine unconfigured, which `yoke status` then reports.
 
 ## You own the operations
 
-Self-hosting trades the hosted platform's operations for control:
-
 - **Uptime is yours.** The bundle restarts containers on failure
   (`restart: unless-stopped`), but host maintenance, monitoring, and
   capacity are on you.
@@ -345,6 +346,5 @@ Self-hosting trades the hosted platform's operations for control:
   `yoke universe export` for portable archives and retain regular Postgres or
   volume snapshots for infrastructure-level recovery before upgrades and on a
   schedule.
-- **TLS is yours.** The server speaks plain HTTP; anything beyond
-  loopback belongs behind a TLS-terminating reverse proxy you operate,
-  with the API published only where you intend engineers to reach it.
+- **TLS is yours.** Put remote access behind a TLS proxy and declare its peers
+  in `YOKE_API_TRUSTED_PROXIES`; publish the API only where intended.

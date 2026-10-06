@@ -16,8 +16,11 @@ The engine exposes anonymous `GET /api/events/config`, `POST /api/events`, and
 `POST`/`DELETE /api/events/attribution`. The collector accepts only frontend
 analytics, requires an exact match between browser Origin and the serving
 scheme/host/port, checks `X-Events-Key` against its publishable key, and shares
-its rate budget through Postgres. Remote serving requires HTTPS and correct
-trusted proxy configuration. Backend and operational writes retain their
+its rate budget through Postgres. Remote serving requires HTTPS. For self-host,
+set `YOKE_API_TRUSTED_PROXIES` in the bundle `.env` to the TLS proxy IPs/CIDRs,
+preserve Host, and forward scheme/client headers; restart with
+`yoke self-host init --dir PATH --protect-existing --start`.
+Backend and operational writes retain their
 authenticated boundary. Hosted shells must forward these paths to the selected
 tenant engine and serve the packaged assets on the same origin.
 
