@@ -9,12 +9,14 @@ release.
 
 This reader answers a narrower question that needs no finding at all: the
 case already names the target it is about to browse, so the host that will
-produce the evidence is the host asked to identify itself. It is therefore
-the last resort and never a softer one — it is reached only where no
-deployment is recorded and the project configures no preview proof, so a
-preview that answered wrongly, or a configuration that could not be read,
-still refuses on its own terms rather than falling through to a host that
-happens to be closer to hand.
+produce the evidence is the host asked to identify itself. A pre-merge
+candidate whose ``--base-url`` names a different origin than the environment
+the plan is bound to is asked here first, and production is not asked.
+Otherwise this reader is the last resort and never a softer one — it is
+reached only where no deployment is recorded and the project configures no
+preview proof, so a preview that answered wrongly, or a configuration that
+could not be read, still refuses on its own terms rather than falling
+through to a host that happens to be closer to hand.
 
 Nothing is inferred and nothing is trusted: the answer is the commit that
 host serves, read now, and it is that reading — never the commit the
@@ -126,6 +128,37 @@ def _malformed_reason(served: str) -> str:
     return "not a full 40-character commit SHA"
 
 
+def prove_pre_merge_candidate_identity(
+    context: dict,
+    base_url: str,
+    expected_sha: str,
+    *,
+    fetch: Optional[Callable[[str], probe.ServedRevisionRead]] = None,
+) -> tuple[Optional[FreshnessFailure], str, str] | None:
+    """Ask the candidate the run named, and do not ask production for it.
+
+    Returns ``None`` when this run is not that case, so a deployment run
+    and an item case aimed at its bound environment keep their own proof.
+    An item case whose ``--base-url`` names a different origin is a
+    pre-merge candidate: the bound environment is production (or another
+    shared host) and must not be the thing the evidence is certified
+    against.
+    """
+    if context.get("deployment_run_id") or not base_url:
+        return None
+    payload = context.get("deployment_target")
+    if not isinstance(payload, dict):
+        return None
+    bound = credential_free_origin(str(payload.get("origin") or ""))
+    given = credential_free_origin(base_url)
+    if not bound or not given or bound == given:
+        return None
+    failure, served = verify_case_target_identity(base_url, expected_sha, fetch=fetch)
+    if failure is not None:
+        return failure, "", ""
+    return None, given, served
+
+
 def verify_case_target_identity(
     base_url: str,
     expected_sha: str,
@@ -206,5 +239,6 @@ def verify_case_target_identity(
 __all__ = [
     "credential_free_origin",
     "origin_bound_session_fetch",
+    "prove_pre_merge_candidate_identity",
     "verify_case_target_identity",
 ]

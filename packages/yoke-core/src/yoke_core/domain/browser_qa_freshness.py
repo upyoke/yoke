@@ -23,6 +23,7 @@ from typing import Any, Dict, Optional
 
 from yoke_core.domain.browser_qa_case_target_identity import (
     credential_free_origin,
+    prove_pre_merge_candidate_identity,
     verify_case_target_identity,
 )
 from yoke_core.domain.browser_qa_freshness_outcome import (
@@ -240,11 +241,13 @@ def _establish_deployment_freshness(
     """Prove the target under test, and name what that proof covers.
 
     Which target that is comes from the target the case is bound to, never
-    from the branch alone: a case that names an environment verifies that
-    environment, whether it hangs off a deployment run or an item; a case
-    bound to nothing verifies the branch's preview; and where the project
-    publishes no preview proof either, the last source is the host the case
-    is about to browse. That fallback is last, not lenient — it is reached
+    from the branch alone. A deployment run verifies the environment it
+    deployed. An item case whose ``--base-url`` names a different origin
+    verifies that given target at its ``/served-build`` and does not ask
+    the bound environment. A case bound to nothing verifies the branch's
+    preview; and where the project publishes no preview proof either, the
+    last source is the host the case is about to browse. That fallback is
+    last, not lenient — it is reached
     only where nothing was deployed and nothing was configured, so a
     preview that answered wrongly or a configuration that could not be read
     still refuses on its own terms.
@@ -255,12 +258,16 @@ def _establish_deployment_freshness(
     to a target something answered for; the commit is what the run records,
     so a stamped commit is always one some source actually produced.
     """
+    candidate = prove_pre_merge_candidate_identity(
+        context, base_url, expected_sha, fetch=fetch_identity
+    )
+    if candidate is not None:
+        return candidate
+
     if context.get("deployment_target") is not None:
-        # The case's own bound target answers first: an environment a case
-        # names is the deployment it is about, whether it hangs off a run or
-        # an item. Only a case bound to nothing falls through to the branch
-        # preview below, which is the question that fits a case with no
-        # target of its own.
+        # The bound environment answers when it is the target under test:
+        # a deployment run, or an item case whose --base-url is that same
+        # origin. A pre-merge candidate on another origin returned above.
         target = DeploymentUnderTest.from_payload(context.get("deployment_target"))
         failure = validate_deployment_identity(
             expected_sha,

@@ -128,16 +128,21 @@ class TestTheServedBuildPath:
         assert response.headers["content-type"].startswith("text/plain")
         assert response.text == response.text.strip()
 
-    def test_the_identity_path_is_not_an_opening_in_the_session_gate(self, client):
-        """The failure this prevents: publishing a read that anyone who can
-        reach the port may take, on a server whose whole security model is
-        that every route requires the per-run token."""
+    def test_the_identity_path_answers_before_the_session_exists(self, client):
+        """Browser QA reads the commit before it holds the session cookie.
+
+        The rest of the server still requires the per-run token. This path
+        is the exception, matching the self-hosted workbench: the commit
+        is not a second secret, and a 401 here is an identity proof that
+        can never succeed against the candidate the run was given.
+        """
         from yoke_contracts.runtime_identity import SERVED_BUILD_PATH
 
         response = client.get(SERVED_BUILD_PATH)
 
-        assert response.status_code == 401
-        assert response.json()["error"]["code"] == "session_token_required"
+        assert response.status_code == 200
+        assert response.text == identity.served_build_identity()
+        assert client.get("/").status_code == 401
 
     def test_a_stale_answer_cannot_be_served_from_a_cache(self, client):
         from yoke_contracts.runtime_identity import SERVED_BUILD_PATH
