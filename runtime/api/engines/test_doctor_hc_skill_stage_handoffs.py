@@ -24,6 +24,7 @@ def _corpus(tmp_path: Path, text: str, owner: str = "idea") -> Path:
         "Next: `/yoke polish ITEM`.",
         "Complete this segment before handing off to `/yoke usher ITEM`.",
         "Use\n`/yoke usher ITEM` to merge.",
+        "Repair the budget through `/yoke refine ITEM` while it is in refinement.",
         "Print: `All tasks complete. Run '/yoke polish ITEM'.`",
         "Include the exact `/yoke blitz ITEM` handoff.",
         "```text\n/yoke refine ITEM\n```",

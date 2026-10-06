@@ -28,7 +28,7 @@ _DIRECTIVE = re.compile(
     r"(?<![-\w])(?:run(?:ning)?|re-run|rerun|use(?:s)?|invoke|start|continue|resume|"
     r"next(?=\s*[:`])|next\s+(?:step|skill|bound\s+skill)|"
     r"hand(?:ing|s)?\s*off|handoff|"
-    r"route(?:s|d)?\b[^.!?]*\bto)\b",
+    r"route(?:s|d)?\b[^.!?]*\bto|repair\b[^.!?]*\bthrough)\b",
     re.IGNORECASE,
 )
 _NEGATIVE = re.compile(
