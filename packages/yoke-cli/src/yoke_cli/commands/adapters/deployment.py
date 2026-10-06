@@ -28,8 +28,7 @@ DEPLOYMENT_FLOWS_STAGES_USAGE = (
     "yoke deployment-flows stages FLOW-ID [--session-id S] [--json]"
 )
 DEPLOYMENT_FLOWS_SET_STATUS_USAGE = (
-    "yoke deployment-flows set-status FLOW-ID active|disabled "
-    "[--session-id S] [--json]"
+    "yoke deployment-flows set-status FLOW-ID active|disabled [--session-id S] [--json]"
 )
 DEPLOYMENT_RUNS_GET_USAGE = (
     "yoke deployment-runs get RUN-ID [FIELD] [--session-id S] [--json]"
@@ -39,12 +38,10 @@ DEPLOYMENT_RUNS_LIST_USAGE = (
     "[--limit N] [--session-id S] [--json]"
 )
 DEPLOYMENT_RUNS_UPDATE_USAGE = (
-    "yoke deployment-runs update RUN-ID FIELD VALUE [--force] "
-    "[--session-id S] [--json]"
+    "yoke deployment-runs update RUN-ID FIELD VALUE [--force] [--session-id S] [--json]"
 )
 DEPLOYMENT_RUNS_APPROVE_USAGE = (
-    "yoke deployment-runs approve RUN-ID [--note TEXT] "
-    "[--session-id S] [--json]"
+    "yoke deployment-runs approve RUN-ID [--note TEXT] [--session-id S] [--json]"
 )
 DEPLOYMENT_RUNS_RESOLVE_TARGET_USAGE = (
     "yoke deployment-runs resolve-target PROJECT FLOW "
@@ -53,8 +50,9 @@ DEPLOYMENT_RUNS_RESOLVE_TARGET_USAGE = (
 
 
 def _pipe(fields: list[str], row: dict[str, Any]) -> str:
-    return "|".join("" if row.get(field) is None else str(row.get(field))
-                    for field in fields)
+    return "|".join(
+        "" if row.get(field) is None else str(row.get(field)) for field in fields
+    )
 
 
 def _run_target(run_id: str) -> TargetRef:
@@ -77,18 +75,17 @@ def deployment_flows_get(args: List[str]) -> int:
     def _human_writer(response, stdout, stderr) -> None:
         result = response.result or {}
         if parsed.field:
-            print("" if result.get("value") is None else result["value"],
-                  file=stdout)
+            print("" if result.get("value") is None else result["value"], file=stdout)
             return None
-        print(_pipe(result.get("fields") or [], result.get("flow") or {}),
-              file=stdout)
+        print(_pipe(result.get("fields") or [], result.get("flow") or {}), file=stdout)
         return None
 
     return dispatch_and_emit(
         function_id="deployment_flows.get",
         target=TargetRef(kind="global"),
         payload={"flow_id": parsed.flow_id, "field": parsed.field},
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
         human_writer=_human_writer,
     )
 
@@ -113,7 +110,8 @@ def deployment_flows_stages(args: List[str]) -> int:
         function_id="deployment_flows.stages",
         target=TargetRef(kind="global"),
         payload={"flow_id": parsed.flow_id},
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
         human_writer=_human_writer,
     )
 
@@ -123,16 +121,15 @@ def deployment_flows_set_status(args: List[str]) -> int:
         prog="yoke deployment-flows set-status",
         description=(
             "Enable or disable a deployment flow without removing its "
-            "definition or historical runs."
+            "definition or historical runs. Items pinned to a disabled flow "
+            "follow its newest active successor (supersedes_flow_id)."
         ),
     )
     parser.add_argument("flow_id")
     parser.add_argument("status", choices=("active", "disabled"))
     add_session_arg(parser)
     add_json_arg(parser)
-    parsed = parse_or_usage_error(
-        parser, args, DEPLOYMENT_FLOWS_SET_STATUS_USAGE
-    )
+    parsed = parse_or_usage_error(parser, args, DEPLOYMENT_FLOWS_SET_STATUS_USAGE)
     if parsed is None:
         return 2
 
@@ -170,18 +167,17 @@ def deployment_runs_get(args: List[str]) -> int:
     def _human_writer(response, stdout, stderr) -> None:
         result = response.result or {}
         if parsed.field:
-            print("" if result.get("value") is None else result["value"],
-                  file=stdout)
+            print("" if result.get("value") is None else result["value"], file=stdout)
             return None
-        print(_pipe(result.get("fields") or [], result.get("run") or {}),
-              file=stdout)
+        print(_pipe(result.get("fields") or [], result.get("run") or {}), file=stdout)
         return None
 
     return dispatch_and_emit(
         function_id="deployment_runs.get",
         target=_run_target(parsed.run_id),
         payload={"field": parsed.field},
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
         human_writer=_human_writer,
     )
 
@@ -223,7 +219,8 @@ def deployment_runs_list(args: List[str]) -> int:
         function_id="deployment_runs.list",
         target=TargetRef(kind="global"),
         payload=payload,
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
         human_writer=_human_writer,
     )
 
@@ -254,7 +251,8 @@ def deployment_runs_update(args: List[str]) -> int:
             "value": parsed.value,
             "force": parsed.force,
         },
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
         human_writer=_human_writer,
     )
 
@@ -283,7 +281,8 @@ def deployment_runs_approve(args: List[str]) -> int:
         function_id="deployment_runs.approve",
         target=_run_target(parsed.run_id),
         payload=payload,
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
         human_writer=_human_writer,
     )
 
@@ -301,7 +300,9 @@ def deployment_runs_resolve_target(args: List[str]) -> int:
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
-        parser, args, DEPLOYMENT_RUNS_RESOLVE_TARGET_USAGE,
+        parser,
+        args,
+        DEPLOYMENT_RUNS_RESOLVE_TARGET_USAGE,
     )
     if parsed is None:
         return 2
@@ -310,7 +311,8 @@ def deployment_runs_resolve_target(args: List[str]) -> int:
         result = response.result or {}
         fields = ("target_tier", "target_environment")
         print(
-            "|".join(str(result.get(f) or "") for f in fields), file=stdout,
+            "|".join(str(result.get(f) or "") for f in fields),
+            file=stdout,
         )
         return None
 
@@ -321,7 +323,8 @@ def deployment_runs_resolve_target(args: List[str]) -> int:
         function_id="deployment_runs.resolve_target",
         target=TargetRef(kind="global"),
         payload=payload,
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
         human_writer=_human_writer,
     )
 

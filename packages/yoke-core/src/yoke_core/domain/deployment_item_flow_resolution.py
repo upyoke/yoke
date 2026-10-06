@@ -6,6 +6,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain import db_helpers
 from yoke_core.domain import workflow_project_defaults
 from yoke_core.domain.deployment_flow_state import FLOW_STATUS_ACTIVE
+from yoke_core.domain.deployment_flow_succession import successor_flows
 from yoke_core.domain.project_identity import render_item_ref, resolve_project
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.workflow_project_defaults import WorkflowProjectDefaultError
@@ -19,10 +20,15 @@ FLOW_SOURCE_UNREADABLE = "unreadable"
 
 
 class ItemCompletionFlowFact(NamedTuple):
-    """The closing flow for one item, and whether it is stored or inherited."""
+    """The closing flow for one item, and whether it is stored or inherited.
+
+    ``pinned`` is the item's stored pin when completion follows that pin's
+    active successor instead; it is empty when ``flow`` is the pin itself.
+    """
 
     flow: str
     source: str
+    pinned: str = ""
 
 
 def item_completion_flow_facts(
@@ -35,6 +41,10 @@ def item_completion_flow_facts(
     one default resolution per distinct project-and-workflow pair. A default
     that cannot be read is ``source='unreadable'`` with an empty flow, never
     silently the same as a project that declared none.
+
+    A stored pin whose flow was retired resolves to its newest active
+    successor (see :mod:`deployment_flow_succession`); the pin stays stored
+    and is reported beside the flow that now closes the item.
     """
     ids = tuple(dict.fromkeys(int(value) for value in item_ids))
     if not ids or not _column_exists(conn, "items", "deployment_flow"):
@@ -52,12 +62,13 @@ def item_completion_flow_facts(
     ).fetchall()
     facts: dict[int, ItemCompletionFlowFact] = {}
     unresolved: dict[int, tuple[str, str]] = {}
+    pins: dict[int, str] = {}
     for raw in rows:
         row = dict(raw)
         item_id = int(row["id"])
         pinned = str(row["deployment_flow"] or "").strip()
         if pinned:
-            facts[item_id] = ItemCompletionFlowFact(pinned, FLOW_SOURCE_ITEM)
+            pins[item_id] = pinned
             continue
         facts[item_id] = ItemCompletionFlowFact("", FLOW_SOURCE_NONE)
         if not has_workflow:
@@ -66,6 +77,12 @@ def item_completion_flow_facts(
         workflow_id = str(row["workflow_id"] or "")
         if project and workflow_id:
             unresolved[item_id] = (project, workflow_id)
+    followed = successor_flows(conn, pins.values())
+    for item_id, pinned in pins.items():
+        flow = followed.get(pinned, pinned)
+        facts[item_id] = ItemCompletionFlowFact(
+            flow, FLOW_SOURCE_ITEM, pinned if flow != pinned else ""
+        )
     if not unresolved:
         return facts
     if not _table_exists(conn, "project_structure"):
@@ -119,6 +136,8 @@ def item_completion_flows(conn: Any, item_ids: Iterable[int]) -> dict[int, str]:
 
 def item_completion_flow(conn: Any, item_id: int) -> str:
     """The flow that may close this item: explicit pin, else project default.
+
+    A pin to a retired flow resolves to its newest active successor.
 
     Membership can carry the item on another same-project run. Completion,
     QA source obligations, and done-transition evidence all key off this
