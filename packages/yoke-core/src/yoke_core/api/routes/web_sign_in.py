@@ -200,10 +200,21 @@ def oidc_callback(request: Request) -> Response:
         )
 
     with db_helpers.connect() as conn:
+        from yoke_core.api.frontend_events_config import verified_attribution
+
+        try:
+            acquisition = verified_attribution(request)
+        except Exception:
+            _log.warning(
+                "attribution_unavailable: restore analytics capture; signing in without attribution",
+                exc_info=True,
+            )
+            acquisition = None
         resolution = resolve_sign_in(
             conn,
             claims,
             allow_unverified_email=config.allow_unverified_email,
+            attribution=acquisition,
         )
         if not resolution.succeeded or resolution.actor_id is None:
             return _sign_in_error_page(

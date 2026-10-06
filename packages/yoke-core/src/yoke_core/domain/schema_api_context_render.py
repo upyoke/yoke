@@ -39,8 +39,8 @@ PACKET_DETAILS: tuple[str, ...] = (PACKET_DETAIL_COMPACT, PACKET_DETAIL_FULL)
 def packet_detail_pointer(role: str, topic: str) -> str:
     """Return the one line naming where a compact block's notes live."""
     return (
-        f"_Compact depth. Per-table and per-command notes for this topic — "
-        f"the caveats and the wrong guesses they correct — read with_ "
+        f"_Compact depth. For per-table/command notes, caveats and corrected "
+        f"wrong guesses, read_ "
         f"`yoke packets render --role {role} --topic {topic} --detail full`."
     )
 

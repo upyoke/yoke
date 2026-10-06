@@ -4,6 +4,9 @@ The bearer API token is the credential for every non-public API path. The
 browser's web-session cookie — the other credential this server accepts,
 for the workbench pages and ``POST /v1/functions/call`` — lives in
 :mod:`yoke_core.api.web_session_auth`.
+
+Anonymous frontend analytics routes separately enforce an exact serving origin,
+publishable key and shared rate budget.
 """
 
 from __future__ import annotations

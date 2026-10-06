@@ -410,7 +410,7 @@ Recurring telemetry signal: engineer `cd <worktree> && <cmd>` patterns account f
 - `items.db_mutation_profile` — `state`:'none'|'declared'='none', `model`:str|null=null, `mutation_intent`:'apply'=null, `compatibility_class`:'pre_merge_safe'|'pre_merge_breaking'=null, `migration_strategy`:'additive_only'|'hard_cutover'|'expand_contract'=null, `migration_modules`:list[str]=[]. Validator: `yoke_core.domain.db_mutation_profile.validate_json_string`.
 - `items.db_compatibility_attestation` — `pre_merge_readers_writers`:list[dict]=[], `invariants`:list[str]=[], `rehearsal_commands`:list[str]=[], `residual_risk_notes`:list[str]=[], `class_escalations`:list[dict]=[], `frozen_at`:str|null=null. Validator: `yoke_core.domain.db_compatibility_attestation.validate_json_string`.
 
-_Compact depth. Per-table and per-command notes for this topic — the caveats and the wrong guesses they correct — read with_ `yoke packets render --role engineer_agent --topic core --detail full`.
+_Compact depth. For per-table/command notes, caveats and corrected wrong guesses, read_ `yoke packets render --role engineer_agent --topic core --detail full`.
 
 <!-- YOKE:DB-PACKET end -->
 
@@ -489,14 +489,14 @@ WHERE tgt.path_string IN ('<project-source-path>/foo.py', '<project-source-path>
 - **`path_claim_task_bindings`** — `claim_id, epic_id, task_num, bound_at`
 - **`path_targets`** — `id, project_id, kind, path_string, generation, parent_target_id, created_at, materialization_state, materialization_updated_at, planned_by_item_id, planned_by_claim_id`
 - **`path_claim_amendments`** — `id, claim_id, amended_at, amendment_kind, payload, reason`
-- **`actors`** — `id, kind, system_component, name, status, created_at`
+- **`actors`** — `id, kind, system_component, name, status, created_at, attribution`
 - **`machines`** — `machine_id, name, owner_actor_id, access, registered_at, last_seen_at, retired_at, retired_by_actor_id`
 - **`harness_machine_reports`** — `project_id, machine_id, harness_id, glue_written, glue_present, glue_malformed, config_present, project_entry_present, approval_state, unattended_posture, reported_at`
 
 **JSON-nested-field schemas** (_parse the rendered JSON string; do NOT query nested fields as top-level columns_):
 - `harness_sessions.offer_envelope` — `execution_lane`:str='primary', `supported_paths`:list[str]=[], `capabilities`:list[str]=[], `workspace`:str='', `offered_at`:str (ISO-8601)='', `offer_diagnostics`:dict={}. Validator: `yoke_core.domain.sessions_offer_envelope_merge.merge_offer_envelope`.
 
-_Compact depth. Per-table and per-command notes for this topic — the caveats and the wrong guesses they correct — read with_ `yoke packets render --role engineer_agent --topic claims --detail full`.
+_Compact depth. For per-table/command notes, caveats and corrected wrong guesses, read_ `yoke packets render --role engineer_agent --topic claims --detail full`.
 
 <!-- YOKE:DB-PACKET end -->
 
@@ -553,7 +553,7 @@ _Compact depth. Per-table and per-command notes for this topic — the caveats a
 - `qa_requirements.capability_requirements` — `(JSON array of capability tokens the runner must advertise)`:list[str]=[]. Validator: `yoke_core.domain.qa_requirement_ops`.
 - `qa_requirements.success_policy` — `kind`:'all_pass'|'any_pass'|'majority_pass'='all_pass', `threshold`:int|null=null. Validator: `yoke_core.domain.qa_requirement_ops`.
 
-_Compact depth. Per-table and per-command notes for this topic — the caveats and the wrong guesses they correct — read with_ `yoke packets render --role engineer_agent --topic qa --detail full`.
+_Compact depth. For per-table/command notes, caveats and corrected wrong guesses, read_ `yoke packets render --role engineer_agent --topic qa --detail full`.
 
 <!-- YOKE:DB-PACKET end -->
 
@@ -594,7 +594,7 @@ _Compact depth. Per-table and per-command notes for this topic — the caveats a
 - **`project_github_repo_bindings`** — `project_id, installation_id, repository_id, api_url, github_repo, default_branch, repository_is_private, status, permissions, last_verified_at, last_error, created_at, updated_at, last_sync_at, last_sync_outcome, last_sync_error`
 - **`migration_audit`** — `id, migration_name, description, tables_declared, expected_deltas, pre_row_counts, post_row_counts, pre_fk_violations, post_fk_violations, backup_path, state, failure_reason, exception_reason, source_fingerprint, rehearsed_at, lease_id, test_copy_path, baseline_verify_result, author_verify_result, session_id, model_name, project_id, started_at, completed_at, duration_ms, actor_id, worktree, source_branch, source_commit, integration_target, change_class`
 
-_Compact depth. Per-table and per-command notes for this topic — the caveats and the wrong guesses they correct — read with_ `yoke packets render --role engineer_agent --topic project --detail full`.
+_Compact depth. For per-table/command notes, caveats and corrected wrong guesses, read_ `yoke packets render --role engineer_agent --topic project --detail full`.
 
 <!-- YOKE:DB-PACKET end -->
 

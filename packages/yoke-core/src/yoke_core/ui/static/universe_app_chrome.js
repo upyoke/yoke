@@ -266,6 +266,7 @@ export function createWorkbenchChrome({
 
   return {
     brand,
+    footer: controls.footer,
     disposeChrome() {
       disposeRevealPanels();
       actorMenu?.dispose();

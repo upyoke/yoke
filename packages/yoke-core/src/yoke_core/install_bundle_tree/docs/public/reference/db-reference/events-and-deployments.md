@@ -4,7 +4,7 @@ Schemas for the unified events log, write-side severity config and registry, dep
 
 ## Table: events
 
-Cross-stack structured event log. Unified envelope for agent tool calls, session lifecycle, backend telemetry, frontend analytics, and system events. All source types share the same schema, enabling cross-source queries on a single table.
+Cross-stack structured event log. Unified envelope for agent tool calls, session lifecycle, backend telemetry, frontend analytics, and system events. All source types share the same schema, enabling cross-source queries on a single table. Workbench analytics use the anonymous `/api/events` collector; [workbench telemetry](../../events-doctor-ouroboros.md) explains consent, admission, URL hygiene, packaging, and durable `actors.attribution` ownership.
 
 Compatibility note: first-class tool-call correlation columns are optional across local installs and emitters. Readers and emitters must tolerate their absence until all live event tables expose the full correlation surface.
 
@@ -45,7 +45,7 @@ that retired surface.
 
 **Deduplication:** The `event_id` column has a UNIQUE constraint. Inserts use `ON CONFLICT DO NOTHING` so duplicate event IDs are silently dropped.
 
-**Write-side severity filtering:** Before inserting, events are checked against the `severity_config` table. Events below the configured minimum severity for their `(event_name, source_type)` pair are silently dropped without error.
+**Write-side severity filtering:** Before inserting, events are checked against the `severity_config` table. Events below the configured minimum severity for their `(event_name, source_type)` pair are silently dropped without error. The acknowledged anonymous frontend collector bypasses this optional filter; retention still applies.
 
 **Retention (prune):** DEBUG=1d, INFO=30d, WARN=90d, STATUS/ERROR/FATAL=forever. Event preview and delete are LIMIT-batched (`--batch-size`, default 1000). LIMIT caps matching rows, not scanned rows or query duration; the monotonic `--max-seconds` deadline (default 30) is checked between statements, and each event count/delete/leftover probe sets `statement_timeout` to the remaining budget so a sparse scan, `ORDER BY`, or leftover peek cannot outlive the pass. That timeout is event-only: after each event probe it is restored to the incoming `SHOW statement_timeout` (not forced to zero) before ledger, dispatch-intent, and `session_tool_calls` helpers, which keep their existing retention contracts. Optionally batch-capped (`--max-batches`); counts are exact or labeled `>=N (partial)`. A statement timeout is a graceful stop: already-committed batches stay. Referenced `event_id` rows (path-audit tables) are kept on every event delete path. Obsolete-name cleanup is opt-in (`--purge-obsolete`). Live invocation: `python3 -m yoke_core.cli.db_router events prune [--dry-run]`. Rerun after `stopped: batch/time budget`. No automatic prune timer lives in this repo; do not invent a parallel scheduler. DEBUG is the on-demand-capture tier (dropped at the default INFO write floor; enable by lowering `severity_config` to DEBUG), so it carries the shortest retention.
 

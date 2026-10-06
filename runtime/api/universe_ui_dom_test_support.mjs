@@ -200,6 +200,7 @@ export class FakeDocument extends EventTarget {
     super();
     this.defaultView = new FakeWindow();
     this.activeElement = null;
+    this.head = new FakeNode(this, "head");
     this.body = new FakeNode(this, "body");
   }
 

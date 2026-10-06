@@ -2,9 +2,59 @@
 
 ## Events
 
+The workbench's **Analytics: off/on** control chooses whether to share usage
+analytics. Consent starts denied; an explicit grant is remembered as a consent
+preference. No visitor identity, attribution cookie, or page-view event is
+created before consent. Revocation removes the preference, discards queued
+telemetry, and clears the server's attribution cookie through the Pack hook.
+One consented load and each URL-changing client navigation emit `PageViewed`
+with `event_type=page_view`. State-only navigation is deduplicated. The installed
+Structured Events Pack removes `?token=`, other sensitive query keys, userinfo,
+and fragments from `page_url` and referrer before storage.
+
+The engine exposes anonymous `GET /api/events/config`, `POST /api/events`, and
+`POST`/`DELETE /api/events/attribution`. The collector accepts only frontend
+analytics, requires an exact match between browser Origin and the serving
+scheme/host/port, checks `X-Events-Key` against its publishable key, and shares
+its rate budget through Postgres. Remote serving requires HTTPS and correct
+trusted proxy configuration. Backend and operational writes retain their
+authenticated boundary. Hosted shells must forward these paths to the selected
+tenant engine and serve the packaged assets on the same origin.
+
+Configuration returns only a publishable digest. The private cookie signing key
+belongs to the organization in `organizations.events_signing_key`. Signed,
+HttpOnly attribution cookies use tenant-specific names; HTTPS uses `__Host-`
+cookies and Secure, while the loopback HTTP door uses port-specific HttpOnly
+cookies. `frontend_event_rate_limits` stores disposable request counts (60
+requests per client/organization per minute), independently of event retention.
+The server stamps organization and verified actor identity; browser-supplied
+identity and project/work-item references cannot choose their durable owners.
+Accepted batches deduplicate on event UUIDs through the existing event sink.
+Collector envelopes use INFO severity and are acknowledged only after sink
+completion; failures return `collector_unavailable`, never false success.
+
+Refusals include `origin_not_allowed`, `publishable_key_invalid`, `rate_limited`
+(with Retry-After), `envelope_invalid`, and size limits. Each gives a recovery
+step. The Pack retries failed batches with their original event IDs. Telemetry
+remains disposable: using Yoke never depends on its successful delivery.
+
+Source maintainers install the project-owned Structured Events Pack, then run
+`yoke dev run -- python3 -m yoke_core.tools.build_frontend_events` from the lane.
+This derives browser JavaScript and package-relative Python helpers from the
+installed `events/` files; it does not change the Pack or its baseline receipt.
+Generated helpers and rule data ship in the engine wheel. Rebuild them after
+an accepted Pack update; `--check` reports stale outputs. Node >=22.13 is needed
+only to build, while installed engines need no Node runtime for collection.
+
 Workbench **Events** is the audit stream: lifecycle, claims, deploy, doctor
 findings, function calls. Filter by name and time when debugging "what
 happened."
+
+Account acquisition is durable state: a signed-in flow creating an actor stores
+the verified consent cookie's visitor identity, first touch, and last touch in
+`actors.attribution`. Later sign-ins preserve that acquisition snapshot. A flow
+without consent creates an actor with no attribution. The event ledger is never
+used to reconstruct this account fact and may be pruned independently.
 
 **Search loaded events** searches the entries already loaded and offers
 observed names as suggestions. Advanced filters keep the precise server-side

@@ -83,6 +83,7 @@ _SANCTIONED_SCHEMA_HELPER_CALLS: frozenset[str] = frozenset(
         "domain/project_structure.py::cmd_init",
         "domain/projects_restart.py::cmd_init",
         # One schema helper calling another.
+        "domain/org_schema.py::create_org_tables",
         "domain/project_onboarding_runs.py::ensure_schema",
         "domain/project_snapshot_chunk_uploads.py::_ensure_chunk_tables",
         # Recorded, not endorsed: write paths that converge their own table
@@ -167,9 +168,7 @@ def _build_fixture_schema(conn: Any) -> None:
 
 
 def _seed_project(conn: Any, *, slug: str = "yoke") -> int:
-    row = conn.execute(
-        "SELECT id FROM projects WHERE slug = %s", (slug,)
-    ).fetchone()
+    row = conn.execute("SELECT id FROM projects WHERE slug = %s", (slug,)).fetchone()
     if row is not None:
         return int(row[0] if not hasattr(row, "keys") else row["id"])
     conn.execute(
@@ -178,9 +177,7 @@ def _seed_project(conn: Any, *, slug: str = "yoke") -> int:
         (slug, slug.title(), "YOK"),
     )
     conn.commit()
-    row = conn.execute(
-        "SELECT id FROM projects WHERE slug = %s", (slug,)
-    ).fetchone()
+    row = conn.execute("SELECT id FROM projects WHERE slug = %s", (slug,)).fetchone()
     return int(row[0] if not hasattr(row, "keys") else row["id"])
 
 

@@ -176,6 +176,10 @@ async def _authenticate(request) -> tuple[Any, JSONResponse | None]:
     and a denial response, never both.
     """
     path = request.url.path
+    from yoke_core.api.frontend_events_config import COLLECTOR_PATHS
+
+    if path in COLLECTOR_PATHS:
+        return None, None  # Collector routes enforce exact origin/key admission.
     if is_public_path(path) or is_workbench_public_path(path):
         return None, None
     if is_workbench_page(request.method, path):
@@ -304,6 +308,9 @@ def _include_routes(application: FastAPI) -> FastAPI:
     v1_router.include_router(web_sign_in_router)
 
     application.include_router(v1_router)
+    from yoke_core.api.routes.frontend_events import router as frontend_events_router
+
+    application.include_router(frontend_events_router, dependencies=admission)
     # The workbench lives at the site root, outside /v1. Included last: its
     # deep-path catch-all must never shadow an API route.
     application.include_router(workbench_router, dependencies=admission)

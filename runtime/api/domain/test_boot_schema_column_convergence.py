@@ -73,8 +73,10 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # history entry retires in favour of one actors.name column; that name
 # column is NOT here, because it lands on an existing table and therefore
 # restores through boot convergence like any other additive column.
+# The anonymous collector's disposable rate-limit table is net-new; its
+# client key, window start and request count are born with that table.
 _BORN_WITH_COLUMN_DIGEST = (
-    "8640cae3b522df5175fc47fbff3a4a72f2db75fd475e2383d1a7f1c65c981f06"
+    "7cdb69264e8d52e2a29e51f6834da037aa9da99fa722f5b930230284b15284bf"
 )
 
 
@@ -178,8 +180,7 @@ def test_machine_credentials_history_upgrades_prior_serving_schema(
             assert "idx_api_tokens_machine" in _get_indexes(conn, "api_tokens")
             assert "idx_machines_retired" in _get_indexes(conn, "machines")
             assert conn.execute(
-                "SELECT COUNT(*) FROM applied_migrations "
-                "WHERE migration_name = %s",
+                "SELECT COUNT(*) FROM applied_migrations WHERE migration_name = %s",
                 (_MACHINE_CREDENTIALS_MIGRATION,),
             ).fetchone() == (1,)
         finally:
