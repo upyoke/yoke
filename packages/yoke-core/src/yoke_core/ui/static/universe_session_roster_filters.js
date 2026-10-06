@@ -1,3 +1,4 @@
+import { magnifier } from "./universe_search_overlay.js";
 import { attachTooltip } from "./universe_tooltip.js";
 import { el } from "./universe_view_support.js";
 
@@ -59,7 +60,7 @@ export function sessionRosterFilters(documentNode, onChange) {
   search.control.placeholder = "Search sessions, items, models, operators";
   search.control.setAttribute("aria-label", "Search");
   search.wrapper.replaceChildren(
-    el(documentNode, "span", "session-filter-search-icon", "⌕"),
+    magnifier(documentNode, "session-filter-search-icon"),
     search.control,
   );
   controls.search = search.control;
@@ -227,67 +228,21 @@ export function appendSessionRelay(documentNode, body, row) {
   body.appendChild(line);
 }
 
-export function messagingAvailability(row) {
+export function sessionMessageDeliveryNote(row) {
   const routing = row.messageability || {};
-  // An ended session is answered by the fact that it ended, before any
-  // routing question: history rows carry no routing projection at all, and
-  // reading that absence as a missing delivery hook would blame the harness
-  // for a session that simply is not running.
-  if (String(row.liveness || "") === "ended") {
-    return { available: false, reason: "" };
+  if (String(row.liveness || "") === "active"
+      && row.mode !== "parked" && row.turn_posture !== "waiting") return "";
+  if (routing.wake_authority === "operator") {
+    return "Queued — delivered when you wake this session.";
   }
-  if (routing.reason === "session_terminated") {
-    return {
-      available: false,
-      reason: "Messaging unavailable: this session was terminated.",
-    };
+  if (routing.relay_connected === false) {
+    return "Queued — delivered on this session's next hook. Automatic wake "
+      + "waits for the relay to reconnect.";
   }
-  if (routing.messageable !== true) {
-    if (routing.reason === "version_below_floor_or_unknown") {
-      return {
-        available: false,
-        reason: routing.minimum_version
-          ? "Messaging unavailable: executor version "
-            + `${routing.minimum_version} or newer is required.`
-          : "Messaging unavailable: the executor version is not reported "
-            + "or supported.",
-      };
-    }
-    return {
-      available: false,
-      reason:
-        "Messaging unavailable: this executor surface has no supported "
-        + "delivery hook.",
-    };
-  }
-  if (String(row.liveness || "") !== "active" && routing.wake_available !== true) {
-    if (routing.wake_authority === "operator") {
-      return {
-        available: true,
-        reason: "",
-        note: "Waiting for the operator to wake it: a message is delivered "
-          + "when they next type anything in this chat.",
-      };
-    }
-    if (routing.relay_connected === false) {
-      return {
-        available: false,
-        reason:
-          "Messaging unavailable: no relay is connected on this session's "
-          + "machine.",
-      };
-    }
-    return {
-      available: false,
-      reason: "Messaging unavailable: this idle session has no wake route.",
-    };
-  }
-  return { available: true, reason: "" };
+  return "";
 }
 
 export function sessionMessageButton(documentNode, row, onMessage) {
-  const availability = messagingAvailability(row);
-  if (!availability.available) return null;
   const message = el(
     documentNode,
     "button",
@@ -298,21 +253,20 @@ export function sessionMessageButton(documentNode, row, onMessage) {
   attachTooltip(
     documentNode,
     message,
-    availability.note || `Message only session ${row.session_id}`,
+    sessionMessageDeliveryNote(row) || `Message only session ${row.session_id}`,
     { pinOnClick: false },
   );
   message.addEventListener("click", () => onMessage(String(row.session_id)));
   return message;
 }
 
-export function appendSessionMessagingBlocker(documentNode, body, row) {
-  if (String(row.liveness || "") === "ended") return;
-  const availability = messagingAvailability(row);
-  if (availability.available) return;
+export function appendSessionMessageDeliveryNote(documentNode, body, row) {
+  const note = sessionMessageDeliveryNote(row);
+  if (!note) return;
   body.appendChild(el(
     documentNode,
     "p",
-    "fact-line session-messaging-blocked",
-    availability.reason,
+    "fact-line session-message-delivery-note",
+    note,
   ));
 }

@@ -200,3 +200,15 @@ def test_gate_catalog_copy_matches_the_visual_specification():
     assert {
         gate_id: catalog[gate_id] for gate_id in EXPECTED_GATE_DESCRIPTIONS
     } == EXPECTED_GATE_DESCRIPTIONS
+
+
+def test_blitz_closes_through_release_then_done():
+    fixture = builtin_workflow_definition("blitz")
+    edges = {
+        (row["from_stage_id"], row["to_stage_id"])
+        for row in fixture["definition"]["transitions"]
+    }
+    assert fixture["canon_version"] == 10
+    assert ("reviewing-implementation", "release") in edges
+    assert ("release", "done") in edges
+    assert ("reviewing-implementation", "done") not in edges

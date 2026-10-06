@@ -8,7 +8,7 @@ from typing import Any, Optional
 from yoke_core.domain import db_backend
 from yoke_core.domain.events_crud import normalize_event_item_id
 from yoke_core.domain.project_identity import resolve_project_id
-from yoke_core.domain.yok_n_parser import parse_item_id
+from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 
 GLOBAL_EVENT_PROJECT_TOKENS = {"", "all", "global", "multi"}
 SESSION_SCOPED_EVENT_TYPES = {
@@ -78,6 +78,37 @@ def _session_project_id(conn: Any, session_id: str) -> Optional[int]:
     except (TypeError, ValueError):
         return None
     return project_id if project_id > 0 else None
+
+
+def working_project_for_event(
+    *,
+    conn: Any = None,
+    session_id: str = "",
+    item_id: Optional[int] = None,
+    directory: Any = None,
+) -> Any:
+    """Use the event's durable owner, or its mapped caller checkout.
+
+    Server-side writers pass their connection; their process directory is
+    unrelated to the caller's project. Local hooks may pass a caller directory.
+    Unknown ownership remains unscoped.
+    """
+    if conn is not None:
+        if item_id is not None:
+            row = conn.execute(
+                f"SELECT project_id FROM items WHERE id = {_placeholder(conn)}",
+                (item_id,),
+            ).fetchone()
+            if row is not None:
+                return _row_value(row, "project_id", 0)
+        project = _session_project_id(conn, session_id) if session_id else None
+        if project is not None:
+            return project
+    if directory is not None:
+        from yoke_contracts.project_defaults import default_project_for_directory
+
+        return default_project_for_directory(directory)
+    return None
 
 
 def resolve_project_id_for_event(
@@ -174,42 +205,41 @@ def resolve_envelope_project_id_for_event(
 
     # No context project, no session project: the event indexes as
     # global rather than being attributed to any particular project.
-    return resolve_project_id_for_event(
-        conn, db_path, envelope.get("project")
-    )
+    return resolve_project_id_for_event(conn, db_path, envelope.get("project"))
 
 
 def resolve_item_id_for_event(
     conn: Optional[Any],
     db_path: Optional[str],
-    item_id: Optional[str],
-    *,
-    project: Any,
+    item_id: Any,
 ) -> Optional[str]:
-    """Resolve public item refs to internal ids; leave work-unit sentinels alone."""
-    if item_id is None:
+    """Normalize an emitter's item token to the bare internal id the index stores.
+
+    Emitters are engine code: an int or digit string is the internal id, a
+    ``PREFIX-N`` ref resolves through the one item resolver, and work-unit
+    sentinels normalize to ``None``. A number is never re-read as a project
+    sequence.
+    """
+    if item_id is None or isinstance(item_id, bool):
         return None
+    if isinstance(item_id, int):
+        return str(item_id)
     from yoke_contracts.public_ref import parse_public_item_ref
 
-    prefix, _ = parse_public_item_ref(item_id)
-    if (
-        project is None
-        or str(project).strip().lower() in GLOBAL_EVENT_PROJECT_TOKENS
-    ) and prefix is None:
-        return normalize_event_item_id(item_id)
+    text = str(item_id).strip()
+    prefix, sequence = parse_public_item_ref(text)
+    if prefix is None or sequence is None:
+        return normalize_event_item_id(text)
     if conn is not None:
-        try:
-            return str(parse_item_id(item_id, project=project, conn=conn))
-        except Exception:
-            return normalize_event_item_id(item_id)
+        resolved = resolve_item_ref_or_none(conn, text)
+        return None if resolved is None else str(resolved)
     try:
         own_conn = db_backend.connect(db_path)
     except Exception:
-        return normalize_event_item_id(item_id)
+        return None
     try:
-        return str(parse_item_id(item_id, project=project, conn=own_conn))
-    except Exception:
-        return normalize_event_item_id(item_id)
+        resolved = resolve_item_ref_or_none(own_conn, text)
+        return None if resolved is None else str(resolved)
     finally:
         own_conn.close()
 

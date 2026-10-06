@@ -78,9 +78,7 @@ TEMPORARY_EXCEPTIONS: tuple[str, ...] = default_exception_globs()
 
 # Explicit archive exceptions: historical docs are intentionally excluded
 # from authored-file enforcement, but keep their archive classification.
-ARCHIVE_EXCEPTIONS: tuple[str, ...] = (
-    "docs/archive/**",
-)
+ARCHIVE_EXCEPTIONS: tuple[str, ...] = ("docs/archive/**",)
 
 
 __all__ = (
@@ -170,35 +168,26 @@ def _is_rendered_strategy_doc(path: str, *, repo_root: pathlib.Path) -> bool:
     return True
 
 
-def inventory(*, repo_root: pathlib.Path) -> list[FileEntry]:
+def inventory(*, repo_root: pathlib.Path, read_map=map) -> list[FileEntry]:
     """Return per-file classification + line count for every tracked file."""
     result = run_git(["ls-files"], repo_root=repo_root)
     if result.returncode != 0:
         return []
     policy = resolved_policy(repo_root)
-    entries: list[FileEntry] = []
-    for raw in result.stdout.splitlines():
-        path = raw.strip()
-        if not path:
-            continue
+
+    def entry(path):
         classification = _classify_path_with_policy(
             path, repo_root=repo_root, policy=policy
         )
-        if classification in (Classification.SYMLINK, Classification.BINARY):
-            entries.append(
-                FileEntry(path=path, line_count=0, classification=classification)
-            )
-            continue
-        abs_path = repo_root / path
-        entries.append(
-            FileEntry(
-                path=path,
-                line_count=line_count_file(abs_path),
-                classification=classification,
-            )
+        count = (
+            0
+            if classification in (Classification.SYMLINK, Classification.BINARY)
+            else line_count_file(repo_root / path)
         )
-    entries.sort(key=lambda e: e.path)
-    return entries
+        return FileEntry(path=path, line_count=count, classification=classification)
+
+    paths = (raw.strip() for raw in result.stdout.splitlines() if raw.strip())
+    return sorted(read_map(entry, paths), key=lambda entry: entry.path)
 
 
 def _build_changed_file(
@@ -237,13 +226,16 @@ def changed_files_check(
     """Diff-based hard-fail check. Fail-closed on non-git / missing base."""
     integration_target = base or "main"
     try:
-        scope = None if staged else resolve_file_line_git_scope(
-            repo_root, integration_target,
+        scope = (
+            None
+            if staged
+            else resolve_file_line_git_scope(
+                repo_root,
+                integration_target,
+            )
         )
         effective_base = base if staged else scope.item_base_sha
-        changed = changed_scope_for_check(
-            repo_root, effective_base, staged=staged
-        )
+        changed = changed_scope_for_check(repo_root, effective_base, staged=staged)
         paths = list(changed.paths)
     except (RuntimeError, FileNotFoundError):
         return CheckVerdict(
@@ -273,20 +265,25 @@ def changed_files_check(
     if scope is not None:
         for path in scope.inherited_paths:
             classification = _classify_path_with_policy(
-                path, repo_root=repo_root, policy=policy,
+                path,
+                repo_root=repo_root,
+                policy=policy,
             )
             old = git_show_line_count(integration_target, path, repo_root=repo_root)
             new = git_show_line_count(scope.item_base_sha, path, repo_root=repo_root)
             if classification == Classification.AUTHORED and new > policy.limit:
-                pre_existing.append(ChangedFile(
-                    path=path, classification=classification,
-                    old_line_count=old, new_line_count=new, delta=new - old,
-                ))
+                pre_existing.append(
+                    ChangedFile(
+                        path=path,
+                        classification=classification,
+                        old_line_count=old,
+                        new_line_count=new,
+                        delta=new - old,
+                    )
+                )
     ok = not hard_fails
     if ok and not warnings:
-        summary = (
-            f"ok: no authored file violations across {len(paths)} changed paths"
-        )
+        summary = f"ok: no authored file violations across {len(paths)} changed paths"
     elif ok:
         summary = f"ok with {len(warnings)} warning(s)"
     else:
@@ -296,7 +293,10 @@ def changed_files_check(
     if not staged:
         summary += f"; {changed.coverage_sentence()}"
     return CheckVerdict(
-        ok=ok, hard_fails=hard_fails, warnings=warnings, summary=summary,
+        ok=ok,
+        hard_fails=hard_fails,
+        warnings=warnings,
+        summary=summary,
         pre_existing=pre_existing,
     )
 
@@ -307,9 +307,7 @@ def main(argv: list[str] | None = None) -> int:
         args = parser.parse_args(argv)
     except SystemExit as exc:
         return int(exc.code) if exc.code is not None else 0
-    repo_root = (
-        pathlib.Path(args.repo).resolve() if args.repo else pathlib.Path.cwd()
-    )
+    repo_root = pathlib.Path(args.repo).resolve() if args.repo else pathlib.Path.cwd()
     try:
         policy = resolved_policy(repo_root)
         if args.cmd == "report":

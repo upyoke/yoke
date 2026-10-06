@@ -30,7 +30,10 @@ from yoke_core.domain.projects_github_sync_mode import (
 )
 import yoke_core.engines.doctor_hc_worktrees as _wt
 import yoke_core.engines.doctor_report as _base
-from yoke_core.engines.doctor_hc_gh_skip import GH_APP_AUTH_UNAVAILABLE_SKIP_REASON
+from yoke_core.engines.doctor_hc_gh_skip import (
+    GH_APP_AUTH_UNAVAILABLE_SKIP_REASON,
+    GH_PROJECT_NOT_SELECTED_REASON,
+)
 from yoke_core.engines.doctor_hc_worktrees import _DELEGATED_SYNC_HCS
 from yoke_core.engines.doctor_hc_worktrees_gh_project import (  # noqa: F401
     hc_project_deploy_flows,
@@ -79,12 +82,20 @@ _DELEGATED_HC_LABELS = {
 
 def hc_gh_orphan_detection(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """Find issue-search results not linked to items or epic tasks."""
-    if not _wt._github_auth_configured("yoke", db_path=args.db_path):
+    if not args.project:
+        rec.record(
+            "HC-gh-orphan-detection",
+            "GitHub orphan detection",
+            "N/A",
+            GH_PROJECT_NOT_SELECTED_REASON,
+        )
+        return
+    if not _wt._github_auth_configured(args.project, db_path=args.db_path):
         rec.record(
             "HC-gh-orphan-detection",
             "GitHub orphan detection",
             "SKIP",
-            GH_APP_AUTH_UNAVAILABLE_SKIP_REASON.format(project="yoke"),
+            GH_APP_AUTH_UNAVAILABLE_SKIP_REASON.format(project=args.project),
         )
         return
 

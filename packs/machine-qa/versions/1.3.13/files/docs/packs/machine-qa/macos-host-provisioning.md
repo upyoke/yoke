@@ -1,10 +1,31 @@
 # Provisioning and saving a macOS Test Machine
 
+For stored-password setup commands on macOS and Linux, follow [administrator commands](administrator-commands.md).
+
 Follow [setup responsibilities](setup-responsibilities.md) for every step.
 
 Follow this procedure as the dedicated test account, from a bare host through
 a proved saved state. Substitute the project's registered host, user, machine
 name and project slug; these values and credentials are project-owned.
+Every instruction in a numbered step inherits that step's audit row below.
+“Unverified” means the action or resulting state was not proved by this audit.
+
+Audit: read-only registered operations on `test-mac` (macOS 26.5.1, Apple
+Silicon) and `test-mac-pro` (macOS 12.7.6, Intel) on **2026-10-02 UTC**.
+The audit did not reconfigure either host or execute golden capture/reset/verify.
+Code review establishes the operation contracts, not a live reset verdict.
+
+| Step | Audit against the named machines on 2026-10-02 |
+| --- | --- |
+| 1 | Correct: test accounts, computer names and console users observed on both; creating/rebuilding accounts unverified |
+| 2 | Correct: registered stable names reachable on both; network enrollment/firewall and desktop route unverified |
+| 3 | Correct: SSH key access and `.ssh` modes 0700/0600 on both; effective Full Disk Access unverified |
+| 4 | Correct: FileVault off, automatic login matches test user on both; system/display/disk sleep 0 independently observed on both; test-mac rechecked after operator change and lease release, resolving the earlier disk-sleep divergence |
+| 5 | Correct: idleTime 0 on both, test-mac rechecked after operator reapplied it; preservation by old goldens unverified; SSH keychain-settings reads refused on both |
+| 6 | Correct: Command Line Tools and Git on both; desktop app/support coverage unverified; all three harness CLI paths resolve in login shells |
+| 7 | Correct: Terminal/System Events AppleEvents reach both; registered screenshots on both show Terminal content/menu bars at 05:26 UTC; input/FDA effectiveness unverified |
+| 8 | Correct: Claude bypass bool true on both; real GUI requests and keychain timeout unverified |
+| 9–11 | Unverified: new seal, full integrity and reset roundtrip on both; old baseline directories and sidecars present; test-mac's last recorded capture failed, so it is not a new saved-state proof |
 
 ## 1. Dedicated account and identity
 
@@ -130,8 +151,9 @@ current [Claude installer](https://code.claude.com/docs/en/setup),
 [Cursor installer](https://cursor.com/docs/cli/installation). Reopen a login
 Terminal and record their versions. A non-login SSH PATH may omit `.local/bin`;
 that is not an absent CLI. Declare actual executable paths for probes.
-Check each vendor's current supported OS list before choosing coverage. An
-existing executable does not prove that the host supports a new installation.
+Current Claude documentation requires macOS 13+, so test-mac-pro's Monterey
+installation is **unverified for vendor support and new installation**, even
+when its existing executable is present. Choose supported coverage explicitly.
 
 ## 7. Effective privacy and terminal control
 
@@ -313,5 +335,11 @@ profile as a separate component; it never makes a partial home a valid golden.
 
 Use the logged-in, unlocked test-user desktop through Screen Sharing and the
 GUI Terminal context; the login keychain remains that user's. Capture checks
-same-user processes and `lsof` open files without sudo. Keep the profile
+same-user processes and `lsof` open files without sudo. Saved-profile
+capture was verified after authorization windows and the desktop connection
+closed. On 2026-10-02, test-mac restored its sealed clean home, installed
+candidate `0.1.1+launch.541`, then explicitly restored the separate profile.
+The candidate daemon opened the actual application from that restored profile;
+artifact `25907` records the reviewed UI. It then stopped normally and confirmed
+`not_running`; product scratch teardown confirmed removal. Keep the profile
 snapshot separate from the sealed clean-home baseline.

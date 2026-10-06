@@ -40,9 +40,10 @@ def _log_file() -> Path:
     override = os.environ.get("YOKE_API_LOG", "").strip()
     if override:
         return Path(override)
-    from yoke_core.domain.project_scratch_dir import storage_path
+    from yoke_core.domain.project_scratch_roots import global_scratch_root
 
-    return storage_path("api-server", "yoke-api-server.log")
+    # This process serves a universe, independently of the launching directory.
+    return global_scratch_root() / "storage" / "api-server" / "yoke-api-server.log"
 
 
 def _read_pid(pid_file: Path) -> Optional[int]:
@@ -144,10 +145,7 @@ def cmd_start() -> int:
         )
     pid_file.parent.mkdir(parents=True, exist_ok=True)
     pid_file.write_text(f"{proc.pid}\n", encoding="utf-8")
-    print(
-        f"Yoke API started (PID {proc.pid}). "
-        f"PID file: {pid_file}. Log: {log_file}"
-    )
+    print(f"Yoke API started (PID {proc.pid}). PID file: {pid_file}. Log: {log_file}")
     return 0
 
 

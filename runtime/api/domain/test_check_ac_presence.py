@@ -145,7 +145,7 @@ class TestMain(unittest.TestCase):
     def test_invalid_id_exits_2(self) -> None:
         rc, _, err = self._run(["abc"])
         self.assertEqual(rc, 2)
-        self.assertIn("expected PREFIX-N", err)
+        self.assertIn("pass the public ref (PREFIX-N", err)
 
     def test_missing_item_exits_2(self) -> None:
         with mock.patch(

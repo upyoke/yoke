@@ -82,17 +82,17 @@ def test_command_capture_uses_case_project_instead_of_server_context(
 ):
     from yoke_core.domain.qa_case_command_stream import stream_command
 
-    monkeypatch.setenv("YOKE_PROJECT", "server-project")
+    monkeypatch.setenv("YOKE_PROJECT", "8")
     monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
     result = stream_command(
         "printf caller-output",
         cwd=str(tmp_path),
-        env={"YOKE_PROJECT": "caller-project"},
+        env={"YOKE_PROJECT": "7"},
         timeout_seconds=10,
     )
     assert result.exit_code == 0
-    assert "caller-project" in result.capture_path.parts
-    assert "server-project" not in result.capture_path.parts
+    assert "7" in result.capture_path.parts
+    assert "8" not in result.capture_path.parts
 
 
 def test_dispatch_handler_refuses_missing_payload_project_before_path_resolution(

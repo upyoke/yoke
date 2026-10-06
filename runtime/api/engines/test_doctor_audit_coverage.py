@@ -7,7 +7,6 @@ import time
 
 import pytest
 
-from yoke_core.domain.check_claim_boundary_audit import scan_all
 from yoke_core.domain.check_claim_boundary_audit_correlation import (
     extract_function_response,
 )
@@ -27,7 +26,7 @@ from runtime.api.engines.test_doctor_hc_claim_boundary_audit import (
 )
 
 
-def test_summary_matches_existing_evidence_classification(env):
+def test_summary_classifies_claim_verification_evidence(env):
     conn = env["conn"]
     holder, caller = _sid("a"), _sid("b")
     _add_session(conn, holder)
@@ -71,11 +70,16 @@ def test_summary_matches_existing_evidence_classification(env):
             950,
             {**common, "claim_verification": snapshot},
         )
-    expected = scan_all(conn)
     fails, warns, preview = audit_summary(conn)
-    assert fails == sum(f.severity == "FAIL" for f in expected)
-    assert warns == sum(f.severity == "WARN" for f in expected)
-    assert {f["id"] for f in preview} == {f.event_id for f in expected}
+    assert (fails, warns) == (2, 3)
+    assert len(preview) == 5
+    assert {f["rationale"] for f in preview} == {
+        "function call recorded under a session that did not hold the work claim at event time",
+        "event caller differs from the pre-handler verified caller",
+        "pre-handler claim evidence disagrees with function metadata",
+        "pre-handler evidence does not record an allowed claim decision",
+        "pre-handler evidence is missing the verified claim holder",
+    }
 
 
 def test_large_old_ledger_counts_all_findings_and_bounds_preview(env):
@@ -172,10 +176,9 @@ def test_shell_preview_nul_keeps_attribution_and_literal_escapes(env):
         "UPDATE events SET anomaly_flags='unattributed' WHERE id=%s", (event_id,)
     )
     conn.commit()
-    expected = scan_all(conn)
     fails, warns, sample = audit_summary(conn)
     assert (fails, warns) == (0, 1)
-    assert sample[0]["id"] == expected[0].event_id
+    assert sample[0]["id"] == event_id
     for value, expected_value in [
         (r"\u0000", r"\u0000"),
         ("\x00\x00", "\x01\x01"),
@@ -204,7 +207,6 @@ def test_preview_with_raw_control_inside_response_stays_unparseable(env):
         "UPDATE events SET anomaly_flags='unattributed' WHERE id=%s", (event_id,)
     )
     conn.commit()
-    assert scan_all(conn) == []
     assert audit_summary(conn)[:2] == (0, 0)
 
 
@@ -223,7 +225,6 @@ def test_raw_candidate_filter_keeps_unicode_encoded_functions(env):
     envelope = envelope.replace("structured_field", r"\u0073tructured_field")
     conn.execute("UPDATE events SET envelope=%s WHERE id=%s", (envelope, event_id))
     conn.commit()
-    assert len(scan_all(conn)) == 1
     assert audit_summary(conn)[:2] == (0, 1)
 
 

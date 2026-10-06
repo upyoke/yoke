@@ -11,9 +11,9 @@ does not jump back to the definition originally named by the route.
 | Workflow | Use | Typical path |
 |---|---|---|
 | **Dash** | Direct execution from one instruction, any size | file → implement → verify → merge → done |
-| **Issue** | Bounded change | idea → refine → advance → polish → usher |
+| **Issue** | Bounded change | idea → refine → implement → polish → usher |
 | **Epic** | Multi-task | idea → shepherd → conduct → polish → usher |
-| **Blitz** | Document-led | idea → refine (link one strategy doc) → blitz → done |
+| **Blitz** | Document-led | idea → refine (link one strategy doc) → blitz → release → done |
 
 Choose the smallest workflow that fits. Posture knobs can tighten
 verification, file budget, path claims, approval, or deployment where the

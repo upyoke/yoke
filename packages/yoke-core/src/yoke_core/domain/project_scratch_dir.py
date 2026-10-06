@@ -2,7 +2,9 @@
 
 Yoke-owned transient paths use ``YOKE_SCRATCH_ROOT``,
 ``~/.yoke/config.json:temp_root``, or OS temp with project/session/run
-segments; repo-local data dirs are never the default. Cross-process
+segments; connected project references resolve to numeric ids. Offline
+callers retain their explicit slug without a control-plane lookup.
+Repo-local data dirs are never the default. Cross-process
 coordination surfaces (hook markers, harness runtime cache) stay
 project-stable — no session/run segments — so sibling hook processes of
 one harness session resolve the same files.
@@ -13,6 +15,7 @@ from __future__ import annotations
 import shutil
 import tempfile
 import uuid
+from contextvars import ContextVar
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
@@ -42,18 +45,43 @@ __all__ = [
     "mint_watcher_capture_pair",
     "resolve_active_project",
     "scratch_root",
+    "scratch_project",
     "scratch_subdir",
     "storage_dir",
     "storage_path",
     "watcher_capture_path",
 ]
 
+_scratch_project: ContextVar[str | None] = ContextVar("scratch_project", default=None)
+
+
+@contextmanager
+def scratch_project(project: str) -> Iterator[None]:
+    """Bind an explicit project for all scratch paths in this request.
+
+    Context isolation keeps concurrent server hook runs apart; typed hook
+    workers inherit the binding through their copied execution context.
+    """
+    if not project.strip():
+        from yoke_contracts.project_defaults import MissingProjectError
+
+        raise MissingProjectError(
+            "project_required: supply the hook request's project id"
+        )
+    token = _scratch_project.set(project)
+    try:
+        yield
+    finally:
+        _scratch_project.reset(token)
+
 
 def resolve_active_project(project: str | None = None) -> str:
-    """Return the caller's selected project, or refuse a project-scoped path."""
+    """Return the caller's shared scratch namespace, or refuse a missing project."""
+    from yoke_core.domain.project_scratch_identity import resolve_project_namespace
     from yoke_core.domain.project_selection import required_local_project
 
-    return required_local_project(Path.cwd(), project)
+    selected = required_local_project(Path.cwd(), project or _scratch_project.get())
+    return resolve_project_namespace(selected)
 
 
 def scratch_root(

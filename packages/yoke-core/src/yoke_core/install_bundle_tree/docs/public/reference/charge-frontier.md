@@ -1,6 +1,6 @@
 # Charge Frontier
 
-The charge frontier is the computation that determines which backlog items are eligible for work right now, ranks them by priority, and classifies each into a downstream delivery adapter. It powers the `/yoke charge` command and the `/yoke do` session orchestrator.
+The charge frontier is the computation that determines which backlog items are eligible for work right now, ranks them by priority, and classifies each into a downstream delivery adapter. It powers `/yoke charge` and steering frontier reads.
 
 ## Overview
 
@@ -59,7 +59,7 @@ Items with unsatisfied activation-gate hard-block dependencies are reclassified 
 
 ### Step 7: Enforce WIP cap
 
-The WIP cap limits remaining implementation capacity. In practice, scheduler suppression applies to epic `conduct` work; issue `advance` re-entry remains schedulable, but items already in `implementing` or `reviewing-implementation` still contribute to `wip_active`.
+The WIP cap limits remaining implementation capacity. In practice, scheduler suppression applies to epic `conduct` work; issue `implement` re-entry remains schedulable, but items already in `implementing` or `reviewing-implementation` still contribute to `wip_active`.
 
 At offer time, the scheduler's lane/path filter uses the session's resolved
 executor identity rather than a hand-passed free-form lane guess. The lane
@@ -100,7 +100,7 @@ class FrontierItem:
  project: str
  workflow_id: str
  workflow_version_id: int
- adapter: AdapterCategory # refine, shepherd, conduct, advance, dash, blitz, polish, usher, wait, skip
+ adapter: AdapterCategory # refine, shepherd, conduct, implement, dash, blitz, polish, usher, wait, skip
  blocked_by: List[str] # public text refs stored on item_dependencies rows
  blocked_reasons: List[str] # human-readable reasons
  unblocks_count: int # direct activation-gate dependents
@@ -200,19 +200,19 @@ Read `yoke frontier list --help` for available filters.
 
 The `/yoke charge` SKILL.md uses the frontier computation to drive the full charge loop:
 
-1. **Compute** -- call `yoke frontier list --project P --json` to get the ranked frontier.
+1. **Compute** -- call `yoke charge schedule --json` to get the claim-aware ranked frontier.
 2. **Present** -- display a formatted table of runnable items with adapter classifications.
 3. **Select** -- use the highest-ranked item (or `--item PREFIX-N` override).
 4. **Confirm** -- ask the operator to confirm the dispatch target.
-5. **Dispatch** -- invoke the registered skill in the item's `next_step`
-   (not the raw `adapter`):
- - `refine` routes to `/yoke refine PREFIX-N`
- - `shepherd` routes to `/yoke shepherd PREFIX-N`
- - `conduct` routes to `/yoke conduct PREFIX-N`
- - `advance` routes to `/yoke advance PREFIX-N implementation`
- - `polish` routes to `/yoke polish PREFIX-N`
- - `usher` routes to `/yoke usher PREFIX-N`
- - `wait` reports blockers and stops
+5. **Dispatch** -- invoke the item's returned `entrypoint` from
+   `charge.schedule`. The server renders it from the binding-derived `next_step`
+   and the true public item ref using the launch mandate's own mapping. The
+   raw `adapter` remains a ranking diagnostic. A `wait` step has no entrypoint
+   and reports blockers. A missing entrypoint on a runnable step refuses as
+   `entrypoint_unavailable`: inspect the item's pin with
+   `yoke workflows item get PREFIX-N --json`, read its definition with
+   `yoke workflows version get <workflow> <version> --json`, and refresh the
+   schedule against a serving build that exposes the entrypoint.
 
 ### Arguments
 

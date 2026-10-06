@@ -31,7 +31,7 @@ import {
   steeringWorkerRow,
 } from "./universe_sessions_steering.js";
 import {
-  appendSessionMessagingBlocker,
+  appendSessionMessageDeliveryNote,
   appendSessionRelay,
   sessionMessageButton,
   sessionRosterFilters,
@@ -145,12 +145,9 @@ export function sessionCard(
   appendHoldings(documentNode, body, row, projects);
   appendSessionAge(documentNode, body, row);
   appendSessionRelay(documentNode, body, row);
-  // Ended cards share this layout; they omit messaging, not the card shape.
-  if (liveness !== "ended") {
-    const messageAction = sessionMessageButton(documentNode, row, onMessage);
-    appendSessionMessageLine(documentNode, body, row, messageAction);
-    appendSessionMessagingBlocker(documentNode, body, row);
-  }
+  const messageAction = sessionMessageButton(documentNode, row, onMessage);
+  appendSessionMessageLine(documentNode, body, row, messageAction);
+  appendSessionMessageDeliveryNote(documentNode, body, row);
   card.appendChild(body);
   return card;
 }

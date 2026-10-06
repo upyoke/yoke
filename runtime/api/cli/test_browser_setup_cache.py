@@ -55,8 +55,10 @@ def test_install_failure_preserves_warning_and_download_error(
         browser_setup.ensure_browser_runtime(browser, toolchain, emit=lambda _: None)
     message = str(failure.value)
     assert (
-        f"browser_{'npm_install' if command == 'npm' else 'install'}_failed" in message
-    )
+        "browser_npm_install_failed" if command == "npm" else "browser_download_blocked"
+    ) in message
+    if command == "npx":
+        assert "playwright.download.prss.microsoft.com" in message
     assert "exit 1" in message
     assert "stdout (last 20 lines" in message
     assert "stderr (last 20 lines" in message
@@ -146,7 +148,14 @@ def test_cache_writability_refuses_before_install(setup_host, monkeypatch, failu
         raise PermissionError("write denied")
 
     if failure_at == "mkdir":
-        monkeypatch.setattr(Path, "mkdir", refuse)
+        mkdir = Path.mkdir
+
+        def refuse_cache(path, *args, **kwargs):
+            if str(path) == cache:
+                refuse()
+            return mkdir(path, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "mkdir", refuse_cache)
     elif failure_at == "open":
         monkeypatch.setattr(browser_setup.tempfile, "TemporaryFile", refuse)
     else:

@@ -185,7 +185,7 @@ test("Done lists every environment under the item's single flow", async (t) => {
     ["run-preview", "run-0"],
   );
   assert.deepEqual(
-    byClass(box, "item-delivery-flow").map((node) => node.textContent),
+    byClass(box, "item-card-delivery-flow").map((node) => node.textContent),
     ["yoke-hosted-stage"],
   );
   mounted.unmount();
@@ -284,7 +284,7 @@ function releasingClient() {
         ...releasing,
         item_id: "YOK-11",
         why_ready: "No blocker is holding this item.",
-        run_command: "yoke advance YOK-11",
+        run_command: "yoke implement YOK-11",
       }],
       blocked_rows: [],
     },

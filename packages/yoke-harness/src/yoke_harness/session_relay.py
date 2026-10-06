@@ -172,6 +172,8 @@ def _poll(
             server_revision=refusal.server_revision,
             recovery=RELAY_NEWER_THAN_SERVER_RECOVERY,
         )
+    # A transient report failure holds new claims: the terminal report reaches
+    # the server first, and the same transport would fail the claim anyway.
     reports_drained = retry_pending_reports(
         dispatcher,
         RELAY_REPORT_FUNCTION_ID,

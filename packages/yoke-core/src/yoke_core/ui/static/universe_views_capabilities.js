@@ -28,10 +28,7 @@ function capabilityOrder(row) {
   return Number(row.display_order ?? 1000);
 }
 
-function wireCapabilityRouteRow(documentNode, record, href) {
-  const navigate = () => {
-    documentNode.defaultView.location.href = href;
-  };
+function wireCapabilityRouteRow(record, href, navigate) {
   record.classList.add("capability-route-row");
   record.setAttribute("role", "link");
   record.setAttribute("tabindex", "0");
@@ -43,16 +40,17 @@ function wireCapabilityRouteRow(documentNode, record, href) {
     if (event.defaultPrevented) return;
     if (event.button !== undefined && event.button !== 0) return;
     if (event.target?.closest?.("a")) return;
-    navigate();
+    navigate(href);
   });
   record.addEventListener("keydown", (event) => {
+    if (event.defaultPrevented) return;
     if (!["Enter", " "].includes(event.key)) return;
     event.preventDefault();
-    navigate();
+    navigate(href);
   });
 }
 
-function renderCapabilityTable(body, rows, columns) {
+function renderCapabilityTable(body, rows, columns, navigate) {
   const documentNode = body.ownerDocument;
   const table = el(documentNode, "table", "items table-stacks-narrow");
   const head = el(documentNode, "tr");
@@ -85,7 +83,7 @@ function renderCapabilityTable(body, rows, columns) {
       record.setAttribute(
         "data-capability-label", row.display_label || row.type,
       );
-      wireCapabilityRouteRow(documentNode, record, detailHref);
+      wireCapabilityRouteRow(record, detailHref, navigate);
     }
     for (const [index, column] of columns.entries()) {
       const value = column.value(row);
@@ -191,7 +189,7 @@ export function renderCapabilitiesView(context, main, scope) {
           pill: true,
         },
       ];
-      renderCapabilityTable(body, rows, columns);
+      renderCapabilityTable(body, rows, columns, context.navigate);
     },
   );
 }

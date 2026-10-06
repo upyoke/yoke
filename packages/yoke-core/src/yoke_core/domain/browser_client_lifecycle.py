@@ -3,10 +3,9 @@
 These two functions own the long-running, side-effecting parts of the daemon
 lifecycle:
 
-- ``daemon_start`` resolves the Browser QA Node toolchain, then shells out to
-  ``npm install``, ``node -e`` for the Chromium probe, and ``npx playwright
-  install chromium`` through it. It is the single biggest contributor to the
-  parent file's line count and the natural carve-out for this sibling.
+- ``daemon_start`` uses the shared browser setup resolver for prerequisites
+  and the machine executable selection, then starts the daemon through the
+  harness readiness helper.
 - ``daemon_stop`` issues a graceful ``/api/stop`` request, waits for the
   process to exit, and force-kills + cleans up the state file on timeout.
 
@@ -24,7 +23,6 @@ from __future__ import annotations
 
 import os
 import signal
-import subprocess
 import time
 from typing import Any, Dict, List, Optional
 
@@ -47,11 +45,7 @@ def daemon_start(
     """
     from yoke_cli import browser_node_toolchain
     from yoke_core.domain import browser_client as _bc
-    from yoke_contracts.playwright_cache import (
-        YOKE_BROWSER_CACHE_PROJECT,
-        resolve_playwright_cache,
-    )
-    from yoke_harness import browser_client_readiness, browser_runtime_home
+    from yoke_harness import browser_client_readiness, browser_setup
 
     requested_profile = canonical_profile(profile_dir)
     state_path = _bc._state_file_path(requested_profile)
@@ -73,70 +67,7 @@ def daemon_start(
     if not daemon_js.exists():
         raise RuntimeError(f"daemon.js not found at {daemon_js}")
 
-    # Resolve Playwright cache
-    pw_cache = resolve_playwright_cache(YOKE_BROWSER_CACHE_PROJECT, None) or ""
-
-    env = toolchain.command_env()
-    if pw_cache:
-        env["PLAYWRIGHT_BROWSERS_PATH"] = pw_cache
-
-    # Auto-bootstrap node_modules
-    node_modules = browser / "node_modules"
-    pw_modules = browser / "node_modules" / "playwright"
-    autoinstall = os.environ.get("YOKE_BROWSER_AUTOINSTALL", "1")
-
-    if not node_modules.is_dir() or not pw_modules.is_dir():
-        if autoinstall == "0":
-            raise RuntimeError(
-                "[browser-auto-bootstrap] BLOCKED: node_modules or playwright missing "
-                "and YOKE_BROWSER_AUTOINSTALL=0"
-            )
-        _bc._log(
-            "[browser-auto-bootstrap] node_modules or playwright missing — auto-installing..."
-        )
-        r = subprocess.run(
-            [str(toolchain.npm), "install"],
-            cwd=str(browser),
-            capture_output=True,
-            text=True,
-            env=env,
-        )
-        if r.returncode != 0:
-            raise RuntimeError(
-                f"[browser-auto-bootstrap] npm install failed: {r.stderr}"
-            )
-        _bc._log("[browser-auto-bootstrap] npm install completed successfully")
-
-    # Auto-bootstrap Chromium
-    r = subprocess.run(
-        [str(toolchain.node), "-e", browser_runtime_home.CHROMIUM_PRESENT_PROBE_JS],
-        cwd=str(browser),
-        capture_output=True,
-        text=True,
-        env=env,
-    )
-    chromium_status = r.stdout.strip() if r.returncode == 0 else "error"
-
-    if chromium_status != "ok":
-        if autoinstall == "0":
-            raise RuntimeError(
-                "[browser-auto-bootstrap] BLOCKED: Chromium binary missing"
-            )
-        _bc._log(
-            "[browser-auto-bootstrap] Chromium binary not found — auto-installing..."
-        )
-        r = subprocess.run(
-            [str(toolchain.npx), "playwright", "install", "chromium"],
-            cwd=str(browser),
-            capture_output=True,
-            text=True,
-            env=env,
-        )
-        if r.returncode != 0:
-            raise RuntimeError(
-                f"[browser-auto-bootstrap] Chromium auto-install failed: {r.stderr}"
-            )
-        _bc._log("[browser-auto-bootstrap] Chromium installed successfully")
+    env = browser_setup.ensure_browser_runtime(browser, toolchain, emit=_bc._log)
 
     # Build daemon args
     cmd: List[str] = [str(toolchain.node), str(daemon_js)]

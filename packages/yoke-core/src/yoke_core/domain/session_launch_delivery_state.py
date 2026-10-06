@@ -16,6 +16,9 @@ TERMINAL_DELIVERY_STATES = frozenset(
 IN_FLIGHT_LAUNCH_STATES = frozenset(
     {"queued", "assigned", "launching", "awaiting_registration"}
 )
+#: The in-flight states still waiting for a relay to pick the launch up. The
+#: deadline window does not run here; it starts at pickup.
+QUEUED_LAUNCH_STATES = frozenset({"queued", "assigned"})
 _LAUNCH_CANCELLATION_REASONS = tuple(
     f"launch_{state}" for state in sorted(TERMINAL_DELIVERY_STATES)
 )
@@ -123,6 +126,7 @@ def reopen_launch_delivery(conn: Any, *, launch_id: str) -> None:
 
 __all__ = [
     "IN_FLIGHT_LAUNCH_STATES",
+    "QUEUED_LAUNCH_STATES",
     "TERMINAL_DELIVERY_STATES",
     "close_launch_delivery",
     "reopen_launch_delivery",

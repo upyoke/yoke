@@ -1,7 +1,7 @@
 """Which GitHub authority a merge needs, settled before the merge starts.
 
 A connected merge reaches GitHub two ways, with different authority. Projects
-with GitHub disabled land direct merges locally, without publication or checks. A
+without an active GitHub App binding land locally without App checks. A
 direct merge lands the branch in the checkout, publishes the base branch with
 the machine's stored GitHub credential (:mod:`yoke_cli.config.credentialed_git`
 carries it, so the publish authenticates the same way the clone that created
@@ -28,7 +28,6 @@ from yoke_contracts.github_app_installation_permissions import (
 )
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import control_plane_transport
-from yoke_contracts.project_contract.github_sync_mode import GITHUB_SYNC_DISABLED
 from yoke_core.domain.project_github_auth_models import (
     GITHUB_AUTHORITY_INSTALLATION,
     GITHUB_AUTHORITY_USER,
@@ -83,12 +82,14 @@ def classify_merge_authority(*, local_merge: bool) -> MergeAuthority:
 
 
 def github_merge_enabled(project: str) -> bool:
-    """Read the existing project skip switch through its registered projection."""
+    """Issue mirroring does not determine repository merge connectivity."""
     status = control_plane_transport.relay(
         "projects.github_binding.status",
         {"project": project},
     )
-    return status.get("github_sync_mode") != GITHUB_SYNC_DISABLED
+    binding = status.get("binding") or {}
+    installation = status.get("installation") or {}
+    return binding.get("status") == "active" and installation.get("status") == "active"
 
 
 def merge_reaches_github(
@@ -103,8 +104,8 @@ def merge_reaches_github(
     A pull-request merge always does. A direct merge does once it is a
     standalone landing in a checkout that has a remote, because that boundary
     publishes the base branch and then proves the pushed commit's checks; with
-    no remote or with GitHub disabled the merge never leaves the machine.
-    Merely attaching a remote does not connect a skipped project to GitHub.
+    no remote or no active App binding the merge needs no App admission.
+    Issue-mirroring mode is independent of this repository connectivity.
     """
     if not local_merge:
         return True

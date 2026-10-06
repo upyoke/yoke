@@ -195,6 +195,7 @@ class TestHcWorktreeHealth:
             _make_completed(stdout=("worktree /fake/repo\nbranch refs/heads/main\n\n")),
             # The deploy-run driver pass re-lists worktrees; none here.
             _make_completed(stdout=""),
+            _make_completed(stdout="main\n"),  # one local branch inventory
         ]
         conn = _make_conn()
         rec = _run_hc(hc_worktree_health, conn)
@@ -218,6 +219,7 @@ class TestHcWorktreeHealth:
             # modified-in-worktree line leads with a space. The reason the
             # HC now prints names the file, which a malformed line truncates.
             _make_completed(stdout=" M file.py\n"),
+            _make_completed(stdout="main\nYOK-9999\n"),
         ]
         conn = _make_conn()
         conn.execute(

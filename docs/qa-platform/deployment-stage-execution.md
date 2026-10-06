@@ -7,7 +7,7 @@ stages reuse `qa_plan_executions` for roster/cursor ownership,
 for evidence. They do not create another release, scheduler, or verdict store.
 
 Run scope executes once for the combined release. Item scope executes once per
-frozen member against the same deployed preview, stage, or production target:
+frozen member against its project's deployed stage or production target (run QA can also use the run's preview):
 
 ```text
 yoke qa plan run \
@@ -50,11 +50,11 @@ pins an artifact identity, the receipt must observe that exact artifact too.
 Run-preview receipts must also carry the observed URL; command-only persistent
 targets may omit one.
 
-Materialization records the resolved tenant, project, configured environment,
+Materialization records the resolved tenant, member's project (or run project for run scope), configured environment,
 site and endpoints together with the receipt ID, attempt, correlation, observed
 URL/revision/artifact, run, QA stage, member, `release_lineage`, and artifact
 identity in the existing execution-target snapshot. Generic projects resolve
-their registered environment settings; there are no Yoke-hostname or fixed
+their registered environment settings; missing member environments or receipt endpoint mismatches refuse as `deployment_member_target_missing` with recovery. Cross-project previews refuse because their receipt locates only the run project. There are no Yoke-hostname or fixed
 stage/production assumptions. Every execution and result write re-resolves the
 frozen receipt and refuses if it was superseded, failed, cancelled, changed
 target, or changed candidate. Historical evidence stays attached to the old

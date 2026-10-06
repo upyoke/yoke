@@ -4,7 +4,7 @@ When chain skip-memory zeros out the scheduler's top pick, the frontier
 builder must walk ``schedule.ranked_steps`` and promote the next entry
 that passes ``is_assignable_claim_state`` and is not itself in
 ``skip_memory_item_ids``. The promoted entry's metadata populates
-``selected_item`` and ``scheduler_context`` so the ``/yoke do`` charge
+``selected_item`` and ``scheduler_context`` so the ``session-offer`` charge
 dispatch path keeps working when the scheduler's first pick is filtered.
 
 This sibling test module owns the promotion regressions; the existing
@@ -26,7 +26,7 @@ def _build_schedule(steps):
     )
 
 
-def _make_step(item_id, rank, claim_state, next_step_value="advance"):
+def _make_step(item_id, rank, claim_state, next_step_value="implement"):
     from yoke_core.domain.scheduler_types import (
         ClaimState,
         NextStep,
@@ -34,7 +34,7 @@ def _make_step(item_id, rank, claim_state, next_step_value="advance"):
     )
 
     _next_step_map = {
-        "advance": NextStep.ADVANCE,
+        "implement": NextStep.IMPLEMENT,
         "refine": NextStep.REFINE,
         "polish": NextStep.POLISH,
         "usher": NextStep.USHER,
@@ -83,11 +83,12 @@ class TestFrontierPromotion:
         assert baseline.selected_item == "YOK-A"
 
         filtered = build_frontier_state_from_schedule(
-            schedule, skip_memory_item_ids={"YOK-A"},
+            schedule,
+            skip_memory_item_ids={"YOK-A"},
         )
         assert filtered.runnable_items == ["YOK-B"]
         assert filtered.selected_item == "YOK-B"
-        assert filtered.scheduler_context["next_step"] == "advance"
+        assert filtered.scheduler_context["next_step"] == "implement"
         assert filtered.scheduler_context["workflow_id"] == "issue"
         assert filtered.scheduler_context["rank"] == 1
 
@@ -109,7 +110,8 @@ class TestFrontierPromotion:
         schedule = _build_schedule(steps)
 
         filtered = build_frontier_state_from_schedule(
-            schedule, skip_memory_item_ids={"YOK-A"},
+            schedule,
+            skip_memory_item_ids={"YOK-A"},
         )
         # YOK-B is not assignable, so runnable_items is empty too.
         assert filtered.runnable_items == []
@@ -136,7 +138,8 @@ class TestFrontierPromotion:
         # With YOK-A skipped: runnable is the rank-ordered survivors,
         # selected is promoted to YOK-B.
         filtered = build_frontier_state_from_schedule(
-            schedule, skip_memory_item_ids={"YOK-A"},
+            schedule,
+            skip_memory_item_ids={"YOK-A"},
         )
         assert filtered.runnable_items == ["YOK-B", "YOK-C"]
         assert filtered.selected_item == "YOK-B"
@@ -148,7 +151,7 @@ class TestChargeDispatchPath:
     When the failure shape from the 2026-05-10 evidence is
     reconstructed at the frontier-state layer, the decision engine returns
     a charge action with context.scheduler.next_step populated so the
-    /yoke do charge dispatch contract is satisfied.
+    session-offer charge dispatch contract is satisfied.
     """
 
     def test_charge_action_carries_promoted_scheduler_context(self):
@@ -170,7 +173,8 @@ class TestChargeDispatchPath:
         ]
         schedule = _build_schedule(steps)
         frontier = build_frontier_state_from_schedule(
-            schedule, skip_memory_item_ids={"YOK-A"},
+            schedule,
+            skip_memory_item_ids={"YOK-A"},
         )
 
         offer = SessionOffer(
@@ -194,7 +198,7 @@ class TestChargeDispatchPath:
         # The canonical dispatch contract: charge context carries the
         # scheduler block with next_step populated.
         assert "scheduler" in action.context
-        assert action.context["scheduler"]["next_step"] == "advance"
+        assert action.context["scheduler"]["next_step"] == "implement"
 
 
 class TestSchedulerContextCarriesSelectedItem:
@@ -220,10 +224,7 @@ class TestSchedulerContextCarriesSelectedItem:
         assert baseline.selected_item == "YOK-A"
         assert baseline.scheduler_context["selected_item"] == "YOK-A"
         # Both frontier-level and scheduler-block selected_item agree.
-        assert (
-            baseline.scheduler_context["selected_item"]
-            == baseline.selected_item
-        )
+        assert baseline.scheduler_context["selected_item"] == baseline.selected_item
 
     def test_promoted_selected_step_populates_scheduler_context_selected_item(self):
         from yoke_core.api.service_client_sessions_frontier import (
@@ -237,7 +238,8 @@ class TestSchedulerContextCarriesSelectedItem:
         schedule = _build_schedule(steps)
 
         filtered = build_frontier_state_from_schedule(
-            schedule, skip_memory_item_ids={"YOK-A"},
+            schedule,
+            skip_memory_item_ids={"YOK-A"},
         )
         assert filtered.selected_item == "YOK-B"
         assert filtered.scheduler_context["selected_item"] == "YOK-B"
@@ -257,7 +259,8 @@ class TestSchedulerContextCarriesSelectedItem:
         # the builder will drop it via the skip-memory branch only if
         # the item is also in skip-memory. Use that path:
         result = build_frontier_state_from_schedule(
-            schedule, skip_memory_item_ids={"YOK-A"},
+            schedule,
+            skip_memory_item_ids={"YOK-A"},
         )
         assert result.selected_item is None
         assert result.scheduler_context == {}

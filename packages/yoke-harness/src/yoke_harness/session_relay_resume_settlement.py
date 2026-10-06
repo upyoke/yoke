@@ -202,7 +202,7 @@ def settle_finished_native_resumes(
             timeout_s=timeout_s,
         )
         if not getattr(report, "success", False) and not is_permanent_report_rejection(
-            report, job_kind="wake"
+            report
         ):
             # Only failures another poll can resolve retain machine custody.
             continue

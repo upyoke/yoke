@@ -44,7 +44,8 @@ def _silence_claim(monkeypatch):
         dispatch_module, "verify_claim", lambda *a, **kw: None,
     )
     monkeypatch.setattr(
-        dispatch_module, "resolve_target_public_ref", _resolve_target,
+        dispatch_module, "resolve_request_item_refs",
+        lambda request, _model: _resolve_target(request),
     )
     monkeypatch.setattr(
         yok_n_parser,

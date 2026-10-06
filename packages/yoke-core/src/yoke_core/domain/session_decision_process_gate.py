@@ -1,6 +1,6 @@
 """Process-offer policy gate for ``decide_next_action``.
 
-``/yoke do`` consults a config-backed :class:`ProcessOfferPolicy` before
+``session-offer`` consults a config-backed :class:`ProcessOfferPolicy` before
 dispatching a process-backed ``NextAction`` (``STRATEGIZE``, ``FEED``,
 future).
 Disabled processes never acquire a process work claim and never read
@@ -146,11 +146,11 @@ def apply_process_offer_gate(
         context preserves the same scheduler routing fields that
         :func:`session_decision_charge.decide_charge_action` produces
         when ``frontier.scheduler_context`` is available, so
-        ``/yoke do`` can dispatch via ``context.scheduler.next_step``
+        ``session-offer`` can dispatch via ``context.scheduler.next_step``
         on the fallback path exactly as it does on the normal charge
         path. When scheduler context is absent, the fallback emits the
         backward-compatible non-scheduler shape (selected_item set to
-        the first runnable, no scheduler block); ``/yoke do``'s
+        the first runnable, no scheduler block); ``session-offer``'s
         charge handler treats that shape as a contract failure and
         does not dispatch (parity with ``decide_charge_action``'s
         no-scheduler branch);

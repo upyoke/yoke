@@ -19,7 +19,7 @@ disabled-process CHARGE swap path:
   and does not invent scheduler context.
 - Explicit branch coverage for the assignable-runnable +
   no-scheduler-context case (backward-compat non-scheduler charge
-  shape that ``/yoke do`` will not dispatch).
+  shape that ``session-offer`` will not dispatch).
 - When the fallback attaches scheduler context, ``selected_item``
   matches the scheduler-selected item rather than ``runnable_items[0]``.
 
@@ -59,7 +59,7 @@ RUNNABLE_SECONDARY = f"YOK-{RUNNABLE_SECONDARY_ID}"
 
 def _scheduler_block(item_id: str) -> dict:
     return {
-        "next_step": "advance",
+        "next_step": "implement",
         "item_type": "issue",
         "status": "refined-idea",
         "title": f"runnable {item_id}",
@@ -75,9 +75,14 @@ def _scheduler_frontier(
     runnable_items: list[str] | None = None,
 ) -> FrontierState:
     """Frontier where the scheduler selected ``selected_item``."""
-    items = runnable_items if runnable_items is not None else [
-        selected_item, RUNNABLE_SECONDARY,
-    ]
+    items = (
+        runnable_items
+        if runnable_items is not None
+        else [
+            selected_item,
+            RUNNABLE_SECONDARY,
+        ]
+    )
     return FrontierState(
         sml_coherent=True,
         runnable_items=list(items),
@@ -110,7 +115,7 @@ class TestSchedulerContextPreserved:
         assert result.action == ActionKind.CHARGE
         assert result.chainable is True
         scheduler = result.context["scheduler"]
-        assert scheduler["next_step"] == "advance"
+        assert scheduler["next_step"] == "implement"
         assert scheduler["status"] == "refined-idea"
         assert scheduler["item_type"] == "issue"
         assert scheduler["title"] == f"runnable {RUNNABLE_PRIMARY}"
@@ -124,7 +129,7 @@ class TestSchedulerContextPreserved:
         policy = ProcessOfferPolicy()
         result = apply_process_offer_gate(action, frontier, "corr", policy)
         assert result.action == ActionKind.CHARGE
-        assert result.context["scheduler"]["next_step"] == "advance"
+        assert result.context["scheduler"]["next_step"] == "implement"
 
     def test_skipped_process_fields_remain_additive_on_charge(self):
         # skipped_process keys are present alongside scheduler.
@@ -185,7 +190,7 @@ class TestSharedHelperShape:
         ctx = build_charge_context(frontier)
         assert ctx["selected_item"] == RUNNABLE_PRIMARY
         assert ctx["runnable_items"] == [RUNNABLE_PRIMARY, RUNNABLE_SECONDARY]
-        assert ctx["scheduler"]["next_step"] == "advance"
+        assert ctx["scheduler"]["next_step"] == "implement"
 
     def test_build_charge_context_omits_scheduler_when_absent(self):
         frontier = FrontierState(
@@ -205,12 +210,16 @@ class TestSharedHelperShape:
         frontier = _scheduler_frontier()
 
         normal_action = decide_charge_action(
-            offer=_dummy_offer(), frontier=frontier,
-            correlation="corr", lane_allowed_paths=None,
+            offer=_dummy_offer(),
+            frontier=frontier,
+            correlation="corr",
+            lane_allowed_paths=None,
         )
         assert normal_action is not None
         gate_action = apply_process_offer_gate(
-            _make_action(ActionKind.FEED), frontier, "corr",
+            _make_action(ActionKind.FEED),
+            frontier,
+            "corr",
             ProcessOfferPolicy(),
         )
 

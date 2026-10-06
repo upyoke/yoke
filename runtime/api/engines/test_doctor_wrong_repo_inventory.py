@@ -48,7 +48,7 @@ def test_large_inventory_filters_source_and_shares_repository_reads(monkeypatch)
         },
     )
     rec = RecordCollector()
-    check.hc_wrong_repo_issues(object(), DoctorArgs(), rec)
+    check.hc_wrong_repo_issues(object(), DoctorArgs(project="yoke"), rec)
     assert rec.results[0].result == "PASS"
     assert auth.call_count == 3
     assert inventory.call_count == 1
@@ -69,7 +69,7 @@ def test_only_findings_are_batch_rendered_and_source_is_cached(monkeypatch):
         },
     )
     rec = RecordCollector()
-    check.hc_wrong_repo_issues(object(), DoctorArgs(), rec)
+    check.hc_wrong_repo_issues(object(), DoctorArgs(project="yoke"), rec)
     assert rec.results[0].result == "WARN"
     assert inventory.call_count == 2
     assert sorted(rendered[0]) == [2, 3, 4]
@@ -81,7 +81,7 @@ def test_inventory_failure_is_incomplete_not_missing_or_pass(monkeypatch):
     _, inventory, _ = setup_check(monkeypatch, rows, {})
     inventory.side_effect = RestTransportError("provider unavailable")
     rec = RecordCollector()
-    check.hc_wrong_repo_issues(object(), DoctorArgs(), rec)
+    check.hc_wrong_repo_issues(object(), DoctorArgs(project="yoke"), rec)
     assert rec.results[0].result == "FAIL"
     assert "repository_issue_inventory_failed" in rec.results[0].detail
     assert "Recovery" in rec.results[0].detail

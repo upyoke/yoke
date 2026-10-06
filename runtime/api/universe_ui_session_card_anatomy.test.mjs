@@ -222,19 +222,19 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   ]) {
     assert.ok(cardText[1].includes(expected), expected);
   }
-  for (const gone of ["a7b4pl", "v8c2qa", "resume", "wait"]) {
+  for (const gone of ["a7b4pl", "v8c2qa", "resume"]) {
     assert.ok(!cardText.join(" ").includes(gone), gone);
   }
-  // Messaging offers a button only where it would actually arrive; the stale
-  // session with no relay gets the one condition standing in the way.
+  // Both sessions offer messaging; the missing relay explains queued delivery.
   assert.deepEqual(
     byClass(cards[0], "item-button").map((button) => button.textContent),
     ["Message"],
   );
-  assert.equal(byClass(cards[1], "item-button").length, 0);
+  assert.equal(byClass(cards[1], "item-button")[0].textContent, "Message");
   assert.equal(
-    byClass(cards[1], "session-messaging-blocked")[0].textContent,
-    "Messaging unavailable: no relay is connected on this session's machine.",
+    byClass(cards[1], "session-message-delivery-note")[0].textContent,
+    "Queued — delivered on this session's next hook. Automatic wake "
+      + "waits for the relay to reconnect.",
   );
   // The server-active card can be quiet without being recategorized as stale.
   assert.deepEqual(

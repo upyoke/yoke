@@ -1,5 +1,7 @@
 # Machine QA Pack
 
+For stored-password setup commands on macOS and Linux, follow [administrator commands](administrator-commands.md).
+
 Machine QA registers four reusable proof contracts:
 
 - Terminal check drives a real terminal program through structured PTY steps.

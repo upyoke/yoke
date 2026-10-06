@@ -35,19 +35,14 @@ OPERATOR_COMMANDS: tuple[OperatorCommand, ...] = (
         "  /yoke idea   -- file a new backlog item",
     ),
     OperatorCommand(
-        "/yoke do",
-        "/yoke do",
-        "  /yoke do     -- autonomous session orchestrator",
-    ),
-    OperatorCommand(
         "/yoke refine",
         "/yoke refine",
         "  /yoke refine -- critique and improve item artifacts",
     ),
     OperatorCommand(
-        "/yoke advance",
-        "/yoke advance PREFIX-N implementation",
-        "  /yoke advance PREFIX-N implementation -- issue implementation entry",
+        "/yoke implement",
+        "/yoke implement PREFIX-N",
+        "  /yoke implement PREFIX-N -- issue implementation entry",
     ),
     OperatorCommand(
         "/yoke polish",
@@ -64,7 +59,7 @@ OPERATOR_COMMANDS: tuple[OperatorCommand, ...] = (
 DOWNSTREAM_PATHS: tuple[str, ...] = (
     "shepherd",
     "refine",
-    "advance",
+    "implement",
     "dash",
     "blitz",
     "polish",
@@ -73,7 +68,7 @@ DOWNSTREAM_PATHS: tuple[str, ...] = (
 
 
 # OPERATOR_COMMANDS above is the SESSION-OFFER REGISTRY: the entrypoints that
-# /yoke do can route to. SAFE_OPERATOR_SURFACE below is the broader
+# the session-offer machinery can route to. SAFE_OPERATOR_SURFACE below is the broader
 # OPERATOR-FACING SURFACE: every /yoke command an operator can invoke
 # directly, with per-harness compat metadata. Kept as siblings (not unified)
 # because they answer different questions: "which entrypoints does the
@@ -97,9 +92,9 @@ SAFE_OPERATOR_SURFACE: tuple[OperatorCommand, ...] = (
         "  /yoke conduct PREFIX-N -- engineer/tester loop for a single item or epic",
     ),
     OperatorCommand(
-        "/yoke advance",
-        "/yoke advance PREFIX-N implementation",
-        "  /yoke advance PREFIX-N implementation -- issue implementation entry",
+        "/yoke implement",
+        "/yoke implement PREFIX-N",
+        "  /yoke implement PREFIX-N -- issue implementation entry",
     ),
     OperatorCommand(
         "/yoke usher",
@@ -142,11 +137,6 @@ SAFE_OPERATOR_SURFACE: tuple[OperatorCommand, ...] = (
         "  /yoke help     -- show command reference",
     ),
     OperatorCommand(
-        "/yoke do",
-        "/yoke do",
-        "  /yoke do       -- autonomous session orchestrator",
-    ),
-    OperatorCommand(
         "/yoke charge",
         "/yoke charge",
         "  /yoke charge   -- pick up next runnable item from frontier",
@@ -181,7 +171,7 @@ def shared_downstream_paths() -> list[str]:
 
 
 def safe_operator_surface() -> list[OperatorCommand]:
-    """Return the full operator command surface (all 19 commands)."""
+    """Return the full operator command surface entries."""
     return list(SAFE_OPERATOR_SURFACE)
 
 
@@ -226,7 +216,9 @@ def downstream_paths_for_manifest(manifest: Mapping[str, Any]) -> list[str]:
 def ordered_commands(entrypoints: Sequence[str]) -> list[OperatorCommand]:
     """Return command metadata in registry order, preserving unknown ids."""
     by_entrypoint = {command.entrypoint: command for command in OPERATOR_COMMANDS}
-    known = [command for command in OPERATOR_COMMANDS if command.entrypoint in entrypoints]
+    known = [
+        command for command in OPERATOR_COMMANDS if command.entrypoint in entrypoints
+    ]
     extras = [
         OperatorCommand(item, item, f"  {item}")
         for item in entrypoints

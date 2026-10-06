@@ -66,7 +66,6 @@ SKILL_SCAN_TARGETS: Dict[str, Tuple[str, ...]] = {
         ".agents/skills/yoke/polish/SKILL.md",
         ".agents/skills/yoke/usher/SKILL.md",
         ".agents/skills/yoke/idea/SKILL.md",
-        ".agents/skills/yoke/do/SKILL.md",
     ),
     "engineer_agent": (
         ".agents/skills/yoke/conduct/engineer-tester-dispatch.md",
@@ -85,7 +84,7 @@ SKILL_SCAN_TARGETS: Dict[str, Tuple[str, ...]] = {
         ".agents/skills/yoke/shepherd/SKILL.md",
         ".agents/skills/yoke/shepherd/design-and-plan.md",
         ".agents/skills/yoke/shepherd/plan-handoff.md",
-        ".agents/skills/yoke/shepherd/planning-to-planned-gates.md",
+        ".agents/skills/yoke/shepherd/planning-gates.md",
     ),
     "boss_agent": (
         ".agents/skills/yoke/shepherd/boss-verdict.md",
@@ -117,9 +116,7 @@ _BULLET_HEAD_RE = re.compile(r"^- \*\*`([a-z_][a-z0-9_]*)`\*\*", re.MULTILINE)
 # section header (``### ``) closes the previous bullet.
 _BULLET_END_RE = re.compile(r"(?m)^(?:- \*\*|- `|### )")
 # Section header (``### DB Quick Reference — <topic> ...``).
-_SECTION_HEAD_RE = re.compile(
-    r"^### DB Quick Reference — (\S+)", re.MULTILINE
-)
+_SECTION_HEAD_RE = re.compile(r"^### DB Quick Reference — (\S+)", re.MULTILINE)
 
 # Envelope essentials (Check B). All must appear in main_agent packet.
 _ENVELOPE_FIELDS: Tuple[str, ...] = (
@@ -137,7 +134,7 @@ def _section_chunks(packet: str) -> Dict[str, str]:
     matches = list(_SECTION_HEAD_RE.finditer(packet))
     for i, m in enumerate(matches):
         end = matches[i + 1].start() if i + 1 < len(matches) else len(packet)
-        chunks[m.group(1)] = packet[m.start():end]
+        chunks[m.group(1)] = packet[m.start() : end]
     return chunks
 
 
@@ -148,7 +145,7 @@ def _bullet_for_table(section: str, table: str) -> Optional[str]:
             continue
         end_m = _BULLET_END_RE.search(section, head.end())
         end = end_m.start() if end_m else len(section)
-        return section[head.start():end]
+        return section[head.start() : end]
     return None
 
 
@@ -171,9 +168,7 @@ def _check_a_for_role(role: str, repo_root: Path, findings: List[str]) -> None:
     for rel in targets:
         abs_path = repo_root / rel
         if not abs_path.is_file():
-            findings.append(
-                f"- SKILL_SCAN_TARGETS contains missing skill path {rel}"
-            )
+            findings.append(f"- SKILL_SCAN_TARGETS contains missing skill path {rel}")
             continue
         try:
             text = abs_path.read_text(encoding="utf-8", errors="replace")
@@ -212,8 +207,7 @@ def _check_a_for_role(role: str, repo_root: Path, findings: List[str]) -> None:
                 continue
             if column not in bullet:
                 findings.append(
-                    f"- role={role} missing column {table}.{column} "
-                    f"referenced by {rel}"
+                    f"- role={role} missing column {table}.{column} referenced by {rel}"
                 )
 
 
@@ -282,5 +276,9 @@ from yoke_project_checks._declare import (  # noqa: E402
 )
 
 PROJECT_HEALTH_CHECKS = self_project_checks(
-    ('packet-tier-completeness', 'Skill prose names a column the main_agent packet does not list', hc_packet_tier_completeness),
+    (
+        "packet-tier-completeness",
+        "Skill prose names a column the main_agent packet does not list",
+        hc_packet_tier_completeness,
+    ),
 )

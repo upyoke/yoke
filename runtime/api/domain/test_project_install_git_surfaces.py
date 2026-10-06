@@ -18,7 +18,11 @@ MANIFEST_REL = ".yoke/install-manifest.json"
 
 
 @pytest.fixture()
-def repo(tmp_path):
+def repo(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "yoke_cli.project_install.uninstall_commit.dispatch",
+        lambda *_args, **_kwargs: {"value": "trunk"},
+    )
     root = tmp_path / "repo"
     root.mkdir()
     return root
@@ -45,7 +49,7 @@ def _tree_bytes(root: Path) -> dict[str, bytes | str]:
 def _git_init(root) -> None:
     import subprocess
 
-    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    subprocess.run(["git", "init", "-q", "-b", "trunk"], cwd=root, check=True)
 
 
 def test_manifest_and_report_record_copy_mode(repo) -> None:

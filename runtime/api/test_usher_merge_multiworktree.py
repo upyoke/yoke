@@ -39,13 +39,15 @@ def _add_git_worktree(git_repo, branch: str):
     path = git_repo / ".worktrees" / branch
     subprocess.run(
         ["git", "worktree", "add", str(path), "-b", branch, "main"],
-        cwd=str(git_repo), check=True, capture_output=True,
+        cwd=str(git_repo),
+        check=True,
+        capture_output=True,
     )
     return path
 
 
 class TestMergeMdEpicDelegation:
-    """Usher/merge.md delegates epic merge to /yoke merge, not merge_worktree."""
+    """Usher/merge.md runs generated task merging as an internal procedure."""
 
     def _read_merge_md(self) -> str:
         return MERGE_MD.read_text()
@@ -56,14 +58,14 @@ class TestMergeMdEpicDelegation:
         # The old pattern: merge_worktree PREFIX-{N} main PREFIX-{N}
         assert "merge_worktree PREFIX-{N} main PREFIX-{N}" not in text, (
             "merge.md still has a direct epic merge_worktree call — "
-            "must delegate to /yoke merge {N} instead"
+            "must run the internal generated-task merge procedure instead"
         )
 
-    def test_has_yoke_merge_delegation(self):
-        """merge.md must contain the /yoke merge {N} epic delegation."""
+    def test_has_internal_generated_task_merge(self):
+        """merge.md must reference the internal generated-task merge procedure."""
         text = self._read_merge_md()
-        assert "/yoke merge {N}" in text, (
-            "merge.md is missing the /yoke merge {N} delegation for epics"
+        assert "merge-generated-tasks.md" in text, (
+            "merge.md is missing its internal generated-task merge procedure"
         )
 
     def test_single_lane_path_still_present(self):
@@ -91,6 +93,21 @@ class TestMergeMdEpicDelegation:
         ):
             assert required in text
         assert 'if [ "$_item_workflow_id" = "epic" ]' not in text
+
+    def test_internal_merge_follows_pinned_delivery_stages(self):
+        bookkeeping = (SKILL_ROOT / "usher" / "merge-bookkeeping.md").read_text()
+        for required in (
+            "yoke workflows item get",
+            "yoke workflows version get",
+            "half-open interval",
+            "source_status",
+            "target_status",
+            "stopping on entry to the delivery wait",
+            "A successful merge is not successful delivery",
+        ):
+            assert required in bookkeeping
+        assert "bypass_reason" not in bookkeeping
+        assert '"target_status": "done"' not in bookkeeping
 
 
 class TestMergeMdWorktreeIteration:
@@ -150,12 +167,12 @@ class TestMergeMdHaltClassRelease:
     def test_release_work_claim_command_with_halt_reason(self):
         """The yoke claims work release shell call appears with --reason."""
         text = self._read_merge_md()
-        assert (
-            "yoke claims work release" in text
-        ), "merge.md must invoke yoke claims work release for halt-class release"
-        assert (
-            "--reason" in text
-        ), "merge.md must pass --reason to yoke claims work release"
+        assert "yoke claims work release" in text, (
+            "merge.md must invoke yoke claims work release for halt-class release"
+        )
+        assert "--reason" in text, (
+            "merge.md must pass --reason to yoke claims work release"
+        )
 
     def test_halt_class_release_named_before_halt_summary(self):
         """The halt-class release contract appears before the halt summary
@@ -245,21 +262,15 @@ class TestResolverCLI:
         """--branches output and default output (no flag) are both accepted."""
         # We test the CLI surface exists and accepts the flag — actual branch data
         # requires a DB fixture so we check the failure path is clean.
-        result = self._run_resolver(
-            "YOK-0", "--branches", env=_resolver_env(yoke_db)
-        )
+        result = self._run_resolver("YOK-0", "--branches", env=_resolver_env(yoke_db))
         assert result.returncode != 0  # item not found
 
     def test_paths_flag_accepted(self, yoke_db):
-        result = self._run_resolver(
-            "YOK-0", "--paths", env=_resolver_env(yoke_db)
-        )
+        result = self._run_resolver("YOK-0", "--paths", env=_resolver_env(yoke_db))
         assert result.returncode != 0
 
     def test_json_flag_accepted(self, yoke_db):
-        result = self._run_resolver(
-            "YOK-0", "--json", env=_resolver_env(yoke_db)
-        )
+        result = self._run_resolver("YOK-0", "--json", env=_resolver_env(yoke_db))
         assert result.returncode != 0
 
     def test_mutually_exclusive_flags(self):

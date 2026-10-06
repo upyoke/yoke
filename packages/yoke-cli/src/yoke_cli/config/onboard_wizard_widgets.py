@@ -118,7 +118,7 @@ class _OptionRow(Static):
 
     def render(self) -> Text:
         selected = self.has_class("-selected")
-        width = max(self.size.width, 40)
+        width = self.content_size.width
         return _option_row_text(self._row, selected=selected, width=width)
 
 
@@ -140,23 +140,23 @@ def _option_row_text(row: SelectionRow, *, selected: bool, width: int) -> Text:
     prefix = f"{marker}  "
     label = plain_text(row.label) if plain else row.label
     hint = plain_text(row.hint) if plain else row.hint
-    line = Text()
-    line.append(prefix)
-    line.append(label)
-    room = width - cell_len(prefix) - cell_len(label) - 1
+    width = max(width, 0)
+    if not width:
+        return Text()
+    line = Text(prefix + label, no_wrap=True)
+    line.truncate(width, overflow="ellipsis")
+    room = width - cell_len(line.plain) - 1
     if not hint or room < _MIN_TRUNCATED_HINT_CELLS:
         # Pad to the row width either way so the selected row's tint is one
         # span; a hint with no room is dropped rather than shown as a stub.
-        line.append(" " * max(room + 1, 1))
+        line.append(" " * max(room + 1, 0))
         return line
     hint_text = Text(hint)
     if cell_len(hint) > room:
         hint_text.truncate(room, overflow="ellipsis")
         if plain:
             hint_text = Text(plain_text(hint_text.plain))
-    line.append(
-        " " * (width - cell_len(prefix) - cell_len(label) - cell_len(hint_text.plain))
-    )
+    line.append(" " * (width - cell_len(line.plain) - cell_len(hint_text.plain)))
     line.append(hint_text.plain, style="" if selected else "dim")
     return line
 

@@ -48,7 +48,7 @@ class TestParseEpicId:
         assert epic._parse_epic_id(INTERNAL_EPIC_ID, conn=db) == INTERNAL_EPIC_ID
 
     def test_slug_rejected(self, db):
-        with pytest.raises(ValueError, match="expected PREFIX-N"):
+        with pytest.raises(ValueError, match="pass the public ref"):
             epic._parse_epic_id("my-epic", conn=db)
 
     def test_empty_raises(self, db):

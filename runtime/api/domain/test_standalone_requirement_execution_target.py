@@ -9,7 +9,11 @@ import pytest
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.backlog_qa_inserts import insert_qa_requirement
 from runtime.api.fixtures.pg_testdb import test_database
-from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
+from yoke_contracts.api.function_call import (
+    ActorContext,
+    FunctionCallRequest,
+    TargetRef,
+)
 from yoke_core.domain.handlers import qa_requirement_create
 from yoke_core.domain.qa_plan_execution_state import (
     QaPlanExecutionStateError,
@@ -150,15 +154,14 @@ def test_unregistered_target_name_stays_deferred() -> None:
         )
         assert outcome.primary_success, outcome.error
         row = conn.execute(
-            "SELECT target_env, execution_target_json FROM qa_requirements "
-            "WHERE id=%s",
+            "SELECT target_env, execution_target_json FROM qa_requirements WHERE id=%s",
             (outcome.result_payload["requirement_id"],),
         ).fetchone()
         assert row["target_env"] == "stage"
         assert row["execution_target_json"] is None
 
 
-def test_begin_without_target_names_cli_bind_and_skill() -> None:
+def test_begin_without_target_names_the_cli_bind_recovery() -> None:
     with test_database() as conn:
         insert_item(
             conn,
@@ -191,8 +194,6 @@ def test_begin_without_target_names_cli_bind_and_skill() -> None:
         assert str(requirement["id"]) in message
         assert "yoke qa requirement update" in message
         assert "yoke qa case run" in message
-        assert "/yoke advance" in message
-        assert "not a CLI command" in message
 
 
 def test_update_then_begin_uses_persisted_snapshot() -> None:
@@ -272,8 +273,7 @@ def test_frozen_run_row_refuses_target_env_update() -> None:
             expected_outcome="Visible.",
         )
         conn.execute(
-            "UPDATE qa_requirements SET item_id=NULL, deployment_run_id=%s "
-            "WHERE id=%s",
+            "UPDATE qa_requirements SET item_id=NULL, deployment_run_id=%s WHERE id=%s",
             ("run-20260917-001", int(requirement["id"])),
         )
         conn.commit()
@@ -285,14 +285,20 @@ def test_frozen_run_row_refuses_target_env_update() -> None:
 
 
 def test_approving_pending_review_keeps_capture_script_not_live() -> None:
-    old = {"base_url": PREVIEW_URL, "steps": [
-        {"action": "navigate", "route": "/"},
-        {"action": "screenshot", "capture": True},
-    ]}
-    new = {"base_url": PREVIEW_URL, "steps": [
-        {"action": "navigate", "route": "/ready"},
-        {"action": "screenshot", "capture": True},
-    ]}
+    old = {
+        "base_url": PREVIEW_URL,
+        "steps": [
+            {"action": "navigate", "route": "/"},
+            {"action": "screenshot", "capture": True},
+        ],
+    }
+    new = {
+        "base_url": PREVIEW_URL,
+        "steps": [
+            {"action": "navigate", "route": "/ready"},
+            {"action": "screenshot", "capture": True},
+        ],
+    }
     with test_database() as conn:
         insert_item(conn, id=6412, title="Stale script review", status="implementing")
         _environment(conn, project_id=1, name="local", url=PREVIEW_URL)
@@ -320,7 +326,10 @@ def test_approving_pending_review_keeps_capture_script_not_live() -> None:
         result = apply_requirement_update(conn, req_id, "method_config", new)
         assert result.ok, result.message
         apply_qa_review_resolution(
-            conn, requirement_id=req_id, action="approve", actor_id=1,
+            conn,
+            requirement_id=req_id,
+            action="approve",
+            actor_id=1,
             note="Looks good against the captured script.",
             reviewed_run_id=int(capture_id),
         )
@@ -333,9 +342,9 @@ def test_approving_pending_review_keeps_capture_script_not_live() -> None:
         assert not has_current_passing_run(conn, req_id)
         with pytest.raises(ValueError, match="recorded method_config"):
             apply_qa_review_resolution(
-                conn, requirement_id=req_id, action="approve", actor_id=1,
+                conn,
+                requirement_id=req_id,
+                action="approve",
+                actor_id=1,
                 note="no capture identity",
             )
-
-
-

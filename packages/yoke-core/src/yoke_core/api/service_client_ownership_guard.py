@@ -2,7 +2,7 @@
 
 Read-only CLI surface over
 :func:`yoke_core.domain.sessions_offer_ownership_guard.evaluate_ownership_guard`.
-Called by ``/yoke do``'s ``resume`` dispatch before re-dispatching an
+Called by ``session-offer``'s ``resume`` dispatch before re-dispatching an
 item-scoped routed handler so the loop can detect mid-step claim loss
 before issuing a stale dispatch.
 
@@ -33,8 +33,8 @@ from yoke_core.api.service_client_shared import (
     SESSION_REQUIRED_ERROR,
     _get_db_readonly,
     _resolve_session_id,
-    normalize_claim_item_id,
 )
+from yoke_core.domain.yok_n_parser import parse_item_argument
 
 
 OWNERSHIP_GUARD_EXIT_OK = 0
@@ -54,8 +54,9 @@ def cmd_ownership_guard(args: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="ownership-guard", add_help=False)
     parser.add_argument("--session-id", default=None)
     parser.add_argument(
-        "--item", required=True,
-        help="Item target (YOK-N or bare numeric)",
+        "--item",
+        required=True,
+        help="Item public ref (PREFIX-N)",
     )
 
     try:
@@ -72,16 +73,17 @@ def cmd_ownership_guard(args: list[str]) -> int:
         print(SESSION_REQUIRED_ERROR, file=sys.stderr)
         return OWNERSHIP_GUARD_EXIT_USAGE
 
-    try:
-        item_id = int(normalize_claim_item_id(parsed.item))
-    except (ValueError, TypeError) as exc:
-        print(f"Error: --item not parseable: {exc}", file=sys.stderr)
-        return OWNERSHIP_GUARD_EXIT_USAGE
-
     conn = _get_db_readonly()
     try:
+        try:
+            item_id = parse_item_argument(parsed.item, conn=conn)
+        except ValueError as exc:
+            print(f"Error: --item: {exc}", file=sys.stderr)
+            return OWNERSHIP_GUARD_EXIT_USAGE
         result = evaluate_ownership_guard(
-            conn, session_id=parsed.session_id, item_id=item_id,
+            conn,
+            session_id=parsed.session_id,
+            item_id=item_id,
         )
     finally:
         conn.close()

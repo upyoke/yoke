@@ -5,7 +5,7 @@ A public item ref is display-only — ``{public_item_prefix}-{project_sequence}`
 (``yoke_contracts.public_ref.format_item_ref`` /
 ``yoke_core.domain.project_identity.render_item_ref``). Internal code addresses
 items by the bare integer ``items.id`` and resolves a user token back to an id
-via ``project_identity.resolve_item_id`` — never by stripping a prefix.
+via ``item_ref_resolution.resolve_item_ref`` — never by stripping a prefix.
 
 Building a ref inline (``f"YOK-{x}"``) or parsing one back
 (``x.replace("YOK-", "")``) hardcodes the prefix (wrong for the ``BUZ`` / ``PLAT``
@@ -17,9 +17,8 @@ Two scans keep both directions closed. :func:`scan` flags any *literal*
 ref-prefix token in Python source outside the canonical formatter/resolver and
 tests; the canonical helpers format from a *variable* prefix
 (``f"{prefix}-{seq}"``) and so never trip it. :func:`scan_parser_policy` flags
-the read direction: an implicit ``allow_bare_internal=True`` opt-out, a
-project-blind prefix regex, or a numeric-tail coercion, each of which reads an
-operator's token as an internal id. Both carry exact-path allowances, and
+the read direction: a project-blind prefix regex or a numeric-tail coercion,
+each of which reads an operator's token as an internal id. Both carry exact-path allowances, and
 :func:`stale_parser_policy_allowances` reports the ones whose legacy read is
 gone so the allowances shrink with the code.
 
@@ -67,11 +66,8 @@ _EXEMPT_RELPATHS: frozenset[str] = frozenset(
     }
 )
 
-_IMPLICIT_INTERNAL_RE = re.compile(r"\ballow_bare_internal\s*=\s*True\b")
 _PREFIX_CLASS_STRIP_RE = re.compile(r"(?:\[[A-Za-z]{2}\]){2,}[^'\"]*-")
-_GENERIC_PREFIX_PARSE_RE = re.compile(
-    r"\^\[A-Za-z\]\[A-Za-z0-9\]\*?-"
-)
+_GENERIC_PREFIX_PARSE_RE = re.compile(r"\^\[A-Za-z\]\[A-Za-z0-9\]\*?-")
 _NUMERIC_TAIL_ACCESS_PATTERN = (
     r"\.(?:r?split)\(\s*['\"]-['\"]\s*,\s*1\s*\)\s*\[\s*-?1\s*\]"
 )
@@ -85,16 +81,8 @@ _NUMERIC_TAIL_COERCION_RE = re.compile(
 # Each path stays visible here so removing its legacy read also removes a stale
 # allowance enforced by ``stale_parser_policy_allowances``.
 _NUMERIC_TAIL_ALLOWLIST: dict[str, str] = {
-    "packages/yoke-core/src/yoke_core/domain/item_ref_columns.py": (
-        "legacy dependency-column compatibility on incomplete schemas"
-    ),
     "packages/yoke-core/src/yoke_core/domain/migrations/"
     "_numeric_item_dependency_ids.py": "frozen migration of stored item tokens",
-}
-_IMPLICIT_INTERNAL_ALLOWLIST: dict[str, str] = {
-    "packages/yoke-core/src/yoke_core/domain/item_ref_columns.py": (
-        "legacy textual dependency-column reader"
-    ),
 }
 
 
@@ -143,6 +131,8 @@ class RefLiteralHit:
 def scan(
     repo_root: Path,
     prefixes: Iterable[str],
+    *,
+    read_text=Path.read_text,
 ) -> List[RefLiteralHit]:
     """Return every literal ref-prefix hit in scannable Python source.
 
@@ -166,7 +156,7 @@ def scan(
             if is_exempt_relpath(rel):
                 continue
             try:
-                text = path.read_text(encoding="utf-8")
+                text = read_text(path, encoding="utf-8")
             except (OSError, UnicodeDecodeError):
                 continue
             if "-{" not in text and "-'" not in text and '-"' not in text:
@@ -183,7 +173,9 @@ def scan(
     return hits
 
 
-def scan_parser_policy(repo_root: Path) -> List[RefLiteralHit]:
+def scan_parser_policy(
+    repo_root: Path, *, read_text=Path.read_text
+) -> List[RefLiteralHit]:
     """Return implicit-internal opt-outs and project-blind regex parsers."""
     root = repo_root.resolve()
     hits: List[RefLiteralHit] = []
@@ -199,18 +191,13 @@ def scan_parser_policy(repo_root: Path) -> List[RefLiteralHit]:
             if is_exempt_relpath(rel):
                 continue
             try:
-                lines = path.read_text(encoding="utf-8").splitlines()
+                lines = read_text(path, encoding="utf-8").splitlines()
             except (OSError, UnicodeDecodeError):
                 continue
             for lineno, raw in enumerate(lines, start=1):
-                implicit_internal = _IMPLICIT_INTERNAL_RE.search(raw)
                 numeric_tail = _NUMERIC_TAIL_COERCION_RE.search(raw)
                 if (
-                    (
-                        implicit_internal
-                        and rel not in _IMPLICIT_INTERNAL_ALLOWLIST
-                    )
-                    or _PREFIX_CLASS_STRIP_RE.search(raw)
+                    _PREFIX_CLASS_STRIP_RE.search(raw)
                     or _GENERIC_PREFIX_PARSE_RE.search(raw)
                     or (numeric_tail and rel not in _NUMERIC_TAIL_ALLOWLIST)
                 ):
@@ -220,27 +207,20 @@ def scan_parser_policy(repo_root: Path) -> List[RefLiteralHit]:
     return hits
 
 
-def stale_parser_policy_allowances(repo_root: Path) -> List[str]:
+def stale_parser_policy_allowances(
+    repo_root: Path, *, read_text=Path.read_text
+) -> List[str]:
     """Return allowances whose exact legacy read has disappeared."""
     root = repo_root.resolve()
     stale: List[str] = []
-    allowed_paths = _NUMERIC_TAIL_ALLOWLIST.keys() | _IMPLICIT_INTERNAL_ALLOWLIST.keys()
-    for rel in sorted(allowed_paths):
+    for rel in sorted(_NUMERIC_TAIL_ALLOWLIST):
         path = root / rel
         try:
-            text = path.read_text(encoding="utf-8")
+            text = read_text(path, encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             stale.append(rel)
             continue
-        numeric_stale = (
-            rel in _NUMERIC_TAIL_ALLOWLIST
-            and _NUMERIC_TAIL_ACCESS_RE.search(text) is None
-        )
-        internal_stale = (
-            rel in _IMPLICIT_INTERNAL_ALLOWLIST
-            and _IMPLICIT_INTERNAL_RE.search(text) is None
-        )
-        if numeric_stale or internal_stale:
+        if _NUMERIC_TAIL_ACCESS_RE.search(text) is None:
             stale.append(rel)
     return stale
 

@@ -1,11 +1,12 @@
 """Regression test: skill prose and docs must not teach confabulated columns.
 
 the cleanup swept four classes of confabulated column references out of the
-conduct/idea/do/refine skill prose plus the harness-substrate / commands
+conduct/idea/refine skill prose plus the harness-substrate / commands
 docs. This test is the structural backstop that catches any future drift
 back in. Each test grounds against a small fixed file-set scope; widen
 the scope via a follow-up work item, not opportunistically here.
 """
+
 from __future__ import annotations
 
 import re
@@ -24,7 +25,9 @@ def _iter_md(roots: Iterable[Path]) -> List[Path]:
     return out
 
 
-def _hits(pattern: re.Pattern[str], paths: Iterable[Path]) -> List[Tuple[Path, int, str]]:
+def _hits(
+    pattern: re.Pattern[str], paths: Iterable[Path]
+) -> List[Tuple[Path, int, str]]:
     found: List[Tuple[Path, int, str]] = []
     for path in paths:
         try:
@@ -74,14 +77,18 @@ def test_no_epic_progress_notes_nonexistent_columns() -> None:
         r"|epic_progress_notes\.source\b"
         r"|epic_progress_notes\.headline"
     )
-    _assert_no_hits("epic_progress_notes non-existent column references", _hits(pattern, paths))
+    _assert_no_hits(
+        "epic_progress_notes non-existent column references", _hits(pattern, paths)
+    )
 
 
 def test_no_qa_requirements_nonexistent_columns() -> None:
     """Qa_requirements has no `required` / `satisfied_at` columns."""
     paths = _iter_md([REPO_ROOT / ".agents/skills/yoke"])
     pattern = re.compile(r"qa_requirements\.required\b|qa_requirements\.satisfied_at")
-    _assert_no_hits("qa_requirements non-existent column references", _hits(pattern, paths))
+    _assert_no_hits(
+        "qa_requirements non-existent column references", _hits(pattern, paths)
+    )
 
 
 def test_no_github_authh_targets_or_path_claim_targets_nonexistent_columns() -> None:
@@ -99,7 +106,9 @@ def test_no_github_authh_targets_or_path_claim_targets_nonexistent_columns() -> 
         r"|path_claim_targets\.path_claim_id"
         r"|path_claim_targets\.path_target_id"
     )
-    _assert_no_hits("path_targets / path_claim_targets confabulated columns", _hits(pattern, paths))
+    _assert_no_hits(
+        "path_targets / path_claim_targets confabulated columns", _hits(pattern, paths)
+    )
 
 
 def test_no_claim_state_flag_references() -> None:

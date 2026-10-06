@@ -22,6 +22,7 @@
 
 const crypto = require('crypto');
 const { chromium } = require('playwright');
+const { launchOptions } = require('./browser-executable');
 
 /**
  * @param {Object} options
@@ -48,10 +49,10 @@ function createBrowserManager(options = {}) {
     if (profileDir) {
       // A persistent context owns its own browser process; Playwright returns
       // no Browser handle for it, so `context` is the lifecycle authority.
-      context = await chromium.launchPersistentContext(profileDir, { headless, chromiumSandbox: true });
+      context = await chromium.launchPersistentContext(profileDir, { ...launchOptions(), headless, chromiumSandbox: true });
       return context;
     }
-    browser = await chromium.launch({ headless, chromiumSandbox: true });
+    browser = await chromium.launch({ ...launchOptions(), headless, chromiumSandbox: true });
     context = await browser.newContext();
     return browser;
   }

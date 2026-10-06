@@ -9,7 +9,7 @@ from yoke_core.domain.session_launch_execution import (
 )
 from yoke_core.domain.session_launch_registration import complete_launch_injection
 from yoke_core.domain.session_launch_requests import retry_launch
-from yoke_core.domain.session_launch_store import parse_time
+from yoke_core.domain.session_launch_store import get_launch, parse_time
 from yoke_core.domain.session_message_delivery import expire_due_recipients
 from runtime.api.domain.session_launch_test_support import (
     NOW,
@@ -95,10 +95,12 @@ def test_bind_after_retry_realigns_message_ttl_so_recipient_survives_sweep() -> 
         now="2026-08-22T12:12:00Z",
     )
 
-    # Binding realigned the message TTL to the fresh deadline, so the expiry
-    # sweep run past the ORIGINAL deadline leaves the recipient pending and
-    # injectable rather than flipping it to expired within a second.
-    assert _message_expiry(conn, launch.message_id) == retried.deadline_at
+    # Pickup restarted the retried window and realigned the message TTL to
+    # it, so the expiry sweep run past the ORIGINAL deadline leaves the
+    # recipient pending and injectable rather than flipping it to expired.
+    live_deadline = get_launch(conn, launch.launch_id).deadline_at
+    assert live_deadline == "2026-08-22T12:21:01Z"
+    assert _message_expiry(conn, launch.message_id) == live_deadline
     expire_due_recipients(conn, now=parse_time("2026-08-22T12:12:30Z"))
     recipient = conn.execute(
         "SELECT state FROM session_message_recipients WHERE message_id=?",

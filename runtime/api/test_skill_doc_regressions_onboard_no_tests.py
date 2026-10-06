@@ -6,7 +6,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ONBOARD_DIR = REPO_ROOT / ".agents" / "skills" / "yoke" / "onboard"
-ADVANCE_DIR = REPO_ROOT / ".agents" / "skills" / "yoke" / "advance"
+IMPLEMENT_DIR = REPO_ROOT / ".agents" / "skills" / "yoke" / "implement"
 
 
 def _read(path: Path) -> str:
@@ -39,7 +39,7 @@ def test_the_checklist_records_an_attestation_as_configured():
     assert "`deferred` for the operator who has not decided" in text
 
 
-def test_advance_stops_teaching_the_prose_fallback_as_the_no_tests_story():
-    text = _read(ADVANCE_DIR / "implementing" / "qa-seeding.md")
+def test_implement_stops_teaching_the_prose_fallback_as_the_no_tests_story():
+    text = _read(IMPLEMENT_DIR / "implementing" / "qa-seeding.md")
     assert "yoke qa no-tests attest" in text
     assert "seeded structurally" in text

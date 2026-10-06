@@ -82,9 +82,9 @@ def handle_plan_execution_begin(
     try:
         member_item_id = None
         if parsed.deployment_member is not None:
-            from yoke_core.domain.project_identity import resolve_item_id
+            from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 
-            member_item_id = resolve_item_id(conn, parsed.deployment_member)
+            member_item_id = resolve_item_ref_or_none(conn, parsed.deployment_member)
             if member_item_id is None:
                 raise QaPlanExecutionStateError(
                     f"deployment member {parsed.deployment_member!r} not found"

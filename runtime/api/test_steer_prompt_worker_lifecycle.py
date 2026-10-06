@@ -13,6 +13,7 @@ from pathlib import Path
 
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
+_DASH_DIR = _REPO_ROOT / ".agents" / "skills" / "yoke" / "dash"
 _STEER_DIR = _REPO_ROOT / ".agents" / "skills" / "yoke" / "steer"
 _ROUTER = _REPO_ROOT / ".agents" / "skills" / "yoke" / "SKILL.md"
 _HELP = _REPO_ROOT / ".agents" / "skills" / "yoke" / "help" / "SKILL.md"
@@ -69,9 +70,11 @@ class TestSteerWorkerLifecycle:
         assert "Single-item mandate (steering)" in text
         assert "Do NOT create or dispatch any deployment run" in text
         assert "yoke workflows item get PREFIX-N" in text
-        assert "/yoke refine PREFIX-N" in text
-        assert "/yoke blitz PREFIX-N" in text
-        assert "/yoke shepherd" in text
+        assert "yoke workflows version get <workflow> <version> --json" in text
+        assert "rendered `entrypoint`" in text
+        assert "launch mandate uses the same entrypoint mapping" in _words(text)
+        for copied_chain in ("- Dash:", "- Task:", "- Issue:", "- Blitz:", "- Epic:"):
+            assert copied_chain not in text
         assert "yoke say --item PREFIX-N --stdin" in text
         # The DONE target is the steering ROLE. A session id there would not
         # survive the seat that launched the worker being released.
@@ -112,6 +115,40 @@ class TestSteerWorkerLifecycle:
         assert "Do not create until preview returns" in text
 
 
+class TestSteerRestaff:
+    def test_restaff_recipe_terminates_then_launches_a_successor(self):
+        text = _words(_read(_STEER_DIR / "worker-lifecycle.md"))
+        assert "Restaff an in-flight item on a different model" in text
+        assert "no claim surgery" in text
+        assert "yoke items section get PREFIX-N --section 'Progress Log'" in text
+        assert 'yoke sessions terminate {WORKER_SESSION_ID} --reason "restaff' in text
+        assert "does not touch the registered lane" in text
+        assert "yoke claims work holder-get PREFIX-N" in text
+        assert "restaff:{PREVIOUS_LAUNCH_ID}" in text
+        assert "item_has_live_worker" in text
+
+    def test_the_mandate_copy_carries_the_composed_checkpoint_teaching(self):
+        from yoke_core.domain.session_launch_mandate_teaching import (
+            PROGRESS_CHECKPOINT_TEACHING,
+        )
+
+        assert PROGRESS_CHECKPOINT_TEACHING in _read(_STEER_DIR / "worker-lifecycle.md")
+
+    def test_model_selection_points_a_live_item_at_the_restaff_recipe(self):
+        text = _words(_read(_STEER_DIR / "model-selection.md"))
+        assert "launch a new session for the next item" not in text
+        assert "restaff it" in text and "rule 9" in text
+
+    def test_dash_resumes_a_restaffed_item_from_its_checkpoint(self):
+        claim = _words(_read(_DASH_DIR / "file-and-claim.md"))
+        assert "Resuming an item already in flight" in claim
+        assert "yoke items section get ITEM --section 'Progress Log'" in claim
+        assert "Keep the uncommitted work" in claim
+        assert "yoke items progress-log append ITEM" in claim
+        isolate = _words(_read(_DASH_DIR / "survey-and-isolate.md"))
+        assert "Skip activation when resuming an already-active lane" in isolate
+
+
 class TestSteerDiscoveryAndPacket:
     def test_router_and_help_name_steer(self):
         assert "/yoke steer" in _read(_ROUTER)
@@ -128,7 +165,7 @@ class TestSteerDiscoveryAndPacket:
         assert "`--plan-doc` locks the standing plan" in notes
         assert "yoke steering report get" in notes
         assert "optional `--project P`" in notes
-        assert "never `/yoke do`" in notes
+        assert "never `session-offer`" in notes
         assert "yoke say --item PREFIX-N --stdin" in notes
         assert "A `DONE PREFIX-N` heading names the reported item" in notes
 

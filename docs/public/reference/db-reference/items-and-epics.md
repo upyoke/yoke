@@ -77,7 +77,7 @@ python3 -m yoke_core.domain.item_field_transform section-upsert --item PREFIX-N 
 
 `db_mutation_profile` and `db_compatibility_attestation` are two JSON columns on the `items` table (not standalone tables) — the two storage halves of one operator-facing concept: the item's **DB claim**. The claim says (a) what governed DB mutation the work item performs and (b) the safety argument for why pre-merge `main` stays true after it lands.
 
-The canonical write surface is the `db_claim.amend` function id (see [functions.md](functions.md)). Operator/debug CLI adapter: `python3 -m yoke_core.api.service_client db-claim-amend`. Every Yoke command that needs to write or correct a claim — `/yoke idea` late classification, `/yoke refine` stale-claim repair, `/yoke advance` and `/yoke polish` mid-implementation discovery — routes through this function id. Per-field writes via `python3 -m yoke_core.cli.db_router items update <id> db_mutation_profile ...` remain structurally valid but are reserved as internal implementation helpers; do not author them in skill prose, recovery messages, or operator-facing docs.
+The canonical write surface is the `db_claim.amend` function id (see [functions.md](functions.md)). Operator/debug CLI adapter: `python3 -m yoke_core.api.service_client db-claim-amend`. Every Yoke command that needs to write or correct a claim — `/yoke idea` late classification, `/yoke refine` stale-claim repair, `/yoke implement` and `/yoke polish` mid-implementation discovery — routes through this function id. Per-field writes via `python3 -m yoke_core.cli.db_router items update <id> db_mutation_profile ...` remain structurally valid but are reserved as internal implementation helpers; do not author them in skill prose, recovery messages, or operator-facing docs.
 
 The amendment workflow accepts a single flat payload combining both halves:
 
@@ -249,7 +249,7 @@ Every row in `item_dependencies` is a real enforced blocker with directional mea
  - `plan_candidate_set(conn, candidate_ids, gate_point)` -- plan a candidate set; returns eligible items in topological order and blocked items with detail.
 - Service-client commands: `python3 -m yoke_core.api.service_client evaluate-gate <item-id> <gate-point>` and `python3 -m yoke_core.api.service_client plan-candidates <gate-point> <item1> ...` delegate to the Python kernel.
 
-**Enforcement:** `evaluate_blockers` (`python3 -m yoke_core.domain.check_hard_blocks`, optional `--gate-point`) is the one evaluator. `advance` / `conduct` / `usher` share it. The authoritative status write runs it for listed `check_hard_blocks` at `activation`, and on every write to `done` at `closure` (not skippable by force or QA bypass). `items.block` refuses a wait a live activation/integration/closure edge already carries — use `yoke items dependency add`. The frontier uses `evaluate_batch_gates()` for activation.
+**Enforcement:** `evaluate_blockers` (`python3 -m yoke_core.domain.check_hard_blocks`, optional `--gate-point`) is the one evaluator. `implement` / `conduct` / `usher` share it. The authoritative status write runs it for listed `check_hard_blocks` at `activation`, and on every write to `done` at `closure` (not skippable by force or QA bypass). `items.block` refuses a wait a live activation/integration/closure edge already carries — use `yoke items dependency add`. The frontier uses `evaluate_batch_gates()` for activation.
 
 ## Table: ouroboros_entries
 

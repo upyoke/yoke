@@ -255,14 +255,14 @@ def test_different_item_on_prior_step_returns_resume() -> None:
         "task_num": None,
         "pre_status": "implementing",
         "status": "implementing",
-        "required_path": "advance",
+        "required_path": "implement",
         "handler_outcome": "completed",
     }
     claim = ClaimedWork(
         item_id="YOK-9101",
         status="implementing",
         workflow_id="issue",
-        required_path="advance",
+        required_path="implement",
     )
 
     result = decide_resume_action(

@@ -1,26 +1,8 @@
-"""Advance preflight — Shepherd Lifecycle Gate.
+"""Require the final verdict of an item's pinned Shepherd planning segment.
 
-Python owner for the advance preflight "Shepherd Lifecycle Gate" described in
-``.agents/skills/yoke/advance/preflight-checks.md``. The gate fires when an
-epic is advancing to ``implementing`` or later and verifies the shepherd
-pipeline signed off on the plan before any implementation work begins.
-
-Modern shepherd writes ``planning_to_plan_drafted`` as its terminal verdict
-(via ``cmd_verdict`` in ``yoke_core.domain.shepherd``). The gate accepts
-that verdict in ``READY``, ``SKIPPED``, or ``CAVEATS`` state.
-
-Historical epics (pre-2026-04-07, before the shepherd/refine split) used
-``planned_to_ready`` as the sign-off verdict. We accept it as a legacy
-fallback so those historical epics and any re-runs against their branches
-still pass. No producer writes this name today.
-
-CLI::
-
-    python3 -m yoke_core.domain.shepherd_gate check <item-id>
-
-Exits ``0`` when the gate passes, ``1`` when it blocks, ``2`` on argument or
-lookup error. Prints a single human-readable line on stdout describing the
-outcome — callers can capture it or rely solely on the exit code.
+The lifecycle task-graph gate calls ``check_gate`` for this lookup.
+The immutable binding supplies the final edge and its verdict identity.
+A workflow with no Shepherd binding has no Shepherd lifecycle obligation.
 """
 
 from __future__ import annotations
@@ -34,13 +16,10 @@ from typing import Any, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain import db_helpers
+from yoke_core.domain.shepherd_segment import shepherd_edges
+from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 
-CURRENT_TRANSITION = "planning_to_plan_drafted"
-# Historical compat: pre-2026-04-07 shepherd wrote this name. No modern
-# producer writes it. Kept so epics that passed the pre-split pipeline still
-# satisfy the gate without --force.
-LEGACY_TRANSITION = "planned_to_ready"
 ACCEPTABLE_VERDICTS = ("READY", "SKIPPED", "CAVEATS")
 
 
@@ -68,6 +47,7 @@ def _lookup_latest_verdict(
         "SELECT verdict FROM shepherd_verdicts "
         f"WHERE item = {p} AND transition = {p} "
         f"AND verdict IN ({verdict_placeholders}) "
+        "AND (verdict <> 'SKIPPED' OR LOWER(worker) IN ('review', 'architect')) "
         "ORDER BY id DESC LIMIT 1",
         (public_ref, transition, *ACCEPTABLE_VERDICTS),
     )
@@ -93,27 +73,17 @@ def check_gate(
 
     def _evaluate(c: Any) -> GateResult:
         public_ref = render_item_ref(c, int(item_id))
-        current = _lookup_latest_verdict(c, verdict_key, CURRENT_TRANSITION)
+        edges = shepherd_edges(load_item_workflow_runtime(c, item_id))
+        if not edges:
+            return GateResult(True, None, None, f"No Shepherd binding on {public_ref}.")
+        transition = edges[-1].verdict_key
+        current = _lookup_latest_verdict(c, verdict_key, transition)
         if current is not None:
             return GateResult(
                 passed=True,
-                transition=CURRENT_TRANSITION,
+                transition=transition,
                 verdict=current,
-                reason=(
-                    f"Gate satisfied by {CURRENT_TRANSITION}={current} "
-                    f"on {public_ref}."
-                ),
-            )
-        legacy = _lookup_latest_verdict(c, verdict_key, LEGACY_TRANSITION)
-        if legacy is not None:
-            return GateResult(
-                passed=True,
-                transition=LEGACY_TRANSITION,
-                verdict=legacy,
-                reason=(
-                    f"Gate satisfied by legacy {LEGACY_TRANSITION}={legacy} "
-                    f"on {public_ref} (pre-2026-04-07 compat)."
-                ),
+                reason=f"Gate satisfied by {transition}={current} on {public_ref}.",
             )
         return GateResult(
             passed=False,
@@ -121,9 +91,8 @@ def check_gate(
             verdict=None,
             reason=(
                 f"No qualifying shepherd verdict for {public_ref}. "
-                f"Expected transition '{CURRENT_TRANSITION}' in "
-                f"{ACCEPTABLE_VERDICTS!r} (legacy '{LEGACY_TRANSITION}' also "
-                f"accepted for pre-2026-04-07 compat)."
+                f"Expected transition '{transition}' in {ACCEPTABLE_VERDICTS!r}. "
+                "Resume Shepherd within its binding and persist the final plan review."
             ),
         )
 

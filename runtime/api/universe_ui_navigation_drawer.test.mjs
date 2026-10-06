@@ -34,18 +34,18 @@ async function mountDrawer(t, initiallyNarrow = true) {
 }
 
 test("an open drawer makes the page behind it inert", async (t) => {
-  const { root, mounted } = await mountDrawer(t);
+  const { documentNode, root, mounted } = await mountDrawer(t);
   const toggle = byClass(root, "navigation-toggle")[0];
   const body = byClass(root, "workbench-body")[0];
-  const close = byClass(root, "navigation-close")[0];
+  const firstControl = byClass(root, "onboarding-open")[0] || byClass(root, "nav-link")[0];
 
   assert.equal(body.inert, false);
-  assert.equal(close.hidden, true);
+  assert.equal(byClass(root, "navigation-close").length, 0);
   assert.equal(toggle.getAttribute("aria-expanded"), "false");
 
   toggle.dispatchEvent(new Event("click"));
   assert.equal(body.inert, true);
-  assert.equal(close.hidden, false);
+  assert.equal(documentNode.activeElement, firstControl);
   assert.equal(byClass(root, "navigation-scrim")[0].hidden, false);
   assert.equal(toggle.getAttribute("aria-expanded"), "true");
   assert.equal(toggle.getAttribute("aria-label"), "Close navigation");
@@ -55,10 +55,9 @@ test("an open drawer makes the page behind it inert", async (t) => {
 test("dismissing the drawer returns focus to the control that opened it", async (t) => {
   const { documentNode, root, mounted } = await mountDrawer(t);
   const toggle = byClass(root, "navigation-toggle")[0];
-  const close = byClass(root, "navigation-close")[0];
 
   for (const dismissal of [
-    () => close.dispatchEvent(new Event("click")),
+    () => toggle.dispatchEvent(new Event("click")),
     () => byClass(root, "navigation-scrim")[0].dispatchEvent(new Event("click")),
     () => {
       const event = new Event("keydown");
@@ -121,13 +120,13 @@ test("widening an open drawer clears every background restriction", async (t) =>
     .map((name) => byClass(root, name)[0]);
   toggle.dispatchEvent(new Event("click"));
   assert.ok(background.every((node) => node.inert));
-  assert.equal(documentNode.activeElement, byClass(root, "navigation-close")[0]);
+  assert.equal(documentNode.activeElement, byClass(root, "onboarding-open")[0] || byClass(root, "nav-link")[0]);
   resize(false);
   assert.ok(background.every((node) => !node.inert));
   assert.equal(toggle.getAttribute("aria-expanded"), "false");
   assert.equal(byClass(root, "navigation-scrim")[0].hidden, true);
   assert.equal(byClass(root, "sidenav")[0].inert, false);
-  assert.notEqual(documentNode.activeElement, byClass(root, "navigation-close")[0]);
+  assert.equal(documentNode.activeElement, byClass(root, "onboarding-open")[0] || byClass(root, "nav-link")[0]);
   resize(true);
   assert.equal(byClass(root, "sidenav")[0].inert, true);
   mounted.unmount();
@@ -137,7 +136,7 @@ test("widening an open drawer clears every background restriction", async (t) =>
 test("drawer tab order stays visible and skips collapsed destinations", async (t) => {
   const { documentNode, root, mounted } = await mountDrawer(t);
   byClass(root, "navigation-toggle")[0].dispatchEvent(new Event("click"));
-  const close = byClass(root, "navigation-close")[0];
+  const firstControl = byClass(root, "onboarding-open")[0] || byClass(root, "nav-link")[0];
   const diagnostics = byClass(root, "nav-group").find((node) => node.textContent === "Diagnostics");
   const tab = (shiftKey = false) => {
     const event = new Event("keydown");
@@ -145,16 +144,16 @@ test("drawer tab order stays visible and skips collapsed destinations", async (t
     event.shiftKey = shiftKey;
     documentNode.defaultView.dispatchEvent(event);
   };
-  assert.equal(documentNode.activeElement, close);
+  assert.equal(documentNode.activeElement, firstControl);
   tab(true);
   assert.equal(documentNode.activeElement, diagnostics);
   tab();
-  assert.equal(documentNode.activeElement, close);
+  assert.equal(documentNode.activeElement, firstControl);
   diagnostics.dispatchEvent(new Event("click"));
   const lastLink = byClass(root, "nav-link").at(-1);
   documentNode.activeElement = lastLink;
   tab();
-  assert.equal(documentNode.activeElement, close);
+  assert.equal(documentNode.activeElement, firstControl);
   mounted.unmount();
 });
 

@@ -147,9 +147,9 @@ class TestSessionOfferCharge:
         data = json.loads(result.stdout)
         assert data["action"] == "charge"
         scheduler = data["context"]["scheduler"]
-        assert scheduler["next_step"] == "advance"
+        assert scheduler["next_step"] == "implement"
         assert scheduler["status"] == "refined-idea"
-        assert scheduler["adapter"] == "advance"
+        assert scheduler["adapter"] == "implement"
 
     def _now_iso(self) -> str:
         from datetime import datetime, timezone
@@ -259,7 +259,7 @@ class TestSessionOfferCharge:
                 status="implementing",
                 title=item_id,
                 priority="medium",
-                next_step=NextStep.ADVANCE,
+                next_step=NextStep.IMPLEMENT,
                 rank=rank,
                 claim_state=cs,
             )
@@ -337,5 +337,5 @@ class TestSessionOfferCharge:
         dispatch_event = next(
             json.loads(row[1]) for row in rows if row[0] == "AdapterDispatchChosen"
         )
-        assert dispatch_event["context"]["adapter"] == "advance"
+        assert dispatch_event["context"]["adapter"] == "implement"
         assert dispatch_event["context"]["dispatch_source"] == "scheduler.next_step"

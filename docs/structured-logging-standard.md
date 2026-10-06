@@ -158,7 +158,14 @@ Error responses:
 - 413: Payload too large -- `{"error": "payload_too_large", "max_bytes": 65536}`
 - 429: Rate limited -- `{"error": "rate_limited", "retry_after_ms": 1000}`
 
-Authentication: Bearer token in `Authorization` header. Token validation authenticates an actor; project-specific authorization is checked separately through that actor's project role and required permission key.
+Anonymous frontend analytics use a publishable X-Events-Key, exact Origin
+allowlist and shared rate limit; no bearer token is required. Backend/audit/
+security ingestion retains authenticated authorization. The [Pack collector
+contract](../packs/structured-events/versions/2.0.1/files/events/README.md) names
+refusals, recovery and server-side identity stamping. Attribution storage and
+frontend emission require explicit consent. Every consented frontend event
+attaches attribution when capture succeeds. Required signup facts belong to
+the durable account/actor owner, never only to events.
 
 ### Envelope Size Limits
 
@@ -187,6 +194,6 @@ Section A above defines the canonical envelope. The rest of the standard is spli
 - [Full Envelope Composition Per Source Type](structured-logging-standard/source-type-composition.md) -- which property groups are required for `agent`, `backend`, `frontend`, and `system` events.
 - [Python Implementation Templates](structured-logging-standard/python-templates.md) -- the `yoke_core.domain.events.emit_event` reference and the standalone `events.py` template.
 - [JS/TS Implementation Template](structured-logging-standard/js-ts-template.md) -- the frontend `events.ts` reference module with batching and attribution.
-- [Marketing Attribution Template](structured-logging-standard/marketing-attribution.md) -- attribution lifecycle, cookie schema, and `getAttributionProps()` implementation.
+- [Marketing Attribution Template](structured-logging-standard/marketing-attribution.md) -- consent, persistent visitor identity, first/last-touch and server storage.
 - [Agent Session Transcript Pattern](structured-logging-standard/agent-session-pattern.md) -- session reconstruction, canonical SQL queries, and key design decisions.
 - [Event Taxonomy, Severity, Correlation, Versioning](structured-logging-standard/taxonomy-appendix.md) -- the appendix covering event taxonomy, severity levels, cross-event correlation, and envelope versioning.

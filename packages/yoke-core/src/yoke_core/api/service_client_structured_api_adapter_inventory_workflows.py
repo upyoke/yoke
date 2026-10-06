@@ -117,7 +117,11 @@ WORKFLOW_ADAPTERS = [
         cli_invocation=(
             "yoke workflow execution-instruction set-scope ID "
             "[--all-workflows] [--workflow W ...] "
-            "[--all-projects] [--project-id N ...] [--json]"
+            "[--all-projects] [--project-id N ...] "
+            "[--before-creation | --no-before-creation] "
+            "[--on-every-read | --no-on-every-read] "
+            "[--when-entering-stage | --no-when-entering-stage] "
+            "[--stage-bucket B ... | --clear-stage-buckets] [--json]"
         ),
         notes="Replaces the instruction's workflow and project bindings.",
     ),
@@ -125,7 +129,7 @@ WORKFLOW_ADAPTERS = [
         function_id="workflow.execution_instruction.resolve",
         cli_invocation=(
             "yoke workflow execution-instruction resolve "
-            "--workflow W --project P [--full] [--json]"
+            "--workflow W --project P [--delivery-point POINT] [--stage-bucket B] [--full] [--json]"
         ),
         notes="Only instructions matching the named workflow and project.",
     ),

@@ -47,8 +47,8 @@ class TestDecideNextActionEscalate:
                 "item_id": _test_item_ref(77),
                 "title": "Needs advance",
                 "status": "refined-idea",
-                "next_step": "advance",
-                "required_path": "advance",
+                "next_step": "implement",
+                "required_path": "implement",
                 "rank": 0,
                 "claim_state": "unclaimed",
             },
@@ -56,8 +56,8 @@ class TestDecideNextActionEscalate:
                 "item_id": _test_item_ref(78),
                 "title": "Also needs advance",
                 "status": "refined-idea",
-                "next_step": "advance",
-                "required_path": "advance",
+                "next_step": "implement",
+                "required_path": "implement",
                 "rank": 1,
                 "claim_state": "claimed_by_stale",
             },
@@ -77,7 +77,7 @@ class TestDecideNextActionEscalate:
         assert result.context["actual_lane"] == "ALTMAN"
         # lane_filtered_paths is a compact grouped view of (path, count)
         assert result.context["lane_filtered_paths"] == [
-            {"required_path": "advance", "count": 2},
+            {"required_path": "implement", "count": 2},
         ]
 
     def test_filtered_empty_wait_not_triggered_when_runnable_exists(self):

@@ -1,28 +1,22 @@
 ---
 name: advance
-description: "Advance a backlog item to the next status in its lifecycle, or to a specific target status."
+description: "Internal sub-skill: advance a backlog item to the next status in its lifecycle, or to a specific target status."
 argument-hint: "{PREFIX-N} [status]"
 ---
 
-# Sub-skill called by conduct, usher, do/loop, and routed dispatch.
-# The `implementation` form (`/yoke advance PREFIX-N implementation`) is also
-# operator-facing for workflows whose pinned definition binds `advance` across
-# implementation entry. Other advance targets remain internal-only.
+# Internal sub-skill called by implement, conduct, polish, and usher for
+# their status writes. Its only operator form is the skip flags in
+# arguments.md; implementation entry is the `implement` stage skill.
 
 # /yoke advance {PREFIX-N} [status]
 
 Advance a backlog item's status forward through its pinned workflow. The shared
 lifecycle interpreter validates every transition from the item's immutable
-workflow version; this skill coordinates the surrounding operator journey.
+workflow version; this sub-skill runs the target stage's gates, QA phases, and
+worktree-scoped commit around that write for the calling skill.
 
 `{PREFIX-N}` accepts prefixed, zero-padded, or bare numeric ids. `[status]` is
-an optional target status or advance-target name; omitted, it advances one
-stage. The advance target `implementation` runs end to end
-**in the same harness session** — worktree creation is a filesystem + DB operation, not a
-session boundary — and continues into the implementation sub-skill and the
-review loop until `reviewed-implementation`. Stopping at `implementing` and
-announcing `/yoke polish` as "next" is the hand-off-to-operator anti-pattern
-this contract exists to prevent.
+an optional target status; omitted, it advances one stage.
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
@@ -35,9 +29,8 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 | Phase | You are here when | Read before acting |
 |---|---|---|
 | 0–2. Skip, parse, target | The invocation just arrived | [`parse-and-target.md`](parse-and-target.md) |
-| 3. Worktree re-entry | The resolved target re-enters an existing lane | [`reentry.md`](reentry.md) |
 | 4. Phase dispatch | A forward transition is confirmed | [`phase-dispatch.md`](phase-dispatch.md) |
-| — Flags and evidence-only items | The invocation carries `--env`, `--no-worktree`, `--force`, or a skip flag, or an evidence-only item hit the empty-branch guard | [`arguments.md`](arguments.md) |
+| — Flags | The invocation carries `--env`, `--force`, or a skip flag | [`arguments.md`](arguments.md) |
 
 The phase-dispatch step names the reference the target actually needs
 ([`preflight.md`](preflight.md), [`browser-qa.md`](browser-qa.md),
@@ -50,8 +43,9 @@ pin and is read once, from step 1.
 **Lifecycle authority.** The item's `workflow_id` and `workflow_version_id`
 select the immutable definition. Never reconstruct a progression in this skill.
 Read the served definition for navigation and let
-`lifecycle.transition.execute` enforce the pinned version, stage order, gates,
-and registered skill binding.
+`lifecycle.transition.execute` enforce the pinned version, stage order, and
+every listed and structural gate ([`preflight.md`](preflight.md)); its
+response names the bound-skill handoff a transition crosses.
 
 **Operator execution instructions.** Obey the
 `# Workflow Execution Instructions` operator block at the top of fetched item
@@ -68,10 +62,12 @@ AC is addressed, not just the core implementation. Execution-type deliverables
 (running a script, configuring secrets) need explicit verification separate
 from code correctness (P-52).
 
-**Never stop at a handoff menu.** Re-entry targets resume their loop in the
-recovered worktree. Do not surface the worktree path and stop, and never ask
-"Want me to review now?" unless a real blocker prevents continued work.
+**Never stop at a handoff menu.** Return to the calling skill's loop after the
+status write. Do not surface the worktree path and stop, and never ask "Want me
+to review now?" unless a real blocker prevents continued work.
 
 ## Start
 
-Read [`parse-and-target.md`](parse-and-target.md) and follow it.
+The calling skill already stamped the session mode and holds the claim this
+sub-skill needs. Read [`parse-and-target.md`](parse-and-target.md) and follow
+it.

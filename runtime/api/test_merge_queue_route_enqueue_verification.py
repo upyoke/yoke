@@ -1,6 +1,7 @@
 """The durable handoff follows GitHub's queue membership, not the arming."""
 
 from runtime.api.merge_queue_landing_test_helpers import (
+    ARMED,
     UNARMED,
     land,
     wire_happy_path,
@@ -62,3 +63,19 @@ def test_a_red_required_check_refuses_before_merge_when_ready_is_armed(
     assert not outcome.landing_pending
     assert "was not armed for the merge queue" in outcome.error
     assert "repo-contracts=failure" in outcome.error
+
+
+def test_only_an_already_armed_retry_preserves_the_episode(monkeypatch):
+    for state, preserve in ((UNARMED, False), (ARMED, True)):
+        wire_happy_path(monkeypatch, landing_states=[state])
+        calls = []
+
+        def mark(item_id, pr_number, *, dispatch, preserve_existing):
+            calls.append(preserve_existing)
+            return "2026-08-27T17:00:00Z", ""
+
+        monkeypatch.setattr(route_mod, "mark_landing_pending", mark)
+        outcome = land(wait_for_landing=False)
+        assert outcome.ok
+        assert outcome.landing_pending
+        assert calls == [preserve]

@@ -31,6 +31,10 @@ CREATE TABLE IF NOT EXISTS {WORKFLOW_EXECUTION_INSTRUCTIONS_TABLE} (
     content TEXT NOT NULL,
     applies_to_all_workflows INTEGER NOT NULL DEFAULT 0,
     applies_to_all_projects INTEGER NOT NULL DEFAULT 0,
+    before_creation INTEGER NOT NULL DEFAULT 1,
+    on_every_read INTEGER NOT NULL DEFAULT 1,
+    when_entering_stage INTEGER NOT NULL DEFAULT 0,
+    stage_buckets TEXT NOT NULL DEFAULT '[]',
     updated_by_actor_id INTEGER,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
@@ -71,5 +75,14 @@ def ensure_workflow_execution_instructions_schema(
         "applies_to_all_workflows",
         "INTEGER NOT NULL DEFAULT 0",
     )
+    for column, ddl in (
+        ("before_creation", "INTEGER NOT NULL DEFAULT 1"),
+        ("on_every_read", "INTEGER NOT NULL DEFAULT 1"),
+        ("when_entering_stage", "INTEGER NOT NULL DEFAULT 0"),
+        ("stage_buckets", "TEXT NOT NULL DEFAULT '[]'"),
+    ):
+        _add_column_if_not_exists(
+            conn, WORKFLOW_EXECUTION_INSTRUCTIONS_TABLE, column, ddl
+        )
     if commit:
         conn.commit()

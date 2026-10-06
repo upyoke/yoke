@@ -58,7 +58,7 @@ class TestSessionOfferLanes:
         """Lane/path compatibility filtering happens before claim selection.
 
         Regression for the Codex ALTMAN failure mode: a globally higher-ranked
-        DARIUS-only ADVANCE item must not mask a lower-ranked but compatible
+        DARIUS-only IMPLEMENT item must not mask a lower-ranked but compatible
         ALTMAN REFINE item.
         """
         conn, ws = ownership_conn
@@ -91,7 +91,7 @@ class TestSessionOfferLanes:
             execution_lane="ALTMAN",
             supported_paths=["refine", "polish"],
             lane_allowed_paths={
-                "DARIUS": ["advance", "conduct", "shepherd", "usher"],
+                "DARIUS": ["implement", "conduct", "shepherd", "usher"],
                 "ALTMAN": ["refine", "polish"],
             },
         )
@@ -125,7 +125,7 @@ class TestSessionOfferLanes:
             execution_lane="ALTMAN",
             supported_paths=["refine", "polish"],
             lane_allowed_paths={
-                "DARIUS": ["advance", "conduct", "shepherd", "usher"],
+                "DARIUS": ["implement", "conduct", "shepherd", "usher"],
                 "ALTMAN": ["refine", "polish"],
             },
         )
@@ -156,7 +156,7 @@ class TestSessionOfferLanes:
             workspace=ws,
             execution_lane="primary",
             lane_allowed_paths={
-                "DARIUS": ["advance", "conduct", "shepherd", "usher"],
+                "DARIUS": ["implement", "conduct", "shepherd", "usher"],
                 "ALTMAN": ["refine", "polish"],
             },
         )
@@ -197,7 +197,7 @@ class TestSessionOfferLanes:
         # refined-idea issue status routes to `advance`, a DARIUS-only path.
         # An ALTMAN session with supported_paths=refine,polish filters it out.
         lane_allowed = {
-            "DARIUS": ["advance", "conduct", "shepherd", "usher"],
+            "DARIUS": ["implement", "conduct", "shepherd", "usher"],
             "ALTMAN": ["refine", "polish"],
         }
         result = session_offer_with_ownership(
@@ -226,7 +226,7 @@ class TestSessionOfferLanes:
             assert key in filtered, f"lane_filtered_items missing key: {key}"
         assert filtered["item_id"] == expected_item_ref
         # The refined-idea issue requires advance, which is DARIUS-only
-        assert filtered["required_path"] == "advance"
+        assert filtered["required_path"] == "implement"
 
         # Routing the schedule through the decision engine must produce the
         # filtered-empty WAIT — not a silent FEED, and not a misleading ESCALATE.
@@ -275,9 +275,9 @@ class TestSessionOfferLanes:
             provider="anthropic",
             model="opus",
             workspace=ws,
-            supported_paths=["shepherd", "advance"],
+            supported_paths=["shepherd", "implement"],
         )
-        assert result["supported_paths"] == ["shepherd", "advance"]
+        assert result["supported_paths"] == ["shepherd", "implement"]
 
     def test_supported_paths_defaults_to_empty(self, ownership_conn):
         """Supported_paths defaults to empty list when not provided."""
@@ -317,7 +317,7 @@ class TestSessionOfferLanes:
 
         manifest_dir = os.path.join(ws, "runtime", "harness", "codex")
         os.makedirs(manifest_dir, exist_ok=True)
-        disabled = ["shepherd", "advance", "polish", "usher"]
+        disabled = ["shepherd", "implement", "polish", "usher"]
         with open(os.path.join(manifest_dir, "manifest.json"), "w", encoding="utf-8") as handle:
             json.dump(
                 {
@@ -336,14 +336,14 @@ class TestSessionOfferLanes:
             provider="openai",
             model="gpt-5.4",
             workspace=ws,
-            supported_paths=["advance"],
+            supported_paths=["implement"],
         )
 
         # Registry minus the manifest's declared limitations, and the caller's
         # own ``supported_paths`` argument ignored entirely.
         expected = [path for path in shared_downstream_paths() if path not in disabled]
         assert result["supported_paths"] == expected
-        assert "advance" not in result["supported_paths"]
+        assert "implement" not in result["supported_paths"]
         assert result["action_hint"] == "charge"
         assert result["new_claim"] is not None
         assert result["new_claim"]["scope"] == {"item_id": 101}

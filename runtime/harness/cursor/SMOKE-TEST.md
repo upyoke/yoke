@@ -14,7 +14,7 @@ Cursor IDE 3.14.7 / cursor-agent 2026.07.23-e383d2b; newer builds may move.
 3. `yoke sessions begin` shape: confirm a session registers with
    `executor=cursor`, display name `cursor-cli`, and appears on the board
    with the Cursor glyph.
-4. Confirm `/yoke do` returns an offer with `supported_paths` derived from
+4. Confirm `session-offer` returns an offer with `supported_paths` derived from
    the shared registry (no manifest limitations declared).
 
 ## Hook-enhanced — CLI surface

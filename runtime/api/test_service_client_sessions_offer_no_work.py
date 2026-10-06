@@ -153,7 +153,7 @@ class TestSessionOfferNoWork:
         assert data["action"] in ("wait", "escalate"), data
 
         ctx = data.get("context") or {}
-        # Dispatch-bearing fields are absent so /yoke do has nothing
+        # Dispatch-bearing fields are absent so session-offer has nothing
         # to dispatch from regardless of the terminal action shape.
         assert not ctx.get("selected_item")
         assert not ctx.get("scheduler")
@@ -190,7 +190,7 @@ class TestSessionOfferNoWork:
                 status="refined-idea",
                 title="blocked",
                 priority="high",
-                next_step=NextStep.ADVANCE,
+                next_step=NextStep.IMPLEMENT,
                 rank=0,
                 claim_state=ClaimState.CLAIMED_BY_STALE,
             ),
@@ -202,7 +202,7 @@ class TestSessionOfferNoWork:
                 status="refined-idea",
                 title="unblocked",
                 priority="high",
-                next_step=NextStep.ADVANCE,
+                next_step=NextStep.IMPLEMENT,
                 rank=1,
                 claim_state=ClaimState.UNCLAIMED,
             ),
@@ -223,7 +223,7 @@ class TestSessionOfferNoWork:
 
         # With the selected id in skip memory: it is dropped from
         # runnable_items, and the next-ranked item is promoted into
-        # selected_item / scheduler_context so /yoke do charge dispatch
+        # selected_item / scheduler_context so session-offer charge dispatch
         # keeps working when the scheduler's top pick is filtered.
         filtered = build_frontier_state_from_schedule(
             schedule,
@@ -231,7 +231,7 @@ class TestSessionOfferNoWork:
         )
         assert len(filtered.runnable_items) == 1
         assert filtered.scheduler_context["title"] == "unblocked"
-        assert filtered.scheduler_context["next_step"] == "advance"
+        assert filtered.scheduler_context["next_step"] == "implement"
         assert filtered.scheduler_context["workflow_id"] == "issue"
 
 

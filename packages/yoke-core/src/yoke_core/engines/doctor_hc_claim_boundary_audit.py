@@ -1,7 +1,7 @@
 """HC-claim-boundary-audit: surface cross-session mutation evidence.
 
 Read-only Doctor wrapper around
-:mod:`yoke_core.domain.check_claim_boundary_audit`. Records:
+:mod:`yoke_core.domain.check_claim_boundary_audit_summary`. Records:
 
 - PASS when the scanner returns no findings.
 - WARN when only attribution-incomplete findings exist

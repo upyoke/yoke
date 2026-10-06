@@ -166,4 +166,4 @@ def test_missing_args_returns_usage(tmp_path):
 
     rc = run_scan("", repo_root=str(tmp_path), stdout=_Writer(), stderr=_Writer())
     assert rc == 2
-    assert "expected PREFIX-N, or bare N with project context" in "".join(output)
+    assert "pass the public ref (PREFIX-N" in "".join(output)

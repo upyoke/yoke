@@ -8,7 +8,7 @@ argument-hint: "{PREFIX-N}"
 
 Standalone capability for polishing an in-progress implementation. Locates the existing implementation worktree lane set for a backlog item, reviews code and tests against the item's artifacts (spec, ACs, technical plan), makes finishing fixes, runs verification, and commits when changes are needed. Issue items usually have one item worktree; epic items may have multiple task worktrees from the worktree plan.
 
-This is an explicit, operator-invoked capability that Codex can execute directly. It does not require `/yoke do`, lane-aware routing, or lifecycle-family ownership wiring.
+This is an explicit, operator-invoked capability that Codex can execute directly.
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.

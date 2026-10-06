@@ -14,8 +14,9 @@ const staticRoot = fileURLToPath(new URL(
   "../../packages/yoke-core/src/yoke_core/ui/static/", import.meta.url,
 ));
 const entry = await readFile(path.join(staticRoot, "index.html"), "utf8");
-const styles = [...entry.matchAll(/href="\.\/assets\/([^\"]+\.css)"/g)]
+const styles = [...entry.matchAll(/href="(?:\.\/|\/)assets\/([^\"]+\.css)"/g)]
   .map((match) => match[1]);
+assert(styles.length, "Source index must declare its stylesheet roster.");
 const flowName = "yoke-hosted-production-release-qa";
 const rows = [
   ["Session identity", "session-top", "session-operator"],
@@ -46,6 +47,7 @@ const html = (assets) => `<!doctype html><html><head>
   </style></head><body><main class="universe-app-root">
   <div id="delivery" class="proof"></div>
   <div id="specimens"></div>
+  <div id="grids"></div>
   <footer class="proof-footer">Styles: candidate checkout;
     fixture data; no control-plane universe</footer>
   </main><script type="module">
@@ -64,6 +66,7 @@ const html = (assets) => `<!doctype html><html><head>
       row.className = rowClass + " proof-row";
       const first = document.createElement("span");
       first.textContent = "Current execution context";
+      if (label === "Runtime identity") first.className = "runtime-identity-help-label";
       const trailing = document.createElement("span");
       trailing.className = trailingClass;
       trailing.textContent = "Production deployment owner";
@@ -79,18 +82,50 @@ const html = (assets) => `<!doctype html><html><head>
     document.getElementById("specimens").append(inbox);
     const inboxHost = document.createElement("section");
     inboxHost.className = "proof";
+    inboxHost.id = "inbox-approvals";
     document.getElementById("specimens").append(inboxHost);
     const subject = { run_id: "sample-release", stage: "approve",
       carried: { items: [{ item_id: 17, ref: "DEMO-17", title: "Dashboard corrections" }], commits: [] },
       release_effect: { consequence: "deploys", headline: "Deploy dashboard corrections" } };
-    const rows = [{ id: 1, kind: "deployment_stage_approval", status: "pending", project_id: 1,
-      subject_context: subject, actions: ["approve", "reject"], can_act: true },
-      { id: 2, kind: "deployment_stage_approval", status: "resolved", project_id: 1,
+    const rows = [...Array.from({ length: 8 }, (_, index) => ({
+      id: index + 1, kind: "deployment_stage_approval", status: "pending", project_id: 1,
+      subject_context: { ...subject, run_id: "sample-release-" + (index + 1) },
+      actions: ["approve", "reject"], can_act: true })),
+      { id: 9, kind: "deployment_stage_approval", status: "resolved", project_id: 1,
       subject_context: subject, actions: [], can_act: false, decided_by_you: true, your_decision: { action: "approve" } }];
     renderInboxView({ document, isMounted: () => true, projects: () => [{ id: 1, slug: "Demo" }],
       client: { call: async (request) => ({ status: 200, envelope: { success: true,
         result: request.function === "inbox.list" ? { needs_decision: rows, messages: [] } : { rows: [] } } }) } }, inboxHost, "all");
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    const gridKinds = [
+      ["Sessions", "session-grid", "session-card"],
+      ["Machines", "machines-grid", "machine-card"],
+      ["Frontier", "work-card-grid", "work-item-card"],
+      ["Strategy", "work-card-grid", "work-item-card"],
+      ["Strategy documents", "strategy-doc-grid", "strategy-doc-card"],
+      ["Work sessions", "work-session-grid", "session-card"],
+      ["Shipping runs", "work-card-grid shipping-run-grid", "shipping-run-card"],
+    ];
+    for (const [label, gridClass, cardClass] of gridKinds) {
+      const specimen = document.createElement("section");
+      specimen.className = "proof grid-proof";
+      specimen.dataset.label = label;
+      const header = document.createElement("div");
+      header.className = "panel-header";
+      header.textContent = label;
+      specimen.append(header);
+      for (const count of [8, 1]) {
+        const grid = document.createElement("div");
+        grid.className = gridClass;
+        for (let index = 0; index < count; index += 1) {
+          const card = document.createElement("article");
+          card.className = cardClass;
+          card.textContent = "Card " + (index + 1);
+          grid.append(card);
+        }
+        specimen.append(grid);
+      }
+      document.getElementById("grids").append(specimen);
+    }
     window.proofReady = true;
   </script></body></html>`;
 
@@ -116,8 +151,9 @@ const browser = await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage({ viewport: { width: 800, height: 1000 } });
   await page.goto(`http://127.0.0.1:${server.address().port}/`);
-  await page.waitForFunction(() => window.proofReady);
-  for (const width of [268, 350, 1100]) {
+  await page.waitForFunction(() => window.proofReady
+    && document.querySelector('[data-fold="section:inbox-waiting"] .approval-carried'));
+  for (const width of [268, 350, 1100, 1250]) {
     await page.setViewportSize({ width: width + 40, height: 1000 });
     await page.evaluate((value) => {
       document.documentElement.style.setProperty("--proof-width", `${value}px`);
@@ -126,6 +162,11 @@ try {
       const delivery = document.querySelector(".workflow-panel-header");
       const meta = document.querySelector(".workflow-panel-meta");
       const left = (node) => node.getBoundingClientRect().left;
+      const waiting = document.querySelector('[data-fold="section:inbox-waiting"]');
+      const decided = document.querySelector('[data-fold="section:inbox-decided"]');
+      const pendingCards = [...waiting.querySelectorAll(".review-card")];
+      const sparseCard = decided.querySelector(".review-card").getBoundingClientRect();
+      const header = waiting.querySelector("summary").getBoundingClientRect();
       const measurements = [...document.querySelectorAll(".proof-row")].map((row) => {
         const [first, trailing] = row.children;
         const style = getComputedStyle(row);
@@ -138,6 +179,29 @@ try {
           rowLeftGap: row.getBoundingClientRect().left - row.parentElement.getBoundingClientRect().left };
       });
       return {
+        inbox: {
+          pendingCount: pendingCards.length,
+          decidedCount: decided.querySelectorAll(".review-card").length,
+          leftGap: pendingCards[0].getBoundingClientRect().left - header.left,
+          rightGap: header.right - pendingCards[0].getBoundingClientRect().right,
+          sparseLeftGap: sparseCard.left - header.left,
+          sparseWidthGap: sparseCard.width - pendingCards[0].getBoundingClientRect().width,
+          stacked: pendingCards.every((card, index) => !index
+            || card.getBoundingClientRect().top >= pendingCards[index - 1].getBoundingClientRect().bottom),
+        },
+        grids: [...document.querySelectorAll(".grid-proof")].map((specimen) => {
+          const [header, full, sparse] = specimen.children;
+          const cards = [...full.children].map((card) => card.getBoundingClientRect());
+          const firstRow = cards.filter((card) => Math.abs(card.top - cards[0].top) < 1);
+          const sparseCard = sparse.firstChild.getBoundingClientRect();
+          return { label: specimen.dataset.label, columns: firstRow.length,
+            rightGap: header.getBoundingClientRect().right - firstRow.at(-1).right,
+            leftGap: cards[0].left - header.getBoundingClientRect().left,
+            sparseLeftGap: sparseCard.left - cards[0].left,
+            sparseWidthGap: sparseCard.width - cards[0].width,
+            overflowing: full.scrollWidth > full.clientWidth + 1
+              || sparse.scrollWidth > sparse.clientWidth + 1 };
+        }),
         captions: document.querySelectorAll(".qa-panel-context,.panel-hint").length,
         pendingCarried: document.querySelector('[data-fold="section:inbox-waiting"] .approval-carried') !== null,
         decidedCarried: document.querySelector('[data-fold="section:inbox-decided"] .approval-carried') !== null,
@@ -148,6 +212,9 @@ try {
       };
     });
     await page.screenshot({ path: path.join(outputDir, `wrapping-${width}.png`), fullPage: true });
+    await page.locator("#inbox-approvals").screenshot({
+      path: path.join(outputDir, `inbox-approvals-${width}.png`),
+    });
     console.log(JSON.stringify({ width, ...result }));
     assert.equal(result.captions, 0);
     assert.equal(result.pendingCarried, true);
@@ -155,6 +222,21 @@ try {
     assert.equal(result.decidedControls, 0);
     assert.equal(result.inboxAlign, "left");
     assert.equal(result.overflowing, 0, `Overflow at ${width}px`);
+    assert.equal(result.inbox.pendingCount, 8);
+    assert.equal(result.inbox.decidedCount, 1);
+    assert.equal(result.inbox.stacked, true, "Inbox approval lists keep one full-width card per row");
+    for (const gap of ["leftGap", "rightGap", "sparseLeftGap", "sparseWidthGap"]) {
+      assert(Math.abs(result.inbox[gap]) < 1, `Inbox ${gap} must align at ${width}px`);
+    }
+    for (const grid of result.grids) {
+      assert(Math.abs(grid.rightGap) < 1, `${grid.label} last column must reach the header edge at ${width}px`);
+      assert(Math.abs(grid.leftGap) < 1, `${grid.label} first column must align with the header`);
+      assert(Math.abs(grid.sparseLeftGap) < 1, `${grid.label} sparse band must align with populated bands`);
+      assert(Math.abs(grid.sparseWidthGap) < 1, `${grid.label} sparse band must preserve empty column slots`);
+      assert.equal(grid.overflowing, false, `${grid.label} must not scroll horizontally`);
+      if (width === 268) assert.equal(grid.columns, 1, `${grid.label} must stack on phones`);
+      if (width >= 1100) assert(grid.columns >= 3, `${grid.label} must exercise desktop columns`);
+    }
     for (const row of result.measurements) {
       assert.equal(row.align, "left", row.label);
       if (width === 268) assert(row.wrapped, `${row.label} must exercise a second line`);
@@ -162,9 +244,9 @@ try {
         assert(Math.abs(row.offset) < 1, `${row.label} second line is indented`);
         assert(Math.abs(row.rowLeftGap) < 1, `${row.label} wrapped row is indented`);
       }
-      else {
+      else if (["Runtime identity", "Editor actions", "Form actions", "Dialog actions", "Test machine dialog", "Review buttons"].includes(row.label)) {
         assert(Math.abs(row.rightGap) < 1, `${row.label} fitting content must reach the right edge`);
-        assert(Math.abs(row.rowRightGap) < 1, `${row.label} fitting row must sit at the right edge`);
+        assert(Math.abs(row.rowRightGap) < 1, `${row.label} fitting row must reach the right edge`);
       }
     }
   }

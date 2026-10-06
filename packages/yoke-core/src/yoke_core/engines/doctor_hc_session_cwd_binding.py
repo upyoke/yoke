@@ -301,7 +301,7 @@ def hc_session_pre_implementing_activity(
     if flagged:
         details = (
             f"{len(flagged)} stuck pre-implementing session(s) — re-run "
-            "/yoke advance ... implementation to finish finalize:\n\n"
+            "/yoke implement ... to finish implementation entry:\n\n"
             + "\n".join(flagged)
         )
         rec.record(_PRE_IMPL_HC_NAME, _PRE_IMPL_HC_DESC, "FAIL", details)

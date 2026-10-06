@@ -83,3 +83,71 @@ def test_numeric_meter_columns_cannot_wrap_their_right_aligned_values():
     )
     numeric = source.split(".machine-limit-quota {", 1)[1].split("}", 1)[0]
     assert "white-space: nowrap" in numeric
+
+
+def test_only_heading_copy_grows_in_wrapping_rows():
+    source = files("yoke_core.ui").joinpath("static", "wrapping_rows.css").read_text()
+    growing = [
+        selector
+        for selector, body in re.findall(r"([^{}]+)\{([^{}]*)\}", source)
+        if "flex-grow: 1" in body
+    ]
+    assert len(growing) == 2
+    assert ":first-child" not in growing[0]
+    assert ".activation-title" in growing[0]
+    assert ".review-head-copy" in growing[0]
+    assert ".panel-header > :is(h2, h3)" in growing[0]
+
+
+def test_card_flow_style_does_not_share_the_item_panel_class():
+    static = files("yoke_core.ui").joinpath("static")
+    card = static.joinpath("universe_item_deployment.js").read_text()
+    assert '"item-card-delivery-flow"' in card
+    assert '"item-delivery-flow"' not in card
+    assert (
+        ".item-card-delivery-flow {"
+        in static.joinpath("universe_item_signals.css").read_text()
+    )
+    assert ".item-delivery-flow {" in static.joinpath("item_details.css").read_text()
+
+
+def test_workflow_mechanics_reserves_readable_copy_before_actions():
+    source = files("yoke_core.ui").joinpath("static", "workflows.css").read_text()
+    row = source.split(".workflow-detail-row {", 1)[1].split("}", 1)[0]
+    copy = source.split(".workflow-detail-content {", 1)[1].split("}", 1)[0]
+    assert "flex-wrap: wrap" in row
+    assert "flex: 1 1 240px" in copy
+
+
+def test_actor_inventory_wraps_unbroken_credential_identifiers():
+    source = files("yoke_core.ui").joinpath("static", "universe_actors.css").read_text()
+    key = source.split(".actors-key {", 1)[1].split("}", 1)[0]
+    assert "overflow-wrap: anywhere" in key
+
+
+def test_action_only_groups_reach_the_right_edge_without_stretching_badges():
+    source = files("yoke_core.ui").joinpath("static", "wrapping_rows.css").read_text()
+    assert "margin-inline-start: auto" in source
+    assert ".session-filter-actions" in source
+    assert ".session-filter-search { max-width: none; }" not in source
+
+
+def test_mobile_header_keeps_intrinsic_widths_and_visible_actor_name():
+    source = (
+        files("yoke_core.ui").joinpath("static", "universe_responsive.css").read_text()
+    )
+    phone = source.split("@media (max-width: 640px)", 1)[1]
+    assert "flex: 1 0 100%" not in phone
+    assert ".actor-name { display: none" not in phone
+    assert "height: 22px" in phone
+    assert ".header-actor-context { order: 11; }" in phone
+
+
+def test_session_control_geometry_uses_border_box_and_shared_icon():
+    static = files("yoke_core.ui").joinpath("static")
+    source = static.joinpath("universe_session_control.css").read_text()
+    box = source.split(".session-roster-filter {", 1)[1].split("}", 1)[0]
+    assert "box-sizing: border-box" in box
+    assert "height: var(--session-control-height)" in box
+    filters = static.joinpath("universe_session_roster_filters.js").read_text()
+    assert 'magnifier(documentNode, "session-filter-search-icon")' in filters

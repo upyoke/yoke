@@ -179,12 +179,6 @@ def _execute_update_once(
             )
 
         target_status = value if field == "status" else None
-        if target_status and workflow.policies["generated_children"] == "epic_tasks":
-            task_count_row = conn.execute(
-                "SELECT COUNT(*) as cnt FROM epic_tasks WHERE epic_id = %s",
-                (item_dict["id"],),
-            ).fetchone()
-            gate.epic_task_count = task_count_row["cnt"] if task_count_row else 0
 
         if target_status:
             gate.has_merged_at = bool(item_dict.get("merged_at"))

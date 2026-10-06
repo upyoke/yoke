@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from runtime.api.workflow_version_test_helpers import publish_as_history
 from yoke_core.domain.workflow_definition_builders import (
     with_generated_epic_tasks,
 )
@@ -18,7 +19,6 @@ from yoke_core.domain.handlers.workflows_canon_update import (
 )
 from yoke_core.domain.workflow_registry import (
     list_current_workflows,
-    publish_workflow_version,
     set_current_workflow_version,
 )
 from yoke_core.domain.workflow_schema import (
@@ -51,9 +51,7 @@ def _publish_older_generation(conn, workflow_id="issue"):
     """Put this universe on a published generation that is not the newest."""
     generations = canon_generations(workflow_id)
     older = generations[-2]
-    published = publish_workflow_version(
-        conn, workflow_id=workflow_id, definition=dict(older.definition),
-    )
+    published = publish_as_history(conn, workflow_id, dict(older.definition))
     return older, published
 
 
@@ -132,9 +130,7 @@ def test_applying_an_update_the_universe_lacks_publishes_it(test_db):
     older = generations[-2]
     # Roll onto the older generation, then drop the newest row so this
     # universe genuinely does not hold the update yet.
-    published = publish_workflow_version(
-        test_db, workflow_id="issue", definition=dict(older.definition),
-    )
+    published = publish_as_history(test_db, "issue", dict(older.definition))
     test_db.execute(
         "ALTER TABLE workflow_versions DISABLE TRIGGER "
         f"{WORKFLOW_VERSIONS_IMMUTABLE_TRIGGER}"
@@ -192,9 +188,7 @@ def test_a_conflicting_update_is_refused_rather_than_picking_a_side(test_db):
         "file_budget": "required_per_task",
     }
     with_generated_epic_tasks(edited)
-    published = publish_workflow_version(
-        test_db, workflow_id="issue", definition=edited,
-    )
+    published = publish_as_history(test_db, "issue", edited)
     _set_baseline(test_db, int(published["version_id"]), older.canon_version)
 
     preview = _preview({"workflow_id": "issue"})

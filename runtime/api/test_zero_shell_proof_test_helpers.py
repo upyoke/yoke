@@ -57,10 +57,12 @@ def _python_sources() -> List[Path]:
 #: sites in production Python where an explicit user-supplied shell
 #: command is forwarded to ``sh -c``. No other file is permitted to
 #: construct an ``["sh", ...]`` argv.
-_DIRECT_SH_ALLOWLIST: frozenset = frozenset({
-    "runtime/api/tools/executors.py",
-    "runtime/api/engines/merge_worktree.py",
-})
+_DIRECT_SH_ALLOWLIST: frozenset = frozenset(
+    {
+        "runtime/api/tools/executors.py",
+        "runtime/api/engines/merge_worktree.py",
+    }
+)
 
 #: Helper-name patterns that historically wrapped Yoke shell scripts.
 #: Any production-Python match of these helpers is a regression.
@@ -145,16 +147,17 @@ SKILLS_ROOT = REPO_ROOT / ".agents" / "skills" / "yoke"
 #: for output capture (binary files, test harness output, multi-step pipelines).
 #: Any mktemp usage outside this set is a regression — content writes should
 #: use ``--stdin`` or ``--body-file`` instead.
-_MKTEMP_ALLOWLIST: frozenset = frozenset({
-    "advance/preflight-checks.md",
-    "advance/implementing/implementation.md",
-    "conduct/dispatch-context-prompts.md",
-    "conduct/dispatch-context-verify.md",
-    "conduct/engineer-tester-dispatch.md",
-    "conduct/entry-activation.md",
-    "conduct/entry-gates.md",
-    "usher/collect.md",
-})
+_MKTEMP_ALLOWLIST: frozenset = frozenset(
+    {
+        "implement/implementing/implementation.md",
+        "conduct/dispatch-context-prompts.md",
+        "conduct/dispatch-context-verify.md",
+        "conduct/engineer-tester-dispatch.md",
+        "conduct/entry-activation.md",
+        "conduct/entry-gates.md",
+        "usher/collect.md",
+    }
+)
 
 
 def _skill_files() -> List[Path]:
@@ -163,7 +166,7 @@ def _skill_files() -> List[Path]:
 
 
 def _skill_relative(path: Path) -> str:
-    """Return path relative to the skills root (e.g. ``do/loop.md``)."""
+    """Return path relative to the skills root (e.g. ``charge/frontier.md``)."""
     return path.relative_to(SKILLS_ROOT).as_posix()
 
 
@@ -175,6 +178,8 @@ def _live_doc_files() -> List[Path]:
         REPO_ROOT / ".yoke" / "strategy" / "PROMPTS.md",
         REPO_ROOT / "runtime" / "harness" / "codex" / "SMOKE-TEST.md",
     ]
-    files.extend(path for path in docs_root.rglob("*.md") if "archive" not in path.parts)
+    files.extend(
+        path for path in docs_root.rglob("*.md") if "archive" not in path.parts
+    )
     files.extend(_skill_files())
     return sorted(files)

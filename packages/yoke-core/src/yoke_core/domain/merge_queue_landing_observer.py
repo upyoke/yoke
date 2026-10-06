@@ -90,9 +90,10 @@ def observe_pending_landings(
     A landing that merged is stamped on the item and its holder is told to
     close out. A pull request the queue has dropped notifies the holder to
     rebase and re-gate, and its handoff marker is cleared, because there is
-    no queued landing left to wait for. Anything GitHub is still holding
-    stays silent. A notice failure is returned under ``notice_errors`` for
-    that item without poisoning the rest of the project refresh.
+    no queued landing left to wait for. The marker remains while its notice
+    is queued. Anything GitHub is still holding stays silent. A notice
+    failure is returned under ``notice_errors`` for that item without
+    poisoning the rest of the project refresh.
     """
     current = now or utc_now()
     current_text = timestamp(current)
@@ -157,38 +158,19 @@ def observe_pending_landings(
         if observation.kind not in (LANDED, EJECTED):
             continue
         public_ref = format_item_ref(
-            row["slug"],
-            row["public_item_prefix"],
-            row["project_sequence"])
+            row["slug"], row["public_item_prefix"], row["project_sequence"]
+        )
         notice_in_progress = False
         try:
             if observation.kind == EJECTED:
-                # The notice's own identity carries the dedupe, not a column.
-                # That is what lets an armed pull request the queue will never
-                # admit be reported at all: it has no admission to clear, and
-                # keying the report on one silenced it entirely.
-                # Keyed on the head this observation read, not just the pull
-                # request: the same PR number survives a force-push, so a
-                # fresh commit that fails its own required checks is a new
-                # ejection the holder has not heard about yet. Keying on the
-                # PR alone collapsed that second, distinct stoppage onto the
-                # first one's already-acknowledged message and the holder
-                # never heard the queue had dropped it again.
+                # A re-arm on the same commit is a new stopped landing.
+                # Without an admission, suppress repeats of any episode on
+                # this head; with one, dedupe only that arming's notice.
                 head_sha = readback.state.head_sha if readback.state else ""
-                key = f"merge-queue-ejected:{item_id}:{pr_number}:{head_sha}"
-                if not row.get("merge_queue_enqueued_at") and notice_already_sent(
-                    conn, idempotency_key=key
-                ):
-                    # This candidate has no admission to clear, so clearing
-                    # one cannot be what stops the report repeating; the
-                    # notice's own identity is. An admission still standing
-                    # means the opposite — a stale marker left beside an
-                    # already-sent notice, which this pass heals by clearing
-                    # it below, and which then stops repeating on its own.
-                    #
-                    # The item stays a candidate either way: its pull request
-                    # is still open, and a queue that merges it after the
-                    # rebase is a landing this observer must still see.
+                head_key = f"merge-queue-ejected:{item_id}:{pr_number}:{head_sha}"
+                episode = str(row.get("merge_queue_enqueued_at") or "")
+                key = f"{head_key}:armed:{episode}" if episode else head_key
+                if not episode and notice_already_sent(conn, idempotency_key=head_key):
                     conn.commit()
                     continue
                 notice_in_progress = True
@@ -201,22 +183,22 @@ def observe_pending_landings(
                     ),
                     idempotency_key=key,
                     now=current,
+                    require_new_delivery=True,
                 )
                 notice_in_progress = False
                 if not delivery:
                     conn.commit()
                     result["unrouted"] += 1
                     continue
-                # Acceptance ends the observer's responsibility. Delivery is
-                # owned by the ordinary pending-message path. Only a recorded
-                # admission is cleared: there is no queued landing left to
-                # wait for, and a candidate that never reached the queue has
-                # nothing to clear.
-                if row.get("merge_queue_enqueued_at"):
+                # Keep the landing visible until this episode's envelope
+                # reaches its recipient. Pending delivery owns the wake;
+                # an old acknowledgement cannot settle a fresh ejection.
+                if episode and delivery == "delivered":
                     conn.execute(
                         f"UPDATE items SET merge_queue_enqueued_at=NULL "
-                        f"WHERE id={marker} AND merge_queue_pr_number={marker}",
-                        (item_id, pr_number),
+                        f"WHERE id={marker} AND merge_queue_pr_number={marker} "
+                        f"AND merge_queue_enqueued_at={marker}",
+                        (item_id, pr_number, episode),
                     )
                 result["ejected"] += 1
                 conn.commit()

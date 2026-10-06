@@ -45,6 +45,9 @@ default branch carrying your own unpushed commits, are both reported
 rather than pushed — publishing the layer is not permission to publish
 anything else on the branch.
 
+Project uninstall also requires a clean checkout on the project's declared
+default branch before removing the installed layer and committing its removal.
+
 ## Init git and a private GitHub remote
 
 A plain folder with no `.git`, or a repo with no `origin`, uses one
@@ -82,3 +85,6 @@ Workbench: **Packs** and **Project settings**.
 Project-scoped settings, capabilities, and defaults live in the workbench
 **Project settings** destination (and matching CLI/capability surfaces).
 Universe-wide settings live under **Universe settings**.
+
+Retired projects are hidden from active listings and pickers. Their historical
+records remain readable under the same project permissions as active projects.

@@ -10,6 +10,7 @@ pre-commit hook reads, so this check and the hook always agree.
 from __future__ import annotations
 
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
+from yoke_core.engines.doctor_parallel_reads import bounded_read_map
 
 
 def hc_file_line_limit(conn, args: DoctorArgs, rec: RecordCollector) -> None:
@@ -24,24 +25,48 @@ def hc_file_line_limit(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         return
 
     policy = file_line_check.resolved_policy(Path(repo_root))
-    entries = file_line_check.inventory(repo_root=Path(repo_root))
+    entries = file_line_check.inventory(
+        repo_root=Path(repo_root), read_map=bounded_read_map
+    )
 
     authored_violations = [
-        e for e in entries
+        e
+        for e in entries
         if e.classification == file_line_check.Classification.AUTHORED
         and e.line_count > policy.limit
     ]
     exception_violations = [
-        e for e in entries
+        e
+        for e in entries
         if e.classification == file_line_check.Classification.TEMPORARY_EXCEPTION
         and e.line_count > policy.limit
     ]
     excluded_counts = {
-        "generated": sum(1 for e in entries if e.classification == file_line_check.Classification.GENERATED),
-        "archive": sum(1 for e in entries if e.classification == file_line_check.Classification.ARCHIVE),
-        "lockfile": sum(1 for e in entries if e.classification == file_line_check.Classification.LOCKFILE),
-        "vendored": sum(1 for e in entries if e.classification == file_line_check.Classification.VENDORED),
-        "data_asset": sum(1 for e in entries if e.classification == file_line_check.Classification.DATA_ASSET),
+        "generated": sum(
+            1
+            for e in entries
+            if e.classification == file_line_check.Classification.GENERATED
+        ),
+        "archive": sum(
+            1
+            for e in entries
+            if e.classification == file_line_check.Classification.ARCHIVE
+        ),
+        "lockfile": sum(
+            1
+            for e in entries
+            if e.classification == file_line_check.Classification.LOCKFILE
+        ),
+        "vendored": sum(
+            1
+            for e in entries
+            if e.classification == file_line_check.Classification.VENDORED
+        ),
+        "data_asset": sum(
+            1
+            for e in entries
+            if e.classification == file_line_check.Classification.DATA_ASSET
+        ),
     }
 
     detail_lines = []

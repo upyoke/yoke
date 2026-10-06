@@ -306,4 +306,4 @@ class TestCli:
         rc = advance_skip.main(["polish", "not-a-number"])
         assert rc == 2
         err = capsys.readouterr().err
-        assert "expected PREFIX-N" in err
+        assert "pass the public ref (PREFIX-N" in err

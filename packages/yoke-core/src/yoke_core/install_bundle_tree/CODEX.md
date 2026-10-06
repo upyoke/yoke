@@ -7,7 +7,7 @@ For the full project rules, read `AGENTS.md` — the harness-neutral shared doct
 
 Each standing rule in `AGENTS.md` names a deep home under `.yoke/docs/reference/agent-rules/` carrying the reasoning, recovery paths, and worked failure modes behind it; `AGENTS.md` lists which file covers which operation. Read the one that governs an operation before performing it, and read an operation's own `--help` for its variants and flags.
 
-The `## Simplify — three-axis doctrine` section in `AGENTS.md` defines the shared **reuse / quality / efficiency** vocabulary, future-concept pull-forward lens, and stage weights used by every authoring step (idea, refine, advance, shepherd, conduct, polish). Codex sessions read it from `AGENTS.md`; this file does not duplicate it. The doctrine is Yoke-owned and harness-neutral — do not treat any Claude-only built-in as a dependency.
+The `## Simplify — three-axis doctrine` section in `AGENTS.md` defines the shared **reuse / quality / efficiency** vocabulary, future-concept pull-forward lens, and stage weights used by every authoring step (idea, refine, implement, shepherd, conduct, polish). Codex sessions read it from `AGENTS.md`; this file does not duplicate it. The doctrine is Yoke-owned and harness-neutral — do not treat any Claude-only built-in as a dependency.
 
 ## Bootstrap
 
@@ -58,9 +58,8 @@ Codex sessions use the shared Yoke operator surface unless the Codex manifest de
 | Command | Description |
 |---------|-------------|
 | `/yoke idea "title"` | File a new backlog item |
-| `/yoke do` | Start an autonomous session (routes through session offer) |
 | `/yoke refine PREFIX-N` | Critique and improve item artifacts (no worktree, no code) |
-| `/yoke advance PREFIX-N implementation` | Drive a pinned `advance` segment in its registered single worktree lane |
+| `/yoke implement PREFIX-N` | Drive a pinned `implement` segment in its registered single worktree lane |
 | `/yoke conduct PREFIX-N` | Drive a pinned generated-task segment via shared dispatch descriptors |
 | `/yoke polish PREFIX-N` | Review and finish implementation in existing worktree |
 | `/yoke usher PREFIX-N [--dry-run]` | Merge/deploy handoff for implemented items; use dry-run first for Codex validation |
@@ -73,7 +72,7 @@ Codex supports these downstream paths (derived server-side from the shared Yoke 
 |------|-------------|
 | `shepherd` | Drive an item through quality-gated lifecycle to ready |
 | `refine` | Critique and improve item artifacts |
-| `advance` | Definition-bound single-lane lifecycle execution |
+| `implement` | Definition-bound single-lane implementation through review |
 | `dash` | Direct execution from one instruction, any size: survey, worktree, verify, merge, evidence |
 | `blitz` | Document-led direct execution from the item's single linked strategy document |
 | `conduct` | Definition-bound task-graph loop that dispatches Engineer / Tester / Architect / Simulator |
@@ -148,10 +147,10 @@ The Codex adapter sets these environment variables:
 | Variable | Value | Purpose |
 |----------|-------|---------|
 | `YOKE_EXECUTOR` | `codex` | Identifies this session as a Codex harness |
-| `YOKE_PROVIDER` | `openai` | Makes the shared `/yoke do` session offer truthful for Codex runs |
+| `YOKE_PROVIDER` | `openai` | Records the provider for Codex sessions |
 | `YOKE_MODEL` | runtime-resolved | Carries the actual Codex model label (for example `gpt-5.4`) into the session offer |
 
-These are consumed by `/yoke do` to construct the session offer with correct harness identity. Yoke core derives supported paths server-side from the shared registry and applies any limitations declared in the Codex manifest — the harness does not set `YOKE_SUPPORTED_PATHS`. In Codex Desktop, the adapter resolves `YOKE_MODEL` from the current thread's runtime metadata instead of guessing.
+The opening hook records these as session identity. Yoke core derives supported paths server-side from the shared registry and applies any limitations declared in the Codex manifest — the harness does not set `YOKE_SUPPORTED_PATHS`. In Codex Desktop, the adapter resolves `YOKE_MODEL` from the current thread's runtime metadata instead of guessing.
 
 ## Yoke function-call surface
 
@@ -163,7 +162,7 @@ External tooling (git, pytest, package managers, `rg` / `grep`) stays command-sh
 
 Codex is a harness adapter, not a replacement for Yoke core. The following remain Yoke-core responsibilities:
 
-- **Routing decisions** -- `/yoke do` decides what to do next; shared Yoke code owns command/path support and Codex declares only substrate limitations
+- **Routing decisions** -- steering selects work and pinned workflow bindings select the stage skill; shared Yoke code owns command/path support and Codex declares only substrate limitations
 - **Canonical telemetry** -- session events, lifecycle transitions, and ledger entries come from Yoke core
 - **Ownership truth** -- session claims, releases, and ownership tracking are core-owned
 - **Safety enforcement** -- correctness comes from Yoke core, not from Codex hooks
@@ -181,11 +180,11 @@ registered runner bindings. For a live item, read
 guide or a workflow-name branch, is the source of truth for which executor
 owns the current stage.
 
-Routing for `/yoke do` (session offer, `NextAction` directives, chainability, supported-path derivation) lives in [.yoke/docs/reference/session-offer.md](.yoke/docs/reference/session-offer.md) and [.yoke/docs/reference/charge-frontier.md](.yoke/docs/reference/charge-frontier.md). Yoke core derives Codex's supported-path set server-side from the shared registry plus any manifest limitations; the adapter does not self-report capabilities via `YOKE_SUPPORTED_PATHS`.
+Frontier computation lives in [.yoke/docs/reference/charge-frontier.md](.yoke/docs/reference/charge-frontier.md). Yoke core derives Codex's supported-path set server-side from the shared registry plus any manifest limitations; the adapter does not self-report capabilities via `YOKE_SUPPORTED_PATHS`.
 
 ## Related docs
 
 - [Lifecycle & Command Boundaries](.yoke/docs/reference/lifecycle.md) -- canonical human lifecycle guide
-- [Session-Offer Contract](.yoke/docs/reference/session-offer.md) -- `/yoke do` request/response shape
+- [Session-Offer Contract](.yoke/docs/reference/session-offer.md) -- `session-offer` request/response shape
 - [Charge Frontier](.yoke/docs/reference/charge-frontier.md) -- frontier computation and status-to-adapter map
 <!-- END YOKE MANAGED BLOCK -->

@@ -189,7 +189,7 @@ def _check_empty_branch(
         )
         print(
             "    Future evidence-only items should enter implementing with "
-            f"/yoke advance {_ref(item_id, public_ref)} implementing --no-worktree.",
+            f"/yoke implement {_ref(item_id, public_ref)} --no-worktree.",
             file=sys.stderr,
         )
         return 8

@@ -256,19 +256,20 @@ def evaluate(
             ITEM_POSTURE_VERIFICATION_TRANSITION,
             "done",
         } and isinstance(verification, Mapping):
+            candidate_shas = ()
+            if target_status == ITEM_POSTURE_VERIFICATION_TRANSITION:
+                latest = _resolve_latest_code_ref(
+                    GateTarget(item_id=int(item_id)), db_path
+                )
+                candidate_shas = latest.accepted_shas or (
+                    (latest.sha,) if latest.sha else ()
+                )
             blocked = verification_gate(
                 conn,
                 item_id=int(item_id),
                 verification=verification,
                 target_status=target_status,
-                candidate_sha=(
-                    _resolve_latest_code_ref(
-                        GateTarget(item_id=int(item_id)), db_path
-                    ).sha
-                    if target_status == ITEM_POSTURE_VERIFICATION_TRANSITION
-                    else ""
-                )
-                or "",
+                candidate_shas=candidate_shas,
             )
             if blocked is not None:
                 return blocked

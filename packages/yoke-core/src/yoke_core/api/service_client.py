@@ -255,10 +255,13 @@ from yoke_core.api.service_client_actors import (  # noqa: F401
 from yoke_core.api.service_client_db_claim import (  # noqa: F401
     cmd_db_claim_amend,
 )
-from yoke_core.api.service_client_ouroboros import OUROBOROS_COMMANDS, cmd_field_note_log  # noqa: F401
+from yoke_core.api.service_client_ouroboros import (
+    OUROBOROS_COMMANDS,
+    cmd_field_note_log,  # noqa: F401
+)  # noqa: F401
 from yoke_core.api.service_client_path_claims import PATH_CLAIMS_COMMANDS  # noqa: F401
 
-# Runtime ownership guard for /yoke do resume dispatch
+# Runtime ownership guard for session-offer resume dispatch
 from yoke_core.api.service_client_ownership_guard import (  # noqa: F401
     OWNERSHIP_GUARD_COMMANDS,
     cmd_ownership_guard,

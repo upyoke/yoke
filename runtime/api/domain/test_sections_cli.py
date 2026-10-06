@@ -11,6 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from yoke_core.domain import sections
+from runtime.api.test_constants import TEST_ITEM_REF
 from runtime.api.domain.sections_test_helpers import (  # noqa: F401 — fixtures
     _RecordingEmitter,
     _RecordingRenderer,
@@ -34,12 +35,12 @@ class TestCmdUpsert:
         content_file.write_text("hello body\n", encoding="utf-8")
         rc, out, err = _run_cli(
             sections.cmd_upsert,
-            ["42", "Design", "--content-file", str(content_file)],
+            [TEST_ITEM_REF, "Design", "--content-file", str(content_file)],
             db_path=db_path,
         )
         assert rc == 0
-        assert "Upserted section: Design for item 42" in out
-        assert "Body regenerated for item 42" in out
+        assert f"Upserted section: Design for item {TEST_ITEM_REF}" in out
+        assert f"Body regenerated for item {TEST_ITEM_REF}" in out
         assert err == ""
         assert renderer.calls == [(42, db_path)]
         assert len(emitter.calls) == 1
@@ -65,7 +66,7 @@ class TestCmdUpsert:
         rc, _out, _err = _run_cli(
             sections.cmd_upsert,
             [
-                "42",
+                TEST_ITEM_REF,
                 "Plan",
                 "--content-file",
                 str(content_file),
@@ -85,7 +86,7 @@ class TestCmdUpsert:
     ) -> None:
         rc, _out, err = _run_cli(
             sections.cmd_upsert,
-            ["42", "Design", "--content-file", str(tmp_path / "nope.md")],
+            [TEST_ITEM_REF, "Design", "--content-file", str(tmp_path / "nope.md")],
             db_path=db_path,
         )
         assert rc == 1
@@ -96,7 +97,7 @@ class TestCmdUpsert:
         self, db_path: str, renderer: _RecordingRenderer
     ) -> None:
         rc, _out, err = _run_cli(
-            sections.cmd_upsert, ["42", "Design"], db_path=db_path
+            sections.cmd_upsert, [TEST_ITEM_REF, "Design"], db_path=db_path
         )
         assert rc == 2
         assert "python3 -m yoke_core.domain.sections upsert" in err
@@ -114,11 +115,11 @@ class TestCmdUpsert:
         content_file.write_text("body", encoding="utf-8")
         rc, out, err = _run_cli(
             sections.cmd_upsert,
-            ["42", "Design", "--content-file", str(content_file)],
+            [TEST_ITEM_REF, "Design", "--content-file", str(content_file)],
             db_path=db_path,
         )
         assert rc == 1
-        assert "Upserted section: Design for item 42" in out
+        assert f"Upserted section: Design for item {TEST_ITEM_REF}" in out
         assert "body regeneration failed" in err
         assert "Skipping GitHub sync" in err
         # Event still fires — shell uses `|| true` after failed rerender.
@@ -137,7 +138,7 @@ class TestCmdUpsert:
         content_file.write_text("persisted", encoding="utf-8")
         rc, _out, _err = _run_cli(
             sections.cmd_upsert,
-            ["42", "P", "--content-file", str(content_file)],
+            [TEST_ITEM_REF, "P", "--content-file", str(content_file)],
             db_path=db_path,
         )
         assert rc == 0
@@ -149,7 +150,7 @@ class TestCmdGet:
         self, db_path: str, renderer: _RecordingRenderer
     ) -> None:
         sections.upsert_section(42, "X", "hello", db_path=db_path)
-        rc, out, err = _run_cli(sections.cmd_get, ["42", "X"], db_path=db_path)
+        rc, out, err = _run_cli(sections.cmd_get, [TEST_ITEM_REF, "X"], db_path=db_path)
         assert rc == 0
         assert err == ""
         assert out == "hello\n"
@@ -158,20 +159,20 @@ class TestCmdGet:
         self, db_path: str, renderer: _RecordingRenderer
     ) -> None:
         sections.upsert_section(42, "X", "line 1\nline 2", db_path=db_path)
-        rc, out, _err = _run_cli(sections.cmd_get, ["42", "X"], db_path=db_path)
+        rc, out, _err = _run_cli(sections.cmd_get, [TEST_ITEM_REF, "X"], db_path=db_path)
         assert rc == 0
         assert out == "line 1\nline 2\n"
 
     def test_get_missing_prints_nothing_exit_0(
         self, db_path: str, renderer: _RecordingRenderer
     ) -> None:
-        rc, out, err = _run_cli(sections.cmd_get, ["42", "Nope"], db_path=db_path)
+        rc, out, err = _run_cli(sections.cmd_get, [TEST_ITEM_REF, "Nope"], db_path=db_path)
         assert rc == 0
         assert out == ""
         assert err == ""
 
     def test_get_missing_args_returns_2(self, db_path: str) -> None:
-        rc, _out, err = _run_cli(sections.cmd_get, ["42"], db_path=db_path)
+        rc, _out, err = _run_cli(sections.cmd_get, [TEST_ITEM_REF], db_path=db_path)
         assert rc == 2
         assert "python3 -m yoke_core.domain.sections get" in err
 
@@ -182,7 +183,7 @@ class TestCmdList:
     ) -> None:
         sections.upsert_section(42, "A", "a", ordering=1, db_path=db_path)
         sections.upsert_section(42, "B", "b", db_path=db_path)
-        rc, out, _err = _run_cli(sections.cmd_list, ["42"], db_path=db_path)
+        rc, out, _err = _run_cli(sections.cmd_list, [TEST_ITEM_REF], db_path=db_path)
         assert rc == 0
         lines = [line for line in out.splitlines() if line]
         assert len(lines) == 2
@@ -194,7 +195,7 @@ class TestCmdList:
     def test_list_empty_item_exits_0_no_output(
         self, db_path: str, renderer: _RecordingRenderer
     ) -> None:
-        rc, out, err = _run_cli(sections.cmd_list, ["42"], db_path=db_path)
+        rc, out, err = _run_cli(sections.cmd_list, [TEST_ITEM_REF], db_path=db_path)
         assert rc == 0
         assert out == ""
         assert err == ""
@@ -217,11 +218,11 @@ class TestCmdDelete:
         emitter.calls.clear()
 
         rc, out, err = _run_cli(
-            sections.cmd_delete, ["42", "Gone"], db_path=db_path
+            sections.cmd_delete, [TEST_ITEM_REF, "Gone"], db_path=db_path
         )
         assert rc == 0
-        assert "Deleted section: Gone for item 42" in out
-        assert "Body regenerated for item 42" in out
+        assert f"Deleted section: Gone for item {TEST_ITEM_REF}" in out
+        assert f"Body regenerated for item {TEST_ITEM_REF}" in out
         assert err == ""
         assert renderer.calls == [(42, db_path)]
         assert len(emitter.calls) == 1
@@ -232,7 +233,7 @@ class TestCmdDelete:
 
     def test_delete_missing_args_returns_2(self, db_path: str) -> None:
         rc, _out, err = _run_cli(
-            sections.cmd_delete, ["42"], db_path=db_path
+            sections.cmd_delete, [TEST_ITEM_REF], db_path=db_path
         )
         assert rc == 2
         assert "python3 -m yoke_core.domain.sections delete" in err
@@ -246,10 +247,10 @@ class TestCmdDelete:
         failing = _RecordingRenderer(rc=2)
         sections.set_renderer(failing)
         rc, out, err = _run_cli(
-            sections.cmd_delete, ["42", "Gone"], db_path=db_path
+            sections.cmd_delete, [TEST_ITEM_REF, "Gone"], db_path=db_path
         )
         assert rc == 1
-        assert "Deleted section: Gone for item 42" in out
+        assert f"Deleted section: Gone for item {TEST_ITEM_REF}" in out
         assert "body regeneration failed" in err
         assert len(emitter.calls) == 1
         assert emitter.calls[0]["event_name"] == "SectionDeleted"

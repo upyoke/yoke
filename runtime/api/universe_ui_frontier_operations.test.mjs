@@ -172,7 +172,7 @@ test("a Waiting card ends at its reason chip; Ready keeps its next step", async 
   const ready = byClass(root, "work-band-ready")[0];
   assert.deepEqual(
     byClass(ready, "work-item-card-meta").map((node) => node.textContent),
-    ["yoke advance YOK-9"],
+    ["yoke implement YOK-9"],
   );
   mounted.unmount();
 });
@@ -266,7 +266,7 @@ test("Release shows every card it holds, and Done alone truncates", async (t) =>
   mounted.unmount();
 });
 
-test("the final responsive layer caps grids and owns compact behavior", () => {
+test("the final responsive layer fills grids and owns compact behavior", () => {
   const staticUrl = "../../packages/yoke-core/src/yoke_core/ui/static/";
   const responsive = readFileSync(new URL(
     `${staticUrl}universe_responsive.css`, import.meta.url,
@@ -280,7 +280,7 @@ test("the final responsive layer caps grids and owns compact behavior", () => {
     /var\(--yoke-card-track-min\)\), var\(--yoke-card-track-max\)/,
   );
   assert.match(responsive, /--yoke-card-track-min: 268px/);
-  assert.match(responsive, /--yoke-card-track-max: 360px/);
+  assert.match(responsive, /--yoke-card-track-max: 1fr/);
   assert.match(
     responsive, /\.strategy-doc-grid \{\s*--yoke-card-track-min: 280px/,
   );

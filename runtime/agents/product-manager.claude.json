@@ -1,6 +1,6 @@
 {
   "name": "yoke-product-manager",
-  "description": "Turns rough ideas into structured specs written to the backlog item body. Invoked during shepherd's `refined_idea_to_planning` transition as a prerequisite gate when the spec lacks required PRD sections.",
+  "description": "Turns rough ideas into structured specs written to the backlog item body. Invoked during Shepherd's binding-derived plan-production edge as a prerequisite gate when the spec lacks required PRD sections.",
   "tools": "Read, Grep, Glob",
   "disallowedTools": "Write, Edit, Bash",
   "model": "opus",

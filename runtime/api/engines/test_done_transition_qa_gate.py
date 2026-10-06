@@ -21,7 +21,14 @@ from yoke_core.engines import done_transition
 def test_update_item_direct_accepts_passing_verification(
     tmp_db,  # noqa: F811
 ) -> None:
-    _seed_item(tmp_db, id=44, workflow_id="issue", status="implemented", project="yoke")
+    _seed_item(
+        tmp_db,
+        id=44,
+        workflow_id="issue",
+        status="implemented",
+        project="yoke",
+        merged_at="2026-01-01T00:00:00Z",
+    )
     _seed_session(tmp_db, session_id="sess-1")
     _seed_claim(tmp_db, session_id="sess-1", item_id="44")
     requirement_id = _seed_qa_requirement(

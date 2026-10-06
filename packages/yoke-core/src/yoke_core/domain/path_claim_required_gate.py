@@ -146,9 +146,7 @@ def evaluate_required_coverage(
             conn,
             satisfying,
         )
-        base_reason = (
-            f"item {public_ref} has {len(satisfying)} satisfying claim row(s)"
-        )
+        base_reason = f"item {public_ref} has {len(satisfying)} satisfying claim row(s)"
         if blocked_addenda:
             reason = base_reason + " — " + "; ".join(blocked_addenda)
         else:
@@ -295,11 +293,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("item", help="PREFIX-N or bare project sequence")
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
-    from yoke_core.domain.project_identity_item_ref import resolve_cli_item_ref
+    from yoke_core.domain.yok_n_parser import parse_item_argument
 
     conn = db_helpers.connect()
     try:
-        item_id = resolve_cli_item_ref(conn, args.item)
+        item_id = parse_item_argument(args.item, conn=conn)
         if item_id is None:
             print(
                 json.dumps(

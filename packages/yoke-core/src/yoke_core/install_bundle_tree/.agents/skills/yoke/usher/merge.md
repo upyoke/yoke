@@ -2,7 +2,7 @@
 
 Step 7: Execute merges for each item in dependency-safe order. Skip if `--deploy-only`.
 
-**Error/rollback:** If a merge fails mid-batch, halt with clear state. The operator should be able to see exactly which items merged and which didn't. Never leave items in an ambiguous state between `implemented` and `done`.
+**Error/rollback:** Halt with the landed items, failed item, live stage, and recovery named.
 
 **Context variables** (set by prior phases): merge-ordered items list, `_DEPLOY_ONLY`
 
@@ -206,10 +206,9 @@ Select the merge engine from the pinned child/lane policies:
 if [ "$_usher_generated_children" = "epic_tasks" ] \
  && [ "$_usher_worktree_policy" = "worker_and_integration_lanes" ]; then
  # Generated tasks across worker lanes may leave multiple lanes to merge.
- # /yoke merge handles every lane in dependency-safe order and owns the
- # parent-item bookkeeping.
- # Do not call merge-worktree directly on the parent ref; that covers one lane.
- /yoke merge {N}
+ # Read and execute merge-generated-tasks.md as an internal usher step.
+ # It merges every registered lane in order and records the parent landing.
+ # Do not call merge-worktree on the parent ref; that covers only one lane.
 elif [ "$_usher_generated_children" = "none" ] \
  && [ "$_usher_worktree_policy" = "single_implementation_lane" ]; then
  # Single-lane merge boundary call. `merge-item` is the standalone-item merge
@@ -267,11 +266,10 @@ the wait returns a real `merge_sha` with `landing_pending=false` or absent.
 ### 7e. Handle merge result
 
 **Scope:** This section applies only to
-`worktrees=single_implementation_lane`. The task-graph policy uses `/yoke merge
-{N}` (step 7d), which owns its exit-code contract and lane loop; treat any
-non-zero exit from that invocation as merge failure, revert to `implemented`,
-and halt.
-
+`worktrees=single_implementation_lane`. The task-graph policy uses [the internal generated-task merge
+procedure](merge-generated-tasks.md) (step 7d), which owns its lane loop; treat any
+unresolved failure as a halt. Read the lane receipt before choosing recovery;
+a landed merge keeps its recorded stage and never rolls back as unlanded.
 The merge watcher preserves the merge engine's small set of documented exit codes. Aligned this list with the real engine contract: any **unknown non-zero exit** is treated as a hard failure and the item is rolled back to `implemented` — never left stranded in `release`. Exit 6 is the one **recoverable** non-zero outcome: a retryable merge-lock coordination condition that must NOT roll the item back.
 
 - **Exit 0:** Inspect the JSON result. `landing_pending=true` is the queue
@@ -291,7 +289,7 @@ The merge watcher preserves the merge engine's small set of documented exit code
  1. **Leave the item in `release`** (do not mutate status). Do NOT issue the `usher_rollback_to_implemented` lifecycle transition for this exit code.
  2. Release the work claim with `handoff-to-usher` (NOT `usher-halt-merge-failure` / `usher-halt-unexpected`) so a fresh `/yoke usher PREFIX-N` can re-acquire it cleanly.
  3. Halt the current usher batch — do NOT proceed to later items.
- 4. Tell the operator / `/yoke do` loop to rerun `/yoke usher PREFIX-N` once the holding lock clears (PID death, TTL expiry, or a subsequent `merge_lock.check()` call pruning the orphan row).
+ 4. Tell the operator or item-bound worker to rerun `/yoke usher PREFIX-N` once the holding lock clears (PID death, TTL expiry, or a subsequent `merge_lock.check()` call pruning the orphan row).
 - **Any other non-zero exit (HALT — `usher-halt-unexpected`):** Treat as unknown failure. Revert to `implemented` with the same rollback/release/report sequence as exit 1, but release the work claim with `usher-halt-unexpected`. DO NOT leave the item in `release`. DO NOT substitute raw done-transition to paper over the failure. Emit the unknown exit code in the halt message so operators can file a bug. **Exit 6 is excluded from this branch** — see the dedicated recoverable bullet above.
 
 **Halt-class release contract:** For every halt branch above (exits 1, 4, 5, and any unknown non-zero — NOT exit 6), the work-claim release with the matching halt-class reason MUST run BEFORE the halt summary / recovery prose is printed. The `release_reason_intent` audit value is the structured halt-class string (`usher-halt-merge-failure` for exits 1, 4, 5; `usher-halt-unexpected` for unknown non-zero exits). Downstream tooling (doctor, Ouroboros) reads this value. The four halt classes are terminal release intents per `yoke_core.domain.release_intent_classification.TERMINAL_RELEASE_INTENTS`. Do NOT use `completed` for a halt path — `completed` is reserved for successful finalize paths. **Exit 6's release intent is `handoff-to-usher`** (also a terminal release intent in the same module), used because the merge attempt did not begin and the next `/yoke usher PREFIX-N` invocation should re-acquire cleanly.
@@ -346,6 +344,4 @@ installation token; no host `gh` binary is needed. `state == "failed"` →
 advisory warning. `passed` / `running` / `no_runs` → skip silently.
 GitHub Actions `queued` collapses into `running` for the deploy-stage poller.
 
----
-
-After merges, return to router for deploy phase.
+After merges, continue to [deploy.md](deploy.md).

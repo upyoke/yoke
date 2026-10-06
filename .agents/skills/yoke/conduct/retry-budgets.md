@@ -9,8 +9,10 @@ phase files name this file at the step that consumes it.
 ```
 MAX_TESTER_REPROMPTS=2
 MAX_SIMULATOR_REPROMPTS=2
-MAX_ARCHITECT_FIX_ITERATIONS=3
 ```
+
+The Architect iteration limit is owned by `simulate/autofix-loop.md`; Conduct
+delegates to that loop rather than defining another budget.
 
 **Tester output gate fallback chain:** When the Tester returns no parseable verdict, `MAX_TESTER_REPROMPTS` controls the escalation chain:
 - **Initial attempt:** Full prompt with diff (inlined if <=300 lines, externalized to temp file if >300 lines). See `engineer-tester-loop.md` step 7. If verdict found, done.

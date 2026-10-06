@@ -1,6 +1,7 @@
 """Event emission for path-claim dependency refreshes."""
 
 from __future__ import annotations
+from yoke_core.domain.events_project_identity import working_project_for_event
 
 from typing import Any, Optional
 
@@ -33,7 +34,7 @@ def emit_blocked_reason_refreshed(
             session_id=session_id,
             severity="INFO",
             outcome="completed",
-            project="yoke",
+            project=working_project_for_event(conn=conn, item_id=item_id),
             item_id=item_id,
             context={
                 "claim_id": claim_id,

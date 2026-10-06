@@ -39,7 +39,9 @@ def projects_capability_secret_set(args: List[str]) -> int:
             "rows, and the App private key is control-plane deployment "
             "configuration. aws-admin secrets, ssh.private_key, the test-machine "
             "SSH key and test-machine:NAME.desktop_password are stored "
-            "on this machine under ~/.yoke/secrets. VALUE is the default "
+            "on this machine under ~/.yoke/secrets. desktop_password is the "
+            "machine administrator password, used for desktop access and "
+            "test-machine exec --admin on macOS and Linux. VALUE is the default "
             "input; --value-file and --value-stdin import the secret value "
             "without printing it."
         ),
@@ -76,7 +78,7 @@ def projects_capability_secret_set(args: List[str]) -> int:
     ):
         return usage_error(
             "desktop_password requires --cap-type test-machine:NAME and "
-            "--value-file FILE or --value-stdin; never put a desktop password in argv"
+            "--value-file FILE or --value-stdin; never put the machine administrator password in argv"
         )
     try:
         value = _project_secret_value(parsed)

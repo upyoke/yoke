@@ -25,8 +25,13 @@ from yoke_core.domain.project_attribution import resolved_project
 def _drift(item: PairedItem, field: str, local: str, github: str) -> DriftRecord:
     """Build a drift record carrying the paired item's typed identity."""
     return DriftRecord(
-        item.ref, field, local, github,
-        item_id=item.item_id, epic_id=item.epic_id, task_num=item.task_num,
+        item.ref,
+        field,
+        local,
+        github,
+        item_id=item.item_id,
+        epic_id=item.epic_id,
+        task_num=item.task_num,
     )
 
 
@@ -44,6 +49,10 @@ def stage2_compare(
     server-side and consumed here as ``implies_merge``. The field-by-field
     comparison stays engine-owned.
     """
+    if not paired:
+        # Linkage already classified every subject; no fields remain to compare.
+        return []
+
     from yoke_contracts.api.function_call import TargetRef
     from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 
@@ -57,12 +66,9 @@ def stage2_compare(
         raise RuntimeError(f"resync compare prefetch failed: {message}")
     data = resp.result or {}
 
-    items_by_id: Dict[int, Dict] = {
-        row["id"]: row for row in data.get("items", [])
-    }
+    items_by_id: Dict[int, Dict] = {row["id"]: row for row in data.get("items", [])}
     epic_tasks_by_key: Dict[Tuple[Any, int], Dict] = {
-        (row["epic_id"], row["task_num"]): row
-        for row in data.get("epic_tasks", [])
+        (row["epic_id"], row["task_num"]): row for row in data.get("epic_tasks", [])
     }
 
     drifts: List[DriftRecord] = []
@@ -129,7 +135,9 @@ def stage2_compare(
                         item_fields=mirror_fields,
                         item_id=id_num,
                     ):
-                        drifts.append(_drift(item, "body", "<local body>", "<github body>"))
+                        drifts.append(
+                            _drift(item, "body", "<local body>", "<github body>")
+                        )
 
             # --- Label comparison ---
             gh_labels = gh_issue.get("labels", [])
@@ -138,64 +146,92 @@ def stage2_compare(
             if local_status and local_status != "null":
                 gh_status = _get_label_value(gh_labels, "status:")
                 if local_status != gh_status:
-                    drifts.append(_drift(
-                        item, "label-status",
-                        f"status:{local_status}", f"status:{gh_status}",
-                    ))
+                    drifts.append(
+                        _drift(
+                            item,
+                            "label-status",
+                            f"status:{local_status}",
+                            f"status:{gh_status}",
+                        )
+                    )
 
             local_priority = local_item.get("priority", "") or ""
             if local_priority and local_priority != "null":
                 gh_priority = _get_label_value(gh_labels, "priority:")
                 if local_priority != gh_priority:
-                    drifts.append(_drift(
-                        item, "label-priority",
-                        f"priority:{local_priority}", f"priority:{gh_priority}",
-                    ))
+                    drifts.append(
+                        _drift(
+                            item,
+                            "label-priority",
+                            f"priority:{local_priority}",
+                            f"priority:{gh_priority}",
+                        )
+                    )
 
             local_workflow = local_item.get("workflow_id", "") or ""
             if local_workflow and local_workflow != "null":
                 gh_workflow = _get_label_value(gh_labels, "workflow:")
                 if local_workflow != gh_workflow:
-                    drifts.append(_drift(
-                        item, "label-workflow",
-                        f"workflow:{local_workflow}", f"workflow:{gh_workflow}",
-                    ))
+                    drifts.append(
+                        _drift(
+                            item,
+                            "label-workflow",
+                            f"workflow:{local_workflow}",
+                            f"workflow:{gh_workflow}",
+                        )
+                    )
 
             local_source_label = local_item.get("source_label", "") or ""
             if local_source_label:
                 gh_source = _get_label_value(gh_labels, "source:")
                 if local_source_label != gh_source:
-                    drifts.append(_drift(
-                        item, "label-source",
-                        f"source:{local_source_label}", f"source:{gh_source}",
-                    ))
+                    drifts.append(
+                        _drift(
+                            item,
+                            "label-source",
+                            f"source:{local_source_label}",
+                            f"source:{gh_source}",
+                        )
+                    )
 
             local_owner_label = local_item.get("owner_label", "") or ""
             if local_owner_label:
                 gh_owner = _get_label_value(gh_labels, "owner:")
                 if local_owner_label != gh_owner:
-                    drifts.append(_drift(
-                        item, "label-owner",
-                        f"owner:{local_owner_label}", f"owner:{gh_owner}",
-                    ))
+                    drifts.append(
+                        _drift(
+                            item,
+                            "label-owner",
+                            f"owner:{local_owner_label}",
+                            f"owner:{gh_owner}",
+                        )
+                    )
 
             # Frozen label
             frozen_val = local_item.get("frozen", 0)
             local_frozen_bool = frozen_val in (1, "1", True, "true", "True")
             gh_has_frozen = any(lbl.get("name", "") == "frozen" for lbl in gh_labels)
             if local_frozen_bool and not gh_has_frozen:
-                drifts.append(_drift(item, "label-frozen", "frozen:true", "frozen:absent"))
+                drifts.append(
+                    _drift(item, "label-frozen", "frozen:true", "frozen:absent")
+                )
             elif not local_frozen_bool and gh_has_frozen:
-                drifts.append(_drift(item, "label-frozen", "frozen:false", "frozen:present"))
+                drifts.append(
+                    _drift(item, "label-frozen", "frozen:false", "frozen:present")
+                )
 
             # blocked-flag label drift detection mirrors frozen
             blocked_val = local_item.get("blocked", 0)
             local_blocked_bool = blocked_val in (1, "1", True, "true", "True")
             gh_has_blocked = any(lbl.get("name", "") == "blocked" for lbl in gh_labels)
             if local_blocked_bool and not gh_has_blocked:
-                drifts.append(_drift(item, "label-blocked", "blocked:true", "blocked:absent"))
+                drifts.append(
+                    _drift(item, "label-blocked", "blocked:true", "blocked:absent")
+                )
             elif not local_blocked_bool and gh_has_blocked:
-                drifts.append(_drift(item, "label-blocked", "blocked:false", "blocked:present"))
+                drifts.append(
+                    _drift(item, "label-blocked", "blocked:false", "blocked:present")
+                )
 
             # --- State comparison ---
             gh_state = gh_issue.get("state", "UNKNOWN")
@@ -209,13 +245,16 @@ def stage2_compare(
             # --- Comment presence check ---
             if implies_merge and gh_heavy is not None:
                 comments = gh_heavy.get("comments", [])
-                has_status = any(
-                    "**Status:**" in c.get("body", "") for c in comments
-                )
+                has_status = any("**Status:**" in c.get("body", "") for c in comments)
                 if not has_status:
-                    drifts.append(_drift(
-                        item, "comment", "has-status-comment", "missing",
-                    ))
+                    drifts.append(
+                        _drift(
+                            item,
+                            "comment",
+                            "has-status-comment",
+                            "missing",
+                        )
+                    )
 
         elif item.kind == "epic_task":
             # Typed identity from ingestion: (epic_id, task_num).
@@ -244,7 +283,9 @@ def stage2_compare(
 
             if gh_title_raw and not ITEM_REF_TITLE_PREFIX_RE.match(gh_title_raw):
                 drifts.append(_drift(item, "title", local_task_title, gh_title_raw))
-            elif gh_title_norm and local_task_title and local_task_title != gh_title_norm:
+            elif (
+                gh_title_norm and local_task_title and local_task_title != gh_title_norm
+            ):
                 drifts.append(_drift(item, "title", local_task_title, gh_title_raw))
 
             # --- State comparison ---
@@ -257,10 +298,14 @@ def stage2_compare(
                 drifts.append(_drift(item, "state", expected_state, gh_state))
 
             # --- Body comparison ---
-            local_task_body = normalize_body_for_compare(local_task.get("body", "") or "")
+            local_task_body = normalize_body_for_compare(
+                local_task.get("body", "") or ""
+            )
             gh_heavy = heavy_by_project.get(proj, {}).get(item.gh_num)
             if gh_heavy is not None:
-                gh_task_body = normalize_body_for_compare(gh_heavy.get("body", "") or "")
+                gh_task_body = normalize_body_for_compare(
+                    gh_heavy.get("body", "") or ""
+                )
                 if local_task_body != gh_task_body:
                     drifts.append(_drift(item, "body", "<local body>", "<github body>"))
             else:
@@ -268,6 +313,8 @@ def stage2_compare(
                 if gh_light_body is not None:
                     gh_task_body_light = normalize_body_for_compare(gh_light_body or "")
                     if local_task_body != gh_task_body_light:
-                        drifts.append(_drift(item, "body", "<local body>", "<github body>"))
+                        drifts.append(
+                            _drift(item, "body", "<local body>", "<github body>")
+                        )
 
     return drifts

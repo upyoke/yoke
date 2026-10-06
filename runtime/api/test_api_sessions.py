@@ -118,11 +118,11 @@ class TestSessionOffer:
         assert ctx["selected_item"] == "YOK-10"
         assert "runnable_items" in ctx
         assert "YOK-10" in ctx["runnable_items"]
-        assert ctx["scheduler"]["next_step"] == "advance"
+        assert ctx["scheduler"]["next_step"] == "implement"
         assert ctx["scheduler"]["status"] == "refined-idea"
         # The scheduler carries the raw frontier adapter for diagnostics,
         # but session-offer dispatches from next_step.
-        assert ctx["scheduler"]["adapter"] == "advance"
+        assert ctx["scheduler"]["adapter"] == "implement"
         # should NOT be in runnable (blocked by parent (activation gate))
         assert "YOK-12" not in ctx["runnable_items"]
 
@@ -259,7 +259,7 @@ class TestSessionOffer:
             ("provider", "openai"),
             ("model", "some-model"),
             ("workspace", "/tmp/elsewhere"),
-            ("supported_paths", ["advance"]),
+            ("supported_paths", ["implement"]),
         ):
             resp = self.client.post(
                 "/v1/sessions/offer",

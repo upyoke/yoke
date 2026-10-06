@@ -99,7 +99,7 @@ def derive_required_path(
 
     Uses the scheduler's definition-selected routing truth.
 
-    Returns the canonical path name (e.g., ``advance``, ``polish``,
+    Returns the canonical path name (e.g., ``implement``, ``polish``,
     ``usher``) or ``None`` if the mapping cannot be resolved.
     """
     from .frontier_classify import classify_next_action
@@ -122,6 +122,7 @@ def resolve_claimed_work_context(
 ) -> Dict[str, Any]:
     """Resolve current routing metadata for a raw claim row."""
     from .work_claim_targets import from_row as target_from_row
+
     target = target_from_row(claim)
     item_id = target.item_id
     epic_id = target.epic_id
@@ -198,7 +199,7 @@ def _step_is_compatible_with_offer(
 def _serialize_filtered_step(step: Any, public_ref: ItemRefLookup) -> Dict[str, Any]:
     """Serialize an incompatible ScheduledStep for downstream rendering.
 
-    Captures the fields the decision engine and ``/yoke do`` loop need to
+    Captures the fields the decision engine and ``session-offer`` loop need to
     explain a lane-policy mismatch to the operator: which items were dropped
     and what path they need. ``item_id`` is operator-facing: rendered from
     the caller's already-resolved public-ref lookup.

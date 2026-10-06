@@ -143,9 +143,9 @@ def _record_unserviceable(
         try:
             # ``item_id`` may be a rendered public ref whose sequence
             # diverges from the internal id; release by internal id.
-            from .item_ref_resolution import resolve_internal_item_id
+            from .item_ref_resolution import internal_item_key
 
-            internal_id = resolve_internal_item_id(conn, item_id)
+            internal_id = internal_item_key(conn, item_id)
             release_item_claim_for_execution(
                 conn, session_id,
                 str(internal_id if internal_id is not None else item_id),

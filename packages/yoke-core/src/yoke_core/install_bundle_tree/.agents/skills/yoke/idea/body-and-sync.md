@@ -79,7 +79,7 @@ Three valid shapes — pick the one that matches what the operator described:
 
 1. **Implementation-bearing, known shape** — name the likely files/modules and a one-line single responsibility for each.
 2. **Implementation-bearing, unknown shape** — record the work as creating/growing authored code AND mark the budget unresolved so `/yoke refine` is forced to resolve it before `refined-idea`.
-3. **Non-code (docs-only / config-only / no authored-code growth)** — record `N/A` plus a one-line reason. If implementation later discovers authored-code work while effective File Budget is enabled, refine/advance must add a real File Budget before coding begins.
+3. **Non-code (docs-only / config-only / no authored-code growth)** — record `N/A` plus a one-line reason. If implementation later discovers authored-code work while effective File Budget is enabled, refine/implement must add a real File Budget before coding.begins.
 
 Compose the block immediately after `## Simplify Pre-Check` so it is
 visible before acceptance criteria. Three valid examples:
@@ -110,7 +110,7 @@ UNRESOLVED — this work item creates/grows authored code but the file shape is 
 ```markdown
 ## File Budget
 
-N/A — docs-only updates to README. If implementation discovers authored-code changes while effective File Budget is enabled, refine/advance must add a real File Budget before coding.
+N/A — docs-only updates to README. If implementation discovers authored-code changes while effective File Budget is enabled, refine/implement must add a real File Budget before coding.
 ```
 
 The File Budget is upstream guidance, not a write-time denial —
@@ -121,7 +121,7 @@ place.
 
 ### AC format rule
 
-**Always use checkbox format for acceptance criteria.** Write `- [ ] AC-N: {description}` — never bare `- AC-N:` or `- ACN:`. The advance AC-presence gate requires checkboxes; writing them correctly here avoids a round-trip rewrite later.
+**Always use checkbox format for acceptance criteria.** Write `- [ ] AC-N: {description}` — never bare `- AC-N:` or `- ACN:`. The AC-presence gate (PRD-9 at Refine closure) requires checkboxes; writing them correctly here avoids a round-trip rewrite later.
 
 ### If the user provided body content
 

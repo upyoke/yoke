@@ -171,7 +171,7 @@ if "YOKE_SKILL_CONTEXT=" in command_stripped:
                         "permissionDecisionReason": (
                             "BLOCKED: Do not set YOKE_SKILL_CONTEXT manually. "
                             "This env var bypass was removed. "
-                            "Use the skill layer (/yoke idea, /yoke advance, etc.) "
+                            "Use the skill layer (/yoke idea, /yoke implement, etc.) "
                             "which routes through the correct entry points."
                         ),
                     }

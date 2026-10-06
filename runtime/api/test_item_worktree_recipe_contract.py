@@ -42,8 +42,11 @@ RECIPE_PATHS = (
     "advance/finalize.md",
     "advance/browser-qa.md",
     "advance/project-e2e.md",
-    "advance/worktree.md",
-    "do/loop-followups.md",
+    "implement/SKILL.md",
+    "implement/entry.md",
+    "implement/reentry.md",
+    "implement/review.md",
+    "implement/worktree.md",
     "usher/deploy.md",
     "shared/tester-dispatch-template.md",
     "wrapup/SKILL.md",
@@ -74,7 +77,7 @@ def test_live_recipes_do_not_read_or_mutate_a_deleted_item_field(
 
 
 @pytest.mark.parametrize("root", (SOURCE_SKILLS, PACKAGED_SKILLS))
-def test_advance_and_qa_recipes_read_the_active_implementation_lane(
+def test_implement_and_qa_recipes_read_the_active_implementation_lane(
     root: Path,
 ) -> None:
     """Each recipe reads the lane from its registered row.
@@ -86,7 +89,7 @@ def test_advance_and_qa_recipes_read_the_active_implementation_lane(
     where its lane landed.
     """
     for relative_path in (
-        "advance/reentry.md",
+        "implement/reentry.md",
         "advance/finalize.md",
         "advance/browser-qa.md",
         "advance/project-e2e.md",
@@ -103,7 +106,7 @@ def test_advance_and_qa_recipes_read_the_active_implementation_lane(
 def test_evidence_only_recovery_releases_active_lane_records(
     root: Path,
 ) -> None:
-    for relative_path in ("advance/arguments.md", "usher/deploy.md"):
+    for relative_path in ("implement/evidence-only.md", "usher/deploy.md"):
         text = (root / relative_path).read_text()
         clean_check = text.find('git -C "$_wt_path" status --porcelain')
         release = text.find("yoke item-worktrees release PREFIX-N --all-active")
@@ -179,10 +182,5 @@ def test_terminal_handoff_releases_claims_before_idle_hook_cleanup(
     root: Path,
 ) -> None:
     advance = (root / "advance/parse-and-target.md").read_text()
-    followups = (root / "do/loop-followups.md").read_text()
 
     assert "yoke claims work release --all-mine" in advance
-    assert "yoke claims work release --all-mine" in followups
-    assert "Stop and SessionEnd never release active claims" in followups
-    assert "closes only an already claim-free session" in followups
-    assert "HarnessSessionEndReleasedClaims" not in followups

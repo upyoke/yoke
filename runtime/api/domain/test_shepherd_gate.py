@@ -1,19 +1,4 @@
-"""Tests for ``yoke_core.domain.shepherd_gate``.
-
-Covers the advance preflight Shepherd Lifecycle Gate's three required states:
-
-1. Modern verdict (``planning_to_plan_drafted``) in an acceptable state
-   satisfies the gate.
-2. Legacy verdict (``planned_to_ready``) in an acceptable state satisfies
-   the gate for pre-2026-04-07 compatibility.
-3. Absence of any qualifying verdict blocks the gate.
-
-These scenarios are the direct Python analog of the bash query previously
-embedded in ``.agents/skills/yoke/advance/preflight-checks.md``. Extracting
-the query into Python lets the advance skill call a single module entrypoint
-instead of duplicating SQL in prose — and lets this test pin the contract
-against drift.
-"""
+"""Pinned Shepherd final-edge verdict checks, including rejected legacy evidence."""
 
 from __future__ import annotations
 
@@ -63,8 +48,14 @@ class TestShepherdGate:
         """Gate passes when the modern shepherd verdict is present."""
         conn = _open(tmp_db)
         try:
-            insert_item(conn, id=501, title="Modern epic", workflow_id="epic",
-                        status="planned", spec="body")
+            insert_item(
+                conn,
+                id=501,
+                title="Modern epic",
+                workflow_id="epic",
+                status="planned",
+                spec="body",
+            )
             _insert_verdict(conn, "YOK-501", "planning_to_plan_drafted", "READY")
             result = shepherd_gate.check_gate(501, conn=conn)
         finally:
@@ -78,8 +69,14 @@ class TestShepherdGate:
         """CAVEATS on the modern verdict is still accepted."""
         conn = _open(tmp_db)
         try:
-            insert_item(conn, id=502, title="Epic with caveats", workflow_id="epic",
-                        status="planned", spec="body")
+            insert_item(
+                conn,
+                id=502,
+                title="Epic with caveats",
+                workflow_id="epic",
+                status="planned",
+                spec="body",
+            )
             _insert_verdict(conn, "YOK-502", "planning_to_plan_drafted", "CAVEATS")
             result = shepherd_gate.check_gate(502, conn=conn)
         finally:
@@ -88,29 +85,45 @@ class TestShepherdGate:
         assert result.passed is True
         assert result.verdict == "CAVEATS"
 
-    def test_legacy_verdict_passes(self, tmp_db):
-        """Legacy pre-2026-04-07 verdict still satisfies the gate."""
+    def test_unrelated_verdict_does_not_satisfy_binding(self, tmp_db):
+        """A verdict for another edge cannot satisfy the pinned handoff."""
         conn = _open(tmp_db)
         try:
-            insert_item(conn, id=503, title="Historical epic", workflow_id="epic",
-                        status="done", spec="body")
-            _insert_verdict(conn, "YOK-503", "planned_to_ready", "READY",
-                            created_at="2026-04-03T12:00:00Z")
+            insert_item(
+                conn,
+                id=503,
+                title="Historical epic",
+                workflow_id="epic",
+                status="done",
+                spec="body",
+            )
+            _insert_verdict(
+                conn,
+                "YOK-503",
+                "planned_to_ready",
+                "READY",
+                created_at="2026-04-03T12:00:00Z",
+            )
             result = shepherd_gate.check_gate(503, conn=conn)
         finally:
             conn.close()
 
-        assert result.passed is True
-        assert result.transition == "planned_to_ready"
-        assert result.verdict == "READY"
-        assert "compat" in result.reason.lower()
+        assert result.passed is False
+        assert result.transition is None
+        assert "planning_to_plan_drafted" in result.reason
 
     def test_no_verdict_blocks(self, tmp_db):
         """Absence of any qualifying verdict blocks the gate."""
         conn = _open(tmp_db)
         try:
-            insert_item(conn, id=504, title="Unsigned epic", workflow_id="epic",
-                        status="planned", spec="body")
+            insert_item(
+                conn,
+                id=504,
+                title="Unsigned epic",
+                workflow_id="epic",
+                status="planned",
+                spec="body",
+            )
             result = shepherd_gate.check_gate(504, conn=conn)
         finally:
             conn.close()
@@ -124,8 +137,14 @@ class TestShepherdGate:
         """REJECTED or other non-accepted verdicts do not satisfy the gate."""
         conn = _open(tmp_db)
         try:
-            insert_item(conn, id=505, title="Rejected plan", workflow_id="epic",
-                        status="planned", spec="body")
+            insert_item(
+                conn,
+                id=505,
+                title="Rejected plan",
+                workflow_id="epic",
+                status="planned",
+                spec="body",
+            )
             _insert_verdict(conn, "YOK-505", "planning_to_plan_drafted", "REJECTED")
             result = shepherd_gate.check_gate(505, conn=conn)
         finally:
@@ -137,12 +156,28 @@ class TestShepherdGate:
         """When both verdicts exist, the modern one is the reported transition."""
         conn = _open(tmp_db)
         try:
-            insert_item(conn, id=506, title="Re-shepherded epic", workflow_id="epic",
-                        status="planned", spec="body")
-            _insert_verdict(conn, "YOK-506", "planned_to_ready", "READY",
-                            created_at="2026-04-03T12:00:00Z")
-            _insert_verdict(conn, "YOK-506", "planning_to_plan_drafted", "CAVEATS",
-                            created_at="2026-04-20T12:00:00Z")
+            insert_item(
+                conn,
+                id=506,
+                title="Re-shepherded epic",
+                workflow_id="epic",
+                status="planned",
+                spec="body",
+            )
+            _insert_verdict(
+                conn,
+                "YOK-506",
+                "planned_to_ready",
+                "READY",
+                created_at="2026-04-03T12:00:00Z",
+            )
+            _insert_verdict(
+                conn,
+                "YOK-506",
+                "planning_to_plan_drafted",
+                "CAVEATS",
+                created_at="2026-04-20T12:00:00Z",
+            )
             result = shepherd_gate.check_gate(506, conn=conn)
         finally:
             conn.close()
@@ -155,12 +190,28 @@ class TestShepherdGate:
         """Multiple modern verdicts — the newest (highest id) is returned."""
         conn = _open(tmp_db)
         try:
-            insert_item(conn, id=507, title="Re-verdict epic", workflow_id="epic",
-                        status="planned", spec="body")
-            _insert_verdict(conn, "YOK-507", "planning_to_plan_drafted", "CAVEATS",
-                            created_at="2026-04-10T12:00:00Z")
-            _insert_verdict(conn, "YOK-507", "planning_to_plan_drafted", "READY",
-                            created_at="2026-04-20T12:00:00Z")
+            insert_item(
+                conn,
+                id=507,
+                title="Re-verdict epic",
+                workflow_id="epic",
+                status="planned",
+                spec="body",
+            )
+            _insert_verdict(
+                conn,
+                "YOK-507",
+                "planning_to_plan_drafted",
+                "CAVEATS",
+                created_at="2026-04-10T12:00:00Z",
+            )
+            _insert_verdict(
+                conn,
+                "YOK-507",
+                "planning_to_plan_drafted",
+                "READY",
+                created_at="2026-04-20T12:00:00Z",
+            )
             result = shepherd_gate.check_gate(507, conn=conn)
         finally:
             conn.close()

@@ -4,7 +4,7 @@ Reproduces concrete failure shapes from the work-item spec:
 
 * Re-entry shape: item already ``implementing``,
   routed advance hits a recoverable substrate failure before useful
-  work began, ``/yoke do`` records the chain outcome instead of
+  work began, ``session-offer`` records the chain outcome instead of
   treating it as useful implementation progress.
 * Same re-entry shape but verifies the canonical holder lookup:
   another live session holds the work claim, and ``holder_session_for_item``
@@ -86,7 +86,7 @@ class TestYok1599SubstrateReentry:
         # Reproduce the re-entry shape: item already ``implementing``, a
         # routed advance re-entry hit cwd drift / guard collision before
         # useful implementation work began. The chain skip memory entry
-        # carries ``useful_work_began=False`` so /yoke do's Step C
+        # carries ``useful_work_began=False`` so session-offer's Step C
         # treats this as a non-useful step.
         _seed_item(conn, item_id=1599, status="implementing")
         _register(conn, session_id="dispatcher-session")
@@ -97,7 +97,7 @@ class TestYok1599SubstrateReentry:
                 chain_step=1,
                 project="yoke",
                 item_id=1599,
-                routed_action="advance",
+                routed_action="implement",
                 failure_class="cwd_drift_after_scope_bind",
                 remediation_owner=f"YOK-{1599}",
                 current_status="implementing",
@@ -106,7 +106,7 @@ class TestYok1599SubstrateReentry:
         assert entry["useful_work_began"] is False
         assert entry["failure_class"] == "cwd_drift_after_scope_bind"
         # Substrate failure outcome is in the no-bump set so
-        # /yoke do does NOT count it as a useful step.
+        # session-offer does NOT count it as a useful step.
         assert is_non_useful_step(OUTCOME_RECOVERABLE_SUBSTRATE) is True
 
     def test_substrate_skip_dedups_same_item_in_chain(self, conn):
@@ -121,7 +121,7 @@ class TestYok1599SubstrateReentry:
                 chain_step=1,
                 project="yoke",
                 item_id=1599,
-                routed_action="advance",
+                routed_action="implement",
                 failure_class="cwd_drift",
                 remediation_owner=f"YOK-{1599}",
             )
@@ -138,7 +138,7 @@ class TestYok1599SubstrateReentry:
         # When all candidates reduce to substrate failures, the
         # terminal classification reads the dedicated terminal reason
         # AND the chain-skip memory entry carries ``remediation_owner``
-        # so /yoke do's terminal summary can name it.
+        # so session-offer's terminal summary can name it.
         _seed_item(conn, item_id=1599, status="implementing")
         _register(conn, session_id="terminal-session")
         with patch("yoke_core.domain.events.emit_event"):
@@ -148,7 +148,7 @@ class TestYok1599SubstrateReentry:
                 chain_step=1,
                 project="yoke",
                 item_id=1599,
-                routed_action="advance",
+                routed_action="implement",
                 failure_class="cwd_drift",
                 remediation_owner=f"YOK-{1599}",
             )

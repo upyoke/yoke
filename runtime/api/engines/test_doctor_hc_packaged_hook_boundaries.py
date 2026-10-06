@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from threading import Event
 
 from yoke_core.api.repo_root import find_repo_root
 from yoke_project_checks import check_packaged_hook_boundaries as hc
@@ -82,4 +83,33 @@ def test_silent_local_engine_import_handler_is_reported(tmp_path: Path) -> None:
         "missing stderr report or raise",
         "missing nonzero return or raise",
         "contains a zero, empty, or non-integer return",
+    ]
+
+
+def test_parallel_source_analysis_preserves_order_and_ast_values(tmp_path, monkeypatch):
+    _write(tmp_path, "pkg/a.py", "import ｒｕｎｔｉｍｅ.harness\n")
+    _write(tmp_path, "pkg/b.py", "from runtime.harness import hook_runner\n")
+    _write(tmp_path, "registry/chains.py", r"CHAIN = '\x72untime.harness.guard'" + "\n")
+    original = hc._parse
+    second_parsed = Event()
+    completed = []
+
+    def parse(path):
+        if path.name == "a.py":
+            assert second_parsed.wait(5)
+        tree = original(path)
+        completed.append(path.name)
+        if path.name == "b.py":
+            second_parsed.set()
+        return tree
+
+    monkeypatch.setattr(hc, "_parse", parse)
+    findings = hc.scan_source_namespace_edges(
+        tmp_path, package_roots=("pkg",), registry_root="registry"
+    )
+    assert completed[:2] == ["b.py", "a.py"]
+    assert [(row.relpath, row.line) for row in findings] == [
+        ("pkg/a.py", 1),
+        ("pkg/b.py", 1),
+        ("registry/chains.py", 1),
     ]

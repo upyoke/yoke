@@ -130,8 +130,6 @@ ALLOWED_EVENTS_READERS: tuple[str, ...] = (
     f"{_PROJECT_CHECK_SOURCE_ROOT}/check_pretool_posttool_coverage.py",
     f"{_CORE_ENGINE_SOURCE_ROOT}/doctor_hc_reflection_capture_persist_failed.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/check_claim_boundary_audit_correlation.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/check_claim_boundary_audit_cutoff.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/check_claim_boundary_audit_select.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/check_claim_boundary_audit_summary.py",
     # -- emission-side capability probes (SELECT 1 ... LIMIT 1)
     f"{_CORE_DOMAIN_SOURCE_ROOT}/epic_cascade.py",

@@ -1,10 +1,27 @@
 # Provisioning and saving a Linux Test Machine
 
+For stored-password setup commands on macOS and Linux, follow [administrator commands](administrator-commands.md).
+
 Follow [setup responsibilities](setup-responsibilities.md) for every step.
 
 Follow this ordered procedure as a dedicated non-root test user, from a bare
 Ubuntu 24.04 host through a verified saved state. Infrastructure, account,
 endpoint, project slug, passwords and baseline paths remain project-owned.
+Every instruction in a numbered step inherits its audit row below.
+
+Audit: **2026-10-02 UTC**, `linux-lab`, Ubuntu 24.04.5 arm64, user `yoketest`,
+UID 1001. Registered `exec` reads and existing operation receipts were inspected;
+this audit changed no configuration and executed no save/reset/verify roundtrip.
+Code-reviewed contracts do not establish a new live saved-state verdict.
+
+| Step | Audit against linux-lab on 2026-10-02 |
+| --- | --- |
+| 1 | Correct: non-root Ubuntu user, Git2.43/tmux3.4/Python3.12, Node18/npm, Docker29.1.3 and passwordless sudo; installing from bare unverified |
+| 2 | Correct: registered SSH reachable, effective public-key yes/password and keyboard-interactive no; `.ssh` 0700/key file0600; firewall/IaC and desktop credential use unverified |
+| 3 | Correct: all CLI paths present and bypass bool true; recorded capture01:01/reset04:21 receipts pass declared harness probes; new operator sign-in/requests unverified |
+| 4 | Correct: XFCE, terminal helper selection, xrdp0.9.24/xorgxrdp, scrot1.10/xdotool installed; RDP127.0.0.1:3389/sesman[::1]:3350; unattended start/input timing proof unverified by this audit |
+| 5 | Correct: separately recorded profile snapshot directory exists; browser sign-in and new seal/restore/UI proof unverified |
+| 6–8 | Correct: registered home archive and probes present, existing capture/reset receipts pass; full digest integrity, new standard-probe coverage and new roundtrip unverified |
 
 ## 1. Host, tools and account
 
@@ -146,8 +163,8 @@ XFCE desktop may be reused; multiple desktops refuse as ambiguous. The first
 capture waits for a valid nonblank frame while retaining `started` evidence;
 an already running desktop with a blank capture still refuses.
 The unattended route uses `xrdp-sesrun -s ::1 -t Xorg -F 0 TESTUSER`, feeding
-the registered password on stdin. On a host whose sesman listens on
-`[::1]:3350`, omitting `-s ::1` can report a connect error. Do not run a
+the registered password on stdin. On the audited xrdp0.9.24 host, sesman is on
+`[::1]:3350`; omitting `-s ::1` can report a connect error. Do not run a
 password-bearing workaround. If the operation refuses sesrun/startup, repair
 its named prerequisite and rerun. Human RDP login is used only by cases that
 explicitly test human login.

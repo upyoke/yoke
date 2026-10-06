@@ -6,7 +6,8 @@ from typing import Any, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
-from yoke_core.domain.project_identity import render_item_ref, resolve_item_id
+from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
@@ -37,7 +38,7 @@ def _resolve_bound_item(
     *,
     project: str,
 ) -> int:
-    item_id = resolve_item_id(conn, public_ref, project=project)
+    item_id = resolve_item_ref_or_none(conn, public_ref, project=project)
     if item_id is None:
         raise ValueError(
             f"ephemeral environment item {public_ref!r} does not resolve "

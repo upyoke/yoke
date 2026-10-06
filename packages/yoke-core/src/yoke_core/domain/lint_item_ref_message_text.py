@@ -82,7 +82,9 @@ _DISPLAY_RENDERERS: Tuple[str, ...] = (
 )
 
 
-def scan_display_ref_search_keys(repo_root: Path) -> List[RefLiteralHit]:
+def scan_display_ref_search_keys(
+    repo_root: Path, *, read_text=Path.read_text
+) -> List[RefLiteralHit]:
     """Return every git search key built from a display renderer."""
     root = repo_root.resolve()
     hits: List[RefLiteralHit] = []
@@ -98,7 +100,7 @@ def scan_display_ref_search_keys(repo_root: Path) -> List[RefLiteralHit]:
             if is_exempt_relpath(rel) or rel in _ALLOWLIST:
                 continue
             try:
-                lines = path.read_text(encoding="utf-8").splitlines()
+                lines = read_text(path, encoding="utf-8").splitlines()
             except (OSError, UnicodeDecodeError):
                 continue
             for lineno, raw in enumerate(lines, start=1):
@@ -106,14 +108,14 @@ def scan_display_ref_search_keys(repo_root: Path) -> List[RefLiteralHit]:
                     expression = match.group(1)
                     if any(name in expression for name in _DISPLAY_RENDERERS):
                         hits.append(
-                            RefLiteralHit(
-                                path.resolve(), lineno, raw.strip()[:160]
-                            )
+                            RefLiteralHit(path.resolve(), lineno, raw.strip()[:160])
                         )
     return hits
 
 
-def scan_message_text_item_ids(repo_root: Path) -> List[RefLiteralHit]:
+def scan_message_text_item_ids(
+    repo_root: Path, *, read_text=Path.read_text
+) -> List[RefLiteralHit]:
     """Return every internal item id interpolated into message text.
 
     An f-string is the only shape that can carry one, so the scan reads
@@ -135,7 +137,7 @@ def scan_message_text_item_ids(repo_root: Path) -> List[RefLiteralHit]:
             if is_exempt_relpath(rel) or rel in _ALLOWLIST:
                 continue
             try:
-                lines = path.read_text(encoding="utf-8").splitlines()
+                lines = read_text(path, encoding="utf-8").splitlines()
             except (OSError, UnicodeDecodeError):
                 continue
             for lineno, raw in enumerate(lines, start=1):
@@ -154,5 +156,6 @@ def scan_message_text_item_ids(repo_root: Path) -> List[RefLiteralHit]:
                         RefLiteralHit(path.resolve(), lineno, raw.strip()[:160])
                     )
     return hits
+
 
 __all__ = ["scan_display_ref_search_keys", "scan_message_text_item_ids"]

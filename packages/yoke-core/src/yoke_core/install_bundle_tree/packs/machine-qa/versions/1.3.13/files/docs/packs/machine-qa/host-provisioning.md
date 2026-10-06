@@ -1,5 +1,7 @@
 # Test Machine provisioning
 
+For stored-password setup commands on macOS and Linux, follow [administrator commands](administrator-commands.md).
+
 Follow [setup responsibilities](setup-responsibilities.md) for every step.
 
 Choose one complete ordered procedure. Each covers account and network

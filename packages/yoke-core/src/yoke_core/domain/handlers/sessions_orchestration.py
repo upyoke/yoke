@@ -30,6 +30,9 @@ class TouchResponse(BaseModel):
 
 
 class CheckpointRequest(BaseModel):
+    # A wire public ref resolves onto this engine key as an int.
+    model_config = ConfigDict(coerce_numbers_to_str=True)
+
     step: int
     action: str
     chainable: bool

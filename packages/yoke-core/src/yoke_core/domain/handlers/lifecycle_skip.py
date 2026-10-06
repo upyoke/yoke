@@ -1,7 +1,7 @@
 """Handler for the ``lifecycle.skip.record_recoverable_substrate`` function id.
 
 Wraps :func:`yoke_core.domain.sessions_handler_outcome.record_recoverable_substrate_skip`
-so the documented ``/yoke do`` Step B recipe ("first record the skip
+so the documented ``session-offer`` Step B recipe ("first record the skip
 through ...") has an agent-executable shape. The previous recipe pointed
 at a ``python3 -c "from yoke_core.domain... import ..."`` form that the
 ``lint-no-agent-runtime-api-import-from-c`` PreToolUse hook refuses
@@ -34,9 +34,7 @@ from yoke_contracts.api.function_call import (
 class LifecycleSkipRecordRecoverableSubstrateRequest(BaseModel):
     """Payload for ``lifecycle.skip.record_recoverable_substrate``."""
 
-    chain_step: int = Field(
-        ..., description="Current /yoke do chain step number."
-    )
+    chain_step: int = Field(..., description="Current session-offer chain step number.")
     project: str = Field(
         ...,
         description=(
@@ -57,8 +55,7 @@ class LifecycleSkipRecordRecoverableSubstrateRequest(BaseModel):
     remediation_owner: str = Field(
         ...,
         description=(
-            "Work-item id or recipe owner responsible for the fix "
-            "(e.g. ``YOK-N``)."
+            "Work-item id or recipe owner responsible for the fix (e.g. ``YOK-N``)."
         ),
     )
     current_status: Optional[str] = Field(
@@ -70,7 +67,7 @@ class LifecycleSkipRecordRecoverableSubstrateRequest(BaseModel):
         description=(
             "Whether the routed handler made any useful progress before the "
             "substrate failure. ``False`` is the canonical case for the "
-            "/yoke do loop's no-progress detection."
+            "session-offer loop's no-progress detection."
         ),
     )
 

@@ -16,7 +16,6 @@ from yoke_core.domain.item_ref_columns import (
     render_column_item_ref,
     resolve_column_item_ref,
 )
-from yoke_core.domain.shepherd_records import normalize_item_id
 
 
 # Result names for the dependency-list projection, in SELECT order.
@@ -59,7 +58,7 @@ def dependency_rows(conn, item: str) -> List[dict]:
     ``direction='blocks'`` rows name the dependent waiting on this item
     (directional edges — the blocker side never waits).
     """
-    item_id = resolve_column_item_ref(conn, normalize_item_id(item, conn))
+    item_id = resolve_column_item_ref(conn, item)
     if item_id is None:
         return []
     rows = query_rows(

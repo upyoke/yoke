@@ -9,7 +9,6 @@ from typing import Optional
 
 import pytest
 
-from yoke_core.domain import db_backend
 from yoke_core.domain.backlog_updates_helpers import _run_authoritative_status_gate
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_core.domain.workflow_registry import (
@@ -20,6 +19,7 @@ from yoke_core.domain.workflow_schema import ensure_workflow_schema
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.fixtures.backlog import (
     SCHEMA_DDL,
+    insert_epic_task,
     insert_item,
     insert_qa_requirement,
     insert_qa_run,
@@ -71,10 +71,11 @@ def _seed_item(conn, item_id: int) -> None:
     )
     workflow_id, version_id = resolve_current_workflow_pin(conn, "epic")
     conn.execute(
-        "UPDATE items SET workflow_id = %s, workflow_version_id = %s "
-        "WHERE id = %s",
+        "UPDATE items SET workflow_id = %s, workflow_version_id = %s WHERE id = %s",
         (workflow_id, version_id, item_id),
     )
+    # The planned stage onward executes the task graph, so it must exist.
+    insert_epic_task(conn, epic_id=item_id, task_num=1, status="plan-drafted")
     conn.commit()
 
 

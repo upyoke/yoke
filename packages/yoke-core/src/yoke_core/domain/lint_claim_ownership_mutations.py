@@ -16,6 +16,7 @@ import re
 import sys
 from typing import Iterable, Optional, Tuple
 
+from yoke_contracts.public_ref import parse_public_item_ref
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.lint_session_bound_yoke_commands import (
     session_bound_yoke_family,
@@ -109,14 +110,14 @@ _DB_ROUTER_READ_ONLY_PATHS: tuple[tuple[str, ...], ...] = (
 def _recent_claim_denial_holder(
     db_path: Optional[str],
     session_id: str,
-    item_id: int,
+    item_ref: str,
     lookback_seconds: int = RECENT_DENIAL_LOOKBACK_SECONDS,
 ) -> Optional[str]:
     """Compatibility seam for callers that patch this module's connector."""
     return recent_claim_denial_holder(
         db_path,
         session_id,
-        item_id,
+        item_ref,
         lookback_seconds,
         connector=connect,
     )
@@ -124,8 +125,8 @@ def _recent_claim_denial_holder(
 
 _PYTHON_M_RE = re.compile(r"python3?\s+-m\s+([\w.]+)\b")
 _SESSION_ID_FLAG_RE = re.compile(r"--session-id[=\s]+([^\s]+)")
-_ITEM_FLAG_RE = re.compile(r"(?:--item|--item-id)[=\s]+(?:YOK-)?(\d+)")
-_BARE_YOKE_ITEM_REF_RE = re.compile(r"\bYOK-(\d+)\b")
+_ITEM_FLAG_RE = re.compile(r"(?:--item|--item-id)[=\s]+(\S+)")
+_PUBLIC_ITEM_REF_RE = re.compile(r"\b([A-Za-z][A-Za-z0-9]*-\d+)\b")
 _SHELL_BOUNDARIES = frozenset({"&&", "||", ";", "|", ">", "<", "2>&1"})
 
 
@@ -197,19 +198,12 @@ def _extract_session_id_flag(command: str) -> Optional[str]:
     return match.group(1) if match else None
 
 
-def _extract_item_id(command: str) -> Optional[int]:
-    for regex in (_ITEM_FLAG_RE, _BARE_YOKE_ITEM_REF_RE):
+def _extract_item_ref(command: str) -> Optional[str]:
+    """The public item ref the command addresses, as typed."""
+    for regex in (_ITEM_FLAG_RE, _PUBLIC_ITEM_REF_RE):
         match = regex.search(command)
-        if match:
-            try:
-                return int(match.group(1))
-            except ValueError:
-                continue
-    module = _module_invoked(command)
-    if module:
-        for tok in _positional_tokens_after(command, module, count=6):
-            if tok.isdigit():
-                return int(tok)
+        if match and parse_public_item_ref(match.group(1))[0] is not None:
+            return match.group(1)
     return None
 
 
@@ -255,13 +249,13 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str]]:
     if declared and ambient and declared != ambient:
         return (_spoof_reason(family, declared), family)
 
-    item_id = _extract_item_id(command)
-    if item_id is None or not ambient:
+    item_ref = _extract_item_ref(command)
+    if item_ref is None or not ambient:
         return None
 
-    holder = _recent_claim_denial_holder(_resolve_db_path(), ambient, item_id)
+    holder = _recent_claim_denial_holder(_resolve_db_path(), ambient, item_ref)
     if holder and holder != ambient:
-        return (_recent_denial_reason(family, item_id, holder), family)
+        return (_recent_denial_reason(family, item_ref, holder), family)
     return None
 
 

@@ -156,7 +156,7 @@ class TestSessionOffer:
             provider="anthropic",
             model=TEST_MODEL_ID,
             workspace="/tmp/work",
-            supported_paths=["refine", "polish", "shepherd", "conduct", "advance", "usher"],
+            supported_paths=["refine", "polish", "shepherd", "conduct", "implement", "usher"],
         )
         assert "refine" in offer.supported_paths
         assert "polish" in offer.supported_paths

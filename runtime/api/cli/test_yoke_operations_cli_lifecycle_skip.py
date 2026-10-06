@@ -12,14 +12,16 @@ from yoke_cli.commands.registry import resolve
 
 
 class TestLifecycleSkipRecordRecoverableSubstrate:
-    """The wrapped surface that makes /yoke do Step B executable."""
+    """The wrapped surface that makes session-offer Step B executable."""
 
     def test_token_tuple_resolves_to_function_id(self) -> None:
         cli_tokens, function_id, _, remaining = resolve(
             ["lifecycle", "skip", "record-recoverable-substrate", "YOK-1849"]
         )
         assert cli_tokens == (
-            "lifecycle", "skip", "record-recoverable-substrate",
+            "lifecycle",
+            "skip",
+            "record-recoverable-substrate",
         )
         assert function_id == "lifecycle.skip.record_recoverable_substrate"
         assert remaining == ["YOK-1849"]
@@ -27,8 +29,7 @@ class TestLifecycleSkipRecordRecoverableSubstrate:
     def test_flag_adapter_parses_all_seven_flags(self) -> None:
         captured: dict = {}
 
-        def _fake_dispatch(*, function_id, target, payload,
-                           session_id, json_mode):
+        def _fake_dispatch(*, function_id, target, payload, session_id, json_mode):
             captured["function_id"] = function_id
             captured["target"] = target
             captured["payload"] = payload
@@ -43,12 +44,18 @@ class TestLifecycleSkipRecordRecoverableSubstrate:
             rc = adapters.lifecycle_skip_record_recoverable_substrate(
                 [
                     "1849",
-                    "--chain-step", "2",
-                    "--project", "yoke",
-                    "--routed-action", "advance",
-                    "--failure-class", "cwd_drift",
-                    "--remediation-owner", "YOK-1862",
-                    "--current-status", "implementing",
+                    "--chain-step",
+                    "2",
+                    "--project",
+                    "yoke",
+                    "--routed-action",
+                    "implement",
+                    "--failure-class",
+                    "cwd_drift",
+                    "--remediation-owner",
+                    "YOK-1862",
+                    "--current-status",
+                    "implementing",
                     "--useful-work-began",
                 ]
             )
@@ -61,7 +68,7 @@ class TestLifecycleSkipRecordRecoverableSubstrate:
         assert captured["payload"] == {
             "chain_step": 2,
             "project": "yoke",
-            "routed_action": "advance",
+            "routed_action": "implement",
             "failure_class": "cwd_drift",
             "remediation_owner": "YOK-1862",
             "useful_work_began": True,
@@ -73,8 +80,7 @@ class TestLifecycleSkipRecordRecoverableSubstrate:
     ) -> None:
         captured: dict = {}
 
-        def _fake_dispatch(*, function_id, target, payload,
-                           session_id, json_mode):
+        def _fake_dispatch(*, function_id, target, payload, session_id, json_mode):
             captured.update(payload)
             return 0
 
@@ -85,11 +91,16 @@ class TestLifecycleSkipRecordRecoverableSubstrate:
             rc = adapters.lifecycle_skip_record_recoverable_substrate(
                 [
                     "1849",
-                    "--chain-step", "1",
-                    "--project", "yoke",
-                    "--routed-action", "advance",
-                    "--failure-class", "lease-conflict",
-                    "--remediation-owner", "YOK-1862",
+                    "--chain-step",
+                    "1",
+                    "--project",
+                    "yoke",
+                    "--routed-action",
+                    "implement",
+                    "--failure-class",
+                    "lease-conflict",
+                    "--remediation-owner",
+                    "YOK-1862",
                 ]
             )
         assert rc == 0
@@ -99,16 +110,13 @@ class TestLifecycleSkipRecordRecoverableSubstrate:
     def test_missing_required_flag_returns_usage_error(self) -> None:
         err = io.StringIO()
         with redirect_stderr(err):
-            rc = adapters.lifecycle_skip_record_recoverable_substrate(
-                ["1849"]
-            )
+            rc = adapters.lifecycle_skip_record_recoverable_substrate(["1849"])
         assert rc == 2
 
     def test_end_to_end_cli_main_dispatch_envelope(self) -> None:
         captured: dict = {}
 
-        def _fake_dispatch(*, function_id, target, payload,
-                           session_id, json_mode):
+        def _fake_dispatch(*, function_id, target, payload, session_id, json_mode):
             captured["function_id"] = function_id
             captured["target_kind"] = target.kind
             captured["public_ref"] = target.public_ref
@@ -121,13 +129,20 @@ class TestLifecycleSkipRecordRecoverableSubstrate:
         ):
             rc = cli_main(
                 [
-                    "lifecycle", "skip", "record-recoverable-substrate",
+                    "lifecycle",
+                    "skip",
+                    "record-recoverable-substrate",
                     "1849",
-                    "--chain-step", "2",
-                    "--project", "yoke",
-                    "--routed-action", "advance",
-                    "--failure-class", "cwd_drift",
-                    "--remediation-owner", "YOK-1862",
+                    "--chain-step",
+                    "2",
+                    "--project",
+                    "yoke",
+                    "--routed-action",
+                    "implement",
+                    "--failure-class",
+                    "cwd_drift",
+                    "--remediation-owner",
+                    "YOK-1862",
                 ]
             )
         assert rc == 0

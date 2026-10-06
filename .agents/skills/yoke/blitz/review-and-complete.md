@@ -11,10 +11,19 @@ After the last slice is integrated:
 - remove obsolete paths the plan replaced;
 - reconcile the execution document against every Slice Log checkpoint.
 
-Transition into the once-per-item close:
+Transition into the once-per-item close through `lifecycle.transition.execute`.
+Refresh `yoke workflows item get ITEM --json`, then read the returned pin with
+`yoke workflows version get WORKFLOW_ID WORKFLOW_VERSION --json`. Set
+`LIVE_STAGE` to status and `NEXT_STAGE` to the unique declared forward edge
+in `definition.transitions` whose `from_stage_id` equals `LIVE_STAGE`,
+ordered by `definition.stages`. Confirm the
+active half-open binding belongs to Blitz. Stop at its boundary and report
+the item's rendered `next_skill_id` handoff. If the edge is absent or
+ambiguous, stop with `workflow_next_stage_ambiguous` and ask the workflow owner
+to repair or select the declared route; never invent a target:
 
 ```text
-yoke lifecycle transition ITEM --from implementing --to reviewing-implementation --reason "All slices integrated; final reconciliation started"
+yoke lifecycle transition ITEM --from LIVE_STAGE --to NEXT_STAGE --reason "All slices integrated; final reconciliation started"
 ```
 
 ## 7. Complete the document and close
@@ -44,25 +53,34 @@ Append a final Slice Log entry naming the document revision and the final
 verification result. Re-read `yoke strategy execution get ITEM --json` and
 confirm the document claim still belongs to this item.
 
-Transition through the `doc_completion` gate:
+Advance one declared forward edge at a time, refreshing the item status and
+pinned definition before each transition and resolving `LIVE_STAGE` and
+`NEXT_STAGE` as above. Stop when status belongs to
+`definition.terminal_stage_ids`; never jump over a declared stage.
 
 ```text
-yoke lifecycle transition ITEM --from reviewing-implementation --to done --reason "Execution document reconciled with passing evidence"
+yoke lifecycle transition ITEM --from LIVE_STAGE --to NEXT_STAGE --reason "Execution document reconciled with passing evidence"
 ```
+
+If the definition's release stage still owes delivery through the selected
+flow, keep the work claim and park this session on that wait. A delivery wake
+re-enters this skill; continue the same definition-driven walk here.
+The terminal edge still runs `doc_completion` and its document-archive
+semantics; neither is bypassed by selecting the target from the definition.
 
 The terminal transition atomically archives the linked execution document
 when no other non-terminal Blitz still links it, then releases the item-owned
 document claim and every registered Blitz worktree lane. An already-archived
 document is a no-op; a shared live document stays active; and the parent
 document is never archived by this path. If the archive write fails,
-`GATE_BLITZ_DOCUMENT_ARCHIVE_FAILED` keeps the item at
-`reviewing-implementation` and names the retry recovery. Do not archive the
-document by hand after completion. Release the remaining session work claim:
+`GATE_BLITZ_DOCUMENT_ARCHIVE_FAILED` keeps the item at its current stage and names
+the retry recovery. Do not archive the document by hand after completion.
+Release the remaining session work claim:
 
 ```text
 yoke claims work release --item ITEM --reason "Blitz completed"
 ```
 
-If completion is blocked, keep the item at
-`reviewing-implementation`, record the missing fact in `Live Status`, and
+If document completion is blocked, keep the item at
+its current stage, record the missing fact in `Live Status`, and
 repair the document or evidence. Never weaken the completion gate.

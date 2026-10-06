@@ -157,7 +157,7 @@ export function appendItemDelivery(documentNode, card, row, deployments, project
   const box = el(documentNode, "div", "item-delivery");
   const head = el(documentNode, "div", "item-delivery-head");
   head.appendChild(el(documentNode, "span", "item-delivery-label", "Delivery"));
-  head.appendChild(el(documentNode, "span", "item-delivery-flow", deliveryFlowLabel(row)));
+  head.appendChild(el(documentNode, "span", "item-card-delivery-flow", deliveryFlowLabel(row)));
   box.appendChild(head);
   if (row.merged_at) {
     const merged = el(documentNode, "small", "item-delivery-merged", `merged ${relativeAgePhrase(row.merged_at)}`);

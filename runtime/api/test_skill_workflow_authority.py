@@ -29,14 +29,13 @@ def test_refine_uses_active_binding_and_child_policy() -> None:
     assert 'if [ "$ITEM_WORKFLOW_ID"' not in combined
 
 
-def test_plan_mode_comes_from_pinned_policy() -> None:
-    text = _read("plan", "SKILL.md") + _read("plan", "resolve-and-validate.md")
+def test_shepherd_task_generation_comes_from_pinned_policy() -> None:
+    text = _read("shepherd", "SKILL.md") + _read("shepherd", "entry.md")
     for required in (
         "yoke workflows item get",
         "yoke workflows version get",
-        "generated_children=none",
-        "generated_children=epic_tasks",
-        "half-open",
+        'policies["generated_children"] == "epic_tasks"',
+        'definition["skill_bindings"]',
     ):
         assert required in text
     for forbidden in (
@@ -44,7 +43,6 @@ def test_plan_mode_comes_from_pinned_policy() -> None:
         "--workflow epic",
         "Issue mode",
         "Epic mode",
-        "Determine plan mode from `workflow_id`",
     ):
         assert forbidden not in text
 
@@ -52,7 +50,7 @@ def test_plan_mode_comes_from_pinned_policy() -> None:
 def test_advance_branches_on_skill_and_lane_policy() -> None:
     skill = _read("advance", "SKILL.md")
     context = _read("advance", "workflow-context.md")
-    preflight = _read("advance", "preflight-checks.md")
+    preflight = _read("advance", "preflight.md")
     finalize = _read("advance", "finalize.md")
     combined = skill + context + preflight + finalize
     for required in (

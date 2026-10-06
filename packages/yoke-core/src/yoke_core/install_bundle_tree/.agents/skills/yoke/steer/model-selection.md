@@ -7,24 +7,31 @@ is how the steering seat decides what to name. It applies to
 and replacing a worker's model means launching a replacement, never editing a
 live one.
 
-## Three kinds of work, and nothing finer
+## Choose for the current leg
 
-Judge the item you are about to staff against these three. There is no
-complexity field to fill in, no score to compute, and no fourth case.
-Do not always launch `preferred_session_models`; the task, supported
-reasoning, cost/benefit, and applicable quota still decide.
+Judge the work remaining at the item's live stage, not just its title or the
+model that started it. Use the strongest supported models for definition
+(idea, refine, shepherd) and pre-merge review/polish. Use cheaper models for
+well-specified implementation and mechanical edits. The task, supported
+reasoning, cost/benefit, and applicable quota decide; do not always launch
+`preferred_session_models`.
 
-| The work is | Default tier | At effort |
+| The current leg is | Default tier | At effort |
 |---|---|---|
-| Simple edits, documentation, routine cleanup | tier 2 | `medium` |
-| Normal development or research | tier 1 | `high` |
+| Definition (idea, refine, shepherd), pre-merge review/polish | tier 1 | `high` |
+| Well-specified implementation, simple edits, documentation, routine cleanup | tier 2 | `medium` |
 | Difficult debugging or architectural decisions | tier 1 | the surface's step above `high` |
+
+When the remaining work becomes mechanical, downshift the next leg onto a
+cheaper supported model. That can be the next leg of the same item: use the
+restaff recipe below rather than waiting for a new item. These are staffing
+judgments, not static per-skill lane routing or formal per-stage floors.
 
 The ceiling is deliberate. `max` is never an automatic choice: buying the
 vendor's highest level for work that does not need it changes nothing about
 the outcome and empties a shared allowance faster.
 
-**The third row's effort is per surface, and the surface you are launching
+**The debugging row's effort is per surface, and the surface you are launching
 answers it — not this table.** Each harness publishes its own accepted
 efforts, and a name one surface publishes is refused by another: asking
 `codex-cli` for `xhigh` is the step above `high`, while asking `claude-cli`
@@ -186,13 +193,30 @@ never gates a launch.
   reference proposes; the operator's `session_model_routing` decides.
   That is still a per-launch judgment, not a blanket default.
 
-## Selection survives a resume
+## Retry once, then restaff the same item
 
-Model selection is fixed for the life of a session. Claude restores its own
-conversation's selection natively; Codex and Cursor re-send the attested
-selection on resume. Either way, do not re-derive a model for a session that
-is already running, and prefer a pinned version over a mutable alias so a
-resumed session cannot be re-resolved onto something else mid-item.
+A local implementation or verification failure gets one retry from the same
+worker: diagnose the named failure, correct it, and rerun the failed check.
+A second failure, or a spec/design misunderstanding on the first attempt,
+gets a fresh session one tier up, seeded from the Progress Log. Do not spend
+another retry on a misunderstanding or treat a parked delivery/landing wait
+as a failure.
 
-To move a running worker onto a different model, launch a new session for the
-next item. Do not change a live one.
+Use rule 9 in [`worker-lifecycle.md`](worker-lifecycle.md): read or request the
+checkpoint, terminate the predecessor, verify its claim is released, preview
+and launch the successor on the same item at its current stage, then confirm
+registration and claim ownership. The checkpoint names the live stage,
+committed and uncommitted work, the failure evidence or misunderstanding, and
+the next concrete step. The successor reads it and the preserved lane before
+acting; it continues the item rather than repeating completed legs.
+
+Choose the next stronger catalog tier within the supported routing and quota
+limits above. If the worker is already at tier 1, or no stronger authorized
+model is available, report that ceiling and the failure evidence to the
+operator for a decision; do not invent a higher tier or promote silently.
+Use the same handoff when downshifting the next mechanical leg.
+
+A native resume retains that session's attested selection: Claude restores
+it, and Codex and Cursor re-send it. Prefer a pinned version over a mutable
+alias. To change the model for the item, restaff it: launch a successor with a new
+selection through rule 9; do not edit the running session's model.

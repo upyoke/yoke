@@ -28,6 +28,7 @@ except ImportError:  # Python < 3.11
     tomllib = None
 
 from yoke_core.api.repo_root import find_repo_root
+from yoke_core.engines.doctor_parallel_reads import bounded_read_map
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 from yoke_core.engines.doctor_tree_scan import iter_tree_files
 
@@ -48,9 +49,7 @@ SCAN_ROOTS = ("docs", "packages", "packaging", "packs", "runtime", "tests")
 
 # Line-level fallback for Python sources that fail to parse.
 _FALLBACK_IMPORT_RE = re.compile(
-    r"^\s*(?:import|from)\s+"
-    + re.escape(PRIVATE_PLATFORM_NAMESPACE)
-    + r"(?=[.\s]|$)"
+    r"^\s*(?:import|from)\s+" + re.escape(PRIVATE_PLATFORM_NAMESPACE) + r"(?=[.\s]|$)"
 )
 
 _REQUIREMENT_NAME_RE = re.compile(r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)")
@@ -117,14 +116,15 @@ def _import_line_numbers(tree: ast.AST) -> List[int]:
 
 def scan_python_imports(repo_root: Path) -> List[PlatformNamespaceFinding]:
     """Return Python imports that reach into the private platform namespace."""
-    findings: List[PlatformNamespaceFinding] = []
-    for source in _iter_python_files(repo_root):
+
+    def scan_source(source):
+        findings = []
         try:
             text = source.read_text(encoding="utf-8", errors="replace")
         except OSError:
-            continue
+            return findings
         if PRIVATE_PLATFORM_NAMESPACE not in text:
-            continue
+            return findings
         lines = text.splitlines()
         try:
             line_numbers = _import_line_numbers(ast.parse(text))
@@ -138,6 +138,11 @@ def scan_python_imports(repo_root: Path) -> List[PlatformNamespaceFinding]:
         for line_no in line_numbers:
             detail = lines[line_no - 1].strip() if line_no <= len(lines) else ""
             findings.append(PlatformNamespaceFinding(relpath, line_no, detail))
+        return findings
+
+    findings: List[PlatformNamespaceFinding] = []
+    for rows in bounded_read_map(scan_source, _iter_python_files(repo_root)):
+        findings.extend(rows)
     return findings
 
 
@@ -180,17 +185,18 @@ def scan_pyproject_dependencies(
     repo_root: Path,
 ) -> List[PlatformNamespaceFinding]:
     """Return pyproject requirements naming a platform-owned distribution."""
-    findings: List[PlatformNamespaceFinding] = []
-    for pyproject in _iter_pyproject_files(repo_root):
+
+    def scan_pyproject(pyproject):
+        findings = []
         try:
             text = pyproject.read_text(encoding="utf-8", errors="replace")
         except OSError:
-            continue
+            return findings
         # PEP 503 requirement names are case-insensitive, so the cheap
         # pre-filter must compare against lowered text (the Python import
         # scan stays case-sensitive: module names are).
         if PRIVATE_PLATFORM_NAMESPACE not in text.lower():
-            continue
+            return findings
         if tomllib is None:
             requirements = _QUOTED_STRING_RE.findall(text)
         else:
@@ -216,6 +222,11 @@ def scan_pyproject_dependencies(
                     relpath, line_no, f'dependency "{requirement}"'
                 )
             )
+        return findings
+
+    findings: List[PlatformNamespaceFinding] = []
+    for rows in bounded_read_map(scan_pyproject, _iter_pyproject_files(repo_root)):
+        findings.extend(rows)
     return findings
 
 
@@ -227,7 +238,9 @@ def scan_platform_namespace_boundary(
 
 
 def hc_platform_namespace_boundary(
-    conn, args: DoctorArgs, rec: RecordCollector,
+    conn,
+    args: DoctorArgs,
+    rec: RecordCollector,
 ) -> None:
     """Doctor entry. FAILs when product code references the platform namespace."""
     del conn, args
@@ -248,8 +261,7 @@ def hc_platform_namespace_boundary(
         "packages, never the reverse. Invert or remove the reference."
     )
     body = "\n".join(
-        [head, ""]
-        + [f"  - `{f.relpath}:{f.line_no}` {f.detail}" for f in findings]
+        [head, ""] + [f"  - `{f.relpath}:{f.line_no}` {f.detail}" for f in findings]
     )
     rec.record(HC_NAME, HC_DESC, "FAIL", body)
 
@@ -272,5 +284,9 @@ from yoke_project_checks._declare import (  # noqa: E402
 )
 
 PROJECT_HEALTH_CHECKS = self_project_checks(
-    ('platform-namespace-boundary', 'Product tree must not import or declare a dependency on the private platform namespace', hc_platform_namespace_boundary),
+    (
+        "platform-namespace-boundary",
+        "Product tree must not import or declare a dependency on the private platform namespace",
+        hc_platform_namespace_boundary,
+    ),
 )

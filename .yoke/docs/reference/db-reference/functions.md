@@ -139,7 +139,7 @@ Replaces every hand-authored `printf '%s' "$content" | python3 -m yoke_core.cli.
 }
 ```
 
-`execution_instructions_considered` is a bare boolean attestation — no content hash, no staleness window — that this filer ran `yoke workflow execution-instruction resolve --workflow W --project P --full` before authoring. Every non-web entry surface (`cli`, `harness_skill`) must send it `true`; without it the create refuses with `execution_instructions_not_considered` and a message naming that exact retrieval command for the target. `web_form` renders the blocks in its own UI and `promotion` carries an already-filed item forward, so both stay exempt, as do `dry_run` previews and disposable test databases. CLI adapters (`yoke dash`, `yoke task`, `yoke items create`) expose `--execution-instructions-considered` and pass it through; they never set it for the caller, and the create receipt echoes the value it was accepted under.
+`execution_instructions_considered` is a bare boolean attestation — no content hash, no staleness window — that this filer ran `yoke workflow execution-instruction resolve --workflow W --project P --full` before authoring, reading only Before creation instructions. Delivery settings and stage-bucket behavior are documented in [execution instructions](../execution-instructions.md). Every non-web entry surface (`cli`, `harness_skill`) must send it `true`; without it the create refuses with `execution_instructions_not_considered` and a message naming that exact retrieval command for the target. `web_form` renders the blocks in its own UI and `promotion` carries an already-filed item forward, so both stay exempt, as do `dry_run` previews and disposable test databases. CLI adapters (`yoke dash`, `yoke task`, `yoke items create`) expose `--execution-instructions-considered` and pass it through; they never set it for the caller, and the create receipt echoes the value it was accepted under.
 
 **Canonical write — full-field replace:**
 
@@ -268,8 +268,8 @@ Replaces every hand-authored `python3 -m yoke_core.domain.epic task-update-body 
 
 | Function id | claim_required_kind | Handler |
 |---|---|---|
-| `claims.work.acquire` | `None` (chicken-and-egg — handler asserts no active claim) | `yoke_core.domain.handlers.claims_work.acquire` |
-| `claims.work.release` | `"self_only"` | `yoke_core.domain.handlers.claims_work.release` |
+| `claims.work.acquire` | `None` (chicken-and-egg — handler asserts no active claim) | `yoke_core.domain.handlers.claims_work.handle_acquire` — process targets resolve the authorized project id or slug to its canonical slug before building the conflict group. |
+| `claims.work.release` | `"self_only"` | `yoke_core.domain.handlers.claims_work.handle_release` — process release by name resolves the project reference to the same canonical conflict group as acquisition. |
 | `claims.steering.acquire` | `None` (payload `document` narrows the seat to one strategy document and atomically pairs its lock; omit it for the whole project) | `yoke_core.domain.handlers.claims_steering.handle_acquire`; a seat or document conflict rolls back both |
 | `claims.steering.release` | `"self_only"` | same handler; releases the steering claim and its paired document lock together |
 | `claims.steering.list` | `None` (project-scoped read) | same handler; project/holder/active filters |

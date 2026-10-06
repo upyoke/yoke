@@ -18,7 +18,7 @@ from runtime.api.test_api_helpers import test_db, client  # noqa: F401
 
 class TestBoard:
     def test_board_returns_yoke_scope(self, client):
-        resp = client.get("/v1/board")
+        resp = client.get("/v1/board", params={"project": "yoke"})
         assert resp.status_code == 200
         data = resp.json()
         assert "sprint" not in data
@@ -27,12 +27,19 @@ class TestBoard:
         assert "stats" in data
 
     def test_board_columns_structure(self, client):
-        resp = client.get("/v1/board")
+        resp = client.get("/v1/board", params={"project": "yoke"})
         data = resp.json()
         # Board should have columns matching the client board contract.
         expected_columns = [
-            "idea", "planning", "refined", "implementing", "blocked",
-            "reviewing", "implemented", "release", "done",
+            "idea",
+            "planning",
+            "refined",
+            "implementing",
+            "blocked",
+            "reviewing",
+            "implemented",
+            "release",
+            "done",
         ]
         assert list(data["columns"].keys()) == expected_columns
         # Retired statuses must NOT appear as board columns
@@ -41,24 +48,26 @@ class TestBoard:
         assert "cancelled" not in data["columns"]
 
     def test_board_stats(self, client):
-        resp = client.get("/v1/board")
+        resp = client.get("/v1/board", params={"project": "yoke"})
         data = resp.json()
         stats = data["stats"]
         # yoke project has items 1(implementing), 2(done), 4(release), 5(cancelled)
         # Cancelled items are excluded from board
         assert stats["total"] == 3  # items 1, 2, 4 (not 5/cancelled)
-        assert stats["done"] == 1   # item 2
-        assert stats["active"] == 1  # response model still exposes the legacy stats field name
+        assert stats["done"] == 1  # item 2
+        assert (
+            stats["active"] == 1
+        )  # response model still exposes the legacy stats field name
 
     def test_board_items_in_correct_columns(self, client):
-        resp = client.get("/v1/board")
+        resp = client.get("/v1/board", params={"project": "yoke"})
         data = resp.json()
         implementing_items = data["columns"]["implementing"]
         assert len(implementing_items) == 1
         assert implementing_items[0]["title"] == "First item"
 
     def test_board_excludes_cancelled(self, client):
-        resp = client.get("/v1/board")
+        resp = client.get("/v1/board", params={"project": "yoke"})
         data = resp.json()
         all_item_titles = []
         for col_items in data["columns"].values():
@@ -120,7 +129,7 @@ class TestDomainDelegation:
         conn.commit()
         conn.close()
 
-        resp = client.get("/v1/board")
+        resp = client.get("/v1/board", params={"project": "yoke"})
         assert resp.status_code == 200
         data = resp.json()
         reviewing_titles = [i["title"] for i in data["columns"]["reviewing"]]
@@ -148,7 +157,7 @@ class TestDomainDelegation:
         conn.commit()
         conn.close()
 
-        resp = client.get("/v1/board")
+        resp = client.get("/v1/board", params={"project": "yoke"})
         assert resp.status_code == 200
         data = resp.json()
         blocked_titles = [i["title"] for i in data["columns"]["blocked"]]
@@ -158,7 +167,10 @@ class TestDomainDelegation:
     def test_board_maps_pipeline_to_refined(self, client, test_db):
         """refined-idea and planned map to the refined bucket."""
         conn = connect_test_db(test_db["db_path"])
-        for item_id, status, label in [(63, "refined-idea", "Refined"), (65, "planned", "Planned")]:
+        for item_id, status, label in [
+            (63, "refined-idea", "Refined"),
+            (65, "planned", "Planned"),
+        ]:
             conn.execute(
                 f"""INSERT INTO items
                    (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
@@ -170,7 +182,7 @@ class TestDomainDelegation:
         conn.commit()
         conn.close()
 
-        resp = client.get("/v1/board")
+        resp = client.get("/v1/board", params={"project": "yoke"})
         assert resp.status_code == 200
         data = resp.json()
         refined_titles = [i["title"] for i in data["columns"]["refined"]]
@@ -191,7 +203,7 @@ class TestDomainDelegation:
         conn.commit()
         conn.close()
 
-        resp = client.get("/v1/board")
+        resp = client.get("/v1/board", params={"project": "yoke"})
         assert resp.status_code == 200
         data = resp.json()
         all_titles = []
@@ -246,3 +258,8 @@ class TestDomainDelegation:
         assert run_row["status"] == "succeeded"
         assert run_row["current_stage"] == "approve-deploy"
         conn.close()
+
+
+def test_board_requires_an_explicit_project(client):
+    assert client.get("/v1/board").status_code == 422
+    assert client.get("/v1/board", params={"project": ""}).status_code == 422

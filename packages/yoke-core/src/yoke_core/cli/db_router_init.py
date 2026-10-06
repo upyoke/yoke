@@ -212,7 +212,6 @@ def _dispatch_items_get_section(item_args: List[str]) -> int:
         item_id = parse_item_id(
             item_id_raw,
             project=client_project_context(project),
-            allow_bare_internal=False,
         )
     except (ImportError, ValueError):
         print(f"Error: invalid item id '{item_id_raw}'", file=sys.stderr)

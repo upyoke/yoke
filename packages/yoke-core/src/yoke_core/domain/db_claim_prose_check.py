@@ -1,6 +1,6 @@
 """Prose-vs-claim consistency detector for the unified DB-claim workflow.
 
-Front door for the gate that ``/yoke refine``, ``/yoke advance``, and
+Front door for the gate that ``/yoke refine``, ``/yoke implement``, and
 ``/yoke polish`` consult before allowing forward progress.  When the
 spec/body of an item names governed DB mutation while the stored
 ``db_mutation_profile.state`` is still ``"none"``, the gate blocks and

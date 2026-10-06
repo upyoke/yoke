@@ -17,7 +17,7 @@ from typing import Any, Callable
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
-from yoke_core.domain.session_message_types import timestamp, utc_now
+from yoke_core.domain.session_message_types import as_utc, utc_now
 
 
 def _response_error(response: Any, fallback: str) -> str:
@@ -53,9 +53,27 @@ def mark_landing_pending(
     *,
     dispatch: Callable[..., Any] = call_dispatcher,
     now: datetime | None = None,
+    preserve_existing: bool = False,
 ) -> tuple[str, str]:
-    """Persist queue admission, returning ``(enqueued_at, error)``."""
-    enqueued_at = timestamp(now or utc_now())
+    """Record an arming episode, preserving it when GitHub is already armed."""
+    enqueued_at = as_utc(now or utc_now()).isoformat().replace("+00:00", "Z")
+    if preserve_existing:
+        response = dispatch(
+            function_id="items.detail.get",
+            target=TargetRef(kind="item", item_id=int(item_id)),
+            payload={},
+        )
+        if not getattr(response, "success", False):
+            return "", (
+                "landing_episode_unreadable: "
+                + _response_error(response, "existing arming episode read failed")
+                + "; restore the item read and re-enter yoke merge item."
+            )
+        queue = ((getattr(response, "result", None) or {}).get("item") or {}).get(
+            "merge_queue"
+        ) or {}
+        if str(queue.get("pr_number") or "") == str(pr_number):
+            enqueued_at = str(queue.get("enqueued_at") or enqueued_at)
     response = dispatch(
         function_id="merge_queue.landing_pending.mark",
         target=TargetRef(kind="item", item_id=int(item_id)),

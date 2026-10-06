@@ -40,13 +40,11 @@ def build_no_work_wait_action(
     return CHARGE for an item the offer-time ownership block already gave
     up on). The schedule is consulted only to surface ``lane_filtered_*``
     signals; the dispatch fields (``selected_item``, ``scheduler``) are
-    intentionally absent so the operator-facing ``/yoke do`` loop has
+    intentionally absent so the operator-facing ``session-offer`` loop has
     nothing to dispatch from.
     """
     schedule = ownership.get("schedule_result")
-    lane_filtered_count = (
-        getattr(schedule, "lane_filtered_count", 0) if schedule else 0
-    )
+    lane_filtered_count = getattr(schedule, "lane_filtered_count", 0) if schedule else 0
     lane_filtered_items = (
         getattr(schedule, "lane_filtered_items", None) if schedule else None
     )
@@ -120,16 +118,17 @@ def validate_charge_claim_invariant(
             "acquire any candidate; refusing to emit a charge directive."
         )
     from yoke_core.domain.work_claim_targets import item_id_from_row
+
     claim_item = item_id_from_row(new_claim)
     # selected_item is the rendered public ref while new_claim.scope.item_id is
     # the bare internal integer; resolve both to internal ids before
     # comparing (project sequences may diverge from internal ids). The
     # conn-less fallback keeps the legacy numeric-tail comparison.
     if conn is not None:
-        from yoke_core.domain.item_ref_resolution import resolve_internal_item_id
+        from yoke_core.domain.item_ref_resolution import internal_item_key
 
-        selected_norm = resolve_internal_item_id(conn, ctx_selected)
-        claim_norm = resolve_internal_item_id(conn, claim_item)
+        selected_norm = internal_item_key(conn, ctx_selected)
+        claim_norm = internal_item_key(conn, claim_item)
     else:
         selected_norm = normalize_item_id(ctx_selected)
         claim_norm = normalize_item_id(claim_item)

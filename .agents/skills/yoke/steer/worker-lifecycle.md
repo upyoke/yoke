@@ -111,7 +111,7 @@ run it down. Level counts only when headrooms are comparable, and avoid a
 surface under 100% for long items. There is no per-surface session cap; a
 surface absent from the launch-balance line cannot accept one at all.
 
-## 4. Route one item through its pinned workflow, never via `/yoke do`
+## 4. Route one item through its pinned workflow
 
 Before authoring the launch, read the pinned workflow and scheduler route:
 
@@ -123,7 +123,7 @@ yoke charge schedule --project {_project} --item PREFIX-N --json
 The launch prompt names exactly one item, the returned routed entrypoint, and
 that workflow's remaining legs. One worker owns the item across those legs.
 Work arriving in any workflow stays there; never convert or re-file it to make
-it Dash-shaped. Chaining `/yoke do` duplicates the steerer-owned selection.
+it Dash-shaped. The worker executes only its assigned item; steering owns selection.
 
 ## 5. Workers self-end after their DONE report — once the item is done
 
@@ -171,9 +171,9 @@ WITHOUT its session ending — told "also do X" in the same episode, on the same
 claim — is the one shape that still collapses; it is told so loudly and reports
 that completion as a substantive update instead.
 
-`yoke sessions terminate` is reserved for an unresponsive worker or explicit
-cleanup. In those exceptional cases, resolve the full session id from the
-launch that staffed the item, then terminate it:
+`yoke sessions terminate` is reserved for an unresponsive worker, a restaff
+onto a different model (rule 9), or explicit cleanup. In those cases, resolve
+the full session id from the launch that staffed the item, then terminate it:
 
 ```text
 yoke sessions terminate {WORKER_SESSION_ID} --reason "PREFIX-N unresponsive cleanup"
@@ -247,6 +247,60 @@ A survey is not authority to edit the shared file in the neighbour's
 lane. The worker edits in its own lane and coordinates with the holder
 the first command named.
 
+## 9. Restaff an in-flight item on a different model
+
+When to move an item onto a stronger or cheaper model is
+[`model-selection.md`](model-selection.md)'s question. This is the how: one
+item, one worker at a time, the same lane, no claim surgery. A parked
+release-wait or landing holder is waiting on delivery, not failing; restaff
+work that still has implementation or verification left to do.
+
+1. **Read the checkpoint.** Every mandate tells the worker to append a
+   Progress Log checkpoint before any stop, so a stopped worker has already
+   left one. When the worker is live and its last checkpoint is behind its
+   lane, ask for a fresh one and wait for it to land before terminating:
+
+   ```text
+   yoke items section get PREFIX-N --section 'Progress Log'
+   printf '%s' "CHECKPOINT PREFIX-N: append a Progress Log checkpoint now, then stop; you are being restaffed" | yoke say --item PREFIX-N --stdin
+   ```
+
+   An unresponsive worker gets no wait: its successor reads the lane itself.
+
+2. **Terminate the worker.** Termination releases its item claim and linked
+   path claims, cancels its open messages, and reaps its native process. It
+   does not touch the registered lane, the lane branch, or uncommitted work —
+   those are what the successor resumes from. Resolve the session id from
+   the launch that staffed the item:
+
+   ```text
+   yoke sessions terminate {WORKER_SESSION_ID} --reason "restaff PREFIX-N onto {_model}: <why>"
+   yoke claims work holder-get PREFIX-N
+   ```
+
+   The holder read must show no live holder before you launch. A
+   `CHAIN_PENDING` refusal names its override; the restaff is the rationale.
+
+3. **Launch the successor** with the launcher recipe below, naming the new
+   model, effort, and context. Give the idempotency key the predecessor's
+   launch id, so a restaff onto a selection the item already had is a new
+   launch rather than a replay of the old one:
+
+   ```text
+   --idempotency-key "steer:{_project}:{ITEM}:restaff:{PREVIOUS_LAUNCH_ID}:{_surface}:{_model}:{_effort}:{_context}"
+   ```
+
+   The server composes the mandate from the item's live stage, so the
+   successor enters the skill bound there. Its mandate tells it to read the
+   Progress Log and the lane before acting, keep the uncommitted work, and
+   resume from the last checkpoint. A launch refused `item_has_live_worker`
+   means the predecessor still holds the item; finish step 2 first.
+
+4. **Confirm the handoff.** By its live `deadline_at`, the launch reads
+   `state=succeeded` and `yoke claims work holder-get PREFIX-N` names the
+   successor's session. The successor reports DONE for the item as its own
+   leg; the predecessor sends nothing further.
+
 ## Launcher recipe
 
 Preview is mandatory for every steering-staffed session, including itemless
@@ -297,8 +351,13 @@ composed launch's display name is derived from `{ITEM}` plus its
 authoritative backlog title; the instruction body never becomes a title or
 command-line argument. Itemless launches omit that name.
 
-Retain the returned `launch_id` and `deadline_at`. By that deadline, require
-`state=succeeded` and a non-empty `registered_session_id`:
+Retain the returned `launch_id`. The launch's `deadline_at` window starts when
+its machine's relay picks it up, not at create: a launch still `assigned` is
+queued behind that machine's earlier native creates, and pickup moves
+`deadline_at` to the pickup time plus the full window. A queued launch closes
+early only when its relay disconnects past the create-time deadline or when it
+outlasts the queue bound (`LAUNCH_QUEUE_WAIT_SECONDS`, one hour). Read the live `deadline_at` from `launch get`; by that
+deadline, require `state=succeeded` and a non-empty `registered_session_id`:
 
 ```text
 yoke session-control launch get {LAUNCH_ID} --json
@@ -450,6 +509,8 @@ and to stop early only for a command-handed wait or the taught local-check inter
 
 Single-item mandate (steering): acquire the PREFIX-N work claim as your FIRST action — `yoke claims work acquire --item PREFIX-N --reason "<why you are claiming it>"` — then execute only PREFIX-N through {ROUTED_LEGS}. Do NOT create or dispatch any deployment run — the orchestrator batches deploys. Message the orchestrator ONLY for substantive updates — a red gate and what failed, a blocker, a conflict with this instruction, a defect outside your scope, a decision you need. NEVER send progress: no percentages, elapsed-time polls, watcher heartbeats, or "still green" notes; relay those in your own output instead. For a substantive peer request or reply, address the intended worker/session AND copy relevant steering using union recipient flags (`--item PREFIX-N --steering`, or an exact listed `--session SESSION-ID --steering`; use explicit `--steering-scope '{"project_id": N}'` when you hold no applicable item). Reply to the original requesting session for acceptance, refusal, scope conflict, blocker, or decision; never send a rejection only to steering. Acknowledgement records receipt, not acceptance or implementation. When those legs are complete, message the orchestrator (`printf %s "DONE PREFIX-N <one-line summary>" | yoke say --stdin --steering`) and END your session — do not pick up further work, do not chain into other items. Send that report before releasing any claim you still hold; after close-out already released it, `--steering` resolves from the item you last held in this session. The PREFIX-N in the DONE heading is the report identity and must name work this session holds or released. If your claim is swept mid-work, reacquire and continue.
 
+Keep the item resumable by another worker. Steering may restaff it onto a different model at any point by terminating this session, which releases your claim and leaves the lane, its branch, and any uncommitted work in place for the successor. So before any stop short of done — a park, a blocker or decision report, a landing or release wait, or the end of a turn — append a Progress Log checkpoint naming the live stage, what is committed, what is still uncommitted in the lane, and the next concrete step: `yoke items progress-log append PREFIX-N --headline "<checkpoint>" --stdin`. When the item you claim is already past its first stage, you are that successor: before acting, read `yoke items section get PREFIX-N --section 'Progress Log'` and the lane's `git status` and `git log`, keep the uncommitted work you find, and resume at the live stage from the last checkpoint rather than repeating transitions or steps it records as done.
+
 An item whose posture selects merge_candidate_review may not land until a person has cleared the exact commit. `yoke merge item` refuses an uncleared candidate by name, before it arms, enqueues, or merges anything, and names the open decision request an authorized reviewer answers. You cannot answer it yourself: the session holding the item's work claim is refused by name, whatever actor it carries, and so is clearing the posture key. That refusal is a blocker, not a retry: report it with the request id and stop. Any commit you make after a clearance needs its own review, so commit everything first, then merge.
 
 A merge that lands your item at its pinned release wait is a completed merge that is NOT a finished item: the delivery still has to run and its post-deploy validation still has to be walked before the item reaches done. That close-out therefore keeps your work claim and parks your session with the wait named, and you keep both. Do NOT release the claim and do NOT end your session there — report what landed in your own output, say you are waiting on delivery, and stop deliberately. A deployment wake re-enters you when a QA stage needs you or your own item-scoped QA is accepted. A final member whose selected flow has no run QA or run approval closes when its own final production QA is accepted or explicitly discharged by `post_deploy_no_obligation`, even while sibling QA holds the run open. A flow with run QA or run approval holds every member until all item gates and shared gates pass and the run succeeds. These close-outs need no extra wake and end an otherwise empty holder session. A stage that wants your evidence is run by naming that stage AND your item, because a stage credits only requirements bound to its own name: `yoke watch qa-plan -- --deployment-run-id RUN --stage STAGE --member <ITEM> --project P` (that wrapper, not `yoke watch qa-case`, which wraps the narrower requirement-id form). Add `--plan PLAN` only when the wake says the stage names no cases: a stage that already names its own refuses --plan except for a correction-only plan whose every case names its failed admitted requirement with --replaces CASE_KEY=FAILED_REQUIREMENT_ID. The wake prints the exact recipe for its own stage. The run-wide form and `yoke qa case run` do not credit it. After the item-scoped stage is accepted, check whether the item reached done; otherwise re-park while its completion flow finishes. Do not re-run merge solely for that acceptance. A delivery wake is reserved for a cleared member the automatic close-out could not finish, and names the required recovery. Only once the item reaches done do you send the DONE report and end. Any prompt that wakes you CLEARS that park, including one that turns out not to finish the item, so whenever you go quiet still short of done — a wake you handled, a close-out that refused, a message about something else — re-park before stopping: `yoke sessions touch --mode parked --reason "awaiting <ITEM> delivery"`. The active work claim protects the session; parking records its delivery wait for wake and recovery routing.
@@ -463,18 +524,11 @@ A tool call that outlives its yield is still running. When your harness moves a 
 Ending a turn sends no Fleet message. Send the DONE report deliberately, as `printf %s "DONE PREFIX-N <one-line summary>" | yoke say --stdin --steering` — the body rides stdin, so the command refuses without `--stdin`. Lead with the `DONE PREFIX-N` heading naming work this session holds or released, then what landed, what is blocked, and what you need — before ending the session.
 ```
 
-The server parameterizes that shape from the pinned `workflow_id` and
-`charge.schedule.next_step`. Workers still re-read the live binding:
-
-- Dash: `/yoke dash PREFIX-N`; one Dash leg through its merge/evidence close.
-- Task: `/yoke advance PREFIX-N implementation`, then the bound Dash close-out
-  records merge-free floor evidence; no worktree, QA, merge, or deployment leg.
-- Issue: `/yoke refine PREFIX-N` to `refined-idea`, then
-  `/yoke advance PREFIX-N implementation`, implementation and `/yoke polish`
-  per the live bindings, then that binding's merge boundary.
-- Blitz: `/yoke blitz PREFIX-N` after the strategy-document handoff.
-- Epic: the `/yoke shepherd`, `/yoke conduct`, and `/yoke usher` chain named
-  by the live bindings.
+The server parameterizes that shape from the item's pinned skill binding.
+`charge.schedule` returns its `next_step` and the rendered `entrypoint`; the
+launch mandate uses the same entrypoint mapping. Read
+`yoke workflows version get <workflow> <version> --json` for the ordered stages,
+transitions, and half-open skill intervals instead of copying a workflow chain.
 
 At every live stage, re-read `yoke workflows item get PREFIX-N` and follow its
 binding. If the next bound leg would create a deployment run, stop at the

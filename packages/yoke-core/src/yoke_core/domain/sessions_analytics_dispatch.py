@@ -219,9 +219,9 @@ def _resolve_resume_dispatch(
         # routing form) or a rendered public ref; resolve canonically so
         # items whose project sequence diverges from the internal id are
         # not mis-targeted.
-        from .item_ref_resolution import resolve_internal_item_id
+        from .item_ref_resolution import internal_item_key
 
-        item_num = resolve_internal_item_id(conn, item_id)
+        item_num = internal_item_key(conn, item_id)
         if item_num is not None:
             p = _p(conn)
             row = conn.execute(

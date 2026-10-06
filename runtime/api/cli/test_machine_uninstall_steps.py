@@ -1,6 +1,7 @@
 """Failure isolation, backup safety, and reuse of teardown surfaces."""
 
 from dataclasses import replace
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -126,3 +127,38 @@ def test_docker_discovery_failure_keeps_recovery_state(machine):
     assert value.config.is_file()
     assert ["ui", "down"] in calls
     assert not handoff
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {},
+        {"connections": {}},
+        {"github": {"api_url": "https://api.github.com"}, "connections": {}},
+    ],
+)
+def test_half_setup_skips_github_and_completes_removal(machine, payload):
+    value, calls, handoff = machine
+    value.config.write_text(json.dumps(payload))
+    value = replace(value, projects=(), relay_envs=(), local_universe=False, bundles=())
+    output = []
+    assert steps.remove(value, (), output.append) == 0
+    assert not any(args[:2] == ["github", "disconnect"] for args in calls)
+    assert any(line.startswith("GitHub: skipped (") for line in output)
+    assert not value.home.exists()
+    assert handoff == ["armed"]
+
+
+def test_configured_github_uses_existing_disconnect(machine):
+    value, calls, _ = machine
+    value.config.write_text(
+        json.dumps(
+            {
+                "github": {"api_url": "https://api.github.com"},
+                "active_env": "remote",
+                "connections": {"remote": {"transport": "https"}},
+            }
+        )
+    )
+    assert steps.remove(value, (), lambda _: None) == 0
+    assert ["github", "disconnect", "--config", str(value.config)] in calls

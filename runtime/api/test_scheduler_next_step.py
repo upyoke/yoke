@@ -16,7 +16,7 @@ from yoke_core.domain.scheduler import NextStep, _compute_next_step
         (AdapterCategory.REFINE, NextStep.REFINE),
         (AdapterCategory.SHEPHERD, NextStep.SHEPHERD),
         (AdapterCategory.CONDUCT, NextStep.CONDUCT),
-        (AdapterCategory.ADVANCE, NextStep.ADVANCE),
+        (AdapterCategory.IMPLEMENT, NextStep.IMPLEMENT),
         (AdapterCategory.BLITZ, NextStep.BLITZ),
         (AdapterCategory.DASH, NextStep.DASH),
         (AdapterCategory.POLISH, NextStep.POLISH),
@@ -132,7 +132,7 @@ class TestAdvanceFeasibilityProbeRewrite:
         self._seed(conn)
         try:
             result = _compute_next_step(
-                AdapterCategory.ADVANCE,
+                AdapterCategory.IMPLEMENT,
                 probe_path_claim_activation=True,
                 conn=conn,
                 item_id=42,
@@ -159,12 +159,12 @@ class TestAdvanceFeasibilityProbeRewrite:
             )
         try:
             result = _compute_next_step(
-                AdapterCategory.ADVANCE,
+                AdapterCategory.IMPLEMENT,
                 probe_path_claim_activation=True,
                 conn=conn,
                 item_id=42,
             )
-            assert result.next_step is NextStep.ADVANCE
+            assert result.next_step is NextStep.IMPLEMENT
             assert result.routing_override is None
         finally:
             conn.close()
@@ -172,10 +172,10 @@ class TestAdvanceFeasibilityProbeRewrite:
     def test_probe_is_not_run_without_definition_signal(self):
         conn = self._make_db()
         result = _compute_next_step(
-            AdapterCategory.ADVANCE,
+            AdapterCategory.IMPLEMENT,
             conn=conn,
             item_id=99,
         )
         conn.close()
-        assert result.next_step is NextStep.ADVANCE
+        assert result.next_step is NextStep.IMPLEMENT
         assert result.routing_override is None

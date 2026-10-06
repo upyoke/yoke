@@ -7,6 +7,7 @@ import sqlite3
 
 import pytest
 
+from yoke_core.domain.session_mode import set_session_mode
 from yoke_core.domain.session_item_stage_states import (
     active_stage_id,
     item_stage_states,
@@ -86,8 +87,10 @@ def test_landed_open_item_outranks_the_live_claim() -> None:
     )
 
 
-def _connection(*, status: str, holder_mode: str | None) -> sqlite3.Connection:
-    runtime = builtin_workflow_runtime("dash")
+def _connection(
+    *, status: str, holder_mode: str | None, workflow_id: str = "dash"
+) -> sqlite3.Connection:
+    runtime = builtin_workflow_runtime(workflow_id)
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
     conn.executescript(
@@ -118,12 +121,17 @@ def _connection(*, status: str, holder_mode: str | None) -> sqlite3.Connection:
     )
     conn.execute("INSERT INTO projects VALUES (1,'yoke','Yoke','YOK')")
     conn.execute(
-        "INSERT INTO workflow_versions VALUES (1,'dash',?,?,?)",
-        (runtime.version, json.dumps(runtime.definition), runtime.definition_digest),
+        "INSERT INTO workflow_versions VALUES (1,?,?,?,?)",
+        (
+            workflow_id,
+            runtime.version,
+            json.dumps(runtime.definition),
+            runtime.definition_digest,
+        ),
     )
     conn.execute(
-        "INSERT INTO items VALUES (7,1,20,?,0,NULL,NULL,NULL,'dash',1)",
-        (status,),
+        "INSERT INTO items VALUES (7,1,20,?,0,NULL,NULL,NULL,?,1)",
+        (status, workflow_id),
     )
     conn.execute("INSERT INTO harness_sessions VALUES ('s1','wait')")
     if holder_mode is not None:
@@ -290,3 +298,29 @@ def test_projection_keeps_launch_failure_without_live_holder() -> None:
         "state": "failed",
         "failure": "launch failed",
     }
+
+
+@pytest.mark.parametrize(
+    ("workflow_id", "mode", "handoff", "working_stage"),
+    (
+        ("issue", "implement", "refined-idea", "implementing"),
+        ("epic", "conduct", "planned", "implementing"),
+        ("blitz", "blitz", "refined-idea", "implementing"),
+    ),
+)
+def test_entry_mode_paints_the_claimed_bindings_first_working_stage(
+    workflow_id: str, mode: str, handoff: str, working_stage: str
+) -> None:
+    runtime = builtin_workflow_runtime(workflow_id)
+    conn = _connection(status=handoff, holder_mode="wait", workflow_id=workflow_id)
+    handoff_index = runtime.stage_index(handoff)
+    working_index = runtime.stage_index(working_stage)
+    before = primary_item_stages_by_session(conn, [{"session_id": "s1"}])["s1"]
+    assert before[handoff_index]["state"] == "active"
+
+    stamped = set_session_mode(conn, "s1", mode)
+    assert stamped["mode"] == mode
+    after = primary_item_stages_by_session(conn, [{"session_id": "s1"}])["s1"]
+    assert after[handoff_index]["state"] == "complete"
+    assert after[working_index]["state"] == "active"
+    assert [stage["state"] for stage in after].count("active") == 1

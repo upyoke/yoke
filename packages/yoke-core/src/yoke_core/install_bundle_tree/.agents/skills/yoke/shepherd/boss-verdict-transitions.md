@@ -21,70 +21,56 @@ Covers steps 5j, 5l, and 5m: verdict result routing (READY/CAVEATS/NOT_READY), p
 - Proceed to next transition.
 
 **NOT_READY:**
-- Increment attempt counter.
-- If `_attempt < MAX_ATTEMPTS`:
- - **Standalone mode:** Inform the user of the failure and Boss feedback. Ask whether to retry, force-pass, or abort.
- - **Subagent mode:** Automatically retry -- go back to step 5d (in the transition-specific sub-file) with `_attempt + 1` and `_boss_feedback` included in the prompt.
-- If `_attempt >= MAX_ATTEMPTS`:
- - **Standalone mode:** Inform the user. Offer options: (1) retry anyway, (2) force-pass with caveats, (3) abort.
- - **Subagent mode:** Write a BLOCKED verdict and return exit code 1:
- ```bash
- yoke shepherd verdict --item "PREFIX-$_num" --transition "$_transition" --worker "$_worker_name" --verdict "BLOCKED" --caveats "Max attempts ($MAX_ATTEMPTS) exceeded"
- ```
+- Increment the attempt and automatically retry with the Boss feedback while
+  `_attempt < MAX_ATTEMPTS`. Preserve failed-review evidence.
+- At the attempt limit persist BLOCKED, name the failed gate and recovery,
+  and stop. Operator decisions or waivers use their real authority surfaces;
+  there is no automatic force-pass.
 
-**Status target mapping:**
+**Status target:** `_target_stage` is this edge's declared target. Refresh the
+item status. If already there (the early planning stamp), verify the edge's
+review and continue. Otherwise dispatch `lifecycle.transition.execute` with
+`target = {kind: "item", item_id: $_num}` and
+`payload = {source_status: _source_stage, target_status: _target_stage}`.
+Refusal stops with its named reason and recovery. Re-read to verify success;
+never advance through another skill or substitute a literal stage id.
 
-| Transition | Target Status |
-|---|---|
-| `refined_idea_to_planning` | _(no-op — status already set to `planning` at start of design-and-plan.md step 0)_ |
-| `planning_to_plan_drafted` | `plan-drafted` |
-
-Update status (skip for `refined_idea_to_planning` — already set):
-```text
-if [ "$_transition" != "refined_idea_to_planning" ]; then
- invoke the Yoke advance skill for PREFIX-${_num} with target {target}
-fi
-```
-
-**Epic task status sync:** When `planning_to_plan_drafted` succeeds, cascade task statuses through the centralized owner:
-```bash
-if [ "$_transition" = "planning_to_plan_drafted" ]; then
- # Read the task list once, then for each row still at planning:
- yoke epic-tasks list --epic "$_num"
- yoke workflow-item epic-task update-status --epic "$_num" --task-num "{task_num}" --status plan-drafted
-fi
-```
+**Task plan completion:** After the final review edge succeeds, cascade tasks
+still in task status `planning` to task status `plan-drafted` through
+`workflow_item.epic_task.update_status`. These are the task-owner's statuses,
+not parent workflow stage ids. Read the task list once and update each
+eligible task; failures stop with the affected task and recovery named.
 
 ---
 
-## 5l. Post-Verdict Deployment Flow Extraction (refined_idea_to_planning only)
+## 5l. Post-Verdict Deployment Flow Extraction (plan-production edge)
 
-After a successful `refined_idea_to_planning` verdict (READY or CAVEATS) and status update, extract the deployment flow from the spec and write it to the `deployment_flow` column.
+After a successful the plan-production edge verdict (READY or CAVEATS) and status update, extract the deployment flow from the spec and write it to the `deployment_flow` column.
 
 This step fires **only** when:
-- `_transition` is `refined_idea_to_planning`
+- `_transition` is the plan-production edge
 - `_verdict` is `READY` or `CAVEATS`
 
 If either condition is not met, skip this step entirely.
 
 ```bash
-if [ "$_transition" = "refined_idea_to_planning" ] && { [ "$_verdict" = "READY" ] || [ "$_verdict" = "CAVEATS" ]; }; then
+if [ "$_transition" = "$_plan_transition" ] && { [ "$_verdict" = "READY" ] || [ "$_verdict" = "CAVEATS" ]; }; then
  # Read spec silently
- _dod_spec=$(yoke items get $_num spec 2>/dev/null)
+ _dod_spec=$(yoke items get "$_item_ref" spec 2>/dev/null)
  # Fallback to body for non-migrated items
  if [ -z "$_dod_spec" ]; then
- _dod_spec=$(yoke items get $_num body 2>/dev/null)
+ _dod_spec=$(yoke items get "$_item_ref" body 2>/dev/null)
  fi
  # FR-5: Re-read guard — if empty, retry once after 1s (defense-in-depth layer 3)
  if [ -z "$_dod_spec" ]; then
- echo "WARNING: spec read returned empty for PREFIX-$_num in deployment flow extraction — retrying after 1s" >&2
+ echo "WARNING: spec read returned empty for $_item_ref in deployment flow extraction — retrying after 1s" >&2
  sleep 1
- _dod_spec=$(yoke items get $_num spec 2>/dev/null)
+ _dod_spec=$(yoke items get "$_item_ref" spec 2>/dev/null)
  if [ -z "$_dod_spec" ]; then
- _dod_spec=$(yoke items get $_num body 2>/dev/null)
+ _dod_spec=$(yoke items get "$_item_ref" body 2>/dev/null)
  fi
  if [ -n "$_dod_spec" ]; then
- echo "RECOVERED: spec re-read succeeded for PREFIX-$_num in deployment flow extraction" >&2
+ echo "RECOVERED: spec re-read succeeded for $_item_ref in deployment flow extraction" >&2
  fi
  fi
 
@@ -100,13 +86,13 @@ if [ "$_transition" = "refined_idea_to_planning" ] && { [ "$_verdict" = "READY" 
  # Validate the flow ID exists in the deployment_flows table
  _flow_exists=$(yoke deployment-flows get "$_extracted_flow" id 2>/dev/null || true)
  if [ -n "$_flow_exists" ]; then
- yoke items scalar update "PREFIX-$_num" --field deployment_flow --value "$_extracted_flow"
- echo "Deployment flow set: $_extracted_flow for PREFIX-$_num"
+ yoke items scalar update "$_item_ref" --field deployment_flow --value "$_extracted_flow"
+ echo "Deployment flow set: $_extracted_flow for $_item_ref"
  else
  echo "WARNING: Extracted flow ID '$_extracted_flow' not found in deployment_flows table. Skipping deployment_flow update."
  fi
  else
- echo "NOTE: No deployment flow found in Definition of Done section for PREFIX-$_num. Skipping deployment_flow update."
+ echo "NOTE: No deployment flow found in Definition of Done section for $_item_ref. Skipping deployment_flow update."
  fi
 fi
 ```
@@ -115,22 +101,25 @@ fi
 
 ---
 
-## 5m. Post-Verdict QA Requirement Seeding (refined_idea_to_planning only)
+## 5m. Post-Verdict QA Requirement Seeding (plan-production edge)
 
-After a successful `refined_idea_to_planning` verdict (READY or CAVEATS) and status update, seed initial `qa_requirements` rows for the item. This ensures every epic has explicit QA requirements before implementation begins.
+After a successful the plan-production edge verdict (READY or CAVEATS) and status update, seed initial `qa_requirements` rows for the item. This ensures every epic has explicit QA requirements before implementation begins.
 
 This step fires **only** when:
-- `_transition` is `refined_idea_to_planning`
+- `_transition` is the plan-production edge
 - `_verdict` is `READY` or `CAVEATS`
 
 If either condition is not met, skip this step entirely.
 
 ```bash
-if [ "$_transition" = "refined_idea_to_planning" ] && { [ "$_verdict" = "READY" ] || [ "$_verdict" = "CAVEATS" ]; }; then
+if [ "$_transition" = "$_plan_transition" ] && { [ "$_verdict" = "READY" ] || [ "$_verdict" = "CAVEATS" ]; }; then
+ # Resolve _qa_verification_stage from the first stage after this binding
+ # with board_bucket=reviewing and gate qa_verification. Absence stops with
+ # shepherd_qa_anchor_unavailable; publish a definition with that review gate.
  # 1. Read ACs from spec (silently pattern)
- _qa_seed_spec=$(yoke items get $_num spec 2>/dev/null)
+ _qa_seed_spec=$(yoke items get "$_item_ref" spec 2>/dev/null)
  if [ -z "$_qa_seed_spec" ]; then
- _qa_seed_spec=$(yoke items get $_num body 2>/dev/null)
+ _qa_seed_spec=$(yoke items get "$_item_ref" body 2>/dev/null)
  fi
 
  # 2. Extract AC lines
@@ -144,10 +133,10 @@ if [ "$_transition" = "refined_idea_to_planning" ] && { [ "$_verdict" = "READY" 
  *'- [ ] AC-'*|*'- [ ] '*)
  _ac_desc=$(printf '%s' "$_ac_line" | sed 's/^.*\- \[ \] //')
  yoke qa requirement add \
- --item "PREFIX-$_num" \
+ --item "$_item_ref" \
  --qa-kind "ac_verification" \
  --qa-phase "verification" \
- --workflow-transition "reviewed-implementation" \
+ --workflow-transition "$_qa_verification_stage" \
  --blocking-mode "blocking" \
  --requirement-source "ac_derived" \
  --success-policy "$_ac_desc" >/dev/null 2>&1 || true
@@ -160,16 +149,16 @@ if [ "$_transition" = "refined_idea_to_planning" ] && { [ "$_verdict" = "READY" 
  _qa_existing_count=$(yoke db read --format lines "SELECT COUNT(*) FROM qa_requirements WHERE item_id=$_num" 2>/dev/null) || true
  if [ -z "$_qa_existing_count" ] || [ "$_qa_existing_count" = "0" ]; then
  yoke qa requirement add \
- --item "PREFIX-$_num" \
+ --item "$_item_ref" \
  --qa-kind "implementation_review" \
  --qa-phase "verification" \
- --workflow-transition "reviewed-implementation" \
+ --workflow-transition "$_qa_verification_stage" \
  --blocking-mode "blocking" \
  --requirement-source "seeded_default" \
  --success-policy "Implementation matches the item spec" >/dev/null 2>&1 || true
  fi
 
- echo "QA: Seeded requirements for PREFIX-$_num at refined_idea_to_planning"
+ echo "QA: Seeded requirements for $_item_ref at $_transition"
  unset _qa_seed_spec _qa_seed_acs _qa_batch_payload
 fi
 ```

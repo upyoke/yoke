@@ -38,6 +38,7 @@ from yoke_core.api.main import app
 _SCHEMA = """
 CREATE TABLE items (
     id INTEGER PRIMARY KEY,
+    workflow_id TEXT, project_id INTEGER,
     spec TEXT, updated_at TEXT, spec_updated_at TEXT, spec_updated_by TEXT
 );
 CREATE TABLE item_sections (
@@ -124,8 +125,7 @@ def _patch_db(test: unittest.TestCase, db: _FakeDB) -> None:
         test.addCleanup(patcher.stop)
 
 
-def _envelope(function_id: str, *, item_id: int = 101, section_name: str,
-              **overrides):
+def _envelope(function_id: str, *, item_id: int = 101, section_name: str, **overrides):
     base = {
         "function": function_id,
         "version": "v1",
@@ -153,20 +153,21 @@ class _ApiSuite(unittest.TestCase):
         # Postgres the binding is inert and init_test_db keeps YOKE_PG_DSN
         # repointed at the per-test database for the context.
         with init_test_db(tmp_path, apply_schema=_apply_schema) as db_path:
-            with mock.patch.dict(
-                os.environ, {"YOKE_DB": db_path}, clear=False
-            ):
+            with mock.patch.dict(os.environ, {"YOKE_DB": db_path}, clear=False):
                 reset_registry_for_tests()
                 register_all_handlers()
-                self._event_patch = mock.patch.object(
-                    events_module, "emit_event")
+                self._event_patch = mock.patch.object(events_module, "emit_event")
                 self._event_patch.start()
                 self._idem_patch = mock.patch.object(
-                    dispatch_module, "_idempotency_lookup", return_value=None,
+                    dispatch_module,
+                    "_idempotency_lookup",
+                    return_value=None,
                 )
                 self._idem_patch.start()
                 self._claim_patch = mock.patch.object(
-                    dispatch_module, "verify_claim", return_value=None,
+                    dispatch_module,
+                    "verify_claim",
+                    return_value=None,
                 )
                 self._claim_patch.start()
                 self.db = _FakeDB(db_path)
@@ -191,7 +192,8 @@ class TestSectionUpsertRoute(_ApiSuite):
     def test_upsert_inserts_section_row(self) -> None:
         self.db.insert_item(101, spec="x\n")
         env = _envelope(
-            "items.section.upsert", section_name="Notes",
+            "items.section.upsert",
+            section_name="Notes",
             payload={"content": "note body\n", "ordering": 200},
         )
         resp = self.client.post("/v1/functions/call", json=env)
@@ -205,7 +207,8 @@ class TestSectionUpsertRoute(_ApiSuite):
         self.db.insert_item(101, spec="x\n")
         # First write
         env = _envelope(
-            "items.section.upsert", section_name="Notes",
+            "items.section.upsert",
+            section_name="Notes",
             payload={"content": "first\n"},
         )
         self.client.post("/v1/functions/call", json=env)
@@ -218,7 +221,8 @@ class TestSectionUpsertRoute(_ApiSuite):
     def test_empty_content_rejected(self) -> None:
         self.db.insert_item(101, spec="x\n")
         env = _envelope(
-            "items.section.upsert", section_name="Notes",
+            "items.section.upsert",
+            section_name="Notes",
             payload={"content": ""},
         )
         resp = self.client.post("/v1/functions/call", json=env)
@@ -232,7 +236,8 @@ class TestSectionUpsertRoute(_ApiSuite):
         """A section name that collides with a structured field is refused."""
         self.db.insert_item(101, spec="x\n")
         env = _envelope(
-            "items.section.upsert", section_name="spec",
+            "items.section.upsert",
+            section_name="spec",
             payload={"content": "body"},
         )
         resp = self.client.post("/v1/functions/call", json=env)
@@ -244,13 +249,15 @@ class TestSectionDeleteRoute(_ApiSuite):
         self.db.insert_item(101, spec="x\n")
         # Insert first
         env_up = _envelope(
-            "items.section.upsert", section_name="Notes",
+            "items.section.upsert",
+            section_name="Notes",
             payload={"content": "body\n"},
         )
         self.client.post("/v1/functions/call", json=env_up)
         # Delete
         env = _envelope(
-            "items.section.delete", section_name="Notes",
+            "items.section.delete",
+            section_name="Notes",
             payload={},
         )
         resp = self.client.post("/v1/functions/call", json=env)
@@ -263,7 +270,8 @@ class TestSectionDeleteRoute(_ApiSuite):
     def test_delete_missing_section_succeeds_with_deleted_false(self) -> None:
         self.db.insert_item(101, spec="x\n")
         env = _envelope(
-            "items.section.delete", section_name="DoesNotExist",
+            "items.section.delete",
+            section_name="DoesNotExist",
             payload={},
         )
         resp = self.client.post("/v1/functions/call", json=env)
@@ -277,12 +285,14 @@ class TestSectionGetRoute(_ApiSuite):
     def test_get_returns_content(self) -> None:
         self.db.insert_item(101, spec="x\n")
         env_up = _envelope(
-            "items.section.upsert", section_name="Notes",
+            "items.section.upsert",
+            section_name="Notes",
             payload={"content": "note body\n"},
         )
         self.client.post("/v1/functions/call", json=env_up)
         env = _envelope(
-            "items.section.get", section_name="Notes",
+            "items.section.get",
+            section_name="Notes",
             payload={},
         )
         resp = self.client.post("/v1/functions/call", json=env)
@@ -295,7 +305,8 @@ class TestSectionGetRoute(_ApiSuite):
     def test_get_missing_returns_404_code(self) -> None:
         self.db.insert_item(101, spec="x\n")
         env = _envelope(
-            "items.section.get", section_name="DoesNotExist",
+            "items.section.get",
+            section_name="DoesNotExist",
             payload={},
         )
         resp = self.client.post("/v1/functions/call", json=env)

@@ -138,7 +138,7 @@ class TestLifecycleDoc:
 class TestCommandsDoc:
     """Commands.md must match the live refine/polish skills and
     must not present YOKE_SUPPORTED_PATHS as an active Yoke-owned harness
-    input for /yoke do."""
+    input for session-offer."""
 
     @pytest.fixture
     def text(self) -> str:
@@ -295,9 +295,8 @@ class TestCodexCapabilityDocs:
         entrypoints = shared_entrypoints()
         expected = {
             "/yoke idea",
-            "/yoke do",
             "/yoke refine",
-            "/yoke advance",
+            "/yoke implement",
             "/yoke polish",
             "/yoke usher",
         }
@@ -309,7 +308,7 @@ class TestCodexCapabilityDocs:
         supports = manifest.get("supports", {})
         assert "downstream_paths" not in supports
         paths = shared_downstream_paths()
-        expected = {"shepherd", "refine", "advance", "polish", "usher"}
+        expected = {"shepherd", "refine", "implement", "polish", "usher"}
         assert expected.issubset(set(paths)), (
             f"shared registry must advertise {expected} downstream paths, got {paths}"
         )
@@ -323,7 +322,7 @@ class TestCodexCapabilityDocs:
 
     def test_overview_does_not_claim_two_entrypoints(self):
         text = _read(DOCS / "OVERVIEW.md")
-        # Catch wording like "two entrypoints (/yoke idea, /yoke do)".
+        # Catch wording like "two entrypoints (/yoke idea, session-offer)".
         assert not re.search(
             r"two\s+entrypoints\s*\(\s*`?/yoke idea`?", text, re.IGNORECASE
         ), "OVERVIEW.md still claims Codex has only two entrypoints"

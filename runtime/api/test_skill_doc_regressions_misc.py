@@ -150,11 +150,9 @@ class TestSameSessionWorktreeScopeDocs:
             "commands": REPO / ".yoke" / "docs" / "reference" / "commands.md",
             "harness": REPO / "docs" / "harness-substrate.md",
             "lifecycle": REPO / ".yoke" / "docs" / "reference" / "lifecycle.md",
-            "advance": SKILLS / "advance" / "SKILL.md",
-            "advance_worktree": SKILLS / "advance" / "worktree.md",
+            "implement": SKILLS / "implement" / "SKILL.md",
+            "implement_worktree": SKILLS / "implement" / "worktree.md",
             "conduct": SKILLS / "conduct" / "SKILL.md",
-            "do_routing": SKILLS / "do" / "loop-routing.md",
-            "do_followups": SKILLS / "do" / "loop-followups.md",
         }
 
     def test_shared_docs_teach_claim_based_authority(self, docs):
@@ -169,14 +167,14 @@ class TestSameSessionWorktreeScopeDocs:
             assert "work-claim" in text or "work_claims" in text, key
             assert "SessionExecutionScopeChanged" not in text, key
 
-    def test_advance_docs_describe_same_session_continuation(self, docs):
-        text = _read(docs["advance"])
-        worktree = _read(docs["advance_worktree"])
+    def test_implement_docs_describe_same_session_continuation(self, docs):
+        text = _read(docs["implement"])
+        worktree = _read(docs["implement_worktree"])
         # The durable markers under the claim-based authority model are
         # "same harness session" + the absence of any "manual relaunch".
         assert "same harness session" in text
         assert "no manual relaunch" in worktree or "no relaunch" in worktree
-        # The legacy event name no longer appears in advance prose.
+        # The legacy event name no longer appears in implement prose.
         assert "SessionExecutionScopeChanged" not in worktree
         assert "SessionExecutionScopeChanged" not in text
 
@@ -184,15 +182,6 @@ class TestSameSessionWorktreeScopeDocs:
         text = _read(docs["conduct"])
         assert "same-session" in text or "same harness session" in text
         assert "no manual relaunch" in text
-
-    def test_do_routing_no_worktree_handoff_terminator(self, docs):
-        text = _read(docs["do_routing"])
-        assert "worktree-handoff" not in text
-        assert "Do not re-offer" not in text
-
-    def test_do_followups_no_session_end_for_worktree_scope_movement(self, docs):
-        text = _read(docs["do_followups"])
-        assert "worktree-handoff" not in text
 
 
 class TestWorktreeHandoffEmittedRetired:
@@ -284,14 +273,3 @@ class TestPortableOwnerReferences:
         assert "They do not drain claims." in text
         assert "item-worktree auto-commit" in text
         assert "HarnessSessionStopped" in text
-
-    def test_do_wait_reports_runnable_elsewhere_payload(self):
-        text = _read(REPO / ".agents/skills/yoke/do/loop-routing-wait.md")
-        start = text.index("**Runnable-elsewhere branch.**")
-        end = text.index("**Lane-filtered branch.**")
-        branch = text[start:end]
-        for (
-            field
-        ) in "runnable_elsewhere group.project group.public_refs checkout_path".split():
-            assert field in branch
-        assert "No actionable work exists" not in branch

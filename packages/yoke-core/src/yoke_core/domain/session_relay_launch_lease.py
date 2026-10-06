@@ -30,8 +30,6 @@ def _lock(conn: Any, alias: str) -> str:
 def _candidate_launch_id(
     conn: Any,
     heartbeat: RelayHeartbeat,
-    *,
-    now: str,
 ) -> str | None:
     p = marker(conn)
     projects = tuple(sorted({int(value) for value in heartbeat.project_ids}))
@@ -43,13 +41,12 @@ def _candidate_launch_id(
         "SELECT l.launch_id FROM session_launches l "
         "WHERE l.state='assigned' "
         f"AND l.assigned_relay_id={p} AND l.assigned_machine_id={p} "
-        f"AND l.deadline_at>{p} AND l.project_id IN ({project_slots}) "
+        f"AND l.project_id IN ({project_slots}) "
         f"AND l.selected_surface IN ({surface_slots}) "
         "ORDER BY l.created_at,l.launch_id LIMIT 1" + _lock(conn, "l"),
         (
             heartbeat.relay_id,
             heartbeat.machine_id,
-            now,
             *projects,
             *sorted(heartbeat.surface_versions),
         ),
@@ -99,7 +96,7 @@ def claim_next_launch(
     if resume_at is not None:
         _hold_assigned_launches(conn, heartbeat, resume_at=resume_at)
         return ()
-    launch_id = _candidate_launch_id(conn, heartbeat, now=now)
+    launch_id = _candidate_launch_id(conn, heartbeat)
     if launch_id is None:
         return ()
     from yoke_core.domain.session_launch_execution import claim_assigned_launch

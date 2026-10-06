@@ -44,7 +44,6 @@ from yoke_cli.commands.adapters.source_dev_run import (
 )
 from yoke_cli.commands.adapters.runner_fleet import runner_fleet_exec
 from yoke_cli.commands.adapters.pulumi import pulumi_exec
-from yoke_cli.commands.adapters.vps import vps_start, vps_status, vps_stop
 from yoke_cli.commands.git_hook import AdapterFn
 from yoke_cli.commands.flag_adapters import (
     dev_db_admin_setup,
@@ -88,23 +87,11 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     ("pulumi", "exec"): pulumi_exec,
     ("update",): update,
     ("uninstall",): uninstall,
-    ("vps", "status"): vps_status,
-    ("vps", "stop"): vps_stop,
-    ("vps", "start"): vps_start,
 }
 
 TOOL_SHAPED_USAGE: Dict[str, str] = {
     "yoke wsl setup": WSL_SETUP_USAGE,
     "yoke config distribution set": DISTRIBUTION_SET_USAGE,
-    "yoke vps status": (
-        "yoke vps status --stack STACK [--project PROJECT] [--region REGION]"
-    ),
-    "yoke vps stop": (
-        "yoke vps stop --stack STACK [--project PROJECT] [--region REGION]"
-    ),
-    "yoke vps start": (
-        "yoke vps start --stack STACK [--project PROJECT] [--region REGION]"
-    ),
     "yoke aws admin-link": "yoke aws admin-link [--project PROJECT] [--region REGION]",
     "yoke aws admin-status": "yoke aws admin-status [--project PROJECT] [--json]",
     "yoke aws exec": "yoke aws exec [--project PROJECT] [--region REGION] -- <aws-args>",

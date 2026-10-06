@@ -10,7 +10,7 @@ Check that `epic_tasks` rows exist for this epic in the DB:
 _task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='{epic-id}'")
 ```
 
-If `_task_count` is `0`, tell the operator to run `/yoke plan {epic-id}` first.
+If `_task_count` is `0`, tell the operator to run `/yoke shepherd {epic-id}` first.
 
 ## 2. Auto-Detect Simulation Phase
 
@@ -109,15 +109,26 @@ after confirming the hook did not capture the response.
 
 ## 6. Save The Gap Report To DB
 
-Write the Simulator's gap report via `simulation-upsert`:
+For direct Simulate, write the report through the registered adapter:
 
-```bash
-echo "{gap_report_content}" | yoke workflow-item epic-task simulation-upsert --epic "{epic-id}" --phase {phase} --stdin
+```text
+yoke workflow-item epic-task simulation-upsert --epic <epic-id> --phase <phase> --stdin < <report-file>
 ```
 
-Where `{phase}` is `plan` or `integration`.
+For retained `caller=conduct` integration context, use the internal
+`persist_simulation` boundary already used by Conduct's simulation gate:
 
-Write the report even if the result is clean.
+```text
+python3 -m yoke_core.domain.persist_simulation <epic-id> integration < <report-file>
+```
+
+This boundary verifies the two-line `SIMULATION:` / `EPIC:` attestation,
+records integration evidence, and performs the authoritative CLEAN handoff.
+Keep the internal id separate from the resolved public ref in that report.
+Read the exit status and persisted verdict. Any failure stops with its exact
+diagnostic and recovery; exit 16/17 are identity failures, not fixable gaps.
+Write the report even when clean. Never report a local verdict as persisted
+when the write failed.
 
 ## 7. Parse And Display Summary
 
@@ -143,4 +154,7 @@ Clean simulation. Safe to proceed.
 Report stored in DB. To read: `yoke workflow-item epic-task simulation-get --epic "{epic-id}" --phase "{phase}"`.
 ```
 
-If `[CRITICAL]` or `[WARNING]` gaps remain and the operator wants auto-fix, continue with [autofix-loop.md](autofix-loop.md).
+If `[CRITICAL]` or `[WARNING]` gaps remain and auto-fix is approved or
+`--auto-fix` is set, continue with [autofix-loop.md](autofix-loop.md).
+When this was a re-simulation requested by that loop, return the persisted
+report and verdict to the existing iteration instead of starting another loop.

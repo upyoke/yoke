@@ -28,6 +28,9 @@ If no `--item` flag:
 
 ## 5. Confirm with operator
 
+Before confirmation, require the selected item's non-empty `entrypoint`.
+If it is unavailable, use the diagnosed refusal and recovery in step 6.
+
 Present the selected item and its dispatch target:
 
 ```
@@ -35,11 +38,11 @@ Selected: {item_id} — {title}
  Status: {status}
  Adapter: {adapter}
  Next step: {next_step}
- Action: Will invoke /yoke {next_step} {item_id}
+ Action: Will invoke {entrypoint}
 ```
 
 Ask the operator to confirm. Use the following options:
-- "Yes, dispatch to /yoke {next_step} {item_id}"
+- "Yes, dispatch to {entrypoint}"
 - "Pick a different item (specify PREFIX-N)"
 - "Cancel — do not dispatch"
 
@@ -63,34 +66,20 @@ Where `{item_id}`, `{next_step}`, and `{adapter}` are from the selected item (if
 
 ## 6. Dispatch to downstream skill
 
-Based on the confirmed item's `next_step` field, dispatch as follows. The
-`next_step` value is the dispatch truth from the pinned workflow binding. The
-raw frontier category (`adapter`) remains available for ranking diagnostics
-but is NOT used for routing.
+Use the confirmed item's `entrypoint` from `charge.schedule`. It is rendered
+by the same mapping that composes item launch mandates, from the scheduler's
+binding-derived `next_step` and the true public item ref. Read and follow the
+skill named by that command, passing its returned arguments unchanged. The
+raw frontier category (`adapter`) is for ranking diagnostics.
 
-### `refine`
-Invoke `/yoke refine {item_id}` by reading and following `.agents/skills/yoke/refine/SKILL.md`, passing `{item_id}` as the argument.
-
-### `shepherd`
-Invoke `/yoke shepherd {item_id}` by reading and following `.agents/skills/yoke/shepherd/SKILL.md`, passing `{item_id}` as the argument.
-
-### `conduct`
-Invoke `/yoke conduct {item_id}` by reading and following `.agents/skills/yoke/conduct/SKILL.md`, passing `{item_id}` as the argument.
-
-### `advance`
-Invoke `/yoke advance {item_id} implementation` by reading and following `.agents/skills/yoke/advance/SKILL.md`, passing `{item_id}` and `implementation` as arguments. This is the issue main-session implementation path — the scheduler routes issues at implementation-eligible statuses here instead of through `conduct`.
-
-### `dash`
-Invoke `/yoke dash {item_id}` by reading and following `.agents/skills/yoke/dash/SKILL.md`, passing `{item_id}` as the argument. The stored instruction is the complete scope; Dash runs survey, worktree, verification, merge, and evidence in this session.
-
-### `blitz`
-Invoke `/yoke blitz {item_id}` by reading and following `.agents/skills/yoke/blitz/SKILL.md`, passing `{item_id}` as the argument. Blitz executes the item's single linked execution strategy document.
-
-### `polish`
-Invoke `/yoke polish {item_id}` by reading and following `.agents/skills/yoke/polish/SKILL.md`, passing `{item_id}` as the argument.
-
-### `usher`
-Invoke `/yoke usher {item_id}` by reading and following `.agents/skills/yoke/usher/SKILL.md`, passing `{item_id}` as the argument.
+If `entrypoint` is absent or null for a non-`wait` step, stop with
+`entrypoint_unavailable` and the item and `next_step` named. Re-read
+`yoke workflows item get PREFIX-N --json` and
+`yoke workflows version get <workflow> <version> --json`, then refresh
+`yoke charge schedule --item PREFIX-N --json` against a serving build that
+exposes the entrypoint. Do not reconstruct the command from a copied table.
+An older serving response may omit this field; that is a diagnosed refusal,
+not permission to invent a route.
 
 ### `wait`
 This should not appear in the assignable Runnable table. If encountered, report:

@@ -9,66 +9,33 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ValidationError
+from yoke_core.domain.handlers.execution_instruction_models import (
+    InstructionCreateRequest,
+    InstructionUpdateRequest,
+    InstructionSetScopeRequest,
+    InstructionListRequest,
+    InstructionResolveRequest,
+    InstructionDeleteRequest,
+    InstructionIdResponse,
+    InstructionListResponse,
+    InstructionResolveResponse,
+)
 
 from yoke_core.domain import events as _events
 from yoke_core.domain import workflow_execution_instructions as _instructions
+from yoke_core.domain.execution_instruction_delivery import delivery_options
+from yoke_core.domain.execution_instruction_projection import resolve_projection
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
     HandlerOutcome,
 )
-from yoke_contracts.read_detail import DETAIL_SUMMARY, ReadDetail
 
 INSTRUCTION_CREATED_EVENT = "WorkflowExecutionInstructionCreated"
 INSTRUCTION_UPDATED_EVENT = "WorkflowExecutionInstructionUpdated"
 INSTRUCTION_SCOPE_SET_EVENT = "WorkflowExecutionInstructionScopeSet"
 INSTRUCTION_DELETED_EVENT = "WorkflowExecutionInstructionDeleted"
-
-
-class InstructionCreateRequest(BaseModel):
-    content: str = Field(..., min_length=1)
-
-
-class InstructionUpdateRequest(BaseModel):
-    instruction_id: int = Field(..., gt=0)
-    content: str = Field(..., min_length=1)
-
-
-class InstructionSetScopeRequest(BaseModel):
-    instruction_id: int = Field(..., gt=0)
-    applies_to_all_workflows: bool = False
-    workflow_ids: list[str] = Field(default_factory=list)
-    applies_to_all_projects: bool = False
-    project_ids: list[int] = Field(default_factory=list)
-
-
-class InstructionListRequest(BaseModel):
-    pass
-
-
-class InstructionResolveRequest(BaseModel):
-    workflow: str = Field(..., min_length=1)
-    project: str = Field(..., min_length=1)
-    #: ``full`` serves the prose a filer must read and obey.
-    detail: ReadDetail = DETAIL_SUMMARY
-
-
-class InstructionDeleteRequest(BaseModel):
-    instruction_id: int = Field(..., gt=0)
-
-
-class InstructionIdResponse(BaseModel):
-    instruction_id: int
-
-
-class InstructionListResponse(BaseModel):
-    instructions: list[dict[str, Any]]
-
-
-class InstructionResolveResponse(BaseModel):
-    execution_instructions: list[dict[str, Any]]
-    detail: ReadDetail = DETAIL_SUMMARY
 
 
 def _error(code: str, message: str, jsonpath: str | None = None) -> HandlerOutcome:
@@ -85,7 +52,9 @@ def _numeric_actor_id(actor_id: Any) -> int | None:
         return None
 
 
-def _emit(event_name: str, request: FunctionCallRequest, context: Dict[str, Any]) -> None:
+def _emit(
+    event_name: str, request: FunctionCallRequest, context: Dict[str, Any]
+) -> None:
     _events.emit_event(
         event_name,
         event_kind="workflow",
@@ -117,7 +86,10 @@ def handle_instruction_create(request: FunctionCallRequest) -> HandlerOutcome:
                 conn,
                 content=payload.content,
                 actor_id=_numeric_actor_id(request.actor.actor_id),
+                delivery=payload.delivery_changes(),
             )
+        except ValidationError as exc:
+            return _error("delivery_invalid", str(exc), "$.payload")
         except _instructions.EmptyExecutionInstructionError as exc:
             return _error("empty_content_refused", str(exc))
         conn.commit()
@@ -140,9 +112,12 @@ def handle_instruction_update(request: FunctionCallRequest) -> HandlerOutcome:
                 payload.instruction_id,
                 content=payload.content,
                 actor_id=_numeric_actor_id(request.actor.actor_id),
+                delivery=payload.delivery_changes(),
             )
         except _instructions.UnknownExecutionInstructionError as exc:
             return _error("not_found", str(exc))
+        except ValidationError as exc:
+            return _error("delivery_invalid", str(exc), "$.payload")
         except _instructions.EmptyExecutionInstructionError as exc:
             return _error("empty_content_refused", str(exc))
         conn.commit()
@@ -173,9 +148,12 @@ def handle_instruction_set_scope(request: FunctionCallRequest) -> HandlerOutcome
                 applies_to_all_projects=payload.applies_to_all_projects,
                 project_ids=payload.project_ids,
                 actor_id=_numeric_actor_id(request.actor.actor_id),
+                delivery=payload.delivery_changes(),
             )
         except _instructions.UnknownExecutionInstructionError as exc:
             return _error("not_found", str(exc))
+        except ValidationError as exc:
+            return _error("delivery_invalid", str(exc), "$.payload")
         conn.commit()
     _emit(
         INSTRUCTION_SCOPE_SET_EVENT,
@@ -203,7 +181,11 @@ def handle_instruction_list(request: FunctionCallRequest) -> HandlerOutcome:
     with connect() as conn:
         instructions = _instructions.list_instructions(conn)
     return HandlerOutcome(
-        result_payload={"instructions": instructions}, primary_success=True
+        result_payload={
+            "instructions": instructions,
+            "delivery_options": delivery_options(),
+        },
+        primary_success=True,
     )
 
 
@@ -220,13 +202,19 @@ def handle_instruction_resolve(request: FunctionCallRequest) -> HandlerOutcome:
         except LookupError as exc:
             return _error("not_found", str(exc), "$.payload.project")
         instructions = _instructions.resolve_execution_instructions(
-            conn, workflow_id=payload.workflow, project_id=project_id
+            conn,
+            workflow_id=payload.workflow,
+            project_id=project_id,
+            delivery_point=payload.delivery_point,
+            stage_bucket=payload.stage_bucket,
         )
-    served = _instructions.resolve_projection(
+    served = resolve_projection(
         instructions,
         workflow=payload.workflow,
         project=payload.project,
         detail=payload.detail,
+        delivery_point=payload.delivery_point,
+        stage_bucket=payload.stage_bucket,
     )
     return HandlerOutcome(
         result_payload={"execution_instructions": served, "detail": payload.detail},

@@ -1,22 +1,8 @@
-"""Read-only frontier projection: what runs next and what waits on what.
+"""Read-only frontier projection from one scheduler pass.
 
-The read behind ``frontier.list``: two row families rendered from one
-:func:`yoke_core.domain.scheduler.compute_schedule` pass with
-``emit_events=False`` (a poll must not write an event row per refresh).
-
-* ``ready_rows`` — the ranked runnable steps, each carrying the engine's
-  own rank (never a display index), the routed next-step verb, a
-  copyable ``run_command``, and a ``why_ready`` sentence composed here
-  from the computed facts (activation gates clear, claim state, WIP
-  headroom for conduct steps, downstream leverage).
-* ``blocked_rows`` — one row per unsatisfied dependency edge, across all
-  three gate points. Activation edges come from the schedule's blocked
-  steps; integration and closure edges are evaluated separately because
-  the frontier computation only enforces activation, so an item gated
-  solely by a later-landing edge is runnable *and* still owes that edge
-  a visible row. Non-edge waits (operator blocks, incomplete idea
-  bodies) render with an empty ``blocking_item``/``gate_point`` so the
-  waiting item is never silently absent.
+Ready rows carry ranks, routed commands, and readiness reasons. Blocked rows
+cover unsatisfied activation, integration, and closure dependencies, plus
+operator blocks and incomplete bodies. Polling does not emit events.
 """
 
 from __future__ import annotations
@@ -144,7 +130,9 @@ def _item_route_facts(
             "project_id": int(row["project_id"]),
             "project_sequence": sequence,
             "public_ref": format_item_ref(
-                row["slug"], row["public_item_prefix"], sequence,
+                row["slug"],
+                row["public_item_prefix"],
+                sequence,
             ),
         }
     return facts
@@ -184,12 +172,8 @@ def _blocked_row(
         "project_id": item_route["project_id"],
         "project_sequence": item_route["project_sequence"],
         "blocking_item": detail.blocking_item,
-        "blocking_project_id": (
-            blocking_route or {}
-        ).get("project_id"),
-        "blocking_project_sequence": (
-            blocking_route or {}
-        ).get("project_sequence"),
+        "blocking_project_id": (blocking_route or {}).get("project_id"),
+        "blocking_project_sequence": (blocking_route or {}).get("project_sequence"),
         "gate_point": detail.gate_point,
         "why": _compose_edge_why(detail.reason, detail.rationale),
         "satisfaction": detail.satisfaction,
@@ -205,13 +189,14 @@ def list_frontier(
     """Project the frontier for one project or every registered project.
 
     ``project`` omitted resolves to the all-projects default (the same
-    scope rule ``/yoke do`` uses). Unknown projects raise ``ValueError``
+    scope rule ``session-offer`` uses). Unknown projects raise ``ValueError``
     naming the registered set.
     """
     conn = db_helpers.connect()
     try:
         scope = resolve_session_project_scope(
-            conn, override=[project] if project else None,
+            conn,
+            override=[project] if project else None,
         )
         schedule_kwargs: Dict[str, Any] = {"emit_events": False}
         if wip_cap is not None:
@@ -241,7 +226,9 @@ def list_frontier(
             )
         for gate_point in _LATER_GATE_POINTS:
             gate_blocks = evaluate_batch_gates(
-                conn, gate_point=gate_point, emit_events=False,
+                conn,
+                gate_point=gate_point,
+                emit_events=False,
             )
             dependent_ids = internal_ids_for_refs(conn, gate_blocks.keys())
             for dependent_item in sorted(gate_blocks):
@@ -251,11 +238,14 @@ def list_frontier(
                 for detail in gate_blocks[dependent_item]:
                     blocked_specs.append((step, detail))
 
-        blocking_ids = internal_ids_for_refs(conn, (
-            detail.blocking_item
-            for _step, detail in blocked_specs
-            if detail is not None and detail.blocking_item
-        ))
+        blocking_ids = internal_ids_for_refs(
+            conn,
+            (
+                detail.blocking_item
+                for _step, detail in blocked_specs
+                if detail is not None and detail.blocking_item
+            ),
+        )
         route_facts = _item_route_facts(
             conn,
             set(tracked_steps) | set(blocking_ids.values()),
@@ -264,51 +254,57 @@ def list_frontier(
             item_id: str(route_facts[item_id]["public_ref"])
             for item_id in tracked_steps
         }
-        conduct_eligible_ids = {
-            step.item_id for step in schedule.conduct_eligible
-        }
+        conduct_eligible_ids = {step.item_id for step in schedule.conduct_eligible}
         ready_rows: List[Dict[str, Any]] = []
         for step in schedule.ranked_steps:
             public_ref = public_refs[step.item_id]
-            ready_rows.append({
-                "rank": step.rank,
-                "item_id": public_ref,
-                "title": step.title,
-                "workflow_id": step.workflow_id,
-                "workflow_version": step.workflow_version,
-                "project": step.project,
-                "project_id": route_facts[step.item_id]["project_id"],
-                "project_sequence": route_facts[step.item_id]["project_sequence"],
-                "status": step.status,
-                "stage_index": step.stage_index,
-                "stage_count": step.stage_count,
-                "stage_label": step.stage_label,
-                "priority": step.priority,
-                "next_step": step.next_step.value,
-                "run_command": f"yoke {step.next_step.value} {public_ref}",
-                "why_ready": _compose_why_ready(
-                    step,
-                    conduct_eligible_ids=conduct_eligible_ids,
-                    wip_cap=schedule.wip_cap,
-                    wip_active=schedule.wip_active,
-                ),
-                "unblocks_count": step.unblocks_count,
-                "downstream_depth": step.downstream_depth,
-                "created_at": step.created_at,
-            })
+            ready_rows.append(
+                {
+                    "rank": step.rank,
+                    "item_id": public_ref,
+                    "title": step.title,
+                    "workflow_id": step.workflow_id,
+                    "workflow_version": step.workflow_version,
+                    "project": step.project,
+                    "project_id": route_facts[step.item_id]["project_id"],
+                    "project_sequence": route_facts[step.item_id]["project_sequence"],
+                    "status": step.status,
+                    "stage_index": step.stage_index,
+                    "stage_count": step.stage_count,
+                    "stage_label": step.stage_label,
+                    "priority": step.priority,
+                    "next_step": step.next_step.value,
+                    "run_command": f"yoke {step.next_step.value} {public_ref}",
+                    "why_ready": _compose_why_ready(
+                        step,
+                        conduct_eligible_ids=conduct_eligible_ids,
+                        wip_cap=schedule.wip_cap,
+                        wip_active=schedule.wip_active,
+                    ),
+                    "unblocks_count": step.unblocks_count,
+                    "downstream_depth": step.downstream_depth,
+                    "created_at": step.created_at,
+                }
+            )
 
         blocked_rows: List[Dict[str, Any]] = []
         for step, detail in blocked_specs:
-            blocking_route = None if detail is None else route_facts.get(
-                blocking_ids.get(detail.blocking_item, -1),
+            blocking_route = (
+                None
+                if detail is None
+                else route_facts.get(
+                    blocking_ids.get(detail.blocking_item, -1),
+                )
             )
-            blocked_rows.append(_blocked_row(
-                step,
-                detail,
-                public_refs[step.item_id],
-                route_facts[step.item_id],
-                blocking_route,
-            ))
+            blocked_rows.append(
+                _blocked_row(
+                    step,
+                    detail,
+                    public_refs[step.item_id],
+                    route_facts[step.item_id],
+                    blocking_route,
+                )
+            )
 
         return {
             "fields": {
@@ -320,14 +316,16 @@ def list_frontier(
             "frozen_count": len(schedule.frozen_steps),
             "wip_cap": schedule.wip_cap,
             "wip_active": schedule.wip_active,
-            "waiting_on_you_count": len({
-                step.item_id
-                for step in schedule.blocked_steps
-                if any(
-                    str(reason).startswith("Blocked by operator")
-                    for reason in step.blocked_reasons
-                )
-            }),
+            "waiting_on_you_count": len(
+                {
+                    step.item_id
+                    for step in schedule.blocked_steps
+                    if any(
+                        str(reason).startswith("Blocked by operator")
+                        for reason in step.blocked_reasons
+                    )
+                }
+            ),
         }
     finally:
         conn.close()

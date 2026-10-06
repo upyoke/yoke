@@ -31,6 +31,8 @@ import sys
 from typing import List
 
 from yoke_core.domain.project_scratch_dir import scratch_subdir
+from yoke_core.engines.doctor_parallel_reads import bounded_read_map
+from yoke_contracts.doctor_budget import DoctorBudgetExhausted, remaining_seconds
 from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,
@@ -45,7 +47,9 @@ _MAX_FINDINGS = 10
 
 
 def hc_cli_help_handler_present(
-    conn, args: DoctorArgs, rec: RecordCollector,
+    conn,
+    args: DoctorArgs,
+    rec: RecordCollector,
 ) -> None:
     """Run service_client and db_router entries with ``--help``.
 
@@ -71,60 +75,44 @@ def hc_cli_help_handler_present(
     failures: List[str] = []
     checked = 0
     with scratch_subdir(prefix="yoke-doctor-help") as tmp:
-        for cmd in sorted(COMMANDS.keys()):
-            checked += 1
+        entries = [
+            ("yoke_core.api.service_client", cmd, "service_client")
+            for cmd in sorted(COMMANDS)
+        ] + [
+            ("yoke_core.cli.db_router", domain, "db_router")
+            for domain in sorted(_DOMAIN_PY_MODULES)
+        ]
+
+        def probe(entry):
+            module, token, label = entry
             try:
                 proc = subprocess.run(
-                    [
-                        sys.executable,
-                        "-m",
-                        "yoke_core.api.service_client",
-                        cmd,
-                        "--help",
-                    ],
+                    [sys.executable, "-m", module, token, "--help"],
                     capture_output=True,
                     cwd=tmp,
                     env=env,
-                    timeout=30,
+                    timeout=remaining_seconds(30),
                 )
+            except subprocess.TimeoutExpired as exc:
+                raise DoctorBudgetExhausted("doctor_check_budget_exhausted") from exc
             except Exception as exc:
-                failures.append(f"{cmd}: subprocess error {exc!r}")
-                continue
+                prefix = token if label == "service_client" else f"{label} {token}"
+                return f"{prefix}: subprocess error {exc!r}"
             if proc.returncode != 0:
                 stderr = proc.stderr.decode(errors="replace")[:120]
-                failures.append(
-                    f"service_client {cmd}: rc={proc.returncode} stderr={stderr!r}"
-                )
-        for domain in sorted(_DOMAIN_PY_MODULES.keys()):
-            checked += 1
-            try:
-                proc = subprocess.run(
-                    [
-                        sys.executable,
-                        "-m",
-                        "yoke_core.cli.db_router",
-                        domain,
-                        "--help",
-                    ],
-                    capture_output=True,
-                    cwd=tmp,
-                    env=env,
-                    timeout=30,
-                )
-            except Exception as exc:
-                failures.append(f"db_router {domain}: subprocess error {exc!r}")
-                continue
-            if proc.returncode != 0:
-                stderr = proc.stderr.decode(errors="replace")[:120]
-                failures.append(
-                    f"db_router {domain}: rc={proc.returncode} stderr={stderr!r}"
-                )
+                return f"{label} {token}: rc={proc.returncode} stderr={stderr!r}"
+            return None
+
+        failures = [failure for failure in bounded_read_map(probe, entries) if failure]
+        checked = len(entries)
 
     if failures:
         detail = _format_detail(failures)
         rec.record(HC_SLUG, HC_LABEL, "FAIL", detail)
     else:
-        rec.record(HC_SLUG, HC_LABEL, "PASS", f"{checked} CLI entrypoint(s) exit 0 on --help")
+        rec.record(
+            HC_SLUG, HC_LABEL, "PASS", f"{checked} CLI entrypoint(s) exit 0 on --help"
+        )
 
 
 def _format_detail(findings: List[str]) -> str:
@@ -144,5 +132,9 @@ from yoke_project_checks._declare import (  # noqa: E402
 )
 
 PROJECT_HEALTH_CHECKS = self_project_checks(
-    ('cli-help-handler-present', 'Every service_client subcommand exits 0 on --help', hc_cli_help_handler_present),
+    (
+        "cli-help-handler-present",
+        "Every service_client subcommand exits 0 on --help",
+        hc_cli_help_handler_present,
+    ),
 )

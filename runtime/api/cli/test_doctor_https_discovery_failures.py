@@ -44,3 +44,20 @@ def test_run_local_project_checks_records_import_failures() -> None:
     assert fail_rows[0]["hc"] == "HC-project-check-discovery"
     assert "check_broken.py" in fail_rows[0]["detail"]
     assert "failed to import" in fail_rows[0]["detail"]
+
+
+def test_full_report_records_a_project_roster_that_cannot_load(tmp_path, monkeypatch):
+    from yoke_core.engines import doctor_https_only as local
+
+    folder = tmp_path / ".yoke" / "doctor"
+    folder.mkdir(parents=True)
+    (folder / "check_broken.py").write_text(
+        "raise RuntimeError('broken custom roster')"
+    )
+    monkeypatch.setattr(local, "checkout_root_for_project", lambda project: tmp_path)
+    monkeypatch.setattr(local, "local_connection_or_none", lambda connect: None)
+    rows = local.run_local_project_checks(project="project", slugs=[], full=True)
+    assert [(row["hc"], row["severity"]) for row in rows] == [
+        ("HC-project-check-discovery", "FAIL")
+    ]
+    assert "broken custom roster" in rows[0]["detail"]

@@ -261,14 +261,16 @@ def relay_health_recovery(health: Mapping[str, object]) -> str:
         return (
             "Permanent server rejections are preserved under the relay state "
             "directory. report_conflict means the server already settled the "
-            "attempt; do not replay it. Use `yoke relay report quarantine "
-            "<report-id>` only for a named pending report with recorded permanent-"
-            "rejection evidence."
+            "attempt, and relay_lease_expired or invalid_state that it closed "
+            "the job without this report; do not replay either. Use `yoke relay "
+            "report quarantine <report-id>` only for a named pending report with "
+            "recorded permanent-rejection evidence."
         )
     if health.get("state") == "retrying":
         return (
-            "Report delivery is retrying; restore control-plane transport and "
-            "leave the relay running so the durable queue can drain."
+            "Report delivery is retrying and new claims wait for it; restore "
+            "control-plane transport and leave the relay running so the durable "
+            "queue can drain."
         )
     return poll_connection_recovery(health)
 

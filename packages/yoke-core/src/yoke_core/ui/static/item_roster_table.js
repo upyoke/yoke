@@ -32,23 +32,23 @@ function eventCameFromControl(event, row) {
   return false;
 }
 
-function makeRowNavigable(documentNode, row, href) {
+function makeRowNavigable(row, href, navigate) {
   row.tabIndex = 0;
   row.setAttribute("role", "link");
   row.setAttribute("aria-label", `Open ${row.children[0]?.textContent || "item"}`);
   row.addEventListener("click", (event) => {
-    if (eventCameFromControl(event, row)) return;
-    documentNode.defaultView.location.href = href;
+    if (event.defaultPrevented || eventCameFromControl(event, row)) return;
+    navigate(href);
   });
   row.addEventListener("keydown", (event) => {
-    if (eventCameFromControl(event, row)) return;
+    if (event.defaultPrevented || eventCameFromControl(event, row)) return;
     if (!["Enter", " "].includes(event.key)) return;
     if (typeof event.preventDefault === "function") event.preventDefault();
-    documentNode.defaultView.location.href = href;
+    navigate(href);
   });
 }
 
-export function itemTable(documentNode, rows, rowHref, scope, projects, sort, onSort) {
+export function itemTable(documentNode, rows, rowHref, scope, projects, sort, onSort, navigate) {
   const table = el(documentNode, "table", "items item-roster table-stacks-narrow");
   const columns = withProjectColumn([
     { label: "ID" },
@@ -144,7 +144,7 @@ export function itemTable(documentNode, rows, rowHref, scope, projects, sort, on
     updated.appendChild(row.updated_at ? relativeTime(documentNode, row.updated_at, Date.now(), { relativeAgeFn: relativeAgePhrase }) : el(documentNode, "span", null, "—"));
     tr.appendChild(updated);
     labelCellsByColumn(tr, columns.map((column) => column.label));
-    if (href) makeRowNavigable(documentNode, tr, href);
+    if (href) makeRowNavigable(tr, href, navigate);
     table.appendChild(tr);
   }
   const wrap = el(documentNode, "div", "table-wrap item-roster-wrap");

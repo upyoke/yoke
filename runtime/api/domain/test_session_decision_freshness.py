@@ -81,8 +81,8 @@ def _eval(
     *,
     item_id,
     expected_status="refined-idea",
-    expected_next_step="advance",
-    supported_paths=("advance",),
+    expected_next_step="implement",
+    supported_paths=("implement",),
     scheduler_context=None,
     lane_allowed_paths=None,
 ):
@@ -100,7 +100,7 @@ def _eval(
     )
 
 
-def _charge_frontier(item_id, *, status="refined-idea", next_step="advance"):
+def _charge_frontier(item_id, *, status="refined-idea", next_step="implement"):
     return FrontierState(
         runnable_items=[f"YOK-{item_id}"],
         selected_item=f"YOK-{item_id}",
@@ -141,11 +141,11 @@ class TestEvaluateFreshness:
     def test_rewrite_when_status_advances_but_serviceable(self, test_db):
         _insert_session(test_db)
         insert_item(test_db, id=4002, workflow_id="issue", status="implementing")
-        v = _eval(test_db, item_id=4002, scheduler_context={"status": "refined-idea", "next_step": "advance", "title": "carried-through"})
+        v = _eval(test_db, item_id=4002, scheduler_context={"status": "refined-idea", "next_step": "implement", "title": "carried-through"})
         assert v.outcome is FreshnessOutcome.REWRITE
         assert v.current_status == "implementing"
-        assert v.current_next_step == "advance"
-        assert v.refreshed_context["next_step"] == "advance"
+        assert v.current_next_step == "implement"
+        assert v.refreshed_context["next_step"] == "implement"
         assert v.refreshed_context["status"] == "implementing"
         assert v.refreshed_context["from_status"] == "refined-idea"
         assert v.refreshed_context["title"] == "carried-through"
@@ -183,9 +183,9 @@ class TestEvaluateFreshness:
         v = evaluate_freshness(
             item_id="4001",
             expected_status="refined-idea",
-            expected_next_step="advance",
-            scheduler_context={"status": "refined-idea", "next_step": "advance"},
-            supported_paths=["advance"],
+            expected_next_step="implement",
+            scheduler_context={"status": "refined-idea", "next_step": "implement"},
+            supported_paths=["implement"],
             execution_lane="DARIUS",
             lane_allowed_paths=None,
             session_id=_SESSION_ID,
@@ -201,7 +201,7 @@ class TestEvaluateFreshness:
         _insert_claim(test_db, item_id=4004)
         v = _eval(test_db, item_id=4004, supported_paths=("polish",))
         assert v.outcome is FreshnessOutcome.UNSERVICEABLE
-        assert v.current_next_step == "advance"
+        assert v.current_next_step == "implement"
 
     def test_failopen_when_session_not_registered(self, test_db):
         insert_item(test_db, id=4005, workflow_id="issue", status="refined-idea")
@@ -214,13 +214,13 @@ class TestResumeFreshness:
         test_db = freshness_uses_test_db
         _insert_session(test_db)
         insert_item(test_db, id=4101, workflow_id="issue", status="reviewing-implementation")
-        offer = _make_offer(supported_paths=["advance", "polish"])
+        offer = _make_offer(supported_paths=["implement", "polish"])
         frontier = FrontierState()
-        claim = ClaimedWork(item_id="4101", status="implementing", workflow_id="issue", required_path="advance")
+        claim = ClaimedWork(item_id="4101", status="implementing", workflow_id="issue", required_path="implement")
         result = decide_resume_action(offer, frontier, claim, offer.session_id, None)
         assert result.action is ActionKind.RESUME
         assert result.context["status"] == "reviewing-implementation"
-        assert result.context["required_path"] == "advance"
+        assert result.context["required_path"] == "implement"
         assert result.context.get("freshness_refreshed") is True
         assert result.context.get("from_status") == "implementing"
         assert _event_count(test_db, event_name="SchedulerOfferSkipped") == 1
@@ -230,9 +230,9 @@ class TestResumeFreshness:
         _insert_session(test_db)
         insert_item(test_db, id=4102, workflow_id="issue", status="reviewed-implementation")
         _insert_claim(test_db, item_id=4102)
-        offer = _make_offer(supported_paths=["advance"])
+        offer = _make_offer(supported_paths=["implement"])
         frontier = FrontierState()
-        claim = ClaimedWork(item_id="4102", status="implementing", workflow_id="issue", required_path="advance")
+        claim = ClaimedWork(item_id="4102", status="implementing", workflow_id="issue", required_path="implement")
         result = decide_resume_action(offer, frontier, claim, offer.session_id, None)
         assert result.action is ActionKind.WAIT
         assert result.context["wait_reason"] == "stale_lifecycle_dispatch"
@@ -246,13 +246,13 @@ class TestChargeIntegration:
         test_db = freshness_uses_test_db
         _insert_session(test_db)
         insert_item(test_db, id=4201, workflow_id="issue", status="implementing")
-        offer = _make_offer(supported_paths=["advance"])
+        offer = _make_offer(supported_paths=["implement"])
         frontier = _charge_frontier(4201, status="refined-idea")
         result = decide_charge_action(offer, frontier, offer.session_id, None)
         scheduler = (result.context or {}).get("scheduler", {})
         assert result.action is ActionKind.CHARGE
         assert scheduler["status"] == "implementing"
-        assert scheduler["next_step"] == "advance"
+        assert scheduler["next_step"] == "implement"
         assert scheduler.get("freshness_refreshed") is True
 
     def test_charge_integration_unserviceable_returns_wait(self, freshness_uses_test_db):
@@ -260,7 +260,7 @@ class TestChargeIntegration:
         _insert_session(test_db)
         insert_item(test_db, id=4202, workflow_id="issue", status="reviewed-implementation")
         _insert_claim(test_db, item_id=4202)
-        offer = _make_offer(supported_paths=["advance"])
+        offer = _make_offer(supported_paths=["implement"])
         frontier = _charge_frontier(4202, status="refined-idea")
         result = decide_charge_action(offer, frontier, offer.session_id, None)
         assert result.action is ActionKind.WAIT
@@ -270,7 +270,7 @@ class TestChargeIntegration:
 
 class TestChargeDispatchContextGuard:
     def test_missing_next_step_returns_wait(self):
-        offer = _make_offer(supported_paths=["advance"])
+        offer = _make_offer(supported_paths=["implement"])
         frontier = FrontierState(
             runnable_items=["YOK-5001"],
             selected_item="YOK-5001",
@@ -283,7 +283,7 @@ class TestChargeDispatchContextGuard:
         assert result.context["selected_item"] == "YOK-5001"
 
     def test_empty_next_step_returns_wait(self):
-        offer = _make_offer(supported_paths=["advance"])
+        offer = _make_offer(supported_paths=["implement"])
         frontier = FrontierState(
             runnable_items=["YOK-5002"], selected_item="YOK-5002", scheduler_context={"next_step": "", "status": "refined-idea"}, sml_coherent=True
         )
@@ -292,11 +292,11 @@ class TestChargeDispatchContextGuard:
         assert result.context["wait_reason"] == "missing_scheduler_next_step"
 
     def test_scheduler_item_mismatch_returns_wait(self):
-        offer = _make_offer(supported_paths=["advance"])
+        offer = _make_offer(supported_paths=["implement"])
         frontier = FrontierState(
             runnable_items=["YOK-5003"],
             selected_item="YOK-5003",
-            scheduler_context={"selected_item": "YOK-9999", "next_step": "advance", "status": "refined-idea", "workflow_id": "issue"},
+            scheduler_context={"selected_item": "YOK-9999", "next_step": "implement", "status": "refined-idea", "workflow_id": "issue"},
             sml_coherent=True,
         )
         result = decide_charge_action(offer, frontier, offer.session_id, None)

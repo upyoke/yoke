@@ -58,8 +58,8 @@ def test_run_step_8_records_step_marker_8_on_success(monkeypatch):
 def test_run_step_8_addresses_the_item_by_internal_id(monkeypatch):
     """An item WITH a linked GitHub issue reaches the closeout as ``items.id``.
 
-    A digit *string* is a project-local public sequence resolved with
-    ``allow_bare_internal=False``, so stringifying the id here addresses a
+    A digit *string* is a project-local public sequence that needs project
+    context, so stringifying the id here addresses a
     different row — or none — and the issue silently never closes.
     """
     stub = _StubSyncModule(returncode=0)

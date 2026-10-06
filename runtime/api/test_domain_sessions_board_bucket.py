@@ -205,7 +205,7 @@ class TestStatusToBoardBucket:
                     "through_stage_id": "ready-to-build",
                 },
                 {
-                    "skill_id": "advance",
+                    "skill_id": "implement",
                     "from_stage_id": "ready-to-build",
                     "through_stage_id": "quality-approved",
                 },

@@ -1,5 +1,8 @@
 import { callFunction, el, renderError } from "./universe_view_support.js";
 import { openExecutionInstructionEditor } from "./execution_instruction_editor.js";
+import {
+  DELIVERY_OPTIONS_UNAVAILABLE, instructionDeliveryHint,
+} from "./execution_instruction_delivery.js";
 import { button, workflowPanel } from "./workflow_view_primitives.js";
 
 function countNoun(count, noun) {
@@ -55,7 +58,7 @@ async function call(client, functionId, payload) {
 }
 
 /**
- * Save one instruction's prose and scope, creating it first when new.
+ * Save one instruction's prose, delivery, and scope, creating it first when new.
  *
  * Content and scope are two functions because they are two different
  * decisions with different authority; an editor that changed both presents
@@ -66,11 +69,13 @@ async function persist(client, instruction, draft) {
     ? instruction.id
     : (await call(client, "workflow.execution_instruction.create", {
       content: draft.content,
+      ...draft.delivery,
     })).instruction_id;
   if (instruction.id != null) {
     await call(client, "workflow.execution_instruction.update", {
       instruction_id: id,
       content: draft.content,
+      ...draft.delivery,
     });
   }
   await call(client, "workflow.execution_instruction.set_scope", {
@@ -111,6 +116,7 @@ export function workflowInstructionsPanel(documentNode, client, context = {}) {
   let workflowFilter = "";
   let projectFilter = "";
   let listed = [];
+  let deliveryOptions = null;
   const workflows = () => roster(context.workflows);
   const projects = () => roster(context.projects);
 
@@ -123,7 +129,9 @@ export function workflowInstructionsPanel(documentNode, client, context = {}) {
           renderError(body, callResult);
           return;
         }
-        paint((callResult.envelope.result || {}).instructions || []);
+        const result = callResult.envelope.result || {};
+        deliveryOptions = result.delivery_options || null;
+        paint(result.instructions || []);
       })
       .catch((failure) => {
         body.replaceChildren();
@@ -143,6 +151,7 @@ export function workflowInstructionsPanel(documentNode, client, context = {}) {
       documentNode,
       host,
       instruction,
+      deliveryOptions,
       workflows: workflows(),
       projects: projects(),
       save: async (draft) => {
@@ -207,11 +216,15 @@ export function workflowInstructionsPanel(documentNode, client, context = {}) {
       documentNode, "New instruction",
       "workflow-button compact workflow-instructions-new",
     );
+    add.disabled = !deliveryOptions;
     add.addEventListener("click", () => edit({
       workflow_ids: [],
       project_ids: [],
     }));
     body.appendChild(add);
+    if (!deliveryOptions) {
+      body.appendChild(el(documentNode, "p", "error", DELIVERY_OPTIONS_UNAVAILABLE));
+    }
   };
 
   const renderRow = (instruction) => {
@@ -234,6 +247,10 @@ export function workflowInstructionsPanel(documentNode, client, context = {}) {
       documentNode, "span", "workflow-instruction-reach",
       instructionReachHint(instruction),
     ));
+    summary.appendChild(el(
+      documentNode, "span", "workflow-instruction-delivery",
+      instructionDeliveryHint(instruction, deliveryOptions),
+    ));
     row.appendChild(summary);
     const actions = el(documentNode, "div", "workflow-instruction-actions");
     if (bodyNeedsExpand(instruction.content)) {
@@ -254,6 +271,7 @@ export function workflowInstructionsPanel(documentNode, client, context = {}) {
     const editButton = button(
       documentNode, "Edit", "workflow-button compact",
     );
+    editButton.disabled = !deliveryOptions;
     editButton.addEventListener("click", () => edit(instruction));
     actions.appendChild(editButton);
     row.appendChild(actions);

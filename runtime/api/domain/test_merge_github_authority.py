@@ -30,7 +30,14 @@ from yoke_core.engines.merge_worktree import MergeArgs, MergeContext
 
 @pytest.fixture(autouse=True)
 def _connected_merge(monkeypatch):
-    monkeypatch.setattr(authority_module, "github_merge_enabled", lambda _p: True)
+    monkeypatch.setattr(
+        authority_module.control_plane_transport,
+        "relay",
+        lambda *a: {
+            "binding": {"status": "active"},
+            "installation": {"status": "active"},
+        },
+    )
 
 
 class TestClassification:
@@ -248,3 +255,41 @@ class TestAdmissionRunsBeforeTheBranchLands:
         refusal = "\n".join(messages)
         assert "user_authorization_unavailable" in refusal
         assert "Requires: direct merge" in refusal
+
+
+class TestBindingConnectivity:
+    @pytest.mark.parametrize("sync_mode", ["disabled", "bidirectional"])
+    @pytest.mark.parametrize(
+        "binding_status,installation_status,connected",
+        [
+            ("active", "active", True),
+            ("revoked", "active", False),
+            ("active", "suspended", False),
+            (None, None, False),
+        ],
+    )
+    def test_connectivity_uses_active_app_binding(
+        self, monkeypatch, sync_mode, binding_status, installation_status, connected
+    ):
+        seen = []
+
+        def relay(function, payload):
+            seen.append((function, payload))
+            return {
+                "github_sync_mode": sync_mode,
+                "binding": {"status": binding_status} if binding_status else None,
+                "installation": {"status": installation_status}
+                if installation_status
+                else None,
+            }
+
+        monkeypatch.setattr(authority_module.control_plane_transport, "relay", relay)
+        monkeypatch.setattr(authority_module.git, "has_remote", lambda _: True)
+        assert authority_module.github_merge_enabled("sample") is connected
+        assert (
+            merge_reaches_github(
+                local_merge=True, standalone=True, repo_root="/repo", project="sample"
+            )
+            is connected
+        )
+        assert seen[0] == ("projects.github_binding.status", {"project": "sample"})

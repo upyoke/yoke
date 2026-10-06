@@ -1,5 +1,8 @@
 import { el } from "./universe_view_support.js";
 import { button, workflowPanel } from "./workflow_view_primitives.js";
+import {
+  deliveryControls, deliveryValidationError, instructionDelivery,
+} from "./execution_instruction_delivery.js";
 
 function fieldLabel(documentNode, text) {
   return el(documentNode, "div", "workflow-field-label", text);
@@ -29,11 +32,13 @@ function textField(documentNode, tag, className, value, apply) {
 }
 
 export function openExecutionInstructionEditor({
-  documentNode, host, instruction, workflows, projects, save, remove, cancel,
+  documentNode, host, instruction, deliveryOptions, workflows, projects, save, remove,
+  cancel,
 }) {
   const existing = instruction.id != null;
   const state = {
     content: instruction.content || "",
+    delivery: instructionDelivery(instruction, deliveryOptions),
     appliesToAllWorkflows: Boolean(instruction.applies_to_all_workflows),
     workflowIds: new Set(instruction.workflow_ids || []),
     appliesToAllProjects: Boolean(instruction.applies_to_all_projects),
@@ -52,6 +57,10 @@ export function openExecutionInstructionEditor({
   body.appendChild(textField(
     documentNode, "textarea", "instruction-content-input", state.content,
     (value) => { state.content = value; },
+  ));
+
+  body.appendChild(deliveryControls(
+    documentNode, state.delivery, deliveryOptions, checkboxRow,
   ));
 
   body.appendChild(fieldLabel(documentNode, "Workflows"));
@@ -163,6 +172,12 @@ export function openExecutionInstructionEditor({
     "workflow-button primary",
   );
   saveButton.addEventListener("click", async () => {
+    const invalid = deliveryValidationError(state.delivery);
+    if (invalid) {
+      error.textContent = invalid;
+      error.hidden = false;
+      return;
+    }
     const buttons = [cancelButton, deleteButton, saveButton].filter(Boolean);
     for (const node of buttons) node.disabled = true;
     saveButton.textContent = "Saving…";
@@ -170,6 +185,7 @@ export function openExecutionInstructionEditor({
     try {
       await save({
         content: state.content,
+        delivery: { ...state.delivery, stage_buckets: [...state.delivery.stage_buckets] },
         appliesToAllWorkflows: state.appliesToAllWorkflows,
         workflowIds: [...state.workflowIds],
         appliesToAllProjects: state.appliesToAllProjects,

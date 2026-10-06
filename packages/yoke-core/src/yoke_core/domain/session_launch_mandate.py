@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_contracts.session_control.models import LaunchCreateRequest
-from yoke_core.domain.project_identity import resolve_item_id
+from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 from yoke_core.domain.session_launch_mandate_teaching import STANDING_TEACHINGS
 from yoke_core.domain.session_launch_store import marker, value
 from yoke_core.domain.session_launch_types import LaunchRequest, SessionLaunchError
@@ -17,7 +17,7 @@ from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 _ENTRYPOINTS = {
     "dash": "/yoke dash {ref}",
     "refine": "/yoke refine {ref}",
-    "advance": "/yoke advance {ref} implementation",
+    "implement": "/yoke implement {ref}",
     "polish": "/yoke polish {ref}",
     "blitz": "/yoke blitz {ref}",
     "shepherd": "/yoke shepherd {ref}",
@@ -30,7 +30,7 @@ _REMAINING_LEGS = {
         "refine to refined-idea, then implementation, polish, and that "
         "binding's merge boundary"
     ),
-    "advance": (
+    "implement": (
         "implementation and polish per the live bindings, then that "
         "binding's merge boundary"
     ),
@@ -134,8 +134,14 @@ def compose_single_item_mandate(
     return f"{mandate}\n\n{extra}" if extra else mandate
 
 
+def item_entrypoint(next_step: str, public_ref: str) -> str | None:
+    """Render the launch command for a bound skill; unlaunchable steps return None."""
+    template = _ENTRYPOINTS.get(next_step)
+    return template.format(ref=public_ref) if template else None
+
+
 def _route_for_item(conn: Any, public_ref: str, project_id: int) -> tuple[str, str]:
-    item_id = resolve_item_id(conn, public_ref, project=project_id)
+    item_id = resolve_item_ref_or_none(conn, public_ref, project=project_id)
     if item_id is None:
         raise SessionLaunchError(
             "assignment_item_not_found",
@@ -161,14 +167,14 @@ def _route_for_item(conn: Any, public_ref: str, project_id: int) -> tuple[str, s
         conn=conn,
         item_id=item_id,
     )
-    entrypoint = _ENTRYPOINTS.get(str(step or ""))
+    entrypoint = item_entrypoint(str(step or ""), public_ref)
     remaining = _REMAINING_LEGS.get(str(step or ""))
     if not entrypoint or not remaining:
         raise SessionLaunchError(
             "mandate_unroutable",
             f"item {public_ref} has no launchable route (next_step={step!r})",
         )
-    return entrypoint.format(ref=public_ref), remaining
+    return entrypoint, remaining
 
 
 def compose_item_launch_instructions(
@@ -284,4 +290,5 @@ __all__ = [
     "compose_item_launch_instructions",
     "compose_single_item_mandate",
     "launch_request_for_create",
+    "item_entrypoint",
 ]

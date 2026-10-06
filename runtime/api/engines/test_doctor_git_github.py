@@ -104,6 +104,7 @@ def _make_conn():
 
 
 def _args(**kw) -> DoctorArgs:
+    kw.setdefault("project", "yoke")
     return DoctorArgs(**kw)
 
 

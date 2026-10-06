@@ -62,7 +62,7 @@ Every offer also carries `offer_diagnostics` in the `NextActionChosen` context, 
 
 ## ChainStepCompleted
 
-Emitted after a `/yoke do` mode handler returns, recording the handler outcome so that dropped chains are visible in telemetry.
+Emitted after a `session-offer` mode handler returns, recording the handler outcome so that dropped chains are visible in telemetry.
 
 | Field | Value |
 |-------|-------|
@@ -92,7 +92,7 @@ Emitted after a `/yoke do` mode handler returns, recording the handler outcome s
 
 ## SchedulerOfferSkipped
 
-Emitted when `/yoke do` skips a stale lifecycle offer, a live-claim conflict, a disabled process offer, or a recoverable substrate failure before treating it as useful work.
+Emitted when `session-offer` skips a stale lifecycle offer, a live-claim conflict, a disabled process offer, or a recoverable substrate failure before treating it as useful work.
 
 Minimum context: `session_id`, `skip_reason`, `chain_step`, plus `item_id` or `process_key`. Item skips may include `recommended_action`, `current_status`, `claim_holder_session_id`, `claim_id`, `claimed_at`, and `holder_unknown`. Process skips include `config_key` and `recommended_action`.
 

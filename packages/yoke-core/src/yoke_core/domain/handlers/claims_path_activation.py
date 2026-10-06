@@ -22,6 +22,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+from yoke_core.domain.handler_item_target import request_item_id
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
@@ -93,18 +94,10 @@ def _connect_rw() -> Any:
     return db_helpers.connect()
 
 
-def _resolved_item_id(request: FunctionCallRequest, payload_item_id: object) -> int:
-    if payload_item_id is not None:
-        return int(payload_item_id)
-    if request.target.item_id is not None:
-        return int(request.target.item_id)
-    raise ValueError("resolved item target required")
-
-
 def handle_required_gate(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         body = RequiredGateRequest.model_validate(request.payload)
-        item_id = _resolved_item_id(request, body.item_id)
+        item_id = request_item_id(request, body.item_id)
     except Exception as exc:
         return _err("payload_invalid", f"required_gate payload invalid: {exc}")
 
@@ -118,7 +111,7 @@ def handle_required_gate(request: FunctionCallRequest) -> HandlerOutcome:
 def handle_activation_run(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         body = ActivationRunRequest.model_validate(request.payload)
-        item_id = _resolved_item_id(request, body.item_id)
+        item_id = request_item_id(request, body.item_id)
     except Exception as exc:
         return _err("payload_invalid", f"activation.run payload invalid: {exc}")
 
@@ -193,7 +186,7 @@ def handle_survey_ensure(request: FunctionCallRequest) -> HandlerOutcome:
     """
     try:
         body = SurveyEnsureRequest.model_validate(request.payload)
-        item_id = _resolved_item_id(request, body.item_id)
+        item_id = request_item_id(request, body.item_id)
     except Exception as exc:
         return _err("payload_invalid", f"survey_ensure payload invalid: {exc}")
 
@@ -224,7 +217,7 @@ def handle_coordination_decision_build(
 ) -> HandlerOutcome:
     try:
         body = CoordinationDecisionBuildRequest.model_validate(request.payload)
-        candidate_item_id = _resolved_item_id(request, body.candidate_item_id)
+        candidate_item_id = request_item_id(request, body.candidate_item_id)
     except Exception as exc:
         return _err(
             "payload_invalid",

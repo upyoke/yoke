@@ -214,52 +214,11 @@ else
 fi
 ```
 
-Tester prompt template:
-
-**Dispatch:** descriptor `DispatchDescriptor(role="tester", extras=(("model","opus"),) if _tester_output_failures >= 2 else ())` rendered via `yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`. Result-schema markers: `VERDICT: PASS|FAIL`, `---REFLECTION-START---`. The descriptor's `prompt: |` block is filled with:
-```
- Validate PREFIX-{N}: {_title}
-
- Read the authoritative task spec from the DB before validating:
- yoke workflow-item epic-task body-get --epic "{_epic_id}" --task-num "{_task_id}"
- Also read the parent item spec for full context:
- yoke items get PREFIX-{N} spec
-
- IMPORTANT: Use absolute paths and module invocations. Shell variables do NOT persist across Bash tool calls.
-
- {For epics: interface contracts from dependency tasks}
- {For epics: downstream task bodies for path-tracing}
-
- {If per-task diff was NOT size-gated (_task_diff exists):}
- Engineer's changes for this task (diff from task start):
- {_task_diff}
-
- {If per-task diff WAS size-gated (_task_diff_file exists):}
- Engineer's changes for this task ({_task_diff_line_count} lines, diff from task start):
- {_task_diff_stat}
- Per-task diff ({_task_diff_line_count} lines) written to: {_task_diff_file}
-
- {On retry where per-attempt diff was NOT size-gated:}
- Engineer's changes this attempt only (diff from attempt start):
- {_attempt_diff}
-
- {On retry where per-attempt diff WAS size-gated:}
- Engineer's changes this attempt only ({_attempt_diff_line_count} lines):
- {_attempt_diff_stat}
- Per-attempt diff written to: {_attempt_diff_file}
-
- Full branch diff (all tasks from main) is available at: {_full_diff_file}
-
-	 Regression detection: Compare failing test NAMES between main and the branch —
-	 not just counts. A test that passes on main but fails on the branch is a regression.
-
-	 Review the engineer's work against the acceptance criteria in the spec.
-	 Check codebase-reader naming: new or renamed surfaces must describe current function/purpose/mechanics rather than the work item, plan, phase, task, AC, branch, worktree, or batch that produced them.
-	 Run tests. Return a verdict line:
- VERDICT: PASS or VERDICT: FAIL followed by details.
-
- OUTPUT DISCIPLINE: End with VERDICT line and a brief summary.
-```
+Read and render [the shared Tester template](../shared/tester-dispatch-template.md)
+with the generated-task identity, parent/task specs, project QA context,
+registered task lane, dependency interfaces, downstream task bodies, and the
+per-task, full-branch, and retry diffs prepared above. Apply the output gate's
+model escalation through the shared descriptor; do not carry a local prompt.
 
 ---
 

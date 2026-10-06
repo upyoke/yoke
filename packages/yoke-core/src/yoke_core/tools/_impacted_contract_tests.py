@@ -25,6 +25,11 @@ from yoke_core.tools._impacted_contract_prefix_families import (
 from yoke_core.tools._impacted_generated_artifact_parity import (
     GENERATED_ARTIFACT_PARITY_TESTS,
 )
+from yoke_core.tools._impacted_contract_tests_workflow_definitions import (
+    WORKFLOW_DEFINITION_PREFIX_CONTRACTS,
+    WORKFLOW_DEFINITION_VALIDATION_SOURCE_PATHS,
+    WORKFLOW_DEFINITION_VALIDATION_TESTS,
+)
 
 REPO_CLEANLINESS_TESTS = (
     "runtime/api/engines/test_doctor_hc_obsoleted_terms_real_tree.py",
@@ -92,34 +97,6 @@ QA_TRANSITION_CONSUMER_TESTS = (
     "runtime/api/domain/handlers/test_done_transition_status_writes.py",
     "runtime/api/engines/test_done_transition_qa_gate.py",
     "runtime/api/test_advance_skip_qa_gate.py",
-)
-
-WORKFLOW_DEFINITION_VALIDATION_TESTS = (
-    "runtime/api/domain/handlers/test_workflows_versioning_handler.py",
-    "runtime/api/domain/test_builtin_workflow_canon.py",
-    "runtime/api/domain/test_builtin_workflow_definitions.py",
-    "runtime/api/domain/test_workflow_coordination_policy_validation.py",
-    "runtime/api/domain/test_workflow_file_budget_policy.py",
-    "runtime/api/domain/test_workflow_generated_children_coherence.py",
-    "runtime/api/domain/test_workflow_mechanics_defaults.py",
-    "runtime/api/domain/test_workflow_path_survey_policy.py",
-    "runtime/api/domain/test_workflow_registry.py",
-    "runtime/api/domain/test_workflow_retired_policy_keys.py",
-    "runtime/api/test_universe_ui_mount_contract.py",
-    "runtime/api/test_universe_ui_server_mutations.py",
-)
-
-WORKFLOW_DEFINITION_VALIDATION_SOURCE_PATHS = frozenset(
-    {
-        "packages/yoke-core/src/yoke_core/domain/"
-        "workflow_definition_graph_validation.py",
-        "packages/yoke-core/src/yoke_core/domain/workflow_definition_validation.py",
-        "packages/yoke-core/src/yoke_core/domain/"
-        "workflow_definition_validation_support.py",
-        "packages/yoke-core/src/yoke_core/domain/workflow_gate_catalog.py",
-        "packages/yoke-core/src/yoke_core/ui/static/hosted_frame_workflows_fixture.js",
-        "runtime/api/universe_ui_hosted_workflow_fixture.test.mjs",
-    }
 )
 
 SCHEMA_CONVERGE_CONTRACT_TESTS = (
@@ -304,7 +281,10 @@ def contract_selection_for(changed: Sequence[str]) -> ContractSelection:
             continue
         tests.update(contract_tests)
         widening_triggers.extend(f"{rule}:{path}" for path in hits)
-    for rule, prefixes, contract_tests in PREFIX_CONTRACT_TESTS:
+    for rule, prefixes, contract_tests in (
+        *PREFIX_CONTRACT_TESTS,
+        *WORKFLOW_DEFINITION_PREFIX_CONTRACTS,
+    ):
         hits = tuple(path for path in changed_paths if path.startswith(prefixes))
         if not hits:
             continue

@@ -70,7 +70,7 @@ Without `--workflow`, classify the eligible definitions by policy:
 
 - Prefer the unique smallest implementation workflow with
   `generated_children=none`, `worktrees=single_implementation_lane`, and an
-  `advance` skill binding.
+  `implement` skill binding.
 - Recommend the unique task-graph workflow with
   `generated_children=epic_tasks` only when the work structurally needs it —
   multiple parallel worktrees, or a spec plus task decomposition. Size,
@@ -279,7 +279,7 @@ yoke items create "{title}" {workflow} --entry-surface harness_skill --execution
 
 The window between phase 5 (`items add` returns a PREFIX-N row with empty
 spec) and the body-write in `body-and-sync.md` is unprotected against
-concurrent `/yoke do` sessions. Hold a draft work claim across that
+concurrent worker sessions. Hold a draft work claim across that
 window so a second harness's `yoke sessions offer` cannot route `/yoke refine`
 against an empty spec.
 
@@ -337,10 +337,10 @@ The link is the registered `strategy.execution.link` operation. Do not start
 `/yoke blitz`, generate child items, or treat the intake body as the live
 execution plan before that link exists.
 
-If the definition's later binding is `dash` and policies declare
-`worktrees=none` (floor task), the printed first skill is still `advance`.
-Close-out is Dash at `implementing` → `done` — no reviewing-implementation
-stage and no git lane.
+If the definition binds `dash` across the whole lifecycle and policies declare
+`worktrees=none` (floor task), the printed first skill is `dash`. Close-out
+is Dash at `implementing` → `done` — no reviewing-implementation stage and no
+git lane.
 
 For every other workflow, recompute the next skill at each binding boundary
 instead of printing a workflow-name progression from memory.

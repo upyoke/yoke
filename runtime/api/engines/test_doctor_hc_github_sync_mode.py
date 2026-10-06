@@ -32,6 +32,23 @@ from yoke_core.engines.doctor import (
 MODE_NOTE = "github_sync_mode=disabled"
 
 
+def test_auth_unavailable_checks_name_the_selected_project(monkeypatch):
+    from yoke_core.engines import doctor_hc_worktrees as worktrees
+    from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
+
+    calls = []
+    monkeypatch.setattr(
+        worktrees,
+        "_github_auth_configured",
+        lambda project, **kw: calls.append(project) or False,
+    )
+    for check in (hc_gh_orphan_detection, hc_orphaned_gh_issues, hc_wrong_repo_issues):
+        records = RecordCollector()
+        check(None, DoctorArgs(project="example"), records)
+        assert "example" in _result(records).detail
+    assert calls == ["example"] * 3
+
+
 def _auth(repo: str):
     """Build a ProjectGithubAuth stub for resolver patches."""
     from yoke_core.domain.project_github_auth import ProjectGithubAuth

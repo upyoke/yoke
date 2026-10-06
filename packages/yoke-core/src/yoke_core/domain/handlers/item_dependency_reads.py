@@ -48,7 +48,7 @@ def handle_item_dependency_list(
     item_id = int(target.item_id)
     conn = connect()
     try:
-        rows = dependency_rows(conn, str(item_id))
+        rows = dependency_rows(conn, item_id)
     finally:
         conn.close()
     return HandlerOutcome(

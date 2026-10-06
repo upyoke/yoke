@@ -123,7 +123,7 @@ unprotected unless both layers below hold:
 - `reviewed-implementation` means meaningful implementation review passed and the work is queued for finishing polish.
 
 When a definition declares this loop, its active skill binding drives it.
-For example, current definitions bind either `advance`, `conduct`, or a direct
+For example, current definitions bind either `implement`, `conduct`, or a direct
 skill across implementation work; the stage name alone does not choose one.
 
 **Claim continuity across transient SessionEnd.** A Claude Desktop SessionEnd
@@ -264,11 +264,10 @@ even if that write then fails.
 A live item never needs this: `yoke merge item PREFIX-N` is the merge boundary
 and stamps `merged_at` from the landing merge commit's own time rather than from when close-out ran, so a re-entered close-out writes the same answer and an item that lands a second time reports that landing instead of its predecessor's. Both boundaries do this: the standalone engine reads the merge it just made, and the queue close-out waits until its merge-group receipt names the merge before stamping, so a queue project is not the one left dating an item to a landing it has replaced. Where the control plane observed the landing itself, that observation wins over the commit: a queue merge commit is created when the train forms and merged minutes later, so `merge_queue_landed_at` is the truer moment and the supersede prefers it. On a merge-queue project close-out need not be the process that sees the merge — the pull request number is recorded when that pull request opens, and the control-plane observer stamps `merged_at` and the merge-queue landing columns from GitHub's own merge time. A worker whose wait died therefore leaves a recorded landing rather than an untouched-looking item: the fleet report reports it as landed without close-out, and re-entering `yoke merge item PREFIX-N` closes out from those recorded facts only when the current candidate is already on the base. Recording a landing never advances the stage; close-out stays a claim-holding step. Which pull request the item points at is settled there too: the marker names the pull request the item last armed, and a lane whose commits reach the base under a sibling pull request leaves its own open forever, so close-out repoints the marker at the pull request that carried the merge the base holds the candidate it is closing out under — GitHub's record of that merge, else the subject GitHub wrote on it. It asks that of the candidate in hand, and the evidence record — the commit, the merge and the file set — describes that same landing: a lane that landed twice has both candidates on the base, each under a merge of its own, so close-out keeps the recorded merge receipt only when that receipt landed under the same merge as the candidate. A lane fast-forwarded onto the base, or a rebased copy whose shas the base never saw, names no merge of its own, and there the receipt is still the only identity there is. An ordinary landing finds the marker already right and writes nothing, and a landing with no merge commit to read — a fast-forward or squash — or an unreadable checkout or provider keeps its marker and names the operator repair above.
 
-Note that nothing currently blocks an item from reaching a terminal stage
-with `merged_at` unset — the equivalent gate exists only for epics
-(`GATE_EPIC_MERGE`). Extending it to standalone items needs a predicate that
-separates a genuine no-change item from one that should have merged, so the
-correction surface above is today's answer rather than prevention.
+Entering a `release_stage` release wait requires a recorded landing or
+attested no-change evidence (`GATE_MERGE_UNRECORDED`), and epics refuse `done`
+without `merged_at` (`GATE_EPIC_MERGE`). A merge-free definition records no
+landing, so the correction surface above remains its repair.
 
 ## Registered Skill Boundaries
 
@@ -282,8 +281,9 @@ segments. For a live item:
    definition.
 3. In ordered `stages`, find the one `skill_bindings` row whose interval
    satisfies `from_stage_id <= current_stage < through_stage_id`.
-4. Invoke `/yoke <skill_id>` and let the definition's target-stage gate
-   references govern each transition.
+4. Invoke `/yoke <skill_id>` and let the target-stage gate references and
+   [structural gates](lifecycle-gates.md) govern each move; a crossed segment
+   comes back as `skill_handoff`, naming the next skill's command and claim.
 
 The registered skills have these behavioral contracts; their source and
 target stages always come from the binding:
@@ -292,7 +292,7 @@ target stages always come from the binding:
 |---|---|
 | `refine` | Critique and improve the artifact selected by the pinned policies |
 | `shepherd` | Run quality-gated planning for a compatible generated-task policy |
-| `advance` | Drive a single implementation lane and its review loop |
+| `implement` | Drive a single implementation lane and its review loop |
 | `conduct` | Drive generated task lanes and their integration/review loop |
 | `polish` | Perform the definition-bound finishing pass |
 | `usher` | Merge and deliver a `release_stage` workflow |
@@ -328,7 +328,7 @@ retained claim should query the events ledger first:
 
 ## Routing And Session Offer
 
-Routing decisions (which command to invoke for an item at a given status, which lane to run in, how `/yoke do` chains) are owned by the core scheduler and session-offer path, not by this document. The canonical sources are:
+The pinned workflow binding selects the skill for an item's live stage. Steering owns staffing; the shared scheduler computes the runnable frontier. The canonical sources are:
 
 - [session-offer.md](./session-offer.md) — request/response envelope, `NextAction` shape, chainability rules
 - [charge-frontier.md](./charge-frontier.md) — frontier computation, status-to-adapter mapping, ranking

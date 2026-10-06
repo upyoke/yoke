@@ -20,27 +20,37 @@ from yoke_cli.commands._helpers import (
 from yoke_cli.commands.adapters.workflow_execution_instructions import (
     render_execution_instruction_block,
 )
-from yoke_cli.commands.text_file import add_stdin_flag, add_text_file_pair, resolve_text_file
+from yoke_cli.commands.adapters.lifecycle_transition import (
+    LIFECYCLE_TRANSITION_USAGE,
+    lifecycle_transition,
+)
+from yoke_cli.commands.text_file import (
+    add_stdin_flag,
+    add_text_file_pair,
+    resolve_text_file,
+)
 from yoke_contracts.items_projection import render_field_catalog
 
 
 __all__ = [
-    "items_get", "items_progress_log_append",
-    "items_structured_field_replace", "lifecycle_transition",
+    "items_get",
+    "items_progress_log_append",
+    "items_structured_field_replace",
+    "lifecycle_transition",
     "lifecycle_skip_record_recoverable_substrate",
-    "ITEMS_GET_USAGE", "PROGRESS_LOG_USAGE",
-    "STRUCTURED_FIELD_USAGE", "LIFECYCLE_TRANSITION_USAGE",
+    "ITEMS_GET_USAGE",
+    "PROGRESS_LOG_USAGE",
+    "STRUCTURED_FIELD_USAGE",
+    "LIFECYCLE_TRANSITION_USAGE",
     "LIFECYCLE_SKIP_RECORD_RECOVERABLE_SUBSTRATE_USAGE",
 ]
 
 
-# ---------------------------------------------------------------------------
 # items.get.run
-# ---------------------------------------------------------------------------
 
 ITEMS_GET_USAGE = (
     "yoke items get <PREFIX-N> [field1 field2 ...] "
-    "[--section \"## Heading\"] [--session-id S] [--json]"
+    '[--section "## Heading"] [--session-id S] [--json]'
 )
 
 
@@ -52,11 +62,13 @@ def items_get(args: List[str]) -> int:
     )
     parser.add_argument("item", help="Item id (PREFIX-N or project-local number).")
     parser.add_argument(
-        "fields", nargs="*",
+        "fields",
+        nargs="*",
         help="Optional field projection; accepted names listed above.",
     )
     parser.add_argument(
-        "--section", default=None,
+        "--section",
+        default=None,
         help=(
             "Print only one '## Heading' block of a structured text or "
             "body field; requires exactly one field argument."
@@ -87,6 +99,11 @@ def items_get(args: List[str]) -> int:
         if not response.success:
             return None
         result = response.result or {}
+        stdout.write(
+            render_execution_instruction_block(
+                result.get("execution_instructions") or []
+            )
+        )
         if parsed.section is not None:
             if not result.get("section_found"):
                 print(
@@ -103,10 +120,6 @@ def items_get(args: List[str]) -> int:
             return None
         fields = result.get("fields")
         if requested_fields and isinstance(fields, dict):
-            if "body" in requested_fields:
-                stdout.write(render_execution_instruction_block(
-                    result.get("execution_instructions") or []
-                ))
             for field in requested_fields:
                 value = fields.get(field)
                 text = render_item_field(value)
@@ -127,9 +140,7 @@ def items_get(args: List[str]) -> int:
     )
 
 
-# ---------------------------------------------------------------------------
 # items.progress_log.append
-# ---------------------------------------------------------------------------
 
 PROGRESS_LOG_USAGE = (
     "yoke items progress-log append <PREFIX-N> --headline TEXT "
@@ -147,7 +158,9 @@ def items_progress_log_append(args: List[str]) -> int:
     parser.add_argument("--headline", required=True, help="One-line entry headline.")
     content_group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
-        content_group, "--content", "--content-file",
+        content_group,
+        "--content",
+        "--content-file",
         dest="content",
         help_text="Entry body. Use --content-file to read from a path.",
     )
@@ -163,7 +176,9 @@ def items_progress_log_append(args: List[str]) -> int:
     else:
         try:
             content = resolve_text_file(
-                parsed.content, parsed.content_file, "--content-file",
+                parsed.content,
+                parsed.content_file,
+                "--content-file",
             )
         except ValueError as exc:
             return usage_error(str(exc))
@@ -179,9 +194,7 @@ def items_progress_log_append(args: List[str]) -> int:
     )
 
 
-# ---------------------------------------------------------------------------
 # items.structured_field.replace
-# ---------------------------------------------------------------------------
 
 STRUCTURED_FIELD_USAGE = (
     "yoke items structured-field replace <PREFIX-N> --field FIELD "
@@ -199,17 +212,21 @@ def items_structured_field_replace(args: List[str]) -> int:
     parser.add_argument("--field", required=True, help="Structured field name.")
     content_group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
-        content_group, "--content", "--content-file",
+        content_group,
+        "--content",
+        "--content-file",
         dest="content",
         help_text="New field content. Use --content-file to read from a path.",
     )
     content_group.add_argument(
-        "--stdin", action="store_true",
+        "--stdin",
+        action="store_true",
         help="Read new field content from stdin.",
     )
     parser.add_argument("--source", default="", help="Optional source tag.")
     parser.add_argument(
-        "--force", action="store_true",
+        "--force",
+        action="store_true",
         help="Bypass shrinkage / empty guards (use sparingly).",
     )
     add_session_arg(parser)
@@ -222,13 +239,17 @@ def items_structured_field_replace(args: List[str]) -> int:
     else:
         try:
             content = resolve_text_file(
-                parsed.content, parsed.content_file, "--content-file",
+                parsed.content,
+                parsed.content_file,
+                "--content-file",
             )
         except ValueError as exc:
             return usage_error(str(exc))
     payload: Dict[str, Any] = {
-        "field": parsed.field, "content": content,
-        "source": parsed.source, "force": bool(parsed.force),
+        "field": parsed.field,
+        "content": content,
+        "source": parsed.source,
+        "force": bool(parsed.force),
     }
     return dispatch_and_emit(
         function_id="items.structured_field.replace",
@@ -239,49 +260,7 @@ def items_structured_field_replace(args: List[str]) -> int:
     )
 
 
-# ---------------------------------------------------------------------------
-# lifecycle.transition.execute
-# ---------------------------------------------------------------------------
-
-LIFECYCLE_TRANSITION_USAGE = (
-    "yoke lifecycle transition <PREFIX-N> --to STATUS "
-    "[--from STATUS] [--reason TEXT] [--session-id S] [--json]"
-)
-
-
-def lifecycle_transition(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke lifecycle transition",
-        description=LIFECYCLE_TRANSITION_USAGE,
-    )
-    parser.add_argument("item", help="Item id (PREFIX-N or project-local number).")
-    parser.add_argument("--to", dest="to_status", required=True,
-                        help="Target lifecycle status.")
-    parser.add_argument("--from", dest="from_status", default=None,
-                        help="Optional precondition: current status must equal this.")
-    parser.add_argument("--reason", default=None, help="Human-readable rationale.")
-    add_session_arg(parser)
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, LIFECYCLE_TRANSITION_USAGE)
-    if parsed is None:
-        return 2
-    payload: Dict[str, Any] = {"target_status": parsed.to_status}
-    if parsed.from_status:
-        payload["source_status"] = parsed.from_status
-    if parsed.reason:
-        payload["reason"] = parsed.reason
-    return dispatch_and_emit(
-        function_id="lifecycle.transition.execute",
-        target=item_target("item", parsed.item, parsed.project),
-        payload=payload,
-        session_id=parsed.session_id,
-        json_mode=parsed.json_mode,
-    )
-
-
-# ---------------------------------------------------------------------------
 # lifecycle.skip.record_recoverable_substrate
-# ---------------------------------------------------------------------------
 
 LIFECYCLE_SKIP_RECORD_RECOVERABLE_SUBSTRATE_USAGE = (
     "yoke lifecycle skip record-recoverable-substrate <PREFIX-N> "
@@ -298,25 +277,53 @@ def lifecycle_skip_record_recoverable_substrate(args: List[str]) -> int:
         description=LIFECYCLE_SKIP_RECORD_RECOVERABLE_SUBSTRATE_USAGE,
     )
     parser.add_argument("item", help="Item id (PREFIX-N or project-local number).")
-    parser.add_argument("--chain-step", dest="chain_step", type=int, required=True,
-                        help="Current /yoke do chain step number.")
-    parser.add_argument("--project", required=True,
-                        help="Project id the failing handler is bound to.")
-    parser.add_argument("--routed-action", dest="routed_action", required=True,
-                        help="Routed action that failed (e.g. 'advance').")
-    parser.add_argument("--failure-class", dest="failure_class", required=True,
-                        help="Structured failure class string.")
-    parser.add_argument("--remediation-owner", dest="remediation_owner", required=True,
-                        help="Work item id or recipe owner responsible for the fix.")
-    parser.add_argument("--current-status", dest="current_status", default=None,
-                        help="Lifecycle status of the failing item at skip time.")
-    parser.add_argument("--useful-work-began", dest="useful_work_began",
-                        action="store_true", default=False,
-                        help="Set when the routed handler made useful progress before the failure.")
+    parser.add_argument(
+        "--chain-step",
+        dest="chain_step",
+        type=int,
+        required=True,
+        help="Current session-offer chain step number.",
+    )
+    parser.add_argument(
+        "--project", required=True, help="Project id the failing handler is bound to."
+    )
+    parser.add_argument(
+        "--routed-action",
+        dest="routed_action",
+        required=True,
+        help="Routed action that failed (e.g. 'implement').",
+    )
+    parser.add_argument(
+        "--failure-class",
+        dest="failure_class",
+        required=True,
+        help="Structured failure class string.",
+    )
+    parser.add_argument(
+        "--remediation-owner",
+        dest="remediation_owner",
+        required=True,
+        help="Work item id or recipe owner responsible for the fix.",
+    )
+    parser.add_argument(
+        "--current-status",
+        dest="current_status",
+        default=None,
+        help="Lifecycle status of the failing item at skip time.",
+    )
+    parser.add_argument(
+        "--useful-work-began",
+        dest="useful_work_began",
+        action="store_true",
+        default=False,
+        help="Set when the routed handler made useful progress before the failure.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
-        parser, args, LIFECYCLE_SKIP_RECORD_RECOVERABLE_SUBSTRATE_USAGE,
+        parser,
+        args,
+        LIFECYCLE_SKIP_RECORD_RECOVERABLE_SUBSTRATE_USAGE,
     )
     if parsed is None:
         return 2

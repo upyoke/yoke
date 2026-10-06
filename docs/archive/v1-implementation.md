@@ -753,7 +753,7 @@ The command **auto-detects the appropriate phase** based on the epic's current s
 
 **Override flag:** `--force-integration` — runs integration simulation even if some tasks are still in progress, failed, or stuck. Use case: you want to check if the *rest* of the code integrates before deciding whether to fix or rewrite a stuck task. The Simulator will note which tasks are incomplete and trace paths through the completed work only.
 
-**Phase 1: Plan Simulation (after `/yoke:plan`, before `/yoke:sync`)**
+**Phase 1: Plan Simulation (after Architect planning, before `/yoke:sync`)**
 
 The Architect has produced the epic + tasks + worktree plan. Before syncing to GitHub and writing code, the Simulator reads the entire plan and traces paths:
 
@@ -771,7 +771,7 @@ What it traces:
 
 What it outputs:
 - `epics/{name}/simulation-plan.md` — gap report
-- Operator reviews gaps. **Critical gaps** → feed back to Architect for re-plan (same `/yoke:plan` phase). **Warnings** → operator decides to fix or accept. **Notes** → proceed.
+- Operator reviews gaps. **Critical gaps** → feed back to Architect for re-plan (same Architect planning phase). **Warnings** → operator decides to fix or accept. **Notes** → proceed.
 
 **Phase 2: Integration Simulation (after all tasks complete, before `/yoke:merge`)**
 

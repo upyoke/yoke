@@ -4,11 +4,12 @@ Reachability pairs a change with a test through imports. These families
 cover the couplings it cannot see: a CLI route and its usage entry meet
 through a dict key, a registrar and its authorization contract meet
 through the live registry, a Pack file and its verification meet through
-the pack manifest. Each names the source prefixes that owe the contract
-and the tests that prove it.
+the pack manifest. Each names the prefixes that owe it and its tests.
 """
 
 from __future__ import annotations
+
+from yoke_core.tools._impacted_pack_contracts import PACK_PREFIX_CONTRACTS
 
 from yoke_contracts.project_contract.install_manifest import (
     PACKAGED_INSTALL_BUNDLE_TREE_REL,
@@ -30,6 +31,7 @@ AGENT_SKILL_CONTRACT_TESTS = (
     "runtime/api/engines/test_doctor_skill_entrypoint_disclosure.py",
     "runtime/api/test_active_context_concision.py",
     "runtime/api/test_agent_authored_filing_instruction_resolution.py",
+    "runtime/api/test_blitz_release_stage_close.py",
     "runtime/api/test_browser_case_docs.py",
     "runtime/api/test_canonical_xdist_teaching.py",
     "runtime/api/test_direct_workflow_skills.py",
@@ -47,6 +49,7 @@ AGENT_SKILL_CONTRACT_TESTS = (
     "runtime/api/test_simulation_prompt_assembly.py",
     "runtime/api/test_skill_doc_drift.py",
     "runtime/api/test_skill_doc_regressions_advance.py",
+    "runtime/api/test_skill_doc_regressions_claim_coverage_repair.py",
     "runtime/api/test_skill_doc_regressions_conduct_claims.py",
     "runtime/api/test_skill_doc_regressions_conduct_core.py",
     "runtime/api/test_skill_doc_regressions_conduct_simulation.py",
@@ -62,7 +65,7 @@ AGENT_SKILL_CONTRACT_TESTS = (
     "runtime/api/test_skill_doc_regressions_onboard_delivery.py",
     "runtime/api/test_skill_doc_regressions_onboard_no_tests.py",
     "runtime/api/test_skill_doc_regressions_path_claim_coordination.py",
-    "runtime/api/test_skill_doc_regressions_plan_merge.py",
+    "runtime/api/test_skill_doc_regressions_merge.py",
     "runtime/api/test_skill_doc_regressions_refine_obvious_file_budget.py",
     "runtime/api/test_skill_doc_regressions_refine_polish.py",
     "runtime/api/test_skill_doc_regressions_refine_release_sequencing.py",
@@ -70,6 +73,7 @@ AGENT_SKILL_CONTRACT_TESTS = (
     "runtime/api/test_skill_doc_regressions_strategize.py",
     "runtime/api/test_skill_doc_regressions_usher_collect.py",
     "runtime/api/test_skill_prose_schema_drift.py",
+    "runtime/api/test_skill_workflow_authority.py",
     "runtime/api/test_steer_prompt.py",
     "runtime/api/test_steer_prompt_worker_lifecycle.py",
     # Keep the roster's own completeness check in every skill selection.
@@ -244,6 +248,7 @@ SOURCE_RECIPE_SOURCE_PREFIXES = (
 )
 
 PREFIX_CONTRACT_TESTS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
+    *PACK_PREFIX_CONTRACTS,
     (
         "core_module_importability",
         ("packages/yoke-core/src/yoke_core/",),

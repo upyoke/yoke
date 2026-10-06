@@ -50,7 +50,7 @@ Items receive a `deployment_flow` via a two-tiered enforcement model:
 - The Yoke control-plane project's configured default is `yoke-internal` (operator-authored `deploy_defaults`, not a seed).
 
 **Hard enforcement at planning gate:**
-- Shepherd `planning_to_plan_drafted` transition blocks if `deployment_flow` is NULL on an epic
+- Shepherd's binding-derived final review edge blocks if `deployment_flow` is NULL on an epic
 - Epic tasks are excluded (they inherit from their parent epic's flow)
 - Operator must explicitly choose a flow before the item can reach `planned`
 - `HC-missing-flow` doctor check surfaces items missing flows at WARN severity

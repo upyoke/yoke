@@ -123,11 +123,12 @@ class TestExtractors(unittest.TestCase):
         self.assertIsNone(lint._extract_session_id_flag("cmd --item YOK-1"))
 
     def test_item_id(self) -> None:
-        self.assertEqual(lint._extract_item_id("cmd --item YOK-42 foo"), 42)
-        self.assertEqual(lint._extract_item_id("cmd --item-id 99 foo"), 99)
-        self.assertEqual(lint._extract_item_id("cmd --item 7"), 7)
-        self.assertEqual(lint._extract_item_id("widen for YOK-100 release"), 100)
-        self.assertIsNone(lint._extract_item_id("git status"))
+        self.assertEqual(lint._extract_item_ref("cmd --item YOK-42 foo"), "YOK-42")
+        self.assertEqual(lint._extract_item_ref("cmd --item-id BUZ-9 foo"), "BUZ-9")
+        self.assertEqual(lint._extract_item_ref("widen for YOK-100 release"), "YOK-100")
+        # A bare number names no item without a project, so nothing resolves.
+        self.assertIsNone(lint._extract_item_ref("cmd --item 7"))
+        self.assertIsNone(lint._extract_item_ref("git status"))
 
 
 class TestStaticSpoofingBranch(unittest.TestCase):

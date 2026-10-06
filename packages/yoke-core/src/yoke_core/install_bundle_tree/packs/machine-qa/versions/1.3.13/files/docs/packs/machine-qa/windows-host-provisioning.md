@@ -7,6 +7,14 @@ Linux home. Yoke runs inside WSL2 Ubuntu, not native Windows. The registered
 SSH account is a Windows user; its default Ubuntu user is dedicated/non-root.
 Infrastructure, account names, endpoints, passwords and paths are project-owned.
 
+Audit: `windows-lab`, **2026-10-03 UTC**. On Server2025 build26100/WSL3.0.1,
+the Pack proved XFCE/xrdp and Windows localhost access to3390. After lifetime
+configuration and a controlled restart, XFCE and headed Chromium retained
+identical boot/display/process/window identities over125seconds with no
+target call or foreground keeper; the browser step still worked. Agent captures
+prove rendering. Personal sign-in and profile capture/restore remain pending. The VM
+was stopped and rechecked. Persistence proof does not establish own approval.
+
 ## 1. Infrastructure and Windows account
 
 Declare infrastructure in the project's IaC, or record the operator's explicit
@@ -285,7 +293,7 @@ Linux application visibly renders before requesting a personal sign-in. If
 the provisioned WSL display is unavailable, return its named failure; do not
 change system settings or invent native-profile exports. Linux writer inventory
 and private archive work run inside WSL.
-Prove capture and restore on the registered host before relying on its saved profile.
+This route on windows-lab is pending real capture/restore proof.
 
 ## 7. Save and prove the Linux home
 

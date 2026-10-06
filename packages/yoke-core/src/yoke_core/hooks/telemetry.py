@@ -11,22 +11,14 @@ Same-object semantics matter: callers do
 expect that to take effect at every call site. A wrapper function
 would break that contract; module-level re-export aliases preserve it.
 
-Sibling owners:
-
-- :mod:`yoke_core.hooks.denial` — denial-event payload
-  builders and the ``HarnessToolCallDenied`` emitter.
-- :mod:`yoke_core.hooks.identity` — session-identity
-  resolution, env-file persistence, telemetry classification.
-- :mod:`yoke_core.hooks.service_client` — repo-root
-  resolution, ``service_client.py`` path lookup, ``register_session``
-  driver, and the post-turn model refresh
-  (``attest_served_model_facts``).
-- :mod:`yoke_core.hooks.stdin` — bounded stdin reads and
-  the ``HarnessSessionHookFailed`` /
-  ``HarnessSessionSentFirstUserPromptSubmit`` emitters.
+Sibling owners provide denial payloads (``denial``), session identity
+(``identity``), registration (``service_client``), model attestation
+(``session_model_attestation_write``), and bounded stdin reads (``stdin``).
 """
 
 from __future__ import annotations
+from pathlib import Path
+from yoke_core.domain.events_project_identity import working_project_for_event
 from typing import Any, Optional
 from yoke_core.hooks.denial import (  # noqa: F401
     COMMAND_SNIPPET_MAX_BYTES,
@@ -97,7 +89,12 @@ def _emit_hook_event(
             session_id=session_id or "unknown",
             severity=severity,
             outcome=outcome,
-            project="yoke",
+            project=working_project_for_event(
+                conn=conn,
+                session_id=session_id,
+                item_id=item_id,
+                directory=Path.cwd() if conn is None else None,
+            ),
             item_id=str(item_id) if item_id is not None else None,
             tool_name=tool_name or None,
             hook_event_name=hook_event,

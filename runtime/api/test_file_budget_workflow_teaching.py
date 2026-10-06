@@ -31,7 +31,7 @@ def test_workflow_skills_resolve_file_budget_and_claims_independently() -> None:
         ROOT / "AGENTS.md",
         _command("idea"),
         _command("refine"),
-        SKILLS / "advance" / "preflight-checks.md",
+        SKILLS / "advance" / "preflight.md",
         _command("conduct"),
         _command("dash"),
         _command("blitz"),
@@ -87,7 +87,7 @@ def test_teaching_covers_all_axis_combinations_and_universal_cap() -> None:
 
 def test_each_execution_surface_teaches_the_both_off_composition() -> None:
     paths = [
-        SKILLS / "advance" / "preflight-checks.md",
+        SKILLS / "advance" / "preflight.md",
         _command("conduct"),
         _command("dash"),
         ROOT / "runtime" / "agents" / "architect.md",

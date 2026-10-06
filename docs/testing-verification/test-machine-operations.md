@@ -59,7 +59,11 @@ from a broken session query.
 
 Ad hoc `exec` uses the workstation SSH agent, records no QA verdict or operation
 receipt, and refuses another session's host lease. It streams stdout/stderr and
-keeps bounded failure diagnostics. Mission host commands instead run through
+keeps bounded failure diagnostics. `exec --admin` on macOS or Linux reads the
+named machine's stored `desktop_password` administrator credential and supplies
+it to sudo on private stdin. It redacts both streams and diagnostic tails; the
+command receives no stdin. Follow the Pack's [administrator-command setup](../../packs/machine-qa/versions/1.3.13/files/docs/packs/machine-qa/administrator-commands.md).
+Mission host commands instead run through
 the mission's retained lease; GUI-context commands use its declared GUI route.
 The remote shell interprets command text, so argv quoting remains significant.
 

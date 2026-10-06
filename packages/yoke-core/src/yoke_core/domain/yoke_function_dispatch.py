@@ -56,8 +56,9 @@ from yoke_core.domain.yoke_function_dispatch_idempotency import (
     IdempotencyReplay,
     handle_idempotency,
 )
-from yoke_core.domain.yoke_function_dispatch_target import (
-    resolve_target_public_ref,
+from yoke_core.domain.yoke_function_dispatch_target import resolve_request_item_refs
+from yoke_core.domain.yoke_function_dispatch_projection import (
+    project_response_item_identity,
 )
 from yoke_core.domain.handler_execution_context import invoke_resolved_handler
 from yoke_core.domain.yoke_function_idempotency_scope import (
@@ -228,7 +229,7 @@ def _dispatch_impl(
     # Relay contract: clients carry raw item refs; the server resolves
     # them before permission / claim checks so both transports share one
     # resolution authority (yoke_function_dispatch_target).
-    ref_error = resolve_target_public_ref(typed_request)
+    ref_error = resolve_request_item_refs(typed_request, entry.request_model)
     if ref_error is not None:
         return ref_error
 
@@ -329,6 +330,7 @@ def dispatch(
 ) -> FunctionCallResponse:
     with dispatch_observation(request) as mark_observed:
         response = _dispatch_impl(request, ambient_session_id=ambient_session_id)
+        response = project_response_item_identity(response)
         mark_observed(response)
         return response
 

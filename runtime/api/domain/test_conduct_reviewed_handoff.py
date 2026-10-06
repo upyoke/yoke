@@ -13,6 +13,8 @@ from yoke_core.domain.sessions_lifecycle_release_failure import (
     RELEASE_FAILURE_ALREADY_TERMINAL,
     RELEASE_FAILURE_ITEM_NOT_FOUND,
 )
+from runtime.api.fixtures.backlog_inserts import insert_epic_task
+from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_backlog import (
     _item_field,
     _patch_externals,
@@ -149,7 +151,7 @@ class TestMain(unittest.TestCase):
         with redirect_stderr(err_buf):
             rc = mod.main(["not-an-id"])
         self.assertEqual(rc, 1)
-        self.assertIn("expected PREFIX-N", err_buf.getvalue())
+        self.assertIn("pass the public ref (PREFIX-N", err_buf.getvalue())
 
     def test_forwards_to_run(self) -> None:
         with (
@@ -275,6 +277,10 @@ def test_run_status_write_exercises_real_backlog_update(tmp_db):  # noqa: F811
         status="reviewing-implementation",
         project="yoke",
     )
+    conn = connect_test_db(tmp_db)
+    insert_epic_task(conn, epic_id=43, task_num=1, status="reviewed-implementation")
+    conn.commit()
+    conn.close()
 
     with (
         _patch_externals(),

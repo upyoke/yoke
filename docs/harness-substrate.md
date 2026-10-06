@@ -28,7 +28,7 @@ The capability registry exports `HARNESS_UNIVERSE` (the set of supported harness
 
 ## Session cwd binding
 
-Sessions running in `advance` / `conduct` / `polish` mode bind the harness cwd to the item's worktree at session start. The binding is structural: the harness session-start hook reads the active item from the session row (cross-reference: see your `harness_sessions` packet stanza for active-item attribution columns), resolves the absolute worktree path via `_resolve_item_worktree` (composed from the item's worktree branch slug under this machine's registered checkout for the numeric project id; cross-reference: see your `items` and `projects` packet stanzas), and chdir's the harness shell into that directory before any tool call fires.
+Sessions running in `implement` / `conduct` / `polish` mode bind the harness cwd to the item's worktree at session start. The binding is structural: the harness session-start hook reads the active item from the session row (cross-reference: see your `harness_sessions` packet stanza for active-item attribution columns), resolves the absolute worktree path via `_resolve_item_worktree` (composed from the item's worktree branch slug under this machine's registered checkout for the numeric project id; cross-reference: see your `items` and `projects` packet stanzas), and chdir's the harness shell into that directory before any tool call fires.
 
 This is the **first line of defense** against silent wrong-tree reads. With cwd structurally pinned, relative-path Bash reads resolve inside the worktree by default; the agent doesn't need to remember the worktree path to stay safe.
 
@@ -56,7 +56,7 @@ The shared `yoke_core.domain.workspace_authority.resolve_session_worktree_paths`
 
 When the ambient session has no active worktree claims (operator/maintenance mode, sessions outside Yoke recognition), the reader fallback and the lint both no-op; the writer-authority helper continues to enforce against live work-claims and the writer-API contract (`target_root` required keyword on `write_all` / `write_all_claude`) remains the unconditional API-shape defense.
 
-Worktree creation is a pure filesystem + DB operation, not a session boundary. The harness session that runs `/yoke advance ... implementation` (or the conduct task-lane equivalent) records the worktree branch slug on the item (cross-reference: see your `items` packet stanza), activates path claims, and continues into worktree-bound implementation/review work in the same session — no claim release, no `HarnessSessionEnded`, no relaunch block. (See `docs/event-catalog.md` for the registry's retired-event rows that document the prior session-end and session-envelope behaviors.)
+Worktree creation is a pure filesystem + DB operation, not a session boundary. The harness session that runs `/yoke implement ...` (or the conduct task-lane equivalent) records the worktree branch slug on the item (cross-reference: see your `items` packet stanza), activates path claims, and continues into worktree-bound implementation/review work in the same session — no claim release, no `HarnessSessionEnded`, no relaunch block. (See `docs/event-catalog.md` for the registry's retired-event rows that document the prior session-end and session-envelope behaviors.)
 
 ### Session cwd binding: per-call claim-based authority
 

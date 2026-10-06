@@ -20,6 +20,7 @@ from yoke_contracts.install_binding import (
     source_checkout_root,
 )
 from yoke_contracts.machine_config.schema import mapped_checkouts
+from yoke_contracts.project_defaults import default_project_for_directory
 from yoke_core.domain.project_selection import required_local_project
 from yoke_contracts.server_mode import SERVER_MODE_ENV, SERVER_MODE_SELF_HOST
 
@@ -27,6 +28,10 @@ from yoke_core.domain import db_backend, machine_config
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.project_checkout_locations import checkout_for_project
 from yoke_core.domain.project_identity import resolve_project_id
+from yoke_core.engines.doctor_source_root import (
+    bound_source_root_or_none,
+    preferred_source_checkout,
+)
 from yoke_core.engines.doctor_applicability import (
     CHECKOUT_BEARING_RUNTIMES,
     DoctorContext,
@@ -82,12 +87,21 @@ def self_project_names(conn) -> frozenset:
     An unmapped source checkout does not identify a project. Its self-scoped
     checks report not applicable until the checkout is registered.
     """
-    for checkout, project_id in _mapped_checkouts():
+    source = running_source_root()
+    checkouts = ([source] if source else []) + [
+        checkout for checkout, _project_id in _mapped_checkouts()
+    ]
+    for checkout in checkouts:
         try:
             root = Path(checkout).expanduser()
         except (TypeError, ValueError):
             continue
         if not is_yoke_source_checkout(root):
+            continue
+        # Use the CLI's ancestor/worktree and active-universe mapping rather
+        # than interpreting the machine config's raw checkout entries again.
+        project_id = default_project_for_directory(root)
+        if project_id is None:
             continue
         names = {str(project_id)}
         slug = _project_slug(conn, project_id)
@@ -134,10 +148,15 @@ def resolve_context(conn, args, *, runtime: Optional[str] = None) -> DoctorConte
     checkout = None
     names = self_project_names(conn)
     if resolved_runtime in CHECKOUT_BEARING_RUNTIMES:
-        try:
-            checkout = checkout_for_project(conn, project)
-        except Exception:  # noqa: BLE001 - context reads are advisory
-            checkout = None
+        bound = bound_source_root_or_none()
+        if bound:
+            checkout = Path(bound)
+        else:
+            try:
+                mapped = checkout_for_project(conn, project)
+                checkout = preferred_source_checkout(mapped) if mapped else None
+            except Exception:  # noqa: BLE001 - context reads are advisory
+                checkout = None
         if checkout is None and project in {str(name) for name in names}:
             # The checkout map did not answer, but the engine is running
             # from the source tree the self project owns — that tree is the

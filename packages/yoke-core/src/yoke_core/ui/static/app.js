@@ -54,6 +54,7 @@ import { routeLoadingLine } from "./universe_route_loading.js";
 import { createSteeringGroupColors } from "./universe_steering_group_color.js";
 import { ROUTE_NAVIGATION_EVENT } from "./universe_path_navigation.js";
 import { createLocationPreference } from "./universe_location_preference.js";
+import { purgeObsoleteItemDrafts } from "./item_draft_storage.js";
 export { withProjectSelection } from "./universe_selection_routes.js";
 // A host owns its slot DOM, so it cannot inherit the app's own dismissal —
 // and should not write a second one. Contract: `contracts/universe-app.ts`.
@@ -76,6 +77,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     throw new TypeError("mountUniverseApp client must expose call(request)");
   }
   const capabilities = options.capabilities || {};
+  purgeObsoleteItemDrafts(windowNode);
   const slots = options.slots || {};
   const hostContentNodes = new Set();
   const resolvedSlots = materializeSlots(slots, rootNode, hostContentNodes);

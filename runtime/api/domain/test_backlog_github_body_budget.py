@@ -135,7 +135,7 @@ class TestRenderCompactMirror:
             in out
         )
         # Lifecycle commands include the implementing-phase entry.
-        assert f"/yoke advance {MIRROR_ITEM_REF} reviewing-implementation" in out
+        assert f"/yoke implement {MIRROR_ITEM_REF}" in out
         # Evidence summary present.
         assert "latest transition: refined-idea -> implementing" in out
 
@@ -147,7 +147,7 @@ class TestRenderCompactMirror:
         out = bb.render_compact_mirror(
             fields, conn=evidence_conn, item_id=MIRROR_ITEM_ID
         )
-        assert f"/yoke do {MIRROR_ITEM_REF}" in out
+        assert f"yoke workflows item get {MIRROR_ITEM_REF}" in out
 
     def test_missing_evidence_falls_back_to_no_recent_evidence(self):
         empty = _disposable_conn(_TRANSITIONS_DDL)

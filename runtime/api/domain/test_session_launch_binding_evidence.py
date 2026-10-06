@@ -203,7 +203,7 @@ def test_registration_deadline_is_never_a_zero_evidence_verdict() -> None:
 
 def test_queued_launch_expiry_also_carries_its_phase() -> None:
     conn = launch_connection()
-    add_relay(conn)
+    add_relay(conn, connected_until="2026-08-22T12:05:00Z")
     launch = assigned_launch(conn, key="queued-deadline")
 
     settle_launch_deadlines(conn, now="2026-08-22T12:11:00Z")

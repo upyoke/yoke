@@ -1,55 +1,36 @@
-# Simulation Auto-Fix Flow
+# Conduct Simulation Auto-Fix Adapter
 
-Invoked by `simulation-gate.md` (S6h Branch 3) when the integration simulation returns GAPS FOUND and `--no-auto-fix` is NOT set.
+Invoked by `simulation-gate.md` Branch 3 when auto-fix is enabled.
+Conduct delegates the Architect loop to Simulate; this file only connects its
+result to Conduct's code-fix task execution and reviewed-handoff checks.
 
-**Inherited from caller:** `MAIN_ROOT`, `_epic_id`, `_item_id` (numeric PREFIX-N number), `_worktree_path`, `_worktree_branch`, `_simulator_output` (raw Simulator output from the initial simulation), `_max_attempts` (for Engineer/Tester dispatch).
+## Invoke Simulate internally
 
-**Return values:** `AUTOFIX_CLEAN` (gaps resolved) or `AUTOFIX_HALTED` (gaps remain after exhausting all fix attempts).
+Read and invoke [Simulate](../simulate/SKILL.md) with the epic's internal id,
+`--force-integration --auto-fix`, and this retained caller context:
+- `MAIN_ROOT`, `_epic_id`, the resolved parent public ref and internal item id
+- `_worktree_path`, `_worktree_branch`, `_max_attempts`
+- `_simulator_output` and the already persisted integration report
+- `caller=conduct`, `phase=integration`
 
-**Constants:** `MAX_ARCHITECT_FIX_ITERATIONS=3` (from SKILL.md).
+Resume directly at [Simulate's shared auto-fix loop](../simulate/autofix-loop.md)
+using the existing report; do not repeat the initial simulation. Automatic mode
+accepts plan fixes and re-simulation without operator prompts. Simulate returns
+`AUTOFIX_NOT_REQUIRED` with the unchanged report, counts and recommendation,
+`AUTOFIX_CLEAN`, `AUTOFIX_CODE_GAPS` with `_code_level_gaps`, or
+`AUTOFIX_HALTED` with the named failure and recovery.
 
----
+## Map the result
 
-## Architect Fix Loop (Plan-Level Fixes)
+- `AUTOFIX_NOT_REQUIRED`: return it with the retained report to
+  `simulation-gate-escalation.md`; no CLEAN verdict or auto-handoff occurred.
+- `AUTOFIX_CLEAN`: return it to `simulation-gate-escalation.md`, which checks
+  the authoritative reviewed-handoff and claim release.
+- `AUTOFIX_CODE_GAPS`: read `simulation-autofix-verification.md` and execute
+  its single amend cycle, including Engineer/Tester gates and final persisted
+  re-simulation. Return that cycle's `AUTOFIX_CLEAN` or `AUTOFIX_HALTED`.
+- `AUTOFIX_HALTED`: preserve the lane and return the exact diagnostic to
+  `simulation-gate-escalation.md` and `cleanup-report.md`.
 
-Bounded to `MAX_ARCHITECT_FIX_ITERATIONS` iterations. Reuses logic from `simulate/SKILL.md` steps 8-12 but with automatic acceptance (no y/n prompts).
-
-**Read and follow: `.agents/skills/yoke/conduct/simulation-autofix-inputs.md`**
-
-This companion file covers AF1–AF3:
-- **AF1** — Initialize `_fix_iteration=1`, `_code_level_gaps=""`.
-- **AF2** — Check gap severity and recommendation. Return `AUTOFIX_CLEAN` early for NOTE-only gaps or PROCEED+no-CRITICALs anomaly.
-- **AF2a** — Pre-route by fix level: if all gaps are code-level, skip Architect and jump directly to Phase 2; if all plan-level, proceed to AF3; if mixed, proceed to AF3 (Architect marks code gaps as "requires /yoke amend").
-- **AF3** — Gather context for Architect: read `_sim_report` from DB and all task bodies.
-
-**Read and follow: `.agents/skills/yoke/conduct/simulation-autofix-patching.md`**
-
-This companion file covers AF4–AF9:
-- **AF4** — Dispatch Architect in fix mode (`"Fix mode."` trigger phrase).
-- **AF5** — Write Architect's fixes to DB (task bodies and worktree plan).
-- **AF6** — Track code-level gaps (entries marked "requires /yoke amend").
-- **AF7** — Display change summary; capture Ouroboros reflections.
-- **AF7a** — Short-circuit to Phase 2 if all gaps are code-level (no plan-level fixes made).
-- **AF8** — Re-simulate (dispatch Simulator with updated context).
-- **AF9** — Persist and evaluate re-simulation verdict. If CLEAN, return `AUTOFIX_CLEAN`. If GAPS FOUND and iterations remain, loop back to AF2. If iterations exhausted, proceed to Phase 2 if code gaps exist, else return `AUTOFIX_HALTED`.
-
----
-
-## Amend Cycle (Code-Level Fixes)
-
-Creates a fix task for remaining code-level gaps, dispatches through Engineer/Tester, and re-simulates. Maximum 1 amend cycle.
-
-**Read and follow: `.agents/skills/yoke/conduct/simulation-autofix-verification.md`**
-
-This companion file covers AF10–AF19:
-- **AF10** — Parse remaining code-level gaps from DB.
-- **AF10a** — Extract dependency task numbers from gap source tasks.
-- **AF11** — Create fix task (auto-numbered, task body with ACs per gap).
-- **AF12** — Sync fix task to GitHub.
-- **AF13** — Append fix task to dispatch chain queue.
-- **AF14** — Activate and dispatch Engineer for fix task (YOKE_CLAIM_BYPASS for system-owned task).
-- **AF15** — Post-Engineer processing: reflections, commit sweep, agent ID, review seed.
-- **AF16** — Merge main before Tester.
-- **AF17** — Dispatch Tester for fix task.
-- **AF18** — Process Tester verdict: FAIL returns `AUTOFIX_HALTED`; PASS proceeds to AF19.
-- **AF19** — Final re-simulation: CLEAN returns `AUTOFIX_CLEAN`; GAPS FOUND or persistence failure returns `AUTOFIX_HALTED`.
+Restore the caller's session mode on return. No second Architect loop lives
+in Conduct, and code-fix execution remains owned by its task pipeline.

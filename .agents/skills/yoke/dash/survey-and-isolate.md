@@ -136,10 +136,20 @@ out to mandate in a second project needs its own companion item filed there and
 linked by an `item_dependencies` edge — a scope judgment the operator owns, so
 follow [`escalate.md`](escalate.md) rather than writing into that repo from here.
 
-Activate through the shared lifecycle interpreter:
+Activate through `lifecycle.transition.execute` using the pinned definition.
+Read `yoke workflows item get ITEM --json`, then
+`yoke workflows version get WORKFLOW_ID WORKFLOW_VERSION --json` with the
+returned pin. Set `LIVE_STAGE` to the item's current status and `NEXT_STAGE`
+to the unique forward target whose `from_stage_id` equals `LIVE_STAGE` in
+`definition.transitions`, using
+`definition.stages` order to distinguish forward edges from rework. Confirm
+the active half-open `definition.skill_bindings` interval belongs to Dash.
+If there is no unique forward edge, stop with `workflow_next_stage_ambiguous`
+and ask the workflow owner to repair or select the declared route; never
+invent a target. Skip activation when resuming an already-active lane:
 
 ```text
-yoke lifecycle transition ITEM --from idea --to implementing --reason "Dash execution started"
+yoke lifecycle transition ITEM --from LIVE_STAGE --to NEXT_STAGE --reason "Dash execution started"
 ```
 
 The live `conflict_survey` gate requires a recorded, readable touch set and

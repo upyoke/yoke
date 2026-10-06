@@ -51,11 +51,6 @@ BASELINE: dict[str, dict[str, object]] = {
         "reason": "doc_comment_only",
         "note": "documents legacy YOK-{internal_id} worktree naming scheme",
     },
-    "packages/yoke-core/src/yoke_core/domain/lint_claim_ownership_denials.py": {
-        "count": 1,
-        "reason": "legacy_key_lookup",
-        "note": "match pre-render claim-work command summaries that used internal-id token",
-    },
     "packages/yoke-core/src/yoke_core/domain/lint_shell_quoted_function_payload.py": {
         "count": 1,
         "reason": "token_recognition",
@@ -102,14 +97,9 @@ BASELINE: dict[str, dict[str, object]] = {
         "note": "documents the legacy scheme a recorded lane may still use",
     },
     "packages/yoke-core/src/yoke_core/engines/doctor_hc_meta_lifecycle.py": {
-        "count": 2,
-        "reason": "legacy_key_lookup",
-        "note": "HC remediation SQL examples use historical YOK-||i.id join shape",
-    },
-    "packages/yoke-core/src/yoke_core/engines/doctor_hc_meta_runs.py": {
         "count": 1,
-        "reason": "token_recognition",
-        "note": "grep audit skips lines that already cite a public ref token",
+        "reason": "legacy_key_lookup",
+        "note": "HC verdict lookup uses the historical internal item storage key",
     },
     "packages/yoke-core/src/yoke_core/engines/doctor_hc_worktrees_branches.py": {
         "count": 1,

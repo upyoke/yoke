@@ -107,16 +107,6 @@ def test_no_prefixes_means_no_hits(tmp_path: Path) -> None:
     assert scan(tmp_path, []) == []
 
 
-def test_flags_implicit_internal_opt_out(tmp_path: Path) -> None:
-    _write(
-        tmp_path,
-        "packages/pkg/src/parse.py",
-        "parse_item_id(raw, allow_bare_internal=True)\n",
-    )
-    hits = scan_parser_policy(tmp_path)
-    assert [(hit.path.name, hit.line) for hit in hits] == [("parse.py", 1)]
-
-
 def test_flags_project_blind_prefix_regex(tmp_path: Path) -> None:
     _write(
         tmp_path,
@@ -158,19 +148,13 @@ def test_numeric_tail_allowances_are_exact_and_stale_checked(
     tmp_path: Path,
 ) -> None:
     allowed = (
-        "packages/yoke-core/src/yoke_core/domain/item_ref_columns.py"
+        "packages/yoke-core/src/yoke_core/domain/migrations/"
+        "_numeric_item_dependency_ids.py"
     )
-    _write(
-        tmp_path,
-        allowed,
-        'tail = raw.rsplit("-", 1)[-1]\n'
-        'parse_item_id(raw, allow_bare_internal=True)\n',
-    )
+    _write(tmp_path, allowed, 'tail = int(raw.rsplit("-", 1)[-1])\n')
 
     assert scan_parser_policy(tmp_path) == []
-    stale = stale_parser_policy_allowances(tmp_path)
-    assert allowed not in stale
-    assert len(stale) == 1
+    assert stale_parser_policy_allowances(tmp_path) == []
 
 
 def test_baseline_counts_matches_classified_entries() -> None:

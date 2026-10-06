@@ -11,7 +11,8 @@ from yoke_core.domain.function_target_row_project import (
     resolve_deployment_run_project,
     slug_for_project_id,
 )
-from yoke_core.domain.project_identity import resolve_item_id, resolve_project_id
+from yoke_core.domain.project_identity import resolve_project_id
+from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 from yoke_core.domain.deployment_run_membership_removals import removed_item_ids
 
 
@@ -101,7 +102,7 @@ def resolve_run_qa_subject(
                     int(member_ref)
                     if payload.get("deployment_member_item")
                     and str(member_ref).isdigit()
-                    else resolve_item_id(conn, str(member_ref))
+                    else resolve_item_ref_or_none(conn, str(member_ref))
                 )
             except LookupError as exc:
                 raise QaSubjectProjectError(

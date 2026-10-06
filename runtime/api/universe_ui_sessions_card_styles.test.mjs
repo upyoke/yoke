@@ -24,8 +24,8 @@ test("Session cards contain variable text and stretch to their grid row", () => 
   // A row of peers reads as a row only when the cards end on one line, which
   // is the grid's own default: the card must not opt back out of it.
   assert.match(
-    sessionCss("universe_secondary_activity.css"),
-    /\.session-grid \{[^}]*display: grid;/,
+    sessionCss("universe_responsive.css"),
+    /\.session-grid,[^}]*display: grid;/,
   );
   assert.ok(
     !/\.session-card \{[^}]*align-self/.test(css),

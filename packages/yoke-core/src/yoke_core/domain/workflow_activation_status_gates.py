@@ -38,8 +38,9 @@ from yoke_core.domain.workflow_gate_catalog import (
     GATE_CLAIM_ACTIVATION,
 )
 
-#: Dependency rows carrying this gate point block entry into implementing.
-#: Integration- and closure-gated rows are answered at their own boundary.
+#: Dependency rows carrying this gate point block the working stages.
+#: Integration-gated rows are answered at the stages that imply a merge
+#: (:mod:`workflow_delivery_status_gates`), closure-gated rows at done.
 ACTIVATION_GATE_POINT = "activation"
 
 _GATE_IDS = frozenset({GATE_CHECK_HARD_BLOCKS, GATE_CLAIM_ACTIVATION})
@@ -69,8 +70,14 @@ def evaluate_check_hard_blocks(
     db_path: str,
     session_id: Optional[str] = None,
     conn: Optional[Any] = None,
+    gate_point: str = ACTIVATION_GATE_POINT,
 ) -> Optional[dict]:
-    """Refuse while an activation-gated upstream dependency is unsatisfied."""
+    """Refuse while an upstream dependency gated at ``gate_point`` is unsatisfied.
+
+    Activation is the listed gate's point. The structural lifecycle gates
+    reuse the same evaluation for activation edges at later working stages
+    and for integration edges at the stages that imply a merge.
+    """
     from yoke_core.domain.check_hard_blocks import evaluate_blockers
 
     gate_conn = conn if conn is not None else connect(db_path)
@@ -79,7 +86,7 @@ def evaluate_check_hard_blocks(
         blocked = (
             evaluate_blockers(
                 int(item_id),
-                gate_filter=ACTIVATION_GATE_POINT,
+                gate_filter=gate_point,
                 conn=gate_conn,
             )
             if registry_present
@@ -106,7 +113,7 @@ def evaluate_check_hard_blocks(
         "error_code": "GATE_HARD_BLOCKS_UNSATISFIED",
         "error": (
             f"Cannot advance to {target_status!r} — "
-            f"{len(blocked)} upstream dependency(ies) gated at activation "
+            f"{len(blocked)} upstream dependency(ies) gated at {gate_point} "
             f"remain unsatisfied: {summary}."
         ),
         "remediation_hint": (

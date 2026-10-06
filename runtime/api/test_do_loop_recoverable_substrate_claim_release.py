@@ -1,7 +1,7 @@
 # ruff: noqa: F811
 """Regression coverage for the claim-release side of recoverable substrate skips.
 
-When ``/yoke do`` records a ``recoverable_substrate`` chain-skip
+When ``session-offer`` records a ``recoverable_substrate`` chain-skip
 checkpoint, the routed handler has already failed before useful work
 began. Skip memory carries the dedup key so the next offer avoids the
 same item, but the session's item work-claim must also be released --
@@ -80,7 +80,7 @@ class TestReleasesActiveClaim:
                 chain_step=1,
                 project="yoke",
                 item_id=item_id,
-                routed_action="advance",
+                routed_action="implement",
                 failure_class="cwd_drift",
                 remediation_owner=f"YOK-{item_id}",
                 current_status="implementing",
@@ -125,7 +125,7 @@ class TestReleasesActiveClaim:
                 chain_step=1,
                 project="yoke",
                 item_id=str(item_id),
-                routed_action="advance",
+                routed_action="implement",
                 failure_class="cwd_drift",
                 remediation_owner=f"YOK-{item_id}",
             )
@@ -164,7 +164,7 @@ class TestReleaseConstantSingleSource:
                 chain_step=1,
                 project="yoke",
                 item_id=item_id,
-                routed_action="advance",
+                routed_action="implement",
                 failure_class="cwd_drift",
                 remediation_owner=f"YOK-{item_id}",
             )
@@ -198,7 +198,7 @@ class TestReleaseFailureIsNonBlocking:
                 chain_step=1,
                 project="yoke",
                 item_id=item_id,
-                routed_action="advance",
+                routed_action="implement",
                 failure_class="cwd_drift",
                 remediation_owner=f"YOK-{item_id}",
             )
@@ -232,7 +232,7 @@ class TestReleaseFailureIsNonBlocking:
                 chain_step=1,
                 project="yoke",
                 item_id=item_id,
-                routed_action="advance",
+                routed_action="implement",
                 failure_class="cwd_drift",
                 remediation_owner=f"YOK-{item_id}",
             )

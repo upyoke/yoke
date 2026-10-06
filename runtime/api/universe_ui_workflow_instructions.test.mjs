@@ -1,102 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-
+import { byClass, settle } from "./universe_ui_dom_test_support.mjs";
 import {
-  allNodes,
-  byClass,
-  FakeDocument,
-  settle,
-} from "./universe_ui_dom_test_support.mjs";
-import {
-  classText,
-  mountWorkflows,
-  okEnvelope,
-  workflowsClient,
+  classText, mountWorkflows, okEnvelope, workflowsClient,
 } from "./universe_ui_workflows_test_support.mjs";
 import {
-  workflowInstructionsPanel,
-} from "../../packages/yoke-core/src/yoke_core/ui/static/workflow_instructions_panel.js";
-
-function instructionsClient(seed = []) {
-  const requests = [];
-  const store = seed.map((row) => ({ ...row }));
-  let nextId = 900;
-  const find = (id) => store.find((row) => Number(row.id) === Number(id));
-  return {
-    requests,
-    async call(request) {
-      requests.push(request);
-      const payload = request.payload || {};
-      switch (request.function) {
-        case "workflow.execution_instruction.list":
-          return okEnvelope({ instructions: store.map((row) => ({ ...row })) });
-        case "workflow.execution_instruction.create": {
-          const id = nextId;
-          nextId += 1;
-          store.push({ id, content: payload.content });
-          return okEnvelope({ instruction_id: id });
-        }
-        case "workflow.execution_instruction.update":
-          find(payload.instruction_id).content = payload.content;
-          return okEnvelope({});
-        case "workflow.execution_instruction.set_scope": {
-          const row = find(payload.instruction_id);
-          row.applies_to_all_workflows = payload.applies_to_all_workflows;
-          row.workflow_ids = payload.workflow_ids;
-          row.applies_to_all_projects = payload.applies_to_all_projects;
-          row.project_ids = payload.project_ids;
-          return okEnvelope({});
-        }
-        case "workflow.execution_instruction.delete": {
-          const index = store.findIndex(
-            (row) => Number(row.id) === Number(payload.instruction_id),
-          );
-          if (index >= 0) store.splice(index, 1);
-          return okEnvelope({});
-        }
-        default:
-          throw new Error(`unexpected function ${request.function}`);
-      }
-    },
-  };
-}
-
-function functionsCalled(client) {
-  return client.requests.map((request) => request.function);
-}
-
-async function mountPanel({
-  seed = [],
-  workflows = [{ id: "dash", name: "Dash" }],
-  projects = [],
-} = {}) {
-  const documentNode = new FakeDocument();
-  const client = instructionsClient(seed);
-  const host = documentNode.createElement("div");
-  host.appendChild(
-    workflowInstructionsPanel(documentNode, client, { workflows, projects }),
-  );
-  await settle();
-  return { documentNode, client, host };
-}
-
-function buttonByText(host, text) {
-  return allNodes(host).find(
-    (node) => node.tagName === "BUTTON" && node.textContent === text,
-  );
-}
-
-function checkboxRows(host, className) {
-  return byClass(host, className).map((row) => ({
-    input: row.children[0],
-    label: row.children[1].textContent,
-  }));
-}
-
-function toggle(input, checked) {
-  input.checked = checked;
-  input.dispatchEvent(new Event("change"));
-}
+  buttonByText, checkboxRows, functionsCalled, mountPanel, toggle,
+} from "./universe_ui_instruction_test_support.mjs";
 
 test("workflows page lists every instruction above the tabs", async (t) => {
   const instructions = [
@@ -230,7 +140,11 @@ test("creating an instruction calls create then set_scope, then reloads", async 
     "workflow.execution_instruction.set_scope",
     "workflow.execution_instruction.list",
   ]);
-  assert.deepEqual(client.requests[1].payload, { content: "Freshly authored guidance" });
+  assert.deepEqual(client.requests[1].payload, {
+    content: "Freshly authored guidance",
+    before_creation: true, on_every_read: true,
+    when_entering_stage: false, stage_buckets: [],
+  });
   const scope = client.requests[2].payload;
   assert.equal(scope.instruction_id, 900);
   assert.equal(scope.applies_to_all_workflows, false);
@@ -272,6 +186,8 @@ test("editing an instruction calls update then set_scope with the new scope", as
   assert.deepEqual(client.requests[1].payload, {
     instruction_id: 42,
     content: "New prose",
+    before_creation: true, on_every_read: true,
+    when_entering_stage: false, stage_buckets: [],
   });
   assert.deepEqual(client.requests[2].payload.workflow_ids, ["dash", "issue"]);
 });

@@ -8,7 +8,7 @@ Issue the merge-and-close-out command. Non-queue projects and an explicit
 branch itself, so no path list is needed. Dash close-out is evidence-gated on
 this same command — pass `--result` and `--verification` even when the merge
 queue already landed the branch. Do not substitute
-`yoke lifecycle transition --to done`; that path cannot restore the work claim
+a direct terminal lifecycle transition; that path cannot restore the work claim
 the landing handoff retains.
 
 ```text
@@ -98,8 +98,8 @@ item-scoped one to the member too — so the run-wide form is refused rather
 than recording a pass the stage ignores, and `yoke qa case run
 --requirement-id N` credits that requirement's binding rather than the stage.
 Depth: `yoke qa plan run --help` for the subject/scope matrix, `yoke merge
-item --help` for the close-out routes. Materialization stamps the run's own
-deployed target onto the cases, so a plan authored before this release still
+item --help` for the close-out routes. Materialization stamps the member project's
+deployed target (or the run project's for run QA) onto cases, so a plan authored before this release still
 verifies it. A `command` deployment case is bound to the candidate the run deployed, not
 to your lane: the runner checks that revision out into a disposable tree for
 each case and removes it afterwards, so no `--checkout-path` or flag is needed
@@ -124,7 +124,7 @@ recorded and only the close-out remains — after a deployment run, after
 approval, or after a queue landing that has not reached `done` — re-run the
 same merge command with `--result` and `--verification`. It restores the work
 claim close-out needs and records evidence if the merge identity is not yet on
-the item. Do not hand-run `lifecycle.transition --to done` for Dash close-out.
+the item. Use this merge close-out route for a landed Dash.
 
 A delivery-required item finishes through that same command. Re-entering at
 the release wait once the deploy has succeeded IS the done ceremony: the
@@ -169,15 +169,24 @@ The command does not clean the lane or declare those commits delivered.
 
 ## A steering rework request
 
+Read the live item pin with `yoke workflows item get ITEM --json`, then
+`yoke workflows version get WORKFLOW_ID WORKFLOW_VERSION --json`. Resolve
+`LIVE_STAGE` from the status and `REWORK_STAGE` from the declared rework edge
+in `definition.transitions` back to the implementation stage in Dash's bound
+interval. If no unique route is declared, stop with
+`workflow_rework_stage_ambiguous` and ask the workflow owner to select or
+repair it; do not invent a transition.
+
 Steering does not gate your landing; it vets the work after it lands and
 before the item is admitted to a release. When that vetting finds a problem,
 steering names what to correct and asks you to move the item back to
-`implementing` — that transition is yours, because `lifecycle.transition`
+the definition's `REWORK_STAGE` — that transition is yours, because
+`lifecycle.transition.execute`
 requires the calling session to hold the item's work claim and steering
 holds no claim on a lane you are working:
 
 ```text
-yoke lifecycle transition PREFIX-N --to implementing --reason "steering rework: <what to correct>"
+yoke lifecycle transition ITEM --from LIVE_STAGE --to REWORK_STAGE --reason "steering rework: <what to correct>"
 ```
 
 That is a rework leg on this same item: correct it in the same lane,
@@ -278,11 +287,25 @@ yoke direct-workflow dash evidence ITEM --result "<account>" \
   --verification "<what you observed>" --no-changes --json
 ```
 
-Then move the Dash through `reviewing-implementation` to `done` on that
-attestation with `yoke lifecycle transition ITEM --to <next stage>`. With no
-lane, that transition is the whole done ceremony, including the step from a
-release wait to `done`. Every done gate still applies. When the item's flow owes a
-delivery, the release wait holds until a run with completion authority for it
+Then walk the pinned definition one declared forward edge at a time through
+`lifecycle.transition.execute`. Before each step, refresh
+`yoke workflows item get ITEM --json` and read
+`yoke workflows version get WORKFLOW_ID WORKFLOW_VERSION --json`. Resolve
+`LIVE_STAGE` from status and `NEXT_STAGE` from the unique forward edge whose
+`from_stage_id` equals `LIVE_STAGE` in `definition.transitions`, ordered by
+`definition.stages`; stop when status is
+in `definition.terminal_stage_ids`. If the edge is absent or ambiguous, stop
+with `workflow_next_stage_ambiguous` and ask the workflow owner to repair or
+select the route. Confirm the live binding still belongs to Dash; a binding
+boundary is a handoff, not permission to continue. With no lane, this walk is
+the whole close-out ceremony. Every declared gate still applies.
+
+```text
+yoke lifecycle transition ITEM --from LIVE_STAGE --to NEXT_STAGE \
+  --reason "Laneless attestation recorded; advancing the declared stage"
+```
+
+When the item's flow owes delivery, the release wait holds until a run with completion authority for it
 succeeds, and that success usually closes the item automatically.
 `yoke merge item --no-changes` is only for a lane that already exists; a
 no-change Dash with a lane closes through that command, not the transition.
@@ -302,11 +325,11 @@ SHAs are already optional and `--no-changes` would record the wrong fact. A
 merging workflow that omits its SHAs is refused, and the refusal names both
 routes.
 
-Task items have no `reviewing-implementation` stage. Close `implementing` →
-`done` once the attestation is recorded:
+Use the same pinned-definition walk for merge-free items once their
+attestation is recorded; no workflow-name branch or fixed stage pair is needed:
 
 ```text
-yoke lifecycle transition ITEM --from implementing --to done \
+yoke lifecycle transition ITEM --from LIVE_STAGE --to NEXT_STAGE \
   --reason "Floor attestation recorded"
 ```
 

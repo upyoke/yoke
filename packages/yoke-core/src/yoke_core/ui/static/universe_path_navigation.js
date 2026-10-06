@@ -27,12 +27,14 @@ export function createPathNavigation(windowNode, basePath = "") {
       history.replaceState(stateAt(position()), "", next);
     }
   }
-  function navigate(href, { projectSwitch = false } = {}) {
+  function navigate(href, { projectSwitch = false, replace = false } = {}) {
     const next = routeHref(href, base);
     if (!next || next === currentRouteHref(windowNode)) return;
     const before = parseUniverseRoute(currentRouteHref(windowNode), base);
     const after = parseUniverseRoute(next, base);
-    history.pushState(stateAt(position() + 1), "", next);
+    // Selection changes render normally while retaining the current ancestry.
+    if (replace) history.replaceState(stateAt(position()), "", next);
+    else history.pushState(stateAt(position() + 1), "", next);
     windowNode.dispatchEvent(new windowNode.Event(ROUTE_NAVIGATION_EVENT));
     if (projectSwitch || before.view !== after.view || before.tab !== after.tab ||
         before.detail !== after.detail || before.project !== after.project ||

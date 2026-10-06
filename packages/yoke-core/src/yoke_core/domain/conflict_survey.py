@@ -13,7 +13,6 @@ from yoke_contracts.public_ref import ITEM_NOT_FOUND
 from yoke_core.domain import db_backend
 from yoke_core.domain.conflict_survey_blockers import (
     direct_workflow_blockers,
-    git_touched_paths,
 )
 from yoke_core.domain.conflict_survey_declared_paths import (
     CONFLICT_SURVEY_ORDERING,
@@ -25,7 +24,8 @@ from yoke_core.domain.conflict_survey_declared_paths import (
 from yoke_core.domain.conflict_survey_models import ConflictMatch, ConflictSurvey
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.path_claims_dependency_resolver_coordination import (
-    has_forward_serial_edge, items_are_coordination_only,
+    has_forward_serial_edge,
+    items_are_coordination_only,
 )
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.project_identity import render_item_ref
@@ -44,6 +44,7 @@ class ConflictSurveyReservation:
 @dataclass(frozen=True)
 class RecordedConflictSurvey:
     """One durable survey row classified before callers consume it."""
+
     state: survey_contract.ConflictSurveyRecordState
     payload: Optional[dict[str, Any]] = None
 
@@ -97,11 +98,6 @@ def _item(conn: Any, item_id: int) -> dict[str, Any]:
     return row
 
 
-def _git_touched_paths(worktree_path: str, integration_target: str) -> list[str]:
-    """Return the best-effort changed paths from a live item worktree."""
-    return git_touched_paths(worktree_path, integration_target)
-
-
 def survey_conflicts(
     conn: Any,
     *,
@@ -119,23 +115,25 @@ def survey_conflicts(
         touch_paths=clean_paths,
         integration_target=integration_target,
     )
-    blockers = [
-        row
-        for row in blockers
-        if row.owner_item_id is None
+    # Coordination is an owner fact; one owner can contribute many paths.
+    reportable_owners = {
+        owner_id
+        for owner_id in {row.owner_item_id for row in blockers}
+        if owner_id is None
         or (
             not items_are_coordination_only(
                 conn,
                 item_a_id=int(item["id"]),
-                item_b_id=row.owner_item_id,
+                item_b_id=owner_id,
             )
             and not has_forward_serial_edge(
                 conn,
-                dependent_item_id=row.owner_item_id,
+                dependent_item_id=owner_id,
                 blocking_item_id=int(item["id"]),
             )
         )
-    ]
+    }
+    blockers = [row for row in blockers if row.owner_item_id in reportable_owners]
     blockers.sort(
         key=lambda row: (row.kind, row.owner_item_id or 0, row.path, row.detail),
     )
@@ -312,7 +310,8 @@ def cancel_conflict_survey_reservation(
 
 
 def read_recorded_survey_state(
-    conn: Any, item_id: int,
+    conn: Any,
+    item_id: int,
 ) -> RecordedConflictSurvey:
     """Classify the durable row without confusing absence with bad data."""
     if not _table_exists(conn, "item_sections"):

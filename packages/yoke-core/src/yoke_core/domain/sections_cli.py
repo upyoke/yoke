@@ -29,33 +29,38 @@ from . import db_backend
 USAGE = (
     "sections subcommands:\n"
     "\n"
-    "  upsert <item-id> <section-name> --content-file <path> "
+    "  upsert <PREFIX-N> <section-name> --content-file <path> "
     "[--ordering N] [--source S]\n"
     "                                        Insert or update a section\n"
-    "  get <item-id> <section-name>          Get section content\n"
-    "  list <item-id>                        List all sections "
+    "  get <PREFIX-N> <section-name>          Get section content\n"
+    "  list <PREFIX-N>                        List all sections "
     "(pipe-delimited)\n"
-    "  delete <item-id> <section-name>       Delete a section\n"
+    "  delete <PREFIX-N> <section-name>       Delete a section\n"
 )
 
 UPSERT_USAGE = (
     "Usage: python3 -m yoke_core.domain.sections upsert "
-    "<item-id> <section-name> --content-file <path> "
+    "<PREFIX-N> <section-name> --content-file <path> "
     "[--ordering N] [--source S]"
 )
-GET_USAGE = "Usage: python3 -m yoke_core.domain.sections get <item-id> <section-name>"
-LIST_USAGE = "Usage: python3 -m yoke_core.domain.sections list <item-id>"
-DELETE_USAGE = "Usage: python3 -m yoke_core.domain.sections delete <item-id> <section-name>"
+GET_USAGE = "Usage: python3 -m yoke_core.domain.sections get <PREFIX-N> <section-name>"
+LIST_USAGE = "Usage: python3 -m yoke_core.domain.sections list <PREFIX-N>"
+DELETE_USAGE = "Usage: python3 -m yoke_core.domain.sections delete <PREFIX-N> <section-name>"
 
 
 # Deferred imports inside ``cmd_*`` handlers are load-bearing: top-level imports
 # cycle through ``sections.py -> sections_cli.py -> sections.py`` under ``-m``.
 
-def _coerce_item_id(raw: str, err: TextIO) -> Optional[int]:
+def _coerce_item_id(raw: str, err: TextIO, db_path: Optional[str]) -> Optional[int]:
+    """Resolve the operator's item argument (``PREFIX-N``) to its row id."""
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.yok_n_parser import parse_item_argument
+
     try:
-        return int(raw)
-    except (TypeError, ValueError):
-        print("Error: invalid item id: {}".format(raw), file=err)
+        with connect(db_path) as conn:
+            return parse_item_argument(raw, conn=conn)
+    except ValueError as exc:
+        print("Error: {}".format(exc), file=err)
         return None
 
 
@@ -121,7 +126,7 @@ def cmd_upsert(
         print(UPSERT_USAGE, file=err)
         return 2
 
-    item_id = _coerce_item_id(item_id_raw, err)
+    item_id = _coerce_item_id(item_id_raw, err, db_path)
     if item_id is None:
         return 1
 
@@ -153,7 +158,7 @@ def cmd_upsert(
         print("Error: section upsert failed: {}".format(exc), file=err)
         return 1
 
-    print("Upserted section: {} for item {}".format(section_name, item_id), file=out)
+    print("Upserted section: {} for item {}".format(section_name, _public_item_ref(item_id, db_path)), file=out)
     render_ok = _rerender_body(item_id, "upsert", db_path, out, err)
     _emit_section_event("SectionUpserted", item_id, section_name)
     if render_ok:
@@ -186,7 +191,7 @@ def cmd_get(
         print(GET_USAGE, file=err)
         return 2
 
-    item_id = _coerce_item_id(args[0], err)
+    item_id = _coerce_item_id(args[0], err, db_path)
     if item_id is None:
         return 1
 
@@ -212,7 +217,7 @@ def cmd_list(
         print(LIST_USAGE, file=err)
         return 2
 
-    item_id = _coerce_item_id(args[0], err)
+    item_id = _coerce_item_id(args[0], err, db_path)
     if item_id is None:
         return 1
 
@@ -240,7 +245,7 @@ def cmd_delete(
         print(DELETE_USAGE, file=err)
         return 2
 
-    item_id = _coerce_item_id(args[0], err)
+    item_id = _coerce_item_id(args[0], err, db_path)
     if item_id is None:
         return 1
 
@@ -251,7 +256,7 @@ def cmd_delete(
         print("Error: section delete failed: {}".format(exc), file=err)
         return 1
 
-    print("Deleted section: {} for item {}".format(section_name, item_id), file=out)
+    print("Deleted section: {} for item {}".format(section_name, _public_item_ref(item_id, db_path)), file=out)
     render_ok = _rerender_body(item_id, "delete", db_path, out, err)
     _emit_section_event("SectionDeleted", item_id, section_name)
     if render_ok:

@@ -2,7 +2,7 @@
 """Unit tests for handler-outcome classification helpers.
 
 Outcome classification, chain labels, and skip/handoff records at the helper
-surface. ``/yoke do`` integration regressions and the
+surface. ``session-offer`` integration regressions and the
 recoverable-substrate reproduction live in the sibling module
 ``runtime.api.test_do_loop_recoverable_substrate``.
 """
@@ -20,7 +20,7 @@ from yoke_core.domain.sessions_handler_outcome import (
     OUTCOME_RECOVERABLE_SUBSTRATE,
     OUTCOME_SLICE_COMMITTED,
     TERMINAL_OUTCOMES,
-    classify_advance_outcome,
+    classify_implement_outcome,
     is_non_useful_step,
     is_terminal_outcome,
     record_interactive_checkpoint_handoff,
@@ -97,7 +97,7 @@ class TestClassifyAdvanceOutcome:
     def test_status_unchanged_implementing_is_slice_committed(self):
         # Routed advance committed a slice but item still implementing.
         assert (
-            classify_advance_outcome(
+            classify_implement_outcome(
                 pre_status="implementing", post_status="implementing"
             )
             == OUTCOME_SLICE_COMMITTED
@@ -106,7 +106,7 @@ class TestClassifyAdvanceOutcome:
     def test_implementing_to_reviewing_is_completed(self):
         # Routed advance crossed a lifecycle boundary -> step bumps.
         assert (
-            classify_advance_outcome(
+            classify_implement_outcome(
                 pre_status="implementing",
                 post_status="reviewing-implementation",
             )
@@ -115,7 +115,7 @@ class TestClassifyAdvanceOutcome:
 
     def test_implementing_to_reviewed_is_completed(self):
         assert (
-            classify_advance_outcome(
+            classify_implement_outcome(
                 pre_status="implementing",
                 post_status="reviewed-implementation",
             )
@@ -125,7 +125,7 @@ class TestClassifyAdvanceOutcome:
     def test_reviewing_to_reviewed_is_completed(self):
         # Re-entry into review reaching the boundary is still completed.
         assert (
-            classify_advance_outcome(
+            classify_implement_outcome(
                 pre_status="reviewing-implementation",
                 post_status="reviewed-implementation",
             )
@@ -134,7 +134,7 @@ class TestClassifyAdvanceOutcome:
 
     def test_blank_post_status_falls_back_to_completed(self):
         assert (
-            classify_advance_outcome(pre_status="implementing", post_status="")
+            classify_implement_outcome(pre_status="implementing", post_status="")
             == OUTCOME_COMPLETED
         )
 
@@ -168,10 +168,7 @@ class TestRenderChainSummaryLabel:
         assert render_chain_summary_label(OUTCOME_BLOCKED) == "handler blocked"
 
     def test_unknown_outcome_falls_back_to_completed(self):
-        assert (
-            render_chain_summary_label("future_outcome")
-            == "handler completed"
-        )
+        assert render_chain_summary_label("future_outcome") == "handler completed"
 
     def test_none_falls_back_to_completed(self):
         assert render_chain_summary_label(None) == "handler completed"
@@ -194,14 +191,14 @@ class TestRecordRecoverableSubstrateSkip:
                 chain_step=1,
                 project="yoke",
                 item_id=1599,
-                routed_action="advance",
+                routed_action="implement",
                 failure_class="cwd_drift",
                 remediation_owner=f"YOK-{1599}",
                 current_status="implementing",
                 useful_work_began=False,
             )
         assert entry["skip_reason"] == "recoverable_substrate"
-        assert entry["routed_action"] == "advance"
+        assert entry["routed_action"] == "implement"
         assert entry["failure_class"] == "cwd_drift"
         assert entry["remediation_owner"] == f"YOK-{1599}"
         assert entry["item_id"] == "1599"
@@ -229,7 +226,7 @@ class TestRecordRecoverableSubstrateSkip:
                 chain_step=2,
                 project="yoke",
                 item_id=1599,
-                routed_action="advance",
+                routed_action="implement",
                 failure_class="cwd_drift",
                 remediation_owner=f"YOK-{1599}",
             )
@@ -238,7 +235,7 @@ class TestRecordRecoverableSubstrateSkip:
         ctx = skip_events[0]["context"]
         assert ctx["skip_reason"] == "recoverable_substrate"
         assert ctx["item_id"] == "1599"
-        assert ctx["recommended_action"] == "advance"
+        assert ctx["recommended_action"] == "implement"
         assert ctx["failure_class"] == "cwd_drift"
         assert ctx["remediation_owner"] == f"YOK-{1599}"
         assert ctx["chain_step"] == 2
@@ -253,7 +250,7 @@ class TestRecordRecoverableSubstrateSkip:
                     chain_step=1,
                     project="yoke",
                     item_id=1599,
-                    routed_action="advance",
+                    routed_action="implement",
                     failure_class="cwd_drift",
                     remediation_owner=f"YOK-{1599}",
                 )
@@ -293,9 +290,13 @@ class TestRecordRecoverableSubstrateSkip:
             bare.commit()
             with patch("yoke_core.domain.events.emit_event"):
                 record_recoverable_substrate_skip(
-                    bare, session_id="sess-bare-row", chain_step=1,
-                    project="yoke", item_id=1599,
-                    routed_action="advance", failure_class="cwd_drift",
+                    bare,
+                    session_id="sess-bare-row",
+                    chain_step=1,
+                    project="yoke",
+                    item_id=1599,
+                    routed_action="implement",
+                    failure_class="cwd_drift",
                     remediation_owner=f"YOK-{1599}",
                 )
             envelope_raw = bare.execute(
@@ -318,9 +319,7 @@ class TestRecordInteractiveCheckpointHandoff:
     def test_writes_chain_checkpoint_with_interactive_outcome(self, conn):
         _register(conn, session_id="sess-checkpoint")
         with patch("yoke_core.domain.events.emit_event"):
-            with patch(
-                "yoke_core.domain.sessions_analytics._emit_event"
-            ):
+            with patch("yoke_core.domain.sessions_analytics._emit_event"):
                 checkpoint = record_interactive_checkpoint_handoff(
                     conn,
                     session_id="sess-checkpoint",

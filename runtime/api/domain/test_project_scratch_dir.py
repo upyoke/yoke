@@ -23,6 +23,7 @@ def test_public_export_surface_is_complete() -> None:
         "hook_marker_path",
         "mint_watcher_capture_pair",
         "resolve_active_project",
+        "scratch_project",
         "scratch_root",
         "scratch_subdir",
         "storage_dir",
@@ -43,6 +44,10 @@ def _patch_repo_root(monkeypatch: pytest.MonkeyPatch, root: Path) -> None:
 def _patch_checkout_project(
     monkeypatch: pytest.MonkeyPatch, project_id: int | None = 1
 ) -> None:
+    monkeypatch.setattr(
+        "yoke_core.domain.project_scratch_identity.resolve_project_namespace",
+        lambda ref: {"yoke": "1", "externalwebapp": "2"}.get(ref, ref),
+    )
     monkeypatch.setattr(
         "yoke_core.domain.project_selection.default_project_for_directory",
         lambda _root: str(project_id) if project_id is not None else None,
@@ -71,8 +76,8 @@ def test_resolve_active_project_prefers_explicit_then_env(
     _patch_checkout_project(monkeypatch)
     monkeypatch.setenv("YOKE_PROJECT", "externalwebapp")
 
-    assert scratch.resolve_active_project("yoke") == "yoke"
-    assert scratch.resolve_active_project() == "externalwebapp"
+    assert scratch.resolve_active_project("yoke") == "1"
+    assert scratch.resolve_active_project() == "2"
 
 
 def test_accessors_return_expected_absolute_shapes(
@@ -273,7 +278,7 @@ def test_bad_env_override_degrades_to_tmpdir_fallback(
         assert scratch.scratch_root("yoke") == (
             tmp_path
             / "yoke-scratch"
-            / "yoke"
+            / "1"
             / "sessions"
             / "test-session"
             / "runs"

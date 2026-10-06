@@ -8,6 +8,7 @@ from yoke_cli.project_install.uninstall import uninstall
 from yoke_cli.project_install.files import ProjectInstallError
 from yoke_core.domain.project_install_test_helpers import make_bundle
 from yoke_cli.project_install.bundle_apply import apply_bundle
+from yoke_cli.project_install import uninstall_commit
 
 
 def git(root, *args):
@@ -18,7 +19,8 @@ def git(root, *args):
 
 
 @pytest.fixture
-def checkout(tmp_path):
+def checkout(tmp_path, monkeypatch):
+    monkeypatch.setattr(uninstall_commit, "dispatch", lambda *a: {"value": "main"})
     root = tmp_path / "repo"
     root.mkdir()
     git(root, "init", "-b", "main")
@@ -51,3 +53,71 @@ def test_staged_operator_change_refuses_before_removal(checkout):
         uninstall(checkout)
     assert git(checkout, "diff", "--cached") == before
     assert (checkout / ".yoke/install-manifest.json").is_file()
+
+
+@pytest.mark.parametrize("branch", ["feature", None])
+def test_off_default_branch_refuses_before_removal(checkout, branch):
+    if branch:
+        git(checkout, "switch", "-c", branch)
+    else:
+        git(checkout, "switch", "--detach")
+    before = git(checkout, "rev-parse", "HEAD")
+    with pytest.raises(
+        ProjectInstallError, match="project_uninstall_checkout_refused"
+    ) as exc:
+        uninstall(checkout)
+    assert "git switch main" in str(exc.value)
+    assert "--force" not in str(exc.value)
+    assert git(checkout, "rev-parse", "HEAD") == before
+    assert (checkout / ".yoke/install-manifest.json").is_file()
+
+
+def test_project_branch_and_custom_connection_are_read(checkout, monkeypatch, tmp_path):
+    git(checkout, "switch", "-c", "trunk")
+    calls = []
+    config = tmp_path / "config.json"
+
+    def dispatch(*args):
+        calls.append(args)
+        return {"value": "trunk"}
+
+    monkeypatch.setattr(uninstall_commit, "dispatch", dispatch)
+    assert uninstall(checkout, config_path=config)["commit"]["status"] == "created"
+    assert calls == [
+        ("projects.get", {"project": "7", "field": "default_branch"}, config)
+    ]
+
+
+def test_unreadable_project_branch_preserves_install(checkout, monkeypatch):
+    def fail(*args):
+        raise RuntimeError("connection unavailable")
+
+    monkeypatch.setattr(uninstall_commit, "dispatch", fail)
+    with pytest.raises(
+        ProjectInstallError, match="project_uninstall_default_branch_unavailable"
+    ):
+        uninstall(checkout)
+    assert (checkout / ".yoke/install-manifest.json").is_file()
+
+
+@pytest.mark.parametrize("default_branch", [None, "", "   "])
+@pytest.mark.parametrize("branch", ["main", "feature"])
+def test_unset_project_branch_refuses_before_removal(
+    checkout, monkeypatch, default_branch, branch
+):
+    if branch != "main":
+        git(checkout, "switch", "-c", branch)
+    monkeypatch.setattr(
+        uninstall_commit, "dispatch", lambda *a: {"value": default_branch}
+    )
+    before = git(checkout, "rev-parse", "HEAD")
+    manifest = checkout / ".yoke/install-manifest.json"
+    manifest_before = manifest.read_bytes()
+    with pytest.raises(
+        ProjectInstallError,
+        match="project_uninstall_checkout_refused: project default_branch is empty",
+    ):
+        uninstall(checkout)
+    assert manifest.read_bytes() == manifest_before
+    assert git(checkout, "rev-parse", "HEAD") == before
+    assert not git(checkout, "status", "--porcelain")

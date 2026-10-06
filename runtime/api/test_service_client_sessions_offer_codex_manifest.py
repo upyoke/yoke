@@ -77,7 +77,7 @@ class TestSessionOfferCodexManifest:
                         "command_source": "shared_yoke_registry",
                         "disabled_downstream_paths": [
                             "shepherd",
-                            "advance",
+                            "implement",
                             "polish",
                             "usher",
                         ],
@@ -124,7 +124,7 @@ class TestSessionOfferCodexManifest:
                         "command_source": "shared_yoke_registry",
                         "disabled_downstream_paths": [
                             "shepherd",
-                            "advance",
+                            "implement",
                             "polish",
                             "usher",
                         ],

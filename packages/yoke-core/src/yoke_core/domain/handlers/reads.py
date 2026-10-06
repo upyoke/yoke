@@ -48,10 +48,7 @@ class ItemsGetRequest(BaseModel):
 class ItemsGetResponse(BaseModel):
     item_id: int
     fields: Dict[str, str | Dict[str, str]]
-    # Present only when the projection includes the rendered body: the
-    # operator execution-instruction block readers prepend above it. A
-    # separate field so structured-field writes can never round-trip it
-    # back into item content.
+    # Delivery instructions are separate from the fields they govern.
     execution_instructions: List[Dict[str, Any]] | None = None
 
 
@@ -98,15 +95,14 @@ def handle_items_get(request: FunctionCallRequest) -> HandlerOutcome:
         else:
             out[col] = query_item(item_id, col)
     result: Dict[str, Any] = {"item_id": item_id, "fields": out}
-    if "body" in cols:
-        from yoke_core.domain.db_helpers import connect
-        from yoke_core.domain.workflow_execution_instructions import (
-            resolve_for_item,
-        )
-
-        with connect() as conn:
-            result["execution_instructions"] = resolve_for_item(conn, item_id)
+    result["execution_instructions"] = _read_instructions(item_id)
     return HandlerOutcome(result_payload=result, primary_success=True)
+
+
+def _read_instructions(item_id: int) -> List[Dict[str, Any]]:
+    from yoke_core.domain.execution_instruction_delivery import item_instructions
+
+    return item_instructions(item_id)
 
 
 def _items_get_section(
@@ -151,6 +147,7 @@ def _items_get_section(
             "section": section,
             "section_found": content is not None,
             "content": content or "",
+            "execution_instructions": _read_instructions(item_id),
         },
         primary_success=True,
     )

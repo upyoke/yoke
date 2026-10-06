@@ -2,7 +2,7 @@
 
 Each command is a nested skill at `.agents/skills/yoke/{name}/SKILL.md`. Harnesses expose those commands through their native skill or slash-command surfaces; the shared `SKILL.md` frontmatter is the single authored metadata source. Non-native harness surfaces invoke the same commands through their harness adapter's route wrapper (see the Harness Bootstrap Contract, yoke source-repo doc `docs/harness-bootstrap.md`, for command classification and the Hook Parity Map, yoke source-repo doc `docs/hook-parity-map.md`, for hook availability by harness). Render the operator-readable Atlas of the Yoke agent-facing surfaces (function ids, wrapped `yoke` subcommands, tool-shaped CLI adapters, permanent boundaries, pending rows, live contradictions) locally with `python3 -m yoke_core.tools.atlas_render_docs render`; each command below resolves to one or more registered function calls.
 
-Yoke has **21 operator commands** (the primary interface) and **6 internal sub-skills** (called by other commands, not typically invoked directly). Large skills are decomposed into phase sub-files; top-level SKILL.md files should stay compact orchestration surfaces that delegate detailed sub-protocols to phase files. The 350-line file limit is implemented by `yoke_core.domain.file_line_check`, exposed to agents as `yoke check file-line`, and enforced everywhere the files themselves are readable — the pre-commit hook, the Dash survey's per-path sizing, and `HC-file-line-limit` in doctor. Lifecycle status writes do not enforce it: a control plane reached over https holds no checkout, so the limit is checked where the checkout is. **File Budget** is an independent pinned workflow policy: when enabled it shapes implementation before coding; when off, the same 350-line enforcement remains. File Budget/path-claim parity applies only when both effective axes are enabled. A small temporary-exception list covers strategic docs and prompt source-of-truth surfaces.
+Yoke has **21 operator commands** (the primary interface) and **5 internal sub-skills** (called by other commands, not typically invoked directly). Large skills are decomposed into phase sub-files; top-level SKILL.md files should stay compact orchestration surfaces that delegate detailed sub-protocols to phase files. The 350-line file limit is implemented by `yoke_core.domain.file_line_check`, exposed to agents as `yoke check file-line`, and enforced everywhere the files themselves are readable — the pre-commit hook, the Dash survey's per-path sizing, and `HC-file-line-limit` in doctor. Lifecycle status writes do not enforce it: a control plane reached over https holds no checkout, so the limit is checked where the checkout is. **File Budget** is an independent pinned workflow policy: when enabled it shapes implementation before coding; when off, the same 350-line enforcement remains. File Budget/path-claim parity applies only when both effective axes are enabled. A small temporary-exception list covers strategic docs and prompt source-of-truth surfaces.
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
@@ -25,10 +25,9 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 | `/yoke curate` | Curate the Ouroboros learning log -- cluster, archive, promote patterns |
 | `/yoke wrapup` | Structured session wrap-up with ouroboros reflections |
 | `/yoke refine PREFIX-N` | Critique and improve item artifacts without touching code or worktrees |
-| `/yoke advance PREFIX-N implementation` | Issue implementation entry: create or re-enter the worktree in the same harness session (no relaunch), then run the implementation/review loop under the work-claim acquired in preflight |
+| `/yoke implement PREFIX-N` | Issue implementation stage skill: create or re-enter the worktree in the same harness session (no relaunch), then run the implementation/review loop to the binding's handoff under the work-claim acquired at entry |
 | `/yoke polish PREFIX-N` | Review and finish implementation in the item's existing worktree lane(s) |
 | `/yoke help` | Show command reference (also: `/yoke` with no args) |
-| `/yoke do` | Autonomous session orchestrator -- offers session to decision engine, routes to chosen mode |
 | `/yoke charge` | Direct-mode entrypoint -- pick up next runnable item from frontier, begin implementation |
 | `/yoke feed [--no-new-items] [PREFIX-N ...]` | Direct-mode entrypoint -- refresh stale frontier items, maintain dependency graph truth, and materialize new work from strategy |
 | `/yoke strategize` | Direct-mode entrypoint -- guided SML review (research, propose, approve) |
@@ -54,19 +53,15 @@ Create a new backlog item. Infers type, priority, project, deployment flow, depe
 
 ### shepherd
 
-Advance an epic from `refined-idea` to `planned` through quality-gated transitions. Epic-only (issues use `/yoke refine` instead). For each transition: Worker produces the artifact, Boss reviews, the verdict is persisted, and the pipeline advances or retries.
+Execute the planning segment selected by the item's immutable Shepherd binding and generated-task policy. Read the ordered stages and declared edges; stage names and the handoff come from the binding. Each edge has a persisted verdict key derived from its source and target, with hyphens normalized to underscores and joined by `_to_`.
 
-**Modes:** Standalone mode (interactive, pauses between transitions) and subagent mode (`--subagent --session <id>`, autonomous).
+The first edge runs the conditional PM/design gates, Architect, and Simulator. Later edges review persisted artifacts; the final edge runs handoff quality gates and Boss review. A one-edge segment performs both roles before handoff. Accepted verdicts advance only the declared edge, with retries bounded at three attempts. Missing edges or an unsupported policy refuse with the pinned version and recovery named.
 
-**Transition routing:**
-- `refined_idea_to_planning` -- PM spec-writing gate (invoked when the spec lacks required PRD sections) + Architect decomposes into epic tasks or produces a lightweight technical plan. Simulator runs the plan-phase simulation with the auto-fix loop (max 2 cycles).
-- `planning_to_plan_drafted` -- No worker; runs quality gates (missing AC hard-block, missing deployment flow hard-block, Pack-reuse stance advisory for non-yoke items, vague AC advisory, scope overlap advisory, epic task independence advisory), then Boss final review.
+Resume from verdict history, artifacts, and live status. A Designer SKIPPED verdict skips only design. No legacy subagent invocation mode is supported. After handoff, refresh `items.detail.get` to report the actual stage and next bound skill.
 
-**Resume support:** Queries `shepherd_verdicts` table. Completed (READY/CAVEATS/SKIPPED) transitions are skipped. BLOCKED transitions halt. NOT_READY transitions resume at the next attempt (max 3). Re-anchoring blocks between transitions prevent context pollution from instruction-like spec bodies.
+**Structured fields:** `shepherd_log` and `shepherd_caveats` hold verdict evidence; Progress Log holds resumable execution context. The item body renders from these fields.
 
-**Structured field isolation:** Shepherd writes to `shepherd_log` and `shepherd_caveats` fields -- the body is automatically re-rendered by `render-body.sh`. Body content isolation rules prevent spec content from leaking into orchestration context.
-
-**Phase files:** `design-and-plan.md`, `planning-to-planned-gates.md`, `boss-verdict.md`, `finalize.md`.
+**Phase files:** `entry.md`, `transitions.md`, `design-and-plan.md`, `planning-gates.md`, `boss-verdict.md`, `finalize.md`.
 
 ### conduct
 
@@ -96,7 +91,7 @@ Use `yoke items dependency list PREFIX-N` to inspect the authoritative dependenc
 3. **Merge Execution** (skip if `--deploy-only`) --
  - **Release-before-merge ordering:** Items are advanced to `release` status (step 7b) before the merge executes, ensuring status reflects pipeline entry.
  - **Pre-merge ephemeral verification:** If the deployment flow includes an `ephemeral-verify` stage, runs ephemeral environment verification before merge. Skipped if already satisfied during conduct/polish.
- - **Merge engine:** Standalone items merge through `yoke merge item`. On merge-queue projects a relay-launched session always arms the landing and returns `landing_pending=true` naming the pull request — a headless command cannot outlive a queue landing, so the control-plane landing notice wakes it and the same command then completes close-out. Every other caller follows the landing to a terminal reading with the canonical `yoke watch merge --print-streaming-pair merge-item -- PREFIX-N --wait` call, which prints the safe invocation and merges nothing until you run it. The shared selector reads the caller's manifest wake capability: a native idle-wake primitive gets the background subscription and may release the caller, while a harness with no or unverified idle wake gets one foreground command to hold open. A bare default call also returns `landing_pending=true`; rely on a later completion message only when the selector recorded that primitive, otherwise re-enter through the canonical wait. Each wait cycle calls `merge_queue.landing.observe`; the server rate-limits concurrent callers to one project-wide GitHub sweep per cadence, refreshes all pending landings for the project, and returns this lane's durable `state`, `queue_holding`, `queue_entry_state`, `merge_when_ready`, check evidence, and refresh/change times. The waiting machine runs no `gh`/GitHub/`git fetch` read loop, and a machine-relay outage cannot stop refreshes triggered by live waiters. `landing_record_stale` names the last record/project refresh and the server-side recovery instead of falling back locally. A re-entry over a landing the control plane already recorded skips queue admission entirely and runs only that close-out, so a landing whose waiter died is recoverable rather than refused by an admission gate reading a train that has already run. A red required-check set (failed required checks, nothing in flight) ends `--wait` immediately as a terminal failure, not a record-wait timeout. Non-queue projects retain the local locked merge. Epic items pass the epic_ref argument to the merge engine directly. `--keep-remote` on `merge_worktree` suppresses remote branch deletion so ephemeral environments persist.
+ - **Merge engine:** Standalone items merge through `yoke merge item`. On merge-queue projects a relay-launched session always arms the landing and returns `landing_pending=true` naming the pull request — a headless command cannot outlive a queue landing, so the control-plane landing notice wakes it and the same command then completes close-out. Every other caller follows the landing to a terminal reading with the canonical `yoke watch merge --print-streaming-pair merge-item -- PREFIX-N --wait` call, which prints the safe invocation and merges nothing until you run it. The shared selector reads the caller's manifest wake capability: a native idle-wake primitive gets the background subscription and may release the caller, while a harness with no or unverified idle wake gets one foreground command to hold open. A bare default call also returns `landing_pending=true`; rely on a later completion message only when the selector recorded that primitive, otherwise re-enter through the canonical wait. Each wait cycle calls `merge_queue.landing.observe`; the server rate-limits concurrent callers to one project-wide GitHub sweep per cadence, refreshes all pending landings for the project, and returns this lane's durable `state`, `queue_holding`, `queue_entry_state`, `merge_when_ready`, check evidence, and refresh/change times. The waiting machine runs no `gh`/GitHub/`git fetch` read loop, and a machine-relay outage cannot stop refreshes triggered by live waiters. `landing_record_stale` names the last record/project refresh and the server-side recovery instead of falling back locally. A re-entry over a landing the control plane already recorded skips queue admission entirely and runs only that close-out, so a landing whose waiter died is recoverable rather than refused by an admission gate reading a train that has already run. Each arming records a fresh timestamp and has its own ejection notice identity, including when the same commit is re-armed; retrying an already-armed PR preserves its timestamp. A stopped landing retains its recorded admission until that notice reaches the recipient; an already-acknowledged dedupe refuses as `notice_already_acknowledged` and keeps the row visible, naming re-entry through `yoke merge item` to record a fresh arming. A red required-check set (failed required checks, nothing in flight) ends `--wait` immediately as a terminal failure, not a record-wait timeout. Non-queue projects retain the local locked merge. Epic items pass the epic_ref argument to the merge engine directly. `--keep-remote` on `merge_worktree` suppresses remote branch deletion so ephemeral environments persist.
  - **Hard CI gate:** Merge failure (exit 1/4) halts the batch, reverts the item to `implemented`, and reports failure with resume instructions.
  - **Post-merge CI advisory:** After all merges complete, checks main branch CI status as an advisory (not blocking).
 4. **Deployment Routing** (skip if `--merge-only`) --
@@ -160,11 +155,11 @@ Show the Yoke command reference and quick-start guide. Also triggered by `/yoke`
 
 Autonomous session orchestrator. Offers the current session to Yoke's decision engine, which inspects the frontier (runnable items, blocked items, SML state) and returns a `NextAction` directive. The directive is routed to the appropriate mode handler (charge, feed, strategize, wait, escalate). After a chainable mode completes, the loop re-offers automatically up to `max_chain_steps` times.
 
-Operator-facing callers should enter this flow via `/yoke do`. The underlying session-offer adapter is an internal skill implementation detail, not a separate operator command.
+The session-offer adapter is an internal surface. Operators use `/yoke steer` to staff work or `/yoke charge` to select a runnable item.
 
 **Arguments:** none. The session model is read from the current `harness_sessions` row (cross-reference: see your `harness_sessions` packet stanza), which stores the provider-attested served value and the launch request in separate columns; the harness requested-model detector is the fallback when the stored row is absent. When the session belongs to a project, the session lane is resolved from that project's DB-backed `session-routing` capability. The resolver walks the exact executor key (`executor_default_lane_claude_vscode`) -> wildcard key with the longest non-wildcard prefix (`executor_default_lane_claude*`) -> global `executor_default_lane_unknown` -> hardcoded `primary` chain inside that one project policy. Machine config is only the no-project/operator fallback.
 
-**Environment variables:** `YOKE_EXECUTOR` (harness executor identity — explicit override, stored verbatim). When unset, Yoke hook helpers compose `{family}-{surface}` from the runtime entrypoint: Claude sessions read `CLAUDE_CODE_ENTRYPOINT` (observed values `claude-desktop`, `claude-vscode`, and print-mode `sdk-cli`, which aliases to `claude-cli`); Codex sessions use the full entrypoint resolver (env -> transcript -> cache) and yield values such as `codex-cli`, `codex-vscode`, `codex-desktop`. Sessions with no surface signal fall back to the coarse `claude-code` / `codex` family value. The surface-specific form is **input** to session-begin; `harness_sessions.executor` stores only the canonical `harness_id` enum (`claude-code` / `codex`) — the harness identity canonicalizer runs at write time, and the original surface-specific value is preserved in `harness_sessions.executor_surface` for operator-facing UI. Both columns are **write-once** — written at initial `register_session` INSERT and persisted across reactivation; the canonical id and the display alias never change mid-session. `YOKE_PROVIDER` (model provider; defaults to `openai` for Codex-family sessions, otherwise `anthropic`). `supported_paths` is derived server-side from the shared registry plus the family manifest. The offer surface accepts no row-answered identity argument — not `--supported-paths`, `--executor`, `--provider`, `--workspace`, or `--model` — because every one of them is answered by the session row registration wrote. `--lane` remains as the deliberate operator re-route; `/yoke do` never sends it.
+**Environment variables:** `YOKE_EXECUTOR` (harness executor identity — explicit override, stored verbatim). When unset, Yoke hook helpers compose `{family}-{surface}` from the runtime entrypoint: Claude sessions read `CLAUDE_CODE_ENTRYPOINT` (observed values `claude-desktop`, `claude-vscode`, and print-mode `sdk-cli`, which aliases to `claude-cli`); Codex sessions use the full entrypoint resolver (env -> transcript -> cache) and yield values such as `codex-cli`, `codex-vscode`, `codex-desktop`. Sessions with no surface signal fall back to the coarse `claude-code` / `codex` family value. The surface-specific form is **input** to session-begin; `harness_sessions.executor` stores only the canonical `harness_id` enum (`claude-code` / `codex`) — the harness identity canonicalizer runs at write time, and the original surface-specific value is preserved in `harness_sessions.executor_surface` for operator-facing UI. Both columns are **write-once** — written at initial `register_session` INSERT and persisted across reactivation; the canonical id and the display alias never change mid-session. `YOKE_PROVIDER` (model provider; defaults to `openai` for Codex-family sessions, otherwise `anthropic`). `supported_paths` is derived server-side from the shared registry plus the family manifest. The offer surface accepts no row-answered identity argument — not `--supported-paths`, `--executor`, `--provider`, `--workspace`, or `--model` — because every one of them is answered by the session row registration wrote. `--lane` remains an internal diagnostic override.
 
 **Events:** Canonical `HarnessSessionOffered` and `NextActionChosen` events are emitted by the shared session-offer path, not by the loop directly. `ChainStepCompleted` is emitted after each handler returns, recording step, action, chainable, and handler outcome for chain-decision telemetry. All harnesses produce identical event lineage.
 
@@ -172,7 +167,7 @@ Operator-facing callers should enter this flow via `/yoke do`. The underlying se
 
 ### charge
 
-Direct-mode entrypoint for the `charge` action. Computes the runnable frontier through the shared charge-frontier service (backed by `/v1/charge/frontier`), presents a ranked table of items with adapter classifications, confirms the top pick with the operator, and dispatches to the correct downstream skill (`refine`, `shepherd`, `conduct`, `advance`, `dash`, `blitz`, `polish`, or `usher`). See [charge-frontier.md](charge-frontier.md) for algorithm details, status-to-adapter mapping, and ranking criteria.
+Direct-mode entrypoint for the `charge` action. Computes the runnable frontier through the shared charge-frontier service (backed by `/v1/charge/frontier`), presents a ranked table of items with adapter classifications, confirms the top pick with the operator, and dispatches to the correct downstream skill (`refine`, `shepherd`, `conduct`, `implement`, `dash`, `blitz`, `polish`, or `usher`). See [charge-frontier.md](charge-frontier.md) for algorithm details, status-to-adapter mapping, and ranking criteria.
 
 **Arguments:** `--dry-run` (show frontier, no dispatch), `--item PREFIX-N` (target specific item), `--project P` (explicit project scope; no guessed project), `--wip-cap N` (default: 5).
 
@@ -213,50 +208,30 @@ Direct-mode entrypoint for the `strategize` action. Guided interactive loop for 
 
 ## Internal Sub-skills
 
-These are called by operator commands or other sub-skills. They have their own SKILL.md files and can be invoked directly, but are not part of the primary operator interface. `/yoke advance` is dual-classified: `implementation` is the operator-facing issue entrypoint; other targets remain internal lifecycle transitions.
+These are called by operator commands or other sub-skills. They have their own SKILL.md files and can be invoked directly, but are not part of the primary operator interface.
 
 | Command | Called by | Description |
 |---|---|---|
-| `/yoke advance PREFIX-N [status]` | conduct, usher, do/loop, routed dispatch | Internal advance targets other than `implementation` |
-| `/yoke merge {epic-id}` | usher | Sequential PR + CI + merge per branch |
+| `/yoke advance PREFIX-N [status]` | implement, conduct, polish, usher | Status writes with the target stage's gates, QA phases, and commit |
+| `usher/merge-generated-tasks.md` | usher | Sequential PR + CI + merge per branch |
 | `/yoke approve PREFIX-N` | usher | Approve a deployment stage awaiting human approval |
 | `/yoke amend {epic-id}` | conduct | Add, split, reassign, or remove tasks after sync |
-| `/yoke plan {epic-id}` | shepherd, conduct | Architect planning: task decomposition or lightweight plan |
 | `/yoke simulate {epic-id}` | conduct | Trace cross-task paths for integration gaps (`--system` for Ouroboros audit) |
 
 `simulate` is decomposed into `simulate/epic-flow.md`, `simulate/dispatch-prompts.md`, `simulate/autofix-loop.md`, and `simulate/system.md`.
 
+### implement
+
+Stage skill for the segment a workflow binds to `implement` (issue: `refined-idea` up to `reviewed-implementation`). No target argument: the live stage decides whether it enters or re-enters. Flags (entry only): `--no-worktree` (evidence-only), `--force` (override gates), `--qa-bypass`.
+
+1. **Entry** (`entry.md`) -- At the binding's entry stage, runs `yoke advance implementation-entry --item PREFIX-N`: preflight gates, then worktree preflight (claim, path-claim activation, worktree creation or reuse), the capability-gated environment phase, and the status write, in one process. Worktree creation is a filesystem + DB operation, not a session boundary; the session's authority over the lane is its work-claim, validated per tool call by `lint_session_cwd`. The orchestrator references are `worktree.md`, `activation.md`, `environment.md`.
+2. **Re-entry** (`reentry.md`) -- Past the entry stage, recovers the registered lane and resumes implementation or the review loop without regressing status.
+3. **Implementing sub-skill** (`implementing/`) -- QA seeding of the AC-verification requirement (`qa-seeding.md`), explicit Browser case authoring (`browser-seeding.md`), project context preflight from `context_routing` (`project-context.md`), test commands and QA recording (`test-and-record.md`), and implementation guidance (`implementation.md`). Items entering implementation outside conduct still seed QA requirements before work starts.
+4. **Review loop** (`review.md`) -- Writes each review stage through the internal `/yoke advance` sub-skill (gates, Browser case re-runs on the latest review commit, stale-string audit, worktree-scoped commit), reviews and fixes in place, and stops at the binding's handoff, rendering the next bound skill from `next_skill_id`. Capture-only runs (`execution_status='captured', verdict=NULL`) do not satisfy any `verdict='pass'` gate.
+
 ### advance
 
-Advance an item's status forward. No args: auto-advance to next status. With status: jump to that status. Validates lifecycle order. In current delivery-family routing, issue implementation work commonly enters or resumes through `/yoke advance PREFIX-N implementation`, which normalizes to the canonical stored status `implementing`. Decomposed into 5 phase files plus the `implementing/` sub-skill (5 files).
-
-**Flags:** `--env <name>` (update `deployed_to`), `--no-worktree` (skip worktree creation), `--force` (override gates).
-
-**Phase dispatch:**
-1. **Preflight** -- Type-aware dependency gates, lifecycle validation, merge verification gate, and done redirect.
-2. **Worktree** (target = `implementing` only) -- Creates or re-enters the isolated worktree. Worktree creation is a pure filesystem + DB operation (records the worktree branch slug on the item and activates path claims; cross-reference: see your `items` packet stanza). The same harness session continues into implementation — no scope envelope, no claim release, no parent-stop, no manual relaunch. The session's authority over the worktree is its work-claim, validated per tool call by `lint_session_cwd` against the session's active claims (cross-reference: see your `work_claims` packet stanza).
-3. **Implementation kickoff** (target = `implementing`) -- Seeds QA requirements, records test context, and prepares issue implementation work after the item enters `implementing`.
-4. **Review-complete handoff** (target = `reviewed-implementation`) -- Re-runs each materialized Browser case on the latest review commit through `yoke qa case run --requirement-id <id>`, inspects the captured screenshots, and resolves the resulting review request on that same requirement. No second AC-verification run is created. Capture-only runs (`execution_status='captured', verdict=NULL`) do not satisfy any `verdict='pass'` gate.
-5. **Finalize** -- Status update, GitHub sync, commit. For `implementing` target: hands off to `advance/implementing/SKILL.md`. For `reviewed-implementation`: emits next-step guidance to run `/yoke polish PREFIX-N`. For `implemented`: the next step is `/yoke usher PREFIX-N`.
-
-**`advance/implementing` sub-skill:** Post-advance implementation kickoff called after status is set to `implementing`. Handles:
-- **QA seeding** (`implementing/qa-seeding.md`): Seeds the item-specific
-  AC-verification requirement with `requirement_source=ac_derived`. Project
-  Browser, command, and machine verification comes from attached QA plans;
-  genuinely one-off proof uses an explicit method-backed case.
-- **Browser case authoring** (`implementing/browser-seeding.md`): Reuses an
-  attached test plan or authors an explicit `browser-check` /
-  `browser-inspection` method-backed case; it never infers aggregate Browser
-  requirement kinds.
-- **Project context preflight** (`implementing/project-context.md`): Reads the project-wide always-included docs and topic list from the `context_routing` Project Structure family, infers relevant topics from title/spec/AC text, and surfaces concrete implementation/test/doc paths before the text-sensitive audit and file discovery.
-- **Test commands & QA recording** (`implementing/test-and-record.md`): Records test results as QA runs.
-- **Implementation guidance** (`implementing/implementation.md`): Kickoff for implementation work.
-
-**Worktree re-entry:** When current = `implementing` and target = `implementing`, locates the existing worktree (or recreates if missing). The same session continues — the work-claim acquired on first entry is still active and authorizes writes under the worktree via `lint_session_cwd`. The implementation/review loop resumes without re-advancing status.
-
-**Review-lane re-entry:** When current = `reviewing-implementation` and target = `implementation`, `/yoke advance` resumes the same issue implementation worktree/review loop instead of regressing the stored status.
-
-**Non-conduct QA seeding:** Items entering implementation outside the conduct pipeline (standalone `/yoke advance`) still seed QA requirements before implementation begins. The `advance/implementing/qa-seeding.md` phase ensures every item has requirements before work starts.
+Internal status writer. No args: auto-advance to next status. With status: jump to that status. Validates lifecycle order, runs the target stage's preflight gates, Browser QA and project E2E where the target needs them, then finalize (status update, GitHub sync, worktree-scoped commit, claim handoff). Implementation entry is not an advance target. Flags: `--env <name>` (update `deployed_to`), `--force` (override gates), `--skip-polish` / `--skip-refine` (operator-asserted skips).
 
 ### merge
 
@@ -272,12 +247,6 @@ Human approval gate for the Usher deployment pipeline. Uses the run-based deploy
 
 Add, split, reassign, or remove tasks after sync. Routes mutations through the `workflow_item.epic_task.*` function family (`workflow_item.epic_task.add`, `workflow_item.epic_task.split`, `workflow_item.epic_task.reassign`, `workflow_item.epic_task.remove`, `workflow_item.epic_task.metadata_update`, `workflow_item.epic_task.body_replace`) and `workflow_item.epic_progress_note.append`. See [.yoke/docs/reference/db-reference/functions.md](db-reference/functions.md). Re-verifies worktree overlap. Creates new worktrees as needed.
 
-### plan
-
-Explore scans the codebase. Architect output follows the selected workflow
-policy: item-level execution gets a lightweight `## Technical Plan`; a
-task-graph workflow gets task decomposition plus a worktree plan.
-
 ### simulate
 
 Auto-detects phase: plan (all tasks still pre-implementation, typically `planned`) or integration (all tasks `done`). Traces cross-task paths. `--force-integration` overrides phase detection. `--system` runs Ouroboros system-wide consistency audit across all agents, SKILLs, scripts, rules, hooks, and docs.
@@ -286,7 +255,7 @@ Auto-detects phase: plan (all tasks still pre-implementation, typically `planned
 
 **Integration simulation:** Compressed two-phase mode is the default. Uses extracted contracts, file overlap matrix, dependency edges, diff stats, and review summaries instead of full content. Simulator must produce a bounded preliminary verdict (Phase A, no tool calls) before selective verification (Phase B, max 5 file reads). Standard (full-context) path only used when `sim_force_standard_integration=true` in config.
 
-**Auto-fix (steps 8-12):** After gaps are found, offers to invoke the Architect in fix mode to revise task specs. Loop caps at 3 iterations. Code-level gaps are skipped -- only plan-level fixes applied.
+**Auto-fix:** `simulate/autofix-loop.md` owns the shared Architect loop, capped at three passes. Direct use asks before fixes and re-simulation; `--auto-fix` accepts both automatically. Conduct delegates internally and routes remaining code gaps to its single amend cycle.
 
 **System-wide simulation** (`--system`): Ouroboros audit of all Yoke components for consistency drift. Checks stale references, cross-agent assumption mismatches, hook references, and rule-implementation contradictions. Report saved to `yoke/ouroboros/health/` (local, gitignored). No auto-fix -- file work items via `/yoke idea`.
 
@@ -296,7 +265,7 @@ These are shared files used by multiple commands but are not slash commands them
 
 ### `shared/tester-dispatch-template.md`
 
-Defines the minimum structured context that any Tester dispatch MUST include. Referenced by `conduct/dispatch-context.md` (issue and epic task prompt templates) and `advance/implementing/SKILL.md` (ad-hoc Tester dispatch outside conduct). The template specifies required context blocks: item identity and spec, project test commands, changed files, QA requirements, ephemeral URL, and project context. Without this template, the Tester agent improvises its validation approach.
+The sole Tester prompt template for item, generated-task, retry, and simulation-fix dispatches. Conduct and other implementation flows supply identity/spec, QA roster, project commands, registered lane, changed files, size-gated diffs, and ephemeral URL. Normal and minimal variants preserve the durable generated-task review receipt.
 
 ## Conduct Flags
 
@@ -320,7 +289,7 @@ A pre-dispatch quality gate that blocks epic dispatch when unresolved CRITICAL p
 
 Project context is loaded by multiple commands, not just conduct.
 
-1. **Issue implementation entry** uses `advance/implementing/project-context.md` before the text-sensitive audit and file discovery. Reads project-wide always-included docs + topic list from `context_routing`, matches topics against title/spec/AC text, and emits a `Project Context Summary` with concrete implementation/test/doc surfaces.
+1. **Issue implementation entry** uses `implement/implementing/project-context.md` before the text-sensitive audit and file discovery. Reads project-wide always-included docs + topic list from `context_routing`, matches topics against title/spec/AC text, and emits a `Project Context Summary` with concrete implementation/test/doc surfaces.
 2. **Conduct dispatch** appends a project-specific context bundle to Engineer/Tester prompts for non-yoke project items via `dispatch-context.md` step `5f-project`.
 3. Missing files warn and continue; broad exploration is fallback only when project docs already map the area.
 

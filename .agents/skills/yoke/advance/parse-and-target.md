@@ -31,14 +31,13 @@ exact pin and exports `_status`, `_pinned_definition_json`,
 `_generated_children`, `_worktree_policy`, and `_current_skill`. Do not continue
 unless the read succeeds.
 
-When the requested advance target is `implementation`, map it to the canonical status `implementing` for lifecycle comparisons. `implementation` is the advance-target name (the sub-skill path); `implementing` is the DB status. Keep using `implementation` as the advance target in operator-facing examples and routed `/yoke do` invocations.
+`implementation` is not an advance target, and neither is the transition out of
+an `implement` binding's entry stage (for an issue, `refined-idea ->
+implementing`). When either arrives, stop: implementation entry, the
+implementation loop, and the review loop belong to the `implement` stage skill
+bound across them, which calls this sub-skill only for its later status writes.
 
-**Immediately** stamp the session mode. For implementation entry (`_target = implementing`), defer the first work-claim acquisition to the orchestrator: its client-side write-guard identity probe must pass before `worktree_preflight.run_preflight` creates the claim or lane. For reviewing/polishing re-entry, acquire the claim below before phase-doc reads. The mode update keeps the board's active-session row showing `advance` instead of the default `wait`; claim acquisition establishes DB-backed active-item attribution.
-
-Session-mode stamping is an internal advance-router action (`session-touch`
-service-client handler; no registered product CLI wrapper). Do not teach or run a
-module-shaped recipe for it in normal product flow. The item attribution itself is
-established by the registered claim surface below.
+The calling skill stamped the session mode; this sub-skill does not restamp it.
 
 The legacy `/tmp/yoke-current-item` marker file was retired when marker-based attribution was replaced with DB-backed lookups on the session's current-item field (see your `harness_sessions` packet stanza). Do **not** write that file.
 
@@ -49,9 +48,7 @@ Resolve the canonical target **inline** so the claim gate can run before any pha
 # Full validation happens in Step 2; this is just the minimum computation needed
 # to decide claim vs. no-claim.
 _arg="$1" # advance target argument (may be empty for auto-advance)
-if [ "$_arg" = "implementation" ]; then
- _target="implementing"
-elif [ -n "$_arg" ]; then
+if [ -n "$_arg" ]; then
  _target="$_arg"
 else
  _prog=$(printf '%s' "$_pinned_definition_json" | python3 -c 'import json,sys
@@ -75,7 +72,7 @@ for binding in definition["skill_bindings"]:
 ' "$_target")
 ```
 
-For re-entry claim-holding targets (`reviewing-implementation`, `polishing-implementation`), call `claims.work.acquire` so the handler establishes the work claim and sets DB-backed active-item attribution in one transaction. For `implementing`, skip this call; the implementation-entry orchestrator probes identity first, then `worktree_preflight.run_preflight` acquires the claim:
+For claim-holding targets (`reviewing-implementation`, `polishing-implementation`), call `claims.work.acquire` so the handler establishes the work claim and sets DB-backed active-item attribution in one transaction; for the calling skill's own claim it is an idempotent same-session re-claim:
 
 ```json
 {
@@ -104,23 +101,17 @@ stage table.
 
 Then determine the target:
 
-- **Explicit target = current status:** Re-entry request.
- - If target resolves to `implementing` → read and follow **worktree re-entry** (step 3 below), then continue the pinned skill's implementation loop. Do **not** stop after surfacing the worktree path.
- - If target is `reviewing-implementation` → re-entry into review phase. Use **worktree re-entry** (step 3) to recover the worktree, then continue the review loop in that worktree. Do **not** ask the operator whether to review now.
+- **Explicit target = current status:** nothing to write.
  - If target is `reviewed-implementation` → reviewed-implementation re-entry. Delegate to the reviewed-implementation boundary message in [`finalize.md`](finalize.md) (`## Pre-Release Next-Step Guidance`) and **stop**. Do not advertise `/yoke polish` from inside the advance flow — the routed loop owns the polish handoff.
- - Otherwise → `Cannot advance PREFIX-N from '{current}' to '{target}' — not a valid forward transition.`
-- **Advance target is `implementation` while current status is `reviewing-implementation`:** Treat this as an **implementation re-entry**. Do NOT mutate status backward; read and follow **worktree re-entry** (step 3 below), then continue the same implementation/review loop until review passes or a real blocker is hit. This preserves the single-worktree review-loop behavior for review-phase fixes rather than introducing a separate manual checkpoint.
+ - Otherwise → return to the calling skill's loop without a write; re-entering a lane belongs to the skill bound at the live stage.
 - **Explicit target after current in the applicable progression:** Valid forward transition → continue to step 4.
-- **Explicit target before current:** → stop (not valid), except for the `reviewing-implementation` → `implementation` re-entry above.
+- **Explicit target before current:** → stop (not valid).
 - **No target (auto-advance):** Next status in the applicable progression. If already `done` → stop.
 
 **Advance-skill transition semantics:**
-- `refined-idea -> implementing` — Implementation entry. Creates worktree and begins implementation.
 - `implementing -> reviewing-implementation` — Enter the review phase. Review-phase fixes and follow-up edits continue in the same worktree.
-- `reviewing-implementation` + advance target `implementation` — **Re-entry only.** This resumes the existing worktree without mutating status backward. The DB status stays `reviewing-implementation`.
 - `reviewing-implementation -> reviewed-implementation` — Review is complete. The branch is now queued for polish.
 - `reviewed-implementation -> polishing-implementation` — Routed polish has started and now owns the finishing pass.
 - `polishing-implementation -> implemented` — Set by routed polish on success. Advance can also set this directly.
 
-Next: [`reentry.md`](reentry.md) for a re-entry target, otherwise
-[`phase-dispatch.md`](phase-dispatch.md).
+Next: [`phase-dispatch.md`](phase-dispatch.md).

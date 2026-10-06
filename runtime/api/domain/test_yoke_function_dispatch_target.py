@@ -12,6 +12,7 @@ import unittest
 from contextlib import contextmanager
 from unittest.mock import patch
 
+from yoke_core.domain.item_ref_resolution import ItemRefError
 from yoke_core.domain.yoke_function_dispatch_target import (
     resolve_target_public_ref,
 )
@@ -45,18 +46,22 @@ class TestResolveTargetItemRef(unittest.TestCase):
         def _cm(*_a, **_k):
             yield object()
 
-        with patch(
-            "yoke_core.domain.db_helpers.connect",
-            side_effect=lambda *a, **kw: _cm(),
-        ), patch(
-            "yoke_core.domain.yok_n_parser.parse_item_id",
-            return_value=99,
+        with (
+            patch(
+                "yoke_core.domain.db_helpers.connect",
+                side_effect=lambda *a, **kw: _cm(),
+            ),
+            patch(
+                "yoke_core.domain.item_ref_resolution.resolve_item_ref",
+                return_value=99,
+            ),
         ):
             response = resolve_target_public_ref(request)
         assert response is not None
         self.assertFalse(response.success)
         assert response.error is not None
         self.assertEqual(response.error.code, "item_id_ref_mismatch")
+        self.assertNotIn("42", response.error.message)
         self.assertEqual(request.target.item_id, 42)
 
     def test_matching_item_id_and_ref_keeps_resolved_id(self):
@@ -68,12 +73,15 @@ class TestResolveTargetItemRef(unittest.TestCase):
         def _cm(*_a, **_k):
             yield object()
 
-        with patch(
-            "yoke_core.domain.db_helpers.connect",
-            side_effect=lambda *a, **kw: _cm(),
-        ), patch(
-            "yoke_core.domain.yok_n_parser.parse_item_id",
-            return_value=42,
+        with (
+            patch(
+                "yoke_core.domain.db_helpers.connect",
+                side_effect=lambda *a, **kw: _cm(),
+            ),
+            patch(
+                "yoke_core.domain.item_ref_resolution.resolve_item_ref",
+                return_value=42,
+            ),
         ):
             self.assertIsNone(resolve_target_public_ref(request))
         self.assertEqual(request.target.item_id, 42)
@@ -85,7 +93,7 @@ class TestResolveTargetItemRef(unittest.TestCase):
         )
         captured = {}
 
-        def _parse(ref, *, project=None, conn=None, allow_bare_internal=False):
+        def _parse(conn, ref, *, project=None):
             captured["ref"] = ref
             captured["project"] = project
             return 4242
@@ -94,12 +102,15 @@ class TestResolveTargetItemRef(unittest.TestCase):
         def _cm(*_a, **_k):
             yield object()
 
-        with patch(
-            "yoke_core.domain.db_helpers.connect",
-            side_effect=lambda *a, **kw: _cm(),
-        ), patch(
-            "yoke_core.domain.yok_n_parser.parse_item_id",
-            side_effect=_parse,
+        with (
+            patch(
+                "yoke_core.domain.db_helpers.connect",
+                side_effect=lambda *a, **kw: _cm(),
+            ),
+            patch(
+                "yoke_core.domain.item_ref_resolution.resolve_item_ref",
+                side_effect=_parse,
+            ),
         ):
             self.assertIsNone(resolve_target_public_ref(request))
         self.assertEqual(request.target.item_id, 4242)
@@ -116,18 +127,50 @@ class TestResolveTargetItemRef(unittest.TestCase):
         def _cm(*_a, **_k):
             yield object()
 
-        with patch(
-            "yoke_core.domain.db_helpers.connect",
-            side_effect=lambda *a, **kw: _cm(),
-        ), patch(
-            "yoke_core.domain.yok_n_parser.parse_item_id",
-            side_effect=ValueError("bare numeric item refs are project-local"),
+        with (
+            patch(
+                "yoke_core.domain.db_helpers.connect",
+                side_effect=lambda *a, **kw: _cm(),
+            ),
+            patch(
+                "yoke_core.domain.item_ref_resolution.resolve_item_ref",
+                side_effect=ItemRefError(
+                    "item_ref_needs_project",
+                    "bare item number 123 names a project sequence but no project",
+                ),
+            ),
         ):
             response = resolve_target_public_ref(request)
         assert response is not None
         self.assertFalse(response.success)
         assert response.error is not None
         self.assertEqual(response.error.code, "public_ref_unresolved")
-        self.assertIn("project-local", response.error.message)
+        self.assertIn("names a project sequence", response.error.message)
+
+    def test_epic_task_ref_resolves_onto_epic_id(self):
+        request = _request(
+            TargetRef(kind="epic_task", public_ref="YOK-7", task_num=3),
+        )
+
+        @contextmanager
+        def _cm(*_a, **_k):
+            yield object()
+
+        with (
+            patch(
+                "yoke_core.domain.db_helpers.connect",
+                side_effect=lambda *a, **kw: _cm(),
+            ),
+            patch(
+                "yoke_core.domain.item_ref_resolution.resolve_item_ref",
+                return_value=5150,
+            ),
+        ):
+            self.assertIsNone(resolve_target_public_ref(request))
+        self.assertEqual(request.target.epic_id, 5150)
+        self.assertIsNone(request.target.item_id)
+        self.assertEqual(request.target.task_num, 3)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,5 +1,12 @@
 # Viewing a Test Machine desktop
 
+The named machine's `desktop_password` secret is its administrator password,
+used for desktop access and macOS/Linux administrator commands. Run one setup
+command with `yoke test-machine exec --project P --machine NAME --admin -- COMMAND ARGS...`.
+Read its `--help`; product code reads the stored secret, supplies it on private
+stdin to sudo, and redacts output. The command receives no stdin. Import the
+credential through `yoke projects capability secret set --project P --cap-type test-machine:NAME --key desktop_password --value-file PASSWORD_FILE`.
+
 Run `yoke test-machine desktop-access --project P --machine NAME --view` on the
 workstation holding the registered fixture credentials. Read the command's
 `--help` for route prerequisites, refusals, and cleanup.

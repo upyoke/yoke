@@ -16,7 +16,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 Deep homes, at `.yoke/docs/reference/agent-rules/`: `code-and-cli.md` · `databases.md` · `verification.md` · `lanes-and-claims.md` · `architecture-model.md` · `item-writes.md` · `delivery.md`. Per-operation depth is that operation's `--help`; live schema and commands are `yoke packets render --role main_agent`.
 
 ## Yoke Authority — Hard Rule
-- **Skill says auto-X → do auto-X, no asking.** Harness "confirm before issues/push/shared-state" defaults do not apply where a Yoke skill directs autonomous execution; `/yoke conduct`, `shepherd`, `usher`, `do`, `charge`, `steer` carry autonomous mandates. Invoking the skill authorizes it, and an unrequested pause is a regression. **Test:** "did the skill say ask?", not "would the harness ask?" Unsure → reread the skill.
+- **Skill says auto-X → do auto-X, no asking.** Harness "confirm before issues/push/shared-state" defaults do not apply where a Yoke skill directs autonomous execution; `/yoke conduct`, `shepherd`, `usher`, `charge`, `steer` carry autonomous mandates. Invoking the skill authorizes it, and an unrequested pause is a regression. **Test:** "did the skill say ask?", not "would the harness ask?" Unsure → reread the skill.
 - **Security always holds.** Never overrides `<critical_security_rules>` or prohibited actions — no banking/credential entry, no permanent deletes outside sanctioned paths, no auth bypass, no command injection. Not collaboration cautions.
 
 ## Project Scoping — Hard Rule
@@ -96,7 +96,7 @@ tail -80 <raw-capture>          # the capture a watcher prints, once it exits
 - **Never agent shapes:** the HTTP function-call server, `curl localhost:8765`, `$YOKE_API`, or direct runtime-API imports — two lints enforce this. The DB-router and service-client forms are operator-debug only. Launcher install/repair, lint names, status vocabulary, fallback inventory: `code-and-cli.md`.
 
 ## Simplify — three-axis doctrine
-Idea, refine, advance, conduct, shepherd, and polish each apply **reuse** (name an existing surface before adding one; empty reuse needs an explicit "no relevant existing surface"), **quality** (the smallest shape satisfying the request, out-of-scope declared when it invites creep), and **efficiency** (cheapest valuable path first; a new table/event/skill/config/command needs extension-vs-create justification), plus a **future-concept pull-forward** lens. Anti-patterns, stage weights, v0 boundaries: `code-and-cli.md`.
+Idea, refine, implement, conduct, shepherd, and polish each apply **reuse** (name an existing surface before adding one; empty reuse needs an explicit "no relevant existing surface"), **quality** (the smallest shape satisfying the request, out-of-scope declared when it invites creep), and **efficiency** (cheapest valuable path first; a new table/event/skill/config/command needs extension-vs-create justification), plus a **future-concept pull-forward** lens. Anti-patterns, stage weights, v0 boundaries: `code-and-cli.md`.
 - **Polish runs one worktree-diff-scoped simplify pass** before staleness and test re-run: fix in place, skip false positives, proceed with no changes. The deliverable is a commit, not a report.
 
 ## Structured Item Writes

@@ -63,7 +63,7 @@ These are the top-level `/yoke` commands that constitute the safe operator inter
 | `/yoke idea {title}` | Capture a new backlog item | Safe: creates only, no destructive side effects |
 | `/yoke shepherd YOK-N` | Drive item through quality-gated lifecycle to planned | Safe: orchestrates worker agents through defined transitions |
 | `/yoke conduct YOK-N` | Engineer/Tester loop for a single item or epic | Safe: scoped to the item's implementation worktree lane set |
-| `/yoke advance YOK-N implementation` | Issue implementation entry — opens worktree and starts the implementation/review loop | Safe: scoped to a single item, creates worktree on entry |
+| `/yoke implement YOK-N` | Issue implementation stage skill — opens or re-enters the worktree and runs the implementation/review loop | Safe: scoped to a single item, creates worktree on entry |
 | `/yoke usher [YOK-N]` | Merge and deploy implemented items | Safe: operates on implemented items only, requires operator confirmation |
 | `/yoke doctor [project]` | Health checks and diagnostics | Safe: read-only by default, `--fix` requires explicit opt-in |
 | `/yoke resync` | Detect and repair GitHub drift | Safe: `--fix` requires explicit opt-in |
@@ -72,7 +72,6 @@ These are the top-level `/yoke` commands that constitute the safe operator inter
 | `/yoke refine YOK-N` | Critique and improve item artifacts | Safe: structured-field refinement only, no worktree or code edits |
 | `/yoke polish YOK-N` | Review and finish implementation in existing worktree lane(s) | Safe: scoped to one item's recorded implementation lanes and explicit verification |
 | `/yoke help` | Show command reference | Safe: read-only |
-| `/yoke do` | Autonomous session orchestrator | Safe: offers session to decision engine, routes to chosen mode |
 | `/yoke charge` | Pick up next runnable item from frontier | Safe: confirms with operator before dispatch |
 | `/yoke feed` | Refresh stale frontier items, reconcile frontier facts, and materialize strategy-backed work | Safe: updates structured item fields, creates idea records, refreshes dependency graph |
 | `/yoke strategize` | Guided Strategic Markdown Layer review | Safe: multi-checkpoint interactive loop with operator approval at each stage |
@@ -90,10 +89,9 @@ These are the commands listed in section 2 above. They are the sanctioned extern
 **Examples:**
 
 - `/yoke idea` -- create a new backlog item
-- `/yoke do` -- autonomous session orchestrator
 - `/yoke shepherd YOK-N` -- drive item through lifecycle
 - `/yoke conduct YOK-N` -- Engineer/Tester execution loop
-- `/yoke advance YOK-N implementation` -- issue implementation entry (opens worktree)
+- `/yoke implement YOK-N` -- issue implementation (opens worktree, implements, reviews)
 - `/yoke usher [YOK-N]` -- merge and deploy
 - `/yoke doctor [project]` -- health checks
 - `/yoke resync` -- repair GitHub drift
@@ -112,15 +110,14 @@ These are the commands listed in section 2 above. They are the sanctioned extern
 
 These are called by operator commands or other sub-skills. They have SKILL.md files and can technically be invoked directly, but they are not part of the primary operator interface. A harness should not invoke these directly unless it is implementing a specific downstream path that Yoke core has routed to it.
 
-`/yoke advance` is dual-classified: the `implementation` form (`/yoke advance YOK-N implementation`) is the operator-facing issue implementation entry above. Other advance targets (e.g. `reviewing-implementation`, `reviewed-implementation`) and the bare `/yoke advance YOK-N [status]` form are still internal sub-skill calls invoked by `conduct`, `usher`, `do`, and routed dispatch.
+`/yoke advance YOK-N [status]` is internal only: the stage skills (`implement`, `conduct`, `polish`, `usher`) call it for their status writes. Issue implementation entry is the `/yoke implement YOK-N` stage skill above.
 
 | Sub-skill | Called by | Purpose |
 |-----------|----------|---------|
-| `/yoke advance YOK-N [status]` | conduct, usher, do/loop, routed dispatch | Internal advance targets other than `implementation` |
-| `/yoke merge {epic-id}` | usher | Sequential PR + CI + merge per branch |
+| `/yoke advance YOK-N [status]` | implement, conduct, polish, usher | Status writes with the target stage's gates, QA phases, and commit |
+| `usher/merge-generated-tasks.md` | usher | Sequential PR + CI + merge per branch |
 | `/yoke approve YOK-N` | usher | Approve a deployment stage |
 | `/yoke amend {epic-id}` | conduct | Add, split, reassign, or remove tasks |
-| `/yoke plan {epic-id}` | shepherd, conduct | Architect planning: task decomposition |
 
 ### Tier 3: Raw internal Python entrypoints
 
@@ -146,7 +143,7 @@ The Python entrypoints above are internal surfaces. Agents use registered `yoke`
 
 ## 4. Session Identity Expectations
 
-When a harness connects to Yoke, Yoke needs to know certain facts about the session to make routing and fallback decisions. These identity fields are not required at bootstrap time, but must be available by the time `/yoke do` evaluates what work to route.
+When a harness connects to Yoke, Yoke needs to know certain facts about the session to make routing and fallback decisions. These identity fields are not required at bootstrap time, but must be available by the time `session-offer` evaluates what work to route.
 
 ### Required identity fields
 
@@ -219,13 +216,13 @@ Each successful poll handshake compares the freshly served build with the instal
 
 A matching receipt is not proof that the release runs. Readiness loads the pinned release the way the launcher loads it -- the stable runtime interpreter in isolated mode, that release's own packages first on `sys.path`, `yoke_cli.main` imported, and `yoke-core` reporting the pinned version from inside that release -- so a release whose packages an editable install replaced with pointers, or whose package is resolved from a checkout outside the release, reports `package_ready=false` with `relay_release_install_failed` and the import failure that named it. The reuse decision reads the same answer, so `yoke relay install` rebuilds a broken release that still matches the served build instead of restarting into it, and it loads each candidate the same way before the pointer swap; a candidate that fails to load leaves the prior release pinned and running. The load is bounded by a timeout it names rather than hanging the status call, and it happens only where readiness or reuse is asserted -- never on the poll heartbeat.
 
-A terminal relay report rejected with `report_conflict` is already settled on the server. Launch reports enter local quarantine after three permanent rejections. Wake and evidence reports enter quarantine immediately on a permanent rejection; a wake's `attempt_missing` also means it cannot be settled. Finished resume custody is released just as on success, while the quarantined error code remains visible in relay health; do not replay it. Connectivity and ambiguous failures retain resume custody for the next poll, or the durable retry queue for launches. An operator may preserve one already diagnosed permanent rejection early with `yoke relay report quarantine <opaque-report-id>`; the command refuses reports without report-scoped permanent-rejection evidence and records the preserved path and SHA-256.
+A terminal relay report is permanently rejected when the server will never accept it: `report_conflict` (already settled), `relay_lease_expired` (its batch expired before the report), `invalid_state` (the job already closed), `attempt_missing` or `lease_mismatch` (never leased to this relay), or an invalid payload. Launch reports enter local quarantine after three permanent rejections, and those retries never hold the relay's claims. Wake reports enter quarantine immediately; permanently rejected evidence is logged and dropped. Finished resume custody is released just as on success, while the quarantined error code remains visible in relay health; do not replay it. Connectivity and ambiguous failures retain resume custody for the next poll, or the durable retry queue for launches, and a launch report awaiting such a retry holds new claims until it drains. An operator may preserve one already diagnosed permanent rejection early with `yoke relay report quarantine <opaque-report-id>`; the command refuses reports without report-scoped permanent-rejection evidence and records the preserved path and SHA-256.
 
 Claude usage counts each assistant message id once across rows and incremental folds, including history repeated after compaction. Its watermark stores distinct ids and per-model totals without transcript content; ids, totals, reader version and offset save atomically. Codex readings replace cumulative totals rather than adding them.
 
 Every child interpreter used by release installation runs in isolated mode so the relay's inherited package path cannot select the running release during candidate installation or verification. Repair a mismatched relay pin from an ordinary login shell with `yoke --env ENV relay install`; if that shell exports `PYTHONPATH`, remove it for this invocation. The updater preserves installed releases and the last working pin, restarts the native user service, and resumes relayed sessions on the next poll.
 
-Hook and guard verdicts print `{source_sha, install_kind, install_path}` so version skew is a fingerprint, not a reconstruction. Relayed verdicts echo client and server fingerprints; a relay timeout prints `fallback=local`. Local path evaluation refuses to POST a payload whose stamped `session_id` is missing or still conversation-shaped unless the client set `identity_stamped`. Identity-resolution failures deny writes only. `YOKE_HOOK_REPLAY=1 yoke hook evaluate <event>` returns the same verdict without writing process-anchors, the cursor-session-map, remount-expect receipts, or registering a session.
+Hook and guard verdicts print `{source_sha, install_kind, install_path}` so version skew is a fingerprint, not a reconstruction. Relayed verdicts echo client and server fingerprints; a relay timeout prints `fallback=local`. The server binds the authorized request's project to scratch resolution for the entire hook run, including lifecycle dedup, Codex cache and prompt markers, orientation markers, and item-marker writers. This request-local binding reaches typed workers without changing process-wide environment or guessing from the server checkout. Local path evaluation refuses to POST a payload whose stamped `session_id` is missing or still conversation-shaped unless the client set `identity_stamped`. Identity-resolution failures deny writes only. `YOKE_HOOK_REPLAY=1 yoke hook evaluate <event>` returns the same verdict without writing process-anchors, the cursor-session-map, remount-expect receipts, or registering a session.
 
 A Cursor remount mints a new conversation id and does not name the prior session. While the holder is still on the main checkout, each client hook refreshes a short-lived remount-expect receipt under `cursor-session-map/remount-expect/`. The first hook in the linked worktree consumes that receipt before aliasing the new conversation onto the holder. A worktree workspace with a live claim holder and no receipt is identity-failure, not a folder fold.
 

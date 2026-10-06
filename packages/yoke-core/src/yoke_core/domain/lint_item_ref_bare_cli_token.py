@@ -2,7 +2,7 @@
 
 A Python ``int`` is ``items.id``. A digit *string* passed to ``items get`` /
 ``items update`` / ``sync_done_item`` / ``run_scan`` is a project-local
-public sequence under the default project (``allow_bare_internal=False``).
+public sequence that resolves only with project context.
 That swap is how a deploy stamp printed success while writing no row — or
 the wrong row — for a non-default-project item, and how the done
 transition's discovery scan refused every item whose internal id was not
@@ -31,7 +31,7 @@ from yoke_core.domain.lint_item_ref_construction import (
 
 
 #: Functions whose leading positional argument is an operator-facing item
-#: reference, resolved with ``allow_bare_internal=False``.
+#: reference, resolved as a public ref or a project sequence.
 _ITEM_REF_BOUNDARIES = ("sync_done_item", "sync_body", "run_scan")
 
 _BARE_CLI_TOKEN_RE = re.compile(
@@ -49,7 +49,9 @@ _BARE_CLI_TOKEN_RE = re.compile(
 )
 
 
-def scan_bare_internal_cli_token(repo_root: Path) -> List[RefLiteralHit]:
+def scan_bare_internal_cli_token(
+    repo_root: Path, *, read_text=Path.read_text
+) -> List[RefLiteralHit]:
     """Return every bare-id-as-item-ref CLI construction in shippable source."""
     root = repo_root.resolve()
     hits: List[RefLiteralHit] = []
@@ -65,7 +67,7 @@ def scan_bare_internal_cli_token(repo_root: Path) -> List[RefLiteralHit]:
             if is_exempt_relpath(rel):
                 continue
             try:
-                source = path.read_text(encoding="utf-8")
+                source = read_text(path, encoding="utf-8")
             except (OSError, UnicodeDecodeError):
                 continue
             for match in _BARE_CLI_TOKEN_RE.finditer(source):

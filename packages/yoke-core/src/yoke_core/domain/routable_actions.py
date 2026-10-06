@@ -52,7 +52,7 @@ class RoutableActionCatalogError(RuntimeError):
 
 _PRESENTATION: Dict[str, Tuple[str, str]] = {
     "shepherd": ("Shepherd", "Plan work through its quality gates."),
-    "advance": ("Advance", "Move work to its next lifecycle stage."),
+    "implement": ("Implement", "Implement an issue through its review loop."),
     "conduct": ("Conduct", "Execute an epic's implementation tasks."),
     "dash": ("Dash", "Execute one instruction end to end, whatever its size."),
     "blitz": ("Blitz", "Execute substantial work from a standing plan."),

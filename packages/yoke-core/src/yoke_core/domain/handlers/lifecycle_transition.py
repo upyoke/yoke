@@ -95,7 +95,10 @@ class LifecycleTransitionResponse(BaseModel):
     from_status: str
     to_status: str
     reason: Optional[str] = None
+    execution_instructions: list[dict] = Field(default_factory=list)
     log: str = ""
+    #: The bound skill whose segment the target entered, when it changed.
+    skill_handoff: Optional[Dict[str, str]] = None
 
 
 # ---------------------------------------------------------------------------
@@ -194,6 +197,7 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
         WORKFLOW_STATUS_PRECONDITION_FAILED,
     )
     from yoke_core.domain.db_mutation_gate_loaders import acting_item_ref_bound
+    from yoke_core.domain.workflow_skill_handoff import item_skill_handoff
     from yoke_core.domain.backlog_db_mutation_gate_runner import (
         capture_db_mutation_gate_warnings,
     )
@@ -268,6 +272,11 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
             gate_failure_message(result, "lifecycle transition failed"),
         )
 
+    from yoke_core.domain.execution_instruction_delivery import item_instructions
+
+    handoff, handoff_warnings = item_skill_handoff(
+        item_id, current, payload.target_status
+    )
     response = LifecycleTransitionResponse(
         item_id=item_id,
         from_status=current,
@@ -276,11 +285,17 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
         if payload.target_status == "cancelled"
         else payload.reason,
         log=captured.getvalue(),
+        execution_instructions=item_instructions(
+            item_id,
+            delivery_point="when_entering_stage",
+            stage_id=payload.target_status,
+        ),
+        skill_handoff=handoff,
     )
     return HandlerOutcome(
         result_payload=response.model_dump(),
         primary_success=True,
-        warnings=gate_warnings,
+        warnings=[*gate_warnings, *handoff_warnings],
     )
 
 

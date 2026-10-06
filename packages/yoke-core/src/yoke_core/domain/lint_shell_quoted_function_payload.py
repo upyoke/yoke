@@ -36,7 +36,7 @@ from yoke_core.domain.lint_shell_quoted_function_payload_messages import (
     resolve_mode as _resolve_mode,
 )
 from yoke_core.domain.lint_shell_quoted_function_payload_skill import (
-    skill_orchestrated_note,
+    lifecycle_transition_note,
 )
 from yoke_core.domain.lint_shell_quoted_function_payload_wrapping_variants import (
     NO_CONSUMER_ALLOWANCE_FUNCTIONS as _NO_CONSUMER_ALLOWANCE_FUNCTIONS,
@@ -279,7 +279,7 @@ def evaluate(record: HookContext) -> HookDecision:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     reason = evaluate_command(command)
     if reason is None:
-        note = skill_orchestrated_note(command)
+        note = lifecycle_transition_note(command)
         if note:
             _emit_denial(payload, note, outcome="warn")
             return HookDecision(

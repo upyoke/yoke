@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_contracts.session_control.launch_origin import LAUNCH_ORIGIN_STEERING
-from yoke_core.domain.project_identity import resolve_item_id
+from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 from yoke_core.domain.session_launch_origin import derived_launch_origin
 from yoke_core.domain.session_launch_types import SessionLaunchError
 from yoke_core.domain.steering_scope_coverage import (
@@ -50,7 +50,7 @@ def refuse_uncovered_steering_launch(
         != LAUNCH_ORIGIN_STEERING
     ):
         return
-    item_id = resolve_item_id(conn, public_ref, project=project_id)
+    item_id = resolve_item_ref_or_none(conn, public_ref, project=project_id)
     if item_id is None:
         return
     target = item_coverage_target(

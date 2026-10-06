@@ -226,9 +226,7 @@ def emit_event(
             "omit transactional=True for an emitter-owned transaction"
         )
     try:
-        resolved_item_id = resolve_item_id_for_event(
-            conn, db_path, item_id, project=project
-        )
+        resolved_item_id = resolve_item_id_for_event(conn, db_path, item_id)
         envelope = build_envelope(
             event_name,
             event_kind=event_kind,

@@ -60,7 +60,7 @@ NEVER rely on shell variables persisting across separate Bash tool calls. Each B
 
 **Package roots (where a module actually lives):** an importable package name never implies a directory at the repo root, and the mapping is per-project. Resolve a module through the roots your project's `architecture_model` declares — read them with `yoke project-structure get --project P --family architecture_model --json` and consult its `package_roots`, which maps each package to roots labelled `package_under_root` (the package directory sits under the root) or `package_is_root` (the root directory IS the package, so the package name never appears on disk). One package may declare several roots; check every one before concluding a module is absent.
 
-**Work-item entry surfaces:** every create names a workflow and a typed entry surface (`web_form`, `cli`, `harness_skill`, or `promotion`). The selected immutable workflow version must allow that surface. File through `/yoke idea` (the skill-owned `harness_skill` path), `yoke dash TITLE INSTRUCTION`, or the laneless `yoke task TITLE INSTRUCTION`. `yoke items create` refuses a live harness session that is not in idea mode — the entry-surface token is caller-asserted and skips skill-side scaffolding. Operator/debug, `--dry-run`, and test isolation retain the low-level adapter. `/yoke idea` attests with `--execution-instructions-considered` after `yoke workflow execution-instruction resolve --workflow W --project P --full`; every non-web surface is refused without that attestation, and no adapter sets it for you.
+**Work-item entry surfaces:** every create names a workflow and a typed entry surface (`web_form`, `cli`, `harness_skill`, or `promotion`). The selected immutable workflow version must allow that surface. File through `/yoke idea` (the skill-owned `harness_skill` path), `yoke dash TITLE INSTRUCTION`, or the laneless `yoke task TITLE INSTRUCTION`. `yoke items create` refuses a live harness session that is not in idea mode — the entry-surface token is caller-asserted and skips skill-side scaffolding. Operator/debug, `--dry-run`, and test isolation retain the low-level adapter. `/yoke idea` attests Before creation with `--execution-instructions-considered` after `yoke workflow execution-instruction resolve --workflow W --project P --full`; Non-web creation requires that attestation; adapters never set it.
 
 **Function-call surface (canonical mutation path):** `yoke_core.domain.yoke_function_dispatch.dispatch` validates a `FunctionCallRequest` from `yoke_contracts.api.function_call` and returns a `FunctionCallResponse`. Minimal envelope: `{function, request_id, actor:{session_id,actor_id}, target:{kind,item_id|epic_id+task_num|qa_requirement_id|...}, payload, preconditions:{}, options:{}}`. `target.kind` ∈ `item|epic_task|qa_requirement|session|process`. `actor.session_id` is mandatory — handlers verify it against `work_claims`. `preconditions`/`options` are dicts (default `{}`). Scratch Python imports must prepend the repo root to `sys.path` or set `PYTHONPATH`; `/tmp` imports are not the agent path.
 
@@ -325,7 +325,7 @@ You receive these via your Task prompt:
 
 - **scope**: `spec` | `prd` | `plan` — which type of artifact is being evaluated
 - **item_id**: PREFIX-N identifier
-- **transition**: full transition name (e.g., `planning_to_plan_drafted`, `refined_idea_to_planning`) — used for verdict persistence
+- **transition**: edge verdict key derived from the pinned source and target stage ids — used for verdict persistence
 - **worker_name**: worker name for this transition (e.g., `review`, PM name) — used for verdict persistence
 
 The caller may also include inline artifact content for convenience, but you MUST NOT rely on it. Always read the authoritative source yourself (step 1 below).
@@ -416,7 +416,7 @@ Focus on: task granularity (session-fit), interface contracts between tasks, dep
 **Durable naming validation:** When the plan creates or renames live codebase surfaces, reject provenance-shaped names. The task may mention the planning artifact as context, but the proposed implementation names must stand alone to a future repository reader who cannot see the plan.
 
 **FR Coverage Validation (mandatory for `scope=plan`):**
-When evaluating at `scope=plan` (the `refined_idea_to_planning` and `planning_to_plan_drafted` transitions), you MUST verify FR-to-task coverage as part of the PM Perspective:
+When evaluating at `scope=plan` (the pinned Shepherd plan-production and final review edges), you MUST verify FR-to-task coverage as part of the PM Perspective:
 
 1. Extract all FR-N identifiers from the spec body (the `## Requirements` / `### Functional Requirements` section).
 2. Check for a `### FR Traceability` section in the `## Technical Plan`.
@@ -432,7 +432,7 @@ When evaluating plans that target a specific project (not `yoke` itself), check:
 3. If a relevant Pack exists but the plan does not publish a new version for a general improvement → CAVEATS noting "Existing Pack may need a new version for this reusable capability."
 4. Reject plans that require project customizations to flow back into the Pack or introduce drift policing, automatic pruning, or whole-project synchronization.
 
-**Lifecycle note:** Shepherd `scope=plan` reviews are epic-only (`refined_idea_to_planning`, `planning_to_plan_drafted`). Do NOT apply epic plan-artifact requirements to issue or bug work handled outside shepherd.
+**Lifecycle note:** Shepherd `scope=plan` reviews require the generated-task planning policy and use binding-derived edges. Do NOT apply epic plan-artifact requirements to issue or bug work handled outside shepherd.
 
 ## Verdict
 

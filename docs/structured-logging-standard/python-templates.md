@@ -84,205 +84,38 @@ service_version="${SERVICE_VERSION:-}"
 project="${YOKE_PROJECT:-}"
 ```
 
-## Template 2: Python Emitter (events.py)
+## Template 2: standalone Python emitter
 
-Reference implementation for `backend` source type. Complete module with property group builders and emission.
+The executable [Structured Events Pack 2.0.1](../../packs/structured-events/versions/2.0.1/files/events/README.md)
+is the standalone Python template. Install events.py, events_props.py,
+events_attribution.py, events_cookie.py, events_delivery.py and their shared
+attribution_rules.json together. Use build_event/emit_event for backend envelopes;
+HTTP emission requires publishable_key, passed to the X-Events-Key header:
 
 ```python
-"""
-Structured event emitter -- Python reference implementation.
-
-Usage:
- from events import emit_event, build_event
-
- emit_event(
- name="OrderCreated",
- kind="audit",
- event_type="order",
- outcome="completed",
- duration_ms=89,
- actor_id=17,
- org_id="org_x1y2z3",
- context={"order_id": "ord_p6q7r8s9", "total_cents": 4999}
- )
-"""
-import os
-import uuid
-import time
-import json
-import traceback
-from datetime import datetime, timezone
-from typing import Optional, Any
-
-# --- Property Group Builders ---
-
-def get_system_props() -> dict:
- """Resolve system properties from environment."""
- return {
- "environment": os.environ.get("APP_ENV", "development"),
- "service": os.environ.get("SERVICE_NAME", "api"),
- "service_version": os.environ.get("SERVICE_VERSION"),
- "project": os.environ.get("PROJECT", "yoke"),
- }
-
-def get_request_props(
- request_id: Optional[str] = None,
- trace_id: Optional[str] = None,
- parent_id: Optional[str] = None,
-) -> dict:
- """Build request correlation properties."""
- return {
- "request_id": request_id or str(uuid.uuid4()),
- "trace_id": trace_id,
- "parent_id": parent_id,
- }
-
-def get_actor_props(
- actor_id: Optional[int] = None,
- is_anonymous: bool = False,
-) -> dict:
- """Build engine actor properties."""
- return {
- "actor_id": actor_id,
- "is_anonymous": is_anonymous,
- }
-
-def get_org_props(
- org_id: Optional[str] = None,
- org_name: Optional[str] = None,
- org_plan: Optional[str] = None,
-) -> dict:
- """Build organization properties."""
- return {
- "org_id": org_id,
- "org_name": org_name,
- "org_plan": org_plan,
- }
-
-def get_session_props(session_id: Optional[str] = None) -> dict:
- """Build session properties."""
- return {
- "session_id": session_id or str(uuid.uuid4()),
- "session_start_time": None, # Set by caller if known
- }
-
-def get_error_props(
- error: Optional[Exception] = None,
- error_code: Optional[str] = None,
- error_category: str = "unknown",
- is_retryable: bool = False,
-) -> dict:
- """Build error properties from an exception or explicit values."""
- if error is None:
- return {}
- return {
- "error_code": error_code,
- "error_category": error_category,
- "error_message": str(error)[:2048], # 2KB limit
- "is_retryable": is_retryable,
- "exception_type": type(error).__name__,
- "stacktrace": traceback.format_exc()[-4096:], # 4KB, truncated from tail
- }
-
-# --- Event Builder ---
-
-def build_event(
- name: str,
- kind: str,
- event_type: str,
- source_type: str = "backend",
- outcome: Optional[str] = None,
- severity: str = "INFO",
- duration_ms: Optional[int] = None,
- event_id: Optional[str] = None,
- event_time: Optional[str] = None,
- context: Optional[dict] = None,
- **extra_props,
-) -> dict:
- """
- Build a complete event envelope.
-
- Extra keyword arguments are merged into the root envelope,
- allowing any property group fields to be passed directly.
- """
- # Enforce context field size limits
- if context:
- for key, value in context.items():
- if isinstance(value, str) and len(value) > 2048:
- context[key] = value[:2048]
-
- envelope = {
- # event_props
- "event_id": event_id or str(uuid.uuid4()),
- "event_name": name,
- "event_kind": kind,
- "event_type": event_type,
- "event_time": event_time or datetime.now(timezone.utc).isoformat(
- timespec="milliseconds"
- ).replace("+00:00", "Z"),
- "event_outcome": outcome,
- "severity": severity,
- "source_type": source_type,
- "duration_ms": duration_ms,
- # system_props (auto-resolved)
- **get_system_props(),
- # context
- "context": context or {},
- }
-
- # Merge extra property group fields
- envelope.update(extra_props)
-
- # Enforce total envelope size
- encoded = json.dumps(envelope)
- if len(encoded) > 65536:
- # Truncate context to fit
- envelope["context"] = {"_truncated": True}
-
- return envelope
-
-# --- Emitter ---
-
-def emit_event(
- name: str,
- kind: str,
- event_type: str,
- destination: str = "stdout",
- **kwargs,
-) -> dict:
- """
- Build and emit an event.
-
- Args:
- name: PascalCase event name (e.g., "OrderCreated")
- kind: Event kind enum (analytics, system, audit, security, metric)
- event_type: Project-specific type string
- destination: "stdout" (default), "file:/path", or "http://endpoint"
- **kwargs: Passed to build_event (includes all property group fields)
-
- Returns:
- The emitted event envelope.
- """
- event = build_event(name=name, kind=kind, event_type=event_type, **kwargs)
-
- if destination == "stdout":
- print(json.dumps(event))
- elif destination.startswith("file:"):
- path = destination[5:]
- with open(path, "a") as f:
- f.write(json.dumps(event) + "\n")
- elif destination.startswith("http"):
- import urllib.request
- req = urllib.request.Request(
- destination,
- data=json.dumps({"events": [event]}).encode(),
- headers={"Content-Type": "application/json"},
- method="POST",
- )
- try:
- urllib.request.urlopen(req, timeout=5)
- except Exception:
- pass # Graceful degradation -- never crash on emit failure
-
- return event
+emit_event("OrderCreated", "audit", "order", destination="https://example.com/api/events",
+           publishable_key="project-public-routing-key")
+# For explicit batching: EventBatch(endpoint, publishable_key, transport=transport).
+# The process schedules flush after retry_at.
 ```
+
+A missing key reports publishable_key_required. Failures never gate product work.
+
+## Consented attribution and delivery in the standalone Pack
+
+[Structured Events Pack 2.0.1](../../packs/structured-events/versions/2.0.1/files/events/README.md)
+provides events_attribution.py and AttributionCookie in events_cookie.py with
+shared rules and the same signed server-cookie shape as TypeScript. Routes check
+consent before capture and return Set-Cookie; DELETE uses AttributionCookie.clear.
+get_attribution_props(record, consent=True) attaches visitor_id and both touches;
+with consent=False it returns an empty group. Required signup facts belong to
+the account owner. sanitize_url and is_bot share the browser's privacy/bot rules.
+EventBatch retries only network failures, 429 and 5xx with batch_requeued;
+429 honors Retry-After. Other HTTP refusals discard the batch and report
+batch_refused with the collector's error and recovery. The queue holds at most
+500 pending events: append discards the oldest; requeue retains retry ids and
+discards the newest overflow. The process schedules flush after retry_at.
+Invalid or rotated cookie signatures report attribution_cookie_reminted and
+consented capture replaces the old identity using the current signing secret.
+The canonical engine emitter above is project-owned; Pack adoption is a separate
+integration. Disposable telemetry never gates product work.

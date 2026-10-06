@@ -29,7 +29,9 @@ def _step(item_id: int, project: str, *, assignable: bool = True):
         priority="medium",
         next_step=NextStep.DASH,
         project=project,
-        claim_state=ClaimState.UNCLAIMED if assignable else ClaimState.CLAIMED_BY_OTHER_LIVE,
+        claim_state=ClaimState.UNCLAIMED
+        if assignable
+        else ClaimState.CLAIMED_BY_OTHER_LIVE,
     )
 
 
@@ -117,7 +119,9 @@ def test_existing_path_without_mapping_is_unmapped(tmp_path, monkeypatch) -> Non
         "yoke_core.domain.machine_config.project_id",
         lambda *_a, **_k: None,
     )
-    assert resolve_offer_home_project(SimpleNamespace(), workspace=str(tmp_path)) is None
+    assert (
+        resolve_offer_home_project(SimpleNamespace(), workspace=str(tmp_path)) is None
+    )
 
 
 def test_missing_path_falls_back_to_session_project() -> None:
@@ -126,9 +130,14 @@ def test_missing_path_falls_back_to_session_project() -> None:
             fetchone=lambda: {"project_id": 7},
         )
     )
-    assert resolve_offer_home_project(
-        conn, workspace="/no/such/checkout/on/this/box", session_id="sess",
-    ) == 7
+    assert (
+        resolve_offer_home_project(
+            conn,
+            workspace="/no/such/checkout/on/this/box",
+            session_id="sess",
+        )
+        == 7
+    )
 
 
 def test_item_or_project_override_skips_home_filter() -> None:
@@ -155,7 +164,7 @@ def test_enrich_fills_blank_checkout_path(monkeypatch) -> None:
                     "checkout_path": "",
                 }
             ],
-            "runnable_elsewhere_note": "nothing runnable in platform; 1 runnable in yoke (YOK-20) — invoke /yoke do from the yoke checkout",
+            "runnable_elsewhere_note": "nothing runnable in platform; 1 runnable in yoke (YOK-20) — invoke /yoke charge from the yoke checkout",
         }
     }
     enrich_elsewhere_checkout_paths(payload)
@@ -178,4 +187,4 @@ def test_elsewhere_note_teaches_the_checkout_recipe() -> None:
         unmapped=False,
     )
     assert note.startswith("nothing runnable in platform")
-    assert "invoke /yoke do from /Users/bee/yoke" in note
+    assert "invoke /yoke charge from /Users/bee/yoke" in note

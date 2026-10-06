@@ -97,6 +97,9 @@
     margin-left: 40px;
   }
 
+  /* Full-width buttons need a full-width action row, so a wrapped group
+     cannot shrink to its intrinsic minimum and retain a right indent. */
+  .universe-app-root .item-new .item-form-actions { width: 100%; }
   .universe-app-root .item-form-actions .item-button {
     width: 100%;
   }

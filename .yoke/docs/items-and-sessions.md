@@ -52,6 +52,13 @@ pill. **Any state** includes ended sessions too, while **Ended** shows only
 ended sessions. **Reclaim stale** counts stale rows in the loaded scope and
 reloads the roster after cleanup, so reclaimed rows leave Active immediately.
 
+Every session card offers **Message**, including ended sessions. An idle or
+parked session whose wake belongs to the operator shows **Queued — delivered
+when you wake this session.** Its next hook delivers the message after you
+open the chat and start a turn. A missing relay leaves messaging available;
+the card explains that hook delivery can proceed and automatic wake waits
+for the relay to reconnect. Active sessions keep their normal hook delivery.
+
 Sessions own work claims. Implementation lanes require an active claim and a
 registered worktree. A persisted active work claim keeps its session live
 through stale, idle, parked, process-gone, and startup sweeps. This includes
