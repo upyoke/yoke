@@ -210,8 +210,6 @@ def test_each_widening_names_its_rule_and_the_paths_that_fired_it(
     index = build_import_index(_tiny_repo(tmp_path))
 
     cases = {
-        "runtime/api/conftest.py": "shared_test_fixture",
-        "runtime/api/fixtures/pg_testdb.py": "shared_test_fixture",
         "packages/yoke-core/src/yoke_core/tools/gate_admission.py": (
             "test_tooling_module"
         ),
@@ -242,8 +240,8 @@ def test_telemetry_line_is_greppable_and_field_shaped() -> None:
         full_sweep=True,
         reason="x",
         total_files=10,
-        fallback_rule="shared_test_fixture",
-        trigger_paths=("runtime/api/conftest.py",),
+        fallback_rule="test_tooling_module",
+        trigger_paths=("tools/run_tests.py",),
     )
     bounded = Selection(
         full_sweep=False,
@@ -259,8 +257,8 @@ def test_telemetry_line_is_greppable_and_field_shaped() -> None:
     )
 
     assert widened.telemetry() == (
-        "impacted-selection scope=full_sweep rule=shared_test_fixture "
-        "triggers=runtime/api/conftest.py files=10 of 10 "
+        "impacted-selection scope=full_sweep rule=test_tooling_module "
+        "triggers=tools/run_tests.py files=10 of 10 "
         "items=unknown of unknown"
     )
     assert bounded.telemetry() == (
@@ -312,9 +310,9 @@ def test_wrapper_prints_prose_reason_and_telemetry(capsys, monkeypatch) -> None:
     monkeypatch.setattr(project_python, "resolve_test_roots", lambda _: ("tests/",))
     selection = Selection(
         full_sweep=True,
-        reason="runtime/api/conftest.py is shared pytest infrastructure",
-        fallback_rule="shared_test_fixture",
-        trigger_paths=("runtime/api/conftest.py",),
+        reason="tools/run_tests.py selects or runs the suite itself",
+        fallback_rule="test_tooling_module",
+        trigger_paths=("tools/run_tests.py",),
     )
     monkeypatch.setattr(impacted_tests, "selection_for", lambda *a, **k: selection)
 
@@ -324,7 +322,7 @@ def test_wrapper_prints_prose_reason_and_telemetry(capsys, monkeypatch) -> None:
     assert selected is selection
     assert "watch_pytest full sweep: " in out
     assert "watch_pytest impacted-selection scope=full_sweep" in out
-    assert "rule=shared_test_fixture" in out
+    assert "rule=test_tooling_module" in out
 
 
 def test_wrapper_passes_bounded_through_to_selection(monkeypatch) -> None:

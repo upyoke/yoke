@@ -66,12 +66,12 @@ Local verification stays change-scoped:
   take their xdist workers from one machine-wide budget rather than each
   claiming the machine (see below).
 
-  Selection is reverse-import reachability, hardened four ways: dotted module
+  Selection is reverse-import reachability, hardened several ways: dotted module
   paths in string literals (subprocess `-m` targets, patch targets, registry
   keys, digit-prefixed migration modules) are edges; so is a `.py` path named
   (`ROOT / "pkg" / "thing.py"`) when it names one file; an imported
   NAME resolves through re-export chains to its defining module (aliases and
-  star re-exports too); implicit conftest consumers retain a descendant collection probe even in bounded runs;
+  star re-exports too); a conftest or `pytest_plugins` module selects the tests requesting its affected fixtures (every test in its scope for an affected autouse fixture or hook) and keeps a collection probe; a function-registry handler reached by the change selects the tests naming its function id; bounded runs follow those two edges from modules within three import hops of the change;
   and an always-run floor of contract tests runs on
   every selection (CLI registry, operation inventory, adapter parity, Atlas
   integrity, generated-artifact parity/drift, plus a fresh-universe birth from
@@ -81,8 +81,8 @@ Local verification stays change-scoped:
   own tests cannot be dropped for the floor alone. Every floor member but the last is fast; that one builds an
   artifact and boots a database, and is on the floor because a deferred test
   is how the engine last shipped unable to make one. Pack payloads also select catalog/prerequisite contracts and structured-events its installed Python/Node contract, even under bounded deferral. The conservative
-  full-sweep fallback (non-Python changes, conftest or shared-fixture edits,
-  test tooling) still catches what reachability cannot bound.
+  full-sweep fallback (non-Python changes, test tooling, an unloadable
+  function registry) still catches what reachability cannot bound.
 - **At the review gate** — the project-default plan case blocks the
   transition when verification fails. Because this project declares a
   `ci_workflow_file` capability, that case registers on the `command-ci`
@@ -271,13 +271,13 @@ Every `--impacted` run writes one structured line into its captures
 alongside the prose reason:
 
 ```text
-watch_pytest impacted-selection scope=full_sweep rule=shared_test_fixture triggers=runtime/api/conftest.py files=2300 of 2300 items=unknown of unknown
+watch_pytest impacted-selection scope=full_sweep rule=test_tooling_module triggers=packages/yoke-core/src/yoke_core/tools/run_tests.py files=2300 of 2300 items=unknown of unknown
 ```
 
 `scope` is `impacted`, `full_sweep`, or `bounded_deferral`. `rule` is one
-of `FALLBACK_RULES` — `shared_test_fixture`, `test_tooling_module`,
-`unmapped_file_kind`, `no_importable_module`,
-`effectively_full_selection` — and `triggers` names the
+of `FALLBACK_RULES` — `test_tooling_module`, `unmapped_file_kind`,
+`no_importable_module`, `effectively_full_selection`,
+`dispatch_registry_unloadable` — and `triggers` names the
 exact changed files that fired it. The identifiers are stable because
 they are the grouping key: sweeping a period of run captures for
 `impacted-selection ` answers whether widening is legitimate core churn
@@ -315,11 +315,11 @@ anything else:
   truncates correct edges and drops tests above a broadly imported module.
   Otherwise it is a selector defect, never noise: root-cause the coupling
   the import graph could not see (non-import coupling — subprocess module
-  invocations, string-target patching, runtime string dispatch), then
-  extend the index modeling or the trigger set composing
-  `FULL_SWEEP_TRIGGERS` — `SHARED_TEST_FIXTURE_PATHS` for pytest
-  infrastructure, `TEST_TOOLING_PATHS` for the selection and run machinery —
-  **and add a regression test to the selector's own tests in the same fix**.
+  invocations, string-target patching, an unmodelled dispatch or fixture
+  shape), then extend the index modeling — conftest fixture use and
+  function-id dispatch are modelled edges — or `TEST_TOOLING_PATHS`, the
+  unbounded selection and run machinery, **and add a regression test to the
+  selector's own tests in the same fix**.
   The selector only stays trustworthy if every counterexample tightens it.
 - **The failing test was selected and passed locally** — an environment
   difference, not a selection miss: CI runs Python 3.11 and 3.14 shards

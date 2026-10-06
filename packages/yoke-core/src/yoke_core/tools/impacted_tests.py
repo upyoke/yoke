@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Sequence
 
 from yoke_core.tools._impacted_changed_paths import DEFAULT_BASE_REF, changed_paths
-from yoke_core.tools._impacted_conftest_dependencies import conftest_collection_probes
 from yoke_core.tools._impacted_contract_tests import (
     AGENT_SKILL_CONTRACT_TESTS,
     ALWAYS_RUN_TESTS,
@@ -21,6 +20,7 @@ from yoke_core.tools._impacted_contract_tests import (
 from yoke_core.tools._impacted_contract_tests_session_control import (
     session_control_contract_selection,
 )
+from yoke_core.tools._impacted_implicit_edges import implicit_dependents
 from yoke_core.tools._impacted_import_index import (
     ImportIndex,
     TEST_ANCHORS,
@@ -40,9 +40,7 @@ from yoke_core.tools._impacted_selection import (
 
 from yoke_core.tools._impacted_unbounded_paths import (
     FALLBACK_RULES,
-    FULL_SWEEP_TRIGGERS,
     NO_MODULE_REASON,
-    SHARED_TEST_FIXTURE_PATHS,
     TEST_TOOLING_PATHS,
     unbounded_trigger,
 )
@@ -52,6 +50,13 @@ def _widened(changed: Sequence[str], index: ImportIndex) -> Selection:
     """Tests reachable from *changed*, widening when nothing bounds it."""
     if not changed:
         return Selection(full_sweep=False, reason="no changes", files=())
+
+    if index.dispatch.error:
+        return Selection(
+            full_sweep=True,
+            reason=index.dispatch.error,
+            fallback_rule="dispatch_registry_unloadable",
+        )
 
     trigger = unbounded_trigger(changed)
     if trigger is not None:
@@ -119,14 +124,15 @@ def select(
         tests=frozenset(applicable_contracts),
         widening_triggers=(contracts.widening_triggers if applicable_contracts else ()),
     )
-    direct = direct_changed_tests(changed, index) | conftest_collection_probes(
-        changed, index
-    )
+    direct = direct_changed_tests(changed, index)
+    implicit = implicit_dependents(changed, index, total_files=total_files)
     selection = replace(_widened(changed, index), total_files=total_files)
     if not selection.full_sweep:
         selection = replace(
             selection,
-            files=tuple(sorted(set(selection.files) | contracts.tests | direct)),
+            files=tuple(
+                sorted(set(selection.files) | contracts.tests | direct | implicit.full)
+            ),
             widening_triggers=contracts.widening_triggers,
         )
     selected_files = sum(path in index.module_of for path in selection.files)
@@ -135,7 +141,11 @@ def select(
             path
             for path in changed
             if is_effectively_full(
-                len(reachable_tests((path,), index) or ()), total_files
+                len(
+                    (reachable_tests((path,), index) or set())
+                    | implicit_dependents((path,), index, total_files=total_files).full
+                ),
+                total_files,
             )
         )
         selection = Selection(
@@ -187,10 +197,18 @@ def select(
         full_sweep=False,
         reason=(
             f"selection unbounded ({selection.fallback_rule}: "
-            f"{', '.join(selection.trigger_paths)}) — deferring full "
+            f"{', '.join(selection.trigger_paths) or selection.reason}) — deferring full "
             f"coverage to the final QA gate{subset_note}"
         ),
-        files=tuple(sorted(reached | contracts.tests | direct | bounded_importers)),
+        files=tuple(
+            sorted(
+                reached
+                | contracts.tests
+                | direct
+                | implicit.bounded
+                | bounded_importers
+            )
+        ),
         total_files=total_files,
         fallback_rule=selection.fallback_rule,
         trigger_paths=selection.trigger_paths,
@@ -253,7 +271,6 @@ __all__ = [
     "AGENT_SKILL_CONTRACT_TESTS",
     "ALWAYS_RUN_TESTS",
     "FALLBACK_RULES",
-    "FULL_SWEEP_TRIGGERS",
     "ImportIndex",
     "ITEM_WORKTREE_SCHEMA_TESTS",
     "MIN_EFFECTIVELY_FULL_FILE_UNIVERSE",
@@ -262,7 +279,6 @@ __all__ = [
     "SCHEMA_CONVERGE_CONTRACT_TESTS",
     "STANDALONE_MERGE_CLOSE_OUT_TESTS",
     "Selection",
-    "SHARED_TEST_FIXTURE_PATHS",
     "TEST_ANCHORS",
     "TEST_TOOLING_PATHS",
     "build_import_index",

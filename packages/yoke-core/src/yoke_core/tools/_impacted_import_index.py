@@ -10,14 +10,16 @@ test that spawns ``python3 -m pkg.tool``, patches ``"pkg.helper"`` by
 string target, or dispatches through a string-keyed registry names its
 dependency in a string, and only a string — plus the file paths a source
 names, whole or composed, read by
-:mod:`yoke_core.tools._impacted_path_references`.
+:mod:`yoke_core.tools._impacted_path_references`. The scan also records
+the fixture facts and the function-registry map that the implicit edges in
+:mod:`yoke_core.tools._impacted_implicit_edges` read.
 """
 
 from __future__ import annotations
 
 import ast
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Sequence
 
@@ -29,6 +31,8 @@ from yoke_core.tools.impacted_project_test_roots import (
     YOKE_SEEDED_TEST_ROOTS,
     current_test_roots,
 )
+from yoke_core.tools._impacted_dispatch_edges import DispatchMap, load_dispatch_map
+from yoke_core.tools._impacted_fixture_graph import FixtureGraph, FixtureGraphBuilder
 from yoke_core.tools._impacted_path_references import (
     named_path_references,
     resolve_named_path,
@@ -159,10 +163,12 @@ def _string_module_references(tree: ast.AST) -> set[str]:
 
 @dataclass(frozen=True)
 class ImportIndex:
-    """Reverse import edges plus the module name of every source file."""
+    """Reverse import edges, module names, and the implicit edges beside them."""
 
     importers: dict[str, set[str]]
     module_of: dict[str, str]
+    fixtures: FixtureGraph = field(default_factory=FixtureGraph)
+    dispatch: DispatchMap = field(default_factory=DispatchMap)
 
 
 def direct_changed_tests(changed: Iterable[str], index: ImportIndex) -> frozenset[str]:
@@ -284,6 +290,7 @@ def build_import_index(repo_root: Path) -> ImportIndex:
     # edges folded in after the scan.
     symbols: dict[str, ModuleSymbols] = {}
     symbol_references: dict[str, set[tuple[str, str]]] = {}
+    fixtures = FixtureGraphBuilder()
     for path in _iter_source_files(repo_root):
         rel = path.relative_to(repo_root).as_posix()
         module = module_name_for(rel)
@@ -296,6 +303,7 @@ def build_import_index(repo_root: Path) -> ImportIndex:
         references = _imported_modules(tree, module) | _string_module_references(tree)
         for referenced in references:
             importers.setdefault(referenced, set()).add(rel)
+        fixtures.observe(rel, module, tree, is_test=is_test_file(rel))
         named_paths = named_path_references(tree)
         if named_paths:
             path_references.append((rel, named_paths))
@@ -315,7 +323,12 @@ def build_import_index(repo_root: Path) -> ImportIndex:
                 importers.setdefault(referenced_module, set()).add(rel)
     for defining, referring in reexport_edges(symbol_references, symbols).items():
         importers.setdefault(defining, set()).update(referring)
-    return ImportIndex(importers=importers, module_of=module_of)
+    return ImportIndex(
+        importers=importers,
+        module_of=module_of,
+        fixtures=fixtures.build(module_of),
+        dispatch=load_dispatch_map(module_of.values()),
+    )
 
 
 __all__ = [

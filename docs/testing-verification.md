@@ -259,7 +259,8 @@ flight — that is a terminal required-check failure, not a record-wait timeout.
 Selection output distinguishes pytest files from collected items as
 `files=N of M items=X of Y`; unavailable values are explicit as `unknown`.
 A bounded unbounded-verdict names the rule, runnable subset, and coverage
-deferred to the final QA gate. Trigger paths are excluded from reachability;
+deferred to the final QA gate. Conftest fixture use and function-id
+dispatch are selection edges, not triggers. Trigger paths are excluded from reachability;
 selecting 80% of a universe of at least 100 files gets the same deferral,
 and the watcher repeats the file/item summary after collection.
 

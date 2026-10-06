@@ -119,21 +119,15 @@ def test_non_python_change_forces_full_sweep(tmp_path):
     assert selection.pytest_paths() == impacted_tests.TEST_ANCHORS
 
 
-def test_shared_fixture_change_forces_full_sweep(tmp_path):
-    index = build_import_index(_tiny_repo(tmp_path))
-
-    selection = select(["runtime/api/fixtures/pg_testdb.py"], index)
-
-    assert selection.full_sweep is True
-    assert "any test" in selection.reason
-
-
-def test_conftest_change_forces_full_sweep(tmp_path):
+def test_deleted_conftest_forces_full_sweep(tmp_path):
+    # A conftest no longer in the tree has no fixtures left to read its
+    # former dependents from.
     index = build_import_index(_tiny_repo(tmp_path))
 
     selection = select(["runtime/api/conftest.py"], index)
 
     assert selection.full_sweep is True
+    assert selection.fallback_rule == "no_importable_module"
 
 
 def test_test_tooling_change_forces_full_sweep(tmp_path):
@@ -245,7 +239,9 @@ def test_unreached_change_still_runs_the_contract_floor(tmp_path):
 
 
 def test_repo_cleanliness_contract_is_always_selected(tmp_path):
-    selection = select(["runtime/api/leaf.py"], build_import_index(_tiny_repo(tmp_path)))
+    selection = select(
+        ["runtime/api/leaf.py"], build_import_index(_tiny_repo(tmp_path))
+    )
 
     assert set(impacted_tests.REPO_CLEANLINESS_TESTS) <= set(selection.files)
 
@@ -268,13 +264,9 @@ def test_item_worktree_schema_change_runs_fixture_consumers(tmp_path):
 def test_workflow_validation_change_keeps_bounded_contracts(tmp_path):
     root = _tiny_repo(tmp_path)
     changed = (
-        "packages/yoke-core/src/yoke_core/domain/"
-        "workflow_definition_validation.py"
+        "packages/yoke-core/src/yoke_core/domain/workflow_definition_validation.py"
     )
-    tooling = (
-        "packages/yoke-core/src/yoke_core/tools/"
-        "_impacted_contract_tests.py"
-    )
+    tooling = "packages/yoke-core/src/yoke_core/tools/_impacted_contract_tests.py"
     _write(root, changed, "VALUE = 1\n")
     _write(root, tooling, "VALUE = 1\n")
     for test_path in WORKFLOW_DEFINITION_VALIDATION_TESTS:
