@@ -27,7 +27,7 @@ SCAN_SURFACES: tuple[str, ...] = (
     "runtime/harness/claude/rules/session.md",
     ".claude/rules/session.md",
     "docs/hook-parity-map.md",
-    ".agents/skills/yoke/advance/worktree.md",
+    ".agents/skills/yoke/implement/worktree.md",
 )
 
 

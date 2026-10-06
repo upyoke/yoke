@@ -59,7 +59,7 @@ Items with unsatisfied activation-gate hard-block dependencies are reclassified 
 
 ### Step 7: Enforce WIP cap
 
-The WIP cap limits remaining implementation capacity. In practice, scheduler suppression applies to epic `conduct` work; issue `advance` re-entry remains schedulable, but items already in `implementing` or `reviewing-implementation` still contribute to `wip_active`.
+The WIP cap limits remaining implementation capacity. In practice, scheduler suppression applies to epic `conduct` work; issue `implement` re-entry remains schedulable, but items already in `implementing` or `reviewing-implementation` still contribute to `wip_active`.
 
 At offer time, the scheduler's lane/path filter uses the session's resolved
 executor identity rather than a hand-passed free-form lane guess. The lane
@@ -100,7 +100,7 @@ class FrontierItem:
  project: str
  workflow_id: str
  workflow_version_id: int
- adapter: AdapterCategory # refine, shepherd, conduct, advance, dash, blitz, polish, usher, wait, skip
+ adapter: AdapterCategory # refine, shepherd, conduct, implement, dash, blitz, polish, usher, wait, skip
  blocked_by: List[str] # public text refs stored on item_dependencies rows
  blocked_reasons: List[str] # human-readable reasons
  unblocks_count: int # direct activation-gate dependents

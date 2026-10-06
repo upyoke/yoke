@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Mapping, Optional
+from unittest import mock
 
+from yoke_core.domain import workflow_registry
 from yoke_core.domain.builtin_workflow_canon import canon_generations
 from yoke_core.domain.workflow_definition_builders import (
     with_generated_epic_tasks,
@@ -108,8 +110,26 @@ def seed_generation_lacking_file_budget(conn) -> tuple[int, int]:
     return int(version_id), version
 
 
+def publish_as_history(
+    conn: Any, workflow_id: str, definition: Mapping[str, Any],
+) -> dict:
+    """Publish *definition* the way a universe did when it was current.
+
+    Older generations are real history, and history is older than the skill
+    registry the current validator describes: an earlier issue generation
+    binds a skill since retired. A universe holding such a row published it
+    while it was valid, so this reproduces that publication rather than
+    asking today's validator to accept it.
+    """
+    with mock.patch.object(workflow_registry, "validate_workflow_definition"):
+        return publish_workflow_version(
+            conn, workflow_id=workflow_id, definition=dict(definition),
+        )
+
+
 __all__ = [
     "current_workflow_version",
+    "publish_as_history",
     "publish_issue_completion_stage",
     "seed_generation_lacking_file_budget",
 ]

@@ -9,11 +9,10 @@ explicit substrate limitations. This module locks the agreement so that:
 2. ``CODEX.md`` lists the same entrypoints and downstream paths in its
    operator-facing tables.
 3. ``CODEX.md``, ``docs/OVERVIEW.md``, and ``docs/harness-bootstrap.md``
-   never claim that the registered ``/yoke advance`` entrypoint is unsupported
-   by the harness.
-4. Harness-shared bootstrap doctrine treats ``/yoke advance YOK-N
-   implementation`` as an operator-facing entrypoint, not as an internal-only
-   sub-skill.
+   never claim that the registered ``/yoke implement`` entrypoint is
+   unsupported by the harness.
+4. Harness-shared bootstrap doctrine treats ``/yoke implement YOK-N`` as an
+   operator-facing entrypoint and ``/yoke advance`` as an internal sub-skill.
 
 These checks operate on the tracked filesystem (manifest JSON + markdown
 files) without touching the database, git, or any network.
@@ -58,7 +57,7 @@ def _read(path: Path) -> str:
 SHARED_WORKFLOW_ENTRYPOINTS = {
     "/yoke idea",
     "/yoke refine",
-    "/yoke advance",
+    "/yoke implement",
     "/yoke polish",
     "/yoke usher",
 }
@@ -66,7 +65,7 @@ SHARED_WORKFLOW_ENTRYPOINTS = {
 SHARED_WORKFLOW_DOWNSTREAM_PATHS = {
     "shepherd",
     "refine",
-    "advance",
+    "implement",
     "polish",
     "usher",
 }
@@ -102,20 +101,20 @@ def advance_skill_md() -> str:
     return _read(REPO / ".agents" / "skills" / "yoke" / "advance" / "SKILL.md")
 
 
-class TestSharedRegistryAdvertisesAdvance:
-    """The shared registry must list ``/yoke advance`` so capability truth
+class TestSharedRegistryAdvertisesImplement:
+    """The shared registry must list ``/yoke implement`` so capability truth
     aligns with registered workflow skill bindings."""
 
-    def test_advance_in_entrypoints(self):
+    def test_implement_in_entrypoints(self):
         entrypoints = shared_entrypoints()
-        assert "/yoke advance" in entrypoints, (
-            "shared registry must advertise /yoke advance as an entrypoint"
+        assert "/yoke implement" in entrypoints, (
+            "shared registry must advertise /yoke implement as an entrypoint"
         )
 
-    def test_advance_in_downstream_paths(self):
+    def test_implement_in_downstream_paths(self):
         paths = shared_downstream_paths()
-        assert "advance" in paths, (
-            "shared registry must advertise 'advance' as a downstream path"
+        assert "implement" in paths, (
+            "shared registry must advertise 'implement' as a downstream path"
         )
 
     def test_registered_workflow_commands_in_entrypoints(self):
@@ -145,7 +144,7 @@ class TestCodexMdMatchesRegistry:
     shared entrypoint, and the supported-downstream-paths table must
     list every shared path."""
 
-    def test_supported_entrypoints_table_lists_advance(self, codex_md):
+    def test_supported_entrypoints_table_lists_implement(self, codex_md):
         # The supported entrypoints section is the table immediately after
         # ``### Supported entrypoints``. We grab it up to the next ``###``.
         match = re.search(
@@ -155,11 +154,11 @@ class TestCodexMdMatchesRegistry:
         )
         assert match, "CODEX.md missing '### Supported entrypoints' section"
         section = match.group(1)
-        assert "/yoke advance" in section, (
-            "CODEX.md supported entrypoints table must list /yoke advance"
+        assert "/yoke implement" in section, (
+            "CODEX.md supported entrypoints table must list /yoke implement"
         )
 
-    def test_supported_downstream_paths_table_lists_advance(self, codex_md):
+    def test_supported_downstream_paths_table_lists_implement(self, codex_md):
         match = re.search(
             r"### Supported downstream paths\b(.*?)(?=\n### |\Z)",
             codex_md,
@@ -169,14 +168,14 @@ class TestCodexMdMatchesRegistry:
         section = match.group(1)
         # Pull the table lines that look like ``| `name` | … |``.
         rows = re.findall(r"^\|\s*`([^`]+)`\s*\|", section, re.MULTILINE)
-        assert "advance" in rows, (
-            "CODEX.md supported downstream paths table must list 'advance' "
+        assert "implement" in rows, (
+            "CODEX.md supported downstream paths table must list 'implement' "
             f"(got rows: {rows})"
         )
 
-    def test_no_advance_in_unsupported_list(self, codex_md):
+    def test_no_implement_in_unsupported_list(self, codex_md):
         # The Limitations section names structural compat gaps as bullet
-        # lines. /yoke advance must never be named as a structural
+        # lines. /yoke implement must never be named as a structural
         # limitation; mentioning it elsewhere in prose is fine.
         match = re.search(
             r"### Limitations\b(.*?)(?=\n## |\Z)",
@@ -186,48 +185,48 @@ class TestCodexMdMatchesRegistry:
         assert match, "CODEX.md missing '### Limitations' section"
         section = match.group(1)
         limitation_bullets = re.findall(r"^- `(/yoke \S+)`", section, re.MULTILINE)
-        assert "/yoke advance" not in limitation_bullets, (
-            f"CODEX.md still lists /yoke advance as a structural limitation "
+        assert "/yoke implement" not in limitation_bullets, (
+            f"CODEX.md still lists /yoke implement as a structural limitation "
             f"(bullets found: {limitation_bullets})"
         )
 
-    def test_no_stale_advance_unsupported_phrasing(self, codex_md):
-        # The previous fallthrough sentence implied advance was unsupported.
-        # Gate against any future drift by ensuring 'advance' is never named
+    def test_no_stale_implement_unsupported_phrasing(self, codex_md):
+        # The previous fallthrough sentence implied implement was unsupported.
+        # Gate against any future drift by ensuring 'implement' is never named
         # as part of the not-yet-supported set.
         assert not re.search(
-            r"not yet supported in Codex[^\n]*advance",
+            r"not yet supported in Codex[^\n]*implement",
             codex_md,
-        ), "CODEX.md still claims /yoke advance is not yet supported"
+        ), "CODEX.md still claims /yoke implement is not yet supported"
         assert not re.search(
-            r"advance[^\n]*not yet supported in Codex",
+            r"implement[^\n]*not yet supported in Codex",
             codex_md,
-        ), "CODEX.md still claims /yoke advance is not yet supported"
+        ), "CODEX.md still claims /yoke implement is not yet supported"
 
 
 class TestOverviewMatchesRegistry:
     """``docs/OVERVIEW.md`` must render the same registry truth in its
     Codex-adapter description."""
 
-    def test_overview_does_not_call_advance_out_of_scope(self, overview_md):
-        # Match the exact stale phrasing rather than any mention of 'advance' —
-        # OVERVIEW.md legitimately mentions advance in lifecycle context.
+    def test_overview_does_not_call_implement_out_of_scope(self, overview_md):
+        # Match the exact stale phrasing rather than any mention of 'implement' —
+        # OVERVIEW.md legitimately mentions implement in lifecycle context.
         # Match comma- or list-formatted "out of scope" assertions that include
-        # `advance`.
+        # `implement`.
         match = re.search(
             r"\(([^)]*?)\s+are\s+deliberately\s+out\s+of\s+scope",
             overview_md,
         )
         if match:
             out_of_scope = match.group(1).lower()
-            assert "advance" not in out_of_scope, (
-                "OVERVIEW.md still lists `advance` as deliberately out of scope; "
-                "the shared registry now advertises advance as an entrypoint."
+            assert "implement" not in out_of_scope, (
+                "OVERVIEW.md still lists `implement` as deliberately out of scope; "
+                "the shared registry now advertises implement as an entrypoint."
             )
 
-    def test_overview_lists_advance_in_codex_capability(self, overview_md):
+    def test_overview_lists_implement_in_codex_capability(self, overview_md):
         # The OVERVIEW.md paragraph describing the shared Codex command surface
-        # must include /yoke advance.
+        # must include /yoke implement.
         capability_phrase_match = re.search(
             r"shared Yoke registry[^.]*entrypoints[^.]*\.",
             overview_md,
@@ -237,17 +236,16 @@ class TestOverviewMatchesRegistry:
             "OVERVIEW.md missing the Codex capability description sentence"
         )
         section = capability_phrase_match.group(0)
-        assert "/yoke advance" in section, (
-            "OVERVIEW.md Codex registry description must include /yoke advance"
+        assert "/yoke implement" in section, (
+            "OVERVIEW.md Codex registry description must include /yoke implement"
         )
 
 
-class TestHarnessBootstrapClassifiesAdvance:
-    """``docs/harness-bootstrap.md`` must classify the operator-facing
-    ``/yoke advance YOK-N implementation`` as a Tier 1 command (or a
-    dual-tier surface explicitly), not as Tier 2 internal-only."""
+class TestHarnessBootstrapClassifiesImplement:
+    """``docs/harness-bootstrap.md`` must classify ``/yoke implement YOK-N``
+    as a Tier 1 operator command and ``/yoke advance`` as internal only."""
 
-    def test_safe_operator_commands_table_lists_advance(self, harness_bootstrap_md):
+    def test_safe_operator_commands_table_lists_implement(self, harness_bootstrap_md):
         # The table sits between ``## 2. Safe Operator Commands`` and the
         # next top-level heading.
         match = re.search(
@@ -257,12 +255,13 @@ class TestHarnessBootstrapClassifiesAdvance:
         )
         assert match, "harness-bootstrap.md missing '## 2. Safe Operator Commands'"
         section = match.group(1)
-        assert "/yoke advance YOK-N implementation" in section, (
+        assert "/yoke implement YOK-N" in section, (
             "harness-bootstrap.md Safe Operator Commands table must list "
-            "/yoke advance YOK-N implementation as an operator-facing entry"
+            "/yoke implement YOK-N as an operator-facing entry"
         )
+        assert "/yoke advance" not in section
 
-    def test_tier_2_clarifies_advance_is_dual_classified(self, harness_bootstrap_md):
+    def test_tier_2_classifies_advance_as_internal_only(self, harness_bootstrap_md):
         # The Tier 2 section is between '### Tier 2: Internal sub-skills' and
         # the next '###' heading.
         match = re.search(
@@ -272,25 +271,18 @@ class TestHarnessBootstrapClassifiesAdvance:
         )
         assert match, "harness-bootstrap.md missing '### Tier 2: Internal sub-skills'"
         section = match.group(1)
-        # The section must call out that the `implementation` form is also
-        # operator-facing so Tier 1 vs Tier 2 stays honest.
-        assert "operator-facing" in section.lower(), (
-            "harness-bootstrap.md Tier 2 section must clarify that "
-            "/yoke advance implementation is also operator-facing"
-        )
+        assert "`/yoke advance YOK-N [status]` is internal only" in section
+        assert "/yoke implement YOK-N" in section
 
 
-class TestAdvanceSkillNotInternalOnly:
-    """The ``advance`` skill body must not claim it is purely internal —
-    that wording contradicts the workflow skill registry and harness
-    manifest."""
+class TestAdvanceSkillIsInternal:
+    """The ``advance`` skill body names itself an internal status writer and
+    points implementation entry at the ``implement`` stage skill."""
 
-    def test_skill_does_not_claim_not_operator_facing(self, advance_skill_md):
-        assert "Not operator-facing" not in advance_skill_md, (
-            ".agents/skills/yoke/advance/SKILL.md still claims the skill is "
-            "'Not operator-facing'; /yoke advance YOK-N implementation is "
-            "a registered operator entrypoint."
-        )
+    def test_skill_names_implement_as_implementation_entry(self, advance_skill_md):
+        assert "Internal sub-skill" in advance_skill_md
+        assert "implementation entry is the `implement` stage skill" in advance_skill_md
+        assert "/yoke advance PREFIX-N implementation" not in advance_skill_md
 
 
 class TestLifecycleDocsAlignWithManifest:
@@ -301,7 +293,7 @@ class TestLifecycleDocsAlignWithManifest:
         assert "skill_bindings" in lifecycle_md
         assert "/yoke <skill_id>" in lifecycle_md
 
-    def test_lifecycle_registered_skill_table_includes_advance(self, lifecycle_md):
+    def test_lifecycle_registered_skill_table_includes_implement(self, lifecycle_md):
         match = re.search(
             r"## Registered Skill Boundaries\b(.*?)(?=\n## )",
             lifecycle_md,
@@ -311,8 +303,8 @@ class TestLifecycleDocsAlignWithManifest:
             ".yoke/docs/reference/lifecycle.md missing '## Registered Skill Boundaries'"
         )
         section = match.group(1)
-        assert "`advance`" in section, (
-            "lifecycle.md registered skill table must list advance"
+        assert "`implement`" in section, (
+            "lifecycle.md registered skill table must list implement"
         )
         assert "from_stage_id <= current_stage < through_stage_id" in section
 

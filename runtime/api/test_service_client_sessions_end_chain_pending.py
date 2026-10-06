@@ -58,7 +58,7 @@ class TestSessionEndIfEmptyChainPending:
             "handler_outcome": "completed",
             "item_id": ITEM_ID,
             "status": "reviewed-implementation",
-            "required_path": "advance",
+            "required_path": "implement",
         }
         conn = connect_test_db(session_offer_db["db_path"])
         conn.execute(

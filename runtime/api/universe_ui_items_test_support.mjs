@@ -75,7 +75,7 @@ export function detailItem(workflowId) {
       stage_label: "Reviewing implementation",
       skill_id: workflowId,
       next_skill_id: workflowId === "task"
-        ? "advance"
+        ? "dash"
         : workflowId === "issue"
           ? "polish" : workflowId === "epic" ? "conduct" : workflowId,
       item_posture: workflowId === "task" ? {} : {

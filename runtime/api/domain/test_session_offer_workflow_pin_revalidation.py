@@ -32,7 +32,7 @@ def test_migration_first_offer_releases_claim_instead_of_stale_routing(
     advance_binding = next(
         binding
         for binding in target_definition["skill_bindings"]
-        if binding["skill_id"] == "advance"
+        if binding["skill_id"] == "implement"
     )
     advance_binding["skill_id"] = "dash"
     target = publish_workflow_version(
@@ -70,7 +70,7 @@ def test_migration_first_offer_releases_claim_instead_of_stale_routing(
                 provider="anthropic",
                 model=TEST_MODEL_ID,
                 workspace="/tmp/work",
-                supported_paths=["advance", "dash"],
+                supported_paths=["implement", "dash"],
                 project_scope=["yoke"],
             )
     finally:
@@ -86,7 +86,7 @@ def test_migration_first_offer_releases_claim_instead_of_stale_routing(
     assert offer["action_hint"] == "no_work"
     assert offer["new_claim"] is None
     assert offer["claims"] == []
-    assert offer["schedule_result"].selected_step.next_step.value == "advance"
+    assert offer["schedule_result"].selected_step.next_step.value == "implement"
     assert int(offer["schedule_result"].selected_step.workflow_version_id) == int(
         source["version_id"]
     )
@@ -100,7 +100,7 @@ def test_migration_first_offer_releases_claim_instead_of_stale_routing(
     skip = offer["chain_skip_memory"][-1]
     assert skip["skip_reason"] == "stale_lifecycle_post_claim"
     assert skip["expected_status"] == skip["current_status"] == "implementing"
-    assert skip["expected_next_step"] == "advance"
+    assert skip["expected_next_step"] == "implement"
 
     fresh_schedule = compute_schedule(
         test_db,

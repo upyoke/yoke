@@ -153,7 +153,7 @@ def test_passes_on_missing_or_minimal_schema(ddl):
         {"session_id": "s-usher", "mode": "usher", "status": "release"},
         {"session_id": "s-idea", "mode": "idea", "status": "idea"},
         {"session_id": "s-refine", "mode": "refine", "status": "idea"},
-        {"session_id": "s-eng", "mode": "advance", "status": "implementing"},
+        {"session_id": "s-eng", "mode": "implement", "status": "implementing"},
         {
             "session_id": "s-polish",
             "mode": "polish",
@@ -167,7 +167,7 @@ def test_passes_on_missing_or_minimal_schema(ddl):
         },
         {
             "session_id": "s-task",
-            "mode": "advance",
+            "mode": "implement",
             "status": "release",
             "target_kind": "epic_task",
             "epic_id": 700,
@@ -175,7 +175,7 @@ def test_passes_on_missing_or_minimal_schema(ddl):
         },
         {
             "session_id": "s-proc",
-            "mode": "advance",
+            "mode": "implement",
             "status": "release",
             "target_kind": "process",
             "process_key": "DOCTOR_PIPELINE",

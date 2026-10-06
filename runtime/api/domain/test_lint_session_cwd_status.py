@@ -118,8 +118,8 @@ class TestPreImplementingDenied:
         assert "BLOCKED" in verdict.reason
         assert "YOK-9001" in verdict.reason
         assert "refined-idea" in verdict.reason
-        assert "/yoke advance YOK-9001 implementation" in verdict.reason
-        assert "finalize.md step 6" in verdict.reason
+        assert "/yoke implement YOK-9001" in verdict.reason
+        assert "yoke lifecycle transition YOK-9001 --to implementing" in verdict.reason
         assert len(silenced_emit) == 1
         emitted = silenced_emit[0]
         assert emitted["outcome"] == "blocked"

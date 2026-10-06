@@ -99,7 +99,7 @@ def derive_required_path(
 
     Uses the scheduler's definition-selected routing truth.
 
-    Returns the canonical path name (e.g., ``advance``, ``polish``,
+    Returns the canonical path name (e.g., ``implement``, ``polish``,
     ``usher``) or ``None`` if the mapping cannot be resolved.
     """
     from .frontier_classify import classify_next_action

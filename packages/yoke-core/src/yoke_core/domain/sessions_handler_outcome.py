@@ -1,6 +1,6 @@
 """Handler-outcome classification for ``session-offer`` chain accounting.
 
-Routed handlers (``/yoke advance``,
+Routed handlers (``/yoke implement``,
 ``/yoke strategize``, future) report back to the chain via a discrete
 ``handler_outcome`` field on the chain checkpoint. ``session-offer``'s
 Step C reads the outcome and decides whether to bump the useful chain
@@ -16,7 +16,7 @@ Outcomes:
   still ``implementing``; the chain step does NOT bump and the
   loop continues with the same item via resume.
 - ``recoverable_substrate`` — the routed handler hit a recoverable
-  advance-entry substrate failure (worktree scope drift, cwd binding
+  implementation-entry substrate failure (worktree scope drift, cwd binding
   drift, guard-compatible re-entry failure) before useful work began
   ; the step does NOT bump and the same item is dedup'd
   by chain skip memory so it is not reselected.
@@ -136,15 +136,15 @@ def is_terminal_outcome(handler_outcome: Optional[str]) -> bool:
     return handler_outcome in TERMINAL_OUTCOMES
 
 
-def classify_advance_outcome(
+def classify_implement_outcome(
     *,
     pre_status: str,
     post_status: str,
-    action: str = "advance",
+    action: str = "implement",
 ) -> str:
-    """Classify a routed advance handler outcome from item statuses.
+    """Classify a routed implement handler outcome from item statuses.
 
-    When the advance handler returns and the item's
+    When the implement handler returns and the item's
     status remained ``implementing`` (or whichever status the action had
     targeted), the handler made a slice but did not reach a lifecycle
     boundary -> ``slice_committed`` (no step bump).
@@ -177,7 +177,7 @@ def record_recoverable_substrate_skip(
     current_status: Optional[str] = None,
     useful_work_began: bool = False,
 ) -> Dict[str, Any]:
-    """Record a recoverable advance-entry substrate failure.
+    """Record a recoverable implementation-entry substrate failure.
 
     The routed handler reports a recoverable substrate failure
     with structured context.
@@ -303,14 +303,14 @@ def resolve_checkpoint_outcome(
     ``yoke sessions checkpoint`` is the agent surface — callers pass
     pre/post status or ``failure_class`` and read ``handler_outcome``
     back. ``pre-dispatch`` stays literal so the loop frame write is not
-    reclassified as an advance slice.
+    reclassified as an implement slice.
     """
     if failure_class:
         return classify_substrate_failure(failure_class)
     if outcome == "pre-dispatch":
         return outcome
-    if required_path == "advance":
-        return classify_advance_outcome(
+    if required_path == "implement":
+        return classify_implement_outcome(
             pre_status=pre_status or "",
             post_status=post_status or "",
         )
@@ -338,7 +338,7 @@ __all__ = [
     "classify_substrate_failure",
     "is_non_useful_step",
     "is_terminal_outcome",
-    "classify_advance_outcome",
+    "classify_implement_outcome",
     "record_recoverable_substrate_skip",
     "record_interactive_checkpoint_handoff",
     "render_chain_summary_label",

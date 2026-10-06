@@ -92,7 +92,7 @@ def session_offer_with_ownership(
             overrides the session-row default.
         capabilities: Session capability tags.
         supported_paths: Canonical downstream path names the session can
-            execute (e.g., ``["advance", "shepherd"]``). When omitted,
+            execute (e.g., ``["implement", "shepherd"]``). When omitted,
             Yoke core may derive this from the shared registry plus manifest
             limitations.
         lane_allowed_paths: Optional config-backed allowlist of

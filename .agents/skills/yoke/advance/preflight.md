@@ -89,14 +89,4 @@ Refine segment.
   stance — `project-owned` or a reusable `pack-update` — before
   implementation.
 
-## Path Claim Activation Handoff
-
-When target is `implementing`, the pinned definition selects item-level
-implementation, and `_effective_path_claims_policy` is not `optional`, the next phase is the
-path-claim auto-activation step. The
-phase doc lives at `.agents/skills/yoke/advance/activation.md` and the
-enforcement owner is `yoke_core.domain.advance_path_claim_activation`.
-
-The phase runs **after** preflight and **before** the worktree phase (so the worktree door-lock check sees `state='active'` rather than `state='planned'`). It auto-flips planned claims to active, surfaces blocked-on-upstream errors, and refuses divergent origin/local refs. Skip when `--no-worktree` is passed — no worktree door-lock will fire and there is nothing to gate against.
-
 After reading this, return to the router to continue with the next phase.

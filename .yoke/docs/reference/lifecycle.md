@@ -123,7 +123,7 @@ unprotected unless both layers below hold:
 - `reviewed-implementation` means meaningful implementation review passed and the work is queued for finishing polish.
 
 When a definition declares this loop, its active skill binding drives it.
-For example, current definitions bind either `advance`, `conduct`, or a direct
+For example, current definitions bind either `implement`, `conduct`, or a direct
 skill across implementation work; the stage name alone does not choose one.
 
 **Claim continuity across transient SessionEnd.** A Claude Desktop SessionEnd
@@ -292,7 +292,7 @@ target stages always come from the binding:
 |---|---|
 | `refine` | Critique and improve the artifact selected by the pinned policies |
 | `shepherd` | Run quality-gated planning for a compatible generated-task policy |
-| `advance` | Drive a single implementation lane and its review loop |
+| `implement` | Drive a single implementation lane and its review loop |
 | `conduct` | Drive generated task lanes and their integration/review loop |
 | `polish` | Perform the definition-bound finishing pass |
 | `usher` | Merge and deliver a `release_stage` workflow |

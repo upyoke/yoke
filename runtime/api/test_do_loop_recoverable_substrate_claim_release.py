@@ -80,7 +80,7 @@ class TestReleasesActiveClaim:
                 chain_step=1,
                 project="yoke",
                 item_id=item_id,
-                routed_action="advance",
+                routed_action="implement",
                 failure_class="cwd_drift",
                 remediation_owner=f"YOK-{item_id}",
                 current_status="implementing",
@@ -125,7 +125,7 @@ class TestReleasesActiveClaim:
                 chain_step=1,
                 project="yoke",
                 item_id=str(item_id),
-                routed_action="advance",
+                routed_action="implement",
                 failure_class="cwd_drift",
                 remediation_owner=f"YOK-{item_id}",
             )
@@ -164,7 +164,7 @@ class TestReleaseConstantSingleSource:
                 chain_step=1,
                 project="yoke",
                 item_id=item_id,
-                routed_action="advance",
+                routed_action="implement",
                 failure_class="cwd_drift",
                 remediation_owner=f"YOK-{item_id}",
             )
@@ -198,7 +198,7 @@ class TestReleaseFailureIsNonBlocking:
                 chain_step=1,
                 project="yoke",
                 item_id=item_id,
-                routed_action="advance",
+                routed_action="implement",
                 failure_class="cwd_drift",
                 remediation_owner=f"YOK-{item_id}",
             )
@@ -232,7 +232,7 @@ class TestReleaseFailureIsNonBlocking:
                 chain_step=1,
                 project="yoke",
                 item_id=item_id,
-                routed_action="advance",
+                routed_action="implement",
                 failure_class="cwd_drift",
                 remediation_owner=f"YOK-{item_id}",
             )

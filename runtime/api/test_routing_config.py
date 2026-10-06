@@ -20,7 +20,7 @@ def test_load_routing_config_parses_executor_defaults_and_lane_paths(tmp_path):
             [
                 "executor_default_lane_claude_code=DARIUS",
                 "executor_default_lane_codex=ALTMAN",
-                "lane_paths_darius=shepherd,advance,conduct,usher",
+                "lane_paths_darius=shepherd,implement,conduct,usher",
                 "lane_paths_altman=refine,polish",
             ],
         ),
@@ -34,7 +34,7 @@ def test_load_routing_config_parses_executor_defaults_and_lane_paths(tmp_path):
     assert routing.default_lane_for_executor("unknown-harness") == "primary"
     assert routing.lane_allowed_paths["DARIUS"] == [
         "shepherd",
-        "advance",
+        "implement",
         "conduct",
         "usher",
     ]

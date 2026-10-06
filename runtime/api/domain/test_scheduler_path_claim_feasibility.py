@@ -13,7 +13,7 @@ from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from yoke_core.domain.scheduler_path_claim_feasibility import (
     FeasibilityOutcome,
-    probe_advance_feasibility,
+    probe_implement_feasibility,
 )
 
 
@@ -161,7 +161,7 @@ class TestNoCandidateClaim:
     readiness gate owns that diagnostic, the probe passes through."""
 
     def test_no_claim_outcome(self, conn) -> None:
-        verdict = probe_advance_feasibility(conn, item_id=42)
+        verdict = probe_implement_feasibility(conn, item_id=42)
         assert verdict.outcome is FeasibilityOutcome.NO_CLAIM
         assert verdict.candidate_claim_id is None
         assert "no planned path-claim" in verdict.reason
@@ -175,7 +175,7 @@ class TestFeasibleNoOverlap:
         _insert_target(conn, 100, "a.py")
         _insert_claim(conn, 500, item_id=42, state="planned")
         _attach_target(conn, 500, 100)
-        verdict = probe_advance_feasibility(conn, item_id=42)
+        verdict = probe_implement_feasibility(conn, item_id=42)
         assert verdict.outcome is FeasibilityOutcome.FEASIBLE
         assert verdict.candidate_claim_id == 500
 
@@ -190,7 +190,7 @@ class TestBlockedCrossItemOverlap:
         _attach_target(conn, 500, 100)
         _insert_claim(conn, 501, item_id=43, state="planned")
         _attach_target(conn, 501, 100)
-        verdict = probe_advance_feasibility(conn, item_id=42)
+        verdict = probe_implement_feasibility(conn, item_id=42)
         assert verdict.outcome is FeasibilityOutcome.BLOCKED_CROSS_ITEM_OVERLAP
         assert verdict.candidate_claim_id == 500
         assert 501 in verdict.conflicting_claim_ids
@@ -211,7 +211,7 @@ class TestBlockedCrossItemOverlap:
         _insert_claim(conn, 502, item_id=44, state="planned")
         _attach_target(conn, 502, 101)
 
-        verdict = probe_advance_feasibility(conn, item_id=42)
+        verdict = probe_implement_feasibility(conn, item_id=42)
 
         assert verdict.outcome is FeasibilityOutcome.BLOCKED_CROSS_ITEM_OVERLAP
         assert verdict.conflicting_claim_ids == [501]
@@ -230,7 +230,7 @@ class TestTerminalSiblingIgnored:
         _attach_target(conn, 500, 100)
         _insert_claim(conn, 501, item_id=43, state="released")
         _attach_target(conn, 501, 100)
-        verdict = probe_advance_feasibility(conn, item_id=42)
+        verdict = probe_implement_feasibility(conn, item_id=42)
         assert verdict.outcome is FeasibilityOutcome.FEASIBLE
 
 
@@ -264,5 +264,5 @@ class TestCoordinationOnlyFeasible:
             "'agent', 'independent edits on the same path', "
             "'2026-05-19T00:00:00Z')",
         )
-        verdict = probe_advance_feasibility(conn, item_id=42)
+        verdict = probe_implement_feasibility(conn, item_id=42)
         assert verdict.outcome is FeasibilityOutcome.FEASIBLE

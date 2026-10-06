@@ -96,7 +96,7 @@ tail -80 <raw-capture>          # the capture a watcher prints, once it exits
 - **Never agent shapes:** the HTTP function-call server, `curl localhost:8765`, `$YOKE_API`, or direct runtime-API imports — two lints enforce this. The DB-router and service-client forms are operator-debug only. Launcher install/repair, lint names, status vocabulary, fallback inventory: `code-and-cli.md`.
 
 ## Simplify — three-axis doctrine
-Idea, refine, advance, conduct, shepherd, and polish each apply **reuse** (name an existing surface before adding one; empty reuse needs an explicit "no relevant existing surface"), **quality** (the smallest shape satisfying the request, out-of-scope declared when it invites creep), and **efficiency** (cheapest valuable path first; a new table/event/skill/config/command needs extension-vs-create justification), plus a **future-concept pull-forward** lens. Anti-patterns, stage weights, v0 boundaries: `code-and-cli.md`.
+Idea, refine, implement, conduct, shepherd, and polish each apply **reuse** (name an existing surface before adding one; empty reuse needs an explicit "no relevant existing surface"), **quality** (the smallest shape satisfying the request, out-of-scope declared when it invites creep), and **efficiency** (cheapest valuable path first; a new table/event/skill/config/command needs extension-vs-create justification), plus a **future-concept pull-forward** lens. Anti-patterns, stage weights, v0 boundaries: `code-and-cli.md`.
 - **Polish runs one worktree-diff-scoped simplify pass** before staleness and test re-run: fix in place, skip false positives, proceed with no changes. The deliverable is a commit, not a report.
 
 ## Structured Item Writes

@@ -119,7 +119,7 @@ def _seed_checkpoint(
         conn,
         SESSION_ID,
         step=1,
-        action="advance",
+        action="implement",
         chainable=chainable,
         handler_outcome=outcome,
     )

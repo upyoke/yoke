@@ -291,7 +291,7 @@ def lifecycle_skip_record_recoverable_substrate(args: List[str]) -> int:
         "--routed-action",
         dest="routed_action",
         required=True,
-        help="Routed action that failed (e.g. 'advance').",
+        help="Routed action that failed (e.g. 'implement').",
     )
     parser.add_argument(
         "--failure-class",

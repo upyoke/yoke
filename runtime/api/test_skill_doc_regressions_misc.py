@@ -150,8 +150,8 @@ class TestSameSessionWorktreeScopeDocs:
             "commands": REPO / ".yoke" / "docs" / "reference" / "commands.md",
             "harness": REPO / "docs" / "harness-substrate.md",
             "lifecycle": REPO / ".yoke" / "docs" / "reference" / "lifecycle.md",
-            "advance": SKILLS / "advance" / "SKILL.md",
-            "advance_worktree": SKILLS / "advance" / "worktree.md",
+            "implement": SKILLS / "implement" / "SKILL.md",
+            "implement_worktree": SKILLS / "implement" / "worktree.md",
             "conduct": SKILLS / "conduct" / "SKILL.md",
         }
 
@@ -167,14 +167,14 @@ class TestSameSessionWorktreeScopeDocs:
             assert "work-claim" in text or "work_claims" in text, key
             assert "SessionExecutionScopeChanged" not in text, key
 
-    def test_advance_docs_describe_same_session_continuation(self, docs):
-        text = _read(docs["advance"])
-        worktree = _read(docs["advance_worktree"])
+    def test_implement_docs_describe_same_session_continuation(self, docs):
+        text = _read(docs["implement"])
+        worktree = _read(docs["implement_worktree"])
         # The durable markers under the claim-based authority model are
         # "same harness session" + the absence of any "manual relaunch".
         assert "same harness session" in text
         assert "no manual relaunch" in worktree or "no relaunch" in worktree
-        # The legacy event name no longer appears in advance prose.
+        # The legacy event name no longer appears in implement prose.
         assert "SessionExecutionScopeChanged" not in worktree
         assert "SessionExecutionScopeChanged" not in text
 

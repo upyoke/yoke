@@ -1,39 +1,16 @@
 # Advance — Finalize
 
-> **Orchestrator role:** For implementation-entry advances, the orchestrator `yoke_core.engines.advance_implementation_entry` dispatches `lifecycle.transition.execute` directly (the "Update Status" step below) and emits the outcome as `AdvancePhaseCompleted{phase="finalize"}`. The GitHub sync, commit, claim-handoff, and next-step-guidance prose below remains the canonical contract for those operator-facing steps — the orchestrator's reference for what the dispatch handler triggers downstream. The implementing sub-skill handoff (`## Implementation-entry Sub-skill Handoff`) still runs after the orchestrator returns success.
-
 Called by the advance router after all gates and phase-specific work complete. Updates status, syncs GitHub, commits, and reports.
 
 **Context variables** (set by router): `{N}`, `{NNN}` (zero-padded),
 `_title`, `_status` (old), `_target` (new), `_current_skill`,
 `_target_skill`, `_worktree_policy`, `_pinned_definition_json`, `--env`
-value, `WORKTREE_PATH` (absolute path to item worktree, set by worktree phase
-or re-entry; empty/unset when advancing on main or with `--no-worktree`)
+value, `WORKTREE_PATH` (absolute path to item worktree, set by the calling
+skill's lane; empty/unset when advancing on main or for an item with no lane)
 
 ---
 
-## Implementation-entry requires the pinned advance source (step 5f)
-
-Implementation-entry orchestration is valid only when the exact pinned
-definition assigns target `implementing` to skill `advance` and
-`policies.worktrees=single_implementation_lane`. Locate that binding in
-`skill_bindings`; its `from_stage_id` is the required source. The
-orchestrator dispatches the single adjacent `lifecycle.transition.execute`
-from that source to `implementing`. It does not walk earlier stages.
-
-If the target belongs to `conduct` or another skill, stop and route to that
-pinned command. Do not infer implementation ownership from `workflow_id`.
-
-To move an earlier item toward implementation, reach the pinned `advance`
-binding's source first, then advance:
-
-- Run the skill currently selected by the pinned definition; `/yoke refine`
-  owns any active refine segment.
-- Or pass `--skip-refine` to fast-forward the gate-free bookkeeping rungs when refine deliberation is unnecessary (see below).
-
-Never hand-write intermediate `items scalar update --field status` hops to climb toward `implementing`: raw status writes are claim-protected and rejected with `ClaimVerificationDenied`. The sanctioned bookkeeping fast-forward is `--skip-refine`.
-
-### Skip-flag bookkeeping hops
+## Skip flags (step 5f)
 
 `yoke_core.domain.advance_skip_core` owns the operator-asserted skip routing:
 `_skill_skip_route` reads the item's pinned `skill_bindings`, ordered
@@ -228,7 +205,7 @@ After every advance, emit this structured block. It survives context compaction 
 - **Project:** {_item_project}
 - **Test command:** {_cmd_full or "yoke watch pytest --impacted main --bounded" (yoke default — impacted selection, bounded so an unbounded verdict is reported rather than widened; it executes on the project CI against the pushed lane commit, so commit and let CI run it; `--local` is only a small targeted check expected to finish in about one minute; CI on the merge path owns the full sweep, see docs/testing-verification.md)}
 - **Advance to reviewed-implementation:** `/yoke advance PREFIX-{N} reviewed-implementation`
-- **Phase docs already loaded:** preflight, worktree, environment, finalize, implementing
+- **Phase docs already loaded:** preflight, finalize
 - **Segment boundary:** Continue review in the same session and worktree until
   the pinned binding ends. At that boundary, report the live stage and
   `next_skill_id`; the next skill starts as a fresh command entrypoint.
@@ -249,14 +226,11 @@ statuses in the same finalize flow. Emit:
 
 If the operator explicitly wants usher next, start `/yoke usher PREFIX-{N}` as a fresh command entrypoint so usher can claim the item itself.
 
-**If target was `reviewing-implementation` and the pinned `advance` binding
+**If target was `reviewing-implementation` and the pinned `implement` binding
 still owns the stage:** The item has entered the review phase. This is still
 implementation work in the same implementation-lane worktree, not a new
-manual-only checkpoint. Do **not** stop here during an autonomous `/yoke
-advance` run. Stay in the existing worktree, perform the
-review/fix/verify loop immediately, and when the branch is actually ready for
-`reviewed-implementation` run:
- > `/yoke advance PREFIX-{N} reviewed-implementation`
+manual-only checkpoint. Return to the `implement` review loop
+(`.agents/skills/yoke/implement/review.md`) immediately; do **not** stop here.
 
 Only emit a blocking summary and stop if some real blocker prevents the review loop from continuing.
 
@@ -282,16 +256,3 @@ rejected even when tests are green.
 **If target was `polishing-implementation`:** Routed polish is actively in
 progress or has been resumed. The session keeps its claim. Emit:
  > **Next step:** Continue `/yoke polish PREFIX-{N}` until it advances to `implemented`.
-
-## Implementation-entry Sub-skill Handoff
-
-**If target was `implementing` and the pinned definition selected the advance
-skill:** Read and follow `.agents/skills/yoke/advance/implementing/SKILL.md`.
-Pass `{N}`, `{NNN}`, `{_title}`, `{WORKTREE_PATH}`. The current session holds
-the work-claim on PREFIX-{N} (acquired in preflight) and has provisioned the
-worktree — both newly created and re-entered worktrees are same-session, no
-relaunch. The sub-skill handles QA seeding + implementation kickoff.
-Also pass `_current_skill=advance` and
-`_worktree_policy=single_implementation_lane`; the sub-skill treats those as
-entry invariants.
-**Return after sub-skill completes.**

@@ -70,7 +70,7 @@ export function workflowFixture({
       ],
       entry_surfaces: ["cli", "harness_skill"],
       skill_bindings: skillBindings || [{
-        skill_id: "advance",
+        skill_id: "implement",
         from_stage_id: "draft",
         through_stage_id: "ship",
       }],

@@ -240,7 +240,7 @@ function hostedFrameWorkflows() {
       description:
         "One scoped implementation lane with planning, review, QA and delivery.",
       entrySurfaces: ["harness_skill", "promotion"],
-      skills: ["refine", "advance", "polish", "usher"],
+      skills: ["refine", "implement", "polish", "usher"],
       stages: [
         stage("idea", "idea"),
         stage(

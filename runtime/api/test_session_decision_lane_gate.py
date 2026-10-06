@@ -14,19 +14,16 @@ from __future__ import annotations
 
 from typing import Dict, List
 
-import pytest
 
 from yoke_core.domain.session_contract import (
     ActionKind,
     ClaimedWork,
     FrontierState,
-    NextAction,
     SessionOffer,
 )
 from yoke_core.domain.session_decision import decide_next_action
 from yoke_core.domain.session_decision_charge import decide_charge_action
 from yoke_core.domain.session_decision_lane_gate import (
-    LaneGateResult,
     LaneGateVerdict,
     evaluate_lane_gate,
 )
@@ -34,7 +31,7 @@ from yoke_core.domain.session_decision_resume import decide_resume_action
 
 
 CANONICAL_POLICY: Dict[str, List[str]] = {
-    "DARIUS": ["shepherd", "advance", "conduct", "usher"],
+    "DARIUS": ["shepherd", "implement", "conduct", "usher"],
     "ALTMAN": ["refine", "polish"],
 }
 
@@ -75,7 +72,7 @@ class TestEvaluateLaneGate:
     def test_no_policy_fails_open(self):
         result = evaluate_lane_gate(
             execution_lane="DARIUS",
-            required_path="advance",
+            required_path="implement",
             lane_allowed_paths=None,
         )
         assert result.verdict is LaneGateVerdict.ALLOWED
@@ -83,7 +80,7 @@ class TestEvaluateLaneGate:
     def test_empty_policy_fails_open(self):
         result = evaluate_lane_gate(
             execution_lane="DARIUS",
-            required_path="advance",
+            required_path="implement",
             lane_allowed_paths={},
         )
         assert result.verdict is LaneGateVerdict.ALLOWED
@@ -103,11 +100,11 @@ class TestEvaluateLaneGate:
             lane_allowed_paths=CANONICAL_POLICY,
         )
         assert result.verdict is LaneGateVerdict.WAIT_DISALLOWED
-        assert result.allowed_paths == ["shepherd", "advance", "conduct", "usher"]
+        assert result.allowed_paths == ["shepherd", "implement", "conduct", "usher"]
         ctx = result.wait_context()
         assert ctx["wait_reason"] == "lane_policy_disallows_path"
         assert ctx["required_path"] == "polish"
-        assert ctx["allowed_paths"] == ["shepherd", "advance", "conduct", "usher"]
+        assert ctx["allowed_paths"] == ["shepherd", "implement", "conduct", "usher"]
 
     def test_altman_polish_allowed(self):
         result = evaluate_lane_gate(

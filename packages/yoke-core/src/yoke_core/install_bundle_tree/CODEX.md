@@ -7,7 +7,7 @@ For the full project rules, read `AGENTS.md` — the harness-neutral shared doct
 
 Each standing rule in `AGENTS.md` names a deep home under `.yoke/docs/reference/agent-rules/` carrying the reasoning, recovery paths, and worked failure modes behind it; `AGENTS.md` lists which file covers which operation. Read the one that governs an operation before performing it, and read an operation's own `--help` for its variants and flags.
 
-The `## Simplify — three-axis doctrine` section in `AGENTS.md` defines the shared **reuse / quality / efficiency** vocabulary, future-concept pull-forward lens, and stage weights used by every authoring step (idea, refine, advance, shepherd, conduct, polish). Codex sessions read it from `AGENTS.md`; this file does not duplicate it. The doctrine is Yoke-owned and harness-neutral — do not treat any Claude-only built-in as a dependency.
+The `## Simplify — three-axis doctrine` section in `AGENTS.md` defines the shared **reuse / quality / efficiency** vocabulary, future-concept pull-forward lens, and stage weights used by every authoring step (idea, refine, implement, shepherd, conduct, polish). Codex sessions read it from `AGENTS.md`; this file does not duplicate it. The doctrine is Yoke-owned and harness-neutral — do not treat any Claude-only built-in as a dependency.
 
 ## Bootstrap
 
@@ -59,7 +59,7 @@ Codex sessions use the shared Yoke operator surface unless the Codex manifest de
 |---------|-------------|
 | `/yoke idea "title"` | File a new backlog item |
 | `/yoke refine PREFIX-N` | Critique and improve item artifacts (no worktree, no code) |
-| `/yoke advance PREFIX-N implementation` | Drive a pinned `advance` segment in its registered single worktree lane |
+| `/yoke implement PREFIX-N` | Drive a pinned `implement` segment in its registered single worktree lane |
 | `/yoke conduct PREFIX-N` | Drive a pinned generated-task segment via shared dispatch descriptors |
 | `/yoke polish PREFIX-N` | Review and finish implementation in existing worktree |
 | `/yoke usher PREFIX-N [--dry-run]` | Merge/deploy handoff for implemented items; use dry-run first for Codex validation |
@@ -72,7 +72,7 @@ Codex supports these downstream paths (derived server-side from the shared Yoke 
 |------|-------------|
 | `shepherd` | Drive an item through quality-gated lifecycle to ready |
 | `refine` | Critique and improve item artifacts |
-| `advance` | Definition-bound single-lane lifecycle execution |
+| `implement` | Definition-bound single-lane implementation through review |
 | `dash` | Direct execution from one instruction, any size: survey, worktree, verify, merge, evidence |
 | `blitz` | Document-led direct execution from the item's single linked strategy document |
 | `conduct` | Definition-bound task-graph loop that dispatches Engineer / Tester / Architect / Simulator |

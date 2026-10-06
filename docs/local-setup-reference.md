@@ -241,7 +241,9 @@ After adoption, normal item flow is:
 
 ```text
 /yoke idea "my first item"
-/yoke advance YOK-N implementing
+/yoke refine YOK-N
+/yoke implement YOK-N
+/yoke polish YOK-N
 /yoke usher YOK-N
 ```
 

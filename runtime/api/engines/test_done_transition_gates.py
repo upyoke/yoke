@@ -297,7 +297,7 @@ class TestRecoveryGapAbsorption:
         assert "--no-worktree" in stderr_output
         assert "release the active lane" in stderr_output
         assert "no-worktree entry path" in stderr_output
-        assert "/yoke advance YOK-99 implementing --no-worktree" in stderr_output
+        assert "/yoke implement YOK-99 --no-worktree" in stderr_output
         assert "yoke items scalar update" not in stderr_output
         assert "--field worktree" not in stderr_output
         assert "db_router items update" not in stderr_output

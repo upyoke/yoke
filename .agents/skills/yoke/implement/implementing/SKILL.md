@@ -1,19 +1,19 @@
 ---
-name: active
-description: "Post-advance implementation-entry flow: QA seeding + implementation kickoff. Retained filename; called by advance/SKILL.md after status is set to implementing."
+name: implementing
+description: "Implementation kickoff inside /yoke implement: QA seeding, project context, test commands, and implementation guidance. Called after the item enters its implementation stage."
 ---
 
-# Active Transition Sub-skill
+# Implementing Sub-skill
 
-Retained historical name. Called by `advance/SKILL.md` after the item is at `implementing` and the current harness session has provisioned the worktree (same session, no relaunch). The session's authority over the worktree is its work-claim on the item, validated per tool call by `lint_session_cwd`. The sub-skill handles QA seeding and directs the agent to begin implementation.
+Called by `implement/entry.md` (or `implement/reentry.md`) after the item is at its implementation stage and the current harness session has provisioned the worktree (same session, no relaunch). The session's authority over the worktree is its work-claim on the item, validated per tool call by `lint_session_cwd`. The sub-skill handles QA seeding and directs the agent to begin implementation.
 
 **Context variables** (passed by the parent skill):
 - `{N}` — numeric item ID
 - `{NNN}` — zero-padded filename (e.g., `939`)
 - `{title}` — item title
 - `{WORKTREE_PATH}` — absolute worktree path
-- `{_current_executor}` — must be `advance`
-- `{_worktree_policy}` — must be `single_implementation_lane`
+- `{_current_executor}` — must be `implement`
+- `{_worktree_policy}` — `single_implementation_lane`, or `none` for a laneless workflow
 
 **Exact-path worktree anchor:** All subsequent file operations — Read, Edit, Write, Grep, Glob — MUST use absolute paths rooted at `{WORKTREE_PATH}`, not the main repo. The worktree is an isolated copy; reading a file at the main repo path and then editing it at the worktree path will fail because the Read tool's cached content won't match the worktree copy. Always resolve paths from `{WORKTREE_PATH}` for both investigation and modification.
 
@@ -29,8 +29,8 @@ yoke claims path list --item PREFIX-{N} --state planned --state active --state b
 
 Mentally diff the declared coverage against the files you are about to touch. If any file is not covered by a non-terminal claim, widen first with a specific rationale, then edit. This is a recurring checklist item, not a once-at-entry declaration. A future PreToolUse advisory on `Write`/`Edit` is the natural follow-up enforcement layer; blocking enforcement remains the end-of-implementation boundary gate.
 
-This sub-skill is entered only after the parent verifies the pinned `advance`
-binding and `single_implementation_lane` policy. A task-graph item owned by
+This sub-skill is entered only after the parent verifies the pinned `implement`
+binding and a single-lane or laneless policy. A task-graph item owned by
 `conduct` never reaches this router; that skill's Tester owns its QA loop.
 
 ## Phase Dispatch

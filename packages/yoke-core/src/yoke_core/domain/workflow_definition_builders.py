@@ -30,10 +30,10 @@ WORKFLOW_QA_OPTIONAL = "optional"
 WORKFLOW_QA_OPTIONAL_ITEM_ATTACHMENT = "optional_item_attachment"
 REGISTERED_WORKFLOW_SKILL_IDS = frozenset(
     {
-        "advance",
         "blitz",
         "conduct",
         "dash",
+        "implement",
         "polish",
         "refine",
         "shepherd",
@@ -42,10 +42,10 @@ REGISTERED_WORKFLOW_SKILL_IDS = frozenset(
 )
 IMPLEMENTATION_WORKFLOW_SKILL_IDS = frozenset(
     {
-        "advance",
         "blitz",
         "conduct",
         "dash",
+        "implement",
     }
 )
 #: Skills whose planning phase writes ``epic_tasks`` rows. A definition may only

@@ -142,7 +142,7 @@ ISSUE_WORKFLOW_DEFINITION = definition_fixture(
     skill_bindings=(
         skill_binding("refine", "idea", "refined-idea"),
         skill_binding(
-            "advance", "refined-idea", "reviewed-implementation",
+            "implement", "refined-idea", "reviewed-implementation",
         ),
         skill_binding(
             "polish", "reviewed-implementation", "implemented",

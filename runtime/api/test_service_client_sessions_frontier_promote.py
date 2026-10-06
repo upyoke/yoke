@@ -26,7 +26,7 @@ def _build_schedule(steps):
     )
 
 
-def _make_step(item_id, rank, claim_state, next_step_value="advance"):
+def _make_step(item_id, rank, claim_state, next_step_value="implement"):
     from yoke_core.domain.scheduler_types import (
         ClaimState,
         NextStep,
@@ -34,7 +34,7 @@ def _make_step(item_id, rank, claim_state, next_step_value="advance"):
     )
 
     _next_step_map = {
-        "advance": NextStep.ADVANCE,
+        "implement": NextStep.IMPLEMENT,
         "refine": NextStep.REFINE,
         "polish": NextStep.POLISH,
         "usher": NextStep.USHER,
@@ -88,7 +88,7 @@ class TestFrontierPromotion:
         )
         assert filtered.runnable_items == ["YOK-B"]
         assert filtered.selected_item == "YOK-B"
-        assert filtered.scheduler_context["next_step"] == "advance"
+        assert filtered.scheduler_context["next_step"] == "implement"
         assert filtered.scheduler_context["workflow_id"] == "issue"
         assert filtered.scheduler_context["rank"] == 1
 
@@ -198,7 +198,7 @@ class TestChargeDispatchPath:
         # The canonical dispatch contract: charge context carries the
         # scheduler block with next_step populated.
         assert "scheduler" in action.context
-        assert action.context["scheduler"]["next_step"] == "advance"
+        assert action.context["scheduler"]["next_step"] == "implement"
 
 
 class TestSchedulerContextCarriesSelectedItem:

@@ -1,23 +1,23 @@
-# Advance — Path Claim Activation
+# Implement — Path Claim Activation
 
-> **Orchestrator role:** For implementation-entry advances, this phase
+> **Orchestrator role:** At implementation entry, this phase
 > runs inside `worktree_preflight.run_preflight` via
 > `activate_path_claims` (the step helper in
-> `worktree_preflight_steps`). The advance implementation-entry
+> `worktree_preflight_steps`). The implementation-entry
 > orchestrator does not call `advance_path_claim_activation.run_activation_phase`
 > separately — that's the "exactly one claim/activation/worktree
 > boundary" rule. The standalone CLI / `run_activation_phase` entrypoint
 > below remains for operators reconciling activation outside the full
 > worktree-preflight bundle.
 
-Called by the advance router after preflight gates pass and before the
-worktree phase. Closes the seam between the path-claim-required gate
+Composed by the implementation-entry engine after preflight gates pass and
+before the worktree phase. Closes the seam between the path-claim-required gate
 (declared at idea/refine time) and the worktree door-lock check (which
 refuses anything not in `state='active'`). Operators previously had to
 discover by runtime error that activation was a separate manual step;
 this phase performs it automatically.
 
-**Context variables** (set by router): `{N}`, `_worktree_policy`,
+**Context variables** (set by `entry.md`): `{N}`, `_worktree_policy`,
 `_current_executor`, `_status`, `_target`, `_item_project`, `--force` flag
 
 **Enforcement owner:** `yoke_core.domain.advance_path_claim_activation`
@@ -30,7 +30,7 @@ Run when:
 - target is `implementing` (the implementation entry transition), and
 - the central effective path-claims policy is enabled, and
 - the pinned workflow selects `single_implementation_lane` under the
-  `advance` skill, and
+  `implement` skill, and
 - the actor has at least one non-terminal `path_claims` row for the item.
 
 Skip when:
@@ -41,20 +41,20 @@ Skip when:
 
 ## Invocation
 
-Normal implementation-entry advance does not have an agent-facing activation
+Normal implementation entry does not have an agent-facing activation
 command: `worktree_preflight.run_preflight` invokes this phase in-process. The
 standalone activation entrypoint is a Yoke source-dev/admin boundary in
 `yoke_core.domain.advance_path_claim_activation` for operators reconciling
 activation outside the full worktree-preflight bundle; it is not a registered
-product CLI wrapper and should not be taught as normal advance flow.
+product CLI wrapper and should not be taught as normal implementation flow.
 
 Exit codes:
 
 | Exit | Meaning                                                                  |
 |---   |---                                                                       |
 | 0    | All planned claims activated; stdout: ``activated=[ids]``.               |
-| 1    | One or more claims are blocked or refs have diverged; stderr lists ``BLOCKED:`` and ``DIVERGED:`` rows. Stop the advance. |
-| 2    | Missing item, missing owner/source actor, or invalid ``--item`` value. Stop the advance and surface the stderr message. |
+| 1    | One or more claims are blocked or refs have diverged; stderr lists ``BLOCKED:`` and ``DIVERGED:`` rows. Stop the skill. |
+| 2    | Missing item, missing owner/source actor, or invalid ``--item`` value. Stop the skill and surface the stderr message. |
 
 The CLI is the guard-compatible replacement for the legacy inline
 heredoc. Skill prose, persona docs, and harness adapters route through
@@ -97,10 +97,10 @@ rebase) before retrying.
 
 ## Operator surface
 
-Operators do **not** activate claims by hand during normal advance.
+Operators do **not** activate claims by hand during normal implementation entry.
 This phase owns the flip. The service-client path-claim activation handler is
 operator-debug only (mid-implementation amendments, multi-claim coordination)
-and has no registered product CLI wrapper; advance preflight performs the
+and has no registered product CLI wrapper; implementation-entry preflight performs the
 activation unprompted.
 
 The path-claim-required gate
@@ -111,7 +111,7 @@ redefinition.
 
 ## Failure behavior
 
-When the phase blocks, the advance command stops without creating a
+When the phase blocks, implementation entry stops without creating a
 worktree or mutating status. Surface the blocked or diverged messages
 verbatim to the operator and let them decide how to proceed:
 

@@ -50,7 +50,7 @@ def test_runtime_interprets_pinned_issue(test_db):
     assert runtime.accepts_stage("failed") is True
     assert runtime.is_forward_transition("idea", "implementing") is True
     assert runtime.skill_for_stage("idea") == "refine"
-    assert runtime.skill_for_stage("refined-idea") == "advance"
+    assert runtime.skill_for_stage("refined-idea") == "implement"
     assert runtime.skill_for_stage("implemented") == "usher"
     assert runtime.skill_for_stage("done") is None
 

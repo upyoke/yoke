@@ -153,7 +153,7 @@ yoke dev setup ~/yoke \
 # Alternative: plan an item before executing it
 /yoke idea "fix login bug"
 /yoke shepherd YOK-N                # Optional
-/yoke advance YOK-N implementing     # Creates worktree
+/yoke implement YOK-N               # Creates worktree, implements, reviews
 /yoke conduct YOK-N                 # Only if needed to finish pre-merge work
 /yoke usher YOK-N
 ```
@@ -319,7 +319,7 @@ yoke status
 
 ## FAQ
 
-- **What's the minimum flow?** `/yoke idea` → `/yoke advance YOK-N implementing` → `/yoke usher YOK-N`
+- **What's the minimum flow?** `/yoke idea` → `/yoke refine YOK-N` → `/yoke implement YOK-N` → `/yoke polish YOK-N` → `/yoke usher YOK-N`
 - **What does conduct do?** Single-item execution: Engineer → Tester loop until `implemented`.
 - **What happened to PRD files?** Deprecated. `items get YOK-N body` is the spec view.
 - **What if a harness session stops?** The Engineer commits incrementally. `/yoke conduct YOK-N` resumes.

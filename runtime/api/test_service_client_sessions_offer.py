@@ -176,7 +176,7 @@ class TestSessionOfferCommand:
             ("--provider", "openai"),
             ("--model", "some-model"),
             ("--workspace", "/tmp/workspace"),
-            ("--supported-paths", "advance"),
+            ("--supported-paths", "implement"),
         ):
             result = _run_client(
                 ["session-offer", flag, value],

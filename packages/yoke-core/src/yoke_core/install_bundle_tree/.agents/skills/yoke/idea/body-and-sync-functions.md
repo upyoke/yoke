@@ -150,7 +150,7 @@ One mutation per call against any value in
 ```json
 {
   "function": "lifecycle.transition.execute",
-  "actor": {"actor_id": "advance", "session_id": "<session>"},
+  "actor": {"actor_id": "refine", "session_id": "<session>"},
   "target": {"kind": "item", "item_id": 42},
   "payload": {"target_status": "refined-idea", "source_status": "refining-idea"}
 }
@@ -255,7 +255,7 @@ branch.
   "function": "claims.work.acquire",
   "actor": {"actor_id": "engineer", "session_id": "<session>"},
   "target": {"kind": "item", "item_id": 42},
-  "payload": {"target": {"kind": "item", "item_id": 42}, "reason": "advance-implementation"}
+  "payload": {"target": {"kind": "item", "item_id": 42}, "reason": "implement"}
 }
 ```
 

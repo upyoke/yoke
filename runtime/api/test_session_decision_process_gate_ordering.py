@@ -71,7 +71,7 @@ class TestPolicyWinsWhenBothGatesBlock:
             "ordering-corr",
             ProcessOfferPolicy(),  # all process keys disabled by default
             lane_allowed_paths={
-                "DARIUS": ["shepherd", "advance", "conduct", "usher"],
+                "DARIUS": ["shepherd", "implement", "conduct", "usher"],
             },
             execution_lane="DARIUS",
         )
@@ -100,7 +100,7 @@ class TestPolicyWinsWhenBothGatesBlock:
             runnable_items=["ITEM-1700"],
             scheduler_context={
                 "selected_item": "ITEM-1700",
-                "next_step": "advance",
+                "next_step": "implement",
                 "item_type": "issue",
                 "status": "refined-idea",
                 "title": "downstream item",
@@ -151,7 +151,7 @@ class TestLaneWinsWhenPolicyEnabled:
             "ordering-corr",
             ProcessOfferPolicy(per_process={"strategize": True}),
             lane_allowed_paths={
-                "DARIUS": ["shepherd", "advance", "conduct", "usher"],
+                "DARIUS": ["shepherd", "implement", "conduct", "usher"],
             },
             execution_lane="DARIUS",
         )

@@ -51,7 +51,7 @@ registered skill binding and tells the adapter which command to invoke:
 - `refine` — run the refinement skill
 - `shepherd` — run the design/planning skill
 - `conduct` — run the task-graph implementation skill
-- `advance` — run the item-level implementation skill
+- `implement` — run the item-level implementation skill
 - `polish` — item in reviewed-implementation/polishing-implementation, run polish pipeline
 - `usher` — implemented/release, merge and deploy
 
@@ -215,8 +215,8 @@ When the decision engine returns `wait` with `wait_reason: "no_lane_compatible_w
   "item_id": "YOK-N",
   "title": "…",
   "status": "refined-idea",
-  "next_step": "advance",
-  "required_path": "advance",
+  "next_step": "implement",
+  "required_path": "implement",
   "rank": 0,
   "claim_state": "unclaimed"
  },
@@ -231,7 +231,7 @@ When the decision engine returns `wait` with `wait_reason: "no_lane_compatible_w
  }
  ],
  "lane_filtered_paths": [
- {"required_path": "advance", "count": 1},
+ {"required_path": "implement", "count": 1},
  {"required_path": "shepherd", "count": 1}
  ]
 }

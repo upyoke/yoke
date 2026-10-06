@@ -134,7 +134,7 @@ def test_mismatched_claim_releases_exact_claim_and_emits_event(invariant_db):
             session_id=sid,
             result=_make_charge_action(
                 wrong_selected,
-                {"selected_item": wrong_selected, "next_step": "advance"},
+                {"selected_item": wrong_selected, "next_step": "implement"},
             ),
             new_claim={"id": claim_id, **make_item_target(held_item_id).descriptor()},
             ownership={

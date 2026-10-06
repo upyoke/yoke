@@ -2,7 +2,7 @@
 
 Refuse worktree-bound writes while the item driving the claim is still
 in a pre-implementing status. A session can hold a work claim before
-``/yoke advance`` finishes its finalize phase; without this gate the
+its implementation-entry skill transitions the item; without this gate the
 lint would happily accept every Edit/Write into ``.worktrees/<branch>/``
 even though the lifecycle never crossed into ``implementing``. The set
 of pre-implementing statuses is the canonical
@@ -108,14 +108,13 @@ def build_denial_message(item_id: int, status: str) -> str:
         f"{public_ref} is at status='{status}'. Worktree-bound writes "
         f"require the item to be in an implementing-class status "
         f"(implementing, reviewing-implementation, polishing-implementation).\n\n"
-        f"The most likely cause: /yoke advance {public_ref} "
-        f"implementation acquired the work claim and created the worktree, "
-        f"but the finalize step never ran to flip the status to "
-        f"implementing. Re-enter via:\n"
-        f"    /yoke advance {public_ref} implementation\n"
-        f"to resume finalize, or apply the lifecycle.transition function "
-        f"call from .agents/skills/yoke/advance/finalize.md step 6 to "
-        f"flip status directly."
+        f"The most likely cause: the skill that acquired the work claim "
+        f"and created the worktree never transitioned the item into "
+        f"implementing. Re-enter the skill bound at the item's live stage "
+        f"(`yoke workflows item get {public_ref}` names it; for an issue "
+        f"that is `/yoke implement {public_ref}`), or transition directly:\n"
+        f"    yoke lifecycle transition {public_ref} --to implementing "
+        f"--reason TEXT"
     )
 
 

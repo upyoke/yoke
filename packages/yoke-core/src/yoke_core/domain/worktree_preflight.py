@@ -1,7 +1,6 @@
-"""Harness-universal advance implementation-entry preflight primitive.
+"""Harness-universal implementation-entry preflight primitive.
 
-Owns the operator-required steps for ``/yoke advance YOK-N
-implementation``: (1) resolve/acquire work claim, (2) activate/
+Owns the operator-required steps for ``/yoke implement YOK-N``: (1) resolve/acquire work claim, (2) activate/
 reconcile path claim, (3) resolve or create the item worktree
 (canonical ``YOK-N``), (4) record the descriptive worktree/cwd relationship,
 (5) return a machine-readable envelope with ``item_id``, ``branch``,
@@ -298,7 +297,7 @@ def run_preflight(
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke dev run -- python3 -m yoke_core.domain.worktree_preflight",
-        description="Harness-universal /yoke advance worktree re-entry primitive.",
+        description="Harness-universal /yoke implement worktree re-entry primitive.",
     )
     parser.add_argument(
         "--item",

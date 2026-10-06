@@ -191,7 +191,7 @@ class TestPathDerivationMapping:
         assert _NEXT_STEP_TO_PATH["conduct"] == "conduct"
 
     def test_advance_maps_to_advance(self):
-        assert _NEXT_STEP_TO_PATH["advance"] == "advance"
+        assert _NEXT_STEP_TO_PATH["implement"] == "implement"
 
     def test_polish_maps_to_polish(self):
         assert _NEXT_STEP_TO_PATH["polish"] == "polish"
@@ -210,7 +210,7 @@ class TestPathDerivationMapping:
             "refine",
             "shepherd",
             "conduct",
-            "advance",
+            "implement",
             "dash",
             "blitz",
             "polish",
@@ -246,16 +246,16 @@ class TestPathSupportValidation:
 
     def test_escalate_when_path_not_supported(self):
         """Shepherd required but only advance supported -> escalate."""
-        offer = _make_offer(supported_paths=["advance"])
+        offer = _make_offer(supported_paths=["implement"])
         frontier = self._frontier_with_next_step("shepherd")
         result = decide_next_action(offer, frontier)
         assert result.action == ActionKind.ESCALATE
         assert result.context["escalate_reason"] == "unsupported_path"
         assert result.context["required_path"] == "shepherd"
-        assert result.context["supported_paths"] == ["advance"]
+        assert result.context["supported_paths"] == ["implement"]
 
     def test_charge_when_path_is_supported(self):
-        offer = _make_offer(supported_paths=["shepherd", "advance"])
+        offer = _make_offer(supported_paths=["shepherd", "implement"])
         frontier = self._frontier_with_next_step("shepherd")
         result = decide_next_action(offer, frontier)
         assert result.action == ActionKind.CHARGE

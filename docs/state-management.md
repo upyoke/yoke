@@ -150,7 +150,7 @@ its registered direct skill instead.
 For a current compatible definition, the `usher` binding begins at
 `implemented` and owns the delivery tail exclusively. Earlier implementation
 and finishing work belongs to whichever bindings cover those stages; shared
-stage ids do not imply `advance`, `conduct`, or `polish`.
+stage ids do not imply `implement`, `conduct`, or `polish`.
 
 The `through_stage_id` of every binding is a fresh command and claim handoff.
 The previous skill releases its claim at the boundary, and the next

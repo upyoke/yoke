@@ -13,8 +13,8 @@ from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
     "workflow_id,stage_id,expected",
     [
         ("issue", "idea", AdapterCategory.REFINE),
-        ("issue", "refined-idea", AdapterCategory.ADVANCE),
-        ("issue", "implementing", AdapterCategory.ADVANCE),
+        ("issue", "refined-idea", AdapterCategory.IMPLEMENT),
+        ("issue", "implementing", AdapterCategory.IMPLEMENT),
         ("issue", "reviewed-implementation", AdapterCategory.POLISH),
         ("issue", "implemented", AdapterCategory.USHER),
         ("epic", "idea", AdapterCategory.REFINE),
@@ -63,7 +63,7 @@ def test_item_claim_probe_comes_from_next_stage_gate_and_policy():
 
 
 def test_skill_active_state_comes_from_binding_boundaries():
-    implementation_skills = frozenset({"advance", "conduct"})
+    implementation_skills = frozenset({"implement", "conduct"})
     issue = builtin_workflow_runtime("issue")
 
     assert issue.skill_has_started(

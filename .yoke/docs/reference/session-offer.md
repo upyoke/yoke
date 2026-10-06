@@ -55,7 +55,7 @@ reach different offers.
 | `workspace` | string | Server-sourced | -- | Absolute path or identifier for the working directory/repo, read from the session row. |
 | `execution_lane` | string | Row default, operator-overridable | -- | Execution lane identity, defaulting to `harness_sessions.execution_lane`. Lane identities are project-declared, not a fixed enum; path eligibility is defined only by that lane's allowlist, never by scheduler output. Registration resolved the value from the project's DB-backed `session-routing` capability via `yoke_core.api.routing_config.RoutingConfig.lane_for_session()` — see **Lane routing** below for the full precedence. Machine config is only the no-project/operator fallback. A caller-supplied `--lane` / body `execution_lane` overrides the row and emits `SessionOfferLaneOverrideApplied` — that is a **deliberate operator re-route**. Autonomous loops send nothing: a locally resolved lane outranks the project mapping and filters the whole frontier. |
 | `offered_at` | string (ISO 8601) | No | Current UTC time | Timestamp of when the offer was created. |
-| `supported_paths` | list[string] | No | `[]` | Canonical downstream path names this session can execute (e.g., `["advance", "shepherd"]`). The two Yoke-owned harness families today — Claude and Codex — no longer declare this field; Yoke core derives the effective list server-side from the shared Yoke registry plus any limitations in the coarse harness manifest. Surface-specific executor values normalize back to the family manifest (`codex-desktop` -> Codex manifest, `claude-vscode` -> Claude manifest), and registry-derived truth overrides any caller-supplied list. Manifest presence is the single axis of explicit limitation: both Yoke-owned families ship manifests, and their declared limitations are applied after registry-derived capabilities. See **Path Derivation Mapping** for details. |
+| `supported_paths` | list[string] | No | `[]` | Canonical downstream path names this session can execute (e.g., `["implement", "shepherd"]`). The two Yoke-owned harness families today — Claude and Codex — no longer declare this field; Yoke core derives the effective list server-side from the shared Yoke registry plus any limitations in the coarse harness manifest. Surface-specific executor values normalize back to the family manifest (`codex-desktop` -> Codex manifest, `claude-vscode` -> Claude manifest), and registry-derived truth overrides any caller-supplied list. Manifest presence is the single axis of explicit limitation: both Yoke-owned families ship manifests, and their declared limitations are applied after registry-derived capabilities. See **Path Derivation Mapping** for details. |
 
 ### Lane routing
 
@@ -81,7 +81,7 @@ required downstream path from `scheduler_context.next_step`:
 | `refine` | `refine` |
 | `shepherd` | `shepherd` |
 | `conduct` | `conduct` |
-| `advance` | `advance` |
+| `implement` | `implement` |
 | `dash` | `dash` |
 | `blitz` | `blitz` |
 | `polish` | `polish` |
@@ -158,7 +158,7 @@ Unlike `unsupported_path` (an `escalate` reason that describes a harness capabil
  "workspace": "/Users/bee/yoke",
  "execution_lane": "DARIUS",
  "offered_at": "2026-03-31T12:00:00Z",
- "supported_paths": ["shepherd", "advance"]
+ "supported_paths": ["shepherd", "implement"]
 }
 ```
 

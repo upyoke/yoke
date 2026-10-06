@@ -9,9 +9,9 @@ matching item's ``status`` MUST be in the implementation-phase set:
 
 Committing on a ``YOK-N`` branch while the item is still ``refined-idea``
 (or anything past ``polishing-implementation``) is a procedural miss:
-the agent skipped advance's status flip, or polish/usher already moved
-the item beyond commit-eligible. The guard refuses the commit and
-points at ``/yoke advance YOK-N implementation`` (or ``--no-verify``
+the implementation-entry transition was skipped, or polish/usher already
+moved the item beyond commit-eligible. The guard refuses the commit and
+points at ``/yoke implement YOK-N`` (or ``--no-verify``
 as the documented operator escape hatch).
 
 This closes the procedural gap where a worktree branch can receive
@@ -99,13 +99,13 @@ def _format_block(public_ref: str, observed: str) -> str:
         f"Allowed statuses for a worktree-branch commit: "
         f"{', '.join(sorted(ALLOWED_IMPLEMENTATION_STATUSES))}.\n"
         f"\n"
-        f"Likely root cause: advance's finalize step never ran (the "
-        f"refined-idea -> implementing flip was skipped), or polish/usher "
+        f"Likely root cause: the implementation-entry skill never ran the "
+        f"refined-idea -> implementing transition, or polish/usher "
         f"already moved the item past polishing-implementation.\n"
         f"\n"
         f"Remediation:\n"
-        f"  - From refined-idea: run `/yoke advance {public_ref} "
-        f"implementation` to drive the proper transition.\n"
+        f"  - From refined-idea: run `/yoke implement {public_ref}` to "
+        f"drive the proper transition.\n"
         f"  - From a post-polish status: investigate why a worktree "
         f"commit is being attempted; the implementation phase is over.\n"
         f"  - Bypass (operator-asserted): `git commit --no-verify`.\n"

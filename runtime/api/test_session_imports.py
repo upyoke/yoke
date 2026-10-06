@@ -116,9 +116,9 @@ class TestSessionOfferSupportedPaths:
             provider="anthropic",
             model=TEST_MODEL_ID,
             workspace="/tmp/work",
-            supported_paths=["shepherd", "advance"],
+            supported_paths=["shepherd", "implement"],
         )
-        assert offer.supported_paths == ["shepherd", "advance"]
+        assert offer.supported_paths == ["shepherd", "implement"]
 
     def test_supported_paths_round_trip(self):
         offer = _make_offer(supported_paths=["conduct", "usher"])

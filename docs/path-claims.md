@@ -329,7 +329,7 @@ canonical remediation command for skill rendering.
 
 ## Activation timing
 
-Operators do **not** activate path claims by hand during `/yoke advance`. The `Phase 1c — Path Claim Activation` step (`packages/yoke-core/src/yoke_core/domain/advance_path_claim_activation.py`) runs automatically between the path-claim-required gate and the worktree phase, flipping `state='planned'` to `active` for every claim the session owns. Blocked claims stop the advance — that is a real upstream coordination signal. The command-shaped activation adapter remains break-glass only for mid-implementation amendments and is no longer the default.
+Operators do **not** activate path claims by hand during `/yoke implement`. The `Phase 1c — Path Claim Activation` step (`packages/yoke-core/src/yoke_core/domain/advance_path_claim_activation.py`) runs automatically between the path-claim-required gate and the worktree phase, flipping `state='planned'` to `active` for every claim the session owns. Blocked claims stop the advance — that is a real upstream coordination signal. The command-shaped activation adapter remains break-glass only for mid-implementation amendments and is no longer the default.
 
 ## Integration target resolution
 

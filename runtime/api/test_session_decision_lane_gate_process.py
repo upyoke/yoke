@@ -23,7 +23,7 @@ from yoke_core.api.process_offer_policy import ProcessOfferPolicy
 
 
 PROCESS_POLICY: Dict[str, List[str]] = {
-    "DARIUS": ["shepherd", "advance", "conduct", "usher"],
+    "DARIUS": ["shepherd", "implement", "conduct", "usher"],
     "ALTMAN": ["refine", "polish", "feed"],
 }
 

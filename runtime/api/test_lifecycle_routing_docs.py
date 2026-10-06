@@ -296,7 +296,7 @@ class TestCodexCapabilityDocs:
         expected = {
             "/yoke idea",
             "/yoke refine",
-            "/yoke advance",
+            "/yoke implement",
             "/yoke polish",
             "/yoke usher",
         }
@@ -308,7 +308,7 @@ class TestCodexCapabilityDocs:
         supports = manifest.get("supports", {})
         assert "downstream_paths" not in supports
         paths = shared_downstream_paths()
-        expected = {"shepherd", "refine", "advance", "polish", "usher"}
+        expected = {"shepherd", "refine", "implement", "polish", "usher"}
         assert expected.issubset(set(paths)), (
             f"shared registry must advertise {expected} downstream paths, got {paths}"
         )

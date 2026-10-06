@@ -34,7 +34,7 @@ def test_project_rules_define_current_item_verification_ownership():
 
 def test_lifecycle_verification_surfaces_reference_global_policy():
     surfaces = [
-        _read(".agents/skills/yoke/advance/implementing/test-and-record.md"),
+        _read(".agents/skills/yoke/implement/implementing/test-and-record.md"),
         _read(".agents/skills/yoke/conduct/dispatch-context-verify.md"),
         _read(".agents/skills/yoke/polish/verify-and-commit.md"),
         _read(".agents/skills/yoke/usher/merge-conflicts.md"),

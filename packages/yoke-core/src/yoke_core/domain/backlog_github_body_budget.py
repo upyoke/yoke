@@ -56,13 +56,13 @@ _COMMANDS_BY_LIFECYCLE: dict[str, list[str]] = {
         "`/yoke refine {id}` — continue refining the spec.",
     ],
     "refined-idea": [
-        "`/yoke advance {id} implementation` — start an implementation lane.",
+        "`/yoke implement {id}` — start an implementation lane.",
     ],
     "implementing": [
-        "`/yoke advance {id} reviewing-implementation` — open review loop.",
+        "`/yoke implement {id}` — continue implementation into review.",
     ],
     "reviewing-implementation": [
-        "`/yoke advance {id} reviewed-implementation` — close review loop.",
+        "`/yoke implement {id}` — finish the review loop.",
     ],
     "reviewed-implementation": [
         "`/yoke polish {id}` — final polish pass before merge.",

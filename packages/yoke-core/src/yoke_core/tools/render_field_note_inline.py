@@ -71,6 +71,7 @@ INVENTORY: tuple[str, ...] = (
     ".agents/skills/yoke/feed/SKILL.md",
     ".agents/skills/yoke/help/SKILL.md",
     ".agents/skills/yoke/idea/SKILL.md",
+    ".agents/skills/yoke/implement/SKILL.md",
     ".agents/skills/yoke/polish/SKILL.md",
     ".agents/skills/yoke/refine/SKILL.md",
     ".agents/skills/yoke/resync/SKILL.md",

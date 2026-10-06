@@ -61,7 +61,7 @@ class _StubConn:
 _DEFAULT_PAYLOAD = {
     "chain_step": 3,
     "project": "yoke",
-    "routed_action": "advance",
+    "routed_action": "implement",
     "failure_class": "cwd_drift",
     "remediation_owner": "YOK-1862",
     "current_status": "implementing",
@@ -144,7 +144,7 @@ class TestSuccessfulDispatch(unittest.TestCase):
         entry = {
             "skip_reason": "recoverable_substrate",
             "chain_step": 3,
-            "routed_action": "advance",
+            "routed_action": "implement",
             "failure_class": "cwd_drift",
             "remediation_owner": "YOK-1862",
             "useful_work_began": False,
@@ -234,7 +234,7 @@ class TestDispatchIntegration(unittest.TestCase):
         stub_entry = {
             "skip_reason": "recoverable_substrate",
             "chain_step": 7,
-            "routed_action": "advance",
+            "routed_action": "implement",
             "failure_class": "path-claim-overlap-incompatible",
             "remediation_owner": "YOK-1862",
             "useful_work_began": False,

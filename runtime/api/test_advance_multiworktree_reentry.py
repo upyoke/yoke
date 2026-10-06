@@ -1,21 +1,21 @@
-"""Tests for advance re-entry and single-lane policy surfaces."""
+"""Tests for implement re-entry and single-lane policy surfaces."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 SKILL_ROOT = Path(__file__).parents[2] / ".agents" / "skills" / "yoke"
-ADVANCE_REENTRY_MD = SKILL_ROOT / "advance" / "reentry.md"
+IMPLEMENT_REENTRY_MD = SKILL_ROOT / "implement" / "reentry.md"
 FINALIZE_MD = SKILL_ROOT / "advance" / "finalize.md"
 PROJECT_E2E_MD = SKILL_ROOT / "advance" / "project-e2e.md"
 TESTER_TEMPLATE_MD = SKILL_ROOT / "shared" / "tester-dispatch-template.md"
 
 
-class TestAdvanceSkillReentry:
-    """Advance re-entry follows the worktree policy selected by the item pin."""
+class TestImplementSkillReentry:
+    """Implement re-entry follows the worktree policy selected by the item pin."""
 
     def _read(self) -> str:
-        return ADVANCE_REENTRY_MD.read_text()
+        return IMPLEMENT_REENTRY_MD.read_text()
 
     def test_single_lane_reentry_reads_the_active_item_worktree_lane(self):
         """A single implementation lane reads the canonical lane model."""
@@ -29,16 +29,15 @@ class TestAdvanceSkillReentry:
         """A multi-lane policy must emit CONTRACT ERROR and redirect."""
         text = self._read()
         assert "CONTRACT ERROR" in text, (
-            "advance/reentry.md is missing the CONTRACT ERROR guard for "
+            "implement/reentry.md is missing the CONTRACT ERROR guard for "
             "multi-lane worktree policies"
         )
 
-    def test_redirect_to_conduct(self):
-        """Conduct-owned multi-lane re-entry must redirect to /yoke conduct."""
+    def test_multi_lane_redirects_through_the_pinned_binding(self):
+        """Multi-lane re-entry names the binding's skill, not a remembered one."""
         text = self._read()
-        assert "/yoke conduct" in text, (
-            "advance/reentry.md does not redirect conduct-owned lanes to /yoke conduct"
-        )
+        assert "Run the skill its pinned binding names for that stage." in text
+        assert "/yoke conduct" not in text
 
 
 class TestLanePolicySurfaces:

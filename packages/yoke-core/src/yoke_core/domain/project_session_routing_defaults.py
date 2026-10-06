@@ -22,7 +22,7 @@ _SESSION_ROUTING_DEFAULTS: dict[str, Any] = {
     "lane_paths": {
         "DARIUS": [
             "shepherd",
-            "advance",
+            "implement",
             "conduct",
             "dash",
             "blitz",

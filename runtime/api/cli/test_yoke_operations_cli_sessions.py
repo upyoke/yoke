@@ -164,7 +164,7 @@ def test_sessions_offer_rejects_caller_asserted_identity() -> None:
         ("--provider", "openai"),
         ("--workspace", "/tmp/workspace"),
         ("--model", "some-model"),
-        ("--supported-paths", "advance"),
+        ("--supported-paths", "implement"),
     ):
         assert _run("sessions", "offer", flag, value) == 2
 

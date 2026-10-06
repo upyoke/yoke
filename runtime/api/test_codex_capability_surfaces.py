@@ -1,7 +1,7 @@
 """Regression checks for Codex capability prose outside the primary docs.
 
 The shared Yoke registry is the capability source. These checks cover
-secondary operator surfaces that previously kept stale ``advance`` omissions
+secondary operator surfaces that previously kept stale ``implement`` omissions
 after the registry and main docs were corrected.
 
 Note: collapsed Codex's session-lifecycle rendering into the shared
@@ -35,8 +35,8 @@ def _repo_root() -> Path:
 
 
 REPO = _repo_root()
-EXPECTED_ADVANCE_COMMAND = "/yoke advance PREFIX-N implementation"
-EXPECTED_PATHS = "shepherd, refine, advance, dash, blitz, polish, usher"
+EXPECTED_IMPLEMENT_COMMAND = "/yoke implement PREFIX-N"
+EXPECTED_PATHS = "shepherd, refine, implement, dash, blitz, polish, usher"
 
 
 def _read(rel_path: str) -> str:
@@ -45,11 +45,11 @@ def _read(rel_path: str) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def test_codex_hook_orientation_lists_registry_advance_path():
+def test_codex_hook_orientation_lists_registry_implement_path():
     # Registry-based source-of-truth checks retained after the cutover.
     # The Codex per-event orientation rendering helpers were deleted with the
     # legacy ``codex_hooks`` module; the registry is the contract surface.
-    assert EXPECTED_ADVANCE_COMMAND in compact_entrypoint_display()
+    assert EXPECTED_IMPLEMENT_COMMAND in compact_entrypoint_display()
     assert ", ".join(shared_downstream_paths()) == EXPECTED_PATHS
 
 
@@ -68,12 +68,12 @@ def test_direct_execution_paths_are_offerable():
     assert "blitz" in paths
 
 
-def test_codex_smoke_matrix_expects_advance_path():
+def test_codex_smoke_matrix_expects_implement_path():
     text = _read("runtime/harness/codex/SMOKE-TEST.md")
 
     assert f"Supported paths: {EXPECTED_PATHS}" in text
     assert f"supported_paths: {EXPECTED_PATHS}" in text
-    assert "/yoke advance YOK-{N} implementation" in text
+    assert "/yoke implement YOK-{N}" in text
     assert "shepherd, refine, polish, usher" not in text
 
 
@@ -87,16 +87,16 @@ def test_hook_parity_map_matches_codex_shared_registry_summary():
     assert "safe operator surface" in text
     assert "narrower session-offer registry" in text
     assert "rather than copying either registry view" in text
-    assert "/yoke advance" in text
+    assert "/yoke implement" in text
     assert "/yoke conduct" in text
-    assert "`advance`" in text
+    assert "`implement`" in text
     assert "direct Codex invocation" in text
     assert "Conduct is not a session-offer entrypoint or downstream path" in text
     assert "five entrypoints" not in text
     assert "four downstream paths" not in text
 
 
-def test_command_references_dual_classify_advance():
+def test_command_references_teach_implement_and_internal_advance():
     for rel_path in (
         ".yoke/docs/reference/commands.md",
         ".agents/skills/yoke/SKILL.md",
@@ -104,9 +104,8 @@ def test_command_references_dual_classify_advance():
     ):
         text = _read(rel_path)
         # These files ship verbatim into target projects, so they teach the
-        # generic ``PREFIX-N`` placeholder rather than this repo's item prefix
-        # that ``EXPECTED_ADVANCE_COMMAND`` asserts against the live registry.
-        assert "/yoke advance PREFIX-N implementation" in text
-        assert "other than `implementation`" in text or (
-            "advance targets other than implementation" in text
-        )
+        # generic ``PREFIX-N`` placeholder rather than this repo's item prefix.
+        assert "/yoke implement PREFIX-N" in text
+        assert "/yoke advance PREFIX-N implementation" not in text
+        assert "other than `implementation`" not in text
+        assert "advance targets other than implementation" not in text
