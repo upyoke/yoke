@@ -16,6 +16,7 @@ from yoke_cli.commands.adapters.deployment_approval_output import (
     write_run_approval,
 )
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.deployment_settlement_teaching import UPDATE_DESCRIPTION
 from yoke_contracts.deployment_itemless_teaching import (
     ITEMLESS_RELEASE_RECIPE,
     RESOLVE_TARGET_DESCRIPTION,
@@ -228,7 +229,9 @@ def deployment_runs_list(args: List[str]) -> int:
 def deployment_runs_update(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs update",
-        description=DEPLOYMENT_RUNS_UPDATE_USAGE,
+        usage=DEPLOYMENT_RUNS_UPDATE_USAGE,
+        description=UPDATE_DESCRIPTION,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("run_id")
     parser.add_argument("field")
@@ -239,10 +242,6 @@ def deployment_runs_update(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, DEPLOYMENT_RUNS_UPDATE_USAGE)
     if parsed is None:
         return 2
-
-    def _human_writer(response, stdout, stderr) -> None:
-        return None
-
     return dispatch_and_emit(
         function_id="deployment_runs.update",
         target=_run_target(parsed.run_id),
@@ -253,7 +252,7 @@ def deployment_runs_update(args: List[str]) -> int:
         },
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
-        human_writer=_human_writer,
+        human_writer=lambda *_: None,
     )
 
 

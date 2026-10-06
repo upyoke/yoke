@@ -171,6 +171,9 @@ def _readiness(conn: Any, run_id: str) -> tuple[dict[str, Any] | None, str]:
         if str(_row_value(member, "delivery_intent", 1) or "") != "final":
             continue
         from yoke_core.domain.deployment_run_member_targeting import supplemental_qa_run
+        from yoke_core.domain.deployment_run_other_target_members import (
+            owes_only_other_targets,
+        )
 
         if supplemental_qa_run(conn, run_id=run_id, item_id=item_id):
             continue
@@ -180,7 +183,9 @@ def _readiness(conn: Any, run_id: str) -> tuple[dict[str, Any] | None, str]:
                 conn, item_id=item_id, run_id=run_id
             ):
                 return None, f"final member {item_id} still owes item delivery or QA"
-        elif item_status != "done":
+        elif item_status != "done" and not owes_only_other_targets(
+            conn, run_id=run_id, item_id=item_id
+        ):
             return None, f"final member {item_id} has not independently closed"
     return {
         "members": [int(_row_value(member, "item_id", 0)) for member in members],

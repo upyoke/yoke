@@ -6,6 +6,18 @@ import json
 from typing import Any
 
 
+def run_environment_name(conn: Any, run_id: str) -> str:
+    """The environment a run delivers to: its own target, else its flow's."""
+    row = conn.execute(
+        "SELECT e.name FROM deployment_runs dr "
+        "JOIN deployment_flows df ON df.id=dr.flow "
+        "LEFT JOIN environments e ON e.id=COALESCE(dr.target_environment_id,df.target_environment_id) "
+        "WHERE dr.id=%s",
+        (str(run_id),),
+    ).fetchone()
+    return str((row[0] if row else "") or "")
+
+
 def supplemental_qa_run(conn: Any, *, run_id: str, item_id: int) -> bool:
     """A different persistent environment proves QA without final delivery.
 
@@ -153,7 +165,13 @@ def _selected_sets(conn, rows):
 def covering_holder_pairs(
     conn: Any, *, run_id: str, item_ids, holders
 ) -> frozenset[tuple[str, int]]:
-    """Preserve final-target custody; split only supplemental target obligations."""
+    """Which holders already deliver what this run would deliver for each item.
+
+    Holding is per target environment. A holder on the item's final target
+    keeps final-target custody. For a supplemental run, only a holder on the
+    same environment can answer its targeted obligations, so a production run
+    never holds an item away from the stage run that owes it stage QA.
+    """
     from yoke_core.domain.deployment_item_flow_resolution import item_completion_flows
 
     ids = tuple(dict.fromkeys(int(value) for value in item_ids))
@@ -182,6 +200,7 @@ def covering_holder_pairs(
         else ()
     )
     environments = {str(row[0]): str(row[1] or "") for row in flow_envs}
+    run_environment = run_environment_name(conn, run_id)
     selected = _selected_sets(conn, rows)
     covered = set()
     for row in rows:
@@ -195,6 +214,8 @@ def covering_holder_pairs(
         )
         if item_id not in supplemental:
             keep = not holder_supplemental
+        elif str(row["run_environment"] or "") != run_environment:
+            keep = False
         elif not row["requirement_snapshot"] and not row["requirement_selection"]:
             keep = True
         else:

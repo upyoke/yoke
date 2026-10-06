@@ -8,6 +8,10 @@ flow with no run QA or run approval can therefore close a final member when
 its own final production QA passes or is explicitly discharged. A shared QA
 or approval gate holds all members until the run succeeds.
 
+A member delivered by its completion run while another environment's
+obligations were still open closes the same way once a run on that
+environment accepts them.
+
 The satisfied path reuses the existing merge close-out. A refused close-out
 uses the existing member wake with its reason and recovery. A failed send
 is isolated so it cannot undo the acceptance that just committed.
@@ -143,32 +147,33 @@ def notify_item_qa_accepted(
     member = _release_wait_member(conn, int(item_id))
     if member is None:
         return ""
-    close_out_failure = ""
-    if independent_member_delivery_ready(
-        conn, item_id=int(item_id), run_id=str(run_id)
-    ):
-        from yoke_core.domain.no_obligation_member_close_out import (
-            close_out_satisfied_delivery_member,
-        )
-
-        closed = close_out_satisfied_delivery_member(
-            conn,
-            item_id=int(item_id),
-            public_ref=str(member["public_ref"]),
-            run_id=str(run_id),
-        )
-        if closed.applies and closed.ok:
-            return "closed"
-        if closed.applies:
-            close_out_failure = closed.detail
+    from yoke_core.domain.deployment_run_other_target_members import (
+        close_after_other_target_acceptance,
+    )
     from yoke_core.domain.no_obligation_member_close_out import (
+        close_out_satisfied_delivery_member,
         recorded_no_obligation,
     )
 
+    close_out_failure = ""
+    public_ref = str(member["public_ref"])
+    if independent_member_delivery_ready(
+        conn, item_id=int(item_id), run_id=str(run_id)
+    ):
+        closed = close_out_satisfied_delivery_member(
+            conn, item_id=int(item_id), public_ref=public_ref, run_id=str(run_id)
+        )
+    else:
+        closed = close_after_other_target_acceptance(
+            conn, item_id=int(item_id), public_ref=public_ref, run_id=str(run_id)
+        )
+    if closed is not None and closed.applies:
+        if closed.ok:
+            return "closed"
+        close_out_failure = closed.detail
     if recorded_no_obligation(conn, int(item_id)) and not close_out_failure:
         return ""
     stamp = now or datetime.now(timezone.utc)
-    public_ref = str(member["public_ref"])
     try:
         conn.execute(f"SAVEPOINT {_SEND_SAVEPOINT}")
     except Exception as exc:  # noqa: BLE001 - reported, never reverses acceptance
