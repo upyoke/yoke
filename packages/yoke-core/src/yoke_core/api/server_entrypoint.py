@@ -31,7 +31,7 @@ from yoke_core.api.trusted_proxy import (
     DEFAULT_TRUSTED_PROXIES,
     TRUSTED_PROXIES_ENV,
     parse_trusted_proxies,
-    run_self_host,
+    run_server,
 )
 
 
@@ -119,7 +119,7 @@ def build_parser(env: Optional[Mapping[str, str]] = None) -> argparse.ArgumentPa
         "--trusted-proxies",
         default=source.get(TRUSTED_PROXIES_ENV, DEFAULT_TRUSTED_PROXIES),
         type=parse_trusted_proxies,
-        help="Trusted proxy IPs/CIDRs, comma-separated; empty trusts none (self-host).",
+        help="Trusted proxy IPs/CIDRs, comma-separated; empty trusts none.",
     )
     return parser
 
@@ -292,8 +292,6 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     hosted = universe_startup_lock.hosted_tenant_container_process()
 
     def _serve() -> None:
-        import uvicorn
-
         kwargs = dict(
             host=settings.host,
             port=settings.port,
@@ -302,10 +300,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             access_log=False,
             log_config=None,
         )
-        if hosted:
-            uvicorn.run(settings.app, **kwargs)
-        else:
-            run_self_host(settings, **kwargs)
+        run_server(settings, **kwargs)
 
     with universe_startup_lock.server_startup_guard(db_backend.resolve_pg_dsn()):
         if not universe_is_born():
