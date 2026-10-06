@@ -26,6 +26,22 @@ from yoke_core.api.service_client_shared import (
 )
 
 
+def approval_flow_id(conn, pinned, active_run) -> str:
+    """The flow whose stages an approval advances.
+
+    A run already carrying the item keeps its own stages, so an active run
+    started on a since-retired flow is approved against that flow. With no
+    active run, a pin to a retired flow approves its active successor. An
+    item with no pin has nothing to approve against.
+    """
+    pinned = str(pinned or "").strip()
+    if not pinned:
+        return ""
+    if active_run is not None and active_run.flow:
+        return str(active_run.flow)
+    return successor_flows(conn, [pinned]).get(pinned, pinned)
+
+
 def cmd_approve_check(args: list[str]) -> int:
     """Validate approval for a flow stage and return the next stage.
 
@@ -110,22 +126,6 @@ def cmd_apply_approval(args: list[str]) -> int:
             }))
             return 1
 
-        flow_stages = []
-        if item_state.deployment_flow:
-            # A pin to a retired flow approves stages of its active successor,
-            # the flow whose run is actually carrying the item.
-            pinned = str(item_state.deployment_flow)
-            item_state = dataclasses.replace(
-                item_state,
-                deployment_flow=successor_flows(conn, [pinned]).get(pinned, pinned),
-            )
-            flow_row = conn.execute(
-                "SELECT stages FROM deployment_flows WHERE id = %s",
-                (item_state.deployment_flow,),
-            ).fetchone()
-            if flow_row:
-                flow_stages = approval.parse_flow_stages(flow_row["stages"])
-
         run_rows = conn.execute(
             """SELECT dr.*, p.slug AS project FROM deployment_run_items dri
                JOIN deployment_runs dr ON dr.id = dri.run_id
@@ -146,6 +146,17 @@ def cmd_apply_approval(args: list[str]) -> int:
             )
             for r in run_rows
         ])
+
+        flow_stages = []
+        flow_id = approval_flow_id(conn, item_state.deployment_flow, active_run)
+        if flow_id:
+            item_state = dataclasses.replace(item_state, deployment_flow=flow_id)
+            flow_row = conn.execute(
+                "SELECT stages FROM deployment_flows WHERE id = %s",
+                (flow_id,),
+            ).fetchone()
+            if flow_row:
+                flow_stages = approval.parse_flow_stages(flow_row["stages"])
 
         member_item_ids = []
         if active_run:

@@ -124,7 +124,9 @@ def deployment_flows_set_status(args: List[str]) -> int:
         description=(
             "Enable or disable a deployment flow without removing its "
             "definition or historical runs. Items pinned to a disabled flow "
-            "follow its newest active successor (supersedes_flow_id)."
+            "follow its newest active same-target successor for admission, "
+            "completion, and start-for-item; a delivery already made on the "
+            "disabled flow still closes them."
         ),
     )
     parser.add_argument("flow_id")
