@@ -35,6 +35,7 @@ from yoke_core.domain.qa_deployment_case_correction_window import (
     determinate_verdict,
 )
 from yoke_core.domain.qa_plan_management import QaPlanError
+from yoke_core.domain.qa_requirement_pass_currency import executable_method_config
 from yoke_core.domain.qa_obligation_settlement import (
     obligation_settled,
     requirement_retracted_at_select,
@@ -75,8 +76,15 @@ def _normalized(value: Any) -> Any:
 
 
 def case_content_digest(case: Mapping[str, Any]) -> str:
-    """Stable identity for the executable content of one case."""
+    """Stable identity for the executable content of one case.
+
+    ``method_config`` is compared in its executable form: the in-place
+    correction marker a requirement update stamps on a row is not content,
+    and counting it made a corrected-but-current row read as changed.
+    """
     payload = {field: _normalized(case.get(field)) for field in _CONTENT_FIELDS}
+    if isinstance(payload["method_config"], Mapping):
+        payload["method_config"] = executable_method_config(payload["method_config"])
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()[:_DIGEST_LENGTH]
 
@@ -104,6 +112,28 @@ def _discharged_or_failed(conn: Any, row: Mapping[str, Any]) -> bool:
     return bool(verdict) and str(verdict[0]["verdict"] or "") == "fail"
 
 
+def carried_by_declared_replacement(conn: Any, rows: list[Mapping[str, Any]]) -> bool:
+    """Whether a corrected case outside *rows* still carries their attempt.
+
+    A failed row pointed at a replacement declared from another plan (an
+    explicit ``--replaces``) is already being answered there; a second,
+    automatic correction would compete with it. A replacement among *rows*
+    themselves, or one that has itself failed, carries nothing further: the
+    next correction inherits the whole chain (:func:`point_at_replacement`).
+    """
+    own = {int(row["id"]) for row in rows}
+    for row in rows:
+        replacement_id = row.get("replacement_requirement_id")
+        if (
+            replacement_id
+            and not obligation_settled(row)
+            and int(replacement_id) not in own
+            and determinate_verdict(conn, int(replacement_id)) != "fail"
+        ):
+            return True
+    return False
+
+
 def _rows_by_case(
     conn: Any,
     *,
@@ -117,7 +147,8 @@ def _rows_by_case(
     rows = query_rows(
         conn,
         "SELECT id,plan_case_key,method_id,method_config,instructions,"
-        f"expected_outcome,waived_at,superseded_by_requirement_id,{requirement_retracted_at_select(conn)} "
+        "expected_outcome,waived_at,superseded_by_requirement_id,"
+        f"replacement_requirement_id,{requirement_retracted_at_select(conn)} "
         "FROM qa_requirements WHERE deployment_run_id=%s AND deployment_stage=%s "
         "AND COALESCE(deployment_member_item_id,0)=%s AND plan_id=%s "
         "AND execution_target_digest=%s ORDER BY id",
@@ -144,6 +175,7 @@ def refreshed_case_keys(
     plan_id: int,
     execution_target_digest: str,
     cases: list[Mapping[str, Any]],
+    explicitly_replaced: frozenset[int] = frozenset(),
 ) -> dict[str, str]:
     """Map each case key that needs a fresh row to the key it takes.
 
@@ -153,6 +185,11 @@ def refreshed_case_keys(
     stands for a case whose content has since moved: no fresh row may compete
     with it, and walking it as it stands would judge against content the
     plan replaced. The refusal names the refresh that brings it current.
+
+    A case whose failed row is being replaced explicitly (``--replaces``, in
+    this call or an earlier one) gets no automatic row: the named corrected
+    case already carries that attempt, and a second, automatic one would
+    compete with it (:func:`carried_by_declared_replacement`).
     """
     by_key = _rows_by_case(
         conn,
@@ -183,6 +220,10 @@ def refreshed_case_keys(
                 if not obligation_settled(row)
                 and not determinate_verdict(conn, int(row["id"]))
             )
+            continue
+        if any(int(row["id"]) in explicitly_replaced for row in materialized):
+            continue
+        if carried_by_declared_replacement(conn, materialized):
             continue
         refreshed[key] = refreshed_case_key(key, digest)
     if behind:
@@ -257,6 +298,7 @@ def declare_refreshed_replacements(conn: Any, created_ids: list[int]) -> None:
 
 __all__ = [
     "REFRESH_KEY_SEPARATOR",
+    "carried_by_declared_replacement",
     "declare_refreshed_replacements",
     "base_case_key",
     "case_content_digest",

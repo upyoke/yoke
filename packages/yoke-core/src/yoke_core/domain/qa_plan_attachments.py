@@ -212,55 +212,44 @@ def materialize_for_item(
         attachments=attachments,
     )
     marker = _placeholder(conn)
+    subject = f"{render_item_ref(conn, item_id)} transition {transition_id!r}"
     created: list[int] = []
     existing: list[int] = []
     now = iso8601_now()
-    snapshots: dict[int, tuple[Any, dict, list[Any], list[int], dict]] = {}
+    # Validate every plan before the first write. A plan that already has rows
+    # is not skipped: a case added after the first materialization still owes
+    # its own row, while an existing row is confirmed rather than rewritten
+    # (``qa.plan.rematerialize`` is what brings an amended row current).
+    snapshots: list[tuple[int, Any, dict, list[Any], dict]] = []
     for plan_id, attachment in attachments.items():
-        plan = _plan_row(conn, plan_id)
         execution_target = resolve_plan_execution_target(
             conn, plan_id=plan_id, require_runtime_match=False
         )
-        existing_rows = query_rows(
-            conn,
-            "SELECT id,execution_target_json,execution_target_digest "
-            "FROM qa_requirements "
-            f"WHERE item_id={marker} AND plan_id={marker} "
-            f"AND workflow_transition_id={marker} ORDER BY id",
-            (item_id, plan_id, transition_id),
-        )
-        existing_ids = require_existing_target(
-            existing_rows,
-            execution_target=execution_target,
-            subject=f"{render_item_ref(conn, item_id)} transition {transition_id!r}",
-            conn=conn,
-        )
-        if existing_ids:
-            snapshots[plan_id] = (
-                plan,
-                attachment,
-                [],
-                existing_ids,
-                execution_target,
+        existing.extend(
+            require_existing_target(
+                query_rows(
+                    conn,
+                    "SELECT id,execution_target_json,execution_target_digest "
+                    "FROM qa_requirements "
+                    f"WHERE item_id={marker} AND plan_id={marker} "
+                    f"AND workflow_transition_id={marker} ORDER BY id",
+                    (item_id, plan_id, transition_id),
+                ),
+                execution_target=execution_target,
+                subject=subject,
+                conn=conn,
             )
-            continue
+        )
         cases = plan_cases(conn, plan_id)
         if not cases:
             raise QaPlanError(
                 f"QA plan {plan_id} has no cases and cannot be materialized"
             )
-        snapshots[plan_id] = (plan, attachment, cases, [], execution_target)
+        snapshots.append(
+            (plan_id, _plan_row(conn, plan_id), attachment, cases, execution_target)
+        )
 
-    for plan_id, (
-        plan,
-        attachment,
-        cases,
-        existing_ids,
-        execution_target,
-    ) in snapshots.items():
-        if existing_ids:
-            existing.extend(existing_ids)
-            continue
+    for plan_id, plan, attachment, cases, execution_target in snapshots:
         for case in cases:
             for baseline_position, baseline in enumerate(case_baselines(case), start=1):
                 requirement_id = insert_requirement(
@@ -286,15 +275,13 @@ def materialize_for_item(
                     baseline=baseline,
                     transition_id=transition_id,
                 )
-                if requirement_id is not None:
+                if requirement_id is not None and requirement_id not in existing:
                     existing.append(
                         require_requirement_id_target(
                             conn,
                             requirement_id=requirement_id,
                             execution_target=execution_target,
-                            subject=(
-                                f"{render_item_ref(conn, item_id)} transition {transition_id!r}"
-                            ),
+                            subject=subject,
                         )
                     )
     if commit:

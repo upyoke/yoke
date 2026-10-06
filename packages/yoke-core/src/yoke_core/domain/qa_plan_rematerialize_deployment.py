@@ -7,12 +7,17 @@ it mattered: a materialized case is unique on
 corrected plan case could never arrive as a second row. Correcting a case
 meant publishing a whole new plan, or giving up and waiving the broken one.
 
-Refreshing in place is the fix, bounded by what a run-bound case owes. A case
-that has not recorded a determinate verdict is a case nobody has judged, so
-its content is refreshed from the plan exactly as the item path does. A case
-that has answered is an acceptance record, so this refuses rather than
-rewriting it, and names the corrected-case route
-(:mod:`qa_requirement_supersession`) for that row.
+Rematerializing converges the subject on its plans in one pass, case by
+case, so one answered sibling never holds the rest of the roster hostage:
+
+* a case added to the plan gets its first row;
+* a row nobody has judged is refreshed in place from the plan;
+* a case whose rows all failed or were discharged, and whose content has
+  since changed, gets one corrected row under a distinct key, declared the
+  replacement of the failed attempts (:mod:`qa_requirement_replacement`) --
+  the failed rows keep their evidence and are superseded once it passes;
+* a case already passed stays an acceptance record and is not rewritten;
+* a row whose case left the plan is waived.
 
 The subject's target is never moved. A deployment row is pinned to the target
 its stage receipt observed, so every refresh re-uses the digest already on the
@@ -23,15 +28,28 @@ silently re-point a frozen run at whatever the plan points at today.
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain.db_helpers import iso8601_now, query_rows
 from yoke_core.domain.qa_deployment_case_correction_window import (
     determinate_verdict,
 )
+from yoke_core.domain.qa_deployment_case_content_refresh import (
+    base_case_key,
+    carried_by_declared_replacement,
+    case_content_digest,
+    declare_refreshed_replacements,
+    refreshed_case_key,
+)
+from yoke_core.domain.qa_obligation_settlement import (
+    obligation_settled,
+    requirement_retracted_at_select,
+)
 from yoke_core.domain.qa_plan_case_definition import case_baselines, plan_cases
 from yoke_core.domain.qa_plan_management import QaPlanError, _placeholder, _plan_row
 from yoke_core.domain.qa_plan_refresh_safety import require_no_live_execution
+from yoke_core.domain.qa_plan_rematerialize import REPLACEMENT_RATIONALE
 from yoke_core.domain.qa_plan_requirement_snapshot import (
     existing_requirement_id,
     insert_requirement,
@@ -57,8 +75,10 @@ def _scoped_rows(
         for row in query_rows(
             conn,
             "SELECT id,plan_id,plan_case_key,host_baseline,waived_at,"
-            "superseded_by_requirement_id,execution_target_json,"
-            "execution_target_digest FROM qa_requirements "
+            "superseded_by_requirement_id,replacement_requirement_id,"
+            "execution_target_json,execution_target_digest,method_id,method_config,instructions,"
+            f"expected_outcome,{requirement_retracted_at_select(conn)} "
+            "FROM qa_requirements "
             f"WHERE deployment_run_id={marker} AND deployment_stage={marker} "
             f"AND COALESCE(deployment_member_item_id,0)={marker} "
             "AND plan_id IS NOT NULL ORDER BY id",
@@ -92,6 +112,71 @@ def _pinned_target(rows: list[dict[str, Any]], *, subject: str) -> dict[str, Any
     return decoded
 
 
+def _needs_corrected_row(
+    conn: Any, case: Mapping[str, Any], group: list[dict[str, Any]]
+) -> bool:
+    """Whether this case owes a row it does not have yet.
+
+    True for a case never materialized here, and for one whose every row has
+    failed or been discharged while its content moved on since -- unless a
+    declared replacement already carries those attempts. An unchanged
+    case stays idempotent however its rows ended, and a passed row stands.
+    """
+    if not group:
+        return True
+    if carried_by_declared_replacement(conn, group):
+        return False
+    digest = case_content_digest(case)
+    if any(case_content_digest(row) == digest for row in group):
+        return False
+    return all(
+        obligation_settled(row) or determinate_verdict(conn, int(row["id"])) == "fail"
+        for row in group
+    )
+
+
+def _insert_case(
+    conn: Any,
+    *,
+    subject: str,
+    deployment_run_id: str,
+    deployment_stage: str,
+    deployment_member_item_id: int | None,
+    plan: Any,
+    case: Mapping[str, Any],
+    baseline: Any,
+    baseline_position: int,
+    execution_target: dict[str, Any],
+) -> int:
+    scope = {
+        "deployment_run_id": deployment_run_id,
+        "deployment_stage": deployment_stage,
+        "deployment_member_item_id": deployment_member_item_id,
+    }
+    inserted = insert_requirement(
+        conn,
+        **scope,
+        plan=plan,
+        attachment=_DEPLOYMENT_ATTACHMENT,
+        case=case,
+        baseline=baseline,
+        baseline_position=baseline_position,
+        now=iso8601_now(),
+        execution_target=execution_target,
+    )
+    if inserted is None:
+        inserted = existing_requirement_id(
+            conn,
+            **scope,
+            plan_id=int(plan["id"]),
+            case_key=str(case["case_key"]),
+            baseline=baseline,
+        )
+    if inserted is None:
+        raise QaPlanError(f"{subject} could not materialize case {case['case_key']!r}")
+    return int(inserted)
+
+
 def rematerialize_for_deployment_stage(
     conn: Any,
     *,
@@ -118,8 +203,7 @@ def rematerialize_for_deployment_stage(
             "the plan onto the stage first"
         )
     execution_target = _pinned_target(rows, subject=subject)
-    # Refused before the first write, for the same reason the answered-case
-    # refusal below rolls back: half a refresh is worse than none.
+    # Refused before the first write: half a refresh is worse than none.
     require_no_live_execution(
         conn,
         subject=subject,
@@ -146,89 +230,77 @@ def rematerialize_for_deployment_stage(
             if plan_id in selected
         }
 
-    answered: list[str] = []
     created: list[int] = []
     refreshed: list[int] = []
+    retained: set[int] = set()
     for plan_id, plan_rows in rows_by_plan.items():
         plan_row = _plan_row(conn, plan_id)
-        existing_ids = {
-            (str(row["plan_case_key"]), row["host_baseline"]): int(row["id"])
-            for row in plan_rows
-        }
+        groups: dict[tuple[str, Any], list[dict[str, Any]]] = {}
+        for row in plan_rows:
+            groups.setdefault(
+                (base_case_key(row["plan_case_key"]), row["host_baseline"]), []
+            ).append(row)
         cases = plan_cases(conn, plan_id)
         if not cases:
             raise QaPlanError(
                 f"QA plan {plan_id} has no cases and cannot be rematerialized"
             )
         for case in cases:
-            for baseline_position, baseline in enumerate(
-                case_baselines(case), start=1
-            ):
-                key = (str(case["case_key"]), baseline)
-                requirement_id = existing_ids.get(key)
-                if requirement_id is None:
-                    inserted = insert_requirement(
+            for baseline_position, baseline in enumerate(case_baselines(case), start=1):
+                group = groups.get((str(case["case_key"]), baseline), [])
+                retained.update(int(row["id"]) for row in group)
+                live = [
+                    row
+                    for row in group
+                    if not obligation_settled(row)
+                    and not determinate_verdict(conn, int(row["id"]))
+                ]
+                for row in live:
+                    # A corrected row keeps the distinct key it was minted
+                    # under; only its content follows the plan.
+                    refresh_requirement(
                         conn,
+                        requirement_id=int(row["id"]),
+                        transition_id=None,
+                        plan=plan_row,
+                        attachment=_DEPLOYMENT_ATTACHMENT,
+                        case={**dict(case), "case_key": row["plan_case_key"]},
+                        baseline=baseline,
+                        baseline_position=baseline_position,
+                        execution_target=execution_target,
+                    )
+                    refreshed.append(int(row["id"]))
+                if live or not _needs_corrected_row(conn, case, group):
+                    continue
+                key = str(case["case_key"])
+                if group:
+                    key = refreshed_case_key(key, case_content_digest(case))
+                created.append(
+                    _insert_case(
+                        conn,
+                        subject=subject,
                         deployment_run_id=str(deployment_run_id),
                         deployment_stage=str(deployment_stage),
                         deployment_member_item_id=deployment_member_item_id,
                         plan=plan_row,
-                        attachment=_DEPLOYMENT_ATTACHMENT,
-                        case=case,
+                        case={**dict(case), "case_key": key},
                         baseline=baseline,
                         baseline_position=baseline_position,
-                        now=iso8601_now(),
                         execution_target=execution_target,
                     )
-                    if inserted is None:
-                        inserted = existing_requirement_id(
-                            conn,
-                            deployment_run_id=str(deployment_run_id),
-                            deployment_stage=str(deployment_stage),
-                            deployment_member_item_id=deployment_member_item_id,
-                            plan_id=plan_id,
-                            case_key=key[0],
-                            baseline=baseline,
-                        )
-                    if inserted is None:
-                        raise QaPlanError(
-                            f"{subject} could not materialize case {key[0]!r}"
-                        )
-                    created.append(int(inserted))
-                    continue
-                verdict = determinate_verdict(conn, requirement_id)
-                if verdict:
-                    answered.append(
-                        f"requirement #{requirement_id} ({key[0]}) already recorded "
-                        f"{verdict}"
-                    )
-                    continue
-                refresh_requirement(
-                    conn,
-                    requirement_id=requirement_id,
-                    transition_id=None,
-                    plan=plan_row,
-                    attachment=_DEPLOYMENT_ATTACHMENT,
-                    case=case,
-                    baseline=baseline,
-                    baseline_position=baseline_position,
-                    execution_target=execution_target,
                 )
-                refreshed.append(requirement_id)
-
-    if answered:
-        # Refused whole rather than partially applied: a caller correcting a
-        # plan wants to know its stage is not uniformly refreshed, and half a
-        # refresh is the state hardest to reason about afterwards.
-        conn.rollback()
-        raise QaPlanError(
-            f"{subject} cannot be refreshed in place because "
-            f"{len(answered)} case(s) have already answered: "
-            f"{'; '.join(answered)}. An answered case is an acceptance record. "
-            "Materialize the corrected case and record it with "
-            "'yoke qa requirement supersede --requirement-id <answered-id> "
-            "--superseded-by-requirement-id <corrected-id> --rationale \"<why>\"' "
-            "once it has passed."
+    declare_refreshed_replacements(conn, created)
+    waived = [
+        int(row["id"])
+        for plan_rows in rows_by_plan.values()
+        for row in plan_rows
+        if int(row["id"]) not in retained and not obligation_settled(row)
+    ]
+    for requirement_id in waived:
+        conn.execute(
+            "UPDATE qa_requirements SET waived_at=%s, waiver_rationale=%s, "
+            "waiver_source=%s WHERE id=%s",
+            (iso8601_now(), REPLACEMENT_RATIONALE, "system", requirement_id),
         )
     if commit:
         conn.commit()
@@ -239,6 +311,7 @@ def rematerialize_for_deployment_stage(
         "plan_ids": sorted(rows_by_plan),
         "created_requirement_ids": created,
         "refreshed_requirement_ids": refreshed,
+        "waived_requirement_ids": waived,
     }
 
 

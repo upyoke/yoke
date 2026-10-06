@@ -66,6 +66,20 @@ list means nothing is behind the plan. Read it — a correction that stops at
 the plan is a correction the case that actually runs never received.
 """
 
+#: Read as ``yoke qa plan materialize --help``: what a repeat call does to a
+#: plan that already has rows, and where an amended row goes instead.
+PLAN_MATERIALIZE_EPILOG = """Materializing a plan that already has rows
+------------------------------------------
+Materialization is convergent for added cases: every case the plan has
+gained since the last call gets its row, and every row already there is
+confirmed, never rewritten. A row whose case has since been amended keeps
+its old body here; `yoke qa plan rematerialize` is what brings it current.
+
+--replaces CASE_KEY=FAILED_REQUIREMENT_ID declares the corrected case the
+replacement of a failed one. A case it names gets no second, automatic
+correction from the stage's own corrected plan, so the two never collide.
+"""
+
 #: Read as ``yoke qa plan rematerialize --help``. The one route from a
 #: corrected plan to the rows that run it, and where it stops.
 PLAN_REMATERIALIZE_EPILOG = """Bringing live rows to the plan's current text
@@ -80,9 +94,19 @@ deployment-stage copy frozen from a refreshed row that can still be reached,
 reported as corrected_admitted_copy_ids -- otherwise the copy would keep the
 old body and its stage would refuse the case as superseded.
 
-A deployment subject refreshes only cases that have not recorded a
-determinate verdict; one that has already answered is an acceptance record,
-so the call refuses and names it for `yoke qa requirement supersede` instead.
+An item transition whose plan a delivery already answered still has its
+existing rows refreshed and its lost cases waived; it gains no new row there,
+because only a run that already finished could answer one. The result's
+plan_ids names every plan the call reached.
+
+A deployment subject converges case by case, so one answered sibling never
+blocks the rest: a row nobody has judged is refreshed in place; a case whose
+rows all failed (or were discharged) and whose content has since changed gets
+one corrected row, declared the replacement of the failed attempts -- they
+keep their evidence and are superseded once it passes; a passed case stands
+as its acceptance record; a case the plan lost is waived. A case already
+carried by a declared replacement (an explicit --replaces) gets no second,
+automatic one.
 The subject keeps the deployment target its stage receipt pinned --
 rematerializing never re-points a frozen run at the plan's current
 environment. A declaration correction of the same environment identity, or a
@@ -167,6 +191,7 @@ USAGE_BY_FUNCTION_ID = {
 
 __all__ = [
     "ITEM_PLAN_ATTACH_EPILOG",
+    "PLAN_MATERIALIZE_EPILOG",
     "PLAN_CASES_REPLACE_EPILOG",
     "PLAN_REMATERIALIZE_EPILOG",
     "USAGE_BY_FUNCTION_ID",
