@@ -16,12 +16,13 @@ export function mountWorkbenchTelemetry(root, windowNode = window) {
   button.disabled = true;
   const status = documentNode.createElement("span");
   status.setAttribute("role", "status");
-  control.append(button, status);
-  root.append(control);
+  control.appendChild(button);
+  control.appendChild(status);
+  root.appendChild(control);
   const stylesheet = documentNode.createElement("link");
   stylesheet.rel = "stylesheet";
   stylesheet.href = new URL("./workbench_telemetry.css", import.meta.url).href;
-  documentNode.head.append(stylesheet);
+  documentNode.head.appendChild(stylesheet);
   let active = true;
   let allowed = false;
   let stop = () => {};
@@ -60,5 +61,10 @@ export function mountWorkbenchTelemetry(root, windowNode = window) {
       if (active) status.textContent = "Analytics unavailable. Reload to retry.";
     }
   })();
-  return () => { active = false; stop(); control.remove(); stylesheet.remove(); };
+  return () => {
+    active = false;
+    stop();
+    control.parentNode?.removeChild(control);
+    stylesheet.parentNode?.removeChild(stylesheet);
+  };
 }

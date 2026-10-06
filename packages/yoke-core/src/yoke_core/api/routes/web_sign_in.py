@@ -204,9 +204,10 @@ def oidc_callback(request: Request) -> Response:
 
         try:
             acquisition = verified_attribution(request)
-        except ValueError:
+        except Exception:
             _log.warning(
-                "attribution_cookie_invalid: clear analytics consent and capture again; signing in without attribution"
+                "attribution_unavailable: restore analytics capture; signing in without attribution",
+                exc_info=True,
             )
             acquisition = None
         resolution = resolve_sign_in(

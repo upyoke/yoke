@@ -1,6 +1,7 @@
 """Anonymous workbench requests exercise the real Postgres collector sink."""
 
 import json
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -19,6 +20,14 @@ from yoke_core.domain.schema_init_actor_path_claim_tables import (
 from yoke_core.domain.schema_init_tables import create_core_tables
 
 ORIGIN = "https://workbench.example.test"
+
+
+def test_shipped_runtime_matches_installed_pack():
+    from yoke_core.tools.build_frontend_events import outputs
+
+    root = Path(__file__).resolve().parents[2]
+    for path, expected in outputs(root).items():
+        assert path.read_text() == expected, f"frontend_events_build_stale: {path}"
 
 
 @pytest.fixture
@@ -66,6 +75,7 @@ def event():
         "actor_id": 999999,
         "org_id": "forged",
         "project_id": 999999,
+        "context": {"project_id": 999999, "detail": {"project_id": 999999}},
     }
 
 
@@ -92,6 +102,9 @@ def test_anonymous_sink_sanitizes_deduplicates_and_stamps_its_own_identity(
         assert "private" not in stored["referrer"]
         assert stored["actor_id"] is None
         assert "project_id" not in stored
+        assert "project_id" not in stored["context"]
+        assert "project_id" not in stored["context"]["detail"]
+        assert stored["session_id"] == "browser:" + payload["session_id"]
 
 
 @pytest.mark.parametrize(

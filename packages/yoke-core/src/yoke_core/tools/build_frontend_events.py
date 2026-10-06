@@ -11,6 +11,10 @@ import re
 import subprocess
 from pathlib import Path
 
+from yoke_core.domain.workspace_authority import (
+    assert_target_under_session_work_authority,
+)
+
 BROWSER_MODULES = (
     "events",
     "events_attribution",
@@ -35,7 +39,7 @@ def outputs(root):
     target = root / "packages/yoke-core/src/yoke_core"
     if not (source / "events_consent.ts").is_file():
         raise ValueError(
-            "events_pack_not_installed: install structured-events 2.0.0 with yoke packs get, then rebuild"
+            "events_pack_not_installed: install structured-events 2.0.1 with yoke packs get, then rebuild"
         )
     result = {}
     for name in BROWSER_MODULES:
@@ -73,36 +77,41 @@ def outputs(root):
     return result
 
 
-def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--root", type=Path, default=Path.cwd())
-    parser.add_argument("--check", action="store_true")
-    args = parser.parse_args(argv)
-    try:
-        expected = outputs(args.root.resolve())
-    except (ValueError, OSError, subprocess.SubprocessError) as error:
-        print(
-            f"frontend_events_build_failed: {error}; install the Pack and Node >=22.13, then rebuild"
-        )
-        return 1
+def build(*, target_root: Path, check: bool = False):
+    expected = outputs(target_root)
     drift = []
     for path, text in expected.items():
         if path.exists() and path.read_text() == text:
             continue
-        drift.append(path.relative_to(args.root.resolve()).as_posix())
-        if not args.check:
+        drift.append(path.relative_to(target_root).as_posix())
+        if not check:
+            assert_target_under_session_work_authority(path)
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(text)
-    if args.check and drift:
+    if check and drift:
         print(
             "frontend_events_build_stale: run python3 -m yoke_core.tools.build_frontend_events; "
             + ", ".join(drift)
         )
         return 1
     print(
-        f"frontend events build: {len(expected)} files; {len(drift)} {'stale' if args.check else 'updated'}"
+        f"frontend events build: {len(expected)} files; {len(drift)} {'stale' if check else 'updated'}"
     )
     return 0
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", type=Path, default=Path.cwd())
+    parser.add_argument("--check", action="store_true")
+    args = parser.parse_args(argv)
+    try:
+        return build(target_root=args.root.resolve(), check=args.check)
+    except (ValueError, OSError, subprocess.SubprocessError) as error:
+        print(
+            f"frontend_events_build_failed: {error}; install the Pack and Node >=22.13, then rebuild"
+        )
+        return 1
 
 
 if __name__ == "__main__":

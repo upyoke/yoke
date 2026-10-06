@@ -24,6 +24,7 @@
           "sha256": "a67fc465f0f2de2c6a36db45342e48eb78fd0961cdc6d446cbef7f3b57d20229"
         }
       },
+      "prerequisites": [],
       "render_values": {
         "preview_domain": "preview.upyoke.com",
         "preview_namespace": "yoke-preview",
@@ -33,9 +34,135 @@
         "preview_ttl_hours": "24"
       },
       "version": "1.1.0"
+    },
+    "structured-events": {
+      "content_digest": "9dc32a039040ad7dafcdff4ed5779f7b6b36e2a4065c5750b0ca8f62d674642f",
+      "files": {
+        "docs/packs/structured-events/README.md": {
+          "mode": 420,
+          "path": "docs/packs/structured-events/README.md",
+          "sha256": "973265593f66a3c0c55551a8352760c9bcc39e00663078558c5417b5ea1f0872"
+        },
+        "events/README.md": {
+          "mode": 420,
+          "path": "events/README.md",
+          "sha256": "4d78f47bff488e21406e89d9618eaa5a58ef13ae491e615802e42412d7df2be1"
+        },
+        "events/api-route.ts": {
+          "mode": 420,
+          "path": "events/api-route.ts",
+          "sha256": "9a6ccafbe839c5f25507bd613f6a1a276f19124f2c9ce2caca5f2198dad7cc40"
+        },
+        "events/attribution_rules.json": {
+          "mode": 420,
+          "path": "events/attribution_rules.json",
+          "sha256": "7b231954f187121acc3fd79a8a069f5a024164aa93ace482e61b7c498705defd"
+        },
+        "events/events.py": {
+          "mode": 420,
+          "path": "events/events.py",
+          "sha256": "2156eb7040ab200cab49dba66b15eeb978eb8e1d620d427de3159d1353e1fcb2"
+        },
+        "events/events.ts": {
+          "mode": 420,
+          "path": "events/events.ts",
+          "sha256": "d333c3b919fffce48fae542c07c016a2da462636df6680d65b126b375e74d295"
+        },
+        "events/events_attribution.py": {
+          "mode": 420,
+          "path": "events/events_attribution.py",
+          "sha256": "2eb7bd726ffac69bc974a2d39b08eda2ee55e34c70c4494ab72e7a489b0ec669"
+        },
+        "events/events_attribution.ts": {
+          "mode": 420,
+          "path": "events/events_attribution.ts",
+          "sha256": "1c444c4b278ac68cc830a67057715bd002b3a0a39d8bd56b3c37f1d60ccbfc83"
+        },
+        "events/events_consent.ts": {
+          "mode": 420,
+          "path": "events/events_consent.ts",
+          "sha256": "0debff4ddc687f14b854e8e2f917940662793b37c4439fdc2c18e57344dbe9cb"
+        },
+        "events/events_cookie.py": {
+          "mode": 420,
+          "path": "events/events_cookie.py",
+          "sha256": "f18db258a39685eebf4c7a7ce7a925ddd9eeb82e4b86779f72b9d7bd37627782"
+        },
+        "events/events_cookie.ts": {
+          "mode": 420,
+          "path": "events/events_cookie.ts",
+          "sha256": "2543fdba42c112c2646aecf34ba52da6891ff3a64d6231b5d5480b75de67c91c"
+        },
+        "events/events_delivery.py": {
+          "mode": 420,
+          "path": "events/events_delivery.py",
+          "sha256": "575a6358f5021e7ba874ce0044a9067f287e94bd854096b1e7f6675b23e66e62"
+        },
+        "events/events_navigation.ts": {
+          "mode": 420,
+          "path": "events/events_navigation.ts",
+          "sha256": "462b5f56c9f06b45e47bebccf31e087df4f76b9e2c418c16671522072e0096c7"
+        },
+        "events/events_props.py": {
+          "mode": 420,
+          "path": "events/events_props.py",
+          "sha256": "1482293e101e47fb2d7f98363d6f573a5c6736d6a7adcc72d8bf4c539078b5a4"
+        },
+        "events/events_props.ts": {
+          "mode": 420,
+          "path": "events/events_props.ts",
+          "sha256": "528f26688c58ecf4b833283d131b4b26ea54e8c2c730b5f7c4b48624cd0a18d0"
+        },
+        "events/events_types.ts": {
+          "mode": 420,
+          "path": "events/events_types.ts",
+          "sha256": "0a2a48872c21066af4033e1d3c44651c4e12443e2b7a4394f29238391367f219"
+        },
+        "events/test_attribution.py": {
+          "mode": 420,
+          "path": "events/test_attribution.py",
+          "sha256": "c142f0a3c0c45bdf093563e400dc55a04a1a91af37ee8b50c608a3527bbfbac3"
+        },
+        "events/test_browser.mjs": {
+          "mode": 420,
+          "path": "events/test_browser.mjs",
+          "sha256": "234388c20998e504c155858d5e815e1fc03be26b6160e5f15d9534cc89756620"
+        },
+        "events/test_events.py": {
+          "mode": 420,
+          "path": "events/test_events.py",
+          "sha256": "586dcb97ecb0924a730589c686fc118c54183f4c17379a3bf41a312f05b87ad3"
+        },
+        "events/test_events_emit.py": {
+          "mode": 420,
+          "path": "events/test_events_emit.py",
+          "sha256": "544570bb7f0d3667f422c50de9e95febe5e141b8b34820d2d587a7805fbbd416"
+        }
+      },
+      "prerequisites": [
+        {
+          "install": {
+            "darwin": "brew install node",
+            "linux": "Install Node.js 22.6 or newer from https://nodejs.org/en/download",
+            "windows": "winget install OpenJS.NodeJS.LTS"
+          },
+          "minimum_version": "22.6.0",
+          "probe": {
+            "executable": "node",
+            "version_args": [
+              "--version"
+            ]
+          },
+          "tool": "node"
+        }
+      ],
+      "render_values": {
+        "project_name": "yoke"
+      },
+      "version": "2.0.1"
     }
   },
   "project_id": 1,
   "project_slug": "yoke",
-  "schema": 2
+  "schema": 3
 }

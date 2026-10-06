@@ -61,6 +61,15 @@ def write_frontend_events(events, *, org_id, actor_id=None):
     """Use the existing event gateway; retries dedupe on the browser event UUID."""
     for event in events:
         envelope = {**event, "org_id": str(org_id), "actor_id": actor_id, "project": ""}
+        envelope["session_id"] = "browser:" + event["session_id"]
+        context = event.get("context")
+        if isinstance(context, dict):
+            context = {k: v for k, v in context.items() if k != "project_id"}
+            if isinstance(context.get("detail"), dict):
+                context["detail"] = {
+                    k: v for k, v in context["detail"].items() if k != "project_id"
+                }
+            envelope["context"] = context
         # Frontend context is telemetry only. No browser value selects a project,
         # work item, actor, organization, or operational severity.
         for key in (
@@ -75,7 +84,7 @@ def write_frontend_events(events, *, org_id, actor_id=None):
         cmd_insert(
             event_id=event["event_id"],
             source_type="frontend",
-            session_id=event["session_id"],
+            session_id=envelope["session_id"],
             event_kind="analytics",
             event_type=event["event_type"],
             event_name=event["event_name"],
