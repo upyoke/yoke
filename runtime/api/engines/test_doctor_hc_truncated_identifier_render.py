@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from unittest import mock
 
+import pytest
+
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 from yoke_project_checks import check_truncated_identifier_render as hc
 
@@ -174,9 +176,60 @@ def test_exempt_path_is_not_reported_but_must_still_truncate(
 
 
 def test_this_repository_renders_no_identifier_fragment() -> None:
+    import time
+
+    from yoke_contracts import doctor_budget
     from yoke_core.api.repo_root import find_repo_root
+    from yoke_core.engines.doctor_wall_clock_budget import run_wall_clock_bounded
 
     repo_root = Path(find_repo_root())
-    hits = hc.scan(repo_root)
+    started = time.monotonic()
+    with doctor_budget.check_budget():
+        hits = run_wall_clock_bounded(hc.scan, repo_root)
+    elapsed = time.monotonic() - started
+    print(
+        f"Complete identifier fragment scan: {elapsed:.3f}s; budget {doctor_budget.CHECK_BUDGET_S}s"
+    )
     assert not hits, "\n".join(str(hit) for hit in hits)
     assert hc.stale_exemptions(repo_root) == []
+
+
+@pytest.mark.parametrize("relative", ["packages/render.py", "packages/view.js"])
+@pytest.mark.parametrize("suffix", hc._IDENTIFIER_SUFFIXES)
+def test_prefilters_preserve_all_identifier_spellings(relative, suffix):
+    text = "\n".join(
+        [
+            f"target_{suffix}[:8]",
+            f"str(row.{suffix}) [ : 8 ]",
+            f"target_{suffix}s[:8]",
+            f' ("TARGET", lambda row: row.get("target_{suffix}"), 20),',
+            f"row.{suffix}.slice(0, 8)",
+            f"String(row.{suffix}).substring( 0 , 8)",
+            f"({suffix}).substr(0, 8)",
+            f"{suffix} = value",
+            "digest[:8]",
+        ]
+    )
+    patterns = (
+        (hc._PY_SLICE, hc._PY_COLUMN) if relative.endswith(".py") else (hc._JS_SLICE,)
+    )
+    legacy = [
+        hc.TruncationHit(relative, number, line.strip()[:160])
+        for number, line in enumerate(text.splitlines(), start=1)
+        if any(pattern.search(line) for pattern in patterns)
+    ]
+    assert list(hc._hits_in_text(relative, text)) == legacy
+
+
+def test_unreadable_source_does_not_hide_other_source_hits(tmp_path: Path) -> None:
+    _write(tmp_path, "packages/unreadable.py", "pass\n")
+    _write(tmp_path, "packages/render.py", "value = session_id[:8]\n")
+    read_text = Path.read_text
+
+    def read(path, **kwargs):
+        if path.name == "unreadable.py":
+            raise OSError("unreadable source")
+        return read_text(path, **kwargs)
+
+    with mock.patch.object(Path, "read_text", read):
+        assert _relatives(hc.scan(tmp_path)) == ["packages/render.py"]

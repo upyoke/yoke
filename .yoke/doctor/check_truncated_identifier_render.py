@@ -33,6 +33,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Iterator, List, Tuple
 
+from yoke_core.engines.doctor_parallel_reads import prefetched_text_reader
 from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,
@@ -108,6 +109,12 @@ _JS_SLICE = re.compile(
     r"\.(?:slice|substring|substr)\(\s*0\s*,"
 )
 
+# These required pieces are cheap to reject before the unanchored name regexes
+# can backtrack over long source lines. They never exclude a possible match.
+_IDENTIFIER_LITERAL = re.compile("|".join(map(re.escape, _IDENTIFIER_SUFFIXES)))
+_PY_SLICE_MARKER = re.compile(r"\[\s*:")
+_JS_SLICE_MARKER = re.compile(r"\.(?:slice|substring|substr)\(\s*0\s*,")
+
 #: Reads of an identifier an external tool composed, where the fragment is
 #: that tool's own naming and not something Yoke renders for a reader.
 _EXEMPTIONS: Tuple[Tuple[str, str], ...] = (
@@ -132,10 +139,19 @@ class TruncationHit:
 
 
 def _hits_in_text(relative_path: str, text: str) -> Iterator[TruncationHit]:
-    patterns = (
-        (_PY_SLICE, _PY_COLUMN) if relative_path.endswith(".py") else (_JS_SLICE,)
-    )
+    python_source = relative_path.endswith(".py")
+    patterns = (_PY_SLICE, _PY_COLUMN) if python_source else (_JS_SLICE,)
     for number, line in enumerate(text.splitlines(), start=1):
+        if python_source:
+            if (
+                not ("[" in line and _PY_SLICE_MARKER.search(line))
+                and "lambda" not in line
+            ):
+                continue
+        elif not _JS_SLICE_MARKER.search(line):
+            continue
+        if not _IDENTIFIER_LITERAL.search(line):
+            continue
         stripped = line.strip()
         if any(pattern.search(line) for pattern in patterns):
             yield TruncationHit(relative_path, number, stripped[:160])
@@ -162,12 +178,16 @@ def _iter_sources(repo_root: Path) -> Iterable[Path]:
 def scan(repo_root: Path) -> List[TruncationHit]:
     """Return every rendered identifier fragment in the authored tree."""
     hits: List[TruncationHit] = []
-    for path in _iter_sources(repo_root):
+    sources = [
+        path
+        for path in _iter_sources(repo_root)
+        if _is_scannable(path.relative_to(repo_root).as_posix())
+    ]
+    read_text = prefetched_text_reader(sources)
+    for path in sources:
         relative = path.relative_to(repo_root).as_posix()
-        if not _is_scannable(relative):
-            continue
         try:
-            text = path.read_text(encoding="utf-8")
+            text = read_text(path, encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
         hits.extend(_hits_in_text(relative, text))
