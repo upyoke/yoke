@@ -157,7 +157,7 @@ def stamp_chain_checkpoint(
     Same-transaction companion to the offer-envelope checkpoint write in
     :func:`yoke_core.domain.sessions_queries_chain.update_chain_checkpoint`.
     Unlike the envelope (rewritten by registration), these columns are
-    monotonic per session and survive re-offers.
+    monotonic per session and persist across registration's envelope rewrite.
     """
     if not chain_state_columns_present(conn):
         return
