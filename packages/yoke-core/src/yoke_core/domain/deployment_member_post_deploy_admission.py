@@ -39,7 +39,6 @@ from yoke_core.domain.deployment_run_composition_freeze import (
 )
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.qa_obligation_settlement import unretracted_requirement_sql
-from yoke_core.domain.qa_plan_attachment_reads import retracted_item_plan_ids
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 POST_DEPLOY_PHASE = "post_deploy"
@@ -126,41 +125,49 @@ def requirement_target_environment(target_env: Any, execution_target_json: Any) 
 def outstanding_post_deploy_requirements(
     conn: Any, item_id: int
 ) -> tuple[dict[str, Any], ...]:
-    """The post-deploy obligations this item still owes any run.
+    """Outstanding intake for one item, using the shared set reader."""
+    return outstanding_post_deploy_requirement_sets(conn, (item_id,)).get(item_id, ())
 
-    Run-bound rows are a run's own admitted or flow-derived copies rather
-    than the item's intake, and a waived or superseded row is answered
-    already, so all three are outside the set a membership takes on.
-    """
-    if not _table_exists(conn, "qa_requirements"):
-        return ()
+
+def outstanding_post_deploy_requirement_sets(
+    conn: Any, item_ids: Sequence[int]
+) -> dict[int, tuple[dict[str, Any], ...]]:
+    """Read unwaived, unsuperseded intake and withdrawn plans in one query."""
+    if not item_ids or not _table_exists(conn, "qa_requirements"):
+        return {}
     supersession = (
-        " AND superseded_by_requirement_id IS NULL"
+        " AND r.superseded_by_requirement_id IS NULL"
         if _column_exists(conn, "qa_requirements", "superseded_by_requirement_id")
         else ""
     )
     target_column = (
-        "execution_target_json"
+        "r.execution_target_json"
         if _column_exists(conn, "qa_requirements", "execution_target_json")
         else "NULL"
     )
+    withdrawn = ""
+    if _column_exists(conn, "qa_plan_item_attachments", "retracted_at"):
+        withdrawn = (
+            " AND NOT EXISTS (SELECT 1 FROM qa_plan_item_attachments a "
+            "WHERE a.item_id=r.item_id AND a.plan_id=r.plan_id "
+            "AND a.qa_phase='post_deploy' AND a.retracted_at IS NOT NULL)"
+        )
     rows = conn.execute(
-        f"SELECT id,target_env,plan_id,{target_column} FROM qa_requirements WHERE item_id=%s "
-        "AND qa_phase=%s AND deployment_run_id IS NULL AND waived_at IS NULL"
-        f"{supersession} AND {unretracted_requirement_sql(conn)} ORDER BY id",
-        (int(item_id), POST_DEPLOY_PHASE),
+        f"SELECT r.item_id,r.id,r.target_env,{target_column} FROM qa_requirements r "
+        f"WHERE r.item_id IN ({','.join('%s' for _ in item_ids)}) "
+        "AND r.qa_phase='post_deploy' AND r.deployment_run_id IS NULL AND r.waived_at IS NULL"
+        f"{supersession}{withdrawn} AND {unretracted_requirement_sql(conn, 'r')} ORDER BY r.id",
+        tuple(int(value) for value in item_ids),
     ).fetchall()
-    withdrawn_plans = retracted_item_plan_ids(conn, item_id)
-    return tuple(
-        {
-            "id": int(_cell(row, "id", 0)),
-            "target_env": requirement_target_environment(
-                _cell(row, "target_env", 1), _cell(row, "execution_target_json", 3)
-            ),
-        }
-        for row in rows
-        if _cell(row, "plan_id", 2) not in withdrawn_plans
-    )
+    grouped: dict[int, list[dict[str, Any]]] = {}
+    for row in rows:
+        grouped.setdefault(int(row[0]), []).append(
+            {
+                "id": int(row[1]),
+                "target_env": requirement_target_environment(row[2], row[3]),
+            }
+        )
+    return {item_id: tuple(requirements) for item_id, requirements in grouped.items()}
 
 
 def post_deploy_admission_split(
@@ -211,28 +218,36 @@ def unadmitted_post_deploy_notice(
         if item_ids is None
         else tuple(int(v) for v in item_ids)
     )
+    from yoke_core.domain.deployment_run_member_targeting import (
+        companion_requirement_sets,
+        supplemental_item_ids,
+    )
+    from yoke_core.domain.deployment_item_flow_resolution import item_completion_flows
+
+    subjects = tuple(subjects)
+    requirements = outstanding_post_deploy_requirement_sets(conn, subjects)
+    companions = companion_requirement_sets(conn, run_id=run_id, item_ids=subjects)
+    supplemental = supplemental_item_ids(
+        conn, run_id=run_id, completion_flows=item_completion_flows(conn, subjects)
+    )
+    environments, dynamic = run_qa_stage_targets(conn, run_id)
     labels: list[str] = []
     for item_id in subjects:
-        _, unadmitted = post_deploy_admission_split(
-            conn, run_id=run_id, item_id=int(item_id)
-        )
-        from yoke_core.domain.deployment_run_member_targeting import (
-            companion_admits_requirement,
-        )
-
-        for row in unadmitted:
-            if companion_admits_requirement(
-                conn, run_id=run_id, item_id=int(item_id), requirement_id=row["id"]
+        for row in requirements.get(item_id, ()):
+            if (
+                item_id in supplemental and not row["target_env"]
+            ) or stage_target_admits(
+                row["target_env"], environments=environments, dynamic=dynamic
             ):
+                continue
+            if row["id"] in companions.get(item_id, ()):
                 continue
             declared = row["target_env"] or "(none declared)"
             labels.append(
-                f"{render_item_ref(conn, int(item_id))} requirement "
-                f"#{row['id']} (target_env={declared})"
+                f"{render_item_ref(conn, int(item_id))} requirement #{row['id']} (target_env={declared})"
             )
     if not labels:
         return ""
-    environments, dynamic = run_qa_stage_targets(conn, run_id)
     targets = ", ".join(sorted(environments)) or "none"
     if dynamic:
         targets += " plus a run-preview target resolved at execution"
