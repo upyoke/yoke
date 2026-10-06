@@ -52,6 +52,7 @@ def test_release_work_claim_help_enumerates_halt_class_reasons() -> None:
     from yoke_core.api.service_client_work_claim_reason_help import (
         HALT_CLASS_REASONS,
     )
+
     proc = _run_help(["release-work-claim", "--help"])
     assert proc.returncode == 0, (
         f"expected exit 0; got {proc.returncode}; "
@@ -129,7 +130,7 @@ def test_ac6_execute_structured_write_help_exits_zero_with_usage() -> None:
         f"stderr={proc.stderr.decode(errors='replace')!r}"
     )
     assert b"Usage: execute-structured-write" in proc.stdout
-    assert b"<item-id>" in proc.stdout
+    assert b"<PREFIX-N>" in proc.stdout
 
 
 def test_ac6_execute_structured_write_dash_h_exits_zero_with_usage() -> None:
@@ -162,7 +163,7 @@ def test_ac7_flag_first_positional_names_real_shape() -> None:
     )
     assert proc.returncode != 0, "flag-first positional must fail (non-zero exit)"
     body = proc.stdout.decode(errors="replace")
-    assert "<item-id>" in body or "positional" in body, (
+    assert "<PREFIX-N>" in body or "positional" in body, (
         f"error must name the real positional shape; got: {body[:300]!r}"
     )
     # The exact "Item ID must be integer, got '--item'" wording is the
@@ -204,11 +205,13 @@ def test_ac8_every_subcommand_exits_zero_on_help(tmp_path) -> None:
             timeout=30,
         )
         if proc.returncode != 0:
-            failures.append((
-                f"service_client {cmd}",
-                proc.returncode,
-                proc.stderr.decode(errors="replace")[:200],
-            ))
+            failures.append(
+                (
+                    f"service_client {cmd}",
+                    proc.returncode,
+                    proc.stderr.decode(errors="replace")[:200],
+                )
+            )
     for domain in sorted(_DOMAIN_PY_MODULES.keys()):
         proc = subprocess.run(
             [
@@ -224,15 +227,16 @@ def test_ac8_every_subcommand_exits_zero_on_help(tmp_path) -> None:
             timeout=30,
         )
         if proc.returncode != 0:
-            failures.append((
-                f"db_router {domain}",
-                proc.returncode,
-                proc.stderr.decode(errors="replace")[:200],
-            ))
+            failures.append(
+                (
+                    f"db_router {domain}",
+                    proc.returncode,
+                    proc.stderr.decode(errors="replace")[:200],
+                )
+            )
 
     leftover = sorted(p.name for p in tmp_path.iterdir())
-    assert not failures, (
-        "--help failed for: "
-        + "\n".join(f"  {c} rc={rc} stderr={err!r}" for c, rc, err in failures)
+    assert not failures, "--help failed for: " + "\n".join(
+        f"  {c} rc={rc} stderr={err!r}" for c, rc, err in failures
     )
     assert not leftover, f"unexpected file artifacts in cwd: {leftover}"

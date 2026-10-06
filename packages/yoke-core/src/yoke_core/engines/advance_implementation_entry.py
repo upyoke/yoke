@@ -16,6 +16,10 @@ from typing import Any, Dict, List, Optional, Tuple
 from yoke_contracts.api.function_call import ActorContext
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.events import TRANSPORT_NO_LOCAL_DB_REASON, emit_event
+from yoke_core.engines.advance_implementation_preflight_gates import (
+    _probe_session_identity as _probe_session_identity,
+    _run_preflight_gates as _run_preflight_gates,
+)
 
 
 PHASE_PREFLIGHT = "preflight"

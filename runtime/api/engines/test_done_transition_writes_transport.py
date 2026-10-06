@@ -46,7 +46,8 @@ def _install(monkeypatch, fake, modules):
         if hasattr(module, "call_dispatcher"):
             monkeypatch.setattr(module, "call_dispatcher", fake)
     monkeypatch.setattr(
-        dt, "_connect",
+        dt,
+        "_connect",
         lambda *a, **k: pytest.fail("must not open a bare _connect() on a write path"),
     )
 
@@ -64,7 +65,7 @@ class TestFinalizeRelay:
 
         _install(monkeypatch, fake, [finalize])
         finalize._finalize_done_local_side_effects(
-            7100, "internal", "Title", "yoke", "stage"
+            "YOK-7100", "internal", "Title", "yoke", "stage"
         )
         # A single relay keeps the deployed_to + release-note write atomic.
         assert len(calls) == 1
@@ -88,7 +89,9 @@ class TestFinalizeRelay:
 
         _install(monkeypatch, fake, [finalize])
         # Advisory: must not raise; the item still reaches done.
-        finalize._finalize_done_local_side_effects(7101, "internal", "T", "yoke", "")
+        finalize._finalize_done_local_side_effects(
+            "YOK-7101", "internal", "T", "yoke", ""
+        )
         assert "partly skipped" in capsys.readouterr().out
 
     def test_degrades_on_raised_exception_without_raising(self, monkeypatch, capsys):
@@ -96,7 +99,9 @@ class TestFinalizeRelay:
             raise RuntimeError("transport down")
 
         _install(monkeypatch, boom, [finalize])
-        finalize._finalize_done_local_side_effects(7102, "internal", "T", "yoke", "")
+        finalize._finalize_done_local_side_effects(
+            "YOK-7102", "internal", "T", "yoke", ""
+        )
         assert "failed" in capsys.readouterr().out
 
 
@@ -112,7 +117,7 @@ class TestMergedAtRelay:
             return _resp(fid, {"item_id": 7110, "merged_at": "x"})
 
         _install(monkeypatch, fake, [status])
-        status._populate_merged_at(7110)
+        status._populate_merged_at("YOK-7110")
         assert "done_transition.populate_merged_at" in seen
         assert "merged_at set to" in capsys.readouterr().out
 
@@ -125,7 +130,7 @@ class TestMergedAtRelay:
             return _resp(fid, {"value": "2026-01-01T00:00:00Z"})
 
         _install(monkeypatch, fake, [status])
-        status._populate_merged_at(7111)
+        status._populate_merged_at("YOK-7111")
         # Only the already-set read relays; no write relay is issued.
         assert seen == ["done_transition.item_field"]
         assert "already set" in capsys.readouterr().out
@@ -139,7 +144,7 @@ class TestMergedAtRelay:
 
         _install(monkeypatch, fake, [status])
         with pytest.raises(RuntimeError, match="merged_at write failed"):
-            status._populate_merged_at(7112)
+            status._populate_merged_at("YOK-7112")
 
 
 class TestSnapshotRelay:
@@ -158,11 +163,12 @@ class TestSnapshotRelay:
             lambda *a, **k: Path("/tmp/checkout"),
         )
         monkeypatch.setattr(
-            snapshot.subprocess, "run",
+            snapshot.subprocess,
+            "run",
             lambda *a, **k: SimpleNamespace(returncode=0, stdout="abc123\n"),
         )
         _install(monkeypatch, fake, [snapshot])
-        snapshot.ensure_snapshot_for_item(7120)
+        snapshot.ensure_snapshot_for_item("YOK-7120")
 
         fids = [fid for fid, _ in seen]
         assert "done_transition.item_field" in fids
@@ -183,12 +189,13 @@ class TestSnapshotRelay:
             lambda *a, **k: Path("/tmp/checkout"),
         )
         monkeypatch.setattr(
-            snapshot.subprocess, "run",
+            snapshot.subprocess,
+            "run",
             lambda *a, **k: SimpleNamespace(returncode=0, stdout="abc123\n"),
         )
         _install(monkeypatch, fake, [snapshot])
         # Advisory: must not raise.
-        snapshot.ensure_snapshot_for_item(7121)
+        snapshot.ensure_snapshot_for_item("YOK-7121")
         assert "advisory" in capsys.readouterr().out
 
     def test_skips_when_no_checkout(self, monkeypatch):
@@ -200,8 +207,9 @@ class TestSnapshotRelay:
             lambda *a, **k: None,
         )
         monkeypatch.setattr(
-            snapshot.subprocess, "run",
+            snapshot.subprocess,
+            "run",
             lambda *a, **k: pytest.fail("must not resolve HEAD without a checkout"),
         )
         _install(monkeypatch, fake, [snapshot])
-        snapshot.ensure_snapshot_for_item(7122)
+        snapshot.ensure_snapshot_for_item("YOK-7122")

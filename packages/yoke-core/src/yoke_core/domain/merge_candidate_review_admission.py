@@ -97,7 +97,7 @@ def candidate_review_refusal(
     """
     response = dispatch(
         function_id=EVALUATE_FUNCTION_ID,
-        target=public_item_target(item_id),
+        target=public_item_target(public_ref or item_id),
         payload={
             "commit_sha": str(commit_sha),
             "branch": str(branch),

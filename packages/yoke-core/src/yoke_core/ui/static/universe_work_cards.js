@@ -37,7 +37,7 @@ export const CARRIED_ITEMS_SHOWN = 3;
 const TERMINAL_RUN_STATUSES = new Set(["succeeded", "failed", "cancelled"]);
 
 function itemReference(row) {
-  return String(row.public_ref || row.public_ref || row.id || "Item");
+  return String(row.public_ref || "Item");
 }
 
 function itemHref(row, scope) {

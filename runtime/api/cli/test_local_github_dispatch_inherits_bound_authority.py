@@ -224,7 +224,7 @@ def _close_out_sync_child(
 
     def child_main(argv: list[str]) -> int:
         seen["env"] = os.environ.get(ENV_OVERRIDE)
-        seen["sync_error"] = standalone_item_merge.sync_item_to_github(42)
+        seen["sync_error"] = standalone_item_merge.sync_item_to_github("YOK-42")
         return 0
 
     real_import = local_runtime.importlib.import_module

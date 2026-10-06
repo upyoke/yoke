@@ -25,7 +25,7 @@ function itemApproval(status, screenshots) {
     request_id: 9274, kind: "lifecycle_transition_approval", status,
     item_status: "release",
     subject_context: {
-      item_id: MEMBER_ID, item_ref: MEMBER_REF, from_stage: "release", to_stage: "done",
+      public_ref: MEMBER_REF, item_ref: MEMBER_REF, from_stage: "release", to_stage: "done",
       evidence: {
         state: screenshots.length ? "attached" : "missing",
         screenshots: screenshots.map((id) => ({ artifact_id: id,
@@ -61,8 +61,8 @@ function runRow(approval) {
 
 // The member's production QA: a capture this run recorded for the member.
 const memberCheck = {
-  requirement_id: 32969, deployment_run_id: RUN_ID, deployment_member_item_id: MEMBER_ID,
-  item_id: null, project: "yoke", method_name: "Browser inspection", outcome: "passed",
+  requirement_id: 32969, deployment_run_id: RUN_ID, deployment_member_public_ref: MEMBER_REF,
+  public_ref: null, project: "yoke", method_name: "Browser inspection", outcome: "passed",
   qa_phase: "post_deploy", happened_at: "2026-09-28T18:30:00Z", artifacts: [image(23626)],
 };
 
@@ -74,7 +74,7 @@ function clientFor(row) {
           return { rows: [row], filters: { flows: [] } };
         }
         if (request.function === "qa.activity.list") {
-          return { rows: request.payload.item_ids ? [memberCheck] : [] };
+          return { rows: request.payload.public_refs ? [memberCheck] : [] };
         }
         if (request.function === "inbox.list") return { needs_decision: [] };
         if (request.function === "projects.infrastructure.list") return { environments: [] };

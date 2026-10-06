@@ -126,9 +126,9 @@ def submission_receipt_get(
     row = rows[0]
     fields = parse_submission_fields(row["body"])
     validate_submission_fields(fields)
-    from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+    from yoke_core.domain.project_identity import render_item_ref
 
-    public_ref = item_ref_for_id(conn, int(epic_id))
+    public_ref = render_item_ref(conn, int(epic_id))
     return (
         f"PASS|{public_ref}|{task_num}|{row['note_num']}|"
         f"{row['commit_hash']}|{row['created_at']}|{format_submission_fields(fields)}"

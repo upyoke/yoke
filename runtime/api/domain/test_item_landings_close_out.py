@@ -60,7 +60,7 @@ def test_a_standalone_merge_records_its_own_merge_commit(monkeypatch):
     sent = _recorded(monkeypatch)
 
     lane, note = landings.close_out_lane(
-        item_id=41,
+        item_id="ITEM-41",
         branch="ITEM-41",
         target="main",
         repo_root="/repo",
@@ -86,7 +86,7 @@ def test_a_queue_landing_records_its_pull_request_and_the_moment_it_merged(
     sent = _recorded(monkeypatch)
 
     landings.close_out_lane(
-        item_id=42,
+        item_id="ITEM-42",
         branch="ITEM-42",
         target="main",
         repo_root="/repo",
@@ -109,7 +109,7 @@ def test_a_landing_with_no_distinct_merge_commit_is_keyed_on_what_landed(
     sent = _recorded(monkeypatch)
 
     landings.close_out_lane(
-        item_id=43,
+        item_id="ITEM-43",
         branch="ITEM-43",
         target="main",
         repo_root="/repo",
@@ -128,7 +128,7 @@ def test_a_landed_lane_records_the_landing_that_carried_it(monkeypatch):
     sent = _recorded(monkeypatch)
 
     lane, note = landings.close_out_lane(
-        item_id=44,
+        item_id="ITEM-44",
         branch="ITEM-44",
         target="main",
         repo_root="/repo",
@@ -154,7 +154,7 @@ def test_a_landing_with_no_commit_at_all_names_why_and_does_not_write(
     sent = _recorded(monkeypatch)
 
     _lane, note = landings.close_out_lane(
-        item_id=45,
+        item_id="ITEM-45",
         branch="ITEM-45",
         target="main",
         repo_root="/repo",
@@ -181,7 +181,7 @@ def test_a_refused_record_warns_and_never_unwinds_the_merge(monkeypatch):
     )
 
     lane, note = landings.close_out_lane(
-        item_id=46,
+        item_id="ITEM-46",
         branch="ITEM-46",
         target="main",
         repo_root="/repo",
@@ -207,26 +207,38 @@ def test_the_merge_command_records_the_landing_it_closed_out(monkeypatch, capsys
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *_a: (item, ""))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *_a: "")
     monkeypatch.setattr(
-        merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main"),
+        merge_cli,
+        "_resolve_checkout",
+        lambda *_a: (Path("/repo"), "main"),
     )
     monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(
-        merge_cli.stale_lane, "stale_unlanded_work", lambda **_kw: "",
+        merge_cli.stale_lane,
+        "stale_unlanded_work",
+        lambda **_kw: "",
     )
     monkeypatch.setattr(verify, "qa_preflight", lambda *_a, **_k: (LANE_SHA, ""))
     monkeypatch.setattr(
-        verify, "route_standalone_landing", lambda **_k: _outcome(pr_num="1290"),
+        verify,
+        "route_standalone_landing",
+        lambda **_k: _outcome(pr_num="1290"),
     )
     monkeypatch.setattr(merge_cli.evidence, "record", lambda **_k: "")
     monkeypatch.setattr(sim, "sync_item_to_github", lambda *_a: None)
     monkeypatch.setattr(
-        merge_cli.release_flow, "continue_prepared_release", lambda **_k: (None, ""),
+        merge_cli.release_flow,
+        "continue_prepared_release",
+        lambda **_k: (None, ""),
     )
     monkeypatch.setattr(
-        merge_cli.close_out, "record_execution_evidence", lambda **_k: ("", ""),
+        merge_cli.close_out,
+        "record_execution_evidence",
+        lambda **_k: ("", ""),
     )
     monkeypatch.setattr(
-        transition, "run_terminal_transition", lambda **_k: 0,
+        transition,
+        "run_terminal_transition",
+        lambda **_k: 0,
     )
     sent = _recorded(monkeypatch)
     monkeypatch.setattr(merge_cli, "run_terminal_transition", lambda **_k: 0)

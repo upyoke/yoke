@@ -64,9 +64,7 @@ def _run_with_dispatch(stub, *argv: str, session_id: str = "test-session") -> in
             "yoke_core.domain.yoke_function_dispatch.dispatch",
             side_effect=stub,
         ):
-            with patch(
-                "yoke_cli.commands._helpers.ensure_handlers_loaded"
-            ):
+            with patch("yoke_cli.commands._helpers.ensure_handlers_loaded"):
                 buf = io.StringIO()
                 err = io.StringIO()
                 with redirect_stdout(buf), redirect_stderr(err):
@@ -77,14 +75,20 @@ class TestItemsScalarUpdateDispatch:
     def test_string_value_dispatches(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "items", "scalar", "update", "42",
-            "--field", "priority", "--value", "high",
+            "items",
+            "scalar",
+            "update",
+            "YOK-42",
+            "--field",
+            "priority",
+            "--value",
+            "high",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "items.scalar.update"
         assert req.target.kind == "item"
-        assert req.target.public_ref == "42"
+        assert req.target.public_ref == "YOK-42"
         assert req.payload == {
             "field": "priority",
             "value": "high",
@@ -97,8 +101,13 @@ class TestItemsScalarUpdateDispatch:
     def test_null_value_dispatches(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "items", "scalar", "update", "100",
-            "--field", "worktree", "--null",
+            "items",
+            "scalar",
+            "update",
+            "YOK-100",
+            "--field",
+            "worktree",
+            "--null",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -108,8 +117,14 @@ class TestItemsScalarUpdateDispatch:
     def test_value_json_dispatches_with_typed_payload(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "items", "scalar", "update", "101",
-            "--field", "blocked", "--value-json", "true",
+            "items",
+            "scalar",
+            "update",
+            "YOK-101",
+            "--field",
+            "blocked",
+            "--value-json",
+            "true",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -119,9 +134,16 @@ class TestItemsScalarUpdateDispatch:
     def test_force_and_qa_bypass_flags_propagate(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "items", "scalar", "update", "200",
-            "--field", "frozen", "--value", "false",
-            "--force", "--qa-bypass",
+            "items",
+            "scalar",
+            "update",
+            "YOK-200",
+            "--field",
+            "frozen",
+            "--value",
+            "false",
+            "--force",
+            "--qa-bypass",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -132,8 +154,14 @@ class TestItemsScalarUpdateDispatch:
     def test_done_nonce_verified_flag_propagates(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "items", "scalar", "update", "201",
-            "--field", "status", "--value", "done",
+            "items",
+            "scalar",
+            "update",
+            "YOK-201",
+            "--field",
+            "status",
+            "--value",
+            "done",
             "--done-nonce-verified",
         )
         assert rc == 0
@@ -145,7 +173,12 @@ class TestItemsScalarUpdateErrors:
     def test_missing_value_selector_returns_two(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "items", "scalar", "update", "42", "--field", "priority",
+            "items",
+            "scalar",
+            "update",
+            "YOK-42",
+            "--field",
+            "priority",
         )
         assert rc == 2
         assert _CAPTURED_REQUESTS == []
@@ -153,8 +186,15 @@ class TestItemsScalarUpdateErrors:
     def test_two_value_selectors_returns_two(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "items", "scalar", "update", "42",
-            "--field", "priority", "--value", "high", "--null",
+            "items",
+            "scalar",
+            "update",
+            "YOK-42",
+            "--field",
+            "priority",
+            "--value",
+            "high",
+            "--null",
         )
         assert rc == 2
         assert _CAPTURED_REQUESTS == []
@@ -162,7 +202,12 @@ class TestItemsScalarUpdateErrors:
     def test_missing_field_returns_two(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "items", "scalar", "update", "42", "--value", "high",
+            "items",
+            "scalar",
+            "update",
+            "YOK-42",
+            "--value",
+            "high",
         )
         assert rc == 2
         assert _CAPTURED_REQUESTS == []
@@ -171,8 +216,14 @@ class TestItemsScalarUpdateErrors:
         # Relay contract: ref validation is server-side.
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "items", "scalar", "update", "not-a-sun-id",
-            "--field", "priority", "--value", "high",
+            "items",
+            "scalar",
+            "update",
+            "not-a-sun-id",
+            "--field",
+            "priority",
+            "--value",
+            "high",
         )
         assert rc == 0
         assert _CAPTURED_REQUESTS[-1].target.public_ref == "not-a-sun-id"
@@ -180,8 +231,14 @@ class TestItemsScalarUpdateErrors:
     def test_bad_value_json_returns_two(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "items", "scalar", "update", "42",
-            "--field", "blocked", "--value-json", "{ not valid json",
+            "items",
+            "scalar",
+            "update",
+            "YOK-42",
+            "--field",
+            "blocked",
+            "--value-json",
+            "{ not valid json",
         )
         assert rc == 2
         assert _CAPTURED_REQUESTS == []
@@ -189,7 +246,13 @@ class TestItemsScalarUpdateErrors:
     def test_dispatch_failure_propagates_exit_one(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_fail,
-            "items", "scalar", "update", "42",
-            "--field", "priority", "--value", "high",
+            "items",
+            "scalar",
+            "update",
+            "YOK-42",
+            "--field",
+            "priority",
+            "--value",
+            "high",
         )
         assert rc == 1

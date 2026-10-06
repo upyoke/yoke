@@ -30,7 +30,7 @@ Covers steps 5j, 5l, and 5m: verdict result routing (READY/CAVEATS/NOT_READY), p
 **Status target:** `_target_stage` is this edge's declared target. Refresh the
 item status. If already there (the early planning stamp), verify the edge's
 review and continue. Otherwise dispatch `lifecycle.transition.execute` with
-`target = {kind: "item", item_id: $_num}` and
+`target = {kind: "item", public_ref: $_item_ref}` and
 `payload = {source_status: _source_stage, target_status: _target_stage}`.
 Refusal stops with its named reason and recovery. Re-read to verify success;
 never advance through another skill or substitute a literal stage id.
@@ -146,7 +146,7 @@ if [ "$_transition" = "$_plan_transition" ] && { [ "$_verdict" = "READY" ] || [ 
  done
 
  # 4. If no ACs found, seed at least one implementation review requirement
- _qa_existing_count=$(yoke db read --format lines "SELECT COUNT(*) FROM qa_requirements WHERE item_id=$_num" 2>/dev/null) || true
+ _qa_existing_count=$(yoke db read --format lines "SELECT COUNT(*) FROM qa_requirements WHERE item_id=(SELECT item_id FROM item_refs WHERE public_ref='$_item_ref')" 2>/dev/null) || true
  if [ -z "$_qa_existing_count" ] || [ "$_qa_existing_count" = "0" ]; then
  yoke qa requirement add \
  --item "$_item_ref" \

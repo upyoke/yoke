@@ -83,8 +83,7 @@ def _apply_tasks_schema() -> None:
         conn.close()
 
 
-def add_task(conn, epic_id, task_num, title, **kwargs):
-    from yoke_core.domain.item_worktrees import record_worker_item_worktree
+def ensure_epic(conn, epic_id):
     from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
 
     p = _p(conn)
@@ -104,6 +103,13 @@ def add_task(conn, epic_id, task_num, title, **kwargs):
             f"VALUES ({p}, {p}, {p}, 1, {p})",
             (int(epic_id), workflow_id, version_id, int(epic_id) % 1000 + 7),
         )
+
+
+def add_task(conn, epic_id, task_num, title, **kwargs):
+    from yoke_core.domain.item_worktrees import record_worker_item_worktree
+
+    ensure_epic(conn, epic_id)
+    p = _p(conn)
     worktree = kwargs.get("worktree", "")
     lane_id = None
     if worktree:
@@ -172,7 +178,7 @@ def envelope(function: str, *, epic_id=100, task_num=1, payload=None):
         "actor": {"actor_id": "test", "session_id": "s-1"},
         "target": {
             "kind": "epic_task",
-            "epic_id": epic_id,
+            "public_ref": f"YOK-{int(epic_id) % 1000 + 7}",
             "task_num": task_num,
             "project_id": "yoke",
         },
@@ -231,6 +237,8 @@ class WorkflowItemUpdateAPIBase(unittest.TestCase):
         )
         self._db_path = self._db_ctx.__enter__()
         self.conn = connect_test_db(self._db_path)
+        ensure_epic(self.conn, 100)
+        self.conn.commit()
         self.client = TestClient(app)
         auth = mint_api_auth_context(self.conn)
         self.client.headers.update(auth.headers)

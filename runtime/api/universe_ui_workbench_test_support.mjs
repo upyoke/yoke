@@ -75,8 +75,8 @@ export function multiProjectWorkbenchClient({ failProject } = {}) {
     "items.overview.list": { rows: items },
     "frontier.list": {
       ready_rows: [
-        { ...items[0], item_id: "YOK-9", why_ready: "ready" },
-        { ...items[2], item_id: "BET-20", why_ready: "ready" },
+        { ...items[0], public_ref: "YOK-9", why_ready: "ready" },
+        { ...items[2], public_ref: "BET-20", why_ready: "ready" },
       ],
       blocked_rows: [],
       dependency_edges: [],
@@ -190,7 +190,7 @@ export function workbenchClient(overrides = {}) {
     "frontier.list": {
       ready_rows: [{
         ...ready,
-        item_id: "YOK-9",
+        public_ref: "YOK-9",
         why_ready: "No blockers; specification and plan are current.",
         run_command: "yoke implement YOK-9",
       }],
@@ -239,7 +239,7 @@ export function workbenchClient(overrides = {}) {
         { name: "build", state: "complete" },
         { name: "deploy", state: "active" },
       ],
-      member_items: [{ id: 109, ref: "YOK-9", title: "Ship typed workflows" }],
+      member_items: [{ ref: "YOK-9", title: "Ship typed workflows" }],
     }, {
       // The release that carried the finished item, so a Done card can name
       // where that work actually went.
@@ -251,7 +251,7 @@ export function workbenchClient(overrides = {}) {
       created_at: recentIso(3),
       completed_at: recentIso(2),
       stages: [{ name: "deploy", state: "complete" }],
-      member_items: [{ id: 106, ref: "YOK-6", title: "Land the release" }],
+      member_items: [{ ref: "YOK-6", title: "Land the release" }],
     }] },
     "sessions.steering_groups.list": { rows: [] },
     "overview.activation.get": { dismiss_available: false, modules: [] },

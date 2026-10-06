@@ -59,15 +59,17 @@ def test_stamp_item_field_writes_non_default_project_row(db):
 
     result = stamp_item_field(item_id, "deployed_to", "prod")
     assert result["verified"] is True
-    assert result["item_id"] == item_id
-    assert _scalar(
-        db, "SELECT deployed_to FROM items WHERE id = %s", (item_id,)
-    ) == "prod"
+    assert result["public_ref"] == _scalar(
+        db, "SELECT public_ref FROM item_refs WHERE item_id = %s", (item_id,)
+    )
+    assert (
+        _scalar(db, "SELECT deployed_to FROM items WHERE id = %s", (item_id,)) == "prod"
+    )
 
 
 def test_stamp_item_field_raises_when_item_missing(db):
     with pytest.raises(DeploymentItemStampError, match="items.id=40404"):
-        stamp_item_field(40404, "deploy_stage", "complete")
+        stamp_item_field("YOK-40404", "deploy_stage", "complete")
 
 
 def test_set_deploy_stage_stamps_member_then_run(db, monkeypatch):
@@ -91,9 +93,10 @@ def test_set_deploy_stage_stamps_member_then_run(db, monkeypatch):
 
     monkeypatch.setattr(run_updates, "update_run_field", _fake_update_run_field)
     _set_deploy_stage("warm-up", "run-20260822-001", [str(item_id)])
-    assert _scalar(
-        db, "SELECT deploy_stage FROM items WHERE id = %s", (item_id,)
-    ) == "warm-up"
+    assert (
+        _scalar(db, "SELECT deploy_stage FROM items WHERE id = %s", (item_id,))
+        == "warm-up"
+    )
     assert seen == [
         ("run-20260822-001", "current_stage", "warm-up"),
     ]

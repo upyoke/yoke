@@ -35,7 +35,7 @@ test("evidence is read for the carried items, not for whatever is recent", async
   ]);
 
   const activity = client.requests.find((r) => r.function === "qa.activity.list");
-  assert.deepEqual(activity.payload.item_ids, [1896, 1900]);
+  assert.deepEqual(activity.payload.public_refs, ["BUZ-1896", "BUZ-1900"]);
   assert.equal(activity.payload.project, "1");
 });
 
@@ -71,7 +71,7 @@ test("each carried item shows its own evidence and no one else's", async () => {
       activityRow(),
       activityRow({
         requirement_id: 26140,
-        item_id: 1900,
+        public_ref: "BUZ-1900",
         outcome: "passed",
         deployment_run_id: RUN_ID,
         deployment_stage: "stage",
@@ -104,7 +104,7 @@ test("each carried item shows its own evidence and no one else's", async () => {
 
 test("evidence recorded against another run stays with that run", () => {
   const facts = {
-    byItem: new Map([["1896", [
+    byItem: new Map([["BUZ-1896", [
       activityRow({ deployment_run_id: "run-20260910-003" }),
       activityRow({ requirement_id: 26141, deployment_run_id: RUN_ID }),
     ]]]),
@@ -112,7 +112,7 @@ test("evidence recorded against another run stays with that run", () => {
     failed: null,
   };
 
-  const shown = carriedItemEvidence(facts, 1896, RUN_ID);
+  const shown = carriedItemEvidence(facts, "BUZ-1896", RUN_ID);
   assert.deepEqual(shown.checks.map((check) => check.requirement_id), [26141]);
 });
 

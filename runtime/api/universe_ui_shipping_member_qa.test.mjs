@@ -30,8 +30,8 @@ function activityFor(itemId, overrides = {}) {
     run_id: 29000 + itemId,
     deployment_run_id: RUN_ID,
     deployment_stage: "item-qa",
-    item_id: null,
-    deployment_member_item_id: itemId,
+    public_ref: null,
+    deployment_member_public_ref: MEMBERS.find((item) => item.project_sequence === itemId)?.public_ref || `MEM-${itemId - 4100}`,
     qa_kind: "plan_case",
     qa_phase: "post_deploy",
     plan: "post-deploy",
@@ -93,10 +93,10 @@ function shippingClient(rows, options = {}) {
         };
       }
       if (request.function === "qa.activity.list") {
-        const wanted = new Set((request.payload.item_ids || []).map(Number));
+        const wanted = new Set((request.payload.public_refs || []).map(String));
         const selected = wanted.size
-          ? rows.filter((row) => wanted.has(Number(
-            row.item_id ?? row.deployment_member_item_id,
+          ? rows.filter((row) => wanted.has(String(
+            row.public_ref ?? row.deployment_member_public_ref,
           )))
           : rows.filter((row) => row.deployment_run_id === RUN_ID);
         return {
@@ -132,19 +132,19 @@ function shippingContext(documentNode, client) {
 test("Shipping reads QA for every carried member, not the first three", async () => {
   const documentNode = new FakeDocument();
   const host = documentNode.createElement("div");
-  const rows = MEMBERS.map((item) => activityFor(item.id));
+  const rows = MEMBERS.map((item) => activityFor(item.project_sequence));
   const client = shippingClient(rows);
   await loadDelivery(shippingContext(documentNode, client), host, () => ["1"]);
   await settle();
 
   const itemReads = client.requests.filter((request) => (
-    request.function === "qa.activity.list" && request.payload.item_ids
+    request.function === "qa.activity.list" && request.payload.public_refs
   ));
   assert.ok(itemReads.length, "the card must ask for the carried items");
-  const asked = new Set(itemReads.flatMap((request) => request.payload.item_ids));
+  const asked = new Set(itemReads.flatMap((request) => request.payload.public_refs));
   assert.equal(asked.size, 20);
   for (const item of MEMBERS) {
-    assert.ok(asked.has(item.id), `missing ${item.ref}`);
+    assert.ok(asked.has(item.public_ref), `missing ${item.ref}`);
   }
 });
 
@@ -166,8 +166,8 @@ test("carried items show required QA and recorded no-obligation reasons", async 
       requirement_id: 28759,
       run_id: null,
       deployment_run_id: null,
-      item_id: 3449,
-      deployment_member_item_id: null,
+      public_ref: "YOK-3286",
+      deployment_member_public_ref: null,
       case_key: "plan-currency-readable",
       outcome: "queued",
       artifacts: [],
@@ -176,8 +176,8 @@ test("carried items show required QA and recorded no-obligation reasons", async 
       requirement_id: 28927,
       run_id: null,
       deployment_run_id: RUN_ID,
-      item_id: 3457,
-      deployment_member_item_id: null,
+      public_ref: "YOK-3294",
+      deployment_member_public_ref: null,
       qa_kind: QA_KIND.NOT_REQUIRED,
       method_id: null,
       outcome: "waived",
@@ -188,8 +188,8 @@ test("carried items show required QA and recorded no-obligation reasons", async 
       requirement_id: 28921,
       run_id: null,
       deployment_run_id: RUN_ID,
-      item_id: 3460,
-      deployment_member_item_id: null,
+      public_ref: "YOK-3297",
+      deployment_member_public_ref: null,
       qa_kind: QA_KIND.NO_OBLIGATION,
       method_id: null,
       outcome: "queued",
@@ -241,7 +241,7 @@ function membersWithQa(host, visibleOnly) {
 test("collapsed and expanded shipping cards agree on how many members carry QA", async () => {
   const runId = "run-collapse-eight";
   const roster = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => member(4100 + n, `MEM-${n}`));
-  const rows = roster.map((item) => activityFor(item.id, { deployment_run_id: runId }));
+  const rows = roster.map((item) => activityFor(item.project_sequence, { deployment_run_id: runId }));
   const documentNode = new FakeDocument();
   const host = documentNode.createElement("div");
   await loadDelivery(

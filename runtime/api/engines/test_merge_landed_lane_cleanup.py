@@ -23,6 +23,7 @@ from yoke_core.engines.merge_landed_lane_cleanup import (
     release_lane_row,
 )
 
+
 def test_landed_lane_leaves_no_worktree_branch_or_remote(landed_lane):
     """Every part of the lane retires together once the merge is visible.
 
@@ -137,7 +138,7 @@ def test_landed_lane_records_the_row_release(landed_lane, monkeypatch):
         repo_root=str(landed_lane.repo),
         branch=BRANCH,
         target="main",
-        item_id=7,
+        item_id="YOK-7",
         run_git=_run_git,
         emit=lambda *_a, **_kw: None,
     )
@@ -161,7 +162,7 @@ def test_row_release_failure_warns_without_unwinding_the_merge(monkeypatch):
     said: list[str] = []
 
     warning = release_lane_row(
-        7,
+        "YOK-7",
         BRANCH,
         emit=lambda message, **_kw: said.append(message),
     )
@@ -190,7 +191,7 @@ def test_claim_required_release_is_not_a_left_active_warning(monkeypatch):
     said: list[str] = []
 
     warning = release_lane_row(
-        7,
+        "YOK-7",
         BRANCH,
         emit=lambda message, **_kw: said.append(message),
     )
@@ -215,7 +216,7 @@ def test_row_release_warning_is_returned_from_prune(landed_lane, monkeypatch):
         repo_root=str(landed_lane.repo),
         branch=BRANCH,
         target="main",
-        item_id=7,
+        item_id="YOK-7",
         run_git=_run_git,
         emit=lambda *_a, **_kw: None,
     )

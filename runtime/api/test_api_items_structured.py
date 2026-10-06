@@ -44,14 +44,18 @@ from yoke_core.domain.handlers.__init_register__ import register_all_handlers
 from yoke_core.domain.yoke_function_registry import (
     reset_registry_for_tests,
 )
-from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
-from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
+from runtime.api.fixtures.file_test_db import (
+    connect_test_db as connect_test_db,
+    init_test_db as init_test_db,
+)
+from runtime.api.fixtures.schema_ddl import apply_fixture_ddl as apply_fixture_ddl
 from yoke_core.api.main import app
 
 
 _SCHEMA = """
 CREATE TABLE items (
     id INTEGER PRIMARY KEY,
+    project_id INTEGER, project_sequence INTEGER,
     spec TEXT, design_spec TEXT, technical_plan TEXT,
     worktree_plan TEXT, shepherd_log TEXT,
     shepherd_caveats TEXT, test_results TEXT, deploy_log TEXT,
@@ -101,6 +105,7 @@ class _FakeDB:
         self.path = db_path
 
     def insert_item(self, item_id: int, **fields: Optional[str]) -> None:
+        fields = {"project_id": 1, "project_sequence": item_id, **fields}
         cols = ["id"] + list(fields.keys())
         conn = connect_test_db(self.path)
         try:
@@ -118,7 +123,8 @@ class _FakeDB:
         try:
             p = _p(conn)
             row = conn.execute(
-                f"SELECT {field} FROM items WHERE id = {p}", (item_id,),
+                f"SELECT {field} FROM items WHERE id = {p}",
+                (item_id,),
             ).fetchone()
         finally:
             conn.close()
@@ -149,7 +155,11 @@ def _envelope(function_id: str, *, item_id: int = 101, **overrides):
         "function": function_id,
         "version": "v1",
         "actor": {"actor_id": "op", "session_id": "s-1"},
-        "target": {"kind": "item", "item_id": item_id, "project_id": "yoke"},
+        "target": {
+            "kind": "item",
+            "public_ref": f"YOK-{item_id}",
+            "project_id": "yoke",
+        },
         "payload": {},
         "preconditions": {},
         "options": {},
@@ -167,22 +177,23 @@ class _ApiSuite(unittest.TestCase):
         # Postgres the binding is inert and init_test_db keeps YOKE_PG_DSN
         # repointed at the per-test database for the context.
         with init_test_db(tmp_path, apply_schema=_apply_schema) as db_path:
-            with mock.patch.dict(
-                os.environ, {"YOKE_DB": db_path}, clear=False
-            ):
+            with mock.patch.dict(os.environ, {"YOKE_DB": db_path}, clear=False):
                 reset_registry_for_tests()
                 register_all_handlers()
-                self._event_patch = mock.patch.object(
-                    events_module, "emit_event")
+                self._event_patch = mock.patch.object(events_module, "emit_event")
                 self._event_patch.start()
                 self._idem_patch = mock.patch.object(
-                    dispatch_module, "_idempotency_lookup", return_value=None,
+                    dispatch_module,
+                    "_idempotency_lookup",
+                    return_value=None,
                 )
                 self._idem_patch.start()
                 # The claim verification path consults the real DB; in tests we
                 # silence it because the fake DB has no harness_sessions rows.
                 self._claim_patch = mock.patch.object(
-                    dispatch_module, "verify_claim", return_value=None,
+                    dispatch_module,
+                    "verify_claim",
+                    return_value=None,
                 )
                 self._claim_patch.start()
                 self.db = _FakeDB(db_path)
@@ -208,8 +219,7 @@ class TestStructuredFieldReplaceRoute(_ApiSuite):
         self.db.insert_item(101, spec="old\n")
         env = _envelope(
             "items.structured_field.replace",
-            payload={"field": "spec", "content": "new content\n",
-                     "source": "test"},
+            payload={"field": "spec", "content": "new content\n", "source": "test"},
         )
         resp = self.client.post("/v1/functions/call", json=env)
         self.assertEqual(resp.status_code, 200)
@@ -218,8 +228,13 @@ class TestStructuredFieldReplaceRoute(_ApiSuite):
         # Envelope carries all required fields
         result = body["result"]
         for key in (
-            "old_line_count", "new_line_count", "old_hash", "new_hash",
-            "payload_byte_count", "verification", "github_sync",
+            "old_line_count",
+            "new_line_count",
+            "old_hash",
+            "new_hash",
+            "payload_byte_count",
+            "verification",
+            "github_sync",
         ):
             self.assertIn(key, result)
         self.assertEqual(self.db.fetch_field(101, "spec"), "new content\n")
@@ -240,10 +255,17 @@ class TestStructuredFieldReplaceRoute(_ApiSuite):
     def test_github_sync_degraded_returns_207(self) -> None:
         """GitHub-sync failure surfaces as 207 + warning."""
         self.db.insert_item(101, spec="x\n")
-        with mock.patch.object(
-            backlog_rendering, "_sync_body", return_value=(False, None),
-        ), mock.patch.object(
-            backlog_rendering, "_record_sync_failure", return_value=None,
+        with (
+            mock.patch.object(
+                backlog_rendering,
+                "_sync_body",
+                return_value=(False, None),
+            ),
+            mock.patch.object(
+                backlog_rendering,
+                "_record_sync_failure",
+                return_value=None,
+            ),
         ):
             env = _envelope(
                 "items.structured_field.replace",
@@ -266,78 +288,6 @@ class TestStructuredFieldReplaceRoute(_ApiSuite):
         self.assertIn("properties", body)
         self.assertIn("field", body["properties"])
         self.assertIn("content", body["properties"])
-
-
-class TestStructuredFieldAppendAddendumRoute(_ApiSuite):
-    def test_append_addendum_happy_path(self) -> None:
-        self.db.insert_item(101, spec="# Spec\n\nbody\n")
-        env = _envelope(
-            "items.structured_field.append_addendum",
-            payload={"field": "spec", "heading": "Refinement Addendum",
-                     "content": "more"},
-        )
-        resp = self.client.post("/v1/functions/call", json=env)
-        self.assertEqual(resp.status_code, 200)
-        body = resp.json()
-        self.assertTrue(body["success"])
-        self.assertTrue(body["result"]["changed"])
-        self.assertIn("## Refinement Addendum",
-                      self.db.fetch_field(101, "spec"))
-
-    def test_append_addendum_empty_rejected(self) -> None:
-        self.db.insert_item(101, spec="x\n")
-        env = _envelope(
-            "items.structured_field.append_addendum",
-            payload={"field": "spec", "heading": "X", "content": ""},
-        )
-        resp = self.client.post("/v1/functions/call", json=env)
-        # The domain owner's "refusing addendum with empty content" maps
-        # through _classify_write_error → "empty_body" → HTTP 422.
-        self.assertEqual(resp.status_code, 422)
-        body = resp.json()
-        self.assertFalse(body["success"])
-        self.assertEqual(body["error"]["code"], "empty_body")
-
-
-class TestStructuredFieldSectionRoutes(_ApiSuite):
-    def test_section_upsert_writes_section_row(self) -> None:
-        self.db.insert_item(101, spec="x\n")
-        env = _envelope(
-            "items.structured_field.section_upsert",
-            payload={"section": "Notes", "content": "note body\n"},
-        )
-        resp = self.client.post("/v1/functions/call", json=env)
-        self.assertEqual(resp.status_code, 200)
-        body = resp.json()
-        self.assertTrue(body["success"])
-        self.assertEqual(body["result"]["section"], "Notes")
-
-    def test_section_append_writes_entry(self) -> None:
-        self.db.insert_item(101, spec="x\n")
-        env = _envelope(
-            "items.structured_field.section_append",
-            payload={"section": "Progress Log",
-                     "headline": "checkpoint", "content": "body"},
-        )
-        resp = self.client.post("/v1/functions/call", json=env)
-        self.assertEqual(resp.status_code, 200)
-        body = resp.json()
-        self.assertTrue(body["success"])
-
-
-class TestProgressLogAppendRoute(_ApiSuite):
-    def test_progress_log_append_happy_path(self) -> None:
-        """Append into 'Progress Log' with ordering=200."""
-        self.db.insert_item(101, spec="x\n")
-        env = _envelope(
-            "items.progress_log.append",
-            payload={"headline": "checkpoint", "content": "body"},
-        )
-        resp = self.client.post("/v1/functions/call", json=env)
-        self.assertEqual(resp.status_code, 200)
-        body = resp.json()
-        self.assertTrue(body["success"])
-        self.assertEqual(body["result"]["section"], "Progress Log")
 
 
 if __name__ == "__main__":

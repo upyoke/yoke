@@ -137,6 +137,19 @@ def resolve_item_ref_or_none(
         return None
 
 
+def fill_internal_ids_for_public_rows(conn: Any, rows: list[dict[str, Any]]) -> None:
+    """Resolve public list projections for server-owned enrichment joins."""
+    missing = [
+        str(row.get("public_ref") or row["id"])
+        for row in rows
+        if "internal_id" not in row
+    ]
+    resolved = internal_ids_for_refs(conn, missing)
+    for row in rows:
+        if "internal_id" not in row:
+            row["internal_id"] = resolved[str(row.get("public_ref") or row["id"])]
+
+
 def internal_ids_for_refs(conn: Any, refs: Iterable[Any]) -> Dict[str, int]:
     """Bulk-map ``PREFIX-N`` refs to internal ids in one statement.
 

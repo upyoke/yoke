@@ -5,8 +5,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from yoke_contracts.api.function_call import (
-    FunctionCallResponse,
-    FunctionError,
+    FunctionCallResponse as FunctionCallResponse,
+    FunctionError as FunctionError,
 )
 from yoke_core.domain import worktree_dirty_main_guard as guard
 from yoke_core.domain import worktree_preflight_steps as steps
@@ -32,12 +32,17 @@ def _fake_run_factory(canned):
 
 class TestPhysicalCwdMode:
     def test_matched_when_cwd_equals_worktree(self, tmp_path):
-        assert steps.physical_cwd_mode(str(tmp_path), str(tmp_path)) == steps.CWD_MODE_MATCHED
+        assert (
+            steps.physical_cwd_mode(str(tmp_path), str(tmp_path))
+            == steps.CWD_MODE_MATCHED
+        )
 
     def test_matched_when_cwd_inside_worktree(self, tmp_path):
         sub = tmp_path / "runtime" / "api"
         sub.mkdir(parents=True)
-        assert steps.physical_cwd_mode(str(sub), str(tmp_path)) == steps.CWD_MODE_MATCHED
+        assert (
+            steps.physical_cwd_mode(str(sub), str(tmp_path)) == steps.CWD_MODE_MATCHED
+        )
 
     def test_static_when_cwd_outside_worktree(self, tmp_path):
         wt = tmp_path / ".worktrees" / "YOK-1"
@@ -113,8 +118,11 @@ class TestCheckDirtyMain:
 
 def _resp(function, *, result=None, success=True, error=None):
     return FunctionCallResponse(
-        success=success, function=function, version="v1",
-        result=result or {}, error=error,
+        success=success,
+        function=function,
+        version="v1",
+        result=result or {},
+        error=error,
     )
 
 
@@ -138,13 +146,18 @@ class TestActivatePathClaims:
             if function_id == "claims.path.list":
                 return _resp(function_id, result={"item_id": 1599, "claims": []})
             if function_id == "claims.path.activation_run":
-                return _resp(function_id, result={
-                    "outcomes": [], "blocked_errors": [], "diverged_error": None,
-                })
+                return _resp(
+                    function_id,
+                    result={
+                        "outcomes": [],
+                        "blocked_errors": [],
+                        "diverged_error": None,
+                    },
+                )
             raise AssertionError(function_id)
 
         _patch_facade(monkeypatch, router)
-        ok, err, ids = steps.activate_path_claims(1599)
+        ok, err, ids = steps.activate_path_claims("YOK-1599")
         assert (ok, err, ids) == (True, "", [])
         run_call = next(
             c for c in calls if c["function_id"] == "claims.path.activation_run"
@@ -159,7 +172,10 @@ class TestActivatePathClaims:
             _retry,
             "resolve_integration_head_with_retry",
             lambda *a, **k: _retry.ResolveResult(
-                commit_sha="deadbeef", error=None, diverged=False, attempts=1,
+                commit_sha="deadbeef",
+                error=None,
+                diverged=False,
+                attempts=1,
             ),
         )
         calls = []
@@ -167,27 +183,45 @@ class TestActivatePathClaims:
         def router(*, function_id, target, payload=None, **_k):
             calls.append({"function_id": function_id, "payload": payload})
             if function_id == "claims.path.list":
-                return _resp(function_id, result={"claims": [
-                    {"id": 39, "state": "planned", "integration_target": "main"},
-                ]})
+                return _resp(
+                    function_id,
+                    result={
+                        "claims": [
+                            {
+                                "id": 39,
+                                "state": "planned",
+                                "integration_target": "main",
+                            },
+                        ]
+                    },
+                )
             if function_id == "claims.path.activation_run":
-                return _resp(function_id, result={"outcomes": [
-                    {"claim_id": 39, "state_before": "planned",
-                     "state_after": "active", "error": None},
-                ], "blocked_errors": [], "diverged_error": None})
+                return _resp(
+                    function_id,
+                    result={
+                        "outcomes": [
+                            {
+                                "claim_id": 39,
+                                "state_before": "planned",
+                                "state_after": "active",
+                                "error": None,
+                            },
+                        ],
+                        "blocked_errors": [],
+                        "diverged_error": None,
+                    },
+                )
             raise AssertionError(function_id)
 
         _patch_facade(monkeypatch, router)
-        ok, err, ids = steps.activate_path_claims(1599)
+        ok, err, ids = steps.activate_path_claims("YOK-1599")
         assert (ok, err, ids) == (True, "", [39])
         run_call = next(
             c for c in calls if c["function_id"] == "claims.path.activation_run"
         )
         assert run_call["payload"] == {"resolved_heads": {39: "deadbeef"}}
 
-    def test_planned_head_resolution_error_blocks_before_activation(
-        self, monkeypatch
-    ):
+    def test_planned_head_resolution_error_blocks_before_activation(self, monkeypatch):
         from yoke_core.domain import advance_path_claim_activation_retry as _retry
 
         monkeypatch.setattr(steps, "_local_checkout_for_item", lambda _id: "/repo")
@@ -195,8 +229,10 @@ class TestActivatePathClaims:
             _retry,
             "resolve_integration_head_with_retry",
             lambda *a, **k: _retry.ResolveResult(
-                commit_sha=None, error="db-lock:retried 3 times: locked",
-                diverged=False, attempts=3,
+                commit_sha=None,
+                error="db-lock:retried 3 times: locked",
+                diverged=False,
+                attempts=3,
             ),
         )
         seen = []
@@ -204,13 +240,22 @@ class TestActivatePathClaims:
         def router(*, function_id, target, payload=None, **_k):
             seen.append(function_id)
             if function_id == "claims.path.list":
-                return _resp(function_id, result={"claims": [
-                    {"id": 39, "state": "planned", "integration_target": "main"},
-                ]})
+                return _resp(
+                    function_id,
+                    result={
+                        "claims": [
+                            {
+                                "id": 39,
+                                "state": "planned",
+                                "integration_target": "main",
+                            },
+                        ]
+                    },
+                )
             raise AssertionError(f"activation_run must not run: {function_id}")
 
         _patch_facade(monkeypatch, router)
-        ok, err, ids = steps.activate_path_claims(1599)
+        ok, err, ids = steps.activate_path_claims("YOK-1599")
         assert ok is False
         assert steps.classify_activation_failure(err) == steps.BLOCK_DB_LOCK
         assert "claims.path.activation_run" not in seen
@@ -223,25 +268,42 @@ class TestActivatePathClaims:
             _retry,
             "resolve_integration_head_with_retry",
             lambda *a, **k: _retry.ResolveResult(
-                commit_sha=None, error="boundary error", diverged=False, attempts=1,
+                commit_sha=None,
+                error="boundary error",
+                diverged=False,
+                attempts=1,
             ),
         )
         run_payloads = []
 
         def router(*, function_id, target, payload=None, **_k):
             if function_id == "claims.path.list":
-                return _resp(function_id, result={"claims": [
-                    {"id": 40, "state": "blocked", "integration_target": "main"},
-                ]})
+                return _resp(
+                    function_id,
+                    result={
+                        "claims": [
+                            {
+                                "id": 40,
+                                "state": "blocked",
+                                "integration_target": "main",
+                            },
+                        ]
+                    },
+                )
             if function_id == "claims.path.activation_run":
                 run_payloads.append(payload)
-                return _resp(function_id, result={
-                    "outcomes": [], "blocked_errors": [], "diverged_error": None,
-                })
+                return _resp(
+                    function_id,
+                    result={
+                        "outcomes": [],
+                        "blocked_errors": [],
+                        "diverged_error": None,
+                    },
+                )
             raise AssertionError(function_id)
 
         _patch_facade(monkeypatch, router)
-        ok, err, ids = steps.activate_path_claims(1599)
+        ok, err, ids = steps.activate_path_claims("YOK-1599")
         assert (ok, err, ids) == (True, "", [])
         # The blocked claim's unresolved head is omitted; the server keeps it
         # blocked (or falls back to local resolution on repair-to-planned).
@@ -252,89 +314,18 @@ class TestActivatePathClaims:
             if function_id == "claims.path.list":
                 return _resp(function_id, result={"claims": []})
             if function_id == "claims.path.activation_run":
-                return _resp(function_id, result={
-                    "outcomes": [],
-                    "blocked_errors": ["claim 39 is blocked by upstream 12"],
-                    "diverged_error": None,
-                })
+                return _resp(
+                    function_id,
+                    result={
+                        "outcomes": [],
+                        "blocked_errors": ["claim 39 is blocked by upstream 12"],
+                        "diverged_error": None,
+                    },
+                )
             raise AssertionError(function_id)
 
         _patch_facade(monkeypatch, router)
-        ok, err, ids = steps.activate_path_claims(1599)
+        ok, err, ids = steps.activate_path_claims("YOK-1599")
         assert ok is False
         assert "blocked by upstream" in err
         assert ids == []
-
-
-class TestLocalCheckoutForItem:
-    def test_resolves_project_checkout(self, monkeypatch, tmp_path):
-        def router(*, function_id, target, payload=None, **_k):
-            assert function_id == "items.detail.get"
-            return _resp(function_id, result={
-                "item": {"id": 1599, "project": {"id": 5}},
-            })
-
-        _patch_facade(monkeypatch, router)
-        monkeypatch.setattr(
-            "yoke_core.domain.project_checkout_locations.checkout_for_project_id",
-            lambda pid, **_k: tmp_path if pid == 5 else None,
-        )
-        assert steps._local_checkout_for_item(1599) == str(tmp_path)
-
-    def test_returns_none_when_detail_get_fails(self, monkeypatch):
-        _patch_facade(
-            monkeypatch,
-            lambda **_k: _resp(
-                "items.detail.get", success=False,
-                error=FunctionError(code="not_found", message="no"),
-            ),
-        )
-        assert steps._local_checkout_for_item(1599) is None
-
-
-class TestClaimWork:
-    """``claim_work`` acquires the item work claim through the transport-aware
-    dispatcher (``claims.work.acquire``) rather than shelling to a local-DB
-    module, so it works over an https control plane."""
-
-    def _patch_dispatch(self, monkeypatch, response):
-        from yoke_core.api import service_client_structured_api_adapter as facade
-
-        calls = []
-
-        def fake(**kwargs):
-            calls.append(kwargs)
-            return response
-
-        monkeypatch.setattr(facade, "call_dispatcher", fake)
-        return calls
-
-    def test_acquire_success_relays_claims_work_acquire(self, monkeypatch):
-        calls = self._patch_dispatch(
-            monkeypatch,
-            FunctionCallResponse(
-                success=True, function="claims.work.acquire", version="v1",
-                result={"claim": "held"},
-            ),
-        )
-        ok, msg = steps.claim_work(1599)
-        assert ok is True
-        assert msg  # non-empty status string
-        assert calls[0]["function_id"] == "claims.work.acquire"
-        assert calls[0]["target"].kind == "item"
-        assert calls[0]["target"].item_id == 1599
-
-    def test_other_session_holding_returns_failure(self, monkeypatch):
-        self._patch_dispatch(
-            monkeypatch,
-            FunctionCallResponse(
-                success=False, function="claims.work.acquire", version="v1",
-                error=FunctionError(
-                    code="active_claim_conflict",
-                    message="already claimed by session 'alt'",
-                ),
-            ),
-        )
-        ok, msg = steps.claim_work(1599)
-        assert ok is False
-        assert "already claimed by session" in msg

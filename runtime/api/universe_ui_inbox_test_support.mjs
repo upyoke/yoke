@@ -24,7 +24,7 @@ export function requestRow(overrides = {}) {
     // invents a friendlier shape lets the renderer pass its tests while the
     // served Inbox draws a row describing nothing.
     subject_context: {
-      item_id: 1907,
+      public_ref: "YOK-1907",
       item_ref: "YOK-1907",
       item_title: "Approve the reviewing-implementation transition",
       from_stage: "implementing",
@@ -71,7 +71,7 @@ export function qaRequestRow(overrides = {}) {
       plan_id: 7,
       subject: {
         kind: "item",
-        item_id: 1907,
+        public_ref: "YOK-1907",
         item_ref: "YOK-1907",
         item_title: "Approval evidence review",
         deployment_run_id: null,
@@ -176,10 +176,10 @@ export function inboxClient(needsRows = null, itemActivityRows = []) {
       // A release approval reads what its carried items proved, scoped to
       // exactly the subjects the tile lists.
       if (request.function === "qa.activity.list") {
-        const wanted = new Set((request.payload.item_ids || []).map(Number));
+        const wanted = new Set((request.payload.public_refs || []).map(String));
         return ok({
           rows: itemActivityRows.filter((row) => wanted.has(
-            Number(row.item_id ?? row.deployment_member_item_id),
+            String(row.public_ref ?? row.deployment_member_public_ref),
           )),
           summary: { day: "2026-07-26", total: itemActivityRows.length, counts: {} },
         });

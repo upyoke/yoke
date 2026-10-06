@@ -99,7 +99,7 @@ class TestTransitionResult:
             done_transition, "_update_item_direct", side_effect=fake_update
         ):
             assert done_transition._update_status_to_done(
-                42, skip_qa=False, public_ref=f"YOK-{42}"
+                "YOK-42", skip_qa=False, public_ref=f"YOK-{42}"
             )
 
         assert calls
@@ -196,12 +196,12 @@ class TestDeploymentEvidence:
         conn.commit()
         conn.close()
 
-        assert done_transition._check_deployment_evidence(50) is True
+        assert done_transition._check_deployment_evidence("YOK-50") is True
 
     def test_no_runs_is_no_evidence(self, dt_db):
         db_path, _ = dt_db
         _insert_item(db_path, 51, deployment_flow="standard")
-        assert done_transition._check_deployment_evidence(51) is False
+        assert done_transition._check_deployment_evidence("YOK-51") is False
 
     def test_failed_run_is_no_evidence(self, dt_db):
         db_path, _ = dt_db
@@ -218,7 +218,7 @@ class TestDeploymentEvidence:
         conn.commit()
         conn.close()
 
-        assert done_transition._check_deployment_evidence(52) is False
+        assert done_transition._check_deployment_evidence("YOK-52") is False
 
 
 class TestDeploymentFlowGuard:

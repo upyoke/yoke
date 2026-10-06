@@ -80,10 +80,9 @@ def _record_ci_run(
     duration_ms: int,
 ) -> Optional[int]:
     item_id_raw = getattr(ctx, "item_id", None)
-    try:
-        item_id = int(str(item_id_raw))
-    except (TypeError, ValueError):
+    if not item_id_raw:
         return None
+    item_id = str(item_id_raw)
     resp = call_dispatcher(
         function_id="merge.tests.record_post_rebase_ci_run",
         target=public_item_target(item_id),
@@ -145,7 +144,7 @@ def run_ci_verification(
     # a second source of truth for the same fact.
     try:
         workflow_inputs = qa_case_ci_candidate_inputs.item_inputs(
-            item_id=int(str(ctx.item_id)),
+            item_id=str(ctx.item_id),
             workflow=workflow,
         )
     except (QaCaseExecutionError, TypeError, ValueError) as exc:

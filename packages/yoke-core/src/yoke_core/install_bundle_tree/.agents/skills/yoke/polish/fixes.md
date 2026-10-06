@@ -2,7 +2,7 @@
 
 Covers polish step 7: apply targeted finishing fixes to the worktree. Includes the DB-claim stop-and-amend gate when governed DB mutation is discovered.
 
-**Context variables** (set by earlier phases): `ITEM_REF`, `ITEM_REF`, `WORKTREE_PATH`, `WORKTREE_PATHS`.
+**Context variables** (set by earlier phases): `ITEM_REF`, `WORKTREE_PATH`, `WORKTREE_PATHS`.
 
 ---
 

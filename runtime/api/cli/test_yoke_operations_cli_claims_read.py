@@ -24,15 +24,20 @@ _CAPTURED_REQUESTS: List[FunctionCallRequest] = []
 def _stub_ok(request: FunctionCallRequest) -> FunctionCallResponse:
     _CAPTURED_REQUESTS.append(request)
     return FunctionCallResponse(
-        success=True, function=request.function, version=request.version,
-        request_id=request.request_id, result={"echo": True},
+        success=True,
+        function=request.function,
+        version=request.version,
+        request_id=request.request_id,
+        result={"echo": True},
     )
 
 
 def _stub_fail(request: FunctionCallRequest) -> FunctionCallResponse:
     _CAPTURED_REQUESTS.append(request)
     return FunctionCallResponse(
-        success=False, function=request.function, version=request.version,
+        success=False,
+        function=request.function,
+        version=request.version,
         request_id=request.request_id,
         error=FunctionError(code="invalid_payload", message="stub failure"),
     )
@@ -49,9 +54,7 @@ def _run(stub, *argv: str, session_id: str = "test-session") -> int:
             "yoke_core.domain.yoke_function_dispatch.dispatch",
             side_effect=stub,
         ):
-            with patch(
-                "yoke_cli.commands._helpers.ensure_handlers_loaded"
-            ):
+            with patch("yoke_cli.commands._helpers.ensure_handlers_loaded"):
                 with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
                     return cli_main(list(argv))
 
@@ -63,16 +66,16 @@ class TestClaimsWorkHolderGet:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "claims.work.holder_get"
         assert req.target.kind == "item"
-        assert req.target.public_ref == "1818"
+        assert req.target.public_ref == "YOK-1818"
         assert req.payload == {}
 
     def test_item_flag_form_dispatches(self) -> None:
-        rc = _run(_stub_ok, "claims", "work", "holder-get", "--item", "1818")
+        rc = _run(_stub_ok, "claims", "work", "holder-get", "--item", "YOK-1818")
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "claims.work.holder_get"
         assert req.target.kind == "item"
-        assert req.target.public_ref == "1818"
+        assert req.target.public_ref == "YOK-1818"
         assert req.payload == {}
 
     def test_missing_item_returns_usage_error(self) -> None:
@@ -82,8 +85,14 @@ class TestClaimsWorkHolderGet:
 
     def test_path_form_honors_explicit_project(self) -> None:
         rc = _run(
-            _stub_ok, "claims", "work", "holder-get",
-            "--path", "/tmp", "--project", "yoke",
+            _stub_ok,
+            "claims",
+            "work",
+            "holder-get",
+            "--path",
+            "/tmp",
+            "--project",
+            "yoke",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -103,12 +112,12 @@ class TestClaimsWorkCurrent:
     """``yoke claims work current`` alias dispatches via holder_get."""
 
     def test_flag_form_dispatches(self) -> None:
-        rc = _run(_stub_ok, "claims", "work", "current", "--item", "1880")
+        rc = _run(_stub_ok, "claims", "work", "current", "--item", "YOK-1880")
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "claims.work.holder_get"
         assert req.target.kind == "item"
-        assert req.target.public_ref == "1880"
+        assert req.target.public_ref == "YOK-1880"
         assert req.payload == {}
 
     def test_positional_form_dispatches(self) -> None:
@@ -116,7 +125,7 @@ class TestClaimsWorkCurrent:
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "claims.work.holder_get"
-        assert req.target.public_ref == "1880"
+        assert req.target.public_ref == "YOK-1880"
 
     def test_missing_item_returns_usage_error(self) -> None:
         rc = _run(_stub_ok, "claims", "work", "current")
@@ -126,18 +135,22 @@ class TestClaimsWorkCurrent:
 
 class TestClaimsWorkHolderList:
     def test_item_filter_dispatches(self) -> None:
-        rc = _run(_stub_ok, "claims", "work", "holder-list", "--item", "1818")
+        rc = _run(_stub_ok, "claims", "work", "holder-list", "--item", "YOK-1818")
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "claims.work.holder_list"
         assert req.target.kind == "item"
-        assert req.target.public_ref == "1818"
+        assert req.target.public_ref == "YOK-1818"
         assert req.payload == {}
 
     def test_session_filter_dispatches_global(self) -> None:
         rc = _run(
-            _stub_ok, "claims", "work", "holder-list",
-            "--session-id-filter", "abc-123",
+            _stub_ok,
+            "claims",
+            "work",
+            "holder-list",
+            "--session-id-filter",
+            "abc-123",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -146,9 +159,14 @@ class TestClaimsWorkHolderList:
 
     def test_session_filter_honors_explicit_project(self) -> None:
         rc = _run(
-            _stub_ok, "claims", "work", "holder-list",
-            "--session-id-filter", "abc-123",
-            "--project", "yoke",
+            _stub_ok,
+            "claims",
+            "work",
+            "holder-list",
+            "--session-id-filter",
+            "abc-123",
+            "--project",
+            "yoke",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -172,8 +190,12 @@ class TestPathClaimsConflictsList:
 
     def test_integration_target_filter_propagates(self) -> None:
         rc = _run(
-            _stub_ok, "path-claims", "conflicts", "list",
-            "--integration-target", "main",
+            _stub_ok,
+            "path-claims",
+            "conflicts",
+            "list",
+            "--integration-target",
+            "main",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -182,9 +204,14 @@ class TestPathClaimsConflictsList:
 
     def test_explicit_project_satisfies_global_resolution(self) -> None:
         rc = _run(
-            _stub_ok, "path-claims", "conflicts", "list",
-            "--integration-target", "main",
-            "--project", "yoke",
+            _stub_ok,
+            "path-claims",
+            "conflicts",
+            "list",
+            "--integration-target",
+            "main",
+            "--project",
+            "yoke",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -193,11 +220,11 @@ class TestPathClaimsConflictsList:
         assert req.target.project_id == "yoke"
 
     def test_item_filter_dispatches_item_scoped(self) -> None:
-        rc = _run(_stub_ok, "path-claims", "conflicts", "list", "--item", "7")
+        rc = _run(_stub_ok, "path-claims", "conflicts", "list", "--item", "YOK-7")
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.target.kind == "item"
-        assert req.target.public_ref == "7"
+        assert req.target.public_ref == "YOK-7"
 
     def test_dispatch_failure_propagates_exit_one(self) -> None:
         rc = _run(_stub_fail, "path-claims", "conflicts", "list")

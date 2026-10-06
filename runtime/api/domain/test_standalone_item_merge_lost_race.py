@@ -24,12 +24,13 @@ from runtime.api.domain.standalone_merge_simulation_support import (
 )
 from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_cli as sim_cli
-from yoke_core.domain import standalone_item_merge_close_out_transition as close_out_transition
+from yoke_core.domain import (
+    standalone_item_merge_close_out_transition as close_out_transition,
+)
 from yoke_core.domain.standalone_item_merge_release_status import CloseOutRoute
 from yoke_core.domain import standalone_item_merge_evidence as evidence
 from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.domain.dash_execution import record_dash_evidence
-
 
 
 @pytest.fixture(autouse=True)
@@ -105,7 +106,9 @@ def _close_out_racing(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     )
     monkeypatch.setattr(sim_cli.evidence, "record", lambda **_k: "")
     monkeypatch.setattr(
-        close_out_transition, "close_out_route", lambda *_a, **_k: CloseOutRoute(stages=("done",)),
+        close_out_transition,
+        "close_out_route",
+        lambda *_a, **_k: CloseOutRoute(stages=("done",)),
     )
     monkeypatch.setattr(
         sim_cli.close_out,
@@ -206,10 +209,10 @@ def test_recorded_landing_needs_all_three_facts(monkeypatch) -> None:
         _answers(record={**RECORD, "commit_sha": "", "merge_sha": ""}),
     ):
         monkeypatch.setattr(evidence, "call_dispatcher", _dispatch(answers))
-        assert evidence.recorded_landing(7) is None
+        assert evidence.recorded_landing("ITEM-7") is None
 
     monkeypatch.setattr(evidence, "call_dispatcher", _dispatch(_answers(record=RECORD)))
-    landing = evidence.recorded_landing(7)
+    landing = evidence.recorded_landing("ITEM-7")
     assert landing is not None
     assert landing["merged_at"] == "2026-09-03T18:27:22Z"
     assert landing["merge_sha"] == "2" * 40
@@ -220,7 +223,7 @@ def test_a_record_without_a_session_names_its_actor(monkeypatch) -> None:
     monkeypatch.setattr(evidence, "call_dispatcher", _dispatch(_answers(record=record)))
 
     envelope = evidence.recorded_landing_envelope(
-        7, public_ref="ITEM-1", branch="ITEM-1"
+        "ITEM-7", public_ref="ITEM-1", branch="ITEM-1"
     )
 
     assert envelope is not None

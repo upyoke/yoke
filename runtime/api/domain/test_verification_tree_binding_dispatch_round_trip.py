@@ -50,4 +50,4 @@ def test_holder_scope_survives_the_dispatcher_and_decodes(test_db, monkeypatch):
 
     assert lookup.reachable is True, lookup.detail
     assert lookup.worktrees == (LANE,)
-    assert lookup.lane_item_id == ITEM_ID
+    assert lookup.lane_item_id == f"YOK-{ITEM_ID}"

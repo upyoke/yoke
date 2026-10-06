@@ -48,7 +48,7 @@ def _scalar_envelope(item_id, **payload_overrides):
         "function": "items.scalar.update",
         "version": "v1",
         "actor": {"actor_id": "op", "session_id": _SESSION_ID},
-        "target": {"kind": "item", "item_id": item_id},
+        "target": {"kind": "item", "public_ref": f"YOK-{item_id}"},
         "payload": payload,
     }
 

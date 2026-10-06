@@ -58,7 +58,7 @@ function strategyDocument() {
     references: ["MASTER-PLAN"],
     current_revision: 2,
     execution_claim: {
-      owner_kind: "item", owner_item_id: 2262, project_id: 1,
+      owner_kind: "item", owner_public_ref: "YOK-2228", project_id: 1,
       item_ref: "YOK-2001",
       workflow_id: "blitz",
       workflow_version_id: 17,
@@ -111,7 +111,7 @@ test("Strategy corpus matches the prototype hierarchy with real read facts", asy
               archived: false,
               execution_state: "claimed",
               execution_owner_kind: "item",
-              execution_item_id: 2001,
+              execution_public_ref: "YOK-2001",
               execution_item_ref: "YOK-2001",
               execution_item_status: "implementing",
             }, {
@@ -212,7 +212,7 @@ test("Strategy detail exposes document, history, diff, and restore", async () =>
   assert.match(rendered, /Inspect documents, compare revisions/);
   assert.doesNotMatch(rendered, /\bcomments?\b/i);
   assert.match(rendered, /item-owned\s+·\s+YOK-2001/);
-  assert.equal(allNodes(main).find((node) => node.textContent === "YOK-2001 →").href, "/items/2001?project=1");
+  assert.equal(allNodes(main).find((node) => node.textContent === "YOK-2001 →").href, "/items/YOK-2001?project=1");
   assert.match(rendered, /Blitz v2/);
   assert.match(rendered, /Purpose/);
   assert.doesNotMatch(rendered, /<h1>/);
@@ -289,7 +289,6 @@ test("Blitz detail is a thin system-fact shell around the live document", async 
     },
   };
   const item = {
-    id: 2001,
     public_ref: "YOK-2001",
     title: "Execute WORKFLOW-TYPES",
     status: "implementing",

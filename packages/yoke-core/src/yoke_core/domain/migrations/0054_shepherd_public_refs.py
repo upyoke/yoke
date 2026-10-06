@@ -23,7 +23,7 @@ def _marker(conn: Any) -> str:
     return "%s" if connection_is_postgres(conn) else "?"
 
 
-def _identity(conn: Any, key: str) -> str:
+def _identity(conn: Any, key: str) -> str | None:
     match = _OLD_KEY.fullmatch(key)
     row = None
     if match:
@@ -34,11 +34,7 @@ def _identity(conn: Any, key: str) -> str:
             (int(match.group(1)),),
         ).fetchone()
     if row is None or not row[0] or row[1] is None:
-        raise RuntimeError(
-            "shepherd_key_unresolved: a stored Shepherd key has no item identity. "
-            "Recovery: inspect the Shepherd records on the current serving "
-            "build and repair their item association, then rehearse this migration."
-        )
+        return None
     return f"{row[0]}-{row[1]}"
 
 
@@ -49,20 +45,23 @@ def apply(conn: Any) -> None:
         # Resolve the entire table before changing anything. The runner owns
         # the transaction; verdict ids and every caveat's verdict FK survive.
         rows = conn.execute(f"SELECT id, item FROM {table} ORDER BY id").fetchall()
-        updates = [(_identity(conn, str(row[1])), row[0]) for row in rows]
+        updates = [(_identity(conn, str(row[1])), row[0], str(row[1])) for row in rows]
         # Keys can permute (an internal id can equal another public sequence).
         # Vacate the old namespace first without dropping uniqueness or rows.
-        for _, row_id in updates:
+        for _, row_id, _ in updates:
             conn.execute(
                 f"UPDATE {table} SET item = {_marker(conn)} WHERE id = {_marker(conn)}",
                 (f"@{row_id}", row_id),
             )
-        for public_ref, row_id in updates:
-            conn.execute(
-                f"UPDATE {table} SET item = {_marker(conn)} WHERE id = {_marker(conn)}",
-                (public_ref, row_id),
-            )
         conn.execute(f"ALTER TABLE {table} RENAME COLUMN item TO public_ref")
+        conn.execute(f"ALTER TABLE {table} ALTER COLUMN public_ref DROP NOT NULL")
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN archived_item_key TEXT")
+        for public_ref, row_id, original_key in updates:
+            conn.execute(
+                f"UPDATE {table} SET public_ref = {_marker(conn)}, "
+                f"archived_item_key = {_marker(conn)} WHERE id = {_marker(conn)}",
+                (public_ref, original_key if public_ref is None else None, row_id),
+            )
 
 
 def invariants(conn: Any) -> None:
@@ -77,10 +76,19 @@ def invariants(conn: Any) -> None:
             f"SELECT s.id FROM {table} s LEFT JOIN items i "
             "ON EXISTS (SELECT 1 FROM projects p WHERE p.id = i.project_id "
             "AND p.public_item_prefix || '-' || CAST(i.project_sequence AS TEXT) = s.public_ref) "
-            "WHERE i.id IS NULL"
+            "WHERE s.public_ref IS NOT NULL AND i.id IS NULL"
         ).fetchall()
         if rows:
             raise AssertionError(
                 "shepherd_public_ref_unresolved: inspect the item identity mapping "
                 "on the current serving build, repair it, and rehearse again"
+            )
+        invalid = conn.execute(
+            f"SELECT id FROM {table} WHERE "
+            "(public_ref IS NULL AND archived_item_key IS NULL) OR "
+            "(public_ref IS NOT NULL AND archived_item_key IS NOT NULL)"
+        ).fetchall()
+        if invalid:
+            raise AssertionError(
+                "shepherd_archive_identity_invalid: inspect preserved archive metadata"
             )

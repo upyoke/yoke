@@ -19,7 +19,7 @@ exactly one pinned `refine` binding:
 Register the work claim BEFORE the status transition (claim-before-status ordering). The session stamp uses the registered session wrapper. This prevents the scheduler from offering the same item while refine is actively working on it, and ensures the subsequent status mutation passes claim verification:
 
 ```bash
-# Reuse ITEM_REF and ITEM_REF from step 1. The items.get dispatcher already
+# Reuse ITEM_REF from step 1. The items.get dispatcher already
 # resolved prefixed, zero-padded, and project-local bare-number input.
 # Session touch + claim
 yoke sessions touch --mode refine
@@ -56,7 +56,7 @@ Read all available structured fields. Empty fields are normal; refinement should
 
 ```bash
 MAIN_ROOT=$(git rev-parse --show-toplevel)
-# Reuse ITEM_REF and ITEM_REF from step 1.
+# Reuse ITEM_REF from step 1.
 BODY=$(yoke items get "$ITEM_REF" body 2>/dev/null) || true
 SPEC=$(yoke items get "$ITEM_REF" spec 2>/dev/null) || true
 DESIGN_SPEC=$(yoke items get "$ITEM_REF" design_spec 2>/dev/null) || true

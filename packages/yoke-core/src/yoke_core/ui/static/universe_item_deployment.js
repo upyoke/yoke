@@ -185,7 +185,7 @@ export function appendItemDelivery(documentNode, card, row, deployments, project
     // wait for — an absent merge line alone would read as unfinished work.
     box.appendChild(el(documentNode, "small", "item-delivery-no-change", "no code change"));
   }
-  const itemId = row.public_ref ?? row.id;
+  const itemId = row.public_ref;
   const runs = shownDeliveryRuns(deployments?.get(String(itemId)) || []);
   for (const run of runs) {
     box.appendChild(environmentRow(documentNode, runEnvironment(run), itemOutcome(run), run, row));

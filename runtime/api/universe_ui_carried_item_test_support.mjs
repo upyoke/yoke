@@ -34,8 +34,8 @@ export function activityRow(overrides = {}) {
     run_id: 28095,
     deployment_run_id: null,
     deployment_stage: null,
-    item_id: 1896,
-    deployment_member_item_id: null,
+    public_ref: "BUZ-1896",
+    deployment_member_public_ref: null,
     plan_id: 7,
     plan: "release-readiness",
     project: "yoke",
@@ -66,7 +66,7 @@ export function runRow(items) {
 
 export function member(id, ref, overrides = {}) {
   return {
-    id,
+    public_ref: ref,
     ref,
     title: `${ref} title`,
     project_id: 1,
@@ -85,14 +85,14 @@ export function readingClient({ rows = [], pending = [], resolves = [], selectio
     async call(request) {
       requests.push(request);
       if (request.function === "qa.activity.list") {
-        const wanted = new Set((request.payload.item_ids || []).map(Number));
+        const wanted = new Set((request.payload.public_refs || []).map(String));
         return {
           status: 200,
           envelope: {
             success: true,
             result: {
               rows: rows.filter((row) => wanted.has(
-                Number(row.item_id ?? row.deployment_member_item_id),
+                String(row.public_ref ?? row.deployment_member_public_ref),
               )),
               item_selection: selection,
               summary: { day: "2026-09-10", total: rows.length, counts: {} },
@@ -167,7 +167,7 @@ export function itemReviewRow(overrides = {}) {
       subject: {
         ...base.subject_context.subject,
         kind: "item",
-        item_id: 1896,
+        public_ref: "BUZ-1896",
         item_ref: "BUZ-1896",
         deployment_run_id: null,
       },

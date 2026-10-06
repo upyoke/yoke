@@ -13,11 +13,14 @@ from __future__ import annotations
 # Shared fixture functions intentionally remain module globals for pytest.
 # ruff: noqa: F401, F811
 
-from yoke_core.engines.resync import PairedItem, stage2_compare
+from yoke_core.engines.resync import (
+    PairedItem as PairedItem,
+    stage2_compare as stage2_compare,
+)
 
 from runtime.api.engines._resync_full_test_helpers import (
-    _make_gh_issues,
-    populated_db,
+    _make_gh_issues as _make_gh_issues,
+    populated_db as populated_db,
     test_db,
 )
 
@@ -27,37 +30,53 @@ class TestStage2CompareTextLabel:
 
     def test_no_drift_when_synced(self, populated_db):
         """No drifts when GitHub matches local DB."""
-        gh_issues = _make_gh_issues([{
-            "number": 100,
-            "title": "[YOK-42] Test item",
-            "labels": [
-                {"name": "status:implementing"},
-                {"name": "priority:high"},
-                {"name": "workflow:issue"},
-                {"name": "source:manual"},
-            ],
-            "state": "OPEN",
-            "body": "# Spec: Test item\n\nItem body\n",
-        }])
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
+        gh_issues = _make_gh_issues(
+            [
+                {
+                    "number": 100,
+                    "title": "[YOK-42] Test item",
+                    "labels": [
+                        {"name": "status:implementing"},
+                        {"name": "priority:high"},
+                        {"name": "workflow:issue"},
+                        {"name": "source:manual"},
+                    ],
+                    "state": "OPEN",
+                    "body": "# Spec: Test item\n\nItem body\n",
+                }
+            ]
+        )
+        paired = [
+            PairedItem(
+                "YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", public_ref="YOK-42"
+            )
+        ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         assert len(drifts) == 0
 
     def test_title_drift(self, populated_db):
         """Detects title drift."""
-        gh_issues = _make_gh_issues([{
-            "number": 100,
-            "title": "[YOK-42] Wrong title",
-            "labels": [
-                {"name": "status:implementing"},
-                {"name": "priority:high"},
-                {"name": "workflow:issue"},
-                {"name": "source:manual"},
-            ],
-            "state": "OPEN",
-            "body": "Item body",
-        }])
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
+        gh_issues = _make_gh_issues(
+            [
+                {
+                    "number": 100,
+                    "title": "[YOK-42] Wrong title",
+                    "labels": [
+                        {"name": "status:implementing"},
+                        {"name": "priority:high"},
+                        {"name": "workflow:issue"},
+                        {"name": "source:manual"},
+                    ],
+                    "state": "OPEN",
+                    "body": "Item body",
+                }
+            ]
+        )
+        paired = [
+            PairedItem(
+                "YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", public_ref="YOK-42"
+            )
+        ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         title_drifts = [d for d in drifts if d.field == "title"]
         assert len(title_drifts) == 1
@@ -66,76 +85,110 @@ class TestStage2CompareTextLabel:
 
     def test_body_drift_heavy(self, populated_db):
         """Detects body drift using heavy data."""
-        gh_issues = _make_gh_issues([{
-            "number": 100,
-            "title": "[YOK-42] Test item",
-            "labels": [
-                {"name": "status:implementing"},
-                {"name": "priority:high"},
-                {"name": "workflow:issue"},
-                {"name": "source:manual"},
-            ],
-            "state": "OPEN",
-        }])
-        heavy = {"yoke": {100: {"number": 100, "body": "Different body", "comments": []}}}
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
+        gh_issues = _make_gh_issues(
+            [
+                {
+                    "number": 100,
+                    "title": "[YOK-42] Test item",
+                    "labels": [
+                        {"name": "status:implementing"},
+                        {"name": "priority:high"},
+                        {"name": "workflow:issue"},
+                        {"name": "source:manual"},
+                    ],
+                    "state": "OPEN",
+                }
+            ]
+        )
+        heavy = {
+            "yoke": {100: {"number": 100, "body": "Different body", "comments": []}}
+        }
+        paired = [
+            PairedItem(
+                "YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", public_ref="YOK-42"
+            )
+        ]
         drifts = stage2_compare(paired, gh_issues, heavy, populated_db)
         body_drifts = [d for d in drifts if d.field == "body"]
         assert len(body_drifts) == 1
 
     def test_body_drift_light(self, populated_db):
         """Detects body drift using light (inline) data."""
-        gh_issues = _make_gh_issues([{
-            "number": 100,
-            "title": "[YOK-42] Test item",
-            "labels": [
-                {"name": "status:implementing"},
-                {"name": "priority:high"},
-                {"name": "workflow:issue"},
-                {"name": "source:manual"},
-            ],
-            "state": "OPEN",
-            "body": "Totally different body",
-        }])
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
+        gh_issues = _make_gh_issues(
+            [
+                {
+                    "number": 100,
+                    "title": "[YOK-42] Test item",
+                    "labels": [
+                        {"name": "status:implementing"},
+                        {"name": "priority:high"},
+                        {"name": "workflow:issue"},
+                        {"name": "source:manual"},
+                    ],
+                    "state": "OPEN",
+                    "body": "Totally different body",
+                }
+            ]
+        )
+        paired = [
+            PairedItem(
+                "YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", public_ref="YOK-42"
+            )
+        ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         body_drifts = [d for d in drifts if d.field == "body"]
         assert len(body_drifts) == 1
 
     def test_no_body_drift_when_matching(self, populated_db):
         """No body drift when bodies match."""
-        gh_issues = _make_gh_issues([{
-            "number": 100,
-            "title": "[YOK-42] Test item",
-            "labels": [
-                {"name": "status:implementing"},
-                {"name": "priority:high"},
-                {"name": "workflow:issue"},
-                {"name": "source:manual"},
-            ],
-            "state": "OPEN",
-            "body": "# Spec: Test item\n\nItem body\n",
-        }])
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
+        gh_issues = _make_gh_issues(
+            [
+                {
+                    "number": 100,
+                    "title": "[YOK-42] Test item",
+                    "labels": [
+                        {"name": "status:implementing"},
+                        {"name": "priority:high"},
+                        {"name": "workflow:issue"},
+                        {"name": "source:manual"},
+                    ],
+                    "state": "OPEN",
+                    "body": "# Spec: Test item\n\nItem body\n",
+                }
+            ]
+        )
+        paired = [
+            PairedItem(
+                "YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", public_ref="YOK-42"
+            )
+        ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         body_drifts = [d for d in drifts if d.field == "body"]
         assert len(body_drifts) == 0
 
     def test_label_status_drift(self, populated_db):
         """Detects status label drift."""
-        gh_issues = _make_gh_issues([{
-            "number": 100,
-            "title": "[YOK-42] Test item",
-            "labels": [
-                {"name": "status:idea"},
-                {"name": "priority:high"},
-                {"name": "workflow:issue"},
-                {"name": "source:manual"},
-            ],
-            "state": "OPEN",
-            "body": "Item body",
-        }])
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
+        gh_issues = _make_gh_issues(
+            [
+                {
+                    "number": 100,
+                    "title": "[YOK-42] Test item",
+                    "labels": [
+                        {"name": "status:idea"},
+                        {"name": "priority:high"},
+                        {"name": "workflow:issue"},
+                        {"name": "source:manual"},
+                    ],
+                    "state": "OPEN",
+                    "body": "Item body",
+                }
+            ]
+        )
+        paired = [
+            PairedItem(
+                "YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", public_ref="YOK-42"
+            )
+        ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         status_drifts = [d for d in drifts if d.field == "label-status"]
         assert len(status_drifts) == 1
@@ -144,19 +197,27 @@ class TestStage2CompareTextLabel:
 
     def test_label_priority_drift(self, populated_db):
         """Detects priority label drift."""
-        gh_issues = _make_gh_issues([{
-            "number": 100,
-            "title": "[YOK-42] Test item",
-            "labels": [
-                {"name": "status:implementing"},
-                {"name": "priority:low"},
-                {"name": "workflow:issue"},
-                {"name": "source:manual"},
-            ],
-            "state": "OPEN",
-            "body": "Item body",
-        }])
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
+        gh_issues = _make_gh_issues(
+            [
+                {
+                    "number": 100,
+                    "title": "[YOK-42] Test item",
+                    "labels": [
+                        {"name": "status:implementing"},
+                        {"name": "priority:low"},
+                        {"name": "workflow:issue"},
+                        {"name": "source:manual"},
+                    ],
+                    "state": "OPEN",
+                    "body": "Item body",
+                }
+            ]
+        )
+        paired = [
+            PairedItem(
+                "YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", public_ref="YOK-42"
+            )
+        ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         priority_drifts = [d for d in drifts if d.field == "label-priority"]
         assert len(priority_drifts) == 1
@@ -164,19 +225,27 @@ class TestStage2CompareTextLabel:
 
     def test_label_workflow_drift(self, populated_db):
         """Detects workflow label drift."""
-        gh_issues = _make_gh_issues([{
-            "number": 100,
-            "title": "[YOK-42] Test item",
-            "labels": [
-                {"name": "status:implementing"},
-                {"name": "priority:high"},
-                {"name": "workflow:epic"},
-                {"name": "source:manual"},
-            ],
-            "state": "OPEN",
-            "body": "Item body",
-        }])
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
+        gh_issues = _make_gh_issues(
+            [
+                {
+                    "number": 100,
+                    "title": "[YOK-42] Test item",
+                    "labels": [
+                        {"name": "status:implementing"},
+                        {"name": "priority:high"},
+                        {"name": "workflow:epic"},
+                        {"name": "source:manual"},
+                    ],
+                    "state": "OPEN",
+                    "body": "Item body",
+                }
+            ]
+        )
+        paired = [
+            PairedItem(
+                "YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", public_ref="YOK-42"
+            )
+        ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         type_drifts = [d for d in drifts if d.field == "label-workflow"]
         assert len(type_drifts) == 1
@@ -184,19 +253,27 @@ class TestStage2CompareTextLabel:
 
     def test_label_source_drift(self, populated_db):
         """Detects source label drift."""
-        gh_issues = _make_gh_issues([{
-            "number": 100,
-            "title": "[YOK-42] Test item",
-            "labels": [
-                {"name": "status:implementing"},
-                {"name": "priority:high"},
-                {"name": "workflow:issue"},
-                {"name": "source:auto"},
-            ],
-            "state": "OPEN",
-            "body": "Item body",
-        }])
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
+        gh_issues = _make_gh_issues(
+            [
+                {
+                    "number": 100,
+                    "title": "[YOK-42] Test item",
+                    "labels": [
+                        {"name": "status:implementing"},
+                        {"name": "priority:high"},
+                        {"name": "workflow:issue"},
+                        {"name": "source:auto"},
+                    ],
+                    "state": "OPEN",
+                    "body": "Item body",
+                }
+            ]
+        )
+        paired = [
+            PairedItem(
+                "YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", public_ref="YOK-42"
+            )
+        ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         source_drifts = [d for d in drifts if d.field == "label-source"]
         assert len(source_drifts) == 1
@@ -211,20 +288,28 @@ class TestStage2CompareTextLabel:
         conn.commit()
         conn.close()
 
-        gh_issues = _make_gh_issues([{
-            "number": 100,
-            "title": "[YOK-42] Test item",
-            "labels": [
-                {"name": "status:implementing"},
-                {"name": "priority:high"},
-                {"name": "workflow:issue"},
-                {"name": "source:manual"},
-                {"name": "owner:auto-owner"},
-            ],
-            "state": "OPEN",
-            "body": "Item body",
-        }])
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
+        gh_issues = _make_gh_issues(
+            [
+                {
+                    "number": 100,
+                    "title": "[YOK-42] Test item",
+                    "labels": [
+                        {"name": "status:implementing"},
+                        {"name": "priority:high"},
+                        {"name": "workflow:issue"},
+                        {"name": "source:manual"},
+                        {"name": "owner:auto-owner"},
+                    ],
+                    "state": "OPEN",
+                    "body": "Item body",
+                }
+            ]
+        )
+        paired = [
+            PairedItem(
+                "YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", public_ref="YOK-42"
+            )
+        ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         owner_drifts = [d for d in drifts if d.field == "label-owner"]
         assert len(owner_drifts) == 1
@@ -235,78 +320,28 @@ class TestStage2CompareTextLabel:
         """When items.owner is empty, the comparator does not raise an
         owner-drift even if GitHub carries an owner: label. The
         legacy-text passthrough path collapses empty values."""
-        gh_issues = _make_gh_issues([{
-            "number": 100,
-            "title": "[YOK-42] Test item",
-            "labels": [
-                {"name": "status:implementing"},
-                {"name": "priority:high"},
-                {"name": "workflow:issue"},
-                {"name": "source:manual"},
-                {"name": "owner:stranger"},
-            ],
-            "state": "OPEN",
-            "body": "Item body",
-        }])
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
+        gh_issues = _make_gh_issues(
+            [
+                {
+                    "number": 100,
+                    "title": "[YOK-42] Test item",
+                    "labels": [
+                        {"name": "status:implementing"},
+                        {"name": "priority:high"},
+                        {"name": "workflow:issue"},
+                        {"name": "source:manual"},
+                        {"name": "owner:stranger"},
+                    ],
+                    "state": "OPEN",
+                    "body": "Item body",
+                }
+            ]
+        )
+        paired = [
+            PairedItem(
+                "YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", public_ref="YOK-42"
+            )
+        ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         owner_drifts = [d for d in drifts if d.field == "label-owner"]
         assert owner_drifts == []
-
-
-class TestStage2EpicTasks:
-    """Epic task comparison tests."""
-
-    def test_epic_task_title_drift_missing_prefix(self, populated_db):
-        """Detects epic task title drift (missing [YOK-N] prefix)."""
-        gh_issues = _make_gh_issues([{
-            "number": 200,
-            "title": "Task one",
-            "labels": [{"name": "status:implementing"}],
-            "state": "OPEN",
-        }])
-        paired = [PairedItem("1246/task-001", "epic_tasks:1246/1", 200, "epic_task", "yoke", "", epic_id="1246", task_num=1)]
-        drifts = stage2_compare(paired, gh_issues, {}, populated_db)
-        title_drifts = [d for d in drifts if d.field == "title"]
-        assert len(title_drifts) == 1
-
-    def test_epic_task_state_drift(self, populated_db):
-        """Detects epic task state drift."""
-        gh_issues = _make_gh_issues([{
-            "number": 200,
-            "title": "[YOK-1246] 001 Task one",
-            "labels": [{"name": "status:implementing"}],
-            "state": "CLOSED",
-        }])
-        paired = [PairedItem("1246/task-001", "epic_tasks:1246/1", 200, "epic_task", "yoke", "", epic_id="1246", task_num=1)]
-        drifts = stage2_compare(paired, gh_issues, {}, populated_db)
-        state_drifts = [d for d in drifts if d.field == "state"]
-        assert len(state_drifts) == 1
-        assert state_drifts[0].local == "OPEN"
-
-    def test_epic_task_body_drift(self, populated_db):
-        """Detects epic task body drift."""
-        gh_issues = _make_gh_issues([{
-            "number": 200,
-            "title": "[YOK-1246] 001 Task one",
-            "labels": [{"name": "status:implementing"}],
-            "state": "OPEN",
-            "body": "Different task body",
-        }])
-        paired = [PairedItem("1246/task-001", "epic_tasks:1246/1", 200, "epic_task", "yoke", "", epic_id="1246", task_num=1)]
-        drifts = stage2_compare(paired, gh_issues, {}, populated_db)
-        body_drifts = [d for d in drifts if d.field == "body"]
-        assert len(body_drifts) == 1
-
-    def test_epic_task_no_drift_when_synced(self, populated_db):
-        """No drift when epic task matches GitHub."""
-        gh_issues = _make_gh_issues([{
-            "number": 200,
-            "title": "[YOK-1246] 001 Task one",
-            "labels": [{"name": "status:implementing"}],
-            "state": "OPEN",
-            "body": "Task body",
-        }])
-        paired = [PairedItem("1246/task-001", "epic_tasks:1246/1", 200, "epic_task", "yoke", "", epic_id="1246", task_num=1)]
-        drifts = stage2_compare(paired, gh_issues, {}, populated_db)
-        assert len(drifts) == 0

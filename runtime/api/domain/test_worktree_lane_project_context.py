@@ -41,9 +41,7 @@ def _patch_preflight_steps(monkeypatch, item: dict) -> list[dict]:
     captured: list[dict] = []
 
     monkeypatch.setattr(wp, "claim_work", lambda _item_id: (True, "acquired"))
-    monkeypatch.setattr(
-        wp, "activate_path_claims", lambda _item_id: (True, "", [])
-    )
+    monkeypatch.setattr(wp, "activate_path_claims", lambda _item_id: (True, "", []))
     monkeypatch.setattr(
         wp,
         "resolve_item_branch_and_lane",
@@ -92,7 +90,7 @@ def test_preflight_carries_a_cross_repo_items_project_into_creation(
         lambda slug: checkout if slug == "platform" else None,
     )
 
-    outcome = wp.run_preflight(item_id=9101, session_id="sess")
+    outcome = wp.run_preflight(item_id="YOK-9101", session_id="sess")
 
     assert outcome.ok is True, outcome.narrative
     assert captured[0]["project"] == "platform"
@@ -111,7 +109,7 @@ def test_preflight_carries_the_session_projects_own_item_unchanged(
         lambda slug: checkout if slug == "yoke" else None,
     )
 
-    outcome = wp.run_preflight(item_id=9101, session_id="sess")
+    outcome = wp.run_preflight(item_id="YOK-9101", session_id="sess")
 
     assert outcome.ok is True, outcome.narrative
     assert captured[0]["project"] == "yoke"
@@ -124,7 +122,7 @@ def test_preflight_refuses_a_flag_disagreeing_with_the_items_project(
         monkeypatch, {"public_ref": "PLAT-12", "project": {"slug": "platform"}}
     )
 
-    outcome = wp.run_preflight(item_id=9101, project="yoke", session_id="sess")
+    outcome = wp.run_preflight(item_id="YOK-9101", project="yoke", session_id="sess")
 
     assert outcome.ok is False
     assert "disagrees" in outcome.narrative
@@ -217,9 +215,7 @@ def test_creation_prefers_the_project_the_caller_already_resolved(
 
 
 def test_creation_refuses_when_no_project_resolves(tmp_path, monkeypatch):
-    monkeypatch.setattr(
-        worktree_create_db, "item_project_slug", lambda *_a, **_k: ""
-    )
+    monkeypatch.setattr(worktree_create_db, "item_project_slug", lambda *_a, **_k: "")
     monkeypatch.setattr(
         worktree_create, "check_path_claim_gate", lambda *_a, **_k: None
     )
@@ -249,9 +245,7 @@ def test_creation_refuses_when_no_project_resolves(tmp_path, monkeypatch):
     )
 
     repo = _git_checkout(tmp_path / "repo")
-    result = worktree_create.create_worktree(
-        9103, base_branch="main", repo_root=repo
-    )
+    result = worktree_create.create_worktree(9103, base_branch="main", repo_root=repo)
 
     assert result.created is False
     # No identity row backs 9103 here, so the refusal says the reference
@@ -265,9 +259,7 @@ def test_creation_refuses_when_no_project_resolves(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("carried", ["platform", "externalwebapp"])
-def test_provisioning_project_returns_a_carried_project_unread(
-    carried, monkeypatch
-):
+def test_provisioning_project_returns_a_carried_project_unread(carried, monkeypatch):
     def _must_not_read(*_a, **_k):  # pragma: no cover - carried project wins
         raise AssertionError("a carried project must not be re-read")
 

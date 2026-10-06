@@ -182,6 +182,7 @@ def _dispatch_impl(
             return FunctionCallResponse(
                 success=False,
                 function=typed_request.function,
+                version=typed_request.version,
                 request_id=typed_request.request_id,
                 error=refused,
             )

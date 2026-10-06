@@ -8,7 +8,8 @@ from yoke_core.domain.schema_init_apply import execute_schema_script
 _INIT_SQL = """\
 CREATE TABLE IF NOT EXISTS shepherd_verdicts (
     id INTEGER PRIMARY KEY,
-    public_ref TEXT NOT NULL,
+    public_ref TEXT,
+    archived_item_key TEXT,
     transition TEXT NOT NULL,
     worker TEXT NOT NULL,
     verdict TEXT NOT NULL,
@@ -19,7 +20,8 @@ CREATE TABLE IF NOT EXISTS shepherd_verdicts (
 
 CREATE TABLE IF NOT EXISTS caveat_dispositions (
     id INTEGER PRIMARY KEY,
-    public_ref TEXT NOT NULL,
+    public_ref TEXT,
+    archived_item_key TEXT,
     transition TEXT NOT NULL,
     attempt INTEGER NOT NULL DEFAULT 1,
     caveat_num INTEGER NOT NULL,

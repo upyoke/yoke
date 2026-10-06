@@ -141,7 +141,7 @@ def _update_item_direct(
     overrides = env_overrides or {}
     resp = call_dispatcher(
         function_id="done_transition.item_status_set",
-        target=public_item_target(item_id),
+        target=public_item_target(public_ref or item_id),
         payload={
             "field": field,
             "value": value,

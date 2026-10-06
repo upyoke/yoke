@@ -38,7 +38,7 @@ function runRow(memberAction) {
       resolved(72, "qa_needs_review", memberAction, {
         requirement_id: 901,
         subject: { kind: "deployment_run", deployment_run_id: RUN_ID,
-          deployment_member_item_id: MEMBER_SEQUENCE },
+          deployment_member_public_ref: MEMBER_REF },
         artifacts: [artifact(811), artifact(812)],
       }),
     ],

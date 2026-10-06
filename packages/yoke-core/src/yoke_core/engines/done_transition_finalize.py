@@ -179,7 +179,7 @@ def _announce_delivery(item_id: int, ref: str) -> None:
     try:
         response = call_dispatcher(
             function_id="done_transition.delivery_done_notice",
-            target=public_item_target(item_id),
+            target=public_item_target(ref),
             payload={},
         )
     except Exception as exc:  # noqa: BLE001 - never endanger a committed done

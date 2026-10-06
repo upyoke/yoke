@@ -47,7 +47,6 @@ class EpicTaskRepairReadRequest(BaseModel):
 
 
 class EpicTaskRepairReadResponse(BaseModel):
-    parent_id: Optional[int] = None
     parent_ref: str = ""
     task_found: bool
     title: str = ""
@@ -106,9 +105,14 @@ def handle_item_lookup(request: FunctionCallRequest) -> HandlerOutcome:
         with _connect_rw() as conn:
             p = _placeholder(conn)
             item_id = internal_item_key(conn, body.ref)
-            row = conn.execute(
-                f"SELECT id, status FROM items WHERE id = {p}", (item_id,),
-            ).fetchone() if item_id is not None else None
+            row = (
+                conn.execute(
+                    f"SELECT id, status FROM items WHERE id = {p}",
+                    (item_id,),
+                ).fetchone()
+                if item_id is not None
+                else None
+            )
             public_ref = render_item_ref(conn, int(row[0])) if row else ""
     except Exception as exc:  # noqa: BLE001 - surfaced so the caller aborts
         return _err("item_lookup_failed", str(exc))
@@ -116,13 +120,19 @@ def handle_item_lookup(request: FunctionCallRequest) -> HandlerOutcome:
     if row is None:
         return HandlerOutcome(
             result_payload={
-                "found": False, "id": None, "ref": "", "status": None,
+                "found": False,
+                "id": None,
+                "ref": "",
+                "status": None,
             },
             primary_success=True,
         )
     return HandlerOutcome(
         result_payload={
-            "found": True, "id": row[0], "ref": public_ref, "status": row[1],
+            "found": True,
+            "id": row[0],
+            "ref": public_ref,
+            "status": row[1],
         },
         primary_success=True,
     )
@@ -151,28 +161,33 @@ def handle_epic_task_repair_read(request: FunctionCallRequest) -> HandlerOutcome
         with _connect_rw() as conn:
             p = _placeholder(conn)
             epic_id = internal_item_key(conn, body.epic_ref)
-            parent_row = conn.execute(
-                f"SELECT id FROM items WHERE id = {p}", (epic_id,),
-            ).fetchone() if epic_id is not None else None
-            task_row = conn.execute(
-                "SELECT title, status FROM epic_tasks "
-                f"WHERE epic_id = {p} AND task_num = {p}",
-                # Untyped text binds against either epic_tasks.epic_id column type.
-                (str(epic_id), body.task_num),
-            ).fetchone() if epic_id is not None else None
+            parent_row = (
+                conn.execute(
+                    f"SELECT id FROM items WHERE id = {p}",
+                    (epic_id,),
+                ).fetchone()
+                if epic_id is not None
+                else None
+            )
+            task_row = (
+                conn.execute(
+                    "SELECT title, status FROM epic_tasks "
+                    f"WHERE epic_id = {p} AND task_num = {p}",
+                    # Untyped text binds against either epic_tasks.epic_id column type.
+                    (str(epic_id), body.task_num),
+                ).fetchone()
+                if epic_id is not None
+                else None
+            )
             # render_item_ref tolerates schemas without project tables and
             # falls back to the default-prefix + internal-id form.
-            parent_ref = (
-                render_item_ref(conn, int(parent_row[0])) if parent_row else ""
-            )
+            parent_ref = render_item_ref(conn, int(parent_row[0])) if parent_row else ""
     except Exception as exc:  # noqa: BLE001 - surfaced so the caller aborts
         return _err("epic_task_repair_read_failed", str(exc))
 
-    parent_id = parent_row[0] if parent_row else None
     if task_row is None:
         return HandlerOutcome(
             result_payload={
-                "parent_id": parent_id,
                 "parent_ref": parent_ref,
                 "task_found": False,
                 "title": "",
@@ -182,7 +197,6 @@ def handle_epic_task_repair_read(request: FunctionCallRequest) -> HandlerOutcome
         )
     return HandlerOutcome(
         result_payload={
-            "parent_id": parent_id,
             "parent_ref": parent_ref,
             "task_found": True,
             "title": task_row[0] or "",

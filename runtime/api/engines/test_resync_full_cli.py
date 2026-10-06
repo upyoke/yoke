@@ -62,7 +62,11 @@ class TestMainCLI:
         def fake_linkage(db_path, yoke_root, *, project=""):
             return (
                 [],
-                [LocalOrphan("YOK-99", "/tmp/099.md", "backlog", "yoke", item_id=99)],
+                [
+                    LocalOrphan(
+                        "YOK-99", "/tmp/099.md", "backlog", "yoke", public_ref="YOK-99"
+                    )
+                ],
                 [],
                 {},
             )

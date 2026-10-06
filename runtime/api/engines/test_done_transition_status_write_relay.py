@@ -68,7 +68,7 @@ class TestItemDirectRelay:
 
         _patch_adapter(monkeypatch, fake)
         rc = dt._update_item_direct(
-            44,
+            "YOK-44",
             "status",
             "done",
             env_overrides={
@@ -101,14 +101,18 @@ class TestItemDirectRelay:
             lambda **k: _resp(k["function_id"], success=False),
         )
         rc = dt._update_item_direct(
-            44, "status", "release",
+            "YOK-44",
+            "status",
+            "release",
             env_overrides={"YOKE_STATUS_SOURCE": "done-transition"},
         )
         assert rc == 1
         _assert_env_untouched()
 
     def test_refused_write_is_a_failure_not_a_successful_relay(
-        self, monkeypatch, capsys,
+        self,
+        monkeypatch,
+        capsys,
     ):
         """A gate the write refused arrives as a SUCCESSFUL relay.
 
@@ -117,15 +121,20 @@ class TestItemDirectRelay:
         """
         _patch_adapter(
             monkeypatch,
-            lambda **k: _resp(k["function_id"], {
-                "applied": True,
-                "status_write_success": False,
-                "status_write_error": "Error: blocking QA requirement is stale",
-                "status_write_error_code": "GATE_QA_TERMINAL_VERDICT",
-            }),
+            lambda **k: _resp(
+                k["function_id"],
+                {
+                    "applied": True,
+                    "status_write_success": False,
+                    "status_write_error": "Error: blocking QA requirement is stale",
+                    "status_write_error_code": "GATE_QA_TERMINAL_VERDICT",
+                },
+            ),
         )
 
-        rc = dt._update_item_direct(44, "status", "done", public_ref=TEST_ITEM_REF)
+        rc = dt._update_item_direct(
+            "YOK-44", "status", "done", public_ref=TEST_ITEM_REF
+        )
 
         assert rc == 1
         # The refusal narrative goes to server stdout over an https relay, so
@@ -135,12 +144,16 @@ class TestItemDirectRelay:
     def test_refusal_without_reported_text_is_still_a_failure(self, monkeypatch):
         _patch_adapter(
             monkeypatch,
-            lambda **k: _resp(k["function_id"], {
-                "applied": True, "status_write_success": False,
-            }),
+            lambda **k: _resp(
+                k["function_id"],
+                {
+                    "applied": True,
+                    "status_write_success": False,
+                },
+            ),
         )
 
-        assert dt._update_item_direct(44, "status", "done") == 1
+        assert dt._update_item_direct("YOK-44", "status", "done") == 1
 
 
 class TestTaskDirectRelay:
@@ -184,7 +197,10 @@ class TestTaskDirectRelay:
         )
         with pytest.raises(RuntimeError):
             dt._update_task_status_direct(
-                "823", "1", "done", "",
+                "823",
+                "1",
+                "done",
+                "",
                 env_overrides={"YOKE_CLAIM_BYPASS": f"done-cascade:{TEST_ITEM_REF}"},
             )
         _assert_env_untouched()
@@ -201,9 +217,14 @@ class TestSetterEndToEndRelay:
             return _resp(kwargs["function_id"], {"applied": True})
 
         _patch_adapter(monkeypatch, fake)
-        assert dt._update_status_to_done(42, skip_qa=True, public_ref=TEST_ITEM_REF) is True
+        assert (
+            dt._update_status_to_done("YOK-42", skip_qa=True, public_ref=TEST_ITEM_REF)
+            is True
+        )
 
-        relay = [c for c in calls if c["function_id"] == "done_transition.item_status_set"]
+        relay = [
+            c for c in calls if c["function_id"] == "done_transition.item_status_set"
+        ]
         assert len(relay) == 1
         payload = relay[0]["payload"]
         assert payload["claim_bypass"] == f"done-transition:{TEST_ITEM_REF}"
@@ -214,7 +235,9 @@ class TestSetterEndToEndRelay:
         _assert_env_untouched()
 
     def test_refused_done_write_reports_failure_after_retrying(
-        self, monkeypatch, capsys,
+        self,
+        monkeypatch,
+        capsys,
     ):
         """The retry-and-verify path must engage, then report the truth.
 
@@ -229,17 +252,23 @@ class TestSetterEndToEndRelay:
             if fid == "done_transition.item_field":
                 statuses.append(kwargs["payload"]["field"])
                 return _resp(fid, {"value": "release"})
-            return _resp(fid, {
-                "applied": True,
-                "status_write_success": False,
-                "status_write_error": "Error: merging SHA is unproven",
-            })
+            return _resp(
+                fid,
+                {
+                    "applied": True,
+                    "status_write_success": False,
+                    "status_write_error": "Error: merging SHA is unproven",
+                },
+            )
 
         _patch_adapter(monkeypatch, fake)
         monkeypatch.setattr("time.sleep", lambda _s: None)
 
         settled = dt._update_status_to_done(
-            42, skip_qa=False, max_retries=2, public_ref=TEST_ITEM_REF,
+            "YOK-42",
+            skip_qa=False,
+            max_retries=2,
+            public_ref=TEST_ITEM_REF,
         )
 
         assert settled is False
@@ -259,10 +288,11 @@ class TestSetterEndToEndRelay:
 
         _patch_adapter(monkeypatch, fake)
         monkeypatch.setattr(status, "_batch_github_sync_tasks", lambda *a, **k: None)
-        dt._cascade_epic_tasks_to_done(42, public_ref=TEST_ITEM_REF)
+        dt._cascade_epic_tasks_to_done("YOK-42", public_ref=TEST_ITEM_REF)
 
         relays = [
-            c for c in seen
+            c
+            for c in seen
             if c["function_id"] == "done_transition.epic_task_status_set"
         ]
         assert len(relays) == 1

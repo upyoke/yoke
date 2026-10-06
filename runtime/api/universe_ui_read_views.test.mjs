@@ -182,7 +182,7 @@ test("Ouroboros reads observations and keeps review state visible", async (t) =>
                   reviewed_at: null,
                   promoted_dash: {
                     public_ref: "YOK-90",
-                    item_id: 90,
+                    public_ref: "YOK-90",
                     project_id: 1,
                   },
                 },
@@ -225,7 +225,7 @@ test("Ouroboros reads observations and keeps review state visible", async (t) =>
   );
   assert.equal(
     byClass(root, "row-link").find((node) => node.textContent === "YOK-90").href,
-    "/items/90?project=1",
+    "/items/YOK-90?project=1",
   );
   mounted.unmount();
 });
@@ -270,7 +270,7 @@ test("Ouroboros field-note drill-in keeps its promoted Dash reachable", async (t
                 body: "Turn this observation into focused work.",
                 promoted_dash: {
                   item_ref: "YOK-90",
-                  item_id: 90,
+                  public_ref: "YOK-90",
                   project_id: 1,
                 },
               },
@@ -298,7 +298,7 @@ test("Ouroboros field-note drill-in keeps its promoted Dash reachable", async (t
   );
   assert.equal(
     byClass(root, "item-action")[0].href,
-    "/items/90?project=1",
+    "/items/YOK-90?project=1",
   );
   mounted.unmount();
 });

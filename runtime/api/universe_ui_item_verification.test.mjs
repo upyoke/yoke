@@ -123,9 +123,8 @@ test("item verification distinguishes a standing source from its admitted copy",
   const item = detailItem("issue");
   item.qa_plan_attachments = [];
   item.qa_requirements = [
-    {
-      id: 28759,
-      item_id: 3449,
+    { id: 28759,
+      public_ref: "YOK-3449",
       qa_kind: "plan_case",
       qa_phase: "post_deploy",
       plan_case_key: "plan-currency-readable",
@@ -136,8 +135,8 @@ test("item verification distinguishes a standing source from its admitted copy",
     },
     {
       id: 28801,
-      item_id: null,
-      deployment_member_item_id: 3449,
+      public_ref: null,
+      deployment_member_public_ref: "YOK-3449",
       deployment_run_id: "run-20260920-005",
       qa_kind: "plan_case",
       qa_phase: "post_deploy",
@@ -210,7 +209,7 @@ test("Issue union does not count a superseded failure as outstanding", async () 
   item.qa_requirements = [
     {
       id: 28807,
-      deployment_member_item_id: 3444,
+      deployment_member_public_ref: "YOK-3444",
       deployment_run_id: "run-20260920-005",
       qa_kind: "plan_case",
       qa_phase: "post_deploy",
@@ -223,7 +222,7 @@ test("Issue union does not count a superseded failure as outstanding", async () 
     },
     {
       id: 28820,
-      deployment_member_item_id: 3444,
+      deployment_member_public_ref: "YOK-3444",
       deployment_run_id: "run-20260920-005",
       qa_kind: "method_case",
       qa_phase: "post_deploy",
@@ -251,9 +250,8 @@ test("Issue union treats an open standing source beside its admitted copy as exp
   const item = detailItem("issue");
   item.qa_plan_attachments = [];
   item.qa_requirements = [
-    {
-      id: 28759,
-      item_id: 3449,
+    { id: 28759,
+      public_ref: "YOK-3449",
       qa_kind: "plan_case",
       qa_phase: "post_deploy",
       plan_case_key: "plan-currency-readable",
@@ -263,8 +261,8 @@ test("Issue union treats an open standing source beside its admitted copy as exp
     },
     {
       id: 28801,
-      item_id: null,
-      deployment_member_item_id: 3449,
+      public_ref: null,
+      deployment_member_public_ref: "YOK-3449",
       deployment_run_id: "run-20260920-005",
       qa_kind: "plan_case",
       qa_phase: "post_deploy",

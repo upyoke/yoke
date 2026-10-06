@@ -220,11 +220,11 @@ test("Sessions lists every work claim and coordination lease a session holds", a
   assert.equal(byClass(root, "session-work-role").length, 0);
   assert.equal(
     byClass(root, "session-item-link")[0].href,
-    "/items/2228?project=1",
+    "/items/YOK-2228?project=1",
   );
   assert.equal(
     byClass(root, "session-item-link")[1].href,
-    "/items/2100?project=1",
+    "/items/YOK-2100?project=1",
   );
   assert.deepEqual(
     countTiles(root).map(

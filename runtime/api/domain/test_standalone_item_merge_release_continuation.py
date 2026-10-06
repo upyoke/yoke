@@ -118,7 +118,7 @@ class TestDispatcherResultShape:
         assert payload["waiting_on"] == []
         request = calls[0]
         assert request["function_id"] == release_flow.CONTINUE_FUNCTION
-        assert request["target"] == TargetRef(kind="item", item_id=ITEM_ID)
+        assert request["target"] == TargetRef(kind="item", public_ref=PUBLIC_REF)
         assert request["actor"].session_id == SESSION
 
     def test_waiting_maps_continue_result(self, monkeypatch):

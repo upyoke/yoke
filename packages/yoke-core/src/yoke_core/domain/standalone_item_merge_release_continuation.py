@@ -134,7 +134,7 @@ def continue_prepared_release(
         with connected_control_plane():
             response = call_dispatcher(
                 function_id=CONTINUE_FUNCTION,
-                target=_item_target(item_id),
+                target=_item_target(public_ref),
                 payload={},
                 actor=build_actor(session_id=session_id or None),
             )

@@ -4,7 +4,7 @@ import { FakeDocument, byClass } from "./universe_ui_dom_test_support.mjs";
 import { carriedItems, shippingRunCard } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_work_cards.js";
 
 const members = [1, 2, 3].map((id) => ({
-  id, ref: `ITEM-${id}`, project_id: 1, project_sequence: id, title: `Member ${id}`,
+  public_ref: `ITEM-${id}`, ref: `ITEM-${id}`, project_id: 1, project_sequence: id, title: `Member ${id}`,
 }));
 function card(row) {
   const document = new FakeDocument();
@@ -35,7 +35,7 @@ test("removed members never contribute to carried counts or their QA", () => {
 test("all-removed runs do not resurrect historical carried-work members", () => {
   const row = {
     member_items: [],
-    carried_work: { items: members.map(({ id, ...item }) => ({ ...item, item_id: id })) },
+    carried_work: { items: members },
     removed_member_items: members,
   };
   assert.deepEqual(carriedItems(row), []);

@@ -155,7 +155,8 @@ PRIMARY KEY (item_id, section_name)
 
 ```sql
 id INTEGER PRIMARY KEY
-public_ref TEXT NOT NULL
+public_ref TEXT -- active PREFIX-N identity; NULL for archived orphan evidence
+archived_item_key TEXT -- original unresolvable key, only on archived rows
 transition TEXT NOT NULL
 worker TEXT NOT NULL
 verdict TEXT NOT NULL
@@ -170,7 +171,8 @@ Tracks what happened to each caveat during Shepherd's step 5i triage (RESOLVED o
 
 ```sql
 id INTEGER PRIMARY KEY
-public_ref TEXT NOT NULL -- PREFIX-N reference
+public_ref TEXT -- active PREFIX-N identity; NULL for archived orphan evidence
+archived_item_key TEXT -- original unresolvable key, only on archived rows
 transition TEXT NOT NULL -- e.g. refined_idea_to_planning
 attempt INTEGER NOT NULL DEFAULT 1
 caveat_num INTEGER NOT NULL
@@ -191,9 +193,7 @@ Valid `disposition` values: `RESOLVED`, `DEFERRED`.
 
 **Single source of truth for all inter-item dependencies**. Every row is a canonical enforced blocker. All dependency reads and writes go through this table via `yoke items dependency add` and `yoke items dependency list`. The `items.depends_on` column is a read-only compatibility column and should not be written to.
 
-Cross-item dependency constraints discovered during shepherd phases. Any
-remaining non-empty `depends_on` values should be cleaned by direct data
-repair before that compatibility column is dropped.
+Cross-item constraints discovered during Shepherd use this table. Remaining `depends_on` values must be repaired before dropping that column.
 
 ```sql
 id INTEGER PRIMARY KEY

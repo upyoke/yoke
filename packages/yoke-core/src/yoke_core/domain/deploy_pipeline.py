@@ -107,9 +107,9 @@ def run_pipeline(
     )
     run_status = str(run.get("status") or "")
     current_stage = str(run.get("current_stage") or "")
-    member_items = [str(member["item_id"]) for member in members]
+    member_items = [str(member["public_ref"]) for member in members]
     member_statuses = {
-        str(member["item_id"]): str(member.get("status") or "") for member in members
+        str(member["public_ref"]): str(member.get("status") or "") for member in members
     }
     first_member = members[0] if members else {}
     enrollment = describe_enrollment(context.get("enrolled_carried_items") or ())

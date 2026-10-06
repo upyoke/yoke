@@ -20,3 +20,21 @@ def test_collects_nested_join_keys_without_resolving_other_records():
 
 def test_unresolved_key_never_becomes_fabricated_public_ref():
     assert "99" not in public_result({"item_id": 99}, {})["public_ref"]
+
+
+def test_sparse_item_containers_render_their_internal_keys():
+    source = {"items": [{"id": 99, "title": "example"}]}
+    assert collect_item_ids(source) == {99}
+    assert public_result(source, {99: "APP-7"}) == {
+        "items": [{"public_ref": "APP-7", "title": "example"}]
+    }
+
+
+def test_other_records_with_public_item_refs_keep_their_primary_ids():
+    qa = {"id": 11, "public_ref": "APP-7", "item_ref": "APP-7", "method_id": "command"}
+    verdict = {"id": 22, "public_ref": "APP-7", "worker": "review"}
+    source = {"rows": [qa, verdict], "item": {"id": 99, "public_ref": "APP-7"}}
+    assert collect_item_ids(source) == {99}
+    projected = public_result(source, {99: "APP-7"})
+    assert projected["rows"] == [qa, verdict]
+    assert projected["item"] == {"public_ref": "APP-7"}

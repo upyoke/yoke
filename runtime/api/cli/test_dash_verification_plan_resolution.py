@@ -86,7 +86,9 @@ def test_dash_filing_keeps_integer_plan_id_without_catalog_lookup(
     )
     captured = _capture_filing(monkeypatch)
 
-    assert dash_file.dash_file(["Title", "Instruction", "--verification-plan", "38"]) == 0
+    assert (
+        dash_file.dash_file(["Title", "Instruction", "--verification-plan", "38"]) == 0
+    )
     assert captured["payload"]["workflow_posture"]["verification"]["plan_id"] == 38
 
 
@@ -155,7 +157,7 @@ def test_worktree_prepare_accepts_json_and_emits_envelope(
         if function_id == "items.detail.get":
             return SimpleNamespace(
                 success=True,
-                result={"item": {"id": 9, "workflow": {"id": "dash"}}},
+                result={"item": {"public_ref": "YOK-9", "workflow": {"id": "dash"}}},
                 error=None,
             )
         if function_id == "direct_workflow.conflict_survey.status":

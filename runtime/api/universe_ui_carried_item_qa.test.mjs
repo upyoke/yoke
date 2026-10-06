@@ -141,7 +141,7 @@ test("a carried title the run payload omits is read from the item", async () => 
   appendCarriedItemHeading(documentNode, host, items[0], 1, titles);
   const title = byClass(host, "carried-item-title")[0];
   assert.equal(title.textContent, "Title of YOK-3416");
-  assert.equal(title.href, "/items/3416?project=1");
+  assert.equal(title.href, "/items/YOK-3416?project=1");
 });
 
 test("a repaint reuses a ready artifact read and retries a failed one", async () => {
@@ -177,8 +177,8 @@ test("a card without run-bound QA draws no Item QA despite other-run history", a
 
 test("a nonblocking no-obligation fact does not hide or count beside a live check", async () => {
   const client = readingClient({ rows: [
-    activityRow({ deployment_run_id: RUN_ID, outcome: "passed", artifacts: [] }),
-    activityRow({ requirement_id: 99, deployment_run_id: RUN_ID,
+    activityRow({ public_ref: "SAMPLE-1", deployment_run_id: RUN_ID, outcome: "passed", artifacts: [] }),
+    activityRow({ public_ref: "SAMPLE-1", requirement_id: 99, deployment_run_id: RUN_ID,
       qa_kind: "post_deploy_no_obligation", outcome: "no_obligation",
       blocking_mode: "non_blocking", artifacts: [] }),
   ] });

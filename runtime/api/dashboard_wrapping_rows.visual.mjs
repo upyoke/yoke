@@ -104,7 +104,7 @@ const html = (assets) => `<!doctype html><html><head>
     inboxHost.id = "inbox-approvals";
     document.getElementById("specimens").append(inboxHost);
     const subject = { run_id: "sample-release", stage: "approve",
-      carried: { items: [{ item_id: 17, ref: "DEMO-17", title: "Dashboard corrections" }], commits: [] },
+      carried: { items: [{ public_ref: "YOK-17", ref: "DEMO-17", title: "Dashboard corrections" }], commits: [] },
       release_effect: { consequence: "deploys", headline: "Deploy dashboard corrections" } };
     const rows = [...Array.from({ length: 8 }, (_, index) => ({
       id: index + 1, kind: "deployment_stage_approval", status: "pending", project_id: 1,

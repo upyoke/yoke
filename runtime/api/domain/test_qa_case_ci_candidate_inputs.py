@@ -114,7 +114,9 @@ def test_an_input_dispatch_cannot_honour_is_refused_at_configuration(declared):
 def test_a_queue_routed_project_is_refused_by_name(monkeypatch):
     """A pull_request run carries no inputs, so it can never prove one."""
     monkeypatch.setattr(
-        qa_case_ci_entry_run, "routes_through_merge_queue", lambda _p: True,
+        qa_case_ci_entry_run,
+        "routes_through_merge_queue",
+        lambda _p: True,
     )
 
     with pytest.raises(QaCaseExecutionError) as excinfo:
@@ -135,10 +137,13 @@ def test_the_gates_dispatch_carries_the_declared_candidate(wired):
 
     with mock.patch.object(qa_case_ci_lane, "dispatch_workflow", dispatch):
         with mock.patch.object(
-            qa_case_ci_lane, "await_workflow", lambda **k: (0, "success"),
+            qa_case_ci_lane,
+            "await_workflow",
+            lambda **k: (0, "success"),
         ):
             result = qa_case_ci_run.execute_ci_case(
-                _candidate_case(), checkout_path=checkout,
+                _candidate_case(),
+                checkout_path=checkout,
             )
 
     assert dispatch.call_args.kwargs["inputs"] == CANDIDATE
@@ -149,13 +154,18 @@ def test_the_recorded_evidence_names_the_candidate_it_proved(wired):
     checkout, recorder, _artifact = wired
 
     with mock.patch.object(
-        qa_case_ci_lane, "dispatch_workflow", lambda **k: "9182736",
+        qa_case_ci_lane,
+        "dispatch_workflow",
+        lambda **k: "9182736",
     ):
         with mock.patch.object(
-            qa_case_ci_lane, "await_workflow", lambda **k: (0, "success"),
+            qa_case_ci_lane,
+            "await_workflow",
+            lambda **k: (0, "success"),
         ):
             qa_case_ci_run.execute_ci_case(
-                _candidate_case(), checkout_path=checkout,
+                _candidate_case(),
+                checkout_path=checkout,
             )
 
     raw = json.loads(recorder.payload("qa.run.add")["raw_result"])
@@ -166,10 +176,14 @@ def test_an_ordinary_case_records_no_candidate(wired):
     checkout, recorder, _artifact = wired
 
     with mock.patch.object(
-        qa_case_ci_lane, "dispatch_workflow", lambda **k: "9182736",
+        qa_case_ci_lane,
+        "dispatch_workflow",
+        lambda **k: "9182736",
     ):
         with mock.patch.object(
-            qa_case_ci_lane, "await_workflow", lambda **k: (0, "success"),
+            qa_case_ci_lane,
+            "await_workflow",
+            lambda **k: (0, "success"),
         ):
             qa_case_ci_run.execute_ci_case(_case(), checkout_path=checkout)
 
@@ -180,12 +194,16 @@ def test_an_ordinary_case_records_no_candidate(wired):
 def test_the_never_started_redispatch_carries_the_same_candidate(monkeypatch):
     pending = iter([(1, STALL), (0, "success")])
     monkeypatch.setattr(
-        qa_case_ci_lane, "await_workflow", lambda **k: next(pending),
+        qa_case_ci_lane,
+        "await_workflow",
+        lambda **k: next(pending),
     )
     dispatch = mock.Mock(return_value="99")
     monkeypatch.setattr(qa_case_ci_lane, "dispatch_workflow", dispatch)
     monkeypatch.setattr(
-        qa_case_ci_superseded_run, "force_cancel_run", mock.Mock(),
+        qa_case_ci_superseded_run,
+        "force_cancel_run",
+        mock.Mock(),
     )
 
     qa_case_ci_never_started.await_with_one_redispatch(
@@ -226,7 +244,7 @@ def test_the_merge_boundary_reads_the_candidate_from_the_items_own_case():
         "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
         return_value=response,
     ):
-        resolved = candidate_inputs.item_inputs(item_id=9, workflow="ci.yml")
+        resolved = candidate_inputs.item_inputs(item_id="YOK-9", workflow="ci.yml")
 
     assert resolved == CANDIDATE
 
@@ -259,7 +277,7 @@ def test_conflicting_declarations_refuse_rather_than_pick_one():
         return_value=response,
     ):
         with pytest.raises(QaCaseExecutionError) as excinfo:
-            candidate_inputs.item_inputs(item_id=9, workflow="ci.yml")
+            candidate_inputs.item_inputs(item_id="YOK-9", workflow="ci.yml")
 
     assert "different" in str(excinfo.value)
 
@@ -275,7 +293,9 @@ def test_a_run_on_the_right_commit_cannot_prove_the_right_candidate(found):
     """GitHub never reports the inputs a run was posted with."""
     assert (
         qa_case_ci_covering_run.classify(
-            found, head_sha=LANE_HEAD, required_inputs=CANDIDATE,
+            found,
+            head_sha=LANE_HEAD,
+            required_inputs=CANDIDATE,
         )
         == qa_case_ci_covering_run.DISPATCHED
     )
@@ -289,14 +309,15 @@ def test_a_run_on_the_right_commit_cannot_prove_the_right_candidate(found):
     ],
 )
 def test_a_case_declaring_no_candidate_reuses_exactly_as_before(
-    found, expected,
+    found,
+    expected,
 ):
-    assert (
-        qa_case_ci_covering_run.classify(found, head_sha=LANE_HEAD) == expected
-    )
+    assert qa_case_ci_covering_run.classify(found, head_sha=LANE_HEAD) == expected
     assert (
         qa_case_ci_covering_run.classify(
-            found, head_sha=LANE_HEAD, required_inputs={},
+            found,
+            head_sha=LANE_HEAD,
+            required_inputs={},
         )
         == expected
     )
@@ -313,10 +334,13 @@ def test_the_gate_dispatches_past_a_run_it_cannot_attest(wired, monkeypatch):
 
     with mock.patch.object(qa_case_ci_lane, "dispatch_workflow", dispatch):
         with mock.patch.object(
-            qa_case_ci_lane, "await_workflow", lambda **k: (0, "success"),
+            qa_case_ci_lane,
+            "await_workflow",
+            lambda **k: (0, "success"),
         ):
             result = qa_case_ci_run.execute_ci_case(
-                _candidate_case(), checkout_path=checkout,
+                _candidate_case(),
+                checkout_path=checkout,
             )
 
     assert result["ci_run_source"] == qa_case_ci_covering_run.DISPATCHED

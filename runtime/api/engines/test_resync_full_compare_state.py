@@ -26,19 +26,27 @@ class TestStage2CompareStateMisc:
 
     def test_state_drift_done_should_be_closed(self, populated_db):
         """Detects state drift when done item is open on GitHub."""
-        gh_issues = _make_gh_issues([{
-            "number": 101,
-            "title": "[YOK-43] Done item",
-            "labels": [
-                {"name": "status:done"},
-                {"name": "priority:medium"},
-                {"name": "workflow:issue"},
-                {"name": "source:auto"},
-            ],
-            "state": "OPEN",
-            "body": "Done body",
-        }])
-        paired = [PairedItem("YOK-43", "/tmp/043.md", 101, "backlog", "yoke", "", item_id=43)]
+        gh_issues = _make_gh_issues(
+            [
+                {
+                    "number": 101,
+                    "title": "[YOK-43] Done item",
+                    "labels": [
+                        {"name": "status:done"},
+                        {"name": "priority:medium"},
+                        {"name": "workflow:issue"},
+                        {"name": "source:auto"},
+                    ],
+                    "state": "OPEN",
+                    "body": "Done body",
+                }
+            ]
+        )
+        paired = [
+            PairedItem(
+                "YOK-43", "/tmp/043.md", 101, "backlog", "yoke", "", public_ref="YOK-43"
+            )
+        ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         state_drifts = [d for d in drifts if d.field == "state"]
         assert len(state_drifts) == 1
@@ -47,14 +55,27 @@ class TestStage2CompareStateMisc:
 
     def test_state_drift_cancelled_should_be_closed(self, populated_db):
         """Cancelled item should be CLOSED on GitHub."""
-        gh_issues = _make_gh_issues([{
-            "number": 103,
-            "title": "[YOK-45] Cancelled item",
-            "labels": [{"name": "status:cancelled"}, {"name": "priority:low"}, {"name": "workflow:issue"}, {"name": "source:manual"}],
-            "state": "OPEN",
-            "body": "Cancel body",
-        }])
-        paired = [PairedItem("YOK-45", "/tmp/045.md", 103, "backlog", "yoke", "", item_id=45)]
+        gh_issues = _make_gh_issues(
+            [
+                {
+                    "number": 103,
+                    "title": "[YOK-45] Cancelled item",
+                    "labels": [
+                        {"name": "status:cancelled"},
+                        {"name": "priority:low"},
+                        {"name": "workflow:issue"},
+                        {"name": "source:manual"},
+                    ],
+                    "state": "OPEN",
+                    "body": "Cancel body",
+                }
+            ]
+        )
+        paired = [
+            PairedItem(
+                "YOK-45", "/tmp/045.md", 103, "backlog", "yoke", "", public_ref="YOK-45"
+            )
+        ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         state_drifts = [d for d in drifts if d.field == "state"]
         assert len(state_drifts) == 1
@@ -62,14 +83,27 @@ class TestStage2CompareStateMisc:
 
     def test_state_drift_release_should_be_closed(self, populated_db):
         """Release item should be CLOSED on GitHub."""
-        gh_issues = _make_gh_issues([{
-            "number": 104,
-            "title": "[YOK-46] Release item",
-            "labels": [{"name": "status:release"}, {"name": "priority:high"}, {"name": "workflow:issue"}, {"name": "source:manual"}],
-            "state": "OPEN",
-            "body": "Release body",
-        }])
-        paired = [PairedItem("YOK-46", "/tmp/046.md", 104, "backlog", "yoke", "", item_id=46)]
+        gh_issues = _make_gh_issues(
+            [
+                {
+                    "number": 104,
+                    "title": "[YOK-46] Release item",
+                    "labels": [
+                        {"name": "status:release"},
+                        {"name": "priority:high"},
+                        {"name": "workflow:issue"},
+                        {"name": "source:manual"},
+                    ],
+                    "state": "OPEN",
+                    "body": "Release body",
+                }
+            ]
+        )
+        paired = [
+            PairedItem(
+                "YOK-46", "/tmp/046.md", 104, "backlog", "yoke", "", public_ref="YOK-46"
+            )
+        ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         state_drifts = [d for d in drifts if d.field == "state"]
         assert len(state_drifts) == 1
@@ -77,20 +111,28 @@ class TestStage2CompareStateMisc:
 
     def test_frozen_label_drift_present_on_gh(self, populated_db):
         """Frozen label present on GitHub but not in DB."""
-        gh_issues = _make_gh_issues([{
-            "number": 100,
-            "title": "[YOK-42] Test item",
-            "labels": [
-                {"name": "status:implementing"},
-                {"name": "priority:high"},
-                {"name": "workflow:issue"},
-                {"name": "source:manual"},
-                {"name": "frozen"},
-            ],
-            "state": "OPEN",
-            "body": "Item body",
-        }])
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
+        gh_issues = _make_gh_issues(
+            [
+                {
+                    "number": 100,
+                    "title": "[YOK-42] Test item",
+                    "labels": [
+                        {"name": "status:implementing"},
+                        {"name": "priority:high"},
+                        {"name": "workflow:issue"},
+                        {"name": "source:manual"},
+                        {"name": "frozen"},
+                    ],
+                    "state": "OPEN",
+                    "body": "Item body",
+                }
+            ]
+        )
+        paired = [
+            PairedItem(
+                "YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", public_ref="YOK-42"
+            )
+        ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         frozen_drifts = [d for d in drifts if d.field == "label-frozen"]
         assert len(frozen_drifts) == 1
@@ -99,20 +141,28 @@ class TestStage2CompareStateMisc:
 
     def test_frozen_label_drift_missing_on_gh(self, populated_db):
         """Frozen label in DB but absent on GitHub."""
-        gh_issues = _make_gh_issues([{
-            "number": 105,
-            "title": "[YOK-47] Frozen item",
-            "labels": [
-                {"name": "status:implementing"},
-                {"name": "priority:high"},
-                {"name": "workflow:issue"},
-                {"name": "source:manual"},
-                # No "frozen" label
-            ],
-            "state": "OPEN",
-            "body": "Frozen body",
-        }])
-        paired = [PairedItem("YOK-47", "/tmp/047.md", 105, "backlog", "yoke", "", item_id=47)]
+        gh_issues = _make_gh_issues(
+            [
+                {
+                    "number": 105,
+                    "title": "[YOK-47] Frozen item",
+                    "labels": [
+                        {"name": "status:implementing"},
+                        {"name": "priority:high"},
+                        {"name": "workflow:issue"},
+                        {"name": "source:manual"},
+                        # No "frozen" label
+                    ],
+                    "state": "OPEN",
+                    "body": "Frozen body",
+                }
+            ]
+        )
+        paired = [
+            PairedItem(
+                "YOK-47", "/tmp/047.md", 105, "backlog", "yoke", "", public_ref="YOK-47"
+            )
+        ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         frozen_drifts = [d for d in drifts if d.field == "label-frozen"]
         assert len(frozen_drifts) == 1
@@ -121,67 +171,99 @@ class TestStage2CompareStateMisc:
 
     def test_comment_drift_on_done_item(self, populated_db):
         """Missing status comment on done item."""
-        gh_issues = _make_gh_issues([{
-            "number": 101,
-            "title": "[YOK-43] Done item",
-            "labels": [
-                {"name": "status:done"},
-                {"name": "priority:medium"},
-                {"name": "workflow:issue"},
-                {"name": "source:auto"},
-            ],
-            "state": "CLOSED",
-            "body": "Done body",
-        }])
-        heavy = {"yoke": {101: {
-            "number": 101,
-            "body": "Done body",
-            "comments": [{"body": "Just a note"}],
-        }}}
-        paired = [PairedItem("YOK-43", "/tmp/043.md", 101, "backlog", "yoke", "", item_id=43)]
+        gh_issues = _make_gh_issues(
+            [
+                {
+                    "number": 101,
+                    "title": "[YOK-43] Done item",
+                    "labels": [
+                        {"name": "status:done"},
+                        {"name": "priority:medium"},
+                        {"name": "workflow:issue"},
+                        {"name": "source:auto"},
+                    ],
+                    "state": "CLOSED",
+                    "body": "Done body",
+                }
+            ]
+        )
+        heavy = {
+            "yoke": {
+                101: {
+                    "number": 101,
+                    "body": "Done body",
+                    "comments": [{"body": "Just a note"}],
+                }
+            }
+        }
+        paired = [
+            PairedItem(
+                "YOK-43", "/tmp/043.md", 101, "backlog", "yoke", "", public_ref="YOK-43"
+            )
+        ]
         drifts = stage2_compare(paired, gh_issues, heavy, populated_db)
         comment_drifts = [d for d in drifts if d.field == "comment"]
         assert len(comment_drifts) == 1
 
     def test_no_comment_drift_when_status_comment_present(self, populated_db):
         """No drift when **Status:** comment exists."""
-        gh_issues = _make_gh_issues([{
-            "number": 101,
-            "title": "[YOK-43] Done item",
-            "labels": [
-                {"name": "status:done"},
-                {"name": "priority:medium"},
-                {"name": "workflow:issue"},
-                {"name": "source:auto"},
-            ],
-            "state": "CLOSED",
-            "body": "Done body",
-        }])
-        heavy = {"yoke": {101: {
-            "number": 101,
-            "body": "Done body",
-            "comments": [{"body": "**Status:** done"}],
-        }}}
-        paired = [PairedItem("YOK-43", "/tmp/043.md", 101, "backlog", "yoke", "", item_id=43)]
+        gh_issues = _make_gh_issues(
+            [
+                {
+                    "number": 101,
+                    "title": "[YOK-43] Done item",
+                    "labels": [
+                        {"name": "status:done"},
+                        {"name": "priority:medium"},
+                        {"name": "workflow:issue"},
+                        {"name": "source:auto"},
+                    ],
+                    "state": "CLOSED",
+                    "body": "Done body",
+                }
+            ]
+        )
+        heavy = {
+            "yoke": {
+                101: {
+                    "number": 101,
+                    "body": "Done body",
+                    "comments": [{"body": "**Status:** done"}],
+                }
+            }
+        }
+        paired = [
+            PairedItem(
+                "YOK-43", "/tmp/043.md", 101, "backlog", "yoke", "", public_ref="YOK-43"
+            )
+        ]
         drifts = stage2_compare(paired, gh_issues, heavy, populated_db)
         comment_drifts = [d for d in drifts if d.field == "comment"]
         assert len(comment_drifts) == 0
 
     def test_multiple_drifts_on_same_item(self, populated_db):
         """Multiple drift types detected on a single item."""
-        gh_issues = _make_gh_issues([{
-            "number": 100,
-            "title": "[YOK-42] Wrong Title",
-            "labels": [
-                {"name": "status:idea"},
-                {"name": "priority:low"},
-                {"name": "workflow:epic"},
-                {"name": "source:auto"},
-            ],
-            "state": "CLOSED",
-            "body": "Different",
-        }])
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
+        gh_issues = _make_gh_issues(
+            [
+                {
+                    "number": 100,
+                    "title": "[YOK-42] Wrong Title",
+                    "labels": [
+                        {"name": "status:idea"},
+                        {"name": "priority:low"},
+                        {"name": "workflow:epic"},
+                        {"name": "source:auto"},
+                    ],
+                    "state": "CLOSED",
+                    "body": "Different",
+                }
+            ]
+        )
+        paired = [
+            PairedItem(
+                "YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", public_ref="YOK-42"
+            )
+        ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         fields = {d.field for d in drifts}
         assert "title" in fields

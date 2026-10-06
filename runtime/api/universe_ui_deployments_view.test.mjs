@@ -179,7 +179,7 @@ test("an approval-paused table row links its item and Inbox decision", async (t)
               { name: "release", state: "pending" },
             ],
             member_items: [{
-              id: 2262, ref: "YOK-2228", project_sequence: 2228,
+              ref: "YOK-2228", project_sequence: 2228,
               title: "Ship the release", project_id: 1,
               project: "yoke", status: "implemented",
             }],
@@ -223,7 +223,7 @@ test("an approval-paused table row links its item and Inbox decision", async (t)
     ),
     ["complete", "active", "pending"],
   );
-  assert.equal(byClass(root, "delivery-member")[0].href, "/items/2228?project=1");
+  assert.equal(byClass(root, "delivery-member")[0].href, "/items/YOK-2228?project=1");
   assert.equal(byClass(root, "delivery-member")[0].textContent, "YOK-2228");
   assert.equal(byClass(root, "delivery-member")[0].title, "Ship the release");
   assert.equal(
@@ -266,7 +266,7 @@ test("a page-shaped list row shows flow, stages, and derived carried items", asy
             started_at: "2026-09-11T02:09:57Z",
             completed_at: "2026-09-11T02:34:23Z",
             member_items: [],
-            carried_work: { items: [{ ref: "YOK-3080", item_id: 3207 }] },
+            carried_work: { items: [{ ref: "YOK-3080", public_ref: "YOK-3207" }] },
             stages: [
               { name: "merged", state: "complete" },
               { name: "hosted-release", state: "complete" },

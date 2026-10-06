@@ -15,7 +15,7 @@ const ok = (result) => ({ status: 200, envelope: { success: true, result } });
 function capturedContext() {
   const document = new FakeDocument();
   const item = detailItem("dash");
-  const requirement = { id: 5, item_id: item.id, qa_phase: "verification",
+  const requirement = { id: 5, public_ref: item.public_ref, qa_phase: "verification",
     qa_kind: "method_case", method_id: "browser-inspection", method_name: "Browser inspection",
     instructions: "Inspect the rendered page", expected_outcome: "The page is readable" };
   const row = { ...requirement, requirement_id: requirement.id, run_id: 12,
@@ -62,7 +62,7 @@ test("QA activity case route reads its newest recorded run without a plan", asyn
 test("a no-obligation member has settled Item QA and its recorded reason", async () => {
   const reason = "Only command teaching changed; there is no deployed behavior to inspect.";
   const client = readingClient({ rows: [activityRow({ qa_kind: "post_deploy_no_obligation",
-    deployment_run_id: RUN_ID, qa_phase: "post_deploy", instructions: reason, method_id: null, method_name: null,
+    public_ref: "SAMPLE-1", deployment_run_id: RUN_ID, qa_phase: "post_deploy", instructions: reason, method_id: null, method_name: null,
     outcome: "no_obligation", artifacts: [], run_id: null })] });
   const prefix = "SAMPLE";
   const { card } = await cardFor(new FakeDocument(), [member(1896, `${prefix}-1`)], client);

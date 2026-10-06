@@ -44,7 +44,7 @@ class TestBacklogGithubRelay:
         """A title past the project limit should be rejected."""
         long_title = "B" * (title_max_length() + 1)
         result = _run_client(
-            ["update-item", "11", "--field", "title", "--value", long_title],
+            ["update-item", "YOK-11", "--field", "title", "--value", long_title],
             db_path=mutation_db["db_path"],
         )
         assert result.returncode == 1
@@ -55,7 +55,7 @@ class TestBacklogGithubRelay:
     def test_update_missing_field_usage_error(self, mutation_db):
         """Missing --field should return exit code 2."""
         result = _run_client(
-            ["update-item", "11", "--value", "active"],
+            ["update-item", "YOK-11", "--value", "active"],
             db_path=mutation_db["db_path"],
         )
         assert result.returncode == 2
@@ -63,7 +63,7 @@ class TestBacklogGithubRelay:
     def test_update_missing_value_usage_error(self, mutation_db):
         """Missing --value should return exit code 2."""
         result = _run_client(
-            ["update-item", "11", "--field", "status"],
+            ["update-item", "YOK-11", "--field", "status"],
             db_path=mutation_db["db_path"],
         )
         assert result.returncode == 2
@@ -72,16 +72,16 @@ class TestBacklogGithubRelay:
         """Epic without tasks should be allowed to transition to planned."""
         conn = connect_test_db(mutation_db["db_path"])
         conn.execute(
-            """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id,
+            """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                                   created_at, updated_at, source, frozen)
-               VALUES (21, 'Taskless planned epic', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'refining-plan', 'medium', 1,
+               VALUES (21, 'Taskless planned epic', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'refining-plan', 'medium', 1, 21,
                        '2026-01-01', '2026-01-01', 'user', 0)"""
         )
         conn.commit()
         conn.close()
 
         result = _run_client(
-            ["update-item", "21", "--field", "status", "--value", "planned"],
+            ["update-item", "YOK-21", "--field", "status", "--value", "planned"],
             db_path=mutation_db["db_path"],
         )
         assert result.returncode == 0
@@ -92,9 +92,9 @@ class TestBacklogGithubRelay:
         """Epic WITH tasks should be allowed to transition to implementing."""
         conn = connect_test_db(mutation_db["db_path"])
         conn.execute(
-            """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id,
+            """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                                   created_at, updated_at, source, frozen)
-               VALUES (22, 'Epic with tasks', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'planned', 'medium', 1,
+               VALUES (22, 'Epic with tasks', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'planned', 'medium', 1, 22,
                        '2026-01-01', '2026-01-01', 'user', 0)"""
         )
         conn.execute(
@@ -104,7 +104,7 @@ class TestBacklogGithubRelay:
         conn.close()
 
         result = _run_client(
-            ["update-item", "22", "--field", "status", "--value", "implementing"],
+            ["update-item", "YOK-22", "--field", "status", "--value", "implementing"],
             db_path=mutation_db["db_path"],
         )
         assert result.returncode == 0
@@ -115,16 +115,16 @@ class TestBacklogGithubRelay:
         """Non-epic (issue) should reach implementing without needing epic tasks."""
         conn = connect_test_db(mutation_db["db_path"])
         conn.execute(
-            """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id,
+            """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                                   created_at, updated_at, source, frozen)
-               VALUES (23, 'Plain issue', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'refined-idea', 'medium', 1,
+               VALUES (23, 'Plain issue', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'refined-idea', 'medium', 1, 23,
                        '2026-01-01', '2026-01-01', 'user', 0)"""
         )
         conn.commit()
         conn.close()
 
         result = _run_client(
-            ["update-item", "23", "--field", "status", "--value", "implementing"],
+            ["update-item", "YOK-23", "--field", "status", "--value", "implementing"],
             db_path=mutation_db["db_path"],
         )
         assert result.returncode == 0
@@ -135,16 +135,16 @@ class TestBacklogGithubRelay:
         """Retired status 'ready' should be rejected for issue items."""
         conn = connect_test_db(mutation_db["db_path"])
         conn.execute(
-            """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id,
+            """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                                   created_at, updated_at, source, frozen)
-               VALUES (24, 'Issue wants ready', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'refined-idea', 'medium', 1,
+               VALUES (24, 'Issue wants ready', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'refined-idea', 'medium', 1, 24,
                        '2026-01-01', '2026-01-01', 'user', 0)"""
         )
         conn.commit()
         conn.close()
 
         result = _run_client(
-            ["update-item", "24", "--field", "status", "--value", "ready"],
+            ["update-item", "YOK-24", "--field", "status", "--value", "ready"],
             db_path=mutation_db["db_path"],
         )
         assert result.returncode == 1
@@ -154,7 +154,7 @@ class TestBacklogGithubRelay:
     def test_update_frozen_field(self, mutation_db):
         """Updating frozen field returns success."""
         result = _run_client(
-            ["update-item", "11", "--field", "frozen", "--value", "true"],
+            ["update-item", "YOK-11", "--field", "frozen", "--value", "true"],
             db_path=mutation_db["db_path"],
         )
         assert result.returncode == 0

@@ -18,7 +18,7 @@ import {
 import { el, settledScopedCalls } from "./universe_view_support.js";
 
 // How many checks one item may contribute, and how many items share a call.
-// The read bounds `limit` PER ITEM for an `public_refs` request, so a busy
+// The read bounds `limit` PER ITEM for a `public_refs` request, so a busy
 // subject cannot spend another subject's share and leave it looking like an
 // item with no evidence and no waiting review. An item that has more than
 // this comes back cut short and named, which the entry then says out loud.
@@ -43,9 +43,8 @@ function groupKey(itemId, runId) {
   return `${itemId}|${runId || ""}`;
 }
 
-// Membership names its item `id`; derived carried work names it `public_ref`.
-// Both carry the public ref used to group evidence.
-export function carriedItemId(item) {
+// Membership and carried work name their item by public ref.
+export function carriedItemRef(item) {
   return item?.public_ref ?? item?.ref ?? item?.item_ref ?? null;
 }
 
@@ -54,7 +53,7 @@ export function carriedItemId(item) {
 function subjectsByProject(items) {
   const byProject = new Map();
   for (const item of items || []) {
-    const id = carriedItemId(item);
+    const id = carriedItemRef(item);
     // A member whose project the reader cannot name is left out rather than
     // guessed into somebody else's project: the read is project-scoped.
     if (id === null || item.project_id == null) continue;
@@ -236,7 +235,7 @@ function appendTruncationNote(documentNode, wrap, facts, itemId, runId) {
 // it is given.
 export function appendCarriedItemEvidence(context, host, options = {}) {
   const { item, runId, facts, onDecide } = options;
-  const itemId = carriedItemId(item);
+  const itemId = carriedItemRef(item);
   if (itemId === null) return null;
   const { checks } = carriedItemEvidence(facts, itemId, runId);
   const history = checks;
@@ -292,7 +291,7 @@ export const universeCarriedItemEvidence = {
   EMPTY_CARRIED_ITEM_FACTS,
   appendCarriedItemEvidence,
   carriedItemEvidence,
-  carriedItemId,
+  carriedItemRef,
   carriedItemReviews,
   loadCarriedItemEvidence,
 };

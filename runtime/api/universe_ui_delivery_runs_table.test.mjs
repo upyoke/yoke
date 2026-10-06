@@ -68,8 +68,8 @@ test("carried items are chips the link underline skips", () => {
   }, body, [{
     id: "run-1", flow: "f", project: "alpha", status: "succeeded", stages: [],
     member_items: [
-      { item_id: 5, project_id: 1, project_sequence: 5, ref: "YOK-5" },
-      { item_id: 6, ref: "YOK-6" },
+      { public_ref: "YOK-5", project_id: 1, project_sequence: 5, ref: "YOK-5" },
+      { public_ref: "YOK-6", ref: "YOK-6" },
     ],
   }], { facts: { evidence: new Map(), flowNames: new Map() }, flowLabels: new Map(), scope: "1" });
   // Linked and unlinked carried items read the same.

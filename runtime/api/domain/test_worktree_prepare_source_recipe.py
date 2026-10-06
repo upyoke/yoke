@@ -20,7 +20,10 @@ from yoke_core.tools._source_pythonpath import (
 
 def _response(function: str, result: dict) -> FunctionCallResponse:
     return FunctionCallResponse(
-        success=True, function=function, version="v1", result=result,
+        success=True,
+        function=function,
+        version="v1",
+        result=result,
     )
 
 
@@ -29,7 +32,7 @@ def _install_prepare_fakes(monkeypatch, worktree_path):
         if function_id == "items.detail.get":
             return _response(
                 function_id,
-                {"item": {"id": 7, "workflow": {"id": "dash"}}},
+                {"item": {"public_ref": "YOK-7", "workflow": {"id": "dash"}}},
             )
         if function_id == "direct_workflow.conflict_survey.status":
             return _response(

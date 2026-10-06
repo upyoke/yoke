@@ -19,7 +19,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain.item_identity_keys import engine_key_for_wire
+from yoke_contracts.item_identity_keys import engine_key_for_wire
 from yoke_core.domain.item_ref_resolution import ItemRefError
 from yoke_core.domain.yoke_function_dispatch_payload_refs import (
     resolve_payload_public_refs,

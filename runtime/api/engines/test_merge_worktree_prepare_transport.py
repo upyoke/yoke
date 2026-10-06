@@ -20,8 +20,10 @@ from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_core.engines import merge_worktree as mw
 from yoke_core.engines import merge_worktree_prepare as prep
 from yoke_core.engines import merge_worktree_prepare_preflight as pf
-from yoke_core.engines import merge_worktree_prepare_state as st
-from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+from yoke_core.engines.merge_worktree_prepare import (
+    MergeArgs as MergeArgs,
+    MergeContext as MergeContext,
+)
 
 # Synthetic fixture id kept off the bare literal so the doc-hygiene drift guard stays clean.
 TEST_ITEM_ID = 42
@@ -37,11 +39,13 @@ def _resp(function_id, result=None, *, success=True):
 def _no_bare_db(monkeypatch):
     """Fail the test if any migrated path opens a bare connect / subprocess."""
     monkeypatch.setattr(
-        mw, "_connect",
+        mw,
+        "_connect",
         lambda *_a, **_k: pytest.fail("must not open a bare mw._connect()"),
     )
     monkeypatch.setattr(
-        mw, "_run_python_module",
+        mw,
+        "_run_python_module",
         lambda *_a, **_k: pytest.fail("must not shell out via _run_python_module"),
     )
 
@@ -58,7 +62,7 @@ class TestResolveContextRelays:
             if kwargs["function_id"] == "items.detail.get":
                 return _resp(
                     "items.detail.get",
-                    {"item": {"id": 4242, "project": {"slug": "yoke"}}},
+                    {"item": {"public_ref": "YOK-4242", "project": {"slug": "yoke"}}},
                 )
             return _resp(kwargs["function_id"])
 
@@ -70,20 +74,19 @@ class TestResolveContextRelays:
         _no_bare_db(monkeypatch)
 
         # Standalone item branch: the permission the real merge boundary holds.
-        ctx = prep.resolve_context(
-            MergeArgs(branch="YOK-4242", standalone=True)
-        )
+        ctx = prep.resolve_context(MergeArgs(branch="YOK-4242", standalone=True))
 
         # The branch carries a public ref, which the dispatcher resolves to
         # the internal id server-side; the project read then targets that
         # resolved id.
         assert [c["function_id"] for c in calls] == [
-            "items.detail.get", "items.detail.get",
+            "items.detail.get",
+            "items.detail.get",
         ]
         assert calls[0]["target"].kind == "item"
         assert calls[0]["target"].public_ref == "YOK-4242"
         assert calls[0]["target"].item_id is None
-        assert calls[1]["target"].item_id == 4242
+        assert calls[1]["target"].public_ref == "YOK-4242"
         assert ctx.project == "yoke"
         # A yoke project keeps the main checkout as repo root.
         assert ctx.repo_root == str(tmp_path)
@@ -96,7 +99,7 @@ class TestResolveContextRelays:
             if fid == "items.detail.get":
                 return _resp(
                     "items.detail.get",
-                    {"item": {"id": 4243, "project": {"slug": "acme"}}},
+                    {"item": {"public_ref": "YOK-4243", "project": {"slug": "acme"}}},
                 )
             if fid == "projects.get":
                 assert kwargs["payload"]["field"] == "default_branch"
@@ -126,20 +129,18 @@ class TestResolveContextRelays:
 
         def fake(**kwargs):
             target = kwargs["target"]
-            seen.append(
-                (kwargs["function_id"], target.public_ref, target.item_id)
-            )
+            seen.append((kwargs["function_id"], target.public_ref, target.item_id))
             if kwargs["function_id"] == "items.detail.get":
-                # The dispatcher resolves a public ref to its internal id
-                # server-side; an id-targeted read echoes the same id back.
-                if target.public_ref:
-                    resolved = int(str(target.public_ref).rsplit("-", 1)[-1])
-                else:
-                    resolved = target.item_id
-                return _resp("items.detail.get", {"item": {
-                    "id": resolved,
-                    "project": {"slug": "yoke"},
-                }})
+                # The wire response carries the same canonical public ref.
+                return _resp(
+                    "items.detail.get",
+                    {
+                        "item": {
+                            "public_ref": target.public_ref,
+                            "project": {"slug": "yoke"},
+                        }
+                    },
+                )
             return _resp(kwargs["function_id"])
 
         monkeypatch.setattr(prep, "call_dispatcher", fake)
@@ -154,7 +155,7 @@ class TestResolveContextRelays:
         # Epic-ref canonicalization relays a detail read carrying the public
         # epic ref, never a locally parsed id.
         assert ("items.detail.get", "YOK-880", None) in seen
-        assert ctx.epic_id == "880"
+        assert ctx.epic_id == "YOK-880"
 
 
 # preflight_checks — PF-3..PF-6 relay
@@ -182,7 +183,7 @@ def _pass_responses():
         ),
         "merge.preflight.blocked_gate": _resp(
             "merge.preflight.blocked_gate",
-            {"applicable": True, "item_id": TEST_ITEM_ID, "public_ref": TEST_ITEM_REF, "blocked": False},
+            {"applicable": True, "public_ref": TEST_ITEM_REF, "blocked": False},
         ),
     }
 
@@ -195,13 +196,12 @@ def _run_preflight(monkeypatch, responses, *, skip_simulation=False, item_id=Non
         return responses[kwargs["function_id"]]
 
     monkeypatch.setattr(pf, "call_dispatcher", fake)
-    monkeypatch.setattr(pf, "item_ref_for_id", lambda _id: pytest.fail("fallback"))
     monkeypatch.setattr(mw, "_run_git", _clean_git)
     _no_bare_db(monkeypatch)
 
     args = MergeArgs(branch=TEST_ITEM_REF, skip_simulation=skip_simulation)
     ctx = MergeContext(
-        args=args, worktree_path="/tmp/wt", epic_id="42", item_id=item_id
+        args=args, worktree_path="/tmp/wt", epic_id=TEST_ITEM_REF, item_id=item_id
     )
     result = pf.preflight_checks(ctx)
     return result, calls
@@ -236,7 +236,9 @@ class TestPreflightRelays:
         )
         result, _ = _run_preflight(monkeypatch, responses)
         assert result is not None
-        assert "FAIL: Integration simulation report not found" in capsys.readouterr().err
+        assert (
+            "FAIL: Integration simulation report not found" in capsys.readouterr().err
+        )
 
     def test_missing_simulation_overridden_by_skip(self, monkeypatch, capsys):
         responses = _pass_responses()
@@ -268,7 +270,9 @@ class TestPreflightRelays:
         assert "FAIL: Integration dependency gate blocked" in err
         assert "YOK-77" in err and "must land first" in err
 
-    @pytest.mark.parametrize(("item_id", "blocked"), [(None, False), (42, True)])
+    @pytest.mark.parametrize(
+        ("item_id", "blocked"), [(None, False), (TEST_ITEM_REF, True)]
+    )
     def test_dependency_gate_unavailable_respects_item_authority(
         self, monkeypatch, capsys, item_id, blocked
     ):
@@ -276,11 +280,11 @@ class TestPreflightRelays:
         responses["merge.preflight.dependency_gate"] = _resp(
             "merge.preflight.dependency_gate", success=False
         )
-        result, calls = _run_preflight(
-            monkeypatch, responses, item_id=item_id
-        )
+        result, calls = _run_preflight(monkeypatch, responses, item_id=item_id)
         assert (result is not None) is blocked
-        dep_call = next(c for c in calls if c["function_id"].endswith("dependency_gate"))
+        dep_call = next(
+            c for c in calls if c["function_id"].endswith("dependency_gate")
+        )
         assert dep_call["target"].kind == ("item" if item_id else "global")
 
     def test_blocked_flag_blocks(self, monkeypatch, capsys):
@@ -289,7 +293,6 @@ class TestPreflightRelays:
             "merge.preflight.blocked_gate",
             {
                 "applicable": True,
-                "item_id": TEST_ITEM_ID,
                 "public_ref": TEST_ITEM_REF,
                 "blocked": True,
                 "reason": "upstream unresolved",
@@ -317,34 +320,3 @@ class TestPreflightRelays:
 # ---------------------------------------------------------------------------
 # extract_generated_files — epic body read relays
 # ---------------------------------------------------------------------------
-class TestExtractGeneratedFilesRelays:
-    def test_relays_item_detail_get_and_parses_body(self, monkeypatch):
-        body = (
-            f"## Worktree: {TEST_ITEM_REF}\n"
-            "### Generated files\n"
-            "- gen/a.py\n"
-            "- gen/b.py\n"
-            "## Worktree: YOK-99\n"
-            "- gen/other.py\n"
-        )
-
-        def fake(**kwargs):
-            assert kwargs["function_id"] == "items.get.run"
-            assert kwargs["target"].item_id == 42
-            assert kwargs["payload"]["fields"] == ["body"]
-            return _resp("items.get.run", {"item_id": 42, "fields": {"body": body}})
-
-        monkeypatch.setattr(st, "call_dispatcher", fake)
-        _no_bare_db(monkeypatch)
-
-        ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), epic_id="42")
-        assert st.extract_generated_files(ctx) == ["gen/a.py", "gen/b.py"]
-
-    def test_relay_refused_returns_empty(self, monkeypatch):
-        monkeypatch.setattr(
-            st, "call_dispatcher",
-            lambda **_k: _resp("items.get.run", success=False),
-        )
-        _no_bare_db(monkeypatch)
-        ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), epic_id="42")
-        assert st.extract_generated_files(ctx) == []

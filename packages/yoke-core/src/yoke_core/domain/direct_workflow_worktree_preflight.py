@@ -216,7 +216,7 @@ def _prepare(parser: argparse.ArgumentParser, parsed: argparse.Namespace) -> int
                         if durable_state == DURABLE_PENDING
                         else "Record a new survey because the durable row is unreadable."
                     ),
-                    "item_id": item_id,
+                    "public_ref": item_id,
                 }
             )
         )
@@ -230,18 +230,18 @@ def _prepare(parser: argparse.ArgumentParser, parsed: argparse.Namespace) -> int
                     "narrative": (
                         "Record the inferred touch set before worktree preparation."
                     ),
-                    "item_id": item_id,
+                    "public_ref": item_id,
                 }
             )
         )
         return 1
     blockers = list(survey.get("blockers") or [])
-    advisory_by_contact: dict[tuple[int, str], dict] = {}
+    advisory_by_contact: dict[tuple[str, str], dict] = {}
     for blocker in blockers:
-        owner_item_id = int(blocker["owner_item_id"])
+        owner_public_ref = str(blocker["owner_public_ref"])
         kind = str(blocker.get("kind") or "unknown")
         advisory = advisory_by_contact.setdefault(
-            (owner_item_id, kind),
+            (owner_public_ref, kind),
             {
                 "kind": kind,
                 "public_ref": str(blocker.get("owner_public_ref") or ""),
@@ -256,10 +256,10 @@ def _prepare(parser: argparse.ArgumentParser, parsed: argparse.Namespace) -> int
         path = str(blocker.get("path") or "")
         if path and path not in advisory["shared_paths"]:
             advisory["shared_paths"].append(path)
-    for (owner_item_id, _kind), advisory in advisory_by_contact.items():
+    for (owner_public_ref, _kind), advisory in advisory_by_contact.items():
         other_detail = call_dispatcher(
             function_id="items.detail.get",
-            target=public_item_target(owner_item_id),
+            target=public_item_target(owner_public_ref),
         )
         other_item = (
             (other_detail.result or {}).get("item") if other_detail.success else {}

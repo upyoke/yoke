@@ -37,8 +37,8 @@ export function deploymentRequestRow(overrides = {}) {
       batch: {
         item_count: 2,
         items: [
-          { item_id: 2712, item_ref: "YOK-2712", title: "Served context window" },
-          { item_id: 2707, item_ref: "YOK-2707", title: "Messages address actors" },
+          { public_ref: "YOK-2712", item_ref: "YOK-2712", title: "Served context window" },
+          { public_ref: "YOK-2707", item_ref: "YOK-2707", title: "Messages address actors" },
         ],
       },
       shipping: {
@@ -60,8 +60,8 @@ export function deploymentRequestRow(overrides = {}) {
           release_lineage: "0.1.1+launch.379",
         },
         items: [
-          { item_id: 2712, ref: "YOK-2712", commit_shas: ["aa11bb22cc33"] },
-          { item_id: 2707, ref: "YOK-2707", commit_shas: ["dd44ee55ff66"] },
+          { public_ref: "YOK-2712", ref: "YOK-2712", commit_shas: ["aa11bb22cc33"] },
+          { public_ref: "YOK-2707", ref: "YOK-2707", commit_shas: ["dd44ee55ff66"] },
         ],
         commits: [],
         warnings: [],
@@ -200,7 +200,7 @@ export function environmentRunRequestRow(overrides = {}) {
           release_lineage: "0.1.2+launch.407",
         },
         items: [
-          { item_id: 2712, ref: "YOK-2712", commit_shas: ["aa11bb22cc33"] },
+          { public_ref: "YOK-2712", ref: "YOK-2712", commit_shas: ["aa11bb22cc33"] },
         ],
         commits: ["9911aa22bb33"],
         warnings: [],

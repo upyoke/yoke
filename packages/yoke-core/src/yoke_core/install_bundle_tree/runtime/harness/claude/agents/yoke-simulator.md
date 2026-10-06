@@ -161,16 +161,16 @@ In integration phase, a task's resolved worktree checkout is the authority for t
   - `yoke workflow-item epic-task body-get --epic <epic-id> --task-num <task-num>`
   - `yoke workflow-item epic-task simulation-get --epic <epic-id> --phase integration`
 - _Write epic task body / metadata via CLI adapters_
-  - `yoke workflow-item epic-task body-replace --epic YOK-1704 --task-num 5 --body-file PATH`
-  - `yoke workflow-item epic-task metadata-update --epic YOK-1704 --task-num 5 --fields-json '{"max_attempts": 2}'`
+  - `yoke workflow-item epic-task body-replace --epic PREFIX-1704 --task-num 5 --body-file PATH`
+  - `yoke workflow-item epic-task metadata-update --epic PREFIX-1704 --task-num 5 --fields-json '{"max_attempts": 2}'`
 - _Tester: seed / insert / get review verdict for an epic task_
   - `yoke workflow-item epic-task review-seed --epic <epic-id> --task-num <task_num>`
   - `yoke workflow-item epic-task review-insert --epic <epic-id> --task-num <task_num> --verdict <pass|fail> --body-file PATH`
   - `yoke workflow-item epic-task review-get --epic <epic-id> --task-num <task_num>`
 - _Engineer: append a progress note to an epic task_
-  - `yoke workflow-item epic-progress-note append --epic YOK-1704 --task-num 5 --note-num 3 --body-file PATH`
-  - `yoke workflow-item epic-progress-note list --epic YOK-1704 --task-num 5 --limit 10`
-  - `yoke workflow-item epic-task submission-receipt-get --epic YOK-1704 --task-num 5 --after-note-count 2`
+  - `yoke workflow-item epic-progress-note append --epic PREFIX-1704 --task-num 5 --note-num 3 --body-file PATH`
+  - `yoke workflow-item epic-progress-note list --epic PREFIX-1704 --task-num 5 --limit 10`
+  - `yoke workflow-item epic-task submission-receipt-get --epic PREFIX-1704 --task-num 5 --after-note-count 2`
 - _Update epic-task status / metadata field via CLI_
   - `yoke workflow-item epic-task update-status --epic <epic-id> --task-num <task_num> --status <status>`
   - `yoke workflow-item epic-task metadata-update --epic <epic-id> --task-num <task_num> --fields-json '{"max_attempts": 2}'`
@@ -279,7 +279,7 @@ _Compact depth. For per-table/command notes, caveats and corrected wrong guesses
   - `yoke claims work holder-get PREFIX-N`
 - _Acquire a work claim (canonical agent shape — target variants)_
   - `yoke claims work acquire --item PREFIX-N --reason draft-in-progress`
-  - `yoke claims work acquire --epic YOK-833 --task-num 5 --reason engineer-dispatch`
+  - `yoke claims work acquire --epic PREFIX-833 --task-num 5 --reason engineer-dispatch`
   - `yoke claims work acquire --process DOCTOR --project P --reason scheduled-run`
 - _Claim → mutate → release (generic plan-stage edit)_
   - `yoke claims work acquire --item PREFIX-N --reason edit`

@@ -166,7 +166,7 @@ Parse the Simulator's result for `## Result: CLEAN` or `## Result: GAPS FOUND`.
   1. **Patch and re-simulate** — fix the gaps in the plan/task bodies (or re-run Architect manually), then re-run shepherd. `simulation-upsert` overwrites prior runs, so a clean re-simulation replaces the failing row.
   2. **Waive the requirement** with explicit operator rationale. Find the requirement id, then waive:
      ```bash
-     _req_id=$(yoke db read --format lines "SELECT id FROM qa_requirements WHERE item_id=$_epic_ref AND qa_kind='simulation' AND success_policy LIKE '%\"phase\":\"plan\"%'")
+     _req_id=$(yoke db read --format lines "SELECT id FROM qa_requirements WHERE item_id=(SELECT item_id FROM item_refs WHERE public_ref='$_epic_ref') AND qa_kind='simulation' AND success_policy LIKE '%\"phase\":\"plan\"%'")
      yoke qa requirement waive --requirement-id "$_req_id" --rationale "<rationale>" --source operator --force
      ```
   3. **Re-scope or stop** — narrow the epic and re-shepherd, or `/yoke stop PREFIX-{N}`.

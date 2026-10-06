@@ -20,7 +20,7 @@ function runReview(overrides = {}) {
       ...row.subject_context,
       requirement_id: 32070,
       qa_kind: "deployment_stage_acceptance", case_name: null, plan_id: null,
-      subject: { kind: "deployment_run", item_id: null, deployment_member_item_id: null,
+      subject: { kind: "deployment_run", public_ref: null, deployment_member_public_ref: null,
         deployment_run_id: RUN, qa_phase: "post_deploy" },
       expected_outcome: "Every admitted case passed against the pinned deployment target.",
       verdict_reason: "configured deployment stage requires authorized human acceptance",

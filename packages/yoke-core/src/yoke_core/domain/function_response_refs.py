@@ -9,7 +9,10 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from yoke_contracts.api.function_call import FunctionCallResponse, FunctionError
-from yoke_contracts.public_ref import parse_public_item_ref
+from yoke_contracts.public_item_contract import (
+    is_public_item_record,
+    item_record_context,
+)
 from yoke_contracts.item_identity_keys import wire_key_for_engine
 from yoke_core.domain.item_ref_render import ItemRefLookup, render_item_refs
 
@@ -22,28 +25,25 @@ def _integer(value: Any) -> int | None:
     return None
 
 
-def _item_row(node: Mapping[str, Any]) -> bool:
-    return any(
-        isinstance(node.get(key), str)
-        and parse_public_item_ref(node[key])[0] is not None
-        for key in ("public_ref", "item_ref", "ref")
-    ) or ("workflow_id" in node and "project_sequence" in node)
-
-
-def collect_item_ids(node: Any) -> set[int]:
+def collect_item_ids(node: Any, *, item_context: bool = False) -> set[int]:
     ids: set[int] = set()
     if isinstance(node, dict):
         for key, value in node.items():
             identity = wire_key_for_engine(key)
-            if identity or key in ("internal_id", "id") and _item_row(node):
+            if (
+                identity
+                or key == "internal_id"
+                or key == "id"
+                and is_public_item_record(node, context=item_context)
+            ):
                 values = value if isinstance(value, list) else [value]
                 ids.update(
                     number for v in values if (number := _integer(v)) is not None
                 )
-            ids.update(collect_item_ids(value))
+            ids.update(collect_item_ids(value, item_context=item_record_context(key)))
     elif isinstance(node, list):
         for value in node:
-            ids.update(collect_item_ids(value))
+            ids.update(collect_item_ids(value, item_context=item_context))
     return ids
 
 

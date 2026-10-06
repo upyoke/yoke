@@ -54,9 +54,7 @@ def _registered_dispatch(tmp_path, monkeypatch, *, holder: str):
     def dispatch(*, function_id, target, payload=None, actor=None, **_kw):
         if function_id == HOLDER_FUNCTION:
             found = {"session_id": holder} if holder else None
-            return SimpleNamespace(
-                success=True, result={"holder": found}, error=None
-            )
+            return SimpleNamespace(success=True, result={"holder": found}, error=None)
         from yoke_contracts.api.function_call import (
             ActorContext,
             FunctionCallRequest,
@@ -98,7 +96,7 @@ def test_the_registered_touch_really_parks_the_owner(conn, tmp_path, monkeypatch
     envelope: dict = {}
 
     park.retain_for_delivery(
-        envelope, item_id=7, public_ref="ITEM-7", session_id=SESSION
+        envelope, item_id="YOK-7", public_ref="ITEM-7", session_id=SESSION
     )
 
     assert envelope["release_wait"]["parked"] == "yes"
@@ -116,7 +114,7 @@ def test_a_non_owner_leaves_the_stored_mode_alone(conn, tmp_path, monkeypatch):
     envelope: dict = {}
 
     park.retain_for_delivery(
-        envelope, item_id=7, public_ref="ITEM-7", session_id=SESSION
+        envelope, item_id="YOK-7", public_ref="ITEM-7", session_id=SESSION
     )
 
     assert envelope["release_wait"]["parked"].startswith("skipped:")

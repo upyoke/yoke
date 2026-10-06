@@ -19,7 +19,10 @@ from yoke_core.domain.standalone_item_merge_landed import LandedLane
 LANE_SHA = "1" * 40
 MERGE_SHA = "2" * 40
 LANE = LandedLane(
-    branch="ITEM-1", target="main", commit_sha=LANE_SHA, merge_sha=MERGE_SHA,
+    branch="ITEM-1",
+    target="main",
+    commit_sha=LANE_SHA,
+    merge_sha=MERGE_SHA,
 )
 
 
@@ -47,7 +50,10 @@ def test_an_item_already_terminal_owes_nothing(monkeypatch):
     )
 
     assert terminal.transition_to_done(
-        item_id=7, source_status="done", repo_root="/repo", lane=LANE,
+        item_id="ITEM-7",
+        source_status="done",
+        repo_root="/repo",
+        lane=LANE,
     ) == ("done", "")
 
 
@@ -55,7 +61,9 @@ def test_a_lost_claim_is_recovered_before_the_transition(monkeypatch):
     """The crashed close-out released it; the landing proves it is ours."""
     monkeypatch.setattr(terminal.git, "is_landed", lambda *_a: True)
     monkeypatch.setattr(
-        terminal.recovery, "claim_error", lambda *_a: "no live work claim on this item",
+        terminal.recovery,
+        "claim_error",
+        lambda *_a: "no live work claim on this item",
     )
     recovered: list = []
     monkeypatch.setattr(
@@ -66,7 +74,7 @@ def test_a_lost_claim_is_recovered_before_the_transition(monkeypatch):
     calls = _transitions(monkeypatch)
 
     assert terminal.transition_to_done(
-        item_id=7,
+        item_id="ITEM-7",
         source_status="reviewing-implementation",
         repo_root="/repo",
         lane=LANE,
@@ -79,7 +87,9 @@ def test_a_lost_claim_is_recovered_before_the_transition(monkeypatch):
 def test_a_concurrent_closer_that_finished_first_is_the_outcome(monkeypatch):
     """Recovery refuses a terminal item; the item being done is the answer."""
     monkeypatch.setattr(terminal.git, "is_landed", lambda *_a: True)
-    monkeypatch.setattr(terminal.recovery, "claim_error", lambda *_a: "no live work claim")
+    monkeypatch.setattr(
+        terminal.recovery, "claim_error", lambda *_a: "no live work claim"
+    )
     monkeypatch.setattr(
         terminal.recovery,
         "reacquire_landed_claim",
@@ -97,7 +107,7 @@ def test_a_concurrent_closer_that_finished_first_is_the_outcome(monkeypatch):
     )
 
     assert terminal.transition_to_done(
-        item_id=7,
+        item_id="ITEM-7",
         source_status="reviewing-implementation",
         repo_root="/repo",
         lane=LANE,
@@ -115,7 +125,9 @@ def test_unrecoverable_authority_names_the_landing_it_could_not_close(
         lambda **_k: (None, "work claim held by another session"),
     )
     monkeypatch.setattr(
-        terminal.evidence, "authoritative_status_is", lambda *_a: False,
+        terminal.evidence,
+        "authoritative_status_is",
+        lambda *_a: False,
     )
     monkeypatch.setattr(
         terminal,
@@ -124,7 +136,7 @@ def test_unrecoverable_authority_names_the_landing_it_could_not_close(
     )
 
     new_status, error = terminal.transition_to_done(
-        item_id=7,
+        item_id="ITEM-7",
         source_status="reviewing-implementation",
         repo_root="/repo",
         lane=LANE,
@@ -144,7 +156,7 @@ def test_an_unlanded_merge_identity_is_still_refused(monkeypatch):
     )
 
     new_status, error = terminal.transition_to_done(
-        item_id=7,
+        item_id="ITEM-7",
         source_status="reviewing-implementation",
         repo_root="/repo",
         lane=LANE,
@@ -155,13 +167,18 @@ def test_an_unlanded_merge_identity_is_still_refused(monkeypatch):
 
 
 EMPTY_LANE = LandedLane(
-    branch="ITEM-1", target="main", commit_sha="", merge_sha="",
+    branch="ITEM-1",
+    target="main",
+    commit_sha="",
+    merge_sha="",
 )
 
 
 def test_empty_identities_without_no_change_evidence_are_refused(monkeypatch):
     monkeypatch.setattr(
-        terminal.evidence, "attested_empty_landing", lambda _id: False,
+        terminal.evidence,
+        "attested_empty_landing",
+        lambda _id: False,
     )
     monkeypatch.setattr(
         terminal.git,
@@ -175,7 +192,7 @@ def test_empty_identities_without_no_change_evidence_are_refused(monkeypatch):
     )
 
     new_status, error = terminal.transition_to_done(
-        item_id=7,
+        item_id="ITEM-7",
         source_status="reviewing-implementation",
         repo_root="/repo",
         lane=EMPTY_LANE,
@@ -187,7 +204,9 @@ def test_empty_identities_without_no_change_evidence_are_refused(monkeypatch):
 
 def test_empty_identities_with_recorded_no_changes_close(monkeypatch):
     monkeypatch.setattr(
-        terminal.evidence, "attested_empty_landing", lambda _id: True,
+        terminal.evidence,
+        "attested_empty_landing",
+        lambda _id: True,
     )
     monkeypatch.setattr(
         terminal.git,
@@ -198,7 +217,7 @@ def test_empty_identities_with_recorded_no_changes_close(monkeypatch):
     calls = _transitions(monkeypatch)
 
     assert terminal.transition_to_done(
-        item_id=7,
+        item_id="ITEM-7",
         source_status="reviewing-implementation",
         repo_root="/repo",
         lane=EMPTY_LANE,
@@ -212,18 +231,18 @@ def test_attested_empty_landing_reads_recorded_no_changes(monkeypatch):
         "recorded",
         lambda _id: {"no_changes": True, "merge_sha": ""},
     )
-    assert terminal.evidence.attested_empty_landing(7) is True
+    assert terminal.evidence.attested_empty_landing("ITEM-7") is True
     monkeypatch.setattr(
         terminal.evidence,
         "recorded",
         lambda _id: {"no_changes": False, "merge_sha": ""},
     )
-    assert terminal.evidence.attested_empty_landing(7) is False
+    assert terminal.evidence.attested_empty_landing("ITEM-7") is False
     monkeypatch.setattr(terminal.evidence, "recorded", lambda _id: None)
-    assert terminal.evidence.attested_empty_landing(7) is False
+    assert terminal.evidence.attested_empty_landing("ITEM-7") is False
     monkeypatch.setattr(
         terminal.evidence,
         "recorded",
         lambda _id: {"no_changes": True, "merge_sha": MERGE_SHA},
     )
-    assert terminal.evidence.attested_empty_landing(7) is False
+    assert terminal.evidence.attested_empty_landing("ITEM-7") is False

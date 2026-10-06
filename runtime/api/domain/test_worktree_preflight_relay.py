@@ -38,7 +38,9 @@ class TestTransportAwareControlPlane:
         def fake(**kwargs):
             calls.append(kwargs)
             return FunctionCallResponse(
-                success=True, function="items.detail.get", version="v1",
+                success=True,
+                function="items.detail.get",
+                version="v1",
                 result={"item": item},
             )
 
@@ -54,7 +56,7 @@ class TestTransportAwareControlPlane:
             {"blocked": True, "blocked_reason": "upstream coordination"},
         )
         outcome = wp.run_preflight(
-            item_id=9001,
+            item_id="YOK-9001",
             repo_root=repo_layout.root,
             session_id="sess",
             actual_cwd=repo_layout.root,
@@ -65,20 +67,21 @@ class TestTransportAwareControlPlane:
         assert "upstream coordination" in outcome.narrative
         assert any(c["function_id"] == "items.detail.get" for c in calls)
 
-    def test_blocked_gate_degrades_when_relay_refuses(
-        self, repo_layout, monkeypatch
-    ):
+    def test_blocked_gate_degrades_when_relay_refuses(self, repo_layout, monkeypatch):
         _patch_steps(monkeypatch)
         from yoke_core.api import service_client_structured_api_adapter as facade
 
         monkeypatch.setattr(
-            facade, "call_dispatcher",
+            facade,
+            "call_dispatcher",
             lambda **_k: FunctionCallResponse(
-                success=False, function="items.detail.get", version="v1",
+                success=False,
+                function="items.detail.get",
+                version="v1",
             ),
         )
         outcome = wp.run_preflight(
-            item_id=9001,
+            item_id="YOK-9001",
             repo_root=repo_layout.root,
             session_id="sess",
             actual_cwd=repo_layout.root,
@@ -99,12 +102,12 @@ class TestTransportAwareControlPlane:
 
         resolved = []
         monkeypatch.setattr(
-            pcl, "checkout_for_project_slug",
-            lambda project, **_kw: resolved.append(project)
-            or Path(repo_layout.root),
+            pcl,
+            "checkout_for_project_slug",
+            lambda project, **_kw: resolved.append(project) or Path(repo_layout.root),
         )
         outcome = wp.run_preflight(
-            item_id=9001,
+            item_id="YOK-9001",
             project="yoke",
             session_id="sess",
             actual_cwd=repo_layout.root,
@@ -113,9 +116,7 @@ class TestTransportAwareControlPlane:
         assert outcome.ok is True
         assert resolved == ["yoke"]
 
-    def test_work_claim_refusal_uses_relayed_public_ref(
-        self, repo_layout, monkeypatch
-    ):
+    def test_work_claim_refusal_uses_relayed_public_ref(self, repo_layout, monkeypatch):
         """A divergent internal id must not leak into the recovery command."""
         _patch_steps(
             monkeypatch,
@@ -126,7 +127,7 @@ class TestTransportAwareControlPlane:
             {"blocked": False, "public_ref": "BUZ-7"},
         )
         outcome = wp.run_preflight(
-            item_id=9001,
+            item_id="YOK-9001",
             repo_root=repo_layout.root,
             session_id="sess",
             actual_cwd=repo_layout.root,

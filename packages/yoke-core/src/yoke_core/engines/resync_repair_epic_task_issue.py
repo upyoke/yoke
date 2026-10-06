@@ -19,7 +19,7 @@ from yoke_core.domain.public_item_target import public_item_target
 
 import sys
 from dataclasses import dataclass
-from typing import Optional, TextIO
+from typing import TextIO
 
 from yoke_core.domain import backlog_github_body_budget as _budget
 from yoke_core.domain import backlog_github_body_writer as _writer
@@ -35,16 +35,6 @@ class RepairOutcome:
     success: bool
     error: str = ""
     issue_number: int = 0
-
-
-def _task_id_for_mirror(parent_item_id: Optional[str], task_num: int) -> int:
-    """Pack the epic id and task_num into a stable mirror id (only used
-    when the body exceeds budget)."""
-    try:
-        epic_int = int(parent_item_id) if parent_item_id else 0
-    except (TypeError, ValueError):
-        epic_int = 0
-    return epic_int * 1000 + int(task_num)
 
 
 def _read_repair_context_over_transport(epic_ref: str, task_num: int) -> dict:
@@ -127,7 +117,6 @@ def _select_body_for_create(
     status: str,
     et_slug: str,
     et_tnum: str,
-    parent_id: str,
     epic_ref: str,
     stderr: TextIO,
 ) -> str:
@@ -145,7 +134,7 @@ def _select_body_for_create(
             "next_actions": _writer.epic_task_next_actions(epic_ref),
         },
         conn=None,
-        item_id=_task_id_for_mirror(parent_id, int(et_tnum)),
+        item_id=None,
     )
     _budget.emit_compact_notice(
         mode,
@@ -156,7 +145,7 @@ def _select_body_for_create(
 
 
 def repair_local_orphan_epic_task(
-    epic_id: str,
+    epic_public_ref: str,
     task_num: int,
     project: str,
     db_path: str,
@@ -171,7 +160,7 @@ def repair_local_orphan_epic_task(
     "could not create GitHub issue."
     """
     outcome = repair_local_orphan_epic_task_typed(
-        epic_id,
+        epic_public_ref,
         task_num,
         project,
         db_path,
@@ -187,7 +176,7 @@ def repair_local_orphan_epic_task(
 
 
 def repair_local_orphan_epic_task_typed(
-    epic_id: str,
+    epic_public_ref: str,
     task_num: int,
     project: str,
     db_path: str,  # noqa: ARG001 - retained compat token; reads/write relay
@@ -198,10 +187,10 @@ def repair_local_orphan_epic_task_typed(
     """Typed variant returning RepairOutcome — direct caller path for
     future-shape diagnostic-aware loops.
 
-    Identity is ``(epic_id, task_num)``; the GitHub issue title leads
+    Identity is ``(epic_public_ref, task_num)``; the GitHub issue title leads
     with the parent epic's public ref rendered from prefix+sequence.
     """
-    et_slug = str(epic_id)
+    et_slug = str(epic_public_ref)
     et_tnum = str(int(task_num))
     et_tnum_padded = f"{int(task_num):03d}"
 
@@ -211,7 +200,6 @@ def repair_local_orphan_epic_task_typed(
             False, error=f"epic_tasks row {et_slug}/{et_tnum} not found"
         )
 
-    parent_id = context.get("parent_id")
     # The parent's public ref is rendered server-side from the project's
     # prefix and the item's project sequence — never reconstructed from
     # the internal id, which can diverge from the public sequence.
@@ -238,7 +226,6 @@ def repair_local_orphan_epic_task_typed(
         status=et_status,
         et_slug=et_slug,
         et_tnum=et_tnum,
-        parent_id=str(parent_id) if parent_id is not None else "",
         epic_ref=parent_ref or et_slug,
         stderr=stderr,
     )

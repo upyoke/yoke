@@ -29,7 +29,7 @@ function runRow(overrides = {}) {
       { name: "release", state: "pending" },
     ],
     member_items: [{
-      id: 2262, ref: "YOK-2228", project_sequence: 2228,
+      ref: "YOK-2228", project_sequence: 2228,
       title: "Ship the release", project_id: 1, project: "yoke",
     }],
     gates: [],
@@ -68,7 +68,7 @@ function runClient(row, activityRows = [], itemActivityRows = [], siblingRows = 
       if (request.function === "qa.activity.list") {
         return okEnvelope({
           summary: { total: 0, counts: {} },
-          rows: request.payload.item_ids ? itemActivityRows : activityRows,
+          rows: request.payload.public_refs ? itemActivityRows : activityRows,
         });
       }
       if (request.function === "inbox.list") {
@@ -87,7 +87,7 @@ function runClient(row, activityRows = [], itemActivityRows = [], siblingRows = 
       }
       if (request.function === "deployment_runs.find_by_item") {
         return okEnvelope({
-          item_id: request.target.item_id,
+          public_ref: request.target.public_ref,
           fields: ["id", "status", "current_stage", "created_at"],
           rows: siblingRows,
         });
@@ -155,7 +155,7 @@ test("the run page reads the run by id and draws it in the page's shape", async 
     payload.deployment_run_id === "run-20260726-001" && payload.project === "1"
   )), JSON.stringify(activity));
   assert.ok(activity.some((payload) => (
-    Array.isArray(payload.item_ids) && payload.item_ids.includes(2262)
+    Array.isArray(payload.public_refs) && payload.public_refs.includes("YOK-2228")
   )), JSON.stringify(activity));
 
   // The trail stands on its own line above the title, and the run's own id
@@ -260,16 +260,16 @@ for (const route of [
     // Each carried title links to the same item as its reference.
     assert.deepEqual(byClass(root, "carried-item-title").map((node) => [
       node.tagName, node.textContent, node.href]), [
-      ["A", "Ship the release", "/items/2228?project=1"],
-      ["A", "Build the host", "/items/149?project=2"],
+      ["A", "Ship the release", "/items/YOK-2228?project=1"],
+      ["A", "Build the host", "/items/PLAT-149?project=2"],
     ]);
     assert.equal(byClass(root, "run-fact-value")[0].textContent, "0.1.1+launch.379");
     assert.equal(byClass(root, "run-items")[0].children.find(
-      (node) => node.textContent === platformRef).href, "/items/149?project=2");
+      (node) => node.textContent === platformRef).href, "/items/PLAT-149?project=2");
     assert.ok(client.requests.some((request) => request.function === "qa.activity.list"
       && request.payload.project === "1" && request.payload.deployment_run_id));
     assert.ok(client.requests.some((request) => request.function === "qa.activity.list"
-      && request.payload.project === "2" && request.payload.item_ids?.includes(2263)));
+      && request.payload.project === "2" && request.payload.public_refs?.includes(platformRef)));
     mounted.unmount();
   });
 }
@@ -314,7 +314,7 @@ test("an inaccessible or missing run says so rather than drawing an empty page",
 
 test("a run page leaves run-less item QA on the item", async (t) => {
   const client = runClient(runRow(), [], [{
-    requirement_id: 26134, deployment_run_id: null, item_id: 2262,
+    requirement_id: 26134, deployment_run_id: null, public_ref: "YOK-2228",
     method_name: "Browser inspection", outcome: "undetermined", artifacts: [],
   }]);
   const { root } = await mountAt(t, "/deployments/runs/run-20260726-001?project=1", client);

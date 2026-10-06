@@ -53,8 +53,14 @@ def _seed_oversize_item(db_path: str, *, item_id: int, spec_size: int) -> None:
         "(SELECT current_version_id FROM workflows WHERE id='issue'), "
         f"{p}, {p}, 0, {p}, 1, {p})",
         (
-            item_id, "Oversize body item", "implementing", "high", "manual",
-            spec_text, "#900", item_id,
+            item_id,
+            "Oversize body item",
+            "implementing",
+            "high",
+            "manual",
+            spec_text,
+            "#900",
+            item_id,
         ),
     )
     conn.commit()
@@ -86,9 +92,15 @@ class TestCompactMirrorSuppression:
         """No compact-mirror footer means GitHub did not publish the mirror."""
         local = "x" * (GITHUB_BODY_BUDGET_BYTES + 200)
         assert not _matches_compact_mirror(
-            local_body=local, gh_body="just some random body",
-            item_fields={"title": "t", "status": "implementing", "workflow_id": "issue", "project": "yoke"},
-            item_id=901,
+            local_body=local,
+            gh_body="just some random body",
+            item_fields={
+                "title": "t",
+                "status": "implementing",
+                "workflow_id": "issue",
+                "project": "yoke",
+            },
+            public_ref="YOK-901",
         )
 
     def test_matches_compact_mirror_returns_false_when_under_budget(self):
@@ -96,27 +108,49 @@ class TestCompactMirrorSuppression:
         'shrink back to full' path emits real drift."""
         local = "small body"
         gh = render_compact_mirror(
-            {"title": "t", "status": "implementing", "workflow_id": "issue", "project": "yoke"},
-            conn=None, item_id=901,
+            {
+                "title": "t",
+                "status": "implementing",
+                "workflow_id": "issue",
+                "project": "yoke",
+            },
+            conn=None,
+            item_id=901,
         )
         assert COMPACT_MIRROR_FOOTER in gh
         assert not _matches_compact_mirror(
-            local_body=local, gh_body=gh,
-            item_fields={"title": "t", "status": "implementing", "workflow_id": "issue", "project": "yoke"},
-            item_id=901,
+            local_body=local,
+            gh_body=gh,
+            item_fields={
+                "title": "t",
+                "status": "implementing",
+                "workflow_id": "issue",
+                "project": "yoke",
+            },
+            public_ref="YOK-901",
         )
 
     def test_matches_compact_mirror_returns_true_when_matched(self):
         local = "x" * (GITHUB_BODY_BUDGET_BYTES + 200)
-        fields = {"title": "Big", "status": "implementing", "workflow_id": "issue", "project": "yoke"}
+        fields = {
+            "title": "Big",
+            "status": "implementing",
+            "workflow_id": "issue",
+            "project": "yoke",
+        }
         gh = render_compact_mirror(fields, conn=None, item_id=902)
         assert _matches_compact_mirror(
-            local_body=local, gh_body=gh, item_fields=fields, item_id=902,
+            local_body=local,
+            gh_body=gh,
+            item_fields=fields,
+            public_ref="YOK-902",
         )
 
     def test_stage2_suppresses_drift_when_mirror_matches(self, test_db):
         """End-to-end via stage2_compare: oversize local + compact-mirror GH ⇒ no drift."""
-        _seed_oversize_item(test_db, item_id=910, spec_size=GITHUB_BODY_BUDGET_BYTES + 1000)
+        _seed_oversize_item(
+            test_db, item_id=910, spec_size=GITHUB_BODY_BUDGET_BYTES + 1000
+        )
         fields = {
             "title": "Oversize body item",
             "status": "implementing",
@@ -124,27 +158,40 @@ class TestCompactMirrorSuppression:
             "project": "yoke",
         }
         gh_body = render_compact_mirror(fields, conn=None, item_id=910)
-        gh_issues = _make_gh_issues([{
-            "number": 900,
-            "title": "[YOK-910] Oversize body item",
-            "labels": [
-                {"name": "status:implementing"},
-                {"name": "priority:high"},
-                {"name": "workflow:issue"},
-                {"name": "source:manual"},
-            ],
-            "state": "OPEN",
-            "body": gh_body,
-        }])
-        paired = [PairedItem("YOK-910", "/tmp/910.md", 900, "backlog", "yoke", "", item_id=910)]
+        gh_issues = _make_gh_issues(
+            [
+                {
+                    "number": 900,
+                    "title": "[YOK-910] Oversize body item",
+                    "labels": [
+                        {"name": "status:implementing"},
+                        {"name": "priority:high"},
+                        {"name": "workflow:issue"},
+                        {"name": "source:manual"},
+                    ],
+                    "state": "OPEN",
+                    "body": gh_body,
+                }
+            ]
+        )
+        paired = [
+            PairedItem(
+                "YOK-910",
+                "/tmp/910.md",
+                900,
+                "backlog",
+                "yoke",
+                "",
+                public_ref="YOK-910",
+            )
+        ]
         drifts = stage2_compare(paired, gh_issues, {}, test_db)
         body_drifts = [d for d in drifts if d.field == "body"]
-        assert body_drifts == [], (
-            "compact-mirror match must suppress body drift"
-        )
+        assert body_drifts == [], "compact-mirror match must suppress body drift"
 
     def test_stage2_reports_real_drift_when_local_under_budget_but_gh_has_mirror(
-        self, test_db,
+        self,
+        test_db,
     ):
         """Legitimate 'shrink back to full' case — real drift, --fix resolves it."""
         conn = connect_test_db(test_db)
@@ -161,22 +208,39 @@ class TestCompactMirrorSuppression:
         conn.close()
 
         fields = {
-            "title": "Small item", "status": "implementing", "workflow_id": "issue", "project": "yoke",
+            "title": "Small item",
+            "status": "implementing",
+            "workflow_id": "issue",
+            "project": "yoke",
         }
         gh_body = render_compact_mirror(fields, conn=None, item_id=911)
-        gh_issues = _make_gh_issues([{
-            "number": 901,
-            "title": "[YOK-911] Small item",
-            "labels": [
-                {"name": "status:implementing"},
-                {"name": "priority:high"},
-                {"name": "workflow:issue"},
-                {"name": "source:manual"},
-            ],
-            "state": "OPEN",
-            "body": gh_body,
-        }])
-        paired = [PairedItem("YOK-911", "/tmp/911.md", 901, "backlog", "yoke", "", item_id=911)]
+        gh_issues = _make_gh_issues(
+            [
+                {
+                    "number": 901,
+                    "title": "[YOK-911] Small item",
+                    "labels": [
+                        {"name": "status:implementing"},
+                        {"name": "priority:high"},
+                        {"name": "workflow:issue"},
+                        {"name": "source:manual"},
+                    ],
+                    "state": "OPEN",
+                    "body": gh_body,
+                }
+            ]
+        )
+        paired = [
+            PairedItem(
+                "YOK-911",
+                "/tmp/911.md",
+                901,
+                "backlog",
+                "yoke",
+                "",
+                public_ref="YOK-911",
+            )
+        ]
         drifts = stage2_compare(paired, gh_issues, {}, test_db)
         body_drifts = [d for d in drifts if d.field == "body"]
         assert len(body_drifts) == 1, (
@@ -185,7 +249,9 @@ class TestCompactMirrorSuppression:
 
     def test_stage2_reports_real_drift_when_mirror_is_stale(self, test_db):
         """Over-budget local + stale compact mirror on GH (wrong title) → drift."""
-        _seed_oversize_item(test_db, item_id=912, spec_size=GITHUB_BODY_BUDGET_BYTES + 1000)
+        _seed_oversize_item(
+            test_db, item_id=912, spec_size=GITHUB_BODY_BUDGET_BYTES + 1000
+        )
         stale_fields = {
             "title": "WRONG TITLE",
             "status": "implementing",
@@ -193,21 +259,33 @@ class TestCompactMirrorSuppression:
             "project": "yoke",
         }
         gh_body = render_compact_mirror(stale_fields, conn=None, item_id=912)
-        gh_issues = _make_gh_issues([{
-            "number": 902,
-            "title": "[YOK-912] Oversize body item",
-            "labels": [
-                {"name": "status:implementing"},
-                {"name": "priority:high"},
-                {"name": "workflow:issue"},
-                {"name": "source:manual"},
-            ],
-            "state": "OPEN",
-            "body": gh_body,
-        }])
-        paired = [PairedItem("YOK-912", "/tmp/912.md", 902, "backlog", "yoke", "", item_id=912)]
+        gh_issues = _make_gh_issues(
+            [
+                {
+                    "number": 902,
+                    "title": "[YOK-912] Oversize body item",
+                    "labels": [
+                        {"name": "status:implementing"},
+                        {"name": "priority:high"},
+                        {"name": "workflow:issue"},
+                        {"name": "source:manual"},
+                    ],
+                    "state": "OPEN",
+                    "body": gh_body,
+                }
+            ]
+        )
+        paired = [
+            PairedItem(
+                "YOK-912",
+                "/tmp/912.md",
+                902,
+                "backlog",
+                "yoke",
+                "",
+                public_ref="YOK-912",
+            )
+        ]
         drifts = stage2_compare(paired, gh_issues, {}, test_db)
         body_drifts = [d for d in drifts if d.field == "body"]
-        assert len(body_drifts) == 1, (
-            "stale compact mirror MUST emit real body drift"
-        )
+        assert len(body_drifts) == 1, "stale compact mirror MUST emit real body drift"

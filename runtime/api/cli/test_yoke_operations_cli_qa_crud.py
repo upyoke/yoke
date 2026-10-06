@@ -62,16 +62,16 @@ def _run(stub, *argv: str, stdin: str = "") -> int:
 
 class TestQaRequirementList:
     def test_item_filter_rides_target(self) -> None:
-        rc = _run(_stub_ok, "qa", "requirement", "list", "--item", "1833")
+        rc = _run(_stub_ok, "qa", "requirement", "list", "--item", "YOK-1833")
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "qa.requirement.list"
         assert req.target.kind == "item"
-        assert req.target.public_ref == "1833"
+        assert req.target.public_ref == "YOK-1833"
         assert req.payload == {}
 
     def test_epic_filter_rides_payload(self) -> None:
-        rc = _run(_stub_ok, "qa", "requirement", "list", "--epic", "1704")
+        rc = _run(_stub_ok, "qa", "requirement", "list", "--epic", "YOK-1704")
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.target.kind == "global"
@@ -85,7 +85,7 @@ class TestQaRequirementList:
         assert req.payload == {}
 
     def test_explicit_project_satisfies_global_resolution(self) -> None:
-        args = ("qa", "requirement", "list", "--epic", "1704")
+        args = ("qa", "requirement", "list", "--epic", "YOK-1704")
         rc = _run(_stub_ok, *args, "--project", "yoke")
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -124,7 +124,7 @@ class TestQaRequirementAdd:
             "requirement",
             "add",
             "--item",
-            "1833",
+            "YOK-1833",
             "--qa-kind",
             "ac_verification",
             "--qa-phase",
@@ -144,7 +144,7 @@ class TestQaRequirementAdd:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "qa.requirement.add"
         assert req.target.kind == "item"
-        assert req.target.public_ref == "1833"
+        assert req.target.public_ref == "YOK-1833"
         assert req.payload == {
             "qa_kind": "ac_verification",
             "qa_phase": "verification",
@@ -156,7 +156,7 @@ class TestQaRequirementAdd:
         }
 
     def test_missing_required_flags_return_two(self) -> None:
-        rc = _run(_stub_ok, "qa", "requirement", "add", "--item", "1833")
+        rc = _run(_stub_ok, "qa", "requirement", "add", "--item", "YOK-1833")
         assert rc == 2
         assert _CAPTURED_REQUESTS == []
 
@@ -167,7 +167,7 @@ class TestQaRequirementAdd:
             "requirement",
             "add",
             "--item",
-            "1833",
+            "YOK-1833",
             "--qa-kind",
             "ac_verification",
             "--qa-phase",
@@ -183,7 +183,7 @@ class TestQaRequirementAdd:
             "requirement",
             "add",
             "--item",
-            "1833",
+            "YOK-1833",
             "--method-id",
             "browser-check",
             "--qa-phase",
@@ -210,7 +210,7 @@ class TestQaRequirementAdd:
             "requirement",
             "add",
             "--item",
-            "1833",
+            "YOK-1833",
             "--qa-kind",
             "ac_verification",
             "--qa-phase",
@@ -236,14 +236,14 @@ class TestQaRequirementAddBatch:
             "requirement",
             "add-batch",
             "--item",
-            "1833",
+            "YOK-1833",
             "--stdin",
             stdin=json.dumps(rows),
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "qa.requirement.add_batch"
-        assert req.target.public_ref == "1833"
+        assert req.target.public_ref == "YOK-1833"
         assert req.payload == {"rows": rows}
 
     def test_rows_file_dispatch(self, tmp_path) -> None:
@@ -262,7 +262,7 @@ class TestQaRequirementAddBatch:
             "requirement",
             "add-batch",
             "--item",
-            "1833",
+            "YOK-1833",
             "--rows-file",
             str(rows_file),
         )
@@ -276,7 +276,7 @@ class TestQaRequirementAddBatch:
             "requirement",
             "add-batch",
             "--item",
-            "1833",
+            "YOK-1833",
             "--stdin",
             stdin="not json",
         )
@@ -290,7 +290,7 @@ class TestQaRequirementAddBatch:
             "requirement",
             "add-batch",
             "--item",
-            "1833",
+            "YOK-1833",
             "--stdin",
             stdin=json.dumps(rows),
         )
@@ -304,7 +304,7 @@ class TestQaRequirementAddBatch:
             "requirement",
             "add-batch",
             "--item",
-            "1833",
+            "YOK-1833",
             "--stdin",
             stdin='{"qa_kind": "x"}',
         )
@@ -317,7 +317,7 @@ class TestQaRequirementAddBatch:
             "requirement",
             "add-batch",
             "--item",
-            "1833",
+            "YOK-1833",
         )
         assert rc == 2
 

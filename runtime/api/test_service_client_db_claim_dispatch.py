@@ -33,21 +33,27 @@ class TestDbClaimAmendDispatch:
         calls: list[dict] = []
 
         def _record(item_id, claim, *, reason, session_id=None):
-            calls.append({
-                "item_id": item_id,
-                "claim": claim,
-                "reason": reason,
-                "session_id": session_id,
-            })
+            calls.append(
+                {
+                    "item_id": item_id,
+                    "claim": claim,
+                    "reason": reason,
+                    "session_id": session_id,
+                }
+            )
             if raise_exc is not None:
                 raise raise_exc
-            return result if result is not None else SimpleNamespace(
-                item_id=item_id,
-                previous_profile={},
-                previous_attestation={},
-                new_profile=claim,
-                new_attestation={},
-                reason=reason,
+            return (
+                result
+                if result is not None
+                else SimpleNamespace(
+                    item_id=item_id,
+                    previous_profile={},
+                    previous_attestation={},
+                    new_profile=claim,
+                    new_attestation={},
+                    reason=reason,
+                )
             )
 
         # Patch through the handler module's local binding so the
@@ -55,12 +61,16 @@ class TestDbClaimAmendDispatch:
         # lazily inside ``handle_amend``, so the patch must target the
         # module the lazy import resolves to.
         monkeypatch.setattr(
-            "yoke_core.domain.db_claim.amend", _record,
+            "yoke_core.domain.db_claim.amend",
+            _record,
         )
         # Silence claim verification — no harness_sessions rows in tests.
         from yoke_core.domain import yoke_function_dispatch as dispatch_module
+
         monkeypatch.setattr(
-            dispatch_module, "verify_claim", lambda *a, **kw: None,
+            dispatch_module,
+            "verify_claim",
+            lambda *a, **kw: None,
         )
         from yoke_core.domain import item_ref_resolution
 
@@ -70,9 +80,15 @@ class TestDbClaimAmendDispatch:
             lambda _conn, value, **_kwargs: {
                 TEST_ITEM_REF: TEST_ITEM_ID,
                 "YOK-7": 7,
-                "5": 5,
-                "1": 1,
+                "YOK-5": 5,
+                "YOK-1": 1,
             }[str(value)],
+        )
+        monkeypatch.setattr(
+            "yoke_core.domain.function_response_refs.render_item_refs",
+            lambda _conn, ids: {
+                i: TEST_ITEM_REF if i == TEST_ITEM_ID else f"YOK-{i}" for i in ids
+            },
         )
         return calls
 
@@ -84,10 +100,16 @@ class TestDbClaimAmendDispatch:
         out = StringIO()
         err = StringIO()
         with redirect_stdout(out), redirect_stderr(err):
-            rc = cmd_db_claim_amend([
-                "--item", TEST_ITEM_REF, "--state", "none",
-                "--reason", "no governed DB work",
-            ])
+            rc = cmd_db_claim_amend(
+                [
+                    "--item",
+                    TEST_ITEM_REF,
+                    "--state",
+                    "none",
+                    "--reason",
+                    "no governed DB work",
+                ]
+            )
         assert rc == 0, (out.getvalue(), err.getvalue())
         assert len(calls) == 1
         assert calls[0]["item_id"] == TEST_ITEM_ID
@@ -95,7 +117,7 @@ class TestDbClaimAmendDispatch:
         assert calls[0]["reason"] == "no governed DB work"
         data = json.loads(out.getvalue())
         assert data["success"] is True
-        assert data["item_id"] == TEST_ITEM_ID
+        assert data["public_ref"] == TEST_ITEM_REF
         assert data["reason"] == "no governed DB work"
 
     def test_json_mode_emits_function_call_response_envelope(self, monkeypatch):
@@ -105,16 +127,23 @@ class TestDbClaimAmendDispatch:
 
         out = StringIO()
         with redirect_stdout(out):
-            rc = cmd_db_claim_amend([
-                "--item", "YOK-7", "--state", "none",
-                "--reason", "noop", "--json",
-            ])
+            rc = cmd_db_claim_amend(
+                [
+                    "--item",
+                    "YOK-7",
+                    "--state",
+                    "none",
+                    "--reason",
+                    "noop",
+                    "--json",
+                ]
+            )
         assert rc == 0, out.getvalue()
         envelope = json.loads(out.getvalue())
         assert envelope["success"] is True
         assert envelope["function"] == "db_claim.amend"
         result = envelope["result"]
-        assert result["item_id"] == 7
+        assert result["public_ref"] == "YOK-7"
         assert "previous_profile" in result
         assert "new_profile" in result
 
@@ -126,10 +155,16 @@ class TestDbClaimAmendDispatch:
 
         out = StringIO()
         with redirect_stdout(out):
-            rc = cmd_db_claim_amend([
-                "--item", "5", "--payload", claim_json,
-                "--reason", "declared",
-            ])
+            rc = cmd_db_claim_amend(
+                [
+                    "--item",
+                    "YOK-5",
+                    "--payload",
+                    claim_json,
+                    "--reason",
+                    "declared",
+                ]
+            )
         assert rc == 0, out.getvalue()
         assert calls[0]["claim"] == {"state": "declared", "intent": "apply"}
 
@@ -145,10 +180,16 @@ class TestDbClaimAmendDispatch:
         out = StringIO()
         err = StringIO()
         with redirect_stdout(out), redirect_stderr(err):
-            rc = cmd_db_claim_amend([
-                "--item", "1", "--state", "none",
-                "--reason", "x",
-            ])
+            rc = cmd_db_claim_amend(
+                [
+                    "--item",
+                    "YOK-1",
+                    "--state",
+                    "none",
+                    "--reason",
+                    "x",
+                ]
+            )
         assert rc == 1
         err_body = json.loads(err.getvalue())
         assert err_body["success"] is False

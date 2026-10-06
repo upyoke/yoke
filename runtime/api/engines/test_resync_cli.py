@@ -52,7 +52,9 @@ class TestDoctorFormat:
 
     def test_warn_on_local_orphans(self, test_db):
         """Doctor format shows WARN for local orphans."""
-        orphans = [LocalOrphan("YOK-99", "/tmp/099.md", "backlog", "yoke", item_id=99)]
+        orphans = [
+            LocalOrphan("YOK-99", "/tmp/099.md", "backlog", "yoke", public_ref="YOK-99")
+        ]
         captured = StringIO()
         with mock.patch("sys.stdout", captured):
             _emit_doctor_format(orphans, [], [], "detect")
@@ -259,7 +261,9 @@ class TestMainCLI:
             return (
                 [],  # paired
                 [
-                    LocalOrphan("YOK-99", "/tmp/099.md", "backlog", "yoke", item_id=99)
+                    LocalOrphan(
+                        "YOK-99", "/tmp/099.md", "backlog", "yoke", public_ref="YOK-99"
+                    )
                 ],  # local orphans
                 [],  # gh orphans
                 {},  # gh_by_project

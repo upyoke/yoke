@@ -190,9 +190,8 @@ def _registered_verification_command(
     below.
     """
     item_id_raw = getattr(ctx, "item_id", None)
-    try:
-        item_id = int(str(item_id_raw))
-    except (TypeError, ValueError):
+    item_id = str(item_id_raw) if item_id_raw else None
+    if item_id is None:
         args = getattr(ctx, "args", None)
         if (
             getattr(ctx, "project", None)

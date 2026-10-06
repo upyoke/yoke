@@ -89,18 +89,32 @@ def test_keys_follow_project_sequences_and_preserve_record_links(entry, historic
     )
 
 
-def test_unresolved_key_refuses_without_partial_conversion(entry, historical_db):
+def test_orphan_keys_are_archived_without_losing_rows_or_caveat_links(
+    entry, historical_db
+):
     conn = historical_db
     conn.execute("INSERT INTO shepherd_verdicts VALUES (99, 'orphan')")
-    conn.commit()
-    with pytest.raises(RuntimeError, match="shepherd_key_unresolved.*Recovery"):
-        entry.apply(conn)
-    conn.rollback()
-    assert _column_exists(conn, "shepherd_verdicts", "item")
-    assert (
-        conn.execute("SELECT item FROM shepherd_verdicts WHERE id = 11").fetchone()[0]
-        == f"YOK-{11}"
+    conn.execute(
+        "INSERT INTO caveat_dispositions VALUES (99, 'YOK-999', 'review', 1, 1, 99)"
     )
+    conn.commit()
+    entry.apply(conn)
+    entry.invariants(conn)
+    conn.commit()
+    assert tuple(
+        conn.execute(
+            "SELECT public_ref, archived_item_key FROM shepherd_verdicts WHERE id = 99"
+        ).fetchone()
+    ) == (None, "orphan")
+    assert tuple(
+        conn.execute(
+            "SELECT public_ref, archived_item_key, verdict_id FROM caveat_dispositions WHERE id = 99"
+        ).fetchone()
+    ) == (None, "YOK-999", 99)
+    for table in ("shepherd_verdicts", "caveat_dispositions"):
+        assert conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 4
+    entry.apply(conn)
+    entry.invariants(conn)
 
 
 def test_cutover_declares_serving_floor(entry):

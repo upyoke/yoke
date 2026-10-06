@@ -58,7 +58,7 @@ Verify the claim landed before dispatching — mirrors entry-activation S3b's ve
 
 ```bash
 _eng_claim_ok=$(YOKE_SESSION_ID="${YOKE_SESSION_ID}" yoke db read --format lines \
- "SELECT 1 FROM work_claims WHERE session_id='${YOKE_SESSION_ID}' AND target_kind='epic_task' AND epic_id=${_epic_ref} AND task_num=${_task_id} AND released_at IS NULL")
+ "SELECT 1 FROM work_claims WHERE session_id='${YOKE_SESSION_ID}' AND target_kind='epic_task' AND epic_id=(SELECT item_id FROM item_refs WHERE public_ref='${_epic_ref}') AND task_num=${_task_id} AND released_at IS NULL")
 if [ -z "$_eng_claim_ok" ] || [ "$_eng_claim_ok" = "0" ]; then
  echo "HALT: engineer dispatch — no active epic_task claim for (epic_id=${_epic_ref}, task_num=${_task_id}) under session ${YOKE_SESSION_ID}."
  echo "Recovery: run 'yoke claims work acquire --epic ${_epic_ref} --task-num ${_task_id} --reason \"engineer dispatch\"' and retry."
@@ -166,7 +166,7 @@ yoke claims work acquire \
  --epic "${_epic_ref}" --task-num "${_task_id}" \
  --reason "tester dispatch PREFIX-${N} task ${_task_id}"
 _tester_claim_ok=$(YOKE_SESSION_ID="${YOKE_SESSION_ID}" yoke db read --format lines \
- "SELECT 1 FROM work_claims WHERE session_id='${YOKE_SESSION_ID}' AND target_kind='epic_task' AND epic_id=${_epic_ref} AND task_num=${_task_id} AND released_at IS NULL")
+ "SELECT 1 FROM work_claims WHERE session_id='${YOKE_SESSION_ID}' AND target_kind='epic_task' AND epic_id=(SELECT item_id FROM item_refs WHERE public_ref='${_epic_ref}') AND task_num=${_task_id} AND released_at IS NULL")
 if [ -z "$_tester_claim_ok" ] || [ "$_tester_claim_ok" = "0" ]; then
  echo "HALT: tester dispatch — no active epic_task claim for (epic_id=${_epic_ref}, task_num=${_task_id}) under session ${YOKE_SESSION_ID}."
  echo "Recovery: re-run conduct or 'yoke claims work acquire --epic ${_epic_ref} --task-num ${_task_id}'."

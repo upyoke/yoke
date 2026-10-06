@@ -39,7 +39,7 @@ def freeze_resolved_delivery_flow(
     """
     resp = call_dispatcher(
         function_id="items.deployment_flow.claim_default",
-        target=public_item_target(item_id),
+        target=public_item_target(public_ref),
         payload={"flow_id": flow_id},
     )
     if not resp.success:

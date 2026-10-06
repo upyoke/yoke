@@ -242,7 +242,7 @@ def _check_blocked_flag(
     try:
         resp = call_dispatcher(
             function_id="done_transition.blocked_gate",
-            target=public_item_target(item_id),
+            target=public_item_target(public_ref or item_id),
             payload={},
         )
     except Exception as exc:  # noqa: BLE001 - refuse; never degrade open

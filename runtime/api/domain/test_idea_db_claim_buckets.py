@@ -23,15 +23,17 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 _BODY_AND_SYNC = _REPO_ROOT / ".agents/skills/yoke/idea/body-and-sync.md"
 _INFER_AND_CREATE = _REPO_ROOT / ".agents/skills/yoke/idea/infer-and-create.md"
 _REFERENCE_AND_SCOPE_VERIFICATION = (
-    _REPO_ROOT
-    / ".agents/skills/yoke/idea/reference-and-scope-verification.md"
+    _REPO_ROOT / ".agents/skills/yoke/idea/reference-and-scope-verification.md"
 )
 _OBSOLETED_DEFERRAL_REASON = "deferred declaration" + " to refine"
 
 
 def _read(path: Path) -> str:
     assert path.exists(), f"missing skill file: {path}"
-    return path.read_text(encoding="utf-8")
+    text = path.read_text(encoding="utf-8")
+    if path == _BODY_AND_SYNC:
+        text += (path.parent / "db-claim-classification.md").read_text(encoding="utf-8")
+    return text
 
 
 # ---------------------------------------------------------------------------
@@ -42,15 +44,15 @@ def _read(path: Path) -> str:
 class TestBodyAndSyncThreeBuckets:
     def test_no_db_work_canonical_reason_pinned(self):
         text = _read(_BODY_AND_SYNC)
-        assert (
-            'idea: spec/body declares no governed DB mutation' in text
-        ), "Bucket-1 (no-DB) canonical reason text drifted."
+        assert "idea: spec/body declares no governed DB mutation" in text, (
+            "Bucket-1 (no-DB) canonical reason text drifted."
+        )
 
     def test_meta_work_item_canonical_reason_pinned(self):
         text = _read(_BODY_AND_SYNC)
         assert (
-            'idea: work item discusses DB governance vocabulary but performs '
-            'no governed DB mutation; reviewed-none' in text
+            "idea: work item discusses DB governance vocabulary but performs "
+            "no governed DB mutation; reviewed-none" in text
         ), "Bucket-3 (meta work item) canonical reason text drifted."
         # The literal "; reviewed-none" suffix is the canonical signal.
         assert "; reviewed-none" in text
@@ -118,8 +120,7 @@ class TestInferAndCreatePreventions:
         agents copy it directly rather than improvising."""
         text = _read(_REFERENCE_AND_SCOPE_VERIFICATION)
         assert (
-            "rg -n 'def _run_.*_gate|def check_.*_gate|GATE_[A-Z_]+' "
-            "<source-roots>"
+            "rg -n 'def _run_.*_gate|def check_.*_gate|GATE_[A-Z_]+' <source-roots>"
         ) in text
 
     def test_prevention_2_names_current_lifecycle_owners(self):

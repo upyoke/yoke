@@ -25,7 +25,7 @@ When any of these fire, conduct does NOT enter result branching; it goes straigh
 
 - **Satisfy parent epic item-level verification requirements.** All epic tasks passed testing and simulation is clean. Record passing QA runs for unsatisfied blocking verification requirements:
  ```bash
- _unsatisfied_reqs=$(yoke db read --format lines "SELECT r.id, r.qa_kind, COALESCE(r.method_id, '') FROM qa_requirements r WHERE r.item_id=${N} AND r.qa_phase='verification' AND r.blocking_mode='blocking' AND r.waived_at IS NULL AND NOT EXISTS (SELECT 1 FROM qa_runs qr WHERE qr.qa_requirement_id=r.id AND qr.verdict='pass')")
+ _unsatisfied_reqs=$(yoke db read --format lines "SELECT r.id, r.qa_kind, COALESCE(r.method_id, '') FROM qa_requirements r WHERE r.item_id=(SELECT item_id FROM item_refs WHERE public_ref='${_epic_ref}') AND r.qa_phase='verification' AND r.blocking_mode='blocking' AND r.waived_at IS NULL AND NOT EXISTS (SELECT 1 FROM qa_runs qr WHERE qr.qa_requirement_id=r.id AND qr.verdict='pass')")
  ```
  For each unsatisfied requirement (parse `id|qa_kind|method_id` per line):
  - Skip `simulation` kind — already satisfied by the `persist_simulation` call above.

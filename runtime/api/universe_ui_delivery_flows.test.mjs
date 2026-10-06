@@ -329,7 +329,7 @@ test("a tabbed destination keeps its tab when the route is rebuilt", () => {
   );
   // An untabbed destination still spends its one segment on the drill-in.
   assert.equal(
-    selectionRoute({ view: "items", tab: null, detail: "42" }, state, "2"),
-    "/items/42?project=2&selection=all",
+    selectionRoute({ view: "items", tab: null, detail: "YOK-42" }, state, "2"),
+    "/items/YOK-42?project=2&selection=all",
   );
 });

@@ -50,7 +50,7 @@ test("Blitz detail route renders the full execution-document composition", async
                 slug: "WORKFLOW-TYPES",
                 parent_slug: "MASTER-PLAN",
                 updated_at: "2026-07-26T11:00:00Z",
-                execution_claim: { owner_kind: "item", owner_item_id: 51 },
+                execution_claim: { owner_kind: "item", owner_public_ref: "YOK-51" },
               },
             },
           },
@@ -92,7 +92,7 @@ test("Blitz detail route renders the full execution-document composition", async
         envelope: {
           success: true,
           result: {
-            item_id: 51,
+            public_ref: "YOK-51",
             fields: ["id", "status", "current_stage", "created_at"],
             rows: [
               { id: "run-20260726-002", status: "succeeded",
@@ -107,7 +107,7 @@ test("Blitz detail route renders the full execution-document composition", async
     if (request.function === "item_landings.list") {
       return {
         status: 200,
-        envelope: { success: true, result: { item_id: 51, rows: [], count: 0 } },
+        envelope: { success: true, result: { public_ref: "YOK-51", rows: [], count: 0 } },
       };
     }
     throw new Error(`unexpected function ${request.function}`);

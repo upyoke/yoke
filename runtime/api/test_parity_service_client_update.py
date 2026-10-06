@@ -45,7 +45,7 @@ class TestUpdateParity:
         cli_result = _run_service_client(
             db_path,
             "update-item",
-            "3",
+            "EXT-1",
             "--field",
             "status",
             "--value",
@@ -72,7 +72,7 @@ class TestUpdateParity:
         cli_result = _run_service_client(
             db_path,
             "update-item",
-            "1",
+            "YOK-1",
             "--field",
             "status",
             "--value",
@@ -94,7 +94,7 @@ class TestUpdateParity:
         cli_result = _run_service_client(
             db_path,
             "update-item",
-            "3",
+            "EXT-1",
             "--field",
             "title",
             "--value",
@@ -116,7 +116,7 @@ class TestUpdateParity:
         cli_result = _run_service_client(
             db_path,
             "update-item",
-            "1",
+            "YOK-1",
             "--field",
             "title",
             "--value",
@@ -138,7 +138,7 @@ class TestUpdateParity:
         cli_result = _run_service_client(
             db_path,
             "update-item",
-            "3",
+            "EXT-1",
             "--field",
             "priority",
             "--value",
@@ -157,7 +157,7 @@ class TestUpdateParity:
         cli_result = _run_service_client(
             db_path,
             "update-item",
-            "1",
+            "YOK-1",
             "--field",
             "priority",
             "--value",
@@ -176,7 +176,7 @@ class TestUpdateParity:
         cli_result = _run_service_client(
             db_path,
             "update-item",
-            "9999",
+            "YOK-9999",
             "--field",
             "title",
             "--value",
@@ -197,7 +197,7 @@ class TestUpdateParity:
         cli_result = _run_service_client(
             db_path,
             "update-item",
-            "3",
+            "EXT-1",
             "--field",
             "frozen",
             "--value",

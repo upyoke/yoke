@@ -33,10 +33,10 @@ test("the read is asked to bound each subject, not the page", async () => {
   await loadCarriedItemEvidence(context, [member(1896, "BUZ-1896")]);
 
   const activity = client.requests.find((r) => r.function === "qa.activity.list");
-  // With item_ids the server reads this many rows PER ITEM, so a busy
+  // With public_refs the server reads this many rows PER ITEM, so a busy
   // subject cannot spend a quiet one's share.
   assert.equal(activity.payload.limit, 20);
-  assert.deepEqual(activity.payload.item_ids, [1896]);
+  assert.deepEqual(activity.payload.public_refs, ["BUZ-1896"]);
 });
 
 
@@ -46,7 +46,7 @@ test("an item whose evidence was cut short says so in its own entry", async () =
     rows: [activityRow({ deployment_run_id: RUN_ID })],
     selection: {
       per_group_limit: 20,
-      truncated_groups: [{ item_id: 1896, deployment_run_id: RUN_ID }],
+      truncated_groups: [{ public_ref: "BUZ-1896", deployment_run_id: RUN_ID }],
     },
   });
   const { card } = await cardFor(documentNode, [member(1896, "BUZ-1896")], client);
@@ -70,7 +70,7 @@ test("a pending review survives its own item's history being cut short", async (
     // The requirement this review is about is not among the rows that came
     // back — it fell outside the per-item bound.
     rows: [activityRow({ requirement_id: 26134 })],
-    selection: { per_item_limit: 20, truncated_item_ids: [1896] },
+    selection: { per_item_limit: 20, truncated_public_refs: ["BUZ-1896"] },
     pending: [itemReviewRow({ id: 4500 })],
   });
   const { card } = await cardFor(documentNode, [member(1896, "BUZ-1896")], client);
@@ -107,10 +107,10 @@ test("a release's own member review survives its item's history being cut short"
     rows: [activityRow({ requirement_id: 26134 })],
     selection: {
       per_group_limit: 20,
-      truncated_groups: [{ item_id: 1896, deployment_run_id: RUN_ID }],
+      truncated_groups: [{ public_ref: "BUZ-1896", deployment_run_id: RUN_ID }],
     },
     // The producer's shape for a release's per-member check: run scoped, so
-    // `item_id` is null and the member field is the only association.
+    // `public_ref` is null and the member field is the only association.
     pending: [qaRequestRow({
       id: 4700,
       status: "pending",
@@ -120,8 +120,8 @@ test("a release's own member review survives its item's history being cut short"
         requirement_id: 88888,
         subject: {
           kind: "deployment_run",
-          item_id: null,
-          deployment_member_item_id: 1896,
+          public_ref: null,
+          deployment_member_public_ref: "BUZ-1896",
           item_ref: "BUZ-1896",
           item_title: "Carried item",
           deployment_run_id: RUN_ID,

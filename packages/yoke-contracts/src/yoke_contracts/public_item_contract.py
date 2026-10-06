@@ -64,7 +64,49 @@ def public_item_request_error(request: FunctionCallRequest) -> FunctionError | N
     return inspect(request.payload, "$.payload")
 
 
-def project_public_identities(node: Any, render_id: Callable[[int], Any]) -> Any:
+def item_record_context(key: str) -> bool:
+    """Item containers identify sparse item records without inferring from a ref."""
+    return key in ("item", "items") or key.endswith("_items")
+
+
+def is_public_item_record(node: dict[str, Any], *, context: bool = False) -> bool:
+    """Separate an item row from another record that merely names an item."""
+    if any(
+        key in node
+        for key in (
+            "method_id",
+            "qa_kind",
+            "requirement_id",
+            "qa_requirement_id",
+            "claim_id",
+            "worker",
+            "caveat_num",
+            "artifact_type",
+            "task_num",
+        )
+    ):
+        return False
+    named = any(_public(node.get(key)) for key in ("public_ref", "item_ref", "ref"))
+    return (
+        context
+        or named
+        and any(
+            key in node
+            for key in (
+                "title",
+                "workflow_id",
+                "project_sequence",
+            )
+        )
+    )
+
+
+def project_public_identities(
+    node: Any,
+    render_id: Callable[[int], Any],
+    *,
+    item_context: bool = False,
+) -> Any:
     """Copy a result, rendering join keys and retaining other record ids.
 
     The engine supplies its bulk-resolved renderer. A client reading an older
@@ -80,12 +122,13 @@ def project_public_identities(node: Any, render_id: Callable[[int], Any]) -> Any
         return value
 
     if isinstance(node, list):
-        return [project_public_identities(child, render_id) for child in node]
+        return [
+            project_public_identities(child, render_id, item_context=item_context)
+            for child in node
+        ]
     if not isinstance(node, dict):
         return node
-    item_row = any(
-        _public(node.get(key)) for key in ("public_ref", "item_ref", "ref")
-    ) or ("workflow_id" in node and "project_sequence" in node)
+    item_row = is_public_item_record(node, context=item_context)
     out = {}
     for key, value in node.items():
         wire = wire_key_for_engine(key)
@@ -110,7 +153,9 @@ def project_public_identities(node: Any, render_id: Callable[[int], Any]) -> Any
                 if ref is not None:
                     out[wire] = ref
             continue
-        out[key] = project_public_identities(value, render_id)
+        out[key] = project_public_identities(
+            value, render_id, item_context=item_record_context(key)
+        )
     return out
 
 

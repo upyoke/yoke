@@ -37,12 +37,19 @@ def db():
     """
     with test_database() as conn:
         insert_item(
-            conn, id=TEST_ITEM_ID, workflow_id="epic",
-            status="planning", title="Epic Title",
+            conn,
+            id=TEST_ITEM_ID,
+            workflow_id="epic",
+            status="planning",
+            title="Epic Title",
         )
         insert_epic_task(
-            conn, epic_id=TEST_ITEM_ID, task_num=1, title="Task One",
-            status="planning", body="",
+            conn,
+            epic_id=TEST_ITEM_ID,
+            task_num=1,
+            title="Task One",
+            status="planning",
+            body="",
         )
         yield conn
 
@@ -58,15 +65,28 @@ class TestTaskUpdateBodyDispatchParity:
         body_file = tmp_path / "body.md"
         body_file.write_text("Body from file")
 
-        with patch("yoke_core.domain.epic._validate_epic_exists"), patch.object(
-            task_handler.epic_task_crud, "task_update_body", return_value="ok",
-        ) as handler, patch.object(
-            dispatch_module, "verify_claim", return_value=None,
+        with (
+            patch("yoke_core.domain.epic._validate_epic_exists"),
+            patch.object(
+                task_handler.epic_task_crud,
+                "task_update_body",
+                return_value="ok",
+            ) as handler,
+            patch.object(
+                dispatch_module,
+                "verify_claim",
+                return_value=None,
+            ),
         ):
-            epic.main([
-                "task-update-body", TEST_ITEM_REF, "1",
-                "--body-file", str(body_file),
-            ])
+            epic.main(
+                [
+                    "task-update-body",
+                    TEST_ITEM_REF,
+                    "1",
+                    "--body-file",
+                    str(body_file),
+                ]
+            )
 
         assert handler.called
         args = handler.call_args[0]
@@ -78,13 +98,22 @@ class TestTaskUpdateBodyDispatchParity:
         from yoke_core.domain import yoke_function_dispatch as dispatch_module
         from yoke_core.domain.handlers import workflow_item_epic_task as task_handler
 
-        with patch("yoke_core.domain.epic._validate_epic_exists"), patch(
-            "yoke_core.domain.epic._read_stdin_safe",
-            return_value="Body from stdin",
-        ), patch.object(
-            task_handler.epic_task_crud, "task_update_body", return_value="ok",
-        ) as handler, patch.object(
-            dispatch_module, "verify_claim", return_value=None,
+        with (
+            patch("yoke_core.domain.epic._validate_epic_exists"),
+            patch(
+                "yoke_core.domain.epic._read_stdin_safe",
+                return_value="Body from stdin",
+            ),
+            patch.object(
+                task_handler.epic_task_crud,
+                "task_update_body",
+                return_value="ok",
+            ) as handler,
+            patch.object(
+                dispatch_module,
+                "verify_claim",
+                return_value=None,
+            ),
         ):
             epic.main(["task-update-body", TEST_ITEM_REF, "1"])
 
@@ -100,18 +129,29 @@ class TestTaskUpdateBodyDispatchParity:
         from yoke_core.domain.handlers import workflow_item_epic_task as task_handler
 
         out = StringIO()
-        with patch("yoke_core.domain.epic._validate_epic_exists"), patch(
-            "yoke_core.domain.epic._read_stdin_safe", return_value="X\n",
-        ), patch.object(
-            task_handler.epic_task_crud, "task_update_body", return_value="ok",
-        ), patch.object(
-            dispatch_module, "verify_claim", return_value=None,
-        ), redirect_stdout(out):
+        with (
+            patch("yoke_core.domain.epic._validate_epic_exists"),
+            patch(
+                "yoke_core.domain.epic._read_stdin_safe",
+                return_value="X\n",
+            ),
+            patch.object(
+                task_handler.epic_task_crud,
+                "task_update_body",
+                return_value="ok",
+            ),
+            patch.object(
+                dispatch_module,
+                "verify_claim",
+                return_value=None,
+            ),
+            redirect_stdout(out),
+        ):
             epic.main(["task-update-body", TEST_ITEM_REF, "1", "--json"])
 
         envelope = json.loads(out.getvalue())
         assert envelope["success"] is True
         assert envelope["function"] == "workflow_item.epic_task.body_replace"
         result = envelope["result"]
-        for key in ("epic_id", "task_num", "old_line_count", "new_line_count"):
+        for key in ("epic_public_ref", "task_num", "old_line_count", "new_line_count"):
             assert key in result

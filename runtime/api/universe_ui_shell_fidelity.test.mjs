@@ -143,7 +143,7 @@ test("shared shell search, footer, identity, and route navigation are live", asy
   // The item leads, and it is offered at all only because the row is read
   // the way items.search.run writes it.
   assert.equal(links.length, 2);
-  assert.equal(links[0].href, "/items/2228?project=1");
+  assert.equal(links[0].href, "/items/YOK-2228?project=1");
   // Results sit under their domain's heading, so the domain is named once.
   assert.equal(
     byClass(root, "header-search-section-label")[0].textContent, "Items",
@@ -167,7 +167,7 @@ test("shared shell search, footer, identity, and route navigation are live", asy
     await settleSearch();
     assert.deepEqual(searchRequests.at(-1), { keywords, limit: 6 });
     const matched = byClass(root, "header-search-result");
-    assert.equal(matched[0].href, "/items/2228?project=1");
+    assert.equal(matched[0].href, "/items/YOK-2228?project=1");
   }
 
   // A session past the roster's recency window is read by its own id, so a
@@ -188,7 +188,7 @@ test("shared shell search, footer, identity, and route navigation are live", asy
   await settleSearch();
   assert.deepEqual(searchRequests.at(-1), { keywords: "YOK-21", limit: 6 });
   assert.equal(byClass(root, "header-search-result")[0].href,
-    "/items/2228?project=1");
+    "/items/YOK-2228?project=1");
 
   // A burst of keystrokes settles into one request rather than one each.
   const beforeBurst = searchRequests.length;
@@ -207,10 +207,10 @@ test("shared shell search, footer, identity, and route navigation are live", asy
   input.dispatchEvent(keyEvent("ArrowDown"));
   // Browser anchor properties resolve to absolute URLs, including scope.
   byClass(root, "header-search-result")[0].setAttribute("href",
-    "/items/2228?project=1&selection=1");
+    "/items/YOK-2228?project=1&selection=1");
   input.dispatchEvent(keyEvent("Enter"));
   assert.equal(documentNode.defaultView.location.href,
-    "/items/2228?project=1&selection=1");
+    "/items/YOK-2228?project=1&selection=1");
   const main = byClass(root, "content")[0];
   main.scrollTop = 600;
   documentNode.defaultView.location.href = "/sessions?project=1";

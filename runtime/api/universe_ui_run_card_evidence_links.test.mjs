@@ -180,7 +180,7 @@ test("member evidence stays with the member", async () => {
   const context = readingContext(documentNode, artifacts);
   const row = {
     ...runRow(),
-    carried_work: { items: [{ ref: "YOK-1", item_id: 41, title: "Carried" }] },
+    carried_work: { items: [{ ref: "YOK-1", public_ref: "YOK-1", title: "Carried" }] },
   };
   const card = shippingRunCard(context, row, ["1"], {
     facts: {
@@ -189,7 +189,7 @@ test("member evidence stays with the member", async () => {
       failed: null,
     },
     itemFacts: {
-      byItem: new Map([["41", [{
+      byItem: new Map([["YOK-1", [{
         requirement_id: 21583,
         deployment_run_id: "run-20260910-006",
         outcome: "passed",
@@ -221,22 +221,22 @@ test("each carried item owns its own screenshot", async () => {
   const documentNode = new FakeDocument();
   const reads = [];
   const artifacts = [
-    screenshotArtifact({ id: 77, deployment_member_item_id: 41 }),
-    screenshotArtifact({ id: 78, deployment_member_item_id: 42 }),
+    screenshotArtifact({ id: 77, deployment_member_public_ref: "YOK-1" }),
+    screenshotArtifact({ id: 78, deployment_member_public_ref: "YOK-2" }),
   ];
   const context = readingContext(documentNode, artifacts, reads);
   const row = {
     ...runRow(),
     member_items: [
-      { id: 41, ref: "YOK-1", project_id: 1, title: "First" },
-      { id: 42, ref: "YOK-2", project_id: 1, title: "Second" },
+      { ref: "YOK-1", project_id: 1, title: "First" },
+      { ref: "YOK-2", project_id: 1, title: "Second" },
     ],
   };
   const card = shippingRunCard(context, row, ["1"], {
     itemFacts: {
-      byItem: new Map([["41", [{ requirement_id: 1,
+      byItem: new Map([["YOK-1", [{ requirement_id: 1,
         deployment_run_id: row.id, qa_phase: "post_deploy", outcome: "passed",
-        artifacts: [artifacts[0]] }]], ["42", [{ requirement_id: 2,
+        artifacts: [artifacts[0]] }]], ["YOK-2", [{ requirement_id: 2,
         deployment_run_id: row.id, qa_phase: "post_deploy", outcome: "passed",
         artifacts: [artifacts[1]] }]]]),
       pendingByRequirement: new Map(), pendingByItem: new Map(),

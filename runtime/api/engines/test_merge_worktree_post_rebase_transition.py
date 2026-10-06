@@ -9,7 +9,7 @@ import pytest
 from yoke_core.engines import merge_worktree_tests as mod
 
 
-ITEM_ID = 4242
+ITEM_REF = "YOK-4242"
 
 
 def _resp(success: bool, *, result=None, code: str = "", message: str = ""):
@@ -38,7 +38,7 @@ def _detail_resp(status: str = "implementing"):
 
 @pytest.fixture
 def ctx():
-    return SimpleNamespace(item_id=ITEM_ID, project="example")
+    return SimpleNamespace(item_id=ITEM_REF, project="example")
 
 
 @pytest.mark.parametrize(
@@ -112,7 +112,7 @@ def test_success_returns_registered_command(
         "items.detail.get",
         "merge.tests.post_rebase_requirement",
     ]
-    assert calls[1]["target"].item_id == ITEM_ID
+    assert calls[1]["target"].public_ref == ITEM_REF
     assert calls[1]["payload"] == {"transition_id": "release"}
 
 

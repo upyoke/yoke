@@ -25,15 +25,20 @@ _CAPTURED_REQUESTS: List[FunctionCallRequest] = []
 def _stub_dispatch_ok(request: FunctionCallRequest) -> FunctionCallResponse:
     _CAPTURED_REQUESTS.append(request)
     return FunctionCallResponse(
-        success=True, function=request.function, version=request.version,
-        request_id=request.request_id, result={"echo": True},
+        success=True,
+        function=request.function,
+        version=request.version,
+        request_id=request.request_id,
+        result={"echo": True},
     )
 
 
 def _stub_dispatch_fail(request: FunctionCallRequest) -> FunctionCallResponse:
     _CAPTURED_REQUESTS.append(request)
     return FunctionCallResponse(
-        success=False, function=request.function, version=request.version,
+        success=False,
+        function=request.function,
+        version=request.version,
         request_id=request.request_id,
         error=FunctionError(code="invalid_payload", message="stub failure"),
     )
@@ -50,9 +55,7 @@ def _run_with_dispatch(stub, *argv: str, session_id: str = "test-session") -> in
             "yoke_core.domain.yoke_function_dispatch.dispatch",
             side_effect=stub,
         ):
-            with patch(
-                "yoke_cli.commands._helpers.ensure_handlers_loaded"
-            ):
+            with patch("yoke_cli.commands._helpers.ensure_handlers_loaded"):
                 with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
                     return cli_main(list(argv))
 
@@ -61,24 +64,40 @@ class TestItemsSectionDispatch:
     def test_upsert_dispatches_with_section_target(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "items", "section", "upsert", "42",
-            "--section", "Progress Log", "--content", "entry body",
-            "--ordering", "200", "--source", "advance",
+            "items",
+            "section",
+            "upsert",
+            "YOK-42",
+            "--section",
+            "Progress Log",
+            "--content",
+            "entry body",
+            "--ordering",
+            "200",
+            "--source",
+            "advance",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "items.section.upsert"
         assert req.target.kind == "section"
-        assert req.target.public_ref == "42"
+        assert req.target.public_ref == "YOK-42"
         assert req.target.section_name == "Progress Log"
         assert req.payload == {
-            "content": "entry body", "ordering": 200, "source": "advance",
+            "content": "entry body",
+            "ordering": 200,
+            "source": "advance",
         }
 
     def test_get_dispatches(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "items", "section", "get", "99", "--section", "Progress Log",
+            "items",
+            "section",
+            "get",
+            "YOK-99",
+            "--section",
+            "Progress Log",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -90,7 +109,12 @@ class TestItemsSectionDispatch:
     def test_delete_dispatches(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "items", "section", "delete", "99", "--section", "Stale Notes",
+            "items",
+            "section",
+            "delete",
+            "YOK-99",
+            "--section",
+            "Stale Notes",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -103,59 +127,95 @@ class TestStructuredFieldAdditiveDispatch:
     def test_append_addendum_dispatches(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "items", "structured-field", "append-addendum", "7",
-            "--field", "spec", "--heading", "AC-N: foo",
-            "--content", "addendum body", "--source", "refine",
+            "items",
+            "structured-field",
+            "append-addendum",
+            "7",
+            "--field",
+            "spec",
+            "--heading",
+            "AC-N: foo",
+            "--content",
+            "addendum body",
+            "--source",
+            "refine",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "items.structured_field.append_addendum"
         assert req.target.kind == "item"
-        assert req.target.public_ref == "7"
+        assert req.target.public_ref == "YOK-7"
         assert req.payload == {
-            "field": "spec", "heading": "AC-N: foo",
-            "content": "addendum body", "source": "refine",
+            "field": "spec",
+            "heading": "AC-N: foo",
+            "content": "addendum body",
+            "source": "refine",
         }
 
     def test_section_upsert_dispatches(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "items", "structured-field", "section-upsert", "8",
-            "--section", "Findings", "--content", "fresh body",
+            "items",
+            "structured-field",
+            "section-upsert",
+            "8",
+            "--section",
+            "Findings",
+            "--content",
+            "fresh body",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "items.structured_field.section_upsert"
         assert req.target.kind == "item"
-        assert req.target.public_ref == "8"
+        assert req.target.public_ref == "YOK-8"
         assert req.payload == {"section": "Findings", "content": "fresh body"}
 
     def test_section_upsert_with_ordering_and_source(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "items", "structured-field", "section-upsert", "8",
-            "--section", "Findings", "--content", "fresh body",
-            "--ordering", "150", "--source", "refine",
+            "items",
+            "structured-field",
+            "section-upsert",
+            "8",
+            "--section",
+            "Findings",
+            "--content",
+            "fresh body",
+            "--ordering",
+            "150",
+            "--source",
+            "refine",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.payload == {
-            "section": "Findings", "content": "fresh body",
-            "ordering": 150, "source": "refine",
+            "section": "Findings",
+            "content": "fresh body",
+            "ordering": 150,
+            "source": "refine",
         }
 
     def test_section_append_dispatches(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "items", "structured-field", "section-append", "9",
-            "--section", "Progress Log", "--headline", "kickoff",
-            "--content", "starting work",
+            "items",
+            "structured-field",
+            "section-append",
+            "9",
+            "--section",
+            "Progress Log",
+            "--headline",
+            "kickoff",
+            "--content",
+            "starting work",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "items.structured_field.section_append"
         assert req.payload == {
-            "section": "Progress Log", "headline": "kickoff",
+            "section": "Progress Log",
+            "headline": "kickoff",
             "content": "starting work",
         }
 
@@ -164,22 +224,37 @@ class TestErrorShapes:
     def test_section_upsert_missing_content_returns_two(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "items", "section", "upsert", "42", "--section", "Notes",
+            "items",
+            "section",
+            "upsert",
+            "YOK-42",
+            "--section",
+            "Notes",
         )
         assert rc == 2
         assert _CAPTURED_REQUESTS == []
 
     def test_section_get_missing_section_flag_returns_two(self) -> None:
         rc = _run_with_dispatch(
-            _stub_dispatch_ok, "items", "section", "get", "42",
+            _stub_dispatch_ok,
+            "items",
+            "section",
+            "get",
+            "YOK-42",
         )
         assert rc == 2
 
     def test_append_addendum_requires_heading(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "items", "structured-field", "append-addendum", "7",
-            "--field", "spec", "--content", "body",
+            "items",
+            "structured-field",
+            "append-addendum",
+            "7",
+            "--field",
+            "spec",
+            "--content",
+            "body",
         )
         assert rc == 2
         assert _CAPTURED_REQUESTS == []
@@ -187,6 +262,11 @@ class TestErrorShapes:
     def test_dispatch_failure_propagates_exit_one(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_fail,
-            "items", "section", "get", "42", "--section", "Notes",
+            "items",
+            "section",
+            "get",
+            "YOK-42",
+            "--section",
+            "Notes",
         )
         assert rc == 1

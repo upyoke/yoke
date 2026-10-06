@@ -23,9 +23,8 @@ test("admitted copies resolve to their standing source id", () => {
 });
 
 test("a standing source and its admitted copy are not peers", () => {
-  const source = {
-    id: 28759,
-    item_id: 3449,
+  const source = { id: 28759,
+    public_ref: "YOK-3449",
     deployment_run_id: null,
     qa_kind: "plan_case",
     qa_phase: "post_deploy",
@@ -34,8 +33,8 @@ test("a standing source and its admitted copy are not peers", () => {
   };
   const copy = {
     id: 28801,
-    item_id: null,
-    deployment_member_item_id: 3449,
+    public_ref: null,
+    deployment_member_public_ref: "YOK-3449",
     deployment_run_id: RUN,
     qa_kind: "plan_case",
     qa_phase: "post_deploy",
@@ -103,7 +102,7 @@ test("stage acceptance is run machinery, not the item's own check", () => {
 
 test("pre-merge CI does not count as this release's post-deploy answer", () => {
   const member = classifyMemberQa([{
-    item_id: 3460,
+    public_ref: "YOK-3460",
     deployment_run_id: null,
     qa_kind: "plan_case",
     qa_phase: "verification",
@@ -136,9 +135,8 @@ test("union discharges superseded and expected standing, and names what still bl
   assert.equal(superseded.outstandingPhrase, "");
 
   const standing = summarizeQaUnion([
-    {
-      id: 10,
-      item_id: 100,
+    { id: 10,
+      public_ref: "YOK-100",
       qa_kind: "plan_case",
       qa_phase: "post_deploy",
       plan_case_key: "plan-currency-readable",
@@ -146,7 +144,7 @@ test("union discharges superseded and expected standing, and names what still bl
     },
     {
       id: 11,
-      deployment_member_item_id: 100,
+      deployment_member_public_ref: "YOK-100",
       deployment_run_id: RUN,
       qa_kind: "plan_case",
       qa_phase: "post_deploy",
@@ -176,7 +174,7 @@ test("observed lineage prefers the serving SHA over the intended one", () => {
   assert.equal(observedReleaseLineage(row), sha);
   assert.equal(ranAgainstDeployedRevision(row, sha), true);
   assert.equal(ranAgainstDeployedRevision(row, "other"), false);
-  assert.equal(ranAgainstDeployedRevision({ item_id: 1 }, sha), false);
+  assert.equal(ranAgainstDeployedRevision({ public_ref: "YOK-1" }, sha), false);
   assert.equal(
     observedReleaseLineage({
       execution_target_json: { deployment: { release_lineage: sha } },
