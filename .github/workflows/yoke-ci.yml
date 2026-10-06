@@ -33,9 +33,10 @@ on:
         default: ""
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}${{ github.ref == 'refs/heads/main' && format('-{0}', github.sha) || '' }}
   # Releases need a completed verdict for their exact main commit, even after
-  # the next merge lands. Superseded PR and lane runs can still be cancelled.
+  # the next merge lands; separate groups also preserve pending main runs.
+  # Superseded PR and lane runs can still be cancelled.
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 # Read-only token everywhere; fork PRs must never see an elevated token.
