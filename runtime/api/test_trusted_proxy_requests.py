@@ -35,6 +35,7 @@ def database(monkeypatch):
     with pg_testdb.test_database() as conn:
         create_external_identity_tables(conn)
         create_frontend_event_tables(conn)
+        conn.commit()  # HTTP workers open independent connections.
         yield conn
 
 

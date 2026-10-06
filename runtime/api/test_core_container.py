@@ -88,6 +88,7 @@ def test_server_entrypoint_invokes_uvicorn_with_import_string() -> None:
         # own dictConfig are suppressed to keep one CloudWatch JSON stream.
         access_log=False,
         log_config=None,
+        forwarded_allow_ips="127.0.0.1",
     )
 
 
