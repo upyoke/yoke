@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[3]
 ACTIVE_INSTRUCTIONS = (
     ".agents/skills/yoke/idea/body-and-sync-functions.md",
     ".agents/skills/yoke/idea/body-and-sync.md",
-    ".agents/skills/yoke/advance/implementing/test-and-record.md",
+    ".agents/skills/yoke/implement/implementing/test-and-record.md",
     "runtime/harness/claude/agents/references/engineer/migration-protocol.md",
     "runtime/agents/engineer/migration-protocol.md",
     "packages/yoke-core/src/yoke_core/install_bundle_tree/AGENTS.md",

@@ -255,7 +255,7 @@ class TestMixedMerge:
             "executor": "DARIUS",
             "workspace": "/abs/ws",
             "capabilities": [],
-            "supported_paths": ["advance"],
+            "supported_paths": ["implement"],
             "max_chain_steps": 3,
             "provider": "anthropic",
             "execution_lane": "primary",

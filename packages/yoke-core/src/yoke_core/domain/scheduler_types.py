@@ -16,8 +16,8 @@ class NextStep(str, Enum):
         REFINE: Issue needs refinement (idea/refining-idea).
         SHEPHERD: Pre-ready epic -- needs maturation via shepherd pipeline.
         CONDUCT: Epic implementation work (ready/active/review).
-        ADVANCE: Issue implementation work (refined-idea/implementing/
-            reviewing-implementation). Routes to /yoke advance
+        IMPLEMENT: Issue implementation work (refined-idea/implementing/
+            reviewing-implementation). Routes to /yoke implement
             for main-session issue implementation.
         POLISH: Item needs finishing review
             (reviewed-implementation/polishing-implementation).
@@ -28,7 +28,7 @@ class NextStep(str, Enum):
     REFINE = "refine"
     SHEPHERD = "shepherd"
     CONDUCT = "conduct"
-    ADVANCE = "advance"
+    IMPLEMENT = "implement"
     BLITZ = "blitz"
     DASH = "dash"
     POLISH = "polish"

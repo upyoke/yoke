@@ -51,7 +51,7 @@ def test_declared_skill_contract_tests_exist() -> None:
 
 def test_qa_seeding_change_keeps_no_tests_teaching_contract(tmp_path: Path) -> None:
     root = _tiny_repo(tmp_path)
-    changed = ".agents/skills/yoke/advance/implementing/qa-seeding.md"
+    changed = ".agents/skills/yoke/implement/implementing/qa-seeding.md"
     contract = "runtime/api/test_skill_doc_regressions_onboard_no_tests.py"
     _write(root, changed, "# QA seeding\n")
     for test_path in impacted_tests.AGENT_SKILL_CONTRACT_TESTS:

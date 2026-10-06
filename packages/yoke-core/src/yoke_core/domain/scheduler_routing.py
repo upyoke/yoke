@@ -11,7 +11,7 @@ from .scheduler_types import NextStep, RoutingOverride
 ROUTING_OVERRIDE_PATH_CLAIM_BLOCKED = "path_claim_activation_blocked"
 
 _ADAPTER_TO_STEP: Dict[AdapterCategory, NextStep] = {
-    AdapterCategory.ADVANCE: NextStep.ADVANCE,
+    AdapterCategory.IMPLEMENT: NextStep.IMPLEMENT,
     AdapterCategory.BLITZ: NextStep.BLITZ,
     AdapterCategory.CONDUCT: NextStep.CONDUCT,
     AdapterCategory.DASH: NextStep.DASH,
@@ -46,18 +46,18 @@ def _compute_next_step(
         conn is not None
         and item_id is not None
         and probe_path_claim_activation
-        and step == NextStep.ADVANCE
+        and step == NextStep.IMPLEMENT
     ):
         from .scheduler_path_claim_feasibility import (
             FeasibilityOutcome,
-            probe_advance_feasibility,
+            probe_implement_feasibility,
         )
 
-        verdict = probe_advance_feasibility(conn, item_id=item_id)
+        verdict = probe_implement_feasibility(conn, item_id=item_id)
         if verdict.outcome is FeasibilityOutcome.BLOCKED_CROSS_ITEM_OVERLAP:
             override = RoutingOverride(
                 reason=ROUTING_OVERRIDE_PATH_CLAIM_BLOCKED,
-                original_step=NextStep.ADVANCE.value,
+                original_step=NextStep.IMPLEMENT.value,
                 conflicting_item_ids=list(verdict.conflicting_item_ids),
                 conflicting_claim_ids=list(verdict.conflicting_claim_ids),
                 shared_paths=list(verdict.shared_paths),

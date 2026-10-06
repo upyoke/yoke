@@ -134,7 +134,7 @@ class TestFileBudgetUpstreamPropagationBundle:
             SKILLS / "refine" / "SKILL.md",
             SKILLS / "refine" / "review-rubric.md",
             SKILLS / "refine" / "update-protocol.md",
-            SKILLS / "advance" / "implementing" / "implementation.md",
+            SKILLS / "implement" / "implementing" / "implementation.md",
             SKILLS / "conduct" / "engineer-tester-dispatch.md",
             SKILLS / "conduct" / "dispatch-context-gates.md",
             REPO / "runtime" / "agents" / "architect.md",

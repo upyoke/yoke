@@ -96,7 +96,7 @@ def _add_project(conn, project_id="yoke", checkout_path="/repo/yoke"):
     conn.commit()
 
 
-def _add_session(conn, session_id, mode="advance", current_item_id="9001"):
+def _add_session(conn, session_id, mode="implement", current_item_id="9001"):
     conn.execute(
         "INSERT INTO harness_sessions "
         "(session_id, mode, current_item_id, ended_at) "

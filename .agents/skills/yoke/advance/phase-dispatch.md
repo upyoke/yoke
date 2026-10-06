@@ -2,30 +2,13 @@
 
 ## 4. Phase Dispatch
 
-**Implementation entry (`_target = "implementing"`) is orchestrator-driven.** When `_target` resolves to `implementing` (the `/yoke advance PREFIX-N implementation` path), invoke the canonical orchestrator instead of reading and executing each phase doc inline:
-
-Before invocation, require `_target_skill=advance` and a
-single-session worktree policy — `single_implementation_lane`, or `none`
-for a laneless workflow, where the orchestrator skips worktree creation
-and the item runs in place. Route `conduct` to `/yoke conduct PREFIX-N`
-and halt on every other mismatch; this engine is an skill-specific
-contract, not a generic transition shortcut.
-
-```bash
-yoke advance implementation-entry --item PREFIX-N
-```
-
-That command is how this skill enters the engine; the operator surface stays
-`/yoke advance PREFIX-N implementation`. Run
-`yoke advance implementation-entry --help` for the flag matrix: `--no-worktree` for evidence-only items, `--force` for the operator-asserted override path, `--qa-bypass` to bypass implementation QA when truly needed. The orchestrator composes preflight gates → `worktree_preflight.run_preflight` (bundles claim + activation + worktree creation/reuse) → environment (capability-gated) → finalize (`lifecycle.transition.execute`) inside one Python process and emits one `AdvancePhaseCompleted` event per phase. It is idempotent: rerunning against an item already at `implementing` reuses the worktree, re-acquires the same claim, and skips the status flip rather than re-emitting it. On preflight failure the orchestrator stops before activation/worktree/finalize and prints the gate narrative; on `worktree-create-failed` it releases the claim with reason `worktree-create-failed`; on finalize failure the worktree and claim remain in place so the next invocation can converge. Verify the phase trail with `yoke events query --item PREFIX-N --event-name AdvancePhaseCompleted`.
-
-Before worktree preflight or any claim/lane mutation, the orchestrator corroborates the acting session through the same canonical ambient resolver used by the PreToolUse write guards. Missing identity refuses as `write-guard-identity-unresolved`; an explicit `--session-id` must match the ambient result. Repair the harness env stamp, process-anchor registry, or Cursor conversation map and retry — never provision an unwritable lane with a guessed identity.
-
-After the orchestrator returns success, the same harness session continues into worktree-bound implementation work via the implementing sub-skill handoff documented in [`finalize.md`](finalize.md) (`## Implementation-entry Sub-skill Handoff`).
-
-The phase reference docs ([`preflight.md`](preflight.md), [`activation.md`](activation.md), [`worktree.md`](worktree.md), [`environment.md`](environment.md), [`finalize.md`](finalize.md)) remain in the tree as reference material the orchestrator consumes through its Python code — they document the contract each composed helper honors, not a per-call agent-driven sequencing recipe.
-
-**Non-implementing targets** (manual advance to `reviewing-implementation`, `reviewed-implementation`, `polishing-implementation`, `implemented`, `release`, `done`, or any planning-phase target) need no gate recipe: the transition in [`finalize.md`](finalize.md) evaluates every listed and structural gate itself and refuses with a named reason and recovery.
+Implementation entry never reaches this step: the `implement` stage skill
+enters through the engine and calls this sub-skill only for later status
+writes. Every target that does reach it (`reviewing-implementation`,
+`reviewed-implementation`, `polishing-implementation`, `implemented`,
+`release`, `done`, or any planning-phase target) needs no gate recipe: the
+transition in [`finalize.md`](finalize.md) evaluates every listed and
+structural gate itself and refuses with a named reason and recovery.
 
 **Gates:** Read `.agents/skills/yoke/advance/preflight.md`
 - The inventory of every gate the transition enforces — dependency edges,
@@ -43,8 +26,8 @@ The phase reference docs ([`preflight.md`](preflight.md), [`activation.md`](acti
 - Self-skips when no deployed-stack plan is attached; skip for all other transitions
 
 **Finalize:** Read `.agents/skills/yoke/advance/finalize.md`
-- Applies to: all non-implementing transitions that reach this point
-- Handles: status update, GitHub sync, commit, report, implementation-complete next-step guidance, implementing sub-skill handoff (implementing-target callers reach the sub-skill handoff via the orchestrator's success exit; this doc still documents the handoff contract for both paths)
+- Applies to: every transition that reaches this point
+- Handles: status update, GitHub sync, commit, report, and next-step guidance
 
 ## Query ordering and parallel-safe groups
 
@@ -60,9 +43,3 @@ independent may run in parallel.
 
 **Gates:**
 - The transition evaluates every gate on its own write; there are no gate reads to order. Acceptance criteria use PRD-9 at Refine closure through `readiness.check.run`; they are not an implementation-entry gate.
-
-**Environment — Ephemeral setup:**
-- `yoke ephemeral-env update "$_env_id" url "$_ephemeral_url"` and `yoke ephemeral-env update "$_env_id" deployed_sha "$_deployed_sha"` — independent writes to the same env record (different fields)
-
-**Implementation — Edit batching:**
-- When multiple Edit calls target different files, run them in parallel. Use `replace_all: true` when the old string is unique enough for a safe global replace.

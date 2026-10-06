@@ -40,9 +40,9 @@ OPERATOR_COMMANDS: tuple[OperatorCommand, ...] = (
         "  /yoke refine -- critique and improve item artifacts",
     ),
     OperatorCommand(
-        "/yoke advance",
-        "/yoke advance PREFIX-N implementation",
-        "  /yoke advance PREFIX-N implementation -- issue implementation entry",
+        "/yoke implement",
+        "/yoke implement PREFIX-N",
+        "  /yoke implement PREFIX-N -- issue implementation entry",
     ),
     OperatorCommand(
         "/yoke polish",
@@ -59,7 +59,7 @@ OPERATOR_COMMANDS: tuple[OperatorCommand, ...] = (
 DOWNSTREAM_PATHS: tuple[str, ...] = (
     "shepherd",
     "refine",
-    "advance",
+    "implement",
     "dash",
     "blitz",
     "polish",
@@ -92,9 +92,9 @@ SAFE_OPERATOR_SURFACE: tuple[OperatorCommand, ...] = (
         "  /yoke conduct PREFIX-N -- engineer/tester loop for a single item or epic",
     ),
     OperatorCommand(
-        "/yoke advance",
-        "/yoke advance PREFIX-N implementation",
-        "  /yoke advance PREFIX-N implementation -- issue implementation entry",
+        "/yoke implement",
+        "/yoke implement PREFIX-N",
+        "  /yoke implement PREFIX-N -- issue implementation entry",
     ),
     OperatorCommand(
         "/yoke usher",

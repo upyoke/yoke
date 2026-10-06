@@ -1,9 +1,10 @@
-# Advance — Worktree Preflight + Re-entry
+# Implement — Worktree Preflight + Re-entry
 
-> **Orchestrator role:** For implementation-entry advances, the advance implementation-entry orchestrator (`yoke_core.engines.advance_implementation_entry`) calls `worktree_preflight.run_preflight` directly and emits the outcome as `AdvancePhaseCompleted{phase="worktree"}`. The doc below remains the canonical contract for the worktree-preflight envelope and exit codes — the orchestrator's reference. The CLI invocation below remains valid for operators reconciling worktree state outside the orchestrator.
+> **Orchestrator role:** For implementation entry, the implementation-entry orchestrator (`yoke_core.engines.advance_implementation_entry`) calls `worktree_preflight.run_preflight` directly and emits the outcome as `AdvancePhaseCompleted{phase="worktree"}`. The doc below remains the canonical contract for the worktree-preflight envelope and exit codes — the orchestrator's reference. The CLI invocation below remains valid for operators reconciling worktree state outside the orchestrator.
 
-Called by the advance router when target status is `implementing` and the
-pinned definition binds `advance` to a single implementation lane. Owns
+Composed by the implementation-entry engine when `/yoke implement` enters a
+segment the pinned definition binds to `implement` with a single
+implementation lane. Owns
 collision detection, dirty-main protection, canonical/legacy worktree
 recognition, and worktree creation. The session's write authority over the new
 worktree is its work-claim (acquired by preflight after the implementation-entry
@@ -11,7 +12,7 @@ identity probe), validated per tool call by `lint_session_cwd`.
 
 This phase is **Python-owned** through `yoke_core.domain.worktree_preflight`. The skill prose no longer hand-authors any of the shell snippets that previously routed agents through guard-hostile shapes (`db_router query -separator "|"`, manual `.worktrees/` `ls`, project shell-variable lookup, dirty-tree compound).
 
-**Context variables** (set by router): `{N}`, `_worktree_policy`,
+**Context variables** (set by `entry.md`): `{N}`, `_worktree_policy`,
 `_current_executor`, `--no-worktree` flag, `--force` flag
 
 **Enforcement owner:** `yoke_core.domain.worktree_preflight` (orchestrator + CLI), with step helpers in `yoke_core.domain.worktree_preflight_steps`.
@@ -20,7 +21,7 @@ This phase is **Python-owned** through `yoke_core.domain.worktree_preflight`. Th
 
 ## Invocation
 
-Normal implementation-entry advance invokes `worktree_preflight.run_preflight`
+Normal implementation entry invokes `worktree_preflight.run_preflight`
 in-process through the orchestrator. The standalone worktree-preflight CLI is a
 Yoke source-dev/admin boundary for operators reconciling worktree state outside
 the orchestrator; no registered product CLI wrapper exists, so do not teach it
@@ -104,7 +105,7 @@ worktree` when the recursive walk is the point.
 
 ## Failure handling
 
-`worktree_preflight` returning a non-zero exit code is **always** a sanctioned block. Surface the stderr narrative verbatim and stop the advance — do not advance status, do not retry, and do not paper over the block with `--force` or path-claim widening.
+`worktree_preflight` returning a non-zero exit code is **always** a sanctioned block. Surface the stderr narrative verbatim and stop the skill — do not write the status, do not retry, and do not paper over the block with `--force` or path-claim widening.
 
 For `work-claim-conflict`, the right remediation is to coordinate with the holder or wait. For `path-claim-blocked`, follow the `BLOCKED:` / `DIVERGED:` rows to the upstream coordination work item. For `dirty-tracked` / `dirty-untracked`, ask the named holder to commit / stash / drop the files (recipe in the narrative includes their session id), or do that yourself if you are the holder, then retry. Untracked repo-root scratch is not a block. For `upstream-stale`, follow the narrative's own recovery — commit or stash the named local changes, or rebase a diverged branch, then re-run — rather than forcing the update. For `upstream-unverified`, restore whatever kept the remote from being read (network, credentials, a recorded tracking remote) and re-run; preparing offline against a remote-backed project is not an available shortcut. For `worktree-create-failed`, surface the `git worktree add` error verbatim and stop.
 

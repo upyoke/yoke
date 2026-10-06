@@ -59,7 +59,7 @@ RUNNABLE_SECONDARY = f"YOK-{RUNNABLE_SECONDARY_ID}"
 
 def _scheduler_block(item_id: str) -> dict:
     return {
-        "next_step": "advance",
+        "next_step": "implement",
         "item_type": "issue",
         "status": "refined-idea",
         "title": f"runnable {item_id}",
@@ -115,7 +115,7 @@ class TestSchedulerContextPreserved:
         assert result.action == ActionKind.CHARGE
         assert result.chainable is True
         scheduler = result.context["scheduler"]
-        assert scheduler["next_step"] == "advance"
+        assert scheduler["next_step"] == "implement"
         assert scheduler["status"] == "refined-idea"
         assert scheduler["item_type"] == "issue"
         assert scheduler["title"] == f"runnable {RUNNABLE_PRIMARY}"
@@ -129,7 +129,7 @@ class TestSchedulerContextPreserved:
         policy = ProcessOfferPolicy()
         result = apply_process_offer_gate(action, frontier, "corr", policy)
         assert result.action == ActionKind.CHARGE
-        assert result.context["scheduler"]["next_step"] == "advance"
+        assert result.context["scheduler"]["next_step"] == "implement"
 
     def test_skipped_process_fields_remain_additive_on_charge(self):
         # skipped_process keys are present alongside scheduler.
@@ -190,7 +190,7 @@ class TestSharedHelperShape:
         ctx = build_charge_context(frontier)
         assert ctx["selected_item"] == RUNNABLE_PRIMARY
         assert ctx["runnable_items"] == [RUNNABLE_PRIMARY, RUNNABLE_SECONDARY]
-        assert ctx["scheduler"]["next_step"] == "advance"
+        assert ctx["scheduler"]["next_step"] == "implement"
 
     def test_build_charge_context_omits_scheduler_when_absent(self):
         frontier = FrontierState(

@@ -59,7 +59,7 @@ def test_core_skill_handoffs_carry_codebase_reader_rule() -> None:
     for path in (
         SKILLS / "idea" / "body-and-sync.md",
         SKILLS / "refine" / "review-rubric.md",
-        SKILLS / "advance" / "implementing" / "implementation.md",
+        SKILLS / "implement" / "implementing" / "implementation.md",
         SKILLS / "conduct" / "SKILL.md",
         SKILLS / "conduct" / "dispatch-context-prompts.md",
         SKILLS / "conduct" / "engineer-tester-dispatch.md",

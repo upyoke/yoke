@@ -51,8 +51,7 @@ TASK_WORKFLOW_DEFINITION = definition_fixture(
     ),
     entry_surfaces=("harness_skill", "cli", "web_form", "promotion"),
     skill_bindings=(
-        skill_binding("advance", "idea", "implementing"),
-        skill_binding("dash", "implementing", "done"),
+        skill_binding("dash", "idea", "done"),
     ),
     policies={
         "ownership": "exclusive_session_work_claim",

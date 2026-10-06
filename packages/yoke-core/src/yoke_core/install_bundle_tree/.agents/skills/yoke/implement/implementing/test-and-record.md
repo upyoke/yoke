@@ -158,7 +158,7 @@ Stale String Audit: skipped (not text-sensitive).
 # "{WORKTREE_PATH}". No registered product CLI wrapper exists yet.
 ```
 
-`advance/finalize.md` step 9 re-runs this helper automatically for the review-completion commit path (`reviewing-implementation` / `reviewed-implementation`), so the normal `/yoke advance` flow now blocks stale-string commits structurally.
+The review loop's status writes re-run this helper automatically for the review-completion commit path (`reviewing-implementation` / `reviewed-implementation`; see [`../review.md`](../review.md)), so stale-string commits are blocked structurally.
 
 **If exit code is 1 (matches found):** Do NOT commit. Fix the remaining stale strings first, then re-run the verification. This is a hard block — there is no override flag.
 
@@ -198,7 +198,7 @@ If the item declares `mutation_intent="apply"` with one or more entries in `migr
   probe or the module's tests instead; refine-time dry-run rejects recursive
   rehearsal commands.
 
-**Exception-pathway modules** (modules that call `record_audit_fingerprint` instead of going through the governed runner): the apply is the author's responsibility. Before calling `/yoke advance PREFIX-{N} reviewing-implementation`, run the module's apply CLI against **both** surfaces:
+**Exception-pathway modules** (modules that call `record_audit_fingerprint` instead of going through the governed runner): the apply is the author's responsibility. Before the review loop's first status write ([`../review.md`](../review.md)), run the module's apply CLI against **both** surfaces:
 
 ```bash
 # 1. Validation surface (worktree-local). Use the module's explicit
@@ -220,7 +220,7 @@ An audit row proves one execution; it does not prove every present or future
 install has received the change, and therefore never authorizes deleting the
 only executable record.
 
-## b. Record QA Runs (after implementation, before advance done)
+## b. Record QA Runs (after implementation, before review)
 
 After completing implementation and running tests and verification, record a `qa_runs` entry for each requirement:
 
@@ -268,26 +268,14 @@ use `yoke qa gate-summary --item PREFIX-N --target reviewed-implementation` for 
 standalone issue, or the epic/task form for a task lane. The gate verdict is
 the authority.
 
-After recording QA runs for all AC-verification requirements, the pinned
-advance workflow moves through two distinct review stages:
-
-1. Advance to `reviewing-implementation` when coding + self-verification are complete and the branch is ready for a deliberate review pass.
-2. Stay in the same worktree while performing that review. Fix anything the review finds, re-run relevant verification, and only then run `/yoke advance PREFIX-{N} reviewed-implementation` — this routes through the full phase dispatch (browser QA, project E2E) before the status update.
-
-**CRITICAL:** The ONLY way to advance to `reviewed-implementation` is via `/yoke advance PREFIX-{N} reviewed-implementation`. NEVER use `items update N status reviewed-implementation` directly — even if you already ran browser QA and E2E manually. The advance skill handles claim handoff (`handoff-to-polish`), worktree-scoped commit, and lifecycle event emission that raw `items update` skips entirely.
-
-**Commit invariant:** The advance to `reviewed-implementation` must not leave the worktree dirty. Finalize step 9 handles this: when `WORKTREE_PATH` is set, it stages worktree changes (`git -C "$WORKTREE_PATH" add -A`) before checking the index. Review-loop fixes, including newly created files, are committed as part of the advance. Do not rely on manual staging between review fixes and the advance call.
-
-During an autonomous `/yoke advance PREFIX-{N} implementation` run, do **not** pause for operator confirmation between these states. Continue the review/fix/verify loop in the same session until the item reaches `reviewed-implementation` or you hit a real blocker that prevents further progress.
-
-`reviewed-implementation` is the terminal state for the advance skill itself. Stop the inner advance flow here: do **not** invoke `/yoke polish`, `/yoke usher`, or any other command from inside the advance prose; polish is a fresh command entrypoint that must claim the item itself. Do **not** skip from `reviewing-implementation` directly to `implemented`.
-
-At the pinned binding's boundary, emit the next-step guidance from finalize
-and stop the turn. The next skill takes its own claim at a fresh entrypoint.
+After recording QA runs for all AC-verification requirements, continue with
+the review loop in [`../review.md`](../review.md) in the same session and
+worktree. It owns the two review-stage status writes, the commit invariant,
+and the stop at the binding's handoff stage.
 
 ## d. The done-gate checks these automatically
 
-When `advance done` is called, the done-transition engine calls `check_done_gate()`. `YOKE_QA_GATE_BYPASS` and `--skip-qa` are test-only; production use refuses as `GATE_QA_BYPASS_FORBIDDEN`.
+When the done transition runs, the done-transition engine calls `check_done_gate()`. `YOKE_QA_GATE_BYPASS` and `--skip-qa` are test-only; production use refuses as `GATE_QA_BYPASS_FORBIDDEN`.
 
 ## e. Ad-hoc Tester Dispatch
 

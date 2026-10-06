@@ -176,7 +176,7 @@ class TestStopSemanticsBranches:
                 "handler_outcome": "completed",
                 "item_id": "YOK-1234",
                 "status": "implementing",
-                "required_path": "advance",
+                "required_path": "implement",
                 "pre_status": "refined-idea",
                 "completed_at": _now_iso(),
             },

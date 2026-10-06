@@ -25,31 +25,33 @@ from runtime.api.skill_doc_regressions_test_helpers import (
 # ---------------------------------------------------------------------------
 
 
-class TestAdvanceFinalizeSkill:
-    """Advance finalize must derive implementation entry from the exact pin."""
+class TestImplementEntrySkill:
+    """Implement entry must derive implementation entry from the exact pin."""
 
     @pytest.fixture
-    def finalize_doc(self) -> Path:
-        doc = SKILLS / "advance" / "finalize.md"
+    def entry_doc(self) -> Path:
+        doc = SKILLS / "implement" / "entry.md"
         assert doc.is_file()
         return doc
 
-    def test_implementation_entry_requires_pinned_advance_source(
-        self, finalize_doc: Path
-    ):
-        text = _read(finalize_doc)
+    def _entry_section(self, entry_doc: Path) -> str:
+        text = _read(entry_doc)
         section = re.search(
-            r"## Implementation-entry requires the pinned advance source.*?(?=^## Update Status)",
+            r"## Reach the binding's entry stage first.*?(?=^## Enter at)",
             text,
             re.MULTILINE | re.DOTALL,
         )
         assert section is not None, (
-            "advance/finalize.md missing the implementation-entry source section"
+            "implement/entry.md missing the implementation-entry source section"
         )
-        section_text = section.group(0)
-        # advance_hop was deleted as dead code: the router dispatches a single
-        # The router dispatches one adjacent transition from the pinned
-        # advance binding source; --skip-refine owns bookkeeping fast-forward.
+        return section.group(0)
+
+    def test_implementation_entry_requires_pinned_implement_source(
+        self, entry_doc: Path
+    ):
+        section_text = self._entry_section(entry_doc)
+        # The engine dispatches one adjacent transition from the pinned
+        # implement binding source; --skip-refine owns bookkeeping fast-forward.
         assert "advance_hop" not in section_text
         assert "from_stage_id" in section_text
         assert "single_implementation_lane" in section_text
@@ -58,20 +60,21 @@ class TestAdvanceFinalizeSkill:
         assert "ClaimVerificationDenied" in section_text
 
     def test_implementation_entry_drops_raw_intermediate_examples(
-        self, finalize_doc: Path
+        self, entry_doc: Path
     ):
-        text = _read(finalize_doc)
-        section = re.search(
-            r"## Implementation-entry requires the pinned advance source.*?(?=^## Update Status)",
-            text,
-            re.MULTILINE | re.DOTALL,
-        )
-        assert section is not None, (
-            "advance/finalize.md missing implementation-entry section"
-        )
-        section_text = section.group(0)
+        section_text = self._entry_section(entry_doc)
         assert "items update {N} status refining-idea" not in section_text
         assert "items update {N} status refined-idea" not in section_text
+
+
+class TestAdvanceFinalizeSkill:
+    """Advance finalize routes skip flags through the pinned bindings."""
+
+    @pytest.fixture
+    def finalize_doc(self) -> Path:
+        doc = SKILLS / "advance" / "finalize.md"
+        assert doc.is_file()
+        return doc
 
     def test_skip_routing_resolves_pinned_skill_bindings(self, finalize_doc: Path):
         from yoke_core.domain import advance_skip_core
@@ -207,8 +210,8 @@ class TestAdvanceTeachesFunctionCallAdapters:
         assert "_worktree_policy" in text
 
     def test_implementation_entry_probes_identity_before_claim(self):
-        text = _read_skill_corpus(SKILLS / "advance")
-        assert "defer the first work-claim acquisition to the orchestrator" in text
+        text = _read_skill_corpus(SKILLS / "implement")
+        assert "Defer the first work-claim acquisition to the orchestrator" in text
         assert "write-guard-identity-unresolved" in text
         assert "--session-id` must match the ambient result" in text
         assert "worktree_preflight.run_preflight` acquires the claim" in text

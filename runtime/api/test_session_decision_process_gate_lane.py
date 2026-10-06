@@ -189,7 +189,7 @@ class TestLaneGateBlocksStrategize:
             "corr",
             ProcessOfferPolicy(per_process={"strategize": True}),
             lane_allowed_paths={
-                "DARIUS": ["shepherd", "advance", "conduct", "usher"],
+                "DARIUS": ["shepherd", "implement", "conduct", "usher"],
             },
             execution_lane="DARIUS",
         )
@@ -207,7 +207,7 @@ class TestLaneGateBlocksStrategize:
             _make_offer(execution_lane="DARIUS"),
             FrontierState(sml_coherent=False, runnable_items=[]),
             lane_allowed_paths={
-                "DARIUS": ["shepherd", "advance", "conduct", "usher"],
+                "DARIUS": ["shepherd", "implement", "conduct", "usher"],
             },
             process_offer_policy=ProcessOfferPolicy(per_process={"strategize": True}),
         )
@@ -277,7 +277,7 @@ class TestBackwardCompatNoLanePolicy:
             _drift_frontier(runnable_items=[]),
             "corr",
             ProcessOfferPolicy(per_process={"feed": True}),
-            lane_allowed_paths={"DARIUS": ["shepherd", "advance"]},
+            lane_allowed_paths={"DARIUS": ["shepherd", "implement"]},
             execution_lane="UNKNOWN_LANE",
         )
         assert result.action == ActionKind.WAIT

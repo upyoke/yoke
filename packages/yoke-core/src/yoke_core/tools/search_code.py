@@ -174,7 +174,7 @@ def _emit_no_worktree_remediation(public_ref: str) -> None:
         "Remediation:\n"
         f"  yoke dev run -- python3 -m yoke_core.domain.worktree_preflight "
         f"--item {public_ref}\n"
-        f"  /yoke advance {public_ref} implementation\n"
+        f"  /yoke implement {public_ref}\n"
         "Or rerun with --scope main to search the project repo root."
     )
     print(msg, file=sys.stderr)

@@ -91,10 +91,10 @@ class TestReadyRows:
         row = rows[0]
         # The rank is the engine's own zero-based ranking, in order.
         assert [r["rank"] for r in rows] == list(range(len(rows)))
-        # An implementing issue routes to /yoke advance, and the command
+        # An implementing issue routes to /yoke implement, and the command
         # cell is exactly the copy-paste invocation.
-        assert row["next_step"] == "advance"
-        assert row["run_command"] == "yoke advance YOK-11"
+        assert row["next_step"] == "implement"
+        assert row["run_command"] == "yoke implement YOK-11"
         assert row["workflow_id"] == "issue"
         assert row["workflow_version"] == current_workflow_version(
             test_db, "issue",

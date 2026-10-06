@@ -303,7 +303,7 @@ def test_projection_keeps_launch_failure_without_live_holder() -> None:
 @pytest.mark.parametrize(
     ("workflow_id", "mode", "handoff", "working_stage"),
     (
-        ("issue", "advance", "refined-idea", "implementing"),
+        ("issue", "implement", "refined-idea", "implementing"),
         ("epic", "conduct", "planned", "implementing"),
         ("blitz", "blitz", "refined-idea", "implementing"),
     ),

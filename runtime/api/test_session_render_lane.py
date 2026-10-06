@@ -58,12 +58,12 @@ class TestLaneRouting:
     def test_unknown_lane_waits_with_lane_policy_unknown(self):
         """unknown lane no longer fails open — emits WAIT with lane_policy_unknown."""
         offer = _make_offer(execution_lane="UNKNOWN_LANE")
-        frontier = self._frontier_with_step(next_step="advance")
+        frontier = self._frontier_with_step(next_step="implement")
         result = decide_next_action(
             offer,
             frontier,
             lane_allowed_paths={
-                "DARIUS": ["advance", "conduct", "shepherd", "usher"],
+                "DARIUS": ["implement", "conduct", "shepherd", "usher"],
                 "ALTMAN": ["refine", "polish"],
             },
         )
@@ -89,44 +89,44 @@ class TestLaneRouting:
     def test_any_lane_charges_any_step_without_policy(self):
         """Without lane policy, the current lane does not compare against scheduler lane metadata."""
         offer = _make_offer(execution_lane="ALTMAN")
-        frontier = self._frontier_with_step(next_step="advance")
+        frontier = self._frontier_with_step(next_step="implement")
         result = decide_next_action(offer, frontier)
         assert result.action == ActionKind.CHARGE
 
     def test_charges_when_path_allowed(self):
         """Path-allowed charge succeeds."""
         offer = _make_offer(execution_lane="DARIUS")
-        frontier = self._frontier_with_step(next_step="advance")
+        frontier = self._frontier_with_step(next_step="implement")
         result = decide_next_action(offer, frontier)
         assert result.action == ActionKind.CHARGE
 
     def test_configured_lane_policy_waits_when_path_not_allowed(self):
         """Config-backed lane allowlists hard-block disallowed downstream paths."""
         offer = _make_offer(execution_lane="ALTMAN")
-        frontier = self._frontier_with_step(next_step="advance")
+        frontier = self._frontier_with_step(next_step="implement")
         result = decide_next_action(
             offer,
             frontier,
             lane_allowed_paths={
-                "DARIUS": ["advance", "conduct", "shepherd", "usher"],
+                "DARIUS": ["implement", "conduct", "shepherd", "usher"],
                 "ALTMAN": ["refine", "polish"],
             },
         )
         assert result.action == ActionKind.WAIT
         assert result.context["wait_reason"] == "lane_policy_disallows_path"
-        assert result.context["required_path"] == "advance"
+        assert result.context["required_path"] == "implement"
         assert result.context["allowed_paths"] == ["refine", "polish"]
 
     def test_configured_lane_policy_charges_when_actual_lane_allows_path(self):
         """Configured path allowances decide charge without preferred-lane metadata."""
         offer = _make_offer(execution_lane="ALTMAN")
-        frontier = self._frontier_with_step(next_step="advance")
+        frontier = self._frontier_with_step(next_step="implement")
         result = decide_next_action(
             offer,
             frontier,
             lane_allowed_paths={
-                "DARIUS": ["advance", "conduct", "shepherd", "usher"],
-                "ALTMAN": ["refine", "polish", "advance"],
+                "DARIUS": ["implement", "conduct", "shepherd", "usher"],
+                "ALTMAN": ["refine", "polish", "implement"],
             },
         )
         assert result.action == ActionKind.CHARGE
@@ -134,12 +134,12 @@ class TestLaneRouting:
     def test_unconfigured_lane_waits_with_lane_policy_unknown(self):
         """unconfigured lane no longer fails open — emits WAIT with lane_policy_unknown."""
         offer = _make_offer(execution_lane="ALTMAN-REVIEW")
-        frontier = self._frontier_with_step(next_step="advance")
+        frontier = self._frontier_with_step(next_step="implement")
         result = decide_next_action(
             offer,
             frontier,
             lane_allowed_paths={
-                "DARIUS": ["advance", "conduct", "shepherd", "usher"],
+                "DARIUS": ["implement", "conduct", "shepherd", "usher"],
                 "ALTMAN": ["refine", "polish"],
             },
         )

@@ -114,7 +114,7 @@ class TestPostDecisionTelemetry:
         mock_dispatch.assert_called_once()
         dispatch_kwargs = mock_dispatch.call_args.kwargs
         assert dispatch_kwargs["project"] == "externalwebapp"
-        assert dispatch_kwargs["adapter"] == "advance"
+        assert dispatch_kwargs["adapter"] == "implement"
         assert dispatch_kwargs["dispatch_source"] == "resume-status-mapping"
         assert dispatch_kwargs["actual_lane"] == "DARIUS"
 
@@ -138,10 +138,10 @@ class TestPostDecisionTelemetry:
             context={
                 "selected_item": "YOK-100",
                 "wait_reason": "lane_policy_disallows_path",
-                "required_path": "advance",
+                "required_path": "implement",
                 "allowed_paths": ["refine", "polish"],
                 "scheduler": {
-                    "next_step": "advance",
+                    "next_step": "implement",
                 },
             },
         )
@@ -150,7 +150,7 @@ class TestPostDecisionTelemetry:
         lane_kwargs = mock_lane.call_args.kwargs
         assert lane_kwargs["decision"] == "blocked_policy"
         assert lane_kwargs["actual_lane"] == "ALTMAN"
-        assert lane_kwargs["context"]["required_path"] == "advance"
+        assert lane_kwargs["context"]["required_path"] == "implement"
         assert lane_kwargs["context"]["allowed_paths"] == ["refine", "polish"]
         mock_dispatch.assert_called_once()
 

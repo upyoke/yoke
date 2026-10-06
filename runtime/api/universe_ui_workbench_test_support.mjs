@@ -191,7 +191,7 @@ export function workbenchClient(overrides = {}) {
         ...ready,
         item_id: "YOK-9",
         why_ready: "No blockers; specification and plan are current.",
-        run_command: "yoke advance YOK-9",
+        run_command: "yoke implement YOK-9",
       }],
       blocked_rows: [],
     },

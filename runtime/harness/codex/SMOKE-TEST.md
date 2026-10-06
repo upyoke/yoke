@@ -33,7 +33,7 @@ python3 -m yoke_core.hooks.bootstrap render-full --spec runtime/harness/bootstra
 
 ### Step 2: Capability set
 
-Supported paths: shepherd, refine, advance, dash, blitz, polish, usher — derived
+Supported paths: shepherd, refine, implement, dash, blitz, polish, usher — derived
 server-side from the shared registry plus the manifest's declared
 limitations. Harnesses do not self-report them.
 
@@ -42,7 +42,7 @@ session-offer
 ```
 
 **Verify:**
-- [ ] Session offer reports `supported_paths: shepherd, refine, advance, dash, blitz, polish, usher`
+- [ ] Session offer reports `supported_paths: shepherd, refine, implement, dash, blitz, polish, usher`
 - [ ] Session offer reports `executor: codex` and `provider: openai`
 - [ ] Downstream paths outside the derived set fall back truthfully
 
@@ -53,7 +53,7 @@ commands; there is no launcher indirection to verify.
 
 **Verify:**
 - [ ] `/yoke idea "Test smoke idea"` files an idea
-- [ ] `/yoke advance YOK-{N} implementation` creates or re-enters the worktree
+- [ ] `/yoke implement YOK-{N}` creates or re-enters the worktree
 - [ ] `/yoke refine YOK-N`, `/yoke polish YOK-N`, and
       `/yoke usher YOK-N --dry-run` each route
 
@@ -92,7 +92,7 @@ Run each operator command in a Codex session against an item in the right status
 | Step | Command | Status precondition | Verify |
 |------|---------|---------------------|--------|
 | 8 | `/yoke refine YOK-{N}` | Spec/plan worth tightening | Codex reads structured fields, writes via `python3 -m yoke_core.cli.db_router items update <id> <field> --stdin`; no worktree or code edits |
-| 9 | `/yoke advance YOK-{N} implementation` | Implementation-eligible issue | Codex creates or re-enters the issue worktree; implementation and review stay in the same worktree; `advance` in supported_paths |
+| 9 | `/yoke implement YOK-{N}` | Implementation-eligible issue | Codex creates or re-enters the issue worktree; implementation and review stay in the same worktree; `implement` in supported_paths |
 | 10 | `/yoke polish YOK-{N}` | Existing worktree branch | Codex resolves the recorded worktree, reviews diff against artifacts, commits fixes on the branch, runs verification from the worktree root |
 | 11 | `/yoke usher YOK-{N} --dry-run` | `implemented` item | Dry-run eligible; hard-block deps empty/explained; blocking QA count zero; deployment routing explicit; `usher` in supported_paths |
 

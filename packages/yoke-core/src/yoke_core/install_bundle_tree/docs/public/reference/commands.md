@@ -25,7 +25,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 | `/yoke curate` | Curate the Ouroboros learning log -- cluster, archive, promote patterns |
 | `/yoke wrapup` | Structured session wrap-up with ouroboros reflections |
 | `/yoke refine PREFIX-N` | Critique and improve item artifacts without touching code or worktrees |
-| `/yoke advance PREFIX-N implementation` | Issue implementation entry: create or re-enter the worktree in the same harness session (no relaunch), then run the implementation/review loop under the work-claim acquired in preflight |
+| `/yoke implement PREFIX-N` | Issue implementation stage skill: create or re-enter the worktree in the same harness session (no relaunch), then run the implementation/review loop to the binding's handoff under the work-claim acquired at entry |
 | `/yoke polish PREFIX-N` | Review and finish implementation in the item's existing worktree lane(s) |
 | `/yoke help` | Show command reference (also: `/yoke` with no args) |
 | `/yoke charge` | Direct-mode entrypoint -- pick up next runnable item from frontier, begin implementation |
@@ -167,7 +167,7 @@ The session-offer adapter is an internal surface. Operators use `/yoke steer` to
 
 ### charge
 
-Direct-mode entrypoint for the `charge` action. Computes the runnable frontier through the shared charge-frontier service (backed by `/v1/charge/frontier`), presents a ranked table of items with adapter classifications, confirms the top pick with the operator, and dispatches to the correct downstream skill (`refine`, `shepherd`, `conduct`, `advance`, `dash`, `blitz`, `polish`, or `usher`). See [charge-frontier.md](charge-frontier.md) for algorithm details, status-to-adapter mapping, and ranking criteria.
+Direct-mode entrypoint for the `charge` action. Computes the runnable frontier through the shared charge-frontier service (backed by `/v1/charge/frontier`), presents a ranked table of items with adapter classifications, confirms the top pick with the operator, and dispatches to the correct downstream skill (`refine`, `shepherd`, `conduct`, `implement`, `dash`, `blitz`, `polish`, or `usher`). See [charge-frontier.md](charge-frontier.md) for algorithm details, status-to-adapter mapping, and ranking criteria.
 
 **Arguments:** `--dry-run` (show frontier, no dispatch), `--item PREFIX-N` (target specific item), `--project P` (explicit project scope; no guessed project), `--wip-cap N` (default: 5).
 
@@ -208,11 +208,11 @@ Direct-mode entrypoint for the `strategize` action. Guided interactive loop for 
 
 ## Internal Sub-skills
 
-These are called by operator commands or other sub-skills. They have their own SKILL.md files and can be invoked directly, but are not part of the primary operator interface. `/yoke advance` is dual-classified: `implementation` is the operator-facing issue entrypoint; other targets remain internal lifecycle transitions.
+These are called by operator commands or other sub-skills. They have their own SKILL.md files and can be invoked directly, but are not part of the primary operator interface.
 
 | Command | Called by | Description |
 |---|---|---|
-| `/yoke advance PREFIX-N [status]` | conduct, usher, item-bound dispatch | Internal advance targets other than `implementation` |
+| `/yoke advance PREFIX-N [status]` | implement, conduct, polish, usher | Status writes with the target stage's gates, QA phases, and commit |
 | `usher/merge-generated-tasks.md` | usher | Sequential PR + CI + merge per branch |
 | `/yoke approve PREFIX-N` | usher | Approve a deployment stage awaiting human approval |
 | `/yoke amend {epic-id}` | conduct | Add, split, reassign, or remove tasks after sync |
@@ -220,37 +220,18 @@ These are called by operator commands or other sub-skills. They have their own S
 
 `simulate` is decomposed into `simulate/epic-flow.md`, `simulate/dispatch-prompts.md`, `simulate/autofix-loop.md`, and `simulate/system.md`.
 
+### implement
+
+Stage skill for the segment a workflow binds to `implement` (issue: `refined-idea` up to `reviewed-implementation`). No target argument: the live stage decides whether it enters or re-enters. Flags (entry only): `--no-worktree` (evidence-only), `--force` (override gates), `--qa-bypass`.
+
+1. **Entry** (`entry.md`) -- At the binding's entry stage, runs `yoke advance implementation-entry --item PREFIX-N`: preflight gates, then worktree preflight (claim, path-claim activation, worktree creation or reuse), the capability-gated environment phase, and the status write, in one process. Worktree creation is a filesystem + DB operation, not a session boundary; the session's authority over the lane is its work-claim, validated per tool call by `lint_session_cwd`. The orchestrator references are `worktree.md`, `activation.md`, `environment.md`.
+2. **Re-entry** (`reentry.md`) -- Past the entry stage, recovers the registered lane and resumes implementation or the review loop without regressing status.
+3. **Implementing sub-skill** (`implementing/`) -- QA seeding of the AC-verification requirement (`qa-seeding.md`), explicit Browser case authoring (`browser-seeding.md`), project context preflight from `context_routing` (`project-context.md`), test commands and QA recording (`test-and-record.md`), and implementation guidance (`implementation.md`). Items entering implementation outside conduct still seed QA requirements before work starts.
+4. **Review loop** (`review.md`) -- Writes each review stage through the internal `/yoke advance` sub-skill (gates, Browser case re-runs on the latest review commit, stale-string audit, worktree-scoped commit), reviews and fixes in place, and stops at the binding's handoff, rendering the next bound skill from `next_skill_id`. Capture-only runs (`execution_status='captured', verdict=NULL`) do not satisfy any `verdict='pass'` gate.
+
 ### advance
 
-Advance an item's status forward. No args: auto-advance to next status. With status: jump to that status. Validates lifecycle order. In current delivery-family routing, issue implementation work commonly enters or resumes through `/yoke advance PREFIX-N implementation`, which normalizes to the canonical stored status `implementing`. Decomposed into 5 phase files plus the `implementing/` sub-skill (5 files).
-
-**Flags:** `--env <name>` (update `deployed_to`), `--no-worktree` (skip worktree creation), `--force` (override gates).
-
-**Phase dispatch:**
-1. **Preflight** -- Type-aware dependency gates, lifecycle validation, merge verification gate, and done redirect.
-2. **Worktree** (target = `implementing` only) -- Creates or re-enters the isolated worktree. Worktree creation is a pure filesystem + DB operation (records the worktree branch slug on the item and activates path claims; cross-reference: see your `items` packet stanza). The same harness session continues into implementation — no scope envelope, no claim release, no parent-stop, no manual relaunch. The session's authority over the worktree is its work-claim, validated per tool call by `lint_session_cwd` against the session's active claims (cross-reference: see your `work_claims` packet stanza).
-3. **Implementation kickoff** (target = `implementing`) -- Seeds QA requirements, records test context, and prepares issue implementation work after the item enters `implementing`.
-4. **Review-complete handoff** (target = `reviewed-implementation`) -- Re-runs each materialized Browser case on the latest review commit through `yoke qa case run --requirement-id <id>`, inspects the captured screenshots, and resolves the resulting review request on that same requirement. No second AC-verification run is created. Capture-only runs (`execution_status='captured', verdict=NULL`) do not satisfy any `verdict='pass'` gate.
-5. **Finalize** -- Status update, GitHub sync, commit. For `implementing` target: hands off to `advance/implementing/SKILL.md`. For `reviewed-implementation`: emits next-step guidance to run `/yoke polish PREFIX-N`. For `implemented`: the next step is `/yoke usher PREFIX-N`.
-
-**`advance/implementing` sub-skill:** Post-advance implementation kickoff called after status is set to `implementing`. Handles:
-- **QA seeding** (`implementing/qa-seeding.md`): Seeds the item-specific
-  AC-verification requirement with `requirement_source=ac_derived`. Project
-  Browser, command, and machine verification comes from attached QA plans;
-  genuinely one-off proof uses an explicit method-backed case.
-- **Browser case authoring** (`implementing/browser-seeding.md`): Reuses an
-  attached test plan or authors an explicit `browser-check` /
-  `browser-inspection` method-backed case; it never infers aggregate Browser
-  requirement kinds.
-- **Project context preflight** (`implementing/project-context.md`): Reads the project-wide always-included docs and topic list from the `context_routing` Project Structure family, infers relevant topics from title/spec/AC text, and surfaces concrete implementation/test/doc paths before the text-sensitive audit and file discovery.
-- **Test commands & QA recording** (`implementing/test-and-record.md`): Records test results as QA runs.
-- **Implementation guidance** (`implementing/implementation.md`): Kickoff for implementation work.
-
-**Worktree re-entry:** When current = `implementing` and target = `implementing`, locates the existing worktree (or recreates if missing). The same session continues — the work-claim acquired on first entry is still active and authorizes writes under the worktree via `lint_session_cwd`. The implementation/review loop resumes without re-advancing status.
-
-**Review-lane re-entry:** When current = `reviewing-implementation` and target = `implementation`, `/yoke advance` resumes the same issue implementation worktree/review loop instead of regressing the stored status.
-
-**Non-conduct QA seeding:** Items entering implementation outside the conduct pipeline (standalone `/yoke advance`) still seed QA requirements before implementation begins. The `advance/implementing/qa-seeding.md` phase ensures every item has requirements before work starts.
+Internal status writer. No args: auto-advance to next status. With status: jump to that status. Validates lifecycle order, runs the target stage's preflight gates, Browser QA and project E2E where the target needs them, then finalize (status update, GitHub sync, worktree-scoped commit, claim handoff). Implementation entry is not an advance target. Flags: `--env <name>` (update `deployed_to`), `--force` (override gates), `--skip-polish` / `--skip-refine` (operator-asserted skips).
 
 ### merge
 
@@ -308,7 +289,7 @@ A pre-dispatch quality gate that blocks epic dispatch when unresolved CRITICAL p
 
 Project context is loaded by multiple commands, not just conduct.
 
-1. **Issue implementation entry** uses `advance/implementing/project-context.md` before the text-sensitive audit and file discovery. Reads project-wide always-included docs + topic list from `context_routing`, matches topics against title/spec/AC text, and emits a `Project Context Summary` with concrete implementation/test/doc surfaces.
+1. **Issue implementation entry** uses `implement/implementing/project-context.md` before the text-sensitive audit and file discovery. Reads project-wide always-included docs + topic list from `context_routing`, matches topics against title/spec/AC text, and emits a `Project Context Summary` with concrete implementation/test/doc surfaces.
 2. **Conduct dispatch** appends a project-specific context bundle to Engineer/Tester prompts for non-yoke project items via `dispatch-context.md` step `5f-project`.
 3. Missing files warn and continue; broad exploration is fallback only when project docs already map the area.
 

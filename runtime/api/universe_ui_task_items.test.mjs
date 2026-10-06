@@ -26,7 +26,7 @@ test("Task detail is laneless and omits merge and QA affordances", () => {
   const rendered = itemText(root);
   assert.match(rendered, /Instruction/);
   assert.match(rendered, /no git lane/);
-  assert.match(rendered, /\/yoke advance ACM-22/);
+  assert.match(rendered, /\/yoke dash ACM-22/);
   assert.doesNotMatch(rendered, /Verification|merge SHA|worktree branch/);
   const facts = allNodes(byClass(root, "item-facts")[0])
     .filter((node) => node.tagName === "TH")

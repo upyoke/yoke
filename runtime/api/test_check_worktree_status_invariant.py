@@ -98,7 +98,7 @@ class TestEvaluate:
         # Block message names the status, the allowed set, and the fix.
         assert "refined-idea" in result.message
         assert "implementing" in result.message
-        assert f"/yoke advance {_item_branch(700)}" in result.message
+        assert f"/yoke implement {_item_branch(700)}" in result.message
         assert "--no-verify" in result.message
 
     def test_done_blocks(self, seeded_db):

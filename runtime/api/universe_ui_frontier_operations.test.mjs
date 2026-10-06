@@ -172,7 +172,7 @@ test("a Waiting card ends at its reason chip; Ready keeps its next step", async 
   const ready = byClass(root, "work-band-ready")[0];
   assert.deepEqual(
     byClass(ready, "work-item-card-meta").map((node) => node.textContent),
-    ["yoke advance YOK-9"],
+    ["yoke implement YOK-9"],
   );
   mounted.unmount();
 });

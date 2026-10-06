@@ -115,7 +115,7 @@ class TestScopeRouting:
         assert rc == search_code.EXIT_NO_WORKTREE
         assert "no worktree directory exists" in captured.err
         assert "worktree_preflight" in captured.err
-        assert "/yoke advance" in captured.err
+        assert "/yoke implement" in captured.err
 
 
 class TestDefaultExcludes:

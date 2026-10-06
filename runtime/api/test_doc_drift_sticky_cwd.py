@@ -68,7 +68,7 @@ def test_implementation_md_teaches_step_0_cd_directive(
         / ".agents"
         / "skills"
         / "yoke"
-        / "advance"
+        / "implement"
         / "implementing"
         / "implementation.md"
     )
@@ -85,7 +85,7 @@ def test_implementation_md_teaches_step_0_cd_directive(
 def test_worktree_md_drops_contradictory_cd_prose(repo_root: Path) -> None:
     """The pre-fix ``Do NOT rely on `cd <worktree>``` line is gone."""
     wt = (
-        repo_root / ".agents" / "skills" / "yoke" / "advance" / "worktree.md"
+        repo_root / ".agents" / "skills" / "yoke" / "implement" / "worktree.md"
     )
     text = wt.read_text(encoding="utf-8")
     # The exact phrase that contradicted AGENTS.md for sticky-cwd
@@ -109,7 +109,7 @@ def test_worktree_md_teaches_cd_canonical_first_action(
 ) -> None:
     """worktree.md now points at the Step 0 cd directive as canonical."""
     wt = (
-        repo_root / ".agents" / "skills" / "yoke" / "advance" / "worktree.md"
+        repo_root / ".agents" / "skills" / "yoke" / "implement" / "worktree.md"
     )
     text = wt.read_text(encoding="utf-8")
     # The replacement prose names the Step 0 directive so the contract

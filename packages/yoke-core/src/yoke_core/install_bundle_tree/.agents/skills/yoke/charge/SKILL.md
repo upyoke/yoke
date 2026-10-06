@@ -9,7 +9,7 @@ argument-hint: "[--dry-run] [--item PREFIX-N] [--project P] [--wip-cap N]"
 Direct-mode entrypoint for the charge flow. Computes the claim-aware schedule
 via `yoke charge schedule`, presents a formatted table of ranked items with
 their adapter classifications, confirms the top pick with the operator, and
-dispatches to the correct downstream skill (refine, shepherd, conduct, advance,
+dispatches to the correct downstream skill (refine, shepherd, conduct, implement,
 dash, blitz, polish, or usher). The `next_step` field is the dispatch truth: the pinned
 workflow's registered skill binding produced it. The `adapter` column
 remains in the table display for ranking diagnostics.

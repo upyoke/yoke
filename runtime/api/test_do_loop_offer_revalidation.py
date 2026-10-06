@@ -193,7 +193,7 @@ class TestRecordOfferSkip:
                 project="yoke",
                 expected_status="implementing",
                 current_status="implementing",
-                expected_next_step="advance",
+                expected_next_step="implement",
                 holder_context={
                     "holder_session_id": "rival-sess",
                     "claim_id": 901,
@@ -228,7 +228,7 @@ class TestRecordOfferSkip:
                 project="yoke",
                 expected_status="implementing",
                 current_status="implementing",
-                expected_next_step="advance",
+                expected_next_step="implement",
                 holder_context={"holder_unknown": True},
             )
         events = [c for c in captured if c["name"] == "SchedulerOfferSkipped"]

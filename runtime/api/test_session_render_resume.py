@@ -39,7 +39,7 @@ class TestResumeCompatibilityValidation:
 
     def test_resume_unsupported_path_escalates(self):
         """Claimed work requiring 'polish' with offer supporting only 'advance'."""
-        offer = _make_offer(supported_paths=["advance", "conduct"])
+        offer = _make_offer(supported_paths=["implement", "conduct"])
         frontier = FrontierState(runnable_items=[TEST_ITEM_REF])
         claims = [
             ClaimedWork(
@@ -72,7 +72,7 @@ class TestResumeCompatibilityValidation:
             frontier,
             claims,
             lane_allowed_paths={
-                "DARIUS": ["advance", "conduct", "shepherd", "usher"],
+                "DARIUS": ["implement", "conduct", "shepherd", "usher"],
                 "ALTMAN": ["refine", "polish"],
             },
         )
@@ -98,7 +98,7 @@ class TestResumeCompatibilityValidation:
             frontier,
             claims,
             lane_allowed_paths={
-                "DARIUS": ["advance", "conduct", "shepherd", "usher"],
+                "DARIUS": ["implement", "conduct", "shepherd", "usher"],
             },
         )
         # DARIUS cannot run polish — should not get chainable resume
@@ -113,7 +113,7 @@ class TestResumeCompatibilityValidation:
                 item_id=TEST_ITEM_REF,
                 status="implementing",
                 workflow_id="issue",
-                required_path="advance",
+                required_path="implement",
             )
         ]
         result = decide_next_action(
@@ -121,16 +121,16 @@ class TestResumeCompatibilityValidation:
             frontier,
             claims,
             lane_allowed_paths={
-                "DARIUS": ["advance", "conduct", "shepherd", "usher"],
+                "DARIUS": ["implement", "conduct", "shepherd", "usher"],
             },
         )
         assert result.action == ActionKind.RESUME
         assert result.chainable is True
-        assert result.context["required_path"] == "advance"
+        assert result.context["required_path"] == "implement"
 
     def test_resume_no_required_path_passes(self):
         """Backward compat: no required_path on claim still resumes."""
-        offer = _make_offer(supported_paths=["advance"])
+        offer = _make_offer(supported_paths=["implement"])
         frontier = FrontierState(runnable_items=[TEST_ITEM_REF])
         claims = [ClaimedWork(item_id=TEST_ITEM_REF, status="implementing")]
         result = decide_next_action(offer, frontier, claims)
@@ -175,7 +175,7 @@ class TestResumeNoProgressDetection:
                 "action": "resume",
                 "item_id": TEST_ITEM_REF,
                 "status": "implementing",
-                "required_path": "advance",
+                "required_path": "implement",
                 "handler_outcome": "completed",
             },
         )
@@ -184,7 +184,7 @@ class TestResumeNoProgressDetection:
                 item_id=TEST_ITEM_REF,
                 status="reviewing-implementation",
                 workflow_id="issue",
-                required_path="advance",
+                required_path="implement",
             )
         ]
         result = decide_next_action(offer, frontier, claims)
@@ -201,7 +201,7 @@ class TestResumeNoProgressDetection:
                 "action": "resume",
                 "item_id": TEST_ITEM_REF,
                 "status": "implementing",
-                "required_path": "advance",
+                "required_path": "implement",
             },
         )
         claims = [
@@ -232,7 +232,7 @@ class TestResumeNoProgressDetection:
                 item_id=TEST_ITEM_REF,
                 status="implementing",
                 workflow_id="issue",
-                required_path="advance",
+                required_path="implement",
             )
         ]
         result = decide_next_action(offer, frontier, claims)
@@ -254,7 +254,7 @@ class TestResumeNoProgressDetection:
                 item_id=TEST_ITEM_REF,
                 status="implementing",
                 workflow_id="issue",
-                required_path="advance",
+                required_path="implement",
             )
         ]
         result = decide_next_action(offer, frontier, claims)
@@ -286,7 +286,7 @@ class TestStaticCwdSubstrateNoChainBurnRegression:
                 "action": "resume",
                 "item_id": TEST_ITEM_REF,
                 "status": "implementing",
-                "required_path": "advance",
+                "required_path": "implement",
                 "handler_outcome": "completed",
             },
         )
@@ -295,14 +295,14 @@ class TestStaticCwdSubstrateNoChainBurnRegression:
                 item_id=TEST_ITEM_REF,
                 status="implementing",
                 workflow_id="issue",
-                required_path="advance",
+                required_path="implement",
             )
         ]
         result = decide_next_action(offer, frontier, claims)
         assert result.action == ActionKind.ESCALATE
         assert result.chainable is False
         assert result.context["escalate_reason"] == "resume_no_progress"
-        assert result.context["required_path"] == "advance"
+        assert result.context["required_path"] == "implement"
 
     def test_status_progress_to_review_allows_chain(self):
         # When the static-cwd substrate let step 1 land real work, the item
@@ -315,7 +315,7 @@ class TestStaticCwdSubstrateNoChainBurnRegression:
                 "action": "resume",
                 "item_id": TEST_ITEM_REF,
                 "status": "implementing",
-                "required_path": "advance",
+                "required_path": "implement",
                 "handler_outcome": "completed",
             },
         )
@@ -324,7 +324,7 @@ class TestStaticCwdSubstrateNoChainBurnRegression:
                 item_id=TEST_ITEM_REF,
                 status="reviewing-implementation",
                 workflow_id="issue",
-                required_path="advance",
+                required_path="implement",
             )
         ]
         result = decide_next_action(offer, frontier, claims)

@@ -135,7 +135,7 @@ class TestRenderCompactMirror:
             in out
         )
         # Lifecycle commands include the implementing-phase entry.
-        assert f"/yoke advance {MIRROR_ITEM_REF} reviewing-implementation" in out
+        assert f"/yoke implement {MIRROR_ITEM_REF}" in out
         # Evidence summary present.
         assert "latest transition: refined-idea -> implementing" in out
 

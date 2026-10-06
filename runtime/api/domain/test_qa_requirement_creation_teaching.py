@@ -48,12 +48,12 @@ def test_runner_packet_creation_recipes_are_transition_bound(
     ("relative_path", "required_text"),
     (
         (
-            ".agents/skills/yoke/advance/implementing/qa-seeding.md",
+            ".agents/skills/yoke/implement/implementing/qa-seeding.md",
             "--qa-phase verification \\\n"
             "  --workflow-transition reviewed-implementation",
         ),
         (
-            ".agents/skills/yoke/advance/implementing/browser-seeding.md",
+            ".agents/skills/yoke/implement/implementing/browser-seeding.md",
             "--qa-phase verification \\\n"
             "  --workflow-transition reviewed-implementation",
         ),

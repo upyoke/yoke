@@ -63,7 +63,7 @@ These are the top-level `/yoke` commands that constitute the safe operator inter
 | `/yoke idea {title}` | Capture a new backlog item | Safe: creates only, no destructive side effects |
 | `/yoke shepherd YOK-N` | Drive item through quality-gated lifecycle to planned | Safe: orchestrates worker agents through defined transitions |
 | `/yoke conduct YOK-N` | Engineer/Tester loop for a single item or epic | Safe: scoped to the item's implementation worktree lane set |
-| `/yoke advance YOK-N implementation` | Issue implementation entry — opens worktree and starts the implementation/review loop | Safe: scoped to a single item, creates worktree on entry |
+| `/yoke implement YOK-N` | Issue implementation stage skill — opens or re-enters the worktree and runs the implementation/review loop | Safe: scoped to a single item, creates worktree on entry |
 | `/yoke usher [YOK-N]` | Merge and deploy implemented items | Safe: operates on implemented items only, requires operator confirmation |
 | `/yoke doctor [project]` | Health checks and diagnostics | Safe: read-only by default, `--fix` requires explicit opt-in |
 | `/yoke resync` | Detect and repair GitHub drift | Safe: `--fix` requires explicit opt-in |
@@ -91,7 +91,7 @@ These are the commands listed in section 2 above. They are the sanctioned extern
 - `/yoke idea` -- create a new backlog item
 - `/yoke shepherd YOK-N` -- drive item through lifecycle
 - `/yoke conduct YOK-N` -- Engineer/Tester execution loop
-- `/yoke advance YOK-N implementation` -- issue implementation entry (opens worktree)
+- `/yoke implement YOK-N` -- issue implementation (opens worktree, implements, reviews)
 - `/yoke usher [YOK-N]` -- merge and deploy
 - `/yoke doctor [project]` -- health checks
 - `/yoke resync` -- repair GitHub drift
@@ -110,11 +110,11 @@ These are the commands listed in section 2 above. They are the sanctioned extern
 
 These are called by operator commands or other sub-skills. They have SKILL.md files and can technically be invoked directly, but they are not part of the primary operator interface. A harness should not invoke these directly unless it is implementing a specific downstream path that Yoke core has routed to it.
 
-`/yoke advance` is dual-classified: the `implementation` form (`/yoke advance YOK-N implementation`) is the operator-facing issue implementation entry above. Other advance targets (e.g. `reviewing-implementation`, `reviewed-implementation`) and the bare `/yoke advance YOK-N [status]` form are still internal sub-skill calls invoked by `conduct`, `usher`, `do`, and routed dispatch.
+`/yoke advance YOK-N [status]` is internal only: the stage skills (`implement`, `conduct`, `polish`, `usher`) call it for their status writes. Issue implementation entry is the `/yoke implement YOK-N` stage skill above.
 
 | Sub-skill | Called by | Purpose |
 |-----------|----------|---------|
-| `/yoke advance YOK-N [status]` | conduct, usher, item-bound dispatch | Internal advance targets other than `implementation` |
+| `/yoke advance YOK-N [status]` | implement, conduct, polish, usher | Status writes with the target stage's gates, QA phases, and commit |
 | `usher/merge-generated-tasks.md` | usher | Sequential PR + CI + merge per branch |
 | `/yoke approve YOK-N` | usher | Approve a deployment stage |
 | `/yoke amend {epic-id}` | conduct | Add, split, reassign, or remove tasks |

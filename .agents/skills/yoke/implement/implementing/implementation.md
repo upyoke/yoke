@@ -80,13 +80,13 @@ If, during implementation, you discover that the work touches a governed DB — 
    ```
 
 3. The handler demultiplexes the claim payload into the `db_mutation_profile` and `db_compatibility_attestation` columns atomically; for `pre_merge_safe` claims the four authored attestation fields (`pre_merge_readers_writers`, `invariants`, `rehearsal_commands`, `residual_risk_notes`) are required inline. See [.yoke/docs/reference/db-reference.md](../../../../../.yoke/docs/reference/db-reference.md) for the full shape.
-4. After the amendment lands, resume implementation. The advance to `reviewing-implementation` runs the prose-vs-claim gate (`GATE_DB_CLAIM_PROSE_MISMATCH`) and the evidence gate, both of which would block the transition with a stale negative claim.
+4. After the amendment lands, resume implementation. The status write to `reviewing-implementation` runs the prose-vs-claim gate (`GATE_DB_CLAIM_PROSE_MISMATCH`) and the evidence gate, both of which would block the transition with a stale negative claim.
 
 Amending the PREFIX-{N} claim mid-implementation is supported and atomic — no lifecycle rollback to `idea` is required. The stored profile and attestation are the record every gate reads; a best-effort `DbClaimAmended` event carries the previous claim, the new claim, your reason, and the validation result for as long as telemetry retains it.
 
 ## g. Progress Checklist for Multi-Phase Missions
 
-For non-trivial standalone items — those involving multiple phases such as implementation, test repair, QA recording, browser verification, and advance-to-implemented — consider creating a lightweight progress checklist to anchor your session.
+For non-trivial standalone items — those involving multiple phases such as implementation, test repair, QA recording, browser verification, and the review handoff — consider creating a lightweight progress checklist to anchor your session.
 
 **When to create:** Items that will span more than a few tool calls, involve multiple verification rounds, or include late-stage steps that are easy to forget after context compression.
 
@@ -127,18 +127,18 @@ QA seeding is complete. Your next action MUST be a tool call. Here is what to do
    derive execution scope from the spec. In every posture the hard limit is
    350 lines per authored file (owned by
    `yoke_core.domain.file_line_check`) and the design target is `<=300`.
-   Late-stage enforcement (pre-commit, advance/polish gate, Tester
+   Late-stage enforcement (pre-commit, review/polish gates, Tester
    verification, doctor) is universal, not conditional on File Budget policy.
 3. **Note the Project Test Commands** surfaced in Phase 3 (test-and-record.md section a2). Use these — not ad-hoc discovery — when running tests.
-4. **If the change touches user-visible copy, theme strings, labels, or UI text** — the stale-string audit preflight (Phase 3 section a3) MUST have already run. If it has not, trigger the source-dev/admin stale-string preflight helper for `PREFIX-{N}` and `{WORKTREE_PATH}` NOW before writing code. No registered product CLI wrapper exists yet; normal advance preflight/finalize owns this check. Finalize step 9 re-runs the blocking `verify` helper automatically before advance commits to `reviewing-implementation` / `reviewed-implementation`.
+4. **If the change touches user-visible copy, theme strings, labels, or UI text** — the stale-string audit preflight (Phase 3 section a3) MUST have already run. If it has not, trigger the source-dev/admin stale-string preflight helper for `PREFIX-{N}` and `{WORKTREE_PATH}` NOW before writing code. No registered product CLI wrapper exists yet; the review loop's status writes own this check: the advance sub-skill's finalize re-runs the blocking `verify` helper automatically before it commits to `reviewing-implementation` / `reviewed-implementation`.
 5. **Apply the simplify three-axis vocabulary at code-author time.** Use `AGENTS.md`'s `## Simplify — three-axis doctrine`: reuse existing surfaces first, keep the diff to the smallest AC-satisfying shape, justify new infrastructure against what already exists, and apply the future-concept lens when the change touches actors, sessions, heartbeats, ownership, leases, claims, approvals, overrides, evidence, run records, journals, packets, locks, or shared-state coordination.
 6. **Apply codebase-reader naming before every first write.** Treat the work item/plan/AC text as source context, not implementation vocabulary. New or renamed files, modules, helpers, tests, docs, commands, events, config keys, symbols, headings, and comments must describe current function/purpose/mechanics to a repository reader who cannot see the planning artifact.
 7. **Begin implementing** the changes described in the spec, working entirely within the worktree at `{WORKTREE_PATH}`.
 8. **Item context:** PREFIX-{N} — {title}.
 9. **Long-running session continuity.** If your work spans multiple turns or might be picked up by a successor agent after compaction, write checkpoint notes to the **Progress Log** section on the item — see `AGENTS.md > Progress Log — long-running execution context on items` for the canonical incantation. Do NOT write session-continuity notes to `shepherd_log` (planning-skill provenance) or to the spec/technical_plan fields (intent, not state).
 
-This is not optional — continuous flow from advance to implementation prevents wasted turns. Emit no end-of-turn summary. Your very next action must be a Read or Bash tool call.
+This is not optional — continuous flow from implementation entry to implementation prevents wasted turns. Emit no end-of-turn summary. Your very next action must be a Read or Bash tool call.
 
 ## End-of-Implementation Chain Directive
 
-`/yoke advance implementation` is a contract to reach `reviewed-implementation`, not to stop at "code passes tests." Record each ac_verification pass as you verify that AC (the gate will hard-block at advance time otherwise), then chain `/yoke advance PREFIX-{N} reviewing-implementation` → review loop → `/yoke advance PREFIX-{N} reviewed-implementation` back-to-back in the same turn. Go through `/yoke advance` for both transitions — raw `items update ... status` writes skip the finalize re-anchor and the claim lifecycle. Stop only for a real blocker, and when you do, name it.
+`/yoke implement` is a contract to reach the binding's handoff stage (`reviewed-implementation` for an issue), not to stop at "code passes tests." Record each ac_verification pass as you verify that AC (the gate will hard-block at the status write otherwise), then run the review loop in [`../review.md`](../review.md) back-to-back in the same turn. Its status writes go through the internal advance sub-skill — raw `items update ... status` writes skip the finalize re-anchor and the claim lifecycle. Stop only for a real blocker, and when you do, name it.

@@ -38,7 +38,7 @@ COMMANDS
  /yoke curate Curate the Ouroboros learning log
  /yoke wrapup Structured session wrap-up
  /yoke refine PREFIX-N Critique and improve item artifacts (no worktree)
- /yoke advance PREFIX-N implementation Issue implementation entry: create or re-enter the worktree
+ /yoke implement PREFIX-N Issue implementation: create or re-enter the worktree, implement, and review
  /yoke polish PREFIX-N Review and finish implementation in existing worktree
  /yoke simulate PREFIX-N | --system Trace integration paths or audit system consistency (harness slash skill; no terminal `yoke simulate` adapter)
 
@@ -93,11 +93,11 @@ DEPENDENCY INSPECTION
  Authoritative dependency data lives in the item_dependencies table.
  yoke items dependency list PREFIX-N
  Show the full dependency graph for an item (both directions).
- Dependencies are enforced by advance (before implementing) and usher (before merge).
+ Dependencies are enforced by implement (before implementing) and usher (before merge).
  usher --dry-run shows the dependency edges driving merge order.
 
 INTERNAL (called by orchestration commands, not operator-facing)
- advance targets other than implementation, approve, amend
+ advance, approve, amend
 
 For full documentation, see README.md
 ```

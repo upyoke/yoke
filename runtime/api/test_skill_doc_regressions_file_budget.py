@@ -117,7 +117,7 @@ class TestFileBudgetAdvanceImplementation:
     @pytest.fixture
     def docs(self) -> dict[str, Path]:
         return {
-            "implementation": SKILLS / "advance" / "implementing" / "implementation.md",
+            "implementation": SKILLS / "implement" / "implementing" / "implementation.md",
         }
 
     def test_re_anchor_reads_file_budget_section(self, docs):

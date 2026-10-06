@@ -13,7 +13,7 @@ then read the one file the subcommand owns.
 
 1. **Extract the subcommand** from the arguments — it is the first word (e.g., `shepherd`, `conduct`). A colon-separated form like `/yoke:conduct` or `yoke:shepherd` names the subcommand after the colon.
 2. **Plan-mode guard.** If plan mode is active, classify the subcommand before dispatch:
-   - Execute-class commands (`advance`, `conduct`, `usher`, `polish`, `dash`, `blitz`, `idea` write paths, and `refine` write paths after Gate 0) automatically call `ExitPlanMode` when the tool exists, with this note: `Plan mode auto-exited — Yoke work item is the plan.`
+   - Execute-class commands (`implement`, `advance`, `conduct`, `usher`, `polish`, `dash`, `blitz`, `idea` write paths, and `refine` write paths after Gate 0) automatically call `ExitPlanMode` when the tool exists, with this note: `Plan mode auto-exited — Yoke work item is the plan.`
    - Planning-class commands (`shepherd plan` and `refine` Gate 0 critique/planning) honor plan mode and continue without auto-exit.
    - Harnesses without an `ExitPlanMode` tool continue normally after emitting the same one-line note.
 3. **Read the instruction file** at `.agents/skills/yoke/{subcommand}/SKILL.md` using the Read tool, and follow it, passing any remaining arguments as that subcommand's arguments. Each entrypoint is a short router: it names the one phase file to read next. Do not pre-read a command's phase files.
@@ -25,12 +25,12 @@ Operator: `/yoke charge` · `/yoke feed` · `/yoke strategize` ·
 `/yoke steer` · `/yoke onboard` · `/yoke idea` · `/yoke dash` · `/yoke blitz` ·
 `/yoke shepherd` · `/yoke conduct` · `/yoke usher` · `/yoke doctor` ·
 `/yoke models` · `/yoke resync` · `/yoke curate` · `/yoke wrapup` ·
-`/yoke refine` · `/yoke advance` · `/yoke polish` · `/yoke simulate` ·
+`/yoke refine` · `/yoke implement` · `/yoke polish` · `/yoke simulate` ·
 `/yoke help`
 
 Internal, called by an orchestration command rather than an operator:
-`/yoke approve` · `/yoke amend`, plus
-`/yoke advance` targets other than `implementation`.
+`/yoke approve` · `/yoke amend` ·
+`/yoke advance` (status writes for the stage skills that call it).
 
 Three routing facts that decide where a request goes before any file is read:
 
@@ -46,8 +46,9 @@ Three routing facts that decide where a request goes before any file is read:
 - `/yoke refine PREFIX-N` critiques artifacts with no worktree and no code
   edits; `/yoke polish PREFIX-N` finishes implementation inside an existing
   worktree. Neither substitutes for the other.
-- `/yoke advance PREFIX-N implementation` is the operator-facing Issue
-  implementation entry; every other `advance` target is internal.
+- `/yoke implement PREFIX-N` is the stage skill for the segment a workflow
+  binds to `implement` (issue implementation entry through review); it takes
+  no target argument. `/yoke advance` is internal only.
 - `/yoke idea --workflow issue|epic|blitz|task {title}` files new work through
   the skill path. Filing without executing is the terminal
   `yoke dash TITLE INSTRUCTION` / `yoke task TITLE INSTRUCTION` pair.

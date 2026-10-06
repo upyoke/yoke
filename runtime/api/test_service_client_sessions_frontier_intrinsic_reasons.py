@@ -229,7 +229,7 @@ class TestDecisionEngineEscalateCopy:
             workspace="/Users/dev/yoke",
             execution_lane="DARIUS",
             step=1,
-            supported_paths=["refine", "advance", "polish", "usher"],
+            supported_paths=["refine", "implement", "polish", "usher"],
         )
 
     def test_escalate_branch_copies_intrinsic_blocked_reasons(self):

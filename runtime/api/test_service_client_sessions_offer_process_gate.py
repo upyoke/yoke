@@ -64,7 +64,7 @@ def _frontier_with_scheduler_no_sml(runnable_ids: list[str]):
     """
     primary = runnable_ids[0]
     scheduler_block = {
-        "next_step": "advance",
+        "next_step": "implement",
         "item_type": "issue",
         "status": "refined-idea",
         "title": f"Runnable {primary}",
@@ -142,7 +142,7 @@ class TestSessionOfferProcessGateCharge:
         # Scheduler routing metadata IS present so session-offer
         # can dispatch via context.scheduler.next_step.
         scheduler = ctx["scheduler"]
-        assert scheduler["next_step"] == "advance"
+        assert scheduler["next_step"] == "implement"
         assert scheduler["status"] == "refined-idea"
         assert scheduler["adapter"] == "conduct"
 

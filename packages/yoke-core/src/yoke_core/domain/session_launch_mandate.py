@@ -17,7 +17,7 @@ from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 _ENTRYPOINTS = {
     "dash": "/yoke dash {ref}",
     "refine": "/yoke refine {ref}",
-    "advance": "/yoke advance {ref} implementation",
+    "implement": "/yoke implement {ref}",
     "polish": "/yoke polish {ref}",
     "blitz": "/yoke blitz {ref}",
     "shepherd": "/yoke shepherd {ref}",
@@ -30,7 +30,7 @@ _REMAINING_LEGS = {
         "refine to refined-idea, then implementation, polish, and that "
         "binding's merge boundary"
     ),
-    "advance": (
+    "implement": (
         "implementation and polish per the live bindings, then that "
         "binding's merge boundary"
     ),

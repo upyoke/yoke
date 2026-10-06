@@ -190,7 +190,7 @@ class TestSessionOfferNoWork:
                 status="refined-idea",
                 title="blocked",
                 priority="high",
-                next_step=NextStep.ADVANCE,
+                next_step=NextStep.IMPLEMENT,
                 rank=0,
                 claim_state=ClaimState.CLAIMED_BY_STALE,
             ),
@@ -202,7 +202,7 @@ class TestSessionOfferNoWork:
                 status="refined-idea",
                 title="unblocked",
                 priority="high",
-                next_step=NextStep.ADVANCE,
+                next_step=NextStep.IMPLEMENT,
                 rank=1,
                 claim_state=ClaimState.UNCLAIMED,
             ),
@@ -231,7 +231,7 @@ class TestSessionOfferNoWork:
         )
         assert len(filtered.runnable_items) == 1
         assert filtered.scheduler_context["title"] == "unblocked"
-        assert filtered.scheduler_context["next_step"] == "advance"
+        assert filtered.scheduler_context["next_step"] == "implement"
         assert filtered.scheduler_context["workflow_id"] == "issue"
 
 

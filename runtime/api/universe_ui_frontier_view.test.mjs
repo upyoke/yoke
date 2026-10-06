@@ -284,7 +284,7 @@ function releasingClient() {
         ...releasing,
         item_id: "YOK-11",
         why_ready: "No blocker is holding this item.",
-        run_command: "yoke advance YOK-11",
+        run_command: "yoke implement YOK-11",
       }],
       blocked_rows: [],
     },

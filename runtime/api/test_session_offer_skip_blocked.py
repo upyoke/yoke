@@ -77,7 +77,7 @@ def test_unblocking_restores_to_conduct_eligible():
     eligible = {
         s.item_id
         for s in sched_post.ranked_steps
-        if s.next_step == NextStep.ADVANCE
+        if s.next_step == NextStep.IMPLEMENT
     }
     assert 12 in eligible
     blocked = {s.item_id for s in sched_post.blocked_steps}

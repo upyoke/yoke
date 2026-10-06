@@ -126,7 +126,7 @@ const POLICY = {
 const SKILLS = {
   dash: ["dash"],
   blitz: ["refine", "blitz"],
-  issue: ["refine", "advance", "polish", "usher"],
+  issue: ["refine", "implement", "polish", "usher"],
   epic: ["refine", "shepherd", "refine", "conduct", "polish", "usher"],
 };
 

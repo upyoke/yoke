@@ -54,10 +54,10 @@ class TestComputeSchedule:
 
     def test_schedule_skips_conduct_items_outside_wip_cap(self, scheduler_db):
         """CONDUCT items (epics) outside WIP cap are skipped; non-CONDUCT
-        items (SHEPHERD, REFINE, ADVANCE, USHER) are still selectable.
+        items (SHEPHERD, REFINE, IMPLEMENT, USHER) are still selectable.
 
         With the gap-1 fix, only NextStep.CONDUCT is filtered by
-        conduct_eligible_ids. ADVANCE (the Issue workflow) passes through.
+        conduct_eligible_ids. IMPLEMENT (the Issue workflow) passes through.
         We verify the WIP filter by checking that the selected item is NOT
         a CONDUCT step when WIP is full.
         """
@@ -69,22 +69,22 @@ class TestComputeSchedule:
 
         assert result.selected_step is not None
         # The selected step must NOT be CONDUCT when WIP is saturated
-        # .  ADVANCE, SHEPHERD,
+        # .  IMPLEMENT, SHEPHERD,
         # REFINE, and USHER are all acceptable.
         assert result.selected_step.next_step != NextStep.CONDUCT
 
     def test_schedule_advance_not_blocked_by_conduct_wip_cap(self, scheduler_db):
-        """Issue ADVANCE items must NOT be filtered by conduct_eligible_ids.
+        """Issue IMPLEMENT items must NOT be filtered by conduct_eligible_ids.
 
         Regression test for simulation gap #1: the selection loop
         previously applied the conduct_eligible_ids filter to both CONDUCT and
-        ADVANCE next_steps.  Issue items routed to ADVANCE don't go through
+        IMPLEMENT next_steps.  Issue items routed to IMPLEMENT don't go through
         the conduct pipeline, so they must pass through unfiltered even when
         the WIP cap is exhausted.
         """
         conn = scheduler_db["conn"]
         workflow_id, workflow_version_id = _workflow_pin(conn, "issue")
-        # Insert an issue in implementing (routes to ADVANCE)
+        # Insert an issue in implementing (routes to IMPLEMENT)
         conn.execute(
             """INSERT INTO items
                (id, title, workflow_id, workflow_version_id, status, priority, project_id,
@@ -119,16 +119,16 @@ class TestComputeSchedule:
             wip_cap=0,
         )
 
-        # The implementing issue should still be selectable as ADVANCE
-        advance_steps = [
+        # The implementing issue should still be selectable as IMPLEMENT
+        implement_steps = [
             s
             for s in result.ranked_steps
-            if s.item_id == 100 and s.next_step == NextStep.ADVANCE
+            if s.item_id == 100 and s.next_step == NextStep.IMPLEMENT
         ]
-        assert len(advance_steps) == 1, "Implementing issue must appear as ADVANCE"
+        assert len(implement_steps) == 1, "Implementing issue must appear as IMPLEMENT"
 
         # With wip_cap=0, no CONDUCT items should be selected, but the
-        # ADVANCE item should be selected (or a non-conduct item like
+        # IMPLEMENT item should be selected (or a non-conduct item like
         # SHEPHERD/REFINE/USHER).
         if result.selected_step is not None:
             if result.selected_step.next_step == NextStep.CONDUCT:
@@ -153,7 +153,7 @@ class TestComputeSchedule:
 
         # Issue in ready -> advance (conduct rejects issues)
         if 1 in step_map:
-            assert step_map[1].next_step == NextStep.ADVANCE
+            assert step_map[1].next_step == NextStep.IMPLEMENT
 
         # Issue in passed -> usher
         if 5 in step_map:

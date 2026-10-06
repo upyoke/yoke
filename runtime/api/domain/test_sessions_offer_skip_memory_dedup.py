@@ -35,7 +35,7 @@ def _make_step(item_id: int, rank: int) -> ScheduledStep:
         status="refined-idea",
         title=_title(item_id),
         priority="medium",
-        next_step=NextStep.ADVANCE,
+        next_step=NextStep.IMPLEMENT,
         rank=rank,
         claim_state=ClaimState.UNCLAIMED,
     )

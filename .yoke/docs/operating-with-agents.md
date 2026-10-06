@@ -15,7 +15,7 @@ loads skills and hooks; Yoke owns state, approvals, and evidence.
 ## Delivery adapters
 
 ```text
-/yoke idea | dash | blitz | shepherd | conduct | advance | polish | usher
+/yoke idea | dash | blitz | shepherd | conduct | implement | polish | usher
 ```
 
 Exact stage ownership comes from the item's pinned workflow version — read

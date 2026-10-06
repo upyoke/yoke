@@ -40,11 +40,11 @@ const SKILL_SUMMARIES_BY_BINDING = {
     " in a supported harness like Claude Code or Codex — blitz executes the " +
       "linked document directly, in continuous slices; nothing is copied.",
   ],
-  "issue:refine>advance>polish>usher": [
+  "issue:refine>implement>polish>usher": [
     "Run ",
     { kind: "code", text: "/yoke refine" },
     ", ",
-    { kind: "code", text: "advance" },
+    { kind: "code", text: "implement" },
     ", ",
     { kind: "code", text: "polish" },
     ", ",

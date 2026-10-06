@@ -4,7 +4,7 @@ Sanctioned surface for reading, validating, and updating a work item's DB
 claim as a single unit over the two existing storage fields
 (``db_mutation_profile`` and ``db_compatibility_attestation``).
 
-Callers — ``/yoke idea``, ``/yoke refine``, ``/yoke advance``,
+Callers — ``/yoke idea``, ``/yoke refine``, ``/yoke implement``,
 ``/yoke polish``, and any agent discovering DB mutation late — go
 through :func:`amend` rather than writing the two JSON fields directly.
 Per-field writes that skip this workflow remain structurally valid but

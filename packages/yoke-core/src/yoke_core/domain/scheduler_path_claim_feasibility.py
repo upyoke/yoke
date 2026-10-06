@@ -27,7 +27,7 @@ from yoke_core.domain.project_identity import render_item_ref
 
 
 class FeasibilityOutcome(str, Enum):
-    """Verdict bucket emitted by :func:`probe_advance_feasibility`."""
+    """Verdict bucket emitted by :func:`probe_implement_feasibility`."""
 
     FEASIBLE = "feasible"
     NO_CLAIM = "no_claim"
@@ -151,7 +151,7 @@ def _enumerate_conflicts(
     )
 
 
-def probe_advance_feasibility(
+def probe_implement_feasibility(
     conn: Any, *, item_id: int,
 ) -> FeasibilityVerdict:
     """Dry-run feasibility verdict for the candidate's planned
@@ -214,5 +214,5 @@ def probe_advance_feasibility(
 __all__ = [
     "FeasibilityOutcome",
     "FeasibilityVerdict",
-    "probe_advance_feasibility",
+    "probe_implement_feasibility",
 ]

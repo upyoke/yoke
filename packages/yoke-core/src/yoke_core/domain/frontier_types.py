@@ -12,7 +12,7 @@ from yoke_contracts.project_contract.project_keys import DEFAULT_WIP_CAP
 class AdapterCategory(str, Enum):
     """Downstream adapter that should handle a frontier item."""
 
-    ADVANCE = "advance"
+    IMPLEMENT = "implement"
     BLITZ = "blitz"
     SHEPHERD = "shepherd"
     REFINE = "refine"

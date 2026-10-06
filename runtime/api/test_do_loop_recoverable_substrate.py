@@ -97,7 +97,7 @@ class TestYok1599SubstrateReentry:
                 chain_step=1,
                 project="yoke",
                 item_id=1599,
-                routed_action="advance",
+                routed_action="implement",
                 failure_class="cwd_drift_after_scope_bind",
                 remediation_owner=f"YOK-{1599}",
                 current_status="implementing",
@@ -121,7 +121,7 @@ class TestYok1599SubstrateReentry:
                 chain_step=1,
                 project="yoke",
                 item_id=1599,
-                routed_action="advance",
+                routed_action="implement",
                 failure_class="cwd_drift",
                 remediation_owner=f"YOK-{1599}",
             )
@@ -148,7 +148,7 @@ class TestYok1599SubstrateReentry:
                 chain_step=1,
                 project="yoke",
                 item_id=1599,
-                routed_action="advance",
+                routed_action="implement",
                 failure_class="cwd_drift",
                 remediation_owner=f"YOK-{1599}",
             )

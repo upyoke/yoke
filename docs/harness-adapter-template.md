@@ -246,7 +246,7 @@ The canonical downstream paths are delivery lanes that `session-offer` can route
 
 | Path | Description | What it routes to |
 |------|-------------|-------------------|
-| `advance` | Move an item through the delivery lifecycle | `/yoke advance YOK-N [status]` |
+| `implement` | Implement an issue through its review loop | `/yoke implement YOK-N` |
 | `shepherd` | Drive an item through quality-gated lifecycle to planned | `/yoke shepherd YOK-N` |
 | `refine` | Critique and improve item artifacts | `/yoke refine YOK-N` |
 | `conduct` | Engineer/Tester execution loop for a single item or epic | `/yoke conduct YOK-N` |

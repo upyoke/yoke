@@ -19,7 +19,6 @@ SESSION_MODES: FrozenSet[str] = frozenset(
     (
         SESSION_MODE_DEFAULT,
         SESSION_MODE_PARKED,
-        "advance",
         "blitz",
         "busy",
         "charge",
@@ -30,6 +29,7 @@ SESSION_MODES: FrozenSet[str] = frozenset(
         "escalate",
         "feed",
         "idea",
+        "implement",
         "operator",
         "polish",
         "refine",

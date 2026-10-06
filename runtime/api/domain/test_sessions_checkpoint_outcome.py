@@ -18,7 +18,7 @@ def test_resolve_keeps_pre_dispatch_literal():
     assert (
         resolve_checkpoint_outcome(
             outcome="pre-dispatch",
-            required_path="advance",
+            required_path="implement",
             pre_status="implementing",
             post_status="implementing",
         )
@@ -29,7 +29,7 @@ def test_resolve_keeps_pre_dispatch_literal():
 def test_resolve_classifies_advance_slice_from_statuses():
     assert (
         resolve_checkpoint_outcome(
-            required_path="advance",
+            required_path="implement",
             pre_status="implementing",
             post_status="implementing",
         )
@@ -40,7 +40,7 @@ def test_resolve_classifies_advance_slice_from_statuses():
 def test_resolve_classifies_advance_boundary_as_completed():
     assert (
         resolve_checkpoint_outcome(
-            required_path="advance",
+            required_path="implement",
             pre_status="implementing",
             post_status="reviewing-implementation",
         )
@@ -52,7 +52,7 @@ def test_resolve_failure_class_beats_advance_path():
     assert (
         resolve_checkpoint_outcome(
             failure_class="dirty-tracked-main",
-            required_path="advance",
+            required_path="implement",
             pre_status="idea",
             post_status="idea",
         )

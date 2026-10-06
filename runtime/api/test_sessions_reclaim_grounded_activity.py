@@ -165,7 +165,7 @@ class TestChainBudgetDiesWithTheSession:
             conn,
             session_id,
             step=2,
-            action="advance",
+            action="implement",
             chainable=True,
         )
         assert read_chain_checkpoint(conn, session_id) is not None
@@ -181,7 +181,7 @@ class TestChainBudgetDiesWithTheSession:
             conn,
             session_id,
             step=2,
-            action="advance",
+            action="implement",
             chainable=True,
         )
         assert end_session_if_empty(conn, session_id)["status"] == "chain_pending"

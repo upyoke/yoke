@@ -59,7 +59,7 @@ class TestCodexReminderInstallAdvisory(unittest.TestCase):
         )
         patcher_paths = mock.patch(
             "yoke_core.domain.harness_capability_registry.shared_downstream_paths",
-            return_value=["refine", "advance"],
+            return_value=["refine", "implement"],
         )
         patcher_prompt.start()
         patcher_paths.start()
