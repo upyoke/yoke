@@ -9,6 +9,7 @@ import test from "node:test";
 import { mountUniverseApp } from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
 import {
   FakeDocument,
+  byClass,
   response,
   settle,
 } from "./universe_ui_dom_test_support.mjs";
@@ -84,4 +85,59 @@ test("the item reads do not wait for the release roster", async (t) => {
   // And the delivery the run roster carries still reaches the cards.
   assert.ok(named(client, "deployment_runs.list").length >= 1);
   assert.ok(root.textContent.includes("Release"));
+});
+
+test("the live bands draw before the run roster; Release and Done fill on settle", async (t) => {
+  stubFetch(t);
+  const base = workbenchClient();
+  let answerRuns;
+  const runsAnswered = new Promise((resolve) => { answerRuns = resolve; });
+  const client = {
+    requests: base.requests,
+    async call(request) {
+      if (request.function === "deployment_runs.list") await runsAnswered;
+      return base.call(request);
+    },
+  };
+  const root = await mountFrontier(client);
+  const band = (key) => byClass(root, `work-band-${key}`)[0].textContent;
+
+  assert.ok(band("ready").includes("YOK-9"));
+  assert.ok(!band("waiting").includes("Loading delivery"));
+  assert.ok(!band("active").includes("Loading delivery"));
+  assert.ok(band("release").includes("Loading delivery…"));
+  assert.ok(band("done").includes("Loading delivery…"));
+  assert.ok(!band("done").includes("YOK-6"));
+
+  answerRuns();
+  await settle();
+  assert.ok(band("done").includes("YOK-6"));
+  assert.ok(!band("release").includes("Loading delivery"));
+  assert.ok(!band("done").includes("Loading delivery"));
+});
+
+test("a Release and Done fill that throws names itself instead of hanging", async (t) => {
+  stubFetch(t);
+  const base = workbenchClient();
+  const client = {
+    requests: base.requests,
+    async call(request) {
+      const answer = await base.call(request);
+      if (request.function !== "deployment_runs.list") return answer;
+      // A run carrying the finished item whose environment cannot be read.
+      const unreadable = {
+        id: "run-unreadable",
+        status: "succeeded",
+        member_items: [{ id: 106, ref: "YOK-6" }],
+        target_environment: { toString() { throw new Error("unreadable environment"); } },
+      };
+      return { ...answer, envelope: { ...answer.envelope, result: { rows: [unreadable] } } };
+    },
+  };
+  const root = await mountFrontier(client);
+  const band = (key) => byClass(root, `work-band-${key}`)[0].textContent;
+
+  assert.ok(band("ready").includes("YOK-9"));
+  assert.ok(band("done").includes("Release and Done could not be drawn"));
+  assert.ok(band("done").includes("Reload Frontier"));
 });

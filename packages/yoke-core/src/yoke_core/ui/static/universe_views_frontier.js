@@ -70,10 +70,9 @@ export function renderFrontierView(context, main, scope) {
         : { project: String(project.id), relevance: "overview" },
     })),
   );
-  // The run roster is handed over as a promise, not awaited first. It answers
-  // a different question than the item reads do and nothing in them depends
-  // on it, so sequencing the two made the screen wait for their sum when the
-  // slower of the two is the whole cost.
+  // The run roster is handed over as a promise, not awaited. It answers a
+  // different question than the item reads do: Waiting, Ready and Active
+  // draw without it, and Release and Done fill when it settles.
   const deployments = runRoster.then(({ callResults }) => deploymentsByItemId(
     callResults.flatMap((callResult) => successfulResult(callResult)?.rows || []),
   ));

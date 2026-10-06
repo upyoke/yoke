@@ -86,7 +86,7 @@ def handle_deployment_run_carried_work_repair(
             return error(
                 "carried_work_absent",
                 f"deployment run {resolved_run_id!r} has no carried-work record to "
-                "repair; completing the run derives one",
+                "repair; completing the run, or reading a finished one, derives it",
                 jsonpath="$.target.workflow_run_id",
             )
         previous = _derivation(stored)
