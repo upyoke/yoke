@@ -48,10 +48,15 @@ def repo(tmp_path):
 
 def _seed_lane(conn, repo) -> Path:
     register_machine_checkout(
-        Path(repo).parent / "machine-config", Path(repo), project_id=1,
+        Path(repo).parent / "machine-config",
+        Path(repo),
+        project_id=1,
     )
     seed_item(
-        conn, item_id=ITEM_ID, branch=f"YOK-{ITEM_ID}", status="implementing",
+        conn,
+        item_id=ITEM_ID,
+        branch=f"YOK-{ITEM_ID}",
+        status="implementing",
         repo_path=repo,
     )
     seed_item_claim(conn, SESSION, item_id=ITEM_ID)
@@ -62,12 +67,14 @@ def _seed_lane(conn, repo) -> Path:
 
 def _evaluate(command: str, repo: Path):
     with mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None):
-        return lint_lane_main_write.evaluate_pre_tool_use({
-            "session_id": SESSION,
-            "tool_name": "Bash",
-            "cwd": str(repo),
-            "tool_input": {"command": command},
-        })
+        return lint_lane_main_write.evaluate_pre_tool_use(
+            {
+                "session_id": SESSION,
+                "tool_name": "Bash",
+                "cwd": str(repo),
+                "tool_input": {"command": command},
+            }
+        )
 
 
 def _mention_only_heredoc(lane_file: Path, mentioned: str) -> str:
@@ -97,7 +104,8 @@ def _computed_target_heredoc(lane: Path) -> str:
 class TestMentionIsNotAWriteTarget:
     def test_mentioned_relative_path_is_not_extracted(self, tmp_path):
         command = _mention_only_heredoc(
-            tmp_path / "lane" / "AGENTS.md", "docs/reference/legacy.md",
+            tmp_path / "lane" / "AGENTS.md",
+            "docs/reference/legacy.md",
         )
         analysis = analyze_python_heredoc_writes(command)
         assert analysis.detected is True
@@ -107,7 +115,8 @@ class TestMentionIsNotAWriteTarget:
     def test_heredoc_mentioning_repo_relative_path_is_allowed(self, conn, repo):
         lane = _seed_lane(conn, repo)
         command = _mention_only_heredoc(
-            lane / "AGENTS.md", "docs/reference/legacy.md",
+            lane / "AGENTS.md",
+            "docs/reference/legacy.md",
         )
         verdict = _evaluate(command, repo)
         assert verdict.allow is True
@@ -131,11 +140,13 @@ class TestExtractedTargetRefusal:
         target = repo / "runtime/api/foo.py"
         target.parent.mkdir(parents=True, exist_ok=True)
         with mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None):
-            verdict = lint_lane_main_write.evaluate_pre_tool_use({
-                "session_id": SESSION,
-                "tool_name": "Write",
-                "tool_input": {"file_path": str(target)},
-            })
+            verdict = lint_lane_main_write.evaluate_pre_tool_use(
+                {
+                    "session_id": SESSION,
+                    "tool_name": "Write",
+                    "tool_input": {"file_path": str(target)},
+                }
+            )
         assert verdict.allow is False
         assert verdict.derivation.source == TOOL_TARGET
         assert f"Extracted:     {target}" in verdict.reason
@@ -236,11 +247,13 @@ class TestComputedCommitMessageRecovery:
             "\n"
             "Longer body explaining why.\n"
             "EOF\n"
-            ")\""
+            ')"'
         )
 
     def test_computed_commit_message_uses_leading_lane_cd(
-        self, conn, repo,
+        self,
+        conn,
+        repo,
     ):
         lane = _seed_lane(conn, repo)
         verdict = _evaluate(self._computed_commit(lane), repo)
@@ -256,17 +269,17 @@ class TestComputedCommitMessageRecovery:
     def test_computed_commit_refusal_names_the_lane_recovery(self, conn, repo):
         lane = _seed_lane(conn, repo)
         verdict = _evaluate(self._computed_commit(repo), repo)
-        assert (
-            f"git -C {lane} commit -F {RECOVERY_MESSAGE_FILE}"
-            in verdict.reason
-        )
+        assert f"git -C {lane} commit -F {RECOVERY_MESSAGE_FILE}" in verdict.reason
 
     def test_refusal_teaches_the_effective_workdir(
-        self, conn, repo,
+        self,
+        conn,
+        repo,
     ):
-        _seed_lane(conn, repo)
+        lane = _seed_lane(conn, repo)
         verdict = _evaluate(self._computed_commit(repo), repo)
-        assert "use a leading absolute `cd`" in verdict.reason
+        assert f"declare {lane} as the call's workdir" in verdict.reason
+        assert f"make `cd {lane}` the command's first statement" in verdict.reason
 
     def test_recovery_message_file_is_readable_from_a_claimed_lane(self):
         assert is_free_path(RECOVERY_MESSAGE_FILE)

@@ -17,6 +17,7 @@ from yoke_contracts.cursor_hook_command_bytes import (
     CURSOR_HOOK_COMMAND_FORBIDDEN_SEQUENCES,
 )
 from yoke_contracts.harness_cli_manifest import harness_cli_manifest
+from yoke_contracts.harness_command_workdir import command_workdir_source
 from yoke_contracts.harness_turn_record_capability import (
     turn_record_capability_for_harness,
 )
@@ -84,6 +85,7 @@ CLAUDE_MANIFEST: dict = {
         "provider_source": "runtime",
         "model_source": "runtime",
         "workspace_source": "payload_cwd_then_git_root",
+        "command_workdir_source": command_workdir_source(_CLAUDE_CLI.harness_id),
     },
     "supports": {
         "command_source": "shared_yoke_registry",
@@ -148,6 +150,7 @@ CODEX_MANIFEST: dict = {
         "provider_source": "runtime",
         "model_source": "runtime",
         "workspace_source": "payload_cwd_then_git_root",
+        "command_workdir_source": command_workdir_source(_CODEX_CLI.harness_id),
     },
     "supports": {
         "command_source": "shared_yoke_registry",
@@ -219,6 +222,7 @@ CURSOR_MANIFEST: dict = {
         "provider_source": "payload",
         "model_source": "payload",
         "workspace_source": "payload_workspace_roots_then_cwd",
+        "command_workdir_source": command_workdir_source(_CURSOR_CLI.harness_id),
     },
     "supports": {
         "command_source": "shared_yoke_registry",

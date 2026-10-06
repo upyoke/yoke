@@ -27,7 +27,8 @@
     "executor": "codex",
     "provider_source": "runtime",
     "model_source": "runtime",
-    "workspace_source": "payload_cwd_then_git_root"
+    "workspace_source": "payload_cwd_then_git_root",
+    "command_workdir_source": "rollout_exec_command_workdir"
   },
   "supports": {
     "command_source": "shared_yoke_registry",

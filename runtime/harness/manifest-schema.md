@@ -82,6 +82,7 @@ The bootstrap spec is harness-neutral; the manifest names which delivery mechani
 | `provider_source` | string | Where the model provider value comes from (`runtime`, `harness_config`, `payload`). |
 | `model_source` | string | Where the model identifier comes from (`runtime`, `harness_config`, `payload_thread_metadata`). |
 | `workspace_source` | string | How the workspace path is resolved (`payload_cwd_then_git_root`, `payload_workspace_roots_then_cwd`, `git_root`). Session registration stores this path, and a launch binds its native by it. |
+| `command_workdir_source` | string | Where one shell command's execution directory comes from, rendered from `yoke_contracts.harness_command_workdir` (`payload_cwd`, `payload_working_directory`, `rollout_exec_command_workdir`). The hook client reads it to stamp `tool_input.workdir` before any local or relayed evaluation; `rollout_exec_command_workdir` is recovered from the session rollout at `transcript_path`, which only the client machine can read. Write guards resolve relative and computed destinations against it, then any leading `cd`. |
 
 ## Supports
 

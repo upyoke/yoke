@@ -25,7 +25,8 @@
     "executor": "claude-code",
     "provider_source": "runtime",
     "model_source": "runtime",
-    "workspace_source": "payload_cwd_then_git_root"
+    "workspace_source": "payload_cwd_then_git_root",
+    "command_workdir_source": "payload_cwd"
   },
   "supports": {
     "command_source": "shared_yoke_registry",

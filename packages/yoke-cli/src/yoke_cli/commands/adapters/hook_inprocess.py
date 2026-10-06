@@ -93,6 +93,13 @@ def evaluate_inprocess(
     if dry_run:
         return evaluate_hook_event(event_name, dry_run=True, stdin_data=stdin_data)
 
+    from yoke_harness.hooks.command_workdir_stamp import stamp_command_workdir
+    from yoke_harness.hooks.identity import detect_executor
+
+    # Every evaluation path — relayed, local universe, local subset — reads
+    # the command's workdir from stdin, and only this machine can recover it.
+    stdin_data = stamp_command_workdir(stdin_data, detect_executor())
+
     from yoke_cli.transport.https import TransportError, resolve_https_connection
 
     try:
