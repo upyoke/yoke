@@ -123,7 +123,6 @@ def _render_argument_hints(target_root: Path, *, check: bool) -> RenderResult:
             outcomes["missing_files"].append(
                 FileRenderOutcome(skill.body_path, "missing_file")
             )
-            errors.append(f"{skill.body_path}: registered skill body is missing")
             continue
         original = path.read_text(encoding="utf-8")
         lines = original.splitlines(keepends=True)

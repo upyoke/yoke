@@ -113,6 +113,15 @@ def test_internal_inventory_lists_only_internal_skill_bodies():
     assert "implement/implementing/SKILL.md" in content
 
 
+def test_missing_hint_inventory_is_advisory_for_partial_checkouts(tmp_path):
+    result = render_skill_registry_inline._render_argument_hints(tmp_path, check=True)
+    assert result.ok
+    assert {outcome.path for outcome in result.missing_files} == {
+        s.body_path for s in SKILLS
+    }
+    assert not result.changed
+
+
 def test_startup_orientation_retains_compact_order_and_manifest_filters():
     startup = sorted(
         (s for s in SKILLS if s.startup_order is not None),

@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from yoke_core.domain.workflow_definition_builders import REGISTERED_WORKFLOW_SKILL_IDS
+from yoke_contracts.skill_registry import STAGE_SKILL_IDS
 from yoke_core.engines.doctor_applicability import NOT_APPLICABLE
 from yoke_core.engines.doctor_report import (
     DoctorArgs,
@@ -68,7 +68,7 @@ def scan_handoffs(repo_root: Path) -> list[str]:
                 continue
             for match in _COMMAND.finditer(block):
                 skill = match.group(1)
-                if skill == owner or skill not in REGISTERED_WORKFLOW_SKILL_IDS:
+                if skill == owner or skill not in STAGE_SKILL_IDS:
                     continue
                 if _internal_invocation(block, skill):
                     continue
