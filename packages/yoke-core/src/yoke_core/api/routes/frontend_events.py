@@ -43,7 +43,9 @@ def admission(request):
         return refusal(
             403,
             "origin_not_allowed",
-            "Send from the exact serving origin; restore trusted proxy scheme/host configuration.",
+            "Send from the exact serving origin; preserve Host and set "
+            "YOKE_API_TRUSTED_PROXIES to the TLS proxy IPs/CIDRs, then restart "
+            "with yoke self-host init --dir PATH --protect-existing --start.",
         )
     org_id, key, _ = read_collector_identity()
     if request.headers.get("x-events-key") != key:

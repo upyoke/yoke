@@ -42,8 +42,29 @@ authenticated by its token, never by a cookie riding along. The browser
 identity also counts as "a person at a browser" for decisions only a
 person may take, such as clearing a merge-candidate review from the Inbox.
 Token-link redemption enforces the same Origin and Sec-Fetch-Site checks.
-Cookies are Secure on HTTPS; use TLS for remote access and configure trusted
-proxy forwarding so the server sees the external HTTPS scheme.
+Cookies are Secure on HTTPS; declare your TLS proxy using
+`YOKE_API_TRUSTED_PROXIES` as described below.
+
+## Proxy forwarding
+
+Set `YOKE_API_TRUSTED_PROXIES` in the bundle's `.env` to comma-separated proxy
+IP addresses or CIDRs, for example `127.0.0.1,172.20.0.2`. Use the transport
+peer addresses seen **inside the core container**: a host-side proxy may reach
+it through Docker's bridge gateway rather than loopback. An unset setting trusts
+only `127.0.0.1`; an empty value trusts none. The server entrypoint also accepts
+`--trusted-proxies`. Hosted and Local startup keep their existing configuration.
+
+The proxy must preserve the external `Host`, set `X-Forwarded-Proto: https`,
+and overwrite or safely append `X-Forwarded-For` with the connecting client IP.
+Strip caller-supplied forwarding headers at the public edge. Restrict backend
+access to the proxy; avoid `*` or broad networks containing untrusted clients.
+Uvicorn accepts scheme/client forwarding only from declared transport peers;
+headers from other peers are ignored. This makes token cookies Secure, permits
+the HTTPS analytics collector, and gives each client its own rate budget.
+
+Restart with `yoke self-host init --dir PATH --protect-existing --start` after
+editing `.env`. If `collector_https_required` appears, check the configured
+peer address and proxy headers, then restart with that command.
 
 Browser function calls require a JSON object in `payload`; use `{}` for
 an empty payload. Other shapes receive HTTP 422 with `envelope_invalid`

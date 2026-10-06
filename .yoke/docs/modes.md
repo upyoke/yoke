@@ -60,7 +60,10 @@ sign-in link valid for two minutes. Rerun the command if the link expires.
 `yoke self-host init` warns when `YOKE_API_PUBLISH` in the bundle's `.env`
 publishes beyond loopback. Docker bypasses ufw/firewalld for published ports;
 bind to `127.0.0.1` behind a TLS reverse proxy, or restrict access upstream.
-The warning never blocks setup or startup.
+The warning never blocks setup or startup. Declare the TLS proxy's transport
+IPs/CIDRs in `.env` as `YOKE_API_TRUSTED_PROXIES`, then restart with
+`yoke self-host init --dir PATH --protect-existing --start`. Preserve Host and
+forward `X-Forwarded-Proto` and `X-Forwarded-For`; undeclared peers are ignored.
 
 ## Source available
 

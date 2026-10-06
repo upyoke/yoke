@@ -17,7 +17,10 @@ def collector_origin(request):
     parts = urlsplit(str(request.base_url))
     if parts.scheme != "https" and parts.hostname not in LOOPBACK_HOSTS:
         raise ValueError(
-            "collector_https_required: serve remote workbenches over HTTPS and configure trusted proxy forwarding"
+            "collector_https_required: serve remote workbenches over HTTPS; "
+            "set YOKE_API_TRUSTED_PROXIES to the TLS proxy IPs/CIDRs in the "
+            "self-host bundle .env and restart with yoke self-host init "
+            "--dir PATH --protect-existing --start"
         )
     return f"{parts.scheme}://{parts.netloc}"
 
