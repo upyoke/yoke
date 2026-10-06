@@ -56,9 +56,12 @@ def _invoke(function_id: str, payload: dict, *, run_id: str = "") -> dict:
 
 
 def _replace_flow(conn, stages: list[dict]) -> None:
+    # An item-scoped QA stage proves members against snapshots only a
+    # custody flow freezes, so composition refuses one without custody.
+    custody = any(stage.get("scope") == "item" for stage in stages)
     conn.execute(
-        "UPDATE deployment_flows SET stages=%s WHERE id=%s",
-        (json.dumps(stages), FLOW),
+        "UPDATE deployment_flows SET stages=%s,takes_delivery_custody=%s WHERE id=%s",
+        (json.dumps(stages), int(custody), FLOW),
     )
     conn.commit()
 

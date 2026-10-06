@@ -250,6 +250,8 @@ def create_run(
             run_id,
             allow_pending_pair_merges=allow_pending_pair_merges,
             connection=conn,
+            # Itemless creation precedes add-item; start checks the count.
+            require_item_qa_members=False,
         )
         if not valid:
             raise CompositionRefused(message)

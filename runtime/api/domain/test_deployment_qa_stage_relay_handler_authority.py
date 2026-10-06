@@ -119,8 +119,9 @@ def qa_stage_plane():
         conn.execute(
             "INSERT INTO deployment_flows "
             "(id,project_id,name,description,stages,on_failure,created_at,"
-            "target_tier,status) VALUES "
-            "(%s,%s,%s,'scoped QA authority test',%s,'halt',%s,'ephemeral','active')",
+            "target_tier,status,takes_delivery_custody) VALUES "
+            "(%s,%s,%s,'scoped QA authority test',%s,'halt',%s,'ephemeral',"
+            "'active',1)",
             (FLOW, project_id, FLOW, stages, iso8601_now()),
         )
         owner_session = "qa-stage-owner"
