@@ -202,7 +202,7 @@ async def collect(request: Request):
         )
 
 
-@router.api_route(ATTRIBUTION_PATH, methods=["GET", "POST", "DELETE"])
+@router.api_route(ATTRIBUTION_PATH, methods=["GET", "POST"])
 async def attribution(request: Request):
     try:
         admitted = await run_in_threadpool(admission, request)
@@ -212,23 +212,14 @@ async def attribution(request: Request):
         if request.method == "GET":
             record = cookie.read_verified(cookie_input(request))
             return JSONResponse(record, headers={"Cache-Control": "no-store"})
-        if request.method == "DELETE":
-            record, header = {"cleared": True}, cookie.clear
-        else:
-            body = await body_json(request)
-            if not isinstance(body, dict) or body.get("consent") is not True:
-                return refusal(
-                    403,
-                    "consent_required",
-                    "Obtain analytics consent before attribution capture.",
-                )
-            if any(not isinstance(body.get(k), str) for k in ("url", "referrer")):
-                raise ValueError(
-                    "attribution_input_invalid: send url and referrer strings"
-                )
-            record, header = cookie.capture(
-                cookie_input(request), body["url"], body["referrer"], consent=True
-            )
+        body = await body_json(request)
+        if not isinstance(body, dict) or any(
+            not isinstance(body.get(k), str) for k in ("url", "referrer")
+        ):
+            raise ValueError("attribution_input_invalid: send url and referrer strings")
+        record, header = cookie.capture(
+            cookie_input(request), body["url"], body["referrer"]
+        )
         return JSONResponse(
             record,
             headers={
@@ -245,7 +236,7 @@ async def attribution(request: Request):
         return refusal(
             503,
             "attribution_unavailable",
-            "Restore collector storage and retry consent capture.",
+            "Restore collector storage and retry attribution capture.",
         )
 
 

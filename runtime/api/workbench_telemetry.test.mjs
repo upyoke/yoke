@@ -14,12 +14,6 @@ const browser = Object.assign(new EventTarget(), {
   },
 });
 Object.defineProperty(browser, "location", { get: () => location });
-const preferences = new Map();
-browser.localStorage = {
-  getItem: key => preferences.get(key),
-  setItem: (key, value) => preferences.set(key, value),
-  removeItem: key => preferences.delete(key),
-};
 globalThis.window = browser;
 globalThis.history = browser.history;
 globalThis.document = doc;
@@ -61,20 +55,12 @@ const until = async condition => {
   }
 };
 
-test("workbench consent emits one initial view and one per URL navigation, then revokes", async () => {
-  const root = doc.createElement("div");
+test("workbench collects one initial view and one per URL navigation with no consent step", async () => {
   const originalPush = history.pushState;
   const originalReplace = history.replaceState;
-  const cleanup = mountWorkbenchTelemetry(root, browser);
-  const control = byClass(root, "workbench-telemetry")[0];
-  const button = control.children[0];
-  await until(() => !button.disabled);
-  assert.equal(requests.length, 1); // Configuration is public; no denied capture.
-  assert.equal(preferences.size, 0);
-  assert.equal(events.length, 0);
-  button.dispatchEvent(new Event("click"));
-  await until(async () => { await flushEvents(); return events.length === 1 && !button.disabled; });
-  assert.equal(button.getAttribute("aria-pressed"), "true");
+  const cleanup = mountWorkbenchTelemetry(browser);
+  await until(async () => { await flushEvents(); return events.length === 1; });
+  assert.equal(requests[0].url, "/api/events/config");
   assert.equal(events[0].page_url, "https://workbench.example/items?utm_source=email");
   assert.equal(events[0].visitor_id, record.visitor_id);
   assert.equal(events[0].event_type, "page_view");
@@ -89,31 +75,22 @@ test("workbench consent emits one initial view and one per URL navigation, then 
   assert.equal(new Set(events.map(e => e.event_id)).size, 4);
   assert.equal(events[1].referrer, events[0].page_url);
   assert.ok(events.every(e => !e.page_url.includes("token")));
-  button.dispatchEvent(new Event("click"));
-  await until(() => !button.disabled);
-  assert.equal(button.getAttribute("aria-pressed"), "false");
-  assert.equal(preferences.size, 0);
-  assert.equal(requests.at(-1).method, "DELETE");
-  history.pushState({}, "", "/strategy");
-  await flushEvents();
-  assert.equal(events.length, 4);
+  assert.ok(requests.every(r => r.method !== "DELETE"));
   cleanup();
   assert.equal(history.pushState, originalPush);
   assert.equal(history.replaceState, originalReplace);
-  assert.equal(root.children.length, 0);
-  assert.equal(doc.head.children.length, 0);
+  history.pushState({}, "", "/strategy");
+  await flushEvents();
+  assert.equal(events.length, 4);
 });
 
 test("unavailable configuration names the recovery and leaves the workbench mounted", async () => {
   configFailure = true;
-  const root = doc.createElement("div");
   const warnings = [], originalWarn = console.warn;
   console.warn = (...args) => warnings.push(args.join(" "));
-  const cleanup = mountWorkbenchTelemetry(root, browser);
+  const cleanup = mountWorkbenchTelemetry(browser);
   try {
-    const status = byClass(root, "workbench-telemetry")[0].children[1];
-    await until(() => status.textContent);
-    assert.match(status.textContent, /Analytics unavailable\. Reload to retry/);
+    await until(() => warnings.length);
     assert.match(warnings[0], /collector_setup_failed/);
   } finally { cleanup(); console.warn = originalWarn; }
 });

@@ -1,18 +1,16 @@
 // Generated from the installed structured-events Pack; run build_frontend_events.
 import rules from './attribution_rules.js';
-/** Consent-gated frontend envelopes and retrying batches. One fetch per batch. */
+/** Frontend envelopes and retrying batches. One fetch per batch. */
 import { MAX_ENVELOPE_BYTES, MAX_CONTEXT_FIELD_BYTES, MAX_BATCH_SIZE } from './events_types.js';
                                                                     
-import { getSystemProps, getSessionProps, getOrgProps, getPageProps, getDeviceProps,
-  clearSession } from './events_props.js';
-import { getAttributionProps, hasConsent, configureAttribution, onConsentChange } from './events_consent.js';
+import { getSystemProps, getSessionProps, getOrgProps, getPageProps, getDeviceProps } from './events_props.js';
+import { getAttributionProps, configureAttribution } from './events_capture.js';
 
 const queue                  = [];
 const FLUSH_INTERVAL_MS = rules.limits.flush_interval_ms;
 let timer                                       = null;
 let flight                       = null;
 let retryAt = 0;
-let epoch = 0;
 let endpoint = '/api/events';
 let key = '';
 
@@ -44,13 +42,12 @@ export function buildEvent(options             )                {
 }
 
 function schedule(delay = FLUSH_INTERVAL_MS)       {
-  if (!timer && queue.length && hasConsent()) {
+  if (!timer && queue.length) {
     timer = setTimeout(() => { timer = null; void flushEvents(); }, delay);
   }
 }
 
-export function emitEvent(options             , props                          = {})                       {
-  if (!hasConsent()) return null;
+export function emitEvent(options             , props                          = {})                {
   if (!key) throw new Error('publishable_key_required: call configureEvents before emitting');
   const event = { ...buildEvent(options), ...props };
   if (queue.length >= rules.limits.queue_events) {
@@ -74,7 +71,7 @@ function retryDelay(response          )         {
 export async function flushEvents()                {
   if (flight) return flight;
   if (timer) { clearTimeout(timer); timer = null; }
-  if (!queue.length || !hasConsent()) return;
+  if (!queue.length) return;
   if (Date.now() < retryAt) { schedule(retryAt - Date.now()); return; }
   // Keepalive has a browser-wide ~64 KB budget. Bound ordinary batches below it.
   let count = 0;
@@ -85,14 +82,11 @@ export async function flushEvents()                {
     bytes += size; count++;
   }
   const batch = queue.splice(0, count);
-  const revision = epoch;
   function requeue(error         )       {
-    if (hasConsent() && revision === epoch) {
-      queue.unshift(...batch);
-      if (queue.length > rules.limits.queue_events) {
-        queue.length = rules.limits.queue_events;
-        console.warn('[events] batch_queue_full: newest pending events discarded while preserving retry ids; restore delivery');
-      }
+    queue.unshift(...batch);
+    if (queue.length > rules.limits.queue_events) {
+      queue.length = rules.limits.queue_events;
+      console.warn('[events] batch_queue_full: newest pending events discarded while preserving retry ids; restore delivery');
     }
     retryAt = Math.max(retryAt, Date.now() + FLUSH_INTERVAL_MS);
     console.warn('[events] batch_requeued: network, rate limit or server failure; retry after backoff', error);
@@ -131,17 +125,12 @@ export async function flushEvents()                {
   return flight;
 }
 
-onConsentChange(() => {
-  epoch++; queue.length = 0; retryAt = 0; clearSession();
-  if (timer) clearTimeout(timer);
-  timer = null;
-});
 if (typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') void flushEvents();
   });
 }
 
-export { setConsent, captureAttribution, getStoredAttribution, getAttributionProps } from './events_consent.js';
+export { captureAttribution, getStoredAttribution, getAttributionProps } from './events_capture.js';
                                                                       
                                                                     

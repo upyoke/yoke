@@ -1,5 +1,5 @@
 # Generated from the installed structured-events Pack; run build_frontend_events.
-"""HTTP-neutral signed, consented attribution cookie; HTTPS required."""
+"""HTTP-neutral signed attribution cookie; HTTPS required."""
 
 import base64
 import hashlib
@@ -28,32 +28,22 @@ def _decode(value):
     )
 
 
+RECORD_KEYS = ("visitor_id", "first_touch", "last_touch")
+
+
 def validate_record(record):
+    """Return the attribution record's own fields; any other key is dropped."""
     if (
         not isinstance(record, dict)
-        or any(
-            not isinstance(record.get(k), str) or not record[k]
-            for k in ("visitor_id", "consented_at")
-        )
+        or not isinstance(record.get("visitor_id"), str)
+        or not record["visitor_id"]
         or any(
             not isinstance(record.get(k), dict) or not record[k]
             for k in ("first_touch", "last_touch")
         )
     ):
-        raise ValueError(
-            "attribution_invalid: obtain consent and capture attribution again"
-        )
-    try:
-        consented = datetime.fromisoformat(
-            record["consented_at"].replace("Z", "+00:00")
-        )
-        if consented.tzinfo is None:
-            raise ValueError()
-    except ValueError as error:
-        raise ValueError(
-            "attribution_invalid: capture a valid consent timestamp"
-        ) from error
-    return record
+        raise ValueError("attribution_invalid: capture attribution again")
+    return {k: record[k] for k in RECORD_KEYS}
 
 
 class AttributionCookie:
@@ -65,10 +55,6 @@ class AttributionCookie:
         self.secret = secret.encode()
         self.site_domain = site_domain
 
-    @property
-    def clear(self):
-        return f"{COOKIE_NAME}=; Max-Age=0; Path=/; Secure; HttpOnly; SameSite=Lax"
-
     def read_verified(self, cookie):
         """Read without minting, clearing, or modifying a cookie."""
         try:
@@ -77,7 +63,7 @@ class AttributionCookie:
                 if COOKIE_NAME in cookie:
                     raise ValueError()
                 raise ValueError(
-                    "attribution_absent: obtain consent and capture attribution first"
+                    "attribution_absent: capture attribution first"
                 )
             payload, signature = parsed[COOKIE_NAME].value.split(".")
             expected = hmac.new(self.secret, payload.encode(), hashlib.sha256).digest()
@@ -94,11 +80,11 @@ class AttributionCookie:
             if str(error).startswith("attribution_absent:"):
                 raise
             raise ValueError(
-                "attribution_invalid: obtain consent and capture attribution again"
+                "attribution_invalid: capture attribution again"
             ) from error
         except (KeyError, TypeError, AttributeError) as error:
             raise ValueError(
-                "attribution_invalid: obtain consent and capture attribution again"
+                "attribution_invalid: capture attribution again"
             ) from error
 
     def read(self, cookie):
@@ -114,8 +100,8 @@ class AttributionCookie:
             return None
 
     def write(self, record):
-        """Serialize a server-verified record, including its original consent."""
-        validate_record(record)
+        """Serialize a server-verified record."""
+        record = validate_record(record)
         payload = _encode(
             json.dumps(
                 {"record": record, "expires": int(time.time()) + COOKIE_SECONDS},
@@ -132,11 +118,7 @@ class AttributionCookie:
             )
         return f"{COOKIE_NAME}={value}; Max-Age={COOKIE_SECONDS}; Path=/; Secure; HttpOnly; SameSite=Lax"
 
-    def capture(self, cookie, url, referrer, *, consent):
-        if not consent:
-            raise ValueError(
-                "consent_required: obtain consent before attribution capture"
-            )
+    def capture(self, cookie, url, referrer):
         if not domain_matches(urlsplit(url).hostname or "", self.site_domain):
             raise ValueError(
                 "attribution_site_mismatch: send a URL belonging to the configured site domain"
@@ -145,5 +127,4 @@ class AttributionCookie:
         existing = self.read(cookie)
         touch = capture_touch(url, referrer, self.site_domain, now)
         record = update_attribution(existing, touch, str(uuid.uuid4()))
-        record["consented_at"] = existing["consented_at"] if existing else now
         return record, self.write(record)
