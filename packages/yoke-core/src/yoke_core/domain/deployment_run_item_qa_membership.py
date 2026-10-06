@@ -32,8 +32,9 @@ from yoke_core.domain.workflow_runtime import ENGINE_TERMINAL_STAGE_IDS
 
 #: The named result an item-scoped QA stage reports when no member owes it.
 NO_MEMBER_OWES_TARGET = (
-    "item_qa_no_member_owes_target: no item this run carries owes QA at its "
-    "target, so the item-scoped QA stage passes with nothing to prove"
+    "item_qa_no_member_owes_target: the run has no member and its flow owes "
+    "no delivery-ready item a delivery, so the item-scoped QA stage passes "
+    "with nothing to prove"
 )
 
 
@@ -61,28 +62,73 @@ def _run_facts(conn: Any, run_id: str) -> tuple[str, str, int, tuple[str, ...]]:
 
 
 def owed_delivery_item_ids(conn: Any, run_id: str) -> tuple[int, ...]:
-    """Delivery-ready items this run's flow closes that no other release holds."""
+    """Delivery-ready items this run's flow closes that no other release holds.
+
+    Holding is landing custody, the same answer enrollment uses: a release
+    holds an item only when it owes that item's proof and carries its exact
+    landing, and a run holding it only for supplemental proof does not count.
+    A re-merged landing and an unanswerable one are owed, so the question
+    fails closed rather than letting a delivering run pass memberless.
+    """
+    from yoke_core.domain.delivery_landing_custody import HELD, landing_custody
     from yoke_core.domain.deployment_item_flow_resolution import (
         item_completion_flows,
     )
 
     flow, _project, project_id, _stages = _run_facts(conn, run_id)
-    terminal = tuple(sorted(ENGINE_TERMINAL_STAGE_IDS | {"done"}))
+    terminal = tuple(sorted(ENGINE_TERMINAL_STAGE_IDS))
     rows = query_rows(
         conn,
-        "SELECT i.id FROM items i WHERE i.project_id = %s "
-        f"AND i.status NOT IN ({', '.join('%s' for _ in terminal)}) "
-        "AND NOT EXISTS (SELECT 1 FROM deployment_run_items dri "
-        "JOIN deployment_runs dr ON dr.id = dri.run_id WHERE dri.item_id = i.id "
-        "AND dr.id <> %s AND dr.status NOT IN ('failed', 'cancelled')) "
-        "ORDER BY i.id",
-        (project_id, *terminal, run_id),
+        "SELECT id FROM items WHERE project_id = %s "
+        f"AND status NOT IN ({', '.join('%s' for _ in terminal)}) ORDER BY id",
+        (project_id, *terminal),
     )
     flows = item_completion_flows(conn, [int(row[0]) for row in rows])
-    return tuple(
+    candidates = [
         item_id
         for item_id, completion_flow in flows.items()
         if completion_flow == flow and item_requires_release_membership(conn, item_id)
+    ]
+    custody = landing_custody(
+        conn, project_id=project_id, item_ids=candidates, exclude_run_id=run_id
+    )
+    return tuple(item_id for item_id in candidates if custody[item_id].state != HELD)
+
+
+def memberless_item_qa_refusal(conn: Any, run_id: str) -> str:
+    """Why a memberless item-scoped QA stage may not pass, or ``''``.
+
+    Asked again wherever the stage is judged, rather than trusting the check
+    before execution: a run that turns out to owe a delivery, or whose
+    custody cannot be read, fails closed instead of passing with nothing.
+    """
+    owed, unreadable = _owed_or_unreadable(conn, run_id)
+    return unreadable or (_owed_refusal(conn, run_id, owed) if owed else "")
+
+
+def _owed_or_unreadable(conn: Any, run_id: str) -> tuple[tuple[int, ...], str]:
+    try:
+        return owed_delivery_item_ids(conn, run_id), ""
+    except (LookupError, ValueError) as exc:
+        return (), (
+            f"item_qa_owed_delivery_unreadable: run '{run_id}' has no member and "
+            f"whether its flow owes a delivery could not be read: {exc}. "
+            "Recovery: repair the named read, then validate or resume again."
+        )
+
+
+def _owed_refusal(conn: Any, run_id: str, owed: tuple[int, ...]) -> str:
+    flow, _project, _project_id, stages = _run_facts(conn, run_id)
+    refs = ", ".join(render_item_ref(conn, item_id) for item_id in owed)
+    return (
+        f"item_qa_run_without_members: run '{run_id}' is on the completion flow "
+        f"'{flow}' for delivery-ready {refs}, which no other release holds, "
+        "but it enrolled none of them, so it would deploy and deliver nobody "
+        f"before its item-scoped QA stage(s) {', '.join(stages)} failed. "
+        "Their merges are not in this run's release lineage, or composition "
+        "skipped them for a reason it names. Recovery: create the run from a "
+        "release lineage that contains their merges, or attach one with "
+        f"`yoke deployment-runs add-item {run_id} PREFIX-N`, then validate again."
     )
 
 
@@ -118,24 +164,17 @@ def item_qa_membership_verdict(
     )
     if int(members or 0) or removed_item_ids(conn, run_id):
         return ("" if custody else _custody_refusal(flow, project, stages)), ""
-    owed = owed_delivery_item_ids(conn, run_id)
+    owed, unreadable = _owed_or_unreadable(conn, run_id)
+    if unreadable:
+        # Creation leaves the member question to the checks after it.
+        return (unreadable if require_members else ""), ""
     if not owed:
         return "", f"{', '.join(stages)}: {NO_MEMBER_OWES_TARGET}"
     if not custody:
         return _custody_refusal(flow, project, stages), ""
     if not require_members:
         return "", ""
-    refs = ", ".join(render_item_ref(conn, item_id) for item_id in owed)
-    return (
-        f"item_qa_run_without_members: run '{run_id}' is the completion flow "
-        f"'{flow}' for delivery-ready {refs}, which no other release holds, "
-        "but it enrolled none of them, so it would deploy and deliver nobody "
-        f"before its item-scoped QA stage(s) {', '.join(stages)} failed. "
-        "Their merges are not in this run's release lineage, or composition "
-        "skipped them for a reason it names. Recovery: create the run from a "
-        "release lineage that contains their merges, or attach one with "
-        "`yoke deployment-runs add-item RUN-ID PREFIX-N`, then validate again."
-    ), ""
+    return _owed_refusal(conn, run_id, owed), ""
 
 
 def require_item_qa_membership_possible(conn: Any, run_id: str) -> None:
@@ -148,6 +187,7 @@ def require_item_qa_membership_possible(conn: Any, run_id: str) -> None:
 __all__ = [
     "NO_MEMBER_OWES_TARGET",
     "item_qa_membership_verdict",
+    "memberless_item_qa_refusal",
     "owed_delivery_item_ids",
     "require_item_qa_membership_possible",
 ]

@@ -171,9 +171,13 @@ learns the other's part from its own skill. The split is the whole rule:
   judged by what it owes: `validate-composition` and the pre-execution check
   refuse it, before any stage deploys, when its flow is the completion flow
   for delivery-ready items no other release holds
-  (`item_qa_run_without_members`); otherwise — a stage run whose candidates
-  were targeted out — its item-scoped stage passes with the named
-  `item_qa_no_member_owes_target` result. Creation does not ask the member
+  (`item_qa_run_without_members`). Holding is landing custody, as enrollment
+  reads it: a re-merged landing, an unreadable one, or one held only by a
+  supplemental stage run is still owed. Otherwise — a stage run whose
+  candidates were targeted out — its item-scoped stage passes with the named
+  `item_qa_no_member_owes_target` result. Dispatch, the outstanding report,
+  and later stages' prior-acceptance check ask the same question again and
+  fail closed rather than trusting the pre-start answer. Creation does not ask the member
   question, because it mints itemless runs for `add-item`.
 - **The member owner owns its own item.** Its merge parked it at the flow's
   release wait holding its work claim; the deployment wake re-enters it for its
