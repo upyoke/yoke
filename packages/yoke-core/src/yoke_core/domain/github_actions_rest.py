@@ -15,7 +15,7 @@ log handling out of this REST-helper file.
 from __future__ import annotations
 
 import sys
-from typing import Any, Dict, Mapping, Optional, Tuple
+from typing import Any, Dict, Iterable, Mapping, Optional, Tuple
 
 from yoke_core.domain.gh_rest_transport import (
     RestNotFoundError,
@@ -194,41 +194,44 @@ def latest_workflow_run(
             status=404,
         )
     if not isinstance(data, dict):
-        raise RestTransportError(
-            "GitHub workflow-runs response must be an object"
-        )
+        raise RestTransportError("GitHub workflow-runs response must be an object")
     runs = data.get("workflow_runs")
     if not isinstance(runs, list):
-        raise RestTransportError(
-            "GitHub workflow-runs response omitted workflow_runs"
-        )
+        raise RestTransportError("GitHub workflow-runs response omitted workflow_runs")
     if not runs:
         return None
     if not all(isinstance(run, dict) for run in runs):
         raise RestTransportError(
             "GitHub workflow-runs response contained a malformed run"
         )
+    return newest_run(runs)
 
-    def _integer_field(run: Dict[str, Any], field: str) -> int:
-        try:
-            return int(run.get(field) or 0)
-        except (TypeError, ValueError):
-            return 0
 
-    def _newest_key(run: Dict[str, Any]) -> Tuple[int, int, str, int]:
-        return (
-            _integer_field(run, "run_number"),
-            _integer_field(run, "run_attempt"),
-            str(run.get("created_at") or ""),
-            _integer_field(run, "id"),
-        )
+def _integer_field(run: Dict[str, Any], field: str) -> int:
+    try:
+        return int(run.get(field) or 0)
+    except (TypeError, ValueError):
+        return 0
 
-    return max(runs, key=_newest_key)
+
+def _newest_key(run: Dict[str, Any]) -> Tuple[int, int, str, int]:
+    return (
+        _integer_field(run, "run_number"),
+        _integer_field(run, "run_attempt"),
+        str(run.get("created_at") or ""),
+        _integer_field(run, "id"),
+    )
+
+
+def newest_run(runs: Iterable[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Return the run the CI gate reads among *runs*, or ``None``."""
+    return max(runs, key=_newest_key, default=None)
 
 
 __all__ = [
     "latest_run_id",
     "latest_workflow_run",
+    "newest_run",
     "resolve_token",
     "rest_get",
     "rest_post",
