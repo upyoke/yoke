@@ -138,7 +138,9 @@ def test_migration_carrier_reads_fields_nested_items_get(test_db):
         if function_id == "claims.path.list":
             return ok_response({"claims": []})
         if function_id == "items.get.run":
-            got = reads.handle_items_get(_items_get_request(item_id, ["db_mutation_profile"]))
+            got = reads.handle_items_get(
+                _items_get_request(item_id, ["db_mutation_profile"])
+            )
             payloads[target.public_ref] = got.result_payload
             return SimpleNamespace(
                 success=got.primary_success,
@@ -202,3 +204,62 @@ def test_unmapped_queued_branch_is_skipped_with_a_named_warning():
     assert len(context.notes) == 1
     assert "outside-yoke" in context.notes[0]
     assert "not a Yoke item" in context.notes[0]
+
+
+def _correction_shapes(direction, *, candidate_landed, member_landed):
+    landed_at = "2026-01-01T00:00:00Z"
+    return {
+        "YOK-200": {
+            "merged_at": landed_at if candidate_landed else "",
+            "dependencies": [
+                {
+                    "direction": direction,
+                    "other_item": "YOK-150",
+                    "gate_point": "activation",
+                }
+            ],
+        },
+        "YOK-150": {"merged_at": landed_at if member_landed else ""},
+    }
+
+
+def _verdict(shapes):
+    dispatch = dispatch_for(shapes)
+    candidate, err = candidate_shape(dispatch, "YOK-200")
+    assert err is None
+    context, ctx_err = train_context(dispatch, "YOK-200", ("YOK-150",), "yoke")
+    assert ctx_err is None
+    return candidate, evaluate_admission(candidate, context)
+
+
+def test_same_item_correction_admits_beside_its_queued_dependent():
+    candidate, verdict = _verdict(
+        _correction_shapes("blocks", candidate_landed=True, member_landed=False)
+    )
+    assert candidate.landed
+    assert verdict.admit
+
+
+def test_correction_beside_a_landed_predecessor_correction_admits():
+    _candidate, verdict = _verdict(
+        _correction_shapes("depends-on", candidate_landed=True, member_landed=True)
+    )
+    assert verdict.admit
+
+
+def test_cross_item_ordering_conflict_still_refuses_with_named_reason():
+    candidate, verdict = _verdict(
+        _correction_shapes("depends-on", candidate_landed=False, member_landed=False)
+    )
+    assert not candidate.landed
+    assert not verdict.admit
+    assert verdict.reason == REFUSE_SERIAL_ORDERING
+    assert verdict.conflicting_members == ("YOK-150",)
+    assert "has not landed" in verdict.narrative()
+
+
+def test_unrecognized_dependency_direction_refuses_admission_by_name():
+    shapes = _correction_shapes("sideways", candidate_landed=True, member_landed=True)
+    context, err = train_context(dispatch_for(shapes), "YOK-200", ("YOK-150",), "yoke")
+    assert context is None
+    assert "unrecognized direction 'sideways'" in err
