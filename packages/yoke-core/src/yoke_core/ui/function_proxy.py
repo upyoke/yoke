@@ -224,10 +224,19 @@ def proxy_function_call(
         FunctionCallRequest,
         TargetRef,
     )
+    from yoke_core.api.browser_envelope import browser_payload_refusal
+    from yoke_core.api.function_call_status import (
+        exception_response,
+        status_for_response,
+    )
     from yoke_core.domain.yoke_function_dispatch import dispatch
     from yoke_core.ui.proxy_transport import relay_call, relays_to_server
 
     function_id = str(envelope.get("function") or "")
+    refusal = browser_payload_refusal(envelope)
+    if refusal is not None:
+        body = refusal.model_dump(mode="json")
+        return body, status_for_response(body)
     is_mutation = function_id in UI_MUTATION_FUNCTION_ALLOWLIST
     if function_id not in UI_READ_FUNCTION_ALLOWLIST and not is_mutation:
         return (
@@ -297,42 +306,35 @@ def proxy_function_call(
             {"error": {"code": "target_invalid", "message": str(exc)}},
             422,
         )
-    payload = with_web_form_sender_surface(function_id, envelope.get("payload") or {})
-    if relayed:
-        # The envelope's own actor and session fields never travel: the
-        # relay's credential is the identity, and this process adds none.
-        response = relay_call(
-            function_id=function_id,
+    try:
+        payload = with_web_form_sender_surface(function_id, envelope.get("payload", {}))
+        if relayed:
+            # The envelope's own actor and session fields never travel: the
+            # relay's credential is the identity, and this process adds none.
+            response = relay_call(
+                function_id=function_id,
+                target=target,
+                payload=payload,
+                options=dict(envelope.get("options") or {}),
+                request_id=str(envelope.get("request_id") or uuid.uuid4()),
+            )
+            return response.model_dump(mode="json"), 200
+        request = FunctionCallRequest(
+            function=function_id,
+            # Only the server-resolved operator may supply browser identity.
+            actor=ActorContext(actor_id=operator_actor_id, session_id=""),
             target=target,
+            request_id=str(envelope.get("request_id") or uuid.uuid4()),
             payload=payload,
             options=dict(envelope.get("options") or {}),
-            request_id=str(envelope.get("request_id") or uuid.uuid4()),
         )
+        # Browser provenance stays process-local; ambient harness lookup is disabled.
+        with ui_browser_origin():
+            response = dispatch(request, ambient_session_id="")
         return response.model_dump(mode="json"), 200
-    request = FunctionCallRequest(
-        function=function_id,
-        # No harness session exists in a browser: the empty session id
-        # (with ambient resolution pinned off below) is the anonymous
-        # local identity, same as an unbound CLI read. Only the
-        # server-resolved operator actor may fill actor_id.
-        actor=ActorContext(actor_id=operator_actor_id, session_id=""),
-        target=target,
-        request_id=str(envelope.get("request_id") or uuid.uuid4()),
-        payload=payload,
-        options=dict(envelope.get("options") or {}),
-    )
-    # ambient_session_id="" (never None): the browser's identity lives
-    # client-side, so the dispatcher must not resolve the SERVER
-    # process's env/ancestry into a session.
-    #
-    # The origin mark is set HERE, around the dispatch, rather than put in
-    # the envelope: a gate that may only be answered by a person at a
-    # browser cannot read that fact off fields the caller wrote. It is
-    # process-local and never crosses a wire, so a relayed call and a
-    # session-less call on a machine API token both arrive without it.
-    with ui_browser_origin():
-        response = dispatch(request, ambient_session_id="")
-    return response.model_dump(mode="json"), 200
+    except Exception as exc:
+        body = exception_response(envelope, exc).model_dump(mode="json")
+        return body, status_for_response(body)
 
 
 __all__ = [

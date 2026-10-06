@@ -19,6 +19,12 @@ Private on your machine. No signup. One human, as many agents as you want.
 Portable: `yoke universe export` dumps the universe; import it later into
 self-hosted or another local machine.
 
+Local browser function calls to `POST /api/functions/call` require an object
+in `payload`, just like the self-hosted workbench. Omit it or send `{}` for
+an empty payload. `null`, lists (including key/value pairs), strings, numbers,
+and booleans receive HTTP 422 `envelope_invalid` with recovery text before
+dispatch.
+
 ## Yoke Cloud
 
 Hosted core at upyoke.com. Collaborate from the web dashboard.

@@ -29,6 +29,7 @@ from yoke_contracts.session_control.sender_surface import (
     with_web_form_sender_surface,
 )
 from yoke_contracts.ui_browser_origin import ui_browser_origin
+from yoke_core.api.browser_envelope import browser_payload_refusal
 from yoke_core.api.function_call_status import (
     exception_response,
     status_for_response,
@@ -59,21 +60,8 @@ def call_function_as_web_session(
     web: WebSessionAuthContext,
 ) -> JSONResponse:
     """Dispatch one browser envelope as the web session's actor."""
-    if not isinstance(envelope.get("payload", {}), dict):
-        refusal = FunctionCallResponse(
-            success=False,
-            function=str(envelope.get("function") or ""),
-            version=str(envelope.get("version") or "v1"),
-            request_id=(
-                str(envelope["request_id"])
-                if envelope.get("request_id") is not None
-                else None
-            ),
-            error=FunctionError(
-                code="envelope_invalid",
-                message="payload must be a JSON object; send payload: {} for an empty payload",
-            ),
-        )
+    refusal = browser_payload_refusal(envelope)
+    if refusal is not None:
         body = refusal.model_dump()
         return JSONResponse(content=body, status_code=status_for_response(body))
     bound = envelope

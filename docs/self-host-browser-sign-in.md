@@ -69,9 +69,12 @@ Restart with `yoke self-host init --dir PATH --protect-existing --start` after
 editing `.env`. If `collector_https_required` appears, check the configured
 peer address and proxy headers, then restart with that command.
 
-Browser function calls require a JSON object in `payload`; use `{}` for
+Local and self-hosted browser function calls share payload validation.
+They require a JSON object in `payload`; use `{}` for
 an empty payload. Other shapes receive HTTP 422 with `envelope_invalid`
-and a recovery message before the function is dispatched.
+and a recovery message before the function is dispatched. This includes
+`null`, lists (even lists of key/value pairs), strings, numbers, and booleans.
+Omitting `payload` supplies an empty object.
 
 The workbench, its `/assets/` roster, and `/served-build` (the commit the
 server serves, read by browser QA) are served at the server's site root,
