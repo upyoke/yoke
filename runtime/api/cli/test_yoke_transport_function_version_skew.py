@@ -299,3 +299,11 @@ class TestLocalFunctionIds:
     def test_registry_ids_are_resolvable(self):
         assert SERVED_LOCALLY in function_version_skew.local_function_ids()
         assert "missing.family.op" not in function_version_skew.local_function_ids()
+
+    def test_floored_ids_a_command_calls_internally_are_resolvable(self):
+        from yoke_contracts.function_serving_floors import (
+            FUNCTION_MINIMUM_SERVING_VERSIONS,
+        )
+
+        assert "packs.bundle.render" in FUNCTION_MINIMUM_SERVING_VERSIONS
+        assert "packs.bundle.render" in function_version_skew.local_function_ids()

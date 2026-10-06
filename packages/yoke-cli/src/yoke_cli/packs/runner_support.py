@@ -59,11 +59,10 @@ def _call(
         timeout_s=60,
     )
     if not response.success:
-        message = (
-            f"{response.error.code}: {response.error.message}"
-            if response.error
-            else f"{function_id} failed"
-        )
+        error = response.error
+        message = f"{error.code}: {error.message}" if error else f"{function_id} failed"
+        if error is not None and error.recovery_hint:
+            message = f"{message}\nrecovery: {error.recovery_hint}"
         raise PackClientError(message)
     if not isinstance(response.result, dict):
         raise PackClientError(f"{function_id} returned no result object")
