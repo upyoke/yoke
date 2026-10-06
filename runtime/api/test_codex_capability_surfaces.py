@@ -88,7 +88,9 @@ def test_hook_parity_map_matches_codex_shared_registry_summary():
     assert "four downstream paths" not in text
 
 
-def test_command_references_teach_implement_and_internal_advance():
+def test_command_references_teach_implement_and_retire_advance():
+    skill = SKILLS_BY_ID["implement"]
+    assert "PREFIX-N" in skill.arguments
     for rel_path in (
         ".yoke/docs/reference/commands.md",
         ".agents/skills/yoke/SKILL.md",
@@ -97,7 +99,9 @@ def test_command_references_teach_implement_and_internal_advance():
         text = _read(rel_path)
         # These files ship verbatim into target projects, so they teach the
         # generic ``PREFIX-N`` placeholder rather than this repo's item prefix.
-        assert "/yoke implement PREFIX-N" in text
+        assert skill.entrypoint in text
+        if rel_path != ".agents/skills/yoke/SKILL.md":
+            assert skill.display in text
         assert "/yoke " + "advance PREFIX-N implementation" not in text
         assert "other than `implementation`" not in text
         assert "advance targets other than implementation" not in text
