@@ -4,13 +4,12 @@ Strategy document writes: read the selected command’s `--help` for required fi
 
 ## 1. Parse Arguments
 
-Extract `--no-new-items`, optional `PREFIX-N` scope IDs, `--lane`, and `--model` from the user prompt. Apply defaults:
+Extract `--no-new-items`, optional `PREFIX-N` scope IDs, and `--model` from the user prompt. Apply defaults:
 
 ```
 _no_new_items = true if --no-new-items present, false otherwise
 _scope_ids = ordered list of explicit PREFIX-N ids from the prompt (may be empty)
 _scope_mode = "scoped" if _scope_ids is non-empty, else "frontier"
-_lane = provided --lane value, or "DARIUS"
 _model = provided --model value, or "" (empty = use session default)
 _mode = "no-new-items" if _no_new_items, else "default"
 ```
@@ -69,7 +68,7 @@ yoke events emit \
  --severity STATUS \
  --outcome started \
  --project "${_project}" \
- --context "{\"lane\":\"${_lane}\",\"model\":\"${_model}\",\"mode\":\"${_mode}\"}"
+ --context "{\"model\":\"${_model}\",\"mode\":\"${_mode}\"}"
 ```
 
 ## 3. Stage Dispatch

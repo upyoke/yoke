@@ -21,7 +21,6 @@ Emit the `FeedCompleted` event and print the operator-facing summary. This is th
 - **`_conflicts`**: List of feed-vs-manual edge conflicts with resolution notes (from the Reconcile stage)
 - **`_reconcile_errors`**: List of errors from reconciliation (from the Reconcile stage, should be empty)
 - **`_no_new_items`**: Boolean flag (from argument parsing)
-- **`_lane`**: Execution lane identity (from argument parsing)
 - **`_model`**: Model identifier (from argument parsing)
 - **Recent landed change report**: Summary of what recently landed and what it changed (from the Gather stage)
 
