@@ -98,23 +98,60 @@ def command_has_suppression_token(command_text: str) -> bool:
     return SUPPRESSION_TOKEN in command_text
 
 
+def _routable_skill(skill_id: str) -> str:
+    """Return the skill a denial may name.
+
+    The retired implementation skill is not a recovery: the entry that
+    replaced it is what a pinned definition still naming the old id means.
+    """
+    if skill_id == "advance":
+        return "implement"
+    return skill_id
+
+
+def _recovery_lines(item_id: int, status: str, public_ref: str) -> list[str]:
+    """Name the live skill and the declared next stage, when both resolve."""
+    from yoke_core.domain import db_helpers
+    from yoke_core.domain.lint_session_cwd_item_lookup import lookup_item_workflow
+
+    lines = [
+        "Re-enter the skill bound at the item's live stage "
+        f"(`yoke workflows item get {public_ref}` names it).",
+    ]
+    try:
+        with db_helpers.connect() as conn:
+            workflow = lookup_item_workflow(conn, int(item_id))
+    except Exception:
+        workflow = None
+    if workflow is None:
+        return lines
+    try:
+        skill = workflow.skill_for_stage(status)
+    except Exception:
+        skill = None
+    if skill:
+        lines.append(f"    /yoke {_routable_skill(skill)} {public_ref}")
+    next_stage = workflow.next_stage_id(status)
+    if next_stage:
+        lines.append(
+            f"    yoke lifecycle transition {public_ref} --to {next_stage} "
+            "--reason TEXT"
+        )
+    return lines
+
+
 def build_denial_message(item_id: int, status: str) -> str:
-    """Render the denial message body."""
+    """Render the denial message body from the item's live binding."""
     from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
     public_ref = item_ref_for_id(int(item_id))
+    recovery = "\n".join(_recovery_lines(int(item_id), status, public_ref))
     return (
         f"BLOCKED: worktree write while item is in pre-implementing status.\n\n"
         f"{public_ref} is at status='{status}'. Worktree-bound writes "
-        f"require the item to be in an implementing-class status "
-        f"(implementing, reviewing-implementation, polishing-implementation).\n\n"
-        f"The most likely cause: the skill that acquired the work claim "
-        f"and created the worktree never transitioned the item into "
-        f"implementing. Re-enter the skill bound at the item's live stage "
-        f"(`yoke workflows item get {public_ref}` names it; for an issue "
-        f"that is `/yoke implement {public_ref}`), or transition directly:\n"
-        f"    yoke lifecycle transition {public_ref} --to implementing "
-        f"--reason TEXT"
+        f"require the item to have entered the implementation segment "
+        f"its workflow binds.\n\n"
+        f"{recovery}"
     )
 
 

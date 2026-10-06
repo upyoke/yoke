@@ -52,7 +52,9 @@ class TestDbRouterSignatures:
         assert match_read_only_signature(command) == want_signature
 
     def test_db_router_update_does_not_classify_as_read_only(self):
-        cmd = "python3 -m yoke_core.cli.db_router items update YOK-1 status implementing"
+        cmd = (
+            "python3 -m yoke_core.cli.db_router items update YOK-1 status implementing"
+        )
         assert match_read_only_signature(cmd) is None
 
 
@@ -82,9 +84,7 @@ class TestServiceClientSignatures:
             ),
         ],
     )
-    def test_service_client_read_only_commands_classify(
-        self, command, want_signature
-    ):
+    def test_service_client_read_only_commands_classify(self, command, want_signature):
         assert match_read_only_signature(command) == want_signature
 
     def test_service_client_mutation_command_does_not_classify(self):
@@ -95,16 +95,11 @@ class TestServiceClientSignatures:
 class TestHarnessSessionsSignatures:
     def test_who_claims_classifies(self):
         cmd = "python3 -m yoke_core.hooks.sessions_cli who-claims YOK-1"
-        assert (
-            match_read_only_signature(cmd)
-            == "harness_sessions-who-claims"
-        )
+        assert match_read_only_signature(cmd) == "harness_sessions-who-claims"
 
     def test_help_classifies(self):
         assert (
-            match_read_only_signature(
-                "python3 -m yoke_core.hooks.sessions_cli --help"
-            )
+            match_read_only_signature("python3 -m yoke_core.hooks.sessions_cli --help")
             == "harness_sessions-help"
         )
 
@@ -129,17 +124,11 @@ class TestGitSignatures:
         assert match_read_only_signature(command) == want_signature
 
     def test_git_with_dash_C_classifies_read_verb(self):
-        assert (
-            match_read_only_signature("git -C /some/path status")
-            == "git-status"
-        )
+        assert match_read_only_signature("git -C /some/path status") == "git-status"
 
     def test_git_with_git_dir_classifies_read_verb(self):
         assert (
-            match_read_only_signature(
-                "git --git-dir=/some/.git status"
-            )
-            == "git-status"
+            match_read_only_signature("git --git-dir=/some/.git status") == "git-status"
         )
 
     def test_git_mutation_does_not_classify(self):
@@ -162,8 +151,11 @@ class TestSingleArgReadSignatures:
     def test_single_path_read_classifies(self, command, want_signature):
         assert match_read_only_signature(command) == want_signature
 
-    def test_multi_arg_cat_does_not_classify(self):
-        assert match_read_only_signature("cat /tmp/a /tmp/b") is None
+    def test_multi_arg_cat_is_still_a_read(self):
+        assert match_read_only_signature("cat /tmp/a /tmp/b") == "cat-read"
+
+    def test_cat_redirect_does_not_classify(self):
+        assert match_read_only_signature("cat /tmp/a > /tmp/b") is None
 
 
 class TestSedReadSignatures:
@@ -194,28 +186,16 @@ class TestGrepLikeSignatures:
 
 class TestCompoundCommands:
     def test_all_read_pipe_classifies(self):
-        assert (
-            match_read_only_signature("git status | head -1")
-            == "compound-read"
-        )
+        assert match_read_only_signature("git status | head -1") == "compound-read"
 
     def test_all_read_semicolon_classifies(self):
-        assert (
-            match_read_only_signature("git status; git log")
-            == "compound-read"
-        )
+        assert match_read_only_signature("git status; git log") == "compound-read"
 
     def test_and_with_mutation_does_not_classify(self):
-        assert (
-            match_read_only_signature("git status && pytest")
-            is None
-        )
+        assert match_read_only_signature("git status && pytest") is None
 
     def test_or_with_unclassified_does_not_classify(self):
-        assert (
-            match_read_only_signature("git status || true")
-            is None
-        )
+        assert match_read_only_signature("git status || true") is None
 
 
 class TestNonReadOnlyCommands:
@@ -232,25 +212,19 @@ class TestNonReadOnlyCommands:
 
     def test_arbitrary_python_does_not_classify(self):
         assert (
-            match_read_only_signature(
-                "python3 -m yoke_core.domain.foo do-something"
-            )
+            match_read_only_signature("python3 -m yoke_core.domain.foo do-something")
             is None
         )
 
     def test_arbitrary_python_with_help_classifies(self):
         # --help on any python -m module is read-only by definition.
         assert (
-            match_read_only_signature(
-                "python3 -m yoke_core.domain.foo --help"
-            )
+            match_read_only_signature("python3 -m yoke_core.domain.foo --help")
             == "python-yoke_core.domain.foo-help"
         )
 
     def test_yoke_help_classifies(self):
-        assert match_read_only_signature("yoke sessions touch --help") == (
-            "yoke-help"
-        )
+        assert match_read_only_signature("yoke sessions touch --help") == ("yoke-help")
 
     def test_find_classifies(self):
         assert match_read_only_signature("find src -name '*.py'") == "find"
@@ -285,7 +259,6 @@ class TestEdgeCases:
 
     def test_pythonhome_override_disqualifies_read_only_classification(self):
         cmd = (
-            "PYTHONHOME=/elsewhere python3 -m "
-            "yoke_core.cli.db_router query 'SELECT 1'"
+            "PYTHONHOME=/elsewhere python3 -m yoke_core.cli.db_router query 'SELECT 1'"
         )
         assert match_read_only_signature(cmd) is None

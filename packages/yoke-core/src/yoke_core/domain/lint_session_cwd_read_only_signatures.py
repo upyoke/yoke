@@ -1,19 +1,9 @@
-"""Classify a Bash command body as a read-only / self-orientation call.
-The session-cwd lint denies tool calls whose target paths fall outside
-the session's claim authority. When ``extract_payload_targets`` finds
-no extractable target the lint historically fell back to denying based
-on the harness cwd alone, which over-denies read-only orientation
-calls (``db_router query``, ``service_client --help``,
-``harness_sessions who-claims``, etc.) that touch no specific file.
+"""Classify a Bash command as a read-only orientation call.
 
-This module is the single-responsibility classifier: given a Bash
-command body, return the matched read-only signature (a short label) or
-``None`` if the command does not match any read-only shape. The caller
-(:mod:`lint_session_cwd`) short-circuits the cwd-fallback deny path and
-emits ``SessionCwdMismatchAllowedReadOnly`` when a signature matches.
-
-Adding a new signature here is the operator-facing extension point —
-keep regexes tight and label them descriptively for actionable events."""
+Returns a short signature label, or ``None`` when the command is not a
+known read. The session-cwd lint uses that label to skip the cwd-fallback
+deny for calls that touch no file.
+"""
 
 from __future__ import annotations
 
@@ -103,10 +93,20 @@ def _classify_harness_sessions(args: List[str]) -> Optional[str]:
 _GIT_VALUE_FLAGS = frozenset({"-C", "--git-dir", "--work-tree"})
 # Subcommands that only ever report: no argument turns one of these into a
 # repository mutation.
-GIT_INSPECTION_SUBS = frozenset({
-    "status", "log", "diff", "show", "rev-parse", "describe",
-    "ls-files", "ls-tree", "blame", "shortlog",
-})
+GIT_INSPECTION_SUBS = frozenset(
+    {
+        "status",
+        "log",
+        "diff",
+        "show",
+        "rev-parse",
+        "describe",
+        "ls-files",
+        "ls-tree",
+        "blame",
+        "shortlog",
+    }
+)
 # Subcommands that report when given no positional and write when given
 # one (``git branch <name>``, ``git config <key> <value>``), so callers
 # that need a can-never-write guarantee must check the argument shape.
@@ -194,13 +194,12 @@ def _classify_stdout_reporter(tokens: List[str]) -> Optional[str]:
 
 
 def _classify_single_arg_read(tokens: List[str]) -> Optional[str]:
-    """``wc -l <path>`` / ``ls <path>`` / ``cat <path>`` — single positional path."""
+    """File readers. Extra paths are still reads; a redirect is a write."""
     if not tokens or tokens[0] not in _SINGLE_ARG_READ_ONLY:
         return None
-    positional = [t for t in tokens[1:] if not t.startswith("-")]
-    if len(positional) <= 1:
-        return f"{tokens[0]}-read"
-    return None
+    if _tokens_have_file_redirect(tokens):
+        return None
+    return f"{tokens[0]}-read"
 
 
 def _classify_sed_read(tokens: List[str]) -> Optional[str]:
@@ -326,6 +325,7 @@ def match_read_only_signature(command: str) -> Optional[str]:
         return None
     if _has_compound_separator(command):
         from yoke_core.domain.path_claim_bash_splitter import split_pipeline
+
         segments = [part for part in split_pipeline(command) if part.strip()]
         if len(segments) == 1:
             return _match_simple(segments[0])

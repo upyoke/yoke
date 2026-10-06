@@ -57,6 +57,16 @@ def _seed(
     seed_item_claim(conn, "sid-1", item_id)
 
 
+def _call(tool_name, tool_input):
+    return lint_session_cwd.evaluate_pre_tool_use(
+        {
+            "session_id": "sid-1",
+            "tool_name": tool_name,
+            "tool_input": tool_input,
+        }
+    )
+
+
 @pytest.fixture
 def silenced_emit(monkeypatch):
     captured = []
@@ -75,26 +85,28 @@ def silenced_emit(monkeypatch):
 @pytest.fixture
 def deny_mode(monkeypatch):
     monkeypatch.setattr(
-        lint_session_cwd_pre_implementing, "read_mode", lambda: "deny",
+        lint_session_cwd_pre_implementing,
+        "read_mode",
+        lambda: "deny",
     )
 
 
 @pytest.fixture
 def warn_mode(monkeypatch):
     monkeypatch.setattr(
-        lint_session_cwd_pre_implementing, "read_mode", lambda: "warn",
+        lint_session_cwd_pre_implementing,
+        "read_mode",
+        lambda: "warn",
     )
-
-
-# ---------------------------------------------------------------------------
-# Pre-implementing status + worktree write → denied
-# Implementing-class + worktree write → allowed
-# ---------------------------------------------------------------------------
 
 
 class TestPreImplementingDenied:
     def test_refined_idea_status_denies_worktree_write(
-        self, conn, repo, deny_mode, silenced_emit,
+        self,
+        conn,
+        repo,
+        deny_mode,
+        silenced_emit,
     ):
         _seed(conn, repo, item_id=9001, status="refined-idea")
         wt = repo / ".worktrees" / "YOK-9001"
@@ -103,10 +115,7 @@ class TestPreImplementingDenied:
         target.parent.mkdir(parents=True)
         target.write_text("# stub")
 
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": "sid-1",
-            "tool_input": {"file_path": str(target)},
-        })
+        verdict = _call("Write", {"file_path": str(target)})
 
         assert verdict.allow is False
         assert verdict.failure_class == "pre_implementing_status"
@@ -120,6 +129,7 @@ class TestPreImplementingDenied:
         assert "refined-idea" in verdict.reason
         assert "/yoke implement YOK-9001" in verdict.reason
         assert "yoke lifecycle transition YOK-9001 --to implementing" in verdict.reason
+        assert "advance" not in verdict.reason
         assert len(silenced_emit) == 1
         emitted = silenced_emit[0]
         assert emitted["outcome"] == "blocked"
@@ -159,10 +169,7 @@ class TestPreImplementingDenied:
         target = wt / "any.py"
         target.write_text("# stub")
 
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": "sid-1",
-            "tool_input": {"file_path": str(target)},
-        })
+        verdict = _call("Write", {"file_path": str(target)})
 
         assert verdict.allow is False
         assert verdict.failure_class == "pre_implementing_status"
@@ -172,11 +179,15 @@ class TestPreImplementingDenied:
 class TestImplementingClassAllowed:
     @pytest.mark.parametrize(
         "status",
-        ["implementing", "reviewing-implementation",
-         "polishing-implementation"],
+        ["implementing", "reviewing-implementation", "polishing-implementation"],
     )
     def test_implementing_class_allows_worktree_write(
-        self, conn, repo, deny_mode, silenced_emit, status,
+        self,
+        conn,
+        repo,
+        deny_mode,
+        silenced_emit,
+        status,
     ):
         _seed(conn, repo, item_id=9001, status=status)
         wt = repo / ".worktrees" / "YOK-9001"
@@ -184,24 +195,19 @@ class TestImplementingClassAllowed:
         target = wt / "any.py"
         target.write_text("# stub")
 
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": "sid-1",
-            "tool_input": {"file_path": str(target)},
-        })
+        verdict = _call("Write", {"file_path": str(target)})
 
         assert verdict.allow is True
-        # No deny payload, no audit event for the happy path.
         assert silenced_emit == []
-
-
-# ---------------------------------------------------------------------------
-# Main control-plane + free-path writes are unaffected
-# ---------------------------------------------------------------------------
 
 
 class TestStatusGateScope:
     def test_control_plane_write_unaffected_by_status(
-        self, conn, repo, deny_mode, silenced_emit,
+        self,
+        conn,
+        repo,
+        deny_mode,
+        silenced_emit,
     ):
         _seed(conn, repo, item_id=9001, status="refined-idea")
         (repo / ".worktrees" / "YOK-9001").mkdir(parents=True)
@@ -209,37 +215,34 @@ class TestStatusGateScope:
         target.parent.mkdir(parents=True)
         target.write_text("# stub")
 
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": "sid-1",
-            "tool_input": {"file_path": str(target)},
-        })
+        verdict = _call("Write", {"file_path": str(target)})
 
         assert verdict.allow is True
         assert silenced_emit == []
 
     def test_free_path_write_unaffected_by_status(
-        self, conn, repo, deny_mode, silenced_emit,
+        self,
+        conn,
+        repo,
+        deny_mode,
+        silenced_emit,
     ):
         _seed(conn, repo, item_id=9001, status="refined-idea")
         (repo / ".worktrees" / "YOK-9001").mkdir(parents=True)
 
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": "sid-1",
-            "tool_input": {"file_path": "/tmp/yoke-cmd.txt"},
-        })
+        verdict = _call("Write", {"file_path": "/tmp/yoke-cmd.txt"})
 
         assert verdict.allow is True
         assert silenced_emit == []
 
 
-# ---------------------------------------------------------------------------
-# Mode pinned by machine config (warn vs deny)
-# ---------------------------------------------------------------------------
-
-
 class TestWarnMode:
     def test_warn_mode_records_audit_and_allows(
-        self, conn, repo, warn_mode, silenced_emit,
+        self,
+        conn,
+        repo,
+        warn_mode,
+        silenced_emit,
     ):
         _seed(conn, repo, item_id=9001, status="refined-idea")
         wt = repo / ".worktrees" / "YOK-9001"
@@ -247,28 +250,22 @@ class TestWarnMode:
         target = wt / "any.py"
         target.write_text("# stub")
 
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": "sid-1",
-            "tool_input": {"file_path": str(target)},
-        })
+        verdict = _call("Write", {"file_path": str(target)})
 
-        # Warn mode does NOT block.
         assert verdict.allow is True
         assert verdict.mode == "warn"
-        # Audit event still emitted with outcome=warn.
         assert len(silenced_emit) == 1
         assert silenced_emit[0]["outcome"] == "warn"
         assert silenced_emit[0]["status"] == "refined-idea"
 
 
-# ---------------------------------------------------------------------------
-# Suppression token is audit-only; the rule still denies.
-# ---------------------------------------------------------------------------
-
-
 class TestSuppressionToken:
     def test_suppression_token_does_not_unblock(
-        self, conn, repo, deny_mode, silenced_emit,
+        self,
+        conn,
+        repo,
+        deny_mode,
+        silenced_emit,
     ):
         _seed(conn, repo, item_id=9001, status="refined-idea")
         wt = repo / ".worktrees" / "YOK-9001"
@@ -276,43 +273,38 @@ class TestSuppressionToken:
 
         token = lint_session_cwd_status.SUPPRESSION_TOKEN
         command = f"cat > {wt}/notes.py  {token}"
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": "sid-1",
-            "tool_input": {"command": command},
-        })
+        verdict = _call("Bash", {"command": command})
 
-        # Deny still fires.
         assert verdict.allow is False
         assert verdict.suppression_attempted is True
-        # Audit event distinguishes "suppression attempted".
         assert len(silenced_emit) == 1
         assert silenced_emit[0]["outcome"] == "suppression_attempted"
 
     def test_command_without_token_records_blocked(
-        self, conn, repo, deny_mode, silenced_emit,
+        self,
+        conn,
+        repo,
+        deny_mode,
+        silenced_emit,
     ):
         _seed(conn, repo, item_id=9001, status="refined-idea")
         wt = repo / ".worktrees" / "YOK-9001"
         wt.mkdir(parents=True)
 
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": "sid-1",
-            "tool_input": {"command": f"echo hi > {wt}/notes.py"},
-        })
+        verdict = _call("Bash", {"command": f"echo hi > {wt}/notes.py"})
 
         assert verdict.allow is False
         assert verdict.suppression_attempted is False
         assert silenced_emit[0]["outcome"] == "blocked"
 
 
-# ---------------------------------------------------------------------------
-# Audit-event context payload coverage
-# ---------------------------------------------------------------------------
-
-
 class TestAuditPayload:
     def test_audit_event_carries_required_fields(
-        self, conn, repo, deny_mode, silenced_emit,
+        self,
+        conn,
+        repo,
+        deny_mode,
+        silenced_emit,
     ):
         _seed(conn, repo, item_id=9001, status="refined-idea")
         wt = repo / ".worktrees" / "YOK-9001"
@@ -320,14 +312,10 @@ class TestAuditPayload:
         target = wt / "any.py"
         target.write_text("# stub")
 
-        lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": "sid-1",
-            "tool_input": {"file_path": str(target)},
-        })
+        _call("Write", {"file_path": str(target)})
 
         assert len(silenced_emit) == 1
         kwargs = silenced_emit[0]
-        # All five required context fields are present.
         assert kwargs["session_id"] == "sid-1"
         assert kwargs["item_id"] == 9001
         assert kwargs["status"] == "refined-idea"

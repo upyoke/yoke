@@ -88,7 +88,7 @@ tail -80 <raw-capture>          # the capture a watcher prints, once it exits
 ### Bash tool calls
 - **Each call is its own subshell** — vars and exports do not persist. **Sticky cwd is surprising:** on Claude Code and Desktop a `cd` inside a declared working dir silently carries into the next call, and parallel calls share that sticky cwd. So inline absolute paths in every command and prefer `git -C <abs>`.
 - **Write authority is the session's active `work_claims`:** targets land under a claimed worktree, the main control plane (repo root excluding `.worktrees/`), or the free-path allowlist (`/tmp`, `/var/folders/...`); a read-shaped call may also name material in the operator's home.
-- **Another item's live lane accepts read-only Git inspection and nothing else** — one plain read-verb `git -C <lane> ...`, no redirection, chaining, write, state move, or non-Git read of that tree. Read its content with `git -C <main-checkout> show <rev>:<path>`. Allowed verbs, suppression tokens, failure classes, privacy-database refusal: `lanes-and-claims.md`.
+- **Another item's live lane accepts reads and refuses writes** — `cat`, the Read tool, and one plain read-verb `git -C <lane> ...` may name that lane. A write, redirect, chain, or git state move is refused. Suppression tokens, failure classes, privacy-database refusal: `lanes-and-claims.md`.
 - **zsh:** capture with `$()` before piping, single-quote literal `rg`/`grep` patterns, and put `rg` options before the pattern and paths. **Never pass an unmatched path glob** to zsh — enumerate with `rg --files` or quote a pattern the tool consumes. `python3`, never `python`. Remaining hazards — reserved names, `mktemp` templates, URL quoting — are in `code-and-cli.md`.
 
 ### `yoke` CLI

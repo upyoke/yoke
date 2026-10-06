@@ -3,12 +3,8 @@
 Authority comes from active work claims, project control planes, and free paths.
 The slim hook-policy glue lives in :mod:`lint_session_cwd`. Behaviour:
 
-* Every target, from every caller → refused when it lands inside a
-  worktree lane that a **different** live session holds. This test runs
-  before the caller's own authority is consulted and does not depend on
-  the caller holding any claim, because the sessions that cause the most
-  damage here are precisely those with no claim on the lane they are
-  writing into.
+* A write or state move into a lane another session holds is refused,
+  whether or not the caller holds a claim. Reads of that lane are allowed.
 * Read-only Git inspection of a lane → exempt from every test here.
 * Read-shaped calls to ordinary home material and sanctioned installed paths
   use the executing machine's home. Project paths, dot-directories, and every
@@ -50,7 +46,10 @@ from yoke_core.domain.lint_session_cwd_home import (
     is_external_reference_path,
     is_sanctioned_installed_read_path,
 )
-from yoke_core.domain.lint_session_cwd_foreign_lane import governed_targets
+from yoke_core.domain.lint_session_cwd_foreign_lane import (
+    governed_targets,
+    is_lane_mutation,
+)
 from yoke_core.domain.lint_session_cwd_status import (
     FAILURE_CLASS as _PRE_IMPL_FAILURE_CLASS,
     is_pre_implementing_status,
@@ -77,21 +76,11 @@ FOREIGN_LANE_FAILURE_CLASS = "foreign_lane"
 
 @dataclass(frozen=True)
 class ValidationVerdict:
-    """Outcome of validating a tool call's targets against session authority.
+    """Outcome of validating one tool call against session authority.
 
-    ``allow=True`` means no deny payload. ``offending_target`` and the
-    surrounding context fields are populated when ``allow=False`` so the
-    render layer can name the offender and the session's current
-    authority. ``failure_class`` discriminates the deny reason so the
-    render layer can pick the right message body and audit shape:
-    ``"scope_mismatch"`` for "target not under any claim authority" and
-    ``"pre_implementing_status"`` for "target is under a claimed
-    worktree but the item's status is still pre-implementing".
-    ``matched_claim`` and ``item_status`` are populated for the
-    pre-implementing case so the emit layer can name the item directly.
-    ``"foreign_lane"`` means the target is inside a worktree lane a
-    different live session holds; ``occupant`` carries that holder so
-    the render layer can name who to coordinate with.
+    ``allow=True`` means no deny payload. ``failure_class`` names the deny:
+    ``scope_mismatch``, ``pre_implementing_status``, or ``foreign_lane``.
+    The matching context fields are set on a deny.
     """
 
     allow: bool
@@ -147,11 +136,14 @@ def validate_targets(
         targets_to_check = [fallback_cwd]
 
     targets_to_check = governed_targets(targets_to_check, repo_roots, command)
-
-    # Ownership before authority. A caller with no claims, or with a
-    # claim on some other item, is exactly the shape that reaches into a
-    # lane somebody else is working in, so this test cannot sit behind
-    # either of those conditions.
+    # A read of a foreign lane is not a write, so it must not fail scope either.
+    mutation = is_lane_mutation(tool_name, command)
+    if not mutation:
+        targets_to_check = [
+            raw
+            for raw in targets_to_check
+            if occupying_claim(conn, target=raw, session_id=session_id) is None
+        ]
     for raw in targets_to_check:
         occupant = occupying_claim(conn, target=raw, session_id=session_id)
         if occupant is not None:
@@ -183,7 +175,7 @@ def validate_targets(
             # status-agnostic by design.
             status = lookup_item_status(conn, worktree_match.item_id)
             workflow = lookup_item_workflow(conn, worktree_match.item_id)
-            if is_pre_implementing_status(workflow, status):
+            if mutation and is_pre_implementing_status(workflow, status):
                 return ValidationVerdict(
                     allow=False,
                     offending_target=_resolve_for_display(raw),

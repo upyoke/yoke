@@ -273,6 +273,5 @@ class TestForeignLaneCommands:
 
         verdict = _evaluate(f"cat {lane}/README.md")
 
-        assert verdict.allow is False
-        assert f"git -C {repo} show <rev>:<path>" in verdict.reason
+        assert verdict.allow is True
         assert "Runnable command:" not in verdict.reason

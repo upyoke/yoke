@@ -1,10 +1,11 @@
 """Read-only Git inspection of a lane another session holds.
 
 A worker told to survey the neighbour it shares a file with runs ``git
-status`` / ``git diff`` against the neighbour's tree. Those reads are
-allowed; everything that writes or moves state in that lane stays
-refused, and so does a shell shape that could smuggle a write past the
-Git verb (a redirect, a chain, an ``--output`` file).
+status`` / ``git diff`` against the neighbour's tree, or reads a file
+there with ``cat`` / ``ls``. Those reads are allowed; everything that
+writes or moves state in that lane stays refused, and so does a shell
+shape that could smuggle a write past an allowed verb (a redirect, a
+chain, an ``--output`` file).
 
 The caller in the observed failure holds its OWN lane claim, so the
 allowance has to clear both halves of the policy: the ownership test
@@ -80,6 +81,11 @@ REFUSED_COMMANDS = (
     "git -C {lane} status && git -C {lane} add .",
     "git -C {lane} log --output={lane}/log.txt",
     "git -C {lane} log --output {lane}/log.txt",
+)
+
+# File readers of a held lane. They are not Git inspection, and they
+# are not writes, so the guard allows them.
+NEIGHBOUR_FILE_READS = (
     "ls {lane}",
     "cat {lane}/README.md",
 )
@@ -115,11 +121,13 @@ def _neighbouring_lanes(conn, repo):
 
 
 def _bash_verdict(command: str, *, session_id: str = NEIGHBOUR):
-    return lint_session_cwd.evaluate_pre_tool_use({
-        "session_id": session_id,
-        "tool_name": "Bash",
-        "tool_input": {"command": command},
-    })
+    return lint_session_cwd.evaluate_pre_tool_use(
+        {
+            "session_id": session_id,
+            "tool_name": "Bash",
+            "tool_input": {"command": command},
+        }
+    )
 
 
 class TestCommandClassification:
@@ -176,6 +184,18 @@ class TestNeighbourLaneInspection:
         assert verdict.allow is True
 
 
+class TestNeighbourLaneFileReads:
+    @pytest.mark.parametrize("command", NEIGHBOUR_FILE_READS)
+    def test_file_read_is_not_git_inspection(self, command):
+        assert is_read_only_git_inspection(command.format(lane="/lane")) is False
+
+    @pytest.mark.parametrize("command", NEIGHBOUR_FILE_READS)
+    def test_file_read_of_a_held_lane_is_allowed(self, conn, repo, command):
+        held, _own = _neighbouring_lanes(conn, repo)
+        verdict = _bash_verdict(command.format(lane=held))
+        assert verdict.allow is True
+
+
 class TestNeighbourLaneWritesStillRefused:
     @pytest.mark.parametrize("command", REFUSED_COMMANDS)
     def test_refused_while_holding_another_lane(self, conn, repo, command):
@@ -186,11 +206,13 @@ class TestNeighbourLaneWritesStillRefused:
 
     def test_write_tool_into_the_lane_is_refused(self, conn, repo):
         held, _own = _neighbouring_lanes(conn, repo)
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": NEIGHBOUR,
-            "tool_name": "Write",
-            "tool_input": {"file_path": str(held / "src" / "a.py")},
-        })
+        verdict = lint_session_cwd.evaluate_pre_tool_use(
+            {
+                "session_id": NEIGHBOUR,
+                "tool_name": "Write",
+                "tool_input": {"file_path": str(held / "src" / "a.py")},
+            }
+        )
         assert verdict.allow is False
         assert verdict.failure_class == FOREIGN_LANE_FAILURE_CLASS
 

@@ -1,8 +1,8 @@
 """Read-shaped lane-guard regressions: classify reads as reads.
 
-Covers the four proven false-deny shapes: a cross-lane file read must
-refuse but say read and name the main-checkout recipe (the Git-inspection
-allowance is covered in ``test_lint_session_cwd_lane_git_inspection``);
+Covers the four proven false-deny shapes: a cross-lane file read is
+allowed (the Git-inspection allowance is covered in
+``test_lint_session_cwd_lane_git_inspection``);
 ``print`` / ``printf`` operands are not write targets; installed harness
 surfaces are readable while a lane claim is held without gaining writes.
 """
@@ -22,9 +22,6 @@ from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain import lint_lane_main_write, lint_session_cwd
 from yoke_core.domain.lint_lane_main_write_classify import is_write_operation
-from yoke_core.domain.lint_session_cwd_foreign_lane import (
-    FAILURE_CLASS as FOREIGN_LANE_FAILURE_CLASS,
-)
 from yoke_core.domain.lint_session_cwd_read_only_signatures import (
     match_read_only_signature,
 )
@@ -81,39 +78,49 @@ def _seed_lane(conn, repo, *, session_id=HOLDER, item_id=HELD_ITEM):
     return lane
 
 
-class TestForeignLaneReadDenial:
-    def test_file_read_says_read_and_names_main_recipe(self, conn, repo):
+class TestForeignLaneReadsAreAllowed:
+    def test_file_read_of_a_held_lane_is_allowed(self, conn, repo):
         lane = _seed_lane(conn, repo)
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": INTRUDER,
-            "tool_name": "Bash",
-            "tool_input": {"command": f"cat {lane}/README.md"},
-        })
-        assert verdict.allow is False
-        assert verdict.failure_class == FOREIGN_LANE_FAILURE_CLASS
-        assert "Refusing a read" in verdict.reason
-        assert "Refusing a write" not in verdict.reason
-        assert f"git -C {repo} show" in verdict.reason
-        assert "Read-only Git inspection of that lane IS allowed" in verdict.reason
+        verdict = lint_session_cwd.evaluate_pre_tool_use(
+            {
+                "session_id": INTRUDER,
+                "tool_name": "Bash",
+                "tool_input": {"command": f"cat {lane}/README.md"},
+            }
+        )
+        assert verdict.allow is True
 
-    def test_ls_of_held_lane_says_read(self, conn, repo):
+    def test_two_file_cat_of_a_held_lane_is_allowed(self, conn, repo):
         lane = _seed_lane(conn, repo)
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": INTRUDER,
-            "tool_name": "Bash",
-            "tool_input": {"command": f"ls {lane}"},
-        })
-        assert verdict.allow is False
-        assert "Refusing a read" in verdict.reason
-        assert "Refusing a write" not in verdict.reason
+        verdict = lint_session_cwd.evaluate_pre_tool_use(
+            {
+                "session_id": INTRUDER,
+                "tool_name": "Bash",
+                "tool_input": {"command": f"cat {lane}/README.md {lane}/NOTES.md"},
+            }
+        )
+        assert verdict.allow is True
+
+    def test_ls_of_held_lane_is_allowed(self, conn, repo):
+        lane = _seed_lane(conn, repo)
+        verdict = lint_session_cwd.evaluate_pre_tool_use(
+            {
+                "session_id": INTRUDER,
+                "tool_name": "Bash",
+                "tool_input": {"command": f"ls {lane}"},
+            }
+        )
+        assert verdict.allow is True
 
     def test_write_into_held_lane_still_says_write(self, conn, repo):
         lane = _seed_lane(conn, repo)
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": INTRUDER,
-            "tool_name": "Write",
-            "tool_input": {"file_path": str(lane / "src" / "a.py")},
-        })
+        verdict = lint_session_cwd.evaluate_pre_tool_use(
+            {
+                "session_id": INTRUDER,
+                "tool_name": "Write",
+                "tool_input": {"file_path": str(lane / "src" / "a.py")},
+            }
+        )
         assert verdict.allow is False
         assert "Refusing a write" in verdict.reason
         assert "shared object store" not in verdict.reason
@@ -144,12 +151,14 @@ class TestPrintArgumentsAreNotWrites:
 
     def test_print_from_lane_does_not_arm_main_write(self, conn, repo):
         _seed_lane(conn, repo, session_id="sid-lane")
-        verdict = lint_lane_main_write.evaluate_pre_tool_use({
-            "session_id": "sid-lane",
-            "tool_name": "Bash",
-            "cwd": str(repo),
-            "tool_input": {"command": 'print "$_lines $_file"'},
-        })
+        verdict = lint_lane_main_write.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-lane",
+                "tool_name": "Bash",
+                "cwd": str(repo),
+                "tool_input": {"command": 'print "$_lines $_file"'},
+            }
+        )
         assert verdict.allow is True
 
 
@@ -160,32 +169,40 @@ class TestSanctionedReadPaths:
 
     def test_codex_attachment_read_allowed_with_lane_claim(self, conn, repo):
         _seed_lane(conn, repo, session_id="sid-lane")
-        target = os.path.join(os.path.expanduser("~"), ".codex", "attachments", "task.md")
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": "sid-lane",
-            "tool_name": "Read",
-            "tool_input": {"file_path": target},
-        })
+        target = os.path.join(
+            os.path.expanduser("~"), ".codex", "attachments", "task.md"
+        )
+        verdict = lint_session_cwd.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-lane",
+                "tool_name": "Read",
+                "tool_input": {"file_path": target},
+            }
+        )
         assert verdict.allow is True
 
     def test_sed_of_codex_attachment_allowed_with_lane_claim(self, conn, repo):
         _seed_lane(conn, repo, session_id="sid-lane")
         target = os.path.expanduser("~/.codex/attachments/note.txt")
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": "sid-lane",
-            "tool_name": "Bash",
-            "tool_input": {"command": f"sed -n '1,20p' {target}"},
-        })
+        verdict = lint_session_cwd.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-lane",
+                "tool_name": "Bash",
+                "tool_input": {"command": f"sed -n '1,20p' {target}"},
+            }
+        )
         assert verdict.allow is True
 
     def test_machine_config_read_allowed_with_lane_claim(self, conn, repo):
         _seed_lane(conn, repo, session_id="sid-lane")
         target = os.path.join(os.path.expanduser("~"), ".yoke", "config.json")
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": "sid-lane",
-            "tool_name": "Read",
-            "tool_input": {"file_path": target},
-        })
+        verdict = lint_session_cwd.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-lane",
+                "tool_name": "Read",
+                "tool_input": {"file_path": target},
+            }
+        )
         assert verdict.allow is True
 
     def test_machine_secrets_still_denied_with_lane_claim(self, conn, repo):
@@ -197,68 +214,93 @@ class TestSanctionedReadPaths:
             "capability-secrets",
             "yoke",
         )
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": "sid-lane",
-            "tool_name": "Read",
-            "tool_input": {"file_path": target},
-        })
+        verdict = lint_session_cwd.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-lane",
+                "tool_name": "Read",
+                "tool_input": {"file_path": target},
+            }
+        )
         assert verdict.allow is False
 
     @pytest.mark.parametrize("target", INSTALLED_READ_TARGETS)
     def test_installed_harness_path_read_allowed_with_lane_claim(
-        self, conn, repo, target,
+        self,
+        conn,
+        repo,
+        target,
     ):
         _seed_lane(conn, repo, session_id="sid-lane")
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": "sid-lane",
-            "tool_name": "Read",
-            "tool_input": {"file_path": os.path.expanduser(target)},
-        })
+        verdict = lint_session_cwd.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-lane",
+                "tool_name": "Read",
+                "tool_input": {"file_path": os.path.expanduser(target)},
+            }
+        )
         assert verdict.allow is True
 
     def test_installed_plugin_shell_read_allowed_with_lane_claim(self, conn, repo):
         _seed_lane(conn, repo, session_id="sid-lane")
         target = os.path.expanduser(INSTALLED_READ_TARGETS[0])
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": "sid-lane",
-            "tool_name": "Bash",
-            "tool_input": {"command": f"sed -n '1,20p' {target}"},
-        })
+        verdict = lint_session_cwd.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-lane",
+                "tool_name": "Bash",
+                "tool_input": {"command": f"sed -n '1,20p' {target}"},
+            }
+        )
         assert verdict.allow is True
 
     def test_xdg_installed_launcher_read_allowed_with_lane_claim(
-        self, conn, repo, tmp_path, monkeypatch,
+        self,
+        conn,
+        repo,
+        tmp_path,
+        monkeypatch,
     ):
         _seed_lane(conn, repo, session_id="sid-lane")
         launcher = tmp_path / "xdg-bin" / "yoke"
         monkeypatch.setenv("XDG_BIN_HOME", str(launcher.parent))
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": "sid-lane",
-            "tool_name": "Read",
-            "tool_input": {"file_path": str(launcher)},
-        })
+        verdict = lint_session_cwd.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-lane",
+                "tool_name": "Read",
+                "tool_input": {"file_path": str(launcher)},
+            }
+        )
         assert verdict.allow is True
 
     @pytest.mark.parametrize("target", INSTALLED_READ_TARGETS)
     def test_installed_harness_path_write_still_denied_with_lane_claim(
-        self, conn, repo, target,
+        self,
+        conn,
+        repo,
+        target,
     ):
         _seed_lane(conn, repo, session_id="sid-lane")
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": "sid-lane",
-            "tool_name": "Write",
-            "tool_input": {"file_path": os.path.expanduser(target)},
-        })
+        verdict = lint_session_cwd.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-lane",
+                "tool_name": "Write",
+                "tool_input": {"file_path": os.path.expanduser(target)},
+            }
+        )
         assert verdict.allow is False
 
     @pytest.mark.parametrize("target", EXCLUDED_READ_TARGETS)
     def test_sensitive_or_uninstalled_harness_path_read_still_denied(
-        self, conn, repo, target,
+        self,
+        conn,
+        repo,
+        target,
     ):
         _seed_lane(conn, repo, session_id="sid-lane")
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": "sid-lane",
-            "tool_name": "Read",
-            "tool_input": {"file_path": os.path.expanduser(target)},
-        })
+        verdict = lint_session_cwd.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-lane",
+                "tool_name": "Read",
+                "tool_input": {"file_path": os.path.expanduser(target)},
+            }
+        )
         assert verdict.allow is False
