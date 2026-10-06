@@ -44,11 +44,24 @@ def test_an_unbound_in_flight_launch_reads_as_registration_in_flight(
     )
 
 
-def test_a_launch_bound_to_another_session_never_reads_as_in_flight() -> None:
-    assert (
-        _correlation("succeeded", native="other-session", registered="other-session")
-        not in LAUNCH_REGISTRATION_IN_FLIGHT
+def test_a_recheck_that_reads_bound_to_you_proceeds() -> None:
+    own = "own-session"
+    correlation = _correlation("succeeded", native=own, registered=own)
+
+    assert correlation == "matched"
+    assert correlation not in LAUNCH_REGISTRATION_IN_FLIGHT
+
+
+def test_only_the_id_comparison_tells_you_from_another_bound_session() -> None:
+    own, other = "own-session", "other-session"
+    yours = _correlation("succeeded", native=own, registered=own)
+    theirs = _correlation("succeeded", native=other, registered=other)
+
+    assert yours == theirs == "matched", (
+        "correlation alone cannot separate the two; the mandate compares ids"
     )
+    assert theirs not in LAUNCH_REGISTRATION_IN_FLIGHT
+    assert other != own
     assert (
         _correlation("failed", native=None, registered=None)
         not in LAUNCH_REGISTRATION_IN_FLIGHT

@@ -5,6 +5,14 @@ from __future__ import annotations
 from yoke_contracts.session_control.launch_bootstrap import (
     AUTOMATIC_LAUNCH_REGISTRATION_TEACHING,
 )
+from yoke_core.domain.session_launch_binding_evidence import (
+    SESSION_END_RECORDED,
+    SESSION_END_SKIP_ATTESTATION_INVALID,
+    SESSION_END_SKIP_EARLIER_REFUSAL,
+    SESSION_END_SKIP_LAUNCH_BOUND,
+    SESSION_END_SKIP_LAUNCH_CLOSED,
+    SESSION_END_SKIP_NATIVE_SESSION_MISMATCH,
+)
 from yoke_core.domain.session_launch_types import LaunchRegistrationInjection
 from yoke_core.hooks import session_launch_attestation as launch_hook
 from yoke_core.hooks.types import HookContext, Outcome
@@ -239,7 +247,7 @@ def test_session_end_names_an_unbound_launch_instead_of_binding(monkeypatch) -> 
 
     def record(conn, **kwargs):
         seen.update(kwargs)
-        return "recorded"
+        return SESSION_END_RECORDED
 
     monkeypatch.setattr(launch_hook, "prepare_launch_registration", prepare)
     monkeypatch.setattr(launch_hook, "record_session_ended_unbound", record)
@@ -260,10 +268,11 @@ def test_session_end_names_an_unbound_launch_instead_of_binding(monkeypatch) -> 
 
 def test_session_end_that_records_nothing_names_why(monkeypatch) -> None:
     for skipped in (
-        "attestation_invalid",
-        "launch_bound",
-        "launch_closed",
-        "earlier_refusal_kept",
+        SESSION_END_SKIP_ATTESTATION_INVALID,
+        SESSION_END_SKIP_EARLIER_REFUSAL,
+        SESSION_END_SKIP_LAUNCH_BOUND,
+        SESSION_END_SKIP_LAUNCH_CLOSED,
+        SESSION_END_SKIP_NATIVE_SESSION_MISMATCH,
     ):
         monkeypatch.setattr(
             launch_hook,

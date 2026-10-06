@@ -25,7 +25,6 @@ from yoke_contracts.session_control.launch_registration import (
 )
 from yoke_core.domain import json_helper
 from yoke_core.domain.session_launch_closure_evidence import closure_evidence
-from yoke_core.domain.session_launch_delivery_state import IN_FLIGHT_LAUNCH_STATES
 from yoke_core.domain.session_launch_store import (
     attestation_digest,
     begin_mutation,
@@ -142,6 +141,7 @@ def record_registration_refusal(
 SESSION_END_SKIP_ATTESTATION_INVALID = "attestation_invalid"
 SESSION_END_SKIP_LAUNCH_BOUND = "launch_bound"
 SESSION_END_SKIP_LAUNCH_CLOSED = "launch_closed"
+SESSION_END_SKIP_NATIVE_SESSION_MISMATCH = "native_session_mismatch"
 SESSION_END_SKIP_EARLIER_REFUSAL = "earlier_refusal_kept"
 SESSION_END_RECORDED = "recorded"
 
@@ -149,11 +149,11 @@ SESSION_END_RECORDED = "recorded"
 def _still_bindable(launch: LaunchRecord) -> bool:
     """Whether a registration could still bind this launch.
 
-    The same eligibility binding itself applies: an in-flight launch, or an
-    ``outcome_unknown`` one with no identity yet, which recovery adoption
-    still binds. Anything else is closed and not this native's to annotate.
+    Exactly the eligibility binding applies: a launch awaiting registration,
+    or an ``outcome_unknown`` one with no identity yet, which recovery
+    adoption still binds. Anything else is not this native's to annotate.
     """
-    if launch.state in IN_FLIGHT_LAUNCH_STATES:
+    if launch.state == "awaiting_registration":
         return True
     return (
         launch.state == "outcome_unknown"
@@ -178,9 +178,9 @@ def record_session_ended_unbound(
     the last fact that native can report, so it is written here rather than
     left for a deadline to close with nothing attached.
 
-    Only a session that proves the launch's attestation may write it, only
-    while the launch could still bind, and never over a refusal already on
-    the row: an earlier code names the more specific failure. Returns
+    Only a session that proves the launch's attestation, and is the launch's
+    native when the launch already names one, may write it, only while the
+    launch could still bind, and never over a refusal already on the row: an earlier code names the more specific failure. Returns
     ``recorded`` or the named reason nothing was written.
     """
     begin_mutation(conn)
@@ -193,6 +193,10 @@ def record_session_ended_unbound(
             outcome = SESSION_END_SKIP_ATTESTATION_INVALID
         elif str(launch.registered_session_id or "").strip():
             outcome = SESSION_END_SKIP_LAUNCH_BOUND
+        elif str(launch.native_session_id or "").strip() not in ("", session_id):
+            # The launch already names its native; another session carrying
+            # the inherited attestation is not that native's to speak for.
+            outcome = SESSION_END_SKIP_NATIVE_SESSION_MISMATCH
         elif not _still_bindable(launch):
             outcome = SESSION_END_SKIP_LAUNCH_CLOSED
         elif _recorded_refusal(launch.result_evidence):
@@ -227,4 +231,5 @@ __all__ = [
     "SESSION_END_SKIP_EARLIER_REFUSAL",
     "SESSION_END_SKIP_LAUNCH_BOUND",
     "SESSION_END_SKIP_LAUNCH_CLOSED",
+    "SESSION_END_SKIP_NATIVE_SESSION_MISMATCH",
 ]

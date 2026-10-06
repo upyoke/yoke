@@ -10,7 +10,15 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from yoke_core.domain.session_launch_binding_evidence import (
+    SESSION_END_RECORDED,
+    SESSION_END_SKIP_ATTESTATION_INVALID,
+    SESSION_END_SKIP_EARLIER_REFUSAL,
+    SESSION_END_SKIP_LAUNCH_BOUND,
+    SESSION_END_SKIP_LAUNCH_CLOSED,
+    SESSION_END_SKIP_NATIVE_SESSION_MISMATCH,
     record_registration_refusal,
     record_session_ended_unbound,
 )
@@ -98,75 +106,102 @@ def _end(conn, launch_id: str, attestation: str, session_id: str = SESSION_ID):
     )
 
 
+def _set(conn, launch_id: str, assignments: str, *values) -> None:
+    conn.execute(
+        f"UPDATE session_launches SET {assignments} WHERE launch_id=?",
+        (*values, launch_id),
+    )
+    conn.commit()
+
+
+def _awaiting_launch(conn, key: str):
+    launch, claim = _claimed_launch(conn, key)
+    _set(conn, launch.launch_id, "state='awaiting_registration'")
+    return launch, claim
+
+
 def test_session_end_names_the_launch_it_never_bound() -> None:
     conn = _connection()
-    launch, claim = _claimed_launch(conn, "ended-unbound")
-    state_before = get_launch(conn, launch.launch_id).state
+    launch, claim = _awaiting_launch(conn, "ended-unbound")
 
-    assert _end(conn, launch.launch_id, claim.attestation) == "recorded"
+    assert _end(conn, launch.launch_id, claim.attestation) == SESSION_END_RECORDED
     evidence = _evidence(conn, launch.launch_id)
     assert evidence["registration_refusal_code"] == "session_ended_unbound"
     assert evidence["registration_session_id"] == SESSION_ID
-    assert get_launch(conn, launch.launch_id).state == state_before, (
+    assert get_launch(conn, launch.launch_id).state == "awaiting_registration", (
         "a refusal is evidence, not a transition"
     )
 
 
+def test_session_end_of_the_named_native_is_recorded() -> None:
+    conn = _connection()
+    launch, claim = _awaiting_launch(conn, "ended-own-native")
+    _register_candidate(conn)
+    _set(conn, launch.launch_id, "native_session_id=?", SESSION_ID)
+
+    assert _end(conn, launch.launch_id, claim.attestation) == SESSION_END_RECORDED
+
+
+def test_session_end_of_another_session_skips_a_launch_naming_its_native() -> None:
+    conn = _connection()
+    launch, claim = _awaiting_launch(conn, "ended-other-native")
+    _register_candidate(conn)
+    _set(conn, launch.launch_id, "native_session_id=?", SESSION_ID)
+
+    assert (
+        _end(conn, launch.launch_id, claim.attestation, "inherited-attestation")
+        == SESSION_END_SKIP_NATIVE_SESSION_MISMATCH
+    )
+    assert "registration_refusal_code" not in _evidence(conn, launch.launch_id)
+
+
 def test_session_end_with_a_wrong_attestation_records_nothing() -> None:
     conn = _connection()
-    launch, _claim = _claimed_launch(conn, "ended-forged")
+    launch, _claim = _awaiting_launch(conn, "ended-forged")
 
-    assert _end(conn, launch.launch_id, "not-the-attestation") == (
-        "attestation_invalid"
+    assert (
+        _end(conn, launch.launch_id, "not-the-attestation")
+        == SESSION_END_SKIP_ATTESTATION_INVALID
     )
     assert "registration_refusal_code" not in _evidence(conn, launch.launch_id)
 
 
 def test_session_end_leaves_a_bound_launch_untouched() -> None:
     conn = _connection()
-    launch, claim = _claimed_launch(conn, "ended-bound")
+    launch, claim = _awaiting_launch(conn, "ended-bound")
     _register_candidate(conn)
-    conn.execute(
-        "UPDATE session_launches SET registered_session_id=? WHERE launch_id=?",
-        (SESSION_ID, launch.launch_id),
-    )
-    conn.commit()
+    _set(conn, launch.launch_id, "registered_session_id=?", SESSION_ID)
 
-    assert _end(conn, launch.launch_id, claim.attestation, "another") == (
-        "launch_bound"
+    assert (
+        _end(conn, launch.launch_id, claim.attestation, "another")
+        == SESSION_END_SKIP_LAUNCH_BOUND
     )
     assert "registration_refusal_code" not in _evidence(conn, launch.launch_id)
 
 
-def test_session_end_leaves_a_closed_launch_untouched() -> None:
+@pytest.mark.parametrize("state", ["launching", "cancelled", "failed"])
+def test_session_end_leaves_a_launch_binding_cannot_reach_untouched(state) -> None:
     conn = _connection()
-    launch, claim = _claimed_launch(conn, "ended-closed")
-    conn.execute(
-        "UPDATE session_launches SET state='cancelled' WHERE launch_id=?",
-        (launch.launch_id,),
-    )
-    conn.commit()
+    launch, claim = _claimed_launch(conn, f"ended-{state}")
+    _set(conn, launch.launch_id, "state=?", state)
 
-    assert _end(conn, launch.launch_id, claim.attestation) == "launch_closed"
+    assert _end(conn, launch.launch_id, claim.attestation) == (
+        SESSION_END_SKIP_LAUNCH_CLOSED
+    )
     assert "registration_refusal_code" not in _evidence(conn, launch.launch_id)
 
 
 def test_session_end_still_names_an_outcome_unknown_launch_recovery_could_bind():
     conn = _connection()
     launch, claim = _claimed_launch(conn, "ended-outcome-unknown")
-    conn.execute(
-        "UPDATE session_launches SET state='outcome_unknown', "
-        "native_session_id=NULL WHERE launch_id=?",
-        (launch.launch_id,),
-    )
-    conn.commit()
+    _set(conn, launch.launch_id, "state='outcome_unknown', native_session_id=NULL")
 
-    assert _end(conn, launch.launch_id, claim.attestation) == "recorded"
+    assert _end(conn, launch.launch_id, claim.attestation) == SESSION_END_RECORDED
 
 
 def test_session_end_keeps_an_earlier_more_specific_refusal() -> None:
     conn = _connection()
-    launch, claim = _claimed_launch(conn, "ended-earlier-refusal")
+    launch, claim = _awaiting_launch(conn, "ended-earlier-refusal")
     record_registration_refusal(
         conn,
         launch_id=launch.launch_id,
@@ -174,7 +209,10 @@ def test_session_end_keeps_an_earlier_more_specific_refusal() -> None:
         session_id=SESSION_ID,
     )
 
-    assert _end(conn, launch.launch_id, claim.attestation) == ("earlier_refusal_kept")
+    assert (
+        _end(conn, launch.launch_id, claim.attestation)
+        == SESSION_END_SKIP_EARLIER_REFUSAL
+    )
     assert (
         _evidence(conn, launch.launch_id)["registration_refusal_code"]
         == "attestation_invalid"
