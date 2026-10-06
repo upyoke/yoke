@@ -29,6 +29,7 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     _p("yoke uninstall", "uninstall", REASON_TOOL_SHAPED),
     _p("yoke dev setup", "dev", REASON_TOOL_SHAPED),
     _p("yoke dev db-admin setup", "dev", REASON_TOOL_SHAPED),
+    _p("yoke dev db-admin exec", "dev", REASON_TOOL_SHAPED),
     _p("yoke dev path-snapshot-prewarm", "dev", REASON_TOOL_SHAPED),
     _p("yoke setup", "setup", REASON_TOOL_SHAPED),
     _p("yoke onboard project", "onboard", REASON_TOOL_SHAPED),

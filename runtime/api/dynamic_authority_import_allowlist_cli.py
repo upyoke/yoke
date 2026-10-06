@@ -265,6 +265,24 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
         "local_engine_activation",
         "local-postgres aggregate renderer settings use the installed engine",
     ),
+    (
+        "packages/yoke-cli/src/yoke_cli/config/db_admin_dsn_exec.py",
+        "yoke_core.domain.deploy_remote",
+    ): ("source_dev_admin", "explicit db-admin exec aws-admin capability precheck"),
+    (
+        "packages/yoke-cli/src/yoke_cli/config/db_admin_dsn_exec.py",
+        "yoke_core.domain.connected_env_selected_readiness",
+    ): (
+        "source_dev_admin",
+        "explicit db-admin exec named-profile DSN and tunnel activation",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/config/db_admin_dsn_exec.py",
+        "yoke_core.domain.connected_env_readiness_connector",
+    ): (
+        "source_dev_admin",
+        "explicit db-admin exec refusal redaction and tunnel failure type",
+    ),
 }
 
 __all__ = ["CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS"]

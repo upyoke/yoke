@@ -3,13 +3,10 @@
 from __future__ import annotations
 
 import importlib
-import json
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
-from yoke_cli.config import machine_config
 from yoke_cli.config import machine_config_file
-from yoke_cli.config import github_machine_operation
 from yoke_cli.config import secrets as machine_secrets
 from yoke_cli.transport import dispatcher as function_dispatcher  # noqa: F401 - public test injection surface
 from yoke_cli.transport import https as https_transport  # noqa: F401 - public test injection surface
@@ -24,6 +21,12 @@ from yoke_cli.config.db_admin_control_plane import (
     _resolve_control_plane_database,
 )
 
+from yoke_cli.config.db_admin_project_database import (
+    DeclaredDatabase,
+    declared_admin_env_name,
+    read_declared_database,
+)
+from yoke_cli.config.db_admin_profile_write import _write_connection
 from yoke_cli.config.db_admin_setup_report import dumps_json, render_human, _path_ref
 
 DEFAULT_LOCAL_HOST = "127.0.0.1"
@@ -65,82 +68,118 @@ def build_report(
     set_active_env: bool,
     allow_render_only: bool,
     prod: bool = False,
+    database: str | None = None,
     emit: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
-    """Plan or apply one machine-local db-admin profile."""
+    """Plan or apply one machine-local db-admin profile.
+
+    Without ``database`` the profile reaches the Yoke control-plane database
+    the named HTTPS control plane serves. With ``database`` it reaches the
+    project's own declared database model instead.
+    """
     try:
         project = _safe_label(required_project_context(project), what="project")
     except MissingProjectError as exc:
         raise DbAdminSetupError(str(exc)) from exc
     env_name = _safe_label(env_name, what="environment")
-    selected_admin_env = admin_env or admin_env_name(env_name)
     selected_port = int(local_port or default_local_port(env_name))
     env = _resolve_environment(project, env_name)
     project = str(env.project)
-    selected_secret_label = secret_label or secret_name(project, env_name)
+    selected_control_plane_env = _select_control_plane_env(
+        env_name,
+        control_plane_env=control_plane_env,
+        config_path=config_path,
+    )
+    declared: DeclaredDatabase | None = None
+    if database:
+        declared = read_declared_database(
+            project,
+            database,
+            control_plane_env=selected_control_plane_env,
+            config_path=config_path,
+        )
+        selected_admin_env = admin_env or declared_admin_env_name(
+            project, env_name, declared.model
+        )
+    else:
+        selected_admin_env = admin_env or admin_env_name(env_name)
     if env.activation_state == "render_only" and not allow_render_only:
         raise DbAdminSetupError(
             f"{project}/{env_name} is declared render_only; set "
             "environments.settings.pulumi.activation_state=active before "
             f"creating {selected_admin_env}"
         )
-    selected_control_plane_env = _select_control_plane_env(
-        env_name,
-        control_plane_env=control_plane_env,
-        config_path=config_path,
-    )
-    control_plane_database = _resolve_control_plane_database(
-        selected_control_plane_env,
-        config_path=config_path,
-    )
+    if declared is None:
+        database_name = _resolve_control_plane_database(
+            selected_control_plane_env,
+            config_path=config_path,
+        )
+    else:
+        database_name = declared.database_name
 
-    superseded_secret_path = machine_secrets.secret_path_no_create(
-        selected_secret_label, "dsn"
-    )
     postgres = _postgres_metadata(env, selected_port)
-    authority = _authority_metadata(env, database_name=control_plane_database)
-    plan = {
+    authority = _authority_metadata(env, database_name=database_name)
+    steps = [
+        {"action": "resolve-deploy-environment", "target": f"{project}/{env_name}"},
+        {
+            "action": "resolve-non-secret-cloud-database-binding",
+            "target": env.stack_name,
+        },
+        {"action": "configure-managed-secret-authority", "target": selected_admin_env},
+    ]
+    plan: dict[str, Any] = {
         "admin_env": selected_admin_env,
-        "superseded_secret_path": _path_ref(superseded_secret_path),
         "postgres": postgres,
         "authority": authority,
-        "steps": [
-            {
-                "action": "resolve-deploy-environment",
-                "target": f"{project}/{env_name}",
-            },
-            {
-                "action": "resolve-non-secret-cloud-database-binding",
-                "target": env.stack_name,
-            },
-            {
-                "action": "configure-managed-secret-authority",
-                "target": selected_admin_env,
-            },
-            {
-                "action": "remove-superseded-dsn-snapshot",
-                "target": _path_ref(superseded_secret_path),
-            },
-        ],
+        "steps": steps,
     }
-    report = {
+    report: dict[str, Any] = {
         "operation": "dev.db_admin.setup",
         "applied": False,
         "project": project,
         "declared_deploy_database": str(env.database_name),
-        "control_plane_database": control_plane_database,
         "control_plane_env": selected_control_plane_env,
         "environment": _environment_summary(env),
         "plan": plan,
         "message": "write plan only; rerun with --yes to apply",
     }
+    superseded_secret_path = None
+    if declared is None:
+        report["control_plane_database"] = database_name
+        superseded_secret_path = machine_secrets.secret_path_no_create(
+            secret_label or secret_name(project, env_name), "dsn"
+        )
+        plan["superseded_secret_path"] = _path_ref(superseded_secret_path)
+        steps.append(
+            {
+                "action": "remove-superseded-dsn-snapshot",
+                "target": _path_ref(superseded_secret_path),
+            }
+        )
+    else:
+        report["declared_database"] = declared.as_report()
+        steps.insert(
+            1,
+            {
+                "action": "resolve-declared-database-location",
+                "target": f"{project}/{declared.model}",
+            },
+        )
     if not apply:
         return report
 
     binding, outputs = _resolve_environment_database_binding(env, emit=emit)
-    postgres["tunnel"]["remote_host"] = str(binding.host)
+    if declared is None:
+        remote_host = str(binding.host)
+    else:
+        remote_host = _required_output(env, outputs, declared.endpoint_output)
+    postgres["tunnel"]["remote_host"] = remote_host
     postgres["tunnel"]["remote_port"] = int(binding.port)
-    credential_source = _managed_credential_source(env, outputs)
+    credential_source = _managed_credential_source(
+        env,
+        outputs,
+        output_name=declared.secret_arn_output if declared else None,
+    )
     configured = _write_connection(
         env_name=selected_admin_env,
         credential_source=credential_source,
@@ -150,15 +189,17 @@ def build_report(
         prod=prod,
         set_active_env=set_active_env,
     )
-    superseded_removed = machine_config_file.remove_file(superseded_secret_path)
     report.update(
         {
             "applied": True,
             "admin_connection": configured,
-            "superseded_dsn_snapshot_removed": superseded_removed,
             "message": f"{selected_admin_env} configured",
         }
     )
+    if superseded_secret_path is not None:
+        report["superseded_dsn_snapshot_removed"] = machine_config_file.remove_file(
+            superseded_secret_path
+        )
     return report
 
 
@@ -244,72 +285,24 @@ def _environment_summary(env: Any) -> dict[str, str]:
     }
 
 
-def _write_connection(
-    *,
-    env_name: str,
-    credential_source: Mapping[str, Any],
-    config_path: str | Path | None,
-    postgres: Mapping[str, Any],
-    authority: Mapping[str, Any],
-    prod: bool,
-    set_active_env: bool,
-) -> dict[str, Any]:
-    cfg_path = machine_config.config_path(config_path)
-    try:
-        with github_machine_operation.operation_lock(cfg_path):
-            with machine_config_file.exclusive_lock(cfg_path):
-                payload = machine_config.load_config(cfg_path)
-                if not payload:
-                    payload = {"schema_version": contract.SCHEMA_VERSION}
-                connections = payload.setdefault("connections", {})
-                if not isinstance(connections, dict):
-                    raise DbAdminSetupError(
-                        "connections must be an object; repair the file first"
-                    )
-                entry = {
-                    "transport": "local-postgres",
-                    contract.PROD_FLAG_KEY: bool(prod),
-                    "credential_source": dict(credential_source),
-                    "postgres": dict(postgres),
-                    "authority": dict(authority),
-                }
-                connections[env_name] = entry
-                if set_active_env or not str(payload.get("active_env") or "").strip():
-                    payload["active_env"] = env_name
-                _write_payload(payload, cfg_path)
-                return {
-                    "env": env_name,
-                    "connection": dict(entry),
-                    "active_env": payload.get("active_env"),
-                    "config": str(cfg_path),
-                }
-    except (
-        github_machine_operation.GitHubMachineOperationError,
-        machine_config.MachineConfigError,
-        machine_config_file.MachineConfigFileError,
-    ) as exc:
-        raise DbAdminSetupError(
-            "machine configuration changed or was unavailable during db-admin setup"
-        ) from exc
-
-
 def _managed_credential_source(
     env: Any,
     outputs: Mapping[str, Any],
+    *,
+    output_name: str | None = None,
 ) -> dict[str, str]:
-    try:
-        authority = importlib.import_module("yoke_core.domain.yoke_cloud_db_authority")
-    except ModuleNotFoundError as exc:
-        raise DbAdminSetupError(
-            "db-admin setup requires the yoke-core cloud database authority "
-            "module, which is not importable here"
-        ) from exc
-    output_name = authority.DEFAULT_SECRET_ARN_OUTPUT
-    secret_arn = str(outputs.get(output_name) or "").strip()
-    if not secret_arn:
-        raise DbAdminSetupError(
-            f"stack {env.stack_name} outputs are missing {output_name}"
-        )
+    if output_name is None:
+        try:
+            authority = importlib.import_module(
+                "yoke_core.domain.yoke_cloud_db_authority"
+            )
+        except ModuleNotFoundError as exc:
+            raise DbAdminSetupError(
+                "db-admin setup requires the yoke-core cloud database authority "
+                "module, which is not importable here"
+            ) from exc
+        output_name = authority.DEFAULT_SECRET_ARN_OUTPUT
+    secret_arn = _required_output(env, outputs, output_name)
     return {
         "kind": contract.CREDENTIAL_KIND_AWS_SECRETS_MANAGER,
         "secret_arn": secret_arn,
@@ -318,19 +311,14 @@ def _managed_credential_source(
     }
 
 
-def _write_payload(payload: Mapping[str, Any], cfg_path: Path) -> None:
-    errors = [
-        issue
-        for issue in contract.validate_payload(payload)
-        if issue.severity == "error"
-    ]
-    if errors:
-        detail = "\n".join(f"  - {issue.code}: {issue.message}" for issue in errors)
-        raise DbAdminSetupError(f"refusing to write invalid machine config:\n{detail}")
-    machine_config_file.atomic_write_text(
-        cfg_path,
-        json.dumps(payload, indent=2) + "\n",
-    )
+def _required_output(env: Any, outputs: Mapping[str, Any], name: str) -> str:
+    value = str(outputs.get(name) or "").strip()
+    if not value:
+        raise DbAdminSetupError(
+            f"stack {env.stack_name} outputs are missing {name}; deploy the "
+            f"{env.project}/{env.env_name} stack or correct the declared output name"
+        )
+    return value
 
 
 __all__ = [

@@ -244,6 +244,7 @@ from yoke_cli.commands.adapters.config import (
     status,
 )
 from yoke_cli.commands.adapters.dev import (
+    dev_db_admin_exec,
     dev_db_admin_setup,
     dev_path_snapshot_prewarm,
     dev_setup,

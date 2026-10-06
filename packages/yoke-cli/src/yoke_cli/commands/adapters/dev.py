@@ -13,6 +13,7 @@ from yoke_cli.commands._helpers import (
     attach_help_trailer,
     parse_or_usage_error,
 )
+from yoke_cli.config import db_admin_dsn_exec
 from yoke_cli.config import db_admin_setup as db_admin_setup_config
 from yoke_cli.config import dev_setup as dev_setup_config
 from yoke_cli.config.writer import MachineConfigWriteError
@@ -42,11 +43,14 @@ DEV_SETUP_USAGE = (
 )
 DEV_PATH_SNAPSHOT_PREWARM_USAGE = "yoke dev path-snapshot-prewarm [PROJECT_ID] [--json]"
 DEV_DB_ADMIN_SETUP_USAGE = (
-    "yoke dev db-admin setup ENV [--project PROJECT] [--admin-env ENV] "
-    "[--control-plane-env CONNECTION_ENV] "
+    "yoke dev db-admin setup ENV [--project PROJECT] [--database MODEL] "
+    "[--admin-env ENV] [--control-plane-env CONNECTION_ENV] "
     "[--local-port PORT] [--secret-name NAME] [--set-active-env] "
     "[--allow-render-only] [--prod | --non-prod] "
     "[--yes | --dry-run] [--json]"
+)
+DEV_DB_ADMIN_EXEC_USAGE = (
+    "yoke dev db-admin exec ADMIN_ENV --dsn-var NAME -- <command> [args...]"
 )
 PROJECT_ID_ENV = "YOKE_PROJECT_ID"
 
@@ -184,16 +188,28 @@ def dev_db_admin_setup(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke dev db-admin setup",
         description=(
-            "Plan or apply a machine-local <env>-db-admin Postgres profile "
-            "from DB-backed deploy-environment infrastructure. The database "
-            "identity is read through a named tenant-routed HTTPS control "
-            "plane; endpoint and managed-secret authority come from Pulumi "
-            "without materializing the secret value."
+            "Plan or apply a machine-local db-admin Postgres profile from "
+            "DB-backed deploy-environment infrastructure. By default it "
+            "reaches the Yoke control-plane database, whose identity is read "
+            "through a named tenant-routed HTTPS control plane; --database "
+            "MODEL reaches the project's own database declared under that "
+            "model of its migration_model capability instead. Endpoint and "
+            "managed-secret authority come from Pulumi without materializing "
+            "the secret value."
         ),
     )
     parser.add_argument("env_name")
     parser.add_argument("--project", default=None)
     parser.add_argument("--config", dest="config_path", default=None)
+    parser.add_argument(
+        "--database",
+        default=None,
+        metavar="MODEL",
+        help=(
+            "Reach the project's own database declared as migration_model "
+            "models.MODEL.authoritative_db (profile <project>-<env>-MODEL-db-admin)."
+        ),
+    )
     parser.add_argument("--admin-env", default=None)
     parser.add_argument("--local-port", type=int, default=None)
     parser.add_argument("--secret-name", default=None)
@@ -202,7 +218,8 @@ def dev_db_admin_setup(args: List[str]) -> int:
         default=None,
         help=(
             "Named HTTPS connection used for tenant-routed current_database() "
-            "identity (defaults to ENV only when that connection is HTTPS)."
+            "identity or the --database declaration read (defaults to ENV "
+            "only when that connection is HTTPS)."
         ),
     )
     parser.add_argument("--set-active-env", action="store_true")
@@ -232,6 +249,7 @@ def dev_db_admin_setup(args: List[str]) -> int:
             set_active_env=parsed.set_active_env,
             allow_render_only=parsed.allow_render_only,
             prod=parsed.prod,
+            database=parsed.database,
         )
     except db_admin_setup_config.DbAdminSetupError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -241,6 +259,33 @@ def dev_db_admin_setup(args: List[str]) -> int:
     else:
         print(db_admin_setup_config.render_human(report), end="")
     return 0
+
+
+def dev_db_admin_exec(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke dev db-admin exec",
+        description=(
+            "Run one command with a db-admin profile's DSN in a variable you "
+            "name, set for that subprocess only. The managed secret is read "
+            "from AWS through the project's aws-admin capability at run time "
+            "and the profile's SSH forward is brought up first; the DSN is "
+            "never printed, logged, or written to disk."
+        ),
+    )
+    parser.add_argument("admin_env", metavar="ADMIN_ENV")
+    parser.add_argument("--dsn-var", required=True, metavar="NAME")
+    attach_help_trailer(parser)
+    split = args.index("--") if "--" in args else len(args)
+    parsed = parse_or_usage_error(parser, args[:split], DEV_DB_ADMIN_EXEC_USAGE)
+    if parsed is None:
+        return 2
+    command = list(args[split + 1 :])
+    try:
+        return db_admin_dsn_exec.run(parsed.admin_env, parsed.dsn_var, command)
+    except db_admin_dsn_exec.DbAdminExecRefusal as exc:
+        for line in exc.report_lines():
+            print(line, file=sys.stderr)
+        return exc.exit_code
 
 
 def _run_path_snapshot_prewarm(project_id: str) -> tuple[int, int | None]:
@@ -262,10 +307,12 @@ def _run_path_snapshot_prewarm(project_id: str) -> tuple[int, int | None]:
 
 
 __all__ = [
+    "DEV_DB_ADMIN_EXEC_USAGE",
     "DEV_DB_ADMIN_SETUP_USAGE",
     "DEV_PATH_SNAPSHOT_PREWARM_USAGE",
     "DEV_SETUP_USAGE",
     "PROJECT_ID_ENV",
+    "dev_db_admin_exec",
     "dev_db_admin_setup",
     "dev_path_snapshot_prewarm",
     "dev_setup",
