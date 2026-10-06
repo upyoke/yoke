@@ -341,10 +341,10 @@ Pure-log tables are consolidated into the `events` table. Current read and write
 
 The seven-step migration pattern, compatibility-view COALESCE design, domain-state emission pattern, and unified-timeline query examples live in [event-contract/migration-guidance.md](event-contract/migration-guidance.md).
 
----
-
 ## 6. Write-Time Isolation & Querying Guidance
 
 The live `events` ledger is production telemetry. Synthetic test rows must not land in it under any normal workflow. Write-time isolation is enforced by the native emitter and CLI owner via `YOKE_EVENTS_ISOLATION=1`, with explicit escape hatches (Postgres `yoke_test_*` authority, legacy file-backed `YOKE_DB` test paths, `YOKE_EVENTS_CAPTURE` + `YOKE_EVENTS_FILE`, intentional `synthetic_smoke` lineage marker, explicit `conn=` arguments).
 
-Full coverage — escape-hatch table, pytest autouse fixture, smoke-row tagging, legacy query-time filter, synthetic-row cleanup, sentinel session IDs (`unknown`, `migration-zero-legacy`, `status-events-backfill`), and null-`item_id` rows — lives in [event-contract/isolation-and-querying.md](event-contract/isolation-and-querying.md).
+### Synthetic-Row Cleanup Guidance
+
+See [cleanup guidance](event-contract/isolation-and-querying.md#synthetic-row-cleanup-guidance) before deleting rows. The same guide covers [sentinel session IDs](event-contract/isolation-and-querying.md#sentinel-session-ids), [null item references](event-contract/isolation-and-querying.md#rows-with-null-item_id), and the isolation/query contracts above.

@@ -68,3 +68,45 @@ WHERE session_id NOT LIKE 'test-%'
 | `dup` | Deduplication test fixture |
 
 **Production session identity** comes from the registered harness session. Read `yoke sessions identity --json` before correlating events; never infer an identity from a synthetic fixture pattern.
+
+## Synthetic-Row Cleanup Guidance
+
+When `HC-synthetic-event-contamination` reports contamination:
+
+1. Inspect the affected rows before planning cleanup:
+   ```sh
+   yoke db read "SELECT event_name, COUNT(*) FROM events WHERE (session_id LIKE 'test-%' OR session_id LIKE 'sess-%' OR session_id = 'dup') AND (anomaly_flags IS NULL OR anomaly_flags NOT LIKE '%synthetic_smoke%') GROUP BY event_name ORDER BY 2 DESC"
+   ```
+2. Preserve the sentinel lineage listed below and all `synthetic_smoke`-tagged
+   rows. Neither is contamination.
+3. Scope cleanup to the same contamination predicate and verify the proposed
+   row count against the inspection. Use the governed migration path, with its
+   required restore point and rehearsal; never execute an ad hoc bulk delete.
+
+Fix the emitting path's isolation before cleanup so it cannot recreate the
+contamination. Write-time isolation is the prevention mechanism; a recurring
+cleanup job is not a substitute.
+
+## Sentinel Session IDs
+
+The Doctor reports these legitimate sentinel/backfill rows separately from
+synthetic contamination. Preserve them during cleanup:
+
+| Sentinel | Meaning |
+|---|---|
+| `unknown` | Telemetry whose emitting surface could not resolve a session identity |
+| `migration-zero-legacy` | Task-status lineage from the legacy task-history migration |
+| `status-events-backfill` | Item/task status lineage reconstructed from stored status data |
+
+Use the registered session identity or an explicit query scope for lifecycle
+analysis. UUID-format session IDs are valid production identities; do not
+filter them out or restrict production telemetry to one harness's ID prefix.
+
+## Rows with Null `item_id`
+
+`item_id` is optional. Session-level and project-wide events can have no work
+item, and tool-call attribution can remain unresolved when no unique item is
+available. A null value alone is neither contamination nor a reason to delete
+or invent an item reference. For item-scoped analysis, filter to the resolved
+item ID; retain unattributed rows for session/project analysis. See the
+[event context rules](../event-contract.md#2-execution-context-fields) for attribution.
