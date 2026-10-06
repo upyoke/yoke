@@ -197,6 +197,23 @@ def test_hosted_gateway_forwarding_admits_only_the_public_origin(
         assert response.json()["error"] == "attribution_absent"
 
 
+def test_deployed_hosted_origin_probe_passes_behind_trusted_relay(
+    database, monkeypatch, capsys
+):
+    from ops.qa import hosted_origin_admission
+
+    def relayed(**_):
+        client = serving_client(GATEWAY, scheme="https", trusted=GATEWAY)
+        client.headers.update(
+            {"Host": "127.0.0.1:9001", "X-Forwarded-Host": "app.upyoke.com"}
+        )
+        return client
+
+    monkeypatch.setattr(hosted_origin_admission.httpx, "Client", relayed)
+    hosted_origin_admission.prove("https://app.upyoke.com", "https://app.upyoke.com")
+    assert "hosted origin admission passed" in capsys.readouterr().out
+
+
 @pytest.mark.parametrize("peer,expected", [(PROXY, 200), (UNTRUSTED, 400)])
 def test_collector_requires_actual_or_trusted_https(database, peer, expected):
     with serving_client(peer) as client:
