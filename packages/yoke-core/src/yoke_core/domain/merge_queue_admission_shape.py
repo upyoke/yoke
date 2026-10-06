@@ -136,7 +136,7 @@ def candidate_shape(
         dispatch,
         function_id="items.get.run",
         public_ref=public_ref,
-        payload={"fields": ["db_mutation_profile"]},
+        payload={"fields": ["db_mutation_profile", "merged_at"]},
     )
     if profile_err:
         return None, profile_err
@@ -157,6 +157,7 @@ def candidate_shape(
             public_ref=public_ref,
             claimed_target_ids=frozenset(target_ids),
             migration_carrier=carrier,
+            landed=bool(fields.get("merged_at")),
         ),
         None,
     )
@@ -199,7 +200,8 @@ def train_context(
     if deps_err:
         return None, deps_err
     attested: set[str] = set()
-    serial: set[str] = set()
+    predecessors: set[str] = set()
+    dependents: set[str] = set()
     for row in (deps_result or {}).get("dependencies") or []:
         if not isinstance(row, dict):
             continue
@@ -208,13 +210,22 @@ def train_context(
             continue
         if str(row.get("gate_point") or "") == "coordination_only":
             attested.add(other)
+        elif row.get("direction") == "depends-on":
+            predecessors.add(other)
+        elif row.get("direction") == "blocks":
+            dependents.add(other)
         else:
-            serial.add(other)
+            return None, (
+                f"items.dependency.list({candidate_ref}): edge to {other} "
+                f"has unrecognized direction {row.get('direction')!r}; "
+                "admission cannot order it"
+            )
     return (
         TrainContext(
             members=tuple(members),
             coordination_attested_refs=frozenset(attested),
-            serial_linked_refs=frozenset(serial),
+            predecessor_refs=frozenset(predecessors),
+            dependent_refs=frozenset(dependents),
             notes=tuple(notes),
         ),
         None,
