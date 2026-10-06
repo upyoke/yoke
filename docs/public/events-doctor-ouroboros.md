@@ -75,6 +75,10 @@ yoke doctor run --quick
 yoke doctor run --full --fix   # when auto-repair is appropriate
 ```
 
+Doctor watchers emit a filtered stream with progress metadata, not a bare JSON
+document. QA probes retain explicit raw captures and read the single
+`doctor.run.run` envelope from that capture before judging completeness.
+
 Checks declare applicability (project scope, capabilities, runtime). Results
 are pass, warning, fail, or not-applicable — N/A is not a silent pass.
 On Linux, Doctor warns about project checkouts under `/mnt/<drive>`; inside
@@ -183,7 +187,3 @@ Session continuity for long work also belongs on the item **Progress Log**.
 
 
 The Ouroboros dashboard labels filing timestamps as **Filed at** and defaults to newest first. Observation, project, Filed at, Category, Context and Reviewed headers sort the matching roster before cursor pagination. Sort choices use the existing actor/universe preference store and restore across browsers and devices. The repetitive executor column is omitted; complete entry details remain available. Narrow layouts expose labeled row values and keep sort controls available.
-
-Doctor watchers emit a filtered stream with progress metadata, not a bare JSON
-document. QA probes retain explicit raw captures and read the single
-`doctor.run.run` envelope from that capture before judging completeness.
