@@ -304,8 +304,9 @@ yoke qa artifact read \
 ```
 
 It lands the bytes under this machine's temp root and reports that path as
-`path`; open that, not the capture's own `artifacts` scratch paths. Add
-`--output PATH` to choose the destination yourself.
+`path`. The printed result omits the presigned download URL. Open that path,
+not the capture's own `artifacts` scratch paths. Add `--output PATH` to choose
+the destination yourself.
 
 A full-page capture of a long screen is one very tall image, and a viewer
 that scales it to fit makes every label in it unreadable. Read the part being

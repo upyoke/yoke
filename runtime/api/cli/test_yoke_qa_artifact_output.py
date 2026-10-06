@@ -88,7 +88,7 @@ def test_output_downloads_a_ready_authorized_url(tmp_path) -> None:
         patch(
             "yoke_cli.commands.adapters.qa_execution_subjects.ensure_handlers_loaded"
         ),
-        redirect_stdout(io.StringIO()),
+        redirect_stdout(out := io.StringIO()),
         redirect_stderr(io.StringIO()),
     ):
         code = cli_main(
@@ -110,6 +110,10 @@ def test_output_downloads_a_ready_authorized_url(tmp_path) -> None:
         "https://artifacts.example/evidence.png?signature=x",
         destination,
     )
+    printed = out.getvalue()
+    assert "download_url" not in printed
+    assert "signature=x" not in printed
+    assert '"path"' in printed
 
 
 def test_output_fails_when_authorized_bytes_cannot_be_downloaded(tmp_path) -> None:
@@ -206,14 +210,18 @@ def test_read_without_output_drops_the_inline_copy_of_landed_bytes() -> None:
             "disposition": "ready",
             "content_type": "image/png",
             "content_base64": base64.b64encode(b"PNG").decode("ascii"),
+            "download_url": "https://artifacts.example/evidence.png?signature=x",
         },
         out,
         io.StringIO(),
     )
 
     assert code == 0
-    result = json.loads(out.getvalue())["result"]
+    printed = out.getvalue()
+    result = json.loads(printed)["result"]
     assert "content_base64" not in result
+    assert "download_url" not in result
+    assert "signature=x" not in printed
     Path(result["path"]).unlink()
 
 
