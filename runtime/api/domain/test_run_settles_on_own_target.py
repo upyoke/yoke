@@ -157,3 +157,23 @@ def test_member_closes_when_its_stage_obligation_passes(test_db, monkeypatch):
 
     assert closed == "closed"
     assert _item(test_db, item_id)["status"] == "done"
+
+
+def test_auto_completion_does_not_wait_on_another_targets_obligation(
+    test_db, monkeypatch
+):
+    from runtime.api.domain.test_deployment_run_auto_completion import _held_lock
+    from yoke_core.domain.deployment_run_auto_completion import _readiness
+
+    item_id = 9755
+    _production_delivered(test_db, item_id)
+    test_db.execute(
+        "UPDATE deployment_runs SET current_stage='member-qa' WHERE id='run-prod'"
+    )
+    test_db.commit()
+    _held_lock(monkeypatch)
+
+    ready, reason = _readiness(test_db, "run-prod")
+
+    assert ready is not None, reason
+    assert item_id in ready["members"]

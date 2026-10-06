@@ -284,7 +284,7 @@ def _commit_phase(conn: Any, run_id: str) -> tuple[list[Any], Optional[str]]:
             or (HELD_WITH_RUN if member["item_id"] in held else "")
             or _unsettled_reason(conn, run_id, member["item_id"])
         )
-        for member in required
+        for member in _split_waiting_members(conn, run_id)[0]
     ]
     return [], _settle_refusal(run_id, unsettled, closed=False)
 
