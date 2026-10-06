@@ -4,10 +4,9 @@ Strategy document writes: read the selected command’s `--help` for required fi
 
 ## 1. Parse Arguments
 
-Extract `--lane` and `--model` from the user prompt. Apply defaults:
+Extract `--model` from the user prompt. Apply defaults:
 
 ```
-_lane = provided --lane value, or "DARIUS"
 _model = provided --model value, or "" (empty = use session default)
 ```
 
@@ -65,7 +64,7 @@ yoke events emit \
  --severity STATUS \
  --outcome started \
  --project "${_project}" \
- --context "{\"lane\":\"${_lane}\",\"model\":\"${_model}\"}"
+ --context "{\"model\":\"${_model}\"}"
 ```
 
 ## 3. Phase Dispatch

@@ -1,7 +1,7 @@
 ---
 name: strategize
 description: "Direct-mode entrypoint — guided SML review across the MISSION, LANDSCAPE, VISION, MASTER-PLAN, and CURRENT-PLAN strategy docs."
-argument-hint: "[--lane LANE] [--model MODEL]"
+argument-hint: "[--model MODEL]"
 ---
 
 # /yoke strategize
@@ -22,7 +22,6 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Arguments
 
-- `--lane LANE` -- Execution lane identity (default: `DARIUS`).
 - `--model MODEL` -- Model identifier override.
 
 ## Constants

@@ -1,7 +1,7 @@
 ---
 name: feed
 description: "Direct-mode entrypoint -- update stale frontier items, maintain frontier dependency facts, and materialize new work from the SML."
-argument-hint: "[--no-new-items] [PREFIX-N ...] [--lane LANE] [--model MODEL]"
+argument-hint: "[--no-new-items] [PREFIX-N ...] [--model MODEL]"
 ---
 
 # /yoke feed
@@ -20,7 +20,6 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 - `--no-new-items` -- Boolean flag. When set, feed runs the same analysis but is forbidden from creating new items, splitting work into new items, or advancing newly created work. If the analysis says new work items are needed, report "frontier insufficient, new work items suppressed by flag" instead of pretending sufficiency.
 - `PREFIX-N ...` -- Optional explicit item scope. When present, feed still reads broader frontier/dependency context but deep-reads, stale-work-item updates, and reporting focus on the listed items.
-- `--lane LANE` -- Execution lane identity (default: `DARIUS`).
 - `--model MODEL` -- Model identifier override.
 
 ## Constants
