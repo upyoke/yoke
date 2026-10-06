@@ -14,6 +14,10 @@ histories by hand:
 * **removed** -- an operator took it out of this run with a recorded reason
   (:mod:`deployment_run_membership_removals`).
 * **blocked** -- an open dependency needs a blocker that has not shipped yet.
+  A blocker a live or settling release still holds has not shipped either:
+  the dependency gate counts only a recorded ``succeeded`` run, so the
+  notice names that run, and the first release after it settles enrolls
+  the dependent.
 
 Composition reports them together whenever it reports itself, so an
 operator reads one notice rather than reconciling three. It is silent when the
@@ -35,6 +39,7 @@ from yoke_core.domain.deployment_run_composition_freeze import (
     member_ids,
 )
 from yoke_core.domain.deployment_run_dependency_readiness import (
+    blocker_holding_run,
     unshipped_dependency_pairs,
 )
 from yoke_core.domain.deployment_run_membership_removals import (
@@ -96,6 +101,21 @@ def carried_items_in_rework(
     return tuple(found)
 
 
+def _describe_blocked(conn: Any, dependent: int, blocker: int, reason: str) -> str:
+    """One skipped dependent, naming the release still holding its blocker."""
+    line = (
+        f"{render_item_ref(conn, dependent)} blocked by "
+        f"{render_item_ref(conn, blocker)} ({reason}"
+    )
+    if holding := blocker_holding_run(conn, blocker):
+        run_id, state = holding
+        line += (
+            f"; held by {run_id} ({state}) -- the first release after "
+            f"{run_id} settles enrolls it"
+        )
+    return line + ")"
+
+
 def skipped_candidate_notice(
     conn: Any,
     run_id: str,
@@ -146,8 +166,7 @@ def skipped_candidate_notice(
         parts.append(
             "open dependencies on unshipped items; the first release after the blocker ships enrolls them: "
             + "; ".join(
-                f"{render_item_ref(conn, dependent)} blocked by "
-                f"{render_item_ref(conn, blocker)} ({verdict.reason})"
+                _describe_blocked(conn, dependent, blocker, str(verdict.reason))
                 for dependent, blocker, verdict in blocked
             )
         )
