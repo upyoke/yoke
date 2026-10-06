@@ -296,6 +296,9 @@ def _include_routes(application: FastAPI) -> FastAPI:
         router as token_browser_sign_in_router,
     )
     from yoke_core.api.routes.workbench import router as workbench_router
+    from yoke_core.api.routes.machine_authorization import (
+        router as machine_authorization_router,
+    )
 
     v1_router.include_router(items_router)
     v1_router.include_router(auth_identity_router)
@@ -315,6 +318,7 @@ def _include_routes(application: FastAPI) -> FastAPI:
     from yoke_core.api.routes.frontend_events import router as frontend_events_router
 
     application.include_router(frontend_events_router, dependencies=admission)
+    application.include_router(machine_authorization_router, dependencies=admission)
     # The workbench lives at the site root, outside /v1. Included last: its
     # deep-path catch-all must never shadow an API route.
     application.include_router(workbench_router, dependencies=admission)

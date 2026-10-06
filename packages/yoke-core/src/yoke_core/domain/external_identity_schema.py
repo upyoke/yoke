@@ -34,6 +34,7 @@ REQUIRED_EXTERNAL_IDENTITY_TABLES = (
     "actor_invites",
     "web_sessions",
     "browser_sign_in_links",
+    "machine_authorization_codes",
 )
 
 
@@ -97,6 +98,11 @@ def create_external_identity_tables(conn: Any) -> None:
             ON browser_sign_in_links(expires_at);
     """,
     )
+    from yoke_core.domain.machine_authorization_schema import (
+        create_machine_authorization_table,
+    )
+
+    create_machine_authorization_table(conn)
     conn.commit()
 
 

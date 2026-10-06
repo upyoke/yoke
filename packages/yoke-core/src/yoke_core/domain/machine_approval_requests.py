@@ -36,9 +36,7 @@ MachineApprovalLifecycleStatus = Literal[
     "expired",
     "withdrawn",
 ]
-MACHINE_APPROVAL_LIFECYCLE_STATES = frozenset(
-    get_args(MachineApprovalLifecycleStatus)
-)
+MACHINE_APPROVAL_LIFECYCLE_STATES = frozenset(get_args(MachineApprovalLifecycleStatus))
 _RESOLUTION_ACTIONS = {"approved": "approve", "denied": "deny"}
 _WITHDRAWAL_STATES = frozenset({"expired", "withdrawn"})
 
@@ -52,11 +50,7 @@ def _matching_request(
     org_id: int,
 ) -> Optional[dict[str, Any]]:
     return next(
-        (
-            row
-            for row in history
-            if int(row.get("org_id") or 0) == int(org_id)
-        ),
+        (row for row in history if int(row.get("org_id") or 0) == int(org_id)),
         None,
     )
 
@@ -124,10 +118,13 @@ def ensure_machine_approval(
     originator_actor_id: Optional[int] = None,
     session_id: str = "",
     created_at: Optional[str] = None,
+    self_approval_actor_id: Optional[int] = None,
 ) -> tuple[dict[str, Any], bool]:
-    """Create or reuse the org-admin decision for one machine auth request."""
+    """Record an org-admin approval, or a named user approving their own machine."""
     history = list_subject_requests(
-        conn, MACHINE_AUTH_SUBJECT, auth_request_id,
+        conn,
+        MACHINE_AUTH_SUBJECT,
+        auth_request_id,
     )
     matching = _matching_request(history, org_id)
     if matching and matching["status"] in {"pending", "resolved"}:
@@ -139,9 +136,10 @@ def ensure_machine_approval(
         subject_key=auth_request_id,
         org_id=int(org_id),
         originator_actor_id=originator_actor_id,
-        role_authorities=[
-            RoleAuthority("org", int(org_id), "admin"),
-        ],
+        role_authorities=[]
+        if self_approval_actor_id
+        else [RoleAuthority("org", int(org_id), "admin")],
+        named_actor_ids=[self_approval_actor_id] if self_approval_actor_id else [],
         subject_context=dict(context),
         session_id=session_id,
         created_at=created_at,
@@ -326,24 +324,17 @@ def apply_machine_approval_lifecycle_request(
 
 
 def machine_approval_decision(
-    conn: Any, *, auth_request_id: str,
+    conn: Any,
+    *,
+    auth_request_id: str,
 ) -> Optional[str]:
     """Return ``approve``/``deny``, or ``None`` while waiting."""
     history = list_subject_requests(
-        conn, MACHINE_AUTH_SUBJECT, auth_request_id,
+        conn,
+        MACHINE_AUTH_SUBJECT,
+        auth_request_id,
     )
     if not history or history[0]["status"] != "resolved":
         return None
     action = history[0].get("resolution_action")
     return str(action) if action else None
-
-
-__all__ = [
-    "MACHINE_AUTH_SUBJECT",
-    "MACHINE_APPROVAL_LIFECYCLE_STATES",
-    "MachineApprovalLifecycleStatus",
-    "apply_machine_approval_lifecycle",
-    "apply_machine_approval_lifecycle_request",
-    "ensure_machine_approval",
-    "machine_approval_decision",
-]

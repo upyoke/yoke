@@ -45,7 +45,9 @@ def _body_text(app) -> str:
     )
 
 
-def _pending(url: str) -> hosted_machine_authorization.PendingMachineAuthorization:
+def _pending(
+    url: str, *, self_host: bool = False
+) -> hosted_machine_authorization.PendingMachineAuthorization:
     return hosted_machine_authorization.PendingMachineAuthorization(
         platform_url=url,
         device_code="device-secret",

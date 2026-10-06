@@ -12,13 +12,13 @@ def add_token_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "token",
         nargs="?",
-        help="team-server API token; Yoke Cloud uses browser approval",
+        help="team-server API token; configured company sign-in and Cloud use browser approval",
     )
     parser.add_argument(
         "--token-file",
         dest="token_file",
         default=None,
-        help="team-server API token file; Yoke Cloud uses browser approval",
+        help="team-server API token file; configured company sign-in and Cloud use browser approval",
     )
     parser.add_argument(
         "--token-stdin",

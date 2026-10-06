@@ -3,7 +3,7 @@
 The Account step opens on one picker of local, existing/new team-server, and
 hosted homes. The answer changes only the connection lane: local swaps sign-in
 for the universe summary (birth runs at Apply), an existing server collects a
-URL then a token, and either hosted row goes straight to browser approval. The closing test
+URL then discovers company sign-in or token entry; hosted rows use browser approval. The closing test
 drives the real apply seam end to end (picker → local → Apply) against a
 scratch machine home with the embedded-Postgres engine stubbed, and proves
 the written config matches what ``yoke init --local`` lands.
@@ -158,7 +158,7 @@ def test_local_pick_names_existing_universe_on_rerun(tmp_path: Path) -> None:
     asyncio.run(scenario())
 
 
-def test_server_pick_shows_one_form_with_an_explicit_token_source() -> None:
+def test_server_pick_discovers_sign_in_before_explicit_token_entry() -> None:
     app, _spy = make_app(_picker_defaults(token=None))
 
     async def scenario() -> None:
@@ -167,12 +167,17 @@ def test_server_pick_shows_one_form_with_an_explicit_token_source() -> None:
             await pilot.press("down")  # picker: local -> A team server
             await pilot.press("enter")
             text = _body_text(app)
+            assert "Connect to your team server." in text
+            assert "company sign-in or API tokens" in text
+            await type_text(pilot, "https://yoke.acme.test")
+            await pilot.press("enter")  # URL -> sign-in discovery
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            text = _body_text(app)
             assert "Connect to your Yoke team server." in text
-            assert "No server yet? Paste the install one-liner" in text
             assert "Server URL" in text
             assert "Paste token" in text
             assert "Token file" in text
-            await type_text(pilot, "https://yoke.acme.test")
             await pilot.press("enter")  # URL -> token-source selector
             await pilot.press("enter")  # Paste token -> masked token field
             await pilot.pause()

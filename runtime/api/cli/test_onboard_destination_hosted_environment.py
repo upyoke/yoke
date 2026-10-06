@@ -124,11 +124,13 @@ def test_resumed_hosted_connection_preserves_its_org_label() -> None:
 def test_browser_authorization_uses_the_explicit_hosted_url(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    opened: list[str] = []
+    opened: list[tuple[str, bool]] = []
     monkeypatch.setattr(
         hosted_machine_authorization,
         "start",
-        lambda platform_url: opened.append(platform_url),
+        lambda platform_url, *, self_host=False: opened.append(
+            (platform_url, self_host)
+        ),
     )
 
     class Probe(HostedMachineConnectFlow):
@@ -143,7 +145,7 @@ def test_browser_authorization_uses_the_explicit_hosted_url(
 
     Probe()._start_hosted_machine_authorization()
 
-    assert opened == [HOSTED_STAGE_PLATFORM_URL]
+    assert opened == [(HOSTED_STAGE_PLATFORM_URL, False)]
     assert (
         platform_url_for_connection(HOSTED_STAGE_API_URL, "")
         == HOSTED_STAGE_PLATFORM_URL

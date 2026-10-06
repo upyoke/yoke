@@ -6,7 +6,7 @@ live — and routes to the matching connection lane:
 * **This machine** replaces sign-in entirely — the local universe is born
   at Apply by the existing ``local_universe_setup`` machinery, so the
   Account step becomes a universe summary instead of a token prompt.
-* **A team server** collects a URL/token or guides a local Compose first boot.
+* **A team server** discovers browser or token sign-in, or guides a Compose first boot.
 * **upyoke.com** picks the hosted environment, then starts browser approval.
 
 Every lane rejoins the destination-independent flow at ``_goto_machine_github``.
@@ -187,6 +187,7 @@ class DestinationFlow:
         self._stored_yoke_token_available = False
 
     def _route_destination(self: _Shell, choice: str) -> None:
+        self._machine_authorization_server = None
         if choice == SELF_HOST_SERVER_ROW:
             self.result.destination = DESTINATION_SERVER
             self._account_step_label = STEP_CONNECT_LABEL
@@ -221,12 +222,12 @@ class DestinationFlow:
                 if self.result.token or self.result.token_file:
                     self._goto_token_source()
                 else:
-                    self._goto_server_connection_form()
+                    self._goto_team_server()
                 return
             # A hosted URL left behind by an earlier hosted visit is not a
             # team server; collect the real one.
             self.result.api_url = ""
-            self._goto_server_connection_form()
+            self._goto_team_server()
             return
         if is_hosted_url(self.result.api_url) and self._stored_yoke_token_available:
             # A previously browser-approved connection may reuse its owner-only

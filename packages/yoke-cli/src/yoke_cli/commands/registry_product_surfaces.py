@@ -4,6 +4,7 @@ from yoke_cli.commands.adapters import (
     actors,
     harness_machine_report,
     machine,
+    machine_authorization,
     inbox_decisions,
     item_landings,
     item_worktree_create,
@@ -206,6 +207,14 @@ MODELS_SUBCOMMAND_REGISTRY = {
 }
 
 MACHINE_SUBCOMMAND_REGISTRY = {
+    ("machine-authorization", "get"): (
+        "machine_authorization.get",
+        machine_authorization.authorization_get,
+    ),
+    ("machine-authorization", "resolve"): (
+        "machine_authorization.resolve",
+        machine_authorization.authorization_resolve,
+    ),
     ("machine", "register"): ("machine.register", machine.machine_register),
     ("machine", "list"): ("machine.list", machine.machine_list),
     ("machine", "show"): ("machine.show", machine.machine_show),

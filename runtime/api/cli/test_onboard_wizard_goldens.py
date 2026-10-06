@@ -161,10 +161,22 @@ def test_connect_server_form() -> None:
     app = make_app(api_url="")
 
     async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
-        a._after_destination_select(DESTINATION_SERVER)
+        a._goto_server_connection_form()
 
     assert_golden(
         "connect_server_form",
+        render(app, drive, title="yoke setup · Account"),
+    )
+
+
+def test_connect_server_sign_in_discovery() -> None:
+    app = make_app(api_url="")
+
+    async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
+        a._after_destination_select(DESTINATION_SERVER)
+
+    assert_golden(
+        "connect_server_sign_in_discovery",
         render(app, drive, title="yoke setup · Account"),
     )
 

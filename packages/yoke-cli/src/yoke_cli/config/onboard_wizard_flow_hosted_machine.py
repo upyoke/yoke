@@ -126,17 +126,19 @@ class HostedMachineConnectFlow:
         message = (
             "Minting a fresh one-time machine code so you can approve it."
             if after_denial
-            else "Requesting a one-time machine code from Yoke Cloud."
+            else "Requesting a one-time machine code from your Yoke server."
         )
         self._run_checking(
             step=STEP_CONNECT,
             title=title,
             message=message,
             work=lambda: hosted_machine_authorization.start(
-                platform_url_for_connection(
+                getattr(self, "_machine_authorization_server", None)
+                or platform_url_for_connection(
                     self.result.api_url,
                     self.result.env_name,
                 ),
+                self_host=bool(getattr(self, "_machine_authorization_server", None)),
             ),
             on_success=_success,
             on_error=lambda exc: self._goto_hosted_machine_error(str(exc)),
@@ -172,8 +174,6 @@ class HostedMachineConnectFlow:
         pending: hosted_machine_authorization.PendingMachineAuthorization,
         browser_line: str,
     ) -> list[str]:
-        # The complete URL carries the code, so it is the one to open; the bare
-        # /connect page asks for the code again or shows an unrelated screen.
         stage_warning = (
             [
                 "Stage is test-only and disposable.",
@@ -213,7 +213,9 @@ class HostedMachineConnectFlow:
             _View(
                 STEP_CONNECT,
                 lambda: steps.verification_body(
-                    "Sign in and choose an organization.",
+                    "Sign in and approve your machine."
+                    if pending.self_host
+                    else "Sign in and choose an organization.",
                     "Approve this machine in your browser, then continue here.",
                     [
                         *self._approval_detail_lines(pending, browser_line),

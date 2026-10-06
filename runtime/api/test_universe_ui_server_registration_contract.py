@@ -57,6 +57,7 @@ class TestRegistrationShape:
             "test_machine.settings_replace",
             "test_machine.verify",
             "decision_requests.resolve",
+            "machine_authorization.resolve",
             "qa.case.waive",
             "items.create",
             "sessions.reclaim_stale",

@@ -55,9 +55,7 @@ def test_token_prompt_input_is_password() -> None:
         from textual.widgets import Input
 
         async with app.run_test() as pilot:
-            await advance_past_path(pilot)
-            await pilot.press("enter")  # server URL -> token-source selector
-            await pilot.press("enter")  # Paste token -> credential field
+            await _advance_to_token(app, pilot)
             await pilot.pause()
             assert app.query_one("#onboard-input-credential", Input).password is True
 
@@ -77,9 +75,7 @@ def test_empty_token_prompt_stays_on_input() -> None:
         from textual.widgets import Input, Static
 
         async with app.run_test() as pilot:
-            await advance_past_path(pilot)
-            await pilot.press("enter")  # server URL -> token-source selector
-            await pilot.press("enter")  # Paste token -> credential field
+            await _advance_to_token(app, pilot)
             await pilot.press("enter")  # empty token must not use placeholder
             await pilot.pause()
             assert app.query_one("#onboard-input-credential", Input).password is True
@@ -101,9 +97,7 @@ def test_yoke_token_prompt_verifies_before_github() -> None:
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await advance_past_path(pilot)
-            await pilot.press("enter")  # server URL -> token-source selector
-            await pilot.press("enter")  # Paste token -> credential field
+            await _advance_to_token(app, pilot)
             await type_text(pilot, "yoke_v1_good")
             await pilot.press("enter")
             text = await _wait_for_body_text(app, pilot, "Connect GitHub?")
@@ -140,9 +134,7 @@ def test_yoke_token_without_org_or_project_access_can_retry(monkeypatch) -> None
         from textual.widgets import Input
 
         async with app.run_test() as pilot:
-            await advance_past_path(pilot)
-            await pilot.press("enter")  # server URL -> token-source selector
-            await pilot.press("enter")  # Paste token -> credential field
+            await _advance_to_token(app, pilot)
             await type_text(pilot, "yoke_v1_no_access")
             await pilot.press("enter")
             text = await _wait_for_body_text(
@@ -154,7 +146,7 @@ def test_yoke_token_without_org_or_project_access_can_retry(monkeypatch) -> None
             assert "Yoke token is valid" in text
             assert "does not include access to any Yoke organization or project" in text
             assert "Ask a Yoke admin" in text
-            assert "Try again" in text
+            assert "Edit connection" in text
             assert app.result.token is None
             assert app.result.yoke_token_verification is None
             await pilot.press("enter")  # Try again
@@ -225,9 +217,7 @@ def test_yoke_token_prompt_error_can_retry(monkeypatch) -> None:
         from textual.widgets import Input
 
         async with app.run_test() as pilot:
-            await advance_past_path(pilot)
-            await pilot.press("enter")  # server URL -> token-source selector
-            await pilot.press("enter")  # Paste token -> credential field
+            await _advance_to_token(app, pilot)
             await type_text(pilot, "yoke_v1_bad")
             await pilot.press("enter")
             text = await _wait_for_body_text(
@@ -242,16 +232,17 @@ def test_yoke_token_prompt_error_can_retry(monkeypatch) -> None:
             await pilot.pause()
             assert app.query_one("#onboard-input-credential", Input).password is True
             assert len(app._history) == error_depth
-            await pilot.press("enter")  # server URL -> token-source selector
+            await pilot.press("enter")  # populated URL -> token-source selector
             await pilot.press("enter")  # Paste token -> credential field
             await pilot.press("ctrl+u")
             await type_text(pilot, "yoke_v1_still_bad")
             await pilot.press("enter")
-            await _wait_for_body_text(
+            text = await _wait_for_body_text(
                 app,
                 pilot,
                 "Yoke token could not be verified.",
             )
+            assert "Yoke token could not be verified." in text
             assert len(app._history) == error_depth
             await pilot.press("down")  # Back
             await pilot.press("enter")
@@ -263,6 +254,15 @@ def test_yoke_token_prompt_error_can_retry(monkeypatch) -> None:
             assert app.result.token is None
 
     asyncio.run(scenario())
+
+
+async def _advance_to_token(app, pilot) -> None:
+    await advance_past_path(pilot)
+    await pilot.press("enter")  # URL -> server sign-in discovery
+    await app.workers.wait_for_complete()
+    await pilot.pause()
+    await pilot.press("enter")  # server URL -> token-source selector
+    await pilot.press("enter")  # Paste token -> credential field
 
 
 async def _wait_for_body_text(app, pilot, expected: str) -> str:

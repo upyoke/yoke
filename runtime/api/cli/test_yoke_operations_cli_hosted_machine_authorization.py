@@ -89,7 +89,7 @@ def test_hosted_url_preset_starts_browser_approval_without_token_entry(
     monkeypatch.setattr(
         hosted_machine_authorization,
         "start",
-        lambda url: starts.append(url) or pending,
+        lambda url, **_kwargs: starts.append(url) or pending,
     )
     monkeypatch.setattr(
         hosted_machine_authorization, "open_browser", lambda _: BROWSER_CLOSED
@@ -134,7 +134,9 @@ def test_hosted_pick_persists_browser_approval_before_project_flow(
         expires_in=600,
         interval=2,
     )
-    monkeypatch.setattr(hosted_machine_authorization, "start", lambda _url: pending)
+    monkeypatch.setattr(
+        hosted_machine_authorization, "start", lambda _url, **_kwargs: pending
+    )
     monkeypatch.setattr(
         hosted_machine_authorization, "open_browser", lambda _: BROWSER_OPENED
     )
@@ -218,7 +220,9 @@ def test_hosted_selector_reuses_persisted_tenant_connection(
     monkeypatch.setattr(
         hosted_machine_authorization,
         "start",
-        lambda _url: pytest.fail("stored hosted connection started a new code"),
+        lambda _url, **_kwargs: pytest.fail(
+            "stored hosted connection started a new code"
+        ),
     )
     monkeypatch.setattr(
         onboard_wizard_flow_connect,

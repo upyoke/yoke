@@ -32,6 +32,8 @@ PRODUCT_AUTHZ_BY_ID = {
     # A tenant member may create the pending request. Terminal decisions and
     # withdrawals still pass through the request's live org-admin authority.
     "machine_approval.lifecycle.apply": AuthzSpec(ACTOR_SESSION, None),
+    "machine_authorization.get": AuthzSpec(ACTOR_SESSION, None),
+    "machine_authorization.resolve": AuthzSpec(ACTOR_SESSION, None),
     "decision_requests.create": AuthzSpec(ACTOR_SESSION, None),
     "decision_requests.get": AuthzSpec(ACTOR_SESSION, None),
     "decision_requests.resolve": AuthzSpec(ACTOR_SESSION, None),

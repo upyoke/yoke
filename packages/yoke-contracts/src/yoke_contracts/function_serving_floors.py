@@ -14,6 +14,8 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "actors.roster": "next-release",
     "actors.state.set": "next-release",
     "decision_requests.get": "next-release",
+    "machine_authorization.get": "next-release",
+    "machine_authorization.resolve": "next-release",
     "deployment_runs.driver.for_capture": "next-release",
     "deployment_runs.execution.attach_driver": "next-release",
     "deployment_runs.execution.containment_basis": "next-release",

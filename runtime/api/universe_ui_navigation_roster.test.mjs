@@ -23,6 +23,7 @@ test("navigation is three groups, and every entry declares one", () => {
       ["inbox", "Inbox", "multi", "focus"],
       // Reached from the actor menu; hidden from the sidebar.
       ["profile", "Profile", "none", "focus"],
+      ["machine-approval", "Connect your machine", "none", "focus"],
 
       ["organization", "Universe", "none", "settings"],
       ["workflows", "Workflows", "none", "settings"],

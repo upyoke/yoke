@@ -24,6 +24,11 @@ from fastapi import HTTPException, Request
 from fastapi.responses import Response
 from fastapi.routing import APIRouter
 
+from yoke_contracts.machine_authorization import (
+    APPROVAL_RETURN_COOKIE,
+    CODE_TTL_SECONDS,
+    approval_return_path,
+)
 from yoke_contracts.runtime_identity import PORTABILITY_SELFHOST, SERVED_BUILD_PATH
 from yoke_core.api.routes.web_sign_in import signed_out_page
 from yoke_core.api.web_session_auth import (
@@ -108,7 +113,19 @@ def workbench_page(request: Request) -> Response:
         raise HTTPException(status_code=404, detail="unknown dashboard route")
     ctx = web_session_context(request)
     if ctx is None:
-        return signed_out_page()
+        response = signed_out_page()
+        destination = approval_return_path(request.url.path)
+        if destination:
+            response.set_cookie(
+                APPROVAL_RETURN_COOKIE,
+                destination,
+                max_age=CODE_TTL_SECONDS,
+                httponly=True,
+                samesite="lax",
+                secure=request.url.scheme == "https",
+                path="/",
+            )
+        return response
     return shell_response(self_host_packet(ctx.actor_id))
 
 

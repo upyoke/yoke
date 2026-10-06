@@ -59,6 +59,12 @@ exists is the default. The mouse scrolls and clicks normally; on any screen
 showing a URL or a one-time code the footer names a copy key (`^y`) and an
 open-in-browser key (`^o`) instead of a native drag-select.
 
+For **A team server**, enter its URL first. When company sign-in is configured,
+Yoke opens the workbench with a one-time machine code; sign in and approve your
+own machine. Otherwise paste an API token or select its file. The same flow is
+available with `yoke connect https://<server>`; servers without company sign-in
+use `--token-stdin` or `--token-file PATH`.
+
 Flags: `--yes` for non-interactive apply; `--local` or `--connect URL` to skip
 the destination picker.
 

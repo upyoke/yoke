@@ -34,6 +34,10 @@ reading. Approving admits the machine and nothing more. The machine
 belongs to the actor who installed Yoke and authenticated on it, so an
 admin answering for someone else never becomes its owner.
 
+Self-hosted users approve their own code on the workbench's **Connect your machine**
+page. Approval binds the new machine and credential to that signed-in actor.
+The existing org-admin approval path on Cloud retains its authority.
+
 ## Members (Cloud)
 
 Platform-fed. People in the organization, seats, invites. Not present as a
@@ -69,5 +73,5 @@ Organization / universe level: export/import portability, founding new orgs
 |---|---|---|---|
 | Workbench | `yoke ui up` | `yoke ui up`: company sign-in or a single-use token link | app.upyoke.com |
 | Members / Billing | N/A | N/A | Platform sections |
-| Machine approval | N/A (you are the machine) | API token minted on the host | Machines page / connect |
+| Machine approval | N/A (you are the machine) | Company sign-in → approve your own machine at `/machine-approval`; API token when OIDC is absent | Machines page / connect |
 | Universe export | Yes | Yes | Yes (portability) |

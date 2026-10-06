@@ -1,14 +1,28 @@
-"""Browser-approved machine authorization for the hosted Platform."""
+"""Browser-approved machine authorization for Cloud and self-hosted servers."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import json
 import time
 from typing import Any, Callable, Mapping
-import urllib.parse
 import urllib.request
 
+from yoke_contracts.machine_authorization import (
+    START_PATH,
+    POLL_PATH,
+    HostedMachineAuthorizationError,
+    HostedMachineAuthorizationDenied,
+    HostedMachineAuthorizationCancelled,
+    PendingMachineAuthorization,
+    HostedMachineCredential,
+    _platform_origin,
+    _same_origin_url,
+    _required,
+    _bounded_integer,
+    _BROWSER_VERIFICATION_PATHS,
+    _RETRYABLE_POLL_ERRORS,
+    credential_api_url,
+)
 from yoke_cli.config import machine_config_mutation
 from yoke_cli.config.hosted_machine_browser import BrowserOpenResult, open_browser
 from yoke_cli.transport.bounded_json_http import (
@@ -19,57 +33,19 @@ from yoke_cli.transport.bounded_json_http import (
 from yoke_contracts.machine_config.machine_name import machine_display_name
 
 
-class HostedMachineAuthorizationError(RuntimeError):
-    """The hosted browser authorization could not complete safely."""
-
-
-class HostedMachineAuthorizationDenied(HostedMachineAuthorizationError):
-    """The user explicitly denied this machine in the browser."""
-
-
-class HostedMachineAuthorizationCancelled(HostedMachineAuthorizationError):
-    """The caller abandoned the approval wait; the pending code simply expires."""
-
-
-# Hosted pages that may present the one-time code approval: the dedicated
-# machine-approval page and the unified connect-machine page.
-_BROWSER_VERIFICATION_PATHS = ("/connect", "/machine")
-_RETRYABLE_POLL_ERRORS = {
-    202: "authorization_pending",
-    503: "machine_credential_unavailable",
-}
-
-
-@dataclass(frozen=True)
-class PendingMachineAuthorization:
-    platform_url: str
-    device_code: str = field(repr=False)
-    user_code: str
-    verification_uri: str
-    verification_uri_complete: str
-    expires_in: int
-    interval: int
-
-
-@dataclass(frozen=True)
-class HostedMachineCredential:
-    api_url: str
-    org: str
-    token: str = field(repr=False)
-
-
 def start(
     platform_url: str,
     *,
     opener: Callable[..., Any] | None = None,
     timeout_seconds: float = 15.0,
+    self_host: bool = False,
 ) -> PendingMachineAuthorization:
     """Begin one authorization without opening a browser or persisting state."""
     origin = _platform_origin(platform_url)
     try:
         payload, status = _post_json(
-            f"{origin}/api/machine/authorizations",
-            {},
+            f"{origin}{START_PATH}",
+            _machine_identity() if self_host else {},
             opener=opener,
             timeout_seconds=timeout_seconds,
         )
@@ -103,6 +79,7 @@ def start(
         verification_uri_complete=verification_uri_complete,
         expires_in=expires_in,
         interval=interval,
+        self_host=self_host,
     )
 
 
@@ -120,19 +97,9 @@ def complete(
     wakes early (``threading.Event.wait``) so an abandoned wait ends at once
     rather than at the next poll tick.
     """
-    try:
-        resolved_machine_id = machine_config_mutation.ensure_local_machine_identity()
-    except machine_config_mutation.MachineConfigWriteError as exc:
-        raise HostedMachineAuthorizationError(
-            f"machine_identity_required: {exc}; create or restore this machine's "
-            "config, then retry"
-        ) from None
-    machine_identity = {
-        "machine_id": resolved_machine_id,
-        "machine_name": machine_display_name(),
-    }
+    machine_identity = _machine_identity()
     deadline = monotonic() + authorization.expires_in
-    token_url = f"{authorization.platform_url}/api/machine/authorizations/token"
+    token_url = f"{authorization.platform_url}{POLL_PATH}"
     while monotonic() < deadline:
         sleep(min(authorization.interval, max(0.0, deadline - monotonic())))
         if cancelled is not None and cancelled():
@@ -190,14 +157,12 @@ def complete(
             )
         token = _required(payload, "token")
         org = _required(payload, "org")
-        api_url = _same_origin_api_url(
-            _required(payload, "api_url"), authorization.platform_url
+        api_url = credential_api_url(
+            _required(payload, "api_url"),
+            authorization.platform_url,
+            org,
+            self_host=authorization.self_host,
         )
-        expected_path = f"/api/orgs/{urllib.parse.quote(org, safe='')}"
-        if urllib.parse.urlsplit(api_url).path != expected_path:
-            raise HostedMachineAuthorizationError(
-                "hosted authorization returned a mismatched organization authority"
-            )
         return HostedMachineCredential(api_url=api_url, org=org, token=token)
     raise HostedMachineAuthorizationError(
         "hosted authorization expired before approval"
@@ -218,8 +183,9 @@ def authorize(
     | None = None,
     sleep: Callable[[float], Any] = time.sleep,
     monotonic: Callable[[], float] = time.monotonic,
+    self_host: bool = False,
 ) -> HostedMachineCredential:
-    pending = start(platform_url, opener=opener)
+    pending = start(platform_url, opener=opener, self_host=self_host)
     browser = open_browser(pending, browser_open=browser_open)
     if notify is not None:
         notify(pending, browser)
@@ -245,6 +211,7 @@ def _post_json(
             request,
             timeout_seconds=timeout_seconds,
             replay_safe=False,
+            allow_loopback_http=True,
             sensitive_values=sensitive_values,
             opener=opener,
         )
@@ -259,91 +226,15 @@ def _post_json(
     return response.payload, int(response.status)
 
 
-def _platform_origin(value: str) -> str:
-    parsed = urllib.parse.urlsplit(str(value or "").strip().rstrip("/"))
-    if (
-        parsed.scheme != "https"
-        or not parsed.hostname
-        or parsed.username
-        or parsed.password
-    ):
-        raise HostedMachineAuthorizationError(
-            "hosted Platform URL must be an HTTPS origin"
-        )
-    if parsed.path or parsed.query or parsed.fragment:
-        raise HostedMachineAuthorizationError(
-            "hosted Platform URL must not include a path"
-        )
-    return urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, "", "", ""))
-
-
-def _same_origin_url(
-    value: str, origin: str, *, expected_paths: tuple[str, ...]
-) -> str:
-    parsed = urllib.parse.urlsplit(value)
-    expected = urllib.parse.urlsplit(origin)
-    if (
-        parsed.scheme != expected.scheme
-        or parsed.netloc != expected.netloc
-        or parsed.path not in expected_paths
-        or parsed.fragment
-    ):
-        raise HostedMachineAuthorizationError(
-            "hosted authorization returned an unsafe browser URL"
-        )
-    return value
-
-
-def _same_origin_api_url(value: str, origin: str) -> str:
-    parsed = urllib.parse.urlsplit(value.rstrip("/"))
-    expected = urllib.parse.urlsplit(origin)
-    if (
-        parsed.scheme != expected.scheme
-        or parsed.netloc != expected.netloc
-        or not parsed.path.startswith("/api/orgs/")
-        or parsed.query
-        or parsed.fragment
-    ):
-        raise HostedMachineAuthorizationError(
-            "hosted authorization returned an unsafe API authority"
-        )
-    return value.rstrip("/")
-
-
-def _required(payload: Mapping[str, Any], key: str) -> str:
-    value = str(payload.get(key) or "").strip()
-    if not value or len(value) > 4096:
-        raise HostedMachineAuthorizationError(f"hosted authorization omitted {key}")
-    return value
-
-
-def _bounded_integer(value: Any, minimum: int, maximum: int, label: str) -> int:
-    if isinstance(value, bool):
-        raise HostedMachineAuthorizationError(
-            f"hosted authorization returned invalid {label}"
-        )
+def _machine_identity() -> dict[str, str]:
     try:
-        parsed = int(value)
-    except (TypeError, ValueError, OverflowError):
+        resolved_machine_id = machine_config_mutation.ensure_local_machine_identity()
+    except machine_config_mutation.MachineConfigWriteError as exc:
         raise HostedMachineAuthorizationError(
-            f"hosted authorization returned invalid {label}"
+            f"machine_identity_required: {exc}; create or restore this machine's "
+            "config, then retry"
         ) from None
-    if parsed < minimum or parsed > maximum:
-        raise HostedMachineAuthorizationError(
-            f"hosted authorization returned invalid {label}"
-        )
-    return parsed
-
-
-__all__ = [
-    "BrowserOpenResult",
-    "HostedMachineAuthorizationCancelled",
-    "HostedMachineAuthorizationDenied",
-    "HostedMachineAuthorizationError",
-    "HostedMachineCredential",
-    "PendingMachineAuthorization",
-    "authorize",
-    "complete",
-    "open_browser",
-    "start",
-]
+    return {
+        "machine_id": resolved_machine_id,
+        "machine_name": machine_display_name(),
+    }

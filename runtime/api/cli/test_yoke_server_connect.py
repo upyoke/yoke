@@ -122,7 +122,8 @@ def test_connect_without_token_uses_hosted_browser_org_authority(
                     interval=2,
                 ),
                 hosted_machine_browser.BrowserOpenResult(
-                    opened=True, method="webbrowser",
+                    opened=True,
+                    method="webbrowser",
                 ),
             )
             or hosted_machine_authorization.HostedMachineCredential(
@@ -296,10 +297,16 @@ def test_connect_token_file_source(monkeypatch, machine_home, tmp_path, capsys):
     assert stored.read_text(encoding="utf-8").strip() == _TOKEN
 
 
-def test_connect_refuses_tokenless_self_host_url(machine_home, capsys):
+def test_connect_without_oidc_teaches_explicit_token(machine_home, capsys, monkeypatch):
+    from yoke_cli.config import team_server_authorization
+
+    monkeypatch.setattr(
+        team_server_authorization, "browser_sign_in_available", lambda _url: False
+    )
     assert commands.connect(["http://127.0.0.1:8765"]) == 2
     err = capsys.readouterr().err
-    assert "official hosted platform URL" in err
+    assert "oidc_not_configured" in err
+    assert "--token-file" in err
     assert not (machine_home / "config.json").exists()
 
 

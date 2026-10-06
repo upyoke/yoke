@@ -84,6 +84,9 @@ export const NAV = [
     group: GROUP_FOCUS, hidden: true,
   },
 
+  { id: "machine-approval", label: "Connect your machine", scope: SCOPE_NONE,
+    group: GROUP_FOCUS, hidden: true },
+
   // A workflow definition is configuration: it is authored once and every item
   // then follows the version pinned to it. What you govern with is not what
   // you watch.

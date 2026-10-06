@@ -47,6 +47,7 @@ import {
 import { renderSessionsView } from "./universe_views_sessions.js";
 import { renderSessionMessagesView } from "./universe_session_messages.js";
 import { renderRegisteredSessionDetail } from "./universe_session_detail.js";
+import { renderMachineApproval } from "./machine_approval.js";
 import { renderMachinesView } from "./universe_views_machines.js";
 import { renderSessionLaunchesView } from "./universe_session_launches.js";
 import { renderMachineDetail } from "./universe_machine_detail.js";
@@ -119,6 +120,7 @@ export const VIEW_RENDERERS = {
   frontier: renderFrontierView,
   shipping: renderShippingView,
   machines: renderMachinesView,
+  "machine-approval": renderMachineApproval,
   sessions: renderSessionsView,
   inbox: renderInboxView,
   profile: renderProfileView,

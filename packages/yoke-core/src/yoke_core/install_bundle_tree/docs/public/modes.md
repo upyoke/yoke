@@ -44,7 +44,9 @@ sign-in link valid for two minutes. Rerun the command if the link expires.
   bundle, captures first boot, waits until the server answers `/v1/health`,
   and activates the owner-only local connection.
 - Wizard on another machine: pick **A team server** and enter its reachable URL
-  plus either a pasted token or token-file path in the same form. The guided host screen teaches the handoff without configuring
+  first. Company sign-in (OIDC), when configured, opens the workbench with a
+  one-time code so you approve your own machine. Otherwise provide a pasted
+  API token or token-file path. The guided host screen teaches the handoff without configuring
   VPN/tailnet, LAN, port-forwarding, or TLS for you.
 - Manual/operator path: `yoke self-host init --start` writes and starts the same Compose
   bundle through the private host secret handoff. Restart with
