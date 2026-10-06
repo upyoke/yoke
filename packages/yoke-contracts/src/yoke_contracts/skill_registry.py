@@ -140,7 +140,7 @@ SKILLS: tuple[Skill, ...] = (
         "utility",
         "simulate",
         False,
-        "trace integration paths",
+        "trace integration paths; no terminal `yoke simulate` adapter",
         "PREFIX-N | --system",
     ),
     Skill(
@@ -148,7 +148,7 @@ SKILLS: tuple[Skill, ...] = (
         "orchestrator",
         "steer",
         True,
-        "staff work from a strategy document",
+        "staff work from a strategy document; omitted slug defaults to `CURRENT-PLAN`",
         "[STRATEGY-DOC-SLUG]",
     ),
     Skill("strategize", "orchestrator", "strategize", False, "review project strategy"),

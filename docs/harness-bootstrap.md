@@ -81,8 +81,8 @@ yoke_core.tools.render_skill_registry_inline --target-root CHECKOUT`.
 | `/yoke refine PREFIX-N` | stage | `refine` | follow skill decision gates | critique and improve item artifacts |
 | `/yoke resync` | utility | `operator` | follow skill decision gates | detect and repair GitHub drift |
 | `/yoke shepherd PREFIX-N` | stage | `shepherd` | autonomous execution | execute the pinned planning interval |
-| `/yoke simulate PREFIX-N \| --system` | utility | `simulate` | follow skill decision gates | trace integration paths |
-| `/yoke steer [STRATEGY-DOC-SLUG]` | orchestrator | `steer` | autonomous execution | staff work from a strategy document |
+| `/yoke simulate PREFIX-N \| --system` | utility | `simulate` | follow skill decision gates | trace integration paths; no terminal `yoke simulate` adapter |
+| `/yoke steer [STRATEGY-DOC-SLUG]` | orchestrator | `steer` | autonomous execution | staff work from a strategy document; omitted slug defaults to `CURRENT-PLAN` |
 | `/yoke strategize` | orchestrator | `strategize` | follow skill decision gates | review project strategy |
 | `/yoke usher PREFIX-N [--dry-run]` | stage | `usher` | autonomous execution | merge and deliver an item |
 | `/yoke wrapup` | utility | `wrapup` | follow skill decision gates | wrap up the session |

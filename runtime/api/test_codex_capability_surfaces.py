@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from yoke_contracts.skill_registry import STAGE_SKILL_IDS
 from yoke_core.domain.harness_capability_registry import (
     compact_entrypoint_display,
     safe_operator_surface_entrypoints,
@@ -36,7 +37,6 @@ def _repo_root() -> Path:
 
 REPO = _repo_root()
 EXPECTED_IMPLEMENT_COMMAND = "/yoke implement PREFIX-N"
-EXPECTED_PATHS = "shepherd, refine, implement, dash, blitz, polish, usher"
 
 
 def _read(rel_path: str) -> str:
@@ -50,13 +50,13 @@ def test_codex_hook_orientation_lists_registry_implement_path():
     # The Codex per-event orientation rendering helpers were deleted with the
     # legacy ``codex_hooks`` module; the registry is the contract surface.
     assert EXPECTED_IMPLEMENT_COMMAND in compact_entrypoint_display()
-    assert ", ".join(shared_downstream_paths()) == EXPECTED_PATHS
+    assert set(shared_downstream_paths()) == STAGE_SKILL_IDS
 
 
-def test_conduct_is_direct_safe_surface_outside_downstream_registry():
+def test_conduct_is_shared_stage_and_safe_operator_surface():
     assert "/yoke conduct" in safe_operator_surface_entrypoints("codex")
-    assert "/yoke conduct" not in shared_entrypoints()
-    assert "conduct" not in shared_downstream_paths()
+    assert "/yoke conduct" in shared_entrypoints()
+    assert "conduct" in shared_downstream_paths()
 
 
 def test_direct_execution_paths_are_in_downstream_registry():
@@ -77,17 +77,14 @@ def test_codex_smoke_matrix_expects_implement_path():
 def test_hook_parity_map_matches_codex_shared_registry_summary():
     text = _read("docs/hook-parity-map.md")
 
-    assert (
-        "The shared Yoke registry exposes two intentionally different capability views."
-    ) in text
+    assert ("The skill registry supplies both capability views.") in text
     assert "safe operator surface" in text
     assert "downstream registry" in text
     assert "rather than copying either registry view" in text
     assert "/yoke implement" in text
     assert "/yoke conduct" in text
     assert "`implement`" in text
-    assert "direct Codex invocation" in text
-    assert "Conduct runs through its own operator entrypoint" in text
+    assert "Conduct is a stage skill" in text
     assert "five entrypoints" not in text
     assert "four downstream paths" not in text
 
