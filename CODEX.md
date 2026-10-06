@@ -185,7 +185,6 @@ Frontier computation lives in [.yoke/docs/reference/charge-frontier.md](.yoke/do
 ## Related docs
 
 - [Lifecycle & Command Boundaries](.yoke/docs/reference/lifecycle.md) -- canonical human lifecycle guide
-- [Session-Offer Contract](.yoke/docs/reference/session-offer.md) -- `session-offer` request/response shape
 - [Charge Frontier](.yoke/docs/reference/charge-frontier.md) -- frontier computation and status-to-adapter map
 <!-- END YOKE MANAGED BLOCK -->
 
