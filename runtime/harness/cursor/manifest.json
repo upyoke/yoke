@@ -25,7 +25,8 @@
     "executor": "cursor",
     "provider_source": "payload",
     "model_source": "payload",
-    "workspace_source": "payload_workspace_roots_then_cwd"
+    "workspace_source": "payload_workspace_roots_then_cwd",
+    "command_workdir_source": "payload_working_directory"
   },
   "supports": {
     "command_source": "shared_yoke_registry",

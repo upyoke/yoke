@@ -43,7 +43,9 @@ RECOVERY_MESSAGE_FILE = "/tmp/message.txt"
 LANE_EDIT_GUIDANCE = (
     "While this session holds an implementation-lane work claim, tracked "
     "source edits belong in the lane worktree — not the main checkout. "
-    "Copy the in-lane path above into your Edit/Write/Bash call."
+    "Copy the in-lane path above into your Edit/Write/Bash call; a relative "
+    "path resolves against the call's workdir, then any leading `cd`, so "
+    "running the call in the lane also lands it there."
 )
 
 _SOURCE_NOTES = {
@@ -104,7 +106,8 @@ def derivation_context(
     return DerivationContext(
         working_directory=working_directory,
         source=derivation_source(
-            is_tool_target=is_tool_target, fell_back_to_cwd=fell_back_to_cwd,
+            is_tool_target=is_tool_target,
+            fell_back_to_cwd=fell_back_to_cwd,
         ),
         unresolved_writes=tuple(unresolved_writes),
     )
@@ -154,14 +157,17 @@ def _resolution_line(derivation: TargetDerivation, attempted_path: str) -> str:
 
 
 def format_derivation(
-    derivation: TargetDerivation, *, attempted_path: str,
+    derivation: TargetDerivation,
+    *,
+    attempted_path: str,
 ) -> str:
     """Render the extracted-token / resolution block for a refusal."""
     lines = []
     if derivation.fell_back_to_cwd:
         lines.append(
-            _line("Extracted", "(nothing — this call names no readable "
-                  "write destination)")
+            _line(
+                "Extracted", "(nothing — this call names no readable write destination)"
+            )
         )
     else:
         note = _SOURCE_NOTES.get(derivation.source, "")
@@ -181,30 +187,32 @@ def format_derivation(
 
 
 def format_derivation_guidance(
-    derivation: TargetDerivation, *, lane_path: str = "",
+    derivation: TargetDerivation,
+    *,
+    lane_path: str = "",
 ) -> str:
     """Render the next move, which differs by how the path was derived.
 
-    The cwd-fallback branch names a recovery the caller can actually run.
-    A leading absolute ``cd`` in the command body and the call's declared
-    workdir both determine where a relative destination lands.
+    The cwd-fallback branch names a recovery the guard itself accepts: the
+    working directory comes from the call's declared workdir, then any
+    leading ``cd`` statements, so either one placing the call in the lane
+    moves an unreadable destination there too.
     """
     if derivation.fell_back_to_cwd:
         lane = lane_path or "<lane path>"
         return (
             "This command writes through a destination the guard cannot read "
             "— a variable, a command substitution, a heredoc, or another "
-            "computed value — so it fell back to the working directory above. "
-            "A path the command only mentions as string data is never treated "
-            "as a write target, and an unreadable destination is refused "
-            "rather than guessed. Name the lane as the call's workdir or "
-            "use a leading absolute `cd` when retrying. For a commit whose "
-            "message is computed, write "
-            "the message to a free temp file and run "
-            f"`git -C {lane} commit -F {RECOVERY_MESSAGE_FILE}`; "
-            "otherwise spell "
-            "each destination as a literal absolute lane path, or declare "
-            "the lane as the call's working directory."
+            "computed value — so it resolved against the working directory "
+            "above. A path the command only mentions as string data is never "
+            "treated as a write target, and an unreadable destination is "
+            "refused rather than guessed. Run the call in the lane: declare "
+            f"{lane} as the call's workdir, or make `cd {lane}` the "
+            "command's first statement (followed by `&&`, `;`, or a newline). "
+            "For a commit whose message is computed, write the message to a "
+            f"free temp file and run `git -C {lane} commit -F "
+            f"{RECOVERY_MESSAGE_FILE}`; otherwise spell each destination as a "
+            "literal absolute lane path."
         )
     return LANE_EDIT_GUIDANCE
 

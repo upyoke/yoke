@@ -29,12 +29,11 @@ and allows the call.
 from __future__ import annotations
 
 import json
-import shlex
 import sys
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Mapping, Optional
 
+from yoke_core.domain.command_workdir import command_execution_cwd
 from yoke_core.domain.lint_lane_main_write_classify import (
     collect_main_write_targets,
     command_has_suppression_token,
@@ -54,8 +53,6 @@ from yoke_core.domain.lint_lane_main_write_emit import (
     emit_stranded_lane_advisory,
 )
 from yoke_core.domain.lint_lane_main_write_messages import ESCAPE_TOKEN, format_denial
-from yoke_core.domain.lint_session_cwd_control_plane import resolve_authority_cwd
-from yoke_core.domain.lint_session_cwd_home import expand_machine_home
 from yoke_core.domain.lint_session_cwd_path_authority import derive_repo_roots
 from yoke_core.domain.lint_session_cwd_status import is_pre_implementing_status
 from yoke_core.domain.lint_session_cwd_target_extract import extract_payload_command
@@ -64,7 +61,10 @@ from yoke_core.domain.lint_session_cwd_item_lookup import (
     lookup_item_workflow,
 )
 from yoke_core.domain.session_ambient_identity import session_id_from_hook_payload
-from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree, claimed_worktrees
+from yoke_core.domain.session_claimed_worktrees import (
+    ClaimedWorktree,
+    claimed_worktrees,
+)
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 CHECK_ID = "lint-lane-main-write"
@@ -90,16 +90,19 @@ class Verdict:
 
 def _open_conn():
     from yoke_core.domain import db_helpers
+
     return db_helpers.connect()
 
 
 def _read_mode(payload: object | None = None) -> str:
     from yoke_core.domain import lint_config
+
     return lint_config.resolve_mode_for_payload(GUARD_KEY, payload)
 
 
 def _config_note(mode: str) -> str:
     from yoke_core.domain import lint_config
+
     return lint_config.describe_config_source(GUARD_KEY, mode)
 
 
@@ -121,23 +124,6 @@ def _lane_is_active(conn: Any, claim: ClaimedWorktree) -> bool:
     return not is_pre_implementing_status(workflow, status)
 
 
-def _execution_cwd(payload: Mapping[str, Any]) -> str:
-    """Resolve the declared workdir, then a leading absolute shell `cd`."""
-    cwd = resolve_authority_cwd(payload)
-    command = extract_payload_command(payload)
-    first = command.split("&&", 1)
-    if len(first) == 2:
-        try:
-            tokens = shlex.split(first[0])
-        except ValueError:
-            tokens = []
-        if len(tokens) == 2 and tokens[0] == "cd":
-            candidate = Path(expand_machine_home(tokens[1], machine_home=None))
-            if candidate.is_absolute():
-                return str(candidate.resolve())
-    return str(Path(expand_machine_home(cwd, machine_home=None)).resolve()) if cwd else ""
-
-
 def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
     session_id = _extract_session_id(payload)
     if not session_id:
@@ -157,7 +143,7 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
             if not active_claims:
                 return Verdict(allow=True)
             repo_roots = tuple(derive_repo_roots(conn, active_claims))
-            fallback_cwd = _execution_cwd(payload)
+            fallback_cwd = command_execution_cwd(payload)
             hits = collect_main_write_targets(
                 tool_name=tool_name,
                 payload=payload_dict,
@@ -168,9 +154,8 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
             if not hits:
                 return Verdict(allow=True)
             _attempted, claim, _derivation = first_hit_fields(hits)
-            if (
-                not lane_path_exists_on_disk(claim)
-                and claim_heartbeat_is_stale(conn, session_id, claim)
+            if not lane_path_exists_on_disk(claim) and claim_heartbeat_is_stale(
+                conn, session_id, claim
             ):
                 emit_stranded_lane_advisory(
                     session_id=session_id,
@@ -304,7 +289,11 @@ def main() -> int:
         return 0
     if not isinstance(payload, dict):
         return 0
-    cwd, sid, tool = payload.get("cwd"), payload.get("session_id"), payload.get("tool_name")
+    cwd, sid, tool = (
+        payload.get("cwd"),
+        payload.get("session_id"),
+        payload.get("tool_name"),
+    )
     record = HookContext(
         event_name="PreToolUse",
         executor_family="claude",
