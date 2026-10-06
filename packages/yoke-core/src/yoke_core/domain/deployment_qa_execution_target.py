@@ -11,6 +11,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_qa_stage_contract import (
     deployment_qa_stage_subject,
 )
+from yoke_core.domain.deployment_qa_target_project import target_project
 from yoke_core.domain.deployment_stage_receipts import (
     deployment_stage_receipt_for_qa,
 )
@@ -37,17 +38,19 @@ def _row(cursor: Any, value: Any) -> dict[str, Any] | None:
     return dict(zip(names, value, strict=True))
 
 
-def _persistent_target(conn: Any, run: Mapping[str, Any], environment: str) -> dict:
+def _persistent_target(conn: Any, project_id: int, environment: str) -> dict:
     cursor = conn.execute(
         "SELECT e.id AS environment_id,e.name AS environment_name,e.url,e.settings,"
         "s.name AS site_name FROM environments e JOIN sites s ON s.id=e.site "
         f"WHERE s.project_id={_p(conn)} AND e.name={_p(conn)}",
-        (int(run["project_id"]), environment),
+        (project_id, environment),
     )
     row = _row(cursor, cursor.fetchone())
     if row is None:
         raise ValueError(
-            f"deployment QA target environment {environment!r} is not registered"
+            f"deployment_member_target_missing: project {project_id} has no registered "
+            f"QA target environment {environment!r}; register the deployed environment "
+            "for that project before starting QA"
         )
     return {
         "environment": {
@@ -153,9 +156,11 @@ def _require_receipt_source(subject: Mapping[str, Any], source_stage: str) -> No
     if names.index(source_stage) >= names.index(qa_name):
         raise ValueError("deployment QA receipt source must precede the QA stage")
     source = stages[names.index(source_stage)]
-    if not isinstance(source, Mapping) or source.get("stage_kind") == "qa" or source.get(
-        "step_runner"
-    ) == "qa":
+    if (
+        not isinstance(source, Mapping)
+        or source.get("stage_kind") == "qa"
+        or source.get("step_runner") == "qa"
+    ):
         raise ValueError("deployment QA receipt source must be a non-QA stage")
 
 
@@ -174,6 +179,7 @@ def deployment_qa_execution_target(
     also skips the freeze: result-write validation still compares against
     the live subject, including a replaced candidate on the same run row.
     """
+    project = target_project(conn, subject)
     if receipt_id is None:
         frozen = first_materialized_execution_target(
             conn,
@@ -202,6 +208,7 @@ def deployment_qa_execution_target(
             and latest_receipt is not None
             and frozen_receipt is not None
             and latest_receipt == frozen_receipt
+            and (frozen.get("project") or {}).get("id") == project["id"]
         ):
             return frozen
     target = subject["stage"].get("target")
@@ -231,7 +238,7 @@ def deployment_qa_execution_target(
         receipt_id=receipt_id,
     )
     if kind == "persistent_environment":
-        resolved = _persistent_target(conn, subject, expected_name or "")
+        resolved = _persistent_target(conn, project["id"], expected_name or "")
         observed_url = str(receipt.get("observed_url") or "").rstrip("/")
         configured_urls = {
             str(value).rstrip("/")
@@ -240,8 +247,9 @@ def deployment_qa_execution_target(
         }
         if observed_url and configured_urls and observed_url not in configured_urls:
             raise ValueError(
-                "deployment stage receipt URL does not match the configured "
-                "environment endpoint"
+                "deployment_member_target_missing: deployment stage receipt URL "
+                "does not match the configured environment endpoint; execute a "
+                "producer stage that observes this project's deployed target"
             )
         resolved["observed_url"] = observed_url or None
     elif kind == "run_preview":
@@ -256,11 +264,7 @@ def deployment_qa_execution_target(
             "slug": str(subject["tenant_slug"]),
             "name": str(subject["tenant_name"]),
         },
-        "project": {
-            "id": int(subject["project_id"]),
-            "slug": str(subject["project_slug"]),
-            "name": str(subject["project_name"]),
-        },
+        "project": project,
         **resolved,
         "observation": {
             "receipt_id": int(receipt["id"]),
@@ -268,9 +272,7 @@ def deployment_qa_execution_target(
             "attempt_number": int(receipt["attempt_number"]),
             "correlation_id": str(receipt["correlation_id"]),
             "observed_release_lineage": str(receipt["observed_release_lineage"]),
-            "observed_artifact_identity": receipt.get(
-                "observed_artifact_identity"
-            ),
+            "observed_artifact_identity": receipt.get("observed_artifact_identity"),
         },
         "deployment": {
             "run_id": str(subject["id"]),
@@ -305,7 +307,8 @@ def validate_deployment_execution_target(
     observation = actual.get("observation") if isinstance(actual, Mapping) else None
     receipt_id = (
         int(observation.get("receipt_id"))
-        if isinstance(observation, Mapping) and observation.get("receipt_id") is not None
+        if isinstance(observation, Mapping)
+        and observation.get("receipt_id") is not None
         else None
     )
     expected = deployment_qa_execution_target(conn, subject, receipt_id=receipt_id)

@@ -83,6 +83,16 @@ def _mixed_run(conn, tmp_path, monkeypatch):
     release = two_project_release(
         conn, tmp_path, monkeypatch, stages=stages_with_item_qa()
     )
+    site_id = conn.execute(
+        "INSERT INTO sites(project_id,name,created_at) VALUES (%s,'consumer-app',%s) "
+        "RETURNING id",
+        (consumer_id, SEEDED_AT),
+    ).fetchone()[0]
+    conn.execute(
+        "INSERT INTO environments(site,project_id,name,url,created_at) "
+        "VALUES (%s,%s,'stage','https://preview.example.test',%s)",
+        (site_id, consumer_id, SEEDED_AT),
+    )
     record_bound_sources(conn, RUN)
     enroll_carried_members(conn, RUN)
     freeze_run_composition(conn, RUN)

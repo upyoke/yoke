@@ -120,7 +120,8 @@ def case_target_recovery(
         stage = str(deployment_stage or "<stage>")
         member = f" --member {deployment_member}" if deployment_member else ""
         return (
-            "Recovery: a deployment stage binds the run's own observed target, "
+            "Recovery: a deployment stage binds the member project's observed target "
+            "for member QA, or the run project's target for run QA, "
             "so re-materialize this case against it with `yoke qa plan "
             f"materialize --deployment-run-id {deployment_run_id} --stage "
             f"{stage}{member} --plan {plan} --project {project}`, then re-run "

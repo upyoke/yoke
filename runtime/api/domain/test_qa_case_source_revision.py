@@ -36,6 +36,15 @@ def test_a_bound_project_member_case_names_its_bound_source(test_db) -> None:
         members=(),
         existing_members=(9813,),
     )
+    site_id = test_db.execute(
+        "INSERT INTO sites(project_id,name,created_at) "
+        "VALUES (2,'member-destination','2026-09-14T00:00:00Z') RETURNING id"
+    ).fetchone()[0]
+    test_db.execute(
+        "INSERT INTO environments(site,project_id,name,url,created_at) "
+        "VALUES (%s,2,'stage','https://preview.example.test','2026-09-14T00:00:00Z')",
+        (site_id,),
+    )
     test_db.execute(
         "UPDATE deployment_runs SET bound_sources=%s WHERE id='run-direct-bound'",
         (json.dumps({"projects": [{"project_id": 2, "commit_sha": bound_sha}]}),),
@@ -57,7 +66,7 @@ def test_a_bound_project_member_case_names_its_bound_source(test_db) -> None:
         instructions="run the member smoke command",
         expected_outcome="the command passes",
         method_config=json.dumps({"command": "true"}),
-        target_env="prod",
+        target_env="stage",
     )
 
     context = get_case_execution_context(test_db, requirement_id=int(row["id"]))
