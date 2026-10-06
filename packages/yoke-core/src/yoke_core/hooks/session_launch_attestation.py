@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Iterable
 
 from yoke_contracts.hook_context_compose import token_delivered
+from yoke_contracts.hook_runner.chain_registry import SESSION_END_EVENT
 from yoke_contracts.hook_runner.model_context_channel import (
     SESSION_OPENING_STDOUT_EVENTS,
     STDOUT_CHANNEL,
@@ -14,8 +15,12 @@ from yoke_contracts.hook_runner.model_context_channel import (
 from yoke_contracts.session_control.launch_bootstrap import (
     AUTOMATIC_LAUNCH_REGISTRATION_TEACHING,
 )
+from yoke_contracts.session_control.launch_registration import (
+    SESSION_ENDED_UNBOUND_CODE,
+)
 from yoke_core.domain.session_launch_binding_evidence import (
     record_registration_refusal,
+    record_session_ended_unbound,
 )
 from yoke_core.domain.session_launch_registration import (
     complete_launch_injection,
@@ -150,6 +155,39 @@ def _superseded_launch_stop_context(
     )
 
 
+def _record_unbound_session_end(
+    attestation: LaunchAttestation,
+    *,
+    session_id: str,
+    connect: Callable[[], Any],
+) -> HookDecision:
+    """Name the ending of an attested session its launch never bound.
+
+    Binding to a session that is ending would staff the work with nobody, so
+    SessionEnd never prepares an injection; it only leaves the refusal that
+    explains the launch.
+    """
+    conn = connect()
+    try:
+        recorded = record_session_ended_unbound(
+            conn, launch_id=attestation.launch_id, session_id=session_id
+        )
+    finally:
+        conn.close()
+    if not recorded:
+        return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
+    return HookDecision(
+        outcome=Outcome.WARN,
+        message=(
+            f"Yoke launch {attestation.launch_id} never bound this session "
+            f"before it ended ({SESSION_ENDED_UNBOUND_CODE}); read "
+            f"`yoke session-control launch get {attestation.launch_id}`."
+        ),
+        audit_fields={"session_launch_error": SESSION_ENDED_UNBOUND_CODE},
+        next=Next.CONTINUE,
+    )
+
+
 def evaluate_launch_attestation(
     record: HookContext,
     *,
@@ -163,6 +201,10 @@ def evaluate_launch_attestation(
         if not record.session_id:
             raise SessionLaunchError(
                 "session_required", "launch hook has no session id"
+            )
+        if record.event_name == SESSION_END_EVENT:
+            return _record_unbound_session_end(
+                attestation, session_id=record.session_id, connect=connect
             )
         conn = connect()
         try:

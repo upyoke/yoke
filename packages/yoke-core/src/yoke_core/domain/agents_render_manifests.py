@@ -218,7 +218,7 @@ CURSOR_MANIFEST: dict = {
         "executor": "cursor",
         "provider_source": "payload",
         "model_source": "payload",
-        "workspace_source": "payload_cwd_then_git_root",
+        "workspace_source": "payload_workspace_roots_then_cwd",
     },
     "supports": {
         "command_source": "shared_yoke_registry",
