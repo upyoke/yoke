@@ -11,23 +11,11 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_types import 
 CLAIMS_ADAPTERS = [
     AdapterEntry(
         function_id="claims.work.acquire",
-        cli_invocation="python3 -m yoke_core.api.service_client claim-work",
-        agent_path="skill-orchestrated",
-        canonical_skill_invocation="/yoke advance YOK-N <next>",
-        direct_use_caveat=(
-            "inside lifecycle transitions, bypasses routed claim lifecycle "
-            "events; direct use remains valid for non-lifecycle claim flows."
-        ),
+        cli_invocation="yoke claims work acquire --item PREFIX-N --reason TEXT",
     ),
     AdapterEntry(
         function_id="claims.work.release",
-        cli_invocation=("python3 -m yoke_core.api.service_client release-work-claim"),
-        agent_path="skill-orchestrated",
-        canonical_skill_invocation="/yoke advance YOK-N <next>",
-        direct_use_caveat=(
-            "inside lifecycle transitions, bypasses the structured handoff "
-            "payload; direct use remains valid for non-lifecycle claim flows."
-        ),
+        cli_invocation="yoke claims work release --item PREFIX-N --reason TEXT",
     ),
     AdapterEntry(
         function_id="claims.work.release_session_scoped",

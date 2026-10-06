@@ -64,7 +64,10 @@ def _seed_fanout(conn, repo):
     ]
     for task_num, branch in lanes:
         seed_epic_task(
-            conn, epic_id=1684, task_num=task_num, branch=branch,
+            conn,
+            epic_id=1684,
+            task_num=task_num,
+            branch=branch,
             repo_path=repo,
         )
         seed_epic_task_claim(conn, "sid-parent", epic_id=1684, task_num=task_num)
@@ -104,7 +107,7 @@ class TestParallelFanoutLint:
         for path in (
             repo / "data" / "yoke.db",
             repo / "docs" / "OVERVIEW.md",
-            repo / ".agents" / "skills" / "yoke" / "advance" / "SKILL.md",
+            repo / ".agents" / "skills" / "yoke" / "implement" / "SKILL.md",
         ):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("stub")
@@ -114,8 +117,7 @@ class TestParallelFanoutLint:
                 targets=(str(path),),
             )
             assert verdict.allow is True, (
-                f"control-plane read of {path} should pass under "
-                "claim-based authority"
+                f"control-plane read of {path} should pass under claim-based authority"
             )
 
     def test_unclaimed_worktree_still_denies(self, conn, tmp_path):
@@ -139,7 +141,9 @@ class TestParallelFanoutLint:
         assert len(verdict.claims) == 3
 
     def test_item_level_claim_covers_every_registered_lane(
-        self, conn, tmp_path,
+        self,
+        conn,
+        tmp_path,
     ):
         """An item-level claim on an epic authorises every lane recorded
         under the epic's item id — its own lane and the task worker
@@ -154,7 +158,10 @@ class TestParallelFanoutLint:
             (10, "YOK-1872-propagation"),
         ):
             seed_epic_task(
-                conn, epic_id=1872, task_num=task_num, branch=branch,
+                conn,
+                epic_id=1872,
+                task_num=task_num,
+                branch=branch,
                 repo_path=repo,
             )
             (repo / ".worktrees" / branch).mkdir(parents=True)
@@ -195,7 +202,9 @@ class TestUnclaimedSessionLint:
     """
 
     def test_unclaimed_session_falls_through_to_allow(
-        self, conn, tmp_path,
+        self,
+        conn,
+        tmp_path,
     ):
         repo = tmp_path / "repo"
         (repo / ".worktrees").mkdir(parents=True)

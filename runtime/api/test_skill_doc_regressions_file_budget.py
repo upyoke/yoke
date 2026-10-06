@@ -112,12 +112,15 @@ class TestFileBudgetRefineRubric:
 
 
 class TestFileBudgetAdvanceImplementation:
-    """`/yoke advance ... implementation` surfaces File Budget to implementor."""
+    """`/yoke implement` surfaces File Budget to implementor."""
 
     @pytest.fixture
     def docs(self) -> dict[str, Path]:
         return {
-            "implementation": SKILLS / "implement" / "implementing" / "implementation.md",
+            "implementation": SKILLS
+            / "implement"
+            / "implementing"
+            / "implementation.md",
         }
 
     def test_re_anchor_reads_file_budget_section(self, docs):

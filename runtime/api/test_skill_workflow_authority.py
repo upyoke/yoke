@@ -47,30 +47,6 @@ def test_shepherd_task_generation_comes_from_pinned_policy() -> None:
         assert forbidden not in text
 
 
-def test_advance_branches_on_skill_and_lane_policy() -> None:
-    skill = _read("advance", "SKILL.md")
-    context = _read("advance", "workflow-context.md")
-    preflight = _read("advance", "preflight.md")
-    finalize = _read("advance", "finalize.md")
-    combined = skill + context + preflight + finalize
-    for required in (
-        "yoke workflows item get",
-        "yoke workflows version get",
-        "_current_skill",
-        "_target_skill",
-        "_generated_children",
-        "_worktree_policy",
-    ):
-        assert required in combined
-    for forbidden in (
-        "_item_workflow_id",
-        'if [ "$_workflow_id" = "epic" ]',
-        "Skip if `_workflow_id` is `epic`",
-        "issue implementation loop",
-    ):
-        assert forbidden not in combined
-
-
 def test_usher_merge_selection_uses_pinned_lane_policy() -> None:
     text = _read("usher", "merge.md")
     for required in (
@@ -98,3 +74,21 @@ def test_conduct_dispatch_has_no_unreachable_item_branch_or_retired_teaching() -
     ):
         assert forbidden not in text
     assert "generated_children=epic_tasks" in text
+
+
+def test_skill_tree_uses_registered_lifecycle_transitions() -> None:
+    retired = "advance"
+    roots = (
+        SKILLS,
+        ROOT
+        / "packages/yoke-core/src/yoke_core/install_bundle_tree/.agents/skills/yoke",
+    )
+    for root in roots:
+        assert not (root / retired / "SKILL.md").exists()
+        assert not list((root / retired).glob("*.md"))
+        for path in root.rglob("*.md"):
+            assert "/yoke " + retired not in path.read_text(), path
+    review = _read("implement", "review.md")
+    assert "lifecycle.transition.execute" in review
+    assert "yoke lifecycle transition" in review
+    assert "yoke claims work release --item PREFIX-N" in review

@@ -12,7 +12,7 @@ argument-hint: "PREFIX-N [PREFIX-N ...] [--dry-run] [--merge-only] [--deploy-onl
  --skip-deploy there would record that delivery as out-of-band.
  Raw done_transition engine calls are internal implementation detail.
  Usher is the PRIMARY caller for the implemented -> done path.
- Other valid callers: advance/done/SKILL.md (manual operator transitions).
+ Manual operator delivery also enters through this skill.
  EXIT 7 PATTERN: Usher absorbs done-transition exit 7 into its
  post-merge routing logic — never exposes it to operators.
  Full audit details in merge.md.

@@ -82,7 +82,7 @@ _epic_id="${_id}"
 
 Then run the **Epic Sync Gate** in [dispatch-context-gates.md](dispatch-context-gates.md) to ensure the epic is synced to GitHub. Auto-sync may update the connected Postgres authority, but git staging must still exclude generated views. If legacy root DB files appear in `data/`, stop and investigate.
 
-Auto-sync's lifecycle target is status implementing; route it through the Yoke advance skill so orchestration, gates, and claim lifecycle run.
+Auto-sync's lifecycle target comes from the pinned binding; use `yoke lifecycle transition PREFIX-N --from <live-stage> --to <next-stage>` so the engine enforces gates and records lifecycle events.
 
 #### 5f-epic.2. Epic Fan-Out Enumeration
 

@@ -45,12 +45,14 @@ class TestLifecycleRoutingSection:
 
     def test_no_flat_advance_to_done(self, section_body: str) -> None:
         stale = re.compile(
-            r"/yoke advance PREFIX-N implementation.*work.*/yoke advance PREFIX-N done",
+            r"/yoke "
+            + "advance PREFIX-N implementation.*work.*/yoke "
+            + "advance PREFIX-N done",
             re.IGNORECASE | re.DOTALL,
         )
         assert not stale.search(section_body), (
             "Lifecycle & Routing still uses the flat "
-            "'/yoke advance ... → work → advance done' sequence"
+            "retired implementation-to-done sequence"
         )
 
     def test_section_names_immutable_pin_and_exact_version(

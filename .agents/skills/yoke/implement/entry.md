@@ -60,15 +60,26 @@ authored-file limit remains universal.
   laneless workflow where the work happens in place. Any multi-lane policy
   belongs to the task-graph skill its binding names; stop and report it.
 
+## Preflight policy coverage
+
+File Budget and path claims are independent effective axes. Both enabled:
+the coverage gate compares the budget with active claims. Budget off, claims
+on: the execution artifact or survey supplies claim scope. Budget on, claims
+off: the budget supplies sizing and conflict evidence. Both off: neither
+artifact gate applies; the universal 350-line authored-file limit still holds.
+Spec coverage is block-by-design: repair it before the worktree takes edits,
+using `yoke claims path widen --claim-id <id> --add-paths <added> --reason
+"<why widening>" --item PREFIX-N`, or the pinned authoring segment's budget
+repair. Resolve that segment's binding before reporting its entrypoint.
+
 ## Reach the binding's entry stage first
 
 Implementation entry is valid only from the `implement` binding's
 `from_stage_id` under `single_implementation_lane` or `none`. The engine
 dispatches the single adjacent `lifecycle.transition.execute` from that stage;
 it does not walk earlier stages. An item still before that stage gets there
-through the skill bound at its live stage (`/yoke refine` owns an active refine
-segment), or through `/yoke advance PREFIX-N --skip-refine` when refine
-deliberation is unnecessary. Never hand-write intermediate status writes to
+through the skill bound at its live stage. Resolve that binding from the
+pinned definition before reporting its entrypoint. Never hand-write intermediate status writes to
 climb toward the entry stage: raw status writes are claim-protected and refused
 with `ClaimVerificationDenied`.
 

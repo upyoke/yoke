@@ -21,7 +21,7 @@ class TestRefineRecoverableReadinessRepair:
     """`/yoke refine` distinguishes recoverable claim-coverage readiness
     failures from unrecoverable ones, routing the recoverable ones to
     canonical claim widen / `path-claims narrow` rather than releasing the
-    work claim and exiting. Adjacent gates (idea-time readiness, advance-time
+    work claim and exiting. Adjacent gates (idea-time readiness, implementation-time
     spec coverage, pre-edit/pre-bash path-claim guards) are classified
     `auto-repair`, `repair-before-block`, or `block-by-design` with rationale.
     """
@@ -33,7 +33,7 @@ class TestRefineRecoverableReadinessRepair:
             "refine_budget_recheck": SKILLS / "refine" / "survey-and-focus.md",
             "refine_readiness_repair": SKILLS / "refine" / "readiness-repair.md",
             "idea_body_and_sync": SKILLS / "idea" / "body-and-sync.md",
-            "advance_preflight": SKILLS / "advance" / "preflight.md",
+            "implement_preflight": SKILLS / "implement" / "entry.md",
         }
 
     def test_refine_classifies_recoverable_readiness_codes(self, docs):
@@ -118,8 +118,10 @@ class TestRefineRecoverableReadinessRepair:
         # Idea-time check stays advisory; refine is the mandatory pass.
         assert "advisory" in text or "advisory" in text.lower()
 
-    def test_advance_spec_coverage_gate_classifies_as_block_by_design(self, docs):
-        text = _read(docs["advance_preflight"])
+    def test_implementation_spec_coverage_gate_classifies_as_block_by_design(
+        self, docs
+    ):
+        text = _read(docs["implement_preflight"])
         assert "block-by-design" in text
         # The rationale must name the worktree timing problem.
         assert "worktree" in text.lower()

@@ -198,7 +198,6 @@ These are called by operator commands or other sub-skills. They have their own S
 
 | Command | Called by | Description |
 |---|---|---|
-| `/yoke advance PREFIX-N [status]` | implement, conduct, polish, usher | Status writes with the target stage's gates, QA phases, and commit |
 | `usher/merge-generated-tasks.md` | usher | Sequential PR + CI + merge per branch |
 | `/yoke approve PREFIX-N` | usher | Approve a deployment stage awaiting human approval |
 | `/yoke amend {epic-id}` | conduct | Add, split, reassign, or remove tasks after sync |
@@ -213,11 +212,7 @@ Stage skill for the segment a workflow binds to `implement` (issue: `refined-ide
 1. **Entry** (`entry.md`) -- At the binding's entry stage, runs `yoke advance implementation-entry --item PREFIX-N`: preflight gates, then worktree preflight (claim, path-claim activation, worktree creation or reuse), the capability-gated environment phase, and the status write, in one process. Worktree creation is a filesystem + DB operation, not a session boundary; the session's authority over the lane is its work-claim, validated per tool call by `lint_session_cwd`. The orchestrator references are `worktree.md`, `activation.md`, `environment.md`.
 2. **Re-entry** (`reentry.md`) -- Past the entry stage, recovers the registered lane and resumes implementation or the review loop without regressing status.
 3. **Implementing sub-skill** (`implementing/`) -- QA seeding of the AC-verification requirement (`qa-seeding.md`), explicit Browser case authoring (`browser-seeding.md`), project context preflight from `context_routing` (`project-context.md`), test commands and QA recording (`test-and-record.md`), and implementation guidance (`implementation.md`). Items entering implementation outside conduct still seed QA requirements before work starts.
-4. **Review loop** (`review.md`) -- Writes each review stage through the internal `/yoke advance` sub-skill (gates, Browser case re-runs on the latest review commit, stale-string audit, worktree-scoped commit), reviews and fixes in place, and stops at the binding's handoff, rendering the next bound skill from `next_skill_id`. Capture-only runs (`execution_status='captured', verdict=NULL`) do not satisfy any `verdict='pass'` gate.
-
-### advance
-
-Internal status writer. No args: auto-advance to next status. With status: jump to that status. Validates lifecycle order, runs the target stage's preflight gates, Browser QA and project E2E where the target needs them, then finalize (status update, GitHub sync, worktree-scoped commit, claim handoff). Implementation entry is not an advance target. Flags: `--env <name>` (update `deployed_to`), `--force` (override gates), `--skip-polish` / `--skip-refine` (operator-asserted skips).
+4. **Review loop** (`review.md`) -- Commits review fixes in the lane, refreshes affected QA cases, and writes each declared review stage with `yoke lifecycle transition`, reviews and fixes in place, and stops at the binding's handoff, rendering the next bound skill from `next_skill_id`. Capture-only runs (`execution_status='captured', verdict=NULL`) do not satisfy any `verdict='pass'` gate.
 
 ### merge
 

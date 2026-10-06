@@ -35,15 +35,12 @@ class TestSimpleVerbs:
     def test_truncate_target(self):
         muts = extract_mutations("truncate -s 0 logs/foo.log")
         assert any(
-            m.verb == "truncate" and m.target_path == "logs/foo.log"
-            for m in muts
+            m.verb == "truncate" and m.target_path == "logs/foo.log" for m in muts
         )
 
     def test_tee_target(self):
         muts = extract_mutations("tee out/foo.txt")
-        assert any(
-            m.verb == "tee" and m.target_path == "out/foo.txt" for m in muts
-        )
+        assert any(m.verb == "tee" and m.target_path == "out/foo.txt" for m in muts)
 
 
 class TestRedirects:
@@ -67,8 +64,7 @@ class TestGitVerbs:
     def test_git_rm(self):
         muts = extract_mutations("git rm runtime/api/foo.py")
         assert any(
-            m.verb == "git rm" and m.target_path == "runtime/api/foo.py"
-            for m in muts
+            m.verb == "git rm" and m.target_path == "runtime/api/foo.py" for m in muts
         )
 
     def test_git_restore(self):
@@ -114,8 +110,7 @@ class TestFindDelete:
     def test_find_with_delete(self):
         muts = extract_mutations("find runtime/api -name '*.pyc' -delete")
         assert any(
-            m.verb == "find -delete" and m.target_path == "runtime/api"
-            for m in muts
+            m.verb == "find -delete" and m.target_path == "runtime/api" for m in muts
         )
 
     def test_find_without_delete_allowed(self):
@@ -168,7 +163,7 @@ class TestAllowCases:
 
     def test_mktemp_variable_read_is_tmp_skip(self):
         muts = extract_mutations(
-            '_ac_output_file=$(mktemp /tmp/advance-ac-check.XXXXXX); '
+            "_ac_output_file=$(mktemp /tmp/advance-ac-check.XXXXXX); "
             'cat "$_ac_output_file"'
         )
         assert all(m.target_path != "$_ac_output_file" for m in muts)
@@ -194,8 +189,7 @@ class TestFailClosed:
         # S3 / Class B: heredoc with parseable ``>`` redirect to a
         # repo-tree path emits a real redirect Mutation, not ambiguous.
         muts = extract_mutations("cat <<EOF > out.txt\nhi\nEOF")
-        assert any(m.verb == "redirect" and m.target_path == "out.txt"
-                   for m in muts)
+        assert any(m.verb == "redirect" and m.target_path == "out.txt" for m in muts)
         assert all(m.verb != "ambiguous" for m in muts)
 
 
@@ -206,14 +200,12 @@ class TestHeredocQuoteAwareness:
 
     def test_double_quoted_heredoc_literal_is_allowed(self):
         muts = extract_mutations(
-            'git -C /repo grep -n "python3 - <<" .agents/skills/yoke/advance/'
+            'git -C /repo grep -n "python3 - <<" .agents/skills/yoke/implement/'
         )
         assert all(m.verb != "ambiguous" for m in muts)
 
     def test_single_quoted_heredoc_literal_is_allowed(self):
-        muts = extract_mutations(
-            "grep -n 'python3 - <<PY' /repo/.agents/skills/foo.md"
-        )
+        muts = extract_mutations("grep -n 'python3 - <<PY' /repo/.agents/skills/foo.md")
         assert all(m.verb != "ambiguous" for m in muts)
 
     def test_escaped_heredoc_token_is_allowed(self):
@@ -243,17 +235,13 @@ class TestHeredocQuoteAwareness:
     def test_compound_heredoc_no_mutation_is_allowed(self):
         # S3: ``grep ... && cat <<EOF ... EOF`` — first segment is
         # read-only, second is a heredoc with no write verb / redirect.
-        muts = extract_mutations(
-            'grep "marker - <<" file && cat <<EOF\nbody\nEOF'
-        )
+        muts = extract_mutations('grep "marker - <<" file && cat <<EOF\nbody\nEOF')
         assert all(m.verb != "ambiguous" for m in muts)
 
 
 class TestSuppressionToken:
     def test_token_short_circuits(self):
-        muts = extract_mutations(
-            f"rm runtime/api/foo.py {SUPPRESSION_TOKEN}"
-        )
+        muts = extract_mutations(f"rm runtime/api/foo.py {SUPPRESSION_TOKEN}")
         # Suppression sentinel is the only entry — no real mutations.
         assert len(muts) == 1
         assert muts[0].verb == "suppressed"
@@ -284,12 +272,9 @@ class TestReadOnlyWorktreeInspection:
 
     def test_redirect_into_worktree_still_denied(self):
         # Redirects are mutating and must remain denied.
-        muts = extract_mutations(
-            "echo hi > .worktrees/YOK-9001/foo.py"
-        )
+        muts = extract_mutations("echo hi > .worktrees/YOK-9001/foo.py")
         assert any(
-            m.verb == "redirect"
-            and m.target_path == ".worktrees/YOK-9001/foo.py"
+            m.verb == "redirect" and m.target_path == ".worktrees/YOK-9001/foo.py"
             for m in muts
         )
 
@@ -298,8 +283,8 @@ class TestReadOnlyWorktreeInspection:
         assert extract_mutations("ls worktrees/foo") == []
 
 
-class TestYokeAdvancePreflightShapes:
-    """Regression coverage for the screenshot-derived advance preflight
+class TestImplementationPreflightShapes:
+    """Regression coverage for the implementation preflight
     Bash shapes that previously tripped the guard.
     """
 
@@ -318,11 +303,9 @@ class TestYokeAdvancePreflightShapes:
         # path mutations.
         assert all(m.verb != "ambiguous" for m in muts)
 
-    def test_ls_advance_phase2_existing_worktree_check_allowed(self):
-        # Phase 2 backward-compatibility check inspects the repo
+    def test_ls_existing_worktree_check_allowed(self):
+        # Worktree preflight inspects the repo
         # ``.worktrees/`` directory before deciding to create or reuse a
         # worktree. Read-only orientation must not require claim widening.
-        muts = extract_mutations(
-            "ls -la /Users/dev/yoke/.worktrees/"
-        )
+        muts = extract_mutations("ls -la /Users/dev/yoke/.worktrees/")
         assert muts == []

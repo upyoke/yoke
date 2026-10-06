@@ -24,12 +24,17 @@ def _request(function_id: str, target: TargetRef, payload=None) -> FunctionCallR
     )
 
 
-def _seed_browser_requirement(conn, *, req_id: int = 10, item_id: int = 42,
-                              qa_kind: str = "plan_case") -> None:
+def _seed_browser_requirement(
+    conn, *, req_id: int = 10, item_id: int = 42, qa_kind: str = "plan_case"
+) -> None:
     insert_item(conn, id=item_id, title="T", status="reviewing-implementation")
     insert_qa_requirement(
-        conn, id=req_id, item_id=item_id, qa_kind=qa_kind,
-        qa_phase="verification", blocking_mode="blocking",
+        conn,
+        id=req_id,
+        item_id=item_id,
+        qa_kind=qa_kind,
+        qa_phase="verification",
+        blocking_mode="blocking",
         success_policy='{"id":"all-pass","params":{}}',
     )
     conn.execute(
@@ -50,16 +55,20 @@ def _seed_browser_requirement(conn, *, req_id: int = 10, item_id: int = 42,
 class TestQaBrowserContextGet(unittest.TestCase):
     def test_rejects_missing_target(self):
         outcome = qa_browser.handle_qa_browser_context_get(
-            _request("qa.browser_context.get", TargetRef(kind="global"),
-                     payload={"project": "yoke"}),
+            _request(
+                "qa.browser_context.get",
+                TargetRef(kind="global"),
+                payload={"project": "yoke"},
+            ),
         )
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "target_invalid")
 
     def test_rejects_missing_project(self):
         outcome = qa_browser.handle_qa_browser_context_get(
-            _request("qa.browser_context.get",
-                     TargetRef(kind="item", item_id=42), payload={}),
+            _request(
+                "qa.browser_context.get", TargetRef(kind="item", item_id=42), payload={}
+            ),
         )
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "payload_invalid")
@@ -79,15 +88,21 @@ class TestQaBrowserContextGet(unittest.TestCase):
         with test_database() as conn:
             _seed_browser_requirement(conn)
             insert_qa_requirement(
-                conn, id=11, item_id=42, qa_kind="ac_verification",
-                qa_phase="verification", blocking_mode="blocking",
+                conn,
+                id=11,
+                item_id=42,
+                qa_kind="ac_verification",
+                qa_phase="verification",
+                blocking_mode="blocking",
                 success_policy="",
             )
             conn.commit()
             outcome = qa_browser.handle_qa_browser_context_get(
-                _request("qa.browser_context.get",
-                         TargetRef(kind="item", item_id=42),
-                         payload={"project": "yoke", "requirement_id": 10}),
+                _request(
+                    "qa.browser_context.get",
+                    TargetRef(kind="item", item_id=42),
+                    payload={"project": "yoke", "requirement_id": 10},
+                ),
             )
         self.assertTrue(outcome.primary_success, outcome.error)
         result = outcome.result_payload
@@ -109,10 +124,15 @@ class TestQaBrowserContextGet(unittest.TestCase):
             )
             conn.commit()
             outcome = qa_browser.handle_qa_browser_context_get(
-                _request("qa.browser_context.get",
-                         TargetRef(kind="item", item_id=42),
-                         payload={"project": "yoke", "requirement_id": 10,
-                                  "expected_branch": "feature-x"}),
+                _request(
+                    "qa.browser_context.get",
+                    TargetRef(kind="item", item_id=42),
+                    payload={
+                        "project": "yoke",
+                        "requirement_id": 10,
+                        "expected_branch": "feature-x",
+                    },
+                ),
             )
         self.assertTrue(outcome.primary_success, outcome.error)
         result = outcome.result_payload
@@ -122,7 +142,7 @@ class TestQaBrowserContextGet(unittest.TestCase):
 
     def test_freshness_branch_returns_recorded_ephemeral_url(self):
         # The gate-entry URL read that used to be raw client SQL in the
-        # advance skill: non-empty url comes back
+        # implementation skill: non-empty url comes back
         # alongside the freshness sha.
         with test_database() as conn:
             _seed_browser_requirement(conn)
@@ -130,21 +150,31 @@ class TestQaBrowserContextGet(unittest.TestCase):
                 "INSERT INTO ephemeral_environments "
                 "(project_id, branch, deployed_sha, url, status, created_at) "
                 "VALUES (1, %s, %s, %s, 'healthy', %s)",
-                ("feature-x", "abc123",
-                 "https://feature-x.preview.example.com",
-                 "2026-01-01T00:00:00Z"),
+                (
+                    "feature-x",
+                    "abc123",
+                    "https://feature-x.preview.example.com",
+                    "2026-01-01T00:00:00Z",
+                ),
             )
             conn.commit()
             outcome = qa_browser.handle_qa_browser_context_get(
-                _request("qa.browser_context.get",
-                         TargetRef(kind="item", item_id=42),
-                         payload={"project": "yoke", "requirement_id": 10,
-                                  "expected_branch": "feature-x"}),
+                _request(
+                    "qa.browser_context.get",
+                    TargetRef(kind="item", item_id=42),
+                    payload={
+                        "project": "yoke",
+                        "requirement_id": 10,
+                        "expected_branch": "feature-x",
+                    },
+                ),
             )
         self.assertTrue(outcome.primary_success, outcome.error)
         result = outcome.result_payload
         self.assertEqual(result["deployed_sha"], "abc123")
-        self.assertEqual(result["ephemeral_url"], "https://feature-x.preview.example.com")
+        self.assertEqual(
+            result["ephemeral_url"], "https://feature-x.preview.example.com"
+        )
 
     def test_empty_string_url_reads_as_no_ephemeral_url(self):
         # Provisioned-but-undeployed rows carry url='' — the gate must
@@ -159,10 +189,15 @@ class TestQaBrowserContextGet(unittest.TestCase):
             )
             conn.commit()
             outcome = qa_browser.handle_qa_browser_context_get(
-                _request("qa.browser_context.get",
-                         TargetRef(kind="item", item_id=42),
-                         payload={"project": "yoke", "requirement_id": 10,
-                                  "expected_branch": "feature-x"}),
+                _request(
+                    "qa.browser_context.get",
+                    TargetRef(kind="item", item_id=42),
+                    payload={
+                        "project": "yoke",
+                        "requirement_id": 10,
+                        "expected_branch": "feature-x",
+                    },
+                ),
             )
         self.assertTrue(outcome.primary_success, outcome.error)
         self.assertIsNone(outcome.result_payload["ephemeral_url"])
@@ -171,8 +206,11 @@ class TestQaBrowserContextGet(unittest.TestCase):
 class TestQaRunAdd(unittest.TestCase):
     def test_rejects_missing_target(self):
         outcome = qa_browser_writes.handle_qa_run_add(
-            _request("qa.run.add", TargetRef(kind="global"),
-                     payload={"performed_by": "browser_substrate"}),
+            _request(
+                "qa.run.add",
+                TargetRef(kind="global"),
+                payload={"performed_by": "browser_substrate"},
+            ),
         )
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "target_invalid")
@@ -181,9 +219,11 @@ class TestQaRunAdd(unittest.TestCase):
         with test_database() as conn:
             _seed_browser_requirement(conn)
             outcome = qa_browser_writes.handle_qa_run_add(
-                _request("qa.run.add",
-                         TargetRef(kind="qa_requirement", qa_requirement_id=10),
-                         payload={"performed_by": "agent"}),
+                _request(
+                    "qa.run.add",
+                    TargetRef(kind="qa_requirement", qa_requirement_id=10),
+                    payload={"performed_by": "agent"},
+                ),
             )
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "policy_violation")
@@ -192,10 +232,14 @@ class TestQaRunAdd(unittest.TestCase):
         with test_database() as conn:
             _seed_browser_requirement(conn)
             outcome = qa_browser_writes.handle_qa_run_add(
-                _request("qa.run.add",
-                         TargetRef(kind="qa_requirement", qa_requirement_id=10),
-                         payload={"performed_by": "browser_substrate",
-                                  "qa_kind": "ac_verification"}),
+                _request(
+                    "qa.run.add",
+                    TargetRef(kind="qa_requirement", qa_requirement_id=10),
+                    payload={
+                        "performed_by": "browser_substrate",
+                        "qa_kind": "ac_verification",
+                    },
+                ),
             )
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "payload_invalid")
@@ -210,9 +254,11 @@ class TestQaRunAdd(unittest.TestCase):
                     _request(
                         "qa.run.add",
                         TargetRef(kind="qa_requirement", qa_requirement_id=10),
-                        payload={"performed_by": "browser_substrate",
-                                 "qa_kind": "plan_case",
-                                 "raw_result": "{}"},
+                        payload={
+                            "performed_by": "browser_substrate",
+                            "qa_kind": "plan_case",
+                            "raw_result": "{}",
+                        },
                     ),
                 )
             self.assertTrue(outcome.primary_success, outcome.error)
@@ -227,122 +273,6 @@ class TestQaRunAdd(unittest.TestCase):
         self.assertIsNone(row[2])
         self.assertIsNone(row[3])
         self.assertEqual(emit.call_args.kwargs["event_name"], "QARunStarted")
-
-
-class TestQaRunComplete(unittest.TestCase):
-    def _add_started_run(self, conn) -> int:
-        with patch("yoke_core.domain.qa_events.emit_qa_run_event"):
-            outcome = qa_browser_writes.handle_qa_run_add(
-                _request(
-                    "qa.run.add",
-                    TargetRef(kind="qa_requirement", qa_requirement_id=10),
-                    payload={"performed_by": "browser_substrate"},
-                ),
-            )
-        return int(outcome.result_payload["qa_run_id"])
-
-    def test_rejects_missing_verdict_and_status(self):
-        outcome = qa_browser_writes.handle_qa_run_complete(
-            _request("qa.run.complete",
-                     TargetRef(kind="qa_requirement", qa_requirement_id=10),
-                     payload={"run_id": 1}),
-        )
-        self.assertFalse(outcome.primary_success)
-        self.assertEqual(outcome.error.code, "payload_invalid")
-
-    def test_rejects_run_of_other_requirement(self):
-        with test_database() as conn:
-            _seed_browser_requirement(conn)
-            insert_qa_requirement(
-                conn, id=11, item_id=42, qa_kind="plan_case",
-                qa_phase="verification", blocking_mode="blocking",
-                success_policy="",
-            )
-            conn.commit()
-            run_id = self._add_started_run(conn)
-            outcome = qa_browser_writes.handle_qa_run_complete(
-                _request("qa.run.complete",
-                         TargetRef(kind="qa_requirement", qa_requirement_id=11),
-                         payload={"run_id": run_id, "execution_status": "captured"}),
-            )
-        self.assertFalse(outcome.primary_success)
-        self.assertEqual(outcome.error.code, "target_invalid")
-
-    def test_captured_completion_updates_row(self):
-        with test_database() as conn:
-            _seed_browser_requirement(conn)
-            run_id = self._add_started_run(conn)
-            with patch(
-                "yoke_core.domain.qa_events.emit_qa_run_event",
-            ) as emit:
-                outcome = qa_browser_writes.handle_qa_run_complete(
-                    _request(
-                        "qa.run.complete",
-                        TargetRef(kind="qa_requirement", qa_requirement_id=10),
-                        payload={"run_id": run_id,
-                                 "execution_status": "captured",
-                                 "capture_degraded_reason": "fixture_no_shot",
-                                 "raw_result": '{"ok": true}'},
-                    ),
-                )
-            self.assertTrue(outcome.primary_success, outcome.error)
-            row = conn.execute(
-                "SELECT verdict, execution_status, completed_at "
-                "FROM qa_runs WHERE id = %s",
-                (run_id,),
-            ).fetchone()
-        self.assertIsNone(row[0])
-        self.assertEqual(row[1], "captured")
-        self.assertIsNotNone(row[2])
-        self.assertEqual(emit.call_args.kwargs["event_name"], "QARunCaptured")
-
-    def test_agent_undetermined_requires_artifact_before_completion(self):
-        with test_database() as conn:
-            _seed_browser_requirement(conn)
-            insert_qa_requirement(
-                conn,
-                id=11,
-                item_id=42,
-                qa_kind="ac_verification",
-                qa_phase="verification",
-                blocking_mode="blocking",
-                success_policy="",
-            )
-            started = qa_browser_writes.handle_qa_run_add(
-                _request(
-                    "qa.run.add",
-                    TargetRef(kind="qa_requirement", qa_requirement_id=11),
-                    payload={"performed_by": "agent"},
-                )
-            )
-            run_id = int(started.result_payload["qa_run_id"])
-            payload = {
-                "run_id": run_id,
-                "verdict": "undetermined",
-                "verdict_reason": "The capture shows conflicting states.",
-            }
-            refused = qa_browser_writes.handle_qa_run_complete(
-                _request(
-                    "qa.run.complete",
-                    TargetRef(kind="qa_requirement", qa_requirement_id=11),
-                    payload=payload,
-                )
-            )
-            self.assertEqual(refused.error.code, "qa_undetermined_evidence_required")
-            conn.execute(
-                "INSERT INTO qa_artifacts "
-                "(qa_run_id,artifact_type,created_at) VALUES (%s,'log',NOW())",
-                (run_id,),
-            )
-            conn.commit()
-            accepted = qa_browser_writes.handle_qa_run_complete(
-                _request(
-                    "qa.run.complete",
-                    TargetRef(kind="qa_requirement", qa_requirement_id=11),
-                    payload=payload,
-                )
-            )
-            self.assertTrue(accepted.primary_success, accepted.error)
 
 
 if __name__ == "__main__":

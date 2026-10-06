@@ -16,7 +16,7 @@ CONDUCT_EPHEMERAL = (
 )
 BROWSER_SUBSTRATE = REPO / "docs" / "browser-substrate.md"
 CASE_ORCHESTRATION = REPO / "docs" / "browser-substrate" / "scenario-orchestration.md"
-ADVANCE_BROWSER_QA = REPO / ".agents" / "skills" / "yoke" / "advance" / "browser-qa.md"
+CANDIDATE_VERIFICATION = REPO / ".agents" / "skills" / "yoke" / "dash" / "verify.md"
 TIMING_PROFILE = REPO / ".test_durations"
 BROWSER_METHOD_MODULES = (
     REPO / "packages/yoke-core/src/yoke_core/domain/browser_qa_requirement.py",
@@ -85,13 +85,11 @@ def test_conduct_dispatch_forwards_resolved_branch_and_sha_to_each_case() -> Non
     assert "do not omit the\nexpected branch or SHA from any case invocation" in text
 
 
-def test_browser_docs_link_only_the_current_advance_protocol() -> None:
+def test_browser_docs_link_candidate_verification() -> None:
     text = _read(BROWSER_SUBSTRATE) + _read(CASE_ORCHESTRATION)
 
-    assert ADVANCE_BROWSER_QA.is_file()
-    assert ".agents/skills/yoke/advance/browser-qa.md" in text
-    assert "advance/browser-qa-fallback.md" not in text
-    assert "advance/browser-qa-escalation.md" not in text
+    assert CANDIDATE_VERIFICATION.is_file()
+    assert ".agents/skills/yoke/dash/verify.md" in text
 
 
 def test_gate_recovery_names_the_registered_case_runners() -> None:

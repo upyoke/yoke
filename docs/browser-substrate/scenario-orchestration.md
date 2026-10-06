@@ -135,7 +135,7 @@ passing run or an explicit waiver.
 ### Direct Advance
 
 The gate in
-[`.agents/skills/yoke/advance/browser-qa.md`](../../.agents/skills/yoke/advance/browser-qa.md)
+[`.agents/skills/yoke/dash/verify.md`](../../.agents/skills/yoke/dash/verify.md)
 materializes the transition plan, selects unsatisfied Browser method cases,
 resolves the ephemeral URL and deployed code identity, then invokes `yoke qa
 case run` once per requirement.

@@ -61,7 +61,6 @@ _SHARED_LONG_FORM_PATH: str = "runtime/agents/_shared/ouroboros-field-note.md"
 # Tasks 011 (skill body insertion) and 014 (HC-field-note-coherence)
 # import this tuple as their authoritative source of truth.
 INVENTORY: tuple[str, ...] = (
-    ".agents/skills/yoke/advance/SKILL.md",
     ".agents/skills/yoke/amend/SKILL.md",
     ".agents/skills/yoke/approve/SKILL.md",
     ".agents/skills/yoke/charge/SKILL.md",

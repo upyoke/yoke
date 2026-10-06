@@ -110,11 +110,10 @@ These are the commands listed in section 2 above. They are the sanctioned extern
 
 These are called by operator commands or other sub-skills. They have SKILL.md files and can technically be invoked directly, but they are not part of the primary operator interface. A harness should not invoke these directly unless it is implementing a specific downstream path that Yoke core has routed to it.
 
-`/yoke advance YOK-N [status]` is internal only: the stage skills (`implement`, `conduct`, `polish`, `usher`) call it for their status writes. Issue implementation entry is the `/yoke implement YOK-N` stage skill above.
+Stage skills write status through `lifecycle.transition.execute` (`yoke lifecycle transition PREFIX-N --to <next-stage>`), which enforces the pinned workflow gates. Commit fixes and refresh affected QA evidence before transitioning.
 
 | Sub-skill | Called by | Purpose |
 |-----------|----------|---------|
-| `/yoke advance YOK-N [status]` | implement, conduct, polish, usher | Status writes with the target stage's gates, QA phases, and commit |
 | `usher/merge-generated-tasks.md` | usher | Sequential PR + CI + merge per branch |
 | `/yoke approve YOK-N` | usher | Approve a deployment stage |
 | `/yoke amend {epic-id}` | conduct | Add, split, reassign, or remove tasks |
@@ -298,7 +297,7 @@ Because the directory is hidden, generic discovery (e.g. `rg --files`, plain `ls
 
 - `.agents/skills/yoke/SKILL.md` — the root `/yoke` router skill.
 - `.agents/skills/yoke/{name}/SKILL.md` — each direct subskill (`idea`, `shepherd`, `strategize`, etc.).
-- `.agents/skills/yoke/{name}/*.md` — **phase sub-files** (e.g. `advance/preflight.md`). These are *not* standalone skills and are never returned by the discovery surface.
+- `.agents/skills/yoke/{name}/*.md` — **phase sub-files** (e.g. `implement/entry.md`). These are *not* standalone skills and are never returned by the discovery surface.
 - `.agents/skills/yoke/{name}/{nested}/SKILL.md` — nested internal skills may be visible to Codex's native scanner even when Yoke's resolver hides them. They still use their own `SKILL.md` frontmatter as the shared metadata source.
 - `.agents/skills/yoke/{scripts,shared}/` — supporting directories without a top-level `SKILL.md`. Discovery ignores them.
 

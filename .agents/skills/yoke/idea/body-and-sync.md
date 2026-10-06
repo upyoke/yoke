@@ -163,7 +163,7 @@ full rewrites, `items.structured_field.append_addendum` /
 
 ## 8b. Late DB-Claim Classification
 
-After the body has been written and verified (step 8 complete), classify and persist the DB claim against the **finished spec**, not against the title-only draft. This is the same amendment workflow `/yoke refine`, `/yoke advance`, and `/yoke polish` use later — there is no separate "first classification" path.
+After the body has been written and verified (step 8 complete), classify and persist the DB claim against the **finished spec**, not against the title-only draft. This is the same amendment workflow `refine`, `implement`, and `polish` use later — there is no separate "first classification" path.
 
 **Why bucket discipline matters:** The prose-vs-claim gate honors any stored `state="none"` profile carrying the workflow-stamped `reviewed_negative` attestation as cleared evidence, regardless of the reason text. The three-bucket discipline below is therefore the only signal that distinguishes reviewed-none meta work items from silent deferral bypasses; getting the bucket right at idea time is load-bearing.
 

@@ -22,8 +22,8 @@ def test_agents_testing_section_teaches_watcher_not_raw_pytest() -> None:
     )
 
 
-def test_advance_summary_default_uses_watcher() -> None:
-    text = _read(SKILLS / "advance" / "finalize.md")
+def test_implementation_verification_uses_watcher() -> None:
+    text = _read(SKILLS / "implement" / "implementing" / "test-and-record.md")
     assert IMPACTED_WATCH_PYTEST in text
     assert '"python3 -m pytest runtime/api/" (yoke default)' not in text
 

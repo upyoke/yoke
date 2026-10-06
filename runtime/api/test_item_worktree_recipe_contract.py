@@ -38,10 +38,6 @@ PACKAGED_FUNCTION_REFERENCE = (
     / "functions.md"
 )
 RECIPE_PATHS = (
-    "advance/SKILL.md",
-    "advance/finalize.md",
-    "advance/browser-qa.md",
-    "advance/project-e2e.md",
     "implement/SKILL.md",
     "implement/entry.md",
     "implement/reentry.md",
@@ -88,12 +84,7 @@ def test_implement_and_qa_recipes_read_the_active_implementation_lane(
     checked out anywhere on the machine and the row already records
     where its lane landed.
     """
-    for relative_path in (
-        "implement/reentry.md",
-        "advance/finalize.md",
-        "advance/browser-qa.md",
-        "advance/project-e2e.md",
-    ):
+    for relative_path in ("implement/reentry.md",):
         text = (root / relative_path).read_text()
         assert "yoke item-worktrees get" in text
         assert (
@@ -175,12 +166,3 @@ def test_blitz_registers_explicit_additional_lanes(root: Path) -> None:
     assert "rerun the ordinary worktree preparation" in text
     assert "yoke item-worktrees list ITEM --json" in text
     assert "over either HTTPS or machine-local" in text
-
-
-@pytest.mark.parametrize("root", (SOURCE_SKILLS, PACKAGED_SKILLS))
-def test_terminal_handoff_releases_claims_before_idle_hook_cleanup(
-    root: Path,
-) -> None:
-    advance = (root / "advance/parse-and-target.md").read_text()
-
-    assert "yoke claims work release --all-mine" in advance

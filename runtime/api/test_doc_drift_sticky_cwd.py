@@ -7,7 +7,7 @@ The contradiction this catches (originally observed live on YOK-1742):
 - AGENTS.md documents that Claude Code / Claude Desktop keep a
   sticky cwd between Bash tool calls, so a ``cd`` to an in-scope path
   silently persists across calls.
-- The pre-fix advance skill prose said ``Do NOT rely on
+- The pre-fix implementation skill prose said ``Do NOT rely on
   `cd <worktree>```. The agent followed both surfaces, did not ``cd``,
   and pytest collected from the main checkout instead of the worktree.
 
@@ -84,9 +84,7 @@ def test_implementation_md_teaches_step_0_cd_directive(
 
 def test_worktree_md_drops_contradictory_cd_prose(repo_root: Path) -> None:
     """The pre-fix ``Do NOT rely on `cd <worktree>``` line is gone."""
-    wt = (
-        repo_root / ".agents" / "skills" / "yoke" / "implement" / "worktree.md"
-    )
+    wt = repo_root / ".agents" / "skills" / "yoke" / "implement" / "worktree.md"
     text = wt.read_text(encoding="utf-8")
     # The exact phrase that contradicted AGENTS.md for sticky-cwd
     # harnesses. If this re-appears (even as harness-fenced prose), it
@@ -108,9 +106,7 @@ def test_worktree_md_teaches_cd_canonical_first_action(
     repo_root: Path,
 ) -> None:
     """worktree.md now points at the Step 0 cd directive as canonical."""
-    wt = (
-        repo_root / ".agents" / "skills" / "yoke" / "implement" / "worktree.md"
-    )
+    wt = repo_root / ".agents" / "skills" / "yoke" / "implement" / "worktree.md"
     text = wt.read_text(encoding="utf-8")
     # The replacement prose names the Step 0 directive so the contract
     # is single-sourced in implementation.md.

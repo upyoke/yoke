@@ -39,7 +39,7 @@ _synced_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_task
  yoke items github-sync "$_epic_id"
  ```
 
-3. **Advance status to implementing** (activating the epic for conduct): invoke the Yoke advance skill for `PREFIX-${_id}` with target `implementing`.
+3. **Advance status to implementing** (activating the epic for conduct): use `yoke lifecycle transition PREFIX-${_id} --to implementing`; verify the target is the next declared stage in the pinned binding.
 
 4. **Commit sync changes:**
 
@@ -215,6 +215,6 @@ These gates run after each Engineer returns, before advancing to Tester dispatch
 6. For epics, record agent ID: `yoke workflow-item epic-task metadata-update --epic "$_epic_id" --task-num "$_task_id" --fields-json '{"agent_id":"ENGINEER_AGENT_ID"}'`
 7. **Seed task-level review requirement** (idempotent). `review_seed` now auto-advances epic tasks to `reviewing-implementation`:
  - **Epic only:** `yoke workflow-item epic-task review-seed --epic "$_epic_id" --task-num "$_task_id"`
- - **Issue:** invoke the Yoke advance skill for `PREFIX-${_id}` with target `reviewing-implementation`.
+ - **Issue:** use `yoke lifecycle transition PREFIX-${_id} --to reviewing-implementation`; verify the target is the next declared stage in the pinned binding.
 
 ---

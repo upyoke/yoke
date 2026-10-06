@@ -130,8 +130,8 @@ label until a later bind; a name registered only on another project is
 refused. Executable roster creation (`qa.plan_execution.begin`) requires
 the canonical snapshot and names the CLI bind
 (`yoke qa requirement update --requirement-id <id> --field target_env
---value <environment>`) plus `yoke qa case run`; `/yoke advance` is the
-harness skill, not a terminal command. Held to each of these:
+--value <environment>`) plus `yoke qa case run`. Lifecycle writes use
+`yoke lifecycle transition`. Held to each of these:
 
 - the environment must be registered to that project and authorized for it,
   which is the same read a plan target passes;

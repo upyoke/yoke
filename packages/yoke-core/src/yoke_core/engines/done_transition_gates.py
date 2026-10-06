@@ -277,15 +277,11 @@ def _check_deployment_redirect(
         ref = _ref(item_id, public_ref)
         print("\n=== Deployment flow redirect ===")
         print(f"Item {ref} has deployment flow '{deploy_flow}'.")
+        print(f"Use '/yoke usher {ref}' to merge and deploy through the pipeline.")
         print(
-            f"Use '/yoke usher {ref}' to merge and deploy through the pipeline."
-        )
-        print(
-            "If delivery genuinely happened OUTSIDE this flow, use "
-            f"'/yoke advance {ref} done --skip-deploy'. That flag records "
-            "delivery as out-of-band, so it is refused when this flow's own "
-            "run already delivered the item — in that case close out through "
-            "'yoke merge item' instead."
+            "If this flow already delivered the item, complete close-out through "
+            f"'yoke merge item {ref}'. For delivery outside the selected flow, "
+            "ask the operator to reconcile its delivery evidence before retrying."
         )
         return 7
     return None

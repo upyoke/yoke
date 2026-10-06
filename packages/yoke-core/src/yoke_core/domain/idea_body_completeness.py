@@ -8,7 +8,7 @@ classification used by:
   hands a title-only work item to ``/yoke refine``.
 - :mod:`yoke_core.engines.doctor_hc_meta_backlog` — surfaces tail-case
   incomplete items, including those whose claim was explicitly released.
-- ``.agents/skills/yoke/advance/preflight.md`` — the pre-implementation
+- ``.agents/skills/yoke/implement/entry.md`` — the pre-implementation
   body-completeness advisory names this heuristic.
 
 The slack constant lives here so the three consumers cannot drift out of

@@ -7,21 +7,24 @@ re-entry lands in the review stage.
 
 ## Status writes inside the segment
 
-Every status write in this segment goes through the internal advance sub-skill
-with the next stage of the pinned definition as its target:
+Every status write in this segment uses `lifecycle.transition.execute` with
+the next stage of the pinned definition as its target:
 
 ```text
-/yoke advance PREFIX-N <next-stage>
+yoke lifecycle transition PREFIX-N --from <live-stage> --to <next-stage> --reason "Implementation review"
 ```
 
-That sub-skill runs the target stage's preflight gates, the stale-string audit
-on review targets, browser QA and project E2E where the target needs them, and
-the worktree-scoped commit (`git -C "$WORKTREE_PATH" add -A`) before the
-status write, so review-loop fixes — new files included — land with the
-transition and the lane is never left dirty. Never write a status directly
-(`items scalar update`, raw `lifecycle transition` without those phases):
-direct writes skip the claim handoff, the worktree-scoped commit, and the
-lifecycle events.
+The transition enforces the pinned target's gates and emits lifecycle events.
+Before transitioning, commit every review-loop fix in `WORKTREE_PATH`, new
+files included, and refresh all affected QA cases against that committed tree
+through [`implementing/test-and-record.md`](implementing/test-and-record.md).
+Materialize plans attached at the target with `yoke qa plan materialize --item
+PREFIX-N --transition <next-stage>` and execute unsatisfied cases with `yoke
+qa case run --requirement-id <id>`. Browser cases must serve that commit and
+name its expected branch and SHA. A capture alone is not a passing verdict.
+Before committing, run the source-dev stale-string check:
+`python3 -m yoke_core.domain.stale_string_audit verify PREFIX-N "$WORKTREE_PATH"`.
+A failure blocks the commit: fix the reported strings, then rerun the audit. Never substitute scalar status writes for the transition.
 
 ## The loop
 
@@ -32,8 +35,12 @@ lifecycle events.
    acceptance criterion. Fix what the review finds in the same lane, re-run
    the relevant verification, and refresh the QA evidence.
 3. **Hand off.** When review actually passes, write the binding's
-   `through_stage_id` (for an issue, `reviewed-implementation`). Its finalize
-   releases the claim with the handoff reason.
+   `through_stage_id` (for an issue, `reviewed-implementation`). Only after
+   that transition succeeds, release the item claim:
+
+   ```text
+   yoke claims work release --item PREFIX-N --reason implementation-handoff
+   ```
 
 Do not pause for operator confirmation between these steps, and do not skip
 from the review stage straight to any stage past the handoff.

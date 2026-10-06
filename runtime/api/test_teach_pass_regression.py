@@ -267,7 +267,7 @@ def test_authored_qa_docs_teach_canonical_yoke_surfaces() -> None:
         _REPO / ".yoke" / "docs" / "reference" / "browser-scenarios.md",
         _REPO / "docs" / "browser-substrate" / "scenario-orchestration.md",
         _REPO / ".yoke" / "docs" / "reference" / "db-reference" / "qa-and-sessions.md",
-        _REPO / ".agents" / "skills" / "yoke" / "advance" / "browser-qa.md",
+        _REPO / ".agents" / "skills" / "yoke" / "dash" / "verify.md",
     )
     text = "\n".join(path.read_text(encoding="utf-8") for path in paths)
 
@@ -281,7 +281,7 @@ def test_authored_claim_docs_teach_canonical_widen_surface() -> None:
     paths = (
         _REPO / "docs" / "path-claims.md",
         _REPO / ".agents" / "skills" / "yoke" / "refine" / "SKILL.md",
-        _REPO / ".agents" / "skills" / "yoke" / "advance" / "preflight.md",
+        _REPO / ".agents" / "skills" / "yoke" / "implement" / "entry.md",
     )
     text = "\n".join(path.read_text(encoding="utf-8") for path in paths)
 

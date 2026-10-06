@@ -74,7 +74,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python3 -m yoke_core.domain.advance_skip",
         description=(
-            "Operator-asserted skip-phase hops for /yoke advance. "
+            "Operator-asserted skip-phase hops across pinned skill bindings. "
             "Distinct bypass reasons preserve the pre-implementation "
             "safety invariant (claim-bypass only for gate-free bookkeeping rungs)."
         ),
