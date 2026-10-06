@@ -5,6 +5,14 @@ from __future__ import annotations
 from yoke_contracts.session_control.launch_bootstrap import (
     AUTOMATIC_LAUNCH_REGISTRATION_TEACHING,
 )
+from yoke_core.domain.session_launch_binding_evidence import (
+    SESSION_END_RECORDED,
+    SESSION_END_SKIP_ATTESTATION_INVALID,
+    SESSION_END_SKIP_EARLIER_REFUSAL,
+    SESSION_END_SKIP_LAUNCH_BOUND,
+    SESSION_END_SKIP_LAUNCH_CLOSED,
+    SESSION_END_SKIP_NATIVE_SESSION_MISMATCH,
+)
 from yoke_core.domain.session_launch_types import LaunchRegistrationInjection
 from yoke_core.hooks import session_launch_attestation as launch_hook
 from yoke_core.hooks.types import HookContext, Outcome
@@ -239,7 +247,7 @@ def test_session_end_names_an_unbound_launch_instead_of_binding(monkeypatch) -> 
 
     def record(conn, **kwargs):
         seen.update(kwargs)
-        return True
+        return SESSION_END_RECORDED
 
     monkeypatch.setattr(launch_hook, "prepare_launch_registration", prepare)
     monkeypatch.setattr(launch_hook, "record_session_ended_unbound", record)
@@ -250,15 +258,30 @@ def test_session_end_names_an_unbound_launch_instead_of_binding(monkeypatch) -> 
     assert decision.outcome == Outcome.WARN
     assert decision.audit_fields == {"session_launch_error": "session_ended_unbound"}
     assert "yoke session-control launch get launch-1" in decision.message
-    assert seen == {"launch_id": "launch-1", "session_id": "session-1"}
+    assert seen == {
+        "launch_id": "launch-1",
+        "attestation": "one-time-secret",
+        "session_id": "session-1",
+    }
+    assert "one-time-secret" not in decision.message
 
 
-def test_session_end_of_a_bound_launch_is_silent(monkeypatch) -> None:
-    monkeypatch.setattr(
-        launch_hook, "record_session_ended_unbound", lambda conn, **kwargs: False
-    )
-    decision = launch_hook.evaluate_launch_attestation(
-        _record("SessionEnd", "claude"), connect=_Connection
-    )
+def test_session_end_that_records_nothing_names_why(monkeypatch) -> None:
+    for skipped in (
+        SESSION_END_SKIP_ATTESTATION_INVALID,
+        SESSION_END_SKIP_EARLIER_REFUSAL,
+        SESSION_END_SKIP_LAUNCH_BOUND,
+        SESSION_END_SKIP_LAUNCH_CLOSED,
+        SESSION_END_SKIP_NATIVE_SESSION_MISMATCH,
+    ):
+        monkeypatch.setattr(
+            launch_hook,
+            "record_session_ended_unbound",
+            lambda conn, _code=skipped, **kwargs: _code,
+        )
+        decision = launch_hook.evaluate_launch_attestation(
+            _record("SessionEnd", "claude"), connect=_Connection
+        )
 
-    assert decision.outcome == Outcome.NOOP
+        assert decision.outcome == Outcome.AUDIT_ONLY
+        assert decision.audit_fields == {"session_launch_end_skipped": skipped}

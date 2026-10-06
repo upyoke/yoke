@@ -19,6 +19,7 @@ from yoke_contracts.session_control.launch_registration import (
     SESSION_ENDED_UNBOUND_CODE,
 )
 from yoke_core.domain.session_launch_binding_evidence import (
+    SESSION_END_RECORDED,
     record_registration_refusal,
     record_session_ended_unbound,
 )
@@ -165,17 +166,24 @@ def _record_unbound_session_end(
 
     Binding to a session that is ending would staff the work with nobody, so
     SessionEnd never prepares an injection; it only leaves the refusal that
-    explains the launch.
+    explains the launch, or records why it wrote nothing.
     """
     conn = connect()
     try:
-        recorded = record_session_ended_unbound(
-            conn, launch_id=attestation.launch_id, session_id=session_id
+        outcome = record_session_ended_unbound(
+            conn,
+            launch_id=attestation.launch_id,
+            attestation=attestation.token,
+            session_id=session_id,
         )
     finally:
         conn.close()
-    if not recorded:
-        return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
+    if outcome != SESSION_END_RECORDED:
+        return HookDecision(
+            outcome=Outcome.AUDIT_ONLY,
+            audit_fields={"session_launch_end_skipped": outcome},
+            next=Next.CONTINUE,
+        )
     return HookDecision(
         outcome=Outcome.WARN,
         message=(
