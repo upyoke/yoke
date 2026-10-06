@@ -204,6 +204,7 @@ FLAG_ADAPTER_EXPORT_NAMES = [
     "config_stamp_project_env",
     "status",
     "dev_setup",
+    "dev_db_admin_exec",
     "dev_db_admin_setup",
     "dev_path_snapshot_prewarm",
     "onboard",

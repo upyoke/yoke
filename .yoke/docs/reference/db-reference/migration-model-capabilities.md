@@ -287,7 +287,11 @@ See that file for the full `migration_model_defaults` JSON shape (sqlite_file au
 
 
 The validator keeps this shape generic: it validates stack/output/database
-references, not Yoke-only endpoint literals. Local proof commands can bind the
+references, not Yoke-only endpoint literals.
+The same declaration locates the database for an operator's db-admin
+profile: `yoke dev db-admin setup ENV --database MODEL` reads `database_name`,
+`endpoint_output`, and `secret_arn_output` from it, and takes the stack,
+bastion, and region from the deploy environment `ENV`. Local proof commands can bind the
 resolved DSN via `YOKE_PG_DSN_FILE` so secret-bearing DSNs stay in a
 restricted file instead of shell-expanded arguments. The polished connected-env
 switch UX remains a later cloud-runtime capability; this pairing only declares where

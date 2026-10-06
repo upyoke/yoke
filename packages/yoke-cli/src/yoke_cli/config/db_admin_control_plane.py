@@ -52,42 +52,13 @@ def _resolve_control_plane_database(
     config_path: str | Path | None,
 ) -> str:
     """Read the tenant-routed database identity through one named HTTPS env."""
-    try:
-        connection = https_transport.resolve_https_connection(
-            config_path,
-            explicit_env=control_plane_env,
-        )
-    except Exception as exc:  # noqa: BLE001
-        raise DbAdminSetupError(
-            f"could not resolve HTTPS control plane {control_plane_env!r}: {exc}"
-        ) from exc
-    if connection is None:
-        raise DbAdminSetupError(
-            f"connection {control_plane_env!r} is not an HTTPS control plane"
-        )
-    request = function_dispatcher.build_request(
+    result = _relay_control_plane_read(
+        control_plane_env,
         function_id="db.read.run",
-        target=TargetRef(kind="global"),
         payload={"sql": CONTROL_PLANE_DATABASE_SQL},
+        config_path=config_path,
+        what="control-plane database identity read",
     )
-    try:
-        response = https_transport.relay_https(request, connection)
-    except Exception as exc:  # noqa: BLE001
-        raise DbAdminSetupError(
-            f"control-plane database identity read failed for "
-            f"{control_plane_env!r}: "
-            f"{_redact_sensitive(str(exc), connection.token)}"
-        ) from exc
-    if not response.success:
-        detail = (
-            response.error.message if response.error is not None else "request refused"
-        )
-        raise DbAdminSetupError(
-            f"control-plane database identity read failed for "
-            f"{control_plane_env!r}: "
-            f"{_redact_sensitive(detail, connection.token)}"
-        )
-    result = response.result
     expected_keys = {
         "columns",
         "rows",
@@ -117,6 +88,62 @@ def _resolve_control_plane_database(
             "one non-empty current_database value"
         )
     return rows[0][0].strip()
+
+
+def _relay_control_plane_read(
+    control_plane_env: str,
+    *,
+    function_id: str,
+    payload: dict,
+    config_path: str | Path | None,
+    what: str,
+    not_found: str | None = None,
+) -> dict:
+    """Relay one read through a named HTTPS control plane, failing closed.
+
+    ``not_found`` replaces the refusal text when the server answers
+    ``not_found``, so callers can teach the declaration that is missing.
+    """
+    try:
+        connection = https_transport.resolve_https_connection(
+            config_path,
+            explicit_env=control_plane_env,
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise DbAdminSetupError(
+            f"could not resolve HTTPS control plane {control_plane_env!r}: {exc}"
+        ) from exc
+    if connection is None:
+        raise DbAdminSetupError(
+            f"connection {control_plane_env!r} is not an HTTPS control plane"
+        )
+    request = function_dispatcher.build_request(
+        function_id=function_id,
+        target=TargetRef(kind="global"),
+        payload=payload,
+    )
+    try:
+        response = https_transport.relay_https(request, connection)
+    except Exception as exc:  # noqa: BLE001
+        raise DbAdminSetupError(
+            f"{what} failed for {control_plane_env!r}: "
+            f"{_redact_sensitive(str(exc), connection.token)}"
+        ) from exc
+    if not response.success:
+        if (
+            not_found
+            and response.error is not None
+            and response.error.code == "not_found"
+        ):
+            raise DbAdminSetupError(not_found)
+        detail = (
+            response.error.message if response.error is not None else "request refused"
+        )
+        raise DbAdminSetupError(
+            f"{what} failed for {control_plane_env!r}: "
+            f"{_redact_sensitive(detail, connection.token)}"
+        )
+    return dict(response.result or {})
 
 
 def _redact_sensitive(message: str, secret: str) -> str:

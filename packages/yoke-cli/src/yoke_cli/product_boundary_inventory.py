@@ -59,7 +59,7 @@ _PROJECT_INSTALL = _commands(
     "project install|project refresh|project snapshot sync|project uninstall"
 )
 _SOURCE_DEV = _commands(
-    "agents render|agents render check|aws exec|board rebuild|dev setup|dev db-admin setup|dev path-snapshot-prewarm|github-actions runners status|merge audit|packets budget get|packets check|packets render|packets startup-delivery get|resync|runner-fleet exec|schema converge|scratch dispatch-inputs|source-authority export|source-authority quiesce|usher reconcile-github"
+    "agents render|agents render check|aws exec|board rebuild|dev setup|dev db-admin exec|dev db-admin setup|dev path-snapshot-prewarm|github-actions runners status|merge audit|packets budget get|packets check|packets render|packets startup-delivery get|resync|runner-fleet exec|schema converge|scratch dispatch-inputs|source-authority export|source-authority quiesce|usher reconcile-github"
 )
 _HOOKS = _commands("git post-commit|git pre-commit|hook evaluate")
 _HOOK_HELPERS = frozenset(
@@ -271,7 +271,7 @@ def _capability(command: str, disposition: str) -> str:
     if command == "yoke dev setup":
         return "yoke-core source package for apply/source-link repair"  # noqa: E701
     if command == "yoke dev db-admin setup":
-        return "named HTTPS db.read.run plus project aws-admin, pulumi-state, ssh, database, and runtime settings"  # noqa: E701
+        return "named HTTPS db.read.run or migration_model capability read plus project aws-admin, pulumi-state, ssh, database, and runtime settings"  # noqa: E701
     if command == "yoke aws exec":
         return "project aws-admin capability credentials"  # noqa: E701
     if command == "yoke runner-fleet exec":
