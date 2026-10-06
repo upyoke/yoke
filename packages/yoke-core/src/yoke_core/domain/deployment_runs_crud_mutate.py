@@ -74,6 +74,13 @@ def cmd_add_item(
         from yoke_core.domain.deployment_run_carried_membership import (
             admit_run_item,
         )
+        from yoke_core.domain.deployment_run_item_qa_membership import (
+            require_item_qa_membership_possible,
+        )
+
+        # Refused before the attach: a member the run can never snapshot
+        # would otherwise surface only as a broken snapshot at item QA.
+        require_item_qa_membership_possible(conn, run_id)
 
         ref = admit_run_item(
             conn,

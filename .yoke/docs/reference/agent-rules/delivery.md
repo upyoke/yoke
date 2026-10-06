@@ -161,7 +161,13 @@ learns the other's part from its own skill. The split is the whole rule:
   member nothing, and membership still holds the landing, so the next start on
   the item's completion flow will not enroll it. `add-item` names that case
   with the flow that can close the item; `validate-composition` names any
-  member already in it.
+  member already in it. An item-scoped QA stage proves each member against
+  the requirement snapshot the composition freeze writes, and only a flow
+  that takes delivery custody freezes one: creation, `add-item`, and
+  `validate-composition` refuse such a stage on a custody-free flow
+  (`item_qa_flow_without_delivery_custody`), and `validate-composition` and
+  the pre-execution check refuse a run with no member for it to prove
+  (`item_qa_run_without_members`) before any stage deploys.
 - **The member owner owns its own item.** Its merge parked it at the flow's
   release wait holding its work claim; the deployment wake re-enters it for its
   QA stage and when its own item-scoped QA clears. A final member on a

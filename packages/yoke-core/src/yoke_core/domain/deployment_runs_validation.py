@@ -33,6 +33,9 @@ from yoke_core.domain.deployment_run_carried_membership_refusal import (
     carried_membership_refusal,
 )
 from yoke_core.domain.deployment_run_carried_work import carried_work_for_enrollment
+from yoke_core.domain.deployment_run_item_qa_membership import (
+    item_qa_membership_refusal,
+)
 from yoke_core.domain.deployment_run_skipped_candidates import skipped_candidate_notice
 from yoke_core.domain.deployment_run_unheld_candidates import (
     CustodyResolution,
@@ -113,6 +116,7 @@ def cmd_validate_composition(
     allow_pending_pair_merges: bool = False,
     connection: Any = None,
     composition_result: dict[str, Any] | None = None,
+    require_item_qa_members: bool = True,
 ) -> Tuple[bool, str]:
     """Validate run composition. Returns (ok, message).
 
@@ -120,6 +124,7 @@ def cmd_validate_composition(
     1. All items share the run's project
     2. Every item is delivery-ready under its pinned workflow policy
     3. No unsatisfied hard-block dependencies outside the run
+    4. An item-scoped QA stage has delivery custody and a member to prove
 
     ``allow_pending_pair_merges`` is what preparation passes: a run prepared
     before its coordinated pair has landed is expected to carry unsatisfied
@@ -240,6 +245,11 @@ def cmd_validate_composition(
         # A final release must have authority to close every final member.
         if unclosable := unclosable_final_member_refusal(conn, run_id, custody=custody):
             errors.append(unclosable)
+        # An item-scoped QA stage needs custody and, to start, a member.
+        if item_qa := item_qa_membership_refusal(
+            conn, run_id, require_members=require_item_qa_members
+        ):
+            errors.append(item_qa)
 
         unadmitted = unadmitted_post_deploy_notice(conn, run_id)
 
