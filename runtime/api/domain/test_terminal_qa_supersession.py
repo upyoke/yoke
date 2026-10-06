@@ -33,6 +33,9 @@ def _seed_successor(test_db, *, verdict="pass", completed_at=COMPLETED_AT):
             test_db,
             qa_requirement_id=successor,
             verdict=verdict,
+            verdict_reason="Conflicting evidence"
+            if verdict == "undetermined"
+            else None,
             completed_at=completed_at,
             performed_by="ci_run",
             raw_result=json.dumps({"verification_tree": {"head_sha": "a" * 40}}),
@@ -41,7 +44,12 @@ def _seed_successor(test_db, *, verdict="pass", completed_at=COMPLETED_AT):
 
 
 def _seed_old_run(
-    test_db, successor, *, status="capture_failed", completed_at=COMPLETED_AT
+    test_db,
+    successor,
+    *,
+    status="capture_failed",
+    completed_at=COMPLETED_AT,
+    case_outcome=None,
 ):
     requirement = int(
         insert_qa_requirement(
@@ -53,6 +61,7 @@ def _seed_old_run(
         qa_requirement_id=requirement,
         verdict=None,
         execution_status=status,
+        case_outcome=case_outcome,
         completed_at=completed_at,
     )
     return requirement, int(run["id"])
@@ -96,19 +105,24 @@ def test_successor_pass_without_completion_still_blocks(test_db):
 
 
 @pytest.mark.parametrize(
-    ("status", "completed_at"),
+    ("status", "completed_at", "case_outcome"),
     [
-        ("running", None),
-        ("queued", COMPLETED_AT),
-        ("waiting", COMPLETED_AT),
-        ("capture_failed", None),
+        (None, None, "running"),
+        (None, COMPLETED_AT, "running"),
+        (None, COMPLETED_AT, "waiting"),
+        ("captured", None, None),
+        ("capture_failed", None, None),
     ],
 )
-def test_live_superseded_run_still_blocks(test_db, status, completed_at):
+def test_live_superseded_run_still_blocks(test_db, status, completed_at, case_outcome):
     insert_item(test_db, id=10, status="release")
     successor = _seed_successor(test_db)
     _, old_run = _seed_old_run(
-        test_db, successor, status=status, completed_at=completed_at
+        test_db,
+        successor,
+        status=status,
+        completed_at=completed_at,
+        case_outcome=case_outcome,
     )
 
     result = _terminal_result(test_db)

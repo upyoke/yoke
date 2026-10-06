@@ -25,7 +25,7 @@ def unsettled_supersession_runs(
     rows = conn.execute(
         "SELECT q.id, q.waived_at, q.superseded_by_requirement_id, "
         f"{requirement_retracted_at_select(conn, 'q')}, "
-        "r.verdict, r.completed_at, r.execution_status, q.qa_phase, q.deployment_run_id "
+        "r.verdict, r.completed_at, r.case_outcome, q.qa_phase, q.deployment_run_id "
         "FROM qa_requirements q LEFT JOIN qa_runs r ON r.id = ("
         "SELECT latest.id FROM qa_runs latest WHERE latest.qa_requirement_id = q.id "
         "ORDER BY latest.id DESC LIMIT 1) "
@@ -55,7 +55,7 @@ def unsettled_supersession_runs(
                     requirement_id = int(row[2])
                     continue
                 return requirement_id
-            if row[5] and row[6] not in {"queued", "running", "waiting"}:
+            if row[5] and row[6] not in {"running", "waiting"}:
                 if row[4] == "pass":
                     return None
                 if row[2]:
@@ -71,7 +71,7 @@ def unsettled_supersession_runs(
             unsettled.append((row, ""))
             continue
         pending_id = open_successor(int(successor_id))
-        closed = bool(row[4]) and row[2] not in {"queued", "running", "waiting"}
+        closed = bool(row[4]) and row[6] not in {"running", "waiting"}
         if closed and pending_id is None:
             continue
         detail = (

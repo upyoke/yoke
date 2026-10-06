@@ -222,7 +222,7 @@ def find_unsettled_records(conn: Any, *, item_id: int) -> list[UnsettledQaRecord
     placeholder = _placeholder(conn)
     run_rows = conn.execute(
         "SELECT r.id, r.qa_requirement_id, r.execution_status, r.raw_result, "
-        "r.completed_at, q.superseded_by_requirement_id "
+        "r.completed_at, q.superseded_by_requirement_id, r.case_outcome "
         "FROM qa_runs r JOIN qa_requirements q ON q.id = r.qa_requirement_id "
         f"WHERE q.item_id = {placeholder} AND q.waived_at IS NULL "
         f"AND {unretracted_requirement_sql(conn, 'q')} "
