@@ -1,5 +1,5 @@
-.universe-app-root .shell { grid-template-rows: minmax(0, 1fr) auto; }
-.universe-app-root .app-footer {
+.universe-app-root .shell:has(.workbench-telemetry) { grid-template-rows: minmax(0, 1fr) auto; }
+.universe-app-root .app-footer:has(.workbench-telemetry) {
   height: auto;
   min-height: 34px;
   padding-block: .25rem;

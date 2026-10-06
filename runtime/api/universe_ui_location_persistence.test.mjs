@@ -4,7 +4,7 @@ import test from "node:test";
 import { mountUniverseApp } from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
 import { createLocationPreference, locationResolves } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_location_preference.js";
 import { createProjectSelection } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_project_selection.js";
-import { FakeDocument, response, settle } from "./universe_ui_dom_test_support.mjs";
+import { FakeDocument, byClass, response, settle } from "./universe_ui_dom_test_support.mjs";
 import { twoProjectClient } from "./universe_ui_read_views_test_support.mjs";
 
 const ok = (result) => ({ status: 200, envelope: { success: true, result } });
@@ -37,6 +37,7 @@ async function mountAt(t, hash, client, basePath = "") {
   t.after(() => { globalThis.fetch = originalFetch; });
   const documentNode = new FakeDocument();
   const windowNode = documentNode.defaultView;
+  windowNode.fetch = () => response(503, {});
   windowNode.location.href = hash || "/";
   windowNode.history = { replaceState(_state, _title, route) { windowNode.location.href = route; } };
   const root = documentNode.createElement("div");
@@ -80,7 +81,7 @@ test("invalid saved locations silently fall back to the current default page", a
     const mounted = await mountAt(t, "", client);
     assert.equal(mounted.windowNode.location.href, "/strategy?project=all");
     assert.equal(client.state.last_location, "/strategy?project=all");
-    assert.doesNotMatch(mounted.root.textContent, /unavailable|not found|read failed/);
+    assert.doesNotMatch(byClass(mounted.root, "content")[0].textContent, /unavailable|not found|read failed/);
     mounted.app.unmount();
   }
 });
@@ -94,7 +95,7 @@ test("a removed or denied item falls back before its detail renderer runs", asyn
       : baseCall(request);
     const mounted = await mountAt(t, "", client);
     assert.equal(mounted.windowNode.location.href, "/strategy?project=all");
-    assert.doesNotMatch(mounted.root.textContent, /read failed/);
+    assert.doesNotMatch(byClass(mounted.root, "content")[0].textContent, /read failed/);
     mounted.app.unmount();
   }
 });
@@ -244,10 +245,11 @@ test("a failed last-page save leaves the mounted header clean", async (t) => {
   const mounted = await mountAt(t, "/orgs/acme/strategy", client, "/orgs/acme");
   for (const view of ["items", "sessions", "strategy"]) {
     await mounted.navigate(`/orgs/acme/${view}?project=1`);
-    assert.doesNotMatch(mounted.root.textContent, /Last page|payload_invalid|Reload to retry/);
+    assert.doesNotMatch(byClass(mounted.root, "topbar")[0].textContent, /Last page|payload_invalid|Reload to retry/);
   }
-  assert.ok(warnings.mock.calls.length >= 3);
-  assert.ok(warnings.mock.calls.every((call) => call.arguments[1].code === "payload_invalid"));
+  const saves = warnings.mock.calls.filter(call => call.arguments[0] === "Last page save failed");
+  assert.ok(saves.length >= 3);
+  assert.ok(saves.every((call) => call.arguments[1].code === "payload_invalid"));
 });
 
 test("hosted navigation saves path-only locations and restores them on a bare visit", async (t) => {

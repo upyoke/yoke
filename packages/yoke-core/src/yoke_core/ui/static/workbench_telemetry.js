@@ -19,10 +19,6 @@ export function mountWorkbenchTelemetry(root, windowNode = window) {
   control.appendChild(button);
   control.appendChild(status);
   root.appendChild(control);
-  const stylesheet = documentNode.createElement("link");
-  stylesheet.rel = "stylesheet";
-  stylesheet.href = new URL("./workbench_telemetry.css", import.meta.url).href;
-  documentNode.head.appendChild(stylesheet);
   let active = true;
   let allowed = false;
   let stop = () => {};
@@ -65,6 +61,5 @@ export function mountWorkbenchTelemetry(root, windowNode = window) {
     active = false;
     stop();
     control.parentNode?.removeChild(control);
-    stylesheet.parentNode?.removeChild(stylesheet);
   };
 }
