@@ -98,17 +98,13 @@ def latest_deployment_run_for_item(conn: Any, item_id: int) -> dict[str, str]:
 def source_obligation_consumed(
     conn: Any, *, item_id: int, source_requirement_id: int
 ) -> bool:
-    """Require every admitted copy on the selected completion member to pass.
+    """Require accepted proof from the member answering this source's target.
 
-    Failed or cancelled members cannot mask prior success; a newer active
-    member holds the wait. A later containment-only release has no QA copy.
-    Plan sources match their plan and case; direct sources match their source
-    key. Scoped runs require exact source/member identity. Legacy schema-1
-    runs carry no source keys, so their shared post-deploy obligation set
-    answers for every delivered member, as it does at run settlement.
-    Zero copies is unmet. Scoped stage acceptance and every copy's pass or
-    discharge (waiver or supersession) are required. A bad replacement remains a stage
-    blocker, and an unsettled duplicate still holds ``done``.
+    A newer active member holds the wait; a containment-only release has no
+    copies. Scoped runs match exact source/member identity. Schema-1 runs
+    answer through their nonempty shared blocking post-deploy set, using the
+    same reader as settlement. Every copy and replacement must pass or be
+    discharged; an unsettled duplicate or bad replacement still blocks done.
     """
     # Containment-only releases prove delivery, but have no member-scoped QA
     # copy. Read the completion membership that actually admitted this source.
