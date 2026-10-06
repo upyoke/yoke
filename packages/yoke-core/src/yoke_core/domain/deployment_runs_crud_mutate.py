@@ -225,16 +225,18 @@ def cmd_update(
                     "UPDATE deployment_runs SET status=%s, completed_at=%s WHERE id=%s",
                     (value, completed_at, run_id),
                 )
+                from yoke_core.domain.deployment_run_carried_work import (
+                    record_carried_work,
+                )
+
                 if value == "succeeded":
-                    from yoke_core.domain.deployment_run_carried_work import (
-                        record_carried_work,
-                    )
                     from yoke_core.domain.environment_delivery_record import (
                         stamp_run_environment,
                     )
 
                     stamp_run_environment(conn, run_id, when=completed_at)
-                    record_carried_work(conn, run_id)
+                # Every terminal run keeps its answer, so no reader derives it.
+                record_carried_work(conn, run_id)
                 from yoke_core.domain.deployment_qa_stage_wake_withdraw import (
                     withdraw_deployment_qa_wait_wakes,
                 )

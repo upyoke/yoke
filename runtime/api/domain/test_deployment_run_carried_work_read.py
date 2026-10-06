@@ -1,5 +1,7 @@
 """Current carried-work presentation preserves durable records and bounds cost."""
 
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
@@ -127,3 +129,40 @@ def test_read_never_records_carried_work():
     ):
         assert subject.read_carried_work(conn, run()) == {"items": []}
     conn.execute.assert_not_called()
+
+
+@pytest.mark.parametrize("status", ["succeeded", "failed", "cancelled"])
+def test_unsaved_terminal_run_is_recorded_not_derived_live(status):
+    conn = Mock(info=None)
+    with (
+        patch.object(
+            subject, "record_carried_work", return_value={"items": []}
+        ) as record,
+        patch.object(subject, "derive_carried_work_safely") as derive,
+    ):
+        assert subject.read_carried_work(conn, run(status=status)) == {"items": []}
+    record.assert_called_once_with(conn, "run-current")
+    conn.commit.assert_called_once_with()
+    derive.assert_not_called()
+    assert not subject._CACHE
+
+
+def test_concurrent_cold_reads_of_a_live_run_derive_once():
+    started = Event()
+    release = Event()
+
+    def slow_derive(_conn, _run_id):
+        started.set()
+        release.wait(5)
+        return {"items": []}
+
+    with patch.object(
+        subject, "derive_carried_work_safely", side_effect=slow_derive
+    ) as derive:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            first = pool.submit(subject.read_carried_work, connection(), run())
+            assert started.wait(5)
+            second = pool.submit(subject.read_carried_work, connection(), run())
+            release.set()
+            assert first.result(5) == second.result(5) == {"items": []}
+    derive.assert_called_once()

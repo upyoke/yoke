@@ -234,7 +234,7 @@ For each stage in deployment_flow.stages:
 
 On final stage complete:
  Set run status = 'succeeded'
- Atomically derive and persist deployment_runs.carried_work from the previous succeeded lineage
+ Atomically derive and persist deployment_runs.carried_work from the previous succeeded lineage (failed/cancelled record it too)
  Check all blocking run-level QA satisfied
  Set member items status = 'done' when member items exist
 

@@ -10,6 +10,11 @@ a stage binds — so the same comparison runs once per project, each against
 that project's own recorded commit and the commit the preceding run recorded
 for it. The bound answers travel under ``bound_projects`` so one record still
 says everything one release carried.
+
+Every terminal run (succeeded, failed, cancelled) records its answer once, and
+composition freeze records it earlier. A terminal run's answer never changes,
+so readers prefer the record; only ``deployment_runs.carried_work.repair``
+replaces a record whose comparison could not run.
 """
 
 from __future__ import annotations
@@ -133,7 +138,8 @@ def derive_carried_work_safely(conn: Any, run_id: str) -> dict[str, Any]:
         conn.execute("RELEASE SAVEPOINT carried_work_derivation")
         return empty_carried_work(
             "derivation_failed",
-            "Repair the named checkout or metadata read, clear this field, and retry.",
+            "Repair the named checkout or metadata read, then run "
+            f"`yoke deployment-runs carried-work repair {run_id}`.",
             run_id=run_id,
             error_type=type(exc).__name__,
         )
@@ -142,9 +148,13 @@ def derive_carried_work_safely(conn: Any, run_id: str) -> dict[str, Any]:
 
 
 def record_carried_work(conn: Any, run_id: str) -> dict[str, Any]:
-    """Write a forward-only carried-work record in the caller's transaction."""
+    """Write a forward-only carried-work record in the caller's transaction.
+
+    The row lock makes a concurrent recorder wait for this answer and then
+    read it, so two writers never derive the same run twice.
+    """
     row = conn.execute(
-        "SELECT carried_work FROM deployment_runs WHERE id=%s",
+        "SELECT carried_work FROM deployment_runs WHERE id=%s FOR UPDATE",
         (run_id,),
     ).fetchone()
     if row is None:
