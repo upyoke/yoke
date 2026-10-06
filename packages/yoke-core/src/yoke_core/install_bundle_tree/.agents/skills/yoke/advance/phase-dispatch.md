@@ -25,24 +25,21 @@ After the orchestrator returns success, the same harness session continues into 
 
 The phase reference docs ([`preflight.md`](preflight.md), [`activation.md`](activation.md), [`worktree.md`](worktree.md), [`environment.md`](environment.md), [`finalize.md`](finalize.md)) remain in the tree as reference material the orchestrator consumes through its Python code — they document the contract each composed helper honors, not a per-call agent-driven sequencing recipe.
 
-**Non-implementing targets** (manual advance to `reviewing-implementation`, `reviewed-implementation`, `polishing-implementation`, `implemented`, `release`, `done`, or any planning-phase target) still run through the legacy phase docs below. The orchestrator only covers implementation entry today; the post-implementation phases retain their existing doc-driven flow.
+**Non-implementing targets** (manual advance to `reviewing-implementation`, `reviewed-implementation`, `polishing-implementation`, `implemented`, `release`, `done`, or any planning-phase target) need no gate recipe: the transition in [`finalize.md`](finalize.md) evaluates every listed and structural gate itself and refuses with a named reason and recovery.
 
-**Preflight Gates:** Read `.agents/skills/yoke/advance/preflight.md`
-- Applies to: all non-implementing transitions (hard-block dependency,
-  coverage, pinned-skill handoff, generated-task, merge-verification, and
-  done-redirect gates).
-- Generated-task gates run only when
-  `policies.generated_children=epic_tasks`; skill-specific gates run only
-  when the target path crosses that pinned binding. Merge and done gates remain
-  target-stage-specific.
+**Gates:** Read `.agents/skills/yoke/advance/preflight.md`
+- The inventory of every gate the transition enforces — dependency edges,
+  File Budget coverage, shepherd verdict, generated-task
+  existence and completion, deferred items, merge record, done ceremony, and
+  QA — with when each holds, its refusal code, and its recovery.
 
 **Browser QA:** Read `.agents/skills/yoke/advance/browser-qa.md`
-- Applies to: target = `reviewed-implementation`, `implemented`, or `polishing-implementation`
-- Skip for all other targets
+- Applies when the target transition has attached Browser-method cases; run
+  them before the QA-gated transition, which refuses while they are unrun.
 
 **Deployed-stack QA:** Read `.agents/skills/yoke/advance/project-e2e.md`
 - Applies to: workflow transition = `release`
-- Materializes attached QA plans and executes every `Command` case whose project-owned configuration declares the migrated `e2e` scope, with `BASE_URL` supplied from the ephemeral environment
+- Executes every attached `Command` case whose project-owned configuration declares the `e2e` scope, with `BASE_URL` supplied from the ephemeral environment
 - Self-skips when no deployed-stack plan is attached; skip for all other transitions
 
 **Finalize:** Read `.agents/skills/yoke/advance/finalize.md`
@@ -61,11 +58,8 @@ independent may run in parallel.
 - After `workflows.item.get` returns, the pinned `workflows.version.get` read
   and `items get {N} title` are independent and may run in parallel.
 
-**Preflight — Reconciliation gate:**
-- `items get {N} deployment_flow`, `items get {N} project`, `items get {N} github_issue` — all independent reads
-
-**Preflight — Dependency and budget gates:**
-- Implementation entry retains activation dependencies and selects File Budget and spec coverage from `workflows.item.get` effective policies. Acceptance criteria use PRD-9 at Refine closure through `readiness.check.run`; they are not an implementation-entry gate.
+**Gates:**
+- The transition evaluates every gate on its own write; there are no gate reads to order. Acceptance criteria use PRD-9 at Refine closure through `readiness.check.run`; they are not an implementation-entry gate.
 
 **Environment — Ephemeral setup:**
 - `yoke ephemeral-env update "$_env_id" url "$_ephemeral_url"` and `yoke ephemeral-env update "$_env_id" deployed_sha "$_deployed_sha"` — independent writes to the same env record (different fields)

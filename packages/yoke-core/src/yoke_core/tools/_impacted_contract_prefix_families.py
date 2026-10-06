@@ -4,8 +4,7 @@ Reachability pairs a change with a test through imports. These families
 cover the couplings it cannot see: a CLI route and its usage entry meet
 through a dict key, a registrar and its authorization contract meet
 through the live registry, a Pack file and its verification meet through
-the pack manifest. Each names the source prefixes that owe the contract
-and the tests that prove it.
+the pack manifest. Each names the prefixes that owe it and its tests.
 """
 
 from __future__ import annotations
@@ -50,6 +49,7 @@ AGENT_SKILL_CONTRACT_TESTS = (
     "runtime/api/test_simulation_prompt_assembly.py",
     "runtime/api/test_skill_doc_drift.py",
     "runtime/api/test_skill_doc_regressions_advance.py",
+    "runtime/api/test_skill_doc_regressions_claim_coverage_repair.py",
     "runtime/api/test_skill_doc_regressions_conduct_claims.py",
     "runtime/api/test_skill_doc_regressions_conduct_core.py",
     "runtime/api/test_skill_doc_regressions_conduct_simulation.py",

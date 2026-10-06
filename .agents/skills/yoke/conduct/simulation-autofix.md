@@ -16,11 +16,14 @@ Read and invoke [Simulate](../simulate/SKILL.md) with the epic's internal id,
 Resume directly at [Simulate's shared auto-fix loop](../simulate/autofix-loop.md)
 using the existing report; do not repeat the initial simulation. Automatic mode
 accepts plan fixes and re-simulation without operator prompts. Simulate returns
+`AUTOFIX_NOT_REQUIRED` with the unchanged report, counts and recommendation,
 `AUTOFIX_CLEAN`, `AUTOFIX_CODE_GAPS` with `_code_level_gaps`, or
 `AUTOFIX_HALTED` with the named failure and recovery.
 
 ## Map the result
 
+- `AUTOFIX_NOT_REQUIRED`: return it with the retained report to
+  `simulation-gate-escalation.md`; no CLEAN verdict or auto-handoff occurred.
 - `AUTOFIX_CLEAN`: return it to `simulation-gate-escalation.md`, which checks
   the authoritative reviewed-handoff and claim release.
 - `AUTOFIX_CODE_GAPS`: read `simulation-autofix-verification.md` and execute

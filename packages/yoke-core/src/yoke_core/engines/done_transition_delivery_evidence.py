@@ -112,6 +112,9 @@ def redirect_to_delivery_stage(
     if delivery_stage_id is None:
         return 7, old_status
     print(f"Merge completed successfully. Setting status to '{delivery_stage_id}'.")
+    # The release wait is entered only with its landing recorded; the stamp
+    # keeps an earlier answer, so the done step's own stamp stays idempotent.
+    _parent()._populate_merged_at(item_id)
     _parent()._update_item_direct(
         item_id,
         "status",

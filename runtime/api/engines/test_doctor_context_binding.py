@@ -1,6 +1,9 @@
 """Doctor context and HTTPS composition inspect the selected source lane."""
 
 import subprocess
+from types import SimpleNamespace
+
+import pytest
 
 from yoke_core.engines import doctor_context, doctor_source_root
 from yoke_core.engines.doctor_report import DoctorArgs
@@ -65,3 +68,28 @@ def test_hosted_runtime_never_uses_client_source_binding(tmp_path, monkeypatch):
             UnavailableControlPlane(), DoctorArgs(project="other", runtime="hosted")
         )
     assert context.source_checkout is None
+
+
+@pytest.mark.parametrize("failure", ["timeout", "oserror", "nonzero", "empty"])
+def test_source_identity_failure_names_mapped_checkout_fallback(
+    failure, tmp_path, monkeypatch
+):
+    mapped, lane = tmp_path / "mapped", tmp_path / "lane"
+    monkeypatch.setattr(doctor_source_root, "source_checkout_root", lambda _: lane)
+
+    def run(argv, **kwargs):
+        if failure == "timeout":
+            raise subprocess.TimeoutExpired(argv, kwargs["timeout"])
+        if failure == "oserror":
+            raise OSError("Git is unavailable")
+        return SimpleNamespace(
+            returncode=int(failure == "nonzero"),
+            stdout="",
+            stderr="identity unavailable",
+        )
+
+    monkeypatch.setattr(doctor_source_root.subprocess, "run", run)
+    with pytest.warns(RuntimeWarning, match="doctor_source_checkout_fallback") as seen:
+        assert doctor_source_root.preferred_source_checkout(mapped) == mapped
+    assert str(mapped) in str(seen[0].message)
+    assert "Recovery: restore Git access" in str(seen[0].message)

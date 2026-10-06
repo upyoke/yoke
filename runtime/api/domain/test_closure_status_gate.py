@@ -14,6 +14,7 @@ from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from yoke_core.domain import backlog_authoritative_status_gate
 from yoke_core.domain import closure_status_gate as mod
 from yoke_core.domain import db_backend
+from yoke_core.domain import workflow_structural_status_gates
 from yoke_core.domain.dependency_types import GatePoint
 
 
@@ -155,8 +156,7 @@ def test_composer_refuses_unsatisfied_closure_even_with_force(monkeypatch):
         ),
     )
     monkeypatch.setattr(
-        backlog_authoritative_status_gate,
-        "terminal_transition_result",
+        "yoke_core.domain.qa_terminal_settlement.terminal_transition_result",
         lambda *args, **kwargs: None,
     )
     monkeypatch.setattr(mod, "_table_exists", lambda conn, table: True)
@@ -182,5 +182,6 @@ def test_composer_refuses_unsatisfied_closure_even_with_force(monkeypatch):
 
 
 def test_composer_source_always_calls_the_closure_helper():
-    source = inspect.getsource(backlog_authoritative_status_gate)
+    source = inspect.getsource(workflow_structural_status_gates)
     assert "evaluate_for_status_write" in source
+    assert "evaluate_unlisted" in inspect.getsource(backlog_authoritative_status_gate)

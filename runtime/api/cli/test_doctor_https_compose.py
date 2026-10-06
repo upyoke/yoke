@@ -117,8 +117,9 @@ def test_composition_preserves_each_named_incomplete_and_internal_error():
 
 
 @pytest.mark.parametrize("scope", ["project", "source"])
-def test_missing_database_is_named_na_without_partial_pass(
-    scope, tmp_path, monkeypatch
+@pytest.mark.parametrize("source_verdict", ["PASS", "FAIL"])
+def test_missing_database_keeps_completed_source_verdict(
+    scope, source_verdict, tmp_path, monkeypatch
 ):
     from yoke_core.engines import doctor_https_compose as source
     from yoke_core.engines import doctor_https_only as project
@@ -130,7 +131,12 @@ def test_missing_database_is_named_na_without_partial_pass(
 
     def mixed_check(conn, args, rec):
         assert marker.read_text(encoding="utf-8") == "source evidence"
-        rec.record("HC-mixed-source-backlog", "Mixed source/backlog", "PASS", "partial")
+        rec.record(
+            "HC-mixed-source-backlog",
+            "Mixed source/backlog",
+            source_verdict,
+            "completed source finding",
+        )
         conn.execute("SELECT id FROM items")
 
     check = HealthCheck("mixed-source-backlog", "Mixed source/backlog", mixed_check)
@@ -152,11 +158,16 @@ def test_missing_database_is_named_na_without_partial_pass(
             only=check.slug,
             slugs=[check.slug],
         )
-    assert len(rows) == 1
-    assert rows[0]["hc"] == "HC-mixed-source-backlog"
-    assert rows[0]["name"] == "Mixed source/backlog"
-    assert rows[0]["severity"] == "N/A"
-    assert "no local-postgres authority" in rows[0]["detail"]
+    assert len(rows) == 2
+    assert all(row["hc"] == "HC-mixed-source-backlog" for row in rows)
+    assert all(row["name"] == "Mixed source/backlog" for row in rows)
+    assert rows[0]["severity"] == source_verdict
+    assert rows[0]["detail"] == "completed source finding"
+    assert rows[1]["severity"] == "N/A"
+    assert "no local-postgres authority" in rows[1]["detail"]
+    relayed = [{"hc": "HC-mixed-source-backlog", "severity": "N/A"}]
+    assert source.merge_relayed_with_local(relayed, rows) == rows
+    assert source.merge_relayed_with_local([], rows) == rows
 
 
 def test_unrelated_internal_error_remains_a_failure():
@@ -171,3 +182,28 @@ def test_unrelated_internal_error_remains_a_failure():
     note_missing_control_plane([record], "example", check)
     assert record.check_id == "HC-internal-error"
     assert record.result == "FAIL"
+
+
+def test_retired_source_finding_survives_unavailable_backlog(tmp_path, monkeypatch):
+    from yoke_project_checks import check_obsoleted_terms as scan
+    from yoke_core.engines import doctor_https_only as project
+    from yoke_core.engines.doctor_project_checks import Discovery
+
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "guide.md").write_text("retired token\n", encoding="utf-8")
+    pattern = r"\bretired token\b"
+    monkeypatch.setattr(scan, "OBSOLETED_TERM_PATTERNS", (pattern,))
+    monkeypatch.setattr(scan, "OBSOLETED_TERM_LABELS", {pattern: "Retired token"})
+    monkeypatch.setattr(scan, "_resolve_repo_root", lambda: str(tmp_path))
+    monkeypatch.setattr(project, "checkout_root_for_project", lambda _: tmp_path)
+    monkeypatch.setattr(project, "local_connection_or_none", lambda _: None)
+    monkeypatch.setattr(
+        project,
+        "discover_project_checks",
+        lambda _: Discovery(scan.PROJECT_HEALTH_CHECKS, []),
+    )
+    rows = project.run_local_project_checks(project="example", full=True, slugs=[])
+    assert [row["severity"] for row in rows] == ["WARN", "N/A"]
+    assert "docs/guide.md:1: [Retired token]" in rows[0]["detail"]
+    assert "no local-postgres authority" in rows[1]["detail"]

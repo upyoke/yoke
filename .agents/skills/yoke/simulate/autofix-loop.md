@@ -17,7 +17,17 @@ context; start here without repeating the initial simulation.
 Without it, prompt `Auto-fix? The Architect will apply the report's fix guidance
 to the task specs. (y/n)` and stop if declined. For integration, explain that
 code fixes require an amend cycle; direct Simulate does not execute them.
-Only `[CRITICAL]` or `[WARNING]` gaps enter the loop. Notes alone need no fixes.
+Before classification or Architect dispatch, evaluate the current report:
+- NOTE-only gaps return `AUTOFIX_NOT_REQUIRED`, regardless of recommendation.
+- No CRITICAL gaps and recommendation `PROCEED` return
+  `AUTOFIX_NOT_REQUIRED`, including WARNING gaps accepted for follow-up.
+
+Return the unchanged persisted report, severity counts and recommendation.
+This outcome means no fixes are required by this loop; it does not mean CLEAN,
+does not write a passing verdict, and does not perform a reviewed-handoff.
+Only remaining `[CRITICAL]` or `[WARNING]` gaps enter the fix loop. Apply this
+early return again after each persisted `GAPS FOUND` re-simulation, before
+fix-level classification or another Architect pass.
 
 The Architect iteration limit is **3**, owned here. Initialize
 `iteration=1` and `_code_level_gaps` empty. Never reset iteration when returning
@@ -127,6 +137,9 @@ is identity-attested and the reviewed-handoff occurs on CLEAN.
 
 ## Return to the caller
 
+Direct Simulate displays `AUTOFIX_NOT_REQUIRED` with the retained recommendation
+and stops without claiming a CLEAN verdict. Conduct handles this outcome through
+its nonblocking-report branch, retaining the report for triage or a named halt.
 Direct Simulate displays remaining code gaps with amend guidance and stops;
 it never reports them as clean. Conduct consumes `AUTOFIX_CODE_GAPS` through
 its single Engineer/Tester amend cycle, then checks final simulation and the

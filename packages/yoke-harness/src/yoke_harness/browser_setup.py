@@ -53,6 +53,41 @@ def ensure_browser_runtime(browser: Path | None = None, toolchain=None, *, emit=
         ) from exc
 
 
+def chromium_status(browser: Path, toolchain) -> str:
+    """Check the machine's selection without installing or changing config."""
+    env = toolchain.command_env()
+    env["PLAYWRIGHT_BROWSERS_PATH"] = (
+        resolve_playwright_cache(YOKE_BROWSER_CACHE_PROJECT, None) or ""
+    )
+    saved = browser_executable.configured()
+    browser_executable.project_environment(env, saved)
+    try:
+        if saved:
+            result = browser_system_browser.probe_installed(
+                browser, toolchain, env, saved
+            )
+        else:
+            result = subprocess.run(
+                [
+                    str(toolchain.node),
+                    "-e",
+                    browser_runtime_home.CHROMIUM_PRESENT_PROBE_JS,
+                ],
+                cwd=str(browser),
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=40,
+            )
+    except (OSError, subprocess.TimeoutExpired):
+        return "missing"
+    return (
+        "ready"
+        if result.returncode == 0 and result.stdout.strip() == "ok"
+        else "missing"
+    )
+
+
 def _ensure_browser_runtime(browser: Path | None = None, toolchain=None, *, emit=print):
     browser = (
         browser if browser is not None else browser_runtime_home.ensure_materialized()

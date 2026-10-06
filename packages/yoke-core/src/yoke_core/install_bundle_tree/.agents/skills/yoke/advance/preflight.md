@@ -1,41 +1,93 @@
-# Advance — Preflight Gates
+# Advance — Gates
 
-> **Orchestrator role:** For implementation-entry advances (`/yoke advance PREFIX-N implementation`), the orchestrator `yoke_core.engines.advance_implementation_entry` calls the same gate helpers (`check_hard_blocks.evaluate_blockers`, `path_claim_spec_coverage_gate.evaluate`) and reports the outcome as `AdvancePhaseCompleted{phase="preflight"}`. File Budget and spec coverage run only when `workflows.item.get` reports effective File Budget on; the lifecycle transition evaluates the pinned target-stage gates. The prose below is the canonical contract for what each gate enforces — the orchestrator's reference, not a per-call agent recipe. The legacy doc-driven flow below still runs for non-implementing advance targets.
-
-Called by the advance router after identity/lifecycle resolution for
-non-implementing transitions. Runs the hard-block dependency gate, active reconciliation gate, pinned-skill/generated-task gates, and
-the merge verification gate.
+Every gate this skill used to run by hand is enforced by the lifecycle engine
+on `lifecycle.transition.execute` — the same write a plain
+`yoke lifecycle transition PREFIX-N --to STAGE` performs. A transition that
+misses a gate refuses with the gate's error code, a named reason, and the
+recovery step. This skill does not re-run any gate before the write: make the
+transition, read a refusal, and do what it names.
 
 **Context variables** (set by router): `{N}`, `_status`, `_target`,
-`_current_executor`, `_target_executor`, `_generated_children`,
+`_current_skill`, `_target_skill`, `_generated_children`,
 `_worktree_policy`, `_pinned_definition_json`, `--force` flag
 
 ---
 
-## Gate Checks (steps 4-dep through 5a-defer)
+## Where each gate lives
 
-Read and follow: `preflight-checks.md`
+Two kinds of gate run on the write. **Listed** gates are the stage `gates` in
+the item's pinned definition (`yoke workflows version get WORKFLOW VERSION`).
+**Structural** gates follow from the definition's own shape — its lane-taking
+stage (the first stage carrying an activation gate), the stages it treats as
+merged, its implementation binding (the bound skill that executes the work),
+and its `delivery` and `generated_children` policies — so they hold on every
+workflow version without being listed.
 
-Covers (in order):
-- **Hard-Block Dependency Gate** (step 4-dep): blocks if unresolved dependencies at the activation or integration gate point
-- **Acceptance Criteria Ownership**: PRD-9 runs at Refine closure through `readiness.check.run`, not at implementation entry
-- **Spec Coverage Gate** (step 4-cov): applies only when effective File Budget and path claims are both enabled; blocks when `## File Budget` lists paths the active claim does not cover
-- **Pinned-Skill Advisory** (step 5): identifies a manual transition into a different registered skill's segment
-- **Shepherd Skill Gate** (step 5-shep): applies only when the target path crosses a pinned `shepherd` binding
-- **Generated-Task Existence Gate** (step 5-gate): applies only when `generated_children=epic_tasks` and dispatch is at or beyond the `conduct` handoff
-- **Generated-Task Completion Gate** (step 5a): applies only when a task-graph parent enters its `usher` or terminal segment
-- **Deferred Items Gate** (step 5a-defer): applies only to a generated-task parent entering a pinned terminal stage
+| Gate | Holds when | Refusal code | Internal `force` |
+|---|---|---|---|
+| Dependencies — activation edges | Entering the lane-taking stage and every later working stage before the merge boundary | `GATE_HARD_BLOCKS_UNSATISFIED` | skips |
+| Dependencies — integration edges | Entering any stage the definition treats as merged (the release wait, the terminal stage) | `GATE_HARD_BLOCKS_UNSATISFIED` | skips |
+| Dependencies — closure edges | Entering `done` | `GATE_CLOSURE_UNSATISFIED` | never |
+| File Budget coverage | Working stages from the lane-taking stage on, when effective File Budget and path claims are both enabled; task-graph parents are covered per task by their planning handoff | `GATE_SPEC_COVERAGE` | never |
+| Shepherd verdict | The definition binds `shepherd`, and the target is the first stage past the implementation binding's entry stage: the final edge of its pinned Shepherd binding has a `READY` or `CAVEATS` verdict (or `SKIPPED` from Architect/review) | `GATE_SHEPHERD_VERDICT` | skips |
+| Generated-task existence | `_generated_children=epic_tasks`, from the implementation binding's entry stage on | `GATE_EPIC_TASKS` | never |
+| Generated-task completion | `_generated_children=epic_tasks`, from the implementation binding's handoff stage on: every task has reached that stage | `GATE_EPIC_TASKS_INCOMPLETE` | skips |
+| Deferred items | A task-graph parent entering `done`: no UNFILED entry under `## Deferred Items` and no deferral language without a filed item reference | `GATE_DEFERRED_ITEMS_UNFILED` | skips |
+| Merge record | Entering a non-terminal stage the definition treats as merged (the release wait): `items.merged_at` is recorded, or the execution evidence attests a no-change result | `GATE_MERGE_UNRECORDED` | skips |
+| Done ceremony | Entering `done` under a release-stage delivery: the close-out nonce that `yoke merge item` and the done ceremony stamp | `GATE_DONE_NONCE` | skips |
+| QA | Stages listing `qa_verification`: every blocking verification requirement has a current pass or a waiver — including cases bound to an earlier stage, which this next QA-gated stage enforces | `GATE_QA_*` | skips |
 
-## Recovery and Redirect Gates (steps 5-recon through 5c)
+`--force` here is the engine's internal override for sanctioned callers; the
+`yoke lifecycle transition` CLI carries no such flag.
 
-Read and follow: `preflight-recovery.md`
+**Skill handoff is a report, not a refusal.** When the target stage belongs to
+a different bound skill than the source, the transition succeeds and its
+response carries `skill_handoff` naming that skill; the next leg is that
+skill's fresh command and claim.
 
-Covers (in order):
-- **Implementation Reconciliation Gate** (step 5-recon): auto-fills deployment flow, syncs GitHub issue, emits body/template advisories — target `implementing` only
-- **Merge Verification Gate** (step 5-merge): checks branch ancestry into main — target `release` only
-- **Done Transition Redirect** (step 5c): redirects `done` target to `/yoke usher`
+**QA cases are materialized by the transition itself** before any gate runs.
+Run them before the QA-gated transition: [`browser-qa.md`](browser-qa.md) for Browser-method
+cases, [`project-e2e.md`](project-e2e.md) for deployed-stack cases at
+`release`.
 
----
+## File Budget and path claims
+
+Read `_effective_file_budget_policy` and `_effective_path_claims_policy` from
+`result.effective_policies` in `workflows.item.get`; they are independent
+axes, and posture can only tighten them.
+
+- Both enabled: the File Budget coverage gate above compares every
+  `## File Budget` path with the item's active path claims.
+- Budget off, claims on: claim coverage comes from the execution artifact or
+  survey.
+- Budget on, claims off: the budget is sizing and conflict evidence; there is
+  no claim coverage gate.
+- Both off: neither artifact gate applies.
+
+The universal 350-line authored-file limit holds in every combination. The
+coverage gate is **block-by-design**, never bypassed: widening a claim after
+the worktree exists would move coverage while edits are already landing. When
+it refuses, repair the claim before the lane takes edits:
+`yoke claims path widen --claim-id <id> --add-paths <added> --reason "<why widening>" --item PREFIX-N`,
+or repair the budget through `/yoke refine` while the item is still in its
+Refine segment.
+
+## Advisories before implementation (not gates)
+
+- **Deployment flow.** An item with no flow pin and no project delivery
+  default delivers merge-only, so a missing flow is not a refusal; pin one
+  with `yoke items scalar update PREFIX-N --field deployment_flow --value FLOW`
+  when the work must ship through a deployment run.
+- **GitHub issue.** Lifecycle sync links and comments on the item's issue as a
+  side effect of the transition. A missing link with an unresolvable project
+  GitHub App binding is repaired per the github-auth-resolver doctor output;
+  `yoke items github-sync PREFIX-N` re-runs the sync.
+- **Body completeness.** `yoke_core.domain.idea_body_completeness` flags a
+  title-only item. Cold-start sessions need the problem, the fix plan, and the
+  acceptance criteria, so fill the narrative before implementation.
+- **Pack reuse.** An item outside the `yoke` project records a `## Pack Reuse`
+  stance — `project-owned` or a reusable `pack-update` — before
+  implementation.
 
 ## Path Claim Activation Handoff
 
@@ -45,6 +97,6 @@ path-claim auto-activation step. The
 phase doc lives at `.agents/skills/yoke/advance/activation.md` and the
 enforcement owner is `yoke_core.domain.advance_path_claim_activation`.
 
-The phase runs **after** preflight (so the path-claim-required gate has already enforced declaration where it applies) and **before** the worktree phase (so the worktree door-lock check sees `state='active'` rather than `state='planned'`). It auto-flips planned claims to active, surfaces blocked-on-upstream errors, and refuses divergent origin/local refs. Skip when `--no-worktree` is passed — no worktree door-lock will fire and there is nothing to gate against.
+The phase runs **after** preflight and **before** the worktree phase (so the worktree door-lock check sees `state='active'` rather than `state='planned'`). It auto-flips planned claims to active, surfaces blocked-on-upstream errors, and refuses divergent origin/local refs. Skip when `--no-worktree` is passed — no worktree door-lock will fire and there is nothing to gate against.
 
-After all applicable gates pass, return to the router to continue with the next phase.
+After reading this, return to the router to continue with the next phase.

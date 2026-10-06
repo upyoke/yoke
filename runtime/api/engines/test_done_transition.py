@@ -270,11 +270,14 @@ class TestDeploymentFlowGuard:
                 return_value="persistent",
             ),
         ):
-            with mock.patch.object(
-                done_transition,
-                "_update_item_direct",
-                return_value=0,
-            ) as upd:
+            with (
+                mock.patch.object(
+                    done_transition,
+                    "_update_item_direct",
+                    return_value=0,
+                ) as upd,
+                mock.patch.object(done_transition, "_populate_merged_at") as stamp,
+            ):
                 result = done_transition._check_deployment_flow_guard(
                     item_id=226,
                     deploy_flow="externalwebapp-prod-release",
@@ -286,6 +289,8 @@ class TestDeploymentFlowGuard:
                 )
 
         assert result == (7, "ship-ready")
+        # The release wait is entered only with its landing recorded.
+        stamp.assert_called_once_with(226)
         upd.assert_called_once()
         args, kwargs = upd.call_args
         assert args[0] == 226

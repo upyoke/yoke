@@ -46,7 +46,7 @@ Property groups are named, reusable sets of fields. Every implementation (shell,
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `session_id` | TEXT | Yes | Session identifier. For agents: Claude session ID or fallback `$(date +%s)-$$`. For frontend: client-generated UUID persisted in sessionStorage. For backend: request-scoped or extracted from auth token. |
+| `session_id` | TEXT | Yes | Session identifier. For agents: Claude session ID or fallback `$(date +%s)-$$`. For frontend: client-generated UUID held in memory after consent; cleared on revocation. For backend: request-scoped or extracted from auth token. |
 | `session_start_time` | TEXT (ISO 8601 UTC) | No | When the session began. |
 
 ### request_props

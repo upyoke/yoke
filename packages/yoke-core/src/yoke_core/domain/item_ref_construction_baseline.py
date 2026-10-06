@@ -106,11 +106,6 @@ BASELINE: dict[str, dict[str, object]] = {
         "reason": "legacy_key_lookup",
         "note": "HC verdict lookup uses the historical internal item storage key",
     },
-    "packages/yoke-core/src/yoke_core/engines/doctor_hc_meta_runs.py": {
-        "count": 1,
-        "reason": "token_recognition",
-        "note": "grep audit skips lines that already cite a public ref token",
-    },
     "packages/yoke-core/src/yoke_core/engines/doctor_hc_worktrees_branches.py": {
         "count": 1,
         "reason": "doc_comment_only",

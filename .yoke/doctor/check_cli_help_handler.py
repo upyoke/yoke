@@ -32,7 +32,7 @@ from typing import List
 
 from yoke_core.domain.project_scratch_dir import scratch_subdir
 from yoke_core.engines.doctor_parallel_reads import bounded_read_map
-from yoke_contracts.doctor_budget import remaining_seconds
+from yoke_contracts.doctor_budget import DoctorBudgetExhausted, remaining_seconds
 from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,
@@ -93,6 +93,8 @@ def hc_cli_help_handler_present(
                     env=env,
                     timeout=remaining_seconds(30),
                 )
+            except subprocess.TimeoutExpired as exc:
+                raise DoctorBudgetExhausted("doctor_check_budget_exhausted") from exc
             except Exception as exc:
                 prefix = token if label == "service_client" else f"{label} {token}"
                 return f"{prefix}: subprocess error {exc!r}"

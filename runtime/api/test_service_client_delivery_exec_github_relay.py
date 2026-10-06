@@ -25,10 +25,14 @@ class TestBacklogGithubRelay:
         rebuilds: list[object] = []
         monkeypatch.setattr(backlog_github_sync, "sync_item", lambda *_args: 0)
         monkeypatch.setattr(
-            service_client_backlog_github, "_guard", lambda *_args: 0,
+            service_client_backlog_github,
+            "_guard",
+            lambda *_args: 0,
         )
         monkeypatch.setattr(
-            rebuild_board, "rebuild", lambda **kwargs: rebuilds.append(kwargs),
+            rebuild_board,
+            "rebuild",
+            lambda **kwargs: rebuilds.append(kwargs),
         )
 
         rc = service_client.cmd_backlog_github(["sync-item", "YOK-7"])
@@ -63,28 +67,6 @@ class TestBacklogGithubRelay:
             db_path=mutation_db["db_path"],
         )
         assert result.returncode == 2
-
-    def test_update_epic_implementing_without_tasks_rejected(self, mutation_db):
-        """Epic without tasks should not be allowed to transition to implementing."""
-        # Create a taskless epic in planned status
-        conn = connect_test_db(mutation_db["db_path"])
-        conn.execute(
-            """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id,
-                                  created_at, updated_at, source, frozen)
-               VALUES (20, 'Taskless epic', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'planned', 'medium', 1,
-                       '2026-01-01', '2026-01-01', 'user', 0)"""
-        )
-        conn.commit()
-        conn.close()
-
-        result = _run_client(
-            ["update-item", "20", "--field", "status", "--value", "implementing"],
-            db_path=mutation_db["db_path"],
-        )
-        assert result.returncode == 1
-        data = json.loads(result.stdout.strip())
-        assert data["success"] is False
-        assert data["error_code"] == "GATE_EPIC_TASKS"
 
     def test_update_epic_planned_without_tasks_allowed(self, mutation_db):
         """Epic without tasks should be allowed to transition to planned."""

@@ -1,5 +1,6 @@
 """Require the final verdict of an item's pinned Shepherd planning segment.
 
+The lifecycle task-graph gate calls ``check_gate`` for this lookup.
 The immutable binding supplies the final edge and its verdict identity.
 A workflow with no Shepherd binding has no Shepherd lifecycle obligation.
 """

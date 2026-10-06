@@ -13,11 +13,15 @@ registration parity; this module is the authoritative source.
 
 from __future__ import annotations
 
-import re
 from typing import List
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows, query_scalar
+from yoke_core.domain.deferred_item_tracking import (
+    deferral_findings,
+    describe_finding,
+    item_deferral_text,
+)
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.workflow_behavior import generates_task_graph
 from yoke_core.domain.workflow_runtime import workflow_runtime_from_row
@@ -34,16 +38,6 @@ def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-_DEFERRED_ITEM_FIELDS = (
-    "spec",
-    "design_spec",
-    "technical_plan",
-    "worktree_plan",
-    "shepherd_caveats",
-    "test_results",
-    "deploy_log",
-)
-
 _PINNED_WORKFLOW_COLUMNS = (
     "i.workflow_id, i.workflow_version_id, v.version, "
     "v.definition_json, v.definition_digest"
@@ -58,39 +52,6 @@ def _completed_workflow_rows(rows, *, task_graph_only: bool = False):
         if task_graph_only and not generates_task_graph(runtime):
             continue
         yield row
-
-
-def _available_item_columns(conn) -> set[str]:
-    if db_backend.connection_is_postgres(conn):
-        rows = query_rows(
-            conn,
-            "SELECT column_name FROM information_schema.columns "
-            "WHERE table_schema = 'public' AND table_name = 'items'",
-        )
-        return {str(row["column_name"]) for row in rows}
-    rows = query_rows(conn, "PRAGMA table_info(items)")
-    return {str(row["name"]) for row in rows}
-
-
-def _deferred_item_text(conn, row, fields: list[str]) -> str:
-    chunks: list[str] = []
-    for field in fields:
-        value = row[field]
-        if value is not None and str(value).strip() and str(value) != "null":
-            chunks.append(str(value))
-    if _base._table_exists(conn, "item_sections"):
-        p = _p(conn)
-        section_rows = query_rows(
-            conn,
-            f"SELECT section_name, content FROM item_sections "
-            f"WHERE item_id = {p} ORDER BY ordering, section_name",
-            (row["id"],),
-        )
-        for section in section_rows:
-            content = section["content"]
-            if content is not None and str(content).strip():
-                chunks.append(f"## {section['section_name']}\n{content}")
-    return "\n\n".join(chunks)
 
 
 def hc_undeployed_done(conn, args: DoctorArgs, rec: RecordCollector) -> None:
@@ -121,11 +82,15 @@ def hc_undeployed_done(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         if project == "null":
             project = ""
         # For Python version, we check if deployment_flows exist for this project
-        flow_count = query_scalar(
-            conn,
-            f"SELECT count(*) FROM deployment_flows WHERE project_id={_p(conn)}",
-            (row["project_id"],),
-        ) if _base._table_exists(conn, "deployment_flows") else 0
+        flow_count = (
+            query_scalar(
+                conn,
+                f"SELECT count(*) FROM deployment_flows WHERE project_id={_p(conn)}",
+                (row["project_id"],),
+            )
+            if _base._table_exists(conn, "deployment_flows")
+            else 0
+        )
         if not flow_count or int(flow_count) == 0:
             continue
 
@@ -139,12 +104,18 @@ def hc_undeployed_done(conn, args: DoctorArgs, rec: RecordCollector) -> None:
                     age_days = age_seconds // 86400
                     if age_days == 0:
                         age_hours = age_seconds // 3600
-                        issues.append(f"- {public_ref}: done for {age_hours} hours with no deployed_to value")
+                        issues.append(
+                            f"- {public_ref}: done for {age_hours} hours with no deployed_to value"
+                        )
                     else:
-                        issues.append(f"- {public_ref}: done for {age_days} days with no deployed_to value")
+                        issues.append(
+                            f"- {public_ref}: done for {age_days} days with no deployed_to value"
+                        )
 
     if issues:
-        rec.record("HC-undeployed-done", "Undeployed done items", "WARN", "\n".join(issues))
+        rec.record(
+            "HC-undeployed-done", "Undeployed done items", "WARN", "\n".join(issues)
+        )
     else:
         rec.record("HC-undeployed-done", "Undeployed done items", "PASS", "")
 
@@ -174,95 +145,46 @@ def hc_orphaned_done_items(conn, args: DoctorArgs, rec: RecordCollector) -> None
         )
 
     if issues:
-        rec.record("HC-orphaned-done-items",
-                    "Done items with signs of bypassed ceremony", "WARN",
-                    "\n".join(issues))
+        rec.record(
+            "HC-orphaned-done-items",
+            "Done items with signs of bypassed ceremony",
+            "WARN",
+            "\n".join(issues),
+        )
     else:
-        rec.record("HC-orphaned-done-items",
-                    "Done items with signs of bypassed ceremony", "PASS", "")
+        rec.record(
+            "HC-orphaned-done-items",
+            "Done items with signs of bypassed ceremony",
+            "PASS",
+            "",
+        )
 
 
 def hc_deferred_items(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-deferred-items: Deferred items enforcement for done epics."""
     issues: List[str] = []
-    available = _available_item_columns(conn)
-    fields = [field for field in _DEFERRED_ITEM_FIELDS if field in available]
-    select_cols = [
-        "i.id",
-        "i.status",
-        _PINNED_WORKFLOW_COLUMNS,
-        *[f"i.{field}" for field in fields],
-    ]
     rows = query_rows(
         conn,
-        "SELECT "
-        + ", ".join(select_cols)
-        + " FROM items i JOIN workflow_versions v ON v.id = i.workflow_version_id "
+        f"SELECT i.id, i.status, {_PINNED_WORKFLOW_COLUMNS} "
+        "FROM items i JOIN workflow_versions v ON v.id = i.workflow_version_id "
         "ORDER BY i.id",
     )
-
-    deferral_patterns = [
-        re.compile(r"deferred to a follow-up", re.IGNORECASE),
-        re.compile(r"deferred to follow-up", re.IGNORECASE),
-        re.compile(r"isolated to a follow-up", re.IGNORECASE),
-        re.compile(r"isolated to follow-up", re.IGNORECASE),
-        re.compile(r"out of scope for this epic", re.IGNORECASE),
-    ]
-
     for row in _completed_workflow_rows(rows, task_graph_only=True):
-        body = _deferred_item_text(conn, row, fields)
-        if not body:
-            continue
-
-        # Check for UNFILED in ## Deferred Items section
-        in_section = False
-        has_unfiled = False
-        for line in body.splitlines():
-            if line.startswith("## Deferred Items"):
-                in_section = True
-                continue
-            if line.startswith("## ") and in_section:
-                in_section = False
-            if in_section and "unfiled" in line.lower():
-                has_unfiled = True
-
-        if has_unfiled:
-            issues.append(f"- {render_item_ref(conn, int(row['id']))}: has UNFILED entries in ## Deferred Items section")
-
-        # Check for deferral language outside section without YOK-N references
-        # Strip code blocks and the Deferred Items section
-        stripped_lines = []
-        in_fence = False
-        in_deferred = False
-        for line in body.splitlines():
-            if line.startswith("```"):
-                in_fence = not in_fence
-                continue
-            if in_fence:
-                continue
-            if line.startswith("## Deferred Items"):
-                in_deferred = True
-                continue
-            if line.startswith("## "):
-                in_deferred = False
-            if not in_deferred:
-                stripped_lines.append(line)
-
-        stripped = "\n".join(stripped_lines)
-        for pat in deferral_patterns:
-            for match_line in stripped.splitlines():
-                if pat.search(match_line) and "YOK-" not in match_line:
-                    issues.append(
-                        f"- {render_item_ref(conn, int(row['id']))}: deferral language found in body without "
-                        f"YOK-N reference or ## Deferred Items tracking"
-                    )
-                    break
-            else:
-                continue
-            break
+        text = item_deferral_text(conn, int(row["id"]))
+        ref = render_item_ref(conn, int(row["id"]))
+        issues.extend(
+            f"- {ref}: {describe_finding(finding)}"
+            for finding in deferral_findings(text)
+        )
 
     if issues:
-        rec.record("HC-deferred-items", "Deferred items enforcement (done epics)", "WARN",
-                    "\n".join(issues))
+        rec.record(
+            "HC-deferred-items",
+            "Deferred items enforcement (done epics)",
+            "WARN",
+            "\n".join(issues),
+        )
     else:
-        rec.record("HC-deferred-items", "Deferred items enforcement (done epics)", "PASS", "")
+        rec.record(
+            "HC-deferred-items", "Deferred items enforcement (done epics)", "PASS", ""
+        )

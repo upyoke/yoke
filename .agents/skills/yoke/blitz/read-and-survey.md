@@ -79,10 +79,19 @@ or refused. On success read `lane_orientation` for the project's declared
 `package_roots` and `test_roots` plus the `focused_test_command`, rather than
 inferring any of the three.
 
-Then activate:
+Then activate through `lifecycle.transition.execute`. Refresh
+`yoke workflows item get ITEM --json` and fetch its pin with
+`yoke workflows version get WORKFLOW_ID WORKFLOW_VERSION --json`. Resolve
+`LIVE_STAGE` from status and `NEXT_STAGE` from the unique declared forward
+edge in `definition.transitions` whose `from_stage_id` equals `LIVE_STAGE`,
+ordered by `definition.stages`. Confirm
+the active half-open `definition.skill_bindings` interval belongs to Blitz.
+An absent or ambiguous edge is `workflow_next_stage_ambiguous`: stop and ask
+the workflow owner to repair or select the declared route. A resumed active
+lane skips activation and continues at its live phase:
 
 ```text
-yoke lifecycle transition ITEM --from refined-idea --to implementing --reason "Blitz execution started"
+yoke lifecycle transition ITEM --from LIVE_STAGE --to NEXT_STAGE --reason "Blitz execution started"
 ```
 
 This transition must acquire the item-owned document claim while the item

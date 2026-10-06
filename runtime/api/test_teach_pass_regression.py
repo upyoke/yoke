@@ -190,8 +190,7 @@ def test_worktree_unresolved_denial_embeds_preflight_command() -> None:
         ctx=ctx,
     )
     assert (
-        "yoke dev run -- python3 -m yoke_core.domain.worktree_preflight "
-        "--item YOK-123"
+        "yoke dev run -- python3 -m yoke_core.domain.worktree_preflight --item YOK-123"
     ) in narrative
     assert "item_worktrees row" in narrative
     assert "path-claim-widen" not in narrative
@@ -282,7 +281,7 @@ def test_authored_claim_docs_teach_canonical_widen_surface() -> None:
     paths = (
         _REPO / "docs" / "path-claims.md",
         _REPO / ".agents" / "skills" / "yoke" / "refine" / "SKILL.md",
-        _REPO / ".agents" / "skills" / "yoke" / "advance" / "preflight-checks.md",
+        _REPO / ".agents" / "skills" / "yoke" / "advance" / "preflight.md",
     )
     text = "\n".join(path.read_text(encoding="utf-8") for path in paths)
 

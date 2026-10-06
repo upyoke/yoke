@@ -57,7 +57,7 @@ Both emit a `SkipHopPerformed` event alongside the canonical `ItemStatusChanged`
 
 ## Update Status (step 6)
 
-Call `lifecycle.transition.execute` — the handler runs the gate for `({_status} → {_target})`, posts the GitHub status-change comment, and emits `ItemStatusChanged`. The canonical request model is `LifecycleTransitionRequest` (payload fields: `target_status`, optional `source_status`, optional `reason`).
+Call `lifecycle.transition.execute` — the handler evaluates every listed and structural gate for `({_status} → {_target})` (inventory: [`preflight.md`](preflight.md)), posts the GitHub status-change comment, and emits `ItemStatusChanged`. A refusal names its reason and recovery; a crossed skill segment comes back as `skill_handoff`. The canonical request model is `LifecycleTransitionRequest` (payload fields: `target_status`, optional `source_status`, optional `reason`).
 
 ```json
 {

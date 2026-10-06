@@ -119,6 +119,18 @@ Read and follow `.agents/skills/yoke/conduct/simulation-autofix.md`. Pass inheri
 - `_simulator_output` = Simulator's raw output from this step
 - `_max_attempts`
 
+**If auto-fix returns `AUTOFIX_NOT_REQUIRED`:**
+- Refresh `_simulation_gaps`, severity counts and `_recommendation` from the
+  returned persisted report. Do not claim CLEAN or assume auto-handoff.
+- With no CRITICALs and recommendation `PROCEED`, execute Branch 1 above,
+  including follow-up filing, the registered PROCEED triage write and verified
+  reviewed-handoff. This also handles WARNING-only reports after re-simulation.
+- Otherwise (including NOTE-only with a non-PROCEED or absent recommendation),
+  return `HALTED` with `simulation_nonblocking_recommendation_unresolved` to
+  `cleanup-report.md`. Preserve the report and lane; recovery is a corrected
+  Simulator recommendation or explicit operator triage. Do not manufacture
+  `PROCEED`, a passing verdict, or a status write.
+
 **If auto-fix returns `AUTOFIX_CLEAN`:**
 - **Satisfy parent epic verification requirements** (same logic as CLEAN path).
 - **Verify auto-handoff after clean autofix.** The `persist_and_verify` inside autofix auto-triggered `conduct_reviewed_handoff.run()` on the final CLEAN result and released the Conduct item claim. Verify:

@@ -114,17 +114,26 @@ source flags, abort, and continuation before executing.
 
 ## Materialize the attached plan and run its cases
 
-The `implementing` → `reviewing-implementation` preflight materializes every
+Refresh `yoke workflows item get ITEM --json` and read its immutable pin with
+`yoke workflows version get WORKFLOW_ID WORKFLOW_VERSION --json`. Set
+`LIVE_STAGE` to the returned status and `NEXT_STAGE` to the unique declared
+forward target whose `from_stage_id` equals `LIVE_STAGE` in
+`definition.transitions`, ordered by `definition.stages`.
+Confirm the active binding belongs to Dash. An absent or ambiguous forward
+edge is `workflow_next_stage_ambiguous`: stop and ask the workflow owner to
+repair or select the declared route. Use that target for QA and close review.
+
+The preflight for the transition from `LIVE_STAGE` to `NEXT_STAGE` materializes every
 effective plan attached at that stage into blocking case rows and only then
 evaluates that stage's gates. Project defaults are effective only for workflow
 QA policies that declare project defaults. Dash's `optional_item_attachment`
 policy ignores them and has no definition-owned `qa_verification` done gate;
 an item-specific verification posture still adds and enforces its own plan.
 Run this whenever `qa_plan_attachments` in `yoke items detail get ITEM --json`
-names a plan for `reviewing-implementation`:
+names a plan for `NEXT_STAGE`:
 
 ```text
-yoke qa plan materialize --item ITEM --transition reviewing-implementation --json
+yoke qa plan materialize --item ITEM --transition NEXT_STAGE --json
 yoke qa requirement list --item ITEM --json
 ```
 
@@ -193,15 +202,17 @@ for either to get past the refusal when the item has something to verify
 and no plan — that is the case this whole gate exists for.
 
 Otherwise author that plan here, while its cases are still editable, and
-attach it at the item's release stage, which is where post-deploy
-acceptance binds:
+attach it at the pinned definition's release stage (`RELEASE_STAGE`, resolved
+from its stage with `board_bucket=release`), where post-deploy acceptance
+binds. If the definition has no unique release stage, stop and ask the
+workflow owner to resolve the attachment target:
 
 ```text
 yoke qa plan create <slug> --project P --environment <env>
 yoke qa plan-cases replace --project P --plan-id <id> --stdin
 yoke qa item-plan attach --item ITEM --project P --plan-id <id> \
-  --transition release --qa-phase post_deploy
-yoke qa plan materialize --item ITEM --transition release
+  --transition RELEASE_STAGE --qa-phase post_deploy
+yoke qa plan materialize --item ITEM --transition RELEASE_STAGE
 ```
 
 Its cases test **this item's** acceptance criteria — not another item's, and
@@ -214,7 +225,7 @@ attached cases so the attachment is real: `qa plan run` refuses an empty
 transition.
 
 ```text
-yoke qa plan materialize --item ITEM --transition release
+yoke qa plan materialize --item ITEM --transition RELEASE_STAGE
 ```
 
 **Do not try to run that plan here.** It is bound to the deployment
@@ -257,7 +268,7 @@ Then execute each selected posture knob through its shared authority:
   ```text
   yoke qa requirement add --item ITEM \
     --method-id <stored-method-id> --qa-phase verification \
-    --workflow-transition reviewing-implementation \
+    --workflow-transition NEXT_STAGE \
     --instructions "<instruction applied to the actual target>" \
     --expected-outcome "<observable passing result>" \
     --method-config '<method-specific JSON>'
@@ -286,7 +297,7 @@ discovers them. The merge boundary refuses to land a branch before this
 transition, `--skip-status` included, so it is also not a step to defer:
 
 ```text
-yoke lifecycle transition ITEM --from implementing --to reviewing-implementation --reason "Implementation complete; verification passed"
+yoke lifecycle transition ITEM --from LIVE_STAGE --to NEXT_STAGE --reason "Implementation complete; verification passed"
 ```
 
 Next: [`merge.md`](merge.md), or [`close-out.md`](close-out.md) for a
