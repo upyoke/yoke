@@ -152,7 +152,16 @@ def source_obligation_consumed(
     ).fetchall()
     if not rows:
         return False
-    if not legacy:
+    if legacy:
+        from yoke_core.domain.no_obligation_member_close_out import (
+            satisfied_delivery_member,
+        )
+
+        # Corrections can change case identity; the run-wide gate also reads
+        # their successors, just as scoped stage acceptance does below.
+        if not satisfied_delivery_member(conn, run_id=run_id, item_id=item_id):
+            return False
+    else:
         row = rows[0]
         stage_name = str(_row_value(row, "deployment_stage", 1) or "")
         member = _row_value(row, "deployment_member_item_id", 2)

@@ -212,7 +212,7 @@ def test_legacy_source_supersession_requires_settled_successor(
     run_id = "run-legacy-source-supersession"
     _legacy_run(test_db, run_id, (FIRST_ITEM,))
     copy_id = _source_copy(test_db, run_id, source_id, verdict="fail")
-    successor_id = _source_copy(test_db, run_id, source_id, verdict=successor_verdict)
+    successor_id = _requirement(test_db, run_id, verdict=successor_verdict)
     test_db.execute(
         "UPDATE qa_requirements SET superseded_by_requirement_id=%s WHERE id=%s",
         (successor_id, copy_id),
