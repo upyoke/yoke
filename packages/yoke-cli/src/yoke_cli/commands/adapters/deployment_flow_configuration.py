@@ -213,8 +213,10 @@ def deployment_flows_version(args: List[str]) -> int:
         description=(
             "Publish NEW_FLOW_ID as the successor of SOURCE_FLOW_ID "
             "(supersedes_flow_id). Once the source is disabled and the "
-            "successor active, items pinned to the source follow the "
-            "successor for admission and completion; their stored pin is kept."
+            "successor active, items pinned to the source follow a successor "
+            "with the same target environment and tier for admission, "
+            "completion, and start-for-item; a delivery already made on the "
+            "source still closes them, and their stored pin is kept."
         ),
     )
     parser.add_argument("source_flow_id")

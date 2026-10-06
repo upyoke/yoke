@@ -121,8 +121,8 @@ def deployment_flows_set_status(args: List[str]) -> int:
         prog="yoke deployment-flows set-status",
         description=(
             "Enable or disable a deployment flow without removing its "
-            "definition or historical runs. Items pinned to a disabled flow "
-            "follow its newest active successor (supersedes_flow_id)."
+            "definition or historical runs. Pinned items follow its same-target "
+            "successor, start-for-item too; prior deliveries on it still close."
         ),
     )
     parser.add_argument("flow_id")

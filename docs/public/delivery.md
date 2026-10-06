@@ -149,11 +149,14 @@ Disable a flow definition to stop new assignments while retaining history.
 Definitions referenced by runs are immutable, so change one by publishing a
 successor (`yoke deployment-flows version`, which records
 `supersedes_flow_id`) and disabling the predecessor. Items pinned to the
-retired flow follow its newest active successor in the same project for
-admission, completion authority, and the fleet report; their stored pin is
-kept and item reads report it as `pinned` beside the successor. A retired
-pin with no active successor still refuses as having no active completion
-flow.
+retired flow follow its newest active successor in the same project that
+targets the same environment and tier — a stage or QA-only successor of a
+production flow is not followed — for admission, completion authority,
+`deployment-runs start-for-item`, approvals (an active run keeps its own
+flow's stages), and the fleet report. A release that already delivered them
+on the retired flow still closes them. Their stored pin is kept, and item
+reads report it as `pinned` beside the successor. A retired pin with no
+active successor still refuses as having no active completion flow.
 
 ## Item Delivery card
 

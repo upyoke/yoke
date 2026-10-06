@@ -7,7 +7,8 @@ how the facts loader once counted only the item's own flow while the ladder
 beside it also honoured a cross-project carrier — one release, two answers.
 
 A membership closes the item when :func:`membership_closes_item` says so: a
-run of the item's own completion flow, or another project's run that recorded
+run of one of the item's closing flows (its completion flow, or a retired
+flow its pin followed there), or another project's run that recorded
 a bound source commit for the item's project. Carried code alone, or a
 same-project run of any other flow, is membership without authority.
 
@@ -25,7 +26,7 @@ from typing import Any
 from yoke_core.domain.deployment_run_member_targeting import supplemental_qa_run
 from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_item_flow_resolution import (
-    item_completion_flow,
+    item_closing_flows,
     membership_closes_item,
 )
 from yoke_core.domain.deployment_run_bound_sources import BOUND_SOURCES_FIELD
@@ -64,8 +65,8 @@ def completion_runs(
     required = ("deployment_runs", "deployment_run_items")
     if not all(_table_exists(conn, table) for table in required):
         return []
-    flow = item_completion_flow(conn, int(item_id))
-    if not flow:
+    flows = item_closing_flows(conn, int(item_id))
+    if not flows:
         return []
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     rows = conn.execute(
@@ -98,7 +99,7 @@ def completion_runs(
             )
             or not membership_closes_item(
                 run_flow=run_flow,
-                completion_flow=flow,
+                closing_flows=flows,
                 run_project_id=int(_row_value(row, "project_id", 3)),
                 item_project_id=item_project,
                 source_sha=source_sha,
