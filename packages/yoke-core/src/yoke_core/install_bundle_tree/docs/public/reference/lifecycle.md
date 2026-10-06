@@ -329,7 +329,7 @@ failure reason, target stage, and release intent. Operators investigating a
 retained claim should query the events ledger first:
 `yoke events query --item PREFIX-N --event-name ItemClaimReleaseFailed`.
 
-## Routing And Session Offer
+## Routing And Explicit Staffing
 
 The pinned workflow binding selects the skill for an item's live stage. Steering owns staffing; the shared scheduler computes the runnable frontier. The canonical sources are:
 

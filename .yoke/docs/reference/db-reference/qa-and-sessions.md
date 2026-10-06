@@ -182,7 +182,7 @@ last_heartbeat TEXT NOT NULL -- ISO 8601 of last heartbeat
 native_process_gone_at TEXT -- when the death was first seen, not when last reported
 native_process_gone_evidence TEXT -- bounded JSON evidence from local records
 ended_at TEXT -- NULL while active; set when session ends
-offer_envelope TEXT -- full offer envelope JSON (optional; includes supported_paths, max_chain_steps, chain_checkpoint)
+offer_envelope TEXT -- checkpoint and skip-memory telemetry JSON (optional)
 actor_id INTEGER NOT NULL -- the actor this session acts for; never NULL
 ```
 

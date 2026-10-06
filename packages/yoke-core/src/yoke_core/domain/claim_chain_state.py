@@ -84,7 +84,10 @@ def epic_task_activity_column_present(conn: Any) -> bool:
 
 
 def record_claim_reason(
-    conn: Any, *, claim_id: int, reason: Optional[str],
+    conn: Any,
+    *,
+    claim_id: int,
+    reason: Optional[str],
 ) -> None:
     """Stamp ``reason`` + ``reason_intent`` on a freshly acquired claim row.
 
@@ -96,14 +99,16 @@ def record_claim_reason(
         return
     p = _p(conn)
     conn.execute(
-        f"UPDATE work_claims SET reason = {p}, reason_intent = {p} "
-        f"WHERE id = {p}",
+        f"UPDATE work_claims SET reason = {p}, reason_intent = {p} WHERE id = {p}",
         (reason, classify_acquire_reason_intent(reason), int(claim_id)),
     )
 
 
 def record_release_intent(
-    conn: Any, *, claim_id: int, intent: Optional[str],
+    conn: Any,
+    *,
+    claim_id: int,
+    intent: Optional[str],
 ) -> None:
     """Stamp the caller-supplied release intent on a released claim row.
 
@@ -123,7 +128,11 @@ def record_release_intent(
 
 
 def record_release_intent_for_session(
-    conn: Any, *, session_id: str, released_at: str, intent: Optional[str],
+    conn: Any,
+    *,
+    session_id: str,
+    released_at: str,
+    intent: Optional[str],
 ) -> None:
     """Bulk-release variant: stamp intent on every row this release touched."""
     if not intent or not release_intent_column_present(conn):
@@ -137,13 +146,17 @@ def record_release_intent_for_session(
 
 
 def stamp_chain_checkpoint(
-    conn: Any, *, session_id: str, step: int, at: str,
+    conn: Any,
+    *,
+    session_id: str,
+    step: int,
+    at: str,
 ) -> None:
     """Stamp ``last_chain_step`` + ``last_checkpoint_at`` on the session row.
 
     Same-transaction companion to the offer-envelope checkpoint write in
     :func:`yoke_core.domain.sessions_queries_chain.update_chain_checkpoint`.
-    Unlike the envelope (clobbered by later offers), these columns are
+    Unlike the envelope (rewritten by registration), these columns are
     monotonic per session and survive re-offers.
     """
     if not chain_state_columns_present(conn):
@@ -157,7 +170,11 @@ def stamp_chain_checkpoint(
 
 
 def touch_epic_task_activity(
-    conn: Any, *, epic_id: Any, task_num: Any, at: Optional[str] = None,
+    conn: Any,
+    *,
+    epic_id: Any,
+    task_num: Any,
+    at: Optional[str] = None,
 ) -> None:
     """Stamp ``epic_tasks.last_activity_at`` for one task.
 

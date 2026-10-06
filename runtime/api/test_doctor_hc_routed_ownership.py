@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from runtime.api.fixtures import pg_testdb
 from yoke_core.engines.doctor_hc_routed_ownership import (
-    hc_offer_envelope_clobber_lost_chain,
+    hc_session_checkpoint_integrity,
     hc_routed_ownership_live_frame_no_defense,
     hc_routed_ownership_non_terminal_release_still_schedulable,
 )
@@ -36,7 +36,7 @@ class TestLiveFrameNoDefense:
         c = pg_testdb.connect_test_database(name)
         try:
             rec = _run(hc_routed_ownership_live_frame_no_defense, c)
-            assert rec.results[-1].result == "PASS"
+            assert rec.results[-1].result == "N/A"
             assert "skipping" in rec.results[-1].detail.lower()
         finally:
             c.close()
@@ -153,9 +153,9 @@ class TestStillSchedulable:
         assert rec.results[-1].result == "PASS"
 
 
-class TestOfferEnvelopeClobber:
+class TestSessionCheckpointIntegrity:
     def test_pass_on_clean_db(self, conn) -> None:
-        rec = _run(hc_offer_envelope_clobber_lost_chain, conn)
+        rec = _run(hc_session_checkpoint_integrity, conn)
         assert rec.results[-1].result == "PASS"
 
     def test_skip_when_tables_missing(self) -> None:
@@ -164,8 +164,8 @@ class TestOfferEnvelopeClobber:
         name = pg_testdb.create_test_database()
         c = pg_testdb.connect_test_database(name)
         try:
-            rec = _run(hc_offer_envelope_clobber_lost_chain, c)
-            assert rec.results[-1].result == "PASS"
+            rec = _run(hc_session_checkpoint_integrity, c)
+            assert rec.results[-1].result == "N/A"
             assert "skipping" in rec.results[-1].detail.lower()
         finally:
             c.close()
@@ -182,11 +182,11 @@ class TestOfferEnvelopeClobber:
             last_chain_step=3,
             last_checkpoint_at=_iso(-120),
         )
-        rec = _run(hc_offer_envelope_clobber_lost_chain, conn)
+        rec = _run(hc_session_checkpoint_integrity, conn)
         assert rec.results[-1].result == "PASS"
 
     def test_warn_when_envelope_lost_checkpoint(self, conn) -> None:
-        """A later offer replaced the envelope wholesale: chain state says
+        """A later envelope write replaced the envelope wholesale: chain state says
         step 5, the live envelope carries no chain_checkpoint at all."""
         _insert_session(
             conn,
@@ -196,7 +196,7 @@ class TestOfferEnvelopeClobber:
             last_chain_step=5,
             last_checkpoint_at=_iso(-180),
         )
-        rec = _run(hc_offer_envelope_clobber_lost_chain, conn)
+        rec = _run(hc_session_checkpoint_integrity, conn)
         result = rec.results[-1]
         assert result.result == "WARN"
         assert "sess-clob" in result.detail
@@ -210,5 +210,5 @@ class TestOfferEnvelopeClobber:
             heartbeat_age_s=5,
             offer_envelope={"step": 1},
         )
-        rec = _run(hc_offer_envelope_clobber_lost_chain, conn)
+        rec = _run(hc_session_checkpoint_integrity, conn)
         assert rec.results[-1].result == "PASS"

@@ -41,10 +41,7 @@ def test_local_project_keys_resolve_their_project_default() -> None:
 def test_db_owned_keys_name_their_owning_capability() -> None:
     assert db_owned_capability_for("wip_cap") == PROJECT_POLICY_CAPABILITY
     assert db_owned_capability_for("base_branch") == PROJECT_POLICY_CAPABILITY
-    for key in (
-        "executor_default_lane_codex*",
-        "do_process_offer_feed",
-    ):
+    for key in ("executor_default_lane_codex*",):
         assert db_owned_capability_for(key) == SESSION_ROUTING_CAPABILITY
 
 

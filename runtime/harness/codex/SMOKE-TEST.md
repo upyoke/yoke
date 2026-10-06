@@ -190,7 +190,7 @@ Run the same shepherd proof sequence as wrapper-only mode Step 7, but now with h
 **Verify:**
 - [ ] Same shepherd behavior as wrapper-only
 - [ ] Hook-injected orientation makes bootstrap step unnecessary
-- [ ] Event lineage: HarnessSessionOffered and NextActionChosen events are emitted (verify via `events` table or API)
+- [ ] Session lifecycle: the session identity resolves through `yoke sessions identity --json`
 
 ### Step 5: Stop hook (direct cleanup)
 

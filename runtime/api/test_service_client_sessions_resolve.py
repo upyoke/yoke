@@ -26,7 +26,7 @@ from runtime.api.test_service_client import (
     _with_source_pythonpath,
 )
 from runtime.api.test_service_client_sessions_helpers import (
-    session_offer_db,  # noqa: F401 — re-exported fixture
+    session_test_db,  # noqa: F401 — re-exported fixture
 )
 
 
@@ -58,7 +58,8 @@ class TestResolveSessionId:
         from yoke_core.domain import session_ambient_identity
 
         monkeypatch.setattr(
-            session_ambient_identity, "nearest_harness_family",
+            session_ambient_identity,
+            "nearest_harness_family",
             lambda *_a, **_k: None,
         )
 
@@ -66,16 +67,29 @@ class TestResolveSessionId:
         """Explicit value wins regardless of env vars."""
         monkeypatch.setenv("YOKE_SESSION_ID", "env-value")
         from yoke_core.api.service_client import _resolve_session_id
+
         assert _resolve_session_id("explicit-value") == "explicit-value"
 
-    @pytest.mark.parametrize("var,value", list(zip(AMBIENT_ENV_VARS, (
-        "yoke-sid", "claude-sid", "codex-parent-sid", "codex-tid",
-    ))))
+    @pytest.mark.parametrize(
+        "var,value",
+        list(
+            zip(
+                AMBIENT_ENV_VARS,
+                (
+                    "yoke-sid",
+                    "claude-sid",
+                    "codex-parent-sid",
+                    "codex-tid",
+                ),
+            )
+        ),
+    )
     def test_each_chain_variable_resolves_alone(self, monkeypatch, var, value):
         """Every chain variable resolves when it is the only one set."""
         _clear_chain(monkeypatch)
         monkeypatch.setenv(var, value)
         from yoke_core.api.service_client import _resolve_session_id
+
         assert _resolve_session_id(None) == value
 
     def test_codex_parent_outranks_subagent_thread(self, monkeypatch):
@@ -84,18 +98,21 @@ class TestResolveSessionId:
         monkeypatch.setenv("CODEX_SESSION_ID", "codex-parent")
         monkeypatch.setenv("CODEX_THREAD_ID", "codex-child")
         from yoke_core.api.service_client import _resolve_session_id
+
         assert _resolve_session_id(None) == "codex-parent"
 
     def test_none_when_nothing_set(self, monkeypatch):
         """Returns None when no explicit value and no env vars."""
         _clear_chain(monkeypatch)
         from yoke_core.api.service_client import _resolve_session_id
+
         assert _resolve_session_id(None) is None
 
     def test_empty_string_treated_as_missing(self, monkeypatch):
         """Empty explicit value falls through to env vars."""
         monkeypatch.setenv("YOKE_SESSION_ID", "env-val")
         from yoke_core.api.service_client import _resolve_session_id
+
         assert _resolve_session_id("") == "env-val"
 
     def test_priority_yoke_over_claude(self, monkeypatch):
@@ -104,22 +121,34 @@ class TestResolveSessionId:
         monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "claude-loses")
         monkeypatch.setenv("CODEX_THREAD_ID", "codex-loses")
         from yoke_core.api.service_client import _resolve_session_id
+
         assert _resolve_session_id(None) == "yoke-wins"
 
 
 class TestSessionIdAutoResolutionIntegration:
     """Integration tests: commands work without --session-id when env var is set."""
 
-    def test_session_touch_uses_env_session_id(self, session_offer_db):
+    def test_session_touch_uses_env_session_id(self, session_test_db):
         """Session-touch resolves session ID from env."""
-        db = session_offer_db["db_path"]
+        db = session_test_db["db_path"]
         sid = "env-touch-test"
         # Create session first
         r = _run_client(
-            ["session-begin", "--session-id", sid,
-             "--executor", "claude-code", "--provider", "anthropic",
-             "--model", "opus", "--workspace", session_offer_db["tmp_dir"],
-             "--project-id", "1"],
+            [
+                "session-begin",
+                "--session-id",
+                sid,
+                "--executor",
+                "claude-code",
+                "--provider",
+                "anthropic",
+                "--model",
+                "opus",
+                "--workspace",
+                session_test_db["tmp_dir"],
+                "--project-id",
+                "1",
+            ],
             db_path=db,
         )
         assert r.returncode == 0
@@ -130,22 +159,36 @@ class TestSessionIdAutoResolutionIntegration:
         env["YOKE_SESSION_ID"] = sid
         r2 = subprocess.run(
             _service_client_cmd(["session-touch"]),
-            capture_output=True, text=True, env=_with_source_pythonpath(env),
-            cwd=_REPO_ROOT, timeout=30,
+            capture_output=True,
+            text=True,
+            env=_with_source_pythonpath(env),
+            cwd=_REPO_ROOT,
+            timeout=30,
         )
         assert r2.returncode == 0, f"stderr: {r2.stderr}"
         data = json.loads(r2.stdout)
         assert data["success"] is True
 
-    def test_session_touch_explicit_overrides_env(self, session_offer_db):
+    def test_session_touch_explicit_overrides_env(self, session_test_db):
         """Explicit --session-id still works and overrides env."""
-        db = session_offer_db["db_path"]
+        db = session_test_db["db_path"]
         sid = "explicit-override-test"
         r = _run_client(
-            ["session-begin", "--session-id", sid,
-             "--executor", "claude-code", "--provider", "anthropic",
-             "--model", "opus", "--workspace", session_offer_db["tmp_dir"],
-             "--project-id", "1"],
+            [
+                "session-begin",
+                "--session-id",
+                sid,
+                "--executor",
+                "claude-code",
+                "--provider",
+                "anthropic",
+                "--model",
+                "opus",
+                "--workspace",
+                session_test_db["tmp_dir"],
+                "--project-id",
+                "1",
+            ],
             db_path=db,
         )
         assert r.returncode == 0
@@ -156,14 +199,17 @@ class TestSessionIdAutoResolutionIntegration:
         env["YOKE_SESSION_ID"] = "wrong-session"
         r2 = subprocess.run(
             _service_client_cmd(["session-touch", "--session-id", sid]),
-            capture_output=True, text=True, env=_with_source_pythonpath(env),
-            cwd=_REPO_ROOT, timeout=30,
+            capture_output=True,
+            text=True,
+            env=_with_source_pythonpath(env),
+            cwd=_REPO_ROOT,
+            timeout=30,
         )
         assert r2.returncode == 0, f"stderr: {r2.stderr}"
 
-    def test_claim_item_uses_env_session_id(self, session_offer_db):
+    def test_claim_item_uses_env_session_id(self, session_test_db):
         """Claim-work resolves session ID from env."""
-        db = session_offer_db["db_path"]
+        db = session_test_db["db_path"]
         sid = "env-claim-test"
         # Create session
         conn = connect_test_db(db)
@@ -172,7 +218,7 @@ class TestSessionIdAutoResolutionIntegration:
             "project_id, execution_lane, workspace, mode, offered_at, last_heartbeat) "
             "VALUES (%s, 'claude-code', 'anthropic', 'opus', 1, 'primary', %s, 'hook', "
             "'2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')",
-            (sid, session_offer_db["tmp_dir"]),
+            (sid, session_test_db["tmp_dir"]),
         )
         conn.commit()
         conn.close()
@@ -183,8 +229,11 @@ class TestSessionIdAutoResolutionIntegration:
         env["YOKE_SESSION_ID"] = sid
         r = subprocess.run(
             _service_client_cmd(["claim-work", "--item", "YOK-10"]),
-            capture_output=True, text=True, env=_with_source_pythonpath(env),
-            cwd=_REPO_ROOT, timeout=30,
+            capture_output=True,
+            text=True,
+            env=_with_source_pythonpath(env),
+            cwd=_REPO_ROOT,
+            timeout=30,
         )
         assert r.returncode == 0, f"stderr: {r.stderr}"
         data = json.loads(r.stdout)
@@ -200,21 +249,42 @@ class TestSessionIdAutoResolutionIntegration:
         commands_requiring_session_id = [
             ["session-touch"],
             ["session-heartbeat"],
-            ["session-begin", "--executor", "e", "--provider", "p", "--model", "m", "--workspace", "w"],
+            [
+                "session-begin",
+                "--executor",
+                "e",
+                "--provider",
+                "p",
+                "--model",
+                "m",
+                "--workspace",
+                "w",
+            ],
             ["session-end"],
             ["session-end-if-empty"],
             ["claim-work", "--item", "YOK-1"],
             ["release-work-claim", "--item", "YOK-1", "--reason", "test"],
             ["release-all-claims", "--reason", "test"],
-            ["session-checkpoint", "--step", "1", "--action", "a", "--chainable", "true"],
+            [
+                "session-checkpoint",
+                "--step",
+                "1",
+                "--action",
+                "a",
+                "--chainable",
+                "true",
+            ],
             ["session-checkpoint-read"],
         ]
 
         for cmd_args in commands_requiring_session_id:
             r = subprocess.run(
                 _service_client_cmd(cmd_args),
-                capture_output=True, text=True, env=_with_source_pythonpath(env),
-                cwd=_REPO_ROOT, timeout=30,
+                capture_output=True,
+                text=True,
+                env=_with_source_pythonpath(env),
+                cwd=_REPO_ROOT,
+                timeout=30,
             )
             assert r.returncode == 2, (
                 f"Expected exit 2 for {cmd_args[0]} without session ID, "
@@ -240,15 +310,26 @@ class TestSessionIdAutoResolutionIntegration:
         not _CLAUDE_LANE_REACHABLE,
         reason="suite runs under a harness whose family is not Claude",
     )
-    def test_claude_session_id_fallback_works(self, session_offer_db):
+    def test_claude_session_id_fallback_works(self, session_test_db):
         """CLAUDE_CODE_SESSION_ID fallback works for session-touch."""
-        db = session_offer_db["db_path"]
+        db = session_test_db["db_path"]
         sid = "claude-fallback-test"
         r = _run_client(
-            ["session-begin", "--session-id", sid,
-             "--executor", "claude-code", "--provider", "anthropic",
-             "--model", "opus", "--workspace", session_offer_db["tmp_dir"],
-             "--project-id", "1"],
+            [
+                "session-begin",
+                "--session-id",
+                sid,
+                "--executor",
+                "claude-code",
+                "--provider",
+                "anthropic",
+                "--model",
+                "opus",
+                "--workspace",
+                session_test_db["tmp_dir"],
+                "--project-id",
+                "1",
+            ],
             db_path=db,
         )
         assert r.returncode == 0
@@ -260,7 +341,10 @@ class TestSessionIdAutoResolutionIntegration:
         env.pop("CODEX_THREAD_ID", None)
         r2 = subprocess.run(
             _service_client_cmd(["session-touch"]),
-            capture_output=True, text=True, env=_with_source_pythonpath(env),
-            cwd=_REPO_ROOT, timeout=30,
+            capture_output=True,
+            text=True,
+            env=_with_source_pythonpath(env),
+            cwd=_REPO_ROOT,
+            timeout=30,
         )
         assert r2.returncode == 0, f"stderr: {r2.stderr}"

@@ -15,7 +15,7 @@ import os
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
 from runtime.api.test_service_client_sessions_helpers import (
-    session_offer_db as session_offer_db,
+    session_test_db as session_test_db,
 )
 from runtime.api.test_constants import TEST_MODEL_ID
 
@@ -23,9 +23,11 @@ from runtime.api.test_constants import TEST_MODEL_ID
 class TestSessionBeginLane:
     """Verify session-begin resolves execution_lane from config."""
 
-    def test_session_begin_resolves_lane_from_config_codex(self, session_offer_db):
+    def test_session_begin_resolves_lane_from_config_codex(self, session_test_db):
         """Codex executor should resolve to ALTMAN via config."""
-        config_path = os.path.join(os.path.dirname(session_offer_db["db_path"]), "config")
+        config_path = os.path.join(
+            os.path.dirname(session_test_db["db_path"]), "config"
+        )
         with open(config_path, "w", encoding="utf-8") as handle:
             handle.write("executor_default_lane_codex=ALTMAN\n")
 
@@ -33,18 +35,24 @@ class TestSessionBeginLane:
         result = _run_client(
             [
                 "session-begin",
-                "--session-id", sid,
-                "--executor", "codex",
-                "--provider", "openai",
-                "--model", "gpt-5.4",
-                "--workspace", session_offer_db["tmp_dir"],
-                "--project-id", "1",
+                "--session-id",
+                sid,
+                "--executor",
+                "codex",
+                "--provider",
+                "openai",
+                "--model",
+                "gpt-5.4",
+                "--workspace",
+                session_test_db["tmp_dir"],
+                "--project-id",
+                "1",
             ],
-            db_path=session_offer_db["db_path"],
+            db_path=session_test_db["db_path"],
         )
         assert result.returncode == 0, f"stderr: {result.stderr}"
 
-        conn = connect_test_db(session_offer_db["db_path"])
+        conn = connect_test_db(session_test_db["db_path"])
         row = conn.execute(
             "SELECT execution_lane FROM harness_sessions WHERE session_id = %s",
             (sid,),
@@ -54,9 +62,11 @@ class TestSessionBeginLane:
         assert row is not None
         assert row[0] == "ALTMAN"
 
-    def test_session_begin_resolves_lane_from_config_claude_code(self, session_offer_db):
+    def test_session_begin_resolves_lane_from_config_claude_code(self, session_test_db):
         """Claude Code executor should resolve to DARIUS via config."""
-        config_path = os.path.join(os.path.dirname(session_offer_db["db_path"]), "config")
+        config_path = os.path.join(
+            os.path.dirname(session_test_db["db_path"]), "config"
+        )
         with open(config_path, "w", encoding="utf-8") as handle:
             handle.write("executor_default_lane_claude_code=DARIUS\n")
 
@@ -64,18 +74,24 @@ class TestSessionBeginLane:
         result = _run_client(
             [
                 "session-begin",
-                "--session-id", sid,
-                "--executor", "claude-code",
-                "--provider", "anthropic",
-                "--model", TEST_MODEL_ID,
-                "--workspace", session_offer_db["tmp_dir"],
-                "--project-id", "1",
+                "--session-id",
+                sid,
+                "--executor",
+                "claude-code",
+                "--provider",
+                "anthropic",
+                "--model",
+                TEST_MODEL_ID,
+                "--workspace",
+                session_test_db["tmp_dir"],
+                "--project-id",
+                "1",
             ],
-            db_path=session_offer_db["db_path"],
+            db_path=session_test_db["db_path"],
         )
         assert result.returncode == 0, f"stderr: {result.stderr}"
 
-        conn = connect_test_db(session_offer_db["db_path"])
+        conn = connect_test_db(session_test_db["db_path"])
         row = conn.execute(
             "SELECT execution_lane FROM harness_sessions WHERE session_id = %s",
             (sid,),
@@ -85,9 +101,13 @@ class TestSessionBeginLane:
         assert row is not None
         assert row[0] == "DARIUS"
 
-    def test_session_begin_uses_project_default_without_local_config(self, session_offer_db):
+    def test_session_begin_uses_project_default_without_local_config(
+        self, session_test_db
+    ):
         """A known executor still receives the project routing default."""
-        config_path = os.path.join(os.path.dirname(session_offer_db["db_path"]), "config")
+        config_path = os.path.join(
+            os.path.dirname(session_test_db["db_path"]), "config"
+        )
         with open(config_path, "w", encoding="utf-8") as handle:
             handle.write("")  # no lane mappings
 
@@ -95,18 +115,24 @@ class TestSessionBeginLane:
         result = _run_client(
             [
                 "session-begin",
-                "--session-id", sid,
-                "--executor", "codex",
-                "--provider", "test",
-                "--model", "test-model",
-                "--workspace", session_offer_db["tmp_dir"],
-                "--project-id", "1",
+                "--session-id",
+                sid,
+                "--executor",
+                "codex",
+                "--provider",
+                "test",
+                "--model",
+                "test-model",
+                "--workspace",
+                session_test_db["tmp_dir"],
+                "--project-id",
+                "1",
             ],
-            db_path=session_offer_db["db_path"],
+            db_path=session_test_db["db_path"],
         )
         assert result.returncode == 0, f"stderr: {result.stderr}"
 
-        conn = connect_test_db(session_offer_db["db_path"])
+        conn = connect_test_db(session_test_db["db_path"])
         row = conn.execute(
             "SELECT execution_lane FROM harness_sessions WHERE session_id = %s",
             (sid,),
@@ -116,24 +142,31 @@ class TestSessionBeginLane:
         assert row is not None
         assert row[0] == "ALTMAN"
 
-    def test_session_begin_accepts_entrypoint_and_emits_it(self, session_offer_db):
+    def test_session_begin_accepts_entrypoint_and_emits_it(self, session_test_db):
         sid = "reg-entrypoint"
         result = _run_client(
             [
                 "session-begin",
-                "--session-id", sid,
-                "--executor", "codex",
-                "--provider", "openai",
-                "--model", "gpt-5.4",
-                "--workspace", session_offer_db["tmp_dir"],
-                "--project-id", "1",
-                "--entrypoint", "codex-desktop",
+                "--session-id",
+                sid,
+                "--executor",
+                "codex",
+                "--provider",
+                "openai",
+                "--model",
+                "gpt-5.4",
+                "--workspace",
+                session_test_db["tmp_dir"],
+                "--project-id",
+                "1",
+                "--entrypoint",
+                "codex-desktop",
             ],
-            db_path=session_offer_db["db_path"],
+            db_path=session_test_db["db_path"],
         )
         assert result.returncode == 0, f"stderr: {result.stderr}"
 
-        conn = connect_test_db(session_offer_db["db_path"])
+        conn = connect_test_db(session_test_db["db_path"])
         row = conn.execute(
             "SELECT envelope FROM events WHERE event_name = 'HarnessSessionStarted' AND session_id = %s ORDER BY id DESC LIMIT 1",
             (sid,),
@@ -155,8 +188,12 @@ class TestSessionBeginLane:
         assert envelope["context"]["executor_surface"] == "codex-desktop"
         assert envelope["context"]["entrypoint"] == "codex-desktop"
 
-    def test_session_begin_promotes_claude_executor_from_entrypoint_and_uses_project_lane(self, session_offer_db):
-        config_path = os.path.join(os.path.dirname(session_offer_db["db_path"]), "config")
+    def test_session_begin_promotes_claude_executor_from_entrypoint_and_uses_project_lane(
+        self, session_test_db
+    ):
+        config_path = os.path.join(
+            os.path.dirname(session_test_db["db_path"]), "config"
+        )
         with open(config_path, "w", encoding="utf-8") as handle:
             handle.write("executor_default_lane_claude*=DARIUS\n")
             handle.write("executor_default_lane_claude_vscode=ALTMAN\n")
@@ -165,19 +202,26 @@ class TestSessionBeginLane:
         result = _run_client(
             [
                 "session-begin",
-                "--session-id", sid,
-                "--executor", "claude-code",
-                "--provider", "anthropic",
-                "--model", TEST_MODEL_ID,
-                "--workspace", session_offer_db["tmp_dir"],
-                "--project-id", "1",
-                "--entrypoint", "claude-vscode",
+                "--session-id",
+                sid,
+                "--executor",
+                "claude-code",
+                "--provider",
+                "anthropic",
+                "--model",
+                TEST_MODEL_ID,
+                "--workspace",
+                session_test_db["tmp_dir"],
+                "--project-id",
+                "1",
+                "--entrypoint",
+                "claude-vscode",
             ],
-            db_path=session_offer_db["db_path"],
+            db_path=session_test_db["db_path"],
         )
         assert result.returncode == 0, f"stderr: {result.stderr}"
 
-        conn = connect_test_db(session_offer_db["db_path"])
+        conn = connect_test_db(session_test_db["db_path"])
         row = conn.execute(
             "SELECT executor, executor_surface, execution_lane "
             "FROM harness_sessions WHERE session_id = %s",
@@ -203,8 +247,12 @@ class TestSessionBeginLane:
         assert envelope["context"]["executor_surface"] == "claude-vscode"
         assert envelope["context"]["entrypoint"] == "claude-vscode"
 
-    def test_session_begin_promotes_legacy_claude_alias_from_entrypoint(self, session_offer_db):
-        config_path = os.path.join(os.path.dirname(session_offer_db["db_path"]), "config")
+    def test_session_begin_promotes_legacy_claude_alias_from_entrypoint(
+        self, session_test_db
+    ):
+        config_path = os.path.join(
+            os.path.dirname(session_test_db["db_path"]), "config"
+        )
         with open(config_path, "w", encoding="utf-8") as handle:
             handle.write("executor_default_lane_claude_desktop=DARIUS\n")
 
@@ -212,19 +260,26 @@ class TestSessionBeginLane:
         result = _run_client(
             [
                 "session-begin",
-                "--session-id", sid,
-                "--executor", "claude",
-                "--provider", "anthropic",
-                "--model", TEST_MODEL_ID,
-                "--workspace", session_offer_db["tmp_dir"],
-                "--project-id", "1",
-                "--entrypoint", "claude-desktop",
+                "--session-id",
+                sid,
+                "--executor",
+                "claude",
+                "--provider",
+                "anthropic",
+                "--model",
+                TEST_MODEL_ID,
+                "--workspace",
+                session_test_db["tmp_dir"],
+                "--project-id",
+                "1",
+                "--entrypoint",
+                "claude-desktop",
             ],
-            db_path=session_offer_db["db_path"],
+            db_path=session_test_db["db_path"],
         )
         assert result.returncode == 0, f"stderr: {result.stderr}"
 
-        conn = connect_test_db(session_offer_db["db_path"])
+        conn = connect_test_db(session_test_db["db_path"])
         row = conn.execute(
             "SELECT executor, executor_surface, execution_lane "
             "FROM harness_sessions WHERE session_id = %s",
@@ -245,83 +300,3 @@ class TestSessionBeginLane:
         assert envelope["context"]["executor"] == "claude-code"
         assert envelope["context"]["executor_surface"] == "claude-desktop"
         assert envelope["context"]["entrypoint"] == "claude-desktop"
-
-    def test_session_begin_idempotent_on_existing_session(self, session_offer_db):
-        """session-begin on an already-active session returns success."""
-        sid = "begin-idempotent"
-        args = [
-            "session-begin",
-            "--session-id", sid,
-            "--executor", "claude-code",
-            "--provider", "anthropic",
-            "--model", "opus",
-            "--workspace", session_offer_db["tmp_dir"],
-            "--project-id", "1",
-        ]
-        r1 = _run_client(args, db_path=session_offer_db["db_path"])
-        assert r1.returncode == 0, f"stderr: {r1.stderr}"
-        d1 = json.loads(r1.stdout)
-        assert d1["success"] is True
-
-        # Second call should also succeed (idempotent)
-        r2 = _run_client(args, db_path=session_offer_db["db_path"])
-        assert r2.returncode == 0, f"stderr: {r2.stderr}"
-        d2 = json.loads(r2.stdout)
-        assert d2["success"] is True
-        assert d2.get("already_registered") is True
-
-    def test_session_begin_reactivates_ended_session(self, session_offer_db):
-        """session-begin on an ended session reopens it as active.
-
-        Executor is write-once.  The original executor value
-        persists across reactivation; provider/model/lane refresh from the
-        new register call.
-        """
-        sid = "begin-reactivate"
-        first_args = [
-            "session-begin",
-            "--session-id", sid,
-            "--executor", "claude-code",
-            "--provider", "anthropic",
-            "--model", "opus-old",
-            "--workspace", session_offer_db["tmp_dir"],
-            "--project-id", "1",
-        ]
-        r1 = _run_client(first_args, db_path=session_offer_db["db_path"])
-        assert r1.returncode == 0, f"stderr: {r1.stderr}"
-        first_data = json.loads(r1.stdout)
-        original_offered_at = first_data["session"]["offered_at"]
-
-        rend = _run_client(["session-end", "--session-id", sid], db_path=session_offer_db["db_path"])
-        assert rend.returncode == 0, f"stderr: {rend.stderr}"
-
-        second_args = [
-            "session-begin",
-            "--session-id", sid,
-            "--executor", "codex",
-            "--provider", "openai",
-            "--model", "gpt-5.4",
-            "--workspace", session_offer_db["tmp_dir"],
-            "--project-id", "1",
-        ]
-        r2 = _run_client(second_args, db_path=session_offer_db["db_path"])
-        assert r2.returncode == 0, f"stderr: {r2.stderr}"
-        d2 = json.loads(r2.stdout)
-        assert d2["success"] is True
-        assert d2.get("already_registered") is not True
-
-        conn = connect_test_db(session_offer_db["db_path"])
-        row = conn.execute(
-            "SELECT executor, provider, model, ended_at, offered_at FROM harness_sessions WHERE session_id = %s",
-            (sid,),
-        ).fetchone()
-        conn.close()
-
-        assert row is not None
-        # Stored executor is the original INSERT value, not the
-        # second-call argument.  Provider/model/etc. still refresh.
-        assert row[0] == "claude-code"
-        assert row[1] == "openai"
-        assert row[2] == "gpt-5.4"
-        assert row[3] is None
-        assert row[4] == original_offered_at

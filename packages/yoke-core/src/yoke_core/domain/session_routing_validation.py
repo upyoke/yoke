@@ -18,7 +18,11 @@ from __future__ import annotations
 from typing import Any, Iterable, Mapping, Optional
 
 from yoke_contracts.lane_glyph import LaneGlyphError, validate_lane_glyph
-from yoke_contracts.session_lane import lane_is_unresolved, retired_lane_setting_keys
+from yoke_contracts.session_lane import (
+    lane_is_unresolved,
+    retired_lane_setting_keys,
+    retired_process_offer_keys,
+)
 from yoke_core.domain import json_helper
 from yoke_core.domain.session_routing_rules import LaneRuleError, parse_lane_rules
 
@@ -184,6 +188,14 @@ def validate_session_routing_settings(settings: Mapping[str, Any]) -> None:
         raise SessionRoutingSettingsError(
             f"settings must be a JSON object; got {type(settings).__name__}.",
             field="settings",
+        )
+    retired_process = retired_process_offer_keys(settings)
+    if retired_process:
+        raise SessionRoutingSettingsError(
+            "process_offer_policy_retired: remove these settings keys. "
+            "Steering assigns process work explicitly; session routing groups "
+            "sessions by harness and model.",
+            field=", ".join(retired_process),
         )
     retired = retired_lane_setting_keys(settings)
     if retired:

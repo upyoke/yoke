@@ -34,14 +34,14 @@ def _claim_item(db, session_id):
 class TestClaimCleanupCommands:
     """Tests for service_client.py cleanup helpers added in."""
 
-    def test_release_done_claims_releases_item_claims(self, session_offer_db):
-        db = session_offer_db["db_path"]
+    def test_release_done_claims_releases_item_claims(self, session_test_db):
+        db = session_test_db["db_path"]
         conn = connect_test_db(db)
         conn.execute(
             """INSERT INTO harness_sessions
                (session_id, executor, provider, model, execution_lane, workspace, mode, offered_at, last_heartbeat)
                VALUES ('stale-sess', 'codex', 'openai', 'gpt-5.4', 'primary', %s, 'charge', %s, %s)""",
-            (session_offer_db["tmp_dir"], _STALE_TS, _STALE_TS),
+            (session_test_db["tmp_dir"], _STALE_TS, _STALE_TS),
         )
         conn.execute(
             """INSERT INTO work_claims
@@ -77,10 +77,10 @@ class TestClaimCleanupCommands:
 class TestSessionHeartbeatCommand:
     """Tests for service_client.py session-heartbeat command."""
 
-    def test_session_heartbeat_refreshes_session_and_claim(self, session_offer_db):
+    def test_session_heartbeat_refreshes_session_and_claim(self, session_test_db):
         sid = "heartbeat-test-sess"
-        ws = session_offer_db["tmp_dir"]
-        db = session_offer_db["db_path"]
+        ws = session_test_db["tmp_dir"]
+        db = session_test_db["db_path"]
 
         _pre_register_session(db, sid, workspace=ws)
         _claim_item(db, sid)

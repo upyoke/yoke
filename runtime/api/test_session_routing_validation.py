@@ -43,7 +43,6 @@ _LIVE_SHAPED = {
         "DARIUS": {"glyph": "\U0001f40e", "label": "DARIUS"},
         "MUSKY": {"glyph": "\U0001f6f8", "label": "MUSKY"},
     },
-    "process_offers": {"default": False, "doctor": False},
 }
 
 

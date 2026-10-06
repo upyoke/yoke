@@ -331,5 +331,4 @@ second call for an already-owned item returns `(already owned)` and exits 0.
 | `runtime/api/domain/test_session_process_anchors.py` | Anchor registry: atomic writes, ancestry resolution, pid-reuse rejection + pruning, parallel-session separation |
 | `runtime/api/domain/test_session_ambient_identity.py` | Canonical ambient chain order (owning family → its variables → ancestry → None) + nested-spawn regressions + CLI chokepoint delegation |
 | `runtime/api/domain/test_harness_family_identity.py` | Process-tree family classification, per-family env vocabulary, and the nested-spawn chain scoping |
-| `runtime/api/test_service_client.py::TestSessionOfferCommand::test_session_offer_supported_harness_requires_session_id` | Supported harnesses (`claude-code`, `codex`) must pass a canonical session id; auto-generated fallbacks are rejected at the service boundary |
 | `runtime/api/test_sessions.py` | Registration idempotency and concurrent self-id isolation |

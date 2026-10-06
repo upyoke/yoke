@@ -16,7 +16,6 @@ from yoke_core.domain.work_processes import (
     PROCESS_REGISTRY,
     PROCESS_STRATEGIZE,
     UnknownProcessError,
-    action_kind_to_process_key,
     conflict_group_for,
     is_known_process,
     list_processes,
@@ -24,7 +23,6 @@ from yoke_core.domain.work_processes import (
 
 
 class TestProcessRegistry:
-
     def test_opening_canon_lists_strategize_and_feed(self):
         keys = set(list_processes())
         assert PROCESS_STRATEGIZE in keys
@@ -93,38 +91,3 @@ class TestRegistryShape:
             assert "{project}" in template, (
                 f"process {key!r} conflict_group_template missing {{project}} placeholder"
             )
-
-
-class TestActionKindToProcessKey:
-    """Bridge ActionKind value -> registered process key."""
-
-    def test_strategize_action_value_maps_to_strategize_process(self):
-        assert action_kind_to_process_key("strategize") == PROCESS_STRATEGIZE
-
-    def test_feed_action_value_maps_to_feed_process(self):
-        assert action_kind_to_process_key("feed") == PROCESS_FEED
-
-    def test_non_process_actions_return_none(self):
-        # CHARGE / RESUME / WAIT / ESCALATE flow through the gate untouched.
-        assert action_kind_to_process_key("charge") is None
-        assert action_kind_to_process_key("resume") is None
-        assert action_kind_to_process_key("wait") is None
-        assert action_kind_to_process_key("escalate") is None
-
-    def test_empty_or_none_returns_none(self):
-        assert action_kind_to_process_key("") is None
-        # ``None`` itself is not a typed input, but the helper guards
-        # against a stringified empty.
-        assert action_kind_to_process_key("   ") is None
-
-    def test_case_insensitive(self):
-        assert action_kind_to_process_key("STRATEGIZE") == PROCESS_STRATEGIZE
-        assert action_kind_to_process_key("Strategize") == PROCESS_STRATEGIZE
-        assert action_kind_to_process_key("FEED") == PROCESS_FEED
-
-    def test_doctor_is_not_yet_a_decision_action(self):
-        # ``DOCTOR`` is a registered process key (see PROCESS_REGISTRY) but
-        # ``decide_next_action`` does not currently produce a DOCTOR
-        # ActionKind. The mapping intentionally omits it; the entry is
-        # added once the decision engine starts surfacing DOCTOR.
-        assert action_kind_to_process_key("doctor") is None

@@ -5,18 +5,8 @@ display alias, provider, model, the execution lane the project's routing
 policy maps that executor to, workspace, project, and actor — and writes it
 to ``harness_sessions``. Every later consumer reads it back through here.
 
-The lane is the field that makes this a single-reader contract rather than a
-convenience. An offer still honours a caller-supplied lane — that is the
-deliberate operator re-route, recorded as
-``SessionOfferLaneOverrideApplied`` — which is precisely why nothing
-automated may resolve one. A lane derived locally outranks the project's
-``session-routing`` mapping, and two identical sessions in one checkout
-proved the cost: the one whose shell variables happened to be empty passed
-nothing, fell through to the stored row, and was routed correctly; the one
-that substituted its locally guessed lane had every frontier item filtered
-by a lane name the project declares no paths for. Reading identity in one
-place, and sending none of it back, is what makes that non-determinism
-unreachable.
+Reading the registered row keeps later consumers on the same identity and
+lane without re-deriving either from local environment variables.
 """
 
 from __future__ import annotations
@@ -111,9 +101,7 @@ def resolve_session_identity(conn: Any, session_id: str) -> SessionIdentity:
     return SessionIdentity(
         session_id=session_id,
         executor=_text(row[0]),
-        executor_surface=(
-            str(row[1]) if row[1] is not None else None
-        ),
+        executor_surface=(str(row[1]) if row[1] is not None else None),
         executor_version=(str(row[2]) if row[2] is not None else None),
         machine_id=(str(row[3]) if row[3] is not None else None),
         provider=_text(row[4]),

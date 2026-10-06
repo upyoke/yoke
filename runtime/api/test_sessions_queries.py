@@ -3,7 +3,7 @@
 Sibling modules cover related surfaces:
 
 - ``test_sessions_queries_reclaim.py`` — stale/ended-session reclaim, race safety.
-- ``test_sessions_queries_telemetry.py`` — Codex runtime ID and post-decision telemetry.
+- ``test_sessions_queries_telemetry.py`` — Codex runtime identity and session activity telemetry.
 """
 
 from __future__ import annotations

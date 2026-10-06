@@ -53,6 +53,16 @@ def retired_lane_setting_keys(settings: Mapping[str, Any]) -> tuple[str, ...]:
     )
 
 
+def retired_process_offer_keys(settings: Mapping[str, Any]) -> tuple[str, ...]:
+    """Identify removed process policy for write refusals and convergence."""
+    return tuple(
+        key
+        for key in settings
+        if key in {"process_offer", "process_offers"}
+        or key.startswith("do_process_offer_")
+    )
+
+
 def lane_presentation(
     lane: Optional[str],
     settings: Optional[Mapping[str, Any]] = None,
@@ -80,4 +90,5 @@ __all__ = [
     "lane_is_unresolved",
     "lane_presentation",
     "retired_lane_setting_keys",
+    "retired_process_offer_keys",
 ]

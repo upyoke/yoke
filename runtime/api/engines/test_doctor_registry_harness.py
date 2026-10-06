@@ -26,7 +26,6 @@ _ENGINE_SESSION_SLUGS = (
     "local-operating-actor-authority",
     "session-cwd-binding",
     "session-pre-implementing-activity",
-    "session-lane-mismatch",
 )
 _ENGINE_CONFIG_SLUGS = (
     "launcher-authority",

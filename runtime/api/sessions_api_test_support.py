@@ -133,7 +133,7 @@ CREATE TABLE events (
 """
 
 
-def _apply_session_offer_schema() -> None:
+def _apply_session_schema() -> None:
     """``init_test_db`` schema applier for lifecycle API tests.
 
     Resolves its connection through the backend factory (the repointed
@@ -203,7 +203,7 @@ def _apply_session_offer_schema() -> None:
 
 
 @pytest.fixture()
-def session_offer_db(tmp_path, monkeypatch):
+def session_test_db(tmp_path, monkeypatch):
     """Fixture for lifecycle API tests with session/claim tables.
 
     Disposable per-test Postgres DB via ``init_test_db``, with ``YOKE_PG_DSN``
@@ -215,7 +215,7 @@ def session_offer_db(tmp_path, monkeypatch):
     tmp_dir = str(tmp_path / "workspace")
     os.makedirs(tmp_dir, exist_ok=True)
 
-    with init_test_db(tmp_path, apply_schema=_apply_session_offer_schema) as db_path:
+    with init_test_db(tmp_path, apply_schema=_apply_session_schema) as db_path:
         # Construct the API only after the fixture supplies database authority.
         from yoke_core.api.main import (
             app,
@@ -257,10 +257,10 @@ def session_offer_db(tmp_path, monkeypatch):
             patch("yoke_core.api.main.get_db_readwrite", _override_db_readwrite),
         ):
             from runtime.api.test_service_client_sessions_helpers import (
-                _map_offer_workspace_home,
+                _map_session_workspace_home,
             )
 
-            _map_offer_workspace_home(monkeypatch, tmp_dir)
+            _map_session_workspace_home(monkeypatch, tmp_dir)
             yield {
                 "db_path": db_path,
                 "tmp_dir": tmp_dir,

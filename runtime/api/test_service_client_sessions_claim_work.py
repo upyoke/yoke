@@ -10,7 +10,7 @@ import pytest
 
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
-from runtime.api.test_service_client_sessions_helpers import session_offer_db  # noqa: F401,F811
+from runtime.api.test_service_client_sessions_helpers import session_test_db  # noqa: F401,F811
 from yoke_core.domain.work_claim_targets import make_item_target
 
 
@@ -22,9 +22,9 @@ def _fresh_ts() -> str:
 class TestClaimItem:
     """Tests for claim-work command."""
 
-    def test_claim_item_active_session_creates_claim(self, session_offer_db):
+    def test_claim_item_active_session_creates_claim(self, session_test_db):
         """Claim-work with active session creates a work_claims row."""
-        db_path = session_offer_db["db_path"]
+        db_path = session_test_db["db_path"]
         sid = "claim-test-active"
 
         # Create an active session
@@ -34,7 +34,7 @@ class TestClaimItem:
             "execution_lane, workspace, project_id, mode, offered_at, last_heartbeat) "
             "VALUES (%s, 'claude-code', 'anthropic', 'opus', 'primary', %s, 1, "
             "'hook', '2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')",
-            (sid, session_offer_db["tmp_dir"]),
+            (sid, session_test_db["tmp_dir"]),
         )
         conn.commit()
         conn.close()
@@ -67,9 +67,9 @@ class TestClaimItem:
         assert row[2] == "exclusive"
         assert attribution[0] == "10"
 
-    def test_claim_item_resolves_project_scoped_bare_sequence(self, session_offer_db):
+    def test_claim_item_resolves_project_scoped_bare_sequence(self, session_test_db):
         """An explicitly project-scoped bare sequence resolves before claiming."""
-        db_path = session_offer_db["db_path"]
+        db_path = session_test_db["db_path"]
         sid = "claim-test-bare-numeric"
 
         conn = connect_test_db(db_path)
@@ -78,7 +78,7 @@ class TestClaimItem:
             "execution_lane, workspace, project_id, mode, offered_at, last_heartbeat) "
             "VALUES (%s, 'claude-code', 'anthropic', 'opus', 'primary', %s, 1, "
             "'hook', '2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')",
-            (sid, session_offer_db["tmp_dir"]),
+            (sid, session_test_db["tmp_dir"]),
         )
         conn.commit()
         conn.close()
@@ -107,14 +107,14 @@ class TestClaimItem:
         assert row is not None
         assert json.loads(row[0]) == {"item_id": 10}
 
-    def test_claim_work_rejects_non_numeric_item_id(self, session_offer_db):
+    def test_claim_work_rejects_non_numeric_item_id(self, session_test_db):
         """Process sentinels like STRATEGIZE are not items — claim-work --item rejects them.
 
         The pseudo-item world (item_id='STRATEGIZE') was retired with the typed-target
         cutover; STRATEGIZE/FEED are now first-class process targets reached through
         ``claim-work --process``, not ``claim-work --item``.
         """
-        db_path = session_offer_db["db_path"]
+        db_path = session_test_db["db_path"]
         sid = "claim-test-sentinel"
 
         conn = connect_test_db(db_path)
@@ -123,7 +123,7 @@ class TestClaimItem:
             "execution_lane, workspace, project_id, mode, offered_at, last_heartbeat) "
             "VALUES (%s, 'claude-code', 'anthropic', 'opus', 'primary', %s, 1, "
             "'hook', '2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')",
-            (sid, session_offer_db["tmp_dir"]),
+            (sid, session_test_db["tmp_dir"]),
         )
         conn.commit()
         conn.close()
@@ -136,9 +136,9 @@ class TestClaimItem:
             f"claim-work --item should reject non-numeric ids; got stdout={result.stdout!r}"
         )
 
-    def test_claim_item_missing_session_returns_error(self, session_offer_db):
+    def test_claim_item_missing_session_returns_error(self, session_test_db):
         """Claim-work with missing session returns exit 1 with truthful error."""
-        db_path = session_offer_db["db_path"]
+        db_path = session_test_db["db_path"]
 
         result = _run_client(
             ["claim-work", "--session-id", "nonexistent", "--item", "YOK-10"],
@@ -150,9 +150,9 @@ class TestClaimItem:
         assert err["success"] is False
         assert "no active session" in err["error"]
 
-    def test_claim_item_ended_session_returns_error(self, session_offer_db):
+    def test_claim_item_ended_session_returns_error(self, session_test_db):
         """Claim-work with ended session returns exit 1 with session-ended error."""
-        db_path = session_offer_db["db_path"]
+        db_path = session_test_db["db_path"]
         sid = "claim-test-ended"
 
         # Create an ended session
@@ -163,7 +163,7 @@ class TestClaimItem:
             "VALUES (%s, 'claude-code', 'anthropic', 'opus', 'primary', %s, 1, "
             "'hook', '2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z', "
             "'2026-04-20T00:00:00Z')",
-            (sid, session_offer_db["tmp_dir"]),
+            (sid, session_test_db["tmp_dir"]),
         )
         conn.commit()
         conn.close()
@@ -181,9 +181,9 @@ class TestClaimItem:
         # The refusal must carry the populated re-register recipe.
         assert f"yoke sessions begin --session-id {sid}" in err["error"]
 
-    def test_claim_item_conflict_returns_error(self, session_offer_db):
+    def test_claim_item_conflict_returns_error(self, session_test_db):
         """Claim-work with conflict returns exit 1 with conflict message."""
-        db_path = session_offer_db["db_path"]
+        db_path = session_test_db["db_path"]
 
         # Create two active sessions.  Owner needs a FRESH heartbeat so the
         # stale-reclaim path does not silently release the claim.
@@ -194,14 +194,14 @@ class TestClaimItem:
             "execution_lane, workspace, project_id, mode, offered_at, last_heartbeat) "
             "VALUES ('owner-session', 'claude-code', 'anthropic', 'opus', 'primary', "
             "%s, 1, 'hook', %s, %s)",
-            (session_offer_db["tmp_dir"], fresh_ts, fresh_ts),
+            (session_test_db["tmp_dir"], fresh_ts, fresh_ts),
         )
         conn.execute(
             "INSERT INTO harness_sessions (session_id, executor, provider, model, "
             "execution_lane, workspace, project_id, mode, offered_at, last_heartbeat) "
             "VALUES ('thief-session', 'claude-code', 'anthropic', 'opus', 'primary', "
             "%s, 1, 'hook', %s, %s)",
-            (session_offer_db["tmp_dir"], fresh_ts, fresh_ts),
+            (session_test_db["tmp_dir"], fresh_ts, fresh_ts),
         )
         # Owner claims the item with a fresh heartbeat
         conn.execute(
@@ -241,10 +241,10 @@ class TestClaimProcess:
         conn.commit()
         conn.close()
 
-    def test_claim_doctor_process_creates_process_claim(self, session_offer_db):
-        db_path = session_offer_db["db_path"]
+    def test_claim_doctor_process_creates_process_claim(self, session_test_db):
+        db_path = session_test_db["db_path"]
         sid = "claim-test-doctor-process"
-        self._register_session(db_path, sid, session_offer_db["tmp_dir"])
+        self._register_session(db_path, sid, session_test_db["tmp_dir"])
 
         result = _run_client(
             [
@@ -284,13 +284,13 @@ class TestClaimProcess:
     )
     def test_strategy_control_processes_conflict_by_shared_group(
         self,
-        session_offer_db,
+        session_test_db,
         first_process,
         second_process,
     ):
-        db_path = session_offer_db["db_path"]
-        self._register_session(db_path, "process-owner", session_offer_db["tmp_dir"])
-        self._register_session(db_path, "process-thief", session_offer_db["tmp_dir"])
+        db_path = session_test_db["db_path"]
+        self._register_session(db_path, "process-owner", session_test_db["tmp_dir"])
+        self._register_session(db_path, "process-thief", session_test_db["tmp_dir"])
 
         first = _run_client(
             [

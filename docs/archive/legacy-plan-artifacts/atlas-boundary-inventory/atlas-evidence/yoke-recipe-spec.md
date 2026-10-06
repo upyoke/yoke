@@ -467,7 +467,7 @@ These entries exist today but the recipe is abstract / placeholder-heavy and the
 
 ### R-OP-06: Session lifecycle commands (offer / heartbeat / checkpoint / touch / end)
 
-**Status:** VETTED-TELEMETRY — 24 session-offer, 13 session-heartbeat, 12 session-checkpoint, 10 session-touch, 8 session-end in 7d. NOT taught in any current packet entry.
+**Status:** VETTED-TELEMETRY — 24 retired automatic session dispatch, 13 session-heartbeat, 12 session-checkpoint, 10 session-touch, 8 session-end in 7d. NOT taught in any current packet entry.
 **Source verified:** `session-checkpoint --session-id S --step N --action A --chainable BOOL [--item-id I] [--task-num T] [--outcome O]`
 
 ```python
@@ -484,7 +484,7 @@ These entries exist today but the recipe is abstract / placeholder-heavy and the
         "# End:\n"
         "python3 -m yoke_core.api.service_client session-end --session-id $YOKE_SESSION_ID"
     ),
-    "notes": "session-offer for cross-executor handoff; heartbeat is on-demand only (loop removed).",
+    "notes": "retired automatic session dispatch for cross-executor handoff; heartbeat is on-demand only (loop removed).",
 },
 ```
 

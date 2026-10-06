@@ -12,7 +12,7 @@ from yoke_core.domain.sessions_analytics_core import (
 )
 from yoke_core.domain.work_claim_targets import make_item_target
 from runtime.api.test_service_client import _run_client
-from runtime.api.test_service_client_sessions_helpers import session_offer_db  # noqa: F401
+from runtime.api.test_service_client_sessions_helpers import session_test_db  # noqa: F401
 
 
 def _iso(minutes_ago: int) -> str:
@@ -51,11 +51,11 @@ def _seed_conflict(
     conn.close()
 
 
-def test_claim_work_preserves_old_active_claim(session_offer_db):
-    db_path = session_offer_db["db_path"]
+def test_claim_work_preserves_old_active_claim(session_test_db):
+    db_path = session_test_db["db_path"]
     _seed_conflict(
         db_path,
-        session_offer_db["tmp_dir"],
+        session_test_db["tmp_dir"],
         executor="claude-desktop",
         minutes_ago=DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES + 5,
     )
@@ -76,11 +76,11 @@ def test_claim_work_preserves_old_active_claim(session_offer_db):
     assert row["release_reason"] is None
 
 
-def test_claim_work_keeps_codex_between_turn_claim_live(session_offer_db):
-    db_path = session_offer_db["db_path"]
+def test_claim_work_keeps_codex_between_turn_claim_live(session_test_db):
+    db_path = session_test_db["db_path"]
     _seed_conflict(
         db_path,
-        session_offer_db["tmp_dir"],
+        session_test_db["tmp_dir"],
         executor="codex-desktop",
         minutes_ago=45,
     )

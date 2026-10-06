@@ -62,7 +62,7 @@ Main session runs in one of these contexts at any given time:
 | `/yoke conduct` | Epic execution loop | Dispatch engineer → tester → next-task. Handle rework. |
 | `/yoke polish` | Worktree finalize | Re-run pytest, doctor, simplify pass, transition →implemented |
 | `/yoke usher` | Merge + deploy | watch_merge, wait CI, transition →release→done, deploy |
-| `session-offer` / `/yoke charge` | Frontier dispatch | Read NextAction, choose next, chain forward |
+| `retired automatic session dispatch` / `/yoke charge` | Frontier dispatch | Read NextAction, choose next, chain forward |
 | `/yoke curate` | Ouroboros loop | Read entries, cluster, file follow-ups |
 
 ### B-2. Subagent contexts
@@ -198,7 +198,7 @@ These are the foundational operations that show up everywhere. If an agent can't
 | U-USH-3 | Transition implemented → release → done | M-2 twice |
 | U-USH-4 | Run deploy engine | `engines.deploy <project>` |
 
-#### `session-offer` / `/yoke charge` (main session)
+#### `retired automatic session dispatch` / `/yoke charge` (main session)
 | ID | Recipe | What it does |
 |---|---|---|
 | D-1 | Read frontier | `curl http://127.0.0.1:8765/v1/charge/frontier` or `db_router shepherd next-action` |

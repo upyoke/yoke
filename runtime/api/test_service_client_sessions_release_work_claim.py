@@ -10,8 +10,8 @@ import pytest
 from runtime.api.fixtures.backlog import insert_item
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
-from runtime.api.test_service_client_sessions_helpers import session_offer_db  # noqa: F401,F811
-from yoke_core.domain.work_claim_targets import make_item_target, make_process_target
+from runtime.api.test_service_client_sessions_helpers import session_test_db  # noqa: F401,F811
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 def _sun(item_id: int) -> str:
@@ -22,14 +22,14 @@ class TestReleaseItemClaim:
     """Tests for release-work-claim command."""
 
     @pytest.fixture(autouse=True)
-    def _seed_public_item_identity(self, session_offer_db):
-        conn = connect_test_db(session_offer_db["db_path"])
+    def _seed_public_item_identity(self, session_test_db):
+        conn = connect_test_db(session_test_db["db_path"])
         insert_item(conn, id=99, status="implemented")
         conn.close()
 
-    def test_release_item_claim_active_claim(self, session_offer_db):
+    def test_release_item_claim_active_claim(self, session_test_db):
         """Release-work-claim releases an active item claim."""
-        db_path = session_offer_db["db_path"]
+        db_path = session_test_db["db_path"]
         sid = "release-item-test"
         item_id = 99
         public_ref = _sun(item_id)
@@ -41,7 +41,7 @@ class TestReleaseItemClaim:
             "execution_lane, workspace, mode, offered_at, last_heartbeat) "
             "VALUES (%s, 'claude-code', 'anthropic', 'opus', 'primary', %s, 'hook', "
             "'2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')",
-            (sid, session_offer_db["tmp_dir"]),
+            (sid, session_test_db["tmp_dir"]),
         )
         conn.execute(
             "INSERT INTO work_claims (session_id, target_kind, scope, claim_type, claimed_at, "
@@ -52,7 +52,18 @@ class TestReleaseItemClaim:
         conn.commit()
         conn.close()
 
-        result = _run_client(["release-work-claim", "--session-id", sid, "--item", public_ref, "--reason", "completed"], db_path=db_path)
+        result = _run_client(
+            [
+                "release-work-claim",
+                "--session-id",
+                sid,
+                "--item",
+                public_ref,
+                "--reason",
+                "completed",
+            ],
+            db_path=db_path,
+        )
         assert result.returncode == 0, f"stderr: {result.stderr}"
 
         out = json.loads(result.stdout)
@@ -74,9 +85,11 @@ class TestReleaseItemClaim:
         assert row[0] is not None  # released_at is set
         assert row[1] == "completed"
 
-    def test_release_item_claim_resolves_project_scoped_bare_sequence(self, session_offer_db):
+    def test_release_item_claim_resolves_project_scoped_bare_sequence(
+        self, session_test_db
+    ):
         """An explicitly project-scoped bare sequence resolves before release."""
-        db_path = session_offer_db["db_path"]
+        db_path = session_test_db["db_path"]
         sid = "release-bare-numeric-test"
 
         conn = connect_test_db(db_path)
@@ -85,7 +98,7 @@ class TestReleaseItemClaim:
             "execution_lane, workspace, mode, offered_at, last_heartbeat) "
             "VALUES (%s, 'claude-code', 'anthropic', 'opus', 'primary', %s, 'hook', "
             "'2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')",
-            (sid, session_offer_db["tmp_dir"]),
+            (sid, session_test_db["tmp_dir"]),
         )
         conn.execute(
             "INSERT INTO work_claims (session_id, target_kind, scope, claim_type, claimed_at, "
@@ -96,7 +109,20 @@ class TestReleaseItemClaim:
         conn.commit()
         conn.close()
 
-        result = _run_client(["release-work-claim", "--session-id", sid, "--item", "0099", "--project", "yoke", "--reason", "completed"], db_path=db_path)
+        result = _run_client(
+            [
+                "release-work-claim",
+                "--session-id",
+                sid,
+                "--item",
+                "0099",
+                "--project",
+                "yoke",
+                "--reason",
+                "completed",
+            ],
+            db_path=db_path,
+        )
         assert result.returncode == 0, f"stderr: {result.stderr}"
 
         conn = connect_test_db(db_path)
@@ -109,51 +135,9 @@ class TestReleaseItemClaim:
         assert row[0] is not None
         assert row[1] == "completed"
 
-    def test_release_process_claim_by_key(self, session_offer_db):
-        """Process targets release through --process KEY rather than --item.
-
-        Replaces the legacy "sentinel claim" test: STRATEGIZE/FEED are now
-        first-class process targets in the typed-target world, not pseudo-items.
-        """
-        db_path = session_offer_db["db_path"]
-        sid = "release-process-test"
-
-        conn = connect_test_db(db_path)
-        conn.execute(
-            "INSERT INTO harness_sessions (session_id, executor, provider, model, "
-            "execution_lane, workspace, mode, offered_at, last_heartbeat) "
-            "VALUES (%s, 'claude-code', 'anthropic', 'opus', 'primary', %s, 'hook', "
-            "'2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')",
-            (sid, session_offer_db["tmp_dir"]),
-        )
-        conn.execute(
-            "INSERT INTO work_claims (session_id, target_kind, scope, "
-            "claim_type, claimed_at, last_heartbeat) "
-            "VALUES (%s, 'process', %s, "
-            "'exclusive', '2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')",
-            (sid, make_process_target("STRATEGIZE", "yoke").scope_json()),
-        )
-        conn.commit()
-        conn.close()
-
-        result = _run_client(
-            ["release-work-claim", "--session-id", sid, "--process", "STRATEGIZE", "--project", "yoke", "--reason", "completed"], db_path=db_path
-        )
-        assert result.returncode == 0, f"stderr: {result.stderr}"
-
-        conn = connect_test_db(db_path)
-        row = conn.execute(
-            "SELECT released_at, release_reason FROM work_claims WHERE session_id = %s AND target_kind='process' AND scope = %s",
-            (sid, make_process_target("STRATEGIZE", "yoke").scope_json()),
-        ).fetchone()
-        conn.close()
-        assert row is not None
-        assert row[0] is not None
-        assert row[1] == "completed"
-
-    def test_release_item_claim_missing_claim(self, session_offer_db):
+    def test_release_item_claim_missing_claim(self, session_test_db):
         """No active claim returns a distinct exit code and warning."""
-        db_path = session_offer_db["db_path"]
+        db_path = session_test_db["db_path"]
         sid = "release-noop-test"
         public_ref = _sun(99)
 
@@ -164,12 +148,23 @@ class TestReleaseItemClaim:
             "execution_lane, workspace, mode, offered_at, last_heartbeat) "
             "VALUES (%s, 'claude-code', 'anthropic', 'opus', 'primary', %s, 'hook', "
             "'2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')",
-            (sid, session_offer_db["tmp_dir"]),
+            (sid, session_test_db["tmp_dir"]),
         )
         conn.commit()
         conn.close()
 
-        result = _run_client(["release-work-claim", "--session-id", sid, "--item", public_ref, "--reason", "cleanup"], db_path=db_path)
+        result = _run_client(
+            [
+                "release-work-claim",
+                "--session-id",
+                sid,
+                "--item",
+                public_ref,
+                "--reason",
+                "cleanup",
+            ],
+            db_path=db_path,
+        )
         # This requested item has never had a claim row in this fixture.
         assert result.returncode == 5
         out = json.loads(result.stdout)
@@ -179,9 +174,9 @@ class TestReleaseItemClaim:
         assert "claim release failed" in result.stderr
         assert "item_not_found" in result.stderr
 
-    def test_release_item_claim_not_owned_names_holder(self, session_offer_db):
+    def test_release_item_claim_not_owned_names_holder(self, session_test_db):
         """Cross-session release returns NOT_OWNED and names the holder."""
-        db_path = session_offer_db["db_path"]
+        db_path = session_test_db["db_path"]
         owner_sid = "release-owner"
         caller_sid = "release-caller"
         public_ref = _sun(99)
@@ -193,7 +188,7 @@ class TestReleaseItemClaim:
                 "execution_lane, workspace, mode, offered_at, last_heartbeat) "
                 "VALUES (%s, 'claude-code', 'anthropic', 'opus', 'primary', %s, 'hook', "
                 "'2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')",
-                (sid, session_offer_db["tmp_dir"]),
+                (sid, session_test_db["tmp_dir"]),
             )
         conn.execute(
             "INSERT INTO work_claims (session_id, target_kind, scope, claim_type, claimed_at, "
@@ -204,7 +199,18 @@ class TestReleaseItemClaim:
         conn.commit()
         conn.close()
 
-        result = _run_client(["release-work-claim", "--session-id", caller_sid, "--item", public_ref, "--reason", "handoff-to-polish"], db_path=db_path)
+        result = _run_client(
+            [
+                "release-work-claim",
+                "--session-id",
+                caller_sid,
+                "--item",
+                public_ref,
+                "--reason",
+                "handoff-to-polish",
+            ],
+            db_path=db_path,
+        )
 
         assert result.returncode == 3
         out = json.loads(result.stdout)
@@ -213,9 +219,9 @@ class TestReleaseItemClaim:
         assert out["holder_session_id"] == owner_sid
         assert owner_sid in result.stderr
 
-    def test_release_item_claim_already_terminal_exit_code(self, session_offer_db):
+    def test_release_item_claim_already_terminal_exit_code(self, session_test_db):
         """Released historical claims return ALREADY_TERMINAL."""
-        db_path = session_offer_db["db_path"]
+        db_path = session_test_db["db_path"]
         sid = "release-terminal-test"
         public_ref = _sun(99)
 
@@ -225,7 +231,7 @@ class TestReleaseItemClaim:
             "execution_lane, workspace, mode, offered_at, last_heartbeat) "
             "VALUES (%s, 'claude-code', 'anthropic', 'opus', 'primary', %s, 'hook', "
             "'2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')",
-            (sid, session_offer_db["tmp_dir"]),
+            (sid, session_test_db["tmp_dir"]),
         )
         conn.execute(
             "INSERT INTO work_claims (session_id, target_kind, scope, claim_type, claimed_at, "
@@ -237,7 +243,18 @@ class TestReleaseItemClaim:
         conn.commit()
         conn.close()
 
-        result = _run_client(["release-work-claim", "--session-id", sid, "--item", public_ref, "--reason", "finalize-exit"], db_path=db_path)
+        result = _run_client(
+            [
+                "release-work-claim",
+                "--session-id",
+                sid,
+                "--item",
+                public_ref,
+                "--reason",
+                "finalize-exit",
+            ],
+            db_path=db_path,
+        )
 
         assert result.returncode == 4
         out = json.loads(result.stdout)
@@ -245,9 +262,11 @@ class TestReleaseItemClaim:
         assert out["failure_reason"] == "already_terminal"
         assert out["holder_session_id"] == sid
 
-    def test_release_item_claim_completed_rejected_for_active_item_status(self, session_offer_db):
+    def test_release_item_claim_completed_rejected_for_active_item_status(
+        self, session_test_db
+    ):
         """`completed` is rejected until the item reaches a success handoff status."""
-        db_path = session_offer_db["db_path"]
+        db_path = session_test_db["db_path"]
         sid = "release-active-status-test"
         item_id = 99
         public_ref = _sun(item_id)
@@ -259,7 +278,7 @@ class TestReleaseItemClaim:
             "execution_lane, workspace, mode, offered_at, last_heartbeat, current_item_id, current_item_set_at) "
             "VALUES (%s, 'claude-code', 'anthropic', 'opus', 'primary', %s, 'hook', "
             "'2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z', '99', '2026-04-20T00:00:00Z')",
-            (sid, session_offer_db["tmp_dir"]),
+            (sid, session_test_db["tmp_dir"]),
         )
         conn.execute(
             "INSERT INTO work_claims (session_id, target_kind, scope, claim_type, claimed_at, "
@@ -270,7 +289,18 @@ class TestReleaseItemClaim:
         conn.commit()
         conn.close()
 
-        result = _run_client(["release-work-claim", "--session-id", sid, "--item", public_ref, "--reason", "completed"], db_path=db_path)
+        result = _run_client(
+            [
+                "release-work-claim",
+                "--session-id",
+                sid,
+                "--item",
+                public_ref,
+                "--reason",
+                "completed",
+            ],
+            db_path=db_path,
+        )
         # Validation rejection now exits DOMAIN_ERROR (6), emits
         # ItemClaimReleaseFailed, and logs a single Warning line.
         assert result.returncode == 6
@@ -280,9 +310,12 @@ class TestReleaseItemClaim:
 
         conn = connect_test_db(db_path)
         row = conn.execute(
-            "SELECT released_at FROM work_claims WHERE session_id = %s AND target_kind='item' AND scope = %s", (sid, make_item_target(99).scope_json())
+            "SELECT released_at FROM work_claims WHERE session_id = %s AND target_kind='item' AND scope = %s",
+            (sid, make_item_target(99).scope_json()),
         ).fetchone()
-        session_row = conn.execute("SELECT current_item_id FROM harness_sessions WHERE session_id = %s", (sid,)).fetchone()
+        session_row = conn.execute(
+            "SELECT current_item_id FROM harness_sessions WHERE session_id = %s", (sid,)
+        ).fetchone()
         conn.close()
         assert row is not None
         assert row[0] is None

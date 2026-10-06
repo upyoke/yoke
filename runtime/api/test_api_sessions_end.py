@@ -34,10 +34,10 @@ class TestSessionEndEndpoint:
     """Tests for POST /v1/sessions/{session_id}/end."""
 
     @pytest.fixture(autouse=True)
-    def setup_client(self, session_offer_db):
+    def setup_client(self, session_test_db):
         self.client = TestClient(app)
-        self.client.headers.update(session_offer_db["auth_headers"])
-        self.db_info = session_offer_db
+        self.client.headers.update(session_test_db["auth_headers"])
+        self.db_info = session_test_db
 
     def _insert_chain_pending_session(self, session_id: str) -> None:
         checkpoint = {

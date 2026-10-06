@@ -28,7 +28,7 @@ from yoke_core.domain.idea_body_completeness import (
 from runtime.api.frontier_test_helpers import insert_item, make_test_db
 from runtime.api.test_service_client_sessions_helpers import (  # noqa: F401
     _pre_register_session,
-    session_offer_db,
+    session_test_db,
 )
 from runtime.api.test_service_client import (
     _REPO_ROOT,
@@ -71,12 +71,12 @@ def _run_client(args, db_path=None):
 # ---------------------------------------------------------------------------
 
 
-def test_draft_claim_blocks_other_worker_assignment_until_release(session_offer_db):
+def test_draft_claim_blocks_other_worker_assignment_until_release(session_test_db):
     from yoke_core.domain.scheduler import compute_schedule
     from yoke_core.domain.scheduler_types import is_assignable_claim_state
 
-    db_path = session_offer_db["db_path"]
-    workspace = session_offer_db["tmp_dir"]
+    db_path = session_test_db["db_path"]
+    workspace = session_test_db["tmp_dir"]
     item_num = 10
     public_ref = f"YOK-{item_num}"
     _pre_register_session(db_path, "drafter", workspace=workspace)
@@ -129,9 +129,9 @@ def test_draft_claim_blocks_other_worker_assignment_until_release(session_offer_
         conn.close()
 
 
-def test_layer1_release_emits_idea_claim_held_event(session_offer_db):
+def test_layer1_release_emits_idea_claim_held_event(session_test_db):
     """Happy-path release with idea-complete intent emits IdeaClaimHeld."""
-    db_path = session_offer_db["db_path"]
+    db_path = session_test_db["db_path"]
     drafter_id = "drafter-emit"
     item_num = 10
     public_ref = f"YOK-{item_num}"
@@ -189,7 +189,7 @@ def test_layer1_release_emits_idea_claim_held_event(session_offer_db):
 
 
 def test_layer1_dispatcher_release_canonicalizes_and_emits(
-    session_offer_db, monkeypatch
+    session_test_db, monkeypatch
 ):
     """Dispatcher path mirrors the CLI path for ``idea-complete``.
 
@@ -203,7 +203,7 @@ def test_layer1_dispatcher_release_canonicalizes_and_emits(
     from yoke_core.domain.yoke_function_dispatch import dispatch
     from yoke_contracts.api.function_call import FunctionCallRequest
 
-    db_path = session_offer_db["db_path"]
+    db_path = session_test_db["db_path"]
     drafter_id = "drafter-dispatcher"
     monkeypatch.setenv("YOKE_DB", db_path)
     monkeypatch.setenv("YOKE_SESSION_ID", drafter_id)

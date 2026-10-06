@@ -29,15 +29,15 @@ def _claim_item(db, session_id):
 class TestSessionEndCommand:
     """Tests for service_client.py session-end command."""
 
-    def test_session_end_auto_releases_active_claims(self, session_offer_db):
+    def test_session_end_auto_releases_active_claims(self, session_test_db):
         """Session-end (no flags) auto-releases claims and ends.
 
         Detailed released_claims payload assertions live in the sibling
         test_service_client_sessions_end_claim_release.py.
         """
         sid = "end-test-sess"
-        ws = session_offer_db["tmp_dir"]
-        db = session_offer_db["db_path"]
+        ws = session_test_db["tmp_dir"]
+        db = session_test_db["db_path"]
         _pre_register_session(db, sid, workspace=ws)
         _claim_item(db, sid)
 
@@ -48,22 +48,22 @@ class TestSessionEndCommand:
         assert data["session"]["ended_at"] is not None
         assert len(data["released_claims"]) >= 1
 
-    def test_session_end_succeeds_without_claims(self, session_offer_db):
+    def test_session_end_succeeds_without_claims(self, session_test_db):
         """session-end succeeds when no active claims."""
         sid = "end-no-claim-sess"
-        ws = session_offer_db["tmp_dir"]
-        db = session_offer_db["db_path"]
+        ws = session_test_db["tmp_dir"]
+        db = session_test_db["db_path"]
         _pre_register_session(db, sid, workspace=ws)
         r2 = _run_client(["session-end", "--session-id", sid], db_path=db)
         assert r2.returncode == 0
         data = json.loads(r2.stdout)
         assert data["success"] is True
 
-    def test_session_end_idempotent(self, session_offer_db):
+    def test_session_end_idempotent(self, session_test_db):
         """session-end on already-ended session exits 0 (best-effort)."""
         sid = "end-idem-sess"
-        ws = session_offer_db["tmp_dir"]
-        db = session_offer_db["db_path"]
+        ws = session_test_db["tmp_dir"]
+        db = session_test_db["db_path"]
         # Create session without claims (just register, don't offer which may claim)
         _pre_register_session(
             db,
@@ -84,11 +84,11 @@ class TestSessionEndCommand:
         assert data["success"] is True
         assert data.get("already_ended") is True
 
-    def test_session_end_nonexistent_session(self, session_offer_db):
+    def test_session_end_nonexistent_session(self, session_test_db):
         """session-end on nonexistent session exits 0 (best-effort)."""
         r = _run_client(
             ["session-end", "--session-id", "nonexistent"],
-            db_path=session_offer_db["db_path"],
+            db_path=session_test_db["db_path"],
         )
         assert r.returncode == 0
         data = json.loads(r.stdout)
@@ -98,11 +98,11 @@ class TestSessionEndCommand:
 class TestSessionEndIfEmptyCommand:
     """Tests for service_client.py session-end-if-empty command."""
 
-    def test_session_end_if_empty_ends_claimless_session(self, session_offer_db):
+    def test_session_end_if_empty_ends_claimless_session(self, session_test_db):
         sid = "end-if-empty-claimless"
-        db = session_offer_db["db_path"]
+        db = session_test_db["db_path"]
 
-        _pre_register_session(db, sid, workspace=session_offer_db["tmp_dir"])
+        _pre_register_session(db, sid, workspace=session_test_db["tmp_dir"])
 
         result = _run_client(["session-end-if-empty", "--session-id", sid], db_path=db)
         assert result.returncode == 0, f"stderr: {result.stderr}"
@@ -119,10 +119,10 @@ class TestSessionEndIfEmptyCommand:
         assert row is not None
         assert row[0] is not None
 
-    def test_session_end_if_empty_preserves_claimed_session(self, session_offer_db):
+    def test_session_end_if_empty_preserves_claimed_session(self, session_test_db):
         sid = "end-if-empty-claimed"
-        ws = session_offer_db["tmp_dir"]
-        db = session_offer_db["db_path"]
+        ws = session_test_db["tmp_dir"]
+        db = session_test_db["db_path"]
 
         _pre_register_session(db, sid, workspace=ws)
         _claim_item(db, sid)
@@ -149,11 +149,11 @@ class TestSessionEndIfEmptyCommand:
         assert claim[0] >= 1
 
     def test_session_end_if_empty_is_best_effort_for_missing_session(
-        self, session_offer_db
+        self, session_test_db
     ):
         result = _run_client(
             ["session-end-if-empty", "--session-id", "nonexistent"],
-            db_path=session_offer_db["db_path"],
+            db_path=session_test_db["db_path"],
         )
         assert result.returncode == 0
         data = json.loads(result.stdout)

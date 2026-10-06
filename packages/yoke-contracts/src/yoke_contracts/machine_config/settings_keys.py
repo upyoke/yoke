@@ -203,7 +203,6 @@ MACHINE_SETTING_PREFIXES: Dict[str, str] = {
 # never consulted once a project id is known, which is every live call path.
 _DB_OWNED_PREFIXES: Dict[str, str] = {
     "executor_default_lane_": SESSION_ROUTING_CAPABILITY,
-    "do_process_offer_": SESSION_ROUTING_CAPABILITY,
 }
 
 

@@ -26,7 +26,7 @@ from yoke_core.engines.doctor_hc_path_claim_owner_kind import (
     hc_path_claim_owner_kind,
 )
 from yoke_core.engines.doctor_hc_routed_ownership import (
-    hc_offer_envelope_clobber_lost_chain,
+    hc_session_checkpoint_integrity,
     hc_routed_ownership_live_frame_no_defense,
     hc_routed_ownership_non_terminal_release_still_schedulable,
 )
@@ -68,9 +68,9 @@ COORDINATION_HEALTH_CHECKS: List[HealthCheck] = [
         hc_routed_ownership_non_terminal_release_still_schedulable,
     ),
     HealthCheck(
-        "offer-envelope-clobber-lost-chain",
-        "Historical chain_checkpoint clobber by a later offer write",
-        hc_offer_envelope_clobber_lost_chain,
+        "session-checkpoint-integrity",
+        "Historical chain_checkpoint clobber by a later envelope write",
+        hc_session_checkpoint_integrity,
     ),
     HealthCheck(
         "work-claim-status-mismatch",

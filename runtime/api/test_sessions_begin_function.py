@@ -26,7 +26,7 @@ from yoke_contracts.api.function_call import (
 )
 from runtime.api.test_constants import TEST_MODEL_ID
 from runtime.api.test_service_client_sessions_helpers import (
-    session_offer_db,  # noqa: F401 — re-exported fixture
+    session_test_db,  # noqa: F401 — re-exported fixture
 )
 
 

@@ -3,8 +3,8 @@
 
 Outcome classification, chain labels, and skip/handoff records at the helper
 surface. ``session checkpoint`` integration regressions and the
-recoverable-substrate reproduction live in the sibling module
-``runtime.api.test_do_loop_recoverable_substrate``.
+checkpoint cleanup regressions live in
+``runtime.api.test_session_cleanup_checkpoints``.
 """
 
 from __future__ import annotations
