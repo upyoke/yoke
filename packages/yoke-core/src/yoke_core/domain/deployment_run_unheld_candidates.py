@@ -55,6 +55,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from yoke_core.domain.deployment_run_member_targeting import run_needs_member
 from yoke_core.domain.delivery_landing_custody import (
     landing_custody,
     merged_open_items,
@@ -229,6 +230,7 @@ def _project_custody(
         int(record["id"])
         for record in merged_open_items(conn, project_id)
         if item_requires_release_membership(conn, int(record["id"]))
+        and run_needs_member(conn, run_id=run_id, item_id=int(record["id"]))
     ]
     if not deliverable:
         return set(), []

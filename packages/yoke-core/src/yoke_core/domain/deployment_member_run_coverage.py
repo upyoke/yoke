@@ -40,6 +40,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Iterable, Sequence
 
+from yoke_core.domain.deployment_run_member_targeting import supplemental_qa_run
 from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_run_composition_freeze import (
     member_ids,
@@ -246,7 +247,9 @@ def unclosable_final_member_refusal(
         ).items()
         if item_id in subjects
         # No completion flow at all is completion_flow_refusal's to name.
-        if coverage.completion_flow and not coverage.closes
+        if coverage.completion_flow
+        and not coverage.closes
+        and not supplemental_qa_run(conn, run_id=run_id, item_id=item_id)
     ]
     if not unclosable:
         return None

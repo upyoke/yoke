@@ -11,17 +11,12 @@ finish the close-out nothing at all.
 
 Two rules keep this notice from causing the loss it exists to prevent.
 
-**It fires only for a member whose release obligation this run discharged.**
-Not every succeeded run that carries an item makes that item's ``done``
-possible: a stage-then-production pair succeeds twice, and only the run on
-the item's own completion flow is the one the done gate counts. Telling a
-holder otherwise is worse than silence — the prompt that delivers it clears
-the park, the close-out it prompts is refused because delivery has not
-cleared, and the owner is left unparked and reclaimable, which is exactly
-the abandonment this whole item prevents. So the test is the gate's own
-:data:`gate_satisfier_item_facts.ITEM_DEPLOYMENT_RUN_SUCCEEDED` fact rather
-than the run's success, its tier, or its intent: if that fact does not say
-done is now possible, this run is not the one to announce.
+**It fires only after final delivery and every blocking source obligation clear.**
+A supplemental target can supply the last QA proof after production delivers.
+The gate's own delivery fact and source-obligation reader decide when done is
+possible; a run's success alone cannot unpark an owner still waiting for proof.
+The close-out uses the final delivery run even when a supplemental run triggers
+this notice.
 
 **Each send is isolated and never reverses the delivery.** It runs after the
 run's status is committed, and every send takes its own savepoint, so a
@@ -144,6 +139,12 @@ def cleared_release_waits(conn: Any, run_id: str) -> list[dict[str, Any]]:
         item_id = int(row["item_id"])
         if not delivery_now_discharged(conn, item_id):
             continue
+        from yoke_core.domain.deployment_qa_source_obligation import (
+            unsatisfied_blocking,
+        )
+
+        if unsatisfied_blocking(conn, item_id=item_id, target_status="done").count:
+            continue
         cleared.append(
             {
                 "item_id": item_id,
@@ -210,11 +211,15 @@ def _close_or_wake(
         close_out_satisfied_delivery_member,
     )
 
+    from yoke_core.domain.deployment_qa_source_obligation import latest_completion_run
+
+    completion = latest_completion_run(conn, int(member["item_id"]))
+    closing_run_id = str(completion["id"]) if completion is not None else run_id
     closed = close_out_satisfied_delivery_member(
         conn,
         item_id=int(member["item_id"]),
         public_ref=str(member["public_ref"]),
-        run_id=run_id,
+        run_id=closing_run_id,
     )
     if closed.applies and closed.ok:
         return "closed"

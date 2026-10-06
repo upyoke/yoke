@@ -1,40 +1,10 @@
-"""Which deployment run, if any, holds one item's current landing.
+"""Custody of an item's current landing, shared by enrollment and steering.
 
-Two questions share this answer, and they were drifting apart. Enrollment has
-to know whether a merged, delivery-ready item still needs a release to take
-it. The steering report has to say whether a landed item is being delivered or
-is stranded with nobody carrying it. Asking that twice in two places is how one
-of them ends up right and the other quietly wrong.
-
-Custody belongs to a LANDING, not to an item
---------------------------------------------
-An item can land more than once, and its landings can straddle releases: a run
-may carry the first merge while a later merge sits in no run at all. So the
-question asked here is always "who holds THIS commit", and the item is only
-ever the way its current commit is found.
-
-That makes custody a conjunction of two facts that are each insufficient:
-
-* **Membership** is who OWES the item its delivery and its post-deploy proof.
-  Alone it over-answers — a membership in a run whose lineage predates a newer
-  merge says nothing about that merge.
-* **Containment** is whether a run's pinned candidate actually CARRIES this
-  commit. Alone it over-answers in the opposite direction — every release cut
-  after a merge contains it, including releases that never owed the item
-  anything. That reading is what made the stranded items invisible: a later
-  run carried their code, so every code-shaped question said "delivered" while
-  no run had ever taken responsibility for them.
-
-A run holds a landing only when both hold, and only while the run is live or
-succeeded. A failed or cancelled run holds nothing — its ending releases its
-members, which is precisely the hole a cancelled run used to leave open.
-
-An unanswerable containment is its own verdict
-----------------------------------------------
-:data:`UNDETERMINED` is never collapsed into either answer. A caller that
-could not compare commits has not learned that a release carries this merge,
-nor that none does. Enrollment admits nothing on it and the report names it,
-because a guess in either direction is a silent wrong delivery decision.
+A live or succeeded run holds a landing only when it both owes that item's
+proof through membership and contains its exact merge commit. Failed and
+cancelled runs release custody. During composition, a holder must also cover
+the new run's target obligations; supplemental proof does not reserve final
+delivery. Unanswerable containment stays UNDETERMINED and admits nothing.
 """
 
 from __future__ import annotations
@@ -42,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
+from yoke_core.domain.deployment_run_member_targeting import holder_covers_run
 from yoke_core.domain import db_backend
 from yoke_core.domain.conflict_survey_declared_paths import TERMINAL_STATUSES
 from yoke_core.domain.deployment_run_candidate_containment import (
@@ -216,7 +187,13 @@ def _member_runs(
     grouped: dict[int, list[dict[str, Any]]] = {}
     for row in rows:
         record = dict(row)
-        grouped.setdefault(int(record["item_id"]), []).append(record)
+        if not exclude_run_id or holder_covers_run(
+            conn,
+            holder_id=str(record["run_id"]),
+            run_id=exclude_run_id,
+            item_id=int(record["item_id"]),
+        ):
+            grouped.setdefault(int(record["item_id"]), []).append(record)
     return grouped
 
 
@@ -224,8 +201,7 @@ def _landing_shas(conn: Any, item_ids: Sequence[int]) -> dict[int, str]:
     from yoke_core.domain.delivery_evidence_ladder import item_merge_identity
 
     return {
-        int(item_id): item_merge_identity(conn, int(item_id))
-        for item_id in item_ids
+        int(item_id): item_merge_identity(conn, int(item_id)) for item_id in item_ids
     }
 
 
@@ -253,8 +229,7 @@ def _custody_for(
             run_status=str(newest["status"]),
             reason="this item records no landing commit to compare",
             recovery=(
-                "Record the item's merge identity through its close-out, then "
-                "retry."
+                "Record the item's merge identity through its close-out, then retry."
             ),
         )
     undetermined: LandingCustody | None = None

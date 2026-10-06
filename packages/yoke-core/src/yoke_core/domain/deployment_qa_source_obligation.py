@@ -6,7 +6,10 @@ from dataclasses import dataclass
 from typing import Any
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.deployment_item_completion_runs import completion_runs
+from yoke_core.domain.deployment_item_completion_runs import (
+    completion_runs,
+    latest_qa_member_run,
+)
 from yoke_core.domain.deployment_qa_admission_materialization import (
     admitted_requirement_identity_clause,
 )
@@ -109,7 +112,21 @@ def source_obligation_consumed(
     """
     # Containment-only releases prove delivery, but have no member-scoped QA
     # copy. Read the completion membership that actually admitted this source.
-    completion = latest_completion_run(conn, int(item_id), skip_terminal_failures=True)
+    from yoke_core.domain.deployment_member_post_deploy_admission import (
+        requirement_target_environment,
+    )
+
+    source_target = conn.execute(
+        "SELECT target_env,execution_target_json FROM qa_requirements WHERE id=%s AND item_id=%s",
+        (int(source_requirement_id), int(item_id)),
+    ).fetchone()
+    if source_target is None:
+        return False
+    completion = latest_qa_member_run(
+        conn,
+        item_id=int(item_id),
+        target_env=requirement_target_environment(source_target[0], source_target[1]),
+    )
     if completion is None:
         return False
     if completion["status"] != "succeeded":

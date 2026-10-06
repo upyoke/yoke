@@ -14,6 +14,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from yoke_core.domain.deployment_run_member_targeting import run_needs_member
 from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_item_flow_resolution import (
     completion_flow_refusal,
@@ -110,6 +111,7 @@ def carried_membership_refusal(
             for project_set in project_sets
             for entry in project_set.get("items") or []
             if item_requires_release_membership(conn, int(entry["item_id"]))
+            and run_needs_member(conn, run_id=run_id, item_id=int(entry["item_id"]))
         }
         - held_candidate_ids(conn, run_id, custody=custody)
         - removed_item_ids(conn, run_id)
