@@ -116,8 +116,12 @@ def point_at_replacement(conn: Any, failed_id: int, replacement_id: int) -> None
 
 def declare_existing_replacement(
     conn: Any, *, failed_id: int, replacement_id: int
-) -> dict[str, int | str]:
-    """Atomically attach an already-created direct case to a failed run case."""
+) -> dict[str, Any]:
+    """Atomically attach an already-created corrected case to a failed one.
+
+    A deployment-run case must belong to the run's executing stage; an item
+    case must share the failed row's item, transition and phase.
+    """
     failed = _row(conn, failed_id)
     corrected = _row(conn, replacement_id)
     if failed is None or corrected is None:
@@ -125,14 +129,12 @@ def declare_existing_replacement(
             f"failed requirement {failed_id} or corrected requirement "
             f"{replacement_id} is missing; inspect both with `yoke qa requirement get`"
         )
-    if not failed.get("deployment_run_id"):
-        raise QaReplacementError("direct replacement requires a deployment-run case")
     mismatches = same_scope(failed, corrected)
     if mismatches:
         raise QaReplacementError(
             f"corrected requirement {replacement_id} cannot replace {failed_id}: "
-            f"{'; '.join(mismatches)}. Bind it to the same run, stage, "
-            "member and pinned execution target."
+            f"{'; '.join(mismatches)}. Bind it to the same run, stage, member "
+            "and pinned execution target (or item, transition and phase)."
         )
     if str(corrected.get("blocking_mode") or "") != "blocking" or obligation_settled(
         corrected
@@ -140,14 +142,9 @@ def declare_existing_replacement(
         raise QaReplacementError(
             f"corrected requirement {replacement_id} must be an active blocking case"
         )
+    receipt = _existing_replacement_receipt(failed, replacement_id)
     if failed.get("replacement_requirement_id") == replacement_id:
-        return {
-            "requirement_id": failed_id,
-            "replacement_requirement_id": replacement_id,
-            "deployment_run_id": str(failed["deployment_run_id"]),
-            "deployment_stage": str(failed["deployment_stage"]),
-            "deployment_member_item_id": failed.get("deployment_member_item_id"),
-        }
+        return receipt
     if obligation_settled(failed) or failed.get("replacement_requirement_id"):
         raise QaReplacementError(
             f"requirement {failed_id} is settled or already replaced; "
@@ -156,36 +153,53 @@ def declare_existing_replacement(
     if latest_verdict(conn, failed_id) not in _REPLACEABLE_DEPLOYMENT_VERDICTS:
         raise QaReplacementError(
             f"requirement {failed_id} has no fail or error verdict; "
-            "run its admitted case before correction and replace only a case "
-            "that failed or could not be judged."
+            "run the case before correction and replace only a case that "
+            "failed or could not be judged."
         )
     if latest_verdict(conn, replacement_id):
         raise QaReplacementError(
             f"corrected requirement {replacement_id} already has a verdict; "
             "use ordinary supersession after a pass or create a fresh case"
         )
-    run = query_one(
-        conn,
-        "SELECT status,current_stage FROM deployment_runs WHERE id=%s FOR UPDATE",
-        (str(failed["deployment_run_id"]),),
-    )
-    if (
-        run is None
-        or run["status"] != "executing"
-        or run["current_stage"] != failed["deployment_stage"]
-    ):
-        raise QaReplacementError(
-            f"run {failed['deployment_run_id']} is not executing stage "
-            f"{failed['deployment_stage']}; inspect the run before correction"
+    if failed.get("deployment_run_id"):
+        run = query_one(
+            conn,
+            "SELECT status,current_stage FROM deployment_runs WHERE id=%s FOR UPDATE",
+            (str(failed["deployment_run_id"]),),
         )
+        if (
+            run is None
+            or run["status"] != "executing"
+            or run["current_stage"] != failed["deployment_stage"]
+        ):
+            raise QaReplacementError(
+                f"run {failed['deployment_run_id']} is not executing stage "
+                f"{failed['deployment_stage']}; inspect the run before correction"
+            )
     point_at_replacement(conn, failed_id, replacement_id)
-    return {
-        "requirement_id": failed_id,
-        "replacement_requirement_id": replacement_id,
-        "deployment_run_id": str(failed["deployment_run_id"]),
-        "deployment_stage": str(failed["deployment_stage"]),
-        "deployment_member_item_id": failed.get("deployment_member_item_id"),
+    return receipt
+
+
+def _existing_replacement_receipt(
+    failed: Mapping[str, Any], replacement_id: int
+) -> dict[str, Any]:
+    """The declaration receipt, in the failed row's own subject columns."""
+    receipt: dict[str, Any] = {
+        "requirement_id": int(failed["id"]),
+        "replacement_requirement_id": int(replacement_id),
     }
+    if failed.get("deployment_run_id"):
+        receipt.update(
+            deployment_run_id=str(failed["deployment_run_id"]),
+            deployment_stage=str(failed["deployment_stage"]),
+            deployment_member_item_id=failed.get("deployment_member_item_id"),
+        )
+    else:
+        receipt.update(
+            item_id=failed.get("item_id"),
+            workflow_transition_id=failed.get("workflow_transition_id"),
+        )
+    return receipt
 
 
 def declare_replacements(

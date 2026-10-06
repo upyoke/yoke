@@ -11,6 +11,7 @@ from yoke_core.domain.deployment_qa_frozen_plan_selection import (
     member_requirements,
 )
 from yoke_core.domain.qa_deployment_case_content_refresh import (
+    base_case_key,
     declare_refreshed_replacements,
     refreshed_case_keys,
 )
@@ -120,7 +121,7 @@ def _existing_rows(
 ) -> list[dict[str, Any]]:
     return query_rows(
         conn,
-        "SELECT id,execution_target_json,execution_target_digest "
+        "SELECT id,plan_case_key,execution_target_json,execution_target_digest "
         "FROM qa_requirements WHERE deployment_run_id=%s "
         "AND deployment_stage=%s "
         "AND COALESCE(deployment_member_item_id,0)=%s AND plan_id=%s "
@@ -144,6 +145,7 @@ def materialize_deployment_qa_stage(
     agent_plan: str | None = None,
     commit: bool = True,
     replacement_keys: set[str] | None = None,
+    replaced_requirement_ids: frozenset[int] = frozenset(),
 ) -> dict[str, Any]:
     """Create concrete scoped cases from the run's immutable snapshots."""
     subject = deployment_qa_stage_subject(
@@ -222,8 +224,14 @@ def materialize_deployment_qa_stage(
                 plan_id=plan_id,
                 execution_target_digest=target_digest(target),
                 cases=[dict(case) for case in snapshot["cases"]],
+                explicitly_replaced=replaced_requirement_ids,
             )
-            if rows and not refreshed:
+            materialized_keys = {base_case_key(row["plan_case_key"]) for row in rows}
+            added = any(
+                str(case["case_key"]) not in materialized_keys
+                for case in snapshot["cases"]
+            )
+            if rows and not refreshed and not added:
                 existing.extend(
                     require_existing_target(
                         rows,
@@ -240,13 +248,15 @@ def materialize_deployment_qa_stage(
             for case_value in snapshot["cases"]:
                 case = dict(case_value)
                 if rows:
-                    # Already-materialized plan: only the cases whose content
-                    # changed after their row stopped answering get a fresh
-                    # row, and they take a key distinct from the frozen one.
+                    # Already-materialized plan: a case added since gets its
+                    # first row under its own key; of the rest, only a case
+                    # whose content changed after its row stopped answering
+                    # gets a fresh row, keyed apart from the frozen one.
                     fresh_key = refreshed.get(str(case["case_key"]))
-                    if fresh_key is None:
+                    if fresh_key is not None:
+                        case["case_key"] = fresh_key
+                    elif str(case["case_key"]) in materialized_keys:
                         continue
-                    case["case_key"] = fresh_key
                 raw_baselines = case.get("host_baselines") or []
                 baselines = (
                     list(raw_baselines)

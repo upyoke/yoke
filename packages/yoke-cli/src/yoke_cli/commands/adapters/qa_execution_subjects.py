@@ -23,7 +23,10 @@ from yoke_cli.transport.dispatcher import (
     call_dispatcher,
     emit_response,
 )
-from yoke_cli.commands.adapters.qa_catalog_usage import PLAN_REMATERIALIZE_EPILOG
+from yoke_cli.commands.adapters.qa_catalog_usage import (
+    PLAN_MATERIALIZE_EPILOG,
+    PLAN_REMATERIALIZE_EPILOG,
+)
 from yoke_cli.qa_artifact_download import ArtifactDownloadError, download_artifact
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.qa_artifact_image_view import (
@@ -52,6 +55,8 @@ def qa_plan_materialize_for_item(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa plan materialize",
         description=usage,
+        epilog=PLAN_MATERIALIZE_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     subject = parser.add_mutually_exclusive_group(required=True)
     subject.add_argument("--item")

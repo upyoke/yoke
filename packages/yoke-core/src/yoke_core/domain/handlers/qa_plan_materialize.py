@@ -115,7 +115,9 @@ def handle_materialize(request: FunctionCallRequest) -> HandlerOutcome:
                     from yoke_core.domain.deployment_qa_stage_materialization import (
                         materialize_deployment_qa_stage,
                     )
-                    from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
+                    from yoke_core.domain.item_ref_resolution import (
+                        resolve_item_ref_or_none,
+                    )
 
                     member_id = (
                         resolve_item_ref_or_none(conn, payload.deployment_member)
@@ -134,7 +136,12 @@ def handle_materialize(request: FunctionCallRequest) -> HandlerOutcome:
                         deployment_stage=payload.deployment_stage,
                         deployment_member_item_id=member_id,
                         agent_plan=payload.plan,
-                        replacement_keys={entry.case_key for entry in payload.replacements},
+                        replacement_keys={
+                            entry.case_key for entry in payload.replacements
+                        },
+                        replaced_requirement_ids=frozenset(
+                            entry.requirement_id for entry in payload.replacements
+                        ),
                         commit=not payload.replacements,
                     )
                 else:
@@ -210,8 +217,7 @@ def handle_rematerialize(request: FunctionCallRequest) -> HandlerOutcome:
         if not payload.deployment_stage:
             return _error(
                 "payload_invalid",
-                "qa.plan.rematerialize on a deployment run requires "
-                "deployment_stage",
+                "qa.plan.rematerialize on a deployment run requires deployment_stage",
                 "$.payload.deployment_stage",
             )
     else:
@@ -230,7 +236,9 @@ def handle_rematerialize(request: FunctionCallRequest) -> HandlerOutcome:
                     transition_id=str(payload.transition_id),
                 )
             else:
-                from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
+                from yoke_core.domain.item_ref_resolution import (
+                    resolve_item_ref_or_none,
+                )
 
                 member_id = (
                     resolve_item_ref_or_none(conn, payload.deployment_member)

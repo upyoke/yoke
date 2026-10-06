@@ -43,10 +43,12 @@ _EPILOG = (
     "answered by the named case. Order matters: record the replacement's "
     "passing verdict FIRST -- run its case, or submit the review bundle that "
     "settles it -- and supersede after. A replacement with no recorded pass "
-    "yet is refused. For a failed admitted case with a corrected direct "
+    "yet is refused. For a failed case -- an admitted run case, or an item "
+    "case of the same item, transition and phase -- with a corrected "
     "requirement already created, --declare-replacement atomically links "
     "that pending blocking case, skips the failed capture in the scoped "
-    "roster, and wakes its holder. A pass then supersedes automatically. "
+    "roster, and wakes a run case's holder. A pass then supersedes "
+    "automatically. "
     "A case that has not yet recorded a "
     "determinate verdict is still correctable in place with "
     "'yoke qa requirement update' -- supersession is for one that has already "
@@ -121,7 +123,8 @@ def qa_requirement_supersede(args: List[str]) -> int:
         help="Supersession authority source.",
     )
     parser.add_argument(
-        "--declare-replacement", action="store_true",
+        "--declare-replacement",
+        action="store_true",
         help="Link a pending corrected direct case before its pass; the scoped plan runner executes it.",
     )
     add_session_arg(parser)
@@ -146,9 +149,7 @@ def qa_requirement_supersede(args: List[str]) -> int:
             qa_requirement_id=int(parsed.requirement_id),
         ),
         payload={
-            "superseded_by_requirement_id": int(
-                parsed.superseded_by_requirement_id
-            ),
+            "superseded_by_requirement_id": int(parsed.superseded_by_requirement_id),
             "rationale": rationale,
             "source": parsed.source,
             "declare_replacement": parsed.declare_replacement,

@@ -30,6 +30,8 @@ class QaRequirementSupersedeResponse(BaseModel):
     deployment_run_id: Optional[str] = None
     deployment_stage: Optional[str] = None
     deployment_member_item_id: Optional[int] = None
+    item_id: Optional[int] = None
+    workflow_transition_id: Optional[str] = None
     correction_notice: Optional[dict[str, str]] = None
     #: Present only when the discharged row was an admitted copy whose intake
     #: requirement is still outstanding, because supersession is run-local and
@@ -68,11 +70,18 @@ def handle_qa_requirement_supersede(
         try:
             if body.declare_replacement:
                 declared = declare_existing_replacement(
-                    conn, failed_id=int(req_id),
+                    conn,
+                    failed_id=int(req_id),
                     replacement_id=int(body.superseded_by_requirement_id),
                 )
                 conn.commit()
-                from yoke_core.domain.deployment_qa_correction_notice import notify_correction
+                if not declared.get("deployment_run_id"):
+                    # An item case has no run holder to wake; the gate that
+                    # grades it re-reads the declaration on its next pass.
+                    return HandlerOutcome(result_payload=declared, primary_success=True)
+                from yoke_core.domain.deployment_qa_correction_notice import (
+                    notify_correction,
+                )
 
                 try:
                     notice = notify_correction(
@@ -80,12 +89,14 @@ def handle_qa_requirement_supersede(
                     )
                 except Exception as exc:  # declaration already committed
                     conn.rollback()
-                    notice = {"delivery": "failed", "recovery":
-                              f"Correction is durable but wake failed: {exc}. Run "
-                              f"`yoke watch qa-plan -- --deployment-run-id "
-                              f"{declared['deployment_run_id']} --stage "
-                              f"{declared['deployment_stage']} --member "
-                              f"{declared['deployment_member_item_id']}`."}
+                    notice = {
+                        "delivery": "failed",
+                        "recovery": f"Correction is durable but wake failed: {exc}. Run "
+                        f"`yoke watch qa-plan -- --deployment-run-id "
+                        f"{declared['deployment_run_id']} --stage "
+                        f"{declared['deployment_stage']} --member "
+                        f"{declared['deployment_member_item_id']}`.",
+                    }
                 return HandlerOutcome(
                     result_payload={**declared, "correction_notice": notice},
                     primary_success=True,

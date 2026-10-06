@@ -207,6 +207,8 @@ Terminal settlement ignores a closed, verdict-less run only when its superseding
 
 Issue and epic items must have materialized item-level requirements before entering the QA-gated review lane. The shepherd skill or seeded defaults attach these during item definition.
 
+Materializing again after the plan changed converges added cases: `yoke qa plan materialize` gives every case the plan has gained its row and confirms existing rows without rewriting them. `yoke qa plan rematerialize` converges the rest in one pass: amended rows are refreshed in place, cases the plan lost are waived, and `plan_ids` names every plan the call reached — including a plan a delivery already answered, whose existing rows still come current though it gains no new row. On a deployment stage it converges case by case, so an answered sibling never blocks the rest: unjudged rows refresh, a failed case whose content changed gets one corrected row declared its replacement, and a passed case stands. A case already carried by an explicit `--replaces` declaration gets no second, automatic correction. Depth: `yoke qa plan materialize --help`, `yoke qa plan rematerialize --help`.
+
 ### Epic Task Requirements
 
 Epic tasks may carry task-level requirements for task execution and verification. Task-level blocking requirements gate that task's `reviewed-implementation` and `done` transitions. Epic tasks mirror parent epic statuses including `release` — tasks cascade through `release` when the parent epic enters the release phase.

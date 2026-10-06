@@ -1,9 +1,9 @@
 """Refreshing an already-materialized deployment stage from its plan.
 
 A materialized case is unique per subject and target, so a corrected plan
-case cannot arrive as a second row. Refreshing in place is the way through,
-and it stops at the line a run-bound case draws: a case that has answered is
-an acceptance record, not a draft.
+case cannot arrive as a second row under its own key. Refreshing an unjudged
+case in place is the way through; how an answered sibling converges beside it
+is covered in ``test_qa_plan_rematerialize_convergence``.
 """
 
 from __future__ import annotations
@@ -14,7 +14,6 @@ import pytest
 
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
     ITEM_QA_STAGE,
-    record_case_verdict,
     seed_member_qa_case,
 )
 from yoke_contracts.api.function_call import (
@@ -35,10 +34,6 @@ MEMBER = 9811
 
 def _seed(conn, run_id: str) -> int:
     return seed_member_qa_case(conn, run_id=run_id, member_item_id=MEMBER)
-
-
-def _record_verdict(conn, requirement_id: int, verdict: str, *, evidence: bool) -> int:
-    return record_case_verdict(conn, requirement_id, verdict, evidence=evidence)
 
 
 STAGE = ITEM_QA_STAGE
@@ -76,23 +71,6 @@ def test_rematerialize_refreshes_an_unanswered_deployment_case(test_db) -> None:
     assert str(row["instructions"]) == "run the corrected smoke command"
     # The frozen run keeps the target its stage receipt pinned.
     assert str(row["execution_target_digest"])
-
-
-def test_rematerialize_refuses_an_answered_deployment_case(test_db) -> None:
-    run_id = "run-rematerialize-answered"
-    requirement_id = _seed(test_db, run_id)
-    _record_verdict(test_db, requirement_id, "fail", evidence=False)
-    with pytest.raises(QaPlanError) as excinfo:
-        rematerialize_for_deployment_stage(
-            test_db,
-            deployment_run_id=run_id,
-            deployment_stage=STAGE,
-            deployment_member_item_id=MEMBER,
-        )
-    message = str(excinfo.value)
-    assert f"requirement #{requirement_id}" in message
-    assert "already recorded fail" in message
-    assert "yoke qa requirement supersede" in message
 
 
 def test_rematerialize_refuses_a_subject_with_no_materialized_cases(test_db) -> None:

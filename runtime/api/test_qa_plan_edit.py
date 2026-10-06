@@ -219,7 +219,8 @@ def test_empty_plan_cannot_attach_or_materialize() -> None:
     assert count == 0
 
 
-def test_materialized_plan_is_a_whole_plan_snapshot() -> None:
+def test_materializing_again_adds_rows_for_cases_the_plan_gained() -> None:
+    """An existing row is confirmed, and a case added since gets its own row."""
     with test_database() as conn:
         first_item = insert_item(conn, id=42, workflow_id="issue")
         second_item = insert_item(conn, id=43, project_sequence=43, workflow_id="issue")
@@ -255,7 +256,7 @@ def test_materialized_plan_is_a_whole_plan_snapshot() -> None:
         )
 
     assert len(first["created_requirement_ids"]) == 1
-    assert again["created_requirement_ids"] == []
+    assert len(again["created_requirement_ids"]) == 1
     assert again["existing_requirement_ids"] == first["created_requirement_ids"]
     assert len(fresh["created_requirement_ids"]) == 2
 
