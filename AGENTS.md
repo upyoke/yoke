@@ -141,7 +141,7 @@ Observe → `ouroboros_entries` → `/yoke curate` → `/yoke doctor` → `/yoke
 - Canonical guide: `.yoke/docs/reference/lifecycle.md`. Each item pins immutable `workflow_id` / `workflow_version_id`; that definition owns stages, transitions, gates, policies, entry surfaces, skill bindings.
 - **Never route by a remembered workflow name or copied progression.** Read `yoke workflows item get PREFIX-N`, then `yoke workflows version get WORKFLOW VERSION`; the binding whose half-open interval contains the live stage selects `/yoke <skill_id>`.
 - A binding's `through_stage_id` is a fresh command and claim handoff. Worktree and task-graph shape come from `policies.worktrees` and `policies.generated_children`, not from a workflow-id branch.
-- **Harness capability truth lives in the manifest,** `runtime/harness/<harness-dir>/manifest.json` (`claude`, `codex`, or `cursor`; executor `claude-code` uses `claude`; contract: `runtime/harness/manifest-schema.md`). Read it before stating what a harness can do; never restate one of its facts in prose.
+- **Harness capability truth lives in the manifest.** Read the harness manifest from the product source for the installed release before stating what it can do; never restate its facts on prose authority. Product-source path: `runtime/harness/<harness-dir>/manifest.json` (`claude`, `codex`, or `cursor`; executor `claude-code` uses `claude`).
 
 ## Worktree Discipline
 - **NEVER use `--no-worktree` unless the user explicitly asks. NEVER write implementation code on main.**
@@ -168,7 +168,7 @@ Observe → `ouroboros_entries` → `/yoke curate` → `/yoke doctor` → `/yoke
 - **Simulate before executing** — trace with real values. **Verify after executing** — never assume success. **Fear unintended effects** — do one, verify, then batch.
 
 ## Destructive Operation Discipline
-- **Never run `git reset --hard`, `git checkout --`, `git checkout -f <branch>`, `git restore --worktree`, `git clean -f`/`-fd`/`-fdx`, `git stash drop`, `git stash clear`, or `rm` on files** unless confirmed Yoke-managed or user-authorized. These silently discard tracked-but-uncommitted changes, untracked files, or saved stashes — one incident wiped a parallel agent's work in the same worktree. Commit or stash first, or use a non-destructive verb.
+- **Never run `git reset --hard`, `git checkout --`, `git checkout -f <branch>`, `git restore --worktree`, `git clean -f`/`-fd`/`-fdx`, `git stash drop`, `git stash clear`, or `rm` on files** unless confirmed Yoke-managed or user-authorized. These silently discard tracked-but-uncommitted changes, untracked files, or saved stashes. Commit or stash first, or use a non-destructive verb.
 - **`git stash push`: `-m` MUST come BEFORE `--`** — everything after `--` is a pathspec, so a message flag there is silently eaten as a filename. Safe: `git stash push -u -m "reason" -- <paths>`.
 - **User messages mid-sequence are checkpoints** — stop and answer first. Lint modes: `lanes-and-claims.md`.
 
@@ -181,6 +181,7 @@ Observe → `ouroboros_entries` → `/yoke curate` → `/yoke doctor` → `/yoke
 <!-- END YOKE MANAGED BLOCK -->
 # Yoke Repo Internals
 <!-- Not shipped. -->
+- Source-maintainer manifest contract: `runtime/harness/manifest-schema.md`.
 - **Sync install-bundle edits in this Yoke source checkout — this file included — in the same commit:** author docs under `docs/public/`; run `yoke dev run -- python3 -m yoke_core.domain.install_bundle_tree_sync sync --target-root <checkout>`, then stage every changed path. Byte drift fails CI.
 ## Source-Dev Doctrine
 [`docs/source-dev-doctrine.md`](docs/source-dev-doctrine.md). **Read it before a test selection, release, render, deploy, preflight, or cleanup.**

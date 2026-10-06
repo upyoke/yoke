@@ -46,7 +46,7 @@ CLAIMS_COMMANDS: list[dict] = [
             "--reason draft-in-progress\n"
             "yoke claims work acquire --epic-id 833 --task-num 5 "
             "--reason engineer-dispatch\n"
-            "yoke claims work acquire --process DOCTOR --project yoke "
+            "yoke claims work acquire --process DOCTOR --project P "
             "--reason scheduled-run"
         ),
         "notes": (

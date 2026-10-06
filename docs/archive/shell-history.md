@@ -1,5 +1,10 @@
 # Shell Scripts Reference — Historical Archive
 
+> Historical record. Source names and procedures below describe the recorded
+> implementation, including retired files; they are not current execution paths.
+> See [archive usage](README.md) for the current authority.
+
+
 > **This file is the historical shell reference for Yoke. All scripts listed here have been deleted and replaced by Python entrypoints. See `docs/scripts.md` for the current Python entrypoints table.**
 
 ---
@@ -356,7 +361,7 @@ Key behavior:
 
 ## Harness Adapter Surfaces
 
-Python entrypoints under `runtime/api/domain/` plus the data artifacts under `runtime/harness/{harness-id}/` together provide thin adapter layers for non-Claude harnesses. They are launchers and capability manifests, not shell CLIs — they bootstrap orientation and emit the identity contract that later `/yoke` commands consume. See [harness-adapter-template.md](harness-adapter-template.md) for the five-part adapter contract and [hook-parity-map.md](hook-parity-map.md) for hook availability by harness. All Codex adapter shell scripts (`yoke-entry.sh`, `bootstrap-helper.sh`, `resolve-model.sh`, `hooks/*.sh`, `open-app.sh`) were retired in the zero-shell waves (YOK-1300, YOK-1361..YOK-1371); the entries below are the only sanctioned Codex entry surfaces today.
+Python entrypoints under `runtime/api/domain/` plus the data artifacts under `runtime/harness/{harness-id}/` together provide thin adapter layers for non-Claude harnesses. They are launchers and capability manifests, not shell CLIs — they bootstrap orientation and emit the identity contract that later `/yoke` commands consume. See [harness-adapter-template.md](../harness-adapter-template.md) for the five-part adapter contract and [hook-parity-map.md](../hook-parity-map.md) for hook availability by harness. All Codex adapter shell scripts (`yoke-entry.sh`, `bootstrap-helper.sh`, `resolve-model.sh`, `hooks/*.sh`, `open-app.sh`) were retired in the zero-shell waves (YOK-1300, YOK-1361..YOK-1371); the entries below are the only sanctioned Codex entry surfaces today.
 
 ### runtime/harness/bootstrap-spec.json
 
@@ -386,7 +391,7 @@ Python entrypoints under `runtime/api/domain/` plus the data artifacts under `ru
 
 ### .codex/hooks.json
 
-**Purpose:** Codex hook configuration file (analogous to `.claude/settings.json` hooks). Maps the current Codex hook registrations (`SessionStart`, `UserPromptSubmit`, `PreToolUse` with Bash matcher, `PostToolUse` with Bash matcher, `PostToolUseFailure`, `Stop`) to the Python hook dispatch above via `python3 -m runtime.harness.codex.codex_hooks <event>`. The tested-vs-untested split lives in [hook-parity-map.md](hook-parity-map.md); `Stop` is wired here but is not part of the verified Codex parity slice.
+**Purpose:** Codex hook configuration file (analogous to `.claude/settings.json` hooks). Maps the current Codex hook registrations (`SessionStart`, `UserPromptSubmit`, `PreToolUse` with Bash matcher, `PostToolUse` with Bash matcher, `PostToolUseFailure`, `Stop`) to the Python hook dispatch above via `python3 -m runtime.harness.codex.codex_hooks <event>`. The tested-vs-untested split lives in [hook-parity-map.md](../hook-parity-map.md); `Stop` is wired here but is not part of the verified Codex parity slice.
 
 ---
 
@@ -836,7 +841,7 @@ Key behavior:
 ### harness-sessions-db.sh
 **Input:** `<subcommand> [args]`
 **Also accessible via:** `yoke-db.sh harness-sessions <subcommand>`
-**Purpose:** SQLite CRUD wrapper for the `harness_sessions` and `work_claims` tables. Manages session lifecycle (`begin`, `touch`, `end`) and work-unit ownership (claim, release, query). Parallel consumer alongside the API endpoints in `runtime/api/main.py`. POSIX sh, uses `sqlite3`.
+**Purpose:** SQLite CRUD wrapper for the `harness_sessions` and `work_claims` tables. Manages session lifecycle (`begin`, `touch`, `end`) and work-unit ownership (claim, release, query). Parallel consumer alongside the API endpoints in `packages/yoke-core/src/yoke_core/api/main.py`. POSIX sh, uses `sqlite3`.
 
 Subcommands -- session lifecycle:
 - `begin <session-id> <executor> <provider> <model> <workspace> [lane] [mode]` -- Register a new session with identity fields. Sets `offered_at` and initial `last_heartbeat`.
@@ -1163,7 +1168,7 @@ Scope: defines the lifecycle for the SOFTWARE DELIVERY workflow family only. Sha
 
 ### approval-vocabulary.sh
 **Input:** Library — source this file; do not execute directly.
-**Purpose:** Generated compatibility adapter over `runtime/api/domain/approval.py` (YOK-1113). Provides shell-callable constants for approval halt states, approval actions, stage authority ownership, and the distinction between Yoke-handled and external approval paths. The Python module is the canonical source of truth. Applies across all workflow families.
+**Purpose:** Generated compatibility adapter over `packages/yoke-core/src/yoke_core/domain/approval.py` (YOK-1113). Provides shell-callable constants for approval halt states, approval actions, stage authority ownership, and the distinction between Yoke-handled and external approval paths. The Python module is the canonical source of truth. Applies across all workflow families.
 
 ## Classification & Validation Helpers
 
@@ -1290,7 +1295,7 @@ Key behavior:
 
 ### service-client.sh
 **Input:** `<subcommand> [args]`
-**Purpose:** Shell adapter for the Python domain layer. Thin wrapper that delegates correctness-critical decisions to the Yoke Python service via `runtime/api/service_client.py`.
+**Purpose:** Shell adapter for the Python domain layer. Thin wrapper that delegates correctness-critical decisions to the Yoke Python service via `packages/yoke-core/src/yoke_core/api/service_client.py`.
 
 Subcommands:
 - `approve-check <flow-id> <current-stage>` — Check if stage requires approval

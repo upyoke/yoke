@@ -44,7 +44,7 @@ Treat a cluster of recipe gaps as a candidate recipe edit — repair the recipe 
 **Events enrichment is a narrow lookup, not a sweep.** The events table is large enough that an unbounded query exceeds the statement timeout and comes back as a gateway error. When a cluster needs corroborating telemetry, ask for one event name over a short window with an explicit project and limit:
 
 ```bash
-yoke events query --event-name {EventName} --project yoke --since "2 days ago" --limit 20
+yoke events query --event-name {EventName} --project P --since "2 days ago" --limit 20
 ```
 
 Widen the window only after the narrow query returns something worth chasing. Do not use `yoke events anomalies` over a multi-day window as a browsing step — it returns full envelopes and floods the session.

@@ -7,6 +7,11 @@ retired-without-apply: false
 
 # Retirement decision — drop `subagent_dispatch_pending` table
 
+> Historical record. Source names and procedures below describe the recorded
+> implementation, including retired files; they are not current execution paths.
+> See [archive usage](../README.md) for the current authority.
+
+
 ## Why this exists
 
 The `subagent_dispatch_pending` table was authored to record one row per Codex subagent dispatch so the dispatched child's first hook fire could atomically consume it and inherit the parent's `actor_id` + `execution_lane` via `parent_session_id`. The model assumed Codex `agent:` dispatch spawns each subagent as a separate thread carrying its own `thread_id` that becomes a fresh `YOKE_SESSION_ID`. The dispatch-rendering helper documented this assumption explicitly: *"Codex has no per-subagent env injection at the parent→child boundary."*

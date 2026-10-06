@@ -120,18 +120,18 @@ Adding a new retirement: the governed cutover lands first (authoritative DB no l
 |---|---|---|
 | `items` | `yoke_core.api.service_client_items` / `yoke_core.api.service_client backlog-cli` | Backlog item CRUD and structured-field writes (`spec`, `design_spec`, `technical_plan`, `worktree_plan`, `shepherd_log`, `shepherd_caveats`, `test_results`, `deploy_log`) |
 | `epic` | `yoke_core.domain.epic` | Epic task management |
-| `sections` | `yoke_core.domain.item_sections` | Item sections CRUD (`item_sections` table) |
+| `sections` | `yoke_core.domain.sections` | Item sections CRUD (`item_sections` table) |
 | `shepherd` | `yoke_core.domain.shepherd` | Shepherd verdicts and dependency operations |
 | `projects` | `yoke_core.domain.projects` | Projects, sites, environments, capabilities |
-| `flows` | `yoke_core.domain.deployment_flows` | Deployment flow definitions |
+| `flows` | `yoke_core.domain.flow` | Deployment flow definitions |
 | `runs` | `yoke_core.domain.deployment_runs` | Deployment run lifecycle |
-| `envs` | `yoke_core.domain.envs` | Ephemeral environment lifecycle |
+| `envs` | `yoke_core.domain.ephemeral_env` | Ephemeral environment lifecycle |
 | `events` | `yoke_core.domain.events_crud` | Structured event logging and event registry |
 | `qa` | `yoke_core.domain.qa` | QA requirements, runs, and artifacts |
 | `release` | `yoke_core.domain.release_notes` | Release notes management |
 | `ouroboros` | `yoke_core.domain.ouroboros` | Learning loop entries and field-notes |
 | `query` | parameterized read-only SQL escape hatch | Raw SQL for exploratory reads — not for lifecycle mutations |
-| `init` | `yoke_core.engines.schema` | Initialize DB schema |
+| `init` | `yoke_core.domain.schema` | Initialize DB schema |
 | `help` | built-in | Print domain list or domain-specific subcommands |
 
 Run `yoke --help` to enumerate the registered product-facing commands.

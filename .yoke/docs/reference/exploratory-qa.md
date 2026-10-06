@@ -19,11 +19,11 @@ The built-in method has these immutable properties:
 | `runner_id` | `agent_mission` |
 | `verdict_path` | `agent` |
 | `concurrency_mode` | `serial` |
-| required capabilities | `browser-control`, `test-machine` |
+| required capabilities | `browser-control`, `macos-examplehine` |
 | case config | `{"executor":"informed_subagent"}` or `{"executor":"naive_target_session"}` |
 
 Capability declarations are provisioning authority, and the two kinds above
-resolve differently. `test-machine` is a project registration: materialization
+resolve differently. `macos-examplehine` is a project registration: materialization
 resolves it against the project capability rows, and admission refuses a
 mission whose project has registered no Test Machine. `browser-control` needs no project
 capability row, because this method's own runner is declared to supply it on
@@ -45,19 +45,19 @@ Write one case with broad instructions and an observable good outcome:
   "method_id": "exploratory-mission",
   "instructions": "Install as a new user, work through onboarding, and investigate confusing, broken, missing, or unsafe behavior using the terminal, browser, and visible desktop.",
   "expected_outcome": "Return a ranked actionable report, name what could not be verified and why, and return a precise handoff if a person must act.",
-  "method_config": {"executor": "naive_target_session", "machine": "test-mac-pro"},
+  "method_config": {"executor": "naive_target_session", "machine": "macos-example"},
   "host_baselines": ["fresh-host"]
 }
 ```
 
 Omit `machine` when any registered host can run the mission. When present, it
 is validated during plan authoring and becomes the case's durable
-`test-machine:<name>` capability constraint. Execution also reads the pin from
+`macos-examplehine:<name>` capability constraint. Execution also reads the pin from
 `method_config` for direct requirements and their admitted deployment copies;
 omitting `--machine` preserves that pin, and a conflicting run pin is refused.
 
 For a mission that needs two hosts at once, also declare
-`"machines":["linux-lab","test-mac"]` with `"machine":"test-mac"` naming the
+`"machines":["linux-example","macos-example"]` with `"machine":"macos-example"` naming the
 driving host. Every name must be registered and listed once. The plan runner
 acquires the complete set in sorted name order through each host's FIFO;
 contention releases partial acquisitions before waiting. Both leases remain
@@ -251,7 +251,7 @@ Agents complete setup and application steps that do not need the user.
 The user supplies personal credentials. Password, MFA, passkey and personal
 permission prompts return a human gate naming the machine and resume state.
 Prepare and restore saved browser profiles through the
-[Machine QA Pack per-OS procedures](../../../packs/machine-qa/versions/1.3.8/files/docs/packs/machine-qa/browser-profile-baseline.md).
+Machine QA Pack per-OS procedures at `docs/packs/machine-qa/browser-profile-baseline.md` (installed by the Machine QA Pack).
 The mission execution contract above governs every host command.
 
 ## Evidence Discipline

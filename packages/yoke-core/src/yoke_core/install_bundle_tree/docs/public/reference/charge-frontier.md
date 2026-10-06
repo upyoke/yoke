@@ -186,24 +186,15 @@ GET /v1/charge/frontier?project=yoke&wip_cap=30
 }
 ```
 
-### Service Client CLI (operator/debug adapter)
+### Registered frontier read
 
-```bash
-python3 -m yoke_core.api.service_client charge-frontier \
- --project yoke \
- --wip-cap 5
+`frontier.list` serves the ranked frontier. Adapter:
+
+```text
+yoke frontier list --project P --wip-cap 5 --json
 ```
 
-Outputs the same JSON structure as the REST endpoint. The service client resolves the canonical Yoke DB from main-repo and worktree contexts. This is the retained operator/debug adapter for the `GET /v1/charge/frontier` route; agents reading the frontier in-process call the typed dataclass return from `yoke_core.domain.frontier.compute_frontier` directly. Yoke control-plane mutations (claim acquire/release, item structured-field writes, lifecycle transitions, DB-claim amendments) route through the function-call surface — see [`.yoke/docs/reference/db-reference/functions.md`](db-reference/functions.md) and render the operator-readable Atlas locally with `python3 -m yoke_core.tools.atlas_render_docs render`. External tooling (git, pytest, package managers, `rg` / `grep`) stays command-shaped under the permanent-boundary classification.
-
-### Domain Function
-
-```python
-from yoke_core.domain.frontier import compute_frontier
-
-result = compute_frontier(conn, project="yoke", wip_cap=30)
-# result is a FrontierResult dataclass
-```
+Read `yoke frontier list --help` for available filters.
 
 ## Charge Dispatch Flow
 

@@ -1,5 +1,10 @@
 # `portability_baseline_2026_04` applied to the live DB post-YOK-1476
 
+> Historical record. Source names and procedures below describe the recorded
+> implementation, including retired files; they are not current execution paths.
+> See [archive usage](../README.md) for the current authority.
+
+
 ## Context
 
 YOK-1476 landed the portable-DDL baseline (no `AUTOINCREMENT`, no
@@ -62,7 +67,7 @@ YOK-1476 amendment.
 ## Consequences
 
 - **Cutover-ready:** the live DB's DDL now matches the portable baseline in
-  `runtime/api/domain/schema.py`. A future Postgres cutover no longer has to
+  `packages/yoke-core/src/yoke_core/domain/schema.py`. A future Postgres cutover no longer has to
   discover and rewrite SQLite-specific DDL mid-migration.
 - **`migration_audit` remains a known exception.** A later one-shot
   migration (running outside `GovernedMigration`, since it'd be rebuilding

@@ -74,6 +74,6 @@ The following shell usage in skills is legitimate and explicitly outside the pro
 ## Acceptance Summary
 
 - AC-1: On `main`, tracked shell count is zero.
-- AC-2: Proof coverage exists in [test_zero_shell_proof.py](/Users/dev/yoke/runtime/api/test_zero_shell_proof.py).
+- AC-2: Proof coverage exists in [test_zero_shell_proof.py](../../runtime/api/test_zero_shell_proof.py).
 - AC-3: This document records the exact commands, results, and commit lineage.
 - AC-4: Top-level operator docs now point to Python entrypoints instead of repo-tracked shell commands.

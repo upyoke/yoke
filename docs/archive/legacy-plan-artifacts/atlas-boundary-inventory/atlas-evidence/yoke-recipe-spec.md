@@ -34,7 +34,7 @@
 
 1. **Recipe field carries the complete copy-paste sequence with concrete `YOK-1791`-style values.** No `<placeholders>`. The agent edits the literal in one pattern-match operation.
 2. **Notes field ≤ one line.** Reserved for "when to use" — never for "what it does," "what it replaces," or "what gates apply." Cap: 120 chars.
-3. **Multi-line recipes** are first-class. Use `"\n".join(...)` in the dict literal. The renderer at [schema_api_context_render.py:118-128](runtime/api/domain/schema_api_context_render.py:118) handles them.
+3. **Multi-line recipes** are first-class. Use `"\n".join(...)` in the dict literal. The renderer at [schema_api_context_render.py:118-128](../../../../../packages/yoke-core/src/yoke_core/domain/schema_api_context_render.py) handles them.
 4. **Multi-step workflows ship as one entry,** not multiple. Cancel = claim + transition + release in one recipe block.
 5. **Existing prose-heavy entries get rewritten in place.** Inventoried below in the "Transforms" section.
 
@@ -42,7 +42,7 @@
 
 # Section 1 — New Recipes (workflows not currently taught)
 
-## Target file: `runtime/api/domain/schema_api_context_commands_core_operational.py`
+## Target file: `packages/yoke-core/src/yoke_core/domain/schema_api_context_commands_core_operational.py`
 
 ### R-OP-01: Cancel a ticket (terminal-exceptional transition)
 
@@ -84,7 +84,7 @@
 
 **Status:** VETTED-LIVE — verified against YOK-1798 via full claim → HTTP → release sequence at 2026-05-20.
 **Verified envelope shape:** port **8765** (not 8000); `actor.actor_id` is REQUIRED and must be a **string**; payload fields are `headline` + `content` + optional `source` (NOT `body`).
-**Adapter inventory at** [service_client_structured_api_adapter_inventory.py:69-75](runtime/api/service_client_structured_api_adapter_inventory.py:69) — names `sections upsert` as CLI, but that adapter is DESTRUCTIVE (overwrites entire section). True append uses HTTP.
+**Adapter inventory at** [service_client_structured_api_adapter_inventory.py:69-75](../../../../../packages/yoke-core/src/yoke_core/api/service_client_structured_api_adapter_inventory.py) — names `sections upsert` as CLI, but that adapter is DESTRUCTIVE (overwrites entire section). True append uses HTTP.
 
 ```python
 {
@@ -463,7 +463,7 @@ These entries exist today but the recipe is abstract / placeholder-heavy and the
 
 # Section 3 — Additional Recipes from Telemetry Sweep (Explore agent returned)
 
-## Target file: `runtime/api/domain/schema_api_context_commands_core_operational.py` (additions)
+## Target file: `packages/yoke-core/src/yoke_core/domain/schema_api_context_commands_core_operational.py` (additions)
 
 ### R-OP-06: Session lifecycle commands (offer / heartbeat / checkpoint / touch / end)
 
@@ -713,7 +713,7 @@ This is the canonical answer to the 1,520 `lint-shell-quoted-function-payload` d
 
 ## F-04: `items.progress_log.append` payload fields are `headline` + `content` + optional `source`
 
-Not `body`. Both the Explore agent and the prior 12-cluster analysis got this wrong. Verified by reading [handlers/items_progress_log.py](runtime/api/domain/handlers/items_progress_log.py) `AppendRequest` model.
+Not `body`. Both the Explore agent and the prior 12-cluster analysis got this wrong. Verified by reading [handlers/items_progress_log.py](../../../../../packages/yoke-core/src/yoke_core/domain/handlers/items_progress_log.py) `AppendRequest` model.
 
 ## F-05: Even read-only commands trip `lint-shell-quoted-function-payload` when separated by `echo`
 

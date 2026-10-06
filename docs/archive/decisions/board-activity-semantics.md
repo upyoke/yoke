@@ -1,5 +1,10 @@
 # B8 board-activity semantics: full-history backfill, reduced go-forward
 
+> Historical record. Source names and procedures below describe the recorded
+> implementation, including retired files; they are not current execution paths.
+> See [archive usage](../README.md) for the current authority.
+
+
 ## Decision
 
 The board's lifetime-activity, streak, and velocity metrics read the

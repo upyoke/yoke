@@ -1,5 +1,10 @@
 # board-activity-state-cutover — combined applier for the five B8 additive modules
 
+> Historical record. Source names and procedures below describe the recorded
+> implementation, including retired files; they are not current execution paths.
+> See [archive usage](../README.md) for the current authority.
+
+
 - **Decision date:** 2026-06-12
 - **Exception path:** `runtime/api/tools/apply_board-activity-state-cutover.py` →
   `record_audit_fingerprint(name="board-activity-state-cutover", ...)`

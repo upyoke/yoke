@@ -13,9 +13,8 @@
 Composed by the implementation-entry engine after preflight gates pass and
 before the worktree phase. Closes the seam between the path-claim-required gate
 (declared at idea/refine time) and the worktree door-lock check (which
-refuses anything not in `state='active'`). Operators previously had to
-discover by runtime error that activation was a separate manual step;
-this phase performs it automatically.
+refuses anything not in `state='active'`). This phase activates the selected
+claims automatically before worktree preparation.
 
 **Context variables** (set by `entry.md`): `{N}`, `_worktree_policy`,
 `_current_executor`, `_status`, `_target`, `_item_project`, `--force` flag

@@ -1,4 +1,4 @@
-# Write-Time Isolation & Querying Guidance
+# Write-Time Isolation & Querying Guidance (internal)
 
 Cross-link back from [event-contract.md](../event-contract.md) for the envelope structure, registry rules, and reserved-field conventions that surround these isolation rules.
 
@@ -50,7 +50,7 @@ The doctor `HC-synthetic-event-contamination` check excludes `synthetic_smoke` r
 
 ## Legacy / Defense-in-Depth: Query-Time Filter
 
-> Previously the only guardrail was a query-time filter. It is preserved here for historical ledger reads (rows emitted before write-time isolation landed) and for forensics. For new code, prefer the write-time contract above.
+> Write-time isolation is the primary contract. For forensic queries, the filter below excludes the listed synthetic session patterns.
 
 ```sql
 -- Legacy query-time filter for historical rows
@@ -67,53 +67,4 @@ WHERE session_id NOT LIKE 'test-%'
 | `sess-*` | Test suites (e.g., `sess-1`, `sess-A`, `sess-race-1`, `sess-envelope-1`) |
 | `dup` | Deduplication test fixture |
 
-**Real production sessions** may use several truthful shapes depending on the surface. Claude Code startup sessions follow the `claude-code-YYYYMMDDTHHMMSSZ-NNNNN` pattern, `session-offer` offer sessions keep their Yoke-owned `{executor}-{timestamp}` ids, and Codex shell/manual hook paths may use the live Codex thread UUID directly (for example `019d62e0-2c92-7a03-8d99-b18206cfa7e7`) — the parent thread from `CODEX_SESSION_ID`, which in a top-level Codex session is also what `CODEX_THREAD_ID` holds. Treat all of those as valid production identities when correlating events.
-
-## Synthetic-Row Cleanup Guidance
-
-If `HC-synthetic-event-contamination` reports pre-existing contamination from before write-time isolation landed, the safe cleanup pattern is:
-
-1. **Inspect first.** Never bulk-delete without a dry run:
-   ```sh
-	   yoke db read \
-     "SELECT event_name, COUNT(*) FROM events \
-     WHERE (session_id LIKE 'test-%' OR session_id LIKE 'sess-%' OR session_id = 'dup') \
-     AND (anomaly_flags IS NULL OR anomaly_flags NOT LIKE '%synthetic_smoke%') \
-     GROUP BY event_name ORDER BY 2 DESC"
-   ```
-2. **Preserve sentinel lineage.** Rows with `session_id IN ('unknown', 'migration-zero-legacy', 'status-events-backfill')` are legitimate historical data — never delete them, even though they look unusual.
-3. **Scope the delete narrowly.** Use the same contamination predicate; confirm the row count matches step 1; back up the DB before executing. Direct `DELETE FROM events ...` is an escape hatch — route it through an audited migration rather than ad hoc SQL.
-4. **Do not touch `synthetic_smoke`-tagged rows.** They are intentional residents.
-
-Write-time isolation prevents new contamination, so cleanup should be a one-time operation against pre-existing rows; no recurring cleanup cron is needed.
-
-## Sentinel Session IDs
-
-Historical migration and backfill operations used sentinel `session_id` values. These rows are legitimate historical data but should be understood in context:
-
-| Sentinel | Row count | Origin |
-|----------|-----------|--------|
-| `unknown` | ~5,368 | Early `python3 -m yoke_core.domain.observe` rows before session ID resolution was implemented |
-| `migration-zero-legacy` | ~2,377 | `TaskStatusChanged` rows created by the legacy task-history migration from `epic_task_history` |
-| `status-events-backfill` | ~1,202 | `ItemStatusChanged` / `TaskStatusChanged` rows backfilled from historical status data |
-| UUID-format | ~44,000+ | Real `python3 -m yoke_core.domain.observe` sessions before `claude-code-*` format was adopted |
-
-**For production-only lifecycle queries** (session/claim events), filter to `claude-code-%`:
-
-```sql
-WHERE session_id LIKE 'claude-code-%'
-```
-
-**For all-time analysis** (including historical tool-call telemetry), UUID-format session IDs are real production data and should be included.
-
-## Historical Rows with Null item_id
-
-Some event families have rows where `item_id` is null. This is expected in these cases:
-
-| Event | When item_id is null | Reason |
-|-------|---------------------|--------|
-| `NextActionChosen` | Actions: `feed`, `escalate`, `wait`, `strategize` | These actions do not target a specific work unit |
-| `HarnessSessionOffered` | Always | Session offers precede item selection |
-| `HarnessSessionStarted` / `HarnessSessionEnded` | Always | Session-level events, not item-level |
-| `FrontierComputed` | Always | Frontier is a project-wide computation |
-| `HarnessToolCallStarted` / `HarnessToolCallCompleted` / `HarnessToolCallFailed` / `HarnessToolCallStructuredExit` / `HarnessToolCallDenied` | Main-session calls with multiple in-flight items or shared-main overlap | Execution context resolution is still best-effort for non-worktree sessions |
+**Production session identity** comes from the registered harness session. Read `yoke sessions identity --json` before correlating events; never infer an identity from a synthetic fixture pattern.

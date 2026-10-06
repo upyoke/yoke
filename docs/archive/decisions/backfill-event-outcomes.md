@@ -9,6 +9,11 @@ related-doctor-hc: HC-event-outcome-drift
 
 # Decision: one-shot backfill of historical event-outcome drift
 
+> Historical record. Source names and procedures below describe the recorded
+> implementation, including retired files; they are not current execution paths.
+> See [archive usage](../README.md) for the current authority.
+
+
 ## Motivation
 
 The pre-YOK-1761 emitters for `HarnessToolCallCompleted` stamped

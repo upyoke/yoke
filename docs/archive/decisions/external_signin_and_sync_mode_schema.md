@@ -1,5 +1,10 @@
 # Additive control-plane schema catch-up via the governed exception path
 
+> Historical record. Source names and procedures below describe the recorded
+> implementation, including retired files; they are not current execution paths.
+> See [archive usage](../README.md) for the current authority.
+
+
 ## What
 
 A one-time, out-of-band additive schema convergence applied directly to the

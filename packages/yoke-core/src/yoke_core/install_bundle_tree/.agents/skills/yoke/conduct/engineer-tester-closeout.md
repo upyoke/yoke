@@ -44,7 +44,7 @@ Invoked from `engineer-tester-dispatch.md` after Tester returns. Covers Tester a
  yoke workflow-item epic-task review-insert --epic "$_epic_id" --task-num "$_task_id" --verdict PASS --body-file /tmp/sun-${N}-task-${_task_id}-review.txt
  ```
  The auto-insert auto-advances status to `reviewing-implementation` → `reviewed-implementation` exactly as if the Tester had called it directly. Do NOT escalate to the Tester output gate when text VERDICT is present — that gate is reserved for the no-verdict-at-all case.
-- **Load-bearing note:** the conduct-side closeout is the single check that catches Testers that emit a text VERDICT but skip `epic review-insert`. There is no SubagentStop hook gate enforcing review-row existence — the per-subagent binding the gate would have needed cannot be satisfied from the SubagentStop hook payload (subagents share the parent's session_id and inherit the main repo's `CLAUDE_PROJECT_DIR`), so the gate previously blocked every termination and was removed. The escalating strategy below is the same shape on Claude and Codex.
+- **Review receipt gate:** conduct-side closeout requires a durable review row even when Tester output contains a text VERDICT. The same closeout rule applies on every harness.
 - If no verdict found AT ALL (neither review row nor text VERDICT): enter the **Tester output gate** (escalating strategy):
 
  a. **Increment `_tester_output_failures`.**

@@ -8,6 +8,11 @@ matching-pattern: docs/archive/decisions/portability-baseline-live-apply.md
 
 # `migration_audit_final_shape` exception pathway
 
+> Historical record. Source names and procedures below describe the recorded
+> implementation, including retired files; they are not current execution paths.
+> See [archive usage](../README.md) for the current authority.
+
+
 ## What this records
 
 G2.P0.I5 / YOK-1484 collapses the transitional `migration_audit` coexistence

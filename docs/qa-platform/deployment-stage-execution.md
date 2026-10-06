@@ -1,4 +1,4 @@
-# Deployment QA Stage Execution
+# Deployment QA Stage Execution (internal)
 
 Schema-2 deployment flows may pause on ordered QA stages whose durable subject
 is the frozen deployment run, stage name, and optional attached member. These
@@ -198,9 +198,7 @@ refuses as a whole, naming each row, when any case in the subject has already
 answered, rather than leaving the stage half refreshed.
 
 Selecting a plan on a stage that pins no cases is the other correction route.
-Materialization there is idempotent per plan, which used to strand a member:
-once its only row was waived, a corrected case could not reach it, because the
-discharged row satisfied idempotency. Now a case materializes again when both
+Materialization is idempotent per plan. A case materializes again when both
 halves hold — the existing rows no longer answer (waived, superseded, or a
 settled `fail`) and the case's executable content has changed since it was
 materialized. The corrected row takes a key carrying that content's digest, so

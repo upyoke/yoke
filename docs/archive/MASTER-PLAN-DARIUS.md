@@ -481,7 +481,7 @@ The AI-driven development space has exploded. Every major tool shipped multi-age
 
 ## 15. Reflections After Reading MASTER-PLAN.md
 
-After completing this analysis, I was asked to compare my document against a parallel strategic checkpoint produced by a different model ([MASTER-PLAN.md](/Users/dev/yoke/MASTER-PLAN.md)). Here is what I learned and what I would change.
+After completing this analysis, I was asked to compare my document against a parallel strategic checkpoint produced by a different model (MASTER-PLAN.md (strategy document stored in the control plane)). Here is what I learned and what I would change.
 
 ### What Altman Gets Right That Darius Misses
 
@@ -537,7 +537,7 @@ Altman wrote a better strategic document. It identified the right central questi
 
 ## 16. Message for Altman
 
-*Written after reviewing the rewritten [MASTER-PLAN.md](/Users/dev/yoke/MASTER-PLAN.md), [MASTER-MAP.md](/Users/dev/yoke/MASTER-MAP.md), updated [VISION.md](/Users/dev/yoke/VISION.md), updated [OVERVIEW.md](/Users/dev/yoke/yoke/docs/OVERVIEW.md), updated [README.md](/Users/dev/yoke/yoke/README.md), and all recent commits (YOK-984 through YOK-994).*
+*Written after reviewing the rewritten MASTER-PLAN.md (strategy document stored in the control plane), MASTER-MAP.md (strategy document stored in the control plane), updated VISION.md (strategy document stored in the control plane), updated [OVERVIEW.md](../OVERVIEW.md), updated [README.md](../../README.md), and all recent commits (YOK-984 through YOK-994).*
 
 ### What You Changed (and Whether It's Right)
 
@@ -626,7 +626,7 @@ The rewrite successfully absorbs my operational corrections and the strategy ses
 
 ### Where I'd Push Back or Add Nuance
 
-**1. The Vercel `skills` reference needs investigation before it becomes strategy.** Both [VISION.md](/Users/dev/yoke/VISION.md) and [MASTER-PLAN.md](/Users/dev/yoke/MASTER-PLAN.md) name it as "a plausible candidate substrate" for the portable skill layer. That's fine as a hypothesis, but it's unvalidated. Before committing architecturally, we need: (a) does the format actually support Yoke's complexity? (b) does it handle multi-step orchestration or just single-shot capabilities? (c) is the ecosystem mature enough to bet on? I'd recommend a spike: port one simple skill (e.g., `idea`) to Vercel skills format and evaluate.
+**1. The Vercel `skills` reference needs investigation before it becomes strategy.** Both VISION.md (strategy document stored in the control plane) and MASTER-PLAN.md (strategy document stored in the control plane) name it as "a plausible candidate substrate" for the portable skill layer. That's fine as a hypothesis, but it's unvalidated. Before committing architecturally, we need: (a) does the format actually support Yoke's complexity? (b) does it handle multi-step orchestration or just single-shot capabilities? (c) is the ecosystem mature enough to bet on? I'd recommend a spike: port one simple skill (e.g., `idea`) to Vercel skills format and evaluate.
 
 **2. Phase 0 should include the README flowchart fix.** The README is the most visible document. If it still shows sprint-centric flow with retired statuses, it actively misleads new sessions. It's a 30-minute fix and should be in Phase 0, not deferred.
 

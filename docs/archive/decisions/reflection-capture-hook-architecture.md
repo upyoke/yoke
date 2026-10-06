@@ -1,5 +1,10 @@
 # Reflection-capture moves from skill-prose recipe to PostToolUse Agent-tool hook
 
+> Historical record. Source names and procedures below describe the recorded
+> implementation, including retired files; they are not current execution paths.
+> See [archive usage](../README.md) for the current authority.
+
+
 ## Status
 
 Accepted. Landed in YOK-1832 (claim 287).
@@ -44,7 +49,7 @@ every `Agent` tool call, reads the **full** `tool_response` (no
 through the same `capture_reflections` pipeline the operator-debug CLI
 already exercises.
 
-The hook lives in `runtime/api/domain/reflection_capture_hook.py` and is
+The hook lives in `packages/yoke-core/src/yoke_core/domain/reflection_capture_hook.py` and is
 wired into the universal `PostToolUse` `Agent` matcher through
 `runtime/api/domain/harness_hook_ordering.py`. The Claude
 `settings.json` adapter renders the matching block automatically via the
@@ -129,7 +134,7 @@ Claude's, which the archived data does not support.
 
 ## What changed
 
-* New module `runtime/api/domain/reflection_capture_hook.py` —
+* New module `packages/yoke-core/src/yoke_core/domain/reflection_capture_hook.py` —
   `evaluate(HookContext) -> HookDecision` always returns AUDIT_ONLY,
   reads the full `tool_response`, maps `subagent_type`
   (`yoke-engineer` → `engineer`, etc.) to the canonical role,
@@ -143,11 +148,11 @@ Claude's, which the archived data does not support.
 * `runtime/api/domain/harness_hook_ordering.py` —
   `_POST_AGENT` chain (`reflection_capture_hook -> observe`) under the
   `PostToolUse` `Agent` matcher.
-* `runtime/api/domain/populate_registry_data_authoritative.py` —
+* `packages/yoke-core/src/yoke_core/domain/populate_registry_data_authoritative.py` —
   `ReflectionCaptureHookFired` (INFO) +
   `ReflectionCaptureHookUnhandled` (WARN) registered; four retired
   tombstone entries compacted onto two lines to honor the 350-line cap.
-* `runtime/api/engines/doctor_hc_reflection_capture_hook_coverage.py` —
+* `packages/yoke-core/src/yoke_core/engines/doctor_hc_reflection_capture_hook_coverage.py` —
   new HC + registration via `doctor_registry_harness.py`.
 * `runtime/api/tools/transcript_reflection_audit.py` — sanctioned
   transcript audit tool that re-walks local Claude Code transcripts and
@@ -178,7 +183,7 @@ Claude's, which the archived data does not support.
   `dispatch-context-artifacts.md`. Git history (commit on the YOK-1832
   branch) preserves it.
 * The CLI itself stays in place at
-  `runtime/api/domain/reflection_capture.py` as an operator/debug
+  `packages/yoke-core/src/yoke_core/domain/reflection_capture.py` as an operator/debug
   adapter.
 * The historical backfill artifacts under
   `projects/yoke/qa-artifacts/1832/` remain gitignored — they were

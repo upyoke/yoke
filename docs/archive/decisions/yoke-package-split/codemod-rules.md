@@ -1,5 +1,10 @@
 # Codemod Rules — frozen prefix rewrites (YOK-1902)
 
+> Historical record. Source names and procedures below describe the recorded
+> implementation, including retired files; they are not current execution paths.
+> See [archive usage](../../README.md) for the current authority.
+
+
 The bulk move is a **scripted codemod** keyed to these rules. They are an **ordered
 rule list** (most-specific / longest-prefix first), NOT an unordered dict. The
 machine-readable form lives in `packages/_codemod/rules.py` (Slice 1); this file is
@@ -126,29 +131,29 @@ these stems:
 
 ## Load-bearing strings (verified file:line anchors for the hand-edits)
 
-- `runtime/api/service_client_structured_api_adapter.py:42` — `from
+- `packages/yoke-core/src/yoke_core/api/service_client_structured_api_adapter.py:42` — `from
   runtime.api.domain.yoke_function_dispatch import dispatch` (the forbidden edge;
   split into client `yoke_cli.transport.dispatcher` + lazy/core dispatch leg).
 - `runtime/api/cli/raw_query.py:102` — `db_backend.connect_psycopg()` (dev-fenced).
 - `runtime/api/cli/board_rebuild_timing_events.py:12` — `from ...domain.events import
   emit_event` (→ core).
-- `runtime/api/domain/lint_session_cwd.py:96` — `return db_helpers.connect()`
+- `packages/yoke-core/src/yoke_core/domain/lint_session_cwd.py:96` — `return db_helpers.connect()`
   (convert to cached read).
-- `runtime/api/domain/lint_long_command_polling_evaluate.py:79` &
+- `packages/yoke-core/src/yoke_core/domain/lint_long_command_polling_evaluate.py:79` &
   `lint_long_command_polling_monitor_duplicate.py:97` — `db_helpers.connect(...)`
   (convert to cached read).
-- `runtime/api/domain/lint_main_commit.py:124-130` — `call_dispatcher(function_id=
+- `packages/yoke-core/src/yoke_core/domain/lint_main_commit.py:124-130` — `call_dispatcher(function_id=
   "items.list.run", ...)` (the dispatcher-mediated precedent; no conversion).
 - `runtime/harness/hook_runner/service_client.py:267` — `db_backend.connect(...)`
   (the one true core line in that module's 3-way split).
 - `runtime/api/domain/harness_hook_ordering.py:134-151` — the authoritative 16-lint
   `HOOK_ORDERING` tuple.
-- `runtime/api/app_factory.py:170-195` — router include block (add `db_read_router`).
-- `runtime/api/domain/db_backend.py:188` `connect()` / `:209` `connect_psycopg()`,
+- `packages/yoke-core/src/yoke_core/api/app_factory.py:170-195` — router include block (add `db_read_router`).
+- `packages/yoke-core/src/yoke_core/domain/db_backend.py:188` `connect()` / `:209` `connect_psycopg()`,
   funnel `connected_env_readiness.py:190 connect_with_readiness()` — prod-refusal
   attach point.
-- `runtime/api/domain/yoke_connected_env.py:89 load_active()` — env classification
+- `packages/yoke-core/src/yoke_core/domain/yoke_connected_env.py:89 load_active()` — env classification
   source for the prod-flag predicate.
-- `runtime/api/domain/actor_permissions.py:21-33` (constants), `:50`
+- `packages/yoke-core/src/yoke_core/domain/actor_permissions.py:21-33` (constants), `:50`
   (`PERMISSION_DESCRIPTIONS`); `yoke_function_permissions.py:41-75`
   (`permission_key_for`) — `db.read.raw` gate wiring.

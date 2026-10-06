@@ -6,8 +6,8 @@ primary_surfaces:
   - templates/webapp/template.json (migration_model_defaults)
   - templates/webapp/scaffold/app/utils/db.py
   - templates/webapp/scaffold/app/db/schema.sql
-  - runtime/api/domain/worktree_validation_recipes.py (webapp_sqlite_empty)
-  - runtime/api/domain/migration_model_capability_validation.py (_LIVE_PAIRINGS)
+  - packages/yoke-core/src/yoke_core/domain/worktree_validation_recipes.py (webapp_sqlite_empty)
+  - packages/yoke-core/src/yoke_core/domain/migration_model_capability_validation.py (_LIVE_PAIRINGS)
 out_of_scope:
   - runtime/api/domain/migration_model_capability_defaults.py (Yoke control-plane seed)
   - templates/webapp/infra/webapp_database_stack.py (opt-in Aurora component)
@@ -63,12 +63,12 @@ consumer.
 
 ## The runtime already classifies these surfaces as keep-not-residue
 
-- `runtime/api/domain/worktree_validation_recipes.py` documents the
+- `packages/yoke-core/src/yoke_core/domain/worktree_validation_recipes.py` documents the
   `webapp_sqlite_empty` recipe as **"genuine generic-validation SQLite … the
   live recipe for a webapp project (e.g. Buzz) whose own authoritative DB is
   SQLite. Kept regardless of Yoke's Postgres authority; validating external
   SQLite projects is a first-class capability, not residue."**
-- `runtime/api/domain/migration_model_capability_validation.py` keeps both
+- `packages/yoke-core/src/yoke_core/domain/migration_model_capability_validation.py` keeps both
   pairings live and maintained:
   `("sqlite_file", "worktree_local_sqlite", governed_migration_module)` and
   `("postgres", "external_validation", governed_migration_module)`. The SQLite

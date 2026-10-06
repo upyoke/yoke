@@ -1,4 +1,4 @@
-# Cursor Harness Integration Assessment
+# Cursor Harness Integration Assessment (internal)
 
 *Feasibility and parity assessment for integrating Cursor as a third Yoke
 harness alongside Claude Code and Codex. Cursor is **not yet a supported
@@ -25,7 +25,7 @@ implementation; hook payloads and event coverage are vendor-owned.*
   with `failure_type=permission_denied`.
 - **Zero enablement ceremony.** Project `.cursor/hooks.json` fired on first
   run in a never-opened directory — no hook-approval step. Official hooks docs
-  (2026-09-16, https://cursor.com/docs/hooks) auto-load project hooks in a
+  (https://cursor.com/docs/hooks) auto-load project hooks in a
   trusted workspace and do not document a separate approval or reapproval
   prompt (Codex: in-app hook approval; Claude: settings schema).
 - **Context injection works where Yoke needs it**: `sessionStart` and
@@ -291,11 +291,7 @@ Also observed: `Grep` as a distinct tool name. MCP tools surface as
    `subagentStart`/`Task`, conditional-block audit, managed project-install
    layer.
 
-## Launched-worker turn semantics and binding (measured 2026-08-26)
-
-Six consecutive `cursor-cli` launch failures over two days, against a
-`cursor-agent` probing healthy at `2026.08.25-3e8eec8`, resolved into three
-facts — read from control-plane rows, not inferred.
+## Launched-worker turn semantics and binding
 
 **A launch must use Cursor's native new-chat path.** `cursor-agent -p` starts
 one new print-mode conversation and lets Cursor assign its id. `--resume` is
@@ -314,21 +310,7 @@ candidate is `registration_pending` with an uncertain outcome, not a claim
 that the native registered or failed; its supervision record and the launch's
 existing registration deadline remain authoritative.
 
-**A requested model and a recorded model are different facts, and equality
-between them refused every correctly-bound launch.** A launch requests the
-string `cursor-agent --model` accepts (`cursor-grok-4.6-xhigh`); a session
-registers the model it measurably ran. The binding compared the two for
-equality, so launches `e2b0473e` and `8e88bd1f` — natives that registered
-under exactly the recorded `native_session_id` and ran 71 and 79 tool calls —
-were refused `model_mismatch` on every attestation retry, never received their
-instruction, and were reaped claim-free while their launch rows read
-`late_registration`. The native session id proves exact identity already, so
-the binding records `requested_model` / `registered_model` as evidence
-instead of refusing — which is also how an operator sees a launch that asked
-for one variant and ran another. `--model` on the CLI invocation is the
-channel that holds (2026.08.25: `cursor-grok-4.6-xhigh` was recorded as
-`grok-4.6[effort=high,fast=true]`); the conversation then keeps that
-variant.
+**Requested and served models are separate facts.** A launch requests the CLI model selector; the session records the model it ran. Native session identity establishes the binding, while requested and registered models remain evidence for the operator. The launch invocation carries `--model`; the conversation retains its selected variant.
 
 ## Open questions
 

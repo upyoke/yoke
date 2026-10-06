@@ -152,7 +152,7 @@ tests/                        # Import-graph and installer boundary tests
 
 Every item — Dash, Blitz, Task, Issue, Epic — gets a stable global integer `items.id` and
 a stable public reference formed from the owning project's item prefix plus
-the item's `project_sequence` (for example, `YOK-42`). The connected Postgres
+the item's `project_sequence` (for example, `EXAMPLE-42`). The connected Postgres
 authority (`items` table) is the source of truth for all registry data. Item
 body content is read via `items get YOK-N body` (a virtual rendered field
 assembled on demand from structured fields). The auto-generated board in

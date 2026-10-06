@@ -47,7 +47,7 @@ For all 40 rows: **in-place normalization adding a
   `{"body": <original>, "normalization_disposition": "..."}` so the
   original text is preserved verbatim.
 
-The HC heuristic (`runtime/api/engines/doctor_hc_qa_runs.py`) is
+The HC heuristic (`packages/yoke-core/src/yoke_core/engines/doctor_hc_qa_runs.py`) is
 tightened in the same slice to skip any row whose `raw_result`
 contains the `normalization_disposition` token. The per-row review
 recorded in this decision record is the authoritative verdict; the
@@ -190,7 +190,7 @@ sibling test
 `runtime/api/domain/migrations/test_split_qa_runs_raw_result.py`
 are deleted in the same slice as the live-apply commit, once the
 `migration_audit` row records `state='completed'`. The HC update at
-`runtime/api/engines/doctor_hc_qa_runs.py` is permanent and stays in
+`packages/yoke-core/src/yoke_core/engines/doctor_hc_qa_runs.py` is permanent and stays in
 the tree.
 
 This decision record is the durable historical record; git history

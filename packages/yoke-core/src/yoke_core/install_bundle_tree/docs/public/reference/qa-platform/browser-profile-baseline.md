@@ -5,7 +5,7 @@ Its setup gives the user space to perform whatever sign-ins their project
 needs, then saves the stopped profile. Agents complete steps that do not need
 the user; credential entry remains a human gate.
 
-Use the [Machine QA Pack per-OS procedures](../../../../packs/machine-qa/versions/1.3.8/files/docs/packs/machine-qa/browser-profile-baseline.md)
+Use the Machine QA Pack per-OS procedures at `docs/packs/machine-qa/browser-profile-baseline.md` (installed by the Machine QA Pack)
 for desktop preparation, capture and restoration. After installation, those
 procedures live at `docs/packs/machine-qa/host-provisioning.md`.
 The profile stays separate from the clean-home golden and is restored only

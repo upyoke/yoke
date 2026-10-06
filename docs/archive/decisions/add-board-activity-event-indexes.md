@@ -4,6 +4,11 @@ retired-without-apply: true
 
 # Retire `add_board_activity_event_indexes` migration module
 
+> Historical record. Source names and procedures below describe the recorded
+> implementation, including retired files; they are not current execution paths.
+> See [archive usage](../README.md) for the current authority.
+
+
 ## Decision
 
 The migration module

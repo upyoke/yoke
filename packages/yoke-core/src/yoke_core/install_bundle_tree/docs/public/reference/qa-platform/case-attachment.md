@@ -238,7 +238,7 @@ multi-machine form: a single host pin cannot satisfy conflicting constraints.
 
 For one case that needs several hosts simultaneously, declare its driving host
 as `method_config.machine` and every required host in `method_config.machines`:
-`{"machine":"test-mac","machines":["linux-lab","test-mac"]}`. Names must be
+`{"machine":"macos-example","machines":["linux-example","macos-example"]}`. Names must be
 registered, unique, and include the driving host. Run this case through
 `yoke qa plan run`; direct case and baseline-group execution refuse it. The
 runner acquires every host through its FIFO in sorted name order, releases
@@ -261,7 +261,7 @@ If a walker discovers a second required host is occupied, return
 through the current bundle's `yoke qa plan review-submit ... --stdin`:
 
 ```json
-{"host_wait":{"machine":"linux-lab","rationale":"lease holder and resume point"}}
+{"host_wait":{"machine":"linux-example","rationale":"lease holder and resume point"}}
 ```
 
 Submit this object alone. It records no verdict or human review request,
@@ -274,7 +274,7 @@ Exploratory mission `method_config` can declare an apt package fixture:
 ```json
 {
   "executor":"informed_subagent",
-  "machine":"linux-lab",
+  "machine":"linux-example",
   "host_starting_state":{"os_packages":{
     "absent":["python3-venv","python3.12-venv"],"present":[]
   }}
@@ -282,7 +282,7 @@ Exploratory mission `method_config` can declare an apt package fixture:
 ```
 
 `method_config.machine` selects that registered host even when this direct
-requirement has only the generic `test-machine` capability. Admitted deployment
+requirement has only the generic `macos-examplehine` capability. Admitted deployment
 copies retain the pin; omitting `--machine` does not permit another host, and a
 conflicting run pin is refused before a lease is acquired.
 

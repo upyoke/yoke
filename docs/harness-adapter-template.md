@@ -1,8 +1,6 @@
-# Harness Adapter Template
+# Harness Adapter Template (internal)
 
 *Reusable template for integrating a new harness with Yoke. Every adapter must implement the required parts described below. The [Harness Bootstrap Contract](harness-bootstrap.md) defines the neutral startup expectations that every adapter loads.*
-
-*Last updated: 2026-04-05 (neutral bootstrap spec + prompt doctrine universalization)*
 
 ## Overview
 

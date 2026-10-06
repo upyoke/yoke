@@ -10,7 +10,7 @@ recognition, and worktree creation. The session's write authority over the new
 worktree is its work-claim (acquired by preflight after the implementation-entry
 identity probe), validated per tool call by `lint_session_cwd`.
 
-This phase is **Python-owned** through `yoke_core.domain.worktree_preflight`. The skill prose no longer hand-authors any of the shell snippets that previously routed agents through guard-hostile shapes (`db_router query -separator "|"`, manual `.worktrees/` `ls`, project shell-variable lookup, dirty-tree compound).
+This phase is **Python-owned** through `yoke_core.domain.worktree_preflight`; use the registered preparation command below.
 
 **Context variables** (set by `entry.md`): `{N}`, `_worktree_policy`,
 `_current_executor`, `--no-worktree` flag, `--force` flag

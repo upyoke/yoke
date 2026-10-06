@@ -1,5 +1,10 @@
 # Decision: normalize-event-severity-casing
 
+> Historical record. Source names and procedures below describe the recorded
+> implementation, including retired files; they are not current execution paths.
+> See [archive usage](../README.md) for the current authority.
+
+
 **Status:** decided · paired one-shot retention-exception migration
 
 **Migration module:** `runtime/api/domain/migrations/normalize_event_severity_casing.py`
@@ -12,14 +17,14 @@
 
 ## Why this is an exception path
 
-The canonical `events.severity` enum is `VALID_SEVERITIES = ("DEBUG", "INFO", "STATUS", "WARN", "ERROR", "FATAL")` (`runtime/api/domain/events_crud.py`). A 2026-05-19 audit on `data/yoke.db` surfaced ~1762 rows whose severity value was outside the enum:
+The canonical `events.severity` enum is `VALID_SEVERITIES = ("DEBUG", "INFO", "STATUS", "WARN", "ERROR", "FATAL")` (`packages/yoke-core/src/yoke_core/domain/events_crud.py`). A 2026-05-19 audit on `data/yoke.db` surfaced ~1762 rows whose severity value was outside the enum:
 
 | Literal | Rows | Canonical |
 |---|---:|---|
 | `WARNING` | 1,714 | `WARN` |
 | `info` | 47 | `INFO` |
 
-These rows are forensic residue from producers (`path_claim_bash_guard.py`, `path_claim_pre_edit_guard.py`, `event_registry_seed_path_claim_session_cwd.py`, `yoke_function_dispatch_events.py`, `event_registry_seed_yoke_function_call.py`) that emitted with `severity="WARNING"`, plus historical rows from the retired `DeploymentEventMigrated` emit site that wrote lowercase `"info"`. The native `runtime/api/domain/events.py` emitter persisted the supplied severity directly, and the read-time `severity_num()` helper silently defaults unknown values to `1` (INFO), so the drift was invisible at filter time but loud in `dbstat`.
+These rows are forensic residue from producers (`path_claim_bash_guard.py`, `path_claim_pre_edit_guard.py`, `event_registry_seed_path_claim_session_cwd.py`, `yoke_function_dispatch_events.py`, `event_registry_seed_yoke_function_call.py`) that emitted with `severity="WARNING"`, plus historical rows from the retired `DeploymentEventMigrated` emit site that wrote lowercase `"info"`. The native `packages/yoke-core/src/yoke_core/domain/events.py` emitter persisted the supplied severity directly, and the read-time `severity_num()` helper silently defaults unknown values to `1` (INFO), so the drift was invisible at filter time but loud in `dbstat`.
 
 The forward fix (same slice as this migration) adds `normalize_severity(sev: str) -> str` in `events_crud.py` and wires it into both write surfaces (`events.build_envelope` and `events_writes.cmd_insert`). The producer literals are corrected. The read-side `severity_num()` default-to-INFO behavior is preserved as defense-in-depth. After both fixes land, no new non-canonical row can be inserted.
 
