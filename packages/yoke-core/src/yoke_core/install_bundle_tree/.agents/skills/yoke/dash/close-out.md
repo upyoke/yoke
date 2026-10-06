@@ -171,11 +171,16 @@ The command does not clean the lane or declare those commits delivered.
 
 Read the live item pin with `yoke workflows item get ITEM --json`, then
 `yoke workflows version get WORKFLOW_ID WORKFLOW_VERSION --json`. Resolve
-`LIVE_STAGE` from the status and `REWORK_STAGE` from the declared rework edge
-in `definition.transitions` back to the implementation stage in Dash's bound
-interval. If no unique route is declared, stop with
-`workflow_rework_stage_ambiguous` and ask the workflow owner to select or
-repair it; do not invent a transition.
+`LIVE_STAGE` from the status and `REWORK_STAGE` from the requested implementation
+stage (`implementing` in the current Dash pin). Verify that the target exists,
+precedes `LIVE_STAGE` in `definition.stages`, and belongs to Dash's bound
+interval. A backward rework move needs no edge in `definition.transitions`:
+`yoke_core.domain.workflow_declared_transitions.undeclared_forward_transition`
+only checks forward moves, as classified by
+`yoke_core.domain.workflow_runtime.WorkflowRuntime.is_forward_transition`.
+Use the ordinary transition below; retain its claim, frozen-item, source-status,
+and target-stage checks. If it refuses, report the named reason and recovery
+to steering; absence of a backward edge is not a refusal.
 
 Steering does not gate your landing; it vets the work after it lands and
 before the item is admitted to a release. When that vetting finds a problem,
