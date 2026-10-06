@@ -20,6 +20,7 @@ from yoke_cli.transport.https_credentials import TransportError, resolve_token
 from yoke_cli.transport.response_limits import ONBOARD_JSON_REQUEST_TIMEOUT_SECONDS
 from yoke_contracts.api_urls import join_api_url
 from yoke_contracts.browser_sign_in import (
+    BROWSER_SIGN_IN_MAX_LENGTH,
     BROWSER_SIGN_IN_PATH,
     BROWSER_SIGN_IN_REDEEM_PATH,
 )
@@ -62,9 +63,9 @@ def self_host_report(*, host: str | None, port: int | None) -> dict[str, Any] | 
     valid = (method == "oidc" and path == "/") or (
         method == "token"
         and isinstance(path, str)
+        and len(path.partition("#")[2]) <= BROWSER_SIGN_IN_MAX_LENGTH
         and re.fullmatch(
-            re.escape(BROWSER_SIGN_IN_REDEEM_PATH)
-            + r"#[A-Za-z0-9_-]{16}\.[A-Za-z0-9_-]{43}",
+            re.escape(BROWSER_SIGN_IN_REDEEM_PATH) + r"#[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+",
             path,
         )
     )

@@ -9,6 +9,7 @@ import pytest
 
 from yoke_cli.commands import universe_ui as commands, universe_ui_remote as remote
 from yoke_contracts.browser_sign_in import (
+    BROWSER_SIGN_IN_MAX_LENGTH,
     BROWSER_SIGN_IN_PATH,
     BROWSER_SIGN_IN_REDEEM_PATH,
 )
@@ -39,9 +40,7 @@ def test_up_opens_server_door_with_active_credential(
     setup, monkeypatch, capsys, method
 ):
     path = (
-        BROWSER_SIGN_IN_REDEEM_PATH + "#" + "s" * 16 + "." + "c" * 43
-        if method == "token"
-        else "/"
+        BROWSER_SIGN_IN_REDEEM_PATH + "#selector.secret" if method == "token" else "/"
     )
     seen = []
 
@@ -69,8 +68,17 @@ def test_up_opens_server_door_with_active_credential(
     assert seen == [report["private_url"]]
 
 
-def test_no_browser_prints_private_link(setup, monkeypatch, capsys):
-    path = BROWSER_SIGN_IN_REDEEM_PATH + "#" + "s" * 16 + "." + "c" * 43
+@pytest.mark.parametrize(
+    "code",
+    [
+        "s.c",
+        "selector_-.different-secret_size",
+        "s." + "c" * (BROWSER_SIGN_IN_MAX_LENGTH - 2),
+    ],
+)
+def test_no_browser_prints_private_link(setup, monkeypatch, capsys, code):
+    # The server owns entropy/length choices; the CLI validates the wire shape.
+    path = BROWSER_SIGN_IN_REDEEM_PATH + "#" + code
     monkeypatch.setattr(
         remote,
         "request_json",
@@ -119,6 +127,37 @@ def test_invalid_server_response_cannot_open_external_url(
         remote,
         "request_json",
         lambda *_args, **_kwargs: SimpleNamespace(payload=payload),
+    )
+    assert commands.ui_up(["--no-browser"]) == 1
+    assert "browser_sign_in_invalid_response" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        "",
+        "missing-separator",
+        "s.",
+        ".c",
+        "s.c.extra",
+        "s.c#fragment",
+        "s.c?query",
+        "s.c/redirect",
+        "s.c%0A",
+        "s.c\n",
+        "s." + "c" * (BROWSER_SIGN_IN_MAX_LENGTH - 1),
+    ],
+)
+def test_malformed_or_oversized_link_code_refuses(setup, monkeypatch, capsys, code):
+    monkeypatch.setattr(
+        remote,
+        "request_json",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            payload={
+                "auth_method": "token",
+                "sign_in_path": BROWSER_SIGN_IN_REDEEM_PATH + "#" + code,
+            }
+        ),
     )
     assert commands.ui_up(["--no-browser"]) == 1
     assert "browser_sign_in_invalid_response" in capsys.readouterr().err
