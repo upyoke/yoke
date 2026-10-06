@@ -1,6 +1,6 @@
 """Schema DDL for external sign-in identity.
 
-Owns the three additive tables behind the self-host OIDC sign-in door:
+Owns the additive tables behind self-host browser sign-in:
 
 * ``actor_external_identities`` — one row per verified external identity
   (``issuer`` + ``subject`` from a verified id_token) bound to an

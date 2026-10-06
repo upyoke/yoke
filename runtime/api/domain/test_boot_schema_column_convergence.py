@@ -75,8 +75,10 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # restores through boot convergence like any other additive column.
 # The anonymous collector's disposable rate-limit table is net-new; its
 # client key, window start and request count are born with that table.
+# Browser admission links add one table whose selector, hashed secret, actor,
+# expiry and consumption state are all born with that table.
 _BORN_WITH_COLUMN_DIGEST = (
-    "7cdb69264e8d52e2a29e51f6834da037aa9da99fa722f5b930230284b15284bf"
+    "f2e7f0676cdf291bff0a7fab9f57275baca824e8c5e3c91646b464b8637ef4ec"
 )
 
 
