@@ -124,6 +124,7 @@ def land_item_through_merge_queue(
                 drift=None,
                 resume_command=resume_command,
                 warnings=warnings,
+                dispatch=dispatch,
             )
 
     # The candidate may retune required checks before its declaration lands.
@@ -316,6 +317,7 @@ def land_item_through_merge_queue(
         resume_command=resume_command,
         warnings=warnings,
         already_merged=already_merged,
+        dispatch=dispatch,
     )
 
 

@@ -3,9 +3,9 @@
 The queue validates a whole train's combined head server-side, so a member's
 close-out is bookkeeping rather than work: stamp when it landed, record the
 shared verification receipt as covering evidence, and record the merge receipt
-that names what this landing is answerable for — the lane head that entered
-the queue, the merge commit the queue produced, and the files the branch
-changed.
+that names what this landing is answerable for — the candidate head the
+landing record says the queue merged, that landing's merge commit, and the
+files the branch changed. A cached lane head is not that candidate.
 
 That receipt is what lets the item reach its terminal transition at all. The
 terminal QA gate compares each blocking run against the heads the merge
@@ -53,7 +53,7 @@ own QA rows were stranded for the difference.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Mapping, Optional
+from typing import Callable, Mapping, Optional
 
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import item_merge_contributed_commits as contributed
@@ -89,9 +89,16 @@ class QueueCloseOut:
     ci_evidence_retryable: bool = True
     ci_evidence_recovery: str = ""
     warnings: tuple[str, ...] = field(default=())
+    # The commit the receipt named. Empty when the receipt was refused.
+    receipt_commit_sha: str = ""
+    # Why the receipt was not written. Close-out retries this; it does not
+    # fill the gap with a cached lane head.
+    receipt_error: str = ""
 
     def ci_evidence_refusal(self, pr_num: str, resume_command: str = "") -> str:
         """Name the recovery for a landing whose proof was not recorded."""
+        if self.receipt_error:
+            return self.receipt_error
         if not self.ci_evidence_error:
             return ""
         # Deliberately does not say the pull request landed: a lane whose
@@ -134,7 +141,9 @@ def _files_from_merge_commit(
     """
     _fetch_once(ctx, state)
     return receipts.touched_files_from_merge_commit(
-        ctx.repo_root, f"origin/{ctx.args.target}", commit_sha,
+        ctx.repo_root,
+        f"origin/{ctx.args.target}",
+        commit_sha,
     )
 
 
@@ -164,7 +173,9 @@ def _landing_merge(ctx: MergeContext, commit_sha: str, state: dict) -> str:
     try:
         _fetch_once(ctx, state)
         return receipts.landing_merge_commit(
-            ctx.repo_root, f"origin/{ctx.args.target}", commit_sha,
+            ctx.repo_root,
+            f"origin/{ctx.args.target}",
+            commit_sha,
         )
     except Exception:  # noqa: BLE001 - an unread merge is simply unknown here
         return ""
@@ -179,6 +190,7 @@ def record_landing(
     candidate_sha: str = "",
     member_snapshot: tuple[str, ...] = (),
     drift_check: Optional[Mapping[str, str]] = None,
+    resolve_landed_head: Optional[Callable[[int], tuple[str, str]]] = None,
 ) -> QueueCloseOut:
     """Record everything the item owes after its train landed.
 
@@ -274,9 +286,7 @@ def record_landing(
     if files_error:
         warnings.append(f"touched files not resolved: {files_error}")
     elif not touched:
-        warnings.append(
-            f"pull request {pr_num} reports no changed files"
-        )
+        warnings.append(f"pull request {pr_num} reports no changed files")
     touched_files = tuple(touched or ())
     if not touched_files and ctx.repo_root and commit_sha:
         touched_files = _files_from_merge_commit(ctx, commit_sha, fetch_state)
@@ -286,22 +296,38 @@ def record_landing(
                 f"rather than from pull request {pr_num}"
             )
 
-    receipt_note = receipts.record(
-        item_id,
-        receipts.MergeReceipt(
-            branch=ctx.args.branch,
-            target=ctx.args.target,
-            commit_sha=commit_sha,
-            merge_sha=merge_sha,
-            touched_files=touched_files,
-            contributed_commits=contributed.after_landing(
-                ctx.repo_root or "", commit_sha=candidate_sha or commit_sha,
-                merge_sha=landing_sha,
+    receipt_commit = commit_sha
+    receipt_error = ""
+    if resolve_landed_head is not None:
+        landed_head, head_gap = resolve_landed_head(item_id)
+        if landed_head:
+            receipt_commit = landed_head
+        else:
+            receipt_commit = ""
+            receipt_error = (
+                "merge receipt not recorded: "
+                + (head_gap or "the landing record named no candidate head")
+                + " The cached lane head is not recorded in its place."
+            )
+            warnings.append(receipt_error)
+    if receipt_commit:
+        receipt_note = receipts.record(
+            item_id,
+            receipts.MergeReceipt(
+                branch=ctx.args.branch,
+                target=ctx.args.target,
+                commit_sha=receipt_commit,
+                merge_sha=merge_sha,
+                touched_files=touched_files,
+                contributed_commits=contributed.after_landing(
+                    ctx.repo_root or "",
+                    commit_sha=receipt_commit,
+                    merge_sha=landing_sha,
+                ),
             ),
-        ),
-    )
-    if receipt_note:
-        warnings.append(receipt_note)
+        )
+        if receipt_note:
+            warnings.append(receipt_note)
 
     if ctx.repo_root:
         sync_warning = fast_forward_main_checkout(ctx.repo_root, ctx.args.target)
@@ -315,6 +341,8 @@ def record_landing(
         ci_evidence_retryable=ci_evidence_retryable,
         ci_evidence_recovery=ci_evidence_recovery,
         warnings=tuple(warnings),
+        receipt_commit_sha=receipt_commit,
+        receipt_error=receipt_error,
     )
 
 

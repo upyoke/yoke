@@ -55,7 +55,7 @@ def landing_record(
     *,
     pr_number="42",
     narrative="pull request 42: merged=true",
-    head_sha="",
+    head_sha=LANE_SHA,
     failed_checks=(),
     disarm_note="",
     observed_at="2026-09-04T01:00:00Z",
@@ -259,7 +259,9 @@ def wire_happy_path(
         return (states.pop(0) if states else states_last[0]), None
 
     monkeypatch.setattr(route_mod, "read_pr_landing_state", landing)
-    monkeypatch.setattr(close_out_mod, "stamp_merged_at", lambda item_id, **_kwargs: None)
+    monkeypatch.setattr(
+        close_out_mod, "stamp_merged_at", lambda item_id, **_kwargs: None
+    )
     receipt = BatchReceipt(
         pr_num="42",
         merge_sha="m" * 40,
@@ -270,8 +272,7 @@ def wire_happy_path(
     monkeypatch.setattr(
         close_out_mod,
         "observe_batch",
-        lambda _ctx, *, pr_num, member_snapshot, drift_check=None,
-        landed_merge_sha="": (
+        lambda _ctx, *, pr_num, member_snapshot, drift_check=None, landed_merge_sha="": (
             receipt,
             None,
         ),
