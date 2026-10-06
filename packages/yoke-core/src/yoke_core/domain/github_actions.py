@@ -90,13 +90,19 @@ def cmd_poll(repo: str, run_id: str, *, project: str) -> None:
         required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
     )
     exit_code, message = run_state(repo, run_id, token=token)
-    output = sys.stderr if exit_code == 1 and message.startswith("Error:") else sys.stdout
+    output = (
+        sys.stderr if exit_code == 1 and message.startswith("Error:") else sys.stdout
+    )
     print(message, file=output)
     sys.exit(exit_code)
 
 
 def cmd_jobs_count(
-    repo: str, run_id: str, attempt: int = 1, *, project: str,
+    repo: str,
+    run_id: str,
+    attempt: int = 1,
+    *,
+    project: str,
 ) -> None:
     """Print the total job count for a workflow run attempt. Exit 0 on
     success (prints the integer); exit 1 on REST failure.
@@ -130,6 +136,7 @@ def cmd_jobs_count(
     print(count)
     sys.exit(0)
 
+
 def cmd_wait_run(
     repo: str,
     run_id: str,
@@ -150,7 +157,11 @@ def cmd_wait_run(
     while True:
         exit_code, message = run_state(repo, run_id, token=token)
         if exit_code in (0, 1):
-            output = sys.stderr if exit_code == 1 and message.startswith("Error:") else sys.stdout
+            output = (
+                sys.stderr
+                if exit_code == 1 and message.startswith("Error:")
+                else sys.stdout
+            )
             print(message, file=output)
             sys.exit(exit_code)
 
@@ -239,7 +250,11 @@ def cmd_check_ci(
 
     def _bound_latest_run() -> Optional[Dict[str, Any]]:
         return latest_workflow_run(
-            repo, workflow, branch=branch, head_sha=head_sha, token=token,
+            repo,
+            workflow,
+            branch=branch,
+            head_sha=head_sha,
+            token=token,
         )
 
     try:
@@ -269,12 +284,15 @@ def main(argv: Optional[List[str]] = None) -> None:
 
     if args.subcmd == "trigger":
         inputs_dict: Dict[str, str] = {}
-        for inp in (args.inputs or []):
+        for inp in args.inputs or []:
             k, _, v = inp.partition("=")
             inputs_dict[k] = v
         cmd_trigger(
-            args.repo, args.workflow, ref=args.ref,
-            inputs=inputs_dict or None, project=args.project,
+            args.repo,
+            args.workflow,
+            ref=args.ref,
+            inputs=inputs_dict or None,
+            project=args.project,
         )
 
     elif args.subcmd == "poll":
@@ -282,12 +300,17 @@ def main(argv: Optional[List[str]] = None) -> None:
 
     elif args.subcmd == "find-run":
         cmd_find_run(
-            args.repo, args.workflow, args.commit_sha, project=args.project,
+            args.repo,
+            args.workflow,
+            args.commit_sha,
+            project=args.project,
         )
 
     elif args.subcmd == "wait-run":
         cmd_wait_run(
-            args.repo, args.run_id, timeout_sec=args.timeout_sec,
+            args.repo,
+            args.run_id,
+            timeout_sec=args.timeout_sec,
             project=args.project,
         )
 
@@ -304,13 +327,17 @@ def main(argv: Optional[List[str]] = None) -> None:
 
     elif args.subcmd == "failed-log":
         failed_log_command(
-            args.repo, args.run_id, tail_lines=args.tail_lines,
+            args.repo,
+            args.run_id,
+            max_lines=args.max_lines,
             project=args.project,
         )
 
     elif args.subcmd == "jobs-count":
         cmd_jobs_count(
-            args.repo, args.run_id, attempt=args.attempt,
+            args.repo,
+            args.run_id,
+            attempt=args.attempt,
             project=args.project,
         )
 

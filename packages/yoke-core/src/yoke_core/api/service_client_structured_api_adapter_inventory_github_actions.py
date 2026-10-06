@@ -83,12 +83,14 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
             "yoke github-actions failed-log <owner/repo> <run-id> --project <project>"
         ),
         notes=(
-            "Reports EVERY failed job of the run — each matrix shard in "
-            "its own labelled block with job id, GitHub job URL, and its "
-            "own --tail-lines tail; a job whose log is unavailable is "
-            "named with the reason. Omit the run id and pass --workflow "
-            "with optional --head-sha to resolve from the current "
-            "checkout."
+            "Reports EVERY failed job of the run, each read by job id as "
+            "soon as it finishes (siblings may still be running) — each "
+            "matrix shard in its own labelled block with job id, GitHub "
+            "job URL, and its failure region bounded by --lines; --full "
+            "writes each complete log to a local file. A job whose log is "
+            "unavailable is named with the reason. Omit the run id and "
+            "pass --workflow with optional --head-sha to resolve from the "
+            "current checkout."
         ),
     ),
     _read_entry(

@@ -6,15 +6,16 @@ provider's pagination) and collects the log text of every failed one,
 recording a named reason for each job whose log GitHub could not hand
 over instead of dropping it.
 
-Log text comes from the whole-run archive when it is available, and from
-the per-job endpoint for any failed job the archive did not carry, so a
-job is never missing because its archive entry was not found.
-Rendering lives in :mod:`github_actions_failed_job_report`.
+Every failed job is read by its own job id the moment it has finished,
+so a red shard is readable while sibling jobs keep the run in progress.
+The inventory also counts the jobs that have not finished, so a report
+can say a later failure may still arrive. Rendering lives in
+:mod:`github_actions_failed_job_report`.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 from yoke_core.domain.gh_rest_transport import (
@@ -22,10 +23,12 @@ from yoke_core.domain.gh_rest_transport import (
     RestNotFoundError,
     RestTransportError,
 )
-from yoke_core.domain.github_actions_log_archive import parse_failed_log_zip
-from yoke_core.domain.github_actions_logs import fetch_failed_log_zip, fetch_job_log
+from yoke_core.domain.github_actions_logs import (
+    JobLogTooLargeError,
+    fetch_job_log,
+    job_log_download_url,
+)
 from yoke_core.domain.github_actions_rest import rest_get
-from yoke_core.domain.github_response_safety import redact_exact_secrets
 
 
 # Conclusions that mean "this job is a failure an agent must read". A
@@ -54,6 +57,22 @@ class FailedJob:
     log_text: str
     log_status: str
     log_detail: str
+
+
+@dataclass(frozen=True)
+class RunFailures:
+    """Every finished failed job of a run, plus the jobs still running."""
+
+    failed: List[FailedJob] = field(default_factory=list)
+    unfinished_job_count: int = 0
+
+
+@dataclass(frozen=True)
+class LogDownload:
+    """Where one job's complete log can be downloaded, or why it cannot."""
+
+    url: str
+    detail: str
 
 
 def list_run_jobs(repo: str, run_id: int | str, *, token: str) -> List[Dict[str, str]]:
@@ -85,7 +104,11 @@ def list_run_jobs(repo: str, run_id: int | str, *, token: str) -> List[Dict[str,
         page_jobs = [job for job in raw if isinstance(job, dict)]
         jobs.extend(page_jobs)
         reported = listing.get("total_count")
-        if isinstance(reported, int) and not isinstance(reported, bool) and reported >= 0:
+        if (
+            isinstance(reported, int)
+            and not isinstance(reported, bool)
+            and reported >= 0
+        ):
             total = reported
         if len(page_jobs) < JOBS_PAGE_SIZE:
             return jobs
@@ -102,46 +125,40 @@ def collect_failed_jobs(
     run_id: int | str,
     *,
     token: str,
-) -> List[FailedJob]:
-    """Return one :class:`FailedJob` per failed job of *run_id*."""
+) -> RunFailures:
+    """Read every finished failed job of *run_id* by its own job id."""
+    jobs = list_run_jobs(repo, run_id, token=token)
     failed = [
-        job
-        for job in list_run_jobs(repo, run_id, token=token)
+        _failed_job(repo, job, token=token)
+        for job in jobs
         if str(job.get("conclusion") or "") in FAILED_JOB_CONCLUSIONS
     ]
-    if not failed:
-        return []
-    archive = _archive_logs(repo, run_id, token=token)
-    return [_failed_job(repo, job, archive, token=token) for job in failed]
+    unfinished = sum(1 for job in jobs if str(job.get("status") or "") != "completed")
+    return RunFailures(failed=failed, unfinished_job_count=unfinished)
 
 
-def _archive_logs(repo: str, run_id: int | str, *, token: str) -> Dict[str, str]:
-    """Whole-run log archive as ``{job_name: text}``, empty when unusable.
-
-    The archive is a bulk shortcut, never the only source, so NO failure
-    reaching it is fatal: refused, unreachable, absent, and over-limit
-    archives all yield an empty mapping. Every job missing from it is
-    then fetched individually by job id, which either returns that job's
-    log or gives it a named per-job reason — both of which beat losing
-    the whole inventory to one archive-wide refusal.
-    """
-    try:
-        zip_bytes = fetch_failed_log_zip(repo, run_id, token=token)
-        parsed = parse_failed_log_zip(zip_bytes)
-    except RestTransportError:
-        return {}
-    return {
-        name: redact_exact_secrets(body, (token,)) for name, body in parsed.items()
-    }
-
-
-def _failed_job(
+def resolve_log_downloads(
     repo: str,
-    job: Dict[str, str],
-    archive: Dict[str, str],
+    jobs: List[FailedJob],
     *,
     token: str,
-) -> FailedJob:
+) -> Dict[str, LogDownload]:
+    """Map each failed job id to its complete-log download address."""
+    downloads: Dict[str, LogDownload] = {}
+    for job in jobs:
+        if not job.job_id:
+            continue
+        try:
+            url = job_log_download_url(repo, job.job_id, token=token)
+        except RestTransportError as exc:
+            _, detail = _unavailable(exc)
+            downloads[job.job_id] = LogDownload(url="", detail=detail)
+        else:
+            downloads[job.job_id] = LogDownload(url=url, detail="")
+    return downloads
+
+
+def _failed_job(repo: str, job: Dict[str, str], *, token: str) -> FailedJob:
     job_id = str(job.get("id") or "")
     name = str(job.get("name") or "").strip() or f"job {job_id or 'unnamed'}"
     fields = {
@@ -150,11 +167,6 @@ def _failed_job(
         "conclusion": str(job.get("conclusion") or ""),
         "html_url": str(job.get("html_url") or ""),
     }
-    archived = archive.get(name)
-    if archived is not None:
-        return FailedJob(
-            **fields, log_text=archived, log_status=LOG_AVAILABLE, log_detail=""
-        )
     if not job_id:
         return FailedJob(
             **fields,
@@ -167,26 +179,33 @@ def _failed_job(
         )
     try:
         text = fetch_job_log(repo, job_id, token=token)
-    except RestNotFoundError:
-        status, detail = (
+    except RestTransportError as exc:
+        status, detail = _unavailable(exc)
+        return FailedJob(**fields, log_text="", log_status=status, log_detail=detail)
+    return FailedJob(**fields, log_text=text, log_status=LOG_AVAILABLE, log_detail="")
+
+
+def _unavailable(exc: RestTransportError) -> tuple[str, str]:
+    if isinstance(exc, RestNotFoundError):
+        return (
             LOG_EXPIRED_OR_MISSING,
             "GitHub holds no log for this job — run logs expire with the "
             "repository's retention window; open the job URL above",
         )
-    except RestAuthError as exc:
-        status, detail = (
+    if isinstance(exc, RestAuthError):
+        return (
             LOG_PERMISSION_DENIED,
             f"GitHub refused this job's log ({exc}); give the project's "
             "GitHub credential Actions read access on this repository",
         )
-    except RestTransportError as exc:
-        status, detail = (
+    if isinstance(exc, JobLogTooLargeError):
+        return (
             LOG_FETCH_FAILED,
-            f"this job's log could not be fetched ({exc}); re-run the read, "
-            "then open the job URL above",
+            f"this job's log is too large to read into the report ({exc}); "
+            "re-run with --full to write the complete log to a local file",
         )
-    else:
-        return FailedJob(
-            **fields, log_text=text, log_status=LOG_AVAILABLE, log_detail=""
-        )
-    return FailedJob(**fields, log_text="", log_status=status, log_detail=detail)
+    return (
+        LOG_FETCH_FAILED,
+        f"this job's log could not be fetched ({exc}); re-run the read, "
+        "then open the job URL above",
+    )

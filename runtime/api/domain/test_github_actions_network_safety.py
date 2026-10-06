@@ -57,7 +57,7 @@ def test_http_error_diagnostic_neutralizes_controls(monkeypatch) -> None:
 
     monkeypatch.setattr(github_actions_logs, "urlopen", reject)
     with pytest.raises(RestAuthError) as exc_info:
-        github_actions_logs.fetch_failed_log_zip("o/r", 1, token=token)
+        github_actions_logs.fetch_job_log("o/r", 1, token=token)
 
     rendered = f"{exc_info.value} {exc_info.value.body}"
     assert token not in rendered
@@ -84,7 +84,7 @@ def test_retries_share_one_actions_log_deadline(monkeypatch) -> None:
     monkeypatch.setattr(github_actions_logs, "sleep", clock.advance)
     monkeypatch.setattr(github_actions_logs, "urlopen", open_next)
 
-    assert github_actions_logs.fetch_failed_log_zip("o/r", 1, token="ghs_x") == b"zip"
+    assert github_actions_logs.fetch_job_log("o/r", 1, token="ghs_x") == "zip"
     assert timeouts == pytest.approx([10.0, 5.0])
 
 
@@ -104,7 +104,7 @@ def test_actions_log_backoff_cannot_cross_deadline(monkeypatch) -> None:
     monkeypatch.setattr(github_actions_logs, "urlopen", unavailable)
 
     with pytest.raises(RestNetworkError, match="operation exceeded"):
-        github_actions_logs.fetch_failed_log_zip("o/r", 1, token="ghs_x")
+        github_actions_logs.fetch_job_log("o/r", 1, token="ghs_x")
 
     assert calls == 1
     assert sleeps == []

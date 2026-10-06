@@ -41,7 +41,7 @@ def _inspect_run(ref: RunRef, *, token: str) -> RunSnapshot:
     """Adapt the shared failed-job collector to the failure-chain model."""
     from yoke_core.domain.github_actions_failed_jobs import collect_failed_jobs
 
-    failures = collect_failed_jobs(ref.repo, ref.run_id, token=token)
+    failures = collect_failed_jobs(ref.repo, ref.run_id, token=token).failed
     return RunSnapshot(
         ref,
         tuple(

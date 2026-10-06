@@ -19,6 +19,7 @@ from yoke_core.domain.handlers.github_actions_set import (
     _validate_and_resolve,
 )
 from yoke_core.domain.github_actions_failed_job_report import build_failed_job_report
+from yoke_core.domain.github_actions_failure_region import DEFAULT_REGION_LINES
 
 
 class FailedLogRequest(BaseModel):
@@ -28,8 +29,12 @@ class FailedLogRequest(BaseModel):
     workflow: Optional[WorkflowIdentifier] = None
     branch: str = Field("main")
     head_sha: str = Field("")
-    # Applied per failed job, so one shard's tail never displaces another's.
-    tail_lines: int = Field(50, ge=1)
+    # Applied per failed job, so one shard's region never displaces another's.
+    max_lines: int = Field(DEFAULT_REGION_LINES, ge=1)
+    # Also return each failed job's signed complete-log download address,
+    # so the caller writes the whole log locally instead of receiving it
+    # through this bounded response.
+    full: bool = False
 
     @model_validator(mode="after")
     def _requires_run_selector(self) -> "FailedLogRequest":
@@ -46,8 +51,11 @@ class FailedJobSummary(BaseModel):
     log_status: str
     log_detail: str
     log_line_count: int
-    shown_line_count: int
-    truncated: bool
+    region: str
+    region_line_count: int
+    trimmed_line_count: int
+    log_download_url: str = ""
+    log_download_detail: str = ""
 
 
 class FailedLogResponse(BaseModel):
@@ -56,6 +64,7 @@ class FailedLogResponse(BaseModel):
     truncated: bool = False
     failed_job_count: int = 0
     logs_available_count: int = 0
+    unfinished_job_count: int = 0
     jobs: List[FailedJobSummary] = Field(default_factory=list)
 
 
@@ -104,10 +113,13 @@ def handle_failed_log(request: FunctionCallRequest) -> HandlerOutcome:
     assert run_id is not None
 
     from yoke_core.domain.gh_rest_transport import RestAuthError, RestTransportError
-    from yoke_core.domain.github_actions_failed_jobs import collect_failed_jobs
+    from yoke_core.domain.github_actions_failed_jobs import (
+        collect_failed_jobs,
+        resolve_log_downloads,
+    )
 
     try:
-        jobs = collect_failed_jobs(payload.repo, run_id, token=token)
+        failures = collect_failed_jobs(payload.repo, run_id, token=token)
     except RestAuthError as exc:
         return _transport_failed(
             f"GitHub auth failure fetching logs for run {run_id}: {exc}",
@@ -115,11 +127,18 @@ def handle_failed_log(request: FunctionCallRequest) -> HandlerOutcome:
     except RestTransportError as exc:
         return _transport_failed(f"failed to fetch logs for run {run_id}: {exc}")
 
+    # Resolved last: GitHub's signed addresses live about one minute.
+    downloads = (
+        resolve_log_downloads(payload.repo, failures.failed, token=token)
+        if payload.full
+        else None
+    )
     report = build_failed_job_report(
-        jobs,
+        failures,
         repo=payload.repo,
         run_id=run_id,
-        tail_lines=payload.tail_lines,
+        max_lines=payload.max_lines,
+        downloads=downloads,
     )
     return HandlerOutcome(
         result_payload=FailedLogResponse(
@@ -128,6 +147,7 @@ def handle_failed_log(request: FunctionCallRequest) -> HandlerOutcome:
             truncated=report.truncated,
             failed_job_count=report.failed_job_count,
             logs_available_count=report.logs_available_count,
+            unfinished_job_count=report.unfinished_job_count,
             jobs=[FailedJobSummary(**job) for job in report.jobs],
         ).model_dump(),
         primary_success=True,

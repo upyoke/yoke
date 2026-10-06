@@ -11,7 +11,12 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain.github_actions_failed_jobs import LOG_AVAILABLE, FailedJob
+from yoke_core.domain.github_actions_failed_jobs import (
+    LOG_AVAILABLE,
+    FailedJob,
+    LogDownload,
+    RunFailures,
+)
 from yoke_core.domain.handlers.github_actions_failed_log import handle_failed_log
 from yoke_core.domain.project_github_auth import ProjectGithubAuth
 
@@ -56,10 +61,12 @@ def _failed_job(name: str, body: str, job_id: str = "900") -> FailedJob:
     )
 
 
-def _stub_collect(monkeypatch, jobs):
+def _stub_collect(monkeypatch, jobs, *, unfinished: int = 0):
     monkeypatch.setattr(
         "yoke_core.domain.github_actions_failed_jobs.collect_failed_jobs",
-        lambda repo, run_id, *, token: list(jobs),
+        lambda repo, run_id, *, token: RunFailures(
+            failed=list(jobs), unfinished_job_count=unfinished
+        ),
     )
 
 
@@ -109,7 +116,7 @@ class TestHandleFailedLog:
         assert outcome.result_payload["run_id"] == "456"
         assert "boom" in outcome.result_payload["output"]
 
-    def test_tail_lines_bounds_each_job_separately(self, _resolver_ok, monkeypatch):
+    def test_max_lines_bounds_each_job_separately(self, _resolver_ok, monkeypatch):
         _stub_collect(
             monkeypatch,
             [
@@ -123,7 +130,7 @@ class TestHandleFailedLog:
                 {
                     "repo": "upyoke/yoke",
                     "run_id": "1",
-                    "tail_lines": 10,
+                    "max_lines": 10,
                     "project": "yoke",
                 }
             )
@@ -134,7 +141,35 @@ class TestHandleFailedLog:
         assert payload["truncated"] is True
         assert "a line 99" in payload["output"]
         assert "b line 99" in payload["output"]
-        assert [job["shown_line_count"] for job in payload["jobs"]] == [10, 10]
+        assert [job["trimmed_line_count"] for job in payload["jobs"]] == [90, 90]
+        assert all(job["log_download_url"] == "" for job in payload["jobs"])
+
+    def test_unfinished_siblings_are_counted(self, _resolver_ok, monkeypatch):
+        _stub_collect(monkeypatch, [_failed_job("shard 1", "boom")], unfinished=2)
+
+        payload = handle_failed_log(_make_request()).result_payload
+
+        assert payload["unfinished_job_count"] == 2
+        assert "still running" in payload["output"]
+
+    def test_full_returns_each_job_download_address(self, _resolver_ok, monkeypatch):
+        _stub_collect(monkeypatch, [_failed_job("shard 1", "boom", job_id="901")])
+        signed = "https://results.example/901.txt?sig=x"
+        monkeypatch.setattr(
+            "yoke_core.domain.github_actions_failed_jobs.resolve_log_downloads",
+            lambda repo, jobs, *, token: {
+                job.job_id: LogDownload(url=signed, detail="") for job in jobs
+            },
+        )
+
+        outcome = handle_failed_log(
+            _make_request(
+                {"repo": "upyoke/yoke", "run_id": "1", "full": True, "project": "yoke"}
+            )
+        )
+
+        assert outcome.result_payload["jobs"][0]["log_download_url"] == signed
+        assert signed not in outcome.result_payload["output"]
 
     def test_run_without_failed_jobs_reports_rather_than_errors(
         self, _resolver_ok, monkeypatch
