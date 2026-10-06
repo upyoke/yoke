@@ -144,7 +144,7 @@ def terminalize_run_on(
     )
     from yoke_core.domain.deployment_run_carried_work import record_carried_work
 
-    record_carried_work(conn, run_id)
+    record_carried_work(conn, run_id, permanent_only=True)
     withdraw_deployment_qa_wait_wakes(
         conn, run_id=run_id, reason=f"run_terminal:{final_status}"
     )

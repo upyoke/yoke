@@ -115,3 +115,29 @@ test("the live bands draw before the run roster; Release and Done fill on settle
   assert.ok(!band("release").includes("Loading delivery"));
   assert.ok(!band("done").includes("Loading delivery"));
 });
+
+test("a Release and Done fill that throws names itself instead of hanging", async (t) => {
+  stubFetch(t);
+  const base = workbenchClient();
+  const client = {
+    requests: base.requests,
+    async call(request) {
+      const answer = await base.call(request);
+      if (request.function !== "deployment_runs.list") return answer;
+      // A run carrying the finished item whose environment cannot be read.
+      const unreadable = {
+        id: "run-unreadable",
+        status: "succeeded",
+        member_items: [{ id: 106, ref: "YOK-6" }],
+        target_environment: { toString() { throw new Error("unreadable environment"); } },
+      };
+      return { ...answer, envelope: { ...answer.envelope, result: { rows: [unreadable] } } };
+    },
+  };
+  const root = await mountFrontier(client);
+  const band = (key) => byClass(root, `work-band-${key}`)[0].textContent;
+
+  assert.ok(band("ready").includes("YOK-9"));
+  assert.ok(band("done").includes("Release and Done could not be drawn"));
+  assert.ok(band("done").includes("Reload Frontier"));
+});

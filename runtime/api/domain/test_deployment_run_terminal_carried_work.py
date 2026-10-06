@@ -13,7 +13,10 @@ from yoke_core.domain import (
     deployment_run_carried_work_source,
     deployment_runs,
 )
-from yoke_core.domain.deployment_run_carried_work import parse_carried_work
+from yoke_core.domain.deployment_run_carried_work import (
+    carried_work_is_permanent,
+    parse_carried_work,
+)
 from yoke_core.domain.deployment_run_list_read import list_deployment_runs
 from yoke_core.domain.deployment_run_terminalization import terminalize_run
 
@@ -64,7 +67,13 @@ def opened(test_db: Any, tmp_path: Path, monkeypatch) -> dict[str, Any]:
         "'[{\"name\":\"complete\"}]','2026-08-30T00:00:00Z','active')"
     )
     _run(test_db, "run-terminal-000", base, "succeeded", "2026-08-30T00:01:00Z")
-    state: dict[str, Any] = {"opens": 0, "checkout": repo, "head": head}
+    state: dict[str, Any] = {
+        "opens": 0,
+        "checkout": repo,
+        "repo": repo,
+        "base": base,
+        "head": head,
+    }
 
     def checkout(_project_id: int) -> Path:
         state["opens"] += 1
@@ -134,7 +143,7 @@ def test_unsaved_terminal_run_is_derived_once_then_read_from_its_record(
     assert _stored(test_db, "run-terminal-003") == first[0]["carried_work"]
 
 
-def test_failed_derivation_of_a_terminal_run_is_recorded_and_not_retried(
+def test_transient_source_failure_is_not_recorded_and_is_retried(
     test_db: Any, opened: dict[str, Any], tmp_path: Path
 ) -> None:
     opened["checkout"] = tmp_path / "missing-checkout"
@@ -143,12 +152,91 @@ def test_failed_derivation_of_a_terminal_run_is_recorded_and_not_retried(
     )
 
     first = list_deployment_runs(project=None, status="cancelled", limit=10)
+    derivation = first[0]["carried_work"]["derivation"]
+    assert derivation["contents_known"] is False
+    assert derivation["reason"] == "prior_release_lineage_unreachable"
+    assert first[0]["carried_work"]["warnings"]
+    assert _stored(test_db, "run-terminal-004") is None
+
+    # Once the cache expires a later read asks again, and records a real answer.
+    deployment_run_carried_work_read._CACHE.clear()
+    opened["checkout"] = opened.pop("repo")
     second = list_deployment_runs(project=None, status="cancelled", limit=10)
+
+    assert opened["opens"] == 2
+    assert second[0]["carried_work"]["commits"] == [opened["head"]]
+    assert _stored(test_db, "run-terminal-004") == second[0]["carried_work"]
+
+
+def test_unsuccessful_completion_leaves_a_transient_failure_unrecorded(
+    test_db: Any, opened: dict[str, Any], tmp_path: Path
+) -> None:
+    opened["checkout"] = tmp_path / "missing-checkout"
+    _run(
+        test_db, "run-terminal-005", opened["head"], "executing", "2026-08-30T00:02:00Z"
+    )
+
+    assert deployment_runs.cmd_update("run-terminal-005", "status", "failed") is None
+
+    assert _stored(test_db, "run-terminal-005") is None
+
+
+def test_permanent_unknown_answer_is_recorded_and_not_retried(
+    test_db: Any, opened: dict[str, Any]
+) -> None:
+    # The newest succeeded release already carries this run's lineage, so the
+    # two lineages diverge: a fact about the runs no later read can change.
+    _run(
+        test_db, "run-terminal-006", opened["head"], "succeeded", "2026-08-30T00:03:00Z"
+    )
+    _run(test_db, "run-terminal-007", opened["base"], "failed", "2026-08-30T00:04:00Z")
+
+    first = list_deployment_runs(project=None, status="failed", limit=10)
+    deployment_run_carried_work_read._CACHE.clear()
+    second = list_deployment_runs(project=None, status="failed", limit=10)
 
     assert opened["opens"] == 1
     derivation = first[0]["carried_work"]["derivation"]
+    assert derivation["reason"] == "release_lineages_diverged"
     assert derivation["contents_known"] is False
-    assert derivation["reason"]
     assert second[0]["carried_work"] == first[0]["carried_work"]
-    stored = _stored(test_db, "run-terminal-004")
-    assert stored is not None and stored["derivation"]["reason"] == derivation["reason"]
+    assert _stored(test_db, "run-terminal-007") == first[0]["carried_work"]
+
+
+def _answer(reason: str, *, known: bool = False, warnings=()) -> dict[str, Any]:
+    return {
+        "derivation": {"contents_known": known, "reason": reason},
+        "warnings": list(warnings),
+    }
+
+
+@pytest.mark.parametrize(
+    ("payload", "permanent"),
+    [
+        (_answer("complete", known=True), True),
+        (_answer("release_lineages_diverged"), True),
+        (_answer("prior_release_lineage_missing"), True),
+        (_answer("prior_release_lineage_unreachable"), True),
+        (
+            _answer(
+                "prior_release_lineage_unreachable",
+                warnings=[{"reason": "checkout_not_refreshed"}],
+            ),
+            False,
+        ),
+        (_answer("project_source_unavailable"), False),
+        (_answer("repository_provider_read_failed"), False),
+        (_answer("derivation_failed"), False),
+        (
+            {
+                **_answer("complete", known=True),
+                "bound_projects": [_answer("project_source_unavailable")],
+            },
+            False,
+        ),
+    ],
+)
+def test_permanence_separates_run_facts_from_environment_failures(
+    payload: dict[str, Any], permanent: bool
+) -> None:
+    assert carried_work_is_permanent(payload) is permanent

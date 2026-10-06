@@ -301,10 +301,8 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
     )), "Nothing is ready to pick up.");
 
     if (!deploymentsSettled) {
-      for (const band of [bands.release, bands.done]) {
-        band.setCount(null);
-        band.renderCards([], "Loading delivery…");
-      }
+      for (const band of [bands.release, bands.done]) band.setCount(null);
+      for (const band of [bands.release, bands.done]) band.renderCards([], "Loading delivery…");
       return;
     }
     // Every card, with no overflow tile: Done is the one band that truncates,
@@ -343,6 +341,8 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
     deployments = runs;
     deploymentsSettled = true;
     if (context.isMounted()) paint();
-  });
+  }).catch((error) => [bands.release, bands.done].forEach((band) => band.renderError(
+    `Release and Done could not be drawn: ${error?.message || error}. Reload Frontier.`,
+  )));
   return paint;
 }

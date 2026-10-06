@@ -124,10 +124,11 @@ Item-bound runs operate on one or more items through
 `deployment_run_items`; environment-level runs may intentionally operate on
 zero items. A terminal run's `carried_work` JSON records the trunk items and
 bare commits shipped between release lineages without adding run members or
-touching item lifecycle; every terminal transition records it. Shipping and
-Runs reads prefer the record, record a terminal run that lacks one exactly
-once (a failed derivation included, by name), and derive only unfinished runs
-live behind a 30-second per-authority/run cache. The Carries list and count include
+touching item lifecycle. Succeeded completion always records it; failed and
+cancelled transitions, and Shipping/Runs reads that find a terminal run
+unrecorded, record only a permanent answer (a read may write this one field)
+and retry environment failures; unrecorded answers sit behind a 30-second
+per-authority/run cache. The Carries list and count include
 bound projects; a truly empty run remains an environment run.
 Run execution may move the item through the definition's delivery
 stages, while `needs-capability` and `awaiting-approval` remain run halt states.

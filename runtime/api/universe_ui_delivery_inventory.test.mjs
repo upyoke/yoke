@@ -121,6 +121,7 @@ test("Environments joins branch and latest-run reads without inventing policy", 
         function: "projects.infrastructure.list",
         payload: { project: "1" },
       },
+      { function: "deployment_runs.list", payload: { project: "1" } },
       {
         function: "projects.environment_settings.get",
         payload: {
@@ -129,7 +130,6 @@ test("Environments joins branch and latest-run reads without inventing policy", 
           paths: ["git.branch"],
         },
       },
-      { function: "deployment_runs.list", payload: { project: "1" } },
     ],
   );
   assert.deepEqual(
@@ -146,6 +146,27 @@ test("Environments joins branch and latest-run reads without inventing policy", 
     .includes("Auto-deploy settings are unavailable here"));
   assert.equal(byClass(root, "raw-toggle").length, 0);
   assert.equal(byClass(root, "raw-json").length, 0);
+  mounted.unmount();
+});
+
+test("Environments draws before the run list and fills status when it settles", async (t) => {
+  const base = deliveryClient();
+  let answerRuns;
+  const runsAnswered = new Promise((resolve) => { answerRuns = resolve; });
+  const client = {
+    requests: base.requests,
+    async call(request) {
+      if (request.function === "deployment_runs.list") await runsAnswered;
+      return base.call(request);
+    },
+  };
+  const { root, mounted } = await mountAt(t, "/environments?project=1", client);
+  const cells = () => allNodes(root).filter((node) => node.tagName === "TD").map(cellText);
+
+  assert.deepEqual(cells().slice(0, 4), ["prod", "main", "unavailable", "loading…"]);
+  answerRuns();
+  await settle();
+  assert.deepEqual(cells().slice(0, 4), ["prod", "main", "unavailable", "succeeded"]);
   mounted.unmount();
 });
 

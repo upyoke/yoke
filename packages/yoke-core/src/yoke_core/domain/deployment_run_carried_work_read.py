@@ -1,14 +1,23 @@
-"""Read carried work, deriving live only for runs that have not finished.
+"""Read carried work, deriving live only what is not yet a permanent record.
 
 A terminal run's answer cannot change, so a terminal run with no record —
 one that finished before every terminal transition recorded it — is derived
-once through the recorder and never again; a failed derivation is recorded by
-name too, and ``deployment_runs.carried_work.repair`` replaces it. An
-unfinished run is derived live behind a bounded process cache that amortizes
-source walks across UI refreshes. That cache is presentation only; enrollment
-and completion always use their own derivation. A striped single-flight lock
-keeps concurrent cold reads in one process from deriving the same run twice;
-the recorder's row lock does the same across processes.
+through the recorder and recorded once its answer is permanent: derived, or
+unknown for a reason that is a fact about the run's own record. An answer
+the environment caused (a fetch, provider, credential or missing-checkout
+failure) is not recorded, so a later read retries it once the cache below
+expires. ``deployment_runs.carried_work.repair`` replaces a recorded unknown.
+
+Recording happens on the read connection and commits it: a caller with only
+read access to a run can cause its carried work to be recorded. It writes
+that derived answer alone — never membership, lifecycle, or gate state.
+
+Unrecorded answers — unfinished runs and transient terminal failures — sit
+behind a bounded process cache that amortizes source walks across UI
+refreshes. That cache is presentation only; enrollment and completion
+always use their own derivation. A striped single-flight lock keeps
+concurrent cold reads in one process from deriving the same run twice; the
+recorder's row lock does the same across processes.
 """
 
 from __future__ import annotations
@@ -20,6 +29,7 @@ from time import monotonic
 from typing import Any, Mapping
 
 from yoke_core.domain.deployment_run_carried_work import (
+    carried_work_is_permanent,
     derive_carried_work_safely,
     parse_carried_work,
     record_carried_work,
@@ -47,8 +57,25 @@ def _authority(conn: Any) -> tuple | None:
     return (info.host, info.port, info.dbname, info.user)
 
 
+def _cached(key: tuple) -> dict[str, Any] | None:
+    with _CACHE_LOCK:
+        cached = _CACHE.get(key)
+        if cached is None or monotonic() >= cached[0]:
+            return None
+        _CACHE.move_to_end(key)
+        return deepcopy(cached[1])
+
+
+def _remember(key: tuple, payload: dict[str, Any]) -> None:
+    with _CACHE_LOCK:
+        _CACHE[key] = (monotonic() + CACHE_SECONDS, deepcopy(payload))
+        _CACHE.move_to_end(key)
+        while len(_CACHE) > CACHE_RUN_LIMIT:
+            _CACHE.popitem(last=False)
+
+
 def read_carried_work(conn: Any, row: Mapping[str, Any]) -> dict[str, Any]:
-    """Prefer the durable record; record a terminal run; cache a live one.
+    """Prefer the record; record a permanent terminal answer; cache the rest.
 
     Recording commits *conn*, so callers are read paths holding no pending
     writes of their own.
@@ -58,34 +85,28 @@ def read_carried_work(conn: Any, row: Mapping[str, Any]) -> dict[str, Any]:
         return recorded
     run_id = str(row["id"])
     authority = _authority(conn)
-    if str(row.get("status") or "") in TERMINAL_RUN_STATUSES:
-        with _flight((authority, run_id)):
-            payload = record_carried_work(conn, run_id)
-            conn.commit()
-        return payload
     # Test doubles and non-Postgres validation connections have no stable
     # authority identity; do not share their answers across connections.
-    if authority is None:
-        return derive_carried_work_safely(conn, run_id)
     key = (
-        *authority,
+        authority,
         run_id,
         row.get("release_lineage"),
         dumps_compact(row.get("bound_sources")),
         row.get("status"),
     )
     with _flight(key):
-        with _CACHE_LOCK:
-            cached = _CACHE.get(key)
-            if cached is not None and monotonic() < cached[0]:
-                _CACHE.move_to_end(key)
-                return deepcopy(cached[1])
-        payload = derive_carried_work_safely(conn, run_id)
-        with _CACHE_LOCK:
-            _CACHE[key] = (monotonic() + CACHE_SECONDS, deepcopy(payload))
-            _CACHE.move_to_end(key)
-            while len(_CACHE) > CACHE_RUN_LIMIT:
-                _CACHE.popitem(last=False)
+        cached = _cached(key) if authority is not None else None
+        if cached is not None:
+            return cached
+        if str(row.get("status") or "") in TERMINAL_RUN_STATUSES:
+            payload = record_carried_work(conn, run_id, permanent_only=True)
+            conn.commit()
+            if carried_work_is_permanent(payload):
+                return payload
+        else:
+            payload = derive_carried_work_safely(conn, run_id)
+        if authority is not None:
+            _remember(key, payload)
     return payload
 
 

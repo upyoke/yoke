@@ -122,7 +122,7 @@ def test_compact_work_keeps_bound_project_item_routes_and_derivation():
     assert result["bound_projects"][0]["derivation"]["contents_known"] is True
 
 
-def test_read_never_records_carried_work():
+def test_unfinished_run_is_derived_without_recording():
     conn = Mock(info=None)
     with patch.object(
         subject, "derive_carried_work_safely", return_value={"items": []}
@@ -131,19 +131,45 @@ def test_read_never_records_carried_work():
     conn.execute.assert_not_called()
 
 
+KNOWN = {"derivation": {"contents_known": True}, "items": []}
+TRANSIENT = {
+    "derivation": {"contents_known": False, "reason": "project_source_unavailable"},
+    "items": [],
+}
+
+
 @pytest.mark.parametrize("status", ["succeeded", "failed", "cancelled"])
 def test_unsaved_terminal_run_is_recorded_not_derived_live(status):
     conn = Mock(info=None)
     with (
-        patch.object(
-            subject, "record_carried_work", return_value={"items": []}
-        ) as record,
+        patch.object(subject, "record_carried_work", return_value=KNOWN) as record,
         patch.object(subject, "derive_carried_work_safely") as derive,
     ):
-        assert subject.read_carried_work(conn, run(status=status)) == {"items": []}
-    record.assert_called_once_with(conn, "run-current")
+        assert subject.read_carried_work(conn, run(status=status)) == KNOWN
+    record.assert_called_once_with(conn, "run-current", permanent_only=True)
     conn.commit.assert_called_once_with()
     derive.assert_not_called()
+    assert not subject._CACHE
+
+
+def test_transient_terminal_answer_is_cached_then_retried():
+    conn = Mock(info=connection().info)
+    with (
+        patch.object(subject, "monotonic", return_value=0) as clock,
+        patch.object(subject, "record_carried_work", return_value=TRANSIENT) as record,
+    ):
+        assert subject.read_carried_work(conn, run(status="failed")) == TRANSIENT
+        subject.read_carried_work(conn, run(status="failed"))
+        assert record.call_count == 1
+        clock.return_value = subject.CACHE_SECONDS
+        subject.read_carried_work(conn, run(status="failed"))
+    assert record.call_count == 2
+
+
+def test_permanent_terminal_answer_is_not_cached():
+    conn = Mock(info=connection().info)
+    with patch.object(subject, "record_carried_work", return_value=KNOWN):
+        subject.read_carried_work(conn, run(status="cancelled"))
     assert not subject._CACHE
 
 

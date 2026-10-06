@@ -235,8 +235,9 @@ def cmd_update(
                     )
 
                     stamp_run_environment(conn, run_id, when=completed_at)
-                # Every terminal run keeps its answer, so no reader derives it.
-                record_carried_work(conn, run_id)
+                # A terminal run keeps its answer, so no reader derives it; a
+                # transient failure on an unsuccessful run is left for a read.
+                record_carried_work(conn, run_id, permanent_only=value != "succeeded")
                 from yoke_core.domain.deployment_qa_stage_wake_withdraw import (
                     withdraw_deployment_qa_wait_wakes,
                 )
