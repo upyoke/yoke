@@ -1,6 +1,7 @@
 """Real collector admission and durable redemption across isolated HTTPS origins."""
 
 from concurrent.futures import ThreadPoolExecutor
+from types import SimpleNamespace
 from uuid import uuid4
 import time
 
@@ -138,6 +139,55 @@ def test_atomic_durable_nonce_consumption(database, client):
             )
         )
     assert results.count(True) == 1 and results.count(False) == 3
+
+
+def test_replay_crossing_expiry_keeps_its_nonce_tombstone(
+    client, database, monkeypatch
+):
+    from yoke_core.domain import frontend_events_storage
+    from yoke_core.frontend_events import events_handoff
+
+    admitted = headers(client)
+    capture(client, admitted)
+    minted = client.post(MINT, headers=admitted, json={"audience": ORIGIN}).json()
+    token, expires = minted["token"], minted["expires_at"]
+    assert (
+        client.post(REDEEM, headers=admitted, json={"token": token}).status_code == 200
+    )
+    monkeypatch.setattr(
+        events_handoff, "time", SimpleNamespace(time=lambda: expires - 0.01)
+    )
+    monkeypatch.setattr(
+        frontend_events_storage, "time", SimpleNamespace(time=lambda: expires)
+    )
+    replay = client.post(REDEEM, headers=admitted, json={"token": token})
+    assert replay.json()["error"] == "attribution_handoff_replayed"
+    assert "set-cookie" not in replay.headers
+    with database() as conn:
+        assert (
+            conn.execute(
+                "SELECT count(*) FROM frontend_attribution_redemptions"
+            ).fetchone()[0]
+            == 1
+        )
+
+
+def test_delayed_expired_redemption_cannot_insert_after_cleanup(client, database):
+    headers(client)
+    with database() as conn:
+        org = conn.execute(
+            "SELECT id FROM organizations ORDER BY id LIMIT 1"
+        ).fetchone()[0]
+    # A different redemption may already have purged this nonce's tombstone.
+    # Storage must reject the now-expired insertion even if validation ran earlier.
+    assert not consume_attribution_handoff(org, str(uuid4()), int(time.time()) - 1)
+    with database() as conn:
+        assert (
+            conn.execute(
+                "SELECT count(*) FROM frontend_attribution_redemptions"
+            ).fetchone()[0]
+            == 0
+        )
 
 
 def test_storage_failure_is_named_and_never_reports_redemption(client, monkeypatch):
