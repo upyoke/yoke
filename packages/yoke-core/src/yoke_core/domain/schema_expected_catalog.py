@@ -62,6 +62,7 @@ _EXPECTED_SCHEMA_STR = (
     "|epic_tasks:id/INTEGER,epic_id/INTEGER,task_num/INTEGER,title/TEXT,context_estimate/TEXT,dependencies/TEXT,status/TEXT,dispatch_attempts/INTEGER,body/TEXT,github_issue/TEXT,max_attempts/INTEGER,agent_id/TEXT,last_heartbeat/TEXT,last_activity_at/TEXT,item_worktree_id/INTEGER,scope_state/TEXT,scope_finalized_at/TEXT"
     "|event_registry:event_name/TEXT,event_kind/TEXT,event_type/TEXT,owner_service/TEXT,description/TEXT,context_schema/TEXT,severity_default/TEXT,added_in/TEXT,status/TEXT"
     "|events:id/INTEGER,event_id/TEXT,source_type/TEXT,session_id/TEXT,severity/TEXT,event_kind/TEXT,event_type/TEXT,event_name/TEXT,event_outcome/TEXT,org_id/TEXT,actor_id/INTEGER,environment/TEXT,service/TEXT,project_id/INTEGER,item_id/TEXT,task_num/INTEGER,agent/TEXT,tool_name/TEXT,duration_ms/INTEGER,exit_code/INTEGER,trace_id/TEXT,anomaly_flags/TEXT,tool_use_id/TEXT,turn_id/TEXT,hook_event_name/TEXT,client_timing_id/TEXT,envelope/TEXT,created_at/TEXT"
+    "|frontend_attribution_redemptions:org_id/INTEGER,nonce/TEXT,expires_at/BIGINT"
     "|frontend_event_rate_limits:client_key/TEXT,window_start/INTEGER,request_count/INTEGER"
     "|function_call_ledger:request_id/TEXT,function_id/TEXT,actor_id/TEXT,authorization_scope/TEXT,payload_checksum/TEXT,result/TEXT,created_at/TEXT"
     "|github_app_installations:installation_id/TEXT,api_url/TEXT,account_id/TEXT,account_login/TEXT,account_type/TEXT,repository_selection/TEXT,permissions/TEXT,status/TEXT,last_verified_at/TEXT,last_error/TEXT,created_at/TEXT,updated_at/TEXT"
