@@ -6,6 +6,7 @@ import json
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional
 
+from yoke_contracts.skill_registry import IMPLEMENTATION_SKILL_IDS
 from yoke_core.domain import db_backend
 from yoke_core.domain.builtin_workflow_definitions import (
     builtin_workflow_definition,
@@ -16,7 +17,6 @@ from yoke_core.domain.workflow_registry import (
 )
 from yoke_core.domain.workflow_registry_sql import row_dict as _row_dict
 from yoke_core.domain.workflow_definition_builders import (
-    IMPLEMENTATION_WORKFLOW_SKILL_IDS,
     WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE,
 )
 from yoke_core.domain.project_identity import render_item_ref
@@ -166,7 +166,7 @@ class WorkflowRuntime:
         """Whether an implementation skill has begun its bound segment."""
         return self.skill_has_started(
             stage_id,
-            IMPLEMENTATION_WORKFLOW_SKILL_IDS,
+            IMPLEMENTATION_SKILL_IDS,
         )
 
     def is_before_implementation(self, stage_id: str) -> bool:
@@ -176,7 +176,7 @@ class WorkflowRuntime:
             return False
         starts = []
         for binding in self.definition["skill_bindings"]:
-            if str(binding["skill_id"]) not in IMPLEMENTATION_WORKFLOW_SKILL_IDS:
+            if str(binding["skill_id"]) not in IMPLEMENTATION_SKILL_IDS:
                 continue
             start = self.stage_index(str(binding["from_stage_id"]))
             if start is not None:
@@ -223,10 +223,10 @@ class WorkflowRuntime:
             GATE_CLAIM_ACTIVATION,
         )
 
-        return (
-            self.policies["path_claims"] == "required"
-            and GATE_CLAIM_ACTIVATION
-            in self.gate_ids_for_stage(self.next_stage_id(stage_id))
+        return self.policies[
+            "path_claims"
+        ] == "required" and GATE_CLAIM_ACTIVATION in self.gate_ids_for_stage(
+            self.next_stage_id(stage_id)
         )
 
     def allows_entry_surface(self, entry_surface: str) -> bool:

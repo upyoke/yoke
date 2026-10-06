@@ -1,6 +1,7 @@
 ---
 name: refine
 description: "Read item artifacts, critique them, and write improved work item artifacts back through sanctioned Yoke update surfaces."
+# argument-hint is generated from yoke_contracts.skill_registry.
 argument-hint: "{PREFIX-N}"
 ---
 

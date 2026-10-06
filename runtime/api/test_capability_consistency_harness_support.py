@@ -24,7 +24,7 @@ import pytest
 
 from yoke_core.domain.harness_capability_registry import (
     HARNESS_UNIVERSE,
-    SAFE_OPERATOR_SURFACE,
+    OPERATOR_COMMANDS,
     downstream_paths_for_manifest,
     entrypoints_for_manifest,
     manifest_disabled_downstream_paths,
@@ -58,10 +58,10 @@ class TestConductDualHarnessSupport:
 
     def test_conduct_row_supports_full_universe(self):
         conduct = next(
-            (c for c in SAFE_OPERATOR_SURFACE if c.entrypoint == "/yoke conduct"),
+            (c for c in OPERATOR_COMMANDS if c.entrypoint == "/yoke conduct"),
             None,
         )
-        assert conduct is not None, "SAFE_OPERATOR_SURFACE missing /yoke conduct row"
+        assert conduct is not None, "OPERATOR_COMMANDS missing /yoke conduct row"
         assert conduct.harness_support == HARNESS_UNIVERSE, (
             "/yoke conduct must declare full-universe harness support; got "
             f"{conduct.harness_support}"
@@ -87,4 +87,6 @@ class TestManifestDerivedLimitations:
         # The manifest-derived entrypoint and downstream-path lists are the
         # shared registry minus whatever the manifest disables.
         assert entrypoints_for_manifest(codex_manifest) == shared_entrypoints()
-        assert downstream_paths_for_manifest(codex_manifest) == shared_downstream_paths()
+        assert (
+            downstream_paths_for_manifest(codex_manifest) == shared_downstream_paths()
+        )

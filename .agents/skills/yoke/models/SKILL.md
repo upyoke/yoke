@@ -1,6 +1,7 @@
 ---
 name: models
 description: Research, review, and publish effective-dated model catalog revisions.
+# argument-hint is generated from yoke_contracts.skill_registry.
 argument-hint: "lookup MODEL_ID | get | validate | diff | publish | revisions | restore"
 ---
 

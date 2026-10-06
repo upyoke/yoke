@@ -1,6 +1,7 @@
 ---
 name: charge
 description: "Direct-mode entrypoint — compute the frontier, present the ranked table, confirm with operator, and dispatch to the correct downstream adapter."
+# argument-hint is generated from yoke_contracts.skill_registry.
 argument-hint: "[--dry-run] [--item PREFIX-N] [--project P] [--wip-cap N]"
 ---
 

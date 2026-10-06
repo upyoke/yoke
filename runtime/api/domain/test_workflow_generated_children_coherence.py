@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from yoke_contracts.skill_registry import TASK_PRODUCING_SKILL_IDS
+
 import pytest
 
 from yoke_core.domain.builtin_workflow_definitions import (
-    TASK_PRODUCING_PLANNING_SKILL_IDS,
     builtin_workflow_definition,
 )
 from yoke_core.domain.workflow_definition_validation import (
@@ -26,7 +27,7 @@ def test_generated_children_requires_a_skill_that_produces_tasks():
     downstream as a finished decomposition rather than an absent one.
     """
     dash = builtin_workflow_definition("dash")["definition"]
-    assert not _bound_skills(dash) & TASK_PRODUCING_PLANNING_SKILL_IDS
+    assert not _bound_skills(dash) & TASK_PRODUCING_SKILL_IDS
     dash["policies"]["generated_children"] = "epic_tasks"
     with pytest.raises(WorkflowDefinitionError, match="produces tasks"):
         validate_workflow_definition(dash)
@@ -35,7 +36,7 @@ def test_generated_children_requires_a_skill_that_produces_tasks():
 def test_epic_declares_generated_children_and_binds_its_producer():
     epic = builtin_workflow_definition("epic")["definition"]
     assert epic["policies"]["generated_children"] == "epic_tasks"
-    assert _bound_skills(epic) & TASK_PRODUCING_PLANNING_SKILL_IDS
+    assert _bound_skills(epic) & TASK_PRODUCING_SKILL_IDS
     validate_workflow_definition(epic)
 
 

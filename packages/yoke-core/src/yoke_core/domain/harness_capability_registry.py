@@ -41,7 +41,6 @@ OPERATOR_COMMANDS: tuple[OperatorCommand, ...] = tuple(
 DOWNSTREAM_PATHS: tuple[str, ...] = tuple(
     skill.id for skill in SKILLS if skill.kind == "stage"
 )
-SAFE_OPERATOR_SURFACE = OPERATOR_COMMANDS
 
 
 def _string_list(value: Any) -> list[str]:
@@ -62,12 +61,12 @@ def shared_downstream_paths() -> list[str]:
 
 def safe_operator_surface() -> list[OperatorCommand]:
     """Return the full operator command surface entries."""
-    return list(SAFE_OPERATOR_SURFACE)
+    return list(OPERATOR_COMMANDS)
 
 
 def safe_operator_surface_for_harness(harness_id: str) -> list[OperatorCommand]:
     """Return safe operator surface entries supported by the given harness."""
-    return [c for c in SAFE_OPERATOR_SURFACE if harness_id in c.harness_support]
+    return [c for c in OPERATOR_COMMANDS if harness_id in c.harness_support]
 
 
 def safe_operator_surface_entrypoints(harness_id: str) -> list[str]:
@@ -119,11 +118,19 @@ def ordered_commands(entrypoints: Sequence[str]) -> list[OperatorCommand]:
 
 def compact_entrypoint_display(entrypoints: Sequence[str] | None = None) -> str:
     """Render a compact command list for startup orientation."""
-    selected = entrypoints or shared_entrypoints()
-    return ", ".join(command.display for command in ordered_commands(selected))
+    return ", ".join(command.display for command in _orientation_commands(entrypoints))
 
 
 def prompt_reminder_lines(entrypoints: Sequence[str] | None = None) -> list[str]:
     """Render prompt reminder lines for supported entrypoints."""
-    selected = entrypoints or shared_entrypoints()
-    return [command.reminder for command in ordered_commands(selected)]
+    return [command.reminder for command in _orientation_commands(entrypoints)]
+
+
+def _orientation_commands(entrypoints: Sequence[str] | None) -> list[OperatorCommand]:
+    if entrypoints is not None:
+        return ordered_commands(entrypoints)
+    startup = sorted(
+        (skill for skill in SKILLS if skill.startup_order is not None),
+        key=lambda skill: skill.startup_order,
+    )
+    return [_operator_command(skill) for skill in startup]

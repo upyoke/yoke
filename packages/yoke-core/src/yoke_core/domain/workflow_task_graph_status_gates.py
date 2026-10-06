@@ -16,6 +16,8 @@ is listed on a stage; each holds for a plain ``lifecycle.transition``.
 
 from __future__ import annotations
 
+from yoke_contracts.skill_registry import IMPLEMENTATION_SKILL_IDS
+
 from typing import Any, Mapping, Optional
 
 from yoke_core.domain.db_helpers import query_rows
@@ -23,9 +25,6 @@ from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.qa_gate_definitions import status_settles_blocking_qa
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.workflow_behavior import generates_task_graph
-from yoke_core.domain.workflow_definition_builders import (
-    IMPLEMENTATION_WORKFLOW_SKILL_IDS,
-)
 
 _SHEPHERD_SKILL_ID = "shepherd"
 
@@ -39,7 +38,7 @@ def _p(conn: Any) -> str:
 def implementation_binding(workflow: Any) -> Optional[Mapping[str, Any]]:
     """The first binding whose skill executes implementation work."""
     for binding in workflow.definition["skill_bindings"]:
-        if str(binding["skill_id"]) in IMPLEMENTATION_WORKFLOW_SKILL_IDS:
+        if str(binding["skill_id"]) in IMPLEMENTATION_SKILL_IDS:
             return binding
     return None
 

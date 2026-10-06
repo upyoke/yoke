@@ -1,6 +1,7 @@
 ---
 name: wrapup
 description: "Structured session wrap-up: ouroboros reflections, unfinished business, session summary."
+# argument-hint is generated from yoke_contracts.skill_registry.
 argument-hint: "(no arguments)"
 ---
 

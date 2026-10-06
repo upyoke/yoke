@@ -1,6 +1,7 @@
 ---
 name: idea
 description: Create a new backlog item with a PREFIX-N ID. Infers project, workflow, priority, and flow from context.
+# argument-hint is generated from yoke_contracts.skill_registry.
 argument-hint: "[--dry-run] [--workflow issue|epic|blitz|task] {title}"
 ---
 

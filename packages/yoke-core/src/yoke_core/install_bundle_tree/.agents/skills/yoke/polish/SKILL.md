@@ -1,6 +1,7 @@
 ---
 name: polish
 description: "Review code and tests in existing worktree lane(s) against item artifacts, make finishing fixes, run verification, and commit."
+# argument-hint is generated from yoke_contracts.skill_registry.
 argument-hint: "{PREFIX-N}"
 ---
 

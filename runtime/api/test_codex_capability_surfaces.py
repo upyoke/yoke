@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from yoke_contracts.skill_registry import STAGE_SKILL_IDS
+from yoke_contracts.skill_registry import SKILLS_BY_ID, STAGE_SKILL_IDS
 from yoke_core.domain.harness_capability_registry import (
     compact_entrypoint_display,
     safe_operator_surface_entrypoints,
@@ -36,7 +36,6 @@ def _repo_root() -> Path:
 
 
 REPO = _repo_root()
-EXPECTED_IMPLEMENT_COMMAND = "/yoke implement PREFIX-N"
 
 
 def _read(rel_path: str) -> str:
@@ -49,7 +48,7 @@ def test_codex_hook_orientation_lists_registry_implement_path():
     # Registry-based source-of-truth checks retained after the cutover.
     # The Codex per-event orientation rendering helpers were deleted with the
     # legacy ``codex_hooks`` module; the registry is the contract surface.
-    assert EXPECTED_IMPLEMENT_COMMAND in compact_entrypoint_display()
+    assert SKILLS_BY_ID["implement"].display in compact_entrypoint_display()
     assert set(shared_downstream_paths()) == STAGE_SKILL_IDS
 
 

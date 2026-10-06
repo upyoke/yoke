@@ -40,7 +40,7 @@ from yoke_core.domain.agents_render import (
 )
 from yoke_core.domain.harness_capability_registry import (
     HARNESS_UNIVERSE,
-    SAFE_OPERATOR_SURFACE,
+    OPERATOR_COMMANDS,
     safe_operator_surface_for_harness,
 )
 
@@ -72,7 +72,7 @@ def fixture_sidecar() -> dict:
 def extended_universe(monkeypatch: pytest.MonkeyPatch) -> tuple[str, ...]:
     """Extend ``HARNESS_UNIVERSE`` to include ``test-harness`` for the test scope.
 
-    Also rebuilds ``SAFE_OPERATOR_SURFACE`` so existing default-supported
+    Also rebuilds ``OPERATOR_COMMANDS`` so existing default-supported
     commands (the rows whose ``harness_support`` matches the original
     universe) carry the extended tuple — proving the registry stays
     harness-agnostic when a third harness joins. Cleanup is automatic via
@@ -85,9 +85,9 @@ def extended_universe(monkeypatch: pytest.MonkeyPatch) -> tuple[str, ...]:
         replace(cmd, harness_support=extended)
         if cmd.harness_support == HARNESS_UNIVERSE
         else cmd
-        for cmd in SAFE_OPERATOR_SURFACE
+        for cmd in OPERATOR_COMMANDS
     )
-    monkeypatch.setattr(registry, "SAFE_OPERATOR_SURFACE", rebuilt)
+    monkeypatch.setattr(registry, "OPERATOR_COMMANDS", rebuilt)
     return extended
 
 
@@ -101,7 +101,9 @@ def isolated_repo(tmp_path: Path) -> Path:
     """
     canonical = tmp_path / CANONICAL_DIR
     canonical.mkdir(parents=True)
-    (canonical / "architect.md").write_text("# canonical architect body\n", encoding="utf-8")
+    (canonical / "architect.md").write_text(
+        "# canonical architect body\n", encoding="utf-8"
+    )
     (canonical / "architect.claude.json").write_text(
         '{"name": "yoke-architect", "description": "fixture architect", "tools": "Read"}',
         encoding="utf-8",
@@ -135,7 +137,9 @@ def test_fixture_manifest_declares_test_harness(fixture_manifest: dict) -> None:
     assert fixture_manifest["supports"]["disabled_downstream_paths"] == []
 
 
-def test_extended_universe_includes_test_harness(extended_universe: tuple[str, ...]) -> None:
+def test_extended_universe_includes_test_harness(
+    extended_universe: tuple[str, ...],
+) -> None:
     """The monkey-patched universe carries ``test-harness`` alongside the originals."""
     assert FIXTURE_HARNESS_ID in extended_universe
     for original in HARNESS_UNIVERSE:
@@ -149,7 +153,7 @@ def test_safe_operator_surface_returns_universal_commands_for_test_harness(
 ) -> None:
     """The lookup is harness-id-agnostic.
 
-    With ``HARNESS_UNIVERSE`` and ``SAFE_OPERATOR_SURFACE`` patched to include
+    With ``HARNESS_UNIVERSE`` and ``OPERATOR_COMMANDS`` patched to include
     ``test-harness``, the lookup returns the same command list as for the
     originally-recognised harnesses' default-supported commands. If a future
     edit adds ``if harness_id == "claude-code"`` (or any specific id) to
@@ -187,8 +191,8 @@ def test_opt_out_command_does_not_leak_into_test_harness(
         reminder="  fixture-only opt-out — never reachable",
         harness_support=("claude-code",),
     )
-    augmented = registry.SAFE_OPERATOR_SURFACE + (opt_out_cmd,)
-    with patch.object(registry, "SAFE_OPERATOR_SURFACE", augmented):
+    augmented = registry.OPERATOR_COMMANDS + (opt_out_cmd,)
+    with patch.object(registry, "OPERATOR_COMMANDS", augmented):
         test_harness_cmds = safe_operator_surface_for_harness(FIXTURE_HARNESS_ID)
         claude_cmds = safe_operator_surface_for_harness("claude-code")
 

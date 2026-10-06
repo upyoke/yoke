@@ -1,6 +1,7 @@
 ---
 name: usher
 description: "Unified merge+deploy command. Takes items from implemented through merge, deployment, and done-transition. Inline orchestration skill -- no subagent spawned."
+# argument-hint is generated from yoke_contracts.skill_registry.
 argument-hint: "PREFIX-N [PREFIX-N ...] [--dry-run] [--merge-only] [--deploy-only] [--resume PREFIX-N]"
 ---
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.skill_registry import IMPLEMENTATION_SKILL_IDS
+
 import json
 from typing import Any, Mapping, Optional
 
@@ -154,9 +156,6 @@ def _implementation_entry_reached(
     stage_id: str,
 ) -> bool:
     """Whether a nonterminal stage must satisfy implementation-lane policy."""
-    from yoke_core.domain.workflow_definition_builders import (
-        IMPLEMENTATION_WORKFLOW_SKILL_IDS,
-    )
 
     if stage_id in runtime.terminal_stage_ids or stage_id in ENGINE_TERMINAL_STAGE_IDS:
         return False
@@ -166,7 +165,7 @@ def _implementation_entry_reached(
     starts = [
         runtime.stage_index(str(binding["from_stage_id"]))
         for binding in runtime.definition["skill_bindings"]
-        if str(binding["skill_id"]) in IMPLEMENTATION_WORKFLOW_SKILL_IDS
+        if str(binding["skill_id"]) in IMPLEMENTATION_SKILL_IDS
     ]
     positions = [position for position in starts if position is not None]
     return bool(positions) and current > min(positions)

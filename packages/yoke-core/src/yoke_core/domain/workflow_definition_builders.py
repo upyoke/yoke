@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
+from yoke_contracts.skill_registry import TASK_PRODUCING_SKILL_IDS
+
 from typing import Any, Dict, Iterable, Optional, Sequence
 
-from yoke_contracts.skill_registry import (
-    STAGE_SKILL_IDS,
-    IMPLEMENTATION_SKILL_IDS,
-    TASK_PRODUCING_SKILL_IDS,
-)
 from yoke_contracts.item_worktrees import WORKFLOW_WORKTREES_NONE
 from yoke_contracts.lifecycle_status import (
     LEGACY_STATUS_BUCKETS,
@@ -33,9 +30,6 @@ WORKFLOW_DELIVERY_MERGE_FREE = "merge_free"
 WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE = "continuous_slice_then_release_stage"
 WORKFLOW_QA_OPTIONAL = "optional"
 WORKFLOW_QA_OPTIONAL_ITEM_ATTACHMENT = "optional_item_attachment"
-REGISTERED_WORKFLOW_SKILL_IDS = STAGE_SKILL_IDS
-IMPLEMENTATION_WORKFLOW_SKILL_IDS = IMPLEMENTATION_SKILL_IDS
-TASK_PRODUCING_PLANNING_SKILL_IDS = TASK_PRODUCING_SKILL_IDS
 ENTRY_SURFACE_IDS = frozenset(
     {
         "cli",
@@ -67,11 +61,11 @@ def with_generated_epic_tasks(definition: Dict[str, Any]) -> Dict[str, Any]:
     definition["policies"] = policies
     bindings = [dict(binding) for binding in definition["skill_bindings"]]
     bound = {str(binding["skill_id"]) for binding in bindings}
-    if not bound & TASK_PRODUCING_PLANNING_SKILL_IDS:
+    if not bound & TASK_PRODUCING_SKILL_IDS:
         stage_ids = [str(stage["id"]) for stage in definition["stages"]]
         bindings.append(
             {
-                "skill_id": sorted(TASK_PRODUCING_PLANNING_SKILL_IDS)[0],
+                "skill_id": sorted(TASK_PRODUCING_SKILL_IDS)[0],
                 "from_stage_id": stage_ids[0],
                 "through_stage_id": stage_ids[-1],
             }
@@ -170,9 +164,6 @@ def definition_fixture(
 
 __all__ = [
     "ENTRY_SURFACE_IDS",
-    "IMPLEMENTATION_WORKFLOW_SKILL_IDS",
-    "REGISTERED_WORKFLOW_SKILL_IDS",
-    "TASK_PRODUCING_PLANNING_SKILL_IDS",
     "with_generated_epic_tasks",
     "WORKFLOW_DEFINITION_SCHEMA_VERSION",
     "WORKFLOW_FILE_BUDGET_OPTIONAL",

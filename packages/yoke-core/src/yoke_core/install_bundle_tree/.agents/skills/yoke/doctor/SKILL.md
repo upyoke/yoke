@@ -1,6 +1,7 @@
 ---
 name: doctor
 description: Run the Ouroboros health scan for Yoke or a specific project. Checks backlog consistency, GitHub sync, worktrees, docs drift, dispatch chains, agents, hooks, and project-specific diagnostics.
+# argument-hint is generated from yoke_contracts.skill_registry.
 argument-hint: "[project] [--fix] [--file path]"
 ---
 

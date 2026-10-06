@@ -1,6 +1,7 @@
 ---
 name: simulate
 description: Run the Simulator to trace cross-task integration paths and find gaps. Auto-detects plan phase or integration phase. --system for Ouroboros system-wide consistency audit.
+# argument-hint is generated from yoke_contracts.skill_registry.
 argument-hint: "{epic-id} [--auto-fix] | --system"
 ---
 

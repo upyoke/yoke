@@ -1,6 +1,7 @@
 ---
 name: curate
 description: Curate the Ouroboros learning log — cluster observations, promote field-notes to Dash, file work items for root causes.
+# argument-hint is generated from yoke_contracts.skill_registry.
 argument-hint: "(no arguments)"
 ---
 

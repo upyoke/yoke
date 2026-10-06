@@ -1,6 +1,7 @@
 ---
 name: blitz
 description: "Execute a substantial document-led Blitz as integrated slices with continuous plan evidence."
+# argument-hint is generated from yoke_contracts.skill_registry.
 argument-hint: "{PREFIX-N}"
 ---
 

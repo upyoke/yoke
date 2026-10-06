@@ -1,6 +1,7 @@
 ---
 name: dash
 description: "File or execute instruction-led Dash work through survey, isolation, verification, merge, and evidence."
+# argument-hint is generated from yoke_contracts.skill_registry.
 argument-hint: "\"instruction\" | {PREFIX-N}"
 ---
 
