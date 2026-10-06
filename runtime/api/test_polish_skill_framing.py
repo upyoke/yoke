@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pytest
 
-from runtime.api.skill_doc_regressions_test_helpers import REPO, SKILLS, _read
+from runtime.api.skill_doc_regressions_test_helpers import SKILLS, _read
 
 POLISH_DIR = SKILLS / "polish"
 
