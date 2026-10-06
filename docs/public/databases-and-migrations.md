@@ -31,6 +31,25 @@ When an item mutates a declared authoritative DB:
 Never apply destructive migrations without a named restore point. Never use
 ad hoc write SQL against a declared authoritative DB.
 
+## Running an admin command against a project database
+
+A command that needs a project's own Postgres database (not the Yoke control
+plane) gets its DSN from a machine-local db-admin profile, never from a stored
+password:
+
+```text
+yoke dev db-admin setup stage --project P --database MODEL --yes
+yoke dev db-admin exec P-stage-MODEL-db-admin --dsn-var APP_DSN -- <command>
+```
+
+`setup --database MODEL` reads `models.MODEL.authoritative_db` from the
+project's `migration_model` declaration and pairs it with the environment's
+stack, bastion, and region; the profile records only the managed secret's ARN.
+`exec` reads the secret from AWS through the project's `aws-admin` capability
+at run time, brings up the SSH forward, and sets `APP_DSN` for that one
+subprocess. The DSN is never printed, logged, or written to disk; refusals
+name the reason and the recovery step.
+
 A module's optional `invariants(conn)` hook is a permanent claim, not a
 post-apply snapshot. It re-runs on every fleet preflight against a copy of a
 live database, so it may assert only what the entry owes forever — the schema
