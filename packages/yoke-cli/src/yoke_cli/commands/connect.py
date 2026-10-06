@@ -16,7 +16,7 @@ from typing import Callable, Dict, List, Tuple
 from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
 from yoke_cli.config import secrets as machine_secrets
 from yoke_cli.config import hosted_machine_authorization
-from yoke_cli.config import server_connect
+from yoke_cli.config import server_connect, team_server_authorization
 from yoke_contracts.api_urls import HOSTED_PLATFORM_URL, HOSTED_STAGE_PLATFORM_URL
 
 AdapterFn = Callable[[List[str]], int]
@@ -52,7 +52,7 @@ def connect(args: List[str]) -> int:
         default=None,
         help=(
             "Hosted platform URL for browser sign-in, or a self-hosted server "
-            "URL when using an explicit token. Omit it for ordinary production "
+            "URL for company sign-in (when configured) or an explicit API token. Omit it for ordinary production "
             "hosted browser sign-in."
         ),
     )
@@ -108,16 +108,20 @@ def connect(args: List[str]) -> int:
         HOSTED_PLATFORM_URL.rstrip("/"),
         HOSTED_STAGE_PLATFORM_URL.rstrip("/"),
     }
-    if (
-        not explicit_token
-        and parsed.url
-        and parsed.url.rstrip("/") not in hosted_platform_urls
-    ):
-        return usage_error(
-            "use an official hosted platform URL for browser sign-in, or "
-            "provide --token-file/--token-stdin for a self-hosted server: "
-            f"{CONNECT_USAGE}"
-        )
+    parsed.self_host = bool(
+        parsed.url and parsed.url.rstrip("/") not in hosted_platform_urls
+    )
+    if not explicit_token and parsed.self_host:
+        try:
+            enabled = team_server_authorization.browser_sign_in_available(parsed.url)
+        except hosted_machine_authorization.HostedMachineAuthorizationError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        if not enabled:
+            return usage_error(
+                "oidc_not_configured: this server uses API tokens; connect with --token-file PATH or --token-stdin: "
+                + CONNECT_USAGE
+            )
     if not explicit_token:
         return _connect_hosted(parsed)
     try:
@@ -169,6 +173,7 @@ def _connect_hosted(parsed: argparse.Namespace) -> int:
         credential = hosted_machine_authorization.authorize(
             platform_url,
             notify=_notify,
+            self_host=parsed.self_host,
         )
         report = server_connect.connect_server(
             credential.api_url,

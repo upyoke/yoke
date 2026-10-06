@@ -112,3 +112,18 @@ the provider marks the email verified. For providers that omit the
 `email_verified` claim entirely, opt in with
 `YOKE_OIDC_ALLOW_UNVERIFIED_EMAIL=true` (an explicit `false` from the
 provider is never trusted).
+
+
+## Connect your own machine
+
+With company sign-in configured, run `yoke connect https://<server>` or choose
+**A team server** in `yoke setup`. Open the printed approval link, sign in,
+compare its one-time code with your CLI, and select **Approve my machine**.
+Sign-in returns you to that workbench page. The CLI receives a machine-bound
+credential once and verifies it before saving the connection. Org membership
+is required; approving your own machine does not require an org-admin role.
+
+Codes expire after ten minutes. A denied, consumed, or expired code requires a
+fresh connection. A temporary credential-store failure remains retryable while
+the code is live. Without OIDC, use an explicit API token; the first-boot admin
+token remains the bootstrap. See [Machine authorization](public/reference/machine-authorization.md).

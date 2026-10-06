@@ -27,6 +27,7 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "hosted_frame_workflow_builders.js": "text/javascript; charset=utf-8",
     "hosted_frame_workflow_client.js": "text/javascript; charset=utf-8",
     "hosted_frame_workflow_epic_fixture.js": "text/javascript; charset=utf-8",
+    "machine_approval.js": "text/javascript; charset=utf-8",
     "app.js": "text/javascript; charset=utf-8",
     "workbench_telemetry.js": "text/javascript; charset=utf-8",
     "workbench_telemetry.css": "text/css; charset=utf-8",

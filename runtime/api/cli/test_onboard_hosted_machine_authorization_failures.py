@@ -57,7 +57,7 @@ def test_browser_denial_reports_and_mints_one_fresh_authorization(monkeypatch) -
     monkeypatch.setattr(
         hosted_machine_authorization,
         "start",
-        lambda url: starts.append(url) or pending,
+        lambda url, **_kwargs: starts.append(url) or pending,
     )
     monkeypatch.setattr(
         hosted_machine_authorization, "open_browser", lambda _: BROWSER_OPENED
@@ -94,7 +94,9 @@ def test_hosted_failure_retries_browser_flow_without_teaching_token_paste(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(
-        hosted_machine_authorization, "start", lambda _url: _pending("machine")
+        hosted_machine_authorization,
+        "start",
+        lambda _url, **_kwargs: _pending("machine"),
     )
     monkeypatch.setattr(
         hosted_machine_authorization, "open_browser", lambda _: BROWSER_OPENED

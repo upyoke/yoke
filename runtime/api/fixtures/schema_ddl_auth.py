@@ -140,6 +140,19 @@ CREATE TABLE IF NOT EXISTS web_sessions (
     last_used_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_web_sessions_actor ON web_sessions(actor_id);
+        CREATE TABLE IF NOT EXISTS machine_authorization_codes (
+            device_hash TEXT PRIMARY KEY,
+            user_code TEXT NOT NULL UNIQUE,
+            org_id INTEGER NOT NULL,
+            expires_at TEXT NOT NULL,
+            actor_id INTEGER,
+            machine_id TEXT,
+            machine_name TEXT,
+            consumed_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_machine_authorization_expiry
+            ON machine_authorization_codes(expires_at);
+
 """
 
 __all__ = ("_AUTH_DDL",)

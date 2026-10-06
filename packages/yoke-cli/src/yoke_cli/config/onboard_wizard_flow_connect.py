@@ -4,11 +4,7 @@ A mixin composed alongside :class:`onboard_wizard_flow.WizardFlow` into
 :class:`onboard_wizard_app.OnboardWizardApp`. It owns the sign-in lanes the
 deployment-destination picker (:class:`onboard_wizard_flow_destination.
 DestinationFlow`) routes into for explicit team-server credentials. Hosted
-browser authorization lives in ``onboard_wizard_flow_hosted_machine``. The
-local destination has no sign-in and never
-reaches this mixin. Each handler records one answer onto ``self.result``
-and routes onward via the shell primitives; the GitHub → Project → Finish
-progression continues in :class:`WizardFlow` from ``_goto_machine_github``.
+browser authorization lives in ``onboard_wizard_flow_hosted_machine``. Each handler records an answer and routes onward to GitHub and Project setup.
 """
 
 from __future__ import annotations
@@ -16,6 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 from textual.widgets import Input, Static
+from yoke_cli.config.onboard_wizard_flow_team_server import TeamServerConnectFlow
 
 from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config import yoke_token_verify
@@ -34,10 +31,10 @@ def verify_yoke_token(api_url: str, token: str) -> dict[str, Any]:
     return yoke_token_verify.verify(api_url, token)
 
 
-class ConnectFlow:
+class ConnectFlow(TeamServerConnectFlow):
     def _after_api_url(self: _Shell, value: str) -> None:
         self.result.api_url = value
-        self._goto_token_source()
+        self._discover_team_server(value)
 
     def _goto_server_connection_form(self: _Shell) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
@@ -279,7 +276,11 @@ class ConnectFlow:
 
         details = list(
             detail_lines
-            or ["Check the token value, environment, and network connection."]
+            or [
+                "Check the server URL and company sign-in settings."
+                if retry_source == "team-server"
+                else "Check the token value, environment, and network connection."
+            ]
         )
         if NO_SERVER_GUIDANCE not in details:
             details.append(NO_SERVER_GUIDANCE)
@@ -290,14 +291,16 @@ class ConnectFlow:
                 ),
                 SelectionRow("back", "Choose another home", "return to destinations"),
             ]
-            if retry_source == "server-form"
+            if retry_source in {"server-form", "team-server"}
             else steps.YOKE_TOKEN_VERIFY_RETRY_ROWS
         )
         self._goto(
             _View(
                 STEP_CONNECT,
                 lambda: steps.verification_body(
-                    "Yoke token could not be verified.",
+                    "Company sign-in could not be checked."
+                    if retry_source == "team-server"
+                    else "Yoke token could not be verified.",
                     message,
                     details,
                     rows,
@@ -308,6 +311,9 @@ class ConnectFlow:
         )
 
     def _on_yoke_verify_error(self: _Shell, choice: str, retry_source: str) -> None:
+        if choice == "retry" and retry_source == "team-server":
+            self._goto_team_server()
+            return
         if choice == "retry":
             if self._history:
                 self._history.pop()
@@ -316,7 +322,7 @@ class ConnectFlow:
                 return
             self._after_token_source(retry_source)
             return
-        if retry_source == "server-form":
+        if retry_source in {"server-form", "team-server"}:
             self._return_to_destination_picker()
             return
         if self._history:

@@ -19,6 +19,19 @@ AUTH_TABLES: dict[str, dict] = {
         ],
         "notes": "Disposable shared anonymous collector request counters. client_key hashes trusted transport client identity and organization; counters are atomic and independent of events retention.",
     },
+    "machine_authorization_codes": {
+        "columns": [
+            ("device_hash", "TEXT"),
+            ("user_code", "TEXT"),
+            ("org_id", "INTEGER"),
+            ("expires_at", "TEXT"),
+            ("actor_id", "INTEGER"),
+            ("machine_id", "TEXT"),
+            ("machine_name", "TEXT"),
+            ("consumed_at", "TEXT"),
+        ],
+        "notes": "Self-host pending device-code store, additive on boot. The device secret is hashed; raw credentials are never stored here. Test auth DDL must carry this table too: missing fixture DDL reports authorization_store_unavailable. Read or resolve through machine_authorization.get/resolve, not raw SQL.",
+    },
     "roles": {
         "columns": [
             ("id", "INTEGER"),

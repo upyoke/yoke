@@ -39,13 +39,52 @@ def _register(
 
 
 def register(registry) -> None:
+    from yoke_core.domain.handlers import machine_authorization as authorization
+
+    for function_id, handler, model, effects in (
+        (
+            "machine_authorization.get",
+            authorization.handle_get,
+            authorization.AuthorizationGetRequest,
+            [],
+        ),
+        (
+            "machine_authorization.resolve",
+            authorization.handle_resolve,
+            authorization.AuthorizationResolveRequest,
+            ["machine_authorization_approve", "decision_requests_resolve"],
+        ),
+    ):
+        registry.register(
+            function_id,
+            handler,
+            model,
+            authorization.AuthorizationResponse,
+            stability="stable",
+            owner_module=authorization.__name__,
+            target_kinds=["global"],
+            side_effects=effects,
+            emitted_event_names=["YokeFunctionCalled"],
+            guardrails=["verified_actor", "own_machine_approval", "org_membership"],
+            adapter_status="live",
+            claim_required_kind=None,
+            ambient_session_required=False,
+            minimum_serving_version="next-release",
+        )
     registry.register(
-        "decision_requests.get", _get.handle_decision_request_get,
-        _get.DecisionRequestGetRequest, _get.DecisionRequestGetResponse,
-        stability="stable", owner_module="yoke_core.domain.handlers.decision_request_get",
-        target_kinds=["global"], side_effects=[], emitted_event_names=["YokeFunctionCalled"],
-        guardrails=["actor_required", "authority_union"], adapter_status="live",
-        claim_required_kind=None, ambient_session_required=False,
+        "decision_requests.get",
+        _get.handle_decision_request_get,
+        _get.DecisionRequestGetRequest,
+        _get.DecisionRequestGetResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.decision_request_get",
+        target_kinds=["global"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["actor_required", "authority_union"],
+        adapter_status="live",
+        claim_required_kind=None,
+        ambient_session_required=False,
         minimum_serving_version="next-release",
     )
     _register(

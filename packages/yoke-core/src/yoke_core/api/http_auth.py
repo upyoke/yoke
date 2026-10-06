@@ -21,6 +21,7 @@ from yoke_contracts.browser_sign_in import (
     BROWSER_SIGN_IN_REDEEM_PATH,
 )
 
+from yoke_contracts.machine_authorization import START_PATH, POLL_PATH
 from yoke_core.api.observability import request_id_for
 from yoke_core.domain import db_backend, db_helpers
 from yoke_core.domain.api_tokens import (
@@ -43,7 +44,7 @@ OIDC_START_PATH = "/v1/auth/oidc/start"
 OIDC_CALLBACK_PATH = "/v1/auth/oidc/callback"
 
 PUBLIC_PATHS = frozenset(
-    {"/v1/health", OIDC_START_PATH, OIDC_CALLBACK_PATH, BROWSER_SIGN_IN_REDEEM_PATH}
+    {"/v1/health", OIDC_START_PATH, OIDC_CALLBACK_PATH, BROWSER_SIGN_IN_REDEEM_PATH, START_PATH, POLL_PATH}
 )
 
 
