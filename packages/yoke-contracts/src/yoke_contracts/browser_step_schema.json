@@ -1,0 +1,91 @@
+{
+  "shared_keys": ["action", "timeout_ms", "source_ac", "refined", "viewport"],
+  "aliases": {
+    "url": "route",
+    "selector": "target"
+  },
+  "retired_actions": {
+    "wait": "delay or wait_for"
+  },
+  "actions": {
+    "navigate": {
+      "keys": ["route"],
+      "fields": {
+        "route": {"type": "non_empty_string", "required": true}
+      }
+    },
+    "click": {
+      "keys": ["target"],
+      "fields": {
+        "target": {"type": "non_empty_string", "required": true}
+      }
+    },
+    "type": {
+      "keys": ["target", "value", "delay"],
+      "fields": {
+        "target": {"type": "non_empty_string", "required": true}
+      }
+    },
+    "fill_form": {
+      "keys": ["fields"],
+      "fields": {
+        "fields": {"type": "object", "required": true}
+      }
+    },
+    "assert": {
+      "keys": ["target", "check", "expected", "min_count"],
+      "fields": {
+        "target": {"type": "non_empty_string", "required": true}
+      },
+      "reject_keys": {
+        "value": "expected"
+      }
+    },
+    "screenshot": {
+      "keys": ["capture", "fullPage", "label", "target"],
+      "fields": {
+        "capture": {"type": "true", "required": true},
+        "target": {"type": "non_empty_string", "required": false}
+      }
+    },
+    "wait_for": {
+      "keys": ["target"],
+      "fields": {
+        "target": {"type": "non_empty_string", "required": true}
+      }
+    },
+    "ready": {
+      "keys": ["target", "text"],
+      "fields": {
+        "target": {"type": "non_empty_string", "required": false},
+        "text": {"type": "non_empty_string", "required": false}
+      },
+      "require_any": {
+        "fields": ["target", "text"],
+        "refusal": "requires target, text, or both: a readiness step naming no loading indicator would pass instantly and prove nothing. Give target a loading selector (\".skeleton\"), text the placeholder's own words (\"Loading\"), or both."
+      }
+    },
+    "delay": {
+      "keys": ["duration", "duration_ms"],
+      "fields": {}
+    },
+    "scroll": {
+      "keys": ["target", "x", "y"],
+      "fields": {
+        "target": {"type": "non_empty_string", "required": false}
+      }
+    },
+    "hover": {
+      "keys": ["target"],
+      "fields": {
+        "target": {"type": "non_empty_string", "required": true}
+      }
+    },
+    "select": {
+      "keys": ["target", "value"],
+      "fields": {
+        "target": {"type": "non_empty_string", "required": true}
+      }
+    }
+  }
+}

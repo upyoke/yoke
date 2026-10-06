@@ -16,6 +16,7 @@ from typing import List
 
 from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
 from yoke_cli.config.project_selection import required_project_context
+from yoke_contracts.browser_step_schema import declared_schema_help
 from yoke_contracts.project_defaults import MissingProjectError
 
 
@@ -124,10 +125,8 @@ def qa_browser_step(args: List[str]) -> int:
     """Execute one agent-selected step with the machine-local browser."""
     parser = argparse.ArgumentParser(
         prog="yoke qa browser step",
-        description=(
-            "Execute one JSON browser step. Exploratory agents choose and "
-            "sequence calls at runtime; this command does not author a case."
-        ),
+        description=declared_schema_help(),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--base-url", required=True)
     parser.add_argument("--step-json", required=True)

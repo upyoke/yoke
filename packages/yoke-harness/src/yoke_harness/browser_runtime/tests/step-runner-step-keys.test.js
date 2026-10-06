@@ -138,6 +138,63 @@ async function testScreenshotHonoursLabel() {
   await page.close();
 }
 
+async function testObjectTargetIsRefused() {
+  console.log('\n## Test: object target is refused before it can crash');
+  const page = await context.newPage();
+  await page.goto(fixtureUrl(), { waitUntil: 'domcontentloaded' });
+
+  const result = await executeStep(page, {
+    action: 'click',
+    target: { css: '#submit' },
+  }, { baseUrl: baseUrl() });
+
+  assertEqual(result.success, false, 'object target fails');
+  assert(
+    (result.error || '').includes('not an object'),
+    'error says target must not be an object'
+  );
+  assert(
+    (result.error || '').includes('"target"'),
+    'error names the target field'
+  );
+  await page.close();
+}
+
+async function testAssertValueMeansExpected() {
+  console.log('\n## Test: assert value is refused in favour of expected');
+  const page = await context.newPage();
+  await page.goto(fixtureUrl(), { waitUntil: 'domcontentloaded' });
+
+  const result = await executeStep(page, {
+    action: 'assert',
+    target: 'h1',
+    check: 'text_equals',
+    value: 'Hello',
+  }, { baseUrl: baseUrl() });
+
+  assertEqual(result.success, false, 'assert value fails');
+  assert((result.error || '').includes('"value"'), 'error names value');
+  assert((result.error || '').includes('"expected"'), 'error names expected');
+  await page.close();
+}
+
+async function testScreenshotWithoutCaptureIsRefused() {
+  console.log('\n## Test: screenshot without capture is refused');
+  const page = await context.newPage();
+  await page.goto(fixtureUrl(), { waitUntil: 'domcontentloaded' });
+
+  const result = await executeStep(page, {
+    action: 'screenshot',
+  }, { baseUrl: baseUrl() });
+
+  assertEqual(result.success, false, 'missing capture fails');
+  assert(
+    (result.error || '').includes('capture=true'),
+    'error requires capture=true'
+  );
+  await page.close();
+}
+
 async function testDelayDoesNotAcceptMs() {
   console.log('\n## Test: delay with ms instead of duration is refused');
   const page = await context.newPage();
@@ -169,6 +226,9 @@ async function run() {
     await testEmptyNavigateRouteIsRefused();
     await testAssertDoesNotAcceptRoute();
     await testScreenshotHonoursLabel();
+    await testObjectTargetIsRefused();
+    await testAssertValueMeansExpected();
+    await testScreenshotWithoutCaptureIsRefused();
     await testDelayDoesNotAcceptMs();
   } catch (err) {
     console.error('\nUnexpected error:', err);

@@ -5,6 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Optional, Sequence
 
+from yoke_contracts.browser_step_schema import (
+    ACTION_STEP_KEYS,
+    SHARED_STEP_KEYS,
+    defined_keys_for_action,
+    step_schema_violation,
+)
+
 
 #: The width and height a browser page is opened at when nothing states one.
 #: It is a stated default, not an inherited size: every page the substrate
@@ -39,31 +46,7 @@ _EXPECTED_VALUE_CHECKS = frozenset(
         "count_eq",
     }
 )
-#: Shared optional fields every action may carry. Must match
-#: ``browser_runtime/src/step-schema.js``.
-SHARED_STEP_KEYS = frozenset(
-    {
-        "action",
-        "timeout_ms",
-        "source_ac",
-        "refined",
-        "viewport",
-    }
-)
-ACTION_STEP_KEYS = {
-    "navigate": frozenset({"route"}),
-    "click": frozenset({"target"}),
-    "type": frozenset({"target", "value", "delay"}),
-    "fill_form": frozenset({"fields"}),
-    "assert": frozenset({"target", "check", "expected", "min_count"}),
-    "screenshot": frozenset({"capture", "fullPage", "label", "target"}),
-    "wait_for": frozenset({"target"}),
-    "ready": frozenset({"target", "text"}),
-    "delay": frozenset({"duration", "duration_ms"}),
-    "scroll": frozenset({"target", "x", "y"}),
-    "hover": frozenset({"target"}),
-    "select": frozenset({"target", "value"}),
-}
+#: Re-exported from the declared schema so callers keep one import path.
 
 
 @dataclass(frozen=True)
@@ -78,38 +61,14 @@ def _non_empty_text(value: Any) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
 
-def defined_keys_for_action(action: str) -> frozenset[str]:
-    """Return the keys *action* honours, including shared optional fields."""
-    extra = ACTION_STEP_KEYS.get(action)
-    if extra is None:
-        return SHARED_STEP_KEYS
-    return SHARED_STEP_KEYS | extra
-
-
-def _unrecognized_step_keys(step: dict[str, Any]) -> list[str]:
-    action = step.get("action")
-    if action not in ACTION_STEP_KEYS:
-        return []
-    allowed = defined_keys_for_action(str(action))
-    return sorted(key for key in step if key not in allowed)
-
-
-def _step_key_violation(
+def _as_contract_violation(
     index: int,
     step: dict[str, Any],
 ) -> Optional[BrowserMethodContractViolation]:
-    unknown = _unrecognized_step_keys(step)
-    if not unknown:
+    found = step_schema_violation(index, step)
+    if found is None:
         return None
-    action = step.get("action")
-    defined = ", ".join(sorted(defined_keys_for_action(str(action))))
-    labelled = ", ".join(repr(key) for key in unknown)
-    noun = "key" if len(unknown) == 1 else "keys"
-    return BrowserMethodContractViolation(
-        "step_key_unrecognized",
-        f"Browser {action} step {index} does not honour {noun} "
-        f"{labelled}. Defined keys: {defined}",
-    )
+    return BrowserMethodContractViolation(found.code, found.message)
 
 
 def browser_method_contract_violation(
@@ -130,9 +89,12 @@ def browser_method_contract_violation(
     capture_count = 0
     for index, raw_step in enumerate(steps):
         if not isinstance(raw_step, dict):
-            continue
+            return BrowserMethodContractViolation(
+                "step_not_object",
+                f"Browser step {index} must be an object",
+            )
         action = raw_step.get("action")
-        key_violation = _step_key_violation(index, raw_step)
+        key_violation = _as_contract_violation(index, raw_step)
         if key_violation is not None:
             return key_violation
         if action == "navigate":
@@ -228,7 +190,7 @@ def browser_cleanup_contract_violation(
                 "cleanup_action_invalid",
                 f"Browser cleanup step {index} needs a supported action",
             )
-        violation = _step_key_violation(index, step)
+        violation = _as_contract_violation(index, step)
         if violation is not None:
             return violation
         if step["action"] == "navigate" and not _non_empty_text(step.get("route")):

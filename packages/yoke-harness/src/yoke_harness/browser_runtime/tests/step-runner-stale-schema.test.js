@@ -83,9 +83,8 @@ async function testLegacyWaitActionRejected() {
   }, { baseUrl: baseUrl() });
 
   assertEqual(result.success, false, 'legacy wait action is rejected');
-  assert(result.error.includes('Stale browser scenario schema'), 'error mentions stale schema');
-  assert(result.error.includes('"action":"wait"'), 'error identifies the legacy field');
-  assert(result.error.includes('canonical vocabulary'), 'error points to canonical vocabulary');
+  assert(result.error.includes('"wait"'), 'error identifies the retired action');
+  assert(result.error.includes('delay or wait_for'), 'error names the replacement');
 
   await page.close();
 }
@@ -100,8 +99,8 @@ async function testStaleUrlFieldRejected() {
   }, { baseUrl: baseUrl() });
 
   assertEqual(result.success, false, 'navigate with legacy "url" field is rejected');
-  assert(result.error.includes('Stale browser scenario schema'), 'error mentions stale schema');
   assert(result.error.includes('"url"'), 'error identifies the legacy field');
+  assert(result.error.includes('"route"'), 'error names route as the field to use');
 
   await page.close();
 }
@@ -117,8 +116,8 @@ async function testStaleSelectorFieldRejected() {
   }, { baseUrl: baseUrl() });
 
   assertEqual(result.success, false, 'click with legacy "selector" field is rejected');
-  assert(result.error.includes('Stale browser scenario schema'), 'error mentions stale schema');
   assert(result.error.includes('"selector"'), 'error identifies the legacy field');
+  assert(result.error.includes('"target"'), 'error names target as the field to use');
 
   await page.close();
 }

@@ -33,7 +33,8 @@ function screenshotBasename(step) {
 /**
  * Execute a screenshot action.
  *
- * Captures a screenshot when capture is true, returns the path in artifacts.
+ * Records a screenshot. capture must be true; a screenshot that omits it
+ * is refused rather than reported as a success with no artifact.
  * `label` names the file so the capture matches the step's own account.
  *
  * `target` frames the capture on one element instead of on the screen. A
@@ -49,8 +50,11 @@ function screenshotBasename(step) {
  * a long inner-scrolling list pairs `scroll` with a capture per screenful.
  */
 async function executeScreenshot(page, step, options, refMap) {
-  if (!step.capture) {
-    return { success: true };
+  if (step.capture !== true) {
+    throw new Error(
+      'Browser screenshot step requires capture=true so it records an '
+      + 'artifact. Set "capture" to true, or remove the screenshot step.'
+    );
   }
 
   const outputDir = options.outputDir || os.tmpdir();

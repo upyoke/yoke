@@ -24,6 +24,7 @@ def test_browser_qa_lifecycle_commands_are_client_local_helpers() -> None:
         "yoke qa browser setup",
         "yoke qa browser step",
         "yoke qa browser status",
+        "yoke qa browser stop",
     ):
         row = rows[shell_form]
         assert row.disposition == inventory.CLIENT_LOCAL_HELPER

@@ -84,21 +84,13 @@ async function executeWaitFor(page, step, options, refMap) {
  * or as the text it shows (`text`, matched case-insensitively against the
  * visible document), or both; both must be gone before the step passes.
  *
- * It refuses a step naming neither, because a readiness step with nothing to
- * wait for would pass instantly and read as proof that the page had settled.
+ * The declared step schema refuses a step naming neither before execution,
+ * because a readiness step with nothing to wait for would pass instantly and
+ * read as proof that the page had settled.
  */
 async function executeReady(page, step, options, refMap) {
   const hasTarget = typeof step.target === 'string' && step.target.trim();
   const hasText = typeof step.text === 'string' && step.text.trim();
-  if (!hasTarget && !hasText) {
-    throw new Error(
-      'ready action requires target, text, or both: a readiness step naming '
-      + 'no loading indicator would pass instantly and prove nothing. Give '
-      + 'target a loading selector (".skeleton"), text the placeholder\'s '
-      + 'own words ("Loading"), or both.'
-    );
-  }
-
   const timeout = step.timeout_ms || options.timeout || DEFAULT_TIMEOUT_MS;
   const deadline = Date.now() + timeout;
 

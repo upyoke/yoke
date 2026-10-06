@@ -198,8 +198,8 @@ async function testMissingTargetFails() {
   await page.close();
 }
 
-async function testCaptureFalseStillSkips() {
-  console.log('\n## Test: capture:false with a target records nothing');
+async function testCaptureFalseIsRefused() {
+  console.log('\n## Test: capture:false is refused instead of recording nothing');
   const page = await context.newPage();
   await openCards(page);
 
@@ -209,8 +209,11 @@ async function testCaptureFalseStillSkips() {
     target: '#scroller',
   }, { baseUrl: baseUrl(), outputDir });
 
-  assertEqual(result.success, true, 'the step succeeds');
-  assertEqual(result.artifacts, undefined, 'no artifact is recorded');
+  assertEqual(result.success, false, 'the step is refused');
+  assert(
+    (result.error || '').includes('capture=true'),
+    'error requires capture=true'
+  );
   await page.close();
 }
 
@@ -225,7 +228,7 @@ async function run() {
     await testTargetBelowTheFoldIsScrolledTo();
     await testTargetCaptureNamesTheLabel();
     await testMissingTargetFails();
-    await testCaptureFalseStillSkips();
+    await testCaptureFalseIsRefused();
   } catch (err) {
     console.error('\nUnexpected error:', err);
     failCount++;

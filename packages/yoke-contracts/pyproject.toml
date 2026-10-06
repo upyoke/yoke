@@ -43,4 +43,7 @@ where = ["src"]
 # authored cap.
 "yoke_contracts.project_contract.board_art.data" = ["*.txt"]
 
-"yoke_contracts" = ["machine_authorization.schema.v1.json"]
+"yoke_contracts" = [
+    "machine_authorization.schema.v1.json",
+    "browser_step_schema.json",
+]
