@@ -40,6 +40,8 @@ def test_non_object_payload_is_refused_before_dispatch(
     assert body["error"] == {
         "code": "envelope_invalid",
         "message": "payload must be a JSON object; send payload: {} for an empty payload",
+        "jsonpath": None,
+        "recovery_hint": None,
     }
 
 
@@ -49,14 +51,16 @@ def test_empty_object_or_omitted_payload_dispatches(monkeypatch, fields):
 
     def dispatch(request, **kwargs):
         captured.append(request.payload)
-        return FunctionCallResponse(success=True, function=request.function)
+        return FunctionCallResponse(
+            success=True, function=request.function, version="v1"
+        )
 
     monkeypatch.setattr(yoke_function_dispatch, "dispatch", dispatch)
     monkeypatch.setattr(proxy_transport, "relays_to_server", lambda: False)
     body, status = function_proxy.proxy_function_call(
         {"function": "organizations.get", **fields}
     )
-    assert status == 200 and body["success"] is True
+    assert status == 200 and body["success"] is True, body
     assert captured == [{}]
 
 
