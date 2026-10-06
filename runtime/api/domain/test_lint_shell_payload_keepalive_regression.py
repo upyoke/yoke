@@ -1,4 +1,4 @@
-"""Forward-guard against session-offer keepalive reintroduction.
+"""Forward-guard against session checkpoint keepalive reintroduction.
 
 The background keepalive loop and its shell-PID kill pattern were
 removed by the keepalive-elimination change. This test ensures no future
@@ -97,7 +97,7 @@ def test_no_live_mention_of_keepalive_pattern(pattern_name: str, pattern: str):
                 rel = path.relative_to(_REPO_ROOT)
                 offenders.append(f"{rel}:{lineno}: {line.strip()[:200]}")
     assert not offenders, (
-        f"Forbidden session-offer keepalive pattern '{pattern_name}' "
+        f"Forbidden session checkpoint keepalive pattern '{pattern_name}' "
         "reintroduced in live source. Each occurrence below must be "
         "removed — the background keepalive loop and PID-kill pattern "
         "were eliminated:\n  " + "\n  ".join(offenders[:50])

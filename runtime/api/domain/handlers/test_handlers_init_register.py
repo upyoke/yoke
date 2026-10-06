@@ -181,21 +181,11 @@ def test_register_all_handlers_includes_session_orchestration_family() -> None:
         "sessions.touch",
         "sessions.checkpoint",
         "sessions.checkpoint_read",
-        "sessions.offer",
-        "sessions.ownership_guard",
         "charge.schedule",
     } <= ids
 
-    offer = yoke_function_registry.lookup("sessions.offer")
-    assert offer is not None
-    assert offer.target_kinds == ("global",)
-    assert offer.adapter_status == "live"
-    assert offer.ambient_session_required is True
-
-    guard = yoke_function_registry.lookup("sessions.ownership_guard")
-    assert guard is not None
-    assert guard.target_kinds == ("item",)
-    assert guard.claim_required_kind is None
+    assert yoke_function_registry.lookup("sessions.offer") is None
+    assert yoke_function_registry.lookup("sessions.ownership_guard") is None
 
     schedule = yoke_function_registry.lookup("charge.schedule")
     assert schedule is not None
@@ -211,8 +201,11 @@ def test_register_all_handlers_includes_project_install_family() -> None:
     init_register.register_all_handlers()
 
     ids = {entry.function_id for entry in yoke_function_registry.list_entries()}
-    assert {"project.install.run", "project.refresh.run",
-            "project.uninstall.run"} <= ids
+    assert {
+        "project.install.run",
+        "project.refresh.run",
+        "project.uninstall.run",
+    } <= ids
 
 
 def test_product_project_onboarding_writes_skip_harness_session_gate() -> None:

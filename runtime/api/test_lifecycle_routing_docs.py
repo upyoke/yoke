@@ -126,7 +126,7 @@ class TestLifecycleDoc:
         assert "next skill" in text
 
     def test_routes_to_canonical_routing_docs(self, text):
-        assert "session-offer.md" in text
+        assert "session_launch_mandate" in text
         assert "charge-frontier.md" in text
 
 
@@ -138,7 +138,7 @@ class TestLifecycleDoc:
 class TestCommandsDoc:
     """Commands.md must match the live refine/polish skills and
     must not present YOKE_SUPPORTED_PATHS as an active Yoke-owned harness
-    input for session-offer."""
+    input for session checkpoint."""
 
     @pytest.fixture
     def text(self) -> str:
@@ -321,7 +321,7 @@ class TestCodexCapabilityDocs:
 
     def test_overview_does_not_claim_two_entrypoints(self):
         text = _read(DOCS / "OVERVIEW.md")
-        # Catch wording like "two entrypoints (/yoke idea, session-offer)".
+        # Catch wording like "two entrypoints (/yoke idea, session checkpoint)".
         assert not re.search(
             r"two\s+entrypoints\s*\(\s*`?/yoke idea`?", text, re.IGNORECASE
         ), "OVERVIEW.md still claims Codex has only two entrypoints"

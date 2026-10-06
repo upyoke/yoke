@@ -1,7 +1,7 @@
 # ruff: noqa: F401, F811
 """A parked holder keeps its claim through the reclaim paths.
 
-Both reclaim surfaces — the item-scoped sweep session-offer runs, and the
+Both reclaim surfaces — the item-scoped sweep session checkpoint runs, and the
 race-safe reclaim a competing acquisition performs — read the same
 ``claim_holder_staleness`` predicate, so a session that parked on purpose is
 never released out from under its own wait. An ended park is not a wait, and

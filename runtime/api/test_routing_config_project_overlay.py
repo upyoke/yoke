@@ -8,15 +8,10 @@ from yoke_core.api.routing_config import (
     load_project_routing_settings,
     load_routing_config,
 )
-from yoke_core.api.process_offer_policy import (
-    ProcessOfferPolicy,
-    load_process_offer_policy,
-)
 from yoke_contracts.project_contract.project_keys import RECOGNIZED_PROJECT_KEYS
 from yoke_core.domain.project_settings import (
     get_project_int,
     get_project_str,
-    offer_project_config_dir,
 )
 
 
@@ -104,43 +99,6 @@ class TestRoutingPolicy:
         assert list(routing.lane_metadata) == ["MUSKY"]
 
 
-class TestProcessPolicy:
-    def test_project_process_policy_ignores_machine(self, tmp_path: Path) -> None:
-        cfg = _machine_cfg(tmp_path, "do_process_offer_strategize=true\n")
-        policy = load_process_offer_policy(
-            cfg,
-            project_settings={"do_process_offer_default": "false"},
-            shared_project_source="project 2 capability session-routing",
-        )
-        enabled, key, source = policy.decision_for("STRATEGIZE")
-        assert enabled is False
-        assert key == "process_offers.strategize"
-        assert source == "project 2 capability session-routing"
-
-    def test_machine_policy_is_no_project_fallback(self, tmp_path: Path) -> None:
-        cfg = _machine_cfg(tmp_path, "do_process_offer_feed=true\n")
-        policy = load_process_offer_policy(cfg)
-        assert policy.is_enabled("FEED") is True
-        assert policy.decision_for("FEED")[2] == "machine config"
-
-    def test_skip_memory_keeps_project_source(self) -> None:
-        from yoke_core.domain.chain_skip_memory_filter import (
-            merge_skip_memory_with_policy,
-        )
-
-        policy = ProcessOfferPolicy(
-            shared_project_per_process={"strategize": True},
-            shared_project_source="project capability session-routing",
-        )
-        merged = merge_skip_memory_with_policy(
-            policy,
-            [{"process_key": "STRATEGIZE"}],
-        )
-        assert merged is not None
-        assert merged.is_enabled("STRATEGIZE") is False
-        assert merged.shared_project_source == "project capability session-routing"
-
-
 class TestLocalOnlySettings:
     def test_db_owned_keys_ignore_machine_config_without_project_identity(
         self,
@@ -170,56 +128,4 @@ class TestLocalOnlySettings:
                 config_path=cfg,
             )
             == ".wt"
-        )
-
-
-class TestOfferDirResolution:
-    def _machine(self, tmp_path: Path, mapping: dict) -> Path:
-        import json
-
-        cfg = tmp_path / "machine.json"
-        cfg.write_text(json.dumps({"projects": mapping}), encoding="utf-8")
-        return cfg
-
-    def test_mapped_workspace_wins(self, tmp_path: Path) -> None:
-        repo = tmp_path / "checkout"
-        (repo / ".git").mkdir(parents=True)
-        cfg = self._machine(tmp_path, {str(repo): {"project_id": 2}})
-        resolved = offer_project_config_dir(
-            str(repo),
-            [1, 2],
-            machine_config_path=cfg,
-        )
-        assert resolved == repo
-
-    def test_single_scope_falls_back_to_mapped_checkout(
-        self,
-        tmp_path: Path,
-    ) -> None:
-        other = tmp_path / "other-checkout"
-        other.mkdir()
-        workspace = tmp_path / "unmapped"
-        workspace.mkdir()
-        cfg = self._machine(tmp_path, {str(other): {"project_id": 3}})
-        resolved = offer_project_config_dir(
-            str(workspace),
-            [3],
-            machine_config_path=cfg,
-        )
-        assert resolved == other
-
-    def test_multi_scope_unmapped_workspace_is_none(
-        self,
-        tmp_path: Path,
-    ) -> None:
-        workspace = tmp_path / "unmapped"
-        workspace.mkdir()
-        cfg = self._machine(tmp_path, {})
-        assert (
-            offer_project_config_dir(
-                str(workspace),
-                [1, 2],
-                machine_config_path=cfg,
-            )
-            is None
         )

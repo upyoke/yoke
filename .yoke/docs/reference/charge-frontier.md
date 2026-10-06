@@ -69,7 +69,7 @@ first, then that lane's harness default (exact
 `executor_default_lane_<token>` -> wildcard
 `executor_default_lane_<prefix>*` (longest prefix wins) ->
 `executor_default_lane_unknown` -> `primary`). Full precedence and the rule
-document shape are in [`session-offer.md`](session-offer.md). Machine config
+document shape are in [`session-lane-routing.md`](session-lane-routing.md). Machine config
 is only the no-project/operator fallback. Downstream-path truth comes from
 the shared registry plus coarse-manifest limitations (`codex-desktop` ->
 the installed Codex manifest).

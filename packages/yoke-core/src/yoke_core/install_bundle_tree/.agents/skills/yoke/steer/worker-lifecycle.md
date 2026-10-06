@@ -278,8 +278,7 @@ work that still has implementation or verification left to do.
    yoke claims work holder-get PREFIX-N
    ```
 
-   The holder read must show no live holder before you launch. A
-   `CHAIN_PENDING` refusal names its override; the restaff is the rationale.
+   The holder read must show no live holder before you launch.
 
 3. **Launch the successor** with the launcher recipe below, naming the new
    model, effort, and context. Give the idempotency key the predecessor's

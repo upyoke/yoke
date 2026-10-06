@@ -181,43 +181,6 @@ def register(registry) -> None:
         ambient_session_required=False,
     )
     registry.register(
-        "sessions.offer",
-        _so.handle_offer,
-        _so.OfferRequest,
-        _so.OfferResponse,
-        stability="stable",
-        owner_module="yoke_core.domain.handlers.sessions_orchestration",
-        target_kinds=["global"],
-        side_effects=[
-            "harness_sessions_update",
-            "work_claims_insert",
-            "work_claims_update",
-            "events_insert",
-        ],
-        emitted_event_names=[
-            "HarnessSessionOffered",
-            "NextActionChosen",
-            "YokeFunctionCalled",
-        ],
-        guardrails=["active_session_required", "offer_ownership_guard"],
-        adapter_status="live",
-        claim_required_kind=None,
-    )
-    registry.register(
-        "sessions.ownership_guard",
-        _so.handle_ownership_guard,
-        _so.OwnershipGuardRequest,
-        _so.OwnershipGuardResponse,
-        stability="stable",
-        owner_module="yoke_core.domain.handlers.sessions_orchestration",
-        target_kinds=["item"],
-        side_effects=[],
-        emitted_event_names=["YokeFunctionCalled"],
-        guardrails=["session_required"],
-        adapter_status="live",
-        claim_required_kind=None,
-    )
-    registry.register(
         "charge.schedule",
         _scs.handle_charge_schedule,
         _scs.ChargeScheduleRequest,

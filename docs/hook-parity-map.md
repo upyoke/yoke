@@ -43,9 +43,7 @@ Behaviors in this tier work in any harness, including wrapper-only mode with zer
 |----------|-----------|---------------------|
 | Bootstrap orientation (startup reads) | `python3 -m yoke_core.hooks.bootstrap render-full` or harness-native config | Bash tool only |
 | Session identity declaration | Environment variables (`YOKE_EXECUTOR`, `YOKE_PROVIDER`, `YOKE_MODEL`) | Bash tool only |
-| Canonical telemetry (`HarnessSessionOffered`, `NextActionChosen`) | Yoke core session-offer path (`packages/yoke-core/src/yoke_core/domain/sessions.py`) | None (core-owned) |
 | Route wrapper (command invocation) | Entry launcher delegates to `/yoke` operator commands | Bash tool only |
-| Routing and fallback decisions | `session-offer` session-offer evaluation | None (core-owned) |
 
 ### Cross-harness (tested hook subset)
 
@@ -133,7 +131,7 @@ Coverage tests live in `runtime/api/test_observe_codex_bash.py::TestCodexBashFai
 
 ## Cross-Harness Coverage
 
-The shared Yoke registry exposes two intentionally different capability views. The safe operator surface includes `/yoke conduct YOK-N` for direct Codex invocation. The narrower session-offer registry advertises entrypoints (`/yoke idea`, `/yoke refine`, `/yoke implement YOK-N`, `/yoke polish`, `/yoke usher YOK-N [--dry-run]`) and downstream paths (`shepherd`, `refine`, `implement`, `dash`, `blitz`, `polish`, `usher`) used by session-offer orientation and routing; Conduct is not a session-offer entrypoint or downstream path. [runtime/harness/codex/manifest.json](../runtime/harness/codex/manifest.json) declares Codex identity, affordances, and explicit limitations rather than copying either registry view. The full Tier 1 operator surface in [docs/harness-bootstrap.md](harness-bootstrap.md) §2 is part of Codex's safe surface unless the manifest declares an additional substrate limitation.
+The shared Yoke registry exposes two intentionally different capability views. The safe operator surface includes `/yoke conduct YOK-N` for direct Codex invocation. The downstream registry advertises entrypoints (`/yoke idea`, `/yoke refine`, `/yoke implement YOK-N`, `/yoke polish`, `/yoke usher YOK-N [--dry-run]`) and downstream paths (`shepherd`, `refine`, `implement`, `dash`, `blitz`, `polish`, `usher`); Conduct runs through its own operator entrypoint. [runtime/harness/codex/manifest.json](../runtime/harness/codex/manifest.json) declares Codex identity, affordances, and explicit limitations rather than copying either registry view. The full Tier 1 operator surface in [docs/harness-bootstrap.md](harness-bootstrap.md) §2 is part of Codex's safe surface unless the manifest declares an additional substrate limitation.
 
 `/yoke conduct` is a current Codex-safe direct command. The shared dispatch descriptor module is the source for its agent lanes: phase files emit one task envelope per agent, and the substrate renderer ships the canonical agent body to both `runtime/harness/claude/agents/yoke-*.md` and `runtime/harness/codex/agents/yoke-*.toml` (surfaced at `.claude/agents/` and `.codex/agents/`). The `shepherd` path remains the quality-gated proof lane for PM, Designer, Boss, Architect, and Simulator work in both harnesses.
 
@@ -141,13 +139,12 @@ The remaining named substrate gap is the `PostToolUseFailure` event for non-Bash
 
 ## Canonical Session-Offer Lineage
 
-The canonical source of `HarnessSessionOffered` and `NextActionChosen` events is the shared core session-offer path in `packages/yoke-core/src/yoke_core/domain/sessions.py`. This path is harness-neutral -- both Claude Code CLI adapters and API callers emit the same events through the same code.
+Session lifecycle and claim events originate in shared core operations.
 
-Harness-local hook output (e.g., Codex hook logs) is informational. It is never the canonical source for session lifecycle telemetry. This ensures that session-offer lineage is consistent regardless of which harness initiated the session.
+Harness-local hook output (e.g., Codex hook logs) is informational. It is never the canonical source for session lifecycle telemetry. This keeps lifecycle evidence consistent across harnesses.
 
 ## Related Docs
 
 - [Harness Bootstrap Contract](harness-bootstrap.md) -- neutral startup expectations for all harnesses
 - [Harness Adapter Template](harness-adapter-template.md) -- five-part adapter template with manifest schema
-- [Session-Offer Contract](../.yoke/docs/reference/session-offer.md) -- request/response envelope and identity model
 - [Harness README](../runtime/harness/README.md) -- adapter directory convention

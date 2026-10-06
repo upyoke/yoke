@@ -1,6 +1,6 @@
-"""Session route aggregator — composes lifecycle, claims, inventory, and offer sub-routers.
+"""Session route aggregator — composes lifecycle, claims, and inventory sub-routers.
 
-Imports the four responsibility-named sub-routers and exposes a single ``router``
+Imports the responsibility-named sub-routers and exposes a single ``router``
 that ``yoke_core.api.app_factory`` (or ``yoke_core.api.main``) includes. Tests that
 need to assert specific request models can import them from their owning
 sub-router; this shim re-exports the most common ones for convenience.
@@ -21,17 +21,12 @@ from yoke_core.api.routes.sessions_lifecycle import (
     RegisterSessionRequest,
     router as _lifecycle_router,
 )
-from yoke_core.api.routes.sessions_offer import (
-    SessionOfferRequest,
-    router as _offer_router,
-)
 
 
 router = APIRouter()
 router.include_router(_lifecycle_router)
 router.include_router(_claims_router)
 router.include_router(_inventory_router)
-router.include_router(_offer_router)
 
 
 __all__ = [
@@ -40,5 +35,4 @@ __all__ = [
     "HandoffClaimRequest",
     "ReleaseClaimRequest",
     "RegisterSessionRequest",
-    "SessionOfferRequest",
 ]

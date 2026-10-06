@@ -76,7 +76,7 @@ def _strip_title(entry_text: str, yok_id: str) -> str:
 
     Handles both prevalent MASTER-PLAN.md shapes:
 
-    - Landed:   ``N. — `Define the session-offer ...```
+    - Landed:   ``N. — `Define session registration ...```
     - Remaining: ``N. `Add /yoke feed ...```
     """
     # Drop the PREFIX-N ref (with optional backticks, parens, em-dash)

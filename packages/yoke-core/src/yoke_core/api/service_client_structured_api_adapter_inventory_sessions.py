@@ -34,10 +34,6 @@ SESSION_ADAPTERS = [
         cli_invocation="yoke sessions checkpoint-read",
     ),
     AdapterEntry(
-        function_id="sessions.offer",
-        cli_invocation=("yoke sessions offer [--step N] [--project IDS]"),
-    ),
-    AdapterEntry(
         function_id="sessions.end_if_empty",
         cli_invocation="yoke sessions end-if-empty [--triggered-by SOURCE]",
     ),
@@ -87,10 +83,7 @@ SESSION_ADAPTERS = [
     ),
     AdapterEntry(
         function_id="session_control.session.terminate",
-        cli_invocation=(
-            "yoke sessions terminate SESSION-ID --reason R "
-            "[--override-chain-end --chain-end-rationale R]"
-        ),
+        cli_invocation="yoke sessions terminate SESSION-ID --reason R",
     ),
     AdapterEntry(
         function_id="session_control.session.wake",
@@ -98,10 +91,6 @@ SESSION_ADAPTERS = [
             "yoke session-control session wake (SESSION-ID | --item ITEM) "
             "[--prompt TEXT] [--idempotency-key KEY]"
         ),
-    ),
-    _read_entry(
-        function_id="sessions.ownership_guard",
-        cli_invocation="yoke sessions ownership-guard --item YOK-N",
     ),
     AdapterEntry(
         function_id="session_control.qualification.open",

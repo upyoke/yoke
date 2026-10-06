@@ -110,22 +110,16 @@ from yoke_core.api.service_client_shared import (  # noqa: F401
     _subprocess_pythonpath,
     _table_exists,
     _update_requests_done,
-    # Domain re-exports used by tests and callers
     AdapterCategory,
-    ClaimedWork,
     FrontierItem,
     FrontierResult,
-    FrontierState,
     SessionError,
-    SessionOffer,
     approval,
     assess_post_delivery_drift,
     board,
-    build_drift_review_failure_action,
     compute_domain_frontier,
     compute_schedule,
     config_path_from_db_path,
-    decide_next_action,
     display_claim_item_id,
     domain_clean_stale,
     domain_end_session,
@@ -134,9 +128,6 @@ from yoke_core.api.service_client_shared import (  # noqa: F401
     domain_read_checkpoint,
     domain_release_done_claims,
     domain_update_checkpoint,
-    emit_drift_review_completed,
-    emit_next_action_chosen,
-    emit_post_decision_telemetry,
     evaluate_item_gate,
     get_max_chain_steps,
     load_routing_config,
@@ -149,9 +140,7 @@ from yoke_core.api.service_client_shared import (  # noqa: F401
     resolve_claimed_work_context,
     resolve_execution_lane,
     runs,
-    session_offer_with_ownership,
     set_session_mode,
-    should_emit_drift_review_checkpoint,
 )
 
 # Items-related query commands
@@ -178,7 +167,6 @@ from yoke_core.api.service_client_items import (  # noqa: F401
 
 # Sessions-related commands
 from yoke_core.api.service_client_sessions import (  # noqa: F401
-    _build_frontier_state_from_schedule,
     _validate_active_session,
     cmd_claim_release,
     cmd_harness_capabilities,
@@ -190,7 +178,6 @@ from yoke_core.api.service_client_sessions import (  # noqa: F401
     cmd_session_end,
     cmd_session_end_if_empty,
     cmd_session_heartbeat,
-    cmd_session_offer,
     cmd_session_touch,
 )
 from yoke_core.api.service_client_work_claims import (  # noqa: F401
@@ -261,11 +248,6 @@ from yoke_core.api.service_client_ouroboros import (
 )  # noqa: F401
 from yoke_core.api.service_client_path_claims import PATH_CLAIMS_COMMANDS  # noqa: F401
 
-# Runtime ownership guard for session-offer resume dispatch
-from yoke_core.api.service_client_ownership_guard import (  # noqa: F401
-    OWNERSHIP_GUARD_COMMANDS,
-    cmd_ownership_guard,
-)
 
 # Universal ``--help`` safety net (every subcommand exits 0 on --help).
 from yoke_core.api.service_client_help import is_help_sub_arg, run_with_help_fallback  # noqa: F401
@@ -282,7 +264,6 @@ COMMANDS = {
     "validate-update": cmd_update_item,
     "update-item": cmd_update_item,  # DEPRECATED: use validate-update
     "apply-approval": cmd_apply_approval,
-    "session-offer": cmd_session_offer,
     "session-begin": cmd_session_begin,
     "session-touch": cmd_session_touch,
     "session-heartbeat": cmd_session_heartbeat,
@@ -324,7 +305,6 @@ COMMANDS = {
     "actors-list": cmd_actors_list,
     "actors-get": cmd_actors_get,
     **PATH_CLAIMS_COMMANDS,
-    **OWNERSHIP_GUARD_COMMANDS,
     **OUROBOROS_COMMANDS,
 }
 

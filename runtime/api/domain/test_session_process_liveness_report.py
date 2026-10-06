@@ -284,11 +284,11 @@ def test_unknown_and_refused_claimless_ends_are_named(conn, monkeypatch):
     session_id = _ghost(conn)
 
     def _refuse(*args, **kwargs):
-        raise SessionError("CHAIN_PENDING", "checkpoint still has budget")
+        raise SessionError("ACTIVE_CLAIM", "session still owns work")
 
     monkeypatch.setattr(liveness_report, "end_session", _refuse)
     assert _apply(conn, session_id)["skipped"] == [
-        {"session_id": session_id, "status": "refused_chain_pending"}
+        {"session_id": session_id, "status": "refused_active_claim"}
     ]
 
 

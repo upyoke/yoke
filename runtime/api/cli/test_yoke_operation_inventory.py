@@ -186,8 +186,6 @@ class TestAccessors:
             "yoke sessions touch",
             "yoke sessions checkpoint",
             "yoke sessions checkpoint-read",
-            "yoke sessions offer",
-            "yoke sessions ownership-guard",
             "yoke charge schedule",
         ],
     )

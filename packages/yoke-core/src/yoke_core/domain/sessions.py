@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .sessions_analytics import (
+from .sessions_analytics import (  # noqa: F401
     DEFAULT_PROGRESS_THRESHOLD_MINUTES,
     DEFAULT_STALE_THRESHOLD_MINUTES,
     EVENT_CHAIN_STEP_COMPLETED,
@@ -24,12 +24,6 @@ from .sessions_analytics import (
     _SESSION_EVENT_REGISTRY_ROWS,
     _emit_event,
     _emit_session_event,
-    _resolve_resume_dispatch,
-    emit_adapter_dispatch_chosen,
-    emit_drift_review_completed,
-    emit_lane_routing_decision,
-    emit_next_action_chosen,
-    emit_post_decision_telemetry,
     ensure_session_event_registry_entries,
 )
 from .sessions_cleanup import (
@@ -51,13 +45,10 @@ from .sessions_lifecycle import (
     release_work_claim_for_execution,
     set_session_mode,
 )
-from .sessions_offer import session_offer_with_ownership
-from .sessions_queries import (
-    _filter_schedule_for_offer,
+from .sessions_queries import (  # noqa: F401
     _now_iso,
     _required_path_for_step,
     _row_to_dict,
-    _step_is_compatible_with_offer,
     derive_required_path,
     display_claim_item_id,
     get_claim_for_work_unit,
@@ -117,12 +108,6 @@ __all__ = [
     "_emit_event",
     "_emit_session_event",
     "_NEXT_STEP_TO_PATH",
-    "emit_next_action_chosen",
-    "emit_drift_review_completed",
-    "emit_lane_routing_decision",
-    "emit_adapter_dispatch_chosen",
-    "_resolve_resume_dispatch",
-    "emit_post_decision_telemetry",
     # Queries
     "normalize_claim_item_id",
     "normalize_session_item_id",
@@ -132,8 +117,6 @@ __all__ = [
     "_required_path_for_step",
     "derive_required_path",
     "resolve_claimed_work_context",
-    "_step_is_compatible_with_offer",
-    "_filter_schedule_for_offer",
     "update_chain_checkpoint",
     "read_chain_checkpoint",
     "read_chain_skip_memory",
@@ -174,7 +157,6 @@ __all__ = [
     "_resolve_effective_ttl",
     "handoff_claim",
     # Parent-owned
-    "session_offer_with_ownership",
     "clean_stale_harness_sessions",
     "cleanup_never_engaged_sessions",
 ]

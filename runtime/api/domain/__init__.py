@@ -27,12 +27,3 @@ from yoke_core.domain.frontier import (  # noqa: F401 — re-export public API
     compute_frontier,
     rank_frontier,
 )
-from yoke_core.domain.session import (  # noqa: F401 — re-export public API
-    ActionKind,
-    ClaimedWork,
-    FrontierState,
-    NextAction,
-    NextActionKind,
-    SessionOffer,
-    decide_next_action,
-)

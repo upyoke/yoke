@@ -197,7 +197,7 @@ def handle_charge_schedule(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.session_workspace_frontier import (
         apply_workspace_home_filter,
         enrich_elsewhere_checkout_paths,
-        resolve_offer_home_project,
+        resolve_workspace_home_project,
         workspace_home_filter_requested,
     )
 
@@ -220,7 +220,7 @@ def handle_charge_schedule(request: FunctionCallRequest) -> HandlerOutcome:
             session_id=session_id or None,
         )
         if workspace_home_filter_requested(project_override=override, item=body.item):
-            home = resolve_offer_home_project(
+            home = resolve_workspace_home_project(
                 conn,
                 workspace=body.workspace or "",
                 session_id=session_id or None,

@@ -98,8 +98,7 @@ unprotected unless both layers below hold:
   path-claim artifact has landed.
   The release path canonicalizes `idea-complete` → `handed_off` for
   schema storage and preserves the original intent on the `WorkReleased`
-  event. While the draft claim is held, another harness's
-  `session-offer` filters the row out via the standard live-claim
+  event. While the draft claim is held, the scheduler filters the row out via the standard live-claim
   conflict gate. Held duration is recorded on the `IdeaClaimHeld`
   event for doctor and Ouroboros observability.
 - **Layer 2 — body-completeness skip on the frontier (structural
@@ -130,11 +129,9 @@ skill across implementation work; the stage name alone does not choose one.
 event (laptop sleep, app reload, idle timeout) never destroys mid-flight
 claims: the hook runs the non-destructive `end_session_if_empty`, which ends a
 session only when it holds nothing — no active claim, session-owned document
-lock, keep-alive hold, in-flight wake delivery, or chain-pending budget.
+lock, keep-alive hold, pending launch delivery, or in-flight wake delivery.
 A session holding any of those is reported as skipped and stays live. Destructive ends are
-explicit operator calls (`session-end --release-claims`) and fail closed with
-`CHAIN_PENDING` while a chainable checkpoint still has budget, unless
-`override_chain_end=True` plus a rationale is supplied; releases record
+explicit operator calls (`session-end --release-claims`); releases record
 `agent_presence_evidence` on the terminal events. On reactivation, conditional
 auto-reacquire restores prior session_ended claims within
 `session_reactivation_reacquire_window_s` when no conflicting holder exists.
@@ -330,10 +327,9 @@ retained claim should query the events ledger first:
 
 The pinned workflow binding selects the skill for an item's live stage. Steering owns staffing; the shared scheduler computes the runnable frontier. The canonical sources are:
 
-- [session-offer.md](./session-offer.md) — request/response envelope, `NextAction` shape, chainability rules
 - [charge-frontier.md](./charge-frontier.md) — frontier computation, status-to-adapter mapping, ranking
 - `yoke_core.domain.scheduler_routing` — the `next_step` function that turns a status into a command
-- `yoke_core.domain.sessions` — shared session-offer path that emits `HarnessSessionOffered` and `NextActionChosen`
+- `yoke_core.domain.session_launch_mandate` — resolves assigned item routes from pinned workflow bindings
 
 Agents reading the lifecycle should treat those files plus the item's pinned
 definition as authoritative for "which command runs next?" The tables here
@@ -343,7 +339,6 @@ item's stage graph.
 ## See Also
 
 - [commands.md](./commands.md)
-- [session-offer.md](./session-offer.md)
 - [charge-frontier.md](./charge-frontier.md)
 - [qa-platform.md](./qa-platform.md)
 - [db-reference.md](./db-reference.md)

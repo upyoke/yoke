@@ -67,14 +67,9 @@ DOWNSTREAM_PATHS: tuple[str, ...] = (
 )
 
 
-# OPERATOR_COMMANDS above is the SESSION-OFFER REGISTRY: the entrypoints that
-# the session-offer machinery can route to. SAFE_OPERATOR_SURFACE below is the broader
-# OPERATOR-FACING SURFACE: every /yoke command an operator can invoke
-# directly, with per-harness compat metadata. Kept as siblings (not unified)
-# because they answer different questions: "which entrypoints does the
-# session-offer machinery orchestrate?" vs. "which commands is a harness
-# allowed to run?". Drift between either of these and the docs that enumerate
-# them is locked by tests in runtime/api/test_capability_consistency.py.
+# OPERATOR_COMMANDS describes downstream entrypoints; SAFE_OPERATOR_SURFACE
+# describes every operator command with per-harness compatibility metadata.
+# Capability consistency tests keep the two views aligned.
 SAFE_OPERATOR_SURFACE: tuple[OperatorCommand, ...] = (
     OperatorCommand(
         "/yoke idea",

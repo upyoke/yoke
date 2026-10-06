@@ -189,7 +189,7 @@ def list_frontier(
     """Project the frontier for one project or every registered project.
 
     ``project`` omitted resolves to the all-projects default (the same
-    scope rule ``session-offer`` uses). Unknown projects raise ``ValueError``
+    scope rule charge uses). Unknown projects raise ``ValueError``
     naming the registered set.
     """
     conn = db_helpers.connect()

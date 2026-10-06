@@ -121,7 +121,7 @@ wakes and no native stopped-session resume. Their pending messages arrive
 through a hook when the operator continues the existing chat; Yoke does not
 start a separate native turn or apply a model selector to those windows.
 
-## SessionEnd defense: claim- and chain-aware refusal
+## SessionEnd defense: holdings and delivery protection
 
 Claude Desktop fires `SessionEnd` on transient signals (laptop sleep, app reload,
 brief disconnect, idle timeout) — not only on permanent termination. The hook
@@ -132,7 +132,7 @@ runner therefore never asserts the agent is gone on its own:
   at all. A session holding any of these is reported as skipped and stays
   live, so a transient signal cannot discard mid-flight ownership state:
   `has_claims`, `has_document_locks`, `keepalive_held`,
-  `wake_delivery_in_flight`, `chain_pending`.
+  `launch_delivery_pending`, `wake_delivery_in_flight`.
 - `keepalive_held` is the one a session does not hold for itself. A broker
   or other pure wake target holds no claim by design, so idle cleanup would
   end it the moment its turn stopped; the caller that needs it alive takes
@@ -146,14 +146,12 @@ runner therefore never asserts the agent is gone on its own:
   and spares a session with any open claim or lock.
 - Destructive ends are explicit operator/CLI calls
   (`session-end --release-claims` through
-  `sessions_render_end.end_session`). They fail closed with
-  `CHAIN_PENDING` while a chainable checkpoint still has budget, unless
-  the caller supplies `override_chain_end=True` plus a non-empty
-  rationale (recorded as `ChainDeclineOverridden`). When the release runs,
+  `sessions_render_end.end_session`). When the release runs,
   `yoke_core.domain.sessions_lifecycle_destructive_guard` releases every
   active claim with `release_reason='session_ended'` and the terminal
   `HarnessSessionEnded` carries a structured `agent_presence_evidence`
-  payload (`chain_budget_remaining`, `chain_override_authorized`).
+  payload recording the explicit claim release. Checkpoint budget does not
+  block session ending.
 
 `last_heartbeat` is not consulted by the destructive branch. After
 the keepalive daemon was eliminated it became a tool-activity recency

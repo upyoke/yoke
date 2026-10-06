@@ -5,7 +5,7 @@ means the holding session intends to resume on the item once its blocking
 precondition clears. Releasing such a claim before the routed handler has
 recorded a durable terminal checkpoint reproduces an incident.
 The evaluator gates the release for item targets only — epic_task and
-process targets carry no routed-handler frame semantics in ``session-offer``.
+process targets carry no routed-handler frame semantics in handler checkpoints.
 A persisted chain checkpoint is "terminal evidence" when ``chainable=False``
 OR ``handler_outcome`` is in :data:`TERMINAL_OUTCOMES`. A missing checkpoint
 means the session never started a routed chain and the release is allowed.

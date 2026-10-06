@@ -36,7 +36,7 @@ def test_harness_sessions_note_calls_out_state_and_started_at() -> None:
     body = sac.render_topic_packet("claims", detail=PACKET_DETAIL_FULL)
     assert "NO `state` column" in body
     assert "`started_at` column" in body
-    # The real session-offer timestamp is named (and listed as a column).
+    # The real session checkpoint timestamp is named (and listed as a column).
     assert "`offered_at`" in body
     column_line = next(
         line for line in body.splitlines() if "**`harness_sessions`**" in line

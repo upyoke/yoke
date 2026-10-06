@@ -3,7 +3,7 @@
 The bug this suite backstops: a mutating operation that bypasses the
 connection-keyed dispatcher and hardcodes the local backend silently
 writes the wrong authority when the active connection is https (the class
-that broke ``session-offer`` session establishment). Every ``yoke <subcommand>``
+that broke ``session checkpoint`` session establishment). Every ``yoke <subcommand>``
 adapter funnels through ``call_dispatcher``, whose relay branch routes to
 the server on an active https connection. This test asserts that invariant
 holds for EVERY registered session/claim mutating function id — data-driven

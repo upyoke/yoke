@@ -5,7 +5,7 @@ asserts that a minimal shepherd dispatch (architect → boss verdict) renders
 through the cross-harness ``DispatchDescriptor`` substrate against the
 rendered Codex adapter TOMLs, that the planning verdict envelope is
 parseable per the role's ``result_schema``, and that at least one canonical
-telemetry event (``HarnessSessionOffered``) is emitted to the events sink.
+telemetry event (``HarnessSessionStarted``) is emitted to the events sink.
 
 The smoke does NOT depend on a real Codex CLI. It mocks the harness boundary
 (adapter file existence + the ``codex agent:`` invocation snippet) and uses
@@ -16,7 +16,6 @@ so the telemetry assertion does not require a populated Yoke DB.
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 
 import pytest
@@ -130,25 +129,23 @@ class TestTelemetryEmittedDuringDispatch:
     """At least one canonical telemetry event is observable in the
     smoke run.
 
-    We emit ``HarnessSessionOffered`` to the capture sink (no DB required) and
+    We emit ``HarnessSessionStarted`` to the capture sink (no DB required) and
     assert the envelope is shaped correctly. This proves that a shepherd
     invocation in Codex hook-enhanced mode would surface the same telemetry
     on the canonical events ledger when the DB is configured.
     """
 
-    def test_harness_session_offered_event_visible_in_capture_sink(
-        self, tmp_path, monkeypatch
-    ):
+    def test_session_started_event_visible_in_capture_sink(self, tmp_path, monkeypatch):
         capture_file = tmp_path / "events.jsonl"
         monkeypatch.setenv("YOKE_EVENTS_CAPTURE", "1")
         monkeypatch.setenv("YOKE_EVENTS_FILE", str(capture_file))
 
-        # Emit the canonical session-offer event the way sessions_offer does
+        # Emit the canonical registration event
         # for any real shepherd-driven harness session.
         result = emit_event(
-            "HarnessSessionOffered",
+            "HarnessSessionStarted",
             event_kind="system",
-            event_type="session_offer",
+            event_type="session_lifecycle",
             source_type="backend",
             session_id="smoke-shepherd-1",
             project="yoke",
@@ -157,14 +154,14 @@ class TestTelemetryEmittedDuringDispatch:
 
         # Capture-mode is the documented path for non-canonical writes.
         assert result.envelope is not None
-        assert result.envelope["event_name"] == "HarnessSessionOffered"
+        assert result.envelope["event_name"] == "HarnessSessionStarted"
         assert result.reason == "capture_only"
 
         # The capture file got the line with the canonical envelope shape.
         lines = capture_file.read_text(encoding="utf-8").splitlines()
         assert len(lines) == 1
         envelope = json.loads(lines[0])
-        assert envelope["event_name"] == "HarnessSessionOffered"
+        assert envelope["event_name"] == "HarnessSessionStarted"
         assert envelope["session_id"] == "smoke-shepherd-1"
         assert envelope["source_type"] == "backend"
         # The context payload should record the executor/step the shepherd

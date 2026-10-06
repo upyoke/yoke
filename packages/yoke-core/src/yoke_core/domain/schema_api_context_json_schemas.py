@@ -25,8 +25,7 @@ from __future__ import annotations
 # means seed updates are not racing the renderer to phrase it the same
 # way.
 ACCESS_PATTERN_NOTE: str = (
-    "parse the rendered JSON string; do NOT query nested fields as "
-    "top-level columns"
+    "parse the rendered JSON string; do NOT query nested fields as top-level columns"
 )
 
 
@@ -43,7 +42,11 @@ JSON_NESTED_SCHEMAS: dict[tuple[str, str], dict] = {
             ("model", "str|null", "null"),
             ("mutation_intent", "'apply'", "null"),
             ("compatibility_class", "'pre_merge_safe'|'pre_merge_breaking'", "null"),
-            ("migration_strategy", "'additive_only'|'hard_cutover'|'expand_contract'", "null"),
+            (
+                "migration_strategy",
+                "'additive_only'|'hard_cutover'|'expand_contract'",
+                "null",
+            ),
             ("migration_modules", "list[str]", "[]"),
         ],
     },
@@ -61,21 +64,21 @@ JSON_NESTED_SCHEMAS: dict[tuple[str, str], dict] = {
     },
     ("harness_sessions", "offer_envelope"): {
         "topic": "claims",
-        "validator": "yoke_core.domain.sessions_offer_envelope_merge.merge_offer_envelope",
+        "validator": "yoke_core.domain.sessions_queries_chain.update_chain_checkpoint",
         "fields": [
-            ("execution_lane", "str", "'primary'"),
-            ("supported_paths", "list[str]", "[]"),
-            ("capabilities", "list[str]", "[]"),
-            ("workspace", "str", "''"),
-            ("offered_at", "str (ISO-8601)", "''"),
-            ("offer_diagnostics", "dict", "{}"),
+            ("chain_checkpoint", "dict", "{}"),
+            ("chain_skip_memory", "list[dict]", "[]"),
         ],
     },
     ("qa_requirements", "capability_requirements"): {
         "topic": "qa",
         "validator": "yoke_core.domain.qa_requirement_ops",
         "fields": [
-            ("(JSON array of capability tokens the runner must advertise)", "list[str]", "[]"),
+            (
+                "(JSON array of capability tokens the runner must advertise)",
+                "list[str]",
+                "[]",
+            ),
         ],
     },
     ("qa_requirements", "success_policy"): {

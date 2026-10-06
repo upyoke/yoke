@@ -10,16 +10,12 @@ from yoke_cli.commands._helpers import (
     add_session_arg,
     dispatch_and_emit,
     parse_or_usage_error,
-    usage_error,
 )
 from yoke_cli.commands.adapters.session_control_human_output import write_summary
 from yoke_contracts.api.function_call import TargetRef
 
 
-SESSION_TERMINATE_USAGE = (
-    "yoke sessions terminate SESSION-ID --reason R "
-    "[--override-chain-end --chain-end-rationale R] [--json]"
-)
+SESSION_TERMINATE_USAGE = "yoke sessions terminate SESSION-ID --reason R [--json]"
 SESSION_TERMINATE_DESCRIPTION = (
     "Permanently end one top-level session, cancel its undelivered "
     "messages, request best-effort native-process reaping, and release "
@@ -52,27 +48,15 @@ def session_terminate(args: List[str]) -> int:
     )
     parser.add_argument("target_session_id", metavar="SESSION-ID")
     parser.add_argument("--reason", required=True)
-    parser.add_argument("--override-chain-end", action="store_true")
-    parser.add_argument("--chain-end-rationale", default=None)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, SESSION_TERMINATE_USAGE)
     if parsed is None:
         return 2
-    if parsed.override_chain_end and not str(parsed.chain_end_rationale or "").strip():
-        return usage_error(
-            "session termination with --override-chain-end requires "
-            "--chain-end-rationale"
-        )
-    if parsed.chain_end_rationale and not parsed.override_chain_end:
-        return usage_error("--chain-end-rationale requires --override-chain-end")
     payload = {
         "session_id": parsed.target_session_id,
         "reason": parsed.reason,
-        "override_chain_end": parsed.override_chain_end,
     }
-    if parsed.chain_end_rationale:
-        payload["chain_end_rationale"] = parsed.chain_end_rationale
     return dispatch_and_emit(
         function_id="session_control.session.terminate",
         target=TargetRef(kind="global"),

@@ -10,6 +10,12 @@ from __future__ import annotations
 from typing import Tuple
 
 DEPRECATE_LIST: Tuple[str, ...] = (
+    "ChainBudgetUnused",
+    "ChainDeclineOverridden",
+    "HarnessSessionOffered",
+    "NextActionChosen",
+    "SessionOfferInvariantFailed",
+    "SessionOfferLaneOverrideApplied",
     "BrowserDaemonStarted",
     "BrowserDaemonStopped",
     "BrowserDiffCompleted",
@@ -122,7 +128,6 @@ EXPECTED_LOW_CADENCE_ACTIVE: Tuple[str, ...] = (
     "SMLRefreshCompleted",
     "SessionCwdBindingFailOpen",
     "SessionCwdBindingHealthCheckFailed",
-    "SessionOfferLaneOverrideApplied",
     "SessionReactivationReacquiredClaims",
     "StrategyDocArchived",
     "StrategyDocUnarchived",

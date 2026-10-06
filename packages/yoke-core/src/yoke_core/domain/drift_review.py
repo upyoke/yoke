@@ -92,7 +92,7 @@ class DriftReviewResult:
     delivered_items: List[str]
 
     def to_dict(self) -> Dict[str, Any]:
-        """Serialize to a plain dict for embedding in FrontierState."""
+        """Serialize to a plain dict for frontier and steering reads."""
         return {
             "classification": self.classification,
             "summary": self.summary,
@@ -160,12 +160,14 @@ def _get_delivered_items(
         ).fetchall()
         for r in rows:
             seen_ids.add(r[0])
-            items.append({
-                "id": r[0],
-                "title": r[1],
-                "priority": r[2] or "low",
-                "delivered_at": r[3],
-            })
+            items.append(
+                {
+                    "id": r[0],
+                    "title": r[1],
+                    "priority": r[2] or "low",
+                    "delivered_at": r[3],
+                }
+            )
     except db_backend.operational_error_types(conn):
         _rollback_if_postgres(conn)
         pass
@@ -188,12 +190,14 @@ def _get_delivered_items(
         for r in rows:
             item_id = r[0]
             if item_id and item_id not in seen_ids:
-                items.append({
-                    "id": item_id,
-                    "title": r[2] or "",
-                    "priority": r[3] or "low",
-                    "delivered_at": r[1],
-                })
+                items.append(
+                    {
+                        "id": item_id,
+                        "title": r[2] or "",
+                        "priority": r[3] or "low",
+                        "delivered_at": r[1],
+                    }
+                )
                 seen_ids.add(item_id)
     except db_backend.operational_error_types(conn):
         _rollback_if_postgres(conn)

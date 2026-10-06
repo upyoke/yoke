@@ -1,23 +1,7 @@
-"""Auto-release active work-claims on the no-flags ``session-end`` path.
+"""Transactional release of liveness-bound claims for an explicitly ended session.
 
-The no-flags ``end_session`` branch previously rejected with
-``ACTIVE_CLAIM`` whenever the session still held work-claims, forcing
-operators (and the ``session-offer`` loop) to manually release each claim
-before retrying. This helper centralises the inverse: enumerate the
-session's active claims and release each through the typed work-claim
-release path so item, epic_task, and process targets all use the same
-semantics and process-owned linked path claims cascade through the
-existing release behavior. Returns the JSON-safe per-claim release
-payload that surfaces on the typed end-session response.
-
-The destructive ``--release-claims`` path
-(``handle_release_claims_branch``) remains
-``sessions_lifecycle_destructive_guard``'s responsibility — this helper
-is scoped to the deliberate no-flags CLI/operator path where the
-session is being ended on purpose. On both branches the upstream
-CHAIN_PENDING guard is the structural protection against ending a
-session whose loop still has budget.
-"""
+Item, epic-task, and process targets use the same typed release semantics.
+Post-commit receipts and events describe the claims actually released."""
 
 from __future__ import annotations
 

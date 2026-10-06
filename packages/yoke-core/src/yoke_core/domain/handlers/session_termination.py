@@ -41,8 +41,6 @@ def handle_session_terminate(request: FunctionCallRequest) -> HandlerOutcome:
             actor_id=numeric_actor_id(request),
             caller_session_id=caller_session_id,
             reason=body.reason,
-            override_chain_end=body.override_chain_end,
-            chain_end_rationale=body.chain_end_rationale,
         )
         conn.commit()
         return HandlerOutcome(result_payload=result)

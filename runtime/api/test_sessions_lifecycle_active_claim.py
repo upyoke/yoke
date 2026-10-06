@@ -18,10 +18,8 @@ from runtime.api.test_sessions import _register
 from yoke_core.domain.sessions import (
     EVENT_HARNESS_SESSION_END_RELEASED_CLAIMS,
     EVENT_HARNESS_SESSION_ENDED,
-    SessionError,
     claim_work,
     end_session,
-    update_chain_checkpoint,
 )
 
 pytest_plugins = ("runtime.api.test_sessions",)
@@ -92,30 +90,6 @@ class TestNoFlagsAutoRelease:
         assert result["ended_at"] is not None
         assert _active_claim_count(conn, "sess-1") == 0
         assert len(result["released_claims"]) == 1
-
-    def test_ac3_chain_pending_still_blocks_no_flags(self, conn):
-        """CHAIN_PENDING guard still fires before the auto-release path."""
-        _register(conn, session_id="sess-cp")
-        update_chain_checkpoint(
-            conn,
-            "sess-cp",
-            step=1,
-            action="charge",
-            chainable=True,
-            handler_outcome="completed",
-        )
-        with pytest.raises(SessionError) as exc_info:
-            end_session(conn, "sess-cp", force=True)
-        assert exc_info.value.code == "CHAIN_PENDING"
-
-        # Override clears it.
-        result = end_session(
-            conn,
-            "sess-cp",
-            override_chain_end=True,
-            chain_end_rationale="harness restart — chain budget intentionally abandoned",
-        )
-        assert result["ended_at"] is not None
 
     @patch("yoke_core.domain.sessions_analytics._emit_session_event")
     def test_no_flags_emits_released_claims_event(self, mock_emit, conn):

@@ -53,16 +53,13 @@ def test_codex_hook_orientation_lists_registry_implement_path():
     assert ", ".join(shared_downstream_paths()) == EXPECTED_PATHS
 
 
-def test_conduct_is_direct_safe_surface_not_session_offer_path():
+def test_conduct_is_direct_safe_surface_outside_downstream_registry():
     assert "/yoke conduct" in safe_operator_surface_entrypoints("codex")
     assert "/yoke conduct" not in shared_entrypoints()
     assert "conduct" not in shared_downstream_paths()
 
 
-def test_direct_execution_paths_are_offerable():
-    # Dash and Blitz items are routable next_steps, so the shared registry must
-    # advertise them or the offer-time compatibility filter drops every
-    # candidate before a session ever sees one.
+def test_direct_execution_paths_are_in_downstream_registry():
     paths = shared_downstream_paths()
     assert "dash" in paths
     assert "blitz" in paths
@@ -71,9 +68,9 @@ def test_direct_execution_paths_are_offerable():
 def test_codex_smoke_matrix_expects_implement_path():
     text = _read("runtime/harness/codex/SMOKE-TEST.md")
 
-    assert f"Supported paths: {EXPECTED_PATHS}" in text
-    assert f"supported_paths: {EXPECTED_PATHS}" in text
     assert "/yoke implement YOK-{N}" in text
+    assert "implementation and review stay in the same worktree" in text
+    assert "`implement` in supported_paths" in text
     assert "shepherd, refine, polish, usher" not in text
 
 
@@ -81,17 +78,16 @@ def test_hook_parity_map_matches_codex_shared_registry_summary():
     text = _read("docs/hook-parity-map.md")
 
     assert (
-        "The shared Yoke registry exposes two intentionally different "
-        "capability views."
+        "The shared Yoke registry exposes two intentionally different capability views."
     ) in text
     assert "safe operator surface" in text
-    assert "narrower session-offer registry" in text
+    assert "downstream registry" in text
     assert "rather than copying either registry view" in text
     assert "/yoke implement" in text
     assert "/yoke conduct" in text
     assert "`implement`" in text
     assert "direct Codex invocation" in text
-    assert "Conduct is not a session-offer entrypoint or downstream path" in text
+    assert "Conduct runs through its own operator entrypoint" in text
     assert "five entrypoints" not in text
     assert "four downstream paths" not in text
 

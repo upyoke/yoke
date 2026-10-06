@@ -141,7 +141,7 @@ def test_terminal_closeout_preserves_checkpoint_for_other_work(
     assert checkpoint is not None
     assert checkpoint["item_id"] == next_item_id
     assert checkpoint["handler_outcome"] == "completed"
-    assert end_session_if_empty(test_db, session_id)["status"] == "chain_pending"
+    assert end_session_if_empty(test_db, session_id)["status"] == "ended"
 
 
 def test_live_reoffer_replaces_consumed_checkpoint_with_next_item(
@@ -171,4 +171,4 @@ def test_live_reoffer_replaces_consumed_checkpoint_with_next_item(
 
     assert checkpoint["item_id"] == next_item_id
     assert checkpoint["handler_outcome"] == "completed"
-    assert end_session_if_empty(test_db, session_id)["status"] == "chain_pending"
+    assert end_session_if_empty(test_db, session_id)["status"] == "ended"

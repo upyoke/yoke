@@ -28,10 +28,13 @@ def _record(payload: dict) -> HookContext:
     sid = payload.get("session_id")
     return HookContext(
         event_name="PreToolUse",
-        executor_family="claude", executor_surface="claude",
-        payload=payload, tool_name="Bash",
+        executor_family="claude",
+        executor_surface="claude",
+        payload=payload,
+        tool_name="Bash",
         command_body=lint._extract_command(payload) or None,
-        cwd=None, session_id=sid if isinstance(sid, str) else None,
+        cwd=None,
+        session_id=sid if isinstance(sid, str) else None,
     )
 
 
@@ -91,10 +94,10 @@ class TestIsReadOnlyCommand(unittest.TestCase):
         for command in [
             "python3 -m yoke_core.hooks.sessions_cli who-claims 1",
             "python3 -m yoke_core.api.service_client path-claim-list",
-            "python3 -m yoke_core.api.service_client ownership-guard --item 1",
+            "python3 -m yoke_core.api.service_client session-checkpoint-read --session-id S",
             "python3 -m yoke_core.api.service_client actors-list",
             "python3 -m yoke_core.cli.db_router items get 1 body",
-            "python3 -m yoke_core.cli.db_router query \"SELECT 1\"",
+            'python3 -m yoke_core.cli.db_router query "SELECT 1"',
             "python3 -m yoke_core.cli.db_router events list --item 1",
         ]:
             with self.subTest(command=command):
@@ -201,7 +204,8 @@ class TestEvaluateContract(unittest.TestCase):
         self.assertIs(decision.next, Next.STOP)
         envelope = json.loads(decision.message)
         self.assertEqual(
-            envelope["hookSpecificOutput"]["permissionDecision"], "deny",
+            envelope["hookSpecificOutput"]["permissionDecision"],
+            "deny",
         )
         self.assertEqual(
             decision.audit_fields.get("family"),

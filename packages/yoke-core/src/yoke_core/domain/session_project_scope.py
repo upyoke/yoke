@@ -1,6 +1,6 @@
 """Canonical session-project scope resolver.
 
-Argless ``session-offer`` and ``/yoke charge`` still compute the all-projects
+Argless ``/yoke charge`` still compute the all-projects
 schedule by default so other projects stay visible for the elsewhere
 reply. ``--project yoke,example-project`` narrows that compute scope and
 bypasses the workspace-home assignment filter. Assignment itself is

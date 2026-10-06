@@ -79,7 +79,7 @@ class RoutingOverride:
 
     def to_context_dict(self) -> Dict[str, Any]:
         # Canonical payload consumed by FrontierStepSelected events and
-        # the NextActionChosen scheduler_context block.
+        # frontier projections.
         return {
             "routing_override": self.reason,
             "routing_override_original_step": self.original_step,
@@ -91,7 +91,7 @@ class RoutingOverride:
 
 def is_assignable_claim_state(state: ClaimState) -> bool:
     """Return True when ``state`` makes a ranked step assignable to the
-    offering session.
+    requesting session.
 
     The single source of truth for the assignability rule. Used by the
     scheduler's selected-step search and by every operator-facing
@@ -225,7 +225,7 @@ class ScheduledStep:
 class SchedulerResult:
     """Result of the shared frontier-step scheduler.
 
-    Both ``session-offer`` and ``/yoke charge`` consume this result.
+    Charge, steering, board, and frontier reads consume this result.
 
     Attributes:
         project_scope: The list of project ids this result was computed
@@ -241,16 +241,6 @@ class SchedulerResult:
         wip_active_items: Internal item ids occupying the WIP count.
         conduct_eligible: Conduct-eligible steps within WIP cap.
         frozen_steps: Frozen items (excluded from scheduling).
-        lane_filtered_count: Number of ranked steps dropped by session-offer
-            lane/harness compatibility filtering. Populated by
-            ``_filter_schedule_for_offer`` after scheduling.
-        lane_filtered_items: Structured details of the dropped steps, keyed
-            by ``item_id`` with ``title``, ``status``, ``next_step``,
-            ``required_path``, ``rank``, and ``claim_state``. Empty when
-            nothing was filtered.
-        offer_diagnostics: Numbered elimination chain attached by the
-            session-offer compatibility pass. ``None`` for scheduler-only
-            callers that do not offer work to a session.
         runnable_elsewhere: Assignable ranked steps in other projects after
             the workspace-home filter. Empty when the filter did not run
             or the home project held every assignable step.
@@ -269,8 +259,5 @@ class SchedulerResult:
     wip_active_items: List[int] = field(default_factory=list)
     conduct_eligible: List[ScheduledStep] = field(default_factory=list)
     frozen_steps: List[ScheduledStep] = field(default_factory=list)
-    lane_filtered_count: int = 0
-    lane_filtered_items: List[Dict[str, Any]] = field(default_factory=list)
-    offer_diagnostics: Optional[Dict[str, Any]] = None
     runnable_elsewhere: List[Dict[str, Any]] = field(default_factory=list)
     workspace_home_project: Optional[str] = None

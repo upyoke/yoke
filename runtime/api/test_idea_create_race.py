@@ -66,75 +66,67 @@ def _run_client(args, db_path=None):
     )
 
 
-def _offer(session_id: str, *, db_path: str, workspace: str):
-    return _run_client(
-        [
-            "session-offer",
-            "--session-id",
-            session_id,
-            "--step",
-            "1",
-        ],
-        db_path=db_path,
-    )
-
-
 # ---------------------------------------------------------------------------
 # Layer 1 — claim-on-create blocks the live race window
 # ---------------------------------------------------------------------------
 
 
-def test_layer1_draft_claim_blocks_concurrent_session_offer(session_offer_db):
-    """A held draft claim keeps the item out of another session's offer."""
+def test_draft_claim_blocks_other_worker_assignment_until_release(session_offer_db):
+    from yoke_core.domain.scheduler import compute_schedule
+    from yoke_core.domain.scheduler_types import is_assignable_claim_state
+
     db_path = session_offer_db["db_path"]
     workspace = session_offer_db["tmp_dir"]
-    drafter_id = "drafter-session"
-    poacher_id = "poacher-session"
     item_num = 10
     public_ref = f"YOK-{item_num}"
-
-    _pre_register_session(db_path, drafter_id, workspace=workspace)
-    _pre_register_session(db_path, poacher_id, workspace=workspace)
-
-    # Drafter claims with the canonical draft intent.
-    drafter = _run_client(
+    _pre_register_session(db_path, "drafter", workspace=workspace)
+    _pre_register_session(db_path, "worker", workspace=workspace)
+    claim = _run_client(
         [
             "claim-work",
-            "--session-id", drafter_id,
-            "--reason", "draft-in-progress",
-            "--item", public_ref,
+            "--session-id",
+            "drafter",
+            "--reason",
+            "draft-in-progress",
+            "--item",
+            public_ref,
         ],
         db_path=db_path,
     )
-    assert drafter.returncode == 0, drafter.stderr
-
-    # Poacher offers for work while the draft claim is held. The claimed
-    # item must not be selected or advertised as runnable.
-    poacher = _offer(poacher_id, db_path=db_path, workspace=workspace)
-    assert poacher.returncode == 0, poacher.stderr
-    poacher_offer = json.loads(poacher.stdout)
-    context = poacher_offer.get("context") or {}
-    assert context.get("selected_item") != public_ref
-    assert public_ref not in context.get("runnable_items", [])
-
-    # Drafter releases with the canonical idea-complete intent.
+    assert claim.returncode == 0, claim.stderr
+    conn = connect_test_db(db_path)
+    try:
+        schedule = compute_schedule(
+            conn, project_scope=["yoke"], session_id="worker", emit_events=False
+        )
+        held = next(step for step in schedule.ranked_steps if step.item_id == item_num)
+        assert not is_assignable_claim_state(held.claim_state)
+    finally:
+        conn.close()
     release = _run_client(
         [
             "release-work-claim",
-            "--session-id", drafter_id,
-            "--reason", "idea-complete",
-            "--item", public_ref,
+            "--session-id",
+            "drafter",
+            "--reason",
+            "idea-complete",
+            "--item",
+            public_ref,
         ],
         db_path=db_path,
     )
     assert release.returncode == 0, release.stderr
-
-    # After release, the same offer path can select the item.
-    poacher_post = _offer(poacher_id, db_path=db_path, workspace=workspace)
-    assert poacher_post.returncode == 0, poacher_post.stderr
-    post_offer = json.loads(poacher_post.stdout)
-    assert post_offer["action"] == "charge"
-    assert post_offer["context"]["selected_item"] == public_ref
+    conn = connect_test_db(db_path)
+    try:
+        schedule = compute_schedule(
+            conn, project_scope=["yoke"], session_id="worker", emit_events=False
+        )
+        available = next(
+            step for step in schedule.ranked_steps if step.item_id == item_num
+        )
+        assert is_assignable_claim_state(available.claim_state)
+    finally:
+        conn.close()
 
 
 def test_layer1_release_emits_idea_claim_held_event(session_offer_db):
@@ -148,9 +140,12 @@ def test_layer1_release_emits_idea_claim_held_event(session_offer_db):
     claim = _run_client(
         [
             "claim-work",
-            "--session-id", drafter_id,
-            "--reason", "draft-in-progress",
-            "--item", public_ref,
+            "--session-id",
+            drafter_id,
+            "--reason",
+            "draft-in-progress",
+            "--item",
+            public_ref,
         ],
         db_path=db_path,
     )
@@ -159,9 +154,12 @@ def test_layer1_release_emits_idea_claim_held_event(session_offer_db):
     release = _run_client(
         [
             "release-work-claim",
-            "--session-id", drafter_id,
-            "--reason", "idea-complete",
-            "--item", public_ref,
+            "--session-id",
+            drafter_id,
+            "--reason",
+            "idea-complete",
+            "--item",
+            public_ref,
         ],
         db_path=db_path,
     )
@@ -215,8 +213,15 @@ def test_layer1_dispatcher_release_canonicalizes_and_emits(
     _pre_register_session(db_path, drafter_id)
 
     claim = _run_client(
-        ["claim-work", "--session-id", drafter_id,
-         "--reason", "draft-in-progress", "--item", public_ref],
+        [
+            "claim-work",
+            "--session-id",
+            drafter_id,
+            "--reason",
+            "draft-in-progress",
+            "--item",
+            public_ref,
+        ],
         db_path=db_path,
     )
     assert claim.returncode == 0, claim.stderr
@@ -236,13 +241,15 @@ def test_layer1_dispatcher_release_canonicalizes_and_emits(
     assert row is not None, "draft claim row was not created"
     claim_id = int(row[0])
 
-    resp = dispatch(FunctionCallRequest(
-        function="claims.work.release",
-        request_id=str(uuid.uuid4()),
-        actor={"session_id": drafter_id},
-        target={"kind": "claim", "claim_id": claim_id},
-        payload={"claim_id": claim_id, "reason": "idea-complete"},
-    ))
+    resp = dispatch(
+        FunctionCallRequest(
+            function="claims.work.release",
+            request_id=str(uuid.uuid4()),
+            actor={"session_id": drafter_id},
+            target={"kind": "claim", "claim_id": claim_id},
+            payload={"claim_id": claim_id, "reason": "idea-complete"},
+        )
+    )
     assert resp.success, f"dispatcher release failed: {resp.error}"
 
     conn = connect_test_db(db_path)

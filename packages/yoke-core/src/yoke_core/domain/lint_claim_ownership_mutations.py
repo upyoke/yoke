@@ -83,9 +83,9 @@ _BARE_MODULE_MUTATIONS: frozenset[str] = frozenset(
 _READ_ONLY_SUBSTRINGS: tuple[str, ...] = tuple(
     (
         "who-claims path-claim-list path-claim-get path-claim-conflicts "
-        "path-claim-boundary actors-list actors-get session-offer "
+        "path-claim-boundary actors-list actors-get "
         "session-heartbeat session-touch session-end-if-empty "
-        "session-checkpoint-read harness-capabilities ownership-guard"
+        "session-checkpoint-read harness-capabilities"
     ).split()
 )
 

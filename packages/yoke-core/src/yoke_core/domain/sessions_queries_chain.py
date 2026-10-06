@@ -102,8 +102,8 @@ def update_chain_checkpoint(
         (envelope_json, session_id),
     )
     # Chain progress is first-class session state: unlike the
-    # offer_envelope checkpoint (clobbered by later offers), these columns
-    # survive re-offers and are what the stuck-chain doctor HC reads.
+    # checkpoint document, these columns give the stuck-chain doctor a
+    # direct progress reading.
     from .claim_chain_state import stamp_chain_checkpoint
 
     stamp_chain_checkpoint(conn, session_id=session_id, step=step, at=now)
@@ -203,7 +203,7 @@ def read_chain_skip_memory(
 
     Each entry is a dict carrying at minimum ``item_id`` and ``skip_reason``.
     The list is empty when the session has no envelope or no entries yet.
-    The memory is per-chain — `session-offer` loops should clear it via the
+    The memory is scoped to checkpoint context; clear it via the
     same envelope path between chains; the offer flow only appends and reads.
     """
     row = conn.execute(

@@ -58,8 +58,6 @@ from yoke_core.domain.sessions import (
     SessionError,
     claim_work,
     clean_stale_harness_sessions,
-    emit_post_decision_telemetry,
-    emit_next_action_chosen,
     end_session,
     end_session_if_empty,
     find_stale_sessions,
@@ -76,7 +74,6 @@ from yoke_core.domain.sessions import (
     release_all_claims,
     release_claim,
     release_claims_for_done_item,
-    session_offer_with_ownership,
     set_session_mode,
     update_chain_checkpoint,
     _emit_session_event,
@@ -238,7 +235,7 @@ def _insert_claimable_epic_task(conn, epic_id: int, task_num: int) -> None:
 
 
 def _create_ownership_schema(conn) -> None:
-    """Create all tables needed by session_offer_with_ownership."""
+    """Create all tables needed by session and claim tests."""
     apply_ddl_statements(
         conn,
         PROJECTS_SCHEMA,

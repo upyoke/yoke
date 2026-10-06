@@ -3,9 +3,7 @@
 Pairs with ``sessions_lifecycle_destructive_guard`` and the
 ``end_session(release_claims=True)`` branch in ``sessions_render_end``.
 
-Evidence records chain-budget and override state; the release always
-proceeds — chain protection is the upstream CHAIN_PENDING gate in
-``end_session``.
+Evidence records explicit claim-release authority and released claim details.
 """
 
 from __future__ import annotations
@@ -17,9 +15,6 @@ from unittest import mock
 
 from runtime.api.fixtures import pg_testdb
 from runtime.api.sessions_api_stale_test_helpers import apply_ddl_statements
-from yoke_core.domain.sessions_lifecycle_destructive_guard import (
-    evaluate_destructive_end,
-)
 from yoke_core.domain.work_claim_targets import make_item_target
 
 
@@ -146,26 +141,6 @@ def _insert_active_claim(
     return int(row[0])
 
 
-class TestEvaluateDestructiveEnd(unittest.TestCase):
-    def test_no_chain_reports_no_budget(self) -> None:
-        conn = _build_conn()
-        _insert_session(conn, "sess-perm", chainable=False)
-        evidence = evaluate_destructive_end(conn, "sess-perm")
-        self.assertFalse(evidence.chain_budget_remaining)
-        self.assertFalse(evidence.chain_override_authorized)
-
-    def test_chain_override_authorized_records_budget_and_override(self) -> None:
-        conn = _build_conn()
-        _insert_session(conn, "sess-override", chainable=True)
-        evidence = evaluate_destructive_end(
-            conn,
-            "sess-override",
-            chain_override_authorized=True,
-        )
-        self.assertTrue(evidence.chain_budget_remaining)
-        self.assertTrue(evidence.chain_override_authorized)
-
-
 class TestEndSessionReleaseClaimsBranch(unittest.TestCase):
     def test_releases_and_returns_evidence(self) -> None:
         from yoke_core.domain.sessions_lifecycle_destructive_guard import (
@@ -197,47 +172,10 @@ class TestEndSessionReleaseClaimsBranch(unittest.TestCase):
             )
         release.assert_called_once()
         emit.assert_called_once()
-        self.assertFalse(evidence["chain_budget_remaining"])
+        self.assertEqual(evidence, {"explicit_claim_release": True})
         ctx = emit.call_args[1]["context"]
         self.assertEqual(ctx["released_count"], 1)
         self.assertEqual(len(ctx["claim_details"]), 1)
-
-    def test_override_evidence_propagates_to_release_event(self) -> None:
-        from yoke_core.domain.sessions_lifecycle_destructive_guard import (
-            handle_release_claims_branch,
-        )
-
-        conn = _build_conn()
-        _insert_session(conn, "sess-o", chainable=True)
-        _insert_active_claim(conn, "sess-o", 9)
-        rows = conn.execute(
-            "SELECT id, target_kind, scope FROM work_claims "
-            "WHERE session_id = %s AND released_at IS NULL",
-            ("sess-o",),
-        ).fetchall()
-        with (
-            mock.patch(
-                "yoke_core.domain.sessions_lifecycle_release.release_all_claims",
-                return_value=1,
-            ),
-            mock.patch(
-                "yoke_core.domain.sessions_analytics._emit_session_event",
-            ) as emit,
-        ):
-            evidence = handle_release_claims_branch(
-                conn,
-                "sess-o",
-                force=True,
-                active_claim_rows=rows,
-                chain_override_authorized=True,
-            )
-        self.assertTrue(evidence["chain_budget_remaining"])
-        self.assertTrue(evidence["chain_override_authorized"])
-        ctx = emit.call_args[1]["context"]
-        self.assertEqual(
-            ctx["agent_presence_evidence"],
-            evidence,
-        )
 
 
 if __name__ == "__main__":

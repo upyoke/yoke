@@ -100,8 +100,7 @@ def compute_schedule(
 ) -> SchedulerResult:
     """Compute the shared frontier-step schedule across a project scope.
 
-    This is the single entry point consumed by both ``session-offer``
-    (session-offer) and ``/yoke charge``.
+    This is the shared entry point for charge, steering, board, and frontier reads.
 
     Args:
         conn: SQLite connection (read-only access sufficient).

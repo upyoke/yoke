@@ -333,9 +333,8 @@ def hc_offer_envelope_clobber_lost_chain(
 
     summary = (
         f"- {hit_count} session(s) lost their chain_checkpoint to a later "
-        "offer write. Operator recovery (chain-end override): "
-        "`python3 -m yoke_core.api.service_client session-end "
-        "--override-chain-end --chain-end-rationale '...' --session-id S`."
+        "envelope write. Inspect the persisted checkpoint and its event history; "
+        "checkpoint telemetry does not block explicit session cleanup."
     )
     _emit_warn(rec, _HC_CLOBBER_NAME, _HC_CLOBBER_DESC, summary, lines)
 

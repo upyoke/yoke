@@ -8,8 +8,7 @@ from datetime import datetime, timezone
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
 from runtime.api.test_service_client_sessions_helpers import _pre_register_session
-from runtime.api.test_constants import TEST_MODEL_ID
-from yoke_core.domain.work_claim_targets import make_item_target
+from yoke_core.domain.sessions import claim_work
 
 pytest_plugins = ("runtime.api.test_service_client_sessions_helpers",)
 
@@ -17,6 +16,14 @@ pytest_plugins = ("runtime.api.test_service_client_sessions_helpers",)
 _FRESH_TS = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 ITEM_ID = 10
 ITEM_REF = f"YOK-{ITEM_ID}"
+
+
+def _claim_item(db, session_id):
+    conn = connect_test_db(db)
+    try:
+        claim_work(conn, session_id=session_id, item_id=10)
+    finally:
+        conn.close()
 
 
 class TestSessionEndCommand:
@@ -32,8 +39,7 @@ class TestSessionEndCommand:
         ws = session_offer_db["tmp_dir"]
         db = session_offer_db["db_path"]
         _pre_register_session(db, sid, workspace=ws)
-        r1 = _run_client(["session-offer", "--session-id", sid], db_path=db)
-        assert r1.returncode == 0
+        _claim_item(db, sid)
 
         r2 = _run_client(["session-end", "--session-id", sid], db_path=db)
         assert r2.returncode == 0, f"stderr: {r2.stderr}"
@@ -59,7 +65,14 @@ class TestSessionEndCommand:
         ws = session_offer_db["tmp_dir"]
         db = session_offer_db["db_path"]
         # Create session without claims (just register, don't offer which may claim)
-        _pre_register_session(db, sid, executor="claude-code", provider="a", requested_model="o", workspace=ws)
+        _pre_register_session(
+            db,
+            sid,
+            executor="claude-code",
+            provider="a",
+            requested_model="o",
+            workspace=ws,
+        )
         # End first time
         r1 = _run_client(["session-end", "--session-id", sid], db_path=db)
         assert r1.returncode == 0
@@ -73,123 +86,12 @@ class TestSessionEndCommand:
 
     def test_session_end_nonexistent_session(self, session_offer_db):
         """session-end on nonexistent session exits 0 (best-effort)."""
-        r = _run_client(["session-end", "--session-id", "nonexistent"], db_path=session_offer_db["db_path"])
-        assert r.returncode == 0
-        data = json.loads(r.stdout)
-        assert data["success"] is True
-
-    def test_session_end_chain_pending_fails_without_force(self, session_offer_db):
-        """CHAIN_PENDING is a real CLI failure without an explicit override."""
-        sid = "end-chain-pending"
-        checkpoint = {
-            "step": 1,
-            "action": "resume",
-            "chainable": True,
-            "handler_outcome": "completed",
-            "item_id": ITEM_REF,
-            "status": "reviewed-implementation",
-            "required_path": "polish",
-        }
-        conn = connect_test_db(session_offer_db["db_path"])
-        conn.execute(
-            f"""INSERT INTO harness_sessions
-               (session_id, executor, provider, model, workspace, offer_envelope,
-                offered_at, last_heartbeat)
-               VALUES (%s, 'claude-code', 'anthropic', '{TEST_MODEL_ID}', %s, %s, %s, %s)""",
-            (sid, session_offer_db["tmp_dir"], json.dumps({"max_chain_steps": 3, "chain_checkpoint": checkpoint}), _FRESH_TS, _FRESH_TS),
-        )
-        conn.execute(
-            """INSERT INTO work_claims
-               (session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat)
-               VALUES (%s, %s, %s, 'exclusive', %s, %s)""",
-            (sid, make_item_target(ITEM_ID).kind, make_item_target(ITEM_ID).scope_json(), _FRESH_TS, _FRESH_TS),
-        )
-        conn.commit()
-        conn.close()
-
-        result = _run_client(["session-end", "--session-id", sid], db_path=session_offer_db["db_path"])
-        assert result.returncode == 1
-        data = json.loads(result.stdout)
-        assert data["success"] is False
-        assert data["code"] == "CHAIN_PENDING"
-
-    def test_session_end_force_alone_still_returns_chain_pending(self, session_offer_db):
-        """``--force`` alone no longer bypasses CHAIN_PENDING via the CLI."""
-        sid = "end-chain-force"
-        checkpoint = {
-            "step": 1,
-            "action": "resume",
-            "chainable": True,
-            "handler_outcome": "completed",
-            "item_id": ITEM_REF,
-            "status": "reviewed-implementation",
-            "required_path": "polish",
-        }
-        conn = connect_test_db(session_offer_db["db_path"])
-        conn.execute(
-            f"""INSERT INTO harness_sessions
-               (session_id, executor, provider, model, workspace, offer_envelope,
-                offered_at, last_heartbeat)
-               VALUES (%s, 'claude-code', 'anthropic', '{TEST_MODEL_ID}', %s, %s, %s, %s)""",
-            (sid, session_offer_db["tmp_dir"], json.dumps({"max_chain_steps": 3, "chain_checkpoint": checkpoint}), _FRESH_TS, _FRESH_TS),
-        )
-        conn.execute(
-            """INSERT INTO work_claims
-               (session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat)
-               VALUES (%s, %s, %s, 'exclusive', %s, %s)""",
-            (sid, make_item_target(ITEM_ID).kind, make_item_target(ITEM_ID).scope_json(), _FRESH_TS, _FRESH_TS),
-        )
-        conn.commit()
-        conn.close()
-
-        result = _run_client(["session-end", "--session-id", sid, "--force"], db_path=session_offer_db["db_path"])
-        assert result.returncode == 1
-        data = json.loads(result.stdout)
-        assert data["success"] is False
-        assert data["code"] == "CHAIN_PENDING"
-
-    def test_session_end_override_without_rationale_returns_2(self, session_offer_db):
-        """``--override-chain-end`` without rationale fails fast at exit 2."""
-        sid = "end-empty-rationale"
-        checkpoint = {"step": 1, "action": "resume", "chainable": True, "handler_outcome": "completed"}
-        conn = connect_test_db(session_offer_db["db_path"])
-        conn.execute(
-            f"""INSERT INTO harness_sessions
-               (session_id, executor, provider, model, workspace, offer_envelope,
-                offered_at, last_heartbeat)
-               VALUES (%s, 'claude-code', 'anthropic', '{TEST_MODEL_ID}', %s, %s, %s, %s)""",
-            (sid, session_offer_db["tmp_dir"], json.dumps({"max_chain_steps": 3, "chain_checkpoint": checkpoint}), _FRESH_TS, _FRESH_TS),
-        )
-        conn.commit()
-        conn.close()
-
-        result = _run_client(["session-end", "--session-id", sid, "--override-chain-end", "--chain-end-rationale", "   "], db_path=session_offer_db["db_path"])
-        assert result.returncode == 2
-        data = json.loads(result.stdout)
-        assert data["success"] is False
-        assert data["code"] == "OVERRIDE_RATIONALE_REQUIRED"
-
-    def test_session_end_override_with_rationale_no_claims_succeeds(self, session_offer_db):
-        """``--override-chain-end --chain-end-rationale TEXT`` ends the session."""
-        sid = "end-override-noclaim"
-        checkpoint = {"step": 1, "action": "resume", "chainable": True, "handler_outcome": "completed"}
-        conn = connect_test_db(session_offer_db["db_path"])
-        conn.execute(
-            f"""INSERT INTO harness_sessions
-               (session_id, executor, provider, model, workspace, offer_envelope,
-                offered_at, last_heartbeat)
-               VALUES (%s, 'claude-code', 'anthropic', '{TEST_MODEL_ID}', %s, %s, %s, %s)""",
-            (sid, session_offer_db["tmp_dir"], json.dumps({"max_chain_steps": 3, "chain_checkpoint": checkpoint}), _FRESH_TS, _FRESH_TS),
-        )
-        conn.commit()
-        conn.close()
-
-        result = _run_client(
-            ["session-end", "--session-id", sid, "--override-chain-end", "--chain-end-rationale", "operator override — harness restart"],
+        r = _run_client(
+            ["session-end", "--session-id", "nonexistent"],
             db_path=session_offer_db["db_path"],
         )
-        assert result.returncode == 0
-        data = json.loads(result.stdout)
+        assert r.returncode == 0
+        data = json.loads(r.stdout)
         assert data["success"] is True
 
 
@@ -210,7 +112,9 @@ class TestSessionEndIfEmptyCommand:
         assert data["ended"] is True
 
         conn = connect_test_db(db)
-        row = conn.execute("SELECT ended_at FROM harness_sessions WHERE session_id = %s", (sid,)).fetchone()
+        row = conn.execute(
+            "SELECT ended_at FROM harness_sessions WHERE session_id = %s", (sid,)
+        ).fetchone()
         conn.close()
         assert row is not None
         assert row[0] is not None
@@ -221,8 +125,7 @@ class TestSessionEndIfEmptyCommand:
         db = session_offer_db["db_path"]
 
         _pre_register_session(db, sid, workspace=ws)
-        offer = _run_client(["session-offer", "--session-id", sid], db_path=db)
-        assert offer.returncode == 0, f"stderr: {offer.stderr}"
+        _claim_item(db, sid)
 
         result = _run_client(["session-end-if-empty", "--session-id", sid], db_path=db)
         assert result.returncode == 0, f"stderr: {result.stderr}"
@@ -233,15 +136,25 @@ class TestSessionEndIfEmptyCommand:
         assert data["active_claim_count"] >= 1
 
         conn = connect_test_db(db)
-        row = conn.execute("SELECT ended_at FROM harness_sessions WHERE session_id = %s", (sid,)).fetchone()
-        claim = conn.execute("SELECT COUNT(*) FROM work_claims WHERE session_id = %s AND released_at IS NULL", (sid,)).fetchone()
+        row = conn.execute(
+            "SELECT ended_at FROM harness_sessions WHERE session_id = %s", (sid,)
+        ).fetchone()
+        claim = conn.execute(
+            "SELECT COUNT(*) FROM work_claims WHERE session_id = %s AND released_at IS NULL",
+            (sid,),
+        ).fetchone()
         conn.close()
         assert row is not None
         assert row[0] is None
         assert claim[0] >= 1
 
-    def test_session_end_if_empty_is_best_effort_for_missing_session(self, session_offer_db):
-        result = _run_client(["session-end-if-empty", "--session-id", "nonexistent"], db_path=session_offer_db["db_path"])
+    def test_session_end_if_empty_is_best_effort_for_missing_session(
+        self, session_offer_db
+    ):
+        result = _run_client(
+            ["session-end-if-empty", "--session-id", "nonexistent"],
+            db_path=session_offer_db["db_path"],
+        )
         assert result.returncode == 0
         data = json.loads(result.stdout)
         assert data["success"] is True

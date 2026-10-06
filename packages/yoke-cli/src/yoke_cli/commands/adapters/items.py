@@ -282,7 +282,7 @@ def lifecycle_skip_record_recoverable_substrate(args: List[str]) -> int:
         dest="chain_step",
         type=int,
         required=True,
-        help="Current session-offer chain step number.",
+        help="Current checkpoint step number.",
     )
     parser.add_argument(
         "--project", required=True, help="Project id the failing handler is bound to."

@@ -199,16 +199,11 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     _p("python3 -m yoke_core.tools.watch_merge", "tools.watch", REASON_TOOL_SHAPED),
     _p("python3 -m yoke_core.tools.watch_tail", "tools.watch", REASON_TOOL_SHAPED),
     # The remaining agent-facing watcher surfaces, module-form only.
-    # watch_advance / watch_lifecycle / watch_session_offer are
+    # watch_advance and watch_lifecycle are
     # taught in conduct's dispatch-context-artifacts.md; watch_inventory
     # is the pre-authoring drift check taught in the Claude session rules.
     _p("python3 -m yoke_core.tools.watch_advance", "tools.watch", REASON_TOOL_SHAPED),
     _p("python3 -m yoke_core.tools.watch_lifecycle", "tools.watch", REASON_TOOL_SHAPED),
-    _p(
-        "python3 -m yoke_core.tools.watch_session_offer",
-        "tools.watch",
-        REASON_TOOL_SHAPED,
-    ),
     _p("python3 -m yoke_core.tools.watch_inventory", "tools.watch", REASON_TOOL_SHAPED),
     _p(
         "python3 -m yoke_core.tools.step_runners",

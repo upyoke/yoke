@@ -97,7 +97,6 @@ _SANCTIONED_SCHEMA_HELPER_CALLS: frozenset[str] = frozenset(
         "domain/machine_verification_recording.py::record_test_machine_verification",
         "domain/ouroboros_entry_corrections.py::record_correction",
         "domain/project_snapshot_chunk_uploads.py::sync_chunk",
-        "domain/sessions_offer_lane.py::emit_lane_override_applied_event",
     }
 )
 

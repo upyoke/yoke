@@ -162,7 +162,7 @@ def is_best_effort_wrapping(
     A best-effort wrapper composes ONLY of stdout/stderr redirects to
     free paths (``/dev/null``, ``/tmp/...``, mktemp-bound variables)
     plus a final ``|| true`` / ``|| exit 0`` short-circuit. This is
-    the idiomatic shape ``session-offer`` Step B uses for
+    the idiomatic checkpoint shape for
     ``session-heartbeat`` and ``session-checkpoint`` — the mutation
     must run but its outcome must not crash the loop.
 

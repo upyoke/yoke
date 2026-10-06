@@ -19,9 +19,6 @@ from .sessions_lifecycle_registry import _get_session
 from .sessions_orphan_tool_call_sweep import sweep_orphaned_tool_calls
 from .sessions_queries import _now_iso
 from .sessions_render_attribution import clear_current_item
-from .sessions_render_end_chain_pending import (
-    chain_pending_state as _chain_pending_state,
-)
 from .strategy_doc_session_claims import release_session_doc_claims_for_session
 from .sessions_render_end_claim_release import (
     emit_session_claim_releases_post_commit,
@@ -41,64 +38,13 @@ def end_session(
     *,
     force: bool = False,
     release_claims: bool = False,
-    override_chain_end: bool = False,
-    chain_end_rationale: Optional[str] = None,
     end_reason: str = "session_ended",
     agent_presence_evidence: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Mark a session as ended.
+    """End an explicitly selected session, releasing liveness-bound claims.
 
-    Sessions with active unreleased liveness-bound claims are protected from
-    termination by default. When ``release_claims`` is True, the destructive
-    claim-release branch releases those claims before ending. Sticky resource
-    claims survive both branches.
-
-    Args:
-        conn: Read-write database connection.
-        session_id: The session to end.
-        force: Legacy bypass flag. This no longer
-            bypasses the CHAIN_PENDING guard on its own; the explicit
-            ``override_chain_end`` flag plus a non-empty rationale are
-            now required to end a session while a chainable checkpoint
-            still has budget. ``force`` continues to act as the legacy
-            kwarg for non-chain guards and is recorded on the terminal
-            event for audit.
-        release_claims: When True, release active claims through the
-            destructive branch in
-            ``sessions_lifecycle_destructive_guard``. The CHAIN_PENDING
-            guard above still fails closed first when a chainable
-            checkpoint has budget. Hook cleanup paths use
-            :func:`end_session_if_empty` instead and leave this False.
-        override_chain_end: When True AND ``chain_end_rationale`` is a
-            non-empty string, bypass the CHAIN_PENDING guard. The override
-            emits ``ChainDeclineOverridden`` with the rationale, checkpoint
-            step, max_chain_steps, action, and item_id.
-        chain_end_rationale: Operator-supplied rationale that justifies
-            the chain-end override. Required when ``override_chain_end``
-            is True; ignored when not overriding.
-        end_reason: Recorded as ``reason`` on ``HarnessSessionEnded`` and
-            passed to launch-abandonment settlement. Callers that know
-            more than "a session ended" name it — the relay's
-            verified-dead process probe is the worked example — so the
-            ledger says why rather than leaving a reader to infer it.
-        agent_presence_evidence: What the caller observed about the
-            agent behind the session, recorded on the terminal event.
-            The destructive branch composes its own and wins when both
-            are present.
-
-    Raises:
-        SessionError("NOT_FOUND"): Session does not exist.
-        SessionError("SESSION_ENDED"): Session already ended.
-        SessionError("CHAIN_PENDING"): Session has a pending chainable
-            checkpoint and the override flag plus rationale were not
-            supplied.
-
-    The legacy ``ACTIVE_CLAIM`` rejection no longer fires on the
-    no-flags branch: explicit ``session-end`` (CLI / ``session-offer`` loop
-    cleanup) now auto-releases active work-claims with
-    ``release_reason='session_ended'`` via
-    :func:`release_session_claims`. The CHAIN_PENDING guard above still
-    blocks loop exits that have honest budget remaining.
+    Sticky claims survive; hooks use end_session_if_empty to preserve holdings
+    and pending delivery. Caller presence evidence is recorded for audit.
     """
     now = _now_iso()
 
@@ -109,24 +55,6 @@ def end_session(
         raise SessionError(
             "SESSION_ENDED",
             f"Session '{session_id}' has already ended.",
-        )
-
-    # CHAIN_PENDING guard: a persisted chainable checkpoint with
-    # remaining budget is a structural reason to keep the session alive — the
-    # loop should re-offer instead of exiting. ``force=True`` alone no longer
-    # bypasses the guard; the operator must supply ``override_chain_end=True``
-    # AND a non-empty rationale, which is recorded as ChainDeclineOverridden.
-    rationale = (chain_end_rationale or "").strip()
-    chain_override_authorized = bool(override_chain_end and rationale)
-    state = _chain_pending_state(conn, session_id)
-
-    if state.pending and not chain_override_authorized:
-        raise SessionError(
-            "CHAIN_PENDING",
-            f"Session '{session_id}' has a pending chainable checkpoint "
-            f"(step {state.step}/{state.max_chain_steps}). Pass "
-            "override_chain_end=True with a non-empty chain_end_rationale "
-            "to end anyway.",
         )
 
     active_claim_rows = conn.execute(
@@ -153,8 +81,7 @@ def end_session(
     # Active-claim handling:
     #   * ``release_claims`` is True — destructive branch. Releases
     #     all liveness-bound claims and falls through to the normal session-end
-    #     commit; the CHAIN_PENDING guard above has already refused
-    #     any chain-pending session without an authorized override.
+    #     commit.
     #   * ``release_claims`` is False — explicit no-flags CLI / loop
     #     cleanup path. Auto-release the session's active liveness-bound claims
     #     with ``release_reason='session_ended'`` via the typed
@@ -174,7 +101,6 @@ def end_session(
                     session_id,
                     force=force,
                     active_claim_rows=active_claim_rows,
-                    chain_override_authorized=chain_override_authorized,
                 )
             )
             staged_releases, post_commit_receipts = (
@@ -215,17 +141,6 @@ def end_session(
     )
     conn.commit()
 
-    if state.pending and chain_override_authorized:
-        from .scheduler_events import emit_chain_decline_overridden
-
-        emit_chain_decline_overridden(
-            session_id=session_id,
-            checkpoint_step=state.step,
-            max_chain_steps=state.max_chain_steps,
-            rationale=rationale,
-            action=state.action,
-            item_id=state.item_id,
-        )
     if destructive_event_context is not None:
         emit_release_claims_branch_event(
             session_id,
@@ -255,9 +170,6 @@ def end_session(
             **dict(agent_presence_evidence),
             **(presence_evidence or {}),
         }
-    if chain_override_authorized:
-        end_context["chain_override_authorized"] = True
-        end_context["chain_end_rationale"] = rationale
     if presence_evidence is not None:
         end_context["agent_presence_evidence"] = presence_evidence
     if released_claims:

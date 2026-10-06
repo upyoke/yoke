@@ -131,36 +131,18 @@ def api_heartbeat(session_id: str) -> JSONResponse:
 def api_end_session(
     session_id: str,
     force: bool = False,
-    override_chain_end: bool = False,
-    chain_end_rationale: Optional[str] = None,
 ) -> JSONResponse:
-    """Mark a session as ended.
-
-    ``force`` alone no longer bypasses the CHAIN_PENDING
-    guard. Pass ``override_chain_end=True`` and a non-empty
-    ``chain_end_rationale`` to override; the override is recorded as
-    ``ChainDeclineOverridden`` for audit.
-    """
+    """Mark an explicitly selected session as ended."""
     _main = _main_api()
-    if override_chain_end and not (chain_end_rationale and chain_end_rationale.strip()):
-        return _main._error_response(
-            400,
-            "OVERRIDE_RATIONALE_REQUIRED",
-            "override_chain_end requires a non-empty chain_end_rationale.",
-        )
     conn = _main.get_db_readwrite()
     try:
         result = end_session(
             conn,
             session_id,
             force=force,
-            override_chain_end=override_chain_end,
-            chain_end_rationale=chain_end_rationale,
         )
         return JSONResponse(status_code=200, content=result)
     except SessionError as e:
-        if e.code in ("CHAIN_PENDING", "ACTIVE_CLAIM"):
-            return _main._error_response(409, e.code, e.message)
         status = 404 if e.code == "NOT_FOUND" else 409
         return _main._error_response(status, e.code, e.message)
     except db_backend.operational_error_types(conn) as exc:

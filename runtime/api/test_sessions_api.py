@@ -42,7 +42,6 @@ from yoke_core.domain.sessions import (
     _emit_session_event,
     claim_work,
     clean_stale_harness_sessions,
-    emit_next_action_chosen,
     end_session,
     handoff_claim,
     reclaim_stale_item_claims,
@@ -268,65 +267,3 @@ class TestSessionRouteImports:
         )
 
         assert result.returncode == 0, result.stderr
-
-
-class TestNextActionChosenEmission:
-    @patch("yoke_core.domain.events.emit_event")
-    def test_charge_uses_workflow_contract_and_indexes_item(self, mock_emit):
-        emit_next_action_chosen(
-            session_id="sess-charge",
-            action="charge",
-            reason="Ready item selected",
-            correlation_id="sess-charge",
-            chainable=True,
-            step=2,
-            context={
-                "selected_item": "YOK-9999",
-                "scheduler": {"next_step": "conduct"},
-                "offer_diagnostics": {
-                    "top_eliminator": {"filter": "wip_cap", "eliminated": 2},
-                },
-            },
-        )
-
-        # The _emit_event wrapper calls the native emitter
-        mock_emit.assert_called_once()
-        call_args = mock_emit.call_args
-        assert call_args.args[0] == "NextActionChosen"
-        kwargs = call_args.kwargs
-        assert kwargs["event_kind"] == "workflow"
-        assert kwargs["event_type"] == "session_directive"
-        assert kwargs["source_type"] == "backend"
-        assert kwargs["severity"] == "STATUS"
-        assert kwargs["item_id"] == "YOK-9999"
-        ctx = kwargs["context"]
-        assert ctx["chainable"] is True
-        assert ctx["step"] == 2
-        assert ctx["selected_item"] == "YOK-9999"
-        assert ctx["offer_diagnostics"]["top_eliminator"]["filter"] == "wip_cap"
-
-    @patch("yoke_core.domain.events.emit_event")
-    def test_resume_indexes_item_and_task_num(self, mock_emit):
-        emit_next_action_chosen(
-            session_id="sess-resume",
-            action="resume",
-            reason="Resume active claim",
-            correlation_id="sess-resume",
-            project="externalwebapp",
-            chainable=True,
-            step=3,
-            context={
-                "item_id": "YOK-9",
-                "task_num": 4,
-                "status": "active",
-            },
-        )
-
-        kwargs = mock_emit.call_args.kwargs
-        assert kwargs["item_id"] == "YOK-9"
-        assert kwargs["task_num"] == 4
-        assert kwargs["project"] == "externalwebapp"
-        ctx = kwargs["context"]
-        assert ctx["item_id"] == "YOK-9"
-        assert ctx["task_num"] == 4
-        assert ctx["step"] == 3

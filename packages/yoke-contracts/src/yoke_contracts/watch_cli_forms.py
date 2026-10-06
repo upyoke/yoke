@@ -40,7 +40,7 @@ def cli_form(wrapper_module: str) -> str | None:
     """Return the ``yoke watch <kind>`` invocation, or ``None`` if unmapped.
 
     Watchers without a CLI adapter (``watch_advance``, ``watch_lifecycle``,
-    ``watch_session_offer``) return ``None``; callers keep their module
+    ``watch_lifecycle``) return ``None``; callers keep their module
     invocation for those.
     """
     tokens = WATCH_CLI_TOKENS.get(wrapper_module)

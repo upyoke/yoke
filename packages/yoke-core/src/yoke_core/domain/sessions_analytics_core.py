@@ -321,13 +321,12 @@ def _emit_session_event(
 
 
 # ---------------------------------------------------------------------------
-# Telemetry emission functions (session-offer post-decision)
+# Shared downstream dispatch paths
 # ---------------------------------------------------------------------------
 
 # Canonical downstream path names keyed by scheduler next_step values. This is
-# the single definition: the decision engine (``session_decision_charge``), the
-# offer-time compatibility filter (``sessions_queries_base``), and dispatch
-# telemetry all import it from here, so a new routable next_step is added once.
+# the single definition used by claimed-work path derivation and the
+# routable-action catalog. Add a new scheduler next_step here once.
 _NEXT_STEP_TO_PATH: Dict[str, str] = {
     "refine": "refine",
     "shepherd": "shepherd",

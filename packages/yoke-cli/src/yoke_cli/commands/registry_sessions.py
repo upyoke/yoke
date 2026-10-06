@@ -8,7 +8,10 @@ from yoke_cli.commands.adapters.sessions_maintenance import (
     sessions_reclaim_stale,
 )
 from yoke_cli.commands.adapters.sessions_hook_overhead import sessions_hook_overhead
-from yoke_cli.commands.adapters.sessions_read import sessions_get, sessions_steering_groups_list
+from yoke_cli.commands.adapters.sessions_read import (
+    sessions_get,
+    sessions_steering_groups_list,
+)
 
 
 SESSIONS_SUBCOMMAND_REGISTRY = {
@@ -34,11 +37,6 @@ SESSIONS_SUBCOMMAND_REGISTRY = {
     ("sessions", "checkpoint-read"): (
         "sessions.checkpoint_read",
         _adapters.sessions_checkpoint_read,
-    ),
-    ("sessions", "offer"): ("sessions.offer", _adapters.sessions_offer),
-    ("sessions", "ownership-guard"): (
-        "sessions.ownership_guard",
-        _adapters.sessions_ownership_guard,
     ),
     ("sessions", "end-if-empty"): (
         "sessions.end_if_empty",

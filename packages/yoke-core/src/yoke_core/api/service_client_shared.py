@@ -97,20 +97,9 @@ from yoke_core.domain import (  # noqa: F401
     queries,
     runs,
 )
-from yoke_core.domain.session import (  # noqa: F401
-    ClaimedWork,
-    FrontierState,
-    SessionOffer,
-    build_drift_review_failure_action,
-    decide_next_action,
-    should_emit_drift_review_checkpoint,
-)
 from yoke_core.domain.sessions import (  # noqa: F401
     SessionError,
     display_claim_item_id,
-    emit_drift_review_completed,
-    emit_next_action_chosen,
-    emit_post_decision_telemetry,
     heartbeat as domain_heartbeat,
     end_session as domain_end_session,
     end_session_if_empty as domain_end_session_if_empty,
@@ -121,7 +110,6 @@ from yoke_core.domain.sessions import (  # noqa: F401
     release_claims_for_done_item as domain_release_done_claims,
     release_item_claim_for_execution,
     resolve_claimed_work_context,
-    session_offer_with_ownership,
     set_session_mode,
     update_chain_checkpoint as domain_update_checkpoint,
 )
@@ -139,7 +127,7 @@ from yoke_core.domain.dependency_planning import (  # noqa: F401
     evaluate_item_gate,
     plan_candidate_set,
 )
-from yoke_core.api.process_offer_policy import (  # noqa: F401
+from yoke_core.api.session_chain_policy import (  # noqa: F401
     get_max_chain_steps,
 )
 from yoke_core.api.routing_config import (  # noqa: F401

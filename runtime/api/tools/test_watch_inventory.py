@@ -120,9 +120,7 @@ class TestStaleMonitorProse:
         findings = watch_inventory.find_residue(repo)
         assert findings == []
 
-    def test_fallback_context_does_not_suppress_class_2(
-        self, tmp_path: Path
-    ) -> None:
+    def test_fallback_context_does_not_suppress_class_2(self, tmp_path: Path) -> None:
         # Class-2 has no fallback-context bypass: the phrase only appears
         # when teaching Monitor wrong. Even if "fallback" or "watch_pytest"
         # appears nearby, the prose still needs to be fixed.
@@ -177,11 +175,9 @@ class TestExcludePathsRegistry:
             "packages/yoke-core/src/yoke_core/tools/watch_doctor.py",
             "packages/yoke-core/src/yoke_core/tools/watch_advance.py",
             "packages/yoke-core/src/yoke_core/tools/watch_lifecycle.py",
-            "packages/yoke-core/src/yoke_core/tools/watch_session_offer.py",
             "runtime/api/tools/test_watch_doctor.py",
             "runtime/api/tools/test_watch_advance.py",
             "runtime/api/tools/test_watch_lifecycle.py",
-            "runtime/api/tools/test_watch_session_offer.py",
         ],
     )
     def test_wrapper_in_exclude_paths(self, path: str) -> None:
@@ -193,7 +189,6 @@ class TestExcludePathsRegistry:
             "watch_doctor",
             "watch_advance",
             "watch_lifecycle",
-            "watch_session_offer",
         ],
     )
     def test_wrapper_token_in_fallback_tokens(self, token: str) -> None:
@@ -211,7 +206,6 @@ class TestFallbackContextSuppressionForNewWrappers:
             "watch_doctor",
             "watch_advance",
             "watch_lifecycle",
-            "watch_session_offer",
         ],
     )
     def test_new_wrapper_mention_suppresses_finding(

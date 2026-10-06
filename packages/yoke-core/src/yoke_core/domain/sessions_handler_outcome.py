@@ -1,38 +1,8 @@
-"""Handler-outcome classification for ``session-offer`` chain accounting.
+"""Discrete outcomes for persisted handler checkpoints and claim recovery.
 
-Routed handlers (``/yoke implement``,
-``/yoke strategize``, future) report back to the chain via a discrete
-``handler_outcome`` field on the chain checkpoint. ``session-offer``'s
-Step C reads the outcome and decides whether to bump the useful chain
-step, preserve the work claim, or terminate the chain.
-
-Outcomes:
-
-- ``completed`` — the routed handler reached a lifecycle boundary (e.g.
-  ``reviewed-implementation``); the chain step bumps and the loop may
-  re-offer.
-- ``slice_committed`` — the routed handler made internal progress (a
-  commit, Progress Log entry, focused verification) but the item is
-  still ``implementing``; the chain step does NOT bump and the
-  loop continues with the same item via resume.
-- ``recoverable_substrate`` — the routed handler hit a recoverable
-  implementation-entry substrate failure (worktree scope drift, cwd binding
-  drift, guard-compatible re-entry failure) before useful work began
-  ; the step does NOT bump and the same item is dedup'd
-  by chain skip memory so it is not reselected.
-- ``interactive_checkpoint`` — an enabled process action (Strategize,
-  Feed) reached an operator checkpoint; the work claim stays
-  open intentionally and the chain is non-chainable so generic session
-  cleanup does not release it.
-- ``blocked`` — the handler hit a real non-recoverable blocker; the
-  chain is non-chainable.
-- ``terminal_item_closed`` — the checkpoint's item reached a terminal
-  stage. A live loop may re-offer, but an idle hook has no unfinished
-  item work to preserve.
-
-The chain summary surface in ``session-offer`` consumes
-:func:`render_chain_summary_label` so prose and runtime stay in sync.
-"""
+Completed and partial-work outcomes describe progress; recoverable substrate
+and interactive checkpoint outcomes preserve recovery facts. Checkpoint
+writes resolve the outcome and its label through this module."""
 
 from __future__ import annotations
 
@@ -110,7 +80,7 @@ TERMINAL_OUTCOMES = frozenset(
 
 
 # Operator-facing labels for each outcome. The chain
-# summary block in ``session-offer`` reads this map; prose and tests
+# checkpoint rendering reads this map; prose and tests
 # reference the constants so a label change requires one edit.
 _OUTCOME_LABELS = {
     OUTCOME_COMPLETED: "handler completed",
@@ -123,7 +93,7 @@ _OUTCOME_LABELS = {
 
 
 def is_non_useful_step(handler_outcome: Optional[str]) -> bool:
-    """Whether ``session-offer`` should leave the useful step counter unchanged."""
+    """Whether the checkpoint writer should leave the useful step counter unchanged."""
     if not handler_outcome:
         return False
     return handler_outcome in NON_USEFUL_STEP_OUTCOMES
@@ -280,7 +250,7 @@ def record_interactive_checkpoint_handoff(
 def render_chain_summary_label(handler_outcome: Optional[str]) -> str:
     """Map a handler outcome to the operator-facing chain summary label.
 
-    ``session-offer``'s end-of-step summary reads this label
+    the checkpoint writer's end-of-step summary reads this label
     so an ``implementation slice committed`` is never reported as
     ``CHAIN STEP N/M COMPLETE``. Unknown outcomes fall back to the
     completed label so older callers stay safe.

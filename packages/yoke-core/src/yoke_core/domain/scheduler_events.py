@@ -124,43 +124,6 @@ def emit_scheduler_offer_skipped(
         _logger.debug("SchedulerOfferSkipped emission failed: %s", exc)
 
 
-def emit_chain_decline_overridden(
-    *,
-    session_id: str,
-    checkpoint_step: int,
-    max_chain_steps: int,
-    rationale: str,
-    project: str = "",
-    action: Optional[str] = None,
-    item_id: Optional[str] = None,
-    override_flag: str = "force_chain_end",
-) -> None:
-    """Emit ``ChainDeclineOverridden`` when ``session-end --override-chain-end`` plus a rationale bypasses the chain-budget guard."""
-    try:
-        from .events import emit_event
-
-        emit_event(
-            "ChainDeclineOverridden",
-            event_kind="audit",
-            event_type="chain_checkpoint",
-            source_type="backend",
-            session_id=session_id,
-            item_id=item_id,
-            project=project,
-            context={
-                "session_id": session_id,
-                "checkpoint_step": checkpoint_step,
-                "max_chain_steps": max_chain_steps,
-                "rationale": rationale,
-                "action": action,
-                "item_id": item_id,
-                "override_flag": override_flag,
-            },
-        )
-    except Exception as exc:
-        _logger.debug("ChainDeclineOverridden emission failed: %s", exc)
-
-
 def emit_chain_end_deferred(
     *,
     session_id: str,
@@ -182,7 +145,6 @@ def emit_chain_end_deferred(
 ) -> None:
     """Emit ``ChainEndDeferred`` when a Stop path declines to end a session.
 
-    Checkpoint callers (``session-end-if-empty``) omit turn-gate fields.
     The promised-work gate adds ``reason`` / ``cap_reached`` on the same
     event so doctor resolution can tell a reinjection from a cap. A
     cap-overruled gate is WARN with ``unfinished_work`` and ``recovery``
@@ -287,41 +249,3 @@ def emit_harness_session_resume_block_shown(
         )
     except Exception as exc:
         _logger.debug("HarnessSessionResumeBlockShown emission failed: %s", exc)
-
-
-def emit_chain_budget_unused(
-    *,
-    session_id: str,
-    step: int,
-    max_chain_steps: int,
-    remaining_budget: int,
-    terminal_reason: str,
-    candidate_trail: Optional[list[Mapping[str, Any]]] = None,
-    project: str = "",
-) -> None:
-    """Emit ``ChainBudgetUnused`` on a terminal session-offer checkpoint with budget remaining.
-
-    Terminal reasons: ``all_candidates_blocked``, ``all_candidates_stale``,
-    ``all_candidates_disabled_process``, ``mixed_unavailable``.
-    """
-    try:
-        from .events import emit_event
-
-        emit_event(
-            "ChainBudgetUnused",
-            event_kind="workflow",
-            event_type="chain_checkpoint",
-            source_type="backend",
-            session_id=session_id,
-            project=project,
-            context={
-                "session_id": session_id,
-                "step": step,
-                "max_chain_steps": max_chain_steps,
-                "remaining_budget": remaining_budget,
-                "terminal_reason": terminal_reason,
-                "candidate_trail": list(candidate_trail or []),
-            },
-        )
-    except Exception as exc:
-        _logger.debug("ChainBudgetUnused emission failed: %s", exc)

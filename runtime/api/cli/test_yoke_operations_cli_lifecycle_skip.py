@@ -12,7 +12,7 @@ from yoke_cli.commands.registry import resolve
 
 
 class TestLifecycleSkipRecordRecoverableSubstrate:
-    """The wrapped surface that makes session-offer Step B executable."""
+    """The wrapped surface that makes session checkpoint Step B executable."""
 
     def test_token_tuple_resolves_to_function_id(self) -> None:
         cli_tokens, function_id, _, remaining = resolve(

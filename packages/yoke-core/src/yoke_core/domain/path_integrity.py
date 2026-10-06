@@ -26,7 +26,7 @@ What the verifier does NOT do
 
 * It never reads live git state. Snapshot idempotency is asserted by
   comparing stored rows, not by re-running the scanner.
-* It never blocks ``session-offer`` / ``advance`` / ``conduct`` / ``usher``
+* It never blocks ``advance`` / ``conduct`` / ``usher``
   / ``charge``. Shadow-mode reporting only.
 * It never claims path-target identity, never makes scheduler
   decisions, never rewrites repaired substrate without an explicit

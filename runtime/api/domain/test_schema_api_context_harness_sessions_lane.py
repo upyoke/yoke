@@ -1,6 +1,6 @@
 """Regression: the curated schema packet exposes execution_lane on harness_sessions.
 
-Agents and adapter code need the row's default routing lane. The
+Agents and adapter code need the row's identity and roster lane. The
 main_agent schema / API packet is the surface that teaches that fact
 — this test prevents the column from quietly dropping out of the
 curated table list.
@@ -16,7 +16,7 @@ def test_harness_sessions_packet_lists_execution_lane():
     column_names = {name for name, _kind in packet["columns"]}
     assert "execution_lane" in column_names, (
         "execution_lane must remain on the harness_sessions "
-        "schema packet so agents see the default routing-lane column."
+        "schema packet so agents see the identity and roster column."
     )
 
 
@@ -26,21 +26,13 @@ def test_execution_lane_column_kind_is_text():
     assert type_by_name["execution_lane"] == "TEXT"
 
 
-def test_notes_describe_lane_override_doctrine():
-    """Notes are how agents discover the row-default / caller-override rule."""
+def test_notes_describe_lane_identity_and_roster_role():
     packet = CANONICAL_TABLES["harness_sessions"]
     notes = packet["notes"]
     assert "execution_lane" in notes
-    assert "SessionOfferLaneOverrideApplied" in notes
+    assert "groups sessions in identity and roster views" in notes
 
 
-def test_notes_scope_the_override_to_a_deliberate_operator_re_route():
-    """The override exists for operators, not for a loop to fill in.
-
-    An agent that reads "a caller lane overrides the row" and concludes it
-    may send its own is the failure this clause has to pre-empt: the guessed
-    lane wins over the project mapping and filters the whole frontier.
-    """
+def test_notes_name_registered_identity_read():
     notes = CANONICAL_TABLES["harness_sessions"]["notes"]
-    assert "DELIBERATE" in notes
     assert "yoke sessions identity" in notes
