@@ -16,10 +16,15 @@ from ops.qa.attribution_transfer import target
 FOREIGN_ORIGIN = "https://foreign-origin.invalid"
 
 
+def error_code(response):
+    try:
+        return response.json().get("error")
+    except ValueError:
+        return None  # A non-JSON body is reported as the status change below.
+
+
 def expect(response, status, reason=None):
-    if response.status_code != status or (
-        reason and response.json().get("error") != reason
-    ):
+    if response.status_code != status or (reason and error_code(response) != reason):
         raise ValueError(
             f"hosted_origin_probe_status_changed: expected {status}"
             f"{' ' + reason if reason else ''}, got {response.status_code}; "

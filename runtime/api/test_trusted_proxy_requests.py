@@ -178,13 +178,14 @@ GATEWAY = "172.18.0.1"
 def test_hosted_gateway_forwarding_admits_only_the_public_origin(
     database, peer, origin, expected
 ):
-    # The hosted webapp relay replaces Host with the engine's upstream address.
+    # The hosted webapp relay calls the engine over plain HTTP and replaces Host
+    # with the engine's upstream address; only trusted forwarding restores both.
     headers = {
         "Host": "127.0.0.1:9001",
         "X-Forwarded-Host": "app.upyoke.com",
         "X-Forwarded-Proto": "https",
     }
-    with serving_client(peer, scheme="https", trusted="127.0.0.1," + GATEWAY) as client:
+    with serving_client(peer, trusted="127.0.0.1," + GATEWAY) as client:
         key = client.get("/api/events/config", headers=headers).json()["publishableKey"]
         response = client.get(
             "/api/events/attribution",
@@ -203,9 +204,13 @@ def test_deployed_hosted_origin_probe_passes_behind_trusted_relay(
     from ops.qa import hosted_origin_admission
 
     def relayed(**_):
-        client = serving_client(GATEWAY, scheme="https", trusted=GATEWAY)
+        client = serving_client(GATEWAY, trusted=GATEWAY)
         client.headers.update(
-            {"Host": "127.0.0.1:9001", "X-Forwarded-Host": "app.upyoke.com"}
+            {
+                "Host": "127.0.0.1:9001",
+                "X-Forwarded-Host": "app.upyoke.com",
+                "X-Forwarded-Proto": "https",
+            }
         )
         return client
 
