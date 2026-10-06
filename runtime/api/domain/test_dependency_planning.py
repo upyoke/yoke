@@ -70,6 +70,20 @@ def conn() -> Iterator[Any]:
             "created_at TEXT NOT NULL, "
             "UNIQUE(dependent_item_id, blocking_item_id, gate_point))"
         )
+        # Edge writes resolve their public refs through project identity.
+        c.execute(
+            "CREATE TABLE projects (id INTEGER PRIMARY KEY, slug TEXT, "
+            "name TEXT, public_item_prefix TEXT)"
+        )
+        c.execute("INSERT INTO projects VALUES (1, 'yoke', 'Yoke', 'YOK')")
+        c.execute(
+            "CREATE TABLE items (id INTEGER PRIMARY KEY, project_id INTEGER, "
+            "project_sequence INTEGER)"
+        )
+        for item_id in (1, 2, 3, 10, 11, 99, *range(1701, 1710)):
+            c.execute(
+                "INSERT INTO items VALUES (%s, 1, %s)", (item_id, item_id),
+            )
         # Empty stub so the edge-write refresh hook's blocked-claims probe
         # finds the table; a failed probe would poison the Postgres
         # transaction for the assertions that follow.

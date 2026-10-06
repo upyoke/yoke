@@ -54,7 +54,14 @@ def _validate(model_cls, payload: Any, label: str):
         return None, _err("payload_invalid", f"{label} payload invalid: {exc}")
 
 
-def _item_ref(request: FunctionCallRequest) -> tuple[str | None, HandlerOutcome | None]:
+def _verdict_key(request: FunctionCallRequest) -> tuple[str | None, HandlerOutcome | None]:
+    """The shepherd tables' storage key for the target item.
+
+    ``shepherd_verdicts.item`` and ``caveat_dispositions.item`` are keyed by
+    the default-prefix token built from ``items.id`` that their readers join
+    on; it is a storage key, never a public ref, so responses name the item
+    by its rendered ref.
+    """
     item_id = request.target.item_id
     if request.target.kind != "item" or item_id is None:
         return None, _err(
@@ -62,9 +69,13 @@ def _item_ref(request: FunctionCallRequest) -> tuple[str | None, HandlerOutcome 
             "shepherd verdict writes require target.kind='item' with item_id",
             jsonpath="$.target.item_id",
         )
+    return f"YOK-{int(item_id)}", None
+
+
+def _public_ref(request: FunctionCallRequest) -> str:
     from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
-    return item_ref_for_id(int(item_id)), None
+    return item_ref_for_id(int(request.target.item_id))
 
 
 def _run_with_conn(fn, *args, **kwargs) -> str:
@@ -86,7 +97,7 @@ def handle_shepherd_verdict(request: FunctionCallRequest) -> HandlerOutcome:
     body, err = _validate(ShepherdVerdictRequest, request.payload, "verdict")
     if err is not None:
         return err
-    item, err = _item_ref(request)
+    item, err = _verdict_key(request)
     if err is not None:
         return err
     assert item is not None
@@ -107,7 +118,7 @@ def handle_shepherd_verdict(request: FunctionCallRequest) -> HandlerOutcome:
     except (LookupError, ValueError, RuntimeError) as exc:
         return _domain_error(exc)
     return HandlerOutcome(
-        result_payload={"item": item, "verdict_id": verdict_id},
+        result_payload={"item": _public_ref(request), "verdict_id": verdict_id},
         primary_success=True,
     )
 
@@ -122,7 +133,7 @@ def handle_shepherd_caveat_disposition(
     )
     if err is not None:
         return err
-    item, err = _item_ref(request)
+    item, err = _verdict_key(request)
     if err is not None:
         return err
     assert item is not None
@@ -144,7 +155,7 @@ def handle_shepherd_caveat_disposition(
     except (LookupError, ValueError, RuntimeError) as exc:
         return _domain_error(exc)
     return HandlerOutcome(
-        result_payload={"item": item, "result": result},
+        result_payload={"item": _public_ref(request), "result": result},
         primary_success=True,
     )
 

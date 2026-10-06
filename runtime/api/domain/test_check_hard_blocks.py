@@ -267,7 +267,7 @@ class TestMain(unittest.TestCase):
     def test_usage_error_when_id_invalid(self) -> None:
         rc, _, err = self._run(["not-an-id"])
         self.assertEqual(rc, 2)
-        self.assertIn("expected PREFIX-N", err)
+        self.assertIn("pass the public ref (PREFIX-N", err)
 
     def test_exit_0_when_clear(self) -> None:
         with mock.patch(

@@ -59,15 +59,15 @@ class TestMainDispatcher:
             rc = sections.main(
                 [
                     "upsert",
-                    "42",
+                    "YOK-42",
                     "Design",
                     "--content-file",
                     str(content_file),
                 ]
             )
         assert rc == 0
-        assert "Upserted section: Design for item 42" in out.getvalue()
-        assert "Body regenerated for item 42" in out.getvalue()
+        assert "Upserted section: Design for item YOK-42" in out.getvalue()
+        assert "Body regenerated for item YOK-42" in out.getvalue()
         assert sections.get_section(42, "Design", db_path=db_path) == "cli content\n"
 
 
@@ -86,9 +86,9 @@ class TestEventFallback:
         content_file.write_text("body", encoding="utf-8")
         rc, out, err = _run_cli(
             sections.cmd_upsert,
-            ["42", "Design", "--content-file", str(content_file)],
+            ["YOK-42", "Design", "--content-file", str(content_file)],
             db_path=db_path,
         )
         assert rc == 0
-        assert "Upserted section: Design for item 42" in out
+        assert "Upserted section: Design for item YOK-42" in out
         assert sections.get_section(42, "Design", db_path=db_path) == "body"

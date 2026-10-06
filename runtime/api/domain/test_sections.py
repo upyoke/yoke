@@ -173,7 +173,7 @@ class TestSectionCliBodySyncWiring:
             side_effect=fake_sync,
         ):
             rc = sections_cli.cmd_upsert(
-                ["42", "Notes", "--content-file", str(content_file)],
+                ["YOK-42", "Notes", "--content-file", str(content_file)],
                 db_path=db_path, out=out, err=err,
             )
         assert rc == 0
@@ -200,7 +200,7 @@ class TestSectionCliBodySyncWiring:
             side_effect=fake_sync,
         ):
             rc = sections_cli.cmd_delete(
-                ["42", "Stale"], db_path=db_path, out=out, err=err,
+                ["YOK-42", "Stale"], db_path=db_path, out=out, err=err,
             )
         assert rc == 0
         assert calls == [(42, "delete")]
@@ -222,7 +222,7 @@ class TestSectionCliBodySyncWiring:
             return_value=(False, "section upsert: sync_body failed"),
         ):
             rc = sections_cli.cmd_upsert(
-                ["42", "Notes", "--content-file", str(content_file)],
+                ["YOK-42", "Notes", "--content-file", str(content_file)],
                 db_path=db_path, out=out, err=err,
             )
         # CLI still exits 0 on a degraded sync — the DB write committed.

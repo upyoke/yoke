@@ -54,7 +54,8 @@ class TestCmdExecuteUpdateCliDispatchParity:
             dispatch_module, "verify_claim", lambda *a, **kw: None,
         )
         monkeypatch.setattr(
-            dispatch_module, "resolve_target_public_ref", _resolve_test_item,
+            dispatch_module, "resolve_request_item_refs",
+        lambda request, _model: _resolve_test_item(request),
         )
 
         rc = service_client.cmd_execute_update_cli(
@@ -95,7 +96,8 @@ class TestCmdExecuteUpdateCliDispatchParity:
             dispatch_module, "verify_claim", lambda *a, **kw: None,
         )
         monkeypatch.setattr(
-            dispatch_module, "resolve_target_public_ref", _resolve_test_item,
+            dispatch_module, "resolve_request_item_refs",
+        lambda request, _model: _resolve_test_item(request),
         )
         monkeypatch.setattr(sys, "stdin", io.StringIO("# Spec\n"))
 
@@ -131,7 +133,8 @@ class TestCmdExecuteUpdateCliDispatchParity:
             dispatch_module, "verify_claim", lambda *a, **kw: None,
         )
         monkeypatch.setattr(
-            dispatch_module, "resolve_target_public_ref", _resolve_test_item,
+            dispatch_module, "resolve_request_item_refs",
+        lambda request, _model: _resolve_test_item(request),
         )
         monkeypatch.setattr(sys, "stdin", io.StringIO("x\n"))
 
