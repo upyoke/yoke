@@ -1,7 +1,7 @@
 # ruff: noqa: F401, F811
 """Tests for ``reclaim_stale_item_claims`` final-recheck path.
 
-Item-scoped sweep at session-offer time must use the same activity
+Item-scoped sweep at session checkpoint time must use the same activity
 signals as ``cmd_claim`` and ``clean_stale_harness_sessions``: when the
 holder has stale heartbeat but fresh tool-call activity, the sweep
 aborts the reclaim and emits ``ReclaimAborted`` with

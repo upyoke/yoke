@@ -131,64 +131,6 @@ def test_sessions_checkpoint_read_dispatches() -> None:
     assert req.payload == {}
 
 
-def test_sessions_offer_dispatches_with_explicit_session() -> None:
-    assert (
-        _run(
-            "sessions",
-            "offer",
-            "--step",
-            "2",
-            "--project",
-            "yoke",
-            "--session-id",
-            "offer-session",
-        )
-        == 0
-    )
-    req = _CAPTURED_REQUESTS[-1]
-    assert req.function == "sessions.offer"
-    assert req.actor.session_id == "offer-session"
-    assert req.target.kind == "global"
-    assert req.payload == {"step": 2, "project": "yoke"}
-
-
-def test_sessions_offer_rejects_caller_asserted_identity() -> None:
-    """No identity flag survives on the offer surface.
-
-    A caller-supplied lane is the mechanism by which a locally guessed value
-    outranks the session row, so the surface must not accept one — nor any
-    other field the row already answers.
-    """
-    for flag, value in (
-        ("--executor", "codex"),
-        ("--provider", "openai"),
-        ("--workspace", "/tmp/workspace"),
-        ("--model", "some-model"),
-        ("--supported-paths", "implement"),
-    ):
-        assert _run("sessions", "offer", flag, value) == 2
-
-
-def test_sessions_ownership_guard_dispatches_item_ref() -> None:
-    assert (
-        _run(
-            "sessions",
-            "ownership-guard",
-            "--item",
-            "42",
-            "--project",
-            "yoke",
-        )
-        == 0
-    )
-    req = _CAPTURED_REQUESTS[-1]
-    assert req.function == "sessions.ownership_guard"
-    assert req.target.kind == "item"
-    assert req.target.public_ref == "42"
-    assert req.target.project_id == "yoke"
-    assert req.payload == {}
-
-
 def test_charge_schedule_dispatches() -> None:
     assert (
         _run(

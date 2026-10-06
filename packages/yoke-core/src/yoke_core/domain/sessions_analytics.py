@@ -29,13 +29,6 @@ from .sessions_analytics_core import (
     _emit_event as _core_emit_event,
     ensure_session_event_registry_entries,
 )
-from .sessions_analytics_dispatch import (
-    _resolve_resume_dispatch,
-    emit_adapter_dispatch_chosen,
-    emit_drift_review_completed,
-    emit_lane_routing_decision,
-    emit_next_action_chosen,
-)
 
 
 def _emit_event(
@@ -89,81 +82,6 @@ def _emit_session_event(
     )
 
 
-def emit_post_decision_telemetry(
-    conn: Any,
-    session_id: str,
-    *,
-    action: str,
-    reason: str,
-    actual_lane: str,
-    context: Optional[Dict[str, Any]] = None,
-    project: str = "",
-) -> None:
-    """Emit shared post-decision telemetry for both CLI and HTTP adapters."""
-    ctx = context or {}
-    scheduler_ctx = ctx.get("scheduler", {})
-    selected_item = ctx.get("selected_item") or ctx.get("item_id")
-    next_step = scheduler_ctx.get("next_step", "")
-
-    lane_decision = "allowed"
-    lane_context: Dict[str, Any] = {}
-    if ctx.get("wait_reason") in (
-        "lane_policy_disallows_path",
-        "lane_policy_unknown",
-    ):
-        lane_decision = "blocked_policy"
-        if ctx.get("wait_reason"):
-            lane_context["wait_reason"] = ctx["wait_reason"]
-        if ctx.get("required_path"):
-            lane_context["required_path"] = ctx["required_path"]
-        if ctx.get("allowed_paths") is not None:
-            lane_context["allowed_paths"] = ctx["allowed_paths"]
-        if ctx.get("unknown_lane") is not None:
-            lane_context["unknown_lane"] = ctx["unknown_lane"]
-        if ctx.get("configured_lanes") is not None:
-            lane_context["configured_lanes"] = ctx["configured_lanes"]
-
-    emit_lane_routing_decision(
-        session_id,
-        project=project,
-        actual_lane=actual_lane,
-        selected_item=selected_item,
-        next_step=next_step,
-        decision=lane_decision,
-        context=lane_context or None,
-    )
-
-    adapter = _NEXT_STEP_TO_PATH.get(next_step, next_step) if next_step else ""
-    dispatch_source = "scheduler.next_step" if next_step else ""
-    dispatch_context: Dict[str, Any] = {}
-    if action == "resume":
-        resume_dispatch = _resolve_resume_dispatch(
-            conn,
-            item_id=ctx.get("item_id"),
-            epic_id=ctx.get("epic_id"),
-            task_num=ctx.get("task_num"),
-            status=ctx.get("status"),
-        )
-        adapter = resume_dispatch.get("adapter", adapter)
-        dispatch_source = resume_dispatch.get(
-            "dispatch_source", "resume-status-mapping"
-        )
-        if ctx.get("status"):
-            dispatch_context["status"] = ctx["status"]
-
-    emit_adapter_dispatch_chosen(
-        session_id,
-        project=project,
-        action=action,
-        item_id=selected_item,
-        adapter=adapter,
-        dispatch_source=dispatch_source,
-        actual_lane=actual_lane,
-        reasoning=reason,
-        context=dispatch_context or None,
-    )
-
-
 __all__ = [
     "SessionError",
     "DEFAULT_STALE_THRESHOLD_MINUTES",
@@ -189,10 +107,4 @@ __all__ = [
     "_emit_event",
     "_emit_session_event",
     "_NEXT_STEP_TO_PATH",
-    "emit_next_action_chosen",
-    "emit_drift_review_completed",
-    "emit_lane_routing_decision",
-    "emit_adapter_dispatch_chosen",
-    "_resolve_resume_dispatch",
-    "emit_post_decision_telemetry",
 ]

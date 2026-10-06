@@ -96,7 +96,6 @@ _SANCTIONED_SCHEMA_HELPER_CALLS: frozenset[str] = frozenset(
         "domain/machine_verification_recording.py::record_test_machine_verification",
         "domain/ouroboros_entry_corrections.py::record_correction",
         "domain/project_snapshot_chunk_uploads.py::sync_chunk",
-        "domain/sessions_offer_lane.py::emit_lane_override_applied_event",
     }
 )
 
@@ -167,9 +166,7 @@ def _build_fixture_schema(conn: Any) -> None:
 
 
 def _seed_project(conn: Any, *, slug: str = "yoke") -> int:
-    row = conn.execute(
-        "SELECT id FROM projects WHERE slug = %s", (slug,)
-    ).fetchone()
+    row = conn.execute("SELECT id FROM projects WHERE slug = %s", (slug,)).fetchone()
     if row is not None:
         return int(row[0] if not hasattr(row, "keys") else row["id"])
     conn.execute(
@@ -178,9 +175,7 @@ def _seed_project(conn: Any, *, slug: str = "yoke") -> int:
         (slug, slug.title(), "YOK"),
     )
     conn.commit()
-    row = conn.execute(
-        "SELECT id FROM projects WHERE slug = %s", (slug,)
-    ).fetchone()
+    row = conn.execute("SELECT id FROM projects WHERE slug = %s", (slug,)).fetchone()
     return int(row[0] if not hasattr(row, "keys") else row["id"])
 
 

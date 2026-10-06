@@ -1,6 +1,6 @@
 """Filter argless frontier assignment to the session's workspace project.
 
-Argless ``session-offer`` and ``/yoke charge`` still compute the all-projects
+Argless ``/yoke charge`` still compute the all-projects
 schedule so other projects remain visible, then keep only the invoking
 workspace's project for claiming. An explicit ``--project`` or ``--item``
 bypasses the filter. An unmapped folder assigns nothing and returns a
@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 from yoke_core.domain.scheduler_types import is_assignable_claim_state
 
 
-def resolve_offer_home_project(
+def resolve_workspace_home_project(
     conn: Any,
     *,
     workspace: str,
@@ -307,6 +307,6 @@ __all__ = [
     "enrich_elsewhere_checkout_paths",
     "group_runnable_elsewhere",
     "render_runnable_elsewhere_note",
-    "resolve_offer_home_project",
+    "resolve_workspace_home_project",
     "workspace_home_filter_requested",
 ]

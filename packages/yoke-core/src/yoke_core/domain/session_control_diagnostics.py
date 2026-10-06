@@ -16,9 +16,6 @@ from yoke_core.domain.sessions_analytics_core import (
     DEFAULT_STALE_THRESHOLD_MINUTES,
     DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES,
 )
-from yoke_core.domain.sessions_render_end_chain_pending import (
-    chain_pending_state_from_envelope,
-)
 from yoke_core.domain.sessions_render_end_if_empty import (
     end_session_blocker_facts,
     wake_deliveries_in_flight,
@@ -150,9 +147,6 @@ def session_diagnostics(
                 keepalive=keepalive_holds.get(session_id),
                 launch_delivery=launch_deliveries.get(session_id),
                 wake_delivery=wake_deliveries.get(session_id),
-                chain_state=chain_pending_state_from_envelope(
-                    identity.get("offer_envelope"),
-                ),
             )
         projected[session_id] = {
             "latest_message": latest_messages.get(session_id),

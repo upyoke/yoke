@@ -38,50 +38,7 @@ def test_sessions_terminate_dispatches_registered_global_operation(monkeypatch) 
     assert calls[0]["payload"] == {
         "session_id": "worker-session",
         "reason": "worker completed",
-        "override_chain_end": False,
     }
-
-
-def test_chain_override_carries_a_required_audit_rationale(monkeypatch) -> None:
-    calls = []
-    monkeypatch.setattr(
-        termination,
-        "dispatch_and_emit",
-        lambda **kwargs: calls.append(kwargs) or 0,
-    )
-
-    assert (
-        termination.session_terminate(
-            [
-                "worker-session",
-                "--reason",
-                "abort",
-                "--override-chain-end",
-                "--chain-end-rationale",
-                "steering intentionally abandons this chain",
-            ]
-        )
-        == 0
-    )
-    assert calls[0]["payload"]["override_chain_end"] is True
-    assert calls[0]["payload"]["chain_end_rationale"] == (
-        "steering intentionally abandons this chain"
-    )
-
-
-def test_chain_override_without_rationale_is_a_usage_error(capsys) -> None:
-    assert (
-        termination.session_terminate(
-            [
-                "worker-session",
-                "--reason",
-                "abort",
-                "--override-chain-end",
-            ]
-        )
-        == 2
-    )
-    assert "requires --chain-end-rationale" in capsys.readouterr().err
 
 
 def test_canonical_and_sessions_routes_share_the_termination_adapter() -> None:

@@ -35,7 +35,7 @@ _NOTE = (
 
 
 def _service_client_taught() -> List[AdapterEntry]:
-    """Session + orchestration adapters taught by ``session-offer`` etc."""
+    """Session and orchestration adapters taught by skills and orientation."""
     sc = "python3 -m yoke_core.api.service_client"
     reads = (
         ("evaluate-gate", "evaluate_gate"),

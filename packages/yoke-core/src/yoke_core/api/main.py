@@ -15,8 +15,7 @@ The implementation is split across responsibility-named siblings:
 * :mod:`yoke_core.api.main_db` — legacy DB path-token resolution plus
   Postgres authority connection factories.
 * :mod:`yoke_core.api.main_route_adapters` — row-to-response conversion,
-  error-response envelope, FrontierState projection, and workspace to
-  project resolution for route handlers.
+  and error-response envelope for route handlers.
 
 This module is the canonical FastAPI app entry point: it re-exports the
 public surface used by app startup, route modules, tests, and CLI
@@ -76,7 +75,6 @@ from yoke_core.api.main_db import (  # noqa: F401
 # ---------------------------------------------------------------------------
 
 from yoke_core.api.main_route_adapters import (  # noqa: F401
-    _build_frontier_state,
     _error_response,
     _row_to_item,
 )
@@ -117,23 +115,11 @@ from yoke_core.domain.mutations import (  # noqa: F401
 )
 from yoke_core.domain.runs import DeploymentRun, find_active_run_for_item  # noqa: F401
 from yoke_core.domain.scheduler import compute_schedule  # noqa: F401
-from yoke_core.domain.session import (  # noqa: F401
-    ClaimedWork,
-    FrontierState,
-    NextAction,
-    SessionOffer,
-    build_drift_review_failure_action,
-    decide_next_action,
-    should_emit_drift_review_checkpoint,
-)
 from yoke_core.domain.sessions import (  # noqa: F401
     SessionError,
     claim_work,
     clean_stale_harness_sessions,
     display_claim_item_id,
-    emit_drift_review_completed,
-    emit_next_action_chosen,
-    emit_post_decision_telemetry,
     end_session,
     find_stale_sessions,
     get_claim_for_work_unit,
@@ -148,10 +134,9 @@ from yoke_core.domain.sessions import (  # noqa: F401
     release_claim,
     release_item_claim_for_execution,
     resolve_claimed_work_context,
-    session_offer_with_ownership,
     set_session_mode,
 )
-from yoke_core.api.process_offer_policy import (  # noqa: F401
+from yoke_core.api.session_chain_policy import (  # noqa: F401
     get_max_chain_steps,
 )
 from yoke_core.api.routing_config import (  # noqa: F401

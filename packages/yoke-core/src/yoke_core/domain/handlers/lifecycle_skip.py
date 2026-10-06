@@ -1,19 +1,7 @@
-"""Handler for the ``lifecycle.skip.record_recoverable_substrate`` function id.
+"""Registered handler for persisted recoverable-substrate skip evidence.
 
-Wraps :func:`yoke_core.domain.sessions_handler_outcome.record_recoverable_substrate_skip`
-so the documented ``session-offer`` Step B recipe ("first record the skip
-through ...") has an agent-executable shape. The previous recipe pointed
-at a ``python3 -c "from yoke_core.domain... import ..."`` form that the
-``lint-no-agent-runtime-api-import-from-c`` PreToolUse hook refuses
-outright — leaving every chain that hit a recoverable substrate
-failure unable to follow its own teaching surface.
-
-The handler accepts the same parameters the helper takes, opens the
-control-plane DB connection via :mod:`yoke_core.domain.db_helpers`,
-and forwards the call. The returned ``chain_skip_memory`` entry rides
-back on ``HandlerOutcome.result_payload`` so the CLI surface and any
-in-process caller see the same persisted entry.
-"""
+The function-call surface owns the control-plane connection and returns the
+saved skip-memory entry in the handler outcome."""
 
 from __future__ import annotations
 
@@ -34,7 +22,7 @@ from yoke_contracts.api.function_call import (
 class LifecycleSkipRecordRecoverableSubstrateRequest(BaseModel):
     """Payload for ``lifecycle.skip.record_recoverable_substrate``."""
 
-    chain_step: int = Field(..., description="Current session-offer chain step number.")
+    chain_step: int = Field(..., description="Current checkpoint step number.")
     project: str = Field(
         ...,
         description=(
@@ -67,7 +55,7 @@ class LifecycleSkipRecordRecoverableSubstrateRequest(BaseModel):
         description=(
             "Whether the routed handler made any useful progress before the "
             "substrate failure. ``False`` is the canonical case for the "
-            "session-offer loop's no-progress detection."
+            "checkpoint recovery diagnostics."
         ),
     )
 

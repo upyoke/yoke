@@ -9,6 +9,7 @@ from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
 from runtime.api.test_service_client_sessions_helpers import _pre_register_session
 from yoke_core.domain.work_claim_targets import make_item_target
+from yoke_core.domain.sessions import claim_work
 
 pytest_plugins = ("runtime.api.test_service_client_sessions_helpers",)
 
@@ -20,6 +21,14 @@ pytest_plugins = ("runtime.api.test_service_client_sessions_helpers",)
 _STALE_TS = (datetime.now(timezone.utc) - timedelta(minutes=30)).strftime(
     "%Y-%m-%dT%H:%M:%SZ"
 )
+
+
+def _claim_item(db, session_id):
+    conn = connect_test_db(db)
+    try:
+        claim_work(conn, session_id=session_id, item_id=10)
+    finally:
+        conn.close()
 
 
 class TestClaimCleanupCommands:
@@ -74,15 +83,7 @@ class TestSessionHeartbeatCommand:
         db = session_offer_db["db_path"]
 
         _pre_register_session(db, sid, workspace=ws)
-        r1 = _run_client(
-            [
-                "session-offer",
-                "--session-id",
-                sid,
-            ],
-            db_path=db,
-        )
-        assert r1.returncode == 0
+        _claim_item(db, sid)
 
         conn = connect_test_db(db)
         conn.execute(
@@ -112,30 +113,4 @@ class TestSessionHeartbeatCommand:
         ).fetchone()
         assert session_row["last_heartbeat"] != "2026-04-03T15:00:00Z"
         assert claim_row["last_heartbeat"] != "2026-04-03T15:00:00Z"
-        conn.close()
-
-    def test_session_offer_updates_session_mode(self, session_offer_db):
-        sid = "mode-test-sess"
-        ws = session_offer_db["tmp_dir"]
-        db = session_offer_db["db_path"]
-
-        _pre_register_session(db, sid, workspace=ws)
-        result = _run_client(
-            [
-                "session-offer",
-                "--session-id",
-                sid,
-            ],
-            db_path=db,
-        )
-        assert result.returncode == 0
-        data = json.loads(result.stdout)
-        assert data["action"] == "charge"
-
-        conn = connect_test_db(db)
-        row = conn.execute(
-            "SELECT mode FROM harness_sessions WHERE session_id = %s",
-            (sid,),
-        ).fetchone()
-        assert row["mode"] == "charge"
         conn.close()

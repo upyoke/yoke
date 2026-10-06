@@ -7,13 +7,6 @@ intermediate two-hop indirection (sim-gap rule).
 
 from __future__ import annotations
 
-from yoke_core.api.service_client_sessions_frontier import (
-    build_frontier_state_from_schedule as _build_frontier_state_from_schedule,
-)
-from yoke_core.api.service_client_sessions_offer import (
-    _resolve_monkeypatchable,
-    cmd_session_offer,
-)
 from yoke_core.api.service_client_sessions_lifecycle_touch import (
     _validate_active_session,
     cmd_session_heartbeat,
@@ -39,8 +32,6 @@ from yoke_core.api.service_client_sessions_inspect import (
 
 
 __all__ = [
-    "_build_frontier_state_from_schedule",
-    "_resolve_monkeypatchable",
     "_validate_active_session",
     "cmd_claim_release",
     "cmd_harness_capabilities",
@@ -52,6 +43,5 @@ __all__ = [
     "cmd_session_end",
     "cmd_session_end_if_empty",
     "cmd_session_heartbeat",
-    "cmd_session_offer",
     "cmd_session_touch",
 ]

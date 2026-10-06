@@ -142,46 +142,31 @@ The shared registry distinguishes two kinds of Yoke surfaces:
 
 - **Entrypoints** are top-level `/yoke` operator commands (Tier 1 in the [bootstrap contract](harness-bootstrap.md) section 3). Yoke-owned harnesses inherit these commands from shared Yoke code unless their manifest declares a concrete limitation.
 
-- **Downstream paths** are the delivery lanes that `session-offer` routes into after the session offer. When `session-offer` decides the next action, it checks the shared registry plus manifest-declared disabled paths to determine whether the harness can execute the chosen lane. If not, it falls back truthfully.
+- **Downstream paths** name delivery capabilities declared by the shared registry and limited by each harness manifest. Staffing selects an item entrypoint from its pinned workflow binding.
 
 A harness with `command_source: "shared_yoke_registry"` inherits the shared operator and downstream surfaces. If a substrate cannot support one of those surfaces, declare the matching `disabled_entrypoints` or `disabled_downstream_paths` entry and document the limitation. Work requiring a disabled downstream path falls back rather than failing silently.
 
 ### Shared registry plus manifest limitations
 
-For harnesses with a manifest, Yoke core derives the effective `downstream_paths` server-side from the shared registry and then applies limitations from the coarse harness manifest. Surface-specific executor values normalize back to the family manifest (`codex-desktop` -> `runtime/harness/codex/manifest.json`, `claude-vscode` -> `runtime/harness/claude/manifest.json`). No harness passes `supported_paths` at offer time; the argument does not exist on the surface. The shared registry is the command/path source; the manifest is the limitation and affordance declaration; the session offer is the transport.
+For harnesses with a manifest, Yoke core derives the effective `downstream_paths` server-side from the shared registry and then applies limitations from the coarse harness manifest. Surface-specific executor values normalize back to the family manifest (`codex-desktop` -> `runtime/harness/codex/manifest.json`, `claude-vscode` -> `runtime/harness/claude/manifest.json`). The shared registry is the command/path source; the manifest declares limitations and affordances.
 
-**Shared Yoke code is the command/path source of truth for Yoke-owned harnesses.** A harness that does not ship a manifest falls into the backward-compat branch — an empty effective list is treated as "all downstream paths supported". Adapters that want truthful fallback enforcement add a manifest under `runtime/harness/{executor}/manifest.json` (or explicitly normalize surface-specific executors back to a coarse family manifest); there is no offer-time argument to pass instead.
+**Shared Yoke code is the command/path source of truth for Yoke-owned harnesses.** Adapters declare concrete limitations in their manifests.
 
 ---
 
-## Part 3: Session-Offer Builder
+## Part 3: Session Registration
 
-The session-offer builder translates the adapter's runtime identity and declared limitations into the format that `session-offer` expects. Truthful downstream-path support is derived server-side from the shared registry plus manifest limitations; it is never passed as an argument.
+The opening hook registers the harness identity and binds a launched session
+to its launch mandate. Read the registered identity through
+`yoke sessions identity`; the launch's registered session must match before
+its assigned work begins.
 
 ### Requirements
 
-- Read identity fields from the capability manifest's `identity` section.
-- Resolve runtime values (provider, model) from the source specified in the manifest.
-- Ensure Yoke core can resolve truthful downstream-path support from the shared registry plus manifest limitations. An adapter without a manifest is treated as unconstrained; passing paths explicitly is not an option the offer surface offers.
-- Include the `supports.optional_local_affordances` for informational enrichment.
-
-### Session-offer parameters
-
-The session offer currently accepts these parameters (from `yoke_core.api.service_client` or the `/v1/session/offer` API endpoint):
-
-| Parameter | Source | Required |
-|-----------|--------|----------|
-| `--executor` | `identity.executor` | Yes |
-| `--provider` | Resolved from `identity.provider_source` | Yes |
-| `--model` | Resolved from `identity.model_source` | Yes |
-| `--workspace` | Resolved from `identity.workspace_source` | Yes |
-| `--session-id` | Harness-generated canonical id (required for supported harnesses; see `session-identity-contract.md`). Auto-generated fallbacks are rejected for `claude-code` / `codex` at the service boundary. | Yes |
-| `--supported-paths` | Ignored for supported harnesses; Yoke core derives the effective list from the shared registry plus coarse-manifest limitations (`codex-desktop` -> `runtime/harness/codex/manifest.json`). Still accepted for unsupported/external adapters without a manifest. | No |
-| `--lane` | Yoke core executor-default-lane config, unless explicitly overridden by a low-level adapter | No |
-
-### Backward compatibility
-
-When no manifest exists for an external executor, Yoke treats the harness as supporting all downstream paths. Both Yoke-owned executor families ship manifests today: `claude-code` resolves to `runtime/harness/claude/manifest.json`, while `codex` resolves to `runtime/harness/codex/manifest.json`.
+- Resolve identity from the harness-native session channel.
+- Declare identity sources and limitations in the manifest.
+- Preserve requested model facts separately from provider-attested served facts.
+- Deliver and acknowledge the launch's exact mandate before claiming its item.
 
 ---
 
@@ -191,7 +176,7 @@ The route wrapper provides bootstrap and identity guidance for shared Yoke comma
 
 ### Requirements
 
-- Accept a routing decision from `session-offer` (or from the operator directly).
+- Accept an explicit operator instruction or the launch mandate.
 - Check the requested command against shared registry support plus manifest-declared disabled entrypoints/downstream paths.
 - If the command is supported, hand off to the corresponding `/yoke` command through the harness-native skill or prompt surface.
 - If the command is not supported, return a clear unsupported-path response. Do not attempt the command. Do not silently skip it.
@@ -224,9 +209,6 @@ Every adapter must include a smoke-test matrix that validates both operating mod
 |-----------|--------------|---------------|
 | Bootstrap loads required files | Yes | Yes |
 | `/yoke idea` files an item | Yes | Yes |
-| `session-offer` constructs a session offer with correct identity | Yes | Yes |
-| `session-offer` routes to a supported downstream path | Yes | Yes |
-| `session-offer` falls back for an unsupported downstream path | Yes | Yes |
 | Lint hooks fire on Bash commands | N/A | Yes |
 | Post-processing hooks fire on Bash commands | N/A | Yes |
 
@@ -240,7 +222,7 @@ Every adapter must include a smoke-test matrix that validates both operating mod
 
 ## Canonical Downstream Path Vocabulary
 
-The canonical downstream paths are delivery lanes that `session-offer` can route into. These values live in the shared Yoke registry:
+The canonical downstream paths describe shared delivery capabilities. These values live in the shared Yoke registry:
 
 | Path | Description | What it routes to |
 |------|-------------|-------------------|

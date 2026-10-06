@@ -30,4 +30,4 @@ Exact stage ownership comes from the item's pinned workflow version — read
 - Prefer registered `yoke` commands and function ids over ad hoc scripts
 
 Command map: [reference/commands.md](reference/commands.md).  
-Session offer contract: [reference/session-offer.md](reference/session-offer.md).
+Staff work through `/yoke steer`; inspect the runnable frontier with `/yoke charge`.

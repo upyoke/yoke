@@ -184,7 +184,7 @@ class TestChainBudgetDiesWithTheSession:
             action="implement",
             chainable=True,
         )
-        assert end_session_if_empty(conn, session_id)["status"] == "chain_pending"
+        assert end_session_if_empty(conn, session_id)["status"] == "ended"
 
         reclaim_stale_session(conn, session_id)
         # A reactivated episode reuses the same row, so the checkpoint would

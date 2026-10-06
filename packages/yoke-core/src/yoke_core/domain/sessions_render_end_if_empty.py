@@ -1,4 +1,4 @@
-"""Idle-session cleanup that preserves claim and chain continuity."""
+"""Idle-session cleanup that preserves holdings and pending delivery."""
 
 from __future__ import annotations
 
@@ -14,13 +14,6 @@ from .session_message_authorization import project_policy
 from .session_message_types import parse_timestamp, row_dict, timestamp, utc_now
 from .sessions_queries import _now_iso
 from .sessions_render_attribution import clear_current_item
-from .sessions_render_end_chain_pending import (
-    ChainPendingState,
-    chain_pending_state,
-    last_released_at,
-    next_action_command,
-    next_offer_step,
-)
 from .session_keepalive import session_keepalive_holds
 from .session_launch_pending_delivery import pending_launch_deliveries
 from .workflow_item_binding_lock import rollback_workflow_binding_write_errors
@@ -148,7 +141,6 @@ def end_session_blocker_facts(
     keepalive: Dict[str, Any] | None = None,
     launch_delivery: Dict[str, Any] | None = None,
     wake_delivery: Dict[str, Any] | None = None,
-    chain_state: ChainPendingState | None = None,
 ) -> Dict[str, Any] | None:
     """Return the structured reason an otherwise-live session cannot end."""
     if active_claim_count:
@@ -172,17 +164,6 @@ def end_session_blocker_facts(
         return dict(launch_delivery)
     if wake_delivery is not None:
         return dict(wake_delivery)
-    if chain_state is not None and chain_state.pending:
-        return {
-            "status": "chain_pending",
-            "active_claim_count": 0,
-            "checkpoint_step": chain_state.step,
-            "max_chain_steps": chain_state.max_chain_steps,
-            "handler_outcome": chain_state.handler_outcome,
-            "chainable": chain_state.chainable,
-            "action": chain_state.action,
-            "item_id": chain_state.item_id,
-        }
     return None
 
 
@@ -193,7 +174,7 @@ def end_session_if_empty(
     *,
     triggered_by: str = "stop-hook",
 ) -> Dict[str, Any]:
-    """End a session only when it holds nothing and has no chain budget left.
+    """End a session only when it holds nothing and has no pending delivery.
 
     A session-owned strategy-document lock counts as holding something: the
     non-destructive path never releases what a session holds, and a transient
@@ -269,38 +250,6 @@ def end_session_if_empty(
             "ended": False,
             **end_session_blocker_facts(wake_delivery=wake_delivery),
         }
-
-    state = chain_pending_state(conn, session_id)
-    if state.pending:
-        from .scheduler_events import emit_chain_end_deferred
-
-        last_release_at = last_released_at(conn, session_id)
-        next_action = next_action_command(
-            conn,
-            session_id,
-            next_offer_step(state),
-        )
-        result = {
-            "session_id": session_id,
-            "ended": False,
-            **end_session_blocker_facts(chain_state=state),
-            "last_release_at": last_release_at,
-            "triggered_by": triggered_by,
-            "next_action": next_action,
-        }
-        conn.commit()
-        emit_chain_end_deferred(
-            session_id=session_id,
-            triggered_by=triggered_by,
-            checkpoint_step=state.step,
-            max_chain_steps=state.max_chain_steps,
-            handler_outcome=state.handler_outcome,
-            chainable=state.chainable,
-            action=state.action,
-            item_id=state.item_id,
-            last_release_at=last_release_at,
-        )
-        return result
 
     clear_current_item(conn, session_id, commit=False)
     conn.execute(

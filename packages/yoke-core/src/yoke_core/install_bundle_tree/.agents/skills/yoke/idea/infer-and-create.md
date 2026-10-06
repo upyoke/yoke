@@ -281,7 +281,7 @@ yoke items create "{title}" {workflow} --entry-surface harness_skill --execution
 The window between phase 5 (`items add` returns a PREFIX-N row with empty
 spec) and the body-write in `body-and-sync.md` is unprotected against
 concurrent worker sessions. Hold a draft work claim across that
-window so a second harness's `yoke sessions offer` cannot route `/yoke refine`
+window so the scheduler cannot assign `/yoke refine`
 against an empty spec.
 
 ```bash

@@ -58,7 +58,9 @@ def _frontier_item_to_dict(fi: FrontierItem, conn=None) -> dict:
         "workflow_version_id": fi.workflow_version_id,
         "workflow_version": fi.workflow_version,
         "stage_index": fi.stage_index,
-        "adapter": fi.adapter.value if isinstance(fi.adapter, AdapterCategory) else fi.adapter,
+        "adapter": fi.adapter.value
+        if isinstance(fi.adapter, AdapterCategory)
+        else fi.adapter,
         "blocked_by": fi.blocked_by,
         "blocked_reasons": fi.blocked_reasons,
         "unblocks_count": fi.unblocks_count,
@@ -75,7 +77,9 @@ def _frontier_result_to_dict(fr: FrontierResult, conn=None) -> dict:
         "frozen": [_frontier_item_to_dict(i, conn) for i in fr.frozen],
         "wip_cap": fr.wip_cap,
         "wip_active": fr.wip_active,
-        "conduct_eligible": [_frontier_item_to_dict(i, conn) for i in fr.conduct_eligible],
+        "conduct_eligible": [
+            _frontier_item_to_dict(i, conn) for i in fr.conduct_eligible
+        ],
     }
 
 
@@ -102,12 +106,16 @@ def cmd_charge_frontier(args: list[str]) -> int:
             try:
                 wip_cap = int(args[i + 1])
             except ValueError:
-                print(f"Error: --wip-cap must be an integer, got '{args[i + 1]}'",
-                      file=sys.stderr)
+                print(
+                    f"Error: --wip-cap must be an integer, got '{args[i + 1]}'",
+                    file=sys.stderr,
+                )
                 return 1
             if wip_cap < 1 or wip_cap > 100:
-                print(f"Error: --wip-cap must be between 1 and 100, got {wip_cap}",
-                      file=sys.stderr)
+                print(
+                    f"Error: --wip-cap must be between 1 and 100, got {wip_cap}",
+                    file=sys.stderr,
+                )
                 return 1
             i += 2
         else:
@@ -118,7 +126,8 @@ def cmd_charge_frontier(args: list[str]) -> int:
     try:
         try:
             project_scope = resolve_session_project_scope(
-                conn, override=parse_project_cli_arg(project),
+                conn,
+                override=parse_project_cli_arg(project),
             )
         except ValueError as exc:
             print(f"Error: {exc}", file=sys.stderr)
@@ -126,7 +135,9 @@ def cmd_charge_frontier(args: list[str]) -> int:
         if wip_cap is None:
             wip_cap = _resolve_default_wip_cap(project_scope)
         result = compute_domain_frontier(
-            conn, project_scope=project_scope, wip_cap=wip_cap,
+            conn,
+            project_scope=project_scope,
+            wip_cap=wip_cap,
         )
         print(json.dumps(_frontier_result_to_dict(result, conn)))
         return 0
@@ -155,9 +166,13 @@ def _scheduled_step_to_dict(step, conn=None) -> dict:
         "status": step.status,
         "title": step.title,
         "priority": step.priority,
-        "next_step": step.next_step.value if hasattr(step.next_step, "value") else str(step.next_step),
+        "next_step": step.next_step.value
+        if hasattr(step.next_step, "value")
+        else str(step.next_step),
         "rank": step.rank,
-        "claim_state": step.claim_state.value if hasattr(step.claim_state, "value") else str(step.claim_state),
+        "claim_state": step.claim_state.value
+        if hasattr(step.claim_state, "value")
+        else str(step.claim_state),
         "gate_evaluations": [
             {
                 "blocking_item": ge.blocking_item,
@@ -187,13 +202,19 @@ def _scheduler_result_to_dict(sr, conn=None) -> dict:
         "sml_state": {
             "coherent": sr.sml_state.coherent,
         },
-        "selected_step": _scheduled_step_to_dict(sr.selected_step, conn) if sr.selected_step else None,
+        "selected_step": _scheduled_step_to_dict(sr.selected_step, conn)
+        if sr.selected_step
+        else None,
         "ranked_steps": [_scheduled_step_to_dict(s, conn) for s in sr.ranked_steps],
         "blocked_steps": [_scheduled_step_to_dict(s, conn) for s in sr.blocked_steps],
-        "exceptional_steps": [_scheduled_step_to_dict(s, conn) for s in sr.exceptional_steps],
+        "exceptional_steps": [
+            _scheduled_step_to_dict(s, conn) for s in sr.exceptional_steps
+        ],
         "wip_cap": sr.wip_cap,
         "wip_active": sr.wip_active,
-        "conduct_eligible": [_scheduled_step_to_dict(s, conn) for s in sr.conduct_eligible],
+        "conduct_eligible": [
+            _scheduled_step_to_dict(s, conn) for s in sr.conduct_eligible
+        ],
         "frozen_steps": [_scheduled_step_to_dict(s, conn) for s in sr.frozen_steps],
         "runnable_elsewhere": list(getattr(sr, "runnable_elsewhere", None) or []),
         "workspace_home_project": getattr(sr, "workspace_home_project", None),
@@ -213,7 +234,7 @@ def cmd_charge_schedule(args: list[str]) -> int:
 
     from yoke_core.domain.session_workspace_frontier import (
         apply_workspace_home_filter,
-        resolve_offer_home_project,
+        resolve_workspace_home_project,
         workspace_home_filter_requested,
     )
 
@@ -237,12 +258,16 @@ def cmd_charge_schedule(args: list[str]) -> int:
             try:
                 wip_cap = int(args[i + 1])
             except ValueError:
-                print(f"Error: --wip-cap must be an integer, got '{args[i + 1]}'",
-                      file=sys.stderr)
+                print(
+                    f"Error: --wip-cap must be an integer, got '{args[i + 1]}'",
+                    file=sys.stderr,
+                )
                 return 1
             if wip_cap < 1 or wip_cap > 100:
-                print(f"Error: --wip-cap must be between 1 and 100, got {wip_cap}",
-                      file=sys.stderr)
+                print(
+                    f"Error: --wip-cap must be between 1 and 100, got {wip_cap}",
+                    file=sys.stderr,
+                )
                 return 1
             i += 2
         else:
@@ -254,7 +279,8 @@ def cmd_charge_schedule(args: list[str]) -> int:
         override = parse_project_cli_arg(project)
         try:
             project_scope = resolve_session_project_scope(
-                conn, override=override,
+                conn,
+                override=override,
             )
         except ValueError as exc:
             print(f"Error: {exc}", file=sys.stderr)
@@ -262,14 +288,19 @@ def cmd_charge_schedule(args: list[str]) -> int:
         if wip_cap is None:
             wip_cap = _resolve_default_wip_cap(project_scope)
         result = compute_schedule(
-            conn, project_scope=project_scope, wip_cap=wip_cap,
+            conn,
+            project_scope=project_scope,
+            wip_cap=wip_cap,
         )
         if workspace_home_filter_requested(project_override=override, item=item):
-            home = resolve_offer_home_project(
-                conn, workspace=workspace or str(Path.cwd()),
+            home = resolve_workspace_home_project(
+                conn,
+                workspace=workspace or str(Path.cwd()),
             )
             result = apply_workspace_home_filter(
-                result, home_project_id=home, conn=conn,
+                result,
+                home_project_id=home,
+                conn=conn,
             )
         print(json.dumps(_scheduler_result_to_dict(result, conn)))
         return 0

@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-from .sessions_queries_base import (
-    _filter_schedule_for_offer,
+from .sessions_queries_base import (  # noqa: F401
     _now_iso,
     _required_path_for_step,
     _row_to_dict,
-    _serialize_filtered_step,
-    _step_is_compatible_with_offer,
     derive_required_path,
     display_claim_item_id,
     normalize_claim_item_id,
@@ -36,9 +33,6 @@ __all__ = [
     "_required_path_for_step",
     "derive_required_path",
     "resolve_claimed_work_context",
-    "_step_is_compatible_with_offer",
-    "_serialize_filtered_step",
-    "_filter_schedule_for_offer",
     "update_chain_checkpoint",
     "read_chain_checkpoint",
     "clear_chain_checkpoint",

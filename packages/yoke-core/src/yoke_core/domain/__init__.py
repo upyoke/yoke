@@ -32,13 +32,6 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "classify_next_action": (".frontier", "classify_next_action"),
     "compute_frontier": (".frontier", "compute_frontier"),
     "rank_frontier": (".frontier", "rank_frontier"),
-    "ActionKind": (".session", "ActionKind"),
-    "ClaimedWork": (".session", "ClaimedWork"),
-    "FrontierState": (".session", "FrontierState"),
-    "NextAction": (".session", "NextAction"),
-    "NextActionKind": (".session", "NextActionKind"),
-    "SessionOffer": (".session", "SessionOffer"),
-    "decide_next_action": (".session", "decide_next_action"),
 }
 
 

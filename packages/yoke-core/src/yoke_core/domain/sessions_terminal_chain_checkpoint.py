@@ -1,12 +1,8 @@
-"""Consume the chain checkpoint whose item just became terminal.
+"""Consume the persisted checkpoint whose item just became terminal.
 
-Terminal item cleanup releases work claims in item-lock order, then closes
-the affected sessions under session locks after that transaction commits.
-This module owns the matching checkpoint update.  The consumed outcome keeps
-``chainable=True`` so a live ``session-offer`` process may still take its next
-offer, while the idle-session guard can distinguish finished work from budget
-that is still waiting for a process to continue it.
-"""
+Terminal cleanup releases work claims in item-lock order and consumes a
+matching checkpoint after commit. The recorded outcome preserves closeout
+evidence; checkpoints do not protect an otherwise empty session from cleanup."""
 
 from __future__ import annotations
 

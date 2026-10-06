@@ -5,13 +5,11 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from yoke_core.domain.scheduler_types import ClaimState, NextStep, SchedulerResult
-from yoke_core.domain.session import ActionKind, FrontierState, SessionOffer
-from yoke_core.domain.session_decision import decide_next_action
 from yoke_core.domain.session_workspace_frontier import (
     apply_workspace_home_filter,
     enrich_elsewhere_checkout_paths,
     render_runnable_elsewhere_note,
-    resolve_offer_home_project,
+    resolve_workspace_home_project,
     workspace_home_filter_requested,
 )
 
@@ -32,16 +30,6 @@ def _step(item_id: int, project: str, *, assignable: bool = True):
         claim_state=ClaimState.UNCLAIMED
         if assignable
         else ClaimState.CLAIMED_BY_OTHER_LIVE,
-    )
-
-
-def _offer() -> SessionOffer:
-    return SessionOffer(
-        session_id="sess-home",
-        executor="cursor",
-        provider="cursor",
-        model="test",
-        workspace="/tmp/unmapped-does-not-exist",
     )
 
 
@@ -78,49 +66,14 @@ def test_live_claimed_elsewhere_is_not_offered() -> None:
     assert schedule.runnable_elsewhere == []
 
 
-def test_elsewhere_wait_beats_local_blockers() -> None:
-    frontier = FrontierState(
-        runnable_items=[],
-        blocked_items=["PLAT-1"],
-        sml_coherent=True,
-        runnable_elsewhere=[
-            {
-                "project": "yoke",
-                "project_id": 1,
-                "count": 1,
-                "public_refs": ["YOK-20"],
-                "checkout_path": "/Users/bee/yoke",
-            }
-        ],
-        workspace_home_project="platform",
-    )
-    result = decide_next_action(_offer(), frontier)
-    assert result.action == ActionKind.WAIT
-    assert result.context["wait_reason"] == "runnable_elsewhere"
-    assert "YOK-20" in result.reason
-    assert "/Users/bee/yoke" in result.reason
-
-
-def test_home_runnable_still_charges() -> None:
-    frontier = FrontierState(
-        runnable_items=["PLAT-9"],
-        selected_item="PLAT-9",
-        sml_coherent=True,
-        runnable_elsewhere=[{"project": "yoke", "count": 1, "public_refs": ["YOK-20"]}],
-        workspace_home_project="platform",
-    )
-    result = decide_next_action(_offer(), frontier)
-    assert result.action == ActionKind.CHARGE
-    assert result.context["selected_item"] == "PLAT-9"
-
-
 def test_existing_path_without_mapping_is_unmapped(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(
         "yoke_core.domain.machine_config.project_id",
         lambda *_a, **_k: None,
     )
     assert (
-        resolve_offer_home_project(SimpleNamespace(), workspace=str(tmp_path)) is None
+        resolve_workspace_home_project(SimpleNamespace(), workspace=str(tmp_path))
+        is None
     )
 
 
@@ -131,7 +84,7 @@ def test_missing_path_falls_back_to_session_project() -> None:
         )
     )
     assert (
-        resolve_offer_home_project(
+        resolve_workspace_home_project(
             conn,
             workspace="/no/such/checkout/on/this/box",
             session_id="sess",

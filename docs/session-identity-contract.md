@@ -20,7 +20,7 @@ identifier. It MUST NOT be inferred from the board or fabricated IDs. When the
 runtime env var is absent, the hook payload `session_id` is still a valid
 stable startup identity source for both harnesses and MUST trigger registration.
 Any local `fallback-...` value used by Claude Code in degraded mode is not a
-canonical session identity for registration or `session-offer`.
+canonical session identity for registration.
 
 ## Registration Contract
 
@@ -136,7 +136,7 @@ hook payload:
 
 | Harness | Behavior |
 |-------------|----------|
-| Claude Code | Uses `fallback-$$-$(date +%s)` only for local fire-once guard and `Your Session:` display; emits degraded-mode WARNING in orientation; does NOT attempt registration or call `session-offer` with that fallback |
+| Claude Code | Uses `fallback-$$-$(date +%s)` only for local fire-once guard and `Your Session:` display; emits degraded-mode WARNING in orientation; does NOT attempt registration with that fallback |
 | Codex | Emits degraded-mode WARNING in orientation; exits without registration (no fabricated IDs) |
 
 ### Registration refuses an id it cannot corroborate
@@ -314,7 +314,7 @@ outcome of either path to the operator exactly once per reactivation cycle.
 `HarnessSessionResumeBlockShown` marks the render so subsequent prompts in
 the same cycle do not re-render. A subsequent reactivation re-arms the block.
 
-`session-offer` and `/yoke charge` continue to route to the scheduler-selected
+`/yoke charge` continues to route to the scheduler-selected
 downstream skill; the slim resume block names the prior targets explicitly so
 the operator can intervene whenever Path B fell through to advisory.
 
@@ -333,7 +333,7 @@ second call for an already-owned item returns `(already owned)` and exits 0.
 | File | Harness | Hook Event | Role |
 |------|---------|------------|------|
 | `yoke_core.hooks` | Claude Code, Codex | `session-start`, `user-prompt-submit`, `pre-tool-use`, `post-tool-use`, `stop`, `session-end` | Wheel-shipped hook front door for both harnesses: registration, orientation, `YOKE_SESSION_ID` propagation, backfill, and lifecycle cleanup |
-| `yoke_core.api.service_client` | both | n/a | Shared session-offer / registration / claim mutation surface (`session-begin`, `session-touch`, `session-end`, `claim-work`, `release-work-claim`) |
+| `yoke_core.api.service_client` | both | n/a | Shared registration / claim mutation surface (`session-begin`, `session-touch`, `session-end`, `claim-work`, `release-work-claim`) |
 
 ## Test Coverage
 

@@ -124,8 +124,6 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke sessions touch", "sessions"),
     _w("yoke sessions checkpoint", "sessions"),
     _w("yoke sessions checkpoint-read", "sessions"),
-    _w("yoke sessions offer", "sessions"),
-    _w("yoke sessions ownership-guard", "sessions"),
     _w("yoke sessions end-if-empty", "sessions"),
     _w("yoke sessions reclaim-stale", "sessions"),
     *SESSION_CONTROL_WRAPPED_ROWS,

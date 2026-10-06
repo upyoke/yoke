@@ -88,9 +88,7 @@ def conflict_group_for(process_key: str, project: str) -> str:
     backing STRATEGIZE and FEED.
     """
     if not project or not str(project).strip():
-        raise ValueError(
-            f"project must be a non-empty string; got {project!r}"
-        )
+        raise ValueError(f"project must be a non-empty string; got {project!r}")
     spec = _require(process_key)
     template = str(spec["conflict_group_template"])
     return template.format(project=project)
@@ -115,7 +113,7 @@ def action_kind_to_process_key(action_value: str) -> "str | None":
 
 
 # Path-token vocabulary for process actions in lane allowlists. Sibling
-# to ``_NEXT_STEP_TO_PATH`` in ``session_decision_charge.py`` /
+# to ``_NEXT_STEP_TO_PATH`` in ``sessions_analytics_core.py`` /
 # ``sessions_analytics_core.py``: those map scheduler ``next_step``
 # values to lifecycle path tokens; this map covers process actions a
 # lane allowlist may opt into. ``DOCTOR`` is recognized as a valid

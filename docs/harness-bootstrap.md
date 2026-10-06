@@ -143,13 +143,13 @@ The Python entrypoints above are internal surfaces. Agents use registered `yoke`
 
 ## 4. Session Identity Expectations
 
-When a harness connects to Yoke, Yoke needs to know certain facts about the session to make routing and fallback decisions. These identity fields are not required at bootstrap time, but must be available by the time `session-offer` evaluates what work to route.
+When a harness connects to Yoke, Yoke records session identity during registration so staffing and lifecycle operations use the same identity.
 
 ### Required identity fields
 
 | Field | Description | Source |
 |-------|-------------|--------|
-| `executor` | The harness identity declared at registration (`sessions begin`) time — the offer surface does not accept it and reads this row instead. Surface-specific values such as `claude-desktop`, `codex-vscode`, or `codex-cli` are accepted as input; Yoke canonicalizes the value at write time so `harness_sessions.executor` stores only `claude-code` or `codex`, and the original surface alias is preserved in `harness_sessions.executor_surface` for operator-facing rendering. A session whose surface was not resolvable when it registered is not stuck NULL: the hook tail observes the existing row on every later event, terminal ones included, and fills the surface once the harness names it — on the machine actually running the session. A relayed evaluation records only the surface the client sent, because the surface a server can see is its own. Surface-specific input continues to drive lane resolution via `executor_default_lane_<surface>` overrides. | Harness self-declaration |
+| `executor` | The harness identity declared at registration (`sessions begin`) time. Surface-specific values such as `claude-desktop`, `codex-vscode`, or `codex-cli` are accepted as input; Yoke canonicalizes the value at write time so `harness_sessions.executor` stores only `claude-code` or `codex`, and the original surface alias is preserved in `harness_sessions.executor_surface` for operator-facing rendering. A session whose surface was not resolvable when it registered is not stuck NULL: the hook tail observes the existing row on every later event, terminal ones included, and fills the surface once the harness names it — on the machine actually running the session. A relayed evaluation records only the surface the client sent, because the surface a server can see is its own. Surface-specific input continues to drive lane resolution via `executor_default_lane_<surface>` overrides. | Harness self-declaration |
 | `provider` | The model provider (e.g., `anthropic`, `openai`) | Runtime or harness configuration |
 | `model` | The specific model identifier (e.g., `claude-opus-4-7`, `o3-pro`) | Runtime or harness configuration |
 | `workspace` | The git repository root path | `git rev-parse --show-toplevel` |
@@ -179,7 +179,7 @@ Yoke does not prescribe how a harness resolves these fields. The harness may:
 - Read them from its own runtime environment
 - Declare them in a static capability manifest
 - Derive them from configuration files
-- Report them dynamically at session offer time
+- Report them dynamically at registration
 
 The only requirement is that the values are truthful. Yoke uses these fields to decide what work to route and what to fall back on. False identity leads to failed routing.
 

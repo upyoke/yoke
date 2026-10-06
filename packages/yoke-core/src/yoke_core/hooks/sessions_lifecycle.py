@@ -49,9 +49,18 @@ def cmd_begin(
         "last_heartbeat) "
         f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p})",
         (
-            session_id, canonical_executor, display_name, executor_version,
-            machine_id, provider, model,
-            lane, workspace, mode, now, now,
+            session_id,
+            canonical_executor,
+            display_name,
+            executor_version,
+            machine_id,
+            provider,
+            model,
+            lane,
+            workspace,
+            mode,
+            now,
+            now,
         ),
     )
     conn.commit()
@@ -102,8 +111,6 @@ def cmd_end(conn, session_id: str, force: bool = False) -> str:
     try:
         end_session(conn, session_id, force=force)
     except SessionError as exc:
-        if exc.code == "CHAIN_PENDING":
-            raise PermissionError("Session has pending chain work. Use --force to end anyway.")
         if exc.code in {"NOT_FOUND", "SESSION_ENDED"}:
             raise LookupError(exc.message)
         raise RuntimeError(exc.message) from exc

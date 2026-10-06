@@ -31,20 +31,11 @@ python3 -m yoke_core.hooks.bootstrap render-full --spec runtime/harness/bootstra
 - [ ] Output includes `=== harness-bootstrap.md ===` section
 - [ ] Output includes the generated `main_agent` packet block
 
-### Step 2: Capability set
+### Step 2: Registered identity and capabilities
 
-Supported paths: shepherd, refine, implement, dash, blitz, polish, usher — derived
-server-side from the shared registry plus the manifest's declared
-limitations. Harnesses do not self-report them.
-
-```sh
-session-offer
-```
-
-**Verify:**
-- [ ] Session offer reports `supported_paths: shepherd, refine, implement, dash, blitz, polish, usher`
-- [ ] Session offer reports `executor: codex` and `provider: openai`
-- [ ] Downstream paths outside the derived set fall back truthfully
+Read `yoke sessions identity` after opening-hook registration.
+Check identity and support against `runtime/harness/codex/manifest.json`
+and the shared capability registry.
 
 ### Step 3: Operator entrypoints
 
@@ -56,18 +47,6 @@ commands; there is no launcher indirection to verify.
 - [ ] `/yoke implement YOK-{N}` creates or re-enters the worktree
 - [ ] `/yoke refine YOK-N`, `/yoke polish YOK-N`, and
       `/yoke usher YOK-N --dry-run` each route
-
-### Step 6: Decision engine path validation
-
-This step verifies the decision engine respects the shared-registry `supported_paths` set after applying manifest limitations. The truthful check is through the shared session-offer service tests, because constructing `SessionOffer(...)` directly bypasses the server-side derivation path.
-
-```sh
-python3 -m pytest runtime/api/test_service_client_sessions_offer.py -k "limits_when_input_omitted or limits_override_spoofed_supported_paths"
-```
-
-**Verify:**
-- [ ] The shared-registry Codex path set is honored when the caller omits `--supported-paths`
-- [ ] Spoofed caller input does not override the shared-registry Codex path set
 
 ### Step 7: Shepherd proof sequence
 
@@ -240,7 +219,6 @@ The following test scripts validate the matrix programmatically:
 | Test file | Coverage |
 |-----------|----------|
 | `runtime/harness/test_bootstrap.py` | Neutral bootstrap spec/helper: ordering, doctrine rendering, drift guard |
-| `runtime/api/test_service_client_sessions_offer.py` | Decision engine: shared-registry supported paths and session-offer behavior |
 | `runtime/api/test_capability_consistency.py` | Shared registry, Codex manifest limitations, and CODEX.md capability drift guards |
 | `runtime/harness/test_hook_runner.py` | Shared hook runner: dispatch, identity, lifecycle, graceful degradation |
 | `runtime/harness/test_hook_runner_runner.py` | Hook runner chain execution: per-event sub-handler ordering and fanout |
@@ -253,7 +231,6 @@ Run them:
 
 ```sh
 python3 -m pytest runtime/harness/test_bootstrap.py
-python3 -m pytest runtime/api/test_service_client_sessions_offer.py
 python3 -m pytest runtime/api/test_capability_consistency.py
 python3 -m pytest runtime/harness/test_hook_runner.py
 python3 -m pytest runtime/harness/test_hook_runner_runner.py
@@ -263,16 +240,7 @@ python3 -m pytest runtime/api/domain/test_agents_render_substrate.py runtime/api
 
 ## Event Lineage Verification
 
-The session-offer path emits these canonical events regardless of harness:
-
-1. **HarnessSessionOffered** -- emitted before decision-engine evaluation; includes `supported_paths`
-2. **NextActionChosen** -- emitted after the engine returns a directive; includes `action`, `reason`, `correlation_id`
-
-In wrapper-only mode, these events are emitted by the shared session-offer path (`service_client.py` / API endpoint), not by the entry launcher. The launcher prints or exports the identity contract (`YOKE_EXECUTOR`, `YOKE_PROVIDER`, `YOKE_MODEL`), and Yoke core derives `supported_paths` from the shared registry plus manifest limitations keyed by `executor`. Operators still enter this flow through `session-offer`; the direct `service_client.py session-offer` call is an internal implementation detail of the shared loop.
-
-To verify lineage after a `session-offer` invocation:
-
-```sh
-python3 -m yoke_core.cli.db_router query \
-  "SELECT event_name, created_at FROM events WHERE event_name IN ('HarnessSessionOffered','NextActionChosen') ORDER BY created_at DESC LIMIT 10"
-```
+Registration emits `HarnessSessionStarted`; typed claim operations emit
+`WorkClaimed` and `WorkReleased`. Read the session's evidence with
+`yoke events query --session SESSION-ID`. The events come from core
+operations across every harness.

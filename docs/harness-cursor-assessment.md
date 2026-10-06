@@ -64,7 +64,7 @@ exist. Ids in play: directory `runtime/harness/{id}/`, canonical executor id
 | `SETTINGS_FILE_BY_HOOKS_KEY`, `HOOK_MERGE_TARGETS`, bundle hook-key validation | `yoke_cli.project_install` (`hooks.py`, `files.py`, `validate.py`) |
 | `INSTALL_BUNDLE_SOURCE_DIRS` | `yoke_core.domain.install_bundle` |
 | Rendered packet text naming the `harness_id` enum | `yoke_core.domain.schema_api_context_render` (+ claims-table stanza) |
-| Canonical-session-id gate for known harnesses | `yoke_core.api.service_client_sessions_offer` |
+| Canonical-session-id gate for known harnesses | `yoke_core.domain.session_ambient_identity` |
 
 `AdapterCapability` (`yoke_core.hooks.adapter_capability`) is
 the designed plug seam — payload parser, decision renderer, chain omissions —
@@ -251,15 +251,13 @@ Also observed: `Grep` as a distinct tool name. MCP tools surface as
 - `cursor-agent` has native worktree flags (`-w`, `--worktree-base`); Yoke
   owns worktree placement, so adapters should leave these unused.
 
-## Registry, offer, board, doctor
+## Registry, registration, board, doctor
 
 - `HARNESS_UNIVERSE` + per-command `harness_support` drive
   `supported_paths`; the manifest declares limitations only. Cursor's
   print-mode gaps (no `beforeSubmitPrompt`/`stop`) belong in
   per-surface affordance declarations, not disabled paths.
-- The session offer requires a canonical session id for recognized harnesses
-  (`service_client_sessions_offer`); Cursor must join that gate or it
-  silently takes the fallback-id path.
+- Registration requires the canonical session identity; Cursor resolves its conversation mapping when the process hosts multiple sessions.
 - Board/labels: new `EXECUTOR_EMOJI` entry (glyph must satisfy
   `HC-board-emoji-universality`), surface labels for IDE vs CLI
   (`CURSOR_INVOKED_AS` is the discriminator), and a
@@ -277,7 +275,7 @@ Also observed: `Grep` as a distinct tool name. MCP tools surface as
 
 1. **Wrapper-only** (correctness without hooks, per the adapter template):
    manifest + vocabulary/enumeration edits + identity predicates (both
-   copies) + process-ancestry classification + session-offer gate +
+   copies) + process-ancestry classification + registration identity gate +
    `CURSOR.md` + doctor roster updates. Yields truthful registration,
    routing, and board presence.
 2. **Hook-enhanced**: `.cursor/hooks.json` renderer, Cursor

@@ -14,8 +14,7 @@ Two anti-patterns are caught:
    :mod:`yoke_core.tools.watch_qa_plan`,
    :mod:`yoke_core.tools.watch_ci_run`,
    :mod:`yoke_core.tools.watch_advance`,
-   :mod:`yoke_core.tools.watch_lifecycle`, and
-   :mod:`yoke_core.tools.watch_session_offer` exist, the canonical
+   :mod:`yoke_core.tools.watch_lifecycle` exist, the canonical
    guidance is to call those wrappers; the hand-authored filter stays
    only as labelled fallback documentation.
 2. ``permissive `tail -f``` (and variants) — prose teaching bare
@@ -35,8 +34,7 @@ lines before and after) does not contain any of ``fallback``,
 ``watch_pytest``, ``watch_merge``, ``watch_doctor``, ``watch_fleet``,
 ``watch_qa_case``, ``watch_qa_plan``,
 ``watch_ci_run``,
-``watch_advance``,
-``watch_lifecycle``, or ``watch_session_offer``.
+``watch_advance``, or ``watch_lifecycle``.
 
 For class (2): a finding is reported when a line matches the broken
 phrasing ``permissive ... tail -f`` (with or without backticks around
@@ -80,7 +78,6 @@ EXCLUDE_PATHS: tuple[str, ...] = (
     "packages/yoke-core/src/yoke_core/tools/watch_ci_run.py",
     "packages/yoke-core/src/yoke_core/tools/watch_advance.py",
     "packages/yoke-core/src/yoke_core/tools/watch_lifecycle.py",
-    "packages/yoke-core/src/yoke_core/tools/watch_session_offer.py",
     "packages/yoke-core/src/yoke_core/tools/watch_inventory.py",
     "packages/yoke-core/src/yoke_core/tools/_watch_runner.py",
     "runtime/api/tools/test_watch_pytest.py",
@@ -92,7 +89,6 @@ EXCLUDE_PATHS: tuple[str, ...] = (
     "runtime/api/tools/test_watch_ci_run.py",
     "runtime/api/tools/test_watch_advance.py",
     "runtime/api/tools/test_watch_lifecycle.py",
-    "runtime/api/tools/test_watch_session_offer.py",
     "runtime/api/tools/test_watch_inventory.py",
     "runtime/api/tools/test_watch_runner.py",
 )
@@ -111,7 +107,6 @@ FALLBACK_TOKENS: tuple[str, ...] = (
     "watch_ci_run",
     "watch_advance",
     "watch_lifecycle",
-    "watch_session_offer",
 )
 CONTEXT_RADIUS = 5
 
@@ -203,14 +198,10 @@ def find_residue(repo_root: Path) -> list[Finding]:
         for idx, line in enumerate(lines):
             if HAND_AUTHORED_PATTERN.search(line):
                 if not _has_fallback_context(lines, idx):
-                    findings.append(
-                        Finding(path=path, line_number=idx + 1, line=line)
-                    )
+                    findings.append(Finding(path=path, line_number=idx + 1, line=line))
                 continue
             if STALE_MONITOR_PROSE_PATTERN.search(line):
-                findings.append(
-                    Finding(path=path, line_number=idx + 1, line=line)
-                )
+                findings.append(Finding(path=path, line_number=idx + 1, line=line))
     return findings
 
 

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
 from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, ConfigDict
@@ -56,51 +55,6 @@ class CheckpointResponse(BaseModel):
 
 class CheckpointReadRequest(BaseModel):
     pass
-
-
-class OwnershipGuardRequest(BaseModel):
-    pass
-
-
-class OwnershipGuardResponse(BaseModel):
-    owned: bool
-    holder_session_id: Optional[str] = None
-    claim_id: Optional[int] = None
-    defense_in_flight: bool
-
-
-class OfferRequest(BaseModel):
-    """Everything an offer needs that the session row cannot answer.
-
-    Executor, provider, model, and workspace are read server-side from the
-    session row; a caller cannot restate them, so two sessions with the same
-    stored row reach the same offer unless an operator deliberately says
-    otherwise.
-
-    ``lane`` is the one identity-shaped field a caller may still send: a
-    deliberate operator override that routes a session to a different lane on
-    purpose, recorded as ``SessionOfferLaneOverrideApplied``. It is honoured
-    faithfully, which is why nothing automated may fill it in — a lane guessed
-    from local config outranks the project's routing mapping.
-
-    Extras are forbidden rather than ignored, so a caller still sending a
-    retired field is told it is gone instead of having it silently dropped.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    step: int = 1
-    lane: Optional[str] = None
-    project: Optional[str] = None
-
-
-class OfferResponse(BaseModel):
-    model_config = ConfigDict(extra="allow")
-    action: str
-    reason: str
-    chainable: bool = False
-    correlation_id: str
-    context: Optional[Dict[str, Any]] = None
 
 
 def _err(
@@ -207,53 +161,6 @@ def handle_checkpoint_read(request: FunctionCallRequest) -> HandlerOutcome:
     return HandlerOutcome(result_payload=checkpoint)
 
 
-def handle_ownership_guard(request: FunctionCallRequest) -> HandlerOutcome:
-    sid = _session_id(request)
-    if not sid:
-        return _err("session_required", "session id is required")
-    item_id = request.target.item_id
-    if item_id is None:
-        return _err(
-            "target_invalid",
-            "sessions.ownership_guard requires an item target",
-            jsonpath="$.target.item_id",
-        )
-
-    from yoke_core.domain.sessions_offer_ownership_guard import (
-        evaluate_ownership_guard,
-    )
-
-    with _connect_rw() as conn:
-        result = evaluate_ownership_guard(
-            conn,
-            session_id=sid,
-            item_id=int(item_id),
-        )
-    return HandlerOutcome(result_payload=asdict(result))
-
-
-def handle_offer(request: FunctionCallRequest) -> HandlerOutcome:
-    try:
-        body = OfferRequest.model_validate(request.payload or {})
-    except Exception as exc:
-        return _err("payload_invalid", f"offer payload invalid: {exc}")
-    from yoke_core.api.service_client_sessions_offer import (
-        SessionOfferCommandError,
-        run_session_offer,
-    )
-
-    try:
-        result = run_session_offer(
-            session_id=_session_id(request),
-            step=body.step,
-            lane=body.lane,
-            project=body.project,
-        )
-    except SessionOfferCommandError as exc:
-        return _err("session_offer_failed", str(exc))
-    return HandlerOutcome(result_payload=result)
-
-
 __all__ = [
     "TouchRequest",
     "TouchResponse",
@@ -263,12 +170,6 @@ __all__ = [
     "handle_checkpoint",
     "CheckpointReadRequest",
     "handle_checkpoint_read",
-    "OwnershipGuardRequest",
-    "OwnershipGuardResponse",
-    "handle_ownership_guard",
-    "OfferRequest",
-    "OfferResponse",
-    "handle_offer",
     "ChargeScheduleRequest",
     "ChargeScheduleResponse",
     "handle_charge_schedule",

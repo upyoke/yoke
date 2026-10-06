@@ -1,9 +1,7 @@
 """Session lifecycle tests: end_session(release_claims=True) branch.
 
-Split from test_sessions_lifecycle_active_claim.py to keep authored
-files under the 350-line cap. Covers the destructive claim-release
-branch, the upstream CHAIN_PENDING gate, and the chain-override
-propagation path.
+Covers explicit claim-release authority, release audit details, and cleanup
+with retained checkpoint telemetry.
 """
 
 from __future__ import annotations
@@ -18,7 +16,6 @@ from runtime.api.test_sessions import _register
 from yoke_core.domain.sessions import (
     EVENT_HARNESS_SESSION_END_RELEASED_CLAIMS,
     EVENT_HARNESS_SESSION_ENDED,
-    SessionError,
     claim_work,
     end_session,
     update_chain_checkpoint,
@@ -147,37 +144,6 @@ class TestSessionEndReleaseClaims:
         ]
         assert len(release_events) == 0
 
-    def test_release_claims_with_chain_pending_raises_chain_pending(self, conn):
-        """A pending chain checkpoint blocks SessionEnd at the chain gate.
-
-        ``end_session`` rejects with ``CHAIN_PENDING`` before reaching the
-        destructive guard whenever a chainable checkpoint has budget and
-        no operator override is supplied. The session row and claim row
-        remain untouched.
-        """
-        _register(conn)
-        claim_work(conn, session_id="sess-1", item_id=PRIMARY_ITEM_ID)
-        update_chain_checkpoint(
-            conn,
-            "sess-1",
-            step=1,
-            action="charge",
-            chainable=True,
-            handler_outcome="completed",
-        )
-        with pytest.raises(SessionError) as exc_info:
-            end_session(conn, "sess-1", force=True, release_claims=True)
-        assert exc_info.value.code == "CHAIN_PENDING"
-        row = conn.execute(
-            "SELECT ended_at FROM harness_sessions WHERE session_id='sess-1'"
-        ).fetchone()
-        assert row["ended_at"] is None
-        active = conn.execute(
-            "SELECT COUNT(*) as cnt FROM work_claims "
-            "WHERE session_id='sess-1' AND released_at IS NULL"
-        ).fetchone()
-        assert active["cnt"] == 1
-
     @patch("yoke_core.domain.sessions_analytics._emit_session_event")
     def test_release_claims_multiple_claims(self, mock_emit, conn):
         """Multiple claims (item + epic_task) are all released.
@@ -212,15 +178,7 @@ class TestSessionEndReleaseClaims:
         assert len(ctx["claim_details"]) == 2
 
     @patch("yoke_core.domain.sessions_analytics._emit_session_event")
-    def test_release_claims_chain_override_authorized_ends(self, mock_emit, conn):
-        """override_chain_end+rationale ends the session even with active claim and pending chain.
-
-        Without the override, the CHAIN_PENDING gate refuses and the
-        claim stays active. With the override, the chain budget is
-        treated as waived: claims release, the session ends, and
-        HarnessSessionEnded carries chain_override_authorized in
-        agent_presence_evidence.
-        """
+    def test_explicit_release_ignores_checkpoint_budget(self, mock_emit, conn):
         _register(conn)
         claim_work(conn, session_id="sess-1", item_id=PRIMARY_ITEM_ID)
         update_chain_checkpoint(
@@ -238,8 +196,6 @@ class TestSessionEndReleaseClaims:
             "sess-1",
             force=True,
             release_claims=True,
-            override_chain_end=True,
-            chain_end_rationale="operator: stale session, ending per request",
         )
 
         assert result["ended_at"] is not None
@@ -256,19 +212,15 @@ class TestSessionEndReleaseClaims:
         ]
         assert len(release_events) == 1
         release_ctx = release_events[0][1]["context"]
-        assert (
-            release_ctx["agent_presence_evidence"]["chain_override_authorized"] is True
-        )
-
+        assert release_ctx["agent_presence_evidence"] == {
+            "explicit_claim_release": True
+        }
         ended_events = [
             c
             for c in mock_emit.call_args_list
             if c[0][0] == EVENT_HARNESS_SESSION_ENDED
         ]
         assert len(ended_events) == 1
-        ended_ctx = ended_events[0][1]["context"]
-        assert ended_ctx["chain_override_authorized"] is True
-        assert ended_ctx["chain_end_rationale"] == (
-            "operator: stale session, ending per request"
-        )
-        assert ended_ctx["agent_presence_evidence"]["chain_override_authorized"] is True
+        assert ended_events[0][1]["context"]["agent_presence_evidence"] == {
+            "explicit_claim_release": True
+        }

@@ -2,7 +2,7 @@
 """Unit tests for handler-outcome classification helpers.
 
 Outcome classification, chain labels, and skip/handoff records at the helper
-surface. ``session-offer`` integration regressions and the
+surface. ``session checkpoint`` integration regressions and the
 recoverable-substrate reproduction live in the sibling module
 ``runtime.api.test_do_loop_recoverable_substrate``.
 """

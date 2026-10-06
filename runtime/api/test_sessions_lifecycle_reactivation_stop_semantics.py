@@ -159,7 +159,7 @@ class TestStopSemanticsBranches:
         assert row["ended_at"] is not None
         assert row["turn_posture"] == "waiting"
 
-    def test_chain_pending_when_chainable_budget_remains(
+    def test_claimless_cleanup_ignores_checkpoint_budget(
         self,
         session_offer_db,
     ) -> None:
@@ -186,9 +186,9 @@ class TestStopSemanticsBranches:
             result = end_session_if_empty(conn, "sess-chain")
         finally:
             conn.close()
-        assert result["status"] == "chain_pending"
-        assert result["ended"] is False
-        assert _ended_at(db, "sess-chain") is None
+        assert result["status"] == "ended"
+        assert result["ended"] is True
+        assert _ended_at(db, "sess-chain") is not None
 
 
 class TestReactivationAfterStop:

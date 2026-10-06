@@ -56,7 +56,9 @@ def get_project_int(
         from yoke_core.domain import runtime_settings
 
         return runtime_settings.get_int(
-            key, resolved_default, config_path=config_path,
+            key,
+            resolved_default,
+            config_path=config_path,
         )
     if key in DB_PROJECT_POLICY_KEYS:
         value = _policy_value_for_repo(repo_root, key, config_path=config_path)
@@ -102,37 +104,11 @@ def resolve_default_wip_cap(project_scope: list[int] | None = None) -> int:
     """DB-backed WIP cap for a single-project scope; source default otherwise.
 
     Multi-project and empty scopes fall back to ``DEFAULT_WIP_CAP`` from
-    ``RECOGNIZED_PROJECT_KEYS`` — the same rule the board and session-offer
+    ``RECOGNIZED_PROJECT_KEYS`` — the same rule the board and charge
     adapters already use when no ``--wip-cap`` / query value was supplied.
     """
     project_id = project_scope[0] if project_scope and len(project_scope) == 1 else None
     return get_project_int_for_id(project_id, "wip_cap")
-
-
-def offer_project_config_dir(
-    workspace: Optional[str],
-    project_scope: Optional[List[int]] = None,
-    machine_config_path: Path | str | None = None,
-) -> Optional[Path]:
-    """Return a machine-local checkout that matches the current context.
-
-    Shared project policy readers should use ``*_for_id`` instead.
-    """
-
-    from yoke_core.domain import machine_config
-
-    if workspace:
-        root = checkout_root(workspace)
-        if root is not None and machine_config.project_id(
-            root, machine_config_path,
-        ) is not None:
-            return root
-    if project_scope and len(project_scope) == 1:
-        target = int(project_scope[0])
-        for checkout, mapped in _mapped_checkouts(machine_config_path):
-            if mapped == target and checkout.is_dir():
-                return checkout
-    return None
 
 
 def checkout_root(workspace: str) -> Optional[Path]:
@@ -235,6 +211,5 @@ __all__ = [
     "get_project_int_for_id",
     "get_project_str",
     "get_project_str_for_id",
-    "offer_project_config_dir",
     "resolve_default_wip_cap",
 ]

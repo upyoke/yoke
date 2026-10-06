@@ -1,8 +1,6 @@
 # Session lane routing
 
-Which lane a registering session lands on, and which actions that lane
-may run. The offer contract that consumes the resolved lane is
-[`session-offer.md`](session-offer.md).
+Which lane a registering session lands on for identity and roster grouping.
 
 ## Resolution
 
@@ -41,9 +39,7 @@ not apply to a model nobody stated.
 
 **When an edit takes effect.** A lane is stamped once, at registration, so a
 routing edit reaches only sessions that register after it; a live session is
-never silently re-routed. A lane's allowed actions are read fresh on every
-session offer, so an allowlist edit reaches an already-registered session at
-its next offer, with no re-registration.
+never silently re-routed. Work assignment uses pinned workflow bindings and explicit staffing.
 
 Editing is a harness job through the existing capability commands:
 

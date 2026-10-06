@@ -178,7 +178,6 @@ def test_operator_termination_ends_silences_releases_and_queues_reap(
                 "cancelled_recipient_count": 1,
                 "reap_state": "pending",
                 "was_ended": False,
-                "chain_override_authorized": False,
             },
         )
     ]
@@ -249,7 +248,7 @@ def test_steering_claim_authorizes_termination_and_unrelated_session_does_not(
     assert result["session"]["terminated_at"]
 
 
-def test_chain_pending_failure_rolls_back_and_explicit_override_converges(conn) -> None:
+def test_termination_ignores_checkpoint_budget(conn) -> None:
     _register_operator_and_target(conn)
     _add_target_claim(conn)
     _add_open_message(conn)
@@ -268,34 +267,7 @@ def test_chain_pending_failure_rolls_back_and_explicit_override_converges(conn) 
     )
     conn.commit()
 
-    with pytest.raises(SessionError) as exc_info:
-        _terminate(conn)
-    assert exc_info.value.code == "CHAIN_PENDING"
-    conn.rollback()  # registered handler performs this rollback on every failure
-    target = conn.execute(
-        "SELECT ended_at,terminated_at FROM harness_sessions WHERE session_id='worker'"
-    ).fetchone()
-    assert tuple(target) == (None, None)
-    assert (
-        conn.execute("SELECT state FROM session_message_recipients").fetchone()[0]
-        == "injected"
-    )
-    assert (
-        conn.execute(
-            "SELECT released_at FROM work_claims WHERE session_id='worker'"
-        ).fetchone()[0]
-        is None
-    )
-    assert (
-        conn.execute("SELECT COUNT(*) FROM session_termination_reaps").fetchone()[0]
-        == 0
-    )
-
-    result = _terminate(
-        conn,
-        override_chain_end=True,
-        chain_end_rationale="operator intentionally abandons the pending chain",
-    )
+    result = _terminate(conn)
     assert result["session"]["terminated_at"]
 
 

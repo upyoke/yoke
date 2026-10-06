@@ -1,6 +1,6 @@
 """Tests for the transport-keyed ``sessions.begin`` function surface.
 
-Covers three layers of the session-establishment path that ``session-offer``
+Covers three layers of the session-establishment path that ``session checkpoint``
 bootstrap depends on:
 
 * The ``sessions.begin`` registration/authz/adapter coherence (a new

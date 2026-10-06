@@ -74,7 +74,7 @@ GROUP_TEACHING: dict[tuple[str, ...], str] = {
     ),
     ("sessions",): (
         "Liveness: there is no standalone heartbeat command. "
-        "`yoke sessions touch`, `yoke sessions offer`, and "
+        "`yoke sessions touch`, "
         "`yoke sessions checkpoint` each refresh the session's heartbeat."
     ),
 }

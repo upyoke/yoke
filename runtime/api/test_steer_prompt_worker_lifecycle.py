@@ -165,7 +165,7 @@ class TestSteerDiscoveryAndPacket:
         assert "`--plan-doc` locks the standing plan" in notes
         assert "yoke steering report get" in notes
         assert "optional `--project P`" in notes
-        assert "never `session-offer`" in notes
+        assert "item-bound" in notes
         assert "yoke say --item PREFIX-N --stdin" in notes
         assert "A `DONE PREFIX-N` heading names the reported item" in notes
 

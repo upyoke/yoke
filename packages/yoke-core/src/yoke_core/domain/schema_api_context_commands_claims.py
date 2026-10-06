@@ -72,7 +72,7 @@ CLAIMS_COMMANDS: list[dict] = [
             "the resolved doc is read before any steering action, only a "
             "genuinely missing doc reaches the offer-to-create gate, its lock "
             "releases before a Blitz can claim it, workers launch CLI-only "
-            "and item-bound (never `session-offer`). The single-recipient `yoke say --item PREFIX-N --stdin` form is insufficient for a substantive peer request. Such a request addresses its worker "
+            "and item-bound. The single-recipient `yoke say --item PREFIX-N --stdin` form is insufficient for a substantive peer request. Such a request addresses its worker "
             "and copies steering with `yoke say --item PREFIX-N --steering --stdin`; a claim-less "
             "recipient uses an exact listed `--session UUID`, never a reconstructed id. The recipient replies to that original session and copies steering, especially for acceptance, refusal, scope conflict, blocker, or decision. "
             "A rejection must not go only to steering. Anchors union, so the peer and seat both receive it; with no applicable held item, combine the peer anchor with explicit `--steering-scope '{\"project_id\": N}'`. "

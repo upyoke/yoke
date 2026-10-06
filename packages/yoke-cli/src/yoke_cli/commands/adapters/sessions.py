@@ -9,7 +9,6 @@ from yoke_cli.commands._helpers import (
     add_json_arg,
     add_session_arg,
     dispatch_and_emit,
-    item_target,
     parse_or_usage_error,
     usage_error,
 )
@@ -38,13 +37,6 @@ SESSIONS_BEGIN_USAGE = (
     "yoke sessions begin --executor E --provider P --requested-model M --workspace W "
     "[--project ID] [--mode MODE] [--entrypoint E] [--session-id S] [--json]"
 )
-SESSIONS_OFFER_USAGE = (
-    "yoke sessions offer [--step N] [--lane L] [--project IDS] "
-    "[--session-id S] [--json]"
-)
-SESSIONS_OWNERSHIP_GUARD_USAGE = (
-    "yoke sessions ownership-guard --item PREFIX-N [--session-id S] [--json]"
-)
 CHARGE_SCHEDULE_USAGE = (
     "yoke charge schedule [--project P] [--item PREFIX-N] "
     "[--workspace W] [--wip-cap N] [--session-id S] [--json]"
@@ -64,7 +56,8 @@ def sessions_identity(args: List[str]) -> int:
     chain budget. Nothing is detected locally, so no field is advisory.
     """
     parser = argparse.ArgumentParser(
-        prog="yoke sessions identity", description=SESSIONS_IDENTITY_USAGE,
+        prog="yoke sessions identity",
+        description=SESSIONS_IDENTITY_USAGE,
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -82,7 +75,8 @@ def sessions_identity(args: List[str]) -> int:
 
 def sessions_touch(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke sessions touch", description=SESSIONS_TOUCH_USAGE,
+        prog="yoke sessions touch",
+        description=SESSIONS_TOUCH_USAGE,
     )
     parser.add_argument("--mode", default=None, choices=sorted(SESSION_MODES))
     parser.add_argument("--reason", default=None)
@@ -132,8 +126,12 @@ def sessions_checkpoint(args: List[str]) -> int:
         "outcome": parsed.outcome,
     }
     for key in (
-        "item_id", "task_num", "status", "required_path",
-        "pre_status", "failure_class",
+        "item_id",
+        "task_num",
+        "status",
+        "required_path",
+        "pre_status",
+        "failure_class",
     ):
         value = getattr(parsed, key)
         if value is not None:
@@ -195,14 +193,17 @@ def _resolve_begin_project_id(explicit: str | None, workspace: str):
 
 def sessions_begin(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke sessions begin", description=SESSIONS_BEGIN_USAGE,
+        prog="yoke sessions begin",
+        description=SESSIONS_BEGIN_USAGE,
     )
     parser.add_argument("--executor", required=True)
     parser.add_argument("--provider", required=True)
     parser.add_argument("--requested-model", required=True)
     parser.add_argument("--workspace", required=True)
     parser.add_argument(
-        "--project", metavar="ID", default=None,
+        "--project",
+        metavar="ID",
+        default=None,
         help="numeric project id; otherwise resolve the workspace mapping",
     )
     parser.add_argument("--mode", default="wait", choices=sorted(SESSION_MODES))
@@ -217,11 +218,13 @@ def sessions_begin(args: List[str]) -> int:
         return usage_error(refusal)
     project_id = _resolve_begin_project_id(parsed.project, parsed.workspace)
     if project_id is None:
-        return usage_error(with_mismatch_note(
-            "Session registration requires a project id. Run Yoke setup for "
-            "this checkout or pass --project.",
-            parsed.workspace,
-        ))
+        return usage_error(
+            with_mismatch_note(
+                "Session registration requires a project id. Run Yoke setup for "
+                "this checkout or pass --project.",
+                parsed.workspace,
+            )
+        )
     payload: Dict[str, Any] = {
         "executor": parsed.executor,
         "provider": parsed.provider,
@@ -241,62 +244,10 @@ def sessions_begin(args: List[str]) -> int:
     )
 
 
-def sessions_offer(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke sessions offer", description=SESSIONS_OFFER_USAGE,
-    )
-    parser.add_argument("--step", type=int, default=1)
-    parser.add_argument(
-        "--lane",
-        default=None,
-        help=(
-            "Deliberate operator lane override; recorded as "
-            "SessionOfferLaneOverrideApplied. Autonomous loops pass nothing."
-        ),
-    )
-    parser.add_argument("--project", default=None)
-    add_session_arg(parser)
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, SESSIONS_OFFER_USAGE)
-    if parsed is None:
-        return 2
-    payload: Dict[str, Any] = {"step": parsed.step}
-    for key in ("lane", "project"):
-        value = getattr(parsed, key)
-        if value is not None:
-            payload[key] = value
-    return dispatch_and_emit(
-        function_id="sessions.offer",
-        target=TargetRef(kind="global"),
-        payload=payload,
-        session_id=parsed.session_id,
-        json_mode=parsed.json_mode,
-    )
-
-
-def sessions_ownership_guard(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke sessions ownership-guard",
-        description=SESSIONS_OWNERSHIP_GUARD_USAGE,
-    )
-    parser.add_argument("--item", required=True)
-    add_session_arg(parser)
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, SESSIONS_OWNERSHIP_GUARD_USAGE)
-    if parsed is None:
-        return 2
-    return dispatch_and_emit(
-        function_id="sessions.ownership_guard",
-        target=item_target("item", parsed.item, parsed.project),
-        payload={},
-        session_id=parsed.session_id,
-        json_mode=parsed.json_mode,
-    )
-
-
 def charge_schedule(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke charge schedule", description=CHARGE_SCHEDULE_USAGE,
+        prog="yoke charge schedule",
+        description=CHARGE_SCHEDULE_USAGE,
     )
     parser.add_argument("--project", default=None)
     parser.add_argument("--wip-cap", type=int, default=None)
@@ -332,11 +283,16 @@ def charge_schedule(args: List[str]) -> int:
 
 
 __all__ = [
-    "sessions_begin", "sessions_identity", "sessions_touch",
-    "sessions_checkpoint", "sessions_checkpoint_read",
-    "sessions_offer", "sessions_ownership_guard", "charge_schedule",
-    "SESSIONS_BEGIN_USAGE", "SESSIONS_IDENTITY_USAGE", "SESSIONS_TOUCH_USAGE",
+    "sessions_begin",
+    "sessions_identity",
+    "sessions_touch",
+    "sessions_checkpoint",
+    "sessions_checkpoint_read",
+    "charge_schedule",
+    "SESSIONS_BEGIN_USAGE",
+    "SESSIONS_IDENTITY_USAGE",
+    "SESSIONS_TOUCH_USAGE",
     "SESSIONS_CHECKPOINT_USAGE",
-    "SESSIONS_CHECKPOINT_READ_USAGE", "SESSIONS_OFFER_USAGE",
-    "SESSIONS_OWNERSHIP_GUARD_USAGE", "CHARGE_SCHEDULE_USAGE",
+    "SESSIONS_CHECKPOINT_READ_USAGE",
+    "CHARGE_SCHEDULE_USAGE",
 ]

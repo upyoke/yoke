@@ -134,7 +134,7 @@ Shared project behavior lives in the Yoke DB, not checkout files:
   is checked-in project-file policy.
 - `session-routing` capability settings own the project's lanes: their
   labels and glyphs, the harness/model selectors that route sessions onto
-  them, their allowed-action allowlists, and `session-offer` process-offer
+  them and their allowed-action allowlists, plus stored process-offer
   policy. Read the composed result with
   `yoke projects lane-summary get --project <slug>`; edit it with
   `yoke projects capability-settings merge --project <slug> --cap-type session-routing --set '<key.path>=<value>'`.

@@ -15,44 +15,13 @@ from yoke_core.api.service_client_shared import (
 
 
 def cmd_session_end(args: list[str]) -> int:
-    """End a session, marking it as ended.
-
-    Usage: session-end --session-id S [--force] [--release-claims]
-                       [--override-chain-end --chain-end-rationale TEXT]
-
-    Best-effort for NOT_FOUND and SESSION_ENDED: exits 0.
-    CHAIN_PENDING: exits 1 unless ``--override-chain-end`` is paired with a
-    non-empty ``--chain-end-rationale``. The override emits
-    ``ChainDeclineOverridden``.
-    No-flags (default): active work-claims are auto-released with
-    ``release_reason='session_ended'`` before the session ends. The
-    success payload carries ``released_claims: [{claim_id, target_kind,
-    item_id|epic_id+task_num|process_key+conflict_group}, ...]`` so
-    callers can audit what was cleaned up; absent when no claims were
-    held. CHAIN_PENDING still blocks honest loop exits with budget
-    remaining.
-    With --release-claims, active claims are auto-released before ending
-    via the destructive claim-release branch.
-    Prints result JSON to stdout.
-    """
+    """Explicitly end a session and release its liveness-bound claims."""
     import argparse
 
     parser = argparse.ArgumentParser(prog="session-end", add_help=True)
     parser.add_argument("--session-id", default=None)
     parser.add_argument("--force", action="store_true", default=False)
     parser.add_argument("--release-claims", action="store_true", default=False)
-    parser.add_argument(
-        "--override-chain-end",
-        action="store_true",
-        default=False,
-        help="Bypass the CHAIN_PENDING guard. Requires --chain-end-rationale.",
-    )
-    parser.add_argument(
-        "--chain-end-rationale",
-        default=None,
-        help="Operator rationale recorded with ChainDeclineOverridden.",
-    )
-
     try:
         parsed = parser.parse_args(args)
     except SystemExit as exc:
@@ -61,8 +30,7 @@ def cmd_session_end(args: list[str]) -> int:
         if exc.code == 0:
             return 0
         print(
-            "Usage: session-end [--session-id S] [--force] [--release-claims]"
-            " [--override-chain-end --chain-end-rationale TEXT]",
+            "Usage: session-end [--session-id S] [--force] [--release-claims]",
             file=sys.stderr,
         )
         return 2
@@ -72,28 +40,16 @@ def cmd_session_end(args: list[str]) -> int:
         print(SESSION_REQUIRED_ERROR, file=sys.stderr)
         return 2
 
-    if parsed.override_chain_end and not (
-        parsed.chain_end_rationale and parsed.chain_end_rationale.strip()
-    ):
-        print(json.dumps({
-            "success": False,
-            "code": "OVERRIDE_RATIONALE_REQUIRED",
-            "message": (
-                "--override-chain-end requires a non-empty --chain-end-rationale."
-            ),
-        }))
-        return 2
-
     conn = _get_db_readwrite()
     try:
         from yoke_core.domain.sessions import SessionError
+
         try:
             result = domain_end_session(
-                conn, parsed.session_id,
+                conn,
+                parsed.session_id,
                 force=parsed.force,
                 release_claims=parsed.release_claims,
-                override_chain_end=parsed.override_chain_end,
-                chain_end_rationale=parsed.chain_end_rationale,
             )
             released_claims = result.pop("released_claims", None)
             response = {"success": True, "session": result}
@@ -101,19 +57,16 @@ def cmd_session_end(args: list[str]) -> int:
                 response["released_claims"] = released_claims
             print(json.dumps(response, default=str))
         except SessionError as exc:
-            if exc.code == "CHAIN_PENDING":
-                print(json.dumps({
-                    "success": False,
-                    "code": exc.code,
-                    "message": exc.message,
-                }))
-                return 1
-            print(json.dumps({
-                "success": True,
-                "already_ended": True,
-                "code": exc.code,
-                "message": exc.message,
-            }))
+            print(
+                json.dumps(
+                    {
+                        "success": True,
+                        "already_ended": True,
+                        "code": exc.code,
+                        "message": exc.message,
+                    }
+                )
+            )
         return 0
     finally:
         conn.close()

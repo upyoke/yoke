@@ -178,8 +178,6 @@ def _end_claimless(
             conn,
             session_id,
             release_claims=False,
-            override_chain_end=True,
-            chain_end_rationale=PROCESS_VERIFIED_DEAD_REASON,
             end_reason=PROCESS_VERIFIED_DEAD_REASON,
             agent_presence_evidence={
                 "source": "relay_process_probe",

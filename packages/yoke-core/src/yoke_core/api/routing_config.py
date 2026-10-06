@@ -7,9 +7,6 @@ This module resolves where a session runs:
 - lane -> allowed actions
 - lane -> its operator-facing label and glyph
 
-Whether an autonomous loop may dispatch a process at all is a separate
-question, answered by :mod:`yoke_core.api.process_offer_policy`.
-
 Project authority lives in the ``project_capabilities`` row whose type is
 ``session-routing``; machine ``~/.yoke/config.json`` remains the source-dev /
 operator fallback when no project policy is available. Explicit test/operator

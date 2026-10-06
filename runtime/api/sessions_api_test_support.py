@@ -1,4 +1,4 @@
-"""Shared schemas + DB seeding helper for session-offer/session-end API tests.
+"""Shared schemas and database seeding for session lifecycle API tests.
 
 The split test_api_sessions[_*].py files all build a temporary DB with the same
 session/claim/event tables and the same seed items. Centralized here so the

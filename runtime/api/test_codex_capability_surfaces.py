@@ -81,17 +81,16 @@ def test_hook_parity_map_matches_codex_shared_registry_summary():
     text = _read("docs/hook-parity-map.md")
 
     assert (
-        "The shared Yoke registry exposes two intentionally different "
-        "capability views."
+        "The shared Yoke registry exposes two intentionally different capability views."
     ) in text
     assert "safe operator surface" in text
-    assert "narrower session-offer registry" in text
+    assert "downstream registry" in text
     assert "rather than copying either registry view" in text
     assert "/yoke implement" in text
     assert "/yoke conduct" in text
     assert "`implement`" in text
     assert "direct Codex invocation" in text
-    assert "Conduct is not a session-offer entrypoint or downstream path" in text
+    assert "Conduct runs through its own operator entrypoint" in text
     assert "five entrypoints" not in text
     assert "four downstream paths" not in text
 

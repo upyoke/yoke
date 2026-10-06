@@ -20,43 +20,90 @@ from typing import Iterable, List, Tuple
 # Matching is exact-name OR prefix-match (when the entry ends in ``-``)
 # so a single ``path-claim-`` line covers every ``path-claim-*`` name.
 _FAMILY_GROUPS: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
-    ("Items / Backlog reads", (
-        "active-queue", "item-list", "item-count", "item-get", "item-row",
-        "item-progress", "item-next-id",
-    )),
-    ("Items / Backlog mutations", (
-        "create-item", "validate-update", "update-item", "apply-approval",
-        "execute-create-cli", "execute-create", "execute-update-cli",
-        "execute-update", "execute-batch-update-cli", "execute-batch-update",
-        "execute-close", "execute-structured-write",
-    )),
-    ("Backlog CLI surfaces", (
-        "backlog-cli", "backlog-list-cli", "backlog-dedup-search",
-        "backlog-github",
-    )),
-    ("Lifecycle / Gates", (
-        "approve-check", "classify-status", "validate-status",
-        "validate-transition", "evaluate-gate",
-    )),
-    ("Claims — work", (
-        "claim-work", "release-work-claim", "claim-release",
-        "release-all-claims", "release-done-claims",
-    )),
+    (
+        "Items / Backlog reads",
+        (
+            "active-queue",
+            "item-list",
+            "item-count",
+            "item-get",
+            "item-row",
+            "item-progress",
+            "item-next-id",
+        ),
+    ),
+    (
+        "Items / Backlog mutations",
+        (
+            "create-item",
+            "validate-update",
+            "update-item",
+            "apply-approval",
+            "execute-create-cli",
+            "execute-create",
+            "execute-update-cli",
+            "execute-update",
+            "execute-batch-update-cli",
+            "execute-batch-update",
+            "execute-close",
+            "execute-structured-write",
+        ),
+    ),
+    (
+        "Backlog CLI surfaces",
+        (
+            "backlog-cli",
+            "backlog-list-cli",
+            "backlog-dedup-search",
+            "backlog-github",
+        ),
+    ),
+    (
+        "Lifecycle / Gates",
+        (
+            "approve-check",
+            "classify-status",
+            "validate-status",
+            "validate-transition",
+            "evaluate-gate",
+        ),
+    ),
+    (
+        "Claims — work",
+        (
+            "claim-work",
+            "release-work-claim",
+            "claim-release",
+            "release-all-claims",
+            "release-done-claims",
+        ),
+    ),
     ("Claims — path", ("path-claim-",)),
     ("Coordination claims", ("coordination-claim-",)),
-    ("Sessions", (
-        "session-offer", "session-begin", "session-touch",
-        "session-heartbeat", "session-end", "session-end-if-empty",
-        "session-checkpoint", "session-checkpoint-read",
-        "harness-capabilities",
-    )),
-    ("Frontier / Routing", (
-        "charge-frontier", "charge-schedule", "plan-candidates",
-    )),
+    (
+        "Sessions",
+        (
+            "session-begin",
+            "session-touch",
+            "session-heartbeat",
+            "session-end",
+            "session-end-if-empty",
+            "session-checkpoint",
+            "session-checkpoint-read",
+            "harness-capabilities",
+        ),
+    ),
+    (
+        "Frontier / Routing",
+        (
+            "charge-frontier",
+            "charge-schedule",
+            "plan-candidates",
+        ),
+    ),
     ("Project Structure", ("project-structure-",)),
     ("Actors / DB claim", ("actors-get", "actors-list", "db-claim-amend")),
     ("Ouroboros", ("field-note-log",)),
-    ("Ownership guard", ("ownership-guard",)),
 )
 
 

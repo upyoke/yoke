@@ -94,8 +94,6 @@ def terminate_session(
     actor_id: int,
     caller_session_id: str,
     reason: str,
-    override_chain_end: bool = False,
-    chain_end_rationale: str | None = None,
 ) -> dict[str, Any]:
     """End, silence, and permanently make one session non-wakeable."""
     termination_reason = reason.strip()
@@ -157,11 +155,6 @@ def terminate_session(
         target_session_id,
         force=True,
         release_claims=True,
-        override_chain_end=override_chain_end,
-        chain_end_rationale=chain_end_rationale,
-    )
-    chain_override_authorized = bool(
-        override_chain_end and str(chain_end_rationale or "").strip()
     )
     emit_session_terminated(
         target_session_id,
@@ -173,7 +166,6 @@ def terminate_session(
             "cancelled_recipient_count": cancelled,
             "reap_state": reap_state,
             "was_ended": was_ended,
-            "chain_override_authorized": chain_override_authorized,
         },
     )
     return {

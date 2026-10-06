@@ -71,7 +71,7 @@ def refuse_held_assigned_item(
     from yoke_contracts.session_control.liveness import live_session_sql
     from yoke_core.domain.refusal_recovery import compose_refusal
     from yoke_core.domain.session_launch_delivery_state import IN_FLIGHT_LAUNCH_STATES
-    from yoke_core.domain.sessions_offer_revalidation import holder_session_for_item
+    from yoke_core.domain.work_claim_holder import holder_session_for_item
 
     p = placeholder(conn)
     holder = holder_session_for_item(conn, item_id)

@@ -1,20 +1,8 @@
 """Item-scoped stale-claim reclaim with shared activity recheck.
 
-Owns ``reclaim_stale_item_claims`` — the surface session-offer's charge
-dispatch reaches when it wants to clear stale exclusive claims on a
-specific item before considering it for fresh acquisition.
-
-The function uses the same canonical activity classifier as ``cmd_claim``
-and ``clean_stale_harness_sessions`` (heartbeat plus latest tool-call
-event), and runs a final recheck inside the same transaction immediately
-before mutating each candidate row. When the recheck shows fresh
-activity, the row is left untouched and ``ReclaimAborted`` is emitted
-with ``scope='item_claim'``.
-
-Lives in its own module so ``sessions_render_reclaim.py`` stays under
-the 350-line authored-file limit (the full session-level reclaim flow
-plus the item-scoped recheck would exceed the cap).
-"""
+The reclaim surface preserves active work holders and rechecks activity in
+the same transaction before mutating candidates. Fresh activity leaves the
+row untouched and emits ReclaimAborted with item-claim scope."""
 
 from __future__ import annotations
 

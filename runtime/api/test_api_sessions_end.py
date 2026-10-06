@@ -1,33 +1,20 @@
-"""Session-end endpoint and service-client session-offer tests.
-
-Decision/lane behavior tests live in ``test_api_sessions.py``; resume-flow
-tests live in ``test_api_sessions_resume.py``. Shared schema/fixture
-helpers live in ``test_session_offer_schemas.py``.
-"""
+"""Tests for explicit session ending through the API."""
 
 from __future__ import annotations
 
 import json
-import os
 
 import pytest
 from fastapi.testclient import TestClient
 
 from yoke_core.domain import db_backend
 from runtime.api.fixtures.file_test_db import connect_test_db
-from yoke_core.domain.sessions import register_session
 from yoke_core.api.main import app
-from runtime.api.test_session_offer_schemas import fresh_now  # noqa: F401
+from runtime.api.sessions_api_test_support import fresh_now
 from runtime.api.test_constants import TEST_MODEL_ID
-from runtime.api.test_service_client import (
-    _REPO_ROOT,
-    _service_client_cmd,
-    _with_source_pythonpath,
-)
 from yoke_core.domain.work_claim_targets import make_item_target
-from yoke_contracts.session_model_facts import SessionModelFacts
 
-pytest_plugins = ("runtime.api.test_session_offer_schemas",)
+pytest_plugins = ("runtime.api.sessions_api_test_support",)
 
 
 ITEM_ID = 10
@@ -87,14 +74,13 @@ class TestSessionEndEndpoint:
         conn.commit()
         conn.close()
 
-    def test_end_session_chain_pending_returns_409(self):
+    def test_explicit_end_releases_claim_despite_checkpoint(self):
         """Normal end is blocked while chain work remains."""
         self._insert_chain_pending_session("api-chain-pending")
         resp = self.client.post("/v1/sessions/api-chain-pending/end")
 
-        assert resp.status_code == 409
-        data = resp.json()
-        assert data["error"]["code"] == "CHAIN_PENDING"
+        assert resp.status_code == 200
+        assert resp.json()["ended_at"] is not None
 
         conn = connect_test_db(self.db_info["db_path"])
         row = conn.execute(
@@ -109,130 +95,10 @@ class TestSessionEndEndpoint:
         ).fetchone()
         conn.close()
 
-        assert row[0] is None
-        assert claim[0] is None
-
-    def test_end_session_force_alone_still_returns_chain_pending(self):
-        """``force`` alone no longer bypasses CHAIN_PENDING on the API path."""
-        self._insert_chain_pending_session("api-chain-force")
-        resp = self.client.post("/v1/sessions/api-chain-force/end?force=true")
-        assert resp.status_code == 409
-        assert resp.json()["error"]["code"] == "CHAIN_PENDING"
-
-    def test_end_session_override_without_rationale_returns_400(self):
-        """API rejects override flag with empty rationale."""
-        self._insert_chain_pending_session("api-empty-rationale")
-        resp = self.client.post(
-            "/v1/sessions/api-empty-rationale/end",
-            params={"override_chain_end": True, "chain_end_rationale": "   "},
-        )
-        assert resp.status_code == 400
-        assert resp.json()["error"]["code"] == "OVERRIDE_RATIONALE_REQUIRED"
-
-    def test_end_session_override_with_rationale_no_claims_succeeds(self):
-        """Override + rationale ends the session via the API path."""
-        checkpoint = {
-            "step": 1,
-            "action": "resume",
-            "chainable": True,
-            "handler_outcome": "completed",
-        }
-        conn = connect_test_db(self.db_info["db_path"])
-        now = fresh_now()
-        p = _p(conn)
-        conn.execute(
-            f"""INSERT INTO harness_sessions
-               (session_id, executor, provider, model, workspace, project_id,
-                offer_envelope, offered_at, last_heartbeat)
-               VALUES ({p}, 'claude-code', 'anthropic', '{TEST_MODEL_ID}',
-                       '/tmp/test', 1, {p}, {p}, {p})""",
-            (
-                "api-override-noclaim",
-                json.dumps({"max_chain_steps": 3, "chain_checkpoint": checkpoint}),
-                now,
-                now,
-            ),
-        )
-        conn.commit()
-        conn.close()
-        resp = self.client.post(
-            "/v1/sessions/api-override-noclaim/end",
-            params={
-                "override_chain_end": True,
-                "chain_end_rationale": "operator override — harness restart",
-            },
-        )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["ended_at"] is not None
+        assert row[0] is not None
+        assert claim[0] is not None
 
 
 # ---------------------------------------------------------------------------
-# Service client session-offer tests
+# End endpoint behavior
 # ---------------------------------------------------------------------------
-
-
-class TestServiceClientSessionOffer:
-    """Tests for service_client.py session-offer command."""
-
-    def test_session_offer_prints_json(self, session_offer_db):
-        """Session-offer prints NextAction JSON to stdout."""
-        import subprocess
-
-        env = os.environ.copy()
-        env["YOKE_DB"] = session_offer_db["db_path"]
-        conn = connect_test_db(session_offer_db["db_path"])
-        register_session(
-            conn,
-            session_id="DARIUS-test-session",
-            executor="claude-code",
-            provider="anthropic",
-            model_facts=SessionModelFacts(requested_model=TEST_MODEL_ID),
-            workspace=session_offer_db["tmp_dir"],
-            project_id=1,
-            execution_lane="primary",
-        )
-        conn.close()
-
-        result = subprocess.run(
-            _service_client_cmd(
-                [
-                    "session-offer",
-                    "--session-id",
-                    "DARIUS-test-session",
-                ]
-            ),
-            env=_with_source_pythonpath(env),
-            cwd=_REPO_ROOT,
-            capture_output=True,
-            text=True,
-        )
-
-        assert result.returncode == 0, f"stderr: {result.stderr}"
-        data = json.loads(result.stdout)
-        assert "action" in data
-        assert "reason" in data
-        assert "correlation_id" in data
-
-    def test_session_offer_rejects_retired_identity_flag(self, session_offer_db):
-        """The surface has no identity argument left to accept."""
-        import subprocess
-
-        env = os.environ.copy()
-        env["YOKE_DB"] = session_offer_db["db_path"]
-
-        result = subprocess.run(
-            _service_client_cmd(
-                [
-                    "session-offer",
-                    "--executor",
-                    "DARIUS",
-                ]
-            ),
-            env=_with_source_pythonpath(env),
-            cwd=_REPO_ROOT,
-            capture_output=True,
-            text=True,
-        )
-
-        assert result.returncode == 2

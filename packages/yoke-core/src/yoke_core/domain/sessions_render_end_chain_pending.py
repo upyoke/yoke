@@ -1,20 +1,8 @@
-"""Shared chain-pending state helper consumed by both end paths.
-
-The CHAIN_PENDING guard in :mod:`yoke_core.domain.sessions_render_end`
-and the ``chain_pending`` decline branch in
-:func:`sessions_render_end.end_session_if_empty` both consume the
-chainable-checkpoint snapshot computed here. Sharing the helper means a
-future change to "what counts as chain-pending" lands in one place.
-
-Sibling of ``sessions_render_end`` because that module's authored size
-otherwise crosses the 350-line limit; the dataclass plus three small
-helpers move out cleanly with no cross-cutting state.
-"""
+"""Stored checkpoint projection for unfinished-work telemetry."""
 
 from __future__ import annotations
 
 import json
-import shlex
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Optional
@@ -34,14 +22,7 @@ def _p(conn) -> str:
 
 @dataclass(frozen=True)
 class ChainPendingState:
-    """Chainable-checkpoint snapshot computed once per end attempt.
-
-    ``pending`` is the structural verdict: the session has a chainable
-    checkpoint within budget. ``end_session`` and ``end_session_if_empty``
-    both consume this field; the other fields populate audit events
-    (``ChainDeclineOverridden`` for the explicit override path,
-    ``ChainEndDeferred`` for the Stop-hook decline path).
-    """
+    """Checkpoint telemetry facts; these do not authorize ending."""
 
     pending: bool
     step: int
@@ -84,8 +65,12 @@ def chain_pending_state_from_envelope(envelope: Any) -> ChainPendingState:
     except (TypeError, ValueError):
         max_steps = _DEFAULT_MAX_CHAIN_STEPS
 
-    pending = chainable and step < max_steps and is_chain_pending_outcome(
-        handler_outcome,
+    pending = (
+        chainable
+        and step < max_steps
+        and is_chain_pending_outcome(
+            handler_outcome,
+        )
     )
 
     return ChainPendingState(
@@ -132,55 +117,6 @@ def last_released_at(
     return str(row["released_at"])
 
 
-def next_offer_step(state: ChainPendingState) -> int:
-    """Return the next ``session-offer`` step using normal chain accounting."""
-    if state.handler_outcome in NON_USEFUL_STEP_OUTCOMES:
-        return state.step
-    return state.step + 1
-
-
-def next_action_command(conn, session_id: str, next_step: int) -> str:
-    """Canonical resume command echoed on the chain-pending JSON output.
-
-    The Stop hook returns this string so an inspecting agent (or the
-    operator) can resume the chain without rederiving the loop.md Step A
-    invocation.
-    """
-    row = conn.execute(
-        f"""SELECT executor, provider, workspace, execution_lane
-           FROM harness_sessions
-           WHERE session_id = {_p(conn)}""",
-        (session_id,),
-    ).fetchone()
-    if row is None:
-        return (
-            "python3 -m yoke_core.api.service_client session-offer "
-            f"--session-id {shlex.quote(session_id)} --step {next_step}"
-        )
-
-    # ``--model`` is intentionally omitted: ``session-offer`` resolves the
-    # canonical model from ``harness_sessions.model`` (or the
-    # ``hook_helpers_model.detect_requested_model`` fallback) using ``--session-id``,
-    # so echoing the model here would just round-trip the same value back
-    # to the same row.
-    parts = [
-        "python3",
-        "-m",
-        "yoke_core.api.service_client",
-        "session-offer",
-        "--executor",
-        row["executor"],
-        "--provider",
-        row["provider"],
-        "--workspace",
-        row["workspace"],
-    ]
-    if row["execution_lane"]:
-        parts.extend(["--lane", row["execution_lane"]])
-    parts.extend(["--session-id", session_id, "--step", str(next_step)])
-    return " ".join(shlex.quote(str(part)) for part in parts)
-
-
 def is_chain_pending_outcome(handler_outcome: Optional[str]) -> bool:
     """Whether a handler outcome is allowed to keep the chain alive."""
     return handler_outcome in _CHAIN_PENDING_OUTCOMES
@@ -198,6 +134,4 @@ __all__ = [
     "chain_pending_outcomes",
     "is_chain_pending_outcome",
     "last_released_at",
-    "next_action_command",
-    "next_offer_step",
 ]

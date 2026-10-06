@@ -1,4 +1,4 @@
-"""Divergent public-ref handling across the scheduler and offer boundary.
+"""Divergent public-ref handling across the scheduler and charge boundary.
 
 Items whose ``project_sequence`` diverges from the internal ``items.id``
 must (a) keep dependency edges on those internal ids inside the frontier
@@ -67,25 +67,6 @@ def test_dependency_edges_resolve_to_internal_ids():
 
     blocker = next(fi for fi in result.runnable if fi.item_id == BLOCKER_INTERNAL_ID)
     assert blocker.unblocks_count == 1
-
-
-def test_offer_frontier_state_renders_true_public_refs():
-    """The decision-engine frontier carries rendered public refs."""
-    from yoke_core.api.service_client_sessions_frontier import (
-        build_frontier_state_from_schedule,
-    )
-
-    conn = make_test_db()
-    _seed_divergent_pair(conn)
-
-    schedule = compute_schedule(conn, project_scope=["yoke"], emit_events=False)
-    frontier = build_frontier_state_from_schedule(schedule, conn=conn)
-
-    assert f"YOK-{BLOCKER_SEQUENCE}" in frontier.runnable_items
-    assert f"YOK-{BLOCKER_INTERNAL_ID}" not in frontier.runnable_items
-    assert frontier.blocked_items == [f"YOK-{DEPENDENT_SEQUENCE}"]
-    assert frontier.selected_item == f"YOK-{BLOCKER_SEQUENCE}"
-    assert frontier.scheduler_context["selected_item"] == f"YOK-{BLOCKER_SEQUENCE}"
 
 
 def test_charge_schedule_json_renders_true_public_refs():

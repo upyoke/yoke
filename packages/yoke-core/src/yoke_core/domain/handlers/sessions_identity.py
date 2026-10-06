@@ -5,8 +5,8 @@ canonical executor id and its display alias, the provider, the model
 SessionStart observed, the execution lane the project's routing policy maps
 that executor to, the workspace, the project, and the actor. This handler
 reads those stored facts back through the shared projection and adds the
-values derived from them — the downstream paths the session's lane may
-execute, the chain budget the autonomous loop honors, and whether a Yoke
+values derived from them — the configured paths for the session's lane,
+the stored checkpoint budget, and whether a Yoke
 relay started this session as a headless command.
 
 Nothing here re-derives, so nothing returned is advisory. A caller that
@@ -88,13 +88,15 @@ def _actor_label(conn: Any, actor_id: Optional[int]) -> Optional[str]:
 
 
 def _lane_allowed_paths(
-    conn: Any, project_id: Optional[int], lane: Optional[str],
+    conn: Any,
+    project_id: Optional[int],
+    lane: Optional[str],
 ) -> List[str]:
-    """Return the downstream paths ``lane`` may execute for this project.
+    """Return the configured paths for ``lane`` in this project.
 
     Routing policy lives in the project's ``session-routing`` capability with
-    machine config as the no-project fallback — the same pair the offer path
-    reads, so the paths reported here are the paths the scheduler applies.
+    machine config as the no-project fallback. This is a settings projection;
+    launch staffing resolves execution permissions independently.
     """
     if not lane:
         return []
@@ -112,7 +114,7 @@ def _lane_allowed_paths(
 
 
 def _max_chain_steps() -> int:
-    from yoke_core.api.process_offer_policy import get_max_chain_steps
+    from yoke_core.api.session_chain_policy import get_max_chain_steps
     from yoke_core.api.service_client_shared import _get_config_path
 
     return get_max_chain_steps(_get_config_path())
@@ -148,7 +150,9 @@ def handle_identity(request: FunctionCallRequest) -> HandlerOutcome:
             "requested_model": identity.requested_model or None,
             "execution_lane": identity.execution_lane,
             "lane_allowed_paths": _lane_allowed_paths(
-                conn, identity.project_id, identity.execution_lane,
+                conn,
+                identity.project_id,
+                identity.execution_lane,
             ),
             "workspace": identity.workspace,
             "project_id": identity.project_id,
