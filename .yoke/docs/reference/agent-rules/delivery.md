@@ -79,17 +79,25 @@ persistent-environment run enrolls only members with explicit post-deploy
 obligations for that environment; untargeted cases remain with final delivery.
 Each run freezes only obligations its QA target can answer. Custody for one
 QA target does not reserve another target or the final delivery. Composition
-continues to name obligations no composed member run can answer. Final-target
-holders keep custody when later intake changes; a pre-admission holder without
-a snapshot or selection also retains its landing. Target splitting uses
-recorded selections through unlocked, set-based reads.
+continues to name obligations no composed member run can answer. Holding is
+per target environment: final-target holders keep final-delivery custody when
+later intake changes, and only a holder on the supplemental run's own
+environment holds its targeted obligations — a pre-admission holder there
+without a snapshot or selection retains its landing, while a production run
+never holds an item away from the stage run that owes it stage QA. Target
+splitting uses recorded selections through unlocked, set-based reads.
 
 All records, claims, receipts and QA evidence remain on the connected control
 plane. The deployment execution target supplies the stage URL and deployed
 revision; observing stage requires no stage control-plane connection. The
 item's completion flow remains its final delivery authority. Its done gate
 requires accepted admitted copies for every stage and production obligation,
-so passing production cannot hide a failed or pending stage case.
+so passing production cannot hide a failed or pending stage case. A run
+settles on its own target: the production run succeeds once its own
+obligations pass, leaving a member that still owes stage QA at its release
+wait with `deployed_to` stamped. That member closes against the production
+delivery when the stage run accepts its obligation; a member red on the
+run's own target still holds the run.
 
 ## Release-time roles
 

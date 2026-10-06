@@ -98,7 +98,15 @@ is kept. The refusal names each member — the
 blocked ones with their own reason, the rest as held with the run so nobody
 repairs a member that has nothing wrong. A final member the run could not
 even try to close, such as one whose post-deploy obligations are unanswered,
-holds the run the same way. A carried cross-project member whose own
+holds the run the same way. A run settles on its own target: a member whose
+only open obligations target another environment — stage QA beside a
+production release — is delivered by this run, stamped `deployed_to`, and
+stays at its release wait without holding the run. It closes against that
+delivery once a run on the other environment accepts its obligation. A
+member still red or unanswered on the run's own target keeps holding it.
+Holding is per target environment too: a run holds an item only for the
+environment it delivers, so a stage run enrolls an item a production run
+holds whenever the item still owes stage QA. A carried cross-project member whose own
 completion flow declares no item QA and which has no explicit plan or
 post-deploy requirement owes no answer: stage and fleet reports name its
 own flow as the reason, and it closes with the release. Same-project members

@@ -40,9 +40,7 @@ def _item(conn, item_id):
 
 
 def _executing(conn, run_id):
-    conn.execute(
-        "UPDATE deployment_runs SET status='executing' WHERE id=%s", (run_id,)
-    )
+    conn.execute("UPDATE deployment_runs SET status='executing' WHERE id=%s", (run_id,))
     conn.commit()
 
 
@@ -146,9 +144,7 @@ def test_member_closes_when_its_stage_obligation_passes(test_db, monkeypatch):
     _production_delivered(test_db, item_id)
     mark_settling(test_db, "run-prod")
     assert settle_members(test_db, "run-prod") is None
-    test_db.execute(
-        "UPDATE deployment_runs SET status='succeeded' WHERE id='run-prod'"
-    )
+    test_db.execute("UPDATE deployment_runs SET status='succeeded' WHERE id='run-prod'")
     test_db.commit()
     assert _item(test_db, item_id)["status"] == "release"
 
