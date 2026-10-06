@@ -9,12 +9,12 @@ from yoke_cli.transport.bounded_json_http import (
 from yoke_contracts.machine_authorization import (
     HostedMachineAuthorizationError,
     START_PATH,
-    _platform_origin,
+    authorization_origin,
 )
 
 
 def browser_sign_in_available(url: str) -> bool:
-    origin = _platform_origin(url)
+    origin = authorization_origin(url)
     try:
         response = request_json(
             urllib.request.Request(origin + START_PATH, method="GET"),
@@ -23,8 +23,14 @@ def browser_sign_in_available(url: str) -> bool:
             allow_loopback_http=True,
         )
     except BoundedJsonHttpStatusError as exc:
+        reason = (
+            "oidc_misconfigured"
+            if isinstance(exc.payload, dict)
+            and exc.payload.get("error") == "oidc_misconfigured"
+            else "machine_sign_in_unavailable"
+        )
         raise HostedMachineAuthorizationError(
-            f"machine_sign_in_unavailable: the server's sign-in discovery returned HTTP {exc.status}; "
+            f"{reason}: the server's sign-in discovery returned HTTP {exc.status}; "
             "ask its operator to check the served build and company sign-in settings, "
             "or connect with an API token using --token-stdin"
         ) from None

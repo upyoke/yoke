@@ -30,9 +30,13 @@ def conn():
         yield value
 
 
-def pending(conn):
+def pending(conn, client_key="client"):
     return codes.start(
-        conn, origin=ORIGIN, machine_id=MACHINE_ID, machine_name="Pat's laptop"
+        conn,
+        origin=ORIGIN,
+        machine_id=MACHINE_ID,
+        machine_name="Pat's laptop",
+        client_key=client_key,
     )
 
 
@@ -131,10 +135,11 @@ def test_mint_failure_rolls_back_consumption_and_can_retry(conn, monkeypatch):
 
 
 def test_pending_store_is_bounded_and_expires_without_affecting_decisions(conn):
-    for _ in range(128):
-        pending(conn)
+    for client in range(16):
+        for _ in range(8):
+            pending(conn, client_key=str(client))
     with pytest.raises(codes.MachineAuthorizationError, match="authorization_capacity"):
-        pending(conn)
+        pending(conn, client_key="fresh-client")
     conn.execute(
         "UPDATE machine_authorization_codes SET expires_at='2000-01-01T00:00:00Z'"
     )
@@ -143,3 +148,31 @@ def test_pending_store_is_bounded_and_expires_without_affecting_decisions(conn):
         conn.execute("SELECT count(*) FROM machine_authorization_codes").fetchone()[0]
         == 1
     )
+
+
+def test_one_client_cannot_fill_the_server_by_changing_machine_identity(conn):
+    for _ in range(codes.CLIENT_PENDING_CODES):
+        pending(conn, client_key="attacker")
+    with pytest.raises(
+        codes.MachineAuthorizationError, match="authorization_client_capacity"
+    ):
+        codes.start(
+            conn,
+            origin=ORIGIN,
+            machine_id=OTHER_MACHINE_ID,
+            machine_name="new id",
+            client_key="attacker",
+        )
+    conn.rollback()
+    assert pending(conn, client_key="another-client")["device_code"]
+    assert (
+        conn.execute("SELECT count(*) FROM machine_authorization_codes").fetchone()[0]
+        == codes.CLIENT_PENDING_CODES + 1
+    )
+
+
+def test_consumed_codes_free_client_capacity(conn):
+    values = [pending(conn) for _ in range(codes.CLIENT_PENDING_CODES)]
+    codes.resolve(conn, code=values[0]["user_code"], actor_id=1, action="approve")
+    poll(conn, values[0])
+    assert pending(conn)["device_code"]

@@ -1,11 +1,4 @@
-"""Sign-in transitions for the ``yoke setup`` wizard's Account step.
-
-A mixin composed alongside :class:`onboard_wizard_flow.WizardFlow` into
-:class:`onboard_wizard_app.OnboardWizardApp`. It owns the sign-in lanes the
-deployment-destination picker (:class:`onboard_wizard_flow_destination.
-DestinationFlow`) routes into for explicit team-server credentials. Hosted
-browser authorization lives in ``onboard_wizard_flow_hosted_machine``. Each handler records an answer and routes onward to GitHub and Project setup.
-"""
+"""Team-server token entry, verification and recovery for the setup wizard."""
 
 from __future__ import annotations
 
@@ -284,16 +277,7 @@ class ConnectFlow(TeamServerConnectFlow):
         )
         if NO_SERVER_GUIDANCE not in details:
             details.append(NO_SERVER_GUIDANCE)
-        rows = (
-            [
-                SelectionRow(
-                    "retry", "Edit connection", "return to the populated form"
-                ),
-                SelectionRow("back", "Choose another home", "return to destinations"),
-            ]
-            if retry_source in {"server-form", "team-server"}
-            else steps.YOKE_TOKEN_VERIFY_RETRY_ROWS
-        )
+        rows = self._connection_verify_error_rows(retry_source)
         self._goto(
             _View(
                 STEP_CONNECT,
@@ -311,6 +295,10 @@ class ConnectFlow(TeamServerConnectFlow):
         )
 
     def _on_yoke_verify_error(self: _Shell, choice: str, retry_source: str) -> None:
+        if choice == "token" and retry_source == "team-server":
+            self._machine_authorization_server = None
+            self._goto_server_connection_form()
+            return
         if choice == "retry" and retry_source == "team-server":
             self._goto_team_server()
             return

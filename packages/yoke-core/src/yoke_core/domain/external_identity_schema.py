@@ -35,6 +35,7 @@ REQUIRED_EXTERNAL_IDENTITY_TABLES = (
     "web_sessions",
     "browser_sign_in_links",
     "machine_authorization_codes",
+    "machine_authorization_rate_limits",
 )
 
 

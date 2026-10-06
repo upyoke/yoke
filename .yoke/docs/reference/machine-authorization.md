@@ -28,7 +28,9 @@ company sign-in, use `yoke connect https://<server> --token-stdin` or
 - Self-host discovery is `GET /api/machine/authorizations`: `device_code` is true
   exactly when company sign-in is configured. Partial configuration refuses as
   `oidc_misconfigured`; an older server without discovery requires an explicit
-  API token until its operator upgrades it.
+  API token until its operator upgrades it. The wizard retains the discovery
+  refusal and offers **Use API token**, **Edit connection**, and **Choose another
+  home**, including when company sign-in is misconfigured.
 
 ## Approval and delivery
 
@@ -49,8 +51,19 @@ poll receives the raw credential and no raw credential is stored in the code
 record. Network loss after delivery requires starting a new code.
 
 The self-host store keeps hashed device secrets and expires codes after ten
-minutes, deleting expired records on the next start. At 128 live records it
-refuses as `authorization_capacity`; retry after expiry. A denied, consumed,
+minutes, deleting expired records on the next start. Pending admission is bounded
+by trusted transport client identity: eight unconsumed codes per client and
+128 across the server. Changing the machine UUID or forwarding headers does
+not create a new client budget. `authorization_client_capacity` and
+`authorization_capacity` refuse further starts; finish an approval or retry
+after expiry. Consumed codes free pending capacity.
+
+Persistent atomic counters are shared across processes and restarts, separately
+from telemetry: six start requests and 120 poll requests per client per minute.
+HTTP 429 `authorization_start_rate_limited` or `authorization_poll_rate_limited`
+includes `Retry-After`; stop and retry after that delay. Failed and malformed
+requests also consume the budget. Configure trusted proxies so the server sees
+the actual transport client; clients sharing an address share these budgets. A denied, consumed,
 or expired code requires a new connection. Wrong machine identity, missing
 org membership, or disabled actor refuses with its recovery step. A database
 failure before issuance leaves delivery retryable. Cookies authorize browser
@@ -63,3 +76,7 @@ Run `yoke machine-authorization get CODE` to read a code, then
 record your personal decision. Read the returned decision and finish polling
 from the original machine. These operations never accept a caller-supplied
 owner, org, or credential.
+
+Shared contract helpers used by clients are public: `authorization_origin`,
+`same_origin_url`, `required_text`, and `bounded_integer`, with
+`BROWSER_VERIFICATION_PATHS` and `RETRYABLE_POLL_ERRORS`.

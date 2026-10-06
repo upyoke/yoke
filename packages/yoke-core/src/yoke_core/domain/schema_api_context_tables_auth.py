@@ -19,6 +19,15 @@ AUTH_TABLES: dict[str, dict] = {
         ],
         "notes": "Disposable shared anonymous collector request counters. client_key hashes trusted transport client identity and organization; counters are atomic and independent of events retention.",
     },
+    "machine_authorization_rate_limits": {
+        "columns": [
+            ("client_key", "TEXT"),
+            ("operation", "TEXT"),
+            ("window_start", "INTEGER"),
+            ("request_count", "INTEGER"),
+        ],
+        "notes": "Disposable per-client start and poll request counters shared across serving processes. The key hashes trusted transport identity; atomic counters bound unauthenticated machine sign-in traffic independently of telemetry.",
+    },
     "machine_authorization_codes": {
         "columns": [
             ("device_hash", "TEXT"),
@@ -29,8 +38,9 @@ AUTH_TABLES: dict[str, dict] = {
             ("machine_id", "TEXT"),
             ("machine_name", "TEXT"),
             ("consumed_at", "TEXT"),
+            ("client_key", "TEXT"),
         ],
-        "notes": "Self-host pending device-code store, additive on boot. The device secret is hashed; raw credentials are never stored here. Test auth DDL must carry this table too: missing fixture DDL reports authorization_store_unavailable. Read or resolve through machine_authorization.get/resolve, not raw SQL. CLI hosted_machine_authorization.start accepts keyword-only self_host; URL-only test doubles reject that keyword.",
+        "notes": "Self-host pending personal machine approval. Device secrets are hashed, raw credentials are never stored, and consumption is single-use. client_key hashes the trusted transport client identity for pending-code admission.",
     },
     "roles": {
         "columns": [
