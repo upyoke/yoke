@@ -27,7 +27,7 @@ function sessionRow(sessionId, liveness, overrides = {}) {
     executor: "codex",
     executor_surface: "codex-cli",
     model: "gpt-5.6-sol",
-    execution_lane: "ALTMAN",
+    execution_level: "ALTMAN",
     mode: "dash",
     actor_id: 2,
     actor_kind: "human",

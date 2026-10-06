@@ -52,7 +52,7 @@ def sessions_identity(args: List[str]) -> int:
     """Read the calling session's resolved identity back from the authority.
 
     Every value comes from the session row registration already resolved —
-    canonical executor and display alias, provider, model, execution lane and
+    canonical executor and display alias, provider, model, execution level and
     the paths that lane may execute, workspace, project, actor — plus the
     chain budget. Nothing is detected locally, so no field is advisory.
     """

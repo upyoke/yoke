@@ -41,9 +41,7 @@ def _make_conn(repo_path: str):
     )
     os.environ["YOKE_MACHINE_CONFIG_FILE"] = str(config_path)
     name = pg_testdb.create_test_database()
-    conn = pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name
-    )
+    conn = pg_testdb.drop_database_on_close(pg_testdb.connect_test_database(name), name)
     apply_fixture_ddl(
         conn,
         """
@@ -57,7 +55,7 @@ def _make_conn(repo_path: str):
         );
         CREATE TABLE harness_sessions (
             session_id TEXT PRIMARY KEY,
-            execution_lane TEXT NOT NULL DEFAULT 'primary'
+            execution_level TEXT NOT NULL DEFAULT 'primary'
         );
         """,
     )
@@ -109,10 +107,7 @@ def test_single_lane_item_returns_active_branch(tmp_path):
     conn = _make_conn(str(tmp_path))
     _insert_item(conn, 501, "issue", "YOK-501")
     # target_path is irrelevant for issues — returned regardless of value.
-    assert (
-        _resolve_active_worktree(conn, "any-session", 501, "/nowhere")
-        == "YOK-501"
-    )
+    assert _resolve_active_worktree(conn, "any-session", 501, "/nowhere") == "YOK-501"
 
 
 def test_single_lane_item_returns_none_when_branch_blank(tmp_path):
@@ -175,10 +170,7 @@ def test_multi_lane_item_returns_none_for_relative_target(tmp_path):
     _insert_lane(conn, 603, "epic603-a")
     # Relative paths cannot be ancestor-checked against absolute roots.
     assert (
-        _resolve_active_worktree(
-            conn, "any-session", 603, "runtime/api/foo.py"
-        )
-        is None
+        _resolve_active_worktree(conn, "any-session", 603, "runtime/api/foo.py") is None
     )
 
 
@@ -186,27 +178,20 @@ def test_multi_lane_item_returns_none_when_no_lanes(tmp_path):
     conn = _make_conn(str(tmp_path))
     _insert_item(conn, 604, "epic", None)
     assert (
-        _resolve_active_worktree(
-            conn, "any-session", 604, "/tmp/anywhere/foo.py"
-        )
+        _resolve_active_worktree(conn, "any-session", 604, "/tmp/anywhere/foo.py")
         is None
     )
 
 
 def test_missing_item_returns_none(tmp_path):
     conn = _make_conn(str(tmp_path))
-    assert (
-        _resolve_active_worktree(conn, "any-session", 9999, "/tmp/x.py")
-        is None
-    )
+    assert _resolve_active_worktree(conn, "any-session", 9999, "/tmp/x.py") is None
 
 
 def test_invalid_item_id_returns_none(tmp_path):
     conn = _make_conn(str(tmp_path))
     assert (
-        _resolve_active_worktree(
-            conn, "any-session", "not-a-number", "/tmp/x.py"
-        )
+        _resolve_active_worktree(conn, "any-session", "not-a-number", "/tmp/x.py")
         is None
     )
     assert _resolve_active_worktree(conn, "any-session", None, "/tmp/x.py") is None
@@ -231,23 +216,21 @@ def test_two_parallel_evaluations_resolve_independently(tmp_path):
     target_b = str(repo / ".worktrees/lane-feature-b/runtime/api/b.py")
     # Same session_id, two different target_paths → two different lanes.
     assert (
-        _resolve_active_worktree(conn, "engineer-1", 700, target_a)
-        == "lane-feature-a"
+        _resolve_active_worktree(conn, "engineer-1", 700, target_a) == "lane-feature-a"
     )
     assert (
-        _resolve_active_worktree(conn, "engineer-1", 700, target_b)
-        == "lane-feature-b"
+        _resolve_active_worktree(conn, "engineer-1", 700, target_b) == "lane-feature-b"
     )
     # The integration lane is not selected for a target in a worker lane.
 
 
-def test_epic_ignores_harness_sessions_execution_lane(tmp_path):
-    """No SELECT execution_lane FROM harness_sessions in the path.
+def test_epic_ignores_harness_sessions_execution_level(tmp_path):
+    """No SELECT execution_level FROM harness_sessions in the path.
 
     Behavior assertion: epic resolution does NOT depend on the session
-    row's execution_lane field. Even when the session row carries a lane
+    row's execution_level field. Even when the session row carries a lane
     value that happens to match a chain branch name, the disambiguator
-    is still target_path. This test sets execution_lane to one chain
+    is still target_path. This test sets execution_level to one chain
     branch but evaluates a target in the OTHER chain — the resolver
     must return the OTHER chain.
     """
@@ -257,17 +240,14 @@ def test_epic_ignores_harness_sessions_execution_lane(tmp_path):
     conn = _make_conn(str(repo))
     _insert_item(conn, 701, "epic", None)
     conn.execute(
-        "INSERT INTO harness_sessions (session_id, execution_lane) VALUES (%s, %s)",
+        "INSERT INTO harness_sessions (session_id, execution_level) VALUES (%s, %s)",
         ("sess-x", "branch-x"),
     )
     _insert_lane(conn, 701, "branch-x")
     _insert_lane(conn, 701, "branch-y")
     # session row says branch-x, target is in branch-y → must resolve to branch-y.
     target_in_y = str(repo / ".worktrees/branch-y/runtime/api/foo.py")
-    assert (
-        _resolve_active_worktree(conn, "sess-x", 701, target_in_y)
-        == "branch-y"
-    )
+    assert _resolve_active_worktree(conn, "sess-x", 701, target_in_y) == "branch-y"
 
 
 def test_pick_chain_for_target_handles_resolved_paths(tmp_path):

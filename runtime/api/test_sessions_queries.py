@@ -44,14 +44,14 @@ def _claimable_query_items(conn):
 class TestQuerySurface:
     def test_list_harness_sessions(self, conn):
         _register(conn, session_id="sess-1")
-        _register(conn, session_id="sess-2", execution_lane="review")
+        _register(conn, session_id="sess-2", execution_level="review")
         harness_sessions = list_harness_sessions(conn)
         assert len(harness_sessions) == 2
 
-    def test_list_harness_sessions_filter_lane(self, conn):
-        _register(conn, session_id="sess-1", execution_lane="primary")
-        _register(conn, session_id="sess-2", execution_lane="review")
-        harness_sessions = list_harness_sessions(conn, lane="review")
+    def test_list_harness_sessions_filter_level(self, conn):
+        _register(conn, session_id="sess-1", execution_level="primary")
+        _register(conn, session_id="sess-2", execution_level="review")
+        harness_sessions = list_harness_sessions(conn, level="review")
         assert len(harness_sessions) == 1
         assert harness_sessions[0]["session_id"] == "sess-2"
 
@@ -124,6 +124,6 @@ class TestQuerySurface:
 
 
 # ---------------------------------------------------------------------------
-# Basic ownership-helper tests (basics + contract). Lane/reclaim/telemetry
+# Basic ownership-helper tests (basics + contract). Level/reclaim/telemetry
 # tests live in sibling files (see header docstring).
 # ---------------------------------------------------------------------------

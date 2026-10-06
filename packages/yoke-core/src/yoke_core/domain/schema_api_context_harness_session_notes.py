@@ -137,7 +137,7 @@ HARNESS_SESSION_NOTES = (
     "Write checkpoints through sessions.checkpoint; update_chain_checkpoint "
     "emits ChainStepCompleted. Frontier consumers use "
     "yoke_core.domain.scheduler.compute_schedule directly. "
-    "execution_lane groups sessions in identity and roster views. "
+    "execution_level groups sessions in identity and roster views. "
     "Read identity through `yoke sessions identity`. actor_id is bound "
     "at registration and is never NULL on a row this build wrote: the verified "
     "bearer-token actor over https, otherwise the universe's "

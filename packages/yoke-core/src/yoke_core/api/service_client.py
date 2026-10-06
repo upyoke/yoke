@@ -138,7 +138,7 @@ from yoke_core.api.service_client_shared import (  # noqa: F401
     read_chain_checkpoint,
     release_item_claim_for_execution,
     resolve_claimed_work_context,
-    resolve_execution_lane,
+    resolve_execution_level,
     runs,
     set_session_mode,
 )

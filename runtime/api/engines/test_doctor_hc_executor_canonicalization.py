@@ -37,7 +37,7 @@ CREATE TABLE harness_sessions (
     requested_model TEXT DEFAULT NULL,
     requested_reasoning_effort TEXT DEFAULT NULL,
     requested_context_window_tokens INTEGER DEFAULT NULL,
-    execution_lane TEXT NOT NULL DEFAULT 'primary',
+    execution_level TEXT NOT NULL DEFAULT 'primary',
     executor_version TEXT, machine_id TEXT,
     workspace TEXT NOT NULL DEFAULT '/tmp',
     mode TEXT DEFAULT 'wait',
@@ -51,9 +51,7 @@ CREATE TABLE harness_sessions (
 
 def _empty_conn():
     name = pg_testdb.create_test_database()
-    return pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name
-    )
+    return pg_testdb.drop_database_on_close(pg_testdb.connect_test_database(name), name)
 
 
 @pytest.fixture

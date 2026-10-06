@@ -7,9 +7,9 @@ owes no mutation, so gathering those fields must not refuse a no-op boot.
 Existing null rows are left as they are — this module does not backfill.
 
 ``model_name`` on the same row is a declared migration model. Execution
-lanes (including the unresolved-lane sentinel) are refused unless that
+levels (including the unresolved-level sentinel) are refused unless that
 spelling is also a declared model, which is how the yoke default model
-shares a name with the sentinel without the column becoming a lane dump.
+shares a name with the sentinel without the column becoming a level dump.
 """
 
 from __future__ import annotations
@@ -18,9 +18,9 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, Iterable, Mapping, Optional
 
-from yoke_contracts.session_lane import (
-    DEFAULT_LANE_METADATA,
-    UNRESOLVED_EXECUTION_LANE,
+from yoke_contracts.session_level import (
+    DEFAULT_LEVEL_METADATA,
+    UNRESOLVED_EXECUTION_LEVEL,
 )
 from yoke_core.domain.migration_apply_contract import MigrationApplyError
 from yoke_core.domain.migration_model_capability_defaults import DEFAULT_MODEL_NAME
@@ -39,15 +39,13 @@ class IncompleteAttributionError(MigrationApplyError):
     """An apply that could not name who ran it, from which branch and commit."""
 
 
-class LaneAsModelNameError(MigrationApplyError):
-    """``model_name`` carried an execution lane instead of a migration model."""
+class LevelAsModelNameError(MigrationApplyError):
+    """``model_name`` carried an execution level instead of a migration model."""
 
 
 def require_attribution(values: Mapping[str, Any]) -> Dict[str, str]:
     """Return the four attribution fields, or name every missing one."""
-    missing = [
-        name for name in ATTRIBUTION_FIELDS if not _present(values.get(name))
-    ]
+    missing = [name for name in ATTRIBUTION_FIELDS if not _present(values.get(name))]
     if missing:
         listed = ", ".join(missing)
         copula = "is" if len(missing) == 1 else "are"
@@ -59,31 +57,30 @@ def require_attribution(values: Mapping[str, Any]) -> Dict[str, str]:
     return {name: str(values[name]).strip() for name in ATTRIBUTION_FIELDS}
 
 
-def refuse_lane_as_model_name(
+def refuse_level_as_model_name(
     model_name: Optional[str],
     *,
     declared_models: Iterable[str] = (),
-    execution_lanes: Iterable[str] = (),
+    execution_levels: Iterable[str] = (),
 ) -> str:
-    """Return a model name that is not an undeclared execution lane."""
+    """Return a model name that is not an undeclared execution level."""
     value = (model_name or "").strip()
     if not value:
-        raise LaneAsModelNameError(
+        raise LevelAsModelNameError(
             "model_name is missing; a declared migration model is required, "
-            "not an execution lane"
+            "not an execution level"
         )
     declared = {str(name).strip() for name in declared_models if str(name).strip()}
-    lanes = _known_execution_lanes(execution_lanes)
+    levels = _known_execution_levels(execution_levels)
     if declared:
         if value not in declared:
-            raise LaneAsModelNameError(
+            raise LevelAsModelNameError(
                 f"model_name {value!r} is not a declared migration model"
             )
         return value
-    if value in lanes and value != DEFAULT_MODEL_NAME:
-        raise LaneAsModelNameError(
-            f"model_name {value!r} is an execution lane, not a migration "
-            "model"
+    if value in levels and value != DEFAULT_MODEL_NAME:
+        raise LevelAsModelNameError(
+            f"model_name {value!r} is an execution level, not a migration model"
         )
     return value
 
@@ -182,10 +179,10 @@ def _git_capture(worktree_path: Path, argv: list[str]) -> Optional[str]:
     return value or None
 
 
-def _known_execution_lanes(extra: Iterable[str]) -> frozenset[str]:
-    lanes = {UNRESOLVED_EXECUTION_LANE, *DEFAULT_LANE_METADATA}
-    lanes.update(str(name).strip() for name in extra if str(name).strip())
-    return frozenset(lanes)
+def _known_execution_levels(extra: Iterable[str]) -> frozenset[str]:
+    levels = {UNRESOLVED_EXECUTION_LEVEL, *DEFAULT_LEVEL_METADATA}
+    levels.update(str(name).strip() for name in extra if str(name).strip())
+    return frozenset(levels)
 
 
 def _present(value: Any) -> bool:
@@ -198,11 +195,11 @@ __all__ = [
     "ATTRIBUTION_FIELDS",
     "BOOT_BRANCH_WHEN_UNRESOLVED",
     "IncompleteAttributionError",
-    "LaneAsModelNameError",
+    "LevelAsModelNameError",
     "collect_boot_attribution",
     "collect_operator_attribution",
     "git_branch_and_commit",
     "lookup_session_actor_id",
-    "refuse_lane_as_model_name",
+    "refuse_level_as_model_name",
     "require_attribution",
 ]

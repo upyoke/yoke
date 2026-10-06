@@ -52,7 +52,7 @@ def _insert_session(
     ended_at: str | None = None,
     terminated_at: str | None = None,
     executor: str = "claude-code",
-    lane: str = "primary",
+    level: str = "primary",
     mode: str = "wait",
     project_id: int = 1,
     actor_id: int | None = None,
@@ -60,7 +60,7 @@ def _insert_session(
 ) -> None:
     conn.execute(
         "INSERT INTO harness_sessions ("
-        "session_id, executor, provider, model, execution_lane, workspace, "
+        "session_id, executor, provider, model, execution_level, workspace, "
         "project_id, mode, offered_at, last_heartbeat, last_tool_call_at, "
         "ended_at, terminated_at, actor_id, current_item_id"
         ") VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
@@ -69,7 +69,7 @@ def _insert_session(
             executor,
             "anthropic",
             "test-model",
-            lane,
+            level,
             "/tmp/workspace",
             project_id,
             mode,
@@ -186,9 +186,7 @@ class TestClaimsAndAttribution:
 
         named = seed_human_actor(test_db, "named-operator")
         resolverless = seed_human_actor(test_db)
-        _insert_session(
-            test_db, "s-named", last_heartbeat=_iso(), actor_id=named
-        )
+        _insert_session(test_db, "s-named", last_heartbeat=_iso(), actor_id=named)
         _insert_session(
             test_db, "s-resolverless", last_heartbeat=_iso(), actor_id=resolverless
         )

@@ -10,16 +10,16 @@ from __future__ import annotations
 import copy
 from typing import Any
 
-from yoke_contracts.session_lane import DEFAULT_LANE_METADATA
+from yoke_contracts.session_level import DEFAULT_LEVEL_METADATA
 
 _SESSION_ROUTING_DEFAULTS: dict[str, Any] = {
-    "executor_default_lanes": {
+    "executor_default_levels": {
         "claude*": "DARIUS",
         "codex*": "ALTMAN",
         "DARIUS": "DARIUS",
         "ALTMAN": "ALTMAN",
     },
-    "lane_metadata": DEFAULT_LANE_METADATA,
+    "level_metadata": DEFAULT_LEVEL_METADATA,
 }
 
 

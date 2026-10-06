@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional
 
-from yoke_contracts.session_lane import UNRESOLVED_EXECUTION_LANE
+from yoke_contracts.session_level import UNRESOLVED_EXECUTION_LEVEL
 from yoke_contracts.session_model_facts import SessionModelFacts
 from . import db_backend
 from . import sessions_analytics as _sa
@@ -25,7 +25,7 @@ from .sessions_lifecycle_identity import (
     normalize_observed_identity,
     refresh_active_duplicate_identity,
     resolve_reactivation_executor_version,
-    resolve_reactivation_lane,
+    resolve_reactivation_level,
     resolve_session_actor_id,
     resolve_session_project_id,
 )
@@ -78,7 +78,7 @@ def register_session(
     executor: str,
     provider: str,
     model_facts: SessionModelFacts,
-    execution_lane: str = UNRESOLVED_EXECUTION_LANE,
+    execution_level: str = UNRESOLVED_EXECUTION_LEVEL,
     workspace: str,
     project_id: int,
     mode: str = "wait",
@@ -131,14 +131,14 @@ def register_session(
     has_thread_col = native_thread_id_column_present(conn)
     insert_cols = (
         "session_id, executor, executor_surface, executor_version, machine_id, "
-        "provider, " + ", ".join(MODEL_COLUMNS) + ", execution_lane, workspace, "
+        "provider, " + ", ".join(MODEL_COLUMNS) + ", execution_level, workspace, "
         "mode, offered_at, last_heartbeat, ended_at, offer_envelope, actor_id, "
         "project_id"
     )
     # fmt: off
     insert_values: List[Any] = [
         session_id, canonical_executor, display_name, executor_version, machine_id,
-        provider, *facts_values(model_facts), execution_lane, workspace, mode,
+        provider, *facts_values(model_facts), execution_level, workspace, mode,
         now, now, None, envelope_json, resolved_actor_id, resolved_project_id,
     ]
     # fmt: on
@@ -185,7 +185,7 @@ def register_session(
                 existing=existing,
                 session_id=session_id,
                 model_facts=model_facts,
-                execution_lane=execution_lane,
+                execution_level=execution_level,
                 resolved_actor_id=resolved_actor_id,
                 executor_surface=display_name,
                 executor_version=executor_version,
@@ -198,8 +198,8 @@ def register_session(
             )
 
         resolved_facts = merged_facts(existing, model_facts)
-        resolved_lane = resolve_reactivation_lane(
-            existing, execution_lane=execution_lane
+        resolved_level = resolve_reactivation_level(
+            existing, execution_level=execution_level
         )
         driver_version = executor_version
         executor_version = resolve_reactivation_executor_version(
@@ -223,7 +223,7 @@ def register_session(
         model_assignments = ", ".join(f"{column} = {p}" for column in MODEL_COLUMNS)
         # fmt: off
         params: List[Any] = [
-            provider, *facts_values(resolved_facts), resolved_lane, workspace, mode,
+            provider, *facts_values(resolved_facts), resolved_level, workspace, mode,
             envelope_json, executor_version, machine_id,
         ]
         # fmt: on
@@ -241,7 +241,7 @@ def register_session(
             f"""UPDATE harness_sessions
                SET provider = {p},
                    {model_assignments},
-                   execution_lane = {p},
+                   execution_level = {p},
                    workspace = {p},
                    mode = {p},
                    ended_at = NULL,
@@ -279,7 +279,7 @@ def register_session(
             emit_reactivated_with_released_claims(conn, session_id)
         except Exception:
             pass  # telemetry — never block reactivation
-        execution_lane = resolved_lane
+        execution_level = resolved_level
 
     event_context = session_started_context(
         conn,
@@ -289,7 +289,7 @@ def register_session(
         fallback_surface=display_name,
         provider=provider,
         model_facts=resolved_facts,
-        execution_lane=execution_lane,
+        execution_level=execution_level,
         workspace=workspace,
         mode=mode,
         executor_version=executor_version,

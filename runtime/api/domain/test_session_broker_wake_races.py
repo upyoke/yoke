@@ -172,7 +172,7 @@ def test_broker_claim_is_scoped_to_exact_lease_and_verified_peer() -> None:
     conn.execute(
         "INSERT INTO harness_sessions "
         "(session_id,project_id,executor,executor_surface,executor_version,"
-        "machine_id,execution_lane,last_heartbeat,last_tool_call_at,offered_at,"
+        "machine_id,execution_level,last_heartbeat,last_tool_call_at,offered_at,"
         "ended_at,turn_posture,turn_posture_at) VALUES "
         "('s5',1,'codex','codex-cli','0.148.0a15',?,'direct',?,?,?,?,"
         "'waiting',?)",

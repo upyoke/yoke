@@ -129,6 +129,11 @@ def test_recipient_selector_requires_an_anchor_and_closed_surfaces() -> None:
     # A state the resolver never produces would filter to nobody in silence.
     with pytest.raises(ValidationError, match="unknown liveness states"):
         RecipientSelector(universe=True, liveness=["stopped"])
+    # A retired filter key would otherwise be ignored and widen the audience.
+    with pytest.raises(ValidationError, match="selector.execution_levels"):
+        RecipientSelector.model_validate(
+            {"universe": True, "execution_lanes": ["DARIUS"]}
+        )
 
 
 def test_session_control_schema_is_additive_and_idempotent() -> None:

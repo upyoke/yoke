@@ -51,7 +51,7 @@ class TestReadOnlyVerbsHaveNoMutations:
             f"sed -n '1,80p' {TMP_RAW}",
             f"cat {TMP_RAW}",
             f"wc -l {TMP_RAW}",
-            f'grep -n "execution_lane\\|class SessionIdentity" {WT}/file.py | head -50',
+            f'grep -n "execution_level\\|class SessionIdentity" {WT}/file.py | head -50',
         ],
     )
     def test_read_only_verb_emits_no_mutation(self, cmd):

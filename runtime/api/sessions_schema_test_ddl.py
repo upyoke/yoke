@@ -25,7 +25,7 @@ _SESSIONS_AND_CLAIMS_DDL = f"""
             requested_model TEXT DEFAULT NULL,
             requested_reasoning_effort TEXT DEFAULT NULL,
             requested_context_window_tokens INTEGER DEFAULT NULL,
-            execution_lane TEXT NOT NULL DEFAULT 'primary',
+            execution_level TEXT NOT NULL DEFAULT 'primary',
             executor_version TEXT, machine_id TEXT,
             workspace TEXT NOT NULL,
             project_id INTEGER NOT NULL DEFAULT 1 REFERENCES projects(id),

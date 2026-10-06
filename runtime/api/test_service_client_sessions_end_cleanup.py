@@ -39,7 +39,7 @@ class TestClaimCleanupCommands:
         conn = connect_test_db(db)
         conn.execute(
             """INSERT INTO harness_sessions
-               (session_id, executor, provider, model, execution_lane, workspace, mode, offered_at, last_heartbeat)
+               (session_id, executor, provider, model, execution_level, workspace, mode, offered_at, last_heartbeat)
                VALUES ('stale-sess', 'codex', 'openai', 'gpt-5.4', 'primary', %s, 'charge', %s, %s)""",
             (session_test_db["tmp_dir"], _STALE_TS, _STALE_TS),
         )

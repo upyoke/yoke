@@ -209,7 +209,7 @@ test("organization Fleet edits only changed registry-backed settings", async (t)
 test("roster keeps exact message actions on every session", async (t) => {
   const requests = [];
   const base = {
-    execution_lane: "DARIUS", mode: "wait", executor: "codex",
+    execution_level: "DARIUS", mode: "wait", executor: "codex",
     executor_surface: "codex-desktop", executor_version: "26.814.41407",
     machine_id: "machine-1", machine_name: "studio", relay: "connected",
     model: "gpt-5", actor_id: 2, actor_kind: "human", actor_label: "Ben",

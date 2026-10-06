@@ -7,7 +7,7 @@ default and one-line meaning — the machine-local sibling of
 :mod:`yoke_contracts.project_contract.project_keys`.
 
 Two DB capability rows own everything else. ``project-policy`` owns shared
-project behavior; ``session-routing`` owns lane and offer routing. A machine
+project behavior; ``session-routing`` owns level and offer routing. A machine
 settings key naming one of those concerns is a dead twin: every live reader
 resolves those from the DB, so editing the machine copy silently changes
 nothing. :func:`db_owned_capability_for` names the real authority so callers
@@ -25,6 +25,8 @@ from yoke_contracts.project_contract.project_keys import (
     RECOGNIZED_PROJECT_KEYS,
     SESSION_ROUTING_CAPABILITY,
 )
+
+from yoke_contracts.session_level import EXECUTOR_DEFAULT_LEVEL_PREFIX
 
 SESSION_STALE_TTL_WITH_HOLDINGS_KEY = "session_stale_ttl_with_holdings_minutes"
 
@@ -202,7 +204,7 @@ MACHINE_SETTING_PREFIXES: Dict[str, str] = {
 # Prefix families whose authority is a DB capability row. The machine copy is
 # never consulted once a project id is known, which is every live call path.
 _DB_OWNED_PREFIXES: Dict[str, str] = {
-    "executor_default_lane_": SESSION_ROUTING_CAPABILITY,
+    EXECUTOR_DEFAULT_LEVEL_PREFIX: SESSION_ROUTING_CAPABILITY,
 }
 
 

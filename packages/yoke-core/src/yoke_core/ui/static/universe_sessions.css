@@ -34,7 +34,7 @@
 }
 
 /* Both header rows wrap rather than truncating: at the grid's narrow column
-   a harness name, lane, operator, or model that does not fit on one line
+   a harness name, level, operator, or model that does not fit on one line
    moves to the next one whole, because an initial and an ellipsis name
    nothing. */
 .universe-app-root .session-top,
@@ -138,7 +138,7 @@
   font-weight: 700;
 }
 
-.universe-app-root .session-lane,
+.universe-app-root .session-level,
 .universe-app-root .session-machine,
 .universe-app-root .session-model-tag {
   display: inline-flex;

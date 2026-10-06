@@ -20,7 +20,7 @@ from typing import Any, Mapping, Optional, Sequence, Set, Tuple
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.migration_apply_attribution import (
-    refuse_lane_as_model_name,
+    refuse_level_as_model_name,
     require_attribution,
 )
 from yoke_core.domain.migration_history import MigrationEntry
@@ -58,7 +58,7 @@ def write_receipt(
     is a refused apply, not a bookkeeping miss.
     """
     fields = require_attribution(attribution)
-    model = refuse_lane_as_model_name(model_name)
+    model = refuse_level_as_model_name(model_name)
     p = _p(conn)
     try:
         conn.execute(

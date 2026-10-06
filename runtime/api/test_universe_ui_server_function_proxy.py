@@ -244,7 +244,7 @@ class TestFunctionProxy:
         for field in (
             "session_id",
             "liveness",
-            "execution_lane",
+            "execution_level",
             "mode",
             "actor_label",
             "claims",

@@ -52,7 +52,7 @@ def relay_capture(monkeypatch):
         lambda *_args: {
             "entrypoint": "cursor",
             "model": None,
-            "execution_lane": None,
+            "execution_level": None,
             "project_id": 1,
         },
     )
@@ -60,7 +60,9 @@ def relay_capture(monkeypatch):
         relay,
         "evaluate_local_subset",
         lambda *_args, **_kwargs: LocalSubsetEvaluation(
-            stdout="", exit_code=0, denied=False,
+            stdout="",
+            exit_code=0,
+            denied=False,
         ),
     )
     monkeypatch.setattr(
@@ -71,9 +73,13 @@ def relay_capture(monkeypatch):
 
     def request_json(request, **_kwargs):
         captured["body"] = json.loads(request.data.decode("utf-8"))
-        return SimpleNamespace(payload={
-            "stdout": "", "exit_code": 0, "outcome": "completed",
-        })
+        return SimpleNamespace(
+            payload={
+                "stdout": "",
+                "exit_code": 0,
+                "outcome": "completed",
+            }
+        )
 
     monkeypatch.setattr(relay, "request_json", request_json)
     return captured
@@ -102,14 +108,21 @@ def _cursor_write(lane):
 
 def _relay_payload(payload, relay_capture):
     connection = HttpsConnection(api_url="https://env.example", token="token")
-    assert relay.relay_hook_event(
-        "PreToolUse", connection, stdin_data=json.dumps(payload),
-    ) == 0
+    assert (
+        relay.relay_hook_event(
+            "PreToolUse",
+            connection,
+            stdin_data=json.dumps(payload),
+        )
+        == 0
+    )
     return json.loads(relay_capture["body"]["stdin"])
 
 
 def test_mapped_cursor_identity_reaches_raw_matching_server(
-    tmp_path, monkeypatch, relay_capture,
+    tmp_path,
+    monkeypatch,
+    relay_capture,
 ) -> None:
     local_home = tmp_path / "local-home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(local_home))
@@ -134,7 +147,9 @@ def test_mapped_cursor_identity_reaches_raw_matching_server(
 
 
 def test_first_hook_self_map_stamps_relay_keeps_stamped_id(
-    tmp_path, monkeypatch, relay_capture,
+    tmp_path,
+    monkeypatch,
+    relay_capture,
 ) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "local-home"))
 
@@ -154,7 +169,8 @@ def test_first_hook_self_map_stamps_relay_keeps_stamped_id(
 
 
 def test_unmapped_worktree_remount_denies_identity_failure(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "no-map-home"))
     for name in AMBIENT_ENV_VARS:

@@ -42,7 +42,7 @@ from yoke_core.domain import (
 )
 from yoke_core.domain.migration_apply_attribution import (
     IncompleteAttributionError,
-    LaneAsModelNameError,
+    LevelAsModelNameError,
     collect_operator_attribution,
 )
 from yoke_core.domain.migration_model_capability_defaults import DEFAULT_MODEL_NAME
@@ -137,7 +137,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--model-name",
         default=DEFAULT_MODEL_NAME,
-        help="Attribute receipts to this migration model (not an execution lane).",
+        help="Attribute receipts to this migration model (not an execution level).",
     )
     args = parser.parse_args(argv)
 
@@ -160,7 +160,8 @@ def main(argv: list[str] | None = None) -> int:
                 conn,
                 history,
                 applied=migration_boot_apply.applied_names(
-                    conn, YOKE_LEDGER_CONTRACT,
+                    conn,
+                    YOKE_LEDGER_CONTRACT,
                 ),
                 stamp=migration_audit_receipts.now_stamp(),
                 restore_point=args.record_missing_receipts,
@@ -171,11 +172,11 @@ def main(argv: list[str] | None = None) -> int:
             print(f"recorded receipts: {list(healed)}")
             return 0
         pending = migration_boot_apply.pending_entries(
-            conn, history, YOKE_LEDGER_CONTRACT,
+            conn,
+            history,
+            YOKE_LEDGER_CONTRACT,
         )
-        applied = sorted(
-            migration_boot_apply.applied_names(conn, YOKE_LEDGER_CONTRACT)
-        )
+        applied = sorted(migration_boot_apply.applied_names(conn, YOKE_LEDGER_CONTRACT))
         print(f"ledger: {len(applied)} applied {applied}")
         print(f"pending: {[e.name for e in pending]}")
 
@@ -215,7 +216,7 @@ def main(argv: list[str] | None = None) -> int:
                 ),
                 external_restore_point=external,
             )
-        except LaneAsModelNameError as exc:
+        except LevelAsModelNameError as exc:
             print(f"ERROR: {exc}", file=sys.stderr)
             return 1
         print(f"restore point: {outcome.restore_point}")

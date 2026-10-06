@@ -29,7 +29,7 @@ def drift_db(tmp_path):
             p = "%s" if db_backend.connection_is_postgres(conn) else "?"
             conn.execute(
                 f"""INSERT INTO harness_sessions
-                   (session_id, executor, provider, model, execution_lane,
+                   (session_id, executor, provider, model, execution_level,
                     executor_version, machine_id, workspace, mode, offered_at, last_heartbeat)
                    VALUES
                    ('sess-drift', 'codex', 'openai', 'test', 'primary', NULL, NULL,

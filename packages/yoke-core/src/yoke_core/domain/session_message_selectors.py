@@ -43,7 +43,7 @@ def _session_rows(conn: Any) -> dict[str, dict[str, Any]]:
     mode_select = "mode, " if session_mode_column_present(conn) else ""
     rows = conn.execute(
         "SELECT session_id, project_id, executor, executor_surface, "
-        f"executor_version, machine_id, execution_lane, {mode_select}"
+        f"executor_version, machine_id, execution_level, {mode_select}"
         "last_heartbeat, last_tool_call_at, ended_at, terminated_at, "
         f"{holds_work_claim_sql('harness_sessions')} AS holds_work_claim "
         "FROM harness_sessions ORDER BY session_id"
@@ -113,7 +113,7 @@ def _passes_filters(
         (selector.executor_families, {recipient.executor}),
         (selector.executor_surfaces, {recipient.executor_surface or ""}),
         (selector.work_roles, recipient.work_roles),
-        (selector.execution_lanes, {recipient.execution_lane}),
+        (selector.execution_levels, {recipient.execution_level}),
         (selector.worktree_lanes, recipient.worktree_lanes),
         (selector.machine_ids, {recipient.machine_id or ""}),
         # Expanded, so the ``all`` sentinel widens instead of matching nothing.
@@ -193,7 +193,7 @@ def resolve_recipients(
             authorized_project_ids=projects,
             work_roles=roles,
             worktree_lanes=worktree_lanes,
-            execution_lane=str(row.get("execution_lane") or ""),
+            execution_level=str(row.get("execution_level") or ""),
         )
         if _passes_filters(
             selector,

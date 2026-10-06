@@ -18,7 +18,7 @@ from yoke_core.hooks.sessions_focus import _format_row
 def cmd_list(conn) -> str:
     rows = query_rows(
         conn,
-        "SELECT session_id, executor, provider, model, execution_lane, "
+        "SELECT session_id, executor, provider, model, execution_level, "
         "mode, offered_at, last_heartbeat "
         "FROM harness_sessions WHERE ended_at IS NULL "
         "ORDER BY offered_at DESC",

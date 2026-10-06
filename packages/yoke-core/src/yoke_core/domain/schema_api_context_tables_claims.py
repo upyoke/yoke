@@ -46,7 +46,7 @@ CLAIMS_TABLES: dict[str, dict] = {
             ("quiet_reason", "TEXT"),
             ("keepalive_until", "TEXT"),
             ("keepalive_reason", "TEXT"),
-            ("execution_lane", "TEXT"),
+            ("execution_level", "TEXT"),
             ("offer_envelope", "TEXT"),
             ("current_item_id", "TEXT"),
             ("current_item_set_at", "TEXT"),

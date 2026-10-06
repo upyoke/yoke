@@ -55,7 +55,7 @@ function statValues(root) {
 
 const BASE_ROW = {
   project: "yoke", project_id: 1, executor: "codex",
-  executor_surface: "codex-cli", execution_lane: "DARIUS",
+  executor_surface: "codex-cli", execution_level: "DARIUS",
   executor_mark: "X", executor_class_name: "h-codex",
   actor_id: 1, actor_kind: "human", actor_label: "Ben",
   model: "gpt-5.6-sol", machine_id: "m1", machine_name: "studio",
@@ -74,7 +74,7 @@ const BASE_ROW = {
 // the same order as a live one. A section list that an ended session skipped
 // wholesale is what made its card read as a different kind of object.
 const SHARED_SECTIONS = [
-  "session-top", "session-harness", "session-executor", "session-lane",
+  "session-top", "session-harness", "session-executor", "session-level",
   "session-operator", "session-card-body", "session-state-line",
   "session-model", "session-holdings-group", "session-relay", "session-age",
 ];

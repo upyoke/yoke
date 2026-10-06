@@ -41,17 +41,17 @@ import {
   sessionModelFactTags,
   sessionModelIsRequested,
 } from "./session_model_display.js";
-function laneChip(documentNode, row) {
-  const laneLabel = row.lane_label || row.execution_lane || "no lane";
+function levelChip(documentNode, row) {
+  const levelLabel = row.level_label || row.execution_level || "no level";
   const chip = el(
     documentNode,
     "span",
-    "session-lane",
-    row.lane_glyph ? `${row.lane_glyph} ${laneLabel}` : laneLabel,
+    "session-level",
+    row.level_glyph ? `${row.level_glyph} ${levelLabel}` : levelLabel,
   );
   attachTooltip(
     documentNode, chip,
-    "execution lane — the job Yoke assigned, not the harness",
+    "execution level — the job Yoke assigned, not the harness",
   );
   return chip;
 }
@@ -109,7 +109,7 @@ export function sessionCard(
   // Two header rows, each answering one question. Who is running this and
   // under whose name, then what state it is in and on what model: the status
   // pill used to sit in the middle of the identity row, where it competed
-  // with a harness name and a lane for the same eye.
+  // with a harness name and a level for the same eye.
   const top = el(documentNode, "div", "session-top");
   const harness = harnessIdentity(row);
   top.appendChild(el(
@@ -119,7 +119,7 @@ export function sessionCard(
     harness.mark,
   ));
   top.appendChild(el(documentNode, "span", "session-executor", harness.label));
-  top.appendChild(laneChip(documentNode, row));
+  top.appendChild(levelChip(documentNode, row));
   const operator = operatorLabel(documentNode, row);
   if (operator) top.appendChild(operator);
   card.appendChild(top);

@@ -51,7 +51,7 @@ class TestRegisterSession:
         # Registration states an ask; nothing has attested a served model.
         assert result["requested_model"] == TEST_MODEL_ID
         assert result["model"] is None
-        assert result["execution_lane"] == "primary"
+        assert result["execution_level"] == "primary"
         assert result["workspace"] == "/tmp/work"
         assert result["mode"] == "wait"
         assert result["ended_at"] is None
@@ -87,9 +87,7 @@ class TestRegisterSession:
 
         assert _stored(conn, "vscode-sess", "model") == TEST_MODEL_ID
 
-    def test_a_registration_with_nothing_attested_keeps_the_served_model(
-        self, conn
-    ):
+    def test_a_registration_with_nothing_attested_keeps_the_served_model(self, conn):
         """Most later events have nothing to attest; they must not clear it."""
         _register(
             conn,
@@ -140,9 +138,7 @@ class TestRegisterSession:
 
         assert _stored(conn, "ask-sess", "requested_model") == "claude-opus-5[1m]"
 
-    def test_reactivation_with_nothing_attested_keeps_the_served_model(
-        self, conn
-    ):
+    def test_reactivation_with_nothing_attested_keeps_the_served_model(self, conn):
         """A resumed session must not lose what the prior episode proved.
 
         SessionStart carries no artifact reading, so reactivation routinely
@@ -184,7 +180,7 @@ class TestRegisterSession:
     def test_register_reactivates_ended_session(self, conn):
         # Executor is write-once.  The original canonical executor
         # value persists across reactivation; everything else
-        # (model/mode/provider/workspace/lane) refreshes from the new
+        # (model/mode/provider/workspace/level) refreshes from the new
         # register call.
         original = _register(
             conn,
@@ -203,7 +199,7 @@ class TestRegisterSession:
             executor="codex",
             provider="openai",
             workspace="/tmp/reopened",
-            execution_lane="ALTMAN",
+            execution_level="ALTMAN",
         )
 
         assert result["session_id"] == "reactivate-me"
@@ -218,7 +214,7 @@ class TestRegisterSession:
         assert result["executor_surface"] == "claude-desktop"
         assert result["provider"] == "openai"
         assert result["workspace"] == "/tmp/reopened"
-        assert result["execution_lane"] == "ALTMAN"
+        assert result["execution_level"] == "ALTMAN"
         assert result["offered_at"] == original["offered_at"]
 
     def test_register_executor_is_write_once_on_reentry(self, conn):
@@ -293,7 +289,7 @@ class TestRegisterSession:
             "machine_id",
             "provider",
             "model",
-            "execution_lane",
+            "execution_level",
             "workspace",
             "mode",
             "offered_at",

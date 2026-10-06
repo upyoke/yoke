@@ -77,7 +77,7 @@ def _seed_target(*, broker: bool, surface: str, served: tuple, requested: tuple)
         conn.execute(
             "INSERT INTO harness_sessions "
             "(session_id,project_id,executor,executor_surface,executor_version,"
-            "machine_id,execution_lane,last_heartbeat,last_tool_call_at,offered_at,"
+            "machine_id,execution_level,last_heartbeat,last_tool_call_at,offered_at,"
             "turn_posture,turn_posture_at) VALUES "
             "('broker',1,'codex','codex-desktop','26.818.31338',?,'direct',"
             "?,?,?,'running',?)",

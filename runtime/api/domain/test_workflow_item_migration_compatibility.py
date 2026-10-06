@@ -4,7 +4,13 @@ from copy import deepcopy
 
 import pytest
 
-from runtime.api.fixtures.backlog import insert_deployment_run, insert_item, insert_item_worktree, insert_qa_requirement, insert_qa_run
+from runtime.api.fixtures.backlog import (
+    insert_deployment_run,
+    insert_item,
+    insert_item_worktree,
+    insert_qa_requirement,
+    insert_qa_run,
+)
 from yoke_core.domain.approval_gate import evaluate_lifecycle_approval
 from yoke_core.domain.approval_policy import ApprovalPolicy
 from yoke_core.domain.builtin_workflow_definitions import builtin_workflow_definition
@@ -37,10 +43,15 @@ def _mutate_target(definition: dict, case: str) -> None:
     elif case == "worktree":
         policies["worktrees"] = "worker_and_integration_lanes"
     elif case == "approval":
-        policies["approval_defaults"]["reviewing-implementation"] = {"roles": ["operator"], "actors": []}
+        policies["approval_defaults"]["reviewing-implementation"] = {
+            "roles": ["operator"],
+            "actors": [],
+        }
     elif case == "qa":
         stage = _stage(definition, "reviewed-implementation")
-        stage["gates"] = [gate for gate in stage["gates"] if gate["id"] != "qa_verification"]
+        stage["gates"] = [
+            gate for gate in stage["gates"] if gate["id"] != "qa_verification"
+        ]
     elif case == "delivery":
         policies["delivery"] = "after_merge_action"
     elif case == "delivery_skill":
@@ -48,7 +59,10 @@ def _mutate_target(definition: dict, case: str) -> None:
     elif case == "posture":
         policies["item_posture_allowlist"].remove("deployment")
     elif case == "reached_approval":
-        policies["approval_defaults"]["implementing"] = {"roles": ["owner"], "actors": []}
+        policies["approval_defaults"]["implementing"] = {
+            "roles": ["owner"],
+            "actors": [],
+        }
         _stage(definition, "implementing")["gates"].append({"id": "approval"})
     elif case == "reached_qa":
         _stage(definition, "implementing")["gates"].append({"id": "qa_verification"})
@@ -57,45 +71,81 @@ def _mutate_target(definition: dict, case: str) -> None:
 def _publish_pair(test_db, *, case: str = "") -> tuple[dict, dict]:
     source_definition = deepcopy(builtin_workflow_definition("issue")["definition"])
     source_definition["stages"][0]["label"] = "Migration candidate"
-    source_definition["policies"]["approval_defaults"] = {"reviewing-implementation": {"roles": ["owner"], "actors": []}}
-    source = publish_workflow_version(test_db, workflow_id="issue", definition=source_definition)
+    source_definition["policies"]["approval_defaults"] = {
+        "reviewing-implementation": {"roles": ["owner"], "actors": []}
+    }
+    source = publish_workflow_version(
+        test_db, workflow_id="issue", definition=source_definition
+    )
     insert_item(test_db, id=ITEM_ID, workflow_id="issue", status="implementing")
 
     target_definition = deepcopy(source_definition)
     target_definition["stages"][0]["label"] = "Migration target"
     if case:
         _mutate_target(target_definition, case)
-    target = publish_workflow_version(test_db, workflow_id="issue", definition=target_definition)
+    target = publish_workflow_version(
+        test_db, workflow_id="issue", definition=target_definition
+    )
     _seed_path_claim(test_db)
     return source, target
 
 
 def _item_project_id(test_db) -> int:
-    return int(test_db.execute("SELECT project_id FROM items WHERE id = %s", (ITEM_ID,)).fetchone()[0])
+    return int(
+        test_db.execute(
+            "SELECT project_id FROM items WHERE id = %s", (ITEM_ID,)
+        ).fetchone()[0]
+    )
 
 
 def _seed_work_claim(test_db) -> None:
     now = iso8601_now()
     test_db.execute(
         "INSERT INTO harness_sessions ("
-        "session_id, executor, provider, model, execution_lane, workspace, "
+        "session_id, executor, provider, model, execution_level, workspace, "
         "project_id, offered_at, last_heartbeat"
         ") VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
-        ("migration-session", "codex", "openai", "test-model", "primary", "/tmp/migration", _item_project_id(test_db), now, now),
+        (
+            "migration-session",
+            "codex",
+            "openai",
+            "test-model",
+            "primary",
+            "/tmp/migration",
+            _item_project_id(test_db),
+            now,
+            now,
+        ),
     )
     test_db.execute(
         "INSERT INTO work_claims (session_id, target_kind, scope, claimed_at, last_heartbeat, reason) VALUES (%s, 'item', %s, %s, %s, %s)",
-        ("migration-session", make_item_target(ITEM_ID).scope_json(), now, now, "migration fixture"),
+        (
+            "migration-session",
+            make_item_target(ITEM_ID).scope_json(),
+            now,
+            now,
+            "migration fixture",
+        ),
     )
     test_db.execute(
         "INSERT INTO work_claims (session_id, target_kind, scope, claimed_at, last_heartbeat, reason) VALUES (%s, 'epic_task', %s, %s, %s, %s)",
-        ("migration-session", make_epic_task_target(ITEM_ID, 1).scope_json(), now, now, "task migration fixture"),
+        (
+            "migration-session",
+            make_epic_task_target(ITEM_ID, 1).scope_json(),
+            now,
+            now,
+            "task migration fixture",
+        ),
     )
     test_db.commit()
 
 
 def _seed_path_claim(test_db) -> None:
-    actor_id = int(test_db.execute("SELECT id FROM actors WHERE kind = 'human' ORDER BY id LIMIT 1").fetchone()[0])
+    actor_id = int(
+        test_db.execute(
+            "SELECT id FROM actors WHERE kind = 'human' ORDER BY id LIMIT 1"
+        ).fetchone()[0]
+    )
     test_db.execute(
         "INSERT INTO path_claims ("
         "state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
@@ -119,14 +169,22 @@ def _seed_approval(test_db) -> None:
     )
     assert verdict.request_status == "pending"
     test_db.execute(
-        "UPDATE decision_requests SET status = 'resolved', resolution_action = 'approve', resolved_at = %s WHERE id = %s", (iso8601_now(), verdict.request_id)
+        "UPDATE decision_requests SET status = 'resolved', resolution_action = 'approve', resolved_at = %s WHERE id = %s",
+        (iso8601_now(), verdict.request_id),
     )
     test_db.commit()
 
 
 def _seed_qa(test_db) -> None:
-    plan = create_plan(test_db, project="yoke", slug="migration-compatibility", name="Migration compatibility")
-    requirement = insert_qa_requirement(test_db, item_id=ITEM_ID, workflow_transition_id="reviewed-implementation")
+    plan = create_plan(
+        test_db,
+        project="yoke",
+        slug="migration-compatibility",
+        name="Migration compatibility",
+    )
+    requirement = insert_qa_requirement(
+        test_db, item_id=ITEM_ID, workflow_transition_id="reviewed-implementation"
+    )
     insert_qa_run(test_db, qa_requirement_id=int(requirement["id"]))
     now = iso8601_now()
     test_db.execute(
@@ -138,16 +196,37 @@ def _seed_qa(test_db) -> None:
         "id, item_id, transition_id, session_id, roster_digest, roster_json, "
         "state, created_at, heartbeat_at"
         ") VALUES (%s, %s, %s, %s, %s, %s, 'active', %s, %s)",
-        ("qa-execution-migration", ITEM_ID, "reviewed-implementation", "migration-session", "digest", "[]", now, now),
+        (
+            "qa-execution-migration",
+            ITEM_ID,
+            "reviewed-implementation",
+            "migration-session",
+            "digest",
+            "[]",
+            now,
+            now,
+        ),
     )
     test_db.commit()
 
 
 def _seed_delivery(test_db) -> None:
-    run = insert_deployment_run(test_db, id="run-migration", flow="flow-migration", status="executing", current_stage="deploy")
+    run = insert_deployment_run(
+        test_db,
+        id="run-migration",
+        flow="flow-migration",
+        status="executing",
+        current_stage="deploy",
+    )
     now = iso8601_now()
-    test_db.execute("UPDATE items SET deployment_flow = %s WHERE id = %s", ("flow-migration", ITEM_ID))
-    test_db.execute("INSERT INTO deployment_run_items (run_id, item_id, added_at) VALUES (%s, %s, %s)", (run["id"], ITEM_ID, now))
+    test_db.execute(
+        "UPDATE items SET deployment_flow = %s WHERE id = %s",
+        ("flow-migration", ITEM_ID),
+    )
+    test_db.execute(
+        "INSERT INTO deployment_run_items (run_id, item_id, added_at) VALUES (%s, %s, %s)",
+        (run["id"], ITEM_ID, now),
+    )
     test_db.commit()
 
 
@@ -163,12 +242,17 @@ def _seed_case(test_db, case: str) -> None:
     elif case in {"delivery", "delivery_skill"}:
         _seed_delivery(test_db)
     elif case == "posture":
-        test_db.execute("UPDATE items SET workflow_posture = %s WHERE id = %s", ('{"deployment": true}', ITEM_ID))
+        test_db.execute(
+            "UPDATE items SET workflow_posture = %s WHERE id = %s",
+            ('{"deployment": true}', ITEM_ID),
+        )
         test_db.commit()
 
 
 def _pin(test_db) -> tuple[int, str]:
-    row = test_db.execute("SELECT workflow_version_id, status FROM items WHERE id = %s", (ITEM_ID,)).fetchone()
+    row = test_db.execute(
+        "SELECT workflow_version_id, status FROM items WHERE id = %s", (ITEM_ID,)
+    ).fetchone()
     return int(row[0]), str(row[1])
 
 
@@ -180,7 +264,9 @@ def test_label_only_migration_preserves_all_live_bindings(test_db):
     _seed_qa(test_db)
     _seed_delivery(test_db)
 
-    result = migrate_item_workflow_pin(test_db, item_id=ITEM_ID, target_version=int(target["version"]))
+    result = migrate_item_workflow_pin(
+        test_db, item_id=ITEM_ID, target_version=int(target["version"])
+    )
 
     assert result["changed"] is True
     assert result["before"]["workflow_version_id"] == source["version_id"]
@@ -231,12 +317,16 @@ def test_label_only_migration_preserves_all_live_bindings(test_db):
         ("posture", "disallows item posture keys"),
     ),
 )
-def test_incompatible_live_state_rejects_migration_atomically(test_db, case: str, message: str):
+def test_incompatible_live_state_rejects_migration_atomically(
+    test_db, case: str, message: str
+):
     _source, target = _publish_pair(test_db, case=case)
     _seed_case(test_db, case)
     before = _pin(test_db)
 
     with pytest.raises(WorkflowRegistryError, match=message):
-        migrate_item_workflow_pin(test_db, item_id=ITEM_ID, target_version=int(target["version"]))
+        migrate_item_workflow_pin(
+            test_db, item_id=ITEM_ID, target_version=int(target["version"])
+        )
 
     assert _pin(test_db) == before

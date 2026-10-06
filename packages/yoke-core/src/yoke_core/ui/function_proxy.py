@@ -30,7 +30,7 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset(
         "organizations.settings.get",
         "projects.list",
         "projects.get",
-        "projects.lane_summary.get",
+        "projects.level_summary.get",
         "projects.capabilities.list",
         "projects.environment_settings.get",
         "projects.infrastructure.list",

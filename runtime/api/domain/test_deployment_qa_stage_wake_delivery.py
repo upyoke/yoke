@@ -57,7 +57,7 @@ def seed_session(conn: Any, session_id: str, project_id: int = PROJECT_YOKE) -> 
     conn.execute(
         "INSERT INTO harness_sessions (session_id,project_id,actor_id,workspace,"
         "executor,provider,executor_surface,executor_version,machine_id,"
-        "execution_lane,last_heartbeat,offered_at) VALUES "
+        "execution_level,last_heartbeat,offered_at) VALUES "
         "(%s,%s,%s,'/tmp',%s,%s,%s,%s,%s,%s,%s,%s)",
         (
             session_id,
@@ -159,7 +159,10 @@ def test_no_holder_and_no_steering_addresses_nobody(test_db: Any) -> None:
     assert result == ""
     from yoke_core.domain.deployment_qa_stage_wake import stage_wait_idempotency_key
 
-    assert _recipients(test_db, stage_wait_idempotency_key("run-wd-2", "item-qa", item_id)) == []
+    assert (
+        _recipients(test_db, stage_wait_idempotency_key("run-wd-2", "item-qa", item_id))
+        == []
+    )
 
 
 def test_a_later_holder_change_does_not_get_a_second_notice(test_db: Any) -> None:

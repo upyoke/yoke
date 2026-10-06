@@ -142,7 +142,7 @@ from yoke_core.api.session_chain_policy import (  # noqa: F401
 from yoke_core.api.routing_config import (  # noqa: F401
     config_path_from_db_path,
     load_routing_config,
-    resolve_execution_lane,
+    resolve_execution_level,
 )
 from yoke_core.api.service_client import _resolve_deploy_envs  # noqa: F401
 from yoke_core.domain.strategy_docs import STRATEGY_DOCS_TABLE

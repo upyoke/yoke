@@ -29,7 +29,7 @@ from yoke_core.domain.model_reference_store import (
     revision_schedule,
 )
 from yoke_core.domain.session_presentation_read import (
-    lane_settings_by_project,
+    level_settings_by_project,
     session_presentation,
 )
 from yoke_core.domain.session_staleness import (
@@ -93,7 +93,7 @@ def render_session_roster_rows(
     page = [dict(raw) for raw in rows]
     schedule = revision_schedule(conn) if page else []
     actor_names = render_actor_names(conn, (row.get("actor_id") for row in page))
-    lane_settings = lane_settings_by_project(
+    lane_settings = level_settings_by_project(
         conn,
         (row.get("project_id") for row in page),
     )
@@ -170,7 +170,7 @@ def render_session_roster_rows(
                     if row.get("last_tool_call_at")
                     else None
                 ),
-                "execution_lane": row.get("execution_lane"),
+                "execution_level": row.get("execution_level"),
                 **presentation,
                 "mode": row.get("mode"),
                 "quiet_reason": row.get("quiet_reason"),

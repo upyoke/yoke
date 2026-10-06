@@ -15,6 +15,15 @@ MIGRATION = importlib.import_module(
     "yoke_core.domain.migrations.0055_remove_process_offer_settings"
 )
 
+LEVEL_RENAME = importlib.import_module(
+    "yoke_core.domain.migrations.0057_rename_session_lanes_to_levels"
+)
+
+
+def converged_to_levels(settings):
+    """Apply the later lanes -> levels rename the live validator reads."""
+    return LEVEL_RENAME._converged(1, settings)
+
 
 def database(settings, capability="session-routing"):
     conn = sqlite3.connect(":memory:")
@@ -52,7 +61,7 @@ def test_all_policy_shapes_converge_preserving_unrelated_settings():
     MIGRATION.apply(conn)
     MIGRATION.invariants(conn)
     assert stored(conn) == retained
-    validate_session_routing_settings(stored(conn))
+    validate_session_routing_settings(converged_to_levels(stored(conn)))
     before = conn.total_changes
     MIGRATION.apply(conn)
     assert conn.total_changes == before

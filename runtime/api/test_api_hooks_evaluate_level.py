@@ -1,4 +1,4 @@
-"""Route coverage for wire-carried hook relay execution lanes."""
+"""Route coverage for wire-carried hook relay execution levels."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ def client(hooks_db):
         yield authed
 
 
-def _body(session_id: str, *, event_name: str, execution_lane=None) -> dict:
+def _body(session_id: str, *, event_name: str, execution_level=None) -> dict:
     body = {
         "hook_schema": 1,
         "event_name": event_name,
@@ -39,28 +39,28 @@ def _body(session_id: str, *, event_name: str, execution_lane=None) -> dict:
         "executor": "claude",
         "deadline_ms": 2500,
     }
-    if execution_lane is not None:
-        body["execution_lane"] = execution_lane
+    if execution_level is not None:
+        body["execution_level"] = execution_level
     return body
 
 
-def _lane_for(session_id: str) -> str:
+def _level_for(session_id: str) -> str:
     from yoke_core.domain import db_helpers
 
     conn = db_helpers.connect()
     try:
         row = conn.execute(
-            "SELECT execution_lane FROM harness_sessions WHERE session_id = %s",
+            "SELECT execution_level FROM harness_sessions WHERE session_id = %s",
             (session_id,),
         ).fetchone()
         assert row is not None
-        return row["execution_lane"]
+        return row["execution_level"]
     finally:
         conn.close()
 
 
-def test_hooks_evaluate_wire_lane_heals_primary_and_registers_fresh(client) -> None:
-    session_id = "wire-lane-register-session"
+def test_hooks_evaluate_wire_level_heals_primary_and_registers_fresh(client) -> None:
+    session_id = "wire-level-register-session"
 
     assert (
         client.post(
@@ -69,7 +69,7 @@ def test_hooks_evaluate_wire_lane_heals_primary_and_registers_fresh(client) -> N
         ).status_code
         == 200
     )
-    assert _lane_for(session_id) == "DARIUS"
+    assert _level_for(session_id) == "DARIUS"
 
     assert (
         client.post(
@@ -77,23 +77,23 @@ def test_hooks_evaluate_wire_lane_heals_primary_and_registers_fresh(client) -> N
             json=_body(
                 session_id,
                 event_name="UserPromptSubmit",
-                execution_lane="DARIUS",
+                execution_level="DARIUS",
             ),
         ).status_code
         == 200
     )
-    assert _lane_for(session_id) == "DARIUS"
+    assert _level_for(session_id) == "DARIUS"
 
-    fresh = "wire-lane-fresh-session"
+    fresh = "wire-level-fresh-session"
     assert (
         client.post(
             "/v1/hooks/evaluate",
             json=_body(
                 fresh,
                 event_name="SessionStart",
-                execution_lane="ALTMAN",
+                execution_level="ALTMAN",
             ),
         ).status_code
         == 200
     )
-    assert _lane_for(fresh) == "ALTMAN"
+    assert _level_for(fresh) == "ALTMAN"

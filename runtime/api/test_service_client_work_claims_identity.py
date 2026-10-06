@@ -59,7 +59,7 @@ def _seed_session(db_path: str, session_id: str, *, tmp_dir: str) -> None:
     try:
         conn.execute(
             "INSERT INTO harness_sessions (session_id, executor, provider, model, "
-            "execution_lane, workspace, mode, offered_at, last_heartbeat) "
+            "execution_level, workspace, mode, offered_at, last_heartbeat) "
             "VALUES (%s, 'claude-code', 'anthropic', 'opus', 'primary', %s, 'hook', "
             "%s, %s)",
             (session_id, tmp_dir, _FRESH_TS, _FRESH_TS),

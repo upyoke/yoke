@@ -29,14 +29,14 @@ def _seed_conflict(
     conn = connect(db_path)
     conn.execute(
         """INSERT INTO harness_sessions (session_id, executor, provider, model,
-           execution_lane, workspace, mode, offered_at, last_heartbeat)
+           execution_level, workspace, mode, offered_at, last_heartbeat)
            VALUES ('owner-session', %s, 'anthropic', 'opus', 'primary',
            %s, 'hook', %s, %s)""",
         (executor, tmp_dir, seen_at, seen_at),
     )
     conn.execute(
         """INSERT INTO harness_sessions (session_id, executor, provider, model,
-           execution_lane, workspace, mode, offered_at, last_heartbeat)
+           execution_level, workspace, mode, offered_at, last_heartbeat)
            VALUES ('thief-session', 'claude-desktop', 'anthropic', 'opus', 'primary',
            %s, 'hook', %s, %s)""",
         (tmp_dir, fresh_at, fresh_at),

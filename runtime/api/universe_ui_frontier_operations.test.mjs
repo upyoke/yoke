@@ -57,7 +57,7 @@ test("a waiting run names the project deploy lock holding it", async (t) => {
   stubFetch(t);
   const holder = {
     session_id: "s-lock", liveness: "active", project: "yoke", project_id: 1,
-    executor: "claude-cli", execution_lane: "delivery",
+    executor: "claude-cli", execution_level: "delivery",
     activity_at: new Date().toISOString(),
     holdings: {
       current: [{
@@ -112,7 +112,7 @@ test("Active membership follows live claims, not lifecycle status", async (t) =>
     session_id: sessionId, liveness,
     project: "yoke", project_id: 1,
     executor: "codex", model: "gpt-5.6-sol",
-    execution_lane: "implementation",
+    execution_level: "implementation",
     activity_at: new Date(now - secondsAgo * 1000).toISOString(),
   });
   const holding = {

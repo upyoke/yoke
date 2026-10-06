@@ -26,7 +26,7 @@ class TestReleaseAllClaims:
         conn = connect_test_db(db_path)
         conn.execute(
             "INSERT INTO harness_sessions (session_id, executor, provider, model, "
-            "execution_lane, workspace, mode, offered_at, last_heartbeat) "
+            "execution_level, workspace, mode, offered_at, last_heartbeat) "
             "VALUES (%s, 'claude-code', 'anthropic', 'opus', 'primary', %s, 'hook', "
             "'2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')",
             (sid, session_test_db["tmp_dir"]),
@@ -93,7 +93,7 @@ class TestReleaseAllClaims:
         insert_item(conn, id=77, status="implemented")
         conn.execute(
             "INSERT INTO harness_sessions (session_id, executor, provider, model, "
-            "execution_lane, workspace, mode, offered_at, last_heartbeat) "
+            "execution_level, workspace, mode, offered_at, last_heartbeat) "
             "VALUES (%s, 'claude-code', 'anthropic', 'opus', 'primary', %s, 'hook', "
             "'2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')",
             (sid, session_test_db["tmp_dir"]),
@@ -143,7 +143,7 @@ class TestClaimReleaseOverride:
         conn = connect_test_db(db_path)
         conn.execute(
             "INSERT INTO harness_sessions (session_id, executor, provider, model, "
-            "execution_lane, workspace, mode, offered_at, last_heartbeat) "
+            "execution_level, workspace, mode, offered_at, last_heartbeat) "
             "VALUES (%s, 'codex', 'openai', 'gpt-5.4', 'primary', %s, 'polish', "
             "'2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')",
             (sid, session_test_db["tmp_dir"]),
@@ -186,7 +186,7 @@ class TestClaimReleaseOverride:
         conn = connect_test_db(db_path)
         conn.execute(
             "INSERT INTO harness_sessions (session_id, executor, provider, model, "
-            "execution_lane, workspace, mode, offered_at, last_heartbeat) "
+            "execution_level, workspace, mode, offered_at, last_heartbeat) "
             "VALUES (%s, 'codex', 'openai', 'gpt-5.4', 'primary', %s, 'polish', "
             "'2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')",
             (sid, session_test_db["tmp_dir"]),

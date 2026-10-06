@@ -91,7 +91,7 @@ def test_print_session_attests_on_the_first_hook_after_generation(
                 executor="claude-code",
                 provider="anthropic",
                 model_facts=facts_from_mapping(initial),
-                execution_lane="DARIUS",
+                execution_level="DARIUS",
                 workspace=str(tmp_path),
                 project_id=1,
                 entrypoint="claude-cli",

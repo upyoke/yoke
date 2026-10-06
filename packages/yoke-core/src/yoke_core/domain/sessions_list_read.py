@@ -3,7 +3,7 @@
 The read behind ``sessions.list``: one row per harness session carrying
 the attribution facts (actor id/kind plus the canonical display label),
 what the session holds (its current and previous typed holdings), how alive it
-is, and what Yoke directed it to do (``execution_lane`` + ``mode``).
+is, and what Yoke directed it to do (``execution_level`` + ``mode``).
 
 Liveness is derived server-side so no consumer re-encodes TTL numbers:
 

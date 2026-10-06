@@ -84,7 +84,7 @@ CREATE TABLE harness_sessions (
     project_id INTEGER NOT NULL DEFAULT 1,
     executor TEXT, executor_surface TEXT, provider TEXT, model TEXT,
     reasoning_effort TEXT DEFAULT NULL, context_window_tokens INTEGER DEFAULT NULL, requested_model TEXT DEFAULT NULL, requested_reasoning_effort TEXT DEFAULT NULL, requested_context_window_tokens INTEGER DEFAULT NULL,
-    execution_lane TEXT, executor_version TEXT, machine_id TEXT, workspace TEXT, mode TEXT,
+    execution_level TEXT, executor_version TEXT, machine_id TEXT, workspace TEXT, mode TEXT,
     offered_at TEXT, last_heartbeat TEXT, ended_at TEXT,
     terminated_at TEXT, terminated_by_actor_id INTEGER,
     terminated_by_session_id TEXT, termination_reason TEXT,

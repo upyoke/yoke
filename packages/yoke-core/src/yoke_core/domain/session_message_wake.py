@@ -157,7 +157,7 @@ def wake_eligible_recipients(
         open_call_select = open_tool_call_select(conn, session_alias="hs")
         rows = conn.execute(
             "SELECT r.*,m.created_at AS message_created_at,m.expires_at,"
-            "hs.executor,hs.execution_lane,hs.last_heartbeat,"
+            "hs.executor,hs.execution_level,hs.last_heartbeat,"
             "hs.workspace AS session_workspace,"
             "hs.last_tool_call_at,hs.ended_at,hs.terminated_at,hs.turn_posture,"
             f"hs.turn_posture_at{thread_select}{mode_select}"

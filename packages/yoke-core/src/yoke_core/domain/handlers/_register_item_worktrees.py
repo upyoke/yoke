@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from yoke_core.domain.handlers import item_worktree_create as _item_worktree_create
-from yoke_core.domain.handlers import item_worktree_inventory as _item_worktree_inventory
+from yoke_core.domain.handlers import (
+    item_worktree_inventory as _item_worktree_inventory,
+)
 from yoke_core.domain.handlers import item_worktree_paths as _item_worktree_paths
 from yoke_core.domain.handlers import item_worktrees as _item_worktrees
 
@@ -23,7 +25,7 @@ def register(registry) -> None:
             "actor_holds_item_claim",
             "active_item",
             "pinned_workflow_lane_policy",
-            "default_or_explicit_lane",
+            "default_or_explicit_level",
             "sole_required_first_lane",
             "path_claim_gate",
             "unique_active_project_branch",

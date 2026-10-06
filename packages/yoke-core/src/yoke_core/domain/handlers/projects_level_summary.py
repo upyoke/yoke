@@ -1,8 +1,8 @@
-"""The registered read behind the Project settings lane summary.
+"""The registered read behind the Project settings level summary.
 
 The summary shows what routing will actually do, which is a different
 document from the one stored: defaults sit underneath a partial stored
-capability, lane labels and glyphs fall back when unset, and "which
+capability, level labels and glyphs fall back when unset, and "which
 harnesses land here by default" is the answer to running each harness
 through the resolver rather than a key anyone typed. Composing that in the
 browser would mean a second implementation of precedence, so it is
@@ -25,23 +25,23 @@ from yoke_contracts.executor_labels import (
     CANONICAL_HARNESS_IDS,
     harness_display_name,
 )
-from yoke_contracts.session_lane import lane_is_unresolved, lane_presentation
+from yoke_contracts.session_level import level_is_unresolved, level_presentation
 from yoke_core.domain.pydantic_validation_safety import safe_validation_message
 
 
-class LaneSummaryGetRequest(BaseModel):
-    """Select one project's effective lane routing summary."""
+class LevelSummaryGetRequest(BaseModel):
+    """Select one project's effective level routing summary."""
 
     model_config = ConfigDict(extra="forbid")
 
     project: str
 
 
-class LaneSummaryResponse(BaseModel):
+class LevelSummaryResponse(BaseModel):
     project: str
     project_id: int
     configured: bool
-    lanes: List[Dict[str, Any]]
+    levels: List[Dict[str, Any]]
     unrouted_harnesses: List[str]
     harnesses: List[Dict[str, str]]
 
@@ -54,71 +54,73 @@ def _authorized_project_ref(request: FunctionCallRequest, payload_project: str) 
     return str(int(authorized))
 
 
-def _declared_lanes(config: Any) -> tuple[str, ...]:
-    """Return every lane the effective configuration can route onto.
+def _declared_levels(config: Any) -> tuple[str, ...]:
+    """Return every level the effective configuration can route onto.
 
-    Ordered so the summary reads the same on every load: the lanes with a
+    Ordered so the summary reads the same on every load: the levels with a
     harness defaults first in configured order, then rules and metadata.
     """
     ordered: List[str] = []
-    for lane in (
-        *config.executor_default_lanes.values(),
-        *config.executor_wildcard_lanes.values(),
-        *(rule.lane for rule in config.lane_rules),
-        *config.lane_metadata,
+    for level in (
+        *config.executor_default_levels.values(),
+        *config.executor_wildcard_levels.values(),
+        *(rule.level for rule in config.level_rules),
+        *config.level_metadata,
     ):
-        if lane and lane not in ordered:
-            ordered.append(lane)
+        if level and level not in ordered:
+            ordered.append(level)
     return tuple(ordered)
 
 
 def _harness_defaults(config: Any) -> tuple[Dict[str, List[str]], List[str]]:
     """Resolve where each harness lands with no model attested.
 
-    Run through the resolver rather than read off ``executor_default_lanes``:
+    Run through the resolver rather than read off ``executor_default_levels``:
     a harness-only rule is as much a default as that key is, and only the
     resolver knows which of them wins. A harness that resolves to the
-    unresolved sentinel lands on no lane at all, and is returned separately
+    unresolved sentinel lands on no level at all, and is returned separately
     so the page can say so — otherwise it would simply be absent from every
-    row, which reads like a lane nobody defaults to rather than a harness
+    row, which reads like a level nobody defaults to rather than a harness
     that cannot be routed.
     """
-    by_lane: Dict[str, List[str]] = {}
+    by_level: Dict[str, List[str]] = {}
     unrouted: List[str] = []
     for harness_id in CANONICAL_HARNESS_IDS:
-        lane = config.lane_for_session(executor=harness_id)
+        level = config.level_for_session(executor=harness_id)
         label = harness_display_name(harness_id)
-        if lane_is_unresolved(lane):
+        if level_is_unresolved(level):
             unrouted.append(label)
             continue
-        by_lane.setdefault(lane, []).append(label)
-    return by_lane, unrouted
+        by_level.setdefault(level, []).append(label)
+    return by_level, unrouted
 
 
-def _lane_rows(
-    config: Any, settings: Dict[str, Any], defaults_by_lane: Dict[str, List[str]]
+def _level_rows(
+    config: Any, settings: Dict[str, Any], defaults_by_level: Dict[str, List[str]]
 ) -> List[Dict[str, Any]]:
     rows: List[Dict[str, Any]] = []
-    for lane in _declared_lanes(config):
-        presentation = lane_presentation(lane, settings)
+    for level in _declared_levels(config):
+        presentation = level_presentation(level, settings)
         rows.append(
             {
-                "id": lane,
+                "id": level,
                 "label": presentation["label"],
                 "glyph": presentation["glyph"],
                 "matches": [
-                    rule.as_payload() for rule in config.lane_rules if rule.lane == lane
+                    rule.as_payload()
+                    for rule in config.level_rules
+                    if rule.level == level
                 ],
-                "default_for": defaults_by_lane.get(lane, []),
+                "default_for": defaults_by_level.get(level, []),
             }
         )
     return rows
 
 
-def handle_lane_summary_get(request: FunctionCallRequest) -> HandlerOutcome:
-    """Return the project's effective lane routing, ready to render."""
+def handle_level_summary_get(request: FunctionCallRequest) -> HandlerOutcome:
+    """Return the project's effective level routing, ready to render."""
     try:
-        parsed = LaneSummaryGetRequest(**(request.payload or {}))
+        parsed = LevelSummaryGetRequest(**(request.payload or {}))
     except ValidationError as exc:
         return _failure("payload_invalid", safe_validation_message(exc), "$.payload")
 
@@ -149,13 +151,13 @@ def handle_lane_summary_get(request: FunctionCallRequest) -> HandlerOutcome:
 
     config = load_routing_config("", project_settings=raw_settings)
     settings = _stored_settings(stored, json_helper)
-    defaults_by_lane, unrouted = _harness_defaults(config)
+    defaults_by_level, unrouted = _harness_defaults(config)
     return HandlerOutcome(
         result_payload={
             "project": parsed.project,
             "project_id": project_id,
             "configured": stored is not None,
-            "lanes": _lane_rows(config, settings, defaults_by_lane),
+            "levels": _level_rows(config, settings, defaults_by_level),
             "unrouted_harnesses": unrouted,
             "harnesses": [
                 {"id": harness_id, "label": harness_display_name(harness_id)}
@@ -184,7 +186,7 @@ def _failure(code: str, message: str, jsonpath: str) -> HandlerOutcome:
 
 
 __all__ = [
-    "LaneSummaryGetRequest",
-    "LaneSummaryResponse",
-    "handle_lane_summary_get",
+    "LevelSummaryGetRequest",
+    "LevelSummaryResponse",
+    "handle_level_summary_get",
 ]

@@ -12,10 +12,10 @@ from yoke_contracts.board.project_scope import public_ref
 from yoke_contracts.board.utils import display_width
 from yoke_contracts.coordination_claim_keys import COORDINATION_TARGET_KINDS
 from yoke_contracts.public_ref import unresolved_item_ref
-from yoke_contracts.session_lane import (
-    UNRESOLVED_EXECUTION_LANE,
-    lane_is_unresolved,
-    lane_presentation,
+from yoke_contracts.session_level import (
+    UNRESOLVED_EXECUTION_LEVEL,
+    level_is_unresolved,
+    level_presentation,
 )
 
 _RENDERED_ITEM_REF_RE = re.compile(r"^[A-Za-z]+-\d")
@@ -78,12 +78,12 @@ def _claims_for_session(db: BoardDBLike, session_id: str) -> List[Tuple]:
     return claims
 
 
-def _render_lane(
-    lane: Optional[str], presentation: Optional[Dict[str, str]] = None
+def _render_level(
+    level: Optional[str], presentation: Optional[Dict[str, str]] = None
 ) -> str:
-    if lane_is_unresolved(lane):
-        return f"⚠️ {UNRESOLVED_EXECUTION_LANE}"
-    metadata = presentation or lane_presentation(lane)
+    if level_is_unresolved(level):
+        return f"⚠️ {UNRESOLVED_EXECUTION_LEVEL}"
+    metadata = presentation or level_presentation(level)
     label, glyph = metadata["label"], metadata["glyph"]
     return f"{glyph} {label}" if glyph else label
 
@@ -152,5 +152,5 @@ __all__ = [
     "_claims_for_session",
     "_format_session_age",
     "_render_claim_target",
-    "_render_lane",
+    "_render_level",
 ]

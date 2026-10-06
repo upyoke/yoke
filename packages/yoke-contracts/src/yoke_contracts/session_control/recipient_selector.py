@@ -34,7 +34,7 @@ class RecipientSelector(BaseModel):
     executor_families: List[str] = Field(default_factory=list)
     executor_surfaces: List[str] = Field(default_factory=list)
     work_roles: List[str] = Field(default_factory=list)
-    execution_lanes: List[str] = Field(default_factory=list)
+    execution_levels: List[str] = Field(default_factory=list)
     worktree_lanes: List[str] = Field(default_factory=list)
     machine_ids: List[str] = Field(default_factory=list)
     liveness: List[str] = Field(default_factory=list)
@@ -45,6 +45,10 @@ class RecipientSelector(BaseModel):
     def _reject_retired_selector_keys(cls, data: Any) -> Any:
         if isinstance(data, dict) and "item_refs" in data:
             raise ValueError("replace selector.item_refs with selector.public_refs")
+        if isinstance(data, dict) and "execution_lanes" in data:
+            raise ValueError(
+                "replace selector.execution_lanes with selector.execution_levels"
+            )
         return data
 
     @model_validator(mode="after")

@@ -20,7 +20,7 @@ def _p(conn: Any) -> str:
 def list_harness_sessions(
     conn: Any,
     *,
-    lane: Optional[str] = None,
+    level: Optional[str] = None,
     mode: Optional[str] = None,
     workspace: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
@@ -28,9 +28,9 @@ def list_harness_sessions(
     clauses = ["ended_at IS NULL"]
     params: List[Any] = []
 
-    if lane is not None:
-        clauses.append(f"execution_lane = {_p(conn)}")
-        params.append(lane)
+    if level is not None:
+        clauses.append(f"execution_level = {_p(conn)}")
+        params.append(level)
     if mode is not None:
         clauses.append(f"mode = {_p(conn)}")
         params.append(mode)

@@ -133,7 +133,7 @@ class UpdateStatusEnv:
         _ts = "2026-04-20T00:00:00Z"
         conn.execute(
             "INSERT INTO harness_sessions"
-            " (session_id, executor, provider, model, execution_lane,"
+            " (session_id, executor, provider, model, execution_level,"
             "  executor_version, machine_id, workspace, mode, offered_at, last_heartbeat)"
             f" VALUES ({p}, 'claude-code', 'anthropic', 'test-model', 'primary',"
             f"  NULL, NULL, {p}, 'test', {p}, {p})"

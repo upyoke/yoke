@@ -149,7 +149,7 @@ def _register_from_hook(
             facts.workspace,
             entrypoint,
             actor_id=actor_id,
-            execution_lane=facts.execution_lane or None,
+            execution_level=facts.execution_level or None,
             project_id=facts.project_id,
             executor_version=executor_version or None,
             machine_id=machine_id or None,
@@ -295,7 +295,7 @@ def ensure_registered_from_hook(
             # A registered row stuck on placeholder identity still needs a
             # drive when a real value is resolvable — the registrar's
             # SESSION_EXISTS branch upgrades in place. That covers a wire
-            # model the row is still missing AND a lane left on the
+            # model the row is still missing AND a level left on the
             # unresolved sentinel, which is how a row stamped before its
             # routing policy could be read repairs itself.
             needs_identity_upgrade = (

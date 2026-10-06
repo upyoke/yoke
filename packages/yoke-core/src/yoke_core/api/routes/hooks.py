@@ -84,7 +84,7 @@ def post_hooks_evaluate(
         entrypoint=request.entrypoint,
         model_facts=facts_from_mapping(request.model_dump()),
         usage_totals=request.usage_totals,
-        execution_lane=request.execution_lane,
+        execution_level=request.execution_level,
         project_id=request.project_id,
         executor_version=request.executor_version,
         machine_id=request.machine_id,

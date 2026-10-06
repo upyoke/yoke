@@ -44,7 +44,7 @@ def _insert_session(
     executor_surface: str | None = "claude-desktop",
     provider: str = "anthropic",
     model: str = "claude-opus-5",
-    lane: str = "DARIUS",
+    level: str = "DARIUS",
     workspace: str = "/tmp/workspace",
     project_id: int | None = 1,
     ended_at: str | None = None,
@@ -52,7 +52,7 @@ def _insert_session(
     conn.execute(
         "INSERT INTO harness_sessions ("
         "session_id, executor, executor_surface, provider, model, "
-        "execution_lane, workspace, project_id, mode, offered_at, "
+        "execution_level, workspace, project_id, mode, offered_at, "
         "last_heartbeat, ended_at"
         ") VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (
@@ -61,7 +61,7 @@ def _insert_session(
             executor_surface,
             provider,
             model,
-            lane,
+            level,
             workspace,
             project_id,
             "wait",
@@ -82,7 +82,7 @@ class TestResolveSessionIdentity:
         assert identity.executor_surface == "claude-desktop"
         assert identity.provider == "anthropic"
         assert identity.model == "claude-opus-5"
-        assert identity.execution_lane == "DARIUS"
+        assert identity.execution_level == "DARIUS"
         assert identity.workspace == "/tmp/workspace"
         assert identity.project_id == 1
         assert identity.ended_at is None
@@ -106,7 +106,7 @@ class TestHandleIdentity:
             executor_surface="cursor-desktop",
             provider="cursor",
             model="composer-1",
-            lane="MUSKY",
+            level="MUSKY",
         )
         monkeypatch.setattr(
             "yoke_core.domain.handlers.sessions_identity._connect_rw",
@@ -120,7 +120,7 @@ class TestHandleIdentity:
         assert payload["executor_surface"] == "cursor-desktop"
         assert payload["provider"] == "cursor"
         assert payload["model"] == "composer-1"
-        assert payload["execution_lane"] == "MUSKY"
+        assert payload["execution_level"] == "MUSKY"
         assert payload["workspace"] == "/tmp/workspace"
         assert "lane_allowed_paths" not in payload
         assert isinstance(payload["max_chain_steps"], int)

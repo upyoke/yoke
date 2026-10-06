@@ -32,7 +32,7 @@ CREATE TABLE harness_sessions (
     requested_model TEXT DEFAULT NULL,
     requested_reasoning_effort TEXT DEFAULT NULL,
     requested_context_window_tokens INTEGER DEFAULT NULL,
-    execution_lane TEXT NOT NULL DEFAULT 'primary',
+    execution_level TEXT NOT NULL DEFAULT 'primary',
     workspace TEXT NOT NULL DEFAULT '/tmp',
     mode TEXT DEFAULT 'wait',
     offered_at TEXT NOT NULL,
@@ -59,9 +59,7 @@ _WHEN = "2026-05-20T00:00:00+00:00"
 
 def _empty_conn():
     name = pg_testdb.create_test_database()
-    return pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name
-    )
+    return pg_testdb.drop_database_on_close(pg_testdb.connect_test_database(name), name)
 
 
 @pytest.fixture
@@ -99,8 +97,7 @@ def _seed_session(
 
 def _seed_event(conn, *, session_id: str) -> None:
     conn.execute(
-        "INSERT INTO events (session_id, event_name, created_at) "
-        "VALUES (%s, %s, %s)",
+        "INSERT INTO events (session_id, event_name, created_at) VALUES (%s, %s, %s)",
         (session_id, "YokeFunctionCalled", _WHEN),
     )
 
@@ -114,9 +111,7 @@ def _run(conn):
 
 def test_module_declares_the_check_for_discovery():
     """A check that runs correctly but declares nothing never runs at all."""
-    assert [c.slug for c in PROJECT_HEALTH_CHECKS] == [
-        "session-identity-provenance"
-    ]
+    assert [c.slug for c in PROJECT_HEALTH_CHECKS] == ["session-identity-provenance"]
     assert PROJECT_HEALTH_CHECKS[0].fn is hc_session_identity_provenance
 
 
@@ -130,15 +125,21 @@ def test_skips_when_sessions_table_absent():
 
 def test_passes_on_known_labels_and_null(sessions_only):
     _seed_session(
-        sessions_only, session_id="s-1", executor="codex",
+        sessions_only,
+        session_id="s-1",
+        executor="codex",
         executor_surface="codex-desktop",
     )
     _seed_session(
-        sessions_only, session_id="s-2", executor="claude-code",
+        sessions_only,
+        session_id="s-2",
+        executor="claude-code",
         executor_surface=None,
     )
     _seed_session(
-        sessions_only, session_id="s-3", executor="claude-code",
+        sessions_only,
+        session_id="s-3",
+        executor="claude-code",
         executor_surface="claude-cli",
     )
     result = _run(sessions_only)
@@ -148,7 +149,9 @@ def test_passes_on_known_labels_and_null(sessions_only):
 
 def test_warns_on_unrecognized_display_name(sessions_only):
     _seed_session(
-        sessions_only, session_id="s-bad", executor="codex",
+        sessions_only,
+        session_id="s-bad",
+        executor="codex",
         executor_surface="codex-dash",
     )
     result = _run(sessions_only)
@@ -161,15 +164,19 @@ def test_ended_sessions_are_left_alone(sessions_only):
     # Settled history stays quiet without an exemption list: the check is
     # about writers still producing bad identity, not rows already written.
     _seed_session(
-        sessions_only, session_id="s-old", executor="codex",
-        executor_surface="codex-goal", ended_at=_WHEN,
+        sessions_only,
+        session_id="s-old",
+        executor="codex",
+        executor_surface="codex-goal",
+        ended_at=_WHEN,
     )
     assert _run(sessions_only).result == "PASS"
 
 
 def test_warns_on_uuid_actor_with_no_session_row(sessions_and_events):
     _seed_session(
-        sessions_and_events, session_id=_REAL_UUID,
+        sessions_and_events,
+        session_id=_REAL_UUID,
         executor_surface="codex-desktop",
     )
     _seed_event(sessions_and_events, session_id=_REAL_UUID)
@@ -190,7 +197,8 @@ def test_service_pseudo_sessions_are_not_flagged(sessions_and_events):
 
 def test_passes_when_every_actor_is_registered(sessions_and_events):
     _seed_session(
-        sessions_and_events, session_id=_REAL_UUID,
+        sessions_and_events,
+        session_id=_REAL_UUID,
         executor_surface="codex-desktop",
     )
     _seed_event(sessions_and_events, session_id=_REAL_UUID)

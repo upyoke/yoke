@@ -76,8 +76,11 @@ class TestRenderPathClaimsSection:
         ta = seed_target(conn, path_string="runtime/api/domain")
         tb = seed_target(conn, path_string="docs/path-claims.md")
         register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[ta, tb], item_id=item_id,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[ta, tb],
+            item_id=item_id,
         )
         rendered = render_path_claims_section(conn, item_id)
         assert rendered is not None
@@ -96,10 +99,10 @@ class TestRenderPathClaimsSection:
         actor = local_human(conn)
         item_id = _seed_item(conn, item_id=11003)
         target = seed_target(conn, path_string="runtime/api/domain")
-    # Seed a session row so the typed session-owner FK holds.
+        # Seed a session row so the typed session-owner FK holds.
         conn.execute(
             "INSERT INTO harness_sessions (session_id, executor, provider, "
-            "model, project_id, execution_lane, executor_version, machine_id, workspace, mode, "
+            "model, project_id, execution_level, executor_version, machine_id, workspace, mode, "
             "offered_at, last_heartbeat) "
             "VALUES ('sess-render', 'claude-code', 'test', 'test', 1, 'primary', "
             "NULL, NULL, '/tmp', 'wait', '2026-05-01T00:00:00Z', "
@@ -107,8 +110,12 @@ class TestRenderPathClaimsSection:
         )
         conn.commit()
         register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[target], item_id=item_id, session_id="sess-render",
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[target],
+            item_id=item_id,
+            session_id="sess-render",
         )
         rendered = render_path_claims_section(conn, item_id)
         assert "`sess-render`" not in rendered
@@ -119,13 +126,19 @@ class TestRenderPathClaimsSection:
         item_b = _seed_item(conn, item_id=11005)
         target = seed_target(conn, path_string="runtime/api/domain")
         first = register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[target], item_id=item_a,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[target],
+            item_id=item_a,
         )
         activate(conn, claim_id=first, base_commit_sha=SNAP)
         register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[target], item_id=item_b,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[target],
+            item_id=item_b,
             upstream_claim_id=first,
         )
         rendered = render_path_claims_section(conn, item_b)
@@ -139,8 +152,11 @@ class TestRenderPathClaimsSection:
         item_id = _seed_item(conn, item_id=11006)
         target = seed_target(conn, path_string="runtime/api/domain")
         cid = register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[target], item_id=item_id,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[target],
+            item_id=item_id,
         )
         conn.execute(
             "INSERT INTO path_claim_amendments "
@@ -162,12 +178,18 @@ class TestRenderPathClaimsSection:
         ta = seed_target(conn, path_string="runtime/api/domain")
         tb = seed_target(conn, path_string="docs/path-claims.md")
         register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[ta], item_id=item_id,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[ta],
+            item_id=item_id,
         )
         register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[tb], item_id=item_id,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[tb],
+            item_id=item_id,
         )
         rendered = render_path_claims_section(conn, item_id)
         assert rendered.count("### Claim") == 2
@@ -179,9 +201,7 @@ class TestRenderPathClaimsSection:
         # table is genuinely absent on whichever engine runs, so the
         # production swallow fires on the matching error type (psycopg
         # UndefinedTable on Postgres, not the SQLite-only type).
-        with init_test_db(
-            tmp_path, apply_schema=_apply_core_only_schema
-        ) as db_path:
+        with init_test_db(tmp_path, apply_schema=_apply_core_only_schema) as db_path:
             c = connect_test_db(db_path)
             try:
                 item_id = _seed_item(c, item_id=11008)

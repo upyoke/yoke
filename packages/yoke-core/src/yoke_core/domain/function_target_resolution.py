@@ -38,7 +38,7 @@ from yoke_core.domain.qa_deployment_function_subject import (
 )
 from yoke_core.domain.function_unresolved_project import (
     ProjectNotRegisteredError,
-    control_plane_label,
+    control_plevel_label,
 )
 from yoke_core.domain.project_identity import (
     AmbiguousProjectRefError,
@@ -215,7 +215,7 @@ _PAYLOAD_NAMED_PROJECT_FUNCTIONS = frozenset(
         "projects.retire",
         "projects.unretire",
         "projects.capability_settings.get",
-        "projects.lane_summary.get",
+        "projects.level_summary.get",
         "projects.capability_settings.set",
         "projects.capability_settings.merge",
         "projects.capability_settings.remove",
@@ -267,7 +267,7 @@ def _resolve_github_actions_project_context(
     except LookupError as exc:
         raise ProjectNotRegisteredError(
             payload_ref,
-            plane=control_plane_label(),
+            plane=control_plevel_label(),
         ) from exc
     return project_id, slug_for_project_id(conn, project_id)
 

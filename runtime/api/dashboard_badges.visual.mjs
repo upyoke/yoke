@@ -46,7 +46,7 @@ import { itemDeliveryPanel } from "/assets/item_view_delivery.js";
 const project={id:1,name:"Demo",public_item_prefix:"DEMO"};
 document.querySelector("#session").append(sessionCard(document,{session_id:"fixture-session",
  executor:"codex",executor_surface:"codex-cli",liveness:"active",mode:"dash",model:"gpt-6.1-sol",
- actor_label:"Deployment reviewer",execution_lane:"ALTMAN",claimed_items:[]},()=>{},[project]));
+ actor_label:"Deployment reviewer",execution_level:"ALTMAN",claimed_items:[]},()=>{},[project]));
 document.querySelector("#strategy").append(strategyDocumentCard(document,{slug:"CURRENT-PLAN",
  state:"ACTIVE",project_id:1,updated_at:"2026-10-05T12:00:00Z",summary:"Ship verified dashboard corrections."},project));
 const actor={id:1,name:"Deployment reviewer",kind:"human",status:"active",roles:{org:[{role:"admin"}]},

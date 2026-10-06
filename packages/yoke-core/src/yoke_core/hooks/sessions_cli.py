@@ -58,7 +58,7 @@ _USAGE = """\
 Usage: harness-sessions <subcmd> [args...]
 
 Subcommands:
-  begin <session-id> <executor> <provider> <model> <workspace> [lane] [mode]
+  begin <session-id> <executor> <provider> <model> <workspace> [level] [mode]
   touch <session-id> [--mode M]
   end <session-id> [--force]
   claim <session-id> --target-kind {item|epic_task|process}
@@ -144,12 +144,14 @@ def main(argv: Optional[List[str]] = None) -> None:
             if len(rest) < 5:
                 _cli_usage_error(
                     "Usage: harness-sessions begin <sid> <executor> <provider> "
-                    "<model> <workspace> [lane] [mode]"
+                    "<model> <workspace> [level] [mode]"
                 )
-            lane = rest[5] if len(rest) > 5 else "primary"
+            level = rest[5] if len(rest) > 5 else "primary"
             mode = rest[6] if len(rest) > 6 else "wait"
             print(
-                cmd_begin(conn, rest[0], rest[1], rest[2], rest[3], rest[4], lane, mode)
+                cmd_begin(
+                    conn, rest[0], rest[1], rest[2], rest[3], rest[4], level, mode
+                )
             )
 
         elif subcmd == "touch":

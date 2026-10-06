@@ -32,7 +32,7 @@ def _insert_session(
         now = _now_iso()
         conn.execute(
             """INSERT INTO harness_sessions
-               (session_id, executor, provider, model, execution_lane,
+               (session_id, executor, provider, model, execution_level,
                 workspace, mode, offered_at, last_heartbeat, ended_at)
                VALUES (%s, 'codex', 'openai', 'gpt-5.4', 'primary',
                        %s, 'charge', %s, %s, %s)""",

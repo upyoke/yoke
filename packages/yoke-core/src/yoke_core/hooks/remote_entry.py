@@ -63,7 +63,7 @@ def evaluate_remote(
     entrypoint: Optional[str] = None,
     model_facts: Optional[SessionModelFacts] = None,
     usage_totals: Optional[str] = None,
-    execution_lane: Optional[str] = None,
+    execution_level: Optional[str] = None,
     project_id: Optional[int] = None,
     executor_version: Optional[str] = None,
     machine_id: Optional[str] = None,
@@ -86,7 +86,7 @@ def evaluate_remote(
     # Client-side identity facts the server cannot detect itself: the
     # caller's entrypoint (desktop vs CLI display), the model facts and
     # consumption read from the harness's own artifact and launch
-    # environment, and the config-resolved execution lane ride the wire and
+    # environment, and the config-resolved execution level ride the wire and
     # merge into the payload, where the registration path already prefers
     # them.
     if entrypoint and entrypoint.strip():
@@ -97,8 +97,8 @@ def evaluate_remote(
             controls.payload_extra[field] = value
     if usage_totals and usage_totals.strip():
         controls.payload_extra[USAGE_COLUMN] = usage_totals.strip()
-    if execution_lane and execution_lane.strip():
-        controls.payload_extra["execution_lane"] = execution_lane.strip()
+    if execution_level and execution_level.strip():
+        controls.payload_extra["execution_level"] = execution_level.strip()
     if project_id is not None:
         controls.payload_extra["project_id"] = int(project_id)
     if executor_version and executor_version.strip():

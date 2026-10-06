@@ -215,7 +215,7 @@ def test_recorded_payload_folds_new_pair_read_and_preserves_old_rows(
         lambda *_args: ["session", "project", "executor", "model", "usage"],
     )
     monkeypatch.setattr(
-        sections_sessions, "session_lane_presentation", lambda *_args: None
+        sections_sessions, "session_level_presentation", lambda *_args: None
     )
     monkeypatch.setattr(sections_sessions, "_format_session_age", lambda _value: "1m")
 

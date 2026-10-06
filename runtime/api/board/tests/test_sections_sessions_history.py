@@ -58,7 +58,7 @@ def test_active_and_closed_rows_render_the_same_holdings_shape(monkeypatch) -> N
         lambda *_args: ["session", "project", "executor", "model", "usage"],
     )
     monkeypatch.setattr(
-        sections_sessions, "session_lane_presentation", lambda *_args: None
+        sections_sessions, "session_level_presentation", lambda *_args: None
     )
     monkeypatch.setattr(sections_sessions, "_format_session_age", lambda _value: "1h")
 
@@ -92,16 +92,14 @@ def test_recent_future_ended_age_clamps_at_zero(monkeypatch) -> None:
         "session_rows",
         lambda _db, *, scope, active_only: [] if active_only else [closed],
     )
-    monkeypatch.setattr(
-        sections_sessions, "session_holding_labels", lambda *_args: []
-    )
+    monkeypatch.setattr(sections_sessions, "session_holding_labels", lambda *_args: [])
     monkeypatch.setattr(
         sections_sessions,
         "session_common_cells",
         lambda *_args: ["session", "project", "executor", "model", "usage"],
     )
     monkeypatch.setattr(
-        sections_sessions, "session_lane_presentation", lambda *_args: None
+        sections_sessions, "session_level_presentation", lambda *_args: None
     )
 
     rendered = sections_sessions.render_sessions_section(object())

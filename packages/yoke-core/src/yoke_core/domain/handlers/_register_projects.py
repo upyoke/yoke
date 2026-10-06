@@ -14,7 +14,7 @@ from yoke_core.domain.handlers import (
 from yoke_core.domain.handlers import (
     projects_environment_settings as _environment_settings,
 )
-from yoke_core.domain.handlers import projects_lane_summary as _lane_summary
+from yoke_core.domain.handlers import projects_level_summary as _level_summary
 from yoke_core.domain.handlers import (
     projects_github_sync_mode_repair as _sync_mode_repair,
 )
@@ -125,12 +125,13 @@ def register(registry) -> None:
             ambient_session_required=False,
         )
     registry.register(
-        "projects.lane_summary.get",
-        _lane_summary.handle_lane_summary_get,
-        _lane_summary.LaneSummaryGetRequest,
-        _lane_summary.LaneSummaryResponse,
+        "projects.level_summary.get",
+        _level_summary.handle_level_summary_get,
+        _level_summary.LevelSummaryGetRequest,
+        _level_summary.LevelSummaryResponse,
         stability="stable",
-        owner_module="yoke_core.domain.handlers.projects_lane_summary",
+        owner_module="yoke_core.domain.handlers.projects_level_summary",
+        minimum_serving_version="next-release",
         target_kinds=["global"],
         side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],

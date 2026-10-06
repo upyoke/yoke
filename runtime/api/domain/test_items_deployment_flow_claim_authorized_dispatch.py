@@ -93,7 +93,7 @@ def claim_plane():
         now = iso8601_now()
         conn.execute(
             "INSERT INTO harness_sessions "
-            "(session_id,executor,provider,model,execution_lane,workspace,"
+            "(session_id,executor,provider,model,execution_level,workspace,"
             "project_id,mode,offered_at,last_heartbeat,actor_id) VALUES "
             "(%s,'codex','openai','test','primary','/tmp/claim-default',%s,"
             "'wait',%s,%s,%s)",
@@ -121,7 +121,7 @@ def claim_plane():
         other_session = "claim-default-outsider-session"
         conn.execute(
             "INSERT INTO harness_sessions "
-            "(session_id,executor,provider,model,execution_lane,workspace,"
+            "(session_id,executor,provider,model,execution_level,workspace,"
             "project_id,mode,offered_at,last_heartbeat,actor_id) VALUES "
             "(%s,'codex','openai','test','primary','/tmp/claim-default-2',%s,"
             "'wait',%s,%s,%s)",

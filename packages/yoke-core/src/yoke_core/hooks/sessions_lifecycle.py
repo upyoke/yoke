@@ -34,7 +34,7 @@ def cmd_begin(
     provider: str,
     model: str,
     workspace: str,
-    lane: str = "primary",
+    level: str = "primary",
     mode: str = "wait",
     executor_version: Optional[str] = None,
     machine_id: Optional[str] = None,
@@ -45,7 +45,7 @@ def cmd_begin(
     conn.execute(
         "INSERT INTO harness_sessions "
         "(session_id, executor, executor_surface, executor_version, machine_id, "
-        "provider, model, execution_lane, workspace, mode, offered_at, "
+        "provider, model, execution_level, workspace, mode, offered_at, "
         "last_heartbeat) "
         f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p})",
         (
@@ -56,7 +56,7 @@ def cmd_begin(
             machine_id,
             provider,
             model,
-            lane,
+            level,
             workspace,
             mode,
             now,
@@ -122,7 +122,7 @@ def cmd_get(conn, session_id: str) -> str:
     row = query_one(
         conn,
         "SELECT session_id, executor, executor_surface, executor_version, "
-        "machine_id, provider, model, execution_lane, workspace, mode, "
+        "machine_id, provider, model, execution_level, workspace, mode, "
         "offered_at, last_heartbeat, "
         "COALESCE(ended_at, '') "
         f"FROM harness_sessions WHERE session_id={p}",

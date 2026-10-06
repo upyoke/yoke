@@ -1,6 +1,6 @@
 """Selector routing: every tier, and the guarantee that order does not matter.
 
-``lane_rules`` exists because ``executor_default_lanes`` can only answer
+``level_rules`` exists because ``executor_default_levels`` can only answer
 per harness. The risk it introduces is a resolution order an operator
 cannot predict, so most of what is asserted here is that the answer depends
 on how specific a selector is and on nothing else — not on list position,
@@ -12,19 +12,19 @@ from __future__ import annotations
 import pytest
 
 from yoke_core.domain.session_routing_rules import (
-    LaneRule,
-    LaneRuleError,
-    parse_lane_rules,
-    parse_lane_rules_for_routing,
-    resolve_rule_lane,
+    LevelRule,
+    LevelRuleError,
+    parse_level_rules,
+    parse_level_rules_for_routing,
+    resolve_rule_level,
     routing_model_of,
 )
 
-_LANES = ("DARIUS", "ALTMAN", "MUSKY")
+_LEVELS = ("DARIUS", "ALTMAN", "MUSKY")
 
 
 def _rules(*entries):
-    return parse_lane_rules(list(entries), declared_lanes=_LANES)
+    return parse_level_rules(list(entries), declared_levels=_LEVELS)
 
 
 class TestTierPrecedence:
@@ -32,107 +32,113 @@ class TestTierPrecedence:
 
     def test_harness_and_model_outranks_model_alone(self):
         rules = _rules(
-            {"model": "gpt-5", "lane": "DARIUS"},
-            {"harness": "cursor", "model": "gpt-5", "lane": "ALTMAN"},
+            {"model": "gpt-5", "level": "DARIUS"},
+            {"harness": "cursor", "model": "gpt-5", "level": "ALTMAN"},
         )
-        assert resolve_rule_lane(
-            rules, executor="cursor-cli", model="gpt-5"
-        ) == "ALTMAN"
+        assert (
+            resolve_rule_level(rules, executor="cursor-cli", model="gpt-5") == "ALTMAN"
+        )
 
     def test_model_alone_outranks_harness_alone(self):
         rules = _rules(
-            {"harness": "cursor", "lane": "DARIUS"},
-            {"model": "gpt-5", "lane": "ALTMAN"},
+            {"harness": "cursor", "level": "DARIUS"},
+            {"model": "gpt-5", "level": "ALTMAN"},
         )
-        assert resolve_rule_lane(
-            rules, executor="cursor-cli", model="gpt-5"
-        ) == "ALTMAN"
+        assert (
+            resolve_rule_level(rules, executor="cursor-cli", model="gpt-5") == "ALTMAN"
+        )
 
     def test_harness_alone_applies_when_no_model_selector_matches(self):
         rules = _rules(
-            {"harness": "cursor", "lane": "MUSKY"},
-            {"model": "claude-opus-*", "lane": "DARIUS"},
+            {"harness": "cursor", "level": "MUSKY"},
+            {"model": "claude-opus-*", "level": "DARIUS"},
         )
-        assert resolve_rule_lane(
-            rules, executor="cursor-cli", model="gpt-5"
-        ) == "MUSKY"
+        assert (
+            resolve_rule_level(rules, executor="cursor-cli", model="gpt-5") == "MUSKY"
+        )
 
     def test_no_match_leaves_the_harness_default_in_charge(self):
-        rules = _rules({"harness": "codex", "lane": "ALTMAN"})
-        assert resolve_rule_lane(
-            rules, executor="claude-cli", model="claude-opus-5"
-        ) is None
+        rules = _rules({"harness": "codex", "level": "ALTMAN"})
+        assert (
+            resolve_rule_level(rules, executor="claude-cli", model="claude-opus-5")
+            is None
+        )
 
 
 class TestModelSpecificity:
     def test_exact_model_outranks_a_prefix_that_also_matches(self):
         rules = _rules(
-            {"model": "claude-opus-*", "lane": "DARIUS"},
-            {"model": "claude-opus-5", "lane": "ALTMAN"},
+            {"model": "claude-opus-*", "level": "DARIUS"},
+            {"model": "claude-opus-5", "level": "ALTMAN"},
         )
-        assert resolve_rule_lane(
-            rules, executor="claude-cli", model="claude-opus-5"
-        ) == "ALTMAN"
+        assert (
+            resolve_rule_level(rules, executor="claude-cli", model="claude-opus-5")
+            == "ALTMAN"
+        )
 
     def test_longer_prefix_outranks_shorter(self):
         rules = _rules(
-            {"model": "claude-*", "lane": "DARIUS"},
-            {"model": "claude-opus-*", "lane": "MUSKY"},
+            {"model": "claude-*", "level": "DARIUS"},
+            {"model": "claude-opus-*", "level": "MUSKY"},
         )
-        assert resolve_rule_lane(
-            rules, executor="claude-cli", model="claude-opus-5"
-        ) == "MUSKY"
+        assert (
+            resolve_rule_level(rules, executor="claude-cli", model="claude-opus-5")
+            == "MUSKY"
+        )
 
     def test_a_prefix_as_long_as_the_identifier_still_loses_to_it(self):
         # Both patterns are the same length; the exact form is still the
         # narrower claim, so length alone must not decide.
         rules = _rules(
-            {"model": "claude-opus-*", "lane": "DARIUS"},
-            {"model": "claude-opus-", "lane": "ALTMAN"},
+            {"model": "claude-opus-*", "level": "DARIUS"},
+            {"model": "claude-opus-", "level": "ALTMAN"},
         )
-        assert resolve_rule_lane(
-            rules, executor="claude-cli", model="claude-opus-"
-        ) == "ALTMAN"
+        assert (
+            resolve_rule_level(rules, executor="claude-cli", model="claude-opus-")
+            == "ALTMAN"
+        )
 
 
 class TestOrderIndependence:
     @pytest.mark.parametrize("reverse", [False, True])
     def test_the_same_selectors_route_the_same_either_way_round(self, reverse):
         entries = [
-            {"harness": "cursor", "lane": "MUSKY"},
-            {"model": "claude-opus-*", "lane": "DARIUS"},
-            {"harness": "cursor", "model": "gpt-*", "lane": "ALTMAN"},
+            {"harness": "cursor", "level": "MUSKY"},
+            {"model": "claude-opus-*", "level": "DARIUS"},
+            {"harness": "cursor", "model": "gpt-*", "level": "ALTMAN"},
         ]
-        rules = parse_lane_rules(
+        rules = parse_level_rules(
             list(reversed(entries)) if reverse else entries,
-            declared_lanes=_LANES,
+            declared_levels=_LEVELS,
         )
-        assert resolve_rule_lane(
-            rules, executor="cursor-cli", model="gpt-5"
-        ) == "ALTMAN"
-        assert resolve_rule_lane(
-            rules, executor="cursor-cli", model="sonar"
-        ) == "MUSKY"
-        assert resolve_rule_lane(
-            rules, executor="claude-cli", model="claude-opus-5"
-        ) == "DARIUS"
+        assert (
+            resolve_rule_level(rules, executor="cursor-cli", model="gpt-5") == "ALTMAN"
+        )
+        assert (
+            resolve_rule_level(rules, executor="cursor-cli", model="sonar") == "MUSKY"
+        )
+        assert (
+            resolve_rule_level(rules, executor="claude-cli", model="claude-opus-5")
+            == "DARIUS"
+        )
 
 
 class TestHarnessCanonicalization:
     @pytest.mark.parametrize(
-        "executor", ["claude-code", "claude-cli", "claude-desktop", "claude"],
+        "executor",
+        ["claude-code", "claude-cli", "claude-desktop", "claude"],
     )
     def test_every_claude_surface_matches_the_family_selector(self, executor):
-        rules = _rules({"harness": "claude-code", "lane": "DARIUS"})
-        assert resolve_rule_lane(rules, executor=executor, model=None) == "DARIUS"
+        rules = _rules({"harness": "claude-code", "level": "DARIUS"})
+        assert resolve_rule_level(rules, executor=executor, model=None) == "DARIUS"
 
     def test_an_unplaceable_executor_matches_no_harness_selector(self):
-        rules = _rules({"harness": "claude-code", "lane": "DARIUS"})
-        assert resolve_rule_lane(rules, executor="mystery", model=None) is None
+        rules = _rules({"harness": "claude-code", "level": "DARIUS"})
+        assert resolve_rule_level(rules, executor="mystery", model=None) is None
 
     def test_an_unsupported_harness_selector_is_refused_at_parse(self):
-        with pytest.raises(LaneRuleError) as caught:
-            _rules({"harness": "emacs", "lane": "DARIUS"})
+        with pytest.raises(LevelRuleError) as caught:
+            _rules({"harness": "emacs", "level": "DARIUS"})
         assert "unsupported harness" in str(caught.value)
         assert "claude-code" in str(caught.value)
 
@@ -140,23 +146,19 @@ class TestHarnessCanonicalization:
 class TestMissingModel:
     def test_a_session_with_no_model_matches_only_harness_selectors(self):
         rules = _rules(
-            {"model": "claude-opus-*", "lane": "DARIUS"},
-            {"harness": "claude-code", "lane": "MUSKY"},
+            {"model": "claude-opus-*", "level": "DARIUS"},
+            {"harness": "claude-code", "level": "MUSKY"},
         )
-        assert resolve_rule_lane(
-            rules, executor="claude-cli", model=None
-        ) == "MUSKY"
+        assert resolve_rule_level(rules, executor="claude-cli", model=None) == "MUSKY"
 
     def test_a_model_only_document_leaves_a_modelless_session_unrouted(self):
-        rules = _rules({"model": "claude-opus-*", "lane": "DARIUS"})
-        assert resolve_rule_lane(rules, executor="claude-cli", model=None) is None
+        rules = _rules({"model": "claude-opus-*", "level": "DARIUS"})
+        assert resolve_rule_level(rules, executor="claude-cli", model=None) is None
 
 
 class TestRoutingModel:
     def test_an_attested_model_wins_over_the_ask(self):
-        assert routing_model_of("claude-opus-5", "claude-sonnet-5") == (
-            "claude-opus-5"
-        )
+        assert routing_model_of("claude-opus-5", "claude-sonnet-5") == ("claude-opus-5")
 
     def test_the_ask_is_the_fallback_with_its_context_tier_removed(self):
         assert routing_model_of(None, "claude-opus-5[1m]") == "claude-opus-5"
@@ -167,63 +169,64 @@ class TestRoutingModel:
 
 
 class TestRefusedDocuments:
-    def test_a_duplicate_selector_is_refused_and_names_the_other_lane(self):
-        with pytest.raises(LaneRuleError) as caught:
+    def test_a_duplicate_selector_is_refused_and_names_the_other_level(self):
+        with pytest.raises(LevelRuleError) as caught:
             _rules(
-                {"harness": "cursor", "lane": "MUSKY"},
-                {"harness": "cursor", "lane": "ALTMAN"},
+                {"harness": "cursor", "level": "MUSKY"},
+                {"harness": "cursor", "level": "ALTMAN"},
             )
         assert "repeats a selector" in str(caught.value)
         assert "MUSKY" in str(caught.value)
 
-    def test_a_rule_naming_an_undeclared_lane_is_refused(self):
-        with pytest.raises(LaneRuleError) as caught:
-            _rules({"harness": "cursor", "lane": "NOWHERE"})
+    def test_a_rule_naming_an_undeclared_level_is_refused(self):
+        with pytest.raises(LevelRuleError) as caught:
+            _rules({"harness": "cursor", "level": "NOWHERE"})
         assert "does not declare" in str(caught.value)
 
     @pytest.mark.parametrize(
-        "model", ["cla*ude", "*-opus", "*", "cl*ude*"],
+        "model",
+        ["cla*ude", "*-opus", "*", "cl*ude*"],
     )
     def test_a_malformed_model_pattern_is_refused(self, model):
-        with pytest.raises(LaneRuleError) as caught:
-            _rules({"model": model, "lane": "DARIUS"})
+        with pytest.raises(LevelRuleError) as caught:
+            _rules({"model": model, "level": "DARIUS"})
         assert "$" not in str(caught.value)
         assert caught.value.field.endswith(".model")
 
     def test_a_rule_matching_everything_is_refused(self):
-        with pytest.raises(LaneRuleError) as caught:
-            _rules({"lane": "DARIUS"})
+        with pytest.raises(LevelRuleError) as caught:
+            _rules({"level": "DARIUS"})
         assert "matches nothing" in str(caught.value)
 
     def test_an_unsupported_key_is_refused_by_name(self):
-        with pytest.raises(LaneRuleError) as caught:
-            _rules({"harness": "cursor", "lane": "MUSKY", "priority": 3})
+        with pytest.raises(LevelRuleError) as caught:
+            _rules({"harness": "cursor", "level": "MUSKY", "priority": 3})
         assert "priority" in str(caught.value)
 
     def test_a_non_list_document_is_refused(self):
-        with pytest.raises(LaneRuleError):
-            parse_lane_rules({"harness": "cursor"}, declared_lanes=_LANES)
+        with pytest.raises(LevelRuleError):
+            parse_level_rules({"harness": "cursor"}, declared_levels=_LEVELS)
 
 
 class TestReadPathLeniency:
     """Routing degrades to the harness default; it never refuses a session."""
 
     def test_an_unusable_entry_is_dropped_and_the_rest_still_route(self):
-        rules = parse_lane_rules_for_routing(
+        rules = parse_level_rules_for_routing(
             [
-                {"harness": "emacs", "lane": "DARIUS"},
-                {"harness": "cursor", "lane": "MUSKY"},
+                {"harness": "emacs", "level": "DARIUS"},
+                {"harness": "cursor", "level": "MUSKY"},
             ]
         )
-        assert rules == (LaneRule(lane="MUSKY", harness="cursor"),)
+        assert rules == (LevelRule(level="MUSKY", harness="cursor"),)
 
     def test_a_document_of_the_wrong_shape_yields_no_rules(self):
-        assert parse_lane_rules_for_routing("cursor=MUSKY") == ()
+        assert parse_level_rules_for_routing("cursor=MUSKY") == ()
 
-    def test_the_read_path_does_not_re_litigate_lane_declaration(self):
+    def test_the_read_path_does_not_re_litigate_level_declaration(self):
         # Declaration is the settings validator's job. Re-checking it here
         # would turn a stored document into a registration failure.
-        rules = parse_lane_rules_for_routing(
-            [{"harness": "cursor", "lane": "UNDECLARED"}]
+        rules = parse_level_rules_for_routing(
+            [{"harness": "cursor", "level": "UNDECLARED"}]
         )
-        assert rules[0].lane == "UNDECLARED"
+        assert rules[0].level == "UNDECLARED"

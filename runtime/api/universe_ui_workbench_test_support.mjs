@@ -44,7 +44,7 @@ function session(sessionId, project, projectId) {
     project_id: projectId,
     executor: "codex",
     model: "gpt-5.6-sol",
-    execution_lane: "implementation",
+    execution_level: "implementation",
     mode: "charge",
     actor_id: 2,
     actor_kind: "human",

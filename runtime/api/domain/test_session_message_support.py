@@ -118,7 +118,7 @@ def message_connection(path: str = ":memory:") -> sqlite3.Connection:
         + ALPHA_WORKSPACE
         + """',
             executor TEXT, executor_surface TEXT, executor_version TEXT,
-            machine_id TEXT, execution_lane TEXT, last_heartbeat TEXT,
+            machine_id TEXT, execution_level TEXT, last_heartbeat TEXT,
             last_tool_call_at TEXT, offered_at TEXT, ended_at TEXT,
             terminated_at TEXT, terminated_by_actor_id INTEGER,
             terminated_by_session_id TEXT, termination_reason TEXT,
@@ -155,7 +155,7 @@ def message_connection(path: str = ":memory:") -> sqlite3.Connection:
         INSERT INTO harness_sessions (
             session_id,project_id,actor_id,workspace,executor,executor_surface,
             executor_version,
-            machine_id,execution_lane,last_heartbeat,last_tool_call_at,offered_at,
+            machine_id,execution_level,last_heartbeat,last_tool_call_at,offered_at,
             native_thread_id
         ) VALUES
             ('s1',1,10,'{ALPHA_WORKSPACE}','codex','codex-desktop','26.814.41407',

@@ -110,7 +110,7 @@ _BY_ID: dict[str, AuthzSpec] = {
     # project (resolved from the payload), gated by that project's admin.
     "projects.capability_secret.set": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "projects.capability_settings.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),
-    "projects.lane_summary.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),
+    "projects.level_summary.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "projects.capability_settings.set": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "projects.capability_settings.merge": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "projects.capability_settings.remove": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),

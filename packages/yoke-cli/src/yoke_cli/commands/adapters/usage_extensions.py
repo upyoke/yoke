@@ -9,7 +9,7 @@ from yoke_cli.commands.adapters import claims_coordination_claim
 from yoke_cli.commands.adapters import claims_steering
 from yoke_cli.commands.adapters import config_actor_binding
 from yoke_cli.commands.adapters import project_git_bootstrap
-from yoke_cli.commands.adapters import projects_lane_summary
+from yoke_cli.commands.adapters import projects_level_summary
 from yoke_cli.commands.adapters import steering_report
 from yoke_cli.commands.adapters import qa
 from yoke_cli.commands.adapters import shepherd_writes
@@ -25,7 +25,7 @@ def extend_adapter_usage(target: Dict[str, str]) -> None:
     target.update(actors.USAGE_BY_FUNCTION_ID)
     target.update(READINESS_USAGE_BY_ID)
     target.update(project_git_bootstrap.USAGE_BY_FUNCTION_ID)
-    target.update(projects_lane_summary.USAGE_BY_FUNCTION_ID)
+    target.update(projects_level_summary.USAGE_BY_FUNCTION_ID)
     target.update(qa.USAGE_BY_FUNCTION_ID)
     target.update(shepherd_writes.USAGE_BY_FUNCTION_ID)
     target.update(strategy_event_usage.USAGE_BY_FUNCTION_ID)

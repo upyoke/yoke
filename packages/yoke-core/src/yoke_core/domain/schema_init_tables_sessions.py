@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_core.domain.session_turn_posture import (
     TURN_POSTURE_AT_COLUMN_DDL,
@@ -63,7 +64,7 @@ def create_session_tables(conn: Any) -> None:
           reasoning_effort TEXT DEFAULT NULL,
           context_window_tokens INTEGER DEFAULT NULL,
           usage_totals TEXT DEFAULT NULL,
-          execution_lane TEXT NOT NULL DEFAULT 'primary',
+          execution_level TEXT NOT NULL DEFAULT 'primary',
           workspace TEXT NOT NULL,
           project_id INTEGER NOT NULL REFERENCES projects(id),
           mode TEXT DEFAULT 'wait',
@@ -96,7 +97,6 @@ def create_session_tables(conn: Any) -> None:
           last_steering_report_at TEXT DEFAULT NULL,
 {recovery_columns}          last_steering_report_fingerprint TEXT DEFAULT NULL
         );
-        CREATE INDEX IF NOT EXISTS idx_harness_sessions_lane ON harness_sessions(execution_lane);
         CREATE INDEX IF NOT EXISTS idx_harness_sessions_heartbeat ON harness_sessions(last_heartbeat);
         CREATE INDEX IF NOT EXISTS idx_harness_sessions_project ON harness_sessions(project_id);
         CREATE TABLE IF NOT EXISTS session_tool_calls (
@@ -142,3 +142,11 @@ def create_session_tables(conn: Any) -> None:
         CREATE INDEX IF NOT EXISTS idx_work_claims_heartbeat ON work_claims(last_heartbeat);
     """,
     )
+    # This DDL runs on every boot, before the migration history renames an
+    # existing universe's ``execution_lane`` column; that entry creates the
+    # index itself, so only a table already carrying the column gets it here.
+    if _column_exists(conn, "harness_sessions", "execution_level"):
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_harness_sessions_level "
+            "ON harness_sessions(execution_level)"
+        )

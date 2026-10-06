@@ -51,7 +51,7 @@ def _connection():
     conn.execute(
         "INSERT INTO harness_sessions "
         "(session_id,project_id,executor_surface,executor_version,machine_id,"
-        "model,executor,execution_lane,last_heartbeat,offered_at) "
+        "model,executor,execution_level,last_heartbeat,offered_at) "
         "VALUES (?,?,?,?,?,?,'codex','direct',?,?)",
         (
             TARGET_SESSION_ID,

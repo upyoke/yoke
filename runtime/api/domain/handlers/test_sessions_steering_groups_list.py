@@ -12,7 +12,11 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from runtime.api.fixtures.session_holdings import insert_steering_claim
-from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
+from yoke_contracts.api.function_call import (
+    ActorContext,
+    FunctionCallRequest,
+    TargetRef,
+)
 from yoke_core.domain.handlers.sessions_list import handle_sessions_list
 from yoke_core.domain.handlers.sessions_steering_groups import (
     handle_sessions_steering_groups_list,
@@ -38,7 +42,7 @@ def _insert_session(
 ) -> None:
     conn.execute(
         "INSERT INTO harness_sessions ("
-        "session_id, executor, provider, model, execution_lane, workspace, "
+        "session_id, executor, provider, model, execution_level, workspace, "
         "project_id, mode, offered_at, last_heartbeat, ended_at"
         ") VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (
@@ -66,7 +70,9 @@ def _insert_project(conn, project_id: int, slug: str) -> None:
     conn.commit()
 
 
-def _insert_document_claim(conn, session_id: str, *, project_id: int, slug: str) -> None:
+def _insert_document_claim(
+    conn, session_id: str, *, project_id: int, slug: str
+) -> None:
     from yoke_core.domain.work_claim_targets import make_steering_target
 
     target = make_steering_target(project_id, document=slug)

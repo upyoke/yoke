@@ -17,16 +17,7 @@ import pytest
 from yoke_contracts.board.config import parse_config
 from yoke_contracts.board.art import ArtConfig, parse_art_config
 from yoke_contracts.board.renderer import render_board_from_payload
-from yoke_contracts.board.sections_definition_queries import (
-    _epic_task_rows_sql,
-    _items_sql,
-    _precomputed_epic_tasks_sql,
-    query_epic_task_rows,
-    query_item_rows,
-    query_precomputed_epic_task_rows,
-)
 from yoke_core.board.data import (
-    BOARD_DATA_VERSION,
     BoardDataMissError,
     ReplayBoardDB,
     collect_board_data,
@@ -96,10 +87,20 @@ def test_parity_velocity_meter_strategy_revisions(populated_db, tmp_path):
     cfg.write_text("dashboard_velocity_meter=true\n")
     today = date.today().isoformat()
     insert_doc_revision(
-        populated_db, "yoke", "MISSION", 1, 10, f"{today}T09:00:00Z",
+        populated_db,
+        "yoke",
+        "MISSION",
+        1,
+        10,
+        f"{today}T09:00:00Z",
     )
     insert_doc_revision(
-        populated_db, "yoke", "MISSION", 2, 3300, f"{today}T10:00:00Z",
+        populated_db,
+        "yoke",
+        "MISSION",
+        2,
+        3300,
+        f"{today}T10:00:00Z",
     )
     direct = _direct_render(populated_db, "yoke", str(cfg), seed=42)
     fed = _data_fed_render(populated_db, "yoke", str(cfg), seed=42)
@@ -123,7 +124,7 @@ def test_payload_uses_stamped_session_project_identity(populated_db, config_file
                 requested_reasoning_effort TEXT DEFAULT NULL,
                 requested_context_window_tokens INTEGER DEFAULT NULL,
                 usage_totals TEXT DEFAULT NULL,
-                execution_lane TEXT DEFAULT 'primary',
+                execution_level TEXT DEFAULT 'primary',
                 mode TEXT DEFAULT 'wait',
                 workspace TEXT DEFAULT '',
                 project_id INTEGER NOT NULL REFERENCES projects(id),
@@ -171,7 +172,7 @@ def test_payload_uses_stamped_session_project_identity(populated_db, config_file
             """
             INSERT INTO harness_sessions
                 (session_id, executor, executor_surface, provider, model,
-                 execution_lane, mode, workspace, project_id, offered_at,
+                 execution_level, mode, workspace, project_id, offered_at,
                  last_heartbeat)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
@@ -241,73 +242,6 @@ def test_replay_miss_raises_loudly(populated_db, config_file):
     replay = ReplayBoardDB.from_payload(json.loads(json.dumps(payload)))
     with pytest.raises(BoardDataMissError, match="parity bug"):
         replay.query("SELECT 1 FROM items WHERE id = %s", (424242,))
-
-
-def test_item_rows_fall_back_to_legacy_recorded_query():
-    legacy_row = [
-        7,
-        "Legacy",
-        "dash",
-        "idea",
-        "medium",
-        0,
-        0,
-        7,
-        "Yoke",
-        "2026-08-03T00:00:00Z",
-        "yoke",
-        "YOK",
-        7,
-        "none",
-    ]
-    legacy_sql = _items_sql("", definition_metadata=False)
-    replay = ReplayBoardDB.from_payload(
-        {
-            "version": BOARD_DATA_VERSION,
-            "entries": [
-                {
-                    "kind": "query",
-                    "sql": legacy_sql,
-                    "params": None,
-                    "rows": [legacy_row],
-                }
-            ],
-        }
-    )
-
-    assert not replay.has_query(_items_sql("", definition_metadata=True))
-    assert query_item_rows(replay, "") == [
-        (*legacy_row[:-1], None, None, "", "", legacy_row[-1])
-    ]
-
-
-def test_epic_task_rows_fall_back_to_legacy_recorded_queries():
-    detail_sql = _epic_task_rows_sql(definition_metadata=False)
-    batch_sql = _precomputed_epic_tasks_sql("", definition_metadata=False)
-    replay = ReplayBoardDB.from_payload(
-        {
-            "version": BOARD_DATA_VERSION,
-            "entries": [
-                {
-                    "kind": "query",
-                    "sql": detail_sql,
-                    "params": [7],
-                    "rows": [[1, "Task", "done"]],
-                },
-                {
-                    "kind": "query_quiet",
-                    "sql": batch_sql,
-                    "params": None,
-                    "rows": [[7, 1, "Task", "done"]],
-                },
-            ],
-        }
-    )
-
-    assert query_epic_task_rows(replay, 7) == [(1, "Task", "done", None)]
-    assert query_precomputed_epic_task_rows(replay, "") == [
-        (7, 1, "Task", "done", None)
-    ]
 
 
 def test_payload_versions_must_match(populated_db, config_file):

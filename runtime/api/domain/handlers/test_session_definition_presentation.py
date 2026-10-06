@@ -7,13 +7,13 @@ from runtime.api.domain.handlers.test_sessions_list_handler import (
 from yoke_core.domain.sessions_list_read import list_sessions
 
 
-def test_definition_owned_lane_and_executor_presentation(test_db) -> None:
+def test_definition_owned_level_and_executor_presentation(test_db) -> None:
     test_db.execute(
         "INSERT INTO project_capabilities "
         "(project_id,type,settings,created_at) VALUES (1,'session-routing',%s,%s) "
         "ON CONFLICT(project_id,type) DO UPDATE SET settings=EXCLUDED.settings",
         (
-            '{"lane_metadata":{"RESEARCH":{"label":"Research","glyph":"🔬"}}}',
+            '{"level_metadata":{"RESEARCH":{"label":"Research","glyph":"🔬"}}}',
             _iso(),
         ),
     )
@@ -23,11 +23,11 @@ def test_definition_owned_lane_and_executor_presentation(test_db) -> None:
         "s-presented",
         last_heartbeat=_iso(),
         executor="codex-app",
-        lane="RESEARCH",
+        level="RESEARCH",
     )
 
     row = list_sessions()[0]
-    assert (row["lane_label"], row["lane_glyph"]) == ("Research", "🔬")
+    assert (row["level_label"], row["level_glyph"]) == ("Research", "🔬")
     assert (row["executor_mark"], row["executor_class_name"]) == (
         "X",
         "h-codex",
