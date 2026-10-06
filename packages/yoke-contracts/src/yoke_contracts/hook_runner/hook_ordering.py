@@ -291,6 +291,7 @@ _HOOK_ORDERING: dict[str, dict[str, tuple[str, ...]]] = {
     },
     "SessionEnd": {
         "_default": (
+            "yoke_core.domain.turn_end_promised_work_gate",
             *_LIFECYCLE_DISPATCH,
             "yoke_core.hooks.session_launch_attestation",
         ),

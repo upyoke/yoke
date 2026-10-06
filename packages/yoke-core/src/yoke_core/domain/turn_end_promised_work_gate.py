@@ -1,4 +1,9 @@
-"""Manifest-bounded Stop reminder with durable unsupported-surface deferral."""
+"""Manifest-bounded Stop reminder with durable unsupported-surface deferral.
+
+The gate runs on each surface's declared turn-end event. A surface whose
+native fires no ``Stop`` (Cursor print mode) declares ``SessionEnd``; that
+event can never continue the turn, so there it only records the deferral.
+"""
 
 from __future__ import annotations
 
@@ -12,7 +17,10 @@ from yoke_contracts.turn_end_evidence import (
     extract_turn_end_evidence,
     read_transcript_tail,
 )
-from yoke_contracts.session_control import stop_denial_continuation_supported
+from yoke_contracts.session_control import (
+    stop_denial_continuation_supported,
+    turn_end_events,
+)
 from yoke_core.domain.session_relay_launch_context import session_was_relay_launched
 from yoke_core.domain.turn_end_session_state import (
     monitor_waiter_armed,
@@ -214,9 +222,16 @@ def _emit_deferred(
     )
 
 
+def _surface(record: HookContext) -> Optional[str]:
+    surface = record.payload.get("entrypoint") if record.payload else None
+    return surface if isinstance(surface, str) else None
+
+
 def evaluate(record: HookContext) -> HookDecision:
     """Hold an eligible Stop; allow every documented escape hatch."""
-    if record.event_name != "Stop":
+    if record.event_name not in turn_end_events(
+        record.executor_family, _surface(record)
+    ):
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     evidence = _evidence_for(record)
     if evidence is UNAVAILABLE or not evidence.available:
@@ -256,10 +271,9 @@ def evaluate(record: HookContext) -> HookDecision:
                 claim=claim,
             )
             return _allow()
-        surface = record.payload.get("entrypoint") if record.payload else None
-        if not stop_denial_continuation_supported(
+        if record.event_name != "Stop" or not stop_denial_continuation_supported(
             record.executor_family,
-            surface if isinstance(surface, str) else None,
+            _surface(record),
             relay_launched=session_was_relay_launched(conn, session_id),
         ):
             _emit_deferred(

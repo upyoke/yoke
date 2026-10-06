@@ -60,7 +60,8 @@
           "cursor"
         ],
         "wake_authority": "native",
-        "native_create_timeout_seconds": 180
+        "native_create_timeout_seconds": 180,
+        "turn_end_event": "SessionEnd"
       },
       "cursor-desktop": {
         "minimum_version": "3.17.8",
@@ -75,7 +76,8 @@
         "stop_denial_continuation": "none",
         "relay_stop_denial_continuation": "none",
         "liveness_process_names": [],
-        "wake_authority": "operator"
+        "wake_authority": "operator",
+        "turn_end_event": "Stop"
       }
     },
     "inline_context_source": "yoke_contracts.hook_inline_context",
@@ -118,7 +120,7 @@
     "turn_record": "none",
     "turn_record_mechanism": "",
     "verified_on_surface": "cursor-cli",
-    "evidence": "No reader is needed and none is built. Cursor fires its turn-end hook on every ending observed so far, so the same reasoning as claude-code applies: the hook stamps posture and a transcript read would answer nothing further. Designed deferral on the same terms."
+    "evidence": "No reader is needed and none is built. cursor-cli print mode (every relay launch and resume) never fires stop; the process exits when the turn finishes and fires sessionEnd with reason completed, which the surface declares as its turn_end_event, so a hook still stamps posture at every observed ending and a transcript read would answer nothing further. Designed deferral on the same terms as claude-code."
   },
   "worktree_hook_enablement": {
     "config_path": ".cursor/hooks.json",

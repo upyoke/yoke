@@ -61,7 +61,8 @@
         "stop_denial_continuation": "supported",
         "relay_stop_denial_continuation": "none",
         "liveness_process_names": [],
-        "wake_authority": "native"
+        "wake_authority": "native",
+        "turn_end_event": "Stop"
       },
       "codex-desktop": {
         "minimum_version": "26.814.41407",
@@ -79,7 +80,8 @@
         "stop_denial_continuation": "supported",
         "relay_stop_denial_continuation": "none",
         "liveness_process_names": [],
-        "wake_authority": "operator"
+        "wake_authority": "operator",
+        "turn_end_event": "Stop"
       },
       "codex-vscode": {
         "minimum_version": "0.148.0-alpha.15",
@@ -97,7 +99,8 @@
         "stop_denial_continuation": "supported",
         "relay_stop_denial_continuation": "supported",
         "liveness_process_names": [],
-        "wake_authority": "native"
+        "wake_authority": "native",
+        "turn_end_event": "Stop"
       }
     },
     "inline_context_source": "yoke_contracts.hook_inline_context",

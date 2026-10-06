@@ -20,6 +20,12 @@ InterfaceClass = Literal["supported", "private", "none"]
 #: land in a copy of the conversation the app only shows on refresh, and
 #: the next sentence they type continues the branch they can see.
 WakeAuthority = Literal["native", "operator"]
+#: The hook event that ends a turn on this surface. ``Stop`` is the normal
+#: turn-end hook. ``SessionEnd`` names a surface whose native fires no turn-end
+#: hook at all, so its process exit is the turn end: Cursor's print mode (every
+#: relay launch and resume) fires ``sessionEnd`` with ``reason: completed`` when
+#: the turn finishes and never fires ``stop``.
+TurnEndEvent = Literal["Stop", "SessionEnd"]
 CURSOR_LIVENESS_PROCESS_NAMES = ("cursor-agent", "cursor")
 _SUPERVISED_NATIVE_CREATE_TIMEOUT_SECONDS = 180
 
@@ -37,6 +43,7 @@ class SessionSurfaceCapability:
     liveness_process_names: tuple[str, ...] = ()
     wake_authority: WakeAuthority = "native"
     native_create_timeout_seconds: int | None = None
+    turn_end_event: TurnEndEvent = "Stop"
 
     def to_json(self) -> dict[str, object]:
         payload = asdict(self)
@@ -130,6 +137,7 @@ SESSION_SURFACE_CAPABILITIES: dict[str, SessionSurfaceCapability] = {
         relay_stop_denial_continuation="none",
         liveness_process_names=CURSOR_LIVENESS_PROCESS_NAMES,
         native_create_timeout_seconds=_SUPERVISED_NATIVE_CREATE_TIMEOUT_SECONDS,
+        turn_end_event="SessionEnd",
     ),
     "cursor-desktop": SessionSurfaceCapability(
         "3.17.8",
@@ -221,6 +229,16 @@ def _surface_for_context(
     return candidate if candidate in SESSION_SURFACE_CAPABILITIES else None
 
 
+def _capabilities_for_context(
+    executor: str | None,
+    surface: str | None,
+) -> tuple[SessionSurfaceCapability, ...]:
+    resolved = _surface_for_context(executor, surface)
+    if resolved is not None:
+        return (SESSION_SURFACE_CAPABILITIES[resolved],)
+    return _capabilities_for_executor(executor)
+
+
 def stop_denial_continuation_supported(
     executor: str | None,
     surface: str | None = None,
@@ -228,12 +246,7 @@ def stop_denial_continuation_supported(
     relay_launched: bool = False,
 ) -> bool:
     """Whether denying Stop can make this session continue the same turn."""
-    resolved = _surface_for_context(executor, surface)
-    capabilities = (
-        (SESSION_SURFACE_CAPABILITIES[resolved],)
-        if resolved is not None
-        else _capabilities_for_executor(executor)
-    )
+    capabilities = _capabilities_for_context(executor, surface)
     return not capabilities or all(
         capability.stop_denial_continuation == "supported"
         and (
@@ -242,6 +255,25 @@ def stop_denial_continuation_supported(
         )
         for capability in capabilities
     )
+
+
+def turn_end_events(
+    executor: str | None,
+    surface: str | None = None,
+) -> frozenset[str]:
+    """Hook events that can end a turn for this session.
+
+    A hook that names only its harness family (Cursor hooks carry
+    ``YOKE_EXECUTOR=cursor``, not the surface) gets every event any of that
+    family's surfaces declares, so a surface that never fires ``Stop`` is
+    not missed for want of a surface label.
+    """
+    events = {"Stop"}
+    events.update(
+        capability.turn_end_event
+        for capability in _capabilities_for_context(executor, surface)
+    )
+    return frozenset(events)
 
 
 def liveness_process_names(executor: str | None) -> tuple[str, ...]:
@@ -276,4 +308,5 @@ __all__ = [
     "native_create_timeout_seconds",
     "stop_denial_continuation_supported",
     "surface_wake_authority",
+    "turn_end_events",
 ]

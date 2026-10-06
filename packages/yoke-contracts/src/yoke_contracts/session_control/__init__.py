@@ -7,6 +7,7 @@ from yoke_contracts.session_control.capabilities import (
     capability_for_surface,
     liveness_process_names,
     stop_denial_continuation_supported,
+    turn_end_events,
 )
 from yoke_contracts.session_control.function_ids import (
     LAUNCH_FUNCTION_IDS,
@@ -78,6 +79,7 @@ __all__ = [
     "liveness_process_names",
     "private_route_version_qualified",
     "stop_denial_continuation_supported",
+    "turn_end_events",
     *_models.__all__,
     *_surface_policy.__all__,
     *_termination.__all__,
