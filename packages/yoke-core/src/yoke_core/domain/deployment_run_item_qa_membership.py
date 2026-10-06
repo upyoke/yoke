@@ -10,9 +10,16 @@ no member when no item owes QA at its target — targeting leaves it empty on
 purpose — and its item-scoped stage passes with nothing to prove. A run that
 is the completion flow for delivery-ready items no other release holds,
 yet enrolled none of them, would deploy and then deliver nobody; that one is
-refused before anything deploys. The refusal is asked at validation and
-again before execution rather than at creation, because creation mints an
-itemless run so ``add-item`` can attach to it.
+refused before anything deploys.
+
+Every reader asks the same question and fails closed: composition
+validation (``deployment_runs_validation``), the pre-execution check that
+reuses it (``handlers.deployment_run_execution``), stage dispatch
+(``deployment_qa_stage_dispatch``), the outstanding report
+(``deployment_qa_stage_outstanding``), and later stages' prior-acceptance
+gate (``deployment_qa_stage_prerequisites``). Creation does not ask the
+member question, because it mints an itemless run so ``add-item`` can
+attach to it.
 """
 
 from __future__ import annotations
@@ -67,12 +74,15 @@ def owed_delivery_item_ids(conn: Any, run_id: str) -> tuple[int, ...]:
     Holding is landing custody, the same answer enrollment uses: a release
     holds an item only when it owes that item's proof and carries its exact
     landing, and a run holding it only for supplemental proof does not count.
-    A re-merged landing and an unanswerable one are owed, so the question
-    fails closed rather than letting a delivering run pass memberless.
+    A re-merged landing and an unanswerable one are owed, and so is a
+    delivery-ready item whose completion flow cannot be read: that raises,
+    so the question fails closed rather than letting a delivering run pass
+    memberless.
     """
     from yoke_core.domain.delivery_landing_custody import HELD, landing_custody
     from yoke_core.domain.deployment_item_flow_resolution import (
-        item_completion_flows,
+        FLOW_SOURCE_UNREADABLE,
+        item_completion_flow_facts,
     )
 
     flow, _project, project_id, _stages = _run_facts(conn, run_id)
@@ -83,11 +93,24 @@ def owed_delivery_item_ids(conn: Any, run_id: str) -> tuple[int, ...]:
         f"AND status NOT IN ({', '.join('%s' for _ in terminal)}) ORDER BY id",
         (project_id, *terminal),
     )
-    flows = item_completion_flows(conn, [int(row[0]) for row in rows])
+    facts = item_completion_flow_facts(conn, [int(row[0]) for row in rows])
+    unreadable = [
+        item_id
+        for item_id, fact in facts.items()
+        if fact.source == FLOW_SOURCE_UNREADABLE
+        and item_requires_release_membership(conn, item_id)
+    ]
+    if unreadable:
+        refs = ", ".join(render_item_ref(conn, item_id) for item_id in unreadable)
+        raise ValueError(
+            f"the completion flow of delivery-ready {refs} cannot be read "
+            "(its project delivery default is unreadable)"
+        )
     candidates = [
         item_id
-        for item_id, completion_flow in flows.items()
-        if completion_flow == flow and item_requires_release_membership(conn, item_id)
+        for item_id, fact in facts.items()
+        if flow in fact.closing_flows
+        and item_requires_release_membership(conn, item_id)
     ]
     custody = landing_custody(
         conn, project_id=project_id, item_ids=candidates, exclude_run_id=run_id

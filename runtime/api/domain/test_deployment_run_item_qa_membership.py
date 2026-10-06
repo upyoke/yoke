@@ -25,6 +25,7 @@ from yoke_core.domain import deployment_runs_validation as validation
 from yoke_core.domain.deployment_run_item_qa_membership import (
     NO_MEMBER_OWES_TARGET,
     item_qa_membership_verdict,
+    memberless_item_qa_refusal,
     owed_delivery_item_ids,
 )
 from yoke_core.domain.deployment_runs_crud_mutate import cmd_add_item
@@ -242,3 +243,32 @@ def test_validate_and_pre_start_refuse_a_run_owing_delivery_without_members(
     assert outcome.error is not None
     assert outcome.error.code == "composition_invalid"
     assert "item_qa_run_without_members" in outcome.error.message
+
+
+def test_an_unreadable_completion_flow_fails_closed(
+    test_db: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A delivery-ready item whose project default cannot be read is not dropped."""
+    from yoke_core.domain import workflow_project_defaults
+
+    _flow(test_db, PRODUCTION_FLOW, custody=1)
+    run_id = _run(test_db, PRODUCTION_FLOW)
+    _release_ready_item(test_db, "")
+    test_db.execute("UPDATE items SET deployment_flow=NULL WHERE id=%s", (ITEM_ID,))
+    test_db.commit()
+
+    def unreadable(*_args, **_kwargs):
+        raise workflow_project_defaults.WorkflowProjectDefaultError("unreadable")
+
+    monkeypatch.setattr(workflow_project_defaults, "get_delivery_default", unreadable)
+    refusal, notice = item_qa_membership_verdict(test_db, run_id)
+    assert refusal.startswith("item_qa_owed_delivery_unreadable:")
+    assert "cannot be read" in refusal
+    assert notice == ""
+    assert memberless_item_qa_refusal(test_db, run_id).startswith(
+        "item_qa_owed_delivery_unreadable:"
+    )
+    assert item_qa_membership_verdict(test_db, run_id, require_members=False) == (
+        "",
+        "",
+    )
