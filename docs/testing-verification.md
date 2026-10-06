@@ -163,8 +163,9 @@ are resolved only for the subprocess that needs them and redacted from evidence.
 
 The QA screen renders case outcomes and artifacts through the registered
 artifact read surface, which lands bytes at a readable path it reports as
-`path`; captures and review bundles hand back that command. Durable handles
-presign short-lived downloads; the rest reads as on-machine or not portable
+`path` and omits the presigned download URL from that output. Captures and
+review bundles hand back that command. Durable handles presign short-lived
+downloads; the rest reads as on-machine or not portable
 ([capture connections and repair](testing-verification/evidence-portability.md)).
 
 ```text

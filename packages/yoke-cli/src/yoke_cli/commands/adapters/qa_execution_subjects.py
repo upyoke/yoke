@@ -299,9 +299,10 @@ def _artifact_read_to_path(
             )
             return 1
         result["path"] = str(dest.resolve())
-        # The file IS the delivery, so the inline copy would only make the
-        # reader page a base64 blob to reach the path that already holds it.
+        # The file is the delivery. Inline bytes and the presigned download
+        # URL are bearer material, so neither reaches the printed result.
         result.pop("content_base64", None)
+        result.pop("download_url", None)
         if region is not None or scale is not None:
             try:
                 refuse_unsupported_content_type(result.get("content_type"))
