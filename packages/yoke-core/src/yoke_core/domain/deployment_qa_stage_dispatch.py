@@ -13,6 +13,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain.deployment_run_membership_removals import removed_item_ids
+from yoke_core.domain.deployment_run_item_qa_membership import NO_MEMBER_OWES_TARGET
 
 from yoke_core.domain.deployment_qa_result_notice import (
     REPORTABLE_OUTCOMES,
@@ -196,7 +197,7 @@ def materialize_and_gate_deployment_qa_stage(
             int(row["item_id"] if hasattr(row, "keys") else row[0]) for row in rows
         ]
         if not members and not removed_item_ids(conn, run_id):
-            return 1, "item-scoped QA stage has no attached run members"
+            return 0, NO_MEMBER_OWES_TARGET
     else:
         members = [None]
     waiting: list[str] = []
