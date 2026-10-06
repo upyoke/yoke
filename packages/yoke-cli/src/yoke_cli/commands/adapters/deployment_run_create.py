@@ -104,10 +104,12 @@ def deployment_runs_create(args: List[str]) -> int:
         default=None,
         help=(
             "Commit-ish to bind, resolved in --project-repo-path. Omit both "
-            "to let a flow that waits for CI bind the newest gate-branch "
-            "commit that has its own CI run (or dispatch that CI on the "
-            "branch and bind the commit it tests); an explicit commit without one "
-            "is refused, naming that newest tested commit."
+            "to let a flow that waits for CI bind the newest first-parent "
+            "gate-branch commit that has its own branch CI run (or dispatch "
+            "that CI on the branch and bind the commit it tests), refused "
+            "(release_source_off_lineage) when it does not descend from the "
+            "previous release; an explicit commit without its own run is "
+            "refused, naming that newest tested commit."
         ),
     )
     parser.add_argument(

@@ -32,6 +32,8 @@ SOURCE_REPOSITORY_PROVIDER = "repository_provider"
 
 RELATION_AHEAD = "ahead"
 RELATION_DIVERGED = "diverged"
+ANCESTRY_UNREADABLE = "checkout_ancestry_unreadable"
+RETRY = ". Divergence was not decided; retry once the checkout reads cleanly."
 
 
 class CarriedWorkSourceUnavailable(Exception):
@@ -199,11 +201,11 @@ class LocalCheckoutSource:
         )
 
     def lineage_relation(self, base: str, head: str) -> str:
-        return (
-            RELATION_AHEAD
-            if git.is_ancestor(self._repo_root, base, head)
-            else RELATION_DIVERGED
-        )
+        # A git failure is no answer, never a divergence git did not compare.
+        carried, failure = git.ancestry(self._repo_root, base, head)
+        if carried is None:
+            raise CarriedWorkSourceUnavailable(ANCESTRY_UNREADABLE, failure + RETRY)
+        return RELATION_AHEAD if carried else RELATION_DIVERGED
 
     def commit_range(self, base: str, head: str) -> CommitRange:
         if self.lineage_relation(base, head) == RELATION_DIVERGED:

@@ -3,23 +3,28 @@
 A stage that waits for CI passes only when the project's ``ci_workflow_file``
 has a passing run whose head is exactly the release commit, and a merge-queue
 push runs CI only on its newest commit. So ``deployment_runs.create`` with no
-source binds the newest gate-branch commit whose own run passed or is
-running, or — when none has one, as for CI that never runs on push —
-dispatches the workflow on the branch and binds the commit that run tests.
-Every path that binds an explicit commit refuses one without its own run.
-Flows without a CI wait, projects without a CI workflow, and ephemeral
-candidates are untouched; the gate itself is unchanged.
+source binds the newest first-parent gate-branch commit whose own run passed
+or is running, or — when none has one — dispatches the workflow on the branch
+and binds the commit that run tests, refusing either when it does not descend
+from the previous release (:mod:`deployment_run_gate_branch_lineage`). An
+explicit commit without its own run is refused. Flows without a CI wait,
+projects without a CI workflow, and ephemeral candidates are untouched.
 """
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any, Dict, Mapping, Optional
 
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
     GITHUB_ACTIONS_WRITE_PERMISSION_LEVELS,
+)
+from yoke_core.domain.deployment_run_gate_branch_lineage import (
+    first_parent_line,
+    require_descends_from_previous_release,
+    runs_by_commit,
 )
 
 # How far back along the gate branch creation looks for a tested commit.
@@ -48,6 +53,7 @@ class CiGateTarget:
     workflow: str
     branch: str
     token: str
+    environment: str = ""
 
 
 def _waits_for_ci(stage: Any) -> bool:
@@ -125,7 +131,7 @@ def ci_gate_target(
     facts = _flow_facts(flow, environment)
     if facts is None:
         return None
-    stages, tier, env_name = facts
+    stages, tier, env = facts
     if not any(_waits_for_ci(stage) for stage in stages):
         return None
     workflow = project_ci_workflow_file(project)
@@ -133,12 +139,12 @@ def ci_gate_target(
         return None
     checkout = checkout_for_project_slug(project)
     branch = resolve_flow_gate_branch(
-        project, tier, env_name, str(checkout) if checkout is not None else ""
+        project, tier, env, str(checkout) if checkout is not None else ""
     )
     if not branch:
         return None
     auth = _auth(project, flow, GITHUB_ACTIONS_READ_PERMISSION_LEVELS)
-    return CiGateTarget(project, flow, auth.repo, workflow, branch, auth.token)
+    return CiGateTarget(project, flow, auth.repo, workflow, branch, auth.token, env)
 
 
 def _read(target: CiGateTarget, path: str, query: Dict[str, str]) -> Any:
@@ -166,19 +172,12 @@ def _read(target: CiGateTarget, path: str, query: Dict[str, str]) -> Any:
 def _newest_run_by_commit(
     target: CiGateTarget, query: Dict[str, str]
 ) -> Dict[str, dict]:
-    from yoke_core.domain.github_actions_rest import newest_run
-
     data = _read(
         target,
         f"/repos/{target.repo}/actions/workflows/{target.workflow}/runs",
         {"branch": target.branch, "per_page": str(COMMIT_WINDOW), **query},
     )
-    runs = data.get("workflow_runs") if isinstance(data, dict) else None
-    grouped: Dict[str, List[dict]] = {}
-    for run in runs if isinstance(runs, list) else []:
-        if isinstance(run, dict) and run.get("head_sha"):
-            grouped.setdefault(str(run["head_sha"]), []).append(run)
-    return {sha: newest_run(group) for sha, group in grouped.items()}
+    return runs_by_commit(data, target.branch)
 
 
 def _state(run: Optional[dict]) -> str:
@@ -188,15 +187,14 @@ def _state(run: Optional[dict]) -> str:
 
 
 def newest_tested_commit(target: CiGateTarget) -> str:
-    """The newest gate-branch commit whose own CI run passed or is running."""
+    """The newest first-parent gate-branch commit whose own run passed or runs."""
     runs = _newest_run_by_commit(target, {})
     commits = _read(
         target,
         f"/repos/{target.repo}/commits",
         {"sha": target.branch, "per_page": str(COMMIT_WINDOW)},
     )
-    for commit in commits if isinstance(commits, list) else []:
-        sha = str(commit.get("sha") or "") if isinstance(commit, dict) else ""
+    for sha in first_parent_line(commits):
         if _state(runs.get(sha)) in _TESTED_STATES:
             return sha
     return ""
@@ -313,7 +311,9 @@ def bind_tested_release_source(
     target = ci_gate_target(project, flow, environment)
     if target is None:
         return release_lineage
-    return newest_tested_commit(target) or dispatch_branch_ci(target)
+    selected = newest_tested_commit(target) or dispatch_branch_ci(target)
+    require_descends_from_previous_release(target, selected)
+    return selected
 
 
 def tested_lineage_refusal(conn: Any, run_id: str, value: str) -> Optional[str]:

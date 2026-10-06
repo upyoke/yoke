@@ -102,9 +102,13 @@ learns the other's part from its own skill. The split is the whole rule:
   deploy -- RUN-ID`. On a flow that waits for CI the SHA must have its own
   run of the project's `ci_workflow_file`: a merge-queue push tests only its
   newest commit. Create the CI-gated run (production) without `--source-ref`
-  and it binds the newest gate-branch commit whose own run passed or is
+  and it binds the newest commit on the gate branch's first-parent line whose
+  own branch run (never a merge-queue or pull-request run) passed or is
   running — or, when none has one, dispatches that workflow on the branch and
-  binds the commit the dispatched run tests. Give the paired stage run that
+  binds the commit the dispatched run tests. A selected commit that does not
+  descend from the lineage the previous succeeded run shipped to that
+  environment is refused `release_source_off_lineage`, naming both commits;
+  pin a descendant with `--source-ref`. Give the paired stage run that
   `release_lineage` with `--source-ref`; stage refuses a missing lineage. An
   explicit commit with no run of its own is refused
   `release_source_untested` on every path that binds one, naming the newest
