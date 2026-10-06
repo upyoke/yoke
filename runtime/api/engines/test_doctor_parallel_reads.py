@@ -22,14 +22,54 @@ def test_reads_keep_input_order_and_inherit_remaining_budget(monkeypatch):
 
 
 def test_read_deadline_does_not_wait_for_other_pending_reads(monkeypatch):
+    from threading import Event
+
     monkeypatch.setattr(doctor_budget, "CHECK_BUDGET_S", 0.02)
-    started = time.monotonic()
+    started = Event()
+    release = Event()
+    completed = []
+
+    def read(value):
+        started.set()
+        release.wait(timeout=1)
+        completed.append(value)
+
+    try:
+        with (
+            pytest.raises(doctor_budget.DoctorBudgetExhausted),
+            doctor_budget.check_budget(),
+        ):
+            list(bounded_read_map(read, range(20)))
+        # Native timed-lock wake latency is outside the caller's control.
+        # Prove it unwinds with blocked readers instead of measuring wake jitter.
+        assert started.is_set()
+        assert not completed
+    finally:
+        release.set()
+
+
+def test_read_submission_stops_when_shared_deadline_expires(monkeypatch):
+    from yoke_core.engines import doctor_parallel_reads
+
+    clock = [100.0]
+    submitted = []
+    original_pool = doctor_parallel_reads.ThreadPoolExecutor
+
+    class SlowSubmissionPool(original_pool):
+        def submit(self, method, task):
+            submitted.append(task[1])
+            clock[0] += 0.008
+            return super().submit(method, task)
+
+    monkeypatch.setattr(doctor_budget, "CHECK_BUDGET_S", 0.02)
+    monkeypatch.setattr(doctor_budget.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(doctor_parallel_reads, "ThreadPoolExecutor", SlowSubmissionPool)
     with (
         pytest.raises(doctor_budget.DoctorBudgetExhausted),
         doctor_budget.check_budget(),
     ):
-        list(bounded_read_map(lambda _: time.sleep(0.2), range(20)))
-    assert time.monotonic() - started < 0.15
+        list(bounded_read_map(lambda value: value, range(20)))
+    assert submitted == [0, 1, 2]
 
 
 def test_prefetched_reader_preserves_decode_failure_and_reads_once(tmp_path):

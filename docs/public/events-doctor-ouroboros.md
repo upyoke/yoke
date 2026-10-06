@@ -36,6 +36,11 @@ the caller's trace is restored afterwards. Database operations defer Python
 deadline exceptions until the driver returns, so protocol frames are never
 interrupted. PostgreSQL connections lacking `autocommit` refuse with
 `doctor_postgres_autocommit_unavailable` and teach the required connection.
+Parallel read submission rechecks the remaining budget before admitting each task;
+expiry cancels queued reads without waiting for running I/O to finish.
+Identifier rendering scans prefetch their full source inventory through the same
+bounded reader pool and use mandatory syntax and identifier literals to avoid
+regex backtracking; their matching rules, source inventory and exemptions are unchanged.
 The shared HTTP and subprocess helpers consume the same deadline. A timeout reports
 `HC-check-incomplete` with `doctor_check_budget_exhausted` and a recovery step;
 partial pass/fail verdicts are discarded. Transaction recovery completes before

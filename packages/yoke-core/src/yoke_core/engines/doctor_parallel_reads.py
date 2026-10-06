@@ -23,10 +23,14 @@ def bounded_read_map(method, values):
         context, value = task
         return context.run(method, value)
 
+    def tasks():
+        for value in values:
+            remaining_seconds(CHECK_BUDGET_S)
+            yield copy_context(), value
+
     pool = ThreadPoolExecutor(max_workers=READ_WORKERS)
     try:
-        tasks = ((copy_context(), value) for value in values)
-        yield from pool.map(read, tasks, timeout=remaining_seconds(CHECK_BUDGET_S))
+        yield from pool.map(read, tasks(), timeout=remaining_seconds(CHECK_BUDGET_S))
     except TimeoutError as exc:
         raise DoctorBudgetExhausted("doctor_check_budget_exhausted") from exc
     finally:
