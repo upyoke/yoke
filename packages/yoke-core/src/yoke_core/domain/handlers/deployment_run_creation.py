@@ -214,7 +214,21 @@ def handle_deployment_run_create(
             ):
                 return error("retry_candidate_mismatch", mismatch, jsonpath="$.payload")
             release_lineage, artifact_identity = source_lineage, source_artifact
+        from yoke_core.domain.deployment_run_ci_tested_source import (
+            ReleaseSourceRefused,
+            bind_tested_release_source,
+        )
         from yoke_core.domain.deployment_runs_crud_mutate import create_run
+
+        try:
+            release_lineage = bind_tested_release_source(
+                clean_project,
+                clean_flow,
+                (environment or "").strip() or None,
+                release_lineage,
+            )
+        except ReleaseSourceRefused as exc:
+            return error(exc.code, str(exc), jsonpath="$.payload.release_lineage")
 
         create_kwargs = {
             "environment": (environment or "").strip() or None,

@@ -24,9 +24,6 @@ from yoke_core.domain.deploy_pipeline_reporting import (
 from yoke_core.domain import deploy_pipeline_ci_recovery as ci_recovery
 from yoke_core.domain.project_renderer_settings import project_ci_workflow_file
 
-_AUTH_ADAPTER_CODES = frozenset({"project_auth_error", "rest_auth_error"})
-_MISSING_WORKFLOW_CODE = "workflow_not_found"
-
 
 def resolve_flow_gate_branch(
     project: str,
@@ -95,7 +92,10 @@ def _resolve_and_verify_branch(
         r = _run_cmd(["git", "rev-parse", "--show-toplevel"])
         check_repo = r.stdout.strip() or "."
     ok, msg = _verify_branch_merged(
-        branch, first_item, check_repo, target_branch,
+        branch,
+        first_item,
+        check_repo,
+        target_branch,
         public_ref=first_item_label,
     )
     if msg:
@@ -142,10 +142,18 @@ def _verify_branch_merged(
     r = _run_cmd(["git", "-C", repo_path, "rev-parse", "--verify", branch])
     if r.returncode != 0:
         # Branch doesn't exist — check for squash-merge evidence
-        r2 = _run_cmd([
-            "git", "-C", repo_path, "log", "--oneline", "-E",
-            f"--grep={grep_pattern}", target_branch,
-        ])
+        r2 = _run_cmd(
+            [
+                "git",
+                "-C",
+                repo_path,
+                "log",
+                "--oneline",
+                "-E",
+                f"--grep={grep_pattern}",
+                target_branch,
+            ]
+        )
         merge_found = r2.stdout.strip().split("\n")[0] if r2.stdout.strip() else ""
         if not merge_found:
             return True, (
@@ -156,15 +164,25 @@ def _verify_branch_merged(
         return True, ""
 
     # Branch exists — check ancestry
-    r = _run_cmd(["git", "-C", repo_path, "merge-base", "--is-ancestor", branch, target_branch])
+    r = _run_cmd(
+        ["git", "-C", repo_path, "merge-base", "--is-ancestor", branch, target_branch]
+    )
     if r.returncode == 0:
         return True, ""
 
     # Not ancestor — check for squash-merge evidence
-    r2 = _run_cmd([
-            "git", "-C", repo_path, "log", "--oneline", "-E",
-            f"--grep={grep_pattern}", target_branch,
-        ])
+    r2 = _run_cmd(
+        [
+            "git",
+            "-C",
+            repo_path,
+            "log",
+            "--oneline",
+            "-E",
+            f"--grep={grep_pattern}",
+            target_branch,
+        ]
+    )
     squash_evidence = r2.stdout.strip().split("\n")[0] if r2.stdout.strip() else ""
     if squash_evidence:
         return True, (
@@ -180,34 +198,6 @@ def _verify_branch_merged(
     )
 
 
-def _ci_adapter_failure_message(
-    code: str, failure: str, *, workflow: str, repo: str,
-) -> str:
-    if code == _MISSING_WORKFLOW_CODE:
-        return (
-            f"\nBLOCKED: Cannot deploy — declared CI workflow {workflow} "
-            f"does not exist in {repo}.\n\n"
-            "Create the workflow under .github/workflows/, or correct "
-            "the project's ci_workflow_file declaration.\n"
-        )
-    if code in _AUTH_ADAPTER_CODES:
-        kind = "an authorization failure"
-    elif code == "rest_transport_error":
-        kind = "a transport failure"
-    else:
-        return (
-            "\nBLOCKED: Cannot deploy — CI could not be verified; "
-            f"the GitHub Actions adapter returned {failure}.\n\n"
-            "The failure class is unknown; it is not a failing test "
-            "conclusion.\n"
-        )
-    return (
-        "\nBLOCKED: Cannot deploy — CI could not be verified; "
-        f"the GitHub Actions adapter returned {failure}.\n\n"
-        f"This is {kind}, not a failing test conclusion.\n"
-    )
-
-
 def _check_ci_gate(
     github_repo: str,
     project: str,
@@ -216,7 +206,6 @@ def _check_ci_gate(
     branch: str,
     head_sha: str = "",
     sd: Optional[str] = None,
-    _dispatched_run_id: str = "",
 ) -> Tuple[bool, str]:
     """Check CI for the exact release commit before deploying.
 
@@ -234,7 +223,8 @@ def _check_ci_gate(
         )
     if not branch and not head_sha:
         return False, ci_recovery.unverifiable_ci_target_message(
-            github_repo=github_repo, workflow=ci_workflow,
+            github_repo=github_repo,
+            workflow=ci_workflow,
         )
 
     subject = ci_recovery.ci_gate_subject(branch, head_sha)
@@ -249,11 +239,11 @@ def _check_ci_gate(
     check_args.extend(["--wait", "--timeout", str(timeout_sec), "--json"])
     r = _github_actions(
         *check_args,
-        project=project, sd=sd, timeout=timeout_sec + 30,
+        project=project,
+        sd=sd,
+        timeout=timeout_sec + 30,
     )
-    output = "\n".join(
-        part.strip() for part in (r.stdout, r.stderr) if part.strip()
-    )
+    output = "\n".join(part.strip() for part in (r.stdout, r.stderr) if part.strip())
     envelope = _function_response_envelope(output)
 
     if envelope is None:
@@ -274,8 +264,11 @@ def _check_ci_gate(
         else:
             code = "unknown_error"
             failure = "unknown_error"
-        return False, _ci_adapter_failure_message(
-            code, failure, workflow=ci_workflow, repo=github_repo,
+        return False, ci_recovery.ci_adapter_failure_message(
+            code,
+            failure,
+            workflow=ci_workflow,
+            repo=github_repo,
         )
 
     result = envelope.get("result")
@@ -297,21 +290,19 @@ def _check_ci_gate(
     if state == "timeout":
         return False, ci_recovery.timed_out_ci_message(subject, timeout_sec)
     if state == "no_runs":
+        if head_sha and not branch:
+            return False, ci_recovery.branchless_dispatch_message(
+                github_repo=github_repo,
+                workflow=ci_workflow,
+                head_sha=head_sha,
+            )
         if head_sha:
-            return ci_recovery.recover_missing_ci_gate(
-                github_actions=_github_actions,
-                recheck=lambda run_id: _check_ci_gate(
-                    github_repo, project, timeout_sec, branch=branch,
-                    head_sha=head_sha, sd=sd, _dispatched_run_id=run_id,
-                ),
+            return False, ci_recovery.missing_ci_run_message(
                 github_repo=github_repo,
                 project=project,
                 workflow=ci_workflow,
                 branch=branch,
                 head_sha=head_sha,
-                dispatched_run_id=_dispatched_run_id,
-                timeout_sec=timeout_sec,
-                sd=sd,
             )
         return True, f"  CI gate: no CI runs found on {branch} — skipping"
     return False, (

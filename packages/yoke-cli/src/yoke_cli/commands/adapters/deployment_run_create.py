@@ -101,8 +101,13 @@ def deployment_runs_create(args: List[str]) -> int:
     )
     parser.add_argument(
         "--source-ref",
-        default="origin/main",
-        help="Commit-ish to bind when --project-repo-path is supplied.",
+        default=None,
+        help=(
+            "Commit-ish to bind, resolved in --project-repo-path. Omit both "
+            "to let a flow that waits for CI bind the newest gate-branch "
+            "commit that has its own CI run; an explicit commit without one "
+            "is refused, naming that newest tested commit."
+        ),
     )
     parser.add_argument(
         "--retry-of",
@@ -134,20 +139,30 @@ def deployment_runs_create(args: List[str]) -> int:
         return 2
     if parsed.retry_of and parsed.project_repo_path:
         return usage_error("--retry-of cannot be combined with --project-repo-path")
-    if parsed.retry_of and "--source-ref" in args:
+    if parsed.retry_of and parsed.source_ref is not None:
         return usage_error("--retry-of cannot be combined with --source-ref")
+    if (parsed.project_repo_path is None) != (parsed.source_ref is None):
+        return usage_error(
+            "--project-repo-path and --source-ref are given together: the "
+            "checkout resolves the named commit. Omit both to bind the "
+            "newest CI-tested commit."
+        )
     if parsed.retry_of and (
         parsed.artifact_identity is not None
         or parsed.artifact_identity_file is not None
     ):
         return usage_error("--retry-of cannot be combined with artifact identity")
+
     def _human_writer(response, stdout, stderr) -> None:
         run_id_receipt(response, stdout, stderr)
         result = response.result or {}
         run_id = result.get("run_id")
         if run_id and "idempotency_key" not in result:
             print(unkeyed_server_warning(run_id), file=stderr)
-        elif run_id and result.get("idempotency_basis") == BASIS_UNCONVERGED_REQUEST_MATCH:
+        elif (
+            run_id
+            and result.get("idempotency_basis") == BASIS_UNCONVERGED_REQUEST_MATCH
+        ):
             print(
                 unconverged_key_note(
                     run_id, parsed.idempotency_key, bool(result.get("replayed"))
