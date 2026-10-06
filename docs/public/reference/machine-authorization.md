@@ -20,8 +20,11 @@ company sign-in, use `yoke connect https://<server> --token-stdin` or
   so the approval page identifies the machine before its first poll.
 - `POST /api/machine/authorizations/token` sends `device_code`, `machine_id`, and
   `machine_name`. Success returns `token`, `org`, and `api_url`.
-- Retry only HTTP 202 `authorization_pending` and HTTP 503
-  `machine_credential_unavailable`. Other statuses are diagnosed refusals.
+- Retry HTTP 202 `authorization_pending`, HTTP 503
+  `machine_credential_unavailable`, and HTTP 429
+  `authorization_poll_rate_limited` (honoring `Retry-After`). HTTP 410
+  `authorization_denied`, `authorization_expired`, or `authorization_consumed`
+  requires a new connection. Other statuses are diagnosed refusals.
 - Cloud's API authority is `/api/orgs/<slug>` on the selected origin. Self-host's
   authority is the server origin. Clients reject foreign origins or mismatched
   authorities before persisting a credential.
@@ -83,6 +86,34 @@ record your personal decision. Read the returned decision and finish polling
 from the original machine. These operations never accept a caller-supplied
 owner, org, or credential.
 
-Shared contract helpers used by clients are public: `authorization_origin`,
-`same_origin_url`, `required_text`, and `bounded_integer`, with
-`BROWSER_VERIFICATION_PATHS` and `RETRYABLE_POLL_ERRORS`.
+## Shared schema
+
+The `yoke-contracts` wheel ships `yoke_contracts/machine_authorization.schema.v1.json`,
+generated from the request and response Pydantic models. Load it with Python's
+`importlib.resources.files("yoke_contracts").joinpath("machine_authorization.schema.v1.json")`,
+or read that path from the pinned wheel in another language. Validate a body
+against its named `$defs` entry while retaining the document's other `$defs`
+for references. The `x-http` section names the endpoint, request model, success
+model, error outcome's HTTP status and body model, and retry policy. Cloud's
+empty start request is explicitly host-specific; poll requests are shared.
+
+`MachineAuthorizationStarted` and `MachineAuthorizationApproved` define success.
+`MachineAuthorizationPending`, `MachineAuthorizationDenied`,
+`MachineAuthorizationExpired` (including consumed), `MachineAuthorizationSlowDown`,
+and `MachineAuthorizationUnavailable` define poll outcomes. Other diagnosed
+refusals use `MachineAuthorizationRefused`. Recovery `message` is optional
+on the wire; self-host supplies it. Secrets are excluded from model repr and
+client validation errors. The CLI and self-host route use these models;
+`parse_authorization_response` also checks known poll statuses. Origin and API
+authority checks remain required after body validation.
+
+Regenerate after changing models with
+`yoke dev run -- python3 -m yoke_contracts.machine_authorization_schema`.
+Check drift with the same command plus `--check`; the contract test also fails
+on byte drift. A breaking wire change requires a new schema version and the
+linked consumer's tests against the exact candidate wheel. The schema's v1
+identifies its contract independently of the wheel's release version.
+
+Shared client helpers are `authorization_origin`, `same_origin_url`,
+`credential_api_url`, and `parse_authorization_response`, with
+`BROWSER_VERIFICATION_PATHS`, `POLL_OUTCOMES`, and `RETRYABLE_POLL_ERRORS`.

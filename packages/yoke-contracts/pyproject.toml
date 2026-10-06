@@ -42,3 +42,5 @@ where = ["src"]
 # Board-art emoji-grid data ships as package data so the loader stays under the
 # authored cap.
 "yoke_contracts.project_contract.board_art.data" = ["*.txt"]
+
+"yoke_contracts" = ["machine_authorization.schema.v1.json"]

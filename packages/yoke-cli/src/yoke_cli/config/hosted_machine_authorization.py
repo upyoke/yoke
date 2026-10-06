@@ -19,8 +19,10 @@ from yoke_contracts.machine_authorization import (
     HostedMachineCredential,
     authorization_origin,
     same_origin_url,
-    required_text,
-    bounded_integer,
+    parse_authorization_response,
+    MachineAuthorizationStarted,
+    MachineAuthorizationApproved,
+    MachineAuthorizationRefused,
     BROWSER_VERIFICATION_PATHS,
     RETRYABLE_POLL_ERRORS,
     credential_api_url,
@@ -52,37 +54,37 @@ def start(
             timeout_seconds=timeout_seconds,
         )
     except BoundedJsonHttpStatusError as exc:
+        parse_authorization_response(exc.payload, exc.status, operation="start")
         _raise_admission_refusal(exc.payload, exc.status)
         raise HostedMachineAuthorizationError(
             f"hosted authorization could not start (HTTP {exc.status})"
         ) from None
     if status != 200:
+        parse_authorization_response(payload, status, operation="start")
         _raise_admission_refusal(payload, status)
         raise HostedMachineAuthorizationError(
             f"hosted authorization could not start (HTTP {status})"
         )
-    device_code = required_text(payload, "device_code")
-    user_code = required_text(payload, "user_code")
+    response = parse_authorization_response(payload, status, operation="start")
+    assert isinstance(response, MachineAuthorizationStarted)
     verification_uri = same_origin_url(
-        required_text(payload, "verification_uri"),
+        response.verification_uri,
         origin,
         expected_paths=BROWSER_VERIFICATION_PATHS,
     )
     verification_uri_complete = same_origin_url(
-        required_text(payload, "verification_uri_complete"),
+        response.verification_uri_complete,
         origin,
         expected_paths=BROWSER_VERIFICATION_PATHS,
     )
-    expires_in = bounded_integer(payload.get("expires_in"), 60, 1800, "expires_in")
-    interval = bounded_integer(payload.get("interval"), 1, 30, "interval")
     return PendingMachineAuthorization(
         platform_url=origin,
-        device_code=device_code,
-        user_code=user_code,
+        device_code=response.device_code,
+        user_code=response.user_code,
         verification_uri=verification_uri,
         verification_uri_complete=verification_uri_complete,
-        expires_in=expires_in,
-        interval=interval,
+        expires_in=response.expires_in,
+        interval=response.interval,
         self_host=self_host,
     )
 
@@ -125,7 +127,12 @@ def complete(
         except BoundedJsonHttpStatusError as exc:
             payload = exc.payload if isinstance(exc.payload, Mapping) else {}
             status, headers = exc.status, exc.headers
-        error = payload.get("error")
+        response = parse_authorization_response(dict(payload), status, operation="poll")
+        error = (
+            response.error
+            if isinstance(response, MachineAuthorizationRefused)
+            else None
+        )
         if status == 429 and error == "authorization_poll_rate_limited":
             delay = _poll_retry_delay(headers, authorization.interval)
             continue
@@ -133,10 +140,12 @@ def complete(
             continue
         if status == 410 and error == "authorization_denied":
             raise HostedMachineAuthorizationDenied(
-                "authorization denied in the browser"
+                "authorization_denied: authorization denied in the browser; start a fresh connection"
             )
         if error in {"authorization_expired", "authorization_consumed"}:
-            raise HostedMachineAuthorizationError(str(error).replace("_", " "))
+            raise HostedMachineAuthorizationError(
+                f"{error}: {str(error).replace('_', ' ')}; start a fresh connection"
+            )
         if error == "machine_identity_required":
             raise HostedMachineAuthorizationError(
                 "machine_identity_required: run `yoke status` to inspect this "
@@ -147,19 +156,15 @@ def complete(
             raise HostedMachineAuthorizationError(
                 f"hosted authorization polling failed (HTTP {status})"
             )
-        if error:
-            raise HostedMachineAuthorizationError(
-                "hosted authorization returned an error"
-            )
-        token = required_text(payload, "token")
-        org = required_text(payload, "org")
+        assert isinstance(response, MachineAuthorizationApproved)
+        org = response.org
         api_url = credential_api_url(
-            required_text(payload, "api_url"),
+            response.api_url,
             authorization.platform_url,
             org,
             self_host=authorization.self_host,
         )
-        return HostedMachineCredential(api_url=api_url, org=org, token=token)
+        return HostedMachineCredential(api_url=api_url, org=org, token=response.token)
     raise HostedMachineAuthorizationError(
         "hosted authorization expired before approval"
     )

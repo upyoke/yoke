@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Mapping
+from typing import Annotated, Literal
 import urllib.parse
 import re
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 START_PATH = "/api/machine/authorizations"
 POLL_PATH = START_PATH + "/token"
@@ -31,10 +31,6 @@ class HostedMachineAuthorizationCancelled(HostedMachineAuthorizationError):
 # Hosted pages that may present the one-time code approval: the dedicated
 # machine-approval page and the unified connect-machine page.
 BROWSER_VERIFICATION_PATHS = ("/connect", "/machine", APPROVAL_PAGE_PATH)
-RETRYABLE_POLL_ERRORS = {
-    202: "authorization_pending",
-    503: "machine_credential_unavailable",
-}
 
 
 @dataclass(frozen=True)
@@ -98,31 +94,6 @@ def same_origin_url(value: str, origin: str, *, expected_paths: tuple[str, ...])
     return value
 
 
-def required_text(payload: Mapping[str, Any], key: str) -> str:
-    value = str(payload.get(key) or "").strip()
-    if not value or len(value) > 4096:
-        raise HostedMachineAuthorizationError(f"hosted authorization omitted {key}")
-    return value
-
-
-def bounded_integer(value: Any, minimum: int, maximum: int, label: str) -> int:
-    if isinstance(value, bool):
-        raise HostedMachineAuthorizationError(
-            f"hosted authorization returned invalid {label}"
-        )
-    try:
-        parsed = int(value)
-    except (TypeError, ValueError, OverflowError):
-        raise HostedMachineAuthorizationError(
-            f"hosted authorization returned invalid {label}"
-        ) from None
-    if parsed < minimum or parsed > maximum:
-        raise HostedMachineAuthorizationError(
-            f"hosted authorization returned invalid {label}"
-        )
-    return parsed
-
-
 def credential_api_url(
     value: str, origin: str, org: str, *, self_host: bool = False
 ) -> str:
@@ -161,3 +132,101 @@ def approval_return_path(value: str) -> str:
         )
         else ""
     )
+
+
+WireText = Annotated[str, Field(min_length=1, max_length=4096, pattern=r"\S")]
+
+
+class MachineAuthorizationResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+
+class MachineAuthorizationStarted(MachineAuthorizationResponse):
+    device_code: WireText = Field(repr=False)
+    user_code: WireText
+    verification_uri: WireText
+    verification_uri_complete: WireText
+    expires_in: int = Field(ge=60, le=1800)
+    interval: int = Field(ge=1, le=30)
+
+
+class MachineAuthorizationApproved(MachineAuthorizationResponse):
+    token: WireText = Field(repr=False)
+    org: WireText
+    api_url: WireText
+
+
+class MachineAuthorizationRefused(MachineAuthorizationResponse):
+    error: WireText
+    # Cloud may omit recovery text; self-host always supplies it.
+    message: WireText | None = None
+
+
+class MachineAuthorizationPending(MachineAuthorizationRefused):
+    error: Literal["authorization_pending"]
+
+
+class MachineAuthorizationDenied(MachineAuthorizationRefused):
+    error: Literal["authorization_denied"]
+
+
+class MachineAuthorizationExpired(MachineAuthorizationRefused):
+    error: Literal["authorization_expired", "authorization_consumed"]
+
+
+class MachineAuthorizationSlowDown(MachineAuthorizationRefused):
+    error: Literal["authorization_poll_rate_limited"]
+
+
+class MachineAuthorizationUnavailable(MachineAuthorizationRefused):
+    error: Literal["machine_credential_unavailable"]
+
+
+# HTTP status is part of the contract, independently of the JSON body.
+POLL_OUTCOMES = {
+    "authorization_pending": (202, MachineAuthorizationPending),
+    "authorization_denied": (410, MachineAuthorizationDenied),
+    "authorization_expired": (410, MachineAuthorizationExpired),
+    "authorization_consumed": (410, MachineAuthorizationExpired),
+    "authorization_poll_rate_limited": (429, MachineAuthorizationSlowDown),
+    "machine_credential_unavailable": (503, MachineAuthorizationUnavailable),
+}
+
+RETRYABLE_POLL_ERRORS = {
+    status: error
+    for error, (status, model) in POLL_OUTCOMES.items()
+    if model in {MachineAuthorizationPending, MachineAuthorizationUnavailable}
+}
+
+
+def parse_authorization_response(
+    payload: object, status: int, *, operation: Literal["start", "poll"]
+) -> MachineAuthorizationResponse:
+    """Parse wire bodies without leaking device secrets or credentials on failure."""
+    model = (
+        MachineAuthorizationStarted
+        if operation == "start"
+        else MachineAuthorizationApproved
+    )
+    if status != 200:
+        model = MachineAuthorizationRefused
+        error = payload.get("error") if isinstance(payload, dict) else None
+        if operation == "poll" and isinstance(error, str) and error in POLL_OUTCOMES:
+            expected_status, model = POLL_OUTCOMES[error]
+            if status != expected_status:
+                raise HostedMachineAuthorizationError(
+                    "authorization_response_invalid: polling failed "
+                    f"(HTTP {status}); correct the server's machine sign-in contract, then reconnect"
+                )
+        elif status not in {400, 403, 409, 410, 429, 503}:
+            raise HostedMachineAuthorizationError(
+                f"authorization_response_invalid: {operation} polling failed (HTTP {status}); "
+                "correct the server's machine sign-in contract, then reconnect"
+            )
+    try:
+        return model.model_validate(payload)
+    except ValidationError:
+        raise HostedMachineAuthorizationError(
+            f"authorization_response_invalid: {operation} polling failed (HTTP {status}); "
+            "correct the server's machine sign-in response schema, then reconnect"
+        ) from None

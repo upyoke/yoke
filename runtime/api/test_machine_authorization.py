@@ -1,11 +1,18 @@
 """A second engineer connects through real OIDC and personal approval."""
 
+import json
+from importlib.resources import files
+
+import pytest
+from jsonschema import Draft202012Validator
+
 from runtime.api import test_web_sign_in_door as door
 from runtime.api.test_self_host_workbench import _call
 from yoke_contracts.machine_authorization import (
     START_PATH,
     POLL_PATH,
     APPROVAL_RETURN_COOKIE,
+    POLL_OUTCOMES,
 )
 from yoke_core.domain.handlers.__init_register__ import register_all_handlers
 
@@ -27,6 +34,7 @@ def test_oidc_member_approves_machine_without_host_minted_token(
     assert client.get(START_PATH).json() == {"device_code": True}
     started = client.post(START_PATH, json=IDENTITY)
     assert started.status_code == 200, started.text
+    _validate_wire(started, "MachineAuthorizationStarted")
     pending = started.json()
     assert pending["verification_uri_complete"].startswith(
         "http://testserver/machine-approval/"
@@ -45,6 +53,7 @@ def test_oidc_member_approves_machine_without_host_minted_token(
         POLL_PATH, json={"device_code": pending["device_code"], **IDENTITY}
     )
     assert polled.status_code == 202
+    _validate_wire(polled, "MachineAuthorizationPending")
     code = {"code": pending["user_code"]}
     inspected = _call(client, "machine_authorization.get", code)
     assert inspected.status_code == 200, inspected.text
@@ -69,6 +78,7 @@ def test_oidc_member_approves_machine_without_host_minted_token(
         POLL_PATH, json={"device_code": pending["device_code"], **IDENTITY}
     )
     assert delivered.status_code == 200, delivered.text
+    _validate_wire(delivered, "MachineAuthorizationApproved")
     credential = delivered.json()
     identity = client.get(
         "/v1/auth/identity", headers={"Authorization": "Bearer " + credential["token"]}
@@ -117,3 +127,58 @@ def test_invalid_machine_identity_and_unknown_device_code_are_named(client, door
     unknown = client.post(POLL_PATH, json={"device_code": "unknown", **IDENTITY})
     assert unknown.status_code == 410
     assert unknown.json()["error"] == "authorization_expired"
+
+
+def _validate_wire(response, model):
+    schema = json.loads(
+        files("yoke_contracts")
+        .joinpath("machine_authorization.schema.v1.json")
+        .read_text()
+    )
+    Draft202012Validator({**schema, "$ref": f"#/$defs/{model}"}).validate(
+        response.json()
+    )
+
+
+@pytest.mark.parametrize("error", POLL_OUTCOMES)
+def test_poll_route_emits_schema_outcomes(client, door_env, monkeypatch, error):
+    from yoke_core.api.routes import machine_authorization as route
+
+    status, model = POLL_OUTCOMES[error]
+
+    def refuse(*args, **kwargs):
+        raise route.codes.MachineAuthorizationError(
+            error, "restart or retry connection", status
+        )
+
+    if status == 429:
+        monkeypatch.setattr(
+            route,
+            "_admit",
+            lambda *a: route._error(
+                error, "retry after Retry-After", status, retry_after=7
+            ),
+        )
+    else:
+        monkeypatch.setattr(route.codes, "poll", refuse)
+    response = client.post(POLL_PATH, json={"device_code": "secret", **IDENTITY})
+    assert response.status_code == status
+    _validate_wire(response, model.__name__)
+    assert response.headers["Cache-Control"] == "no-store"
+    if status == 429:
+        assert response.headers["Retry-After"] == "7"
+
+
+def test_invalid_server_success_is_named_without_disclosing_credentials(
+    client, door_env, monkeypatch
+):
+    from yoke_core.api.routes import machine_authorization as route
+
+    monkeypatch.setattr(
+        route.codes, "poll", lambda *a, **k: {"token": "private-credential"}
+    )
+    response = client.post(POLL_PATH, json={"device_code": "secret", **IDENTITY})
+    assert response.status_code == 500
+    _validate_wire(response, "MachineAuthorizationRefused")
+    assert "authorization_response_invalid" in response.text
+    assert "private-credential" not in response.text
