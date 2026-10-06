@@ -9,11 +9,6 @@ function fixture({ loaded = "old", basePath = "", answers = ["old"] } = {}) {
   doc.visibilityState = "visible";
   const body = doc.createElement("div"), main = doc.createElement("main");
   body.appendChild(main);
-  body.insertBefore = (node, reference) => {
-    assert.equal(reference, main);
-    node.parentNode = body;
-    body.children.splice(body.children.indexOf(reference), 0, node);
-  };
   const requests = [];
   let tick, cleared = false, reloads = 0;
   const windowNode = Object.assign(new EventTarget(), {

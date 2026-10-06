@@ -32,7 +32,7 @@ export async function fetchRecentUsageRows(context, projects = []) {
 /**
  * What this machine's sessions spent in the last 24 hours.
  *
- * Each metric label carries the window itself — `24H TOKENS`, `24H API COST`,
+ * Each metric label carries the window itself — `24H TOKENS`, `24H COST`,
  * `24H SESSIONS` — so the figures state their own scope where they are read,
  * with no separate heading above them to pair up by position. The SESSIONS
  * figure names how many contributing sessions underlie the total — a single
@@ -81,7 +81,7 @@ export function appendMachineUsage(documentNode, card, relay, sessions) {
       {
         fact: "cost",
         value: usageSummaryCostDisplay(summary),
-        unit: "24h API cost",
+        unit: "24h cost",
         partial: summary.partial,
       },
       {

@@ -216,7 +216,7 @@ test("the machine tile carries the window in each label, with no separate headin
   );
   assert.deepEqual(
     byClass(card, "usage-stat-unit").map((node) => node.textContent),
-    ["24h tokens", "24h API cost", "24h sessions"],
+    ["24h tokens", "24h cost", "24h sessions"],
   );
   assert.equal(
     byClass(card, "machine-usage")[0].getAttribute("data-tooltip"),
