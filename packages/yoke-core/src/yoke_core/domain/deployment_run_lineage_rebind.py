@@ -86,7 +86,11 @@ def refuse_lineage_write(
             f"`yoke deployment-runs terminalize {run_id} --disposition "
             "cancelled --reason TEXT` and prepare a new one"
         )
-    return None
+    from yoke_core.domain.deployment_run_ci_tested_source import (
+        tested_lineage_refusal,
+    )
+
+    return tested_lineage_refusal(conn, run_id, value)
 
 
 def lineage_of(conn: Any, run_id: str) -> str:

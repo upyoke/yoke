@@ -50,7 +50,7 @@ def test_missing_exact_run_fails_by_name_and_dispatches_nothing() -> None:
     assert "a" * 40 in message
     assert "declared workflow platform-ci.yml" in message
     assert "dispatches nothing and waives nothing" in message
-    assert "yoke deployment-runs create platform <FLOW>" in message
+    assert "deployment-runs create platform <FLOW> --environment <ENV>" in message
     assert "without --source-ref" in message
 
 

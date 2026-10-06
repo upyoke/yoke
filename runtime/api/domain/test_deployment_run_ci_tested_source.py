@@ -15,6 +15,7 @@ from yoke_core.domain.handlers import deployment_run_creation
 HEAD, MIDDLE, OLDEST = "c" * 40, "b" * 40, "a" * 40
 TARGET = tested.CiGateTarget(
     project="platform",
+    flow="flow",
     repo="owner/platform",
     workflow="platform-ci.yml",
     branch="main",
@@ -87,8 +88,8 @@ def test_explicit_untested_commit_refuses_naming_the_newest_tested(gated):
     assert refused.value.code == "release_source_untested"
     message = str(refused.value)
     assert f"release commit {HEAD} has no run of its own" in message
-    assert f"create the run on {MIDDLE}" in message
-    assert "Nothing was created" in message
+    assert f"omit --source-ref to bind {MIDDLE}" in message
+    assert "Nothing was bound" in message
 
 
 def test_explicit_commit_with_its_own_run_is_kept(gated):
@@ -99,15 +100,29 @@ def test_explicit_commit_with_its_own_run_is_kept(gated):
     assert bound == OLDEST
 
 
-def test_no_tested_commit_in_the_window_refuses_by_name(gated):
+def test_default_dispatches_branch_ci_when_no_commit_has_its_own_run(gated):
     with (
         mock.patch.object(tested, "_read", side_effect=_github([])),
+        mock.patch.object(tested, "dispatch_branch_ci", return_value=HEAD) as dispatch,
+    ):
+        bound = tested.bind_tested_release_source("platform", "flow", None, None)
+
+    assert bound == HEAD
+    dispatch.assert_called_once_with(TARGET)
+
+
+def test_explicit_untested_commit_with_no_tested_commit_teaches_dispatch(gated):
+    with (
+        mock.patch.object(tested, "_read", side_effect=_github([])),
+        mock.patch.object(tested, "dispatch_branch_ci") as dispatch,
         pytest.raises(tested.ReleaseSourceRefused) as refused,
     ):
-        tested.bind_tested_release_source("platform", "flow", None, None)
+        tested.bind_tested_release_source("platform", "flow", None, HEAD)
 
-    assert refused.value.code == "release_source_untested"
-    assert "owner/platform@main" in str(refused.value)
+    dispatch.assert_not_called()
+    assert "omit --source-ref: creation then dispatches platform-ci.yml" in str(
+        refused.value
+    )
 
 
 def test_flow_without_a_ci_gate_keeps_the_given_lineage():

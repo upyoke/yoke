@@ -61,7 +61,8 @@ Itemless environment release (project-generic):
   # connection required for that self-deploy. The run copies the flow's
   # registered environment; pass --environment ENV only to override it.
   # With no --source-ref, a flow that waits for CI binds the newest commit
-  # on its gate branch that has its own CI run (passed or running). Read
+  # on its gate branch that has its own CI run (passed or running), or
+  # dispatches that CI on the branch and binds the commit it tests. Read
   # the bound commit with `deployment-runs get "$RUN_ID" release_lineage`
   # and give the release's paired run that same commit.
   RUN_ID=$(yoke --env CONTROL-PLANE deployment-runs create PROJECT FLOW \\
@@ -103,7 +104,9 @@ CREATE_DESCRIPTION = (
     "mismatches, before committing a run ID. On a flow that waits for CI, "
     "the release commit must have its own run of the project's "
     "ci_workflow_file: without --source-ref creation binds the newest such "
-    "commit on the gate branch, and an explicit commit without one is "
+    "commit on the gate branch (dispatching that workflow on the branch and "
+    "binding the commit it tests when no commit has a run), and an explicit "
+    "commit without one is "
     "refused (release_source_untested) naming the newest that has one. "
     "Commits made outside Yoke are carried without blocking release. An "
     "item a live or succeeded release already holds is not composed and not "

@@ -101,13 +101,15 @@ learns the other's part from its own skill. The split is the whole rule:
   from that SHA, and starts each one with `yoke --env CONTROL-PLANE watch
   deploy -- RUN-ID`. On a flow that waits for CI the SHA must have its own
   run of the project's `ci_workflow_file`: a merge-queue push tests only its
-  newest commit. Create the first run without `--source-ref` and it binds the
-  newest gate-branch commit whose own run passed or is running; give the
-  paired run that `release_lineage`. An explicit commit with no run of its
-  own is refused `release_source_untested`, naming the newest tested commit.
-  The CI gate never dispatches CI: a release commit with no run of its own
-  fails it by name, and the recovery is a new run on the newest tested
-  commit. Creation provisionally enrolls every delivery-ready item
+  newest commit. Create the CI-gated run (production) without `--source-ref`
+  and it binds the newest gate-branch commit whose own run passed or is
+  running — or, when none has one, dispatches that workflow on the branch and
+  binds the commit the dispatched run tests. Give the paired stage run that
+  `release_lineage` with `--source-ref`; stage refuses a missing lineage. An
+  explicit commit with no run of its own is refused
+  `release_source_untested` on every path that binds one, naming the newest
+  tested commit. The CI gate itself never dispatches CI: a release commit
+  with no run of its own fails it by name, and the recovery is a new run. Creation provisionally enrolls every delivery-ready item
   its candidate carries that no live or succeeded release already holds —
   whether the work landed since the last release or long before it — and
   validates before committing the run. Start revalidates before dispatch, so
