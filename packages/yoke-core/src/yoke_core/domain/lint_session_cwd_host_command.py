@@ -34,6 +34,7 @@ from yoke_core.domain.lint_shell_target_tokens import (
 
 
 HOST_COMMAND_SUBCOMMAND = ("qa", "mission", "host-command")
+TEST_MACHINE_EXEC_SUBCOMMAND = ("test-machine", "exec")
 
 # Global ``yoke`` flags whose value must not be mistaken for a subcommand.
 YOKE_VALUE_FLAGS = frozenset({"--env", "--config", "--session-id"})
@@ -93,6 +94,34 @@ def is_host_command_segment(command_base: str, tokens: Sequence[str]) -> bool:
         limit=len(HOST_COMMAND_SUBCOMMAND),
     )
     return tuple(positionals) == HOST_COMMAND_SUBCOMMAND
+
+
+def is_test_machine_exec_segment(command_base: str, tokens: Sequence[str]) -> bool:
+    """True when ``tokens`` invoke ``yoke test-machine exec``."""
+    if command_base != "yoke":
+        return False
+    positionals = yoke_subcommand_positionals(
+        tokens,
+        limit=len(TEST_MACHINE_EXEC_SUBCOMMAND),
+    )
+    return tuple(positionals) == TEST_MACHINE_EXEC_SUBCOMMAND
+
+
+def test_machine_exec_argv_indexes(
+    command_base: str,
+    tokens: Sequence[str],
+) -> set[int]:
+    """Every argument of ``yoke test-machine exec`` runs on the remote host.
+
+    The words name that machine's filesystem. A shell redirect is not one
+    of them — the extractor resolves redirects before consulting this set.
+    """
+    if not is_test_machine_exec_segment(command_base, tokens):
+        return set()
+    for index, token in enumerate(tokens):
+        if token == "exec":
+            return set(range(index + 1, len(tokens)))
+    return set()
 
 
 def remote_argv_indexes(command_base: str, tokens: Sequence[str]) -> set[int]:
@@ -221,6 +250,8 @@ __all__ = [
     "host_command_exemption_note",
     "is_host_command",
     "is_host_command_segment",
+    "is_test_machine_exec_segment",
     "remote_argv_indexes",
+    "test_machine_exec_argv_indexes",
     "yoke_subcommand_positionals",
 ]

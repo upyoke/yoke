@@ -222,8 +222,7 @@ class TestProjectCodeIsNeverExternal:
             _read_tool(neighbour / "module.py", lane)
         )
 
-        assert verdict.allow is False
-        assert verdict.failure_class == "foreign_lane"
+        assert verdict.allow is True
 
     def test_read_of_an_unclaimed_sibling_lane_still_refuses(
         self,

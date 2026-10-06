@@ -104,3 +104,35 @@ def test_claimed_worker_still_cannot_write_unclaimed_local_path(worker, command)
     )
     assert not verdict.allow
     assert verdict.offending_target == LOCAL
+
+
+EXEC = "yoke test-machine exec --project yoke"
+SEALED = "/var/lib/yoke-golden/sealed-baseline"
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        f"{EXEC} -- /bin/cat {SEALED}",
+        f"yoke --env prod test-machine exec --project yoke -- /bin/cat {SEALED}",
+        f"{EXEC} -- /bin/ls /Users/Shared/yoke-golden/test-home",
+    ],
+)
+def test_exec_remote_arguments_are_not_local_targets(command):
+    assert extract_command_targets(command) == []
+
+
+def test_exec_local_redirect_is_still_a_local_target():
+    assert extract_command_targets(f"{EXEC} -- /bin/cat {SEALED} > {LOCAL}") == [LOCAL]
+
+
+def test_claimed_worker_can_exec_a_remote_sealed_path(worker):
+    verdict = lint_session_cwd.evaluate_pre_tool_use(
+        {
+            "session_id": "capture-worker-session",
+            "cwd": str(worker),
+            "tool_name": "Bash",
+            "tool_input": {"command": f"{EXEC} -- /bin/cat {SEALED}"},
+        }
+    )
+    assert verdict.allow, verdict.reason
