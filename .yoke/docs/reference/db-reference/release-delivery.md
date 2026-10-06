@@ -142,7 +142,7 @@ a universe whose schema predates the scoped vocabulary reports nothing
 owed instead of failing.
 
 Member settlement and the terminal done gate also read blocking `post_deploy` requirements on the run.
-Legacy schema-1 runs credit run-wide requirements to their delivered members;
+Legacy schema-1 runs credit their shared run-wide requirements without source keys;
 scoped runs keep exact member binding. Failing or unanswered requirements block;
 supersession transfers the obligation to the successor requirement.
 

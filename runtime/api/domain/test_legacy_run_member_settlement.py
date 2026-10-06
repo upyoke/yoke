@@ -21,9 +21,6 @@ from runtime.api.domain.test_run_success_member_settlement import (
 )
 from runtime.api.domain.test_status_transition_preflight import _isolate_status_effects
 from runtime.api.domain.test_dash_post_deploy_done_consumption import _bind_original
-from yoke_core.domain.deployment_qa_admission_materialization import (
-    admitted_requirement_case_key,
-)
 from yoke_core.domain.deployment_qa_source_obligation import source_obligation_consumed
 from runtime.api.fixtures.backlog_inserts import insert_qa_requirement, insert_qa_run
 from yoke_core.domain.db_helpers import iso8601_now
@@ -57,7 +54,7 @@ def _requirement(conn, run_id, *, member=None, verdict=None):
         deployment_run_id=run_id,
         deployment_member_item_id=member,
         deployment_stage="item-qa" if member is not None else None,
-        qa_kind="plan_case",
+        qa_kind="method_case",
         qa_phase="post_deploy",
         blocking_mode="blocking",
     )["id"]
@@ -65,7 +62,7 @@ def _requirement(conn, run_id, *, member=None, verdict=None):
         insert_qa_run(
             conn,
             qa_requirement_id=requirement_id,
-            qa_kind="plan_case",
+            qa_kind="method_case",
             verdict=verdict,
         )
     return requirement_id
@@ -162,25 +159,28 @@ def test_legacy_qa_counts_only_for_members_on_that_run(test_db):
     assert not satisfied_delivery_member(test_db, item_id=FIRST_ITEM, run_id=other_run)
 
 
-def _source_copy(conn, run_id, source_id, *, verdict=None):
-    copy_id = _requirement(conn, run_id, verdict=verdict)
-    conn.execute(
-        "UPDATE qa_requirements SET plan_case_key=%s WHERE id=%s",
-        (admitted_requirement_case_key(source_id), copy_id),
-    )
-    conn.commit()
-    return copy_id
-
-
 @pytest.mark.parametrize("verdict", ["pass", "fail", None])
-def test_legacy_admitted_source_controls_terminal_done(test_db, monkeypatch, verdict):
+def test_unkeyed_legacy_run_qa_controls_source_terminal_done(
+    test_db, monkeypatch, verdict
+):
     _isolate_status_effects(monkeypatch)
     _project(test_db)
     _ready_member(test_db, FIRST_ITEM, HOLDER_A)
     source_id = _bind_original(test_db, item_id=FIRST_ITEM)
     run_id = "run-legacy-source-done"
     _legacy_run(test_db, run_id, (FIRST_ITEM,))
-    copy_id = _source_copy(test_db, run_id, source_id, verdict=verdict)
+    copy_id = _requirement(test_db, run_id, verdict=verdict)
+    shape = test_db.execute(
+        "SELECT plan_id,plan_case_key,deployment_member_item_id,deployment_stage "
+        "FROM qa_requirements WHERE id=%s",
+        (copy_id,),
+    ).fetchone()
+    assert all(value is None for value in shape)
+    snapshot = test_db.execute(
+        "SELECT requirement_snapshot,composition_frozen_at FROM deployment_runs WHERE id=%s",
+        (run_id,),
+    ).fetchone()
+    assert all(value is None for value in snapshot)
 
     refusal = cmd_update(run_id, "status", "succeeded")
 
@@ -211,7 +211,7 @@ def test_legacy_source_supersession_requires_settled_successor(
     source_id = _bind_original(test_db, item_id=FIRST_ITEM)
     run_id = "run-legacy-source-supersession"
     _legacy_run(test_db, run_id, (FIRST_ITEM,))
-    copy_id = _source_copy(test_db, run_id, source_id, verdict="fail")
+    copy_id = _requirement(test_db, run_id, verdict="fail")
     successor_id = _requirement(test_db, run_id, verdict=successor_verdict)
     test_db.execute(
         "UPDATE qa_requirements SET superseded_by_requirement_id=%s WHERE id=%s",
@@ -239,8 +239,8 @@ def test_legacy_unsettled_duplicate_and_zero_copies_block_source(test_db):
     assert not source_obligation_consumed(
         test_db, item_id=FIRST_ITEM, source_requirement_id=source_id
     )
-    _source_copy(test_db, run_id, source_id, verdict="pass")
-    _source_copy(test_db, run_id, source_id)
+    _requirement(test_db, run_id, verdict="pass")
+    _requirement(test_db, run_id)
     assert not source_obligation_consumed(
         test_db, item_id=FIRST_ITEM, source_requirement_id=source_id
     )
@@ -252,7 +252,7 @@ def test_scoped_run_does_not_credit_run_wide_source(test_db):
     source_id = _bind_original(test_db, item_id=FIRST_ITEM)
     run_id = "run-scoped-source-run-wide"
     _legacy_run(test_db, run_id, (FIRST_ITEM,))
-    _source_copy(test_db, run_id, source_id, verdict="pass")
+    _requirement(test_db, run_id, verdict="pass")
     test_db.execute(
         "UPDATE deployment_flows SET definition_schema_version=%s WHERE id=%s",
         (RELEASE_POLICY_SCHEMA_VERSION, COMPLETION_FLOW),
@@ -262,5 +262,24 @@ def test_scoped_run_does_not_credit_run_wide_source(test_db):
     )
     test_db.commit()
     assert not source_obligation_consumed(
+        test_db, item_id=FIRST_ITEM, source_requirement_id=source_id
+    )
+
+
+def test_waived_legacy_run_obligation_settles_source(test_db):
+    _project(test_db)
+    _ready_member(test_db, FIRST_ITEM, HOLDER_A)
+    source_id = _bind_original(test_db, item_id=FIRST_ITEM)
+    run_id = "run-legacy-source-waived"
+    _legacy_run(test_db, run_id, (FIRST_ITEM,))
+    copy_id = _requirement(test_db, run_id, verdict="fail")
+    test_db.execute(
+        "UPDATE qa_requirements SET waived_at=%s WHERE id=%s", (iso8601_now(), copy_id)
+    )
+    test_db.execute(
+        "UPDATE deployment_runs SET status='succeeded' WHERE id=%s", (run_id,)
+    )
+    test_db.commit()
+    assert source_obligation_consumed(
         test_db, item_id=FIRST_ITEM, source_requirement_id=source_id
     )
