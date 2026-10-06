@@ -59,8 +59,9 @@ def view_serving_refusal(
             "over it would answer every read from the hosted universe "
             "while naming none of it on the page. A view serves the "
             "machine-local universe only; that server serves its own "
-            f"workbench — open {_server_workbench_url(connection)} in a "
-            f"browser. {_switch_recipe(payload)}"
+            f"workbench — run `yoke ui up` on a self-host connection to "
+            "open it with company or token sign-in, or open "
+            f"{_server_workbench_url(connection)} in a browser. {_switch_recipe(payload)}"
         )
     if transport in POSTGRES_TRANSPORTS:
         return (

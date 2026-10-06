@@ -154,12 +154,12 @@ docker compose exec --user yoke core python3 -m yoke_core.domain.api_tokens_cli 
   mint --actor <actor-id> --name <engineer-label>
 ```
 
-## Workbench and browser sign-in (OIDC)
+## Workbench and browser sign-in
 
-The server serves the universe workbench at its own URL. People open it by
-signing in through your identity provider and then work with full read and
-write as their own actor. The walkthrough — provider registration, bundle
-wiring, who gets in, and the cookie's same-origin protection — is
+The server serves the workbench at its own URL. Run `yoke ui up` on a connected
+CLI: company sign-in opens the server URL; without OIDC, your API token gets a
+single-use sign-in link that expires in two minutes. Both give full read and
+write as your actor. The walkthrough and same-origin cookie protection are in
 [Browser Sign-In](self-host-browser-sign-in.md).
 
 ## GitHub App server automation

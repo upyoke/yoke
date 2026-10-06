@@ -75,15 +75,19 @@ installer with `uv_shell_update_failed`.
 Open a new terminal. If you chose machine-only setup, the finish screen lists
 the projects your account can access and commands to file and browse work
 from any folder, plus your hosted dashboard link (or the team server's own
-URL, where it serves its workbench). Run `yoke setup`
+URL, where `yoke ui up` opens its workbench). Run `yoke setup`
 when you want to prepare a project's code on this machine. Once that project
 is wired, open Claude Code, Codex, or Cursor in its folder and run `/yoke onboard`.
 
 ```bash
 yoke status          # machine, env, credentials, checkouts
-yoke ui up           # local workbench (local mode), detached from this terminal
+yoke ui up           # local daemon, or the connected self-host workbench
 # or open the Cloud dashboard after sign-in
 ```
+
+On a team server, `yoke ui up` opens company sign-in when configured. Otherwise
+it uses the connection's API token to open a single-use browser sign-in link
+for that actor. The link expires in two minutes; rerun the command if needed.
 
 Upgrade later with `yoke update` — it reruns the official installer with
 onboarding disabled, honors this machine's already-configured distribution

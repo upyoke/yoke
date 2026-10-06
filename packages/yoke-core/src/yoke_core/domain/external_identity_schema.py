@@ -1,6 +1,6 @@
 """Schema DDL for external sign-in identity.
 
-Owns the three additive tables behind the self-host OIDC sign-in door:
+Owns the additive tables behind self-host browser sign-in:
 
 * ``actor_external_identities`` — one row per verified external identity
   (``issuer`` + ``subject`` from a verified id_token) bound to an
@@ -13,6 +13,7 @@ Owns the three additive tables behind the self-host OIDC sign-in door:
   EXISTING actor (an email pre-link) so acceptance binds the identity to
   that actor instead of creating a new one. At most one pending invite
   per case-folded email per org (partial unique index).
+* ``browser_sign_in_links`` — hashed single-use API-token admission links.
 * ``web_sessions`` — DB-backed hashed browser session tokens, mirroring
   the ``api_tokens`` shape (SHA-256 of a random token; the raw value is
   returned once and never persisted).
@@ -32,12 +33,15 @@ REQUIRED_EXTERNAL_IDENTITY_TABLES = (
     "actor_external_identities",
     "actor_invites",
     "web_sessions",
+    "browser_sign_in_links",
 )
 
 
 def create_external_identity_tables(conn: Any) -> None:
     """Create the external sign-in identity tables and indexes, idempotently."""
-    execute_schema_script(conn, """
+    execute_schema_script(
+        conn,
+        """
         CREATE TABLE IF NOT EXISTS actor_external_identities (
             id INTEGER PRIMARY KEY,
             actor_id INTEGER NOT NULL REFERENCES actors(id),
@@ -81,7 +85,18 @@ def create_external_identity_tables(conn: Any) -> None:
         );
         CREATE INDEX IF NOT EXISTS idx_web_sessions_actor
             ON web_sessions(actor_id);
-    """)
+
+        CREATE TABLE IF NOT EXISTS browser_sign_in_links (
+            selector TEXT PRIMARY KEY,
+            code_hash TEXT NOT NULL,
+            actor_id INTEGER NOT NULL REFERENCES actors(id),
+            expires_at TEXT NOT NULL,
+            consumed_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_browser_sign_in_links_expiry
+            ON browser_sign_in_links(expires_at);
+    """,
+    )
     conn.commit()
 
 

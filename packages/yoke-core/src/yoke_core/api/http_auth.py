@@ -16,6 +16,10 @@ from typing import Any
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
+from yoke_contracts.browser_sign_in import (
+    BROWSER_SIGN_IN_PATH,
+    BROWSER_SIGN_IN_REDEEM_PATH,
+)
 
 from yoke_core.api.observability import request_id_for
 from yoke_core.domain import db_backend, db_helpers
@@ -38,7 +42,9 @@ AUTH_STATE_ATTR = "yoke_auth"
 OIDC_START_PATH = "/v1/auth/oidc/start"
 OIDC_CALLBACK_PATH = "/v1/auth/oidc/callback"
 
-PUBLIC_PATHS = frozenset({"/v1/health", OIDC_START_PATH, OIDC_CALLBACK_PATH})
+PUBLIC_PATHS = frozenset(
+    {"/v1/health", OIDC_START_PATH, OIDC_CALLBACK_PATH, BROWSER_SIGN_IN_REDEEM_PATH}
+)
 
 
 @dataclass(frozen=True)
@@ -51,9 +57,9 @@ class HttpAuthContext:
     machine_id: str | None = None
 
 
-def is_public_path(path: str) -> bool:
+def is_public_path(path: str, method: str = "") -> bool:
     """Return True when ``path`` is intentionally public."""
-    return path in PUBLIC_PATHS
+    return path in PUBLIC_PATHS or (path == BROWSER_SIGN_IN_PATH and method == "GET")
 
 
 def auth_error_response(

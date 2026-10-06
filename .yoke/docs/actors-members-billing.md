@@ -67,7 +67,7 @@ Organization / universe level: export/import portability, founding new orgs
 
 | Concern | Local | Self-hosted | Cloud |
 |---|---|---|---|
-| Workbench | `yoke ui up` | The server's URL, after company sign-in | app.upyoke.com |
+| Workbench | `yoke ui up` | `yoke ui up`: company sign-in or a single-use token link | app.upyoke.com |
 | Members / Billing | N/A | N/A | Platform sections |
 | Machine approval | N/A (you are the machine) | API token minted on the host | Machines page / connect |
 | Universe export | Yes | Yes | Yes (portability) |
