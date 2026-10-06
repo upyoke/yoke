@@ -78,6 +78,23 @@ def is_ancestor(repo_root: str, commit: str, target: str) -> bool:
     )
 
 
+def ancestry(repo_root: str, commit: str, target: str) -> tuple[Optional[bool], str]:
+    """Whether ``target`` contains ``commit``, or ``None`` with git's reason.
+
+    Unlike :func:`is_ancestor`, a failed read is not a no. Exit 1 is git's
+    definite answer; anything else — an object a concurrent repack moved, a
+    lock, an unreadable pack — means git never compared the two commits.
+    """
+    result = _git(repo_root, "merge-base", "--is-ancestor", commit, target)
+    if result.returncode in (0, 1):
+        return result.returncode == 0, ""
+    failure = (result.stderr or "").strip() or f"exit {result.returncode}"
+    return None, (
+        f"git merge-base --is-ancestor {commit} {target} failed in checkout "
+        f"{repo_root}: {failure}"
+    )
+
+
 def fetch_target(repo_root: str, target: str) -> None:
     """Refresh ``origin/<target>`` before anything reads it.
 

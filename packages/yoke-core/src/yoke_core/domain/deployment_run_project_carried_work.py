@@ -230,7 +230,9 @@ def derive_project_carried_work(
     if commit_range.relation == RELATION_DIVERGED:
         return empty_carried_work(
             "release_lineages_diverged",
-            "Correct the run lineage or restore its trunk ancestry, then retry.",
+            "Bind a commit that descends from the previous release (create "
+            "with --project-repo-path CHECKOUT --source-ref COMMIT), or "
+            "restore that release's trunk ancestry, then retry.",
             run_id=run_id,
             previous_run_id=previous_run_id,
             previous_lineage=previous_lineage,

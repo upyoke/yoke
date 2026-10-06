@@ -148,10 +148,11 @@ def test_gate_target_uses_the_gates_own_branch_rule(gate_inputs):
     target = tested.ci_gate_target("platform", "flow", None)
 
     gate_inputs.assert_called_once_with("platform", "persistent", "prod", "/checkout")
-    assert (target.repo, target.workflow, target.branch) == (
+    assert (target.repo, target.workflow, target.branch, target.environment) == (
         "owner/platform",
         "platform-ci.yml",
         "release",
+        "prod",
     )
 
 

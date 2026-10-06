@@ -54,6 +54,17 @@ def _cell(row: Any, key: str, index: int) -> Any:
     return row[key] if hasattr(row, "keys") else row[index]
 
 
+def _compared_lineages(derivation: Mapping[str, Any]) -> str:
+    """Name the two commits a blocker compared, so its reader can check them."""
+    previous = str(derivation.get("previous_release_lineage") or "").strip()
+    current = str(derivation.get("release_lineage") or "").strip()
+    if not (previous and current):
+        return ""
+    run = str(derivation.get("previous_run_id") or "").strip()
+    shipped = f" shipped by {run}" if run else ""
+    return f" (previous release {previous}{shipped}; this run {current})"
+
+
 def carried_membership_refusal(
     conn: Any,
     run_id: str,
@@ -92,7 +103,8 @@ def carried_membership_refusal(
             if not bool(derivation.get("contents_known")):
                 recovery = str(derivation.get("recovery") or "").strip()
                 problems.append(
-                    f"{project} carried-code membership is {reason}. "
+                    f"{project} carried-code membership is {reason}"
+                    f"{_compared_lineages(derivation)}. "
                     + (recovery or "Repair source access, then revalidate composition.")
                 )
         if problems:

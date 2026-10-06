@@ -10,6 +10,7 @@ from runtime.api.domain.handlers.deployment_handler_test_support import (
     deployment_request,
 )
 from yoke_core.domain import deployment_run_ci_tested_source as tested
+from yoke_core.domain import deployment_run_gate_branch_lineage as lineage
 from yoke_core.domain.handlers import deployment_run_creation
 
 HEAD, MIDDLE, OLDEST = "c" * 40, "b" * 40, "a" * 40
@@ -20,25 +21,43 @@ TARGET = tested.CiGateTarget(
     workflow="platform-ci.yml",
     branch="main",
     token="token",
+    environment="prod",
 )
 
 
-def _run(sha: str, status: str, conclusion: str | None, number: int) -> dict:
+def _run(
+    sha: str,
+    status: str,
+    conclusion: str | None,
+    number: int,
+    *,
+    event: str = "push",
+    branch: str = "main",
+) -> dict:
     return {
         "id": number,
         "run_number": number,
         "head_sha": sha,
+        "head_branch": branch,
+        "event": event,
         "status": status,
         "conclusion": conclusion,
     }
 
 
-def _github(runs: list[dict]):
+def _commit(sha: str, *parents: str) -> dict:
+    return {"sha": sha, "parents": [{"sha": parent} for parent in parents]}
+
+
+TRUNK = [_commit(HEAD, MIDDLE), _commit(MIDDLE, OLDEST), _commit(OLDEST)]
+
+
+def _github(runs: list[dict], commits: list[dict] = TRUNK):
     """Answer the two reads creation makes: branch runs and branch commits."""
 
     def read(_target, path: str, query: dict) -> object:
         if path.endswith("/commits"):
-            return [{"sha": sha} for sha in (HEAD, MIDDLE, OLDEST)]
+            return commits
         wanted = query.get("head_sha")
         return {
             "workflow_runs": [
@@ -51,7 +70,10 @@ def _github(runs: list[dict]):
 
 @pytest.fixture
 def gated():
-    with mock.patch.object(tested, "ci_gate_target", return_value=TARGET):
+    with (
+        mock.patch.object(tested, "ci_gate_target", return_value=TARGET),
+        mock.patch.object(lineage, "previous_release", return_value=None),
+    ):
         yield
 
 
@@ -134,6 +156,93 @@ def test_flow_without_a_ci_gate_keeps_the_given_lineage():
         assert tested.bind_tested_release_source("p", "f", None, None) is None
 
     read.assert_not_called()
+
+
+@pytest.mark.parametrize("event", ["merge_group", "pull_request"])
+def test_default_ignores_runs_of_refs_other_than_the_gate_branch(gated, event):
+    queue = f"gh-readonly-queue/main/pr-1-{OLDEST}"
+    runs = [
+        _run(HEAD, "completed", "success", 3, event=event, branch="main"),
+        _run(HEAD, "completed", "success", 2, event=event, branch=queue),
+        _run(MIDDLE, "completed", "success", 1),
+    ]
+    with mock.patch.object(tested, "_read", side_effect=_github(runs)):
+        bound = tested.bind_tested_release_source("platform", "flow", None, None)
+
+    assert bound == MIDDLE
+
+
+def test_default_walks_first_parents_past_a_merged_in_commit(gated):
+    side = "d" * 40
+    # GitHub lists by date, so the merged-in commit precedes the trunk commit.
+    commits = [
+        _commit(HEAD, MIDDLE, side),
+        _commit(side, OLDEST),
+        _commit(MIDDLE, OLDEST),
+        _commit(OLDEST),
+    ]
+    runs = [
+        _run(side, "completed", "success", 2),
+        _run(OLDEST, "completed", "success", 1),
+    ]
+    with mock.patch.object(tested, "_read", side_effect=_github(runs, commits)):
+        bound = tested.bind_tested_release_source("platform", "flow", None, None)
+
+    assert bound == OLDEST
+
+
+def test_default_refuses_a_commit_off_the_previous_release_lineage(gated):
+    runs = [_run(HEAD, "completed", "success", 1)]
+    with (
+        mock.patch.object(tested, "_read", side_effect=_github(runs)),
+        mock.patch.object(lineage, "previous_release", return_value=("run-9", MIDDLE)),
+        mock.patch.object(lineage, "_compare_status", return_value="diverged"),
+        pytest.raises(tested.ReleaseSourceRefused) as refused,
+    ):
+        tested.bind_tested_release_source("platform", "flow", None, None)
+
+    assert refused.value.code == lineage.OFF_LINEAGE
+    message = str(refused.value)
+    assert f"selected release commit {HEAD}" in message
+    assert f"does not descend from {MIDDLE}, the lineage run-9" in message
+    assert "for platform in prod (GitHub compares them as diverged)" in message
+    assert "--source-ref COMMIT" in message
+    assert "Nothing was bound" in message
+
+
+@pytest.mark.parametrize(
+    ("previous", "status", "compared"),
+    [
+        (("run-9", MIDDLE), "ahead", True),
+        (("run-9", HEAD), "unused", False),
+        (("run-9", ""), "unused", False),
+        (None, "unused", False),
+    ],
+)
+def test_default_binds_a_commit_carrying_the_previous_release(
+    gated, previous, status, compared
+):
+    runs = [_run(HEAD, "completed", "success", 1)]
+    with (
+        mock.patch.object(tested, "_read", side_effect=_github(runs)),
+        mock.patch.object(lineage, "previous_release", return_value=previous),
+        mock.patch.object(lineage, "_compare_status", return_value=status) as compare,
+    ):
+        bound = tested.bind_tested_release_source("platform", "flow", None, None)
+
+    assert bound == HEAD
+    assert compare.called is compared
+
+
+def test_explicit_commit_skips_the_previous_release_check(gated):
+    runs = [_run(OLDEST, "completed", "success", 1)]
+    with (
+        mock.patch.object(tested, "_read", side_effect=_github(runs)),
+        mock.patch.object(lineage, "previous_release") as previous,
+    ):
+        tested.bind_tested_release_source("platform", "flow", None, OLDEST)
+
+    previous.assert_not_called()
 
 
 @pytest.mark.parametrize(

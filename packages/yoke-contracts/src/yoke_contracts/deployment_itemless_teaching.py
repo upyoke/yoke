@@ -61,8 +61,10 @@ Itemless environment release (project-generic):
   # connection required for that self-deploy. The run copies the flow's
   # registered environment; pass --environment ENV only to override it.
   # With no --source-ref, a flow that waits for CI binds the newest commit
-  # on its gate branch that has its own CI run (passed or running), or
-  # dispatches that CI on the branch and binds the commit it tests. Read
+  # on its gate branch's first-parent line that has its own branch CI run
+  # (passed or running), or dispatches that CI on the branch and binds the
+  # commit it tests; a commit off the previous release's lineage is refused
+  # (release_source_off_lineage) naming both commits. Read
   # the bound commit with `deployment-runs get "$RUN_ID" release_lineage`
   # and give the release's paired run that same commit.
   RUN_ID=$(yoke --env CONTROL-PLANE deployment-runs create PROJECT FLOW \\
