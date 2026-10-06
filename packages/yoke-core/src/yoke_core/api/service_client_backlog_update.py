@@ -100,11 +100,11 @@ def cmd_execute_update_cli(args: list[str]) -> int:
     public_ref = positional_args[0].strip()
     from yoke_contracts.public_ref import parse_public_item_ref
 
-    if parse_public_item_ref(public_ref)[1] is None:
+    if None in parse_public_item_ref(public_ref):
         return _emit_backlog_result(
             {
                 "success": False,
-                "error": f"Item ref must be PREFIX-N or bare N, got '{public_ref}'",
+                "error": f"Item ref must be PREFIX-N, got '{public_ref}'",
             }
         )
 

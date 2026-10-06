@@ -436,7 +436,7 @@ _Compact depth. For per-table/command notes, caveats and corrected wrong guesses
   - `# Canonical agent shape — release the calling session's active claim:`
   - `yoke claims work release --item PREFIX-N --reason TEXT`
   - `yoke claims work release --claim-id <id> --reason TEXT`
-  - `yoke claims work release --epic-id E --task-num K --reason TEXT`
+  - `yoke claims work release --epic PREFIX-N --task-num K --reason TEXT`
   - `yoke claims work release --all-mine`
   - `# Manual spec-rewrite pattern (acquire → edit → release):`
   - `yoke claims work acquire --item PREFIX-N --reason rewrite-in-progress`
@@ -517,7 +517,7 @@ _Compact depth. For per-table/command notes, caveats and corrected wrong guesses
   - `# Several rows in one transaction — every row must include `workflow_transition_id`:`
   - `yoke qa requirement add-batch --item PREFIX-N --stdin`
   - `# Epic-task attachment (operator-debug; requires the item binding):`
-  - `python3 -m yoke_core.domain.qa requirement-add --epic-id E --task-num K --workflow-transition STAGE ...`
+  - `python3 -m yoke_core.domain.qa requirement-add --epic-id PREFIX-N --task-num K --workflow-transition STAGE ...`
 - _Materialize attached QA plan cases for a transition_
   - `yoke qa plan materialize --item PREFIX-N --transition reviewed-implementation`
   - `yoke qa item-plan retract --item PREFIX-N --project P --plan-id N --transition T --reason TEXT`

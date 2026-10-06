@@ -291,7 +291,7 @@ def main(argv: list[str] | None = None) -> int:
             "when coverage is satisfied, 1 when blocked."
         ),
     )
-    parser.add_argument("item", help="PREFIX-N or bare project sequence")
+    parser.add_argument("item", help="PREFIX-N")
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
     from yoke_core.domain.yok_n_parser import parse_item_argument
 

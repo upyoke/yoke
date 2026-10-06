@@ -51,9 +51,7 @@ def qa_requirement_list(args: List[str]) -> int:
         description=(f"{QA_REQUIREMENT_LIST_USAGE}\n\n{_REQUIREMENT_LIST_HELP_DEEP}"),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument(
-        "--item", default=None, help="Filter to one item (PREFIX-N or number)."
-    )
+    parser.add_argument("--item", default=None, help="Filter to one item (PREFIX-N).")
     parser.add_argument(
         "--epic",
         dest="epic",
@@ -281,9 +279,7 @@ def qa_gate_summary(args: List[str]) -> int:
         description=f"{QA_GATE_SUMMARY_USAGE}\n\n{_GATE_SUMMARY_HELP_DEEP}",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument(
-        "--item", default=None, help="Target item (PREFIX-N or number)."
-    )
+    parser.add_argument("--item", default=None, help="Target item (PREFIX-N).")
     parser.add_argument(
         "--epic",
         dest="epic",

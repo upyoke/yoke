@@ -45,6 +45,7 @@ _COLUMN_FLAGS: dict[str, str] = {
     "--hook-event-name": "hook_event_name",
 }
 
+
 def _build_where(
     args: Sequence[str],
     *,
@@ -76,24 +77,21 @@ def _build_where(
         if flag in _COLUMN_FLAGS:
             col = _COLUMN_FLAGS[flag]
             if i + 1 >= len(args) or str(args[i + 1]).startswith("--"):
-                raise ValueError(
-                    f"events filter flag '{flag}' requires a value"
-                )
+                raise ValueError(f"events filter flag '{flag}' requires a value")
             i += 1
             value: Any = args[i]
             if col == "item_id":
                 conn = connect(db_path)
                 try:
-                    value = str(parse_item_argument(
-                        value, project=project_context, conn=conn
-                    ))
+                    value = str(
+                        parse_item_argument(value, project=project_context, conn=conn)
+                    )
                 except ValueError as exc:
                     message = str(exc)
                     if "not found" in message:
                         raise ValueError(message) from exc
                     raise ValueError(
-                        f"events filter flag '{flag}' requires PREFIX-N, or "
-                        "bare N with project context"
+                        f"public_item_ref_required: events filter '{flag}' requires PREFIX-N"
                     ) from exc
                 finally:
                     conn.close()
@@ -118,9 +116,7 @@ def _build_where(
             params.append(value)
         elif flag == "--min-severity":
             if i + 1 >= len(args) or str(args[i + 1]).startswith("--"):
-                raise ValueError(
-                    "events filter flag '--min-severity' requires a value"
-                )
+                raise ValueError("events filter flag '--min-severity' requires a value")
             i += 1
             sev_num = severity_num(args[i])
             parts.append(
@@ -135,17 +131,13 @@ def _build_where(
             )
         elif flag == "--since":
             if i + 1 >= len(args) or str(args[i + 1]).startswith("--"):
-                raise ValueError(
-                    "events filter flag '--since' requires a value"
-                )
+                raise ValueError("events filter flag '--since' requires a value")
             i += 1
             parts.append("created_at >= %s")
             params.append(parse_since(args[i]))
         elif flag == "--until":
             if i + 1 >= len(args) or str(args[i + 1]).startswith("--"):
-                raise ValueError(
-                    "events filter flag '--until' requires a value"
-                )
+                raise ValueError("events filter flag '--until' requires a value")
             i += 1
             parts.append("created_at <= %s")
             params.append(parse_since(args[i]))
@@ -163,6 +155,7 @@ def _build_where(
         from yoke_core.domain.events_current_episode import (
             resolve_current_episode_boundary,
         )
+
         conn = connect(db_path)
         try:
             boundary = resolve_current_episode_boundary(conn, session_id_value)

@@ -3,8 +3,8 @@
 Text tokens resolve through
 :func:`yoke_core.domain.item_ref_resolution.resolve_item_ref`: ``PREFIX-N``
 resolves through its unique ``projects.public_item_prefix`` plus
-``items.project_sequence``; a bare ``N`` is a project sequence and resolves
-only with project context, and is never read as an internal ``items.id``.
+``items.project_sequence``. Text arguments require that complete public ref;
+project context scopes the request without supplying a missing prefix.
 A Python ``int`` is an internal id an engine caller already holds and passes
 through. This module adds the open path: a caller with no connection of its
 own resolves over a direct local connection, or through the dispatcher when

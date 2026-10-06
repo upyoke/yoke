@@ -79,7 +79,7 @@ def claims_work_acquire(args: List[str]) -> int:
         "--process", default=None, help="Process key for a process claim."
     )
     parser.add_argument(
-        "--project", default=None, help="Project context for bare numeric item refs."
+        "--project", default=None, help="Project scope for the operation."
     )
     parser.add_argument("--reason", default=None, help="Optional intent / rationale.")
     add_session_arg(parser)
@@ -175,7 +175,7 @@ def claims_work_release(args: List[str]) -> int:
     parser.add_argument(
         "--project",
         default=None,
-        help="Project scope for --process / bare numeric --item refs.",
+        help="Project scope for process or item queries.",
     )
     parser.add_argument(
         "--all-mine",

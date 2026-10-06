@@ -18,13 +18,12 @@ from typing import Optional
 from yoke_core.domain.work_claim_targets import (
     TargetValidationError,
     WorkClaimTarget,
-    make_epic_task_target,
-    make_item_target,
-    make_process_target,
 )
 from yoke_core.domain.work_processes import (
     UnknownProcessError,
 )
+from yoke_core.domain.function_response_refs import collect_item_ids, public_result
+from yoke_core.domain.item_ref_render import render_item_refs
 from yoke_core.api.service_client_shared import _get_db_readonly, _get_db_readwrite
 from yoke_core.api.service_client_sessions_lifecycle_touch import (
     _validate_active_session,
@@ -37,8 +36,10 @@ from yoke_core.api.service_client_work_claim_reason_help import render_reason_he
 from yoke_core.api.service_client_work_claims_identity import (
     check_self_only_session_identity,
 )
-from yoke_core.domain.yok_n_parser import parse_item_argument
-from yoke_core.domain.project_attribution import required_project
+from yoke_core.api.service_client_work_claim_targets import (
+    _parse_target_flags as _parse_target_flags,
+    _resolve_target as _resolve_target,
+)
 
 CLAIM_EXIT_OK = 0
 CLAIM_EXIT_USAGE = 2
@@ -65,78 +66,29 @@ def _require_self_session(explicit: Optional[str]) -> Optional[str]:
     identity = check_self_only_session_identity(explicit)
     if identity.ok:
         return identity.effective_session_id
-    print(json.dumps({"success": False, "code": identity.code,
-                      "error": identity.message}), file=sys.stderr)
-    return None
-
-
-def _parse_target_flags(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--item", default=None,
-                        help="Item target (PREFIX-N or project-local bare N)")
-    parser.add_argument("--epic-task", default=None, dest="epic_task",
-                        help="Epic-task parent (PREFIX-N); pair with --task-num")
-    parser.add_argument("--task-num", default=None, type=int, dest="task_num")
-    parser.add_argument("--process", default=None,
-                        help="Recurring process key (e.g. STRATEGIZE, FEED, DOCTOR)")
-    parser.add_argument(
-        "--project",
-        default=None,
-        help="Project context for bare item refs or process conflict scope",
-    )
-
-
-def _resolve_target(parsed: argparse.Namespace) -> WorkClaimTarget:
-    """Convert parsed flags into exactly one validated WorkClaimTarget.
-
-    Refuses ambiguous or empty target specs at the CLI boundary so the
-    domain layer never sees a malformed payload.
-    """
-    declared = [
-        ("item", parsed.item),
-        ("epic-task", parsed.epic_task),
-        ("process", parsed.process),
-    ]
-    populated = [name for name, val in declared if val]
-    if not populated:
-        raise TargetValidationError(
-            "must declare exactly one target: --item, --epic-task, or --process"
-        )
-    if len(populated) > 1:
-        raise TargetValidationError(
-            f"cannot declare multiple targets in one call: {populated}"
-        )
-    if parsed.item:
-        return make_item_target(
-            parse_item_argument(parsed.item, project=parsed.project)
-        )
-    if parsed.epic_task:
-        if parsed.task_num is None:
-            raise TargetValidationError(
-                "--epic-task requires --task-num"
-            )
-        return make_epic_task_target(
-            parse_item_argument(parsed.epic_task, project=parsed.project),
-            parsed.task_num,
-        )
-    # process — make_process_target raises UnknownProcessError with known keys
-    return make_process_target(
-        parsed.process,
-        required_project(
-            parsed.project, operation="claiming a process"
+    print(
+        json.dumps(
+            {"success": False, "code": identity.code, "error": identity.message}
         ),
+        file=sys.stderr,
     )
+    return None
 
 
 def cmd_claim_work(args: list[str]) -> int:
     """Acquire a typed work claim for the active session."""
     parser = argparse.ArgumentParser(
-        prog="claim-work", add_help=True,
+        prog="claim-work",
+        add_help=True,
         description=CLAIM_WORK_DESCRIPTION,
         formatter_class=argparse.RawTextHelpFormatter,
     )
     parser.add_argument("--session-id", default=None)
     parser.add_argument(
-        "--reason", "--intent", dest="reason", default=None,
+        "--reason",
+        "--intent",
+        dest="reason",
+        default=None,
         help=render_acquire_reason_help_text(),
     )
     _parse_target_flags(parser)
@@ -171,18 +123,22 @@ def cmd_claim_work(args: list[str]) -> int:
         conn.close()
 
     result = _claim_work_direct(
-        parsed.session_id, target, reason=parsed.reason,
+        parsed.session_id,
+        target,
+        reason=parsed.reason,
     )
 
     if result["success"]:
         print(json.dumps({"success": True, "claim": result["claim"]}))
         return CLAIM_EXIT_OK
     print(
-        json.dumps({
-            "success": False,
-            "code": result.get("code"),
-            "error": result["error"],
-        }),
+        json.dumps(
+            {
+                "success": False,
+                "code": result.get("code"),
+                "error": result["error"],
+            }
+        ),
         file=sys.stderr,
     )
     return CLAIM_EXIT_FAIL
@@ -200,7 +156,10 @@ def _claim_work_direct(
     try:
         try:
             claim = claim_work(
-                conn, session_id=session_id, target=target, reason=reason,
+                conn,
+                session_id=session_id,
+                target=target,
+                reason=reason,
             )
         except SessionError as exc:
             message = exc.message
@@ -209,7 +168,10 @@ def _claim_work_direct(
             return {"success": False, "code": exc.code, "error": message}
         except Exception as exc:  # noqa: BLE001 - CLI boundary preserves JSON error.
             return {"success": False, "code": "claim_failed", "error": str(exc)}
-        return {"success": True, "claim": claim}
+        receipt = {"success": True, "claim": claim}
+        return public_result(
+            receipt, render_item_refs(conn, sorted(collect_item_ids(receipt)))
+        )
     finally:
         conn.close()
 
@@ -222,23 +184,31 @@ def cmd_release_work_claim(args: list[str]) -> int:
     )
 
     parser = argparse.ArgumentParser(
-        prog="release-work-claim", add_help=True,
+        prog="release-work-claim",
+        add_help=True,
         description="Release an execution-owned typed work claim.",
         formatter_class=argparse.RawTextHelpFormatter,
     )
     parser.add_argument("--session-id", default=None)
     parser.add_argument(
-        "--reason", "--intent", dest="reason", required=True,
+        "--reason",
+        "--intent",
+        dest="reason",
+        required=True,
         help=render_reason_help_text(),
     )
     parser.add_argument(
-        "--allow-non-terminal", action="store_true", default=False,
+        "--allow-non-terminal",
+        action="store_true",
+        default=False,
         dest="allow_non_terminal",
         help="Operator bypass: non-terminal release without terminal "
-             "evidence. Requires --override-rationale.",
+        "evidence. Requires --override-rationale.",
     )
     parser.add_argument(
-        "--override-rationale", default=None, dest="override_rationale",
+        "--override-rationale",
+        default=None,
+        dest="override_rationale",
         help="Operator rationale recorded with --allow-non-terminal.",
     )
     _parse_target_flags(parser)
@@ -277,16 +247,27 @@ def cmd_release_work_claim(args: list[str]) -> int:
     try:
         try:
             result = release_work_claim_for_execution(
-                conn, parsed.session_id, target, parsed.reason,
+                conn,
+                parsed.session_id,
+                target,
+                parsed.reason,
                 allow_non_terminal=parsed.allow_non_terminal,
             )
-            if parsed.allow_non_terminal and result.get("released") and result.get("claim_id"):
+            if (
+                parsed.allow_non_terminal
+                and result.get("released")
+                and result.get("claim_id")
+            ):
                 emit_release_override(
-                    session_id=parsed.session_id, target=target,
+                    session_id=parsed.session_id,
+                    target=target,
                     claim_id=int(result["claim_id"]),
                     reason=parsed.reason,
                     operator_rationale=parsed.override_rationale or "",
                 )
+            result = public_result(
+                result, render_item_refs(conn, sorted(collect_item_ids(result)))
+            )
         except ValueError as exc:
             target_label = target.render()
             print(
@@ -294,12 +275,16 @@ def cmd_release_work_claim(args: list[str]) -> int:
                 f"(reason=domain_error): {exc}",
                 file=sys.stderr,
             )
-            print(json.dumps({
-                "success": False,
-                "released": False,
-                "failure_reason": "domain_error",
-                "error": str(exc),
-            }))
+            print(
+                json.dumps(
+                    {
+                        "success": False,
+                        "released": False,
+                        "failure_reason": "domain_error",
+                        "error": str(exc),
+                    }
+                )
+            )
             return RELEASE_EXIT_DOMAIN_ERROR
     finally:
         conn.close()

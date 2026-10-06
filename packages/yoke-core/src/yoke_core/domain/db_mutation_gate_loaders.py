@@ -49,7 +49,11 @@ class ItemIdRefMismatch(Exception):
 @contextmanager
 def acting_item_ref_bound(public_ref: Optional[str]) -> Iterator[None]:
     """Bind the caller's public item ref for the duration of a gate read."""
-    value = public_ref.strip() if isinstance(public_ref, str) and public_ref.strip() else None
+    value = (
+        public_ref.strip()
+        if isinstance(public_ref, str) and public_ref.strip()
+        else None
+    )
     token = _ACTING_ITEM_REF.set(value)
     try:
         yield
@@ -66,16 +70,17 @@ def _assert_item_id_matches_ref(
 ) -> None:
     """Refuse when *expected_ref* resolves to a different ``items.id``.
 
-    Comparison is by resolved id, not string equality, so a bare project-local
-    sequence and the rendered ``PREFIX-N`` form of the same item agree.
+    Compare the resolved internal key with the claimed item's key.
     """
     resolved = parse_item_id_or_none(
-        expected_ref, project=project, conn=conn,
+        expected_ref,
+        project=project,
+        conn=conn,
     )
     if resolved is None or int(resolved) != int(item_id):
         raise ItemIdRefMismatch(
             f"acting item ref {expected_ref!r} does not name "
-            f"items.id={int(item_id)}"
+            "the operation's claimed item"
         )
 
 
@@ -99,20 +104,19 @@ def _load_item_row(
         return None
     loaded = dict(row)
     expected = (
-        acting_item_ref
-        if acting_item_ref is not None
-        else _ACTING_ITEM_REF.get()
+        acting_item_ref if acting_item_ref is not None else _ACTING_ITEM_REF.get()
     )
     if expected:
         _assert_item_id_matches_ref(
-            conn, item_id, expected, str(loaded.get("project") or ""),
+            conn,
+            item_id,
+            expected,
+            str(loaded.get("project") or ""),
         )
     return loaded
 
 
-def _load_capability_settings(
-    conn: Any, project: str
-) -> Optional[Dict[str, Any]]:
+def _load_capability_settings(conn: Any, project: str) -> Optional[Dict[str, Any]]:
     p = _placeholder(conn)
     project_id = resolve_project_id(conn, project)
     row = conn.execute(
@@ -143,8 +147,9 @@ def _other_non_terminal_profiles(
     project_id = resolve_project_id(conn, project)
     rows = conn.execute(
         "SELECT id, db_mutation_profile FROM items "
-        f"WHERE project_id = {p} AND id <> {p} AND status IN (" +
-        ",".join([p] * len(_NON_TERMINAL_STATUSES)) + ")",
+        f"WHERE project_id = {p} AND id <> {p} AND status IN ("
+        + ",".join([p] * len(_NON_TERMINAL_STATUSES))
+        + ")",
         (project_id, exclude_item_id, *sorted(_NON_TERMINAL_STATUSES)),
     ).fetchall()
     out: List[Dict[str, Any]] = []

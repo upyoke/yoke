@@ -287,7 +287,7 @@ _Compact depth. For per-table/command notes, caveats and corrected wrong guesses
   - `# Canonical agent shape — release the calling session's active claim:`
   - `yoke claims work release --item PREFIX-N --reason TEXT`
   - `yoke claims work release --claim-id <id> --reason TEXT`
-  - `yoke claims work release --epic-id E --task-num K --reason TEXT`
+  - `yoke claims work release --epic PREFIX-N --task-num K --reason TEXT`
   - `yoke claims work release --all-mine`
   - `# Manual spec-rewrite pattern (acquire → edit → release):`
   - `yoke claims work acquire --item PREFIX-N --reason rewrite-in-progress`

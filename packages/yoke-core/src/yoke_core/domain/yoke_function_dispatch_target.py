@@ -2,7 +2,7 @@
 
 The relay contract (CLI grammar contract) requires that no `yoke` CLI
 adapter touch the DB before dispatch: a client carries the raw public
-item reference (``PREFIX-N`` or a bare project-local number) on
+item reference (``PREFIX-N``) on
 ``target.public_ref`` plus whatever project context it knows client-side
 on ``target.project_id``, and the dispatcher resolves the internal id
 here through :func:`yoke_core.domain.item_ref_resolution.resolve_item_ref`
@@ -95,7 +95,8 @@ def resolve_target_public_ref(
 
 
 def resolve_request_item_refs(
-    request: FunctionCallRequest, request_model: Any,
+    request: FunctionCallRequest,
+    request_model: Any,
 ) -> Optional[FunctionCallResponse]:
     """Resolve every caller item ref on ``request`` — target, then payload.
 
@@ -111,7 +112,9 @@ def resolve_request_item_refs(
     if refused is not None:
         return refused
     return resolve_payload_public_refs(
-        request, request_model, project_hint=project_hint,
+        request,
+        request_model,
+        project_hint=project_hint,
     )
 
 

@@ -110,6 +110,19 @@ def test_stage1_linkage_relays_roster_and_rows(monkeypatch):
     assert local_orphans == []
 
 
+def test_legacy_linkage_rows_refuse_with_the_public_response_serving_floor(monkeypatch):
+    def fake(**kwargs):
+        fid = kwargs["function_id"]
+        if fid == "resync.linkage_roster":
+            return _resp(fid, {"fetch_projects": ["yoke"], "sync_disabled": {}})
+        return _resp(fid, {"backlog_rows": [[7, None, "yoke", "YOK", 1]]})
+
+    monkeypatch.setattr(_ADAPTER, fake)
+    _fail_on_connect(monkeypatch)
+    with pytest.raises(RuntimeError, match="public_item_refs_serving_floor"):
+        linkage.stage1_linkage("", "", fetch_fn=lambda _projects: {"yoke": {}})
+
+
 def test_stage2_compare_relays_prefetch_and_uses_implies_merge(monkeypatch):
     seen = []
 

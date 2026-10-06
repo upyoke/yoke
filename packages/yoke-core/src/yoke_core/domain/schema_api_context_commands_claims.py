@@ -145,7 +145,7 @@ CLAIMS_COMMANDS: list[dict] = [
             "active claim:\n"
             "yoke claims work release --item PREFIX-N --reason TEXT\n"
             "yoke claims work release --claim-id <id> --reason TEXT\n"
-            "yoke claims work release --epic-id E --task-num K "
+            "yoke claims work release --epic PREFIX-N --task-num K "
             "--reason TEXT\n"
             "yoke claims work release --all-mine\n"
             "# Manual spec-rewrite pattern (acquire → edit → release):\n"

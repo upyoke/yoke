@@ -37,7 +37,7 @@ def missing_verification_requirement_errors(
     # item-claim-gated surface accepts item attachments only.
     errors.append(
         "  python3 -m yoke_core.domain.qa requirement-add "
-        f"--epic-id {target.epic_id} --task-num {target.task_num} "
+        f"--epic-id {item_ref_for_id(int(target.epic_id))} --task-num {target.task_num} "
         "--qa-kind implementation_review --qa-phase verification "
         f"--workflow-transition {transition_id}"
     )

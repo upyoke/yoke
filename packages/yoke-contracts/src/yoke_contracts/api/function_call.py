@@ -21,7 +21,6 @@ from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field, model_validator
 
 
-
 # ``<family>.<subfamily>.<operation>`` or ``<family>.<operation>`` — each
 # segment is one or more lowercase letters / digits / underscores,
 # leading with a letter; segments are separated by a single dot.
@@ -73,13 +72,9 @@ RETIRED_TARGET_KEYS: Dict[str, str] = {
 class TargetRef(BaseModel):
     """Discriminated target reference. ``kind`` selects which keys are meaningful.
 
-    ``public_ref`` carries a raw public item reference (``PREFIX-N`` or a
-    bare project-local number) that the dispatcher resolves server-side
-    into ``item_id`` before permission/claim checks — clients never need
-    DB access to build an item-targeted envelope (relay contract,
-    CLI grammar contract). ``project_id`` doubles as the client-supplied
-    project context for bare numeric refs; it stays authoritative-free
-    (the server validates it).
+    ``public_ref`` carries a complete PREFIX-N ref. The server resolves its
+    internal join key before permission and claim checks; clients need no DB
+    access. ``project_id`` scopes the operation and is validated server-side.
     """
 
     kind: Literal[

@@ -74,9 +74,7 @@ def execute_scenario(
 
     Args:
         requirement_id: Materialized Browser case requirement to execute.
-        item_id: Numeric item id, or a public ref (``PREFIX-N`` / bare
-            project-local number) resolved server-side by the context
-            fetch. Exactly one of item_id or deployment_run_id is named.
+        item_id: Complete public ref (PREFIX-N), resolved server-side. Exactly one of item_id or deployment_run_id is named.
         deployment_run_id: The deployment run this case verifies, for a
             case materialized against a run rather than an item.
         expected_branch: Optional branch name for deployment freshness

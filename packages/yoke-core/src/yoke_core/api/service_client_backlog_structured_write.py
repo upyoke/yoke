@@ -46,7 +46,7 @@ def cmd_execute_structured_write(args: list[str]) -> int:
         return 2
 
     if args[0].startswith("-"):
-        # The first positional must be the bare numeric item id. A
+        # The first positional must be a complete public item ref. A
         # flag-first invocation with a public item ref is the
         # agent-natural shape that previously crashed with the
         # misleading ``Item ref must be PREFIX-N, got '--item'`` —

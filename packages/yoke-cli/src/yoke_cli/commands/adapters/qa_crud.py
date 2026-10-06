@@ -91,7 +91,7 @@ Worked examples:
 Flag matrix:
 
   flag                        required  default    value shape
-  --item                      one-of    —          PREFIX-N or number
+  --item                      one-of    —          PREFIX-N
   --deployment-run            one-of    —          run-YYYYMMDD-NNN
   --deployment-stage          no        —          run-attached: pinned stage name
   --deployment-member-item    no        —          run-attached: member PREFIX-N (needs stage)
@@ -124,7 +124,7 @@ def qa_requirement_add(args: List[str]) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     subject = parser.add_mutually_exclusive_group(required=True)
-    subject.add_argument("--item", help="Target item (PREFIX-N or number).")
+    subject.add_argument("--item", help="Target item (PREFIX-N).")
     subject.add_argument(
         "--deployment-run",
         dest="deployment_run",

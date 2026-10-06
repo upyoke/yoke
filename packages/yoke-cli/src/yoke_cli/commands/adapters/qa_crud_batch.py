@@ -71,9 +71,7 @@ def qa_requirement_add_batch(args: List[str]) -> int:
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument(
-        "--item", required=True, help="Target item (PREFIX-N or number)."
-    )
+    parser.add_argument("--item", required=True, help="Target item (PREFIX-N).")
     source_group = parser.add_mutually_exclusive_group(required=True)
     source_group.add_argument(
         "--rows-file",

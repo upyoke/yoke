@@ -125,7 +125,7 @@ def items_merge_provenance_operator_correct(args: List[str]) -> int:
     parser.add_argument(
         "--project",
         default=None,
-        help="Project context for bare numeric item refs.",
+        help="Project scope for the operation.",
     )
     add_session_arg(parser)
     add_json_arg(parser)

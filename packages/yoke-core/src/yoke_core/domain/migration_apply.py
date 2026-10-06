@@ -92,7 +92,7 @@ from yoke_contracts.migration_rehearsal_teaching import CONNECTION_READER
 
 
 def _parse_item_argument(raw: str) -> int:
-    # PREFIX-N is self-describing; bare N uses the mapped checkout project.
+    # PREFIX-N carries the project prefix and public sequence.
     from yoke_core.domain.yok_n_parser import parse_item_argument
 
     return parse_item_argument(raw)

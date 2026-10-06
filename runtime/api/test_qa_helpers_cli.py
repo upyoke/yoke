@@ -85,7 +85,7 @@ class TestCLI:
                 [
                     "requirement-add",
                     "--item-id",
-                    "42",
+                    "YOK-42",
                     "--qa-kind",
                     "ac_verification",
                     "--qa-phase",
@@ -119,7 +119,7 @@ class TestCLI:
                 [
                     "requirement-add",
                     "--item-id",
-                    "42",
+                    "YOK-42",
                     "--qa-kind",
                     "ac_verification",
                     "--qa-phase",

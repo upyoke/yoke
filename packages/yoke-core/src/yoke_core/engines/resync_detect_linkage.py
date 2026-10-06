@@ -119,6 +119,16 @@ def stage1_linkage(
     backlog_rows = rows_data.get("backlog_rows", [])
     task_rows = rows_data.get("task_rows", [])
 
+    from yoke_contracts.public_ref import parse_public_item_ref
+
+    for row in [*backlog_rows, *task_rows]:
+        if not row or None in parse_public_item_ref(row[0]):
+            raise RuntimeError(
+                "public_item_refs_serving_floor: resync.linkage_rows requires "
+                "the public-item-ref response contract (next-release). Update "
+                "the connected control plane to the release carrying that contract."
+            )
+
     paired: List[PairedItem] = []
     local_orphans: List[LocalOrphan] = []
     paired_gh_keys: set = set()

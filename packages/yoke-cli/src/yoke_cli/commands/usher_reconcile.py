@@ -27,12 +27,11 @@ def usher_reconcile_github(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke usher reconcile-github",
         description=(
-            f"{USHER_RECONCILE_GITHUB_USAGE}\n\n"
-            f"{_USHER_RECONCILE_GITHUB_HELP}"
+            f"{USHER_RECONCILE_GITHUB_USAGE}\n\n{_USHER_RECONCILE_GITHUB_HELP}"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("item", help="Item ref (YOK-N or bare N).")
+    parser.add_argument("item", help="Item ref (PREFIX-N).")
     parser.add_argument(
         "--workflow-run-id",
         default="",
@@ -51,9 +50,7 @@ def usher_reconcile_github(args: List[str]) -> int:
         forwarded.extend(["--workflow-run-id", parsed.workflow_run_id])
 
     try:
-        engine = importlib.import_module(
-            "yoke_core.engines.usher_reconcile_github"
-        )
+        engine = importlib.import_module("yoke_core.engines.usher_reconcile_github")
     except ImportError as exc:
         print(
             "yoke usher reconcile-github requires the Yoke "

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+
+from yoke_core.domain.yok_n_parser import parse_item_argument
 from yoke_core.domain.cli_text_file import add_text_file_pair
 from yoke_core.domain.qa_gate_summary import (
     register_subparser as _register_gate_summary,
@@ -24,8 +26,16 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("init")
 
     ra = sub.add_parser("requirement-add")
-    ra.add_argument("--item-id", type=int)
-    ra.add_argument("--epic-id", type=int)
+    ra.add_argument(
+        "--item-id",
+        type=parse_item_argument,
+        help="Complete public item ref (PREFIX-N).",
+    )
+    ra.add_argument(
+        "--epic-id",
+        type=parse_item_argument,
+        help="Complete public epic ref (PREFIX-N).",
+    )
     ra.add_argument("--task-num", type=int)
     ra.add_argument("--deployment-run-id")
     ra.add_argument(
@@ -67,8 +77,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     rl = sub.add_parser("requirement-list")
-    rl.add_argument("--item-id", type=int)
-    rl.add_argument("--epic-id", type=int)
+    rl.add_argument(
+        "--item-id",
+        type=parse_item_argument,
+        help="Complete public item ref (PREFIX-N).",
+    )
+    rl.add_argument(
+        "--epic-id",
+        type=parse_item_argument,
+        help="Complete public epic ref (PREFIX-N).",
+    )
     rl.add_argument("--deployment-run-id")
 
     rg = sub.add_parser("requirement-get")

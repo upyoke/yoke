@@ -29,10 +29,8 @@ def _fetch_browser_context(
 
     One requirement-scoped read: the named Browser method case plus (when
     ``expected_branch`` is given) the latest deployed_sha for the freshness
-    gate. Exactly one subject is named — ``item_id`` (the numeric id or a
-    public ref ``PREFIX-N`` / bare project-local number, resolved
-    server-side via ``target.public_ref``) or ``deployment_run_id``. The
-    result payload echoes the resolved subject. Raises ``RuntimeError``
+    gate. Exactly one subject is named: the item public ref in ``item_id``
+    or ``deployment_run_id``. The result preserves the public subject. Raises ``RuntimeError``
     with the transport/handler error message on failure.
     """
     from yoke_contracts.api.function_call import TargetRef

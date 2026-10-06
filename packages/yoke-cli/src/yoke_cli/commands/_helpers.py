@@ -152,12 +152,12 @@ def _ensure_project_arg_for_item_parser(parser: argparse.ArgumentParser) -> None
     parser.add_argument(
         "--project",
         default=None,
-        help="Project context for bare numeric item refs.",
+        help="Project scope for the operation.",
     )
 
 
 def client_project_context(explicit: Optional[str] = None) -> Optional[str]:
-    """Resolve client-local project context for bare numeric item refs.
+    """Resolve the client-local project scope for an operation.
 
     Relay contract: this NEVER touches the DB — only the explicit
     ``--project`` flag, the ``YOKE_PROJECT`` env var, and the machine

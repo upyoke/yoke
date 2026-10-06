@@ -21,7 +21,7 @@ Failure-shaped presets:
   --failed-only            Narrow to failed-class event_outcome values.
   --friction-summary       Group failed-class outcomes by session_id.
 
-`--item` accepts PREFIX-N refs, or bare N with project context.
+`--item` requires a complete PREFIX-N ref.
 Unknown flags are rejected to prevent silent
 unfiltered output.
 """

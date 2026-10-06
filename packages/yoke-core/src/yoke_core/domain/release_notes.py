@@ -10,6 +10,7 @@ CLI usage::
 All output uses pipe-delimited format matching the CLI contract.
 Exit codes: 0 success, 1 error/not-found, 2 usage error.
 """
+
 from __future__ import annotations
 
 import sys
@@ -60,7 +61,7 @@ def _current_version() -> str:
 
 
 def _parse_item_argument(raw: str, *, project: str | None, conn) -> int:
-    # PREFIX-N is self-describing; bare N uses the mapped checkout project.
+    # PREFIX-N carries the project prefix and public sequence.
     from yoke_core.domain.yok_n_parser import parse_item_argument
 
     return parse_item_argument(raw, project=project, conn=conn)
@@ -83,8 +84,15 @@ def _resolve_item_project(conn, item_id: int) -> str:
 
 # --- Domain functions ---
 
-def cmd_insert(conn, item_id: int, category: str, title: str,
-               version: Optional[str] = None, project: Optional[str] = None) -> str:
+
+def cmd_insert(
+    conn,
+    item_id: int,
+    category: str,
+    title: str,
+    version: Optional[str] = None,
+    project: Optional[str] = None,
+) -> str:
     if category not in VALID_CATEGORIES:
         raise ValueError(
             f"invalid category '{category}'. "
@@ -112,8 +120,9 @@ def cmd_insert(conn, item_id: int, category: str, title: str,
     )
 
 
-def cmd_exists(conn, item_id: int, version: Optional[str] = None,
-               project: Optional[str] = None) -> bool:
+def cmd_exists(
+    conn, item_id: int, version: Optional[str] = None, project: Optional[str] = None
+) -> bool:
     if not version:
         version = _current_version()
 
@@ -134,8 +143,7 @@ def cmd_exists(conn, item_id: int, version: Optional[str] = None,
     return (count or 0) > 0
 
 
-def cmd_list(conn, version: Optional[str] = None,
-             project: Optional[str] = None) -> str:
+def cmd_list(conn, version: Optional[str] = None, project: Optional[str] = None) -> str:
     conditions: List[str] = []
     params: list = []
 
@@ -147,7 +155,11 @@ def cmd_list(conn, version: Optional[str] = None,
         params.append(resolve_project_id(conn, project))
 
     where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
-    order = "ORDER BY category, item_id" if version else "ORDER BY version DESC, category, item_id"
+    order = (
+        "ORDER BY category, item_id"
+        if version
+        else "ORDER BY version DESC, category, item_id"
+    )
 
     rows = query_rows(
         conn,
@@ -163,6 +175,7 @@ def cmd_list(conn, version: Optional[str] = None,
 
 
 # --- CLI entry point ---
+
 
 def main(argv: Optional[List[str]] = None) -> None:
     args = argv if argv is not None else sys.argv[1:]
@@ -198,7 +211,9 @@ def main(argv: Optional[List[str]] = None) -> None:
                     "[version] [--project <name>]"
                 )
             item_id = _parse_item_argument(
-                positionals[0], project=project, conn=conn,
+                positionals[0],
+                project=project,
+                conn=conn,
             )
             category = positionals[1]
             title = positionals[2]
@@ -224,7 +239,9 @@ def main(argv: Optional[List[str]] = None) -> None:
                     "Usage: release exists <item_id> [version] [--project <name>]"
                 )
             item_id = _parse_item_argument(
-                positionals[0], project=project, conn=conn,
+                positionals[0],
+                project=project,
+                conn=conn,
             )
             version = positionals[1] if len(positionals) > 1 else None
 
