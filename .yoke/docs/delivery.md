@@ -146,7 +146,14 @@ There is no separate Hosting destination. Hosting shows up as:
 ## Disable vs delete
 
 Disable a flow definition to stop new assignments while retaining history.
-Definitions referenced by runs are immutable.
+Definitions referenced by runs are immutable, so change one by publishing a
+successor (`yoke deployment-flows version`, which records
+`supersedes_flow_id`) and disabling the predecessor. Items pinned to the
+retired flow follow its newest active successor in the same project for
+admission, completion authority, and the fleet report; their stored pin is
+kept and item reads report it as `pinned` beside the successor. A retired
+pin with no active successor still refuses as having no active completion
+flow.
 
 ## Item Delivery card
 

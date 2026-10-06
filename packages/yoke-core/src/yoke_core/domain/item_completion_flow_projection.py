@@ -9,10 +9,14 @@ from yoke_core.domain.deployment_item_flow_resolution import item_completion_flo
 def completion_flow_values(
     conn: Any, item_ids: Iterable[int]
 ) -> dict[int, dict[str, str]]:
-    return {
-        item_id: {"value": fact.flow, "source": fact.source}
-        for item_id, fact in item_completion_flow_facts(conn, item_ids).items()
-    }
+    """``{value, source}`` per item, plus ``pinned`` when completion follows
+    the stored pin's active successor rather than the pin itself."""
+    values: dict[int, dict[str, str]] = {}
+    for item_id, fact in item_completion_flow_facts(conn, item_ids).items():
+        values[item_id] = {"value": fact.flow, "source": fact.source}
+        if fact.pinned:
+            values[item_id]["pinned"] = fact.pinned
+    return values
 
 
 def flow_id(field: Any) -> str:

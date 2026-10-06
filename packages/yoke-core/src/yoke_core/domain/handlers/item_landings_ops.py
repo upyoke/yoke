@@ -24,6 +24,7 @@ from yoke_contracts.api.function_call import (
     HandlerOutcome,
 )
 from yoke_core.domain import db_backend
+from yoke_core.domain.deployment_flow_succession import successor_flows
 from yoke_core.domain.item_landings import (
     ItemLanding,
     append_landing,
@@ -104,8 +105,7 @@ def handle_record_item_landing(request: FunctionCallRequest) -> HandlerOutcome:
     if body.route not in LANDING_ROUTES:
         return _err(
             "payload_invalid",
-            f"landing route {body.route!r} is not one of "
-            f"{', '.join(LANDING_ROUTES)}",
+            f"landing route {body.route!r} is not one of {', '.join(LANDING_ROUTES)}",
         )
     try:
         with _connect_rw() as conn:
@@ -135,7 +135,11 @@ def handle_record_item_landing(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 def _item_delivery_scope(conn: Any, item_id: int) -> Optional[tuple[int, str, Any]]:
-    """This item's project, selected flow, and that flow's environment."""
+    """This item's project, selected flow, and that flow's environment.
+
+    A pin to a retired flow reads through to its active successor, the flow
+    whose releases now carry the item.
+    """
     p = _p(conn)
     row = conn.execute(
         "SELECT project_id, COALESCE(deployment_flow, '') AS deployment_flow "
@@ -148,6 +152,7 @@ def _item_delivery_scope(conn: Any, item_id: int) -> Optional[tuple[int, str, An
     flow = str(value.get("deployment_flow") or "").strip()
     environment_id: Any = None
     if flow:
+        flow = successor_flows(conn, [flow]).get(flow, flow)
         flow_row = conn.execute(
             f"SELECT target_environment_id FROM deployment_flows WHERE id={p}",
             (flow,),
