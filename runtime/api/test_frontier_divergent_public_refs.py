@@ -107,7 +107,11 @@ def test_charge_entrypoint_uses_launch_mapping(monkeypatch):
     step = schedule.selected_step
     next_step = step.next_step.value
     template = "/yoke {skill} {{ref}} --route-argument".format(skill=next_step)
-    monkeypatch.setitem(session_launch_mandate._ENTRYPOINTS, next_step, template)
+    monkeypatch.setattr(
+        session_launch_mandate,
+        "item_entrypoint",
+        lambda skill_id, public_ref: f"/yoke {skill_id} {public_ref} --route-argument",
+    )
 
     payload = scheduler_result_to_dict(schedule, conn)
     expected = template.format(ref=f"YOK-{BLOCKER_SEQUENCE}")
