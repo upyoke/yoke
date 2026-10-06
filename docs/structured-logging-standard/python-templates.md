@@ -86,7 +86,7 @@ project="${YOKE_PROJECT:-}"
 
 ## Template 2: standalone Python emitter
 
-The executable [Structured Events Pack 2.0.1](../../packs/structured-events/versions/2.0.1/files/events/README.md)
+The executable [Structured Events Pack 3.0.0](../../packs/structured-events/versions/3.0.0/files/events/README.md)
 is the standalone Python template. Install events.py, events_props.py,
 events_attribution.py, events_cookie.py, events_delivery.py and their shared
 attribution_rules.json together. Use build_event/emit_event for backend envelopes;
@@ -103,7 +103,7 @@ A missing key reports publishable_key_required. Failures never gate product work
 
 ## Consented attribution and delivery in the standalone Pack
 
-[Structured Events Pack 2.0.1](../../packs/structured-events/versions/2.0.1/files/events/README.md)
+[Structured Events Pack 3.0.0](../../packs/structured-events/versions/3.0.0/files/events/README.md)
 provides events_attribution.py and AttributionCookie in events_cookie.py with
 shared rules and the same signed server-cookie shape as TypeScript. Routes check
 consent before capture and return Set-Cookie; DELETE uses AttributionCookie.clear.

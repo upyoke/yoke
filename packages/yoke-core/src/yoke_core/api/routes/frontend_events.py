@@ -13,6 +13,8 @@ from yoke_core.api.frontend_events_config import (
     ATTRIBUTION_PATH,
     CONFIG_PATH,
     EVENTS_PATH,
+    HANDOFF_PATH,
+    REDEEM_PATH,
     attribution_cookie,
     collector_origin,
     cookie_input,
@@ -23,6 +25,7 @@ from yoke_core.api.web_session_auth import authenticate_web_session
 from yoke_core.domain import db_helpers
 from yoke_core.domain.frontend_events_storage import (
     admit_client,
+    consume_attribution_handoff,
     read_collector_identity,
     write_frontend_events,
 )
@@ -199,13 +202,16 @@ async def collect(request: Request):
         )
 
 
-@router.api_route(ATTRIBUTION_PATH, methods=["POST", "DELETE"])
+@router.api_route(ATTRIBUTION_PATH, methods=["GET", "POST", "DELETE"])
 async def attribution(request: Request):
     try:
         admitted = await run_in_threadpool(admission, request)
         if isinstance(admitted, JSONResponse):
             return admitted
         cookie = await run_in_threadpool(attribution_cookie, request)
+        if request.method == "GET":
+            record = cookie.read_verified(cookie_input(request))
+            return JSONResponse(record, headers={"Cache-Control": "no-store"})
         if request.method == "DELETE":
             record, header = {"cleared": True}, cookie.clear
         else:
@@ -231,11 +237,58 @@ async def attribution(request: Request):
             },
         )
     except ValueError as error:
-        return diagnosed(error)
+        response = diagnosed(error)
+        response.headers["Cache-Control"] = "no-store"
+        return response
     except Exception:
         _log.exception("attribution_unavailable: restore the limiter or signing key")
         return refusal(
             503,
             "attribution_unavailable",
             "Restore collector storage and retry consent capture.",
+        )
+
+
+@router.post(HANDOFF_PATH)
+@router.post(REDEEM_PATH)
+async def attribution_handoff(request: Request):
+    from yoke_core.frontend_events.events_handoff import (
+        AttributionHandoff,
+        handoff_origin,
+    )
+
+    try:
+        admitted = await run_in_threadpool(admission, request)
+        if isinstance(admitted, JSONResponse):
+            return admitted
+        cookie = await run_in_threadpool(attribution_cookie, request)
+        handoff_origin(collector_origin(request))
+        handoff = AttributionHandoff(cookie)
+        body = await body_json(request)
+        if not isinstance(body, dict):
+            raise ValueError("attribution_input_invalid: send a JSON object")
+        headers = {"Cache-Control": "no-store"}
+        if request.url.path == REDEEM_PATH:
+
+            def consume(nonce, expires):
+                return consume_attribution_handoff(admitted, nonce, expires)
+
+            record, header = await run_in_threadpool(
+                handoff.redeem, body.get("token"), collector_origin(request), consume
+            )
+            headers["Set-Cookie"] = cookie_output(request, header)
+        else:
+            record = handoff.mint(cookie_input(request), body.get("audience"))
+        return JSONResponse(record, headers=headers)
+    except ValueError as error:
+        response = diagnosed(error)
+        response.headers["Cache-Control"] = "no-store"
+        return response
+    except Exception:
+        _log.exception("attribution_handoff_unavailable: restore durable nonce storage")
+        return refusal(
+            503,
+            "attribution_handoff_unavailable",
+            "Restore collector signing identity and durable nonce storage, then restart sign-in.",
+            **{"Cache-Control": "no-store"},
         )

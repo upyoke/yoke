@@ -102,3 +102,20 @@ def write_frontend_events(events, *, org_id, actor_id=None):
 def read_collector_identity():
     with db_helpers.connect() as conn:
         return collector_identity(conn)
+
+
+def consume_attribution_handoff(org_id, nonce, expires):
+    """A unique insert is the authority for redemption across processes/restarts."""
+    with db_helpers.connect() as conn:
+        # Expired tokens are refused before this call; their tombstones can go.
+        conn.execute(
+            "DELETE FROM frontend_attribution_redemptions WHERE expires_at <= %s",
+            (int(time.time()),),
+        )
+        inserted = conn.execute(
+            "INSERT INTO frontend_attribution_redemptions (org_id, nonce, expires_at) "
+            "VALUES (%s,%s,%s) ON CONFLICT (org_id, nonce) DO NOTHING RETURNING nonce",
+            (org_id, nonce, expires),
+        ).fetchone()
+        conn.commit()
+        return inserted is not None
