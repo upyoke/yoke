@@ -141,7 +141,7 @@ row. An unreadable read raises rather than reporting a clear gate, and
 a universe whose schema predates the scoped vocabulary reports nothing
 owed instead of failing.
 
-Member settlement also reads blocking `post_deploy` requirements on the run.
+Member settlement and the terminal done gate also read blocking `post_deploy` requirements on the run.
 Legacy schema-1 runs credit run-wide requirements to their delivered members;
 scoped runs keep exact member binding. Failing or unanswered requirements block;
 supersession transfers the obligation to the successor requirement.
