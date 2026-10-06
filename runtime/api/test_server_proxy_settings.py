@@ -128,6 +128,8 @@ def test_worker_factory_uses_inherited_app_and_proxy_settings(monkeypatch):
 
     monkeypatch.setitem(sys.modules, "proxy_test_app", SimpleNamespace(app=app))
     monkeypatch.setenv("YOKE_API_APP", "proxy_test_app:app")
+    # The worker app must not reparse listener values overridden by parent flags.
+    monkeypatch.setenv("YOKE_API_PORT", "invalid-port")
     monkeypatch.setenv(trusted_proxy.TRUSTED_PROXIES_ENV, "192.0.2.0/24")
     client = TestClient(trusted_proxy.create_app(), client=("192.0.2.10", 54321))
     response = client.get(

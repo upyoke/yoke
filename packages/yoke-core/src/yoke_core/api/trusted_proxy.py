@@ -57,12 +57,15 @@ class TrustedProxyHeadersMiddleware(ProxyHeadersMiddleware):
 def create_app():
     """Worker factory: wrap the selected ASGI app before any headers are applied."""
     from uvicorn import Config
-    from yoke_core.api.server_entrypoint import resolve_settings
+    from yoke_core.api.server_entrypoint import APP_ENV, DEFAULT_APP
 
-    settings = resolve_settings([])
-    config = Config(settings.app, proxy_headers=False, log_config=None)
+    config = Config(
+        os.environ.get(APP_ENV, DEFAULT_APP), proxy_headers=False, log_config=None
+    )
     config.load()
-    return TrustedProxyHeadersMiddleware(config.loaded_app, settings.trusted_proxies)
+    return TrustedProxyHeadersMiddleware(
+        config.loaded_app, os.environ.get(TRUSTED_PROXIES_ENV, DEFAULT_TRUSTED_PROXIES)
+    )
 
 
 def run_self_host(settings, **kwargs):
