@@ -100,8 +100,9 @@ def source_obligation_consumed(
     Failed or cancelled members cannot mask prior success; a newer active
     member holds the wait. A later containment-only release has no QA copy.
     Plan sources match their plan and case; direct sources match their source
-    key. Both use exact member binding on scoped runs; a legacy schema-1
-    run credits its delivered member with run-wide copies instead.
+    key. Scoped runs require exact source/member identity. Legacy schema-1
+    runs carry no source keys, so their shared post-deploy obligation set
+    answers for every delivered member, as it does at run settlement.
     Zero copies is unmet. Scoped stage acceptance and every copy's pass or
     discharge (waiver or supersession) are required. A bad replacement remains a stage
     blocker, and an unsettled duplicate still holds ``done``.
@@ -135,10 +136,14 @@ def source_obligation_consumed(
     }
     if source["item_id"] != int(item_id):
         return False
-    identity, identity_params = admitted_requirement_identity_clause(
-        source, marker=marker
-    )
     legacy = legacy_run_credits_run_wide(conn, run_id=run_id, item_id=item_id)
+    if legacy:
+        identity = "qa_phase='post_deploy' AND blocking_mode='blocking'"
+        identity_params = ()
+    else:
+        identity, identity_params = admitted_requirement_identity_clause(
+            source, marker=marker
+        )
     member_scope = f"deployment_member_item_id={marker}"
     if legacy:
         member_scope = f"({member_scope} OR deployment_member_item_id IS NULL)"
