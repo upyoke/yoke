@@ -50,6 +50,8 @@ ITEMS_TABLE: dict[str, dict] = {
             "accepted field. Read the merge identity from its recorded receipt or Git ancestry. "
             "Progress Log is a section, not an items.get progress_log column; "
             "read it via items.get body, and append via items.progress_log.append. "
+            "Conflict Survey touch_paths are section data read via items.get body; "
+            "touch_paths is not an items.get column. "
             "`item_id` is a foreign-key column on OTHER tables. "
             "To resolve a public `PREFIX-N` ref in raw SQL use "
             "`WHERE project_id = <p> AND project_sequence = <n>` "

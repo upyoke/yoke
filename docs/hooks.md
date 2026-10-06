@@ -43,7 +43,9 @@ system and stops its monotonic clock immediately before final stdout. It sends
 that completion to the resident on the existing Unix socket; the resident then
 adds `client_wall_ms` to the matching `HookDispatchTelemetry` context without
 putting a second network request on the hook's decision path. The canonical
-in-process path records the same field directly.
+in-process path records the same field directly for a configured local universe
+or relays it over HTTPS. An unconfigured thin client leaves this disposable
+telemetry unrecorded and never imports the engine to report it.
 Inside that resident, the canonical evaluator branches on the machine config's
 active connection (`yoke_cli.transport.https.resolve_https_connection`):
 

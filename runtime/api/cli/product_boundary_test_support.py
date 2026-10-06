@@ -182,8 +182,8 @@ def _extract_boundary(stderr: str) -> tuple[str, Mapping[str, object]]:
 
 def _assert_clean_client_boundary(run: ProductCliRun) -> None:
     assert run.boundary["caught"] is None, run.stderr
-    assert run.boundary["blocked_attempts"] == []
-    assert run.boundary["forbidden_loaded"] == []
+    assert run.boundary["blocked_attempts"] == [], run.boundary
+    assert run.boundary["forbidden_loaded"] == [], run.boundary
     assert _repo_pythonpath(run) == [str(CLI_SRC), str(CONTRACTS_SRC), str(HARNESS_SRC)]
     assert not Path(str(run.boundary["cwd"])).resolve().is_relative_to(REPO_ROOT)
     assert Path(str(run.boundary["home"])).name == "home"

@@ -12,12 +12,14 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
+from yoke_cli.config import machine_config
 from yoke_cli.transport.bounded_json_http import request_json
 from yoke_cli.transport.response_limits import SMALL_JSON_RESPONSE_LIMIT_BYTES
 from yoke_contracts.hook_evaluator_protocol import (
     HOOK_CLIENT_WALL_BATCH_FIELD,
     HOOK_CLIENT_WALL_PATH,
 )
+from yoke_contracts.machine_config.schema import POSTGRES_TRANSPORTS, connection_is_prod
 
 
 _IMPORT_MONOTONIC = time.monotonic()
@@ -114,6 +116,9 @@ def record_client_wall(event_id: str, client_wall_ms: int) -> None:
 
         connection = resolve_https_connection()
         if connection is None:
+            local = machine_config.product_connection()
+            if local.get("transport") not in POSTGRES_TRANSPORTS or connection_is_prod(local):
+                return
             module = importlib.import_module("yoke_core.domain.hook_client_wall")
             module.record_client_wall_reports([(event_id, client_wall_ms)])
             return
