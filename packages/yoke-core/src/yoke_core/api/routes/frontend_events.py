@@ -129,9 +129,9 @@ def validated_events(body, request):
         ):
             raise ValueError("event_too_large: reduce the envelope below 64 KB")
         for key in ("page_url", "referrer"):
-            if not isinstance(event.get(key, ""), str):
+            if event.get(key) is not None and not isinstance(event[key], str):
                 raise ValueError(
-                    "envelope_invalid: page_url and referrer must be strings"
+                    "envelope_invalid: page_url and referrer must be strings or null"
                 )
             event[key] = sanitize_url(event.get(key) or "")
         event["is_bot"] = is_bot(request.headers.get("user-agent", ""))

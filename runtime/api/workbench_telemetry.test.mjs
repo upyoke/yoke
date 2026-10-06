@@ -4,7 +4,7 @@ import { FakeDocument, byClass } from "./universe_ui_dom_test_support.mjs";
 
 const doc = new FakeDocument();
 doc.title = "Workbench";
-doc.referrer = "https://search.example/?token=private";
+doc.referrer = "";
 let location = new URL("https://workbench.example/items?token=door&utm_source=email");
 const browser = Object.assign(new EventTarget(), {
   innerWidth: 1200,
@@ -78,6 +78,7 @@ test("workbench consent emits one initial view and one per URL navigation, then 
   assert.equal(events[0].page_url, "https://workbench.example/items?utm_source=email");
   assert.equal(events[0].visitor_id, record.visitor_id);
   assert.equal(events[0].event_type, "page_view");
+  assert.equal(events[0].referrer, null);
   history.pushState({}, "", "/sessions");
   history.replaceState({}, "", "/sessions?tab=active");
   location = new URL("https://workbench.example/items");

@@ -125,6 +125,20 @@ def test_collector_refuses_bad_origin_and_key_by_name(client, origin, key, reaso
     assert response.json()["recovery"]
 
 
+def test_direct_entry_accepts_pack_null_referrer(client, database):
+    payload = {**event(), "referrer": None}
+    response = client.post(
+        "/api/events", json={"events": [payload]}, headers=headers(client)
+    )
+    assert response.status_code == 200
+    with database() as conn:
+        raw = conn.execute(
+            "SELECT envelope FROM events WHERE event_id=%s", (payload["event_id"],)
+        ).fetchone()[0]
+        stored = json.loads(raw) if isinstance(raw, str) else raw
+        assert stored["referrer"] is None
+
+
 def test_anonymous_route_cannot_write_backend_events_or_malformed_envelopes(client):
     admitted = headers(client)
     for changed in (
