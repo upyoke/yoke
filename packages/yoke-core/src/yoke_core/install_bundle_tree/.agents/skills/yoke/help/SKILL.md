@@ -20,28 +20,39 @@ Show the following reference:
 ```
 Yoke -- Your operating system for software delivery
 
-COMMANDS
- /yoke charge Direct-mode: pick up next runnable item from frontier
- /yoke feed [--no-new-items] Direct-mode: maintain frontier dependency graph and optionally materialize new work from strategy layer
- /yoke strategize Direct-mode: guided SML review (research, propose, approve)
- /yoke steer [STRATEGY-DOC-SLUG] [--project P ...] Direct-mode: itemless steering loop over a strategy doc, defaulting to CURRENT-PLAN
- /yoke onboard [--project P] [--run-id RUN] Make a wired project execution-ready (strategy, profile, Packs, hosting, envs, gated first deploy, seeded work)
- /yoke idea [--workflow issue|epic|blitz|task] {title} Capture a new backlog item
- /yoke dash "instruction" | PREFIX-N File and execute instruction-led work directly, or resume a Dash
- /yoke blitz PREFIX-N Execute a refined Blitz from its single linked strategy document
- /yoke shepherd PREFIX-N Execute the pinned planning skill interval through its quality gates
- /yoke conduct PREFIX-N Engineer/Tester loop for a single epic
- /yoke usher [PREFIX-N] Merge and deploy implemented/release items
- /yoke doctor [project] Health checks and diagnostics (--fix for auto-repair)
- /yoke models lookup|get|validate|diff|publish|revisions|restore Sourced model catalog review and publication
- /yoke resync Detect and repair drift between local and GitHub
- /yoke curate Curate the Ouroboros learning log
- /yoke wrapup Structured session wrap-up
- /yoke refine PREFIX-N Critique and improve item artifacts (no worktree)
- /yoke implement PREFIX-N Issue implementation: create or re-enter the worktree, implement, and review
- /yoke polish PREFIX-N Review and finish implementation in existing worktree
- /yoke simulate PREFIX-N | --system Trace integration paths or audit system consistency (harness slash skill; no terminal `yoke simulate` adapter)
+```
 
+<!-- BEGIN GENERATED: skill-registry -->
+Skill metadata is generated from `yoke_contracts.skill_registry`.
+Change that source and run `yoke dev run -- python3 -m
+yoke_core.tools.render_skill_registry_inline --target-root CHECKOUT`.
+
+| Skill | Kind | Session mode | Autonomy | Purpose |
+|---|---|---|---|---|
+| `/yoke blitz PREFIX-N` | stage | `blitz` | autonomous execution | execute document-led work |
+| `/yoke charge` | orchestrator | `charge` | autonomous execution | select runnable frontier work |
+| `/yoke conduct PREFIX-N` | stage | `conduct` | autonomous execution | execute generated task lanes |
+| `/yoke curate` | utility | `curate` | follow skill decision gates | curate the Ouroboros learning log |
+| `/yoke dash PREFIX-N` | stage | `dash` | autonomous execution | execute instruction-led work |
+| `/yoke doctor [project]` | utility | `doctor` | follow skill decision gates | run health checks |
+| `/yoke feed` | orchestrator | `feed` | follow skill decision gates | refresh frontier work |
+| `/yoke help` | utility | `operator` | follow skill decision gates | show command reference |
+| `/yoke idea` | utility | `idea` | follow skill decision gates | file a backlog item |
+| `/yoke implement PREFIX-N` | stage | `implement` | autonomous execution | implement and review an item |
+| `/yoke models` | utility | `operator` | follow skill decision gates | publish model catalog revisions |
+| `/yoke onboard [--project P]` | orchestrator | `operator` | follow skill decision gates | make a wired project execution-ready |
+| `/yoke polish PREFIX-N` | stage | `polish` | autonomous execution | review and finish implementation |
+| `/yoke refine PREFIX-N` | stage | `refine` | follow skill decision gates | critique and improve item artifacts |
+| `/yoke resync` | utility | `operator` | follow skill decision gates | detect and repair GitHub drift |
+| `/yoke shepherd PREFIX-N` | stage | `shepherd` | autonomous execution | execute the pinned planning interval |
+| `/yoke simulate PREFIX-N \| --system` | utility | `simulate` | follow skill decision gates | trace integration paths |
+| `/yoke steer [STRATEGY-DOC-SLUG]` | orchestrator | `steer` | autonomous execution | staff work from a strategy document |
+| `/yoke strategize` | orchestrator | `strategize` | follow skill decision gates | review project strategy |
+| `/yoke usher PREFIX-N [--dry-run]` | stage | `usher` | autonomous execution | merge and deliver an item |
+| `/yoke wrapup` | utility | `wrapup` | follow skill decision gates | wrap up the session |
+<!-- END GENERATED: skill-registry -->
+
+```text
 LOCAL TERMINAL HELPERS
  yoke setup
   Machine setup wizard; picks where the Yoke lives (local / team server / upyoke.com).
@@ -73,12 +84,6 @@ LOCAL TERMINAL HELPERS
   Runs directly in a terminal; no harness session is required.
  yoke models lookup MODEL_ID / get / validate / diff / publish / revisions / restore
   Sourced effective-dated catalog reads, review, and publication. Use `/yoke models` for the full recipe.
-
-AUTONOMOUS MODE
- /yoke charge -> directly pick up and begin work
- /yoke feed -> maintain frontier graph + materialize work from strategy layer
- /yoke strategize -> refresh + research + propose + approve SML changes
- /yoke steer [SLUG] -> itemless steering loop over a strategy doc, default CURRENT-PLAN
 
 WORKFLOW ROUTING
  yoke workflows item get PREFIX-N --json

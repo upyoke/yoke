@@ -58,25 +58,35 @@ The two layers are kept separate so an LLM packet referring to `harness_contract
 
 These are the top-level `/yoke` commands that constitute the safe operator interface. Any harness may invoke these commands. They are the only sanctioned entry points for external harness interaction with Yoke.
 
-| Command | Description | Entry safety |
-|---------|-------------|--------------|
-| `/yoke idea {title}` | Capture a new backlog item | Safe: creates only, no destructive side effects |
-| `/yoke shepherd YOK-N` | Drive item through quality-gated lifecycle to planned | Safe: orchestrates worker agents through defined transitions |
-| `/yoke conduct YOK-N` | Engineer/Tester loop for a single item or epic | Safe: scoped to the item's implementation worktree lane set |
-| `/yoke implement YOK-N` | Issue implementation stage skill — opens or re-enters the worktree and runs the implementation/review loop | Safe: scoped to a single item, creates worktree on entry |
-| `/yoke usher [YOK-N]` | Merge and deploy implemented items | Safe: operates on implemented items only, requires operator confirmation |
-| `/yoke doctor [project]` | Health checks and diagnostics | Safe: read-only by default, `--fix` requires explicit opt-in |
-| `/yoke resync` | Detect and repair GitHub drift | Safe: `--fix` requires explicit opt-in |
-| `/yoke curate` | Curate the Ouroboros learning log | Safe: processes observations, proposes work items |
-| `/yoke wrapup` | Structured session wrap-up | Safe: captures reflections and session summary |
-| `/yoke refine YOK-N` | Critique and improve item artifacts | Safe: structured-field refinement only, no worktree or code edits |
-| `/yoke polish YOK-N` | Review and finish implementation in existing worktree lane(s) | Safe: scoped to one item's recorded implementation lanes and explicit verification |
-| `/yoke help` | Show command reference | Safe: read-only |
-| `/yoke charge` | Pick up next runnable item from frontier | Safe: confirms with operator before dispatch |
-| `/yoke feed` | Refresh stale frontier items, reconcile frontier facts, and materialize strategy-backed work | Safe: updates structured item fields, creates idea records, refreshes dependency graph |
-| `/yoke strategize` | Guided Strategic Markdown Layer review | Safe: multi-checkpoint interactive loop with operator approval at each stage |
-| `/yoke steer [STRATEGY-DOC-SLUG]` | Itemless steering loop over a strategy doc, defaulting to CURRENT-PLAN | Safe: claims a steering scope, never implements |
-| `/yoke simulate YOK-N` or `/yoke simulate --system` | Trace integration paths or audit system-wide consistency | Safe: read-only harness slash skill; there is no terminal `yoke simulate` adapter |
+<!-- BEGIN GENERATED: skill-registry -->
+Skill metadata is generated from `yoke_contracts.skill_registry`.
+Change that source and run `yoke dev run -- python3 -m
+yoke_core.tools.render_skill_registry_inline --target-root CHECKOUT`.
+
+| Skill | Kind | Session mode | Autonomy | Purpose |
+|---|---|---|---|---|
+| `/yoke blitz PREFIX-N` | stage | `blitz` | autonomous execution | execute document-led work |
+| `/yoke charge` | orchestrator | `charge` | autonomous execution | select runnable frontier work |
+| `/yoke conduct PREFIX-N` | stage | `conduct` | autonomous execution | execute generated task lanes |
+| `/yoke curate` | utility | `curate` | follow skill decision gates | curate the Ouroboros learning log |
+| `/yoke dash PREFIX-N` | stage | `dash` | autonomous execution | execute instruction-led work |
+| `/yoke doctor [project]` | utility | `doctor` | follow skill decision gates | run health checks |
+| `/yoke feed` | orchestrator | `feed` | follow skill decision gates | refresh frontier work |
+| `/yoke help` | utility | `operator` | follow skill decision gates | show command reference |
+| `/yoke idea` | utility | `idea` | follow skill decision gates | file a backlog item |
+| `/yoke implement PREFIX-N` | stage | `implement` | autonomous execution | implement and review an item |
+| `/yoke models` | utility | `operator` | follow skill decision gates | publish model catalog revisions |
+| `/yoke onboard [--project P]` | orchestrator | `operator` | follow skill decision gates | make a wired project execution-ready |
+| `/yoke polish PREFIX-N` | stage | `polish` | autonomous execution | review and finish implementation |
+| `/yoke refine PREFIX-N` | stage | `refine` | follow skill decision gates | critique and improve item artifacts |
+| `/yoke resync` | utility | `operator` | follow skill decision gates | detect and repair GitHub drift |
+| `/yoke shepherd PREFIX-N` | stage | `shepherd` | autonomous execution | execute the pinned planning interval |
+| `/yoke simulate PREFIX-N \| --system` | utility | `simulate` | follow skill decision gates | trace integration paths |
+| `/yoke steer [STRATEGY-DOC-SLUG]` | orchestrator | `steer` | autonomous execution | staff work from a strategy document |
+| `/yoke strategize` | orchestrator | `strategize` | follow skill decision gates | review project strategy |
+| `/yoke usher PREFIX-N [--dry-run]` | stage | `usher` | autonomous execution | merge and deliver an item |
+| `/yoke wrapup` | utility | `wrapup` | follow skill decision gates | wrap up the session |
+<!-- END GENERATED: skill-registry -->
 
 ## 3. Command Classification
 
@@ -86,25 +96,7 @@ Yoke surfaces are classified into three tiers. The tier determines whether a har
 
 These are the commands listed in section 2 above. They are the sanctioned external interface. Every harness should use only these commands for Yoke interaction.
 
-**Examples:**
-
-- `/yoke idea` -- create a new backlog item
-- `/yoke shepherd YOK-N` -- drive item through lifecycle
-- `/yoke conduct YOK-N` -- Engineer/Tester execution loop
-- `/yoke implement YOK-N` -- issue implementation (opens worktree, implements, reviews)
-- `/yoke usher [YOK-N]` -- merge and deploy
-- `/yoke doctor [project]` -- health checks
-- `/yoke resync` -- repair GitHub drift
-- `/yoke curate` -- Ouroboros curation
-- `/yoke wrapup` -- session wrap-up
-- `/yoke refine YOK-N` -- artifact refinement
-- `/yoke polish YOK-N` -- finishing review in existing worktree lane(s)
-- `/yoke help` -- command reference
-- `/yoke charge` -- frontier execution
-- `/yoke feed` -- strategy materialization and frontier-fact maintenance
-- `/yoke strategize` -- SML review
-- `/yoke steer [SLUG]` -- itemless steering loop, default doc CURRENT-PLAN
-- `/yoke simulate YOK-N` or `/yoke simulate --system` -- integration or system-wide consistency simulation (harness slash skill only)
+The generated registry above owns membership. Read each skill for its decision gates.
 
 ### Tier 2: Internal sub-skills
 

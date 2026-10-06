@@ -20,6 +20,8 @@ files) without touching the database, git, or any network.
 
 from __future__ import annotations
 
+from yoke_contracts.skill_registry import SKILLS_BY_ID
+
 import json
 import re
 from pathlib import Path
@@ -250,7 +252,7 @@ class TestHarnessBootstrapClassifiesImplement:
         )
         assert match, "harness-bootstrap.md missing '## 2. Safe Operator Commands'"
         section = match.group(1)
-        assert "/yoke implement YOK-N" in section, (
+        assert SKILLS_BY_ID["implement"].display in section, (
             "harness-bootstrap.md Safe Operator Commands table must list "
             "/yoke implement YOK-N as an operator-facing entry"
         )

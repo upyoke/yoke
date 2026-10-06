@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
+from yoke_contracts.skill_registry import SKILLS, Skill
 
 
 # The harness universe — every harness Yoke recognises. Used as the default
@@ -28,125 +29,19 @@ class OperatorCommand:
     harness_support: tuple[str, ...] = HARNESS_UNIVERSE
 
 
-OPERATOR_COMMANDS: tuple[OperatorCommand, ...] = (
-    OperatorCommand(
-        "/yoke idea",
-        "/yoke idea",
-        "  /yoke idea   -- file a new backlog item",
-    ),
-    OperatorCommand(
-        "/yoke refine",
-        "/yoke refine",
-        "  /yoke refine -- critique and improve item artifacts",
-    ),
-    OperatorCommand(
-        "/yoke implement",
-        "/yoke implement PREFIX-N",
-        "  /yoke implement PREFIX-N -- issue implementation entry",
-    ),
-    OperatorCommand(
-        "/yoke polish",
-        "/yoke polish",
-        "  /yoke polish -- review and finish implementation in a worktree",
-    ),
-    OperatorCommand(
-        "/yoke usher",
-        "/yoke usher PREFIX-N [--dry-run]",
-        "  /yoke usher PREFIX-N [--dry-run] -- merge/deploy handoff",
-    ),
-)
-
-DOWNSTREAM_PATHS: tuple[str, ...] = (
-    "shepherd",
-    "refine",
-    "implement",
-    "dash",
-    "blitz",
-    "polish",
-    "usher",
-)
+def _operator_command(skill: Skill) -> OperatorCommand:
+    return OperatorCommand(
+        skill.entrypoint, skill.display, f"  {skill.display} -- {skill.description}"
+    )
 
 
-# OPERATOR_COMMANDS describes downstream entrypoints; SAFE_OPERATOR_SURFACE
-# describes every operator command with per-harness compatibility metadata.
-# Capability consistency tests keep the two views aligned.
-SAFE_OPERATOR_SURFACE: tuple[OperatorCommand, ...] = (
-    OperatorCommand(
-        "/yoke idea",
-        "/yoke idea",
-        "  /yoke idea       -- file a new backlog item",
-    ),
-    OperatorCommand(
-        "/yoke shepherd",
-        "/yoke shepherd PREFIX-N",
-        "  /yoke shepherd PREFIX-N -- drive item through quality-gated lifecycle to planned",
-    ),
-    OperatorCommand(
-        "/yoke conduct",
-        "/yoke conduct PREFIX-N",
-        "  /yoke conduct PREFIX-N -- engineer/tester loop for a single item or epic",
-    ),
-    OperatorCommand(
-        "/yoke implement",
-        "/yoke implement PREFIX-N",
-        "  /yoke implement PREFIX-N -- issue implementation entry",
-    ),
-    OperatorCommand(
-        "/yoke usher",
-        "/yoke usher PREFIX-N [--dry-run]",
-        "  /yoke usher PREFIX-N [--dry-run] -- merge/deploy handoff",
-    ),
-    OperatorCommand(
-        "/yoke doctor",
-        "/yoke doctor [project]",
-        "  /yoke doctor [project] -- health checks and diagnostics",
-    ),
-    OperatorCommand(
-        "/yoke resync",
-        "/yoke resync",
-        "  /yoke resync   -- detect and repair GitHub drift",
-    ),
-    OperatorCommand(
-        "/yoke curate",
-        "/yoke curate",
-        "  /yoke curate   -- curate the Ouroboros learning log",
-    ),
-    OperatorCommand(
-        "/yoke wrapup",
-        "/yoke wrapup",
-        "  /yoke wrapup   -- structured session wrap-up",
-    ),
-    OperatorCommand(
-        "/yoke refine",
-        "/yoke refine PREFIX-N",
-        "  /yoke refine PREFIX-N -- critique and improve item artifacts",
-    ),
-    OperatorCommand(
-        "/yoke polish",
-        "/yoke polish PREFIX-N",
-        "  /yoke polish PREFIX-N -- review and finish implementation",
-    ),
-    OperatorCommand(
-        "/yoke help",
-        "/yoke help",
-        "  /yoke help     -- show command reference",
-    ),
-    OperatorCommand(
-        "/yoke charge",
-        "/yoke charge",
-        "  /yoke charge   -- pick up next runnable item from frontier",
-    ),
-    OperatorCommand(
-        "/yoke feed",
-        "/yoke feed",
-        "  /yoke feed     -- refresh frontier and materialize ideas",
-    ),
-    OperatorCommand(
-        "/yoke strategize",
-        "/yoke strategize",
-        "  /yoke strategize -- guided Strategic Markdown Layer review",
-    ),
+OPERATOR_COMMANDS: tuple[OperatorCommand, ...] = tuple(
+    _operator_command(skill) for skill in SKILLS if skill.kind != "internal"
 )
+DOWNSTREAM_PATHS: tuple[str, ...] = tuple(
+    skill.id for skill in SKILLS if skill.kind == "stage"
+)
+SAFE_OPERATOR_SURFACE = OPERATOR_COMMANDS
 
 
 def _string_list(value: Any) -> list[str]:

@@ -5,6 +5,12 @@ description: "Implementation kickoff inside /yoke implement: QA seeding, project
 
 # Implementing Sub-skill
 
+<!-- BEGIN GENERATED: field-note-directive -->
+When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
+yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
+Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
+<!-- END GENERATED: field-note-directive -->
+
 Called by `implement/entry.md` (or `implement/reentry.md`) after the item is at its implementation stage and the current harness session has provisioned the worktree (same session, no relaunch). The session's authority over the worktree is its work-claim on the item, validated per tool call by `lint_session_cwd`. The sub-skill handles QA seeding and directs the agent to begin implementation.
 
 **Context variables** (passed by the parent skill):

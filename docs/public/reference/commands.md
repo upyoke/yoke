@@ -1,8 +1,8 @@
 # Slash Commands Reference
 
-Each command is a nested skill at `.agents/skills/yoke/{name}/SKILL.md`. Harnesses expose those commands through their native skill or slash-command surfaces; the shared `SKILL.md` frontmatter is the single authored metadata source. Non-native harness surfaces invoke the same commands through their harness adapter's route wrapper (see the Harness Bootstrap Contract, yoke source-repo doc `docs/harness-bootstrap.md`, for command classification and the Hook Parity Map, yoke source-repo doc `docs/hook-parity-map.md`, for hook availability by harness). Render the operator-readable Atlas of the Yoke agent-facing surfaces (function ids, wrapped `yoke` subcommands, tool-shaped CLI adapters, permanent boundaries, pending rows, live contradictions) locally with `python3 -m yoke_core.tools.atlas_render_docs render`; each command below resolves to one or more registered function calls.
+Each command is a nested skill at `.agents/skills/yoke/{name}/SKILL.md`. Harnesses expose those commands through their native skill or slash-command surfaces; the shared `SKILL.md` frontmatter describes each procedure; `yoke_contracts.skill_registry` owns ids, kinds, session modes, autonomy, and dispatch classifications. Non-native harness surfaces invoke the same commands through their harness adapter's route wrapper (see the Harness Bootstrap Contract, yoke source-repo doc `docs/harness-bootstrap.md`, for command classification and the Hook Parity Map, yoke source-repo doc `docs/hook-parity-map.md`, for hook availability by harness). Render the operator-readable Atlas of the Yoke agent-facing surfaces (function ids, wrapped `yoke` subcommands, tool-shaped CLI adapters, permanent boundaries, pending rows, live contradictions) locally with `python3 -m yoke_core.tools.atlas_render_docs render`; each command below resolves to one or more registered function calls.
 
-Yoke has **21 operator commands** (the primary interface) and **5 internal sub-skills** (called by other commands, not typically invoked directly). Large skills are decomposed into phase sub-files; top-level SKILL.md files should stay compact orchestration surfaces that delegate detailed sub-protocols to phase files. The 350-line file limit is implemented by `yoke_core.domain.file_line_check`, exposed to agents as `yoke check file-line`, and enforced everywhere the files themselves are readable — the pre-commit hook, the Dash survey's per-path sizing, and `HC-file-line-limit` in doctor. Lifecycle status writes do not enforce it: a control plane reached over https holds no checkout, so the limit is checked where the checkout is. **File Budget** is an independent pinned workflow policy: when enabled it shapes implementation before coding; when off, the same 350-line enforcement remains. File Budget/path-claim parity applies only when both effective axes are enabled. A small temporary-exception list covers strategic docs and prompt source-of-truth surfaces.
+The registry below lists operator skills; internal sub-skills are called by orchestration commands. Large skills are decomposed into phase sub-files; top-level SKILL.md files should stay compact orchestration surfaces that delegate detailed sub-protocols to phase files. The 350-line file limit is implemented by `yoke_core.domain.file_line_check`, exposed to agents as `yoke check file-line`, and enforced everywhere the files themselves are readable — the pre-commit hook, the Dash survey's per-path sizing, and `HC-file-line-limit` in doctor. Lifecycle status writes do not enforce it: a control plane reached over https holds no checkout, so the limit is checked where the checkout is. **File Budget** is an independent pinned workflow policy: when enabled it shapes implementation before coding; when off, the same 350-line enforcement remains. File Budget/path-claim parity applies only when both effective axes are enabled. A small temporary-exception list covers strategic docs and prompt source-of-truth surfaces.
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
@@ -12,26 +12,35 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Operator Commands
 
-| Command | Description |
-|---|---|
-| `/yoke idea {title}` | Capture a new backlog item with dedup search and GitHub sync |
-| `/yoke shepherd PREFIX-N` | Drive an epic from `refined-idea` through quality-gated planning to `planned` |
-| `/yoke conduct PREFIX-N` | Engineer/Tester loop for a single epic |
-| `/yoke usher [PREFIX-N]` | Merge and deploy `implemented` / `release` items through the deployment pipeline |
-| `/yoke doctor [project]` | Health checks and diagnostics (`--fix` for auto-repair) |
-| `yoke items freeze PREFIX-N` / `yoke items thaw PREFIX-N` / `yoke items cancel PREFIX-N --reason TEXT` | Park for later, or cancel work that will never resume |
-| `yoke items block PREFIX-N --reason TEXT` / `yoke items unblock PREFIX-N` | Block / unblock (preserves lifecycle status; sets the orthogonal blocked flag) |
-| `/yoke resync` | Detect and repair drift between local backlog and GitHub issues |
-| `/yoke curate` | Curate the Ouroboros learning log -- cluster, archive, promote patterns |
-| `/yoke wrapup` | Structured session wrap-up with ouroboros reflections |
-| `/yoke refine PREFIX-N` | Critique and improve item artifacts without touching code or worktrees |
-| `/yoke implement PREFIX-N` | Issue implementation stage skill: create or re-enter the worktree in the same harness session (no relaunch), then run the implementation/review loop to the binding's handoff under the work-claim acquired at entry |
-| `/yoke polish PREFIX-N` | Review and finish implementation in the item's existing worktree lane(s) |
-| `/yoke help` | Show command reference (also: `/yoke` with no args) |
-| `/yoke charge` | Direct-mode entrypoint -- pick up next runnable item from frontier, begin implementation |
-| `/yoke feed [--no-new-items] [PREFIX-N ...]` | Direct-mode entrypoint -- refresh stale frontier items, maintain dependency graph truth, and materialize new work from strategy |
-| `/yoke strategize` | Direct-mode entrypoint -- guided SML review (research, propose, approve) |
-| `/yoke steer [STRATEGY-DOC-SLUG] [--project P ...]` | Direct-mode entrypoint -- itemless steering loop over a strategy doc; an omitted slug resolves to CURRENT-PLAN per project, read before acting |
+<!-- BEGIN GENERATED: skill-registry -->
+Skill metadata is generated from `yoke_contracts.skill_registry`.
+Change that source and run `yoke dev run -- python3 -m
+yoke_core.tools.render_skill_registry_inline --target-root CHECKOUT`.
+
+| Skill | Kind | Session mode | Autonomy | Purpose |
+|---|---|---|---|---|
+| `/yoke blitz PREFIX-N` | stage | `blitz` | autonomous execution | execute document-led work |
+| `/yoke charge` | orchestrator | `charge` | autonomous execution | select runnable frontier work |
+| `/yoke conduct PREFIX-N` | stage | `conduct` | autonomous execution | execute generated task lanes |
+| `/yoke curate` | utility | `curate` | follow skill decision gates | curate the Ouroboros learning log |
+| `/yoke dash PREFIX-N` | stage | `dash` | autonomous execution | execute instruction-led work |
+| `/yoke doctor [project]` | utility | `doctor` | follow skill decision gates | run health checks |
+| `/yoke feed` | orchestrator | `feed` | follow skill decision gates | refresh frontier work |
+| `/yoke help` | utility | `operator` | follow skill decision gates | show command reference |
+| `/yoke idea` | utility | `idea` | follow skill decision gates | file a backlog item |
+| `/yoke implement PREFIX-N` | stage | `implement` | autonomous execution | implement and review an item |
+| `/yoke models` | utility | `operator` | follow skill decision gates | publish model catalog revisions |
+| `/yoke onboard [--project P]` | orchestrator | `operator` | follow skill decision gates | make a wired project execution-ready |
+| `/yoke polish PREFIX-N` | stage | `polish` | autonomous execution | review and finish implementation |
+| `/yoke refine PREFIX-N` | stage | `refine` | follow skill decision gates | critique and improve item artifacts |
+| `/yoke resync` | utility | `operator` | follow skill decision gates | detect and repair GitHub drift |
+| `/yoke shepherd PREFIX-N` | stage | `shepherd` | autonomous execution | execute the pinned planning interval |
+| `/yoke simulate PREFIX-N \| --system` | utility | `simulate` | follow skill decision gates | trace integration paths |
+| `/yoke steer [STRATEGY-DOC-SLUG]` | orchestrator | `steer` | autonomous execution | staff work from a strategy document |
+| `/yoke strategize` | orchestrator | `strategize` | follow skill decision gates | review project strategy |
+| `/yoke usher PREFIX-N [--dry-run]` | stage | `usher` | autonomous execution | merge and deliver an item |
+| `/yoke wrapup` | utility | `wrapup` | follow skill decision gates | wrap up the session |
+<!-- END GENERATED: skill-registry -->
 
 ## Local Terminal Helpers
 These are operator-facing `yoke` CLI helpers that run directly in a terminal without a harness session; they are not lifecycle slash commands.
@@ -213,10 +222,6 @@ Stage skill for the segment a workflow binds to `implement` (issue: `refined-ide
 2. **Re-entry** (`reentry.md`) -- Past the entry stage, recovers the registered lane and resumes implementation or the review loop without regressing status.
 3. **Implementing sub-skill** (`implementing/`) -- QA seeding of the AC-verification requirement (`qa-seeding.md`), explicit Browser case authoring (`browser-seeding.md`), project context preflight from `context_routing` (`project-context.md`), test commands and QA recording (`test-and-record.md`), and implementation guidance (`implementation.md`). Items entering implementation outside conduct still seed QA requirements before work starts.
 4. **Review loop** (`review.md`) -- Commits review fixes in the lane, refreshes affected QA cases, and writes each declared review stage with `yoke lifecycle transition`, reviews and fixes in place, and stops at the binding's handoff, rendering the next bound skill from `next_skill_id`. Capture-only runs (`execution_status='captured', verdict=NULL`) do not satisfy any `verdict='pass'` gate.
-
-### merge
-
-Sequential branch merge: rebase, auto-resolve generated files (branch-aware for doc files), PR, CI wait, merge. Post-merge: invokes Usher for deployment handoff.
 
 ### approve
 

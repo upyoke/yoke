@@ -28,6 +28,7 @@ from typing import Sequence
 
 from yoke_core.domain.agents_render_workspace import resolve_target_root_for_cli
 from yoke_contracts import field_note_text as rft
+from yoke_contracts.skill_registry import SKILLS
 from yoke_core.tools.generated_block_render import (
     FileRenderOutcome,
     RenderResult,
@@ -57,28 +58,8 @@ REPAIR_COMMAND: str = "python3 -m yoke_core.tools.render_field_note_inline"
 _SHARED_LONG_FORM_PATH: str = "runtime/agents/_shared/ouroboros-field-note.md"
 
 
-# Inventory of every file that participates in the generated-block render.
-# Tasks 011 (skill body insertion) and 014 (HC-field-note-coherence)
-# import this tuple as their authoritative source of truth.
-INVENTORY: tuple[str, ...] = (
-    ".agents/skills/yoke/amend/SKILL.md",
-    ".agents/skills/yoke/approve/SKILL.md",
-    ".agents/skills/yoke/charge/SKILL.md",
-    ".agents/skills/yoke/conduct/SKILL.md",
-    ".agents/skills/yoke/curate/SKILL.md",
-    ".agents/skills/yoke/doctor/SKILL.md",
-    ".agents/skills/yoke/feed/SKILL.md",
-    ".agents/skills/yoke/help/SKILL.md",
-    ".agents/skills/yoke/idea/SKILL.md",
-    ".agents/skills/yoke/implement/SKILL.md",
-    ".agents/skills/yoke/polish/SKILL.md",
-    ".agents/skills/yoke/refine/SKILL.md",
-    ".agents/skills/yoke/resync/SKILL.md",
-    ".agents/skills/yoke/shepherd/SKILL.md",
-    ".agents/skills/yoke/simulate/SKILL.md",
-    ".agents/skills/yoke/strategize/SKILL.md",
-    ".agents/skills/yoke/usher/SKILL.md",
-    ".agents/skills/yoke/wrapup/SKILL.md",
+# Skill bodies share the runtime inventory.
+INVENTORY: tuple[str, ...] = tuple(skill.body_path for skill in SKILLS) + (
     "README.md",
     "AGENTS.md",
     "docs/OVERVIEW.md",
