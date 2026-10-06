@@ -81,13 +81,13 @@ still refused). A member nobody asked keeps the `QaCasesNotSelectedError`
 wait, and still blocks the next item-scoped stage. An empty case set on its
 own is still never enough — silence is not an answer.
 
-The `post_deploy_no_obligation` fact is a non-blocking `post_deploy` requirement with a reason in `instructions` and no waiver.
-Record it with `yoke qa post-deploy record-no-obligation`; completion-run
-success then auto-closes the member without a wake. An empty case set stays
-held; `declared_none` still wakes because a waiver is not that fact. A final
-member on a selected flow without run QA or run approval closes after its own final production
-QA is accepted, even if sibling QA keeps the run executing. Run QA or run approval
-holds all final members through item gates, shared gates, and run success.
+Record the non-blocking `post_deploy_no_obligation` fact with
+`yoke qa post-deploy record-no-obligation`; completion auto-closes the member.
+Legacy schema-1 flows credit run-wide post-deploy QA to their delivered
+members; scoped flows require exact member binding. Failing or unanswered
+requirements hold settlement; superseded requirements follow their successors.
+Without run QA or run approval, final members close after their own production
+QA, even while siblings wait. Shared gates hold all members through run success.
 
 A plan bound to a persistent environment is selectable at a `run_preview`
 QA stage when the run's `target_environment_id` is that environment — the

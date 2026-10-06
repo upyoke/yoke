@@ -141,6 +141,11 @@ row. An unreadable read raises rather than reporting a clear gate, and
 a universe whose schema predates the scoped vocabulary reports nothing
 owed instead of failing.
 
+Member settlement also reads blocking `post_deploy` requirements on the run.
+Legacy schema-1 runs credit run-wide requirements to their delivered members;
+scoped runs keep exact member binding. Failing or unanswered requirements block;
+supersession transfers the obligation to the successor requirement.
+
 Owners: `yoke_core.engines.done_transition_run_qa_gates` (the guard),
 `yoke_core.domain.deployment_qa_run_acceptance` (the per-item read),
 `yoke_core.domain.deployment_qa_stage_acceptance` (the shared
