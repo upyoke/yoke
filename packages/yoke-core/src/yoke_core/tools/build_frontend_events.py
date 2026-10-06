@@ -23,7 +23,7 @@ BROWSER_MODULES = (
     "events_props",
     "events_types",
 )
-SERVER_MODULES = ("events_attribution", "events_cookie")
+SERVER_MODULES = ("events_attribution", "events_cookie", "events_handoff")
 HEADER = "// Generated from the installed structured-events Pack; run build_frontend_events.\n"
 PYTHON_HEADER = "# Generated from the installed structured-events Pack; run build_frontend_events.\n"
 NODE_STRIP = """
@@ -39,7 +39,7 @@ def outputs(root):
     target = root / "packages/yoke-core/src/yoke_core"
     if not (source / "events_consent.ts").is_file():
         raise ValueError(
-            "events_pack_not_installed: install structured-events 2.0.1 with yoke packs get, then rebuild"
+            "events_pack_not_installed: install structured-events 3.0.0 with yoke packs get, then rebuild"
         )
     result = {}
     for name in BROWSER_MODULES:

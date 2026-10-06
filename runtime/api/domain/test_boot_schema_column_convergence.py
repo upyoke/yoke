@@ -80,8 +80,10 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # Pending machine-authorization columns ship with their new table except
 # client_key, which has an additive boot lookup. Machine sign-in rate counters
 # are born with their separate request-budget table.
+# Attribution redemption tombstones introduce a new table; organization,
+# single-use nonce and expiry columns are all born with that table.
 _BORN_WITH_COLUMN_DIGEST = (
-    "777892cfe5b21012f0d30266cfafde57027e7c23b9b36b6180773a7094bf076f"
+    "e54142934bc0b00c6966e9e51c8f71494cb1245b36dcff91675376a58472d388"
 )
 
 

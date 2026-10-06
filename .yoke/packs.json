@@ -36,22 +36,22 @@
       "version": "1.1.0"
     },
     "structured-events": {
-      "content_digest": "9dc32a039040ad7dafcdff4ed5779f7b6b36e2a4065c5750b0ca8f62d674642f",
+      "content_digest": "7cc403bbbfd998cea6c970e24f443f82bd4b827ffa2529f054408a9fb379c1ca",
       "files": {
         "docs/packs/structured-events/README.md": {
           "mode": 420,
           "path": "docs/packs/structured-events/README.md",
-          "sha256": "973265593f66a3c0c55551a8352760c9bcc39e00663078558c5417b5ea1f0872"
+          "sha256": "39287e49c2c1604354ee0a4642241d49d5e7d18527a5eb7bdce3500e20d308af"
         },
         "events/README.md": {
           "mode": 420,
           "path": "events/README.md",
-          "sha256": "4d78f47bff488e21406e89d9618eaa5a58ef13ae491e615802e42412d7df2be1"
+          "sha256": "bd960e35d937a53ea04fad74fba2c1b9021d0bf624a98e4df621b6397d49a893"
         },
         "events/api-route.ts": {
           "mode": 420,
           "path": "events/api-route.ts",
-          "sha256": "9a6ccafbe839c5f25507bd613f6a1a276f19124f2c9ce2caca5f2198dad7cc40"
+          "sha256": "a5ad478c6f152c22e663d0655e06461e7a24fa3c5fe4834d19e4cfcf26e32283"
         },
         "events/attribution_rules.json": {
           "mode": 420,
@@ -86,17 +86,27 @@
         "events/events_cookie.py": {
           "mode": 420,
           "path": "events/events_cookie.py",
-          "sha256": "f18db258a39685eebf4c7a7ce7a925ddd9eeb82e4b86779f72b9d7bd37627782"
+          "sha256": "a528dda39300268326e6d0cac2e1aa6f70042ed77b19a9f732a7d518535bd664"
         },
         "events/events_cookie.ts": {
           "mode": 420,
           "path": "events/events_cookie.ts",
-          "sha256": "2543fdba42c112c2646aecf34ba52da6891ff3a64d6231b5d5480b75de67c91c"
+          "sha256": "2374640a54a47ed395fed02d123a3c7bb33becba5c003bc749935e4cac7700f5"
         },
         "events/events_delivery.py": {
           "mode": 420,
           "path": "events/events_delivery.py",
           "sha256": "575a6358f5021e7ba874ce0044a9067f287e94bd854096b1e7f6675b23e66e62"
+        },
+        "events/events_handoff.py": {
+          "mode": 420,
+          "path": "events/events_handoff.py",
+          "sha256": "b0da90e37317df5ae020c234adaa0c97625c8a9d9602dbce138fb38fbb69f959"
+        },
+        "events/events_handoff.ts": {
+          "mode": 420,
+          "path": "events/events_handoff.ts",
+          "sha256": "0481b0f34f519455b656382597c4cdf4b4671f65bd3e881fbcd8eb290942c530"
         },
         "events/events_navigation.ts": {
           "mode": 420,
@@ -137,6 +147,11 @@
           "mode": 420,
           "path": "events/test_events_emit.py",
           "sha256": "544570bb7f0d3667f422c50de9e95febe5e141b8b34820d2d587a7805fbbd416"
+        },
+        "events/test_handoff.py": {
+          "mode": 420,
+          "path": "events/test_handoff.py",
+          "sha256": "c65bbb6d05bfb00f02ce459419e404616d089b9e77b1764af08fd54362d07b52"
         }
       },
       "prerequisites": [
@@ -159,7 +174,7 @@
       "render_values": {
         "project_name": "yoke"
       },
-      "version": "2.0.1"
+      "version": "3.0.0"
     }
   },
   "project_id": 1,

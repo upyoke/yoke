@@ -7,8 +7,12 @@ from yoke_core.domain.frontend_events_storage import read_collector_identity
 
 EVENTS_PATH = "/api/events"
 ATTRIBUTION_PATH = EVENTS_PATH + "/attribution"
+HANDOFF_PATH = ATTRIBUTION_PATH + "/handoff"
+REDEEM_PATH = HANDOFF_PATH + "/redeem"
 CONFIG_PATH = EVENTS_PATH + "/config"
-COLLECTOR_PATHS = frozenset({EVENTS_PATH, ATTRIBUTION_PATH, CONFIG_PATH})
+COLLECTOR_PATHS = frozenset(
+    {EVENTS_PATH, ATTRIBUTION_PATH, CONFIG_PATH, HANDOFF_PATH, REDEEM_PATH}
+)
 LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 
 
