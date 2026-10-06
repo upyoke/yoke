@@ -170,7 +170,7 @@ Direct-mode entrypoint for SML-to-idea materialization, stale-work-item refresh,
 
 Feed is the canonical semantic owner of generated frontier-fact maintenance. It writes `source='feed'` dependency rows in `item_dependencies` with human-readable rationale and structured `evidence_json`, and it updates stale structured work-item fields when recent landed work changed the frontier's ground truth. It does not own ranking, WIP caps, or claim handling (those belong to the scheduler and charge).
 
-**Arguments:** `--no-new-items` (run analysis and graph refresh without creating new items), optional `PREFIX-N ...` scope IDs, `--lane LANE`, `--model MODEL`.
+**Arguments:** `--no-new-items` (run analysis and graph refresh without creating new items), optional `PREFIX-N ...` scope IDs, `--model MODEL`.
 
 **Events:** `FeedStarted` (at run start), `FeedCompleted` (at run end with outcome summary).
 
@@ -178,7 +178,7 @@ Feed is the canonical semantic owner of generated frontier-fact maintenance. It 
 
 Direct-mode entrypoint for the `strategize` action. Guided interactive loop for Strategic Markdown Layer (SML) coherence. Refreshes SML files (the MISSION, LANDSCAPE, VISION, and MASTER-PLAN docs rendered under .yoke/strategy/) against recent reality, performs source-backed research, proposes changes, obtains operator approval at each checkpoint, and records a full audit trail. Strategize is the "compass" mode -- it ensures Yoke always has a clear, current strategy to charge against.
 
-**Arguments:** `--lane LANE`, `--model MODEL`.
+**Arguments:** `--model MODEL`.
 
 **Checkpoint model:** The pipeline includes these operator checkpoints (numbered 0-5) where the operator can confirm, request corrections, or abort:
 - Checkpoint 0: State refresh confirmation (delta summary review)
