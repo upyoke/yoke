@@ -77,9 +77,11 @@ yoke steering report get
 ```
 
 The report answers these checks from live control-plane state, with one
-section per finding and idle holders keyed on `last_tool_call_at`.
-Use it directly. Empty sections print nothing; a short report means the
-detectors have no findings to report.
+section per finding and idle holders keyed on `last_tool_call_at`
+rather than any liveness label. Do not re-run those queries by hand:
+use the report directly. A section with nothing to say prints nothing,
+so a short report means the detectors have no findings to report.
+The report scans every pass because these failures are silences.
 
 Read [fleet-findings.md](fleet-findings.md) completely and act on every
 finding before continuing this pass.
