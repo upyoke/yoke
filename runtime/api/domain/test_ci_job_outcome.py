@@ -211,9 +211,10 @@ def test_no_failed_jobs_report_names_no_verdict_and_redispatch():
     from yoke_core.domain.github_actions_failed_job_report import (
         build_failed_job_report,
     )
+    from yoke_core.domain.github_actions_failed_jobs import RunFailures
 
     report = build_failed_job_report(
-        [], repo="upyoke/yoke", run_id=37364183364, tail_lines=10
+        RunFailures(), repo="upyoke/yoke", run_id=37364183364, max_lines=10
     )
 
     assert "no verdict" in report.output
