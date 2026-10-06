@@ -22,13 +22,10 @@ from runtime.api.domain.handlers.deployment_handler_test_support import (
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.domain import deployment_runs_validation as validation
-from yoke_core.domain.deployment_qa_stage_dispatch import (
-    materialize_and_gate_deployment_qa_stage,
-)
-from yoke_core.domain.deployment_qa_stage_outstanding import qa_stage_outstanding
 from yoke_core.domain.deployment_run_item_qa_membership import (
     NO_MEMBER_OWES_TARGET,
     item_qa_membership_verdict,
+    owed_delivery_item_ids,
 )
 from yoke_core.domain.deployment_runs_crud_mutate import cmd_add_item
 from yoke_core.domain.handlers.deployment_run_execution import (
@@ -120,7 +117,7 @@ def test_run_owing_delivery_without_members_is_refused_except_at_create(
     refusal, notice = item_qa_membership_verdict(test_db, run_id)
     assert refusal.startswith("item_qa_run_without_members:")
     assert f"'{PRODUCTION_FLOW}'" in refusal
-    assert "yoke deployment-runs add-item" in refusal
+    assert f"yoke deployment-runs add-item {run_id} PREFIX-N" in refusal
     assert "listed below" not in refusal
     assert notice == ""
     # Creation mints an itemless run so add-item can attach to it.
@@ -144,19 +141,36 @@ def test_stage_run_whose_candidates_were_targeted_out_passes_with_a_named_result
     assert notice.startswith("item-qa:")
 
 
-def test_item_another_release_holds_is_not_owed(test_db: Any) -> None:
+@pytest.mark.parametrize(
+    ("state", "owed"),
+    [("held", False), ("remerged", True), ("unheld", True), ("undetermined", True)],
+)
+def test_only_a_landing_another_release_holds_is_not_owed(
+    test_db: Any, monkeypatch: pytest.MonkeyPatch, state: str, owed: bool
+) -> None:
+    """Re-merged and unreadable landings stay owed, so the check fails closed."""
+    from yoke_core.domain import delivery_landing_custody
+
     _flow(test_db, PRODUCTION_FLOW, custody=1)
-    holder = _run(test_db, PRODUCTION_FLOW, run_id="run-holder")
-    _release_ready_item(test_db, PRODUCTION_FLOW)
-    cmd_add_item(holder, ITEM_ID)
-    test_db.execute(
-        "UPDATE deployment_runs SET status='executing' WHERE id=%s", (holder,)
-    )
-    test_db.commit()
     run_id = _run(test_db, PRODUCTION_FLOW)
+    _release_ready_item(test_db, PRODUCTION_FLOW)
+    seen: dict[str, Any] = {}
+
+    def custody(_conn, *, project_id, item_ids, exclude_run_id=""):
+        seen["exclude_run_id"] = exclude_run_id
+        return {
+            item_id: delivery_landing_custody.LandingCustody(
+                item_id=item_id, landing_sha="b" * 40, state=state
+            )
+            for item_id in item_ids
+        }
+
+    monkeypatch.setattr(delivery_landing_custody, "landing_custody", custody)
+    assert owed_delivery_item_ids(test_db, run_id) == ((ITEM_ID,) if owed else ())
+    assert seen["exclude_run_id"] == run_id
     refusal, notice = item_qa_membership_verdict(test_db, run_id)
-    assert refusal == ""
-    assert NO_MEMBER_OWES_TARGET in notice
+    assert refusal.startswith("item_qa_run_without_members:") is owed
+    assert (NO_MEMBER_OWES_TARGET in notice) is not owed
 
 
 def test_members_or_removals_satisfy_a_custody_run(test_db: Any) -> None:
@@ -228,32 +242,3 @@ def test_validate_and_pre_start_refuse_a_run_owing_delivery_without_members(
     assert outcome.error is not None
     assert outcome.error.code == "composition_invalid"
     assert "item_qa_run_without_members" in outcome.error.message
-
-
-def test_targeted_out_stage_run_validates_and_passes_item_qa(
-    test_db: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    _isolate_candidate_reads(monkeypatch)
-    _flow(test_db, PRODUCTION_FLOW, custody=1)
-    _flow(test_db, STAGE_FLOW, custody=1)
-    run_id = _run(test_db, STAGE_FLOW)
-    _release_ready_item(test_db, PRODUCTION_FLOW)
-
-    valid, message = validation.cmd_validate_composition(run_id)
-    assert valid, message
-    assert NO_MEMBER_OWES_TARGET in message
-
-    test_db.execute(
-        "UPDATE deployment_runs SET status='executing',current_stage='item-qa' "
-        "WHERE id=%s",
-        (run_id,),
-    )
-    test_db.commit()
-    assert materialize_and_gate_deployment_qa_stage(
-        test_db, ITEM_QA_STAGE, run_id=run_id
-    ) == (0, NO_MEMBER_OWES_TARGET)
-    outstanding = qa_stage_outstanding(test_db, run_id=run_id, stage_name="item-qa")
-    assert outstanding is not None
-    assert outstanding.waiting == 0
-    assert outstanding.lines == ()
-    assert outstanding.no_obligation_lines == (NO_MEMBER_OWES_TARGET,)

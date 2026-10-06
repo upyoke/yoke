@@ -99,9 +99,7 @@ def _dispatch_step_runner(
     # path deploys it. A branch preview — every other preview stage — keeps
     # deploying that branch's current head under the branch name, which is
     # what a development preview is for.
-    release_preview = (
-        str((stage.get("target") or {}).get("kind") or "") == "run_preview"
-    )
+    release_preview = str((stage.get("target") or {}).get("kind") or "") == "run_preview"
     # One recorded identity for both deploy paths: the run's own id. The
     # project's own deploy workflow receives exactly this string and
     # publishes it verbatim, so the host Yoke probes is the host that was
@@ -151,11 +149,7 @@ def _dispatch_step_runner(
             dispatch_deployment_qa_stage,
         )
 
-        code, message = dispatch_deployment_qa_stage(stage, run_id=run_id)
-        if code == 0 and message:
-            # A pass with a named result, such as no member owing the target.
-            print(f"  Stage '{name}': {message}")
-        return code, message
+        return dispatch_deployment_qa_stage(stage, run_id=run_id)
     if step_runner == "github-actions-workflow":
         rehearsal_rc, rehearsal_diag = (
             deploy_pipeline_fleet_rehearsal.ensure_before_dispatch(
@@ -193,9 +187,7 @@ def _dispatch_step_runner(
     return 1, ""
 
 
-def _resolve_warm_up_connection(
-    config: Mapping[str, Any], project: str, environment_name: str
-) -> str:
+def _resolve_warm_up_connection(config: Mapping[str, Any], project: str, environment_name: str) -> str:
     declared = str(config.get("connection_env", "") or "").strip()
     if declared:
         return declared
@@ -225,9 +217,7 @@ def _resolve_warm_up_connection(
         raise MissingEnvironmentFact(name, SERVING_CONNECTION_PATH) from exc
     if not response.success:
         raise MissingEnvironmentFact(name, SERVING_CONNECTION_PATH)
-    values = (
-        response.result.get("values") if isinstance(response.result, Mapping) else {}
-    )
+    values = response.result.get("values") if isinstance(response.result, Mapping) else {}
     return serving_connection_for_environment(
         name, settings_from_projection(values if isinstance(values, Mapping) else {})
     )
@@ -257,7 +247,9 @@ def _dispatch_warm_up(
     from yoke_core.domain.environment_declared_facts import MissingEnvironmentFact
 
     try:
-        connection_env = _resolve_warm_up_connection(config, project, environment_name)
+        connection_env = _resolve_warm_up_connection(
+            config, project, environment_name
+        )
     except MissingEnvironmentFact as exc:
         return 1, str(exc)
 
