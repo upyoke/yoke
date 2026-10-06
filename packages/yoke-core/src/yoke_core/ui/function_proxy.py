@@ -41,6 +41,7 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset(
         "items.search.run",
         # Reads used by served pages must pass the static UI caller contract.
         "profile.get",
+        "machine_authorization.get",
         "actors.roster",
         "packs.list",
         "packs.bundle.get",
@@ -187,6 +188,7 @@ UI_MUTATION_FUNCTION_ALLOWLIST = frozenset(
         "test_machine.settings_replace",
         "test_machine.verify",
         "decision_requests.resolve",
+        "machine_authorization.resolve",
         "qa.case.waive",
         "items.create",
         "sessions.reclaim_stale",

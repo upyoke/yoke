@@ -30,7 +30,7 @@ AUTH_TABLES: dict[str, dict] = {
             ("machine_name", "TEXT"),
             ("consumed_at", "TEXT"),
         ],
-        "notes": "Self-host pending device-code store, additive on boot. The device secret is hashed; raw credentials are never stored here. Test auth DDL must carry this table too: missing fixture DDL reports authorization_store_unavailable. Read or resolve through machine_authorization.get/resolve, not raw SQL.",
+        "notes": "Self-host pending device-code store, additive on boot. The device secret is hashed; raw credentials are never stored here. Test auth DDL must carry this table too: missing fixture DDL reports authorization_store_unavailable. Read or resolve through machine_authorization.get/resolve, not raw SQL. CLI hosted_machine_authorization.start accepts keyword-only self_host; URL-only test doubles reject that keyword.",
     },
     "roles": {
         "columns": [

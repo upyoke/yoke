@@ -1,6 +1,7 @@
 """Team-server URL discovery precedes choosing browser or token sign-in."""
 
 from yoke_cli.config import team_server_authorization
+from yoke_cli.config.onboard_wizard_self_host import NO_SERVER_GUIDANCE
 from yoke_cli.config.onboard_wizard_widgets import STEP_CONNECT
 
 
@@ -9,7 +10,8 @@ class TeamServerConnectFlow:
         self._goto_input(
             STEP_CONNECT,
             "Connect to your team server.",
-            "Enter its URL. Yoke checks whether your team uses company sign-in or API tokens.",
+            "Enter its URL. Yoke checks whether your team uses company sign-in or API tokens. "
+            + NO_SERVER_GUIDANCE,
             placeholder=self.result.api_url or "https://api.mycompany.com",
             allow_placeholder=bool(self.result.api_url),
             on_done=self._discover_team_server,

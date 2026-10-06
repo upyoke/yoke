@@ -270,11 +270,15 @@ def test_existing_server_url_and_token_failure_both_teach_the_new_route(
             await pilot.press("down", "enter")
             assert flow.NO_SERVER_GUIDANCE in _body_text(app)
             await type_text(pilot, "https://yoke.acme.test")
+            await pilot.press("enter")  # discover the server's sign-in method
+            await app.workers.wait_for_complete()
+            await pilot.pause()
             await pilot.press("enter")
             await pilot.press("enter")
             await type_text(pilot, RAW_TOKEN)
             await pilot.press("enter")
             text = await _wait_for_text(app, pilot, "could not be verified")
+            assert "Yoke token could not be verified" in text
             assert flow.NO_SERVER_GUIDANCE in text
 
     asyncio.run(scenario())
