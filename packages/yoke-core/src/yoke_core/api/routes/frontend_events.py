@@ -18,7 +18,8 @@ from yoke_core.api.frontend_events_config import (
     cookie_input,
     cookie_output,
 )
-from yoke_core.api.http_auth import authenticate_request, authenticate_web_session
+from yoke_core.api.http_auth import authenticate_request
+from yoke_core.api.web_session_auth import authenticate_web_session
 from yoke_core.domain import db_helpers
 from yoke_core.domain.frontend_events_storage import (
     admit_client,

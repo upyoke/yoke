@@ -176,29 +176,16 @@ async def _authenticate(request) -> tuple[Any, JSONResponse | None]:
     and a denial response, never both.
     """
     path = request.url.path
-<<<<<<< HEAD
+    from yoke_core.api.frontend_events_config import COLLECTOR_PATHS
+
+    if path in COLLECTOR_PATHS:
+        return None, None  # Collector routes enforce exact origin/key admission.
     if is_public_path(path) or is_workbench_public_path(path):
         return None, None
     if is_workbench_page(request.method, path):
         # The workbench shell for a signed-in browser, or the sign-in page.
         # Invalid and absent cookies land on the same signed-out page, so a
         # probing client learns nothing about session existence.
-=======
-    from yoke_core.api.frontend_events_config import COLLECTOR_PATHS
-
-    if path in COLLECTOR_PATHS:
-        return (
-            None,
-            None,
-        )  # Collector routes enforce their own exact origin/key admission.
-    if is_public_path(path):
-        return None, None
-    if is_web_session_get_path(request.method, path):
-        # Browser web-session cookie: read-only allowlisted GET surfaces
-        # only (see http_auth.WEB_SESSION_GET_PATHS for the CSRF
-        # rationale). Operational writes take the bearer path; anonymous
-        # analytics were admitted separately above.
->>>>>>> 207518bec0 (Wire anonymous workbench collector and consent pending Pack adoption)
         web_auth = await run_in_threadpool(authenticate_web_session, request)
         if web_auth is not None:
             setattr(request.state, WEB_AUTH_STATE_ATTR, web_auth)
@@ -321,15 +308,10 @@ def _include_routes(application: FastAPI) -> FastAPI:
     v1_router.include_router(web_sign_in_router)
 
     application.include_router(v1_router)
-<<<<<<< HEAD
-    # The workbench lives at the site root, outside /v1. Included last: its
-    # deep-path catch-all must never shadow an API route.
-    application.include_router(workbench_router, dependencies=admission)
-=======
     from yoke_core.api.routes.frontend_events import router as frontend_events_router
 
     application.include_router(frontend_events_router, dependencies=admission)
-    # The signed-in landing page lives at the site root, outside /v1.
-    application.include_router(web_landing_router, dependencies=admission)
->>>>>>> 207518bec0 (Wire anonymous workbench collector and consent pending Pack adoption)
+    # The workbench lives at the site root, outside /v1. Included last: its
+    # deep-path catch-all must never shadow an API route.
+    application.include_router(workbench_router, dependencies=admission)
     return application
