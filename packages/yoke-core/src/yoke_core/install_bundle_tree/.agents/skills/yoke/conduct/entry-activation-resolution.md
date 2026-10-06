@@ -154,8 +154,8 @@ print(next((r["path"] for r in rows if r["branch"] == sys.argv[1]), ""))' "$_wor
  #     via `yoke db read --format lines "SELECT status FROM
  #     epic_tasks WHERE epic_id=${_epic_id} AND task_num=<N>"`;
  #   - `git -C "${_worktree_path}" merge <predecessor-branch> --no-edit`.
- # Halt for authoring-phase repair if any predecessor is unfinished or if a
- # merge conflicts. Resolve the pinned authoring binding before presenting
+ # Halt for authoring-phase repair if any predecessor is unfinished or any
+ # merge has conflicts. Resolve the pinned authoring binding before presenting
  # its re-entry command. Re-entry is idempotent — `git merge` on an already-
  # merged commit is a fast-forward no-op; ALWAYS run the merge, never
  # skip based on a "did I already merge" check. Skip the entire step
