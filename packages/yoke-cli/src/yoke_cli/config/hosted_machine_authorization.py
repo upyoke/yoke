@@ -54,19 +54,27 @@ def start(
             timeout_seconds=timeout_seconds,
         )
     except BoundedJsonHttpStatusError as exc:
-        parse_authorization_response(exc.payload, exc.status, operation="start")
+        response = parse_authorization_response(
+            exc.payload, exc.status, operation="start"
+        )
         _raise_admission_refusal(exc.payload, exc.status)
         raise HostedMachineAuthorizationError(
-            f"hosted authorization could not start (HTTP {exc.status})"
+            f"authorization_refused: hosted authorization could not start (HTTP {exc.status}); "
+            f"{_recovery(response)}"
         ) from None
     if status != 200:
-        parse_authorization_response(payload, status, operation="start")
+        response = parse_authorization_response(payload, status, operation="start")
         _raise_admission_refusal(payload, status)
         raise HostedMachineAuthorizationError(
-            f"hosted authorization could not start (HTTP {status})"
+            f"authorization_refused: hosted authorization could not start (HTTP {status}); "
+            f"{_recovery(response)}"
         )
     response = parse_authorization_response(payload, status, operation="start")
-    assert isinstance(response, MachineAuthorizationStarted)
+    if not isinstance(response, MachineAuthorizationStarted):
+        raise HostedMachineAuthorizationError(
+            "authorization_response_invalid: expected a machine sign-in start response; "
+            "correct the server contract, then reconnect"
+        )
     verification_uri = same_origin_url(
         response.verification_uri,
         origin,
@@ -148,15 +156,20 @@ def complete(
             )
         if error == "machine_identity_required":
             raise HostedMachineAuthorizationError(
-                "machine_identity_required: run `yoke status` to inspect this "
+                f"machine_identity_required: {_recovery(response)}; run `yoke status` to inspect this "
                 "machine's configured identity, repair it, then retry"
             )
         if status != 200:
             _raise_admission_refusal(payload, status)
             raise HostedMachineAuthorizationError(
-                f"hosted authorization polling failed (HTTP {status})"
+                f"{error or 'authorization_refused'}: hosted authorization polling failed (HTTP {status}); "
+                f"{_recovery(response)}"
             )
-        assert isinstance(response, MachineAuthorizationApproved)
+        if not isinstance(response, MachineAuthorizationApproved):
+            raise HostedMachineAuthorizationError(
+                "authorization_response_invalid: expected an approved machine credential; "
+                "correct the server contract, then reconnect"
+            )
         org = response.org
         api_url = credential_api_url(
             response.api_url,
@@ -168,6 +181,12 @@ def complete(
     raise HostedMachineAuthorizationError(
         "hosted authorization expired before approval"
     )
+
+
+def _recovery(response: object) -> str:
+    if isinstance(response, MachineAuthorizationRefused) and response.recovery_text:
+        return response.recovery_text
+    return "inspect the server refusal and restart connection, or ask its operator for help"
 
 
 def _raise_admission_refusal(payload: object, status: int) -> None:

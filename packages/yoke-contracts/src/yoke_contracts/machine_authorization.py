@@ -158,8 +158,13 @@ class MachineAuthorizationApproved(MachineAuthorizationResponse):
 
 class MachineAuthorizationRefused(MachineAuthorizationResponse):
     error: WireText
-    # Cloud may omit recovery text; self-host always supplies it.
+    # Self-host supplies message; Cloud supplies detail when recovery is known.
     message: WireText | None = None
+    detail: WireText | None = None
+
+    @property
+    def recovery_text(self) -> str:
+        return "; ".join(value for value in (self.message, self.detail) if value)
 
 
 class MachineAuthorizationPending(MachineAuthorizationRefused):
@@ -218,7 +223,7 @@ def parse_authorization_response(
                     "authorization_response_invalid: polling failed "
                     f"(HTTP {status}); correct the server's machine sign-in contract, then reconnect"
                 )
-        elif status not in {400, 403, 409, 410, 429, 503}:
+        elif status not in {400, 403, 409, 410, 413, 429, 503}:
             raise HostedMachineAuthorizationError(
                 f"authorization_response_invalid: {operation} polling failed (HTTP {status}); "
                 "correct the server's machine sign-in contract, then reconnect"
