@@ -136,7 +136,7 @@ export function mountUniverseApp(rootNode, options = {}) {
   });
   const detachRootClass = attachMountRootClass(rootNode);
   rootNode.replaceChildren(header, shell);
-  const disposeBuildUpdate = mountBuildUpdate(main, windowNode, options, navigation.basePath);
+  const disposeBuildUpdate = mountBuildUpdate(main, windowNode, options);
   const disposeTelemetry = mountWorkbenchTelemetry(windowNode);
   main.replaceChildren(routeLoadingLine(documentNode));
 

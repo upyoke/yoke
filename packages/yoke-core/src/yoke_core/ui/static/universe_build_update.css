@@ -8,7 +8,6 @@
   background: var(--yoke-accent-weak);
   color: var(--yoke-ink);
 }
-.universe-app-root .build-update-banner[hidden] { display: none; }
 .universe-app-root .build-update-banner button {
   min-height: 44px;
   padding: 6px 14px;
