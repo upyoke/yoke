@@ -137,11 +137,16 @@ def test_token_redemption_origin_uses_only_trusted_forwarded_host(
         assert response.json()["error"]["code"] == "cross_origin_refused"
 
 
-@pytest.mark.parametrize("peer,expected", [(PROXY, 200), (UNTRUSTED, 403)])
+# An admitted attribution read with no cookie answers attribution_absent (400);
+# admission refusals answer 403 or 429 before the route reads anything.
+ADMITTED = 400
+
+
+@pytest.mark.parametrize("peer,expected", [(PROXY, ADMITTED), (UNTRUSTED, 403)])
 def test_collector_origin_uses_only_trusted_forwarded_host(database, peer, expected):
     with serving_client(peer, scheme="https") as client:
         key = client.get("/api/events/config").json()["publishableKey"]
-        response = client.delete(
+        response = client.get(
             "/api/events/attribution",
             headers={
                 **forwarded(),
@@ -153,6 +158,8 @@ def test_collector_origin_uses_only_trusted_forwarded_host(database, peer, expec
     assert response.status_code == expected, response.text
     if expected == 403:
         assert response.json()["error"] == "origin_not_allowed"
+    else:
+        assert response.json()["error"] == "attribution_absent"
 
 
 @pytest.mark.parametrize("peer,expected", [(PROXY, 200), (UNTRUSTED, 400)])
@@ -178,14 +185,14 @@ def test_collector_budgets_forwarded_clients_independently(
         ]
         headers = {**forwarded(), "X-Events-Key": key}
         assert (
-            client.delete("/api/events/attribution", headers=headers).status_code == 200
+            client.get("/api/events/attribution", headers=headers).status_code
+            == ADMITTED
         )
-        assert (
-            client.delete("/api/events/attribution", headers=headers).status_code == 429
-        )
+        assert client.get("/api/events/attribution", headers=headers).status_code == 429
         headers.update(forwarded(OTHER_CLIENT))
         assert (
-            client.delete("/api/events/attribution", headers=headers).status_code == 200
+            client.get("/api/events/attribution", headers=headers).status_code
+            == ADMITTED
         )
     assert (
         database.execute("SELECT count(*) FROM frontend_event_rate_limits").fetchone()[
@@ -201,12 +208,11 @@ def test_untrusted_forwarded_clients_share_transport_budget(database, monkeypatc
         key = client.get("/api/events/config").json()["publishableKey"]
         headers = {**forwarded(), "X-Events-Key": key}
         assert (
-            client.delete("/api/events/attribution", headers=headers).status_code == 200
+            client.get("/api/events/attribution", headers=headers).status_code
+            == ADMITTED
         )
         headers.update(forwarded(OTHER_CLIENT))
-        assert (
-            client.delete("/api/events/attribution", headers=headers).status_code == 429
-        )
+        assert client.get("/api/events/attribution", headers=headers).status_code == 429
     assert (
         database.execute("SELECT count(*) FROM frontend_event_rate_limits").fetchone()[
             0
