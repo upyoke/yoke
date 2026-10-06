@@ -78,7 +78,7 @@ def test_server_entrypoint_invokes_uvicorn_with_import_string() -> None:
 
     assert rc == 0
     run.assert_called_once_with(
-        "yoke_core.api.main:app",
+        "yoke_core.api.trusted_proxy:create_app",
         host="127.0.0.1",
         port=9001,
         log_level="info",
@@ -88,7 +88,8 @@ def test_server_entrypoint_invokes_uvicorn_with_import_string() -> None:
         # own dictConfig are suppressed to keep one CloudWatch JSON stream.
         access_log=False,
         log_config=None,
-        forwarded_allow_ips="127.0.0.1",
+        factory=True,
+        proxy_headers=False,
     )
 
 

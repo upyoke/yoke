@@ -27,11 +27,18 @@ from yoke_contracts.self_host_bootstrap_output import (
 from yoke_core.api.first_boot_admin_token_delivery import (
     deliver_first_boot_admin_token,
 )
+from yoke_core.api.trusted_proxy import (
+    DEFAULT_TRUSTED_PROXIES,
+    TRUSTED_PROXIES_ENV,
+    parse_trusted_proxies,
+    run_self_host,
+)
 
 
 _log = logging.getLogger("yoke.api.startup")
 
 DEFAULT_APP = "yoke_core.api.main:app"
+APP_ENV = "YOKE_API_APP"
 DEFAULT_HOST = "0.0.0.0"
 DEFAULT_LOG_LEVEL = "info"
 DEFAULT_PORT = 8765
@@ -83,7 +90,7 @@ def build_parser(env: Optional[Mapping[str, str]] = None) -> argparse.ArgumentPa
     parser = argparse.ArgumentParser(description="Run the Yoke API service.")
     parser.add_argument(
         "--app",
-        default=source.get("YOKE_API_APP", DEFAULT_APP),
+        default=source.get(APP_ENV, DEFAULT_APP),
         help="ASGI application import string.",
     )
     parser.add_argument(
@@ -110,7 +117,8 @@ def build_parser(env: Optional[Mapping[str, str]] = None) -> argparse.ArgumentPa
     )
     parser.add_argument(
         "--trusted-proxies",
-        default=source.get("YOKE_API_TRUSTED_PROXIES", "127.0.0.1"),
+        default=source.get(TRUSTED_PROXIES_ENV, DEFAULT_TRUSTED_PROXIES),
+        type=parse_trusted_proxies,
         help="Trusted proxy IPs/CIDRs, comma-separated; empty trusts none (self-host).",
     )
     return parser
@@ -286,16 +294,18 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     def _serve() -> None:
         import uvicorn
 
-        uvicorn.run(
-            settings.app,
+        kwargs = dict(
             host=settings.host,
             port=settings.port,
             log_level=settings.log_level,
             workers=settings.workers,
             access_log=False,
             log_config=None,
-            **({"forwarded_allow_ips": settings.trusted_proxies} if not hosted else {}),
         )
+        if hosted:
+            uvicorn.run(settings.app, **kwargs)
+        else:
+            run_self_host(settings, **kwargs)
 
     with universe_startup_lock.server_startup_guard(db_backend.resolve_pg_dsn()):
         if not universe_is_born():

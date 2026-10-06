@@ -98,9 +98,10 @@ def cross_origin_refusal(request: Request) -> Optional[JSONResponse]:
 
     Each rule applies only when its header is present, as on Cloud's
     relay: ``Sec-Fetch-Site`` must be ``same-origin`` or ``none``, and
-    ``Origin`` must name this server's own host — the proxy-forwarded
-    host first, since a reverse proxy rewrites ``Host`` to the bind
-    address. An opaque ``Origin: null`` is never a legitimate caller.
+    ``Origin`` must name this server's own host. A declared trusted
+    transport proxy may supply the external host through ``X-Forwarded-Host``;
+    the server middleware normalizes it into ``Host`` before this check.
+    Raw forwarding headers never authorize an origin. ``Origin: null`` is refused.
     """
     fetch_site = request.headers.get("sec-fetch-site")
     if fetch_site and fetch_site not in _SAME_ORIGIN_FETCH_SITES:
@@ -109,11 +110,7 @@ def cross_origin_refusal(request: Request) -> Optional[JSONResponse]:
     if origin is None:
         return None
     origin_host = urlsplit(origin).netloc if origin != "null" else ""
-    server_host = (
-        request.headers.get("x-forwarded-host")
-        or request.headers.get("host")
-        or request.url.netloc
-    )
+    server_host = request.headers.get("host") or request.url.netloc
     if not origin_host or origin_host != server_host:
         return _cross_origin(f"Origin {origin!r} is not this server ({server_host!r})")
     return None
