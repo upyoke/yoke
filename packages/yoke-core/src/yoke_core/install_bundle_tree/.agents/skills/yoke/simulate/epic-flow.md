@@ -10,7 +10,11 @@ Check that `epic_tasks` rows exist for this epic in the DB:
 _task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='{epic-id}'")
 ```
 
-If `_task_count` is `0`, tell the operator to run `/yoke shepherd {epic-id}` first.
+If `_task_count` is `0`, report `task_graph_missing` and stop simulation.
+Read `yoke items detail get {epic-id} --json` to resolve the item's pin, then
+restore its task graph through the definition's authoring binding before
+retrying. Render any re-entry command through
+[the shared handoff recipe](../shared/stage-handoff.md).
 
 ## 2. Auto-Detect Simulation Phase
 

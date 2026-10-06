@@ -1,6 +1,6 @@
 # Conduct — Integration Simulation Gate (S6h)
 
-Integration simulation stage of the conduct epic flow. Runs after all epic tasks reach `done`, `reviewed-implementation`, `merged`, or `completed`. Dispatches the Simulator to verify cross-task integration before handing off to `/yoke polish`. The result is persisted to `qa_runs` (via `yoke workflow-item epic-task simulation-upsert`) so the polish gate can trust the recorded simulation evidence. **Inherited:** `MAIN_ROOT`, `_epic_id`, `N`, `_worktree_path`, `_worktree_branch`, `_max_attempts`, `MAX_SIMULATOR_REPROMPTS`, `_project`, `_workspace`.
+Integration simulation stage of the conduct epic flow. Runs after all epic tasks reach `done`, `reviewed-implementation`, `merged`, or `completed`. Dispatches the Simulator to verify cross-task integration before handing off to the next bound skill. The result is persisted to `qa_runs` (via `yoke workflow-item epic-task simulation-upsert`) so the review gate can trust the recorded simulation evidence. **Inherited:** `MAIN_ROOT`, `_epic_id`, `N`, `_worktree_path`, `_worktree_branch`, `_max_attempts`, `MAX_SIMULATOR_REPROMPTS`, `_project`, `_workspace`.
 
 ---
 
@@ -8,8 +8,11 @@ Integration simulation stage of the conduct epic flow. Runs after all epic tasks
 
 **Skip check:** If `--force` or `--ignore-gaps` was passed, skip the simulation entirely. Print `Simulation: skipped (--force)`. Do NOT write a simulation record. **Go to `cleanup-report.md`** (6z-cleanup Main-Repo Cleanup, then 7 Final Report) with `SUCCESS`, printing:
 ```
-All tasks in this worktree complete. Run '/yoke polish PREFIX-{N}' to finish the parent epic.
+All tasks in this worktree complete. Next bound skill: /yoke {NEXT_SKILL_ID} PREFIX-{N}.
 ```
+
+Resolve `NEXT_SKILL_ID` from the parent's fresh item detail read through
+[the shared handoff recipe](../shared/stage-handoff.md).
 
 **Read and follow: `.agents/skills/yoke/conduct/simulation-gate-criteria.md`**
 

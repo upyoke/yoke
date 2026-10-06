@@ -46,7 +46,7 @@ Do not maintain a second workflow-name or status allowlist here.
 _item_body=$(yoke items get ${N} body)
 ```
 
-Search for `- [ ] AC-` lines or unlabeled `- [ ] ` checkboxes under `## Acceptance Criteria`. If none found: hard-block with `PREFIX-{N} has no acceptance criteria. Run '/yoke shepherd PREFIX-{N}'.`
+Search for `- [ ] AC-` lines or unlabeled `- [ ] ` checkboxes under `## Acceptance Criteria`. If none found: hard-block with `acceptance_criteria_missing: PREFIX-{N} has no acceptance criteria. Restore them through its pinned authoring binding before dispatching.` Read `yoke items detail get PREFIX-{N} --json` to resolve that workflow pin.
 
 ### S3. Item Validation
 

@@ -32,12 +32,16 @@ _AUTHOR = (
 
 
 def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
+    result = subprocess.run(
         ["git", "-C", str(repo), *args],
-        check=True,
         capture_output=True,
         text=True,
     )
+    assert result.returncode == 0, (
+        f"Fixture Git command failed ({result.returncode}): {result.args!r}\n"
+        f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+    )
+    return result
 
 
 def _run_git(args: list[str], *, cwd=None, capture: bool = False, **_kw):
@@ -102,9 +106,7 @@ def test_terminal_run_worktree_is_retired(
     path = _driver_worktree(repo, "run-20260101-001")
     statuses["run-20260101-001"] = "succeeded"
 
-    verdicts = retire_terminal_deploy_run_worktrees(
-        repo_root=repo, run_git=_run_git
-    )
+    verdicts = retire_terminal_deploy_run_worktrees(repo_root=repo, run_git=_run_git)
 
     assert [lane.state for lane in verdicts] == [LANE_RETIRED]
     assert not path.exists()
@@ -132,9 +134,7 @@ def test_live_run_worktree_is_kept(
     path = _driver_worktree(repo, "run-20260101-002")
     statuses["run-20260101-002"] = status
 
-    verdicts = retire_terminal_deploy_run_worktrees(
-        repo_root=repo, run_git=_run_git
-    )
+    verdicts = retire_terminal_deploy_run_worktrees(repo_root=repo, run_git=_run_git)
 
     assert [lane.state for lane in verdicts] == [LANE_RUN_OPEN]
     assert verdicts[0].run_is_open
@@ -150,9 +150,7 @@ def test_dirty_deploy_worktree_is_kept_with_a_named_reason(
     statuses["run-20260101-003"] = "succeeded"
     (path / "operator-scratch.txt").write_text("keep me", encoding="utf-8")
 
-    verdicts = retire_terminal_deploy_run_worktrees(
-        repo_root=repo, run_git=_run_git
-    )
+    verdicts = retire_terminal_deploy_run_worktrees(repo_root=repo, run_git=_run_git)
 
     assert [lane.state for lane in verdicts] == [LANE_BLOCKED]
     assert "operator-scratch.txt" in verdicts[0].reason
@@ -170,9 +168,7 @@ def test_generated_caches_do_not_block_retirement(
     cache.mkdir()
     (cache / "driver.pyc").write_bytes(b"\x00")
 
-    verdicts = retire_terminal_deploy_run_worktrees(
-        repo_root=repo, run_git=_run_git
-    )
+    verdicts = retire_terminal_deploy_run_worktrees(repo_root=repo, run_git=_run_git)
 
     assert [lane.state for lane in verdicts] == [LANE_RETIRED]
     assert not path.exists()
@@ -190,9 +186,7 @@ def test_unreadable_run_status_keeps_the_worktree(
         lambda _run_id: ("", "control plane unreachable"),
     )
 
-    verdicts = retire_terminal_deploy_run_worktrees(
-        repo_root=repo, run_git=_run_git
-    )
+    verdicts = retire_terminal_deploy_run_worktrees(repo_root=repo, run_git=_run_git)
 
     assert [lane.state for lane in verdicts] == [LANE_BLOCKED]
     assert "control plane unreachable" in verdicts[0].reason
@@ -207,18 +201,14 @@ def test_an_unrecognised_status_keeps_the_worktree(
     path = _driver_worktree(repo, "run-20260101-011")
     statuses["run-20260101-011"] = "quiesced"
 
-    verdicts = retire_terminal_deploy_run_worktrees(
-        repo_root=repo, run_git=_run_git
-    )
+    verdicts = retire_terminal_deploy_run_worktrees(repo_root=repo, run_git=_run_git)
 
     assert [lane.state for lane in verdicts] == [LANE_BLOCKED]
     assert "quiesced" in verdicts[0].reason
     assert path.is_dir()
 
 
-def test_item_lanes_are_never_touched(
-    tmp_path: Path, statuses: dict[str, str]
-) -> None:
+def test_item_lanes_are_never_touched(tmp_path: Path, statuses: dict[str, str]) -> None:
     repo = _repo(tmp_path / "repo")
     lane = repo / ".worktrees" / "ITEM-1"
     lane.parent.mkdir(parents=True, exist_ok=True)
@@ -245,9 +235,7 @@ def test_the_caller_s_own_run_is_left_alone(
     assert mine.is_dir()
 
 
-def test_assessment_changes_nothing(
-    tmp_path: Path, statuses: dict[str, str]
-) -> None:
+def test_assessment_changes_nothing(tmp_path: Path, statuses: dict[str, str]) -> None:
     repo = _repo(tmp_path / "repo")
     path = _driver_worktree(repo, "run-20260101-007")
     statuses["run-20260101-007"] = "succeeded"
@@ -287,9 +275,7 @@ def test_one_finished_run_does_not_hold_up_another(
 def test_run_id_reads_back_from_the_directory_name() -> None:
     root = Path("/checkout")
     assert (
-        run_id_for_driver_worktree(
-            driver_worktree_path(root, "run-20260101-010"), root
-        )
+        run_id_for_driver_worktree(driver_worktree_path(root, "run-20260101-010"), root)
         == "run-20260101-010"
     )
     assert run_id_for_driver_worktree(root / ".worktrees" / "ITEM-7", root) == ""

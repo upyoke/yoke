@@ -222,9 +222,13 @@ Emit this block as regular output text (not a comment or hidden metadata). The b
 claim was already released in step 6b with reason `handoff-to-usher`. This is a
 command boundary: do **not** continue merge/deploy work by mutating later
 statuses in the same finalize flow. Emit:
- > **Next step:** Run `/yoke usher PREFIX-{N}` to merge and deploy.
+ > **Next bound skill:** `/yoke {NEXT_SKILL_ID} PREFIX-{N}`
 
-If the operator explicitly wants usher next, start `/yoke usher PREFIX-{N}` as a fresh command entrypoint so usher can claim the item itself.
+Read the item again and resolve `NEXT_SKILL_ID` from
+`result.item.workflow.next_skill_id` using
+[the shared handoff recipe](../shared/stage-handoff.md). If the operator
+requests that next segment, start the rendered command as a fresh entrypoint
+so its bound skill can claim the item itself.
 
 **If target was `reviewing-implementation` and the pinned `implement` binding
 still owns the stage:** The item has entered the review phase. This is still
@@ -255,4 +259,8 @@ rejected even when tests are green.
 
 **If target was `polishing-implementation`:** Routed polish is actively in
 progress or has been resumed. The session keeps its claim. Emit:
- > **Next step:** Continue `/yoke polish PREFIX-{N}` until it advances to `implemented`.
+ > **Next bound skill:** `/yoke {NEXT_SKILL_ID} PREFIX-{N}`
+
+Refresh the item and render its current bound skill using
+[the shared handoff recipe](../shared/stage-handoff.md); the pinned binding
+determines which skill continues the stage.

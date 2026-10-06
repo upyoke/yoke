@@ -20,7 +20,9 @@ the resolution order.
 `/yoke refine` ([readiness-repair.md](../refine/readiness-repair.md)).**
 The Engineer, Tester, Boss, Conduct, Polish, Advance, and Usher skills do
 NOT author coordination edges — when a runtime path-claim collision
-surfaces in those phases, route the operator back to `/yoke refine`
+surfaces in those phases, escalate for authoring-phase repair. Resolve the
+authoring segment from the item's pinned workflow before presenting a re-entry
+command, following [the shared handoff recipe](../shared/stage-handoff.md),
 rather than authoring the edge inline.
 
 ## 0. Auto-classification: rendered-output overlap is a no-op

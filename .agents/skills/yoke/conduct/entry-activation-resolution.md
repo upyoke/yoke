@@ -31,7 +31,7 @@ _synced_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_task
 
 **If NOT synced:**
 
-1. Pre-check: `_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='$_epic_id'")`. If 0, stop: `No tasks found for PREFIX-{N}. Run '/yoke shepherd {_epic_id}' first.`
+1. Pre-check: `_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='$_epic_id'")`. If 0, stop with `task_graph_missing: No tasks found for PREFIX-{N}. Restore the task graph through its pinned authoring binding before dispatching.` Read `yoke items detail get PREFIX-{N} --json` to resolve that workflow pin.
 
 2. Auto-sync: Print `Epic PREFIX-{N} not yet synced to GitHub. Running sync automatically...` then:
  ```bash
@@ -71,7 +71,7 @@ This step enumerates **every** dispatchable head task across the epic's dispatch
 4. Surviving candidates form `_task_ids` (newline-separated). Set `_task_id` to the first surviving candidate and hydrate `_worktree_branch` / `_worktree_path` from that task's suffixed variables so single-task downstream prose continues to work.
 5. Re-entry semantics: tasks already at `implementing` / `reviewing-implementation` pass through the freshness evaluator in step 2 before being classified. Fresh-heartbeat or recent-task-event heads remain surfaced as busy and are NOT re-enumerated; stale heads whose parent claim is not actively held by another session route into the candidate list via `resumable` and resume through `5f-rehydrate` in `dispatch-context-rehydrate.md`. This closes the issue/epic asymmetry: the issue path's `yoke_core.domain.worktree_preflight` already recovers stale `implementing` via the `claim_work` primitive's same-session re-acquire plus `clean_stale_harness_sessions` sweep, and the epic chain-head fan-out now applies the matching freshness check.
 6. If `_task_ids` is empty, report the terminal state for this invocation:
- - All chains complete (every chain's queue is fully `done`/`reviewed-implementation`): `All tasks in PREFIX-{N} are complete. Run '/yoke polish PREFIX-{N}' to finish the parent epic.`
+ - All chains complete (every chain's queue is fully `done`/`reviewed-implementation`): report that all tasks are complete. Render the parent's next skill from a fresh item detail read using [the shared handoff recipe](../shared/stage-handoff.md).
  - Some chains busy (no exclusions, only `implementing`/`reviewing-implementation` heads): `PREFIX-{N} has tasks in progress: {list}. Wait for them to finish or open another tab.`
  - Some chains blocked (only excluded by dependency or same-worktree filters): `PREFIX-{N} has blocked tasks: {list with reasons}.`
  - Mixed (some busy, some excluded by filters): combine the busy and excluded summaries.
@@ -154,7 +154,8 @@ print(next((r["path"] for r in rows if r["branch"] == sys.argv[1]), ""))' "$_wor
  #     via `yoke db read --format lines "SELECT status FROM
  #     epic_tasks WHERE epic_id=${_epic_id} AND task_num=<N>"`;
  #   - `git -C "${_worktree_path}" merge <predecessor-branch> --no-edit`.
- # Halt and route back to `/yoke refine` if any predecessor is unfinished
+ # Halt for authoring-phase repair if any predecessor is unfinished.
+ # Resolve the pinned authoring binding before presenting its re-entry command.
  # or any merge conflicts. Re-entry idempotent — `git merge` on an already-
  # merged commit is a fast-forward no-op; ALWAYS run the merge, never
  # skip based on a "did I already merge" check. Skip the entire step

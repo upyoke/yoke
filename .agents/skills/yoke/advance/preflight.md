@@ -69,8 +69,9 @@ coverage gate is **block-by-design**, never bypassed: widening a claim after
 the worktree exists would move coverage while edits are already landing. When
 it refuses, repair the claim before the lane takes edits:
 `yoke claims path widen --claim-id <id> --add-paths <added> --reason "<why widening>" --item PREFIX-N`,
-or repair the budget through `/yoke refine` while the item is still in its
-Refine segment.
+or repair the budget in its pinned authoring segment. Name the failed coverage
+gate and resolve that segment's binding before offering re-entry, as described
+in [the shared handoff recipe](../shared/stage-handoff.md).
 
 ## Advisories before implementation (not gates)
 

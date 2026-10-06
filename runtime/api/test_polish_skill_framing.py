@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pytest
 
-from runtime.api.skill_doc_regressions_test_helpers import REPO, SKILLS, _read
+from runtime.api.skill_doc_regressions_test_helpers import SKILLS, _read
 
 POLISH_DIR = SKILLS / "polish"
 
@@ -44,13 +44,13 @@ OPERATION_PAIRS: tuple[tuple[str, str, str, str], ...] = (
     (
         "parse-and-claim.md",
         "lifecycle reviewed-implementation -> polishing-implementation",
-        r"/yoke advance.+polishing-implementation",
+        r"yoke lifecycle transition[^\n]+--to polishing-implementation",
         r'"function":\s*"lifecycle\.transition\.execute"',
     ),
     (
         "advance.md",
         "lifecycle polishing-implementation -> implemented",
-        r"/yoke advance.+implemented",
+        r"yoke lifecycle transition[^\n]+--to implemented",
         r'"function":\s*"lifecycle\.transition\.execute"',
     ),
     (
@@ -70,7 +70,10 @@ OPERATION_PAIRS: tuple[tuple[str, str, str, str], ...] = (
 
 @pytest.fixture(scope="module")
 def polish_texts() -> dict[str, str]:
-    return {name: _read(POLISH_DIR / name) for name in {"parse-and-claim.md", "advance.md", "fixes.md"}}
+    return {
+        name: _read(POLISH_DIR / name)
+        for name in {"parse-and-claim.md", "advance.md", "fixes.md"}
+    }
 
 
 @pytest.mark.parametrize(
@@ -103,7 +106,9 @@ def test_cli_recipe_leads_function_envelope(
         )
 
 
-def test_polish_lifecycle_envelopes_use_canonical_shape(polish_texts: dict[str, str]) -> None:
+def test_polish_lifecycle_envelopes_use_canonical_shape(
+    polish_texts: dict[str, str],
+) -> None:
     """Every retained lifecycle JSON envelope must use the canonical
     function id and the source_status / target_status payload keys.
 
@@ -111,7 +116,9 @@ def test_polish_lifecycle_envelopes_use_canonical_shape(polish_texts: dict[str, 
     suffix) and the legacy `"from"` / `"to"` payload keys.
     """
     legacy_function_re = re.compile(r'"function":\s*"lifecycle\.transition"\s*[,}]')
-    legacy_from_re = re.compile(r'"from":\s*"(reviewed-implementation|polishing-implementation)"')
+    legacy_from_re = re.compile(
+        r'"from":\s*"(reviewed-implementation|polishing-implementation)"'
+    )
     legacy_to_re = re.compile(r'"to":\s*"(polishing-implementation|implemented)"')
     for filename, text in polish_texts.items():
         assert legacy_function_re.search(text) is None, (

@@ -5,11 +5,13 @@
    epic_id: <id>}`, empty payload). If `result.tasks` is empty, inform
    the user and suggest next steps:
 
-   > PREFIX-{epic-id} has no epic tasks. Run `/yoke shepherd PREFIX-{epic-id}`
+   > task_graph_missing: PREFIX-{epic-id} has no epic tasks. Restore its task
+   > graph through the authoring binding in its pinned workflow before retrying.
+   > Read `yoke items detail get PREFIX-{epic-id} --json` to resolve the pin.
    > to create tasks first, then retry `/yoke amend`.
 
    Do NOT conclude from an empty result that the item is "not an epic"
-   — it may simply need `/yoke shepherd` first. Do NOT fall back to
+   — its pinned authoring segment may need to complete first. Do NOT fall back to
    directly editing the item body as a workaround.
 
 2. **Show current task state.** Render the `epic_tasks.list.run`

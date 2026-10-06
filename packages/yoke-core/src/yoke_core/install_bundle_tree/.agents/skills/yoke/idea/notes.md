@@ -6,11 +6,10 @@
   the registered `items.create` function as `workflow: "blitz"` with
   `entry_surface: "harness_skill"`. The new item still starts at `idea`;
   refinement must link exactly one execution strategy document before
-  `/yoke blitz` begins at `refined-idea`.
+  document execution begins at the pinned refinement boundary.
 - Status is always `idea` for new items. Follow the workflow-specific
-  handoff in `infer-and-create.md`: Issue and Epic use `/yoke shepherd`;
-  Blitz uses `/yoke refine` and then `/yoke blitz`. For Task, read
-  `yoke workflows item get PREFIX-N` and follow its pinned skill binding.
+  handoff in `infer-and-create.md`: read the created item's `next_skill_id`
+  and render its command through [the shared handoff recipe](../shared/stage-handoff.md).
 - The PREFIX-N ID is permanent — it never changes even after GitHub sync.
 - Items are auto-synced to GitHub on creation. If GitHub sync is unavailable, the item is created locally and can be synced later through the internal item sync repair path; do not teach that repair path as normal product flow.
 - This is a write command — it creates a file and inserts a DB row.

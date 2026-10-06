@@ -55,8 +55,9 @@ If the operator supplied `--workflow`:
 - Read its ordered `stages`, `skill_bindings`, and `policies`; do not branch
   on the workflow id.
 - If its initial stage is owned directly by the `dash` skill, route to
-  `/yoke dash "instruction"` so filing and the direct-execution contract are
-  created atomically.
+  that bound procedure by reading and following `../dash/SKILL.md` with the
+  instruction as its argument. Invoke it internally so filing and the
+  direct-execution contract are created atomically.
 - If its policies declare `worktrees=none` and `delivery=merge_free`, the
   terminal shortcut is `yoke task TITLE INSTRUCTION
   --execution-instructions-considered`; it files the same Task shape without
@@ -316,22 +317,18 @@ Dry-run mode: print what would be persisted instead of mutating state.
 
 Read the created item from the DB and display a confirmation. If GitHub issue creation succeeded, include the linked issue number. If dependencies were detected, include them in the confirmation output.
 
-Read the created item's immutable pin with `yoke workflows item get`, read that
-exact version with `yoke workflows version get`, and resolve the active
-half-open skill binding. Print the definition-owned handoff:
+Read the created item with `yoke items detail get ITEM --json` and render
+`result.item.workflow.next_skill_id` through
+[the shared handoff recipe](../shared/stage-handoff.md). Print:
 
 ```text
-Next step: /yoke {skill_id} PREFIX-{N}
+Next step: /yoke {NEXT_SKILL_ID} PREFIX-{N}
 ```
 
-If the definition's later binding is `blitz`, also print the refinement and
-execution handoff:
-
-```text
-Next step: /yoke refine PREFIX-{N}
-After refinement links exactly one execution strategy document and the item
-reaches refined-idea: /yoke blitz PREFIX-{N}
-```
+If the definition's later binding is `blitz`, explain that refinement must
+link exactly one execution strategy document before document execution.
+Render only the current next skill; the later handoff is read after that
+transition succeeds.
 
 The link is the registered `strategy.execution.link` operation. Do not start
 `/yoke blitz`, generate child items, or treat the intake body as the live

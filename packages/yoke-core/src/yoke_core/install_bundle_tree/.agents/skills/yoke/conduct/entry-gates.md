@@ -101,7 +101,9 @@ item content; it layers on top of, and never replaces, the item's own spec.
  - If no ACs found: hard-block with:
  > GATE [hard-block]: Missing acceptance criteria.
  > PREFIX-N has no acceptance criteria. Conduct requires ACs to verify.
- > Remediation: Run '/yoke shepherd PREFIX-N' to add acceptance criteria.
+ > Remediation: Read `yoke items detail get PREFIX-N --json` and resolve the
+ > pinned authoring binding. Restore acceptance criteria through that segment
+ > before dispatching; report `acceptance_criteria_missing` while they are absent.
 
 3. **Activation dependency gate (HARD BLOCK):** Use the shared hard-block dependency checker with activation-only semantics. Conduct start gating evaluates only `activation` blockers — `integration` and `closure` edges are enforced downstream by merge/usher gates, not at dispatch time:
  ```bash

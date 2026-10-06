@@ -45,9 +45,11 @@ When any of these fire, conduct does NOT enter result branching; it goes straigh
  ```
  If `_parent_status` is NOT `reviewed-implementation`: **HALT**. Auto-handoff failed. Do NOT write `status reviewed-implementation` manually. **Go to `cleanup-report.md`** with `HALTED`.
 
-- Do NOT run done-transitions, close the GitHub issue, or remove the worktree. Print:
+- Do NOT run done-transitions, close the GitHub issue, or remove the worktree.
+  Refresh the item and resolve `NEXT_SKILL_ID` with
+  [the shared handoff recipe](../shared/stage-handoff.md). Print:
  ```
- All tasks in this worktree complete. Run '/yoke polish PREFIX-{N}' to finish the parent epic.
+ All tasks in this worktree complete. Next bound skill: /yoke {NEXT_SKILL_ID} PREFIX-{N}
  ```
 - **Go to `cleanup-report.md`** with `SUCCESS`.
 
@@ -138,7 +140,9 @@ Read and follow `.agents/skills/yoke/conduct/simulation-autofix.md`. Pass inheri
  _parent_status=$(yoke items get "${N}" status 2>/dev/null)
  ```
  If `_parent_status` is not `reviewed-implementation`: **HALT**. Do NOT write status manually.
-- Print: `All tasks in this worktree complete (gaps auto-resolved). Run '/yoke polish PREFIX-{N}' to finish the parent epic.`
+- Refresh the item and resolve `NEXT_SKILL_ID` with
+  [the shared handoff recipe](../shared/stage-handoff.md). Print:
+  `All tasks in this worktree complete (gaps auto-resolved). Next bound skill: /yoke {NEXT_SKILL_ID} PREFIX-{N}`
 - **Go to `cleanup-report.md`** with `SUCCESS`.
 
 **If auto-fix returns `AUTOFIX_HALTED`:**

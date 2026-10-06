@@ -122,15 +122,15 @@ Function-call equivalent (for dispatch-surface callers — the CLI above builds 
 }
 ```
 
-**3b. Transition to polishing-implementation** (when entry status is `reviewed-implementation`). Use `/yoke advance` so the canonical advance skill runs the gate and emits the matching event:
+**3b. Transition to polishing-implementation** (when entry status is `reviewed-implementation`). Use `lifecycle.transition.execute` to run the gate and emit the matching event:
 
 ```bash
-/yoke advance "$ITEM_REF" polishing-implementation
+yoke lifecycle transition "$ITEM_REF" --to polishing-implementation
 ```
 
 Update `ITEM_STATUS="polishing-implementation"` in your local shell context after the advance returns success.
 
-Function-call equivalent (for dispatch-surface callers — `/yoke advance` builds this envelope internally):
+Function-call equivalent (the CLI above builds this envelope internally):
 
 ```jsonc
 {

@@ -18,7 +18,7 @@ anticipated paths in the task body.
 The Engineer prompt template surfaces this block under the heading `Anticipated path coverage (pre-authorized)` (see `dispatch-context-prompts.md` step 5g). It is **read-only context for the Engineer**:
 
 - The set comes from existing persisted task body content. No new DB column, event type, function id, or storage surface is introduced for this surfacing.
-- Conduct, the Engineer, the Tester, and downstream phases do **not** mutate the anticipated-paths list. Mid-implementation discoveries that fall outside it still route through the Engineer's commit-time claim-widening discipline; cross-task or new-surface discoveries route back to `/yoke refine`.
+- Conduct, the Engineer, the Tester, and downstream phases do **not** mutate the anticipated-paths list. Mid-implementation discoveries that fall outside it still route through the Engineer's commit-time claim-widening discipline; cross-task or new-surface discoveries require authoring-phase repair. Resolve that segment from the pinned workflow before presenting a re-entry command, using [the shared handoff recipe](../shared/stage-handoff.md).
 - When a task body has no `## Anticipated Paths` block (older plans, simple non-cross-cutting tasks), conduct omits the heading from the dispatch prompt entirely — there is no "empty section" placeholder.
 
 ---
