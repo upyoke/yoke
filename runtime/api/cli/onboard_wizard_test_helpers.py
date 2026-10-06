@@ -60,12 +60,7 @@ def stub_path_doctor(monkeypatch) -> None:
     )
     stub_token_verifiers(monkeypatch)
     stub_board_art(monkeypatch)
-    # Flow scenarios type host-independent fictional folder paths; accept them so
-    # the real filesystem validators (covered by their own unit suite) don't trip.
     stub_folder_validators(monkeypatch)
-    # The Review pre-flight runs network probes (token still valid, repo name
-    # free); stub them clear so flow scenarios stay offline. The pre-flight's real
-    # behavior is covered by its own unit + flow suite.
     stub_preflight_clear(monkeypatch)
 
 
@@ -84,6 +79,11 @@ def stub_token_verifiers(monkeypatch) -> None:
     from yoke_cli.config import existing_project_lookup
     from yoke_cli.config import onboard_wizard_flow_connect
     from yoke_cli.config import onboard_wizard_flow_github
+    from yoke_cli.config import team_server_authorization
+
+    monkeypatch.setattr(
+        team_server_authorization, "browser_sign_in_available", lambda _: False
+    )
 
     monkeypatch.setattr(
         onboard_wizard_flow_connect,

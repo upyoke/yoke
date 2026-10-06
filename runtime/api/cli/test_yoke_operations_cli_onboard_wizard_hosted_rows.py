@@ -49,7 +49,8 @@ def _stub_browser_approval(monkeypatch) -> list[str]:
     """Capture the platform a hosted row hands the connect leg."""
     started: list[str] = []
 
-    def _start(url: str):
+    def _start(url: str, *, self_host: bool = False):
+        assert self_host is False
         started.append(url)
         return hosted_machine_authorization.PendingMachineAuthorization(
             platform_url=url,
