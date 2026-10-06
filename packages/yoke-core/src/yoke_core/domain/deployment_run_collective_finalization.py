@@ -116,6 +116,23 @@ def _final_members(conn: Any, run_id: str, *, at_wait: bool) -> list[dict[str, A
     return members
 
 
+def _split_waiting_members(
+    conn: Any, run_id: str
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Members at their wait this run must close, and those it only delivers.
+
+    A member whose only open obligations target another environment is
+    delivered by this run and closes once that target answers it.
+    """
+    from yoke_core.domain.deployment_run_other_target_members import (
+        split_other_target_members,
+    )
+
+    return split_other_target_members(
+        conn, run_id, _final_members(conn, run_id, at_wait=True)
+    )
+
+
 def _prepared_members(
     conn: Any, run_id: str, members: list[dict[str, Any]]
 ) -> tuple[list[dict[str, Any]], dict[int, str]]:
@@ -249,7 +266,13 @@ def _commit_phase(conn: Any, run_id: str) -> tuple[list[Any], Optional[str]]:
     except SettlementTransactionLost as exc:
         conn.rollback()
         return [], _settle_refusal(run_id, [str(exc)], closed=False)
-    if not refusals and not _final_members(conn, run_id, at_wait=True):
+    required, deferred = _split_waiting_members(conn, run_id)
+    if not refusals and not required:
+        from yoke_core.domain.deployment_run_other_target_members import (
+            record_other_target_deliveries,
+        )
+
+        record_other_target_deliveries(conn, run_id, deferred)
         conn.commit()
         return staged, None
     conn.rollback()
@@ -261,7 +284,7 @@ def _commit_phase(conn: Any, run_id: str) -> tuple[list[Any], Optional[str]]:
             or (HELD_WITH_RUN if member["item_id"] in held else "")
             or _unsettled_reason(conn, run_id, member["item_id"])
         )
-        for member in _final_members(conn, run_id, at_wait=True)
+        for member in required
     ]
     return [], _settle_refusal(run_id, unsettled, closed=False)
 
@@ -308,7 +331,9 @@ def settle_members(conn: Any, run_id: str) -> Optional[str]:
     Call after :func:`mark_settling`. A required member is one this run is
     the final delivery of and has completion authority for; while any is
     still at its release wait — its close-out would refuse, or it was never
-    cleared — the run may not succeed and no member closes. Returns the
+    cleared — the run may not succeed and no member closes. A member owing
+    only another environment's obligations does not hold the run; it stays
+    open, delivered here, until that target answers it. Returns the
     refusal that keeps the run settling, or ``None`` once it may succeed.
     """
     from yoke_core.domain.deployment_run_member_removal import release_replaced_members
