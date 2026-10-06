@@ -12,6 +12,7 @@ from yoke_cli.packs.receipt import (
     validate_receipt,
     write_receipt,
 )
+from yoke_contracts.packs import PACK_RECEIPT_SCHEMA
 
 
 def test_receipt_round_trip_preserves_the_version_render_baseline(
@@ -63,6 +64,7 @@ def test_load_receipt_upgrades_original_paths_to_explicit_project_paths(
     receipt = _receipt()
     receipt["schema"] = 1
     del receipt["packs"]["sample"]["files"]["app.py"]["path"]
+    del receipt["packs"]["sample"]["source"]
     authority = tmp_path / ".yoke" / "packs.json"
     authority.parent.mkdir()
     authority.write_text(json.dumps(receipt), encoding="utf-8")
@@ -70,7 +72,7 @@ def test_load_receipt_upgrades_original_paths_to_explicit_project_paths(
     loaded = load_receipt(tmp_path)
 
     assert loaded is not None
-    assert loaded["schema"] == 3
+    assert loaded["schema"] == PACK_RECEIPT_SCHEMA
     assert loaded["packs"]["sample"]["files"]["app.py"]["path"] == "app.py"
     assert loaded["packs"]["sample"]["prerequisites"] == []
 
@@ -81,6 +83,7 @@ def test_load_receipt_upgrades_previous_explicit_paths_with_prerequisites(
     receipt = _receipt()
     receipt["schema"] = 2
     del receipt["packs"]["sample"]["prerequisites"]
+    del receipt["packs"]["sample"]["source"]
     authority = tmp_path / ".yoke" / "packs.json"
     authority.parent.mkdir()
     authority.write_text(json.dumps(receipt), encoding="utf-8")
@@ -88,9 +91,60 @@ def test_load_receipt_upgrades_previous_explicit_paths_with_prerequisites(
     loaded = load_receipt(tmp_path)
 
     assert loaded is not None
-    assert loaded["schema"] == 3
+    assert loaded["schema"] == PACK_RECEIPT_SCHEMA
     assert loaded["packs"]["sample"]["prerequisites"] == []
     assert loaded["packs"]["sample"]["files"]["app.py"]["path"] == "app.py"
+
+
+def test_load_receipt_upgrades_schema_three_to_the_served_source(
+    tmp_path: Path,
+) -> None:
+    receipt = _receipt()
+    receipt["schema"] = 3
+    receipt["packs"]["sample"]["prerequisites"] = [_prerequisite()]
+    del receipt["packs"]["sample"]["source"]
+    authority = tmp_path / ".yoke" / "packs.json"
+    authority.parent.mkdir()
+    authority.write_text(json.dumps(receipt), encoding="utf-8")
+
+    loaded = load_receipt(tmp_path)
+
+    assert loaded is not None
+    assert loaded["schema"] == PACK_RECEIPT_SCHEMA
+    assert loaded["packs"]["sample"]["source"] == {"kind": "served"}
+    assert loaded["packs"]["sample"]["prerequisites"] == [_prerequisite()]
+
+
+def test_receipt_records_a_merged_commit_source(tmp_path: Path) -> None:
+    receipt = _receipt()
+    receipt["packs"]["sample"]["source"] = {"kind": "commit", "commit": "a" * 40}
+
+    write_receipt(tmp_path, receipt)
+
+    assert load_receipt(tmp_path) == receipt
+
+
+def test_receipt_rejects_a_pre_release_source_without_its_commit(
+    tmp_path: Path,
+) -> None:
+    receipt = _receipt()
+    receipt["packs"]["sample"]["source"] = {"kind": "commit"}
+
+    with pytest.raises(PackReceiptError, match="must name its full commit"):
+        write_receipt(tmp_path, receipt)
+
+
+def _prerequisite() -> dict[str, object]:
+    return {
+        "tool": "pulumi",
+        "minimum_version": "3.0.0",
+        "probe": {"executable": "pulumi", "version_args": ["version"]},
+        "install": {
+            "darwin": "brew install pulumi",
+            "linux": "curl -fsSL https://get.pulumi.com | sh",
+            "windows": "choco install pulumi",
+        },
+    }
 
 
 def _receipt() -> dict[str, object]:
@@ -99,7 +153,7 @@ def _receipt() -> dict[str, object]:
     return json.loads(
         json.dumps(
             {
-                "schema": 3,
+                "schema": PACK_RECEIPT_SCHEMA,
                 "project_id": 9,
                 "project_slug": "sample",
                 "packs": {
@@ -108,6 +162,7 @@ def _receipt() -> dict[str, object]:
                         "content_digest": digest,
                         "render_values": {"project_name": "sample"},
                         "prerequisites": [],
+                        "source": {"kind": "served"},
                         "files": {
                             "app.py": {
                                 "path": "app.py",

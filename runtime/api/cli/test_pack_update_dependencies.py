@@ -9,6 +9,7 @@ from runtime.api.cli.pack_runner_test_support import (
     make_receipt_record,
 )
 from yoke_cli.packs import runner
+from yoke_contracts.packs import PACK_RECEIPT_SCHEMA
 from yoke_cli.packs.receipt import load_receipt, write_receipt
 
 
@@ -32,7 +33,7 @@ def test_update_adds_new_dependency_after_handing_off_an_unchanged_file(
     write_receipt(
         tmp_path,
         {
-            "schema": 3,
+            "schema": PACK_RECEIPT_SCHEMA,
             "project_id": 9,
             "project_slug": "sample",
             "packs": {"feature": make_receipt_record(old)},

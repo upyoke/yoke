@@ -10,10 +10,12 @@ import tempfile
 from typing import Any, Mapping
 
 from yoke_contracts.packs import (
+    PACK_CATALOG_SERVED,
     PACK_RECEIPT_PREVIOUS_SCHEMAS,
     PACK_RECEIPT_REL,
     PACK_RECEIPT_SCHEMA,
     validate_pack_prerequisites,
+    validate_pack_source,
 )
 
 
@@ -52,13 +54,15 @@ def load_receipt(repo_root: Path) -> dict[str, Any] | None:
 
 
 def _upgrade_receipt(payload: Any) -> dict[str, Any]:
-    """Upgrade prior receipt schemas to explicit paths and prerequisites.
+    """Upgrade prior receipt schemas to explicit paths, prerequisites, and source.
 
     Version-one receipts already identify every Pack file by its original
     rendered target.  The current shape preserves that key as the stable Pack
     identity and records the project's current location separately. Receipts
     written before prerequisite declarations receive an empty list because no
     machine-tool contract was recorded when those versions were installed.
+    Receipts written before source recording only ever installed from the
+    served catalog, so every record gains the served source.
     """
     if not isinstance(payload, dict):
         raise PackReceiptError("Pack receipt has an unsupported shape")
@@ -84,7 +88,9 @@ def _upgrade_receipt(payload: Any) -> dict[str, Any]:
                 else file_record
                 for pack_path, file_record in files.items()
             }
-        record["prerequisites"] = []
+        if previous_schema in (1, 2):
+            record["prerequisites"] = []
+        record["source"] = {"kind": PACK_CATALOG_SERVED}
         upgraded_packs[slug] = record
     upgraded["packs"] = upgraded_packs
     return upgraded
@@ -115,6 +121,7 @@ def validate_receipt(payload: Any) -> None:
             "content_digest",
             "render_values",
             "prerequisites",
+            "source",
             "files",
         }:
             raise PackReceiptError(f"Pack receipt record {slug!r} is invalid")
@@ -134,6 +141,12 @@ def validate_receipt(payload: Any) -> None:
         except ValueError as exc:
             raise PackReceiptError(
                 f"Pack receipt prerequisites {slug!r} are invalid: {exc}"
+            ) from exc
+        try:
+            validate_pack_source(record["source"])
+        except ValueError as exc:
+            raise PackReceiptError(
+                f"Pack receipt source {slug!r} is invalid: {exc}"
             ) from exc
         if not isinstance(record["files"], dict):
             raise PackReceiptError(f"Pack receipt files {slug!r} are invalid")

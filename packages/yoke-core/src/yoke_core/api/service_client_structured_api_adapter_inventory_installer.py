@@ -97,6 +97,11 @@ INSTALLER_ADAPTERS: List[AdapterEntry] = [
         cli_invocation="yoke packs get PACK [REPO_ROOT] --project NAME",
         notes="Returns one immutable, project-rendered Pack bundle; the client previews local checkout conflicts before any write.",
     ),
+    _read_entry(
+        function_id="packs.bundle.render",
+        cli_invocation="yoke packs get|update PACK [REPO_ROOT] --project NAME --catalog lane|commit:SHA",
+        notes="Renders one Pack version from client-submitted lane or merged-commit source with the project's render values, for installs before a release serves that version.",
+    ),
     AdapterEntry(
         function_id="packs.project.report",
         cli_invocation="yoke packs get|update PACK [REPO_ROOT] --project NAME --apply",

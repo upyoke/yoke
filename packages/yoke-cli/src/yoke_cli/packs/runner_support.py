@@ -12,6 +12,7 @@ from typing import Any, Mapping
 
 from yoke_cli.commands._helpers import ensure_handlers_loaded
 from yoke_cli.config import existing_project_lookup
+from yoke_cli.packs.catalog_source import PackCatalog
 from yoke_cli.packs.errors import PackClientError
 from yoke_cli.packs.receipt import assert_pack_targets_safe
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
@@ -26,13 +27,19 @@ def _fetch_bundle(
     version: str | None,
     render_values: Mapping[str, str] | None = None,
     session_id: str | None,
+    catalog: PackCatalog | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {"project": project, "pack": pack}
     if version is not None:
         payload["version"] = version
     if render_values is not None:
         payload["render_values"] = dict(render_values)
-    bundle = _call("packs.bundle.get", payload, session_id=session_id)
+    if catalog is None or catalog.served:
+        bundle = _call("packs.bundle.get", payload, session_id=session_id)
+    else:
+        payload["source"] = catalog.source()
+        payload["files"] = catalog.pack_files(pack)
+        bundle = _call("packs.bundle.render", payload, session_id=session_id)
     _validate_bundle(bundle)
     return bundle
 
@@ -186,7 +193,8 @@ def _project_entries(
 
 def _receipt_record(
     bundle: Mapping[str, Any],
-    previous: Mapping[str, Any] | None = None,
+    previous: Mapping[str, Any] | None,
+    source: Mapping[str, str],
 ) -> dict[str, Any]:
     previous_files = previous.get("files", {}) if previous is not None else {}
     return {
@@ -194,6 +202,7 @@ def _receipt_record(
         "content_digest": bundle["content_digest"],
         "render_values": dict(bundle["render_values"]),
         "prerequisites": list(bundle["prerequisites"]),
+        "source": dict(source),
         "files": {
             entry["path"]: {
                 "path": (

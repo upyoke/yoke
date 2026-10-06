@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
+from yoke_contracts.install_binding import SOURCE_DEV_RUN_ROOT_ENV
 from yoke_core.domain import verification_tree_binding
 from yoke_core.tools import _source_pythonpath, source_dev_candidate_binding
 
@@ -279,6 +280,7 @@ def run(
             return 1
     env = dict(os.environ)
     env = _source_pythonpath.with_source_pythonpath(env, root)
+    env[SOURCE_DEV_RUN_ROOT_ENV] = str(root)
     origins, origin_error = _source_pythonpath.import_origins(root, env=env)
     if origin_error:
         print(f"error: {origin_error}", file=sys.stderr)

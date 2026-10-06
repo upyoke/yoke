@@ -7,6 +7,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+from yoke_cli.packs.catalog_baseline import baseline_bundle
+from yoke_cli.packs.catalog_source import PackCatalog
 from yoke_cli.packs.errors import PackClientError
 from yoke_cli.packs.merge import file_state
 from yoke_cli.packs.receipt import (
@@ -19,7 +21,7 @@ from yoke_cli.packs.runner_support import (
     _fetch_bundle,
     _report_receipt,
 )
-from yoke_contracts.packs import PACK_RECEIPT_REL
+from yoke_contracts.packs import PACK_CATALOG_SERVED, PACK_RECEIPT_REL
 
 
 def run_pack_relink(
@@ -31,6 +33,7 @@ def run_pack_relink(
     to_path: str,
     apply: bool = False,
     session_id: str | None = None,
+    catalog: PackCatalog | None = None,
 ) -> dict[str, Any]:
     """Point one existing Pack file identity at its new project location."""
     root = Path(repo_root or os.getcwd()).expanduser().resolve()
@@ -43,11 +46,12 @@ def run_pack_relink(
     if record is None:
         raise PackClientError(f"Pack {pack!r} is not installed")
 
-    bundle = _fetch_bundle(
+    bundle = baseline_bundle(
         project,
         pack,
-        version=record["version"],
-        render_values=record["render_values"],
+        record,
+        catalog or PackCatalog(kind=PACK_CATALOG_SERVED),
+        fetch=_fetch_bundle,
         session_id=session_id,
     )
     _assert_checkout_project(root, bundle, receipt)

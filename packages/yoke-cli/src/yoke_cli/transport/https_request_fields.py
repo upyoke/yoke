@@ -39,6 +39,7 @@ _SENSITIVE_PAYLOAD_PATHS_BY_FUNCTION: Mapping[str, tuple[tuple[str, ...], ...]] 
 # the server calculated its digest.
 _PUBLIC_PAYLOAD_FIELDS_BY_FUNCTION: Mapping[str, frozenset[str]] = {
     "packs.bundle.get": frozenset({"render_values"}),
+    "packs.bundle.render": frozenset({"render_values"}),
 }
 
 

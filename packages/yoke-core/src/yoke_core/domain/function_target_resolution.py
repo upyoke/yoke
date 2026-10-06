@@ -225,6 +225,7 @@ _PAYLOAD_NAMED_PROJECT_FUNCTIONS = frozenset(
         "projects.environment.list",
         "packs.list",
         "packs.bundle.get",
+        "packs.bundle.render",
         "packs.project.report",
         "projects.pulumi_state.migrate",
         "projects.pulumi_state.checkpoint_import",
