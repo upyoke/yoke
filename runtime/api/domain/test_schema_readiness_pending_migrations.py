@@ -80,5 +80,6 @@ def test_legacy_null_content_is_visible_without_becoming_pending() -> None:
     )
 
     assert pending_migration_names(conn, history, YOKE_LEDGER_CONTRACT) == []
-    assert status.adoption_required == tuple(_packaged_history_names())
+    # Adoption is reported in ledger order, which need not match apply order.
+    assert sorted(status.adoption_required) == sorted(_packaged_history_names())
     assert status.mismatches == ()
