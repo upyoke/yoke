@@ -39,7 +39,10 @@ PLAN_LIMIT_FRESH_SECONDS = 5 * 60
 ALL_MODELS_SCOPE = "all"
 CURSOR_MODELS_SCOPE = "Cursor Models"
 CURSOR_OTHER_MODELS_SCOPE = "Other Models"
-CURSOR_MODELS_PREFIXES = ("cursor-grok-", "composer-")
+# Cursor bills every model of these families to its Cursor Models pool, under
+# any selector spelling it advertises ("grok-4.7-medium", "cursor-grok-4.6-low",
+# "composer-2.5"); every other model bills to Other Models.
+CURSOR_MODELS_FAMILIES = ("Grok", "Composer")
 
 # A vendor that starts publishing a bucket per model must not be able to grow
 # one machine row without bound.
@@ -196,9 +199,9 @@ def _sanitize_window(raw: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def cursor_scope_for_model(model: object) -> str:
-    """Resolve Cursor's billed pool with the provider's model-prefix rule."""
-    value = str(model or "").strip().lower()
-    if any(value.startswith(prefix) for prefix in CURSOR_MODELS_PREFIXES):
+    """Resolve the Cursor pool a model bills to from its model family."""
+    value = str(model or "").strip().lower().removeprefix("cursor-")
+    if any(value.startswith(f"{family.lower()}-") for family in CURSOR_MODELS_FAMILIES):
         return CURSOR_MODELS_SCOPE
     return CURSOR_OTHER_MODELS_SCOPE
 
@@ -242,7 +245,7 @@ def sanitize_plan_limits(raw: Mapping[str, Any] | None) -> dict[str, dict[str, A
 __all__ = [
     "ALL_MODELS_SCOPE",
     "CLI_PLAN_LIMIT_SURFACES",
-    "CURSOR_MODELS_PREFIXES",
+    "CURSOR_MODELS_FAMILIES",
     "CURSOR_MODELS_SCOPE",
     "CURSOR_OTHER_MODELS_SCOPE",
     "MAX_WINDOWS_PER_SURFACE",

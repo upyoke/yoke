@@ -7,6 +7,7 @@ from yoke_contracts.model_reference_records import (
     ConsumptionWeight,
     SubscriptionRule,
 )
+from yoke_contracts.session_control.plan_limits import CURSOR_MODELS_FAMILIES
 
 CHECKED_AT = "2026-09-07"
 REFRESHED_AT = "2026-09-23"
@@ -43,8 +44,9 @@ CURSOR_MODELS_RULE = SubscriptionRule(
     plan="ultra",
     pool="cursor-models",
     rule=(
-        "Ultra includes the Cursor Models pool (Grok 4.7, Grok 4.6, Grok 4.5, "
-        "Composer 2.5). The included monthly amount is not published; the "
+        "Ultra includes the Cursor Models pool (every "
+        f"{' and '.join(CURSOR_MODELS_FAMILIES)} model). The included monthly "
+        "amount is not published; the "
         "account usage dashboard is the only reading of what remains. API "
         "dollars are not a percentage of that pool."
     ),

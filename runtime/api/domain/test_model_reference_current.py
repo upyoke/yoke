@@ -9,7 +9,14 @@ from yoke_contracts.model_reference import (
     lookup_model_reference as _lookup_model_reference,
     validate_model_record,
 )
+from yoke_contracts.model_reference_cursor import CURSOR_RECORDS
 from yoke_contracts.model_reference_data import MODEL_RECORDS
+from yoke_contracts.model_reference_sources import CURSOR_MODELS_RULE
+from yoke_contracts.session_control.plan_limits import (
+    CURSOR_MODELS_FAMILIES,
+    CURSOR_MODELS_SCOPE,
+    cursor_scope_for_model,
+)
 
 lookup_api_price = partial(_lookup_api_price, records=MODEL_RECORDS)
 lookup_model_reference = partial(_lookup_model_reference, records=MODEL_RECORDS)
@@ -36,6 +43,14 @@ def test_current_grok_selector_and_pool_price() -> None:
     assert price is not None
     assert (price.input_per_million_usd, price.output_per_million_usd) == (2, 6)
     assert price.cache_write_per_million_usd is None
+
+
+def test_cursor_models_pool_rule_and_classifier_share_one_family_list() -> None:
+    assert all(family in CURSOR_MODELS_RULE.rule for family in CURSOR_MODELS_FAMILIES)
+    for record in CURSOR_RECORDS:
+        assert CURSOR_MODELS_RULE in record.subscription_rules
+        for selector in (record.model_id, *record.aliases):
+            assert cursor_scope_for_model(selector) == CURSOR_MODELS_SCOPE
 
 
 def test_gpt6_workhorse_and_small_model_keep_credits_distinct_from_api_usd() -> None:
