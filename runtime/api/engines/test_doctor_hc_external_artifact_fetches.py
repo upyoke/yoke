@@ -43,7 +43,9 @@ def test_seeded_bare_curl_is_reported(monkeypatch, tmp_path: Path) -> None:
     assert ".github/workflows/fetch.yml:4" in result.detail
 
 
-def test_inline_allowance_with_justification_passes(monkeypatch, tmp_path: Path) -> None:
+def test_inline_allowance_with_justification_passes(
+    monkeypatch, tmp_path: Path
+) -> None:
     _workflow(
         tmp_path,
         "jobs:\n  fetch:\n    steps:\n"
@@ -75,10 +77,18 @@ def test_dockerfile_gateway_call_is_classified(monkeypatch, tmp_path: Path) -> N
 def test_repository_inventory_has_no_unclassified_fetches() -> None:
     root = Path(__file__).resolve().parents[3]
 
+    import time
+    from yoke_contracts import doctor_budget
+    from yoke_core.engines.doctor_wall_clock_budget import run_wall_clock_bounded
+
+    started = time.monotonic()
+    with doctor_budget.check_budget():
+        entries = run_wall_clock_bounded(mod.inventory, root)
+    print(
+        f"Complete artifact fetch inventory: {time.monotonic() - started:.3f}s; budget {doctor_budget.CHECK_BUDGET_S}s"
+    )
     bare = [
-        entry
-        for entry in mod.inventory(root)
-        if entry.classification == "unclassified-bare-fetch"
+        entry for entry in entries if entry.classification == "unclassified-bare-fetch"
     ]
 
     assert bare == []

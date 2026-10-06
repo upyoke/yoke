@@ -93,3 +93,35 @@ def test_source_identity_failure_names_mapped_checkout_fallback(
         assert doctor_source_root.preferred_source_checkout(mapped) == mapped
     assert str(mapped) in str(seen[0].message)
     assert "Recovery: restore Git access" in str(seen[0].message)
+
+
+def test_deployed_clone_belongs_to_its_mapped_source(tmp_path, monkeypatch):
+    mapped = tmp_path / "mapped"
+    subprocess.run(["git", "init", "-q", str(mapped)], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(mapped),
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.com",
+            "commit",
+            "--allow-empty",
+            "-qm",
+            "Initial",
+        ],
+        check=True,
+    )
+    candidate = tmp_path / "candidate"
+    subprocess.run(
+        ["git", "clone", "--quiet", "--shared", str(mapped), str(candidate)],
+        check=True,
+        capture_output=True,
+    )
+    other = tmp_path / "other"
+    subprocess.run(["git", "init", "-q", str(other)], check=True)
+    monkeypatch.setattr(doctor_source_root, "source_checkout_root", lambda _: candidate)
+    assert doctor_source_root.preferred_source_checkout(mapped) == candidate
+    assert doctor_source_root.preferred_source_checkout(other) == other

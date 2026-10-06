@@ -29,6 +29,9 @@ import warnings
 from yoke_contracts.install_binding import source_checkout_root
 from yoke_contracts.doctor_budget import remaining_seconds
 
+GIT_IDENTITY_TIMEOUT_S = 5
+
+
 _BOUND_SOURCE_ROOT: ContextVar[Optional[str]] = ContextVar(
     "yoke_doctor_source_root",
     default=None,
@@ -57,7 +60,7 @@ __all__ = ["bound_source_root", "bound_source_root_or_none"]
 
 
 def preferred_source_checkout(mapped: Path) -> Path:
-    """Prefer this engine's source lane only when it belongs to the mapped repo."""
+    """Prefer imported source from the mapped repo or its disposable clone."""
     source = source_checkout_root(__file__)
     if source is None or source == mapped:
         return mapped
@@ -74,7 +77,7 @@ def preferred_source_checkout(mapped: Path) -> Path:
             ],
             capture_output=True,
             text=True,
-            timeout=remaining_seconds(5),
+            timeout=remaining_seconds(GIT_IDENTITY_TIMEOUT_S),
         )
         if result.returncode or not result.stdout.strip():
             raise OSError(
@@ -86,6 +89,23 @@ def preferred_source_checkout(mapped: Path) -> Path:
     try:
         selected = common_dir(source)
         if selected and selected == common_dir(mapped):
+            return source
+        origin = subprocess.run(
+            ["git", "-C", str(source), "config", "--get", "remote.origin.url"],
+            capture_output=True,
+            text=True,
+            timeout=remaining_seconds(GIT_IDENTITY_TIMEOUT_S),
+        )
+        if origin.returncode not in (0, 1):
+            raise OSError(
+                f"Git clone identity read failed for {source}: exit={origin.returncode}"
+            )
+        location = Path(origin.stdout.strip())
+        if (
+            origin.returncode == 0
+            and location.is_absolute()
+            and location.resolve() == mapped.resolve()
+        ):
             return source
     except (OSError, subprocess.TimeoutExpired) as exc:
         warnings.warn(
