@@ -188,7 +188,10 @@ Every way either route ends is named, and none of them is silence:
   and re-run the same command, which re-arms it. Re-running is safe — it
   converges on the merge if one happened meanwhile.
 - **a required check already red** — exit 1, terminal for this tree. Fix the
-  check, re-run the verification gate, then re-run the landing.
+  check, re-run the verification gate, then re-run the landing. A required
+  check that was only cancelled or never started is no verdict, not red:
+  re-running the landing re-runs it on the same head and arms once GitHub
+  replaces it — no fix and no new commit.
 - **landing record stale** — exit 9 names `landing_record_stale`, the last
   record/project refresh times, and the control-plane GitHub recovery. Do not
   substitute local polling; report the blocker with the named repair step.

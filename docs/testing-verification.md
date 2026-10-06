@@ -255,6 +255,8 @@ A remote run refuses an uncommitted tree — commit, then run on CI.
 Queue landing (`yoke merge item --wait`) returns immediately when the
 pull request's required checks have already concluded red with nothing in
 flight — that is a terminal required-check failure, not a record-wait timeout.
+Required checks that were only cancelled or never started are no verdict:
+re-running `yoke merge item` re-runs them on the same head before arming.
 
 Selection output distinguishes pytest files from collected items as
 `files=N of M items=X of Y`; unavailable values are explicit as `unknown`.
