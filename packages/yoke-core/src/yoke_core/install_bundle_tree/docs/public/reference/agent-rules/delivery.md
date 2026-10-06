@@ -79,7 +79,10 @@ persistent-environment run enrolls only members with explicit post-deploy
 obligations for that environment; untargeted cases remain with final delivery.
 Each run freezes only obligations its QA target can answer. Custody for one
 QA target does not reserve another target or the final delivery. Composition
-continues to name obligations no composed member run can answer.
+continues to name obligations no composed member run can answer. Final-target
+holders keep custody when later intake changes; a pre-admission holder without
+a snapshot or selection also retains its landing. Target splitting uses
+recorded selections through unlocked, set-based reads.
 
 All records, claims, receipts and QA evidence remain on the connected control
 plane. The deployment execution target supplies the stage URL and deployed

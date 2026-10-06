@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
-from yoke_core.domain.deployment_run_member_targeting import holder_covers_run
+from yoke_core.domain.deployment_run_member_targeting import covering_holder_pairs
 from yoke_core.domain import db_backend
 from yoke_core.domain.conflict_survey_declared_paths import TERMINAL_STATUSES
 from yoke_core.domain.deployment_run_candidate_containment import (
@@ -184,14 +184,19 @@ def _member_runs(
             *((str(exclude_run_id),) if exclude_run_id else ()),
         ),
     ).fetchall()
+    covered = (
+        covering_holder_pairs(
+            conn, run_id=exclude_run_id, item_ids=item_ids, holders=rows
+        )
+        if exclude_run_id
+        else None
+    )
     grouped: dict[int, list[dict[str, Any]]] = {}
     for row in rows:
         record = dict(row)
-        if not exclude_run_id or holder_covers_run(
-            conn,
-            holder_id=str(record["run_id"]),
-            run_id=exclude_run_id,
-            item_id=int(record["item_id"]),
+        if (
+            covered is None
+            or (str(record["run_id"]), int(record["item_id"])) in covered
         ):
             grouped.setdefault(int(record["item_id"]), []).append(record)
     return grouped
