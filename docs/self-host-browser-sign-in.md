@@ -45,6 +45,10 @@ Token-link redemption enforces the same Origin and Sec-Fetch-Site checks.
 Cookies are Secure on HTTPS; use TLS for remote access and configure trusted
 proxy forwarding so the server sees the external HTTPS scheme.
 
+Browser function calls require a JSON object in `payload`; use `{}` for
+an empty payload. Other shapes receive HTTP 422 with `envelope_invalid`
+and a recovery message before the function is dispatched.
+
 The workbench, its `/assets/` roster, and `/served-build` (the commit the
 server serves, read by browser QA) are served at the server's site root,
 so expose the server at a host root rather than under a path prefix.

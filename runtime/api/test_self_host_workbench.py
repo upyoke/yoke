@@ -135,6 +135,25 @@ class TestWorkbenchPages:
 
 
 class TestBrowserFunctionCalls:
+    @pytest.mark.parametrize(
+        "payload", ["invalid", 1, ["invalid"], [["open", True]], [], "", 0, False, None]
+    )
+    def test_non_object_payload_is_refused_before_dispatch(
+        self, browser, monkeypatch, payload
+    ):
+        def unexpected_dispatch(*args, **kwargs):
+            pytest.fail("a malformed browser payload must not reach the dispatcher")
+
+        monkeypatch.setattr(browser_function_call, "dispatch", unexpected_dispatch)
+        resp = _call(browser, "ui_preferences.nav_group.set", payload)
+        assert resp.status_code == 422
+        body = resp.json()
+        assert body["success"] is False
+        assert body["function"] == "ui_preferences.nav_group.set"
+        assert body["error"]["code"] == "envelope_invalid"
+        assert "payload must be a JSON object" in body["error"]["message"]
+        assert "payload: {}" in body["error"]["message"]
+
     def test_write_lands_as_the_session_actor(self, browser):
         written = _call(
             browser,

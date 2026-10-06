@@ -48,7 +48,7 @@ def bind_browser_envelope(envelope: Dict[str, Any], *, actor_id: int) -> Dict[st
     bound["actor"] = {"actor_id": str(actor_id), "session_id": ""}
     bound["target"] = target if isinstance(target, dict) else {"kind": "global"}
     bound["payload"] = with_web_form_sender_surface(
-        function_id, envelope.get("payload") or {}
+        function_id, envelope.get("payload", {})
     )
     return bound
 
@@ -59,12 +59,30 @@ def call_function_as_web_session(
     web: WebSessionAuthContext,
 ) -> JSONResponse:
     """Dispatch one browser envelope as the web session's actor."""
-    bound = bind_browser_envelope(envelope, actor_id=web.actor_id)
-    refusal = _credential_refusal(bound)
-    if refusal is not None:
+    if not isinstance(envelope.get("payload", {}), dict):
+        refusal = FunctionCallResponse(
+            success=False,
+            function=str(envelope.get("function") or ""),
+            version=str(envelope.get("version") or "v1"),
+            request_id=(
+                str(envelope["request_id"])
+                if envelope.get("request_id") is not None
+                else None
+            ),
+            error=FunctionError(
+                code="envelope_invalid",
+                message="payload must be a JSON object; send payload: {} for an empty payload",
+            ),
+        )
         body = refusal.model_dump()
         return JSONResponse(content=body, status_code=status_for_response(body))
+    bound = envelope
     try:
+        bound = bind_browser_envelope(envelope, actor_id=web.actor_id)
+        refusal = _credential_refusal(bound)
+        if refusal is not None:
+            body = refusal.model_dump()
+            return JSONResponse(content=body, status_code=status_for_response(body))
         # ambient_session_id="" (never None): the browser's identity is the
         # session actor, so the dispatcher must not resolve the SERVER
         # process's env/ancestry into a harness session.
