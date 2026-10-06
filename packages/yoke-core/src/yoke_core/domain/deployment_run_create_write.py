@@ -95,7 +95,18 @@ def cmd_create_run(
     inherit_members_from: Optional[str] = None,
     allow_pending_pair_merges: bool = False,
 ) -> str:
-    """Create a new deployment run without a caller key. Returns its ID."""
+    """Create a new deployment run without a caller key. Returns its ID.
+
+    An explicit commit is refused when the flow's CI gate could never pass
+    it; a run created without one binds its commit later, where
+    :func:`~yoke_core.domain.deployment_run_lineage_rebind.refuse_lineage_write`
+    applies the same refusal.
+    """
+    from yoke_core.domain.deployment_run_ci_tested_source import (
+        require_tested_lineage,
+    )
+
+    require_tested_lineage(project, flow, environment, release_lineage)
     created = create_run(
         project,
         flow,

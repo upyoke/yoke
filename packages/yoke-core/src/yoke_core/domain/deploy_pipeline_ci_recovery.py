@@ -212,9 +212,9 @@ def missing_ci_run_message(
         "Recovery:\n"
         "  1. Create a new deployment run without --source-ref; creation "
         f"binds the newest commit on {branch} that has its own {workflow} "
-        "run:\n"
-        f"       yoke deployment-runs create {project} <FLOW> "
-        "--idempotency-key <NEW-KEY>\n"
+        "run, or dispatches one on the branch when none has:\n"
+        f"       yoke --env <CONTROL-PLANE> deployment-runs create {project} "
+        "<FLOW> --environment <ENV> --idempotency-key <NEW-KEY>\n"
         "  2. Cancel this run, and give its paired run the same new commit "
         "with --source-ref\n"
     )

@@ -226,6 +226,7 @@ def handle_deployment_run_create(
                 clean_flow,
                 (environment or "").strip() or None,
                 release_lineage,
+                retry=bool(retry_source),
             )
         except ReleaseSourceRefused as exc:
             return error(exc.code, str(exc), jsonpath="$.payload.release_lineage")

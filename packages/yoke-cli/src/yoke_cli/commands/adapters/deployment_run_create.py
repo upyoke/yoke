@@ -105,7 +105,8 @@ def deployment_runs_create(args: List[str]) -> int:
         help=(
             "Commit-ish to bind, resolved in --project-repo-path. Omit both "
             "to let a flow that waits for CI bind the newest gate-branch "
-            "commit that has its own CI run; an explicit commit without one "
+            "commit that has its own CI run (or dispatch that CI on the "
+            "branch and bind the commit it tests); an explicit commit without one "
             "is refused, naming that newest tested commit."
         ),
     )
