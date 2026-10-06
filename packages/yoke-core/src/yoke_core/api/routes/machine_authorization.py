@@ -10,6 +10,10 @@ from pydantic import ValidationError
 from yoke_contracts.machine_authorization import (
     MachineAuthorizationPoll,
     MachineAuthorizationStart,
+    HostedMachineAuthorizationError,
+    parse_authorization_response,
+    MachineAuthorizationRefused,
+    POLL_OUTCOMES,
     START_PATH,
     POLL_PATH,
 )
@@ -30,14 +34,37 @@ _log = logging.getLogger("yoke.api.machine_authorization")
 def _error(
     code: str, detail: str, status: int, *, retry_after: int = 0
 ) -> JSONResponse:
+    expected_status, model = POLL_OUTCOMES.get(
+        code, (status, MachineAuthorizationRefused)
+    )
+    if expected_status != status:
+        raise ValueError(
+            "authorization_response_status_invalid: correct the route outcome status"
+        )
     return JSONResponse(
-        {"error": code, "message": detail},
+        model(error=code, message=detail).model_dump(exclude_none=True),
         status_code=status,
         headers={
             "Cache-Control": "no-store",
             **({"Retry-After": str(retry_after)} if retry_after else {}),
         },
     )
+
+
+def _success(payload: dict, *, operation: str) -> JSONResponse:
+    try:
+        response = parse_authorization_response(payload, 200, operation=operation)
+    except HostedMachineAuthorizationError:
+        _log.error(
+            "authorization_response_invalid: %s success body violated the shared contract",
+            operation,
+        )
+        return _error(
+            "authorization_response_invalid",
+            "ask the server operator to correct its machine sign-in contract, then start a fresh connection",
+            500,
+        )
+    return JSONResponse(response.model_dump(), headers={"Cache-Control": "no-store"})
 
 
 def _admit(request: Request, operation: str) -> str | JSONResponse:
@@ -128,7 +155,7 @@ def _start(model: MachineAuthorizationStart, client_key: str) -> JSONResponse:
             "ask the server operator to check database health, then retry",
             503,
         )
-    return JSONResponse(payload, headers={"Cache-Control": "no-store"})
+    return _success(payload, operation="start")
 
 
 @router.post(POLL_PATH)
@@ -186,4 +213,4 @@ def _poll(model: MachineAuthorizationPoll) -> JSONResponse:
             "the credential could not be issued; retry this poll after checking server database health",
             503,
         )
-    return JSONResponse(payload, headers={"Cache-Control": "no-store"})
+    return _success(payload, operation="poll")
