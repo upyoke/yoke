@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_scalar
+from yoke_core.domain.deployment_flow_policy import LEGACY_DEFINITION_SCHEMA_VERSION
 from yoke_core.domain.post_deploy_verification_answer import answer_for_item
 from yoke_core.domain.qa_obligation_settlement import (
     settled_obligation_sql,
@@ -44,16 +45,31 @@ def recorded_no_obligation(conn: Any, item_id: int) -> bool:
 
 
 def satisfied_delivery_member(conn: Any, *, item_id: int, run_id: str) -> bool:
-    """Whether this run settled every scoped QA obligation for the member."""
+    """Whether this run settled the member's post-deploy QA obligations.
+
+    Legacy flows cannot bind QA to a member, so their delivered members also
+    read the run-wide requirements. Scoped flows keep exact member binding.
+    """
     discharges_without_cases = answer_for_item(
         conn, int(item_id)
     ).discharges_without_cases
     if not (_table_exists(conn, "qa_requirements") and _table_exists(conn, "qa_runs")):
         return discharges_without_cases
+    legacy_member = query_scalar(
+        conn,
+        "SELECT COUNT(*) FROM deployment_runs dr "
+        "JOIN deployment_flows df ON df.id=dr.flow "
+        "JOIN deployment_run_items dri ON dri.run_id=dr.id "
+        "WHERE dr.id=%s AND dri.item_id=%s AND df.definition_schema_version=%s",
+        (str(run_id), int(item_id), LEGACY_DEFINITION_SCHEMA_VERSION),
+    )
+    member_scope = "r.deployment_member_item_id=%s"
+    if int(legacy_member or 0):
+        member_scope = f"({member_scope} OR r.deployment_member_item_id IS NULL)"
     total = query_scalar(
         conn,
         "SELECT COUNT(*) FROM qa_requirements r "
-        "WHERE r.deployment_run_id=%s AND r.deployment_member_item_id=%s "
+        f"WHERE r.deployment_run_id=%s AND {member_scope} "
         "AND r.qa_phase='post_deploy' AND r.blocking_mode='blocking' "
         f"AND {unretracted_requirement_sql(conn, 'r')}",
         (str(run_id), int(item_id)),
@@ -69,7 +85,7 @@ def satisfied_delivery_member(conn: Any, *, item_id: int, run_id: str) -> bool:
     unresolved = query_scalar(
         conn,
         "SELECT COUNT(*) FROM qa_requirements r "
-        "WHERE r.deployment_run_id=%s AND r.deployment_member_item_id=%s "
+        f"WHERE r.deployment_run_id=%s AND {member_scope} "
         "AND r.qa_phase='post_deploy' AND r.blocking_mode='blocking' "
         f"AND NOT {settled_obligation_sql(conn, 'r')} "
         "AND NOT EXISTS (SELECT 1 FROM qa_runs qr "

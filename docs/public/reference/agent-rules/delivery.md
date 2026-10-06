@@ -144,7 +144,10 @@ learns the other's part from its own skill. The split is the whole rule:
   while sibling QA holds the run open. Run QA or run approval holds
   every final member through all item QA, shared gates, and run success. This
   automatic close-out needs no delivery wake and ends an otherwise empty
-  holder session. A wait wake is withdrawn — the
+  holder session. Legacy schema-1 settlement credits the run's run-wide
+  post-deploy requirements to its delivered members; scoped runs keep exact
+  member binding. Failing or unanswered requirements block, and superseded
+  requirements follow their successors. A wait wake is withdrawn — the
   existing message-cancel path —
   when its run reaches a terminal status or its member is no longer
   outstanding (the item-scoped stage is credited, or the item is done), so
