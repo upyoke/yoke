@@ -1,18 +1,35 @@
 # Browser Sign-In for a Self-Hosted Yoke Server
 
-An optional door on the server described in [Self-Host Yoke](self-host.md).
-Leaving it unconfigured changes nothing for tokened clients.
+Browser admission on the server described in [Self-Host Yoke](self-host.md).
+Company sign-in is optional; API-token clients work with either choice.
 
 The server serves the universe workbench at its own URL — the same
-workbench Local (`yoke ui up`) and Cloud serve. Browser sign-in, backed by
-your identity provider (anything that speaks OpenID Connect with discovery:
-Okta, Keycloak, Microsoft Entra ID, Google Workspace, ...), is how people
-open it. A signed-in browser works with **full read and write** as its own
+workbench Local and Cloud serve. Run `yoke ui up` on a connected CLI to open it.
+A signed-in browser works with **full read and write** as its own
 actor: the workbench calls `POST /v1/functions/call` with the session
 cookie, and the engine's per-actor permission model decides what that
-actor may do, exactly as for an API token. With the door unconfigured,
-the OIDC routes answer 409 and the server's URL shows a page saying
-browser sign-in is not configured.
+actor may do, exactly as for an API token.
+
+**Without company sign-in.** `yoke ui up` exchanges the CLI's API token for a
+single-use link valid for two minutes. The server stores a public selector and
+the SHA-256 hash of its secret, compares the hash in constant time, and consumes
+it atomically when minting a normal browser session for the token's actor.
+The secret travels in a URL fragment and same-origin POST body; it is removed
+from browser history before redemption and is never a request URL. Treat the
+link printed in the terminal (or `private_url` with `--json`) like a password.
+Expired, used, or invalid links name `browser_sign_in_expired`,
+`browser_sign_in_used`, or `browser_sign_in_invalid` and tell you to run
+`yoke ui up` again. Actor disablement also blocks redemption. `--no-browser`
+prints the link without opening it. The signed-out page teaches this CLI path.
+
+**With company sign-in.** `yoke ui up` opens the server's own URL, and the
+OIDC admission ladder below applies. Token-link minting and redemption are
+disabled, including links minted before OIDC was enabled. Any partial OIDC
+configuration fails by name rather than falling through to token sign-in.
+The CLI discovers this method without an API token; company sign-in remains
+reachable even when the machine's token needs replacing.
+Providers can be anything that speaks OpenID Connect with discovery:
+Okta, Keycloak, Microsoft Entra ID, Google Workspace, and others.
 
 **What protects the cookie.** The session cookie is `HttpOnly` and
 `SameSite=Lax`, so browsers do not attach it to cross-site writes. Every
@@ -24,6 +41,9 @@ it in your reverse proxy), and a present `Sec-Fetch-Site` must be
 authenticated by its token, never by a cookie riding along. The browser
 identity also counts as "a person at a browser" for decisions only a
 person may take, such as clearing a merge-candidate review from the Inbox.
+Token-link redemption enforces the same Origin and Sec-Fetch-Site checks.
+Cookies are Secure on HTTPS; use TLS for remote access and configure trusted
+proxy forwarding so the server sees the external HTTPS scheme.
 
 The workbench, its `/assets/` roster, and `/served-build` (the commit the
 server serves, read by browser QA) are served at the server's site root,
@@ -92,4 +112,3 @@ the provider marks the email verified. For providers that omit the
 `email_verified` claim entirely, opt in with
 `YOKE_OIDC_ALLOW_UNVERIFIED_EMAIL=true` (an explicit `false` from the
 provider is never trusted).
-

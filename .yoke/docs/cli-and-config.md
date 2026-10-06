@@ -307,19 +307,19 @@ A connection is how this machine reaches a universe:
 
 `yoke status` shows which connection is active.
 
-## Local UI
+## Workbench
 
 ```bash
-yoke ui up       # start it detached, print the tokened URL
+yoke ui up       # open self-host workbench, or start the local view detached
 yoke ui          # same as `yoke ui status` — running or stopped, plus the URL
 yoke ui down     # stop it
 ```
 
-Serves the same universe workbench used on Cloud, against your active
-connection (typically `http://127.0.0.1:8688`). `yoke ui up` runs the
-server as a machine daemon rather than a terminal job: closing the window
-leaves it serving, and on macOS a launch agent brings it back after a
-reboot until you run `yoke ui down`.
+On a self-host connection, `yoke ui up` opens the server's own workbench:
+company sign-in opens its URL; without OIDC, the API token gets a single-use
+link valid for two minutes. Rerun to replace an expired link. On Local
+(typically `http://127.0.0.1:8688`), it starts a machine daemon: closing the
+terminal leaves it serving; macOS brings it back after reboot until `ui down`.
 
 The view serves a database this machine holds — a non-prod local-postgres
 connection — and names the environment that answered in the page footer.

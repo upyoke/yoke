@@ -158,6 +158,7 @@ _EXPECTED_SCHEMA_STR = (
     "|test_machine_operation_receipts:project_id/INTEGER,capability_type/TEXT,operation/TEXT,status/TEXT,performed_at/TEXT,receipt_json/TEXT,error_code/TEXT,lease_id/INTEGER,contract_digest/TEXT,updated_at/TEXT"
     "|test_machine_verifications:project_id/INTEGER,capability_type/TEXT,status/TEXT,checked_at/TEXT,receipt_json/TEXT,error_code/TEXT,updated_at/TEXT"
     "|web_sessions:id/INTEGER,token_hash/TEXT,actor_id/INTEGER,created_at/TEXT,expires_at/TEXT,revoked_at/TEXT,last_used_at/TEXT"
+    "|browser_sign_in_links:selector/TEXT,code_hash/TEXT,actor_id/INTEGER,expires_at/TEXT,consumed_at/TEXT"
     "|work_claims:id/INTEGER,session_id/TEXT,target_kind/TEXT,scope/TEXT,claim_type/TEXT,claimed_at/TEXT,last_heartbeat/TEXT,released_at/TEXT,release_reason/TEXT,reason/TEXT,reason_intent/TEXT,release_reason_intent/TEXT"
     "|workflow_execution_instruction_projects:instruction_id/INTEGER,project_id/INTEGER"
     "|workflow_execution_instruction_workflows:instruction_id/INTEGER,workflow_id/TEXT"

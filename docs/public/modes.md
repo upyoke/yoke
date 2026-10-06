@@ -34,6 +34,10 @@ Hosted core at upyoke.com. Collaborate from the web dashboard.
 
 Run Yoke core and Postgres on your own server.
 
+Open its workbench with `yoke ui up` on a connected machine: company sign-in
+opens the server URL; without OIDC, the API token gets a single-use browser
+sign-in link valid for two minutes. Rerun the command if the link expires.
+
 - Wizard on the host: pick **Set this machine up as a self-hosting server** to
   preview the loopback URL, bundle directory, port, Docker requirement, and
   networking responsibility before any write. It creates/starts the Compose

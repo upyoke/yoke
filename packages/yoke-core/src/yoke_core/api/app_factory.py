@@ -180,7 +180,7 @@ async def _authenticate(request) -> tuple[Any, JSONResponse | None]:
 
     if path in COLLECTOR_PATHS:
         return None, None  # Collector routes enforce exact origin/key admission.
-    if is_public_path(path) or is_workbench_public_path(path):
+    if is_public_path(path, request.method) or is_workbench_public_path(path):
         return None, None
     if is_workbench_page(request.method, path):
         # The workbench shell for a signed-in browser, or the sign-in page.
@@ -292,6 +292,9 @@ def _include_routes(application: FastAPI) -> FastAPI:
         router as universe_portability_router,
     )
     from yoke_core.api.routes.web_sign_in import router as web_sign_in_router
+    from yoke_core.api.routes.token_browser_sign_in import (
+        router as token_browser_sign_in_router,
+    )
     from yoke_core.api.routes.workbench import router as workbench_router
 
     v1_router.include_router(items_router)
@@ -306,6 +309,7 @@ def _include_routes(application: FastAPI) -> FastAPI:
     v1_router.include_router(hooks_router)
     v1_router.include_router(universe_portability_router)
     v1_router.include_router(web_sign_in_router)
+    v1_router.include_router(token_browser_sign_in_router)
 
     application.include_router(v1_router)
     from yoke_core.api.routes.frontend_events import router as frontend_events_router

@@ -27,6 +27,7 @@ from yoke_cli.commands import universe_ui as commands
 from yoke_cli.commands import universe_ui_connection as connection
 from yoke_cli.commands import universe_ui_serve as serve
 from yoke_cli.commands.tool_shaped import resolve_tool_shaped
+from yoke_contracts.api_urls import HOSTED_PROD_API_URL
 
 
 @pytest.fixture()
@@ -42,7 +43,7 @@ class TestConnectionModeGate:
         err = capsys.readouterr().err
         assert "yoke init --local" in err
 
-    def test_https_connection_refuses_in_mode_language(
+    def test_cloud_connection_refuses_local_serving_in_mode_language(
         self,
         machine_home,
         capsys,
@@ -52,14 +53,14 @@ class TestConnectionModeGate:
         writer.set_connection(
             "stage",
             transport="https",
-            api_url="https://api.example",
+            api_url=HOSTED_PROD_API_URL,
             token="t" * 40,
         )
         writer.set_active_env("stage")
 
         assert commands.ui_up(["--no-browser"]) == 1
         err = capsys.readouterr().err
-        assert "open https://api.example/ in a browser" in err
+        assert "https://app.upyoke.com/ in a browser" in err
         assert "machine-local universe" in err
 
     def test_https_refusal_names_the_per_invocation_env_not_a_global_switch(
@@ -73,7 +74,7 @@ class TestConnectionModeGate:
         writer.set_connection(
             "upyoke",
             transport="https",
-            api_url="https://api.example",
+            api_url=HOSTED_PROD_API_URL,
             token="t" * 40,
         )
         writer.set_active_env("upyoke")

@@ -110,7 +110,7 @@ class TestWorkbenchPages:
         resp = TestClient(app_factory.create_app()).get("/sessions")
         assert resp.status_code == 200
         assert HOST_IDENTITY_MARKER not in resp.text
-        assert "Browser sign-in is not configured" in resp.text
+        assert "yoke ui up" in resp.text
         assert "yoke connect" in resp.text
 
     def test_misconfigured_sign_in_names_the_reason(self, db_conn, monkeypatch):

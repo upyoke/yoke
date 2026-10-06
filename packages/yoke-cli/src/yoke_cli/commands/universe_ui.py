@@ -1,4 +1,4 @@
-"""Tool-shaped ``yoke ui`` — the door to the machine-local universe view.
+"""Tool-shaped ``yoke ui`` — open self-host or machine-local workbenches.
 
 The view is a daemon, not a terminal job: ``yoke ui up`` starts the
 token-gated, read-only server detached and prints the tokened URL,
@@ -9,7 +9,9 @@ the view. The foreground server it supervises is
 ``yoke ui serve-process``, a child entrypoint rather than an operator
 command.
 
-Only ``up`` and the serving child consult the connection allowlist (see
+On self-host HTTPS connections, ``up`` opens the server's own workbench
+through company sign-in or a single-use token link. Local serving consults
+the connection allowlist (see
 :mod:`yoke_cli.commands.universe_ui_connection`); ``status`` and
 ``down`` carry no gate, because they report on and stop a process
 rather than open a universe.
@@ -30,6 +32,7 @@ from typing import Callable, Dict, List, Tuple
 from yoke_cli.commands._helpers import parse_or_usage_error
 from yoke_cli.commands import universe_ui_connection as connection
 from yoke_cli.commands.universe_ui_connection import UniverseUiError
+from yoke_cli.commands.universe_ui_remote import self_host_report
 from yoke_cli.commands.universe_ui_serve import (
     UI_SERVE_PROCESS_USAGE,
     ui_serve_process,
@@ -104,12 +107,10 @@ def ui_up(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke ui up",
         description=(
-            "Start the machine-local universe view as a detached daemon "
-            "and print its tokened URL. The server binds loopback only, "
-            "reuses this machine's stable session token, and keeps "
-            "serving after the terminal closes (on macOS, after a reboot "
-            "too). Requires a non-prod local-postgres connection "
-            "(`yoke init --local`)."
+            "Open the active self-host server's workbench, using company "
+            "sign-in or a single-use API-token sign-in link. On a non-prod "
+            "local-postgres connection (`yoke init --local`), start the "
+            "loopback universe view as a detached daemon and print its URL."
         ),
     )
     _add_host_port_flags(parser)
@@ -124,20 +125,20 @@ def ui_up(args: List[str]) -> int:
     if parsed is None:
         return 2
 
-    env_name, refusal = connection.servable_connection()
-    if refusal is not None:
-        print(f"error: {refusal}", file=sys.stderr)
-        return 1
-
     try:
-        report = daemon.status()
-        if report.get("running"):
-            report = {**report, "started": False}
-        else:
-            server = connection.ui_server()
-            host = server.resolve_ui_host(parsed.host)
-            port = server.resolve_ui_port(parsed.port, host=host)
-            report = daemon.up(host=host, port=port, env=env_name)
+        report = self_host_report(host=parsed.host, port=parsed.port)
+        if report is None:
+            env_name, refusal = connection.servable_connection()
+            if refusal is not None:
+                raise UniverseUiError(refusal)
+            report = daemon.status()
+            if report.get("running"):
+                report = {**report, "started": False}
+            else:
+                server = connection.ui_server()
+                host = server.resolve_ui_host(parsed.host)
+                port = server.resolve_ui_port(parsed.port, host=host)
+                report = daemon.up(host=host, port=port, env=env_name)
     except (UniverseUiError, UiDaemonError, UiLaunchdError, RuntimeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -158,7 +159,15 @@ def ui_up(args: List[str]) -> int:
             flush=True,
         )
     else:
-        _print_status(report)
+        if report.get("mode") == "self-host":
+            print(f"yoke ui: self-host workbench at:\n  {url}", flush=True)
+            if report.get("auth_method") == "token":
+                print(
+                    "This single-use sign-in link is private and expires shortly; run `yoke ui up` again if needed.",
+                    flush=True,
+                )
+        else:
+            _print_status(report)
         note = str(report.get("supervisor_note") or "")
         if note:
             print(note, flush=True)
@@ -220,8 +229,8 @@ def _add_json_flag(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         help=(
             "Print a JSON line naming the daemon state and, when it is "
-            "serving, private_url (the tokened URL — private by "
-            "construction)."
+            "serving, or the self-host browser door, under private_url "
+            "(a tokened URL or single-use sign-in link is private)."
         ),
     )
 

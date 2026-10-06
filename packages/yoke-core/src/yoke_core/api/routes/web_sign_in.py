@@ -7,10 +7,9 @@ web-session cookie, and lands the browser on the workbench at ``/``
 (:mod:`yoke_core.api.routes.workbench`). The workbench shows
 :func:`signed_out_page` to a browser without a valid session.
 
-When the door env config is absent the routes answer 409 with a helpful
-body and nothing else changes — tokened API clients never notice the
-door exists. What the web session authorizes, and its CSRF protection,
-is :mod:`yoke_core.api.web_session_auth`.
+When OIDC config is absent these routes answer 409 and the workbench offers
+API-token browser admission through ``yoke ui up``. What the web session
+authorizes, and its CSRF protection, is :mod:`yoke_core.api.web_session_auth`.
 """
 
 from __future__ import annotations
@@ -76,10 +75,11 @@ def _door_disabled() -> JSONResponse:
     return _door_error(
         409,
         "oidc_not_configured",
-        "browser sign-in is not configured on this server; set "
+        "company sign-in is not configured on this server; set "
         "YOKE_OIDC_ISSUER, YOKE_OIDC_CLIENT_ID, "
         "YOKE_OIDC_CLIENT_SECRET_FILE, and YOKE_OIDC_REDIRECT_URL to "
-        "enable it (see docs/self-host.md). API tokens are unaffected.",
+        "enable it (see docs/self-host.md). For token browser sign-in, "
+        "run `yoke ui up` on a connected CLI.",
     )
 
 
@@ -260,12 +260,12 @@ def signed_out_page() -> HTMLResponse:
         )
     else:
         body = (
-            "<p>Browser sign-in is not configured on this server, so the "
-            "workbench cannot open here yet. A server operator enables "
-            "company sign-in (OIDC) as described in "
-            "<code>docs/self-host-browser-sign-in.md</code>. Until then, "
-            "attach a CLI with <code>yoke connect &lt;server-url&gt; "
-            "--token-stdin</code> and an API token.</p>"
+            "<p>Sign in with an API token through your CLI: run "
+            "<code>yoke ui up</code> on a machine connected to this server. "
+            "It opens a short-lived, single-use sign-in link for your actor. "
+            "To connect first, run <code>yoke connect &lt;server-url&gt; "
+            "--token-stdin</code> with your API token. Company sign-in is "
+            "optional; see <code>docs/self-host-browser-sign-in.md</code>.</p>"
         )
     return _page("Sign in to Yoke", body)
 
