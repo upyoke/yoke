@@ -101,8 +101,12 @@ empty start request is explicitly host-specific; poll requests are shared.
 `MachineAuthorizationPending`, `MachineAuthorizationDenied`,
 `MachineAuthorizationExpired` (including consumed), `MachineAuthorizationSlowDown`,
 and `MachineAuthorizationUnavailable` define poll outcomes. Other diagnosed
-refusals use `MachineAuthorizationRefused`. Recovery `message` is optional
-on the wire; self-host supplies it. Secrets are excluded from model repr and
+refusals use `MachineAuthorizationRefused`. Recovery text is optional on the wire: self-host supplies `message`, and Cloud
+supplies `detail`. Both are explicit fields in the shared refusal model; the CLI
+retains supplied recovery text in fatal diagnostics. Cloud credential refusals
+use HTTP 409; missing machine identity uses 400, malformed requests use 400 or
+413, and retryable credential unavailability uses 503. The strict schema rejects
+unrecognized response fields. Secrets are excluded from model repr and
 client validation errors. The CLI and self-host route use these models;
 `parse_authorization_response` also checks known poll statuses. Origin and API
 authority checks remain required after body validation.

@@ -117,3 +117,128 @@ def test_start_schema_rejects_invalid_values(field, value):
         wire.HostedMachineAuthorizationError, match="authorization_response_invalid"
     ):
         wire.parse_authorization_response(body, 200, operation="start")
+
+
+# Bodies from Platform's token route: recovery is detail, not message.
+@pytest.mark.parametrize(
+    "status,body",
+    [
+        (
+            503,
+            {
+                "error": "machine_credential_unavailable",
+                "detail": "The universe could not answer; retry the approved code.",
+            },
+        ),
+        (
+            409,
+            {
+                "error": "machine_credential_refused",
+                "detail": "This machine is retired; ask its owner to restore it.",
+            },
+        ),
+        (
+            400,
+            {
+                "error": "machine_identity_required",
+                "detail": "Send machine_id as this machine's canonical UUID. A credential is bound to one machine, so it cannot be issued without one.",
+            },
+        ),
+        (413, {"error": "payload_too_large"}),
+        (400, {"error": "invalid_request"}),
+        (410, {"error": "authorization_missing"}),
+    ],
+)
+@pytest.mark.parametrize("http_error", [False, True])
+def test_live_cloud_refusals_validate_and_keep_cli_recovery(
+    monkeypatch, status, body, http_error
+):
+    from yoke_cli.transport.bounded_json_http import BoundedJsonHttpStatusError
+
+    schema = json.loads(files("yoke_contracts").joinpath(SCHEMA_RESOURCE).read_text())
+    model = (
+        "MachineAuthorizationUnavailable"
+        if status == 503
+        else "MachineAuthorizationRefused"
+    )
+    Draft202012Validator({**schema, "$ref": f"#/$defs/{model}"}).validate(body)
+    response = wire.parse_authorization_response(body, status, operation="poll")
+    assert response.recovery_text == body.get("detail", "")
+    pending = wire.PendingMachineAuthorization(
+        "https://app.upyoke.com",
+        "same-device-secret",
+        "CODE",
+        "https://app.upyoke.com/connect",
+        "https://app.upyoke.com/connect?user_code=CODE",
+        60,
+        2,
+    )
+    approved = {
+        "token": "private-token",
+        "org": "team",
+        "api_url": "https://app.upyoke.com/api/orgs/team",
+    }
+    answers = iter([body, approved])
+    seen = []
+
+    def post_json(url, payload, **kwargs):
+        seen.append(payload)
+        answer = next(answers)
+        if answer is body and http_error:
+            raise BoundedJsonHttpStatusError(status, answer)
+        return answer, status if answer is body else 200, {}
+
+    monkeypatch.setattr(auth, "_post_json", post_json)
+    monkeypatch.setattr(
+        auth,
+        "_machine_identity",
+        lambda: {"machine_id": "machine", "machine_name": "host"},
+    )
+    clock = [0]
+
+    def sleep(seconds):
+        clock[0] += seconds
+
+    if status == 503:
+        credential = auth.complete(pending, sleep=sleep, monotonic=lambda: clock[0])
+        assert credential.token == approved["token"]
+        assert len(seen) == 2
+        assert seen[0] == seen[1]
+    else:
+        with pytest.raises(wire.HostedMachineAuthorizationError) as exc:
+            auth.complete(pending, sleep=sleep, monotonic=lambda: clock[0])
+        assert body["error"] in str(exc.value)
+        if "detail" in body:
+            assert body["detail"] in str(exc.value)
+        assert "authorization_response_invalid" not in str(exc.value)
+        assert len(seen) == 1
+
+
+@pytest.mark.parametrize("operation", ["start", "poll"])
+def test_response_type_refusals_survive_optimized_python(operation):
+    import subprocess
+    import sys
+
+    script = """
+from yoke_cli.config import hosted_machine_authorization as auth
+from yoke_contracts import machine_authorization as wire
+auth._post_json = lambda *a, **k: ({}, 200, {})
+auth._machine_identity = lambda: {"machine_id": "machine", "machine_name": "host"}
+auth.parse_authorization_response = lambda *a, **k: wire.MachineAuthorizationRefused(error="unexpected_outcome")
+try:
+    if OPERATION == "start":
+        auth.start("https://app.upyoke.com")
+    else:
+        pending = wire.PendingMachineAuthorization("https://app.upyoke.com", "secret", "CODE", "", "", 60, 2)
+        auth.complete(pending, sleep=lambda seconds: None, monotonic=lambda: 0)
+except wire.HostedMachineAuthorizationError as exc:
+    print(str(exc))
+else:
+    raise SystemExit("missing named refusal")
+""".replace("OPERATION", repr(operation))
+    result = subprocess.run(
+        [sys.executable, "-O", "-c", script], text=True, capture_output=True, timeout=15
+    )
+    assert result.returncode == 0, result.stderr
+    assert "authorization_response_invalid" in result.stdout
+    assert "reconnect" in result.stdout
