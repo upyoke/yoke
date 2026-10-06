@@ -88,14 +88,16 @@ async function testScreenshotAction() {
   assert(result.artifacts[0].endsWith('.png'), 'artifact is a PNG file');
   assert(fs.existsSync(result.artifacts[0]), 'screenshot file exists on disk');
 
-  // screenshot with capture: false produces no artifacts
   const result2 = await executeStep(page, {
     action: 'screenshot',
     capture: false,
   }, { baseUrl: baseUrl(), outputDir: tmpDir });
 
-  assertEqual(result2.success, true, 'screenshot without capture succeeds');
-  assertEqual(result2.artifacts, undefined, 'no artifacts when capture is false');
+  assertEqual(result2.success, false, 'screenshot with capture false is refused');
+  assert(
+    (result2.error || '').includes('capture=true'),
+    'error requires capture=true'
+  );
 
   await page.close();
 }

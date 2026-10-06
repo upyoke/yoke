@@ -12,6 +12,7 @@ from yoke_contracts.project_defaults import MissingProjectError
 from yoke_cli.config.project_selection import required_project_context
 from yoke_cli import browser_node_toolchain
 from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
+from yoke_cli.commands.qa_browser_stop import qa_browser_stop
 
 
 QA_BROWSER_STATUS_USAGE = "yoke qa browser status [--project PROJECT] [--json]"
@@ -313,6 +314,7 @@ def _repair_hints(
 QA_BROWSER_LIFECYCLE_SUBCOMMANDS = {
     ("qa", "browser", "setup"): qa_browser_setup,
     ("qa", "browser", "status"): qa_browser_status,
+    ("qa", "browser", "stop"): qa_browser_stop,
 }
 
 QA_BROWSER_LIFECYCLE_USAGE = {
@@ -320,6 +322,7 @@ QA_BROWSER_LIFECYCLE_USAGE = {
         "Materialize and optionally start the machine-local Browser QA daemon."
     ),
     "yoke qa browser status": ("Report the machine-local Browser QA daemon status."),
+    "yoke qa browser stop": ("Stop the machine-local Browser QA daemon."),
 }
 
 
@@ -330,4 +333,5 @@ __all__ = [
     "QA_BROWSER_STATUS_USAGE",
     "qa_browser_setup",
     "qa_browser_status",
+    "qa_browser_stop",
 ]

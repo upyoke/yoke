@@ -130,6 +130,7 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     _p("yoke qa browser screenshot", "qa.browser", REASON_TOOL_SHAPED),
     _p("yoke qa browser step", "qa.browser", REASON_TOOL_SHAPED),
     _p("yoke qa browser status", "qa.browser", REASON_TOOL_SHAPED),
+    _p("yoke qa browser stop", "qa.browser", REASON_TOOL_SHAPED),
     # The operator's headed sign-in window for a project's browser profile.
     _p("yoke browser authorize", "browser.profile", REASON_TOOL_SHAPED),
     *tuple(

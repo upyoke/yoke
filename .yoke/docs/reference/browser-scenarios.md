@@ -165,10 +165,12 @@ The box is what the element shows, not its scrollable content: a capture
 cannot photograph pixels the page never painted. A case covering a long
 inner-scrolling list pairs `scroll` with a capture per screenful.
 
-The runner rejects aliases such as `url` for `route`, `selector` for
-`target`, and `wait` for `delay` or `wait_for`. A navigate step that sets
-`target` instead of `route` is refused rather than falling through to the
-base URL.
+The declared schema is `yoke qa browser step --help`. The runner rejects
+aliases such as `url` for `route`, `selector` for `target`, `value` for
+`expected` on an assert, and `wait` for `delay` or `wait_for`. `target` must
+be a string; an object is refused. A screenshot without `capture: true` is
+refused rather than recorded empty. A navigate that sets `target` instead of
+`route` is refused rather than falling through to the base URL.
 
 ### Absence assertions and what they observed
 

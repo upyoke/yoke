@@ -1,19 +1,4 @@
-"""Step execution and qa_run/qa_artifact recording helpers.
-
-Owns:
-
-- ``_SCREENSHOT_ACTIONS`` and ``_is_screenshot_step`` — vocabulary for
-  artifact-producing screenshot steps (kept colocated with the predicate).
-- ``_execute_step`` — single-step dispatch onto the case's own daemon page.
-- ``_record_run`` / ``_complete_run`` / ``_record_artifact`` — dispatcher
-  delegates (``qa.run.add`` / ``qa.run.complete`` / ``qa.artifact.add``)
-  so the writes work over both transports; failures degrade to ``None`` /
-  no-op exactly as the prior in-process delegates did.
-- ``_record_artifact_file`` — submit one capture durably. Configured S3 uses
-  ``qa.artifact.presign`` plus a plain HTTPS PUT; genuinely unconfigured S3
-  sends the bytes through ``qa.artifact.add`` for permanent server-local
-  storage. Presign and upload failures stay explicit and never downgrade.
-"""
+"""Step execution and qa_run/qa_artifact recording helpers."""
 
 from __future__ import annotations
 
@@ -39,12 +24,10 @@ def _is_https_relay_timeout(exc: BaseException) -> bool:
 
 
 def _is_screenshot_step(step: Dict[str, Any]) -> bool:
-    """Return True if the step is expected to produce a screenshot artifact.
+    """Return whether a screenshot step records an artifact.
 
-    Yoke uses the runner vocabulary from ``docs/browser-scenario-schema``:
-    artifact-producing screenshot steps are ``action="screenshot"`` with
-    ``capture=true``. Non-capturing screenshot steps succeed without artifacts
-    and must not count toward screenshot evidence completeness.
+    Only ``capture=true`` records one. The step schema refuses a screenshot
+    that omits it, so a missing flag is not a successful empty capture.
     """
     if not isinstance(step, dict):
         return False
@@ -71,7 +54,10 @@ def _execute_step(
 
     try:
         return execute_step(
-            step_json, base_url, output_dir=artifact_dir, page_id=page_id,
+            step_json,
+            base_url,
+            output_dir=artifact_dir,
+            page_id=page_id,
         )
     except RuntimeError as e:
         return {"success": False, "error": str(e)}
@@ -95,13 +81,12 @@ def _dispatch_qa_write(
         response = call_qa_function(
             function_id=function_id,
             target=TargetRef(
-                kind="qa_requirement", qa_requirement_id=int(requirement_id),
+                kind="qa_requirement",
+                qa_requirement_id=int(requirement_id),
             ),
             payload=payload,
             actor=actor,
-            timeout_s=(
-                _ARTIFACT_WRITE_TIMEOUT_S if raise_on_failure else None
-            ),
+            timeout_s=(_ARTIFACT_WRITE_TIMEOUT_S if raise_on_failure else None),
         )
     except Exception as exc:
         if raise_on_failure:
@@ -140,7 +125,10 @@ def _record_run(
     if raw_result is not None:
         payload["raw_result"] = raw_result
     result = _dispatch_qa_write(
-        "qa.run.add", req_id, payload, actor=actor,
+        "qa.run.add",
+        req_id,
+        payload,
+        actor=actor,
     )
     if result is None:
         return None
@@ -175,7 +163,10 @@ def _complete_run(
     if raw_result is not None:
         payload["raw_result"] = raw_result
     _dispatch_qa_write(
-        "qa.run.complete", requirement_id, payload, actor=actor,
+        "qa.run.complete",
+        requirement_id,
+        payload,
+        actor=actor,
     )
 
 
@@ -296,7 +287,10 @@ def _record_artifact_file(
 
     filename = os.path.basename(str(file_path))
     presigned = _bqa._presign_artifact(
-        run_id, requirement_id, filename, content_type,
+        run_id,
+        requirement_id,
+        filename,
+        content_type,
         actor=actor,
     )
     if presigned:
@@ -310,8 +304,14 @@ def _record_artifact_file(
 
         def _record_handle():
             return _bqa._record_artifact(
-                run_id, requirement_id, artifact_type, content_type, handle,
-                metadata, actor=actor, raise_on_failure=True,
+                run_id,
+                requirement_id,
+                artifact_type,
+                content_type,
+                handle,
+                metadata,
+                actor=actor,
+                raise_on_failure=True,
             )
 
         try:

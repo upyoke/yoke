@@ -19,6 +19,7 @@ def test_qa_browser_group_help_lists_setup_and_status_without_source_import(
     assert run.returncode == 0
     assert "yoke qa browser setup" in run.stdout
     assert "yoke qa browser status" in run.stdout
+    assert "yoke qa browser stop" in run.stdout
     assert run.stderr == ""
     _assert_clean_client_boundary(run)
 

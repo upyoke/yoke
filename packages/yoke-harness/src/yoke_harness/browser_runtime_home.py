@@ -64,6 +64,13 @@ def _walk_files(root: Any, prefix: str) -> Iterator[tuple[str, Any]]:
             yield rel, candidate
 
 
+def declared_step_schema_bytes() -> bytes:
+    """The contracts declaration the runtime copy must match."""
+    from yoke_contracts.browser_step_schema import schema_bytes
+
+    return schema_bytes()
+
+
 def source_hash(source_root: Optional[Any] = None) -> str:
     root = source_root if source_root is not None else package_source_root()
     digest = hashlib.sha256()
@@ -73,6 +80,9 @@ def source_hash(source_root: Optional[Any] = None) -> str:
         digest.update(b"\0")
         digest.update(path.read_bytes())
         digest.update(b"\0")
+    digest.update(b"contracts/browser_step_schema.json\0")
+    digest.update(declared_step_schema_bytes())
+    digest.update(b"\0")
     return digest.hexdigest()
 
 
@@ -100,6 +110,9 @@ def _copy_sources(source_root: Any, dest_root: Path) -> None:
         src_file = source_root / name
         if src_file.is_file():
             (dest_root / name).write_bytes(src_file.read_bytes())
+    schema_dest = dest_root / "src" / "step-schema.json"
+    schema_dest.parent.mkdir(parents=True, exist_ok=True)
+    schema_dest.write_bytes(declared_step_schema_bytes())
 
 
 def ensure_materialized() -> Path:

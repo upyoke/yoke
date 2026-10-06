@@ -233,7 +233,7 @@ needs no `browser-control` project capability row to reach this machine.
 resolves Node, installs missing npm dependencies and Chromium, and launches a
 daemon in a process group independent of the caller's shell. It succeeds only
 after the authenticated health endpoint responds; otherwise it names a repair.
-Short-lived callers can exit without stopping it; `yoke qa browser status` checks it.
+Short-lived callers can exit without stopping it; `yoke qa browser status` checks it and `yoke qa browser stop` ends it.
 
 When the bundled Chromium download fails, setup discovers installed Chromium,
 or Chrome and proves a sandboxed launch and test-page navigation before

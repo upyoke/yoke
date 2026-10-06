@@ -18,10 +18,7 @@ const nav = require('./step-actions/navigation');
 const inter = require('./step-actions/interaction');
 const assertions = require('./step-actions/assertion');
 const capture = require('./step-actions/capture');
-const {
-  refuseNavigateWithoutRoute,
-  refuseUnrecognizedStepKeys,
-} = require('./step-schema');
+const { refuseStep } = require('./step-schema');
 const {
   authenticationWallError,
   isSelectorWaitTimeout,
@@ -74,7 +71,7 @@ function observedState(page) {
  * @param {*} [step.expected] - Expected value for asserts
  * @param {number} [step.min_count] - Minimum count for count_gte
  * @param {number} [step.timeout_ms] - Per-step timeout
- * @param {boolean} [step.capture] - Whether to capture screenshot
+ * @param {true} step.capture - Screenshot steps must set this so they record
  * @param {{width: number, height: number}} [step.viewport] - Resize before the
  *   step, and leave it resized for the steps that follow
  * @param {Object} options
@@ -103,25 +100,7 @@ async function executeStep(page, step, options) {
   }
 
   try {
-    // Validate that scenarios use the current step schema.
-    const legacyFields = [];
-    if (step.url !== undefined) {
-      legacyFields.push('"url" (use "route" instead)');
-    }
-    if (step.selector !== undefined) {
-      legacyFields.push('"selector" (use "target" instead)');
-    }
-    if (step.action === 'wait') {
-      legacyFields.push('"action":"wait" (use "delay" or "wait_for" instead)');
-    }
-    if (legacyFields.length > 0) {
-      throw new Error(
-        `Stale browser scenario schema detected. Legacy fields: ${legacyFields.join(', ')}. ` +
-        'Update stored scenarios to use canonical vocabulary (route, target, delay/wait_for).'
-      );
-    }
-    refuseUnrecognizedStepKeys(step);
-    refuseNavigateWithoutRoute(step);
+    refuseStep(step);
 
     // A step may state the width it is about. Responsive behaviour is only
     // provable by resizing the real viewport — constraining an element inside
@@ -142,7 +121,7 @@ async function executeStep(page, step, options) {
 
     // Build ref map for ref-based target resolution
     let refMap = null;
-    if (step.target && step.target.startsWith('ref:')) {
+    if (typeof step.target === 'string' && step.target.startsWith('ref:')) {
       refMap = await buildRefMap(page);
     }
     // Also build ref map for fill_form if any field uses ref:
