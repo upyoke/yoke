@@ -20,6 +20,7 @@ from runtime.api.fixtures import pg_testdb
 import yoke_core.api.main  # noqa: F401  (import-order anchor)
 from yoke_contracts.ui_browser_origin import ui_browser_origin_active
 from yoke_core.api import app_factory, browser_function_call
+from yoke_core.api.trusted_proxy import TrustedProxyHeadersMiddleware
 from yoke_core.api.web_session_auth import WEB_SESSION_COOKIE_NAME
 from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.handlers.__init_register__ import register_all_handlers
@@ -204,7 +205,7 @@ class TestBrowserFunctionCalls:
         assert error["code"] == "cross_origin_refused"
         assert "Authorization: Bearer" in error["message"]
 
-    def test_forwarded_host_is_the_server_origin(self, browser):
+    def test_unattested_forwarded_host_cannot_choose_the_server_origin(self, browser):
         resp = _call(
             browser,
             "ui_preferences.nav_group.list",
@@ -212,7 +213,27 @@ class TestBrowserFunctionCalls:
             Origin="https://yoke.example.com",
             **{"X-Forwarded-Host": "yoke.example.com"},
         )
+        assert resp.status_code == 403, resp.text
+        assert resp.json()["error"]["code"] == "cross_origin_refused"
+
+    def test_declared_proxy_can_supply_the_browser_function_origin(self, browser):
+        proxy_browser = TestClient(
+            TrustedProxyHeadersMiddleware(browser.app, "192.0.2.0/24"),
+            client=("192.0.2.10", 54321),
+            cookies=browser.cookies,
+        )
+        resp = _call(
+            proxy_browser,
+            "ui_preferences.nav_group.list",
+            {},
+            Origin="https://yoke.example.com",
+            **{
+                "X-Forwarded-Host": "yoke.example.com",
+                "X-Forwarded-For": "198.51.100.7",
+            },
+        )
         assert resp.status_code == 200, resp.text
+        assert resp.json()["success"] is True
 
     def test_unknown_session_cookie_is_refused_by_name(self, db_conn):
         client = TestClient(

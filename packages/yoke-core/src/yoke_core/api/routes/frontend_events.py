@@ -43,7 +43,8 @@ def admission(request):
         return refusal(
             403,
             "origin_not_allowed",
-            "Send from the exact serving origin; preserve Host and set "
+            "Send from the exact serving origin; preserve Host or set "
+            "X-Forwarded-Host at the proxy, and set "
             "YOKE_API_TRUSTED_PROXIES to the TLS proxy IPs/CIDRs, then restart "
             "with yoke self-host init --dir PATH --protect-existing --start.",
         )

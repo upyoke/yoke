@@ -34,8 +34,8 @@ Okta, Keycloak, Microsoft Entra ID, Google Workspace, and others.
 **What protects the cookie.** The session cookie is `HttpOnly` and
 `SameSite=Lax`, so browsers do not attach it to cross-site writes. Every
 cookie-authorized call must also be same-origin: a present `Origin` must
-name the server's own host (`X-Forwarded-Host` first, then `Host`, so set
-it in your reverse proxy), and a present `Sec-Fetch-Site` must be
+name the server's own host (`X-Forwarded-Host` from a declared trusted proxy,
+otherwise `Host`), and a present `Sec-Fetch-Site` must be
 `same-origin` or `none`. Anything else is refused as
 `cross_origin_refused`. A request carrying `Authorization: Bearer` is
 authenticated by its token, never by a cookie riding along. The browser
@@ -52,13 +52,16 @@ IP addresses or CIDRs, for example `127.0.0.1,172.20.0.2`. Use the transport
 peer addresses seen **inside the core container**: a host-side proxy may reach
 it through Docker's bridge gateway rather than loopback. An unset setting trusts
 only `127.0.0.1`; an empty value trusts none. The server entrypoint also accepts
-`--trusted-proxies`. Hosted and Local startup keep their existing configuration.
+`--trusted-proxies`. Malformed IPs/CIDRs, hostnames, empty list entries, and `*`
+refuse startup as `trusted_proxies_invalid`; correct `.env` and restart using
+the command below. Hosted and Local startup keep their existing configuration.
 
-The proxy must preserve the external `Host`, set `X-Forwarded-Proto: https`,
+The proxy must preserve the external `Host` or set `X-Forwarded-Host` to it,
+set `X-Forwarded-Proto: https`,
 and overwrite or safely append `X-Forwarded-For` with the connecting client IP.
 Strip caller-supplied forwarding headers at the public edge. Restrict backend
-access to the proxy; avoid `*` or broad networks containing untrusted clients.
-Uvicorn accepts scheme/client forwarding only from declared transport peers;
+access to the proxy; avoid broad networks containing untrusted clients.
+The server accepts scheme/client/host forwarding only from declared transport peers;
 headers from other peers are ignored. This makes token cookies Secure, permits
 the HTTPS analytics collector, and gives each client its own rate budget.
 

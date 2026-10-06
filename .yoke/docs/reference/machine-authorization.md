@@ -65,8 +65,11 @@ includes `Retry-After`. Start refusals require retrying after that delay. The CL
 waits through poll throttling and polls the same code after `Retry-After`, bounded
 by its expiry and cancellation. Missing or invalid delays retain the normal poll
 interval; capacity refusals remain fatal. Failed and malformed
-requests also consume the budget. Configure trusted proxies so the server sees
-the actual transport client; clients sharing an address share these budgets. A denied, consumed,
+requests also consume the budget. For self-host, set `YOKE_API_TRUSTED_PROXIES`
+in the bundle's `.env` to the TLS proxy IPs/CIDRs, then restart with
+`yoke self-host init --dir PATH --protect-existing --start` so the server sees
+each forwarded client. Headers from undeclared peers are ignored; clients
+sharing an address share these budgets. A denied, consumed,
 or expired code requires a new connection. Wrong machine identity, missing
 org membership, or disabled actor refuses with its recovery step. A database
 failure before issuance leaves delivery retryable. Cookies authorize browser

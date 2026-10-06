@@ -3,7 +3,7 @@
 import hashlib
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 from uvicorn import Config
 
@@ -11,6 +11,8 @@ from runtime.api.fixtures import pg_testdb
 from yoke_contracts.browser_sign_in import BROWSER_SIGN_IN_REDEEM_PATH
 from yoke_contracts.machine_authorization import START_PATH, POLL_PATH
 from yoke_core.api import server_entrypoint
+from yoke_core.api.trusted_proxy import TrustedProxyHeadersMiddleware
+from yoke_core.api.web_session_auth import cross_origin_refusal
 from yoke_core.api.routes import (
     frontend_events,
     machine_authorization,
@@ -44,10 +46,19 @@ def serving_client(peer, *, scheme="http", trusted=PROXY):
     app.include_router(token_browser_sign_in.router, prefix="/v1")
     app.include_router(frontend_events.router)
     app.include_router(machine_authorization.router)
+
+    @app.get("/origin-check")
+    def origin_check(request: Request):
+        return cross_origin_refusal(request) or {"client": request.client.host}
+
     settings = server_entrypoint.resolve_settings(
         [], env={"YOKE_API_TRUSTED_PROXIES": trusted}
     )
-    config = Config(app, forwarded_allow_ips=settings.trusted_proxies, log_config=None)
+    config = Config(
+        TrustedProxyHeadersMiddleware(app, settings.trusted_proxies),
+        proxy_headers=False,
+        log_config=None,
+    )
     config.load()
     return TestClient(
         config.loaded_app, base_url=f"{scheme}://{HOST}", client=(peer, 43210)
@@ -62,6 +73,36 @@ def forwarded(client=CLIENT):
     }
 
 
+@pytest.mark.parametrize("trusted", [PROXY, "192.0.2.0/24", PROXY + ",::1", ""])
+@pytest.mark.parametrize("peer", [PROXY, UNTRUSTED, CLIENT])
+@pytest.mark.parametrize("forwarded_client", [CLIENT, PROXY, ""])
+def test_forwarded_host_trust_uses_original_peer(peer, trusted, forwarded_client):
+    external_host = "browser.example.test"
+    headers = {
+        **forwarded(forwarded_client),
+        "X-Forwarded-Host": external_host,
+        "Origin": f"https://{external_host}",
+    }
+    # CLIENT cannot attest itself by naming PROXY in X-Forwarded-For;
+    # PROXY stays trusted when Uvicorn replaces its client with CLIENT.
+    trusted_peer = bool(trusted) and (
+        peer == PROXY or (trusted == "192.0.2.0/24" and peer == UNTRUSTED)
+    )
+    with serving_client(peer, trusted=trusted) as client:
+        response = client.get("/origin-check", headers=headers)
+        assert response.status_code == (200 if trusted_peer else 403), response.text
+        headers["Origin"] = f"https://{HOST}"
+        response = client.get("/origin-check", headers=headers)
+        assert response.status_code == (403 if trusted_peer else 200), response.text
+
+
+def test_trusted_proxy_can_preserve_host_without_forwarded_host():
+    with serving_client(PROXY) as client:
+        response = client.get("/origin-check", headers=forwarded())
+    assert response.status_code == 200
+    assert response.json()["client"] == CLIENT
+
+
 @pytest.mark.parametrize("peer,secure", [(PROXY, True), (UNTRUSTED, False)])
 def test_token_cookie_uses_only_trusted_forwarded_scheme(database, peer, secure):
     actor = seed_human_actor(database, "proxy-browser")
@@ -72,6 +113,46 @@ def test_token_cookie_uses_only_trusted_forwarded_scheme(database, peer, secure)
         )
     assert response.status_code == 200, response.text
     assert ("Secure" in response.headers["set-cookie"]) is secure
+
+
+@pytest.mark.parametrize("peer,expected", [(PROXY, 200), (UNTRUSTED, 403)])
+def test_token_redemption_origin_uses_only_trusted_forwarded_host(
+    database, peer, expected
+):
+    actor = seed_human_actor(database, "forwarded-browser-host")
+    code = mint_browser_sign_in_link(database, actor_id=actor)
+    headers = {
+        **forwarded(),
+        "X-Forwarded-Host": "browser.example.test",
+        "Origin": "https://browser.example.test",
+    }
+    with serving_client(peer) as client:
+        response = client.post(
+            BROWSER_SIGN_IN_REDEEM_PATH, json={"code": code}, headers=headers
+        )
+    assert response.status_code == expected, response.text
+    if expected == 200:
+        assert "Secure" in response.headers["set-cookie"]
+    else:
+        assert response.json()["error"]["code"] == "cross_origin_refused"
+
+
+@pytest.mark.parametrize("peer,expected", [(PROXY, 200), (UNTRUSTED, 403)])
+def test_collector_origin_uses_only_trusted_forwarded_host(database, peer, expected):
+    with serving_client(peer, scheme="https") as client:
+        key = client.get("/api/events/config").json()["publishableKey"]
+        response = client.delete(
+            "/api/events/attribution",
+            headers={
+                **forwarded(),
+                "X-Forwarded-Host": "browser.example.test",
+                "Origin": "https://browser.example.test",
+                "X-Events-Key": key,
+            },
+        )
+    assert response.status_code == expected, response.text
+    if expected == 403:
+        assert response.json()["error"] == "origin_not_allowed"
 
 
 @pytest.mark.parametrize("peer,expected", [(PROXY, 200), (UNTRUSTED, 400)])
