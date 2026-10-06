@@ -157,7 +157,8 @@ def handle_epic_task_repair_read(request: FunctionCallRequest) -> HandlerOutcome
             task_row = conn.execute(
                 "SELECT title, status FROM epic_tasks "
                 f"WHERE epic_id = {p} AND task_num = {p}",
-                (epic_id, body.task_num),
+                # Untyped text binds against either epic_tasks.epic_id column type.
+                (str(epic_id), body.task_num),
             ).fetchone() if epic_id is not None else None
             # render_item_ref tolerates schemas without project tables and
             # falls back to the default-prefix + internal-id form.
