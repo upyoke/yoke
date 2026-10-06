@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.schema_common import _column_exists
+from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_core.domain.session_turn_posture import (
     TURN_POSTURE_AT_COLUMN_DDL,
@@ -41,6 +41,7 @@ def create_session_tables(conn: Any) -> None:
     recovery_columns = "".join(
         f"          {column} {ddl},\n" for column, ddl in SESSION_RECOVERY_COLUMNS
     )
+    sessions_table_is_new = not _table_exists(conn, "harness_sessions")
     execute_schema_script(
         conn,
         f"""
@@ -144,8 +145,8 @@ def create_session_tables(conn: Any) -> None:
     )
     # This DDL runs on every boot, before the migration history renames an
     # existing universe's ``execution_lane`` column; that entry creates the
-    # index itself, so only a table already carrying the column gets it here.
-    if _column_exists(conn, "harness_sessions", "execution_level"):
+    # index itself, so only a table this call just created gets it here.
+    if sessions_table_is_new:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_harness_sessions_level "
             "ON harness_sessions(execution_level)"

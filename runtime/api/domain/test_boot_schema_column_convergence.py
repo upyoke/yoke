@@ -38,7 +38,11 @@ _MACHINE_CREDENTIAL_COLUMNS = frozenset(
 # shape; this sweep must neither classify them as born-with nor drop them after
 # their ledger entry has already been recorded.
 _HISTORY_CONVERGED_COLUMNS = frozenset(
-    {*_MACHINE_CREDENTIAL_COLUMNS, ("test_machine_verifications", "capability_type")}
+    {
+        *_MACHINE_CREDENTIAL_COLUMNS,
+        ("test_machine_verifications", "capability_type"),
+        ("harness_sessions", "execution_level"),
+    }
 )
 # Digest of columns that shipped with their table and therefore have no
 # additive converge lookup. Update only when introducing a new table, or when
@@ -82,8 +86,10 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # are born with their separate request-budget table.
 # Attribution redemption tombstones introduce a new table; organization,
 # single-use nonce and expiry columns are all born with that table.
+# The session grouping column harness_sessions.execution_level is delivered by
+# an ordered history entry that renames the earlier born-with spelling in place.
 _BORN_WITH_COLUMN_DIGEST = (
-    "e54142934bc0b00c6966e9e51c8f71494cb1245b36dcff91675376a58472d388"
+    "e9176436bce4dba4b4928d4de47de962275c8cdc88fddfab8d8f7fc30a429522"
 )
 
 

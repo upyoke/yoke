@@ -2,8 +2,8 @@
 
 SESSION_DISPLAY_COLUMN_PATTERN = r"\bexecutor_" + "display_name" + r"\b"
 ORGANIZATION_ADMISSION_COLUMN_PATTERN = r"\bauto_" + "join_domain" + r"\b"
-# Execution lanes were renamed to execution levels; "lane" now names only
-# worktree lanes, so each retired spelling of the session grouping is hunted.
+# The session grouping is an execution level; "lane" now names only worktree
+# lanes, so each retired spelling of the session grouping is hunted.
 EXECUTION_LANE_PATTERN = r"(?i)\bexecution[ _-]" + "lanes?" + r"\b"
 LANE_ROUTING_KEY_PATTERN = (
     r"\b(?:lane_" + "metadata|lane_" + "rules|executor_default_" + r"lane)"
@@ -33,7 +33,7 @@ SESSION_CONTROL_RETIREMENT_LABELS = {
     ORGANIZATION_ADMISSION_COLUMN_PATTERN: (
         "retired organization admission column (renamed to domain)"
     ),
-    EXECUTION_LANE_PATTERN: "retired execution lane (renamed to execution level)",
+    EXECUTION_LANE_PATTERN: "retired session grouping name (renamed to execution level)",
     LANE_ROUTING_KEY_PATTERN: (
         "retired session-routing lane key (renamed to level_metadata, "
         "level_rules, executor_default_levels)"

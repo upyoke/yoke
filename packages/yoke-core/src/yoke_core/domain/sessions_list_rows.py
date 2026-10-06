@@ -86,14 +86,14 @@ def render_session_roster_rows(
     """Classify liveness and attach holdings for already-fetched roster rows.
 
     Every question the per-row projection needs that is shared across rows —
-    an actor's display name, a project's lane settings, an item's public ref —
+    an actor's display name, a project's level settings, an item's public ref —
     is resolved here for the whole page before the loop starts, so the read
     costs one statement per distinct question rather than one per row.
     """
     page = [dict(raw) for raw in rows]
     schedule = revision_schedule(conn) if page else []
     actor_names = render_actor_names(conn, (row.get("actor_id") for row in page))
-    lane_settings = level_settings_by_project(
+    level_settings = level_settings_by_project(
         conn,
         (row.get("project_id") for row in page),
     )
@@ -146,7 +146,7 @@ def render_session_roster_rows(
             roles=roles_by_session.get(session_id, []),
             item_holders=item_holders,
         )
-        presentation = session_presentation(row, lane_settings=lane_settings)
+        presentation = session_presentation(row, level_settings=level_settings)
         holdings = holdings_by_session.get(session_id) or empty_holdings
         landing_wait = any(
             entry.get(ITEM_AWAITING_LANDING_KEY) for entry in holdings["current"]
