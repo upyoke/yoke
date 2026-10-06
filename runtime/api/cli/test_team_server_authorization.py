@@ -135,7 +135,10 @@ def test_client_teaches_named_start_admission_refusals(monkeypatch, reason):
         auth.start(ORIGIN, self_host=True)
 
 
-def test_client_stops_polling_with_named_rate_refusal(monkeypatch):
+@pytest.mark.parametrize(
+    "reason", ["authorization_client_capacity", "authorization_capacity"]
+)
+def test_client_stops_polling_with_named_capacity_refusal(monkeypatch, reason):
     monkeypatch.setattr(
         auth,
         "_machine_identity",
@@ -145,9 +148,7 @@ def test_client_stops_polling_with_named_rate_refusal(monkeypatch):
 
     def refused(*args, **kwargs):
         seen.append(True)
-        raise BoundedJsonHttpStatusError(
-            429, {"error": "authorization_poll_rate_limited"}
-        )
+        raise BoundedJsonHttpStatusError(429, {"error": reason})
 
     monkeypatch.setattr(auth, "request_json", refused)
     pending = auth.PendingMachineAuthorization(
@@ -162,7 +163,7 @@ def test_client_stops_polling_with_named_rate_refusal(monkeypatch):
     )
     with pytest.raises(
         auth.HostedMachineAuthorizationError,
-        match="authorization_poll_rate_limited: finish pending",
+        match=reason + ": finish pending",
     ):
         auth.complete(pending, sleep=lambda _: None, monotonic=lambda: 0)
     assert seen == [True]
