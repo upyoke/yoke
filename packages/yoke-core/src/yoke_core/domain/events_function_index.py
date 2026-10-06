@@ -13,6 +13,16 @@ from yoke_core.domain.sql_json import json_text_expr
 
 FUNCTION_INDEX_NAME = "idx_events_function_identity"
 FUNCTION_LOOKUP_CHARS = 64
+# Consumers attest the fresh engine-owned receipt from this declaration.
+BOOTSTRAP_AUDIT_RECORD = {
+    "name": "events-function-index",
+    "description": f"Concurrent additive index validated: {FUNCTION_INDEX_NAME}",
+    "exception_reason": "events-function-index: additive catalog only; no rows rewritten",
+    "tables": [],
+    "pre_counts": {},
+    "post_counts": {},
+    "backup_reason": None,
+}
 
 
 def function_identity_sql(column: str = "envelope") -> str:
@@ -106,19 +116,13 @@ def ensure_function_index(conn: Any) -> None:
             recorded = index_conn.execute(
                 "SELECT 1 FROM migration_audit WHERE migration_name=%s "
                 "AND state='completed' LIMIT 1",
-                ("events-function-index",),
+                (BOOTSTRAP_AUDIT_RECORD["name"],),
             ).fetchone()
             if recorded is None:
                 with db_backend.bound_pg_dsn(dsn), local_authority_exempt():
                     record_audit_fingerprint(
                         db_path=dsn,
-                        name="events-function-index",
-                        description=f"Concurrent additive index validated: {FUNCTION_INDEX_NAME}",
-                        tables=[],
-                        pre_counts={},
-                        post_counts={},
-                        backup_reason=None,
-                        exception_reason="events-function-index: additive catalog only; no rows rewritten",
+                        **BOOTSTRAP_AUDIT_RECORD,
                     )
         finally:
             index_conn.execute(

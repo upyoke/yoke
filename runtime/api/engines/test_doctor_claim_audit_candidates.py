@@ -19,6 +19,7 @@ from yoke_contracts.schema_authority import (
 from yoke_core.domain import db_backend
 from yoke_core.domain.check_claim_boundary_audit_summary import audit_summary
 from yoke_core.domain.events_function_index import (
+    BOOTSTRAP_AUDIT_RECORD,
     FUNCTION_INDEX_NAME,
     _connection_dsn,
     ensure_function_index,
@@ -160,10 +161,43 @@ def test_index_lookup_and_repeated_boot_receipt(env):
     conn.commit()
     _ensure(conn)
     receipts = conn.execute(
-        "SELECT count(*) FROM migration_audit WHERE migration_name='events-function-index' "
-        "AND state='completed'"
+        "SELECT count(*) FROM migration_audit WHERE migration_name=%s "
+        "AND state='completed'",
+        (BOOTSTRAP_AUDIT_RECORD["name"],),
     ).fetchone()[0]
     assert receipts == 1
+
+
+def test_bootstrap_audit_row_matches_shared_declaration(env):
+    conn = env["conn"]
+    _ensure(conn)
+    rows = conn.execute(
+        "SELECT migration_name, description, exception_reason, tables_declared, "
+        "pre_row_counts, post_row_counts, backup_path FROM migration_audit"
+    ).fetchall()
+    assert len(rows) == 1
+    row = rows[0]
+    recorded = dict(
+        zip(
+            (
+                "name",
+                "description",
+                "exception_reason",
+                "tables",
+                "pre_counts",
+                "post_counts",
+            ),
+            row[:6],
+            strict=True,
+        )
+    )
+    for field in ("tables", "pre_counts", "post_counts"):
+        recorded[field] = json.loads(recorded[field])
+    # The audit helper represents the explicit no-backup declaration as an
+    # empty stored path, rather than persisting the helper's reason argument.
+    assert row[6] == ""
+    recorded["backup_reason"] = None
+    assert recorded == BOOTSTRAP_AUDIT_RECORD
 
 
 def test_concurrent_builder_uses_own_autocommit_connection(env, monkeypatch):

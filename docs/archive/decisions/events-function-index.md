@@ -27,6 +27,11 @@ This is a named `record_audit_fingerprint` exception to transactional DDL.
 The receipt uses `exception_reason=events-function-index`; no rollback copy
 is needed because no table, column, or ledger row is rewritten or removed.
 The empty table/count maps explicitly describe a schema-only operation.
+`events_function_index.BOOTSTRAP_AUDIT_RECORD` declares the exact arguments
+used to record that receipt. Consumers can attest this engine-owned bootstrap
+record directly from the mapping, without parsing source or accepting other
+audit history as an empty founder baseline. `backup_reason=None` declares no
+backup; the audit helper persists its corresponding empty `backup_path`.
 Catalog validation and receipt persistence fail closed. A retry fills any
 missing receipt before returning, including after a build completed but its
 receipt failed. Existing valid indexes do not rebuild on boot.
