@@ -34,7 +34,7 @@ def _requirement_consumed(
     *,
     pre_merge: bool,
     item_id: int,
-    candidate_sha: str,
+    candidate_shas: tuple[str, ...],
 ) -> bool:
     """Whether this blocking row is satisfied at the boundary being crossed.
 
@@ -65,8 +65,10 @@ def _requirement_consumed(
             and latest_verdict(conn, replacement_id) == "pass"
             and has_current_passing_run(conn, replacement_id)
             and (
-                not candidate_sha
-                or (latest and recorded_head_sha(latest["raw_result"]) == candidate_sha)
+                not candidate_shas
+                or (
+                    latest and recorded_head_sha(latest["raw_result"]) in candidate_shas
+                )
             )
         )
     if pre_merge:
@@ -88,7 +90,7 @@ def verification_gate(
     item_id: int,
     verification: Mapping[str, Any],
     target_status: str,
-    candidate_sha: str = "",
+    candidate_shas: tuple[str, ...] = (),
 ) -> Optional[dict[str, Any]]:
     if not all(
         _table_exists(conn, table)
@@ -181,7 +183,7 @@ def verification_gate(
             row,
             pre_merge=pre_merge,
             item_id=int(item_id),
-            candidate_sha=candidate_sha,
+            candidate_shas=candidate_shas,
         )
     ]
     unsatisfied = [
