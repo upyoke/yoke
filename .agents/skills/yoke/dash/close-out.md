@@ -177,7 +177,7 @@ precedes `LIVE_STAGE` in `definition.stages`, and belongs to Dash's bound
 interval. A backward rework move needs no edge in `definition.transitions`:
 `yoke_core.domain.workflow_declared_transitions.undeclared_forward_transition`
 only checks forward moves, as classified by
-`yoke_core.domain.workflow_runtime.WorkflowRuntime.is_forward_transition`.
+`WorkflowRuntime.is_forward_transition` in `yoke_core.domain.workflow_runtime`.
 Use the ordinary transition below; retain its claim, frozen-item, source-status,
 and target-stage checks. If it refuses, report the named reason and recovery
 to steering; absence of a backward edge is not a refusal.
