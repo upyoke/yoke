@@ -8,6 +8,8 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_qa_source_obligation import source_obligation_consumed
 from yoke_core.domain.qa_obligation_settlement import requirement_retracted_at_select
 
+LIVE_RUN_OUTCOMES = frozenset({"running", "waiting"})
+
 
 def unsettled_supersession_runs(
     conn: Any, item_id: int, runs: list[Any]
@@ -55,7 +57,7 @@ def unsettled_supersession_runs(
                     requirement_id = int(row[2])
                     continue
                 return requirement_id
-            if row[5] and row[6] not in {"running", "waiting"}:
+            if row[5] and row[6] not in LIVE_RUN_OUTCOMES:
                 if row[4] == "pass":
                     return None
                 if row[2]:
@@ -71,7 +73,7 @@ def unsettled_supersession_runs(
             unsettled.append((row, ""))
             continue
         pending_id = open_successor(int(successor_id))
-        closed = bool(row[4]) and row[6] not in {"running", "waiting"}
+        closed = bool(row[4]) and row[6] not in LIVE_RUN_OUTCOMES
         if closed and pending_id is None:
             continue
         detail = (
