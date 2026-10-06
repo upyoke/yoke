@@ -1,6 +1,8 @@
 """Real request consumers use Uvicorn's scheme/client trust boundary."""
 
 import hashlib
+import time
+from types import SimpleNamespace
 
 import pytest
 from fastapi import FastAPI, Request
@@ -174,11 +176,20 @@ def test_collector_requires_actual_or_trusted_https(database, peer, expected):
         assert response.json()["publishableKey"]
 
 
+def pin_rate_budget(monkeypatch):
+    """One request per client, inside one rate window however long the test runs."""
+    monkeypatch.setattr(frontend_events_storage, "RATE_REQUESTS", 1)
+    window = frontend_events_storage.RATE_WINDOW_SECONDS
+    middle = time.time() // window * window + window // 2
+    clock = SimpleNamespace(time=lambda: middle)
+    monkeypatch.setattr(frontend_events_storage, "time", clock)
+
+
 @pytest.mark.parametrize("trusted", [PROXY, "192.0.2.0/24", PROXY + ",::1"])
 def test_collector_budgets_forwarded_clients_independently(
     database, monkeypatch, trusted
 ):
-    monkeypatch.setattr(frontend_events_storage, "RATE_REQUESTS", 1)
+    pin_rate_budget(monkeypatch)
     with serving_client(PROXY, trusted=trusted) as client:
         key = client.get("/api/events/config", headers=forwarded()).json()[
             "publishableKey"
@@ -203,7 +214,7 @@ def test_collector_budgets_forwarded_clients_independently(
 
 
 def test_untrusted_forwarded_clients_share_transport_budget(database, monkeypatch):
-    monkeypatch.setattr(frontend_events_storage, "RATE_REQUESTS", 1)
+    pin_rate_budget(monkeypatch)
     with serving_client(UNTRUSTED, scheme="https") as client:
         key = client.get("/api/events/config").json()["publishableKey"]
         headers = {**forwarded(), "X-Events-Key": key}
