@@ -158,9 +158,12 @@ def deployment_runs_validate_composition(args: List[str]) -> int:
         description=(
             "Compose the run now from its candidate and report what "
             "enrolled or why it refused. A flow with an item-scoped QA "
-            "stage refuses here, before any stage runs, when it takes no "
-            "delivery custody (item_qa_flow_without_delivery_custody) or "
-            "the run has no member to prove (item_qa_run_without_members). "
+            "stage refuses here, before any stage runs, a run that carries "
+            "or owes members without delivery custody "
+            "(item_qa_flow_without_delivery_custody), and a memberless run "
+            "whose flow is the completion flow for delivery-ready items no "
+            "other release holds (item_qa_run_without_members). A memberless "
+            "run owing no delivery passes with item_qa_no_member_owes_target. "
             "Requires the caller's project deploy lock."
         ),
     )

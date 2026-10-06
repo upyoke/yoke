@@ -98,14 +98,16 @@ def test_admin_candidate_dispatches_scoped_qa_stages_locally(
         dispatch_deployment_qa_stage,
     )
     from yoke_core.domain.deployment_qa_stage_resume import resume_qa_refusal_message
+    from yoke_core.domain.deployment_run_item_qa_membership import (
+        NO_MEMBER_OWES_TARGET,
+    )
 
     # Nothing is materialized yet, so the run's own stored flow — read
     # locally, never relayed — is what produces each verdict below.
     code, message = dispatch_deployment_qa_stage(
         {"name": "scoped-item-check"}, run_id=run_id
     )
-    assert code == 1
-    assert "item-scoped QA stage has no attached run members" in message
+    assert (code, message) == (0, NO_MEMBER_OWES_TARGET)
 
     refusal = resume_qa_refusal_message(run_id=run_id, start_stage="complete")
     assert "scoped-run-check" in refusal

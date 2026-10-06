@@ -34,7 +34,7 @@ from yoke_core.domain.deployment_run_carried_membership_refusal import (
 )
 from yoke_core.domain.deployment_run_carried_work import carried_work_for_enrollment
 from yoke_core.domain.deployment_run_item_qa_membership import (
-    item_qa_membership_refusal,
+    item_qa_membership_verdict,
 )
 from yoke_core.domain.deployment_run_skipped_candidates import skipped_candidate_notice
 from yoke_core.domain.deployment_run_unheld_candidates import (
@@ -124,13 +124,12 @@ def cmd_validate_composition(
     1. All items share the run's project
     2. Every item is delivery-ready under its pinned workflow policy
     3. No unsatisfied hard-block dependencies outside the run
-    4. An item-scoped QA stage has delivery custody and a member to prove
+    4. Item-scoped QA has custody, and a memberless run owes no delivery
 
     ``allow_pending_pair_merges`` is what preparation passes: a run prepared
     before its coordinated pair has landed is expected to carry unsatisfied
-    pair-merge edges, and remembering them is the whole point of preparing it.
-    Only those edges are tolerated, and only at that phase — continuation
-    re-runs this with the default and so proves the pair actually merged.
+    pair-merge edges; only those, and only then — continuation re-runs this
+    with the default and so proves the pair actually merged.
     """
     # Run creation checks its provisional row before committing it. The
     # explicit command owns a connection and persists the source bindings and
@@ -245,16 +244,13 @@ def cmd_validate_composition(
         # A final release must have authority to close every final member.
         if unclosable := unclosable_final_member_refusal(conn, run_id, custody=custody):
             errors.append(unclosable)
-        # An item-scoped QA stage needs custody and, to start, a member.
-        if item_qa := item_qa_membership_refusal(
+        # Item QA needs custody; a memberless run must owe no delivery.
+        item_qa, no_member = item_qa_membership_verdict(
             conn, run_id, require_members=require_item_qa_members
-        ):
-            errors.append(item_qa)
-
+        )
+        errors.extend([item_qa] if item_qa else [])
         unadmitted = unadmitted_post_deploy_notice(conn, run_id)
-
         inert = inert_membership_notice(conn, run_id)
-
         held = skipped_candidate_notice(
             conn, run_id, custody=custody, carried_work=carried
         )
@@ -268,7 +264,13 @@ def cmd_validate_composition(
 
         notes = [
             note
-            for note in (describe_enrollment(enrolled), held, inert, unadmitted)
+            for note in (
+                describe_enrollment(enrolled),
+                held,
+                inert,
+                unadmitted,
+                no_member,
+            )
             if note
         ]
         if connection is None:

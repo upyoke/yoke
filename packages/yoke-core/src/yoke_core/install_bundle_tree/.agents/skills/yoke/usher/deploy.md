@@ -140,10 +140,14 @@ public item reference through the registered item target and refuses a run
 that has left `created`, an item whose project the run ships no source for, or
 an incompatible workflow binding. `yoke --env {control-plane} deployment-runs
 validate-composition {run-id}` composes the run now and reports what it
-enrolled or why it refused. A flow with an item-scoped QA stage refuses when
-it takes no delivery custody (`item_qa_flow_without_delivery_custody`) or the
-run has no member to prove (`item_qa_run_without_members`). A composition
-refusal halts the batch; do not execute a partial run.
+enrolled or why it refused. A flow with an item-scoped QA stage refuses a run
+that carries or owes members without delivery custody
+(`item_qa_flow_without_delivery_custody`), and a memberless run whose flow is
+the completion flow for delivery-ready items no other release holds
+(`item_qa_run_without_members`). A memberless run that owes no delivery — a
+stage run whose candidates were targeted out — passes its item QA with the
+named `item_qa_no_member_owes_target` result. A composition refusal halts the
+batch; do not execute a partial run.
 
 Multiple resolvable environments → `AskUserQuestion` for selection, then re-run with `--environment`. Validation failure → halt.
 

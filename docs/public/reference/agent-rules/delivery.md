@@ -166,10 +166,15 @@ learns the other's part from its own skill. The split is the whole rule:
   member already in it. An item-scoped QA stage proves each member against
   the requirement snapshot the composition freeze writes, and only a flow
   that takes delivery custody freezes one: creation, `add-item`, and
-  `validate-composition` refuse such a stage on a custody-free flow
-  (`item_qa_flow_without_delivery_custody`), and `validate-composition` and
-  the pre-execution check refuse a run with no member for it to prove
-  (`item_qa_run_without_members`) before any stage deploys.
+  `validate-composition` refuse a custody-free run that carries or owes
+  members (`item_qa_flow_without_delivery_custody`). A memberless run is
+  judged by what it owes: `validate-composition` and the pre-execution check
+  refuse it, before any stage deploys, when its flow is the completion flow
+  for delivery-ready items no other release holds
+  (`item_qa_run_without_members`); otherwise — a stage run whose candidates
+  were targeted out — its item-scoped stage passes with the named
+  `item_qa_no_member_owes_target` result. Creation does not ask the member
+  question, because it mints itemless runs for `add-item`.
 - **The member owner owns its own item.** Its merge parked it at the flow's
   release wait holding its work claim; the deployment wake re-enters it for its
   QA stage and when its own item-scoped QA clears. A final member on a
