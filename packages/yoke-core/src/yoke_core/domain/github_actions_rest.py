@@ -103,7 +103,13 @@ def run_state(repo: str, run_id: str, *, token: str) -> Tuple[int, str]:
         return 1, f"Error: failed to query run {run_id}: {exc}"
     if not isinstance(data, dict):
         return 1, f"Error: malformed response for run {run_id}"
+    from yoke_core.domain.ci_job_outcome import (
+        CI_JOB_NOT_STARTED,
+        REDISPATCH_RECOVERY,
+        with_effective_conclusion,
+    )
 
+    data = with_effective_conclusion(repo, data, token=token) or data
     status = str(data.get("status") or "").strip()
     conclusion = str(data.get("conclusion") or "").strip()
 
@@ -111,6 +117,8 @@ def run_state(repo: str, run_id: str, *, token: str) -> Tuple[int, str]:
         if conclusion == "success":
             return 0, "success"
         failure = conclusion or "unknown"
+        if failure == CI_JOB_NOT_STARTED:
+            return 1, f"failed:{failure} — {REDISPATCH_RECOVERY}"
         return 1, f"failed:{failure}"
     if status in ("queued", "pending", "waiting"):
         return 2, "waiting"

@@ -20,6 +20,11 @@ from yoke_core.domain.handlers.github_actions_set import (
     _transport_failed,
     _validate_and_resolve,
 )
+from yoke_core.domain.ci_job_outcome import (
+    CI_JOB_NOT_STARTED,
+    REDISPATCH_RECOVERY,
+    with_effective_conclusion,
+)
 from yoke_core.domain.github_actions_identifiers import WorkflowRunId
 from yoke_core.domain.github_actions_run_stall import (
     CI_RUN_NEVER_STARTED_REASON,
@@ -46,6 +51,8 @@ class RunGetResponse(BaseModel):
     state: str
     run_id: str
     status: Optional[str] = None
+    #: GitHub's conclusion, or ``ci_job_not_started`` for a completed run
+    #: whose jobs never started (:mod:`yoke_core.domain.ci_job_outcome`).
     conclusion: Optional[str] = None
     html_url: Optional[str] = None
     #: The commit the run checked out. A caller that dispatched against a
@@ -76,6 +83,8 @@ def _classify(
         else:
             failure = conclusion or "unknown"
             state, message = "failed", f"failed:{failure}"
+            if failure == CI_JOB_NOT_STARTED:
+                message = f"{message} — {REDISPATCH_RECOVERY}"
     elif status in {"queued", "pending", "waiting"}:
         state, message = "waiting", "waiting"
         if status == "pending" and jobs_count is not None:
@@ -137,6 +146,7 @@ def handle_run_get(request: FunctionCallRequest) -> HandlerOutcome:
         return _transport_failed(f"run get failed: {exc}")
     if not isinstance(data, dict):
         return _transport_failed(f"run {payload.run_id} was not found")
+    data = with_effective_conclusion(payload.repo, data, token=token) or data
 
     jobs_count = None
     concurrency_groups = None

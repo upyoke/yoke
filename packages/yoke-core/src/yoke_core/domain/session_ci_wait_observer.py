@@ -41,12 +41,16 @@ def _p(conn: Any) -> str:
 def read_run_conclusion(project: str, repo: str, run_id: str) -> tuple[str, str, str]:
     """Ask GitHub for one run's status; return ``(status, conclusion, error)``.
 
+    The conclusion is the effective one, so a run whose jobs never started
+    is delivered as ``ci_job_not_started`` rather than as a red verdict.
+
     The App credentials live where the control plane runs, which is the
     same place this sweep runs, so the read needs no client involvement.
     """
     from yoke_contracts.github_app_installation_permissions import (
         GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
     )
+    from yoke_core.domain.ci_job_outcome import with_effective_conclusion
     from yoke_core.domain.gh_rest_transport import RestTransportError
     from yoke_core.domain.github_actions_rest import rest_get
     from yoke_core.domain.project_github_auth import resolve_project_github_auth
@@ -57,6 +61,7 @@ def read_run_conclusion(project: str, repo: str, run_id: str) -> tuple[str, str,
             required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
         )
         data = rest_get(f"/repos/{repo}/actions/runs/{run_id}", token=auth.token)
+        data = with_effective_conclusion(repo, data, token=auth.token)
     except RestTransportError as exc:
         return "", "", f"github run read failure: {exc}"
     except Exception as exc:  # noqa: BLE001 - auth refusals are evidence too
@@ -213,9 +218,7 @@ def observe_pending_ci_runs(
                     kind=str(row["kind"]),
                     continue_command=str(row.get("continue_command") or ""),
                 ),
-                idempotency_key=notice_idempotency_key(
-                    session_id, str(row["run_id"])
-                ),
+                idempotency_key=notice_idempotency_key(session_id, str(row["run_id"])),
                 now=current,
             )
             if delivery == "delivered":

@@ -1,4 +1,10 @@
-"""Replace one CI run that remained pending without creating any jobs.
+"""Replace one CI run whose jobs never started.
+
+Two shapes reach here: a run GitHub left pending without creating any jobs
+(``ci_run_never_started``, force-cancelled first), and a run that concluded
+after its jobs were cancelled or failed to start before any runner took
+them (``ci_job_not_started``, already over). Neither is a verdict, so each
+is replaced once rather than recorded as a test failure.
 
 This is also where the gate starts waiting, so it is where the wait is
 recorded: the process polling the run dies with the turn that started it,
@@ -18,6 +24,7 @@ from yoke_core.domain import (
     qa_case_ci_progress,
     qa_case_ci_superseded_run,
 )
+from yoke_core.domain.ci_job_outcome import CI_JOB_NOT_STARTED
 from yoke_core.domain.github_actions_run_stall import (
     CI_RUN_NEVER_STARTED_REASON,
 )
@@ -34,8 +41,14 @@ class AwaitedWorkflowRun:
     output: str
 
 
-def _never_started(output: str) -> bool:
+def _pending_without_jobs(output: str) -> bool:
     return CI_RUN_NEVER_STARTED_REASON in str(output or "")
+
+
+def _never_started(output: str) -> bool:
+    return _pending_without_jobs(output) or (
+        f"failed:{CI_JOB_NOT_STARTED}" in str(output or "")
+    )
 
 
 def _joined_output(*parts: str) -> str:
@@ -91,7 +104,7 @@ def await_with_one_redispatch(
     timeout_seconds: int,
     inputs: Optional[Mapping[str, str]] = None,
 ) -> AwaitedWorkflowRun:
-    """Await *run_id*, replacing it once when GitHub never creates jobs.
+    """Await *run_id*, replacing it once when its jobs never start.
 
     The replacement carries the same candidate ``inputs`` the superseded
     dispatch did, so a recovery proves the same producer candidate rather
@@ -114,11 +127,12 @@ def await_with_one_redispatch(
             output,
         )
 
-    qa_case_ci_superseded_run.force_cancel_run(
-        project=project,
-        repo=repo,
-        run_id=run_id,
-    )
+    if _pending_without_jobs(output):
+        qa_case_ci_superseded_run.force_cancel_run(
+            project=project,
+            repo=repo,
+            run_id=run_id,
+        )
     qa_case_ci_progress.announce_never_started_retry(
         requirement_id,
         repo=repo,
@@ -162,15 +176,15 @@ def await_with_one_redispatch(
             _joined_output(output, replacement_output),
         )
 
-    qa_case_ci_superseded_run.force_cancel_run(
-        project=project,
-        repo=repo,
-        run_id=replacement_id,
-    )
+    if _pending_without_jobs(replacement_output):
+        qa_case_ci_superseded_run.force_cancel_run(
+            project=project,
+            repo=repo,
+            run_id=replacement_id,
+        )
     failure = qa_case_ci_progress.announce_never_started_terminal(
         requirement_id,
         repo=repo,
-        branch=branch,
         run_id=replacement_id,
     )
     return AwaitedWorkflowRun(

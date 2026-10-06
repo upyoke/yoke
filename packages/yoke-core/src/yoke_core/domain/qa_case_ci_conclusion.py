@@ -11,11 +11,25 @@ from __future__ import annotations
 
 import re
 
-#: Conclusions GitHub reports for a completed workflow run.
-KNOWN_CONCLUSIONS = frozenset({
-    "cancelled", "failure", "neutral", "skipped", "stale",
-    "startup_failure", "success", "timed_out",
-})
+from yoke_core.domain.ci_job_outcome import CI_JOB_NOT_STARTED
+from yoke_core.domain.github_actions_run_stall import CI_RUN_NEVER_STARTED_REASON
+
+#: Effective conclusions a completed workflow run reports: GitHub's own,
+#: plus ``ci_job_not_started`` for a run whose jobs never started
+#: (:mod:`yoke_core.domain.ci_job_outcome`).
+KNOWN_CONCLUSIONS = frozenset(
+    {
+        "cancelled",
+        "failure",
+        "neutral",
+        "skipped",
+        "stale",
+        "startup_failure",
+        "success",
+        "timed_out",
+        CI_JOB_NOT_STARTED,
+    }
+)
 
 #: Conclusions that make a completed run binding evidence for its tree.
 #: A cancelled, timed-out, or never-started run checked the tree out and
@@ -38,15 +52,23 @@ def conclusion_from_poll(exit_code: int, output: str) -> str:
     if match:
         conclusion = match.group("conclusion")
         return conclusion if conclusion in KNOWN_CONCLUSIONS else "failure"
+    if CI_RUN_NEVER_STARTED_REASON in output:
+        return CI_JOB_NOT_STARTED
     if "timed out" in output.casefold():
         return "timed_out"
     return "error"
 
 
 def failure_verdict(conclusion: str) -> tuple[str, str]:
-    """Return the ``(verdict, failure_class)`` a non-success run records."""
+    """Return the ``(verdict, failure_class)`` a non-success run records.
+
+    Only ``failure`` is a red verdict. A run whose jobs never started
+    records the named no-verdict class, whose recovery is a re-dispatch.
+    """
     if conclusion == "failure":
         return "fail", "test_failure"
+    if conclusion in (CI_JOB_NOT_STARTED, "startup_failure"):
+        return "error", CI_JOB_NOT_STARTED
     return "error", "infrastructure_transient"
 
 

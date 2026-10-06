@@ -38,7 +38,10 @@ from yoke_core.domain import (
     verification_tree_binding,
 )
 from yoke_core.domain.project_ci_workflow import project_ci_workflow_file
-from yoke_core.domain.qa_case_ci_conclusion import conclusion_from_poll
+from yoke_core.domain.qa_case_ci_conclusion import (
+    conclusion_from_poll,
+    failure_verdict,
+)
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 from yoke_core.engines.merge_worktree_tests_ci_head import (
@@ -141,7 +144,8 @@ def run_ci_verification(
     # a second source of truth for the same fact.
     try:
         workflow_inputs = qa_case_ci_candidate_inputs.item_inputs(
-            item_id=int(str(ctx.item_id)), workflow=workflow,
+            item_id=int(str(ctx.item_id)),
+            workflow=workflow,
         )
     except (QaCaseExecutionError, TypeError, ValueError) as exc:
         _print(
@@ -184,7 +188,8 @@ def run_ci_verification(
                 timeout_seconds=DEFAULT_MERGE_CI_TIMEOUT_SECONDS,
             )
             ci_run_source = qa_case_ci_covering_run.classify(
-                existing, head_sha=tree.head_sha,
+                existing,
+                head_sha=tree.head_sha,
                 required_inputs=workflow_inputs,
             )
             if ci_run_source == qa_case_ci_covering_run.DISPATCHED:
@@ -214,7 +219,9 @@ def run_ci_verification(
                 # dies with the turn, and nothing else was ever told a
                 # session was owed it.
                 merge_ci_verification_wait.record_wait_and_warn(
-                    repo=repo, run_id=ci_run_id, head_sha=tree.head_sha,
+                    repo=repo,
+                    run_id=ci_run_id,
+                    head_sha=tree.head_sha,
                     public_ref=str(getattr(ctx, "public_ref", "") or ""),
                     warn=_print,
                 )
@@ -277,10 +284,13 @@ def run_ci_verification(
     conclusion = known_conclusion or conclusion_from_poll(exit_code, poll_output)
     if not known_conclusion:
         merge_ci_verification_wait.resolve_if_received(
-            run_id=ci_run_id, conclusion=conclusion,
+            run_id=ci_run_id,
+            conclusion=conclusion,
         )
     run_url = f"https://github.com/{repo}/actions/runs/{ci_run_id}"
-    verdict = "pass" if conclusion == "success" else "fail"
+    verdict, failure_class = (
+        ("pass", "") if conclusion == "success" else failure_verdict(conclusion)
+    )
     raw_result = json.dumps(
         {
             "repo": repo,
@@ -292,6 +302,7 @@ def run_ci_verification(
             "exit_code": exit_code,
             "ci_conclusion": conclusion,
             "ci_run_source": ci_run_source,
+            "failure_class": failure_class or None,
             "verification_tree": covered.as_payload(),
         },
         sort_keys=True,
@@ -312,13 +323,18 @@ def run_ci_verification(
 
     _print(f"[phase:tests] CI run {run_url} (qa_run #{run_id}, head {ci_head[:12]})")
     if verdict != "pass":
+        no_verdict = verdict == "error"
         _print(
-            f"Tests failed after integration (CI conclusion={conclusion}).",
+            f"CI reached no verdict on this candidate (CI conclusion={conclusion}, "
+            f"{failure_class}); re-dispatch: re-run `yoke merge item`, which "
+            "dispatches a fresh run on the same candidate."
+            if no_verdict
+            else f"Tests failed after integration (CI conclusion={conclusion}).",
             err=True,
         )
         if poll_output:
             _print(poll_output, err=True)
-        return (1, "tests failed")
+        return (1, "ci no verdict" if no_verdict else "tests failed")
     return None
 
 

@@ -57,6 +57,8 @@ class WorkflowFindRunResponse(BaseModel):
     found: bool
     run_id: Optional[str] = None
     status: Optional[str] = None
+    #: GitHub's conclusion, or ``ci_job_not_started`` for a completed run
+    #: whose jobs never started (:mod:`yoke_core.domain.ci_job_outcome`).
     conclusion: Optional[str] = None
     html_url: Optional[str] = None
     head_sha: Optional[str] = None
@@ -131,6 +133,9 @@ def handle_workflow_find_run(request: FunctionCallRequest) -> HandlerOutcome:
         return _transport_failed(str(exc))
     response = WorkflowFindRunResponse(found=run is not None)
     if run is not None:
+        from yoke_core.domain.ci_job_outcome import with_effective_conclusion
+
+        run = with_effective_conclusion(payload.repo, run, token=token) or run
         response = WorkflowFindRunResponse(
             found=True,
             run_id=str(run.get("id") or "") or None,
@@ -169,11 +174,7 @@ def handle_run_jobs_count(request: FunctionCallRequest) -> HandlerOutcome:
     if not isinstance(data, dict) or "total_count" not in data:
         return _transport_failed("workflow jobs response omitted total_count")
     raw_count = data.get("total_count")
-    if (
-        isinstance(raw_count, bool)
-        or not isinstance(raw_count, int)
-        or raw_count < 0
-    ):
+    if isinstance(raw_count, bool) or not isinstance(raw_count, int) or raw_count < 0:
         return _transport_failed(
             "workflow jobs total_count must be a non-negative integer"
         )

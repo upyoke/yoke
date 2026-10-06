@@ -64,12 +64,11 @@ class CheckCiRequest(BaseModel):
     )
     head_sha: str = Field(
         "",
-        description=(
-            "Exact commit SHA to inspect; required when branch is empty."
-        ),
+        description=("Exact commit SHA to inspect; required when branch is empty."),
     )
     project: str = Field(
-        ..., min_length=1,
+        ...,
+        min_length=1,
         description="Project capability owning the GitHub App repo binding.",
     )
 
@@ -78,7 +77,8 @@ class CheckCiResponse(BaseModel):
     # passed | failed | no_verdict | running | no_runs. The CLI adapter's
     # client-side wait loop additionally synthesizes "timeout" on budget
     # exhaustion. ``no_verdict`` is a completed run that is not a pass
-    # and not a failing test (cancelled, skipped, empty conclusion).
+    # and not a failing test (cancelled, skipped, empty conclusion, or
+    # ``ci_job_not_started`` — a run whose jobs never got a runner).
     state: str
     run_id: Optional[int] = None
     html_url: Optional[str] = None
@@ -91,7 +91,9 @@ def _bad_request(message: str, *, jsonpath: str = "$.payload") -> HandlerOutcome
         result_payload={},
         primary_success=False,
         error=FunctionError(
-            code="invalid_payload", message=message, jsonpath=jsonpath,
+            code="invalid_payload",
+            message=message,
+            jsonpath=jsonpath,
         ),
     )
 
@@ -234,6 +236,9 @@ def handle_check_ci(request: FunctionCallRequest) -> HandlerOutcome:
     except RestTransportError as exc:
         return _transport_failed(f"latest_workflow_run failed: {exc}")
 
+    from yoke_core.domain.ci_job_outcome import with_effective_conclusion
+
+    run = with_effective_conclusion(payload.repo, run, token=resolved.token)
     return HandlerOutcome(
         result_payload=_classify(run).model_dump(),
         primary_success=True,

@@ -13,6 +13,7 @@ from datetime import datetime
 from typing import Any
 
 from yoke_contracts.session_control.models import RecipientSelector
+from yoke_core.domain.ci_job_outcome import CI_JOB_NOT_STARTED, REDISPATCH_RECOVERY
 from yoke_core.domain.session_explicit_wake import mark_explicit_stopped_wake
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_store import message_details
@@ -57,7 +58,19 @@ def ci_run_message(
         f"has concluded.",
         run_url(repo, run_id),
     ]
-    if continue_command:
+    if conclusion not in ("success", "failure"):
+        lines.append(
+            f"No verdict: this run tested nothing it can be judged on "
+            f"({conclusion}). "
+            + (
+                REDISPATCH_RECOVERY
+                if conclusion == CI_JOB_NOT_STARTED
+                else "Re-run the same command; it dispatches a fresh run on the same commit."
+            )
+        )
+        if continue_command:
+            lines.append(f"Re-dispatch with: {continue_command}")
+    elif continue_command:
         lines.append(
             f"Continue with: {continue_command} — the gate adopts a concluded "
             "run by exact sha, so this costs a lookup rather than another suite."
