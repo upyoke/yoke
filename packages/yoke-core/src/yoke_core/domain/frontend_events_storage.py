@@ -107,15 +107,19 @@ def read_collector_identity():
 def consume_attribution_handoff(org_id, nonce, expires):
     """A unique insert is the authority for redemption across processes/restarts."""
     with db_helpers.connect() as conn:
-        # Expired tokens are refused before this call; their tombstones can go.
+        # Validation may precede expiry while storage follows it. Preserve the
+        # attempted nonce and check expiry again in the atomic insert, so another
+        # request's cleanup cannot make a delayed replay insertable either.
         conn.execute(
-            "DELETE FROM frontend_attribution_redemptions WHERE expires_at <= %s",
-            (int(time.time()),),
+            "DELETE FROM frontend_attribution_redemptions WHERE expires_at <= %s "
+            "AND NOT (org_id = %s AND nonce = %s)",
+            (int(time.time()), org_id, nonce),
         )
         inserted = conn.execute(
             "INSERT INTO frontend_attribution_redemptions (org_id, nonce, expires_at) "
-            "VALUES (%s,%s,%s) ON CONFLICT (org_id, nonce) DO NOTHING RETURNING nonce",
-            (org_id, nonce, expires),
+            "SELECT %s,%s,%s WHERE %s > EXTRACT(EPOCH FROM clock_timestamp()) "
+            "ON CONFLICT (org_id, nonce) DO NOTHING RETURNING nonce",
+            (org_id, nonce, expires, expires),
         ).fetchone()
         conn.commit()
         return inserted is not None
