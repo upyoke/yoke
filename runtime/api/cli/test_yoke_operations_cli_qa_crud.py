@@ -71,7 +71,7 @@ class TestQaRequirementList:
         assert req.payload == {}
 
     def test_epic_filter_rides_payload(self) -> None:
-        rc = _run(_stub_ok, "qa", "requirement", "list", "--epic-id", "1704")
+        rc = _run(_stub_ok, "qa", "requirement", "list", "--epic", "1704")
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.target.kind == "global"
@@ -85,7 +85,7 @@ class TestQaRequirementList:
         assert req.payload == {}
 
     def test_explicit_project_satisfies_global_resolution(self) -> None:
-        args = ("qa", "requirement", "list", "--epic-id", "1704")
+        args = ("qa", "requirement", "list", "--epic", "1704")
         rc = _run(_stub_ok, *args, "--project", "yoke")
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]

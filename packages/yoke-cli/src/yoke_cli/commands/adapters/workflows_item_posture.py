@@ -99,7 +99,7 @@ def workflows_item_posture_amend(args: List[str]) -> int:
         epilog=WORKFLOWS_ITEM_POSTURE_AMEND_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("item", help="Item id (PREFIX-N or project-local number).")
+    parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument("--project", default=None)
     parser.add_argument(
         "--reason",
@@ -172,7 +172,8 @@ def workflows_item_posture_amend(args: List[str]) -> int:
         print(
             "item-posture-amend|"
             + "|".join(
-                str(result.get(field) or "") for field in ("item_id", "key", "changed")
+                str(result.get(field) or "")
+                for field in ("public_ref", "key", "changed")
             )
             + "|waived="
             + ",".join(

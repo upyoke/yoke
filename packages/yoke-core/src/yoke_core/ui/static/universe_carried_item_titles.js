@@ -9,7 +9,7 @@ import { callFunction, el } from "./universe_view_support.js";
 
 function carriedRef(item) {
   return String(item.ref || item.public_ref || item.item_ref
-    || `item ${item.item_id ?? item.id}`);
+    || `item ${item.public_ref ?? item.id}`);
 }
 
 function titleOf(item) {

@@ -102,7 +102,7 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
     if item_id is None:
         return _error(
             "target_invalid",
-            "item_worktrees.get requires target.kind='item' with item_id",
+            "item_worktrees.get requires target.kind='item' with public_ref",
         )
     try:
         payload = ItemWorktreesGetRequest.model_validate(request.payload or {})
@@ -140,7 +140,7 @@ def handle_release(request: FunctionCallRequest) -> HandlerOutcome:
     if item_id is None:
         return _error(
             "target_invalid",
-            "item_worktrees.release requires target.kind='item' with item_id",
+            "item_worktrees.release requires target.kind='item' with public_ref",
         )
     try:
         payload = ItemWorktreesReleaseRequest.model_validate(request.payload or {})
@@ -271,7 +271,7 @@ def handle_release_merged_lane(request: FunctionCallRequest) -> HandlerOutcome:
         return _error(
             "target_invalid",
             "item_worktrees.release_merged_lane requires target.kind='item' "
-            "with item_id",
+            "with public_ref",
         )
     try:
         payload = ItemWorktreesReleaseMergedLaneRequest.model_validate(

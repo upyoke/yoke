@@ -21,11 +21,10 @@ export function qaCaseMethodLabel(row) {
     || "Check";
 }
 
-// The internal item id a check answers for: its own item, or the carried
+// The public item ref a check answers for: its own item, or the carried
 // item a release check was run for.
 export function qaCaseItemId(row) {
-  const id = Number(row?.item_id ?? row?.deployment_member_item_id);
-  return Number.isFinite(id) && id > 0 ? id : null;
+  return row?.public_ref ?? row?.deployment_member_public_ref ?? null;
 }
 
 // Against what the case ran. An item is named by its public ref; a check
@@ -53,7 +52,7 @@ export async function loadQaCaseItemRefs(context, rows) {
   await Promise.all(ids.map(async (itemId) => {
     try {
       const result = await callFunction(
-        context.client, "items.detail.get", {}, { kind: "item", item_id: itemId },
+        context.client, "items.detail.get", {}, { kind: "item", public_ref: itemId },
       );
       const ref = result.status === 200 && result.envelope.success
         ? result.envelope.result?.item?.public_ref : null;

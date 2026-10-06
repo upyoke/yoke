@@ -49,10 +49,6 @@ ITEMS_DETAIL_GET_DESCRIPTION = (
     "it. Name sections with --include, or --full for all of them."
 )
 
-ITEMS_PUBLIC_REF_LOOKUP_USAGE = (
-    "yoke items public-ref lookup --id N [--id N ...] [--json]"
-)
-
 
 #: ``ItemsOverviewListRequest`` fields this adapter forwards verbatim,
 #: paired with the flag that names each one. Range, enum, and cursor
@@ -214,37 +210,9 @@ def items_detail_get(args: List[str]) -> int:
     )
 
 
-def items_public_ref_lookup(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke items public-ref lookup",
-        description="Resolve internal item ids to public PREFIX-N refs.",
-    )
-    parser.add_argument(
-        "--id",
-        dest="item_ids",
-        action="append",
-        type=int,
-        required=True,
-        help="Internal items.id (repeatable).",
-    )
-    add_session_arg(parser)
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, ITEMS_PUBLIC_REF_LOOKUP_USAGE)
-    if parsed is None:
-        return 2
-    return dispatch_and_emit(
-        function_id="items.public_ref.lookup",
-        target=TargetRef(kind="global"),
-        payload={"item_ids": parsed.item_ids},
-        session_id=parsed.session_id,
-        json_mode=parsed.json_mode,
-    )
-
-
 USAGE_BY_FUNCTION_ID = {
     "items.overview.list": ITEMS_OVERVIEW_LIST_USAGE,
     "items.detail.get": ITEMS_DETAIL_GET_USAGE,
-    "items.public_ref.lookup": ITEMS_PUBLIC_REF_LOOKUP_USAGE,
 }
 
 
@@ -252,5 +220,4 @@ __all__ = [
     "USAGE_BY_FUNCTION_ID",
     "items_detail_get",
     "items_overview_list",
-    "items_public_ref_lookup",
 ]

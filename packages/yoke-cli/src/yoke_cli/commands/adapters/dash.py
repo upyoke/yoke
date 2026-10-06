@@ -44,6 +44,7 @@ DASH_ESCALATE_USAGE = (
     "--findings TEXT [--priority P] [--project P] [--session-id S] [--json]"
 )
 
+
 # Parse-time filing choices; stored priority semantics stay in the domain.
 def _item_parser(prog: str, usage: str) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog=prog, description=usage)
@@ -54,7 +55,8 @@ def _item_parser(prog: str, usage: str) -> argparse.ArgumentParser:
 
 def dash_survey(args: List[str]) -> int:
     parser = _item_parser(
-        "yoke direct-workflow dash survey", DASH_SURVEY_USAGE,
+        "yoke direct-workflow dash survey",
+        DASH_SURVEY_USAGE,
     )
     scope = parser.add_mutually_exclusive_group(required=True)
     scope.add_argument("--path", dest="paths", action="append")
@@ -98,10 +100,17 @@ def dash_survey(args: List[str]) -> int:
         for size in result.get("path_sizes") or []:
             print(
                 "survey-size|"
-                + "|".join(str(size.get(key)) for key in (
-                    "path", "current_line_count", "remaining_headroom",
-                    "at_or_over_limit", "limit", "classification",
-                ))
+                + "|".join(
+                    str(size.get(key))
+                    for key in (
+                        "path",
+                        "current_line_count",
+                        "remaining_headroom",
+                        "at_or_over_limit",
+                        "limit",
+                        "classification",
+                    )
+                )
                 + f"|{path_existence_label(size, sized_existence)}",
                 file=stdout,
             )
@@ -110,7 +119,7 @@ def dash_survey(args: List[str]) -> int:
                 "survey-blocked|"
                 + "|".join(
                     str(blocker.get(key) or "")
-                    for key in ("kind", "owner_item_id", "path", "state", "detail")
+                    for key in ("kind", "owner_public_ref", "path", "state", "detail")
                 ),
                 file=stdout,
             )
@@ -145,7 +154,8 @@ def _posture_checks(values: List[str]) -> Dict[str, str]:
 
 def dash_evidence(args: List[str]) -> int:
     parser = _item_parser(
-        "yoke direct-workflow dash evidence", DASH_EVIDENCE_USAGE,
+        "yoke direct-workflow dash evidence",
+        DASH_EVIDENCE_USAGE,
     )
     parser.add_argument("--result", required=True)
     parser.add_argument("--verification", required=True)
@@ -186,7 +196,9 @@ def dash_evidence(args: List[str]) -> int:
         lane = LaneTree()
         if not (parsed.tree_root and parsed.tree_head_sha):
             lane = item_lane_tree(
-                parsed.item, parsed.project, parsed.session_id,
+                parsed.item,
+                parsed.project,
+                parsed.session_id,
             )
         tree_root, tree_head_sha = verification_tree(
             parsed.tree_root,
@@ -222,7 +234,8 @@ def dash_evidence(args: List[str]) -> int:
 
 def dash_escalate(args: List[str]) -> int:
     parser = _item_parser(
-        "yoke direct-workflow dash escalate", DASH_ESCALATE_USAGE,
+        "yoke direct-workflow dash escalate",
+        DASH_ESCALATE_USAGE,
     )
     parser.add_argument("--issue-title", required=True)
     parser.add_argument("--findings", required=True)

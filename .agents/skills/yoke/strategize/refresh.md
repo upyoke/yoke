@@ -182,7 +182,7 @@ _active_epics=$(yoke db read --format lines "SELECT id, title FROM items WHERE p
 For each active epic, list its tasks:
 
 ```bash
-yoke epic-tasks list --epic {epic-id}
+yoke epic-tasks list --epic {epic-ref}
 ```
 
 ## Step 3: Checkpoint 0 -- State Refresh Confirmation

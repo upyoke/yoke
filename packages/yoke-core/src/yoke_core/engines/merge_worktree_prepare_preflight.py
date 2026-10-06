@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -11,29 +13,22 @@ from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.classify_dirty_files import is_yoke_managed_pattern
 from yoke_contracts.public_ref import unresolved_item_ref
-from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 from yoke_core.domain.project_attribution import resolved_project
 
 if TYPE_CHECKING:  # the cycle-free half of the prepare<->preflight pair
     from yoke_core.engines.merge_worktree_prepare import MergeContext
 
-# merge_worktree_prepare re-exports preflight_checks at module bottom, so a
-# module-top import back into it is order-dependent (whichever module loads
-# first wins; the loser sees a partially initialized module). Runtime helpers
-# import lazily inside the functions that use them.
+# Runtime parent imports avoid the prepare/preflight module cycle.
 
 
 def _parent():
     from yoke_core.engines import merge_worktree as _mw
+
     return _mw
 
-def _context_item_ref(ctx) -> str:
-    """Name the merging item without opening a connection.
 
-    Every relayed gate on this path resolves server-side, so the preflight
-    reads the ref the context already carries; with none, it says the
-    reference is unresolved rather than printing the internal id as one.
-    """
+def _context_item_ref(ctx) -> str:
+    """Use the public identity already carried by the merge context."""
     return ctx.public_ref or unresolved_item_ref()
 
 
@@ -48,16 +43,15 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
     exit_code = 1
 
     # PF-1: Worktree cleanliness
-    dirty_tracked = _run_git(["diff", "--name-only"], cwd=ctx.worktree_path, capture=True)
-    dirty_untracked = _run_git(
-        ["ls-files", "--others", "--exclude-standard"], cwd=ctx.worktree_path, capture=True
+    dirty_tracked = _run_git(
+        ["diff", "--name-only"], cwd=ctx.worktree_path, capture=True
     )
-    # The index is a third source of dirt and the only one that survives
-    # having no working-tree counterpart: a staged deletion shows up in
-    # neither of the two probes above, so without this the merge would
-    # report a clean worktree and then carry the deletion into the merge
-    # commit. A second process sharing this worktree can stage entries
-    # this one never made.
+    dirty_untracked = _run_git(
+        ["ls-files", "--others", "--exclude-standard"],
+        cwd=ctx.worktree_path,
+        capture=True,
+    )
+    # Include staged deletions: they have no working-tree counterpart.
     dirty_staged = _run_git(
         ["diff", "--cached", "--name-only"], cwd=ctx.worktree_path, capture=True
     )
@@ -80,8 +74,13 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
         for sf in yoke_dirty:
             _run_git(["add", sf], cwd=ctx.worktree_path)
         _run_git(
-            ["commit", "-m", f"chore: auto-commit Yoke-managed files before merge [{ctx.args.branch}]"],
-            cwd=ctx.worktree_path, capture=True,
+            [
+                "commit",
+                "-m",
+                f"chore: auto-commit Yoke-managed files before merge [{ctx.args.branch}]",
+            ],
+            cwd=ctx.worktree_path,
+            capture=True,
         )
 
     if user_dirty:
@@ -101,11 +100,15 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
     if local_head.returncode == 0 and remote_head.returncode == 0:
         behind = _run_git(
             ["rev-list", f"HEAD..origin/{ctx.args.branch}", "--count"],
-            cwd=ctx.worktree_path, capture=True,
+            cwd=ctx.worktree_path,
+            capture=True,
         )
         behind_count = int(behind.stdout.strip()) if behind.returncode == 0 else 0
         if behind_count > 0:
-            _print(f"  FAIL: Worktree branch is {behind_count} commit(s) behind origin/{ctx.args.branch}", err=True)
+            _print(
+                f"  FAIL: Worktree branch is {behind_count} commit(s) behind origin/{ctx.args.branch}",
+                err=True,
+            )
             fail = True
         else:
             _print(f"  OK: Branch up to date with origin/{ctx.args.branch}")
@@ -122,21 +125,18 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
         try:
             resp = call_dispatcher(
                 function_id="merge.preflight.epic_task_statuses",
-                target=TargetRef(kind="item", item_id=int(ctx.epic_id)),
+                target=public_item_target(ctx.epic_id),
                 payload={},
             )
             if resp.success:
                 tasks = (resp.result or {}).get("tasks") or []
                 incomplete = [
-                    t for t in tasks
-                    if t.get("status") not in _TASK_TERMINAL_SUCCESS
+                    t for t in tasks if t.get("status") not in _TASK_TERMINAL_SUCCESS
                 ]
                 if tasks and incomplete:
                     _print("  FAIL: Incomplete tasks found:", err=True)
                     for row in incomplete:
-                        _print(
-                            f"    - {row['task_num']}:{row['status']}", err=True
-                        )
+                        _print(f"    - {row['task_num']}:{row['status']}", err=True)
                     fail = True
                 elif tasks:
                     _print("  OK: All tasks completed")
@@ -152,7 +152,7 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
         try:
             resp = call_dispatcher(
                 function_id="workflow_item.epic_task.simulation_get",
-                target=TargetRef(kind="epic_task", epic_id=int(ctx.epic_id)),
+                target=public_item_target(ctx.epic_id, kind="epic_task"),
                 payload={"phase": "integration"},
             )
             found = resp.success and bool(
@@ -162,10 +162,19 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
             found = False
         if not found:
             if ctx.args.skip_simulation:
-                _print(f"  WARN: Integration simulation gate overridden (--skip-simulation) for epic: {ctx.epic_id}", err=True)
+                _print(
+                    f"  WARN: Integration simulation gate overridden (--skip-simulation) for epic: {ctx.epic_id}",
+                    err=True,
+                )
             else:
-                _print(f"  FAIL: Integration simulation report not found for epic: {ctx.epic_id}", err=True)
-                _print("    Run /yoke simulate first, or pass --skip-simulation to override.", err=True)
+                _print(
+                    f"  FAIL: Integration simulation report not found for epic: {ctx.epic_id}",
+                    err=True,
+                )
+                _print(
+                    "    Run /yoke simulate first, or pass --skip-simulation to override.",
+                    err=True,
+                )
                 fail = True
         else:
             _print("  OK: Canonical integration simulation report exists")
@@ -177,7 +186,7 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
     # fallback.
     try:
         dep_target = (
-            TargetRef(kind="item", item_id=int(ctx.item_id))
+            public_item_target(ctx.item_id)
             if ctx.item_id is not None
             else TargetRef(kind="global")
         )
@@ -194,7 +203,10 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
     if dep_resp is not None and dep_resp.success:
         gate_data = dep_resp.result or {}
         if gate_data.get("is_blocked"):
-            _print(f"  FAIL: Integration dependency gate blocked for {ctx.args.branch}", err=True)
+            _print(
+                f"  FAIL: Integration dependency gate blocked for {ctx.args.branch}",
+                err=True,
+            )
             for b in gate_data.get("unsatisfied_blockers", []):
                 _print(
                     f"    - {b.get('blocking_item', '?')} ({b.get('blocking_status', '?')}): "
@@ -233,10 +245,11 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
         if resp.success:
             data = resp.result or {}
             if data.get("applicable"):
-                iid = int(data.get("item_id"))
-                ref = data.get("public_ref") or item_ref_for_id(iid)
+                ref = data.get("public_ref") or unresolved_item_ref()
                 if data.get("blocked"):
-                    _print(f"  FAIL: Item {ref} is blocked (items.blocked=1).", err=True)
+                    _print(
+                        f"  FAIL: Item {ref} is blocked (items.blocked=1).", err=True
+                    )
                     if data.get("reason"):
                         _print(f"    Reason: {data['reason']}", err=True)
                     _print(
@@ -270,7 +283,6 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
                     "project": project,
                     "fields": [
                         "id",
-                        "internal_id",
                         "status",
                         "db_mutation_profile",
                     ],
@@ -287,7 +299,7 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
             fail = True
         else:
             rows = list((items_resp.result or {}).get("rows") or [])
-            if not migration_merge_applicable(rows, int(ctx.item_id)):
+            if not migration_merge_applicable(rows, ctx.public_ref):
                 _print("  OK: Numbered migration-history gate not applicable")
             else:
                 try:
@@ -311,7 +323,7 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
                 else:
                     decision = evaluate_migration_merge(
                         rows=rows,
-                        item_id=int(ctx.item_id),
+                        public_ref=ctx.public_ref,
                         capability_settings_json=str(
                             (capability_resp.result or {}).get("settings_json") or ""
                         ),
@@ -321,7 +333,9 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
                     if decision.passed:
                         _print("  OK: Numbered migration history extends target")
                     else:
-                        _print("  FAIL: Numbered migration-history gate refused:", err=True)
+                        _print(
+                            "  FAIL: Numbered migration-history gate refused:", err=True
+                        )
                         for error in decision.errors:
                             _print(f"    - {error}", err=True)
                         fail = True

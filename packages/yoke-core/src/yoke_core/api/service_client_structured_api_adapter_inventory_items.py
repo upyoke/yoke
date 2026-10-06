@@ -20,15 +20,10 @@ ITEMS_ADAPTERS = [
         function_id="items.detail.get",
         cli_invocation="yoke items detail get ITEM --project P",
     ),
-    read_entry(
-        function_id="items.public_ref.lookup",
-        cli_invocation="yoke items public-ref lookup --id N [--id N ...]",
-    ),
     AdapterEntry(
         function_id="item_landings.list",
         cli_invocation=(
-            "yoke item-landings list <PREFIX-N> "
-            "[--project P] [--session-id S] [--json]"
+            "yoke item-landings list <PREFIX-N> [--project P] [--session-id S] [--json]"
         ),
     ),
     AdapterEntry(
@@ -46,8 +41,7 @@ ITEMS_ADAPTERS = [
     read_entry(
         function_id="item_worktrees.inventory",
         cli_invocation=(
-            "yoke item-worktrees inventory --project P "
-            "[--session-id S] [--json]"
+            "yoke item-worktrees inventory --project P [--session-id S] [--json]"
         ),
         notes=(
             "Every registered lane in a project, released ones included, with "

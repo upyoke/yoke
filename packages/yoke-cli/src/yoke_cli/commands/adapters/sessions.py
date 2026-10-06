@@ -126,7 +126,7 @@ def sessions_checkpoint(args: List[str]) -> int:
         "outcome": parsed.outcome,
     }
     for key in (
-        "item_id",
+        "public_ref",
         "task_num",
         "status",
         "required_path",

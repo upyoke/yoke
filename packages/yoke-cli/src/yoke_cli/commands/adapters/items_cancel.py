@@ -76,9 +76,7 @@ def _build_parser() -> Any:
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument(
-        "item", help="Item id (PREFIX-N, zero-padded, or project-local number)."
-    )
+    parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument(
         "--reason",
         required=True,
@@ -97,7 +95,7 @@ def _build_parser() -> Any:
 def _write_receipt(response: Any, stdout: TextIO, stderr: TextIO) -> None:
     del stderr
     result = response.result or {}
-    ref = str(result.get("public_ref") or result.get("item_id") or "item")
+    ref = str(result.get("public_ref") or "item")
     if result.get("changed"):
         extra = ""
         if result.get("frozen_cleared"):

@@ -22,7 +22,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
 )
 
-from yoke_core.domain.item_identity_keys import engine_key_for_wire, is_plural
+from yoke_contracts.item_identity_keys import engine_key_for_wire, is_plural
 
 
 def _error(

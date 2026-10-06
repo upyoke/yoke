@@ -38,16 +38,19 @@ def shepherd_verdict(args: List[str]) -> int:
         prog="yoke shepherd verdict",
         description=SHEPHERD_VERDICT_USAGE,
     )
-    parser.add_argument("--item", required=True,
-                        help="Target item id (PREFIX-N or project-local number).")
-    parser.add_argument("--transition", required=True,
-                        help="Lifecycle transition being judged.")
-    parser.add_argument("--worker", required=True,
-                        help="Worker name that produced the judged work.")
-    parser.add_argument("--verdict", required=True,
-                        help="Boss verdict, e.g. READY, CAVEATS, BLOCKED, SKIPPED.")
-    parser.add_argument("--caveats", default=None,
-                        help="Optional caveat text block.")
+    parser.add_argument("--item", required=True, help="Target item id (PREFIX-N).")
+    parser.add_argument(
+        "--transition", required=True, help="Lifecycle transition being judged."
+    )
+    parser.add_argument(
+        "--worker", required=True, help="Worker name that produced the judged work."
+    )
+    parser.add_argument(
+        "--verdict",
+        required=True,
+        help="Boss verdict, e.g. READY, CAVEATS, BLOCKED, SKIPPED.",
+    )
+    parser.add_argument("--caveats", default=None, help="Optional caveat text block.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, SHEPHERD_VERDICT_USAGE)
@@ -99,27 +102,48 @@ def shepherd_caveat_disposition(args: List[str]) -> int:
         prog="yoke shepherd caveat-disposition",
         description=SHEPHERD_CAVEAT_DISPOSITION_USAGE,
     )
-    parser.add_argument("--item", required=True,
-                        help="Target item id (PREFIX-N or project-local number).")
-    parser.add_argument("--transition", required=True,
-                        help="Lifecycle transition being judged.")
-    parser.add_argument("--attempt", type=int, required=True,
-                        help="Verdict attempt number.")
-    parser.add_argument("--caveat-num", dest="caveat_num", type=int,
-                        required=True, help="1-based caveat number.")
-    parser.add_argument("--caveat-text", dest="caveat_text", required=True,
-                        help="Original caveat text.")
-    parser.add_argument("--disposition", required=True,
-                        choices=("RESOLVED", "DEFERRED", "ANALYZED"),
-                        help="Disposition for this caveat.")
-    parser.add_argument("--resolution-details", dest="resolution_details",
-                        default=None, help="Optional resolution details.")
-    parser.add_argument("--verdict-id", dest="verdict_id", type=int,
-                        default=None, help="Optional shepherd_verdicts.id.")
+    parser.add_argument("--item", required=True, help="Target item id (PREFIX-N).")
+    parser.add_argument(
+        "--transition", required=True, help="Lifecycle transition being judged."
+    )
+    parser.add_argument(
+        "--attempt", type=int, required=True, help="Verdict attempt number."
+    )
+    parser.add_argument(
+        "--caveat-num",
+        dest="caveat_num",
+        type=int,
+        required=True,
+        help="1-based caveat number.",
+    )
+    parser.add_argument(
+        "--caveat-text", dest="caveat_text", required=True, help="Original caveat text."
+    )
+    parser.add_argument(
+        "--disposition",
+        required=True,
+        choices=("RESOLVED", "DEFERRED", "ANALYZED"),
+        help="Disposition for this caveat.",
+    )
+    parser.add_argument(
+        "--resolution-details",
+        dest="resolution_details",
+        default=None,
+        help="Optional resolution details.",
+    )
+    parser.add_argument(
+        "--verdict-id",
+        dest="verdict_id",
+        type=int,
+        default=None,
+        help="Optional shepherd_verdicts.id.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
-        parser, args, SHEPHERD_CAVEAT_DISPOSITION_USAGE,
+        parser,
+        args,
+        SHEPHERD_CAVEAT_DISPOSITION_USAGE,
     )
     if parsed is None:
         return 2

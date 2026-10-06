@@ -64,7 +64,7 @@ yoke qa run add \
 
 # Epic-task review verdicts use the workflow-item helper path
 yoke workflow-item epic-task review-insert \
- --epic 833 --task-num 5 --verdict pass --body "Review passed"
+ --epic PREFIX-833 --task-num 5 --verdict pass --body "Review passed"
 
 # List runs
 yoke qa run list --requirement-id 1
@@ -98,7 +98,7 @@ yoke qa gate-summary --item PREFIX-N --target reviewed-implementation --json
 | `yoke qa plan run` | The same item, legacy run, or scoped stage/member selectors as materialize | Execute one server-issued durable roster against its exact subject and target; a run subject also accepts `--replaces` for the cases its `--plan` materializes |
 | `yoke qa requirement supersede` | `--requirement-id N --superseded-by-requirement-id N --rationale TEXT` | Discharge a failed case with a passing same-scope corrected case, or retire a post_deploy item source in favor of a corrected item requirement once a passing run case superseded one of its admitted copies; later releases admit only the corrected body |
 | `yoke qa requirement supersede --declare-replacement` | `--requirement-id FAILED_ID --superseded-by-requirement-id CORRECTED_ID --rationale TEXT` | Declare an existing corrected case (a direct run case, or an item case of the same item, transition and phase) as the replacement of a failed one before it passes; the scoped plan runner skips the old capture, grades the corrected blocking case, and supersedes the failure only after its pass. |
-| `yoke qa requirement list` | `[--item PREFIX-N \| --epic-id N \| --deployment-run-id ID]` | List requirements |
+| `yoke qa requirement list` | `[--item PREFIX-N \| --epic PREFIX-N \| --deployment-run-id ID]` | List requirements |
 | `yoke qa requirement get` | `--requirement-id N` | Get one requirement |
 | `yoke qa requirement update` | `--requirement-id N --field FIELD (--value VALUE \| --null)` | Update one mutable field |
 | `yoke qa requirement waive` | `--requirement-id N --rationale TEXT [--source operator\|agent] [--force]` | Waive a requirement with a recorded rationale |
@@ -109,7 +109,7 @@ yoke qa gate-summary --item PREFIX-N --target reviewed-implementation --json
 | `yoke qa run get` | `--run-id N [--project P]` | Get one run |
 | `yoke qa artifact presign` | `--requirement-id N --run-id N --filename NAME [--content-type CT]` | Mint a durable upload target |
 | `yoke qa artifact add` | `--requirement-id N --run-id N --artifact-type T (--artifact-handle JSON \| --content-base64 B64 --filename NAME \| --content-file PATH) [opts]` | Insert an artifact row from a typed handle or inline bytes |
-| `yoke qa gate-summary` | `(--item PREFIX-N \| --epic-id N --task-num K) --target reviewed-implementation\|implemented` | Read blocking QA gaps for a transition |
+| `yoke qa gate-summary` | `(--item PREFIX-N \| --epic PREFIX-N --task-num K) --target reviewed-implementation\|implemented` | Read blocking QA gaps for a transition |
 
 No public QA init or artifact-list adapter is registered. Schema
 initialization belongs to DB setup/migrations. Artifact-list remains an

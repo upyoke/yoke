@@ -17,9 +17,10 @@ narratives are constructed here client-side, unchanged.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 from typing import Any, Dict, Optional, Tuple
 
-from yoke_contracts.api.function_call import TargetRef
 
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 
@@ -79,7 +80,7 @@ def _relay_gate(
     """
     response = call_dispatcher(
         function_id=function_id,
-        target=TargetRef(kind="item", item_id=int(item_id)),
+        target=public_item_target(item_id),
         payload=payload or {},
     )
     if not response.success:

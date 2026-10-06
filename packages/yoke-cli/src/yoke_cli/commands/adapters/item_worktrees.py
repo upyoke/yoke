@@ -33,12 +33,10 @@ ITEM_WORKTREES_GET_USAGE = (
     "[--session-id S] [--json]"
 )
 ITEM_WORKTREES_LIST_USAGE = (
-    "yoke item-worktrees list <PREFIX-N> "
-    "[--project P] [--session-id S] [--json]"
+    "yoke item-worktrees list <PREFIX-N> [--project P] [--session-id S] [--json]"
 )
 ITEM_WORKTREES_INVENTORY_USAGE = (
-    "yoke item-worktrees inventory --project P "
-    "[--session-id S] [--json]"
+    "yoke item-worktrees inventory --project P [--session-id S] [--json]"
 )
 ITEM_WORKTREES_PATH_RECORD_USAGE = (
     "yoke item-worktrees path-record <PREFIX-N> --worktree-id ID "
@@ -68,7 +66,7 @@ def item_worktrees_get(args: List[str]) -> int:
     )
     parser.add_argument(
         "item",
-        help="Item id (PREFIX-N or project-local number).",
+        help="Item id (PREFIX-N).",
     )
     parser.add_argument(
         "--lane-role",
@@ -116,7 +114,7 @@ def item_worktrees_list(args: List[str]) -> int:
     )
     parser.add_argument(
         "item",
-        help="Item id (PREFIX-N or project-local number).",
+        help="Item id (PREFIX-N).",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -127,13 +125,15 @@ def item_worktrees_list(args: List[str]) -> int:
     def _human_writer(response, stdout, _stderr) -> None:
         for lane in (response.result or {}).get("worktrees") or []:
             print(
-                "|".join([
-                    str(lane.get("id") or ""),
-                    str(lane.get("lane_role") or ""),
-                    str(lane.get("branch") or ""),
-                    str(lane.get("path") or ""),
-                    str(lane.get("state") or ""),
-                ]),
+                "|".join(
+                    [
+                        str(lane.get("id") or ""),
+                        str(lane.get("lane_role") or ""),
+                        str(lane.get("branch") or ""),
+                        str(lane.get("path") or ""),
+                        str(lane.get("state") or ""),
+                    ]
+                ),
                 file=stdout,
             )
 
@@ -167,14 +167,16 @@ def item_worktrees_inventory(args: List[str]) -> int:
     def _human_writer(response, stdout, _stderr) -> None:
         for lane in (response.result or {}).get("lanes") or []:
             print(
-                "|".join([
-                    str(lane.get("public_ref") or ""),
-                    str(lane.get("status") or ""),
-                    str(lane.get("branch") or ""),
-                    str(lane.get("path") or ""),
-                    str(lane.get("state") or ""),
-                    str(lane.get("target_branch") or ""),
-                ]),
+                "|".join(
+                    [
+                        str(lane.get("public_ref") or ""),
+                        str(lane.get("status") or ""),
+                        str(lane.get("branch") or ""),
+                        str(lane.get("path") or ""),
+                        str(lane.get("state") or ""),
+                        str(lane.get("target_branch") or ""),
+                    ]
+                ),
                 file=stdout,
             )
 
@@ -196,7 +198,7 @@ def item_worktrees_path_record(args: List[str]) -> int:
     )
     parser.add_argument(
         "item",
-        help="Item id (PREFIX-N or project-local number).",
+        help="Item id (PREFIX-N).",
     )
     parser.add_argument("--worktree-id", type=int, required=True)
     parser.add_argument("--branch", required=True)
@@ -232,7 +234,7 @@ def item_worktrees_release(args: List[str]) -> int:
     )
     parser.add_argument(
         "item",
-        help="Item id (PREFIX-N or project-local number).",
+        help="Item id (PREFIX-N).",
     )
     parser.add_argument(
         "--all-active",

@@ -220,7 +220,7 @@ function renderAttachments(documentNode, plan) {
     const transition = transitionId(row);
     const card = el(documentNode, "div", "qa-attachment");
     const title = row.kind === "item"
-      ? `${row.project} · ${row.item_ref || `item ${row.item_id}`}`
+      ? `${row.project} · ${row.item_ref || `item ${row.public_ref}`}`
       : `${row.project} · project default`;
     card.appendChild(el(documentNode, "strong", null, title));
     card.appendChild(el(

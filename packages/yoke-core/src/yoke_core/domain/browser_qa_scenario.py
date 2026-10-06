@@ -156,14 +156,13 @@ def execute_scenario(
         print(result.to_json())
         return result
 
-    # Refs resolve server-side; everything downstream (artifact paths,
-    # run rows, daemon failure events) uses the resolved numeric id.
-    resolved = context.get("item_id")
+    # Keep the public subject identity through host execution.
+    resolved = context.get("public_ref")
     if resolved is not None:
-        item_id = int(resolved)
+        item_id = resolved
     subject = case_artifact_subject(
         {
-            "item_id": item_id,
+            "public_ref": item_id,
             "deployment_run_id": deployment_run_id,
             "standalone_execution_id": context.get("standalone_execution_id"),
         },

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_cli.transport.public_ref_display import redact_response as _redact_response
+
 import importlib
 import os
 import uuid
@@ -147,9 +149,21 @@ def call_dispatcher(
         request_id=request_id,
         intent=intent,
     )
+    from yoke_contracts.public_item_contract import public_item_request_error
+
+    refused = public_item_request_error(request)
+    if refused is not None:
+        return FunctionCallResponse(
+            success=False,
+            function=function_id,
+            version=request.version,
+            request_id=request.request_id,
+            error=refused,
+        )
     if local_only:
         return _redact_response(
-            _call_local(request, _local_dispatch, client_local=True), sensitive_values,
+            _call_local(request, _local_dispatch, client_local=True),
+            sensitive_values,
         )
     if relay_env is None:
         # Evidence belongs in the store of the build serving the universe,
@@ -169,19 +183,23 @@ def call_dispatcher(
             else https_transport.resolve_https_connection()
         )
     except https_transport.TransportError as exc:
-        return _redact_response(_error_response(
-            request, "https_transport_misconfigured", str(exc)
-        ), sensitive_values)
+        return _redact_response(
+            _error_response(request, "https_transport_misconfigured", str(exc)),
+            sensitive_values,
+        )
     if https is None and relay_env:
-        return _redact_response(_error_response(
-            request,
-            "relay_env_unavailable",
-            f"env {relay_env!r} was named as the plane that must run "
-            f"{request.function!r}, but it resolves to no https "
-            "connection on this machine; configure it with "
-            f"`yoke connection set {relay_env} --api-url ...` or check "
-            "`yoke env list`",
-        ), sensitive_values)
+        return _redact_response(
+            _error_response(
+                request,
+                "relay_env_unavailable",
+                f"env {relay_env!r} was named as the plane that must run "
+                f"{request.function!r}, but it resolves to no https "
+                "connection on this machine; configure it with "
+                f"`yoke connection set {relay_env} --api-url ...` or check "
+                "`yoke env list`",
+            ),
+            sensitive_values,
+        )
     if https is not None:
         handshake = https_transport.ServerHandshake()
         relay_kwargs: Dict[str, Any] = {"handshake": handshake}
@@ -197,31 +215,8 @@ def call_dispatcher(
             sensitive_values,
         )
     return _redact_response(
-        _call_local(request, _local_dispatch), sensitive_values,
-    )
-
-
-def _redact_response(
-    response: FunctionCallResponse,
-    sensitive_values: tuple[str, ...],
-) -> FunctionCallResponse:
-    secrets = tuple(value for value in sensitive_values if value)
-    if not secrets:
-        return response
-
-    def redact(value: Any) -> Any:
-        if isinstance(value, str):
-            for secret in secrets:
-                value = value.replace(secret, "<redacted>")
-            return value
-        if isinstance(value, list):
-            return [redact(item) for item in value]
-        if isinstance(value, dict):
-            return {key: redact(item) for key, item in value.items()}
-        return value
-
-    return FunctionCallResponse.model_validate(
-        redact(response.model_dump(mode="python"))
+        _call_local(request, _local_dispatch),
+        sensitive_values,
     )
 
 
@@ -243,7 +238,8 @@ def _resolve_session_id() -> Optional[str]:
     try:
         home = machine_config.yoke_home()
         return resolve_ambient_session_id(
-            home / ANCHORS_DIR_NAME, os.environ,
+            home / ANCHORS_DIR_NAME,
+            os.environ,
             cursor_map_dir=home / CURSOR_SESSION_MAP_DIR_NAME,
         )
     except Exception:  # never break dispatch on identity resolution
@@ -274,7 +270,9 @@ def _call_local(
                     "`yoke env use <env>`."
                 ),
             )
-        local_dispatch = getattr(dispatch_module, "dispatch_local" if client_local else "dispatch")
+        local_dispatch = getattr(
+            dispatch_module, "dispatch_local" if client_local else "dispatch"
+        )
     return local_github_dispatch.call_with_machine_github_authorization(
         request,
         local_dispatch,

@@ -52,12 +52,13 @@ def seed_demo_items(
         )
         if not result.get("success"):
             raise LocalDemoSeedError(str(result.get("error") or "item create failed"))
-        created.append({
-            "item_id": result.get("item_id"),
-            "public_ref": result.get("public_ref"),
-            "title": spec.title,
-            "priority": spec.priority,
-        })
+        created.append(
+            {
+                "public_ref": result.get("public_ref"),
+                "title": spec.title,
+                "priority": spec.priority,
+            }
+        )
     return {
         "ok": True,
         "project": project,

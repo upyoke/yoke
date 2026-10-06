@@ -25,7 +25,7 @@ def lifecycle_transition(args: List[str]) -> int:
         prog="yoke lifecycle transition",
         description=LIFECYCLE_TRANSITION_USAGE,
     )
-    parser.add_argument("item", help="Item id (PREFIX-N or project-local number).")
+    parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument(
         "--to", dest="to_status", required=True, help="Target lifecycle status."
     )

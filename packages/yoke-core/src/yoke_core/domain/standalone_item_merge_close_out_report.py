@@ -16,13 +16,14 @@ a fact the run never established is left out instead of guessed.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 import json
 import sys
 from collections.abc import Mapping
 from functools import partial
 from typing import Any, Callable, Optional, Sequence
 
-from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.public_ref import unresolved_item_ref
 from yoke_core.domain import close_out_control_plane_authority as close_out
 from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
@@ -129,7 +130,7 @@ def _read_claim_state(
 ) -> str:
     response = dispatch(
         function_id=HOLDER_FUNCTION,
-        target=TargetRef(kind="item", item_id=int(item_id)),
+        target=public_item_target(item_id),
         payload={},
     )
     if not getattr(response, "success", False):

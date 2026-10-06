@@ -20,32 +20,65 @@ from yoke_core.domain.project_identity import render_item_ref
 # ---------------------------------------------------------------------------
 
 TASK_COLUMNS = [
-    "id", "epic_id", "task_num", "title", "item_worktree_id",
-    "context_estimate", "dependencies", "status", "dispatch_attempts",
+    "id",
+    "epic_id",
+    "task_num",
+    "title",
+    "item_worktree_id",
+    "context_estimate",
+    "dependencies",
+    "status",
+    "dispatch_attempts",
 ]
 
 DISPATCH_CHAIN_COLUMNS = [
-    "id", "epic_id", "item_worktree_id", "queue",
-    "current_index", "current_task", "current_attempt", "max_attempts",
-    "no_chain", "started_at", "last_updated",
+    "id",
+    "epic_id",
+    "item_worktree_id",
+    "queue",
+    "current_index",
+    "current_task",
+    "current_attempt",
+    "max_attempts",
+    "no_chain",
+    "started_at",
+    "last_updated",
 ]
 
-TASK_FIELD_WHITELIST = frozenset({
-    "title", "item_worktree_id", "context_estimate", "dependencies", "status",
-    "dispatch_attempts", "body", "github_issue",
-    "max_attempts", "agent_id", "last_heartbeat",
-})
+TASK_FIELD_WHITELIST = frozenset(
+    {
+        "title",
+        "item_worktree_id",
+        "context_estimate",
+        "dependencies",
+        "status",
+        "dispatch_attempts",
+        "body",
+        "github_issue",
+        "max_attempts",
+        "agent_id",
+        "last_heartbeat",
+    }
+)
 
-CHAIN_FIELD_WHITELIST = frozenset({
-    "queue", "current_index", "current_task",
-    "current_attempt", "max_attempts", "no_chain", "started_at",
-    "last_updated",
-})
+CHAIN_FIELD_WHITELIST = frozenset(
+    {
+        "queue",
+        "current_index",
+        "current_task",
+        "current_attempt",
+        "max_attempts",
+        "no_chain",
+        "started_at",
+        "last_updated",
+    }
+)
 
 
 # ---------------------------------------------------------------------------
 # Timestamp helper
 # ---------------------------------------------------------------------------
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -58,6 +91,7 @@ def _placeholder(conn: Any) -> str:
 # ---------------------------------------------------------------------------
 # Pipe-delimited formatting
 # ---------------------------------------------------------------------------
+
 
 def _pipe_row(row, columns: List[str]) -> str:
     """Format a single sqlite3.Row as pipe-delimited text."""
@@ -80,6 +114,7 @@ def _pipe_rows(rows, columns: List[str]) -> str:
 # Epic ID parsing and validation
 # ---------------------------------------------------------------------------
 
+
 def _parse_epic_id(ref: str | int, *, conn: Any = None) -> int:
     """Resolve an epic command item argument through public identity."""
     from yoke_core.domain.yok_n_parser import parse_item_argument
@@ -95,7 +130,9 @@ def _validate_epic_exists(conn, epic_id: int) -> None:
         (epic_id,),
     )
     if count == 0:
-        raise LookupError(f"epic {render_item_ref(conn, epic_id)} not found in epic_tasks table")
+        raise LookupError(
+            f"epic {render_item_ref(conn, epic_id)} not found in epic_tasks table"
+        )
 
 
 def _require_task_exists(conn, epic_id: str, task_num: int) -> None:
@@ -115,6 +152,7 @@ def _require_task_exists(conn, epic_id: str, task_num: int) -> None:
 # ---------------------------------------------------------------------------
 # Simulation result parsing
 # ---------------------------------------------------------------------------
+
 
 def _parse_simulation_result(body: str) -> str | None:
     """Parse simulation result from body text.
@@ -149,7 +187,10 @@ def _parse_simulation_result(body: str) -> str | None:
                 return "GAPS FOUND"
             cm = re.match(r"^(\d+)\s+critical", val)
             if cm:
-                counts = [int(x) for x in re.findall(r"(\d+)\s+(?:critical|warning|note)", val)]
+                counts = [
+                    int(x)
+                    for x in re.findall(r"(\d+)\s+(?:critical|warning|note)", val)
+                ]
                 return "GAPS FOUND" if any(c > 0 for c in counts) else "CLEAN"
             return None
 
@@ -165,3 +206,15 @@ def _parse_simulation_result(body: str) -> str | None:
             return None
 
     return None
+
+
+def public_epic_pipe_rows(conn, epic_id: int, body: str) -> str:
+    """Render the epic identity in the pipe rows exposed by registered reads."""
+    public_ref = render_item_ref(conn, epic_id)
+    rows = []
+    for line in body.splitlines():
+        fields = line.split("|")
+        if len(fields) >= 2:
+            fields[1] = public_ref
+        rows.append("|".join(fields))
+    return "\n".join(rows)

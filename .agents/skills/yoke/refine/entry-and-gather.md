@@ -19,7 +19,7 @@ exactly one pinned `refine` binding:
 Register the work claim BEFORE the status transition (claim-before-status ordering). The session stamp uses the registered session wrapper. This prevents the scheduler from offering the same item while refine is actively working on it, and ensures the subsequent status mutation passes claim verification:
 
 ```bash
-# Reuse ITEM_REF and ITEM_NUM from step 1. The items.get dispatcher already
+# Reuse ITEM_REF and ITEM_REF from step 1. The items.get dispatcher already
 # resolved prefixed, zero-padded, and project-local bare-number input.
 # Session touch + claim
 yoke sessions touch --mode refine
@@ -56,7 +56,7 @@ Read all available structured fields. Empty fields are normal; refinement should
 
 ```bash
 MAIN_ROOT=$(git rev-parse --show-toplevel)
-# Reuse ITEM_REF and ITEM_NUM from step 1.
+# Reuse ITEM_REF and ITEM_REF from step 1.
 BODY=$(yoke items get "$ITEM_REF" body 2>/dev/null) || true
 SPEC=$(yoke items get "$ITEM_REF" spec 2>/dev/null) || true
 DESIGN_SPEC=$(yoke items get "$ITEM_REF" design_spec 2>/dev/null) || true
@@ -70,7 +70,7 @@ child decomposition selected by `ITEM_GENERATED_CHILDREN=epic_tasks`:
 
 ```bash
 MAIN_ROOT=$(git rev-parse --show-toplevel)
-EPIC_TASKS=$(yoke epic-tasks list --epic "$ITEM_NUM" 2>/dev/null) || true
+EPIC_TASKS=$(yoke epic-tasks list --epic "$ITEM_REF" 2>/dev/null) || true
 ```
 
 If all fields are empty or trivial, emit:

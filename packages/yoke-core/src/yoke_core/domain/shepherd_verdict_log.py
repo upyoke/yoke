@@ -1,4 +1,5 @@
 """Verdict, shepherd-log, and caveat disposition commands."""
+
 from __future__ import annotations
 
 import json
@@ -50,13 +51,13 @@ def cmd_verdict(
     prev = query_scalar(
         conn,
         "SELECT COALESCE(MAX(attempt), 0) FROM shepherd_verdicts "
-        f"WHERE item={p} AND transition={p} AND worker={p}",
+        f"WHERE public_ref={p} AND transition={p} AND worker={p}",
         (item, transition, worker),
     )
     attempt = (prev or 0) + 1
     cursor = conn.execute(
         "INSERT INTO shepherd_verdicts "
-        "(item, transition, worker, verdict, caveats, attempt, created_at) "
+        "(public_ref, transition, worker, verdict, caveats, attempt, created_at) "
         f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}) RETURNING id",
         (item, transition, worker, verdict, caveats, attempt, ts),
     )
@@ -77,7 +78,7 @@ def cmd_shepherd_log(conn, item: str) -> str:
         "SELECT transition, worker, verdict, "
         "COALESCE(caveats, ''), "
         "attempt, created_at "
-        f"FROM shepherd_verdicts WHERE item={p} ORDER BY id",
+        f"FROM shepherd_verdicts WHERE public_ref={p} ORDER BY id",
         (item,),
     )
     lines = ["## Shepherd Log"]
@@ -90,7 +91,7 @@ def cmd_shepherd_log(conn, item: str) -> str:
         conn,
         "SELECT transition, attempt, caveat_num, disposition, "
         "COALESCE(resolution_details, '') "
-        f"FROM caveat_dispositions WHERE item={p} "
+        f"FROM caveat_dispositions WHERE public_ref={p} "
         "ORDER BY transition, attempt, caveat_num",
         (item,),
     )
@@ -154,10 +155,10 @@ def cmd_caveat_disposition(
     p = _placeholder(conn)
     conn.execute(
         "INSERT INTO caveat_dispositions "
-        "(item, transition, attempt, caveat_num, caveat_text, disposition, "
+        "(public_ref, transition, attempt, caveat_num, caveat_text, disposition, "
         "resolution_details, verdict_id, created_at) "
         f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
-        "ON CONFLICT(item, transition, attempt, caveat_num) DO UPDATE SET "
+        "ON CONFLICT(public_ref, transition, attempt, caveat_num) DO UPDATE SET "
         "caveat_text=EXCLUDED.caveat_text, disposition=EXCLUDED.disposition, "
         "resolution_details=EXCLUDED.resolution_details, "
         "verdict_id=EXCLUDED.verdict_id, created_at=EXCLUDED.created_at",
@@ -181,9 +182,9 @@ def cmd_caveat_dispositions(conn, item: str) -> str:
     p = _placeholder(conn)
     rows = query_rows(
         conn,
-        "SELECT item, transition, attempt, caveat_num, caveat_text, disposition, "
+        "SELECT public_ref, transition, attempt, caveat_num, caveat_text, disposition, "
         "COALESCE(resolution_details, ''), COALESCE(CAST(verdict_id AS TEXT), ''), created_at "
-        f"FROM caveat_dispositions WHERE item={p} "
+        f"FROM caveat_dispositions WHERE public_ref={p} "
         "ORDER BY transition, attempt, caveat_num",
         (item,),
     )

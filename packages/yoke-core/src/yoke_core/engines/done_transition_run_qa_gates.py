@@ -18,6 +18,8 @@ unavailable read raises rather than reporting a clear gate.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 from typing import Any, Dict, List, Optional
 
 from yoke_contracts.api.function_call import TargetRef
@@ -52,7 +54,7 @@ def _scoped_blocking(item_id: int, run_id: str) -> List[str]:
     return list(
         _relay_read(
             "done_transition.run_stage_qa_acceptance",
-            TargetRef(kind="item", item_id=int(item_id)),
+            public_item_target(item_id),
             {"run_id": run_id},
         ).get("blocking", [])
     )

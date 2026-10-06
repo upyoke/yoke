@@ -25,7 +25,7 @@ task numbers.
 
 1. **Identity and spec:** `yoke items get PREFIX-N spec` supplies the parent
    spec. For generated tasks, also read
-   `yoke workflow-item epic-task body-get --epic <epic-id> --task-num <task-num>`.
+   `yoke workflow-item epic-task body-get --epic PREFIX-N --task-num <task-num>`.
    Include the task spec and parent context. Include exact `epic-id` and
    `task-num` for the durable review, dependency interface contracts, and
    downstream task bodies needed for path tracing.
@@ -71,7 +71,7 @@ Spec:
 
 {if generated task:}
 Epic DB identifiers (use exactly for review-insert):
-epic-id: {epic_id}
+epic-id: {epic_ref}
 task-num: {task_num}
 {dependency interface contracts and downstream task bodies}
 {caller-provided Active Path Claim Coverage, read-only for validation}
@@ -119,7 +119,7 @@ between main and the branch for regressions, not just failure counts.
 
 {if generated task:}
 Write the review body to a temp file, then persist it with:
-yoke workflow-item epic-task review-insert --epic {epic_id} --task-num {task_num} --verdict <pass|fail> --body-file <review-path>
+yoke workflow-item epic-task review-insert --epic {epic_ref} --task-num {task_num} --verdict <pass|fail> --body-file <review-path>
 A text verdict alone cannot satisfy Conduct's durable-review gate.
 
 OUTPUT DISCIPLINE: End with VERDICT: PASS or VERDICT: FAIL and a brief summary.

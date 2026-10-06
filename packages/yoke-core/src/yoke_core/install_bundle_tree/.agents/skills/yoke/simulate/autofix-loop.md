@@ -6,8 +6,8 @@ writes the returned plan changes through registered item surfaces.
 
 ## Entry and caller contract
 
-Retain the epic's internal `_epic_id`, resolved parent `public_ref` and
-`item_id`, `phase`, current persisted report and `_simulator_output`, and
+Retain the epic's public `_epic_ref`, resolved parent `public_ref` and
+`public_ref`, `phase`, current persisted report and `_simulator_output`, and
 registered lane authorities. Never construct a public ref from an internal id.
 Direct invocation has `caller=simulate`. Conduct supplies `caller=conduct`,
 `phase=integration`, an already persisted initial report, and its task-pipeline
@@ -49,11 +49,11 @@ root cause, affected tasks/files, and fix guidance into `_code_level_gaps`.
 Read the current report with:
 
 ```text
-yoke workflow-item epic-task simulation-get --epic <epic-id> --phase <phase>
+yoke workflow-item epic-task simulation-get --epic PREFIX-N --phase <phase>
 ```
 
-Read all tasks from `yoke epic-tasks list --epic <epic-id>` and each body with
-`yoke workflow-item epic-task body-get --epic <epic-id> --task-num <task-num>`.
+Read all tasks from `yoke epic-tasks list --epic PREFIX-N` and each body with
+`yoke workflow-item epic-task body-get --epic PREFIX-N --task-num <task-num>`.
 Include the parent spec and worktree plan plus the current report in context.
 
 ## Dispatch Architect in fix mode
@@ -92,11 +92,11 @@ Show the change summary, and add its code-only entries to `_code_level_gaps`.
 
 Only update task bodies named as actually modified in the change summary.
 Call `workflow_item.epic_task.body_replace` with target
-`{kind: "epic_task", epic_id: <internal-id>, task_num: <task-number>}` and
+`{kind: "epic_task", public_ref: "PREFIX-N", task_num: <task-number>}` and
 payload `{body: <full-modified-body>}`.
 
 For a changed worktree plan, call `items.structured_field.replace` with target
-`{kind: "item", item_id: <internal-id>}` and payload
+`{kind: "item", public_ref: "PREFIX-N"}` and payload
 `{field: "worktree_plan", content: <full-plan>, source: "simulate"}`.
 See [the structured write envelopes](../idea/body-and-sync-functions.md).
 Do not update a task merely because its body was echoed in the response.

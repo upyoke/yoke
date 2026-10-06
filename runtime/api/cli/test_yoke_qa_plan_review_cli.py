@@ -43,7 +43,7 @@ def test_plan_engine_cli_requires_environment_bound_agent_review_dispatch(
                     ],
                     "prompt": "Review the exact immutable bundle.",
                     "submit_command": (
-                        "yoke qa plan review-submit --item-id 42 "
+                        "yoke qa plan review-submit --item 42 "
                         "--execution-id execution-1 --bundle-id bundle-1 "
                         f"--bundle-digest {'a' * 64} --stdin"
                     ),
@@ -103,7 +103,7 @@ def test_review_submit_cli_sends_complete_stdin_batch(capsys) -> None:
     ):
         code = qa_plan_review_cli.run(
             [
-                "--item-id",
+                "--item",
                 "42",
                 "--execution-id",
                 "execution-1",
@@ -151,7 +151,7 @@ def test_review_submit_exits_zero_when_verdicts_persisted_on_needs_review(
     ):
         code = qa_plan_review_cli.run(
             [
-                "--item-id",
+                "--item",
                 "42",
                 "--execution-id",
                 "execution-1",

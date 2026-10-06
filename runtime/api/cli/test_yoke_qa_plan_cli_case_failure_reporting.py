@@ -118,12 +118,12 @@ def test_plan_cli_stays_quiet_when_every_case_passed(capsys) -> None:
 
 def test_mission_handoff_qualifies_every_control_plane_command(monkeypatch) -> None:
     commands = {
-        "host_command": "yoke qa mission host-command --item-id 42 -- ARGV...",
+        "host_command": "yoke qa mission host-command --item 42 -- ARGV...",
         "browser_setup_command": (
-            "yoke qa mission host-command --item-id 42 -- yoke qa browser setup"
+            "yoke qa mission host-command --item 42 -- yoke qa browser setup"
         ),
         "browser_step_command": (
-            "yoke qa mission host-command --item-id 42 -- "
+            "yoke qa mission host-command --item 42 -- "
             "yoke qa browser step --base-url URL --step-json JSON"
         ),
         "artifact_add_command": (
@@ -140,7 +140,7 @@ def test_mission_handoff_qualifies_every_control_plane_command(monkeypatch) -> N
                     "yoke qa artifact read --requirement-id 41 --artifact-id 8"
                 ],
                 "walker_dispatches": [{**commands, "prompt": prompt}],
-                "submit_command": "yoke qa plan review-submit --item-id 42 --stdin",
+                "submit_command": "yoke qa plan review-submit --item 42 --stdin",
                 "prompt": "Submit the complete verdict batch.",
             }
         }

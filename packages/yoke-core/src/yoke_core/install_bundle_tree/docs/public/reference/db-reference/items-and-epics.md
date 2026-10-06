@@ -155,7 +155,7 @@ PRIMARY KEY (item_id, section_name)
 
 ```sql
 id INTEGER PRIMARY KEY
-item TEXT NOT NULL
+public_ref TEXT NOT NULL
 transition TEXT NOT NULL
 worker TEXT NOT NULL
 verdict TEXT NOT NULL
@@ -170,7 +170,7 @@ Tracks what happened to each caveat during Shepherd's step 5i triage (RESOLVED o
 
 ```sql
 id INTEGER PRIMARY KEY
-item TEXT NOT NULL -- PREFIX-N reference
+public_ref TEXT NOT NULL -- PREFIX-N reference
 transition TEXT NOT NULL -- e.g. refined_idea_to_planning
 attempt INTEGER NOT NULL DEFAULT 1
 caveat_num INTEGER NOT NULL
@@ -180,10 +180,10 @@ resolution_details TEXT
 verdict_id INTEGER -- FK -> shepherd_verdicts(id)
 created_at TEXT NOT NULL
 FOREIGN KEY (verdict_id) REFERENCES shepherd_verdicts(id)
-UNIQUE(item, transition, attempt, caveat_num)
+UNIQUE(public_ref, transition, attempt, caveat_num)
 ```
 
-Index: `idx_cd_item ON caveat_dispositions(item)`
+Index: `idx_cd_item ON caveat_dispositions(public_ref)`
 
 Valid `disposition` values: `RESOLVED`, `DEFERRED`.
 

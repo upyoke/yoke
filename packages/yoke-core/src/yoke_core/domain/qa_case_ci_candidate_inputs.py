@@ -20,6 +20,8 @@ as before.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 from typing import Any, Mapping
 
 from yoke_contracts.github_workflow_dispatch import (
@@ -121,13 +123,12 @@ def item_inputs(*, item_id: int, workflow: str) -> dict[str, str]:
     requirement, configured through the sanctioned QA surfaces — rather
     than from anything the merge command was told.
     """
-    from yoke_contracts.api.function_call import TargetRef
 
     from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 
     resp = call_dispatcher(
         function_id="qa.requirement.list",
-        target=TargetRef(kind="item", item_id=int(item_id)),
+        target=public_item_target(item_id),
         payload={},
     )
     if not resp.success:

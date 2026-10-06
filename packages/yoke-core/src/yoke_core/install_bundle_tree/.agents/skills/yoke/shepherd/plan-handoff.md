@@ -23,7 +23,7 @@ it cannot hand off before artifacts and verdicts exist.
 
 ### 1. Derive epic ID
 ```bash
-_epic_id=$_num # resolved bare item ID from entry
+_epic_ref=$_num # resolved bare item ID from entry
 ```
 
 ### 2. PRD quality gate (pre-Architect validation)
@@ -110,7 +110,7 @@ call (`payload = {fields: ["technical_plan"]}`) and confirm
 Then, for each task produced by the Architect, dispatch the
 `workflow_item.epic_task.add` function call (envelope in
 [`../idea/body-and-sync-functions.md`](../idea/body-and-sync-functions.md)):
-`target = {kind: "epic_task", epic_id: $_epic_id, task_num:
+`target = {kind: "epic_task", epic_id: $_epic_ref, task_num:
 <N>}`, `payload = {title, body, worktree, context_estimate,
 dependencies}`. The body payload carries the generated task body
 end-to-end — no separate body write is required. For file entries,
@@ -145,7 +145,7 @@ parent claim to every task. After all registrations, run
 
 **Dispatch:** descriptor `DispatchDescriptor(role="simulator")` rendered via `yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`. Result-schema markers: `SIMULATION: CLEAN|GAPS FOUND`, `---REFLECTION-START---`. The descriptor's `prompt: |` block is filled with:
 ```
- Simulate the plan for epic {_epic_id} (PREFIX-{N}).
+ Simulate the plan for epic {_epic_ref} (PREFIX-{N}).
  Phase: plan
  Repository root: {MAIN_ROOT}
  Read task content from the DB via yoke workflow-item epic-task body-get.
@@ -166,14 +166,14 @@ Parse the Simulator's result for `## Result: CLEAN` or `## Result: GAPS FOUND`.
   1. **Patch and re-simulate** — fix the gaps in the plan/task bodies (or re-run Architect manually), then re-run shepherd. `simulation-upsert` overwrites prior runs, so a clean re-simulation replaces the failing row.
   2. **Waive the requirement** with explicit operator rationale. Find the requirement id, then waive:
      ```bash
-     _req_id=$(yoke db read --format lines "SELECT id FROM qa_requirements WHERE item_id=$_epic_id AND qa_kind='simulation' AND success_policy LIKE '%\"phase\":\"plan\"%'")
+     _req_id=$(yoke db read --format lines "SELECT id FROM qa_requirements WHERE item_id=$_epic_ref AND qa_kind='simulation' AND success_policy LIKE '%\"phase\":\"plan\"%'")
      yoke qa requirement waive --requirement-id "$_req_id" --rationale "<rationale>" --source operator --force
      ```
   3. **Re-scope or stop** — narrow the epic and re-shepherd, or `/yoke stop PREFIX-{N}`.
 
 ### 6. Write simulation report to DB
 ```bash
-echo "{simulation_report}" | yoke workflow-item epic-task simulation-upsert --epic "$_epic_id" --phase plan --stdin
+echo "{simulation_report}" | yoke workflow-item epic-task simulation-upsert --epic "$_epic_ref" --phase plan --stdin
 ```
 
 ### 7. Boss review
@@ -185,6 +185,6 @@ No merge is needed; planning artifacts are in the control plane. Follow the verd
 ### 8. On Boss NOT_READY
 List task data, remove each planning/planned task through the registered task owner, and re-attempt from step 2 (re-invoke Architect with feedback):
 ```bash
-yoke epic-tasks list --epic "$_epic_id"
-yoke workflow-item epic-task remove --epic "$_epic_id" --task-num "{each task_num}" --reason "Boss requested plan revision"
+yoke epic-tasks list --epic "$_epic_ref"
+yoke workflow-item epic-task remove --epic "$_epic_ref" --task-num "{each task_num}" --reason "Boss requested plan revision"
 ```

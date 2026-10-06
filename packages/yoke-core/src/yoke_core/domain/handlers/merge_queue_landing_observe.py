@@ -60,7 +60,7 @@ def _placeholder(conn: Any) -> str:
 def handle_observe_landing(request: FunctionCallRequest) -> HandlerOutcome:
     """Refresh one project if due, then return this lane's durable record."""
     if request.target.item_id is None:
-        return _error("target_invalid", "landing.observe requires target.item_id")
+        return _error("target_invalid", "landing.observe requires target.public_ref")
     try:
         ObserveLandingRequest.model_validate(request.payload)
     except Exception as exc:  # Pydantic supplies the actionable field path.

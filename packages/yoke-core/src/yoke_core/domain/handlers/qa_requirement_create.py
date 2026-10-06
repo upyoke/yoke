@@ -20,7 +20,7 @@ Epic-task attachment keeps the operator-debug domain CLI
 --workflow-transition STAGE``).
 
 ``add_batch`` accepts rows for the TARGET item only: rows may omit
-``item_id`` (defaulted from the target) and any row naming a different
+``public_ref`` (defaulted from the target) and any row naming a different
 attachment is rejected before the transaction opens. The whole batch
 inserts in one transaction; per-row ``QARequirementCreated`` events emit
 after commit (mirrors the CLI contract).
@@ -106,7 +106,7 @@ def handle_qa_requirement_add(request: FunctionCallRequest) -> HandlerOutcome:
     if item_id is None:
         return _error(
             "target_invalid",
-            "qa.requirement.add requires target.item_id for an item-attached "
+            "qa.requirement.add requires target.public_ref for an item-attached "
             "case, or target.kind='deployment_run' with "
             "target.deployment_run_id for a run-attached one (epic-task "
             "attachment is the operator-debug domain CLI: python3 -m "
@@ -148,9 +148,7 @@ def handle_qa_requirement_add(request: FunctionCallRequest) -> HandlerOutcome:
 
         refused = bind_item_named_target(conn, item_id=int(item_id), row=row)
         if refused:
-            return _error(
-                "payload_invalid", refused, jsonpath="$.payload.target_env"
-            )
+            return _error("payload_invalid", refused, jsonpath="$.payload.target_env")
         cur = conn.execute(
             INSERT_SQL.format(p=p),
             insert_params(RequirementSubject.for_item(item_id), row, iso8601_now()),
@@ -202,7 +200,7 @@ def handle_qa_requirement_add_batch(
     if item_id is None:
         return _error(
             "target_invalid",
-            "qa.requirement.add_batch requires target.item_id",
+            "qa.requirement.add_batch requires target.public_ref",
         )
     payload = request.payload or {}
     rows = payload.get("rows")
@@ -225,16 +223,16 @@ def handle_qa_requirement_add_batch(
                 jsonpath=jsonpath,
             )
         row = dict(raw)
-        row_item = row.get("item_id")
-        if row_item is not None and int(row_item) != int(item_id):
+        row_item = row.get("public_ref")
+        if row_item is not None and row_item != request.target.public_ref:
             return _error(
                 "payload_invalid",
                 f"row {idx} names a different item than the claim-verified "
                 f"target {item_ref_for_id(item_id)}; one batch covers one item — "
                 "omit the row's item",
-                jsonpath=f"{jsonpath}.item_id",
+                jsonpath=f"{jsonpath}.public_ref",
             )
-        for foreign in ("epic_id", "task_num", "deployment_run_id"):
+        for foreign in ("epic_public_ref", "task_num", "deployment_run_id"):
             if row.get(foreign) is not None:
                 return _error(
                     "payload_invalid",
@@ -277,9 +275,7 @@ def handle_qa_requirement_add_batch(
                 if invalid is not None:
                     conn.rollback()
                     return invalid
-                refused = bind_item_named_target(
-                    conn, item_id=int(item_id), row=row
-                )
+                refused = bind_item_named_target(conn, item_id=int(item_id), row=row)
                 if refused:
                     conn.rollback()
                     return _error(

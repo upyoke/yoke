@@ -91,7 +91,7 @@ function renderEpicTasks(context, item, panel, progress) {
     },
     {
       kind: "epic_task",
-      epic_id: Number(item.id),
+      public_ref: item.public_ref,
       project_id: String(item.project.id),
     },
   );

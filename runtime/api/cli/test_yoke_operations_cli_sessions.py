@@ -89,7 +89,7 @@ def test_sessions_checkpoint_dispatches() -> None:
             "charge",
             "--chainable",
             "true",
-            "--item-id",
+            "--item",
             "42",
             "--task-num",
             "3",

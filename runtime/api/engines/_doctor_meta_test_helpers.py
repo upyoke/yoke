@@ -63,7 +63,7 @@ _REST_DDL = """
 
         CREATE TABLE shepherd_verdicts (
             id INTEGER PRIMARY KEY,
-            item TEXT, transition TEXT, worker TEXT, verdict TEXT,
+            public_ref TEXT, transition TEXT, worker TEXT, verdict TEXT,
             caveats TEXT, attempt INTEGER, created_at TEXT
         );
 

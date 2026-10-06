@@ -15,6 +15,8 @@ said done while the issue itself stayed open.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 import sys
 from typing import Any, Optional, TextIO
 
@@ -57,7 +59,8 @@ def _issue_snapshot(issue_num: int, repo: str, project: str) -> tuple[list[str],
         return [], "UNKNOWN"
     try:
         issue = github_rest.get_issue(
-            project=project, number=issue_num,
+            project=project,
+            number=issue_num,
         )
     except github_rest.RestTransportError:
         return [], "UNKNOWN"
@@ -86,7 +89,7 @@ def _done_sync_target(item_id: str | int):
 
     text = str(item_id).strip()
     if text.isdigit():
-        return TargetRef(kind="item", item_id=int(text))
+        return public_item_target(text)
     return TargetRef(kind="item", public_ref=text)
 
 
@@ -137,7 +140,10 @@ def sync_done_item(
             return 1
         public_ref = _item_ref(item_pk, conn=conn)
         if _bgs()._dry_run():
-            print(f"[DRY-RUN] Skipping GitHub: sync-done-item for {public_ref}", file=stdout)
+            print(
+                f"[DRY-RUN] Skipping GitHub: sync-done-item for {public_ref}",
+                file=stdout,
+            )
             return 0
 
         context = _item_context(item_pk, conn=conn)
@@ -151,7 +157,9 @@ def sync_done_item(
         issue_num = int(issue_num_str)
 
         gh_project = resolved_project(project)
-        if _bgs()._github_sync_skip(gh_project, "sync-done-item", conn=conn, out=stdout):
+        if _bgs()._github_sync_skip(
+            gh_project, "sync-done-item", conn=conn, out=stdout
+        ):
             return 0
         try:
             auth = resolve_project_github_auth(
@@ -173,7 +181,15 @@ def sync_done_item(
 
         fields = _item_fields(
             item_pk,
-            ["title", "status", "priority", "workflow_id", "source", "owner", "project"],
+            [
+                "title",
+                "status",
+                "priority",
+                "workflow_id",
+                "source",
+                "owner",
+                "project",
+            ],
             conn=conn,
         )
         if fields is None:
@@ -195,9 +211,7 @@ def sync_done_item(
             "source:": (
                 clamp_label_name(f"source:{source_label}") if source_label else ""
             ),
-            "owner:": (
-                clamp_label_name(f"owner:{owner_label}") if owner_label else ""
-            ),
+            "owner:": (clamp_label_name(f"owner:{owner_label}") if owner_label else ""),
             "worktree:": "",
         }
         label_colors = {
@@ -219,7 +233,9 @@ def sync_done_item(
                 add_labels.append(want)
 
         for label in add_labels:
-            _bgs()._ensure_label(label, label_colors.get(label, colors["status"]), repo, gh_project)
+            _bgs()._ensure_label(
+                label, label_colors.get(label, colors["status"]), repo, gh_project
+            )
 
         from yoke_core.domain.render_body import build_body
 
@@ -252,21 +268,32 @@ def sync_done_item(
         target_repo = auth.repo
         if add_labels:
             try:
-                _label_rest.add_labels(target_repo, issue_num, add_labels, token=auth.token)
+                _label_rest.add_labels(
+                    target_repo, issue_num, add_labels, token=auth.token
+                )
             except github_rest.RestTransportError as exc:
-                print(f"Error: add labels failed for {github_issue}: {exc}", file=stderr)
+                print(
+                    f"Error: add labels failed for {github_issue}: {exc}", file=stderr
+                )
                 return 1
         for label in remove_labels:
             try:
-                _label_rest.remove_label(target_repo, issue_num, label, token=auth.token)
+                _label_rest.remove_label(
+                    target_repo, issue_num, label, token=auth.token
+                )
             except github_rest.RestTransportError as exc:
-                print(f"Error: remove label {label} failed for {github_issue}: {exc}", file=stderr)
+                print(
+                    f"Error: remove label {label} failed for {github_issue}: {exc}",
+                    file=stderr,
+                )
                 return 1
 
         if state != "CLOSED":
             try:
                 github_rest.set_issue_state(
-                    project=gh_project, number=issue_num, state="closed",
+                    project=gh_project,
+                    number=issue_num,
+                    state="closed",
                 )
             except github_rest.RestTransportError as exc:
                 print(f"Error: Failed to close {github_issue}: {exc}", file=stderr)

@@ -14,6 +14,8 @@ human message. ``--json`` callers receive the
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 from typing import Any
 
 
@@ -32,7 +34,6 @@ def dispatch_task_update_body(
     Emits human stdout in default mode; envelope JSON when ``json_mode``.
     """
     from yoke_core.domain.handlers.__init_register__ import register_all_handlers
-    from yoke_contracts.api.function_call import TargetRef
     from yoke_core.api.service_client_structured_api_adapter import (
         call_dispatcher,
         emit_response,
@@ -41,7 +42,7 @@ def dispatch_task_update_body(
     register_all_handlers()
     response = call_dispatcher(
         function_id="workflow_item.epic_task.body_replace",
-        target=TargetRef(kind="epic_task", epic_id=int(epic_id), task_num=int(task_num)),
+        target=public_item_target(epic_id, kind="epic_task", task_num=int(task_num)),
         payload={"body": body},
     )
 
@@ -58,7 +59,8 @@ def dispatch_task_update_body(
         import sys
 
         print(
-            f"Error: {response.error.message}", file=sys.stderr,
+            f"Error: {response.error.message}",
+            file=sys.stderr,
         )
     return 1
 

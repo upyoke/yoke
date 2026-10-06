@@ -88,7 +88,7 @@ verification-phase requirements are already satisfied or waived:
 ```bash
 _unsatisfied_verify=$(yoke db read --format lines \
  "SELECT COUNT(*) FROM qa_requirements qr \
- WHERE qr.item_id = {N} AND qr.qa_phase = 'verification' \
+ WHERE qr.item_id = (SELECT item_id FROM item_refs WHERE public_ref = 'PREFIX-{N}') AND qr.qa_phase = 'verification' \
  AND qr.blocking_mode = 'blocking' AND qr.waived_at IS NULL \
  AND NOT EXISTS (SELECT 1 FROM qa_runs qrun \
  WHERE qrun.qa_requirement_id = qr.id \
@@ -140,7 +140,7 @@ if [ -n "$_item_flow" ] && [ "$_item_flow" != "null" ]; then
  _already_passed_eph=$(yoke db read --format lines \
  "SELECT COUNT(*) FROM qa_runs qr \
  JOIN qa_requirements qreq ON qr.qa_requirement_id = qreq.id \
- WHERE qreq.item_id = {N} \
+ WHERE qreq.item_id = (SELECT item_id FROM item_refs WHERE public_ref = 'PREFIX-{N}') \
  AND qreq.qa_phase = 'verification' \
  AND qreq.method_id IN ('browser-check', 'browser-inspection') \
  AND qr.verdict = 'pass'" 2>/dev/null) || _already_passed_eph="0"

@@ -90,7 +90,7 @@ def handle_operator_correct_merged_at(
     if item_id is None:
         return _err(
             "target_invalid",
-            "operator_correct_merged_at requires target.item_id",
+            "operator_correct_merged_at requires target.public_ref",
         )
     try:
         body = OperatorCorrectMergedAtRequest.model_validate(request.payload)

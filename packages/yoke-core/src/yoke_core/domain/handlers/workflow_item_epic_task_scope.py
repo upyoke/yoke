@@ -58,13 +58,14 @@ def _target(request: FunctionCallRequest) -> tuple[int, int | None] | None:
 
 def _connect():
     from yoke_core.domain.db_helpers import connect
+
     return connect()
 
 
 def handle_no_files(request: FunctionCallRequest) -> HandlerOutcome:
     target = _target(request)
     if target is None or target[1] is None:
-        return _bad("target must carry epic_id + task_num")
+        return _bad("target must carry public_ref + task_num")
     epic_id, task_num = target
     try:
         EmptyRequest.model_validate(request.payload)
@@ -86,7 +87,7 @@ def handle_no_files(request: FunctionCallRequest) -> HandlerOutcome:
 def handle_finalize(request: FunctionCallRequest) -> HandlerOutcome:
     target = _target(request)
     if target is None:
-        return _bad("target must carry epic_id")
+        return _bad("target must carry public_ref")
     epic_id, _task_num = target
     try:
         EmptyRequest.model_validate(request.payload)
@@ -107,7 +108,7 @@ def handle_finalize(request: FunctionCallRequest) -> HandlerOutcome:
 def handle_reopen(request: FunctionCallRequest) -> HandlerOutcome:
     target = _target(request)
     if target is None:
-        return _bad("target must carry epic_id")
+        return _bad("target must carry public_ref")
     epic_id, _task_num = target
     try:
         EmptyRequest.model_validate(request.payload)
@@ -131,7 +132,7 @@ def handle_reopen(request: FunctionCallRequest) -> HandlerOutcome:
 def handle_repair_legacy(request: FunctionCallRequest) -> HandlerOutcome:
     target = _target(request)
     if target is None:
-        return _bad("target must carry epic_id")
+        return _bad("target must carry public_ref")
     epic_id, _task_num = target
     try:
         payload = LegacyRepairRequest.model_validate(request.payload)

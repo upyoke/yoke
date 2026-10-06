@@ -70,7 +70,7 @@ def handle_create(request: FunctionCallRequest) -> HandlerOutcome:
     if target.kind != "item" or target.item_id is None:
         return _error(
             "target_invalid",
-            "item_worktrees.create requires target.kind='item' with item_id",
+            "item_worktrees.create requires target.kind='item' with public_ref",
         )
     item_id = int(target.item_id)
     try:

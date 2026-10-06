@@ -44,7 +44,7 @@ def item_landings_list(args: List[str]) -> int:
     )
     parser.add_argument(
         "item",
-        help="Item id (PREFIX-N or project-local number).",
+        help="Item id (PREFIX-N).",
     )
     parser.add_argument(
         "--project",
@@ -66,16 +66,18 @@ def item_landings_list(args: List[str]) -> int:
             pr_number = str(landing.get("pr_number") or "").strip()
             origin = str(landing.get("origin") or "").strip()
             print(
-                "|".join([
-                    str(landing.get("landed_at") or ""),
-                    str(landing.get("route") or ""),
-                    str(landing.get("merge_sha") or "")[:_SHA_WIDTH],
-                    str(landing.get("candidate_sha") or "")[:_SHA_WIDTH],
-                    f"#{pr_number}" if pr_number else "",
-                    str(landing.get("target_branch") or ""),
-                    origin,
-                    _delivery_label(landing),
-                ]),
+                "|".join(
+                    [
+                        str(landing.get("landed_at") or ""),
+                        str(landing.get("route") or ""),
+                        str(landing.get("merge_sha") or "")[:_SHA_WIDTH],
+                        str(landing.get("candidate_sha") or "")[:_SHA_WIDTH],
+                        f"#{pr_number}" if pr_number else "",
+                        str(landing.get("target_branch") or ""),
+                        origin,
+                        _delivery_label(landing),
+                    ]
+                ),
                 file=stdout,
             )
 

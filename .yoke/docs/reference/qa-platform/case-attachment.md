@@ -99,7 +99,7 @@ start → executing) with `yoke qa requirement update --requirement-id N
 --field target_env --value <environment>`.
 
 Epic-task attachment remains operator-debug only, through
-`python3 -m yoke_core.domain.qa requirement-add --epic-id E --task-num K
+`python3 -m yoke_core.domain.qa requirement-add --epic PREFIX-N --task-num K
 --workflow-transition STAGE ...`.
 
 ## What the activity read returns

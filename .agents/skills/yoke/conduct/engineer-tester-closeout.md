@@ -2,7 +2,7 @@
 
 Invoked from `engineer-tester-dispatch.md` after Tester returns. Covers Tester artifact capture, ephemeral teardown, temp file cleanup, verdict parsing, the Tester output gate, and verdict branching (PASS auto-chain / FAIL retry / FAIL exhausted).
 
-**Inherited:** `MAIN_ROOT`, `_epic_id`, `N`, `_task_id`, `_worktree_path`, `_worktree_branch`, `TASK_BASELINE`, `ATTEMPT_BASELINE`, `_max_attempts`, `_no_chain`, `_attempt`, `_tester_output_failures`, `_full_diff_file`, `_task_diff_file` (if size-gated), `_attempt_diff_file` (if size-gated), `_env_id` (if ephemeral env).
+**Inherited:** `MAIN_ROOT`, `_epic_ref`, `N`, `_task_id`, `_worktree_path`, `_worktree_branch`, `TASK_BASELINE`, `ATTEMPT_BASELINE`, `_max_attempts`, `_no_chain`, `_attempt`, `_tester_output_failures`, `_full_diff_file`, `_task_diff_file` (if size-gated), `_attempt_diff_file` (if size-gated), `_env_id` (if ephemeral env).
 
 ---
 
@@ -27,21 +27,21 @@ Invoked from `engineer-tester-dispatch.md` after Tester returns. Covers Tester a
 - **Release per-task work-claim** (fires on both PASS and FAIL — Step 9 may branch into a retry that re-acquires the claim at the next Engineer dispatch via [`engineer-tester-dispatch.md`](engineer-tester-dispatch.md) Step 3b). The release targets the exact `target_kind="epic_task"` claim acquired for this task at Step 3b/6b; it never touches the parent item claim. Failure is visible — do not fall back to releasing the parent item claim:
  ```bash
  if ! yoke claims work release \
-   --epic-id "${_epic_id}" --task-num "${_task_id}" \
+   --epic "${_epic_ref}" --task-num "${_task_id}" \
    --reason "tester return PREFIX-${N} task ${_task_id}"; then
-  echo "WARN: failed to release epic_task claim for (epic_id=${_epic_id}, task_num=${_task_id})."
+  echo "WARN: failed to release epic_task claim for (epic_id=${_epic_ref}, task_num=${_task_id})."
   echo "Inspect with 'yoke claims work holder-list --session-id-filter \"${YOKE_SESSION_ID}\" --json'."
-  echo "Match target_kind=epic_task, epic_id=${_epic_id}, task_num=${_task_id}; do not substitute a parent item claim."
+  echo "Match target_kind=epic_task, epic_id=${_epic_ref}, task_num=${_task_id}; do not substitute a parent item claim."
  fi
  ```
 
 ### Step 9 — Parse Verdict
 
-- Check DB: `yoke workflow-item epic-task review-get --epic "$_epic_id" --task-num "$_task_id"`
+- Check DB: `yoke workflow-item epic-task review-get --epic "$_epic_ref" --task-num "$_task_id"`
 - Fall back to text output for `VERDICT: PASS` / `VERDICT: FAIL`.
 - **Auto-insert when verdict-only.** When the DB query returns "no review found" but the Tester's text response contains a clear `VERDICT: PASS` or `VERDICT: FAIL` line, run the review-insert yourself with a conduct-attributed body. Testers regularly return a text VERDICT line but skip the `epic review-insert` call; the conduct-side closeout is the single check that catches this. The body should record the verdict, name conduct as the inserter ("conduct-recorded after Tester returned text VERDICT but skipped review-insert"), and copy the Tester's per-AC summary inline so the review row is reviewable later. Command shape (after writing the body to `/tmp/yok-N-task-M-review.txt`):
  ```bash
- yoke workflow-item epic-task review-insert --epic "$_epic_id" --task-num "$_task_id" --verdict PASS --body-file /tmp/sun-${N}-task-${_task_id}-review.txt
+ yoke workflow-item epic-task review-insert --epic "$_epic_ref" --task-num "$_task_id" --verdict PASS --body-file /tmp/sun-${N}-task-${_task_id}-review.txt
  ```
  The auto-insert auto-advances status to `reviewing-implementation` → `reviewed-implementation` exactly as if the Tester had called it directly. Do NOT escalate to the Tester output gate when text VERDICT is present — that gate is reserved for the no-verdict-at-all case.
 - **Review receipt gate:** conduct-side closeout requires a durable review row even when Tester output contains a text VERDICT. The same closeout rule applies on every harness.
@@ -69,7 +69,7 @@ Invoked from `engineer-tester-dispatch.md` after Tester returns. Covers Tester a
  ```
  PREFIX-{N} task {_task_id} complete -- {task title}
  Status: reviewed-implementation (attempt {_attempt}/{_max_attempts})
- Epic: {_epic_id}
+ Epic: {_epic_ref}
  Branch: {branch}
  Worktree: {_worktree_path}
  Commits: {count} new ({first_sha}..{last_sha})
@@ -91,23 +91,23 @@ Invoked from `engineer-tester-dispatch.md` after Tester returns. Covers Tester a
 - Increment `_attempt`.
 - Transition task back to `implementing`:
  ```bash
- yoke conduct epic-task update-status --epic "$_epic_id" --task-num "$_task_id" \
+ yoke conduct epic-task update-status --epic "$_epic_ref" --task-num "$_task_id" \
   --status implementing --note "Retry attempt ${_attempt} of ${_max_attempts}"
  ```
 - Update dispatch chain:
  ```bash
- yoke workflow-item epic-dispatch-chain update --epic "$_epic_id" --worktree "$_worktree_branch" \
+ yoke workflow-item epic-dispatch-chain update --epic "$_epic_ref" --worktree "$_worktree_branch" \
   --field current_attempt --value "${_attempt}"
  ```
 - Record new attempt baseline and **continue loop** (return to `engineer-tester-dispatch.md` Step 1).
 
 **On FAIL (attempt >= _max_attempts):**
-- Update task status through the conduct pipeline wrapper: `yoke conduct epic-task update-status --epic "$_epic_id" --task-num "$_task_id" --status failed --note "Exhausted attempts"`
+- Update task status through the conduct pipeline wrapper: `yoke conduct epic-task update-status --epic "$_epic_ref" --task-num "$_task_id" --status failed --note "Exhausted attempts"`
 - Print structured summary:
  ```
  PREFIX-{N} task {_task_id} failed -- {task title} (exhausted {_max_attempts} attempts)
  Status: failed
- Epic: {_epic_id}
+ Epic: {_epic_ref}
  Branch: {branch}
  Worktree: {_worktree_path}
  GitHub: {github_issue URL or "not synced"}

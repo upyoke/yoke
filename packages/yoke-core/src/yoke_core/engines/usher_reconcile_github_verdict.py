@@ -7,10 +7,11 @@ the pure mapping from one GitHub Actions poll result onto it.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 from dataclasses import dataclass
 from typing import List
 
-from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.deploy_pipeline_events import emit_run_event as _emit_run_event
 
@@ -63,7 +64,7 @@ def clear_deploy_stage(item_id: int, stage_name: str) -> str:
     # a fabricated actor — is what should attribute this write.
     response = call_dispatcher(
         function_id="items.scalar.update",
-        target=TargetRef(kind="item", item_id=item_id),
+        target=public_item_target(item_id),
         payload={"field": "deploy_stage", "value": stage_name},
     )
     if response.success:

@@ -47,7 +47,7 @@ Before writing any changes, complete these mandatory checks and carry the findin
   claim via the `items.get.run` function call (`fields:
   ["db_mutation_profile"]`); if it is `{"state":"none"}` while the
   prose declares DB work, surface this as a first-class critique item
-  and dispatch `db_claim.amend` (target `{kind: "item", item_id: N}`)
+  and dispatch `db_claim.amend` (target `{kind: "item", public_ref: "PREFIX-N"}`)
   with `payload = {reason: "<why>", claim: <unified-claim-json>}`
   before advancing. **Meta work items about DB governance** — work items that
   *discuss* `ALTER TABLE`, `ADD COLUMN`, `migration_audit`, or similar

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 import argparse
 from contextlib import contextmanager
 from functools import partial
@@ -64,12 +66,11 @@ def _prepare_dash_path_claim(
     or widening. Returns an error string to block preparation, or
     ``None`` on success / no-op.
     """
-    from yoke_contracts.api.function_call import TargetRef
     from yoke_core.api.service_client_structured_api_adapter import (
         call_dispatcher,
     )
 
-    target = TargetRef(kind="item", item_id=int(item_id))
+    target = public_item_target(item_id)
     holder = call_dispatcher(
         function_id="claims.work.holder_get",
         target=target,
@@ -180,7 +181,7 @@ def _prepare(parser: argparse.ArgumentParser, parsed: argparse.Namespace) -> int
         )
         parser.error(f"could not resolve item {parsed.item!r}: {message}")
     item = (detail.result or {}).get("item") or {}
-    item_id = int(item["id"])
+    item_id = str(item["public_ref"])
     workflow_id = str((item.get("workflow") or {}).get("id") or "missing")
     if workflow_id != parsed.workflow:
         parser.error(f"item uses workflow {workflow_id!r}, not {parsed.workflow!r}")
@@ -193,7 +194,7 @@ def _prepare(parser: argparse.ArgumentParser, parsed: argparse.Namespace) -> int
 
     status = call_dispatcher(
         function_id="direct_workflow.conflict_survey.status",
-        target=TargetRef(kind="item", item_id=item_id),
+        target=public_item_target(item_id),
     )
     if not status.success:
         message = (
@@ -258,7 +259,7 @@ def _prepare(parser: argparse.ArgumentParser, parsed: argparse.Namespace) -> int
     for (owner_item_id, _kind), advisory in advisory_by_contact.items():
         other_detail = call_dispatcher(
             function_id="items.detail.get",
-            target=TargetRef(kind="item", item_id=owner_item_id),
+            target=public_item_target(owner_item_id),
         )
         other_item = (
             (other_detail.result or {}).get("item") if other_detail.success else {}

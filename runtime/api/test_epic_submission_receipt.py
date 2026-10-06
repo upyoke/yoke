@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.conftest import insert_epic_task
+from runtime.api.conftest import insert_epic_task, insert_item
 from yoke_core.domain import epic
-from runtime.api.test_epic_tasks import db  # noqa: F401
 
 
 RECEIPT = """Progress note text.
@@ -22,18 +21,22 @@ file_budget: PASS - files under limit
 """
 
 
-def test_submission_receipt_get_reads_latest_progress_note(db):
+def test_submission_receipt_get_reads_latest_progress_note(test_db):
+    db = test_db
+    insert_item(db, id=42, project_sequence=7)
     insert_epic_task(db, epic_id=42, task_num=1, title="Task")
     epic.progress_note_insert(db, "42", 1, 1, "ordinary note", "aaa")
     epic.progress_note_insert(db, "42", 1, 2, RECEIPT, "bbb")
 
     result = epic.submission_receipt_get(db, "42", 1, after_note_count=1)
 
-    assert result.startswith("PASS|42|1|2|bbb|")
+    assert result.startswith("PASS|YOK-7|1|2|bbb|")
     assert "clean_worktree=PASS - git status --porcelain is empty" in result
 
 
-def test_submission_receipt_get_fails_without_new_receipt(db):
+def test_submission_receipt_get_fails_without_new_receipt(test_db):
+    db = test_db
+    insert_item(db, id=42, project_sequence=7)
     insert_epic_task(db, epic_id=42, task_num=1, title="Task")
     epic.progress_note_insert(db, "42", 1, 1, RECEIPT, "aaa")
 
@@ -41,8 +44,10 @@ def test_submission_receipt_get_fails_without_new_receipt(db):
         epic.submission_receipt_get(db, "42", 1, after_note_count=1)
 
 
-def test_submission_receipt_get_rejects_bad_receipt(db):
+def test_submission_receipt_get_rejects_bad_receipt(test_db):
+    db = test_db
     bad = RECEIPT.replace("clean_worktree: PASS", "clean_worktree: FAIL")
+    insert_item(db, id=42, project_sequence=7)
     insert_epic_task(db, epic_id=42, task_num=1, title="Task")
     epic.progress_note_insert(db, "42", 1, 1, bad, "aaa")
 

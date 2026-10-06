@@ -330,11 +330,11 @@ QA_COMMANDS: list[dict] = [
         "topic": "qa",
         "purpose": "Epic dispatch chain (list / advance / inspect)",
         "recipe": (
-            "yoke epic-tasks list --epic 1704\n"
-            "yoke workflow-item epic-task body-get --epic 1704 "
+            "yoke epic-tasks list --epic YOK-1704\n"
+            "yoke workflow-item epic-task body-get --epic YOK-1704 "
             "--task-num 5\n"
-            "yoke workflow-item epic-dispatch-chain list --epic 1704\n"
-            "yoke workflow-item epic-dispatch-chain get --epic 1704 "
+            "yoke workflow-item epic-dispatch-chain list --epic YOK-1704\n"
+            "yoke workflow-item epic-dispatch-chain get --epic YOK-1704 "
             "--worktree branch-name"
         ),
         "notes": (

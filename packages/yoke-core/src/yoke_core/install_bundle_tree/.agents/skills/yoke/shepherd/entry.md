@@ -13,7 +13,7 @@ yoke items detail get PREFIX-N --json
 ```
 
 Set `_num` to the resolved bare `item_id`, `_item_ref` to the supplied public
-reference, `_epic_id` to `_num`, and `_session_id` to the verified ambient
+reference, `_epic_ref` to `_num`, and `_session_id` to the verified ambient
 session identity. In prompt/report placeholders, `PREFIX-{N}` means that
 original public reference, never a reference constructed from `_num`.
 Keep the item title, live status, original status, resolved `item_id`, and

@@ -39,7 +39,7 @@ def claims_path_required_gate(args: List[str]) -> int:
         prog="yoke claims path required-gate",
         description=CLAIMS_PATH_REQUIRED_GATE_USAGE,
     )
-    parser.add_argument("item", help="Item id (PREFIX-N or project-local number).")
+    parser.add_argument("item", help="Item id (PREFIX-N).")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, CLAIMS_PATH_REQUIRED_GATE_USAGE)
@@ -170,7 +170,7 @@ def _write_boundary_proof(response: Any, stdout, _stderr) -> None:
     result = response.result or {}
     print(
         "boundary-proof-recorded|"
-        f"{result.get('public_ref') or result.get('item_id') or 'item'}|"
+        f"{result.get('public_ref') or 'item'}|"
         f"{result.get('rung_id')}|"
         f"{result.get('lane_commit_sha')}",
         file=stdout,

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 import sys
 from typing import Any, Mapping
 
@@ -71,7 +73,7 @@ def execute_plan_machine_case(
 ) -> dict[str, Any]:
     """Run one server-issued host case without releasing the plan lease."""
     requirement_id = int(case.get("requirement_id") or 0)
-    item_id = case.get("item_id")
+    item_id = case.get("public_ref")
     deployment_run_id = case.get("deployment_run_id")
     if requirement_id < 1 or (
         bool(item_id) == bool(deployment_run_id)
@@ -81,7 +83,7 @@ def execute_plan_machine_case(
             "plan-scoped Machine QA requires one subject and a requirement id"
         )
     target = (
-        TargetRef(kind="item", item_id=int(item_id))
+        public_item_target(item_id)
         if item_id is not None
         else TargetRef(kind="global", project_id=str(case["project"]))
         if case.get("standalone_execution_id")
@@ -177,7 +179,7 @@ def execute_plan_agent_mission_case(
 ) -> dict[str, Any]:
     """Prepare one leased target and record its zero-artifact mission docket."""
     requirement_id = int(case.get("requirement_id") or 0)
-    item_id = case.get("item_id")
+    item_id = case.get("public_ref")
     deployment_run_id = case.get("deployment_run_id")
     if requirement_id < 1 or (
         bool(item_id) == bool(deployment_run_id)
@@ -187,7 +189,7 @@ def execute_plan_agent_mission_case(
             "plan-scoped agent mission requires one subject and a requirement id"
         )
     target = (
-        TargetRef(kind="item", item_id=int(item_id))
+        public_item_target(item_id)
         if item_id is not None
         else TargetRef(kind="global", project_id=str(case["project"]))
         if case.get("standalone_execution_id")

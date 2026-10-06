@@ -256,7 +256,7 @@ reading secret content.
 
 **Work-item entry surfaces:** every create names a workflow and a typed entry surface (`web_form`, `cli`, `harness_skill`, or `promotion`). The selected immutable workflow version must allow that surface. File through `/yoke idea` (the skill-owned `harness_skill` path), `yoke dash TITLE INSTRUCTION`, or the laneless `yoke task TITLE INSTRUCTION`. `yoke items create` refuses a live harness session that is not in idea mode — the entry-surface token is caller-asserted and skips skill-side scaffolding. Operator/debug, `--dry-run`, and test isolation retain the low-level adapter. `/yoke idea` attests Before creation with `--execution-instructions-considered` after `yoke workflow execution-instruction resolve --workflow W --project P --full`; Non-web creation requires that attestation; adapters never set it.
 
-**Function-call surface (canonical mutation path):** `yoke_core.domain.yoke_function_dispatch.dispatch` validates a `FunctionCallRequest` from `yoke_contracts.api.function_call` and returns a `FunctionCallResponse`. Minimal envelope: `{function, request_id, actor:{session_id,actor_id}, target:{kind,item_id|epic_id+task_num|qa_requirement_id|...}, payload, preconditions:{}, options:{}}`. `target.kind` ∈ `item|epic_task|qa_requirement|session|process`. `actor.session_id` is mandatory — handlers verify it against `work_claims`. `preconditions`/`options` are dicts (default `{}`). Scratch Python imports must prepend the repo root to `sys.path` or set `PYTHONPATH`; `/tmp` imports are not the agent path.
+**Function-call surface (canonical mutation path):** `yoke_core.domain.yoke_function_dispatch.dispatch` validates a `FunctionCallRequest` from `yoke_contracts.api.function_call` and returns a `FunctionCallResponse`. Minimal envelope: `{function, request_id, actor:{session_id,actor_id}, target:{kind,public_ref+task_num?|qa_requirement_id|...}, payload, preconditions:{}, options:{}}`. `target.kind` ∈ `item|epic_task|qa_requirement|session|process`. `actor.session_id` is mandatory — handlers verify it against `work_claims`. `preconditions`/`options` are dicts (default `{}`). Scratch Python imports must prepend the repo root to `sys.path` or set `PYTHONPATH`; `/tmp` imports are not the agent path.
 
 
 **Registered write function ids** (dispatch through these, never a guessed name): `items.structured_field.replace`, `items.progress_log.append`, `lifecycle.transition.execute`, `claims.work.acquire`, `claims.work.release`, `claims.path.register`, `db_claim.amend`. Each has a CLI adapter under the reversible grammar (dots→spaces, underscores→hyphens).
@@ -309,16 +309,16 @@ reading secret content.
   - `yoke workflow-item epic-task body-get --epic <epic-id> --task-num <task-num>`
   - `yoke workflow-item epic-task simulation-get --epic <epic-id> --phase integration`
 - _Write epic task body / metadata via CLI adapters_
-  - `yoke workflow-item epic-task body-replace --epic 1704 --task-num 5 --body-file PATH`
-  - `yoke workflow-item epic-task metadata-update --epic 1704 --task-num 5 --fields-json '{"max_attempts": 2}'`
+  - `yoke workflow-item epic-task body-replace --epic YOK-1704 --task-num 5 --body-file PATH`
+  - `yoke workflow-item epic-task metadata-update --epic YOK-1704 --task-num 5 --fields-json '{"max_attempts": 2}'`
 - _Tester: seed / insert / get review verdict for an epic task_
   - `yoke workflow-item epic-task review-seed --epic <epic-id> --task-num <task_num>`
   - `yoke workflow-item epic-task review-insert --epic <epic-id> --task-num <task_num> --verdict <pass|fail> --body-file PATH`
   - `yoke workflow-item epic-task review-get --epic <epic-id> --task-num <task_num>`
 - _Engineer: append a progress note to an epic task_
-  - `yoke workflow-item epic-progress-note append --epic 1704 --task-num 5 --note-num 3 --body-file PATH`
-  - `yoke workflow-item epic-progress-note list --epic 1704 --task-num 5 --limit 10`
-  - `yoke workflow-item epic-task submission-receipt-get --epic 1704 --task-num 5 --after-note-count 2`
+  - `yoke workflow-item epic-progress-note append --epic YOK-1704 --task-num 5 --note-num 3 --body-file PATH`
+  - `yoke workflow-item epic-progress-note list --epic YOK-1704 --task-num 5 --limit 10`
+  - `yoke workflow-item epic-task submission-receipt-get --epic YOK-1704 --task-num 5 --after-note-count 2`
 - _Update epic-task status / metadata field via CLI_
   - `yoke workflow-item epic-task update-status --epic <epic-id> --task-num <task_num> --status <status>`
   - `yoke workflow-item epic-task metadata-update --epic <epic-id> --task-num <task_num> --fields-json '{"max_attempts": 2}'`
@@ -427,7 +427,7 @@ _Compact depth. For per-table/command notes, caveats and corrected wrong guesses
   - `yoke claims work holder-get PREFIX-N`
 - _Acquire a work claim (canonical agent shape — target variants)_
   - `yoke claims work acquire --item PREFIX-N --reason draft-in-progress`
-  - `yoke claims work acquire --epic-id 833 --task-num 5 --reason engineer-dispatch`
+  - `yoke claims work acquire --epic YOK-833 --task-num 5 --reason engineer-dispatch`
   - `yoke claims work acquire --process DOCTOR --project P --reason scheduled-run`
 - _Claim → mutate → release (generic plan-stage edit)_
   - `yoke claims work acquire --item PREFIX-N --reason edit`
@@ -541,10 +541,10 @@ _Compact depth. For per-table/command notes, caveats and corrected wrong guesses
 - _Inspect events for an item (canonical agent shape)_
   - `yoke events query --item PREFIX-N --limit 20`
 - _Epic dispatch chain (list / advance / inspect)_
-  - `yoke epic-tasks list --epic 1704`
-  - `yoke workflow-item epic-task body-get --epic 1704 --task-num 5`
-  - `yoke workflow-item epic-dispatch-chain list --epic 1704`
-  - `yoke workflow-item epic-dispatch-chain get --epic 1704 --worktree branch-name`
+  - `yoke epic-tasks list --epic YOK-1704`
+  - `yoke workflow-item epic-task body-get --epic YOK-1704 --task-num 5`
+  - `yoke workflow-item epic-dispatch-chain list --epic YOK-1704`
+  - `yoke workflow-item epic-dispatch-chain get --epic YOK-1704 --worktree branch-name`
 
 **Schema cheat sheet:**
 

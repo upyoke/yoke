@@ -196,3 +196,11 @@ __all__ = [
     "PLAN_REMATERIALIZE_EPILOG",
     "USAGE_BY_FUNCTION_ID",
 ]
+
+
+def configure_attachment(parser) -> None:
+    """Declare the attachment fields shared with its help contract."""
+    parser.add_argument("--plan-id", required=True, type=int)
+    parser.add_argument("--transition", required=True)
+    parser.add_argument("--qa-phase", default="verification")
+    parser.add_argument("--acknowledge-unreachable-target", action="store_true")

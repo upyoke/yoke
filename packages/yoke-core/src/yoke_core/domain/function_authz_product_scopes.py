@@ -27,7 +27,6 @@ PRODUCT_AUTHZ_BY_ID = {
     "actors.state.set": AuthzSpec(ACTOR_SESSION, None),
     "items.overview.list": AuthzSpec(ACTOR_SESSION, None),
     "items.detail.get": AuthzSpec(ACTOR_SESSION, None),
-    "items.public_ref.lookup": AuthzSpec(ACTOR_SESSION, None),
     "inbox.list": AuthzSpec(ACTOR_SESSION, None),
     # A tenant member may create the pending request. Terminal decisions and
     # withdrawals still pass through the request's live org-admin authority.

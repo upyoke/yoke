@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 from typing import Any, Iterable, Optional, Sequence, Tuple
 
-from yoke_contracts.api.function_call import TargetRef
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 
@@ -16,10 +17,7 @@ def item_worktree_authority_is_https() -> bool:
         connection = machine_config.active_connection()
     except Exception:
         return False
-    return bool(
-        connection
-        and str(connection.get("transport") or "") == "https"
-    )
+    return bool(connection and str(connection.get("transport") or "") == "https")
 
 
 def _response_error(response: Any) -> str:
@@ -37,7 +35,7 @@ def prepare_authoritative_item_worktrees(item_id: int) -> list[dict[str, Any]]:
         call_dispatcher,
     )
 
-    target = TargetRef(kind="item", item_id=int(item_id))
+    target = public_item_target(item_id)
     prepared = call_dispatcher(
         function_id="item_worktrees.create",
         target=target,
@@ -72,9 +70,7 @@ def persist_item_worktrees(
     if db_path is None and item_worktree_authority_is_https():
         _record_authoritative_item_worktree_paths(item_id, lane_rows)
         return
-    if db_path is None and all(
-        len(raw) == 4 and raw[0] is None for raw in lane_rows
-    ):
+    if db_path is None and all(len(raw) == 4 and raw[0] is None for raw in lane_rows):
         # Compatibility fallback for an item number with no registry row:
         # provision the conventional lane locally, but do not invent remote
         # authority for it.
@@ -113,7 +109,7 @@ def _record_authoritative_item_worktree_paths(
         call_dispatcher,
     )
 
-    target = TargetRef(kind="item", item_id=int(item_id))
+    target = public_item_target(item_id)
     for raw in lanes:
         if len(raw) != 4:
             raise ValueError(
@@ -153,7 +149,7 @@ def item_project_slug(item_id: int, db_path: Optional[str]) -> str:
 
         response = call_dispatcher(
             function_id="items.detail.get",
-            target=TargetRef(kind="item", item_id=int(item_id)),
+            target=public_item_target(item_id),
             payload={},
         )
         if not response.success:

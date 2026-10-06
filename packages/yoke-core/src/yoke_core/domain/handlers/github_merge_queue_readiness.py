@@ -62,7 +62,7 @@ def handle_readiness(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         item = get_item_detail(int(request.target.item_id))
     except LookupError as exc:
-        return _error("not_found", str(exc), "$.target.item_id")
+        return _error("not_found", str(exc), "$.target.public_ref")
 
     project = item.get("project") or {}
     target = str(project.get("default_branch") or "main")

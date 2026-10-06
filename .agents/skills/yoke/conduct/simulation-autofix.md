@@ -8,7 +8,7 @@ result to Conduct's code-fix task execution and reviewed-handoff checks.
 
 Read and invoke [Simulate](../simulate/SKILL.md) with the epic's internal id,
 `--force-integration --auto-fix`, and this retained caller context:
-- `MAIN_ROOT`, `_epic_id`, the resolved parent public ref and internal item id
+- `MAIN_ROOT`, `_epic_ref`, the resolved parent public ref and internal item id
 - `_worktree_path`, `_worktree_branch`, `_max_attempts`
 - `_simulator_output` and the already persisted integration report
 - `caller=conduct`, `phase=integration`

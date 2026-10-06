@@ -2,7 +2,7 @@
 
 Covers polish steps 1, 2, and 3: parse the item argument, locate the existing worktree lane set, and activate polish (hard gate).
 
-**Context variables** (consumed by later phases): `ITEM_REF`, `ITEM_NUM`,
+**Context variables** (consumed by later phases): `ITEM_REF`, `ITEM_REF`,
 `ITEM_WORKFLOW_ID`, `ITEM_STATUS`, `ITEM_TITLE`, `WORKTREE_SCOPE`,
 `WORKTREE_COUNT`, `WORKTREE_BRANCH`, `WORKTREE_BRANCHES`, `WORKTREE_PATH`,
 `WORKTREE_PATHS`, `WORKTREE_EXISTS`, `WORKTREE_MISSING`, `ITEM_PROJECT`,
@@ -20,13 +20,6 @@ MAIN_ROOT=$(git rev-parse --show-toplevel)
 ITEM_REF="{arg}"
 ITEM_PIN_JSON=$(yoke workflows item get "$ITEM_REF" --json 2>/dev/null) || ITEM_PIN_JSON=""
 # ITEM_REF — public PREFIX-N for every yoke CLI item argument.
-# ITEM_NUM — global DB items.id for function-call payloads and the
-#            work_claims item scope ({"item_id":N}). Never pass
-#            ITEM_NUM to a CLI that expects PREFIX-N or a
-#            project-local number. Never re-parse the numeric tail
-#            of PREFIX-N as items.id.
-ITEM_NUM=$(printf '%s' "$ITEM_PIN_JSON" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["result"]["item_id"])' 2>/dev/null) || ITEM_NUM=""
 ITEM_WORKFLOW_ID=$(printf '%s' "$ITEM_PIN_JSON" | python3 -c \
  'import json,sys; print(json.load(sys.stdin)["result"]["workflow_id"])' 2>/dev/null) || ITEM_WORKFLOW_ID=""
 ITEM_STATUS=$(printf '%s' "$ITEM_PIN_JSON" | python3 -c \
@@ -133,8 +126,8 @@ Function-call equivalent (for dispatch-surface callers — the CLI above builds 
 {
   "function": "claims.work.acquire",
   "actor": {"session_id": "<this-session>"},
-  "target": {"kind": "item", "item_id": $ITEM_NUM, "public_ref": "$ITEM_REF"},
-  "payload": {"target": {"kind": "item", "item_id": $ITEM_NUM, "public_ref": "$ITEM_REF"}, "reason": "polish_run"}
+  "target": {"kind": "item", "public_ref": "$ITEM_REF"},
+  "payload": {"target": {"kind": "item", "public_ref": "$ITEM_REF"}, "reason": "polish_run"}
 }
 ```
 
@@ -165,7 +158,7 @@ Function-call equivalent (the CLI above builds this envelope internally):
 {
   "function": "lifecycle.transition.execute",
   "actor": {"session_id": "<this-session>"},
-  "target": {"kind": "item", "item_id": $ITEM_NUM, "public_ref": "$ITEM_REF"},
+  "target": {"kind": "item", "public_ref": "$ITEM_REF"},
   "intent": "enter_polish",
   "payload": {"source_status": "$LIVE_STAGE", "target_status": "$NEXT_STAGE"}
 }

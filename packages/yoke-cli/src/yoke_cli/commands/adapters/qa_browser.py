@@ -53,9 +53,7 @@ def qa_browser_context_get(args: List[str]) -> int:
         description=QA_BROWSER_CONTEXT_GET_USAGE,
     )
     subject = parser.add_mutually_exclusive_group(required=True)
-    subject.add_argument(
-        "--item", help="Target item (PREFIX-N or project-local number)."
-    )
+    subject.add_argument("--item", help="Target item (PREFIX-N).")
     subject.add_argument(
         "--deployment-run",
         dest="deployment_run",
@@ -278,7 +276,13 @@ def qa_run_complete(args: List[str]) -> int:
     if parsed is None:
         return 2
     payload: Dict[str, Any] = {"run_id": int(parsed.run_id)}
-    for key in ("verdict", "verdict_reason", "execution_status", "capture_degraded_reason", "raw_result"):
+    for key in (
+        "verdict",
+        "verdict_reason",
+        "execution_status",
+        "capture_degraded_reason",
+        "raw_result",
+    ):
         value = getattr(parsed, key)
         if value is not None:
             payload[key] = value

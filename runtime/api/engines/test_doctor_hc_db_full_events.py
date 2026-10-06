@@ -46,9 +46,14 @@ class TestHCPreviewOccupancyStaleFull:
         """Test 14: PASS when preview is actively claimed by executing run."""
         self._add_project(test_db)
         self._setup_preview_table(test_db)
-        insert_deployment_run(test_db, id="run-active", project="externalwebapp",
-                              flow="externalwebapp-release", status="executing",
-                              started_at="2026-04-08T00:00:00Z")
+        insert_deployment_run(
+            test_db,
+            id="run-active",
+            project="externalwebapp",
+            flow="externalwebapp-release",
+            status="executing",
+            started_at="2026-04-08T00:00:00Z",
+        )
         test_db.execute(
             "INSERT INTO deployment_preview_environments (project_id, env_name, run_id, status, created_at) "
             "VALUES (%s, %s, %s, %s, %s)",
@@ -62,9 +67,14 @@ class TestHCPreviewOccupancyStaleFull:
         """Test 15: WARN when preview claimed by completed run."""
         self._add_project(test_db)
         self._setup_preview_table(test_db)
-        insert_deployment_run(test_db, id="run-done", project="externalwebapp",
-                              flow="externalwebapp-release", status="succeeded",
-                              completed_at="2026-04-08T00:00:00Z")
+        insert_deployment_run(
+            test_db,
+            id="run-done",
+            project="externalwebapp",
+            flow="externalwebapp-release",
+            status="succeeded",
+            completed_at="2026-04-08T00:00:00Z",
+        )
         test_db.execute(
             "INSERT INTO deployment_preview_environments (project_id, env_name, run_id, status, created_at) "
             "VALUES (%s, %s, %s, %s, %s)",
@@ -80,9 +90,14 @@ class TestHCPreviewOccupancyStaleFull:
         """Test 16: WARN when preview claimed by failed run."""
         self._add_project(test_db)
         self._setup_preview_table(test_db)
-        insert_deployment_run(test_db, id="run-fail", project="externalwebapp",
-                              flow="externalwebapp-release", status="failed",
-                              completed_at="2026-04-08T00:00:00Z")
+        insert_deployment_run(
+            test_db,
+            id="run-fail",
+            project="externalwebapp",
+            flow="externalwebapp-release",
+            status="failed",
+            completed_at="2026-04-08T00:00:00Z",
+        )
         test_db.execute(
             "INSERT INTO deployment_preview_environments (project_id, env_name, run_id, status, created_at) "
             "VALUES (%s, %s, %s, %s, %s)",
@@ -98,9 +113,14 @@ class TestHCPreviewOccupancyStaleFull:
         """Test 17: Available previews not flagged."""
         self._add_project(test_db)
         self._setup_preview_table(test_db)
-        insert_deployment_run(test_db, id="run-x", project="externalwebapp",
-                              flow="externalwebapp-release", status="succeeded",
-                              completed_at="2026-04-08T00:00:00Z")
+        insert_deployment_run(
+            test_db,
+            id="run-x",
+            project="externalwebapp",
+            flow="externalwebapp-release",
+            status="succeeded",
+            completed_at="2026-04-08T00:00:00Z",
+        )
         test_db.execute(
             "INSERT INTO deployment_preview_environments (project_id, env_name, run_id, status, created_at) "
             "VALUES (%s, %s, %s, %s, %s)",
@@ -115,12 +135,18 @@ class TestHCShepherdLifecycleFull:
     """Tests for HC-shepherd-lifecycle: shepherd lifecycle enforcement."""
 
     def _insert_epic(self, conn, epic_id, status):
-        insert_item(conn, id=epic_id, title=f"Test epic {epic_id}",
-                    workflow_id="epic", status=status, spec="body")
+        insert_item(
+            conn,
+            id=epic_id,
+            title=f"Test epic {epic_id}",
+            workflow_id="epic",
+            status=status,
+            spec="body",
+        )
 
     def _insert_verdict(self, conn, public_ref, transition, verdict):
         conn.execute(
-            "INSERT INTO shepherd_verdicts (item, transition, worker, verdict, created_at) "
+            "INSERT INTO shepherd_verdicts (public_ref, transition, worker, verdict, created_at) "
             "VALUES (%s, %s, %s, %s, %s)",
             (public_ref, transition, "PM", verdict, "2026-01-01T00:00:00Z"),
         )
@@ -151,8 +177,14 @@ class TestHCShepherdLifecycleFull:
 
     def test_non_epic_excluded(self, test_db):
         """Test 4: Non-epic items excluded."""
-        insert_item(test_db, id=40, title="Non-epic implementing test",
-                    workflow_id="issue", status="implementing", spec="body")
+        insert_item(
+            test_db,
+            id=40,
+            title="Non-epic implementing test",
+            workflow_id="issue",
+            status="implementing",
+            spec="body",
+        )
         rec = _run_hc(hc_shepherd_lifecycle, test_db)
         assert "YOK-40" not in _result(rec).detail
 
@@ -202,7 +234,7 @@ class TestHCShepherdLifecycleFull:
     def test_multiple_epics_mixed(self, test_db):
         """Test 8: Multiple epics with mixed verdict status."""
         self._insert_epic(test_db, 80, "planning")  # missing first verdict
-        self._insert_epic(test_db, 81, "planned")   # has both verdicts
+        self._insert_epic(test_db, 81, "planned")  # has both verdicts
         self._insert_verdict(test_db, "YOK-81", "refined_idea_to_planning", "READY")
         self._insert_verdict(test_db, "YOK-81", "planning_to_plan_drafted", "CAVEATS")
         rec = _run_hc(hc_shepherd_lifecycle, test_db)
@@ -255,7 +287,14 @@ class TestHCEventRegistryCoverage:
         """Expected low-cadence active entries do not warn solely for no emission."""
         test_db.execute(
             "INSERT INTO event_registry (event_name, event_kind, event_type, owner_service, description, status) VALUES (%s, %s, %s, %s, %s, %s)",
-            ("BrowserDaemonStartupFailed", "system", "browser_daemon", "browser_qa", "rare failure path", "active"),
+            (
+                "BrowserDaemonStartupFailed",
+                "system",
+                "browser_daemon",
+                "browser_qa",
+                "rare failure path",
+                "active",
+            ),
         )
         assert _result(_run_hc(hc_event_registry_coverage, test_db)).result == "PASS"
 
@@ -294,6 +333,8 @@ class TestHCEventCallsiteRegistrySync:
 
     def test_pass_no_repo_root(self, test_db):
         """PASS when repo root cannot be resolved."""
-        with patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value=None):
+        with patch(
+            "yoke_core.engines.doctor_report._resolve_repo_root", return_value=None
+        ):
             rec = _run_hc(hc_event_callsite_registry_sync, test_db)
         assert _result(rec).result == "PASS"

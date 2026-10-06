@@ -40,7 +40,6 @@ _QI_ALL_FIELDS = {
     "project",
     "project_id",
     "project_sequence",
-    "internal_id",
     "deployment_flow",
     "deploy_stage",
     "spec",

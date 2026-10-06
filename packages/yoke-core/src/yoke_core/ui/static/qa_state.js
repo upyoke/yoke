@@ -168,7 +168,7 @@ export function classifyQaRow(row, rows = []) {
     (other) => admittedSourceId(other) === id,
   );
   if (
-    row.item_id != null
+    row.public_ref != null
     && !row.deployment_run_id
     && phaseOf(row) === "post_deploy"
     && hasCopy
@@ -184,7 +184,7 @@ export function classifyQaRow(row, rows = []) {
   if (row.deployment_run_id && passed(row)) {
     return state(QA_STATE.VERIFIED_RUN);
   }
-  if (row.item_id != null && !row.deployment_run_id && phaseOf(row) === "post_deploy") {
+  if (row.public_ref != null && !row.deployment_run_id && phaseOf(row) === "post_deploy") {
     return state(
       QA_STATE.STANDING_SOURCE,
       hasCopy

@@ -111,7 +111,7 @@ def _claims_path_change(
     parser.add_argument(
         "--item",
         required=True,
-        help="Owning item id (PREFIX-N or project-local number).",
+        help="Owning item id (PREFIX-N).",
     )
     parser.add_argument(
         "--allow-planned",

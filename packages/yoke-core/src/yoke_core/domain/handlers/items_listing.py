@@ -8,8 +8,7 @@ read — see :mod:`yoke_core.domain.handlers.items_search`.
 The projection is operator-facing and never emits an internal
 ``items.id`` or a raw actor id: the ``id`` column renders the item's
 public ``PREFIX-N`` ref, ``source`` / ``owner`` render actor display
-labels, and the numeric primary key is reachable only through the
-explicit ``internal_id`` field for programmatic consumers.
+labels. Numeric item primary keys remain engine-owned join keys.
 
 Virtual fields (``body``) are rejected — rendering every body server-side
 is the wrong shape for a list read; use ``items.get.run`` per item instead.
@@ -49,7 +48,7 @@ class ItemsListRequest(BaseModel):
             "Column projection. Empty -> "
             "id,title,status,priority,workflow_id,source. ``id`` carries "
             "the public PREFIX-N ref; ``source``/``owner`` carry actor "
-            "display labels; ``internal_id`` opts into the numeric key."
+            "display labels."
         ),
     )
     limit: Optional[int] = Field(default=None, ge=1, le=1000)

@@ -5,7 +5,7 @@ import { deploymentRunHref } from "./universe_navigation.js";
 import { el } from "./universe_view_support.js";
 
 export function carriedRunItems(row) {
-  const removed = new Set((row.removed_member_items || []).map((item) => String(item.id)));
+  const removed = new Set((row.removed_member_items || []).map((item) => String(item.public_ref ?? item.ref ?? item.item_ref)));
   const items = (row.member_items || []).length
     ? row.member_items : [
       ...(row.carried_work?.items || []),
@@ -14,7 +14,7 @@ export function carriedRunItems(row) {
           ...item, project_id: item.project_id ?? project.project_id,
         }))),
     ];
-  return items.filter((item) => !removed.has(String(item.id ?? item.item_id)));
+  return items.filter((item) => !removed.has(String(item.public_ref ?? item.ref ?? item.item_ref)));
 }
 
 export function appendRemovedMembers(context, host, row, projectId) {

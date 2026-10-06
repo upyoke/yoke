@@ -15,7 +15,7 @@ import {
 // only the finalization note when the run is settling, or nothing at all.
 // ``options.drawnRequestIds`` names the decisions a carried item already drew.
 export function runQaSection(context, row, rawChecks, onAct, options = {}) {
-  const runRows = (rawChecks || []).filter((check) => check.deployment_member_item_id == null);
+  const runRows = (rawChecks || []).filter((check) => check.deployment_member_public_ref == null);
   const checks = effectiveRunChecks(runRows);
   const drawn = options.drawnRequestIds || new Set();
   const gates = runDecisionGates(row).filter(

@@ -58,7 +58,7 @@ def handle_hold(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         item = get_item_detail(int(request.target.item_id))
     except LookupError as exc:
-        return _error("not_found", str(exc), "$.target.item_id")
+        return _error("not_found", str(exc), "$.target.public_ref")
 
     project = item.get("project") or {}
     public_ref = str(item.get("public_ref") or request.target.item_id)
@@ -73,7 +73,7 @@ def handle_hold(request: FunctionCallRequest) -> HandlerOutcome:
                 f"`yoke github merge-queue readiness {public_ref}`; a lane that "
                 "never reached a pull request has nothing armed."
             ),
-            "$.target.item_id",
+            "$.target.public_ref",
         )
 
     hold = hold_landing(
@@ -97,7 +97,7 @@ def handle_hold(request: FunctionCallRequest) -> HandlerOutcome:
             error=FunctionError(
                 code=hold.outcome,
                 message=hold.describe(),
-                jsonpath="$.target.item_id",
+                jsonpath="$.target.public_ref",
             ),
         )
     return HandlerOutcome(result_payload=result, primary_success=True)

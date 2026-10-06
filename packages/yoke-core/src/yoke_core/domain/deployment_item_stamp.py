@@ -12,9 +12,10 @@ a verified write so a silent miss cannot look like success.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 from typing import Any, Mapping
 
-from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 
 
@@ -30,7 +31,7 @@ def stamp_item_field(item_id: int, field: str, value: str) -> dict[str, Any]:
     """Stamp one scalar on ``items.id`` and refuse unless the row verifies."""
     resp = call_dispatcher(
         function_id=STAMP_FUNCTION_ID,
-        target=TargetRef(kind="item", item_id=int(item_id)),
+        target=public_item_target(item_id),
         payload={"field": field, "value": value},
     )
     if not resp.success:
@@ -50,7 +51,7 @@ def transition_member_to_release(item_id: int, run_id: str) -> None:
     """Flip ``implemented`` → ``release`` with a request-scoped claim bypass."""
     resp = call_dispatcher(
         function_id=RELEASE_STATUS_FUNCTION_ID,
-        target=TargetRef(kind="item", item_id=int(item_id)),
+        target=public_item_target(item_id),
         payload={
             "field": "status",
             "value": "release",

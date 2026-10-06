@@ -38,9 +38,7 @@ def conflict_survey_status(args: List[str]) -> int:
 
     def _human(response, stdout, stderr) -> None:
         result = response.result or {}
-        durable_state = str(
-            result.get("durable_state") or DURABLE_UNREADABLE
-        )
+        durable_state = str(result.get("durable_state") or DURABLE_UNREADABLE)
         if durable_state != DURABLE_RECORDED:
             print(f"survey-{durable_state}", file=stdout)
             return
@@ -53,7 +51,11 @@ def conflict_survey_status(args: List[str]) -> int:
                 + "|".join(
                     str(blocker.get(key) or "")
                     for key in (
-                        "kind", "owner_item_id", "path", "state", "detail",
+                        "kind",
+                        "owner_public_ref",
+                        "path",
+                        "state",
+                        "detail",
                     )
                 ),
                 file=stdout,

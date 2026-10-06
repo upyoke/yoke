@@ -41,7 +41,7 @@ def items_dependency_list(args: List[str]) -> int:
     parser.add_argument(
         "--item",
         default=None,
-        help="Item id (PREFIX-N or project-local number). Alternative to positional.",
+        help="Item id (PREFIX-N). Alternative to positional.",
     )
     parser.add_argument(
         "item_positional",
@@ -112,15 +112,20 @@ def items_dependency_add(args: List[str]) -> int:
     parser.add_argument(
         "item",
         metavar="dependent",
-        help="Dependent item id (PREFIX-N or project-local number).",
+        help="Dependent item id (PREFIX-N).",
     )
     parser.add_argument(
         "blocking",
         help="Blocking item id (usually PREFIX-N).",
     )
     from yoke_contracts.dependency_values import VALID_GATE_POINTS, VALID_SOURCES
-    parser.add_argument("source", choices=sorted(VALID_SOURCES), help="Dependency source.")
-    parser.add_argument("--gate-point", choices=sorted(VALID_GATE_POINTS), default="activation")
+
+    parser.add_argument(
+        "source", choices=sorted(VALID_SOURCES), help="Dependency source."
+    )
+    parser.add_argument(
+        "--gate-point", choices=sorted(VALID_GATE_POINTS), default="activation"
+    )
     parser.add_argument(
         "--satisfaction",
         default=None,
@@ -199,7 +204,7 @@ def items_dependency_update(args: List[str]) -> int:
     parser.add_argument(
         "item",
         metavar="dependent",
-        help="Dependent item id (PREFIX-N or project-local number).",
+        help="Dependent item id (PREFIX-N).",
     )
     parser.add_argument("blocking", help="Blocking item id (usually PREFIX-N).")
     parser.add_argument("--match-gate-point", default=None)
@@ -263,7 +268,7 @@ def items_dependency_remove(args: List[str]) -> int:
     parser.add_argument(
         "item",
         metavar="dependent",
-        help="Dependent item id (PREFIX-N or project-local number).",
+        help="Dependent item id (PREFIX-N).",
     )
     parser.add_argument("blocking", help="Blocking item id (usually PREFIX-N).")
     add_session_arg(parser)

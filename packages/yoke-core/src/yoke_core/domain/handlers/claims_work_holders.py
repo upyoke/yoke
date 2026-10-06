@@ -176,7 +176,7 @@ def handle_holder_list(request: FunctionCallRequest) -> HandlerOutcome:
     if body.item_id is None and not body.session_id:
         return _err(
             "payload_invalid",
-            "holder.list requires either item_id or session_id",
+            "holder.list requires either public_ref or session_id",
         )
 
     from yoke_core.domain import db_backend, db_helpers

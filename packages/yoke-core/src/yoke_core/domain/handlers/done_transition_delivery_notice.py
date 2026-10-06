@@ -39,7 +39,7 @@ def handle_delivery_done_notice(request: FunctionCallRequest) -> HandlerOutcome:
             primary_success=False,
             error=FunctionError(
                 code="target_invalid",
-                message="delivery_done_notice requires target.item_id",
+                message="delivery_done_notice requires target.public_ref",
             ),
         )
     from yoke_core.domain import db_helpers
@@ -56,9 +56,7 @@ def handle_delivery_done_notice(request: FunctionCallRequest) -> HandlerOutcome:
     except Exception as exc:  # noqa: BLE001 - reported, never reverses done
         return HandlerOutcome(
             primary_success=False,
-            error=FunctionError(
-                code="delivery_done_notice_failed", message=str(exc)
-            ),
+            error=FunctionError(code="delivery_done_notice_failed", message=str(exc)),
         )
 
     return HandlerOutcome(result_payload=dict(result), primary_success=True)

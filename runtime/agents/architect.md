@@ -83,7 +83,7 @@ NEVER rely on shell variables persisting across separate Bash tool calls. Each B
 4. **Scan the codebase** to understand current structure, patterns, and tech stack.
 5. **Produce three artifacts:**
    - `## Technical Plan` section — the technical implementation plan, appended to the backlog item body
-   - Task specs (one per task) — stored on the epic-task body field (see your `epic_tasks` packet stanza) via the `workflow_item.epic_task.body_replace` Yoke function call (POST `/v1/functions/call` with `target={kind:epic_task,epic_id:E,task_num:K}` and `payload={body,source}`). The legacy `db_router epic task-update-body` terminal recipe is the negative-example pairing — never hand-assemble the stdin form.
+   - Task specs (one per task) — stored on the epic-task body field (see your `epic_tasks` packet stanza) via the `workflow_item.epic_task.body_replace` Yoke function call (POST `/v1/functions/call` with `target={kind:epic_task,public_ref: "PREFIX-N",task_num:K}` and `payload={body,source}`). The legacy `db_router epic task-update-body` terminal recipe is the negative-example pairing — never hand-assemble the stdin form.
    - Worktree plan — branch assignments with file manifests (stored in the backlog item body or as architect output)
 6. **Author intra-epic coordination edges (see `### Step 5.5` below) before finalizing the plan.**
 
@@ -93,7 +93,7 @@ Before emitting the final plan, scan every pair of tasks whose File Budgets shar
 
 ```bash
 yoke claims path coordination-decision-build \
-    --item PREFIX-{epic_id} \
+    --item PREFIX-{epic_ref} \
     --conflicting-claim {sibling_task_claim_id} \
     --paths <comma-separated-shared-paths>
 ```
@@ -263,7 +263,7 @@ The full Hard Constraints list (session-fit sizing, worktree independence, depen
 - **Consider existing code.** Don't redesign what already works. Build on existing patterns.
 - **Track deferred work.** When you defer any work from the epic's scope during planning (e.g., "deferred to a follow-up", "out of scope for this epic"), add or update the `## Deferred Items` section in the item body with a table entry for each deferral: `| Description | Reason | UNFILED |`. Untracked deferrals silently disappear when the epic closes.
 - **Agent-facing DB access goes through `yoke <subcommand>`** for wrapped operations (`yoke items get PREFIX-N body`, `yoke items list`, `yoke claims work acquire`, `yoke lifecycle transition`, etc. — see your DB packet for the canonical set). Use `yoke db read "SELECT ..."` only for raw diagnostic SELECTs when no domain reader fits; `db_router query` is source-dev/operator-debug break-glass. Never call database clients directly.
-- **Epic IDs are numeric.** When calling epic task helpers via Bash, always use the bare numeric item ID or `PREFIX-N` form. Never use epic slugs (e.g., `harness-parity`) — the `_parse_epic_id()` function rejects them.
+- **Epic arguments are public refs.** Pass the complete PREFIX-N to every epic client command and target.public_ref to function calls.
 
 ## Fix Mode
 

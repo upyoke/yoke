@@ -1,4 +1,5 @@
 """Schema initialization for shepherd-owned tables."""
+
 from __future__ import annotations
 
 from yoke_core.domain.schema_common import _column_exists
@@ -7,7 +8,7 @@ from yoke_core.domain.schema_init_apply import execute_schema_script
 _INIT_SQL = """\
 CREATE TABLE IF NOT EXISTS shepherd_verdicts (
     id INTEGER PRIMARY KEY,
-    item TEXT NOT NULL,
+    public_ref TEXT NOT NULL,
     transition TEXT NOT NULL,
     worker TEXT NOT NULL,
     verdict TEXT NOT NULL,
@@ -18,7 +19,7 @@ CREATE TABLE IF NOT EXISTS shepherd_verdicts (
 
 CREATE TABLE IF NOT EXISTS caveat_dispositions (
     id INTEGER PRIMARY KEY,
-    item TEXT NOT NULL,
+    public_ref TEXT NOT NULL,
     transition TEXT NOT NULL,
     attempt INTEGER NOT NULL DEFAULT 1,
     caveat_num INTEGER NOT NULL,
@@ -28,9 +29,8 @@ CREATE TABLE IF NOT EXISTS caveat_dispositions (
     verdict_id INTEGER,
     created_at TEXT NOT NULL,
     FOREIGN KEY (verdict_id) REFERENCES shepherd_verdicts(id),
-    UNIQUE(item, transition, attempt, caveat_num)
+    UNIQUE(public_ref, transition, attempt, caveat_num)
 );
-CREATE INDEX IF NOT EXISTS idx_cd_item ON caveat_dispositions(item);
 
 CREATE TABLE IF NOT EXISTS item_dependencies (
     id INTEGER PRIMARY KEY,
@@ -64,6 +64,10 @@ def _ensure_dependency_metadata_columns(conn) -> None:
 
 def cmd_init(conn) -> str:
     execute_schema_script(conn, _INIT_SQL)
+    if _column_exists(conn, "caveat_dispositions", "public_ref"):
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_cd_item ON caveat_dispositions(public_ref)"
+        )
     _ensure_dependency_metadata_columns(conn)
     conn.commit()
     return "Shepherd tables initialized"

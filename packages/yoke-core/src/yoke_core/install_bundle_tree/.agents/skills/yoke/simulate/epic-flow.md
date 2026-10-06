@@ -7,11 +7,11 @@ This phase owns per-epic simulation before any optional auto-fix loop.
 Check that `epic_tasks` rows exist for this epic in the DB:
 
 ```bash
-_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='{epic-id}'")
+_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id=(SELECT item_id FROM item_refs WHERE public_ref='{epic-ref}')")
 ```
 
 If `_task_count` is `0`, report `task_graph_missing` and stop simulation.
-Read `yoke items detail get {epic-id} --json` to resolve the item's pin, then
+Read `yoke items detail get {epic-ref} --json` to resolve the item's pin, then
 restore its task graph through the definition's authoring binding before
 retrying. Render any re-entry command through
 [the shared handoff recipe](../shared/stage-handoff.md).
@@ -21,7 +21,7 @@ retrying. Render any re-entry command through
 Query task statuses from DB:
 
 ```bash
-yoke epic-tasks list --epic "{epic-id}"
+yoke epic-tasks list --epic "{epic-ref}"
 ```
 
 Each row returns `task_num|title|status|worktree|...`.
@@ -36,20 +36,20 @@ Each row returns `task_num|title|status|worktree|...`.
 Resolve the backlog item ID:
 
 ```bash
-_item_id=$(yoke db read --format lines "SELECT id FROM items WHERE id={epic-id} AND workflow_id='epic'")
+_item_ref="{epic-ref}"
 ```
 
 ### Plan simulation context
 
 - Read structured fields:
  ```bash
- yoke items get $_item_id spec
- yoke items get $_item_id technical_plan
- yoke items get $_item_id worktree_plan
+ yoke items get "$_item_ref" spec
+ yoke items get "$_item_ref" technical_plan
+ yoke items get "$_item_ref" worktree_plan
  ```
 - Read all task content:
  ```bash
- yoke workflow-item epic-task body-get --epic "{epic-id}" --task-num "{task_num}"
+ yoke workflow-item epic-task body-get --epic "{epic-ref}" --task-num "{task_num}"
  ```
 
 ### Integration simulation context
@@ -116,19 +116,19 @@ after confirming the hook did not capture the response.
 For direct Simulate, write the report through the registered adapter:
 
 ```text
-yoke workflow-item epic-task simulation-upsert --epic <epic-id> --phase <phase> --stdin < <report-file>
+yoke workflow-item epic-task simulation-upsert --epic PREFIX-N --phase <phase> --stdin < <report-file>
 ```
 
 For retained `caller=conduct` integration context, use the internal
 `persist_simulation` boundary already used by Conduct's simulation gate:
 
 ```text
-python3 -m yoke_core.domain.persist_simulation <epic-id> integration < <report-file>
+python3 -m yoke_core.domain.persist_simulation <epic-ref> integration < <report-file>
 ```
 
 This boundary verifies the two-line `SIMULATION:` / `EPIC:` attestation,
 records integration evidence, and performs the authoritative CLEAN handoff.
-Keep the internal id separate from the resolved public ref in that report.
+Keep the complete public ref in the report and every client request.
 Read the exit status and persisted verdict. Any failure stops with its exact
 diagnostic and recovery; exit 16/17 are identity failures, not fixable gaps.
 Write the report even when clean. Never report a local verdict as persisted
@@ -155,7 +155,7 @@ No critical gaps. Review warnings and decide whether to fix or accept.
 {if X == 0 and Y == 0:}
 Clean simulation. Safe to proceed.
 
-Report stored in DB. To read: `yoke workflow-item epic-task simulation-get --epic "{epic-id}" --phase "{phase}"`.
+Report stored in DB. To read: `yoke workflow-item epic-task simulation-get --epic "{epic-ref}" --phase "{phase}"`.
 ```
 
 If `[CRITICAL]` or `[WARNING]` gaps remain and auto-fix is approved or

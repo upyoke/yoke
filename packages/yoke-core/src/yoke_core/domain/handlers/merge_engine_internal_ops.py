@@ -67,7 +67,11 @@ class PostRebaseRequirementResponse(BaseModel):
 
 
 def _covering_runs(
-    conn: Any, marker: str, item_id: int, scope: str, command: str,
+    conn: Any,
+    marker: str,
+    item_id: int,
+    scope: str,
+    command: str,
 ) -> list[dict[str, Any]]:
     """Passing QA runs whose evidence can waive a same-tree re-execution.
 
@@ -103,8 +107,7 @@ def _covering_runs(
             continue
         tree = raw.get("verification_tree")
         head_sha = (
-            str(tree.get("head_sha") or "").strip()
-            if isinstance(tree, dict) else ""
+            str(tree.get("head_sha") or "").strip() if isinstance(tree, dict) else ""
         )
         if not head_sha:
             continue
@@ -198,7 +201,9 @@ def handle_post_rebase_requirement(request: FunctionCallRequest) -> HandlerOutco
     """
     item_id = request.target.item_id
     if item_id is None:
-        return _err("target_invalid", "post_rebase_requirement requires target.item_id")
+        return _err(
+            "target_invalid", "post_rebase_requirement requires target.public_ref"
+        )
     try:
         body = PostRebaseRequirementRequest.model_validate(request.payload or {})
     except Exception as exc:  # noqa: BLE001 - surface a structured payload error
@@ -229,7 +234,9 @@ def handle_post_rebase_requirement(request: FunctionCallRequest) -> HandlerOutco
             project_id = int(item["project_id"])
             project = str(item["project"])
             if has_attached_plans(
-                conn, item_id=int(item_id), transition_id=body.transition_id,
+                conn,
+                item_id=int(item_id),
+                transition_id=body.transition_id,
             ):
                 materialize_for_item(
                     conn,
@@ -247,9 +254,14 @@ def handle_post_rebase_requirement(request: FunctionCallRequest) -> HandlerOutco
             )
             covering = (
                 _covering_runs(
-                    conn, marker, int(item_id), selected[0], selected[1],
+                    conn,
+                    marker,
+                    int(item_id),
+                    selected[0],
+                    selected[1],
                 )
-                if selected is not None else []
+                if selected is not None
+                else []
             )
     except Exception as exc:  # noqa: BLE001 - materialize failure blocks the merge
         return _err("post_rebase_requirement_failed", str(exc))

@@ -24,7 +24,7 @@ The envelope shape is identical for every function id:
   "function": "<family>.<subfamily>.<operation>",
   "version": "v1",
   "actor": {"actor_id": "<session-or-operator>", "session_id": "<harness-session-id>"},
-  "target": {"kind": "item", "item_id": 42},
+  "target": {"kind": "item", "public_ref": "PREFIX-42"},
   "payload": { ... family-specific ... },
   "preconditions": {},
   "options": {}
@@ -75,7 +75,7 @@ Replace an entire structured field (`spec`, `design_spec`,
 {
   "function": "items.structured_field.replace",
   "actor": {"actor_id": "idea-author", "session_id": "<session>"},
-  "target": {"kind": "item", "item_id": 42},
+  "target": {"kind": "item", "public_ref": "PREFIX-42"},
   "payload": {"field": "spec", "content": "<full new content>", "source": "idea", "force": false}
 }
 ```
@@ -86,7 +86,7 @@ Append a `## heading`-led addendum without rewriting the rest:
 {
   "function": "items.structured_field.append_addendum",
   "actor": {"actor_id": "refine-author", "session_id": "<session>"},
-  "target": {"kind": "item", "item_id": 42},
+  "target": {"kind": "item", "public_ref": "PREFIX-42"},
   "payload": {"field": "spec", "heading": "Refinement notes", "content": "<addendum body>", "source": "refine"}
 }
 ```
@@ -109,7 +109,7 @@ For sections keyed by name on the `item_sections` table (for example,
 {
   "function": "items.section.upsert",
   "actor": {"actor_id": "engineer", "session_id": "<session>"},
-  "target": {"kind": "section", "item_id": 42, "section_name": "Progress Log"},
+  "target": {"kind": "section", "public_ref": "PREFIX-42", "section_name": "Progress Log"},
   "payload": {"content": "<full section body>", "ordering": 200, "source": "engineer"}
 }
 ```
@@ -126,7 +126,7 @@ owns the ISO-8601 timestamp + headline header format:
 {
   "function": "items.progress_log.append",
   "actor": {"actor_id": "engineer", "session_id": "<session>"},
-  "target": {"kind": "item", "item_id": 42},
+  "target": {"kind": "item", "public_ref": "PREFIX-42"},
   "payload": {"headline": "<one-line headline>", "content": "<body>", "source": "engineer"}
 }
 ```
@@ -140,7 +140,7 @@ One mutation per call against any value in
 {
   "function": "items.scalar.update",
   "actor": {"actor_id": "operator", "session_id": "<session>"},
-  "target": {"kind": "item", "item_id": 42},
+  "target": {"kind": "item", "public_ref": "PREFIX-42"},
   "payload": {"field": "blocked", "value": 0}
 }
 ```
@@ -151,7 +151,7 @@ One mutation per call against any value in
 {
   "function": "lifecycle.transition.execute",
   "actor": {"actor_id": "refine", "session_id": "<session>"},
-  "target": {"kind": "item", "item_id": 42},
+  "target": {"kind": "item", "public_ref": "PREFIX-42"},
   "payload": {"target_status": "refined-idea", "source_status": "refining-idea"}
 }
 ```
@@ -171,7 +171,7 @@ Replace an epic task body (function-call equivalent of the prior
 {
   "function": "workflow_item.epic_task.body_replace",
   "actor": {"actor_id": "architect", "session_id": "<session>"},
-  "target": {"kind": "epic_task", "epic_id": 1665, "task_num": 11},
+  "target": {"kind": "epic_task", "public_ref": "PREFIX-1665", "task_num": 11},
   "payload": {"body": "<full new task body>"}
 }
 ```
@@ -189,7 +189,7 @@ Other `workflow_item.epic_task.*` share the same target shape:
 {
   "function": "workflow_item.epic_progress_note.append",
   "actor": {"actor_id": "engineer", "session_id": "<session>"},
-  "target": {"kind": "epic_task", "epic_id": 1665, "task_num": 11},
+  "target": {"kind": "epic_task", "public_ref": "PREFIX-1665", "task_num": 11},
   "payload": {"note_num": 3, "body": "<progress note body>", "commit_hash": "<sha>"}
 }
 ```
@@ -204,7 +204,7 @@ documented in `.yoke/docs/reference/db-reference/items-and-epics.md`.
 {
   "function": "db_claim.amend",
   "actor": {"actor_id": "refine", "session_id": "<session>"},
-  "target": {"kind": "item", "item_id": 42},
+  "target": {"kind": "item", "public_ref": "PREFIX-42"},
   "payload": {
     "reason": "idea: spec/body declares no governed DB mutation",
     "claim": {"state": "none"}
@@ -228,9 +228,9 @@ Register a new claim (function-call equivalent of the prior
 {
   "function": "claims.path.register",
   "actor": {"actor_id": "idea", "session_id": "<session>"},
-  "target": {"kind": "item", "item_id": 42},
+  "target": {"kind": "item", "public_ref": "PREFIX-42"},
   "payload": {
-    "item_id": 42,
+    "public_ref": "PREFIX-42",
     "paths": ["src/<package>/foo.py"],
     "mode": "exclusive",
     "allow_planned": false
@@ -254,8 +254,8 @@ branch.
 {
   "function": "claims.work.acquire",
   "actor": {"actor_id": "engineer", "session_id": "<session>"},
-  "target": {"kind": "item", "item_id": 42},
-  "payload": {"target": {"kind": "item", "item_id": 42}, "reason": "implement"}
+  "target": {"kind": "item", "public_ref": "PREFIX-42"},
+  "payload": {"target": {"kind": "item", "public_ref": "PREFIX-42"}, "reason": "implement"}
 }
 ```
 
@@ -300,14 +300,14 @@ returns `{drift, seed_ok}`.
 {
   "function": "items.get.run",
   "actor": {"actor_id": "any", "session_id": "<session>"},
-  "target": {"kind": "item", "item_id": 42},
+  "target": {"kind": "item", "public_ref": "PREFIX-42"},
   "payload": {"fields": ["spec", "db_mutation_profile"]}
 }
 ```
 
 Empty `fields` returns the full canonical row. `epic_tasks.list.run`
-takes `target={kind: "epic_task", epic_id: N}` with empty payload.
-`events.query.run` takes `{event_name?, item_id?, since?, until?, limit?}`.
+takes `target={kind: "epic_task", public_ref: "PREFIX-N"}` with empty payload.
+`events.query.run` takes `{event_name?, public_ref?, since?, until?, limit?}`.
 `path_claims.conflicts.list` takes `{integration_target?}`.
 `doctor.run.run` takes `{only?, quick?, project?}`.
 `projects.capability.has` takes `{project, cap_type}` on `target.kind="global"`.

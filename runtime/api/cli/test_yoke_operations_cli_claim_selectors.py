@@ -14,13 +14,13 @@ class TestReleaseSelectorValidation:
             "claims",
             "work",
             "release",
-            "--epic-id",
+            "--epic",
             "1872",
             "--reason",
             "partial",
         )
         assert rc == 2
-        assert "--epic-id and --task-num must be provided together" in err
+        assert "--epic and --task-num must be provided together" in err
         assert _CAPTURED == []
 
     def test_task_num_without_epic_id_rejects(self) -> None:
@@ -34,7 +34,7 @@ class TestReleaseSelectorValidation:
             "partial",
         )
         assert rc == 2
-        assert "--epic-id and --task-num must be provided together" in err
+        assert "--epic and --task-num must be provided together" in err
         assert _CAPTURED == []
 
     def test_mixed_claim_id_and_epic_task_rejects(self) -> None:
@@ -44,7 +44,7 @@ class TestReleaseSelectorValidation:
             "release",
             "--claim-id",
             "1",
-            "--epic-id",
+            "--epic",
             "1872",
             "--task-num",
             "20",
@@ -62,7 +62,7 @@ class TestReleaseSelectorValidation:
             "release",
             "--item",
             "YOK-1872",
-            "--epic-id",
+            "--epic",
             "1872",
             "--task-num",
             "20",
@@ -90,7 +90,7 @@ class TestReleaseSelectorValidation:
             "claims",
             "work",
             "release",
-            "--epic-id",
+            "--epic",
             "abc",
             "--task-num",
             "20",
@@ -107,7 +107,7 @@ class TestReleaseSelectorValidation:
             "claims",
             "work",
             "release",
-            "--epic-id",
+            "--epic",
             "1872",
             "--task-num",
             "x",
@@ -124,7 +124,7 @@ class TestReleaseSelectorValidation:
             "work",
             "release",
             "--all-mine",
-            "--epic-id",
+            "--epic",
             "1872",
             "--task-num",
             "20",

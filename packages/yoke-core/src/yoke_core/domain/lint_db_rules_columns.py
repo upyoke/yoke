@@ -55,7 +55,7 @@ if "# lint:no-column-check" not in command_stripped:
         ("event_registry", "name", "event_name"),
         ("deployment_flows", "flow_id", "id"),
         ("deployment_flows", "item_id", "no such column"),
-        ("shepherd_verdicts", "item_id", "item"),
+        ("shepherd_verdicts", "item_id", "public_ref"),
         ("shepherd_verdicts", "gate", "transition"),
         ("epic_tasks", "item_id", "epic_id"),
         ("epic_tasks", "task_number", "task_num"),

@@ -37,8 +37,7 @@ def handle_item_dependency_list(
             error=FunctionError(
                 code="target_invalid",
                 message=(
-                    "items.dependency.list requires target.kind='item' "
-                    "with item_id"
+                    "items.dependency.list requires target.kind='item' with public_ref"
                 ),
             ),
         )

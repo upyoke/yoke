@@ -63,7 +63,7 @@ class TestQaGateSummary:
         rc = _run(
             "qa",
             "gate-summary",
-            "--epic-id",
+            "--epic",
             "1704",
             "--task-num",
             "5",
@@ -73,7 +73,7 @@ class TestQaGateSummary:
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.target.kind == "epic_task"
-        assert req.target.epic_id == 1704
+        assert req.target.public_ref == "YOK-1704"
         assert req.target.task_num == 5
         assert req.payload == {"transition": "implemented"}
 

@@ -54,22 +54,18 @@ def _validate(model_cls, payload: Any, label: str):
         return None, _err("payload_invalid", f"{label} payload invalid: {exc}")
 
 
-def _verdict_key(request: FunctionCallRequest) -> tuple[str | None, HandlerOutcome | None]:
-    """The shepherd tables' storage key for the target item.
-
-    ``shepherd_verdicts.item`` and ``caveat_dispositions.item`` are keyed by
-    the default-prefix token built from ``items.id`` that their readers join
-    on; it is a storage key, never a public ref, so responses name the item
-    by its rendered ref.
-    """
+def _verdict_key(
+    request: FunctionCallRequest,
+) -> tuple[str | None, HandlerOutcome | None]:
+    """Use the resolved item's public ref as the Shepherd record key."""
     item_id = request.target.item_id
     if request.target.kind != "item" or item_id is None:
         return None, _err(
             "target_invalid",
-            "shepherd verdict writes require target.kind='item' with item_id",
-            jsonpath="$.target.item_id",
+            "shepherd verdict writes require target.kind='item' with public_ref",
+            jsonpath="$.target.public_ref",
         )
-    return f"YOK-{int(item_id)}", None
+    return _public_ref(request), None
 
 
 def _public_ref(request: FunctionCallRequest) -> str:

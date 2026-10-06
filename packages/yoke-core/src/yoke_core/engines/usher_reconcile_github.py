@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 import argparse
 import sys
 from typing import List, Optional
 
-from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import deploy_pipeline_control_plane as control_plane
 from yoke_core.domain.deploy_pipeline_reporting import _github_actions
@@ -38,7 +39,7 @@ def _parse_item_argument(arg: str | int) -> int:
 def _resolve_run_for_item(item_id: int) -> str:
     response = call_dispatcher(
         function_id="deployment_runs.find_by_item",
-        target=TargetRef(kind="item", item_id=item_id),
+        target=public_item_target(item_id),
         payload={},
     )
     rows = (response.result or {}).get("rows") if response.success else []
@@ -50,7 +51,7 @@ def _resolve_run_for_item(item_id: int) -> str:
 def _item_deploy_stage(item_id: int) -> str:
     response = call_dispatcher(
         function_id="items.get.run",
-        target=TargetRef(kind="item", item_id=item_id),
+        target=public_item_target(item_id),
         payload={"fields": ["deploy_stage"]},
     )
     if not response.success:

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 import argparse
 import json
 import sys
@@ -147,7 +149,7 @@ def run(args: List[str]) -> int:
         print(f"yoke qa plan review-submit: {exc}", file=sys.stderr)
         return 2
     target = (
-        TargetRef(kind="item", item_id=int(parsed.item_id))
+        public_item_target(parsed.item_id)
         if parsed.item_id is not None
         else TargetRef(kind="global", project_id=parsed.project)
         if parsed.project

@@ -27,7 +27,7 @@ from yoke_core.domain.item_ref_resolution import (
 
 #: The item-targeted read whose target resolution answers the same question:
 #: the dispatcher turns a public ref into an internal id before the handler
-#: runs, and returns that id on the item it read.
+#: runs, and returns the canonical public ref on the item it read.
 RESOLVE_FUNCTION_ID = "items.detail.get"
 
 
@@ -36,8 +36,8 @@ def parse_item_id(
     *,
     project: str | int | None = None,
     conn: Any | None = None,
-) -> int:
-    """Resolve an item token to the internal global ``items.id``.
+) -> int | str:
+    """Resolve onto a local join key, or retain the public ref over HTTPS.
 
     Raises :class:`ItemRefError` (a ``ValueError``) naming the fix when the
     token names no single item.
@@ -72,7 +72,7 @@ def parse_item_argument(
     project: str | int | None = None,
     conn: Any | None = None,
     cwd: str | Path | None = None,
-) -> int:
+) -> int | str:
     """Resolve one operator-facing item argument through public identity."""
     return parse_item_id(
         value,
@@ -86,7 +86,7 @@ def _resolve_over_open_path(
     *,
     project: str | int | None,
     conn: Any | None,
-) -> int:
+) -> int | str:
     """Resolve *text* to an internal id over whichever path is open.
 
     A caller-supplied connection is used as-is. Otherwise a direct local
@@ -111,12 +111,12 @@ def _resolve_over_connection(
     text: str,
     *,
     project: str | int | None,
-) -> int:
+) -> int | str:
     return resolve_item_ref(conn, text, project=project)
 
 
-def _resolve_over_relay(text: str, *, project: str | int | None) -> int:
-    """Read the internal id back from the server's own ref resolution."""
+def _resolve_over_relay(text: str, *, project: str | int | None) -> str:
+    """Validate the item on the server and keep its public identity client-side."""
     from yoke_contracts.api.function_call import TargetRef
 
     target = TargetRef(
@@ -129,10 +129,10 @@ def _resolve_over_relay(text: str, *, project: str | int | None) -> int:
     except RuntimeError as exc:
         raise ItemRefError("item_ref_unresolved", str(exc)) from exc
     item = result.get("item") or {}
-    resolved = item.get("id")
+    resolved = item.get("public_ref")
     if resolved is None:
         raise ItemRefError("item_ref_unresolved", f"item ref {text!r} not found")
-    return int(resolved)
+    return str(resolved)
 
 
 def parse_item_id_or_none(

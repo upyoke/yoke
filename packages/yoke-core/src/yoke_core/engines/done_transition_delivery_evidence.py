@@ -14,9 +14,9 @@ not out-of-band, so it must not be recorded as though it were.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Tuple
+from yoke_core.domain.public_item_target import public_item_target
 
-from yoke_contracts.api.function_call import TargetRef
+from typing import Any, Dict, Optional, Tuple
 
 
 def _parent():
@@ -33,7 +33,7 @@ def read_delivery_evidence(relay_read: Any, item_id: int) -> Dict[str, Any]:
     """The shared delivery ladder's verdict for this item."""
     return relay_read(
         "done_transition.delivery_evidence",
-        TargetRef(kind="item", item_id=int(item_id)),
+        public_item_target(item_id),
     )
 
 

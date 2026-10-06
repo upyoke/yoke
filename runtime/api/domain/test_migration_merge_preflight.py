@@ -65,7 +65,6 @@ def _profile(identifier: str) -> str:
 
 def _row(item_id: int, status: str, identifier: str) -> dict[str, str]:
     return {
-        "internal_id": str(item_id),
         "id": f"YOK-{item_id}",
         "status": status,
         "db_mutation_profile": _profile(identifier),
@@ -75,7 +74,7 @@ def _row(item_id: int, status: str, identifier: str) -> dict[str, str]:
 def _evaluate(repo: Path, rows: list[dict[str, str]]):
     return evaluate_migration_merge(
         rows=rows,
-        item_id=1,
+        public_ref="YOK-1",
         capability_settings_json=json.dumps(governed_postgres_test_seed()),
         worktree_path=repo,
         integration_target="main",
@@ -117,9 +116,7 @@ def test_gate_names_non_terminal_item_holding_same_ordinal(
 def test_gate_refuses_non_sequential_lane_entry(tmp_path: Path) -> None:
     repo = _lane(tmp_path, "0015_current")
 
-    decision = _evaluate(
-        repo, [_row(1, "reviewing-implementation", "0015_current")]
-    )
+    decision = _evaluate(repo, [_row(1, "reviewing-implementation", "0015_current")])
 
     assert not decision.passed
     assert "requires exactly 14 next" in decision.errors[0]
@@ -128,4 +125,4 @@ def test_gate_refuses_non_sequential_lane_entry(tmp_path: Path) -> None:
 def test_slug_only_migration_does_not_activate_numbered_gate() -> None:
     rows = [_row(1, "reviewing-implementation", "legacy_module")]
 
-    assert not migration_merge_applicable(rows, 1)
+    assert not migration_merge_applicable(rows, "YOK-1")

@@ -20,9 +20,7 @@ def require_public_item_prefix(value: Optional[str]) -> str:
     """Return a stripped prefix, or refuse with the create-path recovery."""
     cleaned = str(value or "").strip()
     if not cleaned:
-        raise ValueError(
-            "public_item_prefix is required. " + REQUIRED_PREFIX_RECOVERY
-        )
+        raise ValueError("public_item_prefix is required. " + REQUIRED_PREFIX_RECOVERY)
     return cleaned
 
 
@@ -35,8 +33,7 @@ def assert_prefix_available(
     """Refuse a prefix already used by another project (case-insensitive)."""
     rows = query_rows(
         conn,
-        "SELECT id, slug FROM projects "
-        "WHERE LOWER(public_item_prefix) = LOWER(%s)",
+        "SELECT id, slug FROM projects WHERE LOWER(public_item_prefix) = LOWER(%s)",
         (prefix,),
     )
     for row in rows:
@@ -56,6 +53,26 @@ def typed_project_field(name: str, value: Any) -> Any:
     if name == "id":
         return int(value)
     return value
+
+
+def rekey_shepherd_refs(conn: Any, old_prefix: str, new_prefix: str) -> None:
+    """Keep persistent Shepherd keys with a renamed project's public refs.
+
+    Runs inside the project's own update transaction. References to verdict
+    records use their stable surrogate ids and need no changes.
+    """
+    old_prefix, new_prefix = old_prefix.upper(), new_prefix.upper()
+    if old_prefix == new_prefix:
+        return
+    from yoke_core.domain.schema_common import _column_exists
+
+    for table in ("shepherd_verdicts", "caveat_dispositions"):
+        if _column_exists(conn, table, "public_ref"):
+            conn.execute(
+                f"UPDATE {table} SET public_ref = %s || '-' || split_part(public_ref, '-', 2) "
+                "WHERE split_part(public_ref, '-', 1) = %s",
+                (new_prefix, old_prefix),
+            )
 
 
 __all__ = [

@@ -104,7 +104,7 @@ def test_no_shepherd_binding_owns_no_edges():
 
 def _verdict(conn, item_id, edge, verdict="READY", worker="review"):
     conn.execute(
-        "INSERT INTO shepherd_verdicts (item, transition, worker, verdict, created_at) "
+        "INSERT INTO shepherd_verdicts (public_ref, transition, worker, verdict, created_at) "
         "VALUES (%s, %s, %s, %s, %s)",
         (f"YOK-{item_id}", edge.verdict_key, worker, verdict, "2026-10-05T00:00:00Z"),
     )

@@ -9,7 +9,7 @@ row, or on the wrong one, while the caller prints success.
 
 This handler is the sanctioned write those stamps go through instead:
 one function per member-item scalar, addressed by an integer
-``target.item_id`` the server resolves before any permission check,
+``target.public_ref`` the server resolves before any permission check,
 writing through the same multi-field updater every other item write
 uses, then reading the row back before commit so the response can
 state whether the value actually landed. The pipeline refuses its
@@ -94,7 +94,7 @@ def handle_deployment_item_stamp(request: FunctionCallRequest) -> HandlerOutcome
     if item_id is None:
         return _err(
             "target_invalid",
-            "deployment_item_stamp requires target.item_id",
+            "deployment_item_stamp requires target.public_ref",
         )
     try:
         body = DeploymentItemStampRequest.model_validate(request.payload)
@@ -127,7 +127,10 @@ def handle_deployment_item_stamp(request: FunctionCallRequest) -> HandlerOutcome
                 )
             previous = "" if prior_row[0] is None else str(prior_row[0])
             _update_item_multi(
-                conn, item_id, {body.field: body.value}, commit=False,
+                conn,
+                item_id,
+                {body.field: body.value},
+                commit=False,
             )
             verify_row = conn.execute(
                 f"SELECT {body.field} FROM items WHERE id = {p}",

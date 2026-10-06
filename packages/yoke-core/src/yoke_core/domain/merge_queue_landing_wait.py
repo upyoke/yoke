@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
-from yoke_contracts.api.function_call import TargetRef
 from yoke_core.domain import control_plane_function_degradation
 from yoke_core.domain.github_poll_schedule import (
     PollSchedule,
@@ -58,7 +59,7 @@ def _read_server_record(
     """Refresh the project if due and read this lane through one function."""
     response = control_plane_function_degradation.dispatch_through_paired_admin_on_skew(
         function_id=OBSERVE_FUNCTION_ID,
-        target=TargetRef(kind="item", item_id=int(item_id)),
+        target=public_item_target(item_id),
         payload={},
         announce=announce,
         dispatch=dispatch,

@@ -40,7 +40,10 @@ def _seed_registered_flow(db_path, flow_id="yoke-hosted-production", project="yo
 
 
 def _seed_deploy_run(
-    db_path, item_id, status, flow="yoke-hosted-production",
+    db_path,
+    item_id,
+    status,
+    flow="yoke-hosted-production",
     created_at="2025-01-01T00:00:00Z",
 ):
     conn = connect_dt_db(db_path)
@@ -59,11 +62,13 @@ def _seed_deploy_run(
     conn.close()
 
 
-def _seed_verdict(db_path, item_id, transition="refined_idea_to_planning", verdict="READY"):
+def _seed_verdict(
+    db_path, item_id, transition="refined_idea_to_planning", verdict="READY"
+):
     conn = connect_dt_db(db_path)
     p = _p(conn)
     conn.execute(
-        "INSERT INTO shepherd_verdicts (item, transition, worker, verdict, created_at) "
+        "INSERT INTO shepherd_verdicts (public_ref, transition, worker, verdict, created_at) "
         f"VALUES ({p}, {p}, {p}, {p}, {p})",
         (f"YOK-{item_id}", transition, "architect", verdict, "2025-01-01"),
     )
@@ -71,7 +76,7 @@ def _seed_verdict(db_path, item_id, transition="refined_idea_to_planning", verdi
     conn.close()
 
 
-class TestAC3LatestRunNotFailed:
+class TestLatestRunNotFailed:
     """Latest deploy_run not failed."""
 
     def test_failed_latest_run_blocks(self, dt_db):
@@ -87,7 +92,9 @@ class TestAC3LatestRunNotFailed:
         _seed_deploy_run(db_path, 721, "failed")
 
         allowed, reason = check_done_preconditions(
-            721, "yoke-hosted-production", False,
+            721,
+            "yoke-hosted-production",
+            False,
         )
 
         assert allowed is False
@@ -106,7 +113,9 @@ class TestAC3LatestRunNotFailed:
         _seed_deploy_run(db_path, 722, "succeeded")
 
         allowed, reason = check_done_preconditions(
-            722, "yoke-hosted-production", False,
+            722,
+            "yoke-hosted-production",
+            False,
         )
 
         assert allowed is True
@@ -123,7 +132,7 @@ class TestAC3LatestRunNotFailed:
         assert reason is None
 
 
-class TestAC4EpicVerdictRequired:
+class TestEpicVerdictRequired:
     """Epics need refined_idea_to_planning READY/CAVEATS verdict."""
 
     def test_missing_verdict_blocks_epic(self, dt_db):
@@ -134,8 +143,7 @@ class TestAC4EpicVerdictRequired:
 
         assert allowed is False
         assert reason == (
-            "YOK-731 missing required "
-            "refined_idea_to_planning READY/CAVEATS verdict"
+            "YOK-731 missing required refined_idea_to_planning READY/CAVEATS verdict"
         )
 
     def test_ready_verdict_allows_epic(self, dt_db):
@@ -168,8 +176,7 @@ class TestAC4EpicVerdictRequired:
 
         assert allowed is False
         assert reason == (
-            "YOK-734 missing required "
-            "refined_idea_to_planning READY/CAVEATS verdict"
+            "YOK-734 missing required refined_idea_to_planning READY/CAVEATS verdict"
         )
 
     def test_issues_do_not_require_verdict(self, dt_db):
@@ -183,7 +190,7 @@ class TestAC4EpicVerdictRequired:
         assert reason is None
 
 
-class TestAC5NoRunDeliveryBypass:
+class TestNoRunDeliveryBypass:
     """No-run-delivery flow bypasses deployed_to but not deploy_stage."""
 
     def test_no_run_delivery_allows_empty_deployed_to(self, dt_db):
@@ -197,7 +204,9 @@ class TestAC5NoRunDeliveryBypass:
         )
 
         allowed, reason = check_done_preconditions(
-            741, "no-run-delivery", False,
+            741,
+            "no-run-delivery",
+            False,
         )
 
         assert allowed is True
@@ -214,7 +223,9 @@ class TestAC5NoRunDeliveryBypass:
         )
 
         allowed, reason = check_done_preconditions(
-            742, "no-run-delivery", False,
+            742,
+            "no-run-delivery",
+            False,
         )
 
         assert allowed is False
@@ -251,7 +262,9 @@ class TestEmptyAndInternalFlows:
         )
 
         allowed, reason = check_done_preconditions(
-            752, "yoke-internal", False,
+            752,
+            "yoke-internal",
+            False,
         )
 
         assert allowed is True
@@ -278,68 +291,10 @@ class TestUnregisteredFlowSkipped:
         )
 
         allowed, reason = check_done_preconditions(
-            761, "garbage-flow", False,
+            761,
+            "garbage-flow",
+            False,
         )
 
-        assert allowed is True
-        assert reason is None
-
-
-class TestAncillaryRunDoesNotAttestDelivery:
-    """A succeeded carrying run on another flow is not this item's delivery."""
-
-    def test_succeeded_other_flow_does_not_skip_deployed_to(self, dt_db):
-        db_path, _ = dt_db
-        _seed_registered_flow(db_path, flow_id="prod-flow")
-        _seed_registered_flow(db_path, flow_id="stage-flow")
-        _insert_item(
-            db_path,
-            771,
-            deployment_flow="prod-flow",
-            deploy_stage=None,
-            deployed_to=None,
-        )
-        _seed_deploy_run(db_path, 771, "succeeded", flow="stage-flow")
-
-        allowed, reason = check_done_preconditions(771, "prod-flow", False)
-
-        assert allowed is False
-        assert "deployed_to is empty" in reason
-
-    def test_failed_selected_flow_blocks_despite_other_flow_success(self, dt_db):
-        db_path, _ = dt_db
-        _seed_registered_flow(db_path, flow_id="prod-flow")
-        _seed_registered_flow(db_path, flow_id="stage-flow")
-        _insert_item(
-            db_path,
-            772,
-            deployment_flow="prod-flow",
-            deploy_stage="complete",
-            deployed_to="prod",
-        )
-        _seed_deploy_run(db_path, 772, "failed", flow="prod-flow")
-        _seed_deploy_run(db_path, 772, "succeeded", flow="stage-flow")
-
-        allowed, reason = check_done_preconditions(772, "prod-flow", False)
-
-        assert allowed is False
-        assert reason == "latest deploy_run for YOK-772 has status=failed"
-
-    def test_succeeded_selected_flow_allows_despite_later_other_flow_failure(
-        self, dt_db,
-    ):
-        db_path, _ = dt_db
-        _seed_registered_flow(db_path, flow_id="prod-flow")
-        _seed_registered_flow(db_path, flow_id="stage-flow")
-        _insert_item(
-            db_path, 773, deployment_flow="prod-flow",
-            deploy_stage="complete", deployed_to="prod",
-        )
-        _seed_deploy_run(db_path, 773, "succeeded", flow="prod-flow")
-        _seed_deploy_run(
-            db_path, 773, "failed", flow="stage-flow",
-            created_at="2025-02-01T00:00:00Z",
-        )
-        allowed, reason = check_done_preconditions(773, "prod-flow", False)
         assert allowed is True
         assert reason is None

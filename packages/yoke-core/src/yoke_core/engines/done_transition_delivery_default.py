@@ -10,14 +10,17 @@ existing callers of this module keep the same name.
 
 from __future__ import annotations
 
-from yoke_contracts.api.function_call import TargetRef
+from yoke_core.domain.public_item_target import public_item_target
+
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.deployment_flow_clearance import (
     resolve_default_delivery_flow,
 )
 
 
-def freeze_resolved_delivery_flow(item_id: int, flow_id: str, *, public_ref: str) -> str:
+def freeze_resolved_delivery_flow(
+    item_id: int, flow_id: str, *, public_ref: str
+) -> str:
     """Write a resolved default onto the item exactly once, before it is used.
 
     Calls ``items.deployment_flow.claim_default``, whose conditional
@@ -36,14 +39,12 @@ def freeze_resolved_delivery_flow(item_id: int, flow_id: str, *, public_ref: str
     """
     resp = call_dispatcher(
         function_id="items.deployment_flow.claim_default",
-        target=TargetRef(kind="item", item_id=int(item_id)),
+        target=public_item_target(item_id),
         payload={"flow_id": flow_id},
     )
     if not resp.success:
         message = resp.error.message if resp.error else "unknown error"
-        raise RuntimeError(
-            f"items.deployment_flow.claim_default failed: {message}"
-        )
+        raise RuntimeError(f"items.deployment_flow.claim_default failed: {message}")
     result = resp.result or {}
     stored = str(result.get("deployment_flow") or "")
     if not stored:

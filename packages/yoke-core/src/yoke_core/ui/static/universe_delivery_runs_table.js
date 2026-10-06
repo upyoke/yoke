@@ -27,7 +27,7 @@ function memberLink(documentNode, member) {
     projectSequence: member.project_sequence,
     publicRef: member.ref || member.public_ref || member.item_ref,
   });
-  const label = member.ref || member.public_ref || member.item_ref || `item ${member.item_id}`;
+  const label = member.ref || member.public_ref || member.item_ref || `item ${member.public_ref}`;
   // A carried item is a chip, linked or not; the chip class keeps the
   // content-wide link underline off it.
   const link = el(documentNode, href ? "a" : "span", "delivery-member delivery-member-chip", label);

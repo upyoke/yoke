@@ -86,16 +86,14 @@ def _recover_survey_timeout(
         == str(payload.get("integration_target") or "main")
     )
     if state != DURABLE_RECORDED or not durable.get("found") or not target_matches:
-        mismatch = (
-            " for a different touch set" if state == DURABLE_RECORDED else ""
-        )
+        mismatch = " for a different touch set" if state == DURABLE_RECORDED else ""
         return _with_recovery_detail(
             response,
             f"durable survey state is {state}{mismatch}",
         )
 
     result = {
-        "item_id": durable.get("item_id"),
+        "public_ref": durable.get("public_ref"),
         "workflow_id": durable.get("workflow_id"),
         "clear": bool(durable.get("clear")),
         "fingerprint": str(durable.get("fingerprint") or ""),

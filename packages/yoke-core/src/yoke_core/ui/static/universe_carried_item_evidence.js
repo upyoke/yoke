@@ -18,7 +18,7 @@ import {
 import { el, settledScopedCalls } from "./universe_view_support.js";
 
 // How many checks one item may contribute, and how many items share a call.
-// The read bounds `limit` PER ITEM for an `item_ids` request, so a busy
+// The read bounds `limit` PER ITEM for an `public_refs` request, so a busy
 // subject cannot spend another subject's share and leave it looking like an
 // item with no evidence and no waiting review. An item that has more than
 // this comes back cut short and named, which the entry then says out loud.
@@ -43,11 +43,10 @@ function groupKey(itemId, runId) {
   return `${itemId}|${runId || ""}`;
 }
 
-// Membership names its item `id`; derived carried work names it `item_id`.
-// Both are the same integer, and it is what evidence joins on.
+// Membership names its item `id`; derived carried work names it `public_ref`.
+// Both carry the public ref used to group evidence.
 export function carriedItemId(item) {
-  const id = Number(item?.item_id ?? item?.id);
-  return Number.isFinite(id) && id > 0 ? id : null;
+  return item?.public_ref ?? item?.ref ?? item?.item_ref ?? null;
 }
 
 // Each subject is an item drawn under one run, so the read can be sized by
@@ -82,7 +81,7 @@ export async function loadCarriedItemEvidence(context, items) {
         functionId: "qa.activity.list",
         payload: {
           project,
-          item_ids: subjects.slice(at, at + SUBJECTS_PER_CALL),
+          public_refs: subjects.slice(at, at + SUBJECTS_PER_CALL),
           // Each card filters these per-item, per-run groups to its own run.
           limit: CHECKS_PER_ITEM,
         },
@@ -103,14 +102,14 @@ export async function loadCarriedItemEvidence(context, items) {
     for (const row of result?.rows || []) {
       // The same rule the read partitions on, so what it bounded per item
       // and what this groups per item are the same set.
-      const id = row.item_id ?? row.deployment_member_item_id;
+      const id = row.public_ref ?? row.deployment_member_public_ref;
       if (id == null) continue;
       const rows = byItem.get(String(id)) || [];
       rows.push(row);
       byItem.set(String(id), rows);
     }
     for (const group of result?.item_selection?.truncated_groups || []) {
-      truncatedGroups.add(groupKey(group.item_id, group.deployment_run_id));
+      truncatedGroups.add(groupKey(group.public_ref, group.deployment_run_id));
     }
   }
   return {
@@ -160,9 +159,9 @@ function reviewsByItem(pendingByRequirement) {
   for (const request of (pendingByRequirement || new Map()).values()) {
     const subject = request.subject_context?.subject || {};
     // A release's per-member review names its item in its own field: the
-    // schema keeps `item_id` null for anything run scoped, so indexing only
+    // schema keeps `public_ref` null for anything run scoped, so indexing only
     // that would drop exactly the reviews a release card is about.
-    const itemId = subject.item_id ?? subject.deployment_member_item_id;
+    const itemId = subject.public_ref ?? subject.deployment_member_public_ref;
     if (itemId == null) continue;
     const requests = byItem.get(String(itemId)) || [];
     requests.push(request);
@@ -201,11 +200,11 @@ export function carriedItemReviews(facts, itemId, runId, checks) {
 // The carried item a run gate decides for, or null for a run-scoped gate.
 function gateItemId(gate) {
   if (gate.kind === "lifecycle_transition_approval") {
-    return gate.subject_context?.item_id ?? null;
+    return gate.subject_context?.public_ref ?? null;
   }
   if (gate.kind !== "qa_needs_review") return null;
   const subject = gate.subject_context?.subject || {};
-  return subject.deployment_member_item_id ?? subject.item_id ?? null;
+  return subject.deployment_member_public_ref ?? subject.public_ref ?? null;
 }
 
 // A request in the shape the shared decision list draws: the Inbox row keys

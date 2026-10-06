@@ -9,6 +9,8 @@ both modules import from one place.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 from pathlib import Path
 from typing import List, Optional, Sequence, Tuple
 
@@ -91,16 +93,15 @@ def claim_work(item_id: int) -> Tuple[bool, str]:
     https transport). Idempotent: the acquire handler returns the session's
     existing claim when it already holds one.
     """
-    from yoke_contracts.api.function_call import TargetRef
     from yoke_core.api.service_client_structured_api_adapter import (
         call_dispatcher,
     )
 
     response = call_dispatcher(
         function_id="claims.work.acquire",
-        target=TargetRef(kind="item", item_id=int(item_id)),
+        target=public_item_target(item_id),
         payload={
-            "target": {"kind": "item", "item_id": int(item_id)},
+            "target": {"kind": "item"},
             "reason": "advance worktree preflight",
         },
     )
@@ -156,7 +157,6 @@ def _local_checkout_for_item(item_id: int) -> Optional[str]:
     ``checkout_for_project_id`` (machine config, no DB). Returns
     ``None`` when the project or its checkout mapping is unresolved.
     """
-    from yoke_contracts.api.function_call import TargetRef
     from yoke_core.api.service_client_structured_api_adapter import (
         call_dispatcher,
     )
@@ -166,7 +166,7 @@ def _local_checkout_for_item(item_id: int) -> Optional[str]:
 
     detail = call_dispatcher(
         function_id="items.detail.get",
-        target=TargetRef(kind="item", item_id=int(item_id)),
+        target=public_item_target(item_id),
     )
     if not detail.success:
         return None
@@ -192,7 +192,6 @@ def activate_path_claims(item_id: int) -> Tuple[bool, str, List[int]]:
     ``error_text`` keeps the ``db-lock:`` marker so
     :func:`classify_activation_failure` still routes substrate contention.
     """
-    from yoke_contracts.api.function_call import TargetRef
     from yoke_core.api.service_client_structured_api_adapter import (
         call_dispatcher,
     )
@@ -200,7 +199,7 @@ def activate_path_claims(item_id: int) -> Tuple[bool, str, List[int]]:
         resolve_integration_head_with_retry,
     )
 
-    target = TargetRef(kind="item", item_id=int(item_id))
+    target = public_item_target(item_id)
     listed = call_dispatcher(
         function_id="claims.path.list",
         target=target,

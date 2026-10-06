@@ -2,7 +2,7 @@
 
 Covers polish step 7: apply targeted finishing fixes to the worktree. Includes the DB-claim stop-and-amend gate when governed DB mutation is discovered.
 
-**Context variables** (set by earlier phases): `ITEM_REF`, `ITEM_NUM`, `WORKTREE_PATH`, `WORKTREE_PATHS`.
+**Context variables** (set by earlier phases): `ITEM_REF`, `ITEM_REF`, `WORKTREE_PATH`, `WORKTREE_PATHS`.
 
 ---
 
@@ -40,7 +40,7 @@ Function-call equivalent (for dispatch-surface callers — `db-claim-amend` buil
 {
   "function": "db_claim.amend",
   "actor": {"session_id": "<this-session>"},
-  "target": {"kind": "item", "item_id": $ITEM_NUM, "public_ref": "$ITEM_REF"},
+  "target": {"kind": "item", "public_ref": "$ITEM_REF"},
   "intent": "polish_db_mutation_discovered",
   "payload": {
     "reason": "polish discovered governed DB mutation",

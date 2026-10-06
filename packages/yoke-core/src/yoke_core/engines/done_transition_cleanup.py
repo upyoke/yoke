@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 import re
 import sys
 from pathlib import Path
 
-from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.backlog_session_attribution import _current_session_id
 from yoke_core.engines.branch_landed_evidence import (
@@ -38,8 +39,8 @@ def _has_foreign_claim(item_id: int) -> bool:
     try:
         resp = call_dispatcher(
             function_id="claims.work.holder_list",
-            target=TargetRef(kind="item", item_id=int(item_id)),
-            payload={"item_id": int(item_id)},
+            target=public_item_target(item_id),
+            payload={"public_ref": public_item_target(item_id).public_ref},
         )
     except Exception:  # noqa: BLE001 - cleanup must fail closed
         return True

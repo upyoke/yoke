@@ -23,10 +23,11 @@ share the same underlying domain helper, so the typed envelope emitted by
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 import argparse
 from typing import Optional
 
-from yoke_contracts.api.function_call import TargetRef
 from yoke_core.domain.structured_field_input import (
     ContentInputError,
     read_body_file_or_raise,
@@ -83,7 +84,9 @@ def _build_parser() -> argparse.ArgumentParser:
     section.add_argument("--stdin", action="store_true")
     section.add_argument("--body-file", dest="body_file", default=None)
     section.add_argument(
-        "--json", dest="json_mode", action="store_true",
+        "--json",
+        dest="json_mode",
+        action="store_true",
         help="Route through the function dispatcher and emit the typed envelope.",
     )
 
@@ -99,7 +102,9 @@ def _build_parser() -> argparse.ArgumentParser:
     append.add_argument("--stdin", action="store_true")
     append.add_argument("--body-file", dest="body_file", default=None)
     append.add_argument(
-        "--json", dest="json_mode", action="store_true",
+        "--json",
+        dest="json_mode",
+        action="store_true",
         help="Route through the function dispatcher and emit the typed envelope.",
     )
 
@@ -143,18 +148,28 @@ def _run_legacy(operation: str, args, content: str, item_id: int) -> int:
 
     if operation == _APPEND_ADDENDUM:
         result = append_addendum(
-            item_id=item_id, field=args.field, heading=args.heading,
-            content=content, source=args.source,
+            item_id=item_id,
+            field=args.field,
+            heading=args.heading,
+            content=content,
+            source=args.source,
         )
     elif operation == _SECTION_APPEND:
         result = section_append(
-            item_id=item_id, section=args.section, headline=args.headline,
-            content=content, ordering=args.ordering, source=args.source,
+            item_id=item_id,
+            section=args.section,
+            headline=args.headline,
+            content=content,
+            ordering=args.ordering,
+            source=args.source,
         )
     else:  # section-upsert
         result = section_upsert(
-            item_id=item_id, section=args.section, content=content,
-            ordering=args.ordering, source=args.source,
+            item_id=item_id,
+            section=args.section,
+            content=content,
+            ordering=args.ordering,
+            source=args.source,
         )
 
     print(result.to_json())
@@ -181,7 +196,7 @@ def _dispatch_via_function(operation: str, args, content: str, item_id: int) -> 
     if operation == _APPEND_ADDENDUM:
         response = call_dispatcher(
             function_id="items.structured_field.append_addendum",
-            target=TargetRef(kind="item", item_id=item_id),
+            target=public_item_target(item_id),
             payload={
                 "field": args.field,
                 "heading": args.heading,
@@ -201,7 +216,7 @@ def _dispatch_via_function(operation: str, args, content: str, item_id: int) -> 
             payload["source"] = args.source
         response = call_dispatcher(
             function_id="items.structured_field.section_append",
-            target=TargetRef(kind="item", item_id=item_id),
+            target=public_item_target(item_id),
             payload=payload,
         )
     else:  # section-upsert
@@ -212,7 +227,7 @@ def _dispatch_via_function(operation: str, args, content: str, item_id: int) -> 
             payload["source"] = args.source
         response = call_dispatcher(
             function_id="items.structured_field.section_upsert",
-            target=TargetRef(kind="item", item_id=item_id),
+            target=public_item_target(item_id),
             payload=payload,
         )
     return emit_response(response, json_mode=True)

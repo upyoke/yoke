@@ -48,7 +48,7 @@ def parse_path_register_args(args: List[str]) -> PathRegisterArguments | int:
     parser.add_argument(
         "--item",
         required=True,
-        help="Item id (PREFIX-N or project-local number).",
+        help="Item id (PREFIX-N).",
     )
     parser.add_argument(
         "--task-num",

@@ -15,9 +15,10 @@ sitting in their own QA rows the whole time.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 from typing import Any, Callable, Optional
 
-from yoke_contracts.api.function_call import TargetRef
 
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
@@ -38,7 +39,7 @@ def recorded_receipt(
     """
     response = dispatch(
         function_id="merge.tests.recorded_queue_receipt",
-        target=TargetRef(kind="item", item_id=int(item_id)),
+        target=public_item_target(item_id),
         payload={"pr_num": str(pr_num or "")},
     )
     if not getattr(response, "success", False):

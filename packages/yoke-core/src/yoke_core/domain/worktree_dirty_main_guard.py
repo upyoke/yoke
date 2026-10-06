@@ -9,6 +9,8 @@ repo-root scratch — become a named warning, never a block.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 import os
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
@@ -106,7 +108,7 @@ def _dispatch(function_id: str, target: TargetRef, payload: dict | None = None):
 def lane_needed_paths(item_id: int) -> tuple[str, ...]:
     """Union of survey touch paths, non-terminal claims, and File Budget."""
     collected: list[str] = []
-    item = TargetRef(kind="item", item_id=int(item_id))
+    item = public_item_target(item_id)
     try:
         survey = _dispatch("direct_workflow.conflict_survey.status", item)
         if survey.success:

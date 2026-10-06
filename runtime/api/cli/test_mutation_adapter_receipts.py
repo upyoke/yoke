@@ -69,10 +69,6 @@ def test_terminal_lifecycle_receipt_precedes_lane_cleanup(monkeypatch) -> None:
 
 
 def test_lifecycle_transition_prints_structured_success(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "yoke_cli.transport.public_ref_display.lookup_public_refs",
-        lambda ids: {7: "ITEM-7"} if 7 in ids else {},
-    )
 
     def stub(request):
         result = (
@@ -102,8 +98,13 @@ def test_deployment_run_create_falls_back_to_structured_receipt() -> None:
         return _response(request, {"status": "created"})
 
     rc, out, err = _run_capture(
-        stub, "deployment-runs", "create", "acme", "acme-prod",
-        "--idempotency-key", "acme-prod-1",
+        stub,
+        "deployment-runs",
+        "create",
+        "acme",
+        "acme-prod",
+        "--idempotency-key",
+        "acme-prod-1",
     )
 
     assert rc == 0, err
@@ -114,9 +115,7 @@ def test_start_for_item_falls_back_to_structured_receipt() -> None:
     def stub(request):
         return _response(request, {"status": "created"})
 
-    rc, out, err = _run_capture(
-        stub, "deployment-runs", "start-for-item", "ITEM-7"
-    )
+    rc, out, err = _run_capture(stub, "deployment-runs", "start-for-item", "ITEM-7")
 
     assert rc == 0, err
     assert json.loads(out) == {"status": "created"}

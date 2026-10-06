@@ -34,6 +34,8 @@ orchestrator + CLI stay under the 350-line authored-file cap.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 import argparse
 import json
 import os
@@ -96,7 +98,6 @@ def run_preflight(
     # in whichever repo the session happens to be standing.
     item: Dict[str, Any] = {}
     try:
-        from yoke_contracts.api.function_call import TargetRef
         from yoke_core.api.service_client_structured_api_adapter import (
             call_dispatcher,
         )
@@ -106,7 +107,7 @@ def run_preflight(
 
         detail = call_dispatcher(
             function_id="items.detail.get",
-            target=TargetRef(kind="item", item_id=int(item_id)),
+            target=public_item_target(item_id),
             payload={},
         )
         item = (detail.result or {}).get("item") or {} if detail.success else {}

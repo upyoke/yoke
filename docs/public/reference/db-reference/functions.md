@@ -20,8 +20,8 @@ Every function call accepts and returns the same envelope shape, defined in `yok
   "target": {                                         // typed target ref; shape depends on function
     "kind": "item | epic_task | section | claim | process | none",
     "public_ref": "PREFIX-N",                          // client-supplied PREFIX-N (or bare sequence)
-    "item_id": 1234,                                  // resolved internal items.id (machine)
-    "epic_id": 833,
+    "public_ref": "PREFIX-1234",                                  // public item identity
+    "public_ref": "PREFIX-833",
     "task_num": 5,
     "section_name": "Progress Log",
     "process_key": "...",
@@ -45,31 +45,16 @@ Every function call accepts and returns the same envelope shape, defined in `yok
 }
 ```
 
-### `public_ref` vs internal `item_id`
+### Public item identity
 
-`item_id` is the internal `items.id` integer. `public_ref` is the public
-`PREFIX-N` handle. A person never reads a bare internal id — not alone,
-and not paired with the public handle. Machine payloads (`--json`, HTTP
-`result`) keep integer `item_id`; the dispatcher does not add a sibling
-ref. Human CLI output is translated at the print layer
-(`yoke_cli.transport.public_ref_display`) on a display copy:
-`item_id` / `current_item_id` / `recent_item_id` / `epic_id` become
-`public_ref` / `current_public_ref` / `recent_public_ref` /
-`epic_public_ref`. Lookup over HTTPS uses `items.public_ref.lookup`.
-Request targets carry `target.public_ref`; there is no alias for a
-retired target key. Handlers that already know the public handle put it
-on `result.public_ref`. DB rows, events, telemetry, and tests keep bare
-integer `item_id`.
+Every client sends `target.public_ref` as a complete `PREFIX-N` token.
+Payload identities use `public_ref`, `epic_public_ref`, or corresponding
+role-prefixed/plural ref fields. Bare numbers and internal keys are refused.
+The dispatcher resolves refs to integers only inside the serving engine.
+Responses project item joins to public refs; other record ids remain numeric.
+JSON and human CLI output share this contract. Clients tolerate absent optional
+identity fields from an older serving build without ID lookup.
 
-The dispatcher always emits `YokeFunctionCalled`. Repeated calls with the same `(function, request_id)` emit `DispatcherIdempotencyReplay` and return the cached response verbatim. `YokeFunctionCalled` carries compact metadata — function, target, outcome, duration, request identity, payload and result byte counts plus checksums, and bounded error details on failure. The result document rides it only under a live scoped debug campaign; the caller already holds it on the response. The dedup store is the `function_call_ledger` table (exact `request_id` match, written before the emission so a telemetry failure cannot skip it; rows expire after the replay TTL via the events retention prune) — events stay telemetry; the ledger owns the replay decision. Partial-state failures (the primary write succeeded but a downstream sync degraded) return HTTP 207 with `success=true`, `warnings=[...]`, and a `DispatcherDownstreamDegraded` row in `events`. See the yoke source-repo doc `docs/event-catalog.md` for the envelope schemas.
-
-### Actor identity binding (transport-symmetric)
-
-`actor.session_id` may be omitted: ambient identity resolves automatically — `YOKE_SESSION_ID` first, then the session variables of the harness family this process actually runs under (the nearest harness ancestor in the process tree, so a harness started inside another harness's shell never answers with the outer one's inherited variable), then that family's hook-written process-anchor registry (`yoke_core.domain.session_ambient_identity`). An explicit payload session always binds and is the flagged operator-debug override: when it diverges from the resolved ambient, dispatcher events carry `session_override: true` plus the divergent `ambient_session_id` in context. `actor_id` is never trusted from the payload — it resolves server-side from `harness_sessions` keyed on the bound session (a contradicting supplied value rejects with `actor_id_mismatch`). Over https the verified bearer-token actor replaces a caller assertion; the server substitutes the launch requester's actor only when the token is bound to the exact active, attested session's assigned machine and its current owner. The ordinary dispatcher mismatch and permission gates still apply.
-
-A mutating call whose registry entry requires a session rejects with `actor_session_missing` when none resolves — an infrastructure-bug signal (hook registration / anchor resolution failed), not a state agents should work around. A plain terminal is the exception the message names for itself: with no harness anywhere in the process tree the refusal drops the infrastructure framing and names the supported path instead — run the command from a harness session, which is what can hold the work claim it needs. Explicitly session-optional functions never reach that refusal. They are the ones a person runs before any session exists (the onboarding wizard's Apply stages and the plain-terminal CLI recipes, enumerated in `yoke_core.domain.terminal_reachable_functions` and checked against the registry), and one contract attributes them all: the identity binder keeps the bearer-token actor over HTTPS and binds the universe's operating human for a local call, so a session-less write has an author without each handler resolving one. Calls whose bound session has no `harness_sessions` row execute where downstream gates allow but are marked `provenance_unverified: true` in event context on both transports — unregistered-session writes are recorded, never silently trusted.
-
-A session's own actor follows the person who started it: a launched session binds the launching actor transitively rather than the identity of the machine it runs on. `session_control.*` calls that act on another session (`message.send`, `session.wake`, `session.terminate`, `keepalive.hold`/`release`, `launch.*`) are role-checked against the TARGET's project by `yoke_core.domain.session_action_authority` — project membership to message, wake, hold alive, or terminate a launched worker, project owner or org admin to terminate another actor's interactive session — and each one also writes a `SessionActionPerformed` event into the target session's own history carrying the acting actor. Contract: `docs/archive/decisions/session-actor-follows-the-person.md`.
 
 ## Registry, schema, and dispatch endpoints
 
@@ -92,8 +77,8 @@ Every registered function declares one of five `claim_required_kind` values; the
 | Value | When the dispatcher enforces |
 |---|---|
 | `None` | No work-claim verification. Reads, `claims.work.acquire`, and project-wide operator-requested operations (`board.rebuild`, `agents.render.run`, `project_structure.patch.apply`). Project/org permission checks remain independently enforced. |
-| `"item"` | Resolves the active work-claim row for `target.item_id`. The calling session's `session_id` must match. Otherwise `error.code="claim_required"` (HTTP 409). |
-| `"epic"` | Same as `"item"` but resolves the parent epic id from `target.kind="epic_task"` (`target.epic_id`). |
+| `"item"` | Resolves the active work-claim row for `target.public_ref`. The calling session's `session_id` must match. Otherwise `error.code="claim_required"` (HTTP 409). |
+| `"epic"` | Same as `"item"` but resolves the parent epic id from `target.kind="epic_task"` (`target.public_ref`). |
 | `"self_only"` | The claim itself is the target (e.g. `claims.work.release`). The handler reads the claim row by target and asserts `actor.session_id == row.session_id`. |
 | `"operator_override"` | Requires the calling session to carry an operator-authored bypass marker (e.g. `path-claim-override`). Otherwise `error.code="operator_override_required"`. |
 
@@ -119,8 +104,7 @@ Replaces every hand-authored `printf '%s' "$content" | python3 -m yoke_core.cli.
 | `items.progress_log.append` | `"item"` | `yoke_core.domain.handlers.items_progress_log` | `{old_lines, new_lines, entry_count}` (read-then-upsert with `ordering=200`) |
 | `items.scalar.update` | `"item"` | `yoke_core.domain.handlers.items_scalar` → `prepare_update` | `{field, old, new}` |
 | `items.get` (read) | `None` | `yoke_core.domain.handlers.reads.items_get` | typed item payload (optional `fields[]`) |
-| `items.public_ref.lookup` (read) | `None` | `yoke_core.domain.handlers.items_public_ref` | `{refs: {internal_id: PREFIX-N}}` |
-| `items.create` | `None` | `yoke_core.domain.handlers.items_create` → `backlog_create_op.execute_create` | `{item_id, public_ref, dry_run, log, execution_instructions, execution_instructions_considered}` |
+| `items.create` | `None` | `yoke_core.domain.handlers.items_create` → `backlog_create_op.execute_create` | `{public_ref, dry_run, log, execution_instructions, execution_instructions_considered}` |
 
 **Canonical create — a non-web filer attests the operator instructions:**
 
@@ -147,7 +131,7 @@ Replaces every hand-authored `printf '%s' "$content" | python3 -m yoke_core.cli.
   "function": "items.structured_field.replace",
   "request_id": "<uuid>",
   "actor":  {"session_id": "...", "actor_id": "..."},
-  "target": {"kind": "item", "item_id": 42},
+  "target": {"kind": "item", "public_ref": "PREFIX-42"},
   "payload": {"field": "spec", "content": "# Spec\n\n..."},
   "options": {"sync_github_body": true}
 }
@@ -158,7 +142,7 @@ Replaces every hand-authored `printf '%s' "$content" | python3 -m yoke_core.cli.
 ```jsonc
 {
   "function": "items.structured_field.append_addendum",
-  "target":   {"kind": "item", "item_id": 42},
+  "target":   {"kind": "item", "public_ref": "PREFIX-42"},
   "payload":  {
     "field":   "spec",
     "heading": "Refinement Addendum (2026-05-13)",
@@ -175,7 +159,7 @@ The same handler accepts `items.structured_field.section_upsert` (replace a `## 
 ```jsonc
 {
   "function": "items.progress_log.append",
-  "target":   {"kind": "item", "item_id": 42},
+  "target":   {"kind": "item", "public_ref": "PREFIX-42"},
   "payload":  {"headline": "kicked off engineer dispatch", "content": "..." }
 }
 ```
@@ -221,7 +205,7 @@ Replaces every hand-authored `python3 -m yoke_core.domain.epic task-update-body 
 | `workflow_item.epic_task.metadata_update` | `"epic"` | same handler → `epic_amend.task_metadata_update` | Accepts `title`, `context_estimate`, `dependencies`, and other epic-task scalar fields. |
 | `workflow_item.epic_task.review_seed` | `"epic"` | `yoke_core.domain.handlers.workflow_item_epic_task_review.handle_review_seed` | Wraps `epic.review_seed`; idempotent requirement seed; auto-advances `implementing → reviewing-implementation`. |
 | `workflow_item.epic_task.review_insert` | `"epic"` | same module → `epic.review_insert` | Payload `{verdict: pass/fail (case-insensitive), body}`; a pass auto-advances `reviewing-implementation → reviewed-implementation`. |
-| `workflow_item.epic_task.review_get` | `None` (read) | same module → `epic.review_get` | Most recent review as a pipe row (`id`, `epic_id`, `task_num`, `verdict`, `body`, `created_at`); `target_not_found` when none. |
+| `workflow_item.epic_task.review_get` | `None` (read) | same module → `epic.review_get` | Most recent review as a pipe row (`id`, `epic_public_ref`, `task_num`, `verdict`, `body`, `created_at`); `target_not_found` when none. |
 | `workflow_item.epic_task.review_list` | `None` (read) | same module → `epic.review_list` | Review history newest-first; `{reviews, count}` where `count` is review ROWS (bodies are multi-line); empty list is success. |
 | `workflow_item.epic_task.body_get` | `None` (read) | `yoke_core.domain.handlers.workflow_item_epic_task_state.handle_body_get` | Wraps `epic.task_get_body`; returns the body verbatim. |
 | `workflow_item.epic_task.update_status` | `"epic"` | same module → `epic.task_update_status` | Non-pipeline status write + GitHub label sync; terminal success statuses refuse with `pipeline_required`. |
@@ -234,7 +218,7 @@ Replaces every hand-authored `python3 -m yoke_core.domain.epic task-update-body 
 ```jsonc
 {
   "function": "workflow_item.epic_task.body_replace",
-  "target":   {"kind": "epic_task", "epic_id": 833, "task_num": 5},
+  "target":   {"kind": "epic_task", "public_ref": "PREFIX-833", "task_num": 5},
   "payload":  {"content": "..."}
 }
 ```
@@ -244,7 +228,7 @@ Replaces every hand-authored `python3 -m yoke_core.domain.epic task-update-body 
 ```jsonc
 {
   "function": "workflow_item.epic_progress_note.append",
-  "target":   {"kind": "epic_task", "epic_id": 833, "task_num": 5},
+  "target":   {"kind": "epic_task", "public_ref": "PREFIX-833", "task_num": 5},
   "payload":  {"note_num": 3, "body": "..."}
 }
 ```
@@ -258,7 +242,7 @@ Replaces every hand-authored `python3 -m yoke_core.domain.epic task-update-body 
 ```jsonc
 {
   "function": "lifecycle.transition",
-  "target":   {"kind": "item", "item_id": 42},
+  "target":   {"kind": "item", "public_ref": "PREFIX-42"},
   "payload":  {"from_status": "implementing", "to_status": "reviewing-implementation", "reason": "..." }
 }
 ```
@@ -303,7 +287,7 @@ Replaces every hand-authored `python3 -m yoke_core.domain.epic task-update-body 
 | `qa.artifact.rehome` | `"item"` | `yoke_core.domain.handlers.qa_artifact_rehome` — stores one local-handle artifact's recorded bytes (`content_base64`, sent from the capture machine) through the serving build's artifact store and swaps the handle on the SAME `qa_artifacts` row by compare-and-set, keeping the run, verdict, and any pending review request; the replaced handle and the bytes' sha256 land in `metadata.rehomed_from`. An object-store artifact answers `rehomed=false`. `qa.artifact.read` reports `recorded_path` for local evidence it cannot serve, which is what the adapter reads. Serving floor: next release. CLI adapter: `yoke qa artifact rehome --requirement-id N --artifact-id N [--artifact-id N ...]`. |
 | Start-bound recording authority | — | All three recording legs accept `execution_claim_id`: the item claim the run pinned at `qa.case_execution.begin`, where the dispatcher verified it. The `qa_subject` check accepts that claim when the live one is gone, so an hour-long gate records the verdict it earned even after explicit claim release or item handoff mid-run. Owner: `yoke_core.domain.qa_start_bound_authority`; the window is `AUTHORITY_WINDOW_SECONDS`, sized to the longest permitted case command. |
 | Browser method execution | — | The tool-shaped `yoke qa case run --requirement-id N` fetches one immutable case through `qa.case_execution.get`, then uses the Browser context/run/artifact ids above when its registered runner is `browser_substrate`. There is no aggregate Browser execution entry. |
-| `qa.requirement.list` / `qa.requirement.get` / `qa.run.list` (reads) | `None` | `yoke_core.domain.handlers.qa_reads` — typed qa reads over the canonical column rosters (`qa_constants.REQ_COLUMNS` / `RUN_COLUMNS`; run rows include `execution_status`). `requirement.list` filters by item target (relay shape), payload `epic_id`, or payload `deployment_run_id`. CLI adapters: `yoke qa requirement list` / `yoke qa requirement get` / `yoke qa run list`. |
+| `qa.requirement.list` / `qa.requirement.get` / `qa.run.list` (reads) | `None` | `yoke_core.domain.handlers.qa_reads` — typed qa reads over the canonical column rosters (`qa_constants.REQ_COLUMNS` / `RUN_COLUMNS`; run rows include `execution_status`). `requirement.list` filters by item target (relay shape), payload `epic_public_ref`, or payload `deployment_run_id`. CLI adapters: `yoke qa requirement list` / `yoke qa requirement get` / `yoke qa run list`. |
 | `qa.gate_summary.run` (read) | `None` | `yoke_core.domain.handlers.qa_reads.handle_qa_gate_summary` — wraps `yoke_core.domain.qa_gate_summary.render_gate_summary` for an item or `epic_task` target with payload `transition` ∈ (`reviewed-implementation`, `implemented`); the dispatcher-backed replacement for the checkout-shaped `db_router qa gate-summary` agent leg. CLI adapter: `yoke qa gate-summary`. |
 | `qa.requirement.add` / `qa.requirement.add_batch` | `"item"` | `yoke_core.domain.handlers.qa_requirement_create` — item-attached requirement creation mirroring `cmd_requirement_add`/`add_batch` (shared validators from `qa_requirement_policy_validation`, pinned-workflow transition validation, per-row `QARequirementCreated`). Single adds require `workflow_transition_id`; every `add_batch` row requires it and targets the function-call item (one claim verifies one batch). Epic-task attachment stays on the operator-debug domain CLI and also requires a valid transition; deployment-run attachment stays operator-debug and may omit it. CLI adapters: `yoke qa requirement add` / `add-batch`. |
 | `project_structure.patch.apply` | `None` (project-role auth requires `project.admin` on the target project) | `yoke_core.domain.handlers.project_structure.handle_project_structure_patch_apply` — atomically applies project configuration ops. An optional item target supplies provenance context, never write authority. CLI adapter: `yoke project-structure patch apply --project P --ops-json JSON [--item ITEM]`. |

@@ -34,7 +34,7 @@ export function effectiveChecks(rows) {
 // The run's own checks: a carried item's member checks are that item's.
 export function effectiveRunChecks(rows) {
   return effectiveChecks((rows || []).filter(
-    (row) => row.deployment_member_item_id == null));
+    (row) => row.deployment_member_public_ref == null));
 }
 
 function groupByRun(rows) {
@@ -48,7 +48,7 @@ function groupByRun(rows) {
       entry.artifacts.push({
         ...artifact,
         requirement_id: artifact.requirement_id ?? row.requirement_id,
-        member_item_id: row.deployment_member_item_id ?? null,
+        member_public_ref: row.deployment_member_public_ref ?? null,
       });
     }
     byRun.set(String(runId), entry);

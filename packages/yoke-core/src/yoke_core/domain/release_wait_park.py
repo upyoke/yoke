@@ -21,6 +21,8 @@ caller prints still carries the retention teaching.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 from typing import Any
 
 from yoke_contracts.api.function_call import TargetRef
@@ -88,7 +90,7 @@ def _held_by(dispatch: Any, item_id: int, session_id: str) -> bool:
     """True when ``session_id`` still holds this item's live work claim."""
     response = dispatch(
         function_id=HOLDER_FUNCTION,
-        target=TargetRef(kind="item", item_id=int(item_id)),
+        target=public_item_target(item_id),
         payload={},
     )
     if not getattr(response, "success", False):

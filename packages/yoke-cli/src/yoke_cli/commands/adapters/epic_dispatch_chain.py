@@ -18,7 +18,7 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 def _epic_target(parsed) -> TargetRef:
-    return TargetRef(kind="epic_task", epic_id=int(parsed.epic))
+    return TargetRef(kind="epic_task", public_ref=parsed.epic)
 
 
 def _write_body(response, stdout, stderr) -> None:
@@ -41,7 +41,7 @@ def _dispatch(function_id, target, payload, parsed, writer=None) -> int:
 
 
 EPIC_DISPATCH_CHAIN_GET_USAGE = (
-    "yoke workflow-item epic-dispatch-chain get --epic N --worktree NAME "
+    "yoke workflow-item epic-dispatch-chain get --epic PREFIX-N --worktree NAME "
     "[--session-id S] [--json]"
 )
 
@@ -51,7 +51,7 @@ def epic_dispatch_chain_get(args: List[str]) -> int:
         prog="yoke workflow-item epic-dispatch-chain get",
         description="Read one pipe-delimited epic_dispatch_chains row.",
     )
-    parser.add_argument("--epic", type=int, required=True)
+    parser.add_argument("--epic", required=True)
     parser.add_argument("--worktree", required=True)
     add_session_arg(parser)
     add_json_arg(parser)
@@ -68,7 +68,7 @@ def epic_dispatch_chain_get(args: List[str]) -> int:
 
 
 EPIC_DISPATCH_CHAIN_LIST_USAGE = (
-    "yoke workflow-item epic-dispatch-chain list --epic N "
+    "yoke workflow-item epic-dispatch-chain list --epic PREFIX-N "
     "[--session-id S] [--json]"
 )
 
@@ -78,7 +78,7 @@ def epic_dispatch_chain_list(args: List[str]) -> int:
         prog="yoke workflow-item epic-dispatch-chain list",
         description="List pipe-delimited dispatch-chain rows for an epic.",
     )
-    parser.add_argument("--epic", type=int, required=True)
+    parser.add_argument("--epic", required=True)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, EPIC_DISPATCH_CHAIN_LIST_USAGE)
@@ -94,7 +94,7 @@ def epic_dispatch_chain_list(args: List[str]) -> int:
 
 
 EPIC_DISPATCH_CHAIN_UPDATE_USAGE = (
-    "yoke workflow-item epic-dispatch-chain update --epic N "
+    "yoke workflow-item epic-dispatch-chain update --epic PREFIX-N "
     "--worktree NAME --field FIELD (--value TEXT | --value-file PATH | --stdin) "
     "[--session-id S] [--json]"
 )
@@ -105,7 +105,7 @@ def epic_dispatch_chain_update(args: List[str]) -> int:
         prog="yoke workflow-item epic-dispatch-chain update",
         description="Update one whitelisted epic_dispatch_chains field.",
     )
-    parser.add_argument("--epic", type=int, required=True)
+    parser.add_argument("--epic", required=True)
     parser.add_argument("--worktree", required=True)
     parser.add_argument("--field", required=True)
     group = parser.add_mutually_exclusive_group(required=True)
@@ -117,10 +117,14 @@ def epic_dispatch_chain_update(args: List[str]) -> int:
     if parsed is None:
         return 2
     try:
-        value = sys.stdin.read() if parsed.stdin else resolve_text_file(
-            parsed.value,
-            parsed.value_file,
-            "--value-file",
+        value = (
+            sys.stdin.read()
+            if parsed.stdin
+            else resolve_text_file(
+                parsed.value,
+                parsed.value_file,
+                "--value-file",
+            )
         )
     except ValueError as exc:
         return usage_error(str(exc))
@@ -138,7 +142,7 @@ def epic_dispatch_chain_update(args: List[str]) -> int:
 
 
 EPIC_DISPATCH_CHAIN_REFRESH_ACTIVATION_USAGE = (
-    "yoke workflow-item epic-dispatch-chain refresh-activation --epic N "
+    "yoke workflow-item epic-dispatch-chain refresh-activation --epic PREFIX-N "
     "--worktree NAME --task-num N [--session-id S] [--json]"
 )
 
@@ -148,7 +152,7 @@ def epic_dispatch_chain_refresh_activation(args: List[str]) -> int:
         prog="yoke workflow-item epic-dispatch-chain refresh-activation",
         description="Refresh current task, attempt, and timestamp on activation.",
     )
-    parser.add_argument("--epic", type=int, required=True)
+    parser.add_argument("--epic", required=True)
     parser.add_argument("--worktree", required=True)
     parser.add_argument("--task-num", type=int, required=True)
     add_session_arg(parser)
@@ -170,7 +174,7 @@ def epic_dispatch_chain_refresh_activation(args: List[str]) -> int:
 
 
 EPIC_DISPATCH_CHAIN_ADVANCE_USAGE = (
-    "yoke workflow-item epic-dispatch-chain advance --epic N "
+    "yoke workflow-item epic-dispatch-chain advance --epic PREFIX-N "
     "--worktree NAME [--session-id S] [--json]"
 )
 
@@ -180,7 +184,7 @@ def epic_dispatch_chain_advance(args: List[str]) -> int:
         prog="yoke workflow-item epic-dispatch-chain advance",
         description="Atomically advance one dispatch chain to its next task.",
     )
-    parser.add_argument("--epic", type=int, required=True)
+    parser.add_argument("--epic", required=True)
     parser.add_argument("--worktree", required=True)
     add_session_arg(parser)
     add_json_arg(parser)
@@ -195,8 +199,7 @@ def epic_dispatch_chain_advance(args: List[str]) -> int:
     def _write_advance(response, stdout, stderr) -> None:
         result = response.result or {}
         stdout.write(
-            f"{result.get('current_index', '')}|"
-            f"{result.get('next_task_num', '')}\n"
+            f"{result.get('current_index', '')}|{result.get('next_task_num', '')}\n"
         )
 
     return _dispatch(

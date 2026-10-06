@@ -250,7 +250,7 @@ cat > "$_body_file" <<'NOTE'
 **Summary:** What was done in this commit.
 **Files changed:** list of files
 NOTE
-yoke workflow-item epic-progress-note append --epic {epic-id} --task-num {task-num} --note-num {note-num} --body-file "$_body_file"
+yoke workflow-item epic-progress-note append --epic {epic-ref} --task-num {task-num} --note-num {note-num} --body-file "$_body_file"
 rm -f "$_body_file"
 ```
 

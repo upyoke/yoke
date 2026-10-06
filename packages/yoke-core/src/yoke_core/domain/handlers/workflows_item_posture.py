@@ -75,7 +75,7 @@ def handle_item_posture_amend(request: FunctionCallRequest) -> HandlerOutcome:
         # refuses by session rather than by workflow compatibility.
         return _error("permission_denied", str(exc), "$.payload.key")
     except LookupError as exc:
-        return _error("not_found", str(exc), "$.target.item_id")
+        return _error("not_found", str(exc), "$.target.public_ref")
     return HandlerOutcome(result_payload=result, primary_success=True)
 
 

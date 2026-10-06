@@ -25,7 +25,7 @@ def lifecycle_repair_status(args: List[str]) -> int:
         prog="yoke lifecycle repair-status",
         description=("Operator-only, audited repair of one item's lifecycle status."),
     )
-    parser.add_argument("item", help="Item id (PREFIX-N or project-local number).")
+    parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument(
         "--to",
         dest="to_status",

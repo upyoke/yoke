@@ -280,7 +280,7 @@ is covered by one check. Two tables carry those obligations, and both are read:
   never re-opens what a stage already accepted. A case whose latest run is
   `undetermined` and awaits human review is named with it and its authorities.
   The item `done` gate ignores a closed verdict-less item attempt only after its successor passes or is discharged (post-deploy proof needs accepted completion-member copies); an unsettled successor is named, and live runs and plans still block. It also reads the same rows when they name the item as
-  `deployment_member_item_id`; run-scoped rows with no member stay the run's.
+  `deployment_member_public_ref`; run-scoped rows with no member stay the run's.
 
 Non-blocking checks never hold a run, and `force=True` overrides the
 hold exactly as it overrides the stage checks beside it.

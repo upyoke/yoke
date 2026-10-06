@@ -20,6 +20,8 @@ not perform.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 import json
 from typing import Any, Optional
 
@@ -57,7 +59,7 @@ def record(
     merge_sha = "" if no_changes else str(outcome.merge_sha or "")
     response = call_dispatcher(
         function_id="direct_workflow.dash.evidence",
-        target=TargetRef(kind="item", item_id=item_id),
+        target=public_item_target(item_id),
         payload={
             "result_summary": result_summary,
             "verification_summary": verification_summary,
@@ -139,7 +141,7 @@ def authoritative_status_is(item_id: int, expected_status: str) -> bool:
     """Whether the item record confirms a transport-ambiguous transition."""
     response = call_dispatcher(
         function_id="items.detail.get",
-        target=TargetRef(kind="item", item_id=item_id),
+        target=public_item_target(item_id),
         payload={},
     )
     if not getattr(response, "success", False):
@@ -151,7 +153,7 @@ def authoritative_status_is(item_id: int, expected_status: str) -> bool:
 def _merged_at(item_id: int) -> str:
     response = call_dispatcher(
         function_id="items.get.run",
-        target=TargetRef(kind="item", item_id=item_id),
+        target=public_item_target(item_id),
         payload={"fields": ["merged_at"]},
     )
     if not getattr(response, "success", False):
@@ -208,7 +210,6 @@ def recorded_landing_envelope(
     return {
         "ok": True,
         "result": LANDING_ALREADY_RECORDED,
-        "item_id": int(item_id),
         "public_ref": public_ref,
         "branch": branch,
         "already_merged": True,
@@ -242,12 +243,11 @@ def closed_out_envelope(
     """
     if str(item.get("status") or "") != CLOSED_OUT_STATUS:
         return None
-    evidence = recorded(int(item["id"]))
+    evidence = recorded(item["public_ref"])
     if evidence is None:
         return None
     return {
         "ok": True,
-        "item_id": int(item["id"]),
         "public_ref": public_ref,
         "branch": branch,
         "already_merged": True,

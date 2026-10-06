@@ -3,9 +3,8 @@
 Owns ``create-item`` and ``validate-update`` — both are **internal
 validators for the ``/yoke idea`` workflow**, not agent-facing
 work-item entrypoints. They only call ``mutations.prepare_*``
-to return the planned field writes; they do not insert rows, sync to
-GitHub, or release a draft claim. Production callers always enter
-through a registered surface; ``create-item`` checks that the selected
+to return planned writes. Production callers enter a registered surface;
+``create-item`` checks that the selected
 workflow allows its typed entry surface.
 """
 
@@ -196,7 +195,7 @@ def cmd_create_item(args: list[str]) -> int:
 def cmd_update_item(args: list[str]) -> int:
     """Validate and prepare a single-field item update via the shared mutation layer.
 
-    Usage: validate-update <item-id> --field FIELD --value VALUE
+    Usage: validate-update <PREFIX-N> --field FIELD --value VALUE
                            [--done-nonce-verified] [--force] [--qa-bypass]
 
     Returns JSON on stdout with the mutation result (field_writes, events).
@@ -208,20 +207,24 @@ def cmd_update_item(args: list[str]) -> int:
     """
     if len(args) < 1:
         print(
-            "Usage: validate-update <item-id> --field FIELD --value VALUE "
+            "Usage: validate-update <PREFIX-N> --field FIELD --value VALUE "
             "[--done-nonce-verified] [--force] [--qa-bypass]",
             file=sys.stderr,
         )
         return 2
 
     try:
-        item_id = int(args[0])
+        from yoke_core.api.service_client_shared_session_resolver import (
+            _parse_item_id_arg,
+        )
+
+        item_id = _parse_item_id_arg(args[0])
     except ValueError:
         print(
             json.dumps(
                 {
                     "success": False,
-                    "error": f"Item ID must be an integer, got '{args[0]}'",
+                    "error": f"Item ref must be PREFIX-N, got '{args[0]}'",
                     "error_code": "VALIDATION_ERROR",
                 }
             )
@@ -257,7 +260,7 @@ def cmd_update_item(args: list[str]) -> int:
 
     if field_name is None or value is None:
         print(
-            "Usage: validate-update <item-id> --field FIELD --value VALUE "
+            "Usage: validate-update <PREFIX-N> --field FIELD --value VALUE "
             "[--done-nonce-verified] [--force] [--qa-bypass]",
             file=sys.stderr,
         )

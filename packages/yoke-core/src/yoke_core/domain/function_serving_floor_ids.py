@@ -6,6 +6,7 @@ must declare ``minimum_serving_version`` at registration.
 
 from __future__ import annotations
 
+# fmt: off
 ALREADY_SERVED_FUNCTION_IDS: frozenset[str] = frozenset((
     'advance.preflight.file_budget', 'advance.preflight.hard_blocks', 'advance.preflight.spec_coverage',
     'agents.render.check', 'agents.render.run', 'agents.render_relationships.record', 'auth.set.run',
@@ -52,7 +53,7 @@ ALREADY_SERVED_FUNCTION_IDS: frozenset[str] = frozenset((
     'items.dependency.remove', 'items.dependency.update', 'items.deployment_flow.claim_default', 'items.detail.get',
     'items.freeze.run', 'items.get.run', 'items.github_done_sync', 'items.github_sync',
     'items.list.run', 'items.merge_provenance.operator_correct', 'items.overview.list', 'items.progress_log.append',
-    'items.public_ref.lookup', 'items.scalar.update', 'items.search.run', 'items.section.delete',
+    'items.scalar.update', 'items.search.run', 'items.section.delete',
     'items.section.get', 'items.section.upsert', 'items.structured_field.append_addendum', 'items.structured_field.replace',
     'items.structured_field.section_append', 'items.structured_field.section_upsert', 'items.thaw.run', 'items.unblock.run',
     'lifecycle.repair_status.execute', 'lifecycle.skip.record_recoverable_substrate', 'lifecycle.transition.execute', 'lint.config.show',
@@ -138,3 +139,5 @@ ALREADY_SERVED_FUNCTION_IDS: frozenset[str] = frozenset((
     'workflows.item_posture.amend', 'workflows.mechanics.get', 'workflows.policy_defaults.publish', 'workflows.testing_default.set',
     'workflows.version.get', 'workflows.version.list',
 ))
+
+# fmt: on

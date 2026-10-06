@@ -9,6 +9,8 @@ local-postgres env and from an external project over the https relay.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 from typing import Any, Dict, Optional
 
 from yoke_contracts.api.function_call import ActorContext
@@ -52,7 +54,7 @@ def _fetch_browser_context(
         )
     else:
         try:
-            target = TargetRef(kind="item", item_id=int(item_id))
+            target = public_item_target(item_id)
         except (TypeError, ValueError):
             target = TargetRef(
                 kind="item",

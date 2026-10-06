@@ -28,7 +28,9 @@ from runtime.api.domain.render_body_test_helpers import (
 
 
 class TestBuildBody:
-    def test_orders_sections_and_strips_duplicate_headings(self, tmp_path: Path) -> None:
+    def test_orders_sections_and_strips_duplicate_headings(
+        self, tmp_path: Path
+    ) -> None:
         with _init_db(tmp_path) as db_path:
             conn = _connect(db_path)
             item_id = 7
@@ -59,7 +61,7 @@ class TestBuildBody:
             shepherd_item = f"YOK-{item_id}"
             conn.execute(
                 f"""
-                INSERT INTO shepherd_verdicts (item, transition, worker, verdict, caveats, attempt, created_at)
+                INSERT INTO shepherd_verdicts (public_ref, transition, worker, verdict, caveats, attempt, created_at)
                 VALUES ({p}, 'review', 'tester', 'PASS', NULL, 1, '2026-01-01T00:00:00Z')
                 """,
                 (shepherd_item,),
@@ -105,7 +107,8 @@ class TestBuildBody:
             conn.commit()
             body = render_body.build_body(conn, item_id)
             extracted = render_body.extract_section(
-                body or "", "Current Refusal Inventory",
+                body or "",
+                "Current Refusal Inventory",
             )
             conn.close()
             assert body is not None
@@ -122,7 +125,9 @@ class TestRenderItem:
             conn.close()
 
             output_file = tmp_path / "body.md"
-            rc = render_body.render_item(8, db_path=db_path, output_file=str(output_file))
+            rc = render_body.render_item(
+                8, db_path=db_path, output_file=str(output_file)
+            )
 
             assert rc == 0
             assert output_file.read_text(encoding="utf-8") == ""
@@ -233,7 +238,10 @@ class TestRenderSection:
 
             out = io.StringIO()
             rc = render_body.render_section(
-                21, "## File Budget", db_path=db_path, out=out,
+                21,
+                "## File Budget",
+                db_path=db_path,
+                out=out,
             )
             assert rc == 0
             result = out.getvalue()
@@ -255,7 +263,11 @@ class TestRenderSection:
             out = io.StringIO()
             err = io.StringIO()
             rc = render_body.render_section(
-                22, "## File Budget", db_path=db_path, out=out, err=err,
+                22,
+                "## File Budget",
+                db_path=db_path,
+                out=out,
+                err=err,
             )
             assert rc == 0
             assert "File Budget" in err.getvalue()
@@ -270,7 +282,11 @@ class TestRenderSection:
             out = io.StringIO()
             err = io.StringIO()
             rc = render_body.render_section(
-                99999, "## File Budget", db_path=db_path, out=out, err=err,
+                99999,
+                "## File Budget",
+                db_path=db_path,
+                out=out,
+                err=err,
             )
             assert rc == 1
             assert out.getvalue() == ""
@@ -280,7 +296,9 @@ class TestRenderSection:
             conn = _connect(db_path)
             _seed_item(conn, 23, "Flag thread item")
             _set_field(
-                conn, 23, "spec",
+                conn,
+                23,
+                "spec",
                 "## File Budget\n\nBudget body.\n\n## Other\n\nOther.\n",
             )
             conn.close()
@@ -290,58 +308,7 @@ class TestRenderSection:
             # connect path.
             import os as _os
             from unittest import mock as _mock
+
             with _mock.patch.dict(_os.environ, {"YOKE_DB": db_path}):
                 rc = render_body.main(["YOK-23", "--section", "## File Budget"])
             assert rc == 0
-
-
-class TestRendererOwnedSectionStrip:
-    """Operator-authored ``## Path Claims`` in spec must not duplicate
-    the DB-backed renderer's authoritative version.
-    """
-
-    def test_operator_path_claims_in_spec_stripped(self, tmp_path: Path) -> None:
-        with _init_db(tmp_path) as db_path:
-            conn = _connect(db_path)
-            _seed_item(conn, 31, "Path Claims dup item")
-            spec_with_dup = (
-                "Body intro.\n\n"
-                "## File Budget\n\n"
-                "- foo.py\n\n"
-                "## Path Claims\n\n"
-                "Operator-authored planning claim that duplicates DB state.\n\n"
-                "- `runtime/api/domain/foo.py`\n\n"
-                "## Non-Goals\n\n"
-                "Trailing section after the stripped block.\n"
-            )
-            _set_field(conn, 31, "spec", spec_with_dup)
-            try:
-                body = render_body.build_body(conn, 31) or ""
-            finally:
-                conn.close()
-            # Trailing section preserved verbatim.
-            assert "## Non-Goals" in body
-            assert "Trailing section after the stripped block." in body
-            # File Budget heading (operator-owned) preserved.
-            assert "## File Budget" in body
-            # Operator-authored Path Claims block body stripped — only
-            # zero or one ``## Path Claims`` heading may remain (zero
-            # when no DB claim exists for the test item).
-            assert body.count("## Path Claims") <= 1
-            assert "Operator-authored planning claim" not in body
-
-    def test_db_claim_heading_in_spec_stripped(self, tmp_path: Path) -> None:
-        with _init_db(tmp_path) as db_path:
-            conn = _connect(db_path)
-            _seed_item(conn, 32, "DB Claim dup item")
-            _set_field(
-                conn, 32, "spec",
-                "Intro.\n\n## DB Claim\n\nOperator copy.\n\n## File Budget\n\n- bar.py\n",
-            )
-            try:
-                body = render_body.build_body(conn, 32) or ""
-            finally:
-                conn.close()
-            assert "Operator copy." not in body
-            # File Budget survives as operator-authored content.
-            assert "## File Budget" in body

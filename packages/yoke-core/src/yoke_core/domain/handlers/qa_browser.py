@@ -94,7 +94,7 @@ def handle_qa_browser_context_get(request: FunctionCallRequest) -> HandlerOutcom
         return _error(
             "target_invalid",
             "qa.browser_context.get requires exactly one subject: "
-            "target.item_id for an item case, or target.deployment_run_id "
+            "target.public_ref for an item case, or target.deployment_run_id "
             "for a deployment-run case",
         )
     payload = request.payload or {}

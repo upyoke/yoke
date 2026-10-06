@@ -1,6 +1,6 @@
 # Conduct — Engineer/Tester Loop (S6g)
 
-The Engineer/Tester execution phase of the conduct epic flow. Covers the Engineer dispatch, submission gate, Tester dispatch, verdict processing, retry logic, and auto-chaining to the next task. **Inherited from entry-activation:** `MAIN_ROOT`, `_epic_id`, `N`, `_task_ids`, `_task_id`, `_worktree_path`, `_worktree_branch`, `TASK_BASELINE`, `_max_attempts`, `_no_chain`, context block.
+The Engineer/Tester execution phase of the conduct epic flow. Covers the Engineer dispatch, submission gate, Tester dispatch, verdict processing, retry logic, and auto-chaining to the next task. **Inherited from entry-activation:** `MAIN_ROOT`, `_epic_ref`, `N`, `_task_ids`, `_task_id`, `_worktree_path`, `_worktree_branch`, `TASK_BASELINE`, `_max_attempts`, `_no_chain`, context block.
 
 ---
 
@@ -22,7 +22,7 @@ After Tester returns:
 **Read and follow: `.agents/skills/yoke/conduct/engineer-tester-closeout.md`**
 Covers: Tester artifact capture, ephemeral teardown, temp file cleanup, verdict parsing, the Tester output gate (escalating retry to opus + conduct direct verify), and verdict branching — PASS auto-chain to next task or `simulation-gate.md`, FAIL retry with `_attempt` increment, FAIL exhausted to `cleanup-report.md`.
 
-**Branch B — multi-task fan-out batch (`_batch_size > 1`).** Use the parallel pathway. `N` / `_epic_id` remains the parent item throughout the batch; `_task_id` iterates the local epic task numbers from `_task_ids`. Per-task state vars carry the `_${_task_id}` suffix (e.g., `_worktree_path_${_task_id}`, `_worktree_branch_${_task_id}`, `ATTEMPT_BASELINE_${_task_id}`, `_has_implementation_${_task_id}`, `_attempt_${_task_id}`).
+**Branch B — multi-task fan-out batch (`_batch_size > 1`).** Use the parallel pathway. `N` / `_epic_ref` remains the parent item throughout the batch; `_task_id` iterates the local epic task numbers from `_task_ids`. Per-task state vars carry the `_${_task_id}` suffix (e.g., `_worktree_path_${_task_id}`, `_worktree_branch_${_task_id}`, `ATTEMPT_BASELINE_${_task_id}`, `_has_implementation_${_task_id}`, `_attempt_${_task_id}`).
 
 **Read and follow:** [`dispatch-context-dispatch.md`](dispatch-context-dispatch.md) sections **5g** (Parallel Engineer Dispatch — record per-task baselines, run branch-ahead detection per task, dispatch every Engineer in a single Agent-tool batch, then run the post-return submission gates per task) and **5h** (main-merge per task), then [`dispatch-context-prompts.md`](dispatch-context-prompts.md) section **5i** (Parallel Tester Dispatch — size-gate each task's diffs, dispatch every Tester in a single Agent-tool batch).
 

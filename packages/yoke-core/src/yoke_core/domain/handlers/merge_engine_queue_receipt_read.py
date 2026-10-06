@@ -89,7 +89,7 @@ def handle_recorded_queue_receipt(request: FunctionCallRequest) -> HandlerOutcom
     if item_id is None:
         return _err(
             "target_invalid",
-            "recorded_queue_receipt requires target.item_id",
+            "recorded_queue_receipt requires target.public_ref",
         )
     try:
         body = RecordedQueueReceiptRequest.model_validate(request.payload or {})
@@ -124,13 +124,12 @@ def handle_recorded_queue_receipt(request: FunctionCallRequest) -> HandlerOutcom
             "merge_sha": str(block.get("merge_sha") or ""),
             "combined_head_sha": str(block.get("combined_head_sha") or ""),
             "run_url": str(block.get("run_url") or ""),
-            "members": [
-                str(member) for member in (block.get("members") or [])
-            ],
+            "members": [str(member) for member in (block.get("members") or [])],
             "drift_check": {
-                str(key): str(value)
-                for key, value in (drift or {}).items()
-            } if isinstance(drift, dict) else {},
+                str(key): str(value) for key, value in (drift or {}).items()
+            }
+            if isinstance(drift, dict)
+            else {},
         },
         primary_success=True,
     )

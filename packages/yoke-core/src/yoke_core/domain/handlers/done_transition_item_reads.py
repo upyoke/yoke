@@ -143,7 +143,7 @@ def handle_item_context(request: FunctionCallRequest) -> HandlerOutcome:
     """
     item_id = _require_item_id(request)
     if item_id is None:
-        return _err("target_invalid", "item_context requires target.item_id")
+        return _err("target_invalid", "item_context requires target.public_ref")
 
     from yoke_core.engines.done_transition_item_context import (
         load_done_item_context,
@@ -188,7 +188,7 @@ def handle_item_field(request: FunctionCallRequest) -> HandlerOutcome:
     """
     item_id = _require_item_id(request)
     if item_id is None:
-        return _err("target_invalid", "item_field requires target.item_id")
+        return _err("target_invalid", "item_field requires target.public_ref")
     try:
         body = ItemFieldRequest.model_validate(request.payload)
     except Exception as exc:  # noqa: BLE001 - surface a structured payload error
@@ -228,7 +228,7 @@ def handle_blocked_gate(request: FunctionCallRequest) -> HandlerOutcome:
     """
     item_id = _require_item_id(request)
     if item_id is None:
-        return _err("target_invalid", "blocked_gate requires target.item_id")
+        return _err("target_invalid", "blocked_gate requires target.public_ref")
 
     from yoke_core.domain.advance_blocked_gate import evaluate as _eval_blocked
 

@@ -2,8 +2,8 @@
 
 Covers merge Steps 1 through 5: require integration simulation, verify epic-level acceptance criteria against worktree paths, verify all tasks are complete, read the worktree plan, and determine merge order.
 
-**Context variables** (consumed by later phases): `{epic-id}`, `_epic_ref`,
-`_epic_id`, `_worktrees`, `WORKTREE_PATH`, `_worktree_plan`.
+**Context variables** (consumed by later phases): `{epic-ref}`, `_epic_ref`,
+`_epic_ref`, `_worktrees`, `WORKTREE_PATH`, `_worktree_plan`.
 
 ---
 
@@ -12,13 +12,13 @@ Covers merge Steps 1 through 5: require integration simulation, verify epic-leve
 1. **Require integration simulation:**
  Check if a canonical integration simulation report exists in the DB:
  ```bash
- _sim_record=$(yoke workflow-item epic-task simulation-get --epic "$_epic_id" --phase integration 2>/dev/null) && _sim_rc=0 || _sim_rc=$?
+ _sim_record=$(yoke workflow-item epic-task simulation-get --epic "$_epic_ref" --phase integration 2>/dev/null) && _sim_rc=0 || _sim_rc=$?
  ```
  If `_sim_rc` is non-zero or `_sim_record` is empty, print the following error and **STOP** (do not proceed to subsequent steps):
  > **Error: Integration simulation required before merge.**
  >
- > No canonical integration simulation report found for epic `{epic-id}`.
- > Run `/yoke simulate {epic-id}` to check for integration gaps across worktrees before merging.
+ > No canonical integration simulation report found for epic `{epic-ref}`.
+ > Run `/yoke simulate {epic-ref}` to check for integration gaps across worktrees before merging.
  >
  > To bypass this check, re-run with `--skip-simulation`:
  > `usher’s internal generated-task merge step with an explicitly authorized simulation override`
@@ -37,7 +37,7 @@ Covers merge Steps 1 through 5: require integration simulation, verify epic-leve
  **CRITICAL — Scope all checks to worktree paths, not main.** Before verifying
  ACs, read the epic task rows through the registered reader:
  ```bash
- yoke epic-tasks list --epic "$_epic_id"
+ yoke epic-tasks list --epic "$_epic_ref"
  ```
  Retain the distinct non-empty lane branches from the fourth pipe-delimited
  field as `_worktrees`. For each branch, resolve its local path:

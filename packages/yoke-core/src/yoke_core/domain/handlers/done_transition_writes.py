@@ -115,7 +115,7 @@ def handle_finalize_local_side_effects(
     if item_id is None:
         return _err(
             "target_invalid",
-            "finalize_local_side_effects requires target.item_id",
+            "finalize_local_side_effects requires target.public_ref",
         )
     try:
         body = FinalizeLocalSideEffectsRequest.model_validate(request.payload)
@@ -190,7 +190,7 @@ def handle_populate_merged_at(request: FunctionCallRequest) -> HandlerOutcome:
     """
     item_id = _require_item_id(request)
     if item_id is None:
-        return _err("target_invalid", "populate_merged_at requires target.item_id")
+        return _err("target_invalid", "populate_merged_at requires target.public_ref")
     try:
         body = PopulateMergedAtRequest.model_validate(request.payload)
     except ValidationError as exc:

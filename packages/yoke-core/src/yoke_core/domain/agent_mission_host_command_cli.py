@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 import argparse
 import json
 import sys
@@ -17,7 +19,7 @@ def _target(parsed: argparse.Namespace) -> TargetRef:
     if parsed.item is not None:
         return TargetRef(kind="item", public_ref=parsed.item, project_id=parsed.project)
     if parsed.item_id is not None:
-        return TargetRef(kind="item", item_id=parsed.item_id)
+        return public_item_target(parsed.item_id)
     if parsed.deployment_run_id is None:
         if not parsed.project:
             raise ValueError(

@@ -123,11 +123,11 @@ class TestHCShepherdLifecycle:
             "VALUES (1, 'E', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing', 'high')"
         )
         conn.execute(
-            "INSERT INTO shepherd_verdicts (item, transition, verdict) "
+            "INSERT INTO shepherd_verdicts (public_ref, transition, verdict) "
             "VALUES ('YOK-1', 'refined_idea_to_planning', 'READY')"
         )
         conn.execute(
-            "INSERT INTO shepherd_verdicts (item, transition, verdict) "
+            "INSERT INTO shepherd_verdicts (public_ref, transition, verdict) "
             "VALUES ('YOK-1', 'planning_to_plan_drafted', 'READY')"
         )
         rec = RecordCollector()
@@ -218,14 +218,27 @@ class TestHCRegistry:
     def test_all_hcs_registered(self):
         slugs = {hc.slug for hc in HEALTH_CHECKS}
         expected = {
-            "status-consistency", "blocked-items", "dispatch-chain",
-            "backlog-hygiene", "frontmatter-schema", "title-length",
-            "epic-validation", "undeployed-done", "orphan-fk",
-            "orphaned-runs", "stale-runs", "run-item-status-consistency",
-            "run-qa-unsatisfied", "preview-occupancy-stale",
-            "validation-no-qa-reqs", "smoke-failure-stale",
-            "smoke-artifact-orphan", "orphaned-done-items",
-            "deferred-items", "shepherd-lifecycle",
-            "lifecycle-continuity", "orphaned-ephemeral",
+            "status-consistency",
+            "blocked-items",
+            "dispatch-chain",
+            "backlog-hygiene",
+            "frontmatter-schema",
+            "title-length",
+            "epic-validation",
+            "undeployed-done",
+            "orphan-fk",
+            "orphaned-runs",
+            "stale-runs",
+            "run-item-status-consistency",
+            "run-qa-unsatisfied",
+            "preview-occupancy-stale",
+            "validation-no-qa-reqs",
+            "smoke-failure-stale",
+            "smoke-artifact-orphan",
+            "orphaned-done-items",
+            "deferred-items",
+            "shepherd-lifecycle",
+            "lifecycle-continuity",
+            "orphaned-ephemeral",
         }
         assert expected.issubset(slugs)

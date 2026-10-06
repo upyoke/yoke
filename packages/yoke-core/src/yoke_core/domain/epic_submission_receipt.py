@@ -65,14 +65,24 @@ def validate_submission_fields(fields: Mapping[str, str]) -> None:
         raise ValueError("submission receipt missing field(s): " + ", ".join(missing))
 
     allowed = {"PASS", "SKIP"}
-    for key in ("test_plan", "files_touched", "edited_tests", "progress_notes", "file_budget"):
+    for key in (
+        "test_plan",
+        "files_touched",
+        "edited_tests",
+        "progress_notes",
+        "file_budget",
+    ):
         status = _status(fields[key])
         if status not in allowed:
-            raise ValueError(f"submission receipt field {key} is {status or 'malformed'}")
+            raise ValueError(
+                f"submission receipt field {key} is {status or 'malformed'}"
+            )
 
     clean = _status(fields["clean_worktree"])
     if clean != "PASS":
-        raise ValueError(f"submission receipt field clean_worktree is {clean or 'malformed'}")
+        raise ValueError(
+            f"submission receipt field clean_worktree is {clean or 'malformed'}"
+        )
 
 
 def format_submission_fields(fields: Mapping[str, str]) -> str:
@@ -116,7 +126,10 @@ def submission_receipt_get(
     row = rows[0]
     fields = parse_submission_fields(row["body"])
     validate_submission_fields(fields)
+    from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+
+    public_ref = item_ref_for_id(conn, int(epic_id))
     return (
-        f"PASS|{epic_id}|{task_num}|{row['note_num']}|"
+        f"PASS|{public_ref}|{task_num}|{row['note_num']}|"
         f"{row['commit_hash']}|{row['created_at']}|{format_submission_fields(fields)}"
     )

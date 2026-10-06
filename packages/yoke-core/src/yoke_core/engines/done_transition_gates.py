@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 import sys
 from pathlib import Path
 from typing import Optional, Tuple
@@ -240,7 +242,7 @@ def _check_blocked_flag(
     try:
         resp = call_dispatcher(
             function_id="done_transition.blocked_gate",
-            target=TargetRef(kind="item", item_id=int(item_id)),
+            target=public_item_target(item_id),
             payload={},
         )
     except Exception as exc:  # noqa: BLE001 - refuse; never degrade open

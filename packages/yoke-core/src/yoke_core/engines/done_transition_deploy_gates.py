@@ -20,6 +20,8 @@ merge-only rather than a setup refusal.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 from typing import Any, Dict, Optional, Tuple
 
 from yoke_contracts.api.function_call import TargetRef
@@ -67,7 +69,9 @@ def _relay_read(
     return resp.result or {}
 
 
-def _read_deployment_flow_target_tier(deploy_flow: str, *, required: bool) -> Optional[str]:
+def _read_deployment_flow_target_tier(
+    deploy_flow: str, *, required: bool
+) -> Optional[str]:
     """Read one flow's semantic target tier.
 
     A successful null value is the merge-only marker. Pre-merge routing uses
@@ -291,21 +295,21 @@ def _check_deployment_evidence(item_id: int) -> bool:
     """True iff the item's latest deployment run succeeded."""
     data = _relay_read(
         "done_transition.latest_deployment_run",
-        TargetRef(kind="item", item_id=int(item_id)),
+        public_item_target(item_id),
     )
     return data.get("status") == "succeeded"
 
 
 def _read_delivery_evidence(item_id: int) -> dict:
     """The shared delivery ladder's verdict for this item."""
-    return _read_delivery_evidence_via(_relay_read, int(item_id))
+    return _read_delivery_evidence_via(_relay_read, item_id)
 
 
 def _get_latest_run_status(item_id: int) -> Tuple[str, str]:
     """Get the latest deployment run status and ID for an item."""
     data = _relay_read(
         "done_transition.latest_deployment_run",
-        TargetRef(kind="item", item_id=int(item_id)),
+        public_item_target(item_id),
     )
     return str(data.get("status") or ""), str(data.get("run_id") or "")
 
@@ -328,4 +332,3 @@ def _check_run_stage_consistency(run_id: str) -> bool:
         print("\nThis is a contradictory state — the stage indicates failure.")
         return True
     return False
-

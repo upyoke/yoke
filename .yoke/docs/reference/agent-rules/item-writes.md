@@ -13,12 +13,12 @@ Full envelope shape, claim-verification matrix, and the per-family function id r
 - **Full-field replace (`items.structured_field.replace`):** writes complete content to `spec`, `design_spec`, `technical_plan`, `worktree_plan`, `shepherd_log`, `shepherd_caveats`, `test_results`, or `deploy_log`. Routes through the structured-write path (preserves empty/shrinkage/freeze guards, reports old/new line counts), and with matching `options` syncs the rendered body to GitHub. CLI adapter: `printf '%s' "$content" | yoke items structured-field replace PREFIX-N --field spec --stdin`.
 
   ```json
-  {"function":"items.structured_field.replace","request_id":"<uuid>","actor":{"session_id":"<harness_sessions.session_id>"},"target":{"kind":"item","item_id":42},"payload":{"field":"spec","content":"# Spec\n\n..."},"options":{"sync_github_body":true}}
+  {"function":"items.structured_field.replace","request_id":"<uuid>","actor":{"session_id":"<harness_sessions.session_id>"},"target":{"kind":"item","public_ref": "PREFIX-42"},"payload":{"field":"spec","content":"# Spec\n\n..."},"options":{"sync_github_body":true}}
   ```
 
 - **Additive transforms (`items.structured_field.append_addendum` / `section_upsert` / `section_append`):** preserve existing content, appending a `## heading`-led block (`append_addendum`, `section_append`) or rewriting one in place (`section_upsert`). The agent path is the function call; the read-transform-in-shell-then-pipe-back pattern is blocked by the structured-field-transform lint (suppression `# lint:no-structured-transform-check` is audit-only — still denies). CLI adapter: `printf '%s' "$content" | yoke items structured-field append-addendum PREFIX-N --field spec --heading "..." --source refine --stdin`.
 
-- **Epic-task content (`workflow_item.epic_task.*`):** body replace, split, reassign, add, remove, metadata update; progress notes via `workflow_item.epic_progress_note.append`. The dispatcher resolves the parent epic from `target.kind="epic_task"` and verifies the session holds the epic's work claim. CLI adapter: `printf '%s' "<task body>" | yoke workflow-item epic-task body-replace --epic 833 --task-num 5 --stdin`.
+- **Epic-task content (`workflow_item.epic_task.*`):** body replace, split, reassign, add, remove, metadata update; progress notes via `workflow_item.epic_progress_note.append`. The dispatcher resolves the parent epic from `target.kind="epic_task"` and verifies the session holds the epic's work claim. CLI adapter: `printf '%s' "<task body>" | yoke workflow-item epic-task body-replace --epic PREFIX-833 --task-num 5 --stdin`.
 
 - **Do not misuse task-graph planning fields.** `shepherd_log`, `shepherd_caveats`, and `worktree_plan` are reserved for items whose pinned workflow policies generate `epic_tasks`. Writing them on a workflow with `generated_children=none` is misuse — readers will treat the content as authoritative planning output. For in-flight execution context on any item, use the **Progress Log** section (next bullet).
 
@@ -27,7 +27,7 @@ Full envelope shape, claim-verification matrix, and the per-family function id r
 For session-continuity context on an item that future agents need to pick up after compaction or a session swap, write to a **Progress Log** section on the item (works for every workflow). Each new entry is a current-state checkpoint: live objective, standing decisions/holds, active work, blockers, next action, and links to durable evidence. Do not restate full results or historical status snapshots; those already live in prior log entries, item fields, and revisions. Agents call `items.progress_log.append`, which handles the read-then-upsert-with-`ordering=200` convention internally:
 
 ```json
-{"function":"items.progress_log.append","target":{"kind":"item","item_id":42},"payload":{"headline":"kicked off engineer dispatch","content":"..."}}
+{"function":"items.progress_log.append","target":{"kind":"item","public_ref": "PREFIX-42"},"payload":{"headline":"kicked off engineer dispatch","content":"..."}}
 ```
 
 CLI adapter: `yoke items progress-log append PREFIX-N --headline TEXT --content TEXT` (or `--content-file PATH`); `yoke items section get PREFIX-N --section "Progress Log"` to read. Destructive rewrite: `yoke items section upsert PREFIX-N --section "Progress Log" --content-file PATH --ordering 200`. Reading the existing Progress Log into a shell variable / temp file and piping back into `items section upsert` is structured-field-transform shell choreography that the PreToolUse lint refuses by default.

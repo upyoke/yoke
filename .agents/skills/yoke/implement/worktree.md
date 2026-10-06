@@ -46,7 +46,7 @@ The envelope shape is the operator-defined shape — see the Operator Handoff Ad
 ```json
 {
   "ok": true,
-  "item_id": 1234,
+  "public_ref": "PREFIX-1234",
   "branch": "PREFIX-N",
   "worktree_path": "/Users/.../.worktrees/PREFIX-N",
   "semantic_scope": "worktree",

@@ -35,4 +35,17 @@ def is_plural(key: str) -> bool:
     return key.endswith("public_refs") or key.endswith("_ids")
 
 
-__all__ = ["engine_key_for_wire", "is_plural"]
+def wire_key_for_engine(key: str) -> Optional[str]:
+    """Public response key for an internal item join key, or ``None``."""
+    for wire, engine in _SPECIAL_WIRE_TO_ENGINE.items():
+        if key == engine:
+            return wire
+    for engine, wire in (("item_ids", "public_refs"), ("item_id", "public_ref")):
+        if key == engine:
+            return wire
+        if key.endswith("_" + engine):
+            return key[: -len(engine)] + wire
+    return None
+
+
+__all__ = ["engine_key_for_wire", "is_plural", "wire_key_for_engine"]

@@ -2,7 +2,7 @@
 
 Invoked from `simulation-gate-criteria.md` after `_local_result` and `_verified_verdict` are set. Covers CLEAN handoff, GAPS FOUND branch selection, auto-fix invocation, and return handling.
 
-**Inherited:** `MAIN_ROOT`, `_epic_id`, `N`, `_worktree_path`, `_worktree_branch`, `_max_attempts`, `_project`, `_local_result`, `_verified_verdict`, `_simulation_gaps` (Simulator output).
+**Inherited:** `MAIN_ROOT`, `_epic_ref`, `N`, `_worktree_path`, `_worktree_branch`, `_max_attempts`, `_project`, `_local_result`, `_verified_verdict`, `_simulation_gaps` (Simulator output).
 
 ---
 
@@ -12,10 +12,10 @@ Some halt paths fire before the result branching below — they short-circuit st
 
 | Source | Condition | Diagnostic |
 |---|---|---|
-| `simulation-gate-criteria.md` defensive precondition | `_epic_id` is empty or unset before any Simulator dispatch (initial or retry) | `[CRITICAL] _epic_id lost between dispatches — refusing retry. Halting simulator gate.` |
+| `simulation-gate-criteria.md` defensive precondition | `_epic_ref` is empty or unset before any Simulator dispatch (initial or retry) | `[CRITICAL] _epic_ref lost between dispatches — refusing retry. Halting simulator gate.` |
 | `simulation-gate-criteria.md` Simulator Output Gate | `_simulator_output_failures` > `MAX_SIMULATOR_REPROMPTS` after the no-tool fallback | `[CRITICAL] Simulator output gate exhausted retries` |
-| `persist_simulation` exit 16 | Body's attested epic differs from CLI-passed `_epic_id` | `[CRITICAL] simulator returned body for wrong epic — CLI passed PREFIX-${_epic_id}, body attested a different epic.` |
-| `persist_simulation` exit 17 | Body has no `EPIC: PREFIX-N` line and no legacy heading fallback | `[CRITICAL] simulator output for PREFIX-${_epic_id} has no EPIC: PREFIX-N attestation line.` |
+| `persist_simulation` exit 16 | Body's attested epic differs from CLI-passed `_epic_ref` | `[CRITICAL] simulator returned body for wrong epic — CLI passed ${_epic_ref}, body attested a different epic.` |
+| `persist_simulation` exit 17 | Body has no `EPIC: PREFIX-N` line and no legacy heading fallback | `[CRITICAL] simulator output for ${_epic_ref} has no EPIC: PREFIX-N attestation line.` |
 
 When any of these fire, conduct does NOT enter result branching; it goes straight to `cleanup-report.md` with `HALTED` and surfaces the diagnostic so the operator sees the wrong-epic / missing-epic / lost-context outcome explicitly.
 
@@ -96,7 +96,7 @@ Satisfy parent epic verification requirements** (same logic as CLEAN path — sk
 PROCEED triage write + reviewed-implementation handoff:
 ```bash
 _gap_summary=$(echo "$_simulation_gaps" | head -c 500)
-yoke conduct epic proceed-triage-handoff --epic "${_epic_id}" \
+yoke conduct epic proceed-triage-handoff --epic "${_epic_ref}" \
  --recommendation "$_recommendation" \
  --gap-summary "$_gap_summary" \
  --filed-items "$(echo "$_filed_item_ids" | tr ' ' ',')"
@@ -117,7 +117,7 @@ Print halt message. **Go to `cleanup-report.md`** with `HALTED`.
 
 Read and follow `.agents/skills/yoke/conduct/simulation-autofix.md`. Pass inherited context:
 - `MAIN_ROOT`
-- `_epic_id`, `N` (as `_item_id`), `_worktree_path`, `_worktree_branch`
+- `_epic_ref`, `N` (as `_item_id`), `_worktree_path`, `_worktree_branch`
 - `_simulator_output` = Simulator's raw output from this step
 - `_max_attempts`
 

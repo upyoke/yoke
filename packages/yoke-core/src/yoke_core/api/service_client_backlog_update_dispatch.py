@@ -18,6 +18,8 @@ from __future__ import annotations
 import io
 
 from yoke_core.api.service_client_shared import _emit_backlog_result
+
+
 def _dispatch_structured_field_replace(
     *,
     public_ref: str,
@@ -62,7 +64,7 @@ def _dispatch_structured_field_replace(
         result_payload = response.result or {}
         legacy: dict = {
             "success": True,
-            "item_id": result_payload.get("item_id"),
+            "public_ref": result_payload.get("public_ref"),
             "field": result_payload.get("field", field),
             "old_line_count": result_payload.get("old_line_count", 0),
             "new_line_count": result_payload.get("new_line_count", 0),
@@ -78,9 +80,7 @@ def _dispatch_structured_field_replace(
         return _emit_backlog_result(legacy, log=captured.getvalue())
 
     err_msg = (
-        response.error.message
-        if response.error is not None
-        else "dispatch failed"
+        response.error.message if response.error is not None else "dispatch failed"
     )
     return _emit_backlog_result(
         {"success": False, "error": err_msg},

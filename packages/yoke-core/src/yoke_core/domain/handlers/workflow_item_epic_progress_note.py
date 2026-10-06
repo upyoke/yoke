@@ -63,20 +63,23 @@ class ListResponse(BaseModel):
 
 def _not_found(message: str) -> HandlerOutcome:
     return HandlerOutcome(
-        result_payload={}, primary_success=False,
+        result_payload={},
+        primary_success=False,
         error=FunctionError(code="target_not_found", message=message),
     )
 
 
 def _bad_request(message: str) -> HandlerOutcome:
     return HandlerOutcome(
-        result_payload={}, primary_success=False,
+        result_payload={},
+        primary_success=False,
         error=FunctionError(code="invalid_payload", message=message),
     )
 
 
 def _open_connection():
     from yoke_core.domain import db_helpers
+
     return db_helpers.connect()
 
 
@@ -84,7 +87,7 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
     """Insert one progress note row via ``epic.progress_note_insert``."""
     target = request.target
     if target.kind != "epic_task" or target.epic_id is None:
-        return _bad_request("target must carry epic_id + task_num")
+        return _bad_request("target must carry public_ref + task_num")
     if target.task_num is None:
         return _bad_request("target must carry task_num for progress-note append")
     try:
@@ -104,16 +107,23 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
             return _not_found(f"epic_task {epic_key}/{task_num} not found")
         try:
             epic.progress_note_insert(
-                conn, epic_key, task_num, payload.note_num,
-                payload.body, payload.commit_hash,
+                conn,
+                epic_key,
+                task_num,
+                payload.note_num,
+                payload.body,
+                payload.commit_hash,
             )
         except LookupError as exc:
             return _not_found(str(exc))
     response = AppendResponse(
-        epic_id=epic_id, task_num=task_num, note_num=payload.note_num,
+        epic_id=epic_id,
+        task_num=task_num,
+        note_num=payload.note_num,
     )
     return HandlerOutcome(
-        result_payload=response.model_dump(), primary_success=True,
+        result_payload=response.model_dump(),
+        primary_success=True,
     )
 
 
@@ -121,7 +131,7 @@ def handle_list(request: FunctionCallRequest) -> HandlerOutcome:
     """List progress notes for one epic task via ``epic.progress_note_list``."""
     target = request.target
     if target.kind != "epic_task" or target.epic_id is None:
-        return _bad_request("target must carry epic_id + task_num")
+        return _bad_request("target must carry public_ref + task_num")
     if target.task_num is None:
         return _bad_request("target must carry task_num for progress-note list")
     try:
@@ -140,11 +150,15 @@ def handle_list(request: FunctionCallRequest) -> HandlerOutcome:
         if existing is None:
             return _not_found(f"epic_task {epic_key}/{task_num} not found")
         body = epic.progress_note_list(
-            conn, epic_key, task_num, limit=payload.limit,
+            conn,
+            epic_key,
+            task_num,
+            limit=payload.limit,
         )
     response = ListResponse(epic_id=epic_id, task_num=task_num, body=body)
     return HandlerOutcome(
-        result_payload=response.model_dump(), primary_success=True,
+        result_payload=response.model_dump(),
+        primary_success=True,
     )
 
 

@@ -193,7 +193,7 @@ the operator wants to make the pin explicit), dispatch
 {
   "function": "claims.path.register",
   "actor": {"session_id": "<this-session>"},
-  "target": {"kind": "item", "item_id": 42},
+  "target": {"kind": "item", "public_ref": "PREFIX-42"},
   "payload": {"paths": ["file1.py"], "upstream_claim_id": 123}
 }
 ```

@@ -20,11 +20,12 @@ standalone-item-merge.md``.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Optional, Sequence
 
-from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain.merge_github_authority import classify_merge_authority
@@ -78,7 +79,7 @@ def stamp_merged_at(
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     response = call_dispatcher(
         function_id="done_transition.populate_merged_at",
-        target=TargetRef(kind="item", item_id=int(item_id)),
+        target=public_item_target(item_id),
         payload={
             "merged_at": landed_at or now,
             "supersedes_prior_landing": bool(landed_at),
@@ -329,7 +330,7 @@ def sync_item_to_github(item_id: int) -> Optional[str]:
     """
     response = call_dispatcher(
         function_id="items.github_sync",
-        target=TargetRef(kind="item", item_id=int(item_id)),
+        target=public_item_target(item_id),
         payload={},
     )
     if response.success:

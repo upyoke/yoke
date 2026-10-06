@@ -12,7 +12,7 @@ Record the attempt baseline and dispatch the Engineer.
 
 **Task fan-out variable contract:** Conduct's pinned skill binding requires the
 `generated_children=epic_tasks` and `worktrees=worker_and_integration_lanes`
-policies at entry. `N` / `_epic_id` therefore remains
+policies at entry. `N` / `_epic_ref` therefore remains
 the parent backlog item and each parallel member is an epic task from
 `_task_ids`. Before any per-task command below, hydrate the unsuffixed lane
 variables from the task's suffixed state:
@@ -34,7 +34,7 @@ ATTEMPT_BASELINE_{_id}=$(git -C "${MAIN_ROOT}" rev-parse "${_worktree_branch}")
 ```
 Also record the current progress-note count so post-return validation can verify a new note landed with any new commit:
 ```bash
-_progress_note_count_before_{_id}=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_progress_notes WHERE epic_id='${_epic_id}' AND task_num=${_task_id}" 2>/dev/null || echo 0)
+_progress_note_count_before_{_id}=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_progress_notes WHERE epic_id=(SELECT item_id FROM item_refs WHERE public_ref='${_epic_ref}') AND task_num=${_task_id}" 2>/dev/null || echo 0)
 ```
 
 **Record task baselines:** On first dispatch of each generated task, record the task baseline for scoped Tester diffs. This value is preserved across retries -- only set when `_attempt_{_id} = 1`. Same control-plane-via-branch-ref reasoning as the ATTEMPT_BASELINE read above (no per-task claim yet):
@@ -77,7 +77,7 @@ If `_has_implementation_{_id}` is true, skip the Engineer dispatch:
 - Emit log line: `[SKIP] PREFIX-{N} task {_task_id}: implementation already on branch, skipping to Tester`
 - **Seed the generated task's review requirement** (idempotent).
   `review_seed` auto-advances the task to `reviewing-implementation`:
-  `yoke workflow-item epic-task review-seed --epic "$_epic_id" --task-num "$_task_id"`
+  `yoke workflow-item epic-task review-seed --epic "$_epic_ref" --task-num "$_task_id"`
 - Skip the post-Engineer commit sweep for this item.
 - The item proceeds to the Tester dispatch (step 5i).
 
@@ -98,7 +98,7 @@ apply the proactive widen-before-write workflow without first running
 # the active claim's declared paths (declared_paths / declared_targets,
 # joined through path_claim_targets -> path_targets.path_string); do
 # NOT teach `path_claims.covered_paths` as a DB column.
-_claim_coverage=$(yoke claims path list --item PREFIX-${_id} --state active)
+_claim_coverage=$(yoke claims path list --item ${_id} --state active)
 ```
 
 Inline the resulting paths under a `## Active Path Claim Coverage` heading.
@@ -176,7 +176,7 @@ After a PASS verdict on a generated task, find the next dispatchable task in the
 
  a. Advance the dispatch chain to the next task:
  ```bash
- _advance_result=$(yoke workflow-item epic-dispatch-chain advance --epic "$_epic_id" --worktree "$_worktree_branch")
+ _advance_result=$(yoke workflow-item epic-dispatch-chain advance --epic "$_epic_ref" --worktree "$_worktree_branch")
  ```
  On success, outputs `{new_index}|{next_task_num}`. On end-of-queue, exits 1.
 
@@ -190,7 +190,7 @@ After a PASS verdict on a generated task, find the next dispatchable task in the
 
  d. Check the next task's dependencies via the task read wrapper:
  ```bash
- _next_task_row=$(yoke workflow-item epic-task get --epic "$_epic_id" --task-num "$_next_task")
+ _next_task_row=$(yoke workflow-item epic-task get --epic "$_epic_ref" --task-num "$_next_task")
  ```
 
  e. **If dependencies are NOT met:** Set the task to `blocked`, note which deps are unmet, and **continue the loop** (advance again to try the next task in the queue).

@@ -20,7 +20,7 @@ def test_mission_host_command_token_routes_to_detached_adapter() -> None:
             "qa",
             "mission",
             "host-command",
-            "--item-id",
+            "--item",
             "42",
             "--execution-id",
             "exec-1",
@@ -38,7 +38,7 @@ def test_mission_host_command_token_routes_to_detached_adapter() -> None:
 
 def test_mission_host_command_pins_session_without_mutating_python_argv() -> None:
     requested = [
-        "--item-id",
+        "--item",
         "42",
         "--execution-id",
         "exec-1",
@@ -65,7 +65,7 @@ def test_mission_host_command_pins_session_without_mutating_python_argv() -> Non
 
 def test_mission_host_command_rejects_injected_remote_argument() -> None:
     requested = [
-        "--item-id",
+        "--item",
         "42",
         "--execution-id",
         "exec-1",
@@ -125,7 +125,7 @@ def test_host_command_forwards_python_probe_argv_exactly(capsys) -> None:
     ):
         code = agent_mission_host_command_cli.run(
             [
-                "--item-id",
+                "--item",
                 "42",
                 "--execution-id",
                 "exec-1",
@@ -172,7 +172,7 @@ def test_host_command_result_does_not_echo_sensitive_argv(capsys) -> None:
     ):
         code = agent_mission_host_command_cli.run(
             [
-                "--item-id",
+                "--item",
                 "42",
                 "--execution-id",
                 "exec-1",

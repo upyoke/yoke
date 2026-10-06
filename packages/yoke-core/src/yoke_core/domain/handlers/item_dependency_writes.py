@@ -80,10 +80,12 @@ def _validate(model_cls, payload: Any, label: str):
         return None, _err("payload_invalid", f"{label} payload invalid: {exc}")
 
 
-def _dependent_item(request: FunctionCallRequest) -> tuple[str | None, HandlerOutcome | None]:
+def _dependent_item(
+    request: FunctionCallRequest,
+) -> tuple[str | None, HandlerOutcome | None]:
     """The dispatcher target rendered as the public PREFIX-N API token.
 
-    ``target.item_id`` is the internal ``items.id``. Storage keeps that
+    ``target.public_ref`` is the internal ``items.id``. Storage keeps that
     id; the handler result still names the item by its own project's
     prefix + project sequence.
     """
@@ -91,8 +93,8 @@ def _dependent_item(request: FunctionCallRequest) -> tuple[str | None, HandlerOu
     if request.target.kind != "item" or item_id is None:
         return None, _err(
             "target_invalid",
-            "item dependency writes require target.kind='item' with item_id",
-            jsonpath="$.target.item_id",
+            "item dependency writes require target.kind='item' with public_ref",
+            jsonpath="$.target.public_ref",
         )
     from yoke_core.domain.item_ref_columns import render_column_item_ref
 
@@ -110,7 +112,9 @@ def _run_with_conn(fn, *args, **kwargs) -> str:
 
 
 def _domain_error(exc: Exception) -> HandlerOutcome:
-    code = "dependency_not_found" if isinstance(exc, LookupError) else "dependency_failed"
+    code = (
+        "dependency_not_found" if isinstance(exc, LookupError) else "dependency_failed"
+    )
     return _err(code, str(exc))
 
 
@@ -118,7 +122,9 @@ def handle_item_dependency_add(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
     body, err = _validate(
-        ItemDependencyAddRequest, request.payload, "dependency_add",
+        ItemDependencyAddRequest,
+        request.payload,
+        "dependency_add",
     )
     if err is not None:
         return err
@@ -159,7 +165,9 @@ def handle_item_dependency_update(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
     body, err = _validate(
-        ItemDependencyUpdateRequest, request.payload, "dependency_update",
+        ItemDependencyUpdateRequest,
+        request.payload,
+        "dependency_update",
     )
     if err is not None:
         return err
@@ -196,7 +204,9 @@ def handle_item_dependency_remove(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
     body, err = _validate(
-        ItemDependencyRemoveRequest, request.payload, "dependency_remove",
+        ItemDependencyRemoveRequest,
+        request.payload,
+        "dependency_remove",
     )
     if err is not None:
         return err

@@ -40,7 +40,7 @@ def merge_receipt_commits_attest(args: List[str]) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=_DESCRIPTION,
     )
-    parser.add_argument("item", help="Item id (PREFIX-N or project-local number).")
+    parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument(
         "--commit",
         action="append",

@@ -53,16 +53,12 @@ def current_session_id() -> str:
 
 
 def _parse_item_id_arg(raw: str) -> int:
-    """Resolve an item-id argument to the internal ``items.id``.
+    """Resolve a complete public ref, retaining join keys only inside engines."""
+    from yoke_contracts.public_ref import parse_public_item_ref
 
-    Accepts ``PREFIX-N`` (resolved per-project via the project's
-    ``public_item_prefix`` + ``project_sequence``), or a project-local bare
-    sequence when project context is known. Delegates to the shared
-    ``yok_n_parser`` so project-local prefixes resolve correctly and a
-    ``PREFIX-N`` ref maps to its project sequence rather than being treated as
-    the bare global id — which only coincided while ``project_sequence`` was
-    backfilled equal to ``items.id``.
-    """
+    prefix, sequence = parse_public_item_ref(raw)
+    if prefix is None or sequence is None:
+        raise ValueError("public_item_ref_required: pass the complete PREFIX-N")
     from yoke_core.domain.yok_n_parser import parse_item_argument
 
     return parse_item_argument(raw)

@@ -117,8 +117,8 @@ def _has_any_content(conn: Any, item_id: int, row, row_keys: set) -> bool:
         return True
     if _schema_table_exists(conn, "shepherd_verdicts") and query_scalar(
         conn,
-        f"SELECT COUNT(*) FROM shepherd_verdicts WHERE item = {p}",
-        (f"YOK-{item_id}",),
+        f"SELECT COUNT(*) FROM shepherd_verdicts WHERE public_ref = {p}",
+        (render_item_ref(conn, item_id),),
     ):
         return True
     if _schema_table_exists(conn, "epic_progress_notes") and query_scalar(
@@ -198,9 +198,7 @@ def build_body(conn: Any, item_id: int) -> Optional[str]:
 
     if _schema_table_exists(conn, "shepherd_verdicts"):
         try:
-            shepherd_log = cmd_shepherd_log(
-                conn, f"YOK-{item_id}"
-            )  # legacy verdict key
+            shepherd_log = cmd_shepherd_log(conn, render_item_ref(conn, item_id))
             if len(shepherd_log.splitlines()) > 3:
                 chunks.append(shepherd_log.rstrip("\n"))
         except Exception:

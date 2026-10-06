@@ -19,10 +19,11 @@ over it would cost the item its terminal transition.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain.item_landings_schema import (
@@ -70,7 +71,7 @@ def _record(item_id: int, payload: dict[str, Any]) -> str:
     try:
         response = call_dispatcher(
             function_id=RECORD_FUNCTION_ID,
-            target=TargetRef(kind="item", item_id=int(item_id)),
+            target=public_item_target(item_id),
             payload=payload,
         )
     except Exception as exc:  # noqa: BLE001 - advisory, never fatal
@@ -78,8 +79,7 @@ def _record(item_id: int, payload: dict[str, Any]) -> str:
     if response.success:
         return ""
     detail = (
-        response.error.message if response.error is not None
-        else "landing write failed"
+        response.error.message if response.error is not None else "landing write failed"
     )
     return f"landing not recorded: {detail}"
 

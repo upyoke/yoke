@@ -104,12 +104,10 @@ def handle_qa_post_deploy_declare_none(
     if item_id is None:
         return _error(
             "target_invalid",
-            "qa.post_deploy.declare_none requires target.item_id",
+            "qa.post_deploy.declare_none requires target.public_ref",
         )
     try:
-        body = QaPostDeployDeclareNoneRequest.model_validate(
-            request.payload or {}
-        )
+        body = QaPostDeployDeclareNoneRequest.model_validate(request.payload or {})
     except Exception as exc:
         return _error("payload_invalid", f"declare-none payload invalid: {exc}")
     if body.source not in {"agent", "operator"}:

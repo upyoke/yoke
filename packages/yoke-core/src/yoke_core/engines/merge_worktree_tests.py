@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 import os
 import re
 import select
@@ -12,7 +14,6 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 from yoke_contracts import schema_authority
-from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import control_plane_function_degradation
 from yoke_core.engines import merge_worktree_tree_coverage
@@ -21,7 +22,9 @@ from yoke_core.engines.merge_worktree_prepare import MergeContext
 
 def _parent():
     from yoke_core.engines import merge_worktree as _mw
+
     return _mw
+
 
 def _terminate_process_tree(proc: subprocess.Popen[str]) -> None:
     """Terminate *proc* and any children spawned in its process group."""
@@ -139,7 +142,7 @@ def _resolve_requirement(item_id: int, transition_id: str):
     """
     return control_plane_function_degradation.dispatch_through_paired_admin_on_skew(
         function_id="merge.tests.post_rebase_requirement",
-        target=TargetRef(kind="item", item_id=item_id),
+        target=public_item_target(item_id),
         payload={"transition_id": transition_id},
         announce=lambda message: _parent()._print(message),
         # This module's own binding, resolved per call, so the transport
@@ -154,7 +157,7 @@ def _post_rebase_transition_candidates(item_id: int) -> list[str]:
     try:
         resp = call_dispatcher(
             function_id="items.detail.get",
-            target=TargetRef(kind="item", item_id=item_id),
+            target=public_item_target(item_id),
             payload={},
         )
     except Exception:  # noqa: BLE001 - detail lookup is advisory for ordering
@@ -232,9 +235,7 @@ def _registered_verification_command(
     # refusal; dropping it is what turned a fixable condition into an
     # opaque "test command unavailable".
     detail = (
-        f"{last_message} {last_recovery}".strip()
-        if last_recovery
-        else last_message
+        f"{last_message} {last_recovery}".strip() if last_recovery else last_message
     )
     raise RuntimeError(
         f"integration verification resolution failed ({last_code}): {detail}"
@@ -261,7 +262,8 @@ def run_tests(ctx: MergeContext) -> Optional[Tuple[int, str]]:
     if registered is not None:
         scope, command, covering_runs = registered
         receipt = merge_worktree_tree_coverage.covering_run_receipt(
-            cwd, covering_runs,
+            cwd,
+            covering_runs,
         )
         if receipt is not None:
             _print(receipt)
@@ -270,7 +272,9 @@ def run_tests(ctx: MergeContext) -> Optional[Tuple[int, str]]:
 
         if merge_worktree_tests_ci._should_route_ci(ctx):
             return merge_worktree_tests_ci.run_ci_verification(
-                ctx, scope=scope, command=command,
+                ctx,
+                scope=scope,
+                command=command,
             )
         _print(
             "[phase:tests] executing registered project verification "
@@ -298,7 +302,9 @@ def run_tests(ctx: MergeContext) -> Optional[Tuple[int, str]]:
     elif (Path(cwd) / "package.json").is_file():
         _print("[phase:tests] npm test")
         rc, transcript = _run_streaming(
-            ["npm", "test"], cwd=cwd, timeout=generic_test_timeout,
+            ["npm", "test"],
+            cwd=cwd,
+            timeout=generic_test_timeout,
         )
         if rc == -1:
             _print(
@@ -318,7 +324,9 @@ def run_tests(ctx: MergeContext) -> Optional[Tuple[int, str]]:
         if re.search(r"^test:", makefile, re.MULTILINE):
             _print("[phase:tests] make test")
             rc, transcript = _run_streaming(
-                ["make", "test"], cwd=cwd, timeout=generic_test_timeout,
+                ["make", "test"],
+                cwd=cwd,
+                timeout=generic_test_timeout,
             )
             if rc == -1:
                 _print(

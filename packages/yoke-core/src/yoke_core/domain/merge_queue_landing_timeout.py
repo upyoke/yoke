@@ -15,10 +15,11 @@ state — naming the re-acquire step only when the claim is genuinely gone.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 import shlex
 from typing import Any, Callable, Optional
 
-from yoke_contracts.api.function_call import TargetRef
 
 # Said when the caller passed no command of its own: the landing is
 # reachable from more than one operator surface, and inventing a command
@@ -66,7 +67,7 @@ def _holder(item_id: int, dispatch: Callable[..., Any]) -> tuple[Optional[dict],
     try:
         response = dispatch(
             function_id="claims.work.holder_get",
-            target=TargetRef(kind="item", item_id=int(item_id)),
+            target=public_item_target(item_id),
             payload={},
         )
     except Exception as exc:  # noqa: BLE001 - a read failure is reportable

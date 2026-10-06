@@ -24,9 +24,7 @@ from yoke_contracts.api.function_call import (
 
 class DispatchInputsRequest(BaseModel):
     project: str | None = None
-    item_id: int = Field(
-        ..., description="Bare integer items.id, resolved from the public ref."
-    )
+    public_ref: str = Field(..., description="Public item ref (PREFIX-N).")
     session_id: str = Field(..., min_length=1, description="Harness session id.")
     attempt: int = Field(
         ..., ge=1, description="Per-dispatch attempt counter (1-based)."
@@ -75,7 +73,7 @@ def handle_dispatch_inputs(request: FunctionCallRequest) -> HandlerOutcome:
             )
     path = dispatch_inputs_dir(
         project,
-        payload.item_id,
+        payload.public_ref,
         payload.session_id,
         payload.attempt,
     )
