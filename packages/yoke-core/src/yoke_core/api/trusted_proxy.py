@@ -1,4 +1,4 @@
-"""Self-host forwarding with the socket peer's trust preserved for origin checks."""
+"""Proxy forwarding for every serving mode, trusting only the socket peer."""
 
 from __future__ import annotations
 
@@ -68,7 +68,7 @@ def create_app():
     )
 
 
-def run_self_host(settings, **kwargs):
+def run_server(settings, **kwargs):
     """Pass flag overrides to spawned workers through their inherited environment."""
     import uvicorn
     from yoke_core.api.server_entrypoint import APP_ENV

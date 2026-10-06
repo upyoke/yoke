@@ -36,6 +36,13 @@ Hosted core at upyoke.com. Collaborate from the web dashboard.
   and model credentials
 - Members and Billing are platform-managed sections in the workbench
 
+Hosted cores serve through the same trusted-proxy boundary as self-hosted
+ones: only transport peers listed in `YOKE_API_TRUSTED_PROXIES` (explicit
+IPs/CIDRs, never `*`) may supply `X-Forwarded-Host`, `X-Forwarded-Proto`, and
+`X-Forwarded-For`. The hosted platform declares its relay peers there, so
+origin-checked routes compare `Origin` against the public host rather than the
+engine's upstream address.
+
 ## Self-hosted
 
 Run Yoke core and Postgres on your own server.

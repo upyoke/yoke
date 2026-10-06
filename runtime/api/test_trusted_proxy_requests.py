@@ -164,6 +164,61 @@ def test_collector_origin_uses_only_trusted_forwarded_host(database, peer, expec
         assert response.json()["error"] == "attribution_absent"
 
 
+GATEWAY = "172.18.0.1"
+
+
+@pytest.mark.parametrize(
+    "peer,origin,expected",
+    [
+        (GATEWAY, "https://app.upyoke.com", ADMITTED),
+        (UNTRUSTED, "https://app.upyoke.com", 403),
+        (GATEWAY, "https://foreign.example.test", 403),
+    ],
+)
+def test_hosted_gateway_forwarding_admits_only_the_public_origin(
+    database, peer, origin, expected
+):
+    # The hosted webapp relay calls the engine over plain HTTP and replaces Host
+    # with the engine's upstream address; only trusted forwarding restores both.
+    headers = {
+        "Host": "127.0.0.1:9001",
+        "X-Forwarded-Host": "app.upyoke.com",
+        "X-Forwarded-Proto": "https",
+    }
+    with serving_client(peer, trusted="127.0.0.1," + GATEWAY) as client:
+        key = client.get("/api/events/config", headers=headers).json()["publishableKey"]
+        response = client.get(
+            "/api/events/attribution",
+            headers={**headers, "Origin": origin, "X-Events-Key": key},
+        )
+    assert response.status_code == expected, response.text
+    if expected == 403:
+        assert response.json()["error"] == "origin_not_allowed"
+    else:
+        assert response.json()["error"] == "attribution_absent"
+
+
+def test_deployed_hosted_origin_probe_passes_behind_trusted_relay(
+    database, monkeypatch, capsys
+):
+    from ops.qa import hosted_origin_admission
+
+    def relayed(**_):
+        client = serving_client(GATEWAY, trusted=GATEWAY)
+        client.headers.update(
+            {
+                "Host": "127.0.0.1:9001",
+                "X-Forwarded-Host": "app.upyoke.com",
+                "X-Forwarded-Proto": "https",
+            }
+        )
+        return client
+
+    monkeypatch.setattr(hosted_origin_admission.httpx, "Client", relayed)
+    hosted_origin_admission.prove("https://app.upyoke.com", "https://app.upyoke.com")
+    assert "hosted origin admission passed" in capsys.readouterr().out
+
+
 @pytest.mark.parametrize("peer,expected", [(PROXY, 200), (UNTRUSTED, 400)])
 def test_collector_requires_actual_or_trusted_https(database, peer, expected):
     with serving_client(peer) as client:

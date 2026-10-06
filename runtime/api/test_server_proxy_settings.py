@@ -1,6 +1,6 @@
 """Server startup supplies one declared trust boundary to Uvicorn."""
 
-from contextlib import nullcontext
+from contextlib import contextmanager
 import os
 import sys
 from types import SimpleNamespace
@@ -72,15 +72,21 @@ def test_invalid_proxy_setting_refuses_before_database_startup(monkeypatch, caps
 
 
 @pytest.mark.parametrize("hosted", [False, True])
-def test_startup_wires_proxy_trust_only_for_self_host(monkeypatch, hosted):
+def test_startup_wires_proxy_trust_in_every_serving_mode(monkeypatch, hosted):
     captured = {}
+    guard = {"held": False}
     monkeypatch.setenv(trusted_proxy.TRUSTED_PROXIES_ENV, "127.0.0.1")
     monkeypatch.setattr(
         universe_startup_lock, "hosted_tenant_container_process", lambda: hosted
     )
-    monkeypatch.setattr(
-        universe_startup_lock, "server_startup_guard", lambda _: nullcontext()
-    )
+
+    @contextmanager
+    def startup_guard(_dsn):
+        guard["held"] = True
+        yield
+        guard["held"] = False
+
+    monkeypatch.setattr(universe_startup_lock, "server_startup_guard", startup_guard)
     monkeypatch.setattr(db_backend, "resolve_pg_dsn", lambda: "unused")
     for name in ("universe_is_born", "admin_credential_exists"):
         monkeypatch.setattr(server_entrypoint, name, lambda: True)
@@ -92,7 +98,7 @@ def test_startup_wires_proxy_trust_only_for_self_host(monkeypatch, hosted):
             key: os.environ.get(key)
             for key in (trusted_proxy.TRUSTED_PROXIES_ENV, server_entrypoint.APP_ENV)
         }
-        captured.update(kwargs, app=app, worker_env=worker_env)
+        captured.update(kwargs, app=app, worker_env=worker_env, locked=guard["held"])
 
     monkeypatch.setitem(
         sys.modules,
@@ -103,16 +109,13 @@ def test_startup_wires_proxy_trust_only_for_self_host(monkeypatch, hosted):
         server_entrypoint.main(["--trusted-proxies", "192.0.2.10", "--workers", "2"])
         == 0
     )
-    if hosted:
-        assert captured["app"] == server_entrypoint.DEFAULT_APP
-        assert "proxy_headers" not in captured
-        assert "factory" not in captured
-    else:
-        assert captured["app"] == "yoke_core.api.trusted_proxy:create_app"
-        assert captured["proxy_headers"] is False
-        assert captured["factory"] is True
-        assert captured["worker_env"][trusted_proxy.TRUSTED_PROXIES_ENV] == "192.0.2.10"
-        assert captured["worker_env"]["YOKE_API_APP"] == server_entrypoint.DEFAULT_APP
+    assert captured["app"] == "yoke_core.api.trusted_proxy:create_app"
+    assert captured["proxy_headers"] is False
+    assert captured["factory"] is True
+    assert captured["worker_env"][trusted_proxy.TRUSTED_PROXIES_ENV] == "192.0.2.10"
+    assert captured["worker_env"]["YOKE_API_APP"] == server_entrypoint.DEFAULT_APP
+    # Hosted tenants release the startup lock before serving; others hold it.
+    assert captured["locked"] == (not hosted)
     assert os.environ[trusted_proxy.TRUSTED_PROXIES_ENV] == "127.0.0.1"
 
 
