@@ -6,6 +6,7 @@ import pytest
 from unittest.mock import patch
 
 from runtime.api.test_sessions import _insert_claimable_item, _register
+from runtime.api.test_sessions import conn as conn
 from yoke_core.domain.sessions import (
     claim_work,
     end_session,
@@ -13,7 +14,8 @@ from yoke_core.domain.sessions import (
     update_chain_checkpoint,
 )
 
-pytest_plugins = ("runtime.api.test_sessions",)
+# Bind the session-schema fixture locally: global plugins also define ``conn``
+# with unrelated schemas, and plugin registration follows collection order.
 
 
 @pytest.mark.parametrize("step", [1, 3])

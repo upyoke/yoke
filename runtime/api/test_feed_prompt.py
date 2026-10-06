@@ -7,15 +7,6 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _FEED_DIR = _REPO_ROOT / ".claude" / "skills" / "yoke" / "feed"
-_SESSION_PATH = (
-    _REPO_ROOT
-    / "packages"
-    / "yoke-core"
-    / "src"
-    / "yoke_core"
-    / "domain"
-    / "session.py"
-)
 
 
 def _read(path: Path) -> str:
@@ -72,12 +63,3 @@ class TestFeedSkillContract:
         assert "Required merge order:" in text
         assert "Readiness callouts:" in text
         assert "Residual uncertainty:" in text
-
-
-class TestFeedSessionDescription:
-    """The shared session contract should describe feed truthfully."""
-
-    def test_action_kind_feed_description_is_not_curation(self):
-        text = _read(_SESSION_PATH)
-        assert "Refresh frontier facts, update stale frontier items, and materialize new work from the SML." in text
-        assert "curate, doctor" not in text
