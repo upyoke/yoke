@@ -36,17 +36,17 @@
       "version": "1.1.0"
     },
     "structured-events": {
-      "content_digest": "197e51563820029239635509f3dc54d1d722a6f62e821e505a09fab9ab627f76",
+      "content_digest": "494efb2ca3f806efd27187a6b3199629ffd26877b07f8fbab6d86610162a8bed",
       "files": {
         "docs/packs/structured-events/README.md": {
           "mode": 420,
           "path": "docs/packs/structured-events/README.md",
-          "sha256": "a3e45d6e5f696fa29cc4983bae23cd73cdfc12d864cd6ee446e47fa22eb58e8a"
+          "sha256": "418216349e1b6a0a7e413955d977f5eaff6a513c790e1d34ad4d4affd1c16039"
         },
         "events/README.md": {
           "mode": 420,
           "path": "events/README.md",
-          "sha256": "06ddccd352ba9cde9236c9eea0f528ec30ea7a5efcf95fc0498f92ed926228df"
+          "sha256": "0efed5e8b3f4b723b4e081ace5c8814fcb71b5159fe5f2aea452d3bc0071067d"
         },
         "events/api-route.ts": {
           "mode": 420,

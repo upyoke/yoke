@@ -12,11 +12,10 @@ shared rate limiter and retention policy belong to the consuming project.
 
 Run `python3 -m pytest events` and
 `node --experimental-strip-types --test events/test_browser.mjs` (Node >=22.6).
-Version 4 removes consent gating: events, page views and attribution capture
-run from first load, with no setConsent, revocation or DELETE route, and the
-cookie record no longer carries consented_at. Page tracking is document-wide:
-a host page and an embedded app that each bundle this Pack start one tracker
-between them. Old immutable Pack releases remain available as version history.
+Events, page views and attribution capture run from first load with no consent
+state; collect only non-personal data. Page tracking is document-wide: a host
+page and an embedded app that each bundle this Pack start one tracker between
+them.
 
 Verified cookie reads and signed, one-time cross-origin sign-in hand-offs are
 server-only APIs; supply durable atomic nonce storage. See the integration

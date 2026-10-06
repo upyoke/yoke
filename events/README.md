@@ -3,7 +3,7 @@
 Install all sibling modules and attribution_rules.json. Runtime configuration
 belongs to the consuming project. TypeScript uses explicit .ts imports and JSON
 import attributes; configure your bundler accordingly. Tests require Node >=22.6
-and pytest. The new storage shape has no compatibility reader for old cookies.
+and pytest.
 
 ## Browser setup
 
@@ -137,9 +137,8 @@ visitor_id, first_touch and last_touch.
 It never sets, clears or re-mints a cookie. Missing cookies refuse with
 attribution_absent; expired, malformed or tampered cookies refuse with
 attribution_invalid. Responses use Cache-Control: no-store. A verified record
-keeps only those three fields, so a key a 3.x cookie carried (consented_at) is
-dropped on read rather than invalidating the visitor. Records from before
-version 3 are invalid; capture again rather than interpreting an old record.
+keeps visitor_id, first_touch and last_touch and ignores any other key; a record
+missing one of them is invalid, so capture again.
 
 To carry attribution between isolated __Host- cookies, POST
 /api/events/attribution/handoff at the source origin with

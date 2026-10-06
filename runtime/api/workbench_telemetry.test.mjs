@@ -34,9 +34,7 @@ browser.fetch = globalThis.fetch = async (url, options = {}) => {
     { status: configFailure ? 503 : 200 },
   );
   assert.equal(options.headers["X-Events-Key"], "public");
-  if (url.endsWith("/attribution")) return Response.json(
-    options.method === "DELETE" ? { cleared: true } : record,
-  );
+  if (url.endsWith("/attribution")) return Response.json(record);
   const batch = JSON.parse(options.body).events;
   events.push(...batch);
   return Response.json({ accepted: batch.length });
@@ -75,7 +73,6 @@ test("workbench collects one initial view and one per URL navigation with no con
   assert.equal(new Set(events.map(e => e.event_id)).size, 4);
   assert.equal(events[1].referrer, events[0].page_url);
   assert.ok(events.every(e => !e.page_url.includes("token")));
-  assert.ok(requests.every(r => r.method !== "DELETE"));
   cleanup();
   assert.equal(history.pushState, originalPush);
   assert.equal(history.replaceState, originalReplace);

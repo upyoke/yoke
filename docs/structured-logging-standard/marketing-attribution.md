@@ -43,7 +43,6 @@ same HTTPS origin; JavaScript never writes it. For concurrent tabs or longer ret
 persistence with the project's durable visitor owner. Cookie-only writes have
 last-response-wins semantics across tabs and a bounded payload. The Pack guide
 names signing settings, refusals and the server-record alternative.
-No compatibility reader for the old mutable cookie/session shape is provided.
 
 Invalid or rotated signed cookies are discarded with attribution_cookie_reminted.
 The next capture mints a fresh visitor and cookie using the current secret.
@@ -56,9 +55,8 @@ visitor_id, first_touch and last_touch.
 It never sets, clears or re-mints a cookie. Missing cookies refuse with
 attribution_absent; expired, malformed or tampered cookies refuse with
 attribution_invalid. Responses use Cache-Control: no-store. A verified record
-keeps only those three fields, so a key a 3.x cookie carried (consented_at) is
-dropped on read rather than invalidating the visitor. Records from before
-version 3 are invalid; capture again rather than interpreting an old record.
+keeps visitor_id, first_touch and last_touch and ignores any other key; a record
+missing one of them is invalid, so capture again.
 
 To carry attribution between isolated __Host- cookies, POST
 /api/events/attribution/handoff at the source origin with
