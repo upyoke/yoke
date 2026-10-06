@@ -3,26 +3,55 @@
 Covers polish steps 8 and 9: run verification against the fixes, then commit.
 
 **Context variables** (set by earlier phases): `ITEM_REF`, `ITEM_NUM`, `WORKTREE_PATH`,
-`WORKTREE_PATHS`.
+`WORKTREE_PATHS`, `POLISH_ENTRY_STAGE`, `REVIEW_STAGE`.
 
 ---
 
 ## 8. Run Verification
 
-Resolve `NEXT_STAGE` from the live polish interval and its unique forward
-edge as taught in [`advance.md`](advance.md). Materialize the effective
-project-default and item-attached plans for that declared target:
+Read the exact pinned definition as taught in [`parse-and-claim.md`](parse-and-claim.md).
+Derive `REVIEW_STAGE` from the forward edge entering the `reviewing` bucket
+from the `implementing` bucket, at or before `POLISH_ENTRY_STAGE`. This is
+the review attachment transition, not polish's next or completion stage.
+Project defaults match the attachment transition exactly; materializing the
+completion target would omit the review Command plan.
+
+With the returned `definition` and `POLISH_ENTRY_STAGE`, resolve it:
+
+```python
+stages = {stage["id"]: stage for stage in definition["stages"]}
+order = {stage["id"]: index for index, stage in enumerate(definition["stages"])}
+review_targets = {
+    edge["to_stage_id"]
+    for edge in definition["transitions"]
+    if stages[edge["from_stage_id"]]["board_bucket"] == "implementing"
+    and stages[edge["to_stage_id"]]["board_bucket"] == "reviewing"
+    and order[edge["from_stage_id"]] < order[edge["to_stage_id"]]
+    <= order[POLISH_ENTRY_STAGE]
+}
+if len(review_targets) != 1:
+    raise SystemExit(
+        "polish_review_transition_ambiguous: expected one implementation review entry; "
+        "ask the workflow owner to repair or select the declared review route"
+    )
+REVIEW_STAGE = next(iter(review_targets))
+```
+
+Materialize the effective project-default and item-attached plans at that
+review transition. This re-verifies evidence; do not transition the item
+backward to run it. Completion-target QA remains in [`advance.md`](advance.md).
 
 ```bash
 yoke qa plan materialize \
   --item "PREFIX-{N}" \
-  --transition "$NEXT_STAGE" \
+  --transition "$REVIEW_STAGE" \
   --json
 yoke qa requirement list --item "PREFIX-{N}" --json
 ```
 
-Select unsatisfied, non-waived plan-materialized requirements for that
-transition. Execute each `Command` case through its registered runner:
+Select every non-waived `Command` requirement at `REVIEW_STAGE` whose latest
+pass does not prove the current committed HEAD, including previously satisfied
+cases made stale by polish fixes. Execute each through its registered runner:
 
 ```bash
 yoke qa case run --requirement-id <requirement-id>
@@ -103,7 +132,8 @@ multi-worktree epic, commit each changed lane separately and leave untouched
 lanes alone. If no changes were needed, skip the commit and report that the
 implementation was already clean.
 
-Do not push or create a pull request. Usher owns those actions.
+Do not push or create a pull request by hand. The registered CI case owns
+any required publication.
 
 After the commit, rerun each required Command case with the committed HEAD so
 the latest requirement verdict and artifact prove the exact branch tip. That

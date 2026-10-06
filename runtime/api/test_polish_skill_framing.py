@@ -19,12 +19,13 @@ harness session is resolved from the environment.
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
 import pytest
 
-from runtime.api.skill_doc_regressions_test_helpers import SKILLS, _read
+from runtime.api.skill_doc_regressions_test_helpers import REPO, SKILLS, _read
 
 POLISH_DIR = SKILLS / "polish"
 
@@ -175,4 +176,66 @@ def test_polish_files_under_file_budget_limits() -> None:
         line_count = len(path.read_text(encoding="utf-8").splitlines())
         assert line_count <= limit, (
             f"{name}: {line_count} lines exceeds the {limit}-line hard limit."
+        )
+
+
+@pytest.mark.parametrize("canon", ["issue.07", "issue.08", "epic.05", "epic.06"])
+@pytest.mark.parametrize("rename_stages", [False, True])
+def test_polish_reruns_review_command_plan(canon: str, rename_stages: bool) -> None:
+    """Execute the taught selector against pins and renamed stage identities."""
+    path = (
+        REPO
+        / "packages/yoke-core/src/yoke_core/domain/builtin_workflow_canon"
+        / f"{canon}.json"
+    )
+    definition = json.loads(path.read_text())["definition"]
+    review_id = next(
+        stage["id"]
+        for stage in definition["stages"]
+        if stage["board_bucket"] == "reviewing"
+    )
+    if rename_stages:
+        names = {
+            stage["id"]: f"state-{index}"
+            for index, stage in enumerate(definition["stages"])
+        }
+        for stage in definition["stages"]:
+            stage["id"] = names[stage["id"]]
+        for row in (*definition["transitions"], *definition["skill_bindings"]):
+            for key in ("from_stage_id", "to_stage_id", "through_stage_id"):
+                if key in row:
+                    row[key] = names[row[key]]
+        review_id = names[review_id]
+    binding = next(
+        row for row in definition["skill_bindings"] if row["skill_id"] == "polish"
+    )
+    text = _read(POLISH_DIR / "verify-and-commit.md")
+    recipe = re.search(r"```python\n(.*?)\n```", text, re.DOTALL)
+    assert recipe is not None
+    context = {"definition": definition, "POLISH_ENTRY_STAGE": binding["from_stage_id"]}
+    exec(compile(recipe.group(1), "polish-review-selector", "exec"), context)
+    assert context["REVIEW_STAGE"] == review_id
+    assert context["REVIEW_STAGE"] != binding["through_stage_id"]
+    assert '--transition "$REVIEW_STAGE"' in text
+    assert '--transition "$NEXT_STAGE"' not in text
+    assert "previously satisfied" in text
+
+
+def test_polish_refuses_ambiguous_review_attachment() -> None:
+    text = _read(POLISH_DIR / "verify-and-commit.md")
+    recipe = re.search(r"```python\n(.*?)\n```", text, re.DOTALL)
+    assert recipe is not None
+    definition = {
+        "stages": [{"id": "finish", "board_bucket": "reviewing"}],
+        "transitions": [],
+    }
+    with pytest.raises(
+        SystemExit, match="polish_review_transition_ambiguous.*workflow owner"
+    ):
+        exec(
+            compile(recipe.group(1), "polish-review-selector", "exec"),
+            {
+                "definition": definition,
+                "POLISH_ENTRY_STAGE": "finish",
+            },
         )
