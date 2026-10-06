@@ -32,6 +32,8 @@ CREATE TABLE qa_requirements (
     item_id INTEGER,
     epic_id INTEGER,
     task_num INTEGER,
+    target_env TEXT,
+    execution_target_json TEXT,
     deployment_run_id TEXT,
     deployment_stage TEXT,
     deployment_member_item_id INTEGER,
@@ -194,8 +196,7 @@ def link_agent_review(
 ):
     conn = connect_test_db(db_path)
     conn.execute(
-        "INSERT INTO qa_plan_review_bundles(id,state) "
-        "VALUES ('bundle-1','completed')"
+        "INSERT INTO qa_plan_review_bundles(id,state) VALUES ('bundle-1','completed')"
     )
     conn.execute(
         "INSERT INTO qa_plan_review_verdicts("

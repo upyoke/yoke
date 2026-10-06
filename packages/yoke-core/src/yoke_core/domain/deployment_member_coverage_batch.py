@@ -1,6 +1,6 @@
 """Set-based run coverage using one flow, source record and completion read."""
 
-from yoke_core.domain.deployment_run_member_targeting import supplemental_qa_run
+from yoke_core.domain.deployment_run_member_targeting import supplemental_item_ids
 from yoke_core.domain.schema_read_scope import shared_read
 from yoke_core.domain.deployment_item_flow_resolution import (
     item_completion_flow_facts,
@@ -40,6 +40,11 @@ def _resolve(conn, run_id, ids):
         if item_id not in projects:
             raise LookupError(f"item {item_id!r} not found")
     facts = item_completion_flow_facts(conn, ids)
+    supplemental = supplemental_item_ids(
+        conn,
+        run_id=run_id,
+        completion_flows={item_id: fact.flow for item_id, fact in facts.items()},
+    )
     refs = render_item_ref_lookup(conn, ids)
     stages = item_scoped_qa_stage_names(run["stages"])
     return {
@@ -49,7 +54,7 @@ def _resolve(conn, run_id, ids):
             run_flow=str(run["flow"] or ""),
             completion_flow=facts[item_id].flow if item_id in facts else "",
             item_scoped_stages=stages,
-            closes=not supplemental_qa_run(conn, run_id=run_id, item_id=item_id)
+            closes=item_id not in supplemental
             and membership_closes_item(
                 run_flow=str(run["flow"] or ""),
                 completion_flow=facts[item_id].flow if item_id in facts else "",

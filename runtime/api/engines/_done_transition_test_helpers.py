@@ -83,7 +83,8 @@ def dt_db(tmp_path, monkeypatch):
             status TEXT,
             current_stage TEXT,
             created_at TEXT,
-            release_lineage TEXT
+            release_lineage TEXT,
+            target_environment_id INTEGER
         );
         CREATE TABLE deployment_run_items (
             run_id TEXT,
@@ -162,11 +163,12 @@ def dt_db(tmp_path, monkeypatch):
             attempt INTEGER DEFAULT 1,
             created_at TEXT
         );
+        CREATE TABLE environments (id INTEGER PRIMARY KEY, name TEXT);
         CREATE TABLE deployment_flows (
             id TEXT PRIMARY KEY,
             project_id INTEGER NOT NULL,
             name TEXT NOT NULL,
-            target_env TEXT
+            target_environment_id INTEGER
         );
         """,
         )

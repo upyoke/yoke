@@ -15,15 +15,36 @@ def supplemental_qa_run(conn: Any, *, run_id: str, item_id: int) -> bool:
     from yoke_core.domain.deployment_item_flow_resolution import item_completion_flow
 
     flow = item_completion_flow(conn, int(item_id))
-    row = conn.execute(
-        "SELECT re.name, ce.name FROM deployment_runs dr "
+    return int(item_id) in supplemental_item_ids(
+        conn, run_id=run_id, completion_flows={int(item_id): flow}
+    )
+
+
+def supplemental_item_ids(
+    conn: Any, *, run_id: str, completion_flows: dict[int, str]
+) -> frozenset[int]:
+    """Resolve environment differences in one read for the entire member set."""
+    from yoke_core.domain import db_backend
+
+    flows = tuple(dict.fromkeys(value for value in completion_flows.values() if value))
+    if not flows:
+        return frozenset()
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    rows = conn.execute(
+        "SELECT cf.id,re.name,ce.name FROM deployment_runs dr "
         "JOIN deployment_flows df ON df.id=dr.flow "
-        "LEFT JOIN deployment_flows cf ON cf.id=%s "
-        "LEFT JOIN environments re ON re.id=COALESCE(dr.target_environment_id, df.target_environment_id) "
-        "LEFT JOIN environments ce ON ce.id=cf.target_environment_id WHERE dr.id=%s",
-        (flow, str(run_id)),
-    ).fetchone()
-    return bool(row and row[0] and row[1] and str(row[0]) != str(row[1]))
+        f"JOIN deployment_flows cf ON cf.id IN ({','.join(marker for _ in flows)}) "
+        "LEFT JOIN environments re ON re.id=COALESCE(dr.target_environment_id,df.target_environment_id) "
+        "LEFT JOIN environments ce ON ce.id=cf.target_environment_id "
+        f"WHERE dr.id={marker}",
+        (*flows, str(run_id)),
+    ).fetchall()
+    supplemental = {
+        str(row[0]) for row in rows if row[1] and row[2] and str(row[1]) != str(row[2])
+    }
+    return frozenset(
+        item_id for item_id, flow in completion_flows.items() if flow in supplemental
+    )
 
 
 def targeted_requirement_ids(conn: Any, *, run_id: str, item_id: int) -> frozenset[int]:
