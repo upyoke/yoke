@@ -195,6 +195,8 @@ NULL`). **Public preview:** `yoke qa gate-summary --item PREFIX-N --target revie
 
 **Public preview:** `yoke qa gate-summary --item PREFIX-N --target done --json`
 
+Terminal settlement ignores a closed, verdict-less run only when its superseding requirement has completed passing evidence or a recorded discharge; post-deploy successors need accepted admitted copies on the completion member. An unsettled successor is named in the refusal. Live runs and active plan executions still block, and the old run remains unchanged as history.
+
 ### Bypass
 
 `YOKE_QA_GATE_BYPASS=1` is accepted only in pytest contexts; production use refuses as `GATE_QA_BYPASS_FORBIDDEN`. Unset it and satisfy or explicitly waive every declared requirement.

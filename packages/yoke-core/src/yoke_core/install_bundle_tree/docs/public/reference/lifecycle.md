@@ -231,6 +231,11 @@ repair happens while the claim is still held. Prefer that shape whenever a
 value must be right before an item freezes: gate the transition, do not
 reopen the record.
 
+A closed, verdict-less QA run stops blocking when its requirement's successor
+has completed passing evidence or a recorded discharge (post-deploy proof comes from accepted completion-member copies). An unsettled successor
+is named in the refusal. Live runs and active plan executions still block;
+supersession never rewrites the old run or supplies the successor's proof.
+
 Ad hoc write SQL against the authoritative DB is not an escape hatch here;
 it is banned by the governed-mutation contract.
 

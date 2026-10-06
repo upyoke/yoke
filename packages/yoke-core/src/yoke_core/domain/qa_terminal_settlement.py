@@ -23,6 +23,7 @@ from yoke_core.domain.qa_terminal_requirement_errors import (
 )
 from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_SQL
 from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
+from yoke_core.domain.qa_terminal_records import unsettled_supersession_runs
 from yoke_core.domain.schema_common import _table_exists
 
 
@@ -220,7 +221,8 @@ def find_unsettled_records(conn: Any, *, item_id: int) -> list[UnsettledQaRecord
         return []
     placeholder = _placeholder(conn)
     run_rows = conn.execute(
-        "SELECT r.id, r.qa_requirement_id, r.execution_status, r.raw_result "
+        "SELECT r.id, r.qa_requirement_id, r.execution_status, r.raw_result, "
+        "r.completed_at, q.superseded_by_requirement_id "
         "FROM qa_runs r JOIN qa_requirements q ON q.id = r.qa_requirement_id "
         f"WHERE q.item_id = {placeholder} AND q.waived_at IS NULL "
         f"AND {unretracted_requirement_sql(conn, 'q')} "
@@ -233,10 +235,12 @@ def find_unsettled_records(conn: Any, *, item_id: int) -> list[UnsettledQaRecord
             record_id=str(_row_value(row, "id", 0)),
             detail=(
                 f"requirement {_row_value(row, 'qa_requirement_id', 1)}: "
-                f"{_run_detail(row)}"
+                f"{_run_detail(row)}{successor_detail}"
             ),
         )
-        for row in run_rows
+        for row, successor_detail in unsettled_supersession_runs(
+            conn, item_id, run_rows
+        )
     ]
     if not _table_exists(conn, "qa_plan_executions"):
         return unsettled

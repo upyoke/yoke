@@ -181,6 +181,10 @@ run must satisfy its own admitted item cases and stage acceptance. A failing
 case on that current run still blocks done unless its same-target replacement
 passes and that stage is accepted.
 
+A closed verdict-less item attempt stops blocking terminal settlement when its
+successor has completed passing evidence or is discharged; post-deploy successors need accepted completion-member copies. An unsettled successor
+is named; live runs and active plan executions still block without rewriting history.
+
 Completion of a target-bound scoped QA execution settles its active stage
 gate on the control plane. The same happens after an agent review bundle is
 submitted. For `required_human`, settlement creates the authorized request
