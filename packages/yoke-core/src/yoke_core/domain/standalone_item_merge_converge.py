@@ -34,6 +34,9 @@ def _converge_queue_landing(
 ):
     """Finish the bookkeeping a two-call queue handoff deferred."""
     from yoke_core.domain.merge_queue_close_out import record_landing
+    from yoke_core.domain.merge_queue_landed_candidate import (
+        landed_candidate_head,
+    )
     from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
     from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
 
@@ -50,6 +53,7 @@ def _converge_queue_landing(
         # lane that landed twice has both on the base, and the recorded
         # one answers for the landing this close-out already replaced.
         candidate_sha=lane.candidate_sha or lane.commit_sha,
+        resolve_landed_head=landed_candidate_head,
         pr_num=queue_pr_number,
         member_snapshot=(public_ref,) if public_ref else (),
     )
@@ -65,7 +69,7 @@ def _converge_queue_landing(
         ok=not refusal,
         exit_code=0 if not refusal else 1,
         already_merged=True,
-        commit_sha=lane.commit_sha,
+        commit_sha=closed.receipt_commit_sha or lane.commit_sha,
         merge_sha=merge_sha,
         touched_files=touched_files,
         pushed=True,
@@ -133,7 +137,9 @@ def converge(
             merge_sha=merge_sha,
             touched_files=lane.touched_files,
             contributed_commits=contributed.after_landing(
-                repo_root, commit_sha=lane.commit_sha, merge_sha=merge_sha,
+                repo_root,
+                commit_sha=lane.commit_sha,
+                merge_sha=merge_sha,
             ),
         ),
     )

@@ -46,7 +46,8 @@ def test_no_posture_queue_handoff_stamps_ci_backed_merge(test_db, monkeypatch):
     )
     project_id = int(
         test_db.execute(
-            "SELECT project_id FROM items WHERE id = %s", (item_id,),
+            "SELECT project_id FROM items WHERE id = %s",
+            (item_id,),
         ).fetchone()[0]
     )
     insert_capability(
@@ -63,9 +64,13 @@ def test_no_posture_queue_handoff_stamps_ci_backed_merge(test_db, monkeypatch):
     )
     test_db.commit()
     monkeypatch.setattr(db_helpers, "connect", lambda: nullcontext(test_db))
-    assert test_db.execute(
-        "SELECT COUNT(*) FROM qa_requirements WHERE item_id = %s", (item_id,),
-    ).fetchone()[0] == 0
+    assert (
+        test_db.execute(
+            "SELECT COUNT(*) FROM qa_requirements WHERE item_id = %s",
+            (item_id,),
+        ).fetchone()[0]
+        == 0
+    )
 
     receipt = batch_receipt.BatchReceipt(
         pr_num="42",
@@ -74,7 +79,9 @@ def test_no_posture_queue_handoff_stamps_ci_backed_merge(test_db, monkeypatch):
         head_sha=COMBINED_SHA,
         run_url="https://github.test/runs/42",
     )
-    monkeypatch.setattr(queue_close_out, "stamp_merged_at", lambda _item, **_kwargs: None)
+    monkeypatch.setattr(
+        queue_close_out, "stamp_merged_at", lambda _item, **_kwargs: None
+    )
     monkeypatch.setattr(
         queue_close_out,
         "observe_batch",
@@ -87,7 +94,13 @@ def test_no_posture_queue_handoff_stamps_ci_backed_merge(test_db, monkeypatch):
     )
     monkeypatch.setattr(queue_close_out.receipts, "record", lambda *_a, **_k: "")
     monkeypatch.setattr(
-        queue_close_out, "fast_forward_main_checkout", lambda *_a, **_k: "",
+        queue_close_out,
+        "fast_forward_main_checkout",
+        lambda *_a, **_k: "",
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.merge_queue_landed_candidate.landed_candidate_head",
+        lambda _item_id, **_kwargs: (LANE_SHA, ""),
     )
 
     close_out = converging.converge(
@@ -106,12 +119,15 @@ def test_no_posture_queue_handoff_stamps_ci_backed_merge(test_db, monkeypatch):
         queue_pr_number="42",
     )
     assert close_out.ok is True
-    assert test_db.execute(
-        "SELECT COUNT(*) FROM qa_runs r JOIN qa_requirements q "
-        "ON q.id = r.qa_requirement_id WHERE q.item_id = %s "
-        "AND r.performed_by = 'ci_run' AND r.verdict = 'pass'",
-        (item_id,),
-    ).fetchone()[0] == 1
+    assert (
+        test_db.execute(
+            "SELECT COUNT(*) FROM qa_runs r JOIN qa_requirements q "
+            "ON q.id = r.qa_requirement_id WHERE q.item_id = %s "
+            "AND r.performed_by = 'ci_run' AND r.verdict = 'pass'",
+            (item_id,),
+        ).fetchone()[0]
+        == 1
+    )
 
     evidence = handle_dash_evidence(
         FunctionCallRequest(

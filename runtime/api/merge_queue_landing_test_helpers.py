@@ -55,7 +55,7 @@ def landing_record(
     *,
     pr_number="42",
     narrative="pull request 42: merged=true",
-    head_sha="",
+    head_sha=LANE_SHA,
     failed_checks=(),
     disarm_note="",
     observed_at="2026-09-04T01:00:00Z",

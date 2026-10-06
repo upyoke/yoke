@@ -17,6 +17,7 @@ from yoke_contracts.api.function_call import TargetRef
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
 from yoke_core.domain.merge_queue_close_out import record_landing
+from yoke_core.domain.merge_queue_landed_candidate import landed_candidate_head
 from yoke_core.domain.merge_queue_drift_gate import drift_receipt
 from yoke_core.domain.merge_queue_landing_wait import RECOVERABLE_QUEUE_EXIT_CODE
 from yoke_core.engines.merge_worktree_prepare import MergeContext
@@ -101,6 +102,7 @@ def close_out(
     resume_command: str,
     warnings: list[str],
     already_merged: bool = True,
+    dispatch: Optional[Callable[..., Any]] = None,
 ) -> QueueLandingOutcome:
     """Record what a landed member owes, from either landing route.
 
@@ -114,6 +116,9 @@ def close_out(
         pr_num=pr_num,
         member_snapshot=tuple(dict.fromkeys((*member_refs, public_ref))),
         drift_check=drift_receipt(drift) if drift is not None else None,
+        resolve_landed_head=lambda item_id: landed_candidate_head(
+            item_id, dispatch=dispatch
+        ),
     )
     warnings.extend(recorded.warnings)
     ci_refusal = recorded.ci_evidence_refusal(pr_num, resume_command)
@@ -128,7 +133,7 @@ def close_out(
         ok=True,
         exit_code=0,
         pr_num=pr_num,
-        commit_sha=commit_sha,
+        commit_sha=getattr(recorded, "receipt_commit_sha", "") or commit_sha,
         merge_sha=recorded.merge_sha,
         touched_files=recorded.touched_files,
         batch=recorded.batch,

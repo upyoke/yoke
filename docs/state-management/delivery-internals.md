@@ -285,10 +285,9 @@ lane that the release does not carry? It asks it of
 a rebase rewrites the lane, so the commit that pointer named can stop existing
 anywhere. An unplaceable head is therefore only a refusal while the item's own
 merge is ALSO unaccounted for; an unplaceable head beside a contained merge is
-a pointer a rebase orphaned, and the work it used to name shipped under the
-commit that actually landed. The close-out re-records the pointer at the
-landed commit before the transition that reads it, so it stops going stale in
-the first place.
+a pointer a rebase orphaned. The merge receipt names the landed candidate
+head and its merge commit from the landing record, never this cached pointer.
+Close-out re-records the pointer at that landed commit before the transition.
 
 A close-out whose merge landed and whose evidence is written, but whose
 terminal transition then refused, still retires its lane. Lane release is
