@@ -101,6 +101,16 @@ export class FakeNode extends EventTarget {
     return node;
   }
 
+  insertBefore(node, reference) {
+    if (reference === null) return this.appendChild(node);
+    if (!this.children.includes(reference)) throw new Error("reference is not a child");
+    if (node === reference) return node;
+    node.parentNode?.removeChild(node);
+    node.parentNode = this;
+    this.children.splice(this.children.indexOf(reference), 0, node);
+    return node;
+  }
+
   removeChild(node) {
     const index = this.children.indexOf(node);
     if (index < 0) throw new Error("node is not a child");
@@ -143,6 +153,7 @@ class FakeWindow extends EventTarget {
   constructor() {
     super();
     this.Event = Event;
+    Object.assign(this, { AbortController, setTimeout, clearTimeout, setInterval, clearInterval });
     let url = new URL("http://workbench.invalid/items");
     this.location = {
       get href() { return `${url.pathname}${url.search}${url.hash}`; },

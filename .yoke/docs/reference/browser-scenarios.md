@@ -285,6 +285,12 @@ first: a checkout with uncommitted changes publishes `<sha>-dirty`, which
 fails the match closed because it is not the committed contents it would be
 certified as.
 
+Open dashboard tabs compare their loaded build with `/served-build` on focus,
+visibility return, and every minute. A changed build shows a persistent notice
+with a Reload button; reload is manual to preserve unsaved drafts. Empty or
+failed reads leave the page usable without a notice. Hosted checks retain the
+`/orgs/<org>` base path.
+
 ## Evidence and gates
 
 Read captured evidence with the command the capture already reported under

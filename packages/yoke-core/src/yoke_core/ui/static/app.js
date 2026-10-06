@@ -3,7 +3,6 @@
 // Path routes preserve shared selection and independent resource focus. NAV owns
 // the flat destination arc; host-fed Members and Billing contribute only their
 // body while the workbench retains routing and page chrome.
-
 import {
   UNIVERSE_APP_CONTRACT_VERSION,
   createHttpFunctionClient,
@@ -55,6 +54,7 @@ import { createSteeringGroupColors } from "./universe_steering_group_color.js";
 import { ROUTE_NAVIGATION_EVENT } from "./universe_path_navigation.js";
 import { createLocationPreference } from "./universe_location_preference.js";
 import { purgeObsoleteItemDrafts } from "./item_draft_storage.js";
+import { mountBuildUpdate } from "./universe_build_update.js";
 import { mountWorkbenchTelemetry } from "./workbench_telemetry.js";
 export { withProjectSelection } from "./universe_selection_routes.js";
 // A host owns its slot DOM, so it cannot inherit the app's own dismissal —
@@ -134,9 +134,9 @@ export function mountUniverseApp(rootNode, options = {}) {
     resolvedSlots,
     slots,
   });
-
   const detachRootClass = attachMountRootClass(rootNode);
   rootNode.replaceChildren(header, shell);
+  const disposeBuildUpdate = mountBuildUpdate(main, windowNode, options, navigation.basePath);
   const disposeTelemetry = mountWorkbenchTelemetry(footer, windowNode);
   main.replaceChildren(routeLoadingLine(documentNode));
 
@@ -337,6 +337,7 @@ export function mountUniverseApp(rootNode, options = {}) {
   return createUnmountHandle(UNIVERSE_APP_CONTRACT_VERSION, () => {
     mounted = false;
     disposeTelemetry();
+    disposeBuildUpdate();
     if (typeof context.abortView === "function") context.abortView();
     navigation.dispose();
     windowNode.removeEventListener("popstate", heldScope.onRouteChange);

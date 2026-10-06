@@ -91,7 +91,7 @@ function appendSessionUsageFacts(documentNode, stats, usage) {
     {
       fact: "cost",
       value: usageSummaryCostDisplay(summary),
-      unit: "24h API cost",
+      unit: "24h cost",
       partial,
     },
   ]) stats.appendChild(usageStatTile(documentNode, stat));

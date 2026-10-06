@@ -72,7 +72,7 @@ test("Sessions renders resolved local identity and the exact empty state", async
   );
   assert.deepEqual(
     byClass(emptyRoot, "usage-stat-unit").map((node) => node.textContent),
-    ["24h tokens", "24h API cost"],
+    ["24h tokens", "24h cost"],
   );
   const filterHost = byClass(emptyRoot, "session-roster-filters")[0];
   assert.deepEqual(
