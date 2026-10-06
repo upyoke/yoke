@@ -212,14 +212,13 @@ def step_schema_violation(
             found = _field_violation(action, index, step, field, rule)
             if found is not None:
                 return found
-    require_any = spec.get("require_any") or []
+    require_any = spec.get("require_any")
     if require_any and not any(
-        _non_empty_text(step.get(field)) for field in require_any
+        _non_empty_text(step.get(field)) for field in require_any["fields"]
     ):
-        named = ", ".join(str(field) for field in require_any)
         return StepSchemaViolation(
             "step_require_any",
-            f"Browser {action} step {index} requires one of: {named}.",
+            f"Browser {action} step {index} {require_any['refusal']}",
         )
     return None
 

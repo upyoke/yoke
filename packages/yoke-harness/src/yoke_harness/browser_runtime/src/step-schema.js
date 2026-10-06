@@ -167,11 +167,9 @@ function refuseStep(step) {
   for (const [field, rule] of Object.entries(fields)) {
     refuseField(action, step, field, rule);
   }
-  const requireAny = spec.require_any || [];
-  if (requireAny.length && !requireAny.some((field) => nonEmptyText(step[field]))) {
-    throw new Error(
-      `Browser ${action} step requires one of: ${requireAny.join(', ')}.`
-    );
+  const requireAny = spec.require_any;
+  if (requireAny && !requireAny.fields.some((field) => nonEmptyText(step[field]))) {
+    throw new Error(`Browser ${action} step ${requireAny.refusal}`);
   }
 }
 

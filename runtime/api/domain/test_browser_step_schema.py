@@ -53,6 +53,19 @@ def test_assert_value_names_expected() -> None:
     assert "'expected'" in found.message
 
 
+def test_ready_naming_no_indicator_teaches_what_it_needs() -> None:
+    found = _violation(
+        [
+            {"action": "navigate", "route": "/"},
+            {"action": "ready", "timeout_ms": 500},
+        ]
+    )
+    assert found is not None
+    assert found.code == "step_require_any"
+    assert "requires target, text, or both" in found.message
+    assert "prove nothing" in found.message
+
+
 def test_screenshot_without_capture_is_refused() -> None:
     found = browser_method_contract_violation(
         "browser-inspection",

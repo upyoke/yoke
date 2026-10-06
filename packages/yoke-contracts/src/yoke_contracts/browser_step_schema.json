@@ -60,7 +60,10 @@
         "target": {"type": "non_empty_string", "required": false},
         "text": {"type": "non_empty_string", "required": false}
       },
-      "require_any": ["target", "text"]
+      "require_any": {
+        "fields": ["target", "text"],
+        "refusal": "requires target, text, or both: a readiness step naming no loading indicator would pass instantly and prove nothing. Give target a loading selector (\".skeleton\"), text the placeholder's own words (\"Loading\"), or both."
+      }
     },
     "delay": {
       "keys": ["duration", "duration_ms"],
