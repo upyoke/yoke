@@ -6,13 +6,13 @@ All authoritative Yoke state lives in the configured Postgres authority. Compact
 
 Every work item gets a stable global integer `items.id`. Its user-facing
 reference combines the owning project's `public_item_prefix` with the item's
-per-project `project_sequence` (for example, `YOK-42`). Both identities persist
+per-project `project_sequence` (for example, `EXAMPLE-42`). Both identities persist
 through the item's entire lifecycle. The registry is the single source of
 truth for every registered workflow and immutable workflow-version pin.
 
 ### ID System
 
-- **Public format:** `<PREFIX>-N` (for example, `YOK-42`) — the prefix comes
+- **Public format:** `<PREFIX>-N` (for example, `EXAMPLE-42`) — the prefix comes
   from `projects.public_item_prefix`.
 - **Scope:** `items.id` is globally unique in the universe;
   `items.project_sequence` is monotonically allocated within one project.

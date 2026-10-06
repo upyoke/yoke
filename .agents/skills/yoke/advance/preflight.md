@@ -1,6 +1,6 @@
 # Advance — Gates
 
-Every gate this skill used to run by hand is enforced by the lifecycle engine
+Every transition gate is enforced by the lifecycle engine
 on `lifecycle.transition.execute` — the same write a plain
 `yoke lifecycle transition PREFIX-N --to STAGE` performs. A transition that
 misses a gate refuses with the gate's error code, a named reason, and the
