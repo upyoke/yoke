@@ -13,11 +13,9 @@ Use `result.item.status` for the completed stage and
 Next bound skill: /yoke {NEXT_SKILL_ID} {ITEM}
 ```
 
-When the field is empty, report that no next skill is bound. When the serving
-build omits the field, report `handoff_projection_unavailable` and read the
-item's exact pinned version with `yoke workflows version get WORKFLOW VERSION`
-to resolve its half-open binding. Never reuse the entry read after a transition
-or select a skill from a workflow name or a copied stage chain.
+When the field is empty, report that no next skill is bound. Never reuse the
+entry read after a transition or select a skill from a workflow name or a
+copied stage chain.
 
 A refusal or artifact repair is not a forward handoff. Name the failed gate
 and its concrete repair, then resolve the pinned binding at the current stage
