@@ -10,7 +10,7 @@ Every adapter must implement these parts:
 
 1. **Bootstrap Loader** -- loads the Yoke-owned startup contract
 2. **Capability Manifest** -- declares identity and supported paths
-3. **Session-Offer Builder** -- translates manifest into Yoke's offer format
+3. **Session Registration** -- binds session identity and delivers the launch mandate
 4. **Route Wrapper** -- invokes only declared-supported Yoke commands
 5. **Smoke-Test Matrix** -- validates both wrapper-only and hook-enhanced modes
 
@@ -249,7 +249,7 @@ Use this checklist when creating a new harness adapter.
 - [ ] **`supports.command_source` is shared.** Yoke-owned harnesses use `"shared_yoke_registry"` and do not copy command/path lists into the manifest.
 - [ ] **Manifest limitations are truthful.** Every disabled entrypoint or downstream path names a concrete substrate limitation. No aspirational support or vague unsupported-by-default posture.
 - [ ] **`telemetry.canonical_source` is `"yoke_core"`.** Harness-local telemetry is optional, never canonical.
-- [ ] **Session-offer builder passes truthful identity and support data.** The adapter's offer call includes `--executor`, `--provider`, `--model`, `--workspace`, and `--session-id`; it passes `--supported-paths` only when the adapter does not rely on Yoke-core registry derivation.
+- [ ] **Session registration passes truthful identity and model facts.** Startup hooks register automatically; launch workers read and acknowledge the exact mandate before claiming its item.
 - [ ] **Route wrapper respects registry + limitations.** The wrapper presents shared commands and produces a clear fallback response for manifest-disabled paths.
 - [ ] **Wrapper-only mode works.** All correctness-critical behavior works without hooks. Hooks are opt-in enhancements.
 - [ ] **Hook-enhanced mode is gated.** If the adapter uses hooks, they are gated by runtime/version checks. Missing hooks degrade to wrapper-only mode silently.

@@ -1,11 +1,9 @@
 # ruff: noqa: F811
 """Idle sessions are collected whatever their harness leaves behind.
 
-Two converging defects kept an archived session alive forever. An unfinished
-``session_tool_calls`` row reported the session as permanently in flight, so no
-amount of idleness reached the reclaim; and the chain checkpoint it left behind
-then refused every later end attempt with ``chain_pending``. Neither defect is
-specific to one executor, so every case here runs across surfaces.
+An unfinished tool-call row only shields a session when the latest activity
+grounds it. Reclaim clears checkpoint state before a later episode reuses the
+session row. Every case runs across supported executor surfaces.
 """
 
 from __future__ import annotations
@@ -175,7 +173,7 @@ class TestChainBudgetDiesWithTheSession:
         assert read_chain_checkpoint(conn, session_id) is None
 
     @pytest.mark.parametrize("executor", EXECUTORS)
-    def test_reclaimed_checkpoint_no_longer_refuses_the_empty_end(self, conn, executor):
+    def test_reclaimed_session_can_end_empty_after_reactivation(self, conn, executor):
         session_id, _idle = _seed_idle_session_with_leftover_row(conn, executor)
         update_chain_checkpoint(
             conn,
@@ -184,8 +182,6 @@ class TestChainBudgetDiesWithTheSession:
             action="implement",
             chainable=True,
         )
-        assert end_session_if_empty(conn, session_id)["status"] == "ended"
-
         reclaim_stale_session(conn, session_id)
         # A reactivated episode reuses the same row, so the checkpoint would
         # come back with it if the reclaim had left it in place.

@@ -90,6 +90,6 @@ def test_harness_docs_resolve_claude_code_to_claude_manifest() -> None:
         text = _read(path)
         assert "`claude-vscode` -> `runtime/harness/claude/manifest.json`" in text
         assert "runtime/harness/claude-code/manifest.json" not in text
-    assert "Both Yoke-owned executor families ship manifests today" in _read(
-        HARNESS_ADAPTER_TEMPLATE
-    )
+    adapter = _read(HARNESS_ADAPTER_TEMPLATE)
+    assert "Surface-specific executor values normalize back to the family manifest" in adapter
+    assert "`codex-desktop` -> `runtime/harness/codex/manifest.json`" in adapter
