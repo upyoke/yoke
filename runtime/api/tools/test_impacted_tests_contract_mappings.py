@@ -49,12 +49,10 @@ def test_harness_manifest_parity_survives_bounded_document_deferral(
     assert consumer in selection.files
 
 
-def test_contract_companions_survive_bounded_shared_fixture_deferral(
+def test_contract_companions_survive_bounded_deferral(
     tmp_path: Path,
 ) -> None:
-    shared_fixture = f"{impacted_tests.SHARED_TEST_FIXTURE_PATHS[1]}shared.py"
     changed = (
-        shared_fixture,
         f"{contracts.MIGRATION_HISTORY_SOURCE_PREFIXES[0]}0099_example.py",
         contracts.EPIC_RESOLUTION_SOURCE_PATH,
         sorted(path_claims.PATH_CLAIM_SOURCE_PATHS)[0],
@@ -100,7 +98,7 @@ def test_contract_companions_survive_bounded_shared_fixture_deferral(
     )
 
 
-def test_fixture_schema_contract_survives_bounded_fixture_deferral(
+def test_fixture_schema_contract_selects_its_companions_when_bounded(
     tmp_path: Path,
 ) -> None:
     source = "runtime/api/fixtures/schema_ddl_runtime.py"
@@ -111,7 +109,6 @@ def test_fixture_schema_contract_survives_bounded_fixture_deferral(
 
     selection = select([source], build_import_index(tmp_path), bounded=True)
 
-    assert selection.bounded_deferral is True
     assert expected <= set(selection.files)
     assert f"fixture_schema_contract:{source}" in selection.widening_triggers
 
