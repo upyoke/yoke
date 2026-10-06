@@ -97,7 +97,7 @@ DEPENDENCY INSPECTION
  usher --dry-run shows the dependency edges driving merge order.
 
 INTERNAL (called by orchestration commands, not operator-facing)
- advance, approve, amend
+ approve, amend
 
 For full documentation, see README.md
 ```

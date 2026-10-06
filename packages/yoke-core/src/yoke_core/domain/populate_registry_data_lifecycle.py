@@ -37,6 +37,7 @@ DEPRECATE_LIST: Tuple[str, ...] = (
 
 
 PURGED_EVENT_NAMES: Tuple[str, ...] = (
+    "SkipHopPerformed",
     "ModeChosen",
     "AgentSessionStarted",
     "SessionStartPayloadObserved",

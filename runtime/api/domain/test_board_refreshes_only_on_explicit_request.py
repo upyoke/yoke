@@ -14,7 +14,6 @@ import inspect
 import pytest
 
 from yoke_core.domain import (
-    advance_skip_core,
     backlog,
     backlog_batch_update,
     backlog_close_op,
@@ -70,7 +69,6 @@ MUTATION_ENTRYPOINTS = (
     (backlog_structured_write_op, "execute_structured_write"),
     (item_field_transform, "append_addendum"),
     (item_field_transform_sections, "section_upsert"),
-    (advance_skip_core, "_do_execute_update"),
     (update_status, "update_task_status"),
 )
 
