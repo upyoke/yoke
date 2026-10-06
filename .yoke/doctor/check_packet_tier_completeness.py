@@ -84,7 +84,7 @@ SKILL_SCAN_TARGETS: Dict[str, Tuple[str, ...]] = {
         ".agents/skills/yoke/shepherd/SKILL.md",
         ".agents/skills/yoke/shepherd/design-and-plan.md",
         ".agents/skills/yoke/shepherd/plan-handoff.md",
-        ".agents/skills/yoke/shepherd/planning-to-planned-gates.md",
+        ".agents/skills/yoke/shepherd/planning-gates.md",
     ),
     "boss_agent": (
         ".agents/skills/yoke/shepherd/boss-verdict.md",

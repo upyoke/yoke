@@ -12,10 +12,7 @@ produces artifact -> Boss reviews -> persist verdict -> advance or retry.
 
 Shepherd is selected by an active `skill_bindings` interval, not by an item
 type or workflow id. This implementation supports the generated-task planning
-contract (`generated_children=epic_tasks`) and verifies the exact pinned
-segment before it writes anything.
-
-> Standalone mode (`/yoke shepherd PREFIX-N`) is the primary usage. The `--subagent` mode is retained for backward compatibility and potential future use.
+contract (`generated_children=epic_tasks`) and derives its ordered edges from the pinned binding before it writes anything.
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
@@ -26,7 +23,6 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 ## Arguments
 
 - `{PREFIX-N}` -- Backlog item ID. Accepts prefixed IDs, zero-padded prefixed IDs, or bare numeric IDs.
-- `--subagent --session <id>` -- Run in subagent mode (no user interaction, auto-advance, exit 1 on failure).
 
 ## Constants
 

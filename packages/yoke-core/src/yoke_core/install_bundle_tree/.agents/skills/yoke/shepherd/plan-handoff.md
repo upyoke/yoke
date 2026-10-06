@@ -1,38 +1,37 @@
 # Shepherd: Architect Invocation and Plan Handoff
 
-Covers the `refined_idea_to_planning` Architect phase and the `planning_to_plan_drafted` transition: status transition, PRD gate, Architect invocation, DB writes, Simulator loop, and Boss handoff.
+Covers the the plan-production edge Architect phase and the the final review edge transition: status transition, PRD gate, Architect invocation, DB writes, Simulator loop, and Boss handoff.
 
-**Inherited from router:** `MAX_ATTEMPTS`, `MAX_SIMULATOR_FIX_CYCLES`, `_num`, `_workflow_id`, `_title`, `_item_status`, `_epic`, `_scholar_context`, `_prior_caveats`, `_transition`, `_attempt`, `_session_id`, `_worker_name`.
+**Inherited from router:** `MAX_ATTEMPTS`, `MAX_SIMULATOR_FIX_CYCLES`, `_num`, `_workflow_id`, `_title`, `_item_status`, `_scholar_context`, `_prior_caveats`, `_transition`, `_attempt`, `_session_id`, `_worker_name`.
 
 **After this step completes:** Continue with Boss review in `boss-verdict.md`.
 
 ---
 
-## 5d. Invoke Worker (refined_idea_to_planning -- Architect)
+## 5d. Invoke Worker ({_plan_transition} -- Architect)
 
 This transition writes plan data directly to the DB on main. No plan worktree is created.
 
-### 0. Transition status to `planning`
+### 0. Show active planning inside the binding
 
-The epic enters `planning` status as soon as the Architect phase
-begins — this makes the active planning work visible on the board.
-The status is set here, not after Boss review. Dispatch
-`lifecycle.transition.execute` (envelope in
-[`../idea/body-and-sync-functions.md`](../idea/body-and-sync-functions.md))
-with `target = {kind: "item", item_id: $_num}` and `payload =
-{target_status: "planning", source_status: "refined-idea"}`.
+When `_target_stage` is inside the binding (not its handoff), dispatch
+`lifecycle.transition.execute` with the resolved bare `item_id` and
+`payload = {target_status: _target_stage, source_status: _source_stage}`.
+If resuming at that target, do not repeat the write. Re-read the status after
+success. A one-edge segment stays at its source until all reviews pass, so
+it cannot hand off before artifacts and verdicts exist.
 
 ### 1. Derive epic ID
 ```bash
-_epic_id=$_num # numeric item ID (already parsed in step 1)
+_epic_id=$_num # resolved bare item ID from entry
 ```
 
 ### 2. PRD quality gate (pre-Architect validation)
 Before invoking the Architect, run the registered read-only PRD validator:
 ```bash
-yoke readiness prd-validate "PREFIX-$_num"
+yoke readiness prd-validate "$_item_ref"
 ```
-If exit code is 1 (FAIL), do NOT invoke the Architect. In standalone mode, present the report and stop. In subagent mode, write a BLOCKED verdict with the validation failures and return exit 1.
+If exit code is 1 (FAIL), do not invoke the Architect. Persist a BLOCKED verdict with the validation failures, present the named recovery, and stop.
 If exit code is 0 with warnings, proceed but include the warnings in the Architect prompt context.
 
 ### 3. Invoke Architect
@@ -88,7 +87,7 @@ Two dispatches, in order:
    item_id: $_num}`, `payload = {field: "technical_plan", content:
    "$_tech_plan_content", source: "shepherd"}`. If `success=false`,
    log `ERROR: structured field write failed for technical_plan on
-   PREFIX-$_num. STOP -- do not advance status.` and treat as NOT_READY.
+   $_item_ref. STOP -- do not advance status.` and treat as NOT_READY.
 2. `items.structured_field.replace` with the same `target` and
    `payload = {field: "worktree_plan", content: "$_wt_plan_content",
    source: "shepherd"}`. Same error handling.
@@ -99,13 +98,13 @@ call (`payload = {fields: ["technical_plan"]}`) and confirm
 `result.fields.technical_plan` is non-empty. If empty:
 
 - Log
-  `"VERIFICATION FAILED: technical_plan field is empty for PREFIX-$_num
+  `"VERIFICATION FAILED: technical_plan field is empty for $_item_ref
   after write. Retrying field write (attempt {retry}/2)."`
 - Retry the `items.structured_field.replace` dispatch up to 2 times.
-- If all retries fail, do NOT advance to `planned`. Log the failure
+- If all retries fail, do not advance to `_shepherd_through_stage`. Log the failure
   and treat as NOT_READY.
 - If verification passes, log
-  `"VERIFIED: technical_plan field populated for PREFIX-$_num after
+  `"VERIFIED: technical_plan field populated for $_item_ref after
   write."`
 
 Then, for each task produced by the Architect, dispatch the
@@ -125,22 +124,22 @@ task (exclude `stopped` and `failed`), read its exact `epic_task_files`
 rows. A non-empty budget registers concrete task scope:
 
 ```bash
-yoke claims path register --item "PREFIX-$_num" --task-num "<N>" \
+yoke claims path register --item "$_item_ref" --task-num "<N>" \
   --paths "<comma-separated persisted file_path values>" --allow-planned
 ```
 
 An empty budget must use an explicit task-bound exception instead:
 
 ```bash
-yoke claims path register --item "PREFIX-$_num" --task-num "<N>" \
+yoke claims path register --item "$_item_ref" --task-num "<N>" \
   --mode exception --exception-reason \
   "Architect persisted no repository file budget for this task"
 ```
 
 Never infer task ownership from task prose or branches and never bind the
 parent claim to every task. After all registrations, run
-`yoke claims path required-gate "PREFIX-$_num" --json`; any verdict other than
-`pass` is NOT_READY and blocks the handoff to `plan-drafted`.
+`yoke claims path required-gate "$_item_ref" --json`; any verdict other than
+`pass` is NOT_READY and blocks the handoff to `_shepherd_through_stage`.
 
 ### 5. Run Simulator loop (max `MAX_SIMULATOR_FIX_CYCLES` fix cycles)
 
@@ -163,7 +162,7 @@ Parse the Simulator's result for `## Result: CLEAN` or `## Result: GAPS FOUND`.
 
 - If **CLEAN**: persist the simulation report (step 6), then proceed to Boss review.
 - If **GAPS FOUND** and fix cycles remain: re-invoke Architect in fix mode with the gap report, then re-run Simulator.
-- If **GAPS FOUND** and no fix cycles remain: **HALT at `planning`.** Plan-phase gaps must be resolved before the plan can advance — there is no PROCEED-with-gaps bridge at this phase (unlike integration). Persist the simulation report (step 6 still runs so the failing QA run is recorded), then STOP — do not proceed to Boss. The `qa_plan_gate` check at `refining-plan -> planned` will refuse advancement until fresh passing evidence exists or an explicit waiver is recorded. Surface the blocker to the operator with three exits:
+- If **GAPS FOUND** and no fix cycles remain: **HALT at the live stage.** Plan-phase gaps must be resolved before the plan can advance — there is no PROCEED-with-gaps bridge at this phase (unlike integration). Persist the simulation report (step 6 still runs so the failing QA run is recorded), then STOP — do not proceed to Boss. The pinned definition's plan-simulation gate refuses its declared transition until fresh passing evidence exists or an explicit waiver is recorded. Surface the blocker to the operator with three exits:
   1. **Patch and re-simulate** — fix the gaps in the plan/task bodies (or re-run Architect manually), then re-run shepherd. `simulation-upsert` overwrites prior runs, so a clean re-simulation replaces the failing row.
   2. **Waive the requirement** with explicit operator rationale. Find the requirement id, then waive:
      ```bash
@@ -181,7 +180,7 @@ echo "{simulation_report}" | yoke workflow-item epic-task simulation-upsert --ep
 Boss review happens in step 5e (see `boss-verdict.md`) with `scope=plan`.
 
 ### 8. On Boss READY/CAVEATS
-No merge needed -- data is already on main. (Status is already `planning` from step 0 -- the Boss verdict does NOT re-set it for this transition.)
+No merge is needed; planning artifacts are in the control plane. Follow the verdict handler to verify the declared target or advance it after review.
 
 ### 8. On Boss NOT_READY
 List task data, remove each planning/planned task through the registered task owner, and re-attempt from step 2 (re-invoke Architect with feedback):

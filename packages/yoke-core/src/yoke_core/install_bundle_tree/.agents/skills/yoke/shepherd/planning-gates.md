@@ -1,12 +1,12 @@
-# Shepherd Phase: Planning-To-Planned Quality Gates
+# Shepherd: Final Planning Quality Gates
 
-Run these checks before advancing an item to `planned`. Gate 0a is a hard block. Gates 0b-3 are advisory.
+Run these checks before advancing to `_shepherd_through_stage`. Gate 0a is a hard block. Gates 0b-3 are advisory.
 
-AC presence is enforced upstream by the internal PRD validator (runs at `refined_idea_to_planning`, before the Architect plans). The `boss-verdict.md` assertion is a defense-in-depth backup.
+AC presence is enforced upstream by the internal PRD validator (runs at the plan-production edge, before the Architect plans). The `boss-verdict.md` assertion is a defense-in-depth backup.
 
 ## Gate 0a (Hard Block): Missing Deployment Flow
 
-Check `yoke items get PREFIX-$_num deployment_flow --json`:
+Check `yoke items get $_item_ref deployment_flow --json`:
 `result.fields.deployment_flow` is `{value, source}` (the item pin, else the
 project default). The plain read prints `flow (source)` for people, not a flow id.
 

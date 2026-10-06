@@ -12,7 +12,7 @@ returns ``(allowed: bool, reason: str | None)``.
 - ``deploy_stage`` non-null for any registered deployment_flow.
 - Latest ``deploy_runs`` row for the item is not ``status='failed'``.
 - When the pinned workflow requires a planning verdict, a ``shepherd_verdicts`` row exists with
-  ``transition='refined_idea_to_planning'`` and verdict in (READY, CAVEATS).
+  the first pinned Shepherd edge and verdict in (READY, CAVEATS).
 """
 
 from __future__ import annotations
@@ -23,6 +23,8 @@ from typing import Any, Optional, Tuple
 from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_qa_source_obligation import latest_completion_run
 from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.shepherd_segment import shepherd_edges
+from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 
 # Documented escape hatch for items that do not have a deploy run. The
@@ -33,6 +35,7 @@ NO_RUN_DELIVERY_FLOW = "no-run-delivery"
 
 def _parent():
     from yoke_core.engines import done_transition as _dt
+
     return _dt
 
 
@@ -55,7 +58,8 @@ def _is_registered_flow(conn: Any, deploy_flow: str) -> bool:
 
 def _query_item_scalar(conn: Any, item_id: int, field: str) -> str:
     row = conn.execute(
-        f"SELECT {field} FROM items WHERE id = {_p(conn)}", (item_id,),
+        f"SELECT {field} FROM items WHERE id = {_p(conn)}",
+        (item_id,),
     ).fetchone()
     if not row:
         return ""
@@ -76,14 +80,16 @@ def _latest_run(conn: Any, item_id: int) -> Tuple[str, str]:
     return str(row["status"] or ""), str(row["current_stage"] or "")
 
 
-def _has_refined_idea_to_planning_verdict(
-    conn: Any, item_id: int,
+def _has_planning_verdict(
+    conn: Any,
+    item_id: int,
+    transition: str,
 ) -> bool:
     row = conn.execute(
         "SELECT 1 FROM shepherd_verdicts "
-        f"WHERE item = {_p(conn)} AND transition = 'refined_idea_to_planning' "
+        f"WHERE item = {_p(conn)} AND transition = {_p(conn)} "
         "AND verdict IN ('READY', 'CAVEATS') LIMIT 1",
-        (f"YOK-{item_id}",),
+        (f"YOK-{item_id}", transition),
     ).fetchone()
     return row is not None
 
@@ -106,8 +112,10 @@ def evaluate_done_preconditions(
     """
     is_internal = bool(deploy_flow) and deploy_flow.endswith("-internal")
     is_no_run_delivery = deploy_flow == NO_RUN_DELIVERY_FLOW
-    registered = bool(deploy_flow) and not is_internal and (
-        is_no_run_delivery or _is_registered_flow(conn, deploy_flow)
+    registered = (
+        bool(deploy_flow)
+        and not is_internal
+        and (is_no_run_delivery or _is_registered_flow(conn, deploy_flow))
     )
 
     run_status = _latest_run(conn, item_id)[0]
@@ -120,17 +128,13 @@ def evaluate_done_preconditions(
     if registered and not is_no_run_delivery:
         deployed_to = _query_item_scalar(conn, item_id, "deployed_to")
         if not deployed_to and not run_attests_delivery:
-            return False, (
-                f"deployed_to is empty for deployment_flow={deploy_flow}"
-            )
+            return False, (f"deployed_to is empty for deployment_flow={deploy_flow}")
 
     # deploy_stage non-null for any registered flow (incl. no-run-delivery).
     if registered:
         deploy_stage = _query_item_scalar(conn, item_id, "deploy_stage")
         if not deploy_stage and not run_attests_delivery:
-            return False, (
-                f"deploy_stage is null for deployment_flow={deploy_flow}"
-            )
+            return False, (f"deploy_stage is null for deployment_flow={deploy_flow}")
 
     # Latest deploy_run for the item must not be failed.
     if run_status == "failed":
@@ -140,10 +144,12 @@ def evaluate_done_preconditions(
 
     # Planning workflows require their refinement verdict in history.
     if require_plan_verdict:
-        if not _has_refined_idea_to_planning_verdict(conn, item_id):
+        edges = shepherd_edges(load_item_workflow_runtime(conn, item_id))
+        transition = edges[0].verdict_key if edges else ""
+        if not transition or not _has_planning_verdict(conn, item_id, transition):
             return False, (
                 f"{render_item_ref(conn, item_id)} missing required "
-                "refined_idea_to_planning READY/CAVEATS verdict"
+                f"{transition or 'Shepherd binding'} READY/CAVEATS verdict"
             )
 
     return True, None

@@ -102,9 +102,9 @@ BASELINE: dict[str, dict[str, object]] = {
         "note": "documents the legacy scheme a recorded lane may still use",
     },
     "packages/yoke-core/src/yoke_core/engines/doctor_hc_meta_lifecycle.py": {
-        "count": 2,
+        "count": 1,
         "reason": "legacy_key_lookup",
-        "note": "HC remediation SQL examples use historical YOK-||i.id join shape",
+        "note": "HC verdict lookup uses the historical internal item storage key",
     },
     "packages/yoke-core/src/yoke_core/engines/doctor_hc_worktrees_branches.py": {
         "count": 1,

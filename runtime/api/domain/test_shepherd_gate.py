@@ -1,17 +1,4 @@
-"""Tests for ``yoke_core.domain.shepherd_gate``.
-
-Covers the lifecycle shepherd-verdict gate's three required states:
-
-1. Modern verdict (``planning_to_plan_drafted``) in an acceptable state
-   satisfies the gate.
-2. Legacy verdict (``planned_to_ready``) in an acceptable state satisfies
-   the gate for pre-2026-04-07 compatibility.
-3. Absence of any qualifying verdict blocks the gate.
-
-The lifecycle engine evaluates this lookup where a shepherd-bound
-definition's implementation work begins; this test pins the verdict
-contract against drift.
-"""
+"""Pinned Shepherd final-edge verdict checks, including rejected legacy evidence."""
 
 from __future__ import annotations
 
@@ -98,8 +85,8 @@ class TestShepherdGate:
         assert result.passed is True
         assert result.verdict == "CAVEATS"
 
-    def test_legacy_verdict_passes(self, tmp_db):
-        """Legacy pre-2026-04-07 verdict still satisfies the gate."""
+    def test_unrelated_verdict_does_not_satisfy_binding(self, tmp_db):
+        """A verdict for another edge cannot satisfy the pinned handoff."""
         conn = _open(tmp_db)
         try:
             insert_item(
@@ -121,10 +108,9 @@ class TestShepherdGate:
         finally:
             conn.close()
 
-        assert result.passed is True
-        assert result.transition == "planned_to_ready"
-        assert result.verdict == "READY"
-        assert "compat" in result.reason.lower()
+        assert result.passed is False
+        assert result.transition is None
+        assert "planning_to_plan_drafted" in result.reason
 
     def test_no_verdict_blocks(self, tmp_db):
         """Absence of any qualifying verdict blocks the gate."""

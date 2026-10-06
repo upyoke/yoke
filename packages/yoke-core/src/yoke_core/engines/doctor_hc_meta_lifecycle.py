@@ -18,6 +18,8 @@ from typing import List
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.shepherd_segment import shepherd_edges
+from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 import yoke_core.engines.doctor_report as _base
 
@@ -37,70 +39,58 @@ def _p(conn) -> str:
 def hc_shepherd_lifecycle(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-shepherd-lifecycle: Shepherd lifecycle enforcement."""
     issues: List[str] = []
-    reported_ids = set()
     min_item_id = _base._read_int_cutoff("hc_shepherd_lifecycle_min_item_id")
-
-    # Epics at 'planning' or later should have refined_idea_to_planning verdict
     rows = query_rows(
         conn,
-        "SELECT i.id, i.status, i.workflow_id, i.workflow_version_id FROM items i "
-        "WHERE i.status NOT IN ('idea', 'refining-idea', 'refined-idea') "
-        "AND NOT EXISTS ("
-        "  SELECT 1 FROM shepherd_verdicts sv "
-        "  WHERE sv.item = 'YOK-' || i.id "
-        "  AND sv.transition = 'refined_idea_to_planning' "
-        "  AND sv.verdict IN ('READY','CAVEATS')"
-        ") ORDER BY i.id",
+        "SELECT id, status, workflow_id, workflow_version_id FROM items ORDER BY id",
     )
     for row in rows_generating_task_graph(conn, rows):
         if min_item_id is not None and row["id"] < min_item_id:
             continue
-        issues.append(
-            f"- {render_item_ref(conn, row['id'])}: status is '{row['status']}' but no "
-            f"refined_idea_to_planning READY/CAVEATS verdict found"
-        )
-        reported_ids.add(row["id"])
-
-    # Epics at 'plan-drafted' or later
-    later_statuses = (
-        "plan-drafted", "refining-plan", "planned", "implementing",
-        "reviewing-implementation", "reviewed-implementation",
-        "polishing-implementation", "implemented", "release", "done",
-    )
-    placeholders = ",".join(_p(conn) for _ in later_statuses)
-    rows2 = query_rows(
-        conn,
-        f"SELECT i.id, i.status, i.workflow_id, i.workflow_version_id FROM items i "
-        f"WHERE i.status IN ({placeholders}) "
-        f"AND NOT EXISTS ("
-        f"  SELECT 1 FROM shepherd_verdicts sv "
-        f"  WHERE sv.item = 'YOK-' || i.id "
-        f"  AND sv.transition = 'planning_to_plan_drafted' "
-        f"  AND sv.verdict IN ('READY','CAVEATS')"
-        f") ORDER BY i.id",
-        later_statuses,
-    )
-    for row in rows_generating_task_graph(conn, rows2):
-        if min_item_id is not None and row["id"] < min_item_id:
+        runtime = load_item_workflow_runtime(conn, int(row["id"]))
+        position = runtime.stage_index(str(row["status"]))
+        if position is None:
             continue
-        if row["id"] not in reported_ids:
-            issues.append(
-                f"- {render_item_ref(conn, row['id'])}: status is '{row['status']}' but no "
-                f"planning_to_plan_drafted READY/CAVEATS verdict found"
+        for edge in shepherd_edges(runtime):
+            if position < runtime.stage_index(edge.target_stage):
+                continue
+            verdict = query_rows(
+                conn,
+                "SELECT id FROM shepherd_verdicts "
+                f"WHERE item = {_p(conn)} AND transition = {_p(conn)} "
+                "AND verdict IN ('READY','CAVEATS','SKIPPED') "
+                "AND (verdict <> 'SKIPPED' OR LOWER(worker) IN ('review', 'architect')) LIMIT 1",
+                (f"YOK-{row['id']}", edge.verdict_key),
             )
+            if not verdict:
+                issues.append(
+                    f"- {render_item_ref(conn, row['id'])}: status is '{row['status']}' "
+                    f"but no {edge.verdict_key} READY/CAVEATS/SKIPPED verdict found"
+                )
+                break
 
     if issues:
-        rec.record("HC-shepherd-lifecycle", "Shepherd lifecycle enforcement", "WARN",
-                    "\n".join(issues))
+        rec.record(
+            "HC-shepherd-lifecycle",
+            "Shepherd lifecycle enforcement",
+            "WARN",
+            "\n".join(issues),
+        )
     else:
-        rec.record("HC-shepherd-lifecycle", "Shepherd lifecycle enforcement", "PASS", "")
+        rec.record(
+            "HC-shepherd-lifecycle", "Shepherd lifecycle enforcement", "PASS", ""
+        )
 
 
 def hc_lifecycle_continuity(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-lifecycle-continuity: status writes missing transition history."""
     if not _base._table_exists(conn, "item_status_transitions"):
-        rec.record("HC-lifecycle-continuity", "Lifecycle transition continuity", "PASS",
-                    "item_status_transitions table does not exist — skipping")
+        rec.record(
+            "HC-lifecycle-continuity",
+            "Lifecycle transition continuity",
+            "PASS",
+            "item_status_transitions table does not exist — skipping",
+        )
         return
 
     # Cutoff suppresses pre-fix historical residue. items.updated_at is the
@@ -138,6 +128,10 @@ def hc_lifecycle_continuity(conn, args: DoctorArgs, rec: RecordCollector) -> Non
             '--to TARGET_STATUS --reason "reconcile lifecycle state" '
             "for targeted repair."
         )
-        rec.record("HC-lifecycle-continuity", "Lifecycle transition continuity", "WARN", detail)
+        rec.record(
+            "HC-lifecycle-continuity", "Lifecycle transition continuity", "WARN", detail
+        )
     else:
-        rec.record("HC-lifecycle-continuity", "Lifecycle transition continuity", "PASS", "")
+        rec.record(
+            "HC-lifecycle-continuity", "Lifecycle transition continuity", "PASS", ""
+        )

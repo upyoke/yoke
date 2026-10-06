@@ -29,7 +29,7 @@ workflow version without being listed.
 | Dependencies — integration edges | Entering any stage the definition treats as merged (the release wait, the terminal stage) | `GATE_HARD_BLOCKS_UNSATISFIED` | skips |
 | Dependencies — closure edges | Entering `done` | `GATE_CLOSURE_UNSATISFIED` | never |
 | File Budget coverage | Working stages from the lane-taking stage on, when effective File Budget and path claims are both enabled; task-graph parents are covered per task by their planning handoff | `GATE_SPEC_COVERAGE` | never |
-| Shepherd verdict | The definition binds `shepherd`, and the target is the first stage past the implementation binding's entry stage: shepherd's `planning_to_plan_drafted` verdict is `READY`, `SKIPPED`, or `CAVEATS` | `GATE_SHEPHERD_VERDICT` | skips |
+| Shepherd verdict | The definition binds `shepherd`, and the target is the first stage past the implementation binding's entry stage: the final edge of its pinned Shepherd binding has a `READY` or `CAVEATS` verdict (or `SKIPPED` from Architect/review) | `GATE_SHEPHERD_VERDICT` | skips |
 | Generated-task existence | `_generated_children=epic_tasks`, from the implementation binding's entry stage on | `GATE_EPIC_TASKS` | never |
 | Generated-task completion | `_generated_children=epic_tasks`, from the implementation binding's handoff stage on: every task has reached that stage | `GATE_EPIC_TASKS_INCOMPLETE` | skips |
 | Deferred items | A task-graph parent entering `done`: no UNFILED entry under `## Deferred Items` and no deferral language without a filed item reference | `GATE_DEFERRED_ITEMS_UNFILED` | skips |

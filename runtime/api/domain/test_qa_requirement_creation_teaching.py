@@ -60,7 +60,7 @@ def test_runner_packet_creation_recipes_are_transition_bound(
         (
             ".agents/skills/yoke/shepherd/boss-verdict-transitions.md",
             '--qa-phase "verification" \\\n'
-            ' --workflow-transition "reviewed-implementation"',
+            ' --workflow-transition "$_qa_verification_stage"',
         ),
         (
             ".agents/skills/yoke/onboard/seed-work.md",
