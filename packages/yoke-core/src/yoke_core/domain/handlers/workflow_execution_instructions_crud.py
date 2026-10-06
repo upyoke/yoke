@@ -24,6 +24,7 @@ from yoke_core.domain.handlers.execution_instruction_models import (
 
 from yoke_core.domain import events as _events
 from yoke_core.domain import workflow_execution_instructions as _instructions
+from yoke_core.domain.execution_instruction_delivery import delivery_options
 from yoke_core.domain.execution_instruction_projection import resolve_projection
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -180,7 +181,11 @@ def handle_instruction_list(request: FunctionCallRequest) -> HandlerOutcome:
     with connect() as conn:
         instructions = _instructions.list_instructions(conn)
     return HandlerOutcome(
-        result_payload={"instructions": instructions}, primary_success=True
+        result_payload={
+            "instructions": instructions,
+            "delivery_options": delivery_options(),
+        },
+        primary_success=True,
     )
 
 

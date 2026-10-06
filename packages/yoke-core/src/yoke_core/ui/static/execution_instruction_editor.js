@@ -32,12 +32,13 @@ function textField(documentNode, tag, className, value, apply) {
 }
 
 export function openExecutionInstructionEditor({
-  documentNode, host, instruction, workflows, projects, save, remove, cancel,
+  documentNode, host, instruction, deliveryOptions, workflows, projects, save, remove,
+  cancel,
 }) {
   const existing = instruction.id != null;
   const state = {
     content: instruction.content || "",
-    delivery: instructionDelivery(instruction),
+    delivery: instructionDelivery(instruction, deliveryOptions),
     appliesToAllWorkflows: Boolean(instruction.applies_to_all_workflows),
     workflowIds: new Set(instruction.workflow_ids || []),
     appliesToAllProjects: Boolean(instruction.applies_to_all_projects),
@@ -58,7 +59,9 @@ export function openExecutionInstructionEditor({
     (value) => { state.content = value; },
   ));
 
-  body.appendChild(deliveryControls(documentNode, state.delivery, checkboxRow));
+  body.appendChild(deliveryControls(
+    documentNode, state.delivery, deliveryOptions, checkboxRow,
+  ));
 
   body.appendChild(fieldLabel(documentNode, "Workflows"));
   if (!existing) {

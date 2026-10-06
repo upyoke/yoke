@@ -13,11 +13,18 @@ and name the selection to correct; invalid bucket names refuse as `payload_inval
 Targets come from the item's pinned workflow definition's `board_bucket`,
 so custom stage ids work without being added to a separate instruction map.
 
+`workflow.execution_instruction.list` returns `delivery_options` beside the
+rows: `stage_buckets` (the bucket vocabulary above) and `defaults` (the
+new-instruction delivery), both read from the server's delivery model.
+
 In the dashboard's Workflows page, the Execution instructions panel shows each
 instruction's delivery points and selected stage buckets beneath its scope.
 Choose New instruction or Edit to change the three delivery checkboxes and
-stage-bucket checkboxes. New instructions select Before creation + On every
-read. Bucket controls are disabled until When entering stage is selected;
+stage-bucket checkboxes. The bucket list and new-instruction defaults come from
+the list's `delivery_options`, so the panel holds no copy; a serving build that
+omits them disables New instruction and Edit and shows
+`delivery_options_unavailable` with the recovery. New instructions select
+Before creation + On every read. Bucket controls are disabled until When entering stage is selected;
 toggling it off keeps the draft's bucket choices. Saving requires at least one
 delivery point and, for stage delivery, at least one bucket. An invalid draft
 shows the required correction in the editor before any write is sent.

@@ -5,22 +5,26 @@ const DELIVERY_POINTS = [
   ["on_every_read", "On every read"],
   ["when_entering_stage", "When entering stage"],
 ];
-const STAGE_BUCKETS = [
-  "idea", "planning", "refined", "implementing", "reviewing", "implemented", "release",
-];
+// Stage buckets and new-instruction defaults are served by
+// workflow.execution_instruction.list as `delivery_options`; the UI keeps no copy.
+export const DELIVERY_OPTIONS_UNAVAILABLE =
+  "delivery_options_unavailable: the serving build's instruction list returned no "
+  + "delivery_options, so delivery cannot be edited here. Deploy a Yoke build "
+  + "that serves them, or use `yoke workflow execution-instruction update`.";
 
-// Missing read fields use the serving build's previous delivery behavior.
-export function instructionDelivery(instruction) {
+/** The instruction's delivery, with fields it omits taken from the served defaults. */
+export function instructionDelivery(instruction, options) {
+  const defaults = options?.defaults || {};
   return {
-    before_creation: instruction.before_creation ?? true,
-    on_every_read: instruction.on_every_read ?? true,
-    when_entering_stage: instruction.when_entering_stage ?? false,
-    stage_buckets: [...(instruction.stage_buckets || [])],
+    before_creation: instruction.before_creation ?? defaults.before_creation,
+    on_every_read: instruction.on_every_read ?? defaults.on_every_read,
+    when_entering_stage: instruction.when_entering_stage ?? defaults.when_entering_stage,
+    stage_buckets: [...(instruction.stage_buckets ?? defaults.stage_buckets ?? [])],
   };
 }
 
-export function instructionDeliveryHint(instruction) {
-  const delivery = instructionDelivery(instruction);
+export function instructionDeliveryHint(instruction, options) {
+  const delivery = instructionDelivery(instruction, options);
   return DELIVERY_POINTS.filter(([key]) => delivery[key]).map(([key, label]) =>
     key === "when_entering_stage"
       ? `${label}: ${delivery.stage_buckets.join(", ")}` : label,
@@ -37,7 +41,7 @@ export function deliveryValidationError(delivery) {
   return "";
 }
 
-export function deliveryControls(documentNode, delivery, checkboxRow) {
+export function deliveryControls(documentNode, delivery, options, checkboxRow) {
   const group = el(documentNode, "fieldset", "instruction-delivery");
   group.appendChild(el(documentNode, "legend", "workflow-field-label", "Delivery"));
   group.appendChild(el(
@@ -62,7 +66,7 @@ export function deliveryControls(documentNode, delivery, checkboxRow) {
     "When entering stage requires at least one bucket. These instructions also appear on item reads while the item is in a selected bucket.",
   ));
   const choices = el(documentNode, "div", "instruction-checkbox-group");
-  for (const bucket of STAGE_BUCKETS) {
+  for (const bucket of options.stage_buckets) {
     const member = checkboxRow(
       documentNode, delivery.stage_buckets.includes(bucket), bucket,
       "instruction-stage-bucket-checkbox",
