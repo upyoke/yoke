@@ -35,7 +35,6 @@ def test_actor_creation_keeps_verified_acquisition_without_depending_on_events(
         "/api/events/attribution",
         headers={"Origin": origin, "X-Events-Key": key},
         json={
-            "consent": True,
             "url": origin + "/?utm_source=newsletter&utm_medium=email&token=private",
             "referrer": "",
         },

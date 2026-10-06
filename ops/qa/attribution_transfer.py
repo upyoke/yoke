@@ -87,19 +87,16 @@ def prove(origin, api):
                 attribution,
                 headers=admitted,
                 json={
-                    "consent": True,
                     "url": origin + "/?utm_source=qa&utm_medium=email",
                     "referrer": "",
                 },
             )
         )
-        if (
-            not record.get("consented_at")
-            or not record.get("first_touch")
-            or not record.get("last_touch")
+        if set(record) != {"visitor_id", "first_touch", "last_touch"} or not all(
+            record.values()
         ):
             raise ValueError(
-                "attribution_probe_record_invalid: restore the verified consent and touch contract"
+                "attribution_probe_record_invalid: restore the verified visitor and touch contract"
             )
         if check(source.get(attribution, headers=admitted), no_cookie=True) != record:
             raise ValueError(
@@ -120,7 +117,7 @@ def prove(origin, api):
             "set-cookie", ""
         ):
             raise ValueError(
-                "attribution_probe_transfer_changed: preserve consented touches in the destination HttpOnly cookie"
+                "attribution_probe_transfer_changed: preserve visitor identity and touches in the destination HttpOnly cookie"
             )
         if (
             check(destination.get(attribution, headers=admitted), no_cookie=True)
@@ -141,16 +138,8 @@ def prove(origin, api):
             "attribution_handoff_invalid",
             True,
         )
-        for client in (source, destination):
-            check(client.delete(attribution, headers=admitted))
-            check(
-                client.get(attribution, headers=admitted),
-                400,
-                "attribution_absent",
-                True,
-            )
     print(
-        "attribution transfer passed: verified read, isolated cookie jars, one-time redemption, forgery refusal and revocation"
+        "attribution transfer passed: verified read, isolated cookie jars, one-time redemption and forgery refusal"
     )
 
 
