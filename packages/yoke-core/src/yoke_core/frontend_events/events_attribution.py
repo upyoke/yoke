@@ -1,5 +1,5 @@
 # Generated from the installed structured-events Pack; run build_frontend_events.
-"""Consent-aware attribution and URL hygiene; same rules as the browser."""
+"""Attribution and URL hygiene; same rules as the browser."""
 
 import json
 import re
@@ -109,8 +109,8 @@ def update_attribution(existing, touch, visitor_id):
     }
 
 
-def get_attribution_props(record, *, consent):
-    return record if consent and record else {}
+def get_attribution_props(record):
+    return dict(record) if record else {}
 
 
 def sanitize_url(value):

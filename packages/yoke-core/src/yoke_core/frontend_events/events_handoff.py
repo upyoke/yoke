@@ -93,7 +93,7 @@ class AttributionHandoff:
             record = validate_record(decoded["record"])
         except (ValueError, KeyError, TypeError, AttributeError) as error:
             raise ValueError(
-                "attribution_handoff_invalid: restart sign-in from the consented source origin"
+                "attribution_handoff_invalid: restart sign-in from the source origin"
             ) from error
         if decoded["expires"] <= time.time():
             raise ValueError(

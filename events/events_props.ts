@@ -1,5 +1,4 @@
 import { sanitizeUrl, isBot } from './events_attribution.ts';
-import { hasConsent } from './events_consent.ts';
 
 let sessionId: string | null = null;
 let started: string | null = null;
@@ -7,11 +6,9 @@ export function getSystemProps(): Record<string, unknown> {
   return { project: 'yoke', service: 'web' };
 }
 export function getSessionProps(): Record<string, unknown> {
-  if (!hasConsent()) return {};
   if (!sessionId) { sessionId = crypto.randomUUID(); started = new Date().toISOString(); }
   return { session_id: sessionId, session_start_time: started };
 }
-export function clearSession(): void { sessionId = null; started = null; }
 export function getOrgProps(orgId?: string): Record<string, unknown> {
   // Authenticated receivers stamp actor_id and authorize org context server-side.
   return { org_id: orgId ?? null };

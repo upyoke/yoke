@@ -45,7 +45,7 @@ def test_new_signed_in_actor_keeps_verified_acquisition_snapshot(conn):
     )
 
 
-def test_actor_created_without_consent_has_no_attribution(conn):
+def test_actor_created_without_attribution_cookie_has_no_attribution(conn):
     actor = seed_human_actor(conn, "Local")
     assert (
         conn.execute("SELECT attribution FROM actors WHERE id=%s", (actor,)).fetchone()[

@@ -16,7 +16,7 @@ ACTOR_TABLES: dict[str, dict] = {
         ],
         "notes": (
             "Actor identity referenced by work_claims.actor_id, "
-            "attribution stores verified consent-cookie visitor_id, first_touch "
+            "attribution stores verified attribution-cookie visitor_id, first_touch "
             "and last_touch JSON on actor creation; never from events or later sign-ins. "
             "path_claims.registered_by_actor_id, and similar foreign keys. kind "
             "is 'human' or 'system'; system_component is the bound "
