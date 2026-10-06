@@ -156,4 +156,4 @@ def test_cli_returns_2_for_invalid_item(fake_db, monkeypatch, capsys):
 
     captured = capsys.readouterr()
     assert rc == 2
-    assert "expected PREFIX-N" in captured.err
+    assert "pass the public ref (PREFIX-N" in captured.err

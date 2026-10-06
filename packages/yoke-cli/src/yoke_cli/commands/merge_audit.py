@@ -28,7 +28,8 @@ def _parse_optional_epic(raw: Optional[str]) -> Optional[str]:
     token = raw.strip()
     if parse_public_item_ref(token)[1] is None:
         raise ValueError(
-            "invalid epic ID: expected PREFIX-N, or bare N with project context"
+            f"invalid epic ID {token!r}: pass the public ref (PREFIX-N), or a bare "
+            "number together with an explicit project"
         )
     return token
 

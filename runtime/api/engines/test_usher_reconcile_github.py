@@ -312,7 +312,7 @@ def test_parse_item_argument_rejects_empty():
 def test_main_exits_with_usage_code_on_bad_arg(wired, capsys):
     rc = mod.main(["not-an-id"])
     assert rc == mod.EXIT_USAGE
-    assert "expected PREFIX-N" in capsys.readouterr().err
+    assert "pass the public ref (PREFIX-N" in capsys.readouterr().err
 
 
 def test_main_returns_zero_on_alignment(wired, monkeypatch, capsys):
