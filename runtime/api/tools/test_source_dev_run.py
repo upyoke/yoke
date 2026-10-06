@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from yoke_contracts.install_binding import SOURCE_DEV_RUN_ROOT_ENV
 from yoke_core.domain.verification_tree_binding import ClaimLookup
 from yoke_core.tools import _source_pythonpath, source_dev_run
 
@@ -289,7 +290,10 @@ def test_run_binds_every_command_shape_to_claimed_lane(
     assert captured == {
         "args": expected,
         "cwd": str(tmp_path),
-        "env": {"PYTHONPATH": "lane-roots"},
+        "env": {
+            "PYTHONPATH": "lane-roots",
+            SOURCE_DEV_RUN_ROOT_ENV: str(tmp_path),
+        },
         "check": False,
     }
 
