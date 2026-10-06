@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -42,6 +42,14 @@ class InstructionDelivery(BaseModel):
             )
         self.stage_buckets = list(dict.fromkeys(self.stage_buckets))
         return self
+
+
+def delivery_options() -> dict[str, Any]:
+    """The bucket vocabulary and new-instruction defaults editors must offer."""
+    return {
+        "stage_buckets": list(get_args(StageBucket)),
+        "defaults": InstructionDelivery().model_dump(),
+    }
 
 
 def delivery_from_row(row) -> dict[str, Any]:

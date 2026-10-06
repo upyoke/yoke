@@ -128,3 +128,40 @@ test("server save refusals stay in the editor with draft delivery intact", async
   assert.equal(buckets(host)[0].input.checked, true);
   assert.deepEqual(writeRequests(client), []);
 });
+
+test("the editor offers the served stage buckets and new-instruction defaults", async () => {
+  const { host, client } = await mountPanel({ deliveryOptions: {
+    stage_buckets: ["triage", "shipping"],
+    defaults: {
+      before_creation: false, on_every_read: false, when_entering_stage: true,
+      stage_buckets: ["shipping"],
+    },
+  } });
+  buttonByText(host, "New instruction").dispatchEvent(new Event("click"));
+  assert.equal(point(host, "before-creation").checked, false);
+  assert.equal(point(host, "on-every-read").checked, false);
+  assert.equal(point(host, "when-entering-stage").checked, true);
+  assert.deepEqual(buckets(host).map((row) => [row.label, row.input.checked]), [
+    ["triage", false], ["shipping", true],
+  ]);
+  const content = byClass(host, "instruction-content-input")[0];
+  content.value = "Ship it.";
+  content.dispatchEvent(new Event("input"));
+  buttonByText(host, "Create instruction").dispatchEvent(new Event("click"));
+  await settle();
+  assert.deepEqual(writeRequests(client)[0].payload, {
+    content: "Ship it.", before_creation: false, on_every_read: false,
+    when_entering_stage: true, stage_buckets: ["shipping"],
+  });
+});
+
+test("a list without delivery options disables editing and names the recovery", async () => {
+  const { host } = await mountPanel({
+    seed: [{ id: 3, content: "Read guidance.", before_creation: true }],
+    deliveryOptions: null,
+  });
+  assert.equal(buttonByText(host, "New instruction").disabled, true);
+  assert.equal(buttonByText(host, "Edit").disabled, true);
+  assert.deepEqual(classText(host, "workflow-instruction-delivery"), ["Before creation"]);
+  assert.match(classText(host, "error")[0], /^delivery_options_unavailable: .*Deploy a Yoke build/);
+});

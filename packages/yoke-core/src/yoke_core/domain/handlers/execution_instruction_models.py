@@ -72,6 +72,8 @@ class InstructionIdResponse(BaseModel):
 
 class InstructionListResponse(BaseModel):
     instructions: list[dict[str, Any]]
+    #: Stage buckets and new-instruction defaults, so editors hold no copy.
+    delivery_options: dict[str, Any]
 
 
 class InstructionResolveResponse(BaseModel):

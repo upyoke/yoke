@@ -2,7 +2,18 @@ import { allNodes, byClass, FakeDocument, settle } from "./universe_ui_dom_test_
 import { okEnvelope } from "./universe_ui_workflows_test_support.mjs";
 import { workflowInstructionsPanel } from "../../packages/yoke-core/src/yoke_core/ui/static/workflow_instructions_panel.js";
 
-function instructionsClient(seed = []) {
+// Mirrors the server's `delivery_options` list field for fixtures.
+export const SERVED_DELIVERY_OPTIONS = {
+  stage_buckets: [
+    "idea", "planning", "refined", "implementing", "reviewing", "implemented", "release",
+  ],
+  defaults: {
+    before_creation: true, on_every_read: true, when_entering_stage: false,
+    stage_buckets: [],
+  },
+};
+
+function instructionsClient(seed, deliveryOptions) {
   const requests = [];
   const store = seed.map((row) => ({ ...row }));
   let nextId = 900;
@@ -14,7 +25,10 @@ function instructionsClient(seed = []) {
       const payload = request.payload || {};
       switch (request.function) {
         case "workflow.execution_instruction.list":
-          return okEnvelope({ instructions: store.map((row) => ({ ...row })) });
+          return okEnvelope({
+            instructions: store.map((row) => ({ ...row })),
+            ...(deliveryOptions ? { delivery_options: deliveryOptions } : {}),
+          });
         case "workflow.execution_instruction.create": {
           const id = nextId;
           nextId += 1;
@@ -54,9 +68,10 @@ export async function mountPanel({
   seed = [],
   workflows = [{ id: "dash", name: "Dash" }],
   projects = [],
+  deliveryOptions = SERVED_DELIVERY_OPTIONS,
 } = {}) {
   const documentNode = new FakeDocument();
-  const client = instructionsClient(seed);
+  const client = instructionsClient(seed, deliveryOptions);
   const host = documentNode.createElement("div");
   host.appendChild(
     workflowInstructionsPanel(documentNode, client, { workflows, projects }),

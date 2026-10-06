@@ -1,6 +1,8 @@
 import { callFunction, el, renderError } from "./universe_view_support.js";
 import { openExecutionInstructionEditor } from "./execution_instruction_editor.js";
-import { instructionDeliveryHint } from "./execution_instruction_delivery.js";
+import {
+  DELIVERY_OPTIONS_UNAVAILABLE, instructionDeliveryHint,
+} from "./execution_instruction_delivery.js";
 import { button, workflowPanel } from "./workflow_view_primitives.js";
 
 function countNoun(count, noun) {
@@ -114,6 +116,7 @@ export function workflowInstructionsPanel(documentNode, client, context = {}) {
   let workflowFilter = "";
   let projectFilter = "";
   let listed = [];
+  let deliveryOptions = null;
   const workflows = () => roster(context.workflows);
   const projects = () => roster(context.projects);
 
@@ -126,7 +129,9 @@ export function workflowInstructionsPanel(documentNode, client, context = {}) {
           renderError(body, callResult);
           return;
         }
-        paint((callResult.envelope.result || {}).instructions || []);
+        const result = callResult.envelope.result || {};
+        deliveryOptions = result.delivery_options || null;
+        paint(result.instructions || []);
       })
       .catch((failure) => {
         body.replaceChildren();
@@ -146,6 +151,7 @@ export function workflowInstructionsPanel(documentNode, client, context = {}) {
       documentNode,
       host,
       instruction,
+      deliveryOptions,
       workflows: workflows(),
       projects: projects(),
       save: async (draft) => {
@@ -210,11 +216,15 @@ export function workflowInstructionsPanel(documentNode, client, context = {}) {
       documentNode, "New instruction",
       "workflow-button compact workflow-instructions-new",
     );
+    add.disabled = !deliveryOptions;
     add.addEventListener("click", () => edit({
       workflow_ids: [],
       project_ids: [],
     }));
     body.appendChild(add);
+    if (!deliveryOptions) {
+      body.appendChild(el(documentNode, "p", "error", DELIVERY_OPTIONS_UNAVAILABLE));
+    }
   };
 
   const renderRow = (instruction) => {
@@ -239,7 +249,7 @@ export function workflowInstructionsPanel(documentNode, client, context = {}) {
     ));
     summary.appendChild(el(
       documentNode, "span", "workflow-instruction-delivery",
-      instructionDeliveryHint(instruction),
+      instructionDeliveryHint(instruction, deliveryOptions),
     ));
     row.appendChild(summary);
     const actions = el(documentNode, "div", "workflow-instruction-actions");
@@ -261,6 +271,7 @@ export function workflowInstructionsPanel(documentNode, client, context = {}) {
     const editButton = button(
       documentNode, "Edit", "workflow-button compact",
     );
+    editButton.disabled = !deliveryOptions;
     editButton.addEventListener("click", () => edit(instruction));
     actions.appendChild(editButton);
     row.appendChild(actions);

@@ -108,6 +108,14 @@ def test_crud_handlers_write_rows_and_emit_audited_events(monkeypatch):
     )
     rows = listed.result_payload["instructions"]
     assert [row["workflow_ids"] for row in rows] == [["dash"]]
+    options = listed.result_payload["delivery_options"]
+    assert options["stage_buckets"][0] == "idea" and len(options["stage_buckets"]) == 7
+    assert options["defaults"] == {
+        "before_creation": True,
+        "on_every_read": True,
+        "when_entering_stage": False,
+        "stage_buckets": [],
+    }
     assert rows[0]["applies_to_all_projects"] is True
     assert rows[0]["applies_to_all_workflows"] is False
 
