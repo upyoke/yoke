@@ -1,15 +1,14 @@
 # Marketing attribution
 
-The executable reference is [Structured Events Pack 3.0.0](../../packs/structured-events/versions/3.0.0/files/events/README.md).
+The executable reference is [Structured Events Pack 4.0.0](../../packs/structured-events/versions/4.0.0/files/events/README.md).
 Python and TypeScript share attribution_rules.json. Install the whole bundle;
 this standard does not maintain another implementation.
 
-Consent defaults to denied. Wire setConsent to the project's consent UI. No
-attribution storage or visitor id exists before consent. After consent the server
-sets a signed Secure/HttpOnly/SameSite=Lax cookie through POST
-/api/events/attribution; DELETE revokes it. JavaScript keeps attribution in memory.
+Capture runs from first load with no consent state; collect only non-personal
+data. The server sets a signed Secure/HttpOnly/SameSite=Lax cookie through POST
+/api/events/attribution. JavaScript keeps attribution in memory.
 
-The shape is visitor_id, first_touch, last_touch and consented_at. Each touch contains
+The shape is visitor_id, first_touch and last_touch. Each touch contains
 utm_source, utm_medium, utm_campaign, utm_term, utm_content, utm_id,
 utm_source_platform, gclid, fbclid, msclkid, li_fat_id, referrer_domain,
 acquisition_channel and captured_at. First touch never changes. Last touch
@@ -24,8 +23,8 @@ When multiple IDs occur, the shared rule order is gclid, msclkid, fbclid, li_fat
 This is the Pack's paid fallback policy. GA4's integrated advertising channels
 also use campaign/network metadata unavailable from a click ID alone.
 
-Attach attribution to **every consented frontend event** when capture succeeds.
-Backend conversion code uses the same consented group and persists required
+Attach attribution to **every frontend event** when capture succeeds.
+Backend conversion code uses the same group and persists required
 signup attribution on the account/actor owner. Events are disposable telemetry.
 
 Manual-channel priority follows [GA4 definitions](https://support.google.com/analytics/answer/9756891?hl=en):
@@ -47,28 +46,28 @@ names signing settings, refusals and the server-record alternative.
 No compatibility reader for the old mutable cookie/session shape is provided.
 
 Invalid or rotated signed cookies are discarded with attribution_cookie_reminted.
-After consent, capture mints a fresh visitor and cookie using the current secret.
+The next capture mints a fresh visitor and cookie using the current secret.
 Site domains are case-insensitive, trim a trailing dot and remove leading www.
 
 ## Verified attribution and sign-in hand-off
 
-GET /api/events/attribution verifies the signed cookie and returns the consented
-record: visitor_id, first_touch, last_touch and consented_at (UTC ISO timestamp).
+GET /api/events/attribution verifies the signed cookie and returns the record:
+visitor_id, first_touch and last_touch.
 It never sets, clears or re-mints a cookie. Missing cookies refuse with
 attribution_absent; expired, malformed or tampered cookies refuse with
-attribution_invalid. Responses use Cache-Control: no-store. Capture preserves
-the original consent timestamp; revocation clears the cookie. Version 3 requires
-consented_at in both Python and TypeScript cookies. Older records are invalid;
-obtain consent and capture again rather than interpreting an old record.
+attribution_invalid. Responses use Cache-Control: no-store. A verified record
+keeps only those three fields, so a key a 3.x cookie carried (consented_at) is
+dropped on read rather than invalidating the visitor. Records from before
+version 3 are invalid; capture again rather than interpreting an old record.
 
 To carry attribution between isolated __Host- cookies, POST
-/api/events/attribution/handoff at the consented source with
+/api/events/attribution/handoff at the source origin with
 {"audience":"https://app.example.com"}. It verifies the cookie and returns
 {token, expires_at}; expires_at is Unix seconds. No cookie is changed. Carry the
 token through the sign-in hand-off, then POST {"token":"..."} to
 /api/events/attribution/handoff/redeem at that exact destination. Redemption
 returns the verified record and sets the destination's Secure/HttpOnly cookie,
-preserving visitor identity, both touches and consented_at. Persist required
+preserving visitor identity and both touches. Persist required
 signup attribution on the durable account owner from this server result only.
 
 Tokens are signed, destination-bound and valid for 120 seconds. They are bearer
@@ -94,9 +93,8 @@ Refusals name attribution_handoff_invalid (forgery/malformed token),
 attribution_handoff_expired, attribution_handoff_replayed,
 attribution_handoff_audience_mismatch, attribution_handoff_origin_invalid,
 or attribution_handoff_unavailable (storage failure). Restart sign-in from the
-consented source for a fresh token; use the exact HTTPS audience without a path.
+source origin for a fresh token; use the exact HTTPS audience without a path.
 Storage failures require restoring the durable nonce store before restarting.
-Nothing captures attribution or mints hand-off tokens without verified consent.
-The local HTTP collector supports cookie read/capture, while cross-origin
-hand-off requires HTTPS at both ends. The consumer must cancel pending sign-in tokens when consent is withdrawn;
-a minted bearer token remains redeemable until expiry or consumption.
+Hand-off tokens are minted only from a verified cookie. The local HTTP collector supports cookie read/capture, while cross-origin
+hand-off requires HTTPS at both ends. A minted bearer token remains redeemable
+until expiry or consumption.

@@ -2,18 +2,19 @@
 
 ## Events
 
-The workbench's **Analytics: off/on** control chooses whether to share usage
-analytics. Consent starts denied; an explicit grant is remembered as a consent
-preference. No visitor identity, attribution cookie, or page-view event is
-created before consent. Revocation removes the preference, discards queued
-telemetry, and clears the server's attribution cookie through the Pack hook.
-One consented load and each URL-changing client navigation emit `PageViewed`
+The workbench collects usage analytics from first load in every mode — local,
+self-hosted, and hosted — with no consent prompt, banner, or toggle; nothing it
+collects is personal data, and a local or self-hosted workbench collects into
+its own universe. The first load captures the visitor's attribution cookie, and
+that load and each URL-changing client navigation emit `PageViewed`
 with `event_type=page_view`. State-only navigation is deduplicated. The installed
 Structured Events Pack removes `?token=`, other sensitive query keys, userinfo,
-and fragments from `page_url` and referrer before storage.
+and fragments from `page_url` and referrer before storage. Only one page-view
+tracker runs per document, so a host page that tracks its own views and mounts
+the workbench records each navigation once.
 
 The engine exposes anonymous `GET /api/events/config`, `POST /api/events`, and
-`POST`/`DELETE /api/events/attribution`. The collector accepts only frontend
+`GET`/`POST /api/events/attribution`. The collector accepts only frontend
 analytics, requires an exact match between browser Origin and the serving
 scheme/host/port, checks `X-Events-Key` against its publishable key, and shares
 its rate budget through Postgres. Remote serving requires HTTPS. For self-host,
@@ -54,9 +55,9 @@ findings, function calls. Filter by name and time when debugging "what
 happened."
 
 Account acquisition is durable state: a signed-in flow creating an actor stores
-the verified consent cookie's visitor identity, first touch, and last touch in
-`actors.attribution`. Later sign-ins preserve that acquisition snapshot. A flow
-without consent creates an actor with no attribution. The event ledger is never
+the verified attribution cookie's visitor identity, first touch, and last touch
+in `actors.attribution`. Later sign-ins preserve that acquisition snapshot. A
+flow without an attribution cookie creates an actor with no attribution. The event ledger is never
 used to reconstruct this account fact and may be pruned independently.
 
 **Search loaded events** searches the entries already loaded and offers
