@@ -290,7 +290,10 @@ _HOOK_ORDERING: dict[str, dict[str, tuple[str, ...]]] = {
         "_default": _FIRST_HOOK_DISPATCH,
     },
     "SessionEnd": {
-        "_default": _LIFECYCLE_DISPATCH,
+        "_default": (
+            *_LIFECYCLE_DISPATCH,
+            "yoke_core.hooks.session_launch_attestation",
+        ),
     },
     "UserPromptSubmit": {
         "_default": _FIRST_HOOK_DISPATCH,

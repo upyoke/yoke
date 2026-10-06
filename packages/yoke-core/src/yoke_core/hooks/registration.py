@@ -146,7 +146,7 @@ def _register_from_hook(
             executor,
             provider,
             model_facts,
-            facts.cwd,
+            facts.workspace,
             entrypoint,
             actor_id=actor_id,
             execution_lane=facts.execution_lane or None,

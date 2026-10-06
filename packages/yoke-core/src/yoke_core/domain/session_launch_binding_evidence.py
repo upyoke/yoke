@@ -19,6 +19,9 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Sequence
 
+from yoke_contracts.session_control.launch_registration import (
+    SESSION_ENDED_UNBOUND_CODE,
+)
 from yoke_core.domain import json_helper
 from yoke_core.domain.session_launch_closure_evidence import closure_evidence
 from yoke_core.domain.session_launch_store import (
@@ -100,7 +103,8 @@ def record_registration_refusal(
     launch_id: str,
     code: str,
     session_id: str | None,
-) -> LaunchRecord:
+    only_unbound: bool = False,
+) -> LaunchRecord | None:
     """Write one refused registration attempt onto its launch, keeping state.
 
     Only the evidence column moves: a refusal is a diagnosable fact, not a
@@ -108,12 +112,16 @@ def record_registration_refusal(
     launch either binds or reaches its deadline. Retrying is also why an
     unchanged code is not rewritten — a permanent refusal is re-attempted on
     every hook the native fires, and one row per tool call would buy nothing
-    the first row did not already say.
+    the first row did not already say. ``only_unbound`` skips, under the same
+    lock, a launch that has since bound a session, returning ``None``.
     """
     refusal = str(code or "").strip() or "unknown"
     begin_mutation(conn)
     try:
         launch = get_launch(conn, launch_id, for_update=True)
+        if only_unbound and str(launch.registered_session_id or "").strip():
+            conn.commit()
+            return None
         if _recorded_refusal(launch.result_evidence) == refusal:
             conn.commit()
             return launch
@@ -132,8 +140,38 @@ def record_registration_refusal(
         raise
 
 
+def record_session_ended_unbound(
+    conn: Any,
+    *,
+    launch_id: str,
+    session_id: str,
+) -> bool:
+    """Name a launch whose attested session ended before it ever bound.
+
+    Recovery adoption runs on the attested session's own hooks. A native that
+    ran only while its launch awaited the relay's identity report, then ended,
+    leaves no later hook to adopt it, and its pending refusals are deliberately
+    unrecorded because they normally resolve on the next event. Its ending is
+    the last fact that native can report, so it is written here rather than
+    left for a deadline to close with nothing attached. A launch that already
+    bound some session is not this native's to annotate. Returns whether the
+    refusal was recorded.
+    """
+    return (
+        record_registration_refusal(
+            conn,
+            launch_id=launch_id,
+            code=SESSION_ENDED_UNBOUND_CODE,
+            session_id=session_id,
+            only_unbound=True,
+        )
+        is not None
+    )
+
+
 __all__ = [
     "bound_registration_evidence",
     "late_registration_evidence",
     "record_registration_refusal",
+    "record_session_ended_unbound",
 ]

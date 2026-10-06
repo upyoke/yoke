@@ -81,7 +81,7 @@ The bootstrap spec is harness-neutral; the manifest names which delivery mechani
 | `executor` | string | Stable harness executor identity used by Yoke core (e.g., `claude-code`, `codex`). |
 | `provider_source` | string | Where the model provider value comes from (`runtime`, `harness_config`, `payload`). |
 | `model_source` | string | Where the model identifier comes from (`runtime`, `harness_config`, `payload_thread_metadata`). |
-| `workspace_source` | string | How the workspace path is resolved (`payload_cwd_then_git_root`, `git_root`). |
+| `workspace_source` | string | How the workspace path is resolved (`payload_cwd_then_git_root`, `payload_workspace_roots_then_cwd`, `git_root`). Session registration stores this path, and a launch binds its native by it. |
 
 ## Supports
 

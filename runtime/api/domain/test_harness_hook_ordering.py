@@ -292,7 +292,13 @@ class TestNonPreEvents(unittest.TestCase):
 
     def test_TC_session_end_runs_session_hooks(self):
         chain = ordered_pipeline_for("SessionEnd")
-        self.assertEqual(chain, ["yoke_core.hooks.session_dispatch"])
+        self.assertEqual(
+            chain,
+            [
+                "yoke_core.hooks.session_dispatch",
+                "yoke_core.hooks.session_launch_attestation",
+            ],
+        )
 
     def test_TC_user_prompt_submit_runs_session_hooks(self):
         chain = ordered_pipeline_for("UserPromptSubmit")

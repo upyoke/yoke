@@ -14,6 +14,10 @@ NATIVE_EXITED_UNREGISTERED_CODE = "native_exited_unregistered"
 REGISTERED_BUT_UNBOUND_CODE = "registered_but_unbound"
 REGISTERED_SESSION_INVALID_CODE = "registered_session_invalid"
 REGISTRATION_AMBIGUOUS_CODE = "registration_ambiguous"
+# A session carrying the launch's attestation ended while the launch was still
+# unbound, so no later hook of that session can bind or recover it. Written as
+# a refusal on the launch row: the native's own last word on why it never ran.
+SESSION_ENDED_UNBOUND_CODE = "session_ended_unbound"
 SPAWN_WORKSPACE_MISSING_CODE = "spawn_workspace_missing"
 
 NATIVE_LAUNCH_WORKSPACE_FIELD = "native_launch_workspace"
@@ -33,5 +37,6 @@ __all__ = [
     "REGISTERED_BUT_UNBOUND_CODE",
     "REGISTERED_SESSION_INVALID_CODE",
     "REGISTRATION_AMBIGUOUS_CODE",
+    "SESSION_ENDED_UNBOUND_CODE",
     "SPAWN_WORKSPACE_MISSING_CODE",
 ]

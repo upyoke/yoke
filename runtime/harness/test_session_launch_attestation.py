@@ -223,10 +223,42 @@ def test_superseded_launch_warns_without_stop_context_at_turn_end(monkeypatch) -
 
     monkeypatch.setattr(launch_hook, "_prepare_or_record_refusal", _raise)
 
-    for event_name in ("Stop", "SessionEnd"):
-        decision = launch_hook.evaluate_launch_attestation(
-            _record(event_name), connect=lambda: _Connection()
-        )
+    decision = launch_hook.evaluate_launch_attestation(
+        _record("Stop"), connect=lambda: _Connection()
+    )
 
-        assert decision.outcome == Outcome.WARN
-        assert decision.audit_fields == {"session_launch_error": "attestation_consumed"}
+    assert decision.outcome == Outcome.WARN
+    assert decision.audit_fields == {"session_launch_error": "attestation_consumed"}
+
+
+def test_session_end_names_an_unbound_launch_instead_of_binding(monkeypatch) -> None:
+    seen: dict[str, str] = {}
+
+    def prepare(conn, **kwargs):
+        raise AssertionError("an ending session must never bind its launch")
+
+    def record(conn, **kwargs):
+        seen.update(kwargs)
+        return True
+
+    monkeypatch.setattr(launch_hook, "prepare_launch_registration", prepare)
+    monkeypatch.setattr(launch_hook, "record_session_ended_unbound", record)
+    decision = launch_hook.evaluate_launch_attestation(
+        _record("SessionEnd", "cursor"), connect=_Connection
+    )
+
+    assert decision.outcome == Outcome.WARN
+    assert decision.audit_fields == {"session_launch_error": "session_ended_unbound"}
+    assert "yoke session-control launch get launch-1" in decision.message
+    assert seen == {"launch_id": "launch-1", "session_id": "session-1"}
+
+
+def test_session_end_of_a_bound_launch_is_silent(monkeypatch) -> None:
+    monkeypatch.setattr(
+        launch_hook, "record_session_ended_unbound", lambda conn, **kwargs: False
+    )
+    decision = launch_hook.evaluate_launch_attestation(
+        _record("SessionEnd", "claude"), connect=_Connection
+    )
+
+    assert decision.outcome == Outcome.NOOP
