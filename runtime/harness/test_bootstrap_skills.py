@@ -44,19 +44,19 @@ def skills_tree(tmp_path):
     Layout mirrors the real repo: hidden ``.agents`` root with a top-level
     router ``SKILL.md``, a handful of named subskill directories (each with
     ``SKILL.md``), a ``scripts`` directory that is NOT a skill (no ``SKILL.md``),
-    a nested phase file under ``advance/`` that must not surface as a skill,
+    a nested phase file under ``implement/`` that must not surface as a skill,
     and a ``.claude/skills/yoke`` symlink pointing at the canonical tree.
     """
     agents_yoke = tmp_path / SKILLS_ROOT_REL
     agents_yoke.mkdir(parents=True)
     (agents_yoke / "SKILL.md").write_text("# yoke router\n")
 
-    for name in ("idea", "strategize", "advance"):
+    for name in ("idea", "strategize", "implement"):
         (agents_yoke / name).mkdir()
         (agents_yoke / name / "SKILL.md").write_text(f"# {name}\n")
 
-    # Phase sub-file under advance/ — must not surface as a skill entry.
-    (agents_yoke / "advance" / "preflight.md").write_text("# preflight\n")
+    # Phase sub-file under implement/ — must not surface as a skill entry.
+    (agents_yoke / "implement" / "entry.md").write_text("# preflight\n")
 
     # scripts/ has no SKILL.md — must not surface either.
     (agents_yoke / "scripts").mkdir()
@@ -82,7 +82,7 @@ class TestListSkills:
         assert result[0] == ROOT_SKILL_NAME
         assert "idea" in result
         assert "strategize" in result
-        assert "advance" in result
+        assert "implement" in result
 
     def test_excludes_non_skill_directories(self, skills_tree):
         result = list_skills(skills_tree)
@@ -91,7 +91,7 @@ class TestListSkills:
 
     def test_excludes_phase_sub_files(self, skills_tree):
         result = list_skills(skills_tree)
-        # Phase sub-files like advance/preflight.md are not skills.
+        # Phase sub-files like implement/entry.md are not skills.
         assert "preflight" not in result
         assert "preflight.md" not in result
 
@@ -137,7 +137,9 @@ class TestSkillCompatibilitySymlink:
     """.claude/skills/yoke is a compatibility alias to the canonical tree."""
 
     def test_compat_symlink_resolves_to_same_target(self, skills_tree):
-        canonical = (skills_tree / SKILLS_ROOT_REL / "strategize" / "SKILL.md").resolve()
+        canonical = (
+            skills_tree / SKILLS_ROOT_REL / "strategize" / "SKILL.md"
+        ).resolve()
         compat = (
             skills_tree / ".claude" / "skills" / "yoke" / "strategize" / "SKILL.md"
         ).resolve()

@@ -87,7 +87,7 @@ class TestCheckReviewedImplementationGate:
         assert any("substrate evidence" in e for e in result.errors)
 
     def test_tc_browser_evidence_remediation_points_to_advance(self, qa_db):
-        """browser evidence failures point back to /yoke advance."""
+        """Browser evidence failures name the registered case runners."""
         req_id = _add_requirement(
             qa_db,
             qa_kind="plan_case",

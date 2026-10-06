@@ -111,8 +111,8 @@ class TestReflectionCaptureDocs:
         assert "dispatch-context" not in CANONICAL_ENTRY_TEMPLATE
 
 
-def test_advance_skill_does_not_depend_on_private_strategy_files() -> None:
-    text = _read(SKILLS / "advance" / "SKILL.md")
+def test_implement_skill_does_not_depend_on_private_strategy_files() -> None:
+    text = _read(SKILLS / "implement" / "SKILL.md")
     assert ".yoke/strategy/PROMPTS.md" not in text
 
 

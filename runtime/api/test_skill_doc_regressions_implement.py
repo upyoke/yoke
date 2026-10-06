@@ -1,9 +1,4 @@
-"""Doc regressions for advance finalize, browser-qa, and skill discovery.
-
-Combines the advance-finalize and advance-browser-qa skill checks with the
-skill-discovery doc regression (which depends on the same SKILLS / REPO
-constants and stays small).
-"""
+"""Implementation entry and canonical skill discovery contracts."""
 
 from __future__ import annotations
 
@@ -51,11 +46,11 @@ class TestImplementEntrySkill:
     ):
         section_text = self._entry_section(entry_doc)
         # The engine dispatches one adjacent transition from the pinned
-        # implement binding source; --skip-refine owns bookkeeping fast-forward.
+        # implement binding source.
         assert "advance_hop" not in section_text
         assert "from_stage_id" in section_text
         assert "single_implementation_lane" in section_text
-        assert "--skip-refine" in section_text
+        assert "pinned definition" in section_text
         # Raw intermediate status writes stay claim-protected.
         assert "ClaimVerificationDenied" in section_text
 
@@ -67,58 +62,9 @@ class TestImplementEntrySkill:
         assert "items update {N} status refined-idea" not in section_text
 
 
-class TestAdvanceFinalizeSkill:
-    """Advance finalize routes skip flags through the pinned bindings."""
-
-    @pytest.fixture
-    def finalize_doc(self) -> Path:
-        doc = SKILLS / "advance" / "finalize.md"
-        assert doc.is_file()
-        return doc
-
-    def test_skip_routing_resolves_pinned_skill_bindings(self, finalize_doc: Path):
-        from yoke_core.domain import advance_skip_core
-
-        text = _read(finalize_doc)
-        assert "yoke_core.domain.advance_skip_core" in text
-        assert "yoke_core.domain.lifecycle_progression" not in text
-        assert "PRE_IMPLEMENTATION_STATUSES" not in text
-        assert "_skill_skip_route" in text
-        assert callable(advance_skip_core._skill_skip_route)
-        assert "skill_bindings" in text
-        assert "transitions" in text
-        for retired_name in (
-            "_REFINE_ROUTING",
-            "_REFINE_TARGETS_ALLOWED",
-            "_POLISH_TRANSIT_ALLOWED",
-        ):
-            assert retired_name not in text
-            assert not hasattr(advance_skip_core, retired_name)
-
-
 # ---------------------------------------------------------------------------
 # TestAdvanceBrowserQaSkill
 # ---------------------------------------------------------------------------
-
-
-class TestAdvanceBrowserQaSkill:
-    """Browser QA executes method-backed cases through the shared runner."""
-
-    @pytest.fixture
-    def browser_qa_doc(self) -> Path:
-        doc = SKILLS / "advance" / "browser-qa.md"
-        assert doc.is_file()
-        return doc
-
-    def test_materializes_and_executes_browser_method_cases(
-        self,
-        browser_qa_doc: Path,
-    ):
-        text = _read(browser_qa_doc)
-        assert "yoke qa plan materialize" in text
-        assert "browser-check" in text
-        assert "browser-inspection" in text
-        assert "yoke qa case run" in text
 
 
 # ---------------------------------------------------------------------------
@@ -175,39 +121,8 @@ class TestSkillDiscovery:
 
 
 # ---------------------------------------------------------------------------
-# per-skill-family function-call expectations for advance.
-# Advance is the canonical surface for the work-claim and lifecycle-
-# transition function families. Each adapter below dispatches through
-# ``yoke_function_dispatch`` per the registry inventory.
-# ---------------------------------------------------------------------------
-
-
-class TestAdvanceTeachesFunctionCallAdapters:
-    """Advance prose must teach the typed claim + lifecycle adapters.
-
-    The function-call surfaces this assertion encodes:
-
-    * ``claims.work.release`` -> ``service_client release-work-claim``
-      (release at advance finalize / hop boundaries).
-    * ``items.scalar.update`` -> ``db_router items update {N} <field>``
-      for ``deployed_to`` and similar final-state writes the operator
-      surface still owns.
-    * ``lifecycle.transition.execute`` for the single adjacent
-      implementation-entry transition + the full advance phase dispatch
-      for the target status (no intermediate-hop helper).
-    """
-
-    def test_finalize_teaches_pinned_source_and_skip_refine(self):
-        text = _read(SKILLS / "advance" / "finalize.md")
-        # advance_hop was deleted (dead code); finalize.md must teach the
-        # replacement contract — a pinned binding source plus --skip-refine
-        # fast-forward — and must not resurrect the removed module name.
-        assert "advance_hop" not in text, (
-            "advance/finalize.md must not reference the deleted advance_hop module."
-        )
-        assert "--skip-refine" in text
-        assert "from_stage_id" in text
-        assert "_worktree_policy" in text
+class TestImplementIdentityGuard:
+    """Implementation entry corroborates identity before lane mutation."""
 
     def test_implementation_entry_probes_identity_before_claim(self):
         text = _read_skill_corpus(SKILLS / "implement")
@@ -215,17 +130,3 @@ class TestAdvanceTeachesFunctionCallAdapters:
         assert "write-guard-identity-unresolved" in text
         assert "--session-id` must match the ambient result" in text
         assert "worktree_preflight.run_preflight` acquires the claim" in text
-
-    def test_finalize_teaches_release_work_claim_adapter(self):
-        text = _read(SKILLS / "advance" / "finalize.md")
-        assert "yoke claims work release" in text, (
-            "advance/finalize.md must teach yoke claims work release "
-            "(function id: claims.work.release)."
-        )
-
-    def test_finalize_teaches_scalar_update_adapter(self):
-        text = _read(SKILLS / "advance" / "finalize.md")
-        assert "items.scalar.update" in text and "deployed_to" in text, (
-            "advance/finalize.md must teach deployed_to through the "
-            "typed items.scalar.update function call."
-        )

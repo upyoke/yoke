@@ -6,8 +6,6 @@ from pathlib import Path
 
 SKILL_ROOT = Path(__file__).parents[2] / ".agents" / "skills" / "yoke"
 IMPLEMENT_REENTRY_MD = SKILL_ROOT / "implement" / "reentry.md"
-FINALIZE_MD = SKILL_ROOT / "advance" / "finalize.md"
-PROJECT_E2E_MD = SKILL_ROOT / "advance" / "project-e2e.md"
 TESTER_TEMPLATE_MD = SKILL_ROOT / "shared" / "tester-dispatch-template.md"
 
 
@@ -42,19 +40,6 @@ class TestImplementSkillReentry:
 
 class TestLanePolicySurfaces:
     """Single-lane surfaces are guarded by the pinned worktree policy."""
-
-    def test_finalize_single_lane_guard(self):
-        """The finalize WORKTREE_PATH fallback is single-lane only."""
-        text = FINALIZE_MD.read_text()
-        assert '[ "$_worktree_policy" = "single_implementation_lane" ]' in text
-        assert "_finalize_workflow_id" not in text
-
-    def test_project_e2e_multi_lane_guard(self):
-        """Deployed-stack QA delegates a multi-lane policy to conduct."""
-        text = PROJECT_E2E_MD.read_text()
-        assert "worktrees=worker_and_integration_lanes" in text
-        assert "pinned `conduct` skill" in text
-        assert "parent item has no single" in text
 
     def test_tester_template_lane_convention_documented(self):
         """The Tester template distinguishes item-level and task lanes."""

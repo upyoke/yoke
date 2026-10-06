@@ -146,7 +146,7 @@ The finalize template was never updated to match the lint guard that now protect
 
 ## Files to modify
 
-- `/Users/dev/yoke/.claude/skills/yoke/advance/finalize.md`
+- `/Users/dev/yoke/retired stage-skill/finalize.md`
 
 ## Acceptance criteria
 
@@ -196,8 +196,8 @@ This means the confetti capture survived only as an embedded step inside `1878`,
 
 ## Files to modify
 
-- `/Users/dev/yoke/.claude/skills/yoke/advance/implementing/SKILL.md`
-- Possibly `/Users/dev/yoke/.claude/skills/yoke/advance/browser-qa.md` and the done-gate evidence rules
+- `/Users/dev/yoke/retired stage-skill/implementing/SKILL.md`
+- Possibly `/Users/dev/yoke/retired stage-skill/browser-qa.md` and the done-gate evidence rules
 
 ## Acceptance criteria
 
@@ -379,7 +379,7 @@ No failing backend QA run or waiver was recorded for the skipped part of the reg
 
 ## Files to modify
 
-- `/Users/dev/yoke/.claude/skills/yoke/advance/implementing/SKILL.md`
+- `/Users/dev/yoke/retired stage-skill/implementing/SKILL.md`
 
 ## Acceptance criteria
 

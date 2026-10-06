@@ -28,12 +28,9 @@ List qa_requirements rows. Exactly one filter (or none for every row);
 precedence when several are passed: item, then epic, then deployment run.
 
 Worked example:
-
   yoke qa requirement list --item YOK-N
   yoke qa requirement list --epic-id 1704 --json
-
 Flag matrix:
-
   flag                 required  value shape
   --item               no        PREFIX-N or project-local number
   --epic-id            no        bare epic item id (integer)
@@ -83,7 +80,9 @@ def qa_requirement_list(args: List[str]) -> int:
             deployment_run_id=parsed.deployment_run_id,
         )
     else:
-        target = TargetRef(kind="global", project_id=client_project_context(parsed.project))
+        target = TargetRef(
+            kind="global", project_id=client_project_context(parsed.project)
+        )
         if parsed.epic_id is not None:
             payload["epic_id"] = int(parsed.epic_id)
     return dispatch_and_emit(
@@ -123,7 +122,9 @@ def qa_requirement_get(args: List[str]) -> int:
         description=(f"{QA_REQUIREMENT_GET_USAGE}\n\n{_REQUIREMENT_GET_HELP_DEEP}"),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("requirement", nargs="?", type=int, help="Target qa_requirements.id.")
+    parser.add_argument(
+        "requirement", nargs="?", type=int, help="Target qa_requirements.id."
+    )
     parser.add_argument("--requirement-id", type=int, help="Target qa_requirements.id.")
     add_session_arg(parser)
     add_json_arg(parser)
@@ -131,8 +132,12 @@ def qa_requirement_get(args: List[str]) -> int:
     if parsed is None:
         return 2
     if (parsed.requirement is None) == (parsed.requirement_id is None):
-        return usage_error("provide exactly one requirement id, positionally or with --requirement-id")
-    requirement_id = parsed.requirement if parsed.requirement is not None else parsed.requirement_id
+        return usage_error(
+            "provide exactly one requirement id, positionally or with --requirement-id"
+        )
+    requirement_id = (
+        parsed.requirement if parsed.requirement is not None else parsed.requirement_id
+    )
     return dispatch_and_emit(
         function_id="qa.requirement.get",
         target=TargetRef(
@@ -195,7 +200,9 @@ def qa_run_list(args: List[str]) -> int:
             qa_requirement_id=int(parsed.requirement_id),
         )
     else:
-        target = TargetRef(kind="global", project_id=client_project_context(parsed.project))
+        target = TargetRef(
+            kind="global", project_id=client_project_context(parsed.project)
+        )
     return dispatch_and_emit(
         function_id="qa.run.list",
         target=target,
@@ -205,9 +212,7 @@ def qa_run_list(args: List[str]) -> int:
     )
 
 
-QA_RUN_GET_USAGE = (
-    "yoke qa run get --run-id N [--project P] [--session-id S] [--json]"
-)
+QA_RUN_GET_USAGE = "yoke qa run get --run-id N [--project P] [--session-id S] [--json]"
 _RUN_GET_HELP_DEEP = (
     "Fetch one qa_runs row. Project-scoped (--project / $YOKE_PROJECT / "
     "checkout map); wrong-project runs are refused. "
@@ -250,7 +255,7 @@ QA_GATE_SUMMARY_USAGE = (
 )
 
 _GATE_SUMMARY_HELP_DEEP = """\
-Read-only summary of QA requirements for the advance/polish handoff —
+Read-only summary of QA requirements for the implementation/polish handoff —
 which blocking requirements still lack the evidence their kind requires.
 Shares satisfaction semantics with the verification gate
 (yoke_core.domain.qa_gates); never mutates qa_runs/qa_requirements.

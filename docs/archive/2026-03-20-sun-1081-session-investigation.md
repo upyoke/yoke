@@ -114,7 +114,7 @@ Add '# lint:no-passed-check' comment to suppress if you understand the risks...
 sh .claude/skills/yoke/scripts/yoke-db.sh items update 1081 status passed # lint:no-passed-check
 ```
 
-- The finalize guidance in `/Users/dev/yoke/.claude/skills/yoke/advance/finalize.md` still shows a bare status update command:
+- The finalize guidance in `/Users/dev/yoke/retired stage-skill/finalize.md` still shows a bare status update command:
 
 ```sh
 sh .claude/skills/yoke/scripts/yoke-db.sh items update {N} status {_target}
@@ -248,7 +248,7 @@ Key local files:
 - `/Users/dev/.claude/projects/-Users-dev-yoke/bf0f224d-cb58-4506-acd7-e8f6ddbcc4a6.jsonl`
 - `/Users/dev/yoke/yoke/yoke.db`
 - `/Users/dev/buzz/app/requirements.txt`
-- `/Users/dev/yoke/.claude/skills/yoke/advance/finalize.md`
+- `/Users/dev/yoke/retired stage-skill/finalize.md`
 - `/Users/dev/yoke/.claude/skills/yoke/scripts/lint-sqlite-cmd.sh`
 - `/Users/dev/yoke/.claude/skills/yoke/scripts/merge-worktree.sh`
 

@@ -39,7 +39,7 @@ if _force_override_pat.search(command_stripped) and _force_state_mutation_pat.se
             "permissionDecisionReason": (
                 "BLOCKED: Do not use YOKE_FORCE or YOKE_DONE_RECOVERY from assistant-issued commands.\n"
                 "This is an operator override for manual recovery only.\n"
-                "Run the normal ceremony (/yoke usher or /yoke advance path), "
+                "Run the normal ceremony (/yoke usher or yoke lifecycle transition), "
                 "or ask the user to perform the override manually if recovery is truly required."
             ),
         }

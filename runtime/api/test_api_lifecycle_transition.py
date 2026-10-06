@@ -158,7 +158,7 @@ def _clear_process_session_env(monkeypatch):
 
 class TestLifecycleTransitionRoutesThroughExecuteUpdate:
     """Typed payload routes through the same engines as
-    ``service_client advance/...`` (i.e. ``backlog.execute_update``)."""
+    ``yoke lifecycle transition`` (i.e. ``backlog.execute_update``)."""
 
     def test_typed_payload_writes_status(
         self,

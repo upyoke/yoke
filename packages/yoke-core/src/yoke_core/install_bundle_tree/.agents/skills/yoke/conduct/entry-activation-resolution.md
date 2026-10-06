@@ -38,7 +38,7 @@ _synced_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_task
  yoke items github-sync "$_epic_id"
  ```
 
-3. Advance status to implementing: invoke the Yoke advance skill for `PREFIX-${N}` with target `implementing`.
+3. Advance status to implementing: use `yoke lifecycle transition PREFIX-${N} --to implementing`; verify the target is the next declared stage in the pinned binding.
 
 4. Commit sync changes: Sync work is often DB-only — "nothing to commit" is valid. Never stage `.yoke/BOARD.md`. If legacy root DB files appear in `data/`, stop and investigate.
  ```bash

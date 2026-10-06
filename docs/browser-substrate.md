@@ -283,7 +283,7 @@ and whether it came from the host (`host_path`) or from Yoke (`managed`).
 - [Browser Scenario Schema](../.yoke/docs/reference/browser-scenarios.md) —
   `method_config` shape for Browser method cases
 - `packages/yoke-harness/src/yoke_harness/browser_runtime/README.md` — Quick-start guide and usage examples
-- `.agents/skills/yoke/advance/browser-qa.md` — browser execution gate on the `implemented` / `polishing-implementation` path
+- `.agents/skills/yoke/dash/verify.md` — committed-candidate case execution and verification guidance
 - `.agents/skills/yoke/implement/implementing/SKILL.md` — AC-aware browser scenario seeding
 - `.agents/skills/yoke/conduct/dispatch-context.md` — Tester browser execution dispatch (conduct path)
 - `runtime/agents/tester.md` — canonical Tester agent body with Browser Scenario Execution section (generated adapter owned at `runtime/harness/claude/agents/yoke-tester.md`, surfaced via the `.claude/agents` symlink)

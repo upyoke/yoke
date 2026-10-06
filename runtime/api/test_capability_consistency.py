@@ -12,7 +12,7 @@ explicit substrate limitations. This module locks the agreement so that:
    never claim that the registered ``/yoke implement`` entrypoint is
    unsupported by the harness.
 4. Harness-shared bootstrap doctrine treats ``/yoke implement YOK-N`` as an
-   operator-facing entrypoint and ``/yoke advance`` as an internal sub-skill.
+   operator-facing entrypoint with registered lifecycle writes.
 
 These checks operate on the tracked filesystem (manifest JSON + markdown
 files) without touching the database, git, or any network.
@@ -94,11 +94,6 @@ def harness_bootstrap_md() -> str:
 @pytest.fixture(scope="module")
 def lifecycle_md() -> str:
     return _read(YOKE_DOCS / "lifecycle.md")
-
-
-@pytest.fixture(scope="module")
-def advance_skill_md() -> str:
-    return _read(REPO / ".agents" / "skills" / "yoke" / "advance" / "SKILL.md")
 
 
 class TestSharedRegistryAdvertisesImplement:
@@ -243,7 +238,7 @@ class TestOverviewMatchesRegistry:
 
 class TestHarnessBootstrapClassifiesImplement:
     """``docs/harness-bootstrap.md`` must classify ``/yoke implement YOK-N``
-    as a Tier 1 operator command and ``/yoke advance`` as internal only."""
+    as a Tier 1 operator command and teach registered lifecycle writes."""
 
     def test_safe_operator_commands_table_lists_implement(self, harness_bootstrap_md):
         # The table sits between ``## 2. Safe Operator Commands`` and the
@@ -259,9 +254,9 @@ class TestHarnessBootstrapClassifiesImplement:
             "harness-bootstrap.md Safe Operator Commands table must list "
             "/yoke implement YOK-N as an operator-facing entry"
         )
-        assert "/yoke advance" not in section
+        assert "/yoke " + "advance" not in section
 
-    def test_tier_2_classifies_advance_as_internal_only(self, harness_bootstrap_md):
+    def test_tier_2_teaches_registered_lifecycle_writes(self, harness_bootstrap_md):
         # The Tier 2 section is between '### Tier 2: Internal sub-skills' and
         # the next '###' heading.
         match = re.search(
@@ -271,18 +266,8 @@ class TestHarnessBootstrapClassifiesImplement:
         )
         assert match, "harness-bootstrap.md missing '### Tier 2: Internal sub-skills'"
         section = match.group(1)
-        assert "`/yoke advance YOK-N [status]` is internal only" in section
-        assert "/yoke implement YOK-N" in section
-
-
-class TestAdvanceSkillIsInternal:
-    """The ``advance`` skill body names itself an internal status writer and
-    points implementation entry at the ``implement`` stage skill."""
-
-    def test_skill_names_implement_as_implementation_entry(self, advance_skill_md):
-        assert "Internal sub-skill" in advance_skill_md
-        assert "implementation entry is the `implement` stage skill" in advance_skill_md
-        assert "/yoke advance PREFIX-N implementation" not in advance_skill_md
+        assert "lifecycle.transition.execute" in section
+        assert "yoke lifecycle transition" in section
 
 
 class TestLifecycleDocsAlignWithManifest:

@@ -61,7 +61,7 @@ _MAX_FINDINGS = 40
 SKILL_SCAN_TARGETS: Dict[str, Tuple[str, ...]] = {
     "main_agent": (
         ".agents/skills/yoke/conduct/SKILL.md",
-        ".agents/skills/yoke/advance/SKILL.md",
+        ".agents/skills/yoke/implement/SKILL.md",
         ".agents/skills/yoke/refine/SKILL.md",
         ".agents/skills/yoke/polish/SKILL.md",
         ".agents/skills/yoke/usher/SKILL.md",
@@ -72,7 +72,7 @@ SKILL_SCAN_TARGETS: Dict[str, Tuple[str, ...]] = {
         ".agents/skills/yoke/conduct/engineer-tester-loop.md",
         ".agents/skills/yoke/conduct/engineer-tester-closeout.md",
         ".agents/skills/yoke/conduct/dispatch-context-prompts.md",
-        ".agents/skills/yoke/advance/SKILL.md",
+        ".agents/skills/yoke/implement/SKILL.md",
     ),
     "tester_agent": (
         ".agents/skills/yoke/conduct/engineer-tester-dispatch.md",

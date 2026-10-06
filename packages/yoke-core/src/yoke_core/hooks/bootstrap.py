@@ -126,7 +126,9 @@ def render_required_files(spec: dict, extra_files: Optional[List[str]] = None) -
     return "\n".join(required)
 
 
-def render_compact(root: Path, spec: dict, extra_files: Optional[List[str]] = None) -> str:
+def render_compact(
+    root: Path, spec: dict, extra_files: Optional[List[str]] = None
+) -> str:
     """Render compact orientation: required files plus the startup block.
 
     This body rides a hook reply, and Codex caps that channel at its
@@ -208,7 +210,7 @@ def list_skills(root: Path) -> List[str]:
     ``SKILL.md`` lives directly at the skills root). Named subdirectories are
     included when they contain a ``SKILL.md`` at their top level — this matches
     the convention described in ``AGENTS.md`` ("File Layout") and is how
-    operator commands are defined. Phase sub-files (e.g. ``advance/preflight.md``)
+    operator commands are defined. Phase sub-files (e.g. ``implement/entry.md``)
     are not standalone skills and are deliberately excluded.
 
     Raises ``FileNotFoundError`` when the skill tree is missing entirely (no
@@ -247,9 +249,7 @@ def resolve_skill_path(root: Path, name: str) -> Path:
     else:
         path = base / name / "SKILL.md"
     if not path.is_file():
-        raise FileNotFoundError(
-            f"Yoke skill '{name}' not found at {path}"
-        )
+        raise FileNotFoundError(f"Yoke skill '{name}' not found at {path}")
     return path.absolute()
 
 

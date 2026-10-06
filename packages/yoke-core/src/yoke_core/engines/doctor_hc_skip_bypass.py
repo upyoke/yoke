@@ -1,6 +1,6 @@
 """Doctor HC for detecting manual polish-skip anti-patterns.
 
-``/yoke advance YOK-N --skip-polish`` is the canonical surface for
+the operator-asserted skip handler is the canonical surface for
 collapsing ``reviewed-implementation -> polishing-implementation ->
 implemented`` into a single sanctioned hop.  Before this flag existed,
 operators sometimes achieved the same transition by running two manual
@@ -46,16 +46,16 @@ _GAP_SECONDS_SQL = (
 )
 
 
-def hc_skip_polish_manual_hop(
-    conn, args: DoctorArgs, rec: RecordCollector
-) -> None:
+def hc_skip_polish_manual_hop(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """Flag ``reviewed-implementation -> polishing-implementation -> implemented``
     sequences performed via raw ``items update`` that should have used
-    ``/yoke advance YOK-N --skip-polish``.
+    the operator-asserted skip handler.
     """
     if not _base._table_exists(conn, "item_status_transitions"):
         rec.record(
-            _HC_NAME, _HC_DESC, "PASS",
+            _HC_NAME,
+            _HC_DESC,
+            "PASS",
             "item_status_transitions table missing — skipping",
         )
         return
@@ -103,7 +103,7 @@ def hc_skip_polish_manual_hop(
     issues: List[str] = [
         f"- {len(rows)} sequence(s) in the last 30 days look like manual "
         "polish skips (raw items update through polishing-implementation). "
-        "Use `/yoke advance YOK-N --skip-polish` instead — it emits "
+        "Ask the operator to run the source-dev skip handler: `python3 -m yoke_core.domain.advance_skip polish PREFIX-N` — it emits "
         "a single `SkipHopPerformed` event and keeps the claim lifecycle "
         "honest.",
     ]

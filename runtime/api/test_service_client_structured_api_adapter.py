@@ -136,8 +136,8 @@ class TestRegistryInventoryParity:
         for function_id in ("claims.work.acquire", "claims.work.release"):
             claim_entry = adapter_for(function_id)
             assert claim_entry is not None
-            assert claim_entry.agent_path == "skill-orchestrated"
-            assert "non-lifecycle claim flows" in claim_entry.direct_use_caveat
+            assert claim_entry.agent_path == "direct"
+            assert claim_entry.cli_invocation.startswith("yoke claims work ")
 
     def test_adapter_for_returns_structured_result(self) -> None:
         """Structured lookup, no shell exit-code probes."""

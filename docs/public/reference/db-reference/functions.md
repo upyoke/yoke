@@ -253,7 +253,7 @@ Replaces every hand-authored `python3 -m yoke_core.domain.epic task-update-body 
 
 | Function id | claim_required_kind | Handler |
 |---|---|---|
-| `lifecycle.transition` | `"item"` | `yoke_core.domain.handlers.items_scalar.lifecycle_transition` — routes through the same engines that `service_client advance/...` uses. |
+| `lifecycle.transition` | `"item"` | `yoke_core.domain.handlers.items_scalar.lifecycle_transition` — enforces the pinned definition and its target-stage gates. |
 
 ```jsonc
 {

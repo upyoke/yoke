@@ -22,10 +22,10 @@ from yoke_core.domain.workflow_definition_builders import workflow_stage
 from yoke_core.domain.workflow_registry import publish_workflow_version
 
 
-ADVANCE_SKILL = (
-    Path(__file__).parents[2] / ".agents" / "skills" / "yoke" / "advance" / "SKILL.md"
+IMPLEMENT_SKILL = (
+    Path(__file__).parents[2] / ".agents" / "skills" / "yoke" / "implement" / "SKILL.md"
 )
-ADVANCE_WORKFLOW_CONTEXT = ADVANCE_SKILL.with_name("workflow-context.md")
+IMPLEMENT_ENTRY = IMPLEMENT_SKILL.with_name("entry.md")
 
 
 def _request(
@@ -47,32 +47,32 @@ def _next_stage(definition: dict, current: str) -> str:
     return stage_ids[stage_ids.index(current) + 1]
 
 
-def test_advance_teaches_item_pin_then_exact_version_read() -> None:
-    skill = ADVANCE_SKILL.read_text()
-    lookup = ADVANCE_WORKFLOW_CONTEXT.read_text()
+def test_implement_teaches_item_pin_then_exact_version_read() -> None:
+    skill = IMPLEMENT_SKILL.read_text()
+    lookup = IMPLEMENT_ENTRY.read_text()
 
-    item_read = lookup.index("yoke workflows item get PREFIX-{N} --json")
+    item_read = lookup.index("yoke workflows item get PREFIX-N --json")
     version_read = lookup.index(
         'yoke workflows version get "$_workflow_id" "$_workflow_version" --json'
     )
 
     assert item_read < version_read
-    assert "[`workflow-context.md`](workflow-context.md)" in skill
+    assert "[`entry.md`](entry.md)" in skill
     assert "yoke workflows definition get" not in lookup
     assert "current_version_id" not in lookup
 
 
-def test_advance_has_no_stale_current_definition_lookup_residue() -> None:
+def test_implement_has_no_stale_current_definition_lookup_residue() -> None:
     text = "".join(
-        path.read_text() for path in sorted(ADVANCE_SKILL.parent.glob("*.md"))
+        path.read_text() for path in sorted(IMPLEMENT_SKILL.parent.glob("*.md"))
     )
 
     assert "yoke workflows definition get" not in text
     assert "current_version_id" not in text
     assert "items get {N} workflow_id workflow_version_id" not in text
-    assert "exact pin" in text
-    assert "registry key for the exact version read" in text
-    assert "no behavior branches on its value" in text
+    assert "immutable pin" in text
+    assert "registry key for the version read" in text
+    assert "behavior branches on its value" in text
 
 
 def test_existing_item_uses_pinned_definition_after_new_version_becomes_current(
@@ -82,11 +82,10 @@ def test_existing_item_uses_pinned_definition_after_new_version_becomes_current(
     pinned_version = current_workflow_version(test_db, "issue")
 
     edited_definition = builtin_workflow_definition("issue")["definition"]
-    previous_stage_ids = [
-        stage["id"] for stage in edited_definition["stages"]
-    ]
+    previous_stage_ids = [stage["id"] for stage in edited_definition["stages"]]
     edited_definition["stages"].insert(
-        1, workflow_stage("triaged", "Triaged"),
+        1,
+        workflow_stage("triaged", "Triaged"),
     )
     edited_definition["transitions"] = [
         {"from_stage_id": "idea", "to_stage_id": "triaged"},

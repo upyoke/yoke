@@ -295,7 +295,7 @@ All 8 agents include the following sections in their system prompts:
 
 PM and Designer do not have this section because they have no Bash tool and cannot run DB queries. The invariant is that **Bash-capable actor implies packet-capable actor** — when those roles eventually gain Bash, adding their role keys to `ROLE_TOPICS` plus marker pairs in their canonical prompts is sufficient; no parallel hand-authored cheat sheet should ever be reintroduced. The current Yoke design keeps Product Manager and Product Designer non-Bash — their tool grant is `Read, Grep, Glob` only, and orchestrators pass them backlog/spec context through dispatch prompts.
 
-**The reviewed-implementation gate is the authority — passing tests are not.** The Engineer and Tester packet now teaches `yoke qa gate-summary --item PREFIX-N --target reviewed-implementation` as the preview (or `--epic-id E --task-num K` for an epic task), and instructs that the only sanctioned way to advance to `reviewed-implementation` is through `/yoke advance YOK-N reviewed-implementation`. Direct status writes are rejected by the gate even when the test suite is green.
+**The reviewed-implementation gate is the authority — passing tests are not.** The Engineer and Tester packet now teaches `yoke qa gate-summary --item PREFIX-N --target reviewed-implementation` as the preview (or `--epic-id E --task-num K` for an epic task), and instructs that the only sanctioned way to advance to `reviewed-implementation` is through `yoke lifecycle transition PREFIX-N --to reviewed-implementation`. Direct status writes are rejected by the gate even when the test suite is green.
 
 ### CLI Prohibition
 

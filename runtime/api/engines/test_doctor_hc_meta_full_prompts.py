@@ -48,13 +48,15 @@ class TestPromptCommandConsistency:
 
     def test_detects_stale_browser_qa_run_scenario(self, tmp_path):
         """catch stale browser_qa run-scenario in prompt surfaces."""
-        skill_dir = tmp_path / ".agents" / "skills" / "yoke" / "advance"
+        skill_dir = tmp_path / ".agents" / "skills" / "yoke" / "implement"
         skill_dir.mkdir(parents=True)
         (skill_dir / "browser-qa.md").write_text(
             "python3 -m yoke_core.domain.browser_qa run-scenario --item-id 42"
         )
-        with patch("yoke_core.engines.doctor_report._resolve_repo_root",
-                    return_value=str(tmp_path)):
+        with patch(
+            "yoke_core.engines.doctor_report._resolve_repo_root",
+            return_value=str(tmp_path),
+        ):
             rec = _run_hc(hc_prompt_command_consistency)
         r = _result(rec)
         assert r.result == "FAIL"
@@ -62,13 +64,15 @@ class TestPromptCommandConsistency:
 
     def test_detects_stale_browser_client_resolve_cache(self, tmp_path):
         """catch stale browser_client resolve-cache in prompt surfaces."""
-        skill_dir = tmp_path / ".agents" / "skills" / "yoke" / "advance"
+        skill_dir = tmp_path / ".agents" / "skills" / "yoke" / "implement"
         skill_dir.mkdir(parents=True)
         (skill_dir / "project-e2e.md").write_text(
             "python3 -m yoke_core.domain.browser_client resolve-cache proj dir"
         )
-        with patch("yoke_core.engines.doctor_report._resolve_repo_root",
-                    return_value=str(tmp_path)):
+        with patch(
+            "yoke_core.engines.doctor_report._resolve_repo_root",
+            return_value=str(tmp_path),
+        ):
             rec = _run_hc(hc_prompt_command_consistency)
         r = _result(rec)
         assert r.result == "FAIL"
@@ -76,13 +80,15 @@ class TestPromptCommandConsistency:
 
     def test_detects_stale_snapshot_screenshot_url_flag(self, tmp_path):
         """catch stale snapshot screenshot --url usage in prompt surfaces."""
-        skill_dir = tmp_path / ".agents" / "skills" / "yoke" / "advance"
+        skill_dir = tmp_path / ".agents" / "skills" / "yoke" / "implement"
         skill_dir.mkdir(parents=True)
         (skill_dir / "browser-qa.md").write_text(
             "python3 -m yoke_core.domain.browser_client snapshot screenshot --url https://example.test"
         )
-        with patch("yoke_core.engines.doctor_report._resolve_repo_root",
-                    return_value=str(tmp_path)):
+        with patch(
+            "yoke_core.engines.doctor_report._resolve_repo_root",
+            return_value=str(tmp_path),
+        ):
             rec = _run_hc(hc_prompt_command_consistency)
         r = _result(rec)
         assert r.result == "FAIL"
@@ -90,7 +96,7 @@ class TestPromptCommandConsistency:
 
     def test_pass_clean_surfaces(self, tmp_path):
         """clean prompt surfaces pass the check."""
-        skill_dir = tmp_path / ".agents" / "skills" / "yoke" / "advance"
+        skill_dir = tmp_path / ".agents" / "skills" / "yoke" / "implement"
         skill_dir.mkdir(parents=True)
         (skill_dir / "browser-qa.md").write_text(
             "python3 -m yoke_core.domain.browser_qa --item-id 42"
@@ -100,8 +106,10 @@ class TestPromptCommandConsistency:
         (agent_dir / "tester.md").write_text(
             "python3 -m yoke_core.domain.browser_qa --item-id 42"
         )
-        with patch("yoke_core.engines.doctor_report._resolve_repo_root",
-                    return_value=str(tmp_path)):
+        with patch(
+            "yoke_core.engines.doctor_report._resolve_repo_root",
+            return_value=str(tmp_path),
+        ):
             rec = _run_hc(hc_prompt_command_consistency)
         assert _result(rec).result == "PASS"
 
@@ -124,11 +132,15 @@ class TestDocHealth:
         rec = _run_hc(hc_doc_health)
         assert _result(rec).result == "PASS"
 
-    @patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo")
+    @patch(
+        "yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo"
+    )
     def test_missing_readme_fails(self, mock_root):
         """T1: Missing README.md triggers FAIL."""
-        with patch.object(Path, "is_file", return_value=False), \
-             patch.object(Path, "is_dir", return_value=False):
+        with (
+            patch.object(Path, "is_file", return_value=False),
+            patch.object(Path, "is_dir", return_value=False),
+        ):
             rec = _run_hc(hc_doc_health)
         assert _result(rec).result == "FAIL"
         assert "missing" in _result(rec).detail

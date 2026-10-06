@@ -11,12 +11,11 @@ import pytest
 ROOT = Path(__file__).parents[2]
 CANONICAL = ROOT / ".agents/skills/yoke"
 BUNDLE = (
-    ROOT
-    / "packages/yoke-core/src/yoke_core/install_bundle_tree/.agents/skills/yoke"
+    ROOT / "packages/yoke-core/src/yoke_core/install_bundle_tree/.agents/skills/yoke"
 )
 
 SKILL_PATHS = (
-    Path("advance/SKILL.md"),
+    Path("implement/SKILL.md"),
     Path("feed/gather.md"),
     Path("feed/materialize.md"),
     Path("polish/review.md"),

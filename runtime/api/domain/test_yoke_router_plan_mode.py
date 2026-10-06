@@ -17,7 +17,7 @@ def test_router_documents_execute_class_plan_mode_auto_exit() -> None:
         text = path.read_text(encoding="utf-8")
         assert "Plan-mode guard" in text
         assert "ExitPlanMode" in text
-        assert "advance" in text
+        assert "implement" in text
         assert "conduct" in text
         assert "usher" in text
         assert "polish" in text

@@ -1,4 +1,4 @@
-"""Typed read-only QA gate diagnostic for advance and polish handoff.
+"""Typed read-only QA gate diagnostic for implementation and polish handoff.
 
 The summary mirrors the target gate's blocking, phase, Browser-evidence, and
 human-review semantics without mutating QA state.
@@ -279,7 +279,7 @@ def register_subparser(sub: Any) -> argparse.ArgumentParser:
     object. Owned here so :mod:`qa_cli` stays under its file-line cap."""
     p = sub.add_parser(
         "gate-summary",
-        help="Read-only summary of QA requirements for advance/polish.",
+        help="Read-only summary of QA requirements for implementation/polish.",
     )
     p.add_argument("--item-id", type=int)
     p.add_argument("--epic-id", type=int)

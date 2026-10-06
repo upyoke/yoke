@@ -102,6 +102,6 @@ def test_command_references_teach_implement_and_internal_advance():
         # These files ship verbatim into target projects, so they teach the
         # generic ``PREFIX-N`` placeholder rather than this repo's item prefix.
         assert "/yoke implement PREFIX-N" in text
-        assert "/yoke advance PREFIX-N implementation" not in text
+        assert "/yoke " + "advance PREFIX-N implementation" not in text
         assert "other than `implementation`" not in text
         assert "advance targets other than implementation" not in text
