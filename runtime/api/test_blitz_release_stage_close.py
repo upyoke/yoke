@@ -60,7 +60,10 @@ def test_blitz_docs_do_not_name_the_missing_close_transition() -> None:
     assert "document-archive" in close
     assert "keep the work claim and park this session" in close
     assert "or `release`" in corpus
-    assert "-> release -> done" in help_text
+    assert "yoke workflows item get PREFIX-N --json" in help_text
+    assert "yoke workflows version get <workflow> <version> --json" in help_text
+    assert "including the release wait" in help_text
+    assert "BLITZ FLOW" not in help_text
     assert "blitz → release → done" in workflows
 
 

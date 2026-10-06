@@ -134,6 +134,12 @@ def compose_single_item_mandate(
     return f"{mandate}\n\n{extra}" if extra else mandate
 
 
+def item_entrypoint(next_step: str, public_ref: str) -> str | None:
+    """Render the launch command for a bound skill; unlaunchable steps return None."""
+    template = _ENTRYPOINTS.get(next_step)
+    return template.format(ref=public_ref) if template else None
+
+
 def _route_for_item(conn: Any, public_ref: str, project_id: int) -> tuple[str, str]:
     item_id = resolve_item_id(conn, public_ref, project=project_id)
     if item_id is None:
@@ -161,14 +167,14 @@ def _route_for_item(conn: Any, public_ref: str, project_id: int) -> tuple[str, s
         conn=conn,
         item_id=item_id,
     )
-    entrypoint = _ENTRYPOINTS.get(str(step or ""))
+    entrypoint = item_entrypoint(str(step or ""), public_ref)
     remaining = _REMAINING_LEGS.get(str(step or ""))
     if not entrypoint or not remaining:
         raise SessionLaunchError(
             "mandate_unroutable",
             f"item {public_ref} has no launchable route (next_step={step!r})",
         )
-    return entrypoint.format(ref=public_ref), remaining
+    return entrypoint, remaining
 
 
 def compose_item_launch_instructions(
@@ -284,4 +290,5 @@ __all__ = [
     "compose_item_launch_instructions",
     "compose_single_item_mandate",
     "launch_request_for_create",
+    "item_entrypoint",
 ]

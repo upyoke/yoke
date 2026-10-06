@@ -55,10 +55,18 @@ def _resolve_default_wip_cap(project_scope: List[int]) -> int:
 
 
 def _scheduled_step_to_dict(step: Any, conn: Any = None) -> Dict[str, Any]:
+    from yoke_core.domain.session_launch_mandate import item_entrypoint
     from yoke_core.domain.sessions_queries_base import display_claim_item_id
 
+    public_ref = display_claim_item_id(str(step.item_id), conn)
+    next_step = (
+        step.next_step.value
+        if hasattr(step.next_step, "value")
+        else str(step.next_step)
+    )
     return {
-        "item_id": display_claim_item_id(str(step.item_id), conn),
+        "item_id": public_ref,
+        "entrypoint": item_entrypoint(next_step, public_ref),
         "workflow_id": step.workflow_id,
         "workflow_version_id": step.workflow_version_id,
         "workflow_version": step.workflow_version,
@@ -66,11 +74,7 @@ def _scheduled_step_to_dict(step: Any, conn: Any = None) -> Dict[str, Any]:
         "title": step.title,
         "priority": step.priority,
         "project": getattr(step, "project", ""),
-        "next_step": (
-            step.next_step.value
-            if hasattr(step.next_step, "value")
-            else str(step.next_step)
-        ),
+        "next_step": next_step,
         "rank": step.rank,
         "claim_state": (
             step.claim_state.value
