@@ -122,7 +122,7 @@ export function mountUniverseApp(rootNode, options = {}) {
   };
 
   const {
-    brand, disposeChrome, header, main, navLinks, orgContext, scopeHost,
+    brand, disposeChrome, footer, header, main, navLinks, orgContext, scopeHost,
     setScopeVisible, shell,
   } = createWorkbenchChrome({
     client,
@@ -137,7 +137,7 @@ export function mountUniverseApp(rootNode, options = {}) {
 
   const detachRootClass = attachMountRootClass(rootNode);
   rootNode.replaceChildren(header, shell);
-  const disposeTelemetry = mountWorkbenchTelemetry(rootNode, windowNode);
+  const disposeTelemetry = mountWorkbenchTelemetry(footer, windowNode);
   main.replaceChildren(routeLoadingLine(documentNode));
 
   // The mark uses currentColor, so it must live in the DOM (an <img src>

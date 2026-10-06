@@ -1,17 +1,21 @@
+.universe-app-root .shell { grid-template-rows: minmax(0, 1fr) auto; }
+.universe-app-root .app-footer {
+  height: auto;
+  min-height: 34px;
+  padding-block: .25rem;
+  flex-wrap: wrap;
+}
 .workbench-telemetry {
-  position: fixed;
-  right: 1rem;
-  bottom: .5rem;
-  z-index: 20;
   display: flex;
   align-items: center;
   gap: .5rem;
-  max-width: calc(100vw - 2rem);
+  max-width: 100%;
+  flex-wrap: wrap;
   font-size: .75rem;
 }
 .workbench-telemetry button {
   color: inherit;
-  background: var(--bg, Canvas);
+  background: var(--yoke-bg, Canvas);
   border: 1px solid currentColor;
   border-radius: .3rem;
   padding: .25rem .5rem;
@@ -19,6 +23,3 @@
 }
 .workbench-telemetry button:disabled { opacity: .6; cursor: default; }
 .workbench-telemetry button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
-@media (max-width: 600px) {
-  .workbench-telemetry { position: static; margin: .5rem 1rem; flex-wrap: wrap; }
-}
