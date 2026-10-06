@@ -173,7 +173,8 @@ learns the other's part from its own skill. The split is the whole rule:
   for delivery-ready items no other release holds
   (`item_qa_run_without_members`). Holding is landing custody, as enrollment
   reads it: a re-merged landing, an unreadable one, or one held only by a
-  supplemental stage run is still owed. Otherwise — a stage run whose
+  supplemental stage run is still owed, and an unreadable completion flow
+  refuses as `item_qa_owed_delivery_unreadable`. Otherwise — a stage run whose
   candidates were targeted out — its item-scoped stage passes with the named
   `item_qa_no_member_owes_target` result. Dispatch, the outstanding report,
   and later stages' prior-acceptance check ask the same question again and

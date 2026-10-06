@@ -22,6 +22,7 @@ from runtime.api.domain.test_deployment_run_item_qa_membership import (
     _isolate_candidate_reads,
 )
 from runtime.api.domain.test_release_member_target_enrollment import _pair
+from runtime.api.fixtures.carried_release_candidate import record_landing_receipt
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.domain import deployment_runs_validation as validation
 from yoke_core.domain.deployment_qa_stage_dispatch import (
@@ -29,7 +30,11 @@ from yoke_core.domain.deployment_qa_stage_dispatch import (
 )
 from yoke_core.domain.deployment_qa_stage_outstanding import qa_stage_outstanding
 from yoke_core.domain.deployment_qa_stage_prerequisites import prior_stage_refusals
-from yoke_core.domain.deployment_run_item_qa_membership import NO_MEMBER_OWES_TARGET
+from yoke_core.domain.delivery_landing_custody import HELD, landing_custody
+from yoke_core.domain.deployment_run_item_qa_membership import (
+    NO_MEMBER_OWES_TARGET,
+    owed_delivery_item_ids,
+)
 from yoke_core.domain.deployment_run_member_targeting import run_needs_member
 from yoke_core.domain.handlers.deployment_run_execution import (
     handle_deployment_execution_context,
@@ -159,3 +164,35 @@ def test_memberless_production_run_fails_closed_everywhere(
     )
     assert len(refusals) == 1
     assert "item_qa_run_without_members" in refusals[0]
+
+
+def test_a_supplemental_holder_carrying_the_landing_still_leaves_it_owed(
+    targeted_out: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The stage run carries the landing, yet holds nothing for prod."""
+    from yoke_core.domain import delivery_landing_custody
+    from yoke_core.domain.deployment_run_candidate_containment import (
+        CONTAINED,
+        ContainmentVerdict,
+    )
+
+    monkeypatch.setattr(
+        delivery_landing_custody,
+        "candidate_contains_commit",
+        lambda *_args, **_kwargs: ContainmentVerdict(CONTAINED),
+    )
+    conn = targeted_out
+    _memberless(conn, "run-prod")
+    lineage = conn.execute(
+        "SELECT release_lineage FROM deployment_runs WHERE id='run-stage'"
+    ).fetchone()[0]
+    record_landing_receipt(conn, ITEM_ID, branch="landed-item", tip=lineage)
+
+    anyone = landing_custody(conn, project_id=1, item_ids=[ITEM_ID])
+    assert anyone[ITEM_ID].state == HELD
+    assert anyone[ITEM_ID].run_id == "run-stage"
+    for_prod = landing_custody(
+        conn, project_id=1, item_ids=[ITEM_ID], exclude_run_id="run-prod"
+    )
+    assert for_prod[ITEM_ID].state != HELD
+    assert owed_delivery_item_ids(conn, "run-prod") == (ITEM_ID,)
