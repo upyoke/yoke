@@ -24,6 +24,7 @@ from yoke_contracts.hook_runner.session_cwd import (
     client_scratch_root_fact,
 )
 from yoke_contracts.machine_config import runtime as machine_config
+from yoke_contracts.session_control import turn_end_events
 
 from yoke_harness.hooks.deadline import HookDeadline
 from yoke_harness.hooks.main_commit_client import collect_git_commit_facts
@@ -98,7 +99,9 @@ def _denial_audit(module_id: str, mode: str, payload: dict, reason: str) -> dict
     turn_id = payload.get("turn_id") or payload.get("message_id") or ""
     return {
         "hook": module_id,
-        "check_id": RIPGREP_REPLACE_CHECK_ID if f"Yoke check id: {RIPGREP_REPLACE_CHECK_ID}" in reason else module_id,
+        "check_id": RIPGREP_REPLACE_CHECK_ID
+        if f"Yoke check id: {RIPGREP_REPLACE_CHECK_ID}" in reason
+        else module_id,
         "guard_key": module_id,
         "mode": mode,
         "reason": reason,
@@ -224,7 +227,7 @@ def evaluate_local_subset(
         payload[lint_policy.SNAPSHOT_PAYLOAD_KEY] = lint_config_snapshot
     matcher = _matcher(event_name, payload)
     payload_extra: dict[str, object] = {}
-    if event_name == "Stop":
+    if event_name in turn_end_events(executor):
         from yoke_contracts.turn_end_evidence import (
             PAYLOAD_KEY,
             extract_turn_end_evidence,
@@ -277,7 +280,10 @@ def evaluate_local_subset(
                     or f"{module_id} would block, but lint-config mode is warn."
                 )
                 continue
-            from yoke_contracts.hook_runner.shell_guard_repairs import NOTHING_RAN, is_compound
+            from yoke_contracts.hook_runner.shell_guard_repairs import (
+                NOTHING_RAN,
+                is_compound,
+            )
 
             reason = result.message
             if is_compound(command_from_payload(payload)) and NOTHING_RAN not in reason:

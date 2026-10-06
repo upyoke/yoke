@@ -55,7 +55,7 @@ The conversation map is established on the first client hook (`preToolUse` / `be
 
 ## What Cursor does NOT own
 
-Cursor is a harness adapter, not a replacement for Yoke core. Routing decisions, canonical telemetry, ownership truth, and safety enforcement remain Yoke-core responsibilities. Cursor hooks are enhancements and never the sole safety layer. Cursor-native features that overlap Yoke-owned mechanics stay unused by Yoke flows: `cursor-agent`'s worktree flags (`-w`, `--worktree-base`) — Yoke owns worktree placement; Cloud Agent handoff (`&`) — Yoke sessions are local. Cursor does not reliably continue a model turn after a denied `stop`, so the manifest declares that limitation and Yoke allows Stop while recording live-claim work durably for recovery.
+Cursor is a harness adapter, not a replacement for Yoke core. Routing decisions, canonical telemetry, ownership truth, and safety enforcement remain Yoke-core responsibilities. Cursor hooks are enhancements and never the sole safety layer. Cursor-native features that overlap Yoke-owned mechanics stay unused by Yoke flows: `cursor-agent`'s worktree flags (`-w`, `--worktree-base`) — Yoke owns worktree placement; Cloud Agent handoff (`&`) — Yoke sessions are local. Cursor does not reliably continue a model turn after a denied `stop`, so the manifest declares that limitation and Yoke allows Stop while recording live-claim work durably for recovery. Print mode (`cursor-agent -p`, every relay launch and resume) fires no `stop` at all; its turn ends with the process's `sessionEnd`, which the manifest declares as cursor-cli's `turn_end_event`, so that same recording runs there.
 
 ## Approvals and the network sandbox
 

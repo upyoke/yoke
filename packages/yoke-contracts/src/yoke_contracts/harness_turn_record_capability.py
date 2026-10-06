@@ -90,11 +90,13 @@ HARNESS_TURN_RECORD_CAPABILITIES: dict[str, HarnessTurnRecordCapability] = {
         turn_record_mechanism="",
         verified_on_surface="cursor-cli",
         evidence=(
-            "No reader is needed and none is built. Cursor fires its "
-            "turn-end hook on every ending observed so far, so the same "
-            "reasoning as claude-code applies: the hook stamps posture and "
-            "a transcript read would answer nothing further. Designed "
-            "deferral on the same terms."
+            "No reader is needed and none is built. cursor-cli print mode "
+            "(every relay launch and resume) never fires stop; the process "
+            "exits when the turn finishes and fires sessionEnd with reason "
+            "completed, which the surface declares as its turn_end_event, "
+            "so a hook still stamps posture at every observed ending and a "
+            "transcript read would answer nothing further. Designed "
+            "deferral on the same terms as claude-code."
         ),
     ),
 }

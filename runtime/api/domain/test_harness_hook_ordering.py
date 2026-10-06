@@ -295,6 +295,7 @@ class TestNonPreEvents(unittest.TestCase):
         self.assertEqual(
             chain,
             [
+                "yoke_core.domain.turn_end_promised_work_gate",
                 "yoke_core.hooks.session_dispatch",
                 "yoke_core.hooks.session_launch_attestation",
             ],

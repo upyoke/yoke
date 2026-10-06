@@ -134,7 +134,9 @@ Owners: `yoke_harness.cursor_executed_model`, then `identity_runtime.cursor_payl
 **The one channel a resumed print-mode turn can be reached on is
 `sessionStart`.** A stopped session is woken with `cursor-agent --resume
 … --print`, and that mode fires only `sessionStart` and `sessionEnd` — no
-`beforeSubmitPrompt`, no `stop`. A pending envelope therefore has exactly
+`beforeSubmitPrompt`, no `stop`. (That `sessionEnd` is the turn end: the
+cursor-cli manifest declares `turn_end_event=SessionEnd`, so the promised-work
+gate records its turn-end deferral there.) A pending envelope therefore has exactly
 one chance to reach the model before its first tool call, which is why the
 delivery modules must put it in the `additional_context` reply rather than
 beside it on raw stdout (see `yoke_contracts.hook_runner.model_context_channel`). That same mode states its token counts only in the

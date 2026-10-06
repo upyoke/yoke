@@ -111,7 +111,7 @@ not author a second capability matrix.
 Each surface value carries `minimum_version`, `inject_events`, `create`,
 `message_active`, `message_idle`, `message_stopped`,
 `stop_denial_continuation`, `relay_stop_denial_continuation`,
-`liveness_process_names`, and `wake_authority`. Route and Stop continuation
+`liveness_process_names`, `wake_authority`, and `turn_end_event`. Route and Stop continuation
 fields use the closed interface vocabulary
 `supported | private | none`. `wake_authority` uses the closed vocabulary
 `native | operator` and names who may resume a session on this surface.
@@ -139,6 +139,15 @@ headless continuation nobody has observed declares `none` and is durably
 deferred, and it is a canary on that surface — not the shape of its
 transport — that moves it to `supported`
 ([why](../../docs/archive/decisions/headless-stop-continuation-is-observed-not-inferred.md)).
+`turn_end_event` is `Stop | SessionEnd` and names the hook that ends a turn on
+the surface. `Stop` is the normal case. `SessionEnd` declares a native that
+fires no turn-end hook at all, so its process exit is the turn end: Cursor's
+print mode (every relay launch and resume) fires `sessionEnd` with
+`reason: completed` and never fires `stop`. The SessionEnd chain runs the
+promised-work gate for such a surface, and the relay client attaches its
+turn-end evidence there, so the Stop-chain deferral record is still written;
+a SessionEnd can never continue a turn, so the gate only records there and
+never holds.
 `liveness_process_names` is a list of process basenames the surface permits as
 liveness-only anchors. These anchors can prove a registered session's process
 dead but never participate in ambient session identity, and shared-pid
