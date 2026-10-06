@@ -9,6 +9,7 @@ from typing import List
 
 from yoke_cli.commands._helpers import add_session_arg, parse_or_usage_error
 from yoke_cli.config.project_onboard_support import machine_config_path
+from yoke_cli.packs.catalog_source import CATALOG_CHOICES_TEXT, resolve_catalog
 from yoke_cli.packs import (
     PackClientError,
     list_packs,
@@ -17,19 +18,22 @@ from yoke_cli.packs import (
 )
 
 
-PACKS_LIST_USAGE = "yoke packs list --project NAME [--config PATH] [--json]"
+_CATALOG_USAGE = "[--catalog served|lane|commit:SHA] [--yoke-checkout PATH]"
+PACKS_LIST_USAGE = (
+    f"yoke packs list --project NAME {_CATALOG_USAGE} [--config PATH] [--json]"
+)
 PACKS_GET_USAGE = (
     "yoke packs get PACK [REPO_ROOT] --project NAME [--version VERSION] "
-    "[--config PATH] [--apply] [--allow-missing-tools] [--json]"
+    f"{_CATALOG_USAGE} [--config PATH] [--apply] [--allow-missing-tools] [--json]"
 )
 PACKS_UPDATE_USAGE = (
     "yoke packs update PACK [REPO_ROOT] --project NAME [--version VERSION] "
-    "[--accept-current PATH ...] [--config PATH] [--apply] "
+    f"[--accept-current PATH ...] {_CATALOG_USAGE} [--config PATH] [--apply] "
     "[--allow-missing-tools] [--json]"
 )
 PACKS_RELINK_USAGE = (
     "yoke packs relink PACK [REPO_ROOT] --project NAME --from OLD_PATH "
-    "--to NEW_PATH [--config PATH] [--apply] [--json]"
+    f"--to NEW_PATH {_CATALOG_USAGE} [--config PATH] [--apply] [--json]"
 )
 
 
@@ -39,6 +43,7 @@ def packs_list(args: List[str]) -> int:
         description="Show available, installed, and stale Packs for one project.",
     )
     parser.add_argument("--project", required=True, help="Project slug or id.")
+    _add_catalog_args(parser)
     parser.add_argument("--config", dest="config_path", default=None)
     add_session_arg(parser)
     parser.add_argument("--json", dest="json_mode", action="store_true")
@@ -47,13 +52,20 @@ def packs_list(args: List[str]) -> int:
         return 2
     try:
         with machine_config_path(parsed.config_path):
-            report = list_packs(project=parsed.project, session_id=parsed.session_id)
+            report = list_packs(
+                project=parsed.project,
+                session_id=parsed.session_id,
+                catalog=resolve_catalog(
+                    parsed.catalog, yoke_checkout=parsed.yoke_checkout
+                ),
+            )
     except PackClientError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     if parsed.json_mode:
         print(json.dumps(report, sort_keys=True))
         return 0
+    print("catalog=" + ",".join(f"{k}:{v}" for k, v in report["catalog"].items()))
     for row in report["packs"]:
         installed = row.get("installed_version") or "—"
         tools = (
@@ -90,6 +102,7 @@ def packs_relink(args: List[str]) -> int:
     parser.add_argument("--project", required=True, help="Project slug or id.")
     parser.add_argument("--from", dest="from_path", required=True)
     parser.add_argument("--to", dest="to_path", required=True)
+    _add_catalog_args(parser)
     parser.add_argument("--config", dest="config_path", default=None)
     parser.add_argument("--apply", action="store_true")
     add_session_arg(parser)
@@ -107,6 +120,9 @@ def packs_relink(args: List[str]) -> int:
                 to_path=parsed.to_path,
                 apply=parsed.apply,
                 session_id=parsed.session_id,
+                catalog=resolve_catalog(
+                    parsed.catalog, yoke_checkout=parsed.yoke_checkout
+                ),
             )
     except PackClientError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -133,6 +149,7 @@ def _pack_write(operation: str, args: List[str], usage: str) -> int:
     parser.add_argument("repo_root", nargs="?", default=None)
     parser.add_argument("--project", required=True, help="Project slug or id.")
     parser.add_argument("--version", default=None, help="Exact Pack version.")
+    _add_catalog_args(parser)
     parser.add_argument("--config", dest="config_path", default=None)
     if operation == "update":
         parser.add_argument(
@@ -171,6 +188,9 @@ def _pack_write(operation: str, args: List[str], usage: str) -> int:
                 version=parsed.version,
                 session_id=parsed.session_id,
                 accepted_current_paths=getattr(parsed, "accepted_current_paths", None),
+                catalog=resolve_catalog(
+                    parsed.catalog, yoke_checkout=parsed.yoke_checkout
+                ),
             )
     except PackClientError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -181,6 +201,26 @@ def _pack_write(operation: str, args: List[str], usage: str) -> int:
         )
     )
     return 1 if report.get("refused") else 0
+
+
+def _add_catalog_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--catalog",
+        default=None,
+        metavar="SOURCE",
+        help=(
+            f"Pack catalog to read: {CATALOG_CHOICES_TEXT}. Omitted, it is the "
+            "lane under `yoke dev run` and the served release catalog otherwise. "
+            "commit:SHA installs a Pack version merged into the Yoke default "
+            "branch before a release serves it, and records that source."
+        ),
+    )
+    parser.add_argument(
+        "--yoke-checkout",
+        default=None,
+        metavar="PATH",
+        help="Yoke source clone that --catalog commit:SHA reads (default: this yoke's own checkout).",
+    )
 
 
 __all__ = [

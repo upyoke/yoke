@@ -47,13 +47,13 @@ def list_pack_descriptors() -> list[dict[str, Any]]:
     return descriptors
 
 
-def load_pack_descriptor(slug: str) -> dict[str, Any]:
-    """Load and validate one Pack's root descriptor."""
+def load_pack_descriptor(slug: str, root: Path | None = None) -> dict[str, Any]:
+    """Load and validate one Pack's root descriptor from *root* or the served tree."""
 
     safe = str(slug).strip()
     if not _SLUG.fullmatch(safe):
         raise PackNotFoundError(f"Pack slug is invalid: {slug!r}")
-    path = packs_root() / safe / "pack.json"
+    path = (root or packs_root()) / safe / "pack.json"
     if not path.is_file():
         raise PackNotFoundError(f"Pack {safe!r} is not available")
     try:
@@ -105,13 +105,18 @@ def build_pack_bundle(
     pack: str,
     version: str | None = None,
     render_values: Mapping[str, str] | None = None,
+    packs_dir: Path | None = None,
 ) -> dict[str, Any]:
-    """Render one immutable Pack version for one registered project."""
+    """Render one immutable Pack version for one registered project.
+
+    *packs_dir* replaces the served Pack source with another catalog tree laid
+    out like ``packs/`` — a submitted lane or merged-commit source.
+    """
 
     identity = resolve_project(conn, project, required=False)
     if identity is None:
         raise LookupError(f"project {project!r} not found")
-    descriptor = load_pack_descriptor(pack)
+    descriptor = load_pack_descriptor(pack, packs_dir)
     selected = version or descriptor["latest_version"]
     version_record = _version_record(descriptor, selected)
     required_keys = _required_render_keys(descriptor, selected)
@@ -131,7 +136,7 @@ def build_pack_bundle(
         selected_values = _validate_render_values(
             descriptor["slug"], required_keys, render_values
         )
-    entries = _render_version_files(descriptor, selected, selected_values)
+    entries = _render_version_files(descriptor, selected, selected_values, packs_dir)
     return {
         "bundle_schema": PACK_BUNDLE_SCHEMA,
         "project_id": identity.id,
@@ -162,9 +167,11 @@ def _version_record(descriptor: Mapping[str, Any], version: str) -> dict[str, An
     return dict(versions[version])
 
 
-def _version_root(descriptor: Mapping[str, Any], version: str) -> Path:
+def _version_root(
+    descriptor: Mapping[str, Any], version: str, root: Path | None = None
+) -> Path:
     record = _version_record(descriptor, version)
-    return packs_root() / descriptor["slug"] / record["source"]
+    return (root or packs_root()) / descriptor["slug"] / record["source"]
 
 
 def _version_file_count(descriptor: Mapping[str, Any], version: str) -> int:
@@ -175,9 +182,10 @@ def _render_version_files(
     descriptor: Mapping[str, Any],
     version: str,
     values: Mapping[str, str],
+    packs_dir: Path | None = None,
 ) -> list[dict[str, Any]]:
     record = _version_record(descriptor, version)
-    root = _version_root(descriptor, version)
+    root = _version_root(descriptor, version, packs_dir)
     entries: list[dict[str, Any]] = []
     targets: set[str] = set()
     for file_record in record["files"]:

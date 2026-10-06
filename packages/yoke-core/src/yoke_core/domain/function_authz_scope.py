@@ -149,6 +149,7 @@ _BY_ID: dict[str, AuthzSpec] = {
     "deployment_flows.create": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "packs.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "packs.bundle.get": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
+    "packs.bundle.render": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
     "packs.project.report": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
     "path_claims.conflicts.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "github.pr.create": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),

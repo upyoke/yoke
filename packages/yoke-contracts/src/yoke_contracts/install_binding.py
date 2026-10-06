@@ -23,6 +23,10 @@ KIND_SOURCE_CHECKOUT = "source_checkout"
 # (``<root>/packages/<dist>/src/<package>/...``).
 CHECKOUT_PACKAGES_DIR_NAME = "packages"
 
+# Set by ``yoke dev run`` on its child to the claimed source checkout it bound,
+# so a nested command can tell a lane-source run from the operator's launcher.
+SOURCE_DEV_RUN_ROOT_ENV = "YOKE_SOURCE_DEV_RUN_ROOT"
+
 
 def is_yoke_source_checkout(root: Path) -> bool:
     """True iff *root* looks like the Yoke source checkout."""
@@ -89,8 +93,7 @@ def distribution_version_for_module(
         return ""
     try:
         owns_module = any(
-            Path(installed.locate_file(file)).resolve() == module_path
-            for file in files
+            Path(installed.locate_file(file)).resolve() == module_path for file in files
         )
     except (OSError, TypeError, ValueError):
         return ""
@@ -111,6 +114,7 @@ __all__ = [
     "CHECKOUT_PACKAGES_DIR_NAME",
     "KIND_PACKAGED_WHEEL",
     "KIND_SOURCE_CHECKOUT",
+    "SOURCE_DEV_RUN_ROOT_ENV",
     "distribution_version_for_module",
     "is_yoke_source_checkout",
     "label",

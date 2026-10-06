@@ -78,6 +78,17 @@ Reusable capabilities (scaffold, deploy, runners, …) install **into the
 project repo**. Yoke records the installed baseline in `.yoke/packs.json` for
 update previews; project-owned customization is expected.
 
+`yoke packs list|get|update|relink --catalog` chooses where Pack versions come
+from. `served` (the default) is the release the control plane runs. Under
+`yoke dev run` the default is `lane`: the Yoke source lane, so an author can
+install a new Pack version before it merges. `commit:SHA` installs a version
+already merged into the Yoke default branch before a release serves it,
+reading a Yoke clone (`--yoke-checkout PATH`, default this yoke's own
+checkout). Every report names its catalog, and `.yoke/packs.json` records each
+Pack's source. A Pack installed from a lane or commit updates from the served
+catalog only once a release carries that exact version; until then the update
+refuses with `pack-source-unreleased` and names the `--catalog` to use.
+
 Workbench: **Packs** and **Project settings**.
 
 ## Project settings

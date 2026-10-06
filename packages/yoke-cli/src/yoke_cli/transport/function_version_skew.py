@@ -28,7 +28,10 @@ from functools import lru_cache
 
 from yoke_contracts.api.function_call import FunctionError
 from yoke_contracts.engine_version import compare_engine_versions
-from yoke_contracts.function_serving_floors import declared_minimum_serving_version
+from yoke_contracts.function_serving_floors import (
+    FUNCTION_MINIMUM_SERVING_VERSIONS,
+    declared_minimum_serving_version,
+)
 
 #: Error code replacing a relayed ``function_not_registered``.
 SKEW_ERROR_CODE = "function_version_skew"
@@ -65,7 +68,8 @@ _UNDETERMINED_RECOVERY = (
 
 @lru_cache(maxsize=1)
 def local_function_ids() -> frozenset:
-    """Function ids this CLI build can dispatch, from its own registries.
+    """Function ids this CLI build can dispatch, from its own registries
+    and the new ids it declares serving floors for.
 
     Lazily imported so the transport layer stays importable on a machine
     whose command registries fail to load; an empty set simply disables
@@ -82,6 +86,9 @@ def local_function_ids() -> frozenset:
     ids.update(
         function_id for function_id, _adapter in SUBCOMMAND_ALIAS_REGISTRY.values()
     )
+    # A function this build declares a serving floor for is one it calls,
+    # including those a command reaches internally rather than by name.
+    ids.update(FUNCTION_MINIMUM_SERVING_VERSIONS)
     return frozenset(ids)
 
 
@@ -98,7 +105,9 @@ def skew_error(
     client = client_version or UNKNOWN_VERSION
     server = server_version or UNKNOWN_VERSION
     env = f"env {env_name!r}" if env_name else "env"
-    floor = (minimum_serving_version or declared_minimum_serving_version(function_id)).strip()
+    floor = (
+        minimum_serving_version or declared_minimum_serving_version(function_id)
+    ).strip()
     floor_clause = f" (minimum serving version {floor})" if floor else ""
     message = (
         f"the active HTTPS {env} does not serve function {function_id!r}"

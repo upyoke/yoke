@@ -50,6 +50,7 @@ def make_receipt_record(bundle: dict[str, object]) -> dict[str, object]:
         "content_digest": bundle["content_digest"],
         "render_values": bundle["render_values"],
         "prerequisites": bundle["prerequisites"],
+        "source": {"kind": "served"},
         "files": {
             row["path"]: {
                 "path": row["path"],

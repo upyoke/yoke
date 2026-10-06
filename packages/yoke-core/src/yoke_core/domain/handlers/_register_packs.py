@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from yoke_core.domain.handlers import pack_handlers as h
+from yoke_core.domain.handlers import pack_source_handlers as s
 
 
 def register(registry) -> None:
@@ -56,7 +57,14 @@ def register(registry) -> None:
             ["global"],
         ),
     )
-    for function_id, handler, request_model, response_model, side_effects, targets in rows:
+    for (
+        function_id,
+        handler,
+        request_model,
+        response_model,
+        side_effects,
+        targets,
+    ) in rows:
         registry.register(
             function_id,
             handler,
@@ -72,6 +80,22 @@ def register(registry) -> None:
             claim_required_kind=None,
             ambient_session_required=False,
         )
+    registry.register(
+        "packs.bundle.render",
+        s.handle_packs_bundle_render,
+        s.PacksBundleRenderRequest,
+        s.PacksBundleRenderResponse,
+        stability="beta",
+        owner_module=__name__,
+        target_kinds=["global"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["project_receipt_authoritative"],
+        adapter_status="live",
+        claim_required_kind=None,
+        ambient_session_required=False,
+        minimum_serving_version="next-release",
+    )
 
 
 __all__ = ["register"]

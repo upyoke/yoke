@@ -7,6 +7,8 @@ import os
 from pathlib import Path
 from typing import Any, Mapping
 
+from yoke_cli.packs.catalog_baseline import baseline_bundle, overlay_catalog_rows
+from yoke_cli.packs.catalog_source import PackCatalog
 from yoke_cli.packs.errors import PackClientError
 from yoke_cli.packs.merge import plan_get, plan_update
 from yoke_cli.packs.prerequisites import (
@@ -29,11 +31,21 @@ from yoke_cli.packs.runner_support import (
     _receipt_record,
     _report_receipt,
 )
-from yoke_contracts.packs import PACK_RECEIPT_REL
+from yoke_contracts.packs import PACK_CATALOG_SERVED, PACK_RECEIPT_REL
 
 
-def list_packs(*, project: str, session_id: str | None = None) -> dict[str, Any]:
-    return _call("packs.list", {"project": project}, session_id=session_id)
+def list_packs(
+    *,
+    project: str,
+    session_id: str | None = None,
+    catalog: PackCatalog | None = None,
+) -> dict[str, Any]:
+    selected = catalog or PackCatalog(kind=PACK_CATALOG_SERVED)
+    report = _call("packs.list", {"project": project}, session_id=session_id)
+    if not selected.served:
+        report["packs"] = overlay_catalog_rows(report["packs"], selected.descriptors())
+    report["catalog"] = selected.describe()
+    return report
 
 
 def run_pack_operation(
@@ -47,8 +59,14 @@ def run_pack_operation(
     version: str | None = None,
     session_id: str | None = None,
     accepted_current_paths: list[str] | None = None,
+    catalog: PackCatalog | None = None,
 ) -> dict[str, Any]:
-    """Preview or apply one Pack get/update, including missing dependencies."""
+    """Preview or apply one Pack get/update, including missing dependencies.
+
+    Every bundle — the selected Pack, its missing dependencies, and each
+    installed baseline — is read from *catalog* (the served catalog when
+    omitted), and each written receipt record names that source.
+    """
 
     if operation not in {"get", "update"}:
         raise PackClientError(f"unsupported Pack operation: {operation}")
@@ -58,8 +76,11 @@ def run_pack_operation(
     root = Path(repo_root or os.getcwd()).expanduser().resolve()
     if not root.is_dir():
         raise PackClientError(f"project checkout is not a directory: {root}")
+    catalog = catalog or PackCatalog(kind=PACK_CATALOG_SERVED)
     receipt = load_receipt(root)
-    requested = _fetch_bundle(project, pack, version=version, session_id=session_id)
+    requested = _fetch_bundle(
+        project, pack, version=version, session_id=session_id, catalog=catalog
+    )
     _assert_checkout_project(root, requested, receipt)
     if receipt is None:
         receipt = empty_receipt(requested["project_id"], requested["project_slug"])
@@ -80,6 +101,7 @@ def run_pack_operation(
             bundles,
             set(),
             session_id=session_id,
+            catalog=catalog,
         )
         bundles.append(requested)
     else:
@@ -91,6 +113,7 @@ def run_pack_operation(
             missing_dependencies,
             set(),
             session_id=session_id,
+            catalog=catalog,
         )
         # Simulate the selected Pack first so files removed from its new
         # version can be handed to a newly required Pack in the same atomic
@@ -112,11 +135,12 @@ def run_pack_operation(
         _assert_no_cross_pack_paths(simulated, slug, desired_entries)
         if previous_record is not None:
             old_version = previous_record["version"]
-            old_bundle = _fetch_bundle(
+            old_bundle = baseline_bundle(
                 project,
                 slug,
-                version=old_version,
-                render_values=previous_record["render_values"],
+                previous_record,
+                catalog,
+                fetch=_fetch_bundle,
                 session_id=session_id,
             )
             prior_entries = _project_entries(old_bundle["files"], previous_record)
@@ -134,11 +158,14 @@ def run_pack_operation(
                 "operation": action,
                 "from_version": from_version,
                 "to_version": bundle["version"],
+                "source": catalog.source(),
                 "plan": _public_plan(plan),
             }
         )
         execution_plans.append(plan)
-        simulated["packs"][slug] = _receipt_record(bundle, previous_record)
+        simulated["packs"][slug] = _receipt_record(
+            bundle, previous_record, catalog.source()
+        )
 
     conflict_count = sum(len(row["plan"]["conflicts"]) for row in plans)
     report: dict[str, Any] = {
@@ -147,6 +174,7 @@ def run_pack_operation(
         "project_slug": requested["project_slug"],
         "repo_root": str(root),
         "requested_pack": pack,
+        "catalog": catalog.describe(),
         "plans": plans,
         "prerequisites": prerequisite_rows,
         "unsatisfied_prerequisite_count": len(unsatisfied),
@@ -226,6 +254,7 @@ def _collect_missing_dependencies(
     visiting: set[str],
     *,
     session_id: str | None,
+    catalog: PackCatalog,
 ) -> None:
     slug = str(bundle["pack"])
     if slug in visiting:
@@ -235,7 +264,7 @@ def _collect_missing_dependencies(
         if dependency in installed or any(row["pack"] == dependency for row in output):
             continue
         dependency_bundle = _fetch_bundle(
-            project, dependency, version=None, session_id=session_id
+            project, dependency, version=None, session_id=session_id, catalog=catalog
         )
         _collect_missing_dependencies(
             project,
@@ -244,6 +273,7 @@ def _collect_missing_dependencies(
             output,
             visiting,
             session_id=session_id,
+            catalog=catalog,
         )
         output.append(dependency_bundle)
     visiting.remove(slug)

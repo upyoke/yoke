@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from yoke_cli.packs import runner
+from yoke_contracts.packs import PACK_RECEIPT_SCHEMA
 from yoke_cli.packs.receipt import load_receipt, write_receipt
 from runtime.api.cli.pack_runner_test_support import (
     make_bundle as _bundle,
@@ -72,7 +73,7 @@ def test_update_reconstructs_old_version_with_recorded_render_values(
         files={"feature.txt": "name=New Name\nkeep=one\nkeep=two\nlocal=base\n"},
     )
     receipt = {
-        "schema": 3,
+        "schema": PACK_RECEIPT_SCHEMA,
         "project_id": 9,
         "project_slug": "sample",
         "packs": {"feature": _receipt_record(old)},
@@ -121,7 +122,7 @@ def test_conflicted_update_refuses_all_writes(tmp_path: Path, monkeypatch) -> No
     write_receipt(
         tmp_path,
         {
-            "schema": 3,
+            "schema": PACK_RECEIPT_SCHEMA,
             "project_id": 9,
             "project_slug": "sample",
             "packs": {"feature": _receipt_record(old)},
@@ -164,7 +165,7 @@ def test_update_can_accept_an_exact_manually_resolved_current_file(
     write_receipt(
         tmp_path,
         {
-            "schema": 3,
+            "schema": PACK_RECEIPT_SCHEMA,
             "project_id": 9,
             "project_slug": "sample",
             "packs": {"feature": _receipt_record(old)},
@@ -219,7 +220,7 @@ def test_update_rejects_accept_current_for_a_nonconflicting_path(
     write_receipt(
         tmp_path,
         {
-            "schema": 3,
+            "schema": PACK_RECEIPT_SCHEMA,
             "project_id": 9,
             "project_slug": "sample",
             "packs": {"feature": _receipt_record(old)},
@@ -292,7 +293,7 @@ def test_update_follows_the_project_path_recorded_by_relink(
     write_receipt(
         tmp_path,
         {
-            "schema": 3,
+            "schema": PACK_RECEIPT_SCHEMA,
             "project_id": 9,
             "project_slug": "sample",
             "packs": {"feature": record},

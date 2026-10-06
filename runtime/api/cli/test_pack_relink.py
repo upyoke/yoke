@@ -7,6 +7,7 @@ import pytest
 
 from yoke_cli.packs import relink
 from yoke_cli.packs.receipt import load_receipt, write_receipt
+from yoke_contracts.packs import PACK_RECEIPT_SCHEMA
 
 
 def _digest(content: str) -> str:
@@ -16,7 +17,7 @@ def _digest(content: str) -> str:
 def _receipt(content: str = "baseline\n") -> dict:
     digest = _digest(content)
     return {
-        "schema": 3,
+        "schema": PACK_RECEIPT_SCHEMA,
         "project_id": 9,
         "project_slug": "sample",
         "packs": {
@@ -25,6 +26,7 @@ def _receipt(content: str = "baseline\n") -> dict:
                 "content_digest": digest,
                 "render_values": {},
                 "prerequisites": [],
+                "source": {"kind": "served"},
                 "files": {
                     "feature.txt": {
                         "path": "feature.txt",
@@ -44,6 +46,7 @@ def _install_transport_fakes(monkeypatch: pytest.MonkeyPatch) -> None:
         lambda *args, **kwargs: {
             "project_id": 9,
             "project_slug": "sample",
+            "content_digest": _digest("baseline\n"),
         },
     )
     monkeypatch.setattr(relink, "_assert_checkout_project", lambda *args: None)

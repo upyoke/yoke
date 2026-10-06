@@ -20,7 +20,10 @@ PROJECT_COMMANDS: list[dict] = [
             "<checkout> --project <project> [--version V] [--apply]`. Preview "
             "is default. Apply writes project-owned source and .yoke/packs.json; "
             "update three-way-merges customizations and reports conflicts. The "
-            "repository receipt outranks its timestamped DB projection."
+            "repository receipt outranks its timestamped DB projection. "
+            "`--catalog served|lane|commit:SHA` picks the Pack source: lane is "
+            "the default under `yoke dev run`; commit:SHA adopts a merged, "
+            "unreleased version and the receipt records that source."
         ),
     },
     {
@@ -37,9 +40,7 @@ PROJECT_COMMANDS: list[dict] = [
     {
         "topic": "project",
         "purpose": "Read the project's default deployment flow",
-        "recipe": (
-            "yoke project-structure deploy-defaults get --project <project>"
-        ),
+        "recipe": ("yoke project-structure deploy-defaults get --project <project>"),
         "notes": (
             "Registered read project_structure.deploy_defaults.get works over "
             "https. Empty stdout means no project default is configured; do "
