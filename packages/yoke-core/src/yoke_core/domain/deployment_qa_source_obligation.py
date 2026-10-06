@@ -13,6 +13,7 @@ from yoke_core.domain.deployment_qa_admission_materialization import (
 from yoke_core.domain.deployment_qa_execution_target import (
     deployment_qa_execution_target,
 )
+from yoke_core.domain.deployment_qa_member_scope import legacy_run_credits_run_wide
 from yoke_core.domain.deployment_qa_run_bound_done_settlement import (
     run_bound_row_satisfied_at_done,
 )
@@ -35,7 +36,8 @@ from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_ru
 # Intake recovery wording is pinned in test_post_deploy_recovery_exit_conditions.py.
 POST_DEPLOY_RECOVERY = (
     "A post_deploy obligation is satisfied by its admitted copy on the selected "
-    "completion member; re-running intake cannot clear it. If no admitted copy "
+    "completion member (run-wide for a legacy schema-1 run); re-running intake "
+    "cannot clear it. If no admitted copy "
     "was accepted because no final delivery or matching QA target exists, deliver "
     "the item through a flow whose stage target matches target_env and finish "
     "its required delivery and QA. If a corrected case bound to the same run, "
@@ -98,9 +100,10 @@ def source_obligation_consumed(
     Failed or cancelled members cannot mask prior success; a newer active
     member holds the wait. A later containment-only release has no QA copy.
     Plan sources match their plan and case; direct sources match their source
-    key. Both are scoped to the source member on the completion run.
-    Zero copies is unmet. Stage acceptance and every copy's pass or discharge
-    (waiver or supersession) are required. A bad replacement remains a stage
+    key. Both use exact member binding on scoped runs; a legacy schema-1
+    run credits its delivered member with run-wide copies instead.
+    Zero copies is unmet. Scoped stage acceptance and every copy's pass or
+    discharge (waiver or supersession) are required. A bad replacement remains a stage
     blocker, and an unsettled duplicate still holds ``done``.
     """
     # Containment-only releases prove delivery, but have no member-scoped QA
@@ -135,39 +138,44 @@ def source_obligation_consumed(
     identity, identity_params = admitted_requirement_identity_clause(
         source, marker=marker
     )
+    legacy = legacy_run_credits_run_wide(conn, run_id=run_id, item_id=item_id)
+    member_scope = f"deployment_member_item_id={marker}"
+    if legacy:
+        member_scope = f"({member_scope} OR deployment_member_item_id IS NULL)"
     rows = conn.execute(
         "SELECT id,deployment_stage,deployment_member_item_id,"
         f"waived_at,superseded_by_requirement_id,{requirement_retracted_at_select(conn)} "
         "FROM qa_requirements WHERE deployment_run_id="
-        f"{marker} AND deployment_member_item_id={marker} AND {identity} "
+        f"{marker} AND {member_scope} AND {identity} "
         "ORDER BY id",
         (run_id, int(source["item_id"]), *identity_params),
     ).fetchall()
     if not rows:
         return False
-    row = rows[0]
-    stage_name = str(_row_value(row, "deployment_stage", 1) or "")
-    member = _row_value(row, "deployment_member_item_id", 2)
-    member_item_id = int(member) if member not in (None, 0) else None
-    try:
-        subject = deployment_qa_stage_subject(
-            conn,
-            run_id=run_id,
-            stage_name=stage_name,
-            member_item_id=member_item_id,
-            require_active=False,
-        )
-        target = deployment_qa_execution_target(conn, subject)
-        blockers = stage_acceptance_blockers(
-            conn,
-            subject=subject,
-            target=target,
-            acceptance_qa_kind=DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND,
-        )
-    except (LookupError, TypeError, ValueError):
-        return False
-    if blockers:
-        return False
+    if not legacy:
+        row = rows[0]
+        stage_name = str(_row_value(row, "deployment_stage", 1) or "")
+        member = _row_value(row, "deployment_member_item_id", 2)
+        member_item_id = int(member) if member not in (None, 0) else None
+        try:
+            subject = deployment_qa_stage_subject(
+                conn,
+                run_id=run_id,
+                stage_name=stage_name,
+                member_item_id=member_item_id,
+                require_active=False,
+            )
+            target = deployment_qa_execution_target(conn, subject)
+            blockers = stage_acceptance_blockers(
+                conn,
+                subject=subject,
+                target=target,
+                acceptance_qa_kind=DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND,
+            )
+        except (LookupError, TypeError, ValueError):
+            return False
+        if blockers:
+            return False
     for row in rows:
         copy_id = int(_row_value(row, "id", 0))
         settled = obligation_settled(

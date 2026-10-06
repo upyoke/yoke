@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_scalar
-from yoke_core.domain.deployment_flow_policy import LEGACY_DEFINITION_SCHEMA_VERSION
+from yoke_core.domain.deployment_qa_member_scope import legacy_run_credits_run_wide
 from yoke_core.domain.post_deploy_verification_answer import answer_for_item
 from yoke_core.domain.qa_obligation_settlement import (
     settled_obligation_sql,
@@ -55,16 +55,8 @@ def satisfied_delivery_member(conn: Any, *, item_id: int, run_id: str) -> bool:
     ).discharges_without_cases
     if not (_table_exists(conn, "qa_requirements") and _table_exists(conn, "qa_runs")):
         return discharges_without_cases
-    legacy_member = query_scalar(
-        conn,
-        "SELECT COUNT(*) FROM deployment_runs dr "
-        "JOIN deployment_flows df ON df.id=dr.flow "
-        "JOIN deployment_run_items dri ON dri.run_id=dr.id "
-        "WHERE dr.id=%s AND dri.item_id=%s AND df.definition_schema_version=%s",
-        (str(run_id), int(item_id), LEGACY_DEFINITION_SCHEMA_VERSION),
-    )
     member_scope = "r.deployment_member_item_id=%s"
-    if int(legacy_member or 0):
+    if legacy_run_credits_run_wide(conn, run_id=run_id, item_id=item_id):
         member_scope = f"({member_scope} OR r.deployment_member_item_id IS NULL)"
     total = query_scalar(
         conn,
