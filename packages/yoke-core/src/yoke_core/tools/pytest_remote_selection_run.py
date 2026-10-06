@@ -4,7 +4,7 @@ The engine behind :mod:`yoke_core.tools.pytest_remote_selection`. It runs as
 its own process under the pytest watcher, so every line it prints is
 classified and relayed the way a local pytest line would be: the run it
 dispatched or rejoined, each ``Workflow status:`` transition, the tail of
-the failed step's log when the run goes red, and the conclusion. The exit
+every failed job's failure region when the run goes red, and the conclusion. The exit
 status mirrors that conclusion, and every way the run can stop short of
 one — an unpushable lane, a refused dispatch, a cancelled or timed-out run
 — is named together with its recovery, because a silent green here would
@@ -34,12 +34,15 @@ from yoke_core.tools.pytest_remote_selection import (
     LOCAL_FLAG,
     PREFIX,
 )
+from yoke_core.tools.pytest_remote_selection_report import (
+    record_wait,
+    relay_failed_log,
+)
+from yoke_core.tools.pytest_remote_selection_report import say as _say
 
 #: Wall-clock ceiling for one selection run: queue wait, runner setup, and
 #: a selection that is a small fraction of the suite.
 DEFAULT_TIMEOUT_SECONDS = 1800
-#: Log lines relayed into the local capture per failed job.
-FAILED_LOG_TAIL_LINES = 150
 #: How a run came to be the one this invocation reports on.
 DISPATCHED = "dispatched"
 REJOINED = "rejoined"
@@ -52,16 +55,17 @@ CONCLUSION_EXIT = {
 }
 
 
-def _say(message: str) -> None:
-    print(f"{PREFIX} {message}", flush=True)
-
-
 def _error(message: str) -> None:
     print(f"Error: {PREFIX} {message}", flush=True)
 
 
 def publish(
-    root: Path, branch: str, head_sha: str, *, project: str, target: str,
+    root: Path,
+    branch: str,
+    head_sha: str,
+    *,
+    project: str,
+    target: str,
 ) -> bool:
     """Push the lane so CI can check the commit out; False names the refusal.
 
@@ -141,7 +145,10 @@ def dispatch(
         "pytest_args": shlex.join(pytest_args),
     }
     args = _trigger_args(
-        repo, workflow, branch, inputs,
+        repo,
+        workflow,
+        branch,
+        inputs,
         request_id=dispatch_id,
         correlation_input=WORKFLOW_DISPATCH_CORRELATION_INPUT,
     )
@@ -164,66 +171,27 @@ def dispatch(
 
 
 def await_conclusion(
-    *, project: str, repo: str, run_id: str, timeout_seconds: int,
+    *,
+    project: str,
+    repo: str,
+    run_id: str,
+    timeout_seconds: int,
 ) -> str:
     """Poll the run to its end and name the conclusion GitHub reported."""
     from yoke_core.domain.deploy_pipeline_reporting import _poll_github_actions
     from yoke_core.domain.qa_case_ci_conclusion import conclusion_from_poll
 
     exit_code, output = _poll_github_actions(
-        repo, run_id, timeout_seconds, project=project, sd=None,
+        repo,
+        run_id,
+        timeout_seconds,
+        project=project,
+        sd=None,
     )
     conclusion = conclusion_from_poll(exit_code, output)
     if conclusion != "success" and output:
         print(output, flush=True)
     return conclusion
-
-
-def relay_failed_log(*, project: str, repo: str, run_id: str) -> None:
-    """Print every failed job's log tail so each shard's FAILED lines land.
-
-    A sharded selection fails in several jobs at once, and the read below
-    reports each of them separately, so the capture carries every failing
-    shard rather than whichever one sorted last.
-    """
-    from yoke_core.domain.deploy_pipeline_reporting import _github_actions
-
-    result = _github_actions(
-        "failed-log", repo, run_id, "--tail-lines", str(FAILED_LOG_TAIL_LINES),
-        project=project, timeout=180,
-    )
-    text = (result.stdout or "").strip()
-    if result.returncode != 0 or not text:
-        detail = (result.stderr or "").strip() or "no output"
-        _say(
-            f"failed-job logs unavailable ({detail}); inspect with "
-            f"`yoke github-actions failed-log {repo} {run_id} --project {project}`"
-        )
-        return
-    print(text, flush=True)
-
-
-def record_wait(*, repo: str, run_id: str, head_sha: str, continue_command: str) -> None:
-    """Make this run's verdict reachable if the turn watching it ends.
-
-    The watcher streaming this process dies with the turn that started it,
-    so a worker that stops here would otherwise never learn the conclusion.
-    Recording the wait hands that job to the control-plane sweep. It is
-    advisory: a run started outside a session records nothing, and a
-    control plane that refuses says so without stopping the run.
-    """
-    from yoke_core.domain.session_ci_wait_record import record_ci_run_wait
-    from yoke_core.domain.session_ci_wait_schema import CI_WAIT_SELECTION
-
-    warning = record_ci_run_wait(
-        repo=repo,
-        run_id=run_id,
-        kind=CI_WAIT_SELECTION,
-        head_sha=head_sha,
-        continue_command=continue_command,
-    )
-    if warning:
-        _say(f"{warning}; this run's verdict will not wake a stopped turn")
 
 
 def run(
@@ -276,10 +244,13 @@ def run(
             f"pytest_args={shlex.join(pytest_args) or '(none)'}"
         )
         conclusion = await_conclusion(
-            project=project, repo=repo, run_id=run_id,
+            project=project,
+            repo=repo,
+            run_id=run_id,
             timeout_seconds=timeout_seconds,
         )
         from yoke_core.domain.session_ci_wait_record import resolve_received_wait
+
         if warning := resolve_received_wait(run_id=run_id, conclusion=conclusion):
             _say(warning)
         if conclusion != "success":
@@ -304,7 +275,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         prog="pytest_remote_selection_run",
         description="Run one pytest selection on the project's CI.",
     )
-    for name in ("root", "project", "workflow", "repo", "branch", "head-sha", "dispatch-id"):
+    for name in (
+        "root",
+        "project",
+        "workflow",
+        "repo",
+        "branch",
+        "head-sha",
+        "dispatch-id",
+    ):
         parser.add_argument(f"--{name}", required=True)
     parser.add_argument("--base-sha", default="")
     parser.add_argument("--continue-command", default="")
@@ -333,7 +312,6 @@ __all__ = [
     "CONCLUSION_EXIT",
     "DEFAULT_TIMEOUT_SECONDS",
     "DISPATCHED",
-    "FAILED_LOG_TAIL_LINES",
     "REJOINED",
     "await_conclusion",
     "dispatch",

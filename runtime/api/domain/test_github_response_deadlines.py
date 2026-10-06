@@ -150,7 +150,7 @@ def test_actions_log_download_rejects_slow_trickle(monkeypatch) -> None:
 
     monkeypatch.setattr(github_actions_logs, "urlopen", open_slow)
     with pytest.raises(gh_rest_transport.RestNetworkError):
-        github_actions_logs.fetch_failed_log_zip("o/r", 1, token="ghs_secret")
+        github_actions_logs.fetch_job_log("o/r", 1, token="ghs_secret")
 
     assert len(responses) == 1
     assert responses[0].read_calls == 2

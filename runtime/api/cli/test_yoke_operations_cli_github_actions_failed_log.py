@@ -61,18 +61,23 @@ def _run(
         )
 
     with patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}):
-        with patch(
-            "yoke_cli.commands.adapters.github_actions_workflow.ensure_handlers_loaded"
-        ), patch(
-            "yoke_cli.transport.https.resolve_https_connection",
-            return_value=_CONNECTION,
-        ), patch(
-            "yoke_cli.transport.https.relay_https",
-            side_effect=relay,
+        with (
+            patch(
+                "yoke_cli.commands.adapters.github_actions_workflow.ensure_handlers_loaded"
+            ),
+            patch(
+                "yoke_cli.transport.https.resolve_https_connection",
+                return_value=_CONNECTION,
+            ),
+            patch(
+                "yoke_cli.transport.https.relay_https",
+                side_effect=relay,
+            ),
         ):
-            with redirect_stdout(io.StringIO()) as out, redirect_stderr(
-                io.StringIO()
-            ) as err:
+            with (
+                redirect_stdout(io.StringIO()) as out,
+                redirect_stderr(io.StringIO()) as err,
+            ):
                 rc = cli_main(list(argv))
     return rc, out.getvalue(), err.getvalue()
 
@@ -93,7 +98,7 @@ def test_failed_log_relays_run_id_and_prints_output() -> None:
         "9182736",
         "--project",
         "platform",
-        "--tail-lines",
+        "--lines",
         "25",
         result={
             "run_id": "9182736",
@@ -110,7 +115,7 @@ def test_failed_log_relays_run_id_and_prints_output() -> None:
     assert request.payload == {
         "repo": "upyoke/platform",
         "project": "platform",
-        "tail_lines": 25,
+        "max_lines": 25,
         "run_id": "9182736",
     }
 
@@ -142,7 +147,6 @@ def test_failed_log_resolves_workflow_selector_from_head(
     assert request.payload == {
         "repo": "upyoke/platform",
         "project": "platform",
-        "tail_lines": 50,
         "workflow": "ci.yml",
         "branch": "main",
         "head_sha": "deadbeef" * 5,
@@ -179,3 +183,20 @@ def test_failed_log_requires_run_id_or_workflow() -> None:
 
     assert rc == 2
     assert "run id or --workflow is required" in err
+
+
+def test_failed_log_refuses_a_line_bound_below_one() -> None:
+    rc, _out, err = _run(
+        "github-actions",
+        "failed-log",
+        "upyoke/platform",
+        "1",
+        "--project",
+        "platform",
+        "--lines",
+        "0",
+    )
+
+    assert rc == 2
+    assert "--lines must be at least 1" in err
+    assert _CAPTURED_REQUESTS == []

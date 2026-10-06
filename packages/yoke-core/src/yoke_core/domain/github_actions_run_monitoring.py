@@ -72,7 +72,8 @@ def check_ci_command(
                 sys.exit(0)
             elapsed = int(now() - start)
             appearance_timeout = min(
-                timeout_sec, CHECK_CI_APPEARANCE_TIMEOUT_SEC,
+                timeout_sec,
+                CHECK_CI_APPEARANCE_TIMEOUT_SEC,
             )
             if elapsed >= appearance_timeout:
                 print("no_runs")
@@ -114,7 +115,10 @@ def check_ci_command(
             print(f"timeout:{ci_status}|{ci_id}|{ci_url}")
             sys.exit(3)
 
-        print(f"  CI status: {ci_status} (elapsed: {elapsed}s, timeout: {timeout_sec}s)", file=sys.stderr)
+        print(
+            f"  CI status: {ci_status} (elapsed: {elapsed}s, timeout: {timeout_sec}s)",
+            file=sys.stderr,
+        )
         sleep(next_read_delay(elapsed, CI_SUITE_SCHEDULE))
 
 
@@ -122,7 +126,7 @@ def failed_log_command(
     repo: str,
     run_id: str,
     *,
-    tail_lines: int,
+    max_lines: int,
     project: str,
 ) -> None:
     """Print every failed job of *run_id* and exit with the legacy CLI code.
@@ -140,7 +144,7 @@ def failed_log_command(
     )
 
     try:
-        jobs = collect_failed_jobs(repo, run_id, token=token)
+        failures = collect_failed_jobs(repo, run_id, token=token)
     except RestAuthError as exc:
         # Never log the token. RestAuthError.message carries only
         # HTTP status + body snippet (no Authorization header).
@@ -157,7 +161,10 @@ def failed_log_command(
         sys.exit(1)
 
     report = build_failed_job_report(
-        jobs, repo=repo, run_id=run_id, tail_lines=tail_lines,
+        failures,
+        repo=repo,
+        run_id=run_id,
+        max_lines=max_lines,
     )
     print(report.output)
     sys.exit(0)

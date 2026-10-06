@@ -19,13 +19,17 @@ from yoke_cli.commands.adapters.github_actions_workflow import (
     _emit_operation_error,
     _valid_repo,
 )
+from yoke_cli.commands.adapters.github_actions_full_log_capture import (
+    capture_full_logs,
+    render_captures,
+)
 from yoke_cli.transport.dispatcher import emit_response
 
 
 GITHUB_ACTIONS_FAILED_LOG_USAGE = (
     "yoke github-actions failed-log <repo-slug> [<run-id>] "
     "[--workflow WORKFLOW] [--branch BRANCH] [--head-sha REF] "
-    "[--tail-lines N] --project P [--session-id S] [--json]"
+    "[--lines N] [--full] --project P [--session-id S] [--json]"
 )
 
 
@@ -57,11 +61,19 @@ def github_actions_failed_log(args: List[str]) -> int:
         prog="yoke github-actions failed-log",
         description=(
             "Report every failed job of a workflow run via bearer-token REST "
-            "(no host gh binary). Each failed job — every shard of a matrix "
-            "included — gets its own labelled block carrying the job name, "
-            "job id, conclusion, GitHub job URL, and its own log tail, so "
-            "one shard's output never displaces another's. A job whose log "
-            "GitHub cannot hand over (expired, missing, or permission "
+            "(no host gh binary). Each failed job is read by its own job id "
+            "as soon as it finishes, so a red shard is readable while "
+            "sibling jobs keep the run in progress; the report says how many "
+            "jobs are still running. Each failed job — every shard of a "
+            "matrix included — gets its own labelled block carrying the job "
+            "name, job id, conclusion, GitHub job URL, and its failure "
+            "region: pytest's FAILURES section through the short test "
+            "summary, else the step that raised the first ##[error], else "
+            "the end of the log before teardown. Each region is bounded by "
+            "--lines and an equal share of the report size, and every trim "
+            "is named in place. --full also writes each failed job's "
+            "complete log to a local file and prints its path. A job whose "
+            "log GitHub cannot hand over (expired, missing, or permission "
             "denied) is still reported by name with that reason. Pass an "
             "explicit run id, or omit it and supply --workflow with optional "
             "--head-sha (default: resolved HEAD of the current checkout). "
@@ -83,13 +95,24 @@ def github_actions_failed_log(args: List[str]) -> int:
         help="Commit to inspect (default: HEAD of the current checkout).",
     )
     parser.add_argument(
-        "--tail-lines",
+        "--lines",
         type=int,
-        default=50,
-        dest="tail_lines",
+        default=None,
+        dest="max_lines",
         help=(
-            "Log lines to show PER failed job (default: 50). Raise it to "
-            "read further back in every job's log."
+            "Most failure-region lines to show PER failed job (default: "
+            "the server's bound, named in the report header whenever it "
+            "trims). A pytest region keeps its first failure and its "
+            "short test summary; other regions keep their end."
+        ),
+    )
+    parser.add_argument(
+        "--full",
+        action="store_true",
+        help=(
+            "Also write every failed job's complete log, untruncated, to a "
+            "local file and print each path. The complete log downloads "
+            "straight from GitHub, never through the bounded report."
         ),
     )
     parser.add_argument("--project", required=True)
@@ -101,18 +124,19 @@ def github_actions_failed_log(args: List[str]) -> int:
     if not _valid_repo(parsed.repo):
         return usage_error(f"repo must be owner/name, got {parsed.repo!r}")
 
-    payload: Dict[str, Any] = {
-        "repo": parsed.repo,
-        "project": parsed.project,
-        "tail_lines": parsed.tail_lines,
-    }
+    if parsed.max_lines is not None and parsed.max_lines < 1:
+        return usage_error(f"--lines must be at least 1, got {parsed.max_lines}")
+    payload: Dict[str, Any] = {"repo": parsed.repo, "project": parsed.project}
+    if parsed.max_lines is not None:
+        payload["max_lines"] = parsed.max_lines
+    if parsed.full:
+        payload["full"] = True
     if parsed.run_id:
         payload["run_id"] = parsed.run_id
     else:
         if not parsed.workflow:
             return usage_error(
-                "run id or --workflow is required: "
-                f"{GITHUB_ACTIONS_FAILED_LOG_USAGE}"
+                f"run id or --workflow is required: {GITHUB_ACTIONS_FAILED_LOG_USAGE}"
             )
         payload["workflow"] = parsed.workflow
         payload["branch"] = parsed.branch
@@ -129,10 +153,40 @@ def github_actions_failed_log(args: List[str]) -> int:
     )
     if not response.success:
         return _emit_operation_error(response, json_mode=parsed.json_mode)
-    if parsed.json_mode:
-        return emit_response(response, json_mode=True)
-    print(response.result.get("output") or "")
-    return 0
+    if not parsed.full:
+        if parsed.json_mode:
+            return emit_response(response, json_mode=True)
+        print(response.result.get("output") or "")
+        return 0
+    return _emit_with_full_logs(response, json_mode=parsed.json_mode)
+
+
+def _emit_with_full_logs(response: Any, *, json_mode: bool) -> int:
+    """Write every failed job's complete log, then report the files."""
+    result = response.result
+    jobs: List[Dict[str, Any]] = list(result.get("jobs") or [])
+    if any("log_download_url" not in job for job in jobs):
+        if not json_mode:
+            print(result.get("output") or "")
+        print(
+            "error: full_log_capture_unsupported: the control plane serving "
+            "github_actions.failed_log predates complete-log capture (its "
+            "response names no log_download_url). The report above is "
+            "current; complete logs need a control plane on a Yoke release "
+            "carrying --full. Until then open each failed job's GitHub URL.",
+            file=sys.stderr,
+        )
+        return 1
+    captures = capture_full_logs(str(result.get("run_id") or ""), jobs)
+    result["full_logs"] = [capture.__dict__ for capture in captures]
+    if json_mode:
+        emit_response(response, json_mode=True)
+    else:
+        print(result.get("output") or "")
+        if captures:
+            print()
+            print(render_captures(captures, jobs))
+    return 1 if any(not capture.path for capture in captures) else 0
 
 
 __all__ = [

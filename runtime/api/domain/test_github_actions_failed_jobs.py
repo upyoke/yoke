@@ -1,9 +1,10 @@
 """Regressions for reading every failed job of one run.
 
 A sharded run fails in several jobs at once. These cover that each of
-them is collected with its own log text, that the job inventory follows
-provider pagination, and that a job whose log GitHub will not hand over
-carries a named reason rather than vanishing. Rendering is covered by
+them is read by its own job id — including while sibling jobs still
+run — that the job inventory follows provider pagination, and that a
+job whose log GitHub will not hand over carries a named reason rather
+than vanishing. Rendering is covered by
 ``test_github_actions_failed_job_report.py``.
 """
 
@@ -12,20 +13,23 @@ from __future__ import annotations
 import io
 import json
 import urllib.error
-import zipfile
 from typing import Any, Dict, List
 
 import pytest
 
 from yoke_core.domain import gh_rest_transport, github_actions_logs
+from yoke_core.domain import github_actions_failed_jobs as failed_jobs_module
 from yoke_core.domain.gh_rest_transport import RestNotFoundError, RestTransportError
 from yoke_core.domain.github_actions_failed_jobs import (
     JOBS_PAGE_SIZE,
     LOG_AVAILABLE,
     LOG_EXPIRED_OR_MISSING,
+    LOG_FETCH_FAILED,
     LOG_PERMISSION_DENIED,
+    FailedJob,
     collect_failed_jobs,
     list_run_jobs,
+    resolve_log_downloads,
 )
 
 
@@ -37,21 +41,19 @@ SHARD_NAMES = (
 )
 
 
-def _job(index: int, name: str, conclusion: str = "failure") -> Dict[str, Any]:
+def _job(
+    index: int,
+    name: str,
+    conclusion: str | None = "failure",
+    status: str = "completed",
+) -> Dict[str, Any]:
     return {
         "id": 900 + index,
         "name": name,
+        "status": status,
         "conclusion": conclusion,
         "html_url": f"https://github.com/o/r/actions/runs/123/job/{900 + index}",
     }
-
-
-def _zip_of(entries: Dict[str, str]) -> bytes:
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w") as archive:
-        for name, body in entries.items():
-            archive.writestr(name, body)
-    return buf.getvalue()
 
 
 class _FakeResponse:
@@ -90,7 +92,7 @@ def _install_job_listings(monkeypatch, pages: List[Dict[str, Any]]) -> List[str]
 
 
 def _install_log_responses(monkeypatch, responses: List[Any]) -> List[str]:
-    """Answer the archive / per-job log reads with *responses*, in order."""
+    """Answer the per-job log reads with *responses*, in order."""
     calls: List[str] = []
     iterator = iter(responses)
 
@@ -107,32 +109,61 @@ def _install_log_responses(monkeypatch, responses: List[Any]) -> List[str]:
 
 
 class TestCollectFailedJobs:
-    def test_every_failed_shard_is_collected_with_its_own_log(self, monkeypatch):
+    def test_every_failed_shard_is_read_by_its_own_job_id(self, monkeypatch):
         _install_job_listings(
             monkeypatch,
-            [{"total_count": 4, "jobs": [_job(i, n) for i, n in enumerate(SHARD_NAMES)]}],
-        )
-        _install_log_responses(
-            monkeypatch,
             [
-                _zip_of(
-                    {
-                        f"{i}_{name}.txt": f"FAILED signature {i}"
-                        for i, name in enumerate(SHARD_NAMES)
-                    }
-                )
+                {
+                    "total_count": 4,
+                    "jobs": [_job(i, n) for i, n in enumerate(SHARD_NAMES)],
+                }
             ],
         )
+        calls = _install_log_responses(
+            monkeypatch, [f"FAILED signature {i}".encode() for i in range(4)]
+        )
 
-        jobs = collect_failed_jobs("o/r", "123", token="ghs_x")
+        failures = collect_failed_jobs("o/r", "123", token="ghs_x")
 
-        assert [job.name for job in jobs] == list(SHARD_NAMES)
-        assert [job.log_text for job in jobs] == [
+        assert [job.name for job in failures.failed] == list(SHARD_NAMES)
+        assert [job.log_text for job in failures.failed] == [
             f"FAILED signature {i}" for i in range(4)
         ]
-        assert {job.log_status for job in jobs} == {LOG_AVAILABLE}
+        assert {job.log_status for job in failures.failed} == {LOG_AVAILABLE}
+        assert calls == [
+            f"https://api.github.com/repos/o/r/actions/jobs/{900 + i}/logs"
+            for i in range(4)
+        ]
+        assert failures.unfinished_job_count == 0
 
-    def test_successful_jobs_are_not_collected(self, monkeypatch):
+    def test_finished_failure_is_read_while_siblings_still_run(self, monkeypatch):
+        """A red shard is readable before the run concludes."""
+        _install_job_listings(
+            monkeypatch,
+            [
+                {
+                    "total_count": 3,
+                    "jobs": [
+                        _job(0, "shard 1"),
+                        _job(1, "shard 2", conclusion=None, status="in_progress"),
+                        _job(2, "shard 3", conclusion=None, status="queued"),
+                    ],
+                }
+            ],
+        )
+        calls = _install_log_responses(
+            monkeypatch, [b"FAILED test_a - assert 1 == 2\n"]
+        )
+
+        failures = collect_failed_jobs("o/r", "123", token="ghs_x")
+
+        [job] = failures.failed
+        assert job.name == "shard 1"
+        assert "assert 1 == 2" in job.log_text
+        assert failures.unfinished_job_count == 2
+        assert calls == ["https://api.github.com/repos/o/r/actions/jobs/900/logs"]
+
+    def test_successful_jobs_are_not_read(self, monkeypatch):
         _install_job_listings(
             monkeypatch,
             [
@@ -145,11 +176,12 @@ class TestCollectFailedJobs:
                 }
             ],
         )
-        _install_log_responses(monkeypatch, [_zip_of({"0_build.txt": "boom"})])
+        calls = _install_log_responses(monkeypatch, [b"boom"])
 
-        jobs = collect_failed_jobs("o/r", "123", token="ghs_x")
+        failures = collect_failed_jobs("o/r", "123", token="ghs_x")
 
-        assert [job.name for job in jobs] == ["build"]
+        assert [job.name for job in failures.failed] == ["build"]
+        assert len(calls) == 1
 
     def test_run_with_no_failures_collects_nothing_without_fetching_logs(
         self, monkeypatch
@@ -160,36 +192,18 @@ class TestCollectFailedJobs:
         )
         log_calls = _install_log_responses(monkeypatch, [])
 
-        assert collect_failed_jobs("o/r", "123", token="ghs_x") == []
+        assert collect_failed_jobs("o/r", "123", token="ghs_x").failed == []
         assert log_calls == []
-
-    def test_job_missing_from_the_archive_is_read_by_job_id(self, monkeypatch):
-        _install_job_listings(
-            monkeypatch,
-            [{"total_count": 2, "jobs": [_job(0, "build"), _job(1, "test")]}],
-        )
-        calls = _install_log_responses(
-            monkeypatch,
-            [_zip_of({"0_build.txt": "build boom"}), b"test boom\n"],
-        )
-
-        jobs = {job.name: job for job in collect_failed_jobs("o/r", "1", token="ghs_x")}
-
-        assert jobs["test"].log_text == "test boom\n"
-        assert jobs["test"].log_status == LOG_AVAILABLE
-        assert any("/actions/jobs/901/logs" in call for call in calls)
 
     def test_expired_job_log_is_reported_not_dropped(self, monkeypatch):
         _install_job_listings(
             monkeypatch,
             [{"total_count": 2, "jobs": [_job(0, "build"), _job(1, "test")]}],
         )
-        _install_log_responses(
-            monkeypatch,
-            [_zip_of({"0_build.txt": "build boom"}), _http_error(404)],
-        )
+        _install_log_responses(monkeypatch, [b"build boom", _http_error(404)])
 
-        jobs = {job.name: job for job in collect_failed_jobs("o/r", "1", token="ghs_x")}
+        failures = collect_failed_jobs("o/r", "1", token="ghs_x")
+        jobs = {job.name: job for job in failures.failed}
 
         assert set(jobs) == {"build", "test"}
         assert jobs["test"].log_status == LOG_EXPIRED_OR_MISSING
@@ -200,74 +214,67 @@ class TestCollectFailedJobs:
             monkeypatch,
             [{"total_count": 1, "jobs": [_job(0, "build")]}],
         )
-        _install_log_responses(
-            monkeypatch,
-            [_zip_of({}), _http_error(403, b"forbidden")],
-        )
+        _install_log_responses(monkeypatch, [_http_error(403, b"forbidden")])
 
-        [job] = collect_failed_jobs("o/r", "1", token="ghs_x")
+        [job] = collect_failed_jobs("o/r", "1", token="ghs_x").failed
 
         assert job.log_status == LOG_PERMISSION_DENIED
         assert "Actions read" in job.log_detail
 
-    def test_refused_archive_still_reports_every_job_from_its_own_log(
-        self, monkeypatch
-    ):
-        """A 403 on the whole-run archive must not cost the job inventory."""
+    def test_oversized_job_log_names_the_full_capture_recovery(self, monkeypatch):
         _install_job_listings(
             monkeypatch,
-            [{"total_count": 2, "jobs": [_job(0, "build"), _job(1, "test")]}],
+            [{"total_count": 1, "jobs": [_job(0, "build")]}],
         )
-        _install_log_responses(
-            monkeypatch,
-            [_http_error(403, b"forbidden"), b"build boom\n", b"test boom\n"],
+        monkeypatch.setattr(
+            github_actions_logs, "GITHUB_ACTIONS_JOB_LOG_LIMIT_BYTES", 4
         )
+        _install_log_responses(monkeypatch, [b"0123456789"])
 
-        jobs = {job.name: job for job in collect_failed_jobs("o/r", "1", token="ghs_x")}
+        [job] = collect_failed_jobs("o/r", "1", token="ghs_x").failed
 
-        assert set(jobs) == {"build", "test"}
-        assert jobs["build"].log_text == "build boom\n"
-        assert jobs["test"].log_text == "test boom\n"
-        assert {job.log_status for job in jobs.values()} == {LOG_AVAILABLE}
+        assert job.log_status == LOG_FETCH_FAILED
+        assert "--full" in job.log_detail
 
-    def test_unreachable_archive_still_reports_every_job_by_name_and_reason(
-        self, monkeypatch
-    ):
-        """Archive and per-job logs both refused: name each job, not one error."""
-        _install_job_listings(
-            monkeypatch,
-            [{"total_count": 2, "jobs": [_job(0, "build"), _job(1, "test")]}],
-        )
-        _install_log_responses(
-            monkeypatch,
-            [
-                _http_error(500, b"upstream"),
-                _http_error(500, b"upstream"),
-                _http_error(500, b"upstream"),
-                _http_error(403, b"forbidden"),
-                _http_error(403, b"forbidden"),
-            ],
-        )
 
-        jobs = {job.name: job for job in collect_failed_jobs("o/r", "1", token="ghs_x")}
+class TestResolveLogDownloads:
+    def test_maps_each_job_to_its_signed_download_address(self, monkeypatch):
+        jobs = [_failed_job("901"), _failed_job("902")]
 
-        assert set(jobs) == {"build", "test"}
-        assert {job.log_status for job in jobs.values()} == {LOG_PERMISSION_DENIED}
-        assert all("Actions read" in job.log_detail for job in jobs.values())
+        def _fake(_repo, job_id, *, token):
+            return f"https://results.example/{job_id}.txt?sig=x"
 
-    def test_missing_archive_falls_back_to_every_job_by_id(self, monkeypatch):
-        _install_job_listings(
-            monkeypatch,
-            [{"total_count": 2, "jobs": [_job(0, "build"), _job(1, "test")]}],
-        )
-        _install_log_responses(
-            monkeypatch, [_http_error(404), b"build boom\n", b"test boom\n"]
-        )
+        monkeypatch.setattr(failed_jobs_module, "job_log_download_url", _fake)
 
-        jobs = {job.name: job for job in collect_failed_jobs("o/r", "1", token="ghs_x")}
+        downloads = resolve_log_downloads("o/r", jobs, token="ghs_x")
 
-        assert jobs["build"].log_text == "build boom\n"
-        assert jobs["test"].log_text == "test boom\n"
+        assert downloads["901"].url == "https://results.example/901.txt?sig=x"
+        assert downloads["902"].detail == ""
+
+    def test_refused_address_carries_a_named_reason(self, monkeypatch):
+        def _fake(_repo, _job_id, *, token):
+            raise RestNotFoundError("HTTP 410: gone", status=410)
+
+        monkeypatch.setattr(failed_jobs_module, "job_log_download_url", _fake)
+
+        [download] = resolve_log_downloads(
+            "o/r", [_failed_job("901")], token="ghs_x"
+        ).values()
+
+        assert download.url == ""
+        assert "expire" in download.detail
+
+
+def _failed_job(job_id: str) -> FailedJob:
+    return FailedJob(
+        job_id=job_id,
+        name=f"job {job_id}",
+        conclusion="failure",
+        html_url="",
+        log_text="",
+        log_status=LOG_AVAILABLE,
+        log_detail="",
+    )
 
 
 class TestListRunJobs:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 
+from yoke_core.domain.github_actions_failure_region import DEFAULT_REGION_LINES
 from yoke_core.domain.github_actions_run_monitoring import (
     CHECK_CI_DEFAULT_TIMEOUT_SEC,
 )
@@ -58,7 +59,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_ci.add_argument("--head-sha", default="")
     p_ci.add_argument("--wait", action="store_true")
     p_ci.add_argument(
-        "--timeout", type=int, default=CHECK_CI_DEFAULT_TIMEOUT_SEC,
+        "--timeout",
+        type=int,
+        default=CHECK_CI_DEFAULT_TIMEOUT_SEC,
         dest="timeout_sec",
     )
     _add_project_argument(p_ci)
@@ -66,7 +69,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_flog = sub.add_parser("failed-log")
     p_flog.add_argument("repo")
     p_flog.add_argument("run_id")
-    p_flog.add_argument("--tail-lines", type=int, default=50, dest="tail_lines")
+    p_flog.add_argument(
+        "--lines", type=int, default=DEFAULT_REGION_LINES, dest="max_lines"
+    )
     _add_project_argument(p_flog)
 
     p_jobs = sub.add_parser("jobs-count")

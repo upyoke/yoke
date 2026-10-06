@@ -1,13 +1,12 @@
-"""Tests for the failed-log ZIP fetch + parse path.
+"""Tests for per-job GitHub Actions log reads.
 
 Covers:
 
-- ZIP fetch success returns the raw archive bytes.
-- ZIP parse extracts per-job text from top-level ``<n>_<name>.txt`` entries.
-- The per-job text endpoint reads one exact job.
-- 401 / 403 raise typed :class:`RestAuthError`.
-- 5xx surfaces after the shared retry budget.
-- Empty / malformed ZIP returns an empty dict (no crash).
+- The per-job text endpoint reads one exact job, redacted.
+- 401 / 403 raise typed :class:`RestAuthError`; 404 :class:`RestNotFoundError`.
+- 5xx surfaces after the shared retry budget; a transient 5xx recovers.
+- Log redirects stay on HTTPS and drop GitHub auth across origins.
+- The complete-log download address is read from the redirect, unfollowed.
 
 Which jobs of a run are read, and how they are reported, is covered by
 ``test_github_actions_failed_jobs.py``.
@@ -17,7 +16,7 @@ from __future__ import annotations
 
 import io
 import urllib.error
-import zipfile
+import urllib.request
 from typing import Any, Dict, List
 
 import pytest
@@ -27,16 +26,8 @@ from yoke_core.domain.gh_rest_transport import (
     RestAuthError,
     RestNotFoundError,
     RestServerError,
+    RestTransportError,
 )
-
-
-def _build_zip(entries: Dict[str, str]) -> bytes:
-    """Build an in-memory ZIP archive from ``{name: text}`` entries."""
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w") as archive:
-        for name, body in entries.items():
-            archive.writestr(name, body)
-    return buf.getvalue()
 
 
 class _FakeResponse:
@@ -54,6 +45,9 @@ class _FakeResponse:
         return self
 
     def __exit__(self, *exc) -> None:
+        return None
+
+    def close(self) -> None:
         return None
 
 
@@ -86,11 +80,11 @@ def _install_urlopen(monkeypatch, responses: List[Any]) -> List[str]:
     return calls
 
 
-class TestFetchFailedLogZip:
+class TestLogRedirects:
     def test_cross_origin_redirect_strips_authorization(self):
         handler = github_actions_logs._AuthorizationSafeRedirectHandler()
         request = urllib.request.Request(
-            "https://api.github.com/repos/o/r/actions/runs/1/logs",
+            "https://api.github.com/repos/o/r/actions/jobs/1/logs",
             headers={"Authorization": "Bearer secret", "X-Test": "kept"},
         )
 
@@ -100,7 +94,7 @@ class TestFetchFailedLogZip:
             302,
             "Found",
             {},
-            "https://pipelines.actions.githubusercontent.com/archive.zip",
+            "https://productionresultssa0.blob.core.windows.net/job-1.txt",
         )
 
         assert redirected is not None
@@ -117,128 +111,6 @@ class TestFetchFailedLogZip:
                 request, None, 302, "Found", {}, "http://archive.example/log"
             )
 
-    def test_returns_bytes_on_success(self, monkeypatch):
-        zip_bytes = _build_zip({"1_build.txt": "step output"})
-        _install_urlopen(monkeypatch, [zip_bytes])
-
-        result = github_actions_logs.fetch_failed_log_zip(
-            "o/r", "123", token="ghs_test"
-        )
-
-        assert result == zip_bytes
-
-    def test_empty_token_raises_auth_error(self):
-        with pytest.raises(RestAuthError):
-            github_actions_logs.fetch_failed_log_zip("o/r", "123", token="")
-
-    def test_401_raises_typed_auth_error(self, monkeypatch):
-        _install_urlopen(monkeypatch, [_make_http_error(401, b"Bad credentials")])
-
-        with pytest.raises(RestAuthError) as exc_info:
-            github_actions_logs.fetch_failed_log_zip("o/r", "123", token="ghs_x")
-
-        assert exc_info.value.status == 401
-
-    def test_403_raises_typed_auth_error(self, monkeypatch):
-        _install_urlopen(monkeypatch, [_make_http_error(403, b"forbidden scope")])
-
-        with pytest.raises(RestAuthError) as exc_info:
-            github_actions_logs.fetch_failed_log_zip("o/r", "123", token="ghs_x")
-
-        assert exc_info.value.status == 403
-
-    def test_404_raises_typed_not_found(self, monkeypatch):
-        _install_urlopen(monkeypatch, [_make_http_error(404)])
-
-        with pytest.raises(RestNotFoundError) as exc_info:
-            github_actions_logs.fetch_failed_log_zip("o/r", "123", token="ghs_x")
-
-        assert exc_info.value.status == 404
-
-    def test_5xx_retries_then_surfaces(self, monkeypatch):
-        responses = [
-            _make_http_error(500, b"upstream error"),
-            _make_http_error(502, b"bad gateway"),
-            _make_http_error(503, b"unavailable"),
-        ]
-        _install_urlopen(monkeypatch, responses)
-
-        with pytest.raises(RestServerError) as exc_info:
-            github_actions_logs.fetch_failed_log_zip("o/r", "123", token="ghs_x")
-
-        assert exc_info.value.status in (500, 502, 503)
-
-    def test_5xx_then_success_returns_bytes(self, monkeypatch):
-        zip_bytes = _build_zip({"1_test.txt": "passed"})
-        responses = [_make_http_error(503), zip_bytes]
-        _install_urlopen(monkeypatch, responses)
-
-        result = github_actions_logs.fetch_failed_log_zip("o/r", "123", token="ghs_x")
-
-        assert result == zip_bytes
-
-    def test_no_token_in_error_text(self, monkeypatch):
-        """NFR-3: typed errors must not echo the bearer token."""
-        _install_urlopen(monkeypatch, [_make_http_error(401, b"Bad credentials")])
-        secret = "ghs_secret_token_must_not_leak"
-
-        with pytest.raises(RestAuthError) as exc_info:
-            github_actions_logs.fetch_failed_log_zip("o/r", "123", token=secret)
-
-        rendered = f"{exc_info.value} | body={exc_info.value.body}"
-        assert secret not in rendered
-
-
-class TestParseFailedLogZip:
-    def test_extracts_top_level_entries(self):
-        zip_bytes = _build_zip(
-            {
-                "1_build.txt": "build step output\n",
-                "2_test.txt": "test step output\n",
-            }
-        )
-
-        result = github_actions_logs.parse_failed_log_zip(zip_bytes)
-
-        assert result == {
-            "build": "build step output\n",
-            "test": "test step output\n",
-        }
-
-    def test_skips_nested_step_files(self):
-        zip_bytes = _build_zip(
-            {
-                "1_build.txt": "top-level\n",
-                "build/1_setup.txt": "step level (skip)\n",
-            }
-        )
-
-        result = github_actions_logs.parse_failed_log_zip(zip_bytes)
-
-        assert "build" in result
-        assert all("/" not in key for key in result)
-
-    def test_tolerates_missing_numeric_prefix(self):
-        zip_bytes = _build_zip({"build.txt": "no number prefix"})
-
-        result = github_actions_logs.parse_failed_log_zip(zip_bytes)
-
-        assert result == {"build": "no number prefix"}
-
-    def test_empty_archive_returns_empty(self):
-        zip_bytes = _build_zip({})
-
-        result = github_actions_logs.parse_failed_log_zip(zip_bytes)
-
-        assert result == {}
-
-    def test_malformed_zip_raises_typed_error(self):
-        with pytest.raises(github_actions_logs.ActionsLogArchiveError):
-            github_actions_logs.parse_failed_log_zip(b"not a zip")
-
-    def test_empty_bytes_returns_empty(self):
-        assert github_actions_logs.parse_failed_log_zip(b"") == {}
-
 
 class TestFetchJobLog:
     def test_fetch_job_log_reads_exact_failed_attempt(self, monkeypatch):
@@ -252,3 +124,120 @@ class TestFetchJobLog:
 
         assert result == "authentication required\n"
         assert "/actions/jobs/99067752381/logs" in calls[0]
+
+    def test_token_in_log_text_is_redacted(self, monkeypatch):
+        _install_urlopen(monkeypatch, [b"leaked ghs_secret here\n"])
+
+        result = github_actions_logs.fetch_job_log("o/r", "1", token="ghs_secret")
+
+        assert "ghs_secret" not in result
+
+    def test_empty_token_raises_auth_error(self):
+        with pytest.raises(RestAuthError):
+            github_actions_logs.fetch_job_log("o/r", "1", token="")
+
+    @pytest.mark.parametrize("status", [401, 403])
+    def test_auth_refusal_raises_typed_auth_error(self, monkeypatch, status):
+        _install_urlopen(monkeypatch, [_make_http_error(status, b"forbidden")])
+
+        with pytest.raises(RestAuthError) as exc_info:
+            github_actions_logs.fetch_job_log("o/r", "1", token="ghs_x")
+
+        assert exc_info.value.status == status
+
+    def test_404_raises_typed_not_found(self, monkeypatch):
+        _install_urlopen(monkeypatch, [_make_http_error(404)])
+
+        with pytest.raises(RestNotFoundError) as exc_info:
+            github_actions_logs.fetch_job_log("o/r", "1", token="ghs_x")
+
+        assert exc_info.value.status == 404
+
+    def test_5xx_retries_then_surfaces(self, monkeypatch):
+        responses = [
+            _make_http_error(500, b"upstream error"),
+            _make_http_error(502, b"bad gateway"),
+            _make_http_error(503, b"unavailable"),
+        ]
+        _install_urlopen(monkeypatch, responses)
+
+        with pytest.raises(RestServerError) as exc_info:
+            github_actions_logs.fetch_job_log("o/r", "1", token="ghs_x")
+
+        assert exc_info.value.status in (500, 502, 503)
+
+    def test_5xx_then_success_returns_text(self, monkeypatch):
+        _install_urlopen(monkeypatch, [_make_http_error(503), b"FAILED test_x\n"])
+
+        assert github_actions_logs.fetch_job_log("o/r", "1", token="ghs_x") == (
+            "FAILED test_x\n"
+        )
+
+    def test_no_token_in_error_text(self, monkeypatch):
+        """Typed errors must not echo the bearer token."""
+        _install_urlopen(monkeypatch, [_make_http_error(401, b"Bad credentials")])
+        secret = "ghs_secret_token_must_not_leak"
+
+        with pytest.raises(RestAuthError) as exc_info:
+            github_actions_logs.fetch_job_log("o/r", "1", token=secret)
+
+        rendered = f"{exc_info.value} | body={exc_info.value.body}"
+        assert secret not in rendered
+
+
+def _redirect(location: str) -> urllib.error.HTTPError:
+    return urllib.error.HTTPError(
+        "https://api.github.com/repos/o/r/actions/jobs/7/logs",
+        302,
+        "Found",
+        {"Location": location},
+        io.BytesIO(b""),
+    )
+
+
+def _install_no_redirect(monkeypatch, outcome: Any) -> List[str]:
+    calls: List[str] = []
+
+    def _fake(request, timeout=None):
+        calls.append(request.full_url)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+    monkeypatch.setattr(github_actions_logs, "no_redirect_urlopen", _fake)
+    return calls
+
+
+class TestJobLogDownloadUrl:
+    def test_returns_the_signed_redirect_target_without_following_it(self, monkeypatch):
+        signed = "https://results.blob.core.windows.net/logs/7.txt?sig=abc"
+        calls = _install_no_redirect(monkeypatch, _redirect(signed))
+
+        url = github_actions_logs.job_log_download_url("o/r", "7", token="ghs_x")
+
+        assert url == signed
+        assert calls == ["https://api.github.com/repos/o/r/actions/jobs/7/logs"]
+
+    def test_plain_http_target_is_refused(self, monkeypatch):
+        _install_no_redirect(monkeypatch, _redirect("http://example.test/7.txt"))
+
+        with pytest.raises(RestTransportError, match="non-HTTPS"):
+            github_actions_logs.job_log_download_url("o/r", "7", token="ghs_x")
+
+    def test_expired_log_raises_not_found(self, monkeypatch):
+        _install_no_redirect(monkeypatch, _make_http_error(410, b"gone"))
+
+        with pytest.raises(RestNotFoundError):
+            github_actions_logs.job_log_download_url("o/r", "7", token="ghs_x")
+
+    def test_refusal_raises_auth_error(self, monkeypatch):
+        _install_no_redirect(monkeypatch, _make_http_error(403, b"forbidden"))
+
+        with pytest.raises(RestAuthError):
+            github_actions_logs.job_log_download_url("o/r", "7", token="ghs_x")
+
+    def test_answer_without_redirect_is_refused_by_name(self, monkeypatch):
+        _install_no_redirect(monkeypatch, _FakeResponse(b"body"))
+
+        with pytest.raises(RestTransportError, match="without a download redirect"):
+            github_actions_logs.job_log_download_url("o/r", "7", token="ghs_x")

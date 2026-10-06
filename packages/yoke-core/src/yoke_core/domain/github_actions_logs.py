@@ -1,19 +1,18 @@
-"""Failed-log ZIP fetch + parse for GitHub Actions workflow runs.
+"""Per-job log reads for GitHub Actions.
 
-Owns the ZIP-bytes path so it stays out of :mod:`gh_rest_transport`
-(line-cap pressure) and :mod:`github_actions_rest` (wrong responsibility
-— REST helpers there return decoded JSON, not binary blobs).
-
-The endpoint is ``GET /repos/{owner}/{name}/actions/runs/{run_id}/logs``
-which returns a 302 redirect to a streamed ZIP archive. ``urlopen``
-follows the redirect transparently and yields the ZIP body as bytes.
+Every failed job is read by its own job id, so a finished job's log is
+readable while sibling jobs of the same run are still running — the
+whole-run archive is not served until every job has finished.
 
 Public surfaces:
 
-- :func:`fetch_failed_log_zip` — raw bytes, no parse.
-- :func:`parse_failed_log_zip` — bytes → ``{job_name: log_text}``.
-- :func:`fetch_job_log` — fetches one exact job, including an earlier
-  failed attempt that a later rerun replaced in the run-level listing.
+- :func:`fetch_job_log` — one exact job's plain-text log, redacted and
+  bounded; it also reads an earlier failed attempt that a later rerun
+  replaced in the run-level listing.
+- :func:`job_log_download_url` — the short-lived signed address GitHub
+  hands out for one job's complete log. A caller downloads the whole
+  log from it directly, so a complete log never has to fit a bounded
+  response body.
 
 Which jobs of a run to read, and how to report them, belongs to
 :mod:`github_actions_failed_jobs`.
@@ -35,12 +34,6 @@ from yoke_cli.transport.response_deadline_open import (
 )
 from yoke_core.domain import gh_retry
 from yoke_core.domain import github_response_safety
-from yoke_core.domain.github_actions_log_archive import (
-    ActionsLogArchiveError,
-    GITHUB_ACTIONS_LOG_ARCHIVE_LIMIT_BYTES,
-    GITHUB_ACTIONS_LOG_ENTRY_LIMIT_BYTES,
-    parse_failed_log_zip,
-)
 from yoke_core.domain.gh_rest_transport import (
     GITHUB_API_VERSION,
     RestAuthError,
@@ -65,12 +58,22 @@ from yoke_core.domain.github_response_safety import (
 )
 
 
+# Ceiling on one job log read into memory for the bounded report. A log
+# above it is still complete through :func:`job_log_download_url`.
+GITHUB_ACTIONS_JOB_LOG_LIMIT_BYTES = 32 * 1024 * 1024
 _RETRYABLE_HTTP_STATUSES = frozenset({429, 500, 502, 503, 504})
+_REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
 _FETCH_TIMEOUT_SECONDS = 60.0
 
 
+class JobLogTooLargeError(RestTransportError):
+    """One job log exceeded the in-memory read ceiling."""
+
+    code = "job_log_too_large"
+
+
 class _AuthorizationSafeRedirectHandler(urllib.request.HTTPRedirectHandler):
-    """Follow HTTPS archive redirects without forwarding GitHub auth."""
+    """Follow HTTPS log redirects without forwarding GitHub auth."""
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         target = urllib.parse.urlsplit(newurl)
@@ -88,8 +91,16 @@ class _AuthorizationSafeRedirectHandler(urllib.request.HTTPRedirectHandler):
         return redirected
 
 
-# Module-level test seam; tests replace this callable directly.
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Surface a redirect as its response so its ``Location`` can be read."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+# Module-level test seams; tests replace these callables directly.
 urlopen = urllib.request.build_opener(_AuthorizationSafeRedirectHandler()).open
+no_redirect_urlopen = urllib.request.build_opener(_NoRedirectHandler()).open
 
 
 def _sleep(seconds: float) -> None:  # pragma: no cover - thin alias
@@ -102,33 +113,36 @@ sleep = _sleep
 
 
 __all__ = [
-    "fetch_failed_log_zip",
-    "parse_failed_log_zip",
+    "GITHUB_ACTIONS_JOB_LOG_LIMIT_BYTES",
+    "JobLogTooLargeError",
     "fetch_job_log",
+    "job_log_download_url",
 ]
 
 
-def fetch_failed_log_zip(repo: str, run_id: int | str, *, token: str) -> bytes:
-    """Fetch the full-run logs ZIP archive bytes.
-
-    Issues ``GET /repos/{repo}/actions/runs/{run_id}/logs``. The endpoint
-    returns 302 → S3; ``urlopen`` follows the redirect and yields the
-    archive body. Raises a typed :class:`RestTransportError` subclass
-    on terminal failure; retries 429 / 5xx / network errors via the
-    shared backoff schedule.
-    """
+def _headers(token: str) -> Dict[str, str]:
     if not token:
         raise RestAuthError("GitHub bearer token is empty")
-
-    url = f"{github_api_base()}/repos/{repo}/actions/runs/{run_id}/logs"
-    headers = {
+    return {
         "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": GITHUB_API_VERSION,
         "User-Agent": "yoke-merge-engine",
     }
-    operation_deadline = deadline_after(_FETCH_TIMEOUT_SECONDS)
 
+
+def _job_logs_url(repo: str, job_id: int | str) -> str:
+    return f"{github_api_base()}/repos/{repo}/actions/jobs/{job_id}/logs"
+
+
+def _fetch_with_retry(url: str, *, token: str) -> bytes:
+    """Read one log body, retrying 429 / 5xx / network errors.
+
+    Retries follow the shared backoff schedule inside one operation
+    deadline; any other failure raises its typed error at once.
+    """
+    headers = _headers(token)
+    operation_deadline = deadline_after(_FETCH_TIMEOUT_SECONDS)
     last_exc: Optional[RestTransportError] = None
     for attempt in range(1, gh_retry.MAX_RETRIES + 1):
         try:
@@ -140,7 +154,7 @@ def fetch_failed_log_zip(repo: str, run_id: int | str, *, token: str) -> bytes:
                 url,
                 headers=headers,
                 token=token,
-                response_limit_bytes=GITHUB_ACTIONS_LOG_ARCHIVE_LIMIT_BYTES,
+                response_limit_bytes=GITHUB_ACTIONS_JOB_LOG_LIMIT_BYTES,
                 deadline=operation_deadline,
             )
         except GitHubRestOperationDeadlineError as exc:
@@ -165,6 +179,14 @@ def fetch_failed_log_zip(repo: str, run_id: int | str, *, token: str) -> bytes:
     if last_exc is not None:
         raise last_exc
     raise RestTransportError("log fetch retry loop exited without result")
+
+
+def _is_retryable(exc: RestTransportError) -> bool:
+    if isinstance(exc, RestNetworkError):
+        return True
+    if exc.status is None:
+        return False
+    return exc.status in _RETRYABLE_HTTP_STATUSES
 
 
 def _fetch_once(
@@ -193,7 +215,7 @@ def _fetch_once(
                     check_content_length=True,
                 )
             except GitHubResponseTooLargeError as exc:
-                raise ActionsLogArchiveError(str(exc)) from None
+                raise JobLogTooLargeError(str(exc)) from None
             except Exception:
                 raise RestNetworkError(
                     "GitHub Actions log response could not be read"
@@ -251,27 +273,62 @@ def _error_snippet(
     return safe_diagnostic_text(text, secrets=(token,))
 
 
-def _is_retryable(exc: RestTransportError) -> bool:
-    if isinstance(exc, RestNetworkError):
-        return True
-    if exc.status is None:
-        return False
-    return exc.status in _RETRYABLE_HTTP_STATUSES
-
-
 def fetch_job_log(repo: str, job_id: int | str, *, token: str) -> str:
     """Fetch and redact the plain-text log for one exact Actions job."""
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": GITHUB_API_VERSION,
-        "User-Agent": "yoke-merge-engine",
-    }
-    body = _fetch_once(
-        f"{github_api_base()}/repos/{repo}/actions/jobs/{job_id}/logs",
-        headers=headers,
-        token=token,
-        response_limit_bytes=GITHUB_ACTIONS_LOG_ENTRY_LIMIT_BYTES,
-        deadline=deadline_after(_FETCH_TIMEOUT_SECONDS),
-    )
+    body = _fetch_with_retry(_job_logs_url(repo, job_id), token=token)
     return redact_exact_secrets(body.decode("utf-8", errors="replace"), (token,))
+
+
+def job_log_download_url(repo: str, job_id: int | str, *, token: str) -> str:
+    """Return GitHub's signed download address for one job's complete log.
+
+    GitHub answers the job-logs endpoint with a redirect to a signed,
+    short-lived address that needs no credential. Reading that redirect
+    without following it hands the caller the address instead of the
+    bytes; GitHub documents the address as valid for about one minute.
+    """
+    request = urllib.request.Request(
+        _job_logs_url(repo, job_id), headers=_headers(token), method="GET"
+    )
+    deadline = deadline_after(_FETCH_TIMEOUT_SECONDS)
+    try:
+        opened = open_replay_safe(
+            request,
+            opener=no_redirect_urlopen,
+            deadline=deadline,
+            clock=github_response_safety.monotonic,
+        )
+    except urllib.error.HTTPError as exc:
+        if int(exc.code) in _REDIRECT_STATUSES:
+            location = str(exc.headers.get("Location") or "")
+            exc.close()
+            if urllib.parse.urlsplit(location).scheme.lower() == "https":
+                return location
+            raise RestTransportError(
+                f"GitHub redirected job {job_id}'s log to a non-HTTPS address; "
+                "open the job URL instead",
+            ) from None
+        status = int(exc.code)
+        snippet = _error_snippet(exc, token=token, deadline=deadline)
+        if status in (401, 403):
+            raise RestAuthError(
+                f"HTTP {status}: {snippet}", status=status, body=snippet
+            ) from None
+        if status in (404, 410):
+            raise RestNotFoundError(
+                f"HTTP {status}: {snippet}", status=status, body=snippet
+            ) from None
+        raise RestTransportError(
+            f"HTTP {status}: {snippet}", status=status, body=snippet
+        ) from None
+    except ResponseOpenDeadlineError:
+        raise RestNetworkError(
+            "GitHub REST operation exceeded the time limit"
+        ) from None
+    except (urllib.error.URLError, TimeoutError, OSError):
+        raise RestNetworkError("GitHub Actions log network request failed") from None
+    opened.close()
+    raise RestTransportError(
+        f"GitHub answered job {job_id}'s log request without a download "
+        "redirect; open the job URL instead",
+    )

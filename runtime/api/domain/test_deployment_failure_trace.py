@@ -13,6 +13,7 @@ from yoke_core.domain.deployment_failure_trace_runtime import _inspect_run
 from yoke_core.domain.github_actions_failed_jobs import (
     LOG_AVAILABLE,
     FailedJob as ProviderFailedJob,
+    RunFailures,
 )
 
 
@@ -42,7 +43,7 @@ def test_provider_handoff_reuses_failed_job_collector(monkeypatch) -> None:
 
     def collect(repo: str, run_id: str, *, token: str):
         assert (repo, run_id, token) == ("owner/consumer", "200", "token")
-        return [collected]
+        return RunFailures(failed=[collected])
 
     monkeypatch.setattr(
         "yoke_core.domain.github_actions_failed_jobs.collect_failed_jobs",
