@@ -8,8 +8,6 @@ thin and lets new HCs land without bloating the dispatcher.
 
 from __future__ import annotations
 
-from typing import List
-
 # ---------------------------------------------------------------------------
 # Re-export shared types and helpers from doctor_report
 # ---------------------------------------------------------------------------
@@ -28,12 +26,21 @@ from yoke_core.engines.doctor_report import (  # noqa: F401
 )
 
 # Re-export HC functions from sub-modules
-from yoke_core.engines.doctor_hc_blocked_flag import (hc_blocked_flag_consistency, hc_blocked_status_drift)  # noqa: F401
-from yoke_core.engines.doctor_hc_branch_protection import hc_branch_protection_required_check  # noqa: F401
+from yoke_core.engines.doctor_hc_blocked_flag import (
+    hc_blocked_flag_consistency,
+    hc_blocked_status_drift,
+)  # noqa: F401
+from yoke_core.engines.doctor_hc_branch_protection import (
+    hc_branch_protection_required_check,
+)  # noqa: F401
 from yoke_core.engines.doctor_hc_merge_queue import hc_merge_queue_binding  # noqa: F401
 from yoke_core.engines.doctor_hc_projects_ci import hc_projects_ci_workflow_configured  # noqa: F401
-from yoke_core.engines.doctor_hc_ci_workflow_resolves import hc_ci_workflow_declaration_resolves  # noqa: F401,E501
-from yoke_core.engines.doctor_hc_project_verification import hc_project_verification_configured  # noqa: F401,E501
+from yoke_core.engines.doctor_hc_ci_workflow_resolves import (
+    hc_ci_workflow_declaration_resolves,
+)  # noqa: F401,E501
+from yoke_core.engines.doctor_hc_project_verification import (
+    hc_project_verification_configured,
+)  # noqa: F401,E501
 from yoke_core.engines.doctor_hc_gate_liveness import hc_gate_liveness  # noqa: F401
 from yoke_core.engines.doctor_hc_event_outcome_drift import hc_event_outcome_drift  # noqa: F401
 from yoke_core.engines.doctor_hc_event_severity_drift import hc_event_severity_drift  # noqa: F401,E501
@@ -112,20 +119,27 @@ from yoke_core.engines.doctor_hc_db_events import (  # noqa: F401
     hc_events_synthetic_contamination,
     hc_stray_db,
 )
-from yoke_core.engines.doctor_hc_skip_bypass import (  # noqa: F401
-    hc_skip_polish_manual_hop,
-)
-from yoke_core.engines.doctor_hc_strategy_render_staleness import hc_strategy_render_staleness  # noqa: F401,E501
-from yoke_core.engines.doctor_hc_path_claim_rejections import hc_path_claim_register_rejected_with_deps  # noqa: F401,E501
-from yoke_core.engines.doctor_hc_path_claim_coordination import hc_path_claim_coordination_rationale  # noqa: F401,E501
-from yoke_core.engines.doctor_hc_path_claim_symlink_coverage import hc_path_claim_symlink_coverage  # noqa: F401,E501
+from yoke_core.engines.doctor_hc_strategy_render_staleness import (
+    hc_strategy_render_staleness,
+)  # noqa: F401,E501
+from yoke_core.engines.doctor_hc_path_claim_rejections import (
+    hc_path_claim_register_rejected_with_deps,
+)  # noqa: F401,E501
+from yoke_core.engines.doctor_hc_path_claim_coordination import (
+    hc_path_claim_coordination_rationale,
+)  # noqa: F401,E501
+from yoke_core.engines.doctor_hc_path_claim_symlink_coverage import (
+    hc_path_claim_symlink_coverage,
+)  # noqa: F401,E501
 from yoke_core.engines.doctor_hc_oneshot_migration import (  # noqa: F401
     hc_oneshot_migration_coverage,
 )
 from yoke_core.engines.doctor_hc_path_integrity import hc_path_integrity  # noqa: F401
 from yoke_core.engines.doctor_hc_qa_runs import hc_qa_runs_mutated  # noqa: F401
 from yoke_core.engines.doctor_hc_pending_migrations import hc_pending_migrations  # noqa: F401
-from yoke_core.engines.doctor_hc_scratch_databases import hc_administered_scratch_databases  # noqa: F401,E501
+from yoke_core.engines.doctor_hc_scratch_databases import (
+    hc_administered_scratch_databases,
+)  # noqa: F401,E501
 from yoke_core.engines.doctor_hc_organization_settings import hc_organization_settings  # noqa: F401,E501
 from yoke_core.engines.doctor_hc_project_migration_ledger import (  # noqa: F401
     hc_project_migration_ledger_contract,
@@ -139,8 +153,11 @@ from yoke_core.engines.doctor_hc_db_catalog import (  # noqa: F401
 )
 
 from yoke_core.engines.doctor_hc_filesystem import (  # noqa: F401
-    hc_config_validation, hc_orphaned_temp_files, hc_path_confabulation,
-    hc_size_bloat, hc_test_command_validity,
+    hc_config_validation,
+    hc_orphaned_temp_files,
+    hc_path_confabulation,
+    hc_size_bloat,
+    hc_test_command_validity,
 )
 from yoke_core.engines.doctor_hc_filesystem_drift import (  # noqa: F401
     hc_stray_project_files,
@@ -178,9 +195,16 @@ from yoke_core.engines.doctor_registry_types import HealthCheck  # noqa: F401,E4
 from yoke_core.engines.doctor_registry_harness import HARNESS_HEALTH_CHECKS  # noqa: E402
 from yoke_core.engines.doctor_registry_coordination import COORDINATION_HEALTH_CHECKS  # noqa: E402
 from yoke_core.engines.doctor_registry_architecture import ARCHITECTURE_HEALTH_CHECKS  # noqa: E402
-from yoke_core.engines.doctor_registry_tier_discipline import TIER_DISCIPLINE_HEALTH_CHECKS  # noqa: E402,E501
-from yoke_core.engines.doctor_registry_content_quality import CONTENT_QUALITY_HEALTH_CHECKS  # noqa: E402,E501
-HEALTH_CHECKS: List[HealthCheck] = [
+from yoke_core.engines.doctor_registry_tier_discipline import (
+    TIER_DISCIPLINE_HEALTH_CHECKS,
+)  # noqa: E402,E501
+from yoke_core.engines.doctor_registry_content_quality import (
+    CONTENT_QUALITY_HEALTH_CHECKS,
+)  # noqa: E402,E501
+
+# Keep the declarative catalog readable as one row per check.
+# fmt: off
+HEALTH_CHECKS: list[HealthCheck] = [
     # DB-only: backlog / lifecycle
     HealthCheck("status-consistency", "Backlog status consistency", hc_status_consistency),
     HealthCheck("blocked-items", "Blocked items", hc_blocked_items),
@@ -215,9 +239,7 @@ HEALTH_CHECKS: List[HealthCheck] = [
     HealthCheck("smoke-artifact-orphan", "Orphaned QA artifacts", hc_smoke_artifact_orphan),
     HealthCheck("deploy-stage-integrity", "deploy_stage without deployment evidence", hc_deploy_stage_integrity),
     HealthCheck("incomplete-deploy-stage", "Done items with incomplete deploy_stage", hc_incomplete_deploy_stage),
-    HealthCheck("flow-stage-environment-input",
-                "Repository and flow inputs use registered environment names",
-                hc_flow_stage_environment_input),
+    HealthCheck("flow-stage-environment-input", "Repository and flow inputs use registered environment names", hc_flow_stage_environment_input),
     HealthCheck("flow-stage-json", "Deployment flow stage JSON validity", hc_flow_stage_json),
     HealthCheck("flow-workflow-exists", "Flow stage workflow files exist", hc_flow_workflow_exists),
     HealthCheck("invalid-item-flows", "Items referencing non-existent or cross-project deployment flows", hc_invalid_item_flows),
@@ -261,7 +283,6 @@ HEALTH_CHECKS: List[HealthCheck] = [
     HealthCheck("events-destructive-maintenance-audit", "Destructive maintenance audit evidence", hc_events_destructive_maintenance_audit),
     HealthCheck("event-outcome-drift", "Historical event-outcome drift", hc_event_outcome_drift),
     HealthCheck("event-severity-drift", "Historical event-severity drift", hc_event_severity_drift),
-    HealthCheck("skip-polish-manual-hop", "Manual polish-skip bookkeeping hops that should use --skip-polish", hc_skip_polish_manual_hop),
     HealthCheck("strategy-render-staleness", "Rendered .yoke/strategy/ views stale vs strategy_docs DB rows", hc_strategy_render_staleness),
     HealthCheck("path-claim-register-rejected-with-deps", "PathClaimRegistrationBlocked rejections where dep-graph names the upstream", hc_path_claim_register_rejected_with_deps),
     HealthCheck("path-claim-coordination-rationale", "Coordination_only attestation rationale stale or empty", hc_path_claim_coordination_rationale),
@@ -315,7 +336,14 @@ HEALTH_CHECKS: List[HealthCheck] = [
     HealthCheck("gate-liveness", "Pre-commit gate is the live Yoke shim", hc_gate_liveness),  # noqa: E501
     HealthCheck("delegated-sync", "Delegated sync HCs", hc_delegated_sync, github_dependent=True),
 ]
+# fmt: on
 
 # Preserve the long-standing invariant that the harness/session bundle stays
 # at the tail; coordination + architecture checks splice immediately before it.
-HEALTH_CHECKS.extend(COORDINATION_HEALTH_CHECKS + ARCHITECTURE_HEALTH_CHECKS + TIER_DISCIPLINE_HEALTH_CHECKS + CONTENT_QUALITY_HEALTH_CHECKS + HARNESS_HEALTH_CHECKS)  # noqa: E501
+HEALTH_CHECKS.extend(
+    COORDINATION_HEALTH_CHECKS
+    + ARCHITECTURE_HEALTH_CHECKS
+    + TIER_DISCIPLINE_HEALTH_CHECKS
+    + CONTENT_QUALITY_HEALTH_CHECKS
+    + HARNESS_HEALTH_CHECKS
+)  # noqa: E501

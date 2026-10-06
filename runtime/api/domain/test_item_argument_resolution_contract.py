@@ -22,12 +22,9 @@ FOREIGN_INTERNAL_ID = 4366
 def identity_db(test_db):
     """Seed overlapping internal and public numbers in two projects."""
     seed_project_identities(test_db)
+    test_db.execute("UPDATE projects SET public_item_prefix='YOK' WHERE slug='yoke'")
     test_db.execute(
-        "UPDATE projects SET public_item_prefix='YOK' WHERE slug='yoke'"
-    )
-    test_db.execute(
-        "UPDATE projects SET public_item_prefix='EXT' "
-        "WHERE slug='externalwebapp'"
+        "UPDATE projects SET public_item_prefix='EXT' WHERE slug='externalwebapp'"
     )
     for item_id, project_id, sequence in (
         (DECOY_INTERNAL_ID, 1, DECOY_PUBLIC_SEQUENCE),
@@ -53,13 +50,17 @@ def identity_db(test_db):
     ],
 )
 def test_public_and_internal_resolution_matrix(
-    identity_db, raw, project, expected,
+    identity_db,
+    raw,
+    project,
+    expected,
 ) -> None:
     assert parse_item_argument(raw, project=project, conn=identity_db) == expected
 
 
 def test_explicit_project_wins_over_checkout_mapping(
-    identity_db, monkeypatch,
+    identity_db,
+    monkeypatch,
 ) -> None:
     monkeypatch.setattr(machine_config, "project_id", lambda *_a, **_k: 2)
     assert (
@@ -94,7 +95,10 @@ def test_missing_context_refuses_before_identity_read(monkeypatch) -> None:
     ],
 )
 def test_done_transition_resolves_before_running(
-    identity_db, monkeypatch, raw, expected,
+    identity_db,
+    monkeypatch,
+    raw,
+    expected,
 ) -> None:
     from yoke_core.engines import done_transition
 
@@ -107,7 +111,9 @@ def test_done_transition_resolves_before_running(
 
 
 def test_done_transition_missing_context_has_no_side_effect(
-    identity_db, monkeypatch, capsys,
+    identity_db,
+    monkeypatch,
+    capsys,
 ) -> None:
     from yoke_core.engines import done_transition
 
@@ -121,10 +127,6 @@ def test_done_transition_missing_context_has_no_side_effect(
 
 
 def _invoke_missing_context_boundary(name: str, monkeypatch) -> str:
-    if name == "advance-skip":
-        from yoke_core.domain import advance_skip
-
-        return str(advance_skip.main(["polish", "2318"]))
     if name == "ac-presence":
         from yoke_core.domain import check_ac_presence
 
@@ -172,15 +174,11 @@ def _invoke_missing_context_boundary(name: str, monkeypatch) -> str:
     if name == "claim-coverage-repair":
         from yoke_core.domain import idea_readiness_repair_claim_coverage
 
-        return str(
-            idea_readiness_repair_claim_coverage.main(["--item", "2318"])
-        )
+        return str(idea_readiness_repair_claim_coverage.main(["--item", "2318"]))
     if name == "overlap-repair":
         from yoke_core.domain import idea_readiness_repair_cross_item_overlap
 
-        return str(
-            idea_readiness_repair_cross_item_overlap.main(["--item", "2318"])
-        )
+        return str(idea_readiness_repair_cross_item_overlap.main(["--item", "2318"]))
     if name == "usher-reconcile":
         from yoke_core.engines import usher_reconcile_github
 
@@ -215,16 +213,30 @@ def _invoke_missing_context_boundary(name: str, monkeypatch) -> str:
 @pytest.mark.parametrize(
     "boundary",
     [
-        "advance-skip", "ac-presence", "hard-blocks", "conduct-handoff",
-        "shepherd-gate", "verify-claim", "stale-string-audit", "render-body",
-        "db-claim-prose", "path-claim-coverage", "idea-readiness",
-        "idea-readiness-repair", "claim-coverage-repair", "overlap-repair",
-        "usher-reconcile", "worktree-resolve",
-        "validate-epic", "session-focus", "github-ownership",
+        "ac-presence",
+        "hard-blocks",
+        "conduct-handoff",
+        "shepherd-gate",
+        "verify-claim",
+        "stale-string-audit",
+        "render-body",
+        "db-claim-prose",
+        "path-claim-coverage",
+        "idea-readiness",
+        "idea-readiness-repair",
+        "claim-coverage-repair",
+        "overlap-repair",
+        "usher-reconcile",
+        "worktree-resolve",
+        "validate-epic",
+        "session-focus",
+        "github-ownership",
     ],
 )
 def test_operator_boundaries_preserve_missing_context_teaching(
-    boundary, monkeypatch, capsys,
+    boundary,
+    monkeypatch,
+    capsys,
 ) -> None:
     from yoke_core.domain import yok_n_parser
 
@@ -256,9 +268,6 @@ def test_https_resolution_carries_raw_ref_and_project(monkeypatch) -> None:
         return {"item": {"id": YOKE_INTERNAL_ID}}
 
     monkeypatch.setattr(control_plane_transport, "relay", relay)
-    assert (
-        parse_item_argument("2318", project="yoke")
-        == YOKE_INTERNAL_ID
-    )
+    assert parse_item_argument("2318", project="yoke") == YOKE_INTERNAL_ID
     assert seen["target"].public_ref == "2318"
     assert seen["target"].project_id == "yoke"

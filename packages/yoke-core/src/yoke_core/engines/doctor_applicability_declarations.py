@@ -162,7 +162,6 @@ _SHAPES = (
             "session-pre-implementing-activity",
             "shepherd-lifecycle",
             "shepherd-spec-integrity",
-            "skip-polish-manual-hop",
             "smoke-artifact-orphan",
             "smoke-failure-stale",
             "stale-body",

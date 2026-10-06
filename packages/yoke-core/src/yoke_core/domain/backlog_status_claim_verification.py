@@ -33,7 +33,7 @@ def _verify_status_claim(
     public_ref = render_item_ref(conn, item_id)
     # Request-scoped override first (done-transition status relays post it on a
     # ContextVar), then the process-global env vars so every existing env-driven
-    # caller (repair-status, conduct, advance-skip, ...) is unchanged.
+    # caller (repair-status, conduct, ...) is unchanged.
     ctx_bypass, ctx_source = resolve_claim_bypass()
     bypass_source = ctx_bypass or os.environ.get("YOKE_CLAIM_BYPASS", "")
     status_source = ctx_source or os.environ.get("YOKE_STATUS_SOURCE", "")

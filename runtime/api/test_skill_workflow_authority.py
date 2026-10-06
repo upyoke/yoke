@@ -88,7 +88,25 @@ def test_skill_tree_uses_registered_lifecycle_transitions() -> None:
         assert not list((root / retired).glob("*.md"))
         for path in root.rglob("*.md"):
             assert "/yoke " + retired not in path.read_text(), path
+    help_text = _read("help", "SKILL.md")
+    internal_commands = help_text.split("INTERNAL (", 1)[1].split(
+        "For full documentation", 1
+    )[0]
+    assert retired not in internal_commands
     review = _read("implement", "review.md")
     assert "lifecycle.transition.execute" in review
     assert "yoke lifecycle transition" in review
     assert "yoke claims work release --item PREFIX-N" in review
+
+
+def test_retired_skip_phase_handlers_have_no_live_entrypoints() -> None:
+    domain = ROOT / "packages/yoke-core/src/yoke_core/domain"
+    engines = ROOT / "packages/yoke-core/src/yoke_core/engines"
+    assert not list(domain.glob("advance_" + "skip*.py"))
+    assert not (engines / ("doctor_hc_" + "skip_bypass.py")).exists()
+    registry = (engines / "doctor_registry.py").read_text()
+    assert "skip-polish-manual-hop" not in registry
+    assert (
+        "advance-" + "skip"
+        not in (domain / "populate_registry_data_authoritative.py").read_text()
+    )
