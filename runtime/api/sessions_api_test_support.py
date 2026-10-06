@@ -19,20 +19,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from yoke_core.domain import db_backend
 from runtime.api.auth_test_helpers import mint_api_auth_context
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
-from runtime.api.sessions_api_stale_test_helpers import apply_ddl_statements
 from runtime.api.test_dependency_schema import (
     ITEMS_SCHEMA,
     ITEM_DEPENDENCIES_SCHEMA,
     PROJECTS_SCHEMA,
 )
 from yoke_core.domain.work_claim_target_sql import TARGET_KIND_CHECK_SQL
-from yoke_core.api.main import (
-    app,
-    get_config_path,
-    get_db_path,
-    get_db_readonly,
-    get_db_readwrite,
-)
 
 
 def fresh_now() -> str:
@@ -142,11 +134,13 @@ CREATE TABLE events (
 
 
 def _apply_session_offer_schema() -> None:
-    """``init_test_db`` schema applier: session tables + seed items for offer tests.
+    """``init_test_db`` schema applier for lifecycle API tests.
 
     Resolves its connection through the backend factory (the repointed
     per-test DSN) so the bespoke DDL + seed lands in the disposable DB.
     """
+    from runtime.api.sessions_api_stale_test_helpers import apply_ddl_statements
+
     conn = db_backend.connect()
     try:
         apply_ddl_statements(
@@ -210,12 +204,7 @@ def _apply_session_offer_schema() -> None:
 
 @pytest.fixture()
 def session_offer_db(tmp_path, monkeypatch):
-    """Fixture for session-offer tests with session/claim tables.
-
-    Local to each importing test file via ``pytest_plugins = []`` etc. is not
-    needed — pytest auto-discovers fixtures defined here when the helper is
-    imported in a test file. Each test file re-exports this fixture via
-    ``from .test_session_offer_schemas import session_offer_db``.
+    """Fixture for lifecycle API tests with session/claim tables.
 
     Disposable per-test Postgres DB via ``init_test_db``, with ``YOKE_PG_DSN``
     repointed for the context's lifetime. The ``with`` stays open across the
@@ -227,6 +216,15 @@ def session_offer_db(tmp_path, monkeypatch):
     os.makedirs(tmp_dir, exist_ok=True)
 
     with init_test_db(tmp_path, apply_schema=_apply_session_offer_schema) as db_path:
+        # Construct the API only after the fixture supplies database authority.
+        from yoke_core.api.main import (
+            app,
+            get_config_path,
+            get_db_path,
+            get_db_readonly,
+            get_db_readwrite,
+        )
+
         auth_conn = connect_test_db(db_path)
         try:
             auth = mint_api_auth_context(auth_conn)
