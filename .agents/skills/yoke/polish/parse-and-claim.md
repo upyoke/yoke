@@ -6,7 +6,8 @@ Covers polish steps 1, 2, and 3: parse the item argument, locate the existing wo
 `ITEM_WORKFLOW_ID`, `ITEM_STATUS`, `ITEM_TITLE`, `WORKTREE_SCOPE`,
 `WORKTREE_COUNT`, `WORKTREE_BRANCH`, `WORKTREE_BRANCHES`, `WORKTREE_PATH`,
 `WORKTREE_PATHS`, `WORKTREE_EXISTS`, `WORKTREE_MISSING`, `ITEM_PROJECT`,
-`REPO_ROOT`.
+`REPO_ROOT`, `POLISH_ENTRY_STAGE`, `POLISH_THROUGH_STAGE`, `LIVE_STAGE`,
+`NEXT_STAGE`.
 
 ---
 
@@ -35,6 +36,21 @@ ITEM_TITLE=$(yoke items get "$ITEM_REF" title 2>/dev/null) || ITEM_TITLE=""
 
 If any of those reads come back empty, stop with:
 > Item PREFIX-{N} not found.
+
+Read the item's exact immutable version before selecting a stage:
+
+```text
+yoke workflows version get WORKFLOW VERSION --json
+```
+
+Use `workflow_id` and `workflow_version` from the item pin for `WORKFLOW`
+and `VERSION`. In `definition.stages` order, find the half-open
+`definition.skill_bindings` interval containing `ITEM_STATUS`. Require its
+`skill_id` to be `polish`; set `POLISH_ENTRY_STAGE` to `from_stage_id` and
+`POLISH_THROUGH_STAGE` to `through_stage_id`. Never branch on workflow name.
+If no such interval exists or another skill owns it, stop with
+`polish_binding_mismatch`, name the live stage and its bound skill, and
+resolve re-entry through [the shared handoff recipe](../shared/stage-handoff.md).
 
 ## 2. Locate The Worktree Lane Set
 
@@ -122,13 +138,26 @@ Function-call equivalent (for dispatch-surface callers — the CLI above builds 
 }
 ```
 
-**3b. Transition to polishing-implementation** (when entry status is `reviewed-implementation`). Use `lifecycle.transition.execute` to run the gate and emit the matching event:
+**3b. Activate the bound working stage.** Refresh the item pin and its
+definition after claiming. Confirm the live interval still belongs to polish.
+Set `LIVE_STAGE` to the returned status. When it equals `POLISH_ENTRY_STAGE`,
+set `NEXT_STAGE` to the unique declared forward target in
+`definition.transitions` whose `from_stage_id` is `LIVE_STAGE`, using
+`definition.stages` order to exclude rework edges. Require that target to
+remain inside the polish interval, before `POLISH_THROUGH_STAGE`.
+No unique edge is `workflow_next_stage_ambiguous`; no working stage before
+the boundary is `polish_segment_invalid`. Stop and ask the workflow owner
+to repair or select the declared route; do not invent a stage.
+
+Use `lifecycle.transition.execute` to run the target gates:
 
 ```bash
-yoke lifecycle transition "$ITEM_REF" --to polishing-implementation
+yoke lifecycle transition "$ITEM_REF" --from "$LIVE_STAGE" --to "$NEXT_STAGE" --reason "Polish started"
 ```
 
-Update `ITEM_STATUS="polishing-implementation"` in your local shell context after the advance returns success.
+After success, refresh `ITEM_STATUS` from the item pin. When resuming at a
+working stage inside the interval, skip the entry transition and retain that
+stage; never repeat an already completed transition.
 
 Function-call equivalent (the CLI above builds this envelope internally):
 
@@ -138,8 +167,11 @@ Function-call equivalent (the CLI above builds this envelope internally):
   "actor": {"session_id": "<this-session>"},
   "target": {"kind": "item", "item_id": $ITEM_NUM, "public_ref": "$ITEM_REF"},
   "intent": "enter_polish",
-  "payload": {"source_status": "reviewed-implementation", "target_status": "polishing-implementation"}
+  "payload": {"source_status": "$LIVE_STAGE", "target_status": "$NEXT_STAGE"}
 }
 ```
 
-**3c. Verification checkpoint:** After this step, `ITEM_STATUS` must be `polishing-implementation` and the session must hold the work claim. If either condition is not met, stop and surface the error. Only proceed to the context phase (`.agents/skills/yoke/polish/context.md`) after both are confirmed.
+**3c. Verification checkpoint:** The item must be at a working stage inside
+the polish interval and this session must hold the work claim. If either
+condition is not met, stop with the failed condition and its recovery above.
+Only then proceed to [`context.md`](context.md).

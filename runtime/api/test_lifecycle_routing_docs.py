@@ -177,14 +177,13 @@ class TestCommandsDoc:
             "commands.md polish section still claims polish 'does not advance status'"
         )
         assert (
-            "reviewed-implementation" in section
-            and "polishing-implementation" in section
-            and "implemented" in section
-        ), (
-            "commands.md polish section must describe reviewed-implementation -> polishing-implementation -> implemented"
-        )
-        assert "fresh `/yoke usher` command entrypoint" in section, (
-            "commands.md polish section must say usher begins as a fresh command entrypoint"
+            "skill_bindings" in section
+            and "from_stage_id" in section
+            and "through_stage_id" in section
+            and "yoke lifecycle transition" in section
+        ), "commands.md polish section must derive transitions from the pinned binding"
+        assert "next_skill_id" in section and "fresh command entrypoint" in section, (
+            "commands.md polish section must render the fresh bound handoff"
         )
 
     def test_do_section_no_active_supported_paths_env_var(self, text):
