@@ -10,9 +10,16 @@ from runtime.api.domain.test_dash_posture_gate import (
     _insert_dash,
     dash_db_path as dash_db_path,
 )
-from runtime.api.fixtures.backlog_inserts import insert_qa_requirement, insert_qa_run
+from runtime.api.fixtures.backlog_inserts import (
+    insert_item_worktree,
+    insert_qa_requirement,
+    insert_qa_run,
+)
 from runtime.api.fixtures.file_test_db import connect_test_db
+from yoke_core.domain.dash_execution import record_dash_evidence
 from yoke_core.domain.dash_posture_gate import evaluate
+from yoke_core.domain.qa_gate_definitions import GateTarget, LatestCodeRef
+from yoke_core.domain.qa_gate_helpers import _resolve_latest_code_ref
 from yoke_core.domain.qa_requirement_replacement import (
     discharge_declared_replacements,
     point_at_replacement,
@@ -168,6 +175,50 @@ def test_premerge_replacement_proves_exact_lane_commit(dash_db_path, monkeypatch
         _verdict(conn, replacement, sha=sha)
     finally:
         conn.close()
+    result = _gate(dash_db_path)
+    if sha == CANDIDATE_SHA:
+        assert result is None
+    else:
+        assert result["error_code"] == "GATE_DASH_VERIFICATION_UNSATISFIED"
+        assert f"replacement #{replacement}" in result["error"]
+
+
+@pytest.mark.parametrize("sha", [CANDIDATE_SHA, "c" * 40, ""])
+def test_checkout_free_replacement_after_merge_proves_accepted_lane_head(
+    dash_db_path, monkeypatch, sha
+):
+    previous_merge = "b" * 40
+    monkeypatch.setattr(
+        "yoke_core.domain.qa_gate_helpers._git_latest_code_ref",
+        lambda *args: LatestCodeRef(branch="corrected-lane"),
+    )
+    conn = connect_test_db(dash_db_path)
+    try:
+        _, replacement = _cases(conn)
+        record_dash_evidence(
+            conn,
+            item_id=ITEM_ID,
+            result_summary="Previous change merged.",
+            verification_summary="Previous checks passed.",
+            verification_status="passed",
+            commit_sha=previous_merge,
+            merge_sha=previous_merge,
+            touched_files=["app.py"],
+            tree_root="/repo/.worktrees/previous-lane",
+            tree_head_sha=previous_merge,
+        )
+        lane = insert_item_worktree(conn, item_id=ITEM_ID, branch="corrected-lane")
+        conn.execute(
+            "UPDATE item_worktrees SET commit_sha=%s WHERE id=%s",
+            (CANDIDATE_SHA, lane["id"]),
+        )
+        conn.commit()
+        _verdict(conn, replacement, sha=sha)
+    finally:
+        conn.close()
+    latest = _resolve_latest_code_ref(GateTarget(item_id=ITEM_ID), dash_db_path)
+    assert latest.sha == previous_merge
+    assert latest.accepted_shas == (previous_merge, CANDIDATE_SHA)
     result = _gate(dash_db_path)
     if sha == CANDIDATE_SHA:
         assert result is None
