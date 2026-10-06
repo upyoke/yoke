@@ -122,7 +122,7 @@ class TestHandleIdentity:
         assert payload["model"] == "composer-1"
         assert payload["execution_lane"] == "MUSKY"
         assert payload["workspace"] == "/tmp/workspace"
-        assert isinstance(payload["lane_allowed_paths"], list)
+        assert "lane_allowed_paths" not in payload
         assert isinstance(payload["max_chain_steps"], int)
 
     def test_no_session_id_is_refused(self):
@@ -131,7 +131,9 @@ class TestHandleIdentity:
         assert outcome.error.code == "session_required"
 
     def test_unregistered_session_is_refused_not_invented(
-        self, test_db, monkeypatch,
+        self,
+        test_db,
+        monkeypatch,
     ):
         monkeypatch.setattr(
             "yoke_core.domain.handlers.sessions_identity._connect_rw",

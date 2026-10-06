@@ -18,9 +18,8 @@ from __future__ import annotations
 from typing import Any, Iterable, Mapping, Optional
 
 from yoke_contracts.lane_glyph import LaneGlyphError, validate_lane_glyph
-from yoke_contracts.session_lane import lane_is_unresolved
+from yoke_contracts.session_lane import lane_is_unresolved, retired_lane_setting_keys
 from yoke_core.domain import json_helper
-from yoke_core.domain.routable_actions import routable_action_ids
 from yoke_core.domain.session_routing_rules import LaneRuleError, parse_lane_rules
 
 
@@ -47,9 +46,7 @@ def _lane_identity_error(lane: object) -> Optional[str]:
             "nothing resolved, so it cannot name a real lane. Pick another "
             "identity"
         )
-    normalized = "".join(
-        char if char.isalnum() else "_" for char in lane_id
-    ).upper()
+    normalized = "".join(char if char.isalnum() else "_" for char in lane_id).upper()
     if lane_id != normalized:
         return (
             f"{lane_id!r} is stored as {normalized!r} by routing, so the two "
@@ -134,39 +131,9 @@ def _validate_lane_metadata(settings: Mapping[str, Any]) -> tuple[str, ...]:
 
 
 EXECUTOR_LANE_PREFIX = "executor_default_lane_"
-LANE_PATHS_PREFIX = "lane_paths_"
 
 
-def _lane_path_entries(
-    settings: Mapping[str, Any]
-) -> tuple[tuple[str, str, Any], ...]:
-    """Yield ``(field, lane, actions)`` for both allowlist grammars."""
-    entries: list[tuple[str, str, Any]] = []
-    grouped = settings.get("lane_paths")
-    if grouped is not None:
-        if not isinstance(grouped, Mapping):
-            raise SessionRoutingSettingsError(
-                "must be an object keyed by lane identity, each value listing "
-                f"that lane's allowed actions; got {type(grouped).__name__}.",
-                field="lane_paths",
-            )
-        entries.extend(
-            (f"lane_paths.{lane}", str(lane), actions)
-            for lane, actions in grouped.items()
-        )
-    entries.extend(
-        (str(key), str(key)[len(LANE_PATHS_PREFIX):], value)
-        for key, value in settings.items()
-        if isinstance(key, str)
-        and key.startswith(LANE_PATHS_PREFIX)
-        and key != LANE_PATHS_PREFIX
-    )
-    return tuple(entries)
-
-
-def _lane_reference_entries(
-    settings: Mapping[str, Any]
-) -> tuple[tuple[str, Any], ...]:
+def _lane_reference_entries(settings: Mapping[str, Any]) -> tuple[tuple[str, Any], ...]:
     """Yield ``(field, lane)`` for every harness-default lane reference."""
     entries: list[tuple[str, Any]] = []
     grouped = settings.get("executor_default_lanes")
@@ -191,37 +158,6 @@ def _lane_reference_entries(
     return tuple(entries)
 
 
-def _action_list(actions: Any, *, field: str) -> tuple[str, ...]:
-    if isinstance(actions, str):
-        return tuple(part.strip() for part in actions.split(",") if part.strip())
-    if isinstance(actions, (list, tuple)):
-        return tuple(str(action).strip() for action in actions if str(action).strip())
-    raise SessionRoutingSettingsError(
-        f"must be a list of action ids; got {type(actions).__name__}.",
-        field=field,
-    )
-
-
-def _validate_allowed_actions(
-    entries: tuple[tuple[str, str, Any], ...]
-) -> None:
-    catalog = routable_action_ids()
-    for field, _lane, actions in entries:
-        unknown = sorted(
-            {
-                action
-                for action in _action_list(actions, field=field)
-                if action not in catalog
-            }
-        )
-        if unknown:
-            raise SessionRoutingSettingsError(
-                f"names action(s) {', '.join(unknown)} that no lane can be "
-                f"routed onto. The routable actions are {', '.join(catalog)}.",
-                field=field,
-            )
-
-
 def _validate_lane_references(
     entries: tuple[tuple[str, Any], ...], *, declared: Iterable[str]
 ) -> None:
@@ -232,7 +168,7 @@ def _validate_lane_references(
                 f"routes to lane {lane!r}, which this project does not "
                 f"declare. Declared lanes are "
                 f"{', '.join(sorted(declared_lanes)) or '(none)'}; declare "
-                "the lane in lane_metadata or lane_paths first.",
+                "the lane in lane_metadata first.",
                 field=field,
             )
 
@@ -242,22 +178,23 @@ def validate_session_routing_settings(settings: Mapping[str, Any]) -> None:
 
     Validates the document as a whole rather than the keys one writer
     happened to touch, because a merge that adds one rule can only be
-    judged against the lanes the rest of the document declares. Both
-    grammars the capability accepts — the grouped ``lane_paths`` object and
-    the flat ``lane_paths_<lane>`` keys — are covered, so neither is a way
-    around the other.
+    judged against the lane_metadata identities the document declares.
     """
     if not isinstance(settings, Mapping):
         raise SessionRoutingSettingsError(
             f"settings must be a JSON object; got {type(settings).__name__}.",
             field="settings",
         )
-    metadata_lanes = _validate_lane_metadata(settings)
-    path_entries = _lane_path_entries(settings)
-    for field, lane, _actions in path_entries:
-        _require_lane_identity(lane, field=field)
-    _validate_allowed_actions(path_entries)
-    declared = (*metadata_lanes, *(lane for _f, lane, _a in path_entries))
+    retired = retired_lane_setting_keys(settings)
+    if retired:
+        raise SessionRoutingSettingsError(
+            "lane_action_allowlists_retired: remove these settings keys; "
+            "execution lanes group sessions by harness and model. "
+            "Use lane_metadata to declare lanes and workflow bindings to "
+            "select stage skills.",
+            field=", ".join(retired),
+        )
+    declared = _validate_lane_metadata(settings)
     _validate_lane_references(_lane_reference_entries(settings), declared=declared)
     try:
         parse_lane_rules(settings.get("lane_rules"), declared_lanes=declared)

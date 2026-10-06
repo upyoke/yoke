@@ -33,21 +33,25 @@ from runtime.api.engines._doctor_filesystem_full_test_helpers import (
 
 def _empty_conn():
     name = pg_testdb.create_test_database()
-    return pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name
-    )
+    return pg_testdb.drop_database_on_close(pg_testdb.connect_test_database(name), name)
 
 
 class TestSchemaAndConfigChecks:
     def test_schema_script_sync_warns_when_item_db_script_missing(self, tmp_path):
-        with patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value=str(tmp_path)):
+        with patch(
+            "yoke_core.engines.doctor_report._resolve_repo_root",
+            return_value=str(tmp_path),
+        ):
             rec = _run_hc(hc_schema_script_sync)
         assert rec.results[0].result == "WARN"
         assert "items.py not found" in rec.results[0].detail
 
     def test_schema_script_sync_warns_without_items_columns(self, tmp_path):
         conn = _empty_conn()
-        with patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value=str(tmp_path)):
+        with patch(
+            "yoke_core.engines.doctor_report._resolve_repo_root",
+            return_value=str(tmp_path),
+        ):
             rec = _run_hc(hc_schema_script_sync, conn)
         assert rec.results[0].result == "WARN"
         assert "Could not read items table columns" in rec.results[0].detail
@@ -56,12 +60,17 @@ class TestSchemaAndConfigChecks:
         module = tmp_path / "runtime" / "api" / "domain" / "items.py"
         module.parent.mkdir(parents=True)
         module.write_text("SELECT id, status FROM items;\n")
-        with patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value=str(tmp_path)):
+        with patch(
+            "yoke_core.engines.doctor_report._resolve_repo_root",
+            return_value=str(tmp_path),
+        ):
             rec = _run_hc(hc_schema_script_sync)
         assert rec.results[0].result == "PASS"
 
     def test_config_validation_passes_without_repo_root(self):
-        with patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value=None):
+        with patch(
+            "yoke_core.engines.doctor_report._resolve_repo_root", return_value=None
+        ):
             rec = _run_hc(hc_config_validation)
         assert rec.results[0].result == "PASS"
 
@@ -91,7 +100,8 @@ class TestSchemaAndConfigChecks:
 
     def test_config_validation_passes_with_machine_config(self, tmp_path):
         config_path = self._config_with_settings(
-            tmp_path, {"max_chain_steps": 3, "hc_premature_done_min_item_id": 1},
+            tmp_path,
+            {"max_chain_steps": 3, "hc_premature_done_min_item_id": 1},
         )
         with patch.dict(os.environ, {"YOKE_MACHINE_CONFIG_FILE": str(config_path)}):
             rec = _run_hc(hc_config_validation)
@@ -99,13 +109,14 @@ class TestSchemaAndConfigChecks:
 
     def test_config_validation_warns_on_db_owned_settings_twin(self, tmp_path):
         config_path = self._config_with_settings(
-            tmp_path, {"lane_paths_custom": "refine", "wip_cap": 5},
+            tmp_path,
+            {"executor_default_lane_codex*": "CUSTOM", "wip_cap": 5},
         )
         with patch.dict(os.environ, {"YOKE_MACHINE_CONFIG_FILE": str(config_path)}):
             rec = _run_hc(hc_config_validation)
         assert rec.results[0].result == "WARN"
         detail = rec.results[0].detail
-        assert "settings.lane_paths_custom duplicates DB authority" in detail
+        assert "settings.executor_default_lane_codex* duplicates DB authority" in detail
         assert "session-routing" in detail
         assert "settings.wip_cap duplicates DB authority" in detail
         assert "project-policy" in detail
@@ -166,16 +177,23 @@ class TestSchemaAndConfigChecks:
         assert rec.results[0].result == "PASS"
 
     def test_arch_consistency_passes_without_repo_root(self):
-        with patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value=None):
+        with patch(
+            "yoke_core.engines.doctor_report._resolve_repo_root", return_value=None
+        ):
             rec = _run_hc(hc_arch_consistency)
         assert rec.results[0].result == "PASS"
 
-    def test_arch_consistency_warns_on_retired_artifacts_and_schema_gaps(self, tmp_path):
+    def test_arch_consistency_warns_on_retired_artifacts_and_schema_gaps(
+        self, tmp_path
+    ):
         conn = _make_conn()
         backlog_dir = tmp_path / "data" / "backlog"
         backlog_dir.mkdir(parents=True)
         (backlog_dir / ".counter").write_text("1\n")
-        with patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value=str(tmp_path)):
+        with patch(
+            "yoke_core.engines.doctor_report._resolve_repo_root",
+            return_value=str(tmp_path),
+        ):
             rec = _run_hc(hc_arch_consistency, conn)
         assert rec.results[0].result == "WARN"
         assert "Retired root data directory still exists" in rec.results[0].detail
@@ -190,7 +208,10 @@ class TestSchemaAndConfigChecks:
             CREATE TABLE epic_tasks (id INTEGER PRIMARY KEY);
             """,
         )
-        with patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value=str(tmp_path)):
+        with patch(
+            "yoke_core.engines.doctor_report._resolve_repo_root",
+            return_value=str(tmp_path),
+        ):
             rec = _run_hc(hc_arch_consistency, conn)
         assert rec.results[0].result == "PASS"
 
@@ -207,10 +228,7 @@ class TestStaleBody:
 
     def test_passes_when_no_spec_updated_at(self):
         conn = _make_conn()
-        conn.execute(
-            "INSERT INTO items (id, status) "
-            "VALUES (1, 'implementing')"
-        )
+        conn.execute("INSERT INTO items (id, status) VALUES (1, 'implementing')")
         rec = _run_hc(hc_stale_body, conn)
         assert rec.results[0].result == "PASS"
 
@@ -238,6 +256,9 @@ class TestBacklogQualityConfigParsing:
         data_root = tmp_path / "data"
         data_root.mkdir()
         (data_root / "config").write_text("backlog_stale_days=not-a-number\n")
-        with patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value=str(tmp_path)):
+        with patch(
+            "yoke_core.engines.doctor_report._resolve_repo_root",
+            return_value=str(tmp_path),
+        ):
             rec = _run_hc(hc_backlog_quality, conn)
         assert rec.results[0].result in ("PASS", "WARN")

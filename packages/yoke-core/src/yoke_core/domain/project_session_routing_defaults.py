@@ -19,28 +19,6 @@ _SESSION_ROUTING_DEFAULTS: dict[str, Any] = {
         "DARIUS": "DARIUS",
         "ALTMAN": "ALTMAN",
     },
-    "lane_paths": {
-        "DARIUS": [
-            "shepherd",
-            "implement",
-            "conduct",
-            "dash",
-            "blitz",
-            "refine",
-            "polish",
-            "usher",
-            "strategize",
-            "feed",
-            "steer",
-            "doctor",
-        ],
-        "ALTMAN": [
-            "refine",
-            "polish",
-            "usher",
-            "dash",
-        ],
-    },
     "lane_metadata": DEFAULT_LANE_METADATA,
     "process_offers": {
         "default": False,

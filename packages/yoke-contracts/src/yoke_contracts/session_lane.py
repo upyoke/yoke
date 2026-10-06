@@ -3,9 +3,8 @@
 Every ``harness_sessions`` row carries an ``execution_lane``. When routing
 policy resolves the session's executor to a configured lane, that lane name
 is stored. When nothing matches, the row stores the sentinel below — which
-is deliberately *not* a routable lane name: the lane gate treats it as an
-unknown lane, so no work is offered on it until an operator declares the
-lane or fixes the executor mapping.
+means the session has no configured grouping. Work assignment follows
+workflow bindings and explicit staffing independently of this grouping.
 
 Because the sentinel means "unresolved" rather than "a lane called
 primary", it must never win against a configured executor mapping during
@@ -47,6 +46,13 @@ def lane_is_unresolved(lane: Optional[str]) -> bool:
     return (lane or "").strip().lower() in ("", UNRESOLVED_EXECUTION_LANE)
 
 
+def retired_lane_setting_keys(settings: Mapping[str, Any]) -> tuple[str, ...]:
+    """Identify removed action-permission keys for refusal and data convergence."""
+    return tuple(
+        key for key in settings if key == "lane_paths" or key.startswith("lane_paths_")
+    )
+
+
 def lane_presentation(
     lane: Optional[str],
     settings: Optional[Mapping[str, Any]] = None,
@@ -73,4 +79,5 @@ __all__ = [
     "UNRESOLVED_EXECUTION_LANE",
     "lane_is_unresolved",
     "lane_presentation",
+    "retired_lane_setting_keys",
 ]

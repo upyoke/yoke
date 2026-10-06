@@ -5,8 +5,7 @@ canonical executor id and its display alias, the provider, the model
 SessionStart observed, the execution lane the project's routing policy maps
 that executor to, the workspace, the project, and the actor. This handler
 reads those stored facts back through the shared projection and adds the
-values derived from them — the configured paths for the session's lane,
-the stored checkpoint budget, and whether a Yoke
+values derived from them — the stored checkpoint budget and whether a Yoke
 relay started this session as a headless command.
 
 Nothing here re-derives, so nothing returned is advisory. A caller that
@@ -19,7 +18,7 @@ reasons correctly from a false input and nothing downstream misbehaves.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel
 
@@ -47,7 +46,6 @@ class IdentityResponse(BaseModel):
     #: must say it is showing a request.
     requested_model: Optional[str] = None
     execution_lane: Optional[str] = None
-    lane_allowed_paths: List[str] = []
     workspace: Optional[str] = None
     project_id: Optional[int] = None
     project_slug: Optional[str] = None
@@ -87,32 +85,6 @@ def _actor_label(conn: Any, actor_id: Optional[int]) -> Optional[str]:
         return f"actor {actor_id}"
 
 
-def _lane_allowed_paths(
-    conn: Any,
-    project_id: Optional[int],
-    lane: Optional[str],
-) -> List[str]:
-    """Return the configured paths for ``lane`` in this project.
-
-    Routing policy lives in the project's ``session-routing`` capability with
-    machine config as the no-project fallback. This is a settings projection;
-    launch staffing resolves execution permissions independently.
-    """
-    if not lane:
-        return []
-    from yoke_core.api.routing_config import (
-        load_project_routing_settings,
-        load_routing_config,
-    )
-    from yoke_core.api.service_client_shared import _get_config_path
-
-    routing_config = load_routing_config(
-        _get_config_path(),
-        project_settings=load_project_routing_settings(conn, project_id),
-    )
-    return list(routing_config.lane_allowed_paths.get(lane, []))
-
-
 def _max_chain_steps() -> int:
     from yoke_core.api.session_chain_policy import get_max_chain_steps
     from yoke_core.api.service_client_shared import _get_config_path
@@ -121,7 +93,7 @@ def _max_chain_steps() -> int:
 
 
 def handle_identity(request: FunctionCallRequest) -> HandlerOutcome:
-    """Return the calling session's stored identity plus its lane policy."""
+    """Return the calling session's stored identity and checkpoint budget."""
     sid = _session_id(request)
     if not sid:
         return _err("session_required", "session id is required")
@@ -149,11 +121,6 @@ def handle_identity(request: FunctionCallRequest) -> HandlerOutcome:
             "model": identity.model or None,
             "requested_model": identity.requested_model or None,
             "execution_lane": identity.execution_lane,
-            "lane_allowed_paths": _lane_allowed_paths(
-                conn,
-                identity.project_id,
-                identity.execution_lane,
-            ),
             "workspace": identity.workspace,
             "project_id": identity.project_id,
             "project_slug": _project_slug(conn, identity.project_id),

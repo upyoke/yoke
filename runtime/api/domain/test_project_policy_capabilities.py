@@ -86,22 +86,12 @@ def test_ensure_creates_default_capabilities(policy_conn: Any) -> None:
     routing = _settings(policy_conn, 1, SESSION_ROUTING_CAPABILITY)
     assert routing["executor_default_lanes"]["claude*"] == "DARIUS"
     assert routing["executor_default_lanes"]["DARIUS"] == "DARIUS"
-    assert "conduct" in routing["lane_paths"]["DARIUS"]
-    assert "feed" in routing["lane_paths"]["DARIUS"]
+    assert "lane_paths" not in routing
     assert routing["process_offers"]["default"] is False
     assert routing["lane_metadata"] == {
         "DARIUS": {"label": "DARIUS", "glyph": "🐎"},
         "ALTMAN": {"label": "ALTMAN", "glyph": "👓"},
     }
-
-
-def test_default_lane_paths_allow_dash_on_every_lane(policy_conn: Any) -> None:
-    ensure_default_policy_capabilities(policy_conn, 1)
-    policy_conn.commit()
-
-    routing = _settings(policy_conn, 1, SESSION_ROUTING_CAPABILITY)
-    for lane, paths in routing["lane_paths"].items():
-        assert "dash" in paths, f"lane {lane} cannot run dash"
 
 
 def test_ensure_repairs_missing_keys_without_overwriting(policy_conn: Any) -> None:

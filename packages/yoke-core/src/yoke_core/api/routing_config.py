@@ -4,7 +4,6 @@ This module resolves where a session runs:
 
 - session (harness, model) -> lane, through ``lane_rules`` selectors
   and the ``executor_default_lanes`` harness default beneath them
-- lane -> allowed actions
 - lane -> its operator-facing label and glyph
 
 Project authority lives in the ``project_capabilities`` row whose type is
@@ -22,7 +21,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 import re
-from typing import Any, Dict, List, Mapping, Optional, Tuple
+from typing import Any, Dict, Mapping, Optional, Tuple
 
 from yoke_contracts.session_lane import UNRESOLVED_EXECUTION_LANE
 from yoke_core.domain.session_routing_rules import (
@@ -39,7 +38,6 @@ from yoke_core.domain import runtime_settings
 
 
 _EXECUTOR_PREFIX = "executor_default_lane_"
-_LANE_PATHS_PREFIX = "lane_paths_"
 PROCESS_OFFER_PREFIX = "do_process_offer_"
 
 # Settings whose value is a nested document rather than a scalar. The
@@ -88,7 +86,6 @@ def _settings_to_raw_map(settings: Mapping[str, Any]) -> Dict[str, str]:
     grouped aliases:
 
     - ``executor_default_lanes: {"claude*": "DARIUS"}``
-    - ``lane_paths: {"DARIUS": ["shepherd", "conduct"]}``
     - ``process_offers: {"default": false, "feed": true}``
 
     ``lane_rules`` and ``lane_metadata`` are nested documents that the
@@ -104,10 +101,6 @@ def _settings_to_raw_map(settings: Mapping[str, Any]) -> Dict[str, str]:
         if key == "executor_default_lanes" and isinstance(value, Mapping):
             for executor, lane in value.items():
                 raw[f"{_EXECUTOR_PREFIX}{executor}"] = _stringify_setting(lane)
-            continue
-        if key == "lane_paths" and isinstance(value, Mapping):
-            for lane, paths in value.items():
-                raw[f"{_LANE_PATHS_PREFIX}{lane}"] = _stringify_setting(paths)
             continue
         if key in {"process_offer", "process_offers"} and isinstance(value, Mapping):
             for process, enabled in value.items():
@@ -193,7 +186,6 @@ def _json_setting(raw: Mapping[str, str], key: str) -> Any:
 def _routing_config_from_raw(raw: Mapping[str, str]) -> "RoutingConfig":
     executor_defaults: Dict[str, str] = {}
     executor_wildcard_lanes: Dict[str, str] = {}
-    lane_paths: Dict[str, List[str]] = {}
 
     for key, value in raw.items():
         if key.startswith(_EXECUTOR_PREFIX):
@@ -203,7 +195,7 @@ def _routing_config_from_raw(raw: Mapping[str, str]) -> "RoutingConfig":
             if "*" in executor_key:
                 # Only the trailing-``*`` wildcard form is supported. Any other
                 # placement (mid-string, leading) is permissively ignored so a
-                # malformed line cannot crash session offer.
+                # malformed line cannot crash session registration.
                 if not executor_key.endswith("*"):
                     continue
                 prefix = _normalize_prefix_token(executor_key[:-1])
@@ -212,19 +204,9 @@ def _routing_config_from_raw(raw: Mapping[str, str]) -> "RoutingConfig":
             executor_defaults[normalize_token(executor_key)] = value.strip()
             continue
 
-        if key.startswith(_LANE_PATHS_PREFIX):
-            lane_key = key[len(_LANE_PATHS_PREFIX) :]
-            if not lane_key:
-                continue
-            parsed_paths = [
-                part.strip().lower() for part in value.split(",") if part.strip()
-            ]
-            lane_paths[normalize_token(lane_key).upper()] = parsed_paths
-
     return RoutingConfig(
         executor_default_lanes=executor_defaults,
         executor_wildcard_lanes=executor_wildcard_lanes,
-        lane_allowed_paths=lane_paths,
         lane_rules=parse_lane_rules_for_routing(_json_setting(raw, "lane_rules")),
         lane_metadata=_json_setting(raw, "lane_metadata") or {},
     )
@@ -236,7 +218,6 @@ class RoutingConfig:
 
     executor_default_lanes: Dict[str, str] = field(default_factory=dict)
     executor_wildcard_lanes: Dict[str, str] = field(default_factory=dict)
-    lane_allowed_paths: Dict[str, List[str]] = field(default_factory=dict)
     lane_rules: Tuple[LaneRule, ...] = ()
     lane_metadata: Mapping[str, Any] = field(default_factory=dict)
 
@@ -294,7 +275,7 @@ def load_routing_config(
     *,
     project_settings: Optional[Mapping[str, str]] = None,
 ) -> RoutingConfig:
-    """Load executor default lanes, lane allowlists, and lane rules.
+    """Load executor default lanes, lane rules, and presentation metadata.
 
     Machine config is the no-project fallback.  When project settings are
     supplied from the ``session-routing`` capability, they are the complete
@@ -320,12 +301,12 @@ def resolve_execution_lane(
     routing_config: RoutingConfig,
     model: Optional[str] = None,
 ) -> str:
-    """Resolve the lane for a session offer or registration.
+    """Resolve the grouping for a registering session.
 
     An explicit lane wins only when it names a real choice: ``default`` and
     the unresolved sentinel both mean "nothing chose a lane" and yield to
     routing policy, so a caller that could not resolve one locally cannot
-    overrule the project's mapping with a lane no allowlist declares.
+    overrule the project's mapping with an unresolved grouping.
 
     ``model`` is the model the session is actually serving, and it is
     what ``lane_rules`` model selectors match against. Omitting it is

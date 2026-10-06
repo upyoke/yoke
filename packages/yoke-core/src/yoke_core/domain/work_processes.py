@@ -112,33 +112,6 @@ def action_kind_to_process_key(action_value: str) -> "str | None":
     return _ACTION_KIND_TO_PROCESS_KEY.get(str(action_value).strip().lower())
 
 
-# Path-token vocabulary for process actions in lane allowlists. Sibling
-# to ``_NEXT_STEP_TO_PATH`` in ``sessions_analytics_core.py`` /
-# ``sessions_analytics_core.py``: those map scheduler ``next_step``
-# values to lifecycle path tokens; this map covers process actions a
-# lane allowlist may opt into. ``DOCTOR`` is recognized as a valid
-# token even though it is not yet a ``NextAction`` kind; documentation
-# and config validation rely on the expanded vocabulary.
-_PROCESS_KEY_TO_PATH: Dict[str, str] = {
-    PROCESS_STRATEGIZE: "strategize",
-    PROCESS_FEED: "feed",
-    PROCESS_DOCTOR: "doctor",
-}
-
-
-def process_key_to_path(process_key: str) -> "str | None":
-    """Return the lane-policy path token for a registered process key.
-
-    Returns ``None`` for empty or unknown keys so callers can short-
-    circuit without raising. Non-process actions never reach this map
-    in the gate flow because :func:`action_kind_to_process_key` filters
-    them upstream.
-    """
-    if not process_key:
-        return None
-    return _PROCESS_KEY_TO_PATH.get(str(process_key).strip().upper())
-
-
 __all__ = [
     "PROCESS_FEED",
     "PROCESS_DOCTOR",
@@ -149,16 +122,4 @@ __all__ = [
     "conflict_group_for",
     "is_known_process",
     "list_processes",
-    "process_dispatch_paths",
-    "process_key_to_path",
 ]
-
-
-def process_dispatch_paths() -> frozenset:
-    """Return every lane-policy path token a registered process maps onto.
-
-    The routable-action catalog derives its process membership from here,
-    so registering a process above is the only edit a new process
-    destination needs.
-    """
-    return frozenset(_PROCESS_KEY_TO_PATH.values())

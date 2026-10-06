@@ -2,8 +2,7 @@
 
 Read-side leniency is only safe if nothing malformed can be stored, so
 these cases are the ones that must be impossible to write: a glyph the
-board cannot align, a lane label two lanes share, an action nothing
-dispatches, a reference to a lane that does not exist, and a selector that
+board cannot align, a lane label two lanes share, a reference to a lane that does not exist, and a selector that
 routes two ways at once. The live document each project already stores
 must keep validating, or the contract tightened past its own data.
 """
@@ -44,11 +43,6 @@ _LIVE_SHAPED = {
         "DARIUS": {"glyph": "\U0001f40e", "label": "DARIUS"},
         "MUSKY": {"glyph": "\U0001f6f8", "label": "MUSKY"},
     },
-    "lane_paths": {
-        "ALTMAN": ["refine", "polish", "usher", "dash"],
-        "DARIUS": ["shepherd", "dash", "steer"],
-        "MUSKY": ["dash"],
-    },
     "process_offers": {"default": False, "doctor": False},
 }
 
@@ -76,7 +70,6 @@ class TestAcceptedDocuments:
         validate_session_routing_settings(
             {
                 "lane_metadata": {"BLAH": {"label": "BLAH", "glyph": "\U0001f680"}},
-                "lane_paths": {"BLAH": ["dash"]},
                 "executor_default_lanes": {"claude*": "BLAH"},
             }
         )
@@ -86,13 +79,7 @@ class TestAcceptedDocuments:
         validate_session_routing_settings(
             {
                 "lane_metadata": {"MUSKY": {"label": "ROCKETS", "glyph": "\U0001f680"}},
-                "lane_paths": {"MUSKY": ["dash"]},
             }
-        )
-
-    def test_the_flat_allowlist_grammar_is_validated_too(self):
-        validate_session_routing_settings(
-            {"lane_paths_DARIUS": "dash,polish"}
         )
 
 
@@ -141,21 +128,6 @@ class TestRefusedDocuments:
             )
         assert "reserved identity" in str(caught.value)
 
-    def test_an_action_nothing_dispatches_is_refused_and_lists_the_catalog(
-        self,
-    ):
-        with pytest.raises(SessionRoutingSettingsError) as caught:
-            validate_session_routing_settings(
-                _with(lane_paths={"DARIUS": ["dash", "teleport"]})
-            )
-        assert caught.value.field == "lane_paths.DARIUS"
-        assert "teleport" in str(caught.value)
-        assert "shepherd" in str(caught.value)
-
-    def test_an_empty_allowlist_is_accepted_as_a_lane_that_runs_nothing(self):
-        # It is a real configuration, not a typo for "everything".
-        validate_session_routing_settings(_with(lane_paths={"DARIUS": []}))
-
     def test_a_harness_default_naming_a_missing_lane_is_refused(self):
         with pytest.raises(SessionRoutingSettingsError) as caught:
             validate_session_routing_settings(
@@ -186,13 +158,6 @@ class TestRefusedDocuments:
             )
         assert "repeats a selector" in str(caught.value)
 
-    def test_a_lane_identity_that_routing_would_rename_is_refused(self):
-        with pytest.raises(SessionRoutingSettingsError) as caught:
-            validate_session_routing_settings(
-                {"lane_paths": {"darius": ["dash"]}}
-            )
-        assert "'DARIUS'" in str(caught.value)
-
 
 class TestWriteBoundary:
     """The capability canonicalizer is the one hook every writer shares."""
@@ -220,3 +185,17 @@ class TestWriteBoundary:
         # The registered handler turns ValueError into validation_error with
         # the payload jsonpath, so this inheritance is the mapping.
         assert issubclass(SessionRoutingSettingsError, ValueError)
+
+
+@pytest.mark.parametrize("key", ["lane_paths", "lane_paths_DARIUS"])
+def test_removed_action_permissions_are_refused_with_recovery(key):
+    with pytest.raises(SessionRoutingSettingsError) as refusal:
+        validate_session_routing_settings(_with(**{key: {}}))
+    assert refusal.value.field == key
+    assert "lane_action_allowlists_retired" in str(refusal.value)
+    assert "remove these settings keys" in str(refusal.value)
+
+
+def test_lane_metadata_identity_must_be_canonical():
+    with pytest.raises(SessionRoutingSettingsError, match="'DARIUS'"):
+        validate_session_routing_settings({"lane_metadata": {"darius": {}}})
