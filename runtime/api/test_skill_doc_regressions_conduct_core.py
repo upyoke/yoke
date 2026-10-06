@@ -177,8 +177,8 @@ class TestConductSyncCleanupRegressions:
     def test_dispatch_context_uses_implementing_lifecycle(self):
         """dispatch-context.md auto-sync must use 'implementing', not 'ready'."""
         text = _read_dispatch_context(self.CONDUCT / "dispatch-context.md")
-        assert "status implementing" in text, (
-            "dispatch-context.md auto-sync should advance to 'implementing'"
+        assert "yoke lifecycle transition PREFIX-${_id} --to implementing" in text, (
+            "dispatch-context.md auto-sync should use the lifecycle transition to implementing"
         )
 
     def test_entry_activation_no_stale_ready_wording(self):

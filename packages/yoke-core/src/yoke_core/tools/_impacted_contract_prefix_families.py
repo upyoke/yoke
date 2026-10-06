@@ -48,7 +48,7 @@ AGENT_SKILL_CONTRACT_TESTS = (
     "runtime/api/test_simulate_operator_contract.py",
     "runtime/api/test_simulation_prompt_assembly.py",
     "runtime/api/test_skill_doc_drift.py",
-    "runtime/api/test_skill_doc_regressions_advance.py",
+    "runtime/api/test_skill_doc_regressions_implement.py",
     "runtime/api/test_skill_doc_regressions_claim_coverage_repair.py",
     "runtime/api/test_skill_doc_regressions_conduct_claims.py",
     "runtime/api/test_skill_doc_regressions_conduct_core.py",
