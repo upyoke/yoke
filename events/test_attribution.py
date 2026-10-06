@@ -117,9 +117,7 @@ def test_server_cookie_persistence_and_integrity():
     assert all(
         flag in header for flag in ("HttpOnly", "Secure", "SameSite=Lax", "Max-Age=")
     )
-    second, _ = cookie.capture(
-        header, "https://example.com", "https://google.com"
-    )
+    second, _ = cookie.capture(header, "https://example.com", "https://google.com")
     assert first["visitor_id"] == second["visitor_id"]
     assert first["first_touch"] == second["first_touch"]
     assert second["last_touch"]["acquisition_channel"] == "organic_search"

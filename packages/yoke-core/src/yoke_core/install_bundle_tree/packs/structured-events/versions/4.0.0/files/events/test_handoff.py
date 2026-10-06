@@ -18,9 +18,7 @@ HERE = Path(__file__).resolve().parent
 @pytest.fixture
 def captured():
     cookie = AttributionCookie("s" * 32, "example.com")
-    record, header = cookie.capture(
-        "", "https://example.com/?utm_source=email", ""
-    )
+    record, header = cookie.capture("", "https://example.com/?utm_source=email", "")
     return cookie, record, header
 
 

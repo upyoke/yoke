@@ -36,7 +36,7 @@
       "version": "1.1.0"
     },
     "structured-events": {
-      "content_digest": "ad998c03dad3e1cb88a1cc8fdc107922775405c012e021033487bbe7b58f47c1",
+      "content_digest": "197e51563820029239635509f3dc54d1d722a6f62e821e505a09fab9ab627f76",
       "files": {
         "docs/packs/structured-events/README.md": {
           "mode": 420,
@@ -86,7 +86,7 @@
         "events/events_cookie.py": {
           "mode": 420,
           "path": "events/events_cookie.py",
-          "sha256": "962b96fb5bd20cd152fdf9761c090573b3188ddc01a2018614f1ad0ff2bb55be"
+          "sha256": "16f83c542c7662cf9f6da4518d0482a860f72bcb51e19c5dcb1b974f68f3d94a"
         },
         "events/events_cookie.ts": {
           "mode": 420,
@@ -131,7 +131,7 @@
         "events/test_attribution.py": {
           "mode": 420,
           "path": "events/test_attribution.py",
-          "sha256": "ba311ebd66bdb819c700143886cf64340951aabf9ac29df12429222159471ccb"
+          "sha256": "2f20521078ba999b9d1463fc9e6c55b31805f5ca0ac87bc99ff1dd5fef40654c"
         },
         "events/test_browser.mjs": {
           "mode": 420,
@@ -151,7 +151,7 @@
         "events/test_handoff.py": {
           "mode": 420,
           "path": "events/test_handoff.py",
-          "sha256": "93d4376885acb4b537a1046063ff94a90e7a12d1dc574afe83b97b4c005f0cad"
+          "sha256": "b19c6025b1494c8ecefae7e7cfde5c99ee31fbd3f0b064db0edf00f11d4a06ea"
         }
       },
       "prerequisites": [

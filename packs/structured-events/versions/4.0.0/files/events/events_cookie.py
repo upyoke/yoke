@@ -61,9 +61,7 @@ class AttributionCookie:
             if COOKIE_NAME not in parsed:
                 if COOKIE_NAME in cookie:
                     raise ValueError()
-                raise ValueError(
-                    "attribution_absent: capture attribution first"
-                )
+                raise ValueError("attribution_absent: capture attribution first")
             payload, signature = parsed[COOKIE_NAME].value.split(".")
             expected = hmac.new(self.secret, payload.encode(), hashlib.sha256).digest()
             if not hmac.compare_digest(expected, _decode(signature)):
