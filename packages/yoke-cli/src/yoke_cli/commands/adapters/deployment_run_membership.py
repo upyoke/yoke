@@ -65,8 +65,11 @@ def deployment_runs_add_item(args: List[str]) -> int:
         prog="yoke deployment-runs add-item",
         description=(
             "Attach one public item reference whose code the candidate does "
-            "not carry but which the run should still deliver. Requires the "
-            "caller's project deploy lock."
+            "not carry but which the run should still deliver. Refused "
+            "(item_qa_flow_without_delivery_custody) when the run's flow has "
+            "an item-scoped QA stage but takes no delivery custody: such a "
+            "member never receives the requirement snapshot item QA proves "
+            "against. Requires the caller's project deploy lock."
         ),
         epilog=CROSS_PROJECT_MEMBERSHIP_NOTE,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -154,8 +157,14 @@ def deployment_runs_validate_composition(args: List[str]) -> int:
         prog="yoke deployment-runs validate-composition",
         description=(
             "Compose the run now from its candidate and report what "
-            "enrolled or why it refused. Requires the caller's project "
-            "deploy lock."
+            "enrolled or why it refused. A flow with an item-scoped QA "
+            "stage refuses here, before any stage runs, a run that carries "
+            "or owes members without delivery custody "
+            "(item_qa_flow_without_delivery_custody), and a memberless run "
+            "whose flow is the completion flow for delivery-ready items no "
+            "other release holds (item_qa_run_without_members). A memberless "
+            "run owing no delivery passes with item_qa_no_member_owes_target. "
+            "Requires the caller's project deploy lock."
         ),
     )
     parser.add_argument("run_id")

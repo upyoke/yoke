@@ -156,10 +156,15 @@ For harnesses with a manifest, Yoke core derives the effective `downstream_paths
 
 ## Part 3: Session Registration
 
-The opening hook registers the harness identity and binds a launched session
-to its launch mandate. Read the registered identity through
-`yoke sessions identity`; the launch's registered session must match before
-its assigned work begins.
+The opening hook registers the harness identity, including the workspace the
+manifest's `workspace_source` names. A launched session then binds to its
+launch mandate: in that same hook when the harness names the session before it
+starts, or moments later when the vendor assigns the id and the relay matches
+the session by machine, surface, and workspace. Read the registered identity
+through `yoke sessions identity`; the launch's registered session must match
+before its assigned work begins, and an empty registration whose
+`identity_correlation` is still `pending` or `awaiting_registration` is in
+flight, not a mismatch.
 
 ### Requirements
 

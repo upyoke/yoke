@@ -16,7 +16,9 @@ Item-bound batch release — who runs what:
 
   Steering (the seat driving delivery) owns the run and nothing else. It holds
   the project deploy lock for the whole pair, pins ONE source SHA, creates the
-  stage and production runs from that SHA, and starts each one. The start
+  stage and production runs from that SHA, and starts each one. On a flow
+  that waits for CI that SHA needs its own CI run: create the CI-gated run
+  without --source-ref to bind one, then pin its release_lineage. The start
   enrolls every delivery-ready item its candidate carries that no live or
   succeeded release already holds — whether the work landed since the last
   release or long before it — and applies the composition check itself, so

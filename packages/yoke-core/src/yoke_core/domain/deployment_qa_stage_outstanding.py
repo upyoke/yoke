@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from yoke_core.domain.deployment_run_membership_removals import removed_item_ids
+from yoke_core.domain import deployment_run_item_qa_membership as item_qa
 
 from yoke_core.domain.deployment_flow_policy import QA_STEP_RUNNER, STAGE_KIND_QA
 from yoke_core.domain.deployment_qa_frozen_plan_selection import (
@@ -193,10 +194,14 @@ def _evaluate(
         and not members
         and not removed_item_ids(conn, run_id)
     ):
+        # Asked again here, failing closed, rather than trusting pre-start.
+        if refusal := item_qa.memberless_item_qa_refusal(conn, run_id):
+            return QaStageOutstanding(lines=(refusal,), subjects=1, waiting=1)
         return QaStageOutstanding(
-            lines=("item-scoped QA stage has no attached run members",),
-            subjects=1,
-            waiting=1,
+            lines=(),
+            subjects=0,
+            waiting=0,
+            no_obligation_lines=(item_qa.NO_MEMBER_OWES_TARGET,),
         )
     lines: list[str] = []
     waiting_members: list[int | None] = []

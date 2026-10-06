@@ -311,9 +311,20 @@ carrying run when that run ships its project's source. If selections differ,
 use a run of the items' selected flow or deliberately reconcile those item
 flows, then validate composition; never silently rewrite a selection.
 
-Pin one source SHA and use that same SHA for stage and production:
+Pin one source SHA and use that same SHA for stage and production. On a flow
+that waits for CI it must have its own CI run, and a merge-queue push tests
+only its newest commit: create the CI-gated production run without
+`--source-ref` so it binds the newest tested commit on the gate branch (or
+dispatches CI there when no commit has a run and binds the commit that run
+tests), read it with `yoke --env <cp> deployment-runs get {RUN_ID}
+release_lineage`, and pass it as `{PINNED_SHA}` for the stage run, which
+refuses a missing lineage. An untested `--source-ref` is refused
+`release_source_untested` with the newest tested commit named; a gate that
+still finds no run fails by name, and the recovery is a new run, never a hand
+dispatch:
 
 ```text
+yoke --env <cp> deployment-runs create {_project} {PROD_FLOW} --environment prod --idempotency-key prod-{PROD_FLOW}-1
 yoke --env <cp> deployment-runs create {_project} {FLOW} --environment {ENV} --project-repo-path {CHECKOUT} --source-ref {PINNED_SHA} --idempotency-key {ENV}-{PINNED_SHA}-1
 yoke --env <cp> deployment-runs validate-composition {RUN_ID}
 yoke --env <cp> watch deploy -- {RUN_ID}

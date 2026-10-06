@@ -174,17 +174,13 @@ def test_collector_failure_and_rate_limit_never_report_acceptance(client, monkey
     assert "accepted" not in failed.json()
 
 
-def test_attribution_requires_consent_uses_signed_httponly_cookie_and_revokes(client):
+def test_attribution_captures_without_consent_into_signed_httponly_cookie(client):
     admitted = headers(client)
     capture = {
         "url": ORIGIN + "/?utm_source=newsletter&utm_medium=email",
         "referrer": "",
     }
-    denied = client.post("/api/events/attribution", json=capture, headers=admitted)
-    assert denied.status_code == 403 and denied.json()["error"] == "consent_required"
-    first = client.post(
-        "/api/events/attribution", json={**capture, "consent": True}, headers=admitted
-    )
+    first = client.post("/api/events/attribution", json=capture, headers=admitted)
     assert first.status_code == 200
     assert (
         "HttpOnly" in first.headers["Set-Cookie"]
@@ -193,13 +189,16 @@ def test_attribution_requires_consent_uses_signed_httponly_cookie_and_revokes(cl
     record = first.json()
     later = client.post(
         "/api/events/attribution",
-        json={"url": ORIGIN + "/items", "referrer": ORIGIN, "consent": True},
+        json={"url": ORIGIN + "/items", "referrer": ORIGIN},
         headers=admitted,
     )
     assert later.json() == record
-    revoked = client.delete("/api/events/attribution", headers=admitted)
-    assert revoked.status_code == 200
-    assert "Max-Age=0" in revoked.headers["Set-Cookie"]
+    assert set(record) == {"visitor_id", "first_touch", "last_touch"}
+    assert client.delete("/api/events/attribution", headers=admitted).status_code == 405
+    invalid = client.post(
+        "/api/events/attribution", json={"url": ORIGIN}, headers=admitted
+    )
+    assert invalid.json()["error"] == "attribution_input_invalid"
 
 
 def test_local_collector_has_no_bearer_requirement_and_keeps_http_cookie(
@@ -218,7 +217,6 @@ def test_local_collector_has_no_bearer_requirement_and_keeps_http_cookie(
         json={
             "url": "http://127.0.0.1:8689/?token=door",
             "referrer": "",
-            "consent": True,
         },
     )
     assert response.status_code == 200

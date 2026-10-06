@@ -27,7 +27,10 @@ class HookRegistrationFacts:
     launch_id: str = ""
     project_id: Optional[int] = None
     transcript_path: str = ""
-    cwd: str = ""
+    #: The harness workspace the session opened, from the first path the
+    #: payload names: Cursor's ``workspace_roots`` lead, then ``cwd`` (Claude,
+    #: Codex, and Cursor tool events). A launch binds its native by this path.
+    workspace: str = ""
     #: The process and hook event that drove this registration, resolved by
     #: the dispatch tail. Empty for registration paths that carry no hook
     #: dispatch behind them (an operator surface calling the registrar).
@@ -49,6 +52,8 @@ def parse_hook_registration_facts(
     transcript_path: str,
 ) -> HookRegistrationFacts:
     """Parse only the bounded scalar identity fields carried by a hook."""
+    from yoke_harness.hooks.identity_relay import workspace_path_candidates
+
     try:
         payload = json.loads(payload_json) if payload_json else {}
     except (json.JSONDecodeError, TypeError):
@@ -74,7 +79,7 @@ def parse_hook_registration_facts(
             else _positive_int(payload.get("project_id"))
         ),
         transcript_path=transcript_path or _text("transcript_path"),
-        cwd=_text("cwd"),
+        workspace=next(iter(workspace_path_candidates(payload)), "").strip(),
         driver=_driver_block(payload),
     )
 

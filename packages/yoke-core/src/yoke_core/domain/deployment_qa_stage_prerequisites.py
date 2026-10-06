@@ -202,7 +202,13 @@ def prior_stage_refusals(
             continue
         subjects = _subjects(conn, run_id, stage)
         if not subjects and not removed_item_ids(conn, run_id):
-            refusals.append(f"stage {stage['name']!r} has no attached item subjects")
+            # A memberless item stage that owes no delivery passed by name.
+            from yoke_core.domain.deployment_run_item_qa_membership import (
+                memberless_item_qa_refusal,
+            )
+
+            if owed := memberless_item_qa_refusal(conn, run_id):
+                refusals.append(f"stage {stage['name']!r}: {owed}")
             continue
         for member in subjects:
             rows = conn.execute(

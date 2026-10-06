@@ -28,7 +28,6 @@ def capture(client, admitted):
         ATTRIBUTION,
         headers=admitted,
         json={
-            "consent": True,
             "url": ORIGIN + "/?utm_source=newsletter",
             "referrer": "",
         },
@@ -37,7 +36,7 @@ def capture(client, admitted):
     return response.json()
 
 
-def test_read_valid_absent_tampered_and_revoked_never_sets_cookie(client):
+def test_read_valid_absent_and_tampered_never_sets_cookie(client):
     admitted = headers(client)
     absent = client.get(ATTRIBUTION, headers=admitted)
     assert absent.json()["error"] == "attribution_absent"
@@ -51,11 +50,6 @@ def test_read_valid_absent_tampered_and_revoked_never_sets_cookie(client):
     bad = client.get(ATTRIBUTION, headers={**admitted, "Cookie": name + "=bad.bad"})
     assert bad.json()["error"] == "attribution_invalid"
     assert "set-cookie" not in bad.headers
-    client.delete(ATTRIBUTION, headers=admitted)
-    assert (
-        client.get(ATTRIBUTION, headers=admitted).json()["error"]
-        == "attribution_absent"
-    )
 
 
 def test_cross_origin_handoff_mint_redeem_and_replay_after_new_app_process(
@@ -88,7 +82,7 @@ def test_cross_origin_handoff_mint_redeem_and_replay_after_new_app_process(
         )
 
 
-def test_forgery_expiry_wrong_audience_and_unconsented_mint(
+def test_forgery_expiry_wrong_audience_and_uncaptured_mint(
     client, database, monkeypatch
 ):
     admitted = headers(client)

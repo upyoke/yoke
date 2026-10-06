@@ -46,7 +46,7 @@ Property groups are named, reusable sets of fields. Every implementation (shell,
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `session_id` | TEXT | Yes | Session identifier. For agents: Claude session ID or fallback `$(date +%s)-$$`. For frontend: client-generated UUID held in memory after consent; cleared on revocation. For backend: request-scoped or extracted from auth token. |
+| `session_id` | TEXT | Yes | Session identifier. For agents: Claude session ID or fallback `$(date +%s)-$$`. For frontend: client-generated UUID held in memory for the page lifetime. For backend: request-scoped or extracted from auth token. |
 | `session_start_time` | TEXT (ISO 8601 UTC) | No | When the session began. |
 
 ### request_props
@@ -106,7 +106,7 @@ Frontend-specific fields for device/browser context.
 
 ### marketing_attribution_props
 
-Included on every consented frontend event when server capture succeeds. Storage is consent-gated; required signup facts belong to the account/actor owner.
+Included on every frontend event when server capture succeeds. Required signup facts belong to the account/actor owner.
 
 | Field | Type | Required | Description |
 |---|---|---|---|

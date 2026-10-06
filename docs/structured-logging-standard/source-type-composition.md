@@ -96,10 +96,10 @@ Emission pattern: Explicit calls from application code via events.py module
 
 ## Source Type: frontend
 
-Envelope composition: event_props + system_props + org_props + session_props + page_props + device_props + marketing_attribution_props (every consented event after capture) + context; the authenticated receiver stamps actor_props
+Envelope composition: event_props + system_props + org_props + session_props + page_props + device_props + marketing_attribution_props (every event after capture) + context; the authenticated receiver stamps actor_props
 
 Required groups: event_props, system_props, session_props, page_props, device_props
-Conditional groups: org_props (when org context exists), marketing_attribution_props (when consented capture succeeds)
+Conditional groups: org_props (when org context exists), marketing_attribution_props (when capture succeeds)
 Emission pattern: Client-side SDK calls, batched to /api/events endpoint
 
 ```json

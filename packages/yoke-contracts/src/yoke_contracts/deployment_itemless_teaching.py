@@ -60,10 +60,16 @@ Itemless environment release (project-generic):
   # plane's own serving API, the CLI refuses and names the paired *-db-admin
   # connection required for that self-deploy. The run copies the flow's
   # registered environment; pass --environment ENV only to override it.
+  # With no --source-ref, a flow that waits for CI binds the newest commit
+  # on its gate branch that has its own CI run (passed or running), or
+  # dispatches that CI on the branch and binds the commit it tests. Read
+  # the bound commit with `deployment-runs get "$RUN_ID" release_lineage`
+  # and give the release's paired run that same commit.
   RUN_ID=$(yoke --env CONTROL-PLANE deployment-runs create PROJECT FLOW \\
-    --idempotency-key PROJECT-FLOW-PINNED_SHA-1 \\
-    --project-repo-path /path/to/checkout \\
-    --source-ref PINNED_SHA)
+    --idempotency-key PROJECT-FLOW-1)
+  # Or pin an exact commit; on a CI-gated flow it must have its own CI run,
+  # or creation refuses (release_source_untested) naming the newest one:
+  #   ... --project-repo-path /path/to/checkout --source-ref PINNED_SHA
   yoke --env CONTROL-PLANE deployment-runs validate-composition "$RUN_ID"
   yoke --env CONTROL-PLANE watch deploy -- "$RUN_ID"
 
@@ -95,10 +101,23 @@ CREATE_DESCRIPTION = (
     "Create a deployment run from a flow and candidate. Creation pins bound "
     "source commits and provisionally composes membership from the candidate. "
     "It reports all detectable blockers, including selected member flow "
-    "mismatches, before committing a run ID. Commits made outside Yoke are carried without blocking release. An "
+    "mismatches, before committing a run ID. On a flow that waits for CI, "
+    "the release commit must have its own run of the project's "
+    "ci_workflow_file: without --source-ref creation binds the newest such "
+    "commit on the gate branch (dispatching that workflow on the branch and "
+    "binding the commit it tests when no commit has a run), and an explicit "
+    "commit without one is "
+    "refused (release_source_untested) naming the newest that has one. "
+    "Commits made outside Yoke are carried without blocking release. An "
     "item a live or succeeded release already holds is not composed and not "
     "judged: it is reported as skipped, naming the run that holds it, "
     "because that run owes its delivery. "
+    "A run on a flow with an item-scoped QA stage that carries or owes "
+    "members must take delivery custody, or it is refused "
+    "(item_qa_flow_without_delivery_custody), because its members could "
+    "never be proven at item QA. Whether a memberless item-QA run owes a "
+    "delivery is asked by validate-composition and before execution, not "
+    "here, so add-item can attach to an itemless run. "
     "Choose the items' selected completion flow or deliberately reconcile "
     "their flow, then revalidate; creation never changes item flows. The same "
     "create-then-watch path serves an environment release and an item-bound "
@@ -114,8 +133,9 @@ CREATE_DESCRIPTION = (
 WATCH_DEPLOY_DESCRIPTION = (
     "Run a Yoke deployment pipeline under a shared raw+progress "
     "watcher. For an environment release or an item-bound batch, "
-    "resolve the flow's target, create the run with "
-    "--project-repo-path and --source-ref, then drive it here through "
+    "resolve the flow's target, create the run (a CI-gated flow binds "
+    "its newest CI-tested commit unless --source-ref pins one), then "
+    "drive it here through "
     "the same control-plane connection. Create checks composition; start "
     "revalidates it before stage dispatch. Verify the resolved environment rather than assuming "
     "it matches the --env connection name. Re-driving the same run "

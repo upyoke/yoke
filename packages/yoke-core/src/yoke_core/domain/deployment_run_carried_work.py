@@ -10,6 +10,13 @@ a stage binds — so the same comparison runs once per project, each against
 that project's own recorded commit and the commit the preceding run recorded
 for it. The bound answers travel under ``bound_projects`` so one record still
 says everything one release carried.
+
+Succeeded completion and composition freeze always record the answer. A
+failed or cancelled run, and a terminal run a read finds unrecorded, record
+it only when it is permanent — derived, or unknown for a reason that is a
+fact about the run's own record — so a transient source failure is derived
+again later rather than kept. ``deployment_runs.carried_work.repair``
+replaces a recorded answer whose comparison could not run.
 """
 
 from __future__ import annotations
@@ -33,6 +40,20 @@ from yoke_core.domain.json_helper import dumps_compact, loads_text
 
 
 CARRIED_WORK_FIELD = "carried_work"
+
+#: Unknown answers that are facts about the run's own record, so deriving
+#: again cannot change them. Any other unknown — a fetch, provider, network,
+#: credential or missing-checkout failure — belongs to the host that tried.
+PERMANENT_UNKNOWN_REASONS = frozenset(
+    {
+        "current_release_lineage_missing",
+        "prior_release_lineage_missing",
+        "release_lineages_diverged",
+    }
+)
+UNREACHABLE_LINEAGE_REASONS = frozenset(
+    {"prior_release_lineage_unreachable", "current_release_lineage_unreachable"}
+)
 
 
 def parse_carried_work(value: Any) -> dict[str, Any] | None:
@@ -133,7 +154,9 @@ def derive_carried_work_safely(conn: Any, run_id: str) -> dict[str, Any]:
         conn.execute("RELEASE SAVEPOINT carried_work_derivation")
         return empty_carried_work(
             "derivation_failed",
-            "Repair the named checkout or metadata read, clear this field, and retry.",
+            "Repair the named checkout or metadata read. A recorded answer "
+            f"is replaced by `yoke deployment-runs carried-work repair {run_id}`; "
+            "an unrecorded one is derived again on the next read.",
             run_id=run_id,
             error_type=type(exc).__name__,
         )
@@ -141,10 +164,39 @@ def derive_carried_work_safely(conn: Any, run_id: str) -> dict[str, Any]:
     return payload
 
 
-def record_carried_work(conn: Any, run_id: str) -> dict[str, Any]:
-    """Write a forward-only carried-work record in the caller's transaction."""
+def _project_answer_is_permanent(payload: Mapping[str, Any]) -> bool:
+    derivation = payload.get("derivation") or {}
+    if derivation.get("contents_known"):
+        return True
+    reason = derivation.get("reason")
+    if reason in PERMANENT_UNKNOWN_REASONS:
+        return True
+    # A commit is gone only when the source could look everywhere it knows:
+    # a degraded source (an unrefreshed checkout) may simply not have it yet.
+    return reason in UNREACHABLE_LINEAGE_REASONS and not payload.get("warnings")
+
+
+def carried_work_is_permanent(payload: Mapping[str, Any]) -> bool:
+    """Whether deriving again could change this answer, for every project."""
+    return _project_answer_is_permanent(payload) and all(
+        _project_answer_is_permanent(project)
+        for project in payload.get("bound_projects") or []
+    )
+
+
+def record_carried_work(
+    conn: Any, run_id: str, *, permanent_only: bool = False
+) -> dict[str, Any]:
+    """Write a forward-only carried-work record in the caller's transaction.
+
+    The row lock makes a concurrent recorder wait for this answer and then
+    read it, so two writers never derive the same run twice. With
+    ``permanent_only`` an answer the environment caused (see
+    ``carried_work_is_permanent``) is returned unrecorded, so a later read
+    derives it again instead of keeping a transient failure forever.
+    """
     row = conn.execute(
-        "SELECT carried_work FROM deployment_runs WHERE id=%s",
+        "SELECT carried_work FROM deployment_runs WHERE id=%s FOR UPDATE",
         (run_id,),
     ).fetchone()
     if row is None:
@@ -154,6 +206,8 @@ def record_carried_work(conn: Any, run_id: str) -> dict[str, Any]:
         _require_bound_project_coverage(conn, run_id, existing)
         return existing
     payload = derive_carried_work_safely(conn, run_id)
+    if permanent_only and not carried_work_is_permanent(payload):
+        return payload
     conn.execute(
         "UPDATE deployment_runs SET carried_work=%s WHERE id=%s",
         (dumps_compact(payload), run_id),
@@ -204,7 +258,10 @@ def require_bound_project_coverage(
 __all__ = [
     "CARRIED_WORK_FIELD",
     "CARRIED_WORK_SCHEMA",
+    "PERMANENT_UNKNOWN_REASONS",
+    "UNREACHABLE_LINEAGE_REASONS",
     "carried_work_for_enrollment",
+    "carried_work_is_permanent",
     "derive_carried_work",
     "derive_project_carried_work",
     "derive_carried_work_safely",

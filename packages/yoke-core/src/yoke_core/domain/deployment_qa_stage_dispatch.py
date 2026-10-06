@@ -13,6 +13,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain.deployment_run_membership_removals import removed_item_ids
+from yoke_core.domain import deployment_run_item_qa_membership as item_qa
 
 from yoke_core.domain.deployment_qa_result_notice import (
     REPORTABLE_OUTCOMES,
@@ -196,7 +197,8 @@ def materialize_and_gate_deployment_qa_stage(
             int(row["item_id"] if hasattr(row, "keys") else row[0]) for row in rows
         ]
         if not members and not removed_item_ids(conn, run_id):
-            return 1, "item-scoped QA stage has no attached run members"
+            refusal = item_qa.memberless_item_qa_refusal(conn, run_id)
+            return (1, refusal) if refusal else (0, item_qa.NO_MEMBER_OWES_TARGET)
     else:
         members = [None]
     waiting: list[str] = []
@@ -316,13 +318,9 @@ def materialize_and_gate_deployment_qa_stage(
 def dispatch_deployment_qa_stage(
     stage: Mapping[str, Any], *, run_id: str
 ) -> tuple[int, str]:
-    """Deployment step-runner adapter for one scoped QA stage.
-    Dispatches through the connection-keyed function-call transport: an
-    admin-bootstrapped driver executes the registered handler locally, an
-    ordinary HTTPS-connected driver relays to whatever build is actively
-    serving that connection. Only the stage name crosses the wire — the
-    handler re-derives the stage's full scope/config from the run's own
-    stored flow rather than trusting this caller's copy of it.
+    """Step-runner adapter for one scoped QA stage over the connection-keyed
+    transport (local handler when admin-bootstrapped, else relayed). Only the
+    stage name crosses the wire; the handler re-derives it from the stored flow.
     """
     from yoke_contracts.api.function_call import TargetRef
     from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
@@ -339,7 +337,10 @@ def dispatch_deployment_qa_stage(
             f"dispatched: {message}"
         )
     result = dict(response.result or {})
-    return int(result.get("code", 1)), str(result.get("message") or "")
+    code, message = int(result.get("code", 1)), str(result.get("message") or "")
+    if code == 0 and message:
+        print(f"  Stage {stage.get('name')!r}: {message}")
+    return code, message
 
 
 __all__ = [

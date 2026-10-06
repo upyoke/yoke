@@ -285,3 +285,45 @@ def test_hooks_evaluate_session_start_reaps_stale_actives(client, hooks_db) -> N
         )
     finally:
         conn.close()
+
+
+def test_hooks_evaluate_cursor_session_start_registers_workspace_root(
+    client, hooks_db
+) -> None:
+    """Cursor's sessionStart carries ``workspace_roots`` and no ``cwd``.
+
+    The relay binds a Cursor launch to its native by workspace, so the
+    registered row must carry the workspace Cursor opened.
+    """
+    from yoke_core.domain import db_helpers
+
+    session_id = "relayed-cursor-workspace-session"
+    body = _request_body(
+        executor="cursor",
+        event_name="SessionStart",
+        stdin=json.dumps(
+            {
+                "hook_event_name": "sessionStart",
+                "session_id": session_id,
+                "conversation_id": session_id,
+                "identity_stamped": True,
+                "workspace_roots": ["/client/repo"],
+                "project_id": 1,
+            }
+        ),
+    )
+
+    response = client.post("/v1/hooks/evaluate", json=body)
+    assert response.status_code == 200
+    assert response.json()["outcome"] == "completed", response.json()["stdout"]
+
+    conn = db_helpers.connect()
+    try:
+        row = conn.execute(
+            "SELECT workspace FROM harness_sessions WHERE session_id = %s",
+            (session_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+    assert row is not None, "cursor session must be registered server-side"
+    assert row["workspace"] == "/client/repo"

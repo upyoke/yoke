@@ -208,7 +208,17 @@ def deployment_flows_validate(args: List[str]) -> int:
 
 
 def deployment_flows_version(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(prog="yoke deployment-flows version")
+    parser = argparse.ArgumentParser(
+        prog="yoke deployment-flows version",
+        description=(
+            "Publish NEW_FLOW_ID as the successor of SOURCE_FLOW_ID "
+            "(supersedes_flow_id). Once the source is disabled and the "
+            "successor active, items pinned to the source follow a successor "
+            "with the same target environment and tier for admission, "
+            "completion, and start-for-item; a delivery already made on the "
+            "source still closes them, and their stored pin is kept."
+        ),
+    )
     parser.add_argument("source_flow_id")
     parser.add_argument("new_flow_id")
     _add_definition_options(parser, stages_required=False, include_name=True)

@@ -153,16 +153,18 @@ function stagesByItemRef(sessions) {
 }
 
 export async function loadFrontier(context, bands, getScope, sessionRoster, options = {}) {
-  // Every read this paint needs, in flight together. The bands are one
-  // reading of one roster, so they all paint at once either way; starting
-  // them in sequence only made the wait their sum.
-  const [{ callResults }, sessionCalls, deployments] = await Promise.all([
+  // The item, frontier and session reads decide every band, so they are in
+  // flight together and paint together. The run roster only annotates
+  // Release and Done with delivery and can be far slower, so those two bands
+  // wait for it alone and fill when it settles.
+  let deployments;
+  let deploymentsSettled = false;
+  const [{ callResults }, sessionCalls] = await Promise.all([
     settledScopedCalls(context, [
       { functionId: "items.overview.list", payload: { relevance: "overview" } },
       { functionId: "frontier.list", payload: {} },
     ]),
     sessionRoster,
-    Promise.resolve(options.deployments).catch(() => undefined),
   ]);
   if (!context.isMounted()) return null;
   const paint = () => {
@@ -298,6 +300,11 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
       },
     )), "Nothing is ready to pick up.");
 
+    if (!deploymentsSettled) {
+      for (const band of [bands.release, bands.done]) band.setCount(null);
+      for (const band of [bands.release, bands.done]) band.renderCards([], "Loading delivery…");
+      return;
+    }
     // Every card, with no overflow tile: Done is the one band that truncates,
     // because it is a window on finished work that only grows. Release is a
     // queue somebody is waiting to see empty, and a hidden remainder there
@@ -330,5 +337,12 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
     bands.done.renderCards(visible, "Nothing finished in the last 24 hours.");
   };
   paint();
+  Promise.resolve(options.deployments).catch(() => undefined).then((runs) => {
+    deployments = runs;
+    deploymentsSettled = true;
+    if (context.isMounted()) paint();
+  }).catch((error) => [bands.release, bands.done].forEach((band) => band.renderError(
+    `Release and Done could not be drawn: ${error?.message || error}. Reload Frontier.`,
+  )));
   return paint;
 }

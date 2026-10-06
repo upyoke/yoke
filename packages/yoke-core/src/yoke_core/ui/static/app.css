@@ -24,7 +24,6 @@
 @import url("./universe_organization_fleet.css");
 @import url("./universe_link_underline.css");
 @import url("./wrapping_rows.css");
-@import url("./workbench_telemetry.css");
 
 /* A destination with no live surface yet is explicit, not a blank page. */
 .universe-app-root .stub-panel {

@@ -148,72 +148,82 @@ export function renderDeliveryEnvironmentsView(context, main, scope) {
     const environments = infrastructureRows(
       infrastructure.callResults, "environments", directory,
     );
-    const details = await settledScopedCalls(context, [
-      ...environments.map((row) => ({
-        functionId: "projects.environment_settings.get",
-        payload: {
-          project: projectIdentity(directory, row),
-          environment: String(row.name),
-          paths: ["git.branch"],
-        },
-      })),
-      ...readCalls("deployment_runs.list", scope, projects, false),
-    ]);
-    if (!context.isMounted()) return;
-    const callResults = [
-      ...infrastructure.callResults,
-      ...details.callResults,
-    ];
-    panel.renderEnvelopes(
-      callResults,
-      details.failed ? (body) => renderError(body, details.failed) : (body) => {
-        const environments = infrastructureRows(
-          callResults, "environments", directory,
-        );
-        const runs = mergedRows(callResults, (result) => result.rows);
-        const branches = branchesByEnvironment(callResults);
-        const latestRuns = latestRunsByEnvironment(runs, directory);
-        const latestFor = (row) => {
-          const project = projectIdentity(directory, row);
-          return latestRuns.get(
-            `${project}:${String(row.name || "").toLowerCase()}`,
-          ) || null;
-        };
-        panel.setCount(environments.length);
-        renderTable(
-          body,
-          environments,
-          withProjectColumn([
-            { label: "environment", value: (row) => row.name },
-            {
-              label: "branch",
-              value: (row) => branches.get(
-                `${projectIdentity(directory, row)}:${String(row.name)}`,
-              ) || "unavailable",
-            },
-            { label: "auto-deploy", value: () => "unavailable" },
-            {
-              label: "status",
-              value: (row) => latestFor(row)?.status || "no run record",
-              pill: true,
-            },
-            {
-              label: "last deploy",
-              value: (row) => {
-                const stamp = row.last_deployed_at || runTimestamp(latestFor(row));
-                return stamp ? relativeAge(stamp) : "never";
-              },
-            },
-          ], scope, (row) => projectLabel(directory, row)),
-          "No environments registered in this scope.",
-        );
-        body.appendChild(deliveryNote(
-          documentNode,
-          "Registered environments. ",
-          "Status reflects the latest recorded run, not a live health check. Auto-deploy settings are unavailable here.",
-        ));
-      },
+    // The run list only fills the status and last-deploy columns and can be
+    // far slower than the rest, so the table draws without it and redraws
+    // when it settles.
+    const runReads = settledScopedCalls(
+      context, readCalls("deployment_runs.list", scope, projects, false),
     );
+    const details = await settledScopedCalls(context, environments.map((row) => ({
+      functionId: "projects.environment_settings.get",
+      payload: {
+        project: projectIdentity(directory, row),
+        environment: String(row.name),
+        paths: ["git.branch"],
+      },
+    })));
+    if (!context.isMounted()) return;
+    const draw = (runCalls) => {
+      const callResults = [
+        ...infrastructure.callResults,
+        ...details.callResults,
+        ...(runCalls?.callResults || []),
+      ];
+      const failed = details.failed || runCalls?.failed;
+      const pending = runCalls === null;
+      panel.renderEnvelopes(
+        callResults,
+        failed ? (body) => renderError(body, failed) : (body) => {
+          const runs = mergedRows(runCalls?.callResults || [], (result) => result.rows);
+          const branches = branchesByEnvironment(callResults);
+          const latestRuns = latestRunsByEnvironment(runs, directory);
+          const latestFor = (row) => {
+            const project = projectIdentity(directory, row);
+            return latestRuns.get(
+              `${project}:${String(row.name || "").toLowerCase()}`,
+            ) || null;
+          };
+          panel.setCount(environments.length);
+          renderTable(
+            body,
+            environments,
+            withProjectColumn([
+              { label: "environment", value: (row) => row.name },
+              {
+                label: "branch",
+                value: (row) => branches.get(
+                  `${projectIdentity(directory, row)}:${String(row.name)}`,
+                ) || "unavailable",
+              },
+              { label: "auto-deploy", value: () => "unavailable" },
+              {
+                label: "status",
+                value: (row) => (pending
+                  ? "loading…" : latestFor(row)?.status || "no run record"),
+                pill: true,
+              },
+              {
+                label: "last deploy",
+                value: (row) => {
+                  const stamp = row.last_deployed_at || runTimestamp(latestFor(row));
+                  if (stamp) return relativeAge(stamp);
+                  return pending ? "loading…" : "never";
+                },
+              },
+            ], scope, (row) => projectLabel(directory, row)),
+            "No environments registered in this scope.",
+          );
+          body.appendChild(deliveryNote(
+            documentNode,
+            "Registered environments. ",
+            "Status reflects the latest recorded run, not a live health check. Auto-deploy settings are unavailable here.",
+          ));
+        },
+      );
+    };
+    draw(null);
+    const runCalls = await runReads;
+    if (context.isMounted()) draw(runCalls);
   };
   void loadInventory();
 }

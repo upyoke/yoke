@@ -23,7 +23,7 @@ back an unusually old landing is chased.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Iterable
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_run_project_sources import (
@@ -77,20 +77,26 @@ def _releases(rows: Any) -> list[dict[str, Any]]:
 
 
 def succeeded_flow_runs(
-    conn: Any, *, project_id: int, flow: str, limit: int = 10
+    conn: Any, *, project_id: int, flows: Iterable[str], limit: int = 10
 ) -> list[dict[str, Any]]:
-    """Recent succeeded releases of this item's own flow that shipped it.
+    """Recent succeeded releases of this item's closing flows that shipped it.
+
+    ``flows`` is the item's completion flow plus any retired flow its pin
+    followed there, so a release on the predecessor still counts.
 
     Carrying runs of another project join the list: each carries the commit
     that release holds for THIS project, which is the candidate to ask about
     rather than the carrier's own lineage.
     """
     marker = sql_marker(conn)
+    names = tuple(sorted(flows))
     releases = _releases(
         conn.execute(
-            _RELEASE_COLUMNS + f"WHERE project_id = {marker} AND flow = {marker} "
-            "AND status = 'succeeded' " + _NEWEST_FIRST + str(int(limit)),
-            (int(project_id), flow),
+            _RELEASE_COLUMNS + f"WHERE project_id = {marker} AND flow IN "
+            f"({','.join(marker for _ in names)}) AND status = 'succeeded' "
+            + _NEWEST_FIRST
+            + str(int(limit)),
+            (int(project_id), *names),
         ).fetchall()
     )
     releases.extend(

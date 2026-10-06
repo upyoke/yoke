@@ -1,26 +1,33 @@
 // Generated from the installed structured-events Pack; run build_frontend_events.
-/** Install once; returns cleanup for client frameworks. URL changes produce one view. */
+/**
+ * One tracker per document; returns cleanup for client frameworks. URL changes
+ * produce one view. The owner marker lives on window, so separately bundled
+ * copies of this module (a host page and an embedded app) share it.
+ */
 import { emitEvent } from './events.js';
-import { captureAttribution, hasConsent, onConsentChange } from './events_consent.js';
+import { captureAttribution } from './events_capture.js';
 import { sanitizeUrl } from './events_attribution.js';
 
-let installed = false;
+const TRACKER = Symbol.for('structured-events.page-views');
 export function startPageViews()             {
-  if (installed) throw new Error('page_views_already_started: reuse the installed tracker or call its cleanup');
-  installed = true;
+  const marker = window                                                 ;
+  if (marker[TRACKER]) {
+    console.warn('[events] page_views_already_started: this document already tracks page views; reuse that tracker or call its cleanup before starting another');
+    return () => {};
+  }
+  const owner = {};
+  marker[TRACKER] = owner;
   let previous = window.location.href;
   let seen                = null;
   let active = true;
-  let revision = 0;
   const view = async (referrer        ) => {
-    if (!active || !hasConsent()) return;
+    if (!active) return;
     const url = window.location.href;
     if (url === seen) return;
     seen = url;
     const title = document.title;
-    const currentRevision = revision;
     const attribution = await captureAttribution(url, referrer);
-    if (!active || !hasConsent() || currentRevision !== revision) return;
+    if (!active) return;
     emitEvent({ name: 'PageViewed', kind: 'analytics', eventType: 'page_view', outcome: 'completed' }, {
       page_url: sanitizeUrl(url), page_path: new URL(url).pathname,
       page_title: title, referrer: sanitizeUrl(referrer), ...attribution,
@@ -38,14 +45,10 @@ export function startPageViews()             {
   history.pushState = push;
   history.replaceState = replace;
   window.addEventListener('popstate', navigate);
-  const unsubscribe = onConsentChange(() => {
-    revision++;
-    seen = null;
-    if (hasConsent()) void view(document.referrer);
-  });
   void view(document.referrer);
   return () => {
-    active = false; installed = false; unsubscribe();
+    active = false;
+    if (marker[TRACKER] === owner) delete marker[TRACKER];
     if (history.pushState === push) history.pushState = originalPush;
     if (history.replaceState === replace) history.replaceState = originalReplace;
     window.removeEventListener('popstate', navigate);

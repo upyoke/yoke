@@ -16,6 +16,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from runtime.api.fixtures import pg_testdb
+from yoke_core.domain.deployment_run_item_qa_membership import NO_MEMBER_OWES_TARGET
 from yoke_core.api import app_factory
 from yoke_core.domain import coordination_claims
 from yoke_core.domain.actor_permissions import (
@@ -119,8 +120,9 @@ def qa_stage_plane():
         conn.execute(
             "INSERT INTO deployment_flows "
             "(id,project_id,name,description,stages,on_failure,created_at,"
-            "target_tier,status) VALUES "
-            "(%s,%s,%s,'scoped QA authority test',%s,'halt',%s,'ephemeral','active')",
+            "target_tier,status,takes_delivery_custody) VALUES "
+            "(%s,%s,%s,'scoped QA authority test',%s,'halt',%s,'ephemeral',"
+            "'active',1)",
             (FLOW, project_id, FLOW, stages, iso8601_now()),
         )
         owner_session = "qa-stage-owner"
@@ -195,10 +197,10 @@ def test_dispatch_derives_the_stage_scope_from_the_stored_flow_not_the_caller(
 ):
     """Only a stage name crosses the wire; the scope is a stored server fact.
 
-    The request carries nothing about scope at all. An "item-scoped QA
-    stage has no attached run members" verdict can only come from the
-    handler having looked up ``scope: "item"`` on its own, against the
-    run's real stored flow, for a run created with no attached items.
+    The request carries nothing about scope at all. The item-scoped
+    "no member owes this target" pass can only come from the handler
+    having looked up ``scope: "item"`` on its own, against the run's real
+    stored flow, for a run created with no attached items.
     """
     run_id = _create_run(qa_stage_plane)
 
@@ -212,8 +214,8 @@ def test_dispatch_derives_the_stage_scope_from_the_stored_flow_not_the_caller(
     )
     assert response.status_code == 200, response.text
     result = response.json()["result"]
-    assert result["code"] == 1
-    assert "item-scoped QA stage has no attached run members" in result["message"]
+    assert result["code"] == 0
+    assert result["message"] == NO_MEMBER_OWES_TARGET
 
 
 def test_dispatch_refuses_a_stage_name_the_stored_flow_never_declared(qa_stage_plane):

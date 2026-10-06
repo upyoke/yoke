@@ -18,7 +18,7 @@ from yoke_core.domain.workspace_authority import (
 BROWSER_MODULES = (
     "events",
     "events_attribution",
-    "events_consent",
+    "events_capture",
     "events_navigation",
     "events_props",
     "events_types",
@@ -37,9 +37,9 @@ process.stdout.write(stripTypeScriptTypes(text, { mode: 'strip' }));
 def outputs(root):
     source = root / "events"
     target = root / "packages/yoke-core/src/yoke_core"
-    if not (source / "events_consent.ts").is_file():
+    if not (source / "events_capture.ts").is_file():
         raise ValueError(
-            "events_pack_not_installed: install structured-events 3.0.0 with yoke packs get, then rebuild"
+            "events_pack_not_installed: install structured-events 4.0.0 with yoke packs update, then rebuild"
         )
     result = {}
     for name in BROWSER_MODULES:

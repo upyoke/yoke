@@ -5,7 +5,7 @@ The rules file every session loads carries the short normative form of each rule
 ## Deployment runs
 
 - **One deploy lock per project; flow id != run id.** Creating a run and executing one both refuse unless the calling session holds the project's `DEPLOY:<project-slug>` coordination claim, so one driver owns a release pair end to end: `yoke claims coordination-claim acquire --project P --key DEPLOY:P --reason R` before the pair, the matching `... release` after, and the human-only `yoke coordination-claim release` for a hold stranded by a dead driver (nothing reclaims it — the pipeline outlives its local driver). A hosted flow definition id is not a run id; run ids look like `run-YYYYMMDD-NNN`, and `/yoke usher PREFIX-N` creates runs through `yoke deployment-runs start-for-item`, writes `deployment_run_items`, executes the pipeline, then moves members to `done`.
-- **Disable definitions; retain history.** `yoke deployment-flows set-status <flow-id> disabled` prevents new assignments and runs without deleting the definition or any historical run. A definition referenced by a run is immutable and cannot be deleted.
+- **Disable definitions; retain history.** `yoke deployment-flows set-status <flow-id> disabled` prevents new assignments and runs without deleting the definition or any historical run. A definition referenced by a run is immutable and cannot be deleted; change it with `yoke deployment-flows version` (records `supersedes_flow_id`) and disable the predecessor. Items pinned to a retired flow follow its newest active same-project successor with the same target environment and tier for admission, completion, and `start-for-item`; a delivery already made on the retired flow still closes them. The stored pin stays, reported as `pinned`, and needs no rebind.
 - **Schema/env shape:** `deployment_runs` has no `item_id`; `deployment_run_items` may be empty for started environment runs. The HTTPS product/API environment is the normal relayed authority, and it drives ordinary delivery end to end — create, start-for-item, execute, watch, retry, close-out — over whichever connection holds the run row. A local-Postgres `*-db-admin` environment is direct database write authority for sanctioned source-dev/admin work and audited break-glass SQL; a deployment needs it only when the run replaces that control plane's own serving API, and the executor refuses that one case by name and says which connection to use. That self-deploy freezes its driver at the run's `release_lineage` (a detached worktree) so a merge landing mid-run cannot mix already-cached modules with files read later from disk; remaining drift halts by name (`deploy driver source drift`) without failing the run, and re-drive of the same run id still recovers it by correlation token. The driver records itself on the run (`deployment_runs.driver_attachment`) before that freeze — session, pid, attached_at, heartbeat, phase, and the progress capture it will write — so a second execute of a still-live attachment refuses by name, `watch_tail` consults that fact before blaming missing capture flags, and steering does not treat a `created` run with a live driver as waiting to be driven. Attaching and releasing both take the run row under a short `lock_timeout` and **skip rather than wait**: a heartbeat that queued behind another transaction would stop reporting the liveness it exists to report, and a release that queued would keep a SIGTERMed driver alive inside its own shutdown. A skipped attempt prints `deploy run row lock blocked:` naming the holding pid, its age and its state, and the deploy watcher promotes that line to the user-facing stream. A holder reported `idle in transaction` is an abandoned client, bounded by `idle_in_transaction_session_timeout` and released without an operator; the recovery is unchanged, re-run the same `yoke watch deploy -- RUN_ID`, which re-attaches to that run rather than starting a second one. An empty or stale attachment (heartbeat older than ten minutes) is an interrupted driver, recovered by re-driving the same run id. Never go looking for control-plane database credentials to deploy a project: they are not the project's application database credentials, and a project whose control plane someone else operates has none to obtain.
 
 ## Binding-based multi-project delivery
@@ -99,7 +99,17 @@ learns the other's part from its own skill. The split is the whole rule:
 - **The seat driving delivery owns the run.** It holds `DEPLOY:<project>` for
   the whole pair, pins one source SHA, creates the stage and production runs
   from that SHA, and starts each one with `yoke --env CONTROL-PLANE watch
-  deploy -- RUN-ID`. Creation provisionally enrolls every delivery-ready item
+  deploy -- RUN-ID`. On a flow that waits for CI the SHA must have its own
+  run of the project's `ci_workflow_file`: a merge-queue push tests only its
+  newest commit. Create the CI-gated run (production) without `--source-ref`
+  and it binds the newest gate-branch commit whose own run passed or is
+  running — or, when none has one, dispatches that workflow on the branch and
+  binds the commit the dispatched run tests. Give the paired stage run that
+  `release_lineage` with `--source-ref`; stage refuses a missing lineage. An
+  explicit commit with no run of its own is refused
+  `release_source_untested` on every path that binds one, naming the newest
+  tested commit. The CI gate itself never dispatches CI: a release commit
+  with no run of its own fails it by name, and the recovery is a new run. Creation provisionally enrolls every delivery-ready item
   its candidate carries that no live or succeeded release already holds —
   whether the work landed since the last release or long before it — and
   validates before committing the run. Start revalidates before dispatch, so
@@ -153,7 +163,22 @@ learns the other's part from its own skill. The split is the whole rule:
   member nothing, and membership still holds the landing, so the next start on
   the item's completion flow will not enroll it. `add-item` names that case
   with the flow that can close the item; `validate-composition` names any
-  member already in it.
+  member already in it. An item-scoped QA stage proves each member against
+  the requirement snapshot the composition freeze writes, and only a flow
+  that takes delivery custody freezes one: creation, `add-item`, and
+  `validate-composition` refuse a custody-free run that carries or owes
+  members (`item_qa_flow_without_delivery_custody`). A memberless run is
+  judged by what it owes: `validate-composition` and the pre-execution check
+  refuse it, before any stage deploys, when its flow is the completion flow
+  for delivery-ready items no other release holds
+  (`item_qa_run_without_members`). Holding is landing custody, as enrollment
+  reads it: a re-merged landing, an unreadable one, or one held only by a
+  supplemental stage run is still owed. Otherwise — a stage run whose
+  candidates were targeted out — its item-scoped stage passes with the named
+  `item_qa_no_member_owes_target` result. Dispatch, the outstanding report,
+  and later stages' prior-acceptance check ask the same question again and
+  fail closed rather than trusting the pre-start answer. Creation does not ask the member
+  question, because it mints itemless runs for `add-item`.
 - **The member owner owns its own item.** Its merge parked it at the flow's
   release wait holding its work claim; the deployment wake re-enters it for its
   QA stage and when its own item-scoped QA clears. A final member on a

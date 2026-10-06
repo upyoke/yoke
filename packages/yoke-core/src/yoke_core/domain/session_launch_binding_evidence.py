@@ -17,11 +17,16 @@ never overwritten with requests.
 
 from __future__ import annotations
 
+import hmac
 from typing import Any, Mapping, Sequence
 
+from yoke_contracts.session_control.launch_registration import (
+    SESSION_ENDED_UNBOUND_CODE,
+)
 from yoke_core.domain import json_helper
 from yoke_core.domain.session_launch_closure_evidence import closure_evidence
 from yoke_core.domain.session_launch_store import (
+    attestation_digest,
     begin_mutation,
     get_launch,
     update_launch,
@@ -132,8 +137,99 @@ def record_registration_refusal(
         raise
 
 
+#: Why an ending session wrote nothing onto the launch it names.
+SESSION_END_SKIP_ATTESTATION_INVALID = "attestation_invalid"
+SESSION_END_SKIP_LAUNCH_BOUND = "launch_bound"
+SESSION_END_SKIP_LAUNCH_CLOSED = "launch_closed"
+SESSION_END_SKIP_NATIVE_SESSION_MISMATCH = "native_session_mismatch"
+SESSION_END_SKIP_EARLIER_REFUSAL = "earlier_refusal_kept"
+SESSION_END_RECORDED = "recorded"
+
+
+def _still_bindable(launch: LaunchRecord) -> bool:
+    """Whether a registration could still bind this launch.
+
+    Exactly the eligibility binding applies: a launch awaiting registration,
+    or an ``outcome_unknown`` one with no identity yet, which recovery
+    adoption still binds. Anything else is not this native's to annotate.
+    """
+    if launch.state == "awaiting_registration":
+        return True
+    return (
+        launch.state == "outcome_unknown"
+        and not launch.native_session_id
+        and not launch.registered_session_id
+    )
+
+
+def record_session_ended_unbound(
+    conn: Any,
+    *,
+    launch_id: str,
+    attestation: str,
+    session_id: str,
+) -> str:
+    """Name a launch whose attested session ended before it ever bound.
+
+    Recovery adoption runs on the attested session's own hooks. A native that
+    ran only while its launch awaited the relay's identity report, then ended,
+    leaves no later hook to adopt it, and its pending refusals are deliberately
+    unrecorded because they normally resolve on the next event. Its ending is
+    the last fact that native can report, so it is written here rather than
+    left for a deadline to close with nothing attached.
+
+    Only a session that proves the launch's attestation, and is the launch's
+    native when the launch already names one, may write it, only while the
+    launch could still bind, and never over a refusal already on the row: an earlier code names the more specific failure. Returns
+    ``recorded`` or the named reason nothing was written.
+    """
+    begin_mutation(conn)
+    try:
+        launch = get_launch(conn, launch_id, for_update=True)
+        expected = str(launch.attestation_hash or "")
+        if not expected or not hmac.compare_digest(
+            expected, attestation_digest(attestation)
+        ):
+            outcome = SESSION_END_SKIP_ATTESTATION_INVALID
+        elif str(launch.registered_session_id or "").strip():
+            outcome = SESSION_END_SKIP_LAUNCH_BOUND
+        elif str(launch.native_session_id or "").strip() not in ("", session_id):
+            # The launch already names its native; another session carrying
+            # the inherited attestation is not that native's to speak for.
+            outcome = SESSION_END_SKIP_NATIVE_SESSION_MISMATCH
+        elif not _still_bindable(launch):
+            outcome = SESSION_END_SKIP_LAUNCH_CLOSED
+        elif _recorded_refusal(launch.result_evidence):
+            outcome = SESSION_END_SKIP_EARLIER_REFUSAL
+        else:
+            update_launch(
+                conn,
+                launch_id,
+                result_evidence=merge_redacted_evidence(
+                    launch.result_evidence,
+                    {
+                        "registration_refusal_code": SESSION_ENDED_UNBOUND_CODE,
+                        "registration_session_id": session_id,
+                    },
+                ),
+            )
+            outcome = SESSION_END_RECORDED
+        conn.commit()
+        return outcome
+    except Exception:
+        conn.rollback()
+        raise
+
+
 __all__ = [
     "bound_registration_evidence",
     "late_registration_evidence",
     "record_registration_refusal",
+    "record_session_ended_unbound",
+    "SESSION_END_RECORDED",
+    "SESSION_END_SKIP_ATTESTATION_INVALID",
+    "SESSION_END_SKIP_EARLIER_REFUSAL",
+    "SESSION_END_SKIP_LAUNCH_BOUND",
+    "SESSION_END_SKIP_LAUNCH_CLOSED",
+    "SESSION_END_SKIP_NATIVE_SESSION_MISMATCH",
 ]

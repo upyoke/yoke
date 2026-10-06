@@ -17,6 +17,16 @@ worker spent 79 tool calls reading the codebase, was auto-ended claim-free
 mid-mandate, and left its item looking untouched.  Claiming first makes that
 reaping structurally impossible for a worker that is actually working.
 
+Registration is two steps on every surface: the opening hook registers the
+session, then the launch binds to it.  Where the harness names the session
+before it starts (Claude, Codex) both happen in that one hook; where the
+vendor assigns the id (Cursor) the relay binds the launch moments later, by
+machine, surface, and workspace.  A worker that reads the launch inside that
+gap sees an empty ``registered_session_id`` with ``identity_correlation``
+still ``pending`` or ``awaiting_registration``.  That is registration in
+flight, not a mismatch, so the check below waits a bounded number of re-reads
+before it refuses; only a registered id naming another session is a mismatch.
+
 One builder, so the store that persists the prompt and the adapters that
 refuse anything else cannot drift apart into two sentences that no longer
 compare equal.
@@ -32,14 +42,28 @@ LAUNCH_BOOTSTRAP_REFUSAL = (
     "or backlog action, and claim no work."
 )
 AUTOMATIC_LAUNCH_REGISTRATION_TEACHING = (
-    "Launch registration is automatic in the opening hook; do not run a session "
-    "registration command."
+    "Launch registration is automatic: your opening hook registers this "
+    "session and the launch binds to it, which can finish a few seconds after "
+    "you start; do not run a session registration command."
 )
+#: How many fresh ``launch get`` reads a worker spends on a launch whose
+#: registration is still in flight before it refuses as unregistered.
+LAUNCH_REGISTRATION_RECHECK_LIMIT = 10
+#: ``identity_correlation`` values that mean registration is still in flight.
+LAUNCH_REGISTRATION_IN_FLIGHT = ("pending", "awaiting_registration")
 LAUNCH_BOOTSTRAP_MESSAGE_READ = (
     "Read `yoke sessions identity --json` and "
     "`yoke session-control launch get LAUNCH-ID --json`. Proceed only when "
-    "the launch's registered_session_id matches your session id. If it does "
-    "not, stop and report launch_registration_mismatch to the requester. "
+    "the launch's registered_session_id matches your session id. If "
+    "registered_session_id is empty and identity_correlation is "
+    f"{' or '.join(LAUNCH_REGISTRATION_IN_FLIGHT)}, registration is still in "
+    "flight: re-read the launch, at most "
+    f"{LAUNCH_REGISTRATION_RECHECK_LIMIT} times; if it is still unbound after "
+    "that, stop and report launch_registration_pending with the launch id "
+    "to the requester. If "
+    "registered_session_id names a different session, or the launch closed "
+    "without binding you, stop and report launch_registration_mismatch to the "
+    "requester. "
     "The launch's message_id names your exact mandate. Read that message with "
     "`yoke messages get MESSAGE-ID`, then acknowledge it with "
     "`yoke messages acknowledge MESSAGE-ID`. An injected receipt is absent "
@@ -76,6 +100,8 @@ __all__ = [
     "AUTOMATIC_LAUNCH_REGISTRATION_TEACHING",
     "LAUNCH_BOOTSTRAP_CLAIM_FIRST",
     "LAUNCH_BOOTSTRAP_REFUSAL",
+    "LAUNCH_REGISTRATION_IN_FLIGHT",
+    "LAUNCH_REGISTRATION_RECHECK_LIMIT",
     "native_launch_bootstrap",
     "native_launch_bootstrap_sha256",
 ]

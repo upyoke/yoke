@@ -66,7 +66,7 @@ def cookie_output(request, header):
 
 
 def verified_attribution(request):
-    """Sign-in may read only the server-signed consent record, never events."""
+    """Sign-in may read only the server-signed attribution record, never events."""
     if not any(
         name.startswith(("__Host-events_attribution", "events_attribution_"))
         for name in request.cookies

@@ -257,7 +257,7 @@ def test_a_carrier_run_closes_the_item_whatever_its_flow() -> None:
     """Another project's run that recorded this project's commit can close it."""
     assert membership_closes_item(
         run_flow="platform-production",
-        completion_flow="yoke-hosted-production",
+        closing_flows={"yoke-hosted-production"},
         run_project_id=2,
         item_project_id=1,
         source_sha="abc123",
@@ -265,7 +265,7 @@ def test_a_carrier_run_closes_the_item_whatever_its_flow() -> None:
     # Same project, other flow, is not completion authority.
     assert not membership_closes_item(
         run_flow="yoke-hosted-stage",
-        completion_flow="yoke-hosted-production",
+        closing_flows={"yoke-hosted-production"},
         run_project_id=1,
         item_project_id=1,
         source_sha="abc123",
@@ -274,7 +274,7 @@ def test_a_carrier_run_closes_the_item_whatever_its_flow() -> None:
     # nothing for it, so it delivers nothing for it either.
     assert not membership_closes_item(
         run_flow="platform-production",
-        completion_flow="yoke-hosted-production",
+        closing_flows={"yoke-hosted-production"},
         run_project_id=2,
         item_project_id=1,
         source_sha="",

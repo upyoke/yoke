@@ -54,6 +54,8 @@ SESSION_ORIENTATION_EVENT = "UserPromptSubmit"
 # The canonical name for the event a harness fires once when a session
 # opens, before any tool call. Several client-side paths key on it.
 SESSION_START_EVENT = "SessionStart"
+# The canonical name for the event a harness fires when a session ends.
+SESSION_END_EVENT = "SessionEnd"
 
 
 # The recurring context-bearing event that re-delivers an orientation block

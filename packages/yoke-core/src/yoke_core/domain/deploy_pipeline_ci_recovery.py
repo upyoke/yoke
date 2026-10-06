@@ -1,27 +1,20 @@
-"""Exact-commit CI gate targeting, refusals, and automatic dispatch.
+"""Exact-commit CI gate targeting and refusals.
 
 A gate verifies one release commit. It reaches that commit through a
 branch when the flow has one, and through the commit alone when the
-candidate is frozen without a branch of its own. Dispatch is the branch
-path only: GitHub runs a workflow from a branch or tag ref, never from a
-bare commit, so a branchless gate with no run to read refuses here rather
-than starting a run against a revision nobody asked to release.
+candidate is frozen without a branch of its own. The gate never starts a
+CI run: GitHub runs a workflow from a branch or tag ref, never from a bare
+commit, so a dispatch would verify whatever that ref points at rather than
+the release commit. A commit with no run of its own is refused with the
+recovery that moves the release to a tested commit.
 """
 
 from __future__ import annotations
 
-import hashlib
-from typing import Any, Callable, Optional
+from typing import Any
 
-from yoke_contracts.github_workflow_dispatch import (
-    WORKFLOW_DISPATCH_CORRELATION_INPUT,
-)
-from yoke_core.domain.deploy_pipeline_github_workflow_dispatch import (
-    trigger_with_recovery_retries,
-)
-from yoke_core.domain.deploy_pipeline_github_workflow_reconciliation import (
-    _trigger_args,
-)
+_AUTH_ADAPTER_CODES = frozenset({"project_auth_error", "rest_auth_error"})
+_MISSING_WORKFLOW_CODE = "workflow_not_found"
 
 
 def ci_gate_subject(branch: str, head_sha: str) -> str:
@@ -33,6 +26,39 @@ def ci_gate_subject(branch: str, head_sha: str) -> str:
 
 
 _QUEUE_REF_PREFIX = "gh-readonly-queue/"
+
+
+def ci_adapter_failure_message(
+    code: str,
+    failure: str,
+    *,
+    workflow: str,
+    repo: str,
+) -> str:
+    """Refuse a gate whose Actions adapter failed before any CI verdict."""
+    if code == _MISSING_WORKFLOW_CODE:
+        return (
+            f"\nBLOCKED: Cannot deploy — declared CI workflow {workflow} "
+            f"does not exist in {repo}.\n\n"
+            "Create the workflow under .github/workflows/, or correct "
+            "the project's ci_workflow_file declaration.\n"
+        )
+    if code in _AUTH_ADAPTER_CODES:
+        kind = "an authorization failure"
+    elif code == "rest_transport_error":
+        kind = "a transport failure"
+    else:
+        return (
+            "\nBLOCKED: Cannot deploy — CI could not be verified; "
+            f"the GitHub Actions adapter returned {failure}.\n\n"
+            "The failure class is unknown; it is not a failing test "
+            "conclusion.\n"
+        )
+    return (
+        "\nBLOCKED: Cannot deploy — CI could not be verified; "
+        f"the GitHub Actions adapter returned {failure}.\n\n"
+        f"This is {kind}, not a failing test conclusion.\n"
+    )
 
 
 def failed_ci_message(subject: str) -> str:
@@ -70,10 +96,7 @@ def merge_queue_same_tree_note(runs: list[Any]) -> str:
     if not queue_runs:
         return ""
     chosen = next(
-        (
-            run for run in queue_runs
-            if str(run.get("conclusion") or "") == "success"
-        ),
+        (run for run in queue_runs if str(run.get("conclusion") or "") == "success"),
         queue_runs[0],
     )
     conclusion = str(chosen.get("conclusion") or "").strip() or "none"
@@ -137,7 +160,10 @@ def unverifiable_ci_target_message(*, github_repo: str, workflow: str) -> str:
 
 
 def branchless_dispatch_message(
-    *, github_repo: str, workflow: str, head_sha: str,
+    *,
+    github_repo: str,
+    workflow: str,
+    head_sha: str,
 ) -> str:
     """Refuse dispatch for a frozen commit that has no branch to run from."""
     return (
@@ -160,145 +186,48 @@ def branchless_dispatch_message(
     )
 
 
-def ci_gate_dispatch_request_id(
-    project: str,
-    github_repo: str,
-    workflow: str,
-    head_sha: str,
-) -> str:
-    """Return one bounded idempotency key for an exact verification target."""
-    target = "\n".join((project, github_repo, workflow, head_sha))
-    digest = hashlib.sha256(target.encode("utf-8")).hexdigest()
-    return f"ci-gate:{digest}"
-
-
-def dispatch_missing_ci_run(
-    *,
-    github_actions: Callable[..., Any],
-    github_repo: str,
-    project: str,
-    workflow: str,
-    branch: str,
-    head_sha: str,
-    timeout_sec: int,
-    sd: Optional[str],
-) -> tuple[str, str]:
-    """Dispatch or recover the declared CI run; return ``(run_id, error)``."""
-    args = _trigger_args(
-        github_repo,
-        workflow,
-        branch,
-        {},
-        request_id=ci_gate_dispatch_request_id(
-            project,
-            github_repo,
-            workflow,
-            head_sha,
-        ),
-        correlation_input=WORKFLOW_DISPATCH_CORRELATION_INPUT,
-    )
-    result = trigger_with_recovery_retries(
-        args,
-        github_actions=github_actions,
-        project=project,
-        sd=sd,
-        timeout_sec=timeout_sec,
-    )
-    run_id = (result.stdout or "").strip()
-    if result.returncode == 0 and run_id:
-        return run_id, ""
-    detail = (result.stderr or result.stdout or "").strip()
-    return "", detail or "the GitHub Actions adapter returned no run id"
-
-
 def missing_ci_run_message(
     *,
     github_repo: str,
-    workflow: str,
-    branch: str,
-    head_sha: str,
-    dispatched_run_id: str = "",
-    dispatch_error: str = "",
-) -> str:
-    """Teach the exact missing-run condition and its recovery."""
-    dispatch_fact = ""
-    if dispatched_run_id:
-        dispatch_fact = (
-            f"\nAutomatic dispatch returned run {dispatched_run_id}, but that run "
-            "did not register for the required commit."
-        )
-    elif dispatch_error:
-        dispatch_fact = f"\nAutomatic dispatch failed: {dispatch_error}"
-    return (
-        "\nBLOCKED: Cannot deploy — no CI run exists for exact release commit "
-        f"{head_sha} on {branch} in declared workflow {workflow}."
-        f"{dispatch_fact}\n\n"
-        "Recovery:\n"
-        f"  1. Confirm {github_repo}@{branch} still points at {head_sha}\n"
-        f"  2. Confirm {workflow} accepts workflow_dispatch with the "
-        f"{WORKFLOW_DISPATCH_CORRELATION_INPUT} input\n"
-        "  3. Re-run the deployment; the gate dispatches and waits for that "
-        "exact commit automatically\n"
-    )
-
-
-def recover_missing_ci_gate(
-    *,
-    github_actions: Callable[..., Any],
-    recheck: Callable[[str], tuple[bool, str]],
-    github_repo: str,
     project: str,
     workflow: str,
     branch: str,
     head_sha: str,
-    timeout_sec: int,
-    sd: Optional[str],
-    dispatched_run_id: str,
-) -> tuple[bool, str]:
-    """Dispatch once, then ask the gate to verify the same exact commit."""
-    if not branch:
-        return False, branchless_dispatch_message(
-            github_repo=github_repo, workflow=workflow, head_sha=head_sha,
-        )
-    if dispatched_run_id:
-        return False, missing_ci_run_message(
-            github_repo=github_repo,
-            workflow=workflow,
-            branch=branch,
-            head_sha=head_sha,
-            dispatched_run_id=dispatched_run_id,
-        )
-    run_id, error = dispatch_missing_ci_run(
-        github_actions=github_actions,
-        github_repo=github_repo,
-        project=project,
-        workflow=workflow,
-        branch=branch,
-        head_sha=head_sha,
-        timeout_sec=timeout_sec,
-        sd=sd,
-    )
-    if run_id:
-        return recheck(run_id)
-    return False, missing_ci_run_message(
-        github_repo=github_repo,
-        workflow=workflow,
-        branch=branch,
-        head_sha=head_sha,
-        dispatch_error=error,
+) -> str:
+    """Refuse a release commit that has no CI run of its own.
+
+    A merge-queue push lands several commits at once and only its newest
+    gets a push run, so an earlier commit of that push is never tested on
+    its own. Dispatching on the branch would test whatever the branch
+    points at by then, never this commit, so the gate dispatches nothing:
+    the release moves to a commit that already has its own run.
+    """
+    return (
+        "\nBLOCKED: Cannot deploy — no CI run exists for exact release commit "
+        f"{head_sha} on {branch} in declared workflow {workflow} "
+        f"({github_repo}).\n\n"
+        "A merge-queue push runs CI only on its newest commit, and "
+        "dispatching on the branch would test a different commit, so the "
+        "gate dispatches nothing and waives nothing.\n\n"
+        "Recovery:\n"
+        "  1. Create a new deployment run without --source-ref; creation "
+        f"binds the newest commit on {branch} that has its own {workflow} "
+        "run, or dispatches one on the branch when none has:\n"
+        f"       yoke --env <CONTROL-PLANE> deployment-runs create {project} "
+        "<FLOW> --environment <ENV> --idempotency-key <NEW-KEY>\n"
+        "  2. Cancel this run, and give its paired run the same new commit "
+        "with --source-ref\n"
     )
 
 
 __all__ = [
+    "ci_adapter_failure_message",
     "branchless_dispatch_message",
-    "ci_gate_dispatch_request_id",
     "ci_gate_subject",
-    "dispatch_missing_ci_run",
     "failed_ci_message",
     "merge_queue_same_tree_note",
     "missing_ci_run_message",
     "no_verdict_ci_message",
-    "recover_missing_ci_gate",
     "timed_out_ci_message",
     "unverifiable_ci_target_message",
 ]

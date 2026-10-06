@@ -51,6 +51,7 @@ from yoke_core.domain.delivery_release_candidates import (
     succeeded_persistent_runs,
 )
 from yoke_core.domain.deployment_item_flow_resolution import (
+    item_closing_flows,
     item_completion_flow,
 )
 from yoke_core.domain.deployment_member_independent_close_out import (
@@ -175,7 +176,9 @@ def delivery_evidence(conn: Any, item_id: int) -> DeliveryEvidence:
         return _member_shaped_answer(member, flow=flow)
 
     releases = (
-        succeeded_flow_runs(conn, project_id=project_id, flow=flow)
+        succeeded_flow_runs(
+            conn, project_id=project_id, flows=item_closing_flows(conn, int(item_id))
+        )
         if flow
         else succeeded_persistent_runs(conn, project_id=project_id)
     )

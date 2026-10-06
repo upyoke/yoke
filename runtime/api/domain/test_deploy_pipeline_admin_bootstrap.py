@@ -104,8 +104,10 @@ def test_admin_candidate_dispatches_scoped_qa_stages_locally(
     code, message = dispatch_deployment_qa_stage(
         {"name": "scoped-item-check"}, run_id=run_id
     )
+    # The plane's delivery-ready item is closed by this flow and the run
+    # enrolled nobody, so the stored item stage fails closed by name.
     assert code == 1
-    assert "item-scoped QA stage has no attached run members" in message
+    assert message.startswith("item_qa_run_without_members:")
 
     refusal = resume_qa_refusal_message(run_id=run_id, start_stage="complete")
     assert "scoped-run-check" in refusal
