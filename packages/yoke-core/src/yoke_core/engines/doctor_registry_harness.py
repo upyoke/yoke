@@ -11,7 +11,7 @@ Session/harness substrate:
   ``stale-sessions``, ``stale-session-reclaimer-alive``,
   ``stale-reclaim-collision``, ``session-actor-binding``,
   ``local-operating-actor-authority``, ``session-cwd-binding``,
-  ``session-pre-implementing-activity``, ``session-lane-mismatch``,
+  ``session-pre-implementing-activity``,
   ``launcher-authority``, ``session-relay``, ``session-relay-orphans``.
 
 Project harness config:
