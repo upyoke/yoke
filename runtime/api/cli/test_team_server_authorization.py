@@ -6,7 +6,10 @@ import pytest
 from yoke_cli.config import hosted_machine_authorization as auth
 from yoke_cli.config import team_server_authorization as team
 from yoke_cli.commands import connect as command
-from yoke_cli.transport.bounded_json_http import BoundedJsonHttpResponse
+from yoke_cli.transport.bounded_json_http import (
+    BoundedJsonHttpResponse,
+    BoundedJsonHttpStatusError,
+)
 from yoke_contracts.machine_authorization import APPROVAL_PAGE_PATH
 
 ORIGIN = "https://team.example"
@@ -105,3 +108,61 @@ def test_team_tui_routes_browser_or_token_after_server_discovery():
     shell.success(False)
     assert shell.selected == "token"
     assert shell._machine_authorization_server is None
+
+
+@pytest.mark.parametrize(
+    "reason",
+    [
+        "authorization_start_rate_limited",
+        "authorization_client_capacity",
+        "authorization_capacity",
+    ],
+)
+def test_client_teaches_named_start_admission_refusals(monkeypatch, reason):
+    monkeypatch.setattr(
+        auth,
+        "_machine_identity",
+        lambda: {"machine_id": MACHINE_ID, "machine_name": "laptop"},
+    )
+
+    def refused(*args, **kwargs):
+        raise BoundedJsonHttpStatusError(429, {"error": reason})
+
+    monkeypatch.setattr(auth, "request_json", refused)
+    with pytest.raises(
+        auth.HostedMachineAuthorizationError, match=reason + ": finish pending"
+    ):
+        auth.start(ORIGIN, self_host=True)
+
+
+def test_client_stops_polling_with_named_rate_refusal(monkeypatch):
+    monkeypatch.setattr(
+        auth,
+        "_machine_identity",
+        lambda: {"machine_id": MACHINE_ID, "machine_name": "laptop"},
+    )
+    seen = []
+
+    def refused(*args, **kwargs):
+        seen.append(True)
+        raise BoundedJsonHttpStatusError(
+            429, {"error": "authorization_poll_rate_limited"}
+        )
+
+    monkeypatch.setattr(auth, "request_json", refused)
+    pending = auth.PendingMachineAuthorization(
+        ORIGIN,
+        "secret",
+        "code",
+        ORIGIN + APPROVAL_PAGE_PATH,
+        ORIGIN + APPROVAL_PAGE_PATH,
+        600,
+        2,
+        True,
+    )
+    with pytest.raises(
+        auth.HostedMachineAuthorizationError,
+        match="authorization_poll_rate_limited: finish pending",
+    ):
+        auth.complete(pending, sleep=lambda _: None, monotonic=lambda: 0)
+    assert seen == [True]

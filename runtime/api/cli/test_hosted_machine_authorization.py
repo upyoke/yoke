@@ -16,7 +16,9 @@ MACHINE_ID = "8bea37d8-e2d5-4e4d-96c4-cfc53d9dbe5f"
 @pytest.fixture(autouse=True)
 def machine_identity(monkeypatch) -> None:
     monkeypatch.setattr(
-        auth.machine_config_mutation, "ensure_local_machine_identity", lambda: MACHINE_ID
+        auth.machine_config_mutation,
+        "ensure_local_machine_identity",
+        lambda: MACHINE_ID,
     )
     monkeypatch.setattr(auth, "machine_display_name", lambda: "Test Host")
 
@@ -129,11 +131,11 @@ def test_browser_authorization_rejects_malformed_pending_response(monkeypatch) -
     "answer",
     [
         BoundedJsonHttpResponse(payload={"error": error}, status=status, headers={})
-        for status, error in auth._RETRYABLE_POLL_ERRORS.items()
+        for status, error in auth.RETRYABLE_POLL_ERRORS.items()
     ]
     + [
         BoundedJsonHttpStatusError(status, {"error": error})
-        for status, error in auth._RETRYABLE_POLL_ERRORS.items()
+        for status, error in auth.RETRYABLE_POLL_ERRORS.items()
     ],
 )
 def test_browser_authorization_retries_typed_transient_answers(

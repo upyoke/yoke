@@ -22,6 +22,10 @@ from yoke_core.domain.machine_approval_requests import (
 )
 from yoke_core.domain.decision_request_resolution import resolve_decision_request
 from yoke_core.domain.machine_credentials import register_with_credential
+from yoke_core.domain.machine_authorization_limits import (
+    CLIENT_PENDING_CODES,
+    SERVER_PENDING_CODES,
+)
 
 
 class MachineAuthorizationError(ValueError):
@@ -43,7 +47,7 @@ def _hash(code: str) -> str:
 
 
 def start(
-    conn: Any, *, origin: str, machine_id: str, machine_name: str
+    conn: Any, *, origin: str, machine_id: str, machine_name: str, client_key: str
 ) -> dict[str, Any]:
     try:
         machine_id = str(UUID(machine_id))
@@ -60,10 +64,21 @@ def start(
     conn.execute(
         f"DELETE FROM machine_authorization_codes WHERE expires_at <= {p}", (now,)
     )
-    count = conn.execute("SELECT count(*) FROM machine_authorization_codes").fetchone()[
-        0
-    ]
-    if count >= 128:
+    # The same transaction lock covers both capacity checks and insertion.
+    count = conn.execute(
+        f"SELECT count(*) FROM machine_authorization_codes WHERE client_key={p} AND consumed_at IS NULL",
+        (client_key,),
+    ).fetchone()[0]
+    if count >= CLIENT_PENDING_CODES:
+        raise MachineAuthorizationError(
+            "authorization_client_capacity",
+            "this client has too many pending codes; finish an approval or retry after expiry",
+            429,
+        )
+    count = conn.execute(
+        "SELECT count(*) FROM machine_authorization_codes WHERE consumed_at IS NULL"
+    ).fetchone()[0]
+    if count >= SERVER_PENDING_CODES:
         raise MachineAuthorizationError(
             "authorization_capacity",
             "too many pending codes; retry after ten minutes",
@@ -76,9 +91,17 @@ def start(
         datetime.now(timezone.utc) + timedelta(seconds=CODE_TTL_SECONDS)
     ).strftime("%Y-%m-%dT%H:%M:%SZ")
     conn.execute(
-        "INSERT INTO machine_authorization_codes (device_hash,user_code,org_id,expires_at,machine_id,machine_name) "
-        f"VALUES ({p},{p},{p},{p},{p},{p})",
-        (_hash(device), code, default_org_id(conn), expires, machine_id, machine_name),
+        "INSERT INTO machine_authorization_codes (device_hash,user_code,org_id,expires_at,machine_id,machine_name,client_key) "
+        f"VALUES ({p},{p},{p},{p},{p},{p},{p})",
+        (
+            _hash(device),
+            code,
+            default_org_id(conn),
+            expires,
+            machine_id,
+            machine_name,
+            client_key,
+        ),
     )
     conn.commit()
     uri = origin.rstrip("/") + APPROVAL_PAGE_PATH

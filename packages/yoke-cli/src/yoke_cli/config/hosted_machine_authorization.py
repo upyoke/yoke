@@ -15,12 +15,12 @@ from yoke_contracts.machine_authorization import (
     HostedMachineAuthorizationCancelled,
     PendingMachineAuthorization,
     HostedMachineCredential,
-    _platform_origin,
-    _same_origin_url,
-    _required,
-    _bounded_integer,
-    _BROWSER_VERIFICATION_PATHS,
-    _RETRYABLE_POLL_ERRORS,
+    authorization_origin,
+    same_origin_url,
+    required_text,
+    bounded_integer,
+    BROWSER_VERIFICATION_PATHS,
+    RETRYABLE_POLL_ERRORS,
     credential_api_url,
 )
 from yoke_cli.config import machine_config_mutation
@@ -41,7 +41,7 @@ def start(
     self_host: bool = False,
 ) -> PendingMachineAuthorization:
     """Begin one authorization without opening a browser or persisting state."""
-    origin = _platform_origin(platform_url)
+    origin = authorization_origin(platform_url)
     try:
         payload, status = _post_json(
             f"{origin}{START_PATH}",
@@ -50,27 +50,29 @@ def start(
             timeout_seconds=timeout_seconds,
         )
     except BoundedJsonHttpStatusError as exc:
+        _raise_admission_refusal(exc.payload, exc.status)
         raise HostedMachineAuthorizationError(
             f"hosted authorization could not start (HTTP {exc.status})"
         ) from None
     if status != 200:
+        _raise_admission_refusal(payload, status)
         raise HostedMachineAuthorizationError(
             f"hosted authorization could not start (HTTP {status})"
         )
-    device_code = _required(payload, "device_code")
-    user_code = _required(payload, "user_code")
-    verification_uri = _same_origin_url(
-        _required(payload, "verification_uri"),
+    device_code = required_text(payload, "device_code")
+    user_code = required_text(payload, "user_code")
+    verification_uri = same_origin_url(
+        required_text(payload, "verification_uri"),
         origin,
-        expected_paths=_BROWSER_VERIFICATION_PATHS,
+        expected_paths=BROWSER_VERIFICATION_PATHS,
     )
-    verification_uri_complete = _same_origin_url(
-        _required(payload, "verification_uri_complete"),
+    verification_uri_complete = same_origin_url(
+        required_text(payload, "verification_uri_complete"),
         origin,
-        expected_paths=_BROWSER_VERIFICATION_PATHS,
+        expected_paths=BROWSER_VERIFICATION_PATHS,
     )
-    expires_in = _bounded_integer(payload.get("expires_in"), 60, 1800, "expires_in")
-    interval = _bounded_integer(payload.get("interval"), 1, 30, "interval")
+    expires_in = bounded_integer(payload.get("expires_in"), 60, 1800, "expires_in")
+    interval = bounded_integer(payload.get("interval"), 1, 30, "interval")
     return PendingMachineAuthorization(
         platform_url=origin,
         device_code=device_code,
@@ -117,6 +119,7 @@ def complete(
                 sensitive_values=(authorization.device_code,),
             )
         except BoundedJsonHttpStatusError as exc:
+            _raise_admission_refusal(exc.payload, exc.status)
             error = (
                 exc.payload.get("error") if isinstance(exc.payload, Mapping) else None
             )
@@ -148,6 +151,7 @@ def complete(
         if error in {"authorization_expired", "authorization_consumed"}:
             raise HostedMachineAuthorizationError(str(error).replace("_", " "))
         if status != 200:
+            _raise_admission_refusal(payload, status)
             raise HostedMachineAuthorizationError(
                 f"hosted authorization polling failed (HTTP {status})"
             )
@@ -155,10 +159,10 @@ def complete(
             raise HostedMachineAuthorizationError(
                 "hosted authorization returned an error"
             )
-        token = _required(payload, "token")
-        org = _required(payload, "org")
+        token = required_text(payload, "token")
+        org = required_text(payload, "org")
         api_url = credential_api_url(
-            _required(payload, "api_url"),
+            required_text(payload, "api_url"),
             authorization.platform_url,
             org,
             self_host=authorization.self_host,
@@ -169,8 +173,21 @@ def complete(
     )
 
 
+def _raise_admission_refusal(payload: object, status: int) -> None:
+    error = payload.get("error") if isinstance(payload, Mapping) else None
+    if status == 429 and error in {
+        "authorization_start_rate_limited",
+        "authorization_poll_rate_limited",
+        "authorization_client_capacity",
+        "authorization_capacity",
+    }:
+        raise HostedMachineAuthorizationError(
+            f"{error}: finish pending machine approvals or wait for the server's admission budget to recover, then reconnect"
+        ) from None
+
+
 def _poll_is_retryable(status: int, error: object) -> bool:
-    expected_error = _RETRYABLE_POLL_ERRORS.get(status)
+    expected_error = RETRYABLE_POLL_ERRORS.get(status)
     return expected_error is not None and expected_error == error
 
 

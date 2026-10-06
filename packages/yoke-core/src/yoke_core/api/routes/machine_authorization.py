@@ -20,18 +20,49 @@ from yoke_core.domain import (
 )
 from yoke_core.domain.machine_registry import MachineRegistryError
 from yoke_core.domain.actor_state import ActorDisabledError
+from yoke_core.domain.machine_authorization_limits import admit_client
 from yoke_core.api.oidc_config import OidcConfigError, resolve_oidc_config
 
 router = APIRouter()
 _log = logging.getLogger("yoke.api.machine_authorization")
 
 
-def _error(code: str, detail: str, status: int) -> JSONResponse:
+def _error(
+    code: str, detail: str, status: int, *, retry_after: int = 0
+) -> JSONResponse:
     return JSONResponse(
         {"error": code, "message": detail},
         status_code=status,
-        headers={"Cache-Control": "no-store"},
+        headers={
+            "Cache-Control": "no-store",
+            **({"Retry-After": str(retry_after)} if retry_after else {}),
+        },
     )
+
+
+def _admit(request: Request, operation: str) -> str | JSONResponse:
+    try:
+        with db_helpers.connect() as conn:
+            key, delay = admit_client(
+                conn,
+                client=request.client.host if request.client else "unknown",
+                operation=operation,
+            )
+    except db_backend.database_error_types() as exc:
+        _log.error("authorization_store_unavailable: %s", type(exc).__name__)
+        return _error(
+            "authorization_store_unavailable",
+            "restore the sign-in admission store, then retry",
+            503,
+        )
+    if delay:
+        return _error(
+            f"authorization_{operation}_rate_limited",
+            "too many requests from this client; retry after Retry-After",
+            429,
+            retry_after=delay,
+        )
+    return key
 
 
 @router.get(START_PATH)
@@ -49,6 +80,11 @@ def methods() -> JSONResponse:
 
 @router.post(START_PATH)
 async def start(request: Request) -> JSONResponse:
+    from starlette.concurrency import run_in_threadpool
+
+    client_key = await run_in_threadpool(_admit, request, "start")
+    if isinstance(client_key, JSONResponse):
+        return client_key
     try:
         model = MachineAuthorizationStart.model_validate(await request.json())
     except (ValidationError, ValueError):
@@ -57,12 +93,10 @@ async def start(request: Request) -> JSONResponse:
             "send this machine's configured id and name to start connection",
             400,
         )
-    from starlette.concurrency import run_in_threadpool
-
-    return await run_in_threadpool(_start, model)
+    return await run_in_threadpool(_start, model, client_key)
 
 
-def _start(model: MachineAuthorizationStart) -> JSONResponse:
+def _start(model: MachineAuthorizationStart, client_key: str) -> JSONResponse:
     try:
         config = resolve_oidc_config()
     except OidcConfigError as exc:
@@ -80,7 +114,10 @@ def _start(model: MachineAuthorizationStart) -> JSONResponse:
     try:
         with db_helpers.connect() as conn:
             payload = codes.start(
-                conn, origin=config.redirect_base_url, **model.model_dump()
+                conn,
+                origin=config.redirect_base_url,
+                client_key=client_key,
+                **model.model_dump(),
             )
     except codes.MachineAuthorizationError as exc:
         return _error(exc.code, str(exc), exc.status)
@@ -96,6 +133,11 @@ def _start(model: MachineAuthorizationStart) -> JSONResponse:
 
 @router.post(POLL_PATH)
 async def token(request: Request) -> JSONResponse:
+    from starlette.concurrency import run_in_threadpool
+
+    client_key = await run_in_threadpool(_admit, request, "poll")
+    if isinstance(client_key, JSONResponse):
+        return client_key
     try:
         model = MachineAuthorizationPoll.model_validate(await request.json())
     except (ValidationError, ValueError):
@@ -105,8 +147,6 @@ async def token(request: Request) -> JSONResponse:
             400,
         )
     # Database work belongs to the worker pool, as on every authenticated door.
-    from starlette.concurrency import run_in_threadpool
-
     return await run_in_threadpool(_poll, model)
 
 

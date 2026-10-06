@@ -77,9 +77,11 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # client key, window start and request count are born with that table.
 # Browser admission links add one table whose selector, hashed secret, actor,
 # expiry and consumption state are all born with that table.
-# All pending machine-authorization columns ship with their new table.
+# Pending machine-authorization columns ship with their new table except
+# client_key, which has an additive boot lookup. Machine sign-in rate counters
+# are born with their separate request-budget table.
 _BORN_WITH_COLUMN_DIGEST = (
-    "654fc986c81f4fa583517aff4ddb6378affe1cce17c01bde8daa94533a4aa855"
+    "777892cfe5b21012f0d30266cfafde57027e7c23b9b36b6180773a7094bf076f"
 )
 
 

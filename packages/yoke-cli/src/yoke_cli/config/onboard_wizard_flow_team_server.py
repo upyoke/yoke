@@ -1,8 +1,8 @@
 """Team-server URL discovery precedes choosing browser or token sign-in."""
 
-from yoke_cli.config import team_server_authorization
+from yoke_cli.config import team_server_authorization, onboard_wizard_steps as steps
 from yoke_cli.config.onboard_wizard_self_host import NO_SERVER_GUIDANCE
-from yoke_cli.config.onboard_wizard_widgets import STEP_CONNECT
+from yoke_cli.config.onboard_wizard_widgets import STEP_CONNECT, SelectionRow
 
 
 class TeamServerConnectFlow:
@@ -37,3 +37,22 @@ class TeamServerConnectFlow:
             on_error=lambda exc: self._goto_yoke_verify_error(str(exc), "team-server"),
             group="onboard-team-server-method",
         )
+
+    def _team_server_error_rows(self):
+        return [
+            SelectionRow("token", "Use API token", "connect without company sign-in"),
+            SelectionRow("retry", "Edit connection", "check the server URL and retry"),
+            SelectionRow("back", "Choose another home", "return to destinations"),
+        ]
+
+    def _connection_verify_error_rows(self, retry_source):
+        if retry_source == "team-server":
+            return self._team_server_error_rows()
+        if retry_source == "server-form":
+            return [
+                SelectionRow(
+                    "retry", "Edit connection", "return to the populated form"
+                ),
+                SelectionRow("back", "Choose another home", "return to destinations"),
+            ]
+        return steps.YOKE_TOKEN_VERIFY_RETRY_ROWS

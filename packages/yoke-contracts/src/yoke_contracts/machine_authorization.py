@@ -30,8 +30,8 @@ class HostedMachineAuthorizationCancelled(HostedMachineAuthorizationError):
 
 # Hosted pages that may present the one-time code approval: the dedicated
 # machine-approval page and the unified connect-machine page.
-_BROWSER_VERIFICATION_PATHS = ("/connect", "/machine", APPROVAL_PAGE_PATH)
-_RETRYABLE_POLL_ERRORS = {
+BROWSER_VERIFICATION_PATHS = ("/connect", "/machine", APPROVAL_PAGE_PATH)
+RETRYABLE_POLL_ERRORS = {
     202: "authorization_pending",
     503: "machine_credential_unavailable",
 }
@@ -56,7 +56,7 @@ class HostedMachineCredential:
     token: str = field(repr=False)
 
 
-def _platform_origin(value: str) -> str:
+def authorization_origin(value: str) -> str:
     try:
         parsed = urllib.parse.urlsplit(str(value or "").strip().rstrip("/"))
         parsed.port
@@ -83,9 +83,7 @@ def _platform_origin(value: str) -> str:
     return urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, "", "", ""))
 
 
-def _same_origin_url(
-    value: str, origin: str, *, expected_paths: tuple[str, ...]
-) -> str:
+def same_origin_url(value: str, origin: str, *, expected_paths: tuple[str, ...]) -> str:
     parsed = urllib.parse.urlsplit(value)
     expected = urllib.parse.urlsplit(origin)
     if (
@@ -100,14 +98,14 @@ def _same_origin_url(
     return value
 
 
-def _required(payload: Mapping[str, Any], key: str) -> str:
+def required_text(payload: Mapping[str, Any], key: str) -> str:
     value = str(payload.get(key) or "").strip()
     if not value or len(value) > 4096:
         raise HostedMachineAuthorizationError(f"hosted authorization omitted {key}")
     return value
 
 
-def _bounded_integer(value: Any, minimum: int, maximum: int, label: str) -> int:
+def bounded_integer(value: Any, minimum: int, maximum: int, label: str) -> int:
     if isinstance(value, bool):
         raise HostedMachineAuthorizationError(
             f"hosted authorization returned invalid {label}"
