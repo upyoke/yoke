@@ -1,9 +1,9 @@
-"""Item identity at the dispatcher boundary: payload refs in, refs out.
+"""Item identity at the dispatcher boundary: payload refs resolve inward.
 
 Payload ``public_ref``-family keys resolve onto the ``item_id``-family keys
-a handler's request model declares; responses gain the public ref beside
-every engine id. Resolution and rendering are stubbed here — the resolver's
-own semantics are proven against Postgres in ``test_item_ref_resolution``.
+a handler's request model declares. Resolution is stubbed here — the
+resolver's own semantics are proven against Postgres in
+``test_item_ref_resolution``.
 """
 
 from __future__ import annotations
@@ -17,20 +17,12 @@ from pydantic import BaseModel, ConfigDict
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
-    FunctionCallResponse,
     TargetRef,
 )
-from yoke_core.domain.item_identity_keys import engine_key_for_wire, wire_key_for_engine
-from yoke_core.domain.item_identity_projection import (
-    apply_public_refs,
-    collect_item_ids,
-)
+from yoke_core.domain.item_identity_keys import engine_key_for_wire
 from yoke_core.domain.item_ref_resolution import ItemRefError
 from yoke_core.domain.yoke_function_dispatch_payload_refs import (
     resolve_payload_public_refs,
-)
-from yoke_core.domain.yoke_function_dispatch_projection import (
-    project_response_item_identity,
 )
 
 REFS = {"YOK-5": 100, "YOK-6": 101, "EXT-5": 200}
@@ -83,7 +75,7 @@ def _resolve(request: FunctionCallRequest, model=_Model, hint=None):
         return resolve_payload_public_refs(request, model, project_hint=hint)
 
 
-def test_key_pairing_is_symmetric():
+def test_wire_keys_pair_onto_engine_keys():
     for engine, wire in (
         ("item_id", "public_ref"),
         ("owner_item_id", "owner_public_ref"),
@@ -91,9 +83,7 @@ def test_key_pairing_is_symmetric():
         ("item_ids", "public_refs"),
         ("member_item_ids", "member_public_refs"),
     ):
-        assert wire_key_for_engine(engine) == wire
         assert engine_key_for_wire(wire) == engine
-    assert wire_key_for_engine("claim_id") is None
     assert engine_key_for_wire("project") is None
 
 
@@ -146,42 +136,3 @@ def test_model_that_declares_the_ref_key_keeps_it():
     request = _request({"public_ref": "anything"})
     assert _resolve(request, model=_OwnsRef) is None
     assert request.payload == {"public_ref": "anything"}
-
-
-def test_projection_fills_wire_refs_beside_engine_ids():
-    result = {
-        "item_id": 100,
-        "rows": [{"owner_item_id": "200", "epic_id": 101}],
-        "item_ids": [100, 101],
-        "frontier": {"item_id": "YOK-5"},
-        "kept": {"item_id": 100, "public_ref": "already"},
-        "claim_id": 7,
-    }
-    assert sorted(set(collect_item_ids(result))) == [100, 101, 200]
-    out = apply_public_refs(result, {100: "YOK-5", 101: "YOK-6", 200: "EXT-5"})
-    assert out["public_ref"] == "YOK-5"
-    assert out["rows"][0]["owner_public_ref"] == "EXT-5"
-    assert out["rows"][0]["epic_public_ref"] == "YOK-6"
-    assert out["public_refs"] == ["YOK-5", "YOK-6"]
-    assert "public_ref" not in out["frontier"]
-    assert out["kept"]["public_ref"] == "already"
-    assert out["item_id"] == 100
-
-
-def test_response_projection_degrades_to_a_warning():
-    response = FunctionCallResponse(
-        success=True,
-        function="x.y",
-        version="v1",
-        result={"item_id": 100},
-    )
-
-    @contextmanager
-    def _broken(*_a, **_k):
-        raise RuntimeError("no database")
-        yield
-
-    with patch("yoke_core.domain.db_helpers.connect", side_effect=_broken):
-        projected = project_response_item_identity(response)
-    assert projected.result == {"item_id": 100}
-    assert projected.warnings[-1].code == "public_ref_projection_failed"
