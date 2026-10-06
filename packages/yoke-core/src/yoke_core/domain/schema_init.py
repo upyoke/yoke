@@ -5,6 +5,7 @@ from yoke_core.domain.actors import seed_canonical_actors
 from yoke_core.domain.auth_schema import create_auth_tables
 from yoke_core.domain.decision_request_schema import create_decision_request_tables
 from yoke_core.domain.events_schema import ensure_event_schema
+from yoke_core.domain.events_function_index import ensure_function_index
 from yoke_core.domain.external_identity_schema import create_external_identity_tables
 from yoke_core.domain.gate_satisfaction_schema import (
     create_gate_satisfaction_tables,
@@ -159,10 +160,7 @@ def converge_core_schema(conn, *, backup_target_dsn: str | None = None) -> None:
     self-host universes on the boot after a deploy (see
     :func:`yoke_core.api.server_entrypoint.ensure_core_schema`).
 
-    The creation steps themselves stay strictly non-destructive. Destructive
-    change is not absent — it is confined to the history, where it is ordered,
-    recorded per database, and covered by a restore point, rather than being an
-    inline repair nothing can audit.
+    Creation stays additive; destructive changes belong to audited history.
 
     When the configured restore-point policy takes a local Postgres dump,
     ``backup_target_dsn`` must explicitly identify ``conn``'s authority. The
@@ -232,6 +230,7 @@ def converge_core_schema(conn, *, backup_target_dsn: str | None = None) -> None:
     apply_ouroboros_columns(conn)
     ensure_ouroboros_entry_corrections_schema(conn)
     conn.commit()
+    ensure_function_index(conn)
     # Strategy authority landed on prod via a since-retired governed
     # migration; fresh envs get the table from the same DDL constant
     # the strategy domain owns.

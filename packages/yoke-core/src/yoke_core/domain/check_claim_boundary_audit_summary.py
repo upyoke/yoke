@@ -13,6 +13,10 @@ from yoke_core.domain.check_claim_boundary_audit_function_evidence import (
     function_audit_metadata,
 )
 from yoke_core.domain.sql_json import json_text_expr, jsonb_text_expr
+from yoke_core.domain.events_function_index import (
+    FUNCTION_LOOKUP_CHARS,
+    function_lookup_sql,
+)
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.yoke_function_dispatch_claim_evidence import (
     CLAIM_VERIFICATION_ALLOWED,
@@ -92,8 +96,23 @@ def _query(path_owner: str, historical: str, event_name: str) -> str:
         + ")"
     )
     claim_scope = "translate(jsonb_build_object('item_id', subject)::text, ' ', '')"
-    # Decode the function id before filtering so large unrelated payloads need
-    # no regular-expression scan. Preview candidates are decoded separately.
+    # Separate LIKE clauses expose each family prefix to text_pattern_ops.
+    # The same decoded expression indexes encoded keys and values correctly.
+    if any(
+        len(family) >= FUNCTION_LOOKUP_CHARS for family in _AUDITED_FUNCTION_FAMILIES
+    ):
+        raise RuntimeError("audit_function_family_exceeds_index_prefix")
+    identity = function_lookup_sql()
+    candidates = " OR ".join(
+        [f"{identity}=ANY(%(families)s)"]
+        + [
+            f"{identity} LIKE %(function_family_{i})s"
+            for i in range(len(_AUDITED_FUNCTION_FAMILIES))
+        ]
+    )
+    function_filter = (
+        f"AND ({candidates})" if event_name == "YokeFunctionCalled" else ""
+    )
     sql = f"""
     WITH metadata AS MATERIALIZED (
         SELECT key AS function, value #>> '{{kind}}' AS kind
@@ -120,7 +139,7 @@ def _query(path_owner: str, historical: str, event_name: str) -> str:
                  detail json, prior_owner_session_id text, operator_rationale text,
                  claim_id text, claim_required_kind json)
         WHERE id >= %(cutoff)s AND event_name = %(event_name)s
-          AND (event_name <> 'YokeFunctionCalled' OR {json_text_expr("envelope")} #>> '{{context,function}}' ~ %(function_pattern)s)
+          {function_filter}
           AND (event_name <> 'HarnessToolCallCompleted'
                OR (anomaly_flags LIKE %(unattributed)s AND envelope ~ %(candidate_pattern)s))
     ), function_metadata AS MATERIALIZED (
@@ -301,7 +320,10 @@ def audit_summary(conn, *, preview_limit: int = 10) -> tuple[int, int, list]:
                 "metadata": json.dumps(metadata),
                 "cutoff": cutoff.read_min_event_id_cutoff(),
                 "event_name": event_name,
-                "function_pattern": "^" + family_pattern + "([.]|$)",
+                **{
+                    f"function_family_{i}": family.replace("_", "\\_") + ".%"
+                    for i, family in enumerate(_AUDITED_FUNCTION_FAMILIES)
+                },
                 "unattributed": "%unattributed%",
                 "candidate_pattern": candidate_pattern,
                 "families": list(_AUDITED_FUNCTION_FAMILIES),
