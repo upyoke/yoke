@@ -275,9 +275,13 @@ is no screenshot-to-AC bridge; the Browser case itself is the blocking proof.
 
 ### Proving which candidate the evidence shows
 
-`--expected-branch` / `--expected-sha` are verified by asking the target what
-it serves at `/served-build`; a target that cannot answer refuses as
-`identity_proof_unavailable` and records no run. A static or third-party
+`--expected-branch` / `--expected-sha` are verified by reading `/served-build`
+on the target the run was given (`--base-url`). A pre-merge candidate is
+proved there, and production is not asked. A mismatch refuses as
+`sha_mismatch`. A target that cannot answer refuses as
+`identity_proof_unavailable` and records no run. The candidate review server
+publishes that path to the run's own session, with no separate secret, the
+same way a local or self-hosted server publishes it before sign-in. A static or third-party
 preview publishes nothing there however current it is, so a pre-merge capture
 needs a target running this project's own build from a committed checkout —
 the same build that answers that path in its deployed environments. Commit

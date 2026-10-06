@@ -15,8 +15,10 @@ Security model:
   prod-flagged binding refuses at startup rather than answering from a
   universe the page does not name.
 * One random session token per run, minted and compared by
-  :mod:`yoke_core.ui.session_gate`. Every
-  workbench route requires it. The anonymous analytics collector separately
+  :mod:`yoke_core.ui.session_gate`. ``/served-build`` is public so a
+  pre-merge identity proof can read the commit before it holds that
+  token, as the self-hosted workbench already does. Every other
+  workbench route requires the token. The anonymous analytics collector separately
   enforces its exact origin, publishable key, and shared rate budget.
   The token arrives as a ``?token=`` query parameter on the first hit;
   the app shell exchanges it for an HttpOnly cookie and 303-redirects to
@@ -197,7 +199,10 @@ def create_ui_app(token: str, *, port: int = DEFAULT_UI_PORT):
     async def session_token_gate(request, call_next):
         from yoke_core.api.frontend_events_config import COLLECTOR_PATHS
 
-        if request.url.path in COLLECTOR_PATHS:
+        # /served-build is the commit this process serves. Browser QA reads
+        # it with the run's own session or with none, before that cookie
+        # exists. Every other route stays behind the per-run token.
+        if request.url.path in COLLECTOR_PATHS or request.url.path == SERVED_BUILD_PATH:
             return await call_next(request)
         candidate = (
             request.query_params.get("token") or request.cookies.get(cookie_name) or ""

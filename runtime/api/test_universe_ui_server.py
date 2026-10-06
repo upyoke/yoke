@@ -1,8 +1,10 @@
 """Session-token coverage for the local-universe UI server.
 
 Pins the security contract of :mod:`yoke_core.ui.server`: every route
-requires the per-run session token, exchanged from a query parameter for
-a cookie before the page assets can load."""
+except ``/served-build`` requires the per-run session token, exchanged
+from a query parameter for a cookie before the page assets can load.
+``/served-build`` is public so identity proof can read the commit before
+that cookie exists."""
 
 from __future__ import annotations
 
@@ -31,6 +33,14 @@ class TestSessionTokenGate:
         response = ui_client.get("/?token=caf%C3%A9")
         assert response.status_code == 401
         assert response.json()["error"]["code"] == "session_token_required"
+
+    def test_served_build_answers_without_the_session_token(self, ui_client):
+        from yoke_contracts.runtime_identity import SERVED_BUILD_PATH
+
+        response = ui_client.get(SERVED_BUILD_PATH)
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/plain")
 
     def test_assets_and_api_refuse_without_token(self, ui_client):
         assert ui_client.get("/assets/app.js").status_code == 401
