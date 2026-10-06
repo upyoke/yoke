@@ -46,6 +46,26 @@ always a new history entry declaring `RETIRES_INVARIANTS`: an applied entry's
 bytes are recorded in every ledger that ran it, so editing the module in place
 makes those databases refuse to boot on a content mismatch.
 
+A new entry always takes the next number. When it must run before an
+earlier-numbered entry — because that entry refuses until this one has done
+its work — it declares `PRECEDES = ("NNNN_slug",)`, a literal tuple naming
+lower-numbered entries. A database that owes both runs the declarer
+immediately before them; a database that already applied them owes only the
+declarer. The entry must therefore be correct in either order.
+
+### Open items pinned to the retired `advance` skill
+
+`0053_retire_advance_skill` refuses while a non-terminal item is pinned to a
+workflow definition binding `advance`. `0057_repin_advance_bound_items` runs
+before it and re-pins every such item whose definition Yoke published —
+`issue` generations 1–7 to generation 8, `task` generation 1 to generation 2,
+stages unchanged — so local and self-hosted universes upgrade without manual
+work. An item pinned to a locally customized definition is not re-pinned:
+boot refuses with `repin_advance_customized_definition`, names each item, and
+teaches the recovery — on an older build that still serves the universe,
+publish a version binding `implement` and move the item with
+`yoke workflows item migrate ITEM --version N`, or cancel it.
+
 ## Item vs fleet
 
 Rehearsal against the validation surface does not prove every live database.

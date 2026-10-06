@@ -43,6 +43,12 @@ Contract for a module here:
   (``IF EXISTS`` / ``IF NOT EXISTS``, or an explicit state check).
 - The filename stem is the entry's only identity — it is what the ledger
   stores. Do not add a name constant that could disagree with it.
+- A new entry takes the next number. If it must run before an
+  earlier-numbered entry, declare ``PRECEDES = ("NNNN_slug",)`` — a literal
+  tuple of lower-numbered entry stems. ``ordered_entries`` runs it
+  immediately before them wherever both are pending, so it must be correct
+  whether or not those entries already applied. See
+  ``migration_history_order``.
 
 Pure-additive net-new tables and columns do **not** belong here: those are
 authored in the schema modules and self-propagate through the converge step

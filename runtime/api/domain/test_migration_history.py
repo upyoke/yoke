@@ -17,8 +17,10 @@ from yoke_core.domain.migration_history import (
     history_dir,
     load_migration_module,
     ordered_entries,
+    ordinal_entries,
     validate_psycopg_migration_sql,
 )
+from yoke_core.domain.migration_history_order import apply_declared_precedence
 
 
 def _write_entry(directory: Path, name: str, body: str = "") -> Path:
@@ -65,7 +67,8 @@ def test_established_three_digit_identity_remains_discoverable(
     _write_entry(tmp_path, "005_fifth")
 
     assert [entry.name for entry in ordered_entries(tmp_path)] == [
-        "001_first", "005_fifth",
+        "001_first",
+        "005_fifth",
     ]
 
 
@@ -130,7 +133,11 @@ def test_packaged_history_is_well_formed() -> None:
     entries = ordered_entries(history_dir(migration_history_package))
 
     assert entries, "the packaged migration history should not be empty"
-    assert [e.sequence for e in entries] == sorted(e.sequence for e in entries)
+    # Apply order is ordinal order adjusted only by declared PRECEDES, and the
+    # ordinal view still sees exactly the same entries.
+    numeric = ordinal_entries(history_dir(migration_history_package))
+    assert entries == apply_declared_precedence(numeric)
+    assert sorted(entries, key=lambda e: e.sequence) == list(numeric)
 
 
 def test_packaged_history_passes_psycopg_authoring_check() -> None:
@@ -197,8 +204,7 @@ def test_load_skips_psycopg_check_by_default(tmp_path: Path) -> None:
         tmp_path,
         "0001_literal",
         body=(
-            "def apply(conn):\n"
-            "    conn.execute(\"SELECT '50%' WHERE id=?\", (1,))\n"
+            "def apply(conn):\n    conn.execute(\"SELECT '50%' WHERE id=?\", (1,))\n"
         ),
     )
 
