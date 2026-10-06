@@ -94,7 +94,7 @@ yoke events emit \
  --context "$_event_context"
 ```
 
-The `created_at` timestamp on this event row records when feed last ran. The post-delivery drift-review model uses `DriftReviewCompleted` and `StrategizeCompleted` as checkpoint anchors rather than `FeedCompleted`.
+The event timestamp is disposable telemetry. Durable `strategy_checkpoints` rows bound strategy review windows; feed does not advance those checkpoints.
 
 ## 5.4b Release FEED Process Claim
 

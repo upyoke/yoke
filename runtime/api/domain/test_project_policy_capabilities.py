@@ -87,7 +87,7 @@ def test_ensure_creates_default_capabilities(policy_conn: Any) -> None:
     assert routing["executor_default_lanes"]["claude*"] == "DARIUS"
     assert routing["executor_default_lanes"]["DARIUS"] == "DARIUS"
     assert "lane_paths" not in routing
-    assert routing["process_offers"]["default"] is False
+    assert "process_offers" not in routing
     assert routing["lane_metadata"] == {
         "DARIUS": {"label": "DARIUS", "glyph": "🐎"},
         "ALTMAN": {"label": "ALTMAN", "glyph": "👓"},

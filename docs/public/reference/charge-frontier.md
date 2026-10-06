@@ -61,18 +61,6 @@ Items with unsatisfied activation-gate hard-block dependencies are reclassified 
 
 The WIP cap limits remaining implementation capacity. In practice, scheduler suppression applies to epic `conduct` work; issue `implement` re-entry remains schedulable, but items already in `implementing` or `reviewing-implementation` still contribute to `wip_active`.
 
-At offer time, the scheduler's lane/path filter uses the session's resolved
-executor identity rather than a hand-passed free-form lane guess. The lane
-itself was resolved at registration through the project's DB-backed
-`session-routing` capability: a `lane_rules` selector on harness and model
-first, then that lane's harness default (exact
-`executor_default_lane_<token>` -> wildcard
-`executor_default_lane_<prefix>*` (longest prefix wins) ->
-`executor_default_lane_unknown` -> `primary`). Full precedence and the rule
-document shape are in [`session-lane-routing.md`](session-lane-routing.md). Machine config
-is only the no-project/operator fallback. Downstream-path truth comes from
-the shared registry plus coarse-manifest limitations (`codex-desktop` ->
-the installed Codex manifest).
 
 ## Ranking Algorithm
 
@@ -109,7 +97,7 @@ class FrontierItem:
 ```
 
 The in-process dataclass carries the internal ``items.id``. Every serialized
-surface (REST endpoints, service-client JSON, offer/NextAction payloads)
+surface (REST endpoints, service-client JSON, scheduler payloads)
 renders ``item_id`` as the item's TRUE public ref
 (``{projects.public_item_prefix}-{items.project_sequence}`` — the prefix is
 per-project, so the same shape renders ``EXT-12`` in one project and

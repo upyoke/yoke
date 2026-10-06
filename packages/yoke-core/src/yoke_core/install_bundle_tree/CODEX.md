@@ -148,7 +148,7 @@ The Codex adapter sets these environment variables:
 |----------|-------|---------|
 | `YOKE_EXECUTOR` | `codex` | Identifies this session as a Codex harness |
 | `YOKE_PROVIDER` | `openai` | Records the provider for Codex sessions |
-| `YOKE_MODEL` | runtime-resolved | Carries the actual Codex model label (for example `gpt-5.4`) into the session offer |
+| `YOKE_MODEL` | runtime-resolved | Carries the actual Codex model label (for example `gpt-5.4`) into session registration |
 
 The opening hook records these as session identity. Yoke core derives supported paths server-side from the shared registry and applies any limitations declared in the Codex manifest — the harness does not set `YOKE_SUPPORTED_PATHS`. In Codex Desktop, the adapter resolves `YOKE_MODEL` from the current thread's runtime metadata instead of guessing.
 

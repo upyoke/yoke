@@ -8,9 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from runtime.api.fixtures.backlog import seed_fixture_operating_actor
 from runtime.api.fixtures.file_test_db import init_test_db
-from runtime.api.sessions_api_stale_test_helpers import apply_ddl_statements
 from runtime.api.test_dependency_schema import (
     ITEMS_SCHEMA,
     ITEM_DEPENDENCIES_SCHEMA,
@@ -20,12 +18,12 @@ from runtime.api.test_service_client import _run_client
 from runtime.api.test_constants import TEST_MODEL_ID
 from yoke_core.domain.work_claim_target_sql import TARGET_KIND_CHECK_SQL
 
-# Session/claim/event/actor tables the session-offer surface reads. ``actors``
+# Session/claim/event/actor tables the session lifecycle reads. ``actors``
 # is required on Postgres: register_session's validate_actor_id probe queries it
 # (the facade re-raises a missing relation as no-such-table). INTEGER PRIMARY KEY
 # and inline FK clauses are translated/stripped by the facade so the same DDL
 # applies on both backends through backend-routed statement execution.
-_SESSION_OFFER_SCHEMA_DDL = f"""
+_SESSION_SCHEMA_DDL = f"""
     CREATE TABLE harness_sessions (
         session_id TEXT PRIMARY KEY,
         executor TEXT NOT NULL,
@@ -138,8 +136,8 @@ _SESSION_OFFER_SCHEMA_DDL = f"""
 """
 
 
-def _apply_session_offer_schema() -> None:
-    """``init_test_db`` ``apply_schema`` strategy for the session-offer family.
+def _apply_session_schema() -> None:
+    """``init_test_db`` ``apply_schema`` strategy for the session lifecycle family.
 
     Builds the items / dependencies / session / claim / event / actor schema and
     seeds the three canonical items on the backend-resolved test DB (``YOKE_DB``
@@ -147,6 +145,8 @@ def _apply_session_offer_schema() -> None:
     own connection through the backend factory, satisfying the zero-arg contract.
     """
     from yoke_core.domain import db_backend
+    from runtime.api.fixtures.backlog import seed_fixture_operating_actor
+    from runtime.api.sessions_api_stale_test_helpers import apply_ddl_statements
 
     conn = db_backend.connect()
     try:
@@ -155,7 +155,7 @@ def _apply_session_offer_schema() -> None:
             PROJECTS_SCHEMA,
             ITEMS_SCHEMA,
             ITEM_DEPENDENCIES_SCHEMA,
-            _SESSION_OFFER_SCHEMA_DDL,
+            _SESSION_SCHEMA_DDL,
         )
         # The dispatcher authorizes every mutation against the session's
         # actor, so this fixture carries the org/role tables a real
@@ -219,13 +219,13 @@ def _apply_session_offer_schema() -> None:
         conn.close()
 
 
-def _map_offer_workspace_home(monkeypatch, workspace: str, project_id: int = 1) -> None:
-    """Treat the isolated offer workspace as the fixture project.
+def _map_session_workspace_home(
+    monkeypatch, workspace: str, project_id: int = 1
+) -> None:
+    """Map the isolated session workspace to the fixture project.
 
-    Production argless offers filter assignment to the mapped checkout.
-    These tests use a throwaway directory, so the mapping has to be
-    injected or every charge path would wait with ``runnable_elsewhere``.
-    The machine-config file is what subprocess ``_run_client`` offers see.
+    Registration resolves project identity through machine configuration.
+    Write that mapping for subprocess clients and patch it for in-process calls.
     """
     home = str(Path(workspace).resolve())
     machine_home = Path(os.environ.get("YOKE_MACHINE_HOME") or "")
@@ -252,15 +252,15 @@ def _map_offer_workspace_home(monkeypatch, workspace: str, project_id: int = 1) 
 
 
 @pytest.fixture()
-def session_offer_db(tmp_path, monkeypatch):
-    """Backend-aware DB with session tables and items for session-offer tests.
+def session_test_db(tmp_path, monkeypatch):
+    """Backend-aware DB with session tables and items for session lifecycle tests.
 
     ``tmp_path`` doubles as the workspace: the per-test DB lives at
     ``tmp_path/yoke.db`` (an ignored placeholder on Postgres — the connection
     target is the repointed DSN), the SML ``strategy/`` dir and any adjacent
-    ``config`` file the offer path reads live under the same root.
+    ``config`` file the test helpers read live under the same root.
     """
-    with init_test_db(tmp_path, apply_schema=_apply_session_offer_schema) as db_path:
+    with init_test_db(tmp_path, apply_schema=_apply_session_schema) as db_path:
         # Create SML files so scheduler sees SML as coherent
         strategy_dir = os.path.join(str(tmp_path), "strategy")
         os.makedirs(strategy_dir, exist_ok=True)
@@ -269,7 +269,7 @@ def session_offer_db(tmp_path, monkeypatch):
                 f.write(f"# {sml_file}\n")
 
         workspace = str(tmp_path)
-        _map_offer_workspace_home(monkeypatch, workspace)
+        _map_session_workspace_home(monkeypatch, workspace)
         yield {"db_path": db_path, "tmp_dir": workspace}
 
 
@@ -282,7 +282,7 @@ def _pre_register_session(
     workspace: str = "/tmp",
     lane: str = "primary",
 ):
-    """Pre-register a session in the DB so session-offer can find it.
+    """Pre-register a session in the DB for lifecycle command tests.
 
     Registration states an ask, so the model goes to ``requested_model``;
     the served columns stay unattested until a harness artifact fills them.

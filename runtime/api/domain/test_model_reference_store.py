@@ -84,10 +84,10 @@ def test_revision_effective_at_preserves_earlier_sessions(catalog_db):
     assert earlier.revision_id == original["revision_id"]
     assert later.revision_id == published["revision_id"]
     # A resumed episode does not change the session's initial pricing basis.
-    session_offered_at = _future(1)
+    session_started_at = _future(1)
     episode_started_at = _future(3)
     assert episode_started_at > effective
-    resumed = estimated_session_cost(usage, revision_at(catalog_db, session_offered_at))
+    resumed = estimated_session_cost(usage, revision_at(catalog_db, session_started_at))
     assert resumed.revision_id == original["revision_id"]
     assert (
         revision_get(catalog_db, original["revision_id"])["revision_id"]

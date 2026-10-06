@@ -18,11 +18,11 @@ pytest_plugins = ("runtime.api.test_service_client_sessions_helpers",)
 class TestSessionCheckpointCommand:
     """Tests for session-checkpoint and session-checkpoint-read."""
 
-    def test_checkpoint_write_and_read_round_trip(self, session_offer_db):
+    def test_checkpoint_write_and_read_round_trip(self, session_test_db):
         """Checkpoint persisted and readable via CLI."""
         sid = "cp-test-sess"
-        ws = session_offer_db["tmp_dir"]
-        db = session_offer_db["db_path"]
+        ws = session_test_db["tmp_dir"]
+        db = session_test_db["db_path"]
         # Create session via session-begin
         _pre_register_session(db, sid, workspace=ws)
 
@@ -60,11 +60,11 @@ class TestSessionCheckpointCommand:
         assert read_cp["step"] == 1
         assert read_cp["action"] == "charge"
 
-    def test_checkpoint_read_empty_when_none(self, session_offer_db):
+    def test_checkpoint_read_empty_when_none(self, session_test_db):
         """session-checkpoint-read returns {} when no checkpoint exists."""
         sid = "cp-empty-sess"
-        ws = session_offer_db["tmp_dir"]
-        db = session_offer_db["db_path"]
+        ws = session_test_db["tmp_dir"]
+        db = session_test_db["db_path"]
         _pre_register_session(
             db,
             sid,
@@ -80,11 +80,11 @@ class TestSessionCheckpointCommand:
         assert r.returncode == 0
         assert json.loads(r.stdout) == {}
 
-    def test_checkpoint_on_ended_session_fails(self, session_offer_db):
+    def test_checkpoint_on_ended_session_fails(self, session_test_db):
         """session-checkpoint on ended session returns error."""
         sid = "cp-ended-sess"
-        ws = session_offer_db["tmp_dir"]
-        db = session_offer_db["db_path"]
+        ws = session_test_db["tmp_dir"]
+        db = session_test_db["db_path"]
         # Register without claims so session-end succeeds
         _pre_register_session(
             db,

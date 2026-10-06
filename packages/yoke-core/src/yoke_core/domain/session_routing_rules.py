@@ -214,7 +214,7 @@ def parse_lane_rules(
 def parse_lane_rules_for_routing(raw: Any) -> tuple[LaneRule, ...]:
     """Parse stored rules for the routing path, dropping unusable entries.
 
-    Registration and session offer run on every session, so a document
+    Registration runs on every session, so a document
     that predates a contract tightening must degrade to the harness
     default rather than refuse every session in the project. The write
     boundary is where a bad rule is refused and named;

@@ -137,7 +137,7 @@ The shared Yoke registry exposes two intentionally different capability views. T
 
 The remaining named substrate gap is the `PostToolUseFailure` event for non-Bash Codex tools; Bash failures are recovered through transcript reconciliation as documented above.
 
-## Canonical Session-Offer Lineage
+## Canonical Session Lifecycle
 
 Session lifecycle and claim events originate in shared core operations.
 

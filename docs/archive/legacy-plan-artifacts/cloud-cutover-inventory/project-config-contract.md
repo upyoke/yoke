@@ -15,7 +15,6 @@ Status key: LIVE = works today; GAP-n = build item in this wave's gap list.
 
 | Surface | Keys | Resolver | Install-seeded | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| `.yoke/project.config` | `do_process_offer_default`, `do_process_offer_strategize`, `do_process_offer_feed`, `do_process_offer_doctor` | `packages/yoke-core/src/yoke_core/domain/project_settings.py` (scope-first: project key → project default → machine key → machine default → off) | yes (commented-out, contract-seeding v0) | LIVE |
 | `.yoke/board.json` | 30 renderer knobs: `dashboard_weather`, `dashboard_recent_sessions`, `dashboard_velocity_meter`, `dashboard_velocity`, `dashboard_types`, `dashboard_age`, `dashboard_badges`, `dashboard_sessions_scope`, `dashboard_meter_cap`, `timeline_widget`, `timeline_label_days`, `timeline_label_df_cap_pct`, `timeline_label_min`, `timeline_extra_stopwords`, `timeline_scope`, `done_section_limit`, `art_override`, `art_frontier_since`, `art_weight_*` (9 keys) | board renderer config reader (project-local; explicit defaults for every read key) | yes (every knob at default) | LIVE |
 | `.yoke/board-art` | art content (not config) | board renderer | yes (generic seed art) | LIVE |
 | `.yoke/lint-config` | 26 guard modes (`<guard>=deny\|warn`, protected-guard `# allow-warn` clamp) | lint mode resolver; rendered from `lint_config.GUARD_CATALOG` | yes | LIVE |
@@ -28,7 +27,7 @@ These read from machine config `settings` today (`runtime_settings.py` →
 `~/.yoke/config.json:settings`) but carry per-project semantics — the same
 machine working two projects wants per-project values. Promote to recognized
 `.yoke/project.config` keys with scope-first resolution (project →
-machine → source default), exactly the `do_process_offer_*` pattern:
+machine → source default):
 
 | Key | Live reads | Per-project because | Source default |
 | :--- | :--- | :--- | :--- |

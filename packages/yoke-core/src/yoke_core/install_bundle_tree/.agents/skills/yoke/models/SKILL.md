@@ -36,7 +36,7 @@ readers select a DB revision first, then use the pure lookup helper:
 ```text
 from yoke_core.domain.model_reference_store import revision_at
 from yoke_contracts.model_reference import lookup_model_reference
-revision = revision_at(conn, session_offered_at)
+revision = revision_at(conn, session_started_at)
 lookup = lookup_model_reference("<launch --model string>", revision["records"])
 ```
 

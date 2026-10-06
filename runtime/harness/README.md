@@ -82,8 +82,8 @@ The entry launcher sets these variables for Yoke core to consume:
 
 | Variable | Purpose | Example |
 |----------|---------|---------|
-| `YOKE_EXECUTOR` | Harness identity for session offers | `codex` |
-| `YOKE_PROVIDER` | Model-provider identity for session offers | `openai` |
+| `YOKE_EXECUTOR` | Harness identity for session registration | `codex` |
+| `YOKE_PROVIDER` | Model-provider identity for session registration | `openai` |
 | `YOKE_MODEL` | Runtime-resolved model identifier | `gpt-5.4` |
 | `YOKE_SUPPORTED_PATHS` | *(removed)* Capabilities derived server-side | — |
 | `YOKE_ROOT` | Repo root (auto-detected from git) | `/path/to/yoke` |

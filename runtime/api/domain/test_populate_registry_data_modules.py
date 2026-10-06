@@ -42,12 +42,6 @@ def test_split_modules_preserve_public_tuple_contracts() -> None:
 
 def test_active_discovered_events_have_authoritative_metadata() -> None:
     expected = {
-        "DriftReviewCompleted": (
-            "lifecycle",
-            "drift_review",
-            "yoke_core.domain.sessions_analytics_dispatch",
-            "STATUS",
-        ),
         "HarnessSessionResumed": (
             "system",
             "session_lifecycle",

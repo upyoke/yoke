@@ -10,7 +10,7 @@ detail.
 
 Sibling of test_doctor_meta.py (>=300 lines). Cutoff regressions live
 here so the parent file does not grow. ``hc_cross_project_commits`` and
-``hc_offer_envelope_clobber_lost_chain`` cutoffs live in
+``hc_session_checkpoint_integrity`` cutoffs live in
 ``test_doctor_hc_meta_cutoffs_extra.py`` (they need bespoke schema/mock
 scaffolding that would push this file past the 350-line hard cap).
 """
@@ -39,6 +39,8 @@ from yoke_core.engines.doctor import (
     hc_shepherd_lifecycle,
     hc_undeployed_done,
 )
+
+
 def _seed_undeployed_done(conn, item_id: int) -> None:
     """Seed a done item that trips HC-undeployed-done."""
     days_old = 30
@@ -180,7 +182,10 @@ class TestLifecycleContinuityCutoff:
     _POST_CUTOFF_TS = "2026-05-17T10:00:00Z"
 
     def _seed_item_without_event(
-        self, conn, item_id: int, updated_at: str,
+        self,
+        conn,
+        item_id: int,
+        updated_at: str,
     ) -> None:
         """Insert an item with status='done' and no transition row."""
         _insert_item(

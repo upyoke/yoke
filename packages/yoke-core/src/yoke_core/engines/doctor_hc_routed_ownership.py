@@ -33,8 +33,10 @@ _HC_STILL_SCHED_NAME = "HC-routed-ownership-non-terminal-release-still-schedulab
 _HC_STILL_SCHED_DESC = (
     "Items with non-terminal release whose owner is live but still routable"
 )
-_HC_CLOBBER_NAME = "HC-offer-envelope-clobber-lost-chain"
-_HC_CLOBBER_DESC = "Sessions whose chain_checkpoint was clobbered by a later offer"
+_HC_CLOBBER_NAME = "HC-session-checkpoint-integrity"
+_HC_CLOBBER_DESC = (
+    "Sessions whose chain_checkpoint was clobbered by a later envelope write"
+)
 
 _LIST_PREVIEW = 10
 
@@ -127,7 +129,7 @@ def hc_routed_ownership_live_frame_no_defense(
         rec.record(
             _HC_LIVE_FRAME_NAME,
             _HC_LIVE_FRAME_DESC,
-            "PASS",
+            "N/A",
             "required tables missing — skipping",
         )
         return
@@ -181,7 +183,7 @@ def hc_routed_ownership_non_terminal_release_still_schedulable(
         rec.record(
             _HC_STILL_SCHED_NAME,
             _HC_STILL_SCHED_DESC,
-            "PASS",
+            "N/A",
             "required tables missing — skipping",
         )
         return
@@ -270,7 +272,7 @@ def _envelope_checkpoint_step(envelope_raw: Optional[str]) -> Optional[int]:
 # survive envelope rewrites). A clobber is structural: the live
 # ``offer_envelope`` carries a lower ``chain_checkpoint.step`` than the
 # session's authoritative ``last_chain_step`` (or none at all) — a later
-# offer replaced the envelope wholesale. No offer-time comparison is
+# registration replaced the envelope wholesale. No event-time comparison is
 # needed: state-to-state comparison subsumes the old time proxy.
 _CLOBBER_SQL = """
 SELECT
@@ -284,15 +286,15 @@ WHERE hs.last_chain_step IS NOT NULL
 """
 
 
-def hc_offer_envelope_clobber_lost_chain(
+def hc_session_checkpoint_integrity(
     conn: Any, args: DoctorArgs, rec: RecordCollector
 ) -> None:
-    """WARN when a session's chain_checkpoint was clobbered by a later offer."""
+    """WARN when persisted checkpoint telemetry disagrees with recorded progress."""
     if not _required_tables_present(conn):
         rec.record(
             _HC_CLOBBER_NAME,
             _HC_CLOBBER_DESC,
-            "PASS",
+            "N/A",
             "required tables missing — skipping",
         )
         return
@@ -300,7 +302,7 @@ def hc_offer_envelope_clobber_lost_chain(
         rec.record(
             _HC_CLOBBER_NAME,
             _HC_CLOBBER_DESC,
-            "PASS",
+            "N/A",
             "chain-state columns missing — skipping",
         )
         return
@@ -308,7 +310,7 @@ def hc_offer_envelope_clobber_lost_chain(
     lines: List[str] = []
     hit_count = 0
     min_offered_at = _base._read_str_cutoff(
-        "hc_offer_envelope_clobber_min_session_created_at",
+        "hc_session_checkpoint_min_created_at",
     )
     for row in conn.execute(_CLOBBER_SQL).fetchall():
         if min_offered_at and (row["offered_at"] or "") < min_offered_at:
@@ -342,5 +344,5 @@ def hc_offer_envelope_clobber_lost_chain(
 __all__ = [
     "hc_routed_ownership_live_frame_no_defense",
     "hc_routed_ownership_non_terminal_release_still_schedulable",
-    "hc_offer_envelope_clobber_lost_chain",
+    "hc_session_checkpoint_integrity",
 ]

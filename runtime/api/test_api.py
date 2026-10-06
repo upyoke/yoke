@@ -3,7 +3,6 @@
 
 Item CRUD tests -> test_api_items_*
 Session tests -> test_api_sessions.py
-Deploy/frontier tests -> test_api_deploy.py
 Board + domain delegation tests -> test_api_board.py
 Queue filtering tests -> test_api_queue.py
 Shared schemas + fixtures -> test_api_helpers.py
@@ -134,7 +133,17 @@ class TestCanonicalVocabulary:
     def test_board_column_order_matches_canonical(self):
         from yoke_core.domain.board import BOARD_COLUMNS
 
-        expected = ["idea", "planning", "refined", "implementing", "blocked", "reviewing", "implemented", "release", "done"]
+        expected = [
+            "idea",
+            "planning",
+            "refined",
+            "implementing",
+            "blocked",
+            "reviewing",
+            "implemented",
+            "release",
+            "done",
+        ]
         assert list(BOARD_COLUMNS) == expected
 
 
@@ -146,6 +155,7 @@ class TestCanonicalVocabulary:
 class TestDBHelpers:
     def test_get_db_path_uses_env(self, test_db):
         import yoke_core.api.main as mod
+
         path = mod.get_db_path()
         assert path == test_db["db_path"]
 

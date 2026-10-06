@@ -10,6 +10,9 @@ from __future__ import annotations
 from typing import Tuple
 
 DEPRECATE_LIST: Tuple[str, ...] = (
+    "AdapterDispatchChosen",
+    "DriftReviewCompleted",
+    "LaneRoutingDecision",
     "ChainBudgetUnused",
     "ChainDeclineOverridden",
     "HarnessSessionOffered",

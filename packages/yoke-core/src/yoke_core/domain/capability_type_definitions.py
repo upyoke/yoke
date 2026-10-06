@@ -48,7 +48,7 @@ CAPABILITY_TYPE_DEFINITIONS: dict[str, dict[str, Any]] = {
         "display_label": "Session routing",
         "display_order": 20,
         "kind": KIND_DECLARED_MODEL,
-        "used_by": "session offers",
+        "used_by": "session registration",
     },
     MIGRATION_MODEL_CAPABILITY_TYPE: {
         "display_label": "Migration model",

@@ -4,8 +4,7 @@ Exercises the
 ``yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor,
 "codex")`` path against the rendered Codex adapter TOML for a no-op engineer
 task body, asserts the parseable result envelope ingests cleanly per the
-engineer ``result_schema``, and asserts at least one canonical telemetry
-event (``NextActionChosen``) is observable in the smoke run.
+engineer ``result_schema``.
 
 The smoke does NOT spawn a real Codex sub-agent. It mocks the harness
 boundary (the rendered adapter file existence + the descriptor invocation
@@ -15,7 +14,6 @@ Codex CLI being installed.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
@@ -26,7 +24,6 @@ from yoke_core.domain.dispatch_descriptors import (
     DispatchDescriptor,
     render_for_harness,
 )
-from yoke_core.domain.events import emit_event
 
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -35,10 +32,7 @@ _CODEX_AGENTS_DIR = _REPO_ROOT / "runtime" / "harness" / "codex" / "agents"
 
 _REQUIRES_RENDERED_AGENTS = pytest.mark.skipif(
     not _CODEX_AGENTS_DIR.is_dir(),
-    reason=(
-        "Rendered Codex agent TOMLs not present "
-        "(task 8 of YOK-1577 not yet in main); smoke skipped."
-    ),
+    reason=("Rendered Codex agent TOMLs not present; smoke skipped."),
 )
 
 
@@ -125,50 +119,3 @@ class TestEngineerResultEnvelopeIsParseable:
 
     def test_reflection_block_terminates_correctly(self):
         assert "---REFLECTION-END---" in _ENGINEER_RESULT_ENVELOPE
-
-
-@_REQUIRES_RENDERED_AGENTS
-class TestTelemetryEmittedDuringConductDispatch:
-    """At least one canonical telemetry event emission is observable.
-
-    For the conduct flow we emit ``NextActionChosen`` via the events sink —
-    the same event sessions_analytics_dispatch surfaces when the core picks
-    the next action for an offered session. The capture sink keeps the
-    assertion DB-free.
-    """
-
-    def test_next_action_chosen_event_visible_in_capture_sink(
-        self, tmp_path, monkeypatch
-    ):
-        capture_file = tmp_path / "events.jsonl"
-        monkeypatch.setenv("YOKE_EVENTS_CAPTURE", "1")
-        monkeypatch.setenv("YOKE_EVENTS_FILE", str(capture_file))
-
-        result = emit_event(
-            "NextActionChosen",
-            event_kind="workflow",
-            event_type="session_directive",
-            source_type="cli",
-            session_id="smoke-conduct-1",
-            project="yoke",
-            severity="STATUS",
-            context={
-                "executor": "codex",
-                "step": "conduct",
-                "dispatch_role": "engineer",
-            },
-        )
-
-        assert result.envelope is not None
-        assert result.envelope["event_name"] == "NextActionChosen"
-        assert result.reason == "capture_only"
-
-        lines = capture_file.read_text(encoding="utf-8").splitlines()
-        assert len(lines) == 1
-        envelope = json.loads(lines[0])
-        assert envelope["event_name"] == "NextActionChosen"
-        assert envelope["session_id"] == "smoke-conduct-1"
-        ctx = envelope.get("context") or {}
-        assert ctx.get("executor") == "codex"
-        assert ctx.get("step") == "conduct"
-        assert ctx.get("dispatch_role") == "engineer"

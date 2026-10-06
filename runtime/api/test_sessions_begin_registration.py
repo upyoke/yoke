@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from runtime.api.test_constants import TEST_MODEL_ID
 from runtime.api.test_service_client_sessions_helpers import (
-    session_offer_db as session_offer_db,
+    session_test_db as session_test_db,
 )
 from yoke_contracts.session_model_facts import SessionModelFacts
 
@@ -21,7 +21,7 @@ from yoke_contracts.session_model_facts import SessionModelFacts
 class TestBeginSessionIntegration:
     """``begin_session`` registers a real row and is idempotent."""
 
-    def test_registers_and_is_idempotent(self, session_offer_db):
+    def test_registers_and_is_idempotent(self, session_test_db):
         from yoke_core.api.service_client_sessions_lifecycle_begin import (
             begin_session,
         )
@@ -35,7 +35,7 @@ class TestBeginSessionIntegration:
                 executor="claude-code",
                 provider="anthropic",
                 model_facts=SessionModelFacts(requested_model=TEST_MODEL_ID),
-                workspace=session_offer_db["tmp_dir"],
+                workspace=session_test_db["tmp_dir"],
                 project_id=1,
             )
             assert first["success"] is True
@@ -47,7 +47,7 @@ class TestBeginSessionIntegration:
                 executor="claude-code",
                 provider="anthropic",
                 model_facts=SessionModelFacts(requested_model=TEST_MODEL_ID),
-                workspace=session_offer_db["tmp_dir"],
+                workspace=session_test_db["tmp_dir"],
                 project_id=1,
             )
             assert second["success"] is True
@@ -61,7 +61,7 @@ class TestBeginSessionIntegration:
         finally:
             conn.close()
 
-    def test_surface_executor_survives_an_entrypoint(self, session_offer_db):
+    def test_surface_executor_survives_an_entrypoint(self, session_test_db):
         """The surface a session ran on outranks its entrypoint.
 
         Composing the two before registration replaces the surface with the
@@ -81,7 +81,7 @@ class TestBeginSessionIntegration:
                 executor="codex-desktop",
                 provider="openai",
                 model_facts=SessionModelFacts(requested_model=TEST_MODEL_ID),
-                workspace=session_offer_db["tmp_dir"],
+                workspace=session_test_db["tmp_dir"],
                 project_id=1,
                 entrypoint="dash",
             )
@@ -96,7 +96,7 @@ class TestBeginSessionIntegration:
         finally:
             conn.close()
 
-    def test_entrypoint_still_names_a_coarse_executor(self, session_offer_db):
+    def test_entrypoint_still_names_a_coarse_executor(self, session_test_db):
         """With no surface to preserve, the entrypoint supplies the alias."""
         from yoke_core.api.service_client_sessions_lifecycle_begin import (
             begin_session,
@@ -111,7 +111,7 @@ class TestBeginSessionIntegration:
                 executor="codex",
                 provider="openai",
                 model_facts=SessionModelFacts(requested_model=TEST_MODEL_ID),
-                workspace=session_offer_db["tmp_dir"],
+                workspace=session_test_db["tmp_dir"],
                 project_id=1,
                 entrypoint="vscode",
             )

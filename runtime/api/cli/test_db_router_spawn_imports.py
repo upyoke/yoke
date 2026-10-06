@@ -12,7 +12,6 @@ _BANNED_SPAWN_MODULES = (
     "yoke_core.domain.frontier_classify",
     "yoke_core.domain.dependency_planning",
     "yoke_core.domain.environment_bootstrap",
-    "yoke_core.domain.session",
 )
 
 

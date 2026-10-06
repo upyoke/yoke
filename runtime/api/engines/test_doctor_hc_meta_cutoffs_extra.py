@@ -5,7 +5,7 @@ sources whose scaffolding does not fit the shared meta-fixture schema:
 
   * ``hc_cross_project_commits`` (asserts ``--since=`` flag plumbing on
     a mocked ``git log`` invocation), and
-  * ``hc_offer_envelope_clobber_lost_chain`` (needs its own
+  * ``hc_session_checkpoint_integrity`` (needs its own
     ``harness_sessions`` chain-state schema fixture).
 
 Split out to keep each test file under the 350-line hard cap.
@@ -35,7 +35,7 @@ from runtime.api.engines._doctor_meta_test_helpers import (
 )
 from yoke_core.engines.doctor import RecordCollector, hc_cross_project_commits
 from yoke_core.engines.doctor_hc_routed_ownership import (
-    hc_offer_envelope_clobber_lost_chain,
+    hc_session_checkpoint_integrity,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
@@ -175,7 +175,7 @@ def clobber_conn(tmp_path):
 
 
 def _seed_clobber_session(conn, session_id: str, offered_at: str) -> None:
-    """Seed a session that trips HC-offer-envelope-clobber-lost-chain.
+    """Seed a session that trips HC-session-checkpoint-integrity.
 
     Chain progress is first-class state: ``last_chain_step=5`` with a live
     envelope carrying no ``chain_checkpoint`` is the clobbered shape.
@@ -193,7 +193,7 @@ def _seed_clobber_session(conn, session_id: str, offered_at: str) -> None:
     conn.commit()
 
 
-class TestOfferEnvelopeClobberCutoff:
+class TestSessionCheckpointIntegrityCutoff:
     def test_below_cutoff_excluded(self, clobber_conn, tmp_path):
         _seed_clobber_session(
             clobber_conn,
@@ -207,15 +207,15 @@ class TestOfferEnvelopeClobberCutoff:
         )
         _write_cutoff(
             tmp_path,
-            "hc_offer_envelope_clobber_min_session_created_at",
+            "hc_session_checkpoint_min_created_at",
             "2026-05-13T17:40:59+00:00",
         )
 
         rec = RecordCollector()
         with _patch_repo_root(tmp_path):
-            hc_offer_envelope_clobber_lost_chain(clobber_conn, _args(), rec)
+            hc_session_checkpoint_integrity(clobber_conn, _args(), rec)
 
-        result, detail = _results(rec)["HC-offer-envelope-clobber-lost-chain"]
+        result, detail = _results(rec)["HC-session-checkpoint-integrity"]
         assert result == "WARN"
         assert "sess-old" not in detail
         assert "sess-new" in detail
@@ -229,8 +229,8 @@ class TestOfferEnvelopeClobberCutoff:
 
         rec = RecordCollector()
         with _patch_repo_root(tmp_path):
-            hc_offer_envelope_clobber_lost_chain(clobber_conn, _args(), rec)
+            hc_session_checkpoint_integrity(clobber_conn, _args(), rec)
 
-        result, detail = _results(rec)["HC-offer-envelope-clobber-lost-chain"]
+        result, detail = _results(rec)["HC-session-checkpoint-integrity"]
         assert result == "WARN"
         assert "sess-old" in detail

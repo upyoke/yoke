@@ -38,7 +38,6 @@ from yoke_core.domain import runtime_settings
 
 
 _EXECUTOR_PREFIX = "executor_default_lane_"
-PROCESS_OFFER_PREFIX = "do_process_offer_"
 
 # Settings whose value is a nested document rather than a scalar. The
 # key/value grammar the rest of this module speaks cannot carry one, so
@@ -86,7 +85,6 @@ def _settings_to_raw_map(settings: Mapping[str, Any]) -> Dict[str, str]:
     grouped aliases:
 
     - ``executor_default_lanes: {"claude*": "DARIUS"}``
-    - ``process_offers: {"default": false, "feed": true}``
 
     ``lane_rules`` and ``lane_metadata`` are nested documents that the
     flat grammar cannot express, so they are carried as JSON text.
@@ -101,10 +99,6 @@ def _settings_to_raw_map(settings: Mapping[str, Any]) -> Dict[str, str]:
         if key == "executor_default_lanes" and isinstance(value, Mapping):
             for executor, lane in value.items():
                 raw[f"{_EXECUTOR_PREFIX}{executor}"] = _stringify_setting(lane)
-            continue
-        if key in {"process_offer", "process_offers"} and isinstance(value, Mapping):
-            for process, enabled in value.items():
-                raw[f"{PROCESS_OFFER_PREFIX}{process}"] = _stringify_setting(enabled)
             continue
         raw[str(key)] = _stringify_setting(value)
     return raw

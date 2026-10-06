@@ -85,9 +85,6 @@ from yoke_core.engines.doctor_hc_launcher_authority import (
     TITLE as LAUNCHER_AUTHORITY_TITLE,
     hc_launcher_authority,
 )
-from yoke_core.engines.doctor_hc_session_lane_mismatch import (
-    hc_session_lane_mismatch,
-)
 from yoke_core.engines.doctor_hc_machine_registry import (
     SLUG as MACHINE_REGISTRY_SLUG,
     TITLE as MACHINE_REGISTRY_TITLE,
@@ -155,11 +152,6 @@ HARNESS_HEALTH_CHECKS: List[HealthCheck] = [
             "tool-call activity"
         ),
         hc_session_pre_implementing_activity,
-    ),
-    HealthCheck(
-        "session-lane-mismatch",
-        "Session offer lane mismatch (envelope vs row)",
-        hc_session_lane_mismatch,
     ),
     HealthCheck(
         "launcher-authority",

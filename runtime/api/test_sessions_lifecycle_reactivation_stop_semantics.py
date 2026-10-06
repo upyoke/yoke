@@ -87,9 +87,9 @@ def _ended_at(db_path: str, session_id: str) -> str | None:
 
 
 class TestStopSemanticsBranches:
-    def test_no_claim_session_ends(self, session_offer_db) -> None:
-        db = session_offer_db["db_path"]
-        _insert_session(db, "sess-clean", session_offer_db["tmp_dir"])
+    def test_no_claim_session_ends(self, session_test_db) -> None:
+        db = session_test_db["db_path"]
+        _insert_session(db, "sess-clean", session_test_db["tmp_dir"])
         conn = connect_test_db(db)
         try:
             result = end_session_if_empty(conn, "sess-clean")
@@ -99,12 +99,12 @@ class TestStopSemanticsBranches:
         assert result["ended"] is True
         assert _ended_at(db, "sess-clean") is not None
 
-    def test_active_claim_blocks_with_has_claims(self, session_offer_db) -> None:
-        db = session_offer_db["db_path"]
+    def test_active_claim_blocks_with_has_claims(self, session_test_db) -> None:
+        db = session_test_db["db_path"]
         _insert_session(
             db,
             "sess-busy",
-            session_offer_db["tmp_dir"],
+            session_test_db["tmp_dir"],
             claim_item=9001,
         )
         conn = connect_test_db(db)
@@ -118,14 +118,14 @@ class TestStopSemanticsBranches:
         assert _ended_at(db, "sess-busy") is None
 
     def test_wait_mode_unclaimed_stop_ends_and_records_waiting_posture(
-        self, session_offer_db
+        self, session_test_db
     ) -> None:
         posture = pytest.importorskip("yoke_core.domain.session_turn_posture")
-        db = session_offer_db["db_path"]
+        db = session_test_db["db_path"]
         _insert_session(
             db,
             "sess-waiting",
-            session_offer_db["tmp_dir"],
+            session_test_db["tmp_dir"],
             mode="wait",
         )
         conn = connect_test_db(db)
@@ -161,13 +161,13 @@ class TestStopSemanticsBranches:
 
     def test_claimless_cleanup_ignores_checkpoint_budget(
         self,
-        session_offer_db,
+        session_test_db,
     ) -> None:
-        db = session_offer_db["db_path"]
+        db = session_test_db["db_path"]
         _insert_session(
             db,
             "sess-chain",
-            session_offer_db["tmp_dir"],
+            session_test_db["tmp_dir"],
             chain_checkpoint={
                 "step": 1,
                 "max_chain_steps": 3,
@@ -194,9 +194,9 @@ class TestStopSemanticsBranches:
 class TestReactivationAfterStop:
     """Same stable session_id may reactivate after Stop ended it."""
 
-    def test_register_session_clears_ended_at(self, session_offer_db) -> None:
-        db = session_offer_db["db_path"]
-        workspace = session_offer_db["tmp_dir"]
+    def test_register_session_clears_ended_at(self, session_test_db) -> None:
+        db = session_test_db["db_path"]
+        workspace = session_test_db["tmp_dir"]
         _insert_session(db, "sess-resume", workspace)
         # First: end the session via the Stop cleanup path.
         conn = connect_test_db(db)
@@ -231,12 +231,12 @@ class TestReactivationAfterStop:
         # Executor stays canonical across reactivation.
         assert session["executor"] in {"codex", "codex-cli"}
 
-    def test_reactivation_is_not_a_failed_end(self, session_offer_db) -> None:
+    def test_reactivation_is_not_a_failed_end(self, session_test_db) -> None:
         """The fact that a session re-registered later doesn't invalidate
         the prior ``ended`` outcome — they're independent lifecycle events.
         """
-        db = session_offer_db["db_path"]
-        workspace = session_offer_db["tmp_dir"]
+        db = session_test_db["db_path"]
+        workspace = session_test_db["tmp_dir"]
         _insert_session(db, "sess-cycle", workspace)
         conn = connect_test_db(db)
         try:

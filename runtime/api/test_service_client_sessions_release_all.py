@@ -11,16 +11,16 @@ import pytest
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.fixtures.backlog import insert_item
 from runtime.api.test_service_client import _run_client
-from runtime.api.test_service_client_sessions_helpers import session_offer_db  # noqa: F401,F811
+from runtime.api.test_service_client_sessions_helpers import session_test_db  # noqa: F401,F811
 from yoke_core.domain.work_claim_targets import make_item_target
 
 
 class TestReleaseAllClaims:
     """Tests for release-all-claims command."""
 
-    def test_release_all_claims_active_session(self, session_offer_db):
+    def test_release_all_claims_active_session(self, session_test_db):
         """Release-all-claims releases all claims for a session."""
-        db_path = session_offer_db["db_path"]
+        db_path = session_test_db["db_path"]
         sid = "release-all-test"
 
         conn = connect_test_db(db_path)
@@ -29,7 +29,7 @@ class TestReleaseAllClaims:
             "execution_lane, workspace, mode, offered_at, last_heartbeat) "
             "VALUES (%s, 'claude-code', 'anthropic', 'opus', 'primary', %s, 'hook', "
             "'2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')",
-            (sid, session_offer_db["tmp_dir"]),
+            (sid, session_test_db["tmp_dir"]),
         )
         conn.execute(
             "INSERT INTO work_claims (session_id, target_kind, scope, claim_type, claimed_at, "
@@ -65,9 +65,9 @@ class TestReleaseAllClaims:
         conn.close()
         assert unreleased == 0
 
-    def test_release_all_claims_unknown_session(self, session_offer_db):
+    def test_release_all_claims_unknown_session(self, session_test_db):
         """release-all-claims with unknown session exits 0 silently."""
-        db_path = session_offer_db["db_path"]
+        db_path = session_test_db["db_path"]
 
         result = _run_client(
             [
@@ -84,9 +84,9 @@ class TestReleaseAllClaims:
         assert out["success"] is True
         assert out.get("no_session") is True
 
-    def test_session_stays_active_after_last_claim_release(self, session_offer_db):
+    def test_session_stays_active_after_last_claim_release(self, session_test_db):
         """Releasing the last claim does NOT end the session."""
-        db_path = session_offer_db["db_path"]
+        db_path = session_test_db["db_path"]
         sid = "release-last-claim-test"
 
         conn = connect_test_db(db_path)
@@ -96,7 +96,7 @@ class TestReleaseAllClaims:
             "execution_lane, workspace, mode, offered_at, last_heartbeat) "
             "VALUES (%s, 'claude-code', 'anthropic', 'opus', 'primary', %s, 'hook', "
             "'2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')",
-            (sid, session_offer_db["tmp_dir"]),
+            (sid, session_test_db["tmp_dir"]),
         )
         conn.execute(
             "INSERT INTO work_claims (session_id, target_kind, scope, claim_type, claimed_at, "
@@ -136,8 +136,8 @@ class TestReleaseAllClaims:
 class TestClaimReleaseOverride:
     """Tests for the human-only claim-release override."""
 
-    def test_claim_release_releases_targeted_claim(self, session_offer_db):
-        db_path = session_offer_db["db_path"]
+    def test_claim_release_releases_targeted_claim(self, session_test_db):
+        db_path = session_test_db["db_path"]
         sid = "claim-release-test"
 
         conn = connect_test_db(db_path)
@@ -146,7 +146,7 @@ class TestClaimReleaseOverride:
             "execution_lane, workspace, mode, offered_at, last_heartbeat) "
             "VALUES (%s, 'codex', 'openai', 'gpt-5.4', 'primary', %s, 'polish', "
             "'2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')",
-            (sid, session_offer_db["tmp_dir"]),
+            (sid, session_test_db["tmp_dir"]),
         )
         conn.execute(
             "INSERT INTO work_claims (session_id, target_kind, scope, claim_type, claimed_at, "
@@ -179,8 +179,8 @@ class TestClaimReleaseOverride:
         assert row[0] is not None
         assert row[1] == "released"
 
-    def test_claim_release_rejects_hook_context(self, session_offer_db):
-        db_path = session_offer_db["db_path"]
+    def test_claim_release_rejects_hook_context(self, session_test_db):
+        db_path = session_test_db["db_path"]
         sid = "claim-release-hook-context"
 
         conn = connect_test_db(db_path)
@@ -189,7 +189,7 @@ class TestClaimReleaseOverride:
             "execution_lane, workspace, mode, offered_at, last_heartbeat) "
             "VALUES (%s, 'codex', 'openai', 'gpt-5.4', 'primary', %s, 'polish', "
             "'2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')",
-            (sid, session_offer_db["tmp_dir"]),
+            (sid, session_test_db["tmp_dir"]),
         )
         conn.execute(
             "INSERT INTO work_claims (session_id, target_kind, scope, claim_type, claimed_at, "

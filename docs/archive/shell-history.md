@@ -379,7 +379,7 @@ Python entrypoints under `runtime/api/domain/` plus the data artifacts under `ru
 
 ### runtime/harness/codex/manifest.json
 
-**Purpose:** Capability manifest (data only, not a script) declaring Codex adapter identity, `bootstrap.spec_path`, supported entrypoints (`/yoke idea`, `session-offer`, `/yoke refine`, `/yoke polish`), downstream paths, and optional local affordances. Read by Yoke core for server-side `supported_paths` derivation (YOK-1299) and by `codex_entry.py` for identity resolution.
+**Purpose:** Capability manifest (data only, not a script) declaring Codex adapter identity, `bootstrap.spec_path`, supported entrypoints (`/yoke idea`, retired automatic session dispatch, `/yoke refine`, `/yoke polish`), downstream paths, and optional local affordances. Read by Yoke core for server-side `supported_paths` derivation (YOK-1299) and by `codex_entry.py` for identity resolution.
 
 ### runtime/api/domain/codex_hooks.py
 
@@ -1807,7 +1807,7 @@ Large skills are decomposed into phase sub-files under `.agents/skills/yoke/{com
 - `simulate/` — 4 phase files (`epic-flow.md`, `dispatch-prompts.md`, `autofix-loop.md`, `system.md`)
 - `usher/` — 5 phase files (collect, plan, merge, deploy, finalize)
 - `shepherd/` — 4 phase files (`design-and-plan.md`, `planning-to-planned-gates.md`, `boss-verdict.md`, `finalize.md`)
-- `do/` — loop.md (session offer loop logic)
+- `do/` — loop.md (retired automatic session dispatch loop logic)
 
 ## Test Case Naming Convention
 

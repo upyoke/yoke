@@ -20,12 +20,6 @@ _SESSION_ROUTING_DEFAULTS: dict[str, Any] = {
         "ALTMAN": "ALTMAN",
     },
     "lane_metadata": DEFAULT_LANE_METADATA,
-    "process_offers": {
-        "default": False,
-        "strategize": False,
-        "feed": False,
-        "doctor": False,
-    },
 }
 
 

@@ -4,9 +4,8 @@ One row per completed strategize session or drift review, per project.
 ``MAX(created_at)`` per project is the checkpoint anchor that bounds
 drift-review delivered-deltas (``yoke_core.domain.drift_review``) and
 the strategize skill's delta window — replacing the retired
-``StrategizeCompleted`` / ``DriftReviewCompleted`` envelope scans (the
-events ledger stays telemetry-only; completion paths still emit the
-matching events for audit).
+event-envelope scans. The events ledger stays disposable telemetry;
+checkpoint state belongs to this table.
 
 CLI (used by the strategize skill's finalize/refresh phases)::
 
@@ -63,11 +62,7 @@ def ensure_schema(conn: Any) -> None:
     See :func:`yoke_core.domain.strategize_carry_schema.ensure_schema` for why.
     Idempotent.
     """
-    ddl = (
-        _TABLE_DDL_POSTGRES
-        if db_backend.connection_is_postgres(conn)
-        else _TABLE_DDL
-    )
+    ddl = _TABLE_DDL_POSTGRES if db_backend.connection_is_postgres(conn) else _TABLE_DDL
     conn.execute(ddl)
     conn.execute(_INDEX_DDL)
     conn.commit()
@@ -124,13 +119,10 @@ def record_checkpoint(conn: Any, *, project: Any, kind: str) -> bool:
         return False
 
 
-def record_checkpoints(
-    conn: Any, *, projects: Iterable[Any], kind: str
-) -> int:
+def record_checkpoints(conn: Any, *, projects: Iterable[Any], kind: str) -> int:
     """Insert one checkpoint row per scoped project; returns rows landed."""
     return sum(
-        1 for project in projects
-        if record_checkpoint(conn, project=project, kind=kind)
+        1 for project in projects if record_checkpoint(conn, project=project, kind=kind)
     )
 
 

@@ -34,20 +34,6 @@ from yoke_contracts.work_processes import (
 )
 
 
-# Map a NextAction action-value to the registered process key consumed
-# by ProcessOfferPolicy. The map is intentionally small — adding a
-# future process means appending the registry entry
-# above and (when the action surfaces in decide_next_action) the
-# matching mapping here. Unknown action values return ``None`` so the
-# gate is a no-op for non-process actions like RESUME/CHARGE/WAIT.
-_ACTION_KIND_TO_PROCESS_KEY: Dict[str, str] = {
-    "strategize": PROCESS_STRATEGIZE,
-    "feed": PROCESS_FEED,
-    # ``DOCTOR`` is registered as a process key but is not yet a
-    # NextAction kind in ``decide_next_action``; the entry is added
-    # here once the decision engine starts producing it.
-}
-
 _STRATEGY_CONTROL_PLANE_GROUP_TEMPLATE = "strategy-control-plane:{project}"
 _DOCTOR_GROUP_TEMPLATE = "doctor:{project}"
 
@@ -94,31 +80,12 @@ def conflict_group_for(process_key: str, project: str) -> str:
     return template.format(project=project)
 
 
-def action_kind_to_process_key(action_value: str) -> "str | None":
-    """Return the registered process key for a ``NextAction`` action value.
-
-    ``ProcessOfferPolicy`` is keyed on the registered process key
-    (``STRATEGIZE``, ``FEED``, ``DOCTOR``); the decision engine
-    returns a ``NextAction`` with an ``ActionKind``
-    enum value (``"strategize"``, ``"feed"``, ...). This helper bridges
-    the two so callers do not hard-code the mapping inline.
-
-    Returns ``None`` when ``action_value`` is not a known process action
-    — non-process actions like ``RESUME`` / ``CHARGE`` / ``WAIT`` /
-    ``ESCALATE`` flow through the gate untouched.
-    """
-    if not action_value:
-        return None
-    return _ACTION_KIND_TO_PROCESS_KEY.get(str(action_value).strip().lower())
-
-
 __all__ = [
     "PROCESS_FEED",
     "PROCESS_DOCTOR",
     "PROCESS_REGISTRY",
     "PROCESS_STRATEGIZE",
     "UnknownProcessError",
-    "action_kind_to_process_key",
     "conflict_group_for",
     "is_known_process",
     "list_processes",

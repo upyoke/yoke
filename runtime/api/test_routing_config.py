@@ -189,7 +189,7 @@ def test_default_lane_underscore_wildcard_distinguishes_from_bare_prefix(tmp_pat
 
 def test_default_lane_malformed_mid_string_wildcard_is_ignored(tmp_path):
     """Mid-string ``*`` is not supported; the line is silently dropped so a
-    malformed config cannot crash session offer."""
+    malformed config cannot crash session registration."""
     config_path = tmp_path / "config"
     config_path.write_text(
         "executor_default_lane_cla*ude=DARIUS\nexecutor_default_lane_codex*=ALTMAN\n",
@@ -240,6 +240,3 @@ def test_default_lane_unknown_key_only_fires_when_no_exact_or_wildcard_match(tmp
     config_without_unknown.write_text("", encoding="utf-8")
     routing_without = load_routing_config(config_without_unknown)
     assert routing_without.default_lane_for_executor("acme-bot") == "primary"
-
-
-# Process-offer policy
