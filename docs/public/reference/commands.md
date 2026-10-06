@@ -197,7 +197,7 @@ Direct-mode entrypoint for the `strategize` action. Guided interactive loop for 
 - Checkpoint 4: Frontier implication check (impact on backlog coherence)
 - Checkpoint 5: Tradeoff resolution (only when conflicts detected)
 
-**Lifecycle events:** `StrategizeStarted`, `SMLRefreshCompleted`, `SMLChangeProposed`, `SMLChangeApproved`, `StrategizeCompleted`. The `StrategizeCompleted` event timestamp serves as the delta-bounding marker for subsequent strategize sessions.
+**Lifecycle events:** `StrategizeStarted`, `SMLRefreshCompleted`, `SMLChangeProposed`, `SMLChangeApproved`. The latest `strategy_checkpoints.created_at` for the project bounds the delta window; checkpoints record completed strategize sessions and drift reviews.
 
 **Phase files:** `strategize/refresh.md`, `strategize/research.md`, `strategize/propose.md`, `strategize/approve.md`, `strategize/finalize.md`.
 

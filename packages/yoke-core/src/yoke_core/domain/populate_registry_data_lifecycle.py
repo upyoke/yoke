@@ -35,6 +35,7 @@ DEPRECATE_LIST: Tuple[str, ...] = (
     "SessionExecutionScopeChanged",
     "SessionOfferLaneOverrideIgnored",
     "StandaloneMergeReceiptRecorded",
+    "StrategizeCompleted",
     "WorktreeHandoffEmitted",
 )
 
