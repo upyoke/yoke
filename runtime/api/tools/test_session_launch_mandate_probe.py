@@ -7,6 +7,7 @@ from typing import Any, Sequence
 import pytest
 
 from runtime.api.tools import session_launch_mandate_probe as probe
+from runtime.api.tools import session_launch_probe_support as probe_support
 
 
 LAUNCH_ID = "launch-1"
@@ -15,9 +16,12 @@ MESSAGE = "message-1"
 
 
 class FakeClient:
-    def __init__(self, launches: list[dict[str, Any]], *, recipients=None) -> None:
+    def __init__(
+        self, launches: list[dict[str, Any]], *, recipients=None, ended_at=None
+    ) -> None:
         self.launches = list(launches)
         self.recipients = recipients
+        self.ended_at = ended_at
         self.calls: list[list[str]] = []
 
     def call(self, args: Sequence[str], *, stdin: str | None = None) -> dict[str, Any]:
@@ -33,6 +37,8 @@ class FakeClient:
             return {"launch": launch}
         if args[:2] == ["messages", "get"]:
             return {"message": {"recipients": self.recipients or []}}
+        if args[:2] == ["sessions", "get"]:
+            return {"rows": [{"session_id": args[2], "ended_at": self.ended_at}]}
         if args[:2] == ["sessions", "terminate"]:
             return {}
         if head == ["session-control", "launch", "cancel"]:
@@ -121,6 +127,39 @@ def test_a_session_the_probe_cannot_end_fails_a_passing_case() -> None:
 
     assert failure.value.code == "launched_session_not_ended"
     assert "yoke sessions terminate" in failure.value.detail
+
+
+def test_a_session_that_already_ended_is_not_terminated() -> None:
+    client = FakeClient(
+        [_succeeded()], recipients=ACKNOWLEDGED, ended_at="2026-10-06T21:07:10Z"
+    )
+
+    summary = _run(client)
+
+    assert summary.endswith("launched session already ended")
+    assert client.terminated() == []
+
+
+def test_a_runner_without_termination_authority_names_the_live_session() -> None:
+    client = FakeClient([_succeeded()], recipients=ACKNOWLEDGED)
+    original = client.call
+
+    def refuse_terminate(args, *, stdin=None):
+        if list(args[:2]) == ["sessions", "terminate"]:
+            raise probe.ProbeFailure(
+                "registered_command_refused",
+                "denied",
+                refusal_code=probe_support.TERMINATION_AUTHORITY_REQUIRED,
+            )
+        return original(args, stdin=stdin)
+
+    client.call = refuse_terminate  # type: ignore[method-assign]
+
+    summary = _run(client)
+
+    assert "acknowledged exact mandate message-1" in summary
+    assert "launched_session_left_running" in summary
+    assert f"yoke sessions terminate {SESSION}" in summary
 
 
 def test_before_deployment_only_the_route_and_bootstrap_are_proven(capsys) -> None:

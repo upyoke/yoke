@@ -10,7 +10,9 @@ the pinned machine and proves the session read and acknowledged the exact
 message its launch assigned before the control plane reported success. The
 case owns the launch it created, so once the verdict is known -- pass or fail
 -- it ends the launched session: an idle harness otherwise keeps holding the
-machine's session lanes until someone terminates it by hand.
+machine's session lanes until someone terminates it by hand. A session that
+already ended is left alone, and a runner without termination authority names
+the session it left running instead of failing a proven verdict.
 
 Before deployment it proves only that the pinned route is launchable and the
 candidate bootstrap names the exact receipt read and acknowledgement; a live
@@ -31,25 +33,17 @@ import uuid
 
 from yoke_contracts.session_control.launch_bootstrap import native_launch_bootstrap
 
+from runtime.api.tools.session_launch_probe_support import (
+    FAILED_LAUNCH_STATES,
+    ProbeFailure,
+    end_launched_session,
+)
 
-FAILED_LAUNCH_STATES = frozenset({"failed", "cancelled", "expired", "outcome_unknown"})
+
 LAUNCH_INSTRUCTIONS = (
     "Read and acknowledge this launch's exact assigned message. Then say "
     "'Mandate receipt confirmed' and end the session.\n"
 )
-TERMINATE_REASON = (
-    "mandate acknowledgement probe verdict recorded; the case ends the "
-    "session it launched"
-)
-
-
-class ProbeFailure(Exception):
-    """A named probe verdict failure, printed as ``code: detail``."""
-
-    def __init__(self, code: str, detail: str) -> None:
-        super().__init__(f"{code}: {detail}")
-        self.code = code
-        self.detail = detail
 
 
 class CliClient:
@@ -68,14 +62,19 @@ class CliClient:
             envelope = json.loads(process.stdout)
         except ValueError:
             envelope = None
+        error = envelope.get("error") if isinstance(envelope, dict) else None
+        refusal_code = str(error.get("code") or "") if isinstance(error, dict) else ""
         if process.returncode or not isinstance(envelope, dict):
             raise ProbeFailure(
                 "registered_command_refused",
                 f"{command}: {process.stderr or process.stdout}",
+                refusal_code=refusal_code,
             )
         if not envelope.get("success"):
             raise ProbeFailure(
-                "registered_command_refused", f"{command}: {envelope.get('error')}"
+                "registered_command_refused",
+                f"{command}: {error}",
+                refusal_code=refusal_code,
             )
         return envelope.get("result") or {}
 
@@ -183,29 +182,6 @@ def _await_acknowledgement(
     )
 
 
-def end_launched_session(client: CliClient, launch_id: str) -> ProbeFailure | None:
-    """End what the launch produced: its session, or the launch itself."""
-    try:
-        launch = (
-            client.call(["session-control", "launch", "get", launch_id]).get("launch")
-            or {}
-        )
-        registered = launch.get("registered_session_id")
-        if registered:
-            client.call(
-                ["sessions", "terminate", str(registered), "--reason", TERMINATE_REASON]
-            )
-        elif launch.get("state") not in FAILED_LAUNCH_STATES | {"succeeded"}:
-            client.call(["session-control", "launch", "cancel", launch_id])
-    except ProbeFailure as failure:
-        return ProbeFailure(
-            "launched_session_not_ended",
-            f"{failure}; end it with `yoke sessions terminate SESSION-ID --reason ...` "
-            f"(`yoke session-control launch get {launch_id}` names the session)",
-        )
-    return None
-
-
 def run_live_probe(
     client: CliClient,
     *,
@@ -254,16 +230,16 @@ def run_live_probe(
             monotonic=monotonic,
         )
     except ProbeFailure as failure:
-        not_ended = end_launched_session(client, launch_id)
+        _cleanup, not_ended = end_launched_session(client, launch_id)
         if not_ended is not None:
             raise ProbeFailure(
                 failure.code, f"{failure.detail}; {not_ended}"
             ) from failure
         raise
-    not_ended = end_launched_session(client, launch_id)
+    cleanup, not_ended = end_launched_session(client, launch_id)
     if not_ended is not None:
         raise not_ended
-    return f"{verdict}; launched session ended"
+    return f"{verdict}; {cleanup}"
 
 
 def main(
