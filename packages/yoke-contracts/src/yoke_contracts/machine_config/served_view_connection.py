@@ -19,6 +19,7 @@ view server re-checks in the process that actually serves.
 from __future__ import annotations
 
 from typing import Any, Mapping, Optional
+from urllib.parse import urlsplit
 
 from yoke_contracts.machine_config.schema_connections import (
     connection_is_prod,
@@ -57,8 +58,9 @@ def view_serving_refusal(
             "process reaches its control plane by relaying: a view served "
             "over it would answer every read from the hosted universe "
             "while naming none of it on the page. A view serves the "
-            "machine-local universe only, and the hosted/self-host web "
-            f"surfaces arrive with the platform. {_switch_recipe(payload)}"
+            "machine-local universe only; that server serves its own "
+            f"workbench — open {_server_workbench_url(connection)} in a "
+            f"browser. {_switch_recipe(payload)}"
         )
     if transport in POSTGRES_TRANSPORTS:
         return (
@@ -73,6 +75,14 @@ def view_serving_refusal(
         "it is the only one this process reads directly. "
         f"{_switch_recipe(payload)}"
     )
+
+
+def _server_workbench_url(connection: Mapping[str, Any]) -> str:
+    """The site root of an https connection's server, where its workbench is."""
+    server = urlsplit(str(connection.get("api_url") or ""))
+    if not server.netloc:
+        return "the server's own URL"
+    return f"{server.scheme}://{server.netloc}/"
 
 
 def _switch_recipe(payload: Optional[Mapping[str, Any]]) -> str:

@@ -44,7 +44,7 @@ from starlette.requests import Request
 from yoke_core.ui.dashboard_routes import is_dashboard_path
 from typing import Any, Dict, Optional
 
-from yoke_contracts.runtime_identity import SERVED_BUILD_PATH
+from yoke_contracts.runtime_identity import PORTABILITY_LOCAL, SERVED_BUILD_PATH
 from yoke_cli.config.hosted_machine_browser import open_url
 from yoke_core.ui.asset_roster import ASSET_CACHE_CONTROL, ASSET_CONTENT_TYPES
 from yoke_core.ui.function_proxy import (
@@ -68,6 +68,12 @@ from yoke_core.ui.session_gate import (
     session_cookie_name,
     token_matches,
 )
+from yoke_core.ui.workbench_shell import (
+    asset_response,
+    host_packet,
+    served_build_response,
+    shell_response,
+)
 
 #: Default bind host and TCP port for the UI server (loopback only).
 #: Collision-probed at startup; ``--host`` and ``--port`` on ``yoke ui``
@@ -77,7 +83,6 @@ DEFAULT_UI_PORT = 8688
 LOOPBACK_UI_HOSTS = frozenset({"127.0.0.1", "localhost"})
 
 _BROWSER_OPEN_DELAY_S = 0.5
-_HOST_IDENTITY_MARKER = "/*YOKE_HOST_IDENTITY*/"
 
 
 class UiServerError(RuntimeError):
@@ -131,35 +136,21 @@ def private_url(
     return f"http://{resolve_ui_host(host)}:{port}/?token={token}"
 
 
-def _asset_bytes(asset_name: str) -> bytes:
-    from importlib.resources import files
+#: The Local view's host capabilities: a local universe trivially has its
+#: machine connected, so this host — not the engine — supplies that fact.
+_LOCAL_CAPABILITIES = {
+    "data": {
+        "portability": {"mode": "local", "sectionOwned": False},
+        "onboarding": {"machineConnected": True},
+    },
+}
 
-    return files(__package__).joinpath("static", asset_name).read_bytes()
 
-
-def _local_host_identity_json(environment: str) -> str:
-    """Serialize mount fields from the canonical runtime-identity packet."""
-    import json
-
-    from yoke_contracts.runtime_identity import (
-        PORTABILITY_LOCAL,
-        build_runtime_identity,
-        mount_fields,
-    )
-
-    packet = build_runtime_identity(
-        portability_mode=PORTABILITY_LOCAL,
-        install=served_install(),
-        build=served_build_identity(),
-        environment_label=environment_display_label(environment),
-    )
-    fields = mount_fields(packet)
+def _local_operator_actor_id() -> Optional[int]:
     from yoke_core.ui.local_operator_actor import resolve_local_operator_actor
 
     try:
-        actor_id = resolve_local_operator_actor()
-        if actor_id is not None:
-            fields["currentActor"] = {"id": str(actor_id), "kind": "human"}
+        return resolve_local_operator_actor()
     except Exception:
         import logging
 
@@ -169,19 +160,19 @@ def _local_host_identity_json(environment: str) -> str:
             "reload",
             exc_info=True,
         )
-    return json.dumps(fields, separators=(",", ":"))
+        return None
 
 
-def _inject_host_identity(html: str, environment: str) -> str:
-    """Replace the shell's host-identity marker with the live packet JSON."""
-    start = html.find(_HOST_IDENTITY_MARKER)
-    if start < 0:
-        return html
-    content_start = start + len(_HOST_IDENTITY_MARKER)
-    end = html.find(_HOST_IDENTITY_MARKER, content_start)
-    if end < 0:
-        return html
-    return html[:content_start] + _local_host_identity_json(environment) + html[end:]
+def _local_host_packet(environment: str) -> Dict[str, Any]:
+    """The Local view's mount packet, from the canonical runtime identity."""
+    return host_packet(
+        portability_mode=PORTABILITY_LOCAL,
+        install=served_install(),
+        build=served_build_identity(),
+        environment_label=environment_display_label(environment),
+        current_actor_id=_local_operator_actor_id(),
+        capabilities=_LOCAL_CAPABILITIES,
+    )
 
 
 def create_ui_app(token: str, *, port: int = DEFAULT_UI_PORT):
@@ -191,12 +182,7 @@ def create_ui_app(token: str, *, port: int = DEFAULT_UI_PORT):
     session cookie, so a view on one port cannot evict a view on another.
     """
     from fastapi import FastAPI, HTTPException, Query
-    from fastapi.responses import (
-        HTMLResponse,
-        JSONResponse,
-        RedirectResponse,
-        Response,
-    )
+    from fastapi.responses import JSONResponse, RedirectResponse, Response
 
     if not token:
         raise UiServerError("a non-empty session token is required")
@@ -259,37 +245,15 @@ def create_ui_app(token: str, *, port: int = DEFAULT_UI_PORT):
             return redirect
         # No (valid) query token here means the session cookie admitted
         # the request through the gate; serve the shell directly.
-        shell = _inject_host_identity(
-            _asset_bytes("index.html").decode("utf-8"),
-            environment,
-        )
-        return HTMLResponse(
-            shell,
-            headers={"Cache-Control": ASSET_CACHE_CONTROL},
-        )
+        return shell_response(_local_host_packet(environment))
 
     @app.get("/assets/{asset_name}")
     def asset(asset_name: str) -> Response:
-        content_type = ASSET_CONTENT_TYPES.get(asset_name)
-        if content_type is None:
-            raise HTTPException(status_code=404, detail="unknown asset")
-        return Response(
-            _asset_bytes(asset_name),
-            media_type=content_type,
-            headers={"Cache-Control": ASSET_CACHE_CONTROL},
-        )
+        return asset_response(asset_name)
 
     @app.get(SERVED_BUILD_PATH)
     def served_build_path() -> Response:
-        # Plain text and nothing else: the reader matches a bare commit id,
-        # so a wrapper object would be indistinguishable from an unanswered
-        # question. An empty body is the honest answer when this server
-        # cannot name its commit, and fails that match rather than passing.
-        return Response(
-            served_build_identity(),
-            media_type="text/plain; charset=utf-8",
-            headers={"Cache-Control": "no-store"},
-        )
+        return served_build_response(served_build_identity())
 
     @app.post("/api/functions/call")
     def call_function(envelope: Dict[str, Any]) -> JSONResponse:

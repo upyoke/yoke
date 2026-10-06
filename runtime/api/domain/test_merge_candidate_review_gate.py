@@ -45,8 +45,8 @@ def _file_item(conn, *, posture: str) -> int:
 def _settle(conn, request_id: int, action: str, note: str):
     """Answer as a person at the UI: no harness session, origin marked.
 
-    The session-less branch is accepted only under the mark this machine's
-    UI server sets around its own dispatch; spoofing cases live next door.
+    The session-less branch is accepted only under the mark a workbench
+    host sets around its own dispatch; spoofing cases live next door.
     """
     with ui_browser_origin():
         return resolve_decision_request(
@@ -85,8 +85,7 @@ def test_the_first_evaluation_fails_closed_and_raises_the_review(conn):
     assert verdict.satisfied is False
     assert verdict.request_status == "pending"
     row = conn.execute(
-        "SELECT kind, subject_type, subject_key, subject_context "
-        "FROM decision_requests"
+        "SELECT kind, subject_type, subject_key, subject_context FROM decision_requests"
     ).fetchone()
     assert row["kind"] == "merge_candidate_review"
     assert row["subject_type"] == "item_merge_candidate"
@@ -129,9 +128,12 @@ def test_a_new_commit_after_a_clearance_is_a_new_candidate(conn):
     assert moved.request_id != raised.request_id
     assert moved.request_status == "pending"
     # The earlier clearance is untouched history, not a revoked one.
-    assert conn.execute(
-        "SELECT status FROM decision_requests WHERE id = ?", (raised.request_id,)
-    ).fetchone()[0] == "resolved"
+    assert (
+        conn.execute(
+            "SELECT status FROM decision_requests WHERE id = ?", (raised.request_id,)
+        ).fetchone()[0]
+        == "resolved"
+    )
 
 
 def test_a_newer_head_retires_the_review_of_the_head_it_replaced(conn):
@@ -146,17 +148,18 @@ def test_a_newer_head_retires_the_review_of_the_head_it_replaced(conn):
     ).fetchone()
     assert row["status"] == "withdrawn"
     assert SECOND_HEAD in row["withdrawal_reason"]
-    assert conn.execute(
-        "SELECT COUNT(*) FROM decision_requests WHERE status = 'pending'"
-    ).fetchone()[0] == 1
+    assert (
+        conn.execute(
+            "SELECT COUNT(*) FROM decision_requests WHERE status = 'pending'"
+        ).fetchone()[0]
+        == 1
+    )
 
 
 def test_a_rejected_candidate_stays_rejected_until_a_new_commit(conn):
     item_id = _file_item(conn, posture='{"merge_candidate_review": true}')
     raised = _evaluate(conn, item_id, FIRST_HEAD)
-    _settle(
-        conn, raised.request_id, "reject", "the migration is not idempotent"
-    )
+    _settle(conn, raised.request_id, "reject", "the migration is not idempotent")
     again = _evaluate(conn, item_id, FIRST_HEAD)
     assert again.satisfied is False
     assert again.resolution_action == "reject"

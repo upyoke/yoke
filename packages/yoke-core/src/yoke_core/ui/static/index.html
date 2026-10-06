@@ -30,13 +30,14 @@
   <div id="universe-root"></div>
   <script type="module">
     // Bootstrap: hand the mount root to the app module and get out of the
-    // way. The session cookie set by this page's response authenticates the
-    // module fetch and every API call, so nothing token-shaped lives here.
-    // A local universe trivially has its machine connected, so this page —
-    // not the engine — supplies the onboarding machine fact.
-    import { mountUniverseApp } from "/assets/app.js";
-    // The UI server replaces the host-identity marker with the live packet
-    // at serve time. The placeholder object is only for static file opens.
+    // way. The session cookie the serving host set authenticates the module
+    // fetch and every API call, so nothing token-shaped lives here.
+    import { createHttpFunctionClient, mountUniverseApp } from "/assets/app.js";
+    // The serving host — the Local view or a self-hosted Yoke server —
+    // replaces the host-identity marker with its live packet at serve time:
+    // identity, actor, capabilities, and the function-call endpoint when it
+    // is not the default. The placeholder object is only for static file
+    // opens.
     const hostIdentity = /*YOKE_HOST_IDENTITY*/{
       "versionLabel": "source",
       "environmentLabel": "local universe",
@@ -45,21 +46,22 @@
         "installKind": "source_checkout",
         "environmentLabel": "local universe",
         "portabilityMode": "local"
+      },
+      "capabilities": {
+        "data": {
+          "portability": { "mode": "local", "sectionOwned": false },
+          "onboarding": { "machineConnected": true }
+        }
       }
     }/*YOKE_HOST_IDENTITY*/;
+    const { functionCallEndpoint, ...mountOptions } = hostIdentity;
     mountUniverseApp(document.getElementById("universe-root"), {
-      // The loopback door authenticates a machine session rather than an
-      // account. A resolved operator in hostIdentity replaces this label;
-      // unidentified viewers keep preferences only for this mount.
+      // A resolved actor in the host packet replaces this label; an
+      // unidentified Local viewer keeps preferences only for this mount.
       currentActor: { kind: "human", label: "local actor" },
-      ...hostIdentity,
+      ...mountOptions,
+      client: createHttpFunctionClient({ endpoint: functionCallEndpoint }),
       docsUrl: "https://github.com/upyoke/yoke/tree/main/docs",
-      capabilities: {
-        data: {
-          portability: { mode: "local", sectionOwned: false },
-          onboarding: { machineConnected: true },
-        },
-      },
     });
   </script>
 </body>

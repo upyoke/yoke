@@ -25,16 +25,16 @@ def repository(tmp_path):
     subprocess.run(["git", "-C", str(root), "config", "user.name", "T"], check=True)
     (root / "served.txt").write_text("asset\n")
     subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
-    subprocess.run(
-        ["git", "-C", str(root), "commit", "-q", "-m", "first"], check=True
-    )
+    subprocess.run(["git", "-C", str(root), "commit", "-q", "-m", "first"], check=True)
     return root
 
 
 def _head(root) -> str:
     return subprocess.run(
         ["git", "-C", str(root), "rev-parse", "HEAD"],
-        capture_output=True, text=True, check=True,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout.strip()
 
 
@@ -79,13 +79,11 @@ def test_a_directory_that_is_not_a_repository_publishes_nothing(tmp_path):
 def test_the_packet_the_server_publishes_carries_the_serving_commit():
     """The server reads its own module origin, so the commit it publishes
     is the checkout serving the assets rather than an ambient install."""
-    import json
-
-    from yoke_core.ui.server import _local_host_identity_json
+    from yoke_core.ui.server import _local_host_packet
 
     # Unbound: no connection binding selects a control plane, so the
     # packet names no environment and the commit still has to be there.
-    fields = json.loads(_local_host_identity_json(""))
+    fields = _local_host_packet("")
     runtime = fields["runtimeIdentity"]
     if runtime.get("installKind") != "source_checkout":
         pytest.skip("this test run is not served from a source checkout")
@@ -130,9 +128,7 @@ class TestTheServedBuildPath:
         assert response.headers["content-type"].startswith("text/plain")
         assert response.text == response.text.strip()
 
-    def test_the_identity_path_is_not_an_opening_in_the_session_gate(
-        self, client
-    ):
+    def test_the_identity_path_is_not_an_opening_in_the_session_gate(self, client):
         """The failure this prevents: publishing a read that anyone who can
         reach the port may take, on a server whose whole security model is
         that every route requires the per-run token."""

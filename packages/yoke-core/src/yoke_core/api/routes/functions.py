@@ -2,10 +2,10 @@
 
 Mounts three endpoints under ``/v1``:
 
-- ``POST /functions/call`` — invoke a registered function. Returns the
-  canonical :class:`FunctionCallResponse`. HTTP status reflects the
-  envelope: 200 on success, 207 on success-with-warnings, and a typed
-  4xx on envelope/registry/claim/idempotency errors.
+- ``POST /functions/call`` — invoke a registered function with an API
+  token, or from a signed-in browser's web session. Returns the canonical
+  :class:`FunctionCallResponse`. HTTP status reflects the envelope
+  (:mod:`yoke_core.api.function_call_status`).
 - ``GET /functions/registry`` — list registered function ids + metadata.
 - ``GET /functions/schema/{function_id}`` — return the JSON Schema for
   the function's request payload (404 when unregistered).
@@ -23,6 +23,11 @@ from yoke_core.api.http_auth import (
     HttpAuthContext,
     record_function_authz,
     require_auth_context,
+)
+from yoke_core.api.browser_function_call import call_function_as_web_session
+from yoke_core.api.function_call_status import (
+    exception_response,
+    status_for_response,
 )
 from yoke_core.api.function_failure_observability import record_function_failure
 from yoke_core.api.observability import record_request_phase
@@ -50,78 +55,26 @@ from yoke_core.domain.yoke_function_registry import (
 from yoke_core.domain.api_tokens import INITIAL_ADMIN_TOKEN_NAME
 from yoke_core.api.machine_function_auth import machine_credential_refusal
 from yoke_core.api.launch_machine_actor import bind_actor_for_session
+from yoke_core.api.web_session_auth import web_session_context
 
 
 router = APIRouter()
-
-
-_ERROR_TO_STATUS: Dict[str, int] = {
-    "envelope_invalid": 422,
-    "empty_body": 422,
-    "invalid_payload": 422,
-    "payload_invalid": 422,
-    "invalid_field": 422,
-    "shrinkage": 422,
-    "freeze_lock": 409,
-    "validation_failed": 422,
-    "settings_conflict": 409,
-    "function_not_registered": 404,
-    "target_not_found": 404,
-    "not_found": 404,
-    "claim_required": 409,
-    "claim_changed": 409,
-    "claim_not_held": 409,
-    "claim_not_found": 404,
-    "claim_error": 409,
-    "hook_context": 403,
-    "operator_override_required": 409,
-    "human_operator_required": 403,
-    "idempotency_key_collision": 409,
-    "actor_id_mismatch": 403,
-    "actor_session_missing": 403,
-    "permission_denied": 403,
-    "permission_check_unavailable": 503,
-    "machine_retired": 409,
-    "machine_credential_required": 409,
-    "machine_credential_mismatch": 409,
-    "render_failed": 500,
-    "write_failed": 500,
-    "handler_contract": 500,
-    "handler_exception": 500,
-    # Per-handler validation/gate codes raised by registered handlers.
-    "validation_error": 422,
-    "unsupported_field": 422,
-    "lifecycle_gate_unmet": 422,
-    "frozen": 422,
-    "precondition_failed": 422,
-    "sql_empty": 422,
-    "sql_multiple_statements": 422,
-    "sql_not_read_only": 422,
-    "sql_write_refused": 422,
-    "sql_ddl_refused": 422,
-    "sql_execution_failed": 422,
-}
-
-
-def _status_for_response(response_envelope: Dict[str, Any]) -> int:
-    """Map a function-call response envelope to an HTTP status code."""
-    error = response_envelope.get("error")
-    if error and error.get("code"):
-        return _ERROR_TO_STATUS.get(error["code"], 400)
-    if response_envelope.get("warnings"):
-        return 207
-    return 200
 
 
 @router.post("/functions/call")
 def call_function(request: Request, envelope: Dict[str, Any]) -> JSONResponse:
     """Invoke a registered function via the dispatcher.
 
-    The HTTP boundary binds actor identity from the verified bearer token.
-    Caller-supplied ``actor_id`` is discarded before the dispatcher sees the
-    envelope; ``session_id`` remains payload-owned because claim/session gates
-    still operate on the caller's harness session.
+    The HTTP boundary binds actor identity from the verified credential. A
+    signed-in browser's call binds the web session's actor
+    (:mod:`yoke_core.api.browser_function_call`). Otherwise the bearer
+    token's actor replaces any caller-supplied ``actor_id``; ``session_id``
+    remains payload-owned because claim/session gates still operate on the
+    caller's harness session.
     """
+    web = web_session_context(request)
+    if web is not None:
+        return call_function_as_web_session(request, envelope, web)
     auth = require_auth_context(request)
     bound_envelope = envelope
     # Pass "" (never None) when the envelope carries no session: the
@@ -133,11 +86,11 @@ def call_function(request: Request, envelope: Dict[str, Any]) -> JSONResponse:
         if service_denial is not None:
             body = service_denial.model_dump()
             _record_service_token_denial(request, auth, service_denial)
-            return JSONResponse(content=body, status_code=_status_for_response(body))
+            return JSONResponse(content=body, status_code=status_for_response(body))
         machine_denial = _machine_credential_guard_response(envelope, auth)
         if machine_denial is not None:
             body = machine_denial.model_dump()
-            return JSONResponse(content=body, status_code=_status_for_response(body))
+            return JSONResponse(content=body, status_code=status_for_response(body))
         bound_envelope, ambient = bind_actor_for_session(envelope, auth)
         _record_pre_dispatch_authz(request, bound_envelope, auth)
         dispatch_started = start_duration_measurement()
@@ -145,9 +98,9 @@ def call_function(request: Request, envelope: Dict[str, Any]) -> JSONResponse:
         _record_dispatch_overhead(request, dispatch_started)
     except Exception as exc:
         record_function_failure(request, bound_envelope, exc)
-        response = _exception_response(bound_envelope, exc)
+        response = exception_response(bound_envelope, exc)
     body = response.model_dump()
-    return JSONResponse(content=body, status_code=_status_for_response(body))
+    return JSONResponse(content=body, status_code=status_for_response(body))
 
 
 def _record_dispatch_overhead(request: Request, dispatch_started: float | None) -> None:
@@ -227,33 +180,6 @@ def _record_service_token_denial(
         )
     except Exception:
         return
-
-
-def _exception_response(
-    envelope: Dict[str, Any],
-    exc: Exception,
-) -> FunctionCallResponse:
-    """Return a typed function envelope for unexpected dispatcher failures."""
-    function_id = str(envelope.get("function") or "")
-    version = str(envelope.get("version") or "v1")
-    request_id = envelope.get("request_id")
-    if request_id is not None and not isinstance(request_id, str):
-        request_id = str(request_id)
-    return FunctionCallResponse(
-        success=False,
-        function=function_id,
-        version=version,
-        request_id=request_id,
-        result={},
-        warnings=[],
-        error=FunctionError(
-            code="handler_exception",
-            message=(
-                f"function call {function_id!r} raised {type(exc).__name__}: {exc}"
-            ),
-        ),
-        event_ids=[],
-    )
 
 
 def _record_pre_dispatch_authz(

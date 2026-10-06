@@ -111,7 +111,7 @@ def test_older_server_projects_without_prefix_remain_usable():
     app.result.api_url = "https://team.example.test/yoke/v1/"
     lines = machine_finish_lines(app.result)
     assert "Your projects: widget" in lines
-    assert "Or open the workbench: yoke ui up" in lines
+    assert "Or open the workbench: https://team.example.test/" in lines
     assert not any(line.startswith("Or open the dashboard:") for line in lines)
     assert "  yoke items list --project widget" in lines
 

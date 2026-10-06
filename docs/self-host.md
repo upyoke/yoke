@@ -154,12 +154,13 @@ docker compose exec --user yoke core python3 -m yoke_core.domain.api_tokens_cli 
   mint --actor <actor-id> --name <engineer-label>
 ```
 
-## Browser sign-in (OIDC)
+## Workbench and browser sign-in (OIDC)
 
-The server can optionally offer a browser sign-in door backed by your
-identity provider, with deliberately read-only browser sessions. The
-walkthrough — provider registration, bundle wiring, and who gets in —
-is [Browser Sign-In](self-host-browser-sign-in.md).
+The server serves the universe workbench at its own URL. People open it by
+signing in through your identity provider and then work with full read and
+write as their own actor. The walkthrough — provider registration, bundle
+wiring, who gets in, and the cookie's same-origin protection — is
+[Browser Sign-In](self-host-browser-sign-in.md).
 
 ## GitHub App server automation
 

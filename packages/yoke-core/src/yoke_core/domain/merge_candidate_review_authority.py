@@ -113,21 +113,22 @@ def require_clearance_authority(
     if not caller:
         # An empty session id is what a browser call looks like -- and also
         # what any agent can type. Origin is therefore taken from the mark
-        # this machine's UI server sets around its own dispatch, which no
-        # envelope carries and no wire delivers, never from the envelope.
+        # a workbench host sets around its own dispatch of a browser call,
+        # which no envelope carries and no wire delivers, never from the
+        # envelope.
         if not ui_browser_origin_active():
             raise MergeCandidateReviewAuthorityError(
                 UNAUTHORIZED_CODE,
                 f"{UNAUTHORIZED_CODE}: this call names no harness session, "
                 "and a session-less answer is accepted only from a person "
-                "at this machine's Yoke UI. A call on a machine API token "
+                "at a Yoke browser workbench. A call on a machine API token "
                 f"cannot {action} by omitting its session. {_RECOVERY}",
             )
         if actor_id is not None and is_human_actor(conn, int(actor_id)):
             return
         raise MergeCandidateReviewAuthorityError(
             UNAUTHORIZED_CODE,
-            f"{UNAUTHORIZED_CODE}: the UI resolved no human operator actor, "
+            f"{UNAUTHORIZED_CODE}: the workbench resolved no human actor, "
             f"so nobody is on record as having taken this decision; it may "
             f"not {action}. {_RECOVERY}",
         )

@@ -1,17 +1,15 @@
-"""HTTP auth boundary for the Yoke FastAPI surface.
+"""HTTP bearer-token auth boundary for the Yoke FastAPI surface.
 
-Two credentials, deliberately asymmetric:
-
-* **Bearer API token** — the only credential accepted for function calls
-  and every other mutating or non-allowlisted surface.
-* **Web-session cookie** — minted by the browser sign-in door; accepted
-  ONLY for the GET read surfaces named in :data:`WEB_SESSION_GET_PATHS`.
+The bearer API token is the credential for every non-public API path. The
+browser's web-session cookie — the other credential this server accepts,
+for the workbench pages and ``POST /v1/functions/call`` — lives in
+:mod:`yoke_core.api.web_session_auth`.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
@@ -28,35 +26,16 @@ from yoke_core.domain.api_tokens import (
     record_token_audit,
     verify_token,
 )
-from yoke_core.domain.web_sessions import WebSessionError, verify_web_session
-from yoke_core.domain.actor_state import ActorDisabledError
 
 
 AUTH_STATE_ATTR = "yoke_auth"
 
 # Browser sign-in door surface. The start/callback pair is public by
-# construction (they are how a browser acquires a credential); the
-# landing page authenticates via the web-session cookie branch below.
-LANDING_PATH = "/"
+# construction: they are how a browser acquires a credential.
 OIDC_START_PATH = "/v1/auth/oidc/start"
 OIDC_CALLBACK_PATH = "/v1/auth/oidc/callback"
 
 PUBLIC_PATHS = frozenset({"/v1/health", OIDC_START_PATH, OIDC_CALLBACK_PATH})
-
-#: Name of the browser session cookie the sign-in door mints.
-WEB_SESSION_COOKIE_NAME = "yoke_web_session"
-
-#: GET paths where the web-session cookie is an accepted credential.
-#:
-#: CSRF rationale: a cookie is an ambient credential the browser attaches
-#: to cross-site requests it did not intend. Accepting it only for
-#: side-effect-free GET reads — and requiring the explicit Authorization
-#: header (which browsers never attach automatically) for every write —
-#: removes the forgeable-write surface structurally instead of managing
-#: per-form CSRF tokens.
-WEB_SESSION_GET_PATHS = frozenset({LANDING_PATH})
-
-WEB_AUTH_STATE_ATTR = "yoke_web_auth"
 
 
 @dataclass(frozen=True)
@@ -69,52 +48,9 @@ class HttpAuthContext:
     machine_id: str | None = None
 
 
-@dataclass(frozen=True)
-class WebSessionAuthContext:
-    """Verified browser identity (web-session cookie), read-only surfaces."""
-
-    web_session_id: int
-    actor_id: int
-
-
 def is_public_path(path: str) -> bool:
     """Return True when ``path`` is intentionally public."""
     return path in PUBLIC_PATHS
-
-
-def is_web_session_get_path(method: str, path: str) -> bool:
-    """True when the web-session cookie is an accepted credential here."""
-    return method.upper() == "GET" and path in WEB_SESSION_GET_PATHS
-
-
-def authenticate_web_session(request: Request) -> Optional[WebSessionAuthContext]:
-    """Verify the request's web-session cookie, or return ``None``.
-
-    Every failure mode — no cookie, malformed value, unknown, revoked,
-    expired, database unavailable — collapses to ``None`` so callers
-    render one identical signed-out treatment and a probing client
-    cannot learn whether a session record ever existed.
-    """
-    raw = str(request.cookies.get(WEB_SESSION_COOKIE_NAME) or "").strip()
-    if not raw:
-        return None
-    try:
-        with db_helpers.connect() as conn:
-            verified = verify_web_session(conn, raw)
-    except (ValueError, WebSessionError, ActorDisabledError):
-        return None
-    except db_backend.database_error_types():
-        return None
-    return WebSessionAuthContext(
-        web_session_id=verified.web_session_id,
-        actor_id=verified.actor_id,
-    )
-
-
-def web_session_context(request: Request) -> Optional[WebSessionAuthContext]:
-    """Return the verified web-session context stored by middleware, if any."""
-    ctx = getattr(request.state, WEB_AUTH_STATE_ATTR, None)
-    return ctx if isinstance(ctx, WebSessionAuthContext) else None
 
 
 def auth_error_response(
@@ -309,20 +245,12 @@ def _request_metadata(request: Request) -> dict[str, Any]:
 __all__ = [
     "AUTH_STATE_ATTR",
     "HttpAuthContext",
-    "LANDING_PATH",
     "OIDC_CALLBACK_PATH",
     "OIDC_START_PATH",
-    "WEB_AUTH_STATE_ATTR",
-    "WEB_SESSION_COOKIE_NAME",
-    "WEB_SESSION_GET_PATHS",
-    "WebSessionAuthContext",
     "auth_error_response",
     "authenticate_request",
-    "authenticate_web_session",
     "bind_actor_from_auth",
     "is_public_path",
-    "is_web_session_get_path",
     "record_function_authz",
     "require_auth_context",
-    "web_session_context",
 ]
