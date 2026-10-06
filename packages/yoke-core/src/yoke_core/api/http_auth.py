@@ -44,7 +44,14 @@ OIDC_START_PATH = "/v1/auth/oidc/start"
 OIDC_CALLBACK_PATH = "/v1/auth/oidc/callback"
 
 PUBLIC_PATHS = frozenset(
-    {"/v1/health", OIDC_START_PATH, OIDC_CALLBACK_PATH, BROWSER_SIGN_IN_REDEEM_PATH, START_PATH, POLL_PATH}
+    {
+        "/v1/health",
+        OIDC_START_PATH,
+        OIDC_CALLBACK_PATH,
+        BROWSER_SIGN_IN_REDEEM_PATH,
+        START_PATH,
+        POLL_PATH,
+    }
 )
 
 
