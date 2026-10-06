@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import math
 import time
+from email.utils import parsedate_to_datetime
 from typing import Any, Callable, Mapping
 import urllib.request
 
@@ -43,7 +45,7 @@ def start(
     """Begin one authorization without opening a browser or persisting state."""
     origin = authorization_origin(platform_url)
     try:
-        payload, status = _post_json(
+        payload, status, _headers = _post_json(
             f"{origin}{START_PATH}",
             _machine_identity() if self_host else {},
             opener=opener,
@@ -102,16 +104,18 @@ def complete(
     machine_identity = _machine_identity()
     deadline = monotonic() + authorization.expires_in
     token_url = f"{authorization.platform_url}{POLL_PATH}"
+    delay = float(authorization.interval)
     while monotonic() < deadline:
-        sleep(min(authorization.interval, max(0.0, deadline - monotonic())))
+        sleep(min(delay, max(0.0, deadline - monotonic())))
         if cancelled is not None and cancelled():
             raise HostedMachineAuthorizationCancelled(
                 "browser approval wait cancelled; the one-time code expires on its own"
             )
         if monotonic() >= deadline:
             break
+        delay = float(authorization.interval)
         try:
-            payload, status = _post_json(
+            payload, status, headers = _post_json(
                 token_url,
                 {"device_code": authorization.device_code, **machine_identity},
                 opener=opener,
@@ -119,29 +123,12 @@ def complete(
                 sensitive_values=(authorization.device_code,),
             )
         except BoundedJsonHttpStatusError as exc:
-            _raise_admission_refusal(exc.payload, exc.status)
-            error = (
-                exc.payload.get("error") if isinstance(exc.payload, Mapping) else None
-            )
-            if _poll_is_retryable(exc.status, error):
-                continue
-            if exc.status == 410 and error == "authorization_denied":
-                raise HostedMachineAuthorizationDenied(
-                    "authorization denied in the browser"
-                ) from None
-            if error in {"authorization_expired", "authorization_consumed"}:
-                raise HostedMachineAuthorizationError(
-                    str(error).replace("_", " ")
-                ) from None
-            if error == "machine_identity_required":
-                raise HostedMachineAuthorizationError(
-                    "machine_identity_required: run `yoke status` to inspect this "
-                    "machine's configured identity, repair it, then retry"
-                ) from None
-            raise HostedMachineAuthorizationError(
-                f"hosted authorization polling failed (HTTP {exc.status})"
-            ) from None
+            payload = exc.payload if isinstance(exc.payload, Mapping) else {}
+            status, headers = exc.status, exc.headers
         error = payload.get("error")
+        if status == 429 and error == "authorization_poll_rate_limited":
+            delay = _poll_retry_delay(headers, authorization.interval)
+            continue
         if _poll_is_retryable(status, error):
             continue
         if status == 410 and error == "authorization_denied":
@@ -150,6 +137,11 @@ def complete(
             )
         if error in {"authorization_expired", "authorization_consumed"}:
             raise HostedMachineAuthorizationError(str(error).replace("_", " "))
+        if error == "machine_identity_required":
+            raise HostedMachineAuthorizationError(
+                "machine_identity_required: run `yoke status` to inspect this "
+                "machine's configured identity, repair it, then retry"
+            )
         if status != 200:
             _raise_admission_refusal(payload, status)
             raise HostedMachineAuthorizationError(
@@ -177,7 +169,6 @@ def _raise_admission_refusal(payload: object, status: int) -> None:
     error = payload.get("error") if isinstance(payload, Mapping) else None
     if status == 429 and error in {
         "authorization_start_rate_limited",
-        "authorization_poll_rate_limited",
         "authorization_client_capacity",
         "authorization_capacity",
     }:
@@ -189,6 +180,21 @@ def _raise_admission_refusal(payload: object, status: int) -> None:
 def _poll_is_retryable(status: int, error: object) -> bool:
     expected_error = RETRYABLE_POLL_ERRORS.get(status)
     return expected_error is not None and expected_error == error
+
+
+def _poll_retry_delay(headers: Mapping[str, str], interval: int) -> float:
+    raw = next(
+        (value for key, value in headers.items() if key.casefold() == "retry-after"),
+        "",
+    )
+    try:
+        seconds = float(raw)
+    except (TypeError, ValueError):
+        try:
+            seconds = parsedate_to_datetime(raw).timestamp() - time.time()
+        except (TypeError, ValueError, OverflowError):
+            return float(interval)
+    return max(float(interval), seconds) if math.isfinite(seconds) else float(interval)
 
 
 def authorize(
@@ -216,7 +222,7 @@ def _post_json(
     opener: Callable[..., Any] | None,
     timeout_seconds: float,
     sensitive_values: tuple[str, ...] = (),
-) -> tuple[Mapping[str, Any], int]:
+) -> tuple[Mapping[str, Any], int, Mapping[str, str]]:
     request = urllib.request.Request(
         url,
         method="POST",
@@ -240,7 +246,7 @@ def _post_json(
         raise HostedMachineAuthorizationError(
             "hosted authorization returned invalid JSON"
         )
-    return response.payload, int(response.status)
+    return response.payload, int(response.status), response.headers
 
 
 def _machine_identity() -> dict[str, str]:

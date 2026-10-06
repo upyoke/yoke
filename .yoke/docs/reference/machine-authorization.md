@@ -61,7 +61,10 @@ after expiry. Consumed codes free pending capacity.
 Persistent atomic counters are shared across processes and restarts, separately
 from telemetry: six start requests and 120 poll requests per client per minute.
 HTTP 429 `authorization_start_rate_limited` or `authorization_poll_rate_limited`
-includes `Retry-After`; stop and retry after that delay. Failed and malformed
+includes `Retry-After`. Start refusals require retrying after that delay. The CLI
+waits through poll throttling and polls the same code after `Retry-After`, bounded
+by its expiry and cancellation. Missing or invalid delays retain the normal poll
+interval; capacity refusals remain fatal. Failed and malformed
 requests also consume the budget. Configure trusted proxies so the server sees
 the actual transport client; clients sharing an address share these budgets. A denied, consumed,
 or expired code requires a new connection. Wrong machine identity, missing

@@ -64,9 +64,16 @@ class BoundedJsonHttpBodyError(BoundedJsonHttpError):
 class BoundedJsonHttpStatusError(BoundedJsonHttpError):
     """The endpoint returned a non-success status and a scrubbed payload."""
 
-    def __init__(self, status: int, payload: Any = None) -> None:
+    def __init__(
+        self,
+        status: int,
+        payload: Any = None,
+        *,
+        headers: Mapping[str, str] | None = None,
+    ) -> None:
         self.status = int(status)
         self.payload = payload
+        self.headers = dict(headers or {})
         super().__init__(f"HTTP {self.status}")
 
 
@@ -132,6 +139,7 @@ def request_json(
             status = _response_status(response)
             headers = _response_headers(response)
     except urllib.error.HTTPError as exc:
+        headers = _response_headers(exc)
         try:
             _require_final_url(request, exc)
             if exc.fp is None:
@@ -163,6 +171,7 @@ def request_json(
         raise BoundedJsonHttpStatusError(
             exc.code,
             decode_error_payload(raw, secrets),
+            headers=headers,
         ) from None
     except HttpOpenPolicyError as exc:
         raise BoundedJsonHttpConfigurationError(str(exc)) from None
@@ -187,6 +196,7 @@ def request_json(
         raise BoundedJsonHttpStatusError(
             status,
             decode_error_payload(raw, secrets),
+            headers=headers,
         )
     return BoundedJsonHttpResponse(
         payload=_decode_success_payload(raw),
