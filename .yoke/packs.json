@@ -36,17 +36,17 @@
       "version": "1.1.0"
     },
     "structured-events": {
-      "content_digest": "7cc403bbbfd998cea6c970e24f443f82bd4b827ffa2529f054408a9fb379c1ca",
+      "content_digest": "9c00edd57f252d45fc9194e0b0fcd1327347834ad84c9f52be289cceaaa49f4b",
       "files": {
         "docs/packs/structured-events/README.md": {
           "mode": 420,
           "path": "docs/packs/structured-events/README.md",
-          "sha256": "39287e49c2c1604354ee0a4642241d49d5e7d18527a5eb7bdce3500e20d308af"
+          "sha256": "77aef5cd19fb00f0ef9aff56a406b83c174ddec0ea60effb46fd667e02ac56a6"
         },
         "events/README.md": {
           "mode": 420,
           "path": "events/README.md",
-          "sha256": "bd960e35d937a53ea04fad74fba2c1b9021d0bf624a98e4df621b6397d49a893"
+          "sha256": "f7dfdb743da10f16b0d5a742b99f85bd5d1fa0ae5edce06af879f75301af6328"
         },
         "events/api-route.ts": {
           "mode": 420,
@@ -111,7 +111,7 @@
         "events/events_navigation.ts": {
           "mode": 420,
           "path": "events/events_navigation.ts",
-          "sha256": "462b5f56c9f06b45e47bebccf31e087df4f76b9e2c418c16671522072e0096c7"
+          "sha256": "0a88407466e596880f773048fc48e53c2b5098b9d3a1ec6bcc133227bf58e834"
         },
         "events/events_props.py": {
           "mode": 420,
@@ -136,7 +136,7 @@
         "events/test_browser.mjs": {
           "mode": 420,
           "path": "events/test_browser.mjs",
-          "sha256": "234388c20998e504c155858d5e815e1fc03be26b6160e5f15d9534cc89756620"
+          "sha256": "f19a25a220e0428de5237daaae619e7dd49abb560d5d3f9c2a06ece0ed034670"
         },
         "events/test_events.py": {
           "mode": 420,
@@ -174,7 +174,7 @@
       "render_values": {
         "project_name": "yoke"
       },
-      "version": "3.0.0"
+      "version": "3.1.0"
     }
   },
   "project_id": 1,
