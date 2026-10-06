@@ -6,7 +6,6 @@ import {
   FakeDocument,
   allNodes,
   byClass,
-  ownTextContent,
   response,
   settle,
   visibleText,
@@ -16,17 +15,10 @@ function ok(result) {
   return { status: 200, envelope: { success: true, result } };
 }
 
-const CATALOG = [
-  { id: "dash", label: "Dash", description: "Complete a small change." },
-  { id: "polish", label: "Polish", description: "Review and finish work." },
-  { id: "steer", label: "Steer", description: "Steer against a plan." },
-];
-
 const SUMMARY = {
   project: "yoke",
   project_id: 1,
   configured: true,
-  action_catalog: CATALOG,
   unrouted_harnesses: [],
   harnesses: [
     { id: "claude-code", label: "Claude Code" },
@@ -38,7 +30,6 @@ const SUMMARY = {
       id: "DARIUS",
       label: "DARIUS",
       glyph: "🐎",
-      actions: ["dash", "polish", "steer"],
       matches: [],
       default_for: ["Claude Code"],
     },
@@ -46,7 +37,6 @@ const SUMMARY = {
       id: "ALTMAN",
       label: "SPECS",
       glyph: "👓",
-      actions: ["polish"],
       matches: [
         { lane: "ALTMAN", harness: "cursor", model: "gpt-*" },
         { lane: "ALTMAN", harness: null, model: "claude-opus-5" },
@@ -57,7 +47,6 @@ const SUMMARY = {
       id: "MUSKY",
       label: "MUSKY",
       glyph: "🛸",
-      actions: [],
       matches: [{ lane: "MUSKY", harness: "cursor", model: null }],
       default_for: ["Cursor"],
     },
@@ -125,7 +114,7 @@ test("the lane summary keeps every production project fact", async (t) => {
   }
 });
 
-test("each lane shows its glyph, label, matches, actions and defaults", async (t) => {
+test("each lane shows its glyph, label, matches and defaults", async (t) => {
   const root = await mountProject(t, 1, client());
 
   const darius = laneRow(root, "DARIUS");
@@ -145,42 +134,13 @@ test("each lane shows its glyph, label, matches, actions and defaults", async (t
   assert.ok(visibleText(darius, "\n").includes("Claude Code"));
 });
 
-test("a full allowlist collapses and a subset names its actions", async (t) => {
+test("lane rows contain three grouping columns", async (t) => {
   const root = await mountProject(t, 1, client());
-
-  const dariusSummary = allNodes(laneRow(root, "DARIUS"))
-    .find((node) => node.tagName === "SUMMARY");
-  assert.equal(ownTextContent(dariusSummary), "All 3 actions");
-
-  const altmanSummary = allNodes(laneRow(root, "ALTMAN"))
-    .find((node) => node.tagName === "SUMMARY");
-  assert.equal(ownTextContent(altmanSummary), "Polish");
-
-  const single = await mountProject(t, 1, client({
-    "projects.lane_summary.get": () => ok({
-      ...SUMMARY,
-      action_catalog: CATALOG.slice(0, 1),
-      lanes: [{ ...SUMMARY.lanes[0], actions: ["dash"] }],
-    }),
-  }));
-  const singleSummary = allNodes(laneRow(single, "DARIUS"))
-    .find((node) => node.tagName === "SUMMARY");
-  assert.equal(ownTextContent(singleSummary), "All 1 action");
-});
-
-test("an empty allowlist reads as None, never as all actions", async (t) => {
-  const root = await mountProject(t, 1, client());
-  const musky = visibleText(laneRow(root, "MUSKY"), "\n");
-  assert.ok(musky.includes("None"));
-  assert.ok(!musky.includes("All 3 actions"));
-});
-
-test("action descriptions are disclosed from the shared catalog", async (t) => {
-  const root = await mountProject(t, 1, client());
-  const text = visibleText(laneRow(root, "DARIUS"), "\n");
-  for (const action of CATALOG) {
-    assert.ok(text.includes(action.description), `missing ${action.id}`);
+  for (const lane of SUMMARY.lanes) {
+    assert.equal(laneRow(root, lane.id).children.length, 3);
   }
+  const panelText = visibleText(byClass(root, "lane-settings")[0], "\n");
+  assert.ok(!panelText.includes("Allowed actions"));
 });
 
 test(
@@ -250,5 +210,5 @@ test("a harness that routes nowhere is named", async (t) => {
   const notice = byClass(root, "lane-unrouted")[0];
   assert.ok(notice);
   assert.ok(notice.textContent.includes("Codex, Cursor"));
-  assert.ok(notice.textContent.includes("cannot be routed"));
+  assert.ok(notice.textContent.includes("no configured lane grouping"));
 });

@@ -144,7 +144,7 @@ INSTALLER_ADAPTERS: List[AdapterEntry] = [
     _read_entry(
         function_id="projects.lane_summary.get",
         cli_invocation="yoke projects lane-summary get --project NAME",
-        notes="Composes the project's effective session lane routing — label and glyph per lane, the harness/model selectors routing to it, its allowed actions, the harnesses defaulting to it, and any harness that routes nowhere — plus the routable-action catalog. Read-only; edits go through projects capability-settings on the session-routing capability.",
+        notes="Composes the project's effective session lane routing — label and glyph per lane, the harness/model selectors routing to it, the harnesses defaulting to it, and any harness with no configured grouping. Read-only; edits go through projects capability-settings on the session-routing capability.",
     ),
     _read_entry(
         function_id="projects.environment_settings.get",

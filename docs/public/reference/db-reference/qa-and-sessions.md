@@ -173,7 +173,7 @@ session_id TEXT PRIMARY KEY -- globally unique session ID (from contract)
 executor TEXT NOT NULL -- executor identity (e.g., claude-code, codex)
 provider TEXT NOT NULL -- model provider (e.g., anthropic, openai)
 model TEXT NOT NULL -- model identifier (e.g., claude-opus-4-7)
-execution_lane TEXT NOT NULL DEFAULT 'primary' -- lane identity; path eligibility comes from lane_paths_<lane> config
+execution_lane TEXT NOT NULL DEFAULT 'primary' -- session grouping identity stamped by session-routing settings
 capabilities TEXT DEFAULT '[]' -- JSON array of capability tags
 workspace TEXT NOT NULL -- absolute path to working directory
 mode TEXT DEFAULT 'wait' -- session mode (charge, feed, strategize, wait)

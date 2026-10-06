@@ -1,10 +1,17 @@
 # Session lane routing
 
-Which lane a registering session lands on for identity and roster grouping.
+Execution lanes are named groupings of harnesses and models. A project can
+group its sessions by model tier or harness without changing workflow
+settings. Lanes carry identity and presentation; workflow bindings select
+stage skills, and steering or explicit operator staffing assigns work.
+
+Execution lanes are distinct from the claimed worktree lanes that isolate
+code changes. See [worktree lanes and claims](agent-rules/lanes-and-claims.md).
 
 ## Resolution
 
-A project declares its lanes in the `session-routing` capability and decides
+A project declares lane identities, labels, and optional glyphs in
+`lane_metadata` on its `session-routing` capability and decides
 which session lands on which one. Two surfaces answer that, and the narrower
 one wins:
 
@@ -49,7 +56,7 @@ yoke projects capability-settings merge --project NAME --cap-type session-routin
 ```
 
 Read the composed result — effective labels and glyphs, selectors per lane,
-allowed actions, harness defaults, and any harness that routes nowhere —
+harness defaults, and any harness with no configured grouping —
 with `yoke projects lane-summary get --project NAME`. That same read backs
 the read-only lane summary on the Project settings screen.
 
@@ -57,3 +64,11 @@ Lane glyphs are validated at write time against the board's own convention:
 one `Emoji_Presentation=Yes` code point, no variation selector, no skin-tone
 modifier, no ZWJ/flag/keycap sequence. An unsafe glyph is refused by name
 rather than silently stripped.
+
+
+## Stored settings convergence
+
+Boot removes retired action-permission settings from stored routing documents
+through the ordered migration history. Lanes declared only through those
+settings become metadata entries so custom groupings survive. New settings
+writes refuse the removed keys and name the correction.

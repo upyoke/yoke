@@ -64,7 +64,7 @@ def projects_lane_summary_get(args: List[str]) -> int:
         description=(
             "Read one project's effective session lane routing: each lane's "
             "label and glyph, the harness/model selectors that route to it, "
-            "the actions it may run, and the harnesses that default to it. "
+            "and the harnesses that default to it. "
             "This is the same composition the Project settings screen shows. "
             "Edit any of it with `yoke projects capability-settings merge "
             "--project NAME --cap-type session-routing --set KEY.PATH=VALUE`."
@@ -73,9 +73,7 @@ def projects_lane_summary_get(args: List[str]) -> int:
     parser.add_argument("--project", required=True)
     add_session_arg(parser)
     add_json_arg(parser)
-    parsed: Any = parse_or_usage_error(
-        parser, args, PROJECTS_LANE_SUMMARY_GET_USAGE
-    )
+    parsed: Any = parse_or_usage_error(parser, args, PROJECTS_LANE_SUMMARY_GET_USAGE)
     if parsed is None:
         return 2
     return dispatch_and_emit(

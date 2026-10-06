@@ -31,19 +31,15 @@ class TestRoutingPolicy:
     def test_project_routing_is_complete_authority(self, tmp_path: Path) -> None:
         cfg = _machine_cfg(
             tmp_path,
-            "executor_default_lane_claude*=LOCAL\nlane_paths_local=feed\n",
+            "executor_default_lane_claude*=LOCAL\n",
         )
         routing = load_routing_config(
             cfg,
             project_settings={
                 "executor_default_lane_claude*": "DARIUS",
-                "lane_paths_darius": "shepherd,conduct",
             },
         )
         assert routing.default_lane_for_executor("claude-code") == "DARIUS"
-        assert routing.lane_allowed_paths == {
-            "DARIUS": ["shepherd", "conduct"],
-        }
 
     def test_machine_routing_is_no_project_fallback(self, tmp_path: Path) -> None:
         cfg = _machine_cfg(tmp_path, "executor_default_lane_codex*=ALTMAN\n")
@@ -65,7 +61,7 @@ class TestRoutingPolicy:
         routing = load_routing_config("unused", project_settings=settings)
         assert routing.default_lane_for_executor("claude-code") == "ALT"
         assert routing.default_lane_for_executor("codex") == "ALTMAN"
-        assert "DARIUS" in routing.lane_allowed_paths
+        assert "DARIUS" in routing.lane_metadata
 
     def test_lane_rules_and_metadata_survive_the_shared_double_normalization(
         self,

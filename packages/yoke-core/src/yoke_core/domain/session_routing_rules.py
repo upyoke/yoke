@@ -142,7 +142,7 @@ def _parse_lane(
             f"{field}.lane names {lane!r}, which this project does not "
             f"declare. Declared lanes are "
             f"{', '.join(sorted(declared_lanes)) or '(none)'}; declare the "
-            "lane in lane_metadata or lane_paths first.",
+            "lane in lane_metadata first.",
             field=f"{field}.lane",
         )
     return lane
@@ -165,8 +165,7 @@ def parse_lane_rules(
         return ()
     if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes)):
         raise LaneRuleError(
-            f"{field} must be a list of selector objects; got "
-            f"{type(raw).__name__}.",
+            f"{field} must be a list of selector objects; got {type(raw).__name__}.",
             field=field,
         )
     lanes = None if declared_lanes is None else tuple(declared_lanes)

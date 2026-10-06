@@ -1,6 +1,6 @@
 // The read-only lane summary on a project's settings screen. Everything it
 // shows — effective labels and glyphs, which selectors route where, which
-// harnesses default to a lane, and what each action means — is composed by
+// harnesses default to a lane — is composed by
 // `projects.lane_summary.get`, so this module renders and never resolves.
 // Editing belongs to a harness through the project capability-settings
 // commands, which is why there is no control here that writes.
@@ -55,37 +55,6 @@ function matchesCell(documentNode, lane, harnessLabels) {
   return cell;
 }
 
-function actionsCell(documentNode, lane, catalog) {
-  const cell = el(documentNode, "td");
-  const allowed = lane.actions || [];
-  const chosen = catalog.filter((action) => allowed.includes(action.id));
-  // An empty allowlist is a lane that runs nothing, which reads as None.
-  // Rendering it as All would invert the operator's configuration.
-  if (!chosen.length) {
-    cell.appendChild(el(documentNode, "span", "lane-muted", "None"));
-    return cell;
-  }
-  const disclosure = el(documentNode, "details", "lane-actions");
-  disclosure.appendChild(el(
-    documentNode,
-    "summary",
-    null,
-    chosen.length === catalog.length
-      ? `All ${chosen.length} ${chosen.length === 1 ? "action" : "actions"}`
-      : chosen.map((action) => action.label).join(", "),
-  ));
-  const detail = el(documentNode, "div");
-  for (const action of chosen) {
-    const entry = el(documentNode, "div");
-    entry.appendChild(el(documentNode, "b", null, action.label));
-    entry.appendChild(el(documentNode, "small", null, action.description));
-    detail.appendChild(entry);
-  }
-  disclosure.appendChild(detail);
-  cell.appendChild(disclosure);
-  return cell;
-}
-
 function defaultsCell(documentNode, lane) {
   const cell = el(documentNode, "td");
   const defaults = lane.default_for || [];
@@ -100,7 +69,6 @@ function defaultsCell(documentNode, lane) {
 }
 
 function laneTable(documentNode, result) {
-  const catalog = result.action_catalog || [];
   const harnessLabels = new Map(
     (result.harnesses || []).map((harness) => [harness.id, harness.label]),
   );
@@ -113,7 +81,6 @@ function laneTable(documentNode, result) {
     el(documentNode, "span", "lane-th-note", "Harness · model"),
   );
   head.appendChild(matchHead);
-  head.appendChild(el(documentNode, "th", null, "Allowed actions"));
   head.appendChild(el(documentNode, "th", null, "Default for"));
   table.appendChild(head);
   for (const lane of result.lanes || []) {
@@ -121,7 +88,6 @@ function laneTable(documentNode, result) {
     row.setAttribute("data-lane-row", lane.id);
     row.appendChild(laneCell(documentNode, lane));
     row.appendChild(matchesCell(documentNode, lane, harnessLabels));
-    row.appendChild(actionsCell(documentNode, lane, catalog));
     row.appendChild(defaultsCell(documentNode, lane));
     table.appendChild(row);
   }
@@ -161,7 +127,7 @@ export function renderProjectLaneSummary(context, scope) {
           "p",
           "lane-unrouted",
           `${unrouted.join(", ")} ${unrouted.length === 1 ? "matches" : "match"}`
-            + " no lane and cannot be routed work.",
+            + " no configured lane grouping.",
         ));
       }
       const priority = el(documentNode, "div", "lane-priority");

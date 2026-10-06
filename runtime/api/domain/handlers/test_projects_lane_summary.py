@@ -2,7 +2,7 @@
 
 Composition matters because three answers on that screen are not stored
 anywhere: a lane's effective label and glyph, which harnesses default to it,
-and what each allowed action means. If the browser derived any of them it
+and which selectors group sessions together. If the browser derived any of them it
 would be a second implementation of precedence, so this handler owes the
 page a finished answer and these cases are that contract.
 """
@@ -21,7 +21,6 @@ from yoke_core.domain.handlers import projects_lane_summary
 from yoke_core.domain.handlers.projects_lane_summary import (
     handle_lane_summary_get,
 )
-from yoke_core.domain.routable_actions import routable_action_ids
 
 _STORED = {
     "executor_default_lanes": {"claude*": "DARIUS", "codex*": "ALTMAN"},
@@ -29,11 +28,6 @@ _STORED = {
         "DARIUS": {"label": "DARIUS", "glyph": "\U0001f40e"},
         "ALTMAN": {"label": "SPECS", "glyph": "\U0001f453"},
         "MUSKY": {"label": "MUSKY", "glyph": "\U0001f6f8"},
-    },
-    "lane_paths": {
-        "DARIUS": list(routable_action_ids()),
-        "ALTMAN": ["refine", "polish"],
-        "MUSKY": [],
     },
     "lane_rules": [
         {"harness": "cursor", "lane": "MUSKY"},
@@ -125,21 +119,6 @@ class TestLanePresentation:
         assert sorted(ids) == ["ALTMAN", "DARIUS", "MUSKY"]
 
 
-class TestAllowedActions:
-    def test_a_subset_is_reported_exactly(self, summary):
-        assert _lane(summary(), "ALTMAN")["actions"] == ["refine", "polish"]
-
-    def test_an_empty_allowlist_stays_empty(self, summary):
-        # The page renders this as None; widening it here to "all" would
-        # invert the operator's configuration before it reached the screen.
-        assert _lane(summary(), "MUSKY")["actions"] == []
-
-    def test_the_catalog_travels_with_the_summary(self, summary):
-        catalog = summary()["action_catalog"]
-        assert [row["id"] for row in catalog] == list(routable_action_ids())
-        assert all(row["label"] and row["description"] for row in catalog)
-
-
 class TestMatchesAndDefaults:
     def test_several_selectors_on_one_lane_are_all_reported(self, summary):
         assert _lane(summary(), "MUSKY")["matches"] == [
@@ -176,7 +155,6 @@ class TestMatchesAndDefaults:
         payload = summary(
             stored={
                 "lane_metadata": {"DARIUS": {"label": "DARIUS"}},
-                "lane_paths": {"DARIUS": ["dash"]},
                 "executor_default_lanes": {"claude*": "DARIUS"},
             }
         )
@@ -230,3 +208,9 @@ class TestNoPhantomLanesFromDbShapedSettings:
         assert _lane(summary(), "MUSKY")["matches"] == [
             {"lane": "MUSKY", "harness": "cursor", "model": None}
         ]
+
+
+def test_summary_carries_groupings_without_action_permissions(summary):
+    payload = summary()
+    assert "action_catalog" not in payload
+    assert all("actions" not in lane for lane in payload["lanes"])

@@ -8,9 +8,6 @@ through the resolver rather than a key anyone typed. Composing that in the
 browser would mean a second implementation of precedence, so it is
 composed here and the page renders what it is handed.
 
-The result also carries the action catalog, so a lane's allowlist can be
-shown with each action's label and description without the page holding a
-list that drifts from the one validation and dispatch use.
 """
 
 from __future__ import annotations
@@ -30,7 +27,6 @@ from yoke_contracts.executor_labels import (
 )
 from yoke_contracts.session_lane import lane_is_unresolved, lane_presentation
 from yoke_core.domain.pydantic_validation_safety import safe_validation_message
-from yoke_core.domain.routable_actions import routable_action_catalog_payload
 
 
 class LaneSummaryGetRequest(BaseModel):
@@ -47,7 +43,6 @@ class LaneSummaryResponse(BaseModel):
     configured: bool
     lanes: List[Dict[str, Any]]
     unrouted_harnesses: List[str]
-    action_catalog: List[Dict[str, str]]
     harnesses: List[Dict[str, str]]
 
 
@@ -63,10 +58,9 @@ def _declared_lanes(config: Any) -> tuple[str, ...]:
     """Return every lane the effective configuration can route onto.
 
     Ordered so the summary reads the same on every load: the lanes with a
-    declared allowlist first in their configured order, then any lane that
-    only a rule or a harness default names.
+    harness defaults first in configured order, then rules and metadata.
     """
-    ordered: List[str] = list(config.lane_allowed_paths)
+    ordered: List[str] = []
     for lane in (
         *config.executor_default_lanes.values(),
         *config.executor_wildcard_lanes.values(),
@@ -112,11 +106,8 @@ def _lane_rows(
                 "id": lane,
                 "label": presentation["label"],
                 "glyph": presentation["glyph"],
-                "actions": list(config.lane_allowed_paths.get(lane, [])),
                 "matches": [
-                    rule.as_payload()
-                    for rule in config.lane_rules
-                    if rule.lane == lane
+                    rule.as_payload() for rule in config.lane_rules if rule.lane == lane
                 ],
                 "default_for": defaults_by_lane.get(lane, []),
             }
@@ -166,7 +157,6 @@ def handle_lane_summary_get(request: FunctionCallRequest) -> HandlerOutcome:
             "configured": stored is not None,
             "lanes": _lane_rows(config, settings, defaults_by_lane),
             "unrouted_harnesses": unrouted,
-            "action_catalog": routable_action_catalog_payload(),
             "harnesses": [
                 {"id": harness_id, "label": harness_display_name(harness_id)}
                 for harness_id in CANONICAL_HARNESS_IDS

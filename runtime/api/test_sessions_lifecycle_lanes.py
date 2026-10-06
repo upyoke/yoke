@@ -35,7 +35,8 @@ class TestBeginSessionStampsRoutedLane:
             "yoke_core.api.service_client_sessions_lifecycle_begin"
             "._load_routing_config",
             lambda **_kw: load_routing_config(
-                "", project_settings=_PROJECT_ROUTING,
+                "",
+                project_settings=_PROJECT_ROUTING,
             ),
         )
 
@@ -49,10 +50,13 @@ class TestBeginSessionStampsRoutedLane:
         ],
     )
     def test_each_executor_surface_stamps_its_family_lane(
-        self, conn, executor, expected,  # noqa: F811
+        self,
+        conn,  # noqa: F811
+        executor,
+        expected,  # noqa: F811
     ):
         result = begin_session(
-            conn,
+            conn,  # noqa: F811
             session_id=f"begin-{executor}",
             executor=executor,
             provider="anthropic",
@@ -107,7 +111,7 @@ class TestRegisterSessionLaneHealing:
         end_session(conn, "lane-reactivate-upgrade")
 
         result = _register(
-            conn,
+            conn,  # noqa: F811
             session_id="lane-reactivate-upgrade",
             execution_lane="DARIUS",
         )
@@ -118,7 +122,7 @@ class TestRegisterSessionLaneHealing:
 
 _MODEL_ROUTING = {
     "executor_default_lanes": {"claude*": "DARIUS", "codex*": "ALTMAN"},
-    "lane_paths": {"DARIUS": ["dash"], "ALTMAN": ["dash"], "MUSKY": ["dash"]},
+    "lane_metadata": {"DARIUS": {}, "ALTMAN": {}, "MUSKY": {}},
     "lane_rules": [
         {"model": "claude-opus-*", "lane": "MUSKY"},
         {"harness": "codex", "model": "gpt-5", "lane": "MUSKY"},
@@ -135,7 +139,8 @@ class TestBeginSessionRoutesOnModel:
             "yoke_core.api.service_client_sessions_lifecycle_begin"
             "._load_routing_config",
             lambda **_kw: load_routing_config(
-                "", project_settings=_MODEL_ROUTING,
+                "",
+                project_settings=_MODEL_ROUTING,
             ),
         )
 
@@ -175,10 +180,15 @@ class TestBeginSessionRoutesOnModel:
         ],
     )
     def test_the_registering_session_lands_on_its_selector_lane(
-        self, conn, session_id, executor, facts, expected,  # noqa: F811
+        self,
+        conn,  # noqa: F811
+        session_id,
+        executor,
+        facts,
+        expected,  # noqa: F811
     ):
         result = begin_session(
-            conn,
+            conn,  # noqa: F811
             session_id=session_id,
             executor=executor,
             provider="anthropic",
@@ -191,12 +201,14 @@ class TestBeginSessionRoutesOnModel:
         assert _stored_lane(conn, session_id) == expected
 
     def test_a_routing_change_leaves_an_already_stamped_session_alone(
-        self, conn, monkeypatch,  # noqa: F811
+        self,
+        conn,  # noqa: F811
+        monkeypatch,  # noqa: F811
     ):
         # Lane is stamped once, at registration. Rewriting a live session's
         # lane would move work away from a session already running it.
         begin_session(
-            conn,
+            conn,  # noqa: F811
             session_id="stamped-before-change",
             executor="claude-cli",
             provider="anthropic",
@@ -220,7 +232,7 @@ class TestBeginSessionRoutesOnModel:
             ),
         )
         begin_session(
-            conn,
+            conn,  # noqa: F811
             session_id="stamped-after-change",
             executor="claude-cli",
             provider="anthropic",
