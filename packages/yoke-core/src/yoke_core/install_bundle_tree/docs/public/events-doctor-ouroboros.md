@@ -125,9 +125,10 @@ authority is unavailable; that surface limit is never an internal-error verdict.
 Completed source findings survive alongside the DB-half N/A, including multiple
 verdicts from the same check; composition never overwrites those findings.
 Source checks retain the runner's scoped checkout binding without local SQL.
-When the imported engine runs from a linked lane of the mapped project repo,
-that lane supplies candidate source; another project's checkout keeps its own
-binding. Missing control-plane reads remain visible as N/A rather than a pass.
+When the imported engine runs from a linked lane, or a disposable clone whose
+local Git origin is the mapped project checkout, that tree supplies candidate
+source. Another project's checkout keeps its own binding. Missing control-plane
+reads remain visible as N/A rather than a pass.
 Git identity read failures surface `doctor_source_checkout_fallback`, the mapped
 checkout used, and recovery instructions instead of silently switching trees.
 Composition preserves every named incomplete or internal error; distinct check
@@ -179,3 +180,7 @@ Session continuity for long work also belongs on the item **Progress Log**.
 
 
 The Ouroboros dashboard labels filing timestamps as **Filed at** and defaults to newest first. Observation, project, Filed at, Category, Context and Reviewed headers sort the matching roster before cursor pagination. Sort choices use the existing actor/universe preference store and restore across browsers and devices. The repetitive executor column is omitted; complete entry details remain available. Narrow layouts expose labeled row values and keep sort controls available.
+
+Doctor watchers emit a filtered stream with progress metadata, not a bare JSON
+document. QA probes retain explicit raw captures and read the single
+`doctor.run.run` envelope from that capture before judging completeness.
