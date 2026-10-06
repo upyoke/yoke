@@ -34,7 +34,7 @@ from __future__ import annotations
 from typing import Any, Mapping, Sequence
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.deployment_item_flow_resolution import item_completion_flows
+from yoke_core.domain.deployment_item_flow_resolution import item_completion_flow_facts
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.session_item_stage_states import primary_item_ids
 
@@ -82,14 +82,13 @@ def _member_runs(conn: Any, item_ids: Sequence[int]) -> dict[int, list[dict[str,
 def _chosen_run(
     runs: list[dict[str, Any]],
     *,
-    completion_flow: str,
+    closing_flows: frozenset[str],
 ) -> dict[str, Any] | None:
-    """The selected-flow release this item is riding, or the last one it rode."""
-    matching = (
-        [run for run in runs if completion_flow and run.get("flow") == completion_flow]
-        if completion_flow
-        else []
-    )
+    """The selected-flow release this item is riding, or the last one it rode.
+
+    A run on a retired flow the item's pin followed to its successor counts.
+    """
+    matching = [run for run in runs if run.get("flow") in closing_flows]
     for run in matching:
         if run["status"] not in TERMINAL_RUN_STATUSES:
             return {**run, "live": True}
@@ -103,12 +102,14 @@ def primary_item_delivery_by_session(
     selected = primary_item_ids(conn, rows)
     item_ids = tuple(dict.fromkeys(selected.values()))
     by_item = _member_runs(conn, item_ids)
-    completion_flows = item_completion_flows(conn, by_item.keys())
+    facts = item_completion_flow_facts(conn, by_item.keys())
     chosen = {}
     for item_id, runs in by_item.items():
         run = _chosen_run(
             runs,
-            completion_flow=completion_flows.get(item_id, ""),
+            closing_flows=facts[item_id].closing_flows
+            if item_id in facts
+            else frozenset(),
         )
         if run is not None:
             chosen[item_id] = run

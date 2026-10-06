@@ -10,9 +10,11 @@ serialisation here.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import sys
 
+from yoke_core.domain.deployment_flow_succession import successor_flows
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 from yoke_core.api.service_client_shared import (
     _get_db_readonly,
@@ -110,6 +112,13 @@ def cmd_apply_approval(args: list[str]) -> int:
 
         flow_stages = []
         if item_state.deployment_flow:
+            # A pin to a retired flow approves stages of its active successor,
+            # the flow whose run is actually carrying the item.
+            pinned = str(item_state.deployment_flow)
+            item_state = dataclasses.replace(
+                item_state,
+                deployment_flow=successor_flows(conn, [pinned]).get(pinned, pinned),
+            )
             flow_row = conn.execute(
                 "SELECT stages FROM deployment_flows WHERE id = %s",
                 (item_state.deployment_flow,),

@@ -31,6 +31,9 @@ def _wire(
 ):
     monkeypatch.setattr(ladder, "_table_exists", lambda _conn, _table: True)
     monkeypatch.setattr(ladder, "item_completion_flow", lambda _c, _i: flow)
+    monkeypatch.setattr(
+        ladder, "item_closing_flows", lambda _c, _i: frozenset({flow} - {""})
+    )
     monkeypatch.setattr(ladder, "latest_completion_run", lambda _c, _i: member)
     monkeypatch.setattr(
         ladder, "independent_member_delivery_ready", lambda _c, **_kw: False

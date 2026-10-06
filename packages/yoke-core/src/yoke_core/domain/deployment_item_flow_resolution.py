@@ -6,7 +6,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain import db_helpers
 from yoke_core.domain import workflow_project_defaults
 from yoke_core.domain.deployment_flow_state import FLOW_STATUS_ACTIVE
-from yoke_core.domain.deployment_flow_succession import successor_flows
+from yoke_core.domain.deployment_flow_succession import succession_chains
 from yoke_core.domain.project_identity import render_item_ref, resolve_project
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.workflow_project_defaults import WorkflowProjectDefaultError
@@ -24,11 +24,18 @@ class ItemCompletionFlowFact(NamedTuple):
 
     ``pinned`` is the item's stored pin when completion follows that pin's
     active successor instead; it is empty when ``flow`` is the pin itself.
+    ``superseded`` is the pin and every flow between it and ``flow``.
     """
 
     flow: str
     source: str
     pinned: str = ""
+    superseded: tuple[str, ...] = ()
+
+    @property
+    def closing_flows(self) -> frozenset[str]:
+        """Every flow whose run is completion authority for the item."""
+        return frozenset((self.flow, *self.superseded)) if self.flow else frozenset()
 
 
 def item_completion_flow_facts(
@@ -77,11 +84,14 @@ def item_completion_flow_facts(
         workflow_id = str(row["workflow_id"] or "")
         if project and workflow_id:
             unresolved[item_id] = (project, workflow_id)
-    followed = successor_flows(conn, pins.values())
+    chains = succession_chains(conn, pins.values())
     for item_id, pinned in pins.items():
-        flow = followed.get(pinned, pinned)
+        chain = chains.get(pinned, (pinned,))
         facts[item_id] = ItemCompletionFlowFact(
-            flow, FLOW_SOURCE_ITEM, pinned if flow != pinned else ""
+            chain[-1],
+            FLOW_SOURCE_ITEM,
+            pinned if len(chain) > 1 else "",
+            chain[:-1],
         )
     if not unresolved:
         return facts
@@ -149,6 +159,13 @@ def item_completion_flow(conn: Any, item_id: int) -> str:
     return item_completion_flows(conn, (int(item_id),)).get(int(item_id), "")
 
 
+def item_closing_flows(conn: Any, item_id: int) -> frozenset[str]:
+    """The completion flow plus every retired flow its pin followed to it:
+    a delivery on the pin or an intermediate successor still closes it."""
+    fact = item_completion_flow_facts(conn, (int(item_id),)).get(int(item_id))
+    return fact.closing_flows if fact else frozenset()
+
+
 def completion_flow_refusal(conn: Any, item_id: int) -> str:
     """Explain why a delivery-ready item cannot enter a release composition."""
     fact = item_completion_flow_facts(conn, (int(item_id),)).get(int(item_id))
@@ -182,14 +199,15 @@ def completion_flow_refusal(conn: Any, item_id: int) -> str:
 def membership_closes_item(
     *,
     run_flow: str,
-    completion_flow: str,
+    closing_flows: Iterable[str],
     run_project_id: int,
     item_project_id: int,
     source_sha: str,
 ) -> bool:
     """Whether a membership on this run is completion authority for the item.
 
-    Two memberships are. A run of the item's own completion flow, and a run
+    Two memberships are. A run of one of the item's closing flows (its
+    completion flow, or a retired flow its pin followed there), and a run
     of another project that recorded a commit for the item's project — that
     carrier resolved this project's source, so it delivers the item's merge
     as surely as the item's own flow would. A same-project run of any other
@@ -199,9 +217,10 @@ def membership_closes_item(
     coverage notice both ask this, and two copies of it is how one of them
     ends up right and the other quietly wrong.
     """
-    if not completion_flow:
+    closing = frozenset(closing_flows)
+    if not closing:
         return False
-    if run_flow == completion_flow:
+    if run_flow in closing:
         return True
     return int(run_project_id) != int(item_project_id) and bool(source_sha)
 
@@ -240,7 +259,11 @@ def freeze_item_completion_flow(conn: Any, item_id: int) -> str:
 
 
 def lookup_item_project_and_flow(item_id: int) -> tuple:
-    """Return project and item override or workflow delivery default."""
+    """Return project and the flow a new run for this item should use.
+
+    An item pin resolves through its retired flow's active successor; an
+    unpinned item uses its workflow delivery default.
+    """
     conn = db_helpers.connect()
     try:
         row = conn.execute(
@@ -249,7 +272,11 @@ def lookup_item_project_and_flow(item_id: int) -> tuple:
             "LEFT JOIN projects p ON p.id = i.project_id WHERE i.id = %s",
             (item_id,),
         ).fetchone()
-        if row is not None and not row[1] and row[0] and row[2]:
+        if row is None:
+            return None, None
+        if pinned := str(row[1] or "").strip():
+            return row[0], succession_chains(conn, [pinned])[pinned][-1]
+        if row[0] and row[2]:
             return row[0], workflow_project_defaults.get_delivery_default(
                 conn,
                 project=str(row[0]),
@@ -257,8 +284,6 @@ def lookup_item_project_and_flow(item_id: int) -> tuple:
             )
     finally:
         conn.close()
-    if row is None:
-        return None, None
     return row[0], row[1]
 
 
@@ -316,6 +341,7 @@ __all__ = [
     "freeze_item_completion_flow",
     "item_completion_flow",
     "item_completion_flow_facts",
+    "item_closing_flows",
     "item_completion_flows",
     "lookup_item_project_and_flow",
     "membership_closes_item",

@@ -57,7 +57,9 @@ def _resolve(conn, run_id, ids):
             closes=item_id not in supplemental
             and membership_closes_item(
                 run_flow=str(run["flow"] or ""),
-                completion_flow=facts[item_id].flow if item_id in facts else "",
+                closing_flows=facts[item_id].closing_flows
+                if item_id in facts
+                else (),
                 run_project_id=int(run["project_id"]),
                 item_project_id=projects[item_id],
                 source_sha=recorded_source_sha(run, projects[item_id]),

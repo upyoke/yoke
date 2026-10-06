@@ -15,10 +15,13 @@ from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain.deployment_flow_succession import successor_flows
 from yoke_core.domain.deployment_item_flow_resolution import (
     FLOW_SOURCE_ITEM,
+    item_closing_flows,
     item_completion_flow,
     item_completion_flow_facts,
+    lookup_item_project_and_flow,
     membership_closes_item,
 )
+from yoke_core.domain.deployment_item_completion_runs import completion_runs
 from yoke_core.domain.deployment_run_carried_membership import admit_run_item
 from yoke_core.domain.flow_create import cmd_create
 from yoke_core.domain.item_completion_flow_projection import completion_flow_values
@@ -147,7 +150,13 @@ def test_a_pinned_item_reports_both_its_pin_and_the_successor(
     _pinned_item(test_db, 9381, "succession-pin-old")
 
     fact = item_completion_flow_facts(test_db, [9381])[9381]
-    assert fact == ("succession-pin-new", FLOW_SOURCE_ITEM, "succession-pin-old")
+    assert fact == (
+        "succession-pin-new",
+        FLOW_SOURCE_ITEM,
+        "succession-pin-old",
+        ("succession-pin-old",),
+    )
+    assert fact.closing_flows == {"succession-pin-new", "succession-pin-old"}
     assert completion_flow_values(test_db, [9381])[9381] == {
         "value": "succession-pin-new",
         "source": FLOW_SOURCE_ITEM,
@@ -187,7 +196,7 @@ def test_a_successor_run_enrolls_and_closes_the_pinned_item(
     assert completion == "succession-close-new"
     assert _stored_pin(test_db, 9383) == "succession-close-old"
     closes = dict(
-        completion_flow=completion,
+        closing_flows=item_closing_flows(test_db, 9383),
         run_project_id=1,
         item_project_id=1,
         source_sha="",
@@ -206,8 +215,94 @@ def test_a_pin_without_an_active_successor_keeps_its_retired_flow(
     assert completion == "succession-dead-end"
     assert not membership_closes_item(
         run_flow="succession-dead-other",
-        completion_flow=completion,
+        closing_flows=item_closing_flows(test_db, 9384),
         run_project_id=1,
         item_project_id=1,
         source_sha="",
     )
+
+
+def _run(
+    conn: Any, item_id: int, run_id: str, flow: str, status: str, created_at: str
+) -> None:
+    conn.execute(
+        "INSERT INTO deployment_runs("
+        "id, project_id, flow, release_lineage, status, created_at) "
+        "VALUES (%s, 1, %s, 'main', %s, %s)",
+        (run_id, flow, status, created_at),
+    )
+    conn.execute(
+        "INSERT INTO deployment_run_items (run_id, item_id, added_at) "
+        "VALUES (%s, %s, %s)",
+        (run_id, item_id, created_at),
+    )
+    conn.commit()
+
+
+def test_a_delivery_on_the_retired_pin_still_closes_the_item(test_db: Any) -> None:
+    _flow(test_db, "succession-delivered-a")
+    _pinned_item(test_db, 9385, "succession-delivered-a")
+    _run(test_db, 9385, "run-delivered-a", "succession-delivered-a", "succeeded", "2026-10-01")
+
+    # Retire A after it delivered: version it to B, then disable A.
+    _flow(test_db, "succession-delivered-b", supersedes="succession-delivered-a")
+    test_db.execute(
+        "UPDATE deployment_flows SET status = 'disabled' WHERE id = %s",
+        ("succession-delivered-a",),
+    )
+    test_db.commit()
+
+    assert item_completion_flow(test_db, 9385) == "succession-delivered-b"
+    runs = completion_runs(test_db, 9385)
+    assert [(run["id"], run["status"]) for run in runs] == [
+        ("run-delivered-a", "succeeded")
+    ]
+
+
+def test_a_run_outside_the_succession_chain_admits_qa_but_does_not_close(
+    test_db: Any,
+) -> None:
+    _flow(test_db, "succession-qa-prod-old", status="disabled")
+    _flow(test_db, "succession-qa-prod-new", supersedes="succession-qa-prod-old")
+    _flow(test_db, "succession-qa-stage-old", status="disabled")
+    _flow(test_db, "succession-qa-stage-new", supersedes="succession-qa-stage-old")
+    _pinned_item(test_db, 9387, "succession-qa-prod-old")
+    _run(test_db, 9387, "run-qa-stage", "succession-qa-stage-new", "succeeded", "2026-10-02")
+
+    assert completion_runs(test_db, 9387) == []
+    assert [run["id"] for run in completion_runs(test_db, 9387, include_qa=True)] == [
+        "run-qa-stage"
+    ]
+
+
+def test_a_successor_in_another_project_is_not_followed(test_db: Any) -> None:
+    _flow(test_db, "succession-home", status="disabled")
+    _flow(test_db, "succession-foreign", project="externalwebapp")
+    test_db.execute(
+        "UPDATE deployment_flows SET supersedes_flow_id = %s WHERE id = %s",
+        ("succession-home", "succession-foreign"),
+    )
+    test_db.commit()
+    assert successor_flows(test_db, ["succession-home"]) == {
+        "succession-home": "succession-home"
+    }
+
+
+def test_starting_a_run_for_a_pinned_item_uses_the_active_successor(
+    test_db: Any, monkeypatch
+) -> None:
+    _flow(test_db, "succession-start-old", status="disabled")
+    _flow(test_db, "succession-start-new", supersedes="succession-start-old")
+    _pinned_item(test_db, 9386, "succession-start-old")
+
+    class _Unclosed:
+        def __getattr__(self, name: str) -> Any:
+            return getattr(test_db, name)
+
+        def close(self) -> None:
+            return None
+
+    monkeypatch.setattr(
+        "yoke_core.domain.db_helpers.connect", lambda *_a, **_k: _Unclosed()
+    )
+    assert lookup_item_project_and_flow(9386) == ("yoke", "succession-start-new")

@@ -13,22 +13,25 @@ from yoke_core.domain.deployment_flow_state import FLOW_STATUS_ACTIVE
 from yoke_core.domain.schema_common import _column_exists
 
 
-def successor_flows(conn: Any, flow_ids: Iterable[str]) -> dict[str, str]:
-    """Map each named flow to the flow that now carries its items.
+def succession_chains(
+    conn: Any, flow_ids: Iterable[str]
+) -> dict[str, tuple[str, ...]]:
+    """Map each named flow to its supersession chain, pin first.
 
-    An active flow, or one this database does not know, maps to itself. A
-    flow that is no longer active maps to the newest active flow among
-    everything that supersedes it, directly or through a chain of
-    successors, within the same project. With no active successor it maps
-    to itself, so the caller's existing no-active-flow refusal still names
-    the retired pin.
+    An active flow, or one this database does not know, is a one-flow chain.
+    A flow that is no longer active chains through ``supersedes_flow_id`` to
+    the newest active flow among everything that supersedes it, directly or
+    transitively, within the same project. With no active successor it stays
+    a one-flow chain, so the caller's existing no-active-flow refusal still
+    names the retired pin. Every flow on a chain carried the pin's items at
+    some point, so a delivery on any of them is that item's delivery.
     """
     wanted = tuple(dict.fromkeys(str(f).strip() for f in flow_ids if str(f).strip()))
-    if not wanted:
-        return {}
-    resolved = {flow_id: flow_id for flow_id in wanted}
-    if not _column_exists(conn, "deployment_flows", "supersedes_flow_id"):
-        return resolved
+    chains = {flow_id: (flow_id,) for flow_id in wanted}
+    if not wanted or not _column_exists(
+        conn, "deployment_flows", "supersedes_flow_id"
+    ):
+        return chains
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     rows = conn.execute(
         "SELECT id, project_id, status, supersedes_flow_id, "
@@ -40,11 +43,13 @@ def successor_flows(conn: Any, flow_ids: Iterable[str]) -> dict[str, str]:
     flows = {
         str(row[0]): (row[1], str(row[2] or ""), str(row[4] or "")) for row in rows
     }
+    predecessor: dict[str, str] = {}
     successors: dict[str, list[str]] = {}
     for row in rows:
-        predecessor = str(row[3] or "").strip()
-        if predecessor and predecessor in flows and flows[predecessor][0] == row[1]:
-            successors.setdefault(predecessor, []).append(str(row[0]))
+        source = str(row[3] or "").strip()
+        if source and source in flows and flows[source][0] == row[1]:
+            predecessor[str(row[0])] = source
+            successors.setdefault(source, []).append(str(row[0]))
     for flow_id in wanted:
         known = flows.get(flow_id)
         if known is None or known[1] == FLOW_STATUS_ACTIVE:
@@ -60,9 +65,24 @@ def successor_flows(conn: Any, flow_ids: Iterable[str]) -> dict[str, str]:
             if flows[current][1] == FLOW_STATUS_ACTIVE:
                 active.append(current)
             frontier.extend(successors.get(current, ()))
-        if active:
-            resolved[flow_id] = max(active, key=lambda f: (flows[f][2], f))
-    return resolved
+        if not active:
+            continue
+        chain = [max(active, key=lambda f: (flows[f][2], f))]
+        while chain[-1] != flow_id:
+            chain.append(predecessor[chain[-1]])
+        chains[flow_id] = tuple(reversed(chain))
+    return chains
 
 
-__all__ = ["successor_flows"]
+def successor_flows(conn: Any, flow_ids: Iterable[str]) -> dict[str, str]:
+    """Map each named flow to the flow that now carries its items.
+
+    The last flow of its :func:`succession_chains` chain.
+    """
+    return {
+        flow_id: chain[-1]
+        for flow_id, chain in succession_chains(conn, flow_ids).items()
+    }
+
+
+__all__ = ["succession_chains", "successor_flows"]

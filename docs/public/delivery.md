@@ -150,8 +150,10 @@ Definitions referenced by runs are immutable, so change one by publishing a
 successor (`yoke deployment-flows version`, which records
 `supersedes_flow_id`) and disabling the predecessor. Items pinned to the
 retired flow follow its newest active successor in the same project for
-admission, completion authority, and the fleet report; their stored pin is
-kept and item reads report it as `pinned` beside the successor. A retired
+admission, completion authority, `deployment-runs start-for-item`,
+approvals, and the fleet report, and a release that already delivered them
+on the retired flow still closes them. Their stored pin is kept and item
+reads report it as `pinned` beside the successor. A retired
 pin with no active successor still refuses as having no active completion
 flow.
 
