@@ -66,12 +66,13 @@ CREATE TABLE qa_requirements (
     requirement_source TEXT NOT NULL DEFAULT 'explicit',
     success_policy TEXT NOT NULL DEFAULT 'blocking', capability_requirements TEXT,
     suite_id TEXT, waived_at TEXT, waiver_rationale TEXT, created_at TEXT NOT NULL,
-    plan_case_key TEXT, deployment_member_item_id INTEGER
+    plan_case_key TEXT, deployment_member_item_id INTEGER,
+    superseded_by_requirement_id INTEGER
 );
 CREATE TABLE qa_runs (
     id INTEGER PRIMARY KEY, qa_requirement_id INTEGER NOT NULL,
     performed_by TEXT, verdict TEXT, verdict_reason TEXT, execution_status TEXT,
-    raw_result TEXT, created_at TEXT NOT NULL
+    raw_result TEXT, case_outcome TEXT, completed_at TEXT, created_at TEXT NOT NULL
 );
 CREATE TABLE item_sections (
     item_id INTEGER, section_name TEXT, content TEXT, ordering INTEGER,
