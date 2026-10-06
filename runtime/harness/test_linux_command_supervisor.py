@@ -129,10 +129,13 @@ def test_nested_term_ignoring_session_cannot_outlive_command(tmp_path, disconnec
     )
     child_pid = None
     try:
+        # write_text creates the file before writing the pid, so wait for content.
         deadline = time.monotonic() + 5
-        while not pidfile.exists() and time.monotonic() < deadline:
+        while time.monotonic() < deadline:
+            if pidfile.exists() and pidfile.read_text():
+                break
             time.sleep(0.02)
-        assert pidfile.exists()
+        assert pidfile.exists() and pidfile.read_text(), "nested child never wrote its pid"
         child_pid = int(pidfile.read_text())
         started = time.monotonic()
         if disconnect:
