@@ -86,22 +86,27 @@ class TestGroupTeachingNamesTheRealSurface:
         assert cli_main(["connection", "--help"]) == 0
         assert "yoke env list" in capsys.readouterr().out
 
-    def test_db_group_names_the_break_glass_write_path(self, capsys):
-        """`yoke db` listing only `read` must name the sanctioned write
-        path, or the listing reads as 'no write path exists anywhere'."""
+    def test_db_group_names_registered_writes_and_operator_escalation(self, capsys):
+        """Product help names reachable mutations and the missing-command route."""
         assert cli_main(["db", "--help"]) == 0
         out = capsys.readouterr().out
         assert "yoke db read" in out
-        assert "yoke_core.cli.db_router query" in out
-        assert "db-admin" in out
-        assert "source-dev/operator-debug" in out
+        assert "registered `yoke <subcommand>`" in out
+        assert "escalate the missing" in out
+        assert "control-plane operator" in out
+        assert "yoke_core.cli.db_router query" not in out
+        assert "db-admin" not in out
 
-    def test_unknown_db_write_leaf_names_the_break_glass_path(self, capsys):
+    def test_unknown_db_write_leaf_names_operator_escalation(self, capsys):
         assert cli_main(["db", "write"]) == 2
         err = capsys.readouterr().err
         assert "unknown subcommand" in err
-        assert "yoke_core.cli.db_router query" in err
-        assert "db-admin" in err
+        assert "yoke db read" in err
+        assert "registered `yoke <subcommand>`" in err
+        assert "escalate the missing" in err
+        assert "control-plane operator" in err
+        assert "yoke_core.cli.db_router query" not in err
+        assert "db-admin" not in err
 
     def test_singular_project_group_points_at_the_plural_reader(self, capsys):
         assert cli_main(["project", "--help"]) == 0
