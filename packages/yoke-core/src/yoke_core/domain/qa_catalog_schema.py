@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from yoke_core.domain import db_backend
+from yoke_core.domain import db_backend, qa_plan_requirement_identity
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.schema_common import (
     _add_column_if_not_exists,
@@ -331,11 +331,7 @@ def create_qa_catalog_tables(
         )
     for column, definition in _ATTACHMENT_RETRACT_COLUMNS:
         _add_column_if_not_exists(conn, "qa_plan_item_attachments", column, definition)
-    from yoke_core.domain.qa_plan_requirement_identity import (
-        ensure_materialization_index,
-    )
-
-    ensure_materialization_index(conn)
+    qa_plan_requirement_identity.ensure_materialization_index(conn)
     execute_schema_script(conn, REQUIREMENT_SCOPE_INDEX_SQL)
     if commit:
         conn.commit()

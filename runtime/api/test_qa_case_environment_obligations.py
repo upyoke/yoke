@@ -66,6 +66,11 @@ def _setup(conn, *, baselines=()):
         conn, project="yoke", slug="environment-obligations", target_environment="prod"
     )
     case = {**CASE, "host_baselines": list(baselines)}
+    if baselines:
+        case.update(
+            method_id="machine-state-check",
+            method_config={"assertions": [{"argv": ["/usr/bin/true"]}]},
+        )
     replace_plan_cases(conn, plan_id=plan["id"], cases=[case])
     set_project_default(
         conn,
@@ -126,9 +131,21 @@ def test_materialization_and_refresh_keep_both_environment_identities(test_db):
 
 
 def test_targets_cross_product_with_host_baselines(test_db):
-    item, _plan, _case = _setup(test_db, baselines=("linux", "macos"))
+    baselines = ("fresh-host", "shell-preconfigured")
+    item, _plan, _case = _setup(test_db, baselines=baselines)
     result = materialize_for_item(test_db, item_id=item["id"], transition_id="release")
     assert len(result["created_requirement_ids"]) == 4
+    rows = test_db.execute(
+        "SELECT target_env,host_baseline,starting_state FROM qa_requirements "
+        "WHERE item_id=%s AND deployment_run_id IS NULL",
+        (item["id"],),
+    ).fetchall()
+    assert {(row["target_env"], row["host_baseline"]) for row in rows} == {
+        (environment, baseline)
+        for environment in ("stage", "prod")
+        for baseline in baselines
+    }
+    assert {row["starting_state"] for row in rows} == {"baseline"}
 
 
 def test_refresh_waives_only_a_removed_environment(test_db):
