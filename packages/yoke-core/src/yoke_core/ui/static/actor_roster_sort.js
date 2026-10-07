@@ -1,5 +1,6 @@
 // Actors roster ordering and grant wording. The roster is one full read, so
-// ordering happens here; the chosen sort is saved under the "actors" screen.
+// ordering happens here, and this is the one list of sortable columns: the
+// server saves the chosen sort under the "actors" screen checking only its shape.
 
 export const ACTOR_SORT_COLUMNS = {
   Actor: "name", State: "status", "Org role": "org_role",

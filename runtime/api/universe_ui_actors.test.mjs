@@ -138,3 +138,26 @@ test("columns sort through the shared header and save under the actors screen", 
   assert.deepEqual(names(main), ["beta", "Alpha"]);
   assert.deepEqual(saved.saves[1], ["actors", { column: "name", direction: "desc" }]);
 });
+
+test("a server that does not save the actors sort keeps the header sort without a retry prompt", async () => {
+  const { createProjectSelection } = await import("../../packages/yoke-core/src/yoke_core/ui/static/universe_project_selection.js");
+  const writes = [];
+  const store = createProjectSelection(() => {}, null, (viewId, sort) => { writes.push([viewId, sort]); });
+  const olderServer = async () => ({ views: {}, sorts: { items: { column: "title", direction: "asc" } } });
+  assert.equal(await store.refreshSortFor("actors", olderServer), "");
+  const roster = {
+    current_actor_id: 1, can_manage_actors: false,
+    rows: [actor("active", [], { id: 4, name: "beta" }), actor("active", [], { id: 5, name: "Alpha" })],
+  };
+  const { context, main } = fixture([roster], store);
+  context.client.call = async (request) => ({
+    status: 200, envelope: { success: true, result: request.function === "actors.roster" ? roster : await olderServer() },
+  });
+  await renderActorsView(context, main);
+  allNodes(main).find((node) => node.getAttribute?.("data-sort-column") === "name").dispatchEvent(new Event("click"));
+  await settle();
+  assert.deepEqual(names(main), ["beta", "Alpha"]);
+  assert.deepEqual(writes, []);
+  assert.match(main.textContent, /does not save this page's sort; it applies until you leave the page/);
+  assert.doesNotMatch(main.textContent, /retry/);
+});

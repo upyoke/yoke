@@ -12,7 +12,7 @@ test("column sorting resets paging and saves a separate actor preference", async
   const requests = [], saved = [];
   const preferences = createProjectSelection(() => {}, null, (view, sort) => { saved.push({ view, sort }); });
   preferences.seed("items", ["7"]);
-  preferences.markReady(true);
+  preferences.markReady(["items"]);
   const context = itemContext(document, async (request) => {
     if (request.function === "ui_preferences.screen_selection.list") return { envelope: { success: true, result: { sorts: {} } } };
     requests.push(request);
@@ -132,7 +132,7 @@ test("returning focus leaves the open roster unchanged; reopening reads the save
 test("a late refresh cannot replace a newer local choice or swallow its save failure", async () => {
   let finishRead;
   const preferences = createProjectSelection(() => {}, null, () => Promise.reject(new Error("offline")));
-  preferences.markReady(true);
+  preferences.markReady(["items"]);
   const refresh = preferences.refreshSortFor("items", () => new Promise((resolve) => { finishRead = resolve; }));
   await settle();
   const saving = preferences.saveSortFor("items", { column: "title", direction: "asc" });
@@ -145,7 +145,7 @@ test("a late refresh cannot replace a newer local choice or swallow its save fai
 test("refresh waits for local saves and failed reads preserve order with visible recovery", async () => {
   let finishSave;
   const preferences = createProjectSelection(() => {}, null, () => new Promise((resolve) => { finishSave = resolve; }));
-  preferences.markReady(true);
+  preferences.markReady(["items"]);
   const saving = preferences.saveSortFor("items", { column: "title", direction: "asc" });
   let reads = 0;
   const refresh = preferences.refreshSortFor("items", async () => { reads += 1; throw new Error("offline"); });
