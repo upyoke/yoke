@@ -16,7 +16,10 @@ A run that is settling (``settling_at`` set while it still reads
 ``executing``) passed every shared gate and is closing its members before it
 may read ``succeeded``. Its delivery happened, so completion authority reads
 it as succeeded; that is what lets those members' own done gates pass while
-the run itself stays non-terminal until they have.
+the run itself stays non-terminal until they have. Each entry still carries
+``settling`` so a reader that needs the recorded terminal fact — release
+composition, whose dependency gate counts only ``succeeded`` runs — can tell
+a delivery still closing its members from one that finished.
 """
 
 from __future__ import annotations
@@ -107,12 +110,16 @@ def completion_runs(
         ):
             continue
         status = str(_row_value(row, "status", 1) or "")
-        if status == "executing" and str(_row_value(row, "settling_at", 8) or ""):
+        settling = status == "executing" and bool(
+            str(_row_value(row, "settling_at", 8) or "")
+        )
+        if settling:
             status = "succeeded"
         closing.append(
             {
                 "id": str(_row_value(row, "id", 0) or ""),
                 "status": status,
+                "settling": settling,
                 "current_stage": str(_row_value(row, "current_stage", 2) or ""),
                 "project_id": item_project,
                 "release_lineage": source_sha,

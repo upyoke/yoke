@@ -126,3 +126,50 @@ def test_delivery_fact_clears_named_environment_dependency(
     ok, receipt = cmd_validate_composition("run-candidate")
     assert ok, receipt
     assert _members(test_db) == [LANDED_ITEM_ID]
+
+
+def _blocker_in_live_release(conn, *, settling: bool):
+    insert_run(
+        conn, "run-holding", lineage="0" * 40, status="executing", flow=RELEASE_FLOW
+    )
+    if settling:
+        conn.execute(
+            "UPDATE deployment_runs SET settling_at='2026-10-01T00:30:00Z' "
+            "WHERE id='run-holding'"
+        )
+    conn.execute(
+        "INSERT INTO deployment_run_items(run_id,item_id,added_at) "
+        "VALUES('run-holding',%s,'2026-10-01T00:00:00Z')",
+        (BLOCKER,),
+    )
+    conn.commit()
+
+
+@pytest.mark.parametrize("settling,state", [(True, "settling"), (False, "executing")])
+def test_blocker_held_by_live_release_skips_dependent_naming_that_run(
+    test_db, tmp_path, monkeypatch, settling, state
+):
+    ref = _carried_dash_landing(test_db, tmp_path, monkeypatch, status="release")
+    _dependency(test_db, status="release")
+    _blocker_in_live_release(test_db, settling=settling)
+    ok, receipt = cmd_validate_composition("run-candidate")
+    assert ok, receipt
+    assert "Unsatisfied hard-block dependencies" not in receipt
+    assert _members(test_db) == []
+    assert f"{ref} blocked by {item_ref(test_db, BLOCKER)}" in receipt
+    assert (
+        f"held by run-holding ({state}) -- the first release after "
+        "run-holding settles enrolls it"
+    ) in receipt
+
+
+def test_satisfied_edge_enrolls_while_blocker_release_settles(
+    test_db, tmp_path, monkeypatch
+):
+    _carried_dash_landing(test_db, tmp_path, monkeypatch, status="release")
+    _dependency(test_db, satisfaction="status:release", status="release")
+    _blocker_in_live_release(test_db, settling=True)
+    ok, receipt = cmd_validate_composition("run-candidate")
+    assert ok, receipt
+    assert _members(test_db) == [LANDED_ITEM_ID]
+    assert "Skipped" not in receipt

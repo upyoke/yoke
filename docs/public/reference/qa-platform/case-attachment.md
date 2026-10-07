@@ -46,6 +46,8 @@ Read `yoke items dependency add --help` for satisfaction and direction. Use
 before the blocker reaches done. Composition skips release items with an open
 blocking edge to an unshipped item and names the blocker in its receipt; the
 first release after the blocker ships enrolls the waiting item automatically.
+A blocker a live or settling release still holds has not shipped: the receipt
+names that run, and the first release after it settles enrolls the item.
 Coordination-only and satisfied edges do not delay composition.
 
 Removing a release member also aborts its live run/member QA executions and
