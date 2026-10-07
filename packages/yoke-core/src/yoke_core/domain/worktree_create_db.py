@@ -80,7 +80,8 @@ def persist_item_worktrees(
         from yoke_core.domain.item_ref_resolution import resolve_item_ref
         from yoke_core.domain.item_worktrees import record_item_worktree
 
-        item_id = resolve_item_ref(conn, item_id)
+        if not isinstance(item_id, int):
+            item_id = resolve_item_ref(conn, item_id)
 
         for raw in lane_rows:
             if len(raw) == 3:
@@ -169,7 +170,8 @@ def item_project_slug(item_id: int | str, db_path: Optional[str]) -> str:
     try:
         from yoke_core.domain.item_ref_resolution import resolve_item_ref
 
-        item_id = resolve_item_ref(conn, item_id)
+        if not isinstance(item_id, int):
+            item_id = resolve_item_ref(conn, item_id)
         row = conn.execute(
             "SELECT p.slug FROM items i JOIN projects p ON p.id = i.project_id "
             "WHERE i.id = " + ("%s" if _is_postgres(conn) else "?") + " LIMIT 1",

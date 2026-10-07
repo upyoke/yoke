@@ -172,13 +172,9 @@ def _dispatch_contract(
             execution_target_digest if authority_bound else None
         ),
     }
-    subject_flag = (
-        f"--item-id {int(subject['item_id'])}"
-        if subject.get("item_id") is not None
-        else f"--project {execution_target['project']['slug']}"
-        if subject.get("standalone_plan_id") is not None
-        else f"--deployment-run-id {subject['deployment_run_id']}"
-    )
+    from yoke_core.domain.qa_plan_review_subject import subject_flag
+
+    subject_argument = subject_flag(subject, execution_target)
     artifact_read_commands = case_artifact_read_commands(cases)
     if authority_bound:
         prompt = (
@@ -198,7 +194,7 @@ def _dispatch_contract(
             "a missing or different target authority."
         )
         submit_command = (
-            f"yoke qa plan review-submit {subject_flag} "
+            f"yoke qa plan review-submit {subject_argument} "
             f"--execution-id {bundle['execution_id']} --bundle-id {bundle_id} "
             f"--bundle-digest {digest} --stdin"
         )
@@ -237,10 +233,15 @@ def _public_bundle(conn: Any, stored: Mapping[str, Any]) -> dict[str, Any]:
         "bundle_digest": str(stored["bundle_digest"]),
         "state": str(stored["state"]),
     }
-    result["dispatch"] = _dispatch_contract(
-        result,
-        allowed_verdicts=stage_review_verdicts(conn, result.get("subject")),
-    )
+    from yoke_core.domain.qa_plan_review_subject import public_review_subject
+
+    subject = result.get("subject") or {}
+    allowed_verdicts = stage_review_verdicts(conn, subject)
+    try:
+        result["subject"] = public_review_subject(conn, subject)
+    except ValueError as exc:
+        raise QaPlanReviewError(str(exc)) from exc
+    result["dispatch"] = _dispatch_contract(result, allowed_verdicts=allowed_verdicts)
     return result
 
 
@@ -295,11 +296,14 @@ def begin_plan_review(
         "execution_target": execution.get("execution_target"),
         "execution_target_digest": str(execution.get("execution_target_digest") or ""),
         "subject": {
-            "standalone_plan_id": execution.get("standalone_plan_id"),
-            "item_id": execution.get("item_id"),
-            "deployment_run_id": execution.get("deployment_run_id"),
-            "deployment_stage": execution.get("deployment_stage"),
-            "deployment_member_item_id": execution.get("deployment_member_item_id"),
+            key: execution.get(key)
+            for key in (
+                "standalone_plan_id",
+                "item_id",
+                "deployment_run_id",
+                "deployment_stage",
+                "deployment_member_item_id",
+            )
         },
         "cases": cases,
     }

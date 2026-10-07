@@ -82,7 +82,7 @@ def test_lifecycle_transition_prints_structured_success(monkeypatch) -> None:
         stub,
         "lifecycle",
         "transition",
-        "7",
+        "ITEM-7",
         "--from",
         "reviewing-implementation",
         "--to",

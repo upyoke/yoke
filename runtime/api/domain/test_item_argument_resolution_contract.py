@@ -253,7 +253,7 @@ def test_operator_boundaries_preserve_missing_context_teaching(
     identity_read.assert_not_called()
 
 
-def test_https_resolution_carries_raw_ref_and_project(monkeypatch) -> None:
+def test_https_resolution_keeps_public_ref_and_project(monkeypatch) -> None:
     from yoke_core.domain import control_plane_transport
 
     monkeypatch.setattr(
@@ -265,9 +265,9 @@ def test_https_resolution_carries_raw_ref_and_project(monkeypatch) -> None:
 
     def relay(function_id, payload, target):
         seen.update(function_id=function_id, payload=payload, target=target)
-        return {"item": {"id": YOKE_INTERNAL_ID}}
+        return {"item": {"public_ref": "YOK-2318"}}
 
     monkeypatch.setattr(control_plane_transport, "relay", relay)
-    assert parse_item_argument("2318", project="yoke") == YOKE_INTERNAL_ID
-    assert seen["target"].public_ref == "2318"
+    assert parse_item_argument("YOK-2318", project="yoke") == "YOK-2318"
+    assert seen["target"].public_ref == "YOK-2318"
     assert seen["target"].project_id == "yoke"

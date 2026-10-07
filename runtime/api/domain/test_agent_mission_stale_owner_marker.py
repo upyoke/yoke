@@ -194,8 +194,8 @@ def test_review_submission_tears_down_each_live_mission_first(
 
     exit_code = qa_plan_review_cli.run(
         [
-            "--item-id",
-            "11",
+            "--item",
+            "ITEM-11",
             "--execution-id",
             CURRENT,
             "--bundle-id",

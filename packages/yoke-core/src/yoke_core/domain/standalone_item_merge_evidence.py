@@ -25,7 +25,6 @@ from yoke_core.domain.public_item_target import public_item_target
 import json
 from typing import Any, Optional
 
-from yoke_contracts.api.function_call import TargetRef
 
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION
@@ -83,9 +82,9 @@ def recorded(item_id: int) -> Optional[dict[str, Any]]:
     """The item's persisted execution evidence, or ``None`` when absent."""
     response = call_dispatcher(
         function_id="items.section.get",
-        target=TargetRef(
+        target=public_item_target(
+            item_id,
             kind="section",
-            item_id=item_id,
             section_name=DASH_EVIDENCE_SECTION,
         ),
         payload={},

@@ -24,7 +24,7 @@ def test_landing_compares_candidate_declaration_before_arming(
     merge_ctx = ctx(repo_root=str(main))
     observed = []
 
-    def compare(project, *, checkout, branch, item_id):
+    def compare(project, *, checkout, branch, public_ref):
         observed.append(Path(checkout))
         if Path(checkout) != expected:
             return LiveDriftReport(drift=("old required checks",))
@@ -53,7 +53,7 @@ def test_landing_compares_candidate_declaration_before_arming(
     )
     branch = merge_ctx.args.branch
     outcome = selection_mod.route_standalone_landing(
-        item_id=1,
+        item_id="ITEM-1",
         branch=branch,
         target="main",
         repo_root=str(main),

@@ -33,7 +33,7 @@ OTHER_REVISION = "b" * 40
 def _deployment_case(**overrides) -> dict:
     case = {
         "requirement_id": 27758,
-        "item_id": None,
+        "public_ref": None,
         "project_id": 1,
         "project": "yoke",
         "case_key": "release-health",
@@ -75,7 +75,9 @@ def _repository(root: Path, *, content: str) -> str:
 
 
 def test_an_item_case_is_still_bound_to_the_sessions_claimed_lane() -> None:
-    assert session_lane_binds_case({"item_id": 3400, "deployment_run_id": None})
+    assert session_lane_binds_case(
+        {"public_ref": "ITEM-3400", "deployment_run_id": None}
+    )
 
 
 def test_a_deployment_run_case_is_bound_to_its_runs_candidate() -> None:

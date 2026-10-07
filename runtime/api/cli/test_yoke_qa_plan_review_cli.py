@@ -43,7 +43,7 @@ def test_plan_engine_cli_requires_environment_bound_agent_review_dispatch(
                     ],
                     "prompt": "Review the exact immutable bundle.",
                     "submit_command": (
-                        "yoke qa plan review-submit --item 42 "
+                        "yoke qa plan review-submit --item ITEM-42 "
                         "--execution-id execution-1 --bundle-id bundle-1 "
                         f"--bundle-digest {'a' * 64} --stdin"
                     ),
@@ -104,7 +104,7 @@ def test_review_submit_cli_sends_complete_stdin_batch(capsys) -> None:
         code = qa_plan_review_cli.run(
             [
                 "--item",
-                "42",
+                "YOK-42",
                 "--execution-id",
                 "execution-1",
                 "--bundle-id",
@@ -120,6 +120,8 @@ def test_review_submit_cli_sends_complete_stdin_batch(capsys) -> None:
     assert code == 0
     assert json.loads(capsys.readouterr().out)["state"] == "passed"
     assert submit.call_args.kwargs["function_id"] == "qa.plan_review.submit"
+    assert submit.call_args.kwargs["target"].public_ref == "YOK-42"
+    assert submit.call_args.kwargs["target"].item_id is None
     assert submit.call_args.kwargs["payload"]["verdicts"] == payload["verdicts"]
 
 
@@ -152,7 +154,7 @@ def test_review_submit_exits_zero_when_verdicts_persisted_on_needs_review(
         code = qa_plan_review_cli.run(
             [
                 "--item",
-                "42",
+                "YOK-42",
                 "--execution-id",
                 "execution-1",
                 "--bundle-id",
@@ -166,6 +168,8 @@ def test_review_submit_exits_zero_when_verdicts_persisted_on_needs_review(
     assert code == 0
     assert json.loads(capsys.readouterr().out)["submission"] == "persisted"
     assert submit.call_args.kwargs["function_id"] == "qa.plan_review.submit"
+    assert submit.call_args.kwargs["target"].public_ref == "YOK-42"
+    assert submit.call_args.kwargs["target"].item_id is None
     assert submit.call_args.kwargs["payload"]["verdicts"] == payload["verdicts"]
 
 
@@ -243,3 +247,28 @@ class TestDispatchOffersOnlyWhatTheStageAccepts:
         schema_verdict = dispatch["result_schema"]["verdicts"][0]["verdict"]
         assert schema_verdict == "pass|fail"
         assert "undetermined is not submittable here" in dispatch["prompt"]
+
+
+def test_review_submit_refuses_a_numeric_item_before_teardown(capsys):
+    with (
+        mock.patch.object(sys, "stdin", io.StringIO('{"verdicts": []}')),
+        mock.patch.object(qa_plan_review_cli, "_tear_down_mission") as teardown,
+        mock.patch.object(qa_plan_review_cli, "_call_plan_function") as submit,
+    ):
+        code = qa_plan_review_cli.run(
+            [
+                "--item",
+                "42",
+                "--execution-id",
+                "execution",
+                "--bundle-id",
+                "bundle",
+                "--bundle-digest",
+                "digest",
+                "--stdin",
+            ]
+        )
+    assert code == 2
+    assert "public_item_ref_required" in capsys.readouterr().err
+    teardown.assert_not_called()
+    submit.assert_not_called()

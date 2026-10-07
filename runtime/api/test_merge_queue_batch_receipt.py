@@ -27,7 +27,9 @@ def _wire_transport(monkeypatch, *, runs):
     """Serve the PR read here and the merge_group run read where it lives."""
     for module in (receipt_mod, queue_mod, train_run_mod):
         monkeypatch.setattr(
-            module, "resolve_auth_detail", lambda ctx, perms: (_auth(), None),
+            module,
+            "resolve_auth_detail",
+            lambda ctx, perms: (_auth(), None),
         )
 
     def fake_request(req, *, token, **_kw):
@@ -44,23 +46,36 @@ def _wire_transport(monkeypatch, *, runs):
     monkeypatch.setattr(receipt_mod, "request_with_retry", fake_request)
     monkeypatch.setattr(train_run_mod, "request_with_retry", fake_request)
     monkeypatch.setattr(
-        train_run_mod, "project_ci_workflow_file", lambda _project: "yoke-ci.yml",
+        train_run_mod,
+        "project_ci_workflow_file",
+        lambda _project: "yoke-ci.yml",
     )
 
 
 def test_observe_batch_matches_queue_ref_marker_and_required_workflow(monkeypatch):
-    _wire_transport(monkeypatch, runs=[
-        {"path": ".github/workflows/cla.yml",
-         "head_branch": "gh-readonly-queue/main/pr-42-def",
-         "head_sha": "a" * 40, "html_url": "https://runs/7",
-         "conclusion": "success"},
-        {"path": ".github/workflows/yoke-ci.yml",
-         "head_branch": "gh-readonly-queue/main/pr-42-def",
-         "head_sha": "b" * 40, "html_url": "https://runs/42",
-         "conclusion": "success"},
-    ])
+    _wire_transport(
+        monkeypatch,
+        runs=[
+            {
+                "path": ".github/workflows/cla.yml",
+                "head_branch": "gh-readonly-queue/main/pr-42-def",
+                "head_sha": "a" * 40,
+                "html_url": "https://runs/7",
+                "conclusion": "success",
+            },
+            {
+                "path": ".github/workflows/yoke-ci.yml",
+                "head_branch": "gh-readonly-queue/main/pr-42-def",
+                "head_sha": "b" * 40,
+                "html_url": "https://runs/42",
+                "conclusion": "success",
+            },
+        ],
+    )
     receipt, warn = receipt_mod.observe_batch(
-        _ctx(), pr_num="42", member_snapshot=("YOK-300", "YOK-301"),
+        _ctx(),
+        pr_num="42",
+        member_snapshot=("YOK-300", "YOK-301"),
     )
     assert warn is None
     assert receipt.head_sha == "b" * 40
@@ -76,12 +91,18 @@ def test_observe_batch_never_adopts_another_trains_combined_head(monkeypatch):
     head borrowed from a different train is worse than none: it asserts this
     member was validated by a run that never contained it.
     """
-    _wire_transport(monkeypatch, runs=[
-        {"path": ".github/workflows/yoke-ci.yml",
-         "head_branch": "gh-readonly-queue/main/pr-7-abc",
-         "head_sha": "a" * 40, "html_url": "https://runs/7",
-         "conclusion": "success"},
-    ])
+    _wire_transport(
+        monkeypatch,
+        runs=[
+            {
+                "path": ".github/workflows/yoke-ci.yml",
+                "head_branch": "gh-readonly-queue/main/pr-7-abc",
+                "head_sha": "a" * 40,
+                "html_url": "https://runs/7",
+                "conclusion": "success",
+            },
+        ],
+    )
     receipt, warn = receipt_mod.observe_batch(_ctx(), pr_num="42")
     assert receipt.head_sha == ""
     assert receipt.run_url == ""
@@ -93,12 +114,18 @@ def test_observe_batch_accepts_sibling_when_merge_commit_is_the_combined_head(
     monkeypatch,
 ):
     """A batch member named after a sibling still records the shared run."""
-    _wire_transport(monkeypatch, runs=[
-        {"path": ".github/workflows/yoke-ci.yml",
-         "head_branch": "gh-readonly-queue/main/pr-7-abc",
-         "head_sha": "m" * 40, "html_url": "https://runs/7",
-         "conclusion": "success"},
-    ])
+    _wire_transport(
+        monkeypatch,
+        runs=[
+            {
+                "path": ".github/workflows/yoke-ci.yml",
+                "head_branch": "gh-readonly-queue/main/pr-7-abc",
+                "head_sha": "m" * 40,
+                "html_url": "https://runs/7",
+                "conclusion": "success",
+            },
+        ],
+    )
     receipt, warn = receipt_mod.observe_batch(_ctx(), pr_num="42")
     assert warn is None
     assert receipt.head_sha == "m" * 40
@@ -123,11 +150,13 @@ def test_record_batch_evidence_payload_shape():
         return SimpleNamespace(success=True, result={}, error=None)
 
     receipt = BatchReceipt(
-        pr_num="42", merge_sha="m" * 40,
+        pr_num="42",
+        merge_sha="m" * 40,
         members=("YOK-300", "YOK-301"),
-        head_sha="h" * 40, run_url="https://runs/42",
+        head_sha="h" * 40,
+        run_url="https://runs/42",
     )
-    error = receipt_mod.record_batch_evidence(9, receipt, dispatch=dispatch)
+    error = receipt_mod.record_batch_evidence("ITEM-9", receipt, dispatch=dispatch)
     assert error is None
     assert captured["function_id"] == "merge.tests.record_post_rebase_ci_run"
     payload = captured["payload"]
@@ -144,12 +173,13 @@ def test_record_batch_evidence_payload_shape():
 def test_record_batch_evidence_surfaces_dispatch_error():
     def dispatch(**_kw):
         return SimpleNamespace(
-            success=False, result=None,
+            success=False,
+            result=None,
             error=SimpleNamespace(message="claim gate refused"),
         )
 
     receipt = BatchReceipt(pr_num="42")
-    error = receipt_mod.record_batch_evidence(9, receipt, dispatch=dispatch)
+    error = receipt_mod.record_batch_evidence("ITEM-9", receipt, dispatch=dispatch)
     assert error == "claim gate refused"
 
 
@@ -170,25 +200,38 @@ def test_an_open_pull_request_is_not_this_landing(monkeypatch):
             # Open: GitHub still offers a test-merge sha.
             return _response({"merged": False, "merge_commit_sha": "t" * 40})
         seen["head_sha"] = req.query.get("head_sha")
-        return _response({"workflow_runs": [{
-            "path": ".github/workflows/yoke-ci.yml",
-            "head_branch": "gh-readonly-queue/main/pr-999-abc",
-            "head_sha": carried_by, "html_url": "https://runs/999",
-            "conclusion": "success",
-        }]})
+        return _response(
+            {
+                "workflow_runs": [
+                    {
+                        "path": ".github/workflows/yoke-ci.yml",
+                        "head_branch": "gh-readonly-queue/main/pr-999-abc",
+                        "head_sha": carried_by,
+                        "html_url": "https://runs/999",
+                        "conclusion": "success",
+                    }
+                ]
+            }
+        )
 
     for module in (receipt_mod, queue_mod, train_run_mod):
         monkeypatch.setattr(
-            module, "resolve_auth_detail", lambda ctx, perms: (_auth(), None),
+            module,
+            "resolve_auth_detail",
+            lambda ctx, perms: (_auth(), None),
         )
     monkeypatch.setattr(receipt_mod, "request_with_retry", fake_request)
     monkeypatch.setattr(train_run_mod, "request_with_retry", fake_request)
     monkeypatch.setattr(
-        train_run_mod, "project_ci_workflow_file", lambda _project: "yoke-ci.yml",
+        train_run_mod,
+        "project_ci_workflow_file",
+        lambda _project: "yoke-ci.yml",
     )
 
     receipt, warn = receipt_mod.observe_batch(
-        _ctx(), pr_num="42", landed_merge_sha=carried_by,
+        _ctx(),
+        pr_num="42",
+        landed_merge_sha=carried_by,
     )
 
     # The train attributed is the one that actually carried the work.
@@ -203,6 +246,7 @@ def test_an_open_pull_request_is_not_this_landing(monkeypatch):
 
 def test_an_open_pull_request_with_no_known_landing_refuses_by_name(monkeypatch):
     """Nothing to attribute, so say that rather than blaming missing CI."""
+
     def fake_request(req, *, token, **_kw):
         if "/pulls/" in req.path:
             return _response({"merged": False, "merge_commit_sha": "t" * 40})
@@ -210,7 +254,9 @@ def test_an_open_pull_request_with_no_known_landing_refuses_by_name(monkeypatch)
 
     for module in (receipt_mod, queue_mod, train_run_mod):
         monkeypatch.setattr(
-            module, "resolve_auth_detail", lambda ctx, perms: (_auth(), None),
+            module,
+            "resolve_auth_detail",
+            lambda ctx, perms: (_auth(), None),
         )
     monkeypatch.setattr(receipt_mod, "request_with_retry", fake_request)
 

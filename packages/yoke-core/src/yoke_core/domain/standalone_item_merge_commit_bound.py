@@ -78,10 +78,8 @@ def _runner_authority_refusal(
     requirement_id = int(requirement["id"])
     method_id = str(requirement.get("method_id") or "<missing>")
     runner_id = str(requirement.get("runner_id") or "<missing>")
-    public_ref = str(item.get("public_ref") or item.get("id") or "ITEM")
-    transition = str(
-        requirement.get("workflow_transition_id") or "<bound-transition>"
-    )
+    public_ref = str(item.get("public_ref") or "<public-ref-unavailable>")
+    transition = str(requirement.get("workflow_transition_id") or "<bound-transition>")
     if runner_id == "browser_substrate":
         rerun_path = (
             f"`yoke qa case run --requirement-id {requirement_id} "
@@ -89,9 +87,7 @@ def _runner_authority_refusal(
             f"--expected-sha {commit_sha}`"
         )
     elif runner_id == "agent_mission":
-        rerun_path = (
-            f"`yoke qa plan run --item {public_ref} --transition {transition}`"
-        )
+        rerun_path = f"`yoke qa plan run --item {public_ref} --transition {transition}`"
     else:
         rerun_path = f"`yoke qa case run --requirement-id {requirement_id}`"
     return (
@@ -151,17 +147,27 @@ def recover_and_recheck(
 ) -> tuple[str, str]:
     """Recover a commit-bound preflight refusal, then re-run preflight."""
     commit_sha, issues, eval_error = evaluate(
-        item, public_ref=public_ref, repo_root=repo_root, branch=branch,
+        item,
+        public_ref=public_ref,
+        repo_root=repo_root,
+        branch=branch,
     )
     if eval_error or not is_commit_bound_refusal(issues):
         return commit_sha, qa_error
     recover_error = recover_issues(
-        item, issues, commit_sha, rerecord=rerecord, run_case=run_case,
+        item,
+        issues,
+        commit_sha,
+        rerecord=rerecord,
+        run_case=run_case,
     )
     if recover_error:
         return commit_sha, f"{qa_error}\n{recover_error}"
     return preflight(
-        item, public_ref=public_ref, repo_root=repo_root, branch=branch,
+        item,
+        public_ref=public_ref,
+        repo_root=repo_root,
+        branch=branch,
     )
 
 

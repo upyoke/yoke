@@ -192,12 +192,12 @@ def test_a_public_ref_resolves_without_a_local_database(monkeypatch) -> None:
 
     def fake_relay(function_id, payload, target=None):
         seen.append((function_id, target.kind, target.public_ref))
-        return {"item": {"id": 4242}}
+        return {"item": {"public_ref": "YOK-7"}}
 
     monkeypatch.setattr(control_plane_transport, "relay", fake_relay)
 
     with remote_control_plane():
-        assert yok_n_parser.parse_item_id("YOK-7") == 4242
+        assert yok_n_parser.parse_item_id("YOK-7") == "YOK-7"
 
     assert seen == [(yok_n_parser.RESOLVE_FUNCTION_ID, "item", "YOK-7")]
 

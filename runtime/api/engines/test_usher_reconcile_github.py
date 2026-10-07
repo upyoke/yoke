@@ -95,7 +95,7 @@ def wired(monkeypatch):
 
 
 def test_alignment_emits_event_and_clears_deploy_stage(wired):
-    result = mod.reconcile_item(42)
+    result = mod.reconcile_item("ITEM-42")
 
     assert result.outcome == "aligned"
     assert result.workflow_run_id == "987654321"
@@ -138,7 +138,7 @@ def test_github_failure_does_not_mutate(wired, monkeypatch, gh_stdout):
 
     monkeypatch.setattr(mod, "_github_actions", gh)
 
-    result = mod.reconcile_item(42)
+    result = mod.reconcile_item("ITEM-42")
 
     assert result.outcome == "gh-failure"
     assert result.gh_conclusion in {"failure", "cancelled", "timed_out"}
@@ -160,7 +160,7 @@ def test_github_running_does_not_mutate(wired, monkeypatch, rc, status):
 
     monkeypatch.setattr(mod, "_github_actions", gh)
 
-    result = mod.reconcile_item(42)
+    result = mod.reconcile_item("ITEM-42")
 
     assert result.outcome == "gh-running"
     assert result.gh_status == status
@@ -177,7 +177,7 @@ def test_unresolved_run_id_errors_without_mutating(wired, monkeypatch):
 
     monkeypatch.setattr(mod, "_github_actions", gh)
 
-    result = mod.reconcile_item(42)
+    result = mod.reconcile_item("ITEM-42")
 
     assert result.outcome == "error"
     assert "--workflow-run-id" in result.message
@@ -188,7 +188,7 @@ def test_unresolved_run_id_errors_without_mutating(wired, monkeypatch):
 def test_missing_deployment_run_errors(wired, monkeypatch):
     monkeypatch.setattr(mod, "_resolve_run_for_item", lambda _item_id: "")
 
-    result = mod.reconcile_item(42)
+    result = mod.reconcile_item("ITEM-42")
 
     assert result.outcome == "error"
     assert "deployment_run_items" in result.message
@@ -198,7 +198,7 @@ def test_missing_deployment_run_errors(wired, monkeypatch):
 def test_missing_registered_repo_errors_before_actions(wired, monkeypatch):
     monkeypatch.setattr(mod.control_plane, "project_field", lambda _project, _field: "")
 
-    result = mod.reconcile_item(42)
+    result = mod.reconcile_item("ITEM-42")
 
     assert result.outcome == "error"
     assert "no registered github_repo" in result.message
@@ -222,7 +222,7 @@ def test_missing_release_lineage_errors_before_actions(wired, monkeypatch):
 
     monkeypatch.setattr(mod.control_plane, "execution_context", fake_execution_context)
 
-    result = mod.reconcile_item(42)
+    result = mod.reconcile_item("ITEM-42")
 
     assert result.outcome == "error"
     assert "no recorded release_lineage" in result.message
@@ -232,7 +232,7 @@ def test_missing_release_lineage_errors_before_actions(wired, monkeypatch):
 
 
 def test_alignment_message_names_resume_command(wired):
-    result = mod.reconcile_item(42)
+    result = mod.reconcile_item("ITEM-42")
     assert result.outcome == "aligned"
     assert result.message == (
         "Yoke records aligned with GitHub truth. "
@@ -257,7 +257,7 @@ def test_operator_override_skips_find_run(wired, monkeypatch):
 
     monkeypatch.setattr(mod, "_github_actions", gh)
 
-    result = mod.reconcile_item(42, workflow_run_id_override="operator-555")
+    result = mod.reconcile_item("ITEM-42", workflow_run_id_override="operator-555")
 
     assert result.outcome == "aligned"
     assert result.workflow_run_id == "operator-555"
@@ -278,7 +278,7 @@ def test_source_never_names_phantom_column():
 
 def test_no_action_when_deploy_stage_empty(wired, monkeypatch):
     monkeypatch.setattr(mod, "_item_deploy_stage", lambda _item_id: "")
-    result = mod.reconcile_item(42)
+    result = mod.reconcile_item("ITEM-42")
     assert result.outcome == "no-action"
     assert wired.emitted_events == []
     assert wired.dispatched == []
@@ -290,7 +290,7 @@ def test_no_action_when_deploy_stage_not_failed_shape(wired, monkeypatch):
         "_item_deploy_stage",
         lambda _item_id: "complete",
     )
-    result = mod.reconcile_item(42)
+    result = mod.reconcile_item("ITEM-42")
     assert result.outcome == "no-action"
     assert "<stage>-failed" in result.message
     assert wired.dispatched == []

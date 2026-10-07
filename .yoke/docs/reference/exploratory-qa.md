@@ -189,7 +189,7 @@ declares a baseline, because that resets the host.
 The review dispatch supplies an exact host command template:
 
 ```text
-yoke --env <connection> qa mission host-command --item-id <id> \
+yoke --env <connection> qa mission host-command --item PREFIX-N \
   --execution-id <execution-id> --requirement-id <requirement-id> -- ARGV...
 ```
 
@@ -206,7 +206,7 @@ Preparation creates it `0700` before the walker is dispatched, and the walker
 dispatch carries both its exact path and the teardown command:
 
 ```text
-yoke --env <connection> qa mission scratch-teardown --item-id <id> \
+yoke --env <connection> qa mission scratch-teardown --item PREFIX-N \
   --execution-id <execution-id> --requirement-id <requirement-id>
 ```
 

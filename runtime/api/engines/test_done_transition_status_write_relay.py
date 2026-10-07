@@ -166,7 +166,7 @@ class TestTaskDirectRelay:
 
         _patch_adapter(monkeypatch, fake)
         rc = dt._update_task_status_direct(
-            "823",
+            "ITEM-823",
             "1",
             "done",
             f"Auto-done: epic {TEST_ITEM_REF} marked done",
@@ -197,7 +197,7 @@ class TestTaskDirectRelay:
         )
         with pytest.raises(RuntimeError):
             dt._update_task_status_direct(
-                "823",
+                "ITEM-823",
                 "1",
                 "done",
                 "",

@@ -155,7 +155,7 @@ def test_https_child_binds_lazy_user_provider_for_entire_merge(
             result={
                 "holder": {
                     "target_kind": "item",
-                    "scope": {"item_id": 42},
+                    "scope": {"public_ref": "YOK-42"},
                     "session_id": "session-1",
                 }
             },

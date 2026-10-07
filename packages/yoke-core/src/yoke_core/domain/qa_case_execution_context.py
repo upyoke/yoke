@@ -17,6 +17,7 @@ from yoke_core.domain.qa_method_capabilities import (
 )
 from yoke_core.domain.qa_requirement_pass_currency import METHOD_CONFIG_REVISION_KEY
 from yoke_contracts.public_ref import format_item_ref
+from yoke_core.domain.item_ref_render import render_item_refs
 from yoke_contracts.machine_config.capability_secrets import (
     TEST_MACHINE_CAPABILITY,
 )
@@ -207,6 +208,7 @@ def get_case_execution_context(
     method_config = _json_object(row["method_config"])
     method_config.pop(METHOD_CONFIG_REVISION_KEY, None)
     context = {
+        "public_ref": render_item_refs(conn, [row["item_id"]]).get(row["item_id"]),
         "requirement_id": int(row["requirement_id"]),
         "item_id": (int(row["item_id"]) if row["item_id"] is not None else None),
         "deployment_run_id": row["deployment_run_id"],
@@ -217,7 +219,6 @@ def get_case_execution_context(
             if row["deployment_member_item_id"] is not None
             else None
         ),
-        # The ref, not the internal id: that is what --member takes.
         "deployment_member_ref": (
             format_item_ref(None, row["member_prefix"], row["member_sequence"])
             if row["member_sequence"] is not None
@@ -244,8 +245,6 @@ def get_case_execution_context(
     }
     if str(method_snapshot["runner_id"]) == "ci_run":
         context["lane_commit_sha"] = row["lane_commit_sha"]
-    # A checkout-bound runner compares its tree with the commit the run shipped
-    # for this case's own project -- a bound project's source, not the carrier's.
     if row["deployment_run_id"] and context["runner_id"] in ("worktree_run", "ci_run"):
         context["deployment_source_revision"] = run_source_sha(
             conn, str(row["deployment_run_id"]), int(row["project_id"])

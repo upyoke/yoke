@@ -143,7 +143,7 @@ def _cleanup_terminal_item_lanes(
     """
     if not _terminal_status(item, target_status) and not landing_recorded:
         return TerminalLaneCloseOut()
-    public_ref = str(item.get("public_ref") or item.get("id") or "item")
+    public_ref = str(item.get("public_ref") or "<public-ref-unavailable>")
     project = item.get("project") or {}
     root = (
         Path(repo_root)
@@ -234,7 +234,7 @@ def cleanup_terminal_item_lanes(
             sweep=sweep,
         )
     except Exception as exc:  # noqa: BLE001 - terminal state is already committed
-        public_ref = str(item.get("public_ref") or item.get("id") or "item")
+        public_ref = str(item.get("public_ref") or "<public-ref-unavailable>")
         return TerminalLaneCloseOut(
             (
                 f"{public_ref}: terminal lane cleanup preserved after an "

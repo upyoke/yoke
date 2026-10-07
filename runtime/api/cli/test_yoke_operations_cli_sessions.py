@@ -90,7 +90,7 @@ def test_sessions_checkpoint_dispatches() -> None:
             "--chainable",
             "true",
             "--item",
-            "42",
+            "YOK-42",
             "--task-num",
             "3",
             "--outcome",
@@ -114,7 +114,7 @@ def test_sessions_checkpoint_dispatches() -> None:
         "action": "charge",
         "chainable": True,
         "outcome": "completed",
-        "item_id": "42",
+        "public_ref": "YOK-42",
         "task_num": 3,
         "status": "implemented",
         "required_path": "runtime/api/foo.py",
@@ -260,3 +260,28 @@ def test_reclaim_stale_help_distinguishes_a_zero_and_names_terminate() -> None:
     assert "nothing was stale" in SESSIONS_RECLAIM_STALE_DESCRIPTION
     assert "holdings bound" in SESSIONS_RECLAIM_STALE_DESCRIPTION
     assert "yoke sessions terminate" in SESSIONS_RECLAIM_STALE_DESCRIPTION
+
+
+@pytest.mark.parametrize("selector", [None, "YOK-42", "42"])
+def test_checkpoint_optional_item_uses_only_public_selectors(selector):
+    argv = [
+        "sessions",
+        "checkpoint",
+        "--step",
+        "1",
+        "--action",
+        "dash",
+        "--chainable",
+        "false",
+    ]
+    if selector is not None:
+        argv.extend(["--item", selector])
+    rc = _run(*argv)
+    if selector == "42":
+        assert rc == 1
+        assert _CAPTURED_REQUESTS == []
+    else:
+        assert rc == 0
+        payload = _CAPTURED_REQUESTS[-1].payload
+        assert "item_id" not in payload
+        assert payload.get("public_ref") == selector

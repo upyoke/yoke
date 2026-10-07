@@ -29,9 +29,7 @@ from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
 TEST_ITEM_ID = 42
 TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
 
-_HTTPS_CHECK = (
-    "yoke_core.domain.worktree_create_db.item_worktree_authority_is_https"
-)
+_HTTPS_CHECK = "yoke_core.domain.worktree_create_db.item_worktree_authority_is_https"
 
 
 def _resp(function_id, result=None, *, success=True):
@@ -42,7 +40,8 @@ def _resp(function_id, result=None, *, success=True):
 
 def _no_bare_db(monkeypatch):
     monkeypatch.setattr(
-        mw, "_connect",
+        mw,
+        "_connect",
         lambda *_a, **_k: pytest.fail("must not open a bare mw._connect()"),
     )
 
@@ -60,7 +59,8 @@ class TestSnapshotEnsureRelays:
 
         monkeypatch.setattr(post_local, "call_dispatcher", fake)
         monkeypatch.setattr(
-            subprocess, "run",
+            subprocess,
+            "run",
             lambda *_a, **_k: SimpleNamespace(returncode=0, stdout="abc123\n"),
         )
         _no_bare_db(monkeypatch)
@@ -83,15 +83,18 @@ class TestSnapshotEnsureRelays:
         calls = []
         notes = []
         monkeypatch.setattr(
-            post_local, "call_dispatcher",
+            post_local,
+            "call_dispatcher",
             lambda **k: calls.append(k) or _resp("project.snapshot.ensure_at"),
         )
         monkeypatch.setattr(
-            subprocess, "run",
+            subprocess,
+            "run",
             lambda *_a, **_k: SimpleNamespace(returncode=0, stdout="abc123\n"),
         )
         monkeypatch.setattr(
-            post_local, "_parent",
+            post_local,
+            "_parent",
             lambda: SimpleNamespace(_print=notes.append),
         )
         _no_bare_db(monkeypatch)
@@ -129,7 +132,11 @@ class TestSnapshotEnsureRelays:
         post_local._ensure_snapshot_for_project(ctx)
 
         assert git_calls[0][0] == [
-            "git", "-C", "/platform", "rev-parse", "HEAD",
+            "git",
+            "-C",
+            "/platform",
+            "rev-parse",
+            "HEAD",
         ]
         assert calls[0]["payload"] == {
             "project": "platform",
@@ -139,11 +146,13 @@ class TestSnapshotEnsureRelays:
     def test_no_head_skips_relay(self, monkeypatch):
         calls = []
         monkeypatch.setattr(
-            post_local, "call_dispatcher",
+            post_local,
+            "call_dispatcher",
             lambda **k: calls.append(k) or _resp("project.snapshot.ensure_at"),
         )
         monkeypatch.setattr(
-            subprocess, "run",
+            subprocess,
+            "run",
             lambda *_a, **_k: SimpleNamespace(returncode=1, stdout=""),
         )
         _no_bare_db(monkeypatch)
@@ -154,11 +163,13 @@ class TestSnapshotEnsureRelays:
 
     def test_relay_failure_is_advisory(self, monkeypatch, capsys):
         monkeypatch.setattr(
-            post_local, "call_dispatcher",
+            post_local,
+            "call_dispatcher",
             lambda **k: _resp("project.snapshot.ensure_at", success=False),
         )
         monkeypatch.setattr(
-            subprocess, "run",
+            subprocess,
+            "run",
             lambda *_a, **_k: SimpleNamespace(returncode=0, stdout="abc123\n"),
         )
         _no_bare_db(monkeypatch)
@@ -193,7 +204,7 @@ class TestPostRebaseRelays:
         monkeypatch.setattr(mtests, "call_dispatcher", fake)
         _no_bare_db(monkeypatch)
 
-        ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), item_id="42")
+        ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), item_id="ITEM-42")
         assert mtests._registered_verification_command(ctx) == (
             "full",
             "python3 verify_tree.py",
@@ -209,20 +220,20 @@ class TestPostRebaseRelays:
 
     def test_missing_command_response_blocks(self, monkeypatch):
         monkeypatch.setattr(
-            mtests, "call_dispatcher",
-            lambda **k: _resp(
-                "merge.tests.post_rebase_requirement", {"command": None}
-            ),
+            mtests,
+            "call_dispatcher",
+            lambda **k: _resp("merge.tests.post_rebase_requirement", {"command": None}),
         )
         _no_bare_db(monkeypatch)
-        ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), item_id="42")
+        ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), item_id="ITEM-42")
         with pytest.raises(RuntimeError, match="no executable"):
             mtests._registered_verification_command(ctx)
 
     def test_unparseable_unregistered_item_skips_relay(self, monkeypatch):
         called = []
         monkeypatch.setattr(
-            mtests, "call_dispatcher",
+            mtests,
+            "call_dispatcher",
             lambda **k: called.append(k) or _resp("x"),
         )
         ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), item_id=None)
@@ -240,7 +251,7 @@ class TestPostRebaseRelays:
         )
         monkeypatch.setattr(mtests, "call_dispatcher", lambda **k: resp)
         _no_bare_db(monkeypatch)
-        ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), item_id="42")
+        ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), item_id="ITEM-42")
         with pytest.raises(RuntimeError, match="post_rebase_requirement_failed"):
             mtests._registered_verification_command(ctx)
 
@@ -255,7 +266,7 @@ class TestPostRebaseRelays:
         )
         monkeypatch.setattr(mtests, "call_dispatcher", lambda **k: resp)
         _no_bare_db(monkeypatch)
-        ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), item_id="42")
+        ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), item_id="ITEM-42")
         with pytest.raises(RuntimeError, match="actor_session_missing"):
             mtests._registered_verification_command(ctx)
 
@@ -266,9 +277,7 @@ class TestPostRebaseRelays:
 class TestSchemaRefreshTransport:
     def test_skips_over_https(self, monkeypatch, capsys):
         calls = []
-        monkeypatch.setattr(
-            mw, "_run_python_module", lambda *a, **k: calls.append(a)
-        )
+        monkeypatch.setattr(mw, "_run_python_module", lambda *a, **k: calls.append(a))
         monkeypatch.setattr(_HTTPS_CHECK, lambda: True)
 
         post_helpers._schema_refresh(SimpleNamespace())
@@ -278,7 +287,8 @@ class TestSchemaRefreshTransport:
     def test_converges_local_db_off_https(self, monkeypatch):
         calls = []
         monkeypatch.setattr(
-            mw, "_run_python_module",
+            mw,
+            "_run_python_module",
             lambda module, args, **k: calls.append((module, tuple(args))),
         )
         monkeypatch.setattr(_HTTPS_CHECK, lambda: False)

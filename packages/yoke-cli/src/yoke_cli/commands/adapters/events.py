@@ -25,6 +25,7 @@ from yoke_cli.commands._helpers import (
     add_session_arg,
     client_project_context,
     dispatch_and_emit,
+    item_target,
     parse_or_usage_error,
     usage_error,
 )
@@ -48,7 +49,7 @@ __all__ = [
 EVENTS_EMIT_USAGE = (
     "yoke events emit --name NAME --kind KIND --type TYPE "
     "--source-type SOURCE [--severity LEVEL] [--outcome OUTCOME] "
-    "[--project P] [--context JSON] [--session-id S] [--json]"
+    "[--project P] [--item PREFIX-N] [--context JSON] [--session-id S] [--json]"
 )
 
 
@@ -64,7 +65,6 @@ def _add_emit_args(parser: argparse.ArgumentParser) -> None:
         "environment",
         "request-id",
         "project",
-        "item-id",
         "agent",
         "tool-name",
         "trace-id",
@@ -75,6 +75,12 @@ def _add_emit_args(parser: argparse.ArgumentParser) -> None:
         "hook-event-name",
     ):
         parser.add_argument(f"--{flag}", default=None)
+    parser.add_argument(
+        "--item",
+        dest="public_ref",
+        default=None,
+        help="Complete public item ref (PREFIX-N).",
+    )
     parser.add_argument("--task-num", type=int, default=None)
     parser.add_argument("--duration-ms", type=int, default=None)
     parser.add_argument("--exit-code", type=int, default=None)
@@ -118,6 +124,10 @@ def events_emit(args: List[str]) -> int:
     except ValueError as exc:
         return usage_error(str(exc))
 
+    if parsed.public_ref is not None:
+        parsed.public_ref = item_target(
+            "item", parsed.public_ref, parsed.project
+        ).public_ref
     payload: Dict[str, Any] = {
         "name": parsed.name,
         "kind": parsed.kind,

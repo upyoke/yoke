@@ -215,8 +215,8 @@ def test_teardown_command_exits_named_when_the_scratch_survives(
 
     exit_code = agent_mission_scratch_cli.run(
         [
-            "--item-id",
-            "4550",
+            "--item",
+            "ITEM-4550",
             "--execution-id",
             EXECUTION_ID,
             "--requirement-id",
@@ -243,7 +243,7 @@ def test_walker_dispatch_names_the_scratch_and_its_teardown() -> None:
         "bundle_id": "bundle-1",
         "bundle_digest": "d" * 64,
         "execution_id": EXECUTION_ID,
-        "subject": {"item_id": 4550, "deployment_run_id": None},
+        "subject": {"public_ref": "ITEM-4550", "deployment_run_id": None},
         "execution_target": execution_target,
         "execution_target_digest": "e" * 64,
         "cases": [
@@ -265,7 +265,7 @@ def test_walker_dispatch_names_the_scratch_and_its_teardown() -> None:
     path = mission_scratch_path(EXECUTION_ID)
     assert walker["scratch_path"] == path
     assert walker["scratch_teardown_command"] == (
-        "yoke qa mission scratch-teardown --item-id 4550 "
+        "yoke qa mission scratch-teardown --item ITEM-4550 "
         f"--execution-id {EXECUTION_ID} --requirement-id 18152"
     )
     assert path in walker["prompt"]

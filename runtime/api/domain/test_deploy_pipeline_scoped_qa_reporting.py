@@ -63,7 +63,7 @@ def test_driver_wait_counts_member_without_selected_cases(
             "flow": "qa-flow",
             "status": "executing",
         },
-        "members": [{"item_id": member}],
+        "members": [{"public_ref": f"YOK-{member}"}],
         "stages": stages[1:],
     }
     monkeypatch.setattr(pipeline.control_plane, "execution_context", lambda r: context)

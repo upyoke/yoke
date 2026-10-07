@@ -152,7 +152,7 @@ USAGE_BY_FUNCTION_ID = {
     ),
     "qa.activity.list": (
         "yoke qa activity list --project P [--deployment-run-id RUN] "
-        "[--item-id N ...] [--limit N] [--json]"
+        "[--item PREFIX-N ...] [--limit N] [--json]"
     ),
     "qa.plan.create": ("yoke qa plan create SLUG --project P --environment ENV"),
     "qa.plan_cases.replace": "yoke qa plan-cases replace --project P --plan-id N --stdin",

@@ -41,7 +41,9 @@ def _apply_resync_full_schema() -> None:
                 blocked_reason TEXT,
                 github_issue TEXT,
                 project_id INTEGER DEFAULT 1,
-                project_sequence INTEGER
+                project_sequence INTEGER,
+                created_at TEXT,
+                updated_at TEXT
             )
         """)
         conn.execute("""

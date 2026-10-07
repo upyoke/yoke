@@ -1,9 +1,8 @@
 # Usher — resolve generated task merge
 
 The caller has selected this internal procedure from the parent's pinned
-child and worktree policies. Resolve the supplied public or project-local
-reference through the registered item reader; the numeric tail is not an
-`items.id`.
+child and worktree policies. Keep the supplied complete public reference through every registered
+reader; the numeric tail is not an `items.id`.
 
 ```bash
 _epic_ref="PREFIX-N"

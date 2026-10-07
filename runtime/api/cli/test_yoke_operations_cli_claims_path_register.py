@@ -35,12 +35,14 @@ def _stub_ok(request: FunctionCallRequest) -> FunctionCallResponse:
 def _run(*argv: str) -> tuple[int, str, str]:
     _CAPTURED.clear()
     with patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}):
-        with patch(
-            "yoke_core.domain.yoke_function_dispatch.dispatch",
-            side_effect=_stub_ok,
-        ), patch(
-            "yoke_cli.commands.adapters.claims.sync_local_snapshot_for_write"
-        ), patch("yoke_cli.commands._helpers.ensure_handlers_loaded"):
+        with (
+            patch(
+                "yoke_core.domain.yoke_function_dispatch.dispatch",
+                side_effect=_stub_ok,
+            ),
+            patch("yoke_cli.commands.adapters.claims.sync_local_snapshot_for_write"),
+            patch("yoke_cli.commands._helpers.ensure_handlers_loaded"),
+        ):
             out, err = io.StringIO(), io.StringIO()
             with redirect_stdout(out), redirect_stderr(err):
                 rc = cli_main(list(argv))
@@ -49,11 +51,16 @@ def _run(*argv: str) -> tuple[int, str, str]:
 
 def test_register_threads_tentative_paths() -> None:
     rc, _out, err = _run(
-        "claims", "path", "register",
-        "--item", "1819",
-        "--paths", "runtime/api/domain/sure.py,runtime/api/domain/maybe.py",
+        "claims",
+        "path",
+        "register",
+        "--item",
+        "YOK-1819",
+        "--paths",
+        "runtime/api/domain/sure.py,runtime/api/domain/maybe.py",
         "--allow-planned",
-        "--tentative-paths", "runtime/api/domain/maybe.py",
+        "--tentative-paths",
+        "runtime/api/domain/maybe.py",
     )
     assert rc == 0, err
     payload = _CAPTURED[-1].payload
@@ -63,10 +70,15 @@ def test_register_threads_tentative_paths() -> None:
 
 def test_register_rejects_tentative_paths_without_allow_planned() -> None:
     rc, _out, err = _run(
-        "claims", "path", "register",
-        "--item", "1819",
-        "--paths", "runtime/api/domain/maybe.py",
-        "--tentative-paths", "runtime/api/domain/maybe.py",
+        "claims",
+        "path",
+        "register",
+        "--item",
+        "YOK-1819",
+        "--paths",
+        "runtime/api/domain/maybe.py",
+        "--tentative-paths",
+        "runtime/api/domain/maybe.py",
     )
     assert rc == 2
     assert "--tentative-paths requires --allow-planned" in err
@@ -74,11 +86,16 @@ def test_register_rejects_tentative_paths_without_allow_planned() -> None:
 
 def test_register_rejects_tentative_paths_outside_paths() -> None:
     rc, _out, err = _run(
-        "claims", "path", "register",
-        "--item", "1819",
-        "--paths", "runtime/api/domain/sure.py",
+        "claims",
+        "path",
+        "register",
+        "--item",
+        "YOK-1819",
+        "--paths",
+        "runtime/api/domain/sure.py",
         "--allow-planned",
-        "--tentative-paths", "runtime/api/domain/other.py",
+        "--tentative-paths",
+        "runtime/api/domain/other.py",
     )
     assert rc == 2
     assert "--tentative-paths must be a subset of --paths" in err
@@ -93,9 +110,13 @@ _SELF = "runtime/api/cli/test_yoke_operations_cli_claims_path_register.py"
 
 def test_register_refuses_a_path_that_exists_nowhere_yet() -> None:
     rc, _out, err = _run(
-        "claims", "path", "register",
-        "--item", "1819",
-        "--paths", f"{_SELF},runtime/api/domain/not_created_yet.py",
+        "claims",
+        "path",
+        "register",
+        "--item",
+        "YOK-1819",
+        "--paths",
+        f"{_SELF},runtime/api/domain/not_created_yet.py",
     )
 
     assert rc == 2
@@ -107,7 +128,13 @@ def test_register_refuses_a_path_that_exists_nowhere_yet() -> None:
 
 def test_register_accepts_a_committed_path_without_allow_planned() -> None:
     rc, _out, err = _run(
-        "claims", "path", "register", "--item", "1819", "--paths", _SELF,
+        "claims",
+        "path",
+        "register",
+        "--item",
+        "YOK-1819",
+        "--paths",
+        _SELF,
     )
 
     assert rc == 0, err
@@ -116,9 +143,13 @@ def test_register_accepts_a_committed_path_without_allow_planned() -> None:
 
 def test_a_planned_path_is_claimable_when_the_operator_says_so() -> None:
     rc, _out, err = _run(
-        "claims", "path", "register",
-        "--item", "1819",
-        "--paths", "runtime/api/domain/not_created_yet.py",
+        "claims",
+        "path",
+        "register",
+        "--item",
+        "YOK-1819",
+        "--paths",
+        "runtime/api/domain/not_created_yet.py",
         "--allow-planned",
     )
 

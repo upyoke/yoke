@@ -42,7 +42,7 @@ def test_bound_holder_authorizes_the_same_session_without_a_second_read(
         result={
             "holder": {
                 "target_kind": "item",
-                "scope": {"item_id": 7},
+                "scope": {"public_ref": "ITEM-7"},
                 "session_id": "session-1",
             },
         },
@@ -87,7 +87,7 @@ def test_bound_holder_for_a_different_item_is_not_authority() -> None:
         result={
             "holder": {
                 "target_kind": "item",
-                "scope": {"item_id": 8},
+                "scope": {"public_ref": "ITEM-8"},
                 "session_id": "session-1",
             },
         }

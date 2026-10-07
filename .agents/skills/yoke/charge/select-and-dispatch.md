@@ -16,7 +16,7 @@ yoke events emit \
  --source-type skill \
  --severity INFO \
  --outcome skipped \
- --item-id "{requested_item_id}" \
+ --item "{requested_item_id}" \
  --context "{\"adapter\":\"\",\"dispatched\":false,\"reason\":\"requested_item_unavailable\",\"target_bucket\":\"{target_bucket}\",\"project\":\"{project}\"}"
 ```
 
@@ -58,7 +58,7 @@ yoke events emit \
  --source-type skill \
  --severity INFO \
  --outcome skipped \
- --item-id "{item_id}" \
+ --item "{item_id}" \
  --context "{\"next_step\":\"{next_step}\",\"adapter\":\"{adapter}\",\"dispatched\":false,\"reason\":\"operator_cancelled\",\"project\":\"{project}\"}"
 ```
 
@@ -101,7 +101,7 @@ yoke events emit \
  --source-type skill \
  --severity INFO \
  --outcome skipped \
- --item-id "{item_id}" \
+ --item "{item_id}" \
  --context "{\"next_step\":\"wait\",\"adapter\":\"{adapter}\",\"dispatched\":false,\"reason\":\"wait_encountered\",\"project\":\"{project}\"}"
 ```
 
@@ -117,7 +117,7 @@ yoke events emit \
  --source-type skill \
  --severity INFO \
  --outcome completed \
- --item-id "{item_id}" \
+ --item "{item_id}" \
  --context "{\"next_step\":\"{next_step}\",\"adapter\":\"{adapter}\",\"dispatched\":true,\"reason\":\"dispatched\",\"project\":\"{project}\"}"
 ```
 

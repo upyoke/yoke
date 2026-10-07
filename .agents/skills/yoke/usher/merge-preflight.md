@@ -3,7 +3,7 @@
 Covers merge Steps 1 through 5: require integration simulation, verify epic-level acceptance criteria against worktree paths, verify all tasks are complete, read the worktree plan, and determine merge order.
 
 **Context variables** (consumed by later phases): `{epic-ref}`, `_epic_ref`,
-`_epic_ref`, `_worktrees`, `WORKTREE_PATH`, `_worktree_plan`.
+`_worktrees`, `WORKTREE_PATH`, `_worktree_plan`.
 
 ---
 

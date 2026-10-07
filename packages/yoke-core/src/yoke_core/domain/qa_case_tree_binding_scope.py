@@ -62,7 +62,7 @@ class DeploymentBinding:
 
 def session_lane_binds_case(case: Mapping[str, Any]) -> bool:
     """Return whether this case's verdict is about the session's own lane."""
-    return case.get("item_id") is not None
+    return case.get("public_ref") is not None
 
 
 def candidate_revision(case: Mapping[str, Any]) -> str:

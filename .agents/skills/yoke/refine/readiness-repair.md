@@ -159,7 +159,7 @@ case "$_class" in
     _repair_rc=$?
     if [ "$_repair_rc" -ne 0 ]; then
       printf '%s\n' "$_repair_json"
-      yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item-id "$ITEM_REF"
+      yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item "$ITEM_REF"
       yoke claims work release \
         --item "$ITEM_REF" --reason "readiness-check-blocked" \
         >/dev/null 2>&1 || true
@@ -181,7 +181,7 @@ case "$_class" in
     # A check the executing host could not perform. Non-retryable here:
     # each unavailable_checks[] entry names the check and the recovery.
     printf '%s\n' "$_readiness_json"
-    yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item-id "$ITEM_REF"
+    yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item "$ITEM_REF"
     yoke claims work release \
       --item "$ITEM_REF" --reason "readiness-validation-unavailable" \
       >/dev/null 2>&1 || true
@@ -189,7 +189,7 @@ case "$_class" in
     ;;
   unrecoverable)
     printf '%s\n' "$_readiness_json"
-    yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item-id "$ITEM_REF"
+    yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item "$ITEM_REF"
     yoke claims work release \
       --item "$ITEM_REF" --reason "readiness-check-blocked" \
       >/dev/null 2>&1 || true

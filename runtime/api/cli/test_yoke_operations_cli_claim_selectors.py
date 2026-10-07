@@ -15,7 +15,7 @@ class TestReleaseSelectorValidation:
             "work",
             "release",
             "--epic",
-            "1872",
+            "YOK-1872",
             "--reason",
             "partial",
         )
@@ -45,7 +45,7 @@ class TestReleaseSelectorValidation:
             "--claim-id",
             "1",
             "--epic",
-            "1872",
+            "YOK-1872",
             "--task-num",
             "20",
             "--reason",
@@ -63,7 +63,7 @@ class TestReleaseSelectorValidation:
             "--item",
             "YOK-1872",
             "--epic",
-            "1872",
+            "YOK-1872",
             "--task-num",
             "20",
             "--reason",
@@ -84,7 +84,7 @@ class TestReleaseSelectorValidation:
         assert rc == 2
         assert "exactly one" in err
 
-    def test_non_integer_epic_id_rejects(self, claims_conn) -> None:
+    def test_invalid_epic_ref_rejects(self, claims_conn) -> None:
         rc, _o, err = _run_db(
             claims_conn,
             "claims",
@@ -97,8 +97,8 @@ class TestReleaseSelectorValidation:
             "--reason",
             "bad",
         )
-        assert rc == 2
-        assert "must be integers" in err
+        assert rc == 1
+        assert "public_item_ref_required" in err
         assert _CAPTURED == []
 
     def test_non_integer_task_num_rejects(self, claims_conn) -> None:
@@ -108,14 +108,14 @@ class TestReleaseSelectorValidation:
             "work",
             "release",
             "--epic",
-            "1872",
+            "YOK-1872",
             "--task-num",
             "x",
             "--reason",
             "bad",
         )
         assert rc == 2
-        assert "must be integers" in err
+        assert "--task-num must be an integer" in err
         assert _CAPTURED == []
 
     def test_all_mine_plus_epic_task_rejects(self) -> None:
@@ -125,7 +125,7 @@ class TestReleaseSelectorValidation:
             "release",
             "--all-mine",
             "--epic",
-            "1872",
+            "YOK-1872",
             "--task-num",
             "20",
         )

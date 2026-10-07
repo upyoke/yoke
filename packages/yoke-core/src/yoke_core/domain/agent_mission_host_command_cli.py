@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from yoke_core.domain.public_item_target import public_item_target
+from yoke_contracts.public_ref import parse_public_item_ref
 
 import argparse
 import json
@@ -17,9 +17,12 @@ PROG = "yoke qa mission host-command"
 
 def _target(parsed: argparse.Namespace) -> TargetRef:
     if parsed.item is not None:
-        return TargetRef(kind="item", public_ref=parsed.item, project_id=parsed.project)
-    if parsed.item_id is not None:
-        return public_item_target(parsed.item_id)
+        prefix, sequence = parse_public_item_ref(parsed.item)
+        if prefix is None or sequence is None:
+            raise ValueError("public_item_ref_required: pass --item PREFIX-N")
+        return TargetRef(
+            kind="item", public_ref=f"{prefix}-{sequence}", project_id=parsed.project
+        )
     if parsed.deployment_run_id is None:
         if not parsed.project:
             raise ValueError(
@@ -37,7 +40,6 @@ def add_mission_subject_arguments(parser: argparse.ArgumentParser) -> None:
     """Declare how every mission client command addresses its lease."""
     subject = parser.add_mutually_exclusive_group()
     subject.add_argument("--item")
-    subject.add_argument("--item-id", type=int)
     subject.add_argument("--deployment-run-id")
     parser.add_argument("--project")
     parser.add_argument("--execution-id", required=True)
@@ -54,9 +56,14 @@ def resolve_mission_contract(
     from yoke_core.api.service_client_structured_api_adapter import build_actor
     from yoke_core.domain.qa_composed_dispatch import call_qa_function
 
+    try:
+        target = _target(parsed)
+    except ValueError as exc:
+        print(f"{prog}: {exc}", file=sys.stderr)
+        return None
     response = call_qa_function(
         function_id="test_machine.mission.access",
-        target=_target(parsed),
+        target=target,
         payload={
             "execution_id": parsed.execution_id,
             "requirement_id": parsed.requirement_id,

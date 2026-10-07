@@ -24,15 +24,20 @@ _CAPTURED_REQUESTS: List[FunctionCallRequest] = []
 def _stub_ok(request: FunctionCallRequest) -> FunctionCallResponse:
     _CAPTURED_REQUESTS.append(request)
     return FunctionCallResponse(
-        success=True, function=request.function, version=request.version,
-        request_id=request.request_id, result={"echo": True},
+        success=True,
+        function=request.function,
+        version=request.version,
+        request_id=request.request_id,
+        result={"echo": True},
     )
 
 
 def _stub_fail(request: FunctionCallRequest) -> FunctionCallResponse:
     _CAPTURED_REQUESTS.append(request)
     return FunctionCallResponse(
-        success=False, function=request.function, version=request.version,
+        success=False,
+        function=request.function,
+        version=request.version,
         request_id=request.request_id,
         error=FunctionError(code="amend_failed", message="stub"),
     )
@@ -49,9 +54,7 @@ def _run(stub, *argv: str, session_id: str = "test-session") -> int:
             "yoke_core.domain.yoke_function_dispatch.dispatch",
             side_effect=stub,
         ):
-            with patch(
-                "yoke_cli.commands._helpers.ensure_handlers_loaded"
-            ):
+            with patch("yoke_cli.commands._helpers.ensure_handlers_loaded"):
                 with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
                     return cli_main(list(argv))
 
@@ -59,14 +62,20 @@ def _run(stub, *argv: str, session_id: str = "test-session") -> int:
 class TestDbClaimAmendDispatch:
     def test_state_none_alias_dispatches(self) -> None:
         rc = _run(
-            _stub_ok, "db-claim", "amend", "42",
-            "--reason", "no governed work", "--state", "none",
+            _stub_ok,
+            "db-claim",
+            "amend",
+            "YOK-42",
+            "--reason",
+            "no governed work",
+            "--state",
+            "none",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "db_claim.amend"
         assert req.target.kind == "item"
-        assert req.target.public_ref == "42"
+        assert req.target.public_ref == "YOK-42"
         assert req.payload == {
             "claim": {"state": "none"},
             "reason": "no governed work",
@@ -74,14 +83,20 @@ class TestDbClaimAmendDispatch:
 
     def test_payload_json_dispatches(self) -> None:
         rc = _run(
-            _stub_ok, "db-claim", "amend", "7",
-            "--reason", "declare profile",
-            "--payload", '{"state":"declared","migration_strategy":"additive_only"}',
+            _stub_ok,
+            "db-claim",
+            "amend",
+            "YOK-7",
+            "--reason",
+            "declare profile",
+            "--payload",
+            '{"state":"declared","migration_strategy":"additive_only"}',
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.payload["claim"] == {
-            "state": "declared", "migration_strategy": "additive_only",
+            "state": "declared",
+            "migration_strategy": "additive_only",
         }
         assert req.payload["reason"] == "declare profile"
 
@@ -108,9 +123,7 @@ class TestDbClaimProseCheckDispatch:
         with patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}):
             with patch("sys.stdin", stdin):
                 with redirect_stdout(buf):
-                    rc = cli_main(
-                        ["db-claim", "prose-check", "--stdin", "--json"]
-                    )
+                    rc = cli_main(["db-claim", "prose-check", "--stdin", "--json"])
         assert rc == 0
         assert _CAPTURED_REQUESTS == []
         envelope = json.loads(buf.getvalue())
@@ -121,34 +134,52 @@ class TestDbClaimProseCheckDispatch:
 
 class TestDbClaimAmendErrors:
     def test_missing_payload_selector_returns_two(self) -> None:
-        rc = _run(_stub_ok, "db-claim", "amend", "42", "--reason", "x")
+        rc = _run(_stub_ok, "db-claim", "amend", "YOK-42", "--reason", "x")
         assert rc == 2
         assert _CAPTURED_REQUESTS == []
 
     def test_missing_reason_returns_two(self) -> None:
-        rc = _run(_stub_ok, "db-claim", "amend", "42", "--state", "none")
+        rc = _run(_stub_ok, "db-claim", "amend", "YOK-42", "--state", "none")
         assert rc == 2
         assert _CAPTURED_REQUESTS == []
 
     def test_bad_payload_json_returns_two(self) -> None:
         rc = _run(
-            _stub_ok, "db-claim", "amend", "42",
-            "--reason", "x", "--payload", "{ not json",
+            _stub_ok,
+            "db-claim",
+            "amend",
+            "YOK-42",
+            "--reason",
+            "x",
+            "--payload",
+            "{ not json",
         )
         assert rc == 2
         assert _CAPTURED_REQUESTS == []
 
     def test_non_object_payload_returns_two(self) -> None:
         rc = _run(
-            _stub_ok, "db-claim", "amend", "42",
-            "--reason", "x", "--payload", '[1, 2, 3]',
+            _stub_ok,
+            "db-claim",
+            "amend",
+            "YOK-42",
+            "--reason",
+            "x",
+            "--payload",
+            "[1, 2, 3]",
         )
         assert rc == 2
         assert _CAPTURED_REQUESTS == []
 
     def test_dispatch_failure_propagates_exit_one(self) -> None:
         rc = _run(
-            _stub_fail, "db-claim", "amend", "42",
-            "--reason", "x", "--state", "none",
+            _stub_fail,
+            "db-claim",
+            "amend",
+            "YOK-42",
+            "--reason",
+            "x",
+            "--state",
+            "none",
         )
         assert rc == 1

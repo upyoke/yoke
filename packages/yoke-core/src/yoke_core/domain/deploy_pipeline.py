@@ -241,7 +241,7 @@ def run_pipeline(
             )
             for sri_item in member_items:
                 if member_statuses.get(sri_item) == "implemented":
-                    transition_member_to_release(int(sri_item), run_id)
+                    transition_member_to_release(sri_item, run_id)
             run_started = True
 
         _set_deploy_stage(s_name, run_id, member_items, sd=sd)

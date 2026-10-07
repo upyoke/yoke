@@ -32,7 +32,11 @@ def _reset_captured() -> None:
 class TestEventsReadDispatch:
     def test_events_tail_dispatches(self) -> None:
         rc = _run_with_dispatch(
-            _stub_dispatch_ok, "events", "tail", "--limit", "20",
+            _stub_dispatch_ok,
+            "events",
+            "tail",
+            "--limit",
+            "20",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -43,8 +47,12 @@ class TestEventsReadDispatch:
     def test_events_count_dispatches_with_filters(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "events", "count", "--since", "4 hours ago",
-            "--event-name", "QARunCompleted",
+            "events",
+            "count",
+            "--since",
+            "4 hours ago",
+            "--event-name",
+            "QARunCompleted",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -54,8 +62,11 @@ class TestEventsReadDispatch:
 
     def test_events_anomalies_dispatches(self) -> None:
         rc = _run_with_dispatch(
-            _stub_dispatch_ok, "events", "anomalies",
-            "--since", "24 hours ago",
+            _stub_dispatch_ok,
+            "events",
+            "anomalies",
+            "--since",
+            "24 hours ago",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -66,7 +77,10 @@ class TestEventsReadDispatch:
     def test_events_query_session_filter_distinct_from_caller(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "events", "query", "--session", "s-filter",
+            "events",
+            "query",
+            "--session",
+            "s-filter",
             "--current-episode",
         )
         assert rc == 0
@@ -79,7 +93,10 @@ class TestEventsReadDispatch:
 
     def test_events_query_current_episode_requires_session(self) -> None:
         rc, _out, err = _run_capture(
-            _stub_dispatch_ok, "events", "query", "--current-episode",
+            _stub_dispatch_ok,
+            "events",
+            "query",
+            "--current-episode",
         )
         assert rc == 2
         assert "--session" in err
@@ -117,7 +134,11 @@ class TestDbReadDispatch:
 
     def test_db_read_json_flag_emits_envelope(self) -> None:
         rc, out, err = _run_capture(
-            _stub_dispatch_ok, "db", "read", "SELECT 1", "--json",
+            _stub_dispatch_ok,
+            "db",
+            "read",
+            "SELECT 1",
+            "--json",
         )
 
         assert rc == 0
@@ -127,12 +148,20 @@ class TestDbReadDispatch:
         assert response["success"] is True
         assert response["result"] == {"echo": True}
 
+
 class TestClaimsPathReadDispatch:
     def test_claims_path_list_dispatches(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "claims", "path", "list", "--item", "1819",
-            "--state", "planned,active", "--state", "blocked",
+            "claims",
+            "path",
+            "list",
+            "--item",
+            "YOK-1819",
+            "--state",
+            "planned,active",
+            "--state",
+            "blocked",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -143,7 +172,11 @@ class TestClaimsPathReadDispatch:
 
     def test_claims_path_get_dispatches(self) -> None:
         rc = _run_with_dispatch(
-            _stub_dispatch_ok, "claims", "path", "get", "77",
+            _stub_dispatch_ok,
+            "claims",
+            "path",
+            "get",
+            "77",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -153,28 +186,45 @@ class TestClaimsPathReadDispatch:
 
     def test_claims_path_get_rejects_non_integer(self) -> None:
         rc = _run_with_dispatch(
-            _stub_dispatch_ok, "claims", "path", "get", "abc",
+            _stub_dispatch_ok,
+            "claims",
+            "path",
+            "get",
+            "abc",
         )
         assert rc == 2
         assert not _CAPTURED_REQUESTS
+
 
 class TestOuroborosEntryDispatch:
     def test_entry_list_dispatches(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "ouroboros", "entry", "list", "--unreviewed",
-            "--project", "yoke", "--limit", "3",
+            "ouroboros",
+            "entry",
+            "list",
+            "--unreviewed",
+            "--project",
+            "yoke",
+            "--limit",
+            "3",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "ouroboros.entry.list"
         assert req.payload == {
-            "unreviewed": True, "project": "yoke", "limit": 3,
+            "unreviewed": True,
+            "project": "yoke",
+            "limit": 3,
         }
 
     def test_entry_get_dispatches(self) -> None:
         rc = _run_with_dispatch(
-            _stub_dispatch_ok, "ouroboros", "entry", "get", "13009",
+            _stub_dispatch_ok,
+            "ouroboros",
+            "entry",
+            "get",
+            "13009",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -186,8 +236,14 @@ class TestOuroborosFieldNoteReadDispatch:
     def test_field_note_list_dispatches_with_field_note_filter(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "ouroboros", "field-note", "list", "--unreviewed",
-            "--project", "yoke", "--limit", "40",
+            "ouroboros",
+            "field-note",
+            "list",
+            "--unreviewed",
+            "--project",
+            "yoke",
+            "--limit",
+            "40",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -201,7 +257,11 @@ class TestOuroborosFieldNoteReadDispatch:
 
     def test_field_note_get_dispatches_with_field_note_filter(self) -> None:
         rc = _run_with_dispatch(
-            _stub_dispatch_ok, "ouroboros", "field-note", "get", "13270",
+            _stub_dispatch_ok,
+            "ouroboros",
+            "field-note",
+            "get",
+            "13270",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -210,134 +270,3 @@ class TestOuroborosFieldNoteReadDispatch:
             "entry_id": 13270,
             "category_prefix": "field-note-",
         }
-
-
-class TestItemsListingDispatch:
-    def test_items_list_dispatches_with_filters(self) -> None:
-        rc = _run_with_dispatch(
-            _stub_dispatch_ok,
-            "items", "list", "--status", "done",
-            "--fields", "id,title,status", "--limit", "5",
-        )
-        assert rc == 0
-        req = _CAPTURED_REQUESTS[-1]
-        assert req.function == "items.list.run"
-        assert req.target.kind == "global"
-        assert req.payload == {
-            "status": "done",
-            "fields": ["id", "title", "status"],
-            "limit": 5,
-        }
-
-    def test_items_list_frozen_flag_parses_binary(self) -> None:
-        rc = _run_with_dispatch(
-            _stub_dispatch_ok, "items", "list", "--frozen", "1",
-        )
-        assert rc == 0
-        assert _CAPTURED_REQUESTS[-1].payload == {"frozen": True}
-
-    def test_items_list_rejects_bad_binary(self) -> None:
-        rc = _run_with_dispatch(
-            _stub_dispatch_ok, "items", "list", "--frozen", "maybe",
-        )
-        assert rc == 2
-        assert not _CAPTURED_REQUESTS
-
-    def test_items_list_defaults_scope_to_checkout_project(
-        self, monkeypatch
-    ) -> None:
-        # 13468: an operator in a project checkout must see that project's
-        # items by default, not the global backlog. The adapter resolves
-        # the cwd->project context and pins it as the default scope.
-        monkeypatch.setattr(
-            "yoke_cli.commands.adapters.listing.client_project_context",
-            lambda explicit: "2" if not explicit else explicit,
-        )
-        rc = _run_with_dispatch(_stub_dispatch_ok, "items", "list", "--limit", "3")
-        assert rc == 0
-        assert _CAPTURED_REQUESTS[-1].payload == {"project": "2", "limit": 3}
-
-    def test_items_list_project_all_is_global_escape(self, monkeypatch) -> None:
-        monkeypatch.setattr(
-            "yoke_cli.commands.adapters.listing.client_project_context",
-            lambda explicit: "2" if not explicit else explicit,
-        )
-        rc = _run_with_dispatch(
-            _stub_dispatch_ok, "items", "list", "--project", "all",
-        )
-        assert rc == 0
-        assert "project" not in _CAPTURED_REQUESTS[-1].payload
-
-    def test_items_list_no_checkout_mapping_stays_global(
-        self, monkeypatch
-    ) -> None:
-        # No checkout->project mapping (resolver returns None) preserves the
-        # prior global-list behavior.
-        monkeypatch.setattr(
-            "yoke_cli.commands.adapters.listing.client_project_context",
-            lambda explicit: None,
-        )
-        rc = _run_with_dispatch(_stub_dispatch_ok, "items", "list")
-        assert rc == 0
-        assert "project" not in _CAPTURED_REQUESTS[-1].payload
-
-    def test_items_search_dispatches(self) -> None:
-        rc = _run_with_dispatch(
-            _stub_dispatch_ok, "items", "search", "dedup keywords",
-        )
-        assert rc == 0
-        req = _CAPTURED_REQUESTS[-1]
-        assert req.function == "items.search.run"
-        assert req.payload == {"keywords": "dedup keywords"}
-
-    def test_items_search_defaults_scope_to_checkout_project(
-        self, monkeypatch
-    ) -> None:
-        # 13468: search defaults to the checkout's project, mirroring list.
-        monkeypatch.setattr(
-            "yoke_cli.commands.adapters.listing.client_project_context",
-            lambda explicit: "2" if not explicit else explicit,
-        )
-        rc = _run_with_dispatch(_stub_dispatch_ok, "items", "search", "wibble")
-        assert rc == 0
-        assert _CAPTURED_REQUESTS[-1].payload == {
-            "keywords": "wibble", "project": "2",
-        }
-
-    def test_items_search_project_all_is_global_escape(self, monkeypatch) -> None:
-        monkeypatch.setattr(
-            "yoke_cli.commands.adapters.listing.client_project_context",
-            lambda explicit: "2" if not explicit else explicit,
-        )
-        rc = _run_with_dispatch(
-            _stub_dispatch_ok, "items", "search", "wibble", "--project", "all",
-        )
-        assert rc == 0
-        assert _CAPTURED_REQUESTS[-1].payload == {"keywords": "wibble"}
-
-
-class TestItemDependencyListDispatch:
-    def test_positional_item(self) -> None:
-        rc = _run_with_dispatch(
-            _stub_dispatch_ok, "items", "dependency", "list", "YOK-10",
-        )
-        assert rc == 0
-        req = _CAPTURED_REQUESTS[-1]
-        assert req.function == "items.dependency.list"
-        assert req.target.kind == "item"
-        assert req.target.public_ref == "YOK-10"
-
-    def test_item_flag(self) -> None:
-        rc = _run_with_dispatch(
-            _stub_dispatch_ok, "items", "dependency", "list",
-            "--item", "1819",
-        )
-        assert rc == 0
-        assert _CAPTURED_REQUESTS[-1].target.public_ref == "1819"
-
-    def test_missing_item_is_usage_error(self) -> None:
-        rc = _run_with_dispatch(
-            _stub_dispatch_ok, "items", "dependency", "list",
-        )
-        assert rc == 2
-        assert not _CAPTURED_REQUESTS

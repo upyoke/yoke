@@ -304,13 +304,13 @@ class TestConductFanOutEntryPath:
             assert needle in context, f"dispatch-context.md missing {needle}"
         for needle in (
             "Implement PREFIX-{N} task {_task_id}",
-            "epic-task body-get --epic {_epic_id} --task-num {_task_id}",
+            "epic-task body-get --epic {_epic_ref} --task-num {_task_id}",
         ):
             assert needle in epic_prompts, f"epic prompts missing {needle}"
         assert "../shared/tester-dispatch-template.md" in epic_prompts
         assert 'DispatchDescriptor(role="tester"' not in epic_prompts
         assert "task-num: {task_num}" in shared
-        assert "review-insert --epic {epic_id} --task-num {task_num}" in shared
+        assert "review-insert --epic {epic_ref} --task-num {task_num}" in shared
         for needle in (
             "Anticipated path coverage (pre-authorized)",
             "_anticipated_paths_block_{_task_id}",

@@ -130,7 +130,7 @@ def test_lane_needed_paths_unions_survey_claims_and_budget(monkeypatch):
         raise AssertionError(function_id)
 
     _patch_dispatch(monkeypatch, router)
-    assert guard.lane_needed_paths(42) == ("a/one.py", "b/two.py", "c/three.py")
+    assert guard.lane_needed_paths("ITEM-42") == ("a/one.py", "b/two.py", "c/three.py")
 
 
 def test_holders_prefer_main_lane_on_same_machine(monkeypatch):
@@ -325,7 +325,7 @@ def test_lane_source_root_prefixes_read_architecture_roots(monkeypatch):
         raise AssertionError(function_id)
 
     _patch_dispatch(monkeypatch, router)
-    assert guard.lane_source_root_prefixes(42) == ("src", "runtime/api")
+    assert guard.lane_source_root_prefixes("ITEM-42") == ("src", "runtime/api")
 
 
 def test_unknown_machine_falls_back_to_self_clear_recipe(monkeypatch):

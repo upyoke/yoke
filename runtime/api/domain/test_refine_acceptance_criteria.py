@@ -76,7 +76,7 @@ def test_entry_does_not_repeat_refine_criteria_check(monkeypatch, workflow, poli
         )
 
     monkeypatch.setattr(gates, "call_dispatcher", relay)
-    assert gates._run_preflight_gates(9702, force=False) == (True, "")
+    assert gates._run_preflight_gates("ITEM-9702", force=False) == (True, "")
     assert all("ac_presence" not in call for call in calls)
     if workflow == "task":
         assert calls == ["advance.preflight.hard_blocks", "workflows.item.get"]

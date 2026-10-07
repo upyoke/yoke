@@ -52,7 +52,7 @@ def test_plan_case_progress_heartbeats_before_submission(
     result = machine_qa_plan_case_execution.execute_plan_machine_case(
         {
             "requirement_id": 77,
-            "item_id": 1919,
+            "public_ref": "ITEM-1919",
             "deployment_run_id": None,
         },
         execution_id="plan-execution",
@@ -104,7 +104,7 @@ def test_plan_case_preserves_local_connection_diagnostics(
         machine_qa_plan_case_execution.MachinePlanCaseDispatchError
     ) as caught:
         machine_qa_plan_case_execution.execute_plan_machine_case(
-            {"requirement_id": 77, "item_id": 1919},
+            {"requirement_id": 77, "public_ref": "ITEM-1919"},
             execution_id="plan-execution",
             ordinal=2,
             actor=ActorContext(actor_id="2", session_id="session"),
