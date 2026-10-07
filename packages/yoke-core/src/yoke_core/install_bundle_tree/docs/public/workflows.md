@@ -34,6 +34,25 @@ yoke workflows version get <workflow> <version> --json
 Publishing a new version affects **new** items only. Migrating an existing
 item's pin is explicit and compatibility-checked.
 
+## Published updates
+
+Yoke publishes new generations of the built-in workflows. A workflow that
+follows the canon (`auto`, the default) takes each one on the next boot;
+publishing a local edit or selecting an older version stops following, and
+updates then wait for an operator. Taking an update merges it with local
+edits and affects **new** items only.
+
+```bash
+yoke workflows canon-status list --pending
+yoke workflows canon-update preview <workflow>
+yoke workflows canon-update apply <workflow> --expected-current-version <current_version>
+yoke workflows canon-update apply-all <workflow>=<current_version> ...
+yoke workflows canon-follow set <workflow> auto|manual
+```
+
+The Workbench **Workflows** page offers the same actions. Detail:
+[reference/db-reference/functions-workflow-canon.md](reference/db-reference/functions-workflow-canon.md).
+
 ## Defaults
 
 Testing and delivery defaults are project-owned. Approval defaults are
