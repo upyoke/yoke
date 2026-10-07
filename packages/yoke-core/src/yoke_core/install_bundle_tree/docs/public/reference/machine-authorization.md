@@ -95,6 +95,10 @@ record your personal decision. Read the returned decision and finish polling
 from the original machine. These operations never accept a caller-supplied
 owner, org, or credential.
 
+On a hosted connection (`https://app.upyoke.com/api/orgs/<slug>`) Platform answers
+both calls from its own code store, and an org admin decides any code waiting
+for that org. See [Hosted org administration](hosted-org-admin.md).
+
 ## Shared schema
 
 The `yoke-contracts` wheel ships `yoke_contracts/machine_authorization.schema.v1.json`,

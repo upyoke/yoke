@@ -30,6 +30,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "models.diff.run": "next-release",
     "models.publish.run": "next-release",
     "models.restore.run": "next-release",
+    "organizations.create": "next-release",
     "models.revisions.run": "next-release",
     "packs.bundle.render": "next-release",
     "projects.environment.list": "next-release",

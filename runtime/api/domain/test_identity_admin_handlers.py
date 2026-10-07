@@ -265,3 +265,34 @@ def test_organization_settings_catalog_projects_closed_fleet_contract():
     assert poll["value_type"] == "int"
     assert poll["minimum"] == 5
     assert "meaning" in poll
+
+
+@pytest.mark.parametrize(
+    ("handler", "function_id", "payload"),
+    [
+        (
+            handle_identity_invite_create,
+            "identity.invite.create",
+            {"email": "pat@example.com"},
+        ),
+        (handle_identity_invite_list, "identity.invite.list", {}),
+        (handle_identity_invite_revoke, "identity.invite.revoke", {"invite_id": 1}),
+    ],
+)
+def test_hosted_tenant_refuses_invites_platform_owns(
+    monkeypatch,
+    handler,
+    function_id,
+    payload,
+):
+    from yoke_core.domain.handlers import identity_invites
+
+    monkeypatch.setattr(
+        identity_invites,
+        "hosted_tenant_container_process",
+        lambda: True,
+    )
+    outcome = handler(_request(function_id, payload))
+    assert outcome.primary_success is False
+    assert outcome.error.code == identity_invites.HOSTED_INVITES_PLATFORM_OWNED
+    assert "yoke setup --connect" in outcome.error.message

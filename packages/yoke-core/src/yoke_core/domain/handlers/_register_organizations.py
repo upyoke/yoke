@@ -1,7 +1,8 @@
-"""Handler registration for the organizations.* read family."""
+"""Handler registration for the organizations.* family."""
 
 from __future__ import annotations
 
+from yoke_core.domain.handlers import organizations_create as _create
 from yoke_core.domain.handlers import organizations_get as _org
 from yoke_core.domain.handlers import organizations_settings as _settings
 
@@ -82,4 +83,20 @@ def register(registry) -> None:
         adapter_status="live",
         claim_required_kind=None,
         ambient_session_required=False,
+    )
+    registry.register(
+        "organizations.create",
+        _create.handle_organizations_create,
+        _create.OrganizationsCreateRequest,
+        _create.OrganizationsCreateResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.organizations_create",
+        target_kinds=["global"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[],
+        adapter_status="live",
+        claim_required_kind=None,
+        ambient_session_required=False,
+        minimum_serving_version="next-release",
     )

@@ -3,6 +3,12 @@
 Org-admin-gated at dispatch (``identity.`` prefix -> ORG scope +
 ``org.admin`` in ``function_authz_scope``). Payload orgs default to the
 universe's identity-card org.
+
+These rows admit sign-ins on a local or self-hosted universe. On a hosted
+tenant Platform owns invites (seat limits included) and answers these same
+function ids on the org's hosted connection, so a call that reaches a
+hosted tenant engine refuses rather than writing an invite Platform never
+sees.
 """
 
 from __future__ import annotations
@@ -14,9 +20,15 @@ from pydantic import BaseModel
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
+    FunctionError,
     HandlerOutcome,
 )
 
+from yoke_contracts.api_urls import HOSTED_PLATFORM_URL
+
+from yoke_core.domain.universe_startup_lock import (
+    hosted_tenant_container_process,
+)
 from yoke_core.domain.handlers.identity_common import (
     caller_actor_id,
     payload_error,
@@ -59,12 +71,34 @@ class InviteRevokeResponse(BaseModel):
     status: str
 
 
+HOSTED_INVITES_PLATFORM_OWNED = "hosted_invites_platform_owned"
+
+
+def _hosted_refusal() -> Optional[HandlerOutcome]:
+    if not hosted_tenant_container_process():
+        return None
+    return HandlerOutcome(
+        primary_success=False,
+        error=FunctionError(
+            code=HOSTED_INVITES_PLATFORM_OWNED,
+            message=(
+                "on a hosted universe Platform owns invites; run `yoke "
+                "identity invite ...` from a machine connected to this org "
+                f"with `yoke setup --connect {HOSTED_PLATFORM_URL}`, whose "
+                "hosted connection Platform answers, or use the org's "
+                "Members page"
+            ),
+        ),
+    )
+
+
 def _parse(model, request: FunctionCallRequest):
     try:
         return model(**(request.payload or {})), None
     except Exception as exc:
         return None, HandlerOutcome(
-            primary_success=False, error=payload_error(str(exc)),
+            primary_success=False,
+            error=payload_error(str(exc)),
         )
 
 
@@ -73,6 +107,9 @@ def handle_identity_invite_create(request: FunctionCallRequest) -> HandlerOutcom
     from yoke_core.domain.actor_permissions import ORG_ROLES, role_id_by_name
     from yoke_core.domain.db_helpers import connect
 
+    hosted = _hosted_refusal()
+    if hosted is not None:
+        return hosted
     parsed, failure = _parse(InviteCreateRequest, request)
     if failure is not None:
         return failure
@@ -97,7 +134,9 @@ def handle_identity_invite_create(request: FunctionCallRequest) -> HandlerOutcom
         target_actor_id: Optional[int] = None
         if parsed.actor:
             target_actor_id, actor_error = resolve_actor_ref(
-                conn, parsed.actor, "$.payload.actor",
+                conn,
+                parsed.actor,
+                "$.payload.actor",
             )
             if actor_error is not None:
                 return HandlerOutcome(primary_success=False, error=actor_error)
@@ -134,6 +173,9 @@ def handle_identity_invite_list(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.actor_invites import InviteError, list_invites
     from yoke_core.domain.db_helpers import connect
 
+    hosted = _hosted_refusal()
+    if hosted is not None:
+        return hosted
     parsed, failure = _parse(InviteListRequest, request)
     if failure is not None:
         return failure
@@ -144,7 +186,9 @@ def handle_identity_invite_list(request: FunctionCallRequest) -> HandlerOutcome:
             return HandlerOutcome(primary_success=False, error=org_error)
         try:
             invites = list_invites(
-                conn, org_id=org_id, status=parsed.status or None,
+                conn,
+                org_id=org_id,
+                status=parsed.status or None,
             )
         except InviteError as exc:
             return HandlerOutcome(
@@ -168,6 +212,9 @@ def handle_identity_invite_revoke(request: FunctionCallRequest) -> HandlerOutcom
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.handlers.identity_common import not_found_error
 
+    hosted = _hosted_refusal()
+    if hosted is not None:
+        return hosted
     parsed, failure = _parse(InviteRevokeRequest, request)
     if failure is not None:
         return failure
@@ -198,6 +245,7 @@ def handle_identity_invite_revoke(request: FunctionCallRequest) -> HandlerOutcom
 
 
 __all__ = [
+    "HOSTED_INVITES_PLATFORM_OWNED",
     "InviteCreateRequest",
     "InviteCreateResponse",
     "InviteListRequest",
