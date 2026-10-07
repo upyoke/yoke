@@ -7,6 +7,7 @@ from yoke_core.domain.handlers import workflows_version_list as _wvl
 from yoke_core.domain.handlers import workflows_versioning as _wv
 from yoke_core.domain.handlers import (
     workflows_canon_follow as _wcf,
+    workflows_canon_status as _wcs,
     workflows_canon_update as _wcu,
 )
 from yoke_core.domain.handlers import workflows_item_posture as _wip
@@ -84,6 +85,21 @@ def register(registry) -> None:
         claim_required_kind=None,
     )
     registry.register(
+        "workflows.canon_status.list",
+        _wcs.handle_workflows_canon_status_list,
+        _wcs.WorkflowCanonStatusListRequest,
+        _wcs.WorkflowCanonStatusListResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.workflows_canon_status",
+        target_kinds=["global"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["immutable_version_read"],
+        adapter_status="live",
+        claim_required_kind=None,
+        minimum_serving_version="next-release",
+    )
+    registry.register(
         "workflows.canon_update.preview",
         _wcu.handle_workflows_canon_update_preview,
         _wcu.WorkflowCanonUpdatePreviewRequest,
@@ -94,7 +110,7 @@ def register(registry) -> None:
         side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=["immutable_version_read"],
-        adapter_status="internal",
+        adapter_status="live",
         claim_required_kind=None,
     )
     registry.register(
@@ -108,7 +124,7 @@ def register(registry) -> None:
         side_effects=["workflow_version_published"],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=["immutable_version_append"],
-        adapter_status="internal",
+        adapter_status="live",
         claim_required_kind=None,
     )
     registry.register(
@@ -122,7 +138,7 @@ def register(registry) -> None:
         side_effects=["workflow_version_published"],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=["immutable_version_append"],
-        adapter_status="internal",
+        adapter_status="live",
         claim_required_kind=None,
     )
     registry.register(
@@ -136,7 +152,7 @@ def register(registry) -> None:
         side_effects=["workflows_canon_follow_update"],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=[],
-        adapter_status="internal",
+        adapter_status="live",
         claim_required_kind=None,
     )
     registry.register(

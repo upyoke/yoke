@@ -175,6 +175,7 @@ def test_turning_following_back_on_adopts_nothing_by_itself(test_db):
     outcome = _set("issue", "auto")
 
     assert outcome.primary_success
+    assert outcome.result_payload["previous_follow"] == "manual"
     after = _canon(test_db)
     assert after["follow"] == "auto"
     assert after["state"] == before["state"] == "update_available"

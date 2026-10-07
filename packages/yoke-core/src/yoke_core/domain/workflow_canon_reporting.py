@@ -16,6 +16,13 @@ from yoke_core.domain.builtin_workflow_canon import (
     recognize,
 )
 
+# The states in which a published generation is waiting to be taken: one for
+# a stock definition, one for a customized definition whose recorded baseline
+# has been overtaken.
+PENDING_CANON_STATES = frozenset(
+    {"update_available", "customized_update_available"}
+)
+
 
 def version_provenance(version_row) -> dict:
     """Where a stored version's content came from, as the dashboard shows it.
@@ -92,4 +99,8 @@ def workflow_canon_status(version_row: Mapping[str, Any]) -> dict:
     return status
 
 
-__all__ = ["version_provenance", "workflow_canon_status"]
+__all__ = [
+    "PENDING_CANON_STATES",
+    "version_provenance",
+    "workflow_canon_status",
+]

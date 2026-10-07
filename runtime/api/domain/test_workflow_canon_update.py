@@ -122,6 +122,10 @@ def test_applying_an_update_the_universe_already_holds_selects_it(test_db):
     assert after["canon_status"]["state"] == "up_to_date"
     assert len(after["versions"]) == version_count
     assert after["current_version"] < before["current_version"]
+    receipt = outcome.result_payload
+    assert receipt["canon_version"] == canon_generations("issue")[-1].canon_version
+    assert receipt["taken"], "the receipt names what the newer generation changed"
+    assert receipt["kept"] == []
 
 
 def test_applying_an_update_the_universe_lacks_publishes_it(test_db):

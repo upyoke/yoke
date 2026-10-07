@@ -50,6 +50,9 @@ class WorkflowCanonUpdateApplyResponse(BaseModel):
     version: int
     version_id: int
     definition_digest: str
+    canon_version: int
+    taken: list[str]
+    kept: list[str]
 
 
 class WorkflowCanonUpdateApplyAllRequest(BaseModel):
@@ -180,7 +183,7 @@ def _apply_one(
     plan, failure = _plan(conn, entry.workflow_id)
     if plan is None:
         return _error("not_found", failure, "$.payload.workflow_id")
-    _workflow, _status, _newest, merged = plan
+    _workflow, _status, newest, merged = plan
     if not merged.clean:
         # Publishing over an unresolved conflict would silently pick a side.
         # The operator resolves it by editing, then publishes.
@@ -214,7 +217,17 @@ def _apply_one(
             )
     except WorkflowRegistryError as exc:
         return _error("incompatible", str(exc), "$.payload")
-    return HandlerOutcome(result_payload=result, primary_success=True)
+    # What the take changed travels with it, so the receipt can say which
+    # generation arrived and which local edits survived it.
+    return HandlerOutcome(
+        result_payload={
+            **result,
+            "canon_version": newest.canon_version,
+            "taken": list(merged.taken),
+            "kept": list(merged.kept),
+        },
+        primary_success=True,
+    )
 
 
 def handle_workflows_canon_update_apply(
