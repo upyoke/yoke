@@ -128,7 +128,8 @@ def _plan_snapshot(
     cursor = conn.execute(
         "SELECT c.id,c.plan_id,c.case_key,c.position,c.method_id,c.instructions,"
         "c.expected_outcome,c.method_config,c.success_policy_id,"
-        "c.success_policy_params,c.host_baselines,c.entry_surface,"
+        "c.success_policy_params,c.host_baselines,c.starting_state,"
+        "c.starting_state_reason,c.entry_surface,"
         "c.required_completion,m.name AS method_name,m.runner_id,"
         "m.required_capability_kinds,m.verdict_path,m.config_contract_id "
         "FROM qa_plan_cases c JOIN qa_methods m ON m.id=c.method_id "
@@ -138,12 +139,23 @@ def _plan_snapshot(
     cases = [
         semantic_row(_row_dict(cursor, raw), CASE_FIELDS) for raw in cursor.fetchall()
     ]
-    if requested:
-        by_key = {str(case["case_key"]): case for case in cases}
-        missing = sorted(set(requested) - set(by_key))
-        if missing:
-            raise LookupError(f"QA plan {plan_id} has no cases: {missing}")
-        cases = [by_key[key] for key in requested]
+    from yoke_contracts.qa_case_starting_state import (
+        StartingStateError,
+        chain_baselines,
+        require_selected_chains,
+    )
+
+    try:
+        chain_baselines(cases)
+        if requested:
+            by_key = {str(case["case_key"]): case for case in cases}
+            missing = sorted(set(requested) - set(by_key))
+            if missing:
+                raise LookupError(f"QA plan {plan_id} has no cases: {missing}")
+            require_selected_chains(cases, requested)
+            cases = [by_key[key] for key in requested]
+    except StartingStateError as exc:
+        raise ValueError(f"QA plan {plan['slug']!r}: {exc}") from exc
     if not cases:
         raise ValueError(f"QA plan {plan_id} has no runnable cases")
     return {"plan": plan, "cases": cases}

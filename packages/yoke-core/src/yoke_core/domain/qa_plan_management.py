@@ -241,6 +241,8 @@ def _validated_cases(cases: list[dict]) -> list[dict]:
                 "success_policy_id": policy_id,
                 "success_policy_params": policy_params,
                 "host_baselines": list(dict.fromkeys(baselines)),
+                "starting_state": raw.get("starting_state"),
+                "starting_state_reason": raw.get("starting_state_reason"),
                 "entry_surface": raw.get("entry_surface"),
                 "required_completion": raw.get("required_completion"),
             }
@@ -292,6 +294,15 @@ def _validated_plan_cases(
             )
         except QaMethodConfigError as exc:
             raise QaPlanError(f"case {case['case_key']!r}: {exc}") from exc
+    from yoke_core.domain.qa_plan_case_store import apply_starting_states
+
+    apply_starting_states(
+        cases,
+        runner_ids={
+            case["method_id"]: str(contracts[case["method_id"]]["runner_id"])
+            for case in cases
+        },
+    )
     return cases
 
 
@@ -310,34 +321,9 @@ def replace_plan_cases(
         f"UPDATE qa_plans SET updated_at={marker} WHERE id={marker}",
         (now, plan_id),
     )
-    conn.execute(f"DELETE FROM qa_plan_cases WHERE plan_id={marker}", (plan_id,))
-    for case in cases:
-        conn.execute(
-            "INSERT INTO qa_plan_cases("
-            "plan_id, case_key, position, method_id, instructions, "
-            "expected_outcome, method_config, success_policy_id, "
-            "success_policy_params, host_baselines, entry_surface, "
-            "required_completion, created_at, updated_at"
-            f") VALUES ({', '.join([marker] * 14)})",
-            (
-                plan_id,
-                case["case_key"],
-                case["position"],
-                case["method_id"],
-                case["instructions"],
-                case["expected_outcome"],
-                _json(case.get("method_config") or {}),
-                case.get("success_policy_id"),
-                _json(case.get("success_policy_params"))
-                if case.get("success_policy_params") is not None
-                else None,
-                _json(case["host_baselines"]),
-                case.get("entry_surface"),
-                case.get("required_completion"),
-                now,
-                now,
-            ),
-        )
+    from yoke_core.domain.qa_plan_case_store import insert_plan_cases
+
+    insert_plan_cases(conn, plan_id=plan_id, cases=cases, stamp=now)
     conn.commit()
     return {"plan_id": int(plan_id), "case_count": len(cases)}
 

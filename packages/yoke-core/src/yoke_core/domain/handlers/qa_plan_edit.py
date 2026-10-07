@@ -25,6 +25,8 @@ class PlanEditCase(BaseModel):
     success_policy_id: Optional[str] = None
     success_policy_params: Optional[Dict[str, Any]] = None
     host_baselines: List[str] = Field(default_factory=list)
+    starting_state: Optional[str] = None
+    starting_state_reason: Optional[str] = None
     entry_surface: Optional[str] = None
     required_completion: Optional[str] = None
 

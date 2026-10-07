@@ -50,6 +50,8 @@ DEFINITION_COLUMNS: tuple[str, ...] = (
     "entry_surface",
     "required_completion",
     "host_baseline",
+    "starting_state",
+    "starting_state_reason",
     "suite_id",
     "success_policy",
     "capability_requirements",

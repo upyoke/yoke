@@ -81,6 +81,8 @@ CREATE TABLE IF NOT EXISTS qa_plan_cases (
     required_completion TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
+    starting_state TEXT,
+    starting_state_reason TEXT,
     UNIQUE(plan_id, case_key),
     UNIQUE(plan_id, position)
 );
@@ -133,6 +135,8 @@ _REQUIREMENT_COLUMNS = (
     ("runner_id", "TEXT"),
     ("verdict_path", "TEXT"),
     ("host_baseline", "TEXT"),
+    ("starting_state", "TEXT"),  # see yoke_contracts.qa_case_starting_state
+    ("starting_state_reason", "TEXT"),
     ("entry_surface", "TEXT"),
     ("required_completion", "TEXT"),
     ("workflow_transition_id", "TEXT"),
@@ -303,6 +307,8 @@ def create_qa_catalog_tables(
         "target_environment_id",
         environment_reference_column_sql(conn),
     )
+    for column in ("starting_state", "starting_state_reason"):
+        _add_column_if_not_exists(conn, "qa_plan_cases", column, "TEXT")
     for column, definition in _REQUIREMENT_COLUMNS:
         _add_column_if_not_exists(conn, "qa_requirements", column, definition)
     for column, definition in _RUN_COLUMNS:

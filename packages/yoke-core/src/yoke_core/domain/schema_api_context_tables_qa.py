@@ -44,6 +44,8 @@ QA_TABLES: dict[str, dict] = {
             ("runner_id", "TEXT"),
             ("verdict_path", "TEXT"),
             ("host_baseline", "TEXT"),
+            ("starting_state", "TEXT"),
+            ("starting_state_reason", "TEXT"),
             ("entry_surface", "TEXT"),
             ("required_completion", "TEXT"),
             ("workflow_transition_id", "TEXT"),

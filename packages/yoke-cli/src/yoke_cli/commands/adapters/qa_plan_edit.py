@@ -48,6 +48,10 @@ CAS and recovery:
   changes. Reopen the command on the latest plan and reapply the intended edit.
   Editor, document-validation, and save failures preserve the temporary JSON.
 
+Machine-run cases declare their starting state: host_baselines, or
+starting_state "inherit" (start as the preceding case left the machine; never
+the first case), or "as_is" with a starting_state_reason.
+
 Flag guidance:
   PLAN_SLUG     required, immutable plan slug
   --project     project slug/id; defaults to checkout or YOKE_PROJECT context
@@ -72,6 +76,7 @@ _CASE_KEYS = (
     "success_policy_id",
     "success_policy_params",
     "host_baselines",
+    *("starting_state", "starting_state_reason"),
     "entry_surface",
     "required_completion",
 )

@@ -167,6 +167,8 @@ REQ_COLUMNS = (
     "runner_id",
     "verdict_path",
     "host_baseline",
+    "starting_state",
+    "starting_state_reason",
     "entry_surface",
     "required_completion",
     "workflow_transition_id",
@@ -192,6 +194,7 @@ _REQ_SELECT = (
     "COALESCE(method_id,''), COALESCE(method_name,''), "
     "COALESCE(runner_id,''), COALESCE(verdict_path,''), "
     "COALESCE(host_baseline,''), "
+    "COALESCE(starting_state,''), COALESCE(starting_state_reason,''), "
     "COALESCE(entry_surface,''), COALESCE(required_completion,''), "
     "COALESCE(workflow_transition_id,''), "
     "COALESCE(instructions,''), COALESCE(expected_outcome,''), "

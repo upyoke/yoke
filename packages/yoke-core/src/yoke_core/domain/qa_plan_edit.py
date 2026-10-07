@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_one, query_rows
+from yoke_core.domain.qa_plan_case_store import insert_plan_cases
 from yoke_core.domain.qa_plan_management import (
     QaPlanError,
     _json,
@@ -44,6 +45,8 @@ def _case_document(row: Any) -> dict[str, Any]:
             None,
         ),
         "host_baselines": _decode(row["host_baselines"], []),
+        "starting_state": row["starting_state"],
+        "starting_state_reason": row["starting_state_reason"],
         "entry_surface": row["entry_surface"],
         "required_completion": row["required_completion"],
     }
@@ -57,55 +60,13 @@ def _current_cases(conn: Any, plan_id: int) -> list[dict[str, Any]]:
             conn,
             "SELECT case_key, position, method_id, instructions, "
             "expected_outcome, method_config, success_policy_id, "
-            "success_policy_params, host_baselines, entry_surface, "
+            "success_policy_params, host_baselines, starting_state, "
+            "starting_state_reason, entry_surface, "
             f"required_completion FROM qa_plan_cases WHERE plan_id={marker} "
             "ORDER BY position",
             (plan_id,),
         )
     ]
-
-
-def _insert_cases(
-    conn: Any,
-    *,
-    marker: str,
-    plan_id: int,
-    cases: list[dict[str, Any]],
-    stamp: str,
-) -> None:
-    conn.execute(
-        f"DELETE FROM qa_plan_cases WHERE plan_id={marker}",
-        (plan_id,),
-    )
-    for case in cases:
-        conn.execute(
-            "INSERT INTO qa_plan_cases("
-            "plan_id, case_key, position, method_id, instructions, "
-            "expected_outcome, method_config, success_policy_id, "
-            "success_policy_params, host_baselines, entry_surface, "
-            "required_completion, created_at, updated_at"
-            f") VALUES ({', '.join([marker] * 14)})",
-            (
-                plan_id,
-                case["case_key"],
-                case["position"],
-                case["method_id"],
-                case["instructions"],
-                case["expected_outcome"],
-                _json(case["method_config"]),
-                case["success_policy_id"],
-                (
-                    _json(case["success_policy_params"])
-                    if case["success_policy_params"] is not None
-                    else None
-                ),
-                _json(case["host_baselines"]),
-                case.get("entry_surface"),
-                case.get("required_completion"),
-                stamp,
-                stamp,
-            ),
-        )
 
 
 def edit_plan(
@@ -254,9 +215,8 @@ def edit_plan(
                 f"QA plan {slug!r} changed while the edit was being saved; "
                 "reopen the editor from the latest plan"
             )
-        _insert_cases(
+        insert_plan_cases(
             conn,
-            marker=marker,
             plan_id=int(plan["id"]),
             cases=normalized_cases,
             stamp=stamp,
