@@ -83,14 +83,15 @@ def test_member_project_authorizes_every_plan_leg_and_requirement(
     requirement_id = materialized["created_requirement_ids"][0]
     context = get_case_execution_context(conn, requirement_id=requirement_id)
     assert (context["project_id"], context["project"]) == (
-        release["consumer_id"], CONSUMER_PROJECT
+        release["consumer_id"],
+        CONSUMER_PROJECT,
     )
-    assert requirement_storage_owner(conn, requirement_id)["project"] == CONSUMER_PROJECT
-    assert materialized["candidate_revision"] == str(
-        conn.execute(
-            "SELECT release_lineage FROM deployment_runs WHERE id=%s", (RUN,)
-        ).fetchone()[0]
+    assert (
+        requirement_storage_owner(conn, requirement_id)["project"] == CONSUMER_PROJECT
     )
+    # A bound member's candidate is the consumer commit the run bound, not
+    # the carrier's release lineage.
+    assert materialized["candidate_revision"] == release["consumer_tip"]
     browser_target = resolve_case_deployment_under_test(
         conn, requirement_id=requirement_id, project_id=release["consumer_id"]
     )
@@ -203,9 +204,10 @@ def test_member_project_authorizes_every_plan_leg_and_requirement(
         },
     )
     finish_plan_execution(conn, execution, state="completed", reason="test-complete")
-    assert [row["requirement_id"] for row in list_activity(
-        conn, project=CONSUMER_PROJECT, deployment_run_id=RUN
-    )] == [requirement_id]
+    assert [
+        row["requirement_id"]
+        for row in list_activity(conn, project=CONSUMER_PROJECT, deployment_run_id=RUN)
+    ] == [requirement_id]
     assert not list_activity(conn, project="yoke", deployment_run_id=RUN)
     assert deployment_qa_stage_status(
         conn, run_id=RUN, stage_name=STAGE, member_item_id=CONSUMER_ITEM_ID
