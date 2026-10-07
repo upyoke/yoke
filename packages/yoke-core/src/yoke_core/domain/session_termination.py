@@ -6,7 +6,8 @@ from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_message_store import cancel_open_recipients
-from yoke_core.domain.session_message_types import parse_timestamp
+from yoke_core.domain.session_message_types import parse_timestamp, utc_now
+from yoke_core.domain.session_resume_in_flight import resume_in_flight
 from yoke_core.domain.session_operator_authority import (
     require_operator_or_steering_authority,
     session_control_target,
@@ -19,6 +20,37 @@ from yoke_core.domain.sessions_render_end import end_session
 
 #: Recorded on a delivery attempt closed by deliberate termination.
 TERMINATED_RESULT_CODE = "session_terminated"
+
+#: Termination refused because a resume already answered the recorded exit.
+RESUME_IN_FLIGHT_CODE = "TERMINATION_RESUME_IN_FLIGHT"
+
+#: The CLI flag that terminates through an in-flight resume on purpose.
+RESUME_OVERRIDE_FLAG = "--allow-resume-in-flight"
+
+
+def _refuse_resuming_session(conn: Any, target: dict[str, Any]) -> None:
+    """Refuse to kill a worker a wake is already bringing back.
+
+    A headless worker's native exits between turns; the next message
+    resumes it from its transcript. The recorded exit stays on the row until
+    that resumed process stamps activity, so in that window the worker reads
+    as dead while it is starting. Terminating it then destroys a live worker.
+    """
+    session_id = str(target["session_id"])
+    resume = resume_in_flight(conn, session_id, now=utc_now())
+    if resume is None:
+        return
+    exited = target.get("native_process_gone_at")
+    after = f" after its recorded native exit at {exited}" if exited else ""
+    raise SessionError(
+        RESUME_IN_FLIGHT_CODE,
+        f"Session {session_id} is resuming, not dead: {resume.describe()}"
+        f"{after}. A headless worker's process exits between turns and the "
+        "next message resumes it from its transcript. Message it instead "
+        f"(`yoke say --session {session_id} --stdin`). Terminate only with "
+        "evidence it cannot resume, or to restaff it deliberately, by "
+        f"re-running with {RESUME_OVERRIDE_FLAG}.",
+    )
 
 
 def _p(conn: Any) -> str:
@@ -94,8 +126,13 @@ def terminate_session(
     actor_id: int,
     caller_session_id: str,
     reason: str,
+    allow_resume_in_flight: bool = False,
 ) -> dict[str, Any]:
-    """End, silence, and permanently make one session non-wakeable."""
+    """End, silence, and permanently make one session non-wakeable.
+
+    A session a wake is resuming is refused unless ``allow_resume_in_flight``
+    says the caller means to kill it anyway.
+    """
     termination_reason = reason.strip()
     if not termination_reason:
         raise SessionError(
@@ -122,6 +159,9 @@ def terminate_session(
             "reap_state": str(reap[0]) if reap is not None else "unavailable",
             "deduplicated": True,
         }
+
+    if not allow_resume_in_flight:
+        _refuse_resuming_session(conn, target)
 
     now = _now_iso()
     marker = _p(conn)
@@ -166,6 +206,7 @@ def terminate_session(
             "cancelled_recipient_count": cancelled,
             "reap_state": reap_state,
             "was_ended": was_ended,
+            "allow_resume_in_flight": allow_resume_in_flight,
         },
     )
     return {
@@ -176,4 +217,8 @@ def terminate_session(
     }
 
 
-__all__ = ["terminate_session"]
+__all__ = [
+    "RESUME_IN_FLIGHT_CODE",
+    "RESUME_OVERRIDE_FLAG",
+    "terminate_session",
+]

@@ -71,7 +71,10 @@ def test_process_gone_holder_is_actionable_without_offering_a_wake(steering_scop
     holder = next(row for row in report.idle if row.session_id == WORKER_SESSION)
     assert holder.native_process_gone is True
     body = report_body(report)
-    assert "process gone, claims held — terminate deliberately if dead" in body
+    assert (
+        "process gone, claims held — this surface cannot resume by message; "
+        "terminate deliberately if dead"
+    ) in body
     holder_line = next(line for line in body.splitlines() if WORKER_SESSION in line)
     assert "wake `" not in holder_line
 
@@ -208,8 +211,8 @@ def test_a_sweep_contained_holder_is_named_rather_than_called_idle(steering_scop
     steering_scope.execute(
         "UPDATE harness_sessions SET "
         "native_process_gone_at='2026-08-26T12:01:00Z', "
-        "native_process_gone_evidence='{\"containment_reason\": "
-        "\"registration_timeout\"}' WHERE session_id=%s",
+        'native_process_gone_evidence=\'{"containment_reason": '
+        '"registration_timeout"}\' WHERE session_id=%s',
         (WORKER_SESSION,),
     )
     steering_scope.commit()

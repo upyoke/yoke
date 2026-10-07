@@ -9,6 +9,7 @@ module decides only who the holders are.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
 
 from yoke_contracts.public_ref import format_item_ref
@@ -21,6 +22,11 @@ from yoke_core.domain.session_tool_call_projections import (
 from yoke_core.domain.session_reclaim_progress import parse_stamp
 from yoke_core.domain.session_native_process_observation import (
     current_native_process_observation,
+)
+from yoke_core.domain.session_message_types import parse_timestamp
+from yoke_core.domain.session_resume_in_flight import (
+    resumable_from_transcript,
+    resumes_in_flight,
 )
 from yoke_core.domain.sessions_holdings_claim_facts import clear_failed_read
 from yoke_core.domain.steering_fleet_report_detectors import age_seconds
@@ -53,6 +59,12 @@ class ClaimHolder:
     contained_reason: str = ""
     #: A turn stopped after starting a call whose completion never arrived.
     call_interrupted: bool = False
+    #: When a wake that answered the recorded exit started. A resuming
+    #: holder is not a dead one, so it carries no process-gone stamp.
+    resume_started_at: str = ""
+    #: The holder's own surface resumes a stopped native from its transcript
+    #: when messaged (its declared ``message_stopped`` operation).
+    resumable_from_transcript: bool = False
 
     @property
     def requires_immediate_alarm(self) -> bool:
@@ -65,6 +77,37 @@ class ClaimHolder:
     @property
     def contained_by_sweep(self) -> bool:
         return bool(self.contained_reason)
+
+    @property
+    def resuming(self) -> bool:
+        return bool(self.resume_started_at)
+
+    def process_phrase(self) -> str:
+        """What the holder's process is doing and what a seat does about it.
+
+        Empty for a live process; the caller decides whether quiet makes
+        that worth a line. None of these states is evidence for terminating
+        a worker that a message would bring back.
+        """
+        if self.resuming:
+            return (
+                f"resuming now (wake started {self.resume_started_at}, after "
+                "its recorded exit) — not dead; let it start"
+            )
+        if self.contained_by_sweep:
+            # Not a worker that went quiet: its own machine ended it.
+            return f"contained by sweep: {self.contained_reason}, claims held"
+        if not self.native_process_gone:
+            return ""
+        if self.resumable_from_transcript:
+            return (
+                "idle, process exited — message it to resume from transcript "
+                f"`yoke say --item {self.public_ref} --stdin`"
+            )
+        return (
+            "process gone, claims held — this surface cannot resume by "
+            "message; terminate deliberately if dead"
+        )
 
 
 def _contained_reason(process: dict[str, Any]) -> str:
@@ -110,6 +153,8 @@ def _held_item_rows(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
             "hs.turn_posture_at AS turn_posture_at, "
             "hs.native_process_gone_at AS native_process_gone_at, "
             "hs.native_process_gone_evidence AS native_process_gone_evidence, "
+            "hs.executor_surface AS executor_surface, "
+            "hs.executor_version AS executor_version, "
             "EXISTS(SELECT 1 FROM session_launches l "
             "WHERE l.registered_session_id = hs.session_id) AS launch_recorded "
             f"{open_call} "
@@ -142,16 +187,28 @@ def claim_holders(
     gone as an idle worker re-fires the same false alarm on every pass.
     """
     holders = []
-    for row in _held_item_rows(conn, project_id=project_id):
+    rows = _held_item_rows(conn, project_id=project_id)
+    processes = {
+        str(row["session_id"]): current_native_process_observation(
+            row, landing_wait=waiting_on_landing(row)
+        )
+        or {}
+        for row in rows
+    }
+    # Only a recorded exit can be answered by a resume, so a fleet with no
+    # exit on record pays nothing beyond its one holder read.
+    resumes = resumes_in_flight(
+        conn,
+        (session_id for session_id, process in processes.items() if process),
+        now=parse_timestamp(now) or datetime.now(timezone.utc),
+    )
+    for row in rows:
         last_activity = str(row.get("last_tool_call_at") or row.get("claimed_at") or "")
         mode = str(row.get("mode") or "")
-        process = (
-            current_native_process_observation(
-                row,
-                landing_wait=waiting_on_landing(row),
-            )
-            or {}
-        )
+        process = processes[str(row["session_id"])]
+        resume = resumes.get(str(row["session_id"]))
+        if resume is not None:
+            process = {}
         call_start = parse_stamp(row.get(OPEN_TOOL_CALL_COLUMN))
         stopped_at = parse_stamp(row.get("turn_posture_at"))
         interrupted = (
@@ -176,6 +233,10 @@ def claim_holders(
                 contained_reason=_contained_reason(process),
                 hand_started=not bool(row.get("launch_recorded")),
                 call_interrupted=interrupted,
+                resume_started_at=resume.started_at if resume else "",
+                resumable_from_transcript=resumable_from_transcript(
+                    row.get("executor_surface"), row.get("executor_version")
+                ),
             )
         )
     return tuple(holders)

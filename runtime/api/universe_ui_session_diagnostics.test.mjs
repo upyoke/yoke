@@ -172,7 +172,7 @@ test("process-gone evidence outranks age and tells the operator how to act", () 
   assert.deepEqual(health, {
     state: "process-gone",
     label: "process gone",
-    detail: "claims held — terminate deliberately if dead",
+    detail: "claims held; this surface cannot resume by message — terminate deliberately if dead",
   });
   const rendered = card(row);
   assert.equal(byClass(rendered, "session-status-pill")[0].textContent, "process gone");
@@ -182,7 +182,7 @@ test("process-gone evidence outranks age and tells the operator how to act", () 
   // rather than a second line of prose under the card.
   assert.equal(
     statusExplanation(rendered),
-    "claims held — terminate deliberately if dead",
+    "claims held; this surface cannot resume by message — terminate deliberately if dead",
   );
   assert.equal(byClass(rendered, "session-health-detail").length, 0);
 });

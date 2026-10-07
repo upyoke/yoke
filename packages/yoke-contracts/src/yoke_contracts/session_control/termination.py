@@ -11,6 +11,9 @@ class SessionTerminateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     session_id: str = Field(min_length=1, max_length=255)
     reason: str = Field(min_length=1, max_length=2000)
+    #: Terminate even while a wake is resuming the session. Without it the
+    #: control plane refuses, because a resuming worker is not a dead one.
+    allow_resume_in_flight: bool = False
 
     @field_validator("reason")
     @classmethod

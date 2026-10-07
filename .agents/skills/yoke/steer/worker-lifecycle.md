@@ -22,6 +22,19 @@ Workers never acquire or release either half. Do not defer these rules.
   parked, in-flight, or merge-queue-landing worker is not terminated or
   restaffed for being quiet; verify the recorded reason, then resume it
   once its blocker actually clears.
+- **An exited worker between turns is normal, not dead.** A headless worker
+  runs one native turn at a time: its process exits when the turn ends, and
+  the next message resumes it from its transcript in a new process. The
+  fleet report says which state a quiet holder is in, and none of them is a
+  reason to terminate:
+  - *idle, process running — message it*: the native is alive; message it.
+  - *idle, process exited — message it to resume from transcript*: send the
+    message; that is the resume.
+  - *resuming now*: a wake started after the recorded exit; let it start.
+  Terminate only with evidence the worker cannot resume — a stranded
+  session, a resume that died, or no answer after a resume that delivered.
+  `yoke sessions terminate` refuses a session a wake is resuming as
+  `TERMINATION_RESUME_IN_FLIGHT`; read the refusal before overriding it.
 
 ## 1. Encode dependency edges before frontier availability
 
@@ -172,8 +185,10 @@ claim — is the one shape that still collapses; it is told so loudly and report
 that completion as a substantive update instead.
 
 `yoke sessions terminate` is reserved for an unresponsive worker, a restaff
-onto a different model (rule 9), or explicit cleanup. In those cases, resolve
-the full session id from the launch that staffed the item, then terminate it:
+onto a different model (rule 9), or explicit cleanup. A worker whose process
+exited between turns is not unresponsive until a message has failed to
+resume it. In those cases, resolve the full session id from the launch that
+staffed the item, then terminate it:
 
 ```text
 yoke sessions terminate {WORKER_SESSION_ID} --reason "PREFIX-N unresponsive cleanup"
@@ -277,6 +292,10 @@ work that still has implementation or verification left to do.
    yoke sessions terminate {WORKER_SESSION_ID} --reason "restaff PREFIX-N onto {_model}: <why>"
    yoke claims work holder-get PREFIX-N
    ```
+
+   A worker a wake is resuming refuses as `TERMINATION_RESUME_IN_FLIGHT`.
+   A restaff is a deliberate kill, so re-run that termination with
+   `--allow-resume-in-flight` once its checkpoint has landed.
 
    The holder read must show no live holder before you launch.
 

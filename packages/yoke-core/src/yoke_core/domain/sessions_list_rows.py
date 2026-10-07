@@ -18,6 +18,10 @@ from yoke_core.domain.session_list_fields import usage_fields
 from yoke_core.domain.session_native_process_observation import (
     current_native_process_observation,
 )
+from yoke_core.domain.session_resume_in_flight import (
+    native_process_projection,
+    resumes_in_flight,
+)
 from yoke_core.domain.sessions_holdings_claim_facts import (
     ITEM_AWAITING_LANDING_KEY,
 )
@@ -99,6 +103,11 @@ def render_session_roster_rows(
             for row in page
             if row.get("current_item_id")
         ),
+    )
+    resumes = resumes_in_flight(
+        conn,
+        (str(row["session_id"]) for row in page if row.get("native_process_gone_at")),
+        now=datetime.now(timezone.utc),
     )
     result: List[Dict[str, Any]] = []
     empty_holdings = {
@@ -183,9 +192,14 @@ def render_session_roster_rows(
                 ),
                 "workspace": row.get("workspace"),
                 "offered_at": row.get("offered_at"),
-                "native_process": current_native_process_observation(
-                    row,
-                    landing_wait=landing_wait,
+                "native_process": native_process_projection(
+                    current_native_process_observation(
+                        row,
+                        landing_wait=landing_wait,
+                    ),
+                    resume=resumes.get(session_id),
+                    surface=row.get("executor_surface"),
+                    version=row.get("executor_version"),
                 ),
                 "ended_at": row.get("ended_at"),
                 "terminated_at": row.get("terminated_at"),

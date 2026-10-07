@@ -76,6 +76,36 @@ function selfParkedStatus(row) {
   };
 }
 
+// A recorded native exit is not a dead worker. A headless worker's process
+// exits between turns and the next message resumes it from its transcript,
+// so the card says which of the three it is and never offers termination
+// for a worker a message would bring back.
+const PROCESS_STATES = new Set(["resuming", "process-exited", "process-gone"]);
+
+function processHealth(process) {
+  if (!process) return null;
+  if (process.state === "resuming") {
+    return {
+      state: "resuming",
+      label: "resuming",
+      detail: "a wake is resuming it from its transcript — not dead; let it start",
+    };
+  }
+  if (process.state !== "gone") return null;
+  if (process.resumable_from_transcript) {
+    return {
+      state: "process-exited",
+      label: "process exited",
+      detail: "idle between turns, claims held — message it to resume from transcript",
+    };
+  }
+  return {
+    state: "process-gone",
+    label: "process gone",
+    detail: "claims held; this surface cannot resume by message — terminate deliberately if dead",
+  };
+}
+
 // Health is what the session's own record says about its quiet, and the three
 // answers are not degrees of one another. A session gated behind another item
 // or holding its turn open is waiting by declaration and nothing is wrong with
@@ -90,13 +120,8 @@ export function sessionHealthState(row, now = Date.now()) {
   if (!(holdings.length || (Array.isArray(row.claims) && row.claims.length))) {
     return null;
   }
-  if (row.native_process && row.native_process.state === "gone") {
-    return {
-      state: "process-gone",
-      label: "process gone",
-      detail: "claims held — terminate deliberately if dead",
-    };
-  }
+  const process = processHealth(row.native_process);
+  if (process) return process;
   if (!pastStalenessWindow(row, now)) return null;
   const wait = row.declared_wait;
   if (wait) return declaredWaitStatus(wait);
@@ -141,7 +166,7 @@ export function sessionPrimaryStatus(row, now = Date.now()) {
     return carrying({ state: "ended", label: "ended", detail: null });
   }
   const health = sessionHealthState(row, now);
-  if (health && health.state === "process-gone") return carrying(health);
+  if (health && PROCESS_STATES.has(health.state)) return carrying(health);
   const parked = selfParkedStatus(row);
   if (parked) return carrying(parked);
   if (health) return carrying(health);

@@ -25,7 +25,8 @@ _HOLDS_ITEM = (
 
 #: Row shape shared by both query shapes.
 _SELECT = (
-    "SELECT s.session_id, s.executor, s.executor_surface, s.model, "
+    "SELECT s.session_id, s.executor, s.executor_surface, s.executor_version, "
+    "s.model, "
     "s.reasoning_effort, s.context_window_tokens, s.requested_model, "
     "s.usage_totals, "
     "s.presentation_surface, s.presentation_state, s.presentation_mode, "

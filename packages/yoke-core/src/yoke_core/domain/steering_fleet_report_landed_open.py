@@ -98,7 +98,11 @@ class LandedItem:
     #: The resolved closing flow is active; an absent/disabled flow cannot deliver.
     completion_flow_available: bool = False
     holder_native_process_gone: bool = False
-    holder_contained_reason: str = ""
+    #: The holder's process state in the shared holder wording, or ``""``
+    #: while its process is live.
+    holder_process_phrase: str = ""
+    #: A message resumes the holder's exited native from its transcript.
+    holder_resumable: bool = False
 
     @property
     def delivery_wait(self) -> bool:
@@ -140,10 +144,8 @@ def holder_phrase(entry: LandedItem, *, idle_after_seconds: int | None = None) -
     if not entry.holder_session_id:
         return "no live holder"
     held = f"held by {entry.holder_session_id}"
-    if entry.holder_native_process_gone:
-        if entry.holder_contained_reason:
-            return f"{held}, contained by sweep: {entry.holder_contained_reason}, claims held"
-        return f"{held}, process gone, claims held — terminate deliberately if dead"
+    if entry.holder_process_phrase:
+        return f"{held}, {entry.holder_process_phrase}"
     if _holder_is_quiet(entry, idle_after_seconds):
         quiet = f"quiet {entry.holder_idle_seconds // 60}m"
         parked = ", parked" if entry.holder_parked else ""
@@ -177,6 +179,8 @@ def landed_recovery(entry: LandedItem, *, idle_after_seconds: int | None = None)
     """
     command = close_out_command(entry.public_ref, workflow_id=entry.workflow_id)
     if entry.holder_native_process_gone:
+        if entry.holder_resumable:
+            return f"message the holder `yoke say --item {entry.public_ref} --stdin`"
         return f"finish close-out with `{command}` once the claim is free"
     if entry.status == "release" and not entry.completion_flow_available:
         return (
@@ -283,7 +287,8 @@ def landed_without_closeout(
                     item_id in flows and flows[item_id].flow in active_flows
                 ),
                 holder_native_process_gone=bool(holder and holder.native_process_gone),
-                holder_contained_reason=holder.contained_reason if holder else "",
+                holder_process_phrase=holder.process_phrase() if holder else "",
+                holder_resumable=bool(holder and holder.resumable_from_transcript),
             )
         )
     return tuple(
