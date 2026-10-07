@@ -51,6 +51,12 @@ Compose labels protect unrelated workloads; PID start times protect reused
 process ids; service inventory checks protect against deleted definitions whose
 jobs remain loaded. A failed prerequisite preserves its diagnostic in the
 operation receipt, and a partial restore cannot establish a new baseline.
+On macOS a booted iOS Simulator device is such a writer: it runs from the
+home's CoreSimulator device set and repopulates it through the clear, so the
+reset reaps its device tree first. A restore that stops names each unrestored
+entry with a bounded, printable excerpt of its copier stderr
+(`restore_state.entry_errors`), because the scratch log holding that stderr is
+removed when the reset program exits.
 
 Linux golden capture proves its own reset roundtrip and sealed probes, starts
 the fixture desktop through xrdp, validates a non-blank screenshot, and ends the
