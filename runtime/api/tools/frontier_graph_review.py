@@ -228,9 +228,10 @@ def _seed_item(conn, node: dict, pin: tuple) -> None:
         run_id = f"fgr-run-{ref}-{environment}"
         conn.execute(
             "INSERT INTO deployment_runs (id, project_id, flow, status, target_tier, "
-            "target_environment_id, created_at, started_at, current_stage) "
-            "VALUES (%s,%s,%s,%s,'persistent',%s,%s,%s,'deploy') ON CONFLICT (id) DO UPDATE SET "
-            "status=excluded.status, created_at=excluded.created_at",
+            "target_environment_id, created_at, started_at, completed_at, current_stage) "
+            "VALUES (%s,%s,%s,%s,'persistent',%s,%s,%s,%s,'deploy') "
+            "ON CONFLICT (id) DO UPDATE SET status=excluded.status, "
+            "created_at=excluded.created_at, completed_at=excluded.completed_at",
             (
                 run_id,
                 project_id,
@@ -239,6 +240,8 @@ def _seed_item(conn, node: dict, pin: tuple) -> None:
                 _environment_id(project_id, environment),
                 _stamp(minutes=40 - index * 10),
                 _stamp(minutes=40 - index * 10),
+                # A finished run is shown only once it records when it finished.
+                _stamp(minutes=30 - index * 10) if outcome == "✓" else None,
             ),
         )
         conn.execute(
