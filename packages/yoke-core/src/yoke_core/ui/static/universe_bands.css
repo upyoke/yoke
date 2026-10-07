@@ -50,20 +50,30 @@
   --work-band-tone: var(--yoke-muted);
   margin-top: var(--yoke-band-gap);
 }
+/* Each band takes its stage tone from the theme, the same token the
+   Waiting graph paints its tiles' left edges with. */
 .universe-app-root .work-band-waiting {
-  --work-band-tone: var(--yoke-warn);
+  --work-band-tone: var(--yoke-stage-waiting);
+}
+.universe-app-root .work-band-hold {
+  --work-band-tone: var(--yoke-stage-hold);
+}
+.universe-app-root .work-band-hold .work-band-rule {
+  height: 0;
+  background: none;
+  border-top: 1px dashed var(--yoke-border);
 }
 .universe-app-root .work-band-ready {
-  --work-band-tone: var(--yoke-accent);
+  --work-band-tone: var(--yoke-stage-ready);
 }
 .universe-app-root .work-band-active {
-  --work-band-tone: var(--yoke-run);
+  --work-band-tone: var(--yoke-stage-active);
 }
 .universe-app-root .work-band-release {
-  --work-band-tone: #7c3aed;
+  --work-band-tone: var(--yoke-stage-release);
 }
 .universe-app-root .work-band-done {
-  --work-band-tone: var(--yoke-good);
+  --work-band-tone: var(--yoke-stage-done);
 }
 .universe-app-root .work-band-summary {
   gap: 8px;

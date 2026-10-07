@@ -144,6 +144,28 @@ export class FakeNode extends EventTarget {
     this.attributes.delete(name);
   }
 
+  // The Popover API, as far as a test reads it: open state, the toggle
+  // event a real popover fires, and `:popover-open` for `matches`.
+  showPopover() {
+    this.popoverOpen = true;
+    this.dispatchEvent(Object.assign(new Event("toggle"), { newState: "open" }));
+  }
+
+  hidePopover() {
+    if (!this.popoverOpen) return;
+    this.popoverOpen = false;
+    this.dispatchEvent(Object.assign(new Event("toggle"), { newState: "closed" }));
+  }
+
+  matches(selector) {
+    return selector === ":popover-open" && Boolean(this.popoverOpen);
+  }
+
+  // No layout engine: every box is empty at the origin.
+  getBoundingClientRect() {
+    return { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };
+  }
+
   focus() {
     this.ownerDocument.activeElement = this;
   }
@@ -212,6 +234,9 @@ export class FakeDocument extends EventTarget {
     this.defaultView = new FakeWindow();
     this.activeElement = null;
     this.head = new FakeNode(this, "head");
+    this.documentElement = Object.assign(new FakeNode(this, "html"), {
+      clientWidth: 1280, clientHeight: 800,
+    });
     this.body = new FakeNode(this, "body");
   }
 

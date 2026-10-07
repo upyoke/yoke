@@ -9,7 +9,7 @@ import {
   claimingSession, descendantText, workbenchClient,
 } from "./universe_ui_workbench_test_support.mjs";
 
-async function waitingCard(t, overrides) {
+async function bandCard(t, bandKey, overrides) {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -19,14 +19,24 @@ async function waitingCard(t, overrides) {
   const mounted = mountUniverseApp(root, { client: workbenchClient(overrides) });
   t.after(() => mounted.unmount());
   await settle();
-  const waiting = byClass(root, "work-band-waiting")[0];
-  return byClass(waiting, "work-item-card").find((card) => (
+  const band = byClass(root, `work-band-${bandKey}`)[0];
+  return byClass(band, "work-item-card").find((card) => (
     byClass(card, "work-item-card-ref")[0].textContent === claimingSession().current_item
   ));
 }
 
+function blockedRow(blocker, why) {
+  return {
+    item_id: claimingSession().current_item,
+    project_id: 1,
+    project: "yoke",
+    why,
+    ...(blocker ? { blocking_item: blocker } : {}),
+  };
+}
+
 test("an unavailable owner's pill names the owner condition and retains its reason", async (t) => {
-  const card = await waitingCard(t, {
+  const card = await bandCard(t, "hold", {
     "sessions.list": { rows: [{
       ...claimingSession(), native_process: { state: "gone" },
     }] },
@@ -41,24 +51,33 @@ test("an unavailable owner's pill names the owner condition and retains its reas
       + "Release the claim or terminate the session to free this item.");
 });
 
-for (const named of [true, false]) {
-  test(`a dependency pill ${named ? "names its blocker" : "names an unnamed dependency"}`, async (t) => {
-    const itemRef = claimingSession().current_item;
-    const blockerRef = `${itemRef.split("-")[0]}-${Number(itemRef.split("-")[1]) + 1}`;
-    const card = await waitingCard(t, {
-      "frontier.list": {
-        ready_rows: [],
-        blocked_rows: [{
-          item_id: itemRef,
-          project_id: 1,
-          project: "yoke",
-          why: "An upstream fact is unsatisfied.",
-          ...(named ? { blocking_item: blockerRef } : {}),
-        }],
-      },
+for (const [rows, label] of [
+  [[blockedRow("YOK-10", "Waits on YOK-99.")], "Waiting for YOK-10"],
+  [[blockedRow("YOK-10", "first"), blockedRow("YOK-11", "second")], "Waiting for 2 items"],
+]) {
+  test(`a dependency pill reads "${label}" from the blocked rows' own items`, async (t) => {
+    // Claimed, so the card is drawn in Active with its reason still on it.
+    const card = await bandCard(t, "active", {
+      "frontier.list": { ready_rows: [], blocked_rows: rows, dependency_edges: [] },
+      "sessions.list": { rows: [claimingSession()] },
     });
     const pill = byClass(card, "item-status-pill")[0];
-    assert.equal(descendantText(pill), named ? `Waiting for ${blockerRef}` : "Waiting on dependency");
+    assert.equal(descendantText(pill), label);
     assert.ok(pill.classList.contains("is-dependency"));
+    const copy = byClass(card, "item-status-detail-copy")[0].textContent;
+    for (const row of rows) assert.match(copy, new RegExp(row.why.replace(".", "\\.")));
   });
 }
+
+test("a wait that names no blocking item is held, not a dependency", async (t) => {
+  const card = await bandCard(t, "hold", {
+    "frontier.list": {
+      ready_rows: [],
+      blocked_rows: [blockedRow(null, "Idea body is title-only.")],
+      dependency_edges: [],
+    },
+  });
+  const pill = byClass(card, "item-status-pill")[0];
+  assert.equal(descendantText(pill), "Held");
+  assert.ok(pill.classList.contains("is-blocked"));
+});

@@ -77,7 +77,7 @@ function claimedEverywhereClient() {
       item(12, "Wait on the schema", { blocked: true, blocked_reason: "Needs the schema." }),
       item(13, "Hold the freeze", { frozen: true, blocked_reason: "Frozen for review." }),
     ] },
-    "frontier.list": { ready_rows: [], blocked_rows: [] },
+    "frontier.list": { ready_rows: [], blocked_rows: [], dependency_edges: [] },
     "sessions.list": { rows: [
       holder("s-active", "YOK-9", "Ship typed workflows"),
       holder("s-release", "YOK-11", "Land the release band", { mode: "parked" }),
@@ -94,7 +94,7 @@ test("every claimed card carries its holder, whichever band drew it", async (t) 
     .some((node) => node.textContent === "YOK-9"));
   assert.ok(byClass(band(root, "release"), "work-item-card-ref")
     .some((node) => node.textContent === "YOK-11"));
-  assert.ok(byClass(band(root, "waiting"), "work-item-card-ref")
+  assert.ok(byClass(band(root, "hold"), "work-item-card-ref")
     .some((node) => node.textContent === "YOK-13"));
 
   for (const ref of ["YOK-9", "YOK-11", "YOK-13"]) {
@@ -104,15 +104,20 @@ test("every claimed card carries its holder, whichever band drew it", async (t) 
   }
 
   // The parked release holder reads as parked, in the same chip Active uses,
-  // and reveals the full session card on click.
+  // and opens the full session card as a popover on click.
   const releaseCard = cardFor(root, "YOK-11");
   const pill = byClass(releaseCard, "session-status-pill")[0];
   assert.equal(pill.textContent, "parked");
   const preview = byClass(releaseCard, "item-claimant-preview")[0];
-  assert.equal(preview.hidden, true);
+  assert.equal(preview.matches(":popover-open"), false);
   byClass(releaseCard, "item-claimant-mini")[0].dispatchEvent(new Event("click"));
-  assert.equal(preview.hidden, false);
+  assert.equal(preview.matches(":popover-open"), true);
   assert.equal(byClass(preview, "session-card").length, 1);
+  const chip = byClass(releaseCard, "item-claimant-mini")[0];
+  assert.equal(chip.getAttribute("aria-expanded"), "true");
+  byClass(preview, "reveal-close")[0].dispatchEvent(new Event("click"));
+  assert.equal(preview.matches(":popover-open"), false);
+  assert.equal(chip.getAttribute("aria-expanded"), "false");
 
   // An unclaimed card has no session box at all.
   const unclaimed = cardFor(root, "YOK-12");

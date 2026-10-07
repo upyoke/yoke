@@ -34,7 +34,7 @@ async function mountAt(hash, client) {
 
 const band = (root, key) => byClass(root, `work-band-${key}`)[0];
 
-test("Frontier is five bands of work under one page heading", async (t) => {
+test("Frontier is six bands of work under one page heading", async (t) => {
   stubFetch(t);
   const client = workbenchClient();
   const { root, mounted } = await mountAt("/frontier?project=1", client);
@@ -45,7 +45,7 @@ test("Frontier is five bands of work under one page heading", async (t) => {
   assert.equal(byClass(root, "title")[0].textContent, "Frontier");
   assert.deepEqual(
     byClass(root, "work-band-title").map(ownTextContent),
-    ["Waiting", "Ready", "Active", "Release", "Done (24h)"],
+    ["Waiting", "On hold", "Ready", "Active", "Release", "Done (24h)"],
   );
   // Shipping is its own page; the Frontier does not draw run cards.
   assert.equal(byClass(root, "shipping-run-card").length, 0);
@@ -221,16 +221,17 @@ test("Active is claimed work, and Ready omits what a session holds", async (t) =
     byClass(band(root, "ready"), "work-band-count")[0].textContent, "0",
   );
 
-  // The claimant rides the card as a compact control that reveals the whole
-  // session, drawn by the same renderer Sessions uses.
+  // The claimant rides the card as a compact control that opens the whole
+  // session as a top-layer popover, drawn by the same renderer Sessions uses.
   const claimant = byClass(root, "item-claimant-mini")[0];
   assert.ok(claimant);
   assert.match(descendantText(claimant), /codex/);
   const preview = byClass(root, "item-claimant-preview")[0];
-  assert.equal(preview.hidden, true);
+  assert.equal(preview.getAttribute("popover"), "auto");
+  assert.equal(preview.matches(":popover-open"), false);
   assert.equal(byClass(preview, "session-card").length, 1);
   claimant.dispatchEvent(new Event("click"));
-  assert.equal(preview.hidden, false);
+  assert.equal(preview.matches(":popover-open"), true);
   mounted.unmount();
 });
 
@@ -246,16 +247,17 @@ test("work whose only claimant is gone waits, and says whose fault that is", asy
   );
 
   // Not Active: nothing is running against it. Not Ready either: the claim
-  // is still held, so it is not free to pick up.
+  // is still held, so it is not free to pick up. Nothing waits on it, so it
+  // is On hold rather than in the Waiting graph.
   assert.deepEqual(
     byClass(band(root, "active"), "work-item-card").map(ownTextContent), [],
   );
   assert.deepEqual(
     byClass(band(root, "ready"), "work-item-card").map(ownTextContent), [],
   );
-  const waiting = descendantText(band(root, "waiting"));
-  assert.match(waiting, /YOK-9/);
-  assert.match(waiting, /Owner unavailable/);
+  const held = descendantText(band(root, "hold"));
+  assert.match(held, /YOK-9/);
+  assert.match(held, /Owner unavailable/);
   mounted.unmount();
 });
 
@@ -287,6 +289,7 @@ function releasingClient() {
         run_command: "yoke implement YOK-11",
       }],
       blocked_rows: [],
+      dependency_edges: [],
     },
     "sessions.list": { rows: [{
       ...claimingSession(),
@@ -316,7 +319,7 @@ test("a release item is drawn once, and only in Release", async (t) => {
   assert.equal(byClass(band(root, "release"), "work-band-count")[0].textContent, "1");
   // The readings that would otherwise have claimed it: a live session holds
   // its work claim, and the frontier still calls it ready to pick up.
-  for (const key of ["waiting", "ready", "active", "done"]) {
+  for (const key of ["waiting", "hold", "ready", "active", "done"]) {
     assert.equal(byClass(band(root, key), "work-item-card").length, 0, key);
   }
   mounted.unmount();
@@ -326,7 +329,7 @@ test("Release sits between Active and Done", async (t) => {
   stubFetch(t);
   const { root, mounted } = await mountAt("/frontier?project=1", releasingClient());
 
-  const keys = ["waiting", "ready", "active", "release", "done"];
+  const keys = ["waiting", "hold", "ready", "active", "release", "done"];
   const bands = byClass(root, "work-band");
   assert.deepEqual(
     bands.map((node) => node.getAttribute("data-fold")),

@@ -185,3 +185,23 @@ export function appendItemDelivery(documentNode, card, row, deployments, project
   card.appendChild(box);
   return box;
 }
+
+// Where an item's delivery stands, one environment per part, for a surface
+// too compact for the delivery box: "stage ✓ · prod deploying".
+export function deliverySummary(row, deployments) {
+  const itemId = row.internal_id ?? row.item_id ?? row.id;
+  const runs = shownDeliveryRuns(deployments?.get(String(itemId)) || [])
+    .filter((run) => run.delivery_relation !== "removed");
+  const parts = runs.map((run) => {
+    const outcome = itemOutcome(run);
+    const environment = runEnvironment(run) || NO_ENVIRONMENT_LABEL;
+    if (outcome.finished) return `${environment} ✓`;
+    if (outcome.symbol === "✗") return `${environment} ✗`;
+    return `${environment} deploying`;
+  });
+  const environment = String(row.completion_environment || "");
+  if (environment && !runs.some((run) => runEnvironment(run) === environment)) {
+    parts.push(`${environment} not yet`);
+  }
+  return parts.join(" · ");
+}

@@ -1,5 +1,7 @@
 // The one condition an item card leads with — ready, blocked, frozen, waiting
-// on another item — as a pill that reveals the whole reason.
+// on another item — as a pill that reveals the whole reason. The caller names
+// the condition: a dependency pill's label already says which items it waits
+// on, from the edges themselves, never from the reason's prose.
 //
 // The reason is never shortened to fit: a dependency that says which item it
 // waits on, a block that says why, and a freeze that says what parked it are
@@ -15,26 +17,13 @@ import { el } from "./universe_view_support.js";
 
 let statusPanelSequence = 0;
 
-// Which item a dependency waits on, read from the reason the frontier
-// authored. A dependency whose blocker is unnamed says so rather than
-// implying a specific one.
-export function dependencyWaitLabel(text) {
-  const reference = /\bWaits on ([A-Z][A-Z0-9]*-\d+)\b/.exec(String(text || ""));
-  return reference ? `Waiting for ${reference[1]}` : "Waiting on dependency";
-}
-
 export function itemStatusDisclosure(documentNode, flag) {
   const tone = String(flag.tone || "neutral");
   const host = el(documentNode, "div", "item-status reveal-host");
   const pill = el(documentNode, "button", `item-status-pill is-${tone}`);
   pill.type = "button";
   pill.appendChild(el(documentNode, "span", "item-status-dot"));
-  pill.appendChild(el(
-    documentNode,
-    "span",
-    null,
-    tone === "dependency" ? dependencyWaitLabel(flag.text) : flag.label,
-  ));
+  pill.appendChild(el(documentNode, "span", null, flag.label));
   const panel = el(documentNode, "div", "item-status-detail");
   statusPanelSequence += 1;
   panel.id = `item-status-detail-${statusPanelSequence}`;

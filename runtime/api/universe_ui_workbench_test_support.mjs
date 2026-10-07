@@ -79,6 +79,7 @@ export function multiProjectWorkbenchClient({ failProject } = {}) {
         { ...items[2], item_id: "BET-20", why_ready: "ready" },
       ],
       blocked_rows: [],
+      dependency_edges: [],
     },
     "sessions.list": {
       rows: [
@@ -194,6 +195,7 @@ export function workbenchClient(overrides = {}) {
         run_command: "yoke implement YOK-9",
       }],
       blocked_rows: [],
+      dependency_edges: [],
     },
     // Focused on YOK-9 without holding it, so the base fixture keeps that
     // item in Ready; claimingSession() below is the claimed counterpart.

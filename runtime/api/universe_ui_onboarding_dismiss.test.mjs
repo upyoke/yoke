@@ -232,7 +232,7 @@ test("empty live bands remain visible beside day-zero onboarding", async (t) => 
   const empty = {
     "strategy.surface.list": { docs: [], writes: [] },
     "items.overview.list": { rows: [] },
-    "frontier.list": { ready_rows: [], blocked_rows: [] },
+    "frontier.list": { ready_rows: [], blocked_rows: [], dependency_edges: [] },
     "deployment_runs.list": { rows: [] },
   };
   const { root, mounted } = await mountWorkbench(
@@ -241,10 +241,11 @@ test("empty live bands remain visible beside day-zero onboarding", async (t) => 
 
   assert.deepEqual(
     byClass(root, "work-band-title").map((node) => node.textContent),
-    ["Waiting", "Ready", "Active", "Release", "Done (24h)"],
+    ["Waiting", "On hold", "Ready", "Active", "Release", "Done (24h)"],
   );
   const text = allNodes(root).map((node) => node.textContent || "").join(" ");
-  assert.ok(text.includes("Nothing is stopped."));
+  assert.ok(text.includes("Nothing is waiting on other work."));
+  assert.ok(text.includes("Nothing is on hold."));
   assert.ok(text.includes("Nothing finished in the last 24 hours."));
   mounted.unmount();
 });

@@ -90,7 +90,7 @@ function stubFetch(t) {
 async function mountBand(band, runsFor = () => [], facts = {}, repository = "") {
   const client = workbenchClient({
     "items.overview.list": { rows: [bandItem(band, facts)] },
-    "frontier.list": { ready_rows: [], blocked_rows: [] },
+    "frontier.list": { ready_rows: [], blocked_rows: [], dependency_edges: [] },
     "sessions.list": { rows: [] },
     "deployment_runs.list": { rows: runsFor(band.itemId) },
   });
