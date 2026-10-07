@@ -23,7 +23,7 @@ actor_id INTEGER -- nullable Yoke control-plane subject; references actors(id)
 environment TEXT -- runtime environment (e.g., 'dev', 'prod')
 service TEXT NOT NULL DEFAULT 'cli' -- emitting service
 project_id INTEGER -- nullable project context; references projects(id); no implicit attribution
-item_id TEXT -- backlog item (e.g., 'PREFIX-N')
+item_id TEXT -- owned backlog join key; public reads project it to public_ref
 task_num INTEGER -- epic task number
 agent TEXT -- agent role (e.g., 'engineer', 'tester')
 tool_name TEXT -- tool that was called (e.g., 'Bash', 'Read')
@@ -39,9 +39,9 @@ created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline
 
 **Indexes:** `source_type`, `session_id`, `event_name`, `created_at`, `actor_id`, `trace_id`, `project_id`, `tool_name`, `(event_kind, event_type)`, plus the partial dedup index `(tool_use_id, event_name) WHERE tool_use_id IS NOT NULL` and the partial correlation index `(client_timing_id) WHERE client_timing_id IS NOT NULL` on DBs with the full correlation surface. Correlate through an indexed column; matching a substring of `envelope` with LIKE has no index to use and reads every row the other predicates admit.
 
-Engine identity is actor-only. Historical JSON envelopes may retain a null
-human-user key, but fresh schemas, writers, readers, and filters do not expose
-that retired surface.
+Event reads project nested envelope item identities and item history `target_id` to complete public refs; storage keeps owned join keys. Other record IDs retain their domain meaning.
+
+Engine identity is actor-only. Historical JSON envelopes may retain a null human-user key, but fresh schemas, writers, readers, and filters do not expose that retired surface.
 
 **Deduplication:** The `event_id` column has a UNIQUE constraint. Inserts use `ON CONFLICT DO NOTHING` so duplicate event IDs are silently dropped.
 

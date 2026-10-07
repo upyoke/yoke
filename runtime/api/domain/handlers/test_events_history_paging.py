@@ -9,7 +9,7 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain.events_history_read import HISTORY_FIELDS
 from yoke_core.domain.handlers import events_reads
-from runtime.api.conftest import insert_event
+from runtime.api.conftest import insert_event, insert_item
 
 
 STAMP = "2026-09-08T03:00:00Z"
@@ -62,6 +62,24 @@ def test_history_returns_only_the_rendered_facts_and_never_the_envelope(test_db)
     assert row["category"] == "workflow"
     for dropped in ("envelope", "id", "event_id", "session_id", "trace_id"):
         assert dropped not in row
+
+
+def test_history_item_target_and_nested_context_use_public_refs(test_db):
+    import json
+
+    insert_item(test_db, id=901, project_sequence=7)
+    insert_item(test_db, id=902, project_sequence=8)
+    insert_event(
+        test_db,
+        event_id="evt-public",
+        item_id="901",
+        created_at=STAMP,
+        envelope=json.dumps({"context": {"result": {"item_id": 902}}}),
+    )
+    row = _history().result_payload["rows"][0]
+    assert row["target_id"] == row["target_label"] == "YOK-7"
+    assert "YOK-8" in row["context_label"]
+    assert "902" not in row["context_label"]
 
 
 def test_history_pages_by_cursor_without_gaps_or_duplicates(test_db):

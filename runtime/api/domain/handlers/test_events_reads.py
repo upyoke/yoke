@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import json
+
 from yoke_core.domain.handlers import events_reads
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
     TargetRef,
 )
-from runtime.api.conftest import insert_event
+from runtime.api.conftest import insert_event, insert_item
 
 
 def _request(function_id: str, payload=None, target=None) -> FunctionCallRequest:
@@ -50,7 +52,9 @@ class TestEventsQuery:
 
     def test_current_episode_fails_closed_without_boundary(self, test_db):
         insert_event(
-            test_db, event_id="evt-1", event_name="SomethingHappened",
+            test_db,
+            event_id="evt-1",
+            event_name="SomethingHappened",
             session_id="s-epi",
         )
         test_db.commit()
@@ -65,17 +69,25 @@ class TestEventsQuery:
 
     def test_current_episode_returns_rows_after_boundary(self, test_db):
         insert_event(
-            test_db, event_id="evt-old", event_name="BeforeBoundary",
-            session_id="s-epi", created_at="2026-01-01T00:00:00Z",
+            test_db,
+            event_id="evt-old",
+            event_name="BeforeBoundary",
+            session_id="s-epi",
+            created_at="2026-01-01T00:00:00Z",
         )
         insert_event(
-            test_db, event_id="evt-boundary",
+            test_db,
+            event_id="evt-boundary",
             event_name="HarnessSessionStarted",
-            session_id="s-epi", created_at="2026-01-02T00:00:00Z",
+            session_id="s-epi",
+            created_at="2026-01-02T00:00:00Z",
         )
         insert_event(
-            test_db, event_id="evt-new", event_name="AfterBoundary",
-            session_id="s-epi", created_at="2026-01-03T00:00:00Z",
+            test_db,
+            event_id="evt-new",
+            event_name="AfterBoundary",
+            session_id="s-epi",
+            created_at="2026-01-03T00:00:00Z",
         )
         # Boundary truth is harness_sessions.episode_started_at (stamped
         # by register_session); the rows above are telemetry being filtered.
@@ -100,8 +112,11 @@ class TestEventsQuery:
 
     def test_filters_by_event_name_with_full_projection(self, test_db):
         insert_event(
-            test_db, event_id="evt-a", event_name="EventA",
-            envelope='{"k":1}', anomaly_flags="nonzero_exit",
+            test_db,
+            event_id="evt-a",
+            event_name="EventA",
+            envelope='{"k":1}',
+            anomaly_flags="nonzero_exit",
         )
         insert_event(test_db, event_id="evt-b", event_name="EventB")
         test_db.commit()
@@ -119,7 +134,7 @@ class TestEventsQuery:
         from yoke_core.domain.events_crud import EVT_COLUMN_NAMES
 
         assert set(row.keys()) == {
-            *EVT_COLUMN_NAMES,
+            *(key for key in EVT_COLUMN_NAMES if key != "item_id"),
             "envelope",
             "category",
             "target_kind",
@@ -134,13 +149,17 @@ class TestEventsQuery:
 
     def test_item_filter_rides_resolved_target(self, test_db):
         insert_event(
-            test_db, event_id="evt-i", event_name="ItemEvent", item_id="42",
+            test_db,
+            event_id="evt-i",
+            event_name="ItemEvent",
+            item_id="42",
         )
         insert_event(test_db, event_id="evt-g", event_name="GlobalEvent")
         test_db.commit()
         outcome = events_reads.handle_events_query(
             _request(
-                "events.query.run", {},
+                "events.query.run",
+                {},
                 target=TargetRef(kind="item", item_id=42),
             )
         )
@@ -148,12 +167,40 @@ class TestEventsQuery:
         names = [r["event_name"] for r in outcome.result_payload["rows"]]
         assert names == ["ItemEvent"]
 
+    def test_projects_nested_envelope_identities_and_item_target(self, test_db):
+        insert_item(test_db, id=901, project_sequence=7)
+        insert_item(test_db, id=902, project_sequence=8)
+        insert_event(
+            test_db,
+            event_id="evt-public",
+            item_id="901",
+            envelope=json.dumps(
+                {
+                    "target": {"item_id": 901},
+                    "context": {"result": {"epic_id": 902}},
+                }
+            ),
+        )
+        outcome = events_reads.handle_events_query(_request("events.query.run"))
+        assert outcome.primary_success
+        row = outcome.result_payload["rows"][0]
+        assert row["public_ref"] == row["target_id"] == "YOK-7"
+        assert "item_id" not in row
+        assert json.loads(row["envelope"]) == {
+            "target": {"public_ref": "YOK-7"},
+            "context": {"result": {"epic_public_ref": "YOK-8"}},
+        }
+        assert "YOK-8" in row["context_label"]
+        assert "902" not in row["context_label"]
+
 
 class TestEventsTail:
     def test_returns_newest_first_with_limit(self, test_db):
         for n in range(3):
             insert_event(
-                test_db, event_id=f"evt-{n}", event_name=f"Event{n}",
+                test_db,
+                event_id=f"evt-{n}",
+                event_name=f"Event{n}",
                 created_at=f"2026-01-0{n + 1}T00:00:00Z",
             )
         test_db.commit()
@@ -188,7 +235,9 @@ class TestEventsCount:
 class TestEventsAnomalies:
     def test_returns_only_flagged_rows(self, test_db):
         insert_event(
-            test_db, event_id="evt-anom", event_name="Anomalous",
+            test_db,
+            event_id="evt-anom",
+            event_name="Anomalous",
             anomaly_flags="nonzero_exit",
         )
         insert_event(test_db, event_id="evt-clean", event_name="Clean")

@@ -5,15 +5,17 @@ from __future__ import annotations
 import json
 from typing import Any, Dict
 
+from yoke_core.domain.function_response_refs import public_result
 
-def _context(row: Dict[str, Any]) -> Dict[str, Any]:
+
+def event_envelope(row: Dict[str, Any]) -> Dict[str, Any]:
+    """Decode a stored envelope for identity projection and presentation."""
     raw = row.get("envelope")
     try:
         envelope = json.loads(raw) if isinstance(raw, str) else raw
     except (TypeError, ValueError):
         return {}
-    context = envelope.get("context") if isinstance(envelope, dict) else None
-    return context if isinstance(context, dict) else {}
+    return envelope if isinstance(envelope, dict) else {}
 
 
 def _event_category(row: Dict[str, Any]) -> str:
@@ -67,7 +69,16 @@ def present_event(
     actor_names: Dict[int, str],
 ) -> Dict[str, Any]:
     """Decorate a stored event with category, target, and source labels."""
-    context = _context(row)
+    refs = {key: fact["ref"] for key, fact in item_facts.items()}
+    envelope = event_envelope(row)
+    projected = public_result(envelope, refs)
+    public_row = public_result(row, refs)
+    if projected != envelope:
+        public_row["envelope"] = (
+            json.dumps(projected) if isinstance(row.get("envelope"), str) else projected
+        )
+    context = projected.get("context")
+    context = context if isinstance(context, dict) else {}
     item_text = str(row.get("item_id") or "")
     item_id = int(item_text) if item_text.isdigit() else None
     item = item_facts.get(item_id) if item_id is not None else None
@@ -76,7 +87,7 @@ def present_event(
     if item:
         target_kind = "item"
         target_label = str(item["ref"])
-        target_id = item_id
+        target_id = target_label
         target_project_id = item["project_id"]
     elif run_id:
         target_kind = "delivery"
@@ -101,13 +112,11 @@ def present_event(
 
     actor_text = str(row.get("actor_id") or "")
     actor_id = int(actor_text) if actor_text.isdigit() else None
-    source_label = (
-        actor_names.get(actor_id) if actor_id is not None else None
-    ) or str(
+    source_label = (actor_names.get(actor_id) if actor_id is not None else None) or str(
         row.get("agent") or row.get("service") or row.get("source_type") or "system"
     )
     return {
-        **row,
+        **public_row,
         "category": _event_category(row),
         "target_kind": target_kind,
         "target_label": target_label,
@@ -118,4 +127,4 @@ def present_event(
     }
 
 
-__all__ = ["present_event"]
+__all__ = ["event_envelope", "present_event"]

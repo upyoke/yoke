@@ -136,3 +136,13 @@ def test_response_projection_preserves_numbered_task_maps():
         "epic_public_ref": "APP-7",
         "cascade_updated": {2: "1", 3: ""},
     }
+
+
+def test_dotted_setting_paths_are_not_item_identity_fields():
+    assignments = {
+        "release.fleet_rehearsal.primary.entry.0057_shepherd_public_refs": "receipt",
+        "settings.current_item_id": 99,
+    }
+    payload = {"assignments": assignments}
+    assert public_item_request_error(request(payload=payload)) is None
+    assert project_public_identities(payload, lambda _: "APP-7") == payload
