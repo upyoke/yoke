@@ -12,6 +12,15 @@ import { normalizeItemSort } from "./item_roster_sort.js";
 const SORT_NORMALIZERS = { actors: normalizeActorSort, ouroboros: normalizeOuroborosSort };
 
 const SORT_UNAVAILABLE = "Sort persistence unavailable. Update the server and reload to save sorting.";
+const SORT_NOT_SAVED_HERE = "This server does not save this page's sort; it applies until you leave the page.";
+
+// The screens whose sort the server saves, or null when it saves none. A
+// server that returns `sorts` without `sort_views` saves Items and
+// Ouroboros sorts only.
+export function savedSortViews(result) {
+  if (!Object.hasOwn(result, "sorts")) return null;
+  return Array.isArray(result.sort_views) ? result.sort_views : ["items", "ouroboros"];
+}
 
 export function knownProjectId(projects, candidate) {
   return projects.some((row) => String(row.id) === String(candidate))
@@ -61,7 +70,7 @@ export function createProjectSelection(saveView, onNotice, saveSort) {
   // unsuccessful initial read leaves `ready` false for the life of this
   // mount — every subsequent selection still renders correctly from
   // in-memory defaults, it just is not written through.
-  const state = { notice: "", ready: false, sortReady: null };
+  const state = { notice: "", ready: false, sortReady: null, sortViews: new Set() };
   // A save can settle long after the render that started it, with nothing
   // else about to re-render — `onNotice` (the caller's re-render hook) is
   // what makes its notice visible without another navigation.
@@ -91,8 +100,10 @@ export function createProjectSelection(saveView, onNotice, saveSort) {
     try {
       const result = await readPreferences();
       if (revision !== sortRevision) return "";
-      state.sortReady = Object.hasOwn(result, "sorts");
+      const saved = savedSortViews(result);
+      state.sortReady = saved !== null;
       if (!state.sortReady) return SORT_UNAVAILABLE;
+      state.sortViews = new Set(saved);
       if (result.sorts[viewId]) sorts.set(viewId, result.sorts[viewId]);
       else sorts.delete(viewId);
       return "";
@@ -107,6 +118,7 @@ export function createProjectSelection(saveView, onNotice, saveSort) {
     if (!saveSort) return Promise.resolve("Saved preferences unavailable. Reload to retry saving the sort.");
     if (state.sortReady === null) return Promise.resolve("Saved sorting unavailable. Reload to retry loading preferences before saving the sort.");
     if (!state.sortReady) return Promise.resolve(SORT_UNAVAILABLE);
+    if (!state.sortViews.has(viewId)) return Promise.resolve(SORT_NOT_SAVED_HERE);
     sortWrites = sortWrites.catch(() => {}).then(() => saveSort(viewId, sort));
     return sortWrites.then(() => "").catch(() => "Sort could not be saved. Click a column header to retry.");
   };
@@ -121,7 +133,12 @@ export function createProjectSelection(saveView, onNotice, saveSort) {
   };
   // Marks the initial server read as genuinely settled — called only after
   // that read succeeds, whether or not it had anything to seed.
-  state.markReady = (sortsAvailable = false) => { state.ready = true; state.sortReady = sortsAvailable; };
+  // `sortViews` is `savedSortViews` of that read: null when it saves no sorts.
+  state.markReady = (sortViews = null) => {
+    state.ready = true;
+    state.sortReady = sortViews !== null;
+    state.sortViews = new Set(sortViews || []);
+  };
   state.saveFor = (viewId) => {
     if (!saveView || !state.ready) return;
     const entry = entryFor(viewId);

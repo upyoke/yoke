@@ -275,7 +275,14 @@ def test_actors_sort_is_saved_per_actor_with_actor_roster_columns(test_db):
             _request("ui_preferences.screen_selection.list", actor_id=second)
         ).result_payload["sorts"]
     )
+    assert listed["sort_views"] == ["items", "ouroboros", "actors"]
+    for invalid in (
+        {"column": "Bad Column", "direction": "asc"},
+        {"column": "email", "direction": "sideways"},
+    ):
+        assert not _set(
+            {"view_id": "actors", "sort": invalid}, actor_id=first
+        ).primary_success
     assert not _set(
-        {"view_id": "actors", "sort": {"column": "timestamp", "direction": "asc"}},
-        actor_id=first,
+        {"view_id": "sessions", "sort": chosen}, actor_id=first
     ).primary_success

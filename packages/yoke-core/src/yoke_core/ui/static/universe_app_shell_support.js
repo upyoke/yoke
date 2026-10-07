@@ -1,4 +1,5 @@
 import { callFunction } from "./universe_view_support.js";
+import { savedSortViews } from "./universe_project_selection.js";
 import { createScopePicker, SCOPE_MULTI, SCOPE_NONE, SCOPE_SINGLE } from "./universe_navigation.js";
 import { selectionRoute } from "./universe_selection_routes.js";
 import { scopeForRoute } from "./universe_destinations.js";
@@ -51,7 +52,7 @@ export function loadScreenSelections(client, scopeSelections) {
     for (const [viewId, sort] of Object.entries(result.sorts || {})) {
       scopeSelections.seedSort(viewId, sort);
     }
-    scopeSelections.markReady(Object.hasOwn(result, "sorts"));
+    scopeSelections.markReady(savedSortViews(result));
   }).catch(() => {
     // The mount bootstrap's own pending first render already reads
     // `notice` fresh once this settles — no re-render trigger needed here,

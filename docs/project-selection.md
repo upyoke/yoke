@@ -122,3 +122,12 @@ actor-scoped store; it never rewrites project selection, focus or location.
 Sort writes are serialized so rapid changes settle in the chosen order.
 Initial preference-read failures disable persistence until reload, and a
 failed sort save reports how to retry on the Items page.
+
+The list also returns `sort_views`, the screens whose sort the server saves:
+`items`, `ouroboros`, and `actors`. Items and Ouroboros columns are checked
+against the server's own ordering; the Actors roster orders in the browser,
+which owns its column list, so the server checks only the saved column's
+shape. A server that returns `sorts` without `sort_views` saves Items and
+Ouroboros sorts only. On a screen the server does not save, a header sort
+still applies on that page and the page says it is not saved, with no retry
+prompt.

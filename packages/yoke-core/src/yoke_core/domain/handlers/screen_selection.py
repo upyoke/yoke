@@ -18,6 +18,7 @@ store. A location write leaves screen selection and focus untouched.
 
 from __future__ import annotations
 
+import re
 from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field
@@ -45,6 +46,7 @@ class ScreenSelectionListResponse(BaseModel):
     views: Dict[str, Dict[str, Any]]
     last_location: Optional[str] = None
     sorts: Dict[str, Dict[str, str]] = Field(default_factory=dict)
+    sort_views: List[str] = Field(default_factory=lambda: list(SORT_VIEWS))
 
 
 class ScreenSelectionSetRequest(BaseModel):
@@ -69,39 +71,35 @@ def _valid_selection(selection: Any) -> bool:
     return isinstance(selection, list) and all(isinstance(v, str) for v in selection)
 
 
-#: Sortable Actors roster columns; the roster is one full read ordered by
-#: the dashboard, so only the saved preference is validated here.
-ACTOR_SORT_COLUMNS = (
-    "name",
-    "status",
-    "org_role",
-    "project_access",
-    "email",
-    "api_keys",
-)
+#: Screens whose sort the dashboard saves here, published on every list
+#: read so a dashboard can tell which screens this server stores. Items and
+#: Ouroboros order on the server, so their columns are checked against the
+#: server's own order tables; the Actors roster orders in the browser, which
+#: owns its column list, so its saved column is checked for shape only.
+SORT_VIEWS = ("items", "ouroboros", "actors")
+_CLIENT_SORT_COLUMN_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 
 
-def _sort_columns(view_id: str) -> Any:
+def _valid_sort_column(column: Any, view_id: str) -> bool:
     if view_id == "items":
         from yoke_core.domain.item_roster_order import SORT_COLUMNS
 
-        return SORT_COLUMNS
+        return column in SORT_COLUMNS
     if view_id == "ouroboros":
         from yoke_core.domain.ouroboros_roster_order import SORT_COLUMNS
 
-        return SORT_COLUMNS
-    if view_id == "actors":
-        return ACTOR_SORT_COLUMNS
-    return ()
+        return column in SORT_COLUMNS
+    return isinstance(column, str) and bool(_CLIENT_SORT_COLUMN_RE.match(column))
 
 
 def _valid_sort(value: Any, view_id: str = "items") -> bool:
     from yoke_core.domain.item_roster_order import SORT_DIRECTIONS
 
     return (
-        isinstance(value, dict)
-        and value.get("column") in _sort_columns(view_id)
+        view_id in SORT_VIEWS
+        and isinstance(value, dict)
         and value.get("direction") in SORT_DIRECTIONS
+        and _valid_sort_column(value.get("column"), view_id)
     )
 
 
@@ -125,7 +123,12 @@ def handle_screen_selection_list(
     actor_id = _store.actor_id(request)
     if actor_id is None:
         return HandlerOutcome(
-            result_payload={"views": {}, "last_location": None, "sorts": {}},
+            result_payload={
+                "views": {},
+                "last_location": None,
+                "sorts": {},
+                "sort_views": list(SORT_VIEWS),
+            },
             primary_success=True,
         )
     stored = _store.read_prefixed(actor_id, SCREEN_SELECTION_PREF_PREFIX)
@@ -151,6 +154,7 @@ def handle_screen_selection_list(
                 ).items()
                 if _valid_sort(value, key)
             },
+            "sort_views": list(SORT_VIEWS),
             "last_location": location if _valid_location(location) else None,
         },
         primary_success=True,
