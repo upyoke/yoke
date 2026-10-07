@@ -144,7 +144,7 @@ test("the phone outline lists each chain once from its root", () => {
 function row(ref, projectId, facts = {}) {
   const sequence = Number(ref.split("-").at(-1));
   return {
-    public_ref: ref, internal_id: 100 + sequence, title: `${ref} work`,
+    public_ref: ref, title: `${ref} work`,
     project: projectId === 1 ? "yoke" : "beta", project_id: projectId,
     project_sequence: sequence, workflow_id: "issue", status: "idea",
     created_at: recentIso(12), updated_at: recentIso(1),

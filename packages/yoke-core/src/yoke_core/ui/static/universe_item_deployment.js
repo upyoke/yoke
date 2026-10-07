@@ -207,7 +207,7 @@ export function appendItemDelivery(documentNode, card, row, deployments, project
 // Where an item's delivery stands, one environment per part, for a surface
 // too compact for the delivery box: "stage ✓ · prod deploying".
 export function deliverySummary(row, deployments) {
-  const itemId = row.internal_id ?? row.item_id ?? row.id;
+  const itemId = row.public_ref;
   const runs = shownDeliveryRuns(deployments?.get(String(itemId)) || [])
     .filter((run) => run.delivery_relation !== "removed");
   const parts = runs.map((run) => {

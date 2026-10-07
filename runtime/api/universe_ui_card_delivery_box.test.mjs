@@ -268,3 +268,15 @@ for (const band of BANDS) {
     assert.equal(byClass(box, "item-deployment").length, 0);
   });
 }
+
+
+test("compact delivery summary joins runs by complete public ref", async () => {
+  const { deliverySummary } = await import(
+    "../../packages/yoke-core/src/yoke_core/ui/static/universe_item_deployment.js"
+  );
+  const publicRef = "EXT-50";
+  const runs = new Map([[publicRef, [{
+    id: "run-public-summary", status: "executing", target_environment: "stage",
+  }]]]);
+  assert.equal(deliverySummary({ public_ref: publicRef }, runs), "stage deploying");
+});
