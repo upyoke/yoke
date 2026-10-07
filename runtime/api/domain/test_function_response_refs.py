@@ -38,3 +38,13 @@ def test_other_records_with_public_item_refs_keep_their_primary_ids():
     projected = public_result(source, {99: "APP-7"})
     assert projected["rows"] == [qa, verdict]
     assert projected["item"] == {"public_ref": "APP-7"}
+
+
+def test_containment_protocol_does_not_become_public_item_rows():
+    basis = {"projects": [{"items": [{"id": 99, "merge_sha": "a" * 40}]}]}
+    result = {"candidate_containment_basis": basis, "items": [{"id": 100}]}
+    assert collect_item_ids(result) == {100}
+    assert public_result(result, {100: "APP-7"}) == {
+        "candidate_containment_basis": basis,
+        "items": [{"public_ref": "APP-7"}],
+    }
