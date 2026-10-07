@@ -170,9 +170,16 @@ def covering_holder_pairs(
     Holding is per target environment. A holder on the item's final target
     keeps final-target custody. For a supplemental run, only a holder on the
     same environment can answer its targeted obligations, so a production run
-    never holds an item away from the stage run that owes it stage QA.
+    on the same lineage never holds an item away from the stage run that owes
+    it stage QA. A final-target holder that pinned a different commit for the
+    item's project does hold it: close-out credits supplemental proof only on
+    the final run's own commit, so enrolling would compose proof nothing reads.
     """
     from yoke_core.domain.deployment_item_flow_resolution import item_completion_flows
+    from yoke_core.domain.deployment_run_project_sources import (
+        recorded_source_sha,
+        run_source_facts,
+    )
 
     ids = tuple(dict.fromkeys(int(value) for value in item_ids))
     if not holders:
@@ -182,8 +189,10 @@ def covering_holder_pairs(
     holder_ids = tuple(dict.fromkeys(str(row["run_id"]) for row in holders))
     rows = conn.execute(
         "SELECT dri.run_id,dri.item_id,dri.requirement_snapshot,dri.requirement_selection,"
-        "re.name AS run_environment "
+        "re.name AS run_environment,dr.project_id,dr.release_lineage,dr.bound_sources,"
+        "i.project_id AS item_project_id "
         "FROM deployment_run_items dri JOIN deployment_runs dr ON dr.id=dri.run_id "
+        "JOIN items i ON i.id=dri.item_id "
         "JOIN deployment_flows df ON df.id=dr.flow "
         "LEFT JOIN environments re ON re.id=COALESCE(dr.target_environment_id,df.target_environment_id) "
         f"WHERE dri.run_id IN ({','.join('%s' for _ in holder_ids)}) "
@@ -201,6 +210,7 @@ def covering_holder_pairs(
     )
     environments = {str(row[0]): str(row[1] or "") for row in flow_envs}
     run_environment = run_environment_name(conn, run_id)
+    current = run_source_facts(conn, run_id) or {}
     selected = _selected_sets(conn, rows)
     covered = set()
     for row in rows:
@@ -215,7 +225,10 @@ def covering_holder_pairs(
         if item_id not in supplemental:
             keep = not holder_supplemental
         elif str(row["run_environment"] or "") != run_environment:
-            keep = False
+            project_id = int(row["item_project_id"])
+            keep = not holder_supplemental and recorded_source_sha(
+                dict(row), project_id
+            ) != recorded_source_sha(current, project_id)
         elif not row["requirement_snapshot"] and not row["requirement_selection"]:
             keep = True
         else:

@@ -98,7 +98,10 @@ per target environment: final-target holders keep final-delivery custody when
 later intake changes, and only a holder on the supplemental run's own
 environment holds its targeted obligations — a pre-admission holder there
 without a snapshot or selection retains its landing, while a production run
-never holds an item away from the stage run that owes it stage QA. Target
+on the same commit never holds an item away from the stage run that owes it
+stage QA. A production run that pinned a different commit for the item's
+project does hold it, and the skip notice names that commit, because stage
+proof credits only against the commit production ships. Target
 splitting uses recorded selections through unlocked, set-based reads.
 
 All records, claims, receipts and QA evidence remain on the connected control

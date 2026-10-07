@@ -6,7 +6,9 @@ member" is otherwise answerable only by reading several runs and item
 histories by hand:
 
 * **held** -- another live or succeeded release already holds that landing,
-  so delivering it is that run's job (:mod:`deployment_run_unheld_candidates`);
+  so delivering it is that run's job (:mod:`deployment_run_unheld_candidates`).
+  A holder on another environment holds only when it pinned a different
+  commit, and the notice names that commit;
 * **in rework** -- the item landed, then went back before its workflow's
   release stage (failed QA sent it to ``implementing``, say). Its code still
   ships, but it is not ready to be delivered, so enrollment skips it and a
@@ -45,8 +47,11 @@ from yoke_core.domain.deployment_run_dependency_readiness import (
 from yoke_core.domain.deployment_run_membership_removals import (
     membership_removals,
 )
+from yoke_core.domain.deployment_run_member_targeting import run_environment_name
+from yoke_core.domain.deployment_run_project_sources import run_source_sha
 from yoke_core.domain.deployment_run_unheld_candidates import (
     CustodyResolution,
+    HeldCandidate,
     resolve_candidate_custody,
 )
 from yoke_core.domain.project_identity import render_item_ref
@@ -116,6 +121,29 @@ def _describe_blocked(conn: Any, dependent: int, blocker: int, reason: str) -> s
     return line + ")"
 
 
+def _describe_held(conn: Any, run_id: str, record: HeldCandidate) -> str:
+    """One held landing; a holder on another environment names its commit.
+
+    A run on a different environment holds only when it pinned a different
+    commit for the item's project, because supplemental proof credits only
+    against the commit final delivery ships.
+    """
+    line = f"{record.item_ref} held by {record.run_id} ({record.run_status})"
+    environment = run_environment_name(conn, run_id)
+    if run_environment_name(conn, record.run_id) == environment:
+        return line
+    row = conn.execute(
+        "SELECT project_id FROM items WHERE id=%s", (int(record.item_id),)
+    ).fetchone()
+    project_id = int(row["project_id"] if hasattr(row, "keys") else row[0])
+    lineage = run_source_sha(conn, record.run_id, project_id) or "(unrecorded)"
+    return (
+        f"{line} on commit {lineage}, which this run does not ship; its "
+        f"{environment or 'supplemental'} proof credits only against that "
+        "commit, so compose a run on it to prove the item"
+    )
+
+
 def skipped_candidate_notice(
     conn: Any,
     run_id: str,
@@ -173,10 +201,7 @@ def skipped_candidate_notice(
     if held:
         parts.append(
             "held by a release that owes their delivery: "
-            + "; ".join(
-                f"{record.item_ref} held by {record.run_id} ({record.run_status})"
-                for record in held
-            )
+            + "; ".join(_describe_held(conn, run_id, record) for record in held)
         )
     if rework:
         parts.append(

@@ -342,7 +342,10 @@ composes the run now. Both hold the same deploy lock
 and refuse an item whose project the run ships no source for, an incompatible
 flow binding, or enrollment after the run has left `created`. Composition names
 every carried item it skipped — held by another release, back in rework before
-its release stage, or removed — in one notice. A member composed by mistake
+its release stage, or removed — in one notice. The production half holds its
+members only for production, so the stage run on `{PINNED_SHA}` still enrolls
+each one owing stage QA; a stage run on any other commit skips them, naming
+the commit production pinned, because only same-commit stage proof credits. A member composed by mistake
 comes out of a still-`created` run with `yoke --env <cp> deployment-runs
 remove-item {RUN_ID} PREFIX-N --reason R`, never by cancelling the pair: the
 reason is recorded on the run and composition does not re-enroll it.
