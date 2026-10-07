@@ -54,7 +54,7 @@ def _select_yoke_fleet(monkeypatch: pytest.MonkeyPatch) -> None:
         schema_shape_digest=lambda: "digest-for-test",
     )
     monkeypatch.setattr(
-        migration_fleet_selection, "resolve", lambda *_args: (target, "")
+        migration_fleet_selection, "resolve", lambda *_args, **_kw: (target, "")
     )
 
 
@@ -315,8 +315,7 @@ def test_preflight_help_teaches_both_receipt_coverage_shapes(
 
     help_text = capsys.readouterr().out
     assert (
-        "yoke watch preflight -- --project P [--model M] <environment> [db ...]"
-        in help_text
+        "yoke watch preflight -- --project P [--model M] [--checkout PATH]" in help_text
     )
     assert "The positional names the project's" in help_text
     assert "release.admin_connection" in help_text

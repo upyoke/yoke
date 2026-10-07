@@ -25,6 +25,24 @@ def _declare(monkeypatch: pytest.MonkeyPatch, fleet: dict | None) -> None:
     )
 
 
+def test_explicit_checkout_wins_over_the_registered_one(monkeypatch, tmp_path) -> None:
+    history = tmp_path / "service" / "migrations"
+    history.mkdir(parents=True)
+    (history / "0002_lane_entry.py").write_text("def apply(conn):\n    pass\n")
+    _declare(monkeypatch, _named())
+    monkeypatch.setattr(
+        project_checkout_locations,
+        "checkout_for_project_slug",
+        lambda _p: pytest.fail("registered checkout read despite --checkout"),
+    )
+
+    target, why = selection.resolve("platform", checkout=tmp_path)
+
+    assert why == ""
+    assert target is not None
+    assert target.plan.history == ("0002_lane_entry",)
+
+
 def test_undeclared_fleet_is_refused_with_the_declaration_recipe(monkeypatch) -> None:
     _declare(monkeypatch, None)
     target, why = selection.resolve("platform")

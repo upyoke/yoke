@@ -34,12 +34,15 @@ the wheel will package. ``--engine-wheel`` pins an already-built artifact.
 
 Usage::
 
-    yoke watch preflight -- --project P [--model M] <environment> [db ...]
+    yoke watch preflight -- --project P [--model M] [--checkout PATH]
+        <environment> [db ...]
         [--record-receipt [--product-sha SHA] [--receipt-env NAME]]
         [--engine-wheel PATH]
 
 ``--project`` names the project whose model is rehearsed; ``--model``
-defaults to its ``default_model``. The positional names the project's
+defaults to its ``default_model``. ``--checkout`` names the project checkout
+a ``named_databases`` fleet converges from; it defaults to the checkout
+registered for the project on this machine. The positional names the project's
 registered environment whose fleet to rehearse. The paired admin connection
 is that environment's ``release.admin_connection`` setting, not a name
 suffix. ``--receipt-env`` names the control plane that records the receipt.
@@ -90,6 +93,7 @@ def _parse(args: List[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="yoke watch preflight --", add_help=False)
     parser.add_argument("--project", default="")
     parser.add_argument("--model", default="")
+    parser.add_argument("--checkout", default="")
     parser.add_argument("--record-receipt", action="store_true")
     parser.add_argument("--product-sha", default="")
     parser.add_argument("--receipt-env", default="")
@@ -131,7 +135,9 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     covered_env = receipt.target_environment_for_admin_env(positional[0])
     target, unavailable = migration_fleet_selection.resolve(
-        project, parsed.model.strip() or None
+        project,
+        parsed.model.strip() or None,
+        checkout=Path(parsed.checkout).expanduser() if parsed.checkout else None,
     )
     if target is None:
         print(unavailable, file=sys.stderr)

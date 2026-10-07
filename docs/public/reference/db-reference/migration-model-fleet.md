@@ -53,11 +53,15 @@ and docstrings do not invalidate coverage.
 ## Preflight
 
 ```bash
-yoke watch preflight -- --project P [--model M] <environment> [db ...] \
+yoke watch preflight -- --project P [--model M] [--checkout PATH] \
+    <environment> [db ...] \
     --record-receipt --product-sha SHA --receipt-env <control-plane>
 ```
 
-`--model` defaults to the capability's `default_model`. The live databases are
+`--model` defaults to the capability's `default_model`. `--checkout` names the
+checkout a `named_databases` fleet converges from (default: the project's
+checkout registered on this machine); the release gate passes the repository
+it read the release commit from. The live databases are
 only read: each is dumped, restored into the local embedded cluster, converged,
 verified, and dropped. A passing run with `--record-receipt` writes the
 covered history entry names and the schema-shape digest onto that project

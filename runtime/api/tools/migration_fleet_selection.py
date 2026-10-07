@@ -31,7 +31,10 @@ class FleetTarget:
 
 
 def resolve(
-    project: str, model_name: Optional[str] = None
+    project: str,
+    model_name: Optional[str] = None,
+    *,
+    checkout: Optional[Path] = None,
 ) -> Tuple[Optional[FleetTarget], str]:
     """The project's model fleet as a rehearsal, or why there is none to run."""
     from yoke_core.domain.migration_model_fleet_read import read_declared
@@ -68,7 +71,7 @@ def resolve(
         )
     if fleet["kind"] == fleets.FLEET_ENGINE_TENANTS:
         return _engine_tenants(project, name), ""
-    return _named_databases(project, name, model, fleet)
+    return _named_databases(project, name, model, fleet, checkout)
 
 
 def _engine_tenants(project: str, model_name: str) -> FleetTarget:
@@ -89,6 +92,7 @@ def _named_databases(
     model_name: str,
     model: Mapping[str, Any],
     fleet: Mapping[str, Any],
+    checkout: Optional[Path],
 ) -> Tuple[Optional[FleetTarget], str]:
     from yoke_core.domain.migration_fleet_declared_plan import declared_plan
     from yoke_core.domain.migration_history import HistoryError
@@ -96,13 +100,14 @@ def _named_databases(
         checkout_for_project_slug,
     )
 
-    checkout = checkout_for_project_slug(project)
+    checkout = checkout or checkout_for_project_slug(project)
     if checkout is None:
         return None, (
             f"project {project!r} has no checkout registered on this machine, "
             "and its fleet converges through that checkout's own boot command. "
-            "Register it under the connection the preflight runs with: "
-            "yoke project register <checkout> --project-id <project-id>"
+            "Pass --checkout <path>, or register it under the connection the "
+            "preflight runs with: yoke project register <checkout> "
+            "--project-id <project-id>"
         )
     try:
         plan = declared_plan(model, fleet, checkout)

@@ -82,7 +82,9 @@ def _preflight_argv(args: Sequence[str]) -> list[str]:
 
 HELP_EPILOG = """\
 ``--project`` names the project whose declared migration-model fleet to
-rehearse; ``--model`` defaults to its ``default_model``. The positional
+rehearse; ``--model`` defaults to its ``default_model``; ``--checkout``
+names the checkout a ``named_databases`` fleet converges from (default: the
+project's registered checkout). The positional
 names the project's registered environment whose fleet to rehearse.
 The paired admin connection is that environment's
 ``release.admin_connection`` setting, not a name suffix. ``--receipt-env``

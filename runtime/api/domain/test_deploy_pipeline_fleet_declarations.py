@@ -104,4 +104,12 @@ def test_named_database_fleet_rehearses_its_own_project_and_model(
 
     assert _dispatch(_stage(), environment="stage", project="platform") == (0, "")
     assert asked == ["platform", "platform"]
-    assert rehearsed[0][:5] == ["--project", "platform", "--model", "registry", "stage"]
+    assert rehearsed[0][:7] == [
+        "--project",
+        "platform",
+        "--model",
+        "registry",
+        "--checkout",
+        "/repo",
+        "stage",
+    ]

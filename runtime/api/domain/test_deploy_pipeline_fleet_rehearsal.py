@@ -38,6 +38,8 @@ def test_uncovered_release_rehearses_records_then_dispatches(monkeypatch) -> Non
             "yoke",
             "--model",
             "primary",
+            "--checkout",
+            "/repo",
             "prod",
             "--record-receipt",
             "--product-sha",
@@ -126,7 +128,7 @@ def test_entry_covered_for_one_environment_rehearses_only_the_other(
         return (by_environment[name], "")
 
     def run_preflight(args: list[str]) -> int:
-        rehearsed.append(args[4])
+        rehearsed.append(args[6])
         by_environment["stage"] = _covered()
         return 0
 

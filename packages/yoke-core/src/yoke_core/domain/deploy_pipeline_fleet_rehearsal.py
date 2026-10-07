@@ -139,12 +139,14 @@ def _ensure_model(
         f"  Fleet rehearsal: uncovered for {target} model {model_name} "
         f"({missing}); running before dispatch"
     )
+    checkout = ["--checkout", repository] if repository else []
     rc = _run_preflight(
         [
             "--project",
             project,
             "--model",
             model_name,
+            *checkout,
             environment,
             "--record-receipt",
             "--product-sha",
