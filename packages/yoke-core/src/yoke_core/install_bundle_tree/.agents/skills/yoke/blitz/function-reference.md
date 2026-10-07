@@ -47,6 +47,6 @@ queue liveness with `yoke github merge-queue readiness ITEM --json`, never a
 bare automerge field, and clear a live candidate with
 `yoke github merge-queue hold ITEM` before correcting it. Non-queue routes
 still land inline. Each command has no registered `direct_workflow.*` function
-id — use them verbatim; do not invent function ids for them. Contract:
-[`docs/archive/decisions/standalone-item-merge.md`](../../../../docs/archive/decisions/standalone-item-merge.md).
+id — use them verbatim; do not invent function ids for them. Run
+`yoke merge item --help` for the flag matrix.
 

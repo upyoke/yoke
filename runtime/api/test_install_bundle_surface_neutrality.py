@@ -13,6 +13,7 @@ which stays local to this repository.
 
 from __future__ import annotations
 
+import posixpath
 import re
 from pathlib import Path
 
@@ -220,3 +221,76 @@ def test_the_generic_placeholder_is_actually_in_use() -> None:
         "vacuously if the command examples were removed instead of "
         "genericized."
     )
+
+
+MARKDOWN_LINK = re.compile(r"\[[^\]]+\]\(([^)\s]+)\)")
+FENCED_BLOCK = re.compile(r"^(```|~~~).*?^\1", re.MULTILINE | re.DOTALL)
+
+
+def _bundle_files(root: Path) -> list[dict[str, str]]:
+    """Every tree file the install bundle writes, keyed by installed path."""
+    from yoke_core.domain import install_bundle
+    from yoke_core.domain.install_bundle_managed import docs_bundle_files
+
+    return [
+        *install_bundle._skill_files(root),
+        *install_bundle._agent_files(root),
+        *install_bundle._rules_files(root),
+        *docs_bundle_files(root),
+    ]
+
+
+def _dead_bundle_links(files: list[dict[str, str]]) -> list[str]:
+    """Return relative markdown links that land outside the installed files."""
+    installed = {entry["path"] for entry in files}
+    for path in list(installed):
+        parent = posixpath.dirname(path)
+        while parent:
+            installed.add(parent)
+            parent = posixpath.dirname(parent)
+    dead = []
+    for entry in files:
+        if not entry["path"].endswith(".md"):
+            continue
+        prose = FENCED_BLOCK.sub("", entry["content"])
+        for raw_target in MARKDOWN_LINK.findall(prose):
+            target = raw_target.split("#", 1)[0]
+            if not target or "://" in target or target.startswith(("mailto:", "data:")):
+                continue
+            destination = posixpath.normpath(
+                posixpath.join(posixpath.dirname(entry["path"]), target)
+            )
+            if destination not in installed:
+                dead.append(f"{entry['path']} -> {raw_target}")
+    return dead
+
+
+@pytest.mark.parametrize("packaged", [False, True])
+def test_installed_links_resolve_inside_the_install_bundle(packaged):
+    """A shipped link must land on a file every installed project receives.
+
+    Paths that exist only in this repository — `docs/archive/`, source
+    modules — resolve here and dangle in every installed project, so the
+    check resolves links against the bundle's installed paths, not this tree.
+    """
+    from yoke_core.domain.install_bundle_tree_sync import PACKAGED_TREE_REL
+
+    root = REPO / PACKAGED_TREE_REL if packaged else REPO
+    dead = _dead_bundle_links(_bundle_files(root))
+    assert dead == [], (
+        f"install-bundle links that dangle in an installed project: {dead}. "
+        "Inline the needed sentence, point at a command's --help, or link a "
+        "file the bundle ships (docs/public installs at .yoke/docs)."
+    )
+
+
+def test_dead_link_check_flags_a_source_repo_only_target():
+    """Guard against the link check passing because it resolves nothing."""
+    skill = {
+        "path": ".agents/skills/yoke/dash/function-reference.md",
+        "content": "[contract](../../../../docs/archive/decisions/merge.md)\n",
+    }
+    assert _dead_bundle_links([skill]) == [
+        ".agents/skills/yoke/dash/function-reference.md -> "
+        "../../../../docs/archive/decisions/merge.md"
+    ]
