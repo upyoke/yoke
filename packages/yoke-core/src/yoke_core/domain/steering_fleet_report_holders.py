@@ -188,22 +188,25 @@ def claim_holders(
     """
     holders = []
     rows = _held_item_rows(conn, project_id=project_id)
+    processes = {
+        str(row["session_id"]): current_native_process_observation(
+            row, landing_wait=waiting_on_landing(row)
+        )
+        or {}
+        for row in rows
+    }
+    # Only a recorded exit can be answered by a resume, so a fleet with no
+    # exit on record pays nothing beyond its one holder read.
     resumes = resumes_in_flight(
         conn,
-        (str(row["session_id"]) for row in rows),
+        (session_id for session_id, process in processes.items() if process),
         now=parse_timestamp(now) or datetime.now(timezone.utc),
     )
     for row in rows:
         last_activity = str(row.get("last_tool_call_at") or row.get("claimed_at") or "")
         mode = str(row.get("mode") or "")
-        process = (
-            current_native_process_observation(
-                row,
-                landing_wait=waiting_on_landing(row),
-            )
-            or {}
-        )
-        resume = resumes.get(str(row["session_id"])) if process else None
+        process = processes[str(row["session_id"])]
+        resume = resumes.get(str(row["session_id"]))
         if resume is not None:
             process = {}
         call_start = parse_stamp(row.get(OPEN_TOOL_CALL_COLUMN))

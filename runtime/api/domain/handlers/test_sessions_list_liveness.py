@@ -106,6 +106,7 @@ class TestLivenessDerivation:
 
     def test_a_wake_answering_the_exit_projects_resuming(self, test_db):
         exited = _iso(10)
+        woken = _iso(1)
         _insert_session(test_db, "s-resuming", last_heartbeat=_iso(_LONG_AGO_MINUTES))
         test_db.execute(
             "UPDATE harness_sessions SET native_process_gone_at=%s, "
@@ -113,7 +114,7 @@ class TestLivenessDerivation:
             (exited,),
         )
         seed_message(
-            test_db, "m-resume", sender="s-resuming", to="s-resuming", at=_iso(1)
+            test_db, "m-resume", sender="s-resuming", to="s-resuming", at=woken
         )
         seed_delivery_attempt(
             test_db,
@@ -121,14 +122,14 @@ class TestLivenessDerivation:
             message_id="m-resume",
             to="s-resuming",
             result_code="wake_delivered",
-            started_at=_iso(1),
+            started_at=woken,
         )
         test_db.commit()
 
         assert list_sessions()[0]["native_process"] == {
             "state": "resuming",
             "observed_at": exited,
-            "resume_started_at": _iso(1),
+            "resume_started_at": woken,
             "resume_attempt_id": "wake-resume",
         }
 

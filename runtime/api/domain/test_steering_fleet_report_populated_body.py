@@ -199,10 +199,11 @@ def test_a_row_carries_the_marks_that_decide_what_to_do_with_it():
     )
     assert "model does not support effort max" in rejected
     assert "choose a supported model, effort, and context combination" in rejected
-    waiter_row = next(line for line in body.splitlines() if "wake `yoke say" in line)
-    assert "YOK-3" in waiter_row
+    waiter_row = next(
+        line for line in body.splitlines() if "yoke say --item YOK-3 --stdin" in line
+    )
     assert "session holder-session" in waiter_row
-    assert "yoke say --item YOK-3 --stdin" in waiter_row
+    assert "idle, process running — message it" in waiter_row
 
 
 def test_a_landed_item_nobody_holds_carries_the_command_that_runs_for_it():
@@ -270,7 +271,7 @@ def test_a_landed_row_names_the_release_holding_it_or_says_none_does():
 
 
 def test_a_relanded_item_names_the_run_its_newest_merge_left_behind():
-    """"Merged again since RUN" is a different finding from "nothing holds it"."""
+    """ "Merged again since RUN" is a different finding from "nothing holds it"."""
     report = _populated_report()
     relanded = dataclasses.replace(
         report.landed_open[0],
@@ -297,9 +298,10 @@ def test_custody_change_alone_moves_the_report_fingerprint():
         report.landed_open[0], custody_state=HELD, custody_run_id="run-20260919-020"
     )
 
-    assert report.fingerprint() != dataclasses.replace(
-        report, landed_open=(delivering,)
-    ).fingerprint()
+    assert (
+        report.fingerprint()
+        != dataclasses.replace(report, landed_open=(delivering,)).fingerprint()
+    )
 
 
 def test_the_populated_report_stays_short_enough_to_ride_every_message():

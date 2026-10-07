@@ -87,7 +87,12 @@ def test_resume_started_after_recorded_exit_refuses_termination(
     assert claim["released_at"] is None
 
 
-def test_override_terminates_a_resuming_session(conn, _termination_fixture) -> None:
+def test_override_terminates_a_resuming_session(conn, monkeypatch) -> None:
+    events: list[dict] = []
+    monkeypatch.setattr(
+        "yoke_core.domain.session_termination.emit_session_terminated",
+        lambda session_id, context: events.append(context),
+    )
     _register_operator_and_target(conn)
     _record_exit(conn, seconds_ago=600)
     _record_wake(conn, seconds_ago=60, result_code=None)
@@ -95,7 +100,7 @@ def test_override_terminates_a_resuming_session(conn, _termination_fixture) -> N
     result = _terminate(conn, allow_resume_in_flight=True)
 
     assert result["session"]["terminated_at"]
-    assert _termination_fixture[-1][1]["allow_resume_in_flight"] is True
+    assert events[-1]["allow_resume_in_flight"] is True
 
 
 @pytest.mark.parametrize(
