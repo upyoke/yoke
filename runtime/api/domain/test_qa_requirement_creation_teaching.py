@@ -131,6 +131,7 @@ def test_browser_case_placement_has_one_home() -> None:
     (
         ".agents/skills/yoke/idea/delivery-requirements.md",
         ".agents/skills/yoke/dash/file-and-claim.md",
+        ".agents/skills/yoke/dash/verify.md",
         ".agents/skills/yoke/implement/implementing/browser-seeding.md",
         ".agents/skills/yoke/refine/review-rubric.md",
     ),

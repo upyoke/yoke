@@ -152,8 +152,11 @@ An empty listing means no effective plan is attached at that transition. For
 optional Dash QA that is an honest absence; do not invent a substitute command
 or a hand-written run.
 
-A Browser case at this transition is captured against a target that serves
-**your committed candidate**, and the case pins that candidate:
+[Where a Browser case runs](../../../../.yoke/docs/reference/browser-scenarios.md#where-a-browser-case-runs)
+places every Browser case. A `post_deploy` case bound to the release stage runs
+after the deploy, not here. A pre-merge `verification` case at this transition
+is captured against a target that serves **your committed candidate**, and the
+case pins that candidate:
 
 ```text
 yoke qa case run --requirement-id <requirement-id> \
@@ -265,8 +268,12 @@ Then execute each selected posture knob through its shared authority:
   execution. Confirm the passing rows are the selected plan's, because the
   posture gate reads only requirements carrying that `plan_id`.
 - `verification.kind=ad_hoc` — author the concrete selected-method case from
-  the stored instruction and actual target, then execute the returned
-  requirement:
+  the stored instruction and actual target, placed where
+  [Where a Browser case runs](../../../../.yoke/docs/reference/browser-scenarios.md#where-a-browser-case-runs)
+  puts it. A change visible only once deployed takes a `post_deploy` case with
+  `--target-env ENV --workflow-transition RELEASE_STAGE`; it binds the posture
+  for review and the deployment stage executes it, so do not run it here. A
+  pre-merge case binds to the review stage; execute the returned requirement:
 
   ```text
   yoke qa requirement add --item ITEM \
