@@ -59,8 +59,13 @@ def _persistent_target(conn: Any, project_id: int, environment: str) -> dict:
             "kind": "persistent_environment",
         },
         "site": {"name": str(row["site_name"])},
-        "endpoints": _generic_endpoints(row, _decode(row["settings"])),
+        "endpoints": persistent_environment_endpoints(row),
     }
+
+
+def persistent_environment_endpoints(row: Mapping[str, Any]) -> dict:
+    """Endpoints a persistent deployment target declares for one environment row."""
+    return _generic_endpoints(row, _decode(row["settings"]))
 
 
 def _preview_target(receipt: Mapping[str, Any]) -> dict:
@@ -174,10 +179,10 @@ def deployment_qa_execution_target(
 
     After this subject has materialized at least one case, later reads
     reuse that snapshot while the producer receipt is unchanged, so a live
-    environment edit cannot move the digest mid-stage. A newer ready
-    receipt is a new identity and is resolved live. Passing ``receipt_id``
-    also skips the freeze: result-write validation still compares against
-    the live subject, including a replaced candidate on the same run row.
+    environment edit cannot move the digest mid-stage; a newer ready
+    receipt is a new identity resolved live. A pinned ``receipt_id`` must
+    still be the newest exact ready attempt, and its snapshot is reused only
+    while tenant, project, observation, and deployment equal the live subject.
     """
     project = target_project(conn, subject)
     if receipt_id is None:
@@ -237,6 +242,38 @@ def deployment_qa_execution_target(
         expected_artifact_identity=subject.get("artifact_identity"),
         receipt_id=receipt_id,
     )
+    identity = {
+        "tenant": {
+            "id": int(subject["tenant_id"]),
+            "slug": str(subject["tenant_slug"]),
+            "name": str(subject["tenant_name"]),
+        },
+        "project": project,
+        "observation": {
+            "receipt_id": int(receipt["id"]),
+            "source_stage": source_stage,
+            "attempt_number": int(receipt["attempt_number"]),
+            "correlation_id": str(receipt["correlation_id"]),
+            "observed_release_lineage": str(receipt["observed_release_lineage"]),
+            "observed_artifact_identity": receipt.get("observed_artifact_identity"),
+        },
+        "deployment": {
+            "run_id": str(subject["id"]),
+            "stage": str(subject["stage"]["name"]),
+            "member_item_id": subject.get("member_item_id"),
+            "release_lineage": str(subject["release_lineage"]),
+            "artifact_identity": subject.get("artifact_identity"),
+        },
+    }
+    if receipt_id is not None:
+        frozen = first_materialized_execution_target(
+            conn,
+            run_id=str(subject["id"]),
+            stage_name=str(subject["stage"]["name"]),
+            member_item_id=subject.get("member_item_id"),
+        )
+        if frozen is not None and all(frozen.get(k) == v for k, v in identity.items()):
+            return frozen
     if kind == "persistent_environment":
         resolved = _persistent_target(conn, project["id"], expected_name or "")
         observed_url = str(receipt.get("observed_url") or "").rstrip("/")
@@ -259,28 +296,8 @@ def deployment_qa_execution_target(
     return {
         "schema": DEPLOYMENT_TARGET_SCHEMA,
         "target_kind": DEPLOYMENT_TARGET_KIND,
-        "tenant": {
-            "id": int(subject["tenant_id"]),
-            "slug": str(subject["tenant_slug"]),
-            "name": str(subject["tenant_name"]),
-        },
-        "project": project,
+        **identity,
         **resolved,
-        "observation": {
-            "receipt_id": int(receipt["id"]),
-            "source_stage": source_stage,
-            "attempt_number": int(receipt["attempt_number"]),
-            "correlation_id": str(receipt["correlation_id"]),
-            "observed_release_lineage": str(receipt["observed_release_lineage"]),
-            "observed_artifact_identity": receipt.get("observed_artifact_identity"),
-        },
-        "deployment": {
-            "run_id": str(subject["id"]),
-            "stage": str(subject["stage"]["name"]),
-            "member_item_id": subject.get("member_item_id"),
-            "release_lineage": str(subject["release_lineage"]),
-            "artifact_identity": subject.get("artifact_identity"),
-        },
     }
 
 
@@ -327,5 +344,6 @@ __all__ = [
     "deployment_qa_execution_target",
     "first_materialized_execution_target",
     "is_deployment_execution_target",
+    "persistent_environment_endpoints",
     "validate_deployment_execution_target",
 ]
