@@ -16,6 +16,8 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.actor_message_recipient_schema import (
     TABLE as RECIPIENT_TABLE,
 )
+from yoke_core.domain.steering_scope_coverage import PROJECT_KEY
+from yoke_core.domain.steering_scope_membership import LINK_TABLE, scope_document
 
 
 STEERING_KIND = "steering"
@@ -36,20 +38,39 @@ def _marker(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def load_unsettled_steering_rows(conn: Any, project_id: int) -> list[dict[str, Any]]:
-    """Project steering recipients that are not yet settled or live-held."""
+def _scope_rows_clause(
+    marker: str, project_id: int, scope: Mapping[str, Any]
+) -> tuple[str, tuple[Any, ...]]:
+    """Rows filed under this project, plus a document seat's linked items."""
+    document = scope_document(scope)
+    if document is None:
+        return f"r.project_id = {marker}", (int(project_id),)
+    return (
+        f"(r.project_id = {marker} OR r.sender_item_id IN "
+        f"(SELECT link.item_id FROM {LINK_TABLE} link "
+        f"WHERE link.project_id = {marker} "
+        f"AND link.strategy_doc_slug = {marker}))",
+        (int(project_id), int(scope[PROJECT_KEY]), document),
+    )
+
+
+def load_unsettled_steering_rows(
+    conn: Any, project_id: int, scope: Mapping[str, Any]
+) -> list[dict[str, Any]]:
+    """Steering recipients this scope may cover, not yet settled or live-held."""
     marker = _marker(conn)
+    scoped, scoped_params = _scope_rows_clause(marker, project_id, scope)
     rows = conn.execute(
         f"SELECT {_CANDIDATE_COLUMNS} "
         f"FROM {RECIPIENT_TABLE} r "
         "JOIN session_messages m ON m.message_id = r.message_id "
         "LEFT JOIN harness_sessions seat ON seat.session_id = r.seat_session_id "
-        f"WHERE r.recipient_kind = {marker} AND r.project_id = {marker} "
+        f"WHERE r.recipient_kind = {marker} AND {scoped} "
         f"AND m.cancelled_at IS NULL AND r.state <> {marker} "
         f"AND NOT (r.state = {marker} AND r.seat_session_id IS NOT NULL "
         "AND seat.ended_at IS NULL AND seat.terminated_at IS NULL) "
         "ORDER BY m.created_at DESC, r.message_id DESC",
-        (STEERING_KIND, int(project_id), STATE_ACKNOWLEDGED, STATE_DELIVERED),
+        (STEERING_KIND, *scoped_params, STATE_ACKNOWLEDGED, STATE_DELIVERED),
     ).fetchall()
     return [dict(row) for row in rows]
 

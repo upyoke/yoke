@@ -105,9 +105,7 @@ def _drainable_ids(conn, *, scope=PROJECT_SCOPE, project_id: int = 1) -> list[st
 
 def _count_sql(counting: CountingConnection, fragment: str) -> int:
     needle = fragment.lower()
-    return sum(
-        n for sql, n in counting.statements.items() if needle in sql.lower()
-    )
+    return sum(n for sql, n in counting.statements.items() if needle in sql.lower())
 
 
 def _measure(conn, *, scope=PROJECT_SCOPE, project_id: int = 1) -> dict[str, int]:
@@ -172,9 +170,7 @@ def test_cancelled_live_held_and_answered_rows_stay_out_of_the_count() -> None:
     live = _say_steering(conn, body="Blocked: a live seat is holding this.")
     assert live["message_id"] not in _drainable_ids(conn)
 
-    answered = _say_steering(
-        conn, body="Should we take the schema converge fix?"
-    )
+    answered = _say_steering(conn, body="Should we take the schema converge fix?")
     send_message(
         conn,
         actor_id=10,
@@ -250,7 +246,9 @@ def test_a_later_link_moves_parked_mail_without_rereading_settled_rows() -> None
     assert after["count"] == 1
     assert _drainable_ids(conn, scope=SCOPE_AREA) == [sent["message_id"]]
     assert after["statements"] == before["statements"]
-    assert after["links"] == before["links"] == 1
+    # A document seat names the link table twice: once to load linked rows
+    # from any project, once to resolve the loaded rows' membership.
+    assert after["links"] == before["links"] == 2
 
 
 def test_draining_still_renders_bodies_for_the_actionable_subset() -> None:

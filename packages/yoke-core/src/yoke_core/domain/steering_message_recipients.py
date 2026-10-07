@@ -152,7 +152,7 @@ def _drainable_candidates(
     project_id: int,
 ) -> list[dict[str, Any]]:
     """Unsettled rows this scope covers, without fetching message bodies."""
-    rows = load_unsettled_steering_rows(conn, project_id)
+    rows = load_unsettled_steering_rows(conn, project_id, scope)
     if not rows:
         return []
     item_ids = [
