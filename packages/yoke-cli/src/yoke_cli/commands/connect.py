@@ -52,8 +52,10 @@ def connect(args: List[str]) -> int:
         default=None,
         help=(
             "Hosted platform URL for browser sign-in, or a self-hosted server "
-            "URL for company sign-in (when configured) or an explicit API token. Omit it for ordinary production "
-            "hosted browser sign-in."
+            "URL: approve the printed code by company sign-in (when configured) "
+            "or from your own machine already connected to it, or pass an "
+            "explicit API token. Omit it for ordinary production hosted browser "
+            "sign-in."
         ),
     )
     parser.add_argument(

@@ -280,7 +280,8 @@ def _print_summary(report: Dict[str, object]) -> None:
     print(f"  1. yoke self-host init --dir {directory} --protect-existing --start")
     print("  2. first boot writes the reusable administrator token to:")
     print(f"       {token_file}")
-    print("  3. connect this machine's CLI, then remove that file:")
+    print("  3. connect this machine's CLI; keep that owner-only file, since")
+    print("     rerunning `yoke setup` on this host reconnects with it:")
     print(f"       yoke connect {connect_url} --token-stdin < {token_file}")
 
 

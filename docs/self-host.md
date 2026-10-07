@@ -13,11 +13,12 @@ On the server host (needs Docker with the compose plugin):
 # 1. Install the CLI (also how engineer machines install it later).
 curl -fsSL https://upyoke.com/install | sh
 
-# 2. Materialize the compose bundle. Writes docker-compose.yml, .env,
+# 2. Materialize the compose bundle. Writes docker-compose.yml, .env
+#    (carrying your name: first boot creates the first admin as you),
 #    and generated database credentials as owner-only secret files —
 #    the generated password is never printed. A marked block in
 #    .gitignore protects .env and secrets/ without replacing your rules.
-yoke self-host init --start
+yoke self-host init --admin-name "Your Name" --start
 cd yoke-server
 
 # 3. First boot writes the reusable administrator token to an owner-only
@@ -25,44 +26,20 @@ cd yoke-server
 docker compose logs core
 
 # 4. Attach your CLI (verifies the server and token before persisting
-#    anything), then remove the file — it is the only raw copy on disk.
-#    The token itself stays valid until you revoke it.
+#    anything). Keep the owner-only token file: it stays valid until you
+#    revoke it, and rerunning `yoke setup` on this host reconnects with it.
 yoke connect http://127.0.0.1:8765 --token-stdin < secrets/first-boot-admin-token
-rm secrets/first-boot-admin-token
 
 # 5. Confirm the machine is wired up. This fails if the server is not
 #    answering, so a green run means the whole path works.
 yoke status
 ```
 
-The host command opens each mode `0600` input as its non-root operator and
-streams it on stdin through Docker exec. The container drops to its runtime
-user and writes private tmpfs copies; no host file is mounted or chowned and
-no credential is placed in an environment variable. The admin token returns
-over that same private handoff, outside Docker logs; the host atomically writes
-its owner-only token file and acknowledges durable storage before token creation
-commits. A failed handoff refuses with a reason and retry command.
+The host command opens each mode `0600` input as its non-root operator and streams it on stdin through Docker exec. The container drops to its runtime user and writes private tmpfs copies; no host file is mounted or chowned and no credential is placed in an environment variable. The admin token returns over that same private handoff, outside Docker logs; the host atomically writes its owner-only token file and acknowledges durable storage before token creation commits. A failed handoff refuses with a reason and retry command.
 
-Start/restart an existing bundle with `yoke self-host init --dir PATH
---protect-existing --start`. This refreshes the packaged Compose template,
-preserving `.env`, database credentials, and the Postgres volume. Keep runtime
-settings in `.env`; reapply any custom Compose changes after a template refresh.
-Automatic container restart is disabled: after a host/daemon restart, run that
-host command again so it can reopen the protected inputs. Raw Compose starts
-alone cannot supply the handoff. Native Ubuntu rootful Docker is exercised by
-the manual bootstrap probe; rootless Docker and Fedora/SELinux remain unproved.
+Start/restart an existing bundle with `yoke self-host init --dir PATH --protect-existing --start`. This refreshes the packaged Compose template, preserving `.env`, database credentials, and the Postgres volume. Keep runtime settings in `.env`; reapply any custom Compose changes after a template refresh. Automatic container restart is disabled: after a host/daemon restart, run that host command again so it can reopen the protected inputs. Raw Compose starts alone cannot supply the handoff. Native Ubuntu rootful Docker is exercised by the manual bootstrap probe; rootless Docker and Fedora/SELinux remain unproved.
 
-`yoke self-host init` takes `--dir`, `--port`, and `--image` overrides. By
-default it resolves the installed CLI's immutable release manifest and writes
-that release's exact `<repository>:<sha12>` image to `.env`. The repository defaults
-to `ghcr.io/upyoke/yoke-server`; set `settings.server_image_repository` in machine
-config, or choose **Image repository** in the self-host onboarding preview, to
-use a fork, mirror, or private registry. Enter a lowercase registry/repository
-without a tag or digest; it must carry the same release commit tags.
-Every fresh bundle therefore starts with matching CLI and server versions, and
-a later container restart keeps the same server. `--image` remains an explicit
-operator override. Generated credentials stay in host-owned files under `secrets/`
-rather than `.env`, whose values Compose `$`-interpolates.
+A new bundle requires `--admin-name`, written to `.env` as `YOKE_ADMIN_NAME`; first boot refuses to birth a universe without it and names the fix (set it in `.env`, then restart). `yoke self-host init` takes `--dir`, `--port`, and `--image` overrides. By default it resolves the installed CLI's immutable release manifest and writes that release's exact `<repository>:<sha12>` image to `.env`. The repository defaults to `ghcr.io/upyoke/yoke-server`; set `settings.server_image_repository` in machine config, or choose **Image repository** in the self-host onboarding preview, to use a fork, mirror, or private registry. Enter a lowercase registry/repository without a tag or digest; it must carry the same release commit tags. Every fresh bundle therefore starts with matching CLI and server versions, and a later container restart keeps the same server. `--image` remains an explicit operator override. Generated credentials stay in host-owned files under `secrets/` rather than `.env`, whose values Compose `$`-interpolates.
 
 Refresh older bundles while preserving `.env` and database credentials:
 
@@ -89,7 +66,7 @@ The command requires Docker with Compose, validates the bundle, and refuses whil
 
 Uploaded DDL never runs. Yoke creates the trusted destination schema, validates the bounded archive, and restores approved data and sequences in one transaction; retry replaces a failed or interrupted attempt.
 
-Archives can contain raw capability secrets plus hashed credentials. Keep them owner-only and rotate secrets when custody changes. Restore revokes imported API tokens and browser sessions, grants neutral `admin` org-admin access, and mints one replacement token. Save its one-time success output, then run the printed `yoke self-host init --protect-existing --start` and `yoke connect` steps.
+Archives can contain raw capability secrets plus hashed credentials. Keep them owner-only and rotate secrets when custody changes. Restore revokes imported API tokens and browser sessions, re-credentials the archive's org-admin person (an archive with none refuses), and mints one replacement token. Save its one-time success output, then run the printed `yoke self-host init --protect-existing --start` and `yoke connect` steps.
 
 If the restore reported success but its one-time result was lost before you
 could save it, mint a recovery credential while `core` remains stopped:
@@ -147,8 +124,13 @@ machine. The CLI polls and receives its machine-bound credential once; no
 server operator needs to mint a token. The setup wizard's **A team server**
 option discovers the same sign-in method after you enter the server URL.
 
-Without company sign-in, connect with a pasted API token or token file:
-`yoke connect https://yoke.internal --token-stdin`. The first-boot admin token
+Without company sign-in, a teammate's first machine connects with a pasted API
+token or token file: `yoke connect https://yoke.internal --token-stdin`. Your
+own next machine needs no token: run `yoke connect https://yoke.internal`, then
+approve its printed code from a machine you already connected with
+`yoke machine-authorization resolve CODE --action approve` (or the approval
+page after `yoke ui up`). The new machine receives the approver's identity, so
+approve only your own codes. The first-boot admin token
 remains the bootstrap; an admin can mint other API tokens on the host with
 `docker compose exec --user yoke core python3 -m yoke_core.domain.api_tokens_cli mint --actor <actor-id> --name <engineer-label>`.
 
@@ -156,6 +138,13 @@ Use HTTPS for network servers (numeric loopback HTTP is permitted locally).
 The connection is saved only after `/v1/health` and `/v1/auth/identity` pass.
 See [Machine authorization](public/reference/machine-authorization.md) for
 expiry, retry, and single-use credential delivery.
+
+## Restore admin access
+
+The host stays connected after setup. If this machine loses its connection,
+rerun `yoke setup` on the host and choose **Set this machine up as a
+self-hosting server**: it finds the existing bundle, restarts it, and
+reconnects with `secrets/first-boot-admin-token` without asking anything new.
 
 ## Workbench and browser sign-in
 

@@ -29,7 +29,9 @@ def validate_admin_name(value: object) -> str:
     """Return the cleaned name, or raise :class:`AdminNameError` saying why."""
     name = str(value or "").strip()
     if not name:
-        raise AdminNameError("enter your name; it names this universe's first admin")
+        raise AdminNameError(
+            "your name is required: it names this universe's first admin"
+        )
     if len(name) > MAX_ADMIN_NAME_LENGTH:
         raise AdminNameError(
             f"use at most {MAX_ADMIN_NAME_LENGTH} characters for your name"

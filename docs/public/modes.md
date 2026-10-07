@@ -6,7 +6,8 @@ One installer. After install, choose where the Yoke core and its database live.
 
 Private on your machine. No signup. One human, as many agents as you want.
 
-- Wizard: pick **This machine**, or run `yoke init --local`
+- Wizard: pick **This machine** (it asks your name: you become the universe's
+  first admin), or run `yoke init --local --admin-name "Your Name"`
 - Data under `~/.yoke/`
 - The machine relay is installed here too, so the workbench sees which harnesses
   this machine can start, reports session liveness, and can launch and resume
@@ -53,15 +54,18 @@ sign-in link valid for two minutes. Rerun the command if the link expires.
 
 - Wizard on the host: pick **Set this machine up as a self-hosting server** to
   preview the loopback URL, bundle directory, port, Docker requirement, and
-  networking responsibility before any write. It creates/starts the Compose
-  bundle, captures first boot, waits until the server answers `/v1/health`,
-  and activates the owner-only local connection.
+  networking responsibility before any write. Start asks your name, creates/starts
+  the Compose bundle so first boot makes you the first admin, captures the
+  admin token, waits until the server answers `/v1/health`, and activates the
+  owner-only local connection. Rerun it on a host whose bundle already exists to
+  restart that bundle and reconnect with its first-boot token.
 - Wizard on another machine: pick **A team server** and enter its reachable URL
   first. Company sign-in (OIDC), when configured, opens the workbench with a
   one-time code so you approve your own machine. Otherwise provide a pasted
-  API token or token-file path. The guided host screen teaches the handoff without configuring
+  API token or token-file path; your own next machine can instead run
+  `yoke connect URL` and approve its code from a machine you already connected. The guided host screen teaches the handoff without configuring
   VPN/tailnet, LAN, port-forwarding, or TLS for you.
-- Manual/operator path: `yoke self-host init --start` writes and starts the same Compose
+- Manual/operator path: `yoke self-host init --admin-name "Your Name" --start` writes and starts the same Compose
   bundle through the private host secret handoff. Restart with
   `yoke self-host init --dir PATH --protect-existing --start`; [`docs/self-host.md`](https://github.com/upyoke/yoke/blob/main/docs/self-host.md)
   remains the full reference.
