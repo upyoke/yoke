@@ -9,8 +9,13 @@ org selection. Self-host binds a code to its sole organization at start.
 Run `yoke connect https://<server>` and approve your own machine in the signed-in
 workbench. The setup wizard's **A team server** option discovers the server's
 sign-in method before showing browser approval or API-token entry. Without
-company sign-in, use `yoke connect https://<server> --token-stdin` or
-`--token-file PATH`. The first-boot admin token remains the bootstrap.
+company sign-in, a first machine uses `yoke connect https://<server> --token-stdin`
+or `--token-file PATH`; the first-boot admin token remains the bootstrap. Your
+own next machine runs `yoke connect https://<server>` and you approve its code
+from a machine you already connected with
+`yoke machine-authorization resolve CODE --action approve`. The approved
+machine receives the approver's identity, so approve only your own codes; the
+wizard therefore keeps a teammate without company sign-in on API-token entry.
 
 ## Wire
 
@@ -28,10 +33,14 @@ company sign-in, use `yoke connect https://<server> --token-stdin` or
 - Cloud's API authority is `/api/orgs/<slug>` on the selected origin. Self-host's
   authority is the server origin. Clients reject foreign origins or mismatched
   authorities before persisting a credential.
-- Self-host discovery is `GET /api/machine/authorizations`: `device_code` is true
-  exactly when company sign-in is configured. Partial configuration refuses as
-  `oidc_misconfigured`; an older server without discovery requires an explicit
-  API token until its operator upgrades it. The wizard retains the discovery
+- Self-host discovery is `GET /api/machine/authorizations`: `device_code` is
+  true on every current server, and `company_sign_in` is true exactly when
+  company sign-in is configured. Without company sign-in, codes and delivered
+  credentials name the request's own origin. A server that omits
+  `company_sign_in` predates it and offered device codes only with company
+  sign-in. Partial configuration refuses as `oidc_misconfigured`; an older
+  server without discovery requires an explicit API token until its operator
+  upgrades it. The wizard retains the discovery
   refusal and offers **Use API token**, **Edit connection**, and **Choose another
   home**, including when company sign-in is misconfigured.
 
