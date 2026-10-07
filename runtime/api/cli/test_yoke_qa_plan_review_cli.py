@@ -30,7 +30,7 @@ def test_plan_engine_cli_requires_environment_bound_agent_review_dispatch(
         qa_plan_execution_cli,
         "execute_plan",
         return_value={
-            "item_id": 42,
+            "public_ref": _FIXTURE_ITEM_REF,
             "transition_id": "implemented",
             "state": "awaiting_agent_review",
             "review_bundle": {
@@ -46,7 +46,7 @@ def test_plan_engine_cli_requires_environment_bound_agent_review_dispatch(
                     ],
                     "prompt": "Review the exact immutable bundle.",
                     "submit_command": (
-                        "yoke qa plan review-submit --item ITEM-42 "
+                        f"yoke qa plan review-submit --item {_FIXTURE_ITEM_REF} "
                         "--execution-id execution-1 --bundle-id bundle-1 "
                         f"--bundle-digest {'a' * 64} --stdin"
                     ),
@@ -241,7 +241,7 @@ class TestDispatchOffersOnlyWhatTheStageAccepts:
             "execution_target": {"environment": {"name": "production"}},
             "execution_target_digest": "b" * 64,
             "state": "pending",
-            "subject": {"item_id": 42, "deployment_run_id": None},
+            "subject": {"public_ref": _FIXTURE_ITEM_REF, "deployment_run_id": None},
             "cases": [{"requirement_id": 41, "capture_runner": "browser_substrate"}],
         }
         dispatch = _dispatch_contract(
@@ -252,10 +252,22 @@ class TestDispatchOffersOnlyWhatTheStageAccepts:
         assert "undetermined is not submittable here" in dispatch["prompt"]
 
 
-def test_review_submit_refuses_a_numeric_item_before_teardown(capsys):
+def test_review_submit_refuses_a_numeric_item_before_mission_access(capsys):
     with (
-        mock.patch.object(sys, "stdin", io.StringIO('{"verdicts": []}')),
-        mock.patch.object(qa_plan_review_cli, "_tear_down_mission") as teardown,
+        mock.patch.object(
+            sys,
+            "stdin",
+            io.StringIO(
+                json.dumps(
+                    {
+                        "verdicts": [
+                            {"requirement_id": 41, "verdict": "pass", "rationale": "ok"}
+                        ]
+                    }
+                )
+            ),
+        ),
+        mock.patch.object(qa_plan_review_cli, "_unfinished_walk") as mission_access,
         mock.patch.object(qa_plan_review_cli, "_call_plan_function") as submit,
     ):
         code = qa_plan_review_cli.run(
@@ -273,5 +285,5 @@ def test_review_submit_refuses_a_numeric_item_before_teardown(capsys):
         )
     assert code == 2
     assert "public_item_ref_required" in capsys.readouterr().err
-    teardown.assert_not_called()
+    mission_access.assert_not_called()
     submit.assert_not_called()
