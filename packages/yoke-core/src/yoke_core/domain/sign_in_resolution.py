@@ -14,14 +14,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional
 
-from yoke_core.domain import db_backend
 from yoke_core.domain.actor_state import actor_is_active
 from yoke_core.domain.actor_invites import (
-    Invite,
     mark_invite_accepted,
     pending_invite_for_email,
 )
-from yoke_core.domain.actor_permissions import grant_actor_org_role
+from yoke_core.domain.sign_in_invite_role import (
+    grant_invite_role,
+    invite_role_refusal,
+)
 from yoke_core.domain.actors import seed_human_actor, set_actor_name
 from yoke_core.domain.external_identities import (
     default_org_id,
@@ -46,6 +47,7 @@ REFUSAL_MISSING_EMAIL_CLAIM = "missing_email_claim"
 REFUSAL_EMAIL_UNVERIFIED = "email_unverified"
 REFUSAL_NO_ADMISSION_MATCH = "no_invite_or_auto_join_match"
 REFUSAL_ACTOR_DISABLED = "actor_disabled"
+REFUSAL_INVITE_ROLE_REFUSED = "invite_role_refused"
 
 
 @dataclass(frozen=True)
@@ -111,25 +113,6 @@ def _create_named_actor(
     """Create the human actor an admitting rung just decided to admit."""
     return seed_human_actor(
         conn, _admitted_name(email, name_claim), attribution=attribution
-    )
-
-
-def _grant_invite_role(conn: Any, invite: Invite, actor_id: int) -> None:
-    if invite.role_id is None:
-        return
-    p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    row = conn.execute(
-        f"SELECT name FROM roles WHERE id = {p}",
-        (invite.role_id,),
-    ).fetchone()
-    if row is None:
-        return
-    grant_actor_org_role(
-        conn,
-        actor_id=actor_id,
-        org_id=invite.org_id,
-        role_name=str(row[0]),
-        granted_by_actor_id=invite.invited_by_actor_id,
     )
 
 
@@ -254,6 +237,9 @@ def resolve_sign_in(
     # Rung 2 — a pending invite admits this email.
     invite = pending_invite_for_email(conn, email=email)
     if invite is not None:
+        refused = invite_role_refusal(conn, invite)
+        if refused is not None:
+            return _refuse(issuer, REFUSAL_INVITE_ROLE_REFUSED, refused)
         if invite.actor_id is not None:
             actor_id = invite.actor_id
             if not actor_is_active(conn, actor_id):
@@ -282,7 +268,7 @@ def resolve_sign_in(
             invite_id=invite.invite_id,
             accepted_by_actor_id=actor_id,
         )
-        _grant_invite_role(conn, invite, actor_id)
+        grant_invite_role(conn, invite, actor_id)
         return _succeed(
             conn,
             issuer,

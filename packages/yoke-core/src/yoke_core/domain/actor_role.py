@@ -98,13 +98,22 @@ def resolve_member_actor(conn: Any, email: str) -> int:
 
 
 def org_role_of(conn: Any, actor_id: int, org_id: int) -> str | None:
+    """Return the person's one org role, refusing a universe that still has several."""
     p = _p(conn)
-    row = conn.execute(
+    rows = conn.execute(
         "SELECT r.name FROM actor_org_roles aor JOIN roles r ON r.id = aor.role_id "
-        f"WHERE aor.actor_id = {p} AND aor.org_id = {p} ORDER BY r.name LIMIT 1",
+        f"WHERE aor.actor_id = {p} AND aor.org_id = {p} ORDER BY r.name",
         (actor_id, org_id),
-    ).fetchone()
-    return None if row is None else str(row[0])
+    ).fetchall()
+    if len(rows) > 1:
+        names = ", ".join(str(row[0]) for row in rows)
+        raise ActorRoleRefused(
+            "org_roles_not_collapsed",
+            f"actor {actor_id} holds several org roles ({names}); this database "
+            "has not applied the one-org-role-per-person migration — deploy the "
+            "release that carries it so boot converges it, then retry",
+        )
+    return None if not rows else str(rows[0][0])
 
 
 def _other_active_human_admin(conn: Any, actor_id: int, org_id: int) -> bool:
@@ -121,6 +130,26 @@ def _other_active_human_admin(conn: Any, actor_id: int, org_id: int) -> bool:
     return row is not None
 
 
+def check_person_role_change(
+    conn: Any, *, actor_id: int, org_id: int, role: str
+) -> str | None:
+    """Refuse a person role change by name without writing; return the current role.
+
+    Demoting the org's last active admin is refused here, so no grant path
+    can strand the org without one.
+    """
+    require_human_org_role(role)
+    previous = org_role_of(conn, actor_id, org_id)
+    if previous == ROLE_ADMIN and role != ROLE_ADMIN:
+        if not _other_active_human_admin(conn, actor_id, org_id):
+            raise ActorRoleRefused(
+                "last_admin",
+                f"actor {actor_id} is the last active admin of the org; make "
+                "another active person admin first",
+            )
+    return previous
+
+
 def replace_person_role(
     conn: Any,
     *,
@@ -132,19 +161,14 @@ def replace_person_role(
 ) -> str | None:
     """Make ``role`` the person's only org role; return the role it replaced.
 
-    The caller owns the transaction. Demoting the org's last active admin is
-    refused here, so no grant path can strand the org without one.
+    The caller owns the transaction; ``check_person_role_change`` refuses
+    first, so no grant path can strand the org without an admin.
     """
-    require_human_org_role(role)
-    previous = org_role_of(conn, actor_id, org_id)
+    previous = check_person_role_change(
+        conn, actor_id=actor_id, org_id=org_id, role=role
+    )
     if previous == role:
         return previous
-    if previous == ROLE_ADMIN and not _other_active_human_admin(conn, actor_id, org_id):
-        raise ActorRoleRefused(
-            "last_admin",
-            f"actor {actor_id} is the last active admin of the org; make "
-            "another active person admin first",
-        )
     p = _p(conn)
     conn.execute(
         f"DELETE FROM actor_org_roles WHERE actor_id = {p} AND org_id = {p}",

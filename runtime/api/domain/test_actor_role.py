@@ -161,3 +161,20 @@ def test_system_actor_org_grants_accumulate(test_db):
         test_db, actor_id=system, org_id=org_id, role_name="migration_verification_ci"
     )
     assert _org_roles(test_db, system, org_id) == ["admin", "migration_verification_ci"]
+
+
+def test_a_universe_still_holding_several_roles_refuses_by_name(test_db):
+    org_id = _org(test_db)
+    admin = _person(test_db, "Admin", "admin", org_id)
+    member = _person(test_db, "Member", "operator", org_id)
+    test_db.execute(
+        "INSERT INTO actor_org_roles (actor_id, org_id, role_id, granted_at) "
+        "SELECT %s, %s, id, '2026-01-01T00:00:00Z' FROM roles WHERE name = 'viewer'",
+        (member, org_id),
+    )
+    test_db.commit()
+
+    refused = _set(admin, actor_id=member, role="admin")
+
+    assert refused.error.code == "org_roles_not_collapsed"
+    assert "one-org-role-per-person migration" in refused.error.message
