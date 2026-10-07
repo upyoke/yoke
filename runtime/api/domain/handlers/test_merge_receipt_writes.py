@@ -86,7 +86,10 @@ def test_the_write_lands_on_the_item_and_the_read_returns_it(db) -> None:
     conn = connect_test_db(db)
     try:
         stored = document.find_entry(
-            conn, item_id, branch=BRANCH, target=TARGET,
+            conn,
+            item_id,
+            branch=BRANCH,
+            target=TARGET,
         )
     finally:
         conn.close()
@@ -162,7 +165,9 @@ def test_a_missing_receipt_answers_not_found(db) -> None:
 
     outcome = writes.handle_get_merge_receipt(
         _envelope(
-            "merge_receipt.get", item_id=item_id, payload={"branch": BRANCH},
+            "merge_receipt.get",
+            item_id=item_id,
+            payload={"branch": BRANCH},
         )
     )
 
@@ -184,7 +189,7 @@ def test_a_non_item_target_refuses_with_a_named_reason(db) -> None:
     assert not outcome.primary_success
     assert outcome.error is not None
     assert outcome.error.code == "target_invalid"
-    assert "item_id" in outcome.error.message
+    assert "public_ref (PREFIX-N)" in outcome.error.message
 
 
 def test_a_payload_without_a_branch_refuses(db) -> None:
@@ -212,7 +217,9 @@ class TestRegistration:
         ),
     )
     def test_the_write_is_internal_session_optional_and_claim_free(
-        self, function_id: str, side_effects: tuple[str, ...],
+        self,
+        function_id: str,
+        side_effects: tuple[str, ...],
     ) -> None:
         init_register.register_all_handlers()
         entry = yoke_function_registry.lookup(function_id)

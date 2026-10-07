@@ -28,12 +28,18 @@ def notify_correction(
         raise ValueError(f"deployment run {run_id} disappeared after correction")
     project_id = int(run["project_id"])
     if member is not None:
-        item = conn.execute("SELECT project_id FROM items WHERE id=%s", (int(member),)).fetchone()
+        item = conn.execute(
+            "SELECT project_id FROM items WHERE id=%s", (int(member),)
+        ).fetchone()
         if item is None:
-            raise ValueError(f"deployment member {member} disappeared after correction")
+            raise ValueError(
+                f"deployment member {render_item_ref(conn, int(member))} disappeared after correction"
+            )
         project_id = int(item["project_id"])
     project = resolve_project(conn, project_id)
-    scope = f" --member {render_item_ref(conn, int(member))}" if member is not None else ""
+    scope = (
+        f" --member {render_item_ref(conn, int(member))}" if member is not None else ""
+    )
     command = (
         f"yoke watch qa-plan -- --deployment-run-id {run_id} --stage {stage}"
         f"{scope} --project {project.slug}"
@@ -47,16 +53,23 @@ def notify_correction(
     key = f"deployment-qa-correction:{run_id}:{stage}:{member or 'run'}:{','.join(map(str, ids))}"
     if member is None:
         delivery = push_run_scoped_notice(
-            conn, project_id=project_id, body_for_route=lambda route: body,
+            conn,
+            project_id=project_id,
+            body_for_route=lambda route: body,
             idempotency_key=key,
         )
     else:
         delivery = push_member_notice(
-            conn, item_id=int(member), project_id=project_id,
-            body_for_route=lambda route: body, idempotency_key=key,
+            conn,
+            item_id=int(member),
+            project_id=project_id,
+            body_for_route=lambda route: body,
+            idempotency_key=key,
         )
     conn.commit()
     return {
         "delivery": delivery or "unaddressed",
-        "recovery": "" if delivery else f"No holder or steering seat; run `{command}` and inspect run {run_id}.",
+        "recovery": ""
+        if delivery
+        else f"No holder or steering seat; run `{command}` and inspect run {run_id}.",
     }

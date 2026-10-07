@@ -258,7 +258,7 @@ def _spec_to_target(spec: _WorkTargetSpec):
 
     if spec.kind == "item":
         if spec.item_id is None:
-            raise _TargetSpecError("target.kind='item' requires item_id")
+            raise _TargetSpecError("target.kind='item' requires public_ref (PREFIX-N)")
         return make_item_target(int(spec.item_id))
     if spec.kind == "epic_task":
         if spec.epic_id is None or spec.task_num is None:

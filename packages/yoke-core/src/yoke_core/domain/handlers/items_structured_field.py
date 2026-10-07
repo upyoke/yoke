@@ -32,10 +32,14 @@ from yoke_core.domain.backlog_queries import (
 from yoke_core.domain.backlog_structured_write_op import execute_structured_write
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.handlers.items_structured_field_models import (
-    AppendAddendumRequest, AppendAddendumResponse,
-    ReplaceRequest, ReplaceResponse,
-    SectionAppendRequest, SectionAppendResponse,
-    SectionUpsertRequest, SectionUpsertResponse,
+    AppendAddendumRequest,
+    AppendAddendumResponse,
+    ReplaceRequest,
+    ReplaceResponse,
+    SectionAppendRequest,
+    SectionAppendResponse,
+    SectionUpsertRequest,
+    SectionUpsertResponse,
 )
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -63,21 +67,24 @@ def _line_count(text: str) -> int:
 
 def _bad_request(message: str) -> HandlerOutcome:
     return HandlerOutcome(
-        result_payload={}, primary_success=False,
+        result_payload={},
+        primary_success=False,
         error=FunctionError(code="invalid_payload", message=message),
     )
 
 
 def _empty_body(message: str) -> HandlerOutcome:
     return HandlerOutcome(
-        result_payload={}, primary_success=False,
+        result_payload={},
+        primary_success=False,
         error=FunctionError(code="empty_body", message=message),
     )
 
 
 def _guard_failed(code: str, message: str) -> HandlerOutcome:
     return HandlerOutcome(
-        result_payload={}, primary_success=False,
+        result_payload={},
+        primary_success=False,
         error=FunctionError(code=code, message=message),
     )
 
@@ -130,23 +137,23 @@ class _NullSink:
 def _github_sync_warnings(warning: str) -> List[FunctionWarning]:
     if not warning:
         return []
-    return [FunctionWarning(
-        code="github_sync_degraded",
-        step="github_sync",
-        detail=warning,
-    )]
+    return [
+        FunctionWarning(
+            code="github_sync_degraded",
+            step="github_sync",
+            detail=warning,
+        )
+    ]
 
 
-# ---------------------------------------------------------------------------
 # Handlers
-# ---------------------------------------------------------------------------
 
 
 def handle_replace(request: FunctionCallRequest) -> HandlerOutcome:
     """Replace a structured field via :func:`execute_structured_write`."""
     item_id = _require_item_target(request)
     if item_id is None:
-        return _bad_request("target must carry kind='item' and item_id")
+        return _bad_request("target must carry kind='item' and public_ref (PREFIX-N)")
     try:
         payload = ReplaceRequest.model_validate(request.payload)
     except Exception as exc:
@@ -218,7 +225,7 @@ def handle_append_addendum(request: FunctionCallRequest) -> HandlerOutcome:
     """Append a ``## heading``-led block via ``item_field_transform.append_addendum``."""
     item_id = _require_item_target(request)
     if item_id is None:
-        return _bad_request("target must carry kind='item' and item_id")
+        return _bad_request("target must carry kind='item' and public_ref (PREFIX-N)")
     try:
         payload = AppendAddendumRequest.model_validate(request.payload)
     except Exception as exc:
@@ -257,7 +264,7 @@ def handle_section_upsert(request: FunctionCallRequest) -> HandlerOutcome:
     """Upsert a rendered section via ``item_field_transform.section_upsert``."""
     item_id = _require_item_target(request)
     if item_id is None:
-        return _bad_request("target must carry kind='item' and item_id")
+        return _bad_request("target must carry kind='item' and public_ref (PREFIX-N)")
     try:
         payload = SectionUpsertRequest.model_validate(request.payload)
     except Exception as exc:
@@ -294,7 +301,7 @@ def handle_section_append(request: FunctionCallRequest) -> HandlerOutcome:
     """Append a timestamped entry via ``item_field_transform.section_append``."""
     item_id = _require_item_target(request)
     if item_id is None:
-        return _bad_request("target must carry kind='item' and item_id")
+        return _bad_request("target must carry kind='item' and public_ref (PREFIX-N)")
     try:
         payload = SectionAppendRequest.model_validate(request.payload)
     except Exception as exc:
@@ -335,6 +342,8 @@ def handle_section_append(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 __all__ = [
-    "handle_replace", "handle_append_addendum",
-    "handle_section_upsert", "handle_section_append",
+    "handle_replace",
+    "handle_append_addendum",
+    "handle_section_upsert",
+    "handle_section_append",
 ]

@@ -96,7 +96,7 @@ def handle_record_item_landing(request: FunctionCallRequest) -> HandlerOutcome:
     if item_id is None:
         return _err(
             "target_invalid",
-            "item_landings.record requires target.kind='item' and item_id",
+            "item_landings.record requires target.kind='item' and public_ref (PREFIX-N)",
         )
     try:
         body = RecordItemLandingRequest.model_validate(request.payload or {})
@@ -168,7 +168,7 @@ def handle_list_item_landings(request: FunctionCallRequest) -> HandlerOutcome:
     if item_id is None:
         return _err(
             "target_invalid",
-            "item_landings.list requires target.kind='item' and item_id",
+            "item_landings.list requires target.kind='item' and public_ref (PREFIX-N)",
         )
     try:
         ListItemLandingsRequest.model_validate(request.payload or {})

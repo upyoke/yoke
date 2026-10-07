@@ -90,7 +90,7 @@ def handle_record_recoverable_substrate_skip(
         return _error_outcome(
             "invalid_payload",
             "lifecycle.skip.record_recoverable_substrate target must carry "
-            "kind='item' + item_id.",
+            "kind='item' + public_ref (PREFIX-N).",
         )
     try:
         payload = LifecycleSkipRecordRecoverableSubstrateRequest.model_validate(

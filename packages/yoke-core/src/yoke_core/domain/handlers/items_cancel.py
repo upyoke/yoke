@@ -116,7 +116,7 @@ def handle_cancel(request: FunctionCallRequest) -> HandlerOutcome:
     if target.kind != "item" or target.item_id is None:
         return _error(
             "invalid_payload",
-            "items.cancel.run target must carry kind='item' + item_id.",
+            "items.cancel.run target must carry kind='item' + public_ref (PREFIX-N).",
         )
     try:
         payload = CancelRequest.model_validate(request.payload or {})

@@ -135,6 +135,7 @@ class TestEventsQuery:
 
         assert set(row.keys()) == {
             *(key for key in EVT_COLUMN_NAMES if key != "item_id"),
+            "public_ref",
             "envelope",
             "category",
             "target_kind",

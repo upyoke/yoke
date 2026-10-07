@@ -295,9 +295,11 @@ def handle_item_attach(request: FunctionCallRequest) -> HandlerOutcome:
         return error
     item_id = request.target.item_id
     if item_id is None:
-        return _error("target_invalid", "item id is required", "$.target")
+        return _error("target_invalid", "public_ref (PREFIX-N) is required", "$.target")
     from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.qa_plan_attachment_validation import UnreachablePlanTargetError
+    from yoke_core.domain.qa_plan_attachment_validation import (
+        UnreachablePlanTargetError,
+    )
     from yoke_core.domain.qa_plan_attachments import attach_plan_to_item
     from yoke_core.domain.qa_plan_management import QaPlanError
 

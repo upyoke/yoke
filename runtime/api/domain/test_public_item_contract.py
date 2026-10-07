@@ -146,3 +146,65 @@ def test_dotted_setting_paths_are_not_item_identity_fields():
     payload = {"assignments": assignments}
     assert public_item_request_error(request(payload=payload)) is None
     assert project_public_identities(payload, lambda _: "APP-7") == payload
+
+
+def test_missing_progress_log_names_the_public_item(test_db, monkeypatch):
+    from runtime.api.conftest import insert_item
+    from yoke_core.domain import sections
+    from yoke_core.domain.handlers import items_progress_log
+
+    insert_item(test_db, id=901, project_sequence=7)
+    monkeypatch.setattr(sections, "get_section", lambda *_: None)
+    outcome = items_progress_log.handle_get(request({"kind": "item", "item_id": 901}))
+    assert outcome.error.code == "not_found"
+    assert "YOK-7" in outcome.error.message
+    assert "901" not in outcome.error.message
+
+
+@pytest.mark.parametrize("member", [901, None])
+def test_failed_correction_notice_teaches_a_public_member_or_run_scope(
+    test_db, monkeypatch, member
+):
+    from runtime.api.conftest import insert_item
+    from yoke_core.domain import (
+        db_helpers,
+        deployment_qa_correction_notice,
+        qa_requirement_replacement,
+    )
+    from yoke_core.domain.handlers.qa_requirement_supersede import (
+        handle_qa_requirement_supersede,
+    )
+
+    insert_item(test_db, id=901, project_sequence=7)
+    monkeypatch.setattr(db_helpers, "connect", lambda: test_db)
+    monkeypatch.setattr(
+        qa_requirement_replacement,
+        "declare_existing_replacement",
+        lambda *_, **kwargs: {
+            "deployment_run_id": "example-run",
+            "deployment_stage": "qa",
+            "deployment_member_item_id": member,
+        },
+    )
+
+    def unavailable(*_, **kwargs):
+        raise RuntimeError("wake unavailable")
+
+    monkeypatch.setattr(
+        deployment_qa_correction_notice, "notify_correction", unavailable
+    )
+    outcome = handle_qa_requirement_supersede(
+        request(
+            {"kind": "qa_requirement", "qa_requirement_id": 11},
+            {
+                "declare_replacement": True,
+                "superseded_by_requirement_id": 12,
+                "rationale": "corrected case",
+            },
+        )
+    )
+    assert outcome.primary_success
+    recovery = outcome.result_payload["correction_notice"]["recovery"]
+    assert "901" not in recovery
+    assert ("--member YOK-7" in recovery) == (member is not None)
+    assert ("--member" in recovery) == (member is not None)

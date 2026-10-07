@@ -163,7 +163,7 @@ def handle_scalar_update(request: FunctionCallRequest) -> HandlerOutcome:
     if target.kind != "item" or target.item_id is None:
         return _error_outcome(
             "invalid_payload",
-            "items.scalar.update target must carry kind='item' + item_id.",
+            "items.scalar.update target must carry kind='item' + public_ref (PREFIX-N).",
         )
     try:
         payload = ScalarUpdateRequest.model_validate(request.payload)

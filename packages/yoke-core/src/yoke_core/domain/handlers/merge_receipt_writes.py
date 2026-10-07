@@ -107,7 +107,7 @@ def handle_record_merge_receipt(request: FunctionCallRequest) -> HandlerOutcome:
     if item_id is None:
         return _err(
             "target_invalid",
-            "merge_receipt.record requires target.kind='item' and item_id",
+            "merge_receipt.record requires target.kind='item' and public_ref (PREFIX-N)",
         )
     try:
         body = RecordMergeReceiptRequest.model_validate(request.payload or {})
@@ -153,7 +153,7 @@ def handle_attest_merge_receipt_commits(
     if item_id is None:
         return _err(
             "target_invalid",
-            "merge_receipt.commits.attest requires target.kind='item' and item_id",
+            "merge_receipt.commits.attest requires target.kind='item' and public_ref (PREFIX-N)",
         )
     try:
         body = AttestMergeReceiptCommitsRequest.model_validate(request.payload or {})
@@ -162,7 +162,10 @@ def handle_attest_merge_receipt_commits(
     try:
         with _connect_rw() as conn:
             result = attest_commits(
-                conn, item_id=item_id, commits=body.commits, reason=body.reason,
+                conn,
+                item_id=item_id,
+                commits=body.commits,
+                reason=body.reason,
             )
             conn.commit()
     except CommitAttestationRefused as exc:
@@ -179,7 +182,7 @@ def handle_get_merge_receipt(request: FunctionCallRequest) -> HandlerOutcome:
     if item_id is None:
         return _err(
             "target_invalid",
-            "merge_receipt.get requires target.kind='item' and item_id",
+            "merge_receipt.get requires target.kind='item' and public_ref (PREFIX-N)",
         )
     try:
         body = GetMergeReceiptRequest.model_validate(request.payload or {})
@@ -188,7 +191,10 @@ def handle_get_merge_receipt(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         with _connect_rw() as conn:
             entry = document.find_entry(
-                conn, item_id, branch=body.branch, target=body.target,
+                conn,
+                item_id,
+                branch=body.branch,
+                target=body.target,
             )
     except Exception as exc:  # noqa: BLE001 - surfaced as an advisory refusal
         return _err("merge_receipt_read_failed", str(exc))

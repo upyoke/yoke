@@ -41,7 +41,7 @@ def handle_item_retract(request: FunctionCallRequest) -> HandlerOutcome:
         )
     item_id = request.target.item_id
     if item_id is None:
-        return _error("target_invalid", "item id is required", "$.target")
+        return _error("target_invalid", "public_ref (PREFIX-N) is required", "$.target")
     try:
         payload = ItemRetractRequest.model_validate(request.payload or {})
     except ValueError as exc:

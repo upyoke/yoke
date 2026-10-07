@@ -183,7 +183,7 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
     if target.kind != "item" or target.item_id is None:
         return _error_outcome(
             "invalid_payload",
-            "lifecycle.transition target must carry kind='item' + item_id.",
+            "lifecycle.transition target must carry kind='item' + public_ref (PREFIX-N).",
         )
     try:
         payload = LifecycleTransitionRequest.model_validate(request.payload)

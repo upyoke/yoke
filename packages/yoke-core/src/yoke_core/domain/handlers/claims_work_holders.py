@@ -113,7 +113,7 @@ def handle_holder_get(request: FunctionCallRequest) -> HandlerOutcome:
     if item_id is None:
         return _err(
             "payload_invalid",
-            "holder.get requires an item id or a path",
+            "holder.get requires public_ref (PREFIX-N) or a path",
         )
 
     from yoke_core.domain.sessions_queries_lookup import (
