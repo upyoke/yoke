@@ -122,7 +122,7 @@ def test_operator_waiver_keeps_worker_claim_and_settles_run_stage(
     ).fetchone()
     assert tuple(held) == (WORKER, None)
     # The same dispatch the driver re-runs now accepts the discharged subject.
-    with patch("yoke_core.domain.deployment_qa_stage_dispatch._report_stage_result"):
+    with patch("yoke_core.domain.deployment_qa_stage_dispatch.report_stage_result"):
         subject = deployment_qa_stage_subject(
             conn,
             run_id="run-member-waiver",

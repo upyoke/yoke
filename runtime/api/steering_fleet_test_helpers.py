@@ -129,6 +129,7 @@ def seed_message(
     expires_at: str = NOT_YET_EXPIRED,
     cancelled_at: str | None = None,
     routing_snapshot: dict | None = None,
+    idempotency_key: str | None = None,
 ) -> None:
     """One envelope and its single receipt, undelivered by default.
 
@@ -139,8 +140,9 @@ def seed_message(
     conn.execute(
         "INSERT INTO session_messages "
         "(message_id, sender_actor_id, sender_session_id, body, body_sha256, "
-        "selector_snapshot, created_at, expires_at, cancelled_at) "
-        "VALUES (%s, %s, %s, 'a question', 'sha', %s, %s, %s, %s)",
+        "selector_snapshot, created_at, expires_at, cancelled_at, "
+        "idempotency_key) "
+        "VALUES (%s, %s, %s, 'a question', 'sha', %s, %s, %s, %s, %s)",
         (
             message_id,
             ACTOR_ID,
@@ -149,6 +151,7 @@ def seed_message(
             at,
             expires_at,
             cancelled_at,
+            idempotency_key,
         ),
     )
     conn.execute(
