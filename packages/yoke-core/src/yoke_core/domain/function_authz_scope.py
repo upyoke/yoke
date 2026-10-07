@@ -87,6 +87,10 @@ _BY_ID: dict[str, AuthzSpec] = {
     "organizations.settings.get": AuthzSpec(ACTOR_SESSION, None),
     "organizations.settings.merge": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "organizations.domain.set": AuthzSpec(ORG, PERM_ORG_ADMIN),
+    # Founding a new org is any signed-in person's request; Platform answers
+    # it on a hosted connection with the site's founding checks, and the
+    # engine handler refuses everywhere else.
+    "organizations.create": AuthzSpec(ACTOR_SESSION, None),
     # Note: ouroboros.entry.* writes are deliberately absent here. Review and
     # archive mutate one project's queue, so they take the PROJECT scope
     # permission_key_for assigns; a session scope would expose every project.

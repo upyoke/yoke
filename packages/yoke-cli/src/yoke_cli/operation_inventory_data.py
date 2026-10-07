@@ -193,6 +193,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     # checkout→project identity for the strategize/feed preambles — works over
     # https and from any cwd.
     _w("yoke projects checkout-context", "projects"),
+    _w("yoke organizations create", "organizations"),
     _w("yoke organizations get", "organizations"),
     _w("yoke organizations settings get", "organizations.settings"),
     _w("yoke organizations settings merge", "organizations.settings"),

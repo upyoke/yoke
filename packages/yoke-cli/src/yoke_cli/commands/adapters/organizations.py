@@ -2,6 +2,9 @@
 
 Function ids handled here:
 
+* ``organizations.create`` — found a new hosted org with the caller as its
+  founding admin. Platform answers it on a machine's upyoke.com
+  connection; a local or self-hosted universe refuses it by name.
 * ``organizations.get`` — read the org identity card (slug, name, domain,
   created_at). Default reads the universe's identity card; ``--slug``
   addresses a specific org on a multi-org instance.
@@ -25,10 +28,12 @@ from yoke_contracts.api.function_call import TargetRef
 
 __all__ = [
     "ORGANIZATION_USAGE",
+    "ORGANIZATIONS_CREATE_USAGE",
     "ORGANIZATIONS_DOMAIN_SET_USAGE",
     "ORGANIZATIONS_GET_USAGE",
     "ORGANIZATIONS_SETTINGS_GET_USAGE",
     "ORGANIZATIONS_SETTINGS_MERGE_USAGE",
+    "organizations_create",
     "organizations_domain_set",
     "organizations_get",
     "organizations_settings_get",
@@ -36,6 +41,9 @@ __all__ = [
 ]
 
 
+ORGANIZATIONS_CREATE_USAGE = (
+    "yoke organizations create NAME [--slug SLUG] [--session-id S] [--json]"
+)
 ORGANIZATIONS_GET_USAGE = (
     "yoke organizations get [--slug SLUG] [--session-id S] [--json]"
 )
@@ -53,6 +61,7 @@ ORGANIZATIONS_DOMAIN_SET_USAGE = (
 )
 
 ORGANIZATION_USAGE = {
+    "organizations.create": ORGANIZATIONS_CREATE_USAGE,
     "organizations.get": ORGANIZATIONS_GET_USAGE,
     "organizations.settings.get": ORGANIZATIONS_SETTINGS_GET_USAGE,
     "organizations.settings.merge": ORGANIZATIONS_SETTINGS_MERGE_USAGE,
@@ -62,7 +71,8 @@ ORGANIZATION_USAGE = {
 
 def _add_org_arg(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
-        "--org", default=None,
+        "--org",
+        default=None,
         help="Organization slug or id (default: universe identity card).",
     )
 
@@ -82,6 +92,37 @@ def _dispatch(function_id: str, parsed, payload: Dict[str, Any]) -> int:
         json_mode=parsed.json_mode,
         human_writer=_human_writer,
     )
+
+
+def organizations_create(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke organizations create",
+        description=(
+            "Found a new hosted organization with you as its founding admin. "
+            "upyoke.com answers this on this machine's hosted connection with "
+            "the site's founding checks: a redeemed beta code, an unused slug, "
+            "and a name of 1-80 characters. Resubmitting the same slug resumes "
+            "your own unfinished founding. A local or self-hosted universe has "
+            "exactly one org and refuses as organization_create_hosted_only. "
+            "Then connect a machine to the new org with "
+            "`yoke connect https://upyoke.com`."
+        ),
+    )
+    parser.add_argument("name", help="Organization display name (1-80 chars).")
+    parser.add_argument(
+        "--slug",
+        default=None,
+        help="URL slug (default: derived from NAME).",
+    )
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(parser, args, ORGANIZATIONS_CREATE_USAGE)
+    if parsed is None:
+        return 2
+    payload: Dict[str, Any] = {"name": parsed.name}
+    if parsed.slug:
+        payload["slug"] = parsed.slug
+    return _dispatch("organizations.create", parsed, payload)
 
 
 def organizations_get(args: List[str]) -> int:

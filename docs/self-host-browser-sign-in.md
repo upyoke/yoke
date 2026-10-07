@@ -138,6 +138,12 @@ yoke identity link set --actor <actor-id> --issuer <iss> --subject <sub>
 yoke identity link set --actor <actor-id> --email pat@corp.example
 ```
 
+These invites are the server's own. On upyoke.com Platform owns invites; the
+same `yoke identity invite` commands reach Platform's invites over a hosted
+connection, and the hosted universe's engine refuses them as
+`hosted_invites_platform_owned`. See
+[Hosted org administration](public/reference/hosted-org-admin.md).
+
 Email trust is strict by default: invites and domain membership match only when
 the provider marks the email verified. For providers that omit the
 `email_verified` claim entirely, opt in with

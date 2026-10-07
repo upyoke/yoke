@@ -72,6 +72,7 @@ TERMINAL_RECIPES: frozenset[str] = frozenset(
         "identity.invite.revoke",
         "identity.link.set",
         "items.create",
+        "organizations.create",
         "organizations.domain.set",
         "organizations.settings.merge",
         "ouroboros.field_note.append",

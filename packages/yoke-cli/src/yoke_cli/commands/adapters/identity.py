@@ -8,6 +8,10 @@ Function ids handled here (all org-admin-gated at dispatch):
 * ``identity.invite.revoke`` — revoke a pending invite.
 * ``identity.link.set`` — bind an external identity (issuer+subject) or
   pre-link an email to an existing actor.
+
+On a hosted upyoke.com connection Platform answers the invite ids with the
+same invites its Members page manages; a hosted universe's engine refuses
+them as ``hosted_invites_platform_owned``.
 """
 
 from __future__ import annotations
@@ -74,7 +78,8 @@ def _dispatch(function_id: str, payload: Dict[str, Any], parsed) -> int:
 
 def _add_org_arg(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
-        "--org", default=None,
+        "--org",
+        default=None,
         help="Org slug or id (default: the universe's identity-card org).",
     )
 
@@ -86,16 +91,21 @@ def identity_invite_create(args: List[str]) -> int:
             "Invite an email address into the org. A pending invite admits "
             "the next verified OIDC sign-in with that email; --role grants "
             "an org role on acceptance; --actor pre-links the sign-in to an "
-            "existing actor instead of creating a new one."
+            "existing actor instead of creating a new one. On a hosted "
+            "upyoke.com connection Platform answers this with the site's "
+            "own invite: --role is admin or member, and a full org refuses "
+            "as hosted_seat_limit_reached."
         ),
     )
     parser.add_argument("email", help="Email address to admit.")
     parser.add_argument(
-        "--role", default=None,
+        "--role",
+        default=None,
         help="Org role name granted on acceptance (e.g. admin, viewer).",
     )
     parser.add_argument(
-        "--actor", default=None,
+        "--actor",
+        default=None,
         help="Existing actor id or label to bind the sign-in to.",
     )
     _add_org_arg(parser)
@@ -120,7 +130,8 @@ def identity_invite_list(args: List[str]) -> int:
         description="List actor invites, optionally filtered by status.",
     )
     parser.add_argument(
-        "--status", default=None,
+        "--status",
+        default=None,
         help="Filter: pending, accepted, or revoked.",
     )
     _add_org_arg(parser)
@@ -149,7 +160,9 @@ def identity_invite_revoke(args: List[str]) -> int:
     if parsed is None:
         return 2
     return _dispatch(
-        "identity.invite.revoke", {"invite_id": parsed.invite_id}, parsed,
+        "identity.invite.revoke",
+        {"invite_id": parsed.invite_id},
+        parsed,
     )
 
 
@@ -164,7 +177,9 @@ def identity_link_set(args: List[str]) -> int:
         ),
     )
     parser.add_argument(
-        "--actor", required=True, help="Target actor id or label.",
+        "--actor",
+        required=True,
+        help="Target actor id or label.",
     )
     parser.add_argument("--issuer", default=None, help="OIDC issuer URL.")
     parser.add_argument("--subject", default=None, help="OIDC subject claim.")

@@ -10,6 +10,10 @@ from yoke_cli.commands.adapters import organizations as _adapters
 AdapterFn = Callable[[List[str]], int]
 
 ORGANIZATION_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
+    ("organizations", "create"): (
+        "organizations.create",
+        _adapters.organizations_create,
+    ),
     ("organizations", "get"): (
         "organizations.get",
         _adapters.organizations_get,

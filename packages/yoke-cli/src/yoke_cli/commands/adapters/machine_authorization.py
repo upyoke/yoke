@@ -22,7 +22,12 @@ def _call(args, *, resolve=False):
     usage = USAGE_BY_FUNCTION_ID[function_id]
     parser = argparse.ArgumentParser(
         prog=usage.split(" CODE")[0],
-        description="Read a device code or approve your own machine as the signed-in actor.",
+        description=(
+            "Read a device code, or approve or deny it as the signed-in actor. "
+            "A self-hosted server lets you decide your own machine; on a hosted "
+            "upyoke.com connection an org admin decides any code waiting for "
+            "the org."
+        ),
     )
     parser.add_argument("code")
     if resolve:

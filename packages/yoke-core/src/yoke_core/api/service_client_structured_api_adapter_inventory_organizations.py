@@ -20,6 +20,11 @@ ORGANIZATION_ADAPTERS = [
         cli_invocation="yoke organizations settings merge --set KEY.PATH=VALUE",
     ),
     AdapterEntry(
+        function_id="organizations.create",
+        cli_invocation="yoke organizations create NAME --slug SLUG",
+        notes="hosted only: Platform founds the org on a machine's hosted connection",
+    ),
+    AdapterEntry(
         function_id="organizations.domain.set",
         cli_invocation="yoke organizations domain set DOMAIN",
     ),
