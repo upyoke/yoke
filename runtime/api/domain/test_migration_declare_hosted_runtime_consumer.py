@@ -5,7 +5,7 @@ import json
 import sqlite3
 
 MIGRATION = importlib.import_module(
-    "yoke_core.domain.migrations.0058_declare_hosted_runtime_consumer"
+    "yoke_core.domain.migrations.0061_declare_hosted_runtime_consumer"
 )
 
 

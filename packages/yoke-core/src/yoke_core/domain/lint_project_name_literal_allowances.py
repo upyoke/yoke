@@ -63,13 +63,13 @@ ALLOWANCES: Tuple[Allowance, ...] = (
     ),
     Allowance(
         "packages/yoke-core/src/yoke_core/domain/migrations/"
-        "0058_declare_hosted_runtime_consumer.py",
+        "0061_declare_hosted_runtime_consumer.py",
         "_FORMER_HOST_PROJECT",
         "permanent migration writing the former in-code rule into stored settings",
     ),
     Allowance(
         "packages/yoke-core/src/yoke_core/domain/migrations/"
-        "0058_declare_hosted_runtime_consumer.py",
+        "0061_declare_hosted_runtime_consumer.py",
         "_FORMER_CONSUMER_PROJECT",
         "permanent migration writing the former in-code rule into stored settings",
     ),
