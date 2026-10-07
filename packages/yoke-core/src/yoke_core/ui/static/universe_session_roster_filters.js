@@ -78,7 +78,7 @@ export function sessionRosterFilters(documentNode, onChange) {
     ["project", "Project"], ["harness", "Harness"], ["machine", "Machine"],
   ]) {
     const field = input(documentNode, label, "select");
-    field.control.appendChild(option(documentNode, "", `Any ${name}`));
+    field.control.appendChild(option(documentNode, "", "Any"));
     controls[name] = field.control;
     host.appendChild(field.wrapper);
   }
@@ -135,12 +135,12 @@ export function sessionRosterFilters(documentNode, onChange) {
     actions,
     host,
     setFacets(facets = {}) {
-      setOptionEntries(documentNode, controls.project, "Any project",
+      setOptionEntries(documentNode, controls.project, "Any",
         (facets.projects || []).map((entry) => ({
           value: String(entry.id), label: String(entry.slug || entry.id),
         })));
-      setOptions(documentNode, controls.harness, "Any harness", facets.harnesses || []);
-      setOptionEntries(documentNode, controls.machine, "Any machine",
+      setOptions(documentNode, controls.harness, "Any", facets.harnesses || []);
+      setOptionEntries(documentNode, controls.machine, "Any",
         (facets.machines || []).map((entry) => ({
           value: String(entry.id), label: String(entry.label || entry.id),
         })));

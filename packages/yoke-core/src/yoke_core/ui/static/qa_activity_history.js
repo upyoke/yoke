@@ -28,7 +28,7 @@ export function activityHistory(context, rows, renderRows) {
   const query = field("Search history", "input", "search");
   const outcome = field("Outcome", "select");
   for (const value of ["", ...new Set(rows.map((row) => row.outcome).filter(Boolean))]) {
-    const option = el(documentNode, "option", null, value ? value.replaceAll("_", " ") : "All outcomes");
+    const option = el(documentNode, "option", null, value ? value.replaceAll("_", " ") : "All");
     option.value = value;
     outcome.appendChild(option);
   }

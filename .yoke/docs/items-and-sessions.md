@@ -48,7 +48,7 @@ idle session does not, by itself, mark its item Frozen or Blocked.
 
 The roster opens on **Active**, which includes both active sessions and stale
 sessions. Stale sessions remain visible as light-red cards with a red `stale`
-pill. **Any state** includes ended sessions too, while **Ended** shows only
+pill. **All** includes ended sessions too, while **Ended** shows only
 ended sessions. **Reclaim stale** counts stale rows in the loaded scope and
 reloads the roster after cleanup, so reclaimed rows leave Active immediately.
 
