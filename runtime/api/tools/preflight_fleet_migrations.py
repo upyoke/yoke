@@ -59,9 +59,10 @@ the boot-converge sources in the selected engine, and whether that engine
 was the source tree or a wheel. It is stored on that project environment's own
 settings document under ``release.fleet_rehearsal.<model>``, so coverage outlives
 telemetry retention and cannot be read for the wrong environment.
-Receipts always write to the release-gate control plane.
-The selected admin connection changes the covered fleet, not the receipt
-plane. Receipts are recorded only on passing runs, so they cannot exist for
+Receipts write to the control plane ``--receipt-env`` (or ``YOKE_ENV``)
+names; one that does not answer the Yoke settings read for the rehearsed
+project environment is refused before anything is copied. The selected
+admin connection changes the covered fleet, not the receipt plane. Receipts are recorded only on passing runs, so they cannot exist for
 fleets this did not clear.
 
 ``--engine-wheel`` puts a named already-built artifact at the head of the
@@ -169,24 +170,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
         return 2
     if record:
-        release_gate_env = receipt_write.release_gate_receipt_env()
-        if not release_gate_env:
-            print(
-                "--record-receipt could not resolve one prod release-gate "
-                "authority from the configured connections; mark the owning "
-                "connection with prod=true.",
-                file=sys.stderr,
-            )
-            return 2
-        if receipt_env != release_gate_env:
-            print(
-                "--record-receipt must write to the prod release-gate control "
-                "plane. Retry: yoke watch preflight -- --project "
-                f"{project} {covered_env} "
-                "[db ...] --record-receipt --product-sha <sha> "
-                f"--receipt-env {release_gate_env}",
-                file=sys.stderr,
-            )
+        # Probed before minutes of copying, so a plane that cannot hold the
+        # receipt refuses now rather than after a pass nobody can record.
+        refusal = receipt_write.receipt_plane_refusal(
+            receipt_env=receipt_env, project=project, environment=covered_env
+        )
+        if refusal:
+            print(refusal, file=sys.stderr)
             return 2
 
     from yoke_core.domain import (

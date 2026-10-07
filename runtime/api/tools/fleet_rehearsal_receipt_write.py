@@ -1,8 +1,9 @@
 """Record a passing fleet rehearsal where the project's release gate reads it.
 
-A receipt belongs to the prod release-gate control plane, on the rehearsed
+A receipt belongs to the control plane the caller names, on the rehearsed
 project environment's own settings document, whatever admin cluster the
-copies were taken from.
+copies were taken from. That plane must be a Yoke control plane holding the
+project environment; any other connection is refused before rehearsal starts.
 """
 
 from __future__ import annotations
@@ -10,29 +11,67 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-from typing import Mapping, Sequence, Tuple
-
-from yoke_contracts.machine_config import runtime as machine_config
-from yoke_contracts.machine_config.schema import (
-    connection_is_prod,
-    same_universe_https_env,
-)
+from typing import List, Mapping, Sequence, Tuple
 
 _RECEIPT_TIMEOUT_SECONDS = 120
 
 
-def release_gate_receipt_env() -> str:
-    """Return the configured product connection owning release evidence."""
-    config = machine_config.load_config()
-    connections = config.get("connections")
-    if not isinstance(connections, Mapping):
+def _run_on(receipt_env: str, argv: List[str]) -> str:
+    """Run a registered command on *receipt_env*; return why it failed, if it did."""
+    # The receipt belongs to the named control plane, not the separately
+    # selected admin cluster, so the child gets its own env.
+    child_env = dict(os.environ, YOKE_ENV=receipt_env)
+    try:
+        result = subprocess.run(
+            argv,
+            capture_output=True,
+            text=True,
+            timeout=_RECEIPT_TIMEOUT_SECONDS,
+            env=child_env,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return f"could not run: {exc}"
+    if result.returncode != 0:
+        return f"exited {result.returncode}: {(result.stderr or '').strip()}"
+    return ""
+
+
+def receipt_plane_refusal(*, receipt_env: str, project: str, environment: str) -> str:
+    """Why *receipt_env* cannot hold this receipt, or ``""`` when it can.
+
+    The probe is the registered settings read the release gate itself uses,
+    so a connection that answers it is a Yoke control plane holding the
+    project environment, and one that cannot — a Platform database login, a
+    universe without the project — is refused by name.
+    """
+    from yoke_core.domain.environment_declared_facts import ADMIN_CONNECTION_PATH
+
+    failure = _run_on(
+        receipt_env,
+        [
+            "yoke",
+            "projects",
+            "environment-settings",
+            "get",
+            "--project",
+            project,
+            "--environment",
+            environment,
+            "--path",
+            ADMIN_CONNECTION_PATH,
+        ],
+    )
+    if not failure:
         return ""
-    authorities = {
-        same_universe_https_env(config, str(env)) or str(env)
-        for env, connection in connections.items()
-        if isinstance(connection, Mapping) and connection_is_prod(connection)
-    }
-    return next(iter(authorities)) if len(authorities) == 1 else ""
+    last_line = failure.strip().splitlines()[-1]
+    return (
+        f"--receipt-env {receipt_env} did not answer as a Yoke control plane "
+        f"holding {project}/{environment}: the release gate's settings read failed "
+        f"there ({last_line}). Name the control plane the release gate reads "
+        "(`yoke env list`) and retry: yoke watch preflight -- --project "
+        f"{project} {environment} --record-receipt --product-sha <sha> "
+        "--receipt-env <control-plane>"
+    )
 
 
 def record_receipt(
@@ -74,22 +113,10 @@ def record_receipt(
     ]
     for path, value in assignments.items():
         argv += ["--set", f"{path}={json.dumps(value)}"]
-    # The receipt belongs to the control plane the release gate will read, not
-    # the separately selected admin cluster, so the child gets its own env.
-    child_env = dict(os.environ, YOKE_ENV=receipt_env)
-    try:
-        result = subprocess.run(
-            argv,
-            capture_output=True,
-            text=True,
-            timeout=_RECEIPT_TIMEOUT_SECONDS,
-            env=child_env,
-        )
-    except (OSError, subprocess.SubprocessError) as exc:
-        return "", f"could not run: {exc}"
-    if result.returncode != 0:
-        return "", f"exited {result.returncode}: {(result.stderr or '').strip()}"
+    failure = _run_on(receipt_env, argv)
+    if failure:
+        return "", failure
     return run, ""
 
 
-__all__ = ["record_receipt", "release_gate_receipt_env"]
+__all__ = ["receipt_plane_refusal", "record_receipt"]
