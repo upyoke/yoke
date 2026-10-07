@@ -58,6 +58,22 @@ def test_team_server_method_detection_is_explicit(monkeypatch):
         ),
     )
     assert team.browser_sign_in_available(ORIGIN) is False
+    for payload, expected in (
+        # A server predating company_sign_in offered device codes only with it.
+        ({"device_code": True}, team.SignInMethods(True, True)),
+        (
+            {"device_code": True, "company_sign_in": False},
+            team.SignInMethods(True, False),
+        ),
+    ):
+        monkeypatch.setattr(
+            team,
+            "request_json",
+            lambda *a, _p=payload, **k: BoundedJsonHttpResponse(
+                payload=_p, status=200, headers={}
+            ),
+        )
+        assert team.sign_in_methods(ORIGIN) == expected
     monkeypatch.setattr(
         team,
         "request_json",
@@ -69,8 +85,13 @@ def test_team_server_method_detection_is_explicit(monkeypatch):
         team.browser_sign_in_available(ORIGIN)
 
 
-def test_connect_selects_company_sign_in_for_self_host(monkeypatch):
-    monkeypatch.setattr(team, "browser_sign_in_available", lambda url: url == ORIGIN)
+@pytest.mark.parametrize("company_sign_in", [True, False])
+def test_connect_starts_machine_approval_for_self_host(monkeypatch, company_sign_in):
+    monkeypatch.setattr(
+        team,
+        "sign_in_methods",
+        lambda url: team.SignInMethods(url == ORIGIN, company_sign_in),
+    )
     seen = []
     monkeypatch.setattr(
         command, "_connect_hosted", lambda parsed: seen.append(parsed) or 0
@@ -79,8 +100,10 @@ def test_connect_selects_company_sign_in_for_self_host(monkeypatch):
     assert seen[0].self_host is True
 
 
-def test_unconfigured_server_keeps_explicit_token_path(monkeypatch, capsys):
-    monkeypatch.setattr(team, "browser_sign_in_available", lambda _: False)
+def test_server_without_machine_approval_keeps_explicit_token_path(monkeypatch, capsys):
+    monkeypatch.setattr(
+        team, "sign_in_methods", lambda _: team.SignInMethods(False, False)
+    )
     assert command.connect([ORIGIN]) == 2
     assert "--token-stdin" in capsys.readouterr().err
 

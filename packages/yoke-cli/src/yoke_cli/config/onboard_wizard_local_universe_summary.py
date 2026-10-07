@@ -32,6 +32,7 @@ def local_universe_summary_lines(state: dict[str, Any]) -> list[str]:
             "No account is required.",
             "Private data: ~/.yoke · database: embedded Postgres.",
             "Reinstalling Yoke preserves this universe by default.",
+            "Next, enter your name: you become this universe's first admin.",
         ]
     return lines
 

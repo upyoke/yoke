@@ -9,6 +9,8 @@ import pytest
 from yoke_cli.commands import self_host as commands
 from yoke_cli.self_host import protection
 
+ADMIN_NAME_ARGS = ("--admin-name", "Ada Lovelace")
+
 
 _PRIVATE_KEY = """-----BEGIN RSA PRIVATE KEY-----
 cHJpdmF0ZS1rZXk=
@@ -18,7 +20,7 @@ cHJpdmF0ZS1rZXk=
 
 def _init_bundle(tmp_path, capsys) -> Path:
     target = tmp_path / "bundle"
-    assert commands.self_host_init(["--dir", str(target)]) == 0
+    assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
     capsys.readouterr()
     return target
 

@@ -35,6 +35,16 @@ def add_destination_args(parser: argparse.ArgumentParser) -> None:
         metavar="URL",
         help="connect this machine to the Yoke server at URL",
     )
+    parser.add_argument(
+        "--admin-name",
+        dest="admin_name",
+        default=None,
+        metavar="NAME",
+        help=(
+            "your name: a new local universe's first admin is created as "
+            "you (required with --local --non-interactive when no universe exists)"
+        ),
+    )
 
 
 @dataclass(frozen=True)

@@ -1,4 +1,12 @@
-"""Public start/poll door, using the same device-code wire as Cloud."""
+"""Public start/poll door, using the same device-code wire as Cloud.
+
+The device-code door is open whether or not company sign-in is configured:
+a connected machine approves a new one with ``yoke machine-authorization
+resolve`` or the workbench approval page, both reachable by API token. Its
+public origin is the company sign-in base URL when one is configured and the
+request's own origin otherwise; the connecting client refuses any origin
+other than the server it named before it persists a credential.
+"""
 
 import logging
 
@@ -92,17 +100,28 @@ def _admit(request: Request, operation: str) -> str | JSONResponse:
     return key
 
 
+def _origin(request: Request) -> str:
+    """The public origin codes and credentials name (raises OidcConfigError)."""
+    config = resolve_oidc_config()
+    if config is not None:
+        return config.redirect_base_url
+    return str(request.base_url).rstrip("/")
+
+
 @router.get(START_PATH)
 def methods() -> JSONResponse:
     try:
-        enabled = resolve_oidc_config() is not None
+        company_sign_in = resolve_oidc_config() is not None
     except OidcConfigError as exc:
         return _error(
             "oidc_misconfigured",
             f"{exc}; ask the server operator to correct company sign-in settings",
             503,
         )
-    return JSONResponse({"device_code": enabled}, headers={"Cache-Control": "no-store"})
+    return JSONResponse(
+        {"device_code": True, "company_sign_in": company_sign_in},
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @router.post(START_PATH)
@@ -120,29 +139,25 @@ async def start(request: Request) -> JSONResponse:
             "send this machine's configured id and name to start connection",
             400,
         )
-    return await run_in_threadpool(_start, model, client_key)
+    return await run_in_threadpool(_start, model, client_key, request)
 
 
-def _start(model: MachineAuthorizationStart, client_key: str) -> JSONResponse:
+def _start(
+    model: MachineAuthorizationStart, client_key: str, request: Request
+) -> JSONResponse:
     try:
-        config = resolve_oidc_config()
+        origin = _origin(request)
     except OidcConfigError as exc:
         return _error(
             "oidc_misconfigured",
             f"{exc}; ask the server operator to correct company sign-in settings",
             503,
         )
-    if config is None:
-        return _error(
-            "oidc_not_configured",
-            "use yoke connect URL --token-stdin with an API token",
-            409,
-        )
     try:
         with db_helpers.connect() as conn:
             payload = codes.start(
                 conn,
-                origin=config.redirect_base_url,
+                origin=origin,
                 client_key=client_key,
                 **model.model_dump(),
             )
@@ -174,22 +189,14 @@ async def token(request: Request) -> JSONResponse:
             400,
         )
     # Database work belongs to the worker pool, as on every authenticated door.
-    return await run_in_threadpool(_poll, model)
+    return await run_in_threadpool(_poll, model, request)
 
 
-def _poll(model: MachineAuthorizationPoll) -> JSONResponse:
+def _poll(model: MachineAuthorizationPoll, request: Request) -> JSONResponse:
     try:
-        config = resolve_oidc_config()
-        if config is None:
-            return _error(
-                "oidc_not_configured",
-                "company sign-in was disabled; ask the server operator or connect using --token-stdin",
-                409,
-            )
+        origin = _origin(request)
         with db_helpers.connect() as conn:
-            payload = codes.poll(
-                conn, **model.model_dump(), origin=config.redirect_base_url
-            )
+            payload = codes.poll(conn, **model.model_dump(), origin=origin)
     except codes.MachineAuthorizationError as exc:
         return _error(exc.code, str(exc), exc.status)
     except OidcConfigError as exc:

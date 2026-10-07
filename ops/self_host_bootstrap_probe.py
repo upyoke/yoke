@@ -172,7 +172,9 @@ def host_probe(evidence: Path, report: dict) -> None:
         wheel_dir = temporary / "wheels"
         image = build_candidate(root, evidence, sha, wheel_dir)
         target = temporary / "bundle"
-        bundle.write_bundle(directory=str(target), port=18765, image=image)
+        bundle.write_bundle(
+            admin_name="Probe Operator", directory=str(target), port=18765, image=image
+        )
         before = {
             path.name: file_identity(path) for path in (target / "secrets").iterdir()
         }

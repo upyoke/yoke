@@ -70,10 +70,10 @@ Local mode runs the whole engine on your machine: one embedded Postgres
 under `~/.yoke/local-universe/` carrying the same control-plane schema as
 every other deployment mode. No account, no token, no server — the DSN
 never leaves the machine, and the engine stores no human credentials
-(local mode has one auto-created human actor and no user records).
+(local mode has one human actor, named for you, and no user records).
 
 ```bash
-yoke init --local --org-name "My Org"
+yoke init --local --admin-name "Your Name" --org-name "My Org"
 yoke status
 ```
 

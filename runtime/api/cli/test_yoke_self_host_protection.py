@@ -12,6 +12,8 @@ from yoke_cli.commands import self_host as commands
 from yoke_cli.self_host import atomic_file
 from yoke_cli.self_host import protection
 
+ADMIN_NAME_ARGS = ("--admin-name", "Ada Lovelace")
+
 
 _PRIVATE_KEY_ONE = """-----BEGIN RSA PRIVATE KEY-----
 b2xkLWtleQ==
@@ -49,7 +51,7 @@ def test_init_preserves_operator_gitignore_and_rules_ignore_secrets(
         check=True,
     )
 
-    assert commands.self_host_init(["--dir", str(target)]) == 0
+    assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
     capsys.readouterr()
 
     merged = gitignore.read_text(encoding="utf-8")
@@ -101,7 +103,7 @@ def test_init_preserves_operator_gitignore_and_rules_ignore_secrets(
 
 
 def test_protect_existing_is_idempotent_and_preserves_bundle(target, capsys):
-    assert commands.self_host_init(["--dir", str(target)]) == 0
+    assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
     capsys.readouterr()
     gitignore = target / ".gitignore"
     gitignore.write_text("# operator-owned\n*.backup\n", encoding="utf-8")
@@ -138,7 +140,7 @@ def test_protect_existing_refuses_already_tracked_sensitive_files(
         ["git", "-C", str(target.parent), "init", "--quiet"],
         check=True,
     )
-    assert commands.self_host_init(["--dir", str(target)]) == 0
+    assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
     capsys.readouterr()
     subprocess.run(
         [
@@ -178,7 +180,7 @@ def test_github_app_private_key_rotation_is_atomic_and_preserves_db_secret(
     capsys,
     monkeypatch,
 ):
-    assert commands.self_host_init(["--dir", str(target)]) == 0
+    assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
     capsys.readouterr()
     password = _password(target)
     source_one = tmp_path / "github-app-one.pem"
@@ -251,7 +253,7 @@ def test_github_app_private_key_rejects_invalid_source_without_replacement(
     tmp_path,
     capsys,
 ):
-    assert commands.self_host_init(["--dir", str(target)]) == 0
+    assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
     capsys.readouterr()
     valid = tmp_path / "valid.pem"
     invalid = tmp_path / "invalid.pem"
@@ -321,7 +323,7 @@ def test_init_refuses_gitignore_symlink_without_touching_target(
     operator_file.write_text("operator-owned\n", encoding="utf-8")
     (target / ".gitignore").symlink_to(operator_file)
 
-    assert commands.self_host_init(["--dir", str(target)]) == 1
+    assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 1
     error = capsys.readouterr().err
     assert "safely read operator gitignore" in error
     assert operator_file.read_text(encoding="utf-8") == "operator-owned\n"

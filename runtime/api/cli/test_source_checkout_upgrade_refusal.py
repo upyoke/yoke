@@ -64,7 +64,9 @@ def test_execution_rechecks_source_binding_and_preserves_bundle(
 ):
     directory = tmp_path / "server-bundle"
     bundle.write_bundle(
-        directory=str(directory), image="ghcr.io/upyoke/yoke-server:old"
+        admin_name="Ada Lovelace",
+        directory=str(directory),
+        image="ghcr.io/upyoke/yoke-server:old",
     )
     before = {
         path: path.read_bytes() for path in directory.rglob("*") if path.is_file()

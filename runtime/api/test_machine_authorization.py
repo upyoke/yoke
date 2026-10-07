@@ -31,7 +31,10 @@ def test_oidc_member_approves_machine_without_host_minted_token(
 ):
     register_all_handlers()
     door._enable_domain_admission(db_conn, domain="example.com")
-    assert client.get(START_PATH).json() == {"device_code": True}
+    assert client.get(START_PATH).json() == {
+        "device_code": True,
+        "company_sign_in": True,
+    }
     started = client.post(START_PATH, json=IDENTITY)
     assert started.status_code == 200, started.text
     _validate_wire(started, "MachineAuthorizationStarted")
@@ -103,12 +106,25 @@ def test_oidc_member_approves_machine_without_host_minted_token(
     assert admin is None
 
 
-def test_no_company_sign_in_teaches_token_connection(client):
-    assert client.get(START_PATH).json() == {"device_code": False}
-    denied = client.post(START_PATH, json=IDENTITY)
-    assert denied.status_code == 409
-    assert denied.json()["error"] == "oidc_not_configured"
-    assert "--token-stdin" in denied.json()["message"]
+def test_without_company_sign_in_a_connected_machine_can_still_approve(client):
+    assert client.get(START_PATH).json() == {
+        "device_code": True,
+        "company_sign_in": False,
+    }
+    started = client.post(START_PATH, json=IDENTITY)
+    assert started.status_code == 200, started.text
+    _validate_wire(started, "MachineAuthorizationStarted")
+    pending = started.json()
+    # With no company sign-in base URL, the request's own origin is the one
+    # the approval page and the delivered credential name.
+    assert pending["verification_uri_complete"].startswith(
+        "http://testserver/machine-approval/"
+    )
+    polled = client.post(
+        POLL_PATH, json={"device_code": pending["device_code"], **IDENTITY}
+    )
+    assert polled.status_code == 202
+    _validate_wire(polled, "MachineAuthorizationPending")
 
 
 def test_partial_oidc_config_is_named(client, monkeypatch):

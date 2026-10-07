@@ -13,7 +13,6 @@ from yoke_core.domain import json_helper
 from yoke_core.domain.actor_permissions import PROJECT_ROLES
 from yoke_core.domain.actor_state import ActorDisabledError
 from yoke_core.domain.api_tokens import (
-    DEFAULT_ADMIN_ACTOR_NAME,
     INITIAL_ADMIN_TOKEN_NAME,
     TokenError,
     bootstrap_admin_token,
@@ -239,7 +238,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "bootstrap-admin",
         help="Create/resolve the initial admin actor, grant authority, and mint a token",
     )
-    bootstrap.add_argument("--actor-name", default=DEFAULT_ADMIN_ACTOR_NAME)
+    bootstrap.add_argument(
+        "--actor-name",
+        required=True,
+        help="The person the admin is created as when the universe has no human.",
+    )
     bootstrap.add_argument(
         "--project",
         default=None,

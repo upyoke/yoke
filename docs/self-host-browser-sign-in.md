@@ -156,5 +156,7 @@ is required; approving your own machine does not require an org-admin role.
 
 Codes expire after ten minutes. A denied, consumed, or expired code requires a
 fresh connection. A temporary credential-store failure remains retryable while
-the code is live. Without OIDC, use an explicit API token; the first-boot admin
-token remains the bootstrap. See [Machine authorization](public/reference/machine-authorization.md).
+the code is live. Without OIDC, a first machine uses an explicit API token (the
+first-boot admin token remains the bootstrap); your own next machine runs
+`yoke connect https://<server>` and you approve its code from a machine you
+already connected with `yoke machine-authorization resolve CODE --action approve`. See [Machine authorization](public/reference/machine-authorization.md).

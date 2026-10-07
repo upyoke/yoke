@@ -48,6 +48,7 @@ def apply_defaults(parsed: Any, snapshot: Mapping[str, Any]) -> None:
     _set_missing(parsed, "env_name", snapshot.get("env_name"))
     _set_missing(parsed, "api_url", snapshot.get("api_url"))
     _set_missing(parsed, "destination", snapshot.get("destination"))
+    _set_missing(parsed, "admin_name", snapshot.get("admin_name"))
     project = _mapping(snapshot.get("project"))
     _set_missing(parsed, "project_mode", project.get("mode"))
     _set_missing(parsed, "project_remote_url", project.get("remote_url"))

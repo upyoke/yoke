@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
 from yoke_cli.config import onboard_docker_prerequisites as docker
+from yoke_cli.config import onboard_wizard_admin_name as admin_name
 from yoke_cli.config import onboard_wizard_image_repository as images
 from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config import onboard_self_host_server as server
@@ -109,7 +110,7 @@ def _on_preview(shell: _Shell, setup: server.SelfHostSetup, choice: str) -> None
     if choice == _BACK:
         _back_to_destination(shell)
         return
-    _run_preflight(shell, setup)
+    admin_name.ask_for_server(shell, setup, lambda: _run_preflight(shell, setup))
 
 
 def _run_preflight(shell: _Shell, setup: server.SelfHostSetup) -> None:

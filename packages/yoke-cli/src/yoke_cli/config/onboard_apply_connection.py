@@ -28,6 +28,7 @@ def apply_local_universe(
     progress: onboard_apply_progress.ProgressCallback | None,
     report: Dict[str, Any],
     *,
+    admin_name: str | None = None,
     error_cls: type[Exception],
 ) -> None:
     """Birth (or verify) the local universe in place of the sign-in writes.
@@ -48,6 +49,7 @@ def apply_local_universe(
     )
     try:
         local_report = local_universe_setup.run_local_init(
+            admin_name=admin_name,
             config_path=str(cfg_path),
         )
     except local_universe_setup.LocalUniverseSetupError as exc:

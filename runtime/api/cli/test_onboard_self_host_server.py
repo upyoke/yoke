@@ -78,6 +78,7 @@ def test_existing_bundle_collision_is_left_untouched(tmp_path, monkeypatch) -> N
     setup = subject.new_setup(
         config_path=str(tmp_path / "config.json"), directory=str(target)
     )
+    setup.admin_name = "Ada Lovelace"
 
     with pytest.raises(subject.SelfHostSetupError) as raised:
         subject.provision(setup, _prerequisites())
@@ -116,6 +117,7 @@ def test_success_uses_safe_compose_argv_and_connects_loopback(
         config_path=str(tmp_path / "config.json"),
         directory=str(tmp_path / "server"),
     )
+    setup.admin_name = "Ada Lovelace"
 
     result = subject.provision(
         setup, _prerequisites(), token_wait_seconds=0, health_wait_seconds=0
@@ -148,6 +150,7 @@ def test_compose_failure_preserves_bundle_and_redacts_diagnostics(
         config_path=str(tmp_path / "config.json"),
         directory=str(tmp_path / "server"),
     )
+    setup.admin_name = "Ada Lovelace"
 
     with pytest.raises(subject.SelfHostSetupError) as raised:
         subject.provision(setup, _prerequisites())
@@ -196,6 +199,7 @@ def test_token_timeout_retry_reuses_only_this_wizards_bundle(
         config_path=str(tmp_path / "config.json"),
         directory=str(tmp_path / "server"),
     )
+    setup.admin_name = "Ada Lovelace"
 
     with pytest.raises(subject.SelfHostSetupError, match="did not write") as raised:
         subject.provision(
@@ -239,6 +243,7 @@ def test_connect_failure_retains_token_for_in_memory_retry(
         config_path=str(tmp_path / "config.json"),
         directory=str(tmp_path / "server"),
     )
+    setup.admin_name = "Ada Lovelace"
 
     with pytest.raises(subject.SelfHostSetupError) as raised:
         subject.provision(
@@ -289,6 +294,7 @@ def test_post_start_health_wait_retries_until_the_server_answers(
     setup = subject.new_setup(
         config_path=str(tmp_path / "config.json"), directory=str(tmp_path / "server")
     )
+    setup.admin_name = "Ada Lovelace"
     result = subject.provision(
         setup, _prerequisites(), token_wait_seconds=0, health_wait_seconds=2
     )
@@ -324,6 +330,7 @@ def test_post_start_health_wait_times_out_before_connect(tmp_path, monkeypatch) 
     setup = subject.new_setup(
         config_path=str(tmp_path / "config.json"), directory=str(tmp_path / "server")
     )
+    setup.admin_name = "Ada Lovelace"
     with pytest.raises(subject.SelfHostSetupError) as raised:
         subject.provision(
             setup, _prerequisites(), token_wait_seconds=0, health_wait_seconds=2

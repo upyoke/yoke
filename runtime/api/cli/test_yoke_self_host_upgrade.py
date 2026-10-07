@@ -31,6 +31,7 @@ def packaged_install(monkeypatch):
 def initialized_bundle(tmp_path: Path) -> Path:
     target = tmp_path / "server-bundle"
     bundle.write_bundle(
+        admin_name="Ada Lovelace",
         directory=str(target),
         image="ghcr.io/upyoke/yoke-server:111111111111",
     )

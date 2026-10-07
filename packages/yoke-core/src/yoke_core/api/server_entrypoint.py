@@ -3,8 +3,8 @@
 Boot behavior branches on universe born-ness against the server's resolved
 DSN. A born database boots idempotently (core schema ensure + permission
 catalog reseed). An empty database is birthed in full before the first
-request is served — control-plane bootstrap, org identity card, admin actor
-with the org ``admin`` role, and a one-time admin token delivered to the
+request is served — control-plane bootstrap, org identity card, the first
+admin actor named by ``YOKE_ADMIN_NAME`` with the org ``admin`` role, and a one-time admin token delivered to the
 bundle's owner-only token file (stdout only when no bundle provided one) —
 and any birth failure aborts the boot: the server never serves a half-born
 universe. Because the born-ness sentinel (the org identity card) commits
@@ -235,6 +235,21 @@ def admin_credential_exists() -> bool:
         conn.close()
 
 
+def first_admin_name() -> str:
+    """The installer's name the bundle carries; refuse a birth without one."""
+    from yoke_contracts import first_admin_name as admin
+
+    try:
+        return admin.validate_admin_name(os.environ.get(admin.ADMIN_NAME_ENV))
+    except admin.AdminNameError as exc:
+        raise RuntimeError(
+            f"{admin.ADMIN_NAME_MISSING}: {admin.ADMIN_NAME_ENV} must name this "
+            f"universe's first admin ({exc}). Recovery: run `yoke setup` on this "
+            f"host, or set {admin.ADMIN_NAME_ENV}=<your name> in the bundle's .env "
+            "and run `yoke self-host init --dir PATH --protect-existing --start`"
+        ) from None
+
+
 def birth_universe() -> None:
     """Bootstrap an empty server database into a complete universe (fail-hard).
 
@@ -250,19 +265,16 @@ def birth_universe() -> None:
     from yoke_contracts.schema_authority import serving_build_authority
     from yoke_core.domain import db_helpers, org_schema
     from yoke_core.domain.actors import LOCAL_HUMAN_NAME_ENV
-    from yoke_core.domain.api_tokens import (
-        DEFAULT_ADMIN_ACTOR_NAME,
-        bootstrap_admin_token,
-    )
+    from yoke_core.domain.api_tokens import bootstrap_admin_token
     from yoke_core.domain.environment_bootstrap import run_bootstrap
 
+    admin_name = first_admin_name()
     # The init chain invokes its modules with no parameters, so the admin
-    # name rides the same pinned-env idiom the local-universe birth uses
-    # for the OS login. This makes the canonical human actor the chain
-    # seeds THE admin actor the token binds to — one human row, no
-    # founder-fallback actor on a self-hosted universe.
+    # name rides the same pinned-env idiom the local-universe birth uses.
+    # This makes the canonical human actor the chain seeds THE admin actor
+    # the token binds to — one human row, named for the installer.
     prior_name = os.environ.get(LOCAL_HUMAN_NAME_ENV)
-    os.environ[LOCAL_HUMAN_NAME_ENV] = DEFAULT_ADMIN_ACTOR_NAME
+    os.environ[LOCAL_HUMAN_NAME_ENV] = admin_name
     try:
         # Birth builds the schema this same process is about to serve, so the
         # chain it runs holds the same authority the boot converge does.
@@ -276,7 +288,7 @@ def birth_universe() -> None:
     org_name = (os.environ.get(ORG_NAME_ENV) or "").strip() or None
     with db_helpers.connect() as conn:
         org = org_schema.ensure_org_identity_card(conn, org_name)
-        created = bootstrap_admin_token(conn)
+        created = bootstrap_admin_token(conn, actor_name=admin_name)
         # The credential transaction commits only after durable host delivery.
         deliver_first_boot_admin_token(created.raw_token)
     _log.info("universe born: org %r", org["name"])
