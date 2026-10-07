@@ -230,7 +230,7 @@ def test_deployment_ci_reads_fleet_rehearsal_coverage(client, ci_auth_db) -> Non
             payload={
                 "project": "yoke",
                 "environment": "prod",
-                "paths": [receipt.entry_coverage_path("0001_a")],
+                "paths": [receipt.entry_coverage_path("primary", "0001_a")],
             },
         ),
         headers=_deployment_ci_headers(ci_auth_db["db_path"]),

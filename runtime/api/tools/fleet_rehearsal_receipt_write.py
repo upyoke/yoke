@@ -38,6 +38,7 @@ def release_gate_receipt_env() -> str:
 def record_receipt(
     *,
     project: str,
+    model: str,
     receipt_env: str,
     environment: str,
     product_sha: str,
@@ -52,6 +53,7 @@ def record_receipt(
     covered_env = receipt.target_environment_for_admin_env(environment)
     try:
         run, assignments = receipt.receipt_assignments(
+            model,
             product_sha,
             entries,
             engine_artifact=engine_artifact,

@@ -15,7 +15,7 @@ from types import SimpleNamespace
 import pytest
 
 from runtime.api.tools import require_fleet_migration_preflight as preflight
-from runtime.api.tools import yoke_migration_fleet
+from runtime.api.tools.release_gate_test_support import declare_engine_release
 
 
 def _history(monkeypatch, *names: str) -> tuple[SimpleNamespace, ...]:
@@ -23,7 +23,7 @@ def _history(monkeypatch, *names: str) -> tuple[SimpleNamespace, ...]:
         SimpleNamespace(name=name, content_sha256=(str(index) * 64))
         for index, name in enumerate(names, start=1)
     )
-    monkeypatch.setattr(yoke_migration_fleet, "history_entries", lambda: entries)
+    declare_engine_release(monkeypatch, entries)
     return entries
 
 
@@ -130,7 +130,7 @@ def test_content_mismatch_is_unsafe_and_hides_digest_values(
         _coverage_read_must_not_run,
     )
 
-    assert preflight.main(["prod", "abc123"]) == 1
+    assert preflight.main(["--project", "yoke", "prod", "abc123"]) == 1
 
     refusal = capsys.readouterr().err
     assert "release unsafe before tag" in refusal
@@ -156,7 +156,7 @@ def test_unavailable_identity_verification_is_not_reported_as_unsafe(
         _coverage_read_must_not_run,
     )
 
-    assert preflight.main(["prod", "abc123"]) == 2
+    assert preflight.main(["--project", "yoke", "prod", "abc123"]) == 2
 
     refusal = capsys.readouterr().err
     assert "release verification unavailable before tag" in refusal

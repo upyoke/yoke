@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Iterator
+
 from yoke_core.domain import deploy_pipeline_fleet_rehearsal as rehearsal
 from yoke_core.domain import deploy_pipeline_step_runners
 from yoke_core.domain import migration_preflight_receipt as receipt
 from yoke_core.domain.migration_model_fleet_read import DeclaredFleets
 
 _DIGEST = "a" * 64
+RELEASE_CHECKOUT = Path("/release-checkout")
 _RELEASE_SHA = "b" * 40
 _HISTORY = ("0001_first_entry", "0002_rewrite_rows")
 _RUN = "20260101T000000Z"
@@ -69,11 +74,13 @@ def _dispatch(
     )
 
 
-def _covered(*, entries: tuple[str, ...] = _HISTORY, shape: bool = True) -> dict:
+def _covered(
+    *, entries: tuple[str, ...] = _HISTORY, shape: bool = True, model: str = "primary"
+) -> dict:
     """The coverage leaves a passing rehearsal of this release leaves behind."""
-    values = {receipt.entry_coverage_path(name): _RUN for name in entries}
+    values = {receipt.entry_coverage_path(model, name): _RUN for name in entries}
     if shape:
-        values[receipt.schema_shape_coverage_path(_DIGEST)] = _RUN
+        values[receipt.schema_shape_coverage_path(model, _DIGEST)] = _RUN
     return values
 
 
@@ -94,6 +101,15 @@ def _stable_commit(monkeypatch) -> None:
         "release_control_plane_env",
         lambda: "prod",
     )
+    monkeypatch.setattr(
+        rehearsal.release_source, "engine_source_mismatch", lambda *_a: ""
+    )
+    monkeypatch.setattr(rehearsal.release_source, "release_checkout", _release_checkout)
+
+
+@contextmanager
+def _release_checkout(_repository: str, _sha: str) -> Iterator[Path]:
+    yield RELEASE_CHECKOUT
 
 
 def _stable_release(monkeypatch, models: dict | None = None) -> None:

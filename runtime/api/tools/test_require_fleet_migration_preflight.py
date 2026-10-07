@@ -11,7 +11,7 @@ from types import SimpleNamespace
 import pytest
 
 from runtime.api.tools import require_fleet_migration_preflight as preflight
-from runtime.api.tools import yoke_migration_fleet
+from runtime.api.tools.release_gate_test_support import declare_engine_release
 
 
 @pytest.fixture(autouse=True)
@@ -31,7 +31,7 @@ def _history(monkeypatch, *names: str) -> tuple[SimpleNamespace, ...]:
         SimpleNamespace(name=name, content_sha256=(str(index) * 64))
         for index, name in enumerate(names, start=1)
     )
-    monkeypatch.setattr(yoke_migration_fleet, "history_entries", lambda: entries)
+    declare_engine_release(monkeypatch, entries)
     return entries
 
 
@@ -49,7 +49,10 @@ def _coverage(monkeypatch, covered_by_environment: dict, unreadable: str = "") -
             return {}, unreadable
         entries = covered_by_environment.get(environment, ())
         return (
-            {receipt.entry_coverage_path(name): "20260101T000000Z" for name in entries},
+            {
+                receipt.entry_coverage_path("primary", name): "20260101T000000Z"
+                for name in entries
+            },
             "",
         )
 
@@ -79,11 +82,11 @@ def test_refusal_recipe_records_on_the_gate_connection(monkeypatch, capsys) -> N
     _verified(monkeypatch, 0)
     _coverage(monkeypatch, {})
 
-    assert preflight.main(["prod", "abc123"]) == 1
+    assert preflight.main(["--project", "yoke", "prod", "abc123"]) == 1
 
     refusal = capsys.readouterr().err
     assert "release unsafe before tag" in refusal
-    assert "yoke watch preflight -- --project yoke prod" in refusal
+    assert "yoke watch preflight -- --project yoke --model primary prod" in refusal
     assert "--engine-wheel <yoke_core-wheel-from-yoke-build-artifacts>" not in refusal
     assert "--record-receipt --product-sha <sha>" in refusal
     assert "--receipt-env prod" in refusal
@@ -98,10 +101,10 @@ def test_refusal_recipe_requires_explicit_connection_without_ambient_env(
     _verified(monkeypatch, 0)
     _coverage(monkeypatch, {})
 
-    assert preflight.main(["prod", "abc123"]) == 1
+    assert preflight.main(["--project", "yoke", "prod", "abc123"]) == 1
 
     refusal = capsys.readouterr().err
-    assert "yoke watch preflight -- --project yoke prod" in refusal
+    assert "yoke watch preflight -- --project yoke --model primary prod" in refusal
     assert "--receipt-env <control-plane-connection>" in refusal
 
 
@@ -112,7 +115,7 @@ def test_receipt_coverage_uses_the_registered_environment_name(
     _verified(monkeypatch, 1)
     _coverage(monkeypatch, {"prod": ("0005_x",)})
 
-    assert preflight.main(["prod", "abc123"]) == 0
+    assert preflight.main(["--project", "yoke", "prod", "abc123"]) == 0
 
     report = capsys.readouterr().out
     assert "target environment: prod" in report
@@ -124,13 +127,13 @@ def test_refusal_names_every_environment_missing_a_receipt(monkeypatch, capsys) 
     _verified(monkeypatch, 0)
     _coverage(monkeypatch, {})
 
-    assert preflight.main(["prod", "abc123"]) == 1
+    assert preflight.main(["--project", "yoke", "prod", "abc123"]) == 1
 
     refusal = capsys.readouterr().err
     assert "release unsafe before tag" in refusal
     assert "per environment" in refusal
     assert "for prod" in refusal
-    assert "yoke watch preflight -- --project yoke prod" in refusal
+    assert "yoke watch preflight -- --project yoke --model primary prod" in refusal
     assert "yoke-build-artifacts" in refusal
     assert "commit abc123" in refusal
 
@@ -140,12 +143,12 @@ def test_one_environment_receipt_does_not_cover_the_other(monkeypatch, capsys) -
     _verified(monkeypatch, 1)
     _coverage(monkeypatch, {"prod": ("0005_x",)})
 
-    assert preflight.main(["stage", "abc123"]) == 1
+    assert preflight.main(["--project", "yoke", "stage", "abc123"]) == 1
 
     refusal = capsys.readouterr().err
     assert "release unsafe before tag" in refusal
     assert "for stage" in refusal
-    assert "yoke watch preflight -- --project yoke stage" in refusal
+    assert "yoke watch preflight -- --project yoke --model primary stage" in refusal
 
 
 def test_unavailable_receipt_query_is_not_reported_as_unsafe(
@@ -155,7 +158,7 @@ def test_unavailable_receipt_query_is_not_reported_as_unsafe(
     _verified(monkeypatch, 1)
     _coverage(monkeypatch, {}, unreadable="transport unavailable")
 
-    assert preflight.main(["prod", "abc123"]) == 2
+    assert preflight.main(["--project", "yoke", "prod", "abc123"]) == 2
 
     refusal = capsys.readouterr().err
     assert "release verification unavailable before tag" in refusal
@@ -176,7 +179,7 @@ def test_coverage_survives_with_no_telemetry_at_all(monkeypatch, capsys) -> None
 
     monkeypatch.setattr(preflight.subprocess, "run", _events_must_not_be_read)
 
-    assert preflight.main(["prod", "abc123"]) == 0
+    assert preflight.main(["--project", "yoke", "prod", "abc123"]) == 0
     assert "covered by a passing fleet preflight: 1 of 1" in capsys.readouterr().out
 
 
@@ -194,7 +197,7 @@ def test_each_environment_is_read_from_its_own_document(monkeypatch) -> None:
         "yoke_core.domain.migration_preflight_receipt_store.read_coverage", read
     )
 
-    assert preflight.main(["prod", "abc123"]) == 1
+    assert preflight.main(["--project", "yoke", "prod", "abc123"]) == 1
     assert asked == ["prod"]
 
 
@@ -214,7 +217,7 @@ def test_an_environment_outside_the_release_set_is_still_read(monkeypatch) -> No
         "yoke_core.domain.migration_preflight_receipt_store.read_coverage", read
     )
 
-    assert preflight.main(["sandbox", "abc123"]) == 1
+    assert preflight.main(["--project", "yoke", "sandbox", "abc123"]) == 1
     assert "sandbox" in asked
 
 
@@ -228,7 +231,7 @@ def test_a_denied_coverage_read_is_unavailable_rather_than_unsafe(
     _verified(monkeypatch, 1)
     _coverage(monkeypatch, {}, unreadable="permission_denied: items.read")
 
-    assert preflight.main(["prod", "abc123"]) == 2
+    assert preflight.main(["--project", "yoke", "prod", "abc123"]) == 2
 
     refusal = capsys.readouterr().err
     assert "release verification unavailable before tag" in refusal

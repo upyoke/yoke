@@ -175,7 +175,6 @@ def test_preflight_keeps_receipt_on_preexisting_control_plane(
                 "--project",
                 "yoke",
                 "prod",
-                "yoke_alpha",
                 "--record-receipt",
                 "--product-sha",
                 "abc",
@@ -235,7 +234,6 @@ def test_preflight_records_receipt_on_registered_environment_not_admin(
                 "--project",
                 "yoke",
                 "review-west",
-                "yoke_alpha",
                 "--record-receipt",
                 "--product-sha",
                 "abc",
@@ -325,3 +323,19 @@ def test_preflight_help_teaches_both_receipt_coverage_shapes(
     assert "Receipts always write to the release-gate control plane" in help_text
     assert "Ordinary pre-release rehearsal uses the source tree" in help_text
     assert "--engine-wheel`` pins an already-built artifact" in help_text
+
+
+def test_preflight_refuses_to_record_a_narrowed_run(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _select_yoke_fleet(monkeypatch)
+
+    assert (
+        preflight.main(["--project", "yoke", "prod", "yoke_alpha", "--record-receipt"])
+        == 2
+    )
+
+    refusal = capsys.readouterr().err
+    assert "whole declared fleet" in refusal
+    assert "yoke_alpha" in refusal

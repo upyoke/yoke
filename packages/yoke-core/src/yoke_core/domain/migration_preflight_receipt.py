@@ -28,6 +28,10 @@ applies to schema-shape digests: a digest must be rehearsed once per
 environment, and never again until the shape changes. Coverage keys
 accumulate in the document, so the union is what the store already is.
 
+**Coverage is per migration model.** Each model of a project keeps its own
+history, so its coverage lives under ``release.fleet_rehearsal.<model>``: an
+entry name shared by two models never covers the other.
+
 **Coverage is per environment.** Each environment is a different fleet at a
 different ledger position, and an entry that applies cleanly to one says
 nothing about another. A rehearsal of one environment is not evidence for
@@ -43,14 +47,30 @@ from typing import Any, Dict, Mapping, Sequence, Tuple
 #: Namespace inside ``environments.settings`` owning fleet rehearsal coverage.
 SETTINGS_ROOT = "release.fleet_rehearsal"
 
-#: One leaf per covered history entry; the value names the rehearsal run.
-ENTRY_PREFIX = f"{SETTINGS_ROOT}.entry"
 
-#: One leaf per covered schema-shape digest; the value names the run.
-SCHEMA_SHAPE_PREFIX = f"{SETTINGS_ROOT}.schema_shape"
+def model_root(model: str) -> str:
+    """Coverage namespace of one migration model inside its environment.
 
-#: Identity of each rehearsal run the coverage leaves point at.
-RUN_PREFIX = f"{SETTINGS_ROOT}.run"
+    Models of one project keep separate histories, so an entry name such as
+    ``0001_init`` in one model must never read as coverage for another's.
+    """
+    return f"{SETTINGS_ROOT}.{_leaf_segment(model, what='migration model name')}"
+
+
+def entry_prefix(model: str) -> str:
+    """One leaf per covered history entry; the value names the rehearsal run."""
+    return f"{model_root(model)}.entry"
+
+
+def schema_shape_prefix(model: str) -> str:
+    """One leaf per covered schema-shape digest; the value names the run."""
+    return f"{model_root(model)}.schema_shape"
+
+
+def run_prefix(model: str) -> str:
+    """Identity of each rehearsal run the model's coverage leaves point at."""
+    return f"{model_root(model)}.run"
+
 
 class ReceiptPathError(ValueError):
     """A coverage key cannot be addressed as one settings leaf."""
@@ -114,24 +134,29 @@ def _leaf_segment(value: str, *, what: str) -> str:
     return text
 
 
-def entry_coverage_path(entry: str) -> str:
+def entry_coverage_path(model: str, entry: str) -> str:
     """The settings leaf recording that one history entry was rehearsed."""
-    return f"{ENTRY_PREFIX}.{_leaf_segment(entry, what='history entry name')}"
+    return f"{entry_prefix(model)}.{_leaf_segment(entry, what='history entry name')}"
 
 
-def schema_shape_coverage_path(digest: str) -> str:
+def schema_shape_coverage_path(model: str, digest: str) -> str:
     """The settings leaf recording that one schema-shape digest was rehearsed."""
-    return f"{SCHEMA_SHAPE_PREFIX}.{_leaf_segment(digest, what='schema-shape digest')}"
+    return (
+        f"{schema_shape_prefix(model)}."
+        f"{_leaf_segment(digest, what='schema-shape digest')}"
+    )
 
 
 def coverage_paths(
-    history: Sequence[str], schema_shape_digest: str = ""
+    model: str, history: Sequence[str], schema_shape_digest: str = ""
 ) -> Tuple[str, ...]:
-    """Every leaf a gate must read to answer coverage in one request."""
-    paths = [entry_coverage_path(name) for name in history if str(name or "").strip()]
+    """Every leaf a gate must read to answer one model's coverage at once."""
+    paths = [
+        entry_coverage_path(model, name) for name in history if str(name or "").strip()
+    ]
     digest = str(schema_shape_digest or "").strip()
     if digest:
-        paths.append(schema_shape_coverage_path(digest))
+        paths.append(schema_shape_coverage_path(model, digest))
     return tuple(dict.fromkeys(paths))
 
 
@@ -145,7 +170,9 @@ def _is_recorded(value: Any) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
 
-def covered_entries(values: Mapping[str, Any], history: Sequence[str]) -> frozenset:
+def covered_entries(
+    model: str, values: Mapping[str, Any], history: Sequence[str]
+) -> frozenset:
     """Every history entry this environment's coverage document records."""
     covered = set()
     for name in history:
@@ -153,7 +180,7 @@ def covered_entries(values: Mapping[str, Any], history: Sequence[str]) -> frozen
         if not text:
             continue
         try:
-            path = entry_coverage_path(text)
+            path = entry_coverage_path(model, text)
         except ReceiptPathError:
             continue
         if _is_recorded(values.get(path)):
@@ -161,18 +188,22 @@ def covered_entries(values: Mapping[str, Any], history: Sequence[str]) -> frozen
     return frozenset(covered)
 
 
-def uncovered(history: Sequence[str], values: Mapping[str, Any]) -> Tuple[str, ...]:
+def uncovered(
+    model: str, history: Sequence[str], values: Mapping[str, Any]
+) -> Tuple[str, ...]:
     """History entries no rehearsal covers here, in history order."""
-    covered = covered_entries(values, history)
+    covered = covered_entries(model, values, history)
     return tuple(name for name in history if name not in covered)
 
 
-def uncovered_schema_shape(digest: str, values: Mapping[str, Any]) -> Tuple[str, ...]:
+def uncovered_schema_shape(
+    model: str, digest: str, values: Mapping[str, Any]
+) -> Tuple[str, ...]:
     """The current digest when no rehearsal covers it here, else empty."""
     wanted = str(digest or "").strip()
     if not wanted:
         return ("",)
-    if _is_recorded(values.get(schema_shape_coverage_path(wanted))):
+    if _is_recorded(values.get(schema_shape_coverage_path(model, wanted))):
         return ()
     return (wanted,)
 
@@ -184,6 +215,7 @@ def receipt_id(moment: datetime | None = None) -> str:
 
 
 def receipt_assignments(
+    model: str,
     product_sha: str,
     entries: Sequence[str],
     *,
@@ -196,24 +228,26 @@ def receipt_assignments(
     stamped = (moment or datetime.now(timezone.utc)).astimezone(timezone.utc)
     run = receipt_id(stamped)
     digest = str(schema_shape_digest or "").strip()
+    runs = f"{run_prefix(model)}.{run}"
     assignments: Dict[str, Any] = {
-        f"{RUN_PREFIX}.{run}.product_sha": str(product_sha or "").strip(),
-        f"{RUN_PREFIX}.{run}.engine": rehearsed_build_description(engine_artifact),
-        f"{RUN_PREFIX}.{run}.rehearsed_at": stamped.strftime("%Y-%m-%dT%H:%M:%SZ"),
-        f"{RUN_PREFIX}.{run}.schema_shape": digest,
+        f"{runs}.product_sha": str(product_sha or "").strip(),
+        f"{runs}.engine": rehearsed_build_description(engine_artifact),
+        f"{runs}.rehearsed_at": stamped.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        f"{runs}.schema_shape": digest,
     }
     if database_count is not None:
-        assignments[f"{RUN_PREFIX}.{run}.databases"] = int(database_count)
+        assignments[f"{runs}.databases"] = int(database_count)
     # Sorted so two rehearsals covering the same entries write comparable
     # assignment sets, where the emission order is meaningless.
     for entry in sorted({str(e or "").strip() for e in entries} - {""}):
-        assignments[entry_coverage_path(entry)] = run
+        assignments[entry_coverage_path(model, entry)] = run
     if digest:
-        assignments[schema_shape_coverage_path(digest)] = run
+        assignments[schema_shape_coverage_path(model, digest)] = run
     return run, assignments
 
 
 def coverage_by_environment(
+    model: str,
     history: Sequence[str],
     values_by_environment: Mapping[str, Mapping[str, Any]],
     environments: Sequence[str],
@@ -222,5 +256,7 @@ def coverage_by_environment(
     coverage: Dict[str, Tuple[str, ...]] = {}
     for env in environments:
         name = target_environment_for_admin_env(env)
-        coverage[name] = uncovered(history, values_by_environment.get(name) or {})
+        coverage[name] = uncovered(
+            model, history, values_by_environment.get(name) or {}
+        )
     return coverage

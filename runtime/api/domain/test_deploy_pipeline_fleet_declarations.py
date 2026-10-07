@@ -86,9 +86,9 @@ def test_named_database_fleet_rehearses_its_own_project_and_model(
     asked: list[str] = []
     rehearsed: list[list[str]] = []
 
-    def coverage(project, _environment, _history, _digest):
+    def coverage(project, _model, _environment, _history, _digest):
         asked.append(project)
-        return ({}, "") if not rehearsed else (_covered(), "")
+        return ({}, "") if not rehearsed else (_covered(model="registry"), "")
 
     def run_preflight(args: list[str]) -> int:
         rehearsed.append(args)
@@ -105,11 +105,11 @@ def test_named_database_fleet_rehearses_its_own_project_and_model(
     assert _dispatch(_stage(), environment="stage", project="platform") == (0, "")
     assert asked == ["platform", "platform"]
     assert rehearsed[0][:7] == [
+        "--checkout",
+        "/release-checkout",
         "--project",
         "platform",
         "--model",
         "registry",
-        "--checkout",
-        "/repo",
         "stage",
     ]

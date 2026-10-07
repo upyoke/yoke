@@ -92,7 +92,7 @@ names the control plane that records the receipt. ``--record-receipt``
 writes the receipt the release gate reads for that environment.
 one environment's receipt never satisfies another, so rehearse each
 environment a release targets. The receipt lands on that environment's
-own settings document under ``release.fleet_rehearsal``, so coverage is
+own settings document under ``release.fleet_rehearsal.<model>``, so coverage is
 durable state rather than telemetry that can expire.
 
 Ordinary pre-release rehearsal uses the source tree (no ``--engine-wheel``).

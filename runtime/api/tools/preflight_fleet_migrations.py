@@ -46,8 +46,9 @@ registered for the project on this machine. The positional names the project's
 registered environment whose fleet to rehearse. The paired admin connection
 is that environment's ``release.admin_connection`` setting, not a name
 suffix. ``--receipt-env`` names the control plane that records the receipt.
-Naming databases limits the run to those; the default is the model's whole
-declared fleet on that cluster.
+Naming databases limits the run to those, as a diagnostic only: a receipt
+covers the model's whole declared fleet, so ``--record-receipt`` refuses a
+narrowed run.
 
 ``--record-receipt`` records the pass in the control plane, which is what the
 release gate reads before allocating a tag; a receipt covers exactly the
@@ -56,7 +57,7 @@ requires that environment's receipt, and one environment's receipt never satisfi
 The receipt names the history entries covered, the schema-shape digest of
 the boot-converge sources in the selected engine, and whether that engine
 was the source tree or a wheel. It is stored on that project environment's own
-settings document under ``release.fleet_rehearsal``, so coverage outlives
+settings document under ``release.fleet_rehearsal.<model>``, so coverage outlives
 telemetry retention and cannot be read for the wrong environment.
 Receipts always write to the release-gate control plane.
 The selected admin connection changes the covered fleet, not the receipt
@@ -126,6 +127,15 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
         return 2
     record, product_sha = parsed.record_receipt, parsed.product_sha
+    if record and positional[1:]:
+        print(
+            "--record-receipt records coverage for the model's whole declared "
+            f"fleet, so it cannot follow a run narrowed to {positional[1:]}. "
+            "Drop the database names to rehearse and record the whole fleet, "
+            "or drop --record-receipt for a diagnostic run.",
+            file=sys.stderr,
+        )
+        return 2
     from yoke_core.domain import migration_preflight_receipt as receipt
     from yoke_core.domain.migration_preflight_receipt_store import (
         read_declared_admin_connection,
@@ -254,6 +264,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 1
     run, unwritten = receipt_write.record_receipt(
         project=project,
+        model=target.model_name,
         receipt_env=receipt_env,
         environment=covered_env,
         product_sha=product_sha,
