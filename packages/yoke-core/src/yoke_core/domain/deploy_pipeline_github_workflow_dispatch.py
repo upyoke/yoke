@@ -5,6 +5,8 @@ from __future__ import annotations
 import time
 from typing import Any, Callable, Sequence
 
+from yoke_core.domain.project_github_auth_models import GitHubUnavailable
+
 
 TRIGGER_RECOVERY_RETRY_LIMIT = 6
 TRIGGER_RECOVERY_INTERVAL_SECONDS = 5
@@ -14,6 +16,8 @@ _RECOVERABLE_CODES = (
     "workflow_dispatch_pending",
     "workflow_dispatch_state_unavailable",
     "rest_transport_error",
+    # The token mint failed because GitHub is failing; nothing was dispatched.
+    GitHubUnavailable.code,
 )
 
 

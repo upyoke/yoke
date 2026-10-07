@@ -44,6 +44,7 @@ from yoke_core.domain.gh_rest_transport import RestTransportError
 from yoke_core.domain.github_actions_commit_runs_read import (
     CommitRunAuthorityError,
     CommitRunCommandError,
+    CommitRunUnavailableError,
     matching_runs,
 )
 from yoke_core.domain.github_poll_schedule import (
@@ -284,6 +285,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         # told which authority is missing instead of watching a commit it can
         # never see runs for until the deadline.
         fetch_runs()
+    except CommitRunUnavailableError as exc:
+        # GitHub itself is failing, not the authority; the watch loop keeps
+        # polling and reads the runs once GitHub answers again.
+        print(
+            f"Warning: GitHub is unavailable; watching anyway: {exc}", file=sys.stderr
+        )
     except CommitRunCommandError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return EXIT_COMMAND_FAILURE

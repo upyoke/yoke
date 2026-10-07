@@ -29,6 +29,10 @@ class GitHubAppTokenResponseError(GitHubAppTokenError):
         self.error_code = error_code
 
 
+class GitHubAppTokenUnavailableError(GitHubAppTokenError):
+    """GitHub could not be reached, or did not answer within the time limit."""
+
+
 class GitHubAppTokenResponseSizeError(GitHubAppTokenError):
     """A token response exceeded the bounded JSON envelope."""
 
@@ -121,6 +125,7 @@ __all__ = [
     "GitHubAppTokenResponseDecodeError",
     "GitHubAppTokenResponseError",
     "GitHubAppTokenResponseSizeError",
+    "GitHubAppTokenUnavailableError",
     "InstallationToken",
     "UserAccessToken",
     "ensure_utc",

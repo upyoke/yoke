@@ -36,7 +36,8 @@ from yoke_core.domain.pydantic_validation_safety import safe_validation_message
 class PrCreateRequest(BaseModel):
     title: str = Field(..., min_length=1, description="Pull-request title.")
     head: str = Field(
-        ..., min_length=1,
+        ...,
+        min_length=1,
         description="Branch the changes live on (the PR source branch).",
     )
     base: str = Field(
@@ -45,7 +46,8 @@ class PrCreateRequest(BaseModel):
         description="Branch the PR merges into (default: main).",
     )
     body: Optional[str] = Field(
-        None, description="Optional pull-request description (markdown).",
+        None,
+        description="Optional pull-request description (markdown).",
     )
     draft: bool = Field(False, description="Open the PR as a draft.")
     project: str = Field(
@@ -75,7 +77,6 @@ def handle_pr_create(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.project_github_auth import (
         GITHUB_AUTHORITY_USER,
         ProjectGithubAuthError,
-        repair_command_hint,
         resolve_project_github_auth,
     )
 
@@ -88,10 +89,7 @@ def handle_pr_create(request: FunctionCallRequest) -> HandlerOutcome:
             required_authority=GITHUB_AUTHORITY_USER,
         )
     except ProjectGithubAuthError as exc:
-        return _auth_failed(
-            f"{exc.code}: {exc}",
-            repair_hint=repair_command_hint(exc, payload.project),
-        )
+        return _auth_failed(exc, payload.project)
 
     from yoke_core.domain import github_pr_rest
     from yoke_core.domain.gh_rest_transport import RestTransportError

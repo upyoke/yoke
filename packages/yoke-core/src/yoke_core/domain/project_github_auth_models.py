@@ -19,9 +19,21 @@ GITHUB_AUTHORITY_INSTALLATION = "github_app_installation"
 class ProjectGithubAuthError(Exception):
     code: str = "project_github_auth_error"
 
-    def __init__(self, project: str, message: str) -> None:
+    def __init__(
+        self,
+        project: str,
+        message: str,
+        *,
+        http_status: int | None = None,
+        repair_hint: str = "",
+    ) -> None:
         super().__init__(message)
         self.project = project
+        # The GitHub HTTP status behind the refusal, when GitHub answered.
+        self.http_status = http_status
+        # A repair template ({project}) narrower than the code's own, set
+        # when the failure itself names which repair applies.
+        self.repair_hint = repair_hint
 
 
 class UnnamedProject(ProjectGithubAuthError):
@@ -72,6 +84,17 @@ class TokenMintFailed(ProjectGithubAuthError):
     code = "token_mint_failed"
 
 
+class GitHubUnavailable(ProjectGithubAuthError):
+    """GitHub itself failed the request; the binding and credentials stand.
+
+    A 5xx, a rate limit, or a network failure or timeout. The work is
+    retryable as-is once GitHub recovers; nothing on the Yoke side is
+    broken, so no credential or installation repair applies.
+    """
+
+    code = "github_unavailable"
+
+
 class UserAuthorizationUnavailable(ProjectGithubAuthError):
     code = "user_authorization_unavailable"
 
@@ -88,6 +111,18 @@ class InvalidToken(ProjectGithubAuthError):
 
 class TransportFailure(ProjectGithubAuthError):
     code = "transport_failure"
+
+
+# The function-call error code for every project GitHub auth refusal except
+# a GitHub outage, which reports its own retryable code.
+PROJECT_AUTH_ERROR_CODE = "project_auth_error"
+
+
+def auth_refusal_function_code(error: ProjectGithubAuthError) -> str:
+    """The function-call error code a handler reports for an auth refusal."""
+    if isinstance(error, GitHubUnavailable):
+        return error.code
+    return PROJECT_AUTH_ERROR_CODE
 
 
 @dataclass(frozen=True)
@@ -123,11 +158,14 @@ TokenMinter = Callable[..., InstallationToken]
 
 
 __all__ = [
+    "PROJECT_AUTH_ERROR_CODE",
+    "auth_refusal_function_code",
     "GITHUB_AUTHORITY_INSTALLATION",
     "GITHUB_AUTHORITY_USER",
     "AppCredentials",
     "BindingUnavailable",
     "GITHUB_CAPABILITY_TYPE",
+    "GitHubUnavailable",
     "InstallationUnavailable",
     "InvalidToken",
     "MissingAppCredentials",

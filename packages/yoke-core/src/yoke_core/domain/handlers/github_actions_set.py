@@ -46,7 +46,8 @@ class SecretSetRequest(BaseModel):
     repo: str = Field(..., min_length=3)
     name: str = Field(..., pattern=CONFIG_NAME_PATTERN)
     value: str = Field(
-        ..., min_length=1,
+        ...,
+        min_length=1,
         description="Secret value; never logged, never echoed in responses.",
     )
     project: str = Field(
@@ -84,17 +85,25 @@ def _bad_request(message: str, *, jsonpath: str = "$.payload") -> HandlerOutcome
         result_payload={},
         primary_success=False,
         error=FunctionError(
-            code="invalid_payload", message=message, jsonpath=jsonpath,
+            code="invalid_payload",
+            message=message,
+            jsonpath=jsonpath,
         ),
     )
 
 
-def _auth_failed(message: str, *, repair_hint: str = "") -> HandlerOutcome:
-    full = f"{message}\n  Repair: {repair_hint}" if repair_hint else message
+def _auth_failed(exc: Any, project: str) -> HandlerOutcome:
+    """Refuse with a project GitHub auth error, its code, and its repair."""
+    from yoke_core.domain.project_github_auth import repair_command_hint
+    from yoke_core.domain.project_github_auth_models import (
+        auth_refusal_function_code,
+    )
+
+    message = f"{exc.code}: {exc}\n  Repair: {repair_command_hint(exc, project)}"
     return HandlerOutcome(
         result_payload={},
         primary_success=False,
-        error=FunctionError(code="project_auth_error", message=full),
+        error=FunctionError(code=auth_refusal_function_code(exc), message=message),
     )
 
 
@@ -141,9 +150,13 @@ def _validate_and_resolve_auth(
 ) -> Tuple[Optional[Any], Optional[Any], Optional[HandlerOutcome]]:
     """Validate a GitHub handler request and retain resolved auth metadata."""
     if request.target.kind != "global":
-        return None, None, _bad_request(
-            f"target.kind must be 'global' ({function_id} has no item binding)",
-            jsonpath="$.target.kind",
+        return (
+            None,
+            None,
+            _bad_request(
+                f"target.kind must be 'global' ({function_id} has no item binding)",
+                jsonpath="$.target.kind",
+            ),
         )
 
     try:
@@ -156,15 +169,18 @@ def _validate_and_resolve_auth(
         try:
             repository_api_path(repo)
         except ValueError:
-            return None, None, _bad_request(
-                f"repo must be canonical owner/name, got {repo!r}",
-                jsonpath="$.payload.repo",
+            return (
+                None,
+                None,
+                _bad_request(
+                    f"repo must be canonical owner/name, got {repo!r}",
+                    jsonpath="$.payload.repo",
+                ),
             )
 
     from yoke_core.domain.project_github_auth import (
         MissingPermission,
         ProjectGithubAuthError,
-        repair_command_hint,
         resolve_project_github_auth,
     )
 
@@ -176,19 +192,17 @@ def _validate_and_resolve_auth(
     except MissingPermission as exc:
         if missing_permission_error is not None:
             return None, None, missing_permission_error
-        return None, None, _auth_failed(
-            f"{exc.code}: {exc}",
-            repair_hint=repair_command_hint(exc, payload.project),
-        )
+        return None, None, _auth_failed(exc, payload.project)
     except ProjectGithubAuthError as exc:
-        return None, None, _auth_failed(
-            f"{exc.code}: {exc}",
-            repair_hint=repair_command_hint(exc, payload.project),
-        )
+        return None, None, _auth_failed(exc, payload.project)
     if repo is not None and repo.casefold() != resolved.repo.casefold():
-        return None, None, _bad_request(
-            f"repo must match project binding {resolved.repo!r}",
-            jsonpath="$.payload.repo",
+        return (
+            None,
+            None,
+            _bad_request(
+                f"repo must match project binding {resolved.repo!r}",
+                jsonpath="$.payload.repo",
+            ),
         )
     return payload, resolved, None
 
@@ -208,7 +222,10 @@ def handle_secret_set(request: FunctionCallRequest) -> HandlerOutcome:
 
     try:
         github_secrets_rest.set_repo_secret(
-            payload.repo, payload.name, payload.value, token=token,
+            payload.repo,
+            payload.name,
+            payload.value,
+            token=token,
         )
     except RestTransportError as exc:
         return _transport_failed(f"set_repo_secret failed: {exc}")
@@ -235,13 +252,18 @@ def handle_variable_set(request: FunctionCallRequest) -> HandlerOutcome:
 
     try:
         outcome = github_variables_rest.set_repo_variable(
-            payload.repo, payload.name, payload.value, token=token,
+            payload.repo,
+            payload.name,
+            payload.value,
+            token=token,
         )
     except RestTransportError as exc:
         return _transport_failed(f"set_repo_variable failed: {exc}")
 
     response = VariableSetResponse(
-        repo=payload.repo, name=payload.name, result=outcome,
+        repo=payload.repo,
+        name=payload.name,
+        result=outcome,
     )
     return HandlerOutcome(
         result_payload=response.model_dump(),

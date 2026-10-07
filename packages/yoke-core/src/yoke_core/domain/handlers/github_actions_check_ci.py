@@ -45,6 +45,7 @@ from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
 )
 from yoke_core.domain.github_actions_identifiers import WorkflowIdentifier
+from yoke_core.domain.handlers.github_actions_set import _auth_failed
 
 
 _RUNNING_STATUSES = frozenset({"queued", "in_progress", "pending", "waiting"})
@@ -95,15 +96,6 @@ def _bad_request(message: str, *, jsonpath: str = "$.payload") -> HandlerOutcome
             message=message,
             jsonpath=jsonpath,
         ),
-    )
-
-
-def _auth_failed(message: str, *, repair_hint: str = "") -> HandlerOutcome:
-    full = f"{message}\n  Repair: {repair_hint}" if repair_hint else message
-    return HandlerOutcome(
-        result_payload={},
-        primary_success=False,
-        error=FunctionError(code="project_auth_error", message=full),
     )
 
 
@@ -199,7 +191,6 @@ def handle_check_ci(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.github_actions_rest import latest_workflow_run
     from yoke_core.domain.project_github_auth import (
         ProjectGithubAuthError,
-        repair_command_hint,
         resolve_project_github_auth,
     )
 
@@ -209,10 +200,7 @@ def handle_check_ci(request: FunctionCallRequest) -> HandlerOutcome:
             required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
         )
     except ProjectGithubAuthError as exc:
-        return _auth_failed(
-            f"{exc.code}: {exc}",
-            repair_hint=repair_command_hint(exc, payload.project),
-        )
+        return _auth_failed(exc, payload.project)
     if payload.repo.casefold() != resolved.repo.casefold():
         return _bad_request(
             f"repo must match project binding {resolved.repo!r}",

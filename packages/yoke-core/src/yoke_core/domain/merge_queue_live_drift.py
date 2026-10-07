@@ -72,13 +72,15 @@ class LiveDriftReport:
 
 
 def live_branch_rules(
-    owner: str, repo: str, branch: str, *, token: str,
+    owner: str,
+    repo: str,
+    branch: str,
+    *,
+    token: str,
 ) -> tuple[Optional[list], Optional[str]]:
     """Return the live branch rules, or why they could not be read."""
     try:
-        return list(
-            mq_rest.fetch_branch_rules(owner, repo, branch, token=token)
-        ), None
+        return list(mq_rest.fetch_branch_rules(owner, repo, branch, token=token)), None
     except RestNotFoundError:
         # A branch with no ruleset reads as no rules, not as an outage.
         return [], None
@@ -87,7 +89,11 @@ def live_branch_rules(
 
 
 def _live_bypass_actors(
-    owner: str, repo: str, rules: Sequence[Any], *, token: str,
+    owner: str,
+    repo: str,
+    rules: Sequence[Any],
+    *,
+    token: str,
 ) -> tuple[Any, bool]:
     """Return (actors, comparable) for the ruleset backing the queue rule."""
     ruleset_id = None
@@ -123,7 +129,10 @@ def compare_declared_against_live(
     if not isinstance(live_auto, bool):
         live_auto = None
     bypass, compare_bypass = _live_bypass_actors(
-        owner, repo, rules, token=token,
+        owner,
+        repo,
+        rules,
+        token=token,
     )
     return LiveDriftReport(
         drift=tuple(
@@ -156,16 +165,17 @@ def enforcement_drift(declared: Any, *, rules: Sequence[Any]) -> tuple[str, ...]
             live_branch_rules=list(rules),
             # The declared value echoed back, so an unread repository
             # setting cannot masquerade as a disagreement.
-            live_allow_auto_merge=bool(
-                declared["repository"]["allow_auto_merge"]
-            ),
+            live_allow_auto_merge=bool(declared["repository"]["allow_auto_merge"]),
             compare_bypass=False,
         )
     )
 
 
 def drift_blocking_landing(
-    project: str, *, checkout: str, branch: str,
+    project: str,
+    *,
+    checkout: str,
+    branch: str,
 ) -> LiveDriftReport:
     """Drift that must stop a landing on ``branch``, read from ``checkout``.
 
@@ -181,6 +191,7 @@ def drift_blocking_landing(
         load_declaration,
     )
     from yoke_core.domain.project_github_auth import (
+        GitHubUnavailable,
         ProjectGithubAuthError,
         resolve_project_github_auth,
     )
@@ -213,13 +224,20 @@ def drift_blocking_landing(
         detail = f"ruleset drift unverified: {exc.code}: {exc}"
         return LiveDriftReport(
             unreadable=(detail,),
-            skip_reason=DRIFT_SKIP_GITHUB_AUTH_UNRESOLVED,
+            skip_reason=(
+                DRIFT_SKIP_GITHUB_UNREACHABLE
+                if isinstance(exc, GitHubUnavailable)
+                else DRIFT_SKIP_GITHUB_AUTH_UNRESOLVED
+            ),
             skip_detail=detail,
         )
 
     owner, repo = gh_rest_transport.split_repo(auth.repo)
     rules, rules_error = live_branch_rules(
-        owner, repo, branch, token=auth.token,
+        owner,
+        repo,
+        branch,
+        token=auth.token,
     )
     if rules is None:
         detail = str(rules_error)

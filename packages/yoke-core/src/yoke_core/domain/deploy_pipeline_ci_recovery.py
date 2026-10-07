@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_core.domain.project_github_auth_models import GitHubUnavailable
+
 _AUTH_ADAPTER_CODES = frozenset({"project_auth_error", "rest_auth_error"})
 _MISSING_WORKFLOW_CODE = "workflow_not_found"
 
@@ -42,6 +44,14 @@ def ci_adapter_failure_message(
             f"does not exist in {repo}.\n\n"
             "Create the workflow under .github/workflows/, or correct "
             "the project's ci_workflow_file declaration.\n"
+        )
+    if code == GitHubUnavailable.code:
+        return (
+            "\nBLOCKED: Cannot deploy — CI could not be verified; "
+            f"the GitHub Actions adapter returned {failure}.\n\n"
+            "GitHub itself is failing; the App credentials are not the cause "
+            "and this is not a failing test conclusion.\n\n"
+            "Recovery: re-drive the deployment once GitHub recovers.\n"
         )
     if code in _AUTH_ADAPTER_CODES:
         kind = "an authorization failure"

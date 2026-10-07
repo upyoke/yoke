@@ -18,6 +18,7 @@ from yoke_core.domain.github_app_token_models import (
     GitHubAppTokenResponseDecodeError,
     GitHubAppTokenResponseError,
     GitHubAppTokenResponseSizeError,
+    GitHubAppTokenUnavailableError,
 )
 from yoke_core.domain.github_response_safety import (
     GITHUB_ERROR_BODY_LIMIT_CHARS,
@@ -89,27 +90,27 @@ def issue_installation_token_request(
             body=body_text,
         ) from None
     except ResponseOpenDeadlineError:
-        raise GitHubAppTokenError(
+        raise GitHubAppTokenUnavailableError(
             "GitHub installation token response exceeded the time limit"
         ) from None
     except urllib.error.URLError:
-        raise GitHubAppTokenError(
+        raise GitHubAppTokenUnavailableError(
             "GitHub installation token request was unavailable"
         ) from None
     except (TimeoutError, OSError):
-        raise GitHubAppTokenError(
+        raise GitHubAppTokenUnavailableError(
             "GitHub installation token request was unavailable"
         ) from None
     except GitHubResponseTooLargeError as exc:
         raise GitHubAppTokenResponseSizeError(str(exc)) from None
     except GitHubResponseDeadlineError:
-        raise GitHubAppTokenError(
+        raise GitHubAppTokenUnavailableError(
             "GitHub installation token response exceeded the time limit"
         ) from None
     except GitHubApiOriginError as exc:
         raise GitHubAppTokenError(redact_exact_secrets(str(exc), (app_jwt,))) from None
     except Exception:
-        raise GitHubAppTokenError(
+        raise GitHubAppTokenUnavailableError(
             "GitHub installation token response could not be read"
         ) from None
     try:

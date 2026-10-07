@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, List
 
 from yoke_core.domain.json_helper import loads_text
+from yoke_core.domain.project_github_auth_models import GitHubUnavailable
 
 
 class CommitRunAuthorityError(RuntimeError):
@@ -19,6 +20,10 @@ class CommitRunAuthorityError(RuntimeError):
 
 class CommitRunCommandError(CommitRunAuthorityError):
     """Raised when the child command fails without a diagnosed auth refusal."""
+
+
+class CommitRunUnavailableError(CommitRunAuthorityError):
+    """Raised when GitHub itself failed the read; the next poll may succeed."""
 
 
 def matching_runs(
@@ -65,6 +70,10 @@ def _relayed_commit_runs(
         except (TypeError, ValueError):
             envelope = None
         error = envelope.get("error") if isinstance(envelope, dict) else None
+        if isinstance(error, dict) and error.get("code") == GitHubUnavailable.code:
+            raise CommitRunUnavailableError(
+                detail or str(error.get("message") or error)
+            )
         if isinstance(error, dict) and error.get("code") in (
             "project_auth_error",
             "github_actions_authority_required",
@@ -92,4 +101,9 @@ def _relayed_commit_runs(
     return [run for run in runs if isinstance(run, dict)]
 
 
-__all__ = ["CommitRunAuthorityError", "CommitRunCommandError", "matching_runs"]
+__all__ = [
+    "CommitRunAuthorityError",
+    "CommitRunCommandError",
+    "CommitRunUnavailableError",
+    "matching_runs",
+]

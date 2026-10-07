@@ -11,10 +11,10 @@ import pytest
 from yoke_core.domain import github_app_installation_token_transport as transport
 from yoke_core.domain import github_app_installation_tokens as tokens
 from yoke_core.domain.github_app_token_models import (
-    GitHubAppTokenError,
     GitHubAppTokenResponseDecodeError,
     GitHubAppTokenResponseError,
     GitHubAppTokenResponseSizeError,
+    GitHubAppTokenUnavailableError,
 )
 
 
@@ -149,7 +149,7 @@ def test_raw_network_reason_is_never_surfaced() -> None:
     def fail(*_args, **_kwargs):
         raise urllib.error.URLError(f"upstream echoed {APP_JWT}")
 
-    with pytest.raises(GitHubAppTokenError) as exc_info:
+    with pytest.raises(GitHubAppTokenUnavailableError) as exc_info:
         _mint(fail)
 
     assert APP_JWT not in str(exc_info.value)
@@ -161,7 +161,7 @@ def test_direct_network_failures_are_normalized(failure_type) -> None:
     def fail(*_args, **_kwargs):
         raise failure_type(APP_JWT)
 
-    with pytest.raises(GitHubAppTokenError) as exc_info:
+    with pytest.raises(GitHubAppTokenUnavailableError) as exc_info:
         _mint(fail)
 
     assert APP_JWT not in str(exc_info.value)
@@ -174,7 +174,7 @@ def test_hostile_reader_exception_is_detail_free() -> None:
             del size
             raise RuntimeError(APP_JWT)
 
-    with pytest.raises(GitHubAppTokenError) as exc_info:
+    with pytest.raises(GitHubAppTokenUnavailableError) as exc_info:
         _mint(lambda *_args, **_kwargs: _BrokenReader(b""))
 
     assert APP_JWT not in str(exc_info.value)

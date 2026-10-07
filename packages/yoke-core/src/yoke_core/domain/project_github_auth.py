@@ -27,6 +27,7 @@ from yoke_core.domain.project_github_auth_models import (
     GITHUB_AUTHORITY_USER,
     GITHUB_CAPABILITY_TYPE,
     InstallationUnavailable,
+    GitHubUnavailable,
     InvalidToken,
     MissingAppCredentials,
     MissingCapability,
@@ -274,6 +275,10 @@ _HINT_BY_CODE: Mapping[str, str] = {
     "token_mint_failed": (
         "repair App credentials or installation access for project {project}"
     ),
+    "github_unavailable": (
+        "GitHub is failing, not the App credentials; retry or re-drive the "
+        "work for project {project} once GitHub recovers"
+    ),
     "user_authorization_unavailable": (
         f"{GITHUB_AUTH_STATUS_CHECK_RECIPE}, then retry project {{project}}"
     ),
@@ -287,7 +292,7 @@ _HINT_BY_CODE: Mapping[str, str] = {
 
 
 def repair_command_hint(error: ProjectGithubAuthError, project: str) -> str:
-    template = _HINT_BY_CODE.get(error.code)
+    template = error.repair_hint or _HINT_BY_CODE.get(error.code)
     if template is None:
         return f"check the GitHub App binding and credentials for project {project}"
     return template.format(project=project)
@@ -298,6 +303,7 @@ __all__ = [
     "GITHUB_AUTHORITY_USER",
     "BindingUnavailable",
     "GITHUB_CAPABILITY_TYPE",
+    "GitHubUnavailable",
     "InstallationUnavailable",
     "InvalidToken",
     "MissingAppCredentials",
