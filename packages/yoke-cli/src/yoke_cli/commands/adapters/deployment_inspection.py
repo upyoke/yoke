@@ -166,6 +166,14 @@ def deployment_runs_failure_trace(args: List[str]) -> int:
         else:
             print(f"Failure trace stopped: {result.get('stop_reason')}", file=stdout)
             print(f"Recovery: {result.get('recovery')}", file=stdout)
+        for stale in result.get("stale_bound_sources") or []:
+            print(f"Stale bound source: {stale.get('reason')}", file=stdout)
+        if result.get("bound_source_unverified"):
+            print(
+                "Bound source staleness unverified: "
+                f"{result.get('bound_source_unverified')}",
+                file=stdout,
+            )
         print(
             f"Failure chain for {result.get('deployment_run_id')} "
             f"(stage {result.get('stage')}):",

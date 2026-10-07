@@ -20,6 +20,14 @@ class FailureChainEntry(BaseModel):
     failed_job_url: str = ""
 
 
+class StaleBoundSource(BaseModel):
+    project: str
+    branch: str
+    frozen_sha: str
+    current_sha: str
+    reason: str
+
+
 class DeploymentFailureTraceResponse(BaseModel):
     deployment_run_id: str
     stage: str
@@ -30,6 +38,10 @@ class DeploymentFailureTraceResponse(BaseModel):
     terminal_error: str = ""
     stop_reason: str = ""
     recovery: str = ""
+    #: Frozen bound sources the failure names whose branch has since moved;
+    #: re-driving or retrying the run re-proves the same stale commit.
+    stale_bound_sources: list[StaleBoundSource] = []
+    bound_source_unverified: str = ""
 
 
 def _actor_id(request: FunctionCallRequest) -> int | None:
@@ -80,5 +92,6 @@ __all__ = [
     "DeploymentFailureTraceRequest",
     "DeploymentFailureTraceResponse",
     "FailureChainEntry",
+    "StaleBoundSource",
     "handle_deployment_failure_trace",
 ]

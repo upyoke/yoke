@@ -180,7 +180,26 @@ def trace_deployment_failure(run_id: str, *, actor_id: int | None) -> dict[str, 
         return github_run_ref(repo, match.group("run"))
 
     walked = walk_failure_chain(origin, inspect_run=inspect, resolve_job=resolve_job)
-    return {"deployment_run_id": run_id, "stage": stage, **walked}
+    return {
+        "deployment_run_id": run_id,
+        "stage": stage,
+        **walked,
+        **_bound_source_diagnosis(run_id, str(walked.get("terminal_error") or "")),
+    }
+
+
+def _bound_source_diagnosis(run_id: str, terminal_error: str) -> dict[str, Any]:
+    """Which frozen bound sources make this failure unpassable by re-drive."""
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.deployment_run_stale_bound_sources import (
+        diagnose_stale_bound_sources,
+    )
+
+    with connect() as conn:
+        stale, unverified = diagnose_stale_bound_sources(
+            conn, run_id, failure_text=terminal_error
+        )
+    return {"stale_bound_sources": stale, "bound_source_unverified": unverified}
 
 
 __all__ = ["trace_deployment_failure"]
