@@ -31,7 +31,7 @@ export function isRunQaReview(row) {
   if (row?.kind !== "qa_needs_review") return false;
   const subject = reviewSubject(row);
   return subject.kind === "deployment_run" && Boolean(subject.deployment_run_id)
-    && subject.deployment_member_item_id == null;
+    && subject.deployment_member_public_ref == null;
 }
 
 export function reviewRunId(row) {
@@ -107,7 +107,7 @@ export function runQaReviewCard(context, row, options = {}) {
 export function fillRunQaReviewChecks(context, card, row, rows) {
   const host = CHECK_HOSTS.get(card);
   if (!host) return;
-  const runRows = (rows || []).filter((check) => check.deployment_member_item_id == null);
+  const runRows = (rows || []).filter((check) => check.deployment_member_public_ref == null);
   const current = effectiveRunChecks(runRows);
   const history = runRows.filter((check) => !current.includes(check));
   host.replaceChildren();

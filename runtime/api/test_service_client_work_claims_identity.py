@@ -1,10 +1,4 @@
-"""Self-only identity tests for ``claim-work`` / ``release-work-claim``.
-
-The explicit
-``--session-id`` flag must equal the ambient session, an unprovable
-explicit value is never authority, and ``--allow-non-terminal`` cannot
-bypass the check.
-"""
+"""Work claims require the ambient session, even with a release override."""
 
 # ruff: noqa: F811 -- imported pytest fixtures are intentionally re-exported.
 
@@ -110,9 +104,7 @@ def _override_event_count(db_path: str, item_id: int) -> int:
     return int(row[0]) if row else 0
 
 
-# ---------------------------------------------------------------------------
 # Pure-Python contract — check_self_only_session_identity
-# ---------------------------------------------------------------------------
 
 
 class TestIdentityCheckPure:
@@ -154,9 +146,7 @@ class TestIdentityCheckPure:
         assert "sid-self" in (outcome.message or "")
 
 
-# ---------------------------------------------------------------------------
 # CLI contract — claim-work
-# ---------------------------------------------------------------------------
 
 
 class TestClaimWorkSelfOnly:
@@ -219,6 +209,7 @@ class TestClaimWorkSelfOnly:
         assert result.returncode == 0, f"stderr: {result.stderr}"
         out = json.loads(result.stdout)
         assert out["success"] is True
+        assert out["claim"]["scope"] == {"public_ref": "YOK-10"}
 
         row = _open_claim_row(db_path, item_id=10)
         assert row is not None
@@ -244,6 +235,5 @@ class TestClaimWorkSelfOnly:
         assert row[0] == "sid-self"
 
 
-# ---------------------------------------------------------------------------
 # CLI contract — release-work-claim
 # ---------------------------------------------------------------------------

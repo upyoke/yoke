@@ -60,7 +60,7 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 CLAIM_WORK_ACQUIRE_USAGE = (
-    "yoke claims work acquire (--item PREFIX-N | --epic-id N --task-num N | "
+    "yoke claims work acquire (--item PREFIX-N | --epic PREFIX-N --task-num N | "
     "--process KEY) [--reason TEXT] [--session-id S] [--json]"
 )
 
@@ -70,18 +70,16 @@ def claims_work_acquire(args: List[str]) -> int:
         prog="yoke claims work acquire",
         description=CLAIM_WORK_ACQUIRE_USAGE,
     )
+    parser.add_argument("--item", default=None, help="Item id (PREFIX-N).")
     parser.add_argument(
-        "--item", default=None, help="Item id (PREFIX-N or project-local number)."
-    )
-    parser.add_argument(
-        "--epic-id", default=None, help="Parent epic id for an epic-task claim."
+        "--epic", default=None, help="Parent epic id for an epic-task claim."
     )
     parser.add_argument("--task-num", default=None, help="Task number within the epic.")
     parser.add_argument(
         "--process", default=None, help="Process key for a process claim."
     )
     parser.add_argument(
-        "--project", default=None, help="Project context for bare numeric item refs."
+        "--project", default=None, help="Project scope for the operation."
     )
     parser.add_argument("--reason", default=None, help="Optional intent / rationale.")
     add_session_arg(parser)
@@ -97,14 +95,14 @@ def claims_work_acquire(args: List[str]) -> int:
         # acquire handler reads it from the envelope target (relay shape).
         target_ref = item_target("item", parsed.item, parsed.project)
         target_spec = {"kind": "item"}
-    elif parsed.epic_id is not None and parsed.task_num is not None:
+    elif parsed.epic is not None and parsed.task_num is not None:
         try:
-            epic_id = int(parsed.epic_id)
+            epic_ref = parsed.epic
             task_num = int(parsed.task_num)
         except ValueError:
-            return usage_error("--epic-id and --task-num must be integers")
-        target_ref = TargetRef(kind="epic_task", epic_id=epic_id, task_num=task_num)
-        target_spec = {"kind": "epic_task", "epic_id": epic_id, "task_num": task_num}
+            return usage_error("--task-num must be an integer")
+        target_ref = TargetRef(kind="epic_task", public_ref=epic_ref, task_num=task_num)
+        target_spec = {"kind": "epic_task", "task_num": task_num}
     elif parsed.process is not None:
         # conflict_group is registry-computed server-side
         # (work_processes.conflict_group_for); callers never supply it.
@@ -119,9 +117,7 @@ def claims_work_acquire(args: List[str]) -> int:
             "project": project,
         }
     else:
-        return usage_error(
-            "one of --item / --epic-id+--task-num / --process is required"
-        )
+        return usage_error("one of --item / --epic+--task-num / --process is required")
 
     payload: Dict[str, Any] = {"target": target_spec}
     if parsed.reason:
@@ -137,10 +133,10 @@ def claims_work_acquire(args: List[str]) -> int:
 
 CLAIM_WORK_RELEASE_USAGE = (
     "yoke claims work release "
-    "(--claim-id N | --item PREFIX-N | --epic-id N --task-num N | "
+    "(--claim-id N | --item PREFIX-N | --epic PREFIX-N --task-num N | "
     "--process KEY | --all-mine) "
     "[--reason TEXT] [--session-id S] [--json]\n"
-    "  --epic-id + --task-num release the calling session's active "
+    "  --epic + --task-num release the calling session's active "
     "epic_task claim on (epic_id, task_num).\n"
     "  --process KEY releases this session's active process claim "
     "(STRATEGIZE, FEED, DOCTOR).\n"
@@ -149,7 +145,7 @@ CLAIM_WORK_RELEASE_USAGE = (
 )
 
 _SELECTOR_ERR = (
-    "exactly one of --claim-id, --item, --epic-id+--task-num, "
+    "exactly one of --claim-id, --item, --epic+--task-num, "
     "--process, or --all-mine is required"
 )
 
@@ -164,12 +160,12 @@ def claims_work_release(args: List[str]) -> int:
         "--item", default=None, help="Release this session's active claim on the item."
     )
     parser.add_argument(
-        "--epic-id", default=None, help="Parent epic id (pair with --task-num)."
+        "--epic", default=None, help="Parent epic id (pair with --task-num)."
     )
     parser.add_argument(
         "--task-num",
         default=None,
-        help="Task number within the epic (pair with --epic-id).",
+        help="Task number within the epic (pair with --epic).",
     )
     parser.add_argument(
         "--process",
@@ -179,7 +175,7 @@ def claims_work_release(args: List[str]) -> int:
     parser.add_argument(
         "--project",
         default=None,
-        help="Project scope for --process / bare numeric --item refs.",
+        help="Project scope for process or item queries.",
     )
     parser.add_argument(
         "--all-mine",
@@ -194,7 +190,7 @@ def claims_work_release(args: List[str]) -> int:
     parser.add_argument(
         "--reason",
         default=None,
-        help=("Required with --claim-id, --item, --epic-id+--task-num, or --process."),
+        help=("Required with --claim-id, --item, --epic+--task-num, or --process."),
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -202,10 +198,10 @@ def claims_work_release(args: List[str]) -> int:
     if parsed is None:
         return 2
 
-    epic_id_set = parsed.epic_id is not None
+    epic_id_set = parsed.epic is not None
     task_num_set = parsed.task_num is not None
     if epic_id_set != task_num_set:
-        return usage_error("--epic-id and --task-num must be provided together")
+        return usage_error("--epic and --task-num must be provided together")
     epic_task_selector = epic_id_set and task_num_set
 
     selector_count = sum(
@@ -233,7 +229,7 @@ def claims_work_release(args: List[str]) -> int:
     if not parsed.reason:
         return usage_error(
             "--reason is required when releasing by --claim-id, --item, "
-            "--epic-id+--task-num, or --process"
+            "--epic+--task-num, or --process"
         )
 
     # The dispatcher's self_only verification resolves the calling
@@ -264,13 +260,13 @@ def claims_work_release(args: List[str]) -> int:
         payload["project"] = project
     else:
         try:
-            epic_id = int(parsed.epic_id)
+            epic_ref = parsed.epic
             task_num = int(parsed.task_num)
         except ValueError:
-            return usage_error("--epic-id and --task-num must be integers")
+            return usage_error("--task-num must be an integer")
         target_ref = TargetRef(
             kind="epic_task",
-            epic_id=epic_id,
+            public_ref=epic_ref,
             task_num=task_num,
         )
 

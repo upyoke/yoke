@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 import sys
 from typing import Callable, Optional
 
-from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.public_ref import unresolved_item_ref
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import db_backend
@@ -31,11 +32,13 @@ def _record_finalization(result, note: str) -> None:
         result.add_step("6c")
         return
     result.add_step("6c-degraded")
-    result.warnings.append({
-        "code": "done_finalization_degraded",
-        "step": "6c",
-        "message": note,
-    })
+    result.warnings.append(
+        {
+            "code": "done_finalization_degraded",
+            "step": "6c",
+            "message": note,
+        }
+    )
 
 
 def _finalize_done_local_side_effects(
@@ -62,7 +65,7 @@ def _finalize_done_local_side_effects(
     try:
         resp = call_dispatcher(
             function_id="done_transition.finalize_local_side_effects",
-            target=TargetRef(kind="item", item_id=int(item_id)),
+            target=public_item_target(item_id),
             payload={
                 "release_category": release_category,
                 "env_name": env_name,
@@ -140,7 +143,9 @@ def _insert_release_note(
     return True
 
 
-def _report_closeout_failure(result, ref: str, old_status: str, exc: BaseException) -> None:
+def _report_closeout_failure(
+    result, ref: str, old_status: str, exc: BaseException
+) -> None:
     """Name a closeout failure without disowning the transition that landed.
 
     Reporting the whole run as failed is what makes this dangerous: the
@@ -174,7 +179,7 @@ def _announce_delivery(item_id: int, ref: str) -> None:
     try:
         response = call_dispatcher(
             function_id="done_transition.delivery_done_notice",
-            target=TargetRef(kind="item", item_id=int(item_id)),
+            target=public_item_target(ref),
             payload={},
         )
     except Exception as exc:  # noqa: BLE001 - never endanger a committed done
@@ -261,7 +266,10 @@ def _run_closeout(
     """Run every step that follows the committed status write."""
     print("\n=== Step 8: Sync done state to GitHub ===")
     github_closeout = done_transition_github_sync.apply_step_8(
-        item_id, old_status, result, public_ref=ref,
+        item_id,
+        old_status,
+        result,
+        public_ref=ref,
     )
     # The scan addresses the item by its public ref: a digit string is a
     # project-local sequence, not items.id, so the internal id resolves
@@ -283,7 +291,7 @@ def _run_closeout(
                 ensure_snapshot_for_item,
             )
 
-            ensure_snapshot_for_item(item_id)
+            ensure_snapshot_for_item(ref)
     result.add_step("12")
 
     print("\n=== Step 13: Push ===")

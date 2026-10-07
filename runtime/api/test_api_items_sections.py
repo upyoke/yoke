@@ -38,7 +38,7 @@ from yoke_core.api.main import app
 _SCHEMA = """
 CREATE TABLE items (
     id INTEGER PRIMARY KEY,
-    workflow_id TEXT, project_id INTEGER,
+    workflow_id TEXT, project_id INTEGER, project_sequence INTEGER,
     spec TEXT, updated_at TEXT, spec_updated_at TEXT, spec_updated_by TEXT
 );
 CREATE TABLE item_sections (
@@ -79,6 +79,7 @@ class _FakeDB:
         self.path = db_path
 
     def insert_item(self, item_id: int, **fields: Optional[str]) -> None:
+        fields = {"project_id": 1, "project_sequence": item_id, **fields}
         cols = ["id"] + list(fields.keys())
         conn = connect_test_db(self.path)
         try:
@@ -132,7 +133,7 @@ def _envelope(function_id: str, *, item_id: int = 101, section_name: str, **over
         "actor": {"actor_id": "op", "session_id": "s-1"},
         "target": {
             "kind": "section",
-            "item_id": item_id,
+            "public_ref": f"YOK-{item_id}",
             "section_name": section_name,
             "project_id": "yoke",
         },
@@ -197,7 +198,7 @@ class TestSectionUpsertRoute(_ApiSuite):
             payload={"content": "note body\n", "ordering": 200},
         )
         resp = self.client.post("/v1/functions/call", json=env)
-        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.status_code, 200, resp.text)
         body = resp.json()
         self.assertTrue(body["success"])
         self.assertEqual(body["result"]["section_name"], "Notes")
@@ -215,7 +216,7 @@ class TestSectionUpsertRoute(_ApiSuite):
         # Replace
         env["payload"] = {"content": "second\n"}
         resp = self.client.post("/v1/functions/call", json=env)
-        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.status_code, 200, resp.text)
         self.assertEqual(self.db.fetch_section(101, "Notes"), "second\n")
 
     def test_empty_content_rejected(self) -> None:
@@ -261,7 +262,7 @@ class TestSectionDeleteRoute(_ApiSuite):
             payload={},
         )
         resp = self.client.post("/v1/functions/call", json=env)
-        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.status_code, 200, resp.text)
         body = resp.json()
         self.assertTrue(body["success"])
         self.assertTrue(body["result"]["deleted"])
@@ -275,7 +276,7 @@ class TestSectionDeleteRoute(_ApiSuite):
             payload={},
         )
         resp = self.client.post("/v1/functions/call", json=env)
-        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.status_code, 200, resp.text)
         body = resp.json()
         self.assertTrue(body["success"])
         self.assertFalse(body["result"]["deleted"])
@@ -296,7 +297,7 @@ class TestSectionGetRoute(_ApiSuite):
             payload={},
         )
         resp = self.client.post("/v1/functions/call", json=env)
-        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.status_code, 200, resp.text)
         body = resp.json()
         self.assertTrue(body["success"])
         self.assertTrue(body["result"]["found"])
@@ -310,7 +311,7 @@ class TestSectionGetRoute(_ApiSuite):
             payload={},
         )
         resp = self.client.post("/v1/functions/call", json=env)
-        self.assertEqual(resp.status_code, 404)
+        self.assertEqual(resp.status_code, 404, resp.text)
         body = resp.json()
         self.assertEqual(body["error"]["code"], "target_not_found")
 

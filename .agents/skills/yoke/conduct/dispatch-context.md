@@ -50,10 +50,10 @@ _spec=$(yoke items get "${_id}" spec)
 #### 5f-issue.2. Build Context Block
 
 ```
-Issue: PREFIX-{_id}
+Issue: {_id}
 Title: {_title}
 GitHub Issue: {github_issue from DB}
-Branch: PREFIX-{_id}
+Branch: {_id}
 Worktree path: {_worktree_path}
 Main repo root: {MAIN_ROOT}
 Data directory: {MAIN_ROOT}/data (config and generated views live here)
@@ -75,9 +75,9 @@ Store `_spec`, `_worktree_path`, and the context block for this item.
 
 #### 5f-epic.1. Epic Sync Gate
 
-Set the epic identifier (for epics, the item's own ID is the `epic_id` in `epic_tasks`):
+Keep the item's complete public ref for every epic call:
 ```bash
-_epic_id="${_id}"
+_epic_ref="${_id}"
 ```
 
 Then run the **Epic Sync Gate** in [dispatch-context-gates.md](dispatch-context-gates.md) to ensure the epic is synced to GitHub. Auto-sync may update the connected Postgres authority, but git staging must still exclude generated views. If legacy root DB files appear in `data/`, stop and investigate.
@@ -90,13 +90,13 @@ Resolve every dispatchable chain head in the epic, following the same fan-out co
 
 1. Read all dispatch chains for this epic:
  ```bash
- yoke workflow-item epic-dispatch-chain list --epic "$_epic_id"
+ yoke workflow-item epic-dispatch-chain list --epic "$_epic_ref"
  ```
 
 2. For each dispatch chain, find the next dispatchable task:
  - Read `current_task` and its status from `epic_tasks`:
  ```bash
- yoke workflow-item epic-task get --epic "$_epic_id" --task-num "{current_task}"
+ yoke workflow-item epic-task get --epic "$_epic_ref" --task-num "{current_task}"
  ```
  - If `current_task` status is `implementing` or `reviewing-implementation`: status alone is **not** a busy verdict. Call the shared freshness evaluator `yoke_core.domain.chain_head_freshness.evaluate_chain_head_freshness(epic_id, task_num, current_session_id)` — the same surface S6c in [entry-activation-resolution.md](entry-activation-resolution.md) calls, so this mirror cannot drift. The evaluator consults the parent claim, the prior session's `harness_sessions.last_heartbeat`, and the task's `epic_tasks.last_activity_at` (first-class task-freshness state stamped by every epic-task mutation; the events ledger is telemetry-only) against the chain-head freshness window (`chain_head_freshness_window_s`, default 60s). Branch on `decision.status`: `resumable` → treat the head as a **candidate** (the Engineer/Tester loop reaches `5f-rehydrate` and the resumed Engineer sees prior progress notes plus tester reviews; committed engineer work is not redone); `busy` → mark this chain busy and continue to the next chain; `blocked` → another live session holds the parent epic claim — record the blocker (see `decision.evidence.holder_session_id`) and continue.
  - If `current_task` status is `done` or `reviewed-implementation`: advance `current_index` to find the next task in the `queue`
@@ -126,12 +126,12 @@ Run the **Verify Dependencies and Interface Contracts** gate in [dispatch-contex
 
 Read the task body from DB:
 ```bash
-_body=$(yoke workflow-item epic-task body-get --epic "$_epic_id" --task-num "$_task_id")
+_body=$(yoke workflow-item epic-task body-get --epic "$_epic_ref" --task-num "$_task_id")
 ```
 
 Resolve the worktree path from the dispatch chain:
 ```bash
-_chain_row=$(yoke workflow-item epic-dispatch-chain get --epic "$_epic_id" --worktree "$_worktree_branch")
+_chain_row=$(yoke workflow-item epic-dispatch-chain get --epic "$_epic_ref" --worktree "$_worktree_branch")
 ```
 Parse `worktree_path` from the chain row. When the row carries none, read the lane's own registered path instead of composing one:
 
@@ -149,16 +149,16 @@ Defense-in-depth: persist all three worktree fields to `epic_tasks`. This ensure
 
 ```bash
 # Defense-in-depth: persist all three resolved dispatch-chain fields to epic_tasks.
-# Preserve architect/refine per-task worktrees; do not collapse epic tasks to PREFIX-${_id}.
+# Preserve architect/refine per-task worktrees; do not collapse epic tasks to ${_id}.
 yoke workflow-item epic-task metadata-update \
-  --epic "$_epic_id" --task-num "$_task_id" \
+  --epic "$_epic_ref" --task-num "$_task_id" \
   --fields-json "{\"worktree\":\"${_worktree_branch}\",\"branch\":\"${_worktree_branch}\",\"worktree_path\":\"${_worktree_path}\"}"
 ```
 
 #### 5f-epic.6. Build Context Block
 
 ```
-Epic: {_epic_id}
+Epic: {_epic_ref}
 Task ID: {_task_id} (local plan-order ID)
 GitHub Issue: {github_issue from epic_tasks table}
 Worktree path: {_worktree_path}

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.domain_refusal import DomainRefusal
+
 from dataclasses import dataclass, field
 from typing import Callable, Mapping
 
@@ -16,7 +18,7 @@ GITHUB_AUTHORITY_USER = "github_app_user"
 GITHUB_AUTHORITY_INSTALLATION = "github_app_installation"
 
 
-class ProjectGithubAuthError(Exception):
+class ProjectGithubAuthError(DomainRefusal):
     code: str = "project_github_auth_error"
 
     def __init__(

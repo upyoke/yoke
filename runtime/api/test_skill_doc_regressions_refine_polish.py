@@ -84,8 +84,8 @@ class TestRefineItemReferenceResolution:
 
         assert 'ITEM_REF="{arg}"' in context
         assert 'ITEM_PIN_JSON=$(yoke workflows item get "$ITEM_REF"' in context
-        assert "ITEM_NUM=$(printf '%s' \"$ITEM_PIN_JSON\"" in context
-        assert '["result"]["item_id"]' in context
+        assert "# ITEM_REF — public PREFIX-N" in context
+        assert '["result"]["item_id"]' not in context
         assert "ITEM_DEFINITION_JSON=$(yoke workflows version get" in context
         for field in (
             "title",
@@ -223,8 +223,8 @@ class TestPolishItemReferenceResolution:
         context = _read(SKILLS / "polish" / "context.md")
         assert 'ITEM_REF="{arg}"' in parse
         assert 'ITEM_PIN_JSON=$(yoke workflows item get "$ITEM_REF"' in parse
-        assert "ITEM_NUM=$(printf '%s' \"$ITEM_PIN_JSON\"" in parse
-        assert '["result"]["item_id"]' in parse
+        assert "# ITEM_REF — public PREFIX-N" in parse
+        assert '["result"]["item_id"]' not in parse
         assert "s/^[Ss][Uu][Nn]-//" not in parse
         assert "s/^[Ss][Uu][Nn]-//" not in context
 

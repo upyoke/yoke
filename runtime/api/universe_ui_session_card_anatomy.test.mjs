@@ -207,7 +207,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
     "Executor version:", "Messageable:", "Stale cleanup:", "Why active:",
     "Machine:",
   ]) assert.ok(!visibleText(root).includes(gone), gone);
-  assert.equal(byClass(root, "session-item-link")[0].href, "/items/2228?project=1");
+  assert.equal(byClass(root, "session-item-link")[0].href, "/items/YOK-2228?project=1");
   const cardText = cards.map(visibleText);
   for (const expected of [
     "claude-code", "YOK-2228", "Execute WORKFLOW-TYPES",

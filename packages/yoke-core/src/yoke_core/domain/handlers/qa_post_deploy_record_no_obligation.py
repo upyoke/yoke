@@ -99,7 +99,7 @@ def handle_qa_post_deploy_record_no_obligation(
     if item_id is None:
         return _error(
             "target_invalid",
-            "qa.post_deploy.record_no_obligation requires target.item_id",
+            "qa.post_deploy.record_no_obligation requires target.public_ref",
         )
     try:
         body = QaPostDeployRecordNoObligationRequest.model_validate(

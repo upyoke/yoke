@@ -117,7 +117,7 @@ def test_populated_membership_converged_schema(test_db: Any) -> None:
     members = _member_rows("run-populated-converged")
 
     assert len(members) == 1
-    assert members[0]["item_id"] == 9501
+    assert members[0]["public_ref"] == "YOK-9501"
     assert members[0]["delivery_intent"] == "final"
     assert members[0]["requirement_snapshot"] == snapshot
 
@@ -153,7 +153,7 @@ def test_populated_membership_unconverged_schema(test_db: Any) -> None:
     members = _member_rows("run-populated-unconverged")
 
     assert len(members) == 1
-    assert members[0]["item_id"] == 9502
+    assert members[0]["public_ref"] == "YOK-9502"
     assert members[0]["delivery_intent"] is None
     assert members[0]["requirement_snapshot"] is None
 
@@ -197,7 +197,7 @@ def test_execution_context_dispatch_survives_unconverged_columns(
     assert context.status_code == 200, context.text
     members = context.json()["result"]["members"]
     assert len(members) == 1
-    assert members[0]["item_id"] == ITEM_ID
+    assert members[0]["public_ref"] == "EXT-1"
     assert members[0]["delivery_intent"] is None
     assert members[0]["requirement_snapshot"] is None
 

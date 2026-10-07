@@ -77,7 +77,7 @@ def register_exception(
         owner = Owner(kind=OWNER_KIND_SESSION, session_id=str(session_id))
     else:
         raise InvalidTargetSet(
-            "mode='exception' requires item_id or session_id so owner_kind "
+            "mode='exception' requires public_ref or session_id so owner_kind "
             "can be determined"
         )
     owner_cols = owner_columns_for_writer(owner)

@@ -98,7 +98,7 @@ curl "http://localhost:8765/v1/items?project=yoke&status=implementing"
 ```
 
 ```json
-{"items":[{"id":42,"title":"Example item","workflow_id":"dash","workflow_version_id":8,"workflow_version":2,"stage_index":1,"status":"implementing","priority":"high","flow":"accelerated","frozen":false,"github_issue":"#123","deployed_to":null,"project":"yoke","deployment_flow":null,"deploy_stage":null,"source":"2","created_at":"2026-03-08T03:41:07Z","updated_at":"2026-03-09T14:56:18Z","merged_at":null}],"count":1}
+{"items":[{"id":"YOK-42","public_ref":"YOK-42","title":"Example item","workflow_id":"dash","workflow_version_id":8,"workflow_version":2,"stage_index":1,"status":"implementing","priority":"high","flow":"accelerated","frozen":false,"github_issue":"#123","deployed_to":null,"project":"yoke","deployment_flow":null,"deploy_stage":null,"source":"2","created_at":"2026-03-08T03:41:07Z","updated_at":"2026-03-09T14:56:18Z","merged_at":null}],"count":1}
 ```
 
 Note: `body` is excluded from list responses to keep payload sizes manageable. Use the single-item endpoint to retrieve the body.
@@ -108,13 +108,13 @@ Returns `400` with error code `VALIDATION_ERROR` if an invalid status value is p
 ### Get Single Item
 
 ```
-GET /v1/items/{id}
+GET /v1/items/{public_ref}
 ```
 
-Returns a single item by its numeric ID (the N in YOK-N), including the `body` field.
+Returns a single item by its complete public ref (PREFIX-N), including the `body` field.
 
 ```bash
-curl http://localhost:8765/v1/items/42
+curl http://localhost:8765/v1/items/YOK-42
 ```
 
 Returns `404` with error code `NOT_FOUND` if the item does not exist.
@@ -146,12 +146,12 @@ curl "http://localhost:8765/v1/board?project=external-webapp"
     "idea": [],
     "planning": [],
     "refined": [],
-    "implementing": [{"id": 1, "title": "..."}],
+    "implementing": [{"id": "YOK-1", "public_ref": "YOK-1", "title": "..."}],
     "blocked": [],
     "reviewing": [],
     "implemented": [],
     "release": [],
-    "done": [{"id": 2, "title": "..."}]
+    "done": [{"id": "YOK-2", "public_ref": "YOK-2", "title": "..."}]
   },
   "stats": {
     "total": 2,
@@ -204,7 +204,7 @@ Returns `201` with the full item object on success. Possible error responses:
 ### Approve Gate
 
 ```
-POST /v1/items/{id}/approve
+POST /v1/items/{public_ref}/approve
 ```
 
 Approves a Yoke-handled deployment gate for an item. The item's current
@@ -223,7 +223,7 @@ operator can re-run `/yoke usher YOK-N` consistently.
 | `comment` | string | no | `null` | Max 500 characters |
 
 ```bash
-curl -X POST http://localhost:8765/v1/items/42/approve \
+curl -X POST http://localhost:8765/v1/items/YOK-42/approve \
   -H "Content-Type: application/json" \
   -d '{"comment": "Reviewed deploy plan, looks good"}'
 ```
@@ -239,7 +239,7 @@ curl -X POST http://localhost:8765/v1/items/42/approve \
 ### Configure Capability
 
 ```
-POST /v1/items/{id}/capability
+POST /v1/items/{public_ref}/capability
 ```
 
 Configures a non-GitHub capability for the project associated with the given item. Uses UPSERT semantics -- creates a new capability (201) or updates an existing one (200) based on the `(project, type)` pair. GitHub uses a verified project binding and control-plane-minted short-lived installation tokens instead.
@@ -250,7 +250,7 @@ Configures a non-GitHub capability for the project associated with the given ite
 | `config` | object | yes | Non-empty JSON object with capability-specific config |
 
 ```bash
-curl -X POST http://localhost:8765/v1/items/42/capability \
+curl -X POST http://localhost:8765/v1/items/YOK-42/capability \
   -H "Content-Type: application/json" \
   -d '{"type": "ci_workflow_file", "config": {"workflow_file": "ci.yml"}}'
 ```

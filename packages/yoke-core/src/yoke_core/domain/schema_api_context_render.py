@@ -138,7 +138,7 @@ def render_function_call_surface_block() -> list[str]:
         "`yoke_contracts.api.function_call` and returns a "
         "`FunctionCallResponse`. Minimal envelope: "
         "`{function, request_id, actor:{session_id,actor_id}, "
-        "target:{kind,item_id|epic_id+task_num|qa_requirement_id|...}, "
+        "target:{kind,public_ref+task_num?|qa_requirement_id|...}, "
         "payload, preconditions:{}, options:{}}`. `target.kind` ∈ "
         "`item|epic_task|qa_requirement|session|process`. "
         "`actor.session_id` is mandatory — handlers verify it against "

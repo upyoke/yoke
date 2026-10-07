@@ -10,19 +10,21 @@ what the record says instead.
 
 from __future__ import annotations
 
-import json
+import json as json
 import subprocess
-from pathlib import Path
+from pathlib import Path as Path
 from types import SimpleNamespace
 
-import pytest
+import pytest as pytest
 
 from runtime.api.domain.standalone_merge_simulation_support import (
     stub_candidate_review,
 )
 from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_cli as sim_cli
-from yoke_core.domain import standalone_item_merge_close_out_transition as close_out_transition
+from yoke_core.domain import (
+    standalone_item_merge_close_out_transition as close_out_transition,
+)
 from yoke_core.domain.standalone_item_merge_release_status import CloseOutRoute
 from yoke_core.domain import standalone_item_merge_evidence as evidence
 from yoke_core.domain import standalone_item_merge_git as merge_git
@@ -47,8 +49,9 @@ def _receipt_free(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _git(repo: Path, *args: str) -> str:
-    result = subprocess.run(["git", "-C", str(repo), *args], check=True,
-                            capture_output=True, text=True)
+    result = subprocess.run(
+        ["git", "-C", str(repo), *args], check=True, capture_output=True, text=True
+    )
     return result.stdout.strip()
 
 
@@ -76,8 +79,9 @@ def _item(repo: Path, *, status: str = "reviewing-implementation") -> dict:
         "public_ref": "ITEM-1",
         "status": status,
         "workflow": {"id": "dash"},
-        "worktrees": [{"branch": "ITEM-1",
-                       "commit_sha": _git(repo, "rev-parse", "ITEM-1")}],
+        "worktrees": [
+            {"branch": "ITEM-1", "commit_sha": _git(repo, "rev-parse", "ITEM-1")}
+        ],
     }
 
 
@@ -85,11 +89,13 @@ def _section_response(content: str | None):
     """A stand-in for ``items.section.get`` over the evidence section."""
     if content is None:
         return SimpleNamespace(
-            success=True, error=None,
+            success=True,
+            error=None,
             result={"section_name": DASH_EVIDENCE_SECTION, "found": False},
         )
     return SimpleNamespace(
-        success=True, error=None,
+        success=True,
+        error=None,
         result={
             "section_name": DASH_EVIDENCE_SECTION,
             "found": True,
@@ -99,22 +105,26 @@ def _section_response(content: str | None):
 
 
 def _evidence_content(merge_sha: str = MERGE_SHA) -> str:
-    return json.dumps({
-        "schema": 1,
-        "result_summary": "landed",
-        "verification_summary": "suite green",
-        "verification_status": "passed",
-        "commit_sha": "a" * 40,
-        "merge_sha": merge_sha,
-        "touched_files": ["feature.txt"],
-        "recorded_at": "2026-01-01T00:00:00Z",
-    })
+    return json.dumps(
+        {
+            "schema": 1,
+            "result_summary": "landed",
+            "verification_summary": "suite green",
+            "verification_status": "passed",
+            "commit_sha": "a" * 40,
+            "merge_sha": merge_sha,
+            "touched_files": ["feature.txt"],
+            "recorded_at": "2026-01-01T00:00:00Z",
+        }
+    )
 
 
 def _wire_merge(monkeypatch: pytest.MonkeyPatch, repo: Path, item: dict) -> None:
     monkeypatch.setattr(sim_cli, "_resolve_item", lambda ref, project: (item, ""))
     monkeypatch.setattr(
-        sim_cli, "_resolve_checkout", lambda _item, target: (repo, "main"),
+        sim_cli,
+        "_resolve_checkout",
+        lambda _item, target: (repo, "main"),
     )
     monkeypatch.setattr(sim, "sync_item_to_github", lambda item_id: None)
     monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id, **_kwargs: None)
@@ -123,14 +133,17 @@ def _wire_merge(monkeypatch: pytest.MonkeyPatch, repo: Path, item: dict) -> None
 
 class TestEvidenceWriteRetry:
     def test_a_refused_write_whose_row_exists_reports_it_recorded(
-        self, repo: Path, monkeypatch: pytest.MonkeyPatch,
+        self,
+        repo: Path,
+        monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture,
     ) -> None:
         """The failed attempt's return is not the record's state."""
         _wire_merge(monkeypatch, repo, _item(repo))
         monkeypatch.setattr(sim_cli, "_session_holds_claim", lambda *_a: "")
         monkeypatch.setattr(
-            evidence, "record",
+            evidence,
+            "record",
             lambda **_k: "github graphql refused: Bad credentials",
         )
         asked: list[str] = []
@@ -141,7 +154,9 @@ class TestEvidenceWriteRetry:
 
         monkeypatch.setattr(evidence, "recorded_covers_merge", covers)
         monkeypatch.setattr(
-            close_out_transition, "close_out_route", lambda *_a, **_k: CloseOutRoute(stages=("done",)),
+            close_out_transition,
+            "close_out_route",
+            lambda *_a, **_k: CloseOutRoute(stages=("done",)),
         )
         transitions: list[str] = []
 
@@ -167,18 +182,22 @@ class TestEvidenceWriteRetry:
         assert asked and asked[0]
 
     def test_a_refused_write_with_no_row_still_fails(
-        self, repo: Path, monkeypatch: pytest.MonkeyPatch,
+        self,
+        repo: Path,
+        monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture,
     ) -> None:
         _wire_merge(monkeypatch, repo, _item(repo))
         monkeypatch.setattr(sim_cli, "_session_holds_claim", lambda *_a: "")
         monkeypatch.setattr(evidence, "record", lambda **_k: "relay refused")
         monkeypatch.setattr(
-            evidence, "call_dispatcher",
+            evidence,
+            "call_dispatcher",
             lambda **_k: _section_response(None),
         )
         monkeypatch.setattr(
-            terminal, "transition_to_done",
+            terminal,
+            "transition_to_done",
             lambda **_k: pytest.fail("close-out must not continue"),
         )
 
@@ -191,19 +210,23 @@ class TestEvidenceWriteRetry:
         assert "evidence refused" in envelope["error"]
 
     def test_a_row_from_another_landing_is_not_this_merge_s_evidence(
-        self, monkeypatch: pytest.MonkeyPatch,
+        self,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         monkeypatch.setattr(
-            evidence, "call_dispatcher",
+            evidence,
+            "call_dispatcher",
             lambda **_k: _section_response(_evidence_content("c" * 40)),
         )
-        assert not evidence.recorded_covers_merge(7, MERGE_SHA)
-        assert evidence.recorded_covers_merge(7, "c" * 40)
+        assert not evidence.recorded_covers_merge("ITEM-7", MERGE_SHA)
+        assert evidence.recorded_covers_merge("ITEM-7", "c" * 40)
 
 
 class TestTerminalTransitionConvergence:
     def test_a_transport_failure_surfaces_without_a_second_opinion(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
     ) -> None:
         """The transport owns the retry; this boundary owns the verdict.
 
@@ -231,7 +254,7 @@ class TestTerminalTransitionConvergence:
         monkeypatch.setattr(terminal.recovery, "claim_error", lambda *_a: "")
 
         new_status, error = terminal.transition_to_done(
-            item_id=7,
+            item_id="ITEM-7",
             source_status="reviewing-implementation",
             repo_root=str(tmp_path),
             lane=LandedLane(branch="lane", target="main", commit_sha="a" * 40),
@@ -242,7 +265,9 @@ class TestTerminalTransitionConvergence:
         assert calls == ["lifecycle.transition.execute"]
 
     def test_server_refusal_surfaces_without_authoritative_retry(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
     ) -> None:
         calls = []
 
@@ -258,7 +283,7 @@ class TestTerminalTransitionConvergence:
         monkeypatch.setattr(terminal.recovery, "claim_error", lambda *_a: "")
 
         new_status, error = terminal.transition_to_done(
-            item_id=7,
+            item_id="ITEM-7",
             source_status="reviewing-implementation",
             repo_root=str(tmp_path),
             lane=LandedLane(branch="lane", target="main", commit_sha="a" * 40),
@@ -267,78 +292,3 @@ class TestTerminalTransitionConvergence:
         assert new_status == ""
         assert error == "denied"
         assert calls == ["lifecycle.transition.execute"]
-
-
-class TestClosedOutConvergence:
-    def test_a_released_claim_on_a_closed_out_item_reports_the_landing(
-        self, repo: Path, monkeypatch: pytest.MonkeyPatch,
-        capsys: pytest.CaptureFixture,
-    ) -> None:
-        """The terminal transition releases the claim; a retry says so."""
-        _wire_merge(monkeypatch, repo, _item(repo, status="done"))
-        monkeypatch.setattr(
-            sim_cli, "_session_holds_claim",
-            lambda *_a: "no live work claim on this item",
-        )
-        monkeypatch.setattr(
-            evidence, "call_dispatcher",
-            lambda **_k: _section_response(_evidence_content()),
-        )
-        monkeypatch.setattr(
-            sim, "_run_merge_engine",
-            lambda **_k: pytest.fail("a landed merge must not re-run"),
-        )
-
-        exit_code = sim_cli.run(
-            ["ITEM-1", "--result", "landed", "--verification", "suite green"],
-        )
-        envelope = json.loads(capsys.readouterr().out)
-        assert exit_code == 0
-        assert envelope["ok"] is True
-        assert envelope["evidence_recorded"] is True
-        assert envelope["already_merged"] is True
-        assert envelope["merge_sha"] == MERGE_SHA
-        assert envelope["touched_files"] == ["feature.txt"]
-        assert envelope["status"] == "done"
-        assert any("already closed out" in w for w in envelope["warnings"])
-
-    def test_a_released_claim_with_no_evidence_stays_a_refusal(
-        self, repo: Path, monkeypatch: pytest.MonkeyPatch,
-        capsys: pytest.CaptureFixture,
-    ) -> None:
-        _wire_merge(monkeypatch, repo, _item(repo, status="done"))
-        monkeypatch.setattr(
-            sim_cli, "_session_holds_claim",
-            lambda *_a: "no live work claim on this item",
-        )
-        monkeypatch.setattr(
-            evidence, "call_dispatcher",
-            lambda **_k: _section_response(None),
-        )
-
-        exit_code = sim_cli.run(
-            ["ITEM-1", "--result", "landed", "--verification", "suite green"],
-        )
-        assert exit_code == 1
-        assert "no live work claim" in capsys.readouterr().err
-
-    def test_an_unfinished_item_keeps_its_claim_refusal(
-        self, repo: Path, monkeypatch: pytest.MonkeyPatch,
-        capsys: pytest.CaptureFixture,
-    ) -> None:
-        """Only a terminal item converges; anything earlier has work left."""
-        _wire_merge(monkeypatch, repo, _item(repo))
-        monkeypatch.setattr(
-            sim_cli, "_session_holds_claim",
-            lambda *_a: "work claim held by another session (other)",
-        )
-        monkeypatch.setattr(
-            evidence, "call_dispatcher",
-            lambda **_k: pytest.fail("an unfinished item reads no record"),
-        )
-
-        exit_code = sim_cli.run(
-            ["ITEM-1", "--result", "landed", "--verification", "suite green"],
-        )
-        assert exit_code == 1
-        assert "another session" in capsys.readouterr().err

@@ -145,7 +145,9 @@ class TestStatusFilterParity:
         # Invalid statuses should be rejected by both
         for bad_status in ["merged", "in_progress", "qa", "validation", "in_release"]:
             resp = client.get("/v1/items", params={"status": bad_status})
-            assert resp.status_code == 400, f"API accepted invalid status '{bad_status}'"
+            assert resp.status_code == 400, (
+                f"API accepted invalid status '{bad_status}'"
+            )
             result = _run_service_client(db_path, "validate-status", bad_status)
             assert result.returncode == 1, f"CLI accepted invalid status '{bad_status}'"
 
@@ -183,7 +185,7 @@ class TestFrozenFilterParity:
         resp = client.get("/v1/items")
         assert resp.status_code == 200
         all_ids = [item["id"] for item in resp.json()["items"]]
-        assert 6 in all_ids, "Frozen item should appear when not excluded"
+        assert f"YOK-{5}" in all_ids, "Frozen item should appear when not excluded"
 
     def test_frozen_filter_true_returns_only_frozen(self, parity_env):
         """API frozen=true returns only frozen items."""
@@ -193,5 +195,5 @@ class TestFrozenFilterParity:
         assert resp.status_code == 200
         items = resp.json()["items"]
         assert len(items) == 1
-        assert items[0]["id"] == 6
+        assert items[0]["id"] == f"YOK-{5}"
         assert items[0]["frozen"] is True

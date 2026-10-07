@@ -5,19 +5,19 @@ Use these prompts when invoking the `yoke-simulator` subagent.
 ## Plan Simulation Prompt
 
 ```text
-Simulate the plan for epic "{epic-id}".
-Item ID: PREFIX-{item_id}
+Simulate the plan for epic "{epic-ref}".
+Item ID: {public_ref}
 
 ## Phase: PLAN (pre-sync, pre-implementation)
 
 Trace the planned architecture for integration gaps. No code has been written yet — you are checking the plan's structural soundness.
 
-IMPORTANT: Your response MUST begin with the two-line verdict block — line 1 is SIMULATION: CLEAN or SIMULATION: GAPS FOUND, line 2 is EPIC: PREFIX-{item_id}. Persistence rejects bodies whose attested epic does not match PREFIX-{item_id} (exit 16) or that omit the EPIC line entirely (exit 17).
+IMPORTANT: Your response MUST begin with the two-line verdict block — line 1 is SIMULATION: CLEAN or SIMULATION: GAPS FOUND, line 2 is EPIC: {public_ref}. Persistence rejects bodies whose attested epic does not match {public_ref} (exit 16) or that omit the EPIC line entirely (exit 17).
 
 Read the authoritative item spec and plans from the DB:
-yoke items get PREFIX-{item_id} spec
-yoke items get PREFIX-{item_id} technical_plan
-yoke items get PREFIX-{item_id} worktree_plan
+yoke items get {public_ref} spec
+yoke items get {public_ref} technical_plan
+yoke items get {public_ref} worktree_plan
 
 ## Task Content
 {for each task: task number, title, and body content from yoke workflow-item epic-task body-get}
@@ -46,20 +46,20 @@ Produce your gap report. Use [CRITICAL], [WARNING], [NOTE] severity prefixes.
 ## Standard Integration Prompt
 
 ```text
-Simulate the integration for epic "{epic-id}".
-Item ID: PREFIX-{item_id}
+Simulate the integration for epic "{epic-ref}".
+Item ID: {public_ref}
 
 ## Phase: INTEGRATION (post-execution, pre-merge)
 
 All tasks are complete (or: the following tasks are incomplete and should be excluded from path tracing: {list}). Trace actual code across worktrees for integration gaps before merging.
 
-IMPORTANT: Your response MUST begin with the two-line verdict block — line 1 is SIMULATION: CLEAN or SIMULATION: GAPS FOUND, line 2 is EPIC: PREFIX-{item_id}. Persistence rejects bodies whose attested epic does not match PREFIX-{item_id} (exit 16) or that omit the EPIC line entirely (exit 17).
+IMPORTANT: Your response MUST begin with the two-line verdict block — line 1 is SIMULATION: CLEAN or SIMULATION: GAPS FOUND, line 2 is EPIC: {public_ref}. Persistence rejects bodies whose attested epic does not match {public_ref} (exit 16) or that omit the EPIC line entirely (exit 17).
 
 ## Worktree-State Authority
 A task's resolved worktree checkout is the authority for that task's actual code whether the item/epic has one worktree or many. Main is the base/integration target, not evidence of unmerged task state. Use the task's `worktree_path` / branch when verifying files; if no worktree path or prompt-supplied diff exists, report evidence missing instead of inspecting main as a substitute.
 
 Read the authoritative item spec from the DB:
-yoke items get PREFIX-{item_id} spec
+yoke items get {public_ref} spec
 
 ## Task Content
 {for each task: task number, title, and body content from yoke workflow-item epic-task body-get}
@@ -71,7 +71,7 @@ yoke items get PREFIX-{item_id} spec
 {for each task: task number, branch/worktree, worktree_path}
 
 ## Task Statuses
-{output of yoke epic-tasks list --epic <epic-id>}
+{output of yoke epic-tasks list --epic PREFIX-N}
 
 ## Reviews
 {for each task with a review: output of yoke workflow-item epic-task review-get}
@@ -99,14 +99,14 @@ Produce your gap report. Use [CRITICAL], [WARNING], [NOTE] severity prefixes.
 ## Compressed Integration Prompt
 
 ```text
-Simulate the integration for epic "{epic-id}".
-Item ID: PREFIX-{item_id}
+Simulate the integration for epic "{epic-ref}".
+Item ID: {public_ref}
 
 ## Phase: INTEGRATION (post-execution, pre-merge) — COMPRESSED CONTEXT
 
 All tasks are complete (or: the following tasks are incomplete and should be excluded from path tracing: {list}). Trace actual code across worktrees for integration gaps before merging.
 
-IMPORTANT: Your response MUST begin with the two-line verdict block — line 1 is SIMULATION: CLEAN or SIMULATION: GAPS FOUND, line 2 is EPIC: PREFIX-{item_id}. Persistence rejects bodies whose attested epic does not match PREFIX-{item_id} (exit 16) or that omit the EPIC line entirely (exit 17).
+IMPORTANT: Your response MUST begin with the two-line verdict block — line 1 is SIMULATION: CLEAN or SIMULATION: GAPS FOUND, line 2 is EPIC: {public_ref}. Persistence rejects bodies whose attested epic does not match {public_ref} (exit 16) or that omit the EPIC line entirely (exit 17).
 
 ## Worktree-State Authority
 A task's resolved worktree checkout is the authority for that task's actual code whether the item/epic has one worktree or many. Main is the base/integration target, not evidence of unmerged task state. Use the task's `worktree_path` / branch when verifying files; if no worktree path or prompt-supplied diff exists, report evidence missing instead of inspecting main as a substitute.
@@ -114,7 +114,7 @@ A task's resolved worktree checkout is the authority for that task's actual code
 This is a large epic ({_task_count} tasks). To preserve context budget for analysis, this prompt provides compressed context instead of full task bodies and full diffs.
 
 Read the authoritative item spec from the DB:
-yoke items get PREFIX-{item_id} spec
+yoke items get {public_ref} spec
 
 ## Interface Contracts Per Task
 {for each task: extracted contracts only}
@@ -149,7 +149,7 @@ section is allowed evidence; the simulator must not run git log or git blame
 itself unless explicitly instructed.}
 
 ## Task Statuses
-{output of yoke epic-tasks list --epic <epic-id>}
+{output of yoke epic-tasks list --epic PREFIX-N}
 
 ## Review Summaries
 {for each task with a review: verdict line and issue lines only}

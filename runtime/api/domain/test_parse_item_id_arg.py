@@ -25,7 +25,9 @@ SEQ = 5
 def seeded(test_db):
     conn = test_db
     seed_project_identities(conn)
-    conn.execute("UPDATE projects SET public_item_prefix = 'EXT' WHERE slug = 'externalwebapp'")
+    conn.execute(
+        "UPDATE projects SET public_item_prefix = 'EXT' WHERE slug = 'externalwebapp'"
+    )
     conn.execute("UPDATE projects SET public_item_prefix = 'YOK' WHERE slug = 'yoke'")
     for item_id, project_id in ((YOKE_ITEM_ID, 1), (EXT_ITEM_ID, 2)):
         insert_item(
@@ -50,8 +52,9 @@ def test_project_prefix_resolves(seeded):
     assert _parse_item_id_arg("EXT-5") == EXT_ITEM_ID
 
 
-def test_bare_sequence_uses_mapped_project(seeded, monkeypatch):
+def test_bare_sequence_is_refused_even_with_a_mapped_project(seeded, monkeypatch):
     from yoke_core.domain import machine_config
 
     monkeypatch.setattr(machine_config, "project_id", lambda *_a, **_k: 1)
-    assert _parse_item_id_arg(str(SEQ)) == YOKE_ITEM_ID
+    with pytest.raises(ValueError, match="public_item_ref_required"):
+        _parse_item_id_arg(str(SEQ))

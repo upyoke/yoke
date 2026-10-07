@@ -249,7 +249,7 @@ class TestWatcherMintedCapturePairAllowed:
                 )
             dispatch_target = str(
                 dispatch_inputs_dir(
-                    item_id=100,
+                    public_ref="YOK-100",
                     session_id="s1",
                     attempt=1,
                     create=False,

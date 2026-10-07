@@ -16,7 +16,7 @@ class TestConductPerTaskClaims:
         text = _read(self.CONDUCT / "engineer-tester-dispatch.md")
         for needle in (
             "yoke claims work acquire",
-            "--epic-id",
+            "--epic",
             "--task-num",
             "engineer dispatch",
             "target_kind='epic_task'",
@@ -29,7 +29,7 @@ class TestConductPerTaskClaims:
         text = _read(self.CONDUCT / "engineer-tester-closeout.md")
         for needle in (
             "yoke claims work release",
-            "--epic-id",
+            "--epic",
             "--task-num",
             "tester return",
             "yoke claims work holder-list",

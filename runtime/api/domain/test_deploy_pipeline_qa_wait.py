@@ -113,7 +113,7 @@ def test_pipeline_scoped_qa_park_is_a_designed_watcher_wait(
             "flow": "qa-flow",
             "status": "executing",
         },
-        "members": [{"item_id": 42}],
+        "members": [{"public_ref": "ITEM-42"}],
         "stages": [{"name": "member-qa", "step_runner": "deployment-qa"}],
     }
     monkeypatch.setattr(pipeline.control_plane, "execution_context", lambda _r: context)
@@ -129,7 +129,9 @@ def test_pipeline_scoped_qa_park_is_a_designed_watcher_wait(
     monkeypatch.setattr(pipeline, "resolve_project_checkout_path", lambda _p: "/repo")
     monkeypatch.setattr(pipeline, "resolve_flow_gate_branch", lambda *a: "main")
     monkeypatch.setattr(
-        pipeline, "_resolve_and_verify_branch", lambda *a, **k: (True, "42", "main")
+        pipeline,
+        "_resolve_and_verify_branch",
+        lambda *a, **k: (True, "ITEM-42", "main"),
     )
     monkeypatch.setattr(
         pipeline.stage_checks, "check_completion_stage_qa", lambda *a, **k: None

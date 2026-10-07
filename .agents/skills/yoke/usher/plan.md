@@ -23,17 +23,10 @@ yoke deployment-runs resolve-target {project} {flow}
 
 Before displaying, query the authoritative hard-block edges for the batch to show merge-order rationale without duplicates:
 ```bash
-# Collect unique hard-block edges that affect the items being ushered.
-_dep_ids=""
+# Registered dependency reads return public refs for both endpoints.
 for _item in $_ready_items; do
- _dep_ids="${_dep_ids}${_dep_ids:+,}${_item}"
+ yoke items dependency list "$_item" --json
 done
-_dep_edges=$(yoke db read --format lines "
- SELECT d.dependent_item_id || ' depends-on ' || d.blocking_item_id
- FROM item_dependencies d
- WHERE d.dependent_item_id IN (${_dep_ids})
- ORDER BY d.dependent_item_id, d.blocking_item_id
-" 2>/dev/null) || true
 ```
 
 Display:

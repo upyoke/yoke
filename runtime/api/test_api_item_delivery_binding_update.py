@@ -40,13 +40,13 @@ def _clone_flow_for_project(conn, flow_id: str, project: str) -> None:
 
 def test_project_only_patch_rejects_existing_flow_project_mismatch(client, test_db):
     assigned = client.patch(
-        "/v1/items/1",
+        "/v1/items/YOK-1",
         json={"deployment_flow": "test-approval-flow"},
     )
     assert assigned.status_code == 200
 
     response = client.patch(
-        "/v1/items/1",
+        "/v1/items/YOK-1",
         json={"project": "externalwebapp"},
     )
 
@@ -67,7 +67,7 @@ def test_combined_project_and_flow_patch_validates_final_pair(client, test_db):
     conn.close()
 
     response = client.patch(
-        "/v1/items/1",
+        "/v1/items/YOK-1",
         json={
             "project": "externalwebapp",
             "deployment_flow": "external-approval-flow",
@@ -81,7 +81,7 @@ def test_combined_project_and_flow_patch_validates_final_pair(client, test_db):
 
 def test_combined_project_and_flow_patch_rejects_mismatched_pair(client, test_db):
     response = client.patch(
-        "/v1/items/1",
+        "/v1/items/YOK-1",
         json={
             "project": "externalwebapp",
             "deployment_flow": "test-approval-flow",
@@ -105,7 +105,7 @@ def test_an_empty_project_leaves_an_external_item_where_it_is(client, test_db):
     _clone_flow_for_project(conn, "external-empty-project-flow", "externalwebapp")
     conn.close()
     assigned = client.patch(
-        "/v1/items/1",
+        "/v1/items/YOK-1",
         json={
             "project": "externalwebapp",
             "deployment_flow": "external-empty-project-flow",
@@ -114,7 +114,7 @@ def test_an_empty_project_leaves_an_external_item_where_it_is(client, test_db):
     assert assigned.status_code == 200
 
     response = client.patch(
-        "/v1/items/1",
+        "/v1/items/EXT-1",
         json={"project": ""},
     )
 
@@ -135,13 +135,13 @@ def test_an_empty_project_leaves_an_external_item_where_it_is(client, test_db):
 def test_an_empty_project_refuses_the_whole_patch(client, test_db):
     """The flow beside it does not land either: one refusal, no partial write."""
     moved = client.patch(
-        "/v1/items/1",
+        "/v1/items/YOK-1",
         json={"project": "externalwebapp"},
     )
     assert moved.status_code == 200
 
     response = client.patch(
-        "/v1/items/1",
+        "/v1/items/EXT-1",
         json={
             "project": "",
             "deployment_flow": "test-approval-flow",
@@ -150,7 +150,7 @@ def test_an_empty_project_refuses_the_whole_patch(client, test_db):
 
     assert response.status_code == 422
     assert "names no project" in response.json()["error"]["message"]
-    current = client.get("/v1/items/1")
+    current = client.get("/v1/items/EXT-1")
     assert current.json()["project"] == "externalwebapp"
     assert current.json()["deployment_flow"] is None
 
@@ -158,7 +158,7 @@ def test_an_empty_project_refuses_the_whole_patch(client, test_db):
 def test_naming_a_project_still_moves_the_item(client, test_db):
     """The refusal is about the empty value, not about project writes."""
     response = client.patch(
-        "/v1/items/1",
+        "/v1/items/YOK-1",
         json={
             "project": "yoke",
             "deployment_flow": "test-approval-flow",
@@ -179,7 +179,7 @@ def test_project_only_patch_locks_the_existing_flow(client, test_db, monkeypatch
     _clone_flow_for_project(conn, "project-lock-flow", "yoke")
     conn.close()
     assigned = client.patch(
-        "/v1/items/1",
+        "/v1/items/YOK-1",
         json={"deployment_flow": "project-lock-flow"},
     )
     assert assigned.status_code == 200
@@ -200,7 +200,7 @@ def test_project_only_patch_locks_the_existing_flow(client, test_db, monkeypatch
 
     def patch_project():
         outcome["response"] = client.patch(
-            "/v1/items/1",
+            "/v1/items/YOK-1",
             json={"project": "yoke"},
         )
 

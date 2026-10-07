@@ -95,7 +95,7 @@ def items_merge_provenance_operator_correct(args: List[str]) -> int:
         epilog=_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("item", help="Item id (PREFIX-N or project-local number).")
+    parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument(
         "--merged-at",
         default="",
@@ -119,14 +119,13 @@ def items_merge_provenance_operator_correct(args: List[str]) -> int:
         "--reason",
         required=True,
         help=(
-            "Non-empty operator justification. Recorded on the WARN "
-            "correction event."
+            "Non-empty operator justification. Recorded on the WARN correction event."
         ),
     )
     parser.add_argument(
         "--project",
         default=None,
-        help="Project context for bare numeric item refs.",
+        help="Project scope for the operation.",
     )
     add_session_arg(parser)
     add_json_arg(parser)

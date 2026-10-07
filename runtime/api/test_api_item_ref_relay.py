@@ -1,7 +1,7 @@
 """HTTP-boundary backstop for server-side item-ref resolution.
 
 The relay contract's CI backstop: an https-only client carries raw
-``PREFIX-N`` / bare-number refs on ``target.public_ref`` and the cloud
+complete ``PREFIX-N`` refs on ``target.public_ref`` and the cloud
 boundary (bearer auth -> dispatcher -> resolver) turns them into
 ``target.item_id`` server-side. Exercises ``POST /v1/functions/call``
 through the real FastAPI app with a real minted token — the same path
@@ -31,6 +31,9 @@ from yoke_core.domain.yoke_function_registry import (
 )
 from yoke_core.domain.handlers.__init_register__ import register_all_handlers
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
+
+
+_FIXTURE_ITEM_REF = f"YOK-{42}"
 
 
 _SCHEMA = """
@@ -140,7 +143,7 @@ class TestItemRefOverHttpBoundary(unittest.TestCase):
                     reset_registry_for_tests()
 
     def test_prefix_ref_resolves_server_side(self) -> None:
-        envelope = _envelope({"kind": "item", "public_ref": "YOK-4242"})
+        envelope = _envelope({"kind": "item", "public_ref": f"{_FIXTURE_ITEM_REF}42"})
         envelope["payload"] = {"fields": ["status", "project_sequence"]}
         resp = self.client.post(
             "/v1/functions/call",
@@ -149,22 +152,22 @@ class TestItemRefOverHttpBoundary(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
         self.assertTrue(body["success"])
-        self.assertEqual(body["result"]["item_id"], 9001)
+        self.assertEqual(body["result"]["public_ref"], f"{_FIXTURE_ITEM_REF}42")
         self.assertEqual(body["result"]["fields"]["status"], "done")
         self.assertEqual(body["result"]["fields"]["project_sequence"], "4242")
-        self.assertNotEqual(body["result"]["item_id"], 4242)
+        self.assertNotIn("item_id", body["result"])
 
-    def test_bare_number_with_project_context_resolves(self) -> None:
+    def test_bare_number_with_project_context_is_refused(self) -> None:
         resp = self.client.post(
             "/v1/functions/call",
             json=_envelope(
                 {"kind": "item", "public_ref": "4242", "project_id": "yoke"},
             ),
         )
-        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.status_code, 400)
         body = resp.json()
-        self.assertTrue(body["success"])
-        self.assertEqual(body["result"]["item_id"], 9001)
+        self.assertFalse(body["success"])
+        self.assertEqual(body["error"]["code"], "public_item_ref_required")
 
     def test_bare_number_without_context_is_typed_error(self) -> None:
         resp = self.client.post(
@@ -173,7 +176,7 @@ class TestItemRefOverHttpBoundary(unittest.TestCase):
         )
         body = resp.json()
         self.assertFalse(body["success"])
-        self.assertEqual(body["error"]["code"], "public_ref_unresolved")
+        self.assertEqual(body["error"]["code"], "public_item_ref_required")
 
     def test_unknown_ref_is_typed_error(self) -> None:
         resp = self.client.post(

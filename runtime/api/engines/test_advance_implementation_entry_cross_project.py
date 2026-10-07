@@ -18,21 +18,44 @@ import pytest
 from yoke_core.engines import advance_implementation_entry as orch
 from yoke_core.domain import worktree_preflight
 from yoke_contracts.api.function_call import (
-    FunctionCallResponse, FunctionError,
+    FunctionCallResponse,
+    FunctionError,
 )
 
 
-def _item(item_id=42, status="refined-idea", type_="issue",
-          title="t", project="externalwebapp"):
-    return {"id": item_id, "type": type_, "status": status,
-            "title": title, "project": project}
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
+def _item(
+    item_id=42,
+    status="refined-idea",
+    type_="issue",
+    title="t",
+    project="externalwebapp",
+):
+    return {
+        "public_ref": f"YOK-{item_id}",
+        "type": type_,
+        "status": status,
+        "title": title,
+        "project": project,
+    }
 
 
 class _WtStub:
     """Stand-in for WorktreePreflightOutcome."""
-    def __init__(self, *, ok=True, branch="YOK-42",
-                 worktree_path="/Users/dev/externalwebapp/.worktrees/YOK-42",
-                 actions=None, block_kind="", narrative="", notes=None):
+
+    def __init__(
+        self,
+        *,
+        ok=True,
+        branch=_FIXTURE_ITEM_REF,
+        worktree_path=f"/Users/dev/externalwebapp/.worktrees/{_FIXTURE_ITEM_REF}",
+        actions=None,
+        block_kind="",
+        narrative="",
+        notes=None,
+    ):
         self.ok, self.branch = ok, branch
         self.worktree_path = worktree_path
         self.actions_taken = list(actions or ["worktree:created"])
@@ -42,14 +65,18 @@ class _WtStub:
 
 def _ok_response():
     return FunctionCallResponse(
-        success=True, function="lifecycle.transition.execute", version="v1",
+        success=True,
+        function="lifecycle.transition.execute",
+        version="v1",
         result={"from_status": "refined-idea", "to_status": "implementing"},
     )
 
 
 def _err_response(code="dirty_tracked", msg="dirty tree"):
     return FunctionCallResponse(
-        success=False, function="lifecycle.transition.execute", version="v1",
+        success=False,
+        function="lifecycle.transition.execute",
+        version="v1",
         error=FunctionError(code=code, message=msg),
     )
 
@@ -67,15 +94,16 @@ def silence_emits(monkeypatch):
 
 @pytest.fixture
 def gates_pass(monkeypatch):
-    monkeypatch.setattr(orch, "_run_preflight_gates",
-                        lambda _id, force: (True, ""))
+    monkeypatch.setattr(orch, "_run_preflight_gates", lambda _id, force: (True, ""))
 
 
 @pytest.fixture
 def env_noop(monkeypatch):
     """Bypass the env module so cross-project tests focus on routing."""
+
     def _stub(item, sid, *, branch="", repo_root=""):
         return "skipped:no-capability", {"project": item.get("project")}
+
     monkeypatch.setattr(orch, "_run_environment_phase", _stub)
 
 
@@ -91,20 +119,27 @@ def _patch_dispatch(monkeypatch, response=None):
 # Project routed into worktree_preflight
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("project_in,want_project", [
-    ("externalwebapp", "externalwebapp"),
-    ("yoke", "yoke"),
-])
+
+@pytest.mark.parametrize(
+    "project_in,want_project",
+    [
+        ("externalwebapp", "externalwebapp"),
+        ("yoke", "yoke"),
+    ],
+)
 def test_orchestrator_forwards_item_project_to_run_preflight(
-    monkeypatch, silence_emits, gates_pass, env_noop,
-    project_in, want_project,
+    monkeypatch,
+    silence_emits,
+    gates_pass,
+    env_noop,
+    project_in,
+    want_project,
 ):
     """The orchestrator MUST pass ``item.project`` to ``run_preflight`` so
     cross-project items resolve the target checkout from the machine mapping
     instead of falling through to Yoke cwd. Yoke (control plane) routes
     through the same project identity lookup."""
-    monkeypatch.setattr(orch, "_read_item",
-                        lambda _id: _item(project=project_in))
+    monkeypatch.setattr(orch, "_read_item", lambda _id: _item(project=project_in))
     captured: Dict[str, Any] = {}
 
     def fake_run_preflight(**kwargs):
@@ -116,7 +151,7 @@ def test_orchestrator_forwards_item_project_to_run_preflight(
         fake_run_preflight,
     )
     _patch_dispatch(monkeypatch)
-    assert orch.run("YOK-42", session_id="s1", out=io.StringIO()) == 0
+    assert orch.run(_FIXTURE_ITEM_REF, session_id="s1", out=io.StringIO()) == 0
     assert captured["project"] == want_project
 
 
@@ -130,28 +165,36 @@ def test_worktree_preflight_resolves_project_checkout(monkeypatch):
         lambda project, **_kw: Path("/tmp/externalwebapp-repo"),
     )
     monkeypatch.setattr(
-        worktree_preflight, "_normalize_repo_root",
+        worktree_preflight,
+        "_normalize_repo_root",
         lambda value: normalized.append(value) or value,
     )
     # Blocked-flag read is sourced from ``items.detail.get`` via the relay.
     from yoke_core.api import service_client_structured_api_adapter as facade
 
     monkeypatch.setattr(
-        facade, "call_dispatcher",
+        facade,
+        "call_dispatcher",
         lambda **_k: FunctionCallResponse(
-            success=True, function="items.detail.get", version="v1",
-            result={"item": {"blocked": False}},
+            success=True,
+            function="items.detail.get",
+            version="v1",
+            result={"item": {"public_ref": _FIXTURE_ITEM_REF, "blocked": False}},
         ),
     )
     monkeypatch.setattr(
-        worktree_preflight, "claim_work", lambda item_id: (True, "claimed"),
+        worktree_preflight,
+        "claim_work",
+        lambda item_id: (True, "claimed"),
     )
     monkeypatch.setattr(
-        worktree_preflight, "activate_path_claims",
+        worktree_preflight,
+        "activate_path_claims",
         lambda item_id: (True, "", []),
     )
-    result = worktree_preflight.run_preflight(item_id=42, project="externalwebapp",
-                                              no_worktree=True)
+    result = worktree_preflight.run_preflight(
+        item_id=_FIXTURE_ITEM_REF, project="externalwebapp", no_worktree=True
+    )
     assert result.ok is True
     assert normalized == ["/tmp/externalwebapp-repo"]
 
@@ -160,19 +203,22 @@ def test_worktree_preflight_resolves_project_checkout(monkeypatch):
 # Structured error envelope on failure
 # ---------------------------------------------------------------------------
 
+
 def test_failure_envelope_drops_empty_fields_and_emits_error_payload(
-    monkeypatch, silence_emits,
+    monkeypatch,
+    silence_emits,
 ):
     """A blocked outcome must NOT carry empty ``worktree_path`` / ``branch``
     strings — those are structurally ambiguous. Instead, the envelope
     carries a top-level ``error`` payload that names the failing phase."""
     monkeypatch.setattr(orch, "_read_item", lambda _id: _item())
     monkeypatch.setattr(
-        orch, "_run_preflight_gates",
+        orch,
+        "_run_preflight_gates",
         lambda _id, force: (False, "BLOCKED: missing AC presence"),
     )
     out = io.StringIO()
-    assert orch.run("YOK-42", session_id="s1", out=out) == 1
+    assert orch.run(_FIXTURE_ITEM_REF, session_id="s1", out=out) == 1
     envelope = json.loads(out.getvalue())
     assert "worktree_path" not in envelope, (
         "blocked outcome must not include an empty worktree_path string"
@@ -186,7 +232,9 @@ def test_failure_envelope_drops_empty_fields_and_emits_error_payload(
 
 
 def test_worktree_block_envelope_carries_block_kind(
-    monkeypatch, silence_emits, gates_pass,
+    monkeypatch,
+    silence_emits,
+    gates_pass,
 ):
     """A worktree-phase block returns a structured error naming the
     ``block_kind`` (for example ``dirty-tracked`` for a dirty target repo)."""
@@ -194,12 +242,13 @@ def test_worktree_block_envelope_carries_block_kind(
     monkeypatch.setattr(
         "yoke_core.domain.worktree_preflight.run_preflight",
         lambda **kw: _WtStub(
-            ok=False, block_kind="dirty-tracked",
+            ok=False,
+            block_kind="dirty-tracked",
             narrative="Cannot create worktree: main has tracked files.",
         ),
     )
     out = io.StringIO()
-    assert orch.run("YOK-42", session_id="s1", out=out) == 1
+    assert orch.run(_FIXTURE_ITEM_REF, session_id="s1", out=out) == 1
     envelope = json.loads(out.getvalue())
     assert "worktree_path" not in envelope
     assert envelope["error"]["phase"] == "worktree"
@@ -207,7 +256,10 @@ def test_worktree_block_envelope_carries_block_kind(
 
 
 def test_finalize_block_envelope_carries_error_code(
-    monkeypatch, silence_emits, gates_pass, env_noop,
+    monkeypatch,
+    silence_emits,
+    gates_pass,
+    env_noop,
 ):
     """Finalize refusals (lifecycle gate denials) attach the gate code to
     the structured error so the operator sees which gate refused."""
@@ -216,10 +268,11 @@ def test_finalize_block_envelope_carries_error_code(
         "yoke_core.domain.worktree_preflight.run_preflight",
         lambda **kw: _WtStub(),
     )
-    _patch_dispatch(monkeypatch, _err_response("qa_block",
-                                                "QA requirements not satisfied"))
+    _patch_dispatch(
+        monkeypatch, _err_response("qa_block", "QA requirements not satisfied")
+    )
     out = io.StringIO()
-    assert orch.run("YOK-42", session_id="s1", out=out) == 1
+    assert orch.run(_FIXTURE_ITEM_REF, session_id="s1", out=out) == 1
     envelope = json.loads(out.getvalue())
     assert envelope["error"]["phase"] == "finalize"
     assert envelope["error"]["kind"] == "qa_block"

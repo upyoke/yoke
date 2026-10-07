@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -79,12 +81,7 @@ def resolve_context(args: MergeArgs) -> MergeContext:
         raise RuntimeError("Not in a git repository")
     ctx.yoke_repo_root = ctx.repo_root
 
-    # Resolve the branch's public item ref to the internal items.id every
-    # downstream consumer expects. The ref carries the project sequence,
-    # which is not the internal id once the two diverge, so it is passed
-    # as ``public_ref`` for the dispatcher to resolve server-side — that
-    # keeps resolution authoritative over an https control plane as well
-    # as an in-process local connection, with no client DB read.
+    # Keep the public selector through client-side merge orchestration.
     ctx.item_id = str(args.item_id) if args.item_id is not None else None
     match = re.search(r"([A-Za-z][A-Za-z0-9]*-\d+)", args.branch)
     if ctx.item_id is None and match:
@@ -96,13 +93,12 @@ def resolve_context(args: MergeArgs) -> MergeContext:
             )
             if detail.success:
                 item = (detail.result or {}).get("item") or {}
-                if item.get("id") is not None:
-                    ctx.item_id = str(item["id"])
+                if item.get("public_ref") is not None:
+                    ctx.item_id = str(item["public_ref"])
         except Exception:  # noqa: BLE001 - DB context is advisory here.
             pass
 
-    # Resolve epic ID the same way: PREFIX-N resolves through the project
-    # sequence, a bare number is a project-local ref, both server-side.
+    # Resolve the epic through its complete public selector, server-side.
     ctx.epic_id = args.epic_ref
     if ctx.epic_id:
         try:
@@ -113,17 +109,17 @@ def resolve_context(args: MergeArgs) -> MergeContext:
             )
             if detail.success:
                 item = (detail.result or {}).get("item") or {}
-                if item.get("id") is not None:
-                    ctx.epic_id = str(item["id"])
+                if item.get("public_ref") is not None:
+                    ctx.epic_id = str(item["public_ref"])
         except Exception:  # noqa: BLE001 - DB context is advisory here.
             pass
 
     # Guard: an item branch with no epic lane is a standalone merge, which
     # carries item bookkeeping (merged_at, evidence, status) the engine does
     # not own. Callers declare that they own it by passing ``standalone``.
-    if (
-        not ctx.epic_id or ctx.epic_id == "null"
-    ) and (ctx.item_id is not None or match is not None):
+    if (not ctx.epic_id or ctx.epic_id == "null") and (
+        ctx.item_id is not None or match is not None
+    ):
         if not args.standalone:
             raise RuntimeError(
                 f"merge_worktree called for standalone item branch "
@@ -140,7 +136,7 @@ def resolve_context(args: MergeArgs) -> MergeContext:
         try:
             detail = call_dispatcher(
                 function_id="items.detail.get",
-                target=TargetRef(kind="item", item_id=int(ctx.item_id)),
+                target=public_item_target(ctx.item_id),
                 payload={},
             )
             slug = None

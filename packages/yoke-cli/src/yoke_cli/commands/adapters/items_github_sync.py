@@ -14,9 +14,7 @@ from yoke_cli.commands._helpers import (
 )
 
 
-ITEMS_GITHUB_SYNC_USAGE = (
-    "yoke items github-sync <PREFIX-N> [--session-id S] [--json]"
-)
+ITEMS_GITHUB_SYNC_USAGE = "yoke items github-sync <PREFIX-N> [--session-id S] [--json]"
 
 
 def items_github_sync(args: List[str]) -> int:
@@ -27,7 +25,7 @@ def items_github_sync(args: List[str]) -> int:
             "registered Yoke function surface."
         ),
     )
-    parser.add_argument("item", help="Item id (PREFIX-N or project-local number).")
+    parser.add_argument("item", help="Item id (PREFIX-N).")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, ITEMS_GITHUB_SYNC_USAGE)

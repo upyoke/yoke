@@ -34,7 +34,7 @@ def ci_case(**overrides) -> dict:
     """A materialized ``ci_run`` case with a live lane on ``PRJ-9``."""
     case = {
         "requirement_id": 41,
-        "item_id": 9,
+        "public_ref": "PRJ-9",
         "plan_id": 5,
         "case_key": "full",
         "method_id": "command-ci",
@@ -82,16 +82,22 @@ class Recorder:
 def completed_run(head_sha: str, conclusion: str = "success"):
     """A concluded run for *head_sha*."""
     return qa_case_ci_lane.WorkflowRun(
-        "77", "completed", conclusion,
-        "https://github.test/actions/runs/77", head_sha,
+        "77",
+        "completed",
+        conclusion,
+        "https://github.test/actions/runs/77",
+        head_sha,
     )
 
 
 def in_flight_run(head_sha: str, status: str = "in_progress"):
     """A run for *head_sha* that has not concluded yet."""
     return qa_case_ci_lane.WorkflowRun(
-        "77", status, "",
-        "https://github.test/actions/runs/77", head_sha,
+        "77",
+        status,
+        "",
+        "https://github.test/actions/runs/77",
+        head_sha,
     )
 
 
@@ -113,16 +119,24 @@ def wire_ci_case(tmp_path, monkeypatch) -> tuple[Path, Recorder, Path]:
     monkeypatch.setattr(qa_case_ci_lane, "repo_slug", lambda _c: "acme/widgets")
     monkeypatch.setattr(qa_case_ci_lane, "push_lane", lambda *a, **k: None)
     monkeypatch.setattr(
-        qa_case_ci_covering_run, "find_run_for_tree", lambda **k: None,
+        qa_case_ci_covering_run,
+        "find_run_for_tree",
+        lambda **k: None,
     )
     monkeypatch.setattr(
-        qa_case_ci_entry_run, "routes_through_merge_queue", lambda _p: False,
+        qa_case_ci_entry_run,
+        "routes_through_merge_queue",
+        lambda _p: False,
     )
     monkeypatch.setattr(
-        qa_case_ci_entry_run, "base_branch", lambda _p, _c: "main",
+        qa_case_ci_entry_run,
+        "base_branch",
+        lambda _p, _c: "main",
     )
     monkeypatch.setattr(
-        qa_case_ci_entry_run, "rebase_lane_onto_base", lambda *a, **k: None,
+        qa_case_ci_entry_run,
+        "rebase_lane_onto_base",
+        lambda *a, **k: None,
     )
     monkeypatch.setattr(
         "yoke_core.domain.qa_artifacts.artifact_file_path",

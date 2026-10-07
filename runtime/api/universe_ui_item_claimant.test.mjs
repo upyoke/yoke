@@ -34,7 +34,7 @@ function client(item, { rows = [HOLDER] } = {}) {
     if (request.function === "items.detail.get") return ok({ item });
     if (request.function === "sessions.list") return ok({ rows });
     if (request.function === "deployment_runs.find_by_item") {
-      return ok({ item_id: 51, fields: [], rows: [] });
+      return ok({ public_ref: "YOK-51", fields: [], rows: [] });
     }
     if (request.function === "qa.artifact.read") {
       return ok({ disposition: "unavailable" });

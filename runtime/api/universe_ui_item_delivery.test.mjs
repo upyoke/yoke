@@ -29,7 +29,7 @@ function deliveryClient(item, runs, requests, deliveryDefaults = []) {
     if (request.function === "items.detail.get") return ok({ item });
     if (request.function === "deployment_runs.find_by_item") {
       return ok({
-        item_id: 51,
+        public_ref: "YOK-51",
         fields: ["id", "status", "current_stage", "created_at"],
         rows: runs,
       });

@@ -239,17 +239,17 @@ def main(argv: Optional[List[str]] = None) -> int:
         if not doctor_format:
             print("=== Stage 3: Repair ===")
 
-        # Repair local orphans by typed identity: internal ``items.id``
-        # for backlog items, ``(epic_id, task_num)`` for epic tasks. The
+        # Repair local orphans by public ref for backlog items and
+        # ``(epic_public_ref, task_num)`` for epic tasks. The
         # display ref is never parsed back into an id.
         # ``_repair_local_orphan_backlog`` returns (success, reused,
         # issue_num) so the engine can distinguish "created" from
         # "reused existing" in the log line.
         for orphan in local_orphans:
             oid, oproj = orphan.ref, orphan.project
-            if orphan.kind == "backlog" and orphan.item_id is not None:
+            if orphan.kind == "backlog" and orphan.public_ref is not None:
                 ok, reused, issue_num = _repair_local_orphan_backlog(
-                    orphan.item_id,
+                    orphan.public_ref,
                     oproj,
                 )
                 if ok:
@@ -274,11 +274,11 @@ def main(argv: Optional[List[str]] = None) -> int:
                         )
             elif (
                 orphan.kind == "epic_task"
-                and orphan.epic_id is not None
+                and orphan.epic_public_ref is not None
                 and orphan.task_num is not None
             ):
                 if _repair_local_orphan_epic_task(
-                    orphan.epic_id,
+                    orphan.epic_public_ref,
                     orphan.task_num,
                     oproj,
                     db_path,

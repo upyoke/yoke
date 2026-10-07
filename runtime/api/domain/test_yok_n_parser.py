@@ -15,7 +15,7 @@ from yoke_contracts.api.function_call import FunctionCallRequest
 
 
 class TestParseItemId:
-    @pytest.mark.parametrize("raw", ("YOK-42", "YOK-0042", "42", "0042"))
+    @pytest.mark.parametrize("raw", ("YOK-42", "YOK-0042"))
     def test_refine_accepted_item_ref_shapes_resolve(
         self,
         ref_db: str,
@@ -54,52 +54,34 @@ class TestParseItemId:
         finally:
             conn.close()
 
-    def test_bare_number_uses_project_context_by_default(
-        self,
-        ref_db: str,
-    ) -> None:
+    def test_bare_number_refused_with_project_context(self, ref_db: str) -> None:
         conn = connect_test_db(ref_db)
         try:
-            assert parse_item_id("42", project="alpha", conn=conn) == 1001
-            assert parse_item_id("42", project="beta", conn=conn) == 2001
+            for project in ("alpha", "beta"):
+                with pytest.raises(ValueError, match="public_item_ref_required"):
+                    parse_item_id("42", project=project, conn=conn)
         finally:
             conn.close()
 
-    def test_bare_number_resolves_within_each_explicit_project(
-        self,
-        ref_db: str,
-    ) -> None:
+    def test_bare_number_refused_in_each_explicit_project(self, ref_db: str) -> None:
         conn = connect_test_db(ref_db)
         try:
-            assert (
-                parse_item_id(
-                    "42",
-                    project="alpha",
-                    conn=conn,
-                )
-                == 1001
-            )
-            assert (
-                parse_item_id(
-                    "42",
-                    project="beta",
-                    conn=conn,
-                )
-                == 2001
-            )
+            for project in ("alpha", "beta"):
+                with pytest.raises(ValueError, match="public_item_ref_required"):
+                    parse_item_id("42", project=project, conn=conn)
         finally:
             conn.close()
 
     def test_bare_number_without_project_is_refused(self) -> None:
-        with pytest.raises(ValueError, match="names a project sequence but no project"):
+        with pytest.raises(ValueError, match="public_item_ref_required"):
             parse_item_id("123")
 
     def test_bare_integer_string_requires_project_context_by_default(self) -> None:
-        with pytest.raises(ValueError, match="names a project sequence but no project"):
+        with pytest.raises(ValueError, match="public_item_ref_required"):
             parse_item_id("123")
 
     def test_bare_integer_string_is_never_an_internal_id(self) -> None:
-        with pytest.raises(ValueError, match="pass the public ref"):
+        with pytest.raises(ValueError, match="public_item_ref_required"):
             parse_item_id("123")
 
     def test_python_int_is_internal_id(self) -> None:
@@ -113,7 +95,7 @@ class TestParseItemId:
         try:
             with pytest.raises(ValueError, match="not found"):
                 parse_item_id("TST-999", conn=conn)
-            with pytest.raises(ValueError, match="not found"):
+            with pytest.raises(ValueError, match="public_item_ref_required"):
                 parse_item_id("999", project="alpha", conn=conn)
         finally:
             conn.close()
@@ -135,7 +117,7 @@ class TestParseItemId:
     def test_project_qualified_form_is_invalid(self, ref_db: str) -> None:
         conn = connect_test_db(ref_db)
         try:
-            with pytest.raises(ValueError, match="invalid item ref"):
+            with pytest.raises(ValueError, match="public_item_ref_required"):
                 parse_item_id("alpha/TST-42", conn=conn)
         finally:
             conn.close()
@@ -179,7 +161,7 @@ class TestDispatcherItemRefResolution:
             ),
         )
 
-    def test_bare_number_uses_explicit_project_context(
+    def test_bare_number_refuses_explicit_project_context(
         self,
         ref_db: str,
         monkeypatch: pytest.MonkeyPatch,
@@ -192,11 +174,10 @@ class TestDispatcherItemRefResolution:
         monkeypatch.setattr(db_helpers, "connect", lambda: connect_test_db(ref_db))
 
         request = self._request("42", project="beta")
-        assert resolve_target_public_ref(request) is None
-        assert request.target.item_id == 2001
-        # the ambient hint is cleared so permission scoping derives
-        # from the resolved item's own project
-        assert request.target.project_id is None
+        response = resolve_target_public_ref(request)
+        assert response is not None and not response.success
+        assert "public_item_ref_required" in response.error.message
+        assert request.target.item_id is None
 
     def test_bare_number_without_context_is_typed_error(
         self,
@@ -215,7 +196,7 @@ class TestDispatcherItemRefResolution:
         assert response is not None and not response.success
         assert response.error is not None
         assert response.error.code == "public_ref_unresolved"
-        assert "names a project sequence but no project" in response.error.message
+        assert "public_item_ref_required" in response.error.message
 
     def test_bare_number_does_not_guess_session_item_project_context(
         self,
@@ -244,7 +225,7 @@ class TestDispatcherItemRefResolution:
         response = resolve_target_public_ref(request)
         assert response is not None and not response.success
         assert response.error is not None
-        assert "names a project sequence but no project" in response.error.message
+        assert "public_item_ref_required" in response.error.message
         assert request.target.item_id is None
 
     def test_explicit_prefix_overrides_session_item_project_context(
@@ -289,7 +270,7 @@ class TestDispatcherItemRefResolution:
         response = resolve_target_public_ref(self._request("alpha/TST-42"))
         assert response is not None and not response.success
         assert response.error is not None
-        assert "invalid item ref" in response.error.message
+        assert "public_item_ref_required" in response.error.message
 
 
 class TestClientProjectContext:

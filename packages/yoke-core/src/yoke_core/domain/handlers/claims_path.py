@@ -67,8 +67,8 @@ def handle_register(request: FunctionCallRequest) -> HandlerOutcome:
     if body.item_id is None:
         return _err(
             "payload_invalid",
-            "register requires an item id (payload or resolved target)",
-            jsonpath="$.payload.item_id",
+            "register requires public_ref (PREFIX-N) in the payload or item target",
+            jsonpath="$.payload.public_ref",
         )
 
     from yoke_core.domain.path_claims import PathClaimError

@@ -74,8 +74,7 @@ class TestClassify:
 
     def test_failure_token_wins_over_pass_count(self) -> None:
         mixed = (
-            "FAILED tests/test_foo.py::test_bar\n"
-            "==== 1 failed, 11 passed in 1.23s ===="
+            "FAILED tests/test_foo.py::test_bar\n==== 1 failed, 11 passed in 1.23s ===="
         )
         assert classify_test_results(mixed) == "failed"
 
@@ -131,10 +130,29 @@ class TestReader:
     def test_round_trip_returns_stored_test_results(self, fixture_db) -> None:
         conn, db_path = fixture_db
         insert_item(
-            conn, id=7001, project="yoke", status="polishing-implementation",
+            conn,
+            id=7001,
+            project="yoke",
+            status="polishing-implementation",
             test_results=_PYTEST_PASS_OUTPUT,
         )
         assert read_item_test_results(7001, db_path=db_path) == _PYTEST_PASS_OUTPUT
+
+    def test_public_ref_resolves_the_project_sequence(self, fixture_db) -> None:
+        conn, db_path = fixture_db
+        item_id, sequence = 7201, 81
+        insert_item(
+            conn,
+            id=item_id,
+            project="yoke",
+            project_sequence=sequence,
+            status="polishing-implementation",
+            test_results=_PYTEST_PASS_OUTPUT,
+        )
+        assert (
+            read_item_test_results(f"YOK-{sequence}", db_path=db_path)
+            == _PYTEST_PASS_OUTPUT
+        )
 
     def test_missing_row_returns_empty(self, fixture_db) -> None:
         _conn, db_path = fixture_db
@@ -143,7 +161,10 @@ class TestReader:
     def test_null_column_returns_empty(self, fixture_db) -> None:
         conn, db_path = fixture_db
         insert_item(
-            conn, id=7002, project="yoke", status="polishing-implementation",
+            conn,
+            id=7002,
+            project="yoke",
+            status="polishing-implementation",
             test_results=None,
         )
         assert read_item_test_results(7002, db_path=db_path) == ""
@@ -151,7 +172,10 @@ class TestReader:
     def test_accepts_resolved_digit_string(self, fixture_db) -> None:
         conn, db_path = fixture_db
         insert_item(
-            conn, id=7003, project="yoke", status="polishing-implementation",
+            conn,
+            id=7003,
+            project="yoke",
+            status="polishing-implementation",
             test_results=_PYTEST_PASS_OUTPUT,
         )
         assert read_item_test_results("7003", db_path=db_path) == _PYTEST_PASS_OUTPUT
@@ -168,7 +192,10 @@ class TestReader:
         """The two helpers compose: read then classify."""
         conn, db_path = fixture_db
         insert_item(
-            conn, id=7004, project="yoke", status="polishing-implementation",
+            conn,
+            id=7004,
+            project="yoke",
+            status="polishing-implementation",
             test_results=_PYTEST_FAILED_OUTPUT,
         )
         verdict = classify_test_results(read_item_test_results(7004, db_path=db_path))

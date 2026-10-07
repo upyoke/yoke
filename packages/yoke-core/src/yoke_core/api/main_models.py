@@ -4,8 +4,8 @@ Owns the wire-shape models used by every route module: error envelopes,
 the ``ItemObject`` payload (board view + single-item view), the board
 response with its column-keyed items, the frontier and scheduler
 projections, and the request bodies for ``POST /v1/items``, ``PATCH
-/v1/items/{id}``, ``POST /v1/items/{id}/approve``, and
-``POST /v1/items/{id}/capability``.
+/v1/items/{public_ref}``, ``POST /v1/items/{public_ref}/approve``, and
+``POST /v1/items/{public_ref}/capability``.
 
 """
 
@@ -116,7 +116,8 @@ class HealthResponse(BaseModel):
 class ItemObject(BaseModel):
     """A backlog item. ``body`` is only included in single-item responses."""
 
-    id: int
+    id: str
+    public_ref: str
     title: str
     workflow_id: str
     workflow_version_id: int
@@ -282,7 +283,7 @@ class CreateItemRequest(BaseModel):
 
 
 class UpdateItemRequest(BaseModel):
-    """Request body for PATCH /v1/items/{id}."""
+    """Request body for PATCH /v1/items/{public_ref}."""
 
     status: Optional[str] = None
     frozen: Optional[bool] = None
@@ -294,13 +295,13 @@ class UpdateItemRequest(BaseModel):
 
 
 class ApproveRequest(BaseModel):
-    """Request body for POST /v1/items/{id}/approve."""
+    """Request body for POST /v1/items/{public_ref}/approve."""
 
     comment: Optional[str] = None
 
 
 class CapabilityRequest(BaseModel):
-    """Request body for POST /v1/items/{id}/capability."""
+    """Request body for POST /v1/items/{public_ref}/capability."""
 
     type: str
     config: Dict[str, Any]
@@ -312,15 +313,15 @@ class CapabilityRequest(BaseModel):
 
 
 class ApproveResponse(BaseModel):
-    """Response for POST /v1/items/{id}/approve."""
+    """Response for POST /v1/items/{public_ref}/approve."""
 
-    id: int
+    id: str
     approved_at: str
     comment: Optional[str] = None
 
 
 class CapabilityResponse(BaseModel):
-    """Response for POST /v1/items/{id}/capability."""
+    """Response for POST /v1/items/{public_ref}/capability."""
 
     id: int
     project: str

@@ -36,10 +36,13 @@ def _reset_captured() -> None:
 
 def _run(*argv: str) -> tuple[int, str, str]:
     with patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}):
-        with patch(
-            "yoke_core.domain.yoke_function_dispatch.dispatch",
-            side_effect=_stub_ok,
-        ), patch("yoke_cli.commands._helpers.ensure_handlers_loaded"):
+        with (
+            patch(
+                "yoke_core.domain.yoke_function_dispatch.dispatch",
+                side_effect=_stub_ok,
+            ),
+            patch("yoke_cli.commands._helpers.ensure_handlers_loaded"),
+        ):
             out, err = io.StringIO(), io.StringIO()
             with redirect_stdout(out), redirect_stderr(err):
                 rc = cli_main(list(argv))
@@ -48,7 +51,10 @@ def _run(*argv: str) -> tuple[int, str, str]:
 
 def test_readiness_check_dispatches_item_target() -> None:
     rc, _out, err = _run(
-        "readiness", "check", "YOK-1800", "--skip-readiness-check",
+        "readiness",
+        "check",
+        "YOK-1800",
+        "--skip-readiness-check",
     )
     assert rc == 0, err
     req = _CAPTURED[-1]
@@ -60,7 +66,10 @@ def test_readiness_check_dispatches_item_target() -> None:
 
 def test_readiness_prd_validate_dispatches_item_target() -> None:
     rc, _out, err = _run(
-        "readiness", "prd-validate", "YOK-1800", "--strict",
+        "readiness",
+        "prd-validate",
+        "YOK-1800",
+        "--strict",
     )
     assert rc == 0, err
     req = _CAPTURED[-1]
@@ -72,14 +81,20 @@ def test_readiness_prd_validate_dispatches_item_target() -> None:
 
 def test_readiness_repair_commands_dispatch() -> None:
     rc, _out, err = _run(
-        "readiness", "repair-stale-count", "--item", "1800",
+        "readiness",
+        "repair-stale-count",
+        "--item",
+        "YOK-1800",
     )
     assert rc == 0, err
     assert _CAPTURED[-1].function == "readiness.repair_stale_count"
-    assert _CAPTURED[-1].target.public_ref == "1800"
+    assert _CAPTURED[-1].target.public_ref == "YOK-1800"
 
     rc, _out, err = _run(
-        "readiness", "repair-claim-coverage", "--item", "YOK-1800",
+        "readiness",
+        "repair-claim-coverage",
+        "--item",
+        "YOK-1800",
     )
     assert rc == 0, err
     assert _CAPTURED[-1].function == "readiness.repair_claim_coverage"
@@ -95,17 +110,22 @@ def test_claims_path_gate_and_activation_dispatch() -> None:
     assert req.payload == {}
 
     with patch(
-        "yoke_cli.commands.adapters.claims_path_flow"
-        ".sync_local_snapshot_for_write"
+        "yoke_cli.commands.adapters.claims_path_flow.sync_local_snapshot_for_write"
     ) as sync:
         rc, _out, err = _run(
-            "claims", "path", "activation-run", "--item", "1800",
+            "claims",
+            "path",
+            "activation-run",
+            "--item",
+            "YOK-1800",
         )
     assert rc == 0, err
     sync.assert_called_once_with(
-        project=None, integration_target=None, session_id=None,
+        project=None,
+        integration_target=None,
+        session_id=None,
     )
     req = _CAPTURED[-1]
     assert req.function == "claims.path.activation_run"
-    assert req.target.public_ref == "1800"
+    assert req.target.public_ref == "YOK-1800"
     assert req.payload == {}

@@ -17,7 +17,7 @@ from yoke_contracts.api.function_call import TargetRef
 def _target(parsed, *, task: bool = False) -> TargetRef:
     return TargetRef(
         kind="epic_task",
-        epic_id=int(parsed.epic),
+        public_ref=parsed.epic,
         task_num=int(parsed.task_num) if task else None,
     )
 
@@ -60,7 +60,7 @@ def _run(
         prog=f"yoke workflow-item epic-task {name}",
         description=usage,
     )
-    parser.add_argument("--epic", type=int, required=True, help="Epic id.")
+    parser.add_argument("--epic", required=True, help="Epic public ref (PREFIX-N).")
     if task:
         parser.add_argument("--task-num", type=int, required=True)
     if tenant:
@@ -83,19 +83,19 @@ def _run(
 
 
 EPIC_TASK_SCOPE_NO_FILES_USAGE = (
-    "yoke workflow-item epic-task scope-no-files --epic N --task-num N "
+    "yoke workflow-item epic-task scope-no-files --epic PREFIX-N --task-num N "
     "[--session-id S] [--json]"
 )
 EPIC_TASK_SCOPE_FINALIZE_USAGE = (
-    "yoke workflow-item epic-task scope-finalize --epic N "
+    "yoke workflow-item epic-task scope-finalize --epic PREFIX-N "
     "[--session-id S] [--json]"
 )
 EPIC_TASK_SCOPE_REOPEN_USAGE = (
-    "yoke workflow-item epic-task scope-reopen --epic N "
+    "yoke workflow-item epic-task scope-reopen --epic PREFIX-N "
     "[--session-id S] [--json]"
 )
 EPIC_TASK_SCOPE_REPAIR_LEGACY_USAGE = (
-    "yoke workflow-item epic-task scope-repair-legacy --epic N "
+    "yoke workflow-item epic-task scope-repair-legacy --epic PREFIX-N "
     "[--tenant-id ID] [--session-id S] [--json]"
 )
 

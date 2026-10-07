@@ -58,6 +58,41 @@ def test_additive_core_schema_creates_missing_view_and_is_idempotent(test_db):
     )
 
 
+def test_prefix_rekey_preserves_archived_shepherd_evidence_and_links(test_db):
+    from yoke_core.domain.project_public_prefix import rekey_shepherd_refs
+
+    stamp = "2026-01-01T00:00:00Z"
+    test_db.execute(
+        "INSERT INTO shepherd_verdicts "
+        "(id, public_ref, archived_item_key, transition, worker, verdict, created_at) VALUES "
+        "(1, 'OLD-7', NULL, 'review', 'reviewer', 'GO', %s), "
+        "(2, NULL, 'OLD-999', 'review', 'reviewer', 'GO', %s)",
+        (stamp, stamp),
+    )
+    test_db.execute(
+        "INSERT INTO caveat_dispositions "
+        "(id, public_ref, archived_item_key, transition, caveat_num, "
+        "caveat_text, disposition, verdict_id, created_at) VALUES "
+        "(1, 'OLD-7', NULL, 'review', 1, 'active', 'RESOLVED', 1, %s), "
+        "(2, NULL, 'OLD-999', 'review', 1, 'archived', 'DEFERRED', 2, %s)",
+        (stamp, stamp),
+    )
+    rekey_shepherd_refs(test_db, "OLD", "NEW")
+    for table in ("shepherd_verdicts", "caveat_dispositions"):
+        assert [
+            tuple(row)
+            for row in test_db.execute(
+                f"SELECT id, public_ref, archived_item_key FROM {table} ORDER BY id"
+            )
+        ] == [(1, "NEW-7", None), (2, None, "OLD-999")]
+    assert [
+        tuple(row)
+        for row in test_db.execute(
+            "SELECT id, verdict_id FROM caveat_dispositions ORDER BY id"
+        )
+    ] == [(1, 1), (2, 2)]
+
+
 def test_sqlite_validation_projection_is_read_only_and_current():
     sequence = 158
     conn = sqlite3.connect(":memory:")

@@ -38,16 +38,21 @@ class TestDownstreamDepthRanking:
 
     def _item(self, **kw) -> FrontierItem:
         defaults = dict(
-            item_id=1, title="Test", status="planned",
-            priority="medium", project="yoke", workflow_id="epic",
-            workflow_version_id=1, workflow_version=1,
-            adapter=AdapterCategory.CONDUCT, created_at="2026-01-01T00:00:00Z",
+            item_id=1,
+            title="Test",
+            status="planned",
+            priority="medium",
+            project="yoke",
+            workflow_id="epic",
+            workflow_version_id=1,
+            workflow_version=1,
+            adapter=AdapterCategory.CONDUCT,
+            created_at="2026-01-01T00:00:00Z",
         )
         defaults.update(kw)
         defaults.setdefault(
             "stage_index",
-            builtin_workflow_runtime("epic").stage_index(defaults["status"])
-            or 0,
+            builtin_workflow_runtime("epic").stage_index(defaults["status"]) or 0,
         )
         return FrontierItem(**defaults)
 
@@ -159,8 +164,23 @@ class TestDownstreamDepthRanking:
         conn = _create_test_db()
 
         # All items at same priority, idea status
-        all_ids = [1221, 1227, 1185, 1186, 1188, 1189,
-                   1233, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008]
+        all_ids = [
+            1221,
+            1227,
+            1185,
+            1186,
+            1188,
+            1189,
+            1233,
+            2001,
+            2002,
+            2003,
+            2004,
+            2005,
+            2006,
+            2007,
+            2008,
+        ]
         for item_id in all_ids:
             _insert_item(conn, item_id, status="idea", priority="high")
 
@@ -240,12 +260,17 @@ class TestFrontierTelemetry:
     @patch("yoke_core.domain.events.emit_event")
     def test_frontier_computed_carries_session_id_and_project(self, mock_emit):
         conn = _create_test_db()
-        _insert_item(conn, 1, status="planned", project="externalwebapp", workflow="epic")
+        _insert_item(
+            conn, 1, status="planned", project="externalwebapp", workflow="epic"
+        )
 
-        compute_frontier(conn, project_scope=["externalwebapp"], session_id="sess-frontier")
+        compute_frontier(
+            conn, project_scope=["externalwebapp"], session_id="sess-frontier"
+        )
 
         frontier_calls = [
-            call for call in mock_emit.call_args_list
+            call
+            for call in mock_emit.call_args_list
             if call.args and call.args[0] == "FrontierComputed"
         ]
         assert len(frontier_calls) == 1
@@ -253,3 +278,32 @@ class TestFrontierTelemetry:
         assert kwargs["session_id"] == "sess-frontier"
         assert kwargs["project"] == "externalwebapp"
         assert kwargs["context"]["project_scope"] == ["externalwebapp"]
+
+
+@patch("yoke_core.domain.events.emit_event")
+def test_frontier_event_projects_ranked_and_excluded_item_keys(mock_emit):
+    from types import SimpleNamespace
+    import time
+    from yoke_core.domain.frontier_compute_telemetry import _emit_frontier_computed
+
+    conn = _create_test_db()
+    _insert_item(conn, 1, status="planned", project="externalwebapp", workflow="epic")
+    result = SimpleNamespace(
+        runnable=[SimpleNamespace(item_id=1, priority=1, adapter="implement")],
+        blocked=[],
+        frozen=[],
+        conduct_eligible=[],
+    )
+    _emit_frontier_computed(
+        conn,
+        result,
+        [2],
+        3,
+        0,
+        time.monotonic(),
+        excluded_routed_ownership=[{"item_id": 1, "reason": "held"}],
+    )
+    context = mock_emit.call_args.kwargs["context"]
+    for field in ("ranking_summary", "excluded_routed_ownership"):
+        assert context[field][0]["public_ref"] == "EXT-1"
+        assert "item_id" not in context[field][0]

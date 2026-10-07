@@ -53,7 +53,7 @@ def _retain(monkeypatch, dispatch) -> dict:
     envelope: dict = {}
     _wire(monkeypatch, dispatch)
     park.retain_for_delivery(
-        envelope, item_id=7, public_ref="ITEM-7", session_id=SESSION
+        envelope, item_id="YOK-7", public_ref="ITEM-7", session_id=SESSION
     )
     return envelope["release_wait"]
 
@@ -124,7 +124,7 @@ def test_a_run_with_no_session_identity_says_so(monkeypatch) -> None:
     _wire(monkeypatch, _dispatch([], holder_session=SESSION))
     monkeypatch.setattr(park, "resolve_ambient_session_id", lambda: None)
     park.retain_for_delivery(
-        envelope, item_id=7, public_ref="ITEM-7", session_id=""
+        envelope, item_id="YOK-7", public_ref="ITEM-7", session_id=""
     )
 
     assert envelope["release_wait"]["parked"] == (
@@ -139,7 +139,7 @@ def test_an_empty_flag_falls_back_to_ambient_identity(monkeypatch) -> None:
     monkeypatch.setattr(park, "resolve_ambient_session_id", lambda: SESSION)
     envelope: dict = {}
     park.retain_for_delivery(
-        envelope, item_id=7, public_ref="ITEM-7", session_id=""
+        envelope, item_id="YOK-7", public_ref="ITEM-7", session_id=""
     )
 
     assert envelope["release_wait"]["parked"] == "yes"

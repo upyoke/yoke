@@ -33,7 +33,8 @@ def db(monkeypatch):
 
 class TestParseEpicId:
     def test_bare_sequence(self, db):
-        assert epic._parse_epic_id("42", conn=db) == INTERNAL_EPIC_ID
+        with pytest.raises(ValueError, match="public_item_ref_required"):
+            epic._parse_epic_id(str(PUBLIC_SEQUENCE), conn=db)
 
     def test_public_ref(self, db):
         assert epic._parse_epic_id(TEST_ITEM_REF, conn=db) == INTERNAL_EPIC_ID
@@ -42,13 +43,16 @@ class TestParseEpicId:
         assert epic._parse_epic_id(TEST_ITEM_REF.lower(), conn=db) == INTERNAL_EPIC_ID
 
     def test_leading_zeros_are_a_public_sequence(self, db):
-        assert epic._parse_epic_id("042", conn=db) == INTERNAL_EPIC_ID
+        assert (
+            epic._parse_epic_id(f"YOK-{PUBLIC_SEQUENCE:03d}", conn=db)
+            == INTERNAL_EPIC_ID
+        )
 
     def test_typed_integer_is_internal(self, db):
         assert epic._parse_epic_id(INTERNAL_EPIC_ID, conn=db) == INTERNAL_EPIC_ID
 
     def test_slug_rejected(self, db):
-        with pytest.raises(ValueError, match="pass the public ref"):
+        with pytest.raises(ValueError, match="public_item_ref_required"):
             epic._parse_epic_id("my-epic", conn=db)
 
     def test_empty_raises(self, db):

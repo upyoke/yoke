@@ -22,8 +22,8 @@ QA_COMMANDS: list[dict] = [
         "recipe": "yoke qa requirement list --item PREFIX-N",
         "notes": (
             "Registered read qa.requirement.list (works over https). "
-            "Use --epic-id E for epic-task requirements; filter by "
-            "task_num client-side. Unfiltered / epic-id reads take "
+            "Use --epic PREFIX-N for epic-task requirements; filter by "
+            "task_num client-side. Unfiltered / epic reads take "
             "`--project` (or $YOKE_PROJECT / checkout map) from any "
             "mapped checkout. One row by id: `yoke qa "
             "requirement get --requirement-id <id>`. "
@@ -72,7 +72,7 @@ QA_COMMANDS: list[dict] = [
             "# Epic-task attachment (operator-debug; requires the item "
             "binding):\n"
             "python3 -m yoke_core.domain.qa requirement-add "
-            "--epic-id E --task-num K --workflow-transition STAGE ..."
+            "--epic-id PREFIX-N --task-num K --workflow-transition STAGE ..."
         ),
         "notes": (
             "Registered write qa.requirement.add. With `--item` it is "
@@ -100,7 +100,7 @@ QA_COMMANDS: list[dict] = [
             "frozen run and do not attach a plan. Epic-task attachment is "
             "operator-debug only and requires the item binding: "
             "`python3 -m yoke_core.domain.qa requirement-add "
-            "--epic-id E --task-num K --workflow-transition STAGE ...`. "
+            "--epic-id PREFIX-N --task-num K --workflow-transition STAGE ...`. "
             "Wrong guesses: that a release case needs a plan to be "
             "visible, and that deployment-run attachment is operator-debug "
             "only."
@@ -289,7 +289,7 @@ QA_COMMANDS: list[dict] = [
         ),
         "notes": (
             "Registered read qa.gate_summary.run. Use --item for a standalone "
-            "issue, or --epic-id E --task-num K for an epic task. The summary "
+            "issue, or --epic-id PREFIX-N --task-num K for an epic task. The summary "
             "is diagnostic only — even with passing tests, move the item with "
             "`yoke lifecycle transition PREFIX-N --to reviewed-implementation` "
             "(never raw items update), which evaluates the gate."
@@ -309,7 +309,7 @@ QA_COMMANDS: list[dict] = [
             "qa_runs/qa_requirements. Run before a transition into "
             "reviewed-implementation or implemented to see which "
             "blocking requirements still need passing runs. Use "
-            "--epic-id E --task-num K for epic tasks; the bare call "
+            "--epic-id PREFIX-N --task-num K for epic tasks; the bare call "
             "prints the summary JSON."
         ),
     },
@@ -330,11 +330,11 @@ QA_COMMANDS: list[dict] = [
         "topic": "qa",
         "purpose": "Epic dispatch chain (list / advance / inspect)",
         "recipe": (
-            "yoke epic-tasks list --epic 1704\n"
-            "yoke workflow-item epic-task body-get --epic 1704 "
+            "yoke epic-tasks list --epic PREFIX-1704\n"
+            "yoke workflow-item epic-task body-get --epic PREFIX-1704 "
             "--task-num 5\n"
-            "yoke workflow-item epic-dispatch-chain list --epic 1704\n"
-            "yoke workflow-item epic-dispatch-chain get --epic 1704 "
+            "yoke workflow-item epic-dispatch-chain list --epic PREFIX-1704\n"
+            "yoke workflow-item epic-dispatch-chain get --epic PREFIX-1704 "
             "--worktree branch-name"
         ),
         "notes": (

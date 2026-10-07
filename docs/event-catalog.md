@@ -256,6 +256,6 @@ yoke events emit \
  --source-type system \
  --severity STATUS \
  --outcome completed \
- --item-id "42" \
+ --item "PREFIX-N" \
  --context '{"from_status":"implementing","to_status":"reviewing-implementation"}'
 ```

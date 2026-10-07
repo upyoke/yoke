@@ -9,6 +9,7 @@ from yoke_cli.commands._helpers import (
     add_json_arg,
     add_session_arg,
     dispatch_and_emit,
+    item_target,
     parse_or_usage_error,
     usage_error,
 )
@@ -26,7 +27,7 @@ SESSIONS_TOUCH_USAGE = (
 SESSIONS_IDENTITY_USAGE = "yoke sessions identity [--session-id S] [--json]"
 SESSIONS_CHECKPOINT_USAGE = (
     "yoke sessions checkpoint --step N --action ACTION --chainable BOOL "
-    "[--item-id I] [--task-num N] [--outcome O] [--status S] "
+    "[--item PREFIX-N] [--task-num N] [--outcome O] [--status S] "
     "[--required-path P] [--pre-status PS] [--failure-class C] "
     "[--session-id S] [--json]"
 )
@@ -107,7 +108,12 @@ def sessions_checkpoint(args: List[str]) -> int:
     parser.add_argument("--step", type=int, required=True)
     parser.add_argument("--action", required=True)
     parser.add_argument("--chainable", required=True)
-    parser.add_argument("--item-id", default=None)
+    parser.add_argument(
+        "--item",
+        dest="public_ref",
+        default=None,
+        help="Complete public item ref (PREFIX-N).",
+    )
     parser.add_argument("--task-num", type=int, default=None)
     parser.add_argument("--outcome", default="completed")
     parser.add_argument("--status", default=None)
@@ -119,6 +125,8 @@ def sessions_checkpoint(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, SESSIONS_CHECKPOINT_USAGE)
     if parsed is None:
         return 2
+    if parsed.public_ref is not None:
+        parsed.public_ref = item_target("item", parsed.public_ref).public_ref
     payload: Dict[str, Any] = {
         "step": parsed.step,
         "action": parsed.action,
@@ -126,7 +134,7 @@ def sessions_checkpoint(args: List[str]) -> int:
         "outcome": parsed.outcome,
     }
     for key in (
-        "item_id",
+        "public_ref",
         "task_num",
         "status",
         "required_path",

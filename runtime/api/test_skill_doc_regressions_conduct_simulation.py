@@ -156,11 +156,11 @@ class TestConductSimulationReadback:
             docs["autofix"], docs["autofix_patching"], docs["autofix_verification"]
         )
         assert (
-            'yoke-db.sh" epic simulation-upsert "$_epic_id" "integration" < "$_sim_tmp"'
+            'yoke-db.sh" epic simulation-upsert "$_epic_ref" "integration" < "$_sim_tmp"'
             not in text
         )
         assert (
-            'db_router epic simulation-upsert "$_epic_id" "integration" < "$_sim_tmp"'
+            'db_router epic simulation-upsert "$_epic_ref" "integration" < "$_sim_tmp"'
             not in text
         )
 
@@ -176,7 +176,7 @@ class TestConductSimulatorEpicAttestation:
     Covers the epic-identity attestation contract: every dispatch and retry
     template the conduct skill teaches must require both the ``SIMULATION:``
     verdict line and the ``EPIC: PREFIX-{N}`` attestation line. The defensive
-    bail must halt before any simulator invocation when ``_epic_id`` is empty.
+    bail must halt before any simulator invocation when ``_epic_ref`` is empty.
     """
 
     @pytest.fixture
@@ -198,7 +198,7 @@ class TestConductSimulatorEpicAttestation:
         text = _read(docs["dispatch_prompts"])
         # Both plan and integration templates surface the requirement
         assert text.count("two-line verdict block") >= 3
-        assert text.count("EPIC: PREFIX-{item_id}") >= 3
+        assert text.count("EPIC: {public_ref}") >= 3
 
     def test_dispatch_prompts_name_exit_codes(self, docs):
         text = _read(docs["dispatch_prompts"])
@@ -210,18 +210,18 @@ class TestConductSimulatorEpicAttestation:
         assert "16" in text and "wrong-epic body" in text
         assert "17" in text and "missing-epic body" in text
 
-    def test_criteria_defensive_epic_id_bail(self, docs):
+    def test_criteria_defensive_epic_ref_bail(self, docs):
         text = _read(docs["criteria"])
-        assert 'if [ -z "${_epic_id:-}" ]; then' in text
-        assert "_epic_id lost between dispatches" in text
+        assert 'if [ -z "${_epic_ref:-}" ]; then' in text
+        assert "_epic_ref lost between dispatches" in text
 
     def test_criteria_retry_tier_prompts_carry_two_line_block(self, docs):
         text = _read(docs["criteria"])
         # Formatting-omission retry, aggressive retry, and ultra-compressed
         # no-tool fallback each must instruct the simulator to emit the
-        # two-line block. The literal `EPIC: PREFIX-${_epic_id}` is the
+        # two-line block. The literal `EPIC: ${_epic_ref}` is the
         # signature in retry prompts.
-        assert text.count("EPIC: PREFIX-${_epic_id}") >= 3
+        assert text.count("EPIC: ${_epic_ref}") >= 3
 
     def test_criteria_classifies_missing_epic_as_formatting_omission(self, docs):
         text = _read(docs["criteria"])
@@ -230,7 +230,7 @@ class TestConductSimulatorEpicAttestation:
     def test_escalation_documents_pre_branch_halts(self, docs):
         text = _read(docs["escalation"])
         assert "Pre-Branch HALT Conditions" in text
-        assert "_epic_id` is empty" in text or "_epic_id is empty" in text
+        assert "_epic_ref` is empty" in text or "_epic_ref is empty" in text
         assert "exit 16" in text
         assert "exit 17" in text
 
@@ -238,7 +238,7 @@ class TestConductSimulatorEpicAttestation:
         text = _read(docs["cleanup"])
         assert "wrong-epic body" in text
         assert "missing-epic body" in text
-        assert "_epic_id lost between dispatches" in text
+        assert "_epic_ref lost between dispatches" in text
 
     def test_autofix_resimulation_prompts_require_epic_attestation(self):
         patching = _read(SKILLS / "simulate" / "autofix-loop.md")

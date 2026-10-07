@@ -18,10 +18,14 @@ from typing import Any, Dict, List, Optional, Tuple
 from pydantic import BaseModel, Field
 
 from yoke_contracts.api.function_call import (
-    FunctionCallRequest, FunctionError, HandlerOutcome,
+    FunctionCallRequest,
+    FunctionError,
+    HandlerOutcome,
 )
 from yoke_core.domain.handlers.items_flags_claim import (
-    _ClaimRefused, _acquire_for_caller, _release_acquired,
+    _ClaimRefused,
+    _acquire_for_caller,
+    _release_acquired,
 )
 from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
@@ -102,13 +106,20 @@ def _load_state(item_id: int) -> Optional[Dict[str, Any]]:
 
 def _prepare(
     request: FunctionCallRequest, model: type[BaseModel], function_id: str
-) -> Tuple[Optional[int], Optional[Any], Optional[Dict[str, Any]], Optional[HandlerOutcome]]:
+) -> Tuple[
+    Optional[int], Optional[Any], Optional[Dict[str, Any]], Optional[HandlerOutcome]
+]:
     """Validate the envelope and load current state, or return a refusal."""
     target = request.target
     if target.kind != "item" or target.item_id is None:
-        return None, None, None, _error(
-            "invalid_payload",
-            f"{function_id} target must carry kind='item' + item_id.",
+        return (
+            None,
+            None,
+            None,
+            _error(
+                "invalid_payload",
+                f"{function_id} target must carry kind='item' + public_ref (PREFIX-N).",
+            ),
         )
     try:
         payload = model.model_validate(request.payload or {})
@@ -116,9 +127,7 @@ def _prepare(
         return None, None, None, _error("invalid_payload", f"payload invalid: {exc}")
     state = _load_state(int(target.item_id))
     if state is None:
-        return None, None, None, _error(
-            "not_found", ITEM_NOT_FOUND
-        )
+        return None, None, None, _error("not_found", ITEM_NOT_FOUND)
     return int(target.item_id), payload, state, None
 
 
@@ -225,15 +234,14 @@ def handle_freeze(request: FunctionCallRequest) -> HandlerOutcome:
 
 def handle_thaw(request: FunctionCallRequest) -> HandlerOutcome:
     """Clear frozen after dormant path claims revalidate against live overlap."""
-    item_id, _payload, state, refusal = _prepare(
-        request, FlagRequest, "items.thaw.run"
-    )
+    item_id, _payload, state, refusal = _prepare(request, FlagRequest, "items.thaw.run")
     if refusal is not None:
         return refusal
     captured = io.StringIO()
     if not state["frozen"]:
         return _done(item_id, state, False, captured)
     from yoke_core.domain.path_claims_thaw import revalidate_item_path_claims_on_thaw
+
     revalidate_item_path_claims_on_thaw(int(item_id))
     failure = _apply(
         item_id, state["public_ref"], [("frozen", False)], request, captured

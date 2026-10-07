@@ -23,7 +23,7 @@ For each recommended change, **enhance** the existing content — do not replace
 
 - **Additive transform (preserve existing field, add a heading-led block):**
   dispatch `items.structured_field.append_addendum` with `target = {kind:
-  "item", item_id: N}` and `payload = {field, heading, content, source:
+  "item", public_ref: "PREFIX-N"}` and `payload = {field, heading, content, source:
   "refine"}`. The handler reads the current field through canonical DB
   routing, applies an idempotent `## heading`-led append, writes through
   the existing guarded structured-write path, and re-reads to verify. It
@@ -98,7 +98,7 @@ Field routing (dispatch `items.structured_field.replace` with
 - Caveat content → `shepherd_caveats`
 - Long-running execution context → the `Progress Log` section via the
   `items.progress_log.append` function call (`target = {kind: "item",
-  item_id: N}`, `payload = {headline, content, source: "refine"}`).
+  public_ref: "PREFIX-N"}`, `payload = {headline, content, source: "refine"}`).
   The handler creates the section if missing, appends after existing
   content if present, and formats the
   `## <UTC ISO timestamp> entry — <headline>` header itself. Never read
@@ -162,7 +162,7 @@ Before status advancement, capture the details you will present after cleanup is
 ### 9. Advance Status on Success
 
 After all refinement work is verified, dispatch
-`lifecycle.transition.execute` with `target = {kind: "item", item_id: N}` and
+`lifecycle.transition.execute` with `target = {kind: "item", public_ref: "PREFIX-N"}` and
 `payload = {target_status: REFINE_TARGET_STATUS, source_status:
 REFINE_ACTIVE_STATUS}`. These stage ids came from the active pinned `refine`
 binding; do not reconstruct them from a workflow name.
@@ -192,7 +192,7 @@ reviewed-none attestation. Dispatch `db_claim.amend` before
 retrying the advance:
 
 - **Work item actually mutates the governed DB** — `target = {kind: "item",
-  item_id: N}`, `payload = {reason: "refine: prose declares governed
+  public_ref: "PREFIX-N"}`, `payload = {reason: "refine: prose declares governed
   DB mutation", claim: <unified-claim-json>}`.
 - **Meta work item about DB governance** — the spec legitimately cites
   `ALTER TABLE`, `ADD COLUMN`, `migration_audit`, or similar while

@@ -50,7 +50,7 @@ delivery model. Use the worktree's actual branch, not an assumed `PREFIX-N`
 filename; epic lanes may have distinct branch names.
 
 ```bash
-yoke ephemeral-env create "${_project}" "${_worktree_branch}" --item "PREFIX-${_id}" --json
+yoke ephemeral-env create "${_project}" "${_worktree_branch}" --item "${_id}" --json
 ```
 
 The record is created with `status=pending` (the default). Store `_env_id` for use in subsequent steps. The status transitions to `starting` only after a workflow run is found.
@@ -126,7 +126,7 @@ Run E2E tests against this URL: {_cmd_e2e}
 ```
 
 **Browser case execution instructions.** Read the materialized requirements
-with `yoke qa requirement list --item "PREFIX-${_id}" --json`. If it contains an
+with `yoke qa requirement list --item "${_id}" --json`. If it contains an
 unsatisfied, non-waived case whose `method_id` is `browser-check` or
 `browser-inspection`, append Browser execution instructions to the Tester
 prompt. Method identity, not `qa_kind` or item metadata, selects this path.

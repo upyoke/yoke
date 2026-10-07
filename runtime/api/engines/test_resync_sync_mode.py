@@ -161,7 +161,7 @@ class TestStage1LinkageBacklogOnly:
             )
 
         assert {item.ref for item in paired} == {TEST_ITEM_REF}
-        assert {item.item_id for item in paired} == {TEST_ITEM_ID}
+        assert {item.public_ref for item in paired} == {TEST_ITEM_REF}
         assert any(orphan.ref == TEST_DONE_ITEM_REF for orphan in local_orphans)
 
 

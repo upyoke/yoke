@@ -58,7 +58,6 @@ test("an older in-flight run shows its stage and elapsed time", async (t) => {
   const client = workbenchClient({
     "items.overview.list": {
       rows: [{
-        internal_id: ITEM_ID,
         public_ref: ITEM_REF,
         project: "yoke",
         project_id: 1,
@@ -105,7 +104,7 @@ function deliveryBox(facts, others = []) {
     member_items: [{ id: ITEM_ID, ref: ITEM_REF, status: "release", ...facts }, ...others],
   };
   return appendItemDelivery(documentNode, card, {
-    internal_id: ITEM_ID, project_id: 1, completion_flow: "flow",
+    public_ref: ITEM_REF, project_id: 1, completion_flow: "flow",
   }, deploymentsByItemId([active]));
 }
 
@@ -158,10 +157,10 @@ test("an unreadable member QA reports why rather than implying success", () => {
 test("a terminal member run has no remaining-wait sub-line", () => {
   const documentNode = new FakeDocument();
   const box = appendItemDelivery(documentNode, documentNode.createElement("div"), {
-    internal_id: ITEM_ID,
+    public_ref: ITEM_REF,
   }, deploymentsByItemId([{
     ...run("run-finished", "succeeded", 20),
-    member_items: [{ id: ITEM_ID, item_qa: { state: "accepted" } }],
+    member_items: [{ public_ref: ITEM_REF, item_qa: { state: "accepted" } }],
   }]));
   assert.equal(byClass(box, "item-deployment-outcome")[0].textContent, "✓ deployed · QA passed");
   assert.equal(byClass(box, "item-deployment-wait").length, 0);

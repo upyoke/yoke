@@ -67,10 +67,13 @@ def _session_id(request: FunctionCallRequest) -> str:
     return str(request.actor.session_id or "")
 
 
-def _item_id(request: FunctionCallRequest) -> tuple[Optional[int], Optional[HandlerOutcome]]:
+def _item_id(
+    request: FunctionCallRequest,
+) -> tuple[Optional[int], Optional[HandlerOutcome]]:
     if request.target.kind != "item" or request.target.item_id is None:
         return None, _error(
-            "invalid_target", "target must carry kind='item' and item_id",
+            "invalid_target",
+            "target must carry kind='item' and public_ref (PREFIX-N)",
         )
     return int(request.target.item_id), None
 
@@ -78,7 +81,8 @@ def _item_id(request: FunctionCallRequest) -> tuple[Optional[int], Optional[Hand
 def _project(conn: Any, request: FunctionCallRequest):
     if request.target.kind != "global":
         return None, _error(
-            "invalid_target", "strategy document reads use a global target",
+            "invalid_target",
+            "strategy document reads use a global target",
         )
     return resolve_request_project(conn, request)
 
@@ -102,7 +106,9 @@ def _doc_write_allowed(
     except StrategyDocClaimAuthorizationError as exc:
         return _error("strategy_document_claim_denied", str(exc))
     if claimed or session_holds_strategy_claim(
-        conn, session_id, str(project.slug),
+        conn,
+        session_id,
+        str(project.slug),
     ):
         return None
     return _error(
@@ -120,6 +126,7 @@ def handle_execution_get(request: FunctionCallRequest) -> HandlerOutcome:
     if error:
         return error
     from yoke_core.domain.db_helpers import connect
+
     with connect() as conn:
         try:
             execution = get_blitz_surface(conn, item_id)
@@ -136,15 +143,18 @@ def handle_execution_link(request: FunctionCallRequest) -> HandlerOutcome:
     if error:
         return error
     from yoke_core.domain.db_helpers import connect
+
     with connect() as conn:
         row = conn.execute(
-            "SELECT project_id FROM items WHERE id = %s", (item_id,),
+            "SELECT project_id FROM items WHERE id = %s",
+            (item_id,),
         ).fetchone()
         if row is None:
             return _error("unknown_item", ITEM_NOT_FOUND)
         document_project_id = int(row[0])
         if payload.project:
             from yoke_core.domain.project_identity import resolve_project_id
+
             try:
                 document_project_id = resolve_project_id(conn, payload.project)
             except LookupError as exc:
@@ -175,7 +185,8 @@ def _is_blitz_item(conn: Any, item_id: int) -> bool:
     from yoke_core.domain.strategy_execution_state import BLITZ_WORKFLOW_ID
 
     row = conn.execute(
-        "SELECT workflow_id FROM items WHERE id = %s", (int(item_id),),
+        "SELECT workflow_id FROM items WHERE id = %s",
+        (int(item_id),),
     ).fetchone()
     return row is not None and str(row[0]) == BLITZ_WORKFLOW_ID
 
@@ -188,6 +199,7 @@ def handle_claim_acquire(request: FunctionCallRequest) -> HandlerOutcome:
     if error:
         return error
     from yoke_core.domain.db_helpers import connect
+
     with connect() as conn:
         try:
             claim = acquire_strategy_doc_claim(
@@ -213,6 +225,7 @@ def handle_claim_release(request: FunctionCallRequest) -> HandlerOutcome:
     if error:
         return error
     from yoke_core.domain.db_helpers import connect
+
     with connect() as conn:
         try:
             result = release_strategy_doc_claim(
@@ -233,7 +246,8 @@ def handle_claim_break_glass_release(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
     payload, invalid = _model(
-        request, StrategyExecutionClaimBreakGlassRequest,
+        request,
+        StrategyExecutionClaimBreakGlassRequest,
     )
     if invalid:
         return invalid
@@ -241,6 +255,7 @@ def handle_claim_break_glass_release(
     if error:
         return error
     from yoke_core.domain.db_helpers import connect
+
     with connect() as conn:
         try:
             result = release_strategy_doc_claim(
@@ -266,14 +281,18 @@ def handle_claim_break_glass_release(
 def _execution_outcome(item_id: int, execution: dict) -> HandlerOutcome:
     return HandlerOutcome(
         result_payload=StrategyExecutionResponse(
-            item_id=item_id, execution=execution,
+            item_id=item_id,
+            execution=execution,
         ).model_dump(),
         primary_success=True,
     )
 
 
 def _emit(
-    name: str, request: FunctionCallRequest, project_slug: str, context: dict,
+    name: str,
+    request: FunctionCallRequest,
+    project_slug: str,
+    context: dict,
 ) -> None:
     _events.emit_event(
         name,

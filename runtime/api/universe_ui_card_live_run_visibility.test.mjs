@@ -20,7 +20,6 @@ const ITEM_ID = 450;
 
 function itemRow() {
   return {
-    internal_id: ITEM_ID,
     title: "carry this somewhere",
     public_ref: "YOK-50",
     status: "release",
@@ -77,7 +76,7 @@ test("an in-flight run with no members still draws from contained_items", async 
     run("run-stage", {
       flow: "yoke-hosted-stage-consumer-bound",
       target_environment: "stage",
-      contained_items: [{ id: ITEM_ID }],
+      contained_items: [{ public_ref: "YOK-50" }],
     }),
   ]);
   try {
@@ -100,13 +99,13 @@ test("concurrent live runs to different environments both show", async () => {
   const { mounted, restore, box } = await mount([
     run("run-prod", {
       created_at: ago(1),
-      member_items: [{ id: ITEM_ID, ref: "YOK-50" }],
+      member_items: [{ public_ref: "YOK-50" }],
     }),
     run("run-stage", {
       flow: "yoke-hosted-stage-consumer-bound",
       target_environment: "stage",
       created_at: ago(2),
-      contained_items: [{ id: ITEM_ID }],
+      contained_items: [{ public_ref: "YOK-50" }],
     }),
   ]);
   try {
@@ -124,7 +123,7 @@ test("terminal runs ignore a stale containment snapshot", async () => {
   const { mounted, restore, box } = await mount([
     run("run-stage", {
       status: "failed",
-      contained_items: [{ id: ITEM_ID }],
+      contained_items: [{ public_ref: "YOK-50" }],
     }),
   ]);
   try {
@@ -140,7 +139,7 @@ test("a mixed project run keeps candidate delivery beside real membership", asyn
     run("run-mixed", {
       project_id: 2,
       member_items: [{ id: 999, project_id: 2, ref: "PLAT-9" }],
-      delivery_candidate_items: [{ id: ITEM_ID, project_id: 1 }],
+      delivery_candidate_items: [{ public_ref: "YOK-50", project_id: 1 }],
     }),
   ]);
   try {
@@ -166,7 +165,7 @@ test("a later containing candidate does not revive delivered work", async () => 
   const { mounted, restore, box } = await mount([
     run("run-stage-later", {
       target_environment: "stage",
-      contained_items: [{ id: ITEM_ID }],
+      contained_items: [{ public_ref: "YOK-50" }],
       delivery_candidate_items: [],
     }),
   ]);
@@ -182,7 +181,7 @@ test("a later containing candidate does not revive delivered work", async () => 
 test("a run member remains visible when candidate delivery is settled", async () => {
   const { mounted, restore, box } = await mount([
     run("run-member", {
-      member_items: [{ id: ITEM_ID, project_id: 1 }],
+      member_items: [{ public_ref: "YOK-50", project_id: 1 }],
       delivery_candidate_items: [],
     }),
   ]);

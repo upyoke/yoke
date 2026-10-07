@@ -85,8 +85,8 @@ test("each view's remembered selection and focus are independent of every other 
 test("ordinary detail, focus, global, and workflow links carry each view's own remembered scope", () => {
   const state = createProjectSelection(null);
   state.seed("items", ["1", "2"]);
-  assert.equal(withProjectSelection("/items/42?project=2", state),
-    "/items/42?project=2&selection=1,2");
+  assert.equal(withProjectSelection("/items/YOK-42?project=2", state),
+    "/items/YOK-42?project=2&selection=1,2");
   state.seed("architecture", "all");
   assert.equal(withProjectSelection("/architecture?project=2", state),
     "/architecture?project=2&selection=all");
@@ -98,8 +98,8 @@ test("ordinary detail, focus, global, and workflow links carry each view's own r
   assert.equal(withProjectSelection("/organization", state), "/organization?project=1,2");
   state.seed("items", ["1"]);
   assert.equal(withProjectSelection("/items?project=all", state), "/items?project=all");
-  assert.equal(withProjectSelection("/items/42?project=2&selection=all", state),
-    "/items/42?project=2&selection=all");
+  assert.equal(withProjectSelection("/items/YOK-42?project=2&selection=all", state),
+    "/items/YOK-42?project=2&selection=all");
 });
 
 test("a failed persistence write surfaces a notice; the in-memory value stays usable", async () => {
@@ -168,7 +168,7 @@ test("row pointer and keyboard navigation use the same selection as the row anch
   const row = documentNode.createElement("tr");
   row.setAttribute("role", "link");
   const link = documentNode.createElement("a");
-  link.setAttribute("href", "/items/42?project=2");
+  link.setAttribute("href", "/items/YOK-42?project=2");
   row.appendChild(link);
   row.querySelector = () => link;
   root.appendChild(row);
@@ -176,7 +176,7 @@ test("row pointer and keyboard navigation use the same selection as the row anch
     let prevented = false, stopped = false;
     handlers[type]({ type, target: row, key: "Enter", button: 0,
       preventDefault() { prevented = true; }, stopPropagation() { stopped = true; } });
-    assert.equal(documentNode.defaultView.location.href, "/items/42?project=2&selection=1,2");
+    assert.equal(documentNode.defaultView.location.href, "/items/YOK-42?project=2&selection=1,2");
     assert.ok(prevented && stopped);
   }
   navigation.dispose();

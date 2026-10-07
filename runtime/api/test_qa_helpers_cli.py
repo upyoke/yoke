@@ -12,6 +12,9 @@ from runtime.api.qa_test_helpers import make_qa_db_file
 from runtime.api.qa_transition_test_support import add_bound_requirement
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 @pytest.fixture()
 def db_path(tmp_path: Path):
     with make_qa_db_file(tmp_path) as path:
@@ -85,7 +88,7 @@ class TestCLI:
                 [
                     "requirement-add",
                     "--item-id",
-                    "42",
+                    _FIXTURE_ITEM_REF,
                     "--qa-kind",
                     "ac_verification",
                     "--qa-phase",
@@ -119,7 +122,7 @@ class TestCLI:
                 [
                     "requirement-add",
                     "--item-id",
-                    "42",
+                    _FIXTURE_ITEM_REF,
                     "--qa-kind",
                     "ac_verification",
                     "--qa-phase",

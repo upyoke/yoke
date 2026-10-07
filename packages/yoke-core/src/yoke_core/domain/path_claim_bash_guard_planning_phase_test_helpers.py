@@ -31,7 +31,7 @@ def _dispatch_target(
 ) -> str:
     return str(
         scratch.dispatch_inputs_dir(
-            item_id=item_id,
+            public_ref=f"YOK-{item_id}",
             session_id=dispatch_session,
             attempt=attempt,
             create=False,

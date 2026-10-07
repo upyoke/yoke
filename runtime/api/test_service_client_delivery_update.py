@@ -14,7 +14,7 @@ from runtime.api.test_service_client import _run_client
 
 # Re-export the shared fixture for pytest discovery.
 from runtime.api.test_service_client_delivery_test_helpers import (  # noqa: F401
-    mutation_db,
+    mutation_db as mutation_db,
 )
 
 
@@ -38,7 +38,14 @@ class TestUpdateItem:
         conn.close()
 
         result = _run_client(
-            ["update-item", "11", "--field", "status", "--value", "reviewing-implementation"],
+            [
+                "update-item",
+                "YOK-11",
+                "--field",
+                "status",
+                "--value",
+                "reviewing-implementation",
+            ],
             db_path=mutation_db["db_path"],
         )
         assert result.returncode == 0
@@ -51,7 +58,7 @@ class TestUpdateItem:
     def test_validate_update_alias_marks_preflight_only(self, mutation_db):
         """validate-update makes the no-write contract machine-readable."""
         result = _run_client(
-            ["validate-update", "11", "--field", "priority", "--value", "high"],
+            ["validate-update", "YOK-11", "--field", "priority", "--value", "high"],
             db_path=mutation_db["db_path"],
         )
 
@@ -64,7 +71,7 @@ class TestUpdateItem:
     def test_update_item_legacy_alias_also_marks_preflight_only(self, mutation_db):
         """The one-release compatibility alias keeps the same safety signal."""
         result = _run_client(
-            ["update-item", "11", "--field", "priority", "--value", "high"],
+            ["update-item", "YOK-11", "--field", "priority", "--value", "high"],
             db_path=mutation_db["db_path"],
         )
 
@@ -76,7 +83,7 @@ class TestUpdateItem:
     def test_update_priority_success(self, mutation_db):
         """Update priority returns success."""
         result = _run_client(
-            ["update-item", "11", "--field", "priority", "--value", "high"],
+            ["update-item", "YOK-11", "--field", "priority", "--value", "high"],
             db_path=mutation_db["db_path"],
         )
         assert result.returncode == 0
@@ -87,7 +94,7 @@ class TestUpdateItem:
     def test_update_title_success(self, mutation_db):
         """Update title returns success."""
         result = _run_client(
-            ["update-item", "11", "--field", "title", "--value", "New title"],
+            ["update-item", "YOK-11", "--field", "title", "--value", "New title"],
             db_path=mutation_db["db_path"],
         )
         assert result.returncode == 0
@@ -98,7 +105,7 @@ class TestUpdateItem:
     def test_update_invalid_status_rejected(self, mutation_db):
         """Invalid status string should be rejected."""
         result = _run_client(
-            ["update-item", "11", "--field", "status", "--value", "bogus"],
+            ["update-item", "YOK-11", "--field", "status", "--value", "bogus"],
             db_path=mutation_db["db_path"],
         )
         assert result.returncode == 1
@@ -109,7 +116,7 @@ class TestUpdateItem:
     def test_update_unsupported_field_rejected(self, mutation_db):
         """Field not in the supported surface should be rejected."""
         result = _run_client(
-            ["update-item", "11", "--field", "body", "--value", "some text"],
+            ["update-item", "YOK-11", "--field", "body", "--value", "some text"],
             db_path=mutation_db["db_path"],
         )
         assert result.returncode == 1
@@ -120,7 +127,7 @@ class TestUpdateItem:
     def test_update_nonexistent_item_rejected(self, mutation_db):
         """Updating a nonexistent item should return NOT_FOUND."""
         result = _run_client(
-            ["update-item", "9999", "--field", "status", "--value", "active"],
+            ["update-item", "YOK-9999", "--field", "status", "--value", "active"],
             db_path=mutation_db["db_path"],
         )
         assert result.returncode == 1
@@ -131,7 +138,7 @@ class TestUpdateItem:
     def test_update_done_without_nonce_rejected(self, mutation_db):
         """Transition to done without --done-nonce-verified should be rejected."""
         result = _run_client(
-            ["update-item", "11", "--field", "status", "--value", "done"],
+            ["update-item", "YOK-11", "--field", "status", "--value", "done"],
             db_path=mutation_db["db_path"],
         )
         assert result.returncode == 1
@@ -142,8 +149,15 @@ class TestUpdateItem:
     def test_update_done_with_nonce_and_force(self, mutation_db):
         """Transition to done with --force should succeed."""
         result = _run_client(
-            ["update-item", "11", "--field", "status", "--value", "done",
-             "--force"],
+            [
+                "update-item",
+                "YOK-11",
+                "--field",
+                "status",
+                "--value",
+                "done",
+                "--force",
+            ],
             db_path=mutation_db["db_path"],
         )
         assert result.returncode == 0

@@ -249,13 +249,13 @@ def open_landing_pull_request(
     branch: str,
     target: str,
     lane_head: str,
-    item_id: int = 0,
+    public_ref: str = "",
 ) -> str:
     """Open (or converge on) the pull request whose entry run gates this tree.
 
-    The pull request is named for the lane branch because the case context
-    carries no public item reference; the landing looks it up by head branch
-    either way, so the two callers converge on the same pull request.
+    The lane branch identifies the pull-request head; the case's public item
+    ref records which item owns it. Both verification and landing converge
+    on that same head branch.
 
     Pull-request REST runs from this machine rather than through the
     Actions relay, so it needs this machine's own GitHub App user
@@ -281,7 +281,7 @@ def open_landing_pull_request(
             ctx,
             branch,
             lane_head=lane_head,
-            item_id=item_id,
+            item_public_ref=public_ref,
         )
     if error:
         raise QaCaseExecutionError(

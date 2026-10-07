@@ -16,6 +16,9 @@ from yoke_contracts.api.function_call import (
 )
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 def _request(target: TargetRef) -> FunctionCallRequest:
     return FunctionCallRequest(
         function="items.dependency.list",
@@ -145,6 +148,8 @@ class TestItemDependencyWrites:
 
 class TestShepherdVerdictWrites:
     def test_verdict_and_caveat_disposition_round_trip(self, test_db):
+        insert_item(test_db, id=42)
+        test_db.commit()
         verdict_outcome = shepherd_verdict_writes.handle_shepherd_verdict(
             _write_request(
                 "shepherd.verdict.run",
@@ -181,9 +186,9 @@ class TestShepherdVerdictWrites:
 
         row = test_db.execute(
             "SELECT disposition, resolution_details FROM caveat_dispositions "
-            "WHERE item = %s AND transition = %s AND attempt = %s "
+            "WHERE public_ref = %s AND transition = %s AND attempt = %s "
             "AND caveat_num = %s",
-            ("YOK-42", "planning_to_plan_drafted", 1, 1),
+            (_FIXTURE_ITEM_REF, "planning_to_plan_drafted", 1, 1),
         ).fetchone()
         assert row is not None
         assert row["disposition"] == "RESOLVED"

@@ -155,7 +155,7 @@ def dt_db(tmp_path, monkeypatch):
         );
         CREATE TABLE shepherd_verdicts (
             id INTEGER PRIMARY KEY,
-            item TEXT NOT NULL,
+            public_ref TEXT NOT NULL,
             transition TEXT NOT NULL,
             worker TEXT NOT NULL,
             verdict TEXT NOT NULL,

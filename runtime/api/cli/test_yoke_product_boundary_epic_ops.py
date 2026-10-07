@@ -20,26 +20,16 @@ def _rows() -> dict[str, inventory.InventoryRow]:
 def test_epic_ops_wrappers_are_https_relay_product_surfaces() -> None:
     rows = _rows()
     expected = {
-        "yoke workflow-item epic-task get":
-            "workflow_item.epic_task.get",
-        "yoke workflow-item epic-task simulation-get":
-            "workflow_item.epic_task.simulation_get",
-        "yoke workflow-item epic-task file-add":
-            "workflow_item.epic_task.file_add",
-        "yoke workflow-item epic-task history-insert":
-            "workflow_item.epic_task.history_insert",
-        "yoke workflow-item epic-dispatch-chain get":
-            "workflow_item.epic_dispatch_chain.get",
-        "yoke workflow-item epic-dispatch-chain list":
-            "workflow_item.epic_dispatch_chain.list",
-        "yoke workflow-item epic-dispatch-chain update":
-            "workflow_item.epic_dispatch_chain.update",
-        "yoke workflow-item epic-dispatch-chain refresh-activation":
-            "workflow_item.epic_dispatch_chain.refresh_activation",
-        "yoke conduct epic-task update-status":
-            "conduct.epic_task.update_status",
-        "yoke conduct epic proceed-triage-handoff":
-            "conduct.epic.proceed_triage_handoff",
+        "yoke workflow-item epic-task get": "workflow_item.epic_task.get",
+        "yoke workflow-item epic-task simulation-get": "workflow_item.epic_task.simulation_get",
+        "yoke workflow-item epic-task file-add": "workflow_item.epic_task.file_add",
+        "yoke workflow-item epic-task history-insert": "workflow_item.epic_task.history_insert",
+        "yoke workflow-item epic-dispatch-chain get": "workflow_item.epic_dispatch_chain.get",
+        "yoke workflow-item epic-dispatch-chain list": "workflow_item.epic_dispatch_chain.list",
+        "yoke workflow-item epic-dispatch-chain update": "workflow_item.epic_dispatch_chain.update",
+        "yoke workflow-item epic-dispatch-chain refresh-activation": "workflow_item.epic_dispatch_chain.refresh_activation",
+        "yoke conduct epic-task update-status": "conduct.epic_task.update_status",
+        "yoke conduct epic proceed-triage-handoff": "conduct.epic.proceed_triage_handoff",
     }
     for command, function_id in expected.items():
         row = rows[command]
@@ -58,7 +48,7 @@ def test_structured_adapter_inventory_tracks_epic_ops() -> None:
     assert index["workflow_item.epic_task.file_add"].read_shape is False
     assert (
         index["workflow_item.epic_dispatch_chain.refresh_activation"].cli_invocation
-        == "yoke workflow-item epic-dispatch-chain refresh-activation --epic N "
+        == "yoke workflow-item epic-dispatch-chain refresh-activation --epic PREFIX-N "
         "--worktree NAME --task-num N"
     )
     assert index["conduct.epic_task.update_status"].read_shape is False

@@ -45,9 +45,9 @@
 
 ## If the argument is a reference
 
-Use it as `ITEM`. A bare number resolves as the current project's public item
-sequence. Do not invent or guess a prefix; pass the operator's token through
-unchanged.
+Use the complete `PREFIX-N` ref as `ITEM`. A bare number is refused even with
+project context. Do not invent or guess a prefix; request the full public ref
+when the operator supplied only a number.
 
 ## Claim before anything else
 

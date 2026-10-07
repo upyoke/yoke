@@ -9,7 +9,7 @@ const TERMINAL_RUN_STATES = new Set(["succeeded", "failed", "cancelled"]);
 const ACCEPTED_QA = new Set(["accepted", "discharged"]);
 
 function memberItemId(member) {
-  const value = member.id ?? member.item_id;
+  const value = member.public_ref ?? member.ref ?? member.item_ref;
   return value === undefined || value === null ? null : String(value);
 }
 
@@ -185,7 +185,7 @@ export function appendItemDelivery(documentNode, card, row, deployments, project
     // wait for — an absent merge line alone would read as unfinished work.
     box.appendChild(el(documentNode, "small", "item-delivery-no-change", "no code change"));
   }
-  const itemId = row.internal_id ?? row.item_id ?? row.id;
+  const itemId = row.public_ref;
   const runs = shownDeliveryRuns(deployments?.get(String(itemId)) || []);
   for (const run of runs) {
     box.appendChild(environmentRow(documentNode, runEnvironment(run), itemOutcome(run), run, row));
@@ -207,7 +207,7 @@ export function appendItemDelivery(documentNode, card, row, deployments, project
 // Where an item's delivery stands, one environment per part, for a surface
 // too compact for the delivery box: "stage ✓ · prod deploying".
 export function deliverySummary(row, deployments) {
-  const itemId = row.internal_id ?? row.item_id ?? row.id;
+  const itemId = row.public_ref;
   const runs = shownDeliveryRuns(deployments?.get(String(itemId)) || [])
     .filter((run) => run.delivery_relation !== "removed");
   const parts = runs.map((run) => {

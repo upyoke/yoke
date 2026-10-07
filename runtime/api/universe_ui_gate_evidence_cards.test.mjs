@@ -214,7 +214,7 @@ test("a deployment QA review claims nothing about what has shipped", async () =>
       ...facts,
       subject: {
         kind: "deployment_run",
-        item_id: null,
+        public_ref: null,
         item_ref: null,
         item_title: null,
         deployment_run_id: "run-20260909-027",

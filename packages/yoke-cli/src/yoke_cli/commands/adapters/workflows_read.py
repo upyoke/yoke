@@ -163,7 +163,7 @@ def workflows_item_get(args: List[str]) -> int:
             + "|".join(
                 str(result.get(key) or "")
                 for key in (
-                    "item_id",
+                    "public_ref",
                     "workflow_id",
                     "workflow_version",
                     "workflow_version_id",

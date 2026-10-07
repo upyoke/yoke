@@ -118,7 +118,7 @@ class TestDispatcherResultShape:
         assert payload["waiting_on"] == []
         request = calls[0]
         assert request["function_id"] == release_flow.CONTINUE_FUNCTION
-        assert request["target"] == TargetRef(kind="item", item_id=ITEM_ID)
+        assert request["target"] == TargetRef(kind="item", public_ref=PUBLIC_REF)
         assert request["actor"].session_id == SESSION
 
     def test_waiting_maps_continue_result(self, monkeypatch):
@@ -282,8 +282,8 @@ class TestHttpsAndLocalAuthority:
         assert fragment is None and warning == ""
         assert captured["request"].function == release_flow.CONTINUE_FUNCTION
         assert captured["request"].actor.session_id == SESSION
-        assert captured["request"].target.item_id == ITEM_ID
-        assert captured["request"].target.public_ref is None
+        assert captured["request"].target.item_id is None
+        assert captured["request"].target.public_ref == PUBLIC_REF
         assert captured["connection"].env == "prod"
 
     def test_local_authority_binds_the_merge_session(self, monkeypatch):
@@ -308,4 +308,4 @@ class TestHttpsAndLocalAuthority:
         assert fragment["run_id"] == "run-1"
         assert captured["request"].actor.session_id == SESSION
         assert captured["request"].function == release_flow.CONTINUE_FUNCTION
-        assert captured["request"].target.public_ref is None
+        assert captured["request"].target.public_ref == PUBLIC_REF

@@ -1,4 +1,4 @@
-"""GET /v1/items/{id} single-item tests (TestGetItem)."""
+"""GET /v1/items/{public_ref} single-item tests (TestGetItem)."""
 
 from __future__ import annotations
 
@@ -33,10 +33,11 @@ def client(test_db):
 
 class TestGetItem:
     def test_get_existing_item(self, client):
-        resp = client.get("/v1/items/1")
+        resp = client.get("/v1/items/YOK-1")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["id"] == 1
+        assert data["id"] == "YOK-1"
+        assert data["public_ref"] == "YOK-1"
         assert data["title"] == "First item"
         assert data["workflow_id"] == "issue"
         assert isinstance(data["workflow_version_id"], int)
@@ -47,21 +48,21 @@ class TestGetItem:
 
     def test_get_item_body_is_none_after_column_removal(self, client):
         """body column removed; single-item response still includes body key (None)."""
-        resp = client.get("/v1/items/1")
+        resp = client.get("/v1/items/YOK-1")
         assert resp.status_code == 200
         data = resp.json()
         assert "body" in data
         assert data["body"] is None
 
     def test_get_item_not_found(self, client):
-        resp = client.get("/v1/items/999")
+        resp = client.get("/v1/items/YOK-999")
         assert resp.status_code == 404
         data = resp.json()
         assert data["error"]["code"] == "NOT_FOUND"
         assert "999" in data["error"]["message"]
 
     def test_get_item_frozen_as_bool(self, client):
-        resp = client.get("/v1/items/1")
+        resp = client.get("/v1/items/YOK-1")
         data = resp.json()
         assert data["frozen"] is False
 
@@ -125,3 +126,10 @@ class TestGetItem:
             assert "missing required table" in message
             assert STRATEGY_DOCS_TABLE in message
             assert "yoke_core.domain.schema init" in message
+
+
+@pytest.mark.parametrize("selector", ["1", "999"])
+def test_numeric_rest_selector_is_refused(client, selector):
+    response = client.get(f"/v1/items/{selector}")
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "public_item_ref_required"

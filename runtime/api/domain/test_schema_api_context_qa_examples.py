@@ -100,7 +100,7 @@ def test_qa_packet_carries_requirement_add_ac_verification_example() -> None:
     assert "authorized by the run's project scope" in body
     # Epic-task attachment is the one shape that stays operator-debug.
     assert (
-        "requirement-add --epic-id E --task-num K --workflow-transition STAGE"
+        "requirement-add --epic-id PREFIX-N --task-num K --workflow-transition STAGE"
     ) in body
 
 
@@ -115,7 +115,7 @@ def test_qa_runner_packets_require_transition_bound_creation(role: str) -> None:
     ) in body
     assert "every row must include `workflow_transition_id`" in body
     assert (
-        "requirement-add --epic-id E --task-num K --workflow-transition STAGE"
+        "requirement-add --epic-id PREFIX-N --task-num K --workflow-transition STAGE"
     ) in body
 
 

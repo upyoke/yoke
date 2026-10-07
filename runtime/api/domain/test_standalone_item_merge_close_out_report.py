@@ -91,7 +91,8 @@ def _run_close_out(
         merge_cli, "record_terminal_lane_close_out", lambda *_a, **_k: None
     )
     monkeypatch.setattr(
-        close_out_transition, "close_out_route",
+        close_out_transition,
+        "close_out_route",
         lambda *_a, postpone_terminal=False, **_k: (
             CloseOutRoute(stages=("release",))
             if postpone_terminal
@@ -239,7 +240,7 @@ def test_partial_failures_reach_the_block_as_warnings():
     ),
 )
 def test_the_claim_line_reports_the_live_holder(holder, expected):
-    assert report.claim_state(7, SESSION, _holder_dispatch(holder)) == expected
+    assert report.claim_state("ITEM-7", SESSION, _holder_dispatch(holder)) == expected
 
 
 def test_an_unreadable_holder_is_unconfirmed_rather_than_released():
@@ -249,10 +250,12 @@ def test_an_unreadable_holder_is_unconfirmed_rather_than_released():
     def raised(**_kw):
         raise RuntimeError("transport closed")
 
-    assert report.claim_state(7, SESSION, refused) == (
+    assert report.claim_state("ITEM-7", SESSION, refused) == (
         "unconfirmed (relay unavailable)"
     )
-    assert report.claim_state(7, SESSION, raised) == ("unconfirmed (transport closed)")
+    assert report.claim_state("ITEM-7", SESSION, raised) == (
+        "unconfirmed (transport closed)"
+    )
 
 
 def test_a_merge_awaiting_delivery_is_not_reported_as_closed():
@@ -313,7 +316,7 @@ def test_a_holder_read_that_raises_cannot_fail_a_closed_item(monkeypatch, capsys
     "holder", ("a-session-string", ["list"], 7, {"no_session": True})
 )
 def test_a_holder_shape_this_build_does_not_expect_is_unconfirmed(holder):
-    state = report.claim_state(7, SESSION, _holder_dispatch(holder))
+    state = report.claim_state("ITEM-7", SESSION, _holder_dispatch(holder))
 
     assert state.startswith("unconfirmed") or state == "held by session unknown"
 
@@ -324,7 +327,7 @@ def test_an_unresolvable_ambient_identity_is_unconfirmed(monkeypatch):
 
     monkeypatch.setattr(report, "resolve_ambient_session_id", raised)
     state = report.claim_state(
-        7, "", _holder_dispatch({"session_id": "other", "item_id": 7})
+        "ITEM-7", "", _holder_dispatch({"session_id": "other", "item_id": 7})
     )
 
     assert state == "unconfirmed (no ambient session)"

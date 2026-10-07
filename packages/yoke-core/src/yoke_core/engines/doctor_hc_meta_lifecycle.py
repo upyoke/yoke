@@ -57,10 +57,10 @@ def hc_shepherd_lifecycle(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             verdict = query_rows(
                 conn,
                 "SELECT id FROM shepherd_verdicts "
-                f"WHERE item = {_p(conn)} AND transition = {_p(conn)} "
+                f"WHERE public_ref = {_p(conn)} AND transition = {_p(conn)} "
                 "AND verdict IN ('READY','CAVEATS','SKIPPED') "
                 "AND (verdict <> 'SKIPPED' OR LOWER(worker) IN ('review', 'architect')) LIMIT 1",
-                (f"YOK-{row['id']}", edge.verdict_key),
+                (render_item_ref(conn, row["id"]), edge.verdict_key),
             )
             if not verdict:
                 issues.append(

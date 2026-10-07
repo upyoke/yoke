@@ -141,7 +141,9 @@ def handle_latest_deployment_run(request: FunctionCallRequest) -> HandlerOutcome
     """
     item_id = _require_item_id(request)
     if item_id is None:
-        return _err("target_invalid", "latest_deployment_run requires target.item_id")
+        return _err(
+            "target_invalid", "latest_deployment_run requires target.public_ref"
+        )
 
     try:
         with _connect_rw() as conn:
@@ -227,7 +229,7 @@ def handle_run_stage_qa_acceptance(request: FunctionCallRequest) -> HandlerOutco
     item_id = _require_item_id(request)
     if item_id is None:
         return _err(
-            "target_invalid", "run_stage_qa_acceptance requires target.item_id"
+            "target_invalid", "run_stage_qa_acceptance requires target.public_ref"
         )
     try:
         body = RunStageQaAcceptanceRequest.model_validate(request.payload)
@@ -265,7 +267,7 @@ def handle_done_preconditions(request: FunctionCallRequest) -> HandlerOutcome:
     """
     item_id = _require_item_id(request)
     if item_id is None:
-        return _err("target_invalid", "done_preconditions requires target.item_id")
+        return _err("target_invalid", "done_preconditions requires target.public_ref")
     try:
         body = DonePreconditionsRequest.model_validate(request.payload or {})
     except Exception as exc:  # noqa: BLE001 - surface a structured payload error

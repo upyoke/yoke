@@ -5,7 +5,7 @@ import {
   appendItemDelivery, deploymentsByItemId,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_item_deployment.js";
 
-const item = { id: 51, project_id: 7 };
+const item = { public_ref: "SAMPLE-51", project_id: 7 };
 const run = (id, facts = {}) => ({
   id, project_id: 7, target_environment: "prod", status: "executing",
   created_at: "2026-10-01T12:00:00Z", member_items: [item], ...facts,
@@ -23,7 +23,7 @@ test("a recorded removal supersedes old membership and candidate containment", (
     removed_member_items: [{ ...item, reason: "QA awaits a repaired golden" }],
   });
   const index = deploymentsByItemId([run("run-old", { status: "failed" }), removed]);
-  assert.equal(index.get("51").filter((r) => r.id === removed.id).length, 1);
+  assert.equal(index.get("SAMPLE-51").filter((r) => r.id === removed.id).length, 1);
   const box = card([run("run-old", { status: "failed" }), removed]);
   const outcome = byClass(box, "item-deployment-outcome")[0];
   assert.equal(outcome.textContent, "○ removed · QA cancelled · rides a later release");

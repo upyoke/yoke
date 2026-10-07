@@ -201,7 +201,7 @@ def case_contract(
     return MachineQaCaseContract.model_validate(
         {
             "requirement_id": 1,
-            "item_id": 1,
+            "public_ref": f"ITEM-{1}",
             "plan_id": None,
             "case_key": "fixture-lifecycle",
             "method_id": "terminal-check",

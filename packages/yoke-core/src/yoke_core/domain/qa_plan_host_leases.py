@@ -179,6 +179,7 @@ def begin_case_host_contract(
         ) from None
     selected = admissions[driver]
     contract = _issue(
+        conn,
         selected.contract,
         selected.lease,
         checks=(),

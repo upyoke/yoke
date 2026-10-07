@@ -44,7 +44,7 @@ def _setup_scratch(patch_conn, monkeypatch, item_id, status):
 def _dispatch_target(item_id: int, filename: str = "s.md") -> Path:
     return (
         scratch.dispatch_inputs_dir(
-            item_id=item_id,
+            public_ref=f"YOK-{item_id}",
             session_id="x",
             attempt=1,
             create=False,

@@ -2,7 +2,7 @@
 
 Invoked from `engineer-tester-loop.md` S6g. Covers loop initialization, branch-ahead detection, attempt baseline, Engineer dispatch with submission gate, and Tester dispatch with diff size-gating.
 
-**Inherited:** `MAIN_ROOT`, `_epic_id`, `N`, `_task_id`, `_worktree_path`, `_worktree_branch`, `TASK_BASELINE`, `_max_attempts`, `_no_chain`, context block, `_attempt`, `_tester_output_failures`.
+**Inherited:** `MAIN_ROOT`, `_epic_ref`, `N`, `_task_id`, `_worktree_path`, `_worktree_branch`, `TASK_BASELINE`, `_max_attempts`, `_no_chain`, context block, `_attempt`, `_tester_output_failures`.
 
 ---
 
@@ -32,12 +32,12 @@ fi
 **Step 1 — Record attempt baseline:** Read via the main checkout's branch ref — Step 3b's per-task claim acquire is still ahead, so direct lane-worktree access is blocked by `lint_session_cwd`.
 ```bash
 ATTEMPT_BASELINE=$(git -C "${MAIN_ROOT}" rev-parse "${_worktree_branch}")
-_progress_note_count_before=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_progress_notes WHERE epic_id='${_epic_id}' AND task_num=${_task_id}" 2>/dev/null || echo 0)
+_progress_note_count_before=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_progress_notes WHERE epic_id=(SELECT item_id FROM item_refs WHERE public_ref='${_epic_ref}') AND task_num=${_task_id}" 2>/dev/null || echo 0)
 ```
 
 **Step 2 — Skip Engineer if implementation already on branch:** If `_has_implementation` is true AND `_attempt` equals 1:
 - Emit: `[SKIP] PREFIX-{N}: implementation already on branch, skipping to Tester`
-- Seed review requirement: `yoke workflow-item epic-task review-seed --epic "$_epic_id" --task-num "$_task_id"`
+- Seed review requirement: `yoke workflow-item epic-task review-seed --epic "$_epic_ref" --task-num "$_task_id"`
 - Go directly to Step 5 (Merge main).
 
 On retry attempts (`_attempt > 1`), always dispatch Engineer.
@@ -50,7 +50,7 @@ The parent item claim from `entry-activation.md` S3b is the epic coordination lo
 
 ```bash
 yoke claims work acquire \
- --epic-id "${_epic_id}" --task-num "${_task_id}" \
+ --epic "${_epic_ref}" --task-num "${_task_id}" \
  --reason "engineer dispatch PREFIX-${N} task ${_task_id}"
 ```
 
@@ -58,10 +58,10 @@ Verify the claim landed before dispatching — mirrors entry-activation S3b's ve
 
 ```bash
 _eng_claim_ok=$(YOKE_SESSION_ID="${YOKE_SESSION_ID}" yoke db read --format lines \
- "SELECT 1 FROM work_claims WHERE session_id='${YOKE_SESSION_ID}' AND target_kind='epic_task' AND epic_id=${_epic_id} AND task_num=${_task_id} AND released_at IS NULL")
+ "SELECT 1 FROM work_claims WHERE session_id='${YOKE_SESSION_ID}' AND target_kind='epic_task' AND epic_id=(SELECT item_id FROM item_refs WHERE public_ref='${_epic_ref}') AND task_num=${_task_id} AND released_at IS NULL")
 if [ -z "$_eng_claim_ok" ] || [ "$_eng_claim_ok" = "0" ]; then
- echo "HALT: engineer dispatch — no active epic_task claim for (epic_id=${_epic_id}, task_num=${_task_id}) under session ${YOKE_SESSION_ID}."
- echo "Recovery: run 'yoke claims work acquire --epic-id ${_epic_id} --task-num ${_task_id} --reason \"engineer dispatch\"' and retry."
+ echo "HALT: engineer dispatch — no active epic_task claim for (epic_id=${_epic_ref}, task_num=${_task_id}) under session ${YOKE_SESSION_ID}."
+ echo "Recovery: run 'yoke claims work acquire --epic ${_epic_ref} --task-num ${_task_id} --reason \"engineer dispatch\"' and retry."
  exit 1
 fi
 ```
@@ -78,7 +78,7 @@ fi
  {context block from S6f}
 
  Read the authoritative task spec from the DB before starting:
- yoke workflow-item epic-task body-get --epic "{_epic_id}" --task-num "{_task_id}"
+ yoke workflow-item epic-task body-get --epic "{_epic_ref}" --task-num "{_task_id}"
  Also read the parent item spec for full context:
  yoke items get PREFIX-{N} spec
 
@@ -123,7 +123,7 @@ fi
 **AUTONOMOUS CONTINUATION REQUIRED:** Emit `[CONTINUE] Engineer returned for PREFIX-{N}. Next: post-Engineer processing (S6g.5)` then execute immediately.
 
 - Capture reflections (see `dispatch-context.md` step 5m; use `offset`/`limit`).
-- **Submission gate:** Run `yoke workflow-item epic-task submission-receipt-get --epic "$_epic_id" --task-num "$_task_id" --after-note-count "$_progress_note_count_before"` and require it to pass. This is the load-bearing check on both Claude and Codex — there is no SubagentStop hook gate (the per-subagent binding required to identify a stopping engineer's `(epic_id, task_num)` cannot be satisfied from the SubagentStop hook payload). The command reads `---SUBMISSION-CHECKS-START---` / `---SUBMISSION-CHECKS-END---` from `epic_progress_notes.body`, not from the Agent result summary. Required keys: `test_plan`, `files_touched`, `edited_tests`, `clean_worktree`, `progress_notes`, `file_budget`. Accept only `PASS` or explicit `SKIP` for `test_plan`, `files_touched`, `edited_tests`. Require `clean_worktree: PASS`. Require `progress_notes: PASS` when `HEAD` differs from `ATTEMPT_BASELINE`; `SKIP` only when no commit landed. Require `file_budget: PASS` when the submission created or grew authored code (every authored file is at or below 350 lines per `yoke_core.domain.file_line_check`); `file_budget: SKIP` is valid only when no authored code was created or grown (e.g., docs-only sub-task). Missing line, malformed line, or any `FAIL`/`UNKNOWN` value re-dispatches the same attempt. On any failure, re-dispatch Engineer for the same attempt (do NOT increment `_attempt`).
+- **Submission gate:** Run `yoke workflow-item epic-task submission-receipt-get --epic "$_epic_ref" --task-num "$_task_id" --after-note-count "$_progress_note_count_before"` and require it to pass. This is the load-bearing check on both Claude and Codex — there is no SubagentStop hook gate (the per-subagent binding required to identify a stopping engineer's `(epic_id, task_num)` cannot be satisfied from the SubagentStop hook payload). The command reads `---SUBMISSION-CHECKS-START---` / `---SUBMISSION-CHECKS-END---` from `epic_progress_notes.body`, not from the Agent result summary. Required keys: `test_plan`, `files_touched`, `edited_tests`, `clean_worktree`, `progress_notes`, `file_budget`. Accept only `PASS` or explicit `SKIP` for `test_plan`, `files_touched`, `edited_tests`. Require `clean_worktree: PASS`. Require `progress_notes: PASS` when `HEAD` differs from `ATTEMPT_BASELINE`; `SKIP` only when no commit landed. Require `file_budget: PASS` when the submission created or grew authored code (every authored file is at or below 350 lines per `yoke_core.domain.file_line_check`); `file_budget: SKIP` is valid only when no authored code was created or grown (e.g., docs-only sub-task). Missing line, malformed line, or any `FAIL`/`UNKNOWN` value re-dispatches the same attempt. On any failure, re-dispatch Engineer for the same attempt (do NOT increment `_attempt`).
 - **Dirty-exit detection:**
  ```bash
  _last_commit_subject=$(git -C "${_worktree_path}" log -1 --format='%s' 2>/dev/null || true)
@@ -131,7 +131,7 @@ fi
  If `_last_commit_subject` matches `chore: auto-commit Engineer uncommitted work [PREFIX-${N}]`, re-dispatch Engineer for the same attempt. Do NOT advance to `reviewing-implementation` from a safety-net commit.
 - **Epic progress-note gate:**
  ```bash
- _progress_note_count_after=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_progress_notes WHERE epic_id='${_epic_id}' AND task_num=${_task_id}" 2>/dev/null || echo 0)
+ _progress_note_count_after=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_progress_notes WHERE epic_id=(SELECT item_id FROM item_refs WHERE public_ref='${_epic_ref}') AND task_num=${_task_id}" 2>/dev/null || echo 0)
  _head_after_engineer=$(git -C "${_worktree_path}" rev-parse HEAD 2>/dev/null || true)
  ```
  If `_head_after_engineer` differs from `ATTEMPT_BASELINE` and `_progress_note_count_after` not greater than `_progress_note_count_before`, re-dispatch Engineer for the same attempt.
@@ -150,7 +150,7 @@ fi
  fi
  ```
  If this sweep committed anything, re-dispatch Engineer for the same attempt.
-- **Seed review:** `yoke workflow-item epic-task review-seed --epic "$_epic_id" --task-num "$_task_id"` (auto-advances to `reviewing-implementation`).
+- **Seed review:** `yoke workflow-item epic-task review-seed --epic "$_epic_ref" --task-num "$_task_id"` (auto-advances to `reviewing-implementation`).
 
 **Step 6 — Merge main:**
 ```bash
@@ -163,13 +163,13 @@ If merge fails: re-dispatch Engineer to resolve conflicts, then retry merge.
 
 ```bash
 yoke claims work acquire \
- --epic-id "${_epic_id}" --task-num "${_task_id}" \
+ --epic "${_epic_ref}" --task-num "${_task_id}" \
  --reason "tester dispatch PREFIX-${N} task ${_task_id}"
 _tester_claim_ok=$(YOKE_SESSION_ID="${YOKE_SESSION_ID}" yoke db read --format lines \
- "SELECT 1 FROM work_claims WHERE session_id='${YOKE_SESSION_ID}' AND target_kind='epic_task' AND epic_id=${_epic_id} AND task_num=${_task_id} AND released_at IS NULL")
+ "SELECT 1 FROM work_claims WHERE session_id='${YOKE_SESSION_ID}' AND target_kind='epic_task' AND epic_id=(SELECT item_id FROM item_refs WHERE public_ref='${_epic_ref}') AND task_num=${_task_id} AND released_at IS NULL")
 if [ -z "$_tester_claim_ok" ] || [ "$_tester_claim_ok" = "0" ]; then
- echo "HALT: tester dispatch — no active epic_task claim for (epic_id=${_epic_id}, task_num=${_task_id}) under session ${YOKE_SESSION_ID}."
- echo "Recovery: re-run conduct or 'yoke claims work acquire --epic-id ${_epic_id} --task-num ${_task_id}'."
+ echo "HALT: tester dispatch — no active epic_task claim for (epic_id=${_epic_ref}, task_num=${_task_id}) under session ${YOKE_SESSION_ID}."
+ echo "Recovery: re-run conduct or 'yoke claims work acquire --epic ${_epic_ref} --task-num ${_task_id}'."
  exit 1
 fi
 ```

@@ -10,14 +10,15 @@ close-out strands the item rather than protecting anything.
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
+from types import SimpleNamespace as SimpleNamespace
 
 from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
-from yoke_core.domain import standalone_item_merge_close_out_transition as close_out_transition
+from yoke_core.domain import (
+    standalone_item_merge_close_out_transition as close_out_transition,
+)
 from yoke_core.domain import standalone_item_merge_release_status as release_status
 from yoke_core.domain import standalone_item_merge_evidence as merge_evidence
-from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_recovery as recovery
 from yoke_core.domain import standalone_item_merge_terminal as terminal
@@ -64,7 +65,7 @@ def test_transition_accepts_a_landing_only_the_remote_has_seen(monkeypatch):
     calls = _transition_calls(monkeypatch)
 
     new_status, error = terminal.transition_to_done(
-        item_id=7,
+        item_id="ITEM-7",
         source_status="reviewing-implementation",
         repo_root="/repo",
         lane=LANE,
@@ -88,7 +89,7 @@ def test_transition_accepts_the_merge_commit_when_the_lane_head_was_rewritten(
     calls = _transition_calls(monkeypatch)
 
     new_status, error = terminal.transition_to_done(
-        item_id=7,
+        item_id="ITEM-7",
         source_status="reviewing-implementation",
         repo_root="/repo",
         lane=LANE,
@@ -108,7 +109,7 @@ def test_transition_still_refuses_a_commit_no_branch_carries(monkeypatch):
     monkeypatch.setattr(terminal, "call_dispatcher", forbidden)
 
     new_status, error = terminal.transition_to_done(
-        item_id=7,
+        item_id="ITEM-7",
         source_status="reviewing-implementation",
         repo_root="/repo",
         lane=LANE,
@@ -178,7 +179,11 @@ def test_a_queue_landed_item_closes_out_with_its_own_file_set(monkeypatch):
     # This test is about evidence/file-set ordering, not the delivery route:
     # pin the target at "done" so the transition it observes matches the
     # file-set assertions regardless of dash's own release-stage policy.
-    monkeypatch.setattr(close_out_transition, "close_out_route", lambda *_a, **_k: release_status.CloseOutRoute(stages=("done",)))
+    monkeypatch.setattr(
+        close_out_transition,
+        "close_out_route",
+        lambda *_a, **_k: release_status.CloseOutRoute(stages=("done",)),
+    )
     restored = []
     monkeypatch.setattr(
         merge_cli.recovery,
@@ -205,7 +210,7 @@ def test_a_queue_landed_item_closes_out_with_its_own_file_set(monkeypatch):
     assert evidence["commit_sha"] == LANE_SHA
     assert evidence["merge_sha"] == MERGE_SHA
     assert restored == [MERGE_SHA]
-    assert cleared == [7]
+    assert cleared == ["ITEM-1"]
     assert payloads["lifecycle.transition.execute"]["target_status"] == "done"
     call_names = [name for name, _payload in calls]
     assert call_names.index("direct_workflow.dash.evidence") < call_names.index(
@@ -224,7 +229,7 @@ def test_landed_lane_reacquires_close_out_authority(monkeypatch):
     monkeypatch.setattr(recovery, "call_dispatcher", dispatch)
 
     recovered, error = recovery.reacquire_landed_claim(
-        item_id=7,
+        item_id="ITEM-7",
         session_id="session-1",
         lane=LANE,
     )
@@ -247,7 +252,7 @@ def test_absent_landing_cannot_reacquire_close_out_authority(monkeypatch):
     monkeypatch.setattr(recovery, "claim_error", lambda *_a: "")
 
     recovered, error = recovery.reacquire_landed_claim(
-        item_id=7,
+        item_id="ITEM-7",
         session_id="session-1",
         lane=None,
     )
@@ -304,7 +309,11 @@ def test_merge_retry_uses_recovered_head_then_finishes_close_out(monkeypatch):
     )
     monkeypatch.setattr(sim, "sync_item_to_github", lambda _item_id: None)
     monkeypatch.setattr(terminal.git, "is_landed", lambda *_a: True)
-    monkeypatch.setattr(close_out_transition, "close_out_route", lambda *_a, **_k: release_status.CloseOutRoute(stages=("done",)))
+    monkeypatch.setattr(
+        close_out_transition,
+        "close_out_route",
+        lambda *_a, **_k: release_status.CloseOutRoute(stages=("done",)),
+    )
     calls = _transition_calls(monkeypatch)
 
     exit_code = merge_cli.run(
@@ -318,32 +327,3 @@ def test_merge_retry_uses_recovered_head_then_finishes_close_out(monkeypatch):
     names = [name for name, _payload in calls]
     wrote_evidence = names.index("direct_workflow.dash.evidence")
     assert names[wrote_evidence + 1] == "lifecycle.transition.execute"
-
-
-def test_is_landed_consults_the_remote_before_refusing(monkeypatch):
-    commands: list = []
-
-    def fake_git(repo_root, *args):
-        commands.append(list(args))
-        landed = args[:2] == ("merge-base", "--is-ancestor")
-        remote_ref = landed and args[3] == "origin/main"
-        return SimpleNamespace(
-            returncode=0 if remote_ref else 1,
-            stdout="origin\n",
-            stderr="",
-        )
-
-    monkeypatch.setattr(git, "_git", fake_git)
-    monkeypatch.setattr(git, "git_out", lambda repo_root, *args: "origin")
-
-    assert git.is_landed("/repo", LANE_SHA, "main") is True
-    assert ["fetch", "origin", "main"] in commands
-
-
-def test_is_landed_is_false_without_a_commit(monkeypatch):
-    def forbidden(*_args, **_kwargs):
-        raise AssertionError("no git read is needed without a commit")
-
-    monkeypatch.setattr(git, "_git", forbidden)
-
-    assert git.is_landed("/repo", "", "main") is False

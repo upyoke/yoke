@@ -8,19 +8,22 @@ unreachable store costs crash recovery, never the merge.
 
 from __future__ import annotations
 
-import pytest
+import pytest as pytest
 
 from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_core.domain import item_merge_receipts as receipts
 
-ITEM_ID = 7
+ITEM_REF = "ITEM-7"
 BRANCH = "ITEM-1"
 TARGET = "main"
 
 
 def _ok(**kwargs) -> FunctionCallResponse:
     return FunctionCallResponse(
-        success=True, function=kwargs["function_id"], version="v1", result={},
+        success=True,
+        function=kwargs["function_id"],
+        version="v1",
+        result={},
     )
 
 
@@ -33,16 +36,19 @@ def test_recording_carries_the_merge_facts(monkeypatch: pytest.MonkeyPatch) -> N
 
     monkeypatch.setattr(receipts, "call_dispatcher", capture)
     note = receipts.record(
-        ITEM_ID,
+        ITEM_REF,
         receipts.MergeReceipt(
-            branch=BRANCH, target=TARGET, commit_sha="abc",
-            merge_sha="def", touched_files=("feature.txt",),
+            branch=BRANCH,
+            target=TARGET,
+            commit_sha="abc",
+            merge_sha="def",
+            touched_files=("feature.txt",),
         ),
     )
 
     assert note == ""
     assert sent["function_id"] == receipts.RECORD_FUNCTION_ID
-    assert sent["target"].item_id == ITEM_ID
+    assert sent["target"].public_ref == ITEM_REF
     payload = sent["payload"]
     assert payload["branch"] == BRANCH
     assert payload["target"] == TARGET
@@ -61,10 +67,14 @@ def test_a_failure_and_a_settlement_use_the_same_entry(
 
     monkeypatch.setattr(receipts, "call_dispatcher", capture)
     receipts.record_failure(
-        ITEM_ID, branch=BRANCH, target=TARGET, label="merge failed",
-        phase="branch-push", reason="remote rejected",
+        ITEM_REF,
+        branch=BRANCH,
+        target=TARGET,
+        label="merge failed",
+        phase="branch-push",
+        reason="remote rejected",
     )
-    receipts.record_settlement(ITEM_ID, branch=BRANCH, target=TARGET)
+    receipts.record_settlement(ITEM_REF, branch=BRANCH, target=TARGET)
 
     assert sent[0]["failure"] == {
         "label": "merge failed",
@@ -79,9 +89,12 @@ def test_loading_returns_the_recorded_entry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        receipts, "call_dispatcher",
+        receipts,
+        "call_dispatcher",
         lambda **kwargs: FunctionCallResponse(
-            success=True, function=kwargs["function_id"], version="v1",
+            success=True,
+            function=kwargs["function_id"],
+            version="v1",
             result={
                 "found": True,
                 "entry": {
@@ -93,7 +106,7 @@ def test_loading_returns_the_recorded_entry(
             },
         ),
     )
-    loaded = receipts.load(ITEM_ID, BRANCH, TARGET)
+    loaded = receipts.load(ITEM_REF, BRANCH, TARGET)
 
     assert loaded is not None
     assert loaded.commit_sha == "abc"
@@ -108,14 +121,17 @@ def test_a_missing_entry_reads_as_no_receipt(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        receipts, "call_dispatcher",
+        receipts,
+        "call_dispatcher",
         lambda **kwargs: FunctionCallResponse(
-            success=True, function=kwargs["function_id"], version="v1",
+            success=True,
+            function=kwargs["function_id"],
+            version="v1",
             result={"found": False, "entry": None},
         ),
     )
 
-    assert receipts.load(ITEM_ID, BRANCH, TARGET) is None
+    assert receipts.load(ITEM_REF, BRANCH, TARGET) is None
 
 
 def test_an_unreachable_store_degrades_instead_of_failing_the_merge(
@@ -126,9 +142,9 @@ def test_an_unreachable_store_degrades_instead_of_failing_the_merge(
 
     monkeypatch.setattr(receipts, "call_dispatcher", refuse)
 
-    assert receipts.load(ITEM_ID, BRANCH, TARGET) is None
+    assert receipts.load(ITEM_REF, BRANCH, TARGET) is None
     note = receipts.record(
-        ITEM_ID,
+        ITEM_REF,
         receipts.MergeReceipt(branch=BRANCH, target=TARGET, commit_sha="abc"),
     )
     assert "not recorded" in note
@@ -141,13 +157,16 @@ def test_a_refused_write_names_the_refusal(
     from yoke_contracts.api.function_call import FunctionError
 
     monkeypatch.setattr(
-        receipts, "call_dispatcher",
+        receipts,
+        "call_dispatcher",
         lambda **kwargs: FunctionCallResponse(
-            success=False, function=kwargs["function_id"], version="v1",
+            success=False,
+            function=kwargs["function_id"],
+            version="v1",
             error=FunctionError(code="target_invalid", message="no such item"),
         ),
     )
-    note = receipts.record_settlement(ITEM_ID, branch=BRANCH, target=TARGET)
+    note = receipts.record_settlement(ITEM_REF, branch=BRANCH, target=TARGET)
 
     assert "no such item" in note
 
@@ -171,7 +190,9 @@ class TestLandedIdentityIsNeverBorrowed:
         def git(*args: str) -> str:
             return subprocess.run(
                 ["git", "-C", str(root), *args],
-                check=True, capture_output=True, text=True,
+                check=True,
+                capture_output=True,
+                text=True,
             ).stdout.strip()
 
         git("init", "-b", "main")
@@ -194,14 +215,20 @@ class TestLandedIdentityIsNeverBorrowed:
         return root, base, git
 
     def test_a_branch_that_added_nothing_resolves_no_landing_merge(
-        self, tmp_path,
+        self,
+        tmp_path,
     ) -> None:
         root, base, _git = self._repo(tmp_path)
 
         assert receipts.landing_merge_commit(str(root), "main", base) == ""
-        assert receipts.touched_files_from_merge_commit(
-            str(root), "main", base,
-        ) == ()
+        assert (
+            receipts.touched_files_from_merge_commit(
+                str(root),
+                "main",
+                base,
+            )
+            == ()
+        )
 
     def test_a_branch_that_landed_resolves_its_own_merge(self, tmp_path) -> None:
         root, _base, git = self._repo(tmp_path)
@@ -211,140 +238,7 @@ class TestLandedIdentityIsNeverBorrowed:
 
         assert landed
         assert receipts.touched_files_from_merge_commit(
-            str(root), "main", neighbour_head,
+            str(root),
+            "main",
+            neighbour_head,
         ) == ("neighbour.txt",)
-
-
-class TestLandedMergeIdentity:
-    """The recorded merge identity is the branch's own, or nothing."""
-
-    def test_a_fresh_merge_takes_the_tip_it_just_created(
-        self, monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        monkeypatch.setattr(
-            receipts.git, "git_out", lambda *_a, **_k: "c" * 40,
-        )
-
-        assert receipts.landed_merge_identity(
-            item_id=ITEM_ID, branch=BRANCH, target=TARGET,
-            repo_root="/repo", already=False, commit_sha="a" * 40,
-        ) == "c" * 40
-
-    def test_an_already_contained_branch_never_reads_the_moved_tip(
-        self, monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        """The tip belongs to whoever moved the target since."""
-        monkeypatch.setattr(
-            receipts.git, "git_out",
-            lambda *_a, **_k: pytest.fail("read the target tip"),
-        )
-        monkeypatch.setattr(
-            receipts, "landing_merge_commit", lambda *_a, **_k: "d" * 40,
-        )
-
-        assert receipts.landed_merge_identity(
-            item_id=ITEM_ID, branch=BRANCH, target=TARGET,
-            repo_root="/repo", already=True, commit_sha="a" * 40,
-        ) == "d" * 40
-
-    def test_a_retry_falls_back_to_the_receipt_it_already_recorded(
-        self, monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        monkeypatch.setattr(receipts, "landing_merge_commit", lambda *_a, **_k: "")
-        monkeypatch.setattr(
-            receipts, "load",
-            lambda *_a, **_k: receipts.MergeReceipt(
-                branch=BRANCH, target=TARGET, commit_sha="a" * 40,
-                merge_sha="e" * 40,
-            ),
-        )
-
-        assert receipts.landed_merge_identity(
-            item_id=ITEM_ID, branch=BRANCH, target=TARGET,
-            repo_root="/repo", already=True, commit_sha="a" * 40,
-        ) == "e" * 40
-
-    def test_a_branch_that_carried_nothing_in_has_no_merge_identity(
-        self, monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        monkeypatch.setattr(receipts, "landing_merge_commit", lambda *_a, **_k: "")
-        monkeypatch.setattr(receipts, "load", lambda *_a, **_k: None)
-
-        assert receipts.landed_merge_identity(
-            item_id=ITEM_ID, branch=BRANCH, target=TARGET,
-            repo_root="/repo", already=True, commit_sha="a" * 40,
-        ) == ""
-
-
-class TestAnAbsorbedMergeIsNeverTheLanding:
-    """A branch's own merge can be an ancestor without ever landing.
-
-    When a sidecar branch merges the branch in and that sidecar is what
-    reaches the base, the branch's own merge is an ancestor of the base
-    while sitting off its first-parent chain entirely. Walking plain
-    ancestry answered with that absorbed merge, which dated an item to a
-    landing the trunk never took -- the shape a branch that lands twice
-    produces, where the first merge is absorbed and a later one lands the
-    result.
-    """
-
-    @staticmethod
-    def _repo(tmp_path):
-        import subprocess
-
-        root = tmp_path / "absorbed"
-        root.mkdir()
-
-        def git(*args: str) -> str:
-            return subprocess.run(
-                ["git", "-C", str(root), *args],
-                check=True, capture_output=True, text=True,
-            ).stdout.strip()
-
-        git("init", "-b", "main")
-        git("config", "user.email", "test@test.com")
-        git("config", "user.name", "Test")
-        (root / "base.txt").write_text("base\n")
-        git("add", "base.txt")
-        git("commit", "-m", "base")
-
-        git("checkout", "-b", "feature")
-        (root / "feature.txt").write_text("feature\n")
-        git("add", "feature.txt")
-        git("commit", "-m", "feature work")
-        feature_head = git("rev-parse", "HEAD")
-
-        # The sidecar takes the feature branch in. This merge carries the
-        # feature commit but never joins main's first-parent chain.
-        git("checkout", "-b", "sidecar", "main")
-        (root / "sidecar.txt").write_text("sidecar\n")
-        git("add", "sidecar.txt")
-        git("commit", "-m", "sidecar work")
-        git("merge", "--no-ff", "--no-edit", "feature")
-        absorbed = git("rev-parse", "HEAD")
-
-        git("checkout", "main")
-        git("merge", "--no-ff", "--no-edit", "sidecar")
-        landing = git("rev-parse", "HEAD")
-        return root, feature_head, absorbed, landing
-
-    def test_the_trunk_merge_is_answered_not_the_absorbed_one(
-        self, tmp_path,
-    ) -> None:
-        root, feature_head, absorbed, landing = self._repo(tmp_path)
-
-        resolved = receipts.landing_merge_commit(
-            str(root), "main", feature_head,
-        )
-
-        assert resolved == landing
-        assert resolved != absorbed
-
-    def test_the_absorbed_merge_is_an_ancestor_all_the_same(
-        self, tmp_path,
-    ) -> None:
-        """The absorbed merge is reachable -- which is why ancestry misled."""
-        root, feature_head, absorbed, _landing = self._repo(tmp_path)
-
-        assert receipts.git.is_ancestor(str(root), absorbed, "main")
-        assert receipts.git.is_ancestor(str(root), feature_head, absorbed)

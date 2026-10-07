@@ -31,7 +31,7 @@ The Engineer prompt template surfaces this block under the heading `Anticipated 
 
 ```bash
 if [ "${YOKE_EXECUTOR:-}" = "codex" ]; then
-    _project=$(yoke items get "PREFIX-${_id}" project 2>/dev/null || echo yoke)
+    _project=$(yoke items get "${_id}" project 2>/dev/null || echo yoke)
     printf '%s' "$_subagent_response" | python3 -m yoke_core.domain.reflection_capture \
         --default-agent "$_role" \
         --project "$_project" || true
@@ -51,7 +51,7 @@ After the Tester returns, check if any files were created in the worktree and co
 ```bash
 cd {_worktree_path}
 git add -A 2>/dev/null
-git diff --cached --quiet || git commit -m "chore: commit Tester review artifacts [PREFIX-${_id}]"
+git diff --cached --quiet || git commit -m "chore: commit Tester review artifacts [${_id}]"
 ```
 
 **Note:** Reviews and Ouroboros reflections are written directly to the DB, not to the worktree filesystem. This catches any other filesystem artifacts the Tester may have created.
@@ -66,7 +66,7 @@ Conduct owns the full epic-task QA gate lifecycle. Standard sessions use registe
 
 Before each epic-task `reviewing-implementation` transition, conduct calls:
 ```bash
-yoke workflow-item epic-task review-seed --epic "$_epic_id" --task-num "$_task_id"
+yoke workflow-item epic-task review-seed --epic "$_epic_ref" --task-num "$_task_id"
 ```
 This idempotently creates a single blocking `implementation_review` requirement for the task. The Tester's verdict (via `review-insert`) reuses this requirement rather than creating a new one.
 
@@ -85,13 +85,13 @@ After all tasks pass and integration simulation succeeds, conduct satisfies any 
 If a conduct session is interrupted and you need to manually recover:
 ```bash
 # Seed a review requirement for a task (idempotent):
-yoke workflow-item epic-task review-seed --epic "{epic_id}" --task-num {task_num}
+yoke workflow-item epic-task review-seed --epic "{epic_ref}" --task-num {task_num}
 
 # Record a Tester verdict for a task — write the body to a file first, then pass --body-file:
-yoke workflow-item epic-task review-insert --epic "{epic_id}" --task-num {task_num} --verdict PASS --body-file /tmp/yoke-review.{task_num}.md
+yoke workflow-item epic-task review-insert --epic "{epic_ref}" --task-num {task_num} --verdict PASS --body-file /tmp/yoke-review.{task_num}.md
 
 # List requirements for an epic (filter to the task_num client-side):
-yoke qa requirement list --epic-id "{epic_id}"
+yoke qa requirement list --epic "{epic_ref}"
 
 # Do NOT use `yoke qa run add` (or db_router qa run-add) for epic-task review verdicts:
 # yoke workflow-item epic-task review-insert is the only supported write path.

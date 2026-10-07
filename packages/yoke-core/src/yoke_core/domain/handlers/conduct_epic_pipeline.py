@@ -59,30 +59,29 @@ class ProceedTriageHandoffResponse(BaseModel):
 
 def _bad(message: str) -> HandlerOutcome:
     return HandlerOutcome(
-        result_payload={}, primary_success=False,
+        result_payload={},
+        primary_success=False,
         error=FunctionError(code="invalid_payload", message=message),
     )
 
 
 def _failure(code: str, message: str) -> HandlerOutcome:
     return HandlerOutcome(
-        result_payload={}, primary_success=False,
+        result_payload={},
+        primary_success=False,
         error=FunctionError(code=code, message=message),
     )
 
 
 def _open_connection():
     from yoke_core.domain import db_helpers
+
     return db_helpers.connect()
 
 
 def _task_target(request: FunctionCallRequest) -> Optional[Tuple[int, int]]:
     target = request.target
-    if (
-        target.kind != "epic_task"
-        or target.epic_id is None
-        or target.task_num is None
-    ):
+    if target.kind != "epic_task" or target.epic_id is None or target.task_num is None:
         return None
     return int(target.epic_id), int(target.task_num)
 
@@ -113,7 +112,7 @@ def _temporary_env(updates: Dict[str, str]):
 def handle_update_status(request: FunctionCallRequest) -> HandlerOutcome:
     ids = _task_target(request)
     if ids is None:
-        return _bad("target must carry epic_id + task_num")
+        return _bad("target must carry public_ref + task_num")
     try:
         payload = PipelineUpdateStatusRequest.model_validate(request.payload)
     except Exception as exc:
@@ -127,7 +126,11 @@ def handle_update_status(request: FunctionCallRequest) -> HandlerOutcome:
     with _open_connection() as conn, _temporary_env(env):
         try:
             rc = update_status.update_task_status(
-                conn, str(epic_id), str(task_num), payload.status, payload.note,
+                conn,
+                str(epic_id),
+                str(task_num),
+                payload.status,
+                payload.note,
                 no_github=payload.no_github,
                 no_derive=payload.no_derive,
                 stdout=stdout,
@@ -136,13 +139,17 @@ def handle_update_status(request: FunctionCallRequest) -> HandlerOutcome:
         except SystemExit as exc:
             rc = int(exc.code or 0)
     result = PipelineUpdateStatusResponse(
-        epic_id=epic_id, task_num=task_num, status=payload.status,
-        stdout=stdout.getvalue(), stderr=stderr.getvalue(),
+        epic_id=epic_id,
+        task_num=task_num,
+        status=payload.status,
+        stdout=stdout.getvalue(),
+        stderr=stderr.getvalue(),
     )
     if rc != 0:
         return _failure(
             "status_pipeline_failed",
-            result.stderr.strip() or result.stdout.strip()
+            result.stderr.strip()
+            or result.stdout.strip()
             or f"status pipeline exited {rc}",
         )
     return HandlerOutcome(result_payload=result.model_dump(), primary_success=True)
@@ -151,7 +158,7 @@ def handle_update_status(request: FunctionCallRequest) -> HandlerOutcome:
 def handle_proceed_triage_handoff(request: FunctionCallRequest) -> HandlerOutcome:
     epic_id = _epic_id(request)
     if epic_id is None:
-        return _bad("target must carry epic_id")
+        return _bad("target must carry public_ref")
     try:
         payload = ProceedTriageHandoffRequest.model_validate(request.payload)
     except Exception as exc:
@@ -168,19 +175,28 @@ def handle_proceed_triage_handoff(request: FunctionCallRequest) -> HandlerOutcom
             session_id=session_id,
         )
     result = ProceedTriageHandoffResponse(
-        epic_id=epic_id, stdout=stdout.getvalue(), stderr=stderr.getvalue(),
+        epic_id=epic_id,
+        stdout=stdout.getvalue(),
+        stderr=stderr.getvalue(),
     )
     if rc != 0:
         return _failure(
             "proceed_triage_handoff_failed",
-            result.stderr.strip() or result.stdout.strip()
+            result.stderr.strip()
+            or result.stdout.strip()
             or f"proceed triage handoff exited {rc}",
         )
     return HandlerOutcome(result_payload=result.model_dump(), primary_success=True)
 
 
-def _entry(fid: str, handler: Any, req: Any, resp: Any, effects: List[str],
-           claim: Optional[str]) -> Dict[str, Any]:
+def _entry(
+    fid: str,
+    handler: Any,
+    req: Any,
+    resp: Any,
+    effects: List[str],
+    claim: Optional[str],
+) -> Dict[str, Any]:
     return {
         "function_id": fid,
         "handler": handler,
@@ -198,17 +214,23 @@ def _entry(fid: str, handler: Any, req: Any, resp: Any, effects: List[str],
 
 
 REGISTRATIONS: List[Dict[str, Any]] = [
-    _entry("conduct.epic_task.update_status", handle_update_status,
-           PipelineUpdateStatusRequest, PipelineUpdateStatusResponse,
-           ["epic_task_status_pipeline", "github_sync"],
-           None),
-    _entry("conduct.epic.proceed_triage_handoff",
-           handle_proceed_triage_handoff,
-           ProceedTriageHandoffRequest, ProceedTriageHandoffResponse,
-           ["qa_runs_insert", "epic_status_handoff", "claim_release"],
-           "epic"),
+    _entry(
+        "conduct.epic_task.update_status",
+        handle_update_status,
+        PipelineUpdateStatusRequest,
+        PipelineUpdateStatusResponse,
+        ["epic_task_status_pipeline", "github_sync"],
+        None,
+    ),
+    _entry(
+        "conduct.epic.proceed_triage_handoff",
+        handle_proceed_triage_handoff,
+        ProceedTriageHandoffRequest,
+        ProceedTriageHandoffResponse,
+        ["qa_runs_insert", "epic_status_handoff", "claim_release"],
+        "epic",
+    ),
 ]
 
 
-__all__ = ["REGISTRATIONS", "handle_update_status",
-           "handle_proceed_triage_handoff"]
+__all__ = ["REGISTRATIONS", "handle_update_status", "handle_proceed_triage_handoff"]

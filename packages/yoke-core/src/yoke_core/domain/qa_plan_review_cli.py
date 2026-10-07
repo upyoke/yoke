@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.public_ref import parse_public_item_ref
+
 import argparse
 import json
 import sys
@@ -123,7 +125,7 @@ def run(args: List[str]) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     subject = parser.add_mutually_exclusive_group(required=True)
-    subject.add_argument("--item-id", type=int)
+    subject.add_argument("--item")
     subject.add_argument("--deployment-run-id")
     subject.add_argument("--project")
     parser.add_argument("--execution-id", required=True)
@@ -137,9 +139,17 @@ def run(args: List[str]) -> int:
     except ValueError as exc:
         print(f"yoke qa plan review-submit: {exc}", file=sys.stderr)
         return 2
+    if parsed.item is not None:
+        prefix, sequence = parse_public_item_ref(parsed.item)
+        if prefix is None or sequence is None:
+            print(
+                "yoke qa plan review-submit: public_item_ref_required: pass --item PREFIX-N",
+                file=sys.stderr,
+            )
+            return 2
     target = (
-        TargetRef(kind="item", item_id=int(parsed.item_id))
-        if parsed.item_id is not None
+        TargetRef(kind="item", public_ref=f"{prefix}-{sequence}")
+        if parsed.item is not None
         else TargetRef(kind="global", project_id=parsed.project)
         if parsed.project
         else TargetRef(

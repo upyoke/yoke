@@ -1,5 +1,6 @@
 # ruff: noqa: F811
 """Direct API CRUD tests: insert, severity check, list/count, query builder, prune."""
+
 from __future__ import annotations
 
 import pytest
@@ -21,7 +22,6 @@ class TestInsert:
     def test_basic_insert(self, test_db):
         _setup_severity_config(test_db)
         eid = _unique_event_id()
-        # Use the internal insert logic directly on the connection
         test_db.execute(
             """INSERT INTO events (
                 event_id, source_type, session_id, severity,
@@ -29,8 +29,15 @@ class TestInsert:
             ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT(event_id) DO NOTHING""",
             (
-                eid, "system", "sess-1", "INFO", "lifecycle", "test",
-                "TestEvent", 1, "2026-04-20T00:00:00Z",
+                eid,
+                "system",
+                "sess-1",
+                "INFO",
+                "lifecycle",
+                "test",
+                "TestEvent",
+                1,
+                "2026-04-20T00:00:00Z",
             ),
         )
         test_db.commit()
@@ -45,7 +52,6 @@ class TestInsert:
         count = _event_count(test_db)
         assert count == 1
 
-        # Verify the Postgres UNIQUE constraint is enforced.
         with pytest.raises(db_backend.integrity_error_types()):
             _insert_event_direct(test_db, event_id=eid, event_name="Evt1")
 
@@ -81,8 +87,9 @@ class TestInsert:
         _setup_severity_config(test_db)
         eid = _unique_event_id()
         _insert_event_direct(test_db, event_id=eid, event_name="Test", item_id="42")
-        # Verify the raw helper preserves canonical numeric item IDs.
-        row = test_db.execute("SELECT item_id FROM events WHERE event_id=%s", (eid,)).fetchone()
+        row = test_db.execute(
+            "SELECT item_id FROM events WHERE event_id=%s", (eid,)
+        ).fetchone()
         assert row is not None
         assert row[0] == "42"
 
@@ -90,7 +97,6 @@ class TestInsert:
 class TestSeverityCheck:
     def test_default_info_passes(self, test_db):
         _setup_severity_config(test_db)
-        # Check that INFO passes against default INFO threshold
         # severity_num: INFO=1, which is >= INFO=1
         assert events_crud.severity_num("INFO") >= events_crud.severity_num("INFO")
 
@@ -101,7 +107,9 @@ class TestSeverityCheck:
     def test_severity_ordering(self):
         levels = ["DEBUG", "INFO", "STATUS", "WARN", "ERROR", "FATAL"]
         for i in range(len(levels) - 1):
-            assert events_crud.severity_num(levels[i]) < events_crud.severity_num(levels[i + 1])
+            assert events_crud.severity_num(levels[i]) < events_crud.severity_num(
+                levels[i + 1]
+            )
 
     def test_unknown_severity_defaults_to_info(self):
         assert events_crud.severity_num("UNKNOWN") == 1  # INFO level
@@ -152,7 +160,9 @@ class TestListAndCount:
 
     def test_anomalies_filter(self, test_db):
         _insert_event_direct(test_db, event_name="Normal", anomaly_flags=None)
-        _insert_event_direct(test_db, event_name="Anomaly", anomaly_flags="nonzero_exit")
+        _insert_event_direct(
+            test_db, event_name="Anomaly", anomaly_flags="nonzero_exit"
+        )
 
         anomaly_rows = test_db.execute(
             "SELECT * FROM events WHERE anomaly_flags IS NOT NULL AND anomaly_flags <> ''"
@@ -161,9 +171,15 @@ class TestListAndCount:
         assert anomaly_rows[0]["event_name"] == "Anomaly"
 
     def test_tail_ordering(self, test_db):
-        _insert_event_direct(test_db, event_name="First", created_at="2025-01-01T00:00:00Z")
-        _insert_event_direct(test_db, event_name="Second", created_at="2025-01-02T00:00:00Z")
-        _insert_event_direct(test_db, event_name="Third", created_at="2025-01-03T00:00:00Z")
+        _insert_event_direct(
+            test_db, event_name="First", created_at="2025-01-01T00:00:00Z"
+        )
+        _insert_event_direct(
+            test_db, event_name="Second", created_at="2025-01-02T00:00:00Z"
+        )
+        _insert_event_direct(
+            test_db, event_name="Third", created_at="2025-01-03T00:00:00Z"
+        )
 
         # Tail returns most recent first
         rows = test_db.execute(
@@ -208,11 +224,16 @@ class TestQueryBuilder:
         assert "created_at <= %s" in where
 
     def test_multiple_filters(self):
-        where, params = events_crud._build_where([
-            "--source-type", "agent",
-            "--event-name", "Test",
-            "--since", "2025-01-01",
-        ])
+        where, params = events_crud._build_where(
+            [
+                "--source-type",
+                "agent",
+                "--event-name",
+                "Test",
+                "--since",
+                "2025-01-01",
+            ]
+        )
         assert "source_type=%s" in where
         assert "event_name=%s" in where
         assert "created_at >= %s" in where
@@ -241,26 +262,27 @@ class TestQueryBuilder:
             events_crud._build_where(["--item", "--since", "2026-05-07T00:00:00Z"])
 
     def test_invalid_item_filter_value_fails_closed(self):
-        """Item filters accept refs or project-local sequences with context."""
+        """Item filters require complete public refs."""
         with pytest.raises(ValueError, match="requires PREFIX-N"):
             events_crud._build_where(["--item", "not-an-item"])
 
     def test_item_alias_normalizes_through_item_id(self, db_path):
-        """``--item`` resolves public refs and project-local numeric refs."""
+        """``--item`` resolves complete public refs with optional project filters."""
         where, params = events_crud._build_where(
-            ["--item", TEST_ITEM_REF], db_path=db_path,
+            ["--item", TEST_ITEM_REF],
+            db_path=db_path,
         )
         assert "item_id=%s" in where
         assert params == [str(TEST_ITEM_ID)]
         where, params = events_crud._build_where(
-            ["--item", str(TEST_ITEM_ID), "--project", "yoke"],
+            ["--item", TEST_ITEM_REF, "--project", "yoke"],
             db_path=db_path,
         )
         assert "item_id=%s" in where
         assert "project_id=%s" in where
         assert params == [str(TEST_ITEM_ID), 1]
         where, params = events_crud._build_where(
-            ["--project", "yoke", "--item", str(TEST_ITEM_ID)],
+            ["--project", "yoke", "--item", TEST_ITEM_REF],
             db_path=db_path,
         )
         assert "item_id=%s" in where
@@ -268,13 +290,13 @@ class TestQueryBuilder:
         assert params == [1, str(TEST_ITEM_ID)]
 
     def test_item_alias_bare_number_requires_project_context(self, db_path):
-        with pytest.raises(ValueError, match="project context"):
+        with pytest.raises(ValueError, match="public_item_ref_required"):
             events_crud._build_where(["--item", str(TEST_ITEM_ID)], db_path=db_path)
 
     def test_item_alias_missing_project_sequence_reports_not_found(self, db_path):
         with pytest.raises(ValueError, match="not found"):
             events_crud._build_where(
-                ["--item", "999999", "--project", "yoke"],
+                ["--item", "YOK-999999", "--project", "yoke"],
                 db_path=db_path,
             )
 
@@ -282,8 +304,12 @@ class TestQueryBuilder:
 class TestPrune:
     def test_prune_dry_run(self, test_db):
         _setup_severity_config(test_db)
-        _insert_event_direct(test_db, severity="DEBUG", created_at="2020-01-01T00:00:00Z")
-        _insert_event_direct(test_db, severity="INFO", created_at="2020-01-01T00:00:00Z")
+        _insert_event_direct(
+            test_db, severity="DEBUG", created_at="2020-01-01T00:00:00Z"
+        )
+        _insert_event_direct(
+            test_db, severity="INFO", created_at="2020-01-01T00:00:00Z"
+        )
 
         # Dry run: check counts
         debug_count = test_db.execute(
@@ -293,8 +319,12 @@ class TestPrune:
         assert debug_count == 1
 
     def test_prune_actually_deletes(self, test_db):
-        _insert_event_direct(test_db, severity="DEBUG", created_at="2020-01-01T00:00:00Z")
-        _insert_event_direct(test_db, severity="STATUS", created_at="2020-01-01T00:00:00Z")
+        _insert_event_direct(
+            test_db, severity="DEBUG", created_at="2020-01-01T00:00:00Z"
+        )
+        _insert_event_direct(
+            test_db, severity="STATUS", created_at="2020-01-01T00:00:00Z"
+        )
 
         before = _event_count(test_db)
         assert before == 2

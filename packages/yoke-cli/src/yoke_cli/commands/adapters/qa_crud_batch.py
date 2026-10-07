@@ -36,7 +36,7 @@ row objects with the same fields as the add flags (qa_kind or method_id,
 qa_phase, method case contract, target_env, blocking_mode,
 requirement_source, success_policy, capability_requirements, suite_id,
 workflow_transition_id).
-Rows may omit item_id; a row naming
+Rows may omit public_ref; a row naming
 a different item or any epic/deployment-run attachment is rejected.
 
 Worked example:
@@ -51,7 +51,7 @@ Worked example:
 Flag matrix:
 
   flag          required        value shape
-  --item        yes             PREFIX-N or project-local number
+  --item        yes             PREFIX-N
   --rows-file   yes (or stdin)  path to JSON array file
   --stdin       yes (or file)   read the JSON array from stdin
   --session-id  no              opaque session id (operator-debug)
@@ -71,9 +71,7 @@ def qa_requirement_add_batch(args: List[str]) -> int:
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument(
-        "--item", required=True, help="Target item (PREFIX-N or number)."
-    )
+    parser.add_argument("--item", required=True, help="Target item (PREFIX-N).")
     source_group = parser.add_mutually_exclusive_group(required=True)
     source_group.add_argument(
         "--rows-file",

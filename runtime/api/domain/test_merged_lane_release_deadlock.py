@@ -46,7 +46,7 @@ def test_worktree_removal_releases_the_lane_row(monkeypatch, tmp_path) -> None:
         _dispatcher,
     )
     ctx = SimpleNamespace(
-        item_id="1995",
+        item_id="YOK-1995",
         args=SimpleNamespace(branch="YOK-1995"),
         worktree_path=str(tmp_path / "lane"),
     )
@@ -55,12 +55,15 @@ def test_worktree_removal_releases_the_lane_row(monkeypatch, tmp_path) -> None:
 
     assert len(calls) == 1
     assert calls[0]["function_id"] == "item_worktrees.release_merged_lane"
-    assert calls[0]["target"].item_id == 1995
+    assert calls[0]["target"].public_ref == "YOK-1995"
+    assert calls[0]["target"].item_id is None
     assert calls[0]["payload"] == {"branch": "YOK-1995"}
 
 
 def test_lane_release_failure_warns_without_unwinding_a_landed_merge(
-    monkeypatch, tmp_path, capsys,
+    monkeypatch,
+    tmp_path,
+    capsys,
 ) -> None:
     """The merge already landed, so an unreachable control plane only warns."""
 
@@ -72,7 +75,7 @@ def test_lane_release_failure_warns_without_unwinding_a_landed_merge(
         _dispatcher,
     )
     ctx = SimpleNamespace(
-        item_id="1995",
+        item_id="YOK-1995",
         args=SimpleNamespace(branch="YOK-1995"),
         worktree_path=str(tmp_path / "lane"),
     )
@@ -95,14 +98,19 @@ def _no_free_paths(monkeypatch) -> None:
 
 
 def test_refusal_for_a_removed_lane_names_a_runnable_recovery(
-    monkeypatch, tmp_path,
+    monkeypatch,
+    tmp_path,
 ) -> None:
     _no_free_paths(monkeypatch)
     missing = str(tmp_path / "gone")
     tree = str(tmp_path / "main")
 
     refusal = tree_binding.evaluate_tree_binding(
-        tree, "session-1", [missing], surface="qa case run", lane_item_id=1995,
+        tree,
+        "session-1",
+        [missing],
+        surface="qa case run",
+        lane_item_id=1995,
     )
 
     assert refusal is not None
@@ -113,7 +121,8 @@ def test_refusal_for_a_removed_lane_names_a_runnable_recovery(
 
 
 def test_refusal_for_a_live_lane_still_names_the_lane_to_cd_into(
-    monkeypatch, tmp_path,
+    monkeypatch,
+    tmp_path,
 ) -> None:
     _no_free_paths(monkeypatch)
     lane = tmp_path / "lane"
@@ -121,7 +130,10 @@ def test_refusal_for_a_live_lane_still_names_the_lane_to_cd_into(
     tree = str(tmp_path / "main")
 
     refusal = tree_binding.evaluate_tree_binding(
-        tree, "session-1", [str(lane)], surface="qa case run",
+        tree,
+        "session-1",
+        [str(lane)],
+        surface="qa case run",
     )
 
     assert refusal is not None
@@ -129,7 +141,8 @@ def test_refusal_for_a_live_lane_still_names_the_lane_to_cd_into(
 
 
 def test_a_live_lane_wins_over_a_removed_one_in_the_refusal(
-    monkeypatch, tmp_path,
+    monkeypatch,
+    tmp_path,
 ) -> None:
     """A session holding several lanes is pointed at one that still exists."""
     _no_free_paths(monkeypatch)
@@ -152,7 +165,8 @@ def test_a_live_lane_wins_over_a_removed_one_in_the_refusal(
 
 
 def test_worktree_executor_accepts_the_advertised_override(
-    monkeypatch, tmp_path,
+    monkeypatch,
+    tmp_path,
 ) -> None:
     """The local-tree refusal names an override that the executor honors."""
     checkout = tmp_path / "main"
@@ -174,7 +188,7 @@ def test_worktree_executor_accepts_the_advertised_override(
         "requirement_id": 1,
         "method_config": {"command": "true"},
         "project": "yoke",
-        "item_id": 1,
+        "public_ref": "YOK-1",
     }
 
     # Without the flag the guard's refusal still stops the run.
@@ -185,7 +199,9 @@ def test_worktree_executor_accepts_the_advertised_override(
     # With it, the guard is satisfied and the executor proceeds past binding.
     with pytest.raises(Exception):
         qa_case_worktree_run.execute_worktree_case(
-            case, checkout_path=checkout, allow_tree_mismatch=True,
+            case,
+            checkout_path=checkout,
+            allow_tree_mismatch=True,
         )
     assert seen["allow_mismatch"] is True
 
@@ -229,7 +245,8 @@ def _receipt_entry(monkeypatch, entry: dict | None) -> None:
 
 def test_removed_lane_releases_when_its_branch_landed(monkeypatch, tmp_path) -> None:
     calls = _receipt_entry(
-        monkeypatch, {"branch": "feature", "merge_sha": "abc123"},
+        monkeypatch,
+        {"branch": "feature", "merge_sha": "abc123"},
     )
     lane = {
         "id": 7,

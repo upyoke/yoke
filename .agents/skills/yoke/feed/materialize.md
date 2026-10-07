@@ -28,7 +28,7 @@ For each item in `_items_to_update`, update the affected structured fields befor
 For each update entry, dispatch the
 `items.structured_field.replace` function call (envelope in
 [`../idea/body-and-sync-functions.md`](../idea/body-and-sync-functions.md))
-with `target = {kind: "item", item_id: <id>}` and
+with `target = {kind: "item", public_ref: "PREFIX-N"}` and
 `payload = {field: "<spec|design_spec|technical_plan|worktree_plan>",
 content: "<updated field content>", source: "feed"}`.
 Operator/debug adapter:

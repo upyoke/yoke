@@ -1,11 +1,12 @@
 """Dirty-state and setup helpers for merge-worktree preparation."""
 
 from __future__ import annotations
+
+from yoke_core.domain.public_item_target import public_item_target
 from yoke_core.engines.merge_worktree_base import target_ref
 
 from typing import Optional, Tuple
 
-from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.classify_dirty_files import (
     classify_dirty_files,
@@ -87,7 +88,7 @@ def extract_generated_files(ctx: MergeContext) -> list[str]:
     try:
         resp = call_dispatcher(
             function_id="items.get.run",
-            target=TargetRef(kind="item", item_id=int(ctx.epic_id)),
+            target=public_item_target(ctx.epic_id),
             payload={"fields": ["body"]},
         )
         if not resp.success:

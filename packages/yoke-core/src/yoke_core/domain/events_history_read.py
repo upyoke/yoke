@@ -24,7 +24,8 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
-from yoke_core.domain.handlers.event_presentation import present_event
+from yoke_core.domain.function_response_refs import collect_item_ids
+from yoke_core.domain.handlers.event_presentation import event_envelope, present_event
 from yoke_core.domain.json_helper import dumps_compact, loads_text
 
 
@@ -78,9 +79,12 @@ def presentation_facts(
     """Resolve the item refs and actor labels a page of events points at."""
     from yoke_contracts.public_ref import format_item_ref
 
-    item_ids = sorted(
-        {int(row["item_id"]) for row in rows if str(row.get("item_id") or "").isdigit()}
-    )
+    item_ids_set = {
+        int(row["item_id"]) for row in rows if str(row.get("item_id") or "").isdigit()
+    }
+    for row in rows:
+        item_ids_set.update(collect_item_ids(event_envelope(row)))
+    item_ids = sorted(item_ids_set)
     item_facts: Dict[int, Dict[str, Any]] = {}
     if item_ids:
         markers = ", ".join("%s" for _ in item_ids)

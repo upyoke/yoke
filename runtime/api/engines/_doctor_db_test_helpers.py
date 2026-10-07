@@ -93,7 +93,7 @@ _MAKE_CONN_DDL = textwrap.dedent("""\
 
         CREATE TABLE shepherd_verdicts (
             id INTEGER PRIMARY KEY,
-            item TEXT,
+            public_ref TEXT,
             transition TEXT,
             worker TEXT,
             verdict TEXT,

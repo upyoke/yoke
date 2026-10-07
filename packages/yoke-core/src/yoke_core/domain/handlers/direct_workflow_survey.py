@@ -74,7 +74,7 @@ def _item_id(
     if request.target.kind != "item" or request.target.item_id is None:
         return None, _error(
             "invalid_target",
-            "target must carry kind='item' and item_id",
+            "target must carry kind='item' and public_ref (PREFIX-N)",
         )
     return int(request.target.item_id), None
 
@@ -127,9 +127,7 @@ def handle_survey(
                 )
             if any(
                 row.remaining_headroom != row.limit - row.current_line_count
-                or row.at_or_over_limit != (
-                    row.current_line_count >= row.limit
-                )
+                or row.at_or_over_limit != (row.current_line_count >= row.limit)
                 for row in payload.path_sizes
             ):
                 return _error(

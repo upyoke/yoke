@@ -63,7 +63,7 @@ def handle_list(request: FunctionCallRequest) -> HandlerOutcome:
     if item_id is None:
         return _error(
             "target_invalid",
-            "item_worktrees.list requires target.kind='item' with item_id",
+            "item_worktrees.list requires target.kind='item' with public_ref",
         )
     try:
         ItemWorktreesListRequest.model_validate(request.payload or {})
@@ -91,7 +91,7 @@ def handle_path_record(request: FunctionCallRequest) -> HandlerOutcome:
     if item_id is None:
         return _error(
             "target_invalid",
-            "item_worktrees.path_record requires target.kind='item' with item_id",
+            "item_worktrees.path_record requires target.kind='item' with public_ref",
         )
     try:
         payload = ItemWorktreePathRecordRequest.model_validate(

@@ -46,7 +46,6 @@ const BANDS = [
 
 function bandItem({ itemId, item }, facts = {}) {
   return {
-    internal_id: itemId,
     title: "carry this somewhere",
     project: "yoke",
     project_id: 1,
@@ -70,7 +69,7 @@ function run(id, itemId, facts = {}) {
     created_at: ago(3),
     completed_at: ago(2),
     stages: [],
-    member_items: [{ id: itemId, ref: "YOK-50", title: "carry this somewhere" }],
+    member_items: [{ public_ref: BANDS.find((band) => band.itemId === itemId).item.public_ref, title: "carry this somewhere" }],
     ...facts,
   };
 }
@@ -178,7 +177,7 @@ for (const band of BANDS) {
       run("run-prod", itemId),
       run("run-stage", itemId, {
         target_environment: "stage", member_items: [],
-        carried_work: { items: [{ item_id: itemId }] },
+        carried_work: { items: [{ public_ref: band.item.public_ref }] },
       }),
     ], { delivery: { merges: 3, deployed: 1, not_deployed: 2 } });
     t.after(() => mounted.unmount());
@@ -269,3 +268,15 @@ for (const band of BANDS) {
     assert.equal(byClass(box, "item-deployment").length, 0);
   });
 }
+
+
+test("compact delivery summary joins runs by complete public ref", async () => {
+  const { deliverySummary } = await import(
+    "../../packages/yoke-core/src/yoke_core/ui/static/universe_item_deployment.js"
+  );
+  const publicRef = "EXT-50";
+  const runs = new Map([[publicRef, [{
+    id: "run-public-summary", status: "executing", target_environment: "stage",
+  }]]]);
+  assert.equal(deliverySummary({ public_ref: publicRef }, runs), "stage deploying");
+});

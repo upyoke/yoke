@@ -34,7 +34,7 @@ class TestUnsupportedFieldRegression:
         """The API PATCH endpoint should not accept 'body' updates."""
         client = write_parity_env["client"]
         # body is not in the Pydantic model, so FastAPI should 422
-        api_resp = client.patch("/v1/items/1", json={"body": "new body"})
+        api_resp = client.patch("/v1/items/YOK-1", json={"body": "new body"})
         # FastAPI rejects unknown fields or ignores them depending on model config
         # If ignored (no valid field provided), returns 422 for empty update
         assert api_resp.status_code == 422
@@ -45,7 +45,7 @@ class TestUnsupportedFieldRegression:
         cli_result = _run_service_client(
             db_path,
             "update-item",
-            "1",
+            "YOK-1",
             "--field",
             "body",
             "--value",
@@ -59,7 +59,7 @@ class TestUnsupportedFieldRegression:
     def test_api_rejects_source_field(self, write_parity_env):
         """The API PATCH endpoint should not accept 'source' updates."""
         client = write_parity_env["client"]
-        api_resp = client.patch("/v1/items/1", json={"source": "auto"})
+        api_resp = client.patch("/v1/items/YOK-1", json={"source": "auto"})
         assert api_resp.status_code == 422
 
     def test_cli_rejects_source_field(self, write_parity_env):
@@ -68,7 +68,7 @@ class TestUnsupportedFieldRegression:
         cli_result = _run_service_client(
             db_path,
             "update-item",
-            "1",
+            "YOK-1",
             "--field",
             "source",
             "--value",
@@ -84,7 +84,7 @@ class TestUnsupportedFieldRegression:
         cli_result = _run_service_client(
             db_path,
             "update-item",
-            "1",
+            "YOK-1",
             "--field",
             "epic",
             "--value",
@@ -101,7 +101,7 @@ class TestUnsupportedFieldRegression:
         cli_result = _run_service_client(
             db_path,
             "update-item",
-            "1",
+            "YOK-1",
             "--field",
             "type",
             "--value",

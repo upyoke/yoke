@@ -26,10 +26,10 @@ import {
 } from "./universe_ui_read_views_test_support.mjs";
 
 test("a drill-in route survives the round trip and never outlives its view", () => {
-  assert.deepEqual(parseUniverseRoute("/items/42?project=3"), {
-    view: "items", tab: null, detail: "42", project: "3", selection: null,
+  assert.deepEqual(parseUniverseRoute("/items/YOK-42?project=3"), {
+    view: "items", tab: null, detail: "YOK-42", project: "3", selection: null,
   });
-  assert.equal(buildUniverseRoute("items", "3", "42"), "/items/42?project=3");
+  assert.equal(buildUniverseRoute("items", "3", "YOK-42"), "/items/YOK-42?project=3");
   const odd = "YOK 7/a";
   assert.equal(
     parseUniverseRoute(buildUniverseRoute("items", "3", odd)).detail, odd,
@@ -216,7 +216,7 @@ test("events at All merge newest-first across buckets and name their source", as
     byClass(root, "event-card")[1]
       .children.flatMap(allNodes)
       .find((node) => node.classList.contains("row-link")).href,
-    "/items/7?project=2",
+    "/items/YOK-7?project=2",
   );
 
   // Filters are local: narrowing the rendered stream does not make another

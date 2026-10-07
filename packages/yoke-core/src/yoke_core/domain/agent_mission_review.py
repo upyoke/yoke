@@ -13,21 +13,12 @@ from yoke_contracts.machine_qa_terminal_bridge import (
 from yoke_contracts.qa_mission_scratch import mission_scratch_path
 from yoke_core.domain.dispatch_descriptors import DispatchDescriptor
 from yoke_core.domain.qa_review_evidence import case_artifact_read_commands
+from yoke_core.domain.qa_plan_review_subject import subject_flag as review_subject_flag
 from yoke_core.domain.qa_review_verdict_modes import (
     ALL_REVIEW_VERDICTS,
     inconclusive_verdict_guidance,
     verdict_enum_text,
 )
-
-
-def _subject_flag(subject: Mapping[str, Any], target: Mapping[str, Any] | None) -> str:
-    if subject.get("standalone_plan_id") is not None:
-        return f"--project {(target or {})['project']['slug']}"
-    return (
-        f"--item-id {int(subject['item_id'])}"
-        if subject.get("item_id") is not None
-        else f"--deployment-run-id {subject['deployment_run_id']}"
-    )
 
 
 def _screen_recording_warning(cases: list[Mapping[str, Any]]) -> str:
@@ -215,7 +206,7 @@ def agent_mission_dispatch_contract(
     execution_id = str(bundle["execution_id"])
     subject = bundle["subject"]
     execution_target = bundle.get("execution_target")
-    subject_flag = _subject_flag(subject, execution_target)
+    subject_flag = review_subject_flag(subject, execution_target)
     target_digest = str(bundle.get("execution_target_digest") or "")
     environment = (
         execution_target.get("environment")

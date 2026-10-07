@@ -51,7 +51,7 @@ def handle_github_sync(request: FunctionCallRequest) -> HandlerOutcome:
     if request.target.kind != "item" or request.target.item_id is None:
         return _error_outcome(
             "invalid_payload",
-            "items.github_sync target must carry kind='item' + item_id.",
+            "items.github_sync target must carry kind='item' + public_ref (PREFIX-N).",
         )
     try:
         GithubSyncRequest.model_validate(request.payload or {})
@@ -74,8 +74,7 @@ def handle_github_sync(request: FunctionCallRequest) -> HandlerOutcome:
     if rc != 0:
         return _error_outcome(
             "github_sync_failed",
-            f"GitHub sync failed for {item_ref_for_id(item_id)} "
-            f"with exit code {rc}.",
+            f"GitHub sync failed for {item_ref_for_id(item_id)} with exit code {rc}.",
         )
 
     response = GithubSyncResponse(
@@ -99,7 +98,7 @@ def handle_github_done_sync(request: FunctionCallRequest) -> HandlerOutcome:
     if request.target.kind != "item" or request.target.item_id is None:
         return _error_outcome(
             "invalid_payload",
-            "items.github_done_sync target must carry kind='item' + item_id.",
+            "items.github_done_sync target must carry kind='item' + public_ref (PREFIX-N).",
         )
     try:
         payload = GithubDoneSyncRequest.model_validate(request.payload or {})

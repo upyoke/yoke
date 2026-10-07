@@ -74,11 +74,11 @@ class TestItemGetCLI:
         assert result.returncode == 2
 
     def test_get_plain_integer_without_context_is_refused(self, item_query_env):
-        """item-get refuses a bare sequence without project context."""
+        """item-get refuses a bare sequence regardless of project context."""
         db_path = item_query_env["db_path"]
         result = _run_db_router(db_path, "item-get", "1", "status")
         assert result.returncode == 1
-        assert "names a project sequence but no project" in result.stderr
+        assert "public_item_ref_required" in result.stderr
 
 
 class TestItemRowCLI:
@@ -144,6 +144,7 @@ class TestItemProgressCLI:
 
     def test_progress_missing_view(self, item_query_env):
         """item-progress exits 0 with empty output when view doesn't exist."""
+
         def _no_view_schema() -> None:
             conn = db_backend.connect()
             conn.execute(

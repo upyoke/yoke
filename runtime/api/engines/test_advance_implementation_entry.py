@@ -4,29 +4,44 @@ from __future__ import annotations
 
 import io
 import json
-from types import SimpleNamespace
 from typing import Any, Dict, List
-from unittest import mock
 
 import pytest
 
 from yoke_contracts.api.function_call import (
-    FunctionCallResponse, FunctionError,
+    FunctionCallResponse,
+    FunctionError,
 )
 from yoke_core.engines import advance_implementation_entry as orch
 
 
-def _item(item_id=42, status="refined-idea", type_="issue",
-          title="t", project="yoke"):
-    return {"id": item_id, "type": type_, "status": status,
-            "title": title, "project": project}
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
+def _item(item_id=42, status="refined-idea", type_="issue", title="t", project="yoke"):
+    return {
+        "public_ref": f"YOK-{item_id}",
+        "type": type_,
+        "status": status,
+        "title": title,
+        "project": project,
+    }
 
 
 class _WtStub:
     """Stand-in for WorktreePreflightOutcome."""
-    def __init__(self, *, ok=True, branch="YOK-42",
-                 worktree_path="/tmp/yok-42", actions=None,
-                 block_kind="", narrative="", notes=None):
+
+    def __init__(
+        self,
+        *,
+        ok=True,
+        branch=_FIXTURE_ITEM_REF,
+        worktree_path="/tmp/yok-42",
+        actions=None,
+        block_kind="",
+        narrative="",
+        notes=None,
+    ):
         self.ok, self.branch = ok, branch
         self.worktree_path = worktree_path
         self.actions_taken = list(actions or ["worktree:created"])
@@ -36,14 +51,18 @@ class _WtStub:
 
 def _ok_response():
     return FunctionCallResponse(
-        success=True, function="lifecycle.transition.execute", version="v1",
+        success=True,
+        function="lifecycle.transition.execute",
+        version="v1",
         result={"from_status": "refined-idea", "to_status": "implementing"},
     )
 
 
 def _err_response():
     return FunctionCallResponse(
-        success=False, function="lifecycle.transition.execute", version="v1",
+        success=False,
+        function="lifecycle.transition.execute",
+        version="v1",
         error=FunctionError(code="precondition_failed", message="refused"),
     )
 
@@ -60,15 +79,15 @@ class _CaptureEmits:
         return [c["context"]["phase"] for c in self.calls]
 
     def outcomes(self):
-        return {c["context"]["phase"]: c["context"]["outcome"]
-                for c in self.calls}
+        return {c["context"]["phase"]: c["context"]["outcome"] for c in self.calls}
 
 
 @pytest.fixture
 def emits(monkeypatch):
     cap = _CaptureEmits()
     monkeypatch.setattr(
-        "yoke_core.engines.advance_implementation_entry.emit_event", cap,
+        "yoke_core.engines.advance_implementation_entry.emit_event",
+        cap,
     )
     return cap
 
@@ -80,14 +99,14 @@ def ambient_session(monkeypatch):
 
 @pytest.fixture
 def gates_pass(monkeypatch):
-    monkeypatch.setattr(orch, "_run_preflight_gates",
-                        lambda _id, force: (True, ""))
+    monkeypatch.setattr(orch, "_run_preflight_gates", lambda _id, force: (True, ""))
 
 
 @pytest.fixture
 def env_skipped(monkeypatch):
     def _stub(item, sid, *, branch="", repo_root=""):
         return "skipped:no-capability", {"project": item.get("project")}
+
     monkeypatch.setattr(orch, "_run_environment_phase", _stub)
     # When the environment phase is stubbed its repo_root argument is
     # unused; stub the resolver too so its transport-aware projects.get
@@ -98,172 +117,183 @@ def env_skipped(monkeypatch):
 
 def _patch_run_preflight(monkeypatch, stub=None, capture=None):
     stub = stub or _WtStub()
+
     def fake(**kwargs):
         if capture is not None:
             capture.update(kwargs)
         return stub
+
     monkeypatch.setattr(
-        "yoke_core.domain.worktree_preflight.run_preflight", fake,
+        "yoke_core.domain.worktree_preflight.run_preflight",
+        fake,
     )
 
 
 def _patch_dispatch(monkeypatch, response=None, calls=None):
     response = response if response is not None else _ok_response()
+
     def fake(req):
         if calls is not None:
-            calls.append({"function": req.function,
-                          "actor_id": req.actor.actor_id,
-                          "target_status": req.payload.get("target_status"),
-                          "source_status": req.payload.get("source_status")})
+            calls.append(
+                {
+                    "function": req.function,
+                    "actor_id": req.actor.actor_id,
+                    "target_status": req.payload.get("target_status"),
+                    "source_status": req.payload.get("source_status"),
+                }
+            )
         return response
+
     monkeypatch.setattr(
-        "yoke_core.domain.yoke_function_dispatch.dispatch", fake,
+        "yoke_core.domain.yoke_function_dispatch.dispatch",
+        fake,
     )
 
 
-def test_parse_item_argument_accepts_typed_internal_id():
-    assert orch._parse_item_argument(1730) == 1730
-
-
-def test_parse_item_id_prefix_ref_resolves_project_sequence(test_db):
-    """``PREFIX-N`` maps to the item's project sequence, not the internal id."""
-    from runtime.api.fixtures.backlog import insert_item
-
-    # Internal id 500 carries public ref YOK-444; a prefix-strip resolver
-    # would return 444.
-    insert_item(test_db, id=500, title="t", project="yoke", project_sequence=444)
-    test_db.commit()
-    assert orch._parse_item_argument("YOK-444") == 500
-    assert orch._parse_item_argument(" yok-444 ") == 500
-
-
-def test_parse_item_id_invalid_raises():
-    with pytest.raises(ValueError):
-        orch._parse_item_argument("not-a-number")
-
-
-@pytest.mark.parametrize("item_in,capability,want_outcome", [
-    ({}, False, "skipped:no-project"),
-    ({"project": "yoke"}, False, "skipped:no-capability"),
-])
-def test_environment_phase_skip_branches(item_in, capability, want_outcome):
-    """Capable-project provisioning is exercised end-to-end in
-    test_advance_implementation_entry_cross_project; here we only assert the
-    two skip branches stay on the orchestrator shim."""
-    with mock.patch(
-        "yoke_core.domain.projects_crud.cmd_has_capability",
-        return_value=capability,
-    ):
-        outcome, _ctx = orch._run_environment_phase(item_in, "sess")
-    assert outcome == want_outcome
-
-
 def test_run_happy_path_flips_status_in_one_call(
-    monkeypatch, emits, env_skipped, gates_pass,
+    monkeypatch,
+    emits,
+    env_skipped,
+    gates_pass,
 ):
     """Status flip lands in the same invocation as worktree."""
     monkeypatch.setattr(orch, "_read_item", lambda _id: _item(item_id=99))
-    _patch_run_preflight(monkeypatch, stub=_WtStub(
-        branch="YOK-99", worktree_path="/tmp/yok-99",
-        actions=["work-claim:acquired", "path-claim:no-op",
-                 "upstream:fast_forwarded", "worktree:created"],
-        notes=["upstream freshness: trunk fast-forwarded 2 commit(s)"]))
+    _patch_run_preflight(
+        monkeypatch,
+        stub=_WtStub(
+            branch="YOK-99",
+            worktree_path="/tmp/yok-99",
+            actions=[
+                "work-claim:acquired",
+                "path-claim:no-op",
+                "upstream:fast_forwarded",
+                "worktree:created",
+            ],
+            notes=["upstream freshness: trunk fast-forwarded 2 commit(s)"],
+        ),
+    )
     dispatch_calls: List[Dict[str, Any]] = []
     _patch_dispatch(monkeypatch, calls=dispatch_calls)
     out = io.StringIO()
-    assert orch.run(99, session_id="s1", out=out) == 0
+    assert orch.run("YOK-99", session_id="s1", out=out) == 0
     summary = json.loads(out.getvalue())
     assert summary["pre_status"] == "refined-idea"
     assert summary["post_status"] == "implementing"
     assert summary["worktree_path"] == "/tmp/yok-99"
     # The preflight's advisories — upstream freshness among them — are only
     # visible to an operator if the orchestrator carries them out.
-    assert summary["notes"] == [
-        "upstream freshness: trunk fast-forwarded 2 commit(s)"
-    ]
-    assert emits.phases() == ["preflight", "worktree", "environment",
-                              "finalize"]
+    assert summary["notes"] == ["upstream freshness: trunk fast-forwarded 2 commit(s)"]
+    assert emits.phases() == ["preflight", "worktree", "environment", "finalize"]
     outcomes = emits.outcomes()
     assert outcomes["preflight"] == "completed"
     assert outcomes["worktree"] == "completed"
     assert outcomes["finalize"] == "completed"
-    assert dispatch_calls == [{
-        "function": "lifecycle.transition.execute",
-        "actor_id": None, "target_status": "implementing",
-        "source_status": "refined-idea",
-    }]
+    assert dispatch_calls == [
+        {
+            "function": "lifecycle.transition.execute",
+            "actor_id": None,
+            "target_status": "implementing",
+            "source_status": "refined-idea",
+        }
+    ]
 
 
 def test_run_preflight_failure_stops_before_worktree(monkeypatch, emits):
     """No worktree event past the failed gate phase."""
     monkeypatch.setattr(orch, "_read_item", lambda _id: _item())
-    monkeypatch.setattr(orch, "_run_preflight_gates",
-                        lambda _id, force: (False, "missing ACs"))
+    monkeypatch.setattr(
+        orch, "_run_preflight_gates", lambda _id, force: (False, "missing ACs")
+    )
     counter = {"n": 0}
+
     def fake(**_):
         counter["n"] += 1
         return _WtStub()
-    monkeypatch.setattr(
-        "yoke_core.domain.worktree_preflight.run_preflight", fake)
-    assert orch.run(42, session_id="s1", out=io.StringIO()) == 1
+
+    monkeypatch.setattr("yoke_core.domain.worktree_preflight.run_preflight", fake)
+    assert orch.run(_FIXTURE_ITEM_REF, session_id="s1", out=io.StringIO()) == 1
     assert counter["n"] == 0
     assert emits.phases() == ["preflight"]
     assert emits.outcomes()["preflight"] == "blocked"
 
 
 def test_run_worktree_create_failure_releases_claim(
-    monkeypatch, emits, gates_pass,
+    monkeypatch,
+    emits,
+    gates_pass,
 ):
     """Worktree-create-failed releases the claim with phase reason."""
     monkeypatch.setattr(orch, "_read_item", lambda _id: _item())
-    _patch_run_preflight(monkeypatch, stub=_WtStub(
-        ok=False, block_kind="worktree-create-failed",
-        narrative="git worktree add failed"))
+    _patch_run_preflight(
+        monkeypatch,
+        stub=_WtStub(
+            ok=False,
+            block_kind="worktree-create-failed",
+            narrative="git worktree add failed",
+        ),
+    )
     release_calls: List[Dict[str, Any]] = []
-    monkeypatch.setattr(orch, "_release_claim",
-                        lambda item_id, sid, reason: release_calls.append(
-                            {"item": item_id, "reason": reason, "session": sid}))
-    assert orch.run(42, session_id="s1", out=io.StringIO()) == 1
-    assert release_calls == [{
-        "item": 42, "reason": orch.RELEASE_WORKTREE_CREATE_FAILED,
-        "session": "s1",
-    }]
+    monkeypatch.setattr(
+        orch,
+        "_release_claim",
+        lambda item_id, sid, reason: release_calls.append(
+            {"item": item_id, "reason": reason, "session": sid}
+        ),
+    )
+    assert orch.run(_FIXTURE_ITEM_REF, session_id="s1", out=io.StringIO()) == 1
+    assert release_calls == [
+        {
+            "item": _FIXTURE_ITEM_REF,
+            "reason": orch.RELEASE_WORKTREE_CREATE_FAILED,
+            "session": "s1",
+        }
+    ]
     assert emits.phases() == ["preflight", "worktree"]
     assert emits.outcomes()["worktree"].startswith("blocked:")
 
 
 def test_run_finalize_failure_keeps_claim(
-    monkeypatch, emits, gates_pass, env_skipped,
+    monkeypatch,
+    emits,
+    gates_pass,
+    env_skipped,
 ):
     """Finalize refusal preserves the claim for idempotent re-entry."""
     monkeypatch.setattr(orch, "_read_item", lambda _id: _item())
     _patch_run_preflight(monkeypatch)
     _patch_dispatch(monkeypatch, response=_err_response())
     release_calls: List[Any] = []
-    monkeypatch.setattr(orch, "_release_claim",
-                        lambda *a, **kw: release_calls.append((a, kw)))
-    assert orch.run(42, session_id="s1", out=io.StringIO()) == 1
+    monkeypatch.setattr(
+        orch, "_release_claim", lambda *a, **kw: release_calls.append((a, kw))
+    )
+    assert orch.run(_FIXTURE_ITEM_REF, session_id="s1", out=io.StringIO()) == 1
     assert release_calls == []
     assert emits.outcomes()["finalize"].startswith("blocked:")
 
 
 def test_run_reentry_skips_status_flip(
-    monkeypatch, emits, gates_pass, env_skipped,
+    monkeypatch,
+    emits,
+    gates_pass,
+    env_skipped,
 ):
     """Rerun against implementing reuses claim/worktree, skips flip."""
-    monkeypatch.setattr(orch, "_read_item",
-                        lambda _id: _item(status="implementing"))
-    _patch_run_preflight(monkeypatch, stub=_WtStub(
-        actions=["work-claim:already-owned", "path-claim:no-op",
-                 "worktree:reused"]))
+    monkeypatch.setattr(orch, "_read_item", lambda _id: _item(status="implementing"))
+    _patch_run_preflight(
+        monkeypatch,
+        stub=_WtStub(
+            actions=["work-claim:already-owned", "path-claim:no-op", "worktree:reused"]
+        ),
+    )
     dispatch_calls: List[Any] = []
+
     def fake(req):
         dispatch_calls.append(req)
         return _ok_response()
-    monkeypatch.setattr(
-        "yoke_core.domain.yoke_function_dispatch.dispatch", fake)
+
+    monkeypatch.setattr("yoke_core.domain.yoke_function_dispatch.dispatch", fake)
     out = io.StringIO()
-    assert orch.run(42, session_id="s1", out=out) == 0
+    assert orch.run(_FIXTURE_ITEM_REF, session_id="s1", out=out) == 0
     summary = json.loads(out.getvalue())
     assert summary["reentry"] is True
     assert summary["post_status"] == "implementing"
@@ -272,54 +302,32 @@ def test_run_reentry_skips_status_flip(
 
 
 def test_run_no_worktree_still_flips_status(
-    monkeypatch, emits, gates_pass, env_skipped,
+    monkeypatch,
+    emits,
+    gates_pass,
+    env_skipped,
 ):
     """--no-worktree honored — status flips but worktree skipped."""
     monkeypatch.setattr(orch, "_read_item", lambda _id: _item())
     captured: Dict[str, Any] = {}
-    _patch_run_preflight(monkeypatch, stub=_WtStub(
-        worktree_path="", branch="YOK-42", actions=["worktree:skipped"]),
-        capture=captured)
+    _patch_run_preflight(
+        monkeypatch,
+        stub=_WtStub(
+            worktree_path="", branch=_FIXTURE_ITEM_REF, actions=["worktree:skipped"]
+        ),
+        capture=captured,
+    )
     _patch_dispatch(monkeypatch)
-    assert orch.run(42, no_worktree=True, session_id="s1",
-                    out=io.StringIO()) == 0
+    assert (
+        orch.run(
+            _FIXTURE_ITEM_REF, no_worktree=True, session_id="s1", out=io.StringIO()
+        )
+        == 0
+    )
     assert captured["no_worktree"] is True
 
 
 def test_run_missing_item_returns_bad_input(monkeypatch, emits):
     monkeypatch.setattr(orch, "_read_item", lambda _id: None)
-    assert orch.run(9999, session_id="s1", out=io.StringIO()) == 2
+    assert orch.run("YOK-9999", session_id="s1", out=io.StringIO()) == 2
     assert emits.calls == []
-
-
-def test_record_phase_fails_closed_when_event_not_written(monkeypatch):
-    monkeypatch.setattr(orch, "emit_event",
-                        lambda *a, **k: SimpleNamespace(ok=False, reason="x"))
-    summary = {"phases": []}
-    with pytest.raises(RuntimeError, match="AdvancePhaseCompleted"):
-        orch._record_phase(summary, item_id=42, phase="preflight",
-                           outcome="completed", duration_ms=1,
-                           session_id="s1")
-    assert summary["phases"] == []
-
-
-def test_main_delegates_to_run(monkeypatch):
-    calls: Dict[str, Any] = {}
-    def fake_run(item_id, **kwargs):
-        calls["item_id"] = item_id
-        calls.update(kwargs)
-        return 0
-    monkeypatch.setattr(orch, "run", fake_run)
-    assert orch.main(["--item", "YOK-42", "--no-worktree", "--force",
-                      "--qa-bypass", "--session-id", "manual-id"]) == 0
-    assert calls["item_id"] == "YOK-42"
-    assert calls["no_worktree"] and calls["force"] and calls["qa_bypass"]
-    assert calls["session_id"] == "manual-id"
-
-
-def test_main_surfaces_unexpected_exception(monkeypatch, capsys):
-    monkeypatch.setattr(
-        orch, "run", lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("boom")),
-    )
-    assert orch.main(["--item", "YOK-1"]) == 1
-    assert "orchestrator crashed" in capsys.readouterr().err

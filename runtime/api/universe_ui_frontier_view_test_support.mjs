@@ -3,7 +3,7 @@
 export function frontierClient() {
   const requests = [];
   const blockedRow = (itemId, gatePoint, why, blocker = {}) => ({
-    item_id: itemId, title: `waits ${itemId}`, project: "yoke",
+    public_ref: itemId, title: `waits ${itemId}`, project: "yoke",
     project_id: 1, project_sequence: Number(itemId.split("-").at(-1)),
     blocking_item: blocker.ref || "YOK-7",
     blocking_project_id: blocker.projectId || 1,
@@ -40,7 +40,7 @@ export function frontierClient() {
             success: true,
             result: {
               ready_rows: [{
-                rank: 0, item_id: "YOK-7", title: "ship it",
+                rank: 0, public_ref: "YOK-7", title: "ship it",
                 workflow_id: "issue", workflow_version: 1,
                 project: "yoke", project_id: 1, project_sequence: 7,
                 status: "implementing",

@@ -82,7 +82,7 @@ def readiness_check(args: List[str]) -> int:
         epilog=_READINESS_CHECK_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("item", help="Item id (PREFIX-N or project-local number).")
+    parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument(
         "--skip-readiness-check",
         action="store_true",
@@ -110,7 +110,7 @@ def readiness_prd_validate(args: List[str]) -> int:
         prog="yoke readiness prd-validate",
         description=READINESS_PRD_VALIDATE_USAGE,
     )
-    parser.add_argument("item", help="Item id (PREFIX-N or project-local number).")
+    parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument(
         "--strict",
         action="store_true",

@@ -85,10 +85,10 @@ class TestReleaseItemClaim:
         assert row[0] is not None  # released_at is set
         assert row[1] == "completed"
 
-    def test_release_item_claim_resolves_project_scoped_bare_sequence(
+    def test_release_item_claim_rejects_project_scoped_bare_sequence(
         self, session_test_db
     ):
-        """An explicitly project-scoped bare sequence resolves before release."""
+        """A project hint cannot authorize a bare sequence to release a claim."""
         db_path = session_test_db["db_path"]
         sid = "release-bare-numeric-test"
 
@@ -123,7 +123,8 @@ class TestReleaseItemClaim:
             ],
             db_path=db_path,
         )
-        assert result.returncode == 0, f"stderr: {result.stderr}"
+        assert result.returncode != 0
+        assert "public_item_ref_required" in result.stderr
 
         conn = connect_test_db(db_path)
         row = conn.execute(
@@ -132,8 +133,8 @@ class TestReleaseItemClaim:
         ).fetchone()
         conn.close()
         assert row is not None
-        assert row[0] is not None
-        assert row[1] == "completed"
+        assert row[0] is None
+        assert row[1] is None
 
     def test_release_item_claim_missing_claim(self, session_test_db):
         """No active claim returns a distinct exit code and warning."""

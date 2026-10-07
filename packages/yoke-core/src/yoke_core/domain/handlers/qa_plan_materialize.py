@@ -71,7 +71,7 @@ def handle_materialize(request: FunctionCallRequest) -> HandlerOutcome:
                 if item_id is None:
                     return _error(
                         "target_invalid",
-                        "item id is required",
+                        "public_ref (PREFIX-N) is required",
                         "$.target",
                     )
                 if payload.transition_id is None:

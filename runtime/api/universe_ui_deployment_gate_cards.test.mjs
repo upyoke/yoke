@@ -167,8 +167,8 @@ test("membership no longer appears as a Details block", async () => {
       batch: {
         item_count: 2,
         items: [
-          { item_id: 2712, item_ref: "YOK-2712", title: "Served context window" },
-          { item_id: 2707, item_ref: "YOK-2707", title: "Messages address actors" },
+          { public_ref: "YOK-2712", item_ref: "YOK-2712", title: "Served context window" },
+          { public_ref: "YOK-2707", item_ref: "YOK-2707", title: "Messages address actors" },
         ],
       },
     },

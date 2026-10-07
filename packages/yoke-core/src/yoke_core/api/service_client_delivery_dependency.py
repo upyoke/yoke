@@ -46,9 +46,7 @@ def cmd_evaluate_gate(args: list[str]) -> int:
 
     conn = _get_db_readonly()
     try:
-        # Resolve the ref (PREFIX-N via its own prefix; bare N via the mapped
-        # checkout project) and re-render the canonical text ref stored by the
-        # dependency rows.
+        # Resolve the full public ref and re-render the canonical dependency key.
         resolved = parse_item_argument(item_id, conn=conn)
         item_id = render_item_ref(conn, resolved)
         result = evaluate_item_gate(conn, item_id, gate_point)
@@ -57,8 +55,7 @@ def cmd_evaluate_gate(args: list[str]) -> int:
             "gate_point": result.gate_point,
             "is_blocked": result.is_blocked,
             "unsatisfied_blockers": [
-                _blocker_detail_to_dict(b)
-                for b in result.unsatisfied_blockers
+                _blocker_detail_to_dict(b) for b in result.unsatisfied_blockers
             ],
         }
         print(json.dumps(out))
@@ -81,8 +78,9 @@ def cmd_plan_candidates(args: list[str]) -> int:
     Exit 0 on success, 1 on domain error, 2 on usage error.
     """
     if len(args) < 2:
-        print("Usage: plan-candidates <gate-point> <item1> [item2 ...]",
-              file=sys.stderr)
+        print(
+            "Usage: plan-candidates <gate-point> <item1> [item2 ...]", file=sys.stderr
+        )
         return 2
 
     gate_point = args[0]

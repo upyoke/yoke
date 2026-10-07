@@ -61,7 +61,7 @@ class CreateWorktreeResult:
 
 
 def create_worktree(
-    item_id: int,
+    item_id: int | str,
     base_branch: Optional[str] = None,
     project: Optional[str] = None,
     *,
@@ -154,7 +154,9 @@ def create_worktree(
         freshness = refresh_base_branch(repo_root, base_branch)
         if not freshness.verified:
             return CreateWorktreeResult(
-                path="", branch=fallback_branch, created=False,
+                path="",
+                branch=fallback_branch,
+                created=False,
                 error=freshness.note,
             )
         base_branch = freshness.lane_base_ref or base_branch
@@ -176,7 +178,7 @@ def create_worktree(
     if hosted_lane_authority:
         try:
             authoritative_lanes = prepare_authoritative_item_worktrees(
-                int(item_id),
+                item_id,
             )
         except Exception as exc:  # noqa: BLE001 - preserve relay failure detail
             return CreateWorktreeResult(
@@ -201,7 +203,7 @@ def create_worktree(
         )
     try:
         raw_worktrees = resolve_worktree_lanes_for_item(
-            int(item_id),
+            item_id,
             repo_root,
             wt_dir,
             db_path,
@@ -211,7 +213,10 @@ def create_worktree(
         # The lane would have to be named before it can be created, and the
         # name is the one thing that cannot be guessed.
         return CreateWorktreeResult(
-            path="", branch="", created=False, error=str(exc),
+            path="",
+            branch="",
+            created=False,
+            error=str(exc),
         )
 
     # --- All-worktree preflight (no side effects yet) ---
@@ -256,9 +261,7 @@ def create_worktree(
 
     # --- Per-worktree provisioning, in the order the sequence owns ---
     os.makedirs(worktrees_dir, exist_ok=True)
-    project_for_install, project_error = provisioning_project(
-        item_id, project, db_path
-    )
+    project_for_install, project_error = provisioning_project(item_id, project, db_path)
     if project_error:
         return CreateWorktreeResult(
             path="",
@@ -268,7 +271,7 @@ def create_worktree(
         )
     provisioned = provision_planned_lanes(
         plan,
-        item_id=int(item_id),
+        item_id=item_id,
         repo_root=repo_root,
         base_branch=base_branch,
         project=project_for_install,

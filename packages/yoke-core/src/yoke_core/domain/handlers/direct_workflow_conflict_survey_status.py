@@ -64,7 +64,7 @@ def _item_id(
     if request.target.kind != "item" or request.target.item_id is None:
         return None, _error(
             "invalid_target",
-            "target must carry kind='item' and item_id",
+            "target must carry kind='item' and public_ref (PREFIX-N)",
         )
     return int(request.target.item_id), None
 

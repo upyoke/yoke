@@ -192,8 +192,17 @@ def test_review_submission_refuses_while_a_mission_walk_is_unfinished(
     )
 
     exit_code = qa_plan_review_cli.run(
-        ["--item-id", "11", "--execution-id", CURRENT, "--bundle-id", "b"]
-        + ["--bundle-digest", "d", "--stdin"]
+        [
+            "--item",
+            "ITEM-11",
+            "--execution-id",
+            CURRENT,
+            "--bundle-id",
+            "b",
+            "--bundle-digest",
+            "d",
+            "--stdin",
+        ]
     )
 
     probed = [

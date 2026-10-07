@@ -107,34 +107,42 @@ class TestBoardProjectionParity:
         # Verify expected bucket assignments for yoke project items
         # Item 1: implementing -> implementing bucket
         implementing_ids = [item["id"] for item in columns.get("implementing", [])]
-        assert 1 in implementing_ids, "Item 1 (implementing) should be in implementing bucket"
+        assert f"YOK-{1}" in implementing_ids, (
+            "Item 1 (implementing) should be in implementing bucket"
+        )
 
         # Item 2: done -> done bucket
         done_ids = [item["id"] for item in columns.get("done", [])]
-        assert 2 in done_ids, "Item 2 (done) should be in done bucket"
+        assert f"YOK-{2}" in done_ids, "Item 2 (done) should be in done bucket"
 
         # Item 5: cancelled is excluded from board query
         all_board_ids = []
         for col_items in columns.values():
             all_board_ids.extend(item["id"] for item in col_items)
-        assert 5 not in all_board_ids, "Cancelled items excluded from board"
+        assert f"YOK-{4}" not in all_board_ids, "Cancelled items excluded from board"
 
         # Item 6: frozen -> excluded from board display
-        assert 6 not in all_board_ids, "Frozen items excluded from board"
+        assert f"YOK-{5}" not in all_board_ids, "Frozen items excluded from board"
 
         # Item 7: reviewing-implementation -> reviewing bucket
         reviewing_ids = [item["id"] for item in columns.get("reviewing", [])]
-        assert 7 in reviewing_ids, "Item 7 (reviewing-implementation) should be in reviewing bucket"
+        assert f"YOK-{6}" in reviewing_ids, (
+            "Item 7 (reviewing-implementation) should be in reviewing bucket"
+        )
 
         # Item 8: implemented + active run -> release bucket
         release_ids = [item["id"] for item in columns.get("release", [])]
         implemented_ids = [item["id"] for item in columns.get("implemented", [])]
-        assert 8 in release_ids, "Item 8 (implemented + active run) should be in release bucket"
-        assert 8 not in implemented_ids, "Item 8 should not remain in implemented bucket"
+        assert f"YOK-{7}" in release_ids, (
+            "Item 8 (implemented + active run) should be in release bucket"
+        )
+        assert f"YOK-{7}" not in implemented_ids, (
+            "Item 8 should not remain in implemented bucket"
+        )
 
         # Item 9: blocked -> blocked bucket
         blocked_ids = [item["id"] for item in columns.get("blocked", [])]
-        assert 9 in blocked_ids, "Item 9 (blocked) should be in blocked bucket"
+        assert f"YOK-{8}" in blocked_ids, "Item 9 (blocked) should be in blocked bucket"
 
     def test_board_api_scopes_items_to_requested_project(self, parity_env):
         """Board should not include items from other projects."""
@@ -160,7 +168,9 @@ class TestBoardProjectionParity:
         columns = resp.json()["columns"]
 
         implementing_ids = [item["id"] for item in columns.get("implementing", [])]
-        assert 10 not in implementing_ids, "Board should exclude items from other projects"
+        assert f"WEB-{2}" not in implementing_ids, (
+            "Board should exclude items from other projects"
+        )
 
     def test_board_stats_computation(self, parity_env):
         """Board stats should match domain-layer board projection logic."""

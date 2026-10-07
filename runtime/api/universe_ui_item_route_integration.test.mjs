@@ -24,7 +24,7 @@ test("an epic's detail carries its tasks; an issue's does not", async (t) => {
 
   const drillInto = async (workflowId) => {
     const documentNode = new FakeDocument();
-    documentNode.defaultView.location.href = "/items/7?project=1";
+    documentNode.defaultView.location.href = "/items/YOK-7?project=1";
     const root = documentNode.createElement("div");
     const requests = [];
     const client = {
@@ -54,7 +54,7 @@ test("an epic's detail carries its tasks; an issue's does not", async (t) => {
                 item: {
                   ...detailItem(workflowId),
                   id: 7,
-                  public_ref: "7",
+                  public_ref: "YOK-7",
                   project: { id: 1, slug: "yoke", name: "Yoke" },
                 },
               },
@@ -67,7 +67,7 @@ test("an epic's detail carries its tasks; an issue's does not", async (t) => {
             envelope: {
               success: true,
               result: {
-                epic_id: 7,
+                epic_public_ref: "YOK-7",
                 tasks: [{ task_num: 1, title: "first", status: "done" }],
               },
             },
@@ -102,11 +102,11 @@ test("an epic's detail carries its tasks; an issue's does not", async (t) => {
 
   const epic = await drillInto("epic");
   assert.deepEqual(epic.target, {
-    kind: "item", public_ref: "7", project_id: "1",
+    kind: "item", public_ref: "YOK-7", project_id: "1",
   });
   assert.equal(epic.askedForTasks, true);
   assert.deepEqual(epic.tasksTarget, {
-    kind: "epic_task", epic_id: 7, project_id: "1",
+    kind: "epic_task", public_ref: "YOK-7", project_id: "1",
   });
   assert.deepEqual(epic.tasksPayload, {});
   assert.equal(epic.showsTask, true);
@@ -153,14 +153,14 @@ test("Items roster names projects but keeps blocking details out", async (t) => 
             result: {
               rows: [
                 {
-                  id: 1, public_ref: "YOK-1", project_id: 1,
+                  public_ref: "YOK-1", project_id: 1,
                   title: "runs", workflow_id: "issue",
                   workflow_version_id: 1, status: "idea",
                   stage_label: "Idea", owner: "", claimed_by: null,
                   blocked: false, blocked_reason: "",
                 },
                 {
-                  id: 2, public_ref: "YOK-2", project_id: 1,
+                  public_ref: "YOK-2", project_id: 1,
                   title: "waits", workflow_id: "epic",
                   workflow_version_id: 1, status: "idea",
                   stage_label: "Idea", owner: "", claimed_by: null,
@@ -189,7 +189,7 @@ test("Items roster names projects but keeps blocking details out", async (t) => 
   ));
   assert.deepEqual(
     byClass(root, "row-link").map((node) => node.href),
-    ["/items/1?project=1", "/items/2?project=1"],
+    ["/items/YOK-1?project=1", "/items/YOK-2?project=1"],
   );
   // The roster requests its page size and default ordering at an unfiltered scope.
   assert.deepEqual(itemsRequest.payload, { page_size: ROSTER_PAGE_SIZE, sort_column: "updated_at", sort_direction: "desc" });

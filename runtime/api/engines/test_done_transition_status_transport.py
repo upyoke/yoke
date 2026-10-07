@@ -30,7 +30,8 @@ def _install(monkeypatch, fake):
     )
     monkeypatch.setattr(status, "call_dispatcher", fake)
     monkeypatch.setattr(
-        dt, "_connect",
+        dt,
+        "_connect",
         lambda *a, **k: pytest.fail("must not open a bare _connect() on a read path"),
     )
 
@@ -46,14 +47,15 @@ class TestEpicTaskListRelay:
         _install(monkeypatch, fake)
         status._cascade_epic_tasks_to_done(8600, public_ref="YOK-8600")
         assert calls[0]["function_id"] == "done_transition.epic_task_list"
-        assert calls[0]["payload"] == {"epic_id": "8600"}
+        assert calls[0]["payload"] == {"epic_public_ref": "YOK-8600"}
         assert "No tasks to cascade." in capsys.readouterr().out
 
 
 class TestGithubIssuesRelay:
     def test_batch_sync_relays_github_issues(self, monkeypatch, capsys):
         monkeypatch.setattr(
-            status, "resolve_project_github_auth",
+            status,
+            "resolve_project_github_auth",
             lambda *a, **k: SimpleNamespace(repo="org/repo", token="tok"),
         )
         monkeypatch.setattr(status, "request_with_retry", lambda *a, **k: None)
@@ -69,7 +71,10 @@ class TestGithubIssuesRelay:
             if fid == "done_transition.item_field":
                 return _resp(fid, {"value": "yoke"})
             if fid == "done_transition.epic_task_github_issues":
-                assert kwargs["payload"] == {"epic_id": "8600", "task_nums": ["1"]}
+                assert kwargs["payload"] == {
+                    "epic_public_ref": "YOK-8600",
+                    "task_nums": ["1"],
+                }
                 return _resp(fid, {"github_issues": {"1": "#701"}})
             return _resp(fid)
 

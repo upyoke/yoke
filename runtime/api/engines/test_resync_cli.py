@@ -25,6 +25,9 @@ from runtime.api.engines._resync_test_helpers import (
 )
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 class TestDoctorFormat:
     def test_all_pass_when_no_issues(self, test_db):
         """Doctor format shows PASS for all HCs when no issues found."""
@@ -41,18 +44,22 @@ class TestDoctorFormat:
 
     def test_warn_on_title_drift(self, test_db):
         """Doctor format shows WARN for title drift."""
-        drifts = [DriftRecord("YOK-42", "title", "Local Title", "GitHub Title")]
+        drifts = [
+            DriftRecord(_FIXTURE_ITEM_REF, "title", "Local Title", "GitHub Title")
+        ]
         captured = StringIO()
         with mock.patch("sys.stdout", captured):
             _emit_doctor_format([], [], drifts, "detect")
 
         output = captured.getvalue()
         assert "HC-title-drift|Title drift|WARN|" in output
-        assert "YOK-42" in output
+        assert _FIXTURE_ITEM_REF in output
 
     def test_warn_on_local_orphans(self, test_db):
         """Doctor format shows WARN for local orphans."""
-        orphans = [LocalOrphan("YOK-99", "/tmp/099.md", "backlog", "yoke", item_id=99)]
+        orphans = [
+            LocalOrphan("YOK-99", "/tmp/099.md", "backlog", "yoke", public_ref="YOK-99")
+        ]
         captured = StringIO()
         with mock.patch("sys.stdout", captured):
             _emit_doctor_format(orphans, [], [], "detect")
@@ -259,7 +266,9 @@ class TestMainCLI:
             return (
                 [],  # paired
                 [
-                    LocalOrphan("YOK-99", "/tmp/099.md", "backlog", "yoke", item_id=99)
+                    LocalOrphan(
+                        "YOK-99", "/tmp/099.md", "backlog", "yoke", public_ref="YOK-99"
+                    )
                 ],  # local orphans
                 [],  # gh orphans
                 {},  # gh_by_project
@@ -283,8 +292,8 @@ class TestMainCLI:
 
 class TestDriftRecord:
     def test_to_pipe(self):
-        d = DriftRecord("YOK-42", "title", "local", "github")
-        assert d.to_pipe() == "YOK-42|title|local|github"
+        d = DriftRecord(_FIXTURE_ITEM_REF, "title", "local", "github")
+        assert d.to_pipe() == f"{_FIXTURE_ITEM_REF}|title|local|github"
 
 
 class TestExitCodes:

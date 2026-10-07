@@ -17,12 +17,11 @@ import {
 
 const ok = (result) => ({ status: 200, envelope: { success: true, result } });
 
-const REQUIREMENT = {
-  id: 9001,
-  item_id: 2262,
+const REQUIREMENT = { id: 9001,
+  public_ref: "YOK-2228",
   deployment_run_id: "run-20260726-001",
   deployment_stage: "stage-item-qa",
-  deployment_member_item_id: 2262,
+  deployment_member_public_ref: "YOK-2228",
   plan_id: 7,
   plan_case_key: "preview-url-compare",
   method_id: "browser-check",
@@ -58,7 +57,7 @@ const ACTIVITY_ROW = {
   run_id: 44,
   deployment_run_id: "run-20260726-001",
   deployment_stage: "stage-item-qa",
-  item_id: 2262,
+  public_ref: "YOK-2228",
   plan_id: 7,
   plan: "release-readiness",
   project: "yoke",
@@ -112,7 +111,7 @@ function caseContext(documentNode, requests, overrides = {}) {
         if (request.function === "items.detail.get") {
           return ok({
             item: {
-              id: 2262, public_ref: "YOK-2228", title: "Ship the release",
+              public_ref: "YOK-2228", title: "Ship the release",
               project: { id: 1, slug: "yoke" },
             },
           });
@@ -153,7 +152,7 @@ test("a case page names its subject, its stage execution, and its contract", asy
   });
   assert.deepEqual(
     requests.find((r) => r.function === "qa.activity.list").payload,
-    { project: "1", item_ids: [2262] },
+    { project: "1", public_refs: ["YOK-2228"] },
   );
 
   // Titled for what ran against what, the name the activity table links.
@@ -251,14 +250,14 @@ test("a standalone case keeps its own subject rather than borrowing a release", 
   const context = caseContext(documentNode, requests, {
     requirement: {
       ...REQUIREMENT,
-      item_id: null,
+      public_ref: null,
       deployment_run_id: null,
       deployment_stage: null,
-      deployment_member_item_id: null,
+      deployment_member_public_ref: null,
     },
     rows: [{
       ...ACTIVITY_ROW,
-      item_id: null, deployment_run_id: null, deployment_stage: null,
+      public_ref: null, deployment_run_id: null, deployment_stage: null,
       outcome: "passed", verdict_reason: null, artifacts: [],
     }],
   });

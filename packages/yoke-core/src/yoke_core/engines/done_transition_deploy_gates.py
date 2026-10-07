@@ -20,6 +20,8 @@ merge-only rather than a setup refusal.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 from typing import Any, Dict, Optional, Tuple
 
 from yoke_contracts.api.function_call import TargetRef
@@ -67,7 +69,9 @@ def _relay_read(
     return resp.result or {}
 
 
-def _read_deployment_flow_target_tier(deploy_flow: str, *, required: bool) -> Optional[str]:
+def _read_deployment_flow_target_tier(
+    deploy_flow: str, *, required: bool
+) -> Optional[str]:
     """Read one flow's semantic target tier.
 
     A successful null value is the merge-only marker. Pre-merge routing uses
@@ -167,9 +171,9 @@ def _check_deployment_flow_guard(
     # first, then whether a succeeded release of this flow contains the
     # item's merge. Reading only membership is what let two members of one
     # release get opposite verdicts.
-    delivery = _read_delivery_evidence(item_id)
+    delivery = _read_delivery_evidence(public_ref)
     delivery_state = str(delivery.get("state") or "")
-    run_status, run_id = _get_latest_run_status(item_id)
+    run_status, run_id = _get_latest_run_status(public_ref)
     if delivery_state == _DELIVERY_DISCHARGED:
         run_id = str(delivery.get("run_id") or run_id)
         run_status = "succeeded"
@@ -208,7 +212,7 @@ def _check_deployment_flow_guard(
         # Skipping the live pipeline never skips the QA a stage already
         # owes: the flag waives re-running deployment, not the verdicts
         # the run's own evidence is supposed to carry.
-        if check_run_qa_gates(item_id, run_id):
+        if check_run_qa_gates(public_ref, run_id):
             return 7, old_status
         print(f"Deployment evidence verified for {public_ref}.")
         print("  Skipping live deployment pipeline checks per --skip-deploy.")
@@ -221,7 +225,7 @@ def _check_deployment_flow_guard(
             if stage_error:
                 return 7, old_status
             # Check blocking QA
-            if check_run_qa_gates(item_id, run_id):
+            if check_run_qa_gates(public_ref, run_id):
                 return 7, old_status
             print(
                 "Deployment flow guard: run succeeded, QA satisfied — proceeding to done."
@@ -269,9 +273,9 @@ def _check_deployment_flow_guard(
 
     # deploy_stage check for runless deployment evidence.
     if not run_status or run_status != "succeeded":
-        deploy_stage = _parent()._query_item_field(item_id, "deploy_stage")
+        deploy_stage = _parent()._query_item_field(public_ref, "deploy_stage")
         if deploy_stage == "complete":
-            if check_run_qa_gates(item_id, run_id):
+            if check_run_qa_gates(public_ref, run_id):
                 return 7, old_status
             print("Deployment flow guard: deploy_stage=complete — proceeding to done.")
             return None
@@ -291,21 +295,21 @@ def _check_deployment_evidence(item_id: int) -> bool:
     """True iff the item's latest deployment run succeeded."""
     data = _relay_read(
         "done_transition.latest_deployment_run",
-        TargetRef(kind="item", item_id=int(item_id)),
+        public_item_target(item_id),
     )
     return data.get("status") == "succeeded"
 
 
 def _read_delivery_evidence(item_id: int) -> dict:
     """The shared delivery ladder's verdict for this item."""
-    return _read_delivery_evidence_via(_relay_read, int(item_id))
+    return _read_delivery_evidence_via(_relay_read, item_id)
 
 
 def _get_latest_run_status(item_id: int) -> Tuple[str, str]:
     """Get the latest deployment run status and ID for an item."""
     data = _relay_read(
         "done_transition.latest_deployment_run",
-        TargetRef(kind="item", item_id=int(item_id)),
+        public_item_target(item_id),
     )
     return str(data.get("status") or ""), str(data.get("run_id") or "")
 
@@ -328,4 +332,3 @@ def _check_run_stage_consistency(run_id: str) -> bool:
         print("\nThis is a contradictory state — the stage indicates failure.")
         return True
     return False
-

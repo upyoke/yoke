@@ -48,10 +48,12 @@ def test_terminal_close_out_runs_the_machine_wide_sweep(monkeypatch, tmp_path):
         swept.append(kwargs)
         return WorktreeSweep(
             removed=("/repo/.worktrees/OLD",),
-            preserved=(PreservedLane(
+            preserved=(
+                PreservedLane(
                     "/repo/.worktrees/DIRTY",
                     "unignored changes present: scratch.txt",
-                ),),
+                ),
+            ),
         )
 
     close = terminal_lane_cleanup.cleanup_terminal_item_lanes(
@@ -92,7 +94,9 @@ def test_preserved_own_lane_is_recorded_as_an_event(monkeypatch, tmp_path):
     """The refusal outlives the merge output: it lands on the events ledger."""
     monkeypatch.setattr(terminal_lane_cleanup.git, "branch_exists", lambda *_a: True)
     calls: list[dict] = []
-    monkeypatch.setattr(terminal_lane_cleanup, "call_dispatcher", _recording_dispatcher(calls))
+    monkeypatch.setattr(
+        terminal_lane_cleanup, "call_dispatcher", _recording_dispatcher(calls)
+    )
     reason = (
         "lane ITEM-7 preserved: worktree /repo/.worktrees/ITEM-7 "
         "(unignored changes present: scratch.txt)"
@@ -113,7 +117,7 @@ def test_preserved_own_lane_is_recorded_as_an_event(monkeypatch, tmp_path):
     assert payload["name"] == terminal_lane_cleanup.LANE_PRESERVED_EVENT_NAME
     assert payload["severity"] == "WARN"
     assert payload["project"] == "yoke"
-    assert payload["item_id"] == "7"
+    assert payload["public_ref"] == "ITEM-7"
     assert payload["context"] == {
         "branch": "ITEM-7",
         "path": "/repo/.worktrees/ITEM-7",
@@ -144,7 +148,10 @@ def test_refused_preserved_lane_event_is_a_named_warning(monkeypatch, tmp_path):
     )
 
     assert len(close.warnings) == 2
-    assert close.warnings[1] == "LandedLanePreserved not recorded for ITEM-7: project unknown"
+    assert (
+        close.warnings[1]
+        == "LandedLanePreserved not recorded for ITEM-7: project unknown"
+    )
 
 
 def test_retired_own_lane_records_no_event(monkeypatch, tmp_path):

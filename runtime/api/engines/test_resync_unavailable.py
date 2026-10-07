@@ -51,7 +51,7 @@ class TestHeavyFetchUnavailable:
                 "backlog",
                 "externalwebapp",
                 "",
-                item_id=TEST_ITEM_ID,
+                public_ref=TEST_ITEM_REF,
             ),
         ]
         light = {
@@ -89,7 +89,7 @@ class TestHeavyFetchUnavailable:
                 "backlog",
                 "yoke",
                 "stale/repo",
-                item_id=TEST_ITEM_ID,
+                public_ref=TEST_ITEM_REF,
             ),
         ]
         light = {
@@ -141,7 +141,7 @@ class TestHeavyFetchUnavailable:
                 "backlog",
                 "externalwebapp",
                 "",
-                item_id=TEST_ITEM_ID,
+                public_ref=TEST_ITEM_REF,
             ),
         ]
         light = {

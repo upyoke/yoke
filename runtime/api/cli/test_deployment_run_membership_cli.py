@@ -80,7 +80,7 @@ def test_add_item_routes_public_ref_for_server_side_resolution() -> None:
     assert request.payload == {"run_id": "run-20260909-001"}
 
 
-def test_add_item_preserves_project_hint_for_bare_item_ref() -> None:
+def test_add_item_refuses_bare_item_ref_even_with_project() -> None:
     rc, _out, err = _run(
         "deployment-runs",
         "add-item",
@@ -90,10 +90,9 @@ def test_add_item_preserves_project_hint_for_bare_item_ref() -> None:
         "yoke",
     )
 
-    assert rc == 0, err
-    request = CAPTURED[-1]
-    assert request.target.public_ref == "3048"
-    assert request.target.project_id == "yoke"
+    assert rc == 1
+    assert "public_item_ref_required" in err
+    assert CAPTURED == []
 
 
 def test_add_item_carries_explicit_slice_requirement_selection() -> None:

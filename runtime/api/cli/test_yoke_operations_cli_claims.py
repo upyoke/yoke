@@ -112,8 +112,8 @@ class TestAcquireEpicTask:
             "claims",
             "work",
             "acquire",
-            "--epic-id",
-            "1872",
+            "--epic",
+            "YOK-1872",
             "--task-num",
             "20",
             "--reason",
@@ -123,10 +123,9 @@ class TestAcquireEpicTask:
         req = _CAPTURED[-1]
         assert req.function == "claims.work.acquire"
         assert req.target.kind == "epic_task"
-        assert req.target.epic_id == 1872 and req.target.task_num == 20
+        assert req.target.public_ref == "YOK-1872" and req.target.task_num == 20
         assert req.payload["target"] == {
             "kind": "epic_task",
-            "epic_id": 1872,
             "task_num": 20,
         }
         assert req.payload["reason"] == "engineer dispatch"
@@ -136,8 +135,8 @@ class TestAcquireEpicTask:
             "claims",
             "work",
             "acquire",
-            "--epic-id",
-            "100",
+            "--epic",
+            "YOK-100",
             "--task-num",
             "1",
         )
@@ -145,31 +144,31 @@ class TestAcquireEpicTask:
         assert "reason" not in _CAPTURED[-1].payload
 
     def test_acquire_epic_task_requires_both_selectors(self) -> None:
-        # --epic-id without --task-num falls through to "no target" usage.
+        # --epic without --task-num falls through to "no target" usage.
         rc, *_ = _run(
             "claims",
             "work",
             "acquire",
-            "--epic-id",
-            "1872",
+            "--epic",
+            "YOK-1872",
             "--reason",
             "missing task-num",
         )
         assert rc == 2 and _CAPTURED == []
 
-    def test_acquire_epic_task_rejects_non_integer(self) -> None:
+    def test_acquire_epic_task_rejects_invalid_public_ref(self) -> None:
         rc, *_ = _run(
             "claims",
             "work",
             "acquire",
-            "--epic-id",
+            "--epic",
             "abc",
             "--task-num",
             "5",
             "--reason",
             "bad",
         )
-        assert rc == 2 and _CAPTURED == []
+        assert rc == 1 and _CAPTURED == []
 
 
 # ---------------------------------------------------------------------------
@@ -188,8 +187,8 @@ class TestReleaseEpicTask:
             "claims",
             "work",
             "release",
-            "--epic-id",
-            "1872",
+            "--epic",
+            "YOK-1872",
             "--task-num",
             "20",
             "--reason",
@@ -199,7 +198,7 @@ class TestReleaseEpicTask:
         req = _CAPTURED[-1]
         assert req.function == "claims.work.release"
         assert req.target.kind == "epic_task"
-        assert req.target.epic_id == 1872 and req.target.task_num == 20
+        assert req.target.public_ref == "YOK-1872" and req.target.task_num == 20
         assert req.target.claim_id is None
         assert req.payload == {"reason": "engineer return"}
 
@@ -260,7 +259,7 @@ class TestReleaseHelp:
                 rc = cli_main(["claims", "work", "release", "--help"])
         assert rc == 0
         out = buf.getvalue()
-        assert "--epic-id" in out
+        assert "--epic" in out
         assert "--task-num" in out
         assert "epic_task" in out
         assert "--process" in out

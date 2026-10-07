@@ -2,7 +2,7 @@
 
 Covers polish steps 4 and 5: gather item artifacts and survey the surrounding landscape for drift, overlap, and staleness.
 
-**Context variables** (set by parse-and-claim): `ITEM_REF`, `ITEM_NUM`, `WORKTREE_PATH`, `WORKTREE_PATHS`.
+**Context variables** (set by parse-and-claim): `ITEM_REF`, `WORKTREE_PATH`, `WORKTREE_PATHS`.
 
 ---
 

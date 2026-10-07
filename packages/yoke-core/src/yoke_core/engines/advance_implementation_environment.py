@@ -55,14 +55,16 @@ def _git_push(repo_root: str, branch: str) -> Tuple[bool, str]:
 def _git_ref_sha(repo_root: str, ref: str) -> str:
     proc = subprocess.run(
         ["git", "-C", repo_root, "rev-parse", ref],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     return proc.stdout.strip() if proc.returncode == 0 else ""
 
 
 def _item_label(conn, item: Dict[str, Any]) -> str:
     """Public item ref for tracking (falls back to the bare id)."""
-    item_id = item.get("id")
+    item_id = item.get("public_ref")
     if not item_id:
         return ""
     from yoke_core.domain.item_ref_render import render_item_refs
@@ -105,13 +107,13 @@ def load_ephemeral_policy(project: str):
     try:
         cap = json.loads(raw) if isinstance(raw, str) else (raw or {})
     except (TypeError, ValueError) as exc:
-        raise EphemeralPolicyError(
-            f"invalid ephemeral-env settings: {exc}"
-        ) from exc
+        raise EphemeralPolicyError(f"invalid ephemeral-env settings: {exc}") from exc
     if not isinstance(cap, dict):
         cap = {}
     return ephemeral_policy_from_capability(
-        project, cap, deploy_namespace=project,
+        project,
+        cap,
+        deploy_namespace=project,
     )
 
 
@@ -140,11 +142,13 @@ def run(
         policy = load_ephemeral_policy(project)
     except EphemeralPolicyError as exc:
         return "pending:policy-invalid", {
-            "project": project, "error": str(exc),
+            "project": project,
+            "error": str(exc),
         }
     if policy.trigger != TRIGGER_GITHUB_PUSH:
         return "skipped:flow-triggered", {
-            "project": project, "trigger": policy.trigger,
+            "project": project,
+            "trigger": policy.trigger,
         }
 
     if not repo_root:
@@ -153,7 +157,9 @@ def run(
     push_ok, push_err = _git_push(repo_root, branch)
     if not push_ok:
         return "pending:push-failed", {
-            "project": project, "branch": branch, "push_error": push_err,
+            "project": project,
+            "branch": branch,
+            "push_error": push_err,
         }
 
     from yoke_core.domain.control_plane_transport import (
@@ -172,7 +178,9 @@ def run(
                 env_id = int(env_id_raw)
             except (TypeError, ValueError):
                 return "pending:env-create-failed", {
-                    "project": project, "branch": branch, "env_id": env_id_raw,
+                    "project": project,
+                    "branch": branch,
+                    "env_id": env_id_raw,
                 }
             slug = slugify_branch(branch)
             url = preview_url(slug, policy.preview_domain)
@@ -189,7 +197,7 @@ def run(
         # https / no local Postgres: relay CP writes through registered
         # ephemeral_env.* functions — never bare-connect, never YOKE_ENV=.
         item_label = ""
-        item_id = item.get("id")
+        item_id = item.get("public_ref")
         if item_id:
             item_label = str(item.get("public_ref") or item_id)
         created = relay(
@@ -219,6 +227,9 @@ def run(
             )
 
     return "provisioned", {
-        "project": project, "branch": branch, "env_id": env_id,
-        "url": url, "deployed_sha": deployed_sha,
+        "project": project,
+        "branch": branch,
+        "env_id": env_id,
+        "url": url,
+        "deployed_sha": deployed_sha,
     }

@@ -21,6 +21,7 @@ from yoke_core.domain.project_github_auth import resolve_project_github_auth
 
 def _parent():
     from yoke_core.engines import resync as _resync
+
     return _resync
 
 
@@ -49,7 +50,7 @@ def _is_dry_run() -> bool:
     return os.environ.get("YOKE_DRY_RUN", "0") == "1"
 
 
-def _query_item_status(item_id: str) -> Optional[str]:
+def _query_item_status(public_ref: str) -> Optional[str]:
     """Look up an item's local status through the connected transport.
 
     Relays ``resync.item_lookup`` so the status probe runs over an https
@@ -64,7 +65,7 @@ def _query_item_status(item_id: str) -> Optional[str]:
         resp = call_dispatcher(
             function_id="resync.item_lookup",
             target=TargetRef(kind="global"),
-            payload={"ref": str(item_id)},
+            payload={"ref": str(public_ref)},
         )
     except Exception:
         return None
@@ -93,7 +94,9 @@ def _call_domain_sync(func, *args, project: str = "", **kwargs) -> bool:
         return False
     except Exception as exc:
         _print_domain_sync_reason(
-            func, stderr.getvalue(), f"{type(exc).__name__}: {exc}",
+            func,
+            stderr.getvalue(),
+            f"{type(exc).__name__}: {exc}",
         )
         return False
 

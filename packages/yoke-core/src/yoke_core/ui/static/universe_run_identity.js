@@ -97,17 +97,17 @@ export function runIdentityCard(context, row, environment) {
 // whatever replaces it, so the replacement is worth naming — and the reader
 // finds it through the work, which is the only durable link between the two.
 export async function loadSiblingRuns(context, project, items, runId) {
-  // Membership names its item `id`; derived carried work names it `item_id`.
+  // Membership names its item `id`; derived carried work names it `public_ref`.
   const memberId = items
-    .map((item) => Number(item.item_id ?? item.id))
-    .find((id) => Number.isFinite(id) && id > 0);
+    .map((item) => item.public_ref ?? item.ref ?? item.item_ref)
+    .find(Boolean);
   if (!memberId || !project) return [];
   try {
     const read = await callFunction(
       context.client,
       "deployment_runs.find_by_item",
       {},
-      { kind: "item", item_id: memberId, project_id: String(project.id) },
+      { kind: "item", public_ref: memberId, project_id: String(project.id) },
     );
     if (read.status !== 200 || !read.envelope.success) return [];
     return (read.envelope.result?.rows || [])

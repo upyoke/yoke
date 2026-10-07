@@ -26,25 +26,10 @@ BASELINE: dict[str, dict[str, object]] = {
         "reason": "next_id_display_fallback",
         "note": "next-id output before a project-specific prefix is available",
     },
-    "packages/yoke-core/src/yoke_core/domain/deploy_pipeline_gates.py": {
-        "count": 2,
-        "reason": "commit_grep_token",
-        "note": "commit-message grep keeps legacy internal-id token beside rendered ref",
-    },
-    "packages/yoke-core/src/yoke_core/domain/discovery_scan.py": {
-        "count": 1,
-        "reason": "scratch_path_convention",
-        "note": "stable /tmp discovery-scan filename keyed by normalized item number",
-    },
     "packages/yoke-core/src/yoke_core/domain/ephemeral_environment_item_binding.py": {
         "count": 1,
         "reason": "legacy_key_lookup",
         "note": "stop query matches historical YOK-{internal_id} environment labels",
-    },
-    "packages/yoke-core/src/yoke_core/domain/handlers/shepherd_verdict_writes.py": {
-        "count": 1,
-        "reason": "legacy_key_lookup",
-        "note": "shepherd_verdicts.item column stores legacy YOK-{items.id} keys",
     },
     "packages/yoke-core/src/yoke_core/domain/item_worktree_resolution.py": {
         "count": 1,
@@ -71,21 +56,6 @@ BASELINE: dict[str, dict[str, object]] = {
         "reason": "doc_comment_only",
         "note": "documents dual public-ref and legacy resolver schemes",
     },
-    "packages/yoke-core/src/yoke_core/domain/project_scratch_dir.py": {
-        "count": 2,
-        "reason": "scratch_path_convention",
-        "note": "per-dispatch scratch subtree uses stable YOK-{internal_id} segment",
-    },
-    "packages/yoke-core/src/yoke_core/domain/render_body.py": {
-        "count": 2,
-        "reason": "legacy_key_lookup",
-        "note": "shepherd_verdicts and related tables keyed by legacy YOK-{items.id}",
-    },
-    "packages/yoke-core/src/yoke_core/domain/shepherd_gate.py": {
-        "count": 2,
-        "reason": "legacy_key_lookup",
-        "note": "verdict lookup key remains legacy YOK-{items.id} storage shape",
-    },
     "packages/yoke-core/src/yoke_core/domain/stale_string_audit_extract.py": {
         "count": 1,
         "reason": "token_recognition",
@@ -95,11 +65,6 @@ BASELINE: dict[str, dict[str, object]] = {
         "count": 1,
         "reason": "doc_comment_only",
         "note": "documents the legacy scheme a recorded lane may still use",
-    },
-    "packages/yoke-core/src/yoke_core/engines/doctor_hc_meta_lifecycle.py": {
-        "count": 1,
-        "reason": "legacy_key_lookup",
-        "note": "HC verdict lookup uses the historical internal item storage key",
     },
     "packages/yoke-core/src/yoke_core/engines/doctor_hc_worktrees_branches.py": {
         "count": 1,
@@ -115,11 +80,6 @@ BASELINE: dict[str, dict[str, object]] = {
         "count": 1,
         "reason": "doc_comment_only",
         "note": "documents branch resolution rather than inline ref construction",
-    },
-    "packages/yoke-core/src/yoke_core/engines/done_transition_preconditions.py": {
-        "count": 1,
-        "reason": "legacy_key_lookup",
-        "note": "shepherd_verdicts row lookup uses legacy item key column value",
     },
     "runtime/api/events_crud_test_fixtures.py": {
         "count": 1,

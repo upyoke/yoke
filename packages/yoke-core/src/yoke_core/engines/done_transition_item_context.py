@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -72,14 +74,13 @@ def load_done_item_context_over_transport(
     the inline ``connect()`` + ``load_done_item_context`` did on a DB-level
     failure.
     """
-    from yoke_contracts.api.function_call import TargetRef
     from yoke_core.api.service_client_structured_api_adapter import (
         call_dispatcher,
     )
 
     resp = call_dispatcher(
         function_id="done_transition.item_context",
-        target=TargetRef(kind="item", item_id=int(item_id)),
+        target=public_item_target(item_id),
         payload={},
     )
     if not resp.success:
@@ -108,9 +109,7 @@ def load_done_item_context_over_transport(
 def format_workflow_route(runtime: WorkflowRuntime) -> str:
     """Render the ordered route with its terminal stage highlighted."""
     return " -> ".join(
-        f"[{stage_id}]"
-        if stage_id == runtime.stage_ids[-1]
-        else stage_id
+        f"[{stage_id}]" if stage_id == runtime.stage_ids[-1] else stage_id
         for stage_id in runtime.stage_ids
     )
 

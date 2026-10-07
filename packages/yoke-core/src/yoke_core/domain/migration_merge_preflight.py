@@ -92,23 +92,26 @@ def _modules_dir(settings_json: str, model_name: str) -> str:
 def _collision_errors(
     rows: Iterable[Mapping[str, Any]],
     *,
-    item_id: int,
+    public_ref: str,
     capability_settings_json: str,
     current_modules_dir: str,
     current: Mapping[int, str],
 ) -> list[str]:
     errors: list[str] = []
     for row in rows:
-        other_id = _row_item_id(row)
-        if other_id is None:
+        other_id = _row_public_ref(row)
+        if other_id == unresolved_item_ref():
             errors.append(
-                "items.list returned a row without internal_id "
-                f"(id={row.get('id')!r}); the serving control plane predates "
-                "the internal-id projection - deploy it before merging "
+                "items.list returned a row without a public ref "
+                f"(id={row.get('id')!r}); the serving control plane must supply "
+                "public identities before merging "
                 "migration-bearing lanes"
             )
             continue
-        if other_id == item_id or str(row.get("status") or "") not in _NON_TERMINAL_STATUSES:
+        if (
+            other_id == public_ref
+            or str(row.get("status") or "") not in _NON_TERMINAL_STATUSES
+        ):
             continue
         other_ref = _row_public_ref(row)
         other = _profile(row.get("db_mutation_profile"))
@@ -119,18 +122,14 @@ def _collision_errors(
                 capability_settings_json, str(other["model_name"])
             )
         except HistoryError as exc:
-            errors.append(
-                f"{other_ref} cannot resolve migration history: {exc}"
-            )
+            errors.append(f"{other_ref} cannot resolve migration history: {exc}")
             continue
         if other_modules_dir != current_modules_dir:
             continue
         try:
             other_numbered = _numbered_modules(other)
         except HistoryError as exc:
-            errors.append(
-                f"{other_ref} has malformed migration ordering: {exc}"
-            )
+            errors.append(f"{other_ref} has malformed migration ordering: {exc}")
             continue
         for ordinal in sorted(current.keys() & other_numbered.keys()):
             errors.append(
@@ -141,49 +140,33 @@ def _collision_errors(
     return errors
 
 
-def _row_item_id(row: Mapping[str, Any]) -> int | None:
-    """Return the row's numeric internal item id from ``internal_id``.
-
-    ``internal_id`` is the projection's contract for the numeric key; a row
-    without it is a legacy listing and carries no usable identity.
-    """
-    raw = str(row.get("internal_id") or "").strip()
-    if not raw:
-        return None
-    try:
-        return int(raw)
-    except ValueError:
-        return None
-
-
 def _row_public_ref(row: Mapping[str, Any]) -> str:
     """Name a roster row the way an operator reads it.
 
     The listing projects ``id`` as the item's public ref whenever the caller
     asks for that field; a row from a caller that did not has no reference
-    to show, and says so rather than printing ``internal_id``.
+    to show, and says so rather than printing a join key.
     """
     ref = str(row.get("id") or "").strip()
     return ref or unresolved_item_ref()
 
 
 def _row_for_item(
-    rows: Iterable[Mapping[str, Any]], item_id: int,
+    rows: Iterable[Mapping[str, Any]],
+    public_ref: str,
 ) -> Mapping[str, Any] | None:
     return next(
-        (
-            row for row in rows
-            if _row_item_id(row) == item_id
-        ),
+        (row for row in rows if _row_public_ref(row) == public_ref),
         None,
     )
 
 
 def migration_merge_applicable(
-    rows: Iterable[Mapping[str, Any]], item_id: int,
+    rows: Iterable[Mapping[str, Any]],
+    public_ref: str,
 ) -> bool:
-    """Whether *item_id* declares at least one numbered apply module."""
-    current_row = _row_for_item(rows, item_id)
+    """Whether *public_ref* declares at least one numbered apply module."""
+    current_row = _row_for_item(rows, public_ref)
     profile = _profile(
         current_row.get("db_mutation_profile") if current_row is not None else None
     )
@@ -200,14 +183,14 @@ def migration_merge_applicable(
 def evaluate_migration_merge(
     *,
     rows: Iterable[Mapping[str, Any]],
-    item_id: int,
+    public_ref: str,
     capability_settings_json: str,
     worktree_path: Path,
     integration_target: str,
 ) -> MigrationMergeGate:
     """Evaluate history extension, next-ordinal, and live-item collisions."""
     materialized = tuple(rows)
-    current_row = _row_for_item(materialized, item_id)
+    current_row = _row_for_item(materialized, public_ref)
     if current_row is None:
         return MigrationMergeGate(
             True, (f"{ITEM_NOT_FOUND}: it is absent from items.list",)
@@ -244,7 +227,7 @@ def evaluate_migration_merge(
         history_errors = []
     collision_errors = _collision_errors(
         materialized,
-        item_id=item_id,
+        public_ref=public_ref,
         capability_settings_json=capability_settings_json,
         current_modules_dir=modules_dir,
         current=numbered,

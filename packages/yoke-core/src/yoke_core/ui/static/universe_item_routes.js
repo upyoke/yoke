@@ -26,11 +26,11 @@ export function itemDrillInHref({
   const sequence = explicitSequence
     ? canonicalPositiveInteger(explicitSequence)
     : canonicalPositiveInteger(refMatch?.[1]);
-  if (!sequence) return null;
+  if (!sequence || !refMatch) return null;
   if (
     refMatch &&
     canonicalPositiveInteger(refMatch[1]) !== sequence
   ) return null;
 
-  return buildUniverseRoute("items", project, sequence);
+  return buildUniverseRoute("items", project, rawRef);
 }

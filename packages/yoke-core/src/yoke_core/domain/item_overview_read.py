@@ -101,23 +101,23 @@ def enrich_item_overview_rows(
 ) -> list[dict[str, Any]]:
     """Add stored owner label, public reference, and active-claim facts.
 
-    ``id`` stays whatever the underlying list projection emitted (its
-    public ref); the numeric key is mirrored onto ``internal_id``. The
-    owner cell degrades to empty when its actor cannot be rendered — an
-    orphan actor never fails the roster. Distinct owners resolve once.
-
-    ``compact`` narrows the result to :data:`COMPACT_ROSTER_FIELDS` and
-    skips the lane query entirely — no roster consumer reads ``worktrees``,
-    so the paged read neither fetches nor ships it.
+    Public refs resolve to internal keys only for server-owned joins.
+    Missing actor labels render empty; distinct owners resolve once.
+    Compact mode emits COMPACT_ROSTER_FIELDS and skips lane reads.
     """
     from yoke_core.domain.actors import ActorError, actor_name
 
     base_rows = [dict(row) for row in rows]
-    ids = [int(row["internal_id"]) for row in base_rows]
-    if not ids:
+    if not base_rows:
         return []
     conn = db_helpers.connect()
     try:
+        from yoke_core.domain.item_ref_resolution import (
+            fill_internal_ids_for_public_rows,
+        )
+
+        fill_internal_ids_for_public_rows(conn, base_rows)
+        ids = [int(row["internal_id"]) for row in base_rows]
         marker = _p(conn)
         placeholders = ", ".join(marker for _ in ids)
         cursor = conn.execute(

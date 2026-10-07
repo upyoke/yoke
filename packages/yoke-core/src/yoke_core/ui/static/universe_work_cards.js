@@ -37,7 +37,7 @@ export const CARRIED_ITEMS_SHOWN = 3;
 const TERMINAL_RUN_STATUSES = new Set(["succeeded", "failed", "cancelled"]);
 
 function itemReference(row) {
-  return String(row.public_ref || row.item_id || row.id || "Item");
+  return String(row.public_ref || "Item");
 }
 
 function itemHref(row, scope) {
@@ -126,7 +126,7 @@ export function carriedItems(row) {
 }
 
 function carriedReference(item) {
-  return item.ref || item.public_ref || item.item_ref || `item ${item.item_id}`;
+  return item.ref || item.public_ref || item.item_ref || `item ${item.public_ref}`;
 }
 
 export function runProjectId(context, row, scope) {

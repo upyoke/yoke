@@ -35,7 +35,7 @@ function qaDecision(action, memberId = null) {
     ...decision(action), kind: "qa_needs_review",
     subject_context: { subject: {
       kind: "deployment_run", deployment_run_id: "run-shipping-proof",
-      deployment_member_item_id: memberId,
+      deployment_member_public_ref: memberId,
     } },
   };
 }
@@ -65,10 +65,10 @@ test("a carried item's decision shows its project identity and state once", () =
     ...decision("approve"), request_id: 78,
     kind: "lifecycle_transition_approval",
     item_status: "release",
-    subject_context: { item_id: 44, item_ref: "PLAT-44", item_title: "Platform member" },
+    subject_context: { public_ref: "PLAT-44", item_ref: "PLAT-44", item_title: "Platform member" },
   };
   const card = render(run({
-    member_items: [{ id: 44, ref: "PLAT-44", title: "Platform member",
+    member_items: [{ ref: "PLAT-44", title: "Platform member",
       project_id: 2, project_sequence: 44, status: "release" }],
     gates: [gate],
   }));
@@ -140,9 +140,9 @@ test("terminal success stays succeeded and has no finalization warning", () => {
 for (const status of ["executing", "succeeded"]) {
   test(`${status} stage run shows carried items from every pinned project`, () => {
     const card = render(run({ status, target_environment: "stage", carried_work: {
-      items: [{ ref: "YOK-1", item_id: 10, project_id: 1, project_sequence: 1,
+      items: [{ ref: "YOK-1", public_ref: "YOK-10", project_id: 1, project_sequence: 1,
         title: "Engine change" }],
-      bound_projects: [{ project_id: 2, items: [{ ref: "PLAT-2", item_id: 20,
+      bound_projects: [{ project_id: 2, items: [{ ref: "PLAT-2", public_ref: "YOK-20",
         project_sequence: 2, title: "Consumer change" }] }],
     } }));
     assert.match(byClass(card, "shipping-run-card-meta")[0].textContent, /2 items/);

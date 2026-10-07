@@ -17,33 +17,16 @@ def _repo_root(explicit_root: Optional[str] = None) -> Path:
     return Path.cwd()
 
 
-def _discovery_file(item_num: int) -> Path:
-    # Exact legacy scratch-path shape cataloged by the item-ref baseline.
-    return Path("/tmp") / f"discovery-scan.YOK-{item_num}.{os.getpid()}"
+def _discovery_file(public_ref: str) -> Path:
+    return Path("/tmp") / f"discovery-scan.{public_ref}.{os.getpid()}"
 
 
 def _item_context_matcher(public_ref: str) -> Callable[[str], bool]:
-    """Return a predicate matching one item's public ref or bare sequence.
-
-    Compiled once per scan rather than once per candidate entry.
-    """
-    from yoke_contracts.public_ref import parse_public_item_ref
-
-    _, sequence = parse_public_item_ref(public_ref)
-    escaped = re.escape(str(sequence))
+    """Match the complete public identity, compiled once per scan."""
     public_pattern = re.compile(
-        rf"(?i)(^|[^A-Z0-9]){re.escape(public_ref)}(?=$|[^0-9])"
+        rf"(?i)(^|[^A-Z0-9]){re.escape(public_ref)}(?=$|[^A-Z0-9])"
     )
-    bare_pattern = re.compile(
-        rf"(^|[\s(/_-])0*{escaped}(?=$|[\s/)_-])"
-    )
-
-    def matches(context: str) -> bool:
-        return bool(
-            public_pattern.search(context) or bare_pattern.search(context)
-        )
-
-    return matches
+    return lambda context: bool(public_pattern.search(context))
 
 
 def _format_ouroboros_row(row: Any) -> str:
@@ -89,7 +72,9 @@ def _read_ouroboros_unreviewed(
     return output.rstrip("\n") + "\n", count, public_ref
 
 
-def run_scan(public_ref: str, *, repo_root: Optional[str] = None, stdout=None, stderr=None) -> int:
+def run_scan(
+    public_ref: str, *, repo_root: Optional[str] = None, stdout=None, stderr=None
+) -> int:
     stdout = stdout or sys.stdout
     stderr = stderr or sys.stderr
 
@@ -102,9 +87,9 @@ def run_scan(public_ref: str, *, repo_root: Optional[str] = None, stdout=None, s
         stderr.write(f"Error: {exc}\n")
         return 2
 
-    discovery_file = _discovery_file(item_num)
-
     ouro_text, ouro_count, item_label = _read_ouroboros_unreviewed(root, item_num)
+
+    discovery_file = _discovery_file(item_label or public_ref.strip())
 
     scan_output = (
         f"--- Unreviewed ouroboros entries for {item_label or public_ref.strip()} ---\n"
@@ -126,7 +111,9 @@ def run_scan(public_ref: str, *, repo_root: Optional[str] = None, stdout=None, s
 
     stdout.write("\n")
     stdout.write("=== Step 9: Discovery scan ===\n")
-    stdout.write("Review the output below. File /yoke idea for any untracked discoveries.\n\n")
+    stdout.write(
+        "Review the output below. File /yoke idea for any untracked discoveries.\n\n"
+    )
     stdout.write(scan_output)
     stdout.write(f"DISCOVERY_FILE={discovery_file}\n")
     return 0

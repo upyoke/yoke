@@ -83,7 +83,7 @@ projection. **Never** construct a DB path manually or use worktree-local paths:
 
 ```bash
 _claim_ok=$(YOKE_SESSION_ID="${YOKE_SESSION_ID}" yoke db read --format lines \
- "SELECT 1 FROM work_claims WHERE session_id='${YOKE_SESSION_ID}' AND item_id=${N} AND released_at IS NULL")
+ "SELECT 1 FROM work_claims WHERE session_id='${YOKE_SESSION_ID}' AND target_kind='item' AND scope::jsonb->>'item_id'=(SELECT item_id::text FROM item_refs WHERE public_ref='PREFIX-${N}') AND released_at IS NULL")
 if [ -z "$_claim_ok" ] || [ "$_claim_ok" = "0" ]; then
  echo "HALT: conduct S3b — no active work_claims row found for PREFIX-${N} under session ${YOKE_SESSION_ID}."
  echo "This session may have been reactivated after a SessionEnd without re-acquiring the claim."
@@ -111,7 +111,7 @@ This flow runs the epic item through the Engineer/Tester loop with **task-level 
 **Read and follow: `.agents/skills/yoke/conduct/entry-activation-resolution.md`**
 
 This companion file covers S6a through S6f-eph:
-- **S6a** — Resolve `_epic_id` from the item.
+- **S6a** — Resolve `_epic_ref` from the item.
 - **S6b** — Epic sync gate: verify dispatch chains and `github_issue` fields; auto-sync if needed (commits only if tracked changes exist — DB-only sync with no tracked diff is valid and no commit is required).
 - **S6c** — Fan-out enumeration: collect every dispatchable head task into `_task_ids`, filtering busy worktrees and unmet dependencies per candidate.
 - **S6d** — Same-worktree protection (per-candidate filter).

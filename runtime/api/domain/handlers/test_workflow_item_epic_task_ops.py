@@ -44,8 +44,11 @@ def _request(
 
 
 def test_task_get_returns_legacy_pipe_row() -> None:
-    with patch.object(handlers, "_open_connection", _fake_conn):
-        with patch.object(handlers.epic, "task_get", return_value="42|1|Task"):
+    with (
+        patch.object(handlers, "_open_connection", _fake_conn),
+        patch("yoke_core.domain.epic_parsing.render_item_ref", return_value="ITEM-81"),
+    ):
+        with patch.object(handlers.epic, "task_get", return_value="7|42|1|Task"):
             outcome = handlers.handle_task_get(
                 _request("workflow_item.epic_task.get"),
             )
@@ -54,7 +57,7 @@ def test_task_get_returns_legacy_pipe_row() -> None:
     assert outcome.result_payload == {
         "epic_id": 42,
         "task_num": 1,
-        "body": "42|1|Task",
+        "body": "7|ITEM-81|1|Task",
     }
 
 
@@ -75,7 +78,8 @@ def test_file_add_rejects_whitespace_only_path() -> None:
 def test_dispatch_chain_update_maps_invalid_field() -> None:
     with patch.object(handlers, "_open_connection", _fake_conn):
         with patch.object(
-            handlers.epic, "dispatch_chain_update",
+            handlers.epic,
+            "dispatch_chain_update",
             side_effect=ValueError("invalid field"),
         ):
             outcome = handlers.handle_dispatch_chain_update(
@@ -156,10 +160,18 @@ def test_dispatch_chain_update_denied_without_epic_claim() -> None:
     reset_registry_for_tests()
     register_all_handlers()
     try:
-        with patch.object(events_module, "emit_event"), patch.object(
-            dispatch_module, "_idempotency_lookup", lambda *_a, **_k: None,
-        ), patch.object(
-            claims_module, "who_claims_for_item", return_value=None,
+        with (
+            patch.object(events_module, "emit_event"),
+            patch.object(
+                dispatch_module,
+                "_idempotency_lookup",
+                lambda *_a, **_k: None,
+            ),
+            patch.object(
+                claims_module,
+                "who_claims_for_item",
+                return_value=None,
+            ),
         ):
             resp = dispatch(
                 _request(

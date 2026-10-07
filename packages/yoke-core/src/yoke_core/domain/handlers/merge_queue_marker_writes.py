@@ -140,7 +140,7 @@ def handle_record_landing_pull_request(
     if item_id is None:
         return _err(
             "target_invalid",
-            "landing_pull_request.record requires target.item_id",
+            "landing_pull_request.record requires target.public_ref",
         )
     try:
         body = RecordLandingPullRequestRequest.model_validate(request.payload)
@@ -158,7 +158,7 @@ def handle_mark_landing_pending(request: FunctionCallRequest) -> HandlerOutcome:
     """Persist one idempotent merge-queue handoff marker."""
     item_id = _require_item_id(request)
     if item_id is None:
-        return _err("target_invalid", "landing_pending.mark requires target.item_id")
+        return _err("target_invalid", "landing_pending.mark requires target.public_ref")
     try:
         body = MarkLandingPendingRequest.model_validate(request.payload)
     except ValidationError as exc:
@@ -175,7 +175,9 @@ def handle_clear_landing_pending(request: FunctionCallRequest) -> HandlerOutcome
     """Clear the queue handoff only after item close-out succeeds."""
     item_id = _require_item_id(request)
     if item_id is None:
-        return _err("target_invalid", "landing_pending.clear requires target.item_id")
+        return _err(
+            "target_invalid", "landing_pending.clear requires target.public_ref"
+        )
     try:
         ClearLandingPendingRequest.model_validate(request.payload)
         with _connect_rw() as conn:

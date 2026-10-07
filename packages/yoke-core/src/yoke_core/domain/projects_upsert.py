@@ -225,6 +225,9 @@ def _update(
         assert_prefix_available(conn, selected_prefix, excluding_project_id=numeric_id)
     else:
         selected_prefix = require_public_item_prefix(existing["public_item_prefix"])
+    from yoke_core.domain.project_public_prefix import rekey_shepherd_refs
+
+    rekey_shepherd_refs(conn, existing["public_item_prefix"], selected_prefix)
     conn.execute(
         "UPDATE projects SET slug=%s, name=%s, emoji=%s, "
         "default_branch=%s, github_repo=%s, public_item_prefix=%s WHERE id=%s",

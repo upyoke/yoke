@@ -15,9 +15,11 @@ keeps the boolean contract for the existing dispatch surface.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 import sys
 from dataclasses import dataclass
-from typing import Optional, TextIO
+from typing import TextIO
 
 from yoke_core.domain import backlog_github_body_budget as _budget
 from yoke_core.domain import backlog_github_body_writer as _writer
@@ -33,16 +35,6 @@ class RepairOutcome:
     success: bool
     error: str = ""
     issue_number: int = 0
-
-
-def _task_id_for_mirror(parent_item_id: Optional[str], task_num: int) -> int:
-    """Pack the epic id and task_num into a stable mirror id (only used
-    when the body exceeds budget)."""
-    try:
-        epic_int = int(parent_item_id) if parent_item_id else 0
-    except (TypeError, ValueError):
-        epic_int = 0
-    return epic_int * 1000 + int(task_num)
 
 
 def _read_repair_context_over_transport(epic_ref: str, task_num: int) -> dict:
@@ -90,7 +82,9 @@ def _read_task_body_over_transport(epic_ref: str, task_num: int) -> str:
 
 
 def _set_epic_task_github_issue_over_transport(
-    epic_ref: str, task_num: int, issue_ref: str,
+    epic_ref: str,
+    task_num: int,
+    issue_ref: str,
 ) -> None:
     """Relay the ``github_issue`` write-back, advisory as the inline write was.
 
@@ -99,13 +93,12 @@ def _set_epic_task_github_issue_over_transport(
     touches no Yoke DB). Matching the inline ``try/except: pass``, any
     failure is swallowed — the issue exists; the field write is advisory.
     """
-    from yoke_contracts.api.function_call import TargetRef
     from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 
     try:
         call_dispatcher(
             function_id="resync.epic_task_github_issue_set",
-            target=TargetRef(kind="item", item_id=int(epic_ref)),
+            target=public_item_target(epic_ref),
             payload={
                 "epic_ref": str(epic_ref),
                 "task_num": int(task_num),
@@ -117,30 +110,42 @@ def _set_epic_task_github_issue_over_transport(
 
 
 def _select_body_for_create(
-    body: str, *, project: str, title: str, status: str,
-    et_slug: str, et_tnum: str, parent_id: str, epic_ref: str, stderr: TextIO,
+    body: str,
+    *,
+    project: str,
+    title: str,
+    status: str,
+    et_slug: str,
+    et_tnum: str,
+    epic_ref: str,
+    stderr: TextIO,
 ) -> str:
     """Pick the issue body — full or compact mirror — and emit the
     compact-mirror notice when truncating."""
     selected, mode = _budget.select_body_for_github(
-        body, item_fields={
-            "title": title, "status": status, "subject_kind": "task",
+        body,
+        item_fields={
+            "title": title,
+            "status": status,
+            "subject_kind": "task",
             "project": resolved_project(project),
             "identity": _writer.epic_task_identity(epic_ref, et_tnum),
             "body_command": _writer.epic_task_body_command(et_slug, et_tnum),
             "next_actions": _writer.epic_task_next_actions(epic_ref),
         },
         conn=None,
-        item_id=_task_id_for_mirror(parent_id, int(et_tnum)),
+        item_id=None,
     )
     _budget.emit_compact_notice(
-        mode, _writer.epic_task_identity(epic_ref, et_tnum), stderr,
+        mode,
+        _writer.epic_task_identity(epic_ref, et_tnum),
+        stderr,
     )
     return selected
 
 
 def repair_local_orphan_epic_task(
-    epic_id: str,
+    epic_public_ref: str,
     task_num: int,
     project: str,
     db_path: str,
@@ -155,7 +160,10 @@ def repair_local_orphan_epic_task(
     "could not create GitHub issue."
     """
     outcome = repair_local_orphan_epic_task_typed(
-        epic_id, task_num, project, db_path,
+        epic_public_ref,
+        task_num,
+        project,
+        db_path,
         is_dry_run_fn=is_dry_run_fn,
         stderr=sys.stderr,
     )
@@ -168,7 +176,7 @@ def repair_local_orphan_epic_task(
 
 
 def repair_local_orphan_epic_task_typed(
-    epic_id: str,
+    epic_public_ref: str,
     task_num: int,
     project: str,
     db_path: str,  # noqa: ARG001 - retained compat token; reads/write relay
@@ -179,18 +187,19 @@ def repair_local_orphan_epic_task_typed(
     """Typed variant returning RepairOutcome — direct caller path for
     future-shape diagnostic-aware loops.
 
-    Identity is ``(epic_id, task_num)``; the GitHub issue title leads
+    Identity is ``(epic_public_ref, task_num)``; the GitHub issue title leads
     with the parent epic's public ref rendered from prefix+sequence.
     """
-    et_slug = str(epic_id)
+    et_slug = str(epic_public_ref)
     et_tnum = str(int(task_num))
     et_tnum_padded = f"{int(task_num):03d}"
 
     context = _read_repair_context_over_transport(et_slug, int(et_tnum))
     if not context.get("task_found"):
-        return RepairOutcome(False, error=f"epic_tasks row {et_slug}/{et_tnum} not found")
+        return RepairOutcome(
+            False, error=f"epic_tasks row {et_slug}/{et_tnum} not found"
+        )
 
-    parent_id = context.get("parent_id")
     # The parent's public ref is rendered server-side from the project's
     # prefix and the item's project sequence — never reconstructed from
     # the internal id, which can diverge from the public sequence.
@@ -203,16 +212,20 @@ def repair_local_orphan_epic_task_typed(
 
     issue_title = (
         f"[{parent_ref}] {et_tnum_padded} {et_title}"
-        if parent_ref else f"{et_tnum_padded} {et_title}"
+        if parent_ref
+        else f"{et_tnum_padded} {et_title}"
     )
     label_list = ["type:task", f"status:{et_status}"]
 
     raw_body = _read_task_body_over_transport(et_slug, int(et_tnum))
 
     selected_body = _select_body_for_create(
-        raw_body, project=project, title=issue_title, status=et_status,
-        et_slug=et_slug, et_tnum=et_tnum,
-        parent_id=str(parent_id) if parent_id is not None else "",
+        raw_body,
+        project=project,
+        title=issue_title,
+        status=et_status,
+        et_slug=et_slug,
+        et_tnum=et_tnum,
         epic_ref=parent_ref or et_slug,
         stderr=stderr,
     )
@@ -220,7 +233,9 @@ def repair_local_orphan_epic_task_typed(
     try:
         issue = github_rest.create_issue(
             project=resolved_project(project),
-            title=issue_title, body=selected_body, labels=label_list,
+            title=issue_title,
+            body=selected_body,
+            labels=label_list,
         )
     except github_rest.RateLimitedError as exc:
         return RepairOutcome(False, error=f"rate-limited on issue create: {exc}")
@@ -238,7 +253,9 @@ def repair_local_orphan_epic_task_typed(
         return RepairOutcome(False, error="create returned issue with no number")
 
     _set_epic_task_github_issue_over_transport(
-        et_slug, int(et_tnum), f"#{issue_num}",
+        et_slug,
+        int(et_tnum),
+        f"#{issue_num}",
     )
 
     if et_status in TASK_TERMINAL_SUCCESS or et_status == "cancelled":
@@ -256,4 +273,8 @@ def repair_local_orphan_epic_task_typed(
     return RepairOutcome(True, issue_number=issue_num)
 
 
-__all__ = ["repair_local_orphan_epic_task", "repair_local_orphan_epic_task_typed", "RepairOutcome"]
+__all__ = [
+    "repair_local_orphan_epic_task",
+    "repair_local_orphan_epic_task_typed",
+    "RepairOutcome",
+]

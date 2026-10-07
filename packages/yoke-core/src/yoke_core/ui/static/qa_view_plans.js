@@ -33,7 +33,7 @@ function attachmentText(attachments) {
   if (!attachments?.length) return "not attached";
   return attachments.map((row) => {
     if (row.kind === "item") {
-      return `item · ${row.item_ref || row.item_id}`;
+      return `item · ${row.item_ref || row.public_ref}`;
     }
     return `project default · ${attachmentTransition(row)}`;
   }).join(" · ");

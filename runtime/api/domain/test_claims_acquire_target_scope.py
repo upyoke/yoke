@@ -22,6 +22,10 @@ class TestClaimsAcquireTargetScope(unittest.TestCase):
         reset_registry_for_tests()
         register_all_handlers()
         self._patchers = [
+            patch(
+                "yoke_core.domain.function_response_refs.render_item_refs",
+                return_value={42: "ITEM-81", 1665: "EXT-19"},
+            ),
             patch.object(events_module, "emit_event"),
             patch.object(
                 dispatch_module,
@@ -56,10 +60,10 @@ class TestClaimsAcquireTargetScope(unittest.TestCase):
                     target=TargetRef(kind="item", item_id=42),
                     payload={"target": {"kind": "item", "item_id": 42}},
                 )
-        )
+            )
         self.assertTrue(resp.success, msg=resp.error)
         self.assertEqual(resp.result["target_kind"], "item")
-        self.assertEqual(resp.result["scope"], {"item_id": 42})
+        self.assertEqual(resp.result["scope"], {"public_ref": "ITEM-81"})
         self.assertNotIn("item_id", resp.result)
         self.assertNotIn("public_ref", resp.result)
 

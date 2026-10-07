@@ -237,7 +237,7 @@ def _run_walk_end(monkeypatch: Any, result: dict, unrecorded: str | None) -> int
 
     monkeypatch.setattr(machine_qa_mission_walk, "record_mission_restore", record)
     exit_code = agent_mission_walk_cli.main(
-        ["end", "--item-id", "4550", "--execution-id", EXECUTION_ID]
+        ["end", "--item", f"ITEM-{4550}", "--execution-id", EXECUTION_ID]
         + ["--requirement-id", "18152", "--run-id", "991"]
     )
     assert recorded and recorded[0]["run_id"] == 991
@@ -297,7 +297,7 @@ def test_walk_start_refuses_to_walk_when_preparation_failed(monkeypatch, capsys)
         },
     )
     exit_code = agent_mission_walk_cli.main(
-        ["start", "--item-id", "4550", "--execution-id", EXECUTION_ID]
+        ["start", "--item", f"ITEM-{4550}", "--execution-id", EXECUTION_ID]
         + ["--requirement-id", "18152"]
     )
     assert exit_code == 3
@@ -316,7 +316,7 @@ def test_walker_dispatch_names_the_walk_commands_and_sequential_walks() -> None:
         "bundle_id": "bundle-1",
         "bundle_digest": "d" * 64,
         "execution_id": EXECUTION_ID,
-        "subject": {"item_id": 4550, "deployment_run_id": None},
+        "subject": {"public_ref": "ITEM-4550", "deployment_run_id": None},
         "execution_target": execution_target,
         "execution_target_digest": "e" * 64,
         "cases": [
@@ -336,7 +336,7 @@ def test_walker_dispatch_names_the_walk_commands_and_sequential_walks() -> None:
     contract = agent_mission_dispatch_contract(bundle)
     walker = contract["walker_dispatches"][0]
 
-    flags = f"--item-id 4550 --execution-id {EXECUTION_ID} --requirement-id 18152"
+    flags = f"--item ITEM-{4550} --execution-id {EXECUTION_ID} --requirement-id 18152"
     assert walker["walk_start_command"] == f"yoke qa mission walk-start {flags}"
     assert walker["walk_end_command"] == (
         f"yoke qa mission walk-end {flags} --run-id 991"

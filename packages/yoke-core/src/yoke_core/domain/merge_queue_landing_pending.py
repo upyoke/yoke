@@ -12,10 +12,11 @@ clears the whole marker.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 from datetime import datetime
 from typing import Any, Callable
 
-from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.session_message_types import as_utc, utc_now
 
@@ -39,7 +40,7 @@ def record_landing_pull_request(
     """
     response = dispatch(
         function_id="merge_queue.landing_pull_request.record",
-        target=TargetRef(kind="item", item_id=int(item_id)),
+        target=public_item_target(item_id),
         payload={"pr_number": str(pr_number)},
     )
     if getattr(response, "success", False):
@@ -60,7 +61,7 @@ def mark_landing_pending(
     if preserve_existing:
         response = dispatch(
             function_id="items.detail.get",
-            target=TargetRef(kind="item", item_id=int(item_id)),
+            target=public_item_target(item_id),
             payload={},
         )
         if not getattr(response, "success", False):
@@ -76,7 +77,7 @@ def mark_landing_pending(
             enqueued_at = str(queue.get("enqueued_at") or enqueued_at)
     response = dispatch(
         function_id="merge_queue.landing_pending.mark",
-        target=TargetRef(kind="item", item_id=int(item_id)),
+        target=public_item_target(item_id),
         payload={"pr_number": str(pr_number), "enqueued_at": enqueued_at},
     )
     if not getattr(response, "success", False):
@@ -93,7 +94,7 @@ def clear_landing_pending(
     """Clear a marker after close-out; return a warning on failure."""
     response = dispatch(
         function_id="merge_queue.landing_pending.clear",
-        target=TargetRef(kind="item", item_id=int(item_id)),
+        target=public_item_target(item_id),
         payload={},
     )
     if getattr(response, "success", False):

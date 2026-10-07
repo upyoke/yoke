@@ -85,7 +85,7 @@ def handle_repair_status(request: FunctionCallRequest) -> HandlerOutcome:
     if target.kind != "item" or target.item_id is None:
         return _error(
             "invalid_payload",
-            "lifecycle.repair_status target must carry kind='item' + item_id.",
+            "lifecycle.repair_status target must carry kind='item' + public_ref (PREFIX-N).",
         )
     try:
         payload = LifecycleRepairStatusRequest.model_validate(request.payload)

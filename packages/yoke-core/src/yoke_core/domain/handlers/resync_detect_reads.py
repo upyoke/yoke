@@ -162,7 +162,10 @@ def _read_backlog_rows(conn: Any, project: str) -> List[List[Any]]:
             if not project
             else []
         )
-    return [[r[0], r[1], r[2], r[3], r[4]] for r in rows]
+    from yoke_core.domain.item_ref_render import render_item_refs
+
+    refs = render_item_refs(conn, [r[0] for r in rows])
+    return [[refs[int(r[0])], r[1], r[2], r[3], r[4]] for r in rows]
 
 
 def _read_task_rows(conn: Any, project: str) -> List[List[Any]]:
@@ -199,7 +202,10 @@ def _read_task_rows(conn: Any, project: str) -> List[List[Any]]:
     except db_backend.operational_error_types(conn):
         conn.rollback()
         return []
-    return [[r[0], r[1], r[2], r[3], r[4]] for r in rows]
+    from yoke_core.domain.item_ref_render import render_item_refs
+
+    refs = render_item_refs(conn, [r[0] for r in rows])
+    return [[refs[int(r[0])], r[1], r[2], r[3], r[4]] for r in rows]
 
 
 def handle_linkage_rows(request: FunctionCallRequest) -> HandlerOutcome:

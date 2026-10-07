@@ -35,7 +35,7 @@ yoke qa requirement add \
   --success-policy "{brief description of what passing looks like}"
 ```
 
-The write is item-claim-gated; the implement session already holds the work claim, so it dispatches cleanly. The transition must name the QA-gated stage in the item's pinned workflow. Operator-debug fallback inside a checkout: `python3 -m yoke_core.domain.qa requirement-add --item-id {N} --workflow-transition reviewed-implementation ...` (also the only surface for generated-task / deployment-run-attached requirements; a deployment-run attachment may omit the transition).
+The write is item-claim-gated; the implement session already holds the work claim, so it dispatches cleanly. The transition must name the QA-gated stage in the item's pinned workflow. Read `yoke qa requirement add --help` for task selectors and deployment-run attachments.
 
 The `--success-policy` field is a human-readable description of what "pass"
 means (e.g., "test suite passes with zero failures", "config change verified

@@ -98,7 +98,7 @@ def _record_preserved_lane(
                 "severity": "WARN",
                 "outcome": "preserved",
                 "project": str((item.get("project") or {}).get("slug") or ""),
-                "item_id": str(int(item["id"])),
+                "public_ref": item["public_ref"],
                 "context": {
                     "branch": branch,
                     "path": path,
@@ -112,9 +112,7 @@ def _record_preserved_lane(
     else:
         if response.success:
             return ""
-        detail = (
-            response.error.message if response.error is not None else "refused"
-        )
+        detail = response.error.message if response.error is not None else "refused"
     return f"{LANE_PRESERVED_EVENT_NAME} not recorded for {branch}: {detail}"
 
 
@@ -145,7 +143,7 @@ def _cleanup_terminal_item_lanes(
     """
     if not _terminal_status(item, target_status) and not landing_recorded:
         return TerminalLaneCloseOut()
-    public_ref = str(item.get("public_ref") or item.get("id") or "item")
+    public_ref = str(item.get("public_ref") or "<public-ref-unavailable>")
     project = item.get("project") or {}
     root = (
         Path(repo_root)
@@ -182,7 +180,7 @@ def _cleanup_terminal_item_lanes(
             repo_root=str(root),
             branch=branch,
             target=target,
-            item_id=int(item["id"]),
+            item_id=item["public_ref"],
             emit=emit,
             authority_block=authority_block,
         )
@@ -236,7 +234,7 @@ def cleanup_terminal_item_lanes(
             sweep=sweep,
         )
     except Exception as exc:  # noqa: BLE001 - terminal state is already committed
-        public_ref = str(item.get("public_ref") or item.get("id") or "item")
+        public_ref = str(item.get("public_ref") or "<public-ref-unavailable>")
         return TerminalLaneCloseOut(
             (
                 f"{public_ref}: terminal lane cleanup preserved after an "

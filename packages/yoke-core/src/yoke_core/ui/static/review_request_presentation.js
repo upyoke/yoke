@@ -36,7 +36,7 @@ export function runStageDecisionPresentation(row) {
   const facts = row.subject_context || {};
   const subject = facts.subject || {};
   if (row.kind !== "qa_needs_review" || subject.kind !== "deployment_run"
-    || !subject.deployment_run_id || subject.deployment_member_item_id != null) return null;
+    || !subject.deployment_run_id || subject.deployment_member_public_ref != null) return null;
   if (facts.qa_kind === "deployment_stage_acceptance") {
     return {
       title: `Run approval · ${subject.deployment_run_id}`,

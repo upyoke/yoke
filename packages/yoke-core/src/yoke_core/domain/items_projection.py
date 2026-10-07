@@ -13,8 +13,7 @@ ACTOR_LABEL_FIELDS = frozenset({"source", "owner"})
 
 #: Default column projection for operator-facing item listings. ``id``
 #: carries the public ``PREFIX-N`` ref; ``source`` carries the actor
-#: display label; the numeric primary key is the explicit ``internal_id``
-#: opt-in and is deliberately absent from the default.
+#: display label. Item primary keys remain inside the engine.
 DEFAULT_LIST_FIELDS: tuple[str, ...] = (
     "id",
     "title",

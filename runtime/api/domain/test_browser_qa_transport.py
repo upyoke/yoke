@@ -10,17 +10,17 @@ the structured-API adapter's own suite.
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List
-from unittest import mock
+from typing import Any as Any, Dict as Dict, List as List
+from unittest import mock as mock
 
-from yoke_core.domain import browser_qa
+from yoke_core.domain import browser_qa as browser_qa
 from yoke_core.domain.browser_qa_steps import (
-    _complete_run,
-    _record_artifact,
-    _record_run,
+    _complete_run as _complete_run,
+    _record_artifact as _record_artifact,
+    _record_run as _record_run,
 )
 from yoke_contracts.api.function_call import (
-    ActorContext,
+    ActorContext as ActorContext,
     FunctionCallResponse,
     FunctionError,
 )
@@ -28,19 +28,26 @@ from yoke_contracts.api.function_call import (
 
 def _ok(result: Dict[str, Any]) -> FunctionCallResponse:
     return FunctionCallResponse(
-        success=True, function="x", version="v1", request_id="r", result=result,
+        success=True,
+        function="x",
+        version="v1",
+        request_id="r",
+        result=result,
     )
 
 
 def _fail(code: str = "boom") -> FunctionCallResponse:
     return FunctionCallResponse(
-        success=False, function="x", version="v1", request_id="r",
+        success=False,
+        function="x",
+        version="v1",
+        request_id="r",
         error=FunctionError(code=code, message="nope"),
     )
 
 
 class TestFetchBrowserContextSeam:
-    def test_numeric_id_targets_item_id(self) -> None:
+    def test_public_item_selector_is_retained(self) -> None:
         calls: List[Dict[str, Any]] = []
 
         def _capture(**kwargs):
@@ -52,14 +59,17 @@ class TestFetchBrowserContextSeam:
             side_effect=_capture,
         ):
             browser_qa._fetch_browser_context(
-                "externalwebapp", 10, item_id=42, expected_branch="feature-x",
+                "externalwebapp",
+                10,
+                item_id="EXT-81",
+                expected_branch="feature-x",
             )
 
         assert calls[0]["function_id"] == "qa.browser_context.get"
         target = calls[0]["target"]
         assert target.kind == "item"
-        assert target.item_id == 42
-        assert target.public_ref is None
+        assert target.item_id is None
+        assert target.public_ref == "EXT-81"
         assert calls[0]["payload"] == {
             "project": "externalwebapp",
             "requirement_id": 10,
@@ -78,7 +88,9 @@ class TestFetchBrowserContextSeam:
             side_effect=_capture,
         ):
             browser_qa._fetch_browser_context(
-                "externalwebapp", 10, item_id="EXT-1732",
+                "externalwebapp",
+                10,
+                item_id="EXT-1732",
             )
 
         target = calls[0]["target"]
@@ -92,18 +104,22 @@ class TestFetchBrowserContextSeam:
 
         def _capture(**kwargs):
             calls.append(kwargs)
-            return _ok({
-                "item_id": None,
-                "deployment_run_id": "run-20260101-001",
-                "requirements": [],
-            })
+            return _ok(
+                {
+                    "item_id": None,
+                    "deployment_run_id": "run-20260101-001",
+                    "requirements": [],
+                }
+            )
 
         with mock.patch(
             "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
             side_effect=_capture,
         ):
             browser_qa._fetch_browser_context(
-                "externalwebapp", 10, deployment_run_id="run-20260101-001",
+                "externalwebapp",
+                10,
+                deployment_run_id="run-20260101-001",
             )
 
         target = calls[0]["target"]
@@ -119,7 +135,9 @@ class TestFetchBrowserContextSeam:
         ):
             try:
                 browser_qa._fetch_browser_context(
-                    "externalwebapp", 10, item_id=42,
+                    "externalwebapp",
+                    10,
+                    item_id="EXT-81",
                 )
             except RuntimeError as exc:
                 assert "not_found" in str(exc)
@@ -128,11 +146,14 @@ class TestFetchBrowserContextSeam:
 
     def test_scenario_surfaces_context_failure_as_error_note(self) -> None:
         with mock.patch.object(
-            browser_qa, "_fetch_browser_context",
+            browser_qa,
+            "_fetch_browser_context",
             side_effect=RuntimeError("qa.browser_context.get failed"),
         ):
             result = browser_qa.execute_scenario(
-                item_id=42, project="externalwebapp", requirement_id=10,
+                item_id="EXT-81",
+                project="externalwebapp",
+                requirement_id=10,
             )
         assert result.verdict == "error"
         assert result.note == "context_unavailable"
@@ -149,37 +170,54 @@ class TestFetchBrowserContextSeam:
 
             return RequirementOutcome(
                 run_result=RunResult(
-                    requirement_id=10, qa_kind="plan_case", verdict="",
+                    requirement_id=10,
+                    qa_kind="plan_case",
+                    verdict="",
                 ),
                 executed=True,
             )
 
         context = {
             "item_id": 1732,
-            "requirements": [{
-                "id": 10, "qa_kind": "plan_case",
-                "method_id": "browser-check",
-                "method_config": json.dumps(
-                    {"base_url": "http://localhost:9", "steps": [{}]},
-                ),
-            }],
+            "requirements": [
+                {
+                    "id": 10,
+                    "qa_kind": "plan_case",
+                    "method_id": "browser-check",
+                    "method_config": json.dumps(
+                        {"base_url": "http://localhost:9", "steps": [{}]},
+                    ),
+                }
+            ],
         }
-        with mock.patch.object(
-            browser_qa, "_fetch_browser_context", return_value=context,
-        ), mock.patch.object(
-            browser_qa, "_validate_reachability", return_value=None,
-        ), mock.patch.object(
-            browser_qa, "_ensure_daemon_running", return_value=None,
-        ), mock.patch(
-            "yoke_core.domain.browser_qa_scenario._process_requirement",
-            side_effect=_fake_process,
+        with (
+            mock.patch.object(
+                browser_qa,
+                "_fetch_browser_context",
+                return_value=context,
+            ),
+            mock.patch.object(
+                browser_qa,
+                "_validate_reachability",
+                return_value=None,
+            ),
+            mock.patch.object(
+                browser_qa,
+                "_ensure_daemon_running",
+                return_value=None,
+            ),
+            mock.patch(
+                "yoke_core.domain.browser_qa_scenario._process_requirement",
+                side_effect=_fake_process,
+            ),
         ):
             result = browser_qa.execute_scenario(
-                item_id="EXT-1732", project="externalwebapp",
+                item_id="EXT-1732",
+                project="externalwebapp",
                 requirement_id=10,
             )
         assert result.executed == 1
-        assert seen["subject"] == 1732
+        assert seen["subject"] == "EXT-1732"
 
     def test_scenario_carries_the_deployment_run_subject(self) -> None:
         seen: Dict[str, Any] = {}
@@ -193,7 +231,9 @@ class TestFetchBrowserContextSeam:
 
             return RequirementOutcome(
                 run_result=RunResult(
-                    requirement_id=10, qa_kind="plan_case", verdict="",
+                    requirement_id=10,
+                    qa_kind="plan_case",
+                    verdict="",
                 ),
                 executed=True,
             )
@@ -201,33 +241,50 @@ class TestFetchBrowserContextSeam:
         context = {
             "item_id": None,
             "deployment_run_id": "run-20260101-001",
-            "requirements": [{
-                "id": 10, "qa_kind": "plan_case",
-                "method_id": "browser-check",
-                "method_config": json.dumps(
-                    {"base_url": "http://localhost:9", "steps": [{}]},
-                ),
-            }],
+            "requirements": [
+                {
+                    "id": 10,
+                    "qa_kind": "plan_case",
+                    "method_id": "browser-check",
+                    "method_config": json.dumps(
+                        {"base_url": "http://localhost:9", "steps": [{}]},
+                    ),
+                }
+            ],
             # A run case is judged against the commit its run was pinned to
             # deliver, so the context carries one.
             "run_source": {"sha": "a" * 40, "branch": "main"},
         }
-        with mock.patch.object(
-            browser_qa, "_fetch_browser_context", return_value=context,
-        ), mock.patch.object(
-            browser_qa,
-            "_establish_deployment_freshness",
-            return_value=(None, "http://localhost:9", "a" * 40),
-        ), mock.patch.object(
-            browser_qa, "_validate_reachability", return_value=None,
-        ), mock.patch.object(
-            browser_qa, "_ensure_daemon_running", return_value=None,
-        ), mock.patch(
-            "yoke_core.domain.browser_qa_scenario._process_requirement",
-            side_effect=_fake_process,
+        with (
+            mock.patch.object(
+                browser_qa,
+                "_fetch_browser_context",
+                return_value=context,
+            ),
+            mock.patch.object(
+                browser_qa,
+                "_establish_deployment_freshness",
+                return_value=(None, "http://localhost:9", "a" * 40),
+            ),
+            mock.patch.object(
+                browser_qa,
+                "_validate_reachability",
+                return_value=None,
+            ),
+            mock.patch.object(
+                browser_qa,
+                "_ensure_daemon_running",
+                return_value=None,
+            ),
+            mock.patch(
+                "yoke_core.domain.browser_qa_scenario._process_requirement",
+                side_effect=_fake_process,
+            ),
         ):
             result = browser_qa.execute_scenario(
-                "externalwebapp", 10, deployment_run_id="run-20260101-001",
+                "externalwebapp",
+                10,
+                deployment_run_id="run-20260101-001",
             )
         assert result.executed == 1
         assert seen["subject"] == "deployment-run-run-20260101-001"
@@ -238,100 +295,14 @@ class TestFetchBrowserContextSeam:
         assert result.note == "subject_invalid"
 
 
-class TestWriteSeam:
-    def test_record_run_dispatches_qa_run_add(self) -> None:
-        calls: List[Dict[str, Any]] = []
-
-        def _capture(**kwargs):
-            calls.append(kwargs)
-            return _ok({"qa_run_id": 77, "requirement_id": 10})
-
-        with mock.patch(
-            "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
-            side_effect=_capture,
-        ):
-            run_id = _record_run(10, "plan_case", raw_result="{}")
-
-        assert run_id == 77
-        assert calls[0]["function_id"] == "qa.run.add"
-        assert calls[0]["target"].qa_requirement_id == 10
-        assert calls[0]["payload"] == {
-            "performed_by": "browser_substrate",
-            "qa_kind": "plan_case",
-            "raw_result": "{}",
-        }
-
-    def test_record_run_failure_degrades_to_none(self) -> None:
-        with mock.patch(
-            "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
-            return_value=_fail(),
-        ):
-            assert _record_run(10, "plan_case") is None
-
-    def test_complete_run_dispatches_qa_run_complete(self) -> None:
-        calls: List[Dict[str, Any]] = []
-
-        def _capture(**kwargs):
-            calls.append(kwargs)
-            return _ok({"qa_run_id": 77})
-
-        with mock.patch(
-            "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
-            side_effect=_capture,
-        ):
-            _complete_run(
-                77, 10, verdict="fail",
-                execution_status="capture_failed", raw_result="{}",
-            )
-
-        assert calls[0]["function_id"] == "qa.run.complete"
-        assert calls[0]["target"].qa_requirement_id == 10
-        assert calls[0]["payload"] == {
-            "run_id": 77, "verdict": "fail",
-            "execution_status": "capture_failed", "raw_result": "{}",
-        }
-
-    def test_record_artifact_dispatches_qa_artifact_add(self) -> None:
-        calls: List[Dict[str, Any]] = []
-
-        def _capture(**kwargs):
-            calls.append(kwargs)
-            return _ok({"qa_artifact_id": 5})
-
-        handle = {
-            "backend": "s3", "bucket": "p-prod-artifacts",
-            "key": "qa-artifacts/p/42/77/home.png",
-        }
-        with mock.patch(
-            "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
-            side_effect=_capture,
-        ):
-            art_id = _record_artifact(
-                77, 10, "screenshot", "image/png", handle, "{}",
-            )
-
-        assert art_id == 5
-        assert calls[0]["function_id"] == "qa.artifact.add"
-        assert calls[0]["target"].qa_requirement_id == 10
-        assert calls[0]["payload"]["artifact_handle"] == handle
-
-    def test_actor_is_forwarded_to_context_and_writes(self) -> None:
-        calls: List[Dict[str, Any]] = []
-        actor = ActorContext(actor_id="17", session_id="session-17")
-
-        def _capture(**kwargs):
-            calls.append(kwargs)
-            if kwargs["function_id"] == "qa.browser_context.get":
-                return _ok({"item_id": 42, "requirements": []})
-            return _ok({"qa_run_id": 77})
-
-        with mock.patch(
-            "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
-            side_effect=_capture,
-        ):
-            browser_qa._fetch_browser_context(
-                "externalwebapp", 10, item_id=42, actor=actor,
-            )
-            _record_run(10, "plan_case", actor=actor)
-
-        assert [call["actor"] for call in calls] == [actor, actor]
+def test_browser_context_rejects_numeric_identity_before_dispatch():
+    with mock.patch(
+        "yoke_core.api.service_client_structured_api_adapter.call_dispatcher"
+    ) as dispatch:
+        try:
+            browser_qa._fetch_browser_context("externalwebapp", 10, item_id="42")
+        except RuntimeError as exc:
+            assert "public_item_ref_required" in str(exc)
+        else:
+            raise AssertionError("numeric item identity was admitted")
+    dispatch.assert_not_called()

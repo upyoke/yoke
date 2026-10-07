@@ -16,6 +16,7 @@ import sys
 
 from yoke_core.domain.deployment_flow_succession import successor_flows
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+from yoke_core.domain.item_ref_resolution import ITEM_REF_NOT_FOUND
 from yoke_core.api.service_client_shared import (
     _get_db_readonly,
     _load_item_state,
@@ -93,7 +94,7 @@ def cmd_approve_check(args: list[str]) -> int:
 def cmd_apply_approval(args: list[str]) -> int:
     """Validate and prepare an approval-apply mutation via the shared mutation layer.
 
-    Usage: apply-approval <item-id>
+    Usage: apply-approval <PREFIX-N>
 
     Reads the item's deployment flow, resolves the active run, and returns
     the approval result as JSON on stdout.
@@ -102,28 +103,41 @@ def cmd_apply_approval(args: list[str]) -> int:
     Exit 1: validation/state error, JSON error on stdout
     """
     if len(args) < 1:
-        print("Usage: apply-approval <item-id>", file=sys.stderr)
+        print("Usage: apply-approval <PREFIX-N>", file=sys.stderr)
         return 2
 
     try:
-        item_id = int(args[0])
-    except ValueError:
-        print(json.dumps({
-            "success": False,
-            "error": f"Item ID must be an integer, got '{args[0]}'",
-            "error_code": "VALIDATION_ERROR",
-        }))
+        from yoke_core.api.service_client_shared_session_resolver import (
+            _parse_item_id_arg,
+        )
+
+        item_id = _parse_item_id_arg(args[0])
+    except ValueError as exc:
+        missing = getattr(exc, "code", None) == ITEM_REF_NOT_FOUND
+        print(
+            json.dumps(
+                {
+                    "success": False,
+                    "error": str(exc),
+                    "error_code": "NOT_FOUND" if missing else "VALIDATION_ERROR",
+                }
+            )
+        )
         return 1
 
     conn = _get_db_readonly()
     try:
         item_state = _load_item_state(conn, item_id)
         if item_state is None:
-            print(json.dumps({
-                "success": False,
-                "error": f"Item {item_ref_for_id(item_id)} not found",
-                "error_code": "NOT_FOUND",
-            }))
+            print(
+                json.dumps(
+                    {
+                        "success": False,
+                        "error": f"Item {item_ref_for_id(item_id)} not found",
+                        "error_code": "NOT_FOUND",
+                    }
+                )
+            )
             return 1
 
         run_rows = conn.execute(
@@ -135,17 +149,19 @@ def cmd_apply_approval(args: list[str]) -> int:
             (item_id,),
         ).fetchall()
 
-        active_run = runs.find_active_run_for_item([
-            runs.DeploymentRun(
-                id=r["id"],
-                project=r["project"],
-                flow=r["flow"],
-                status=r["status"],
-                current_stage=r["current_stage"],
-                created_at=r["created_at"],
-            )
-            for r in run_rows
-        ])
+        active_run = runs.find_active_run_for_item(
+            [
+                runs.DeploymentRun(
+                    id=r["id"],
+                    project=r["project"],
+                    flow=r["flow"],
+                    status=r["status"],
+                    current_stage=r["current_stage"],
+                    created_at=r["created_at"],
+                )
+                for r in run_rows
+            ]
+        )
 
         flow_stages = []
         flow_id = approval_flow_id(conn, item_state.deployment_flow, active_run)

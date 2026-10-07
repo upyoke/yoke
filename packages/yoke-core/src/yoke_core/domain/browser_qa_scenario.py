@@ -74,9 +74,7 @@ def execute_scenario(
 
     Args:
         requirement_id: Materialized Browser case requirement to execute.
-        item_id: Numeric item id, or a public ref (``PREFIX-N`` / bare
-            project-local number) resolved server-side by the context
-            fetch. Exactly one of item_id or deployment_run_id is named.
+        item_id: Complete public ref (PREFIX-N), resolved server-side. Exactly one of item_id or deployment_run_id is named.
         deployment_run_id: The deployment run this case verifies, for a
             case materialized against a run rather than an item.
         expected_branch: Optional branch name for deployment freshness
@@ -156,14 +154,13 @@ def execute_scenario(
         print(result.to_json())
         return result
 
-    # Refs resolve server-side; everything downstream (artifact paths,
-    # run rows, daemon failure events) uses the resolved numeric id.
-    resolved = context.get("item_id")
+    # Keep the public subject identity through host execution.
+    resolved = context.get("public_ref")
     if resolved is not None:
-        item_id = int(resolved)
+        item_id = resolved
     subject = case_artifact_subject(
         {
-            "item_id": item_id,
+            "public_ref": item_id,
             "deployment_run_id": deployment_run_id,
             "standalone_execution_id": context.get("standalone_execution_id"),
         },

@@ -6,7 +6,7 @@ Extracted from `dispatch-context.md`. Engineer prompt template, Tester diff prep
 
 ## 5g. Engineer Prompt Template
 
-**Dispatch ALL Engineers in parallel** (excluding tasks where `_has_implementation_${_task_id}` is true) -- issue one Agent tool call per task in `_task_ids` in the same response. For epic task fan-out, `PREFIX-{N}` / `_epic_id` is the parent item and `_task_id` is the local epic task number; do not render task prompts as `PREFIX-{_task_id}`.
+**Dispatch ALL Engineers in parallel** (excluding tasks where `_has_implementation_${_task_id}` is true) -- issue one Agent tool call per task in `_task_ids` in the same response. For epic task fan-out, `PREFIX-{N}` / `_epic_ref` is the parent item and `_task_id` is the local epic task number; do not render task prompts as `PREFIX-{_task_id}`.
 
 **Dispatch:** descriptor `DispatchDescriptor(role="engineer")` rendered via `yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`, one rendered dispatch per task in the parallel batch. Result-schema markers: `---SUBMISSION-CHECKS-START---`, `---REFLECTION-START---`. The descriptor's `prompt: |` block is filled with:
 ```
@@ -16,7 +16,7 @@ Extracted from `dispatch-context.md`. Engineer prompt template, Tester diff prep
 	 {context block from 5f-issue.2 or 5f-epic.6}
 
 	 Read the authoritative task spec from the DB before starting:
-	 yoke workflow-item epic-task body-get --epic {_epic_id} --task-num {_task_id}
+	 yoke workflow-item epic-task body-get --epic {_epic_ref} --task-num {_task_id}
 
  {If _anticipated_paths_block_{_task_id} is non-empty:}
  Anticipated path coverage (pre-authorized):
@@ -51,7 +51,7 @@ Extracted from `dispatch-context.md`. Engineer prompt template, Tester diff prep
 
 ### Anticipated Path Coverage block sourcing
 
-The `_anticipated_paths_block_{_task_id}` slot above is **derived from existing persisted task data**, not from a new storage surface. Conduct reads the task body (`yoke workflow-item epic-task body-get --epic {_epic_id} --task-num {_task_id}`) and looks for a per-task `## Anticipated Paths` block authored by the Architect during plan (see the Architect prompt's *Anticipation Checklist*). When present, conduct inlines that block under the `Anticipated path coverage (pre-authorized)` heading in the Engineer prompt; when absent, the slot is empty and the heading is elided. The Architect's read-only anticipation helper `yoke_core.domain.architect_plan_anticipation` makes the underlying grep discipline cheap — conduct still consumes the persisted result, never recomputes it at dispatch time.
+The `_anticipated_paths_block_{_task_id}` slot above is **derived from existing persisted task data**, not from a new storage surface. Conduct reads the task body (`yoke workflow-item epic-task body-get --epic {_epic_ref} --task-num {_task_id}`) and looks for a per-task `## Anticipated Paths` block authored by the Architect during plan (see the Architect prompt's *Anticipation Checklist*). When present, conduct inlines that block under the `Anticipated path coverage (pre-authorized)` heading in the Engineer prompt; when absent, the slot is empty and the heading is elided. The Architect's read-only anticipation helper `yoke_core.domain.architect_plan_anticipation` makes the underlying grep discipline cheap — conduct still consumes the persisted result, never recomputes it at dispatch time.
 
 ---
 

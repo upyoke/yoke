@@ -34,9 +34,7 @@ class TestIsSatisfied(unittest.TestCase):
         return {"status": status, "workflow": self.workflow, **extra}
 
     def test_status_done(self) -> None:
-        self.assertTrue(
-            mod._is_satisfied("status:done", self._item("done"), None)
-        )
+        self.assertTrue(mod._is_satisfied("status:done", self._item("done"), None))
         self.assertFalse(
             mod._is_satisfied(
                 "status:done",
@@ -102,9 +100,7 @@ class TestEvaluateBlockers(unittest.TestCase):
             apply_schema=apply_hard_block_schema,
         ) as db_path:
             self.db_path = db_path
-            with mock.patch.dict(
-                os.environ, {"YOKE_DB": db_path}, clear=False
-            ):
+            with mock.patch.dict(os.environ, {"YOKE_DB": db_path}, clear=False):
                 yield
 
     def _insert_item(
@@ -267,25 +263,31 @@ class TestMain(unittest.TestCase):
     def test_usage_error_when_id_invalid(self) -> None:
         rc, _, err = self._run(["not-an-id"])
         self.assertEqual(rc, 2)
-        self.assertIn("pass the public ref (PREFIX-N", err)
+        self.assertIn("public_item_ref_required", err)
 
     def test_exit_0_when_clear(self) -> None:
-        with mock.patch(
-            "yoke_core.domain.yok_n_parser.parse_item_argument",
-            return_value=TEST_ITEM_ID,
-        ), mock.patch.object(mod, "evaluate_blockers", return_value=[]):
+        with (
+            mock.patch(
+                "yoke_core.domain.yok_n_parser.parse_item_argument",
+                return_value=TEST_ITEM_ID,
+            ),
+            mock.patch.object(mod, "evaluate_blockers", return_value=[]),
+        ):
             rc, out, _ = self._run([str(TEST_ITEM_ID)])
         self.assertEqual(rc, 0)
         self.assertEqual(out, "")
 
     def test_exit_1_when_blocked(self) -> None:
-        with mock.patch(
-            "yoke_core.domain.yok_n_parser.parse_item_argument",
-            return_value=TEST_ITEM_ID,
-        ), mock.patch.object(
-            mod,
-            "evaluate_blockers",
-            return_value=["BLOCKED|YOK-10|idea|Something|activation|status:done"],
+        with (
+            mock.patch(
+                "yoke_core.domain.yok_n_parser.parse_item_argument",
+                return_value=TEST_ITEM_ID,
+            ),
+            mock.patch.object(
+                mod,
+                "evaluate_blockers",
+                return_value=["BLOCKED|YOK-10|idea|Something|activation|status:done"],
+            ),
         ):
             rc, out, _ = self._run([str(TEST_ITEM_ID)])
         self.assertEqual(rc, 1)
@@ -298,10 +300,13 @@ class TestMain(unittest.TestCase):
             calls.append((item_id, gate_filter))
             return []
 
-        with mock.patch(
-            "yoke_core.domain.yok_n_parser.parse_item_argument",
-            return_value=TEST_ITEM_ID,
-        ), mock.patch.object(mod, "evaluate_blockers", side_effect=fake):
+        with (
+            mock.patch(
+                "yoke_core.domain.yok_n_parser.parse_item_argument",
+                return_value=TEST_ITEM_ID,
+            ),
+            mock.patch.object(mod, "evaluate_blockers", side_effect=fake),
+        ):
             self._run([str(TEST_ITEM_ID), "--gate-point", "integration"])
         self.assertEqual(calls, [(TEST_ITEM_ID, "integration")])
 

@@ -48,7 +48,7 @@ class TestQaGateSummary:
             "qa",
             "gate-summary",
             "--item",
-            "1833",
+            "YOK-1833",
             "--target",
             "reviewed-implementation",
         )
@@ -56,15 +56,15 @@ class TestQaGateSummary:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "qa.gate_summary.run"
         assert req.target.kind == "item"
-        assert req.target.public_ref == "1833"
+        assert req.target.public_ref == "YOK-1833"
         assert req.payload == {"transition": "reviewed-implementation"}
 
     def test_epic_task_target(self) -> None:
         rc = _run(
             "qa",
             "gate-summary",
-            "--epic-id",
-            "1704",
+            "--epic",
+            "YOK-1704",
             "--task-num",
             "5",
             "--target",
@@ -73,7 +73,7 @@ class TestQaGateSummary:
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.target.kind == "epic_task"
-        assert req.target.epic_id == 1704
+        assert req.target.public_ref == "YOK-1704"
         assert req.target.task_num == 5
         assert req.payload == {"transition": "implemented"}
 
@@ -82,7 +82,7 @@ class TestQaGateSummary:
             "qa",
             "gate-summary",
             "--item",
-            "1833",
+            "YOK-1833",
             "--target",
             "done",
         )

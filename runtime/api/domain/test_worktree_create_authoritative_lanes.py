@@ -193,9 +193,9 @@ def test_hosted_lane_prepare_and_path_persistence_use_registered_calls(
         lambda: True,
     )
 
-    assert worktree_create_db.prepare_authoritative_item_worktrees(99224) == lanes
+    assert worktree_create_db.prepare_authoritative_item_worktrees("YOK-99224") == lanes
     worktree_create_db.persist_item_worktrees(
-        99224,
+        "YOK-99224",
         [
             (71, "YOK-99224", "/local/YOK-99224", "worker"),
             (

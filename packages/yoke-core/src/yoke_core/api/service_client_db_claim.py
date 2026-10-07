@@ -44,8 +44,7 @@ def _load_payload(raw: str) -> Dict[str, Any]:
         raise ValueError(f"--payload is not valid JSON: {exc}") from exc
     if not isinstance(parsed, dict):
         raise ValueError(
-            "--payload must decode to a JSON object; got "
-            f"{type(parsed).__name__}"
+            f"--payload must decode to a JSON object; got {type(parsed).__name__}"
         )
     return parsed
 
@@ -62,22 +61,25 @@ def cmd_db_claim_amend(args: list[str]) -> int:
     ``--json`` mode emits the typed FunctionCallResponse envelope verbatim
     instead of the legacy summary dict.
     """
-    parser = argparse.ArgumentParser(
-        prog="db-claim-amend", add_help=False
-    )
+    parser = argparse.ArgumentParser(prog="db-claim-amend", add_help=False)
     parser.add_argument(
-        "--item", required=True,
+        "--item",
+        required=True,
         help="Backlog item ref (PREFIX-N).",
     )
     reason_group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
-        reason_group, "--reason", "--reason-file", dest="reason",
+        reason_group,
+        "--reason",
+        "--reason-file",
+        dest="reason",
         help_text="Non-empty operator-facing justification.",
     )
     reason_group.add_argument("--intent", dest="reason")
     payload_group = parser.add_mutually_exclusive_group()
     payload_group.add_argument(
-        "--payload", default=None,
+        "--payload",
+        default=None,
         help="Unified claim JSON (object). Pass '-' to read from stdin.",
     )
     payload_group.add_argument(
@@ -85,13 +87,14 @@ def cmd_db_claim_amend(args: list[str]) -> int:
         choices=("none",),
         default=None,
         help=(
-            "Convenience alias for --payload '{\"state\":\"none\"}'. "
+            'Convenience alias for --payload \'{"state":"none"}\'. '
             "Only 'none' is accepted here; declared claims require "
             "--payload so the authored fields are explicit."
         ),
     )
     parser.add_argument(
-        "--session-id", default=None,
+        "--session-id",
+        default=None,
         help="Session id override; defaults to YOKE_SESSION_ID etc.",
     )
     parser.add_argument(
@@ -113,11 +116,13 @@ def cmd_db_claim_amend(args: list[str]) -> int:
 
     if parsed.payload is None and parsed.state is None:
         print(
-            json.dumps({
-                "success": False,
-                "code": "USAGE",
-                "message": "one of --payload or --state is required",
-            }),
+            json.dumps(
+                {
+                    "success": False,
+                    "code": "USAGE",
+                    "message": "one of --payload or --state is required",
+                }
+            ),
             file=sys.stderr,
         )
         return 2
@@ -127,14 +132,16 @@ def cmd_db_claim_amend(args: list[str]) -> int:
     _, sequence = parse_public_item_ref(parsed.item)
     if sequence is None:
         print(
-            json.dumps({
-                "success": False,
-                "code": "USAGE",
-                "message": (
-                    f"invalid item ref {parsed.item!r}: pass the public ref "
-                    "(PREFIX-N), or a bare number together with an explicit project"
-                ),
-            }),
+            json.dumps(
+                {
+                    "success": False,
+                    "code": "USAGE",
+                    "message": (
+                        f"invalid item ref {parsed.item!r}: pass the public ref "
+                        "(PREFIX-N), or a bare number together with an explicit project"
+                    ),
+                }
+            ),
             file=sys.stderr,
         )
         return 2
@@ -142,7 +149,10 @@ def cmd_db_claim_amend(args: list[str]) -> int:
     try:
         reason = resolve_text_file(parsed.reason, parsed.reason_file, "--reason-file")
     except ValueError as exc:
-        print(json.dumps({"success": False, "code": "USAGE", "message": str(exc)}), file=sys.stderr)
+        print(
+            json.dumps({"success": False, "code": "USAGE", "message": str(exc)}),
+            file=sys.stderr,
+        )
         return 2
 
     try:
@@ -152,11 +162,13 @@ def cmd_db_claim_amend(args: list[str]) -> int:
             payload = _load_payload(parsed.payload)
     except ValueError as exc:
         print(
-            json.dumps({
-                "success": False,
-                "code": "USAGE",
-                "message": str(exc),
-            }),
+            json.dumps(
+                {
+                    "success": False,
+                    "code": "USAGE",
+                    "message": str(exc),
+                }
+            ),
             file=sys.stderr,
         )
         return 2
@@ -190,25 +202,31 @@ def cmd_db_claim_amend(args: list[str]) -> int:
 
     if response.success:
         result = response.result or {}
-        print(json.dumps({
-            "success": True,
-            "item_id": result.get("item_id"),
-            "previous_profile": result.get("previous_profile", {}),
-            "previous_attestation": result.get("previous_attestation", {}),
-            "new_profile": result.get("new_profile", {}),
-            "new_attestation": result.get("new_attestation", {}),
-            "reason": result.get("reason", reason),
-            "event_id": result.get("event_id"),
-        }))
+        print(
+            json.dumps(
+                {
+                    "success": True,
+                    "public_ref": result.get("public_ref"),
+                    "previous_profile": result.get("previous_profile", {}),
+                    "previous_attestation": result.get("previous_attestation", {}),
+                    "new_profile": result.get("new_profile", {}),
+                    "new_attestation": result.get("new_attestation", {}),
+                    "reason": result.get("reason", reason),
+                    "event_id": result.get("event_id"),
+                }
+            )
+        )
         return 0
 
     err = response.error
     print(
-        json.dumps({
-            "success": False,
-            "code": (err.code if err is not None else "VALIDATION").upper(),
-            "message": err.message if err is not None else "amend failed",
-        }),
+        json.dumps(
+            {
+                "success": False,
+                "code": (err.code if err is not None else "VALIDATION").upper(),
+                "message": err.message if err is not None else "amend failed",
+            }
+        ),
         file=sys.stderr,
     )
     return 1

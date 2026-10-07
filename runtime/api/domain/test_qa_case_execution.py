@@ -31,7 +31,7 @@ from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
 def _case(method_id: str, runner_id: str, config: dict) -> dict:
     return {
         "requirement_id": 41,
-        "item_id": 9,
+        "public_ref": "YOK-9",
         "plan_id": 5,
         "case_key": "registered",
         "method_id": method_id,
@@ -262,7 +262,7 @@ def test_browser_case_executes_only_the_target_requirement() -> None:
     execute.assert_called_once_with(
         project="yoke",
         requirement_id=41,
-        item_id=9,
+        item_id="YOK-9",
         deployment_run_id=None,
         base_url="https://preview.example",
         expected_branch=None,
@@ -278,7 +278,7 @@ def test_browser_case_runs_a_deployment_run_subject_without_an_item() -> None:
             "browser_substrate",
             {"steps": [{"action": "navigate", "route": "/"}]},
         ),
-        "item_id": None,
+        "public_ref": None,
         "deployment_run_id": "run-20260101-001",
     }
     scenario = ScenarioResult(

@@ -31,7 +31,7 @@ function runRow(overrides = {}) {
       { name: "release", state: "pending" },
     ],
     member_items: [{
-      id: 2262, ref: "YOK-2228", project_sequence: 2228,
+      ref: "YOK-2228", project_sequence: 2228,
       title: "Ship the release", project_id: 1, project: "yoke",
     }],
     gates: [],
@@ -63,7 +63,7 @@ function runClient(row, activityRows = [], itemActivityRows = [], siblingRows = 
       if (request.function === "qa.activity.list") {
         return okEnvelope({
           summary: { total: 0, counts: {} },
-          rows: request.payload.item_ids ? itemActivityRows : activityRows,
+          rows: request.payload.public_refs ? itemActivityRows : activityRows,
         });
       }
       if (request.function === "inbox.list") {
@@ -82,7 +82,7 @@ function runClient(row, activityRows = [], itemActivityRows = [], siblingRows = 
       }
       if (request.function === "deployment_runs.find_by_item") {
         return okEnvelope({
-          item_id: request.target.item_id,
+          public_ref: request.target.public_ref,
           fields: ["id", "status", "current_stage", "created_at"],
           rows: siblingRows,
         });
@@ -128,7 +128,7 @@ test("a member's QA review is offered once, on that member's row", async (t) => 
       run_id: 5,
       subject: {
         kind: "deployment_run",
-        deployment_member_item_id: 2262,
+        deployment_member_public_ref: "YOK-2228",
         item_ref: "YOK-2228",
         deployment_run_id: "run-20260726-001",
       },

@@ -44,7 +44,7 @@ def blitz_survey(args: List[str]) -> int:
                 "survey-blocked|"
                 + "|".join(
                     str(blocker.get(key) or "")
-                    for key in ("kind", "owner_item_id", "path", "state", "detail")
+                    for key in ("kind", "owner_public_ref", "path", "state", "detail")
                 ),
                 file=stdout,
             )

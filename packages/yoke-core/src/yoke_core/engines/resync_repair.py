@@ -37,6 +37,7 @@ _REUSE_MARKER_RE = re.compile(
 
 def _parent():
     from yoke_core.engines import resync as _resync
+
     return _resync
 
 
@@ -73,14 +74,13 @@ def _lookup_item_ref_over_transport(ref: str) -> str:
 
 
 def _repair_local_orphan_backlog(
-    item_id: int,
+    public_ref: str,
     project: str,
     call_domain_sync_fn,  # noqa: ARG001 - retained for wrapper compatibility
 ) -> Tuple[bool, bool, Optional[str]]:
     """Create or reuse a GitHub issue; returns ``(success, reused, issue_num)``.
 
-    ``item_id`` is the internal ``items.id`` and stays typed when passed
-    to the domain sync surface. The engine switches the FIXED log wording
+    ``public_ref`` remains the canonical PREFIX-N through the sync call. The engine switches the FIXED log wording
     between "created" and "reused
     existing" using ``reused``. :class:`ProjectGithubAuthError`
     propagates to the engine boundary.
@@ -89,7 +89,9 @@ def _repair_local_orphan_backlog(
     captured = io.StringIO()
     try:
         rc = _parent().backlog_github_sync.sync_item(
-            int(item_id), stdout=captured, stderr=io.StringIO(),
+            public_ref,
+            stdout=captured,
+            stderr=io.StringIO(),
         )
     except Exception:
         return (False, False, None)
@@ -102,7 +104,7 @@ def _repair_local_orphan_backlog(
 
 
 def _repair_local_orphan_epic_task(
-    epic_id: str,
+    epic_public_ref: str,
     task_num: int,
     project: str,
     db_path: str,
@@ -120,7 +122,7 @@ def _repair_local_orphan_epic_task(
     )
 
     return repair_local_orphan_epic_task(
-        epic_id,
+        epic_public_ref,
         task_num,
         project,
         db_path,
@@ -129,7 +131,10 @@ def _repair_local_orphan_epic_task(
 
 
 def _edit_issue_title_via_rest(
-    *, project: str, number: int, title: str,
+    *,
+    project: str,
+    number: int,
+    title: str,
 ) -> bool:
     """Update the GitHub issue title via typed REST.
 
@@ -139,7 +144,9 @@ def _edit_issue_title_via_rest(
     """
     try:
         github_rest.update_issue(
-            project=resolved_project(project), number=int(number), title=title,
+            project=resolved_project(project),
+            number=int(number),
+            title=title,
         )
     except github_rest.RateLimitedError as exc:
         print(f"  reason: rate-limited on title edit: {exc}", file=sys.stderr)
@@ -157,12 +164,17 @@ def _edit_issue_title_via_rest(
 
 
 def _set_issue_state_via_rest(
-    *, project: str, number: int, state: str,
+    *,
+    project: str,
+    number: int,
+    state: str,
 ) -> bool:
     """Open or close the GitHub issue via typed REST."""
     try:
         github_rest.set_issue_state(
-            project=resolved_project(project), number=int(number), state=state,
+            project=resolved_project(project),
+            number=int(number),
+            state=state,
         )
     except github_rest.RateLimitedError as exc:
         print(f"  reason: rate-limited on issue {state}: {exc}", file=sys.stderr)
@@ -177,15 +189,16 @@ def _set_issue_state_via_rest(
 
 
 def _find_paired_for_drift(
-    drift: DriftRecord, paired: List[PairedItem],
+    drift: DriftRecord,
+    paired: List[PairedItem],
 ) -> Optional[PairedItem]:
     """Match a drift back to its paired item by typed identity."""
     for p in paired:
-        if drift.item_id is not None and p.item_id == drift.item_id:
+        if drift.public_ref is not None and p.public_ref == drift.public_ref:
             return p
         if (
-            drift.epic_id is not None
-            and p.epic_id == drift.epic_id
+            drift.epic_public_ref is not None
+            and p.epic_public_ref == drift.epic_public_ref
             and p.task_num == drift.task_num
         ):
             return p
@@ -195,7 +208,7 @@ def _find_paired_for_drift(
 def _epic_task_repair_title(drift: DriftRecord) -> str:
     """Compose the epic-task issue title with the parent's public ref."""
     tnum_padded = f"{int(drift.task_num):03d}"
-    parent_ref = _lookup_item_ref_over_transport(str(drift.epic_id))
+    parent_ref = _lookup_item_ref_over_transport(str(drift.epic_public_ref))
     if parent_ref:
         return f"[{parent_ref}] {tnum_padded} {drift.local}"
     return f"{tnum_padded} {drift.local}"
@@ -211,15 +224,15 @@ def _repair_drift(
 ) -> bool:
     """Repair a single field drift. Returns True on success.
 
-    Branching is on the drift's typed identity: ``item_id`` (internal
-    ``items.id``) selects the backlog path, ``(epic_id, task_num)`` the
+    Branching is on the drift's public identity: ``public_ref`` selects the
+    backlog path, ``(epic_public_ref, task_num)`` the
     epic-task path. ``drift.ref`` is display-only — it is rendered into
     GitHub-facing titles but never parsed back into an id.
     """
     paired_item = _find_paired_for_drift(drift, paired)
-    is_backlog = drift.item_id is not None
-    is_epic_task = drift.epic_id is not None and drift.task_num is not None
-    num = str(drift.item_id) if is_backlog else ""
+    is_backlog = drift.public_ref is not None
+    is_epic_task = drift.epic_public_ref is not None and drift.task_num is not None
+    num = str(drift.public_ref) if is_backlog else ""
 
     if drift.field == "title" and paired_item:
         if is_backlog:
@@ -249,7 +262,7 @@ def _repair_drift(
         elif is_epic_task:
             return (
                 _parent().epic_task_sync.sync_task_body(
-                    str(drift.epic_id),
+                    str(drift.epic_public_ref),
                     int(drift.task_num),
                     stdout=io.StringIO(),
                     stderr=io.StringIO(),
@@ -259,8 +272,11 @@ def _repair_drift(
         return False
 
     elif drift.field in (
-        "label-status", "label-priority", "label-workflow",
-        "label-source", "label-owner",
+        "label-status",
+        "label-priority",
+        "label-workflow",
+        "label-source",
+        "label-owner",
     ):
         if is_backlog:
             return call_domain_sync_fn(
@@ -296,7 +312,9 @@ def _repair_drift(
                 return call_domain_sync_fn(
                     _parent().backlog_github_sync.close_issue,
                     num,
-                    project=resolved_project(paired_item.project if paired_item else None),
+                    project=resolved_project(
+                        paired_item.project if paired_item else None
+                    ),
                 )
             return call_domain_sync_fn(
                 _parent().backlog_github_sync.reopen_issue,

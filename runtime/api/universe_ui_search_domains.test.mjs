@@ -25,7 +25,7 @@ test("a query reaches all six domains across every project", async (t) => {
   ]);
   const results = byClass(root, "header-search-result");
   assert.deepEqual(results.map((node) => node.href), [
-    "/items/2228?project=1",
+    "/items/YOK-2228?project=1",
     "/sessions/session-rebaseline?project=1",
     // The strategy doc lives in the OTHER project and is found anyway.
     "/strategy/REBASELINE-PLAN?project=3",

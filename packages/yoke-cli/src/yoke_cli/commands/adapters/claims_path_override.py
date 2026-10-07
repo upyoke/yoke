@@ -21,7 +21,7 @@ CLAIMS_PATH_OVERRIDE_USAGE = (
     "--override-point creation|amend|revalidation_conflict "
     "--integration-target TARGET --actor-id N --actor-reason TEXT "
     "[--blocking-claim-id M] [--blocking-path-targets ID,ID,...] "
-    "[--conflict-reason REASON] [--item-id N] [--project SLUG] "
+    "[--conflict-reason REASON] [--item PREFIX-N] [--project SLUG] "
     "[--session-id S] [--json]"
 )
 
@@ -33,7 +33,8 @@ def claims_path_override(args: List[str]) -> int:
     )
     parser.add_argument("--claim-id", required=True, help="path_claims.id")
     parser.add_argument(
-        "--override-point", required=True,
+        "--override-point",
+        required=True,
         choices=("creation", "amend", "revalidation_conflict"),
     )
     parser.add_argument("--integration-target", required=True)
@@ -42,13 +43,16 @@ def claims_path_override(args: List[str]) -> int:
     parser.add_argument("--blocking-claim-id", type=int, default=None)
     parser.add_argument("--blocking-path-targets", default=None)
     parser.add_argument(
-        "--conflict-reason", default=None,
+        "--conflict-reason",
+        default=None,
         choices=(
-            "upstream_delete", "hostile_upstream_touch",
-            "claim_overlap", "continuity_unknown",
+            "upstream_delete",
+            "hostile_upstream_touch",
+            "claim_overlap",
+            "continuity_unknown",
         ),
     )
-    parser.add_argument("--item-id", type=int, default=None)
+    parser.add_argument("--item", default=None)
     parser.add_argument("--project", default=None)
     add_session_arg(parser)
     add_json_arg(parser)
@@ -75,8 +79,8 @@ def claims_path_override(args: List[str]) -> int:
         ]
     if parsed.conflict_reason:
         payload["conflict_reason"] = parsed.conflict_reason
-    if parsed.item_id is not None:
-        payload["item_id"] = int(parsed.item_id)
+    if parsed.item is not None:
+        payload["public_ref"] = parsed.item
     if parsed.project:
         payload["project"] = parsed.project
 

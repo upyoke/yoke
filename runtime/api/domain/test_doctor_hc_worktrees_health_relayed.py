@@ -172,7 +172,7 @@ def test_fix_retires_a_disposable_terminal_lane_over_https(
     assert "Fixed: removed terminal lane PLAT-139" in result.detail
     assert relayed_client["prune"], "the lane should have been pruned"
     assert relayed_client["prune"][0]["branch"] == "PLAT-139"
-    assert relayed_client["prune"][0]["item_id"] == 70
+    assert relayed_client["prune"][0]["item_id"] == _LANE["public_ref"]
 
 
 def test_unservable_inventory_is_not_applicable_never_a_pass(

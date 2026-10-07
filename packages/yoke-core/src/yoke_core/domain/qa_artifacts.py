@@ -185,14 +185,17 @@ def is_permanent_artifact_path(
 
 def case_artifact_subject(case: dict[str, Any]) -> int | str:
     """Return a collision-safe storage segment for one QA case subject."""
-    item_id = case.get("item_id")
+    public_ref = case.get("public_ref")
+    # Store-owned rows still carry engine join keys; host-issued cases carry refs.
+    if "item_id" in case:
+        public_ref = case["item_id"]
     deployment_run_id = case.get("deployment_run_id")
     standalone_id = case.get("standalone_execution_id")
-    if standalone_id and item_id is None and deployment_run_id is None:
+    if standalone_id and public_ref is None and deployment_run_id is None:
         return f"standalone-{safe_segment(str(standalone_id))}"
-    if item_id is not None and deployment_run_id is None:
-        return int(item_id)
-    if item_id is None and deployment_run_id is not None:
+    if public_ref is not None and deployment_run_id is None:
+        return str(public_ref)
+    if public_ref is None and deployment_run_id is not None:
         return f"deployment-run-{safe_segment(str(deployment_run_id))}"
     raise ValueError("QA case must name exactly one artifact subject")
 

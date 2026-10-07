@@ -215,17 +215,23 @@ class _DashRelay:
         )
         if function_id == "claims.work.holder_get":
             return FunctionCallResponse(
-                success=True, function=function_id, version="v1",
+                success=True,
+                function=function_id,
+                version="v1",
                 result={"holder": self._holder},
             )
         if function_id == "claims.path.survey_ensure":
             if self._ensure_success:
                 return FunctionCallResponse(
-                    success=True, function=function_id, version="v1",
+                    success=True,
+                    function=function_id,
+                    version="v1",
                     result={"claim_id": 7},
                 )
             return FunctionCallResponse(
-                success=False, function=function_id, version="v1",
+                success=False,
+                function=function_id,
+                version="v1",
                 error=FunctionError(code="survey_ensure_failed", message="boom"),
             )
         raise AssertionError(f"unexpected function id {function_id!r}")
@@ -247,7 +253,7 @@ def test_dash_path_claim_relays_holder_get_then_survey_ensure(monkeypatch):
     _patch_dash_relay(monkeypatch, relay)
 
     error = direct_workflow_worktree_preflight._prepare_dash_path_claim(
-        item_id=99230,
+        item_id="YOK-99230",
         touch_paths=("src/dash.py",),
         integration_target="main",
     )
@@ -258,7 +264,8 @@ def test_dash_path_claim_relays_holder_get_then_survey_ensure(monkeypatch):
         "claims.path.survey_ensure",
     ]
     holder_call, ensure_call = relay.calls
-    assert holder_call["target"].item_id == 99230
+    assert holder_call["target"].public_ref == "YOK-99230"
+    assert holder_call["target"].item_id is None
     assert ensure_call["payload"]["touch_paths"] == ["src/dash.py"]
     assert ensure_call["payload"]["integration_target"] == "main"
 
@@ -268,7 +275,7 @@ def test_dash_path_claim_without_live_work_claim_refuses(monkeypatch):
     _patch_dash_relay(monkeypatch, relay)
 
     error = direct_workflow_worktree_preflight._prepare_dash_path_claim(
-        item_id=99230,
+        item_id="YOK-99230",
         touch_paths=("src/dash.py",),
         integration_target="main",
     )
@@ -279,13 +286,11 @@ def test_dash_path_claim_without_live_work_claim_refuses(monkeypatch):
 
 
 def test_dash_path_claim_surfaces_survey_ensure_failure(monkeypatch):
-    relay = _DashRelay(
-        holder={"session_id": "claim-session"}, ensure_success=False
-    )
+    relay = _DashRelay(holder={"session_id": "claim-session"}, ensure_success=False)
     _patch_dash_relay(monkeypatch, relay)
 
     error = direct_workflow_worktree_preflight._prepare_dash_path_claim(
-        item_id=99230,
+        item_id="YOK-99230",
         touch_paths=("src/dash.py",),
         integration_target="main",
     )

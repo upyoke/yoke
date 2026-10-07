@@ -220,7 +220,7 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
                     repo_root=root,
                     branch=branch,
                     target=owner.target_branch,
-                    item_id=owner.item_id,
+                    item_id=owner.public_ref,
                     run_git=_git_for_repo(root),
                     emit=lambda *_a, **_kw: None,
                 )
@@ -316,7 +316,7 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
                     repo_root=str(repo_root),
                     branch=branch,
                     target=lane.target_branch,
-                    item_id=lane.item_id,
+                    item_id=lane.public_ref,
                     run_git=_git_for_repo(str(repo_root)),
                     emit=lambda *_a, **_kw: None,
                 )

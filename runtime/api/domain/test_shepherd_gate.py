@@ -36,7 +36,7 @@ def _insert_verdict(
 ) -> None:
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     conn.execute(
-        "INSERT INTO shepherd_verdicts (item, transition, worker, verdict, created_at) "
+        "INSERT INTO shepherd_verdicts (public_ref, transition, worker, verdict, created_at) "
         f"VALUES ({p}, {p}, {p}, {p}, {p})",
         (public_ref, transition, worker, verdict, created_at),
     )

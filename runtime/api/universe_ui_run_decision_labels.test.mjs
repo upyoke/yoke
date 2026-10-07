@@ -20,7 +20,7 @@ function requests(status = "pending") {
       plan_id: index ? null : 7, case_name: index ? null : CASE,
       method_name: index ? null : "Browser inspection",
       subject: { kind: "deployment_run", deployment_run_id: RUN,
-        deployment_member_item_id: null, qa_phase: "post_deploy" },
+        deployment_member_public_ref: null, qa_phase: "post_deploy" },
       artifacts: [],
     } };
   });
@@ -106,6 +106,6 @@ test("acceptance is identified by its QA kind, not by a missing case name or a v
 test("item and member evidence reviews keep their existing action wording", () => {
   assert.equal(runStageDecisionPresentation(qaRequestRow()), null);
   const [member] = requests();
-  member.subject_context.subject.deployment_member_item_id = 42;
+  member.subject_context.subject.deployment_member_public_ref = 42;
   assert.equal(runStageDecisionPresentation(member), null);
 });

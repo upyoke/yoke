@@ -1,9 +1,8 @@
 """The commit a CI-gated release binds: one that has its own CI run.
 
-A stage that waits for CI passes only when the project's ``ci_workflow_file``
-has a passing run whose head is exactly the release commit, and a merge-queue
-push runs CI only on its newest commit. So ``deployment_runs.create`` with no
-source binds the newest first-parent gate-branch commit whose own run passed
+A CI gate passes only its exact release commit; merge-queue pushes test only
+the newest commit. ``deployment_runs.create`` without a source therefore binds
+the newest first-parent gate-branch commit whose own run passed
 or is running, or — when none has one — dispatches the workflow on the branch
 and binds the commit that run tests, refusing either when it does not descend
 from the previous release (:mod:`deployment_run_gate_branch_lineage`). An
@@ -12,6 +11,8 @@ projects without a CI workflow, and ephemeral candidates are untouched.
 """
 
 from __future__ import annotations
+
+from yoke_core.domain.domain_refusal import DomainRefusal
 
 import re
 from dataclasses import dataclass
@@ -38,7 +39,7 @@ UNTESTED = "release_source_untested"
 UNVERIFIABLE = "release_source_unverifiable"
 
 
-class ReleaseSourceRefused(Exception):
+class ReleaseSourceRefused(DomainRefusal):
     """A release source the CI gate could never pass, refused before binding."""
 
     def __init__(self, code: str, message: str) -> None:

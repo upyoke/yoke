@@ -63,12 +63,14 @@ class TestTransitionParity:
             )
             # CLI
             result = _run_service_client(
-                db_path, "validate-transition", from_s, to_s,
-                "--workflow", "epic",
+                db_path,
+                "validate-transition",
+                from_s,
+                to_s,
+                "--workflow",
+                "epic",
             )
-            assert result.returncode == 0, (
-                f"CLI should accept {from_s} -> {to_s}"
-            )
+            assert result.returncode == 0, f"CLI should accept {from_s} -> {to_s}"
 
     def test_backward_transitions_rejected(self, parity_env):
         """Backward transitions should be rejected by both surfaces."""
@@ -87,12 +89,14 @@ class TestTransitionParity:
             )
             # CLI
             result = _run_service_client(
-                db_path, "validate-transition", from_s, to_s,
-                "--workflow", "epic",
+                db_path,
+                "validate-transition",
+                from_s,
+                to_s,
+                "--workflow",
+                "epic",
             )
-            assert result.returncode == 1, (
-                f"CLI should reject {from_s} -> {to_s}"
-            )
+            assert result.returncode == 1, f"CLI should reject {from_s} -> {to_s}"
 
     def test_exceptional_transitions_not_forward(self, parity_env):
         """Transitions involving exceptional statuses are not forward moves."""
@@ -106,8 +110,12 @@ class TestTransitionParity:
         for from_s, to_s in cases:
             assert not workflow.is_forward_transition(from_s, to_s)
             result = _run_service_client(
-                db_path, "validate-transition", from_s, to_s,
-                "--workflow", "epic",
+                db_path,
+                "validate-transition",
+                from_s,
+                to_s,
+                "--workflow",
+                "epic",
             )
             assert result.returncode == 1
 
@@ -119,18 +127,30 @@ class TestTransitionParity:
         # planning is in epic progression but not issue progression
         assert not workflow.is_forward_transition("refined-idea", "planning")
         result = _run_service_client(
-            db_path, "validate-transition", "refined-idea", "planning",
-            "--workflow", "issue",
+            db_path,
+            "validate-transition",
+            "refined-idea",
+            "planning",
+            "--workflow",
+            "issue",
         )
-        assert result.returncode == 1, "CLI should reject refined-idea->planning for issue"
+        assert result.returncode == 1, (
+            "CLI should reject refined-idea->planning for issue"
+        )
 
         # refined-idea -> implementing is valid for issues
         assert workflow.is_forward_transition("refined-idea", "implementing")
         result = _run_service_client(
-            db_path, "validate-transition", "refined-idea", "implementing",
-            "--workflow", "issue",
+            db_path,
+            "validate-transition",
+            "refined-idea",
+            "implementing",
+            "--workflow",
+            "issue",
         )
-        assert result.returncode == 0, "CLI should accept refined-idea->implementing for issue"
+        assert result.returncode == 0, (
+            "CLI should accept refined-idea->implementing for issue"
+        )
 
     def test_epic_workflow_parity(self, parity_env):
         """CLI epic selection matches the built-in workflow runtime."""
@@ -139,10 +159,16 @@ class TestTransitionParity:
 
         assert workflow.is_forward_transition("refined-idea", "planning")
         result = _run_service_client(
-            db_path, "validate-transition", "refined-idea", "planning",
-            "--workflow", "epic",
+            db_path,
+            "validate-transition",
+            "refined-idea",
+            "planning",
+            "--workflow",
+            "epic",
         )
-        assert result.returncode == 0, "CLI should accept refined-idea->planning for epic"
+        assert result.returncode == 0, (
+            "CLI should accept refined-idea->planning for epic"
+        )
 
 
 # ===========================================================================
@@ -161,13 +187,18 @@ class TestGateParity:
         db_path = write_parity_env["db_path"]
 
         # API — item 1 is implementing, try to set done without nonce
-        api_resp = client.patch("/v1/items/1", json={"status": "done"})
+        api_resp = client.patch("/v1/items/YOK-1", json={"status": "done"})
         assert api_resp.status_code == 409
 
         # CLI
         cli_result = _run_service_client(
-            db_path, "update-item", "1",
-            "--field", "status", "--value", "done",
+            db_path,
+            "update-item",
+            "YOK-1",
+            "--field",
+            "status",
+            "--value",
+            "done",
         )
         assert cli_result.returncode == 1
         cli_data = json.loads(cli_result.stdout)

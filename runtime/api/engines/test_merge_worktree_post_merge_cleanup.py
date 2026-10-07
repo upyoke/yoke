@@ -17,7 +17,7 @@ def _cleanup_ctx(tmp_path):
     ctx = MergeContext(args=MergeArgs(branch="YOK-9999", target="main"))
     ctx.repo_root = str(tmp_path)
     ctx.yoke_repo_root = str(tmp_path)
-    ctx.item_id = "9999"
+    ctx.item_id = "YOK-9999"
     ctx.epic_id = None
     return ctx
 

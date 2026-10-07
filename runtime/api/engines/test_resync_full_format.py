@@ -14,6 +14,9 @@ from unittest import mock
 from yoke_core.engines.resync import DriftRecord, LocalOrphan, _emit_doctor_format
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 class TestDoctorFormat:
     """Doctor-format HC-* line output."""
 
@@ -35,16 +38,20 @@ class TestDoctorFormat:
 
     def test_warn_on_title_drift(self):
         """Doctor format shows WARN for title drift."""
-        drifts = [DriftRecord("YOK-42", "title", "Local Title", "GitHub Title")]
+        drifts = [
+            DriftRecord(_FIXTURE_ITEM_REF, "title", "Local Title", "GitHub Title")
+        ]
         captured = StringIO()
         with mock.patch("sys.stdout", captured):
             _emit_doctor_format([], [], drifts, "detect")
         output = captured.getvalue()
         assert "HC-title-drift|Title drift|WARN|" in output
-        assert "YOK-42" in output
+        assert _FIXTURE_ITEM_REF in output
 
     def test_warn_on_body_drift(self):
-        drifts = [DriftRecord("YOK-42", "body", "<local body>", "<github body>")]
+        drifts = [
+            DriftRecord(_FIXTURE_ITEM_REF, "body", "<local body>", "<github body>")
+        ]
         captured = StringIO()
         with mock.patch("sys.stdout", captured):
             _emit_doctor_format([], [], drifts, "detect")
@@ -52,7 +59,7 @@ class TestDoctorFormat:
         assert "HC-body-drift|Body drift|WARN|" in output
 
     def test_warn_on_state_drift(self):
-        drifts = [DriftRecord("YOK-42", "state", "CLOSED", "OPEN")]
+        drifts = [DriftRecord(_FIXTURE_ITEM_REF, "state", "CLOSED", "OPEN")]
         captured = StringIO()
         with mock.patch("sys.stdout", captured):
             _emit_doctor_format([], [], drifts, "detect")
@@ -60,7 +67,9 @@ class TestDoctorFormat:
         assert "HC-state-drift|State drift|WARN|" in output
 
     def test_warn_on_label_drift(self):
-        drifts = [DriftRecord("YOK-42", "label-status", "status:done", "status:idea")]
+        drifts = [
+            DriftRecord(_FIXTURE_ITEM_REF, "label-status", "status:done", "status:idea")
+        ]
         captured = StringIO()
         with mock.patch("sys.stdout", captured):
             _emit_doctor_format([], [], drifts, "detect")
@@ -68,7 +77,11 @@ class TestDoctorFormat:
         assert "HC-label-drift|Label drift|WARN|" in output
 
     def test_warn_on_frozen_label_drift(self):
-        drifts = [DriftRecord("YOK-42", "label-frozen", "frozen:true", "frozen:absent")]
+        drifts = [
+            DriftRecord(
+                _FIXTURE_ITEM_REF, "label-frozen", "frozen:true", "frozen:absent"
+            )
+        ]
         captured = StringIO()
         with mock.patch("sys.stdout", captured):
             _emit_doctor_format([], [], drifts, "detect")
@@ -76,7 +89,9 @@ class TestDoctorFormat:
         assert "HC-frozen-label-drift|Frozen label drift|WARN|" in output
 
     def test_warn_on_comment_drift(self):
-        drifts = [DriftRecord("YOK-42", "comment", "has-status-comment", "missing")]
+        drifts = [
+            DriftRecord(_FIXTURE_ITEM_REF, "comment", "has-status-comment", "missing")
+        ]
         captured = StringIO()
         with mock.patch("sys.stdout", captured):
             _emit_doctor_format([], [], drifts, "detect")
@@ -84,7 +99,9 @@ class TestDoctorFormat:
         assert "HC-comment-sync|Comment sync|WARN|" in output
 
     def test_warn_on_local_orphans(self):
-        orphans = [LocalOrphan("YOK-99", "/tmp/099.md", "backlog", "yoke", item_id=99)]
+        orphans = [
+            LocalOrphan("YOK-99", "/tmp/099.md", "backlog", "yoke", public_ref="YOK-99")
+        ]
         captured = StringIO()
         with mock.patch("sys.stdout", captured):
             _emit_doctor_format(orphans, [], [], "detect")
@@ -92,7 +109,16 @@ class TestDoctorFormat:
         assert "HC-missing-gh-issues|Missing GitHub issues|WARN|" in output
 
     def test_warn_on_epic_task_orphans(self):
-        orphans = [LocalOrphan("1246/task-001", "epic_tasks:1246/1", "epic_task", "yoke", epic_id="1246", task_num=1)]
+        orphans = [
+            LocalOrphan(
+                "YOK-1246/task-001",
+                "epic_tasks:1246/1",
+                "epic_task",
+                "yoke",
+                epic_public_ref="YOK-1246",
+                task_num=1,
+            )
+        ]
         captured = StringIO()
         with mock.patch("sys.stdout", captured):
             _emit_doctor_format(orphans, [], [], "detect")
@@ -109,7 +135,7 @@ class TestDoctorFormat:
 
     def test_fix_mode_shows_fixed_in_detail(self):
         """Fix mode includes 'FIXED' in detail text."""
-        drifts = [DriftRecord("YOK-42", "title", "Local", "GitHub")]
+        drifts = [DriftRecord(_FIXTURE_ITEM_REF, "title", "Local", "GitHub")]
         captured = StringIO()
         with mock.patch("sys.stdout", captured):
             _emit_doctor_format([], [], drifts, "fix")

@@ -1,6 +1,6 @@
 # Conduct — Cleanup & Report (6z-cleanup, 7)
 
-The cleanup-and-report phase of the conduct epic flow. Main-repo cleanup, final report, and claim release. Runs on **every exit path** — SUCCESS, HALTED, `--no-chain`, and skip-simulation. **Inherited:** `MAIN_ROOT`, `N`, `_epic_id`, `_title`.
+The cleanup-and-report phase of the conduct epic flow. Main-repo cleanup, final report, and claim release. Runs on **every exit path** — SUCCESS, HALTED, `--no-chain`, and skip-simulation. **Inherited:** `MAIN_ROOT`, `N`, `_epic_ref`, `_title`.
 
 ---
 
@@ -94,7 +94,7 @@ review Tester reports and re-run `/yoke conduct PREFIX-{N}`. When halted by
 simulation gaps, review the gaps, fix integration issues in the preserved
 worktree, then re-run `/yoke conduct PREFIX-{N}`. See `error-handling.md` for notes.
 
-**Halted (simulator epic-identity attestation):** when conduct halts because `persist_simulation` exited 16 (wrong-epic body) or 17 (missing-epic body), the operator-facing line MUST preserve the exact `persist_simulation` error text. Exit 16's error names both the CLI-passed epic and the body-attested epic; relay that text in the final report rather than collapsing it to a generic "simulation halted" line. The operator needs to see *which* epic was attested vs *which* epic was passed so they can decide whether to re-dispatch with corrected context, file a follow-up against the prompt assembly path, or investigate parent-session compaction. The same rule applies when the Layer 4 defensive bail halts conduct because `_epic_id` was empty before dispatch — surface that exact `_epic_id lost between dispatches` line, not a paraphrase.
+**Halted (simulator epic-identity attestation):** when conduct halts because `persist_simulation` exited 16 (wrong-epic body) or 17 (missing-epic body), the operator-facing line MUST preserve the exact `persist_simulation` error text. Exit 16's error names both the CLI-passed epic and the body-attested epic; relay that text in the final report rather than collapsing it to a generic "simulation halted" line. The operator needs to see *which* epic was attested vs *which* epic was passed so they can decide whether to re-dispatch with corrected context, file a follow-up against the prompt assembly path, or investigate parent-session compaction. The same rule applies when the Layer 4 defensive bail halts conduct because `_epic_ref` was empty before dispatch — surface that exact `_epic_ref lost between dispatches` line, not a paraphrase.
 
 ### Release Manual Work Claims
 

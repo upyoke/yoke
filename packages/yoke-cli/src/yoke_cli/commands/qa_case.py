@@ -37,23 +37,23 @@ QA_PLAN_ABORT_USAGE = (
 )
 QA_PLAN_REVIEW_SUBMIT_USAGE = (
     "yoke qa plan review-submit "
-    "(--item-id N | --deployment-run-id RUN) --execution-id ID "
+    "(--item PREFIX-N | --deployment-run-id RUN) --execution-id ID "
     "--bundle-id ID --bundle-digest SHA256 --stdin [--session-id S]"
 )
 QA_MISSION_HOST_COMMAND_USAGE = (
     "yoke qa mission host-command "
-    "(--item PREFIX-N | --item-id N | --deployment-run-id RUN) "
+    "(--item PREFIX-N | --deployment-run-id RUN) "
     "--execution-id ID --requirement-id N [--gui-session] "
     "[--timeout-seconds N] -- ARGV..."
 )
 QA_MISSION_WALK_START_USAGE = (
     "yoke qa mission walk-start "
-    "(--item PREFIX-N | --item-id N | --deployment-run-id RUN) "
+    "(--item PREFIX-N | --deployment-run-id RUN) "
     "--execution-id ID --requirement-id N"
 )
 QA_MISSION_WALK_END_USAGE = (
     "yoke qa mission walk-end "
-    "(--item PREFIX-N | --item-id N | --deployment-run-id RUN) "
+    "(--item PREFIX-N | --deployment-run-id RUN) "
     "--execution-id ID --requirement-id N --run-id N [--timeout-seconds N]"
 )
 

@@ -65,7 +65,7 @@ def landing_record(
 ):
     """One server record returned to a waiting lane."""
     return {
-        "item_id": 1,
+        "public_ref": f"YOK-{200}",
         "project_id": 1,
         "pr_number": str(pr_number),
         "state": state,
@@ -303,7 +303,6 @@ def land(**overrides):
     landing_records = overrides.pop("landing_records", None)
     landing_stale = overrides.pop("landing_stale", False)
     kwargs = {
-        "item_id": 1,
         "public_ref": "YOK-200",
         "commit_sha": LANE_SHA,
         "dispatch": dispatch_for(

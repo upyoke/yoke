@@ -53,7 +53,7 @@ def handle_claims_path_list(request: FunctionCallRequest) -> HandlerOutcome:
             primary_success=False,
             error=FunctionError(
                 code="target_invalid",
-                message="claims.path.list requires target.kind='item' with item_id",
+                message="claims.path.list requires target.kind='item' with public_ref",
             ),
         )
     states = [str(s) for s in (request.payload or {}).get("states") or []]
@@ -124,8 +124,10 @@ def handle_claims_path_get(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 __all__ = [
-    "ClaimsPathListRequest", "ClaimsPathListResponse",
+    "ClaimsPathListRequest",
+    "ClaimsPathListResponse",
     "handle_claims_path_list",
-    "ClaimsPathGetRequest", "ClaimsPathGetResponse",
+    "ClaimsPathGetRequest",
+    "ClaimsPathGetResponse",
     "handle_claims_path_get",
 ]

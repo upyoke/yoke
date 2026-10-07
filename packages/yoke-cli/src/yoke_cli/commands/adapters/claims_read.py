@@ -29,25 +29,32 @@ from yoke_cli.commands._helpers import (
     usage_error,
 )
 from yoke_contracts.api.function_call import TargetRef
+from yoke_cli.commands.adapters.claims_conflicts_read import (
+    PATH_CLAIMS_CONFLICTS_LIST_USAGE as PATH_CLAIMS_CONFLICTS_LIST_USAGE,
+    path_claims_conflicts_list as path_claims_conflicts_list,
+)
 
 
 __all__ = [
-    "claims_work_holder_get", "claims_work_holder_list",
+    "claims_work_holder_get",
+    "claims_work_holder_list",
     "claims_work_current",
-    "claims_path_list", "claims_path_get",
+    "claims_path_list",
+    "claims_path_get",
     "claims_path_coordination_decision_build",
     "path_claims_conflicts_list",
-    "CLAIM_WORK_HOLDER_GET_USAGE", "CLAIM_WORK_HOLDER_LIST_USAGE",
+    "CLAIM_WORK_HOLDER_GET_USAGE",
+    "CLAIM_WORK_HOLDER_LIST_USAGE",
     "CLAIM_WORK_CURRENT_USAGE",
-    "CLAIMS_PATH_LIST_USAGE", "CLAIMS_PATH_GET_USAGE",
+    "CLAIMS_PATH_LIST_USAGE",
+    "CLAIMS_PATH_GET_USAGE",
     "CLAIMS_PATH_COORDINATION_DECISION_BUILD_USAGE",
     "PATH_CLAIMS_CONFLICTS_LIST_USAGE",
 ]
 
 
 CLAIMS_PATH_LIST_USAGE = (
-    "yoke claims path list --item PREFIX-N "
-    "[--state S]... [--session-id S] [--json]"
+    "yoke claims path list --item PREFIX-N [--state S]... [--session-id S] [--json]"
 )
 
 
@@ -57,11 +64,14 @@ def claims_path_list(args: List[str]) -> int:
         description=CLAIMS_PATH_LIST_USAGE,
     )
     parser.add_argument(
-        "--item", required=True,
-        help="Item id (PREFIX-N or project-local number).",
+        "--item",
+        required=True,
+        help="Item id (PREFIX-N).",
     )
     parser.add_argument(
-        "--state", action="append", default=None,
+        "--state",
+        action="append",
+        default=None,
         help=(
             "Filter by state (planned/blocked/active/released/cancelled); "
             "repeatable and/or comma-separated. Default: all states."
@@ -87,9 +97,7 @@ def claims_path_list(args: List[str]) -> int:
     )
 
 
-CLAIMS_PATH_GET_USAGE = (
-    "yoke claims path get CLAIM_ID [--session-id S] [--json]"
-)
+CLAIMS_PATH_GET_USAGE = "yoke claims path get CLAIM_ID [--session-id S] [--json]"
 
 
 def claims_path_get(args: List[str]) -> int:
@@ -129,21 +137,28 @@ def claims_path_coordination_decision_build(args: List[str]) -> int:
         description=CLAIMS_PATH_COORDINATION_DECISION_BUILD_USAGE,
     )
     parser.add_argument(
-        "--item", "--candidate-item", dest="item", required=True,
-        help="Candidate item id (PREFIX-N or project-local number).",
+        "--item",
+        "--candidate-item",
+        dest="item",
+        required=True,
+        help="Candidate item id (PREFIX-N).",
     )
     parser.add_argument(
-        "--conflicting-claim", required=True,
+        "--conflicting-claim",
+        required=True,
         help="path_claims.id of the non-terminal overlapping claim.",
     )
     parser.add_argument(
-        "--paths", required=True,
+        "--paths",
+        required=True,
         help="Comma-separated shared repo-relative paths.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
-        parser, args, CLAIMS_PATH_COORDINATION_DECISION_BUILD_USAGE,
+        parser,
+        args,
+        CLAIMS_PATH_COORDINATION_DECISION_BUILD_USAGE,
     )
     if parsed is None:
         return 2
@@ -176,11 +191,13 @@ def claims_work_holder_get(args: List[str]) -> int:
         description=CLAIM_WORK_HOLDER_GET_USAGE,
     )
     parser.add_argument(
-        "--item", default=None,
-        help="Item id (PREFIX-N or project-local number). Alternative to positional.",
+        "--item",
+        default=None,
+        help="Item id (PREFIX-N). Alternative to positional.",
     )
     parser.add_argument(
-        "--path", default=None,
+        "--path",
+        default=None,
         help=(
             "Absolute path. Answers who holds the worktree lane containing "
             "it — use this when you are standing in a directory and do not "
@@ -189,7 +206,9 @@ def claims_work_holder_get(args: List[str]) -> int:
         ),
     )
     parser.add_argument(
-        "item_positional", nargs="?", default=None,
+        "item_positional",
+        nargs="?",
+        default=None,
         help="Item id positional (alternative to --item).",
     )
     add_session_arg(parser)
@@ -208,7 +227,9 @@ def claims_work_holder_get(args: List[str]) -> int:
     if parsed.path:
         return dispatch_and_emit(
             function_id="claims.work.holder_get",
-            target=TargetRef(kind="global", project_id=client_project_context(parsed.project)),
+            target=TargetRef(
+                kind="global", project_id=client_project_context(parsed.project)
+            ),
             payload={"path": str(Path(parsed.path).expanduser().resolve())},
             session_id=parsed.session_id,
             json_mode=parsed.json_mode,
@@ -241,11 +262,14 @@ def claims_work_current(args: List[str]) -> int:
         description=CLAIM_WORK_CURRENT_USAGE,
     )
     parser.add_argument(
-        "--item", default=None,
-        help="Item id (PREFIX-N or project-local number). Alternative to positional.",
+        "--item",
+        default=None,
+        help="Item id (PREFIX-N). Alternative to positional.",
     )
     parser.add_argument(
-        "item_positional", nargs="?", default=None,
+        "item_positional",
+        nargs="?",
+        default=None,
         help="Item id positional (alternative to --item).",
     )
     add_session_arg(parser)
@@ -277,11 +301,14 @@ def claims_work_holder_list(args: List[str]) -> int:
         description=CLAIM_WORK_HOLDER_LIST_USAGE,
     )
     parser.add_argument(
-        "--item", default=None,
-        help="Item id filter (PREFIX-N or project-local number).",
+        "--item",
+        default=None,
+        help="Item id filter (PREFIX-N).",
     )
     parser.add_argument(
-        "--session-id-filter", dest="session_id_filter", default=None,
+        "--session-id-filter",
+        dest="session_id_filter",
+        default=None,
         help="Session id filter (distinct from --session-id which is the caller's).",
     )
     add_session_arg(parser)
@@ -297,49 +324,11 @@ def claims_work_holder_list(args: List[str]) -> int:
     if parsed.item:
         target = item_target("item", parsed.item, parsed.project)
     else:
-        target = TargetRef(kind="global", project_id=client_project_context(parsed.project))
+        target = TargetRef(
+            kind="global", project_id=client_project_context(parsed.project)
+        )
     return dispatch_and_emit(
         function_id="claims.work.holder_list",
-        target=target,
-        payload=payload,
-        session_id=parsed.session_id,
-        json_mode=parsed.json_mode,
-    )
-
-
-PATH_CLAIMS_CONFLICTS_LIST_USAGE = (
-    "yoke path-claims conflicts list [--integration-target NAME] "
-    "[--item PREFIX-N] [--project P] [--session-id S] [--json]"
-)
-
-
-def path_claims_conflicts_list(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke path-claims conflicts list",
-        description=PATH_CLAIMS_CONFLICTS_LIST_USAGE,
-    )
-    parser.add_argument(
-        "--integration-target", dest="integration_target", default=None,
-        help="Filter to a specific integration target (e.g. 'main').",
-    )
-    parser.add_argument(
-        "--item", default=None,
-        help="Optional item filter (PREFIX-N or project-local number).",
-    )
-    add_session_arg(parser)
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, PATH_CLAIMS_CONFLICTS_LIST_USAGE)
-    if parsed is None:
-        return 2
-    payload: Dict[str, Any] = {}
-    if parsed.integration_target:
-        payload["integration_target"] = parsed.integration_target
-    if parsed.item:
-        target = item_target("item", parsed.item, parsed.project)
-    else:
-        target = TargetRef(kind="global", project_id=client_project_context(parsed.project))
-    return dispatch_and_emit(
-        function_id="path_claims.conflicts.list",
         target=target,
         payload=payload,
         session_id=parsed.session_id,

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Optional
 
-from yoke_contracts.api.function_call import TargetRef
+from yoke_core.domain.public_item_target import public_item_target
 from yoke_core.domain import control_plane_function_degradation
 from yoke_core.domain.merge_queue_landing_record import record_from_payload
 from yoke_core.domain.merge_queue_landing_record_state import LANDED
@@ -18,7 +18,7 @@ from yoke_core.domain.merge_queue_landing_wait import OBSERVE_FUNCTION_ID
 
 
 def landed_candidate_head(
-    item_id: int,
+    public_ref: str,
     *,
     dispatch: Optional[Callable[..., Any]] = None,
 ) -> tuple[str, str]:
@@ -36,7 +36,7 @@ def landed_candidate_head(
         dispatch = call_dispatcher
     response = control_plane_function_degradation.dispatch_through_paired_admin_on_skew(
         function_id=OBSERVE_FUNCTION_ID,
-        target=TargetRef(kind="item", item_id=int(item_id)),
+        target=public_item_target(public_ref),
         payload={},
         announce=lambda _line: None,
         dispatch=dispatch,

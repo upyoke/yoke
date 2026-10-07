@@ -59,7 +59,7 @@ def handle_items_get(request: FunctionCallRequest) -> HandlerOutcome:
             primary_success=False,
             error=FunctionError(
                 code="target_invalid",
-                message="items.get requires target.kind='item' with item_id",
+                message="items.get requires target.kind='item' with public_ref",
             ),
         )
     from yoke_core.domain.items_queries import query_item
@@ -81,7 +81,13 @@ def handle_items_get(request: FunctionCallRequest) -> HandlerOutcome:
                     jsonpath=f"$.payload.fields[{cols.index(col)}]",
                 ),
             )
-        if col == "deployment_flow":
+        if col == "id":
+            from yoke_core.domain.db_helpers import connect
+            from yoke_core.domain.project_identity import render_item_ref
+
+            with connect() as conn:
+                out[col] = render_item_ref(conn, item_id)
+        elif col == "deployment_flow":
             from yoke_core.domain.db_helpers import connect
             from yoke_core.domain.item_completion_flow_projection import (
                 completion_flow_values,
@@ -174,7 +180,7 @@ def handle_epic_tasks_list(request: FunctionCallRequest) -> HandlerOutcome:
             primary_success=False,
             error=FunctionError(
                 code="target_invalid",
-                message="epic_tasks.list requires target.epic_id",
+                message="epic_tasks.list requires target.public_ref",
             ),
         )
     from yoke_core.domain.db_helpers import connect

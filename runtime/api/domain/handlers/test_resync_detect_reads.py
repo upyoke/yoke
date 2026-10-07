@@ -48,15 +48,24 @@ def _seed(db):
     try:
         actor = str(seed_human_actor(conn))
         insert_item(
-            conn, id=TEST_ITEM_ID, project="yoke", github_issue="#41",
+            conn,
+            id=TEST_ITEM_ID,
+            project="yoke",
+            github_issue="#41",
             source=actor,
         )
         insert_item(
-            conn, id=TEST_EPIC_ID, project="yoke", workflow_id="epic",
+            conn,
+            id=TEST_EPIC_ID,
+            project="yoke",
+            workflow_id="epic",
             source=actor,
         )
         insert_epic_task(
-            conn, epic_id=TEST_EPIC_ID, task_num=1, title="Task one",
+            conn,
+            epic_id=TEST_EPIC_ID,
+            task_num=1,
+            title="Task one",
             github_issue="#42",
         )
     finally:
@@ -101,11 +110,9 @@ class TestLinkageRows:
         payload = outcome.result_payload
         reads.LinkageRowsResponse(**payload)
         backlog_ids = {row[0]: row[1] for row in payload["backlog_rows"]}
-        assert backlog_ids.get(TEST_ITEM_ID) == "#41"
-        task_rows = {
-            (str(row[0]), row[1]): row[3] for row in payload["task_rows"]
-        }
-        assert task_rows.get((str(TEST_EPIC_ID), 1)) == "#42"
+        assert backlog_ids.get(f"YOK-{TEST_ITEM_ID}") == "#41"
+        task_rows = {(str(row[0]), row[1]): row[3] for row in payload["task_rows"]}
+        assert task_rows.get((f"YOK-{TEST_EPIC_ID}", 1)) == "#42"
 
     def test_project_filter_scopes_rows(self, db):
         _seed(db)
@@ -114,4 +121,4 @@ class TestLinkageRows:
         )
         assert outcome.primary_success, outcome.error
         backlog_ids = {row[0] for row in outcome.result_payload["backlog_rows"]}
-        assert TEST_ITEM_ID in backlog_ids
+        assert f"YOK-{TEST_ITEM_ID}" in backlog_ids

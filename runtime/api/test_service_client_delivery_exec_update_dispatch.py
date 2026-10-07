@@ -44,22 +44,36 @@ class TestCmdExecuteUpdateCliDispatchParity:
             return {"success": True}
 
         monkeypatch.setattr(
-            items_structured_field, "execute_structured_write",
+            items_structured_field,
+            "execute_structured_write",
             _record_structured_write,
         )
         monkeypatch.setattr(
-            items_structured_field, "_read_field", lambda *a, **kw: "# Spec\n",
+            items_structured_field,
+            "_read_field",
+            lambda *a, **kw: "# Spec\n",
         )
         monkeypatch.setattr(
-            dispatch_module, "verify_claim", lambda *a, **kw: None,
+            dispatch_module,
+            "verify_claim",
+            lambda *a, **kw: None,
         )
         monkeypatch.setattr(
-            dispatch_module, "resolve_request_item_refs",
-        lambda request, _model: _resolve_test_item(request),
+            dispatch_module,
+            "resolve_request_item_refs",
+            lambda request, _model: _resolve_test_item(request),
         )
 
         rc = service_client.cmd_execute_update_cli(
-            ["YOK-1", "spec", "--body-file", str(spec_path), "--force", "--source", "tester"]
+            [
+                "YOK-1",
+                "spec",
+                "--body-file",
+                str(spec_path),
+                "--force",
+                "--source",
+                "tester",
+            ]
         )
 
         captured = capsys.readouterr()
@@ -86,18 +100,24 @@ class TestCmdExecuteUpdateCliDispatchParity:
             return {"success": True}
 
         monkeypatch.setattr(
-            items_structured_field, "execute_structured_write",
+            items_structured_field,
+            "execute_structured_write",
             _record_structured_write,
         )
         monkeypatch.setattr(
-            items_structured_field, "_read_field", lambda *a, **kw: "# Spec\n",
+            items_structured_field,
+            "_read_field",
+            lambda *a, **kw: "# Spec\n",
         )
         monkeypatch.setattr(
-            dispatch_module, "verify_claim", lambda *a, **kw: None,
+            dispatch_module,
+            "verify_claim",
+            lambda *a, **kw: None,
         )
         monkeypatch.setattr(
-            dispatch_module, "resolve_request_item_refs",
-        lambda request, _model: _resolve_test_item(request),
+            dispatch_module,
+            "resolve_request_item_refs",
+            lambda request, _model: _resolve_test_item(request),
         )
         monkeypatch.setattr(sys, "stdin", io.StringIO("# Spec\n"))
 
@@ -123,18 +143,24 @@ class TestCmdExecuteUpdateCliDispatchParity:
         from yoke_core.domain.handlers import items_structured_field
 
         monkeypatch.setattr(
-            items_structured_field, "execute_structured_write",
+            items_structured_field,
+            "execute_structured_write",
             lambda **kwargs: {"success": True},
         )
         monkeypatch.setattr(
-            items_structured_field, "_read_field", lambda *a, **kw: "x\n",
+            items_structured_field,
+            "_read_field",
+            lambda *a, **kw: "x\n",
         )
         monkeypatch.setattr(
-            dispatch_module, "verify_claim", lambda *a, **kw: None,
+            dispatch_module,
+            "verify_claim",
+            lambda *a, **kw: None,
         )
         monkeypatch.setattr(
-            dispatch_module, "resolve_request_item_refs",
-        lambda request, _model: _resolve_test_item(request),
+            dispatch_module,
+            "resolve_request_item_refs",
+            lambda request, _model: _resolve_test_item(request),
         )
         monkeypatch.setattr(sys, "stdin", io.StringIO("x\n"))
 
@@ -148,12 +174,19 @@ class TestCmdExecuteUpdateCliDispatchParity:
         # Typed envelope shape (FunctionCallResponse):
         assert envelope["success"] is True
         assert envelope["function"] == "items.structured_field.replace"
+        assert "item_id" not in envelope["result"]
         assert "result" in envelope
         # Result payload matches the ReplaceResponse pydantic model:
         result = envelope["result"]
         for key in (
-            "item_id", "field", "old_line_count", "new_line_count",
-            "old_hash", "new_hash", "payload_byte_count", "verification",
+            "public_ref",
+            "field",
+            "old_line_count",
+            "new_line_count",
+            "old_hash",
+            "new_hash",
+            "payload_byte_count",
+            "verification",
             "github_sync",
         ):
             assert key in result, f"missing key {key!r} in {result!r}"

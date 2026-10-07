@@ -49,15 +49,15 @@ class TestItemLookup:
         conn = connect_test_db(db)
         try:
             insert_item(
-                conn, id=TEST_ITEM_ID, status="implementing",
+                conn,
+                id=TEST_ITEM_ID,
+                status="implementing",
                 source=str(seed_human_actor(conn)),
             )
         finally:
             conn.close()
         outcome = reads.handle_item_lookup(
-            _global_req(
-                "resync.item_lookup", payload={"ref": str(TEST_ITEM_ID)}
-            )
+            _global_req("resync.item_lookup", payload={"ref": str(TEST_ITEM_ID)})
         )
         assert outcome.primary_success, outcome.error
         assert outcome.result_payload["found"] is True
@@ -74,7 +74,10 @@ class TestItemLookup:
         )
         assert outcome.primary_success, outcome.error
         assert outcome.result_payload == {
-            "found": False, "id": None, "ref": "", "status": None
+            "found": False,
+            "id": None,
+            "ref": "",
+            "status": None,
         }
 
     def test_non_numeric_ref_is_not_found(self, db):
@@ -92,12 +95,17 @@ class TestEpicTaskRepairRead:
         conn = connect_test_db(db)
         try:
             insert_item(
-                conn, id=TEST_EPIC_ID, workflow_id="epic",
+                conn,
+                id=TEST_EPIC_ID,
+                workflow_id="epic",
                 source=str(seed_human_actor(conn)),
             )
             insert_epic_task(
-                conn, epic_id=TEST_EPIC_ID, task_num=2,
-                title="Wire the adapter", status="implementing",
+                conn,
+                epic_id=TEST_EPIC_ID,
+                task_num=2,
+                title="Wire the adapter",
+                status="implementing",
             )
         finally:
             conn.close()
@@ -112,7 +120,8 @@ class TestEpicTaskRepairRead:
         )
         assert outcome.primary_success, outcome.error
         payload = outcome.result_payload
-        assert payload["parent_id"] == TEST_EPIC_ID
+        assert "parent_id" not in payload
+        assert payload["parent_ref"] == f"YOK-{TEST_EPIC_ID}"
         # The parent's public ref is rendered server-side so the repair
         # title prefix never reconstructs a ref from the internal id.
         assert payload["parent_ref"]
@@ -130,7 +139,8 @@ class TestEpicTaskRepairRead:
             )
         )
         assert outcome.primary_success, outcome.error
-        assert outcome.result_payload["parent_id"] == TEST_EPIC_ID
+        assert "parent_id" not in outcome.result_payload
+        assert outcome.result_payload["parent_ref"] == f"YOK-{TEST_EPIC_ID}"
         assert outcome.result_payload["task_found"] is False
 
 
@@ -139,11 +149,15 @@ class TestEpicTaskBody:
         conn = connect_test_db(db)
         try:
             insert_item(
-                conn, id=TEST_EPIC_ID, workflow_id="epic",
+                conn,
+                id=TEST_EPIC_ID,
+                workflow_id="epic",
                 source=str(seed_human_actor(conn)),
             )
             insert_epic_task(
-                conn, epic_id=TEST_EPIC_ID, task_num=1,
+                conn,
+                epic_id=TEST_EPIC_ID,
+                task_num=1,
                 body="## Plan\nDo the thing",
             )
         finally:

@@ -64,7 +64,7 @@ def matches_compact_mirror(
     local_body: str,
     gh_body: str,
     item_fields: dict,
-    item_id: int,
+    public_ref: str,
 ) -> bool:
     """Return True when the GH body matches the expected compact mirror.
 
@@ -78,12 +78,13 @@ def matches_compact_mirror(
     if not body_exceeds_budget(local_body or ""):
         return False
     expected = render_compact_mirror(
-        item_fields, conn=None, item_id=item_id,
+        {**item_fields, "identity": public_ref},
+        conn=None,
+        item_id=None,
     )
-    return (
-        _strip_evidence_section(normalize_body_for_compare(expected))
-        == _strip_evidence_section(normalize_body_for_compare(gh_body or ""))
-    )
+    return _strip_evidence_section(
+        normalize_body_for_compare(expected)
+    ) == _strip_evidence_section(normalize_body_for_compare(gh_body or ""))
 
 
 __all__ = [

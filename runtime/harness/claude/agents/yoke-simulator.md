@@ -108,7 +108,7 @@ In integration phase, a task's resolved worktree checkout is the authority for t
 
 **Work-item entry surfaces:** every create names a workflow and a typed entry surface (`web_form`, `cli`, `harness_skill`, or `promotion`). The selected immutable workflow version must allow that surface. File through `/yoke idea` (the skill-owned `harness_skill` path), `yoke dash TITLE INSTRUCTION`, or the laneless `yoke task TITLE INSTRUCTION`. `yoke items create` refuses a live harness session that is not in idea mode — the entry-surface token is caller-asserted and skips skill-side scaffolding. Operator/debug, `--dry-run`, and test isolation retain the low-level adapter. `/yoke idea` attests Before creation with `--execution-instructions-considered` after `yoke workflow execution-instruction resolve --workflow W --project P --full`; Non-web creation requires that attestation; adapters never set it.
 
-**Function-call surface (canonical mutation path):** `yoke_core.domain.yoke_function_dispatch.dispatch` validates a `FunctionCallRequest` from `yoke_contracts.api.function_call` and returns a `FunctionCallResponse`. Minimal envelope: `{function, request_id, actor:{session_id,actor_id}, target:{kind,item_id|epic_id+task_num|qa_requirement_id|...}, payload, preconditions:{}, options:{}}`. `target.kind` ∈ `item|epic_task|qa_requirement|session|process`. `actor.session_id` is mandatory — handlers verify it against `work_claims`. `preconditions`/`options` are dicts (default `{}`). Scratch Python imports must prepend the repo root to `sys.path` or set `PYTHONPATH`; `/tmp` imports are not the agent path.
+**Function-call surface (canonical mutation path):** `yoke_core.domain.yoke_function_dispatch.dispatch` validates a `FunctionCallRequest` from `yoke_contracts.api.function_call` and returns a `FunctionCallResponse`. Minimal envelope: `{function, request_id, actor:{session_id,actor_id}, target:{kind,public_ref+task_num?|qa_requirement_id|...}, payload, preconditions:{}, options:{}}`. `target.kind` ∈ `item|epic_task|qa_requirement|session|process`. `actor.session_id` is mandatory — handlers verify it against `work_claims`. `preconditions`/`options` are dicts (default `{}`). Scratch Python imports must prepend the repo root to `sys.path` or set `PYTHONPATH`; `/tmp` imports are not the agent path.
 
 
 **Registered write function ids** (dispatch through these, never a guessed name): `items.structured_field.replace`, `items.progress_log.append`, `lifecycle.transition.execute`, `claims.work.acquire`, `claims.work.release`, `claims.path.register`, `db_claim.amend`. Each has a CLI adapter under the reversible grammar (dots→spaces, underscores→hyphens).
@@ -161,16 +161,16 @@ In integration phase, a task's resolved worktree checkout is the authority for t
   - `yoke workflow-item epic-task body-get --epic <epic-id> --task-num <task-num>`
   - `yoke workflow-item epic-task simulation-get --epic <epic-id> --phase integration`
 - _Write epic task body / metadata via CLI adapters_
-  - `yoke workflow-item epic-task body-replace --epic 1704 --task-num 5 --body-file PATH`
-  - `yoke workflow-item epic-task metadata-update --epic 1704 --task-num 5 --fields-json '{"max_attempts": 2}'`
+  - `yoke workflow-item epic-task body-replace --epic PREFIX-1704 --task-num 5 --body-file PATH`
+  - `yoke workflow-item epic-task metadata-update --epic PREFIX-1704 --task-num 5 --fields-json '{"max_attempts": 2}'`
 - _Tester: seed / insert / get review verdict for an epic task_
   - `yoke workflow-item epic-task review-seed --epic <epic-id> --task-num <task_num>`
   - `yoke workflow-item epic-task review-insert --epic <epic-id> --task-num <task_num> --verdict <pass|fail> --body-file PATH`
   - `yoke workflow-item epic-task review-get --epic <epic-id> --task-num <task_num>`
 - _Engineer: append a progress note to an epic task_
-  - `yoke workflow-item epic-progress-note append --epic 1704 --task-num 5 --note-num 3 --body-file PATH`
-  - `yoke workflow-item epic-progress-note list --epic 1704 --task-num 5 --limit 10`
-  - `yoke workflow-item epic-task submission-receipt-get --epic 1704 --task-num 5 --after-note-count 2`
+  - `yoke workflow-item epic-progress-note append --epic PREFIX-1704 --task-num 5 --note-num 3 --body-file PATH`
+  - `yoke workflow-item epic-progress-note list --epic PREFIX-1704 --task-num 5 --limit 10`
+  - `yoke workflow-item epic-task submission-receipt-get --epic PREFIX-1704 --task-num 5 --after-note-count 2`
 - _Update epic-task status / metadata field via CLI_
   - `yoke workflow-item epic-task update-status --epic <epic-id> --task-num <task_num> --status <status>`
   - `yoke workflow-item epic-task metadata-update --epic <epic-id> --task-num <task_num> --fields-json '{"max_attempts": 2}'`
@@ -279,7 +279,7 @@ _Compact depth. For per-table/command notes, caveats and corrected wrong guesses
   - `yoke claims work holder-get PREFIX-N`
 - _Acquire a work claim (canonical agent shape — target variants)_
   - `yoke claims work acquire --item PREFIX-N --reason draft-in-progress`
-  - `yoke claims work acquire --epic-id 833 --task-num 5 --reason engineer-dispatch`
+  - `yoke claims work acquire --epic PREFIX-833 --task-num 5 --reason engineer-dispatch`
   - `yoke claims work acquire --process DOCTOR --project P --reason scheduled-run`
 - _Claim → mutate → release (generic plan-stage edit)_
   - `yoke claims work acquire --item PREFIX-N --reason edit`
@@ -291,7 +291,7 @@ _Compact depth. For per-table/command notes, caveats and corrected wrong guesses
   - `# Canonical agent shape — release the calling session's active claim:`
   - `yoke claims work release --item PREFIX-N --reason TEXT`
   - `yoke claims work release --claim-id <id> --reason TEXT`
-  - `yoke claims work release --epic-id E --task-num K --reason TEXT`
+  - `yoke claims work release --epic PREFIX-N --task-num K --reason TEXT`
   - `yoke claims work release --all-mine`
   - `# Manual spec-rewrite pattern (acquire → edit → release):`
   - `yoke claims work acquire --item PREFIX-N --reason rewrite-in-progress`
@@ -367,11 +367,11 @@ The Tester verifies each task against its own spec. You verify that tasks *work 
    - Read the spec structured field via `yoke items get PREFIX-N spec` (see your `items` packet stanza for the column listing). If empty, fall back to the rendered body (before `## Technical Plan`).
    - Extract all FR-N identifiers from the `### Functional Requirements` section. If the spec does not use FR-N notation, enumerate distinct requirements from the requirements section.
    - Check the `### FR Traceability` section in the `## Technical Plan` for coverage of each FR.
-   - For each FR-N: verify the mapped task(s) exist in the epic-task store (via `yoke epic-tasks list --epic {epic-id}` — function id `epic_tasks.list.run`; see your `epic_tasks` packet stanza), and verify the mapped task(s) have acceptance criteria that plausibly cover the FR's intent.
+   - For each FR-N: verify the mapped task(s) exist in the epic-task store (via `yoke epic-tasks list --epic {epic-ref}` — function id `epic_tasks.list.run`; see your `epic_tasks` packet stanza), and verify the mapped task(s) have acceptance criteria that plausibly cover the FR's intent.
    - Report any gap as a `[CRITICAL]` severity finding in the gap report with category `assumption` and fix guidance directing the Architect to add the missing FR to the traceability matrix and create or assign a task.
    - If `### FR Traceability` is missing entirely, report a single `[CRITICAL]` gap: "Plan missing ### FR Traceability section -- all FR coverage is unverifiable."
 
-1. **Read all task specs** from the DB. Use `yoke epic-tasks list --epic {epic-id}` to get task metadata, then `yoke workflow-item epic-task body-get --epic {epic-id} --task-num {task-num}` (function id `workflow_item.epic_task.body_get`) for each task's full spec. Extract:
+1. **Read all task specs** from the DB. Use `yoke epic-tasks list --epic {epic-ref}` to get task metadata, then `yoke workflow-item epic-task body-get --epic {epic-ref} --task-num {task-num}` (function id `workflow_item.epic_task.body_get`) for each task's full spec. Extract:
    - Interface contracts: what it provides (exports) and what it expects (imports)
    - Dependencies: which tasks must complete first
    - Worktree assignment: which branch it lives on
@@ -455,7 +455,7 @@ When the `/yoke simulate` command provides git diffs or worktree code paths, als
     - "After branch A merges to main, branch B rebases. Branch B's `package-lock.json` conflicts with A's. This is in the generated files list — auto-resolve will handle it."
     - "After branch A merges, branch B rebases. Both modified `src/routes/index.ts` (router import order). This is NOT in the generated files list — real conflict that will require manual resolution."
 
-13. **Read validation reports** (if available) via `yoke workflow-item epic-task review-get --epic {epic-id} --task-num {task-num}` for each task (`--limit`-capped history via `review-list`). Check if the Tester's path-tracing section flagged any concerns that need epic-level attention.
+13. **Read validation reports** (if available) via `yoke workflow-item epic-task review-get --epic {epic-ref} --task-num {task-num}` for each task (`--limit`-capped history via `review-list`). Check if the Tester's path-tracing section flagged any concerns that need epic-level attention.
 
 ## Gap Report Format
 
@@ -549,7 +549,7 @@ If you are uncertain about a gap, report it as `GAPS FOUND` with the uncertainty
   - **plan** — Fix guidance targets specs, ACs, interface contracts, worktree plan, or FR traceability. Examples: "Add missing AC to task 2", "Update interface contract Provides section", "Fix dependency declaration in worktree plan".
   - **code** — Fix guidance targets implementation files (source code, config files, scripts in the worktree). Examples: "Change the import in src/auth.ts", "Fix the return type of findByEmail()", "Update the config path in deploy.sh". Integration simulation runs AFTER all tasks pass testing, so most gaps at this stage are code-level.
   - **mixed** — Fix requires both spec/plan changes AND code changes.
-- **Agent-facing DB access goes through `yoke <subcommand>`** for wrapped operations (`yoke items get PREFIX-N body`, `yoke epic-tasks list --epic N`, `yoke events query`, etc.). Use `yoke db read "SELECT ..."` only for raw diagnostic SELECTs when no domain reader fits; retained multi-module fallbacks are source-dev/operator-debug break-glass (task bodies and reviews ARE wrapped: `yoke workflow-item epic-task body-get` / `review-get`). Never call database clients directly. Always inline the full command in each Bash tool call — do not rely on shell variables persisting across separate Bash invocations.
+- **Agent-facing DB access goes through `yoke <subcommand>`** for wrapped operations (`yoke items get PREFIX-N body`, `yoke epic-tasks list --epic PREFIX-N`, `yoke events query`, etc.). Use `yoke db read "SELECT ..."` only for raw diagnostic SELECTs when no domain reader fits; retained multi-module fallbacks are source-dev/operator-debug break-glass (task bodies and reviews ARE wrapped: `yoke workflow-item epic-task body-get` / `review-get`). Never call database clients directly. Always inline the full command in each Bash tool call — do not rely on shell variables persisting across separate Bash invocations.
 - **Test isolation.** When running commands that may call GitHub, always set `YOKE_DRY_RUN=1` in the environment to prevent creating real GitHub issues, comments, or labels. Never create real backlog items or sync to GitHub as part of simulation. If you discover a real issue that warrants a new work item, include it in your report for the parent session to action via `/yoke idea` -- do not create work items yourself.
 
 ## Construct Verification

@@ -47,7 +47,7 @@ class _RoutedDispatcher:
                 function_id,
                 {
                     "item": {
-                        "id": self.item_id,
+                        "public_ref": f"YOK-{self.item_id}",
                         "workflow": {"id": self.workflow},
                         "project": {"id": 1, "slug": "yoke"},
                     }
@@ -87,7 +87,9 @@ def _install_relay(monkeypatch, dispatcher: _RoutedDispatcher) -> list[dict]:
     # The receipt's lane orientation does its own declaration reads, which
     # this test is not about; its composition has its own coverage.
     monkeypatch.setattr(
-        preflight, "lane_orientation", lambda *_a, **_k: {},
+        preflight,
+        "lane_orientation",
+        lambda *_a, **_k: {},
     )
     return preflight_calls
 
@@ -114,7 +116,7 @@ def test_run_routes_clear_survey_through_dispatcher(monkeypatch):
         "direct_workflow.conflict_survey.status",
     ]
     assert len(preflight_calls) == 1
-    assert preflight_calls[0]["item_id"] == 4101
+    assert preflight_calls[0]["item_id"] == "YOK-4101"
     # The dash claim preparer carries the survey's touch paths forward.
     preparer = preflight_calls[0]["prepare_path_claims"]
     assert preparer.keywords["touch_paths"] == ("src/isolated.py",)
@@ -123,7 +125,9 @@ def test_run_routes_clear_survey_through_dispatcher(monkeypatch):
 
 def test_run_rebuilds_missing_block_outcome(monkeypatch, capsys):
     dispatcher = _RoutedDispatcher(
-        item_id=4102, workflow="dash", status_result={"found": False},
+        item_id=4102,
+        workflow="dash",
+        status_result={"found": False},
     )
     preflight_calls = _install_relay(monkeypatch, dispatcher)
 
@@ -133,11 +137,12 @@ def test_run_rebuilds_missing_block_outcome(monkeypatch, capsys):
     assert preflight_calls == []
     emitted = json.loads(capsys.readouterr().out.strip())
     assert emitted["block_kind"] == "conflict-survey-missing"
-    assert emitted["item_id"] == 4102
+    assert emitted["public_ref"] == "YOK-4102"
 
 
 @pytest.mark.parametrize(
-    "durable_state", [DURABLE_PENDING, DURABLE_UNREADABLE],
+    "durable_state",
+    [DURABLE_PENDING, DURABLE_UNREADABLE],
 )
 def test_run_blocks_incomplete_durable_state(monkeypatch, capsys, durable_state):
     dispatcher = _RoutedDispatcher(
@@ -155,7 +160,9 @@ def test_run_blocks_incomplete_durable_state(monkeypatch, capsys, durable_state)
 
 def test_run_errors_on_workflow_mismatch(monkeypatch):
     dispatcher = _RoutedDispatcher(
-        item_id=4104, workflow="issue", status_result={"found": True, "clear": True},
+        item_id=4104,
+        workflow="issue",
+        status_result={"found": True, "clear": True},
     )
     _install_relay(monkeypatch, dispatcher)
 

@@ -11,6 +11,28 @@ from __future__ import annotations
 
 
 QA_TABLES: dict[str, dict] = {
+    "shepherd_verdicts": {
+        "columns": [
+            ("id", "INTEGER"),
+            ("public_ref", "TEXT"),
+            ("archived_item_key", "TEXT"),
+            ("transition", "TEXT"),
+            ("worker", "TEXT"),
+            ("verdict", "TEXT"),
+            ("caveats", "TEXT"),
+            ("attempt", "INTEGER"),
+            ("created_at", "TEXT"),
+        ],
+        "notes": (
+            "The reviewer name is worker; reviewer is not a column. "
+            "The active item key is public_ref, rendered from the item's "
+            "project prefix and project_sequence. Numeric items.id remains "
+            "an internal join key. The prior item column encoded legacy "
+            "internal-id tokens; only the governed migration transforms it. "
+            "Unresolvable historical rows have NULL public_ref and preserve "
+            "their original key in archived_item_key; active readers never alias it."
+        ),
+    },
     "qa_requirements": {
         "columns": [
             ("id", "INTEGER"),

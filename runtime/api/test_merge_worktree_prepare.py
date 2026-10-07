@@ -41,10 +41,10 @@ def test_prepare_modules_import_in_either_order(first_module: str) -> None:
     package = "yoke_core.engines"
     code = f"""
 import importlib
-importlib.import_module({f'{package}.{first_module}'!r})
-importlib.import_module({f'{package}.{other_module}'!r})
-prepare = importlib.import_module({f'{package}.merge_worktree_prepare'!r})
-state = importlib.import_module({f'{package}.merge_worktree_prepare_state'!r})
+importlib.import_module({f"{package}.{first_module}"!r})
+importlib.import_module({f"{package}.{other_module}"!r})
+prepare = importlib.import_module({f"{package}.merge_worktree_prepare"!r})
+state = importlib.import_module({f"{package}.merge_worktree_prepare_state"!r})
 assert all(hasattr(prepare, name) for name in ('MergeArgs', 'MergeContext', 'ConflictInfo', 'validate_args', 'resolve_context', 'preflight_checks', 'check_and_clean_root_dirty_state', 'prune_agent_worktrees', 'extract_generated_files', '_pre_merge_integration', '_stash_classify_gate', '_matches_glob'))
 assert all(hasattr(state, name) for name in ('MergeContext', '_matches_glob', 'check_and_clean_root_dirty_state', 'prune_agent_worktrees', 'extract_generated_files', '_pre_merge_integration', '_stash_classify_gate'))
 """
@@ -129,11 +129,13 @@ class TestStandaloneBoundaryCeremony:
     """The command line reaches only half a standalone item's boundary."""
 
     def test_standalone_without_a_ceremony_nonce_never_merges(
-        self, merge_env: MergeEnv,
+        self,
+        merge_env: MergeEnv,
     ) -> None:
         """The refusal fires before preflight, naming the real entrypoint."""
         result = run_merge(
-            merge_env, extra_env={MERGE_CEREMONY_NONCE_ENV: ""},
+            merge_env,
+            extra_env={MERGE_CEREMONY_NONCE_ENV: ""},
         )
         assert result.exit_code == 1
         assert "missing merge-boundary ceremony nonce" in result.stderr
@@ -189,7 +191,7 @@ class TestPreflight:
         }
         result = run_merge(
             merge_env,
-            extra_args=["42"],
+            extra_args=[TEST_BRANCH],
             standalone=False,
             extra_env=extra_env,
         )
@@ -197,7 +199,7 @@ class TestPreflight:
         # re-run with it granted to prove the epic path is what gates here.
         result = run_merge(
             merge_env,
-            extra_args=["42"],
+            extra_args=[TEST_BRANCH],
             extra_env=extra_env,
         )
         assert result.exit_code == 1
@@ -220,7 +222,7 @@ class TestSimulationGate:
         self,
         merge_env: MergeEnv,
         db_path: Path,
-        extra_args_str: str = "42",
+        extra_args_str: str = TEST_BRANCH,
     ):
         """Run merge with custom sim DB and epic ID.
 
@@ -268,7 +270,9 @@ class TestSimulationGate:
     ) -> None:
         """--skip-simulation overrides missing report gate."""
         db = self._setup_sim_db(merge_env)
-        result = self._run_with_sim_db(merge_env, db, "42 --skip-simulation")
+        result = self._run_with_sim_db(
+            merge_env, db, f"{TEST_BRANCH} --skip-simulation"
+        )
         assert result.exit_code == 0
         assert (
             "WARN: Integration simulation gate overridden (--skip-simulation)"
@@ -303,7 +307,8 @@ class TestBranchValidation:
     """Standalone guard and legacy branch rejection."""
 
     def test_standalone_branch_rejected_without_permission(
-        self, merge_env: MergeEnv,
+        self,
+        merge_env: MergeEnv,
     ) -> None:
         """Without --standalone the engine refuses an item branch."""
         repo = merge_env.repo
@@ -324,7 +329,8 @@ class TestBranchValidation:
         assert "standalone item branch" in result.stderr
 
     def test_standalone_permission_clears_the_guard(
-        self, merge_env: MergeEnv,
+        self,
+        merge_env: MergeEnv,
     ) -> None:
         """With --standalone the item-branch guard does not fire."""
         repo = merge_env.repo

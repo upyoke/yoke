@@ -137,7 +137,7 @@ def test_an_already_armed_retry_preserves_its_recorded_episode():
         return SimpleNamespace(success=True, result=payload)
 
     assert mark_landing_pending(
-        101,
+        "ITEM-101",
         "42",
         dispatch=dispatch,
         now=INJECTED_AT,
@@ -155,7 +155,7 @@ def test_a_new_arming_does_not_reuse_an_existing_episode():
         return SimpleNamespace(success=True, result=payload)
 
     assert mark_landing_pending(
-        101,
+        "ITEM-101",
         "42",
         dispatch=dispatch,
         now=INJECTED_AT,
@@ -171,7 +171,7 @@ def test_an_unreadable_existing_episode_refuses_before_marking():
         return SimpleNamespace(success=False, error=SimpleNamespace(message="offline"))
 
     episode, error = mark_landing_pending(
-        101,
+        "ITEM-101",
         "42",
         dispatch=dispatch,
         now=INJECTED_AT,
@@ -193,7 +193,7 @@ def test_two_armings_in_one_second_have_distinct_episode_timestamps():
 
     for microsecond in (1, 2):
         mark_landing_pending(
-            101,
+            "ITEM-101",
             "42",
             dispatch=dispatch,
             now=INJECTED_AT.replace(microsecond=microsecond),

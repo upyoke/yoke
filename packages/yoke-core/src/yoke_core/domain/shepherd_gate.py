@@ -45,7 +45,7 @@ def _lookup_latest_verdict(
     row = db_helpers.query_one(
         conn,
         "SELECT verdict FROM shepherd_verdicts "
-        f"WHERE item = {p} AND transition = {p} "
+        f"WHERE public_ref = {p} AND transition = {p} "
         f"AND verdict IN ({verdict_placeholders}) "
         "AND (verdict <> 'SKIPPED' OR LOWER(worker) IN ('review', 'architect')) "
         "ORDER BY id DESC LIMIT 1",
@@ -66,10 +66,6 @@ def check_gate(
     ``db_helpers.connect``. Ownership of a caller-supplied connection is
     preserved — this function neither commits nor closes it.
     """
-    # ``shepherd_verdicts.item`` is keyed by the writer as the legacy
-    # ``YOK-{items.id}`` token, so the lookup key and the operator-facing
-    # display ref are two different strings.
-    verdict_key = f"YOK-{item_id}"
 
     def _evaluate(c: Any) -> GateResult:
         public_ref = render_item_ref(c, int(item_id))
@@ -77,7 +73,7 @@ def check_gate(
         if not edges:
             return GateResult(True, None, None, f"No Shepherd binding on {public_ref}.")
         transition = edges[-1].verdict_key
-        current = _lookup_latest_verdict(c, verdict_key, transition)
+        current = _lookup_latest_verdict(c, public_ref, transition)
         if current is not None:
             return GateResult(
                 passed=True,

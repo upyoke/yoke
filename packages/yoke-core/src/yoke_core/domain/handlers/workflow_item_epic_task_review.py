@@ -101,37 +101,37 @@ class ReviewListResponse(BaseModel):
 
 def _bad_request(message: str) -> HandlerOutcome:
     return HandlerOutcome(
-        result_payload={}, primary_success=False,
+        result_payload={},
+        primary_success=False,
         error=FunctionError(code="invalid_payload", message=message),
     )
 
 
 def _not_found(message: str) -> HandlerOutcome:
     return HandlerOutcome(
-        result_payload={}, primary_success=False,
+        result_payload={},
+        primary_success=False,
         error=FunctionError(code="target_not_found", message=message),
     )
 
 
 def _downstream_failure(message: str) -> HandlerOutcome:
     return HandlerOutcome(
-        result_payload={}, primary_success=False,
+        result_payload={},
+        primary_success=False,
         error=FunctionError(code="downstream_failure", message=message),
     )
 
 
 def _open_connection():
     from yoke_core.domain import db_helpers
+
     return db_helpers.connect()
 
 
 def _task_target(request: FunctionCallRequest) -> Optional[Tuple[int, int]]:
     target = request.target
-    if (
-        target.kind != "epic_task"
-        or target.epic_id is None
-        or target.task_num is None
-    ):
+    if target.kind != "epic_task" or target.epic_id is None or target.task_num is None:
         return None
     return int(target.epic_id), int(target.task_num)
 
@@ -145,7 +145,7 @@ def handle_review_seed(request: FunctionCallRequest) -> HandlerOutcome:
     """Seed the implementation-review requirement via ``epic.review_seed``."""
     ids = _task_target(request)
     if ids is None:
-        return _bad_request("target must carry epic_id + task_num")
+        return _bad_request("target must carry public_ref + task_num")
     epic_id, task_num = ids
     try:
         ReviewSeedRequest.model_validate(request.payload)
@@ -159,7 +159,9 @@ def handle_review_seed(request: FunctionCallRequest) -> HandlerOutcome:
         except RuntimeError as exc:
             return _downstream_failure(str(exc))
     response = ReviewSeedResponse(
-        epic_id=epic_id, task_num=task_num, message=message,
+        epic_id=epic_id,
+        task_num=task_num,
+        message=message,
     )
     return HandlerOutcome(result_payload=response.model_dump(), primary_success=True)
 
@@ -168,7 +170,7 @@ def handle_review_insert(request: FunctionCallRequest) -> HandlerOutcome:
     """Record a review verdict via ``epic.review_insert``."""
     ids = _task_target(request)
     if ids is None:
-        return _bad_request("target must carry epic_id + task_num")
+        return _bad_request("target must carry public_ref + task_num")
     epic_id, task_num = ids
     try:
         payload = ReviewInsertRequest.model_validate(request.payload)
@@ -177,15 +179,21 @@ def handle_review_insert(request: FunctionCallRequest) -> HandlerOutcome:
     with _open_connection() as conn:
         try:
             message = epic.review_insert(
-                conn, str(epic_id), task_num, payload.verdict, payload.body,
+                conn,
+                str(epic_id),
+                task_num,
+                payload.verdict,
+                payload.body,
             )
         except LookupError as exc:
             return _not_found(str(exc))
         except RuntimeError as exc:
             return _downstream_failure(str(exc))
     response = ReviewInsertResponse(
-        epic_id=epic_id, task_num=task_num,
-        verdict=payload.verdict, message=message,
+        epic_id=epic_id,
+        task_num=task_num,
+        verdict=payload.verdict,
+        message=message,
     )
     return HandlerOutcome(result_payload=response.model_dump(), primary_success=True)
 
@@ -194,7 +202,7 @@ def handle_review_get(request: FunctionCallRequest) -> HandlerOutcome:
     """Read the most recent review via ``epic.review_get``."""
     ids = _task_target(request)
     if ids is None:
-        return _bad_request("target must carry epic_id + task_num")
+        return _bad_request("target must carry public_ref + task_num")
     epic_id, task_num = ids
     try:
         ReviewGetRequest.model_validate(request.payload)
@@ -206,7 +214,9 @@ def handle_review_get(request: FunctionCallRequest) -> HandlerOutcome:
         except LookupError as exc:
             return _not_found(str(exc))
     response = ReviewGetResponse(
-        epic_id=epic_id, task_num=task_num, review=review,
+        epic_id=epic_id,
+        task_num=task_num,
+        review=review,
     )
     return HandlerOutcome(result_payload=response.model_dump(), primary_success=True)
 
@@ -220,7 +230,7 @@ def handle_review_list(request: FunctionCallRequest) -> HandlerOutcome:
     """
     ids = _task_target(request)
     if ids is None:
-        return _bad_request("target must carry epic_id + task_num")
+        return _bad_request("target must carry public_ref + task_num")
     epic_id, task_num = ids
     try:
         payload = ReviewListRequest.model_validate(request.payload)
@@ -229,8 +239,10 @@ def handle_review_list(request: FunctionCallRequest) -> HandlerOutcome:
     with _open_connection() as conn:
         rows = epic.review_list(conn, str(epic_id), task_num, payload.limit)
     response = ReviewListResponse(
-        epic_id=epic_id, task_num=task_num,
-        reviews="\n".join(rows), count=len(rows),
+        epic_id=epic_id,
+        task_num=task_num,
+        reviews="\n".join(rows),
+        count=len(rows),
     )
     return HandlerOutcome(result_payload=response.model_dump(), primary_success=True)
 
@@ -241,12 +253,18 @@ def handle_review_list(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 def _kwargs(
-    fid: str, h: Any, req: Any, resp: Any,
-    side_effects: List[str], claim: Optional[str],
+    fid: str,
+    h: Any,
+    req: Any,
+    resp: Any,
+    side_effects: List[str],
+    claim: Optional[str],
 ) -> Dict[str, Any]:
     return {
-        "function_id": fid, "handler": h,
-        "request_model": req, "response_model": resp,
+        "function_id": fid,
+        "handler": h,
+        "request_model": req,
+        "response_model": resp,
         "stability": "stable",
         "owner_module": _OWNER_MODULE,
         "target_kinds": ["epic_task"],
@@ -260,32 +278,52 @@ def _kwargs(
 
 REGISTRATIONS: List[Dict[str, Any]] = [
     _kwargs(
-        "workflow_item.epic_task.review_seed", handle_review_seed,
-        ReviewSeedRequest, ReviewSeedResponse,
-        ["qa_requirements_insert", "epic_tasks_status_update"], "epic",
+        "workflow_item.epic_task.review_seed",
+        handle_review_seed,
+        ReviewSeedRequest,
+        ReviewSeedResponse,
+        ["qa_requirements_insert", "epic_tasks_status_update"],
+        "epic",
     ),
     _kwargs(
-        "workflow_item.epic_task.review_insert", handle_review_insert,
-        ReviewInsertRequest, ReviewInsertResponse,
-        ["qa_runs_insert", "epic_tasks_status_update"], "epic",
+        "workflow_item.epic_task.review_insert",
+        handle_review_insert,
+        ReviewInsertRequest,
+        ReviewInsertResponse,
+        ["qa_runs_insert", "epic_tasks_status_update"],
+        "epic",
     ),
     _kwargs(
-        "workflow_item.epic_task.review_get", handle_review_get,
-        ReviewGetRequest, ReviewGetResponse, [], None,
+        "workflow_item.epic_task.review_get",
+        handle_review_get,
+        ReviewGetRequest,
+        ReviewGetResponse,
+        [],
+        None,
     ),
     _kwargs(
-        "workflow_item.epic_task.review_list", handle_review_list,
-        ReviewListRequest, ReviewListResponse, [], None,
+        "workflow_item.epic_task.review_list",
+        handle_review_list,
+        ReviewListRequest,
+        ReviewListResponse,
+        [],
+        None,
     ),
 ]
 
 
 __all__ = [
-    "handle_review_seed", "handle_review_insert",
-    "handle_review_get", "handle_review_list",
-    "ReviewSeedRequest", "ReviewSeedResponse",
-    "ReviewInsertRequest", "ReviewInsertResponse",
-    "ReviewGetRequest", "ReviewGetResponse",
-    "ReviewListRequest", "ReviewListResponse",
+    "handle_review_seed",
+    "handle_review_insert",
+    "handle_review_get",
+    "handle_review_list",
+    "ReviewSeedRequest",
+    "ReviewSeedResponse",
+    "ReviewInsertRequest",
+    "ReviewInsertResponse",
+    "ReviewGetRequest",
+    "ReviewGetResponse",
+    "ReviewListRequest",
+    "ReviewListResponse",
     "REGISTRATIONS",
 ]

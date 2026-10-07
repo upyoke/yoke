@@ -189,7 +189,7 @@ declares a baseline, because that resets the host.
 The review dispatch supplies an exact host command template:
 
 ```text
-yoke --env <connection> qa mission host-command --item-id <id> \
+yoke --env <connection> qa mission host-command --item PREFIX-N \
   --execution-id <execution-id> --requirement-id <requirement-id> -- ARGV...
 ```
 
@@ -208,7 +208,7 @@ baseline the docket proved, since later cases ran (never in a continuation),
 restores declared OS packages and creates the `0700` scratch. `walk-end`:
 
 ```text
-yoke --env <connection> qa mission walk-end --item-id <id> \
+yoke --env <connection> qa mission walk-end --item PREFIX-N \
   --execution-id <execution-id> --requirement-id <requirement-id> --run-id <run>
 ```
 

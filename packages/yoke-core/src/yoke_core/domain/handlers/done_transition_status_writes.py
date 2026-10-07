@@ -107,7 +107,7 @@ def handle_item_status_set(request: FunctionCallRequest) -> HandlerOutcome:
 
     item_id = _require_item_id(request)
     if item_id is None:
-        return _err("target_invalid", "item_status_set requires target.item_id")
+        return _err("target_invalid", "item_status_set requires target.public_ref")
     try:
         body = ItemStatusSetRequest.model_validate(request.payload)
     except ValidationError as exc:

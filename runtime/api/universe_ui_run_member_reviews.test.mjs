@@ -20,9 +20,9 @@ import {
 const okEnvelope = (result) => ({ status: 200, envelope: { success: true, result } });
 
 const MEMBERS = [
-  { id: 2262, ref: "YOK-2228", project_sequence: 2228, title: "First member",
+  { ref: "YOK-2228", project_sequence: 2228, title: "First member",
     project_id: 1, project: "yoke" },
-  { id: 2263, ref: "YOK-2229", project_sequence: 2229, title: "Second member",
+  { ref: "YOK-2229", project_sequence: 2229, title: "Second member",
     project_id: 1, project: "yoke" },
 ];
 
@@ -37,7 +37,7 @@ const SECOND_MEMBER_REVIEW = {
     run_id: 5,
     subject: {
       kind: "deployment_run",
-      deployment_member_item_id: 2263,
+      deployment_member_public_ref: "YOK-2229",
       item_ref: "YOK-2229",
       deployment_run_id: "run-20260726-001",
     },

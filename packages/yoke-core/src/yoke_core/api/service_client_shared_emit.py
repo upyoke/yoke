@@ -22,10 +22,7 @@ def _mutation_result_to_dict(result: mutations.MutationResult) -> dict:
     d: dict = {
         "success": result.success,
         "field_writes": result.field_writes,
-        "events": [
-            {"kind": e.kind.value, "detail": e.detail}
-            for e in result.events
-        ],
+        "events": [{"kind": e.kind.value, "detail": e.detail} for e in result.events],
     }
     if result.error is not None:
         d["error"] = result.error
@@ -47,7 +44,18 @@ def _mutation_result_to_dict(result: mutations.MutationResult) -> dict:
         if result.approved_at is not None:
             d["approved_at"] = result.approved_at
 
-    return d
+    from yoke_contracts.api.function_call import FunctionCallResponse
+    from yoke_core.domain.function_response_refs import public_response
+
+    response = public_response(
+        FunctionCallResponse(
+            success=True,
+            function="items.scalar.update",
+            version="v1",
+            result=d,
+        )
+    )
+    return response.result or {"success": False, "error": response.error.message}
 
 
 def _emit_backlog_result(
@@ -72,5 +80,17 @@ def _emit_backlog_result(
 
     payload = dict(result)
     payload["log"] = log
+    from yoke_contracts.api.function_call import FunctionCallResponse
+    from yoke_core.domain.function_response_refs import public_response
+
+    response = public_response(
+        FunctionCallResponse(
+            success=True,
+            function="items.scalar.update",
+            version="v1",
+            result=payload,
+        )
+    )
+    payload = response.result or {"success": False, "error": response.error.message}
     print(json.dumps(payload))
     return 0 if payload.get("success") else 1

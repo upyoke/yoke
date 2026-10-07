@@ -110,9 +110,12 @@ def repair_db(tmp_path: Path):
     with init_test_db(tmp_path, apply_schema=_apply_repair_schema) as db_path:
         _seed_repair_db(
             str(db_path),
-            item_id=9999, github_issue="#1",
-            epic_id="9999", task_num=3,
-            title="oversized orphan", body=_OVER_BUDGET,
+            item_id=9999,
+            github_issue="#1",
+            epic_id="9999",
+            task_num=3,
+            title="oversized orphan",
+            body=_OVER_BUDGET,
         )
         yield str(db_path)
 
@@ -126,9 +129,14 @@ def test_repair_local_orphan_epic_task_sends_compact_mirror(monkeypatch, repair_
     captured: list[dict] = []
 
     def fake_create_issue(*, project, title, body, labels, **_kw):
-        captured.append({
-            "project": project, "title": title, "body": body, "labels": list(labels),
-        })
+        captured.append(
+            {
+                "project": project,
+                "title": title,
+                "body": body,
+                "labels": list(labels),
+            }
+        )
         return Issue(number=5050, title=title, state="OPEN")
 
     monkeypatch.setattr(
@@ -141,7 +149,7 @@ def test_repair_local_orphan_epic_task_sends_compact_mirror(monkeypatch, repair_
     # repair outcome does not depend on it. This test asserts the create-issue
     # body-budget behavior.
     ok = repair_local_orphan_epic_task(
-        "9999",
+        "YOK-9999",
         3,
         "yoke",
         repair_db,
@@ -155,12 +163,13 @@ def test_repair_local_orphan_epic_task_sends_compact_mirror(monkeypatch, repair_
     # under the 62000-byte budget even though the source body was over.
     assert _budget.body_exceeds_budget(create_payload["body"]) is False
     assert "YOK-9999 task 3" in create_payload["body"]
-    assert "epic task-get-body 9999 3" in create_payload["body"]
+    assert "epic task-get-body YOK-9999 3" in create_payload["body"]
     assert create_payload["labels"] == ["type:task", "status:planned"]
 
 
 def test_repair_local_orphan_epic_task_keeps_full_body_under_budget(
-    monkeypatch, tmp_path,
+    monkeypatch,
+    tmp_path,
 ):
     """Negative control: under-budget body ships verbatim."""
     from yoke_core.domain.github_rest import Issue
@@ -171,7 +180,9 @@ def test_repair_local_orphan_epic_task_keeps_full_body_under_budget(
     captured: list[dict] = []
 
     def fake_create_issue(*, project, title, body, labels, **_kw):
-        captured.append({"project": project, "title": title, "body": body, "labels": list(labels)})
+        captured.append(
+            {"project": project, "title": title, "body": body, "labels": list(labels)}
+        )
         return Issue(number=42, title=title, state="OPEN")
 
     monkeypatch.setattr(
@@ -182,13 +193,16 @@ def test_repair_local_orphan_epic_task_keeps_full_body_under_budget(
     with init_test_db(tmp_path, apply_schema=_apply_repair_schema) as db_path:
         _seed_repair_db(
             str(db_path),
-            item_id=123, github_issue="#7",
-            epic_id="123", task_num=2,
-            title="small task", body="small body",
+            item_id=123,
+            github_issue="#7",
+            epic_id="123",
+            task_num=2,
+            title="small task",
+            body="small body",
         )
 
         ok = repair_local_orphan_epic_task(
-            "123",
+            "YOK-123",
             2,
             "yoke",
             str(db_path),

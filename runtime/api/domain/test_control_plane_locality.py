@@ -19,6 +19,9 @@ from yoke_core.domain import project_github_auth_state, yok_n_parser
 from yoke_core.domain.db_helpers import connect as db_helpers_connect
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 def test_unmarked_context_admits_a_direct_connection() -> None:
     # A server process and a local-Postgres machine both hold the authority
     # they are connecting to, so neither marks the context.
@@ -103,7 +106,9 @@ def test_explicit_dsn_names_its_own_database_and_is_admitted(monkeypatch) -> Non
 
     opened: list[str] = []
     monkeypatch.setattr(
-        psycopg, "connect", lambda target, **kwargs: opened.append(target) or object(),
+        psycopg,
+        "connect",
+        lambda target, **kwargs: opened.append(target) or object(),
     )
     with remote_control_plane():
         db_backend.connect_psycopg("host=elsewhere dbname=validation")
@@ -137,7 +142,8 @@ def test_reintroduced_bare_connection_on_a_client_path_fires(monkeypatch) -> Non
     def bare_reader(project: str):
         conn = db_helpers_connect(None)
         return project_github_auth_state.read_github_state_over_connection(
-            conn, project,
+            conn,
+            project,
         )
 
     with remote_control_plane():
@@ -189,12 +195,12 @@ def test_a_public_ref_resolves_without_a_local_database(monkeypatch) -> None:
 
     def fake_relay(function_id, payload, target=None):
         seen.append((function_id, target.kind, target.public_ref))
-        return {"item": {"id": 4242}}
+        return {"item": {"public_ref": "YOK-7"}}
 
     monkeypatch.setattr(control_plane_transport, "relay", fake_relay)
 
     with remote_control_plane():
-        assert yok_n_parser.parse_item_id("YOK-7") == 4242
+        assert yok_n_parser.parse_item_id("YOK-7") == "YOK-7"
 
     assert seen == [(yok_n_parser.RESOLVE_FUNCTION_ID, "item", "YOK-7")]
 
@@ -224,21 +230,21 @@ def test_done_closeout_relays_instead_of_failing_the_step(monkeypatch) -> None:
     monkeypatch.setattr(control_plane_transport, "relay", fake_relay)
 
     with remote_control_plane():
-        rc = backlog_github_done_sync.sync_done_item("4242", "reviewing")
+        rc = backlog_github_done_sync.sync_done_item(
+            f"{_FIXTURE_ITEM_REF}42", "reviewing"
+        )
 
     assert rc == 0
     assert seen == [
         (
             backlog_github_done_sync.DONE_SYNC_FUNCTION_ID,
             {"old_status": "reviewing"},
-            4242,
             None,
+            f"{_FIXTURE_ITEM_REF}42",
         ),
     ]
 
 
 def test_a_public_ref_closeout_targets_the_ref_not_a_sequence_number() -> None:
-    numeric = backlog_github_done_sync._done_sync_target("4242")
     public = backlog_github_done_sync._done_sync_target("YOK-7")
-    assert (numeric.item_id, numeric.public_ref) == (4242, None)
     assert (public.item_id, public.public_ref) == (None, "YOK-7")

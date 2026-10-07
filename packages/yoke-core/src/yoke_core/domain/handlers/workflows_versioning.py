@@ -142,7 +142,7 @@ def handle_workflows_item_get(
         with connect() as conn:
             result = inspect_item_workflow_pin(conn, int(item_id))
     except (LookupError, ValueError, RuntimeError) as exc:
-        return _error("not_found", str(exc), "$.target.item_id")
+        return _error("not_found", str(exc), "$.target.public_ref")
     return HandlerOutcome(result_payload=result, primary_success=True)
 
 
@@ -233,8 +233,10 @@ def handle_workflows_canon_get(
     wanted = payload.canon_version
     found = None
     if generations:
-        found = generations[-1] if wanted is None else next(
-            (row for row in generations if row.canon_version == wanted), None
+        found = (
+            generations[-1]
+            if wanted is None
+            else next((row for row in generations if row.canon_version == wanted), None)
         )
     if found is None:
         return _error(
@@ -279,9 +281,7 @@ def handle_workflows_policy_defaults_publish(
         publish_workflow_policy_defaults,
     )
 
-    actor_id = numeric_actor_id(
-        request.actor.actor_id if request.actor else None
-    )
+    actor_id = numeric_actor_id(request.actor.actor_id if request.actor else None)
     try:
         with connect() as conn:
             result = publish_workflow_policy_defaults(

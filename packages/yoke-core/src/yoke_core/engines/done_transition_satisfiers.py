@@ -26,9 +26,10 @@ control plane. A relay failure blocks: this engine must never conclude
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 from typing import Any, Dict, Optional, Tuple
 
-from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.gate_satisfier_facts import (
     OBSERVED_MERGE_RECORDED,
@@ -53,7 +54,7 @@ def _resolve(
 ) -> Dict[str, Any]:
     resp = call_dispatcher(
         function_id="gate_satisfier.rung.resolve",
-        target=TargetRef(kind="item", item_id=item_id),
+        target=public_item_target(item_id),
         payload={
             "obligation": obligation,
             "target_status": target_status,

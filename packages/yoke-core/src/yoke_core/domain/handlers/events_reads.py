@@ -156,7 +156,7 @@ def _where_from_payload(
     """Translate payload filters into the shared events WHERE builder.
 
     The ``--item`` filter never rides the flag list: the dispatcher has
-    already resolved ``target.item_id`` server-side, so the resolved
+    already resolved ``target.public_ref`` server-side, so the resolved
     internal id is appended as a direct equality clause instead of
     re-parsing a public ref. ``payload`` overrides the request's own when a
     caller authorizes a filter itself and removes it from the flag list.
@@ -252,6 +252,7 @@ def handle_events_query(request: FunctionCallRequest) -> HandlerOutcome:
     if where_error is not None:
         return where_error
     from yoke_core.domain.events_current_episode import note_elided_prior_episodes
+
     result: Dict[str, Any] = {"rows": _select_rows(where, params, limit)}
     note_elided_prior_episodes(request.payload or {}, where, params, result)
     return HandlerOutcome(result_payload=result, primary_success=True)

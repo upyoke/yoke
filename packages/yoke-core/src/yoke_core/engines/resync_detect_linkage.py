@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 from typing import Dict, List, Tuple
 
-from yoke_contracts.public_ref import format_item_ref
 
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ISSUES_READ_PERMISSION_LEVELS,
@@ -106,10 +105,8 @@ def stage1_linkage(
 
     # Backlog + epic-task rows read after the fetch (relayed server-side so
     # the read runs over an https control plane as well as a local Postgres
-    # connection). Backlog rows carry the ref-rendering columns
-    # (public_item_prefix, project_sequence) alongside the internal id, so
-    # the engine renders the true public ref without a second read. The
-    # engine keeps the orphan/pairing classification below.
+    # connection). Each row carries its server-rendered public ref.
+    # The client keeps the orphan/pairing classification below.
     rows_resp = call_dispatcher(
         function_id="resync.linkage_rows",
         target=TargetRef(kind="global"),
@@ -122,29 +119,31 @@ def stage1_linkage(
     backlog_rows = rows_data.get("backlog_rows", [])
     task_rows = rows_data.get("task_rows", [])
 
+    from yoke_contracts.public_ref import parse_public_item_ref
+
+    for row in [*backlog_rows, *task_rows]:
+        if not row or None in parse_public_item_ref(row[0]):
+            raise RuntimeError(
+                "public_item_refs_serving_floor: resync.linkage_rows requires "
+                "the public-item-ref response contract (next-release). Update "
+                "the connected control plane to the release carrying that contract."
+            )
+
     paired: List[PairedItem] = []
     local_orphans: List[LocalOrphan] = []
     paired_gh_keys: set = set()
     backlog_dir = os.path.join(yoke_root, "backlog")
 
     for row in backlog_rows:
-        item_id_num, gh_ref, item_project, ref_prefix, ref_sequence = row
+        public_ref, gh_ref, item_project, ref_prefix, ref_sequence = row
         item_project = resolved_project(item_project)
-        item_pk = int(item_id_num)
-        # The public display ref renders from prefix+sequence; identity
-        # stays the internal ``items.id`` on the typed field.
-        public_ref = format_item_ref(
-            item_project,
-            ref_prefix,
-            ref_sequence)
-        padded = str(item_pk).zfill(3)
-        item_file = os.path.join(backlog_dir, f"{padded}.md")
+        item_file = os.path.join(backlog_dir, f"{public_ref}.md")
         orphan = LocalOrphan(
             public_ref,
             item_file,
             "backlog",
             item_project,
-            item_id=item_pk,
+            public_ref=public_ref,
         )
 
         # GitHub state unavailable or sync disabled -- engine surfaces
@@ -173,7 +172,7 @@ def stage1_linkage(
                     "backlog",
                     item_project,
                     "",
-                    item_id=item_pk,
+                    public_ref=public_ref,
                 )
             )
             paired_gh_keys.add((item_project, gh_num))
@@ -190,7 +189,7 @@ def stage1_linkage(
             full_path,
             "epic_task",
             project,
-            epic_id=str(slug),
+            epic_public_ref=str(slug),
             task_num=int(tnum),
         )
 
@@ -219,7 +218,7 @@ def stage1_linkage(
                     "epic_task",
                     project,
                     "",
-                    epic_id=str(slug),
+                    epic_public_ref=str(slug),
                     task_num=int(tnum),
                 )
             )

@@ -1,4 +1,4 @@
-"""Flag adapters for QA requirement, run, and gate-summary reads."""
+"""Public-item QA catalog and read adapters."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 QA_REQUIREMENT_LIST_USAGE = (
-    "yoke qa requirement list [--item PREFIX-N | --epic-id N | "
+    "yoke qa requirement list [--item PREFIX-N | --epic PREFIX-N | "
     "--deployment-run-id ID] [--project P] [--session-id S] [--json]"
 )
 
@@ -29,11 +29,12 @@ precedence when several are passed: item, then epic, then deployment run.
 
 Worked example:
   yoke qa requirement list --item YOK-N
-  yoke qa requirement list --epic-id 1704 --json
+  yoke qa requirement list --epic YOK-1704 --json
+
 Flag matrix:
   flag                 required  value shape
-  --item               no        PREFIX-N or project-local number
-  --epic-id            no        bare epic item id (integer)
+  --item               no        PREFIX-N
+  --epic               no        PREFIX-N
   --deployment-run-id  no        run id string (run-YYYYMMDD-NNN)
   --project            no        project slug (any mapped checkout)
   --session-id         no        opaque session id (operator-debug)
@@ -50,13 +51,10 @@ def qa_requirement_list(args: List[str]) -> int:
         description=(f"{QA_REQUIREMENT_LIST_USAGE}\n\n{_REQUIREMENT_LIST_HELP_DEEP}"),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    parser.add_argument("--item", default=None, help="Filter to one item (PREFIX-N).")
     parser.add_argument(
-        "--item", default=None, help="Filter to one item (PREFIX-N or number)."
-    )
-    parser.add_argument(
-        "--epic-id",
-        dest="epic_id",
-        type=int,
+        "--epic",
+        dest="epic",
         default=None,
         help="Filter to one epic's task requirements.",
     )
@@ -83,8 +81,8 @@ def qa_requirement_list(args: List[str]) -> int:
         target = TargetRef(
             kind="global", project_id=client_project_context(parsed.project)
         )
-        if parsed.epic_id is not None:
-            payload["epic_id"] = int(parsed.epic_id)
+        if parsed.epic is not None:
+            payload["epic_public_ref"] = parsed.epic
     return dispatch_and_emit(
         function_id="qa.requirement.list",
         target=target,
@@ -100,8 +98,6 @@ QA_REQUIREMENT_GET_USAGE = (
 
 _REQUIREMENT_GET_HELP_DEEP = """\
 Fetch one qa_requirements row by primary key.
-
-Worked example:
 
   yoke qa requirement get --requirement-id 5731
 
@@ -157,8 +153,6 @@ QA_RUN_LIST_USAGE = (
 _RUN_LIST_HELP_DEEP = """\
 List qa_runs rows, newest id last. Omit --requirement-id to list every
 run (operator-debug breadth; agent calls filter by requirement).
-
-Worked example:
 
   yoke qa run list --requirement-id 5731
 
@@ -250,7 +244,7 @@ def qa_run_get(args: List[str]) -> int:
 
 
 QA_GATE_SUMMARY_USAGE = (
-    "yoke qa gate-summary (--item PREFIX-N | --epic-id N --task-num K) "
+    "yoke qa gate-summary (--item PREFIX-N | --epic PREFIX-N --task-num K) "
     "--target {reviewed-implementation,implemented} [--session-id S] [--json]"
 )
 
@@ -260,17 +254,15 @@ which blocking requirements still lack the evidence their kind requires.
 Shares satisfaction semantics with the verification gate
 (yoke_core.domain.qa_gates); never mutates qa_runs/qa_requirements.
 
-Worked example:
-
   yoke qa gate-summary --item YOK-N --target reviewed-implementation --json
-  yoke qa gate-summary --epic-id 1704 --task-num 5 --target implemented
+  yoke qa gate-summary --epic YOK-1704 --task-num 5 --target implemented
 
 Flag matrix:
 
   flag          required          value shape
-  --item        yes (or epic)     PREFIX-N or project-local number
-  --epic-id     with --task-num   bare epic item id (integer)
-  --task-num    with --epic-id    1-based task number (integer)
+  --item        yes (or epic)     PREFIX-N
+  --epic     with --task-num   PREFIX-N
+  --task-num    with --epic    1-based task number (integer)
   --target      yes               reviewed-implementation | implemented
   --session-id  no                opaque session id (operator-debug)
   --json        no                flag (typed envelope on stdout)
@@ -287,13 +279,10 @@ def qa_gate_summary(args: List[str]) -> int:
         description=f"{QA_GATE_SUMMARY_USAGE}\n\n{_GATE_SUMMARY_HELP_DEEP}",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    parser.add_argument("--item", default=None, help="Target item (PREFIX-N).")
     parser.add_argument(
-        "--item", default=None, help="Target item (PREFIX-N or number)."
-    )
-    parser.add_argument(
-        "--epic-id",
-        dest="epic_id",
-        type=int,
+        "--epic",
+        dest="epic",
         default=None,
         help="Epic id (with --task-num).",
     )
@@ -302,7 +291,7 @@ def qa_gate_summary(args: List[str]) -> int:
         dest="task_num",
         type=int,
         default=None,
-        help="Task number (with --epic-id).",
+        help="Task number (with --epic).",
     )
     parser.add_argument(
         "--target",
@@ -317,15 +306,15 @@ def qa_gate_summary(args: List[str]) -> int:
         return 2
     if parsed.item is not None:
         target = item_target("item", parsed.item, parsed.project)
-    elif parsed.epic_id is not None and parsed.task_num is not None:
+    elif parsed.epic is not None and parsed.task_num is not None:
         target = TargetRef(
             kind="epic_task",
-            epic_id=int(parsed.epic_id),
+            public_ref=parsed.epic,
             task_num=int(parsed.task_num),
         )
     else:
         return usage_error(
-            "gate-summary requires --item PREFIX-N OR both --epic-id and --task-num"
+            "gate-summary requires --item PREFIX-N OR both --epic and --task-num"
         )
     return dispatch_and_emit(
         function_id="qa.gate_summary.run",

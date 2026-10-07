@@ -33,11 +33,12 @@ reported as a leftover that needs a person rather than another sweep.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.codex_hook_trust_store import worktree_cleanup_warning
 from yoke_core.engines.branch_landed_evidence import (
     BranchLandedEvidence,
@@ -118,7 +119,7 @@ def release_lane_row(
 
         response = call_dispatcher(
             function_id="item_worktrees.release_merged_lane",
-            target=TargetRef(kind="item", item_id=int(item_id)),
+            target=public_item_target(item_id),
             payload={"branch": branch},
         )
     except Exception as exc:  # noqa: BLE001 - advisory, never unwinds a merge

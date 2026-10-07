@@ -115,7 +115,7 @@ def scratch_root(
 
 def dispatch_inputs_dir(
     project: str | None = None,
-    item_id: int | str | None = None,
+    public_ref: str | None = None,
     session_id: str | None = None,
     attempt: int | str | None = None,
     *,
@@ -123,24 +123,28 @@ def dispatch_inputs_dir(
 ) -> Path:
     """Return the dispatch-inputs directory.
 
-    Optional ``item_id`` / ``session_id`` / ``attempt`` extend the path with a
-    per-dispatch ``YOK-{N}/{session_id}/attempt-{n}`` subtree; all three must
-    be supplied together. ``item_id`` is the bare internal ``items.id``
-    (public ``PREFIX-N`` refs are resolved by callers before this point).
+    Optional ``public_ref`` / ``session_id`` / ``attempt`` extend the path with a
+    per-dispatch ``PREFIX-N/{session_id}/attempt-{n}`` subtree; all three
+    must be supplied together. The item namespace is its public ref.
     """
 
     path = scratch_root(project) / "dispatch-inputs"
-    per_dispatch = (item_id, session_id, attempt)
+    per_dispatch = (public_ref, session_id, attempt)
     supplied = sum(1 for value in per_dispatch if value is not None)
     if supplied not in (0, 3):
         raise ValueError(
             "dispatch_inputs_dir requires all three of "
-            "item_id, session_id, attempt — or none"
+            "public_ref, session_id, attempt — or none"
         )
     if supplied == 3:
+        from yoke_contracts.public_ref import parse_public_item_ref
+
+        prefix, sequence = parse_public_item_ref(str(public_ref))
+        if prefix is None or sequence is None:
+            raise ValueError("public_item_ref_required: pass PREFIX-N")
         path = (
             path
-            / f"YOK-{int(item_id)}"
+            / str(public_ref)
             / _safe_segment(str(session_id))
             / (f"attempt-{int(str(attempt))}")
         )

@@ -119,15 +119,15 @@ class TestHCDeferredItems:
 class TestHCShepherdLifecycle:
     def test_pass_verdicts_present(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
-            "VALUES (1, 'E', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing', 'high')"
+            "INSERT INTO items (id, project_sequence, title, workflow_id, workflow_version_id, status, priority) "
+            "VALUES (1, 1, 'E', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing', 'high')"
         )
         conn.execute(
-            "INSERT INTO shepherd_verdicts (item, transition, verdict) "
+            "INSERT INTO shepherd_verdicts (public_ref, transition, verdict) "
             "VALUES ('YOK-1', 'refined_idea_to_planning', 'READY')"
         )
         conn.execute(
-            "INSERT INTO shepherd_verdicts (item, transition, verdict) "
+            "INSERT INTO shepherd_verdicts (public_ref, transition, verdict) "
             "VALUES ('YOK-1', 'planning_to_plan_drafted', 'READY')"
         )
         rec = RecordCollector()
@@ -136,8 +136,8 @@ class TestHCShepherdLifecycle:
 
     def test_warn_missing_verdict(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
-            "VALUES (1, 'E', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing', 'high')"
+            "INSERT INTO items (id, project_sequence, title, workflow_id, workflow_version_id, status, priority) "
+            "VALUES (1, 1, 'E', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing', 'high')"
         )
         rec = RecordCollector()
         hc_shepherd_lifecycle(conn, _default_args(), rec)
@@ -149,8 +149,8 @@ class TestHCShepherdLifecycle:
 class TestHCLifecycleContinuity:
     def test_pass_transition_row_exists(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
-            "VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'low')"
+            "INSERT INTO items (id, project_sequence, title, workflow_id, workflow_version_id, status, priority) "
+            "VALUES (1, 1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'low')"
         )
         conn.execute(
             "INSERT INTO item_status_transitions (item_id, to_status) "
@@ -162,8 +162,8 @@ class TestHCLifecycleContinuity:
 
     def test_task_row_does_not_satisfy_item_continuity(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
-            "VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'low')"
+            "INSERT INTO items (id, project_sequence, title, workflow_id, workflow_version_id, status, priority) "
+            "VALUES (1, 1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'low')"
         )
         # A task-level transition (task_num set) is not the item's own.
         conn.execute(
@@ -176,8 +176,8 @@ class TestHCLifecycleContinuity:
 
     def test_warn_missing_transition_row(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
-            "VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'low')"
+            "INSERT INTO items (id, project_sequence, title, workflow_id, workflow_version_id, status, priority) "
+            "VALUES (1, 1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'low')"
         )
         rec = RecordCollector()
         hc_lifecycle_continuity(conn, _default_args(), rec)
@@ -218,14 +218,27 @@ class TestHCRegistry:
     def test_all_hcs_registered(self):
         slugs = {hc.slug for hc in HEALTH_CHECKS}
         expected = {
-            "status-consistency", "blocked-items", "dispatch-chain",
-            "backlog-hygiene", "frontmatter-schema", "title-length",
-            "epic-validation", "undeployed-done", "orphan-fk",
-            "orphaned-runs", "stale-runs", "run-item-status-consistency",
-            "run-qa-unsatisfied", "preview-occupancy-stale",
-            "validation-no-qa-reqs", "smoke-failure-stale",
-            "smoke-artifact-orphan", "orphaned-done-items",
-            "deferred-items", "shepherd-lifecycle",
-            "lifecycle-continuity", "orphaned-ephemeral",
+            "status-consistency",
+            "blocked-items",
+            "dispatch-chain",
+            "backlog-hygiene",
+            "frontmatter-schema",
+            "title-length",
+            "epic-validation",
+            "undeployed-done",
+            "orphan-fk",
+            "orphaned-runs",
+            "stale-runs",
+            "run-item-status-consistency",
+            "run-qa-unsatisfied",
+            "preview-occupancy-stale",
+            "validation-no-qa-reqs",
+            "smoke-failure-stale",
+            "smoke-artifact-orphan",
+            "orphaned-done-items",
+            "deferred-items",
+            "shepherd-lifecycle",
+            "lifecycle-continuity",
+            "orphaned-ephemeral",
         }
         assert expected.issubset(slugs)

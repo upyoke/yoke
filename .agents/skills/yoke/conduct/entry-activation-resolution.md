@@ -2,40 +2,38 @@
 
 Invoked from `entry-activation.md` S6. Covers Epic resolve, sync gate, fan-out enumeration of dispatchable tasks, same-worktree protection, dependency verification, and per-task activation with ephemeral environment lifecycle.
 
-**Inherited:** `MAIN_ROOT`, `N`, `_epic_id`, `_task_ids`, `_task_id`, `_max_attempts`, `_no_chain`, `PROJECT`. `_task_ids` is a newline-separated list of dispatchable tasks for this invocation; `_task_id` is the primary entry — typically the first member of `_task_ids` and used by single-task downstream prose. Multi-task batches consume `_task_ids` plus per-task lane variables named `_worktree_branch_${_task_id}` and `_worktree_path_${_task_id}`.
+**Inherited:** `MAIN_ROOT`, `N`, `_epic_ref`, `_task_ids`, `_task_id`, `_max_attempts`, `_no_chain`, `PROJECT`. `_task_ids` is a newline-separated list of dispatchable tasks for this invocation; `_task_id` is the primary entry — typically the first member of `_task_ids` and used by single-task downstream prose. Multi-task batches consume `_task_ids` plus per-task lane variables named `_worktree_branch_${_task_id}` and `_worktree_path_${_task_id}`.
 
 ---
 
 #### S6a. Resolve Epic
 
 ```bash
-# Convention: conduct operates on epic items; the item ID IS the epic ID.
-# epic_tasks.epic_id is INTEGER NOT NULL — bare integer, never PREFIX-prefixed
-# (mirrors shepherd/plan-handoff.md:23).
-_epic_id=${N}
+# Keep the complete public epic ref on every client call.
+_epic_ref="PREFIX-${N}"
 ```
 
 If `${N}` is empty the caller routed incorrectly; stop:
-> /yoke conduct requires a numeric item ID.
+> /yoke conduct requires a complete public item ref (PREFIX-N).
 
 #### S6b. Epic Sync Gate (auto-sync for unsynced epics)
 
 An epic is "synced" when BOTH: (a) dispatch chains exist, AND (b) at least one `epic_tasks` row has a non-null `github_issue`.
 
 ```bash
-_chains=$(yoke workflow-item epic-dispatch-chain list --epic "$_epic_id")
-_synced_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='$_epic_id' AND github_issue IS NOT NULL AND github_issue <> ''")
+_chains=$(yoke workflow-item epic-dispatch-chain list --epic "$_epic_ref")
+_synced_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id=(SELECT item_id FROM item_refs WHERE public_ref='$_epic_ref') AND github_issue IS NOT NULL AND github_issue <> ''")
 ```
 
 **If already synced** (`_chains` non-empty AND `_synced_task_count > 0`): proceed to S6c.
 
 **If NOT synced:**
 
-1. Pre-check: `_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='$_epic_id'")`. If 0, stop with `task_graph_missing: No tasks found for PREFIX-{N}. Restore the task graph through its pinned authoring binding before dispatching.` Read `yoke items detail get PREFIX-{N} --json` to resolve that workflow pin.
+1. Pre-check: `_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id=(SELECT item_id FROM item_refs WHERE public_ref='$_epic_ref')")`. If 0, stop with `task_graph_missing: No tasks found for PREFIX-{N}. Restore the task graph through its pinned authoring binding before dispatching.` Read `yoke items detail get PREFIX-{N} --json` to resolve that workflow pin.
 
 2. Auto-sync: Print `Epic PREFIX-{N} not yet synced to GitHub. Running sync automatically...` then:
  ```bash
- yoke items github-sync "$_epic_id"
+ yoke items github-sync "$_epic_ref"
  ```
 
 3. Advance status to implementing: use `yoke lifecycle transition PREFIX-${N} --to implementing`; verify the target is the next declared stage in the pinned binding.
@@ -56,7 +54,7 @@ _synced_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_task
 
 This step enumerates **every** dispatchable head task across the epic's dispatch chains and produces a final list `_task_ids` for parallel activation. The companion gates (S6d same-worktree, S6e dependencies) are applied **per candidate** during enumeration so independent chains proceed when their siblings are excluded.
 
-1. Read all dispatch chains through `yoke workflow-item epic-dispatch-chain list --epic "$_epic_id"`. `yoke epic-tasks list --epic "$_epic_id"` is the product read surface when chain ordering is not required.
+1. Read all dispatch chains through `yoke workflow-item epic-dispatch-chain list --epic "$_epic_ref"`. `yoke epic-tasks list --epic "$_epic_ref"` is the product read surface when chain ordering is not required.
 2. For each chain, walk forward to the chain's current head:
  - `implementing` or `reviewing-implementation`: status alone is **not** a busy verdict. Call the shared freshness evaluator `yoke_core.domain.chain_head_freshness.evaluate_chain_head_freshness(epic_id, task_num, current_session_id)` to classify the head against the parent claim, the prior session's `harness_sessions.last_heartbeat`, and the task's `epic_tasks.last_activity_at` (first-class task-freshness state; per-task scoping is structural). The evaluator uses the chain-head freshness window (`chain_head_freshness_window_s`, default 60s) via `chain_head_freshness.resolve_freshness_window_s`. Branch on the returned `decision.status`:
    - `resumable` → treat the head as a **candidate** (capture `_task_id`, `_worktree_branch`, `_worktree_path` exactly as for `planned`). The Engineer/Tester loop reaches `5f-rehydrate` in `dispatch-context-rehydrate.md` and the prior progress notes plus tester reviews surface naturally to the resumed Engineer; committed engineer work on the branch is not redone.
@@ -94,7 +92,7 @@ S6c applies dependency verification **per candidate**. For each entry in the can
 
 ```bash
 # Path-claim activation is a registered function-call surface.
-yoke claims path activation-run --item "${_epic_id}"
+yoke claims path activation-run --item "${_epic_ref}"
 _activation_exit=$?
 if [ "$_activation_exit" -ne 0 ]; then
  echo "ERROR: path-claim activation failed for PREFIX-${N} (exit $_activation_exit). Investigate before re-running /yoke conduct."
@@ -103,7 +101,7 @@ fi
 
 # Retained source-dev/internal boundary: unified lane worktree creation
 # has no registered `yoke ...` wrapper yet.
-python3 -m yoke_core.domain.worktree create "${_epic_id}" --project "${PROJECT}"
+python3 -m yoke_core.domain.worktree create "${_epic_ref}" --project "${PROJECT}"
 _creator_exit=$?
 if [ "$_creator_exit" -ne 0 ]; then
  echo "ERROR: unified worktree creation failed for PREFIX-${N} (exit $_creator_exit). Investigate before re-running /yoke conduct."
@@ -123,10 +121,10 @@ for _task_id in $_task_ids; do
  _worktree_path="${!_path_var}"
 
  # 1. Load task spec
- _task_body=$(yoke workflow-item epic-task body-get --epic "$_epic_id" --task-num "$_task_id")
+ _task_body=$(yoke workflow-item epic-task body-get --epic "$_epic_ref" --task-num "$_task_id")
 
  # 2. Resolve worktree from dispatch chain
- _chain_row=$(yoke workflow-item epic-dispatch-chain get --epic "$_epic_id" --worktree "$_worktree_branch")
+ _chain_row=$(yoke workflow-item epic-dispatch-chain get --epic "$_epic_ref" --worktree "$_worktree_branch")
  # When the chain row carries no path, the lane's own registered row
  # does — for every project including Yoke. Never compose one from a
  # root; an unregistered lane is a record to repair, not a path to guess.
@@ -152,7 +150,7 @@ print(next((r["path"] for r in rows if r["branch"] == sys.argv[1]), ""))' "$_wor
  # this task. For each predecessor named in the entry:
  #   - verify the predecessor task is `reviewed-implementation` or `done`
  #     via `yoke db read --format lines "SELECT status FROM
- #     epic_tasks WHERE epic_id=${_epic_id} AND task_num=<N>"`;
+ #     epic_tasks WHERE epic_id=(SELECT item_id FROM item_refs WHERE public_ref='${_epic_ref}') AND task_num=<N>"`;
  #   - `git -C "${_worktree_path}" merge <predecessor-branch> --no-edit`.
  # Halt for authoring-phase repair if any predecessor is unfinished or any
  # merge has conflicts. Resolve the pinned authoring binding before presenting
@@ -171,13 +169,13 @@ print(next((r["path"] for r in rows if r["branch"] == sys.argv[1]), ""))' "$_wor
  # `yoke workflow-item epic-task update-status` is the non-pipeline
  # wrapper and is not equivalent here because conduct needs the
  # dispatch_attempts/history/derive side effects.
- yoke conduct epic-task update-status --epic "$_epic_id" --task-num "$_task_id" \
+ yoke conduct epic-task update-status --epic "$_epic_ref" --task-num "$_task_id" \
   --status implementing --note "Dispatched by conduct (task fan-out)"
 
  # 4c. Persist the resolved dispatch-chain worktree and branch on epic_tasks row.
  # Preserve architect/refine per-task worktrees; do not collapse epic tasks to PREFIX-${N}.
  yoke workflow-item epic-task metadata-update \
-   --epic "$_epic_id" --task-num "$_task_id" \
+   --epic "$_epic_ref" --task-num "$_task_id" \
    --fields-json "{\"branch\":\"${_worktree_branch}\",\"worktree_path\":\"${_worktree_path}\"}"
 
  # 4d. Refresh the dispatch chain row so telemetry and scheduler views see a
@@ -187,7 +185,7 @@ print(next((r["path"] for r in rows if r["branch"] == sys.argv[1]), ""))' "$_wor
  # epic_dispatch_chains.current_attempt and stamps last_updated so downstream
  # readers see the live dispatch instead of yesterday's plan-sync.
  yoke workflow-item epic-dispatch-chain refresh-activation \
-   --epic "$_epic_id" --worktree "${_worktree_branch}" --task-num "$_task_id"
+   --epic "$_epic_ref" --worktree "${_worktree_branch}" --task-num "$_task_id"
 done
 
 # 4d. Persist worktree on parent backlog item (FR-6).
@@ -209,7 +207,7 @@ printf '%s\n' "PREFIX-${N} task ${_task_id_primary} worktree provisioned at ${_p
 # commits to its branch.
 for _task_id in $_task_ids; do
  _t_status=$(yoke db read --format lines \
-   "SELECT status FROM epic_tasks WHERE epic_id=${_epic_id} AND task_num=${_task_id}")
+   "SELECT status FROM epic_tasks WHERE epic_id=(SELECT item_id FROM item_refs WHERE public_ref='${_epic_ref}') AND task_num=${_task_id}")
  if [ "$_t_status" != "implementing" ] && [ "$_t_status" != "reviewing-implementation" ]; then
   echo "ERROR: PREFIX-${N} task ${_task_id} at status '${_t_status}', not activated. Re-run the S6f activation block (status update + metadata-update worktree/branch/worktree_path + dispatch-chain-refresh-activation) before dispatching engineer." >&2
   exit 1
@@ -221,7 +219,7 @@ The lane worktrees are now provisioned as active `item_worktrees` rows owned by 
 
 Build context block (same as `dispatch-context.md` 5f-epic.6):
 ```
-Epic: {_epic_id}
+Epic: {_epic_ref}
 Task ID: {_task_id} (local plan-order ID)
 GitHub Issue: {github_issue from epic_tasks table}
 Worktree path: {_worktree_path}

@@ -60,7 +60,7 @@ def items_get(args: List[str]) -> int:
         description=ITEMS_GET_USAGE + "\n\n" + render_field_catalog(),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("item", help="Item id (PREFIX-N or project-local number).")
+    parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument(
         "fields",
         nargs="*",
@@ -154,7 +154,7 @@ def items_progress_log_append(args: List[str]) -> int:
         prog="yoke items progress-log append",
         description=PROGRESS_LOG_USAGE,
     )
-    parser.add_argument("item", help="Item id (PREFIX-N or project-local number).")
+    parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument("--headline", required=True, help="One-line entry headline.")
     content_group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
@@ -208,7 +208,7 @@ def items_structured_field_replace(args: List[str]) -> int:
         prog="yoke items structured-field replace",
         description=STRUCTURED_FIELD_USAGE,
     )
-    parser.add_argument("item", help="Item id (PREFIX-N or project-local number).")
+    parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument("--field", required=True, help="Structured field name.")
     content_group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
@@ -276,7 +276,7 @@ def lifecycle_skip_record_recoverable_substrate(args: List[str]) -> int:
         prog="yoke lifecycle skip record-recoverable-substrate",
         description=LIFECYCLE_SKIP_RECORD_RECOVERABLE_SUBSTRATE_USAGE,
     )
-    parser.add_argument("item", help="Item id (PREFIX-N or project-local number).")
+    parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument(
         "--chain-step",
         dest="chain_step",

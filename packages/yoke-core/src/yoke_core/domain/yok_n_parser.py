@@ -3,8 +3,8 @@
 Text tokens resolve through
 :func:`yoke_core.domain.item_ref_resolution.resolve_item_ref`: ``PREFIX-N``
 resolves through its unique ``projects.public_item_prefix`` plus
-``items.project_sequence``; a bare ``N`` is a project sequence and resolves
-only with project context, and is never read as an internal ``items.id``.
+``items.project_sequence``. Text arguments require that complete public ref;
+project context scopes the request without supplying a missing prefix.
 A Python ``int`` is an internal id an engine caller already holds and passes
 through. This module adds the open path: a caller with no connection of its
 own resolves over a direct local connection, or through the dispatcher when
@@ -20,14 +20,13 @@ from yoke_core.domain import control_plane_transport
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.item_ref_resolution import (
     ItemRefError,
-    check_item_ref_shape,
     resolve_item_ref,
 )
 
 
 #: The item-targeted read whose target resolution answers the same question:
 #: the dispatcher turns a public ref into an internal id before the handler
-#: runs, and returns that id on the item it read.
+#: runs, and returns the canonical public ref on the item it read.
 RESOLVE_FUNCTION_ID = "items.detail.get"
 
 
@@ -36,15 +35,20 @@ def parse_item_id(
     *,
     project: str | int | None = None,
     conn: Any | None = None,
-) -> int:
-    """Resolve an item token to the internal global ``items.id``.
+) -> int | str:
+    """Resolve onto a local join key, or retain the public ref over HTTPS.
 
     Raises :class:`ItemRefError` (a ``ValueError``) naming the fix when the
     token names no single item.
     """
     if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
         return value
-    check_item_ref_shape(value, project=project)
+    from yoke_core.domain.public_item_target import public_item_target
+
+    try:
+        public_item_target(value)
+    except ValueError as exc:
+        raise ItemRefError("public_item_ref_required", str(exc)) from exc
     return _resolve_over_open_path(value.strip(), project=project, conn=conn)
 
 
@@ -72,7 +76,7 @@ def parse_item_argument(
     project: str | int | None = None,
     conn: Any | None = None,
     cwd: str | Path | None = None,
-) -> int:
+) -> int | str:
     """Resolve one operator-facing item argument through public identity."""
     return parse_item_id(
         value,
@@ -86,7 +90,7 @@ def _resolve_over_open_path(
     *,
     project: str | int | None,
     conn: Any | None,
-) -> int:
+) -> int | str:
     """Resolve *text* to an internal id over whichever path is open.
 
     A caller-supplied connection is used as-is. Otherwise a direct local
@@ -111,12 +115,12 @@ def _resolve_over_connection(
     text: str,
     *,
     project: str | int | None,
-) -> int:
+) -> int | str:
     return resolve_item_ref(conn, text, project=project)
 
 
-def _resolve_over_relay(text: str, *, project: str | int | None) -> int:
-    """Read the internal id back from the server's own ref resolution."""
+def _resolve_over_relay(text: str, *, project: str | int | None) -> str:
+    """Validate the item on the server and keep its public identity client-side."""
     from yoke_contracts.api.function_call import TargetRef
 
     target = TargetRef(
@@ -129,10 +133,10 @@ def _resolve_over_relay(text: str, *, project: str | int | None) -> int:
     except RuntimeError as exc:
         raise ItemRefError("item_ref_unresolved", str(exc)) from exc
     item = result.get("item") or {}
-    resolved = item.get("id")
+    resolved = item.get("public_ref")
     if resolved is None:
         raise ItemRefError("item_ref_unresolved", f"item ref {text!r} not found")
-    return int(resolved)
+    return str(resolved)
 
 
 def parse_item_id_or_none(

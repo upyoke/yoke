@@ -199,7 +199,9 @@ def schema_for(function_id: str) -> Dict[str, Any]:
     entry = _REGISTRY.get(function_id)
     if entry is None:
         raise KeyError(function_id)
-    return entry.request_model.model_json_schema()
+    from yoke_contracts.public_item_contract import public_payload_schema
+
+    return public_payload_schema(entry.request_model.model_json_schema())
 
 
 def require_floor_for_unserved_ids() -> None:

@@ -101,7 +101,7 @@ class TestRegistryHappyPath(_RegistryTestBase):
         )
         schema = schema_for("test.family.op")
         self.assertIn("properties", schema)
-        self.assertIn("item_id", schema["properties"])
+        self.assertIn("public_ref", schema["properties"])
 
     def test_schema_for_missing_raises(self):
         with self.assertRaises(KeyError):

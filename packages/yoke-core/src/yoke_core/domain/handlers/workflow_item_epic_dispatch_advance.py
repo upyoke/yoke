@@ -33,7 +33,7 @@ def _error(code: str, message: str) -> HandlerOutcome:
 def handle_dispatch_chain_advance(request: FunctionCallRequest) -> HandlerOutcome:
     target = request.target
     if target.kind != "epic_task" or target.epic_id is None:
-        return _error("invalid_payload", "target must carry epic_id")
+        return _error("invalid_payload", "target must carry public_ref")
     try:
         payload = ChainAdvanceRequest.model_validate(request.payload or {})
     except Exception as exc:
@@ -43,7 +43,9 @@ def handle_dispatch_chain_advance(request: FunctionCallRequest) -> HandlerOutcom
     with db_helpers.connect() as conn:
         try:
             raw = epic.dispatch_chain_advance(
-                conn, str(target.epic_id), payload.worktree,
+                conn,
+                str(target.epic_id),
+                payload.worktree,
             )
         except LookupError as exc:
             return _error("target_not_found", str(exc))
@@ -60,22 +62,24 @@ def handle_dispatch_chain_advance(request: FunctionCallRequest) -> HandlerOutcom
     )
 
 
-REGISTRATIONS: List[Dict[str, Any]] = [{
-    "function_id": "workflow_item.epic_dispatch_chain.advance",
-    "handler": handle_dispatch_chain_advance,
-    "request_model": ChainAdvanceRequest,
-    "response_model": ChainAdvanceResponse,
-    "stability": "stable",
-    "owner_module": (
-        "yoke_core.domain.handlers.workflow_item_epic_dispatch_advance"
-    ),
-    "target_kinds": ["epic_task"],
-    "side_effects": ["epic_dispatch_chains_update"],
-    "emitted_event_names": ["YokeFunctionCalled"],
-    "guardrails": [],
-    "adapter_status": "live",
-    "claim_required_kind": "epic",
-}]
+REGISTRATIONS: List[Dict[str, Any]] = [
+    {
+        "function_id": "workflow_item.epic_dispatch_chain.advance",
+        "handler": handle_dispatch_chain_advance,
+        "request_model": ChainAdvanceRequest,
+        "response_model": ChainAdvanceResponse,
+        "stability": "stable",
+        "owner_module": (
+            "yoke_core.domain.handlers.workflow_item_epic_dispatch_advance"
+        ),
+        "target_kinds": ["epic_task"],
+        "side_effects": ["epic_dispatch_chains_update"],
+        "emitted_event_names": ["YokeFunctionCalled"],
+        "guardrails": [],
+        "adapter_status": "live",
+        "claim_required_kind": "epic",
+    }
+]
 
 
 __all__ = ["REGISTRATIONS", "handle_dispatch_chain_advance"]

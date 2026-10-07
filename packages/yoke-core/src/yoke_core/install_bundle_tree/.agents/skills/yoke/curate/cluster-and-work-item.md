@@ -203,7 +203,7 @@ fail optional-budget workflows.
 2. Write the spec via the `items.structured_field.replace` function
    call (envelope in
    [`../idea/body-and-sync-functions.md`](../idea/body-and-sync-functions.md)):
-   `target = {kind: "item", item_id: <id>}`, `payload = {field: "spec",
+   `target = {kind: "item", public_ref: "PREFIX-N"}`, `payload = {field: "spec",
    content: "<spec content>", source: "curate"}`. `items.body` is a
    virtual rendered field — writes always route through the structured
    `spec` field.

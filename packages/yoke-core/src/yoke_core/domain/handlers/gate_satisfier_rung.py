@@ -77,7 +77,7 @@ def handle_resolve(request: FunctionCallRequest) -> HandlerOutcome:
 
     if request.target.item_id is None:
         return _err(
-            "target_invalid", "gate_satisfier.rung.resolve requires target.item_id"
+            "target_invalid", "gate_satisfier.rung.resolve requires target.public_ref"
         )
     item_id = int(request.target.item_id)
     try:

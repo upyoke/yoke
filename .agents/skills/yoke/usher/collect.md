@@ -210,9 +210,9 @@ Register work claims for collected items. For each `_usher_item` in `{collected_
 {
   "function": "claims.work.acquire",
   "actor": {"session_id": "<this-session>"},
-  "target": {"kind": "item", "item_id": <_usher_item>},
+  "target": {"kind": "item", "public_ref": "<_usher_item>"},
   "intent": "usher_collect",
-  "payload": {"target": {"kind": "item", "item_id": <_usher_item>}, "reason": "usher_collect"}
+  "payload": {"target": {"kind": "item", "public_ref": "<_usher_item>"}, "reason": "usher_collect"}
 }
 ```
 

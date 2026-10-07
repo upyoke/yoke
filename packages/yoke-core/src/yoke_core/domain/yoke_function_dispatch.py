@@ -1,32 +1,7 @@
-"""Yoke function-call dispatcher — synchronous routing layer.
+"""Dispatch registered functions with permission, claim and replay gates.
 
-Control-plane entry point :func:`dispatch` performs envelope validation, registry
-lookup, claim verification, idempotency replay, handler dispatch, and
-event emission. The dispatcher is *thin* — it does not store data, does
-not validate payload shape (handlers do), and does not duplicate domain
-logic. Per AGENTS.md ``Architecture Model``, handlers route through
-existing domain owners (``backlog_structured_write_op``,
-``item_field_transform``, ``epic.task_update_body``, ``sections_cli``,
-``path_claims_resolve``, ``service_client_db_claim``, ``lifecycle``,
-``backlog_rendering``, ``agents_render``, doctor engines).
-
-Future-concept absorption target: when the execution-journal surface
-lands, :func:`dispatch` is absorbed — the call site becomes a
-journal-emit + handler-execute pair, and this standalone module is
-deleted. The dispatcher is a first pass, not the permanent end-state.
-
-Public surface:
-
-- :func:`dispatch` — synchronous in-process entry point.
-- :func:`dispatch_local` — routes explicitly client-local functions without
-  touching control-plane identity, ledger, permission, claim, or event state;
-  every other function falls through to :func:`dispatch`.
-
-Sibling modules:
-
-- :mod:`yoke_function_dispatch_claims` — claim verification helpers.
-- :mod:`yoke_function_dispatch_events` — event emission helpers.
-"""
+The public response boundary renders every internal item join key as a
+project-qualified public ref. Handlers retain integer join keys internally."""
 
 from __future__ import annotations
 
@@ -199,6 +174,19 @@ def _dispatch_impl(
         return error
     assert typed_request is not None  # narrows for the type checker
 
+    if isinstance(request, dict):
+        from yoke_contracts.public_item_contract import public_item_request_error
+
+        refused = public_item_request_error(typed_request)
+        if refused is not None:
+            return FunctionCallResponse(
+                success=False,
+                function=typed_request.function,
+                version=typed_request.version,
+                request_id=typed_request.request_id,
+                error=refused,
+            )
+
     entry = lookup(typed_request.function)
     if entry is None:
         return _error_response(
@@ -274,7 +262,9 @@ def _dispatch_impl(
 
         claim_verification: dict[str, Any] = {}
         claim_error = verify_claim(
-            entry, typed_request, evidence=claim_verification,
+            entry,
+            typed_request,
+            evidence=claim_verification,
         )
         if claim_error is not None:
             return claim_error
@@ -327,6 +317,9 @@ def dispatch(
 ) -> FunctionCallResponse:
     with dispatch_observation(request) as mark_observed:
         response = _dispatch_impl(request, ambient_session_id=ambient_session_id)
+        from yoke_core.domain.function_response_refs import public_response
+
+        response = public_response(response)
         mark_observed(response)
         return response
 

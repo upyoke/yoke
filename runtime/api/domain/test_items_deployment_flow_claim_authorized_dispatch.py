@@ -41,7 +41,7 @@ def _call(client: TestClient, headers: dict, session_id: str, payload: dict):
             "function": "items.deployment_flow.claim_default",
             "version": "v1",
             "actor": {"actor_id": "discarded-at-http", "session_id": session_id},
-            "target": {"kind": "item", "item_id": ITEM_ID},
+            "target": {"kind": "item", "public_ref": "YOK-1"},
             "payload": payload,
             "preconditions": {},
             "options": {},
@@ -68,8 +68,12 @@ def claim_plane():
             "workflow_id,workflow_version_id,created_at,updated_at) "
             "VALUES (%s,'claim-default target','implementing',%s,1,%s,%s,%s,%s)",
             (
-                ITEM_ID, project_id, workflow_id, workflow_version_id,
-                iso8601_now(), iso8601_now(),
+                ITEM_ID,
+                project_id,
+                workflow_id,
+                workflow_version_id,
+                iso8601_now(),
+                iso8601_now(),
             ),
         )
         owner_actor_id = seed_human_actor(conn, name="claim-default owner")
@@ -81,7 +85,9 @@ def claim_plane():
             granted_by_actor_id=owner_actor_id,
         )
         owner_token = mint_token(
-            conn, actor_id=owner_actor_id, name="claim-default-owner",
+            conn,
+            actor_id=owner_actor_id,
+            name="claim-default-owner",
         )
         owner_session = "claim-default-owner-session"
         now = iso8601_now()
@@ -108,7 +114,9 @@ def claim_plane():
             granted_by_actor_id=owner_actor_id,
         )
         other_token = mint_token(
-            conn, actor_id=other_actor_id, name="claim-default-outsider",
+            conn,
+            actor_id=other_actor_id,
+            name="claim-default-outsider",
         )
         other_session = "claim-default-outsider-session"
         conn.execute(

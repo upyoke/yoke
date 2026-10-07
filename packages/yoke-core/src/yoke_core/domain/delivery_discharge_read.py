@@ -20,10 +20,11 @@ Still fail-closed: unread never asserts the ceremony. It just says so.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from yoke_contracts.api.function_call import TargetRef
 
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 
@@ -80,13 +81,13 @@ def delivery_discharge(
     dispatch: Callable[..., Any] = call_dispatcher,
 ) -> DeliveryDischarge:
     """Whether a succeeded run of the item's selected flow delivered it."""
-    item_id = item.get("id")
-    if item_id is None:
-        return _unread("the item carries no id to ask about")
+    public_ref = item.get("public_ref")
+    if not public_ref:
+        return _unread("the item carries no public ref to ask about")
     try:
         response = dispatch(
             function_id="done_transition.delivery_evidence",
-            target=TargetRef(kind="item", item_id=int(item_id)),
+            target=public_item_target(public_ref),
             payload={},
         )
     except Exception as exc:  # noqa: BLE001 - an unread delivery is not a no

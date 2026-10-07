@@ -79,9 +79,7 @@ def _build_parser(prog: str, usage: str, description: str) -> argparse.ArgumentP
         description=f"{usage}\n{description}{_CLAIM_NOTE}",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument(
-        "item", help="Item id (PREFIX-N, zero-padded, or project-local number)."
-    )
+    parser.add_argument("item", help="Item id (PREFIX-N).")
     return parser
 
 
@@ -91,7 +89,7 @@ def _receipt(changed: Callable[[Dict[str, Any]], str], unchanged: str) -> Any:
     def _write(response: Any, stdout: TextIO, stderr: TextIO) -> None:
         del stderr
         result = response.result or {}
-        ref = str(result.get("public_ref") or result.get("item_id") or "item")
+        ref = str(result.get("public_ref") or "item")
         if result.get("changed"):
             print(f"{ref}: {changed(result)}", file=stdout)
         else:

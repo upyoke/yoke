@@ -10,6 +10,8 @@ it never becomes a confident empty snapshot.
 
 from __future__ import annotations
 
+from yoke_core.domain.domain_refusal import DomainRefusal
+
 from hashlib import sha256
 from typing import Any, Callable, Mapping
 
@@ -39,7 +41,7 @@ CANDIDATE_CONTAINMENT_FIELD = "candidate_containment"
 CANDIDATE_CONTAINMENT_SCHEMA = 1
 
 
-class CandidateContainmentRefusal(ValueError):
+class CandidateContainmentRefusal(DomainRefusal, ValueError):
     """The start cannot safely record its immutable containment snapshot."""
 
     def __init__(self, code: str, detail: str, recovery: str) -> None:

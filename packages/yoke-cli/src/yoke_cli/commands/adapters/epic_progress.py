@@ -26,27 +26,36 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 __all__ = [
-    "epic_progress_note_append", "epic_progress_note_list", "epic_tasks_list",
-    "EPIC_PROGRESS_NOTE_APPEND_USAGE", "EPIC_PROGRESS_NOTE_LIST_USAGE",
+    "epic_progress_note_append",
+    "epic_progress_note_list",
+    "epic_tasks_list",
+    "EPIC_PROGRESS_NOTE_APPEND_USAGE",
+    "EPIC_PROGRESS_NOTE_LIST_USAGE",
     "EPIC_TASKS_LIST_USAGE",
 ]
 
 
 def _epic_task_target_flags(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--epic", type=int, required=True,
-                        help="Epic id (bare integer).")
-    parser.add_argument("--task-num", dest="task_num", type=int, required=True,
-                        help="Task number within the epic (1-based).")
+    parser.add_argument("--epic", required=True, help="Epic public ref (PREFIX-N).")
+    parser.add_argument(
+        "--task-num",
+        dest="task_num",
+        type=int,
+        required=True,
+        help="Task number within the epic (1-based).",
+    )
 
 
 def _epic_task_target(parsed) -> TargetRef:
     return TargetRef(
-        kind="epic_task", epic_id=int(parsed.epic), task_num=int(parsed.task_num),
+        kind="epic_task",
+        public_ref=parsed.epic,
+        task_num=int(parsed.task_num),
     )
 
 
 EPIC_PROGRESS_NOTE_APPEND_USAGE = (
-    "yoke workflow-item epic-progress-note append --epic N --task-num N "
+    "yoke workflow-item epic-progress-note append --epic PREFIX-N --task-num N "
     "--note-num N (--body TEXT | --body-file PATH | --stdin) "
     "[--commit-hash SHA] [--session-id S] [--json]"
 )
@@ -58,22 +67,44 @@ def epic_progress_note_append(args: List[str]) -> int:
         description=EPIC_PROGRESS_NOTE_APPEND_USAGE,
     )
     _epic_task_target_flags(parser)
-    parser.add_argument("--note-num", dest="note_num", type=int, required=True,
-                        help="1-based note number within the task.")
+    parser.add_argument(
+        "--note-num",
+        dest="note_num",
+        type=int,
+        required=True,
+        help="1-based note number within the task.",
+    )
     body_group = parser.add_mutually_exclusive_group(required=True)
-    add_text_file_pair(body_group, "--body", "--body-file", dest="body",
-                       help_text="Note body (Markdown).")
-    body_group.add_argument("--stdin", action="store_true",
-                            help="Read body from stdin.")
-    parser.add_argument("--commit-hash", dest="commit_hash", default="",
-                        help="Optional binding commit SHA.")
-    add_session_arg(parser); add_json_arg(parser)
+    add_text_file_pair(
+        body_group,
+        "--body",
+        "--body-file",
+        dest="body",
+        help_text="Note body (Markdown).",
+    )
+    body_group.add_argument(
+        "--stdin", action="store_true", help="Read body from stdin."
+    )
+    parser.add_argument(
+        "--commit-hash",
+        dest="commit_hash",
+        default="",
+        help="Optional binding commit SHA.",
+    )
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, EPIC_PROGRESS_NOTE_APPEND_USAGE)
     if parsed is None:
         return 2
     try:
-        body = sys.stdin.read() if parsed.stdin else resolve_text_file(
-            parsed.body, parsed.body_file, "--body-file",
+        body = (
+            sys.stdin.read()
+            if parsed.stdin
+            else resolve_text_file(
+                parsed.body,
+                parsed.body_file,
+                "--body-file",
+            )
         )
     except ValueError as exc:
         return usage_error(str(exc))
@@ -81,15 +112,17 @@ def epic_progress_note_append(args: List[str]) -> int:
         function_id="workflow_item.epic_progress_note.append",
         target=_epic_task_target(parsed),
         payload={
-            "note_num": parsed.note_num, "body": body,
+            "note_num": parsed.note_num,
+            "body": body,
             "commit_hash": parsed.commit_hash,
         },
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
     )
 
 
 EPIC_PROGRESS_NOTE_LIST_USAGE = (
-    "yoke workflow-item epic-progress-note list --epic N --task-num N "
+    "yoke workflow-item epic-progress-note list --epic PREFIX-N --task-num N "
     "[--limit N] [--session-id S] [--json]"
 )
 
@@ -100,9 +133,11 @@ def epic_progress_note_list(args: List[str]) -> int:
         description=EPIC_PROGRESS_NOTE_LIST_USAGE,
     )
     _epic_task_target_flags(parser)
-    parser.add_argument("--limit", type=int, default=0,
-                        help="Optional max number of entries.")
-    add_session_arg(parser); add_json_arg(parser)
+    parser.add_argument(
+        "--limit", type=int, default=0, help="Optional max number of entries."
+    )
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, EPIC_PROGRESS_NOTE_LIST_USAGE)
     if parsed is None:
         return 2
@@ -110,21 +145,22 @@ def epic_progress_note_list(args: List[str]) -> int:
         function_id="workflow_item.epic_progress_note.list",
         target=_epic_task_target(parsed),
         payload={"limit": int(parsed.limit)},
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
     )
 
 
-EPIC_TASKS_LIST_USAGE = (
-    "yoke epic-tasks list --epic N [--session-id S] [--json]"
-)
+EPIC_TASKS_LIST_USAGE = "yoke epic-tasks list --epic PREFIX-N [--session-id S] [--json]"
 
 
 def epic_tasks_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke epic-tasks list", description=EPIC_TASKS_LIST_USAGE,
+        prog="yoke epic-tasks list",
+        description=EPIC_TASKS_LIST_USAGE,
     )
-    parser.add_argument("--epic", type=int, required=True, help="Epic id.")
-    add_session_arg(parser); add_json_arg(parser)
+    parser.add_argument("--epic", required=True, help="Epic public ref (PREFIX-N).")
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, EPIC_TASKS_LIST_USAGE)
     if parsed is None:
         return 2
@@ -140,8 +176,9 @@ def epic_tasks_list(args: List[str]) -> int:
 
     return dispatch_and_emit(
         function_id="epic_tasks.list.run",
-        target=TargetRef(kind="epic_task", epic_id=int(parsed.epic)),
+        target=TargetRef(kind="epic_task", public_ref=parsed.epic),
         payload={},
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
         human_writer=_human_writer,
     )

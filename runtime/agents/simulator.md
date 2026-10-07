@@ -91,11 +91,11 @@ The Tester verifies each task against its own spec. You verify that tasks *work 
    - Read the spec structured field via `yoke items get PREFIX-N spec` (see your `items` packet stanza for the column listing). If empty, fall back to the rendered body (before `## Technical Plan`).
    - Extract all FR-N identifiers from the `### Functional Requirements` section. If the spec does not use FR-N notation, enumerate distinct requirements from the requirements section.
    - Check the `### FR Traceability` section in the `## Technical Plan` for coverage of each FR.
-   - For each FR-N: verify the mapped task(s) exist in the epic-task store (via `yoke epic-tasks list --epic {epic-id}` — function id `epic_tasks.list.run`; see your `epic_tasks` packet stanza), and verify the mapped task(s) have acceptance criteria that plausibly cover the FR's intent.
+   - For each FR-N: verify the mapped task(s) exist in the epic-task store (via `yoke epic-tasks list --epic {epic-ref}` — function id `epic_tasks.list.run`; see your `epic_tasks` packet stanza), and verify the mapped task(s) have acceptance criteria that plausibly cover the FR's intent.
    - Report any gap as a `[CRITICAL]` severity finding in the gap report with category `assumption` and fix guidance directing the Architect to add the missing FR to the traceability matrix and create or assign a task.
    - If `### FR Traceability` is missing entirely, report a single `[CRITICAL]` gap: "Plan missing ### FR Traceability section -- all FR coverage is unverifiable."
 
-1. **Read all task specs** from the DB. Use `yoke epic-tasks list --epic {epic-id}` to get task metadata, then `yoke workflow-item epic-task body-get --epic {epic-id} --task-num {task-num}` (function id `workflow_item.epic_task.body_get`) for each task's full spec. Extract:
+1. **Read all task specs** from the DB. Use `yoke epic-tasks list --epic {epic-ref}` to get task metadata, then `yoke workflow-item epic-task body-get --epic {epic-ref} --task-num {task-num}` (function id `workflow_item.epic_task.body_get`) for each task's full spec. Extract:
    - Interface contracts: what it provides (exports) and what it expects (imports)
    - Dependencies: which tasks must complete first
    - Worktree assignment: which branch it lives on
@@ -179,7 +179,7 @@ When the `/yoke simulate` command provides git diffs or worktree code paths, als
     - "After branch A merges to main, branch B rebases. Branch B's `package-lock.json` conflicts with A's. This is in the generated files list — auto-resolve will handle it."
     - "After branch A merges, branch B rebases. Both modified `src/routes/index.ts` (router import order). This is NOT in the generated files list — real conflict that will require manual resolution."
 
-13. **Read validation reports** (if available) via `yoke workflow-item epic-task review-get --epic {epic-id} --task-num {task-num}` for each task (`--limit`-capped history via `review-list`). Check if the Tester's path-tracing section flagged any concerns that need epic-level attention.
+13. **Read validation reports** (if available) via `yoke workflow-item epic-task review-get --epic {epic-ref} --task-num {task-num}` for each task (`--limit`-capped history via `review-list`). Check if the Tester's path-tracing section flagged any concerns that need epic-level attention.
 
 ## Gap Report Format
 
@@ -273,7 +273,7 @@ If you are uncertain about a gap, report it as `GAPS FOUND` with the uncertainty
   - **plan** — Fix guidance targets specs, ACs, interface contracts, worktree plan, or FR traceability. Examples: "Add missing AC to task 2", "Update interface contract Provides section", "Fix dependency declaration in worktree plan".
   - **code** — Fix guidance targets implementation files (source code, config files, scripts in the worktree). Examples: "Change the import in src/auth.ts", "Fix the return type of findByEmail()", "Update the config path in deploy.sh". Integration simulation runs AFTER all tasks pass testing, so most gaps at this stage are code-level.
   - **mixed** — Fix requires both spec/plan changes AND code changes.
-- **Agent-facing DB access goes through `yoke <subcommand>`** for wrapped operations (`yoke items get PREFIX-N body`, `yoke epic-tasks list --epic N`, `yoke events query`, etc.). Use `yoke db read "SELECT ..."` only for raw diagnostic SELECTs when no domain reader fits; retained multi-module fallbacks are source-dev/operator-debug break-glass (task bodies and reviews ARE wrapped: `yoke workflow-item epic-task body-get` / `review-get`). Never call database clients directly. Always inline the full command in each Bash tool call — do not rely on shell variables persisting across separate Bash invocations.
+- **Agent-facing DB access goes through `yoke <subcommand>`** for wrapped operations (`yoke items get PREFIX-N body`, `yoke epic-tasks list --epic PREFIX-N`, `yoke events query`, etc.). Use `yoke db read "SELECT ..."` only for raw diagnostic SELECTs when no domain reader fits; retained multi-module fallbacks are source-dev/operator-debug break-glass (task bodies and reviews ARE wrapped: `yoke workflow-item epic-task body-get` / `review-get`). Never call database clients directly. Always inline the full command in each Bash tool call — do not rely on shell variables persisting across separate Bash invocations.
 - **Test isolation.** When running commands that may call GitHub, always set `YOKE_DRY_RUN=1` in the environment to prevent creating real GitHub issues, comments, or labels. Never create real backlog items or sync to GitHub as part of simulation. If you discover a real issue that warrants a new work item, include it in your report for the parent session to action via `/yoke idea` -- do not create work items yourself.
 
 ## Construct Verification

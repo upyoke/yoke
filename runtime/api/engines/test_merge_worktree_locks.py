@@ -29,7 +29,9 @@ def _p(conn) -> str:
 class TestRootDirtyState:
     def _init_repo(self, repo: Path) -> None:
         repo.mkdir()
-        subprocess.run(["git", "init", "-q", str(repo)], check=True, capture_output=True, text=True)
+        subprocess.run(
+            ["git", "init", "-q", str(repo)], check=True, capture_output=True, text=True
+        )
         subprocess.run(
             ["git", "-C", str(repo), "config", "user.name", "Test User"],
             check=True,
@@ -112,8 +114,13 @@ class TestRootDirtyState:
             capture_output=True,
             text=True,
         )
-        assert "auto-commit Yoke bookkeeping before merge [YOK-9999]" in last_subject.stdout
-        assert any("Auto-committed Yoke bookkeeping files." in message for message in messages)
+        assert (
+            "auto-commit Yoke bookkeeping before merge [YOK-9999]"
+            in last_subject.stdout
+        )
+        assert any(
+            "Auto-committed Yoke bookkeeping files." in message for message in messages
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -124,11 +131,13 @@ class TestRootDirtyState:
 class TestMergeLockIntegration:
     def test_check_no_locks(self, mw_db):
         from yoke_core.domain import merge_lock
+
         msg = merge_lock.check(mw_db["conn"])
         assert msg is None
 
     def test_acquire_and_release(self, mw_db):
         from yoke_core.domain import merge_lock
+
         handle = merge_lock.acquire("YOK-9999", conn=mw_db["conn"])
         assert handle.session_id
         assert handle.branch == "YOK-9999"
@@ -145,6 +154,7 @@ class TestMergeLockIntegration:
 
     def test_force_clear(self, mw_db):
         from yoke_core.domain import merge_lock
+
         merge_lock.acquire("YOK-9999", conn=mw_db["conn"])
         merge_lock.acquire("YOK-43", conn=mw_db["conn"])
         merge_lock.force_clear(mw_db["conn"])
@@ -153,15 +163,17 @@ class TestMergeLockIntegration:
 
     def test_acquire_with_epic(self, mw_db):
         from yoke_core.domain import merge_lock
-        handle = merge_lock.acquire("YOK-9999", epic_id="100", conn=mw_db["conn"])
+
+        handle = merge_lock.acquire("YOK-9999", epic_id="YOK-100", conn=mw_db["conn"])
         msg = merge_lock.check(mw_db["conn"])
         assert msg is not None
-        assert "epic: 100" in msg
+        assert "epic: YOK-100" in msg
         merge_lock.release(handle, conn=mw_db["conn"])
 
     def test_stale_pid_auto_cleanup(self, mw_db):
         """Locks from dead PIDs are automatically cleaned."""
         from yoke_core.domain import merge_lock
+
         conn = mw_db["conn"]
         # Insert a lock row with a PID that doesn't exist
         conn.execute(
@@ -211,18 +223,24 @@ class TestExtractGeneratedFiles:
         )
         conn.commit()
 
-        ctx = MergeContext(args=MergeArgs(branch="YOK-9999"), epic_id="100")
-        files = extract_generated_files(ctx)
+        ctx = MergeContext(args=MergeArgs(branch="YOK-9999"), epic_id="YOK-100")
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        with patch(
+            "yoke_core.engines.merge_worktree_prepare_state.call_dispatcher",
+            return_value=SimpleNamespace(
+                success=True, result={"fields": {"body": body}}
+            ),
+        ) as read:
+            files = extract_generated_files(ctx)
+        assert read.call_args.kwargs["target"].public_ref == "YOK-100"
         assert "dist/bundle.js" in files
         assert "dist/styles.css" in files
 
     def test_wrong_branch_section(self, mw_db):
         conn = mw_db["conn"]
-        body = (
-            "## Worktree: YOK-99\n"
-            "Generated files\n"
-            "- dist/bundle.js\n"
-        )
+        body = "## Worktree: YOK-99\nGenerated files\n- dist/bundle.js\n"
         p = _p(conn)
         conn.execute(
             "INSERT INTO items "
@@ -236,8 +254,18 @@ class TestExtractGeneratedFiles:
         )
         conn.commit()
 
-        ctx = MergeContext(args=MergeArgs(branch="YOK-9999"), epic_id="100")
-        files = extract_generated_files(ctx)
+        ctx = MergeContext(args=MergeArgs(branch="YOK-9999"), epic_id="YOK-100")
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        with patch(
+            "yoke_core.engines.merge_worktree_prepare_state.call_dispatcher",
+            return_value=SimpleNamespace(
+                success=True, result={"fields": {"body": body}}
+            ),
+        ) as read:
+            files = extract_generated_files(ctx)
+        assert read.call_args.kwargs["target"].public_ref == "YOK-100"
         assert files == []
 
 
@@ -249,8 +277,12 @@ class TestExtractGeneratedFiles:
 class TestPreflightEpicTasks:
     def test_all_tasks_complete(self, mw_db):
         conn = mw_db["conn"]
-        conn.execute("INSERT INTO epic_tasks (epic_id, task_num, status) VALUES ('100', 1, 'done')")
-        conn.execute("INSERT INTO epic_tasks (epic_id, task_num, status) VALUES ('100', 2, 'reviewed-implementation')")
+        conn.execute(
+            "INSERT INTO epic_tasks (epic_id, task_num, status) VALUES ('100', 1, 'done')"
+        )
+        conn.execute(
+            "INSERT INTO epic_tasks (epic_id, task_num, status) VALUES ('100', 2, 'reviewed-implementation')"
+        )
         conn.commit()
 
         # Direct DB check matching preflight logic
@@ -264,8 +296,12 @@ class TestPreflightEpicTasks:
 
     def test_incomplete_tasks(self, mw_db):
         conn = mw_db["conn"]
-        conn.execute("INSERT INTO epic_tasks (epic_id, task_num, status) VALUES ('100', 1, 'done')")
-        conn.execute("INSERT INTO epic_tasks (epic_id, task_num, status) VALUES ('100', 2, 'implementing')")
+        conn.execute(
+            "INSERT INTO epic_tasks (epic_id, task_num, status) VALUES ('100', 1, 'done')"
+        )
+        conn.execute(
+            "INSERT INTO epic_tasks (epic_id, task_num, status) VALUES ('100', 2, 'implementing')"
+        )
         conn.commit()
 
         terminal_list = merge_worktree._sql_task_terminal_success_list()
@@ -283,53 +319,9 @@ class TestPreflightEpicTasks:
 # ---------------------------------------------------------------------------
 
 
-class TestMergeLockCLI:
-    def test_check_command(self, mw_db):
-        from yoke_core.domain.merge_lock import main as lock_main
-        result = lock_main(["check"])
-        assert result == 0
-
-    def test_acquire_release_command(self, mw_db):
-        from yoke_core.domain.merge_lock import main as lock_main
-        # Capture session_id from acquire
-        import io
-        from contextlib import redirect_stdout
-        f = io.StringIO()
-        with redirect_stdout(f):
-            result = lock_main(["acquire", "YOK-9999"])
-        assert result == 0
-        session_id = f.getvalue().strip()
-        assert session_id
-
-        # Now release it
-        result = lock_main(["release", session_id, "YOK-9999"])
-        assert result == 0
-
-    def test_force_clear_command(self, mw_db):
-        from yoke_core.domain.merge_lock import main as lock_main
-        result = lock_main(["force-clear"])
-        assert result == 0
-
-    def test_unknown_command(self, mw_db):
-        from yoke_core.domain.merge_lock import main as lock_main
-        result = lock_main(["bogus"])
-        assert result == 2
-
-
 # ---------------------------------------------------------------------------
 # Glob matching tests
 # ---------------------------------------------------------------------------
-
-
-class TestGlobMatching:
-    def test_matches_exact(self):
-        assert merge_worktree._matches_glob(".yoke/BOARD.md", [".yoke/BOARD.md"]) is True
-
-    def test_matches_wildcard(self):
-        assert merge_worktree._matches_glob(".yoke/backups/042.md", [".yoke/backups/*"]) is True
-
-    def test_no_match(self):
-        assert merge_worktree._matches_glob("src/app.js", [".yoke/backups/*"]) is False
 
 
 # ---------------------------------------------------------------------------

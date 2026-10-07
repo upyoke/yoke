@@ -66,7 +66,7 @@ def handle_delivery_evidence(request: FunctionCallRequest) -> HandlerOutcome:
     """
     item_id = _require_item_id(request)
     if item_id is None:
-        return _err("target_invalid", "delivery_evidence requires target.item_id")
+        return _err("target_invalid", "delivery_evidence requires target.public_ref")
 
     from yoke_core.domain.delivery_evidence_ladder import delivery_evidence
 

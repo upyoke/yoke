@@ -59,7 +59,7 @@ def _lifecycle_envelope(item_id, target_status, **payload_overrides):
         "function": _FUNCTION_ID,
         "version": "v1",
         "actor": {"actor_id": "op", "session_id": _SESSION_ID},
-        "target": {"kind": "item", "item_id": item_id},
+        "target": {"kind": "item", "public_ref": f"YOK-{item_id}"},
         "payload": payload,
     }
 
@@ -264,8 +264,8 @@ class TestLifecycleTransitionPreconditions:
             test_db,
             _lifecycle_envelope(99999, "reviewing-implementation"),
         )
-        assert resp.status_code == 403, resp.text
-        assert resp.json()["error"]["code"] == "permission_denied"
+        assert resp.status_code == 400, resp.text
+        assert resp.json()["error"]["code"] == "public_ref_unresolved"
 
 
 class TestLifecycleTransitionGateMapping:

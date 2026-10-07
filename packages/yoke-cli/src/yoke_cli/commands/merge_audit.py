@@ -12,7 +12,7 @@ from yoke_cli.commands._helpers import parse_or_usage_error
 
 AdapterFn = Callable[[List[str]], int]
 
-MERGE_AUDIT_USAGE = "yoke merge audit [PREFIX-N|N]"
+MERGE_AUDIT_USAGE = "yoke merge audit [PREFIX-N]"
 
 _MERGE_AUDIT_HELP = """\
 Render the read-only merge readiness audit. With an item ref, limit the
@@ -26,10 +26,9 @@ def _parse_optional_epic(raw: Optional[str]) -> Optional[str]:
     from yoke_contracts.public_ref import parse_public_item_ref
 
     token = raw.strip()
-    if parse_public_item_ref(token)[1] is None:
+    if None in parse_public_item_ref(token):
         raise ValueError(
-            f"invalid epic ID {token!r}: pass the public ref (PREFIX-N), or a bare "
-            "number together with an explicit project"
+            f"public_item_ref_required: invalid ref {token!r}; pass PREFIX-N"
         )
     return token
 
@@ -43,7 +42,7 @@ def merge_audit(args: List[str]) -> int:
     parser.add_argument(
         "epic",
         nargs="?",
-        help="Optional epic/item ref; accepts PREFIX-N or bare N.",
+        help="Optional epic/item ref; accepts PREFIX-N.",
     )
     parsed = parse_or_usage_error(parser, args, MERGE_AUDIT_USAGE)
     if parsed is None:

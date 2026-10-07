@@ -44,7 +44,7 @@ def test_claims_packet_teaches_release_work_claim_variants() -> None:
     body = sac.render_topic_packet("claims", detail=PACKET_DETAIL_FULL)
     assert "yoke claims work release --item PREFIX-N --reason TEXT" in body
     assert "yoke claims work release --claim-id <id> --reason TEXT" in body
-    assert "yoke claims work release --epic-id E --task-num K --reason TEXT" in body
+    assert "yoke claims work release --epic PREFIX-N --task-num K --reason TEXT" in body
     assert "yoke claims work release --all-mine" in body
 
 

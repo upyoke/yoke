@@ -1,4 +1,4 @@
-"""Parity tests — write-side update surface (PATCH /v1/items/{id} vs CLI update-item)."""
+"""Parity tests — write-side update surface (PATCH /v1/items/{public_ref} vs CLI update-item)."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ def write_parity_env():
 
 
 class TestUpdateParity:
-    """Verify that API PATCH /v1/items/{id} and service-client update-item
+    """Verify that API PATCH /v1/items/{public_ref} and service-client update-item
     produce identical validation results for the supported update surface."""
 
     def test_patch_status_denied_and_canonical_cli_accepted(
@@ -36,7 +36,7 @@ class TestUpdateParity:
         db_path = write_parity_env["db_path"]
 
         # Item 1 is at status=implementing (task), transition to blocked
-        api_resp = client.patch("/v1/items/1", json={"status": "blocked"})
+        api_resp = client.patch("/v1/items/YOK-1", json={"status": "blocked"})
         assert api_resp.status_code == 409
         assert api_resp.json()["error"]["code"] == "STATUS_UPDATE_REQUIRES_LIFECYCLE"
 
@@ -45,7 +45,7 @@ class TestUpdateParity:
         cli_result = _run_service_client(
             db_path,
             "update-item",
-            "3",
+            "EXT-1",
             "--field",
             "status",
             "--value",
@@ -64,7 +64,7 @@ class TestUpdateParity:
         db_path = write_parity_env["db_path"]
 
         # API
-        api_resp = client.patch("/v1/items/1", json={"status": "bogus"})
+        api_resp = client.patch("/v1/items/YOK-1", json={"status": "bogus"})
         assert api_resp.status_code == 409
         assert api_resp.json()["error"]["code"] == "STATUS_UPDATE_REQUIRES_LIFECYCLE"
 
@@ -72,7 +72,7 @@ class TestUpdateParity:
         cli_result = _run_service_client(
             db_path,
             "update-item",
-            "1",
+            "YOK-1",
             "--field",
             "status",
             "--value",
@@ -87,14 +87,14 @@ class TestUpdateParity:
         client = write_parity_env["client"]
         db_path = write_parity_env["db_path"]
 
-        api_resp = client.patch("/v1/items/1", json={"title": "New title"})
+        api_resp = client.patch("/v1/items/YOK-1", json={"title": "New title"})
         assert api_resp.status_code == 200
         assert api_resp.json()["title"] == "New title"
 
         cli_result = _run_service_client(
             db_path,
             "update-item",
-            "3",
+            "EXT-1",
             "--field",
             "title",
             "--value",
@@ -110,13 +110,13 @@ class TestUpdateParity:
         db_path = write_parity_env["db_path"]
         long_title = "X" * (title_max_length() + 1)
 
-        api_resp = client.patch("/v1/items/1", json={"title": long_title})
+        api_resp = client.patch("/v1/items/YOK-1", json={"title": long_title})
         assert api_resp.status_code == 422
 
         cli_result = _run_service_client(
             db_path,
             "update-item",
-            "1",
+            "YOK-1",
             "--field",
             "title",
             "--value",
@@ -132,13 +132,13 @@ class TestUpdateParity:
         client = write_parity_env["client"]
         db_path = write_parity_env["db_path"]
 
-        api_resp = client.patch("/v1/items/1", json={"priority": "low"})
+        api_resp = client.patch("/v1/items/YOK-1", json={"priority": "low"})
         assert api_resp.status_code == 200
 
         cli_result = _run_service_client(
             db_path,
             "update-item",
-            "3",
+            "EXT-1",
             "--field",
             "priority",
             "--value",
@@ -151,13 +151,13 @@ class TestUpdateParity:
         client = write_parity_env["client"]
         db_path = write_parity_env["db_path"]
 
-        api_resp = client.patch("/v1/items/1", json={"priority": "urgent"})
+        api_resp = client.patch("/v1/items/YOK-1", json={"priority": "urgent"})
         assert api_resp.status_code == 422
 
         cli_result = _run_service_client(
             db_path,
             "update-item",
-            "1",
+            "YOK-1",
             "--field",
             "priority",
             "--value",
@@ -170,13 +170,13 @@ class TestUpdateParity:
         client = write_parity_env["client"]
         db_path = write_parity_env["db_path"]
 
-        api_resp = client.patch("/v1/items/9999", json={"title": "No item"})
+        api_resp = client.patch("/v1/items/YOK-9999", json={"title": "No item"})
         assert api_resp.status_code == 404
 
         cli_result = _run_service_client(
             db_path,
             "update-item",
-            "9999",
+            "YOK-9999",
             "--field",
             "title",
             "--value",
@@ -191,13 +191,13 @@ class TestUpdateParity:
         client = write_parity_env["client"]
         db_path = write_parity_env["db_path"]
 
-        api_resp = client.patch("/v1/items/1", json={"frozen": True})
+        api_resp = client.patch("/v1/items/YOK-1", json={"frozen": True})
         assert api_resp.status_code == 200
 
         cli_result = _run_service_client(
             db_path,
             "update-item",
-            "3",
+            "EXT-1",
             "--field",
             "frozen",
             "--value",

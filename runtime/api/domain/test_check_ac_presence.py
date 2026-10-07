@@ -68,23 +68,13 @@ class TestCountAcs(unittest.TestCase):
         self.assertEqual(unlabeled, 0)
 
     def test_unlabeled_counted_only_without_canonical(self) -> None:
-        text = (
-            "## Acceptance Criteria\n"
-            "- [ ] Only unlabeled\n"
-            "- [ ] Another\n"
-        )
+        text = "## Acceptance Criteria\n- [ ] Only unlabeled\n- [ ] Another\n"
         canonical, unlabeled = mod.count_acs(text)
         self.assertEqual(canonical, 0)
         self.assertEqual(unlabeled, 2)
 
     def test_canonical_outside_section(self) -> None:
-        text = (
-            "Intro\n"
-            "- [ ] AC-1: Still counts\n"
-            "\n"
-            "## Something Else\n"
-            "- [ ] not AC\n"
-        )
+        text = "Intro\n- [ ] AC-1: Still counts\n\n## Something Else\n- [ ] not AC\n"
         canonical, unlabeled = mod.count_acs(text)
         self.assertEqual(canonical, 1)
         self.assertEqual(unlabeled, 0)
@@ -124,11 +114,7 @@ class TestCountAcs(unittest.TestCase):
     def test_unlabeled_under_indented_heading(self) -> None:
         """unlabeled advisory path still works when the
         ``## Acceptance Criteria`` heading is indented."""
-        text = (
-            "    ## Acceptance Criteria\n"
-            "    - [ ] foo\n"
-            "    - [ ] bar\n"
-        )
+        text = "    ## Acceptance Criteria\n    - [ ] foo\n    - [ ] bar\n"
         canonical, unlabeled = mod.count_acs(text)
         self.assertEqual(canonical, 0)
         self.assertEqual(unlabeled, 2)
@@ -145,25 +131,32 @@ class TestMain(unittest.TestCase):
     def test_invalid_id_exits_2(self) -> None:
         rc, _, err = self._run(["abc"])
         self.assertEqual(rc, 2)
-        self.assertIn("pass the public ref (PREFIX-N", err)
+        self.assertIn("public_item_ref_required", err)
 
     def test_missing_item_exits_2(self) -> None:
-        with mock.patch(
-            "yoke_core.domain.yok_n_parser.parse_item_argument",
-            return_value=TEST_ITEM_ID,
-        ), mock.patch.object(mod, "_fetch_item_row", return_value=None):
+        with (
+            mock.patch(
+                "yoke_core.domain.yok_n_parser.parse_item_argument",
+                return_value=TEST_ITEM_ID,
+            ),
+            mock.patch.object(mod, "_fetch_item_row", return_value=None),
+        ):
             rc, _, err = self._run([str(TEST_ITEM_ID)])
         self.assertEqual(rc, 2)
         self.assertIn("not found", err)
 
     def test_canonical_acs_exits_0_prints_count(self) -> None:
         spec = "## Acceptance Criteria\n- [ ] AC-1: foo\n- [ ] AC-2: bar\n"
-        with mock.patch(
-            "yoke_core.domain.yok_n_parser.parse_item_argument", return_value=5,
-        ), mock.patch.object(
-            mod,
-            "_fetch_item_row",
-            return_value=("My Item", spec, ""),
+        with (
+            mock.patch(
+                "yoke_core.domain.yok_n_parser.parse_item_argument",
+                return_value=5,
+            ),
+            mock.patch.object(
+                mod,
+                "_fetch_item_row",
+                return_value=("My Item", spec, ""),
+            ),
         ):
             rc, out, err = self._run(["5"])
         self.assertEqual(rc, 0)
@@ -172,12 +165,16 @@ class TestMain(unittest.TestCase):
 
     def test_unlabeled_acs_exit_0_with_advisory(self) -> None:
         spec = "## Acceptance Criteria\n- [ ] foo\n- [ ] bar\n"
-        with mock.patch(
-            "yoke_core.domain.yok_n_parser.parse_item_argument", return_value=5,
-        ), mock.patch.object(
-            mod,
-            "_fetch_item_row",
-            return_value=("My Item", spec, ""),
+        with (
+            mock.patch(
+                "yoke_core.domain.yok_n_parser.parse_item_argument",
+                return_value=5,
+            ),
+            mock.patch.object(
+                mod,
+                "_fetch_item_row",
+                return_value=("My Item", spec, ""),
+            ),
         ):
             rc, out, err = self._run(["5"])
         self.assertEqual(rc, 0)
@@ -185,12 +182,16 @@ class TestMain(unittest.TestCase):
         self.assertIn("unlabeled", err)
 
     def test_no_acs_exits_1(self) -> None:
-        with mock.patch(
-            "yoke_core.domain.yok_n_parser.parse_item_argument", return_value=5,
-        ), mock.patch.object(
-            mod,
-            "_fetch_item_row",
-            return_value=("My Item", "No checkboxes here", ""),
+        with (
+            mock.patch(
+                "yoke_core.domain.yok_n_parser.parse_item_argument",
+                return_value=5,
+            ),
+            mock.patch.object(
+                mod,
+                "_fetch_item_row",
+                return_value=("My Item", "No checkboxes here", ""),
+            ),
         ):
             rc, out, err = self._run(["5"])
         self.assertEqual(rc, 1)
@@ -198,12 +199,16 @@ class TestMain(unittest.TestCase):
 
     def test_falls_back_to_body_when_spec_empty(self) -> None:
         body = "## Acceptance Criteria\n- [ ] AC-1: From body\n"
-        with mock.patch(
-            "yoke_core.domain.yok_n_parser.parse_item_argument", return_value=5,
-        ), mock.patch.object(
-            mod,
-            "_fetch_item_row",
-            return_value=("My Item", "", body),
+        with (
+            mock.patch(
+                "yoke_core.domain.yok_n_parser.parse_item_argument",
+                return_value=5,
+            ),
+            mock.patch.object(
+                mod,
+                "_fetch_item_row",
+                return_value=("My Item", "", body),
+            ),
         ):
             rc, out, _ = self._run(["5"])
         self.assertEqual(rc, 0)

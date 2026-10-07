@@ -24,9 +24,11 @@ def _emit_frontier_computed(
 ) -> None:
     """Emit a FrontierComputed event with core-owned frontier context.
 
-    Telemetry item identity is the bare internal ``items.id`` integer.
+    Public event context renders owned item keys through this connection.
     """
     try:
+        from .function_response_refs import collect_item_ids, public_result
+        from .item_ref_render import render_item_refs
         from .events import emit_event
         from .frontier_compute import (
             _canonical_project_label,
@@ -46,6 +48,13 @@ def _emit_frontier_computed(
         ]
 
         excluded_details = list(excluded_routed_ownership or [])
+        identities = {
+            "ranking_summary": ranking_summary,
+            "excluded_routed_ownership": excluded_details,
+        }
+        identities = public_result(
+            identities, render_item_refs(conn, sorted(collect_item_ids(identities)))
+        )
         emit_event(
             "FrontierComputed",
             event_kind="workflow",
@@ -62,10 +71,10 @@ def _emit_frontier_computed(
                 "blocked_count": len(result.blocked),
                 "frozen_count": len(result.frozen),
                 "conduct_eligible_count": len(result.conduct_eligible),
-                "ranking_summary": ranking_summary,
+                "ranking_summary": identities["ranking_summary"],
                 "duration_ms": duration_ms,
                 "excluded_routed_ownership_count": len(excluded_details),
-                "excluded_routed_ownership": excluded_details,
+                "excluded_routed_ownership": identities["excluded_routed_ownership"],
             },
         )
     except Exception as exc:

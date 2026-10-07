@@ -41,7 +41,9 @@ def _repo_with_dated_commit(tmp_path: Path) -> tuple[Path, str]:
     repo.mkdir()
     subprocess.run(
         ["git", "init", "-b", "main", str(repo)],
-        check=True, capture_output=True, text=True,
+        check=True,
+        capture_output=True,
+        text=True,
     )
     _git(repo, "config", "user.name", "Yoke Test")
     _git(repo, "config", "user.email", "test@example.com")
@@ -76,18 +78,21 @@ def test_a_resolved_landing_time_supersedes_what_the_item_recorded(
     monkeypatch.setattr(
         merge_boundary,
         "call_dispatcher",
-        lambda **kwargs: sent.append(kwargs["payload"])
-        or type("R", (), {"success": True, "error": None})(),
+        lambda **kwargs: (
+            sent.append(kwargs["payload"])
+            or type("R", (), {"success": True, "error": None})()
+        ),
     )
 
-    assert merge_boundary.stamp_merged_at(
-        7, repo_root=str(repo), merge_sha=sha
-    ) is None
+    assert (
+        merge_boundary.stamp_merged_at("ITEM-7", repo_root=str(repo), merge_sha=sha)
+        is None
+    )
     assert sent == [
         {
-            "merged_at": datetime.fromtimestamp(
-                LANDING_EPOCH, timezone.utc
-            ).strftime(MERGED_AT_FORMAT),
+            "merged_at": datetime.fromtimestamp(LANDING_EPOCH, timezone.utc).strftime(
+                MERGED_AT_FORMAT
+            ),
             "supersedes_prior_landing": True,
         }
     ]
@@ -102,11 +107,13 @@ def test_a_landing_with_no_readable_merge_commit_keeps_the_earlier_answer(
     monkeypatch.setattr(
         merge_boundary,
         "call_dispatcher",
-        lambda **kwargs: sent.append(kwargs["payload"])
-        or type("R", (), {"success": True, "error": None})(),
+        lambda **kwargs: (
+            sent.append(kwargs["payload"])
+            or type("R", (), {"success": True, "error": None})()
+        ),
     )
 
-    merge_boundary.stamp_merged_at(7, repo_root=str(repo), merge_sha="")
+    merge_boundary.stamp_merged_at("ITEM-7", repo_root=str(repo), merge_sha="")
 
     assert sent[0]["supersedes_prior_landing"] is False
     assert sent[0]["merged_at"]

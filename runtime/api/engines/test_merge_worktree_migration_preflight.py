@@ -64,7 +64,6 @@ def _run(monkeypatch, *, profile: str, item_list_success: bool = True):
                     "rows": [
                         {
                             "id": TEST_ITEM_REF,
-                            "internal_id": str(TEST_ITEM_ID),
                             "status": "reviewing-implementation",
                             "db_mutation_profile": profile,
                         }
@@ -81,14 +80,16 @@ def _run(monkeypatch, *, profile: str, item_list_success: bool = True):
     context = MergeContext(
         args=MergeArgs(branch=TEST_ITEM_REF, target="main", standalone=True),
         worktree_path="/tmp/migration-lane",
-        item_id=str(TEST_ITEM_ID),
+        item_id=TEST_ITEM_REF,
+        public_ref=TEST_ITEM_REF,
         project="yoke",
     )
     return preflight.preflight_checks(context), calls
 
 
 def test_numbered_item_relays_roster_and_capability_then_blocks(
-    monkeypatch, capsys,
+    monkeypatch,
+    capsys,
 ) -> None:
     monkeypatch.setattr(
         migration_gate,

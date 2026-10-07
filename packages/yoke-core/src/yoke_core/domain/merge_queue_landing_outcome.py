@@ -10,10 +10,11 @@ evidence, and warnings an item carries do not depend on who noticed.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
-from yoke_contracts.api.function_call import TargetRef
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
 from yoke_core.domain.merge_queue_close_out import record_landing
@@ -80,7 +81,7 @@ def recorded_landing(dispatch: Callable[..., Any], item_id: int) -> tuple[str, s
     """
     response = dispatch(
         function_id="items.detail.get",
-        target=TargetRef(kind="item", item_id=int(item_id)),
+        target=public_item_target(item_id),
         payload={},
     )
     if not getattr(response, "success", False):

@@ -48,24 +48,32 @@ DB_CLAIM_PROSE_CHECK_USAGE = (
 
 def db_claim_amend(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke db-claim amend", description=DB_CLAIM_AMEND_USAGE,
+        prog="yoke db-claim amend",
+        description=DB_CLAIM_AMEND_USAGE,
     )
-    parser.add_argument("item", help="Item id (PREFIX-N or project-local number).")
+    parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument(
-        "--reason", required=True,
+        "--reason",
+        required=True,
         help="Non-empty operator-facing justification.",
     )
     payload_group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
-        payload_group, "--payload", "--payload-file", dest="payload",
+        payload_group,
+        "--payload",
+        "--payload-file",
+        dest="payload",
         help_text="Unified claim JSON (object). Use --payload-file for a path.",
     )
     payload_group.add_argument(
-        "--stdin", action="store_true",
+        "--stdin",
+        action="store_true",
         help="Read unified claim JSON from stdin.",
     )
     payload_group.add_argument(
-        "--state", choices=("none",), default=None,
+        "--state",
+        choices=("none",),
+        default=None,
         help='Convenience alias for --payload \'{"state":"none"}\'.',
     )
     add_session_arg(parser)
@@ -82,7 +90,9 @@ def db_claim_amend(args: List[str]) -> int:
                 raw = sys.stdin.read()
             else:
                 raw = resolve_text_file(
-                    parsed.payload, parsed.payload_file, "--payload-file",
+                    parsed.payload,
+                    parsed.payload_file,
+                    "--payload-file",
                 )
         except ValueError as exc:
             return usage_error(str(exc))
@@ -132,9 +142,7 @@ def db_claim_prose_check(args: List[str]) -> int:
         return 2
     if parsed.stdin:
         if parsed.item is not None:
-            return usage_error(
-                "pass either PREFIX-N or --stdin, not both"
-            )
+            return usage_error("pass either PREFIX-N or --stdin, not both")
         return _prose_check_stdin(
             public_ref=parsed.public_ref,
             json_mode=parsed.json_mode,
@@ -158,9 +166,7 @@ def _prose_check_stdin(
     """Local detector over stdin prose — https-safe, no control-plane DB."""
     import importlib
 
-    check = importlib.import_module(
-        "yoke_core.domain.db_claim_prose_check"
-    ).check
+    check = importlib.import_module("yoke_core.domain.db_claim_prose_check").check
 
     prose = sys.stdin.read()
     outcome = check(prose, profile_raw=None, public_ref=public_ref)

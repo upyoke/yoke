@@ -129,7 +129,7 @@ export function activationClient(activation, overrides = {}) {
     "items.overview.list": { rows: [] },
     "frontier.list": {
       ready_rows: [{
-        item_id: "YOK-9", project: "yoke", next_step: "implement",
+        public_ref: "YOK-9", project: "yoke", next_step: "implement",
         run_command: "yoke implement YOK-9", why_ready: "no blockers",
       }],
       blocked_rows: [],

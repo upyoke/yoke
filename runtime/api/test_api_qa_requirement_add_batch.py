@@ -151,7 +151,7 @@ class TestRequirementAddBatch(unittest.TestCase):
                 {
                     "rows": [
                         {
-                            "item_id": 43,
+                            "public_ref": "YOK-43",
                             "qa_kind": "ac_verification",
                             "qa_phase": "verification",
                         },

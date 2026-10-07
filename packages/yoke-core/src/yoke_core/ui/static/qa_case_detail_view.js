@@ -50,15 +50,15 @@ async function loadExecutions(context, requirementId) {
 async function loadEvidenceRow(context, projects, requirement, requirementId) {
   const payloads = [];
   for (const project of projects) {
-    if (requirement?.item_id) {
-      payloads.push({ project, item_ids: [Number(requirement.item_id)] });
+    if (requirement?.public_ref) {
+      payloads.push({ project, public_refs: [requirement.public_ref] });
     }
     if (requirement?.deployment_run_id) {
       payloads.push({ project, deployment_run_id: String(requirement.deployment_run_id) });
     }
-    if (requirement?.deployment_member_item_id) {
+    if (requirement?.deployment_member_public_ref) {
       payloads.push({
-        project, item_ids: [Number(requirement.deployment_member_item_id)],
+        project, public_refs: [requirement.deployment_member_public_ref],
       });
     }
   }
@@ -86,20 +86,19 @@ function executionOutcome(run) {
 }
 
 // The subject's own id, not a name a reader can use: a requirement carries
-// the internal item id, and the public ref that addresses the item lives on
+// the public item ref, and the public ref that addresses the item lives on
 // the item. One read turns the first into the second.
 function subjectItemId(requirement, row) {
-  const id = row?.item_id ?? requirement?.item_id
-    ?? row?.deployment_member_item_id ?? requirement?.deployment_member_item_id;
-  const number = Number(id);
-  return Number.isFinite(number) && number > 0 ? number : null;
+  const id = row?.public_ref ?? requirement?.public_ref
+    ?? row?.deployment_member_public_ref ?? requirement?.deployment_member_public_ref;
+  return id ?? null;
 }
 
 async function loadSubjectItem(context, project, itemId) {
   if (!itemId) return null;
   const result = await readOptionalCase(
     context, "items.detail.get", {},
-    { kind: "item", item_id: itemId, project_id: String(project) },
+    { kind: "item", public_ref: itemId, project_id: String(project) },
   );
   return result?.item || null;
 }
@@ -213,7 +212,7 @@ async function loadQaCaseDetail(
 
   const facts = [
     ["Subject", subjectNode(documentNode, project, requirement, row, subjectItem)],
-    ["Scope", requirement.deployment_member_item_id || requirement.item_id
+    ["Scope", requirement.deployment_member_public_ref || requirement.public_ref
       ? "item" : requirement.deployment_run_id ? "release" : "standalone"],
     // The environment the check was pointed at, as its frozen execution
     // target names it. A release check against a run preview registers no

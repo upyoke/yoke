@@ -35,6 +35,8 @@ hand-off recovery names that exact pin with ``--release-lineage``.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 from typing import Any, Optional
 
 from yoke_contracts.api.function_call import TargetRef
@@ -54,7 +56,7 @@ CONTINUE_FUNCTION = "deployment_runs.continue_for_item"
 
 
 def _item_target(item_id: int) -> TargetRef:
-    return TargetRef(kind="item", item_id=int(item_id))
+    return public_item_target(item_id)
 
 
 def _inspect_clause(public_ref: str) -> str:
@@ -132,7 +134,7 @@ def continue_prepared_release(
         with connected_control_plane():
             response = call_dispatcher(
                 function_id=CONTINUE_FUNCTION,
-                target=_item_target(item_id),
+                target=_item_target(public_ref),
                 payload={},
                 actor=build_actor(session_id=session_id or None),
             )

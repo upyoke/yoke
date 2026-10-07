@@ -22,7 +22,7 @@ from yoke_core.domain.verification_tree_binding import TreeIdentity
 from yoke_core.engines import merge_worktree_tests_ci
 
 
-def merge_ctx(tmp_path, *, project="yoke", item_id="42", local_verification=False):
+def merge_ctx(tmp_path, *, project="yoke", item_id="YOK-42", local_verification=False):
     return SimpleNamespace(
         project=project,
         item_id=item_id,
@@ -36,7 +36,12 @@ def merge_ctx(tmp_path, *, project="yoke", item_id="42", local_verification=Fals
 
 
 def stub_lane(
-    monkeypatch, *, dispatch, await_result, covering=None, candidate=None,
+    monkeypatch,
+    *,
+    dispatch,
+    await_result,
+    covering=None,
+    candidate=None,
 ):
     """Stub the boundaries the gate crosses; ``covering`` is the run it finds.
 
@@ -52,7 +57,9 @@ def stub_lane(
         lambda **_kwargs: dict(candidate or {}),
     )
     monkeypatch.setattr(
-        covering_run, "find_run_for_tree", lambda **_kwargs: covering,
+        covering_run,
+        "find_run_for_tree",
+        lambda **_kwargs: covering,
     )
     monkeypatch.setattr(
         merge_worktree_tests_ci,
@@ -93,7 +100,8 @@ def bind_candidate_tree(monkeypatch, tmp_path, head):
         lambda _p: TreeIdentity(root=str(tmp_path), head_sha=head),
     )
     monkeypatch.setattr(
-        "yoke_core.domain.qa_case_ci_lane.run_head_sha", lambda **_k: head,
+        "yoke_core.domain.qa_case_ci_lane.run_head_sha",
+        lambda **_k: head,
     )
     monkeypatch.setattr(
         "yoke_core.engines.merge_worktree_tree_coverage._tree_object_id",
@@ -103,13 +111,19 @@ def bind_candidate_tree(monkeypatch, tmp_path, head):
 
 def run_verification(tmp_path, scope="full"):
     return merge_worktree_tests_ci.run_ci_verification(
-        merge_ctx(tmp_path), scope=scope, command="python3 verify_tree.py",
+        merge_ctx(tmp_path),
+        scope=scope,
+        command="python3 verify_tree.py",
     )
 
 
 def existing_run(head, *, status="completed", conclusion="success", run_id="88"):
     return WorkflowRun(
-        run_id, status, conclusion, f"https://github.test/runs/{run_id}", head,
+        run_id,
+        status,
+        conclusion,
+        f"https://github.test/runs/{run_id}",
+        head,
     )
 
 

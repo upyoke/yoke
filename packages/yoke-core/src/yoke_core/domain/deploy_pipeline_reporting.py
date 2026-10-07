@@ -203,14 +203,14 @@ def _set_deploy_stage(
     """Update each member item's deploy_stage, then the run's current_stage.
 
     Member stamps go through ``deployment_item_stamp.record`` addressed by
-    integer ``items.id``. They run first so a missed item write cannot leave
+    complete public refs. They run first so a missed item write cannot leave
     the run ahead of the items. A failed stamp raises
     :class:`yoke_core.domain.deployment_item_stamp.DeploymentItemStampError`.
     """
     from yoke_core.domain.deployment_item_stamp import stamp_item_field
 
     for raw in member_items:
-        stamp_item_field(int(raw), "deploy_stage", stage)
+        stamp_item_field(raw, "deploy_stage", stage)
     run_updates.update_run_field(run_id, "current_stage", stage)
 
 

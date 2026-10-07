@@ -91,7 +91,7 @@ def test_command_environment_only_binds_candidate_cases(
         "project": "fixture",
         "requirement_id": 42,
         "project_id": 1,
-        "item_id": 9 if lane_bound else None,
+        "public_ref": f"ITEM-{9}" if lane_bound else None,
         "case_key": "candidate-environment",
         "execution_target": {"deployment": {"release_lineage": head}},
         "method_config": {

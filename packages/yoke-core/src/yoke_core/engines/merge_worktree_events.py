@@ -25,11 +25,13 @@ _MERGE_EVENT_SOURCE_TYPE = "system"
 
 def _parent():
     from yoke_core.engines import merge_worktree as _mw
+
     return _mw
 
 
 def _print(msg: str, *, err: bool = False) -> None:
     return _parent()._print(msg, err=err)
+
 
 #: What a merge outcome means for the item's stage strip. Failures record the
 #: label a reader sees; a settling success clears whatever failure the last
@@ -92,11 +94,13 @@ def _record_merge_outcome(
 
     if event_name in _SETTLING_EVENTS:
         note = receipts.record_settlement(
-            int(item_id), branch=branch, target=target,
+            item_id,
+            branch=branch,
+            target=target,
         )
     else:
         note = receipts.record_failure(
-            int(item_id),
+            item_id,
             branch=branch,
             target=target,
             label=_FAILURE_LABELS.get(event_name, "merge failed"),
@@ -117,7 +121,9 @@ def _emit_telemetry(
 ) -> None:
     """Publish one merge lifecycle event.  Never raises."""
     try:
-        from yoke_core.domain import emit_event as _emit_module  # local import to avoid cycles
+        from yoke_core.domain import (
+            emit_event as _emit_module,
+        )  # local import to avoid cycles
         import argparse as _argparse
 
         normalized_item_id = item_id
@@ -151,7 +157,11 @@ def _emit_telemetry(
             tool_use_id="",
             turn_id="",
             hook_event_name="",
-            context=(json.dumps(context, separators=(",", ":"), ensure_ascii=False) if context else ""),
+            context=(
+                json.dumps(context, separators=(",", ":"), ensure_ascii=False)
+                if context
+                else ""
+            ),
             error_context="",
         )
         _emit_module.emit(ns)

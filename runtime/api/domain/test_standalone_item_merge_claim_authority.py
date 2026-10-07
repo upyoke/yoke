@@ -42,7 +42,7 @@ def test_bound_holder_authorizes_the_same_session_without_a_second_read(
         result={
             "holder": {
                 "target_kind": "item",
-                "scope": {"item_id": 7},
+                "scope": {"public_ref": "ITEM-7"},
                 "session_id": "session-1",
             },
         },
@@ -50,7 +50,7 @@ def test_bound_holder_authorizes_the_same_session_without_a_second_read(
     )
 
     with recovery.bind_work_claim_lookup(lookup):
-        assert recovery.claim_error(7, "session-1") == ""
+        assert recovery.claim_error("ITEM-7", "session-1") == ""
 
 
 def test_missing_holder_field_names_the_connection_and_function(
@@ -67,7 +67,7 @@ def test_missing_holder_field_names_the_connection_and_function(
         lambda: "prod-db-admin",
     )
 
-    error = recovery.claim_error(7, "session-1")
+    error = recovery.claim_error("ITEM-7", "session-1")
 
     assert "prod-db-admin" in error
     assert "claims.work.holder_get" in error
@@ -77,7 +77,7 @@ def test_missing_holder_field_names_the_connection_and_function(
 
 def test_explicit_empty_holder_is_the_direct_missing_claim_diagnosis() -> None:
     with recovery.bind_work_claim_lookup(_lookup(result={"holder": None})):
-        error = recovery.claim_error(7, "session-1")
+        error = recovery.claim_error("ITEM-7", "session-1")
 
     assert error.startswith("no live work claim on this item")
 
@@ -87,14 +87,14 @@ def test_bound_holder_for_a_different_item_is_not_authority() -> None:
         result={
             "holder": {
                 "target_kind": "item",
-                "scope": {"item_id": 8},
+                "scope": {"public_ref": "ITEM-8"},
                 "session_id": "session-1",
             },
         }
     )
 
     with recovery.bind_work_claim_lookup(lookup):
-        error = recovery.claim_error(7, "session-1")
+        error = recovery.claim_error("ITEM-7", "session-1")
 
     assert "different item" in error
     assert recovery.claim_is_missing(error) is False
@@ -110,7 +110,7 @@ def test_absent_landing_preserves_the_current_claim_diagnosis(
     )
 
     lane, error = recovery.reacquire_landed_claim(
-        item_id=7,
+        item_id="ITEM-7",
         session_id="session-1",
         lane=None,
     )
@@ -126,7 +126,7 @@ def test_absent_landing_with_a_live_claim_reports_the_missing_lane(
     monkeypatch.setattr(recovery, "claim_error", lambda *_a, **_k: "")
 
     lane, error = recovery.reacquire_landed_claim(
-        item_id=7,
+        item_id="ITEM-7",
         session_id="session-1",
         lane=None,
     )
@@ -212,7 +212,7 @@ def test_restore_reacquires_when_the_claim_is_gone(monkeypatch) -> None:
 
     item, error = recovery.restore_close_out_claim(
         item={"id": 7},
-        item_id=7,
+        item_id="ITEM-7",
         session_id="session-1",
         lane=_LANE,
     )
@@ -236,7 +236,7 @@ def test_restore_is_a_no_op_when_the_session_still_holds_the_claim(
 
     item, error = recovery.restore_close_out_claim(
         item=original,
-        item_id=7,
+        item_id="ITEM-7",
         session_id="session-1",
         lane=_LANE,
     )
@@ -264,7 +264,7 @@ def test_restore_treats_an_already_done_item_as_closed_out(monkeypatch) -> None:
 
     item, error = recovery.restore_close_out_claim(
         item=original,
-        item_id=7,
+        item_id="ITEM-7",
         session_id="session-1",
         lane=_LANE,
     )

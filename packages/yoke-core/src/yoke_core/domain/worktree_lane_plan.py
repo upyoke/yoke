@@ -90,6 +90,10 @@ def resolve_worktree_lanes_for_item(
             "so the item's project prefix and sequence cannot be read"
         ) from exc
     try:
+        from yoke_core.domain.item_ref_resolution import resolve_item_ref
+
+        if not isinstance(item_id, int):
+            item_id = resolve_item_ref(conn, item_id)
         marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
 
         if (

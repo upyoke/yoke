@@ -49,17 +49,15 @@ def test_s6f_calls_unified_creator_before_baseline_loop():
     pre-claim lane-worktree access block). The creator call must still
     run before the loop because the subagent dispatch downstream uses
     `${_worktree_path}` directly. The doc must invoke
-    `python3 -m yoke_core.domain.worktree create "${_epic_id}"` above
+    `python3 -m yoke_core.domain.worktree create "${_epic_ref}"` above
     that loop.
     """
     text = _doc_text()
     creator_marker = (
-        'python3 -m yoke_core.domain.worktree create "${_epic_id}" '
+        'python3 -m yoke_core.domain.worktree create "${_epic_ref}" '
         '--project "${PROJECT}"'
     )
-    baseline_marker = (
-        'git -C "${MAIN_ROOT}" rev-parse "${_worktree_branch}"'
-    )
+    baseline_marker = 'git -C "${MAIN_ROOT}" rev-parse "${_worktree_branch}"'
 
     assert creator_marker in text, (
         "S6f doc missing unified creator call before the baseline loop"
@@ -82,16 +80,12 @@ def test_s6f_calls_unified_creator_before_baseline_loop():
 def test_s6f_activates_path_claims_before_unified_creator():
     """Conduct must mirror issue worktree entry's claim-state choreography."""
     text = _doc_text()
-    activation_marker = (
-        'yoke claims path activation-run --item "${_epic_id}"'
-    )
+    activation_marker = 'yoke claims path activation-run --item "${_epic_ref}"'
     creator_marker = (
-        'python3 -m yoke_core.domain.worktree create "${_epic_id}" '
+        'python3 -m yoke_core.domain.worktree create "${_epic_ref}" '
         '--project "${PROJECT}"'
     )
-    lifecycle_disclaimer = (
-        "These are path-claim states, not item lifecycle statuses."
-    )
+    lifecycle_disclaimer = "These are path-claim states, not item lifecycle statuses."
 
     assert activation_marker in text, (
         "S6f doc must activate planned path claims before the creator door-lock"
@@ -133,7 +127,7 @@ def test_s6f_creator_passes_project_for_cross_project_epics():
         "under the target project's checkout, not Yoke's checkout."
     )
     creator_call = (
-        'python3 -m yoke_core.domain.worktree create "${_epic_id}" '
+        'python3 -m yoke_core.domain.worktree create "${_epic_ref}" '
         '--project "${PROJECT}"'
     )
     assert creator_call in text, (

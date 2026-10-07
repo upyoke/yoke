@@ -31,99 +31,20 @@ from yoke_core.api.service_client_backlog_update_args import (
 from yoke_core.api.service_client_backlog_update_dispatch import (
     _dispatch_structured_field_replace,
 )
-from yoke_core.api.service_client_force_finalize import run_force_finalize_handoff
 
 
-def cmd_execute_update(args: list[str]) -> int:
-    """Full item update: validate -> UPDATE -> side effects -> sync.
-
-    Usage: execute-update <item-id> --field FIELD --value VALUE
-                          [--done-nonce-verified] [--force] [--qa-bypass]
-                          [--dry-run]
-
-    Returns JSON result on stdout.
-    """
-    from yoke_core.domain import backlog
-
-    if not args:
-        print("Usage: execute-update <item-id> --field FIELD --value VALUE ...", file=sys.stderr)
-        return 2
-
-    try:
-        item_id = int(args[0])
-    except ValueError:
-        print(json.dumps({"success": False, "error": f"Item ID must be integer, got '{args[0]}'"}))
-        return 1
-
-    field = None
-    value = None
-    done_nonce_verified = False
-    force_flag = False
-    qa_bypass = False
-    dry_run = False
-
-    i = 1
-    while i < len(args):
-        if args[i] == "--field" and i + 1 < len(args):
-            field = args[i + 1]
-            i += 2
-        elif args[i] == "--value" and i + 1 < len(args):
-            value = args[i + 1]
-            i += 2
-        elif args[i] == "--done-nonce-verified":
-            done_nonce_verified = True
-            i += 1
-        elif args[i] == "--force":
-            force_flag = True
-            i += 1
-        elif args[i] == "--qa-bypass":
-            qa_bypass = True
-            i += 1
-        elif args[i] == "--dry-run":
-            dry_run = True
-            i += 1
-        else:
-            print(f"Unknown argument: {args[i]}", file=sys.stderr)
-            return 2
-
-    if field is None or value is None:
-        print("Usage: execute-update <item-id> --field FIELD --value VALUE ...", file=sys.stderr)
-        return 2
-
-    captured = io.StringIO()
-    result = backlog.execute_update(
-        item_id=item_id,
-        field=field,
-        value=value,
-        done_nonce_verified=done_nonce_verified,
-        force=force_flag,
-        qa_bypass=qa_bypass,
-        session_id=_resolve_session_id(None),
-        dry_run=dry_run,
-        out=captured,
-    )
-    result = dict(result)
-    run_force_finalize_handoff(
-        item_id=item_id,
-        field=field,
-        value=value,
-        force=force_flag,
-        dry_run=dry_run,
-        result=result,
-        out=captured,
-    )
-    result["log"] = captured.getvalue()
-    print(json.dumps(result))
-    return 0 if result.get("success") else 1
+from yoke_core.api.service_client_backlog_update_execute import (
+    cmd_execute_update as cmd_execute_update,
+)
 
 
 def cmd_execute_update_cli(args: list[str]) -> int:
     """Parse the public backlog-registry update CLI shape in Python.
 
     Supported forms:
-      execute-update-cli <item-id> <field> <value>
-      execute-update-cli <item-id> field1=value field2=value
-      execute-update-cli <item-id> <structured-field> (--body-file PATH | --stdin)
+      execute-update-cli <PREFIX-N> <field> <value>
+      execute-update-cli <PREFIX-N> field1=value field2=value
+      execute-update-cli <PREFIX-N> <structured-field> (--body-file PATH | --stdin)
                            [--force] [--source NAME]
       Global flags:
         --done-nonce-verified
@@ -145,7 +66,7 @@ def cmd_execute_update_cli(args: list[str]) -> int:
 
     if len(args) < 2:
         print(
-            "Usage: execute-update-cli <item-id> <field> <value> |"
+            "Usage: execute-update-cli <PREFIX-N> <field> <value> |"
             " <field=value>... | <structured-field> (--body-file <path> | --stdin)",
             file=sys.stderr,
         )
@@ -170,7 +91,7 @@ def cmd_execute_update_cli(args: list[str]) -> int:
 
     if len(positional_args) < 2:
         print(
-            "Usage: execute-update-cli <item-id> <field> <value> |"
+            "Usage: execute-update-cli <PREFIX-N> <field> <value> |"
             " <field=value>... | <structured-field> (--body-file <path> | --stdin)",
             file=sys.stderr,
         )
@@ -179,11 +100,11 @@ def cmd_execute_update_cli(args: list[str]) -> int:
     public_ref = positional_args[0].strip()
     from yoke_contracts.public_ref import parse_public_item_ref
 
-    if parse_public_item_ref(public_ref)[1] is None:
+    if None in parse_public_item_ref(public_ref):
         return _emit_backlog_result(
             {
                 "success": False,
-                "error": f"Item ref must be PREFIX-N or bare N, got '{public_ref}'",
+                "error": f"Item ref must be PREFIX-N, got '{public_ref}'",
             }
         )
 
@@ -206,7 +127,11 @@ def cmd_execute_update_cli(args: list[str]) -> int:
         except ValueError as exc:
             return _emit_backlog_result({"success": False, "error": str(exc)})
 
-    if item_id is not None and not done_nonce_verified and _update_requests_done(update_args):
+    if (
+        item_id is not None
+        and not done_nonce_verified
+        and _update_requests_done(update_args)
+    ):
         if os.environ.get("YOKE_DONE_RECOVERY") == "1":
             result = _run_done_recovery(item_id)
             return _emit_backlog_result(result, log=str(result.get("log", "") or ""))
@@ -252,7 +177,8 @@ def cmd_execute_update_cli(args: list[str]) -> int:
 
         try:
             content_input = resolve_content_input(
-                stdin_flag=use_stdin, body_file=file_path,
+                stdin_flag=use_stdin,
+                body_file=file_path,
             )
         except ContentInputError as exc:
             print(json.dumps({"success": False, "error": exc.message}))
@@ -294,7 +220,7 @@ def cmd_execute_update_cli(args: list[str]) -> int:
         for pair in update_args:
             if "=" not in pair:
                 print(
-                    "Usage: execute-update-cli <item-id> <field=value>...",
+                    "Usage: execute-update-cli <PREFIX-N> <field=value>...",
                     file=sys.stderr,
                 )
                 return 2
@@ -321,7 +247,7 @@ def cmd_execute_update_cli(args: list[str]) -> int:
     else:
         if len(update_args) != 2:
             print(
-                "Usage: execute-update-cli <item-id> <field> <value>",
+                "Usage: execute-update-cli <PREFIX-N> <field> <value>",
                 file=sys.stderr,
             )
             return 2
@@ -337,6 +263,7 @@ def cmd_execute_update_cli(args: list[str]) -> int:
         )
 
     return _emit_backlog_result(dict(result), log=captured.getvalue())
+
 
 __all__ = [
     "cmd_execute_update",

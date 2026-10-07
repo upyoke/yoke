@@ -45,6 +45,10 @@ class _ExtrasSuite(unittest.TestCase):
         reset_registry_for_tests()
         register_all_handlers()
         self._patchers = [
+            patch(
+                "yoke_core.domain.function_response_refs.render_item_refs",
+                return_value={42: "ITEM-81", 1665: "EXT-19"},
+            ),
             patch.object(events_module, "emit_event"),
             patch.object(
                 dispatch_module,
@@ -113,9 +117,7 @@ class TestCoordinationClaim(_ExtrasSuite):
             ),
             patch(
                 "yoke_core.domain.coordination_claims.heartbeat",
-                return_value=_fake_claim(
-                    id=10, last_heartbeat="2026-05-13T07:01:00Z"
-                ),
+                return_value=_fake_claim(id=10, last_heartbeat="2026-05-13T07:01:00Z"),
             ),
         ):
             resp = dispatch(
@@ -126,9 +128,7 @@ class TestCoordinationClaim(_ExtrasSuite):
                 )
             )
         self.assertTrue(resp.success, msg=resp.error)
-        self.assertEqual(
-            resp.result["claim"]["last_heartbeat"], "2026-05-13T07:01:00Z"
-        )
+        self.assertEqual(resp.result["claim"]["last_heartbeat"], "2026-05-13T07:01:00Z")
 
     def test_release_returns_released_claim(self):
         with (
@@ -154,9 +154,7 @@ class TestCoordinationClaim(_ExtrasSuite):
                 )
             )
         self.assertTrue(resp.success, msg=resp.error)
-        self.assertEqual(
-            resp.result["claim"]["release_reason_intent"], "done"
-        )
+        self.assertEqual(resp.result["claim"]["release_reason_intent"], "done")
 
     def test_list_returns_claims(self):
         with patch(
@@ -212,7 +210,7 @@ class TestClaimsPathActivation(_ExtrasSuite):
                 )
             )
         self.assertTrue(resp.success, msg=resp.error)
-        self.assertEqual(resp.result["item_id"], 1665)
+        self.assertEqual(resp.result["public_ref"], "EXT-19")
         self.assertEqual(resp.result["outcomes"], [])
 
     def test_coordination_decision_build_returns_context(self):
@@ -237,7 +235,14 @@ class TestClaimsPathActivation(_ExtrasSuite):
                 )
             )
         self.assertTrue(resp.success, msg=resp.error)
-        self.assertEqual(resp.result["context"], ctx)
+        self.assertEqual(
+            resp.result["context"],
+            {
+                "candidate_public_ref": "EXT-19",
+                "conflicting_claim_id": ctx["conflicting_claim_id"],
+                "shared_paths": ctx["shared_paths"],
+            },
+        )
 
     def test_coordination_decision_build_uses_resolved_item_target(self):
         ctx = {
@@ -260,7 +265,14 @@ class TestClaimsPathActivation(_ExtrasSuite):
                 )
             )
         self.assertTrue(resp.success, msg=resp.error)
-        self.assertEqual(resp.result["context"], ctx)
+        self.assertEqual(
+            resp.result["context"],
+            {
+                "candidate_public_ref": "EXT-19",
+                "conflicting_claim_id": ctx["conflicting_claim_id"],
+                "shared_paths": ctx["shared_paths"],
+            },
+        )
         self.assertEqual(build.call_args.kwargs["candidate_item_id"], 1665)
 
 

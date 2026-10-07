@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 import subprocess
 import sys
 from pathlib import Path
@@ -58,7 +60,7 @@ class _Tee:
 
 
 def _update_task_status_direct(
-    epic_id: int,
+    epic_id: str,
     task_num: str,
     new_status: str,
     note: str,
@@ -74,10 +76,9 @@ def _update_task_status_direct(
     claim-bypass / done-verified values the engine used to set as process env
     vars (``env_overrides``) travel as a typed payload and are posted on a
     request-scoped ContextVar server-side; ``os.environ`` is never mutated. The
-    already-resolved internal epic id targets the relay and is carried to the
-    handler as typed numeric state.
+    complete public epic reference targets the relay and stays public in its
+    payload. The server resolves its own join key.
     """
-    from yoke_contracts.api.function_call import TargetRef
     from yoke_core.api.service_client_structured_api_adapter import (
         call_dispatcher,
     )
@@ -85,7 +86,7 @@ def _update_task_status_direct(
     overrides = env_overrides or {}
     resp = call_dispatcher(
         function_id="done_transition.epic_task_status_set",
-        target=TargetRef(kind="item", item_id=epic_id),
+        target=public_item_target(epic_id),
         payload={
             "epic_id": epic_id,
             "task_num": str(task_num),
@@ -133,7 +134,6 @@ def _update_item_direct(
     the row stayed put, so the refused write is reported here as the failure
     it is — which is also what engages the caller's retry-and-verify path.
     """
-    from yoke_contracts.api.function_call import TargetRef
     from yoke_core.api.service_client_structured_api_adapter import (
         call_dispatcher,
     )
@@ -141,7 +141,7 @@ def _update_item_direct(
     overrides = env_overrides or {}
     resp = call_dispatcher(
         function_id="done_transition.item_status_set",
-        target=TargetRef(kind="item", item_id=int(item_id)),
+        target=public_item_target(public_ref or item_id),
         payload={
             "field": field,
             "value": value,
@@ -167,8 +167,7 @@ def _update_item_direct(
 
     ref = public_ref or unresolved_item_ref()
     print(
-        f"Warning: backlog update {field}={value} for {ref} "
-        f"failed: {message}",
+        f"Warning: backlog update {field}={value} for {ref} failed: {message}",
         file=sys.stderr,
     )
     return 1
@@ -189,7 +188,9 @@ def _run_git(
     from yoke_cli.config import credentialed_git
 
     return credentialed_git.run(
-        args, cwd=str(cwd) if cwd else None, capture=capture,
+        args,
+        cwd=str(cwd) if cwd else None,
+        capture=capture,
     )
 
 
@@ -202,14 +203,13 @@ def _query_item_field(item_id: int, field_name: str) -> str:
     for ``project``) is preserved exactly. A read failure raises, matching
     the inline ``connect()`` failure the callers never swallowed.
     """
-    from yoke_contracts.api.function_call import TargetRef
     from yoke_core.api.service_client_structured_api_adapter import (
         call_dispatcher,
     )
 
     resp = call_dispatcher(
         function_id="done_transition.item_field",
-        target=TargetRef(kind="item", item_id=int(item_id)),
+        target=public_item_target(item_id),
         payload={"field": field_name},
     )
     if not resp.success:

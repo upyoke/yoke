@@ -4,7 +4,7 @@ Covers polish steps 10 through 15: rerun attached QA cases, capture the final
 summary, advance status, release the claim, emit the final output, and confirm
 completion.
 
-**Context variables** (set by earlier phases): `ITEM_REF`, `ITEM_NUM`,
+**Context variables** (set by earlier phases): `ITEM_REF`, `ITEM_REF`,
 `WORKTREE_PATH`, `WORKTREE_PATHS`, `POLISH_THROUGH_STAGE`, `LIVE_STAGE`,
 `NEXT_STAGE`.
 
@@ -111,7 +111,7 @@ Function-call equivalent (the CLI above builds this envelope internally):
 {
   "function": "lifecycle.transition.execute",
   "actor": {"session_id": "<this-session>"},
-  "target": {"kind": "item", "item_id": $ITEM_NUM, "public_ref": "$ITEM_REF"},
+  "target": {"kind": "item", "public_ref": "$ITEM_REF"},
   "intent": "polish_complete",
   "payload": {"source_status": "$LIVE_STAGE", "target_status": "$NEXT_STAGE"},
   "options": {"sync_github_body": true}

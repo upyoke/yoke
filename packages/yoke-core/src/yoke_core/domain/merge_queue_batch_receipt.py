@@ -15,10 +15,11 @@ passing run already covered accept these rows unchanged.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping, Optional
 
-from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_PULL_REQUESTS_READ_PERMISSION_LEVELS as PR_READ,
 )
@@ -95,9 +96,7 @@ def observe_batch(
             ),
             token=auth.token,
         )
-        pr_body = (
-            pr_response.body if isinstance(pr_response.body, dict) else {}
-        )
+        pr_body = pr_response.body if isinstance(pr_response.body, dict) else {}
         # An open pull request still reports a merge_commit_sha — GitHub's
         # own test-merge — so the merged flag is what says this landing came
         # from THIS pull request. A lane whose commits reached the base under
@@ -105,9 +104,7 @@ def observe_batch(
         # reading that test-merge as the landing sends the receipt hunting a
         # merge_group run this pull request never ran.
         pr_merged = bool(pr_body.get("merged") or pr_body.get("merged_at"))
-        merge_sha = (
-            str(pr_body.get("merge_commit_sha") or "") if pr_merged else ""
-        )
+        merge_sha = str(pr_body.get("merge_commit_sha") or "") if pr_merged else ""
     except RestTransportError as exc:
         return None, TrainRunLookupFailure(
             reason=f"pull request read failed: {exc}",
@@ -165,20 +162,22 @@ def record_batch_evidence(
     dispatch: Callable[..., Any] = call_dispatcher,
 ) -> Optional[str]:
     """Record the member's covering ``ci_run`` row; returns error text."""
-    raw_result = dumps_compact({
-        "verification_tree": {"head_sha": receipt.head_sha},
-        "merge_queue_batch": {
-            "members": list(receipt.members),
-            "combined_head_sha": receipt.head_sha,
-            "run_url": receipt.run_url,
-            "pr_num": receipt.pr_num,
-            "merge_sha": receipt.merge_sha,
-            "drift_check": dict(receipt.drift_check),
-        },
-    })
+    raw_result = dumps_compact(
+        {
+            "verification_tree": {"head_sha": receipt.head_sha},
+            "merge_queue_batch": {
+                "members": list(receipt.members),
+                "combined_head_sha": receipt.head_sha,
+                "run_url": receipt.run_url,
+                "pr_num": receipt.pr_num,
+                "merge_sha": receipt.merge_sha,
+                "drift_check": dict(receipt.drift_check),
+            },
+        }
+    )
     response = dispatch(
         function_id="merge.tests.record_post_rebase_ci_run",
-        target=TargetRef(kind="item", item_id=int(item_id)),
+        target=public_item_target(item_id),
         payload={
             "scope": scope,
             "workflow": workflow,
@@ -190,10 +189,7 @@ def record_batch_evidence(
     if getattr(response, "success", False):
         return None
     error = getattr(response, "error", None)
-    return (
-        getattr(error, "message", None)
-        or "batch evidence recording failed"
-    )
+    return getattr(error, "message", None) or "batch evidence recording failed"
 
 
 __all__ = ["BatchReceipt", "observe_batch", "record_batch_evidence"]

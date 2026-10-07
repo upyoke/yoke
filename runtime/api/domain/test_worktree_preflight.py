@@ -46,6 +46,12 @@ def _patch_steps(
     create_result=None,
     branch_and_lane=("YOK-9001", None),
 ):
+    monkeypatch.setattr(
+        "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
+        lambda **kwargs: SimpleNamespace(
+            success=True, result={"item": {"public_ref": "YOK-9001"}}, error=None
+        ),
+    )
     # Naming has its own coverage in test_worktree_public_ref_naming and now
     # refuses rather than inventing a name, so it is patched like the rest.
     monkeypatch.setattr(
@@ -94,7 +100,7 @@ class TestReEntryWithExistingWorktree:
             ),
         )
         outcome = wp.run_preflight(
-            item_id=9001,
+            item_id="YOK-9001",
             repo_root=repo_layout.root,
             session_id="sess",
             actual_cwd=repo_layout.root,
@@ -121,7 +127,7 @@ class TestReEntryWithExistingWorktree:
             ),
         )
         outcome = wp.run_preflight(
-            item_id=9001,
+            item_id="YOK-9001",
             repo_root=repo_layout.root,
             session_id="sess",
             actual_cwd=repo_layout.worktree,
@@ -139,8 +145,10 @@ class TestBlocks:
         monkeypatch,
     ):
         calls = []
+        _patch_steps(monkeypatch)
         monkeypatch.setattr(
-            wp, "resolve_item_branch_and_lane", lambda _i: ("YOK-9001", None))
+            wp, "resolve_item_branch_and_lane", lambda _i: ("YOK-9001", None)
+        )
         monkeypatch.setattr(
             wp,
             "claim_work",
@@ -156,7 +164,7 @@ class TestBlocks:
             ),
         )
         outcome = wp.run_preflight(
-            item_id=9001,
+            item_id="YOK-9001",
             repo_root=repo_layout.root,
             session_id="sess",
             no_worktree=True,
@@ -178,7 +186,7 @@ class TestBlocks:
             lambda _item_id: pytest.fail("activation must not run"),
         )
         outcome = wp.run_preflight(
-            item_id=9001,
+            item_id="YOK-9001",
             repo_root=repo_layout.root,
             session_id="sess",
             no_worktree=True,
@@ -196,7 +204,7 @@ class TestBlocks:
             claim_outcome=(False, "already claimed by session 'alt'"),
         )
         outcome = wp.run_preflight(
-            item_id=9001,
+            item_id="YOK-9001",
             repo_root=repo_layout.root,
             session_id="sess",
             actual_cwd=repo_layout.root,
@@ -214,7 +222,7 @@ class TestBlocks:
             activate_outcome=(False, "BLOCKED: claim 39 is blocked", []),
         )
         outcome = wp.run_preflight(
-            item_id=9001,
+            item_id="YOK-9001",
             repo_root=repo_layout.root,
             session_id="sess",
             actual_cwd=repo_layout.root,
@@ -240,7 +248,7 @@ class TestBlocks:
             dirty_outcome=(True, steps.BLOCK_DIRTY_TRACKED, ["foo.py"]),
         )
         outcome = wp.run_preflight(
-            item_id=9001,
+            item_id="YOK-9001",
             repo_root=str(repo),
             session_id="sess",
             actual_cwd=str(repo),
@@ -263,7 +271,7 @@ class TestBlocks:
             ),
         )
         outcome = wp.run_preflight(
-            item_id=9001,
+            item_id="YOK-9001",
             repo_root=repo_layout.root,
             session_id="sess",
             actual_cwd=repo_layout.root,
@@ -286,7 +294,7 @@ class TestNoWorktreeMode:
         monkeypatch.setattr(worktree_create, "create_worktree", _explode)
         _patch_steps(monkeypatch)
         outcome = wp.run_preflight(
-            item_id=9001,
+            item_id="YOK-9001",
             repo_root=repo_layout.root,
             session_id="sess",
             no_worktree=True,
@@ -296,55 +304,3 @@ class TestNoWorktreeMode:
         assert "worktree:skipped" in outcome.actions_taken
         assert outcome.worktree_path == ""
         assert outcome.physical_cwd_mode == ""
-
-
-class TestEnvelope:
-    def test_ok_envelope_carries_operator_required_fields(self, repo_layout):
-        outcome = wp.WorktreePreflightOutcome(
-            ok=True,
-            item_id=9001,
-            branch="YOK-9001",
-            worktree_path=repo_layout.worktree,
-            semantic_scope="worktree",
-            physical_cwd_mode=steps.CWD_MODE_STATIC,
-            actions_taken=["work-claim:already-owned"],
-            notes=["..."],
-        )
-        envelope = outcome.to_envelope()
-        required = {
-            "ok",
-            "item_id",
-            "branch",
-            "worktree_path",
-            "semantic_scope",
-            "physical_cwd_mode",
-            "actions_taken",
-            "notes",
-        }
-        for field in (
-            "item_id",
-            "branch",
-            "worktree_path",
-            "semantic_scope",
-            "physical_cwd_mode",
-            "actions_taken",
-            "notes",
-        ):
-            assert field in envelope, f"missing {field}"
-        assert set(envelope) == required
-        assert envelope["ok"] is True
-
-    def test_block_envelope_carries_block_kind(self):
-        outcome = wp.WorktreePreflightOutcome(
-            ok=False,
-            block_kind=steps.BLOCK_WORK_CLAIM,
-            narrative="conflict",
-            item_id=9001,
-        )
-        envelope = outcome.to_envelope()
-        assert envelope == {
-            "ok": False,
-            "block_kind": steps.BLOCK_WORK_CLAIM,
-            "narrative": "conflict",
-            "item_id": 9001,
-        }

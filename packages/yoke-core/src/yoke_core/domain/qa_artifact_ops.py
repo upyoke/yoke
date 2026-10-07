@@ -241,7 +241,8 @@ def cmd_artifact_list(
 ) -> List[str]:
     """List artifacts (pipe-delimited). Returns list of formatted lines.
 
-    ``--item-id`` joins through qa_runs → qa_requirements to find all
+    The complete public ref passed as ``--item-id`` resolves for the owned
+    qa_runs → qa_requirements join to find all
     artifacts for an item without requiring the caller to know run IDs.
     ``resolve_addresses`` swaps the handle column for each handle's honest
     address: a filesystem path for ``local`` handles, an ``s3://bucket/key``

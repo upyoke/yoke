@@ -29,7 +29,7 @@ const RELEASE_STATE = "release";
 const LIVE_SESSION_STATES = new Set(["active", "stale"]);
 
 export function reference(row) {
-  return String(row.public_ref || row.item_id || row.id || "");
+  return String(row.public_ref || "");
 }
 
 function status(row) {

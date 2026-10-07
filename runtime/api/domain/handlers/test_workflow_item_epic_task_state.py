@@ -99,9 +99,13 @@ class TestUpdateStatus:
 
 class TestSimulationUpsert:
     def test_upsert_parses_clean_result(self, handler_conns):
-        with patch(
-            "yoke_core.domain.epic._qa_requirement_add_silent", return_value=23,
-        ), patch("yoke_core.domain.epic._qa_run_add_silent") as add_run:
+        with (
+            patch(
+                "yoke_core.domain.epic._qa_requirement_add_silent",
+                return_value=23,
+            ),
+            patch("yoke_core.domain.epic._qa_run_add_silent") as add_run,
+        ):
             outcome = state_handlers.handle_simulation_upsert(
                 make_request(
                     "workflow_item.epic_task.simulation_upsert",
@@ -142,7 +146,7 @@ class TestSubmissionReceiptGet:
             make_request("workflow_item.epic_task.submission_receipt_get"),
         )
         assert outcome.primary_success
-        assert outcome.result_payload["receipt"].startswith(f"PASS|{EPIC_ID}|1|1|")
+        assert outcome.result_payload["receipt"].startswith(f"PASS|YOK-{EPIC_ID}|1|1|")
 
     def test_no_receipt_is_target_not_found(self, handler_conns):
         outcome = state_handlers.handle_submission_receipt_get(
@@ -216,38 +220,52 @@ class TestDispatcherClaimVerification:
         reset_registry_for_tests()
         register_all_handlers()
         monkeypatch.setenv("YOKE_SESSION_ID", "s-1")
-        with patch.object(events_module, "emit_event"), patch.object(
-            dispatch_module, "_idempotency_lookup", lambda *_a, **_k: None,
+        with (
+            patch.object(events_module, "emit_event"),
+            patch.object(
+                dispatch_module,
+                "_idempotency_lookup",
+                lambda *_a, **_k: None,
+            ),
         ):
             yield
         reset_registry_for_tests()
 
     def test_update_status_denied_without_claim(self):
         with patch.object(
-            claims_module, "who_claims_for_item", return_value=None,
+            claims_module,
+            "who_claims_for_item",
+            return_value=None,
         ):
-            resp = dispatch(make_request(
-                "workflow_item.epic_task.update_status",
-                payload={"status": "implementing"},
-            ))
+            resp = dispatch(
+                make_request(
+                    "workflow_item.epic_task.update_status",
+                    payload={"status": "implementing"},
+                )
+            )
         assert not resp.success
         assert resp.error.code == "claim_required"
 
     def test_review_insert_denied_on_session_mismatch(self):
         with patch.object(
-            claims_module, "who_claims_for_item",
+            claims_module,
+            "who_claims_for_item",
             return_value={"id": 1, "session_id": "OTHER"},
         ):
-            resp = dispatch(make_request(
-                "workflow_item.epic_task.review_insert",
-                payload={"verdict": "pass", "body": "x"},
-            ))
+            resp = dispatch(
+                make_request(
+                    "workflow_item.epic_task.review_insert",
+                    payload={"verdict": "pass", "body": "x"},
+                )
+            )
         assert not resp.success
         assert resp.error.code == "claim_required"
 
     def test_body_get_passes_without_claim(self, handler_conns):
         with patch.object(
-            claims_module, "who_claims_for_item", return_value=None,
+            claims_module,
+            "who_claims_for_item",
+            return_value=None,
         ):
             resp = dispatch(make_request("workflow_item.epic_task.body_get"))
         assert resp.success

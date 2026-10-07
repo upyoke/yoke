@@ -1,5 +1,3 @@
-"""Flag adapters for the project QA method and plan catalog."""
-
 from __future__ import annotations
 
 import argparse
@@ -23,10 +21,15 @@ from yoke_cli.commands.adapters.qa_execution_subjects import (
     qa_plan_materialize_for_item,
     qa_plan_rematerialize,
 )
-from yoke_cli.commands.adapters.qa_catalog_usage import ITEM_PLAN_ATTACH_EPILOG
-from yoke_cli.commands.adapters.qa_catalog_usage import PLAN_CASES_REPLACE_EPILOG
-from yoke_cli.commands.adapters.qa_catalog_usage import USAGE_BY_FUNCTION_ID
+from yoke_cli.commands.adapters.qa_catalog_usage import (
+    ITEM_PLAN_ATTACH_EPILOG,
+    PLAN_CASES_REPLACE_EPILOG,
+    USAGE_BY_FUNCTION_ID,
+)
 from yoke_contracts.api.function_call import TargetRef
+from yoke_cli.commands.adapters.qa_catalog_usage import (
+    configure_attachment as _configure_attachment,
+)
 
 
 def _parser(prog: str, usage: str) -> argparse.ArgumentParser:
@@ -179,10 +182,15 @@ def qa_plan_get(args: List[str]) -> int:
 
     def payload(parsed: argparse.Namespace) -> dict[str, Any]:
         if (parsed.plan is None) == (parsed.plan_id is None):
-            raise ValueError("provide exactly one plan id or slug, positionally or with --plan-id")
+            raise ValueError(
+                "provide exactly one plan id or slug, positionally or with --plan-id"
+            )
         detail = detail_of(parsed)
         plan = parsed.plan if parsed.plan is not None else parsed.plan_id
-        result: dict[str, Any] = {"plan_id": int(plan) if plan.isdecimal() else plan, "detail": detail}
+        result: dict[str, Any] = {
+            "plan_id": int(plan) if plan.isdecimal() else plan,
+            "detail": detail,
+        }
         if parsed.deployment_run_id:
             result["deployment_run_id"] = parsed.deployment_run_id
         return result
@@ -202,15 +210,15 @@ def qa_activity_list(args: List[str]) -> int:
 
     def configure(parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--deployment-run-id")
-        parser.add_argument("--item-id", action="append", type=int, default=[])
+        parser.add_argument("--item", action="append", default=[])
         parser.add_argument("--limit", type=int, default=100)
 
     def payload(parsed: argparse.Namespace) -> dict[str, Any]:
         result: dict[str, Any] = {"limit": parsed.limit}
         if parsed.deployment_run_id:
             result["deployment_run_id"] = parsed.deployment_run_id
-        if parsed.item_id:
-            result["item_ids"] = list(parsed.item_id)
+        if parsed.item:
+            result["public_refs"] = list(parsed.item)
         return result
 
     return _global(
@@ -288,13 +296,6 @@ def qa_plan_cases_replace(args: List[str]) -> int:
         configure=_configure_case_replace,
         payload=_case_payload,
     )
-
-
-def _configure_attachment(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--plan-id", type=int, required=True)
-    parser.add_argument("--transition", required=True)
-    parser.add_argument("--qa-phase", default="verification")
-    parser.add_argument("--acknowledge-unreachable-target", action="store_true")
 
 
 def qa_plan_item_attach(args: List[str]) -> int:

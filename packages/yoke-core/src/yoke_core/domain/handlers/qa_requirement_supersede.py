@@ -93,13 +93,20 @@ def handle_qa_requirement_supersede(
                     )
                 except Exception as exc:  # declaration already committed
                     conn.rollback()
+                    from yoke_core.domain.project_identity import render_item_ref
+
+                    member = declared.get("deployment_member_item_id")
+                    scope = (
+                        f" --member {render_item_ref(conn, int(member))}"
+                        if member is not None
+                        else ""
+                    )
                     notice = {
                         "delivery": "failed",
                         "recovery": f"Correction is durable but wake failed: {exc}. Run "
                         f"`yoke watch qa-plan -- --deployment-run-id "
                         f"{declared['deployment_run_id']} --stage "
-                        f"{declared['deployment_stage']} --member "
-                        f"{declared['deployment_member_item_id']}`.",
+                        f"{declared['deployment_stage']}{scope}`.",
                     }
                 return HandlerOutcome(
                     result_payload={**declared, "correction_notice": notice},

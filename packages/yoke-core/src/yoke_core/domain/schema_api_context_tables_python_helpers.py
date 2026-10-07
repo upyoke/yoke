@@ -23,6 +23,16 @@ from __future__ import annotations
 
 
 PYTHON_HELPERS_TABLES: dict[str, dict] = {
+    "yoke_core.domain.project_identity": {
+        "columns": [("render_item_ref", "callable")],
+        "notes": (
+            "Engine-owned connections render an internal items.id with "
+            "render_item_ref(conn, item_id). The bulk renderer is "
+            "item_ref_render.render_item_refs(conn, item_ids); there is no "
+            "singular item_ref_render.render_item_ref. Client selectors "
+            "carry the complete public PREFIX-N reference."
+        ),
+    },
     "yoke_core.domain.worktree": {
         "columns": [
             ("paths db", "subcommand"),
@@ -136,11 +146,9 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
         ],
         "notes": (
             "Pipeline member-item stamps (`deploy_stage`, `deployed_to`) go "
-            "through `deployment_item_stamp.record` addressed by integer "
-            "`target.item_id`. Do NOT call `items.scalar.update` (claim "
-            "gate) and do NOT stringify an internal id into an items-update "
-            "CLI token — a digit string is a public sequence under the "
-            "default project, not `items.id`. The implemented→release flip "
+            "through `deployment_item_stamp.record` addressed by public "
+            "`target.public_ref`. Do NOT call `items.scalar.update` (claim "
+            "gate) or send a database integer as a client selector. The implemented→release flip "
             "uses `done_transition.item_status_set`, not `YOKE_CLAIM_BYPASS`."
         ),
     },

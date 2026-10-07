@@ -1,6 +1,6 @@
 """Item read-side route sub-router.
 
-Owns ``GET /items`` (filtered list) and ``GET /items/{item_id}`` (single
+Owns ``GET /items`` (filtered list) and ``GET /items/{public_ref}`` (single
 item with rendered body).
 """
 
@@ -20,6 +20,7 @@ from yoke_core.domain.workflow_runtime import ENGINE_EXCEPTIONAL_STAGE_IDS
 
 # Module-level import so test patches against ``yoke_core.api.main.*`` take effect.
 import yoke_core.api.main as _main
+from yoke_core.api.main_route_adapters import resolve_http_item
 
 router = APIRouter()
 
@@ -28,9 +29,13 @@ router = APIRouter()
 def list_items(
     status: Optional[str] = Query(None, description="Filter by status"),
     project: Optional[str] = Query(None, description="Filter by project"),
-    frozen: Optional[bool] = Query(None, description="Filter by frozen flag (true/false)"),
+    frozen: Optional[bool] = Query(
+        None, description="Filter by frozen flag (true/false)"
+    ),
     exclude_done: bool = Query(False, description="Exclude items with status 'done'"),
-    exclude_cancelled: bool = Query(False, description="Exclude items with status 'cancelled'"),
+    exclude_cancelled: bool = Query(
+        False, description="Exclude items with status 'cancelled'"
+    ),
     exclude_frozen: bool = Query(False, description="Exclude frozen items"),
 ) -> _main.ItemListResponse | JSONResponse:
     """List backlog items, optionally filtered by status, project, and queue criteria."""
@@ -44,7 +49,8 @@ def list_items(
     )
 
     where_clause, params = queries.build_where_clause(
-        item_filter, table_prefix="i.",
+        item_filter,
+        table_prefix="i.",
     )
     sql = (
         "SELECT i.*, p.slug AS project "
@@ -55,8 +61,7 @@ def list_items(
     conn = _main.get_db_readonly()
     try:
         valid_stages = (
-            set(published_workflow_stage_ids(conn))
-            | ENGINE_EXCEPTIONAL_STAGE_IDS
+            set(published_workflow_stage_ids(conn)) | ENGINE_EXCEPTIONAL_STAGE_IDS
         )
         if status is not None and status not in valid_stages:
             return _main._error_response(
@@ -66,17 +71,20 @@ def list_items(
                 f"Must be one of: {', '.join(sorted(valid_stages))}",
             )
         rows = conn.execute(sql, params).fetchall()
-        items = [_main._row_to_item(r, include_body=False) for r in rows]
+        items = [_main._row_to_item(r, include_body=False, conn=conn) for r in rows]
         return _main.ItemListResponse(items=items, count=len(items))
     finally:
         conn.close()
 
 
-@router.get("/items/{item_id}", response_model=_main.ItemObject)
-def get_item(item_id: int) -> _main.ItemObject | JSONResponse:
-    """Get a single item by ID, including its body."""
+@router.get("/items/{public_ref}", response_model=_main.ItemObject)
+def get_item(public_ref: str) -> _main.ItemObject | JSONResponse:
+    """Get a single item by its complete public ref, including its body."""
     conn = _main.get_db_readonly()
     try:
+        item_id = resolve_http_item(conn, public_ref)
+        if isinstance(item_id, JSONResponse):
+            return item_id
         row = conn.execute(
             "SELECT i.*, p.slug AS project FROM items i "
             "JOIN projects p ON p.id = i.project_id "
@@ -89,11 +97,11 @@ def get_item(item_id: int) -> _main.ItemObject | JSONResponse:
                 content=_main.ErrorResponse(
                     error=_main.ErrorDetail(
                         code="NOT_FOUND",
-                        message=f"Item with id {item_id} not found",
+                        message=f"Item {public_ref} not found",
                     )
                 ).model_dump(),
             )
-        return _main._row_to_item(row, include_body=True)
+        return _main._row_to_item(row, include_body=True, conn=conn)
     finally:
         conn.close()
 

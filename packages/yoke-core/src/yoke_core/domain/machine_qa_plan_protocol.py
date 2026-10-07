@@ -70,6 +70,7 @@ def continue_plan_host_control_execution(
             f"--machine {selected_name} or abort and restart the plan"
         )
     return _issue(
+        conn,
         selected,
         lease,
         operation="plan_case",

@@ -8,6 +8,8 @@ path has been retired.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 import sys
 from datetime import datetime, timezone
 
@@ -31,10 +33,11 @@ from yoke_core.domain.project_attribution import resolved_project
 
 def _parent():
     from yoke_core.engines import done_transition as _dt
+
     return _dt
 
 
-def _populate_merged_at(item_id: int) -> None:
+def _populate_merged_at(public_ref: str) -> None:
     """Populate merged_at if not already set, through the transport.
 
     The already-set pre-check relays through ``done_transition.item_field``
@@ -47,14 +50,14 @@ def _populate_merged_at(item_id: int) -> None:
     item never reaches done on an unset merged_at.
     """
     print("--- Populating merged_at (pre-flight) ---")
-    existing = _parent()._query_item_field(item_id, "merged_at")
+    existing = _parent()._query_item_field(public_ref, "merged_at")
     if existing and existing != "null":
         print(f"  merged_at already set: {existing}")
         return
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     resp = call_dispatcher(
         function_id="done_transition.populate_merged_at",
-        target=TargetRef(kind="item", item_id=int(item_id)),
+        target=public_item_target(public_ref),
         payload={"merged_at": now},
     )
     if not resp.success:
@@ -99,18 +102,22 @@ def _update_status_to_done(
             f"(attempt {attempt}/{max_retries})",
             file=sys.stderr,
         )
-        verify = _parent()._query_item_field(item_id, "status")
+        verify = _parent()._query_item_field(public_ref, "status")
         if verify == "done":
-            print("Status verified: done (exit code was from a "
-                  "non-critical side-effect)", file=sys.stderr)
+            print(
+                "Status verified: done (exit code was from a non-critical side-effect)",
+                file=sys.stderr,
+            )
             return True
         if attempt < max_retries:
-            print(f"Status is still '{verify}' — retrying in 2 seconds... "
-                  "", file=sys.stderr)
+            print(
+                f"Status is still '{verify}' — retrying in 2 seconds... ",
+                file=sys.stderr,
+            )
             import time
+
             time.sleep(2)
-    print(f"Status update failed after {max_retries} attempts.",
-          file=sys.stderr)
+    print(f"Status update failed after {max_retries} attempts.", file=sys.stderr)
     return False
 
 
@@ -130,7 +137,7 @@ def _cascade_epic_tasks_to_done(item_id: int, *, public_ref: str) -> None:
     resp = call_dispatcher(
         function_id="done_transition.epic_task_list",
         target=TargetRef(kind="global"),
-        payload={"epic_id": str(item_id)},
+        payload={"epic_public_ref": public_ref},
     )
     if not resp.success:
         message = resp.error.message if resp.error else "unknown error"
@@ -161,7 +168,7 @@ def _cascade_epic_tasks_to_done(item_id: int, *, public_ref: str) -> None:
         }
         if task_status == "reviewed-implementation":
             _parent()._update_task_status_direct(
-                item_id,
+                public_ref,
                 task_num,
                 "done",
                 f"Auto-promoted: task in done epic {public_ref}",
@@ -171,7 +178,7 @@ def _cascade_epic_tasks_to_done(item_id: int, *, public_ref: str) -> None:
             promoted_count += 1
         else:
             _parent()._update_task_status_direct(
-                item_id,
+                public_ref,
                 task_num,
                 "done",
                 f"Auto-done: epic {public_ref} marked done",
@@ -181,8 +188,10 @@ def _cascade_epic_tasks_to_done(item_id: int, *, public_ref: str) -> None:
             cascade_count += 1
         task_nums.append(task_num)
 
-    print(f"Sub-task cascade complete: {cascade_count} cascaded, "
-          f"{promoted_count} promoted.")
+    print(
+        f"Sub-task cascade complete: {cascade_count} cascaded, "
+        f"{promoted_count} promoted."
+    )
 
     # Batch GitHub sync
     if task_nums:
@@ -197,9 +206,7 @@ def _batch_github_sync_tasks(
     ``public_ref`` is the caller's already-resolved public ref, used for the
     summary comment without opening a local connection on this path.
     """
-    item_project = resolved_project(
-        _parent()._query_item_field(item_id, "project")
-    )
+    item_project = resolved_project(_parent()._query_item_field(public_ref, "project"))
 
     try:
         auth = resolve_project_github_auth(
@@ -252,7 +259,7 @@ def _batch_github_sync_tasks(
     gh_resp = call_dispatcher(
         function_id="done_transition.epic_task_github_issues",
         target=TargetRef(kind="global"),
-        payload={"epic_id": str(item_id), "task_nums": list(task_nums)},
+        payload={"epic_public_ref": public_ref, "task_nums": list(task_nums)},
     )
     if not gh_resp.success:
         message = gh_resp.error.message if gh_resp.error else "unknown error"

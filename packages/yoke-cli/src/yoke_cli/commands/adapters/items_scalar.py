@@ -50,36 +50,45 @@ def items_scalar_update(args: List[str]) -> int:
         prog="yoke items scalar update",
         description=ITEMS_SCALAR_UPDATE_USAGE,
     )
-    parser.add_argument("item", help="Item id (PREFIX-N or project-local number).")
+    parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument(
-        "--field", required=True,
+        "--field",
+        required=True,
         help="Scalar field name. See "
-             "yoke_core.domain.mutation_fields.SUPPORTED_UPDATE_FIELDS.",
+        "yoke_core.domain.mutation_fields.SUPPORTED_UPDATE_FIELDS.",
     )
     value_group = parser.add_mutually_exclusive_group(required=True)
     value_group.add_argument(
-        "--value", default=None,
+        "--value",
+        default=None,
         help="New value (string). Bool fields accept true|false|1|0.",
     )
     value_group.add_argument(
-        "--null", action="store_true",
+        "--null",
+        action="store_true",
         help="Set the field to null (nullable fields only).",
     )
     value_group.add_argument(
-        "--value-json", dest="value_json", default=None,
+        "--value-json",
+        dest="value_json",
+        default=None,
         help="New value parsed as JSON (for typed integers / booleans / structures).",
     )
     parser.add_argument(
-        "--done-nonce-verified", dest="done_nonce_verified",
+        "--done-nonce-verified",
+        dest="done_nonce_verified",
         action="store_true",
         help="Internal: caller verified the done-nonce gate.",
     )
     parser.add_argument(
-        "--force", action="store_true",
+        "--force",
+        action="store_true",
         help="Bypass frozen-item block and gate guards (use sparingly).",
     )
     parser.add_argument(
-        "--qa-bypass", dest="qa_bypass", action="store_true",
+        "--qa-bypass",
+        dest="qa_bypass",
+        action="store_true",
         help="Bypass QA gates (operator-asserted).",
     )
     add_session_arg(parser)

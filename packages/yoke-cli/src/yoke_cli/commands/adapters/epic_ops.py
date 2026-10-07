@@ -19,20 +19,22 @@ from yoke_cli.commands.adapters.epic_dispatch_chain import *  # noqa: F403
 
 
 def _epic_task_flags(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--epic", type=int, required=True, help="Epic id.")
-    parser.add_argument("--task-num", type=int, required=True,
-                        help="Task number within the epic.")
+    parser.add_argument("--epic", required=True, help="Epic public ref (PREFIX-N).")
+    parser.add_argument(
+        "--task-num", type=int, required=True, help="Task number within the epic."
+    )
 
 
 def _epic_task_target(parsed) -> TargetRef:
     return TargetRef(
-        kind="epic_task", epic_id=int(parsed.epic),
+        kind="epic_task",
+        public_ref=parsed.epic,
         task_num=int(parsed.task_num),
     )
 
 
 def _epic_target(parsed) -> TargetRef:
-    return TargetRef(kind="epic_task", epic_id=int(parsed.epic))
+    return TargetRef(kind="epic_task", public_ref=parsed.epic)
 
 
 def _write_body(response, stdout, stderr) -> None:
@@ -45,16 +47,20 @@ def _write_message(response, stdout, stderr) -> None:
 
 def _dispatch(function_id, target, payload, parsed, writer=None) -> int:
     return dispatch_and_emit(
-        function_id=function_id, target=target, payload=payload,
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        function_id=function_id,
+        target=target,
+        payload=payload,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
         human_writer=writer,
     )
 
 
 EPIC_TASK_GET_USAGE = (
-    "yoke workflow-item epic-task get --epic N --task-num N "
+    "yoke workflow-item epic-task get --epic PREFIX-N --task-num N "
     "[--session-id S] [--json]"
 )
+
 
 def epic_task_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
@@ -68,22 +74,26 @@ def epic_task_get(args: List[str]) -> int:
     if parsed is None:
         return 2
     return _dispatch(
-        "workflow_item.epic_task.get", _epic_task_target(parsed), {},
-        parsed, _write_body,
+        "workflow_item.epic_task.get",
+        _epic_task_target(parsed),
+        {},
+        parsed,
+        _write_body,
     )
 
 
 EPIC_TASK_SIMULATION_GET_USAGE = (
-    "yoke workflow-item epic-task simulation-get --epic N --phase P "
+    "yoke workflow-item epic-task simulation-get --epic PREFIX-N --phase P "
     "[--session-id S] [--json]"
 )
+
 
 def epic_task_simulation_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflow-item epic-task simulation-get",
         description="Read the latest pipe-delimited simulation row.",
     )
-    parser.add_argument("--epic", type=int, required=True, help="Epic id.")
+    parser.add_argument("--epic", required=True, help="Epic public ref (PREFIX-N).")
     parser.add_argument("--phase", required=True, help="Simulation phase.")
     add_session_arg(parser)
     add_json_arg(parser)
@@ -91,15 +101,19 @@ def epic_task_simulation_get(args: List[str]) -> int:
     if parsed is None:
         return 2
     return _dispatch(
-        "workflow_item.epic_task.simulation_get", _epic_target(parsed),
-        {"phase": parsed.phase}, parsed, _write_body,
+        "workflow_item.epic_task.simulation_get",
+        _epic_target(parsed),
+        {"phase": parsed.phase},
+        parsed,
+        _write_body,
     )
 
 
 EPIC_TASK_FILE_ADD_USAGE = (
-    "yoke workflow-item epic-task file-add --epic N --task-num N "
+    "yoke workflow-item epic-task file-add --epic PREFIX-N --task-num N "
     "--file-path PATH [--action ACTION] [--session-id S] [--json]"
 )
+
 
 def epic_task_file_add(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
@@ -115,17 +129,20 @@ def epic_task_file_add(args: List[str]) -> int:
     if parsed is None:
         return 2
     return _dispatch(
-        "workflow_item.epic_task.file_add", _epic_task_target(parsed),
+        "workflow_item.epic_task.file_add",
+        _epic_task_target(parsed),
         {"file_path": parsed.file_path, "action": parsed.action},
-        parsed, _write_message,
+        parsed,
+        _write_message,
     )
 
 
 EPIC_TASK_HISTORY_INSERT_USAGE = (
-    "yoke workflow-item epic-task history-insert --epic N --task-num N "
+    "yoke workflow-item epic-task history-insert --epic PREFIX-N --task-num N "
     "--from-status S --to-status S [--note TEXT | --note-file PATH] "
     "[--session-id S] [--json]"
 )
+
 
 def epic_task_history_insert(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
@@ -147,18 +164,20 @@ def epic_task_history_insert(args: List[str]) -> int:
     except ValueError as exc:
         return usage_error(str(exc))
     return _dispatch(
-        "workflow_item.epic_task.history_insert", _epic_task_target(parsed),
+        "workflow_item.epic_task.history_insert",
+        _epic_task_target(parsed),
         {
             "from_status": parsed.from_status,
             "to_status": parsed.to_status,
             "note": note or "",
         },
-        parsed, _write_message,
+        parsed,
+        _write_message,
     )
 
 
 CONDUCT_EPIC_TASK_UPDATE_STATUS_USAGE = (
-    "yoke conduct epic-task update-status --epic N --task-num N "
+    "yoke conduct epic-task update-status --epic PREFIX-N --task-num N "
     "--status STATUS [--note TEXT | --note-file PATH] "
     "[--no-github] [--no-derive] [--claim-bypass SOURCE] "
     "[--session-id S] [--json]"
@@ -180,7 +199,9 @@ def conduct_epic_task_update_status(args: List[str]) -> int:
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
-        parser, args, CONDUCT_EPIC_TASK_UPDATE_STATUS_USAGE,
+        parser,
+        args,
+        CONDUCT_EPIC_TASK_UPDATE_STATUS_USAGE,
     )
     if parsed is None:
         return 2
@@ -189,7 +210,8 @@ def conduct_epic_task_update_status(args: List[str]) -> int:
     except ValueError as exc:
         return usage_error(str(exc))
     return _dispatch(
-        "conduct.epic_task.update_status", _epic_task_target(parsed),
+        "conduct.epic_task.update_status",
+        _epic_task_target(parsed),
         {
             "status": parsed.status,
             "note": note or "",
@@ -197,12 +219,13 @@ def conduct_epic_task_update_status(args: List[str]) -> int:
             "no_derive": parsed.no_derive,
             "claim_bypass": parsed.claim_bypass,
         },
-        parsed, lambda r, out, err: out.write((r.result or {}).get("stdout", "")),
+        parsed,
+        lambda r, out, err: out.write((r.result or {}).get("stdout", "")),
     )
 
 
 CONDUCT_EPIC_PROCEED_TRIAGE_HANDOFF_USAGE = (
-    "yoke conduct epic proceed-triage-handoff --epic N "
+    "yoke conduct epic proceed-triage-handoff --epic PREFIX-N "
     "[--recommendation R] [--gap-summary S] [--filed-items T1,T2] "
     "[--session-id S] [--json]"
 )
@@ -213,31 +236,36 @@ def conduct_epic_proceed_triage_handoff(args: List[str]) -> int:
         prog="yoke conduct epic proceed-triage-handoff",
         description="Record accepted simulation gaps and hand off the epic.",
     )
-    parser.add_argument("--epic", type=int, required=True)
+    parser.add_argument("--epic", required=True)
     parser.add_argument("--recommendation", default="PROCEED")
     parser.add_argument("--gap-summary", default="")
     parser.add_argument("--filed-items", default="")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
-        parser, args, CONDUCT_EPIC_PROCEED_TRIAGE_HANDOFF_USAGE,
+        parser,
+        args,
+        CONDUCT_EPIC_PROCEED_TRIAGE_HANDOFF_USAGE,
     )
     if parsed is None:
         return 2
     return _dispatch(
-        "conduct.epic.proceed_triage_handoff", _epic_target(parsed),
+        "conduct.epic.proceed_triage_handoff",
+        _epic_target(parsed),
         {
             "recommendation": parsed.recommendation,
             "gap_summary": parsed.gap_summary,
-            "filed_item_ids": split_comma(parsed.filed_items),
+            "filed_public_refs": split_comma(parsed.filed_items),
             "session_id": parsed.session_id,
         },
-        parsed, lambda r, out, err: out.write((r.result or {}).get("stdout", "")),
+        parsed,
+        lambda r, out, err: out.write((r.result or {}).get("stdout", "")),
     )
 
 
 __all__ = [
-    name for name in globals()
+    name
+    for name in globals()
     if name.endswith("_USAGE")
     or name.startswith(("epic_task_", "epic_dispatch_", "conduct_epic_"))
 ]

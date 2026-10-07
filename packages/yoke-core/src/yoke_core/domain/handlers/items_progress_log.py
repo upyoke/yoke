@@ -77,11 +77,13 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
 
     content = get_section(int(target.item_id), PROGRESS_LOG_SECTION)
     if content is None:
+        from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+
         return HandlerOutcome(
             primary_success=False,
             error=FunctionError(
                 code="not_found",
-                message=f"Progress Log not found on item {target.item_id}",
+                message=f"Progress Log not found on {item_ref_for_id(target.item_id)}",
             ),
         )
     from yoke_core.domain.execution_instruction_delivery import item_instructions
@@ -108,7 +110,7 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
     """Append one entry to the ``Progress Log`` section on the target item."""
     target = request.target
     if target.kind != "item" or target.item_id is None:
-        return _bad_request("target must carry kind='item' and item_id")
+        return _bad_request("target must carry kind='item' and public_ref (PREFIX-N)")
     try:
         payload = AppendRequest.model_validate(request.payload)
     except Exception as exc:

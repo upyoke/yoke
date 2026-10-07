@@ -26,7 +26,7 @@ Quick reference for the columns most often mis-named in agent SQL. The DB-comman
 - `deployment_run_items`: use `run_id` + `item_id` (composite PK, NO `id` column). **Junction table only** — has NO `deploy_stage`, `current_stage`, or `status` columns. Stage data lives on `items.deploy_stage` and `deployment_runs.current_stage`. Zero rows are valid for started environment-level deployment runs.
 - `qa_runs`: use `qa_requirement_id` (NOT `requirement_id` or `req_id`).
 - `deployment_flows`: use `id` (NOT `flow_id`), no `item_id` column.
-- `shepherd_verdicts`: use `item` (NOT `item_id`), `transition` (NOT `gate`).
+- `shepherd_verdicts`: use `public_ref` (public item key), `transition` (NOT `gate`).
 - `ouroboros_entries`: content is in `body` (NOT `entry`), use `created_at` (NOT `timestamp`).
 - `project_capabilities`: use `type` (NOT `capability`/`name`/`capability_type`), `config` for full JSON (may contain secrets), `settings` for non-sensitive JSON.
 - `projects`: use `id` (NOT `project_id`/`name`) and `github_repo` (NOT `repo_url`/`github_url`). Checkout paths are machine-local config, not `projects` columns. Work-item-level deployment-flow defaulting lives in the `deploy_defaults` Project Structure family, not as a column on `projects`.
@@ -151,8 +151,8 @@ yoke items list --status done --fields id,title,status --limit 100
 yoke lifecycle transition PREFIX-N --to implementing
 
 # Epic task operations
-yoke epic-tasks list --epic 42
-yoke workflow-item epic-task body-get --epic 42 --task-num 3
+yoke epic-tasks list --epic PREFIX-42
+yoke workflow-item epic-task body-get --epic PREFIX-42 --task-num 3
 
 # Design documents
 # Design artifacts are item fields or Project Structure entries; read them
@@ -220,8 +220,8 @@ yoke qa run list --requirement-id 1
 yoke qa artifact add --requirement-id 1 --run-id 1 --artifact-type screenshot --artifact-handle '{"backend":"local","path":"/tmp/img.png"}'
 
 # Epic-task review verdicts use the epic helper path
-yoke workflow-item epic-task review-insert --epic 42 --task-num 3 --verdict pass --body-file <path>
-yoke workflow-item epic-task review-get --epic 42 --task-num 3
+yoke workflow-item epic-task review-insert --epic PREFIX-42 --task-num 3 --verdict pass --body-file <path>
+yoke workflow-item epic-task review-get --epic PREFIX-42 --task-num 3
 
 # Raw diagnostic reads
 yoke db read "SELECT id, title FROM items WHERE status='implementing'"

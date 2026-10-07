@@ -52,47 +52,87 @@ def _run(*argv: str, session_id: str = "test-session") -> int:
     ("argv", "function", "payload"),
     [
         (
-            ("workflow-item", "epic-task", "get",
-             "--epic", "501", "--task-num", "3"),
+            (
+                "workflow-item",
+                "epic-task",
+                "get",
+                "--epic",
+                "YOK-501",
+                "--task-num",
+                "3",
+            ),
             "workflow_item.epic_task.get",
             {},
         ),
         (
-            ("workflow-item", "epic-task", "simulation-get",
-             "--epic", "501", "--phase", "integration"),
+            (
+                "workflow-item",
+                "epic-task",
+                "simulation-get",
+                "--epic",
+                "YOK-501",
+                "--phase",
+                "integration",
+            ),
             "workflow_item.epic_task.simulation_get",
             {"phase": "integration"},
         ),
         (
-            ("workflow-item", "epic-task", "file-add",
-             "--epic", "501", "--task-num", "3",
-             "--file-path", "runtime/api/foo.py", "--action", "modify"),
+            (
+                "workflow-item",
+                "epic-task",
+                "file-add",
+                "--epic",
+                "YOK-501",
+                "--task-num",
+                "3",
+                "--file-path",
+                "runtime/api/foo.py",
+                "--action",
+                "modify",
+            ),
             "workflow_item.epic_task.file_add",
             {"file_path": "runtime/api/foo.py", "action": "modify"},
         ),
         (
-            ("workflow-item", "epic-task", "scope-no-files",
-             "--epic", "501", "--task-num", "3"),
+            (
+                "workflow-item",
+                "epic-task",
+                "scope-no-files",
+                "--epic",
+                "YOK-501",
+                "--task-num",
+                "3",
+            ),
             "workflow_item.epic_task.scope_no_files",
             {},
         ),
         (
-            ("workflow-item", "epic-task", "scope-finalize",
-             "--epic", "501"),
+            ("workflow-item", "epic-task", "scope-finalize", "--epic", "YOK-501"),
             "workflow_item.epic_task.scope_finalize",
             {},
         ),
         (
-            ("workflow-item", "epic-task", "scope-reopen",
-             "--epic", "501"),
+            ("workflow-item", "epic-task", "scope-reopen", "--epic", "YOK-501"),
             "workflow_item.epic_task.scope_reopen",
             {},
         ),
         (
-            ("workflow-item", "epic-task", "history-insert",
-             "--epic", "501", "--task-num", "3",
-             "--from-status", "none", "--to-status", "planned",
-             "--note", "created"),
+            (
+                "workflow-item",
+                "epic-task",
+                "history-insert",
+                "--epic",
+                "YOK-501",
+                "--task-num",
+                "3",
+                "--from-status",
+                "none",
+                "--to-status",
+                "planned",
+                "--note",
+                "created",
+            ),
             "workflow_item.epic_task.history_insert",
             {"from_status": "none", "to_status": "planned", "note": "created"},
         ),
@@ -103,7 +143,7 @@ def test_epic_task_ops_dispatch(argv, function: str, payload: dict) -> None:
     req = _CAPTURED[-1]
     assert req.function == function
     assert req.target.kind == "epic_task"
-    assert req.target.epic_id == 501
+    assert req.target.public_ref == "YOK-501"
     assert req.payload == payload
 
 
@@ -111,27 +151,52 @@ def test_epic_task_ops_dispatch(argv, function: str, payload: dict) -> None:
     ("argv", "function", "payload"),
     [
         (
-            ("workflow-item", "epic-dispatch-chain", "get",
-             "--epic", "501", "--worktree", "lane-a"),
+            (
+                "workflow-item",
+                "epic-dispatch-chain",
+                "get",
+                "--epic",
+                "YOK-501",
+                "--worktree",
+                "lane-a",
+            ),
             "workflow_item.epic_dispatch_chain.get",
             {"worktree": "lane-a"},
         ),
         (
-            ("workflow-item", "epic-dispatch-chain", "list",
-             "--epic", "501"),
+            ("workflow-item", "epic-dispatch-chain", "list", "--epic", "YOK-501"),
             "workflow_item.epic_dispatch_chain.list",
             {},
         ),
         (
-            ("workflow-item", "epic-dispatch-chain", "update",
-             "--epic", "501", "--worktree", "lane-a",
-             "--field", "queue", "--value", "[1,2]"),
+            (
+                "workflow-item",
+                "epic-dispatch-chain",
+                "update",
+                "--epic",
+                "YOK-501",
+                "--worktree",
+                "lane-a",
+                "--field",
+                "queue",
+                "--value",
+                "[1,2]",
+            ),
             "workflow_item.epic_dispatch_chain.update",
             {"worktree": "lane-a", "field": "queue", "value": "[1,2]"},
         ),
         (
-            ("workflow-item", "epic-dispatch-chain", "refresh-activation",
-             "--epic", "501", "--worktree", "lane-a", "--task-num", "3"),
+            (
+                "workflow-item",
+                "epic-dispatch-chain",
+                "refresh-activation",
+                "--epic",
+                "YOK-501",
+                "--worktree",
+                "lane-a",
+                "--task-num",
+                "3",
+            ),
             "workflow_item.epic_dispatch_chain.refresh_activation",
             {"worktree": "lane-a", "task_num": 3},
         ),
@@ -141,18 +206,30 @@ def test_dispatch_chain_ops_dispatch(argv, function: str, payload: dict) -> None
     assert _run(*argv) == 0
     req = _CAPTURED[-1]
     assert req.function == function
-    assert req.target.epic_id == 501
+    assert req.target.public_ref == "YOK-501"
     assert req.target.task_num is None
     assert req.payload == payload
 
 
 def test_conduct_status_pipeline_dispatches_claim_bypass() -> None:
-    assert _run(
-        "conduct", "epic-task", "update-status",
-        "--epic", "501", "--task-num", "3",
-        "--status", "implementing", "--note", "retry",
-        "--claim-bypass", "simulation-autofix:epic-501",
-    ) == 0
+    assert (
+        _run(
+            "conduct",
+            "epic-task",
+            "update-status",
+            "--epic",
+            "YOK-501",
+            "--task-num",
+            "3",
+            "--status",
+            "implementing",
+            "--note",
+            "retry",
+            "--claim-bypass",
+            "simulation-autofix:epic-501",
+        )
+        == 0
+    )
     req = _CAPTURED[-1]
     assert req.function == "conduct.epic_task.update_status"
     assert req.target.task_num == 3
@@ -166,18 +243,29 @@ def test_conduct_status_pipeline_dispatches_claim_bypass() -> None:
 
 
 def test_conduct_proceed_handoff_splits_item_ids() -> None:
-    assert _run(
-        "conduct", "epic", "proceed-triage-handoff",
-        "--epic", "501", "--recommendation", "PROCEED",
-        "--gap-summary", "minor", "--filed-items", "YOK-1,YOK-2",
-    ) == 0
+    assert (
+        _run(
+            "conduct",
+            "epic",
+            "proceed-triage-handoff",
+            "--epic",
+            "YOK-501",
+            "--recommendation",
+            "PROCEED",
+            "--gap-summary",
+            "minor",
+            "--filed-items",
+            "YOK-1,YOK-2",
+        )
+        == 0
+    )
     req = _CAPTURED[-1]
     assert req.function == "conduct.epic.proceed_triage_handoff"
-    assert req.target.epic_id == 501
+    assert req.target.public_ref == "YOK-501"
     assert req.payload == {
         "recommendation": "PROCEED",
         "gap_summary": "minor",
-        "filed_item_ids": ["YOK-1", "YOK-2"],
+        "filed_public_refs": ["YOK-1", "YOK-2"],
         "session_id": None,
     }
 
@@ -185,10 +273,6 @@ def test_conduct_proceed_handoff_splits_item_ids() -> None:
 def test_legacy_scope_repair_prints_task_diagnostics_and_next_steps(
     monkeypatch,
 ) -> None:
-    monkeypatch.setattr(
-        "yoke_cli.transport.public_ref_display.lookup_public_refs",
-        lambda ids: {1687: "YOK-1687"} if 1687 in ids else {},
-    )
 
     def _repair_response(request: FunctionCallRequest) -> FunctionCallResponse:
         return FunctionCallResponse(
@@ -197,7 +281,7 @@ def test_legacy_scope_repair_prints_task_diagnostics_and_next_steps(
             version=request.version,
             request_id=request.request_id,
             result={
-                "epic_id": 1687,
+                "epic_public_ref": "YOK-1687",
                 "message": "YOK-1687 legacy task scopes typed",
                 "diagnostics": [
                     "tenant=4 item=YOK-1687 task=1 scope=legacy_deferred",
@@ -216,15 +300,17 @@ def test_legacy_scope_repair_prints_task_diagnostics_and_next_steps(
         patch("yoke_cli.commands._helpers.ensure_handlers_loaded"),
         redirect_stdout(out),
     ):
-        rc = cli_main([
-            "workflow-item",
-            "epic-task",
-            "scope-repair-legacy",
-            "--epic",
-            "1687",
-            "--tenant-id",
-            "4",
-        ])
+        rc = cli_main(
+            [
+                "workflow-item",
+                "epic-task",
+                "scope-repair-legacy",
+                "--epic",
+                "YOK-1687",
+                "--tenant-id",
+                "4",
+            ]
+        )
 
     assert rc == 0
     text = out.getvalue()

@@ -31,14 +31,14 @@ function row(gateStatus, resolution = "approve") {
   return {
     id: runId, project: "yoke", flow: "hosted", status: "succeeded",
     current_stage: "complete", target_environment: "prod", stages: [],
-    member_items: [{ id: 42, ref: "YOK-42", title: "Carried work", project_id: 1,
+    member_items: [{ ref: "YOK-42", title: "Carried work", project_id: 1,
       project_sequence: 42 }],
     gates: [{
       request_id: 91, kind: "qa_needs_review", status: gateStatus,
       subject_context: { requirement_id: 8,
         qa_kind: "deployment_stage_acceptance", case_name: null, plan_id: null,
         subject: { kind: "deployment_run", deployment_run_id: runId,
-          deployment_member_item_id: null },
+          deployment_member_public_ref: null },
         artifacts: [image(82), image(83), image(91), image(71)],
         expected_outcome: "Every admitted case passed against the pinned deployment target.",
         verdict_reason: "configured deployment stage requires authorized human acceptance" },

@@ -7,6 +7,8 @@ unknown — can collide with a new module and still block.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 from typing import Mapping, Sequence
 
 from yoke_contracts.api.function_call import TargetRef
@@ -87,7 +89,7 @@ def lane_source_root_prefixes(item_id: int, project_id: str = "") -> tuple[str, 
         try:
             detail = call_dispatcher(
                 function_id="items.detail.get",
-                target=TargetRef(kind="item", item_id=int(item_id)),
+                target=public_item_target(item_id),
                 payload={},
             )
             project = ((detail.result or {}).get("item") or {}).get("project") or {}

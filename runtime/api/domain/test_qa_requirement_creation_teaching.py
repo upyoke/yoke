@@ -40,7 +40,7 @@ def test_runner_packet_creation_recipes_are_transition_bound(
     assert _REQUIRED_ADD_RECIPE in body
     assert "every row must include `workflow_transition_id`" in body
     assert (
-        "requirement-add --epic-id E --task-num K --workflow-transition STAGE"
+        "requirement-add --epic-id PREFIX-N --task-num K --workflow-transition STAGE"
     ) in body
 
 

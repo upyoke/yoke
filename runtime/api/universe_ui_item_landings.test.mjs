@@ -28,19 +28,19 @@ import {
 const ok = (result) => ({ status: 200, envelope: { success: true, result } });
 
 const LANDINGS = [
-  {
-    id: 11, item_id: 51, merge_sha: "a".repeat(40), candidate_sha: "b".repeat(40),
+  { id: 11,
+    public_ref: "YOK-51", merge_sha: "a".repeat(40), candidate_sha: "b".repeat(40),
     pr_number: "1301", target_branch: "main", route: "merge_queue",
     landed_at: "2026-09-19T03:12:00Z",
     delivery: { run_id: "run-20260919-012", flow: "acme-prod" },
   },
-  {
-    id: 12, item_id: 51, merge_sha: "c".repeat(40), candidate_sha: "c".repeat(40),
+  { id: 12,
+    public_ref: "YOK-51", merge_sha: "c".repeat(40), candidate_sha: "c".repeat(40),
     pr_number: "", target_branch: "main", route: "fast_forward",
     landed_at: "2026-09-19T18:41:00Z", delivery: null,
   },
-  {
-    id: 13, item_id: 51, merge_sha: "d".repeat(40), candidate_sha: "e".repeat(40),
+  { id: 13,
+    public_ref: "YOK-51", merge_sha: "d".repeat(40), candidate_sha: "e".repeat(40),
     pr_number: "", target_branch: "main", route: "standalone",
     landed_at: "2026-09-19T23:02:00Z", delivery: null,
   },
@@ -52,7 +52,7 @@ function landingsClient(item, landings, { fail = false, unreadable = false } = {
     if (request.function === "item_landings.list") {
       if (fail) return { status: 500, envelope: { success: false } };
       return ok({
-        item_id: 51,
+        public_ref: "YOK-51",
         rows: unreadable
           ? landings.map(({ delivery, ...rest }) => rest)
           : landings,
@@ -61,7 +61,7 @@ function landingsClient(item, landings, { fail = false, unreadable = false } = {
       });
     }
     if (request.function === "deployment_runs.find_by_item") {
-      return ok({ item_id: 51, fields: [], rows: [] });
+      return ok({ public_ref: "YOK-51", fields: [], rows: [] });
     }
     if (request.function === "workflows.mechanics.get") {
       return ok({ delivery_defaults: [], testing_defaults: [], approvers: [] });

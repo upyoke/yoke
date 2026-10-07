@@ -7,6 +7,8 @@ human-review semantics without mutating QA state.
 from __future__ import annotations
 
 import argparse
+
+from yoke_core.domain.yok_n_parser import parse_item_argument
 import json
 import sys
 from typing import Any, Dict, Optional, Sequence
@@ -281,8 +283,16 @@ def register_subparser(sub: Any) -> argparse.ArgumentParser:
         "gate-summary",
         help="Read-only summary of QA requirements for implementation/polish.",
     )
-    p.add_argument("--item-id", type=int)
-    p.add_argument("--epic-id", type=int)
+    p.add_argument(
+        "--item-id",
+        type=parse_item_argument,
+        help="Complete public item ref (PREFIX-N).",
+    )
+    p.add_argument(
+        "--epic-id",
+        type=parse_item_argument,
+        help="Complete public epic ref (PREFIX-N).",
+    )
     p.add_argument("--task-num", type=int)
     p.add_argument("--target", required=True, choices=VALID_TARGETS)
     p.add_argument(

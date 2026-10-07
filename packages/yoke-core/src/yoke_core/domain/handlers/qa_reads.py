@@ -306,8 +306,8 @@ def handle_qa_gate_summary(request: FunctionCallRequest) -> HandlerOutcome:
     else:
         return _error(
             "target_invalid",
-            "qa.gate_summary.run requires target.item_id OR "
-            "target.epic_id + target.task_num",
+            "qa.gate_summary.run requires target.public_ref OR "
+            "target.public_ref + target.task_num",
         )
 
     payload = request.payload or {}

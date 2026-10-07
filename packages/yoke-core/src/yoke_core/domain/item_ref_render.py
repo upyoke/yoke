@@ -59,7 +59,7 @@ def fetch_item_ref_rows(conn: Any, sql: str, params: Sequence[Any]) -> List[Any]
     """Fetch ref-projection rows, tolerating a schema without the project
     tables/columns (e.g. doctor HCs on bare/legacy schemas). A savepoint (when
     the backend supports one) keeps the connection usable if the read raises;
-    returns an empty list so callers emit the prefix+id fallback.
+    returns an empty list so callers report unresolved public identity.
     """
     transaction = getattr(conn, "transaction", None)
     if callable(transaction):
@@ -88,9 +88,7 @@ def render_item_refs(
     if not ids or conn is None:
         return {}
     marker = "%s" if connection_is_postgres(conn) else "?"
-    sql = ITEM_REF_PROJECTION_SQL.format(
-        placeholders=", ".join(marker for _ in ids)
-    )
+    sql = ITEM_REF_PROJECTION_SQL.format(placeholders=", ".join(marker for _ in ids))
     refs: Dict[int, str] = {}
     for row in fetch_item_ref_rows(conn, sql, ids):
         item_id = int(_row_value(row, "id", 0))

@@ -244,18 +244,18 @@ to that run, and `qa.artifact.read` resolves evidence through the run's owning p
 `qa.plan.get` defaults to the scannable shape — cases, methods, target, each case's verdict. Probe source and every proof's output tail, evidence and review come back under `detail="full"` (`--full` on `yoke qa plan get`), which the summary names.
 
 Item-scoped reads are the other half, because an item-attached requirement records no
-deployment run at all: `qa.activity.list` also takes `item_ids` (absent reads the project; an
-empty list matches nothing), and every row reports `item_id`, `deployment_member_item_id`,
+deployment run at all: `qa.activity.list` also takes `public_refs` (absent reads the project; an
+empty list matches nothing), and every row reports `public_ref`, `deployment_member_public_ref`,
 `deployment_stage`, and `deployment_run_id`. A surface showing a known set of subjects — the
 items a deployment card carries — reads their evidence rather than whatever QA is most recent,
-and can tell an item's own proof from what it proved inside a release. Latest captured runs stay `captured` until reviewed; no-obligation members show their settled answer and reason in Item QA. Run Identity shows the recorded artifact identity, or explains that the run pins only a source revision. With `item_ids`, `limit`
+and can tell an item's own proof from what it proved inside a release. Latest captured runs stay `captured` until reviewed; no-obligation members show their settled answer and reason in Item QA. Run Identity shows the recorded artifact identity, or explains that the run pins only a source revision. With `public_refs`, `limit`
 bounds each item's checks **within each deployment run they name**, and its run-less checks as
 their own group, so neither another item nor another release can take the rows a given card
 needs; `deployment_run_ids` keeps the answer to the run groups a caller draws (an item's run-less
 checks always travel), so it is sized by what is on screen rather than by a lifetime of releases.
 `item_selection` reports `per_group_limit` with the `truncated_groups` it cut short, group by
 group. What a cut-short group loses is old history, never a live request: a review names its own
-item — `deployment_member_item_id` for a release's per-member check — so callers join pending
+item — `deployment_member_public_ref` for a release's per-member check — so callers join pending
 reviews through their subjects rather than through the rows a cap may have trimmed.
 
 ## Browser Methods

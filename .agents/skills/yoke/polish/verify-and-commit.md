@@ -2,7 +2,7 @@
 
 Covers polish steps 8 and 9: run verification against the fixes, then commit.
 
-**Context variables** (set by earlier phases): `ITEM_REF`, `ITEM_NUM`, `WORKTREE_PATH`,
+**Context variables** (set by earlier phases): `ITEM_REF`, `WORKTREE_PATH`,
 `WORKTREE_PATHS`, `POLISH_ENTRY_STAGE`, `REVIEW_STAGE`.
 
 ---

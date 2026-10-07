@@ -23,6 +23,7 @@ from yoke_core.engines.merge_landed_lane_cleanup import (
     release_lane_row,
 )
 
+
 def test_landed_lane_leaves_no_worktree_branch_or_remote(landed_lane):
     """Every part of the lane retires together once the merge is visible.
 
@@ -125,7 +126,7 @@ def test_landed_lane_records_the_row_release(landed_lane, monkeypatch):
         # (``projects.capability_settings.get``); only the row-release call
         # is this test's subject.
         if function_id == "item_worktrees.release_merged_lane":
-            calls.append((function_id, target.item_id, payload))
+            calls.append((function_id, target.public_ref, payload))
         return SimpleNamespace(success=True, result={}, error=None)
 
     monkeypatch.setattr(
@@ -137,14 +138,14 @@ def test_landed_lane_records_the_row_release(landed_lane, monkeypatch):
         repo_root=str(landed_lane.repo),
         branch=BRANCH,
         target="main",
-        item_id=7,
+        item_id="YOK-7",
         run_git=_run_git,
         emit=lambda *_a, **_kw: None,
     )
 
     assert preserved == ()
     assert calls == [
-        ("item_worktrees.release_merged_lane", 7, {"branch": BRANCH}),
+        ("item_worktrees.release_merged_lane", "YOK-7", {"branch": BRANCH}),
     ]
 
 
@@ -161,7 +162,7 @@ def test_row_release_failure_warns_without_unwinding_the_merge(monkeypatch):
     said: list[str] = []
 
     warning = release_lane_row(
-        7,
+        "YOK-7",
         BRANCH,
         emit=lambda message, **_kw: said.append(message),
     )
@@ -190,7 +191,7 @@ def test_claim_required_release_is_not_a_left_active_warning(monkeypatch):
     said: list[str] = []
 
     warning = release_lane_row(
-        7,
+        "YOK-7",
         BRANCH,
         emit=lambda message, **_kw: said.append(message),
     )
@@ -215,7 +216,7 @@ def test_row_release_warning_is_returned_from_prune(landed_lane, monkeypatch):
         repo_root=str(landed_lane.repo),
         branch=BRANCH,
         target="main",
-        item_id=7,
+        item_id="YOK-7",
         run_git=_run_git,
         emit=lambda *_a, **_kw: None,
     )

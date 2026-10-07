@@ -89,10 +89,10 @@ def _resolve_section_target(request: FunctionCallRequest):
     target = request.target
     if target.kind != "section":
         return None, _bad_request(
-            "target must carry kind='section' with item_id and section_name"
+            "target must carry kind='section' with public_ref and section_name"
         )
     if target.item_id is None:
-        return None, _bad_request("target.item_id is required")
+        return None, _bad_request("target.public_ref is required")
     if not target.section_name or not target.section_name.strip():
         return None, _bad_request("target.section_name is required")
     return (int(target.item_id), target.section_name), None

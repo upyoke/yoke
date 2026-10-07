@@ -18,6 +18,9 @@ from yoke_core.domain.qa_review_verdict_modes import (
 )
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 def test_plan_engine_cli_requires_environment_bound_agent_review_dispatch(
     capsys,
     monkeypatch,
@@ -27,7 +30,7 @@ def test_plan_engine_cli_requires_environment_bound_agent_review_dispatch(
         qa_plan_execution_cli,
         "execute_plan",
         return_value={
-            "item_id": 42,
+            "public_ref": _FIXTURE_ITEM_REF,
             "transition_id": "implemented",
             "state": "awaiting_agent_review",
             "review_bundle": {
@@ -43,7 +46,7 @@ def test_plan_engine_cli_requires_environment_bound_agent_review_dispatch(
                     ],
                     "prompt": "Review the exact immutable bundle.",
                     "submit_command": (
-                        "yoke qa plan review-submit --item-id 42 "
+                        f"yoke qa plan review-submit --item {_FIXTURE_ITEM_REF} "
                         "--execution-id execution-1 --bundle-id bundle-1 "
                         f"--bundle-digest {'a' * 64} --stdin"
                     ),
@@ -54,7 +57,7 @@ def test_plan_engine_cli_requires_environment_bound_agent_review_dispatch(
         code = qa_plan_execution_cli.run(
             [
                 "--item",
-                "YOK-42",
+                _FIXTURE_ITEM_REF,
                 "--transition",
                 "implemented",
             ]
@@ -103,8 +106,8 @@ def test_review_submit_cli_sends_complete_stdin_batch(capsys) -> None:
     ):
         code = qa_plan_review_cli.run(
             [
-                "--item-id",
-                "42",
+                "--item",
+                _FIXTURE_ITEM_REF,
                 "--execution-id",
                 "execution-1",
                 "--bundle-id",
@@ -120,6 +123,8 @@ def test_review_submit_cli_sends_complete_stdin_batch(capsys) -> None:
     assert code == 0
     assert json.loads(capsys.readouterr().out)["state"] == "passed"
     assert submit.call_args.kwargs["function_id"] == "qa.plan_review.submit"
+    assert submit.call_args.kwargs["target"].public_ref == _FIXTURE_ITEM_REF
+    assert submit.call_args.kwargs["target"].item_id is None
     assert submit.call_args.kwargs["payload"]["verdicts"] == payload["verdicts"]
 
 
@@ -151,8 +156,8 @@ def test_review_submit_exits_zero_when_verdicts_persisted_on_needs_review(
     ):
         code = qa_plan_review_cli.run(
             [
-                "--item-id",
-                "42",
+                "--item",
+                _FIXTURE_ITEM_REF,
                 "--execution-id",
                 "execution-1",
                 "--bundle-id",
@@ -166,6 +171,8 @@ def test_review_submit_exits_zero_when_verdicts_persisted_on_needs_review(
     assert code == 0
     assert json.loads(capsys.readouterr().out)["submission"] == "persisted"
     assert submit.call_args.kwargs["function_id"] == "qa.plan_review.submit"
+    assert submit.call_args.kwargs["target"].public_ref == _FIXTURE_ITEM_REF
+    assert submit.call_args.kwargs["target"].item_id is None
     assert submit.call_args.kwargs["payload"]["verdicts"] == payload["verdicts"]
 
 
@@ -234,7 +241,7 @@ class TestDispatchOffersOnlyWhatTheStageAccepts:
             "execution_target": {"environment": {"name": "production"}},
             "execution_target_digest": "b" * 64,
             "state": "pending",
-            "subject": {"item_id": 42, "deployment_run_id": None},
+            "subject": {"public_ref": _FIXTURE_ITEM_REF, "deployment_run_id": None},
             "cases": [{"requirement_id": 41, "capture_runner": "browser_substrate"}],
         }
         dispatch = _dispatch_contract(
@@ -243,3 +250,40 @@ class TestDispatchOffersOnlyWhatTheStageAccepts:
         schema_verdict = dispatch["result_schema"]["verdicts"][0]["verdict"]
         assert schema_verdict == "pass|fail"
         assert "undetermined is not submittable here" in dispatch["prompt"]
+
+
+def test_review_submit_refuses_a_numeric_item_before_mission_access(capsys):
+    with (
+        mock.patch.object(
+            sys,
+            "stdin",
+            io.StringIO(
+                json.dumps(
+                    {
+                        "verdicts": [
+                            {"requirement_id": 41, "verdict": "pass", "rationale": "ok"}
+                        ]
+                    }
+                )
+            ),
+        ),
+        mock.patch.object(qa_plan_review_cli, "_unfinished_walk") as mission_access,
+        mock.patch.object(qa_plan_review_cli, "_call_plan_function") as submit,
+    ):
+        code = qa_plan_review_cli.run(
+            [
+                "--item",
+                "42",
+                "--execution-id",
+                "execution",
+                "--bundle-id",
+                "bundle",
+                "--bundle-digest",
+                "digest",
+                "--stdin",
+            ]
+        )
+    assert code == 2
+    assert "public_item_ref_required" in capsys.readouterr().err
+    mission_access.assert_not_called()
+    submit.assert_not_called()

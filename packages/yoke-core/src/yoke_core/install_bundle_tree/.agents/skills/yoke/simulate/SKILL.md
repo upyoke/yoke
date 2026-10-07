@@ -2,12 +2,12 @@
 name: simulate
 description: Run the Simulator to trace cross-task integration paths and find gaps. Auto-detects plan phase or integration phase. --system for Ouroboros system-wide consistency audit.
 # argument-hint is generated from yoke_contracts.skill_registry.
-argument-hint: "{epic-id} [--auto-fix] | --system"
+argument-hint: "{epic-ref} [--auto-fix] | --system"
 ---
 
 # Harness slash skill. Conduct invokes the epic flow internally, and operators may invoke either epic simulation or the system-wide audit directly. There is no terminal `yoke simulate` adapter; dispatch uses the harness skill surface.
 
-# /yoke simulate {epic-id} | --system
+# /yoke simulate {epic-ref} | --system
 
 Trace cross-task execution paths across an entire epic to find integration gaps that per-task testing misses. Or, with `--system`, run an Ouroboros system-wide consistency audit across all of Yoke's components.
 
@@ -19,7 +19,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Arguments
 
-- `{epic-id}` — Epic ID (the numeric `id` of the epic backlog item, which equals the `epic_id` foreign key in `epic_tasks`)
+- `{epic-ref}` — Public ref of the epic backlog item (PREFIX-N).
 - `--system` — Run a system-wide consistency audit (no epic name required). Checks all agents, SKILLs, scripts, rules, hooks, and docs for internal consistency. Produces a report only — no auto-fix.
 - `--auto-fix` — Automatically accept the shared Architect plan-fix loop and re-simulations; code gaps return to the caller rather than being reported clean. Conduct invokes this mode internally with its persisted report.
 - `--force-integration` — Run integration simulation even if some tasks are incomplete (traces completed work only)

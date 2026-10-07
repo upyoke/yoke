@@ -115,7 +115,6 @@ def handle_items_overview_list(request: FunctionCallRequest) -> HandlerOutcome:
             "payload": {
                 "fields": [
                     "id",
-                    "internal_id",
                     "title",
                     "workflow_id",
                     "workflow_version_id",

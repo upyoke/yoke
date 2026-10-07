@@ -81,7 +81,7 @@ def run(argv: List[str]) -> int:
             as_json=as_json,
         )
 
-    item_id = int(item["id"])
+    item_id = str(item["public_ref"])
     public_ref = str(item.get("public_ref") or args.item)
     fail = partial(report.fail_json, as_json=as_json, public_ref=public_ref)
     announce = report.bind(session_id=str(args.session_id), dispatch=call_dispatcher)

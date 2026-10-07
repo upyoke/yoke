@@ -180,7 +180,7 @@ def execute_ci_case(
                     branch=branch,
                     target=entry_run_base,
                     lane_head=head_sha,
-                    item_id=int(case["item_id"]),
+                    public_ref=str(case.get("public_ref") or ""),
                 )
                 if covering_run is None:
                     superseded_ci_run_id = (

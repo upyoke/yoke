@@ -38,7 +38,12 @@ class Skill:
 
 SKILLS: tuple[Skill, ...] = (
     Skill(
-        "amend", "internal", "shepherd", False, "amend a synced task graph", "{epic-id}"
+        "amend",
+        "internal",
+        "shepherd",
+        False,
+        "amend a synced task graph",
+        "{epic-ref}",
     ),
     Skill(
         "approve",
@@ -200,7 +205,7 @@ SKILLS: tuple[Skill, ...] = (
         "simulate",
         False,
         "trace integration paths; no terminal `yoke simulate` adapter",
-        "{epic-id} [--auto-fix] | --system",
+        "{epic-ref} [--auto-fix] | --system",
     ),
     Skill(
         "steer",

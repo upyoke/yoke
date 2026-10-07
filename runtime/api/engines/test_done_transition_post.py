@@ -32,7 +32,9 @@ def _insert_item(*args, **kwargs):
 
 
 def connect_dt_db(db_path):
-    from runtime.api.engines._done_transition_test_helpers import connect_dt_db as connect
+    from runtime.api.engines._done_transition_test_helpers import (
+        connect_dt_db as connect,
+    )
 
     return connect(db_path)
 
@@ -108,7 +110,7 @@ class TestCascadeEpicTasksToDone:
         ]
         assert len(task_list_calls) == 1
         # The relay slot carries the internal epic id, not the public ref.
-        assert task_list_calls[0]["payload"] == {"epic_id": "823"}
+        assert task_list_calls[0]["payload"] == {"epic_public_ref": f"YOK-{823}"}
 
         # Two direct task-status writes — one cascade (task 1), one promote (task 3).
         assert mock_task_direct.call_count == 2
@@ -116,7 +118,7 @@ class TestCascadeEpicTasksToDone:
         assert task_nums == {"1", "3"}
         for call in mock_task_direct.call_args_list:
             # Positional: epic_id, task_num, new_status, note
-            assert call.args[0] == 823
+            assert call.args[0] == f"YOK-{823}"
             assert call.args[2] == "done"
 
     def test_cascade_noop_when_no_tasks(self, dt_db):

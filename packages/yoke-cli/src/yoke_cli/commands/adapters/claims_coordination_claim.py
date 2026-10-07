@@ -41,8 +41,8 @@ def _print_claims(response: Any, stdout, _stderr) -> None:
     )
     for claim in claims:
         owner = (
-            f"item:{claim.get('owner_item_id')}"
-            if claim.get("owner_item_id") is not None
+            f"item:{claim.get('owner_public_ref')}"
+            if claim.get("owner_public_ref") is not None
             else (claim.get("session_id") or "")
         )
         print(
@@ -87,7 +87,6 @@ def claims_coordination_claim_acquire(args: List[str]) -> int:
     )
     parser.add_argument(
         "--item",
-        type=int,
         default=None,
         help="Owning item id, for the kinds whose scope records one.",
     )
@@ -103,7 +102,7 @@ def claims_coordination_claim_acquire(args: List[str]) -> int:
     if parsed.reason:
         payload["reason"] = parsed.reason
     if parsed.item:
-        payload["item_id"] = parsed.item
+        payload["public_ref"] = parsed.item
     return dispatch_and_emit(
         function_id="claims.coordination_claim.acquire",
         target=TargetRef(kind="global"),
@@ -233,7 +232,6 @@ def claims_coordination_claim_list(args: List[str]) -> int:
     )
     parser.add_argument(
         "--item",
-        type=int,
         default=None,
         help="Filter to claims owned by this item id.",
     )
@@ -258,7 +256,7 @@ def claims_coordination_claim_list(args: List[str]) -> int:
     if parsed.session_id:
         payload["session_id"] = parsed.session_id
     if parsed.item:
-        payload["owner_item_id"] = parsed.item
+        payload["owner_public_ref"] = parsed.item
     if parsed.active_only:
         payload["active_only"] = True
     return dispatch_and_emit(

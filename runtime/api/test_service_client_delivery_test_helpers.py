@@ -29,7 +29,7 @@ _SCHEMA_DDL = """
     );
 
     INSERT INTO projects (id, slug, name) VALUES (1, 'yoke', 'Yoke');
-    INSERT INTO projects (id, slug, name) VALUES (2, 'externalwebapp', 'ExternalWebapp');
+    INSERT INTO projects (id, slug, name, public_item_prefix) VALUES (2, 'externalwebapp', 'ExternalWebapp', 'EXT');
 
     CREATE TABLE items (
         id INTEGER PRIMARY KEY,
@@ -46,6 +46,7 @@ _SCHEMA_DDL = """
         updated_at TEXT NOT NULL,
         source TEXT NOT NULL DEFAULT '2',
         project_id INTEGER NOT NULL DEFAULT 1,
+        project_sequence INTEGER,
         deployment_flow TEXT,
         deploy_stage TEXT
     );
@@ -177,23 +178,23 @@ def _seed(db_path: str) -> None:
             (stages_json,),
         )
         conn.execute(
-            """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id,
+            """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                                   deployment_flow, deploy_stage,
                                   created_at, updated_at, source, frozen)
-               VALUES (10, 'Release item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'release', 'high', 1,
+               VALUES (10, 'Release item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'release', 'high', 1, 10,
                        'test-flow', 'approve-deploy',
                        '2026-01-01', '2026-01-01', 'user', 0)"""
         )
         conn.execute(
-            """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id,
+            """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                                   created_at, updated_at, source, frozen)
-               VALUES (11, 'Active issue', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'medium', 1,
+               VALUES (11, 'Active issue', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'medium', 1, 11,
                        '2026-01-01', '2026-01-01', 'user', 0)"""
         )
         conn.execute(
-            """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id,
+            """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                                   created_at, updated_at, source, frozen)
-               VALUES (12, 'Test epic', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing', 'high', 1,
+               VALUES (12, 'Test epic', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing', 'high', 1, 12,
                        '2026-01-01', '2026-01-01', 'user', 0)"""
         )
         issue_id, issue_version_id = resolve_current_workflow_pin(conn, "issue")

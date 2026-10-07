@@ -19,7 +19,6 @@ DEPLOYING_FLOW = "production-release"
 
 def _item() -> dict:
     return {
-        "id": 41,
         "public_ref": "ITEM-41",
         "status": "release",
         "workflow": {"id": "dash", "version": 3},
@@ -30,7 +29,9 @@ def _item() -> dict:
 
 def _answer(payload):
     return lambda **_kwargs: SimpleNamespace(
-        success=True, result=payload, error=None,
+        success=True,
+        result=payload,
+        error=None,
     )
 
 
@@ -40,9 +41,11 @@ def test_a_discharged_delivery_reads_through_the_shared_ladder() -> None:
 
     def _dispatch(*, function_id, target, payload):
         asked["function_id"] = function_id
-        asked["item_id"] = target.item_id
+        asked["public_ref"] = target.public_ref
         return SimpleNamespace(
-            success=True, result={"state": "discharged"}, error=None,
+            success=True,
+            result={"state": "discharged"},
+            error=None,
         )
 
     item = _item()
@@ -50,7 +53,7 @@ def test_a_discharged_delivery_reads_through_the_shared_ladder() -> None:
     assert verdict.discharged is True
     assert verdict.unread is False
     assert asked["function_id"] == "done_transition.delivery_evidence"
-    assert asked["item_id"] == item["id"]
+    assert asked["public_ref"] == item["public_ref"]
 
 
 def test_an_undelivered_item_is_a_real_no() -> None:
@@ -76,7 +79,9 @@ def test_a_read_that_could_not_run_is_unread_rather_than_a_no() -> None:
 
     def _refuses(**_kwargs):
         return SimpleNamespace(
-            success=False, result=None, error=SimpleNamespace(message="denied"),
+            success=False,
+            result=None,
+            error=SimpleNamespace(message="denied"),
         )
 
     item = _item()
@@ -97,17 +102,19 @@ def test_an_undetermined_ladder_verdict_keeps_its_own_diagnosis() -> None:
     """The ladder already named the provider failure; do not discard it."""
     verdict = delivery_discharge(
         _item(),
-        dispatch=_answer({
-            "state": "undetermined",
-            "reason": "repository_provider_read_failed",
-            "recovery": "Confirm the project's GitHub binding, then retry.",
-        }),
+        dispatch=_answer(
+            {
+                "state": "undetermined",
+                "reason": "repository_provider_read_failed",
+                "recovery": "Confirm the project's GitHub binding, then retry.",
+            }
+        ),
     )
     assert verdict.unread is True
     assert "repository_provider_read_failed" in verdict.detail
     assert "GitHub binding" in verdict.recovery
 
 
-def test_a_missing_id_or_verdict_is_unread() -> None:
+def test_a_missing_public_ref_or_verdict_is_unread() -> None:
     assert delivery_discharge({}, dispatch=_answer({})).unread is True
     assert delivery_discharge(_item(), dispatch=_answer({})).unread is True

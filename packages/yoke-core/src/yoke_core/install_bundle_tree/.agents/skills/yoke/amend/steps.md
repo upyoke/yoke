@@ -2,12 +2,12 @@
 
 1. **Verify the item has epic tasks.** Read via the
    `epic_tasks.list.run` function call (`target = {kind: "epic_task",
-   epic_id: <id>}`, empty payload). If `result.tasks` is empty, inform
+   public_ref: "PREFIX-N"}`, empty payload). If `result.tasks` is empty, inform
    the user and suggest next steps:
 
-   > task_graph_missing: PREFIX-{epic-id} has no epic tasks. Restore its task
+   > task_graph_missing: PREFIX-{epic-ref} has no epic tasks. Restore its task
    > graph through the authoring binding in its pinned workflow before retrying.
-   > Read `yoke items detail get PREFIX-{epic-id} --json` to resolve the pin.
+   > Read `yoke items detail get PREFIX-{epic-ref} --json` to resolve the pin.
 
    Do NOT conclude from an empty result that the item is "not an epic"
    — its pinned authoring segment may need to complete first. Do NOT fall back to
@@ -22,7 +22,7 @@
    registered epic-task read wrapper:
 
    ```bash
-   yoke workflow-item epic-task simulation-get --epic "{epic-id}" --phase integration
+   yoke workflow-item epic-task simulation-get --epic "{epic-ref}" --phase integration
    ```
 
    Fall back to `plan` if no integration report exists. If a report
@@ -60,7 +60,7 @@
    dispatch the `workflow_item.epic_task.add` function call (envelope
    in [`../idea/body-and-sync-functions.md`](../idea/body-and-sync-functions.md)):
 
-   - `target = {kind: "epic_task", epic_id: <id>, task_num: <next>}`
+   - `target = {kind: "epic_task", public_ref: "PREFIX-N", task_num: <next>}`
      where `<next>` is `MAX(task_num) + 1` from the prior
      `epic_tasks.list.run` response.
    - `payload = {title, body, worktree, context_estimate, dependencies}`.
@@ -74,14 +74,14 @@
    `planned` if you want to skip the `planning` review step.
 
    Finally, refresh the parent epic's `worktree_plan` via
-   `items.structured_field.replace` (`target = {kind: "item", item_id:
-   <epic-id>}`, `payload = {field: "worktree_plan", content:
+   `items.structured_field.replace` (`target = {kind: "item", public_ref:
+   <epic-ref>}`, `payload = {field: "worktree_plan", content:
    "<updated worktree plan>", source: "amend"}`) so the new task id
    appears in the rendered plan.
 
 6. **For splitting a task**, dispatch
    `workflow_item.epic_task.split` with `target = {kind: "epic_task",
-   epic_id, task_num: <parent>}` and `payload = {children: [{title,
+   public_ref: "PREFIX-N", task_num: <parent>}` and `payload = {children: [{title,
    body, worktree, context_estimate, dependencies}, ...]}`. The
    handler mints each child task row, rewrites dependencies that
    pointed at the parent task to point at the children, and marks
@@ -91,14 +91,14 @@
 
 7. **For reassigning a worktree**, dispatch
    `workflow_item.epic_task.reassign` with `target = {kind:
-   "epic_task", epic_id, task_num}` and `payload = {new_worktree:
+   "epic_task", public_ref: "PREFIX-N", task_num}` and `payload = {new_worktree:
    "<path>"}`. The handler updates the task row and emits the
    matching audit event. Refresh the parent epic's `worktree_plan`
    via `items.structured_field.replace` afterwards, and update any
    GitHub issue labels that reference worktree names.
 
 8. **For removing a task**, dispatch `workflow_item.epic_task.remove`
-   with `target = {kind: "epic_task", epic_id, task_num}` and
+   with `target = {kind: "epic_task", public_ref: "PREFIX-N", task_num}` and
    `payload = {reason: "<why the task is no longer needed>"}`. The
    handler refuses tasks that are not at `planning` / `planned`;
    in-progress or completed tasks must be retired through a
@@ -108,7 +108,7 @@
    afterwards.
 
 9. **Re-verify file overlap.** Read the refreshed task list and file
-   assignments via `yoke epic-tasks list --epic "{epic-id}"`. Check for
+   assignments via `yoke epic-tasks list --epic "{epic-ref}"`. Check for
    duplicate file paths across different
    worktrees. If overlap is detected, warn the user and help
    reassign files via `workflow_item.epic_task.reassign` or
@@ -117,20 +117,20 @@
 10. **Create any missing worktrees.** If the worktree plan now
     references worktrees that don't exist yet, create them. Query
     dispatch chains via `yoke workflow-item epic-dispatch-chain list
-    --epic "{epic-id}"` to find worktree paths.
+    --epic "{epic-ref}"` to find worktree paths.
 
 11. **Update dispatch chain (if one exists).** Read the chain via the
     registered dispatch-chain wrapper:
 
     ```bash
-    yoke workflow-item epic-dispatch-chain get --epic "{epic-id}" --worktree "{worktree}"
+    yoke workflow-item epic-dispatch-chain get --epic "{epic-ref}" --worktree "{worktree}"
     ```
 
     If a chain exists and a new task was added to that worktree,
     extend the chain queue:
 
     ```bash
-    yoke workflow-item epic-dispatch-chain update --epic "{epic-id}" --worktree "{worktree}" --field queue --value "{updated_queue_json}"
+    yoke workflow-item epic-dispatch-chain update --epic "{epic-ref}" --worktree "{worktree}" --field queue --value "{updated_queue_json}"
     ```
 
     If no dispatch chain exists for the worktree, skip — one will be

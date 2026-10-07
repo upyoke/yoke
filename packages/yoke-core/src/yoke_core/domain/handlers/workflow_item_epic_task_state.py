@@ -91,30 +91,29 @@ class SubmissionReceiptGetResponse(BaseModel):
 
 def _bad_request(message: str) -> HandlerOutcome:
     return HandlerOutcome(
-        result_payload={}, primary_success=False,
+        result_payload={},
+        primary_success=False,
         error=FunctionError(code="invalid_payload", message=message),
     )
 
 
 def _not_found(message: str) -> HandlerOutcome:
     return HandlerOutcome(
-        result_payload={}, primary_success=False,
+        result_payload={},
+        primary_success=False,
         error=FunctionError(code="target_not_found", message=message),
     )
 
 
 def _open_connection():
     from yoke_core.domain import db_helpers
+
     return db_helpers.connect()
 
 
 def _task_target(request: FunctionCallRequest) -> Optional[Tuple[int, int]]:
     target = request.target
-    if (
-        target.kind != "epic_task"
-        or target.epic_id is None
-        or target.task_num is None
-    ):
+    if target.kind != "epic_task" or target.epic_id is None or target.task_num is None:
         return None
     return int(target.epic_id), int(target.task_num)
 
@@ -128,7 +127,7 @@ def handle_body_get(request: FunctionCallRequest) -> HandlerOutcome:
     """Read one task body via ``epic.task_get_body``."""
     ids = _task_target(request)
     if ids is None:
-        return _bad_request("target must carry epic_id + task_num")
+        return _bad_request("target must carry public_ref + task_num")
     epic_id, task_num = ids
     try:
         BodyGetRequest.model_validate(request.payload)
@@ -153,7 +152,7 @@ def handle_update_status(request: FunctionCallRequest) -> HandlerOutcome:
     """
     ids = _task_target(request)
     if ids is None:
-        return _bad_request("target must carry epic_id + task_num")
+        return _bad_request("target must carry public_ref + task_num")
     epic_id, task_num = ids
     try:
         payload = UpdateStatusRequest.model_validate(request.payload)
@@ -162,7 +161,10 @@ def handle_update_status(request: FunctionCallRequest) -> HandlerOutcome:
     with _open_connection() as conn:
         try:
             message = epic.task_update_status(
-                conn, str(epic_id), task_num, payload.status,
+                conn,
+                str(epic_id),
+                task_num,
+                payload.status,
             )
         except LookupError as exc:
             return _not_found(str(exc))
@@ -170,12 +172,15 @@ def handle_update_status(request: FunctionCallRequest) -> HandlerOutcome:
             return _bad_request(str(exc))
         except PermissionError as exc:
             return HandlerOutcome(
-                result_payload={}, primary_success=False,
+                result_payload={},
+                primary_success=False,
                 error=FunctionError(code="pipeline_required", message=str(exc)),
             )
     response = UpdateStatusResponse(
-        epic_id=epic_id, task_num=task_num,
-        status=payload.status, message=message,
+        epic_id=epic_id,
+        task_num=task_num,
+        status=payload.status,
+        message=message,
     )
     return HandlerOutcome(result_payload=response.model_dump(), primary_success=True)
 
@@ -188,7 +193,7 @@ def handle_simulation_upsert(request: FunctionCallRequest) -> HandlerOutcome:
     """
     target = request.target
     if target.kind != "epic_task" or target.epic_id is None:
-        return _bad_request("target must carry epic_id")
+        return _bad_request("target must carry public_ref")
     epic_id = int(target.epic_id)
     try:
         payload = SimulationUpsertRequest.model_validate(request.payload)
@@ -197,15 +202,21 @@ def handle_simulation_upsert(request: FunctionCallRequest) -> HandlerOutcome:
     with _open_connection() as conn:
         try:
             message = epic.simulation_upsert(
-                conn, str(epic_id), payload.phase, payload.body,
+                conn,
+                str(epic_id),
+                payload.phase,
+                payload.body,
             )
         except RuntimeError as exc:
             return HandlerOutcome(
-                result_payload={}, primary_success=False,
+                result_payload={},
+                primary_success=False,
                 error=FunctionError(code="downstream_failure", message=str(exc)),
             )
     response = SimulationUpsertResponse(
-        epic_id=epic_id, phase=payload.phase, message=message,
+        epic_id=epic_id,
+        phase=payload.phase,
+        message=message,
     )
     return HandlerOutcome(result_payload=response.model_dump(), primary_success=True)
 
@@ -220,7 +231,7 @@ def handle_submission_receipt_get(request: FunctionCallRequest) -> HandlerOutcom
     """
     ids = _task_target(request)
     if ids is None:
-        return _bad_request("target must carry epic_id + task_num")
+        return _bad_request("target must carry public_ref + task_num")
     epic_id, task_num = ids
     try:
         payload = SubmissionReceiptGetRequest.model_validate(request.payload)
@@ -229,18 +240,23 @@ def handle_submission_receipt_get(request: FunctionCallRequest) -> HandlerOutcom
     with _open_connection() as conn:
         try:
             receipt = epic.submission_receipt_get(
-                conn, str(epic_id), task_num,
+                conn,
+                str(epic_id),
+                task_num,
                 after_note_count=payload.after_note_count,
             )
         except LookupError as exc:
             return _not_found(str(exc))
         except ValueError as exc:
             return HandlerOutcome(
-                result_payload={}, primary_success=False,
+                result_payload={},
+                primary_success=False,
                 error=FunctionError(code="receipt_invalid", message=str(exc)),
             )
     response = SubmissionReceiptGetResponse(
-        epic_id=epic_id, task_num=task_num, receipt=receipt,
+        epic_id=epic_id,
+        task_num=task_num,
+        receipt=receipt,
     )
     return HandlerOutcome(result_payload=response.model_dump(), primary_success=True)
 
@@ -251,12 +267,18 @@ def handle_submission_receipt_get(request: FunctionCallRequest) -> HandlerOutcom
 
 
 def _kwargs(
-    fid: str, h: Any, req: Any, resp: Any,
-    side_effects: List[str], claim: Optional[str],
+    fid: str,
+    h: Any,
+    req: Any,
+    resp: Any,
+    side_effects: List[str],
+    claim: Optional[str],
 ) -> Dict[str, Any]:
     return {
-        "function_id": fid, "handler": h,
-        "request_model": req, "response_model": resp,
+        "function_id": fid,
+        "handler": h,
+        "request_model": req,
+        "response_model": resp,
         "stability": "stable",
         "owner_module": _OWNER_MODULE,
         "target_kinds": ["epic_task"],
@@ -270,33 +292,52 @@ def _kwargs(
 
 REGISTRATIONS: List[Dict[str, Any]] = [
     _kwargs(
-        "workflow_item.epic_task.body_get", handle_body_get,
-        BodyGetRequest, BodyGetResponse, [], None,
+        "workflow_item.epic_task.body_get",
+        handle_body_get,
+        BodyGetRequest,
+        BodyGetResponse,
+        [],
+        None,
     ),
     _kwargs(
-        "workflow_item.epic_task.update_status", handle_update_status,
-        UpdateStatusRequest, UpdateStatusResponse,
-        ["epic_tasks_status_update", "github_sync"], "epic",
+        "workflow_item.epic_task.update_status",
+        handle_update_status,
+        UpdateStatusRequest,
+        UpdateStatusResponse,
+        ["epic_tasks_status_update", "github_sync"],
+        "epic",
     ),
     _kwargs(
-        "workflow_item.epic_task.simulation_upsert", handle_simulation_upsert,
-        SimulationUpsertRequest, SimulationUpsertResponse,
-        ["qa_requirements_insert", "qa_runs_insert"], "epic",
+        "workflow_item.epic_task.simulation_upsert",
+        handle_simulation_upsert,
+        SimulationUpsertRequest,
+        SimulationUpsertResponse,
+        ["qa_requirements_insert", "qa_runs_insert"],
+        "epic",
     ),
     _kwargs(
         "workflow_item.epic_task.submission_receipt_get",
         handle_submission_receipt_get,
-        SubmissionReceiptGetRequest, SubmissionReceiptGetResponse, [], None,
+        SubmissionReceiptGetRequest,
+        SubmissionReceiptGetResponse,
+        [],
+        None,
     ),
 ]
 
 
 __all__ = [
-    "handle_body_get", "handle_update_status",
-    "handle_simulation_upsert", "handle_submission_receipt_get",
-    "BodyGetRequest", "BodyGetResponse",
-    "UpdateStatusRequest", "UpdateStatusResponse",
-    "SimulationUpsertRequest", "SimulationUpsertResponse",
-    "SubmissionReceiptGetRequest", "SubmissionReceiptGetResponse",
+    "handle_body_get",
+    "handle_update_status",
+    "handle_simulation_upsert",
+    "handle_submission_receipt_get",
+    "BodyGetRequest",
+    "BodyGetResponse",
+    "UpdateStatusRequest",
+    "UpdateStatusResponse",
+    "SimulationUpsertRequest",
+    "SimulationUpsertResponse",
+    "SubmissionReceiptGetRequest",
+    "SubmissionReceiptGetResponse",
     "REGISTRATIONS",
 ]

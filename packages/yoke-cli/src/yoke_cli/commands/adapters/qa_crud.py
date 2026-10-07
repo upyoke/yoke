@@ -43,7 +43,7 @@ def qa_requirement_add(args: List[str]) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     subject = parser.add_mutually_exclusive_group(required=True)
-    subject.add_argument("--item", help="Target item (PREFIX-N or number).")
+    subject.add_argument("--item", help="Target item (PREFIX-N).")
     subject.add_argument(
         "--deployment-run",
         dest="deployment_run",

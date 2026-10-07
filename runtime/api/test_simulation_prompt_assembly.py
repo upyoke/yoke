@@ -1,7 +1,7 @@
 """Skill-prompt-assembly tests for simulator dispatch.
 
 Owns the contract: assembled retry-tier prompts must contain the epic
-ID verbatim in the correct templated location, and empty ``_epic_id`` must
+ID verbatim in the correct templated location, and empty ``_epic_ref`` must
 halt before any dispatch invocation. The actual prompt assembly happens
 inside conduct's bash flow as it reads ``simulation-gate-criteria.md``;
 these tests pin the doc-level contract so a future template refactor cannot
@@ -48,10 +48,10 @@ class TestEmptyEpicIdHaltsBeforeDispatch:
     """The defensive bail must fire BEFORE any simulator dispatch call."""
 
     def test_bail_check_present(self, criteria_text: str):
-        assert 'if [ -z "${_epic_id:-}" ]; then' in criteria_text
+        assert 'if [ -z "${_epic_ref:-}" ]; then' in criteria_text
 
     def test_bail_message_is_critical(self, criteria_text: str):
-        assert "[CRITICAL] _epic_id lost between dispatches" in criteria_text
+        assert "[CRITICAL] _epic_ref lost between dispatches" in criteria_text
 
     def test_bail_documented_for_initial_and_retry_dispatch(self, criteria_text: str):
         assert (
@@ -62,17 +62,18 @@ class TestEmptyEpicIdHaltsBeforeDispatch:
         assert "retry" in criteria_text.lower()
 
     def test_bail_routes_to_cleanup_report_halted(self, criteria_text: str):
-        bail_block_start = criteria_text.find('if [ -z "${_epic_id:-}" ]; then')
+        bail_block_start = criteria_text.find('if [ -z "${_epic_ref:-}" ]; then')
         assert bail_block_start >= 0
         # Look at the surrounding paragraph for the routing instruction.
-        nearby = criteria_text[max(0, bail_block_start - 400): bail_block_start + 800]
+        nearby = criteria_text[max(0, bail_block_start - 400) : bail_block_start + 800]
         assert (
-            "cleanup-report.md" in nearby and "HALTED" in nearby
+            "cleanup-report.md" in nearby
+            and "HALTED" in nearby
             or "halts before any simulator invocation" in nearby
         )
 
     def test_bail_appears_before_first_dispatch_block(self, criteria_text: str):
-        bail_idx = criteria_text.find('if [ -z "${_epic_id:-}" ]; then')
+        bail_idx = criteria_text.find('if [ -z "${_epic_ref:-}" ]; then')
         assert bail_idx >= 0
         # The standard dispatch block starts with the marker '### Standard Dispatch'
         std_idx = criteria_text.find("### Standard Dispatch")
@@ -106,7 +107,7 @@ class TestRetryPromptsCarryEpicIdVerbatim:
         self, criteria_text: str
     ):
         # Match the documented retry-tier instruction
-        assert "EPIC: PREFIX-${_epic_id}" in criteria_text
+        assert "EPIC: ${_epic_ref}" in criteria_text
         # And the formatting-omission section names the requirement
         assert "FIRST TWO LINES" in criteria_text
 
@@ -114,7 +115,7 @@ class TestRetryPromptsCarryEpicIdVerbatim:
         # The aggressive retry tier instruction is explicit
         assert (
             "two-line verdict block requirement (`SIMULATION:` line then "
-            "`EPIC: PREFIX-${_epic_id}` line)" in criteria_text
+            "`EPIC: ${_epic_ref}` line)" in criteria_text
         )
 
     def test_ultra_compressed_no_tool_fallback_carries_epic_placeholder(
@@ -122,16 +123,15 @@ class TestRetryPromptsCarryEpicIdVerbatim:
     ):
         # The fallback section requires the same two-line block
         assert (
-            "Two-line verdict block (`SIMULATION:` then `EPIC: PREFIX-${_epic_id}`)"
+            "Two-line verdict block (`SIMULATION:` then `EPIC: ${_epic_ref}`)"
             in criteria_text
         )
 
-    def test_dispatch_templates_use_item_id_placeholder(
+    def test_dispatch_templates_use_public_ref_placeholder(
         self, dispatch_prompts_text: str
     ):
-        # Plan / integration / compressed templates use {item_id}
-        # as the epic-ID placeholder (rendered by the simulate skill)
-        matches = re.findall(r"EPIC: PREFIX-\{item_id\}", dispatch_prompts_text)
+        # Dispatch templates carry the complete public ref.
+        matches = re.findall(r"EPIC: \{public_ref\}", dispatch_prompts_text)
         assert len(matches) >= 3, (
             f"expected EPIC placeholder in plan/integration/compressed prompts, "
             f"got {len(matches)} occurrence(s)"
@@ -139,7 +139,7 @@ class TestRetryPromptsCarryEpicIdVerbatim:
 
     def test_retry_placeholder_count_at_least_three(self, criteria_text: str):
         # Three retry tiers (formatting-omission, aggressive, ultra-compressed)
-        assert criteria_text.count("EPIC: PREFIX-${_epic_id}") >= 3
+        assert criteria_text.count("EPIC: ${_epic_ref}") >= 3
 
 
 # ---------------------------------------------------------------------------
@@ -205,23 +205,17 @@ class TestCompressedContextShimReExports:
 class TestExitCodeContractSurfacedToOperator:
     """Operator-facing diagnostics must name exit 16 (wrong-epic) and 17 (missing-epic)."""
 
-    def test_criteria_diagnostic_table_includes_exit_16(
-        self, criteria_text: str
-    ):
+    def test_criteria_diagnostic_table_includes_exit_16(self, criteria_text: str):
         assert "| 16 | wrong-epic body" in criteria_text
 
-    def test_criteria_diagnostic_table_includes_exit_17(
-        self, criteria_text: str
-    ):
+    def test_criteria_diagnostic_table_includes_exit_17(self, criteria_text: str):
         assert "| 17 | missing-epic body" in criteria_text
 
     def test_exit_16_diagnostic_names_both_epics(self, criteria_text: str):
-        assert "CLI passed PREFIX-${_epic_id}" in criteria_text
+        assert "CLI passed ${_epic_ref}" in criteria_text
         assert "body attested a different epic" in criteria_text
 
-    def test_exit_17_diagnostic_names_attestation_requirement(
-        self, criteria_text: str
-    ):
+    def test_exit_17_diagnostic_names_attestation_requirement(self, criteria_text: str):
         assert "EPIC: PREFIX-N attestation line" in criteria_text
 
     def test_dispatch_prompts_warn_about_persistence_rejection(

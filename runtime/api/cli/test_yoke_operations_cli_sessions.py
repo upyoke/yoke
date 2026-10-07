@@ -16,6 +16,9 @@ from yoke_contracts.api.function_call import (
 )
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 _CAPTURED_REQUESTS: List[FunctionCallRequest] = []
 
 
@@ -89,8 +92,8 @@ def test_sessions_checkpoint_dispatches() -> None:
             "charge",
             "--chainable",
             "true",
-            "--item-id",
-            "42",
+            "--item",
+            _FIXTURE_ITEM_REF,
             "--task-num",
             "3",
             "--outcome",
@@ -114,7 +117,7 @@ def test_sessions_checkpoint_dispatches() -> None:
         "action": "charge",
         "chainable": True,
         "outcome": "completed",
-        "item_id": "42",
+        "public_ref": _FIXTURE_ITEM_REF,
         "task_num": 3,
         "status": "implemented",
         "required_path": "runtime/api/foo.py",
@@ -260,3 +263,28 @@ def test_reclaim_stale_help_distinguishes_a_zero_and_names_terminate() -> None:
     assert "nothing was stale" in SESSIONS_RECLAIM_STALE_DESCRIPTION
     assert "holdings bound" in SESSIONS_RECLAIM_STALE_DESCRIPTION
     assert "yoke sessions terminate" in SESSIONS_RECLAIM_STALE_DESCRIPTION
+
+
+@pytest.mark.parametrize("selector", [None, _FIXTURE_ITEM_REF, "42"])
+def test_checkpoint_optional_item_uses_only_public_selectors(selector):
+    argv = [
+        "sessions",
+        "checkpoint",
+        "--step",
+        "1",
+        "--action",
+        "dash",
+        "--chainable",
+        "false",
+    ]
+    if selector is not None:
+        argv.extend(["--item", selector])
+    rc = _run(*argv)
+    if selector == "42":
+        assert rc == 1
+        assert _CAPTURED_REQUESTS == []
+    else:
+        assert rc == 0
+        payload = _CAPTURED_REQUESTS[-1].payload
+        assert "item_id" not in payload
+        assert payload.get("public_ref") == selector

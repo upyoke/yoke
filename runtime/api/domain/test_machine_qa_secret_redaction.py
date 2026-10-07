@@ -39,7 +39,7 @@ def _issued_case_contract():
         cases=[
             {
                 "requirement_id": 1,
-                "item_id": 2,
+                "public_ref": f"ITEM-{2}",
                 "plan_id": 3,
                 "case_key": "secret-redaction",
                 "method_id": "machine-state-check",

@@ -2,17 +2,18 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any, Optional
 
-from yoke_contracts.api.function_call import ActorContext, TargetRef
+from yoke_contracts.api.function_call import ActorContext
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 from yoke_core.domain.standalone_item_merge_landed import LandedLane
-from yoke_core.domain.work_claim_targets import item_id_from_row
 
 _MISSING_CLAIM = "no live work claim on this item"
 _HOLDER_FUNCTION = "claims.work.holder_get"
@@ -87,7 +88,9 @@ def _claim_error_from_lookup(
     if not isinstance(holder, Mapping):
         return _lookup_failure(connection, "holder response was malformed")
     try:
-        matches_item = item_id_from_row(holder) == int(item_id)
+        matches_item = str(
+            (holder.get("scope") or {}).get("public_ref") or holder.get("public_ref")
+        ) == str(public_item_target(item_id).public_ref)
     except (KeyError, TypeError, ValueError):
         matches_item = False
     if not matches_item:
@@ -110,7 +113,7 @@ def claim_error(item_id: int, session_id: str) -> str:
         return _claim_error_from_lookup(item_id, session_id, lookup)
     response = call_dispatcher(
         function_id=_HOLDER_FUNCTION,
-        target=TargetRef(kind="item", item_id=item_id),
+        target=public_item_target(item_id),
     )
     return _claim_error_from_lookup(
         item_id,
@@ -160,9 +163,9 @@ def reacquire_landed_claim(
         return None, "ambient session identity is unavailable"
     response = call_dispatcher(
         function_id="claims.work.acquire",
-        target=TargetRef(kind="item", item_id=item_id),
+        target=public_item_target(item_id),
         payload={
-            "target": {"kind": "item", "item_id": item_id},
+            "target": {"kind": "item"},
             "reason": "Converge landed merge close-out",
         },
         actor=ActorContext(session_id=caller),

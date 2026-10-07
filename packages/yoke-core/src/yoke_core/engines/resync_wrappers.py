@@ -62,17 +62,17 @@ def stage1_5_heavy_fetch(paired, gh_by_project):
     return _stage1_5(paired, gh_by_project, graphql_fn=_graphql_fn)
 
 
-def _repair_local_orphan_backlog(item_id, project):
+def _repair_local_orphan_backlog(public_ref, project):
     from yoke_core.engines.resync_apply import _repair_local_orphan_backlog as _fn
 
-    return _fn(item_id, project, call_domain_sync_fn=_parent()._call_domain_sync)
+    return _fn(public_ref, project, call_domain_sync_fn=_parent()._call_domain_sync)
 
 
-def _repair_local_orphan_epic_task(epic_id, task_num, project, db_path):
+def _repair_local_orphan_epic_task(epic_public_ref, task_num, project, db_path):
     from yoke_core.engines.resync_apply import _repair_local_orphan_epic_task as _fn
 
     return _fn(
-        epic_id,
+        epic_public_ref,
         task_num,
         project,
         db_path,

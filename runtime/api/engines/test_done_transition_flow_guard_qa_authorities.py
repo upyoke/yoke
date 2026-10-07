@@ -45,7 +45,7 @@ class TestDeploymentFlowGuardQaAuthorities:
                 public_ref="YOK-530",
             )
         assert result == (7, "release")
-        gate.assert_called_once_with(530, "run-7")
+        gate.assert_called_once_with("YOK-530", "run-7")
 
     def test_skip_deploy_with_satisfied_qa_proceeds(self):
         with (
@@ -87,4 +87,4 @@ class TestDeploymentFlowGuardQaAuthorities:
                 public_ref="YOK-532",
             )
         assert result == (7, "release")
-        gate.assert_called_once_with(532, "run-8")
+        gate.assert_called_once_with("YOK-532", "run-8")

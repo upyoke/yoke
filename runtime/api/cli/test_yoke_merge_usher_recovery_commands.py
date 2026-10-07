@@ -100,7 +100,7 @@ def test_merge_audit_invalid_filter_stays_in_cli_layer() -> None:
 
     assert rc == 2
     assert out.getvalue() == ""
-    assert "invalid epic ID" in err.getvalue()
+    assert "public_item_ref_required" in err.getvalue()
 
 
 def test_usher_reconcile_forwards_to_engine_main() -> None:

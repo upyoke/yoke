@@ -17,6 +17,8 @@ returns ``(allowed: bool, reason: str | None)``.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 import sys
 from typing import Any, Optional, Tuple
 
@@ -87,9 +89,9 @@ def _has_planning_verdict(
 ) -> bool:
     row = conn.execute(
         "SELECT 1 FROM shepherd_verdicts "
-        f"WHERE item = {_p(conn)} AND transition = {_p(conn)} "
+        f"WHERE public_ref = {_p(conn)} AND transition = {_p(conn)} "
         "AND verdict IN ('READY', 'CAVEATS') LIMIT 1",
-        (f"YOK-{item_id}", transition),
+        (render_item_ref(conn, item_id), transition),
     ).fetchone()
     return row is not None
 
@@ -168,14 +170,13 @@ def check_done_preconditions(
     raises, aborting the transition exactly as the inline ``connect()`` did
     on a DB-level failure — this gate never degrades to "allowed".
     """
-    from yoke_contracts.api.function_call import TargetRef
     from yoke_core.api.service_client_structured_api_adapter import (
         call_dispatcher,
     )
 
     resp = call_dispatcher(
         function_id="done_transition.done_preconditions",
-        target=TargetRef(kind="item", item_id=int(item_id)),
+        target=public_item_target(item_id),
         payload={
             "deploy_flow": deploy_flow,
             "require_plan_verdict": require_plan_verdict,

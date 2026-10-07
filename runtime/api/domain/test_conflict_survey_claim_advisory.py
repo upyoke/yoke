@@ -21,6 +21,9 @@ from yoke_core.domain.path_claims_overlap_survey import (
     SURVEY_ADVISORY_YIELD,
 )
 
+
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
 SHARED = "src/shared.py"
 
 
@@ -71,7 +74,7 @@ class _AdvisoryDispatcher:
         if function_id == "items.detail.get":
             row = (
                 self.owner
-                if getattr(target, "item_id", None) == self.owner["id"]
+                if target.public_ref == self.owner["public_ref"]
                 else self.item
             )
             return _resp(function_id, {"item": row})
@@ -82,12 +85,11 @@ class _AdvisoryDispatcher:
 
 def test_path_claim_survey_contact_advises_and_prepares(monkeypatch, capsys):
     owner = {
-        "id": 4200,
-        "public_ref": "YOK-4200",
+        "public_ref": f"{_FIXTURE_ITEM_REF}00",
         "status": "implementing",
         "workflow": {"id": "issue"},
     }
-    item = {"id": 4103, "workflow": {"id": "dash"}}
+    item = {"public_ref": "YOK-4103", "workflow": {"id": "dash"}}
     dispatcher = _AdvisoryDispatcher(
         item=item,
         owner=owner,
@@ -99,13 +101,13 @@ def test_path_claim_survey_contact_advises_and_prepares(monkeypatch, capsys):
             "blockers": [
                 {
                     "kind": "path_claim",
-                    "owner_item_id": 4200,
+                    "owner_public_ref": f"{_FIXTURE_ITEM_REF}00",
                     "path": SHARED,
                     "state": "active",
                 },
                 {
                     "kind": "work_claim",
-                    "owner_item_id": 4200,
+                    "owner_public_ref": f"{_FIXTURE_ITEM_REF}00",
                     "path": SHARED,
                     "state": "active",
                 },
@@ -134,7 +136,7 @@ def test_path_claim_survey_contact_advises_and_prepares(monkeypatch, capsys):
     by_kind = {row["kind"]: row for row in emitted["advisories"]}
     assert set(by_kind) == {"path_claim", "work_claim"}
     for advisory in by_kind.values():
-        assert advisory["public_ref"] == "YOK-4200"
+        assert advisory["public_ref"] == f"{_FIXTURE_ITEM_REF}00"
         assert advisory["status"] == "implementing"
         assert advisory["shared_paths"] == [SHARED]
         assert advisory["routes"]["proceed"] == SURVEY_ADVISORY_PROCEED

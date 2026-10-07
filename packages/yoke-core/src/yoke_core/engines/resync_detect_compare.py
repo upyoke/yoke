@@ -29,8 +29,8 @@ def _drift(item: PairedItem, field: str, local: str, github: str) -> DriftRecord
         field,
         local,
         github,
-        item_id=item.item_id,
-        epic_id=item.epic_id,
+        public_ref=item.public_ref,
+        epic_public_ref=item.epic_public_ref,
         task_num=item.task_num,
     )
 
@@ -66,9 +66,12 @@ def stage2_compare(
         raise RuntimeError(f"resync compare prefetch failed: {message}")
     data = resp.result or {}
 
-    items_by_id: Dict[int, Dict] = {row["id"]: row for row in data.get("items", [])}
+    items_by_ref: Dict[str, Dict] = {
+        row["public_ref"]: row for row in data.get("items", [])
+    }
     epic_tasks_by_key: Dict[Tuple[Any, int], Dict] = {
-        (row["epic_id"], row["task_num"]): row for row in data.get("epic_tasks", [])
+        (row["epic_public_ref"], row["task_num"]): row
+        for row in data.get("epic_tasks", [])
     }
 
     drifts: List[DriftRecord] = []
@@ -85,14 +88,11 @@ def stage2_compare(
             continue
 
         if item.kind == "backlog":
-            # Identity is the internal ``items.id`` resolved at ingestion;
-            # the display ref is never parsed back into an id (public
-            # sequences can diverge from internal ids).
-            id_num = item.item_id
-            if id_num is None:
+            # Public identity is carried unchanged from the server roster.
+            if item.public_ref is None:
                 continue
 
-            local_item = items_by_id.get(id_num)
+            local_item = items_by_ref.get(item.ref)
             if not local_item:
                 continue
 
@@ -120,7 +120,7 @@ def stage2_compare(
                     local_body=raw_local_body,
                     gh_body=raw_gh_body,
                     item_fields=mirror_fields,
-                    item_id=id_num,
+                    public_ref=item.public_ref,
                 ):
                     drifts.append(_drift(item, "body", "<local body>", "<github body>"))
             else:
@@ -133,7 +133,7 @@ def stage2_compare(
                         local_body=raw_local_body,
                         gh_body=raw_gh_light,
                         item_fields=mirror_fields,
-                        item_id=id_num,
+                        public_ref=item.public_ref,
                     ):
                         drifts.append(
                             _drift(item, "body", "<local body>", "<github body>")
@@ -257,20 +257,11 @@ def stage2_compare(
                     )
 
         elif item.kind == "epic_task":
-            # Typed identity from ingestion: (epic_id, task_num).
-            if item.epic_id is None or item.task_num is None:
+            # Typed identity from ingestion: (epic_public_ref, task_num).
+            if item.epic_public_ref is None or item.task_num is None:
                 continue
-            raw_slug = str(item.epic_id)
             et_num = int(item.task_num)
-            try:
-                et_slug_int = int(raw_slug)
-            except ValueError:
-                et_slug_int = None
-
-            # Try both string and int key since epic_id may be stored as either
-            local_task = epic_tasks_by_key.get((raw_slug, et_num))
-            if local_task is None and et_slug_int is not None:
-                local_task = epic_tasks_by_key.get((et_slug_int, et_num))
+            local_task = epic_tasks_by_key.get((item.epic_public_ref, et_num))
             if not local_task:
                 continue
 

@@ -67,7 +67,7 @@ class TestApproveDoesNotBypassInbox:
         conn.close()
 
         with patch("yoke_core.domain.backlog_rendering._emit_event") as mock_emit:
-            resp = client.post("/v1/items/4/approve", json={})
+            resp = client.post("/v1/items/YOK-4/approve", json={})
 
         assert resp.status_code == 409
         emit_calls = _item_status_change_calls(mock_emit)
@@ -78,7 +78,7 @@ class TestApproveDoesNotBypassInbox:
         # advances deploy_stage but does not transition status, so the
         # canonical emit MUST stay quiet.
         with patch("yoke_core.domain.backlog_rendering._emit_event") as mock_emit:
-            resp = client.post("/v1/items/4/approve", json={})
+            resp = client.post("/v1/items/YOK-4/approve", json={})
 
         assert resp.status_code == 409
         emit_calls = _item_status_change_calls(mock_emit)
@@ -96,7 +96,7 @@ class TestPatchStatusBoundary:
         # The route must reject even a workflow-valid lifecycle hop.
         with patch("yoke_core.domain.backlog_rendering._emit_event") as mock_emit:
             resp = client.patch(
-                "/v1/items/1",
+                "/v1/items/YOK-1",
                 json={"status": "implemented"},
             )
 
@@ -110,7 +110,7 @@ class TestPatchStatusBoundary:
         # ItemStatusChanged emit.
         with patch("yoke_core.domain.backlog_rendering._emit_event") as mock_emit:
             resp = client.patch(
-                "/v1/items/1",
+                "/v1/items/YOK-1",
                 json={"priority": "low"},
             )
 
@@ -128,7 +128,7 @@ class TestPatchStatusBoundary:
         # quiet because there is no real transition.
         with patch("yoke_core.domain.backlog_rendering._emit_event") as mock_emit:
             resp = client.patch(
-                "/v1/items/1",
+                "/v1/items/YOK-1",
                 json={"status": "implementing"},
             )
 

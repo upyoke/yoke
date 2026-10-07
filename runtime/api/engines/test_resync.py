@@ -34,7 +34,9 @@ class TestHelpers:
         monkeypatch.setenv("YOKE_ROOT", str(repo_root))
         assert resync_mod._resolve_yoke_root() == str(state_dir)
 
-    def test_resolve_yoke_root_preserves_project_state_dir_env(self, tmp_path, monkeypatch):
+    def test_resolve_yoke_root_preserves_project_state_dir_env(
+        self, tmp_path, monkeypatch
+    ):
         state_dir = tmp_path / "repo" / ".yoke"
         state_dir.mkdir(parents=True)
         monkeypatch.setenv("YOKE_ROOT", str(state_dir))
@@ -72,7 +74,7 @@ class TestHelpers:
         yoke_body = [
             {
                 "number": 100,
-                "title": "[YOK-42] Test",
+                "title": f"[{TEST_ITEM_REF}] Test",
                 "labels": [],
                 "state": "OPEN",
                 "body": "Body",
@@ -102,7 +104,7 @@ class TestHelpers:
             ),
         ):
             result = resync_mod._fetch_gh_issues_per_project({"yoke", "externalwebapp"})
-        assert result["yoke"][100]["title"] == "[YOK-42] Test"
+        assert result["yoke"][100]["title"] == f"[{TEST_ITEM_REF}] Test"
         assert result["externalwebapp"][5]["state"] == "CLOSED"
 
     def test_fetch_uses_repo_from_same_resolution_as_token(self):
@@ -140,14 +142,16 @@ class TestHelpers:
 
 
 class TestStage1:
-    def test_stage1_linkage_builds_pairs_local_orphans_and_gh_orphans(self, populated_db, tmp_path):
+    def test_stage1_linkage_builds_pairs_local_orphans_and_gh_orphans(
+        self, populated_db, tmp_path
+    ):
         yoke_root = tmp_path / "state"
         (yoke_root / "backlog").mkdir(parents=True)
         gh_map = {
             "yoke": {
                 100: {
                     "number": 100,
-                    "title": "[YOK-42] Test item",
+                    "title": f"[{TEST_ITEM_REF}] Test item",
                     "labels": [],
                     "state": "OPEN",
                     "body": "",
@@ -175,20 +179,24 @@ class TestStage1:
                 },
             }
         }
-        with mock.patch("yoke_core.engines.resync._fetch_gh_issues_per_project", return_value=gh_map):
-            paired, local_orphans, gh_orphans, gh_by_project = resync_mod.stage1_linkage(
-                populated_db,
-                str(yoke_root),
+        with mock.patch(
+            "yoke_core.engines.resync._fetch_gh_issues_per_project", return_value=gh_map
+        ):
+            paired, local_orphans, gh_orphans, gh_by_project = (
+                resync_mod.stage1_linkage(
+                    populated_db,
+                    str(yoke_root),
+                )
             )
 
         paired_refs = {item.ref for item in paired}
         local_orphan_refs = {orphan.ref for orphan in local_orphans}
-        assert "YOK-42" in paired_refs
+        assert TEST_ITEM_REF in paired_refs
         assert "YOK-1246" in paired_refs
-        assert "1246/task-001" in paired_refs
+        assert "YOK-1246/task-001" in paired_refs
         assert "YOK-43" in local_orphan_refs
         assert gh_orphans == [(999, "[YOK-999] Orphan", "OPEN", "yoke")]
-        assert gh_by_project["yoke"][100]["title"] == "[YOK-42] Test item"
+        assert gh_by_project["yoke"][100]["title"] == f"[{TEST_ITEM_REF}] Test item"
 
     def test_stage1_5_heavy_fetch_uses_resolved_repo_and_token_together(self):
         paired = [
@@ -199,7 +207,7 @@ class TestStage1:
                 "backlog",
                 "yoke",
                 "stale/yoke",
-                item_id=TEST_ITEM_ID,
+                public_ref=TEST_ITEM_REF,
             ),
             PairedItem(
                 "YOK-77",
@@ -208,7 +216,7 @@ class TestStage1:
                 "backlog",
                 "externalwebapp",
                 "stale/externalwebapp",
-                item_id=77,
+                public_ref="YOK-77",
             ),
         ]
 
@@ -235,7 +243,9 @@ class TestStage1:
                 ],
             ) as fetch,
         ):
-            result = resync_mod.stage1_5_heavy_fetch(paired, {"yoke": {}, "externalwebapp": {}})
+            result = resync_mod.stage1_5_heavy_fetch(
+                paired, {"yoke": {}, "externalwebapp": {}}
+            )
 
         assert result["yoke"][100]["body"] == "a"
         assert result["externalwebapp"][7]["body"] == "b"
@@ -244,9 +254,9 @@ class TestStage1:
             GITHUB_ISSUES_READ_PERMISSION_LEVELS,
         )
 
-        assert [call.kwargs["required_permissions"] for call in auth_resolver.call_args_list] == [
-            GITHUB_ISSUES_READ_PERMISSION_LEVELS
-        ] * 2
+        assert [
+            call.kwargs["required_permissions"] for call in auth_resolver.call_args_list
+        ] == [GITHUB_ISSUES_READ_PERMISSION_LEVELS] * 2
         for call, project in zip(fetch.call_args_list, ("yoke", "externalwebapp")):
             assert call.kwargs["project"] == project
             assert call.kwargs["auth"] is auth_by_project[project]
@@ -274,8 +284,12 @@ class TestStage1:
                 },
             }
         }
-        with mock.patch("yoke_core.engines.resync._fetch_gh_issues_per_project", return_value=gh_map):
-            _, _, gh_orphans, _ = resync_mod.stage1_linkage(populated_db, str(yoke_root))
+        with mock.patch(
+            "yoke_core.engines.resync._fetch_gh_issues_per_project", return_value=gh_map
+        ):
+            _, _, gh_orphans, _ = resync_mod.stage1_linkage(
+                populated_db, str(yoke_root)
+            )
 
         assert gh_orphans == []
 

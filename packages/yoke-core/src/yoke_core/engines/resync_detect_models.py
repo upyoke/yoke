@@ -1,12 +1,8 @@
 """Data structures and normalization for resync detection.
 
-Identity convention: inside the engine, backlog items are keyed by the
-internal integer ``items.id`` (``item_id``) and epic tasks by
-``(epic_id, task_num)``. The ``ref`` attribute is a human-facing label —
-the item's public ref (``{public_item_prefix}-{project_sequence}``) for
-backlog items — and is never parsed back into an id: public sequences
-can diverge from internal ids, so a stripped label digit is not an
-``items.id``.
+Client identity uses complete public refs for backlog items and
+(public epic ref, task number) for epic tasks. Database join keys stay
+on the server; a public sequence is never treated as items.id.
 """
 
 from __future__ import annotations
@@ -23,8 +19,15 @@ class PairedItem:
     """Represents a local item/task paired with a GitHub issue."""
 
     __slots__ = (
-        "ref", "file", "gh_num", "kind", "project", "repo",
-        "item_id", "epic_id", "task_num",
+        "ref",
+        "file",
+        "gh_num",
+        "kind",
+        "project",
+        "repo",
+        "public_ref",
+        "epic_public_ref",
+        "task_num",
     )
 
     def __init__(
@@ -36,8 +39,8 @@ class PairedItem:
         project: str,
         repo: str,
         *,
-        item_id: Optional[int] = None,
-        epic_id: Optional[str] = None,
+        public_ref: Optional[str] = None,
+        epic_public_ref: Optional[str] = None,
         task_num: Optional[int] = None,
     ):
         self.ref = ref
@@ -46,8 +49,8 @@ class PairedItem:
         self.kind = kind
         self.project = project
         self.repo = repo
-        self.item_id = item_id
-        self.epic_id = epic_id
+        self.public_ref = public_ref
+        self.epic_public_ref = epic_public_ref
         self.task_num = task_num
 
 
@@ -59,8 +62,13 @@ class DriftRecord:
     """
 
     __slots__ = (
-        "ref", "field", "local", "github",
-        "item_id", "epic_id", "task_num",
+        "ref",
+        "field",
+        "local",
+        "github",
+        "public_ref",
+        "epic_public_ref",
+        "task_num",
     )
 
     def __init__(
@@ -70,16 +78,16 @@ class DriftRecord:
         local: str,
         github: str,
         *,
-        item_id: Optional[int] = None,
-        epic_id: Optional[str] = None,
+        public_ref: Optional[str] = None,
+        epic_public_ref: Optional[str] = None,
         task_num: Optional[int] = None,
     ):
         self.ref = ref
         self.field = field
         self.local = local
         self.github = github
-        self.item_id = item_id
-        self.epic_id = epic_id
+        self.public_ref = public_ref
+        self.epic_public_ref = epic_public_ref
         self.task_num = task_num
 
     def to_pipe(self) -> str:
@@ -93,8 +101,8 @@ class LocalOrphan(NamedTuple):
     file: str
     kind: str
     project: str
-    item_id: Optional[int] = None
-    epic_id: Optional[str] = None
+    public_ref: Optional[str] = None
+    epic_public_ref: Optional[str] = None
     task_num: Optional[int] = None
 
 
@@ -134,5 +142,5 @@ def _get_label_value(labels: List[Dict[str, Any]], prefix: str) -> str:
     for lbl in labels:
         name = lbl.get("name", "")
         if name.startswith(prefix):
-            return name[len(prefix):]
+            return name[len(prefix) :]
     return ""

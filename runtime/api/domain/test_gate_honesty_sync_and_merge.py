@@ -212,7 +212,7 @@ def test_a_skipped_drift_check_rides_the_batch_evidence():
         return SimpleNamespace(success=True, error=None)
 
     error = record_batch_evidence(
-        7,
+        "ITEM-7",
         BatchReceipt(
             pr_num="9",
             head_sha="abc",
@@ -253,7 +253,7 @@ def test_a_failed_merge_queue_probe_refusal_offers_undeclaring(monkeypatch):
         lambda project, dispatch=None: (False, "control plane unreachable"),
     )
     outcome = merge_queue_route_selection.route_standalone_landing(
-        item_id=7,
+        item_id="ITEM-7",
         branch="YOK-7",
         target="main",
         repo_root="/repo",

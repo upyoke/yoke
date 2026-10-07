@@ -34,7 +34,9 @@ class CandidateReviewEvaluateResponse(BaseModel):
     superseded_request_ids: List[int] = Field(default_factory=list)
 
 
-def _error(code: str, message: str, *, jsonpath: Optional[str] = None) -> HandlerOutcome:
+def _error(
+    code: str, message: str, *, jsonpath: Optional[str] = None
+) -> HandlerOutcome:
     return HandlerOutcome(
         primary_success=False,
         error=FunctionError(code=code, message=message, jsonpath=jsonpath),
@@ -48,7 +50,7 @@ def handle_candidate_evaluate(request: FunctionCallRequest) -> HandlerOutcome:
         return _error(
             "target_invalid",
             f"{FUNCTION_ID} requires a resolved item target",
-            jsonpath="$.target.item_id",
+            jsonpath="$.target.public_ref",
         )
     try:
         body = CandidateReviewEvaluateRequest.model_validate(request.payload or {})
@@ -77,7 +79,7 @@ def handle_candidate_evaluate(request: FunctionCallRequest) -> HandlerOutcome:
         )
     except LookupError as exc:
         conn.rollback()
-        return _error("item_not_found", str(exc), jsonpath="$.target.item_id")
+        return _error("item_not_found", str(exc), jsonpath="$.target.public_ref")
     except ValueError as exc:
         conn.rollback()
         return _error("payload_invalid", str(exc), jsonpath="$.payload.commit_sha")

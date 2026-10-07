@@ -5,15 +5,15 @@ import {
   itemDrillInHref,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_item_routes.js";
 
-test("item drill-in routes pair a sequence with its numeric project", () => {
+test("item drill-in routes carry a complete ref with its numeric project", () => {
   assert.equal(itemDrillInHref({
     projectId: 1,
     projectSequence: 2228,
-  }), "/items/2228?project=1");
+  }), null);
   assert.equal(itemDrillInHref({
     projectId: "1",
     publicRef: "YOK-2228",
-  }), "/items/2228?project=1");
+  }), "/items/YOK-2228?project=1");
 });
 
 test("item drill-in routes reject ambient and internal identities", () => {

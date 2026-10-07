@@ -227,7 +227,7 @@ class TestDomainDelegation:
         conn.commit()
         conn.close()
 
-        resp = client.post("/v1/items/4/approve", json={})
+        resp = client.post("/v1/items/YOK-4/approve", json={})
         assert resp.status_code == 409
         data = resp.json()
         assert data["error"]["code"] == "INVALID_STATE"
@@ -245,7 +245,7 @@ class TestDomainDelegation:
         conn.commit()
         conn.close()
 
-        resp = client.post("/v1/items/4/approve", json={})
+        resp = client.post("/v1/items/YOK-4/approve", json={})
         assert resp.status_code == 409
         assert resp.json()["error"]["code"] == "NO_ACTIVE_RUN"
 

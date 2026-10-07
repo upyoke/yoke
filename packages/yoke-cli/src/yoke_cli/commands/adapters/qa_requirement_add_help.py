@@ -63,7 +63,7 @@ Worked examples:
 Flag matrix:
 
   flag                        required  default    value shape
-  --item                      one-of    —          PREFIX-N or number
+  --item                      one-of    —          PREFIX-N
   --deployment-run            one-of    —          run-YYYYMMDD-NNN
   --deployment-stage          no        —          run-attached: pinned stage name
   --deployment-member-item    no        —          run-attached: member PREFIX-N (needs stage)

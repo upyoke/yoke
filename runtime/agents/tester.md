@@ -124,7 +124,7 @@ When reading files >200 lines, use the Read tool's `offset` and `limit` paramete
 
    For epic tasks, write the review to the DB via `yoke workflow-item epic-task review-insert` (function id `workflow_item.epic_task.review_insert`), using the **exact** `epic-id` and `task-num` values from the "Epic DB identifiers" section of your dispatch prompt. Use the Write tool to land the report at a path under `/tmp/yoke-review.<task>.md`, then pass it via `--body-file`:
    ```bash
-   yoke workflow-item epic-task review-insert --epic {epic-id} --task-num {task-num} --verdict {pass|fail} --body-file /tmp/yoke-review.{task-num}.md
+   yoke workflow-item epic-task review-insert --epic {epic-ref} --task-num {task-num} --verdict {pass|fail} --body-file /tmp/yoke-review.{task-num}.md
    ```
    `--verdict` is case-insensitive (`PASS`/`FAIL` work). `--stdin` is retained for shells that lack a tempfile path; the `--body-file` form is the taught surface because it does not pipe through the shell-soup lint.
    **WARNING: NEVER construct an epic ID from the task title or any other source. Use the exact `epic-id` and `task-num` values provided in the "Epic DB identifiers" section of your dispatch prompt. Hallucinated slugs (e.g., deriving "implement-jwt-auth" from the title) will cause the review to be unfindable by the conduct.**

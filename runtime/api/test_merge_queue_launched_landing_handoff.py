@@ -14,7 +14,7 @@ from yoke_core.domain import merge_queue_route as route_mod
 
 def test_launched_session_arms_and_returns_even_when_wait_was_asked_for(monkeypatch):
     wire_happy_path(monkeypatch, landing_states=[UNARMED])
-    marked: list[tuple[int, str]] = []
+    marked: list[tuple[str, str]] = []
     monkeypatch.setattr(
         route_mod,
         "mark_landing_pending",
@@ -37,7 +37,7 @@ def test_launched_session_arms_and_returns_even_when_wait_was_asked_for(monkeypa
     assert outcome.landing_pending
     assert outcome.pr_num == "42"
     assert outcome.enqueued_at == "2026-09-04T20:00:00Z"
-    assert marked == [(1, "42")]
+    assert marked == [("YOK-200", "42")]
     assert "landing_pending=true" in announced[0]
     assert "waiting on landing" in announced[0]
     assert "stop deliberately" in announced[0]

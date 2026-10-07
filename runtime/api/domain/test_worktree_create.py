@@ -12,8 +12,6 @@ import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from yoke_core.domain import db_backend
 from yoke_core.domain.project_seed_test_helpers import SEED_PROJECT_IDS
 from yoke_core.domain.item_worktrees import (
@@ -22,7 +20,6 @@ from yoke_core.domain.item_worktrees import (
 )
 from yoke_core.domain.worktree import (
     create_worktree,
-    resolve_item_worktree,
 )
 from runtime.api.domain.worktree_test_helpers import (
     TEST_ITEM_ID,
@@ -45,9 +42,7 @@ def _project_id(slug: str = "yoke") -> int:
 
 def _seed_project_repo(conn, slug: str, repo_path: str) -> None:
     repo = Path(repo_path)
-    register_machine_checkout(
-        repo.parent / "machine-config", repo, _project_id(slug)
-    )
+    register_machine_checkout(repo.parent / "machine-config", repo, _project_id(slug))
 
 
 def _seed_item(
@@ -93,7 +88,8 @@ class TestCreateWorktree:
         conn.close()
 
         result = create_worktree(
-            TEST_ITEM_ID, repo_root=str(git_repo),
+            TEST_ITEM_ID,
+            repo_root=str(git_repo),
             config_path=str(git_repo / "runtime" / "config"),
             db_path=yoke_db,
         )
@@ -106,26 +102,38 @@ class TestCreateWorktree:
         # Verify it's a real git worktree
         r = subprocess.run(
             ["git", "rev-parse", "--is-inside-work-tree"],
-            cwd=result.path, capture_output=True, text=True,
+            cwd=result.path,
+            capture_output=True,
+            text=True,
         )
         assert r.stdout.strip() == "true"
 
         # Verify branch name
         r = subprocess.run(
             ["git", "branch", "--show-current"],
-            cwd=result.path, capture_output=True, text=True,
+            cwd=result.path,
+            capture_output=True,
+            text=True,
         )
         assert r.stdout.strip() == TEST_ITEM_REF
         item_base = subprocess.run(
             [
-                "git", "config", "--get",
+                "git",
+                "config",
+                "--get",
                 item_base_config_key(TEST_ITEM_REF),
             ],
-            cwd=result.path, capture_output=True, text=True, check=True,
+            cwd=result.path,
+            capture_output=True,
+            text=True,
+            check=True,
         ).stdout.strip()
         main_sha = subprocess.run(
-            ["git", "rev-parse", "main"], cwd=result.path,
-            capture_output=True, text=True, check=True,
+            ["git", "rev-parse", "main"],
+            cwd=result.path,
+            capture_output=True,
+            text=True,
+            check=True,
         ).stdout.strip()
         assert item_base == main_sha
 
@@ -149,28 +157,51 @@ class TestCreateWorktree:
 
     def test_idempotency(self, git_repo, yoke_db):
         seed_lane_item(yoke_db, 42)
-        result1 = create_worktree(42, project="yoke", repo_root=str(git_repo),
-                                   config_path=str(git_repo / "runtime" / "config"))
-        result2 = create_worktree(42, project="yoke", repo_root=str(git_repo),
-                                   config_path=str(git_repo / "runtime" / "config"))
+        result1 = create_worktree(
+            42,
+            project="yoke",
+            repo_root=str(git_repo),
+            config_path=str(git_repo / "runtime" / "config"),
+        )
+        result2 = create_worktree(
+            42,
+            project="yoke",
+            repo_root=str(git_repo),
+            config_path=str(git_repo / "runtime" / "config"),
+        )
         assert result2.error is None
         assert result2.created is False
         assert result2.path == result1.path
 
     def test_base_branch_override(self, git_repo, yoke_db):
         # Create a feature branch to fork from
-        subprocess.run(["git", "checkout", "-b", "feature"], cwd=str(git_repo),
-                        check=True, capture_output=True)
+        subprocess.run(
+            ["git", "checkout", "-b", "feature"],
+            cwd=str(git_repo),
+            check=True,
+            capture_output=True,
+        )
         (git_repo / "feature.txt").write_text("feature\n")
         subprocess.run(["git", "add", "feature.txt"], cwd=str(git_repo), check=True)
-        subprocess.run(["git", "commit", "-q", "-m", "feature"],
-                        cwd=str(git_repo), check=True, capture_output=True)
-        subprocess.run(["git", "checkout", "main"], cwd=str(git_repo),
-                        check=True, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-q", "-m", "feature"],
+            cwd=str(git_repo),
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "checkout", "main"],
+            cwd=str(git_repo),
+            check=True,
+            capture_output=True,
+        )
 
         seed_lane_item(yoke_db, 99)
         result = create_worktree(
-            99, base_branch="feature", project="yoke", repo_root=str(git_repo),
+            99,
+            base_branch="feature",
+            project="yoke",
+            repo_root=str(git_repo),
             config_path=str(git_repo / "runtime" / "config"),
         )
         assert result.error is None
@@ -186,8 +217,12 @@ class TestCreateWorktree:
 
         for lane_item in (1, 2, 3):
             seed_lane_item(yoke_db, lane_item)
-        create_worktree(1, project="yoke", repo_root=str(git_repo), config_path=config_path)
-        create_worktree(2, project="yoke", repo_root=str(git_repo), config_path=config_path)
+        create_worktree(
+            1, project="yoke", repo_root=str(git_repo), config_path=config_path
+        )
+        create_worktree(
+            2, project="yoke", repo_root=str(git_repo), config_path=config_path
+        )
         result = create_worktree(
             3, project="yoke", repo_root=str(git_repo), config_path=config_path
         )
@@ -200,13 +235,16 @@ class TestCreateWorktree:
         """Worktree creation fails gracefully when repo doesn't exist."""
         fake_repo = str(tmp_path / "nonexistent")
         result = create_worktree(
-            99, repo_root=fake_repo,
+            99,
+            repo_root=fake_repo,
             config_path=str(tmp_path / "config"),
         )
         assert result.error is not None or not result.created
 
     def test_persists_universal_lane_without_explicit_db_path(
-        self, git_repo, yoke_db,
+        self,
+        git_repo,
+        yoke_db,
     ):
         # The preflight caller never threads db_path through; without the
         # YOKE_DB-driven fallback in the persistence adapter the write
@@ -233,109 +271,3 @@ class TestCreateWorktree:
         assert [(row["branch"], row["lane_role"]) for row in rows] == [
             (TEST_ITEM_REF, "implementation")
         ]
-
-
-class TestResolveItemWorktree:
-    def test_existing_worktree(self, git_repo, yoke_db):
-        # Set up DB
-        conn = connect_test_db(yoke_db)
-        _seed_item(conn, TEST_ITEM_ID, worktree=TEST_ITEM_REF)
-        _seed_project_repo(conn, "yoke", str(git_repo))
-        conn.commit()
-        conn.close()
-
-        # Create actual worktree
-        subprocess.run(
-            ["git", "worktree", "add", str(git_repo / ".worktrees" / TEST_ITEM_REF), "-b", TEST_ITEM_REF, "main"],
-            cwd=str(git_repo), check=True, capture_output=True,
-        )
-
-        with patch.dict(os.environ, {"YOKE_ROOT": str(git_repo)}):
-            result = resolve_item_worktree(TEST_ITEM_REF, db_path=yoke_db)
-
-        assert result.exists is True
-        assert result.branch == TEST_ITEM_REF
-        assert result.project == "yoke"
-        assert result.path.endswith(f".worktrees/{TEST_ITEM_REF}")
-
-    def test_unrecorded_item_has_no_resolved_lane(self, git_repo, yoke_db):
-        conn = connect_test_db(yoke_db)
-        _seed_item(conn, 43, worktree="")
-        _seed_project_repo(conn, "yoke", str(git_repo))
-        conn.commit()
-        conn.close()
-
-        with patch.dict(os.environ, {"YOKE_ROOT": str(git_repo)}):
-            result = resolve_item_worktree("YOK-43", db_path=yoke_db)
-
-        assert result.branch == ""
-        assert result.path == ""
-        assert result.exists is False
-
-    def test_external_project(self, tmp_path, yoke_db):
-        # Create external repo
-        ext_repo = tmp_path / "externalwebapp"
-        ext_repo.mkdir()
-        subprocess.run(["git", "init", "-q"], cwd=str(ext_repo), check=True)
-        subprocess.run(["git", "config", "user.email", "t@t"], cwd=str(ext_repo), check=True)
-        subprocess.run(["git", "config", "user.name", "T"], cwd=str(ext_repo), check=True)
-        subprocess.run(["git", "checkout", "-qb", "main"], cwd=str(ext_repo),
-                        check=True, capture_output=True)
-        (ext_repo / "README.md").write_text("externalwebapp\n")
-        subprocess.run(["git", "add", "README.md"], cwd=str(ext_repo), check=True)
-        subprocess.run(["git", "commit", "-q", "-m", "init"],
-                        cwd=str(ext_repo), check=True, capture_output=True)
-
-        (ext_repo / "runtime").mkdir()
-        (ext_repo / "runtime" / "config").write_text("worktrees_dir=.worktrees\n")
-
-        # Create worktree in ext repo
-        subprocess.run(
-            ["git", "worktree", "add", str(ext_repo / ".worktrees" / "YOK-77"), "-b", "YOK-77", "main"],
-            cwd=str(ext_repo), check=True, capture_output=True,
-        )
-
-        conn = connect_test_db(yoke_db)
-        _seed_item(conn, 77, title="Ext", worktree="YOK-77", project="externalwebapp")
-        _seed_project_repo(conn, "externalwebapp", str(ext_repo))
-        conn.commit()
-        conn.close()
-
-        result = resolve_item_worktree("EXT-77", db_path=yoke_db)
-
-        assert result.project == "externalwebapp"
-        assert result.exists is True
-        assert str(ext_repo) in result.repo
-
-    def test_missing_item(self, yoke_db):
-        with pytest.raises(LookupError, match="not found"):
-            resolve_item_worktree(999, db_path=yoke_db)
-
-    def test_invalid_id(self):
-        with pytest.raises(ValueError, match="invalid"):
-            resolve_item_worktree("abc")
-
-    def test_live_branch_override(self, git_repo, yoke_db):
-        """When the checked-out branch differs from the lane record, live wins."""
-        conn = connect_test_db(yoke_db)
-        _seed_item(
-            conn,
-            44,
-            worktree="stale-branch-name",
-            worktree_path=str(git_repo / ".worktrees" / "YOK-44"),
-        )
-        _seed_project_repo(conn, "yoke", str(git_repo))
-        conn.commit()
-        conn.close()
-
-        # Create worktree with a different branch name
-        subprocess.run(
-            ["git", "worktree", "add", str(git_repo / ".worktrees" / "YOK-44"), "-b", "renamed-yok-44", "main"],
-            cwd=str(git_repo), check=True, capture_output=True,
-        )
-
-        with patch.dict(os.environ, {"YOKE_ROOT": str(git_repo)}):
-            result = resolve_item_worktree("YOK-44", db_path=yoke_db)
-
-        assert result.branch == "renamed-yok-44"
-        assert result.exists is True

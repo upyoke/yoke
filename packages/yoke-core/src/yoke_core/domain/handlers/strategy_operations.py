@@ -88,7 +88,10 @@ def _bad_request(message: str, *, jsonpath: str = "$.payload") -> HandlerOutcome
 
 
 def _parse_item_ids(
-    raw: List[str], *, project: str, conn: Any,
+    raw: List[str],
+    *,
+    project: str,
+    conn: Any,
 ) -> List[int]:
     from yoke_core.domain.strategize_carry_cli import _parse_item_ids
 
@@ -128,9 +131,7 @@ def handle_strategy_carry_candidate_set(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
     try:
-        payload = StrategyCarryCandidateSetRequest.model_validate(
-            request.payload or {}
-        )
+        payload = StrategyCarryCandidateSetRequest.model_validate(request.payload or {})
     except Exception as exc:
         return _bad_request(f"payload invalid: {exc}")
     from yoke_core.domain.db_helpers import connect
@@ -194,12 +195,16 @@ def handle_strategy_carry_mark(request: FunctionCallRequest) -> HandlerOutcome:
     with connect() as conn:
         try:
             item_ids = _parse_item_ids(
-                payload.items, project=payload.project, conn=conn,
+                payload.items,
+                project=payload.project,
+                conn=conn,
             )
         except ValueError as exc:
             return _bad_request(str(exc), jsonpath="$.payload.items")
         if not item_ids:
-            return _bad_request("items must contain at least one valid item id")
+            return _bad_request(
+                "items must contain at least one complete public item ref (PREFIX-N)"
+            )
         changed = mark_items(
             conn,
             project=payload.project,
@@ -315,7 +320,8 @@ for entry in REGISTRATIONS:
             "owner_module": "yoke_core.domain.handlers.strategy_operations",
             "target_kinds": ["global"],
             "side_effects": ["db_write"]
-            if entry["function_id"] in {
+            if entry["function_id"]
+            in {
                 "strategy.carry.register_new",
                 "strategy.carry.mark",
                 "strategy.checkpoint.record",

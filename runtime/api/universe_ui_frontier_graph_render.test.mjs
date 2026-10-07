@@ -144,7 +144,7 @@ test("the phone outline lists each chain once from its root", () => {
 function row(ref, projectId, facts = {}) {
   const sequence = Number(ref.split("-").at(-1));
   return {
-    public_ref: ref, internal_id: 100 + sequence, title: `${ref} work`,
+    public_ref: ref, title: `${ref} work`,
     project: projectId === 1 ? "yoke" : "beta", project_id: projectId,
     project_sequence: sequence, workflow_id: "issue", status: "idea",
     created_at: recentIso(12), updated_at: recentIso(1),
@@ -188,8 +188,8 @@ async function mount(t, hash, frontier) {
 const waitingOnFrozen = {
   ready_rows: [],
   blocked_rows: [
-    { item_id: "YOK-12", project_id: 1, project: "yoke", blocking_item: "YOK-7", why: "x" },
-    { item_id: "BET-3", project_id: 2, project: "beta", blocking_item: "YOK-12", why: "y" },
+    { public_ref: "YOK-12", project_id: 1, project: "yoke", blocking_item: "YOK-7", why: "x" },
+    { public_ref: "BET-3", project_id: 2, project: "beta", blocking_item: "YOK-12", why: "y" },
   ],
   dependency_edges: [
     edge("YOK-7", "YOK-12"),
@@ -245,9 +245,9 @@ test("a serving build without dependency edges refuses the graph by its floor", 
 
 test("an item only its merge waits on stays Ready, with its edge in the graph", async (t) => {
   const { band, count } = await mount(t, "/frontier?project=1", {
-    ready_rows: [{ ...row("YOK-12", 1), item_id: "YOK-12", why_ready: "ready" }],
+    ready_rows: [{ ...row("YOK-12", 1), public_ref: "YOK-12", why_ready: "ready" }],
     blocked_rows: [{
-      item_id: "YOK-12", project_id: 1, project: "yoke", blocking_item: "YOK-7",
+      public_ref: "YOK-12", project_id: 1, project: "yoke", blocking_item: "YOK-7",
       gate_point: "integration", why: "lands after",
     }],
     dependency_edges: [edge("YOK-7", "YOK-12", { gate_point: "integration" })],
@@ -278,7 +278,7 @@ test("each repaint stops watching the canvas it replaced", async (t) => {
 test("a blocker that no longer resolves draws as a ghost its dependent waits on", async (t) => {
   const { band, count } = await mount(t, "/frontier?project=1", {
     ready_rows: [],
-    blocked_rows: [{ item_id: "YOK-12", project_id: 1, project: "yoke", blocking_item: "GONE-9", why: "z" }],
+    blocked_rows: [{ public_ref: "YOK-12", project_id: 1, project: "yoke", blocking_item: "GONE-9", why: "z" }],
     dependency_edges: [edge("GONE-9", "YOK-12", {
       blocking_stage: null, blocking_title: null, blocking_project_id: null,
       blocking_project_sequence: null,

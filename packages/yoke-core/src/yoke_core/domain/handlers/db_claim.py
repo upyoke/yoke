@@ -43,7 +43,8 @@ class AmendRequest(BaseModel):
         ),
     )
     reason: str = Field(
-        ..., min_length=1,
+        ...,
+        min_length=1,
         description="Non-empty operator-facing justification.",
     )
 
@@ -65,7 +66,7 @@ def _err(code: str, message: str) -> HandlerOutcome:
 
 
 def handle_amend(request: FunctionCallRequest) -> HandlerOutcome:
-    """Apply a unified DB-claim amendment for ``request.target.item_id``."""
+    """Apply a unified DB-claim amendment for ``request.target.public_ref``."""
     try:
         body = AmendRequest.model_validate(request.payload)
     except Exception as exc:
@@ -75,7 +76,7 @@ def handle_amend(request: FunctionCallRequest) -> HandlerOutcome:
     if item_id is None:
         return _err(
             "target_invalid",
-            "db_claim.amend requires target.kind='item' with item_id set",
+            "db_claim.amend requires target.kind='item' with public_ref set",
         )
 
     from yoke_core.domain.db_claim import DbClaimAmendmentError, amend
@@ -118,7 +119,7 @@ class ProseCheckResponse(BaseModel):
 
 
 def handle_prose_check(request: FunctionCallRequest) -> HandlerOutcome:
-    """Run the prose-vs-claim detector for ``request.target.item_id``."""
+    """Run the prose-vs-claim detector for ``request.target.public_ref``."""
     try:
         ProseCheckRequest.model_validate(request.payload or {})
     except Exception as exc:
@@ -128,7 +129,7 @@ def handle_prose_check(request: FunctionCallRequest) -> HandlerOutcome:
     if item_id is None:
         return _err(
             "target_invalid",
-            "db_claim.prose_check requires target.kind='item' with item_id set",
+            "db_claim.prose_check requires target.kind='item' with public_ref set",
         )
 
     from yoke_core.domain.db_claim_prose_check import check_item

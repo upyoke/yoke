@@ -15,7 +15,6 @@ from types import SimpleNamespace
 import pytest
 
 from runtime.api.merge_queue_landing_test_helpers import land, wire_happy_path
-from yoke_core.domain import merge_queue_drift_gate as gate_mod
 from yoke_core.domain import merge_queue_live_drift as drift_mod
 from yoke_core.domain import merge_queue_route as route_mod
 from yoke_core.domain.gh_rest_transport import (
@@ -68,9 +67,7 @@ def _live_rules(contexts):
             "parameters": {
                 "strict_required_status_checks_policy": False,
                 "do_not_enforce_on_create": False,
-                "required_status_checks": [
-                    {"context": name} for name in contexts
-                ],
+                "required_status_checks": [{"context": name} for name in contexts],
             },
         },
     ]
@@ -98,11 +95,16 @@ def rest(monkeypatch):
 
 def test_matching_ruleset_reports_no_drift(rest, monkeypatch):
     monkeypatch.setattr(
-        drift_mod, "diff_declared_against_live", lambda *a, **k: [],
+        drift_mod,
+        "diff_declared_against_live",
+        lambda *a, **k: [],
     )
     report = compare_declared_against_live(
-        DECLARED, owner=OWNER, repo=REPO,
-        rules=_live_rules(["shard-1"]), token="t",
+        DECLARED,
+        owner=OWNER,
+        repo=REPO,
+        rules=_live_rules(["shard-1"]),
+        token="t",
     )
     assert report.drifted is False
     assert report.unreadable == ()
@@ -110,7 +112,11 @@ def test_matching_ruleset_reports_no_drift(rest, monkeypatch):
 
 def test_a_live_ruleset_requiring_less_than_declared_is_drift(rest):
     report = compare_declared_against_live(
-        DECLARED, owner=OWNER, repo=REPO, rules=_live_rules([]), token="t",
+        DECLARED,
+        owner=OWNER,
+        repo=REPO,
+        rules=_live_rules([]),
+        token="t",
     )
     assert report.drifted is True
     assert any("required" in line for line in report.drift)
@@ -119,8 +125,11 @@ def test_a_live_ruleset_requiring_less_than_declared_is_drift(rest):
 def test_unreadable_repository_settings_are_not_reported_as_drift(rest):
     rest["repo"] = RestTransportError("502")
     report = compare_declared_against_live(
-        DECLARED, owner=OWNER, repo=REPO,
-        rules=_live_rules(["shard-1"]), token="t",
+        DECLARED,
+        owner=OWNER,
+        repo=REPO,
+        rules=_live_rules(["shard-1"]),
+        token="t",
     )
     assert report.drifted is False
     assert "repository settings unreadable" in report.unreadable[0]
@@ -166,25 +175,32 @@ class TestLandingGate:
 
     def test_a_project_with_no_declaration_lands_unblocked(self, tmp_path):
         report = drift_blocking_landing(
-            "yoke", checkout=str(tmp_path), branch="main",
+            "yoke",
+            checkout=str(tmp_path),
+            branch="main",
         )
         assert report.drifted is False
         assert report.unreadable == ()
         assert report.skip_reason == DRIFT_SKIP_DECLARATION_MISSING
 
     def test_an_unparseable_declaration_warns_rather_than_blocks(
-        self, tmp_path,
+        self,
+        tmp_path,
     ):
         checkout = self._declare(tmp_path, {"schema": 1, "ruleset": {}})
         report = drift_blocking_landing(
-            "yoke", checkout=str(checkout), branch="main",
+            "yoke",
+            checkout=str(checkout),
+            branch="main",
         )
         assert report.drifted is False
         assert "declaration unreadable" in report.unreadable[0]
         assert report.skip_reason == DRIFT_SKIP_DECLARATION_UNREADABLE
 
     def test_unresolvable_github_auth_warns_rather_than_blocks(
-        self, tmp_path, monkeypatch,
+        self,
+        tmp_path,
+        monkeypatch,
     ):
         from yoke_core.domain import project_github_auth as auth_mod
 
@@ -194,17 +210,23 @@ class TestLandingGate:
             raise auth_mod.MissingRepoBinding(project, "no repo binding")
 
         monkeypatch.setattr(
-            auth_mod, "resolve_project_github_auth", _raise,
+            auth_mod,
+            "resolve_project_github_auth",
+            _raise,
         )
         report = drift_blocking_landing(
-            "yoke", checkout=str(checkout), branch="main",
+            "yoke",
+            checkout=str(checkout),
+            branch="main",
         )
         assert report.drifted is False
         assert "ruleset drift unverified" in report.unreadable[0]
         assert report.skip_reason == DRIFT_SKIP_GITHUB_AUTH_UNRESOLVED
 
     def test_unreachable_github_is_a_countable_skip(
-        self, tmp_path, monkeypatch,
+        self,
+        tmp_path,
+        monkeypatch,
     ):
         from yoke_core.domain import project_github_auth as auth_mod
 
@@ -221,14 +243,17 @@ class TestLandingGate:
         )
 
         report = drift_blocking_landing(
-            "yoke", checkout=str(checkout), branch="main",
+            "yoke",
+            checkout=str(checkout),
+            branch="main",
         )
 
         assert report.drifted is False
         assert report.skip_reason == DRIFT_SKIP_GITHUB_UNREACHABLE
 
     def test_drift_stops_the_landing_with_the_apply_recipe(
-        self, monkeypatch,
+        self,
+        monkeypatch,
     ):
         wire_happy_path(monkeypatch)
         monkeypatch.setattr(
@@ -243,7 +268,8 @@ class TestLandingGate:
         assert "merge-queue apply" in outcome.error
 
     def test_an_unverifiable_ruleset_lands_and_carries_the_reason(
-        self, monkeypatch,
+        self,
+        monkeypatch,
     ):
         wire_happy_path(monkeypatch, landing_states=None)
         monkeypatch.setattr(
@@ -253,64 +279,6 @@ class TestLandingGate:
         )
         outcome = land()
         assert "GitHub 503" in outcome.warnings
-
-
-class TestSkipObservability:
-    def test_a_skipped_check_emits_its_machine_readable_reason(
-        self, monkeypatch,
-    ):
-        report = LiveDriftReport(
-            skip_reason=DRIFT_SKIP_DECLARATION_MISSING,
-            skip_detail="no declaration",
-        )
-        monkeypatch.setattr(
-            gate_mod, "drift_blocking_landing", lambda *a, **k: report,
-        )
-        seen = {}
-
-        def dispatch(**kwargs):
-            seen.update(kwargs)
-            return SimpleNamespace(
-                success=True, result={"emitted": True}, error=None,
-            )
-
-        monkeypatch.setattr(gate_mod, "call_dispatcher", dispatch)
-        result = gate_mod.drift_check_before_landing(
-            "yoke", checkout="/repo", branch="main", item_id=7,
-        )
-
-        assert result is report
-        assert seen["function_id"] == "events.emit"
-        assert seen["payload"]["name"] == "MergeQueueDriftCheckSkipped"
-        assert seen["payload"]["item_id"] == "7"
-        assert seen["payload"]["context"]["skip_reason"] == (
-            DRIFT_SKIP_DECLARATION_MISSING
-        )
-
-    def test_event_write_failure_warns_without_blocking(self, monkeypatch):
-        report = LiveDriftReport(
-            skip_reason=DRIFT_SKIP_DECLARATION_MISSING,
-            skip_detail="no declaration",
-        )
-        monkeypatch.setattr(
-            gate_mod, "drift_blocking_landing", lambda *a, **k: report,
-        )
-        monkeypatch.setattr(
-            gate_mod,
-            "call_dispatcher",
-            lambda **kwargs: SimpleNamespace(
-                success=True,
-                result={"emitted": False, "reason": "ledger unavailable"},
-                error=None,
-            ),
-        )
-
-        result = gate_mod.drift_check_before_landing(
-            "yoke", checkout="/repo", branch="main", item_id=7,
-        )
-
-        assert result.drifted is False
-        assert "ledger unavailable" in result.unreadable[-1]
 
 
 class TestEnforcementScope:

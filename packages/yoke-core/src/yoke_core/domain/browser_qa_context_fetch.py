@@ -9,6 +9,8 @@ local-postgres env and from an external project over the https relay.
 
 from __future__ import annotations
 
+from yoke_contracts.public_ref import parse_public_item_ref
+
 from typing import Any, Dict, Optional
 
 from yoke_contracts.api.function_call import ActorContext
@@ -27,10 +29,8 @@ def _fetch_browser_context(
 
     One requirement-scoped read: the named Browser method case plus (when
     ``expected_branch`` is given) the latest deployed_sha for the freshness
-    gate. Exactly one subject is named — ``item_id`` (the numeric id or a
-    public ref ``PREFIX-N`` / bare project-local number, resolved
-    server-side via ``target.public_ref``) or ``deployment_run_id``. The
-    result payload echoes the resolved subject. Raises ``RuntimeError``
+    gate. Exactly one subject is named: the item public ref in ``item_id``
+    or ``deployment_run_id``. The result preserves the public subject. Raises ``RuntimeError``
     with the transport/handler error message on failure.
     """
     from yoke_contracts.api.function_call import TargetRef
@@ -51,14 +51,12 @@ def _fetch_browser_context(
             project_id=project,
         )
     else:
-        try:
-            target = TargetRef(kind="item", item_id=int(item_id))
-        except (TypeError, ValueError):
-            target = TargetRef(
-                kind="item",
-                public_ref=str(item_id).strip(),
-                project_id=project,
-            )
+        prefix, sequence = parse_public_item_ref(item_id)
+        if prefix is None or sequence is None:
+            raise RuntimeError("public_item_ref_required: Browser QA requires PREFIX-N")
+        target = TargetRef(
+            kind="item", public_ref=f"{prefix}-{sequence}", project_id=project
+        )
 
     payload: Dict[str, Any] = {
         "project": project,

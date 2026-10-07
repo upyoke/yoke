@@ -21,7 +21,6 @@ from yoke_cli.commands._helpers import (
     add_session_arg,
     client_project_context,
     dispatch_and_emit,
-    resolve_item_id_via_dispatch,
     parse_or_usage_error,
     usage_error,
 )
@@ -147,7 +146,7 @@ def ouroboros_entry_get(args: List[str]) -> int:
 # ---------------------------------------------------------------------------
 
 SCRATCH_DISPATCH_INPUTS_USAGE = (
-    "yoke scratch dispatch-inputs <PREFIX-N|item-id> <session_id> <attempt>"
+    "yoke scratch dispatch-inputs <PREFIX-N> <session_id> <attempt>"
 )
 
 
@@ -172,7 +171,7 @@ def scratch_dispatch_inputs(args: List[str]) -> int:
         prog="yoke scratch dispatch-inputs",
         description=SCRATCH_DISPATCH_INPUTS_USAGE,
     )
-    parser.add_argument("item", help="Item id (PREFIX-N or project-local number).")
+    parser.add_argument("item", help="Public item ref (PREFIX-N).")
     parser.add_argument("session_id", help="Harness session id.")
     parser.add_argument("attempt", help="Per-dispatch attempt counter (1-based).")
     parsed = parse_or_usage_error(parser, args, SCRATCH_DISPATCH_INPUTS_USAGE)
@@ -180,11 +179,11 @@ def scratch_dispatch_inputs(args: List[str]) -> int:
         return 2
 
     try:
-        item_id = resolve_item_id_via_dispatch(
-            parsed.item,
-            parsed.project,
-            parsed.session_id,
-        )
+        from yoke_contracts.public_ref import parse_public_item_ref
+
+        prefix, sequence = parse_public_item_ref(parsed.item)
+        if prefix is None or sequence is None:
+            raise ValueError("public_item_ref_required: pass PREFIX-N")
     except ValueError as exc:
         return usage_error(str(exc))
     try:
@@ -203,7 +202,9 @@ def scratch_dispatch_inputs(args: List[str]) -> int:
         project = required_project_context(parsed.project)
     except MissingProjectError as exc:
         return usage_error(str(exc))
-    path = scratch_dir.dispatch_inputs_dir(project, item_id, parsed.session_id, attempt)
+    path = scratch_dir.dispatch_inputs_dir(
+        project, parsed.item, parsed.session_id, attempt
+    )
     sys.stdout.write(f"{path}\n")
     sys.stdout.flush()
     return 0

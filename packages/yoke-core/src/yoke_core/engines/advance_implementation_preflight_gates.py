@@ -17,9 +17,10 @@ narratives are constructed here client-side, unchanged.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 from typing import Any, Dict, Optional, Tuple
 
-from yoke_contracts.api.function_call import TargetRef
 
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 
@@ -69,7 +70,7 @@ def _probe_session_identity(
 
 def _relay_gate(
     function_id: str,
-    item_id: int,
+    item_id: int | str,
     payload: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     """Evaluate one gate server-side through the transport-aware relay.
@@ -79,7 +80,7 @@ def _relay_gate(
     """
     response = call_dispatcher(
         function_id=function_id,
-        target=TargetRef(kind="item", item_id=int(item_id)),
+        target=public_item_target(item_id),
         payload=payload or {},
     )
     if not response.success:
@@ -89,7 +90,7 @@ def _relay_gate(
     return response.result or {}
 
 
-def _run_preflight_gates(item_id: int, *, force: bool) -> Tuple[bool, str]:
+def _run_preflight_gates(item_id: int | str, *, force: bool) -> Tuple[bool, str]:
     """Dependencies plus policy-selected budget checks before activation."""
     if force:
         return True, ""
@@ -117,12 +118,7 @@ def _run_preflight_gates(item_id: int, *, force: bool) -> Tuple[bool, str]:
     cov = _relay_gate("advance.preflight.spec_coverage", item_id)
     if cov.get("is_blocked"):
         missing = cov.get("missing_paths") or []
-        cov_ref = cov.get("public_ref")
-        if not cov_ref:
-            # Older serving builds omit this new response field. Their
-            # existing detail read still supplies the item's own public ref.
-            detail = _relay_gate("items.detail.get", item_id)
-            cov_ref = detail["item"]["public_ref"]
+        cov_ref = public_item_target(item_id).public_ref
         return False, (
             f"BLOCKED: {cov_ref} File Budget lists "
             f"{len(missing)} path(s) not covered by any active "

@@ -4,7 +4,7 @@ Exercises the registered handler end-to-end via FastAPI's TestClient.
 Covers status routing through prepare_update, gate-unmet
 error code mapping, frozen-item rejection, the registered
 claim_required_kind, and the claim-required path. The sibling file
-``test_api_items_update.py`` covers the PATCH /v1/items/{id} HTTP route
+``test_api_items_update.py`` covers the PATCH /v1/items/{public_ref} HTTP route
 against the same mutation gate chain.
 """
 
@@ -48,7 +48,7 @@ def _scalar_envelope(item_id, **payload_overrides):
         "function": "items.scalar.update",
         "version": "v1",
         "actor": {"actor_id": "op", "session_id": _SESSION_ID},
-        "target": {"kind": "item", "item_id": item_id},
+        "target": {"kind": "item", "public_ref": f"YOK-{item_id}"},
         "payload": payload,
     }
 

@@ -22,7 +22,7 @@ def _resolving(monkeypatch, resolved):
         "_resolve_landing_pull_request",
         lambda _ctx, _ref, lane_head="": resolved,
     )
-    recorded: list[tuple[int, str]] = []
+    recorded: list[tuple[str, str]] = []
     monkeypatch.setattr(
         "yoke_core.domain.merge_queue_landing_pending.record_landing_pull_request",
         lambda item_id, pr_number: recorded.append((item_id, pr_number)) or "",
@@ -34,9 +34,12 @@ def test_a_resolved_pull_request_is_recorded_on_the_item(monkeypatch):
     recorded = _resolving(monkeypatch, ("42", None))
 
     assert landing_pr_mod.ensure_landing_pull_request(
-        ctx(repo_root=CHECKOUT), "YOK-200", lane_head=LANE_SHA, item_id=7
+        ctx(repo_root=CHECKOUT),
+        "YOK-200",
+        lane_head=LANE_SHA,
+        item_public_ref="YOK-200",
     ) == ("42", None)
-    assert recorded == [(7, "42")]
+    assert recorded == [("YOK-200", "42")]
 
 
 def test_a_caller_with_no_item_in_hand_records_nothing(monkeypatch):
@@ -53,7 +56,10 @@ def test_a_resolver_that_found_nothing_records_nothing(monkeypatch):
     recorded = _resolving(monkeypatch, ("", "no pull request and no commits"))
 
     landing_pr_mod.ensure_landing_pull_request(
-        ctx(repo_root=CHECKOUT), "YOK-200", lane_head=LANE_SHA, item_id=7
+        ctx(repo_root=CHECKOUT),
+        "YOK-200",
+        lane_head=LANE_SHA,
+        item_public_ref="YOK-200",
     )
 
     assert recorded == []
@@ -72,7 +78,10 @@ def test_a_failed_marker_write_does_not_fail_the_landing(monkeypatch):
     )
 
     assert landing_pr_mod.ensure_landing_pull_request(
-        ctx(repo_root=CHECKOUT), "YOK-200", lane_head=LANE_SHA, item_id=7
+        ctx(repo_root=CHECKOUT),
+        "YOK-200",
+        lane_head=LANE_SHA,
+        item_public_ref="YOK-200",
     ) == ("42", None)
 
 
@@ -129,9 +138,7 @@ def test_a_stale_listing_without_a_hard_create_failure_does_not_recommend_reset(
     monkeypatch.setattr(
         landing_pr_mod,
         "create_pr",
-        lambda _ctx, **_kw: PrCreateResult(
-            pr_url="", pr_num="", already_exists=True
-        ),
+        lambda _ctx, **_kw: PrCreateResult(pr_url="", pr_num="", already_exists=True),
     )
     pr_num, error = landing_pr_mod.ensure_landing_pull_request(
         ctx(), "YOK-200", lane_head=LANE_SHA

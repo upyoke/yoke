@@ -1,33 +1,15 @@
-"""Typed access to one item's merge receipt from the machine that merges.
+"""Persist and read exact-commit merge recovery receipts.
 
-Every fact close-out needs afterwards — implementation and merge commits,
-every commit the landing contributed, changed files, and observed post-push
-checks — belongs in this receipt. Once
-the branch is contained by the target, ``merge-base`` returns the branch tip
-and the diff that described its work collapses to nothing. The boundary
-records the stable facts before cleanup so any retry converges without
-depending on a lane that may already have been retired.
-
-The receipt is stored with the item, in the ``item_sections`` document
-:mod:`yoke_core.domain.item_merge_receipt_document` owns. That store lives on
-the control plane, and the merge runs on the machine holding the checkout, so
-these calls go through the registered ``merge_receipt.*`` functions rather
-than opening a database a relayed control plane does not have locally.
-
-An attempt that fails records that failure on the same entry, and a merge that
-lands settles it. What a reader sees is the merge's current state, not a
-chronology assembled from whatever telemetry survived.
-
-Rationale for the boundary itself: ``docs/archive/decisions/
-standalone-item-merge.md``.
-"""
+Receipt writes are advisory: a transport refusal is reported without
+unwinding the merge. All transport calls name items by their public ref."""
 
 from __future__ import annotations
+
+from yoke_core.domain.public_item_target import public_item_target
 
 from dataclasses import dataclass, field
 from typing import Any, Optional, Sequence
 
-from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import item_merge_contributed_commits as contributed
 from yoke_core.domain import standalone_item_merge_git as git
@@ -54,7 +36,7 @@ class MergeReceipt:
 def _call(function_id: str, item_id: int, payload: dict[str, Any]) -> Any:
     return call_dispatcher(
         function_id=function_id,
-        target=TargetRef(kind="item", item_id=int(item_id)),
+        target=public_item_target(item_id),
         payload=payload,
     )
 
@@ -74,8 +56,7 @@ def _advisory(function_id: str, item_id: int, payload: dict[str, Any]) -> str:
     if response.success:
         return ""
     detail = (
-        response.error.message if response.error is not None
-        else "receipt write failed"
+        response.error.message if response.error is not None else "receipt write failed"
     )
     return f"merge receipt not recorded: {detail}"
 
@@ -123,7 +104,9 @@ def record_before_landing(
             commit_sha=commit_sha,
             touched_files=tuple(touched_files),
             contributed_commits=contributed.before_landing(
-                repo_root, target=target, commit_sha=commit_sha,
+                repo_root,
+                target=target,
+                commit_sha=commit_sha,
             ),
         ),
     )
@@ -163,7 +146,9 @@ def load(item_id: int, branch: str, target: str) -> Optional[MergeReceipt]:
     """The receipt this item recorded for ``branch``/``target``."""
     try:
         response = _call(
-            GET_FUNCTION_ID, item_id, {"branch": branch, "target": target},
+            GET_FUNCTION_ID,
+            item_id,
+            {"branch": branch, "target": target},
         )
     except Exception:  # noqa: BLE001 - an unreachable store is "no receipt"
         return None
@@ -235,7 +220,10 @@ def landing_merge_commit(repo_root: str, target: str, commit_sha: str) -> str:
     if not commit_sha:
         return ""
     listing = git.git_out(
-        repo_root, "rev-list", "--first-parent", f"{commit_sha}..{target}",
+        repo_root,
+        "rev-list",
+        "--first-parent",
+        f"{commit_sha}..{target}",
     )
     chain = [line.strip() for line in listing.splitlines() if line.strip()]
     if not chain:
@@ -263,7 +251,9 @@ def _is_merge(repo_root: str, commit: str) -> bool:
 
 
 def touched_files_from_merge_commit(
-    repo_root: str, target: str, commit_sha: str,
+    repo_root: str,
+    target: str,
+    commit_sha: str,
 ) -> tuple[str, ...]:
     """What the merge that first contained ``commit_sha`` brought into ``target``.
 
@@ -274,13 +264,22 @@ def touched_files_from_merge_commit(
         return ()
     return _clean(
         git.git_out(
-            repo_root, "diff", "--name-only", f"{landed}^1", landed,
+            repo_root,
+            "diff",
+            "--name-only",
+            f"{landed}^1",
+            landed,
         ).splitlines()
     )
 
 
 def landed_merge_identity(
-    *, item_id: int, branch: str, target: str, repo_root: str, already: bool,
+    *,
+    item_id: int,
+    branch: str,
+    target: str,
+    repo_root: str,
+    already: bool,
     commit_sha: str,
 ) -> str:
     """The merge commit this branch actually landed on ``target``.

@@ -15,10 +15,11 @@ still has to remember to take.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 import sys
 from typing import Any, Callable
 
-from yoke_contracts.api.function_call import TargetRef
 
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import standalone_item_merge_git as git
@@ -36,13 +37,10 @@ EVALUATE_FUNCTION_ID = "merge_review.candidate.evaluate"
 #: rather than a hole. Treating it as an unreadable answer instead would
 #: refuse EVERY merge on EVERY project until the deploy landed -- including
 #: the merge that ships the deploy.
-_UNSERVED_ERROR_CODES = frozenset(
-    {"function_version_skew", "function_not_registered"}
-)
+_UNSERVED_ERROR_CODES = frozenset({"function_version_skew", "function_not_registered"})
 
 _RESOLVE_RECIPE = (
-    "`yoke decision-requests resolve {request_id} approve "
-    '--note "<what was reviewed>"`'
+    '`yoke decision-requests resolve {request_id} approve --note "<what was reviewed>"`'
 )
 
 
@@ -99,7 +97,7 @@ def candidate_review_refusal(
     """
     response = dispatch(
         function_id=EVALUATE_FUNCTION_ID,
-        target=TargetRef(kind="item", item_id=int(item_id)),
+        target=public_item_target(public_ref or item_id),
         payload={
             "commit_sha": str(commit_sha),
             "branch": str(branch),

@@ -79,11 +79,11 @@ test("an item card is readable text with its own links and controls", async (t) 
   );
   assert.deepEqual(
     byClass(root, "work-item-card-ref").map((node) => node.href),
-    ["/items/7?project=1", "/items/9?project=1", "/items/6?project=1"],
+    ["/items/YOK-7?project=1", "/items/YOK-9?project=1", "/items/YOK-6?project=1"],
   );
   assert.deepEqual(
     byClass(root, "overview-card-link").map((node) => node.href),
-    ["/items/7?project=1", "/items/9?project=1", "/items/6?project=1"],
+    ["/items/YOK-7?project=1", "/items/YOK-9?project=1", "/items/YOK-6?project=1"],
   );
   assert.equal(
     allNodes(root).filter(
@@ -163,7 +163,7 @@ test("Done lists every environment under the item's single flow", async (t) => {
         created_at: recentIso(1),
         completed_at: recentIso(1),
         stages: [{ name: "deploy", state: "complete" }],
-        member_items: [{ id: 106, ref: "YOK-6", title: "Land the release" }],
+        member_items: [{ ref: "YOK-6", title: "Land the release" }],
       }, {
         id: "run-0",
         project: "yoke",
@@ -173,7 +173,7 @@ test("Done lists every environment under the item's single flow", async (t) => {
         created_at: recentIso(3),
         completed_at: recentIso(2),
         stages: [{ name: "deploy", state: "complete" }],
-        member_items: [{ id: 106, ref: "YOK-6", title: "Land the release" }],
+        member_items: [{ ref: "YOK-6", title: "Land the release" }],
       }] },
     }),
   );
@@ -284,7 +284,7 @@ function releasingClient() {
     "frontier.list": {
       ready_rows: [{
         ...releasing,
-        item_id: "YOK-11",
+        public_ref: "YOK-11",
         why_ready: "No blocker is holding this item.",
         run_command: "yoke implement YOK-11",
       }],

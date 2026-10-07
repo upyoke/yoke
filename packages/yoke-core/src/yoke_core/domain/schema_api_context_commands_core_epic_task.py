@@ -34,9 +34,9 @@ EPIC_TASK_COMMANDS: list[dict] = [
         "purpose": "Write epic task body / metadata via CLI adapters",
         "recipe": (
             "yoke workflow-item epic-task body-replace "
-            "--epic 1704 --task-num 5 --body-file PATH\n"
+            "--epic PREFIX-1704 --task-num 5 --body-file PATH\n"
             "yoke workflow-item epic-task metadata-update "
-            "--epic 1704 --task-num 5 "
+            "--epic PREFIX-1704 --task-num 5 "
             "--fields-json '{\"max_attempts\": 2}'"
         ),
         "notes": (
@@ -73,11 +73,11 @@ EPIC_TASK_COMMANDS: list[dict] = [
         "purpose": "Engineer: append a progress note to an epic task",
         "recipe": (
             "yoke workflow-item epic-progress-note append "
-            "--epic 1704 --task-num 5 --note-num 3 --body-file PATH\n"
+            "--epic PREFIX-1704 --task-num 5 --note-num 3 --body-file PATH\n"
             "yoke workflow-item epic-progress-note list "
-            "--epic 1704 --task-num 5 --limit 10\n"
+            "--epic PREFIX-1704 --task-num 5 --limit 10\n"
             "yoke workflow-item epic-task submission-receipt-get "
-            "--epic 1704 --task-num 5 --after-note-count 2"
+            "--epic PREFIX-1704 --task-num 5 --after-note-count 2"
         ),
         "notes": (
             "The append adapter accepts --body-file PATH, preferred over "

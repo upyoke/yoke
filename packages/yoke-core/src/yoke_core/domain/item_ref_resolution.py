@@ -1,14 +1,12 @@
 """The one item-identity resolver.
 
-Callers name an item by its public reference: ``PREFIX-N``
-(``projects.public_item_prefix`` + ``items.project_sequence``). A bare
-``N`` names a project sequence, so it identifies an item only when the call
-carries an explicit project; without one it is refused, and it is never
-read as an internal ``items.id``. :func:`resolve_item_ref` turns either
-accepted shape into the internal id the engine works with. Every surface
-that accepts an item token from outside the engine — the dispatcher's
-target and payload refs, CLI arguments, stored public refs — resolves
-through it.
+Clients name an item by its complete public reference: ``PREFIX-N``
+(``projects.public_item_prefix`` + ``items.project_sequence``). Client parsers
+and dispatch validation require that prefix before calling this resolver.
+Engine-owned queries may also resolve a project sequence with an explicit
+project; that shape is engine currency and never a client identity.
+:func:`resolve_item_ref` returns the internal key for owned joins, and never
+interprets a text sequence as an internal ``items.id``.
 
 Internal ``items.id`` values stay inside the engine. The scheduler's own
 item keys (an int or its digit string, or a stored public ref) normalize
@@ -83,8 +81,8 @@ def check_item_ref_shape(
     """Refuse a token no lookup could resolve, without touching a database.
 
     Returns ``(prefix, sequence)`` — ``prefix`` is ``None`` for a bare
-    number, which is accepted only alongside ``project``. A client checks
-    here before it opens a connection or relays.
+    number, which is accepted only alongside ``project`` inside the engine.
+    Client boundaries validate a complete public ref before reaching here.
     """
     if not isinstance(token, str):
         raise _invalid(token)
@@ -135,6 +133,19 @@ def resolve_item_ref_or_none(
         return resolve_item_ref(conn, token, project=project)
     except ItemRefError:
         return None
+
+
+def fill_internal_ids_for_public_rows(conn: Any, rows: list[dict[str, Any]]) -> None:
+    """Resolve public list projections for server-owned enrichment joins."""
+    missing = [
+        str(row.get("public_ref") or row["id"])
+        for row in rows
+        if "internal_id" not in row
+    ]
+    resolved = internal_ids_for_refs(conn, missing)
+    for row in rows:
+        if "internal_id" not in row:
+            row["internal_id"] = resolved[str(row.get("public_ref") or row["id"])]
 
 
 def internal_ids_for_refs(conn: Any, refs: Iterable[Any]) -> Dict[str, int]:

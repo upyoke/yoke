@@ -175,7 +175,7 @@ def handle_record_post_rebase_ci_run(request: FunctionCallRequest) -> HandlerOut
     if item_id is None:
         return _err(
             "target_invalid",
-            "record_post_rebase_ci_run requires target.item_id",
+            "record_post_rebase_ci_run requires target.public_ref",
         )
     try:
         body = RecordPostRebaseCiRunRequest.model_validate(request.payload or {})

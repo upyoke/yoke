@@ -21,13 +21,13 @@ const OUTPUT = "12 passed in 3.4s\n";
 
 const RUN_CHECK = {
   requirement_id: 32037, run_id: 70, deployment_run_id: "run-20260927-004",
-  item_id: null, deployment_member_item_id: null, plan_id: null, plan: null,
+  public_ref: null, deployment_member_public_ref: null, plan_id: null, plan: null,
   project: "yoke", method_id: "browser-inspection", method_name: "Browser inspection",
   outcome: "passed", evidence_count: 0, artifacts: [],
   happened_at: "2026-09-27T16:40:00Z",
 };
 const ITEM_CHECK = {
-  requirement_id: 31877, run_id: 71, deployment_run_id: null, item_id: 3589,
+  requirement_id: 31877, run_id: 71, deployment_run_id: null, public_ref: "PLAT-151",
   plan_id: null, plan: null, project: "yoke", method_id: "command",
   method_name: "Command", outcome: "passed", run_url: CI_RUN,
   evidence_count: 1,
@@ -55,7 +55,7 @@ function qaContext(documentNode, { rows, requirement, navigate = () => {} }) {
             return ok({ needs_decision: [], messages: [] });
           case "items.detail.get":
             return ok({ item: {
-              id: 3589, public_ref: "PLAT-151", project: { id: 3, slug: "platform" },
+              public_ref: "PLAT-151", project: { id: 3, slug: "platform" },
             } });
           case "qa.requirement.get":
             return ok({ requirement });
@@ -79,11 +79,11 @@ test("a case is named for its method and the item or run it answers for", () => 
   assert.equal(qaCaseName(ITEM_CHECK, "PLAT-151"), "Command check · PLAT-151");
   // A release check run for a carried item answers for that item.
   assert.equal(
-    qaCaseName({ ...RUN_CHECK, deployment_member_item_id: 3589 }, "PLAT-151"),
+    qaCaseName({ ...RUN_CHECK, deployment_member_public_ref: "PLAT-151" }, "PLAT-151"),
     "Browser inspection · PLAT-151",
   );
-  // An unresolved ref keeps the id it has rather than dropping the subject.
-  assert.equal(qaCaseName(ITEM_CHECK), "Command check · item 3589");
+  // The row already carries its canonical public ref.
+  assert.equal(qaCaseName(ITEM_CHECK), "Command check · PLAT-151");
 });
 
 test("activity links each case by name and the row itself does not navigate", async () => {
@@ -109,9 +109,9 @@ test("activity links each case by name and the row itself does not navigate", as
   assert.equal(rows.length, 2);
   rows[0].dispatchEvent(new Event("click"));
   assert.deepEqual(navigations, []);
-  // One item read per subject item, none for a run check.
+  // The response carries canonical public refs; naming needs no lookup.
   assert.equal(
-    context.requests.filter((r) => r.function === "items.detail.get").length, 1,
+    context.requests.filter((r) => r.function === "items.detail.get").length, 0,
   );
 });
 
@@ -151,7 +151,7 @@ test("a command check's case page shows its recorded output and CI run", async (
   const labels = [];
   const context = qaContext(documentNode, {
     rows: [ITEM_CHECK],
-    requirement: { id: 31877, item_id: 3589, method_id: "command", method_name: "Command" },
+    requirement: { id: 31877, public_ref: "PLAT-151", method_id: "command", method_name: "Command" },
   });
   await renderQaCaseDetail(context, root, "1", "31877", {
     setDetailLabel: (label) => labels.push(label),
@@ -184,7 +184,7 @@ test("a carried item's check is found under the item's own project", async () =>
   const context = qaContext(documentNode, {
     rows: [],
     requirement: { id: 31877, deployment_run_id: "run-20260927-004",
-      deployment_member_item_id: 3589, method_id: "command" },
+      deployment_member_public_ref: "PLAT-151", method_id: "command" },
   });
   await renderQaCaseDetail(context, root, "1", "31877");
   await settle();

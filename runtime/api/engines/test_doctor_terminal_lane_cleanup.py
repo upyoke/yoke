@@ -95,7 +95,12 @@ def test_doctor_reports_and_fixes_only_a_verified_safe_terminal_lane(
         ),
     ):
         detected = _run_hc(hc_worktree_health, conn)
-        fixed = _run_hc(hc_worktree_health, conn, fix=True)
+        # The terminal transaction already released the seeded lane row.
+        with patch(
+            "yoke_core.engines.merge_landed_lane_cleanup.release_lane_row",
+            return_value=None,
+        ):
+            fixed = _run_hc(hc_worktree_health, conn, fix=True)
 
     assert _result(detected).result == "WARN"
     assert "verified-safe" in _result(detected).detail

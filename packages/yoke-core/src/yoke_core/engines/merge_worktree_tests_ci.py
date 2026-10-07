@@ -23,12 +23,13 @@ offline local execution — never a silent fallback when CI is unreachable.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 import json
 import time
 from pathlib import Path
 from typing import Optional, Tuple
 
-from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import (
     merge_ci_verification_wait,
@@ -79,13 +80,12 @@ def _record_ci_run(
     duration_ms: int,
 ) -> Optional[int]:
     item_id_raw = getattr(ctx, "item_id", None)
-    try:
-        item_id = int(str(item_id_raw))
-    except (TypeError, ValueError):
+    if not item_id_raw:
         return None
+    item_id = str(item_id_raw)
     resp = call_dispatcher(
         function_id="merge.tests.record_post_rebase_ci_run",
-        target=TargetRef(kind="item", item_id=item_id),
+        target=public_item_target(item_id),
         payload={
             "scope": scope,
             "command": command,
@@ -144,7 +144,7 @@ def run_ci_verification(
     # a second source of truth for the same fact.
     try:
         workflow_inputs = qa_case_ci_candidate_inputs.item_inputs(
-            item_id=int(str(ctx.item_id)),
+            item_id=str(ctx.item_id),
             workflow=workflow,
         )
     except (QaCaseExecutionError, TypeError, ValueError) as exc:

@@ -44,7 +44,7 @@ CLAIMS_COMMANDS: list[dict] = [
         "recipe": (
             "yoke claims work acquire --item PREFIX-N "
             "--reason draft-in-progress\n"
-            "yoke claims work acquire --epic-id 833 --task-num 5 "
+            "yoke claims work acquire --epic PREFIX-833 --task-num 5 "
             "--reason engineer-dispatch\n"
             "yoke claims work acquire --process DOCTOR --project P "
             "--reason scheduled-run"
@@ -145,7 +145,7 @@ CLAIMS_COMMANDS: list[dict] = [
             "active claim:\n"
             "yoke claims work release --item PREFIX-N --reason TEXT\n"
             "yoke claims work release --claim-id <id> --reason TEXT\n"
-            "yoke claims work release --epic-id E --task-num K "
+            "yoke claims work release --epic PREFIX-N --task-num K "
             "--reason TEXT\n"
             "yoke claims work release --all-mine\n"
             "# Manual spec-rewrite pattern (acquire → edit → release):\n"

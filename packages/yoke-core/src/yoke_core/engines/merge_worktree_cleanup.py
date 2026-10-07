@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from yoke_contracts.codex_hook_trust_store import worktree_cleanup_warning
-from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+from yoke_core.domain.public_item_target import public_item_target
 from yoke_core.domain.worktree_import_reseat import reseat_loaded_packages
 from yoke_core.engines.merge_landed_lane_cleanup import release_lane_row
 from yoke_core.engines.merge_worktree_prepare import MergeContext
@@ -231,7 +231,9 @@ def _post_merge_cleanup(
             err=True,
         )
         usher_ref = (
-            item_ref_for_id(int(ctx.item_id)) if ctx.item_id else ctx.args.branch
+            public_item_target(ctx.item_id).public_ref
+            if ctx.item_id
+            else ctx.args.branch
         )
         _print(
             "Recovery: from the main repo, run "

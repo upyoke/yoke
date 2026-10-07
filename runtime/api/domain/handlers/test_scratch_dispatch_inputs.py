@@ -36,7 +36,7 @@ def _make_request(payload: dict, target_kind: str = "global") -> FunctionCallReq
 
 def test_handler_returns_absolute_path(scoped_scratch: Path) -> None:
     request = _make_request(
-        {"item_id": 1846, "session_id": "session-foo", "attempt": 1}
+        {"public_ref": "YOK-1846", "session_id": "session-foo", "attempt": 1}
     )
 
     outcome = handle_dispatch_inputs(request)

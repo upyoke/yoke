@@ -40,7 +40,6 @@ __all__ = [
     "detail_of",
     "client_project_context",
     "item_target",
-    "resolve_item_id_via_dispatch",
     "parse_or_usage_error",
     "usage_error",
     "dispatch_and_emit",
@@ -153,12 +152,12 @@ def _ensure_project_arg_for_item_parser(parser: argparse.ArgumentParser) -> None
     parser.add_argument(
         "--project",
         default=None,
-        help="Project context for bare numeric item refs.",
+        help="Project scope for the operation.",
     )
 
 
 def client_project_context(explicit: Optional[str] = None) -> Optional[str]:
-    """Resolve client-local project context for bare numeric item refs.
+    """Resolve the client-local project scope for an operation.
 
     Relay contract: this NEVER touches the DB — only the explicit
     ``--project`` flag, the ``YOKE_PROJECT`` env var, and the machine
@@ -290,7 +289,9 @@ def dispatch_and_emit(
     )
     if response_recovery is not None:
         response = response_recovery(response, actor)
-    result_code = emit_response(response, json_mode=json_mode, human_writer=human_writer)
+    result_code = emit_response(
+        response, json_mode=json_mode, human_writer=human_writer
+    )
     sys.stdout.flush()
     sys.stderr.flush()
     if response.success and cleanup_item is not None:
@@ -300,9 +301,7 @@ def dispatch_and_emit(
         result = response.result or {}
         close = cleanup_terminal_item_lanes(
             cleanup_item,
-            target_status=str(
-                result.get("to_status") or result.get("status") or ""
-            ),
+            target_status=str(result.get("to_status") or result.get("status") or ""),
             session_id=actor.session_id,
             emit=lambda message, **_kw: print(message, file=sys.stderr),
         )
@@ -313,33 +312,3 @@ def dispatch_and_emit(
 
 def split_comma(raw: str) -> List[str]:
     return [s.strip() for s in raw.split(",") if s.strip()]
-
-
-def resolve_item_id_via_dispatch(
-    raw_ref: Any,
-    project: Optional[str] = None,
-    session_id: Optional[str] = None,
-) -> int:
-    """Resolve a raw item ref to the internal id through the dispatcher.
-
-    For the rare adapter that needs the numeric id client-side (e.g.
-    machine-local scratch path namespacing), this rides ``items.get.run``
-    over the active transport so resolution authority stays server-side
-    on https and in-process locally — never a direct client DB read.
-    Raises ``ValueError`` with the server's message on failure.
-    """
-    ensure_handlers_loaded()
-    response = call_dispatcher(
-        function_id="items.get.run",
-        target=item_target("item", raw_ref, project),
-        payload={"fields": ["id"]},
-        actor=build_actor(session_id=session_id),
-    )
-    if not response.success or "item_id" not in (response.result or {}):
-        message = (
-            response.error.message
-            if response.error is not None
-            else "item ref resolution failed"
-        )
-        raise ValueError(message)
-    return int(response.result["item_id"])

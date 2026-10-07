@@ -34,7 +34,7 @@ def item_worktrees_create(args: List[str]) -> int:
     )
     parser.add_argument(
         "item",
-        help="Item id (PREFIX-N or project-local number).",
+        help="Item id (PREFIX-N).",
     )
     parser.add_argument(
         "--lane-role",
@@ -81,7 +81,8 @@ def item_worktrees_create(args: List[str]) -> int:
                 "lane_role": parsed.lane_role,
                 "branch": parsed.branch,
             }
-            if parsed.lane_role else {}
+            if parsed.lane_role
+            else {}
         ),
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,

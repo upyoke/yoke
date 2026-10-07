@@ -115,7 +115,7 @@ def test_deferral_findings_ignore_fences_and_filed_refs():
 
 def _verdict(conn, item_id, transition, verdict):
     conn.execute(
-        "INSERT INTO shepherd_verdicts (item, transition, worker, verdict, "
+        "INSERT INTO shepherd_verdicts (public_ref, transition, worker, verdict, "
         "created_at) VALUES (%s, %s, 'architect', %s, '2026-10-05')",
         (f"YOK-{item_id}", transition, verdict),
     )

@@ -27,9 +27,10 @@ check the terminal status depends on being true.
 
 from __future__ import annotations
 
+from yoke_core.domain.public_item_target import public_item_target
+
 from typing import Any, Optional
 
-from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import standalone_item_merge_evidence as evidence
 from yoke_core.domain import standalone_item_merge_git as git
@@ -56,7 +57,7 @@ def _execute(
 ) -> str:
     response = call_dispatcher(
         function_id="lifecycle.transition.execute",
-        target=TargetRef(kind="item", item_id=item_id),
+        target=public_item_target(item_id),
         payload={
             "source_status": source_status,
             "target_status": target_status,
@@ -115,9 +116,7 @@ def transition_to_done(
     # the lane head, leaving only the merge commit reachable from the target.
     # Empty identities skip that git read only when persisted evidence attests
     # the no-change floor; missing SHAs alone are corrupt landing evidence.
-    identities = tuple(
-        sha for sha in (lane.commit_sha, lane.merge_sha) if sha
-    )
+    identities = tuple(sha for sha in (lane.commit_sha, lane.merge_sha) if sha)
     unlanded = (
         f"terminal transition refused: recorded merge commit "
         f"{lane.commit_sha} is not reachable from {lane.target!r}"
@@ -125,13 +124,13 @@ def transition_to_done(
     if not identities:
         if not evidence.attested_empty_landing(item_id):
             return "", unlanded
-    elif not any(
-        git.is_landed(repo_root, sha, lane.target) for sha in identities
-    ):
+    elif not any(git.is_landed(repo_root, sha, lane.target) for sha in identities):
         return "", unlanded
     if recovery.claim_error(item_id, session_id):
         _recovered, recovery_error = recovery.reacquire_landed_claim(
-            item_id=item_id, session_id=session_id, lane=lane,
+            item_id=item_id,
+            session_id=session_id,
+            lane=lane,
         )
         if recovery_error:
             if evidence.authoritative_status_is(item_id, TERMINAL_STATUS):

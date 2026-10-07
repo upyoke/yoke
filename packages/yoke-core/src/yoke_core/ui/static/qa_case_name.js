@@ -7,8 +7,6 @@
 // case page title and breadcrumb, and any run or item surface that links to a
 // case all draw the name here so a reader follows one label across pages.
 
-import { callFunction } from "./universe_view_support.js";
-
 // A command case runs a registered project command; "Command check" reads as
 // the kind of check it is rather than the bare method id.
 export function qaCaseMethodLabel(row) {
@@ -21,22 +19,18 @@ export function qaCaseMethodLabel(row) {
     || "Check";
 }
 
-// The internal item id a check answers for: its own item, or the carried
+// The public item ref a check answers for: its own item, or the carried
 // item a release check was run for.
-export function qaCaseItemId(row) {
-  const id = Number(row?.item_id ?? row?.deployment_member_item_id);
-  return Number.isFinite(id) && id > 0 ? id : null;
+export function qaCaseItemRef(row) {
+  return row?.public_ref ?? row?.deployment_member_public_ref ?? null;
 }
 
-// Against what the case ran. An item is named by its public ref; a check
-// with no item answers for its deployment run. A ref the caller could not
-// resolve falls back to the id it does have rather than to nothing.
+// The response already names the item by its public ref. Run-only and
+// subject-less checks keep their run or requirement label.
 export function qaCaseSubject(row, itemRef = null) {
-  const ref = String(itemRef || row?.item_ref || "").trim();
+  const ref = String(itemRef || row?.item_ref || qaCaseItemRef(row) || "").trim();
   if (ref) return ref;
-  const itemId = qaCaseItemId(row);
-  if (row?.deployment_run_id && itemId == null) return String(row.deployment_run_id);
-  if (itemId != null) return `item ${itemId}`;
+  if (row?.deployment_run_id) return String(row.deployment_run_id);
   return row?.requirement_id != null ? `case ${row.requirement_id}` : "";
 }
 
@@ -45,37 +39,12 @@ export function qaCaseName(row, itemRef = null) {
     .filter(Boolean).join(" · ");
 }
 
-// Public refs for the items a set of checks answers for, read once per item.
-// A failed read leaves that item out, and its name falls back to the id.
-export async function loadQaCaseItemRefs(context, rows) {
-  const ids = [...new Set(rows.map(qaCaseItemId).filter((id) => id != null))];
-  const refs = new Map();
-  await Promise.all(ids.map(async (itemId) => {
-    try {
-      const result = await callFunction(
-        context.client, "items.detail.get", {}, { kind: "item", item_id: itemId },
-      );
-      const ref = result.status === 200 && result.envelope.success
-        ? result.envelope.result?.item?.public_ref : null;
-      if (ref) refs.set(itemId, String(ref));
-    } catch {
-      // The name keeps the item id; the page still renders.
-    }
-  }));
-  return refs;
+// Public refs come from the response, so naming needs no identity lookup.
+export async function loadQaCaseItemRefs(_context, rows) {
+  return new Map(rows.map((row) => [qaCaseItemRef(row), qaCaseSubject(row)])
+    .filter(([ref]) => ref != null));
 }
 
-// One activity mount owns this cache. Paging reuses pending and completed
-// lookups without retaining another actor's or universe's item identities.
-export function qaCaseItemRefLoader(context) {
-  const requests = new Map();
-  return (row) => {
-    const itemId = qaCaseItemId(row);
-    if (row.item_ref || itemId == null) return Promise.resolve(row.item_ref || null);
-    if (!requests.has(itemId)) {
-      requests.set(itemId, loadQaCaseItemRefs(context, [row])
-        .then((refs) => refs.get(itemId)));
-    }
-    return requests.get(itemId);
-  };
+export function qaCaseItemRefLoader() {
+  return (row) => Promise.resolve(row?.item_ref || qaCaseItemRef(row));
 }

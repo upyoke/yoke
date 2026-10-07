@@ -27,7 +27,7 @@ def test_a_degraded_finalization_lands_on_the_result(monkeypatch, capsys):
     )
     result = _Result()
     note = finalize._finalize_done_local_side_effects(
-        7, "internal", "Title", "yoke", "", result=result
+        "YOK-7", "internal", "Title", "yoke", "", result=result
     )
     assert "relay down" in note
     assert result.steps == ["6c-degraded"]
@@ -46,7 +46,7 @@ def test_a_clean_finalization_records_the_plain_step(monkeypatch):
     result = _Result()
     assert (
         finalize._finalize_done_local_side_effects(
-            7, "internal", "Title", "yoke", "", result=result
+            "YOK-7", "internal", "Title", "yoke", "", result=result
         )
         == ""
     )
@@ -73,7 +73,7 @@ def test_an_unreachable_github_closeout_is_recorded_on_the_sync(monkeypatch):
         ),
     )
     result = _Result()
-    outcome = github_sync.apply_step_8(7, "release", result, public_ref="YOK-7")
+    outcome = github_sync.apply_step_8("YOK-7", "release", result, public_ref="YOK-7")
     assert outcome.is_incomplete is True
     assert result.steps == ["8-skipped"]
     assert result.warnings[0]["code"] == "github_sync_degraded"

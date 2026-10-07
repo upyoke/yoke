@@ -23,10 +23,10 @@ import {
 // keeps its own decision separate from the reviews under it.
 function approvalInbox() {
   return renderInbox("all", [deploymentRequestRow()], [
-    activityRow({ item_id: 2712, requirement_id: 31200,
+    activityRow({ public_ref: "YOK-2712", requirement_id: 31200,
       deployment_run_id: "run-20260721-014" }),
     activityRow({
-      item_id: 2707,
+      public_ref: "YOK-2707",
       requirement_id: 31201,
       deployment_run_id: "run-20260721-014",
       artifacts: [artifact(31900, 31201)],
@@ -92,7 +92,7 @@ test("a run whose lineage is unknown still lists the members it declares", async
     [undeterminedLineageWithMembersRequestRow()],
     [
       activityRow({
-        item_id: 2712,
+        public_ref: "YOK-2712",
         deployment_run_id: "run-20260721-014",
         requirement_id: 31200,
         artifacts: [artifact(31900, 31200)],
@@ -137,7 +137,7 @@ function itemReviewRow(overrides = {}) {
       subject: {
         ...base.subject_context.subject,
         kind: "item",
-        item_id: 1896,
+        public_ref: "YOK-1896",
         item_ref: "BUZ-1896",
         deployment_run_id: null,
       },
