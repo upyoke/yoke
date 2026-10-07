@@ -102,6 +102,39 @@ Epic-task attachment remains operator-debug only, through
 `python3 -m yoke_core.domain.qa requirement-add --epic-id E --task-num K
 --workflow-transition STAGE ...`.
 
+## Machine case starting state
+
+A case that runs on a Test Machine (`host_control` methods such as
+`terminal-check`, and `exploratory-mission`) declares the machine state it
+starts from. Plan authoring (`yoke qa plan edit`, `yoke qa plan-cases
+replace`), `qa.requirement.add`, and every materialization refuse a case that
+declares none, naming the choices and the registered baselines:
+
+- `host_baselines: ["fresh-host"]` (or `shell-preconfigured`, or both): the
+  runner resets to each named baseline; one requirement row per baseline.
+- `"starting_state": "inherit"`: start on the machine exactly as the case
+  directly before it in the plan left it, at the same baseline position. The
+  first case cannot inherit, nor can a case follow or be a mission.
+- `"starting_state": "as_is"` with `"starting_state_reason"`: run on the
+  machine as found, for the stated reason.
+
+A case added on its own (`yoke qa requirement add`) belongs to no plan, so it
+takes `--host-baseline NAME` or `--starting-state as_is
+--starting-state-reason TEXT` and cannot inherit.
+
+A named-baseline or as-is case opens a chain; the inheriting cases behind it
+extend it. `yoke qa plan run` runs every case at one baseline position before
+the next, resets before each chain, and restores the chain's starting baseline
+after its last case, and after any case that did not pass, recording the
+receipt as `starting_state_restore` in that case's evidence. A failed reset
+leaves the case unstarted (`starting_state_reset_failed`); a failed restore
+stops the plan and names the `yoke test-machine reset` command. An inheriting
+case whose predecessor did not pass in the same run is recorded
+`blocked_on_precondition` naming that predecessor, and does not run.
+Deployment-stage case selections keep each inheriting case directly behind its
+predecessor. Requirements materialized before a plan declared its states read
+as behind their plan: edit the plan, then refresh them.
+
 ## What the activity read returns
 
 `qa.activity.list` is scoped to **executable** cases: a case is in scope when
@@ -242,7 +275,7 @@ For one case that needs several hosts simultaneously, declare its driving host
 as `method_config.machine` and every required host in `method_config.machines`:
 `{"machine":"macos-example","machines":["linux-example","macos-example"]}`. Names must be
 registered, unique, and include the driving host. Run this case through
-`yoke qa plan run`; direct case and baseline-group execution refuse it. The
+`yoke qa plan run`; direct case execution refuses it. The
 runner acquires every host through its FIFO in sorted name order, releases
 partial acquisitions on contention, and retains the full set through case
 execution and mission review. Completion or abort releases the set. Cases
@@ -288,8 +321,8 @@ requirement has only the generic `macos-examplehine` capability. Admitted deploy
 copies retain the pin; omitting `--machine` does not permit another host, and a
 conflicting run pin is refused before a lease is acquired.
 
-Only an explicitly declared host baseline restores the golden home. An empty
-baseline list preserves the live home and, absent `host_starting_state`, leaves
+Only an explicitly declared host baseline restores the golden home. A mission
+declared `as_is` keeps the home it finds and, absent `host_starting_state`, leaves
 packages and their journal untouched. A named baseline or explicit fixture
 undoes only the preceding mission's journal-attributed package delta, applies the declaration and
 records proof before walking. Linux and WSL fixtures use apt; a declaration on another OS
