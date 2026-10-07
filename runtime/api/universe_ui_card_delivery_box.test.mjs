@@ -224,3 +224,26 @@ test("the header resolves the item's single flow without repeating its source", 
     mounted.unmount();
   }
 });
+
+// Item reads project the flow as `{value, source}`; the card names the id.
+for (const band of BANDS) {
+  test(`${band.key}: a projected flow field is named by its id, never as an object`, async (t) => {
+    stubFetch(t);
+    const { mounted, box } = await mountBand(band, () => [], {
+      completion_flow: "", deployment_flow: { value: FLOW, source: "item" },
+    });
+    t.after(() => mounted.unmount());
+    assert.equal(byClass(box, "item-card-delivery-flow")[0].textContent, FLOW);
+  });
+
+  test(`${band.key}: with no flow at all, no next release is promised`, async (t) => {
+    stubFetch(t);
+    const { mounted, box } = await mountBand(band, () => [], {
+      completion_flow: "", completion_flow_source: "none",
+      deployment_flow: { value: "", source: "none" },
+    });
+    t.after(() => mounted.unmount());
+    assert.equal(byClass(box, "item-card-delivery-flow")[0].textContent, "no flow");
+    assert.equal(byClass(box, "item-deployment").length, 0);
+  });
+}

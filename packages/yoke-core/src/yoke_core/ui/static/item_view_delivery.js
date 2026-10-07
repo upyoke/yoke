@@ -6,6 +6,7 @@ import {
   deploymentRunHref,
 } from "./universe_navigation.js";
 import { relativeAgePhrase } from "./universe_time.js";
+import { flowId } from "./universe_item_deployment.js";
 import { NO_ENVIRONMENT_LABEL } from "./deployment_environment_copy.js";
 import { workflowPanel } from "./workflow_view_primitives.js";
 import { callFunction, el, statePill } from "./universe_view_support.js";
@@ -56,8 +57,8 @@ async function resolveFlow(context, item) {
       reason: item.completion_flow_source === "unreadable" ? "unreadable" : "none_declared",
     };
   }
-  if (item.deployment_flow) {
-    return { flowId: String(item.deployment_flow), source: "item" };
+  if (flowId(item.deployment_flow)) {
+    return { flowId: flowId(item.deployment_flow), source: "item" };
   }
   let result = null;
   try {
