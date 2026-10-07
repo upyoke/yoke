@@ -203,9 +203,9 @@ after the argv still runs locally and stays enforced.
 
 Missions are walked one at a time, in bundle order, because they share the
 plan's one Test Machine. The walker dispatch carries the scratch path and two
-commands. `walk-start` runs before any other host command: it resets to the
-declared baseline (never in a `--continue-mission` walk), restores declared OS
-packages, and creates the owner-only `0700` scratch. `walk-end` ends the walk:
+commands. `walk-start` runs before any other host command: it re-reaches the
+baseline the docket proved, since later cases ran (never in a continuation),
+restores declared OS packages and creates the `0700` scratch. `walk-end`:
 
 ```text
 yoke --env <connection> qa mission walk-end --item-id <id> \

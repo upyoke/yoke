@@ -45,15 +45,15 @@ def prepare_mission(
     execution_factory: Callable[..., Any],
     scratch_factory: Callable[..., dict[str, Any]],
     progress_callback: Callable[[], None] | None = None,
-    reset: bool = True,
 ) -> dict[str, Any]:
     """Return a submittable result even when local host preparation fails.
 
-    A mission is walked after its plan's other cases run, so the reset to
-    its declared baseline belongs to the walk (``yoke qa mission
-    walk-start``); the plan-time docket preparation passes ``reset=False``.
+    It runs when the plan records the mission's docket, whose receipt proves
+    the declared baseline, and again at ``yoke qa mission walk-start``: a
+    mission is walked after its plan's other cases, which may have changed
+    the machine since.
     """
-    baseline_name = contract.baselines[0] if contract.baselines and reset else None
+    baseline_name = contract.baselines[0] if contract.baselines else None
     outcome: dict[str, Any] = {
         "name": baseline_name,
         "state": "not_started",

@@ -175,6 +175,8 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
                     "instructions": "Inspect the controlled host.",
                     "expected_outcome": "The host state is ready.",
                     "method_config": {"assertions": [{"argv": ["/usr/bin/true"]}]},
+                    "starting_state": "as_is",
+                    "starting_state_reason": "fixture host",
                 }
             ],
         )

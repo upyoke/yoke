@@ -239,13 +239,12 @@ def prepare_agent_mission_contract(
     *,
     progress_callback: Callable[[], None] | None = None,
 ) -> dict[str, Any]:
-    """Record the mission docket's host preparation; the walk resets later."""
+    """Reach the mission baseline and stage its owner-only scratch."""
     return prepare_mission(
         _mission_contract(raw_contract),
         execution_factory=_execution,
         scratch_factory=create_mission_scratch,
         progress_callback=progress_callback,
-        reset=False,
     )
 
 

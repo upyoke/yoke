@@ -1,4 +1,4 @@
-"""Mission preparation keeps the host; the walk resets only a declared baseline."""
+"""Mission preparation preserves live state unless the case declares a reset."""
 
 from types import SimpleNamespace
 
@@ -76,16 +76,18 @@ def test_empty_baseline_preserves_home_and_package_state(mission):
 
 
 @pytest.mark.parametrize("baseline", ["fresh-host", "shell-preconfigured"])
-def test_explicit_baseline_resets_at_walk_start_not_at_plan_time(mission, baseline):
+def test_explicit_baseline_resets_for_the_docket_and_again_at_walk_start(
+    mission, baseline
+):
     contract, _, resets, packages = mission
     contract.baselines = [baseline]
     contract.cases[0].host_baseline = baseline
     planned = local.prepare_agent_mission_contract({})["preparation"]
-    assert planned["baseline"] is None
-    assert resets == []
+    assert planned["baseline"] == baseline
+    assert resets == [baseline]
     walked = walk.execute_agent_mission_walk_start({})["preparation"]
     assert walked["baseline"] == baseline
-    assert resets == [baseline]
+    assert resets == [baseline, baseline]
     assert packages == [("restore", None), ("restore", None)]
 
 
