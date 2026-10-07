@@ -100,6 +100,7 @@ class WizardResult:
     hosting_verification: dict[str, Any] | None = None
     same_host_self_host: bool = False
     self_host_directory: str | None = None
+    admin_name: str | None = None  # asked before a new local universe is born
     path_repair: dict[str, Any] | None = None
     project_mode: str = onboard_project.PROJECT_MODE_MACHINE_ONLY
     project_remote_url: str | None = None
@@ -225,6 +226,7 @@ class WizardResult:
             "hosting_verification": self.hosting_verification,
             "same_host_self_host": self.same_host_self_host,
             "self_host_directory": self.self_host_directory,
+            "admin_name": self.admin_name,
             "path_repair": self.path_repair,
             "project_mode": self.project_mode,
             "project_remote_url": self.project_remote_url,
@@ -300,11 +302,9 @@ def run_wizard(
         ) from exc
 
     app = OnboardWizardApp(defaults=defaults, apply_report=apply_report)
-    # Mouse reporting stays on so the wheel/trackpad and the visible scrollbar
-    # move an overflowing step on every terminal. That costs native drag-select
-    # of a URL or one-time code (the terminal hands drags to the app instead),
-    # so ^y suspends to selectable scrollback when the local clipboard cannot
-    # help. On SSH, ^o shows the link there too rather than opening remotely.
+    # Mouse reporting stays on so the wheel/trackpad scroll an overflowing step
+    # everywhere; that costs native drag-select of a URL or code, so ^y suspends
+    # to selectable scrollback (on SSH, ^o shows the link there too).
     app.run()
     if app.cancelled:
         return WizardRunResult(

@@ -34,7 +34,7 @@ from yoke_contracts.self_host_bootstrap_output import (
 AdapterFn = Callable[[List[str]], int]
 
 INIT_USAGE = (
-    "yoke self-host init [--dir D] [--port N] [--image REF] "
+    "yoke self-host init --admin-name NAME [--dir D] [--port N] [--image REF] "
     "[--force | --protect-existing] [--github-app-private-key PATH] [--start] [--json]"
 )
 UPGRADE_USAGE = "yoke self-host upgrade [--dir D] [--channel C] [--yes] [--json]"
@@ -54,7 +54,8 @@ def self_host_init(args: List[str]) -> int:
         prog="yoke self-host init",
         description=(
             "Write a runnable self-host bundle: docker-compose.yml (API "
-            "server + Postgres), .env (image reference, API publish spec), "
+            "server + Postgres), .env (image reference, API publish spec, "
+            "and --admin-name: the installer first boot makes the first admin), "
             "and generated database credentials as owner-only secret files. "
             "The generated password is never printed. --protect-existing "
             "instead preserves an existing bundle and its DB credentials "
@@ -73,6 +74,14 @@ def self_host_init(args: List[str]) -> int:
             "Bundle directory (default: ./"
             f"{bundle.DEFAULT_BUNDLE_DIR} under the current directory — the "
             "bundle is the operator-managed docker compose working dir)."
+        ),
+    )
+    parser.add_argument(
+        "--admin-name",
+        default=None,
+        help=(
+            "Your name, written to .env as YOKE_ADMIN_NAME. Required for a "
+            "new bundle: first boot creates the first admin as this person."
         ),
     )
     parser.add_argument(
@@ -138,11 +147,14 @@ def self_host_init(args: List[str]) -> int:
             "existing bundle and database credentials are preserved"
         )
     if parsed.protect_existing and (
-        parsed.port is not None or parsed.image is not None
+        parsed.port is not None
+        or parsed.image is not None
+        or parsed.admin_name is not None
     ):
         return usage_error(
             "--protect-existing preserves .env; do not combine it with "
-            "--port or --image"
+            "--port, --image, or --admin-name (edit YOKE_ADMIN_NAME in .env "
+            "before first boot instead)"
         )
     try:
         if parsed.protect_existing:
@@ -155,6 +167,7 @@ def self_host_init(args: List[str]) -> int:
                 directory=parsed.directory,
                 port=parsed.port,
                 image=parsed.image,
+                admin_name=parsed.admin_name,
                 force=parsed.force,
             )
         _warn_network_publish(env_file.read_publish_spec(str(report["directory"])))
@@ -260,6 +273,7 @@ def _print_summary(report: Dict[str, object]) -> None:
     print(f"self-host bundle written: {directory}")
     print(f"server image: {report.get('image')}")
     print(f"api publish: {report.get('publish')}")
+    print(f"first admin: {report.get('admin_name')}")
     token_file = first_boot_token.token_drop_path(str(directory))
     connect_url = connect_url_from_publish_spec(str(report.get("publish") or ""))
     print("next steps:")

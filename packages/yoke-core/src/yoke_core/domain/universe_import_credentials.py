@@ -11,11 +11,7 @@ import psycopg
 
 from yoke_core.domain import json_helper
 from yoke_core.domain.actor_permissions import ROLE_ADMIN
-from yoke_core.domain.api_tokens import (
-    DEFAULT_ADMIN_ACTOR_NAME,
-    generate_token,
-    hash_token,
-)
+from yoke_core.domain.api_tokens import generate_token, hash_token
 
 
 IMPORTED_ADMIN_TOKEN_NAME = "self-host-import-admin"
@@ -41,7 +37,7 @@ def _now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _resolve_import_admin(conn: psycopg.Connection, *, now: str) -> int:
+def _resolve_import_admin(conn: psycopg.Connection) -> int:
     """The human actor a restored universe re-issues admin authority to.
 
     Resolution is by the org-admin role, never by name: the archive is
@@ -49,7 +45,8 @@ def _resolve_import_admin(conn: psycopg.Connection, *, now: str) -> int:
     a name is neither unique nor guaranteed to have survived a rename in
     the account system that owns it. Exactly one such actor keeps the
     answer unambiguous; several mean the archive has more than one
-    administrator and the import is not entitled to pick.
+    administrator and the import is not entitled to pick; none means
+    there is no person to re-credential, and the import invents nobody.
     """
     rows = conn.execute(
         "SELECT a.id, a.kind FROM actor_org_roles aor "
@@ -65,19 +62,13 @@ def _resolve_import_admin(conn: psycopg.Connection, *, now: str) -> int:
             "which one the import should re-credential is not this "
             "command's decision"
         )
-    if rows:
-        return int(rows[0][0])
-
-    actor_row = conn.execute(
-        "INSERT INTO actors (kind, system_component, name, created_at) "
-        "VALUES ('human', NULL, %s, %s) RETURNING id",
-        (DEFAULT_ADMIN_ACTOR_NAME, now),
-    ).fetchone()
-    if actor_row is None:
+    if not rows:
         raise UniverseImportCredentialError(
-            "the import admin actor could not be created"
+            "the archive carries no org-admin human actor, so the import has "
+            "nobody to re-credential; export the universe again from a "
+            "control plane whose first admin holds the org admin role"
         )
-    return int(actor_row[0])
+    return int(rows[0][0])
 
 
 def _resolve_authority(conn: psycopg.Connection, *, now: str) -> tuple[str, int]:
@@ -101,7 +92,7 @@ def _resolve_authority(conn: psycopg.Connection, *, now: str) -> tuple[str, int]
     ).fetchone()
     if role_row is None:
         raise UniverseImportCredentialError("the imported universe has no admin role")
-    actor_id = _resolve_import_admin(conn, now=now)
+    actor_id = _resolve_import_admin(conn)
     conn.execute(
         "INSERT INTO actor_org_roles "
         "(actor_id, org_id, role_id, granted_at, granted_by_actor_id) "

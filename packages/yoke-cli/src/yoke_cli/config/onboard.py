@@ -82,6 +82,7 @@ def build_report(
     harness_posture: bool = True,
     same_host_self_host: bool = False,
     self_host_directory: str | None = None,
+    admin_name: str | None = None,
 ) -> Dict[str, Any]:
     """Return the onboarding report, applying the write plan when requested."""
     cfg_path = machine_config.config_path(config_path)
@@ -235,6 +236,7 @@ def build_report(
             reuse,
             progress,
             report,
+            admin_name=admin_name,
             error_cls=OnboardError,
         )
     else:

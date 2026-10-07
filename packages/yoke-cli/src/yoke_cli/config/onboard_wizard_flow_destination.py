@@ -17,6 +17,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Protocol
 
 from yoke_cli.config import local_universe_setup
+from yoke_cli.config import onboard_wizard_admin_name as admin_name
 from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config.local_universe_setup import LOCAL_ENV
 from yoke_cli.config.onboard_destinations import (
@@ -273,15 +274,28 @@ class DestinationFlow:
                     ok=state.get("state")
                     != local_universe_setup.LOCAL_UNIVERSE_UNAVAILABLE,
                 ),
-                self._on_local_universe_summary,
+                lambda choice: self._on_local_universe_summary(choice, state),
             )
         )
 
-    def _on_local_universe_summary(self: _Shell, choice: str) -> None:
-        if choice != "back":
+    def _on_local_universe_summary(
+        self: _Shell, choice: str, state: dict[str, Any]
+    ) -> None:
+        if choice == "back":
+            self._return_to_destination_picker()
+            return
+        status = state.get("state") or local_universe_setup.LOCAL_UNIVERSE_CREATE
+        if status != local_universe_setup.LOCAL_UNIVERSE_CREATE:
             self._goto_machine_github()
             return
-        self._return_to_destination_picker()
+
+        def named(name: str) -> None:
+            self.result.admin_name = name
+            self._goto_machine_github()
+
+        admin_name.prompt(
+            self, STEP_CONNECT, current=self.result.admin_name, on_done=named
+        )
 
     def _return_to_destination_picker(
         self: _Shell,

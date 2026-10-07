@@ -217,6 +217,7 @@ def onboard(args: List[str]) -> int:
         env_name=env_name,
         api_url=parsed.api_url or "",
         destination=destination or onboard_destinations.DEFAULT_DESTINATION,
+        admin_name=getattr(parsed, "admin_name", None),
         token=token,
         token_file=parsed.token_file,
         token_source_kind=token_source_kind,

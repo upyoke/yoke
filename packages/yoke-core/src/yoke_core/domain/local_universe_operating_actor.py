@@ -2,32 +2,35 @@
 
 Birth is the moment a machine learns which actor it operates its own
 universe as, so it is the moment to write that down. Everything after
-reads the recorded id: no later path infers an identity from the OS
-login or from a name, and this module never does either — the login only
-supplies a starting NAME for a row being created, and a universe that
-already carries a human keeps that one whatever it is called.
+reads the recorded id: no later path infers an identity from a name. The
+installer's name, asked by ``yoke setup``, only names the row being created,
+and a universe that already carries a human keeps that one whatever it is
+called.
 """
 
 from __future__ import annotations
 
-import getpass
 from typing import Callable, Optional
 
 
-def _os_login_name() -> Optional[str]:
-    """The OS login to name a fresh universe's human actor, or None.
+def require_admin_name(value: Optional[str]) -> str:
+    """The validated installer's name a new universe needs, or a named refusal."""
+    from yoke_contracts import first_admin_name as admin
 
-    A starting name only. The identity every later session binds to is the
-    actor id this birth records in the machine's operating-actor binding;
-    nothing reads the login back to decide who somebody is.
-    """
     try:
-        return getpass.getuser() or None
-    except Exception:
-        return None
+        return admin.validate_admin_name(value)
+    except admin.AdminNameError as exc:
+        raise RuntimeError(
+            f"{admin.ADMIN_NAME_MISSING}: creating a local universe needs your "
+            f"name for its first admin ({exc}). Recovery: rerun `yoke setup` "
+            "and enter your name (`--admin-name NAME` when non-interactive), or "
+            "run `yoke init --local --admin-name NAME`"
+        ) from None
 
 
-def _ensure_human_actor(emit: Callable[[str], None]) -> int:
+def _ensure_human_actor(
+    emit: Callable[[str], None], admin_name: Optional[str] = None
+) -> int:
     """Return the machine owner's actor id, seeding and granting org admin.
 
     The client records this returned identity after writing the local
@@ -40,9 +43,9 @@ def _ensure_human_actor(emit: Callable[[str], None]) -> int:
 
     conn = db_helpers.connect()
     try:
-        actor_id, seeded = ensure_local_operating_actor(
-            conn, name=_os_login_name() or actors.DEFAULT_LOCAL_HUMAN_NAME
-        )
+        if actors.sole_human_actor_id(conn, oldest=True) is None:
+            admin_name = require_admin_name(admin_name)
+        actor_id, seeded = ensure_local_operating_actor(conn, name=admin_name)
         if seeded:
             emit(f"  [local-universe] seeded local human actor {actor_id}")
         return actor_id
@@ -66,4 +69,4 @@ def record_operating_actor(actor_id, *, dsn, env, config_path=None):
             conn.close()
 
 
-__all__ = ["_ensure_human_actor", "_os_login_name", "record_operating_actor"]
+__all__ = ["_ensure_human_actor", "record_operating_actor", "require_admin_name"]

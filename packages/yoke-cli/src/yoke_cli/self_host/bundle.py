@@ -4,7 +4,8 @@
 directory: the wheel-carried compose file, an ``.env`` with the image
 reference and API publish spec, and generated database credentials as
 owner-only secret files. The compose file itself is static package data;
-every per-install knob rides ``.env`` or ``secrets/``.
+every per-install knob — including the installer's name that first boot
+gives the first admin — rides ``.env`` or ``secrets/``.
 
 Secret handling: the Postgres password is generated hex-only and never
 printed or returned — compose interpolates ``$`` inside ``.env`` values,
@@ -23,13 +24,8 @@ from yoke_cli.self_host import protection
 from yoke_cli.self_host import release_target
 from yoke_cli.self_host import secure_layout
 from yoke_cli.self_host.secure_layout import SECRETS_DIR_NAME
-from yoke_contracts.github_app_public import (
-    GITHUB_APP_CLIENT_ID_ENV,
-    GITHUB_APP_ID_ENV,
-    GITHUB_APP_SLUG_ENV,
-    GITHUB_APP_WEB_URL_ENV,
-)
-from yoke_contracts.self_host_bootstrap_output import API_PUBLISH_ENV
+from yoke_cli.self_host.env_template import env_text
+from yoke_contracts.first_admin_name import AdminNameError, validate_admin_name
 from yoke_contracts.self_host_handoff import HANDOFF_TIMEOUT_SECONDS
 
 #: Default bundle directory, created under the invoking directory. The
@@ -86,6 +82,7 @@ def write_bundle(
     port: Optional[int] = None,
     image: Optional[str] = None,
     image_repository: str | None = None,
+    admin_name: str | None = None,
     force: bool = False,
 ) -> Dict[str, Any]:
     """Write the compose bundle; refuse to clobber unless ``force``.
@@ -94,6 +91,13 @@ def write_bundle(
     the generated password or DSN.
     """
     target = Path(directory or DEFAULT_BUNDLE_DIR).expanduser()
+    try:
+        selected_admin_name = validate_admin_name(admin_name)
+    except AdminNameError as exc:
+        raise SelfHostBundleError(
+            f"{exc}. Pass --admin-name with your name; first boot creates "
+            "this universe's first admin as that person"
+        ) from None
     selected_port = int(port or DEFAULT_API_PORT)
     matched_release = None
     if image is None:
@@ -142,7 +146,11 @@ def write_bundle(
         _write_bundle_file(target / COMPOSE_FILE_NAME, _compose_text())
         _write_bundle_file(
             target / ENV_FILE_NAME,
-            _env_text(image=selected_image, publish_spec=publish_spec),
+            env_text(
+                image=selected_image,
+                publish_spec=publish_spec,
+                admin_name=selected_admin_name,
+            ),
         )
         _write_secret_file(secrets_dir / DB_PASSWORD_FILE_NAME, password)
         _write_secret_file(secrets_dir / DSN_FILE_NAME, dsn)
@@ -158,6 +166,7 @@ def write_bundle(
         "source_commit": matched_release.source_commit if matched_release else None,
         "publish": publish_spec,
         "port": selected_port,
+        "admin_name": selected_admin_name,
         "forced": bool(existing),
         "mode": "init",
         "gitignore_changed": gitignore_changed,
@@ -247,56 +256,6 @@ def _compose_text() -> str:
         .joinpath(COMPOSE_FILE_NAME)
         .read_text(encoding="utf-8")
         .replace("__HANDOFF_TIMEOUT_SECONDS__", str(HANDOFF_TIMEOUT_SECONDS))
-    )
-
-
-def _env_text(*, image: str, publish_spec: str) -> str:
-    return (
-        "# Yoke self-host runtime knobs; docker compose reads this file for\n"
-        "# ${...} interpolation. Secrets never live here — compose\n"
-        "# interpolates $ inside these values; generated credentials ride\n"
-        "# owner-only files under secrets/ instead.\n"
-        f"YOKE_SERVER_IMAGE={image}\n"
-        "# Host publish spec for the API port. The default binds loopback\n"
-        "# only; to serve your network set e.g. 0.0.0.0:8765 — behind TLS.\n"
-        f"{API_PUBLISH_ENV}={publish_spec}\n"
-        "# Trusted TLS proxy IPs/CIDRs, comma-separated; empty trusts none.\n"
-        "# Use the peer address seen inside core, never * on an exposed port.\n"
-        "YOKE_API_TRUSTED_PROXIES=127.0.0.1\n"
-        "\n"
-        "# --- Browser sign-in via your OIDC provider (optional) ----------\n"
-        "# Uncomment and fill to enable the web sign-in door; leave\n"
-        "# commented to keep it disabled (API tokens work either way).\n"
-        "# Walkthrough: docs/self-host-browser-sign-in.md.\n"
-        "#YOKE_OIDC_ISSUER=https://accounts.example.com\n"
-        "#YOKE_OIDC_CLIENT_ID=yoke\n"
-        "# The server's external base URL; the callback path is derived\n"
-        "# from it (register <base>/v1/auth/oidc/callback at the provider).\n"
-        "#YOKE_OIDC_REDIRECT_URL=https://yoke.internal\n"
-        "# The client secret rides an owner-only file (never a .env value):\n"
-        "#   printf '%s\\n' '<client-secret>' > secrets/oidc-client-secret\n"
-        "#   chmod 600 secrets/oidc-client-secret\n"
-        "# then uncomment this line:\n"
-        "#YOKE_OIDC_CLIENT_SECRET_FILE=/dev/shm/yoke-runtime-secrets/yoke-oidc-client-secret\n"
-        "\n"
-        "# --- GitHub App server automation (optional) ------------------\n"
-        "# Configure one App for this control plane. The issuer and API URL\n"
-        "# are nonsecret; the App private key remains a host-opened file.\n"
-        "#YOKE_GITHUB_APP_ISSUER=123456\n"
-        "#YOKE_GITHUB_APP_API_URL=https://api.github.com\n"
-        "# Optional product-facing Connect profile: set every field or\n"
-        "# leave every field commented to advertise GitHub as unavailable.\n"
-        f"#{GITHUB_APP_WEB_URL_ENV}=https://github.com\n"
-        f"#{GITHUB_APP_ID_ENV}=123456\n"
-        f"#{GITHUB_APP_CLIENT_ID_ENV}=Iv23example\n"
-        f"#{GITHUB_APP_SLUG_ENV}=yoke-self-hosted\n"
-        "# Install or rotate through Yoke's atomic owner-only ingress:\n"
-        "#   chmod 600 /secure/path/app-key.pem\n"
-        "#   yoke self-host init --dir . --protect-existing \\\n"
-        "#     --github-app-private-key /secure/path/app-key.pem\n"
-        "# then uncomment this line:\n"
-        "#YOKE_GITHUB_APP_PRIVATE_KEY_FILE="
-        "/dev/shm/yoke-runtime-secrets/yoke-github-app-private-key\n"
     )
 
 

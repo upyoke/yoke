@@ -36,7 +36,7 @@ from typing import Any, Callable, Dict, Iterator, Optional
 from yoke_contracts.machine_config import runtime as machine_runtime
 from yoke_core.domain.local_universe_operating_actor import (
     _ensure_human_actor,
-    _os_login_name,
+    require_admin_name,
 )
 from yoke_core.domain import postgres_binaries
 from yoke_core.domain import postgres_cluster
@@ -209,9 +209,10 @@ def is_born(spec: Optional[ClusterSpec] = None) -> bool:
 def birth(
     *,
     org_name: Optional[str] = None,
+    admin_name: Optional[str] = None,
     emit: Callable[[str], None] = lambda _line: None,
 ) -> Dict[str, Any]:
-    """Create, verify, or repair the local universe end to end.
+    """Create (as ``admin_name``, its first admin), verify, or repair the universe.
 
     Returns a payload carrying ``born`` (False when the universe was
     already live), ``repaired`` (True when a live universe failed
@@ -235,15 +236,14 @@ def birth(
     }
     with contextlib.ExitStack() as stack:
         stack.enter_context(pinned_authority(dsn))
-        login = _os_login_name()
-        if login:
+        if not already_live:
             from yoke_core.domain.actors import LOCAL_HUMAN_NAME_ENV
 
-            # The init chain invokes its modules with no parameters, so the
-            # name for the universe owner rides the same pinned-env idiom as
-            # the DSN authority; canonical-actor seeding consumes it. It names
-            # the row being created and never selects an existing one.
-            stack.enter_context(_pinned_env(LOCAL_HUMAN_NAME_ENV, login))
+            # The no-parameter init chain reads the owner's name through the
+            # same pinned-env idiom as the DSN authority; it names the row
+            # being created and never selects an existing one.
+            admin_name = require_admin_name(admin_name)
+            stack.enter_context(_pinned_env(LOCAL_HUMAN_NAME_ENV, admin_name))
         if already_live:
             emit("  [local-universe] universe already live; verifying")
             report["verified"], report["repaired"] = _verify_or_repair(emit)
@@ -253,7 +253,7 @@ def birth(
             emit("  [local-universe] bootstrapping control-plane schema")
             report["verified"] = environment_bootstrap.run_bootstrap(emit=emit)
         report["org"] = _ensure_org_card(org_name, emit)
-        report["human_actor_id"] = _ensure_human_actor(emit)
+        report["human_actor_id"] = _ensure_human_actor(emit, admin_name)
     return report
 
 

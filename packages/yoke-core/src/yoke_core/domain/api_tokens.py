@@ -21,6 +21,8 @@ from yoke_core.domain.actor_state import actor_is_active, require_actor_active
 TOKEN_STATUS_ACTIVE = "active"
 TOKEN_STATUS_REVOKED = "revoked"
 
+#: Hosted tenant birth's admin name only; every setup path names the
+#: installer instead (``yoke_contracts.first_admin_name``).
 DEFAULT_ADMIN_ACTOR_NAME = "admin"
 INITIAL_ADMIN_TOKEN_NAME = "initial-admin"
 
