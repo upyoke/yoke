@@ -90,7 +90,11 @@ receipt, not acceptance or implementation. A report addressed to the role has
 a recipient whether or not a seat is live, so sending, previewing, reading, and listing one all report
 that recipient's own state: `awaiting_seat` with the scope it is queued for,
 `delivered` naming the seat holding it, or `acknowledged`. A queued report is
-therefore never a message that went nowhere. These views derive from existing
+therefore never a message that went nowhere. The next seat covering the
+sender's item takes queued reports when it is acquired, and the fleet report's
+awaiting-seat count reads the same coverage. A document seat covers every item
+linked to its document, so it takes and counts those items' reports even when
+another project owns the item. These views derive from existing
 claims, document locks, launch provenance, and message-recipient receipts;
 they do not create separate state.
 
