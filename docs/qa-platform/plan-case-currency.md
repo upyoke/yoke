@@ -7,6 +7,12 @@ reached the plan and nothing else. A correction could read back perfectly
 while the only copy that would actually run still carried the old text, and
 the failure it produced looked like a product defect rather than a stale case.
 
+An inheriting machine case's rows carry the baseline its chain started from as
+`host_baseline`, so that link stays unique per baseline position. The copied
+`starting_state` and `starting_state_reason` are compared like any other
+field: a row materialized before its plan declared a starting state reads as
+behind the plan.
+
 Three surfaces close that, and this page is where they meet.
 
 ## An edit names the rows it did not reach

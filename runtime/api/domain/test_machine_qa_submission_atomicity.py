@@ -8,8 +8,8 @@ from typing import Any
 
 import pytest
 
-from runtime.api.domain.machine_qa_baseline_group_test_support import (
-    baseline_group_request,
+from runtime.api.domain.machine_qa_host_test_support import (
+    machine_case_request,
     configure_test_machine,
     materialize_installer_campaign,
 )
@@ -24,8 +24,6 @@ from yoke_core.domain.handlers.machine_qa_operation import (
     handle_operation_submit,
 )
 from yoke_core.domain.handlers.machine_qa_case import (
-    handle_baseline_group_begin,
-    handle_baseline_group_submit,
     handle_case_begin,
     handle_case_submit,
 )
@@ -97,20 +95,10 @@ def _active_lease_count(conn: Any) -> int:
     return int(conn.execute(_ACTIVE_LEASE_COUNT_SQL).fetchone()[0])
 
 
-def _local_case_submission(
-    requirement_id: int,
-    *,
-    baseline_group: bool = False,
-) -> Any:
-    handler = handle_baseline_group_begin if baseline_group else handle_case_begin
-    function = (
-        "test_machine.baseline_group.begin"
-        if baseline_group
-        else "test_machine.case.begin"
-    )
+def _local_case_submission(requirement_id: int) -> Any:
     register_host_control_factory(lambda _material: FakeHostControl())
     try:
-        begun = handler(baseline_group_request(requirement_id, function=function))
+        begun = handle_case_begin(machine_case_request(requirement_id))
         return execute_machine_case_contract(begun.result_payload["execution"])
     finally:
         clear_host_control_factory()
@@ -144,7 +132,7 @@ def test_case_submission_replay_reuses_canonical_run_and_evidence(
     configure_test_machine(test_db, tmp_path, monkeypatch)
     requirement_id = _case_requirement(test_db, item_id)
     submission = _local_case_submission(requirement_id)
-    request = baseline_group_request(
+    request = machine_case_request(
         requirement_id,
         function="test_machine.case.submit",
         payload=submission.payload,
@@ -160,36 +148,6 @@ def test_case_submission_replay_reuses_canonical_run_and_evidence(
     assert _run_and_artifact_counts(test_db, [requirement_id]) == first_counts
     assert first_counts[0] == 1
     assert first_counts[1] >= 1
-
-
-def test_baseline_group_replay_reuses_every_canonical_case(
-    test_db: Any,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    rows = materialize_installer_campaign(test_db, item_id=4311)
-    fresh = [row for row in rows if row["host_baseline"] == "fresh-host"]
-    requirement_ids = [int(row["id"]) for row in fresh]
-    configure_test_machine(test_db, tmp_path, monkeypatch)
-    submission = _local_case_submission(
-        requirement_ids[0],
-        baseline_group=True,
-    )
-    request = baseline_group_request(
-        requirement_ids[0],
-        function="test_machine.baseline_group.submit",
-        payload=submission.payload,
-    )
-
-    first = handle_baseline_group_submit(request)
-    first_counts = _run_and_artifact_counts(test_db, requirement_ids)
-    replay = handle_baseline_group_submit(request)
-
-    assert first.primary_success, first.error
-    assert replay.primary_success, replay.error
-    assert replay.result_payload == first.result_payload
-    assert _run_and_artifact_counts(test_db, requirement_ids) == first_counts
-    assert first_counts[0] == len(requirement_ids)
 
 
 def test_verification_replay_returns_original_receipt(
@@ -259,26 +217,22 @@ def test_verification_replay_rejects_another_lease_owner(
         assert message in replay.error.message
 
 
-def test_invalid_group_submission_preserves_lease_without_runs(
+def test_invalid_case_submission_preserves_lease_without_runs(
     test_db: Any,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    rows = materialize_installer_campaign(test_db, item_id=4312)
-    fresh = [row for row in rows if row["host_baseline"] == "fresh-host"]
-    requirement_ids = [int(row["id"]) for row in fresh]
+    materialize_installer_campaign(test_db, item_id=4312)
     configure_test_machine(test_db, tmp_path, monkeypatch)
-    submission = _local_case_submission(
-        requirement_ids[0],
-        baseline_group=True,
-    )
+    requirement_ids = [_case_requirement(test_db, 4312)]
+    submission = _local_case_submission(requirement_ids[0])
     invalid_payload = deepcopy(submission.payload)
     invalid_payload["results"][-1]["evidence"]["machine"] = "wrong-machine"
 
-    rejected = handle_baseline_group_submit(
-        baseline_group_request(
+    rejected = handle_case_submit(
+        machine_case_request(
             requirement_ids[0],
-            function="test_machine.baseline_group.submit",
+            function="test_machine.case.submit",
             payload=invalid_payload,
         )
     )
@@ -305,7 +259,7 @@ def test_case_release_failure_rolls_back_run_and_evidence(
         _reject_release,
     )
     rejected = handle_case_submit(
-        baseline_group_request(
+        machine_case_request(
             requirement_id,
             function="test_machine.case.submit",
             payload=submission.payload,

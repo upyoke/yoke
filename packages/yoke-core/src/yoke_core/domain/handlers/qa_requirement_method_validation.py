@@ -33,6 +33,12 @@ def validate_method_requirement(
             jsonpath=f"{jsonpath}.capability_requirements",
         )
     if not method_id:
+        if any(row.get(key) for key in _STARTING_STATE_KEYS):
+            return _error(
+                "payload_invalid",
+                "only machine-run method cases declare a starting state",
+                jsonpath=f"{jsonpath}.starting_state",
+            )
         return None
     from yoke_core.domain.db_helpers import query_one
     from yoke_core.domain.qa_method_config_validation import (
@@ -93,6 +99,60 @@ def validate_method_requirement(
     row["method_name"] = str(method["name"])
     row["runner_id"] = str(method["runner_id"])
     row["verdict_path"] = str(method["verdict_path"])
+    return _validate_starting_state(row, jsonpath)
+
+
+_STARTING_STATE_KEYS = ("host_baseline", "starting_state", "starting_state_reason")
+_RECOVERY = (
+    "pass --host-baseline NAME to reset to a registered baseline, or "
+    "--starting-state as_is --starting-state-reason TEXT to run on the "
+    "machine as found"
+)
+
+
+def _validate_starting_state(
+    row: Dict[str, Any], jsonpath: str
+) -> Optional[HandlerOutcome]:
+    """Refuse a machine-run case that does not say what machine it starts on.
+
+    A case added on its own belongs to no plan, so no case runs before it
+    and it cannot inherit one's machine.
+    """
+    from yoke_contracts.qa_case_starting_state import (
+        INHERIT,
+        StartingStateError,
+        is_machine_runner,
+        normalize_starting_state,
+    )
+
+    baseline = row.get("host_baseline")
+    machine = is_machine_runner(row["runner_id"])
+    if machine and not baseline and not row.get("starting_state"):
+        return _error(
+            "payload_invalid",
+            "this machine-run case declares no starting state; " + _RECOVERY,
+            jsonpath=f"{jsonpath}.starting_state",
+        )
+    if row.get("starting_state") == INHERIT:
+        return _error(
+            "payload_invalid",
+            "a case added on its own belongs to no plan, so no case runs "
+            "before it to inherit from; " + _RECOVERY,
+            jsonpath=f"{jsonpath}.starting_state",
+        )
+    try:
+        row["starting_state"], row["starting_state_reason"] = normalize_starting_state(
+            case_key=str(row["method_id"]),
+            runner_id=row["runner_id"],
+            host_baselines=[str(baseline)] if baseline else [],
+            starting_state=row.get("starting_state"),
+            starting_state_reason=row.get("starting_state_reason"),
+        )
+    except StartingStateError as exc:
+        return _error(
+            "payload_invalid", str(exc), jsonpath=f"{jsonpath}.starting_state"
+        )
+    row["host_baseline"] = str(baseline) if baseline else None
     return None
 
 

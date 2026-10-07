@@ -8,8 +8,8 @@ from typing import Any
 
 import pytest
 
-from runtime.api.domain.machine_qa_baseline_group_test_support import (
-    baseline_group_request,
+from runtime.api.domain.machine_qa_host_test_support import (
+    machine_case_request,
     configure_test_machine,
     materialize_installer_campaign,
 )
@@ -83,7 +83,7 @@ def _prepared_submission(
     register_host_control_factory(lambda _material: FakeHostControl())
     try:
         begun = handle_case_begin(
-            baseline_group_request(
+            machine_case_request(
                 requirement_id,
                 function="test_machine.case.begin",
             )
@@ -187,7 +187,7 @@ def test_failed_submission_removes_every_new_canonical_artifact(
         )
 
     outcome = handle_case_submit(
-        baseline_group_request(
+        machine_case_request(
             requirement_id,
             function="test_machine.case.submit",
             payload=submission.payload,

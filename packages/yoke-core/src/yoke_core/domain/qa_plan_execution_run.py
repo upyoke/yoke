@@ -2,18 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any
 
 from yoke_core.domain.qa_plan_execution_result_state import (
-    BASELINE_GROUP_RESULTS as _BASELINE_GROUP_RESULTS,
     QaPlanExecutionError,
     aggregate_state as _aggregate_state,
     plan_order as _plan_order,
-    public_plan_result as _public_plan_result,
-    remember_baseline_group_results as _remember_baseline_group_results,
-    validated_baseline_group_results as _validated_baseline_group_results,
 )
 from yoke_core.domain.qa_plan_execution_continuation import continuation_abort_reason
+from yoke_core.domain.qa_plan_chain_followers import block_chain_followers
 
 
 def execute_begun_plan(
@@ -39,12 +35,7 @@ def execute_begun_plan(
         {"machine": begun.selected_machine} if begun.selected_machine else {}
     )
     recorded_results = begun.recorded_results
-    baseline_group_results: dict[int, dict[str, Any]] = {}
-    for recorded in recorded_results:
-        cached = recorded.get(_BASELINE_GROUP_RESULTS)
-        if cached is not None:
-            _remember_baseline_group_results(baseline_group_results, cached)
-    results = [_public_plan_result(result) for result in recorded_results]
+    results = [dict(result) for result in recorded_results]
     state = "passed"
     for recorded in recorded_results:
         state = _aggregate_state(state, recorded)
@@ -55,7 +46,6 @@ def execute_begun_plan(
         requirement_id = int(requirement["requirement_id"])
         order = _plan_order(requirement)
         try:
-            durable_group: list[dict[str, Any]] | None = None
             _call_plan_function(
                 function_id="qa.plan_execution.heartbeat",
                 target=target,
@@ -63,53 +53,18 @@ def execute_begun_plan(
                 actor=resolved_actor,
             )
             if requirement.get("runner_id") == "host_control":
-                standalone_id = requirement.get("standalone_execution_id")
-                if (
-                    requirement.get("host_baseline")
-                    and not standalone_id
-                    and execution.get("remaining_requirement_count") is None
-                    and not (requirement.get("method_config") or {}).get("machines")
-                ):
-                    if requirement_id not in baseline_group_results:
-                        from yoke_core.domain.machine_qa_case_execution import (
-                            execute_materialized_machine_baseline_group,
-                        )
+                from yoke_core.domain.machine_qa_plan_case_execution import (
+                    execute_plan_machine_case,
+                )
 
-                        group = execute_materialized_machine_baseline_group(
-                            requirement,
-                            actor=resolved_actor,
-                            **machine_options,
-                        )
-                        discovered, baseline_ok = _validated_baseline_group_results(
-                            group,
-                            anchor=requirement,
-                            requirements=requirements,
-                        )
-                        if baseline_ok is not None:
-                            baseline_group_results.update(discovered)
-                            durable_group = [
-                                discovered[int(case["requirement_id"])]
-                                for case in requirements
-                                if int(case["requirement_id"]) in discovered
-                            ]
-                        result = discovered[requirement_id]
-                    else:
-                        result = baseline_group_results[requirement_id]
-                        baseline_ok = True
-                    advance_result = baseline_ok is not None
-                else:
-                    from yoke_core.domain.machine_qa_plan_case_execution import (
-                        execute_plan_machine_case,
-                    )
-
-                    result = execute_plan_machine_case(
-                        requirement,
-                        execution_id=execution_id,
-                        ordinal=ordinal,
-                        actor=resolved_actor,
-                        **machine_options,
-                    )
-                    advance_result = False
+                result = execute_plan_machine_case(
+                    requirement,
+                    execution_id=execution_id,
+                    ordinal=ordinal,
+                    actor=resolved_actor,
+                    **machine_options,
+                )
+                advance_result = False
             elif requirement.get("runner_id") == "agent_mission":
                 from yoke_core.domain.machine_qa_plan_case_execution import (
                     execute_plan_agent_mission_case,
@@ -140,14 +95,6 @@ def execute_begun_plan(
                     f"case runner returned the wrong requirement for {requirement_id}"
                 )
             normalized = {**order, **result}
-            durable_result = (
-                {
-                    **normalized,
-                    _BASELINE_GROUP_RESULTS: durable_group,
-                }
-                if requirement.get("host_baseline") and durable_group is not None
-                else normalized
-            )
             if advance_result:
                 _call_plan_function(
                     function_id="qa.plan_execution.advance",
@@ -156,7 +103,7 @@ def execute_begun_plan(
                         "execution_id": execution_id,
                         "ordinal": ordinal,
                         "requirement_id": requirement_id,
-                        "result": durable_result,
+                        "result": normalized,
                     },
                     actor=resolved_actor,
                 )
@@ -193,6 +140,15 @@ def execute_begun_plan(
             state in {"failed", "error"}
             or normalized.get("execution_status") == "capture_failed"
         ):
+            results.extend(
+                block_chain_followers(
+                    requirements,
+                    ordinal,
+                    execution_id=execution_id,
+                    actor=resolved_actor,
+                    machine_options=machine_options,
+                )
+            )
             _call_plan_function(
                 function_id="qa.plan_execution.abort",
                 target=target,

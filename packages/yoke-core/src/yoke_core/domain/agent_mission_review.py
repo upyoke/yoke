@@ -90,7 +90,7 @@ def _walker_dispatch(
     )
     artifact_bytes_clause = (
         "attach it with the bytes themselves, never a path on the target: "
-        "that host's home is restored to its baseline between missions, so a "
+        "walk-end restores the host to its declared starting state, so a "
         "recorded path outlives its own file and is refused. "
     ) + (
         ""
@@ -102,12 +102,18 @@ def _walker_dispatch(
         )
     )
     scratch_path = mission_scratch_path(execution_id)
-    scratch_teardown_command = (
-        f"yoke qa mission scratch-teardown {subject_flag} "
-        f"--execution-id {execution_id} "
+    walk_flags = (
+        f"{subject_flag} --execution-id {execution_id} "
         f"--requirement-id {int(case['requirement_id'])}"
     )
+    walk_start_command = f"yoke qa mission walk-start {walk_flags}"
+    walk_end_command = (
+        f"yoke qa mission walk-end {walk_flags} --run-id {int(case['capture_run_id'])}"
+    )
     prompt = (
+        f"Before any other host command, run `{walk_start_command}`: it puts "
+        "the Test Machine in this mission's declared starting state. If it "
+        "fails, walk nothing and return its error as your blocker. "
         "Walk this mission atomically. Every Yoke project you create during "
         "the walk is yours to clean up: the moment one exists, append its "
         "slug to the Progress Log of the item this mission verifies "
@@ -146,9 +152,11 @@ def _walker_dispatch(
         "a secret on stdin where the product accepts it, and otherwise stage "
         "every file carrying a token or password inside that directory, "
         "never a loose path under /tmp. Before you return, run "
-        f"`{scratch_teardown_command}` and state the scratch path and its "
-        "confirmed removal in your report; returning while it still exists "
-        "is a finding against your own walk. If a permission dialog, "
+        f"`{walk_end_command}`: it removes that directory, restores the "
+        "declared starting state, and records the restore on this mission's "
+        "run. State the scratch removal and the restore in your report; "
+        "returning before it succeeds is a finding against your own walk. "
+        "If a permission dialog, "
         "interactive sign-in, or approval needs a person, return immediately "
         "with WALK_STATUS: HUMAN_GATE, the exact needed action, and resume "
         "state. Never wait for the operator inside this turn. On a resumed "
@@ -178,7 +186,8 @@ def _walker_dispatch(
         ),
         "host_command": host_command,
         "scratch_path": scratch_path,
-        "scratch_teardown_command": scratch_teardown_command,
+        "walk_start_command": walk_start_command,
+        "walk_end_command": walk_end_command,
         "browser_setup_command": browser_setup_command,
         "browser_step_command": browser_step_command,
         "artifact_add_command": artifact_add_command,
@@ -249,7 +258,10 @@ def agent_mission_dispatch_contract(
             f"Own exploratory QA bundle {bundle_id} ({digest}) as the main "
             f"agent for immutable environment {authority['environment']} at "
             f"target digest {target_digest}. Dispatch each case according to "
-            "its executor. A walker turn is atomic and cannot ask the operator. "
+            "its executor, one walker at a time in the listed order: every "
+            "mission shares the plan's one Test Machine, and each walk resets "
+            "it on walk-start and restores it on walk-end. A walker turn is "
+            "atomic and cannot ask the operator. "
             "When it returns HUMAN_GATE, append the exact action and resume "
             "state to the item's Progress Log, ask the operator in the main "
             "channel, then include that state when dispatching a fresh walker. "

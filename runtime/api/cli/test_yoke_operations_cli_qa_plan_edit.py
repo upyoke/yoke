@@ -53,6 +53,8 @@ def test_edit_opens_only_authorable_fields_and_dispatches_full_cas() -> None:
             "success_policy_id",
             "success_policy_params",
             "host_baselines",
+            "starting_state",
+            "starting_state_reason",
             "entry_surface",
             "required_completion",
         }

@@ -219,22 +219,6 @@ PRODUCT_AUTHZ_BY_ID = {
     "test_machine.operation.abort": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "test_machine.operation.begin": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "test_machine.operation.submit": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
-    "test_machine.baseline_group.abort": AuthzSpec(
-        PROJECT,
-        PERM_ITEMS_WRITE,
-    ),
-    "test_machine.baseline_group_execute": AuthzSpec(
-        PROJECT,
-        PERM_ITEMS_WRITE,
-    ),
-    "test_machine.baseline_group.begin": AuthzSpec(
-        PROJECT,
-        PERM_ITEMS_WRITE,
-    ),
-    "test_machine.baseline_group.submit": AuthzSpec(
-        PROJECT,
-        PERM_ITEMS_WRITE,
-    ),
     "test_machine.case.abort": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "test_machine.case_execute": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "test_machine.case.begin": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),

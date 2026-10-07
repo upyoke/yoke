@@ -52,6 +52,11 @@ WELCOME_FRAME = terminal_case(
     ),
     entry_surface=PUBLIC_WELCOME,
     required_completion="welcome-frame",
+    starting_state="as_is",
+    starting_state_reason=(
+        "The installer runs with HOME=/var/empty and a minimal system PATH, so "
+        "it neither reads nor changes the host user's state"
+    ),
 )
 
 
@@ -91,6 +96,7 @@ CONNECT_WAIT = terminal_case(
     ),
     entry_surface=HOSTED_ONBOARD,
     required_completion="connect-wait",
+    starting_state="inherit",
 )
 
 
@@ -149,6 +155,7 @@ REVIEW_FRAME = terminal_case(
     ),
     entry_surface=HOSTED_ONBOARD,
     required_completion="review-frame",
+    starting_state="inherit",
 )
 
 

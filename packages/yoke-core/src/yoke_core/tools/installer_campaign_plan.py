@@ -23,6 +23,8 @@ _CASE_DEFAULTS: dict[str, Any] = {
     "success_policy_id": None,
     "success_policy_params": None,
     "host_baselines": [],
+    "starting_state": None,
+    "starting_state_reason": None,
     "entry_surface": None,
     "required_completion": None,
 }

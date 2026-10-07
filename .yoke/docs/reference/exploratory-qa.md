@@ -63,12 +63,12 @@ contention releases partial acquisitions before waiting. Both leases remain
 held and heartbeated through the walk and independent review. Mission access
 refuses if either lease has been lost; completion or abort releases both.
 
-Omit `host_baselines` or set it to `[]` to preserve the live host. Preparation
-then reaches no baseline and restores no packages unless `host_starting_state`
-explicitly declares a fixture. It creates only the owner-only mission scratch
-outside the home. To reset, explicitly name `fresh-host` or
-`shell-preconfigured`; an empty baseline never means reset. A preserve-live-host
-mission must also instruct its walker to leave the home untouched.
+Every machine-run case declares the state it starts from, and authoring and
+materialization refuse one that does not. A mission names `host_baselines`
+(`fresh-host` or `shell-preconfigured`), or sets `"starting_state":"as_is"`
+with a `starting_state_reason` to walk the machine as found — that mission must
+also tell its walker to leave the home untouched. A mission cannot `inherit`:
+it is walked after the plan's other cases, so no case runs right before it.
 
 Do not turn likely landmarks into steps. The worked Machine QA Pack case
 `installer-exploration` deliberately replaces the territory of the ten-case
@@ -201,28 +201,28 @@ filesystem, never the calling machine's, so the session-cwd write-authority
 guard exempts it from local write classification — a shell redirect written
 after the argv still runs locally and stays enforced.
 
-Each mission lease owns one secret-staging directory on the Test Machine.
-Preparation creates it `0700` before the walker is dispatched, and the walker
-dispatch carries both its exact path and the teardown command:
+Missions are walked one at a time, in bundle order, because they share the
+plan's one Test Machine. The walker dispatch carries the scratch path and two
+commands. `walk-start` runs before any other host command: it re-reaches the
+baseline the docket proved, since later cases ran (never in a continuation),
+restores declared OS packages and creates the `0700` scratch. `walk-end`:
 
 ```text
-yoke --env <connection> qa mission scratch-teardown --item-id <id> \
-  --execution-id <execution-id> --requirement-id <requirement-id>
+yoke --env <connection> qa mission walk-end --item-id <id> \
+  --execution-id <execution-id> --requirement-id <requirement-id> --run-id <run>
 ```
 
 Where the product reads a secret on stdin, pipe it and touch no disk at all.
 Otherwise every file carrying a token or password is staged inside that
 directory and nowhere else — never a loose path under `/tmp`, which is how a
-first-boot admin token once outlived its walk on a shared machine. The walker
-runs the teardown before returning and states the scratch path and its
-confirmed removal; the command removes the directory with plain OS commands,
-so the Test Machine needs no Yoke install, and exits non-zero with
-`mission_scratch_not_removed` when it survives. A walker returning while its
-scratch still exists is a finding against its own walk. `yoke qa plan
-review-submit` repeats that teardown for every live mission before the verdict
-finishes the execution and releases the lease, and prints
-`mission_teardown_incomplete` with the recovery when it cannot. Preparation and
-teardown delete a stale `~/.yoke/qa-project-owner.json` and an emptied `~/.yoke`.
+first-boot admin token once outlived its walk on a shared machine. `walk-end`
+removes the directory with plain OS commands (no Yoke install on the host),
+restores the declared starting state, and records that restore as a
+`starting_state_restore` artifact on the mission's run; it exits non-zero
+naming `mission_scratch_not_removed`, `starting_state_restore_failed` (with the
+`yoke test-machine reset` recovery) or `starting_state_restore_unrecorded`.
+`yoke qa plan review-submit` refuses with `mission_walk_unfinished` while any
+mission's scratch is still on the host. Both delete a stale owner marker.
 
 The lease holder owns every Yoke project it creates: it appends each slug to
 the item's Progress Log as created, so a replacement can finish the cleanup,
@@ -269,7 +269,7 @@ parallel run to evade the cap, and never attach credentials or secret-bearing
 content.
 
 A mission attaches evidence as bytes, never as a path on the test host. That
-host's home can be restored by a later mission's baseline, so an artifact row
+host's starting state is restored when the walk ends, so an artifact row
 naming one of its paths outlives its own file: the row survives and the
 evidence does not. The artifact-add surface refuses a mission handle this
 control plane cannot read and names the byte-carrying recipe instead — the

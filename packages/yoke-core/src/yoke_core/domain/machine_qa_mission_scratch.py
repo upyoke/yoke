@@ -83,6 +83,20 @@ def create_mission_scratch(
     return {"scratch_path": path}
 
 
+def mission_scratch_present(
+    control: MissionScratchHostControl,
+    *,
+    execution_id: str,
+    timeout_seconds: int = 60,
+) -> bool:
+    """Whether the lease's staging directory is still on the host."""
+    probe = control.run_command(
+        mission_scratch_probe_argv(mission_scratch_path(execution_id)),
+        timeout=timeout_seconds,
+    )
+    return int(probe.returncode) == 0
+
+
 def remove_mission_scratch(
     control: MissionScratchHostControl,
     *,
@@ -112,6 +126,7 @@ def remove_mission_scratch(
 
 
 __all__ = [
+    "mission_scratch_present",
     "MissionScratchHostControl",
     "MissionScratchUnavailableError",
     "create_mission_scratch",

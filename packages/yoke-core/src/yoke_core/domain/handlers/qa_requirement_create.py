@@ -71,6 +71,11 @@ class QaRequirementAddRequest(BaseModel):
     instructions: Optional[str] = None
     expected_outcome: Optional[str] = None
     method_config: Optional[Dict[str, Any]] = None
+    #: A machine-run case names the registered baseline it resets to, or
+    #: runs ``as_is`` with a reason (see yoke_contracts.qa_case_starting_state).
+    host_baseline: Optional[str] = None
+    starting_state: Optional[str] = None
+    starting_state_reason: Optional[str] = None
     #: An item-attached case names the pinned workflow stage it governs. A
     #: run-attached one is governed by its deployment run instead, so the
     #: field is absent there rather than filled with a stage it does not
@@ -148,9 +153,7 @@ def handle_qa_requirement_add(request: FunctionCallRequest) -> HandlerOutcome:
 
         refused = bind_item_named_target(conn, item_id=int(item_id), row=row)
         if refused:
-            return _error(
-                "payload_invalid", refused, jsonpath="$.payload.target_env"
-            )
+            return _error("payload_invalid", refused, jsonpath="$.payload.target_env")
         cur = conn.execute(
             INSERT_SQL.format(p=p),
             insert_params(RequirementSubject.for_item(item_id), row, iso8601_now()),
@@ -277,9 +280,7 @@ def handle_qa_requirement_add_batch(
                 if invalid is not None:
                     conn.rollback()
                     return invalid
-                refused = bind_item_named_target(
-                    conn, item_id=int(item_id), row=row
-                )
+                refused = bind_item_named_target(conn, item_id=int(item_id), row=row)
                 if refused:
                     conn.rollback()
                     return _error(

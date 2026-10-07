@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from runtime.api.domain.machine_qa_baseline_group_test_support import (
+from runtime.api.domain.machine_qa_host_test_support import (
     TEST_MACHINE_SETTINGS,
 )
 from runtime.api.domain.machine_qa_test_support import FakeHostControl

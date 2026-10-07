@@ -5,7 +5,7 @@ from __future__ import annotations
 import subprocess
 from typing import Any
 
-from runtime.api.domain.machine_qa_baseline_group_test_support import (
+from runtime.api.domain.machine_qa_host_test_support import (
     configure_test_machine,
 )
 from runtime.api.domain.machine_qa_test_support import FakeHostControl
@@ -234,7 +234,7 @@ def test_mission_parks_resumes_and_persists_the_main_report(
     )
     assert "WALK_STATUS: HUMAN_GATE" in walker["prompt"]
     assert walker["scratch_path"] == scratch_path
-    assert walker["scratch_teardown_command"] in walker["prompt"]
+    assert walker["walk_end_command"] in walker["prompt"]
 
     command_control = _CommandHostControl()
     register_host_control_factory(lambda _material: command_control)

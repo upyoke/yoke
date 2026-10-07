@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from yoke_contracts.qa_case_starting_state import is_machine_runner
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.deployment_run_project_sources import run_source_sha
@@ -83,6 +84,7 @@ def get_case_execution_context(
         "q.plan_id, q.target_env, "
         "q.plan_case_key, q.method_id, q.qa_kind, q.instructions, "
         "q.expected_outcome, q.method_config, q.host_baseline, "
+        "q.starting_state, q.starting_state_reason, "
         "q.workflow_transition_id, q.entry_surface, "
         "q.required_completion, q.method_name, q.runner_id, "
         "q.capability_requirements, q.verdict_path, "
@@ -119,15 +121,7 @@ def get_case_execution_context(
         "required_capability_kinds": row["capability_requirements"],
         "verdict_path": row["verdict_path"],
     }
-    if not all(
-        str(method_snapshot[key] or "").strip()
-        for key in (
-            "method_name",
-            "runner_id",
-            "required_capability_kinds",
-            "verdict_path",
-        )
-    ):
+    if not all(str(value or "").strip() for value in method_snapshot.values()):
         if plan_id is not None:
             raise QaCaseExecutionError(
                 "materialized QA case execution snapshot is incomplete; "
@@ -242,6 +236,10 @@ def get_case_execution_context(
         "project": str(row["project"]),
         "lane_branch": row["lane_branch"],
     }
+    if is_machine_runner(context["runner_id"]):
+        context.update(
+            (key, row[key]) for key in ("starting_state", "starting_state_reason")
+        )
     if str(method_snapshot["runner_id"]) == "ci_run":
         context["lane_commit_sha"] = row["lane_commit_sha"]
     # A checkout-bound runner compares its tree with the commit the run shipped

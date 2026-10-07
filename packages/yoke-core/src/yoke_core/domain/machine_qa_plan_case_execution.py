@@ -103,6 +103,8 @@ def execute_plan_machine_case(
         payload=request,
         host_contact_possible=False,
     )
+    if begun.get("state") == "blocked" and isinstance(begun.get("result"), dict):
+        return dict(begun["result"])
     if begun.get("state") == "waiting":
         return {
             "requirement_id": requirement_id,
@@ -147,8 +149,9 @@ def execute_plan_machine_case(
             exc,
             phase="plan_case_local_execution",
         )
+        notes = "; ".join(getattr(exc, "__notes__", ()))
         raise MachinePlanCaseDispatchError(
-            message,
+            f"{message}; {notes}" if notes else message,
             error_code=code,
             recovery_hint=recovery,
         ) from exc
@@ -164,7 +167,33 @@ def execute_plan_machine_case(
         raise MachinePlanCaseDispatchError(
             "test_machine.plan_case.submit returned the wrong requirement"
         )
+    _require_restored(submission.payload)
     return result
+
+
+def _require_restored(payload: Mapping[str, Any]) -> None:
+    """Stop the plan when the case's chain could not be put back.
+
+    The result is already recorded with the failed restore in its evidence;
+    the next case must not start on a machine whose state nobody knows.
+    """
+    from yoke_core.domain.machine_qa_chain_restore import (
+        STARTING_STATE_RESTORE,
+        STARTING_STATE_RESTORE_FAILED,
+        restore_summary,
+    )
+
+    for row in payload.get("results") or ():
+        restore = (row.get("evidence") or {}).get(STARTING_STATE_RESTORE)
+        if (
+            isinstance(restore, dict)
+            and "baseline" in restore
+            and not restore.get("restored")
+        ):
+            raise MachinePlanCaseDispatchError(
+                restore_summary(restore),
+                error_code=STARTING_STATE_RESTORE_FAILED,
+            )
 
 
 def execute_plan_agent_mission_case(

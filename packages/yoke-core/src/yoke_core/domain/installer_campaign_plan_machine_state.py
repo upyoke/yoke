@@ -77,6 +77,7 @@ TOKEN_PERMS = machine_case(
             )
         ]
     },
+    starting_state="inherit",
 )
 
 
@@ -104,6 +105,7 @@ UNIVERSE_BORN = machine_case(
             ),
         ]
     },
+    starting_state="inherit",
 )
 
 

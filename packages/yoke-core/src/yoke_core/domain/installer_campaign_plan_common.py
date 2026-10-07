@@ -185,6 +185,8 @@ def terminal_case(
     entry_surface: str,
     required_completion: str,
     host_baselines: Sequence[str] = (),
+    starting_state: str | None = None,
+    starting_state_reason: str | None = None,
 ) -> dict[str, Any]:
     """Build one complete Terminal method case."""
     return {
@@ -195,6 +197,8 @@ def terminal_case(
         "expected_outcome": expected_outcome,
         "method_config": dict(method_config),
         "host_baselines": list(host_baselines),
+        "starting_state": starting_state,
+        "starting_state_reason": starting_state_reason,
         "entry_surface": entry_surface,
         "required_completion": required_completion,
     }
@@ -208,6 +212,8 @@ def machine_case(
     expected_outcome: str,
     method_config: Mapping[str, Any],
     host_baselines: Sequence[str] = (),
+    starting_state: str | None = None,
+    starting_state_reason: str | None = None,
 ) -> dict[str, Any]:
     """Build one complete Machine state check case."""
     return {
@@ -218,6 +224,8 @@ def machine_case(
         "expected_outcome": expected_outcome,
         "method_config": dict(method_config),
         "host_baselines": list(host_baselines),
+        "starting_state": starting_state,
+        "starting_state_reason": starting_state_reason,
         "entry_surface": None,
         "required_completion": None,
     }
