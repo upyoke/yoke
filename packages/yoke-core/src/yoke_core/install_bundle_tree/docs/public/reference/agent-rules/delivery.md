@@ -65,7 +65,10 @@ the run's own candidate, so the run delivers two projects, not one.
   dispatches and fails at once — `stage 'S' was not dispatched: bound source P
   SHA is stale (current SHA)` — rather than spending the downstream workflow's
   whole run reaching the same refusal; an unreadable branch head refuses by
-  name with its repair instead of dispatching blind. Nothing rebinds. A failure
+  name with its repair instead of dispatching blind. A head that some run
+  recorded as its release output (a promotion's version pin) whose first
+  parent is the frozen commit is still current, so a sibling run's pin does
+  not refuse the pair it proved; any other move is stale. Nothing rebinds. A failure
   that surfaces later still shows in `yoke deployment-runs failure-trace RUN-ID`
   (also printed when the stage fails) as `Stale bound source: ...`. Either way,
   leave the run failed and create a new run, which binds the current commit.

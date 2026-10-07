@@ -19,6 +19,9 @@ from runtime.api.fixtures.bound_source_release import (
 )
 from runtime.api.fixtures.carried_release_candidate import git
 from yoke_core.domain.deployment_run_bound_sources import record_bound_sources
+from yoke_core.domain.deployment_run_release_output_record import (
+    record_release_output,
+)
 from yoke_core.domain.deployment_run_stale_bound_sources import (
     check_bound_sources_current,
     diagnose_stale_bound_sources,
@@ -150,3 +153,40 @@ def test_before_dispatch_an_unreadable_head_is_named_not_assumed_current(
     assert unverified == (
         f"bound source {CONSUMER_PROJECT} {frozen}: could not resolve branch 'main'"
     )
+
+
+def _pin_recorded_as_release_output(
+    conn: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, extra: bool
+) -> tuple[str, str]:
+    """A release's own pin commit lands on the frozen source, maybe with more."""
+    release = two_project_release(conn, tmp_path, monkeypatch)
+    record_bound_sources(conn, "run-candidate")
+    conn.commit()
+    repo = release["consumer_repo"]
+    git(repo, "commit", "--allow-empty", "-m", "Pin the released version")
+    if extra:
+        git(repo, "commit", "--allow-empty", "-m", "Unrelated work after the pin")
+    record_release_output(conn, run_id="run-candidate", project=CONSUMER_PROJECT)
+    conn.commit()
+    return release["consumer_tip"], git(repo, "rev-parse", "HEAD").strip()
+
+
+def test_a_release_pin_written_directly_on_the_frozen_source_is_current(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _pin_recorded_as_release_output(test_db, tmp_path, monkeypatch, extra=False)
+
+    assert check_bound_sources_current(test_db, "run-candidate") == ([], "")
+
+
+def test_release_output_not_directly_on_the_frozen_source_stays_stale(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    frozen, current = _pin_recorded_as_release_output(
+        test_db, tmp_path, monkeypatch, extra=True
+    )
+
+    stale, unverified = check_bound_sources_current(test_db, "run-candidate")
+
+    assert unverified == ""
+    assert [(e["frozen_sha"], e["current_sha"]) for e in stale] == [(frozen, current)]

@@ -62,6 +62,44 @@ def _branches_by_project(stages_text: str) -> dict[str, str]:
     return {entry["project"]: entry["branch"] for entry in declared.values()}
 
 
+def _release_output_on_frozen(
+    conn: Any, *, project_id: int, frozen: str, current: str
+) -> tuple[bool, str]:
+    """Whether ``current`` is a release's own output written on ``frozen``.
+
+    A release pair's promotion may push a version pin onto the bound branch,
+    directly on the commit the pair proved. That moves the branch without
+    staling the proof, so a head some run recorded as its release output whose
+    first parent is the frozen commit still counts as current. Any other move
+    is stale. Returns ``(on_frozen, unverified_reason)``: the reason is set only
+    when the head is such a recorded output but its parent cannot be read.
+    """
+    from yoke_core.domain.deployment_run_carried_work_source import (
+        CarriedWorkSourceUnavailable,
+        open_carried_work_source,
+    )
+    from yoke_core.domain.deployment_run_release_output import release_output_runs
+
+    producer = release_output_runs(conn, project_id).get(current.lower())
+    if producer is None:
+        return False, ""
+    try:
+        source = open_carried_work_source(conn, project_id)
+        parent = str(source.resolve_commit(f"{current}^") or "").strip()
+    except CarriedWorkSourceUnavailable as exc:
+        return False, (
+            f"head {current} is release output of {producer['run_id']}, but its "
+            f"parent cannot be read ({exc.reason}: {exc.recovery})"
+        )
+    if not parent:
+        return False, (
+            f"head {current} is release output of {producer['run_id']}, but its "
+            "parent commit did not resolve; make the project's source readable "
+            "here, then re-drive the run"
+        )
+    return parent.lower() == frozen.lower(), ""
+
+
 def _compare_to_branch_heads(
     conn: Any,
     run_id: str,
@@ -92,6 +130,14 @@ def _compare_to_branch_heads(
             unverified.append(f"bound source {project} {frozen}: {exc}")
             continue
         if current.lower() == frozen.lower():
+            continue
+        on_frozen, unreadable = _release_output_on_frozen(
+            conn, project_id=int(entry["project_id"]), frozen=frozen, current=current
+        )
+        if unreadable:
+            unverified.append(f"bound source {project} {frozen}: {unreadable}")
+            continue
+        if on_frozen:
             continue
         stale.append(
             {
