@@ -1,6 +1,8 @@
 // The Profile page and the actor menu that leads to it: one profile.get
-// read feeds five cards; revoke asks once inline; the onboarding reset
-// clears the hidden count; the sidebar never lists Profile.
+// read feeds the account, API tokens, and settings sections; tokens are one
+// table with personal tokens before machine tokens; "New token" opens its
+// form from the section header; revoke asks once inline; the onboarding
+// reset clears the hidden count; the sidebar never lists Profile.
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -93,20 +95,27 @@ async function mountProfile(client, hash = "/profile") {
 }
 
 function panelTitles(root) {
-  return byClass(root, "panel-header").map((h) => h.children[0].textContent);
+  return byClass(root, "panel-header")
+    .map((h) => h.children[0].textContent.replace(/· \d+$/, ""));
 }
 
 function texts(root, className) {
   return byClass(root, className).map((node) => node.textContent);
 }
 
-test("profile draws five cards from one read", async () => {
+function button(root, text) {
+  return allNodes(root).find((node) => node.tagName === "BUTTON" && node.textContent === text);
+}
+
+function tokenCells(root) {
+  return byClass(root, "profile-tokens")[0].children.slice(1)
+    .map((row) => row.children.slice(0, 4).map((cell) => cell.textContent));
+}
+
+test("profile draws its account, token, and settings sections from one read", async () => {
   const client = profileClient();
   const { root, mounted } = await mountProfile(client);
-  assert.deepEqual(panelTitles(root), [
-    "Who you are", "What you can do", "API tokens", "Preferences",
-    "Reset onboarding modules",
-  ]);
+  assert.deepEqual(panelTitles(root), ["Account", "API tokens", "Settings"]);
   assert.equal(
     client.requests.filter((r) => r.function === "profile.get").length >= 1,
     true,
@@ -114,11 +123,11 @@ test("profile draws five cards from one read", async () => {
   const facts = byClass(root, "profile-facts")[0];
   const labels = allNodes(facts).filter((n) => n.tagName === "DT")
     .map((n) => n.textContent);
-  assert.deepEqual(labels, ["Name", "Email", "Signed in with", "Actor id"]);
-  const rows = byClass(root, "profile-row");
-  const rowTitles = rows.map((row) => byClass(row, "")[0] || row)
-    .map((row) => allNodes(row).find((n) => n.tagName === "B").textContent);
-  assert.deepEqual(rowTitles, ["Acme", "Yoke", "operator-cli", "laptop"]);
+  assert.deepEqual(labels, ["Name", "Email", "Signed in with", "Actor id", "Roles"]);
+  const roles = allNodes(byClass(root, "profile-roles")[0])
+    .filter((n) => n.tagName === "B").map((n) => n.textContent);
+  assert.deepEqual(roles, ["Acme", "Yoke"]);
+  assert.deepEqual(texts(root, "profile-token-name"), ["operator-cli", "laptop"]);
   const machineLink = allNodes(root).find(
     (n) => n.tagName === "A" && n.textContent === "Machine →",
   );
@@ -133,7 +142,7 @@ test("profile hides email when the actor has no linked identity", async () => {
   const facts = byClass(root, "profile-facts")[0];
   const labels = allNodes(facts).filter((n) => n.tagName === "DT")
     .map((n) => n.textContent);
-  assert.deepEqual(labels, ["Name", "Actor id"]);
+  assert.deepEqual(labels, ["Name", "Actor id", "Roles"]);
   mounted.unmount();
 });
 
@@ -149,10 +158,10 @@ test("token ages render now and missing use without malformed suffixes", async (
   const { root, mounted } = await mountProfile(
     profileClient(profileAnswer({ tokens })),
   );
-  const details = byClass(root, "profile-row-main")
-    .map((row) => row.children[1].textContent);
-
-  assert.deepEqual(details, ["created now · last used now", "never used"]);
+  assert.deepEqual(tokenCells(root), [
+    ["operator-cli", "Personal", "now", "now"],
+    ["unused", "Personal", "—", "never"],
+  ]);
   mounted.unmount();
 });
 
@@ -175,22 +184,62 @@ test("revoke asks once inline, then reloads the tokens", async () => {
   await settle();
   const revoke = client.requests.find((r) => r.function === "profile.token.revoke");
   assert.deepEqual(revoke.payload, { token_id: 7 });
-  assert.equal(
-    allNodes(root).some((n) => n.tagName === "B" && n.textContent === "operator-cli"),
-    false,
-  );
+  assert.deepEqual(texts(root, "profile-token-name"), ["laptop"]);
+  mounted.unmount();
+});
+
+test("machine tokens follow personal tokens and name their machine", async () => {
+  const machine = profileAnswer().tokens[1];
+  const tokens = [
+    { ...machine, token_id: 10, name: `machine:${MACHINE_ID}`, machine_name: "build-box" },
+    { ...profileAnswer().tokens[0], token_id: 11, name: "deploy-bot" },
+  ];
+  const { root, mounted } = await mountProfile(profileClient(profileAnswer({ tokens })));
+  assert.deepEqual(tokenCells(root).map((row) => row.slice(0, 2)), [
+    ["deploy-bot", "Personal"], ["build-box", "Machine"],
+  ]);
+  const machineRows = byClass(root, "profile-token-machine");
+  assert.equal(machineRows.length, 1);
+  assert.equal(byClass(root, "panel-count")[0].textContent, "· 2");
+  mounted.unmount();
+});
+
+test("New token opens its form above the table and shows the raw token once", async () => {
+  const client = profileClient();
+  const { root, mounted } = await mountProfile(client);
+  const action = button(root, "New token");
+  assert.equal(action.parentNode.className, "panel-header");
+  assert.equal(byClass(root, "profile-new-token").length, 0);
+  action.dispatchEvent(new Event("click"));
+  assert.equal(action.disabled, true);
+  const slot = byClass(root, "profile-token-slot")[0];
+  assert.equal(slot.parentNode.children[0], slot);
+  const input = allNodes(slot).find((n) => n.tagName === "INPUT");
+  input.value = "ci";
+  byClass(root, "profile-new-token")[0].dispatchEvent(new Event("submit"));
+  await settle();
+  const create = client.requests.find((r) => r.function === "profile.token.create");
+  assert.deepEqual(create.payload, { name: "ci" });
+  assert.equal(byClass(root, "profile-token-value")[0].textContent, "yk_raw_once");
+  mounted.unmount();
+});
+
+test("Cancel closes the new-token form and re-enables the action", async () => {
+  const { root, mounted } = await mountProfile(profileClient());
+  button(root, "New token").dispatchEvent(new Event("click"));
+  button(root, "Cancel").dispatchEvent(new Event("click"));
+  assert.equal(byClass(root, "profile-new-token").length, 0);
+  assert.equal(button(root, "New token").disabled, false);
   mounted.unmount();
 });
 
 test("reset clears the hidden count and disables itself", async () => {
   const client = profileClient();
   const { root, mounted } = await mountProfile(client);
-  const reset = allNodes(root).find(
-    (n) => n.tagName === "BUTTON" && n.textContent === "Reset",
-  );
+  const reset = button(root, "Reset");
   assert.equal(reset.disabled, false);
-  const sentence = reset.parentNode.children[0].textContent;
-  assert.match(sentence, /\(2 hidden now\)/);
+  const sentence = () => byClass(root, "profile-setting-label")[1].children[1].textContent;
+  assert.match(sentence(), /\(2 hidden now\)/);
   reset.dispatchEvent(new Event("click"));
   await settle();
   await settle();
@@ -198,11 +247,8 @@ test("reset clears the hidden count and disables itself", async () => {
     client.requests.filter((r) => r.function === "profile.onboarding.reset").length,
     1,
   );
-  const after = allNodes(root).find(
-    (n) => n.tagName === "BUTTON" && n.textContent === "Reset",
-  );
-  assert.equal(after.disabled, true);
-  assert.doesNotMatch(after.parentNode.children[0].textContent, /hidden now/);
+  assert.equal(button(root, "Reset").disabled, true);
+  assert.doesNotMatch(sentence(), /hidden now/);
   mounted.unmount();
 });
 
@@ -257,6 +303,7 @@ for (const [operation, label, armLabel] of [
 
 test("profile inputs have persistent accessible names", async () => {
   const { root, mounted } = await mountProfile(profileClient());
+  button(root, "New token").dispatchEvent(new Event("click"));
   const names = allNodes(root).map((node) => node.getAttribute("aria-label"));
   assert.ok(names.includes("Token name"));
   assert.ok(names.includes("Time zone"));

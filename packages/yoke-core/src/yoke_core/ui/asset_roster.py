@@ -114,6 +114,7 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "actors_roster_table.js": "text/javascript; charset=utf-8",
     "actor_roster_sort.js": "text/javascript; charset=utf-8",
     "universe_views_profile.js": "text/javascript; charset=utf-8",
+    "universe_views_profile_tokens.js": "text/javascript; charset=utf-8",
     "universe_actor_menu.js": "text/javascript; charset=utf-8",
     "universe_views_ouroboros.js": "text/javascript; charset=utf-8",
     "ouroboros_roster_loader.js": "text/javascript; charset=utf-8",

@@ -1,19 +1,47 @@
 // Profile: the signed-in person's own page, reached from the actor menu.
-// One profile.get read feeds five cards — who you are, what you can do, API
-// tokens, preferences, and the onboarding reset. Each card draws its own
-// failure so a refused read names itself instead of blanking the page.
+// One profile.get read feeds a single readable column of sections — the
+// account (identity and roles), API tokens, and settings — the way account
+// pages conventionally read. A host's own Profile section (organizations and
+// sign-out on a hosted universe) lands below them in the same column. Each
+// section draws its own failure so a refused read names itself instead of
+// blanking the page.
 
-import { buildUniverseRoute } from "./universe_navigation.js";
-import { relativeAgePhrase, setDisplayTimeZone } from "./universe_time.js";
+import { setDisplayTimeZone } from "./universe_time.js";
 import {
   callFunction, el, renderError, section,
 } from "./universe_view_support.js";
+import { newTokenAction, renderTokens } from "./universe_views_profile_tokens.js";
 
 const READ_FAILED = { status: 0, envelope: { success: false, error: {} } };
 
-function keyValueRows(documentNode, rows) {
+function rolesList(documentNode, profile) {
+  const rows = [
+    ...profile.roles.org.map((row) => [row.org, `${row.role} · organization`]),
+    ...profile.roles.projects.map((row) => [
+      row.name || row.project, `${row.role} on ${row.project}`,
+    ]),
+  ];
+  if (!rows.length) return "No roles yet.";
+  const list = el(documentNode, "ul", "profile-roles");
+  for (const [title, detail] of rows) {
+    const row = el(documentNode, "li");
+    row.appendChild(el(documentNode, "b", null, title));
+    row.appendChild(el(documentNode, "small", null, detail));
+    list.appendChild(row);
+  }
+  return list;
+}
+
+function accountFacts(documentNode, profile) {
+  const identity = profile.identity || {};
   const list = el(documentNode, "dl", "profile-facts");
-  for (const [label, value] of rows) {
+  for (const [label, value] of [
+    ["Name", profile.actor.name],
+    ["Email", identity.email],
+    ["Signed in with", identity.signed_in_with],
+    ["Actor id", el(documentNode, "code", null, `#${profile.actor.id}`)],
+    ["Roles", rolesList(documentNode, profile)],
+  ]) {
     if (value === null || value === undefined || value === "") continue;
     list.appendChild(el(documentNode, "dt", null, label));
     const dd = el(documentNode, "dd");
@@ -24,160 +52,18 @@ function keyValueRows(documentNode, rows) {
   return list;
 }
 
-function whoCard(documentNode, profile) {
-  const actorId = el(documentNode, "code", null, `#${profile.actor.id}`);
-  const identity = profile.identity || {};
-  return keyValueRows(documentNode, [
-    ["Name", profile.actor.name],
-    ["Email", identity.email],
-    ["Signed in with", identity.signed_in_with],
-    ["Actor id", actorId],
-  ]);
-}
-
-function rolesCard(documentNode, profile) {
-  const rows = [
-    ...profile.roles.org.map((row) => [row.org, `${row.role} · organization`]),
-    ...profile.roles.projects.map((row) => [
-      row.name || row.project, `${row.role} on ${row.project}`,
-    ]),
-  ];
-  if (!rows.length) return el(documentNode, "p", "muted", "No roles yet.");
-  const list = el(documentNode, "div", "profile-list");
-  for (const [title, detail] of rows) {
-    const row = el(documentNode, "div", "profile-row");
-    row.appendChild(el(documentNode, "b", null, title));
-    row.appendChild(el(documentNode, "small", null, detail));
-    list.appendChild(row);
-  }
-  return list;
-}
-
-function tokenDetail(token) {
-  const parts = [];
-  if (token.machine_id) parts.push("machine token");
-  if (token.created_at) parts.push(`created ${relativeAgePhrase(token.created_at)}`);
-  parts.push(token.last_used_at
-    ? `last used ${relativeAgePhrase(token.last_used_at)}` : "never used");
-  return parts.join(" · ");
-}
-
-// Revoke asks once, inline, so a slip of the hand does not end a token.
-function revokeControl(context, token, redraw) {
-  const documentNode = context.document;
-  const host = el(documentNode, "span", "profile-row-action");
-  const arm = el(documentNode, "button", "item-button", "Revoke…");
-  arm.type = "button";
-  arm.addEventListener("click", () => {
-    const confirm = el(documentNode, "button", "item-button danger", "Revoke");
-    confirm.type = "button";
-    const keep = el(documentNode, "button", "item-button", "Keep");
-    keep.type = "button";
-    keep.addEventListener("click", () => { host.replaceChildren(arm); arm.focus(); });
-    const error = el(documentNode, "span", "error");
-    error.setAttribute("role", "alert");
-    confirm.addEventListener("click", async () => {
-      if (confirm.disabled) return;
-      confirm.disabled = true;
-      keep.disabled = true;
-      error.textContent = "";
-      const result = await callFunction(
-        context.client, "profile.token.revoke", { token_id: token.token_id },
-      ).catch(() => READ_FAILED);
-      if (!context.isMounted()) return;
-      if (result.status === 200 && result.envelope.success) redraw();
-      else {
-        confirm.disabled = false;
-        keep.disabled = false;
-        error.textContent = (result.envelope.error || {}).message || "Could not revoke. Try again.";
-      }
-    });
-    host.replaceChildren(confirm, keep, error);
-    confirm.focus();
-  });
-  host.appendChild(arm);
-  return host;
-}
-
-function tokenRow(context, token, redraw) {
-  const documentNode = context.document;
-  const row = el(documentNode, "div", "profile-row");
-  const main = el(documentNode, "div", "profile-row-main");
-  main.appendChild(el(documentNode, "b", null, token.name));
-  main.appendChild(el(documentNode, "small", null, tokenDetail(token)));
-  row.appendChild(main);
-  if (token.machine_id) {
-    const link = el(documentNode, "a", "profile-row-action", "Machine →");
-    link.href = buildUniverseRoute("machines", null, token.machine_id);
-    row.appendChild(link);
-  } else {
-    row.appendChild(revokeControl(context, token, redraw));
-  }
+// One settings row: what the control is on the left, the control on the
+// right; the row wraps under itself on a narrow screen.
+function settingRow(documentNode, title, detail, controls) {
+  const row = el(documentNode, "div", "profile-setting");
+  const label = el(documentNode, "div", "profile-setting-label");
+  label.appendChild(el(documentNode, "b", null, title));
+  if (detail) label.appendChild(el(documentNode, "small", null, detail));
+  const control = el(documentNode, "div", "profile-setting-control");
+  for (const node of controls) control.appendChild(node);
+  row.appendChild(label);
+  row.appendChild(control);
   return row;
-}
-
-// A new token's raw value is shown exactly once, because the engine keeps
-// only its hash: the row that replaces this notice will never show it again.
-function newTokenForm(context, body, redraw) {
-  const documentNode = context.document;
-  const form = el(documentNode, "form", "profile-new-token");
-  const name = el(documentNode, "input");
-  name.type = "text";
-  name.placeholder = "Token name";
-  name.setAttribute("aria-label", "Token name");
-  name.required = true;
-  name.maxLength = 80;
-  const create = el(documentNode, "button", "item-button primary", "New token");
-  create.type = "submit";
-  const nameField = el(documentNode, "label", "profile-token-name");
-  nameField.appendChild(el(documentNode, "span", null, "Token name"));
-  nameField.appendChild(name);
-  form.appendChild(nameField);
-  form.appendChild(create);
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const value = String(name.value || "").trim();
-    if (!value) return;
-    create.disabled = true;
-    const result = await callFunction(
-      context.client, "profile.token.create", { name: value },
-    ).catch(() => READ_FAILED);
-    if (!context.isMounted()) return;
-    if (!(result.status === 200 && result.envelope.success)) {
-      create.disabled = false;
-      renderError(body, result);
-      return;
-    }
-    const notice = el(documentNode, "div", "profile-token-reveal");
-    notice.appendChild(el(
-      documentNode, "p", null,
-      `Copy ${value} now. It is shown once and never again.`,
-    ));
-    notice.appendChild(el(
-      documentNode, "code", "profile-token-value", result.envelope.result.raw_token,
-    ));
-    const done = el(documentNode, "button", "item-button", "Done");
-    done.type = "button";
-    done.addEventListener("click", redraw);
-    notice.appendChild(done);
-    body.replaceChildren(notice);
-  });
-  return form;
-}
-
-function tokensCard(context, body, profile, redraw) {
-  const documentNode = context.document;
-  body.replaceChildren();
-  if (!profile.tokens.length) {
-    body.appendChild(el(documentNode, "p", "muted", "No tokens yet."));
-  } else {
-    const list = el(documentNode, "div", "profile-list");
-    for (const token of profile.tokens) {
-      list.appendChild(tokenRow(context, token, redraw));
-    }
-    body.appendChild(list);
-  }
-  body.appendChild(newTokenForm(context, body, redraw));
 }
 
 function timeZoneOptions(current) {
@@ -187,7 +73,7 @@ function timeZoneOptions(current) {
   return zones;
 }
 
-function preferencesCard(context, profile) {
+function timeZoneSetting(context, profile) {
   const documentNode = context.document;
   const current = profile.preferences.time_zone || "";
   const select = el(documentNode, "select", "profile-time-zone");
@@ -219,29 +105,17 @@ function preferencesCard(context, profile) {
         || "could not save";
     }
   });
-  const wrap = el(documentNode, "div", "profile-time-zone-row");
-  const zoneField = el(documentNode, "label", "profile-time-zone-field");
-  zoneField.appendChild(el(documentNode, "span", null, "Time zone"));
-  zoneField.appendChild(select);
-  wrap.appendChild(zoneField);
-  wrap.appendChild(status);
-  return wrap;
+  return settingRow(documentNode, "Time zone", null, [select, status]);
 }
 
-function resetCard(context, body, profile) {
+function onboardingSetting(context, profile) {
   const documentNode = context.document;
-  const hidden = profile.onboarding.hidden_count;
+  const host = el(documentNode, "div");
   const draw = (count) => {
-    body.replaceChildren();
-    body.appendChild(el(
-      documentNode, "p", null,
-      "Show every onboarding module on Overview again"
-        + (count ? ` (${count} hidden now)` : "")
-        + ". Modules you already completed stay completed.",
-    ));
     const reset = el(documentNode, "button", "item-button", "Reset");
     reset.type = "button";
     reset.disabled = !count;
+    const error = el(documentNode, "div");
     reset.addEventListener("click", async () => {
       reset.disabled = true;
       const result = await callFunction(
@@ -249,11 +123,18 @@ function resetCard(context, body, profile) {
       ).catch(() => READ_FAILED);
       if (!context.isMounted()) return;
       if (result.status === 200 && result.envelope.success) draw(0);
-      else { reset.disabled = false; renderError(body, result); }
+      else { reset.disabled = false; error.replaceChildren(); renderError(error, result); }
     });
-    body.appendChild(reset);
+    host.replaceChildren(settingRow(
+      documentNode, "Onboarding modules",
+      "Show every onboarding module on Overview again"
+        + (count ? ` (${count} hidden now)` : "")
+        + ". Modules you already completed stay completed.",
+      [reset],
+    ), error);
   };
-  draw(hidden);
+  draw(profile.onboarding.hidden_count);
+  return host;
 }
 
 export function renderProfileView(context, main, scope, chrome) {
@@ -261,16 +142,13 @@ export function renderProfileView(context, main, scope, chrome) {
   if (chrome && typeof chrome.setPageHead === "function") {
     chrome.setPageHead({ title: "Profile" });
   }
-  const who = section(documentNode, "Who you are");
-  const roles = section(documentNode, "What you can do");
+  main.classList.add("profile-view");
+  const account = section(documentNode, "Account");
   const tokens = section(documentNode, "API tokens");
-  const preferences = section(documentNode, "Preferences");
-  const reset = section(documentNode, "Reset onboarding modules");
-  const grid = el(documentNode, "div", "profile-grid");
-  for (const panel of [who, roles, tokens, preferences, reset]) {
-    grid.appendChild(panel);
-  }
-  main.replaceChildren(grid);
+  const settings = section(documentNode, "Settings");
+  const newToken = newTokenAction(documentNode, tokens);
+  const panels = [account, tokens, settings];
+  main.replaceChildren(...panels);
 
   const load = async () => {
     const result = await callFunction(context.client, "profile.get", {})
@@ -281,26 +159,21 @@ export function renderProfileView(context, main, scope, chrome) {
     if (!context.isMounted()) return;
     const ok = result.status === 200 && result.envelope.success;
     if (!ok) {
-      for (const panel of [who, roles, tokens, preferences, reset]) {
-        panel.renderEnvelope(result, renderError);
-      }
+      for (const panel of panels) panel.renderEnvelope(result, renderError);
       return;
     }
     const profile = result.envelope.result;
     setDisplayTimeZone(profile.preferences.time_zone || "");
-    who.renderEnvelope(result, (body) => body.appendChild(
-      whoCard(documentNode, profile),
+    account.renderEnvelope(result, (body) => body.appendChild(
+      accountFacts(documentNode, profile),
     ));
-    roles.renderEnvelope(result, (body) => body.appendChild(
-      rolesCard(documentNode, profile),
+    tokens.renderEnvelope(result, (body) => renderTokens(
+      context, tokens, body, profile, newToken, load,
     ));
-    tokens.renderEnvelope(result, (body) => tokensCard(
-      context, body, profile, load,
-    ));
-    preferences.renderEnvelope(result, (body) => body.appendChild(
-      preferencesCard(context, profile),
-    ));
-    reset.renderEnvelope(result, (body) => resetCard(context, body, profile));
+    settings.renderEnvelope(result, (body) => {
+      body.appendChild(timeZoneSetting(context, profile));
+      body.appendChild(onboardingSetting(context, profile));
+    });
   };
   return load();
 }
