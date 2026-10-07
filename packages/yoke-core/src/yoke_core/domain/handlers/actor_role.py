@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -30,7 +30,7 @@ class ActorRoleSetRequest(BaseModel):
 class ActorRoleSetResponse(BaseModel):
     actor_id: int
     role: str
-    previous_role: Optional[str]
+    previous_roles: List[str]
     changed: bool
 
 
@@ -93,7 +93,7 @@ def handle_actor_role_set(request: FunctionCallRequest) -> HandlerOutcome:
         result_payload={
             "actor_id": change.actor_id,
             "role": change.role,
-            "previous_role": change.previous_role,
+            "previous_roles": change.previous_roles,
             "changed": change.changed,
         },
     )

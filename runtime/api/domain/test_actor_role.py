@@ -13,7 +13,7 @@ from yoke_core.domain.actor_permissions import (
     grant_actor_org_role,
     seed_roles_and_permissions,
 )
-from yoke_core.domain.actor_role import ActorRoleRefused, org_role_of
+from yoke_core.domain.actor_role import ActorRoleRefused, org_roles_of
 from yoke_core.domain.actor_state import set_actor_enabled
 from yoke_core.domain.actors import seed_human_actor, seed_system_actor
 from yoke_core.domain.control_plane_authority import resolve_control_plane_org_id
@@ -64,7 +64,7 @@ def test_admin_sets_a_person_role_by_actor_id_and_it_replaces_the_old_one(test_d
     assert result.result_payload == {
         "actor_id": member,
         "role": "viewer",
-        "previous_role": "operator",
+        "previous_roles": ["operator"],
         "changed": True,
     }
     assert _org_roles(test_db, member, org_id) == ["viewer"]
@@ -136,7 +136,7 @@ def test_roles_a_person_cannot_hold_are_refused_by_name(test_db, role, code):
 
     assert refused.error.code == code
     assert "admin, operator, viewer" in refused.error.message
-    assert org_role_of(test_db, member, org_id) == "operator"
+    assert org_roles_of(test_db, member, org_id) == ["operator"]
 
 
 def test_system_actors_and_non_admins_are_refused(test_db):
@@ -163,18 +163,20 @@ def test_system_actor_org_grants_accumulate(test_db):
     assert _org_roles(test_db, system, org_id) == ["admin", "migration_verification_ci"]
 
 
-def test_a_universe_still_holding_several_roles_refuses_by_name(test_db):
+def test_a_person_still_holding_several_roles_converges_onto_the_one_set(test_db):
     org_id = _org(test_db)
     admin = _person(test_db, "Admin", "admin", org_id)
     member = _person(test_db, "Member", "operator", org_id)
     test_db.execute(
         "INSERT INTO actor_org_roles (actor_id, org_id, role_id, granted_at) "
-        "SELECT %s, %s, id, '2026-01-01T00:00:00Z' FROM roles WHERE name = 'viewer'",
+        "SELECT %s, %s, id, '2026-01-01T00:00:00Z' FROM roles WHERE name = 'admin'",
         (member, org_id),
     )
     test_db.commit()
 
-    refused = _set(admin, actor_id=member, role="admin")
+    result = _set(admin, actor_id=member, role="operator")
 
-    assert refused.error.code == "org_roles_not_collapsed"
-    assert "one-org-role-per-person migration" in refused.error.message
+    assert result.primary_success, result.error
+    assert result.result_payload["previous_roles"] == ["admin", "operator"]
+    assert result.result_payload["changed"] is True
+    assert _org_roles(test_db, member, org_id) == ["operator"]

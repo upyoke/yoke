@@ -50,7 +50,7 @@ class ActorRoleRefused(ValueError):
 class ActorRoleChange:
     actor_id: int
     role: str
-    previous_role: str | None
+    previous_roles: list[str]
     changed: bool
 
 
@@ -97,23 +97,15 @@ def resolve_member_actor(conn: Any, email: str) -> int:
     return int(rows[0][0])
 
 
-def org_role_of(conn: Any, actor_id: int, org_id: int) -> str | None:
-    """Return the person's one org role, refusing a universe that still has several."""
+def org_roles_of(conn: Any, actor_id: int, org_id: int) -> list[str]:
+    """Every org role the actor holds in ``org_id``, by name."""
     p = _p(conn)
     rows = conn.execute(
         "SELECT r.name FROM actor_org_roles aor JOIN roles r ON r.id = aor.role_id "
         f"WHERE aor.actor_id = {p} AND aor.org_id = {p} ORDER BY r.name",
         (actor_id, org_id),
     ).fetchall()
-    if len(rows) > 1:
-        names = ", ".join(str(row[0]) for row in rows)
-        raise ActorRoleRefused(
-            "org_roles_not_collapsed",
-            f"actor {actor_id} holds several org roles ({names}); this database "
-            "has not applied the one-org-role-per-person migration — deploy the "
-            "release that carries it so boot converges it, then retry",
-        )
-    return None if not rows else str(rows[0][0])
+    return [str(row[0]) for row in rows]
 
 
 def _other_active_human_admin(conn: Any, actor_id: int, org_id: int) -> bool:
@@ -132,15 +124,16 @@ def _other_active_human_admin(conn: Any, actor_id: int, org_id: int) -> bool:
 
 def check_person_role_change(
     conn: Any, *, actor_id: int, org_id: int, role: str
-) -> str | None:
-    """Refuse a person role change by name without writing; return the current role.
+) -> list[str]:
+    """Refuse a person role change by name without writing; return the roles held.
 
     Demoting the org's last active admin is refused here, so no grant path
-    can strand the org without one.
+    can strand the org without one. A person still holding several roles
+    from before the one-role rule converges onto ``role`` like any change.
     """
     require_human_org_role(role)
-    previous = org_role_of(conn, actor_id, org_id)
-    if previous == ROLE_ADMIN and role != ROLE_ADMIN:
+    previous = org_roles_of(conn, actor_id, org_id)
+    if ROLE_ADMIN in previous and role != ROLE_ADMIN:
         if not _other_active_human_admin(conn, actor_id, org_id):
             raise ActorRoleRefused(
                 "last_admin",
@@ -158,8 +151,8 @@ def replace_person_role(
     role: str,
     granted_by_actor_id: int | None,
     now: str,
-) -> str | None:
-    """Make ``role`` the person's only org role; return the role it replaced.
+) -> list[str]:
+    """Make ``role`` the person's only org role; return the roles it replaced.
 
     The caller owns the transaction; ``check_person_role_change`` refuses
     first, so no grant path can strand the org without an admin.
@@ -167,7 +160,7 @@ def replace_person_role(
     previous = check_person_role_change(
         conn, actor_id=actor_id, org_id=org_id, role=role
     )
-    if previous == role:
+    if previous == [role]:
         return previous
     p = _p(conn)
     conn.execute(
@@ -265,7 +258,7 @@ def set_actor_org_role(
             now=now,
         )
         conn.commit()
-        return ActorRoleChange(actor_id, role, previous, changed=previous != role)
+        return ActorRoleChange(actor_id, role, previous, changed=previous != [role])
     except Exception:
         conn.rollback()
         raise

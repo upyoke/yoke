@@ -5,11 +5,14 @@ import { callFunction, el } from "./universe_view_support.js";
 // `roles` is the roster's person_org_roles; `reload` re-reads the roster once
 // actors.role.set lands. A refusal names its reason and restores the select.
 export function roleControl(documentNode, actor, roles, roster, feedback, reload) {
-  const current = actor.roles?.org?.[0]?.role || "";
+  // Exactly one role selects it; none, or several left from before the
+  // one-role rule, shows what is held and asks for a choice.
+  const held = (actor.roles?.org || []).map((grant) => grant.role);
+  const current = held.length === 1 ? held[0] : "";
   const select = el(documentNode, "select", "actors-role-select");
   select.setAttribute("aria-label", `Org role for ${actor.name}`);
   if (!roles.includes(current)) {
-    const none = el(documentNode, "option", null, current || "—");
+    const none = el(documentNode, "option", null, held.join(", ") || "—");
     none.value = current;
     none.disabled = true;
     select.appendChild(none);

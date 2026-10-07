@@ -8,7 +8,7 @@ and binds the calling actor. Envelope and dispatch rules are in
 |---|---|---|---|
 | `actors.roster` (read) | none; browser-proxied | `yoke_core.domain.handlers.actors_roster` | Every actor with its kind, state, org and project roles, linked sign-in email, and live API keys, plus `current_actor_id`, `can_manage_actors` (the caller is an org admin), and `person_org_roles` — the org roles a person may hold. |
 | `actors.state.set` | `yoke actors state set ACTOR-ID (--enable \| --disable) [--confirm-system-retirement]` | `yoke_core.domain.handlers.actor_state` | Org admin. Enables or disables an actor; disabling revokes its API keys and browser sessions. |
-| `actors.role.set` | `yoke actors role set (ACTOR-ID \| --member EMAIL) --role ROLE` | `yoke_core.domain.handlers.actor_role` | Org admin. Sets a person's one org role. Payload `{actor_id \| member_email, role}`; `member_email` resolves the actor linked to that sign-in email in this universe. The new role replaces the old one. Result `{actor_id, role, previous_role, changed}`. |
+| `actors.role.set` | `yoke actors role set (ACTOR-ID \| --member EMAIL) --role ROLE` | `yoke_core.domain.handlers.actor_role` | Org admin. Sets a person's one org role. Payload `{actor_id \| member_email, role}`; `member_email` resolves the actor linked to that sign-in email in this universe. The new role replaces the old one. Result `{actor_id, role, previous_roles, changed}`; a person still holding several roles from before the one-role rule converges onto the one set. |
 
 ## A person's one org role
 
@@ -39,7 +39,6 @@ recovery.
 | `actor_not_found` | No such actor; refresh the roster. |
 | `member_not_linked` | No actor is linked to the email. The member signs in once, or pass the ACTOR-ID. |
 | `member_ambiguous` | The email is linked to several actors. Pass the ACTOR-ID. |
-| `org_roles_not_collapsed` | The database still holds several org roles for one person; deploy the release carrying the one-org-role-per-person migration so boot converges it. |
 | `permission_denied` | The caller is not an org admin. |
 
 The serving floor for `actors.role.set` is the next release; an older server

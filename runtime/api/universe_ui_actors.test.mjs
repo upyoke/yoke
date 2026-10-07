@@ -223,3 +223,18 @@ test("an older server without person_org_roles shows every org grant read-only",
   assert.match(main.textContent, /admin/);
   assert.match(main.textContent, /operator/);
 });
+
+test("a person still holding several org roles shows them and asks for one", async () => {
+  const roster = {
+    current_actor_id: 1, can_manage_actors: true, person_org_roles: PERSON_ROLES,
+    rows: [actor("active", [], {
+      roles: { org: [{ org: "Test", role: "admin" }, { org: "Test", role: "operator" }], projects: [] },
+    })],
+  };
+  const { context, main } = fixture([roster], preferences());
+  await renderActorsView(context, main);
+  const select = roleSelect(main);
+  assert.equal(select.value, "");
+  assert.equal(select.children[0].textContent, "admin, operator");
+  assert.equal(select.children[0].disabled, true);
+});
