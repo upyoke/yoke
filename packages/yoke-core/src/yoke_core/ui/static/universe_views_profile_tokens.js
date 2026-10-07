@@ -86,10 +86,14 @@ function tokenTable(context, tokens, redraw) {
     ...tokens.filter((token) => token.machine_id),
   ];
   const table = el(documentNode, "table", "items table-stacks-narrow profile-tokens");
-  const head = el(documentNode, "tr");
-  for (const label of COLUMNS) head.appendChild(el(documentNode, "th", null, label));
+  const head = el(documentNode, "thead");
+  const headings = el(documentNode, "tr");
+  for (const label of COLUMNS) headings.appendChild(el(documentNode, "th", null, label));
+  head.appendChild(headings);
+  const body = el(documentNode, "tbody");
+  for (const token of ordered) body.appendChild(tokenRow(context, token, redraw));
   table.appendChild(head);
-  for (const token of ordered) table.appendChild(tokenRow(context, token, redraw));
+  table.appendChild(body);
   return table;
 }
 
@@ -154,6 +158,13 @@ export function newTokenAction(documentNode, panel) {
   button.addEventListener("click", () => { if (button.open) button.open(); });
   panel.children[0].appendChild(button);
   return button;
+}
+
+// A failed read leaves nothing to add a token to, so the action leaves the
+// header with the table rather than opening a form into an error.
+export function withdrawTokenAction(action) {
+  action.hidden = true;
+  action.open = null;
 }
 
 export function renderTokens(context, panel, body, profile, action, redraw) {
