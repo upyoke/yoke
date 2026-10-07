@@ -170,6 +170,9 @@ PRODUCT_AUTHZ_BY_ID = {
     "deployment_runs.stages": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "deployment_runs.approve": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "deployment_runs.stage_approval.evaluate": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "deployment_runs.execution.bound_sources_current": AuthzSpec(
+        PROJECT, PERM_PROJECT_ADMIN
+    ),
     "deployment_runs.execution.containment_basis": AuthzSpec(
         PROJECT, PERM_PROJECT_ADMIN
     ),

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from yoke_core.domain.handlers import (
     _register_deployment_flow_configuration as _flow_configuration,
+    deployment_bound_sources_current as _bound_sources_current,
     deployment_common as _models,
     deployment_failure_trace as _failure_trace,
     deployment_inspection as _inspection,
@@ -22,6 +23,7 @@ from yoke_core.domain.handlers import (
 def register(registry) -> None:
     """Register deployment flow/run wrappers via the given registry."""
     _flow_configuration.register(registry)
+    _bound_sources_current.register(registry)
     registry.register(
         "deployment_runs.get",
         _runs.handle_deployment_run_get,

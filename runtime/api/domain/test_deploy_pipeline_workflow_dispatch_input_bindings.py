@@ -11,7 +11,10 @@ from __future__ import annotations
 import subprocess
 from unittest import mock
 
-from yoke_core.domain import deploy_pipeline_github_workflow
+from yoke_core.domain import (
+    deploy_pipeline_bound_inputs,
+    deploy_pipeline_github_workflow,
+)
 
 
 CONSUMER_B = "b" * 40
@@ -26,29 +29,50 @@ STAGE_CONFIG = {
 }
 
 
-def _dispatch(*, config=None, bound_inputs=None, fresh=False, gh_calls):
+def _dispatch(
+    *, config=None, bound_inputs=None, fresh=False, gh_calls, freshness_check=None
+):
     def _fake_gh(*args, **kwargs):
         gh_calls.append(args)
         if args and args[0] == "trigger":
             return subprocess.CompletedProcess(
-                args=args, returncode=0, stdout="new-run-id\n",
+                args=args,
+                returncode=0,
+                stdout="new-run-id\n",
             )
         return subprocess.CompletedProcess(args=args, returncode=0, stdout="")
 
-    with mock.patch.object(
-        # Satisfies _resolve_release_lineage_sha's checkout verification,
-        # unrelated to the recorded binding under test.
-        deploy_pipeline_github_workflow, "_run_cmd",
-        return_value=subprocess.CompletedProcess(
-            args=[], returncode=0, stdout="a" * 40 + "\n",
+    with (
+        mock.patch.object(
+            # Satisfies _resolve_release_lineage_sha's checkout verification,
+            # unrelated to the recorded binding under test.
+            deploy_pipeline_github_workflow,
+            "_run_cmd",
+            return_value=subprocess.CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout="a" * 40 + "\n",
+            ),
         ),
-    ), mock.patch.object(
-        deploy_pipeline_github_workflow, "_github_actions", side_effect=_fake_gh,
-    ), mock.patch.object(
-        deploy_pipeline_github_workflow, "_poll_github_actions",
-        return_value=(0, "completed: success"),
-    ), mock.patch.object(
-        deploy_pipeline_github_workflow, "_emit_run_event",
+        mock.patch.object(
+            deploy_pipeline_github_workflow,
+            "_github_actions",
+            side_effect=_fake_gh,
+        ),
+        mock.patch.object(
+            deploy_pipeline_github_workflow,
+            "_poll_github_actions",
+            return_value=(0, "completed: success"),
+        ),
+        mock.patch.object(
+            deploy_pipeline_github_workflow,
+            "_emit_run_event",
+        ),
+        mock.patch.object(
+            deploy_pipeline_bound_inputs,
+            "stale_bound_source_refusal",
+            new=freshness_check or mock.Mock(return_value=""),
+        ),
     ):
         return deploy_pipeline_github_workflow._dispatch_github_actions_workflow(
             STAGE_CONFIG if config is None else config,
@@ -105,11 +129,41 @@ class TestRecordedInputBindingDispatch:
         gh_calls: list = []
 
         rc, diag = _dispatch(
-            config={**STAGE_CONFIG, "input_bindings": {}, "inputs": {
-                "product_sha": "{head_sha}",
-            }},
+            config={
+                **STAGE_CONFIG,
+                "input_bindings": {},
+                "inputs": {
+                    "product_sha": "{head_sha}",
+                },
+            },
             gh_calls=gh_calls,
         )
 
         assert (rc, diag) == (0, "")
         assert [c for c in gh_calls if c and c[0] == "trigger"]
+
+    def test_a_stale_bound_source_stops_the_stage_before_any_dispatch(self):
+        gh_calls: list = []
+        refusal = "stage 'hosted-release' was not dispatched: bound source stale"
+        freshness_check = mock.Mock(return_value=refusal)
+
+        rc, diag = _dispatch(
+            bound_inputs={"consumer_sha": CONSUMER_B},
+            gh_calls=gh_calls,
+            freshness_check=freshness_check,
+        )
+
+        assert (rc, diag) == (1, refusal)
+        freshness_check.assert_called_once_with("run-test", "hosted-release")
+        assert not [c for c in gh_calls if c and c[0] == "trigger"]
+
+    def test_a_stage_without_input_bindings_skips_the_freshness_check(self):
+        freshness_check = mock.Mock(return_value="must not be consulted")
+
+        _dispatch(
+            config={**STAGE_CONFIG, "input_bindings": {}, "inputs": {}},
+            gh_calls=[],
+            freshness_check=freshness_check,
+        )
+
+        freshness_check.assert_not_called()
