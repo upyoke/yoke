@@ -9,6 +9,8 @@ own completion gate — which is the defect the retry path exists to remove.
 
 from __future__ import annotations
 
+from yoke_core.domain.domain_refusal import DomainRefusal
+
 import re
 from datetime import datetime, timezone
 from typing import NamedTuple, Optional
@@ -23,7 +25,7 @@ from yoke_core.domain.deployment_run_retry_membership import copy_frozen_members
 from yoke_core.domain.project_identity import resolve_project_id
 
 
-class CompositionRefused(ValueError):
+class CompositionRefused(DomainRefusal, ValueError):
     """The composition validator answered no, so the run row was rolled back.
 
     A caller that only wants to know whether the release surfaces can read and

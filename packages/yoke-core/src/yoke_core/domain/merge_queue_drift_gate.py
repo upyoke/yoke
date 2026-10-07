@@ -27,7 +27,7 @@ MERGE_QUEUE_DRIFT_CHECK_SKIPPED_EVENT_NAME = "MergeQueueDriftCheckSkipped"
 
 def _emit_drift_check_skipped(
     *,
-    item_id: int,
+    public_ref: str,
     project: str,
     branch: str,
     report: LiveDriftReport,
@@ -45,7 +45,7 @@ def _emit_drift_check_skipped(
                 "severity": "WARN",
                 "outcome": "skipped",
                 "project": project,
-                "item_id": str(int(item_id)),
+                "item_ref": public_ref,
                 "context": {
                     "branch": branch,
                     "skip_reason": report.skip_reason,
@@ -72,7 +72,7 @@ def drift_check_before_landing(
     *,
     checkout: str,
     branch: str,
-    item_id: int,
+    public_ref: str,
 ) -> LiveDriftReport:
     """Run the gate and count every skipped comparison."""
     report = drift_blocking_landing(
@@ -83,7 +83,7 @@ def drift_check_before_landing(
     if not report.skipped:
         return report
     advisory = _emit_drift_check_skipped(
-        item_id=item_id,
+        public_ref=public_ref,
         project=project,
         branch=branch,
         report=report,

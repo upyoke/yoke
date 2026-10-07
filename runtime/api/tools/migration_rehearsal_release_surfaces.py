@@ -7,7 +7,7 @@ here targets the disposable copy selected by ``bound_pg_dsn``.
 
 What this proves is that the current build can read and judge the migrated
 rows. It deliberately does not prove that the copied tenant's own live flows
-could ship right now: a driver that refuses on this tenant's composition state
+could ship right now: a driver that returns a named domain refusal
 answered the question the rehearsal asked. Only a driver that broke reaching
 the rows is a rehearsal failure.
 """
@@ -25,10 +25,8 @@ from yoke_contracts.release_pin import (
 )
 from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_run_target_resolution import cmd_resolve_target
-from yoke_core.domain.deployment_runs_crud_mutate import (
-    CompositionRefused,
-    cmd_create_run,
-)
+from yoke_core.domain.deployment_runs_crud_mutate import cmd_create_run
+from yoke_core.domain.domain_refusal import DomainRefusal
 from yoke_core.domain.projects_capability_settings_validation import (
     canonicalize_capability_settings,
 )
@@ -96,15 +94,11 @@ def _exercise_deployment_run_drivers(conn: Any) -> None:
                 release_lineage=_REHEARSAL_LINEAGE,
                 created_by="migration-rehearsal",
             )
-        except CompositionRefused:
-            # The rehearsal proves the migrated rows are readable by the
-            # release drivers, not that this tenant's live flows could ship
-            # today. A composition verdict is that proof: the validator
-            # queried the migrated schema and answered. It is also the
-            # expected answer here, because the synthetic lineage names no
-            # real commit, so a flow taking custody of carried work cannot
-            # resolve it. Treating the verdict as a rehearsal failure would
-            # block every release behind unrelated tenant composition state.
+        except DomainRefusal:
+            # A named domain verdict proves the driver read and judged the
+            # migrated rows. Synthetic lineage, copied composition, or live
+            # GitHub readiness can refuse creation without a schema defect.
+            # Untyped read/import/schema failures still fail the rehearsal.
             continue
         created = conn.execute(
             "SELECT target_tier,target_environment_id FROM deployment_runs WHERE id=%s",

@@ -232,7 +232,6 @@ def route_standalone_landing(
             worktree_path=_find_worktree(branch, repo_root),
             project=project,
         ),
-        item_id=item_id,
         public_ref=public_ref or branch,
         commit_sha=lane_head,
         target=target,

@@ -20,6 +20,8 @@ from runtime.api.test_api_release_pin_record_route import (
 )
 from runtime.api.tools import migration_rehearsal_release_surfaces as surfaces
 from yoke_core.domain.deployment_runs_crud_mutate import CompositionRefused
+from yoke_core.domain.deployment_run_ci_tested_source import ReleaseSourceRefused
+from yoke_core.domain.project_github_auth_models import MissingAppCredentials
 from runtime.api.tools.yoke_migration_fleet import rehearsal_plan
 from yoke_core.domain import db_backend
 
@@ -185,17 +187,22 @@ def test_driver_target_disagreement_fails_closed(monkeypatch: Any) -> None:
         surfaces._exercise_deployment_run_drivers(_Connection(handler))
 
 
-def test_composition_verdict_counts_as_a_driver_answer(monkeypatch: Any) -> None:
+@pytest.mark.parametrize(
+    "refusal",
+    [
+        CompositionRefused("composition cannot resolve synthetic lineage"),
+        ReleaseSourceRefused("release_source_unverifiable", "copied auth unavailable"),
+        MissingAppCredentials("example", "service issuer is not mounted"),
+    ],
+)
+def test_domain_verdict_counts_as_a_driver_answer(monkeypatch: Any, refusal) -> None:
     def handler(sql: str, _params: tuple[Any, ...]) -> list[Any]:
         if "FROM deployment_flows df" in sql:
             return [{"project": "yoke", "flow": "release-stage"}]
         raise AssertionError(f"refused create must not be read back: {sql}")
 
     def refuse(*_args: Any, **_kwargs: Any) -> str:
-        raise CompositionRefused(
-            "FAIL: Composition validation failed:\nrun project carried-code "
-            "membership is current_release_lineage_unreachable."
-        )
+        raise refusal
 
     monkeypatch.setattr(
         surfaces,

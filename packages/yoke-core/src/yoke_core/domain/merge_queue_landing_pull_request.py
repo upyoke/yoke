@@ -192,7 +192,7 @@ def ensure_landing_pull_request(
     public_ref: str,
     *,
     lane_head: str = "",
-    item_id: int = 0,
+    item_public_ref: str = "",
 ) -> tuple[str, Optional[str]]:
     """Resolve this landing's pull request and record it on the item.
 
@@ -201,19 +201,19 @@ def ensure_landing_pull_request(
     landing converge on this one function, so this is the only place that
     sees every pull request an item lands through. Recording is advisory —
     a landing that is otherwise fine does not fail because the marker write
-    did — and ``item_id=0`` skips it for callers with no item in hand.
+    did — an empty ``item_public_ref`` skips it for callers with no item in hand.
     """
     pr_num, error = _resolve_landing_pull_request(
         ctx,
         public_ref,
         lane_head=lane_head,
     )
-    if pr_num and item_id:
+    if pr_num and item_public_ref:
         from yoke_core.domain.merge_queue_landing_pending import (
             record_landing_pull_request,
         )
 
-        record_landing_pull_request(int(item_id), pr_num)
+        record_landing_pull_request(item_public_ref, pr_num)
     return pr_num, error
 
 

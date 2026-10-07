@@ -15,8 +15,7 @@ reference resumes an existing Dash. Dash uses ordinary item, claim, worktree,
 lifecycle, QA, merge, and deployment surfaces.
 It does not route through `/yoke idea`.
 
-`/yoke dash "instruction"` files and executes. `/yoke dash PREFIX-N` (or a bare
-number, resolved against the current project's sequence) resumes.
+`/yoke dash "instruction"` files and executes. `/yoke dash PREFIX-N` resumes.
 `yoke dash "title" --stdin --execution-instructions-considered <<'EOF'` files
 without executing; `yoke task ...` is the laneless, merge-free alternative with
 no optional gate posture.

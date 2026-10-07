@@ -19,6 +19,8 @@ refusal without anyone remembering to update a roster.
 
 from __future__ import annotations
 
+from yoke_core.domain.domain_refusal import DomainRefusal
+
 from typing import Any, Iterable, Optional
 
 #: Stage runner that dispatches an external workflow against an exact ref.
@@ -30,7 +32,7 @@ _SHA_LENGTH = 40
 _SHA_CHARS = frozenset("0123456789abcdef")
 
 
-class LineageRequiredError(ValueError):
+class LineageRequiredError(DomainRefusal, ValueError):
     """A run was created without the lineage its flow will demand."""
 
 

@@ -7,9 +7,9 @@ handler runs, the dispatcher resolves each one through
 it with the matching ``item_id``-family key the handler's request model
 declares, so handlers read internal ids and no caller ever carries one. A
 model that declares the ``public_ref``-family key itself takes the ref as
-its own input and resolves it in the handler. A bare number resolves only against the
-call's explicit project — the ``target.project_id`` hint or a payload
-``project`` — and is refused without one.
+its own input and resolves it in the handler. Client and HTTP boundaries require
+complete PREFIX-N refs and refuse bare numeric selectors, even with an explicit
+project hint.
 """
 
 from __future__ import annotations

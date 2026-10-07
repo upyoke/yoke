@@ -83,7 +83,7 @@ def handle_items_get(request: FunctionCallRequest) -> HandlerOutcome:
             )
         if col == "id":
             from yoke_core.domain.db_helpers import connect
-            from yoke_core.domain.item_ref_render import render_item_ref
+            from yoke_core.domain.project_identity import render_item_ref
 
             with connect() as conn:
                 out[col] = render_item_ref(conn, item_id)

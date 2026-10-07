@@ -303,7 +303,6 @@ def land(**overrides):
     landing_records = overrides.pop("landing_records", None)
     landing_stale = overrides.pop("landing_stale", False)
     kwargs = {
-        "item_id": 1,
         "public_ref": "YOK-200",
         "commit_sha": LANE_SHA,
         "dispatch": dispatch_for(

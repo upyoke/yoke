@@ -57,7 +57,6 @@ def _emit_to_stderr(line: str) -> None:
 def land_item_through_merge_queue(
     ctx: MergeContext,
     *,
-    item_id: int,
     public_ref: str,
     commit_sha: str,
     target: str = "main",
@@ -90,7 +89,7 @@ def land_item_through_merge_queue(
     # a pull request the queue has forgotten would refuse a train that
     # already ran, so matching close-out is idempotent bookkeeping. An
     # earlier receipt must not satisfy later uncontained commits.
-    recorded_pr, recorded_landed_at = recorded_landing(dispatch, item_id)
+    recorded_pr, recorded_landed_at = recorded_landing(dispatch, public_ref)
     if recorded_pr and recorded_landed_at:
         coverage = recorded_landing_covers_candidate(
             ctx.repo_root or "", commit_sha, target
@@ -116,7 +115,7 @@ def land_item_through_merge_queue(
             )
             return close_out(
                 ctx,
-                item_id=item_id,
+                item_id=public_ref,
                 public_ref=public_ref,
                 commit_sha=commit_sha,
                 pr_num=recorded_pr,
@@ -134,7 +133,7 @@ def land_item_through_merge_queue(
         ctx.project or "",
         checkout=ctx.worktree_path or ctx.repo_root,
         branch=target,
-        item_id=item_id,
+        public_ref=public_ref,
     )
     if drift.drifted:
         return QueueLandingOutcome(
@@ -174,7 +173,7 @@ def land_item_through_merge_queue(
         ctx,
         public_ref,
         lane_head=commit_sha,
-        item_id=item_id,
+        item_public_ref=public_ref,
     )
     if pr_err:
         return QueueLandingOutcome(ok=False, exit_code=1, error=pr_err)
@@ -237,7 +236,7 @@ def land_item_through_merge_queue(
     # record instead of issuing its own GitHub polls.
     if not already_merged:
         enqueued_at, marker_error = mark_landing_pending(
-            item_id,
+            public_ref,
             pr_num,
             dispatch=dispatch,
             preserve_existing=already_armed,
@@ -287,7 +286,7 @@ def land_item_through_merge_queue(
     refusal = wait_for_queue_landing(
         pr_num=pr_num,
         target=target,
-        item_id=item_id,
+        item_id=public_ref,
         public_ref=public_ref,
         resume_command=resume_command,
         dispatch=dispatch,
@@ -308,7 +307,7 @@ def land_item_through_merge_queue(
 
     return close_out(
         ctx,
-        item_id=item_id,
+        item_id=public_ref,
         public_ref=public_ref,
         commit_sha=commit_sha,
         pr_num=pr_num,
