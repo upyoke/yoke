@@ -152,7 +152,7 @@ def materialize_installer_campaign(
     insert_item(
         conn,
         id=item_id,
-        title="Execute one Test Machine baseline group",
+        title="Execute Test Machine cases",
         workflow_id="issue",
         status="implementing",
     )
@@ -220,10 +220,10 @@ def _terminal_recipe() -> dict[str, Any]:
     }
 
 
-def baseline_group_request(
+def machine_case_request(
     requirement_id: int,
     *,
-    function: str = "test_machine.baseline_group_execute",
+    function: str = "test_machine.case.begin",
     payload: dict[str, Any] | None = None,
 ) -> FunctionCallRequest:
     return FunctionCallRequest(

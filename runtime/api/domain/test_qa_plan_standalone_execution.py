@@ -183,7 +183,7 @@ def test_bad_source_refuses_before_materialization_commits():
 def test_machine_baseline_group_selects_only_its_standalone_execution(
     test_db, tmp_path, monkeypatch
 ):
-    from runtime.api.domain.machine_qa_baseline_group_test_support import (
+    from runtime.api.domain.machine_qa_host_test_support import (
         configure_test_machine,
     )
     from yoke_core.domain.handlers.machine_qa_baseline_group_context import (
@@ -227,7 +227,7 @@ def test_machine_baseline_group_selects_only_its_standalone_execution(
 
 
 def test_standalone_machine_cases_restore_each_baseline(test_db, tmp_path, monkeypatch):
-    from runtime.api.domain.machine_qa_baseline_group_test_support import (
+    from runtime.api.domain.machine_qa_host_test_support import (
         configure_test_machine,
     )
     from runtime.api.domain.machine_qa_test_support import FakeHostControl

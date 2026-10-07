@@ -5,7 +5,7 @@ from runtime.api.domain.deployment_run_qa_plan_execution_test_support import (
     deployment_run,
     machine_plan,
 )
-from runtime.api.domain.machine_qa_baseline_group_test_support import (
+from runtime.api.domain.machine_qa_host_test_support import (
     configure_test_machine,
 )
 from runtime.api.domain.machine_qa_test_support import FakeHostControl

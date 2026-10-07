@@ -6,10 +6,10 @@ from typing import Any
 
 import pytest
 
-from runtime.api.domain.machine_qa_baseline_group_test_support import (
+from runtime.api.domain.machine_qa_host_test_support import (
     TEST_MACHINE_SETTINGS,
     OpenFixtureConnection,
-    baseline_group_request,
+    machine_case_request,
     materialize_installer_campaign,
 )
 from yoke_core.domain.actor_permissions import PERM_ITEMS_WRITE
@@ -112,7 +112,7 @@ def test_group_begin_lease_contention_records_nonterminal_waiting_cases(
     )
 
     outcome = handle_baseline_group_begin(
-        baseline_group_request(
+        machine_case_request(
             int(fresh[0]["id"]),
             function="test_machine.baseline_group.begin",
         )
@@ -188,7 +188,7 @@ def test_single_case_begin_contention_preserves_rerun_identity(
         "yoke_core.domain.machine_qa_execution_protocol.begin_host_control_execution",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(held),
     )
-    request = baseline_group_request(
+    request = machine_case_request(
         int(target["id"]),
         function="test_machine.case.begin",
     )

@@ -8,8 +8,8 @@ from typing import Any
 
 import pytest
 
-from runtime.api.domain.machine_qa_baseline_group_test_support import (
-    baseline_group_request,
+from runtime.api.domain.machine_qa_host_test_support import (
+    machine_case_request,
     configure_test_machine,
     materialize_installer_campaign,
 )
@@ -110,7 +110,7 @@ def _local_case_submission(
     )
     register_host_control_factory(lambda _material: FakeHostControl())
     try:
-        begun = handler(baseline_group_request(requirement_id, function=function))
+        begun = handler(machine_case_request(requirement_id, function=function))
         return execute_machine_case_contract(begun.result_payload["execution"])
     finally:
         clear_host_control_factory()
@@ -144,7 +144,7 @@ def test_case_submission_replay_reuses_canonical_run_and_evidence(
     configure_test_machine(test_db, tmp_path, monkeypatch)
     requirement_id = _case_requirement(test_db, item_id)
     submission = _local_case_submission(requirement_id)
-    request = baseline_group_request(
+    request = machine_case_request(
         requirement_id,
         function="test_machine.case.submit",
         payload=submission.payload,
@@ -175,7 +175,7 @@ def test_baseline_group_replay_reuses_every_canonical_case(
         requirement_ids[0],
         baseline_group=True,
     )
-    request = baseline_group_request(
+    request = machine_case_request(
         requirement_ids[0],
         function="test_machine.baseline_group.submit",
         payload=submission.payload,
@@ -276,7 +276,7 @@ def test_invalid_group_submission_preserves_lease_without_runs(
     invalid_payload["results"][-1]["evidence"]["machine"] = "wrong-machine"
 
     rejected = handle_baseline_group_submit(
-        baseline_group_request(
+        machine_case_request(
             requirement_ids[0],
             function="test_machine.baseline_group.submit",
             payload=invalid_payload,
@@ -305,7 +305,7 @@ def test_case_release_failure_rolls_back_run_and_evidence(
         _reject_release,
     )
     rejected = handle_case_submit(
-        baseline_group_request(
+        machine_case_request(
             requirement_id,
             function="test_machine.case.submit",
             payload=submission.payload,

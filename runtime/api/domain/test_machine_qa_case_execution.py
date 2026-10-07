@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.domain.machine_qa_baseline_group_test_support import (
+from runtime.api.domain.machine_qa_host_test_support import (
     materialize_installer_campaign,
 )
 from yoke_core.domain.handlers.machine_qa_case import (

@@ -200,6 +200,8 @@ def case_contract(
             "expected_outcome": "The recipe completes.",
             "method_config": method_config or recipe_config(),
             "host_baseline": host_baseline,
+            "starting_state": "baseline" if host_baseline else "as_is",
+            "starting_state_reason": None if host_baseline else "fixture host",
             "entry_surface": "yoke test",
             "required_completion": "done",
             "workflow_transition_id": None,

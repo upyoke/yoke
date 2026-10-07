@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.domain.machine_qa_baseline_group_test_support import (
+from runtime.api.domain.machine_qa_host_test_support import (
     TEST_MACHINE_SETTINGS,
     _terminal_recipe,
     configure_test_machine,

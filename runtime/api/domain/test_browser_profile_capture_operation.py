@@ -10,7 +10,7 @@ from runtime.api.domain.machine_operation_test_support import (
     run_operation,
     MACHINE,
 )
-from runtime.api.domain.machine_qa_baseline_group_test_support import (
+from runtime.api.domain.machine_qa_host_test_support import (
     TEST_MACHINE_SETTINGS,
     configure_test_machine,
 )
