@@ -13,10 +13,11 @@ class TestRefusalMessage:
         assert "0003_c" in message
         assert "per environment" in message
 
-    def test_default_refusal_teaches_project_generic_rehearsal(self):
+    def test_default_refusal_teaches_the_project_fleet_preflight(self):
         message = refusal.refusal_message("prod", ["0002_b"])
-        assert "yoke migration rehearse" in message
-        assert "--help" in message
+        assert "yoke watch preflight -- --project <project>" in message
+        assert "--record-receipt" in message
+        assert "yoke migration rehearse" not in message
         assert "preflight_fleet_migrations" not in message
         assert "runtime.api.tools" not in message
 

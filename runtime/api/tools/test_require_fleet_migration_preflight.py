@@ -83,7 +83,7 @@ def test_refusal_recipe_records_on_the_gate_connection(monkeypatch, capsys) -> N
 
     refusal = capsys.readouterr().err
     assert "release unsafe before tag" in refusal
-    assert "yoke watch preflight -- prod" in refusal
+    assert "yoke watch preflight -- --project yoke prod" in refusal
     assert "--engine-wheel <yoke_core-wheel-from-yoke-build-artifacts>" not in refusal
     assert "--record-receipt --product-sha <sha>" in refusal
     assert "--receipt-env prod" in refusal
@@ -101,7 +101,7 @@ def test_refusal_recipe_requires_explicit_connection_without_ambient_env(
     assert preflight.main(["prod", "abc123"]) == 1
 
     refusal = capsys.readouterr().err
-    assert "yoke watch preflight -- prod" in refusal
+    assert "yoke watch preflight -- --project yoke prod" in refusal
     assert "--receipt-env <control-plane-connection>" in refusal
 
 
@@ -130,7 +130,7 @@ def test_refusal_names_every_environment_missing_a_receipt(monkeypatch, capsys) 
     assert "release unsafe before tag" in refusal
     assert "per environment" in refusal
     assert "for prod" in refusal
-    assert "yoke watch preflight -- prod" in refusal
+    assert "yoke watch preflight -- --project yoke prod" in refusal
     assert "yoke-build-artifacts" in refusal
     assert "commit abc123" in refusal
 
@@ -145,7 +145,7 @@ def test_one_environment_receipt_does_not_cover_the_other(monkeypatch, capsys) -
     refusal = capsys.readouterr().err
     assert "release unsafe before tag" in refusal
     assert "for stage" in refusal
-    assert "yoke watch preflight -- stage" in refusal
+    assert "yoke watch preflight -- --project yoke stage" in refusal
 
 
 def test_unavailable_receipt_query_is_not_reported_as_unsafe(

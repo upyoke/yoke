@@ -47,14 +47,16 @@ _QUERY_TIMEOUT_SECONDS = 120
 _BUILD_ARTIFACTS_WORKFLOW = "yoke-build-artifacts.yml"
 
 
-def _yoke_fleet_rehearse_command(environment: str, receipt_connection: str = "") -> str:
-    """Yoke source-dev fleet adapter recipe for the refusal unblock line."""
+def _fleet_rehearse_command(
+    project: str, environment: str, receipt_connection: str = ""
+) -> str:
+    """The fleet preflight recipe for the refusal unblock line."""
     receipt_env = receipt_connection.strip()
     receipt_env_arg = (
         shlex.quote(receipt_env) if receipt_env else "<control-plane-connection>"
     )
     return (
-        "yoke watch preflight -- "
+        f"yoke watch preflight -- --project {project} "
         f"{environment} --record-receipt --product-sha <sha> "
         f"--receipt-env {receipt_env_arg}"
     )
@@ -248,7 +250,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             missing_by_env,
             product_sha=product_sha,
             rehearse_commands={
-                env: _yoke_fleet_rehearse_command(env, receipt_env)
+                env: _fleet_rehearse_command(project, env, receipt_env)
                 for env, missing in missing_by_env.items()
                 if missing
             },
@@ -267,7 +269,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 environment,
                 schema_digest,
                 product_sha=product_sha,
-                rehearse_command=_yoke_fleet_rehearse_command(environment, receipt_env),
+                rehearse_command=_fleet_rehearse_command(
+                    project, environment, receipt_env
+                ),
             ),
             file=sys.stderr,
         )

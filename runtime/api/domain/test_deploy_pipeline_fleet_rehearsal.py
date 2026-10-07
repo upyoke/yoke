@@ -1,4 +1,4 @@
-"""Hosted release fleet rehearsal before workflow dispatch."""
+"""Release fleet rehearsal before workflow dispatch, for every project."""
 
 from __future__ import annotations
 
@@ -12,13 +12,28 @@ _DIGEST = "a" * 64
 _RELEASE_SHA = "b" * 40
 _HISTORY = ("0001_first_entry", "0002_rewrite_rows")
 _RUN = "20260101T000000Z"
+_MODULES_DIR = "packages/yoke-core/src/yoke_core/domain/migrations"
 
 
-def _stage(
-    *,
-    name: str = rehearsal.HOSTED_RELEASE_STAGE,
-    workflow: str = rehearsal.HOSTED_RELEASE_WORKFLOW,
-) -> dict:
+def _model(fleet: dict | None) -> dict:
+    model: dict = {"runner": {"config": {"modules_dir": _MODULES_DIR}}}
+    if fleet is not None:
+        model["fleet"] = fleet
+    return model
+
+
+_ENGINE = _model({"kind": "engine_tenants"})
+
+
+def _declare(monkeypatch, models: dict) -> None:
+    capability = {"models": models} if models else {}
+    monkeypatch.setattr(
+        rehearsal.fleets, "read_capability", lambda _project: (capability, "")
+    )
+
+
+def _stage(*, workflow: str = "platform-release-bridge.yml") -> dict:
+    name = "hosted-release"
     config = {
         "name": name,
         "step_runner": "github-actions-workflow",
@@ -27,13 +42,15 @@ def _stage(
     return {"name": name, "step_runner": "github-actions-workflow", "config": config}
 
 
-def _dispatch(stage: dict, environment: str = "prod") -> tuple[int, str]:
+def _dispatch(
+    stage: dict, environment: str = "prod", project: str = "yoke"
+) -> tuple[int, str]:
     return deploy_pipeline_step_runners._dispatch_step_runner(
         stage,
         run_id="run-1",
         member_items=["1"],
         github_repo="upyoke/yoke",
-        project="yoke",
+        project=project,
         project_repo_path="/repo",
         branch="main",
         first_item="1",
@@ -62,9 +79,9 @@ def _stable_commit(monkeypatch) -> None:
         lambda _lineage, _repository: (_RELEASE_SHA, ""),
     )
     monkeypatch.setattr(
-        rehearsal,
-        "digest_schema_shape_commit",
-        lambda _repository, _sha: _DIGEST,
+        rehearsal.fleets,
+        "schema_shape_digest_at",
+        lambda _fleet, _repository, _sha: _DIGEST,
     )
     monkeypatch.setattr(
         rehearsal.deploy_pipeline_environment,
@@ -73,12 +90,13 @@ def _stable_commit(monkeypatch) -> None:
     )
 
 
-def _stable_release(monkeypatch) -> None:
+def _stable_release(monkeypatch, models: dict | None = None) -> None:
     _stable_commit(monkeypatch)
+    _declare(monkeypatch, {"primary": _ENGINE} if models is None else models)
     monkeypatch.setattr(
         rehearsal,
         "_release_history",
-        lambda _project, _repository, _sha: (_HISTORY, ""),
+        lambda _repository, _sha, _modules_dir: (_HISTORY, ""),
     )
 
 
@@ -96,6 +114,10 @@ def test_uncovered_release_rehearses_records_then_dispatches(monkeypatch) -> Non
     def run_preflight(args: list[str]) -> int:
         events.append("rehearsal")
         assert args == [
+            "--project",
+            "yoke",
+            "--model",
+            "primary",
             "prod",
             "--record-receipt",
             "--product-sha",
@@ -184,7 +206,7 @@ def test_entry_covered_for_one_environment_rehearses_only_the_other(
         return (by_environment[name], "")
 
     def run_preflight(args: list[str]) -> int:
-        rehearsed.append(args[0])
+        rehearsed.append(args[4])
         by_environment["stage"] = _covered()
         return 0
 
@@ -241,21 +263,6 @@ def test_passing_rehearsal_without_covering_receipt_stops_dispatch(
     workflow.assert_not_called()
 
 
-def test_other_workflows_do_not_enter_the_internal_rehearsal(monkeypatch) -> None:
-    coverage = mock.Mock(side_effect=AssertionError("unexpected receipt read"))
-    workflow = mock.Mock(return_value=(0, ""))
-    monkeypatch.setattr(rehearsal, "_coverage", coverage)
-    monkeypatch.setattr(
-        deploy_pipeline_step_runners,
-        "_dispatch_github_actions_workflow",
-        workflow,
-    )
-
-    assert _dispatch(_stage(workflow="customer-release.yml")) == (0, "")
-    coverage.assert_not_called()
-    workflow.assert_called_once()
-
-
 def test_unreadable_coverage_stops_dispatch_rather_than_rehearsing(
     monkeypatch,
 ) -> None:
@@ -292,10 +299,9 @@ def test_unresolvable_history_stops_dispatch_rather_than_rehearsing(
     # A release whose entries cannot be enumerated would otherwise read as a
     # release carrying none, which is the silent pass this gate removes.
     _stable_commit(monkeypatch)
-    monkeypatch.setattr(
-        rehearsal,
-        "_modules_dir",
-        lambda _project: ("", "could not resolve the migration_model history"),
+    _declare(
+        monkeypatch,
+        {"primary": {"runner": {"config": {}}, "fleet": {"kind": "engine_tenants"}}},
     )
     coverage = mock.Mock(side_effect=AssertionError("unexpected receipt read"))
     workflow = mock.Mock(return_value=(0, ""))
@@ -311,7 +317,7 @@ def test_unresolvable_history_stops_dispatch_rather_than_rehearsing(
     rc, diagnostic = _dispatch(_stage())
 
     assert rc == 1
-    assert "migration_model history" in diagnostic
+    assert "runner.config.modules_dir" in diagnostic
     coverage.assert_not_called()
     run_preflight.assert_not_called()
     workflow.assert_not_called()

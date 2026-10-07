@@ -15,12 +15,12 @@ from yoke_core.domain.migration_preflight_receipt import (
     target_environment_for_admin_env,
 )
 
-#: Project-generic unblock recipe. Callers that own a fleet adapter (for
-#: example Yoke's release gate) inject that recipe via ``rehearse_command``;
-#: the default must not name any project's source-dev path.
+#: Project-generic unblock recipe: the one fleet preflight every project's
+#: declared migration-model fleet runs through. Callers that know the project
+#: and environment inject the filled-in command via ``rehearse_command``.
 _DEFAULT_REHEARSE_COMMAND = (
-    "yoke migration rehearse <item>  # see --help; use the project-owned "
-    "fleet binding for fleet coverage before release"
+    "yoke watch preflight -- --project <project> <environment> "
+    "--record-receipt --product-sha <sha> --receipt-env <control-plane>"
 )
 
 
@@ -33,9 +33,8 @@ def refusal_message(
 ) -> str:
     """Why this release stops, and the one command that unblocks it.
 
-    ``rehearse_command`` is the project-owned fleet recipe when a caller
-    has one. Empty keeps the message project-generic so shared domain code
-    never teaches a single project's source-dev adapter.
+    ``rehearse_command`` is the filled-in preflight recipe when the caller
+    knows the project and environment; empty teaches the generic shape.
     """
     listed = ", ".join(missing)
     build = f" at {product_sha}" if product_sha.strip() else ""

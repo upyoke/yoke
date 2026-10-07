@@ -5,24 +5,35 @@ from __future__ import annotations
 import re
 from typing import Any, Dict
 
+from yoke_core.domain.migration_model_fleet import validate_fleet
+from yoke_core.domain.migration_model_runner_validation import (
+    RUNNER_KIND_GOVERNED_MODULE,
+    validate_runner,
+)
+
 CAPABILITY_TYPE = "migration_model"
 RECIPE_WEBAPP_SQLITE_EMPTY = "webapp_sqlite_empty"
-RUNNER_KIND_GOVERNED_MODULE = "governed_migration_module"
-_LIVE_PAIRINGS = frozenset({
-    ("sqlite_file", "worktree_local_sqlite", RUNNER_KIND_GOVERNED_MODULE),
-    ("postgres", "external_validation", RUNNER_KIND_GOVERNED_MODULE),
-})
+_LIVE_PAIRINGS = frozenset(
+    {
+        ("sqlite_file", "worktree_local_sqlite", RUNNER_KIND_GOVERNED_MODULE),
+        ("postgres", "external_validation", RUNNER_KIND_GOVERNED_MODULE),
+    }
+)
 _ALL_AUTHORITATIVE_DB_KINDS = frozenset({"sqlite_file", "postgres", "mysql"})
-_ALL_VALIDATION_SURFACE_KINDS = frozenset({
-    "worktree_local_sqlite", "staging_db", "ephemeral_container", "external_validation",
-})
-_ALL_RUNNER_KINDS = frozenset({
-    RUNNER_KIND_GOVERNED_MODULE,
-    "external_adapter",
-})
-_KNOWN_VALIDATION_RECIPES = frozenset({
-    RECIPE_WEBAPP_SQLITE_EMPTY,
-})
+_ALL_VALIDATION_SURFACE_KINDS = frozenset(
+    {
+        "worktree_local_sqlite",
+        "staging_db",
+        "ephemeral_container",
+        "external_validation",
+    }
+)
+_ALL_RUNNER_KINDS = frozenset({RUNNER_KIND_GOVERNED_MODULE, "external_adapter"})
+_KNOWN_VALIDATION_RECIPES = frozenset(
+    {
+        RECIPE_WEBAPP_SQLITE_EMPTY,
+    }
+)
 _MODEL_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
 
@@ -50,9 +61,7 @@ def _require_slug(value: Any, *, field: str) -> str:
     return value
 
 
-def _require_kind(
-    value: Any, *, field: str, vocabulary: frozenset, label: str
-) -> str:
+def _require_kind(value: Any, *, field: str, vocabulary: frozenset, label: str) -> str:
     if not isinstance(value, str):
         raise MigrationModelCapabilityError(
             f"{field} must be a string; got {type(value).__name__}"
@@ -115,13 +124,13 @@ def _validate_authoritative_db(value: Any) -> Dict[str, Any]:
             "secret_arn_output",
         }
         missing = [
-            key for key in sorted(required)
+            key
+            for key in sorted(required)
             if not isinstance(loc.get(key), str) or not loc.get(key)
         ]
         if missing:
             raise MigrationModelCapabilityError(
-                "authoritative_db.location missing required postgres keys: "
-                f"{missing}"
+                f"authoritative_db.location missing required postgres keys: {missing}"
             )
         out = {
             "stack": loc["stack"],
@@ -160,7 +169,9 @@ def _validate_validation_surface(value: Any) -> Dict[str, Any]:
         label="validation_surface",
     )
     if kind == "worktree_local_sqlite":
-        prov = _require_dict(obj.get("provisioning"), field="validation_surface.provisioning")
+        prov = _require_dict(
+            obj.get("provisioning"), field="validation_surface.provisioning"
+        )
         extra_prov = set(prov.keys()) - {"path", "recipe"}
         if extra_prov:
             raise MigrationModelCapabilityError(
@@ -185,7 +196,9 @@ def _validate_validation_surface(value: Any) -> Dict[str, Any]:
             )
         return {"kind": kind, "provisioning": {"path": path, "recipe": recipe}}
     if kind == "external_validation":
-        prov = _require_dict(obj.get("provisioning"), field="validation_surface.provisioning")
+        prov = _require_dict(
+            obj.get("provisioning"), field="validation_surface.provisioning"
+        )
         extra_prov = set(prov.keys()) - {"trigger", "evidence_contract"}
         if extra_prov:
             raise MigrationModelCapabilityError(
@@ -208,72 +221,9 @@ def _validate_validation_surface(value: Any) -> Dict[str, Any]:
     )
 
 
-def _validate_runner(value: Any) -> Dict[str, Any]:
-    obj = _require_dict(value, field="runner")
-    extra = set(obj.keys()) - {"kind", "config"}
-    if extra:
-        raise MigrationModelCapabilityError(
-            f"runner has unknown keys: {sorted(extra)}"
-        )
-    kind = _require_kind(
-        obj.get("kind"),
-        field="runner.kind",
-        vocabulary=_ALL_RUNNER_KINDS,
-        label="runner",
-    )
-    if kind == RUNNER_KIND_GOVERNED_MODULE:
-        cfg = _require_dict(obj.get("config"), field="runner.config")
-        extra_cfg = set(cfg.keys()) - {
-            "modules_dir", "connection_env_var", "artifact_version_env_var",
-            "ledger",
-        }
-        if extra_cfg:
-            raise MigrationModelCapabilityError(
-                f"runner.config has unknown keys for governed_migration_module: "
-                f"{sorted(extra_cfg)}"
-            )
-        modules_dir = cfg.get("modules_dir")
-        if not isinstance(modules_dir, str) or not modules_dir:
-            raise MigrationModelCapabilityError(
-                "runner.config.modules_dir must be a non-empty string"
-            )
-        conn_env = cfg.get("connection_env_var")
-        if not isinstance(conn_env, str) or not conn_env:
-            raise MigrationModelCapabilityError(
-                "runner.config.connection_env_var must be a non-empty string"
-            )
-        if "ledger" not in cfg:
-            raise MigrationModelCapabilityError(
-                "runner.config.ledger is required; a governed migration "
-                "model must declare membership, content-digest, and "
-                "serving-floor columns"
-            )
-        from yoke_core.domain import migration_ledger_contract
-        config: Dict[str, Any] = {
-            "modules_dir": modules_dir,
-            "connection_env_var": conn_env,
-            "ledger": migration_ledger_contract.runner_config_ledger(
-                cfg["ledger"], MigrationModelCapabilityError,
-            ),
-        }
-        artifact_version_env = cfg.get("artifact_version_env_var")
-        if artifact_version_env is not None:
-            if not isinstance(artifact_version_env, str) or not artifact_version_env:
-                raise MigrationModelCapabilityError(
-                    "runner.config.artifact_version_env_var must be a "
-                    "non-empty string when present"
-                )
-            config["artifact_version_env_var"] = artifact_version_env
-        return {"kind": kind, "config": config}
-    raise MigrationModelCapabilityError(
-        f"runner.kind '{kind}' is recognized but the combination "
-        f"is not yet supported in this slice"
-    )
-
-
 def _validate_model(name: str, raw: Any) -> Dict[str, Any]:
     obj = _require_dict(raw, field=f"models[{name!r}]")
-    extra = set(obj.keys()) - {"authoritative_db", "validation_surface", "runner"}
+    extra = set(obj) - {"authoritative_db", "validation_surface", "runner", "fleet"}
     if extra:
         raise MigrationModelCapabilityError(
             f"models[{name!r}] has unknown keys: {sorted(extra)}"
@@ -285,7 +235,9 @@ def _validate_model(name: str, raw: Any) -> Dict[str, Any]:
         )
     authoritative_db = _validate_authoritative_db(obj["authoritative_db"])
     validation_surface = _validate_validation_surface(obj["validation_surface"])
-    runner = _validate_runner(obj["runner"])
+    runner = validate_runner(
+        obj["runner"], MigrationModelCapabilityError, runner_kinds=_ALL_RUNNER_KINDS
+    )
 
     pairing = (
         authoritative_db["kind"],
@@ -299,11 +251,14 @@ def _validate_model(name: str, raw: Any) -> Dict[str, Any]:
             f"runner.kind={pairing[2]} is recognized but not yet supported in this slice"
         )
 
-    return {
+    out = {
         "authoritative_db": authoritative_db,
         "validation_surface": validation_surface,
         "runner": runner,
     }
+    if "fleet" in obj:
+        out["fleet"] = validate_fleet(obj["fleet"], MigrationModelCapabilityError)
+    return out
 
 
 def validate(payload: Any) -> Dict[str, Any]:
@@ -330,9 +285,7 @@ def validate(payload: Any) -> Dict[str, Any]:
     for name, spec in models_raw.items():
         _require_slug(name, field="models key")
         if name in models_out:
-            raise MigrationModelCapabilityError(
-                f"models has duplicate name '{name}'"
-            )
+            raise MigrationModelCapabilityError(f"models has duplicate name '{name}'")
         models_out[name] = _validate_model(name, spec)
 
     result: Dict[str, Any] = {"models": models_out}
