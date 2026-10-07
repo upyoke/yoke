@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import getpass
 import os
 import subprocess
 from pathlib import Path
@@ -163,14 +162,14 @@ class _BirthHarness:
         monkeypatch.setattr(
             lu,
             "_ensure_human_actor",
-            lambda emit: self.calls.append("human") or 7,
+            lambda emit, admin_name: self.calls.append("human") or 7,
         )
 
 
 def test_birth_bootstraps_fresh_universe_under_pinned_dsn(monkeypatch):
     harness = _BirthHarness(monkeypatch, already_born=False)
 
-    report = lu.birth(org_name="Proof Org", emit=lambda _l: None)
+    report = lu.birth(org_name="Proof Org", admin_name="Ada Lovelace")
 
     assert report["born"] is True
     assert report["repaired"] is False
@@ -186,9 +185,9 @@ def test_birth_bootstraps_fresh_universe_under_pinned_dsn(monkeypatch):
     ]
     assert harness.dsn_at_bootstrap == report["dsn"]
     assert "dbname=yoke" in report["dsn"]
-    # The universe owner's OS login rides the pinned env injection so the
-    # init chain's canonical-actor seeding labels the human actor with it.
-    assert harness.name_env_at_bootstrap == getpass.getuser()
+    # The installer's name rides the pinned env injection so the init
+    # chain's canonical-actor seeding names the first admin for them.
+    assert harness.name_env_at_bootstrap == "Ada Lovelace"
 
 
 def test_birth_verifies_live_universe_without_rebootstrapping(monkeypatch):
@@ -314,10 +313,10 @@ def test_run_bootstrap_seeds_human_actor_with_injected_label(tmp_path, monkeypat
     assert labels == ["composition-owner"]
 
 
-def test_birth_composition_names_os_login_and_repairs_half_born(monkeypatch):
+def test_birth_composition_names_installer_and_repairs_half_born(monkeypatch):
     """End-to-end birth against a REAL fresh database (cluster seams stubbed):
-    the fresh birth runs the real bootstrap and names the human actor after
-    the OS login; emptying a sentinel table afterwards simulates a half-born
+    the fresh birth runs the real bootstrap and names the human actor for
+    the installer; emptying a sentinel table afterwards simulates a half-born
     universe, and the re-run detects it via verification and repairs it."""
     from runtime.api.fixtures import pg_testdb
     from yoke_core.domain import db_helpers
@@ -332,7 +331,7 @@ def test_birth_composition_names_os_login_and_repairs_half_born(monkeypatch):
     monkeypatch.setattr(lu, "start", lambda spec, emit: {"running": True})
     monkeypatch.setattr(lu, "local_dsn", lambda spec=None: dsn)
     try:
-        first = lu.birth(org_name="Composition Org", emit=lambda _l: None)
+        first = lu.birth(org_name="Composition Org", admin_name="Ada Lovelace")
         assert first["born"] is True
         assert first["repaired"] is False
         assert first["verified"]["organizations"] >= 1
@@ -353,7 +352,7 @@ def test_birth_composition_names_os_login_and_repairs_half_born(monkeypatch):
                 conn.commit()
             finally:
                 conn.close()
-        assert labels == [getpass.getuser()]
+        assert labels == ["Ada Lovelace"]
 
         rerun = lu.birth(org_name=None, emit=lambda _l: None)
         assert rerun["born"] is False  # liveness probe still sees the org card

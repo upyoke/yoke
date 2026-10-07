@@ -25,6 +25,8 @@ from yoke_contracts.server_image import (
     pinned_server_image,
 )
 
+ADMIN_NAME_ARGS = ("--admin-name", "Ada Lovelace")
+
 
 @pytest.fixture()
 def target(tmp_path) -> Path:
@@ -40,7 +42,7 @@ def _password(target: Path) -> str:
 
 
 def test_init_does_not_create_an_empty_token_file(target, capsys):
-    assert commands.self_host_init(["--dir", str(target)]) == 0
+    assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
     assert not first_boot_token.token_drop_path(target).exists()
     compose = (target / "docker-compose.yml").read_text()
     assert "YOKE_SELF_HOST_HANDOFF: required" in compose
@@ -65,7 +67,7 @@ def test_init_does_not_create_an_empty_token_file(target, capsys):
 def test_init_warns_once_for_network_publish(
     target, capsys, monkeypatch, publish, warns, start, json_mode
 ):
-    assert commands.self_host_init(["--dir", str(target)]) == 0
+    assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
     assert capsys.readouterr().err == ""
     env_path = target / ".env"
     env_path.write_text(env_path.read_text().replace("127.0.0.1:8765", publish))
@@ -87,25 +89,28 @@ def test_init_warns_once_for_network_publish(
 
 
 def test_init_never_truncates_an_already_delivered_token(target):
-    assert commands.self_host_init(["--dir", str(target)]) == 0
+    assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
     token_file = first_boot_token.token_drop_path(target)
     token_file.touch(mode=0o600)
     token_file.write_text("yoke_v1_" + ("A" * 43) + "\n", encoding="utf-8")
 
-    assert commands.self_host_init(["--dir", str(target), "--force"]) == 0
+    assert (
+        commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target), "--force"])
+        == 0
+    )
 
     assert first_boot_token.read_first_boot_token(target) == "yoke_v1_" + ("A" * 43)
 
 
 def test_existing_bundle_needs_no_token_until_first_boot(target):
-    assert commands.self_host_init(["--dir", str(target)]) == 0
+    assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
     assert commands.self_host_init(["--dir", str(target), "--protect-existing"]) == 0
     assert not first_boot_token.token_drop_path(target).exists()
     assert bundle.validate_existing_bundle(directory=str(target)) == target.resolve()
 
 
 def test_init_writes_bundle_file_set_with_owner_only_secrets(target, capsys):
-    assert commands.self_host_init(["--dir", str(target)]) == 0
+    assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
 
     compose = (target / "docker-compose.yml").read_text(encoding="utf-8")
     assert "postgres:17" in compose
@@ -170,7 +175,7 @@ def test_init_ships_browser_sign_in_wiring_disabled(target):
     compose file passes the env knobs through (blank = disabled) and
     names a secret-file slot; .env documents the enable steps without
     activating anything."""
-    assert commands.self_host_init(["--dir", str(target)]) == 0
+    assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
 
     compose = (target / "docker-compose.yml").read_text(encoding="utf-8")
     assert "YOKE_OIDC_ISSUER: ${YOKE_OIDC_ISSUER:-}" in compose
@@ -187,7 +192,7 @@ def test_init_ships_browser_sign_in_wiring_disabled(target):
 
 
 def test_init_ships_github_app_secret_wiring_disabled(target):
-    assert commands.self_host_init(["--dir", str(target)]) == 0
+    assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
 
     compose = (target / "docker-compose.yml").read_text(encoding="utf-8")
     assert "YOKE_GITHUB_APP_ISSUER: ${YOKE_GITHUB_APP_ISSUER:-}" in compose
@@ -216,7 +221,7 @@ def test_init_ships_github_app_secret_wiring_disabled(target):
 
 
 def test_init_uses_self_host_only_root_bootstrap_for_core_secrets(target):
-    assert commands.self_host_init(["--dir", str(target)]) == 0
+    assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
 
     compose = (target / "docker-compose.yml").read_text(encoding="utf-8")
     assert 'user: "0:0"' in compose
@@ -237,7 +242,9 @@ def test_init_uses_self_host_only_root_bootstrap_for_core_secrets(target):
 
 
 def test_init_json_report_omits_secrets(target, capsys):
-    assert commands.self_host_init(["--dir", str(target), "--json"]) == 0
+    assert (
+        commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target), "--json"]) == 0
+    )
     report = json.loads(capsys.readouterr().out)
     assert report["ok"] is True
     assert report["image"] == release_target.current_release_target().image
@@ -251,6 +258,7 @@ def test_init_port_and_image_overrides(target):
     assert (
         commands.self_host_init(
             [
+                *ADMIN_NAME_ARGS,
                 "--dir",
                 str(target),
                 "--port",
@@ -267,17 +275,20 @@ def test_init_port_and_image_overrides(target):
 
 
 def test_init_refuses_clobber_without_force(target, capsys):
-    assert commands.self_host_init(["--dir", str(target)]) == 0
+    assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
     first_password = _password(target)
     capsys.readouterr()
 
-    assert commands.self_host_init(["--dir", str(target)]) == 1
+    assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 1
     err = capsys.readouterr().err
     assert "--force" in err
     assert first_password not in err
     assert _password(target) == first_password
 
-    assert commands.self_host_init(["--dir", str(target), "--force"]) == 0
+    assert (
+        commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target), "--force"])
+        == 0
+    )
     assert _password(target) != first_password
 
 
@@ -313,7 +324,9 @@ def test_init_pins_the_image_matching_the_installed_cli_release(
 
     monkeypatch.setattr(release_target, "_FETCH_BYTES", fetch)
 
-    assert commands.self_host_init(["--dir", str(target), "--json"]) == 0
+    assert (
+        commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target), "--json"]) == 0
+    )
     report = json.loads(capsys.readouterr().out)
     env_text = (target / ".env").read_text(encoding="utf-8")
     expected = pinned_server_image(source_commit)

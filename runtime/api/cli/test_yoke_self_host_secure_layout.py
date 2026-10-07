@@ -9,6 +9,8 @@ import pytest
 from yoke_cli.commands import self_host as commands
 from yoke_cli.self_host import secure_layout
 
+ADMIN_NAME_ARGS = ("--admin-name", "Ada Lovelace")
+
 
 def test_init_refuses_secrets_symlink_before_external_write(tmp_path, capsys):
     target = tmp_path / "bundle"
@@ -19,7 +21,7 @@ def test_init_refuses_secrets_symlink_before_external_write(tmp_path, capsys):
     sentinel.write_bytes(b"keep\n")
     (target / "secrets").symlink_to(external, target_is_directory=True)
 
-    assert commands.self_host_init(["--dir", str(target)]) == 1
+    assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 1
     error = capsys.readouterr().err
     assert "real directory, not a symlink" in error
     assert sentinel.read_bytes() == b"keep\n"
@@ -40,7 +42,7 @@ def test_init_refuses_tracked_worktree_symlink_to_external_bundle(
     target.symlink_to(external, target_is_directory=True)
     subprocess.run(["git", "-C", str(repo), "add", "bundle"], check=True)
 
-    assert commands.self_host_init(["--dir", str(target)]) == 1
+    assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 1
     error = capsys.readouterr().err
     assert "Git-worktree symlink" in error
     assert list(external.iterdir()) == []
@@ -48,7 +50,7 @@ def test_init_refuses_tracked_worktree_symlink_to_external_bundle(
 
 def test_protect_existing_refuses_insecure_secrets_mode(tmp_path, capsys):
     target = tmp_path / "bundle"
-    assert commands.self_host_init(["--dir", str(target)]) == 0
+    assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
     capsys.readouterr()
     password = (target / "secrets" / "db-password").read_bytes()
     (target / "secrets").chmod(0o755)
@@ -71,7 +73,7 @@ def test_protect_existing_refuses_insecure_secrets_mode(tmp_path, capsys):
 
 def test_protect_existing_refuses_symlinked_database_secret(tmp_path, capsys):
     target = tmp_path / "bundle"
-    assert commands.self_host_init(["--dir", str(target)]) == 0
+    assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
     capsys.readouterr()
     password_path = target / "secrets" / "db-password"
     external = tmp_path / "external-password"
@@ -96,7 +98,7 @@ def test_protect_existing_refuses_symlinked_database_secret(tmp_path, capsys):
 
 def test_protect_existing_refuses_exposed_database_secret(tmp_path, capsys):
     target = tmp_path / "bundle"
-    assert commands.self_host_init(["--dir", str(target)]) == 0
+    assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
     capsys.readouterr()
     password_path = target / "secrets" / "db-password"
     password_path.chmod(0o644)
@@ -109,7 +111,7 @@ def test_protect_existing_refuses_exposed_database_secret(tmp_path, capsys):
 
 def test_protect_existing_refuses_symlinked_env(tmp_path, capsys):
     target = tmp_path / "bundle"
-    assert commands.self_host_init(["--dir", str(target)]) == 0
+    assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
     capsys.readouterr()
     env_path = target / ".env"
     external = tmp_path / "external-env"
@@ -135,7 +137,7 @@ def test_force_replaces_env_symlink_without_touching_external_file(
     capsys,
 ):
     target = tmp_path / "bundle"
-    assert commands.self_host_init(["--dir", str(target)]) == 0
+    assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
     capsys.readouterr()
     env_path = target / ".env"
     external = tmp_path / "external-env"
@@ -146,6 +148,7 @@ def test_force_replaces_env_symlink_without_touching_external_file(
     assert (
         commands.self_host_init(
             [
+                *ADMIN_NAME_ARGS,
                 "--dir",
                 str(target),
                 "--force",
@@ -160,7 +163,7 @@ def test_force_replaces_env_symlink_without_touching_external_file(
 
 def test_existing_validation_rechecks_bundle_owner_control(tmp_path, monkeypatch):
     target = tmp_path / "bundle"
-    assert commands.self_host_init(["--dir", str(target)]) == 0
+    assert commands.self_host_init([*ADMIN_NAME_ARGS, "--dir", str(target)]) == 0
     real_euid = secure_layout.os.geteuid()
     monkeypatch.setattr(secure_layout.os, "geteuid", lambda: real_euid + 1)
 

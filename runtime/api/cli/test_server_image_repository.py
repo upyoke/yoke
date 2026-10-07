@@ -78,7 +78,9 @@ def test_configured_repository_selects_upgrade_and_initial_image(tmp_path, monke
     )
     target = tmp_path / "bundle"
     bundle.write_bundle(
-        directory=str(target), image="registry.example/private/yoke:old"
+        admin_name="Ada Lovelace",
+        directory=str(target),
+        image="registry.example/private/yoke:old",
     )
     monkeypatch.setattr(upgrade, "_require_packaged_install", lambda: None)
     monkeypatch.setattr(

@@ -47,7 +47,8 @@ def test_bootstrap_admin_outputs_raw_token_once_and_stores_only_hash(tokendb, ca
 
 
 def test_bootstrap_admin_binds_the_universes_human_and_grants_org_admin(
-    tokendb, capsys,
+    tokendb,
+    capsys,
 ):
     """No flags: the token binds the administrator this universe already has.
 
@@ -64,7 +65,7 @@ def test_bootstrap_admin_binds_the_universes_human_and_grants_org_admin(
     )
     was_called = actor_name(tokendb, existing)
 
-    rc = api_tokens_cli.main(["bootstrap-admin"])
+    rc = api_tokens_cli.main(["bootstrap-admin", "--actor-name", "Ada Lovelace"])
     assert rc == 0
     body = json_helper.loads_text(capsys.readouterr().out)
     assert body["actor_id"] == existing

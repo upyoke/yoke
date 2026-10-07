@@ -70,13 +70,13 @@ class _BirthHarness:
         monkeypatch.setattr(
             lu, "_ensure_org_card", lambda org_name, emit: {"slug": "default"}
         )
-        monkeypatch.setattr(lu, "_ensure_human_actor", lambda emit: 7)
+        monkeypatch.setattr(lu, "_ensure_human_actor", lambda emit, admin_name: 7)
 
 
 def test_birth_create_opens_owned_cluster_while_remote_marked(monkeypatch):
     harness = _BirthHarness(monkeypatch, already_born=False)
     with remote_control_plane():
-        report = lu.birth(org_name="Remote Org", emit=lambda _l: None)
+        report = lu.birth(org_name="Remote Org", admin_name="Ada Lovelace")
     assert report["born"] is True
     assert harness.calls == ["bootstrap"]
     assert harness.remote_during_work is False
@@ -103,7 +103,7 @@ def test_birth_under_remote_plane_bootstraps_real_schema(monkeypatch):
     monkeypatch.setattr(lu, "local_dsn", lambda spec=None: dsn)
     try:
         with remote_control_plane():
-            first = lu.birth(org_name="Remote Org", emit=lambda _l: None)
+            first = lu.birth(org_name="Remote Org", admin_name="Ada Lovelace")
         assert first["born"] is True
         assert first["verified"]["organizations"] >= 1
         assert remote_control_plane_active() is False

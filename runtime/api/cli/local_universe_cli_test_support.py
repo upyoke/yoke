@@ -30,7 +30,7 @@ def _stub_engine(
     if born:
         report["verified"] = {"organizations": 1, "actors": 1}
     return SimpleNamespace(
-        birth=lambda org_name, emit: dict(report),
+        birth=lambda org_name, admin_name, emit: dict(report),
         start=lambda emit: {"running": True},
         stop=lambda: {"running": False},
         status=lambda: {"running": False, "initialized": True},
