@@ -171,11 +171,17 @@ export function frontierBandRows({ items, readyRows, blockedRows, sessionRows })
     .map((row) => ({ row, reason: waitingReason(row, blockedByRef.get(reference(row))) }));
   const activeRefs = new Set(active.map(({ row }) => reference(row)));
 
+  // Only what stops an item starting makes it wait. An edge that holds back
+  // its merge or close leaves it free to build, so it stays where its work
+  // is and the graph draws the edge.
   const waiting = live
     .filter((row) => !activeRefs.has(reference(row)))
     .map((row) => {
       const ref = reference(row);
-      const reason = waitingReason(row, blockedByRef.get(ref))
+      const starting = (blockedByRef.get(ref) || []).filter(
+        (entry) => !entry.gate_point || entry.gate_point === "activation",
+      );
+      const reason = waitingReason(row, starting)
         || (heldByAnyLiveSession.has(ref) ? UNAVAILABLE_OWNER : null);
       return { row, reason };
     })

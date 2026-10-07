@@ -206,7 +206,8 @@ test("a frozen item others wait on stalls the graph rather than sitting On hold"
     (node) => node.getAttribute("data-fdv-ref") === "YOK-7",
   );
   assert.ok(frozen.classList.contains("is-stall"));
-  assert.equal(ownTextContent(byClass(frozen, "fdv-tile-meta")[0]), "Frozen");
+  assert.equal(ownTextContent(byClass(frozen, "fdv-tile-meta")[0]),
+    "Frozen — Waiting for a product decision.");
 });
 
 test("the project filter keeps a chain that crosses into the selected project", async (t) => {
@@ -240,4 +241,21 @@ test("a serving build without dependency edges refuses the graph by its floor", 
   }
   assert.match(DEPENDENCY_GRAPH_FLOOR_MESSAGE, /serving floor: next-release/);
   assert.equal(byClass(band("waiting"), "fdv-tile").length, 0);
+});
+
+test("an item only its merge waits on stays Ready, with its edge in the graph", async (t) => {
+  const { band, count } = await mount(t, "/frontier?project=1", {
+    ready_rows: [{ ...row("YOK-12", 1), item_id: "YOK-12", why_ready: "ready" }],
+    blocked_rows: [{
+      item_id: "YOK-12", project_id: 1, project: "yoke", blocking_item: "YOK-7",
+      gate_point: "integration", why: "lands after",
+    }],
+    dependency_edges: [edge("YOK-7", "YOK-12", { gate_point: "integration" })],
+  });
+  assert.equal(count("ready"), "1");
+  const tile = byClass(band("waiting"), "fdv-tile").find(
+    (node) => node.getAttribute("data-fdv-ref") === "YOK-12",
+  );
+  assert.equal(tile.getAttribute("data-band"), "ready");
+  assert.equal(ownTextContent(byClass(tile, "fdv-tile-meta")[0]), "Stuck upstream: YOK-7");
 });

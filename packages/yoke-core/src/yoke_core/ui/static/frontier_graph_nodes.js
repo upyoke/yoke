@@ -31,6 +31,14 @@ function rowNode(row, band, extra = {}) {
   };
 }
 
+// What holds a waiting item that is not waiting on other work: the
+// condition, with the operator's own reason when one was given.
+function heldReason(row, reason) {
+  if (reason.flag.tone === "dependency") return null;
+  const own = (reason.flag.tone === "frozen" || reason.flag.tone === "blocked") && row.blocked_reason;
+  return own ? `${reason.flag.label} — ${row.blocked_reason}` : reason.flag.label;
+}
+
 function edgeOf(row) {
   return {
     from: row.blocking_item,
@@ -59,11 +67,7 @@ export function frontierGraphModel(bandRows, edgeRows, deploy) {
   const nodes = new Map();
   const put = (node) => { if (!nodes.has(node.ref)) nodes.set(node.ref, node); };
   for (const { row, reason } of bandRows.waiting) {
-    const dependency = reason.flag.tone === "dependency";
-    put(rowNode(row, "waiting", {
-      age: age("filed", row.created_at),
-      held: dependency ? null : reason.flag.label,
-    }));
+    put(rowNode(row, "waiting", { age: age("filed", row.created_at), held: heldReason(row, reason) }));
   }
   for (const { row } of bandRows.active) {
     put(rowNode(row, "active", { age: age("updated", row.updated_at) }));
