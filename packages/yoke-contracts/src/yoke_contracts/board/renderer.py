@@ -63,9 +63,18 @@ def render_board_from_payload(
     project is the payload's own ``vision_project``; a payload without one
     renders no vision zone.
     """
-    from yoke_contracts.board.data import ReplayBoardDB
+    from yoke_contracts.board.data import BoardDataError, ReplayBoardDB
     from yoke_contracts.board.project_scope import scoped_project_visibility
 
+    if vision_entries and "vision_project" not in payload:
+        raise BoardDataError(
+            "board_data_vision_owner_unavailable: the serving control plane's "
+            "board.data.get predates vision ownership (no vision_project in "
+            "its payload), so this client cannot replay the VISION zone. "
+            "Recovery: the board renders once the server runs a release "
+            "carrying vision_project; until then run the client release that "
+            "matches the server."
+        )
     replay = ReplayBoardDB.from_payload(payload)
     setattr(replay, "_phase_recorder", phase_recorder)
     visible_project_ids = payload.get("visible_project_ids")

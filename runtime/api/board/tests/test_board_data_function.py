@@ -16,7 +16,11 @@ import os
 from unittest import mock
 
 import pytest
-
+from yoke_contracts.api.function_call import (
+    ActorContext,
+    FunctionCallRequest,
+    TargetRef,
+)
 from yoke_contracts.board.art import ArtConfig
 from yoke_contracts.board.config import BoardConfig
 from yoke_core.board.renderer import render_board_from_payload
@@ -24,12 +28,8 @@ from yoke_core.domain import events as events_module
 from yoke_core.domain import yoke_function_dispatch as dispatch_module
 from yoke_core.domain.handlers import orchestration
 from yoke_core.domain.handlers.__init_register__ import register_all_handlers
-from yoke_contracts.api.function_call import (
-    ActorContext,
-    FunctionCallRequest,
-    TargetRef,
-)
 from yoke_core.domain.yoke_function_registry import reset_registry_for_tests
+
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.file_test_db import connect_test_db
 
@@ -171,21 +171,6 @@ def test_handler_vision_count_shapes_zen_plan(populated_db):
     assert zen_position_params(entries_for(0)) != zen_position_params(entries_for(3))
 
 
-def test_handler_without_settings_project_draws_no_vision(populated_db):
-    outcome = orchestration.handle_board_data_get(
-        _request(
-            {
-                "scope": "all",
-                "config_values": {"timeline_widget": "always"},
-                "zen_vision_count": 3,
-            }
-        )
-    )
-
-    assert outcome.primary_success
-    assert "vision_project" not in outcome.result_payload
-
-
 def test_handler_all_scope_filters_to_visible_project_ids(populated_db):
     conn = connect_test_db(populated_db)
     try:
@@ -249,10 +234,10 @@ class TestBoardDataOverHttpBoundary:
     @pytest.fixture(autouse=True)
     def _suite(self, populated_db):
         from fastapi.testclient import TestClient
+        from yoke_core.api.main import app
 
         from runtime.api.auth_test_helpers import mint_api_auth_context
         from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
-        from yoke_core.api.main import app
 
         with mock.patch.dict(os.environ, {"YOKE_DB": populated_db}, clear=False):
             reset_registry_for_tests()

@@ -4,17 +4,8 @@ from __future__ import annotations
 
 from unittest import mock
 
-import pytest
 from yoke_core.domain import deploy_health_check, deploy_pipeline_step_runners
 from yoke_core.domain.deploy_cli_manifest_gate import CliManifestGateResult
-
-
-@pytest.fixture(autouse=True)
-def _repo_is_yoke_source_checkout(monkeypatch):
-    """The dispatched repo path ships the Yoke CLI unless a test says otherwise."""
-    monkeypatch.setattr(
-        deploy_health_check, "is_yoke_source_checkout", lambda root: True
-    )
 
 
 def _dispatch(stage, **overrides):
@@ -71,6 +62,7 @@ class TestHealthCheckDispatch:
         fake_env = mock.Mock()
         fake_env.api_health_url = "https://api.example.com/v1/health"
         fake_env.git_branch = "main"
+        fake_env.serving_connection = "prod"
         with (
             mock.patch(
                 "yoke_core.domain.deploy_environment_settings."
@@ -120,6 +112,7 @@ class TestHealthCheckDispatch:
         fake_env = mock.Mock()
         fake_env.api_health_url = "https://api.example.com/v1/health"
         fake_env.git_branch = "main"
+        fake_env.serving_connection = "prod"
         lineage = "b" * 40
         with (
             mock.patch(
@@ -154,6 +147,7 @@ class TestHealthCheckDispatch:
         fake_env = mock.Mock()
         fake_env.api_health_url = "https://api.example.com/v1/health"
         fake_env.git_branch = "main"
+        fake_env.serving_connection = "prod"
         with (
             mock.patch(
                 "yoke_core.domain.deploy_environment_settings."
@@ -184,6 +178,7 @@ class TestHealthCheckDispatch:
         fake_env = mock.Mock()
         fake_env.api_health_url = "https://api.example.com/v1/health"
         fake_env.git_branch = "main"
+        fake_env.serving_connection = "prod"
         with (
             mock.patch(
                 "yoke_core.domain.deploy_environment_settings."
@@ -212,6 +207,7 @@ class TestHealthCheckDispatch:
         fake_env = mock.Mock()
         fake_env.api_health_url = "https://api.example.com/v1/health"
         fake_env.git_branch = "main"
+        fake_env.serving_connection = ""
         with (
             mock.patch(
                 "yoke_core.domain.deploy_environment_settings."
@@ -238,6 +234,7 @@ class TestHealthCheckDispatch:
         fake_env = mock.Mock()
         fake_env.api_health_url = "https://api.example.com/v1/health"
         fake_env.git_branch = "stage"
+        fake_env.serving_connection = "stage"
         with (
             mock.patch(
                 "yoke_core.domain.deploy_environment_settings."
@@ -269,6 +266,7 @@ class TestHealthCheckDispatch:
         fake_env = mock.Mock()
         fake_env.api_health_url = "https://api.example.com/v1/health"
         fake_env.git_branch = "main"
+        fake_env.serving_connection = "prod"
         with (
             mock.patch(
                 "yoke_core.domain.deploy_environment_settings."
@@ -298,6 +296,7 @@ class TestHealthCheckDispatch:
         fake_env = mock.Mock()
         fake_env.api_health_url = "https://api.example.com/v1/health"
         fake_env.git_branch = "main"
+        fake_env.serving_connection = ""
         with (
             mock.patch(
                 "yoke_core.domain.deploy_environment_settings."

@@ -20,7 +20,7 @@ Subcommands::
     init                                    Create/upgrade tables (idempotent)
     get <project-id> [--family F]           Whole structure or family slice
     patch <project-id> (--stdin|--ops-file) Apply an op list atomically
-    seed <project-id>                       Seed legible default entries
+    seed <project-id> --recipe R            Seed a named recipe's default entries
     family-list                             Print the frozen family vocabulary
 
 Exit codes: 0 success, 1 error, 2 usage.
@@ -206,7 +206,8 @@ def create_project_structure_tables(conn) -> None:
     """
     execute_schema_script(
         conn,
-        _projects_table_sql(if_not_exists=True) + """
+        _projects_table_sql(if_not_exists=True)
+        + """
         CREATE TABLE IF NOT EXISTS project_structure (
           id INTEGER PRIMARY KEY,
           project_id INTEGER NOT NULL REFERENCES projects(id),
@@ -223,7 +224,7 @@ def create_project_structure_tables(conn) -> None:
           ON project_structure(project_id);
         CREATE INDEX IF NOT EXISTS idx_project_structure_family
           ON project_structure(project_id, family);
-        """
+        """,
     )
     conn.commit()
 

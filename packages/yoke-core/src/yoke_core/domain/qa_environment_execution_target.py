@@ -20,6 +20,7 @@ from yoke_core.domain.environment_declared_facts import (
     MissingEnvironmentFact,
     endpoint_declaration_state,
     hosted_endpoints,
+    is_hosted_runtime,
     is_production,
     load_environment_settings,
 )
@@ -70,8 +71,11 @@ def environment_execution_target(
     settings = _decode(identity["settings"])
     environment_name = str(identity["environment_name"])
     endpoints = _generic_endpoints(identity, settings)
-    # A complete endpoint declaration is what selects the hosted snapshot.
-    if endpoint_declaration_state(settings) == "complete":
+    # A hosted runtime, or any complete endpoint declaration, selects the
+    # hosted snapshot; a hosted runtime missing an endpoint fact refuses.
+    if endpoint_declaration_state(settings) == "complete" or is_hosted_runtime(
+        settings
+    ):
         try:
             endpoints = hosted_endpoints(environment_name, settings)
         except MissingEnvironmentFact as exc:

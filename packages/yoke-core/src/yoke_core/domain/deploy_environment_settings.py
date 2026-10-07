@@ -81,6 +81,9 @@ class DeployEnvironment:
     # .git.branch: main<->prod, stage<->stage). Empty = no declared branch;
     # the env takes worktree/SHA deploys (the ephemeral tier).
     git_branch: str = ""
+    # HTTPS connection serving this environment's Yoke API
+    # (environments.settings.deploy.serving_connection). Empty = none declared.
+    serving_connection: str = ""
 
     @property
     def registry_host(self) -> str:
@@ -111,23 +114,20 @@ class DeployEnvironment:
     def ssh_target(self) -> str:
         return f"{self.ssh_user}@{self.origin_host}"
 
+
 def _require(value: Any, *, what: str, hint: str) -> Any:
     if value in (None, "", [], {}):
         raise DeployEnvironmentError(f"{what} is not configured; {hint}")
     return value
 
 
-def _capability(
-    settings: ProjectRendererSettings, capability: str
-) -> Dict[str, Any]:
+def _capability(settings: ProjectRendererSettings, capability: str) -> Dict[str, Any]:
     found = settings.capabilities.get(capability)
     if not isinstance(found, dict) or not found:
         raise DeployEnvironmentError(
             f"project '{settings.project}' is missing the '{capability}' "
             "capability; "
-            + _CAPABILITY_HINT.format(
-                project=settings.project, capability=capability
-            )
+            + _CAPABILITY_HINT.format(project=settings.project, capability=capability)
         )
     return found
 
@@ -137,11 +137,8 @@ def _capability_value(
 ) -> Any:
     return _require(
         _capability(settings, capability).get(key),
-        what=f"'{capability}' capability key '{key}' for project "
-        f"'{settings.project}'",
-        hint=_CAPABILITY_HINT.format(
-            project=settings.project, capability=capability
-        ),
+        what=f"'{capability}' capability key '{key}' for project '{settings.project}'",
+        hint=_CAPABILITY_HINT.format(project=settings.project, capability=capability),
     )
 
 
@@ -166,9 +163,7 @@ def deploy_environment_from_settings(
     settings: ProjectRendererSettings, env_name: str
 ) -> DeployEnvironment:
     """Pure projection of a settings snapshot onto one deploy environment."""
-    env = next(
-        (e for e in settings.environments if e.name == env_name), None
-    )
+    env = next((e for e in settings.environments if e.name == env_name), None)
     if env is None:
         available = ", ".join(e.name for e in settings.environments) or "none"
         raise DeployEnvironmentError(
@@ -238,20 +233,14 @@ def deploy_environment_from_settings(
         ),
         ssh_key_path=ssh_key_path,
         aws_region=str(aws_region),
-        aws_account_id=str(
-            _capability_value(settings, "aws-admin", "account_id")
-        ),
+        aws_account_id=str(_capability_value(settings, "aws-admin", "account_id")),
         repository_name=str(
             _capability_value(settings, "container-registry", "repository")
         ),
         api_port=int(_capability_value(settings, "webapp-runtime", "api_port")),
-        health_path=str(
-            _capability_value(settings, "health-endpoint", "health_path")
-        ),
+        health_path=str(_capability_value(settings, "health-endpoint", "health_path")),
         stack_name=str(
-            _require(
-                pulumi.get("stack_name"), what="pulumi.stack_name", hint=env_hint
-            )
+            _require(pulumi.get("stack_name"), what="pulumi.stack_name", hint=env_hint)
         ),
         activation_state=str(pulumi.get("activation_state") or "active"),
         state_backend=f"s3://{state_bucket}?region={aws_region}",
@@ -259,12 +248,13 @@ def deploy_environment_from_settings(
             _require(database.get("name"), what="database.name", hint=env_hint)
         ),
         origin_vps_stack_name=str(pulumi.get("origin_vps_stack_name") or ""),
-        otel_exporter_endpoint=str(
-            observability.get("otel_exporter_endpoint") or ""
-        ),
+        otel_exporter_endpoint=str(observability.get("otel_exporter_endpoint") or ""),
         github_app=github_app,
         api_origin=api_origin,
         git_branch=str(git.get("branch") or ""),
+        serving_connection=str(
+            _env_mapping(env.settings, "deploy").get("serving_connection") or ""
+        ).strip(),
     )
 
 
@@ -279,9 +269,7 @@ def declared_env_branch(project: str, environment: str) -> str:
     must not silently read as "no declared branch".
     """
     settings = load_project_renderer_settings(project)
-    env = next(
-        (e for e in settings.environments if e.name == environment), None
-    )
+    env = next((e for e in settings.environments if e.name == environment), None)
     if env is None:
         return ""
     git = _env_mapping(env.settings, "git")

@@ -62,6 +62,18 @@ ALLOWANCES: Tuple[Allowance, ...] = (
         "golden test scaffolding imported only by tests",
     ),
     Allowance(
+        "packages/yoke-core/src/yoke_core/domain/migrations/"
+        "0057_declare_hosted_runtime_consumer.py",
+        "_FORMER_HOST_PROJECT",
+        "permanent migration writing the former in-code rule into stored settings",
+    ),
+    Allowance(
+        "packages/yoke-core/src/yoke_core/domain/migrations/"
+        "0057_declare_hosted_runtime_consumer.py",
+        "_FORMER_CONSUMER_PROJECT",
+        "permanent migration writing the former in-code rule into stored settings",
+    ),
+    Allowance(
         "runtime/api/tools/preflight_fleet_migrations.py",
         "RECEIPT_PROJECT",
         "fleet receipts move to the declared migration model's owning project",

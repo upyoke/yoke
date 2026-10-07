@@ -155,8 +155,9 @@ def collect_board_data(
     }
     if normalized_visible is not None:
         payload["visible_project_ids"] = list(normalized_visible)
-    if vision_project:
-        payload["vision_project"] = vision_project
+    # Always present, so a client can tell "no owner" from a server that
+    # predates vision ownership.
+    payload["vision_project"] = vision_project or None
     return payload
 
 
