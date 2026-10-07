@@ -2,12 +2,14 @@
 
 A distribution channel such as ``latest`` is a mutable pointer that other
 releases move, so a QA install that follows it can test a release the
-candidate never pinned. A project whose deployments pin a Yoke release
-declares the ``release_pin`` capability; its ``desired_pin_path`` names the
-environment-settings leaf the deployment records. The frozen deployment
-target carries that pin as ``endpoints.release_version`` so install steps
-pass it to the installer (``--version`` / ``YOKE_VERSION``) through the
-bound installer origin.
+candidate never pinned. The environment's desired-pin settings leaf moves too:
+a later release records its own pin there. The only authority that cannot
+move is the deployed commit itself, so a project whose deployments pin a Yoke
+release names the file holding that pin in its ``release_pin`` capability
+(``candidate_pin_file``), and the frozen deployment target reads it at the
+exact commit the run delivered for that project. It carries the pin as
+``endpoints.release_version`` so install steps pass it to the installer
+(``--version`` / ``YOKE_VERSION``) through the bound installer origin.
 """
 
 from __future__ import annotations
@@ -15,18 +17,17 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.request
-from collections.abc import Mapping
 from typing import Any
 from urllib.parse import quote
 
-from yoke_contracts.release_pin import RELEASE_PIN_CAPABILITY
+from yoke_contracts.release_pin import CANDIDATE_PIN_FILE_KEY, RELEASE_PIN_CAPABILITY
 from yoke_core.domain import db_backend
-from yoke_core.domain.qa_execution_environment_target import (
-    _decode,
-    _generic_endpoints,
+from yoke_core.domain.project_file_at_commit import (
+    ProjectFileAbsent,
+    ProjectFileUnreadable,
+    read_project_file,
 )
-from yoke_core.domain.release_pin_capability import route_for_environment
-from yoke_core.domain.settings_cas import read_key_path
+from yoke_core.domain.release_pin_capability import candidate_pin_file
 
 RELEASE_VERSION_KEY = "release_version"
 _FETCH_TIMEOUT_SECONDS = 15
@@ -103,37 +104,60 @@ def require_published(installer_base_url: str, version: str) -> None:
         )
 
 
-def pinned_release_endpoints(
-    conn: Any, project_id: int, environment: str, row: Mapping[str, Any]
-) -> dict[str, Any]:
-    """Environment endpoints plus the release the deployed candidate pins."""
-    settings = _decode(row["settings"])
-    endpoints = _generic_endpoints(row, settings)
-    capability = _capability_settings(conn, project_id)
-    if capability is None:
-        return endpoints
+def _pin_file(conn: Any, project_id: int) -> str:
+    settings = _capability_settings(conn, project_id)
+    if settings is None:
+        return ""
     try:
-        route = route_for_environment(capability, environment)
+        return candidate_pin_file(settings)
     except ValueError as exc:
         raise ValueError(
-            f"deployment_qa_release_pin_invalid: {exc}; repair the project's "
-            f"{RELEASE_PIN_CAPABILITY!r} capability before starting QA"
+            f"deployment_qa_release_pin_invalid: {exc}; repair it with "
+            "`yoke projects capability-settings merge` before starting QA"
         ) from exc
-    pin = read_key_path(settings, route.desired_pin_path)
-    version = pin.strip() if isinstance(pin, str) else ""
-    if not version:
+
+
+def pinned_release_endpoints(
+    conn: Any, run_id: str, project_id: int, endpoints: dict[str, Any]
+) -> dict[str, Any]:
+    """``endpoints`` plus the release the run's deployed commit pins, if declared."""
+    path = _pin_file(conn, project_id)
+    if not path:
+        return endpoints
+    from yoke_core.domain.deployment_run_project_sources import run_delivered_sha
+
+    sha = run_delivered_sha(conn, run_id, int(project_id))
+    if not sha:
         raise ValueError(
-            f"deployment_qa_release_pin_missing: environment {environment!r} "
-            f"records no release pin at {route.desired_pin_path!r}; the "
-            "deployment must record it (`yoke release-pin record --project P "
-            f"--environment {environment} --pin VERSION`) before QA can install "
-            "the candidate's pinned release"
+            f"deployment_qa_release_pin_source_missing: run {run_id} recorded no "
+            f"deployed commit for project {project_id}, so the release it pins "
+            "cannot be read; repair the run's recorded sources before starting QA"
+        )
+    try:
+        raw = read_project_file(conn, int(project_id), sha, path)
+    except ProjectFileAbsent as exc:
+        raise ValueError(
+            f"deployment_qa_release_pin_missing: {exc}; commit the pinned release "
+            f"to {path} or correct {RELEASE_PIN_CAPABILITY}.{CANDIDATE_PIN_FILE_KEY}"
+            ", then redeploy"
+        ) from exc
+    except ProjectFileUnreadable as exc:
+        raise ValueError(
+            f"deployment_qa_release_pin_unreadable: cannot read {path} at the "
+            f"deployed commit {sha} ({exc}); register this project's checkout "
+            "(`yoke project register`) or repair its GitHub binding, then re-run "
+            "the QA stage"
+        ) from exc
+    version = raw.decode("utf-8", errors="replace").strip()
+    if not version or len(version.split()) != 1:
+        raise ValueError(
+            f"deployment_qa_release_pin_missing: {path} at {sha} does not hold "
+            "one release version; correct the pin file and redeploy"
         )
     installer_base_url = str(endpoints.get("installer_base_url") or "")
     if installer_base_url:
         require_published(installer_base_url, version)
-    endpoints[RELEASE_VERSION_KEY] = version
-    return endpoints
+    return {**endpoints, RELEASE_VERSION_KEY: version}
 
 
 __all__ = [

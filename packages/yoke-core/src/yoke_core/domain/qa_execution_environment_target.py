@@ -146,6 +146,11 @@ def _generic_endpoints(row: Mapping[str, Any], settings: Mapping[str, Any]) -> d
     }
 
 
+def environment_row_endpoints(row: Mapping[str, Any]) -> dict:
+    """Endpoints one ``environments`` row (``url`` and ``settings``) declares."""
+    return _generic_endpoints(row, _decode(row["settings"]))
+
+
 def resolve_plan_execution_target(
     conn: Any,
     *,

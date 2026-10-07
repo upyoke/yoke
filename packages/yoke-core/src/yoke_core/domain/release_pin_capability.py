@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from yoke_contracts.release_pin import (
+    CANDIDATE_PIN_FILE_KEY,
     DESIRED_PIN_PATH_KEY,
     PROBE_URL_PATH_KEY,
     RELEASE_PIN_CAPABILITY,
@@ -18,6 +19,7 @@ from yoke_core.domain.settings_cas import apply_key_path_assignments
 CAPABILITY_TYPE = RELEASE_PIN_CAPABILITY
 _ALLOWED_SETTING_KEYS = frozenset(
     {
+        CANDIDATE_PIN_FILE_KEY,
         DESIRED_PIN_PATH_KEY,
         PROBE_URL_PATH_KEY,
         SERVED_PIN_RESPONSE_PATH_KEY,
@@ -43,8 +45,7 @@ def validate_settings(settings: Mapping[str, Any]) -> None:
     unknown_keys = sorted(set(settings) - _ALLOWED_SETTING_KEYS)
     if unknown_keys:
         raise ValueError(
-            f"{CAPABILITY_TYPE} has unknown setting(s): "
-            f"{', '.join(unknown_keys)}"
+            f"{CAPABILITY_TYPE} has unknown setting(s): {', '.join(unknown_keys)}"
         )
     _validate_path(
         settings,
@@ -67,7 +68,24 @@ def validate_settings(settings: Mapping[str, Any]) -> None:
     ):
         if key in settings:
             _validate_path(settings, key, purpose=purpose)
+    if CANDIDATE_PIN_FILE_KEY in settings:
+        candidate_pin_file(settings)
     return None
+
+
+def candidate_pin_file(settings: Mapping[str, Any]) -> str:
+    """The repository-relative file holding the pin at a deployed commit, or ``""``."""
+    if CANDIDATE_PIN_FILE_KEY not in settings:
+        return ""
+    raw = settings[CANDIDATE_PIN_FILE_KEY]
+    path = raw.strip() if isinstance(raw, str) else ""
+    parts = path.split("/")
+    if not path or path.startswith("/") or any(p in ("", ".", "..") for p in parts):
+        raise ValueError(
+            f"{CAPABILITY_TYPE}.{CANDIDATE_PIN_FILE_KEY} must name one "
+            "repository-relative file, such as yoke-release-pin.txt"
+        )
+    return path
 
 
 def _validate_path(settings: Mapping[str, Any], key: str, *, purpose: str) -> None:
@@ -82,7 +100,8 @@ def _validate_path(settings: Mapping[str, Any], key: str, *, purpose: str) -> No
 
 
 def route_for_environment(
-    settings: Mapping[str, Any], environment: str,
+    settings: Mapping[str, Any],
+    environment: str,
 ) -> ReleasePinRoute:
     """Select one registered-name route without accepting aliases or row keys."""
     validate_settings(settings)
@@ -105,11 +124,13 @@ def validate_json_string(raw_json: str) -> str:
 
 
 __all__ = [
+    "CANDIDATE_PIN_FILE_KEY",
     "CAPABILITY_TYPE",
     "DESIRED_PIN_PATH_KEY",
     "PROBE_URL_PATH_KEY",
     "ReleasePinRoute",
     "SERVED_PIN_RESPONSE_PATH_KEY",
+    "candidate_pin_file",
     "route_for_environment",
     "validate_json_string",
     "validate_settings",

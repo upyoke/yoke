@@ -13,9 +13,8 @@ from yoke_core.domain.deployment_qa_stage_contract import deployment_qa_stage_su
 from yoke_core.domain.deployment_qa_target_project import target_project
 from yoke_core.domain.deployment_stage_receipts import deployment_stage_receipt_for_qa
 from yoke_core.domain.qa_execution_environment_target import (
-    _decode,
-    _generic_endpoints,
     canonical_target,
+    environment_row_endpoints,
 )
 
 
@@ -35,7 +34,9 @@ def _row(cursor: Any, value: Any) -> dict[str, Any] | None:
     return dict(zip(names, value, strict=True))
 
 
-def _persistent_target(conn: Any, project_id: int, environment: str) -> dict:
+def _persistent_target(
+    conn: Any, project_id: int, environment: str, run_id: str
+) -> dict:
     cursor = conn.execute(
         "SELECT e.id AS environment_id,e.name AS environment_name,e.url,e.settings,"
         "s.name AS site_name FROM environments e JOIN sites s ON s.id=e.site "
@@ -56,13 +57,10 @@ def _persistent_target(conn: Any, project_id: int, environment: str) -> dict:
             "kind": "persistent_environment",
         },
         "site": {"name": str(row["site_name"])},
-        "endpoints": pinned_release_endpoints(conn, project_id, environment, row),
+        "endpoints": pinned_release_endpoints(
+            conn, run_id, project_id, environment_row_endpoints(row)
+        ),
     }
-
-
-def persistent_environment_endpoints(row: Mapping[str, Any]) -> dict:
-    """Endpoints a persistent deployment target declares for one environment row."""
-    return _generic_endpoints(row, _decode(row["settings"]))
 
 
 def _preview_target(receipt: Mapping[str, Any]) -> dict:
@@ -272,7 +270,9 @@ def deployment_qa_execution_target(
         if frozen is not None and all(frozen.get(k) == v for k, v in identity.items()):
             return frozen
     if kind == "persistent_environment":
-        resolved = _persistent_target(conn, project["id"], expected_name or "")
+        resolved = _persistent_target(
+            conn, project["id"], expected_name or "", str(subject["id"])
+        )
         observed_url = str(receipt.get("observed_url") or "").rstrip("/")
         configured_urls = {
             str(value).rstrip("/")
@@ -341,6 +341,5 @@ __all__ = [
     "deployment_qa_execution_target",
     "first_materialized_execution_target",
     "is_deployment_execution_target",
-    "persistent_environment_endpoints",
     "validate_deployment_execution_target",
 ]

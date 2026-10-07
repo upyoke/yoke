@@ -15,35 +15,52 @@ from runtime.api.domain.test_deployment_qa_frozen_target_authority import (
 )
 from runtime.api.domain.test_deployment_qa_stage_execution import _environment
 from yoke_core.domain import deployment_qa_release_version
+from yoke_core.domain.project_file_at_commit import (
+    ProjectFileAbsent,
+    ProjectFileUnreadable,
+)
 from yoke_core.domain.qa_requirement_target_rebind import rebind_requirement
 
 BASE_URL = "https://distribution.example.test"
+PIN_FILE = "yoke-release-pin.txt"
 PINNED = "0.1.1+launch.590"
-NEWER_LATEST = "0.1.1+launch.591"
+NEWER = "0.1.1+launch.591"
+CANDIDATE = "a" * 40  # the seeded run's release_lineage
 
 
-def _pin_capability(conn: Any) -> None:
+def _pin_capability(conn: Any, project_id: int = 1, **extra: Any) -> None:
+    settings = {"desired_pin_path": "release.yoke_pin", **extra}
     conn.execute(
         "INSERT INTO project_capabilities(project_id,type,settings,created_at) "
-        "VALUES(1,'release_pin',%s,%s) ON CONFLICT(project_id,type) "
+        "VALUES(%s,'release_pin',%s,%s) ON CONFLICT(project_id,type) "
         "DO UPDATE SET settings=EXCLUDED.settings",
-        (json.dumps({"desired_pin_path": "release.yoke_pin"}), "2026-10-07T00:00:00Z"),
+        (project_id, json.dumps(settings), "2026-10-07T00:00:00Z"),
     )
     conn.commit()
 
 
-def _set_stage(conn: Any, settings: dict[str, Any]) -> None:
+def _stage(conn: Any, *, channel: str | None = "latest", leaf: str = NEWER) -> None:
+    """Stage settings whose desired-pin leaf a later release already moved."""
+    distribution = {"base_url": BASE_URL}
+    if channel is not None:
+        distribution["channel"] = channel
     _environment(conn)
-    _edit_stage_settings(conn, settings)
+    _edit_stage_settings(
+        conn, {"distribution": distribution, "release": {"yoke_pin": leaf}}
+    )
 
 
-def _stage_settings(pin: str | None) -> dict[str, Any]:
-    settings: dict[str, Any] = {
-        "distribution": {"base_url": BASE_URL, "channel": "latest"}
-    }
-    if pin is not None:
-        settings["release"] = {"yoke_pin": pin}
-    return settings
+def _candidate_files(monkeypatch, files: dict[tuple[str, str], str]) -> list:
+    reads: list[tuple[int, str, str]] = []
+
+    def read(conn: Any, project_id: int, sha: str, path: str) -> bytes:
+        reads.append((project_id, sha, path))
+        if (sha, path) not in files:
+            raise ProjectFileAbsent(f"commit {sha} does not carry {path}")
+        return files[(sha, path)].encode()
+
+    monkeypatch.setattr(deployment_qa_release_version, "read_project_file", read)
+    return reads
 
 
 def _published(monkeypatch, *versions: str) -> list[str]:
@@ -63,40 +80,81 @@ def _published(monkeypatch, *versions: str) -> list[str]:
 
 
 def _frozen_targets(conn: Any, run_id: str) -> list[dict[str, Any]]:
-    return [
-        json.loads(row[0])
-        for row in conn.execute(
-            "SELECT execution_target_json FROM qa_requirements "
-            "WHERE deployment_run_id=%s",
-            (run_id,),
-        ).fetchall()
-    ]
+    rows = conn.execute(
+        "SELECT execution_target_json FROM qa_requirements WHERE deployment_run_id=%s",
+        (run_id,),
+    ).fetchall()
+    assert rows
+    return [json.loads(row[0]) for row in rows]
 
 
-def test_frozen_target_records_the_pinned_release_not_the_channel(test_db, monkeypatch):
-    _pin_capability(test_db)
-    _set_stage(test_db, _stage_settings(PINNED))
-    fetched = _published(monkeypatch, PINNED, NEWER_LATEST)
+def test_frozen_target_reads_the_pin_at_the_deployed_candidate_commit(
+    test_db, monkeypatch
+):
+    _pin_capability(test_db, candidate_pin_file=PIN_FILE)
+    _stage(test_db)
+    reads = _candidate_files(monkeypatch, {(CANDIDATE, PIN_FILE): f"{PINNED}\n"})
+    fetched = _published(monkeypatch, PINNED, NEWER)
 
     _materialized_stage(test_db, "run-release-version-pinned", 9821)
 
-    targets = _frozen_targets(test_db, "run-release-version-pinned")
-    assert targets
-    for target in targets:
+    for target in _frozen_targets(test_db, "run-release-version-pinned"):
+        # Neither the channel nor the environment leaf a later release moved.
         assert target["endpoints"]["release_version"] == PINNED
         assert target["endpoints"]["release_channel"] == "latest"
-    assert fetched == [
-        deployment_qa_release_version.release_records_url(BASE_URL, PINNED)
-    ]
-    assert fetched[0] == (
+    assert set(reads) == {(1, CANDIDATE, PIN_FILE)}
+    assert set(fetched) == {
         f"{BASE_URL}/dist/releases/0.1.1%2Blaunch.590/release-records.json"
+    }
+
+
+def test_bound_project_reads_the_release_pin_output_commit(test_db, monkeypatch):
+    _pin_capability(test_db, project_id=2, candidate_pin_file=PIN_FILE)
+    consumer, pin_commit = "b" * 40, "c" * 40
+    test_db.execute(
+        "INSERT INTO deployment_runs(id,project_id,flow,release_lineage,status,"
+        "created_at,bound_sources) VALUES(%s,1,'flow-bound',%s,'executing',%s,%s)",
+        (
+            "run-bound-consumer",
+            CANDIDATE,
+            "2026-10-07T00:00:00Z",
+            json.dumps(
+                {
+                    "schema": 1,
+                    "projects": [
+                        {
+                            "project": "consumer",
+                            "project_id": 2,
+                            "commit_sha": consumer,
+                            "outputs": [
+                                {
+                                    "commit_sha": pin_commit,
+                                    "reason": "release_pin_materialization",
+                                }
+                            ],
+                        }
+                    ],
+                    "inputs": {"consumer_sha": consumer},
+                }
+            ),
+        ),
     )
+    reads = _candidate_files(monkeypatch, {(pin_commit, PIN_FILE): NEWER})
+    _published(monkeypatch, NEWER)
+
+    endpoints = deployment_qa_release_version.pinned_release_endpoints(
+        test_db, "run-bound-consumer", 2, {"installer_base_url": BASE_URL}
+    )
+
+    assert endpoints["release_version"] == NEWER
+    assert reads == [(2, pin_commit, PIN_FILE)]
 
 
 def test_unpublished_pinned_release_refuses_with_named_reason(test_db, monkeypatch):
-    _pin_capability(test_db)
-    _set_stage(test_db, _stage_settings(PINNED))
-    _published(monkeypatch, NEWER_LATEST)
+    _pin_capability(test_db, candidate_pin_file=PIN_FILE)
+    _stage(test_db)
+    _candidate_files(monkeypatch, {(CANDIDATE, PIN_FILE): PINNED})
+    _published(monkeypatch, NEWER)
 
     with pytest.raises(ValueError, match="deployment_qa_release_unpublished") as exc:
         _materialized_stage(test_db, "run-release-version-unpublished", 9822)
@@ -105,8 +163,9 @@ def test_unpublished_pinned_release_refuses_with_named_reason(test_db, monkeypat
 
 
 def test_release_record_without_wheels_refuses(test_db, monkeypatch):
-    _pin_capability(test_db)
-    _set_stage(test_db, _stage_settings(PINNED))
+    _pin_capability(test_db, candidate_pin_file=PIN_FILE)
+    _stage(test_db)
+    _candidate_files(monkeypatch, {(CANDIDATE, PIN_FILE): PINNED})
     monkeypatch.setattr(deployment_qa_release_version, "_fetch", lambda url: b"[]")
 
     with pytest.raises(ValueError, match="lists no published wheels"):
@@ -114,8 +173,9 @@ def test_release_record_without_wheels_refuses(test_db, monkeypatch):
 
 
 def test_unreadable_installer_origin_refuses_as_unverified(test_db, monkeypatch):
-    _pin_capability(test_db)
-    _set_stage(test_db, _stage_settings(PINNED))
+    _pin_capability(test_db, candidate_pin_file=PIN_FILE)
+    _stage(test_db)
+    _candidate_files(monkeypatch, {(CANDIDATE, PIN_FILE): PINNED})
 
     def unreachable(url: str) -> bytes:
         raise urllib.error.URLError("connection refused")
@@ -126,39 +186,65 @@ def test_unreadable_installer_origin_refuses_as_unverified(test_db, monkeypatch)
         _materialized_stage(test_db, "run-release-version-unverified", 9823)
 
 
-def test_missing_environment_pin_refuses_with_record_recovery(test_db, monkeypatch):
-    _pin_capability(test_db)
-    _set_stage(test_db, _stage_settings(None))
+def test_candidate_without_the_pin_file_refuses(test_db, monkeypatch):
+    _pin_capability(test_db, candidate_pin_file=PIN_FILE)
+    _stage(test_db)
+    _candidate_files(monkeypatch, {})
     _published(monkeypatch, PINNED)
 
     with pytest.raises(ValueError, match="deployment_qa_release_pin_missing") as exc:
         _materialized_stage(test_db, "run-release-version-missing", 9824)
-    assert "yoke release-pin record" in str(exc.value)
+    assert PIN_FILE in str(exc.value)
 
 
-def test_project_without_release_pin_capability_records_no_version(
-    test_db, monkeypatch
-):
-    _set_stage(test_db, _stage_settings(PINNED))
+def test_unreadable_candidate_source_refuses_with_recovery(test_db, monkeypatch):
+    _pin_capability(test_db, candidate_pin_file=PIN_FILE)
+    _stage(test_db)
+
+    def unreadable(*args: Any) -> bytes:
+        raise ProjectFileUnreadable("no checkout; binding revoked")
+
+    monkeypatch.setattr(deployment_qa_release_version, "read_project_file", unreadable)
+
+    with pytest.raises(ValueError, match="deployment_qa_release_pin_unreadable") as exc:
+        _materialized_stage(test_db, "run-release-version-unreadable", 9828)
+    assert "yoke project register" in str(exc.value)
+
+
+@pytest.mark.parametrize("declared", [False, True])
+def test_no_declared_pin_file_records_no_version(test_db, monkeypatch, declared):
+    if declared:
+        _pin_capability(test_db)  # release_pin without candidate_pin_file
+    _stage(test_db)
+    reads = _candidate_files(monkeypatch, {})
     fetched = _published(monkeypatch)
+    run_id = f"run-release-version-undeclared-{int(declared)}"
 
-    _materialized_stage(test_db, "run-release-version-unpinned", 9825)
+    _materialized_stage(test_db, run_id, 9825 + 10 * int(declared))
 
-    targets = _frozen_targets(test_db, "run-release-version-unpinned")
-    assert targets
-    assert all("release_version" not in t["endpoints"] for t in targets)
-    assert fetched == []
+    assert all(
+        "release_version" not in t["endpoints"]
+        for t in _frozen_targets(test_db, run_id)
+    )
+    assert reads == [] and fetched == []
+
+
+def test_invalid_pin_file_declaration_is_refused():
+    from yoke_core.domain.release_pin_capability import validate_settings
+
+    for bad in ("", "/abs/pin.txt", "../pin.txt", "a//b"):
+        with pytest.raises(ValueError, match="candidate_pin_file"):
+            validate_settings({"desired_pin_path": "a.b", "candidate_pin_file": bad})
 
 
 def test_rebind_keeps_the_frozen_candidate_release(test_db, monkeypatch):
-    _pin_capability(test_db)
-    unset_channel = _stage_settings(PINNED)
-    del unset_channel["distribution"]["channel"]
-    _set_stage(test_db, unset_channel)
+    _pin_capability(test_db, candidate_pin_file=PIN_FILE)
+    _stage(test_db, channel=None)
+    _candidate_files(monkeypatch, {(CANDIDATE, PIN_FILE): PINNED})
     _published(monkeypatch, PINNED)
     run_id = "run-release-version-rebind"
     _materialized_stage(test_db, run_id, 9826)
-    _set_stage(test_db, _stage_settings(NEWER_LATEST))
+    _stage(test_db)
 
     for (requirement_id,) in test_db.execute(
         "SELECT id FROM qa_requirements WHERE deployment_run_id=%s", (run_id,)
