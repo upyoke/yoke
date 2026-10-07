@@ -16,6 +16,8 @@ from typing import List, Optional
 from yoke_core.domain import deploy_pipeline
 from yoke_core.domain.deploy_pipeline_control_plane import (
     DeploymentControlPlaneError,
+)
+from yoke_core.domain.deploy_pipeline_driver_client import (
     DriverLivenessPump,
     attach_driver,
     release_driver,

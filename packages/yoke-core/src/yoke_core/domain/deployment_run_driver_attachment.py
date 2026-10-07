@@ -7,7 +7,10 @@ the printed capture blames missing flags. The attachment on the run row
 is the fact those readers share: who is driving, since when, which
 phase, and which capture they will write. A second driver for a live
 attachment refuses by name. Re-drive of an interrupted driver still
-works — a stale heartbeat is not live.
+works — a stale heartbeat is not live, and neither is a recorded pid the
+driver's own machine reports gone: only that machine can see its process
+table, so its re-drive names the exited pid and supersedes it at once, while a
+driver on another machine is still judged by its heartbeat alone.
 """
 
 from __future__ import annotations
@@ -35,6 +38,10 @@ LIVE_HEARTBEAT = timedelta(seconds=600)
 #: The caller skips the tick and reports the named reason rather than retrying.
 ROW_LOCK_BUSY_CODE = "driver_row_lock_busy"
 
+#: Error code an attach carries when a live driver already holds the run. Its
+#: result names that driver, so a caller on the same machine can check its pid.
+DRIVER_ALREADY_ATTACHED_CODE = "driver_already_attached"
+
 
 @dataclass(frozen=True)
 class DriverAttachment:
@@ -47,6 +54,7 @@ class DriverAttachment:
     heartbeat_at: str
     phase: str
     progress_capture: str
+    machine_id: str = ""
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -57,6 +65,7 @@ class DriverAttachment:
             "heartbeat_at": self.heartbeat_at,
             "phase": self.phase,
             "progress_capture": self.progress_capture,
+            "machine_id": self.machine_id,
         }
 
 
@@ -80,7 +89,8 @@ def format_refusal(run_id: str, current: DriverAttachment) -> str:
         f"{current.attached_at}, phase {current.phase}{capture}. "
         "Wait for that driver to finish or stop it; do not start a second "
         "one. An interrupted driver is recovered by re-driving this same "
-        "run id after that process is gone."
+        "run id: from the machine it ran on, as soon as that process is gone; "
+        "from any other machine, once its heartbeat is ten minutes old."
     )
 
 
@@ -129,6 +139,7 @@ def parse_attachment(run_id: str, raw: Any) -> DriverAttachment | None:
         heartbeat_at=str(payload.get("heartbeat_at") or ""),
         phase=str(payload.get("phase") or ""),
         progress_capture=str(payload.get("progress_capture") or ""),
+        machine_id=str(payload.get("machine_id") or ""),
     )
 
 
@@ -141,6 +152,7 @@ def _serialize(attachment: DriverAttachment) -> str:
             "heartbeat_at": attachment.heartbeat_at,
             "phase": attachment.phase,
             "progress_capture": attachment.progress_capture,
+            "machine_id": attachment.machine_id,
         }
     )
 
@@ -180,12 +192,17 @@ def attach_driver(
     pid: int,
     phase: str,
     progress_capture: str = "",
+    machine_id: str = "",
+    exited_driver_pid: int = 0,
     now: str | None = None,
 ) -> DriverAttachment | None:
     """Record this process as the run's driver, or refuse a live other one.
 
     ``None`` means the additive column has not converged; the caller
     proceeds. Same pid+session refreshes heartbeat and phase.
+    ``exited_driver_pid`` is the caller's word that the recorded driver's pid
+    is gone from *machine_id*; it supersedes a live attachment only when both
+    match what the attachment recorded, since no other machine can know.
 
     Raises :class:`DeploymentRunRowLockBusy` rather than waiting for a run row
     another transaction holds -- see :func:`_locked_row`.
@@ -202,7 +219,13 @@ def attach_driver(
     same = (
         current is not None and current.session_id == session_id and current.pid == pid
     )
-    if current is not None and is_live(current, now=clock) and not same:
+    exited = (
+        current is not None
+        and bool(machine_id)
+        and current.machine_id == machine_id
+        and current.pid == exited_driver_pid
+    )
+    if current is not None and is_live(current, now=clock) and not (same or exited):
         raise DriverAlreadyAttached(run_id_value, current)
     attached_at = current.attached_at if same and current is not None else clock
     recorded = DriverAttachment(
@@ -213,6 +236,7 @@ def attach_driver(
         heartbeat_at=clock,
         phase=phase,
         progress_capture=progress_capture.strip(),
+        machine_id=machine_id.strip(),
     )
     conn.execute(
         f"UPDATE deployment_runs SET {COLUMN}=%s WHERE id=%s",
@@ -303,6 +327,7 @@ __all__ = [
     "ATTACH_FUNCTION_ID",
     "ROW_LOCK_BUSY_CODE",
     "COLUMN",
+    "DRIVER_ALREADY_ATTACHED_CODE",
     "DriverAlreadyAttached",
     "DriverAttachment",
     "FOR_CAPTURE_FUNCTION_ID",

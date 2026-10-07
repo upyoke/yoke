@@ -35,6 +35,13 @@ class CompositionRefused(ValueError):
     """
 
 
+#: Serializes run creation against other creation only. Creation holds this
+#: lock through composition validation, which can take seconds of git reads; a
+#: table lock held that long stalled every other write to ``deployment_runs``,
+#: and a deploy driver's heartbeat timed out behind it.
+_CREATE_LOCK_SQL = "SELECT pg_advisory_xact_lock(hashtext('deployment_runs.create'))"
+
+
 class CreatedRun(NamedTuple):
     """The run a create returned, and how a keyed create identified it."""
 
@@ -137,7 +144,7 @@ def create_run(
     """Create a new deployment run, or return the one a keyed repeat names.
 
     ``idempotency_key`` with its canonical ``create_request`` makes the create
-    safe to repeat: under the table lock, a run already created with that key
+    safe to repeat: under the creation lock, a run already created with that key
     and request is returned with ``replayed=True`` instead of minting another,
     and the same key with a different request raises
     :class:`~yoke_core.domain.deployment_run_create_idempotency.IdempotencyKeyConflict`.
@@ -157,7 +164,7 @@ def create_run(
     conn = connect(db_path)
     try:
         if db_backend.connection_is_postgres(conn):
-            conn.execute("LOCK TABLE deployment_runs IN SHARE ROW EXCLUSIVE MODE")
+            conn.execute(_CREATE_LOCK_SQL)
         project_id = resolve_project_id(conn, project)
         basis = None
         if idempotency_key:

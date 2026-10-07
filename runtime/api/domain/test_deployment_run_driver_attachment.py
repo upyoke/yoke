@@ -187,3 +187,65 @@ def test_attach_proceeds_when_the_column_has_not_converged(db_path: str) -> None
         assert live_attachment_for_run(conn, run_id_value=run_id, now=NOW) is None
     finally:
         conn.close()
+
+
+MACHINE = "6f1c2b9e-0d4a-4c1e-9a52-3b7e8d1f0a11"
+OTHER_MACHINE = "a0e4d7c3-58b1-4f2a-b6e9-91c0d2f3e4a5"
+
+
+@pytest.mark.parametrize(
+    ("machine_id", "exited_driver_pid", "supersedes"),
+    [
+        (MACHINE, 11, True),
+        # Another machine cannot see this pid; its heartbeat still rules.
+        (OTHER_MACHINE, 11, False),
+        # Naming a different pid says nothing about the recorded driver.
+        (MACHINE, 12, False),
+        # A caller that names no machine proves nothing about one.
+        ("", 11, False),
+    ],
+)
+def test_an_exited_driver_is_superseded_only_from_its_own_machine(
+    db_path: str, machine_id: str, exited_driver_pid: int, supersedes: bool
+) -> None:
+    run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
+    conn = connect_test_db(db_path)
+    try:
+        attach_driver(
+            conn,
+            run_id,
+            session_id="sess-a",
+            pid=11,
+            phase=PHASE_EXECUTING,
+            machine_id=MACHINE,
+            now=NOW,
+        )
+        conn.commit()
+
+        def _re_drive():
+            return attach_driver(
+                conn,
+                run_id,
+                session_id="sess-b",
+                pid=22,
+                phase=PHASE_EXECUTING,
+                machine_id=machine_id,
+                exited_driver_pid=exited_driver_pid,
+                now=LATER,
+            )
+
+        if not supersedes:
+            with pytest.raises(DriverAlreadyAttached) as raised:
+                _re_drive()
+            assert raised.value.current.machine_id == MACHINE
+            assert raised.value.current.pid == 11
+            return
+        recovered = _re_drive()
+        conn.commit()
+        assert recovered is not None
+        assert (recovered.session_id, recovered.pid) == ("sess-b", 22)
+        assert recovered.machine_id == machine_id
+        assert recovered.attached_at == LATER
+    finally:
+        conn.rollback()
+        conn.close()
