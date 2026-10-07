@@ -50,6 +50,10 @@ def test_holder_list_envelope_keeps_scope_exact_and_decodable(
         lambda _conn, _actor_id: True,
     )
     monkeypatch.setattr(
+        "yoke_core.domain.yoke_function_permissions.is_hosted_service_actor",
+        lambda _conn, _actor_id: False,
+    )
+    monkeypatch.setattr(
         claims_work_holders,
         "_lane_worktrees",
         lambda _conn, _holders: {77: ["/repo/.worktrees/lane"]},
