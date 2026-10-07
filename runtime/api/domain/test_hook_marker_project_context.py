@@ -124,7 +124,7 @@ def test_dispatch_handler_refuses_missing_payload_project_before_path_resolution
             function="scratch.dispatch_inputs",
             actor=ActorContext(actor_id="2", session_id="s"),
             target=TargetRef(kind="global"),
-            payload={"item_id": 42, "session_id": "s", "attempt": 1},
+            payload={"public_ref": "YOK-42", "session_id": "s", "attempt": 1},
         )
     )
     assert not outcome.primary_success

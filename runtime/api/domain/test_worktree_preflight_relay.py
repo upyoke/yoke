@@ -67,7 +67,7 @@ class TestTransportAwareControlPlane:
         assert "upstream coordination" in outcome.narrative
         assert any(c["function_id"] == "items.detail.get" for c in calls)
 
-    def test_blocked_gate_degrades_when_relay_refuses(self, repo_layout, monkeypatch):
+    def test_item_read_refusal_stops_preparation(self, repo_layout, monkeypatch):
         _patch_steps(monkeypatch)
         from yoke_core.api import service_client_structured_api_adapter as facade
 
@@ -87,8 +87,9 @@ class TestTransportAwareControlPlane:
             actual_cwd=repo_layout.root,
             no_worktree=True,
         )
-        # A refused read must not block; the gate degrades and proceeds.
-        assert outcome.ok is True
+        assert outcome.ok is False
+        assert outcome.block_kind == "bad-input"
+        assert "item_detail_unavailable" in outcome.narrative
 
     def test_project_checkout_resolved_via_transport_aware_relay(
         self, repo_layout, monkeypatch

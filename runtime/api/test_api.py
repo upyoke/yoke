@@ -47,7 +47,7 @@ class TestErrorEnvelope:
     """Verify all error responses use nested envelope: error.code, error.message."""
 
     def test_404_envelope(self, client):
-        resp = client.get("/v1/items/999")
+        resp = client.get("/v1/items/YOK-999")
         data = resp.json()
         assert "error" in data
         assert "code" in data["error"]
@@ -72,7 +72,7 @@ class TestErrorEnvelope:
         assert data["error"]["code"] == "VALIDATION_ERROR"
 
     def test_409_envelope(self, client):
-        resp = client.post("/v1/items/1/approve", json={})
+        resp = client.post("/v1/items/YOK-1/approve", json={})
         data = resp.json()
         assert "error" in data
         assert data["error"]["code"] == "NO_ACTIVE_RUN"

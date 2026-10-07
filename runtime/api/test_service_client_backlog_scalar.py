@@ -82,7 +82,9 @@ def _dispatch_stack(fake: Any, *, session_id: str = "sid") -> Iterator[None]:
 
 def test_freeze_dispatches_frozen_true(capsys: pytest.CaptureFixture[str]) -> None:
     seen, fake = _capture_envelopes()
-    with patch.object(scalar, "_dispatch_scalar", wraps=scalar._dispatch_scalar) as wrapped:
+    with patch.object(
+        scalar, "_dispatch_scalar", wraps=scalar._dispatch_scalar
+    ) as wrapped:
         with _dispatch_stack(fake, session_id="test-sid"):
             rc = scalar.cmd_freeze(["1685"])
     assert rc == 0
@@ -117,14 +119,19 @@ def test_thaw_dispatches_frozen_false(capsys: pytest.CaptureFixture[str]) -> Non
     assert "42: thawed" in capsys.readouterr().out
 
 
-def test_block_dispatches_two_writes_in_order(capsys: pytest.CaptureFixture[str]) -> None:
+def test_block_dispatches_two_writes_in_order(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     seen, fake = _capture_envelopes()
     with _dispatch_stack(fake):
         rc = scalar.cmd_block(["100", "needs design review"])
     assert rc == 0
     assert len(seen) == 2
     assert seen[0]["payload"] == {"field": "blocked", "value": True}
-    assert seen[1]["payload"] == {"field": "blocked_reason", "value": "needs design review"}
+    assert seen[1]["payload"] == {
+        "field": "blocked_reason",
+        "value": "needs design review",
+    }
     out = capsys.readouterr().out
     assert "100: blocked" in out
     assert "needs design review" in out
@@ -156,7 +163,9 @@ def test_freeze_reports_failure_nonzero(capsys: pytest.CaptureFixture[str]) -> N
     assert "already frozen" in err_out
 
 
-def test_block_partial_state_reports_recovery(capsys: pytest.CaptureFixture[str]) -> None:
+def test_block_partial_state_reports_recovery(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     calls: List[Dict[str, Any]] = []
 
     def fake_dispatch(envelope: Dict[str, Any]) -> _FakeResponse:
@@ -174,12 +183,17 @@ def test_block_partial_state_reports_recovery(capsys: pytest.CaptureFixture[str]
     assert "db_router items update 99 blocked_reason" in err_out
 
 
-@pytest.mark.parametrize("verb,fn", [
-    ("freeze", scalar.cmd_freeze),
-    ("thaw", scalar.cmd_thaw),
-    ("unblock", scalar.cmd_unblock),
-])
-def test_single_id_verbs_reject_wrong_arity(verb: str, fn: Any, capsys: pytest.CaptureFixture[str]) -> None:
+@pytest.mark.parametrize(
+    "verb,fn",
+    [
+        ("freeze", scalar.cmd_freeze),
+        ("thaw", scalar.cmd_thaw),
+        ("unblock", scalar.cmd_unblock),
+    ],
+)
+def test_single_id_verbs_reject_wrong_arity(
+    verb: str, fn: Any, capsys: pytest.CaptureFixture[str]
+) -> None:
     assert fn([]) == 2
     assert fn(["a", "b"]) == 2
     assert verb in capsys.readouterr().err
@@ -193,6 +207,8 @@ def test_block_rejects_wrong_arity(capsys: pytest.CaptureFixture[str]) -> None:
     assert "block" in err
 
 
-def test_invalid_id_reports_dispatch_refusal(capsys: pytest.CaptureFixture[str]) -> None:
+def test_invalid_id_reports_dispatch_refusal(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     assert scalar.cmd_freeze(["not-an-id"]) == 1
-    assert "pass the public ref (PREFIX-N" in capsys.readouterr().err
+    assert "public_item_ref_required" in capsys.readouterr().err

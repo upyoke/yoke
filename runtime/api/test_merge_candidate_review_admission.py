@@ -23,7 +23,7 @@ def _verdict(**overrides):
     base = {
         "required": True,
         "satisfied": False,
-        "item_id": 1,
+        "public_ref": "YOK-200",
         "commit_sha": HEAD,
         "reason": "a reviewer has not yet cleared this candidate",
         "request_id": 77,
@@ -168,7 +168,8 @@ def test_the_review_is_asked_about_the_exact_head_and_its_files(monkeypatch):
     assert seen["payload"]["branch"] == "YOK-200"
     assert seen["payload"]["target"] == "main"
     assert seen["payload"]["touched_files"] == ["packages/a.py"]
-    assert seen["target"].item_id == 1
+    assert seen["target"].public_ref == "YOK-200"
+    assert seen["target"].item_id is None
 
 
 def test_a_rejected_candidate_is_refused_with_its_verdict(monkeypatch):

@@ -215,6 +215,9 @@ def _run_cli(envelope_bytes, *, use_stdin=False, extra_args=()):
             from runtime.api.fixtures.pg_testdb import test_database
 
             with test_database():
+                from runtime.api.domain.sections_test_helpers import _seed_item
+
+                _seed_item("", 1)
                 return _invoke()
         return _invoke()
     finally:
@@ -240,7 +243,7 @@ class TestYokeFunctionDispatchCli(unittest.TestCase):
         envelope = {
             "function": "items.get.run",
             "actor": {"actor_id": "op-only"},
-            "target": {"kind": "item", "public_ref": "ITEM-1"},
+            "target": {"kind": "item", "public_ref": "YOK-1"},
             "payload": {"fields": ["title"]},
         }
         proc = _run_cli(json.dumps(envelope).encode("utf-8"))
@@ -280,7 +283,7 @@ class TestYokeFunctionDispatchCli(unittest.TestCase):
         envelope = {
             "function": "items.get.run",
             "actor": {"actor_id": "op", "session_id": "cli-test"},
-            "target": {"kind": "item", "public_ref": "ITEM-1"},
+            "target": {"kind": "item", "public_ref": "YOK-1"},
             "payload": {"fields": ["title"]},
         }
         proc = _run_cli(json.dumps(envelope).encode("utf-8"))
@@ -295,7 +298,7 @@ class TestYokeFunctionDispatchCli(unittest.TestCase):
         envelope = {
             "function": "items.get.run",
             "actor": {"actor_id": "op", "session_id": "cli-test"},
-            "target": {"kind": "item", "public_ref": "ITEM-1"},
+            "target": {"kind": "item", "public_ref": "YOK-1"},
             "payload": {"fields": ["title"]},
         }
         proc = _run_cli(json.dumps(envelope).encode("utf-8"), use_stdin=True)

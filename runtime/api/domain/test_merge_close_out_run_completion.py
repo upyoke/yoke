@@ -18,6 +18,8 @@ from runtime.api.domain.test_status_transition_preflight import _isolate_status_
 from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest
 from yoke_core.domain import delivery_member_close_steps, standalone_item_merge_terminal
 from yoke_core.domain.deployment_runs_crud_mutate import cmd_update
+from yoke_core.domain.item_ref_render import render_item_ref
+from yoke_core.domain.item_ref_resolution import resolve_item_ref
 from yoke_core.domain.handlers.lifecycle_transition import handle_transition
 from yoke_core.domain.standalone_item_merge_landed import LandedLane
 
@@ -58,6 +60,9 @@ def test_recovered_merge_close_out_finishes_settling_run(
     assert prepare(test_db, item_id=MEMBER_B, public_ref="member") == ""
 
     def dispatch(*, function_id, target, payload):
+        target = target.model_copy(
+            update={"item_id": resolve_item_ref(test_db, target.public_ref)}
+        )
         outcome = handle_transition(
             FunctionCallRequest(
                 function=function_id,
@@ -76,7 +81,7 @@ def test_recovered_merge_close_out_finishes_settling_run(
         standalone_item_merge_terminal.recovery, "claim_error", lambda *_args: ""
     )
     reached, error = standalone_item_merge_terminal.transition_to_done(
-        item_id=MEMBER_B,
+        item_id=render_item_ref(test_db, MEMBER_B),
         source_status="release",
         repo_root="/repo",
         lane=LandedLane(

@@ -113,3 +113,26 @@ def test_engine_target_rejects_untyped_identity_before_reading(monkeypatch, item
     )
     with pytest.raises(ValueError, match="public_item_ref_required"):
         public_item_target(item)
+
+
+def test_artifact_selector_refuses_bare_number_before_connection(monkeypatch):
+    from yoke_core.domain import machine_config, qa_cli_parser, yok_n_parser
+
+    monkeypatch.setattr(machine_config, "project_id", lambda *_: "yoke")
+    monkeypatch.setattr(
+        yok_n_parser, "connect", lambda: pytest.fail("numeric selector opened a DB")
+    )
+    with pytest.raises(SystemExit) as refused:
+        qa_cli_parser.build_parser().parse_args(["artifact-list", "--item-id", "42"])
+    assert refused.value.code == 2
+
+
+def test_response_projection_preserves_numbered_task_maps():
+    from yoke_core.domain.function_response_refs import collect_item_ids
+
+    result = {"epic_id": 99, "cascade_updated": {2: "1", 3: ""}}
+    assert collect_item_ids(result) == {99}
+    assert project_public_identities(result, lambda _: "APP-7") == {
+        "epic_public_ref": "APP-7",
+        "cascade_updated": {2: "1", 3: ""},
+    }

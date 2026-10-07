@@ -69,7 +69,7 @@ def test_qa_topic_includes_requirement_list_recipe_matching_cli() -> None:
     assert "--epic-id" in requirement_help
     assert "--task-num" not in requirement_help
     assert "yoke qa requirement list --item PREFIX-N" in body
-    assert "--epic-id E" in body
+    assert "--epic-id PREFIX-N" in body
     assert "--epic-id" in body
     assert "qa requirement list --task-num" not in body
 

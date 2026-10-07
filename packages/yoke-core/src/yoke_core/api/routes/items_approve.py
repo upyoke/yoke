@@ -13,6 +13,7 @@ from yoke_core.domain import db_backend
 
 # Module-level import so test patches against ``yoke_core.api.main.*`` take effect.
 import yoke_core.api.main as _main
+from yoke_core.api.main_route_adapters import resolve_http_item
 
 router = APIRouter()
 
@@ -21,9 +22,9 @@ def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-@router.post("/items/{item_id}/approve", response_model=_main.ApproveResponse)
+@router.post("/items/{public_ref}/approve", response_model=_main.ApproveResponse)
 def approve_item(
-    item_id: int, req: _main.ApproveRequest
+    public_ref: str, req: _main.ApproveRequest
 ) -> _main.ApproveResponse | JSONResponse:
     """Expose the run's Inbox approval without mutating deployment state."""
     if req.comment is not None and len(req.comment) > 500:
@@ -35,6 +36,9 @@ def approve_item(
 
     conn = _main.get_db_readwrite()
     try:
+        item_id = resolve_http_item(conn, public_ref)
+        if isinstance(item_id, JSONResponse):
+            return item_id
         p = _p(conn)
         row = conn.execute(
             f"SELECT id FROM items WHERE id = {p}", (item_id,)
@@ -43,7 +47,7 @@ def approve_item(
             return _main._error_response(
                 404,
                 "NOT_FOUND",
-                f"Item with id {item_id} not found",
+                f"Item {public_ref} not found",
             )
 
         active_run = conn.execute(
@@ -88,7 +92,7 @@ def approve_item(
             (int(verdict.request_id),),
         ).fetchone()
         return _main.ApproveResponse(
-            id=item_id,
+            id=public_ref,
             approved_at=str(stamp[0] if stamp is not None else ""),
             comment=req.comment,
         )

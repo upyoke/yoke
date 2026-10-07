@@ -21,6 +21,8 @@ _SPECIAL_WIRE_TO_ENGINE = {
 
 def engine_key_for_wire(key: str) -> Optional[str]:
     """The engine key a wire ref key resolves onto, or ``None``."""
+    if not isinstance(key, str):
+        return None
     if key in _SPECIAL_WIRE_TO_ENGINE:
         return _SPECIAL_WIRE_TO_ENGINE[key]
     for wire, engine in (("public_refs", "item_ids"), ("public_ref", "item_id")):
@@ -32,11 +34,15 @@ def engine_key_for_wire(key: str) -> Optional[str]:
 
 
 def is_plural(key: str) -> bool:
-    return key.endswith("public_refs") or key.endswith("_ids")
+    return isinstance(key, str) and (
+        key.endswith("public_refs") or key.endswith("_ids")
+    )
 
 
 def wire_key_for_engine(key: str) -> Optional[str]:
     """Public response key for an internal item join key, or ``None``."""
+    if not isinstance(key, str):
+        return None
     for wire, engine in _SPECIAL_WIRE_TO_ENGINE.items():
         if key == engine:
             return wire

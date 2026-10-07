@@ -4,8 +4,7 @@ Owns ``create-item`` and ``validate-update`` — both are **internal
 validators for the ``/yoke idea`` workflow**, not agent-facing
 work-item entrypoints. They only call ``mutations.prepare_*``
 to return planned writes. Production callers enter a registered surface;
-``create-item`` checks that the selected
-workflow allows its typed entry surface.
+``create-item`` checks workflow entry-surface permission.
 """
 
 from __future__ import annotations
@@ -17,6 +16,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.item_entry_surface import enforce_item_entry_allowed
 from yoke_core.domain.project_selection import missing_project_on_connection
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+from yoke_core.domain.item_ref_resolution import ITEM_REF_NOT_FOUND
 from yoke_core.api.service_client_shared import (
     _get_db_path,
     _get_db_readonly,
@@ -34,12 +34,8 @@ def cmd_create_item(args: list[str]) -> int:
                        [--project PROJECT] [--deployment-flow FLOW]
                        [--status STATUS] [--entry-surface SURFACE]
 
-    This is NOT a persistent item-creation surface. It calls
-    ``mutations.prepare_create`` and returns the planned field writes
-    so the ``/yoke idea`` orchestrator can apply them; it does not
-    insert rows, sync GitHub, or release a draft claim. The selected
-    workflow must allow the typed entry surface; agents enter via
-    ``/yoke idea``, which supplies ``harness_skill``.
+    ``mutations.prepare_create`` returns planned writes; ``/yoke idea``
+    persists them with the workflow-authorized ``harness_skill`` entry surface.
 
     Exit 0: valid, JSON result on stdout
     Exit 1: validation error, JSON error on stdout
@@ -219,13 +215,14 @@ def cmd_update_item(args: list[str]) -> int:
         )
 
         item_id = _parse_item_id_arg(args[0])
-    except ValueError:
+    except ValueError as exc:
+        missing = getattr(exc, "code", None) == ITEM_REF_NOT_FOUND
         print(
             json.dumps(
                 {
                     "success": False,
-                    "error": f"Item ref must be PREFIX-N, got '{args[0]}'",
-                    "error_code": "VALIDATION_ERROR",
+                    "error": str(exc),
+                    "error_code": "NOT_FOUND" if missing else "VALIDATION_ERROR",
                 }
             )
         )

@@ -68,7 +68,7 @@ def test_stamp_item_field_writes_non_default_project_row(db):
 
 
 def test_stamp_item_field_raises_when_item_missing(db):
-    with pytest.raises(DeploymentItemStampError, match="items.id=40404"):
+    with pytest.raises(DeploymentItemStampError, match="YOK-40404"):
         stamp_item_field("YOK-40404", "deploy_stage", "complete")
 
 

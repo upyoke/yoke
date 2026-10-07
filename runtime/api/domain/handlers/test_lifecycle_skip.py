@@ -204,7 +204,8 @@ class TestRegistrationDescriptor(unittest.TestCase):
     def test_registers_canonical_function_id(self):
         ids = [reg["function_id"] for reg in lifecycle_skip.REGISTRATIONS]
         self.assertIn(
-            "lifecycle.skip.record_recoverable_substrate", ids,
+            "lifecycle.skip.record_recoverable_substrate",
+            ids,
         )
 
     def test_advertised_event_names_include_offer_skipped(self):
@@ -243,29 +244,47 @@ class TestDispatchIntegration(unittest.TestCase):
         envelope = {
             "function": "lifecycle.skip.record_recoverable_substrate",
             "actor": {"session_id": _SESSION_ID},
-            "target": {"kind": "item", "item_id": _ITEM_ID},
+            "target": {"kind": "item", "public_ref": f"YOK-{_ITEM_ID}"},
             "payload": {
                 **_DEFAULT_PAYLOAD,
                 "chain_step": 7,
                 "failure_class": "path-claim-overlap-incompatible",
             },
         }
-        with patch(
-            "yoke_core.domain.yoke_function_dispatch.bind_actor_identity",
-        ) as bind, patch(
-            "yoke_core.domain.yoke_function_dispatch.verify_claim",
-            return_value=None,
-        ), patch(
-            "yoke_core.domain.yoke_function_dispatch.emit_called",
-        ), patch(
-            "yoke_core.domain.yoke_function_dispatch.emit_downstream_degraded",
-        ), _connect_returns_stub(), _helper_returns_entry(stub_entry):
+        with (
+            patch(
+                "yoke_core.domain.yoke_function_dispatch.bind_actor_identity",
+            ) as bind,
+            patch(
+                "yoke_core.domain.yoke_function_dispatch.verify_claim",
+                return_value=None,
+            ),
+            patch(
+                "yoke_core.domain.yoke_function_dispatch.emit_called",
+            ),
+            patch(
+                "yoke_core.domain.yoke_function_dispatch.emit_downstream_degraded",
+            ),
+            patch(
+                "yoke_core.domain.yoke_function_dispatch.resolve_request_item_refs",
+                side_effect=lambda request, _model: setattr(
+                    request.target, "item_id", _ITEM_ID
+                ),
+            ),
+            patch(
+                "yoke_core.domain.function_response_refs.render_item_refs",
+                return_value={_ITEM_ID: f"YOK-{_ITEM_ID}"},
+            ),
+            _connect_returns_stub(),
+            _helper_returns_entry(stub_entry),
+        ):
             # bind_actor_identity is invoked by dispatch and returns a bound
             # request envelope; stub it to passthrough the typed request.
             def _passthrough(entry, request, ambient_session_id=None):
                 from yoke_core.domain.yoke_function_actor_identity import (
                     BoundIdentity,
                 )
+
                 return BoundIdentity(
                     bound_request=request,
                     payload_session_id=request.actor.session_id,
@@ -278,7 +297,8 @@ class TestDispatchIntegration(unittest.TestCase):
 
         self.assertTrue(response.success)
         self.assertEqual(
-            response.function, "lifecycle.skip.record_recoverable_substrate",
+            response.function,
+            "lifecycle.skip.record_recoverable_substrate",
         )
         self.assertEqual(response.result["chain_step"], 7)
         self.assertEqual(

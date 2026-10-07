@@ -116,7 +116,7 @@ def test_alignment_emits_event_and_clears_deploy_stage(wired):
     assert ctx["run_id"] == "run-X"
     assert ctx["reconciled"] is True
     assert ctx["reason"] == "usher-reconcile-github"
-    assert event["member_items"] == ["42"]
+    assert event["member_items"] == [_FIXTURE_ITEM_REF]
     assert event["project"] == "yoke"
 
     assert len(wired.dispatched) == 1
@@ -302,10 +302,8 @@ def test_no_action_when_deploy_stage_not_failed_shape(wired, monkeypatch):
     assert wired.dispatched == []
 
 
-def test_parse_item_argument_accepts_typed_internal_id():
-    # PREFIX-N resolution (project sequence -> internal id) is covered by
-    # the canonical parser tests; here only the DB-free shapes.
-    assert mod._parse_item_argument(42) == 42
+def test_parse_item_argument_preserves_complete_public_ref():
+    assert mod._parse_item_argument(_FIXTURE_ITEM_REF) == _FIXTURE_ITEM_REF
 
 
 def test_parse_item_argument_rejects_empty():
@@ -318,7 +316,7 @@ def test_parse_item_argument_rejects_empty():
 def test_main_exits_with_usage_code_on_bad_arg(wired, capsys):
     rc = mod.main(["not-an-id"])
     assert rc == mod.EXIT_USAGE
-    assert "pass the public ref (PREFIX-N" in capsys.readouterr().err
+    assert "public_item_ref_required" in capsys.readouterr().err
 
 
 def test_main_returns_zero_on_alignment(wired, monkeypatch, capsys):

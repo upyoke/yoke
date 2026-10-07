@@ -108,4 +108,4 @@ def cmd_execute_update(args: list[str]) -> int:
     result["log"] = captured.getvalue()
     from yoke_core.api.service_client_shared import _emit_backlog_result
 
-    return _emit_backlog_result(result)
+    return _emit_backlog_result(result, log=captured.getvalue())

@@ -114,9 +114,9 @@ class TestFlagRoutes:
         assert _run("items", "block", _FIXTURE_ITEM_REF) == 2
         assert _CAPTURED_REQUESTS == []
 
-    def test_item_ref_relays_verbatim(self) -> None:
-        assert _run("items", "freeze", "not-a-real-ref") == 0
-        assert _CAPTURED_REQUESTS[-1].target.public_ref == "not-a-real-ref"
+    def test_complete_item_ref_relays_verbatim(self) -> None:
+        assert _run("items", "freeze", "EXT-81") == 0
+        assert _CAPTURED_REQUESTS[-1].target.public_ref == "EXT-81"
 
     def test_every_flag_verb_carries_a_usage_line(self) -> None:
         for function_id in FLAG_FUNCTION_IDS:

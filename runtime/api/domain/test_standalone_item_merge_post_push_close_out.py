@@ -308,7 +308,7 @@ def test_receipt_loader_preserves_observed_check_conclusions(monkeypatch) -> Non
         ),
     )
 
-    receipt = receipts.load(7, "ITEM-7", "main")
+    receipt = receipts.load("ITEM-7", "ITEM-7", "main")
 
     assert receipt is not None
     assert receipt.check_runs[0]["conclusion"] == "success"

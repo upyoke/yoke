@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.item_ref_resolution import resolve_item_ref
+
 import json
 from types import SimpleNamespace
 
@@ -99,6 +101,9 @@ def test_local_merge_item_records_evidence_and_reaches_done(
 
     def lifecycle_dispatch(*, function_id, payload, target, **_kwargs):
         assert function_id == "lifecycle.transition.execute"
+        target = target.model_copy(
+            update={"item_id": resolve_item_ref(test_db, target.public_ref)}
+        )
         result = handle_transition(
             FunctionCallRequest(
                 function=function_id,
@@ -116,6 +121,15 @@ def test_local_merge_item_records_evidence_and_reaches_done(
         )
 
     def evidence_dispatch(*, function_id, payload, **_kwargs):
+        if function_id == "items.detail.get":
+            row = test_db.execute(
+                "SELECT status FROM items WHERE id = %s", (item_id,)
+            ).fetchone()
+            return SimpleNamespace(
+                success=True,
+                result={"item": {"status": row[0], "public_ref": ref}},
+                error=None,
+            )
         assert function_id == "direct_workflow.dash.evidence"
         dash_execution.record_dash_evidence(test_db, item_id=item_id, **payload)
         return SimpleNamespace(success=True, result={}, error=None)

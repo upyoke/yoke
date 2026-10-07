@@ -150,7 +150,7 @@ class TestHCLifecycleContinuity:
     def test_pass_transition_row_exists(self, conn):
         conn.execute(
             "INSERT INTO items (id, project_sequence, title, workflow_id, workflow_version_id, status, priority) "
-            "VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'low')"
+            "VALUES (1, 1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'low')"
         )
         conn.execute(
             "INSERT INTO item_status_transitions (item_id, to_status) "
@@ -163,7 +163,7 @@ class TestHCLifecycleContinuity:
     def test_task_row_does_not_satisfy_item_continuity(self, conn):
         conn.execute(
             "INSERT INTO items (id, project_sequence, title, workflow_id, workflow_version_id, status, priority) "
-            "VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'low')"
+            "VALUES (1, 1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'low')"
         )
         # A task-level transition (task_num set) is not the item's own.
         conn.execute(
@@ -177,7 +177,7 @@ class TestHCLifecycleContinuity:
     def test_warn_missing_transition_row(self, conn):
         conn.execute(
             "INSERT INTO items (id, project_sequence, title, workflow_id, workflow_version_id, status, priority) "
-            "VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'low')"
+            "VALUES (1, 1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'low')"
         )
         rec = RecordCollector()
         hc_lifecycle_continuity(conn, _default_args(), rec)

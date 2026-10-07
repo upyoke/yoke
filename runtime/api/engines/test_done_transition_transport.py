@@ -214,7 +214,7 @@ class TestBlockedFlagRelay:
             lambda _item_id, _item_ref=None: TEST_ITEM_REF,
         )
         _install(monkeypatch, fake, [gates])
-        assert gates._check_blocked_flag(42) == 9
+        assert gates._check_blocked_flag(TEST_ITEM_REF) == 9
         assert calls[0]["function_id"] == "done_transition.blocked_gate"
         out = capsys.readouterr().out
         assert "items.blocked=1" in out
@@ -227,7 +227,7 @@ class TestBlockedFlagRelay:
             lambda **k: _resp("done_transition.blocked_gate", {"blocked": False}),
             [gates],
         )
-        assert gates._check_blocked_flag(42) is None
+        assert gates._check_blocked_flag(TEST_ITEM_REF) is None
 
     def test_unreadable_flag_refuses_rather_than_degrading_open(
         self, monkeypatch, capsys

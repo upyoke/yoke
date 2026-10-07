@@ -121,7 +121,7 @@ class TestClaimsWorkCurrent:
         assert req.payload == {}
 
     def test_positional_form_dispatches(self) -> None:
-        rc = _run(_stub_ok, "claims", "work", "current", "1880")
+        rc = _run(_stub_ok, "claims", "work", "current", "YOK-1880")
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "claims.work.holder_get"

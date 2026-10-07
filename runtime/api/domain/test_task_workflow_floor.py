@@ -267,7 +267,7 @@ def test_a_folder_project_carries_a_task_without_a_repo(
     )
 
     outcome = worktree_preflight.run_preflight(
-        item_id=26824,
+        item_id="YOK-26824",
         project=None,
         repo_root=None,
         actual_cwd=str(folder),

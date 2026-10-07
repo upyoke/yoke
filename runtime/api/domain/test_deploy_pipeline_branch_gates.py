@@ -12,7 +12,7 @@ class TestBranchVerification:
     def test_no_branch(self):
         ok, msg = deploy_pipeline_gates._verify_branch_merged(
             "",
-            "42",
+            f"ITEM-{42}",
             "/tmp/nonexistent",
             "main",
         )
@@ -23,7 +23,7 @@ class TestBranchVerification:
     def test_null_branch_message_names_target_branch(self):
         ok, msg = deploy_pipeline_gates._verify_branch_merged(
             "null",
-            "42",
+            f"ITEM-{42}",
             "/tmp/nonexistent",
             "stage",
         )
@@ -76,7 +76,7 @@ class TestBranchVerificationDeclaredBranch:
         repo = self._repo_with_stage_only_work(tmp_path)
         ok, msg = deploy_pipeline_gates._verify_branch_merged(
             "wt-stage-only",
-            "42",
+            f"ITEM-{42}",
             str(repo),
             "stage",
         )
@@ -86,7 +86,7 @@ class TestBranchVerificationDeclaredBranch:
         repo = self._repo_with_stage_only_work(tmp_path)
         ok, msg = deploy_pipeline_gates._verify_branch_merged(
             "wt-stage-only",
-            "42",
+            f"ITEM-{42}",
             str(repo),
             "main",
         )
@@ -104,7 +104,9 @@ class TestResolveFlowGateBranch:
         ) as declared:
             assert (
                 deploy_pipeline_gates.resolve_flow_gate_branch(
-                    "yoke", "persistent", "stage",
+                    "yoke",
+                    "persistent",
+                    "stage",
                 )
                 == "stage"
             )
@@ -116,8 +118,7 @@ class TestResolveFlowGateBranch:
             return_value="main",
         ) as get_project_str:
             assert (
-                deploy_pipeline_gates.resolve_flow_gate_branch("yoke", "", "")
-                == "main"
+                deploy_pipeline_gates.resolve_flow_gate_branch("yoke", "", "") == "main"
             )
         get_project_str.assert_called_once_with("", "base_branch")
 
@@ -162,7 +163,9 @@ class TestResolveFlowGateBranch:
         """Ephemeral preview flows deploy unmerged branches."""
         assert (
             deploy_pipeline_gates.resolve_flow_gate_branch(
-                "yoke", "ephemeral", "",
+                "yoke",
+                "ephemeral",
+                "",
             )
             == ""
         )

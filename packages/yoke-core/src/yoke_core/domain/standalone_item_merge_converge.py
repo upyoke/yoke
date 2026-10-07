@@ -46,7 +46,7 @@ def _converge_queue_landing(
             repo_root=repo_root,
             project=project,
         ),
-        item_id=item_id,
+        item_id=public_ref,
         commit_sha=lane.commit_sha,
         # Which merge carried this lane must be asked of the candidate in
         # hand, never of the older commit the receipt may still name: a

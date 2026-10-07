@@ -125,6 +125,9 @@ class _ApiSuite(unittest.TestCase):
             self._auth = mint_api_auth_context(conn)
         finally:
             conn.close()
+        from runtime.api.domain.sections_test_helpers import _seed_item
+
+        _seed_item(self._db_path, 42)
         reset_registry_for_tests()
         # Silence event emission so the API endpoint does not require the
         # full events table during integration tests.

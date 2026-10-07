@@ -126,7 +126,7 @@ def test_landed_lane_records_the_row_release(landed_lane, monkeypatch):
         # (``projects.capability_settings.get``); only the row-release call
         # is this test's subject.
         if function_id == "item_worktrees.release_merged_lane":
-            calls.append((function_id, target.item_id, payload))
+            calls.append((function_id, target.public_ref, payload))
         return SimpleNamespace(success=True, result={}, error=None)
 
     monkeypatch.setattr(
@@ -145,7 +145,7 @@ def test_landed_lane_records_the_row_release(landed_lane, monkeypatch):
 
     assert preserved == ()
     assert calls == [
-        ("item_worktrees.release_merged_lane", 7, {"branch": BRANCH}),
+        ("item_worktrees.release_merged_lane", "YOK-7", {"branch": BRANCH}),
     ]
 
 

@@ -204,8 +204,8 @@ def build_parser() -> argparse.ArgumentParser:
     al.add_argument("--run-id", type=int)
     al.add_argument(
         "--item-id",
-        type=int,
-        help="List all artifacts for an item (joins through runs/requirements)",
+        type=parse_item_argument,
+        help="Complete public item ref (PREFIX-N); list its QA artifacts.",
     )
     al.add_argument(
         "--resolve-addresses",

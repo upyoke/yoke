@@ -66,7 +66,7 @@ def public_item_request_error(request: FunctionCallRequest) -> FunctionError | N
 
 def item_record_context(key: str) -> bool:
     """Item containers identify sparse item records without inferring from a ref."""
-    return key in ("item", "items") or key.endswith("_items")
+    return isinstance(key, str) and (key in ("item", "items") or key.endswith("_items"))
 
 
 def is_public_item_record(node: dict[str, Any], *, context: bool = False) -> bool:

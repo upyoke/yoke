@@ -1,4 +1,4 @@
-"""POST /v1/items/{id}/capability tests (TestConfigureCapability)."""
+"""POST /v1/items/{public_ref}/capability tests (TestConfigureCapability)."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ def client(test_db):
 class TestConfigureCapability:
     def test_create_capability(self, client, test_db):
         resp = client.post(
-            "/v1/items/1/capability",
+            "/v1/items/YOK-1/capability",
             json={
                 "type": "github",
                 "config": {"token": "ghs_test_token_value", "repo": "test"},
@@ -45,7 +45,7 @@ class TestConfigureCapability:
     def test_update_capability_upsert(self, client, test_db):
         # Create first
         resp1 = client.post(
-            "/v1/items/1/capability",
+            "/v1/items/YOK-1/capability",
             json={
                 "type": "ci",
                 "config": {"runner": "local"},
@@ -55,7 +55,7 @@ class TestConfigureCapability:
 
         # Update (same project + type)
         resp2 = client.post(
-            "/v1/items/1/capability",
+            "/v1/items/YOK-1/capability",
             json={
                 "type": "ci",
                 "config": {"runner": "remote"},
@@ -67,7 +67,7 @@ class TestConfigureCapability:
 
     def test_capability_item_not_found(self, client):
         resp = client.post(
-            "/v1/items/999/capability",
+            "/v1/items/YOK-999/capability",
             json={
                 "type": "github",
                 "config": {"key": "value"},
@@ -79,7 +79,7 @@ class TestConfigureCapability:
 
     def test_capability_empty_type(self, client):
         resp = client.post(
-            "/v1/items/1/capability",
+            "/v1/items/YOK-1/capability",
             json={
                 "type": "",
                 "config": {"key": "value"},
@@ -92,7 +92,7 @@ class TestConfigureCapability:
 
     def test_capability_empty_config(self, client):
         resp = client.post(
-            "/v1/items/1/capability",
+            "/v1/items/YOK-1/capability",
             json={
                 "type": "github",
                 "config": {},
@@ -106,7 +106,7 @@ class TestConfigureCapability:
     def test_capability_resolves_project_from_item(self, client, test_db):
         # Item 3 has project='externalwebapp'
         resp = client.post(
-            "/v1/items/3/capability",
+            "/v1/items/EXT-3/capability",
             json={
                 "type": "deploy",
                 "config": {"target": "stage"},
@@ -133,7 +133,7 @@ class TestConfigureCapability:
             ),
         )
         response = client.post(
-            "/v1/items/1/capability",
+            "/v1/items/YOK-1/capability",
             json={
                 "type": "ci",
                 "config": {"runner": "local"},

@@ -281,7 +281,7 @@ def test_legacy_scope_repair_prints_task_diagnostics_and_next_steps(
             version=request.version,
             request_id=request.request_id,
             result={
-                "epic_id": 1687,
+                "epic_public_ref": "YOK-1687",
                 "message": "YOK-1687 legacy task scopes typed",
                 "diagnostics": [
                     "tenant=4 item=YOK-1687 task=1 scope=legacy_deferred",

@@ -77,13 +77,13 @@ def _call(
     function_id: str,
     *,
     run_id: str | None = None,
-    item_id: int | None = None,
+    public_ref: str | None = None,
     payload: dict | None = None,
 ):
     if run_id:
         target = {"kind": "workflow_run", "workflow_run_id": run_id}
-    elif item_id is not None:
-        target = {"kind": "item", "item_id": item_id}
+    elif public_ref is not None:
+        target = {"kind": "item", "public_ref": public_ref}
     else:
         target = {"kind": "global"}
     return client.post(
@@ -125,22 +125,27 @@ def serving_plane():
             "(%s,%s,%s,'external delivery',%s,'halt',%s,'ephemeral','active')",
             (FLOW, project_id, FLOW, stages, iso8601_now()),
         )
-        workflow_id, workflow_version_id = resolve_current_workflow_pin(
-            conn, "issue"
-        )
+        workflow_id, workflow_version_id = resolve_current_workflow_pin(conn, "issue")
         conn.execute(
             "INSERT INTO items "
             "(id,title,status,project_id,project_sequence,deployment_flow,"
             "workflow_id,workflow_version_id,created_at,updated_at) "
             "VALUES (%s,'external release','implemented',%s,1,%s,%s,%s,%s,%s)",
             (
-                ITEM_ID, project_id, FLOW, workflow_id, workflow_version_id,
-                iso8601_now(), iso8601_now(),
+                ITEM_ID,
+                project_id,
+                FLOW,
+                workflow_id,
+                workflow_version_id,
+                iso8601_now(),
+                iso8601_now(),
             ),
         )
         owner_session = "external-deploy-owner"
         owner_id, owner_token = _project_owner(
-            conn, PROJECT, owner_session,
+            conn,
+            PROJECT,
+            owner_session,
         )
         other_session = "yoke-only-owner"
         other_id, other_token = _project_owner(conn, "yoke", other_session)
@@ -163,14 +168,10 @@ def serving_plane():
                 "conn": conn,
                 "owner_id": owner_id,
                 "owner_session": owner_session,
-                "owner_headers": {
-                    "Authorization": f"Bearer {owner_token.raw_token}"
-                },
+                "owner_headers": {"Authorization": f"Bearer {owner_token.raw_token}"},
                 "other_id": other_id,
                 "other_session": other_session,
-                "other_headers": {
-                    "Authorization": f"Bearer {other_token.raw_token}"
-                },
+                "other_headers": {"Authorization": f"Bearer {other_token.raw_token}"},
             }
 
 
@@ -182,9 +183,12 @@ def test_project_only_owner_creates_pauses_resumes_fails_and_retries(
     session_id = serving_plane["owner_session"]
     conn = serving_plane["conn"]
     actor_id = serving_plane["owner_id"]
-    assert conn.execute(
-        "SELECT COUNT(*) FROM actor_org_roles WHERE actor_id=%s", (actor_id,)
-    ).fetchone()[0] == 0
+    assert (
+        conn.execute(
+            "SELECT COUNT(*) FROM actor_org_roles WHERE actor_id=%s", (actor_id,)
+        ).fetchone()[0]
+        == 0
+    )
 
     created = _call(
         client,
@@ -296,7 +300,7 @@ def test_project_only_owner_starts_item_bound_run_through_serving_handler(
         serving_plane["owner_headers"],
         serving_plane["owner_session"],
         "deployment_runs.start_for_item",
-        item_id=ITEM_ID,
+        public_ref="EXT-1",
         payload={
             "project": PROJECT,
             "flow": FLOW,
@@ -305,7 +309,8 @@ def test_project_only_owner_starts_item_bound_run_through_serving_handler(
     )
     assert started.status_code == 200, started.text
     result = started.json()["result"]
-    assert result["item_id"] == ITEM_ID
+    assert result["public_ref"] == "EXT-1"
+    assert "item_id" not in result
     assert result["project"] == PROJECT
     assert result["run_id"].startswith("run-")
 
@@ -317,7 +322,7 @@ def test_project_only_owner_starts_item_bound_run_through_serving_handler(
         run_id=result["run_id"],
     )
     assert context.status_code == 200, context.text
-    assert context.json()["result"]["members"][0]["item_id"] == ITEM_ID
+    assert context.json()["result"]["members"][0]["public_ref"] == "EXT-1"
 
 
 def test_project_owner_cannot_drive_another_projects_run(serving_plane) -> None:

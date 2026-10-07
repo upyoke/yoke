@@ -44,7 +44,7 @@ def test_a_lane_branch_containing_a_slash_lands(monkeypatch):
             seen.update(branch=merge_ctx.args.branch) or (("a.py",), None)
         ),
     )
-    outcome = land(ctx=ctx(branch), public_ref=branch)
+    outcome = land(ctx=ctx(branch), public_ref="YOK-200")
     assert outcome.ok
     assert seen["branch"] == branch
 

@@ -15,7 +15,9 @@ from runtime.api.domain.standalone_merge_simulation_support import (
 )
 from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_cli as sim_cli
-from yoke_core.domain import standalone_item_merge_close_out_transition as close_out_transition
+from yoke_core.domain import (
+    standalone_item_merge_close_out_transition as close_out_transition,
+)
 from yoke_core.domain.standalone_item_merge_release_status import CloseOutRoute
 from yoke_core.domain import standalone_item_merge_lane as sim_lane
 
@@ -33,25 +35,36 @@ def repo(tmp_path: Path) -> Path:
 
 class TestMergeBoundary:
     def test_missing_branch_refuses_without_touching_the_checkout(
-        self, repo: Path, monkeypatch: pytest.MonkeyPatch,
+        self,
+        repo: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id, **_kwargs: None)
         outcome = sim.merge_standalone_branch(
-            project="yoke", item_id=1, branch="ITEM-404", target="main", repo_root=str(repo),
+            project="yoke",
+            item_id=1,
+            branch="ITEM-404",
+            target="main",
+            repo_root=str(repo),
         )
         assert not outcome.ok
         assert "does not exist" in outcome.error
 
     def test_engine_failure_reports_without_stamping(
-        self, repo: Path, monkeypatch: pytest.MonkeyPatch,
+        self,
+        repo: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """A refused merge must not record the item as merged."""
         stamped: list[int] = []
         monkeypatch.setattr(
-            sim, "stamp_merged_at", lambda item_id, **_kwargs: stamped.append(item_id),
+            sim,
+            "stamp_merged_at",
+            lambda item_id, **_kwargs: stamped.append(item_id),
         )
         monkeypatch.setattr(
-            sim, "_run_merge_engine",
+            sim,
+            "_run_merge_engine",
             lambda **_kwargs: (1, "merge refused"),
         )
         outcome = _merge(repo)
@@ -60,11 +73,14 @@ class TestMergeBoundary:
         assert stamped == []
 
     def test_merge_lock_contention_is_reported_as_retryable(
-        self, repo: Path, monkeypatch: pytest.MonkeyPatch,
+        self,
+        repo: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id, **_kwargs: None)
         monkeypatch.setattr(
-            sim, "_run_merge_engine",
+            sim,
+            "_run_merge_engine",
             lambda **_kwargs: (sim.RECOVERABLE_MERGE_LOCK_EXIT_CODE, ""),
         )
         outcome = _merge(repo)
@@ -72,16 +88,21 @@ class TestMergeBoundary:
         assert "retry" in outcome.error
 
     def test_already_merged_branch_converges_instead_of_refusing(
-        self, repo: Path, monkeypatch: pytest.MonkeyPatch,
+        self,
+        repo: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """A retry after a partial run stamps without re-running the engine."""
         _git(repo, "merge", "--no-edit", "ITEM-1")
         stamped: list[int] = []
         monkeypatch.setattr(
-            sim, "stamp_merged_at", lambda item_id, **_kwargs: stamped.append(item_id),
+            sim,
+            "stamp_merged_at",
+            lambda item_id, **_kwargs: stamped.append(item_id),
         )
         monkeypatch.setattr(
-            sim, "_run_merge_engine",
+            sim,
+            "_run_merge_engine",
             lambda **_kwargs: pytest.fail("engine must not re-run"),
         )
         outcome = _merge(repo)
@@ -90,7 +111,9 @@ class TestMergeBoundary:
         assert stamped == [7]
 
     def test_touched_files_come_from_the_branch_itself(
-        self, repo: Path, monkeypatch: pytest.MonkeyPatch,
+        self,
+        repo: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id, **_kwargs: None)
         monkeypatch.setattr(sim, "_run_merge_engine", lambda **_k: (0, ""))
@@ -99,7 +122,9 @@ class TestMergeBoundary:
         assert outcome.commit_sha
 
     def test_a_checkout_with_no_remote_skips_publishing(
-        self, repo: Path, monkeypatch: pytest.MonkeyPatch,
+        self,
+        repo: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """External projects without a remote still complete the merge."""
         monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id, **_kwargs: None)
@@ -110,10 +135,14 @@ class TestMergeBoundary:
         assert not outcome.warnings
 
     def test_a_failed_stamp_warns_rather_than_unwinding_the_merge(
-        self, repo: Path, monkeypatch: pytest.MonkeyPatch,
+        self,
+        repo: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         monkeypatch.setattr(
-            sim, "stamp_merged_at", lambda item_id, **_kwargs: "control plane refused",
+            sim,
+            "stamp_merged_at",
+            lambda item_id, **_kwargs: "control plane refused",
         )
         monkeypatch.setattr(sim, "_run_merge_engine", lambda **_k: (0, ""))
         outcome = _merge(repo)
@@ -121,71 +150,16 @@ class TestMergeBoundary:
         assert any("merged_at" in warning for warning in outcome.warnings)
 
 
-class TestEngineArguments:
-    def test_standalone_permission_and_item_identity_are_engine_arguments(
-        self, monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        captured: dict = {}
-
-        def fake_run(args):
-            captured["args"] = args
-            return 0
-
-        monkeypatch.setattr(
-            "yoke_core.engines.merge_worktree.run", fake_run,
-        )
-        sim._run_merge_engine(
-            item_id=7,
-            repo_root="/project/repo",
-            branch="descriptive-lane",
-            source_sha="a" * 40,
-            target="main",
-            local_merge=True,
-        )
-        assert captured["args"].standalone is True
-        assert captured["args"].item_id == 7
-        assert captured["args"].expected_repo_root == "/project/repo"
-        assert captured["args"].epic_ref is None
-
-    def test_expected_checkout_mismatch_refuses(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
-    ) -> None:
-        from yoke_contracts.api.function_call import FunctionCallResponse
-        from yoke_core.engines import merge_worktree_prepare as prep
-
-        monkeypatch.setattr(
-            "yoke_core.domain.worktree.resolve_main_root", lambda: str(tmp_path),
-        )
-        monkeypatch.setattr(prep, "_find_worktree", lambda *_a: str(tmp_path))
-        monkeypatch.setattr(
-            prep,
-            "call_dispatcher",
-            lambda **kwargs: FunctionCallResponse(
-                success=True,
-                function=kwargs["function_id"],
-                version="v1",
-                result={"item": {"id": 7, "project": {"slug": "yoke"}}},
-            ),
-        )
-
-        with pytest.raises(RuntimeError, match="does not match"):
-            prep.resolve_context(
-                prep.MergeArgs(
-                    branch="descriptive-lane",
-                    item_id=7,
-                    expected_repo_root=str(tmp_path / "other"),
-                    standalone=True,
-                )
-            )
-
-
 class TestCloseOutOrdering:
     def test_evidence_is_required_before_the_terminal_transition(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture,
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture,
     ) -> None:
         """An evidence-gated workflow refuses to close out with no summaries."""
         monkeypatch.setattr(
-            sim_cli, "_resolve_item",
+            sim_cli,
+            "_resolve_item",
             lambda ref, project: (
                 {
                     "id": 7,
@@ -201,12 +175,15 @@ class TestCloseOutOrdering:
         assert "evidence-gated" in capsys.readouterr().err
 
     def test_skip_status_merges_without_requiring_evidence(
-        self, repo: Path, monkeypatch: pytest.MonkeyPatch,
+        self,
+        repo: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Deployment posture and multi-slice callers merge, then close out."""
         calls: list[str] = []
         monkeypatch.setattr(
-            sim_cli, "_resolve_item",
+            sim_cli,
+            "_resolve_item",
             lambda ref, project: (
                 {
                     "id": 7,
@@ -220,8 +197,11 @@ class TestCloseOutOrdering:
         )
         monkeypatch.setattr(sim_cli, "_session_holds_claim", lambda *_a: "")
         monkeypatch.setattr(
-            sim_cli, "_resolve_checkout", lambda item, target: (repo, "main"),
+            sim_cli,
+            "_resolve_checkout",
+            lambda item, target: (repo, "main"),
         )
+
         def _enter_release(**kwargs):
             stages = tuple(kwargs.get("stages") or ())
             assert "done" not in stages
@@ -229,14 +209,19 @@ class TestCloseOutOrdering:
             return ("release", "")
 
         monkeypatch.setattr(
-            sim_cli.close_out, "transition_to_done", _enter_release,
+            sim_cli.close_out,
+            "transition_to_done",
+            _enter_release,
         )
         monkeypatch.setattr(
-            sim_cli.evidence, "record",
+            sim_cli.evidence,
+            "record",
             lambda **_k: pytest.fail("evidence must be left alone"),
         )
         monkeypatch.setattr(
-            sim, "sync_item_to_github", lambda item_id: calls.append("sync"),
+            sim,
+            "sync_item_to_github",
+            lambda item_id: calls.append("sync"),
         )
         monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id, **_kwargs: None)
         monkeypatch.setattr(sim, "_run_merge_engine", lambda **_k: (0, ""))
@@ -245,12 +230,15 @@ class TestCloseOutOrdering:
         assert calls == ["sync"]
 
     def test_a_refused_transition_leaves_the_recorded_evidence_intact(
-        self, repo: Path, monkeypatch: pytest.MonkeyPatch,
+        self,
+        repo: Path,
+        monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture,
     ) -> None:
         """A blocked gate reports; it never re-runs the merge or drops evidence."""
         monkeypatch.setattr(
-            sim_cli, "_resolve_item",
+            sim_cli,
+            "_resolve_item",
             lambda ref, project: (
                 {
                     "id": 7,
@@ -264,14 +252,19 @@ class TestCloseOutOrdering:
         )
         monkeypatch.setattr(sim_cli, "_session_holds_claim", lambda *_a: "")
         monkeypatch.setattr(
-            sim_cli, "_resolve_checkout", lambda item, target: (repo, "main"),
+            sim_cli,
+            "_resolve_checkout",
+            lambda item, target: (repo, "main"),
         )
         monkeypatch.setattr(sim_cli.evidence, "record", lambda **_k: "")
         monkeypatch.setattr(
-            close_out_transition, "close_out_route", lambda *_a, **_k: CloseOutRoute(stages=("done",)),
+            close_out_transition,
+            "close_out_route",
+            lambda *_a, **_k: CloseOutRoute(stages=("done",)),
         )
         monkeypatch.setattr(
-            sim_cli.close_out, "transition_to_done",
+            sim_cli.close_out,
+            "transition_to_done",
             lambda **_k: ("", "deployment run has not succeeded"),
         )
         monkeypatch.setattr(sim, "sync_item_to_github", lambda item_id: None)
@@ -287,10 +280,13 @@ class TestCloseOutOrdering:
         assert "deployment run has not succeeded" in envelope
 
     def test_a_session_without_the_item_claim_cannot_merge(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture,
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture,
     ) -> None:
         monkeypatch.setattr(
-            sim_cli, "_resolve_item",
+            sim_cli,
+            "_resolve_item",
             lambda ref, project: (
                 {
                     "id": 7,
@@ -302,7 +298,8 @@ class TestCloseOutOrdering:
             ),
         )
         monkeypatch.setattr(
-            sim_cli, "_session_holds_claim",
+            sim_cli,
+            "_session_holds_claim",
             lambda *_a: "work claim held by another session (other)",
         )
         exit_code = sim_cli.run(

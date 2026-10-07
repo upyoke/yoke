@@ -58,7 +58,7 @@ def get_board(
         items_for_board: List[board.ItemForBoard] = []
         for r in rows:
             d = dict(r)
-            item_obj = _main._row_to_item(r, include_body=False)
+            item_obj = _main._row_to_item(r, include_body=False, conn=conn)
             items_for_board.append(
                 board.ItemForBoard(
                     item=item_obj,

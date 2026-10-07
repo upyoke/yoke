@@ -10,7 +10,7 @@ branch to be merged into and is CI-verified by its exact commit instead.
 
 from __future__ import annotations
 
-from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+from yoke_core.domain.public_item_target import public_item_target
 
 import os
 import sys
@@ -103,17 +103,6 @@ def _resolve_and_verify_branch(
     return ok, first_item, branch
 
 
-def _merge_evidence_pattern(public_ref: str, item_id: str) -> str:
-    """Extended-regex alternation matching an item in commit subjects.
-
-    Subjects carry the item's public ref; the legacy ``YOK-{items.id}``
-    token stays in the alternation so history written before refs were
-    rendered still counts as merge evidence.
-    """
-    tokens = {public_ref, f"YOK-{item_id}"}
-    return "|".join(sorted(tokens))
-
-
 def _verify_branch_merged(
     branch: str,
     first_item: str,
@@ -126,12 +115,8 @@ def _verify_branch_merged(
 
     Returns (ok, message).  ``ok=True`` means proceed.
     """
-    public_ref = public_ref or (
-        item_ref_for_id(int(first_item))
-        if str(first_item).isdigit()
-        else str(first_item)
-    )
-    grep_pattern = _merge_evidence_pattern(public_ref, str(first_item))
+    public_ref = public_ref or str(public_item_target(first_item).public_ref)
+    grep_pattern = public_ref
     if not branch or branch == "null":
         return True, (
             f"Warning: {public_ref} has no branch set — cannot verify "

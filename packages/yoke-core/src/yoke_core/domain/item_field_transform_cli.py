@@ -127,11 +127,15 @@ def _resolve_content(args, operation: str) -> tuple[Optional[str], Optional[int]
         return (None, exc.exit_code)
 
 
-def _resolve_item_argument(raw: str, operation: str) -> tuple[Optional[int], int]:
+def _resolve_item_argument(
+    raw: str, operation: str, *, public_only: bool = False
+) -> tuple[Optional[int | str], int]:
     from yoke_core.domain.item_field_transform import _fail
     from yoke_core.domain.yok_n_parser import parse_item_argument
 
     try:
+        if public_only:
+            return (public_item_target(raw).public_ref, 0)
         return (parse_item_argument(raw), 0)
     except ValueError as exc:
         print(_fail(operation, str(exc)).to_json())
@@ -189,7 +193,7 @@ def _ensure_handlers_registered() -> None:
     register_all_handlers()
 
 
-def _dispatch_via_function(operation: str, args, content: str, item_id: int) -> int:
+def _dispatch_via_function(operation: str, args, content: str, item_id: str) -> int:
     """Build the matching ``items.structured_field.*`` request and dispatch."""
     _ensure_handlers_registered()
 
@@ -242,7 +246,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     if content is None:
         return exit_code or 1
 
-    item_id, parse_exit = _resolve_item_argument(args.item, operation)
+    item_id, parse_exit = _resolve_item_argument(
+        args.item, operation, public_only=bool(args.json_mode)
+    )
     if item_id is None:
         return parse_exit
 

@@ -126,7 +126,6 @@ class TestAcquireEpicTask:
         assert req.target.public_ref == "YOK-1872" and req.target.task_num == 20
         assert req.payload["target"] == {
             "kind": "epic_task",
-            "epic_public_ref": "YOK-1872",
             "task_num": 20,
         }
         assert req.payload["reason"] == "engineer dispatch"

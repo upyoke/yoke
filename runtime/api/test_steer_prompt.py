@@ -135,7 +135,6 @@ class TestSteerSkillContract:
         assert "yoke steering report get" in loop
         assert "Do not re-run those queries by hand" in loop
         assert "open the file, not the preview" in loop
-        # The hand queries this section used to carry are gone entirely.
         assert "FROM session_message_recipients r JOIN harness_sessions" not in raw
         assert "FROM work_claims c JOIN harness_sessions s" not in raw
         assert "FROM session_messages m JOIN session_message_recipients r" not in raw
@@ -183,20 +182,17 @@ class TestSteerSkillContract:
         assert "means no reply is coming" in loop
         assert "answer on the ended session's behalf" in loop
         assert "the current state of whatever it was waiting on" in loop
-        # An unresolved row is context for the probe, never a finding to act on.
         assert "`unresolved` row is an open question with a live answerer" in loop
         assert "a wake alone parks it on the same question" in loop
 
     def test_the_loop_keeps_only_what_the_report_does_not_do(self):
         loop = _words(_read(_STEER_DIR / "loop.md"))
         assert "Two things the report deliberately does not do" in loop
-        # Ownership is re-verified after the report, immediately before acting.
         assert "Re-verify ownership immediately before launching or reclaiming" in loop
         assert "one more claim handoff window" in loop
         assert "staffed a second worker onto a healthy item" in loop
         report_at = loop.index("the fleet report is the detector")
         assert loop.index("yoke claims work holder-get PREFIX-N", report_at) > report_at
-        # A deliberate hold is the operator's flag, not something to infer.
         assert "Set the hold flag on work you are holding on purpose" in loop
         assert "rather than guessing intent" in loop
         assert "yoke items freeze PREFIX-N" in loop
@@ -205,7 +201,6 @@ class TestSteerSkillContract:
     def test_dashboard_card_is_named_as_the_faster_read(self):
         loop = _words(_read(_STEER_DIR / "loop.md"))
         assert "dashboard session card" in loop
-        # One primary status on the identity line; age carries recency, not a pill.
         assert "`active` for any live session" in loop
         assert "confirmed `stale`" in loop
         assert "`waiting` or `probed`" in loop
@@ -219,10 +214,6 @@ class TestSteerSkillContract:
         corpus = _corpus()
         assert "**Stale claim holders:**" not in corpus
         assert "**Silent in-flight work:**" not in corpus
-        # The report's idle detector keys on last activity, never on liveness:
-        # the card uses liveness only for alive-versus-stale classification,
-        # and a 1440-minute TTL is the wrong clock for deciding a worker has
-        # stopped moving.
         assert "liveness=stale" not in corpus
         assert "rather than any liveness label" in _words(corpus)
         assert "still be a session the control plane counts" in _words(corpus)
@@ -265,16 +256,23 @@ class TestSteerSkillContract:
         assert "release_reason=completed" in loop
         assert "yoke claims work acquire --item PREFIX-N --reason steering" in loop
         assert "activation dependencies do not send their own go-signal" in loop
-        assert "deployment-runs create" in loop
-        assert "--source-ref {PINNED_SHA}" in loop
-        # A member closes ITSELF out and credits its own stage; only an
-        # orphan is steering's to finish.
+        assert "deployment-runs create" in _read(_STEER_DIR / "release-batches.md")
+        assert "--source-ref {PINNED_SHA}" in _read(_STEER_DIR / "release-batches.md")
         assert "yoke merge item PREFIX-N --result" in loop
-        assert "done-transition --skip-deploy" in loop
-        assert "orphaned release-wait member" in loop
-        assert "--stage STAGE --member PREFIX-N" in loop
-        assert ("## Live status — steering snapshot (refresh or replace on "
-                "next steering handoff)") in loop
+        assert "done-transition --skip-deploy" in _read(
+            _STEER_DIR / "release-batches.md"
+        )
+        assert "orphaned release-wait member" in _read(
+            _STEER_DIR / "release-batches.md"
+        )
+        assert "--stage STAGE --member PREFIX-N" in _read(
+            _STEER_DIR / "release-batches.md"
+        )
+        assert (
+            "## Live status — steering snapshot (refresh or replace on "
+            "next steering handoff)"
+        ) in loop
+
 
 class TestNearTermPlanDefault:
     """An omitted slug selects CURRENT-PLAN instead of asking the operator."""

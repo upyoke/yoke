@@ -247,9 +247,12 @@ def test_operator_boundaries_preserve_missing_context_teaching(
     detail = _invoke_missing_context_boundary(boundary, monkeypatch)
     captured = capsys.readouterr()
 
-    assert "names a project sequence but no project" in (
-        detail + captured.out + captured.err
-    )
+    refusal = detail + captured.out + captured.err
+    assert (
+        "public_item_ref_required"
+        if boundary == "usher-reconcile"
+        else "names a project sequence but no project"
+    ) in refusal
     identity_read.assert_not_called()
 
 

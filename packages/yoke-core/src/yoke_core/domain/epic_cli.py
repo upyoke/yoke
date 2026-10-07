@@ -102,17 +102,34 @@ def main(argv: Optional[List[str]] = None) -> None:
 
     # Parse epic_id for commands that take one
     _EPIC_CMDS = {
-        "task-upsert", "task-get", "task-list", "task-update-status",
-        "task-update-body", "task-get-body", "task-update-field",
-        "file-add", "file-list", "history-insert",
-        "dispatch-chain-upsert", "dispatch-chain-get", "dispatch-chain-update",
-        "dispatch-chain-list", "dispatch-chain-advance",
+        "task-upsert",
+        "task-get",
+        "task-list",
+        "task-update-status",
+        "task-update-body",
+        "task-get-body",
+        "task-update-field",
+        "file-add",
+        "file-list",
+        "history-insert",
+        "dispatch-chain-upsert",
+        "dispatch-chain-get",
+        "dispatch-chain-update",
+        "dispatch-chain-list",
+        "dispatch-chain-advance",
         "dispatch-chain-refresh-activation",
-        "review-seed", "review-insert", "review-get",
-        "progress-note-insert", "progress-note-list", "progress-note-list-unsynced",
-        "progress-note-mark-synced", "submission-receipt-get",
-        "simulation-upsert", "simulation-get",
-        "cascade-task-status", "proceed-triage-handoff",
+        "review-seed",
+        "review-insert",
+        "review-get",
+        "progress-note-insert",
+        "progress-note-list",
+        "progress-note-list-unsynced",
+        "progress-note-mark-synced",
+        "submission-receipt-get",
+        "simulation-upsert",
+        "simulation-get",
+        "cascade-task-status",
+        "proceed-triage-handoff",
     }
 
     conn = _epic.connect()
@@ -128,12 +145,25 @@ def main(argv: Optional[List[str]] = None) -> None:
 
     # Validate epic exists for read/update commands
     _VALIDATE_EPIC_CMDS = {
-        "task-get", "task-list", "task-update-status", "task-update-body",
-        "task-get-body", "task-update-field", "file-add", "file-list",
-        "history-insert", "review-seed", "review-insert", "review-get",
-        "progress-note-insert", "progress-note-list", "progress-note-list-unsynced",
-        "progress-note-mark-synced", "submission-receipt-get",
-        "simulation-get", "cascade-task-status",
+        "task-get",
+        "task-list",
+        "task-update-status",
+        "task-update-body",
+        "task-get-body",
+        "task-update-field",
+        "file-add",
+        "file-list",
+        "history-insert",
+        "review-seed",
+        "review-insert",
+        "review-get",
+        "progress-note-insert",
+        "progress-note-list",
+        "progress-note-list-unsynced",
+        "progress-note-mark-synced",
+        "submission-receipt-get",
+        "simulation-get",
+        "cascade-task-status",
     }
     if subcmd in _VALIDATE_EPIC_CMDS and epic_id is not None:
         try:
@@ -148,7 +178,10 @@ def main(argv: Optional[List[str]] = None) -> None:
     from yoke_core.domain.epic_cli_handlers_review import handle as _handle_review
 
     try:
-        handled = _handle_task(_epic, conn, subcmd, rest, epic_id)
+        task_subject = (
+            args[1] if subcmd == "task-update-body" and len(args) > 1 else epic_id
+        )
+        handled = _handle_task(_epic, conn, subcmd, rest, task_subject)
         if not handled:
             handled = _handle_review(_epic, conn, subcmd, rest, epic_id)
         if not handled:

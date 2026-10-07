@@ -1,6 +1,6 @@
 """Project-capability configuration route sub-router.
 
-Owns ``POST /items/{item_id}/capability`` — configures a capability for the
+Owns ``POST /items/{public_ref}/capability`` — configures a capability for the
 project associated with the item, upserting into ``project_capabilities``.
 """
 
@@ -21,6 +21,7 @@ from yoke_core.domain.capability_prerequisites import (
 
 # Module-level import so test patches against ``yoke_core.api.main.*`` take effect.
 import yoke_core.api.main as _main
+from yoke_core.api.main_route_adapters import resolve_http_item
 
 router = APIRouter()
 
@@ -29,10 +30,10 @@ def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-@router.post("/items/{item_id}/capability", response_model=_main.CapabilityResponse)
+@router.post("/items/{public_ref}/capability", response_model=_main.CapabilityResponse)
 def configure_capability(
     http_request: Request,
-    item_id: int,
+    public_ref: str,
     req: _main.CapabilityRequest,
 ) -> _main.CapabilityResponse | JSONResponse:
     """Configure a capability for the project associated with an item."""
@@ -51,13 +52,16 @@ def configure_capability(
 
     conn = _main.get_db_readwrite()
     try:
+        item_id = resolve_http_item(conn, public_ref)
+        if isinstance(item_id, JSONResponse):
+            return item_id
         p = _p(conn)
         row = conn.execute(f"SELECT * FROM items WHERE id = {p}", (item_id,)).fetchone()
         if row is None:
             return _main._error_response(
                 404,
                 "NOT_FOUND",
-                f"Item with id {item_id} not found",
+                f"Item {public_ref} not found",
             )
 
         project_id = dict(row).get("project_id")

@@ -7,7 +7,7 @@ Covers the ``exclude_done``, ``exclude_cancelled``, ``exclude_frozen``, and
 from __future__ import annotations
 
 from runtime.api.fixtures.file_test_db import connect_test_db
-from runtime.api.test_api_helpers import test_db, client  # noqa: F401
+from runtime.api.test_api_helpers import test_db as test_db, client as client
 
 
 class TestQueueFiltering:
@@ -23,7 +23,7 @@ class TestQueueFiltering:
         assert "done" not in statuses
         # Item 2 is done — should be excluded
         ids = [i["id"] for i in data["items"]]
-        assert 2 not in ids
+        assert "YOK-2" not in ids
 
     def test_exclude_cancelled(self, client):
         """exclude_cancelled=true removes cancelled items from the result."""
@@ -34,14 +34,17 @@ class TestQueueFiltering:
         assert "cancelled" not in statuses
         # Item 5 is cancelled — should be excluded
         ids = [i["id"] for i in data["items"]]
-        assert 5 not in ids
+        assert "YOK-5" not in ids
 
     def test_exclude_done_and_cancelled(self, client):
         """Both exclusions combine with AND."""
-        resp = client.get("/v1/items", params={
-            "exclude_done": True,
-            "exclude_cancelled": True,
-        })
+        resp = client.get(
+            "/v1/items",
+            params={
+                "exclude_done": True,
+                "exclude_cancelled": True,
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         statuses = [i["status"] for i in data["items"]]
@@ -66,13 +69,13 @@ class TestQueueFiltering:
         resp1 = client.get("/v1/items")
         assert resp1.status_code == 200
         ids1 = [i["id"] for i in resp1.json()["items"]]
-        assert 50 in ids1
+        assert "YOK-50" in ids1
 
         # With exclusion — frozen item gone
         resp2 = client.get("/v1/items", params={"exclude_frozen": True})
         assert resp2.status_code == 200
         ids2 = [i["id"] for i in resp2.json()["items"]]
-        assert 50 not in ids2
+        assert "YOK-50" not in ids2
 
     def test_frozen_filter_true(self, client, test_db):
         """frozen=true returns only frozen items."""
@@ -115,11 +118,14 @@ class TestQueueFiltering:
 
     def test_active_queue_combination(self, client):
         """Full active-queue filter: exclude_done + exclude_cancelled + exclude_frozen."""
-        resp = client.get("/v1/items", params={
-            "exclude_done": True,
-            "exclude_cancelled": True,
-            "exclude_frozen": True,
-        })
+        resp = client.get(
+            "/v1/items",
+            params={
+                "exclude_done": True,
+                "exclude_cancelled": True,
+                "exclude_frozen": True,
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         for item in data["items"]:
@@ -128,10 +134,13 @@ class TestQueueFiltering:
 
     def test_queue_filters_combine_with_status(self, client):
         """Status filter works alongside queue exclusion filters."""
-        resp = client.get("/v1/items", params={
-            "status": "implementing",
-            "exclude_frozen": True,
-        })
+        resp = client.get(
+            "/v1/items",
+            params={
+                "status": "implementing",
+                "exclude_frozen": True,
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         for item in data["items"]:
@@ -140,11 +149,14 @@ class TestQueueFiltering:
 
     def test_queue_filters_combine_with_project(self, client):
         """Project filter works alongside queue exclusion filters."""
-        resp = client.get("/v1/items", params={
-            "project": "yoke",
-            "exclude_done": True,
-            "exclude_cancelled": True,
-        })
+        resp = client.get(
+            "/v1/items",
+            params={
+                "project": "yoke",
+                "exclude_done": True,
+                "exclude_cancelled": True,
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         for item in data["items"]:

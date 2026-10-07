@@ -138,7 +138,9 @@ class TestCompactMirrorSuppression:
             "workflow_id": "issue",
             "project": "yoke",
         }
-        gh = render_compact_mirror(fields, conn=None, item_id=902)
+        gh = render_compact_mirror(
+            {**fields, "identity": "YOK-902"}, conn=None, item_id=None
+        )
         assert _matches_compact_mirror(
             local_body=local,
             gh_body=gh,
@@ -157,7 +159,9 @@ class TestCompactMirrorSuppression:
             "workflow_id": "issue",
             "project": "yoke",
         }
-        gh_body = render_compact_mirror(fields, conn=None, item_id=910)
+        gh_body = render_compact_mirror(
+            {**fields, "identity": "YOK-910"}, conn=None, item_id=None
+        )
         gh_issues = _make_gh_issues(
             [
                 {
@@ -213,7 +217,9 @@ class TestCompactMirrorSuppression:
             "workflow_id": "issue",
             "project": "yoke",
         }
-        gh_body = render_compact_mirror(fields, conn=None, item_id=911)
+        gh_body = render_compact_mirror(
+            {**fields, "identity": "YOK-911"}, conn=None, item_id=None
+        )
         gh_issues = _make_gh_issues(
             [
                 {
@@ -258,7 +264,9 @@ class TestCompactMirrorSuppression:
             "workflow_id": "issue",
             "project": "yoke",
         }
-        gh_body = render_compact_mirror(stale_fields, conn=None, item_id=912)
+        gh_body = render_compact_mirror(
+            {**stale_fields, "identity": "YOK-912"}, conn=None, item_id=None
+        )
         gh_issues = _make_gh_issues(
             [
                 {

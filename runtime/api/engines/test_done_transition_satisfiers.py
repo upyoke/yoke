@@ -42,7 +42,12 @@ def calls(monkeypatch):
 
     def _fake(*, function_id, target, payload):
         recorded.append(
-            {"function_id": function_id, "item_id": target.item_id, "payload": payload}
+            {
+                "function_id": function_id,
+                "public_ref": target.public_ref,
+                "item_id": target.item_id,
+                "payload": payload,
+            }
         )
         return _Response(
             {
@@ -71,7 +76,8 @@ def test_merge_evidence_sends_the_facts_only_the_engine_can_see(calls):
     observed = calls[0]["payload"]["observed"]
     assert observed["observed:merge_recorded"]["present"] is True
     assert observed["observed:no_implementation_branch"]["present"] is False
-    assert calls[0]["item_id"] == 42
+    assert calls[0]["public_ref"] == _FIXTURE_ITEM_REF
+    assert calls[0]["item_id"] is None
 
 
 def test_no_branch_and_no_merge_reports_the_attestable_shape(calls):

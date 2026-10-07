@@ -54,36 +54,29 @@ def _find(rows: list[dict], title: str) -> dict:
 
 class TestItemsListProjection:
     def test_id_column_renders_public_ref(self, diverged_item):
-        outcome = items_listing.handle_items_list(
-            request_for("items.list.run", {})
-        )
+        outcome = items_listing.handle_items_list(request_for("items.list.run", {}))
         assert outcome.primary_success
         row = _find(outcome.result_payload["rows"], "Divergent identity")
         assert row["id"] == f"YOK-{SEQUENCE}"
 
     def test_no_emitted_value_is_the_internal_id(self, diverged_item):
-        outcome = items_listing.handle_items_list(
-            request_for("items.list.run", {})
-        )
+        outcome = items_listing.handle_items_list(request_for("items.list.run", {}))
         assert outcome.primary_success
         for row in outcome.result_payload["rows"]:
-            assert INTERNAL_ID not in {
-                v for v in row.values() if isinstance(v, int)
-            }
+            assert INTERNAL_ID not in {v for v in row.values() if isinstance(v, int)}
             assert str(INTERNAL_ID) not in row.values()
 
-    def test_internal_id_requires_explicit_opt_in(self, diverged_item):
+    def test_internal_id_projection_is_refused(self, diverged_item):
         outcome = items_listing.handle_items_list(
-            request_for(
-                "items.list.run", {"fields": ["internal_id", "title"]}
-            )
+            request_for("items.list.run", {"fields": ["internal_id", "title"]})
         )
-        assert outcome.primary_success
-        row = _find(outcome.result_payload["rows"], "Divergent identity")
-        assert row["internal_id"] == str(INTERNAL_ID)
+        assert not outcome.primary_success
+        assert outcome.error.code == "payload_invalid"
 
     def test_owner_and_source_render_actor_names(
-        self, diverged_item, labeled_owner,
+        self,
+        diverged_item,
+        labeled_owner,
     ):
         insert_item(
             diverged_item,
@@ -104,14 +97,10 @@ class TestItemsListProjection:
         row = _find(outcome.result_payload["rows"], "Owned thing")
         assert row["owner"] == OWNER_LABEL
         assert row["source"] == OWNER_LABEL
-        assert str(labeled_owner) not in {
-            str(v) for v in row.values()
-        }
+        assert str(labeled_owner) not in {str(v) for v in row.values()}
 
     def test_legacy_text_source_passes_through(self, diverged_item):
-        outcome = items_listing.handle_items_list(
-            request_for("items.list.run", {})
-        )
+        outcome = items_listing.handle_items_list(request_for("items.list.run", {}))
         assert outcome.primary_success
         row = _find(outcome.result_payload["rows"], "Divergent identity")
         # The fixture seeds a default human actor ("ben"); a non-numeric
@@ -173,7 +162,8 @@ class TestItemsListProjection:
 
 class TestItemsSearchProjection:
     def test_id_key_renders_public_ref_with_numeric_opt_in(
-        self, diverged_item,
+        self,
+        diverged_item,
     ):
         outcome = items_search.handle_items_search(
             request_for("items.search.run", {"keywords": "Divergent"})
@@ -187,7 +177,9 @@ class TestItemsSearchProjection:
 
 class TestItemsOverviewProjection:
     def test_overview_rows_carry_refs_labels_and_numeric_mirror(
-        self, diverged_item, labeled_owner,
+        self,
+        diverged_item,
+        labeled_owner,
     ):
         diverged_item.execute(
             "UPDATE items SET owner = %s WHERE id = %s",
@@ -201,11 +193,9 @@ class TestItemsOverviewProjection:
         row = _find(outcome.result_payload["rows"], "Divergent identity")
         assert row["id"] == f"YOK-{SEQUENCE}"
         assert row["public_ref"] == f"YOK-{SEQUENCE}"
-        assert row["internal_id"] == str(INTERNAL_ID)
+        assert row["internal_id"] == INTERNAL_ID
         assert row["owner"] == OWNER_LABEL
-        assert str(labeled_owner) not in {
-            str(v) for v in row.values()
-        }
+        assert str(labeled_owner) not in {str(v) for v in row.values()}
 
 
 class TestDefaultProjectionSingleSource:

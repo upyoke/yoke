@@ -70,7 +70,7 @@ class TestRepairHelpers:
 
         def fake_sync_item(num, **kwargs):
             # Created-fresh path emits no reuse marker.
-            print(f"Created issue for YOK-{num}", file=kwargs.get("stdout"))
+            print(f"Created issue for {num}", file=kwargs.get("stdout"))
             return 0
 
         with mock.patch(
@@ -91,8 +91,8 @@ class TestRepairHelpers:
 
         def fake_sync_item(num, **kwargs):
             out = kwargs.get("stdout")
-            print(f"Found existing GitHub issue #321 for YOK-{num} — reusing", file=out)
-            print(f"Synced: YOK-{num} → GitHub issue #321 (reused)", file=out)
+            print(f"Found existing GitHub issue #321 for {num} — reusing", file=out)
+            print(f"Synced: {num} → GitHub issue #321 (reused)", file=out)
             return 0
 
         with mock.patch(

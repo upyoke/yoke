@@ -25,6 +25,7 @@ from yoke_core.api.routes.item_delivery_binding_update import (
 
 # Module-level import so test patches against ``yoke_core.api.main.*`` take effect.
 import yoke_core.api.main as _main
+from yoke_core.api.main_route_adapters import resolve_http_item
 from yoke_core.domain.project_attribution import required_project
 
 router = APIRouter()
@@ -181,7 +182,7 @@ def create_item(req: _main.CreateItemRequest) -> _main.ItemObject | JSONResponse
                 f"Item {render_item_ref(conn, int(item_id))} was created "
                 "but could not be read back",
             )
-        return _main._row_to_item(row, include_body=True)
+        return _main._row_to_item(row, include_body=True, conn=conn)
     except db_backend.operational_error_types(conn) as exc:
         if "database is locked" in str(exc).lower():
             return _main._error_response(
@@ -194,9 +195,9 @@ def create_item(req: _main.CreateItemRequest) -> _main.ItemObject | JSONResponse
         conn.close()
 
 
-@router.patch("/items/{item_id}", response_model=_main.ItemObject)
+@router.patch("/items/{public_ref}", response_model=_main.ItemObject)
 def update_item(
-    item_id: int, req: _main.UpdateItemRequest
+    public_ref: str, req: _main.UpdateItemRequest
 ) -> _main.ItemObject | JSONResponse:
     """Update one or more fields on an existing item."""
     updates = {k: v for k, v in req.model_dump().items() if v is not None}
@@ -227,13 +228,16 @@ def update_item(
 
     conn = _main.get_db_readwrite()
     try:
+        item_id = resolve_http_item(conn, public_ref)
+        if isinstance(item_id, JSONResponse):
+            return item_id
         p = _p(conn)
         row = conn.execute(_item_read_sql(conn), (item_id,)).fetchone()
         if row is None:
             return _main._error_response(
                 404,
                 "NOT_FOUND",
-                f"Item with id {item_id} not found",
+                f"Item {public_ref} not found",
             )
         flow_project = None
         if "project" in updates or "deployment_flow" in updates:
@@ -252,7 +256,7 @@ def update_item(
             return _main._error_response(
                 404,
                 "NOT_FOUND",
-                f"Item with id {item_id} not found",
+                f"Item {public_ref} not found",
             )
 
         item_dict = dict(row)
@@ -327,7 +331,7 @@ def update_item(
             conn.commit()
 
         row = conn.execute(_item_read_sql(conn), (item_id,)).fetchone()
-        return _main._row_to_item(row, include_body=True)
+        return _main._row_to_item(row, include_body=True, conn=conn)
     except db_backend.operational_error_types(conn) as exc:
         if "database is locked" in str(exc).lower():
             return _main._error_response(

@@ -1,4 +1,4 @@
-"""POST /v1/items/{id}/approve human-approval tests (TestApproveItem)."""
+"""POST /v1/items/{public_ref}/approve human-approval tests (TestApproveItem)."""
 
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ class TestApproveItem:
     ):
         with patch("yoke_core.domain.events.emit_event") as mock_emit:
             resp = client.post(
-                "/v1/items/4/approve",
+                "/v1/items/YOK-4/approve",
                 json={
                     "comment": "Looks good",
                 },
@@ -67,12 +67,12 @@ class TestApproveItem:
         mock_emit.assert_not_called()
 
     def test_approve_no_comment(self, client):
-        resp = client.post("/v1/items/4/approve", json={})
+        resp = client.post("/v1/items/YOK-4/approve", json={})
         assert resp.status_code == 409
         assert resp.json()["error"]["code"] == "APPROVAL_REQUIRED"
 
     def test_approve_item_not_found(self, client):
-        resp = client.post("/v1/items/999/approve", json={})
+        resp = client.post("/v1/items/YOK-999/approve", json={})
         assert resp.status_code == 404
         data = resp.json()
         assert data["error"]["code"] == "NOT_FOUND"
@@ -80,7 +80,7 @@ class TestApproveItem:
 
     def test_approve_no_deploy_stage(self, client):
         """Item 1 has no deploy_stage (NULL) — cannot approve."""
-        resp = client.post("/v1/items/1/approve", json={})
+        resp = client.post("/v1/items/YOK-1/approve", json={})
         assert resp.status_code == 409
         data = resp.json()
         assert data["error"]["code"] == "NO_ACTIVE_RUN"
@@ -96,7 +96,7 @@ class TestApproveItem:
         conn.commit()
         conn.close()
 
-        resp = client.post("/v1/items/4/approve", json={})
+        resp = client.post("/v1/items/YOK-4/approve", json={})
         assert resp.status_code == 409
         data = resp.json()
         assert data["error"]["code"] == "INVALID_STATE"
@@ -108,7 +108,7 @@ class TestApproveItem:
             side_effect=RuntimeError("emitter boom"),
         ) as emit:
             resp = client.post(
-                "/v1/items/4/approve",
+                "/v1/items/YOK-4/approve",
                 json={
                     "comment": "LGTM",
                 },
@@ -118,7 +118,7 @@ class TestApproveItem:
 
     def test_approve_comment_too_long(self, client):
         resp = client.post(
-            "/v1/items/4/approve",
+            "/v1/items/YOK-4/approve",
             json={
                 "comment": "x" * 501,
             },
@@ -142,7 +142,7 @@ class TestApproveItem:
         conn.commit()
         conn.close()
 
-        resp = client.post("/v1/items/6/approve", json={})
+        resp = client.post("/v1/items/YOK-6/approve", json={})
         assert resp.status_code == 409
         assert resp.json()["error"]["code"] == "NO_ACTIVE_RUN"
 
@@ -160,7 +160,7 @@ class TestApproveItem:
         conn.commit()
         conn.close()
 
-        resp = client.post("/v1/items/7/approve", json={})
+        resp = client.post("/v1/items/YOK-7/approve", json={})
         assert resp.status_code == 409
         assert resp.json()["error"]["code"] == "NO_ACTIVE_RUN"
 
@@ -190,7 +190,7 @@ class TestApproveItem:
         conn.commit()
         conn.close()
 
-        resp = client.post("/v1/items/4/approve", json={})
+        resp = client.post("/v1/items/YOK-4/approve", json={})
         assert resp.status_code == 409
 
         # Both members should be advanced

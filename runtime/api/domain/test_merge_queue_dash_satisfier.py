@@ -43,6 +43,7 @@ def test_no_posture_queue_handoff_stamps_ci_backed_merge(test_db, monkeypatch):
         id=item_id,
         workflow_id="dash",
         status="reviewing-implementation",
+        project_sequence=1,
     )
     project_id = int(
         test_db.execute(

@@ -58,7 +58,7 @@ class TestUpdateItem:
     def test_validate_update_alias_marks_preflight_only(self, mutation_db):
         """validate-update makes the no-write contract machine-readable."""
         result = _run_client(
-            ["validate-update", "11", "--field", "priority", "--value", "high"],
+            ["validate-update", "YOK-11", "--field", "priority", "--value", "high"],
             db_path=mutation_db["db_path"],
         )
 

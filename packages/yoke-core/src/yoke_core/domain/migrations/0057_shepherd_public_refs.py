@@ -1,6 +1,6 @@
 """Replace Shepherd's internal-id tokens with project-scoped public refs.
 
-The old ``item`` column encoded ``YOK-{items.id}``, irrespective of project.
+The old ``item`` column encoded a fixed-prefix internal item key across projects.
 Renaming the column makes the cutover distinguishable from its output even
 when an old token happens to be a different item's valid public ref.
 """

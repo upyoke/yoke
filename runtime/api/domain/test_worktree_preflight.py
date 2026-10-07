@@ -145,6 +145,7 @@ class TestBlocks:
         monkeypatch,
     ):
         calls = []
+        _patch_steps(monkeypatch)
         monkeypatch.setattr(
             wp, "resolve_item_branch_and_lane", lambda _i: ("YOK-9001", None)
         )

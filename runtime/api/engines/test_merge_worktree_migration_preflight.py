@@ -63,7 +63,7 @@ def _run(monkeypatch, *, profile: str, item_list_success: bool = True):
                 {
                     "rows": [
                         {
-                            "public_ref": TEST_ITEM_REF,
+                            "id": TEST_ITEM_REF,
                             "status": "reviewing-implementation",
                             "db_mutation_profile": profile,
                         }

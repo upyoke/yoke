@@ -79,7 +79,7 @@ def test_item_get_builds_server_resolved_target_and_renders_pin(capsys) -> None:
         function="workflows.item.get",
         version="v1",
         result={
-            "item_id": 42,
+            "public_ref": "YOK-42",
             "workflow_id": "issue",
             "workflow_version": 3,
             "workflow_version_id": 17,
@@ -103,7 +103,7 @@ def test_item_get_builds_server_resolved_target_and_renders_pin(capsys) -> None:
     assert captured["function_id"] == "workflows.item.get"
     assert captured["target"].public_ref == "YOK-42"
     assert capsys.readouterr().out.strip() == (
-        "item-workflow|42|issue|3|17|implementing|single_implementation_lane"
+        "item-workflow|YOK-42|issue|3|17|implementing|single_implementation_lane"
     )
 
 
@@ -146,36 +146,76 @@ def test_current_set_and_item_migrate_build_typed_payloads() -> None:
         calls.append(kwargs)
         return 0
 
-    with patch(
-        "yoke_cli.commands.adapters.workflows_read.dispatch_and_emit",
-        side_effect=_dispatch,
-    ), patch(
-        "yoke_cli.commands.adapters.workflows_versions.dispatch_and_emit",
-        side_effect=_dispatch,
+    with (
+        patch(
+            "yoke_cli.commands.adapters.workflows_read.dispatch_and_emit",
+            side_effect=_dispatch,
+        ),
+        patch(
+            "yoke_cli.commands.adapters.workflows_versions.dispatch_and_emit",
+            side_effect=_dispatch,
+        ),
     ):
-        assert workflows_current_set([
-            "issue", "2", "--expected-current-version", "1",
-        ]) == 0
-        assert workflows_item_migrate([
-            "YOK-42", "--version", "2", "--preview",
-        ]) == 0
+        assert (
+            workflows_current_set(
+                [
+                    "issue",
+                    "2",
+                    "--expected-current-version",
+                    "1",
+                ]
+            )
+            == 0
+        )
+        assert (
+            workflows_item_migrate(
+                [
+                    "YOK-42",
+                    "--version",
+                    "2",
+                    "--preview",
+                ]
+            )
+            == 0
+        )
         assert workflows_version_get(["issue", "1"]) == 0
         assert workflows_version_list(["dash"]) == 0
-        assert workflows_policy_defaults_publish([
-            "dash",
-            "--path-claims", "on",
-            "--expected-current-version", "1",
-        ]) == 0
-        assert workflows_policy_defaults_publish([
-            "dash",
-            "--file-budget", "on",
-            "--expected-current-version", "2",
-        ]) == 0
-        assert workflows_policy_defaults_publish([
-            "dash",
-            "--path-survey", "off",
-            "--expected-current-version", "3",
-        ]) == 0
+        assert (
+            workflows_policy_defaults_publish(
+                [
+                    "dash",
+                    "--path-claims",
+                    "on",
+                    "--expected-current-version",
+                    "1",
+                ]
+            )
+            == 0
+        )
+        assert (
+            workflows_policy_defaults_publish(
+                [
+                    "dash",
+                    "--file-budget",
+                    "on",
+                    "--expected-current-version",
+                    "2",
+                ]
+            )
+            == 0
+        )
+        assert (
+            workflows_policy_defaults_publish(
+                [
+                    "dash",
+                    "--path-survey",
+                    "off",
+                    "--expected-current-version",
+                    "3",
+                ]
+            )
+            == 0
+        )
 
     assert calls[0]["function_id"] == "workflows.current.set"
     assert calls[0]["payload"] == {

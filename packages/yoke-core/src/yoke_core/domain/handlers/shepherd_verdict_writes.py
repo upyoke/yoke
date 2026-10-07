@@ -65,13 +65,21 @@ def _verdict_key(
             "shepherd verdict writes require target.kind='item' with public_ref",
             jsonpath="$.target.public_ref",
         )
-    return _public_ref(request), None
+    try:
+        return _public_ref(request), None
+    except ValueError as exc:
+        return None, _err(
+            "public_ref_unresolved", str(exc), jsonpath="$.target.public_ref"
+        )
 
 
 def _public_ref(request: FunctionCallRequest) -> str:
     from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
-    return item_ref_for_id(int(request.target.item_id))
+    from yoke_core.domain.public_item_target import public_item_target
+
+    ref = request.target.public_ref or item_ref_for_id(int(request.target.item_id))
+    return str(public_item_target(ref).public_ref)
 
 
 def _run_with_conn(fn, *args, **kwargs) -> str:

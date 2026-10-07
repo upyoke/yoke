@@ -37,7 +37,9 @@ _PASS_VERDICT = "==== 12 passed in 1.23s ===="
 
 
 class TestPolishGate:
-    def _stage_with_completed_audit(self, gate_db, *, backup_path: str | None) -> tuple[int, str]:
+    def _stage_with_completed_audit(
+        self, gate_db, *, backup_path: str | None
+    ) -> tuple[int, str]:
         conn, repo_path = gate_db
         _seed_project(conn, "yoke", repo_path)
         _seed_capability(conn, "yoke", governed_postgres_test_seed())
@@ -52,27 +54,23 @@ class TestPolishGate:
             "migration_strategy": "additive_only",
         }
         insert_item(
-            conn, id=4242, project="yoke", status="polishing-implementation",
+            conn,
+            id=4242,
+            project="yoke",
+            status="polishing-implementation",
             db_mutation_profile=json.dumps(profile, sort_keys=True),
             test_results=_PASS_VERDICT,
         )
-        # The gate's items+audit database is one per-test DB (gate_db_context);
-        # migration_audit already exists there. audit_path is the path token that
-        # matches init_test_db's db_path so the gate's own connection lands on
-        # the same database on both backends.
         audit_path = gate_audit_path(repo_path)
         seed_audit_row(
             repo_path,
             columns=(
-                "migration_name, state, project_id, model_name, "
-                "backup_path, started_at"
+                "migration_name, state, project_id, model_name, backup_path, started_at"
             ),
             placeholders="?, 'completed', ?, 'primary', ?, ?",
             values=("demo_module", 1, backup_path, "2026-04-23T00:00:00Z"),
         )
         return 4242, audit_path
-
-
 
 
 class TestPolishGateTestResults:
@@ -90,7 +88,9 @@ class TestPolishGateTestResults:
     through.
     """
 
-    def _stub_quick(self, monkeypatch, command_by_project: dict[str, str | None]) -> None:
+    def _stub_quick(
+        self, monkeypatch, command_by_project: dict[str, str | None]
+    ) -> None:
         def _fake_get_command(project_id, scope, db_path=None):
             if scope != "quick":
                 return None
@@ -101,12 +101,17 @@ class TestPolishGateTestResults:
             _fake_get_command,
         )
 
-    def test_quick_configured_passing_results_passes(self, gate_db, monkeypatch) -> None:
+    def test_quick_configured_passing_results_passes(
+        self, gate_db, monkeypatch
+    ) -> None:
         conn, repo_path = gate_db
         _seed_project(conn, "yoke", repo_path)
         self._stub_quick(monkeypatch, {"yoke": "python3 -m pytest runtime/api/"})
         insert_item(
-            conn, id=5001, project="yoke", status="polishing-implementation",
+            conn,
+            id=5001,
+            project="yoke",
+            status="polishing-implementation",
             test_results=_PASS_VERDICT,
         )
         outcome = check_polishing_implementation_to_implemented_gate(5001, conn=conn)
@@ -117,7 +122,10 @@ class TestPolishGateTestResults:
         _seed_project(conn, "yoke", repo_path)
         self._stub_quick(monkeypatch, {"yoke": "python3 -m pytest runtime/api/"})
         insert_item(
-            conn, id=5002, project="yoke", status="polishing-implementation",
+            conn,
+            id=5002,
+            project="yoke",
+            status="polishing-implementation",
             test_results="",
         )
         outcome = check_polishing_implementation_to_implemented_gate(5002, conn=conn)
@@ -130,7 +138,10 @@ class TestPolishGateTestResults:
         _seed_project(conn, "yoke", repo_path)
         self._stub_quick(monkeypatch, {"yoke": "python3 -m pytest runtime/api/"})
         insert_item(
-            conn, id=5003, project="yoke", status="polishing-implementation",
+            conn,
+            id=5003,
+            project="yoke",
+            status="polishing-implementation",
             test_results="==== 2 failed, 10 passed in 1.23s ====\nFAILED test_x",
         )
         outcome = check_polishing_implementation_to_implemented_gate(5003, conn=conn)
@@ -138,13 +149,18 @@ class TestPolishGateTestResults:
         assert any("failure verdict" in e for e in outcome.errors)
         assert any("items.structured_field.replace" in e for e in outcome.errors)
 
-    def test_quick_not_configured_empty_results_passes(self, gate_db, monkeypatch) -> None:
+    def test_quick_not_configured_empty_results_passes(
+        self, gate_db, monkeypatch
+    ) -> None:
         """Project without a registered quick command passes through."""
         conn, repo_path = gate_db
         _seed_project(conn, "other", repo_path)
         self._stub_quick(monkeypatch, {})
         insert_item(
-            conn, id=5004, project="other", status="polishing-implementation",
+            conn,
+            id=5004,
+            project="other",
+            status="polishing-implementation",
             test_results="",
         )
         outcome = check_polishing_implementation_to_implemented_gate(5004, conn=conn)
@@ -162,14 +178,19 @@ class TestPolishGateTestResults:
         _seed_project(conn, "externalwebapp", repo_path)
         self._stub_quick(monkeypatch, {"externalwebapp": "npx vitest run"})
         insert_item(
-            conn, id=5005, project="externalwebapp", status="polishing-implementation",
+            conn,
+            id=5005,
+            project="externalwebapp",
+            status="polishing-implementation",
             test_results="",
         )
         outcome = check_polishing_implementation_to_implemented_gate(5005, conn=conn)
         assert not outcome.passed
         assert any("test_results is empty" in e for e in outcome.errors)
 
-    def test_quick_configured_q_mode_passing_results_passes(self, gate_db, monkeypatch) -> None:
+    def test_quick_configured_q_mode_passing_results_passes(
+        self, gate_db, monkeypatch
+    ) -> None:
         """YOK-1854: pytest `-q` quiet-mode test_results classifies as PASS.
 
         The classifier regex used to require the equals-banner pytest
@@ -187,7 +208,10 @@ class TestPolishGateTestResults:
             "454 passed in 2.13s"
         )
         insert_item(
-            conn, id=5006, project="yoke", status="polishing-implementation",
+            conn,
+            id=5006,
+            project="yoke",
+            status="polishing-implementation",
             test_results=q_capture,
         )
         outcome = check_polishing_implementation_to_implemented_gate(5006, conn=conn)
@@ -205,7 +229,10 @@ class TestPolishGateTestResults:
         _seed_project(conn, "yoke", repo_path)
         self._stub_quick(monkeypatch, {"yoke": "python3 -m pytest runtime/api/"})
         insert_item(
-            conn, id=5099, project="yoke", status="polishing-implementation",
+            conn,
+            id=5099,
+            project="yoke",
+            status="polishing-implementation",
             test_results="",
         )
         outcome = check_polishing_implementation_to_implemented_gate(5099, conn=conn)
@@ -229,18 +256,27 @@ class TestPolishGateActingItemRef:
         _seed_project(conn, "yoke", repo_path)
         self._stub_quick(monkeypatch)
         insert_item(
-            conn, id=6100, project="yoke", project_sequence=1,
-            status="polishing-implementation", test_results="",
+            conn,
+            id=6100,
+            project="yoke",
+            project_sequence=1,
+            status="polishing-implementation",
+            test_results="",
         )
         insert_item(
-            conn, id=6200, project="yoke", project_sequence=6100,
-            status="polishing-implementation", test_results=_PASS_VERDICT,
+            conn,
+            id=6200,
+            project="yoke",
+            project_sequence=6100,
+            status="polishing-implementation",
+            test_results=_PASS_VERDICT,
         )
         from yoke_core.domain.db_mutation_gate_loaders import acting_item_ref_bound
 
         with acting_item_ref_bound("YOK-6100"):
             outcome = check_polishing_implementation_to_implemented_gate(
-                6200, conn=conn,
+                6200,
+                conn=conn,
             )
         assert outcome.passed, outcome.errors
 
@@ -249,43 +285,56 @@ class TestPolishGateActingItemRef:
         _seed_project(conn, "yoke", repo_path)
         self._stub_quick(monkeypatch)
         insert_item(
-            conn, id=6100, project="yoke", project_sequence=1,
-            status="polishing-implementation", test_results="",
+            conn,
+            id=6100,
+            project="yoke",
+            project_sequence=1,
+            status="polishing-implementation",
+            test_results="",
         )
         insert_item(
-            conn, id=6200, project="yoke", project_sequence=6100,
-            status="polishing-implementation", test_results=_PASS_VERDICT,
+            conn,
+            id=6200,
+            project="yoke",
+            project_sequence=6100,
+            status="polishing-implementation",
+            test_results=_PASS_VERDICT,
         )
         from yoke_core.domain.db_mutation_gate_loaders import acting_item_ref_bound
 
         with acting_item_ref_bound("YOK-6100"):
             outcome = check_polishing_implementation_to_implemented_gate(
-                6100, conn=conn,
+                6100,
+                conn=conn,
             )
         assert not outcome.passed
-        assert any("does not name items.id=6100" in e for e in outcome.errors)
+        assert any(
+            "does not name the operation's claimed item" in e for e in outcome.errors
+        )
         assert not any("test_results is empty" in e for e in outcome.errors)
 
-    def test_bare_sequence_ref_agrees_with_rendered_prefix(self, gate_db, monkeypatch) -> None:
+    def test_bare_sequence_ref_agrees_with_rendered_prefix(
+        self, gate_db, monkeypatch
+    ) -> None:
         conn, repo_path = gate_db
         _seed_project(conn, "yoke", repo_path)
         self._stub_quick(monkeypatch)
         insert_item(
-            conn, id=6200, project="yoke", project_sequence=6100,
-            status="polishing-implementation", test_results=_PASS_VERDICT,
+            conn,
+            id=6200,
+            project="yoke",
+            project_sequence=6100,
+            status="polishing-implementation",
+            test_results=_PASS_VERDICT,
         )
         from yoke_core.domain.db_mutation_gate_loaders import acting_item_ref_bound
 
         with acting_item_ref_bound("6100"):
             outcome = check_polishing_implementation_to_implemented_gate(
-                6200, conn=conn,
+                6200,
+                conn=conn,
             )
         assert outcome.passed, outcome.errors
-
-
-# ---------------------------------------------------------------------------
-# Smoke: the canonical seed itself uses the canonical capability shape
-# ---------------------------------------------------------------------------
 
 
 def test_governed_postgres_seed_round_trips_through_capability_validator() -> None:

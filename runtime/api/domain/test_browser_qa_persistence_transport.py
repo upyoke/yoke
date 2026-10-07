@@ -112,7 +112,7 @@ class TestWriteSeam:
         def _capture(**kwargs):
             calls.append(kwargs)
             if kwargs["function_id"] == "qa.browser_context.get":
-                return _ok({"item_id": 42, "requirements": []})
+                return _ok({"public_ref": "YOK-42", "requirements": []})
             return _ok({"qa_run_id": 77})
 
         with mock.patch(
@@ -122,7 +122,7 @@ class TestWriteSeam:
             browser_qa._fetch_browser_context(
                 "externalwebapp",
                 10,
-                item_id=42,
+                item_id="YOK-42",
                 actor=actor,
             )
             _record_run(10, "plan_case", actor=actor)

@@ -47,7 +47,10 @@ class TestApprovalParity:
 
         # CLI: approve-check parity-flow approve-deploy
         result = _run_service_client(
-            db_path, "approve-check", "parity-flow", "approve-deploy",
+            db_path,
+            "approve-check",
+            "parity-flow",
+            "approve-deploy",
         )
         assert result.returncode == 0
         cli_data = json.loads(result.stdout)
@@ -73,7 +76,10 @@ class TestApprovalParity:
 
         # CLI: approve-check parity-flow merged (auto stage, not human-approval)
         result = _run_service_client(
-            db_path, "approve-check", "parity-flow", "merged",
+            db_path,
+            "approve-check",
+            "parity-flow",
+            "merged",
         )
         assert result.returncode == 1, "CLI should reject non-approval stage"
 
@@ -94,7 +100,10 @@ class TestApprovalParity:
         db_path = parity_env["db_path"]
 
         result = _run_service_client(
-            db_path, "approve-check", "no-such-flow", "approve-deploy",
+            db_path,
+            "approve-check",
+            "no-such-flow",
+            "approve-deploy",
         )
         assert result.returncode == 1, "CLI should reject unknown flow"
 
@@ -104,7 +113,7 @@ class TestApprovalParity:
 
         # Approve item 4 (at approve-deploy stage)
         resp = client.post(
-            "/v1/items/4/approve",
+            "/v1/items/YOK-3/approve",
             json={"comment": "Parity test approval"},
         )
         assert resp.status_code == 409
@@ -132,7 +141,8 @@ class TestApprovalWriteParity:
     """Verify the request and legacy preview surfaces stay distinct."""
 
     def test_api_requests_decision_while_check_surface_previews(
-        self, write_parity_env,
+        self,
+        write_parity_env,
     ):
         """The API requests approval; the check surface only previews.
 
@@ -146,7 +156,7 @@ class TestApprovalWriteParity:
         db_path = write_parity_env["db_path"]
 
         # API approval on item 4
-        api_resp = client.post("/v1/items/4/approve", json={})
+        api_resp = client.post("/v1/items/YOK-3/approve", json={})
         assert api_resp.status_code == 409
         api_data = api_resp.json()
         assert api_data["error"]["code"] == "APPROVAL_REQUIRED"
@@ -180,7 +190,7 @@ class TestApprovalWriteParity:
         conn.close()
 
         # CLI approval on item 100
-        cli_result = _run_service_client(db_path, "apply-approval", "100")
+        cli_result = _run_service_client(db_path, "apply-approval", "YOK-100")
         assert cli_result.returncode == 0
         cli_data = json.loads(cli_result.stdout)
         assert cli_data["success"] is True
@@ -192,7 +202,7 @@ class TestApprovalWriteParity:
         db_path = write_parity_env["db_path"]
 
         # Item 1 has no deploy_stage
-        api_resp = client.post("/v1/items/1/approve", json={})
+        api_resp = client.post("/v1/items/YOK-1/approve", json={})
         assert api_resp.status_code == 409
 
         cli_result = _run_service_client(db_path, "apply-approval", "1")
@@ -205,7 +215,7 @@ class TestApprovalWriteParity:
         client = write_parity_env["client"]
         db_path = write_parity_env["db_path"]
 
-        api_resp = client.post("/v1/items/9999/approve", json={})
+        api_resp = client.post("/v1/items/YOK-9999/approve", json={})
         assert api_resp.status_code == 404
 
         cli_result = _run_service_client(db_path, "apply-approval", "9999")

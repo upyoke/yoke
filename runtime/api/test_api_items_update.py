@@ -1,4 +1,4 @@
-"""PATCH /v1/items/{id} update-endpoint tests (TestUpdateItem).
+"""PATCH /v1/items/{public_ref} update-endpoint tests (TestUpdateItem).
 
 Function-call coverage of ``items.scalar.update`` lives in the sibling
 ``test_api_items_update_functions.py``. Both files share the same
@@ -38,14 +38,14 @@ def client(test_db):
 
 class TestUpdateItem:
     def test_update_title(self, client, test_db):
-        """PATCH /v1/items/{id} updates title via shared mutation layer."""
-        resp = client.patch("/v1/items/1", json={"title": "Updated title"})
+        """PATCH /v1/items/{public_ref} updates title via shared mutation layer."""
+        resp = client.patch("/v1/items/YOK-1", json={"title": "Updated title"})
         assert resp.status_code == 200
         data = resp.json()
         assert data["title"] == "Updated title"
 
     def test_update_priority(self, client, test_db):
-        resp = client.patch("/v1/items/1", json={"priority": "low"})
+        resp = client.patch("/v1/items/YOK-1", json={"priority": "low"})
         assert resp.status_code == 200
         assert resp.json()["priority"] == "low"
 
@@ -61,49 +61,51 @@ class TestUpdateItem:
         conn.commit()
         conn.close()
 
-        resp = client.patch("/v1/items/6", json={"status": "reviewed-implementation"})
+        resp = client.patch(
+            "/v1/items/YOK-6", json={"status": "reviewed-implementation"}
+        )
         assert resp.status_code == 409
         assert resp.json()["error"]["code"] == "STATUS_UPDATE_REQUIRES_LIFECYCLE"
 
     def test_update_frozen(self, client, test_db):
-        resp = client.patch("/v1/items/1", json={"frozen": True})
+        resp = client.patch("/v1/items/YOK-1", json={"frozen": True})
         assert resp.status_code == 200
         assert resp.json()["frozen"] is True
 
     def test_update_project(self, client, test_db):
-        resp = client.patch("/v1/items/1", json={"project": "externalwebapp"})
+        resp = client.patch("/v1/items/YOK-1", json={"project": "externalwebapp"})
         assert resp.status_code == 200
         assert resp.json()["project"] == "externalwebapp"
 
     def test_update_item_not_found(self, client, test_db):
-        resp = client.patch("/v1/items/999", json={"title": "Not found"})
+        resp = client.patch("/v1/items/YOK-999", json={"title": "Not found"})
         assert resp.status_code == 404
         assert resp.json()["error"]["code"] == "NOT_FOUND"
 
     def test_update_no_fields(self, client, test_db):
         """Empty update body returns validation error."""
-        resp = client.patch("/v1/items/1", json={})
+        resp = client.patch("/v1/items/YOK-1", json={})
         assert resp.status_code == 422
 
     def test_update_invalid_priority(self, client, test_db):
-        resp = client.patch("/v1/items/1", json={"priority": "critical"})
+        resp = client.patch("/v1/items/YOK-1", json={"priority": "critical"})
         assert resp.status_code == 422
         assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
 
     def test_update_title_too_long(self, client, test_db):
-        resp = client.patch("/v1/items/1", json={"title": "x" * 101})
+        resp = client.patch("/v1/items/YOK-1", json={"title": "x" * 101})
         assert resp.status_code == 422
         assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
 
     def test_update_invalid_status(self, client, test_db):
-        resp = client.patch("/v1/items/1", json={"status": "bogus"})
+        resp = client.patch("/v1/items/YOK-1", json={"status": "bogus"})
         assert resp.status_code == 409
         assert resp.json()["error"]["code"] == "STATUS_UPDATE_REQUIRES_LIFECYCLE"
 
     def test_update_multiple_fields(self, client, test_db):
         """Multiple fields in a single PATCH request."""
         resp = client.patch(
-            "/v1/items/1",
+            "/v1/items/YOK-1",
             json={
                 "priority": "low",
                 "title": "Updated title",
@@ -126,7 +128,7 @@ class TestUpdateItem:
         conn.commit()
         conn.close()
 
-        resp = client.patch("/v1/items/7", json={"status": "implementing"})
+        resp = client.patch("/v1/items/YOK-7", json={"status": "implementing"})
         assert resp.status_code == 409
         conn = connect_test_db(test_db["db_path"])
         row = conn.execute("SELECT status FROM items WHERE id = 7").fetchone()
@@ -135,7 +137,7 @@ class TestUpdateItem:
 
     def test_update_rejects_unregistered_deployment_flow(self, client, test_db):
         """PATCH rejects an unregistered non-empty deployment_flow value."""
-        resp = client.patch("/v1/items/1", json={"deployment_flow": "garbage"})
+        resp = client.patch("/v1/items/YOK-1", json={"deployment_flow": "garbage"})
         assert resp.status_code == 422
         data = resp.json()
         assert data["error"]["code"] == "VALIDATION_ERROR"
@@ -144,7 +146,7 @@ class TestUpdateItem:
 
     def test_update_rejects_literal_none_deployment_flow(self, client, test_db):
         """PATCH rejects the literal string 'none' on the update path."""
-        resp = client.patch("/v1/items/1", json={"deployment_flow": "none"})
+        resp = client.patch("/v1/items/YOK-1", json={"deployment_flow": "none"})
         assert resp.status_code == 422
         data = resp.json()
         assert data["error"]["code"] == "VALIDATION_ERROR"
@@ -153,14 +155,14 @@ class TestUpdateItem:
     def test_update_accepts_registered_deployment_flow(self, client, test_db):
         """PATCH accepts a registered deployment_flow value."""
         resp = client.patch(
-            "/v1/items/1", json={"deployment_flow": "test-approval-flow"}
+            "/v1/items/YOK-1", json={"deployment_flow": "test-approval-flow"}
         )
         assert resp.status_code == 200
         assert resp.json()["deployment_flow"] == "test-approval-flow"
 
     def test_update_accepts_null_sentinel_deployment_flow(self, client, test_db):
         """PATCH treats string null deployment_flow as unset."""
-        resp = client.patch("/v1/items/1", json={"deployment_flow": "null"})
+        resp = client.patch("/v1/items/YOK-1", json={"deployment_flow": "null"})
         assert resp.status_code == 200
         assert resp.json()["deployment_flow"] is None
 
@@ -223,7 +225,7 @@ class TestUpdateItem:
         def patch_item():
             request_started.set()
             result["response"] = client.patch(
-                "/v1/items/1",
+                "/v1/items/YOK-1",
                 json={"deployment_flow": "test-approval-flow"},
             )
             request_done.set()
@@ -284,7 +286,7 @@ class TestUpdateItem:
 
         def patch_item():
             outcome["response"] = client.patch(
-                "/v1/items/1",
+                "/v1/items/YOK-1",
                 json={"deployment_flow": "patch-delete-flow"},
             )
 
@@ -336,7 +338,7 @@ class TestUpdateItem:
         conn.close()
 
         with _client_for_db(test_db["db_path"]) as client:
-            resp = client.patch("/v1/items/1", json={"deployed_to": "local"})
+            resp = client.patch("/v1/items/YOK-1", json={"deployed_to": "local"})
 
         assert resp.status_code == 422
         data = resp.json()

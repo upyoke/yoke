@@ -16,6 +16,7 @@ import sys
 
 from yoke_core.domain.deployment_flow_succession import successor_flows
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+from yoke_core.domain.item_ref_resolution import ITEM_REF_NOT_FOUND
 from yoke_core.api.service_client_shared import (
     _get_db_readonly,
     _load_item_state,
@@ -111,13 +112,14 @@ def cmd_apply_approval(args: list[str]) -> int:
         )
 
         item_id = _parse_item_id_arg(args[0])
-    except ValueError:
+    except ValueError as exc:
+        missing = getattr(exc, "code", None) == ITEM_REF_NOT_FOUND
         print(
             json.dumps(
                 {
                     "success": False,
-                    "error": f"Item ref must be PREFIX-N, got '{args[0]}'",
-                    "error_code": "VALIDATION_ERROR",
+                    "error": str(exc),
+                    "error_code": "NOT_FOUND" if missing else "VALIDATION_ERROR",
                 }
             )
         )

@@ -163,7 +163,7 @@ def test_repair_local_orphan_epic_task_sends_compact_mirror(monkeypatch, repair_
     # under the 62000-byte budget even though the source body was over.
     assert _budget.body_exceeds_budget(create_payload["body"]) is False
     assert "YOK-9999 task 3" in create_payload["body"]
-    assert "epic task-get-body 9999 3" in create_payload["body"]
+    assert "epic task-get-body YOK-9999 3" in create_payload["body"]
     assert create_payload["labels"] == ["type:task", "status:planned"]
 
 

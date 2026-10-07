@@ -323,7 +323,7 @@ class TestDeploymentFlowGuard:
 
         assert result == (7, "ship-ready")
         # The release wait is entered only with its landing recorded.
-        stamp.assert_called_once_with("YOK-226")
+        stamp.assert_called_once_with(226)
         upd.assert_called_once()
         args, kwargs = upd.call_args
         assert args[0] == "YOK-226"
