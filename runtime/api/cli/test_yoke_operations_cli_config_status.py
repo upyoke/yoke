@@ -25,7 +25,8 @@ def test_config_example_prints_canonical_json(capsys) -> None:
 
 
 def test_env_list_reports_sanitized_connection_inventory(
-    tmp_path: Path, capsys,
+    tmp_path: Path,
+    capsys,
 ) -> None:
     config = tmp_path / "config.json"
     config.write_text(
@@ -56,7 +57,8 @@ def test_env_list_reports_sanitized_connection_inventory(
 
 
 def test_env_list_human_output_names_what_each_transport_unlocks(
-    tmp_path: Path, capsys,
+    tmp_path: Path,
+    capsys,
 ) -> None:
     from yoke_contracts.connection_authority_teaching import (
         ENV_LIST_AUTHORITY_FOOTER,
@@ -87,23 +89,32 @@ def test_env_list_human_output_names_what_each_transport_unlocks(
     assert "prod|true|https|" in out
     assert "prod-db-admin|false|local-postgres|" in out
     assert ENV_LIST_AUTHORITY_FOOTER in out
-    assert "direct database authority" in out
+    assert "configured local universe authority" in out
+    assert "Escalate a missing mutation command" in out
+    assert "control-plane operator" in out
+    assert "direct database authority" not in out
 
 
 def test_status_json_validates_machine_and_project_config(
-    tmp_path: Path, capsys, monkeypatch,
+    tmp_path: Path,
+    capsys,
+    monkeypatch,
 ) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
     config = status_config(tmp_path, repo)
     stub_server(monkeypatch, {"engine_version": "2.0.0"})
 
-    rc = yoke_operations_cli.main([
-        "status",
-        "--config", str(config),
-        "--repo-root", str(repo),
-        "--json",
-    ])
+    rc = yoke_operations_cli.main(
+        [
+            "status",
+            "--config",
+            str(config),
+            "--repo-root",
+            str(repo),
+            "--json",
+        ]
+    )
 
     assert rc == 0
     report = json.loads(capsys.readouterr().out)
@@ -115,7 +126,9 @@ def test_status_json_validates_machine_and_project_config(
     assert report["connection"]["envs"] == ["prod"]
     assert report["project"]["project_id"] == 1
     assert report["project"]["board_scope"] == "1"
-    assert report["project"]["board_settings_authority"] == "project-policy.settings.board"
+    assert (
+        report["project"]["board_settings_authority"] == "project-policy.settings.board"
+    )
     assert report["project"]["board_render_path"].endswith(".yoke/BOARD.md")
     assert report["project"]["board_ts_path"].endswith(".yoke/BOARD.md.ts")
     assert report["project"]["board_art_path"].endswith(".yoke/board-art")
@@ -127,7 +140,8 @@ def _synthetic_checkout(root: Path) -> Path:
     """Materialize the structural markers of a Yoke source checkout."""
     (root / "runtime" / "harness").mkdir(parents=True)
     (root / "pyproject.toml").write_text(
-        '[project]\nname = "yoke"\n', encoding="utf-8",
+        '[project]\nname = "yoke"\n',
+        encoding="utf-8",
     )
     module_file = root / "packages" / "yoke-cli" / "src" / "yoke_cli" / "__init__.py"
     module_file.parent.mkdir(parents=True)
@@ -148,8 +162,13 @@ def test_install_binding_detects_source_checkout(tmp_path: Path) -> None:
 
 def test_install_binding_detects_packaged_wheel(tmp_path: Path) -> None:
     module_file = (
-        tmp_path / "venv" / "lib" / "python3.12" / "site-packages"
-        / "yoke_cli" / "__init__.py"
+        tmp_path
+        / "venv"
+        / "lib"
+        / "python3.12"
+        / "site-packages"
+        / "yoke_cli"
+        / "__init__.py"
     )
     module_file.parent.mkdir(parents=True)
     module_file.write_text("", encoding="utf-8")
@@ -171,8 +190,13 @@ def test_install_binding_wheel_venv_inside_checkout_stays_packaged(
     checkout = tmp_path / "checkout"
     _synthetic_checkout(checkout)
     venv_module = (
-        checkout / ".venv" / "lib" / "python3.12" / "site-packages"
-        / "yoke_cli" / "__init__.py"
+        checkout
+        / ".venv"
+        / "lib"
+        / "python3.12"
+        / "site-packages"
+        / "yoke_cli"
+        / "__init__.py"
     )
     venv_module.parent.mkdir(parents=True)
     venv_module.write_text("", encoding="utf-8")
@@ -185,12 +209,22 @@ def test_install_binding_wheel_venv_inside_checkout_stays_packaged(
 
 def test_render_human_states_install_binding_for_both_shapes() -> None:
     packaged = status_render.render_human(
-        {"install": {"kind": install_binding.KIND_PACKAGED_WHEEL,
-                     "checkout_root": None, "version": "1.2.3"}},
+        {
+            "install": {
+                "kind": install_binding.KIND_PACKAGED_WHEEL,
+                "checkout_root": None,
+                "version": "1.2.3",
+            }
+        },
     )
     source = status_render.render_human(
-        {"install": {"kind": install_binding.KIND_SOURCE_CHECKOUT,
-                     "checkout_root": "/somewhere/yoke", "version": "1.2.3"}},
+        {
+            "install": {
+                "kind": install_binding.KIND_SOURCE_CHECKOUT,
+                "checkout_root": "/somewhere/yoke",
+                "version": "1.2.3",
+            }
+        },
     )
 
     assert "  install: packaged wheel 1.2.3" in packaged
@@ -198,19 +232,25 @@ def test_render_human_states_install_binding_for_both_shapes() -> None:
 
 
 def test_status_json_reports_install_binding(
-    tmp_path: Path, capsys, monkeypatch,
+    tmp_path: Path,
+    capsys,
+    monkeypatch,
 ) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
     config = status_config(tmp_path, repo)
     stub_server(monkeypatch, {"engine_version": "2.0.0"})
 
-    rc = yoke_operations_cli.main([
-        "status",
-        "--config", str(config),
-        "--repo-root", str(repo),
-        "--json",
-    ])
+    rc = yoke_operations_cli.main(
+        [
+            "status",
+            "--config",
+            str(config),
+            "--repo-root",
+            str(repo),
+            "--json",
+        ]
+    )
 
     assert rc == 0
     report = json.loads(capsys.readouterr().out)
@@ -241,7 +281,8 @@ def test_packaged_core_version_uses_metadata_without_module_probe(
     )
 
     version = status_module._package_version(  # noqa: SLF001
-        "yoke-core", source_bound=False,
+        "yoke-core",
+        source_bound=False,
     )
 
     assert version == "4.5.6"
@@ -283,13 +324,18 @@ def test_global_env_override_is_restored(tmp_path: Path, monkeypatch, capsys) ->
     stub_server(monkeypatch, {"engine_version": "2.0.0"})
     monkeypatch.delenv(contract.ENV_OVERRIDE, raising=False)
 
-    rc = yoke_operations_cli.main([
-        "--env", "prod",
-        "status",
-        "--config", str(config),
-        "--repo-root", str(repo),
-        "--json",
-    ])
+    rc = yoke_operations_cli.main(
+        [
+            "--env",
+            "prod",
+            "status",
+            "--config",
+            str(config),
+            "--repo-root",
+            str(repo),
+            "--json",
+        ]
+    )
 
     assert rc == 0
     assert json.loads(capsys.readouterr().out)["connection"]["env"] == "prod"
