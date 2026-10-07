@@ -90,6 +90,10 @@ from runtime.api.tools.preflight_engine_artifact import (
 )
 
 
+#: The project whose environments own Yoke's own fleet rehearsal coverage.
+RECEIPT_PROJECT = "yoke"
+
+
 def _parse(args: List[str]) -> argparse.Namespace:
     """Separate the project, model, and receipt flags from the operands."""
     parser = argparse.ArgumentParser(prog="yoke watch preflight --", add_help=False)
