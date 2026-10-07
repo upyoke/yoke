@@ -1,55 +1,106 @@
-/* Profile: the person's own page. Five cards in a two-column grid that
-   collapses to one; the actor menu in the top bar is styled here too,
-   because Profile is the only place it leads. */
-.universe-app-root .profile-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
-  gap: 12px;
-  align-items: start;
+/* Profile: the person's own page. One readable column of sections —
+   account, API tokens, settings — with a host's Profile section (hosted
+   organizations and sign-out) joining the same column below them. The
+   actor menu in the top bar is styled here too, because Profile is the only
+   place it leads. */
+.universe-app-root .view-host.profile-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 960px;
 }
 .universe-app-root .profile-facts {
   display: grid;
-  grid-template-columns: minmax(90px, 0.4fr) minmax(0, 1fr);
-  gap: 7px 12px;
+  grid-template-columns: minmax(90px, 140px) minmax(0, 1fr);
+  gap: 9px 16px;
   margin: 0;
-  font-size: 12.5px;
+  font-size: 13px;
   line-height: 1.4;
 }
 .universe-app-root .profile-facts dt { color: var(--yoke-muted); }
-.universe-app-root .profile-facts dd { margin: 0; min-width: 0; }
-.universe-app-root .profile-list {
-  display: flex;
-  flex-direction: column;
+.universe-app-root .profile-facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.universe-app-root .profile-roles {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
-.universe-app-root .profile-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 8px 0;
-  border-top: 1px solid var(--yoke-border);
-  font-size: 12.5px;
-}
-.universe-app-root .profile-row:first-child { border-top: 0; }
-.universe-app-root .profile-row-main { flex: 1; min-width: 0; }
-.universe-app-root .profile-row b { display: block; }
-.universe-app-root .profile-row small {
-  display: block;
+.universe-app-root .profile-roles small {
+  margin-left: 6px;
   color: var(--yoke-muted);
-  margin-top: 2px;
 }
-.universe-app-root .profile-row-action {
-  flex: 0 0 auto;
-  display: inline-flex;
-  gap: 6px;
-  align-self: center;
+
+/* The new-token form and the one-time reveal sit above the table; beside a
+   flush table the shared panel rule gives the slot the card's inset. */
+.universe-app-root .profile-token-slot { margin-bottom: 12px; }
+.universe-app-root .profile-token-slot:empty { display: none; }
+.universe-app-root table.profile-tokens td.profile-token-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.universe-app-root table.profile-tokens tr.profile-token-machine td { color: var(--yoke-muted); }
+.universe-app-root table.profile-tokens tr.profile-token-machine td.profile-token-name {
+  font-weight: 500;
+  color: var(--yoke-ink);
+}
+/* The action column shrinks to its control, so the control ends the row. */
+.universe-app-root table.profile-tokens td.profile-token-actions { width: 1%; white-space: nowrap; }
+.universe-app-root .profile-token-action { display: inline-flex; gap: 6px; align-items: center; }
+/* On a narrow pane each token is one compact row — its name and action on
+   top, kind and ages in a muted line under them — rather than a block of
+   one labelled line per column, which made a long machine list endless. */
+@container dashboard-content (max-width: 840px) {
+  .universe-app-root table.profile-tokens.table-stacks-narrow tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 12px;
+    margin: 0;
+    padding: 10px 15px;
+  }
+  .universe-app-root table.profile-tokens.table-stacks-narrow tr:has(> th) { display: none; }
+  .universe-app-root table.profile-tokens.table-stacks-narrow td {
+    display: inline-flex;
+    gap: 4px;
+    padding: 0;
+    border: 0;
+    font-size: 12px;
+    color: var(--yoke-muted);
+  }
+  .universe-app-root table.profile-tokens.table-stacks-narrow td::before { font-size: 9.5px; }
+  .universe-app-root table.profile-tokens.table-stacks-narrow td.profile-token-name {
+    flex: 1 1 60%;
+    font-size: 13px;
+    color: var(--yoke-ink);
+  }
+  .universe-app-root table.profile-tokens.table-stacks-narrow td.profile-token-actions {
+    order: -1;
+    width: auto;
+    color: inherit;
+  }
+  .universe-app-root table.profile-tokens.table-stacks-narrow td.profile-token-name { order: -2; }
+  .universe-app-root table.profile-tokens.table-stacks-narrow :is(td.profile-token-name, td.profile-token-actions)::before {
+    content: none;
+  }
+  .universe-app-root table.profile-tokens.table-stacks-narrow td:not(.profile-token-name, .profile-token-actions) {
+    flex: 0 0 auto;
+  }
 }
 .universe-app-root .profile-new-token {
   display: flex;
+  flex-wrap: wrap;
+  align-items: end;
   gap: 8px;
-  margin-top: 12px;
+}
+.universe-app-root .profile-token-name-field {
+  display: grid;
+  gap: 5px;
+  flex: 1 1 220px;
+  min-width: 0;
+  font-size: 12.5px;
 }
 .universe-app-root .profile-new-token input {
-  flex: 1 1 160px;
   min-width: 0;
   padding: 5px 9px;
   border: 1px solid var(--yoke-border);
@@ -58,6 +109,8 @@
   background: var(--yoke-surface);
   color: var(--yoke-ink);
 }
+.universe-app-root .profile-new-token > div:last-child { flex-basis: 100%; }
+.universe-app-root .profile-new-token > div:last-child:empty { display: none; }
 .universe-app-root .profile-token-reveal p { margin: 0 0 8px; }
 .universe-app-root .profile-token-value {
   display: block;
@@ -70,11 +123,31 @@
   overflow-wrap: anywhere;
   user-select: all;
 }
-.universe-app-root .profile-time-zone-row {
+
+/* Settings rows: what the setting is grows to fill the line, so its
+   control ends the row, and wraps under it when the column is narrow. */
+.universe-app-root .profile-setting {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 24px;
+  padding: 12px 0;
+  border-top: 1px solid var(--yoke-border);
+  font-size: 13px;
+}
+.universe-app-root .panel-body > .profile-setting:first-child { padding-top: 0; border-top: 0; }
+.universe-app-root .panel-body > div:last-child > .profile-setting { padding-bottom: 0; }
+.universe-app-root .profile-setting-label { flex: 1 1 280px; min-width: 0; }
+.universe-app-root .profile-setting-label small {
+  display: block;
+  margin-top: 3px;
+  color: var(--yoke-muted);
+}
+.universe-app-root .profile-setting-control {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  max-width: 100%;
 }
 .universe-app-root .profile-time-zone {
   max-width: 100%;
@@ -89,6 +162,31 @@
 .universe-app-root .item-button.danger {
   color: var(--yoke-crit);
   border-color: var(--yoke-crit);
+}
+
+/* Rows a host's Profile section lists (hosted organizations). */
+.universe-app-root .profile-list { display: flex; flex-direction: column; }
+.universe-app-root .profile-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--yoke-border);
+  font-size: 13px;
+}
+.universe-app-root .profile-row:first-child { border-top: 0; }
+.universe-app-root .profile-row-main { flex: 1; min-width: 0; }
+.universe-app-root .profile-row b { display: block; }
+.universe-app-root .profile-row small {
+  display: block;
+  color: var(--yoke-muted);
+  margin-top: 2px;
+}
+.universe-app-root .profile-row-action {
+  flex: 0 0 auto;
+  display: inline-flex;
+  gap: 6px;
+  align-self: center;
 }
 
 /* The actor menu under the chip in the top bar. */
@@ -126,8 +224,3 @@
   text-decoration: underline;
   padding: 3px 0;
 }
-
-.universe-app-root .profile-token-name,
-.universe-app-root .profile-time-zone-field { display: grid; gap: 5px; min-width: 0; }
-.universe-app-root .profile-token-name { flex: 1; }
-.universe-app-root .profile-new-token { align-items: end; }
