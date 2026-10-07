@@ -53,10 +53,12 @@ def _succeeded_run(conn, run_id: str, *, carried: list[str]) -> None:
         target_tier="persistent",
         release_lineage=LINEAGE,
         target_environment_id=ENVIRONMENT_ID,
-        carried_work=json.dumps({
-            "derivation": {"contents_known": True},
-            "items": [{"ref": "YOK-1", "commit_shas": carried}],
-        }),
+        carried_work=json.dumps(
+            {
+                "derivation": {"contents_known": True},
+                "items": [{"ref": "YOK-1", "commit_shas": carried}],
+            }
+        ),
         completed_at="2026-09-18T00:00:00Z",
     )
 
@@ -96,13 +98,15 @@ def test_cards_sharing_a_release_line_resolve_it_once(monkeypatch) -> None:
                 deployment_flow=FLOW,
             )
             _landing(conn, item_id, chr(ord("a") + offset) * 40)
-            rows.append({
-                "internal_id": item_id,
-                "id": item_id,
-                "status": "release",
-                "workflow_version_id": _version_id(conn, item_id),
-                "deployment_flow": FLOW,
-            })
+            rows.append(
+                {
+                    "internal_id": item_id,
+                    "id": item_id,
+                    "status": "release",
+                    "workflow_version_id": _version_id(conn, item_id),
+                    "deployment_flow": FLOW,
+                }
+            )
         _succeeded_run(conn, "run-1", carried=[])
         conn.commit()
         enriched = enrich_item_overview_rows(rows)
@@ -132,13 +136,15 @@ def test_cards_on_different_flows_each_resolve_their_own(monkeypatch) -> None:
                 deployment_flow=flow,
             )
             _landing(conn, item_id, chr(ord("m") + offset) * 40)
-            rows.append({
-                "internal_id": item_id,
-                "id": item_id,
-                "status": "release",
-                "workflow_version_id": _version_id(conn, item_id),
-                "deployment_flow": flow,
-            })
+            rows.append(
+                {
+                    "internal_id": item_id,
+                    "id": item_id,
+                    "status": "release",
+                    "workflow_version_id": _version_id(conn, item_id),
+                    "deployment_flow": flow,
+                }
+            )
         _succeeded_run(conn, "run-1", carried=[])
         conn.commit()
         enrich_item_overview_rows(rows)
@@ -155,22 +161,33 @@ def test_a_card_with_no_landing_resolves_no_release_line(monkeypatch) -> None:
 
     with test_database() as conn:
         insert_item(
-            conn, id=8300, title="never landed", status="release",
+            conn,
+            id=8300,
+            title="never landed",
+            status="release",
             deployment_flow=FLOW,
         )
         _succeeded_run(conn, "run-1", carried=[])
         conn.commit()
-        enriched = enrich_item_overview_rows([{
-            "internal_id": 8300,
-            "id": 8300,
-            "status": "release",
-            "workflow_version_id": _version_id(conn, 8300),
-            "deployment_flow": FLOW,
-        }])
+        enriched = enrich_item_overview_rows(
+            [
+                {
+                    "internal_id": 8300,
+                    "id": 8300,
+                    "status": "release",
+                    "workflow_version_id": _version_id(conn, 8300),
+                    "deployment_flow": FLOW,
+                }
+            ]
+        )
 
     assert built == []
     assert enriched[0]["delivery"] == {
-        "merges": 0, "deployed": 0, "not_deployed": 0, "flow": "",
+        "merges": 0,
+        "deployed": 0,
+        "not_deployed": 0,
+        "flow": "",
+        "no_code_change": False,
     }
 
 
@@ -267,7 +284,8 @@ def test_a_commit_only_ancestry_knows_is_carried_by_the_newest_release(
     from yoke_core.domain.deployment_run_candidate_containment import CONTAINED
 
     class _Walk:
-        def __init__(self, conn, project_id, *, candidate_lineage): pass
+        def __init__(self, conn, project_id, *, candidate_lineage):
+            pass
 
         def contains(self, commit_sha):
             return ContainmentVerdict(state=CONTAINED)
@@ -285,7 +303,8 @@ def test_a_commit_only_ancestry_knows_is_carried_by_the_newest_release(
         # Named by the newest pinned lineage's own run, the same shape the
         # carried-work answer returns.
         assert candidates.carrier_for("c" * 40) == {
-            "run_id": "run-1", "flow": FLOW,
+            "run_id": "run-1",
+            "flow": FLOW,
         }
 
 

@@ -195,7 +195,8 @@
   margin: 0;
   overflow-wrap: anywhere;
 }
-.universe-app-root .item-delivery-merged {
+.universe-app-root .item-delivery-merged,
+.universe-app-root .item-delivery-no-change {
   color: var(--yoke-muted);
   font-size: 11px;
 }

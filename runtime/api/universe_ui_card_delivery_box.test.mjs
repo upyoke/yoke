@@ -137,6 +137,28 @@ for (const band of BANDS) {
     }
   });
 
+  test(`${band.key}: recorded no-code-change delivery says so in the merge slot`, async (t) => {
+    stubFetch(t);
+    const { mounted, box } = await mountBand(band, () => [], {
+      delivery: { merges: 0, deployed: 0, not_deployed: 0, no_code_change: true },
+    });
+    t.after(() => mounted.unmount());
+    const noChange = byClass(box, "item-delivery-no-change");
+    assert.equal(noChange.length, 1);
+    assert.equal(noChange[0].textContent, "no code change");
+    assert.equal(box.children[1], noChange[0]);
+    assert.equal(byClass(box, "item-delivery-merged").length, 0);
+  });
+
+  test(`${band.key}: a missing merge alone is not read as no code change`, async (t) => {
+    stubFetch(t);
+    for (const facts of [{}, { delivery: { merges: 0, no_code_change: false } }]) {
+      const { mounted, box } = await mountBand(band, () => [], facts);
+      assert.equal(byClass(box, "item-delivery-no-change").length, 0);
+      mounted.unmount();
+    }
+  });
+
   test(`${band.key}: unknown PR or repository leaves the known merge fact readable`, async (t) => {
     stubFetch(t);
     for (const number of [undefined, "42"]) {
