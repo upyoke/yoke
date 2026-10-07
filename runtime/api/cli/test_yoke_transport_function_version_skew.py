@@ -85,7 +85,7 @@ def _dispatch_over_https(
 
 
 class TestSkewErrorDirection:
-    def test_client_ahead_points_at_the_deploy(self):
+    def test_client_ahead_names_served_commands_and_operator_escalation(self):
         error = skew_error(
             function_id=SERVED_LOCALLY,
             client_version="2.0.0",
@@ -93,6 +93,10 @@ class TestSkewErrorDirection:
         )
         assert error.code == SKEW_ERROR_CODE
         assert "deployed server predates this client build" in error.recovery_hint
+        assert "older command" in error.recovery_hint
+        assert "escalate the missing command" in error.recovery_hint
+        assert "control-plane operator" in error.recovery_hint
+        assert "db-admin" not in error.recovery_hint
 
     def test_client_behind_points_at_the_paired_self_host_upgrade(self):
         error = skew_error(
@@ -110,7 +114,8 @@ class TestSkewErrorDirection:
         )
         hint = error.recovery_hint.lower()
         assert "retry after deploy" not in hint
-        assert "*-db-admin" in error.recovery_hint
+        assert "control-plane operator" in error.recovery_hint
+        assert "db-admin" not in error.recovery_hint
         assert "yoke self-host upgrade --dir <bundle>" in hint
         assert UNKNOWN_VERSION in error.message
 
@@ -125,7 +130,8 @@ class TestSkewErrorDirection:
         assert "2.0.0" in error.message
         assert "minimum serving version" in error.message.lower()
         assert "retry after deploy" not in error.recovery_hint.lower()
-        assert "*-db-admin" in error.recovery_hint
+        assert "control-plane operator" in error.recovery_hint
+        assert "db-admin" not in error.recovery_hint
 
     def test_development_suffixes_still_order(self):
         error = skew_error(

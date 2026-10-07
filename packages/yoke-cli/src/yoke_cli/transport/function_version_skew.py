@@ -10,8 +10,8 @@ error naming the function, both engine versions, and the recovery that
 matches the direction of the skew.
 
 Both directions are covered. A client ahead of the env uses the older
-command this env still serves, or the paired ``*-db-admin`` connection
-when the caller holds the control plane; it does not wait on a deploy
+command this env still serves, or escalates the missing command to the
+control-plane operator; it does not wait on a deploy
 that itself needs the missing function. A client behind the env — one
 whose function id the server has since removed or renamed — updates
 itself. When a function declares ``minimum_serving_version``, the
@@ -42,11 +42,10 @@ UNKNOWN_VERSION = "unknown"
 
 _SERVER_BEHIND_RECOVERY = (
     "The deployed server predates this client build. Use the older command "
-    "form this env still serves. If you hold this control plane, use the "
-    "paired local-Postgres `*-db-admin` connection (`yoke env list` names "
-    "it): it dispatches against the same universe with this client's "
-    "registry, which is the non-circular exit when the missing function "
-    "is on the deploy path."
+    "form this env still serves. If none covers the required operation, "
+    "escalate the missing command to the control-plane operator, naming "
+    "the function and versions above. This also applies when the missing "
+    "function is on the deploy path."
 )
 _CLIENT_BEHIND_RECOVERY = (
     "This client build predates the deployed server, which no longer "
@@ -60,9 +59,9 @@ _UNDETERMINED_RECOVERY = (
     "client build predates the deployed server, for a self-host bundle "
     "run `yoke self-host upgrade --dir <bundle>`; otherwise install the "
     "CLI release that environment advertises. If the server predates this "
-    "client, use the older command form this env still serves, or the "
-    "paired local-Postgres `*-db-admin` connection (`yoke env list` names "
-    "it) when you hold this control plane."
+    "client, use the older command form this env still serves. If none "
+    "covers the required operation, escalate the missing command to the "
+    "control-plane operator, naming the function and versions above."
 )
 
 
