@@ -211,6 +211,21 @@ def test_terminal_error_ignores_observer_and_process_wrapper_messages() -> None:
     assert terminal_error(log) is None
 
 
+def test_source_identity_refusal_is_a_named_cause() -> None:
+    line = (
+        "attestation workflow source, requested ref, and checkout must be "
+        "the same commit"
+    )
+    log = "\n".join(
+        [
+            "2026-10-07T15:58:01.1234567Z " + line,
+            "##[error]Process completed with exit code 1.",
+        ]
+    )
+
+    assert terminal_error(log) == line
+
+
 def test_stalled_dispatch_is_the_bridge_cause_not_a_downstream_failure() -> None:
     origin = github_run_ref("owner/product", "10")
     diagnostic = (
