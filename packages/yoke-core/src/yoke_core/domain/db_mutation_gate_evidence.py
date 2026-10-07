@@ -18,7 +18,6 @@ from pathlib import Path
 from typing import Optional
 
 
-
 # ---------------------------------------------------------------------------
 # Module file resolution + DDL extraction
 # ---------------------------------------------------------------------------
@@ -27,9 +26,7 @@ from typing import Optional
 _GIT_BRANCH_BLOB_RE = re.compile(r"^[0-9a-f]{4,}$", re.IGNORECASE)
 
 
-def _resolve_module_path(
-    repo_path: Path, modules_dir: str, identifier: str
-) -> Path:
+def _resolve_module_path(repo_path: Path, modules_dir: str, identifier: str) -> Path:
     """Locate a declared module the way the applier discovers it.
 
     History entries are ``NNNN_slug.py``, so an item that names the slug does

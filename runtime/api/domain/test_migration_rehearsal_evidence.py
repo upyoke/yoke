@@ -84,3 +84,33 @@ def test_unsettled_receipt_is_not_evidence(apply_env) -> None:
         conn.close()
 
     assert not _rehearsed(control_db, project_id=1, model_name="primary")
+
+
+def test_gate_refuses_then_passes_on_the_real_rehearsal_receipt(apply_env) -> None:
+    """Neither side stubbed: the real rehearsal writes, the real gate reads."""
+    from yoke_core.domain.db_mutation_gate import (
+        check_implementing_to_reviewing_implementation_gate as gate,
+    )
+
+    control_db = apply_env["control_db"]
+    _seed_apply_item(control_db, item_id=5102)
+
+    conn = _conn(control_db)
+    try:
+        before = gate(5102, conn=conn)
+    finally:
+        conn.close()
+    assert not before.passed
+    assert any("no passing rehearsal receipt" in e for e in before.errors)
+
+    result = rehearse(
+        5102, control_db_path=control_db, worktree_path=apply_env["worktree"]
+    )
+    assert result.all_succeeded
+
+    conn = _conn(control_db)
+    try:
+        after = gate(5102, conn=conn)
+    finally:
+        conn.close()
+    assert after.passed, after.errors

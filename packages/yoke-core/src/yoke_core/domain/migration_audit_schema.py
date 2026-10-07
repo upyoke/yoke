@@ -175,9 +175,7 @@ def ensure_migration_ledger_table(
         );
         """,
     )
-    _add_column_if_not_exists(
-        conn, ledger.table, ledger.serving_floor_column, "TEXT"
-    )
+    _add_column_if_not_exists(conn, ledger.table, ledger.serving_floor_column, "TEXT")
     converge_migration_content_schema(
         conn,
         ledger,
