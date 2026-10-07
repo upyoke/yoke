@@ -304,7 +304,9 @@ test("The roster toolbar uses compact prototype controls without flattening fiel
     css,
     /\.session-roster-filter \{[^}]*min-height: var\(--session-control-height\);[^}]*border: 1px solid var\(--yoke-border\);[^}]*border-radius: 9px;/s,
   );
-  assert.match(css, /\.session-filter-search \{[^}]*max-width: 340px;[^}]*flex: 1 1 240px;/s);
+  // The Sessions toolbar grid sizes the search; the shared sheet only sets
+  // its cursor.
+  assert.doesNotMatch(css, /\.session-filter-search \{[^}]*(max-width|flex):/s);
   assert.doesNotMatch(css, /\.session-filter-actions \{[^}]*margin-left: auto;/s);
   const shared = css.match(
     /\.universe-app-root \.session-control-input \{([^}]*)\}/,

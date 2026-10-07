@@ -53,11 +53,7 @@
   text-transform: uppercase;
 }
 
-.universe-app-root .session-filter-search {
-  max-width: 340px;
-  flex: 1 1 240px;
-  cursor: text;
-}
+.universe-app-root .session-filter-search { cursor: text; }
 
 .universe-app-root .session-filter-search-icon {
   width: 18px;

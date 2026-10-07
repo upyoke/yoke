@@ -6,6 +6,7 @@ import { readFile, mkdir } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { SESSION_COLLECTIONS, cardSpecimenSource } from "./dashboard_card_specimens.mjs";
 
 const [playwrightModule, outputDir] = process.argv.slice(2);
 assert(playwrightModule && outputDir, "Name PLAYWRIGHT_MODULE and OUTPUT_DIR.");
@@ -54,25 +55,7 @@ const html = (assets) => `<!doctype html><html><head>
     import { workflowPanel } from "${assets}workflow_view_primitives.js";
     import { renderInboxView } from "${assets}universe_views_inbox.js";
     import { qaPanel } from "${assets}qa_view_primitives.js";
-    import { sessionCard } from "${assets}universe_views_sessions.js";
-    // A steered worker carries the card's widest rows at once: identity,
-    // model facts, the steering scope chip, and the latest-message badge.
-    const steeredSession = (index) => ({
-      session_id: "worker-" + index, liveness: "active", mode: "dash",
-      turn_posture: "running", executor: "claude-code",
-      executor_surface: "claude-desktop", executor_mark: "C",
-      executor_class_name: "h-claude", execution_lane: "DARIUS",
-      actor_label: "Production deployment owner", model: "claude-opus-5-5",
-      model_effort: "medium", usage_tokens: 9300000, usage_cost_usd: 3.33,
-      claims: [], holdings: { current: [], previous: [], previous_remainder: 0 },
-      messageability: { messageable: true, relay_connected: true },
-      relay: "connected", machine_name: "operator-workstation-sixteen-inch",
-      latest_message: { created_at: new Date(Date.now() - 660000).toISOString(),
-        message_id: "message-" + index, state: "acknowledged" },
-      steering_group_session_id: "seat",
-      steering_group_scope: { project: "platform", project_id: 1,
-        scope: { project_id: 1 }, strategy_docs: [] },
-    });
+    ${cardSpecimenSource(assets)}
     const { panel } = workflowPanel(document, "Delivery", { detail: ${JSON.stringify(flowName)} });
     document.getElementById("delivery").append(panel, qaPanel(document, "Test plans", 2).root);
     const samples = ${JSON.stringify(rows)};
@@ -136,15 +119,7 @@ const html = (assets) => `<!doctype html><html><head>
         const grid = document.createElement("div");
         grid.className = gridClass;
         for (let index = 0; index < count; index += 1) {
-          const card = cardClass === "session-card"
-            ? sessionCard(document, steeredSession(index), () => {},
-              [{ id: 1, slug: "platform" }], new Map([["seat", "#7c3aed"]]))
-            : document.createElement("article");
-          if (cardClass !== "session-card") {
-            card.className = cardClass;
-            card.textContent = "Card " + (index + 1);
-          }
-          grid.append(card);
+          grid.append(window.realCard(cardClass, index));
         }
         specimen.append(grid);
       }
@@ -177,7 +152,11 @@ try {
   await page.goto(`http://127.0.0.1:${server.address().port}/`);
   await page.waitForFunction(() => window.proofReady
     && document.querySelector('[data-fold="section:inbox-waiting"] .approval-carried'));
-  for (const width of [268, 350, 1100, 1250, 1388]) {
+  // Grid content widths for 360, 390 and 414 phones and 1366, 1536 and 1920
+  // desktops beside the sidebar. At 1272 the old 268px session minimum would
+  // have drawn four 309px columns, so that width keeps the minimum pinned.
+  const widths = [336, 366, 390, 1102, 1272, 1656];
+  for (const width of widths) {
     await page.setViewportSize({ width: width + 40, height: 1000 });
     await page.evaluate((value) => {
       document.documentElement.style.setProperty("--proof-width", `${value}px`);
@@ -273,14 +252,14 @@ try {
       assert.equal(grid.overflowing, false, `${grid.label} must not scroll horizontally`);
       assert(grid.contentOverflow < 1,
         `${grid.label} card content runs ${grid.contentOverflow}px past its card at ${width}px`);
-      if (width === 268) assert.equal(grid.columns, 1, `${grid.label} must stack on phones`);
+      if (width === widths[0]) assert.equal(grid.columns, 1, `${grid.label} must stack on phones`);
       if (width >= 1100) assert(grid.columns >= 3, `${grid.label} must exercise desktop columns`);
-      if (width >= 1100 && grid.label.endsWith("essions")) assert(grid.width >= 319.5,
+      if (width >= 1100 && SESSION_COLLECTIONS.has(grid.label)) assert(grid.width >= 319.5,
         `${grid.label} cards narrowed to ${grid.width}px at ${width}px`);
     }
     for (const row of result.measurements) {
       assert.equal(row.align, "left", row.label);
-      if (width === 268) assert(row.wrapped, `${row.label} must exercise a second line`);
+      if (width === widths[0]) assert(row.wrapped, `${row.label} must exercise a second line`);
       if (row.wrapped) {
         assert(Math.abs(row.offset) < 1, `${row.label} second line is indented`);
         assert(Math.abs(row.rowLeftGap) < 1, `${row.label} wrapped row is indented`);
