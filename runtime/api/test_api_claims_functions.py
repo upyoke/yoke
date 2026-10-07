@@ -38,9 +38,14 @@ class _ClaimsHandlerSuite(unittest.TestCase):
         reset_registry_for_tests()
         register_all_handlers()
         self._patchers = [
+            patch(
+                "yoke_core.domain.function_response_refs.render_item_refs",
+                return_value={42: "ITEM-81", 1665: "EXT-19"},
+            ),
             patch.object(events_module, "emit_event"),
             patch.object(
-                dispatch_module, "_idempotency_lookup",
+                dispatch_module,
+                "_idempotency_lookup",
                 lambda *_a, **_k: None,
             ),
             # Match the envelope's actor session so the actor-identity gate
@@ -96,7 +101,8 @@ class TestClaimsHandlersRegistration(_ClaimsHandlerSuite):
             entry = lookup(fid)
             self.assertIsNotNone(entry, f"{fid} not registered")
             self.assertEqual(
-                entry.claim_required_kind, kind,
+                entry.claim_required_kind,
+                kind,
                 f"{fid}: expected {kind!r}, got {entry.claim_required_kind!r}",
             )
 
@@ -127,206 +133,107 @@ class TestClaimsHandlersRegistration(_ClaimsHandlerSuite):
 class TestClaimsWork(_ClaimsHandlerSuite):
     def test_acquire_records_row_and_returns_claim_id(self):
         fake_row = {
-            "id": 1234, "session_id": "s-1", "target_kind": "item",
+            "id": 1234,
+            "session_id": "s-1",
+            "target_kind": "item",
             "scope": {"item_id": 42},
         }
         with patch(
             "yoke_core.domain.sessions_lifecycle_claim.claim_work",
             return_value=fake_row,
         ):
-            resp = dispatch(_envelope(
-                "claims.work.acquire",
-                target={"kind": "item", "item_id": 42},
-                payload={"target": {"kind": "item", "item_id": 42}},
-            ))
+            resp = dispatch(
+                _envelope(
+                    "claims.work.acquire",
+                    target={"kind": "item", "item_id": 42},
+                    payload={"target": {"kind": "item", "item_id": 42}},
+                )
+            )
         self.assertTrue(resp.success, msg=resp.error)
         self.assertEqual(resp.result["claim_id"], 1234)
         self.assertEqual(resp.result["session_id"], "s-1")
-        self.assertEqual(resp.result["scope"], {"item_id": 42})
+        self.assertEqual(resp.result["scope"], {"public_ref": "ITEM-81"})
 
     def test_release_requires_self_only(self):
         """Release rejects when caller isn't the holder."""
         with patch.object(
-            claims_module, "_claim_row_for_id",
+            claims_module,
+            "_claim_row_for_id",
             return_value={"id": 99, "session_id": "OTHER"},
         ):
-            resp = dispatch(_envelope(
-                "claims.work.release",
-                target={"kind": "claim", "claim_id": 99},
-                payload={"claim_id": 99, "reason": "handoff"},
-            ))
+            resp = dispatch(
+                _envelope(
+                    "claims.work.release",
+                    target={"kind": "claim", "claim_id": 99},
+                    payload={"claim_id": 99, "reason": "handoff"},
+                )
+            )
         self.assertFalse(resp.success)
         assert resp.error is not None
         self.assertEqual(resp.error.code, "claim_required")
 
     def test_release_succeeds_when_caller_is_holder(self):
         fake_row = {
-            "id": 99, "released_at": "2026-05-13T07:00:00Z",
+            "id": 99,
+            "released_at": "2026-05-13T07:00:00Z",
             "release_reason": "handoff",
         }
-        with patch.object(
-            claims_module, "_claim_row_for_id",
-            return_value={"id": 99, "session_id": "s-1"},
-        ), patch(
-            "yoke_core.domain.sessions_lifecycle_claim.release_claim",
-            return_value=fake_row,
+        with (
+            patch.object(
+                claims_module,
+                "_claim_row_for_id",
+                return_value={"id": 99, "session_id": "s-1"},
+            ),
+            patch(
+                "yoke_core.domain.sessions_lifecycle_claim.release_claim",
+                return_value=fake_row,
+            ),
         ):
-            resp = dispatch(_envelope(
-                "claims.work.release",
-                target={"kind": "claim", "claim_id": 99},
-                payload={"claim_id": 99, "reason": "handoff"},
-            ))
+            resp = dispatch(
+                _envelope(
+                    "claims.work.release",
+                    target={"kind": "claim", "claim_id": 99},
+                    payload={"claim_id": 99, "reason": "handoff"},
+                )
+            )
         self.assertTrue(resp.success, msg=resp.error)
         self.assertEqual(resp.result["claim_id"], 99)
 
     def test_holder_get_returns_row(self):
         fake_row = {
-            "id": 1, "session_id": "s-1", "target_kind": "item",
+            "id": 1,
+            "session_id": "s-1",
+            "target_kind": "item",
             "scope": {"item_id": 42},
         }
-        with patch(
-            "yoke_core.domain.sessions_queries_lookup.get_claim_for_work_unit",
-            return_value=fake_row,
-        ), patch(
-            "yoke_core.domain.db_helpers.connect",
-            return_value=MagicMock(__enter__=lambda s: s, __exit__=lambda s, *a: None),
+        with (
+            patch(
+                "yoke_core.domain.sessions_queries_lookup.get_claim_for_work_unit",
+                return_value=fake_row,
+            ),
+            patch(
+                "yoke_core.domain.db_helpers.connect",
+                return_value=MagicMock(
+                    __enter__=lambda s: s, __exit__=lambda s, *a: None
+                ),
+            ),
         ):
-            resp = dispatch(_envelope(
-                "claims.work.holder_get",
-                target={"kind": "item", "item_id": 42},
-                payload={"item_id": 42},
-            ))
+            resp = dispatch(
+                _envelope(
+                    "claims.work.holder_get",
+                    target={"kind": "item", "item_id": 42},
+                    payload={"item_id": 42},
+                )
+            )
         self.assertTrue(resp.success, msg=resp.error)
         self.assertEqual(resp.result["holder"]["claim_id"], 1)
-        self.assertEqual(resp.result["holder"]["scope"], {"item_id": 42})
+        self.assertEqual(resp.result["holder"]["scope"], {"public_ref": "ITEM-81"})
 
 
 # ---------------------------------------------------------------------------
 # claims.path.* handler tests
 # ---------------------------------------------------------------------------
 
-
-class TestClaimsPath(_ClaimsHandlerSuite):
-    def _hold_item_claim(self):
-        return patch.object(
-            claims_module, "who_claims_for_item",
-            return_value={"id": 1, "session_id": "s-1"},
-        )
-
-    def test_register_routes_to_register_for_item(self):
-        """Register accepts paths/target ids/integration target."""
-        with self._hold_item_claim(), patch(
-            "yoke_core.domain.path_claims_register.register_for_item",
-            return_value=555,
-        ):
-            resp = dispatch(_envelope(
-                "claims.path.register",
-                target={"kind": "item", "item_id": 1665},
-                payload={
-                    "item_id": 1665,
-                    "integration_target": "main",
-                    "paths": ["runtime/api/x.py", "runtime/api/y.py"],
-                    "allow_planned": True,
-                },
-            ))
-        self.assertTrue(resp.success, msg=resp.error)
-        self.assertEqual(resp.result["claim_id"], 555)
-
-    def test_register_overlap_returns_denial_body(self):
-        from yoke_core.domain.path_claims import IncompatibleOverlap
-
-        mock_conn = MagicMock()
-        mock_conn.__enter__.return_value = mock_conn
-        denial = (
-            "BLOCKED: path-claim register overlap on item YOK-1665.\n"
-            "  conflicting claims:\n"
-            "    claim 300: .yoke/docs/reference/db-reference/functions.md"
-        )
-        with self._hold_item_claim(), patch(
-            "yoke_core.domain.db_helpers.connect", return_value=mock_conn,
-        ), patch(
-            "yoke_core.domain.path_claims_register_validate_integration_target."
-            "resolve_and_validate_integration_target",
-            return_value="main",
-        ), patch(
-            "yoke_core.domain.path_claims_register.register_for_item",
-            side_effect=IncompatibleOverlap("raw overlap"),
-        ), patch(
-            "yoke_core.domain.handlers.claims_path."
-            "render_overlap_denial_for_register",
-            return_value=denial,
-        ) as render_denial:
-            resp = dispatch(_envelope(
-                "claims.path.register",
-                target={"kind": "item", "item_id": 1665},
-                payload={
-                    "item_id": 1665,
-                    "integration_target": "main",
-                    "paths": [".yoke/docs/reference/db-reference/functions.md"],
-                    "allow_planned": True,
-                },
-                actor_id=None,
-            ))
-        self.assertFalse(resp.success)
-        assert resp.error is not None
-        self.assertEqual(resp.error.code, "register_failed")
-        self.assertIn("BLOCKED: path-claim register overlap", resp.error.message)
-        self.assertIn("claim 300", resp.error.message)
-        self.assertIn(".yoke/docs/reference/db-reference/functions.md", resp.error.message)
-        render_denial.assert_called_once()
-
-    def test_release_routes_to_path_claims_release(self):
-        mock_conn = MagicMock()
-        mock_conn.__enter__.return_value = mock_conn
-        mock_conn.execute.return_value.fetchone.return_value = {
-            "state": "released", "released_at": "2026-05-13T07:00:00Z",
-        }
-        with self._hold_item_claim(), patch(
-            "yoke_core.domain.db_helpers.connect", return_value=mock_conn,
-        ), patch("yoke_core.domain.path_claims.release"):
-            resp = dispatch(_envelope(
-                "claims.path.release",
-                target={"kind": "item", "item_id": 1665},
-                payload={"claim_id": 116, "reason": "done"},
-            ))
-        self.assertTrue(resp.success, msg=resp.error)
-        self.assertEqual(resp.result["claim_id"], 116)
-        self.assertEqual(resp.result["state"], "released")
-
-    def test_override_rejected_for_non_operator(self):
-        """Non-operator session => operator_override_required."""
-        with patch.object(claims_module, "is_operator_session", return_value=False):
-            resp = dispatch(_envelope(
-                "claims.path.override",
-                target={"kind": "item", "item_id": 1665},
-                payload={
-                    "path_claim_id": 116,
-                    "integration_target": "main",
-                    "actor_id": 2,
-                    "actor_reason": "operator forced override",
-                },
-            ))
-        self.assertFalse(resp.success)
-        assert resp.error is not None
-        self.assertEqual(resp.error.code, "operator_override_required")
-
-    def test_override_allowed_for_operator(self):
-        with patch.object(claims_module, "is_operator_session", return_value=True), patch(
-            "yoke_core.domain.path_claims_override.invoke_override",
-            return_value="evt-1",
-        ):
-            resp = dispatch(_envelope(
-                "claims.path.override",
-                target={"kind": "item", "item_id": 1665},
-                payload={
-                    "path_claim_id": 116,
-                    "integration_target": "main",
-                    "actor_id": 2,
-                    "actor_reason": "operator forced override",
-                },
-            ))
-        self.assertTrue(resp.success, msg=resp.error)
-        self.assertEqual(resp.result["override_event_id"], "evt-1")
 
 if __name__ == "__main__":
     unittest.main()

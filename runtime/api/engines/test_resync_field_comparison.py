@@ -10,6 +10,9 @@ from runtime.api.engines.test_resync_compare import (
 )
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 class TestStage2Compare(_ComparisonFixtures):
     def test_frozen_label_drift(self, populated_db):
         """Detects frozen label present on GitHub but not in DB."""
@@ -17,7 +20,7 @@ class TestStage2Compare(_ComparisonFixtures):
             [
                 {
                     "number": 100,
-                    "title": "[YOK-42] Test item",
+                    "title": f"[{_FIXTURE_ITEM_REF}] Test item",
                     "labels": [
                         {"name": "status:implementing"},
                         {"name": "priority:high"},
@@ -32,7 +35,13 @@ class TestStage2Compare(_ComparisonFixtures):
         )
         paired = [
             PairedItem(
-                "YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", public_ref="YOK-42"
+                _FIXTURE_ITEM_REF,
+                "/tmp/042.md",
+                100,
+                "backlog",
+                "yoke",
+                "",
+                public_ref=_FIXTURE_ITEM_REF,
             ),
         ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
@@ -47,7 +56,7 @@ class TestStage2Compare(_ComparisonFixtures):
             [
                 {
                     "number": 100,
-                    "title": "[YOK-42] Test item",
+                    "title": f"[{_FIXTURE_ITEM_REF}] Test item",
                     "labels": [
                         {"name": "status:implementing"},
                         {"name": "priority:high"},
@@ -62,7 +71,13 @@ class TestStage2Compare(_ComparisonFixtures):
         )
         paired = [
             PairedItem(
-                "YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", public_ref="YOK-42"
+                _FIXTURE_ITEM_REF,
+                "/tmp/042.md",
+                100,
+                "backlog",
+                "yoke",
+                "",
+                public_ref=_FIXTURE_ITEM_REF,
             ),
         ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)

@@ -24,6 +24,9 @@ from yoke_contracts.api.function_call import (
 )
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 _CAPTURED_REQUESTS: List[FunctionCallRequest] = []
 
 
@@ -78,7 +81,7 @@ class TestItemsScalarUpdateDispatch:
             "items",
             "scalar",
             "update",
-            "YOK-42",
+            _FIXTURE_ITEM_REF,
             "--field",
             "priority",
             "--value",
@@ -88,7 +91,7 @@ class TestItemsScalarUpdateDispatch:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "items.scalar.update"
         assert req.target.kind == "item"
-        assert req.target.public_ref == "YOK-42"
+        assert req.target.public_ref == _FIXTURE_ITEM_REF
         assert req.payload == {
             "field": "priority",
             "value": "high",
@@ -176,7 +179,7 @@ class TestItemsScalarUpdateErrors:
             "items",
             "scalar",
             "update",
-            "YOK-42",
+            _FIXTURE_ITEM_REF,
             "--field",
             "priority",
         )
@@ -189,7 +192,7 @@ class TestItemsScalarUpdateErrors:
             "items",
             "scalar",
             "update",
-            "YOK-42",
+            _FIXTURE_ITEM_REF,
             "--field",
             "priority",
             "--value",
@@ -205,15 +208,15 @@ class TestItemsScalarUpdateErrors:
             "items",
             "scalar",
             "update",
-            "YOK-42",
+            _FIXTURE_ITEM_REF,
             "--value",
             "high",
         )
         assert rc == 2
         assert _CAPTURED_REQUESTS == []
 
-    def test_bad_ref_relays_verbatim(self) -> None:
-        # Relay contract: ref validation is server-side.
+    def test_bad_ref_is_refused_before_dispatch(self) -> None:
+        # Client validation refuses incomplete item identity.
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
             "items",
@@ -225,8 +228,8 @@ class TestItemsScalarUpdateErrors:
             "--value",
             "high",
         )
-        assert rc == 0
-        assert _CAPTURED_REQUESTS[-1].target.public_ref == "not-a-sun-id"
+        assert rc == 1
+        assert _CAPTURED_REQUESTS == []
 
     def test_bad_value_json_returns_two(self) -> None:
         rc = _run_with_dispatch(
@@ -234,7 +237,7 @@ class TestItemsScalarUpdateErrors:
             "items",
             "scalar",
             "update",
-            "YOK-42",
+            _FIXTURE_ITEM_REF,
             "--field",
             "blocked",
             "--value-json",
@@ -249,7 +252,7 @@ class TestItemsScalarUpdateErrors:
             "items",
             "scalar",
             "update",
-            "YOK-42",
+            _FIXTURE_ITEM_REF,
             "--field",
             "priority",
             "--value",

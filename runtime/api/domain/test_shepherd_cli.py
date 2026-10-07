@@ -67,7 +67,14 @@ def test_verdict_inserts_minimal_row(shepherd_db):
 
 def test_verdict_inserts_with_caveats(shepherd_db):
     result = _run_shepherd_cli(
-        ["verdict", "TEST-2", "test_transition", "test-worker", "CAVEATS", "caveat body"],
+        [
+            "verdict",
+            "TEST-2",
+            "test_transition",
+            "test-worker",
+            "CAVEATS",
+            "caveat body",
+        ],
         shepherd_db,
     )
     assert result.returncode == 0, result.stderr
@@ -110,6 +117,13 @@ def test_shepherd_verdicts_table_has_canonical_columns(shepherd_db):
         conn.close()
     cols = {row[0] for row in rows}
     assert cols == {
-        "id", "item", "transition", "worker", "verdict",
-        "caveats", "attempt", "created_at",
+        "id",
+        "public_ref",
+        "archived_item_key",
+        "transition",
+        "worker",
+        "verdict",
+        "caveats",
+        "attempt",
+        "created_at",
     }

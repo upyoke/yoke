@@ -68,12 +68,12 @@ def test_item_flow_read_includes_effective_value_and_source(monkeypatch, source)
                     "function": "items.list.run",
                     "target": TargetRef(kind="global"),
                     "payload": {
-                        "fields": ["internal_id", "deployment_flow"],
+                        "fields": ["id", "deployment_flow"],
                         "project": "yoke",
                     },
                 }
             )
         )
         rows = listing.result_payload["rows"]
-        found = next(row for row in rows if int(row["internal_id"]) == item_id)
+        found = next(row for row in rows if row["id"] == f"YOK-{item_id}")
         assert found["deployment_flow"] == expected

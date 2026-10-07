@@ -215,7 +215,8 @@ class TestPostRebaseRelays:
             "merge.tests.post_rebase_requirement",
         ]
         assert calls[1]["target"].kind == "item"
-        assert calls[1]["target"].item_id == 42
+        assert calls[1]["target"].public_ref == "ITEM-42"
+        assert calls[1]["target"].item_id is None
         assert calls[1]["payload"] == {"transition_id": "release"}
 
     def test_missing_command_response_blocks(self, monkeypatch):

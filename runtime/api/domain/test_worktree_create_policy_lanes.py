@@ -264,7 +264,8 @@ def test_dash_path_claim_relays_holder_get_then_survey_ensure(monkeypatch):
         "claims.path.survey_ensure",
     ]
     holder_call, ensure_call = relay.calls
-    assert holder_call["target"].item_id == 99230
+    assert holder_call["target"].public_ref == "YOK-99230"
+    assert holder_call["target"].item_id is None
     assert ensure_call["payload"]["touch_paths"] == ["src/dash.py"]
     assert ensure_call["payload"]["integration_target"] == "main"
 

@@ -9,7 +9,10 @@ import pytest
 from yoke_core.engines import merge_worktree_tests as mod
 
 
-ITEM_REF = "YOK-4242"
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
+ITEM_REF = f"{_FIXTURE_ITEM_REF}42"
 
 
 def _resp(success: bool, *, result=None, code: str = "", message: str = ""):

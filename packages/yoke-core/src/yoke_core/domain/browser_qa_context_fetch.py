@@ -9,7 +9,7 @@ local-postgres env and from an external project over the https relay.
 
 from __future__ import annotations
 
-from yoke_core.domain.public_item_target import public_item_target
+from yoke_contracts.public_ref import parse_public_item_ref
 
 from typing import Any, Dict, Optional
 
@@ -51,14 +51,12 @@ def _fetch_browser_context(
             project_id=project,
         )
     else:
-        try:
-            target = public_item_target(item_id)
-        except (TypeError, ValueError):
-            target = TargetRef(
-                kind="item",
-                public_ref=str(item_id).strip(),
-                project_id=project,
-            )
+        prefix, sequence = parse_public_item_ref(item_id)
+        if prefix is None or sequence is None:
+            raise RuntimeError("public_item_ref_required: Browser QA requires PREFIX-N")
+        target = TargetRef(
+            kind="item", public_ref=f"{prefix}-{sequence}", project_id=project
+        )
 
     payload: Dict[str, Any] = {
         "project": project,

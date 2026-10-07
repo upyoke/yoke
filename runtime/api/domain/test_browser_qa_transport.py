@@ -47,7 +47,7 @@ def _fail(code: str = "boom") -> FunctionCallResponse:
 
 
 class TestFetchBrowserContextSeam:
-    def test_numeric_id_targets_item_id(self) -> None:
+    def test_public_item_selector_is_retained(self) -> None:
         calls: List[Dict[str, Any]] = []
 
         def _capture(**kwargs):
@@ -61,15 +61,15 @@ class TestFetchBrowserContextSeam:
             browser_qa._fetch_browser_context(
                 "externalwebapp",
                 10,
-                item_id=42,
+                item_id="EXT-81",
                 expected_branch="feature-x",
             )
 
         assert calls[0]["function_id"] == "qa.browser_context.get"
         target = calls[0]["target"]
         assert target.kind == "item"
-        assert target.item_id == 42
-        assert target.public_ref is None
+        assert target.item_id is None
+        assert target.public_ref == "EXT-81"
         assert calls[0]["payload"] == {
             "project": "externalwebapp",
             "requirement_id": 10,
@@ -137,7 +137,7 @@ class TestFetchBrowserContextSeam:
                 browser_qa._fetch_browser_context(
                     "externalwebapp",
                     10,
-                    item_id=42,
+                    item_id="EXT-81",
                 )
             except RuntimeError as exc:
                 assert "not_found" in str(exc)
@@ -151,7 +151,7 @@ class TestFetchBrowserContextSeam:
             side_effect=RuntimeError("qa.browser_context.get failed"),
         ):
             result = browser_qa.execute_scenario(
-                item_id=42,
+                item_id="EXT-81",
                 project="externalwebapp",
                 requirement_id=10,
             )
@@ -293,3 +293,16 @@ class TestFetchBrowserContextSeam:
         result = browser_qa.execute_scenario("externalwebapp", 10)
         assert result.verdict == "error"
         assert result.note == "subject_invalid"
+
+
+def test_browser_context_rejects_numeric_identity_before_dispatch():
+    with mock.patch(
+        "yoke_core.api.service_client_structured_api_adapter.call_dispatcher"
+    ) as dispatch:
+        try:
+            browser_qa._fetch_browser_context("externalwebapp", 10, item_id="42")
+        except RuntimeError as exc:
+            assert "public_item_ref_required" in str(exc)
+        else:
+            raise AssertionError("numeric item identity was admitted")
+    dispatch.assert_not_called()

@@ -22,6 +22,9 @@ from yoke_contracts.api.function_call import (
 from yoke_core.engines import advance_implementation_entry as orch
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 def _detail_response(item: Dict[str, Any]) -> FunctionCallResponse:
     return FunctionCallResponse(
         success=True,
@@ -103,7 +106,7 @@ def test_flip_status_routes_through_call_dispatcher(monkeypatch):
         lambda *_a, **_k: sentinel.append("in-process") or _ok_response(),
     )
     response = orch._flip_status(
-        "YOK-42",
+        _FIXTURE_ITEM_REF,
         from_status="refined-idea",
         to_status="implementing",
         session_id="sess",
@@ -117,7 +120,9 @@ def test_flip_status_routes_through_call_dispatcher(monkeypatch):
     assert call["intent"] == "advance_finalize"
     assert call["actor"].session_id == "sess"
     assert (call["actor"].actor_id or "") == ""
-    assert call["target"].kind == "item" and call["target"].public_ref == "YOK-42"
+    assert (
+        call["target"].kind == "item" and call["target"].public_ref == _FIXTURE_ITEM_REF
+    )
     assert call["payload"]["target_status"] == "implementing"
     assert call["payload"]["source_status"] == "refined-idea"
     assert call["payload"]["force"] is False
@@ -127,10 +132,12 @@ def test_flip_status_routes_through_call_dispatcher(monkeypatch):
 
 def test_release_claim_routes_through_call_dispatcher(monkeypatch):
     calls = _record_calls(monkeypatch)
-    orch._release_claim("YOK-42", "sess", orch.RELEASE_WORKTREE_CREATE_FAILED)
+    orch._release_claim(_FIXTURE_ITEM_REF, "sess", orch.RELEASE_WORKTREE_CREATE_FAILED)
     call = calls[0]
     assert call["function_id"] == "claims.work.release"
-    assert call["target"].kind == "item" and call["target"].public_ref == "YOK-42"
+    assert (
+        call["target"].kind == "item" and call["target"].public_ref == _FIXTURE_ITEM_REF
+    )
     assert call["actor"].session_id == "sess"
     assert call["payload"]["reason"] == orch.RELEASE_WORKTREE_CREATE_FAILED
 
@@ -141,7 +148,7 @@ def test_release_claim_never_raises_on_relay_failure(monkeypatch):
 
     monkeypatch.setattr(orch, "call_dispatcher", boom)
     # Best-effort: must swallow relay failures.
-    orch._release_claim("YOK-42", "sess", "reason")
+    orch._release_claim(_FIXTURE_ITEM_REF, "sess", "reason")
 
 
 def test_record_phase_best_effort_over_https_transport(monkeypatch):

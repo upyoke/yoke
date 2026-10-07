@@ -278,7 +278,7 @@ def test_browser_case_runs_a_deployment_run_subject_without_an_item() -> None:
             "browser_substrate",
             {"steps": [{"action": "navigate", "route": "/"}]},
         ),
-        "item_id": None,
+        "public_ref": None,
         "deployment_run_id": "run-20260101-001",
     }
     scenario = ScenarioResult(

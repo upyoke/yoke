@@ -166,7 +166,7 @@ class TestItemDependencyListDispatch:
             "YOK-1819",
         )
         assert rc == 0
-        assert _CAPTURED_REQUESTS[-1].target.public_ref == "1819"
+        assert _CAPTURED_REQUESTS[-1].target.public_ref == "YOK-1819"
 
     def test_missing_item_is_usage_error(self) -> None:
         rc = _run_with_dispatch(

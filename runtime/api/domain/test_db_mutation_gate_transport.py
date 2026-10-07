@@ -44,6 +44,9 @@ from yoke_core.domain.yoke_function_registry import (
 from yoke_core.domain.work_claim_targets import make_item_target
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 SESSION_ID = "db-gate-transport-session"
 ITEM_ID = 4242
 
@@ -141,7 +144,9 @@ def _request() -> FunctionCallRequest:
     return FunctionCallRequest(
         function="lifecycle.transition.execute",
         actor=ActorContext(actor_id="op", session_id=SESSION_ID),
-        target=TargetRef(kind="item", item_id=ITEM_ID, public_ref="YOK-4242"),
+        target=TargetRef(
+            kind="item", item_id=ITEM_ID, public_ref=f"{_FIXTURE_ITEM_REF}42"
+        ),
         payload={
             "source_status": "idea",
             "target_status": "refining-idea",
@@ -154,7 +159,9 @@ def _scalar_request() -> FunctionCallRequest:
     return FunctionCallRequest(
         function="items.scalar.update",
         actor=ActorContext(actor_id="op", session_id=SESSION_ID),
-        target=TargetRef(kind="item", item_id=ITEM_ID, public_ref="YOK-4242"),
+        target=TargetRef(
+            kind="item", item_id=ITEM_ID, public_ref=f"{_FIXTURE_ITEM_REF}42"
+        ),
         payload={"field": "status", "value": "refining-idea"},
     )
 

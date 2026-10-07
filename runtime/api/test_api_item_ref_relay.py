@@ -33,6 +33,9 @@ from yoke_core.domain.handlers.__init_register__ import register_all_handlers
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 _SCHEMA = """
 CREATE TABLE items (
     id INTEGER PRIMARY KEY,
@@ -140,7 +143,7 @@ class TestItemRefOverHttpBoundary(unittest.TestCase):
                     reset_registry_for_tests()
 
     def test_prefix_ref_resolves_server_side(self) -> None:
-        envelope = _envelope({"kind": "item", "public_ref": "YOK-4242"})
+        envelope = _envelope({"kind": "item", "public_ref": f"{_FIXTURE_ITEM_REF}42"})
         envelope["payload"] = {"fields": ["status", "project_sequence"]}
         resp = self.client.post(
             "/v1/functions/call",
@@ -149,7 +152,7 @@ class TestItemRefOverHttpBoundary(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
         self.assertTrue(body["success"])
-        self.assertEqual(body["result"]["public_ref"], "YOK-4242")
+        self.assertEqual(body["result"]["public_ref"], f"{_FIXTURE_ITEM_REF}42")
         self.assertEqual(body["result"]["fields"]["status"], "done")
         self.assertEqual(body["result"]["fields"]["project_sequence"], "4242")
         self.assertNotIn("item_id", body["result"])

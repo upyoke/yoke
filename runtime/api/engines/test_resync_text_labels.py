@@ -1,12 +1,4 @@
-"""Stage-2 compare tests: title, body, label drift, plus epic-task drift.
-
-Other Stage-2 tests (state/frozen/comment/multi) live in
-test_resync_full_compare_state.py. Compact-mirror suppression tests
-live in test_resync_full_compact_mirror.py.
-
-Pytest fixtures (test_db, populated_db) are shared via
-_resync_full_test_helpers (private module).
-"""
+"""Resync detects label drift against each public item identity."""
 
 from __future__ import annotations
 
@@ -28,50 +20,16 @@ from runtime.api.engines._resync_full_test_helpers import (
 _FIXTURE_ITEM_REF = f"YOK-{42}"
 
 
-class TestStage2CompareTextLabel:
-    """Comprehensive drift detection tests."""
-
-    def test_no_drift_when_synced(self, populated_db):
-        """No drifts when GitHub matches local DB."""
+class TestLabelDrift:
+    def test_label_status_drift(self, populated_db):
+        """Detects status label drift."""
         gh_issues = _make_gh_issues(
             [
                 {
                     "number": 100,
                     "title": f"[{_FIXTURE_ITEM_REF}] Test item",
                     "labels": [
-                        {"name": "status:implementing"},
-                        {"name": "priority:high"},
-                        {"name": "workflow:issue"},
-                        {"name": "source:manual"},
-                    ],
-                    "state": "OPEN",
-                    "body": "# Spec: Test item\n\nItem body\n",
-                }
-            ]
-        )
-        paired = [
-            PairedItem(
-                _FIXTURE_ITEM_REF,
-                "/tmp/042.md",
-                100,
-                "backlog",
-                "yoke",
-                "",
-                public_ref=_FIXTURE_ITEM_REF,
-            )
-        ]
-        drifts = stage2_compare(paired, gh_issues, {}, populated_db)
-        assert len(drifts) == 0
-
-    def test_title_drift(self, populated_db):
-        """Detects title drift."""
-        gh_issues = _make_gh_issues(
-            [
-                {
-                    "number": 100,
-                    "title": f"[{_FIXTURE_ITEM_REF}] Wrong title",
-                    "labels": [
-                        {"name": "status:implementing"},
+                        {"name": "status:idea"},
                         {"name": "priority:high"},
                         {"name": "workflow:issue"},
                         {"name": "source:manual"},
@@ -93,13 +51,13 @@ class TestStage2CompareTextLabel:
             )
         ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
-        title_drifts = [d for d in drifts if d.field == "title"]
-        assert len(title_drifts) == 1
-        assert title_drifts[0].local == "Test item"
-        assert title_drifts[0].github == "Wrong title"
+        status_drifts = [d for d in drifts if d.field == "label-status"]
+        assert len(status_drifts) == 1
+        assert status_drifts[0].local == "status:implementing"
+        assert status_drifts[0].github == "status:idea"
 
-    def test_body_drift_heavy(self, populated_db):
-        """Detects body drift using heavy data."""
+    def test_label_priority_drift(self, populated_db):
+        """Detects priority label drift."""
         gh_issues = _make_gh_issues(
             [
                 {
@@ -107,47 +65,12 @@ class TestStage2CompareTextLabel:
                     "title": f"[{_FIXTURE_ITEM_REF}] Test item",
                     "labels": [
                         {"name": "status:implementing"},
-                        {"name": "priority:high"},
+                        {"name": "priority:low"},
                         {"name": "workflow:issue"},
                         {"name": "source:manual"},
                     ],
                     "state": "OPEN",
-                }
-            ]
-        )
-        heavy = {
-            "yoke": {100: {"number": 100, "body": "Different body", "comments": []}}
-        }
-        paired = [
-            PairedItem(
-                _FIXTURE_ITEM_REF,
-                "/tmp/042.md",
-                100,
-                "backlog",
-                "yoke",
-                "",
-                public_ref=_FIXTURE_ITEM_REF,
-            )
-        ]
-        drifts = stage2_compare(paired, gh_issues, heavy, populated_db)
-        body_drifts = [d for d in drifts if d.field == "body"]
-        assert len(body_drifts) == 1
-
-    def test_body_drift_light(self, populated_db):
-        """Detects body drift using light (inline) data."""
-        gh_issues = _make_gh_issues(
-            [
-                {
-                    "number": 100,
-                    "title": f"[{_FIXTURE_ITEM_REF}] Test item",
-                    "labels": [
-                        {"name": "status:implementing"},
-                        {"name": "priority:high"},
-                        {"name": "workflow:issue"},
-                        {"name": "source:manual"},
-                    ],
-                    "state": "OPEN",
-                    "body": "Totally different body",
+                    "body": "Item body",
                 }
             ]
         )
@@ -163,11 +86,12 @@ class TestStage2CompareTextLabel:
             )
         ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
-        body_drifts = [d for d in drifts if d.field == "body"]
-        assert len(body_drifts) == 1
+        priority_drifts = [d for d in drifts if d.field == "label-priority"]
+        assert len(priority_drifts) == 1
+        assert priority_drifts[0].local == "priority:high"
 
-    def test_no_body_drift_when_matching(self, populated_db):
-        """No body drift when bodies match."""
+    def test_label_workflow_drift(self, populated_db):
+        """Detects workflow label drift."""
         gh_issues = _make_gh_issues(
             [
                 {
@@ -176,11 +100,11 @@ class TestStage2CompareTextLabel:
                     "labels": [
                         {"name": "status:implementing"},
                         {"name": "priority:high"},
-                        {"name": "workflow:issue"},
+                        {"name": "workflow:epic"},
                         {"name": "source:manual"},
                     ],
                     "state": "OPEN",
-                    "body": "# Spec: Test item\n\nItem body\n",
+                    "body": "Item body",
                 }
             ]
         )
@@ -196,5 +120,119 @@ class TestStage2CompareTextLabel:
             )
         ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
-        body_drifts = [d for d in drifts if d.field == "body"]
-        assert len(body_drifts) == 0
+        type_drifts = [d for d in drifts if d.field == "label-workflow"]
+        assert len(type_drifts) == 1
+        assert type_drifts[0].local == "workflow:issue"
+
+    def test_label_source_drift(self, populated_db):
+        """Detects source label drift."""
+        gh_issues = _make_gh_issues(
+            [
+                {
+                    "number": 100,
+                    "title": f"[{_FIXTURE_ITEM_REF}] Test item",
+                    "labels": [
+                        {"name": "status:implementing"},
+                        {"name": "priority:high"},
+                        {"name": "workflow:issue"},
+                        {"name": "source:auto"},
+                    ],
+                    "state": "OPEN",
+                    "body": "Item body",
+                }
+            ]
+        )
+        paired = [
+            PairedItem(
+                _FIXTURE_ITEM_REF,
+                "/tmp/042.md",
+                100,
+                "backlog",
+                "yoke",
+                "",
+                public_ref=_FIXTURE_ITEM_REF,
+            )
+        ]
+        drifts = stage2_compare(paired, gh_issues, {}, populated_db)
+        source_drifts = [d for d in drifts if d.field == "label-source"]
+        assert len(source_drifts) == 1
+        assert source_drifts[0].local == "source:manual"
+
+    def test_label_owner_drift(self, populated_db):
+        """Detects owner label drift."""
+        from runtime.api.fixtures.file_test_db import connect_test_db
+
+        conn = connect_test_db(populated_db)
+        conn.execute("UPDATE items SET owner = 'manual-owner' WHERE id = 42")
+        conn.commit()
+        conn.close()
+
+        gh_issues = _make_gh_issues(
+            [
+                {
+                    "number": 100,
+                    "title": f"[{_FIXTURE_ITEM_REF}] Test item",
+                    "labels": [
+                        {"name": "status:implementing"},
+                        {"name": "priority:high"},
+                        {"name": "workflow:issue"},
+                        {"name": "source:manual"},
+                        {"name": "owner:auto-owner"},
+                    ],
+                    "state": "OPEN",
+                    "body": "Item body",
+                }
+            ]
+        )
+        paired = [
+            PairedItem(
+                _FIXTURE_ITEM_REF,
+                "/tmp/042.md",
+                100,
+                "backlog",
+                "yoke",
+                "",
+                public_ref=_FIXTURE_ITEM_REF,
+            )
+        ]
+        drifts = stage2_compare(paired, gh_issues, {}, populated_db)
+        owner_drifts = [d for d in drifts if d.field == "label-owner"]
+        assert len(owner_drifts) == 1
+        assert owner_drifts[0].local == "owner:manual-owner"
+        assert owner_drifts[0].github == "owner:auto-owner"
+
+    def test_label_owner_no_drift_when_local_empty(self, populated_db):
+        """When items.owner is empty, the comparator does not raise an
+        owner-drift even if GitHub carries an owner: label. The
+        legacy-text passthrough path collapses empty values."""
+        gh_issues = _make_gh_issues(
+            [
+                {
+                    "number": 100,
+                    "title": f"[{_FIXTURE_ITEM_REF}] Test item",
+                    "labels": [
+                        {"name": "status:implementing"},
+                        {"name": "priority:high"},
+                        {"name": "workflow:issue"},
+                        {"name": "source:manual"},
+                        {"name": "owner:stranger"},
+                    ],
+                    "state": "OPEN",
+                    "body": "Item body",
+                }
+            ]
+        )
+        paired = [
+            PairedItem(
+                _FIXTURE_ITEM_REF,
+                "/tmp/042.md",
+                100,
+                "backlog",
+                "yoke",
+                "",
+                public_ref=_FIXTURE_ITEM_REF,
+            )
+        ]
+        drifts = stage2_compare(paired, gh_issues, {}, populated_db)
+        owner_drifts = [d for d in drifts if d.field == "label-owner"]
+        assert owner_drifts == []

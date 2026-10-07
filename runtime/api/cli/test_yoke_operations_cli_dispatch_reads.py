@@ -167,7 +167,7 @@ class TestClaimsPathReadDispatch:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "claims.path.list"
         assert req.target.kind == "item"
-        assert req.target.public_ref == "1819"
+        assert req.target.public_ref == "YOK-1819"
         assert req.payload == {"states": ["planned", "active", "blocked"]}
 
     def test_claims_path_get_dispatches(self) -> None:

@@ -74,7 +74,7 @@ def test_lifecycle_transition_prints_structured_success(monkeypatch) -> None:
         result = (
             {}
             if request.function == "items.detail.get"
-            else {"item_id": 7, "to_status": "done"}
+            else {"public_ref": "ITEM-7", "to_status": "done"}
         )
         return _response(request, result)
 

@@ -15,6 +15,9 @@ import pytest
 from yoke_core.engines import done_transition_satisfiers as satisfiers
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 class _Error:
     def __init__(self, message: str) -> None:
         self.message = message
@@ -58,7 +61,7 @@ def calls(monkeypatch):
 def test_merge_evidence_sends_the_facts_only_the_engine_can_see(calls):
     assert (
         satisfiers.check_merge_evidence(
-            "YOK-42",
+            _FIXTURE_ITEM_REF,
             merge_ran=True,
             branch_already_merged=False,
             branch_exists=True,
@@ -73,7 +76,7 @@ def test_merge_evidence_sends_the_facts_only_the_engine_can_see(calls):
 
 def test_no_branch_and_no_merge_reports_the_attestable_shape(calls):
     satisfiers.check_merge_evidence(
-        "YOK-42",
+        _FIXTURE_ITEM_REF,
         merge_ran=False,
         branch_already_merged=False,
         branch_exists=False,
@@ -84,7 +87,7 @@ def test_no_branch_and_no_merge_reports_the_attestable_shape(calls):
 
 def test_an_unmerged_existing_branch_is_not_attestable(calls):
     satisfiers.check_merge_evidence(
-        "YOK-42",
+        _FIXTURE_ITEM_REF,
         merge_ran=False,
         branch_already_merged=False,
         branch_exists=True,
@@ -107,7 +110,7 @@ def test_a_refusal_comes_back_as_the_narrative_to_block_on(monkeypatch):
         ),
     )
     block = satisfiers.check_merge_evidence(
-        "YOK-42",
+        _FIXTURE_ITEM_REF,
         merge_ran=False,
         branch_already_merged=False,
         branch_exists=True,
@@ -130,7 +133,7 @@ def test_a_satisfied_resolution_with_no_stamp_still_passes(monkeypatch, capsys):
     )
     assert (
         satisfiers.check_merge_evidence(
-            "YOK-42",
+            _FIXTURE_ITEM_REF,
             merge_ran=True,
             branch_already_merged=False,
             branch_exists=True,
@@ -148,7 +151,7 @@ def test_a_failed_relay_raises_rather_than_reporting_satisfied(monkeypatch):
     )
     with pytest.raises(satisfiers.SatisfierRelayUnavailable) as excinfo:
         satisfiers.check_merge_evidence(
-            "YOK-42",
+            _FIXTURE_ITEM_REF,
             merge_ran=True,
             branch_already_merged=False,
             branch_exists=True,
@@ -158,7 +161,10 @@ def test_a_failed_relay_raises_rather_than_reporting_satisfied(monkeypatch):
 
 
 def test_delivery_evidence_reports_the_merge_fact(calls):
-    assert satisfiers.check_delivery_evidence("YOK-42", merge_recorded=True) is None
+    assert (
+        satisfiers.check_delivery_evidence(_FIXTURE_ITEM_REF, merge_recorded=True)
+        is None
+    )
     observed = calls[0]["payload"]["observed"]
     assert observed["observed:merge_recorded"]["present"] is True
     assert calls[0]["payload"]["obligation"] == "delivery_evidence"
@@ -167,7 +173,7 @@ def test_delivery_evidence_reports_the_merge_fact(calls):
 def test_both_obligations_resolve_in_order(calls):
     assert (
         satisfiers.check_done_satisfiers(
-            "YOK-42",
+            _FIXTURE_ITEM_REF,
             merge_ran=True,
             branch_already_merged=False,
             branch_exists=True,
@@ -190,7 +196,7 @@ def test_delivery_is_not_asked_when_merge_evidence_refuses(monkeypatch):
     monkeypatch.setattr(satisfiers, "call_dispatcher", _fake)
     assert (
         satisfiers.check_done_satisfiers(
-            "YOK-42",
+            _FIXTURE_ITEM_REF,
             merge_ran=False,
             branch_already_merged=False,
             branch_exists=True,
@@ -207,7 +213,7 @@ def test_a_relay_failure_becomes_a_block_narrative_for_the_runner(monkeypatch):
         lambda **_: _Response(None, success=False, error=_Error("boom")),
     )
     block = satisfiers.check_done_satisfiers(
-        "YOK-42",
+        _FIXTURE_ITEM_REF,
         merge_ran=True,
         branch_already_merged=False,
         branch_exists=False,

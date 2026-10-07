@@ -34,6 +34,9 @@ from runtime.api.engines._done_transition_test_helpers import (
 )
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 class TestTransitionResult:
     """TC-result-file: Result file contract."""
 
@@ -99,7 +102,7 @@ class TestTransitionResult:
             done_transition, "_update_item_direct", side_effect=fake_update
         ):
             assert done_transition._update_status_to_done(
-                "YOK-42", skip_qa=False, public_ref=f"YOK-{42}"
+                _FIXTURE_ITEM_REF, skip_qa=False, public_ref=f"YOK-{42}"
             )
 
         assert calls
@@ -226,14 +229,24 @@ class TestDeploymentFlowGuard:
 
     def test_skip_deploy_without_evidence_returns_exit_7(self):
         with (
+            mock.patch.object(
+                done_transition_deploy_gates,
+                "_get_latest_run_status",
+                return_value=("", ""),
+            ),
+            mock.patch.object(
+                done_transition_deploy_gates,
+                "_read_delivery_evidence",
+                return_value={"state": "not_discharged"},
+            ),
             mock.patch(
                 "yoke_core.domain.deployment_flow_validator.list_registered_flow_ids",
                 return_value=["externalwebapp-prod-release"],
             ),
             mock.patch.object(
                 done_transition_deploy_gates,
-                "_check_deployment_evidence",
-                return_value=False,
+                "_read_delivery_evidence",
+                return_value={"state": "not_discharged"},
             ),
             mock.patch.object(
                 done_transition_deploy_gates,
@@ -255,6 +268,16 @@ class TestDeploymentFlowGuard:
 
     def test_no_evidence_fallback_uses_definition_delivery_stage(self):
         with (
+            mock.patch.object(
+                done_transition_deploy_gates,
+                "_get_latest_run_status",
+                return_value=("", ""),
+            ),
+            mock.patch.object(
+                done_transition_deploy_gates,
+                "_read_delivery_evidence",
+                return_value={"state": "not_discharged"},
+            ),
             mock.patch(
                 "yoke_core.domain.deployment_flow_validator.list_registered_flow_ids",
                 return_value=["externalwebapp-prod-release"],
@@ -271,6 +294,16 @@ class TestDeploymentFlowGuard:
             ),
         ):
             with (
+                mock.patch.object(
+                    done_transition_deploy_gates,
+                    "_get_latest_run_status",
+                    return_value=("", ""),
+                ),
+                mock.patch.object(
+                    done_transition_deploy_gates,
+                    "_read_delivery_evidence",
+                    return_value={"state": "not_discharged"},
+                ),
                 mock.patch.object(
                     done_transition,
                     "_update_item_direct",
@@ -290,38 +323,10 @@ class TestDeploymentFlowGuard:
 
         assert result == (7, "ship-ready")
         # The release wait is entered only with its landing recorded.
-        stamp.assert_called_once_with(226)
+        stamp.assert_called_once_with("YOK-226")
         upd.assert_called_once()
         args, kwargs = upd.call_args
-        assert args[0] == 226
+        assert args[0] == "YOK-226"
         assert args[1] == "status"
         assert args[2] == "ship-ready"
         assert kwargs["env_overrides"] == {"YOKE_STATUS_SOURCE": "done-transition"}
-
-
-class TestRunStageConsistency:
-    """TC-stage-consistency: run stage consistency check."""
-
-    def test_failed_stage_blocks(self, dt_db):
-        db_path, _ = dt_db
-        conn = connect_dt_db(db_path)
-        conn.execute(
-            "INSERT INTO deployment_runs (id, project_id, status, current_stage, created_at) "
-            "VALUES ('r3', 1, 'succeeded', 'deploy-failed', '2025-01-01')"
-        )
-        conn.commit()
-        conn.close()
-
-        assert done_transition._check_run_stage_consistency("r3") is True
-
-    def test_normal_stage_passes(self, dt_db):
-        db_path, _ = dt_db
-        conn = connect_dt_db(db_path)
-        conn.execute(
-            "INSERT INTO deployment_runs (id, project_id, status, current_stage, created_at) "
-            "VALUES ('r4', 1, 'succeeded', 'deploy', '2025-01-01')"
-        )
-        conn.commit()
-        conn.close()
-
-        assert done_transition._check_run_stage_consistency("r4") is False

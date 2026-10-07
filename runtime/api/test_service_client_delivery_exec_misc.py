@@ -222,7 +222,7 @@ class TestApplyApproval:
         assert data["success"] is True
         assert data["next_stage"] == "prod-deploy"
         assert data["run_id"] == "run-1"
-        assert 10 in data["member_item_ids"]
+        assert "YOK-10" in data["member_public_refs"]
         assert "approved_at" in data
         # Field writes
         assert data["field_writes"]["deploy_stage"] == "prod-deploy"

@@ -21,6 +21,9 @@ from runtime.api.engines._resync_full_test_helpers import (
 )
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 class TestStage2CompareStateMisc:
     """State, frozen-label, comment, and multi-drift tests."""
 
@@ -115,7 +118,7 @@ class TestStage2CompareStateMisc:
             [
                 {
                     "number": 100,
-                    "title": "[YOK-42] Test item",
+                    "title": f"[{_FIXTURE_ITEM_REF}] Test item",
                     "labels": [
                         {"name": "status:implementing"},
                         {"name": "priority:high"},
@@ -130,7 +133,13 @@ class TestStage2CompareStateMisc:
         )
         paired = [
             PairedItem(
-                "YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", public_ref="YOK-42"
+                _FIXTURE_ITEM_REF,
+                "/tmp/042.md",
+                100,
+                "backlog",
+                "yoke",
+                "",
+                public_ref=_FIXTURE_ITEM_REF,
             )
         ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
@@ -247,7 +256,7 @@ class TestStage2CompareStateMisc:
             [
                 {
                     "number": 100,
-                    "title": "[YOK-42] Wrong Title",
+                    "title": f"[{_FIXTURE_ITEM_REF}] Wrong Title",
                     "labels": [
                         {"name": "status:idea"},
                         {"name": "priority:low"},
@@ -261,7 +270,13 @@ class TestStage2CompareStateMisc:
         )
         paired = [
             PairedItem(
-                "YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", public_ref="YOK-42"
+                _FIXTURE_ITEM_REF,
+                "/tmp/042.md",
+                100,
+                "backlog",
+                "yoke",
+                "",
+                public_ref=_FIXTURE_ITEM_REF,
             )
         ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)

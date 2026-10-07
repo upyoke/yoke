@@ -18,6 +18,9 @@ from yoke_core.engines import done_transition_deploy_gates as deploy_gates
 from yoke_core.engines import done_transition_run_qa_gates as run_qa_gates
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 def _resp(function_id, result=None, *, success=True):
     return FunctionCallResponse(
         success=success, function=function_id, version="v1", result=result or {}
@@ -59,7 +62,7 @@ class TestDeploymentEvidence:
                 }
             ),
         )
-        assert deploy_gates._check_deployment_evidence("YOK-42") is True
+        assert deploy_gates._check_deployment_evidence(_FIXTURE_ITEM_REF) is True
 
     def test_no_run_is_false(self, monkeypatch):
         _install(
@@ -73,7 +76,7 @@ class TestDeploymentEvidence:
                 }
             ),
         )
-        assert deploy_gates._check_deployment_evidence("YOK-42") is False
+        assert deploy_gates._check_deployment_evidence(_FIXTURE_ITEM_REF) is False
 
 
 class TestLatestRunStatus:
@@ -89,7 +92,10 @@ class TestLatestRunStatus:
                 }
             ),
         )
-        assert deploy_gates._get_latest_run_status("YOK-42") == ("executing", "run-9")
+        assert deploy_gates._get_latest_run_status(_FIXTURE_ITEM_REF) == (
+            "executing",
+            "run-9",
+        )
 
     def test_empty_when_no_run(self, monkeypatch):
         _install(
@@ -103,7 +109,7 @@ class TestLatestRunStatus:
                 }
             ),
         )
-        assert deploy_gates._get_latest_run_status("YOK-42") == ("", "")
+        assert deploy_gates._get_latest_run_status(_FIXTURE_ITEM_REF) == ("", "")
 
 
 class TestRunStageConsistency:
@@ -158,7 +164,7 @@ class TestRunQaGates:
                 }
             ),
         )
-        assert run_qa_gates.check_run_qa_gates("YOK-42", "run-1") is True
+        assert run_qa_gates.check_run_qa_gates(_FIXTURE_ITEM_REF, "run-1") is True
         out = capsys.readouterr().out
         assert "QA obligations that are unsatisfied" in out
         assert "- smoke (failed)" in out
@@ -184,7 +190,7 @@ class TestRunQaGates:
                 }
             ),
         )
-        assert run_qa_gates.check_run_qa_gates("YOK-42", "run-1") is True
+        assert run_qa_gates.check_run_qa_gates(_FIXTURE_ITEM_REF, "run-1") is True
         out = capsys.readouterr().out
         assert "no completed scoped QA execution exists" in out
 
@@ -202,7 +208,7 @@ class TestRunQaGates:
                 }
             ),
         )
-        assert run_qa_gates.check_run_qa_gates("YOK-42", "run-1") is False
+        assert run_qa_gates.check_run_qa_gates(_FIXTURE_ITEM_REF, "run-1") is False
 
     def test_unavailable_scoped_read_raises(self, monkeypatch):
         """An unreadable release gate is not a passing one."""
@@ -220,11 +226,11 @@ class TestRunQaGates:
             ),
         )
         with pytest.raises(RuntimeError, match="run_stage_qa_acceptance read failed"):
-            run_qa_gates.check_run_qa_gates("YOK-42", "run-1")
+            run_qa_gates.check_run_qa_gates(_FIXTURE_ITEM_REF, "run-1")
 
     def test_empty_run_id_short_circuits(self, monkeypatch):
         _install(monkeypatch, lambda **k: pytest.fail("must not relay for empty run"))
-        assert run_qa_gates.check_run_qa_gates("YOK-42", "") is False
+        assert run_qa_gates.check_run_qa_gates(_FIXTURE_ITEM_REF, "") is False
 
 
 class TestDeploymentFlowGuard:

@@ -61,7 +61,7 @@ def _run(stub, *argv: str, session_id: str = "test-session") -> int:
 
 class TestClaimsWorkHolderGet:
     def test_dispatches_with_item_payload(self) -> None:
-        rc = _run(_stub_ok, "claims", "work", "holder-get", "1818")
+        rc = _run(_stub_ok, "claims", "work", "holder-get", "YOK-1818")
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "claims.work.holder_get"
@@ -101,11 +101,11 @@ class TestClaimsWorkHolderGet:
         assert req.target.project_id == "yoke"
         assert "path" in req.payload
 
-    def test_bad_ref_relays_verbatim(self) -> None:
-        # Relay contract: ref validation is server-side.
+    def test_bad_ref_is_refused_before_dispatch(self) -> None:
+        # Client validation refuses incomplete item identity.
         rc = _run(_stub_ok, "claims", "work", "holder-get", "not-a-sun-id")
-        assert rc == 0
-        assert _CAPTURED_REQUESTS[-1].target.public_ref == "not-a-sun-id"
+        assert rc == 1
+        assert _CAPTURED_REQUESTS == []
 
 
 class TestClaimsWorkCurrent:

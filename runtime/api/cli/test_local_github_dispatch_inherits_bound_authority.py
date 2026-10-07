@@ -54,6 +54,9 @@ from yoke_core.domain.project_github_auth_models import (
 )
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 GITHUB_API_URL = "https://api.github.com"
 
 
@@ -224,7 +227,9 @@ def _close_out_sync_child(
 
     def child_main(argv: list[str]) -> int:
         seen["env"] = os.environ.get(ENV_OVERRIDE)
-        seen["sync_error"] = standalone_item_merge.sync_item_to_github("YOK-42")
+        seen["sync_error"] = standalone_item_merge.sync_item_to_github(
+            _FIXTURE_ITEM_REF
+        )
         return 0
 
     real_import = local_runtime.importlib.import_module
@@ -252,7 +257,7 @@ def test_merge_child_close_out_sync_proves_through_the_pinned_plane(
     seen: dict[str, Any] = {}
     _close_out_sync_child(monkeypatch, seen, in_process=False)
 
-    assert local_runtime.run(["YOK-42", "--session-id", "session-1"]) == 0
+    assert local_runtime.run([_FIXTURE_ITEM_REF, "--session-id", "session-1"]) == 0
 
     assert seen["env"] == "prod"
     assert seen["function_id"] == "items.github_sync"
@@ -274,7 +279,7 @@ def test_explicit_admin_merge_child_close_out_sync_keeps_the_pinned_plane(
     seen: dict[str, Any] = {}
     _close_out_sync_child(monkeypatch, seen, in_process=True)
 
-    assert local_runtime.run(["YOK-42", "--session-id", "session-1"]) == 0
+    assert local_runtime.run([_FIXTURE_ITEM_REF, "--session-id", "session-1"]) == 0
 
     assert seen["env"] == ADMIN_ENV
     assert seen["sync_error"] is None

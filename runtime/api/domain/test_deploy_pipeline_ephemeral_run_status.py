@@ -19,6 +19,9 @@ from yoke_core.domain import (
     deploy_pipeline_run_updates,
 )
 
+
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
 _RUN_ID = "run-eph-001"
 _STAGES = [
     {
@@ -228,17 +231,17 @@ class TestEphemeralRunStatusItemBound:
             branch="item-branch",
             repo_path="/repo",
             image_tag="",
-            item_label="YOK-42",
+            item_label=_FIXTURE_ITEM_REF,
             # Empty on both: this stage names no run preview, so it keeps
             # deploying its branch's head under the branch name.
             preview_key="",
             revision="",
         )
         assert "Ephemeral tier" in capsys.readouterr().out
-        assert harness.releases == [("YOK-42", _RUN_ID)]
+        assert harness.releases == [(_FIXTURE_ITEM_REF, _RUN_ID)]
         assert [row for row in harness.stamps if row[1] == "deploy_stage"] == [
-            ("YOK-42", "deploy_stage", "ephemeral-deploy"),
-            ("YOK-42", "deploy_stage", "complete"),
-            ("YOK-42", "deploy_stage", "complete"),
+            (_FIXTURE_ITEM_REF, "deploy_stage", "ephemeral-deploy"),
+            (_FIXTURE_ITEM_REF, "deploy_stage", "complete"),
+            (_FIXTURE_ITEM_REF, "deploy_stage", "complete"),
         ]
-        assert ("YOK-42", "deployed_to", "ephemeral") in harness.stamps
+        assert (_FIXTURE_ITEM_REF, "deployed_to", "ephemeral") in harness.stamps

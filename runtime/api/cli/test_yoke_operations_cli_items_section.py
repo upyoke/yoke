@@ -19,6 +19,9 @@ from yoke_contracts.api.function_call import (
 )
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 _CAPTURED_REQUESTS: List[FunctionCallRequest] = []
 
 
@@ -67,7 +70,7 @@ class TestItemsSectionDispatch:
             "items",
             "section",
             "upsert",
-            "YOK-42",
+            _FIXTURE_ITEM_REF,
             "--section",
             "Progress Log",
             "--content",
@@ -81,7 +84,7 @@ class TestItemsSectionDispatch:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "items.section.upsert"
         assert req.target.kind == "section"
-        assert req.target.public_ref == "YOK-42"
+        assert req.target.public_ref == _FIXTURE_ITEM_REF
         assert req.target.section_name == "Progress Log"
         assert req.payload == {
             "content": "entry body",
@@ -227,7 +230,7 @@ class TestErrorShapes:
             "items",
             "section",
             "upsert",
-            "YOK-42",
+            _FIXTURE_ITEM_REF,
             "--section",
             "Notes",
         )
@@ -240,7 +243,7 @@ class TestErrorShapes:
             "items",
             "section",
             "get",
-            "YOK-42",
+            _FIXTURE_ITEM_REF,
         )
         assert rc == 2
 
@@ -265,7 +268,7 @@ class TestErrorShapes:
             "items",
             "section",
             "get",
-            "YOK-42",
+            _FIXTURE_ITEM_REF,
             "--section",
             "Notes",
         )

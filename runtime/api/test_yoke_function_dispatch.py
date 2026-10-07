@@ -240,7 +240,7 @@ class TestYokeFunctionDispatchCli(unittest.TestCase):
         envelope = {
             "function": "items.get.run",
             "actor": {"actor_id": "op-only"},
-            "target": {"kind": "item", "item_id": 1},
+            "target": {"kind": "item", "public_ref": "ITEM-1"},
             "payload": {"fields": ["title"]},
         }
         proc = _run_cli(json.dumps(envelope).encode("utf-8"))
@@ -280,7 +280,7 @@ class TestYokeFunctionDispatchCli(unittest.TestCase):
         envelope = {
             "function": "items.get.run",
             "actor": {"actor_id": "op", "session_id": "cli-test"},
-            "target": {"kind": "item", "item_id": 1},
+            "target": {"kind": "item", "public_ref": "ITEM-1"},
             "payload": {"fields": ["title"]},
         }
         proc = _run_cli(json.dumps(envelope).encode("utf-8"))
@@ -295,7 +295,7 @@ class TestYokeFunctionDispatchCli(unittest.TestCase):
         envelope = {
             "function": "items.get.run",
             "actor": {"actor_id": "op", "session_id": "cli-test"},
-            "target": {"kind": "item", "item_id": 1},
+            "target": {"kind": "item", "public_ref": "ITEM-1"},
             "payload": {"fields": ["title"]},
         }
         proc = _run_cli(json.dumps(envelope).encode("utf-8"), use_stdin=True)

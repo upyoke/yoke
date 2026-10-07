@@ -30,8 +30,8 @@ class TestClosedOutConvergence:
         """The terminal transition releases the claim; a retry says so."""
         _wire_merge(monkeypatch, repo, _item(repo, status="done"))
         monkeypatch.setattr(
-            sim_cli,
-            "_session_holds_claim",
+            sim_cli.recovery,
+            "claim_error",
             lambda *_a: "no live work claim on this item",
         )
         monkeypatch.setattr(
@@ -66,8 +66,8 @@ class TestClosedOutConvergence:
     ) -> None:
         _wire_merge(monkeypatch, repo, _item(repo, status="done"))
         monkeypatch.setattr(
-            sim_cli,
-            "_session_holds_claim",
+            sim_cli.recovery,
+            "claim_error",
             lambda *_a: "no live work claim on this item",
         )
         monkeypatch.setattr(
@@ -91,8 +91,8 @@ class TestClosedOutConvergence:
         """Only a terminal item converges; anything earlier has work left."""
         _wire_merge(monkeypatch, repo, _item(repo))
         monkeypatch.setattr(
-            sim_cli,
-            "_session_holds_claim",
+            sim_cli.recovery,
+            "claim_error",
             lambda *_a: "work claim held by another session (other)",
         )
         monkeypatch.setattr(

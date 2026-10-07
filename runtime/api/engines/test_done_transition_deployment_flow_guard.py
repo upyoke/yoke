@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from types import SimpleNamespace
 from unittest import mock
 
@@ -154,12 +155,21 @@ class TestDeploymentFlowGuardInvalidFlow:
         assert "No deployment flows are registered" in out
 
 
+@contextmanager
 def _patch_latest_run(status, run_id=""):
-    return mock.patch.object(
-        done_transition_deploy_gates,
-        "_get_latest_run_status",
-        return_value=(status, run_id),
-    )
+    with (
+        mock.patch.object(
+            done_transition_deploy_gates,
+            "_get_latest_run_status",
+            return_value=(status, run_id),
+        ),
+        mock.patch.object(
+            done_transition_deploy_gates,
+            "_read_delivery_evidence",
+            return_value={"state": "not_discharged"},
+        ),
+    ):
+        yield
 
 
 def _patch_qa_gates(blocks):

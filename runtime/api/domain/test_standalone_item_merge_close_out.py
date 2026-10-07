@@ -210,7 +210,7 @@ def test_a_queue_landed_item_closes_out_with_its_own_file_set(monkeypatch):
     assert evidence["commit_sha"] == LANE_SHA
     assert evidence["merge_sha"] == MERGE_SHA
     assert restored == [MERGE_SHA]
-    assert cleared == [7]
+    assert cleared == ["ITEM-1"]
     assert payloads["lifecycle.transition.execute"]["target_status"] == "done"
     call_names = [name for name, _payload in calls]
     assert call_names.index("direct_workflow.dash.evidence") < call_names.index(

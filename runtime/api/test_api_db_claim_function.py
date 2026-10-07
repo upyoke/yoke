@@ -49,14 +49,20 @@ class _DbClaimSuite(unittest.TestCase):
         reset_registry_for_tests()
         register_all_handlers()
         self._patchers = [
+            patch(
+                "yoke_core.domain.function_response_refs.render_item_refs",
+                return_value={42: "ITEM-81", 1665: "EXT-19"},
+            ),
             patch.object(events_module, "emit_event"),
             patch.object(
-                dispatch_module, "_idempotency_lookup",
+                dispatch_module,
+                "_idempotency_lookup",
                 lambda *_a, **_k: None,
             ),
             # Item-scoped claim verification: keep the dispatcher happy.
             patch.object(
-                claims_module, "who_claims_for_item",
+                claims_module,
+                "who_claims_for_item",
                 return_value={"id": 1, "session_id": "s-1"},
             ),
             # Match the envelope's actor session so the actor-identity gate
@@ -105,15 +111,18 @@ class TestDbClaimAmendHandler(_DbClaimSuite):
             reason="testing",
         )
         with patch(
-            "yoke_core.domain.db_claim.amend", return_value=fake_result,
+            "yoke_core.domain.db_claim.amend",
+            return_value=fake_result,
         ) as mocked:
-            resp = dispatch(_envelope(
-                "db_claim.amend",
-                target={"kind": "item", "item_id": 42},
-                payload={"claim": unified, "reason": "testing"},
-            ))
+            resp = dispatch(
+                _envelope(
+                    "db_claim.amend",
+                    target={"kind": "item", "item_id": 42},
+                    payload={"claim": unified, "reason": "testing"},
+                )
+            )
         self.assertTrue(resp.success, msg=resp.error)
-        self.assertEqual(resp.result["item_id"], 42)
+        self.assertEqual(resp.result["public_ref"], "ITEM-81")
         self.assertEqual(resp.result["new_profile"]["state"], "declared")
         self.assertNotIn("event_id", resp.result)
         # The domain call received the unified payload + reason.
@@ -124,11 +133,13 @@ class TestDbClaimAmendHandler(_DbClaimSuite):
         self.assertEqual(call_args.kwargs["reason"], "testing")
 
     def test_amend_requires_item_target(self):
-        resp = dispatch(_envelope(
-            "db_claim.amend",
-            target={"kind": "global"},
-            payload={"claim": {"state": "none"}, "reason": "clear"},
-        ))
+        resp = dispatch(
+            _envelope(
+                "db_claim.amend",
+                target={"kind": "global"},
+                payload={"claim": {"state": "none"}, "reason": "clear"},
+            )
+        )
         # Dispatcher's item-claim check fires first when target.item_id is None.
         self.assertFalse(resp.success)
         assert resp.error is not None
@@ -141,22 +152,26 @@ class TestDbClaimAmendHandler(_DbClaimSuite):
             "yoke_core.domain.db_claim.amend",
             side_effect=DbClaimAmendmentError("invalid payload"),
         ):
-            resp = dispatch(_envelope(
-                "db_claim.amend",
-                target={"kind": "item", "item_id": 42},
-                payload={"claim": {"state": "none"}, "reason": "clear"},
-            ))
+            resp = dispatch(
+                _envelope(
+                    "db_claim.amend",
+                    target={"kind": "item", "item_id": 42},
+                    payload={"claim": {"state": "none"}, "reason": "clear"},
+                )
+            )
         self.assertFalse(resp.success)
         assert resp.error is not None
         self.assertEqual(resp.error.code, "amend_failed")
         self.assertIn("invalid payload", resp.error.message)
 
     def test_amend_rejects_empty_reason(self):
-        resp = dispatch(_envelope(
-            "db_claim.amend",
-            target={"kind": "item", "item_id": 42},
-            payload={"claim": {"state": "none"}, "reason": ""},
-        ))
+        resp = dispatch(
+            _envelope(
+                "db_claim.amend",
+                target={"kind": "item", "item_id": 42},
+                payload={"claim": {"state": "none"}, "reason": ""},
+            )
+        )
         self.assertFalse(resp.success)
         assert resp.error is not None
         self.assertEqual(resp.error.code, "payload_invalid")

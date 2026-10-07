@@ -24,12 +24,14 @@ def _empty_outcome(**_k) -> StandaloneMergeOutcome:
 
 
 def test_no_change_close_out_walks_the_cli_route_without_git_landing(
-    monkeypatch, capsys,
+    monkeypatch,
+    capsys,
 ) -> None:
     calls, retirements, cleared, _retained = _wire(
         monkeypatch,
         route=CloseOutRoute(
-            stages=("release", "done"), delivery_discharged=True,
+            stages=("release", "done"),
+            delivery_discharged=True,
         ),
     )
     monkeypatch.setattr(verify, "route_standalone_landing", _empty_outcome)
@@ -49,8 +51,10 @@ def test_no_change_close_out_walks_the_cli_route_without_git_landing(
     exit_code = merge_cli.run(
         [
             "ITEM-7",
-            "--result", "no code change",
-            "--verification", "recorded no-changes",
+            "--result",
+            "no code change",
+            "--verification",
+            "recorded no-changes",
             "--no-changes",
         ],
     )
@@ -61,18 +65,21 @@ def test_no_change_close_out_walks_the_cli_route_without_git_landing(
     assert envelope["commit_sha"] == ""
     assert envelope["merge_sha"] == ""
     transitions = [
-        payload for function_id, payload in calls
+        payload
+        for function_id, payload in calls
         if function_id == "lifecycle.transition.execute"
     ]
     assert [payload["done_nonce_verified"] for payload in transitions] == [
-        False, True,
+        False,
+        True,
     ]
     assert len(retirements) == 1
-    assert cleared == [7]
+    assert cleared == ["ITEM-7"]
 
 
 def test_empty_shas_without_no_change_evidence_refuse_the_cli_route(
-    monkeypatch, capsys,
+    monkeypatch,
+    capsys,
 ) -> None:
     _wire(
         monkeypatch,

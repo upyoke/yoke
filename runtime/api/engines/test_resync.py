@@ -74,7 +74,7 @@ class TestHelpers:
         yoke_body = [
             {
                 "number": 100,
-                "title": "[YOK-42] Test",
+                "title": f"[{TEST_ITEM_REF}] Test",
                 "labels": [],
                 "state": "OPEN",
                 "body": "Body",
@@ -104,7 +104,7 @@ class TestHelpers:
             ),
         ):
             result = resync_mod._fetch_gh_issues_per_project({"yoke", "externalwebapp"})
-        assert result["yoke"][100]["title"] == "[YOK-42] Test"
+        assert result["yoke"][100]["title"] == f"[{TEST_ITEM_REF}] Test"
         assert result["externalwebapp"][5]["state"] == "CLOSED"
 
     def test_fetch_uses_repo_from_same_resolution_as_token(self):
@@ -151,7 +151,7 @@ class TestStage1:
             "yoke": {
                 100: {
                     "number": 100,
-                    "title": "[YOK-42] Test item",
+                    "title": f"[{TEST_ITEM_REF}] Test item",
                     "labels": [],
                     "state": "OPEN",
                     "body": "",
@@ -191,12 +191,12 @@ class TestStage1:
 
         paired_refs = {item.ref for item in paired}
         local_orphan_refs = {orphan.ref for orphan in local_orphans}
-        assert "YOK-42" in paired_refs
+        assert TEST_ITEM_REF in paired_refs
         assert "YOK-1246" in paired_refs
         assert "YOK-1246/task-001" in paired_refs
         assert "YOK-43" in local_orphan_refs
         assert gh_orphans == [(999, "[YOK-999] Orphan", "OPEN", "yoke")]
-        assert gh_by_project["yoke"][100]["title"] == "[YOK-42] Test item"
+        assert gh_by_project["yoke"][100]["title"] == f"[{TEST_ITEM_REF}] Test item"
 
     def test_stage1_5_heavy_fetch_uses_resolved_repo_and_token_together(self):
         paired = [

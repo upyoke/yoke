@@ -119,8 +119,8 @@ class TestHCDeferredItems:
 class TestHCShepherdLifecycle:
     def test_pass_verdicts_present(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
-            "VALUES (1, 'E', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing', 'high')"
+            "INSERT INTO items (id, project_sequence, title, workflow_id, workflow_version_id, status, priority) "
+            "VALUES (1, 1, 'E', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing', 'high')"
         )
         conn.execute(
             "INSERT INTO shepherd_verdicts (public_ref, transition, verdict) "
@@ -136,8 +136,8 @@ class TestHCShepherdLifecycle:
 
     def test_warn_missing_verdict(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
-            "VALUES (1, 'E', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing', 'high')"
+            "INSERT INTO items (id, project_sequence, title, workflow_id, workflow_version_id, status, priority) "
+            "VALUES (1, 1, 'E', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing', 'high')"
         )
         rec = RecordCollector()
         hc_shepherd_lifecycle(conn, _default_args(), rec)
@@ -149,7 +149,7 @@ class TestHCShepherdLifecycle:
 class TestHCLifecycleContinuity:
     def test_pass_transition_row_exists(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
+            "INSERT INTO items (id, project_sequence, title, workflow_id, workflow_version_id, status, priority) "
             "VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'low')"
         )
         conn.execute(
@@ -162,7 +162,7 @@ class TestHCLifecycleContinuity:
 
     def test_task_row_does_not_satisfy_item_continuity(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
+            "INSERT INTO items (id, project_sequence, title, workflow_id, workflow_version_id, status, priority) "
             "VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'low')"
         )
         # A task-level transition (task_num set) is not the item's own.
@@ -176,7 +176,7 @@ class TestHCLifecycleContinuity:
 
     def test_warn_missing_transition_row(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
+            "INSERT INTO items (id, project_sequence, title, workflow_id, workflow_version_id, status, priority) "
             "VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'low')"
         )
         rec = RecordCollector()

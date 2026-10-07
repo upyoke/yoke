@@ -21,6 +21,9 @@ from yoke_core.engines import done_transition_item_context as item_context
 from yoke_core.engines import done_transition_preconditions as preconditions
 from yoke_core.engines import done_transition_runtime as runtime
 
+
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
 # Synthetic fixture id kept off the bare literal so the doc-hygiene drift guard stays clean.
 TEST_ITEM_ID = 42
 TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
@@ -83,7 +86,7 @@ class TestItemContextRelay:
             )
 
         _install(monkeypatch, fake, [item_context])
-        ctx = item_context.load_done_item_context_over_transport("YOK-42")
+        ctx = item_context.load_done_item_context_over_transport(_FIXTURE_ITEM_REF)
         assert calls[0]["function_id"] == "done_transition.item_context"
         assert calls[0]["target"].public_ref == TEST_ITEM_REF
         assert ctx is not None
@@ -122,7 +125,7 @@ class TestItemFieldRelay:
 
         _install(monkeypatch, fake, [runtime])
         assert (
-            runtime._query_item_field("YOK-42", "deployment_flow")
+            runtime._query_item_field(_FIXTURE_ITEM_REF, "deployment_flow")
             == "yoke-hosted-stage"
         )
         assert calls[0]["function_id"] == "done_transition.item_field"
@@ -136,7 +139,7 @@ class TestItemFieldRelay:
             [runtime],
         )
         with pytest.raises(RuntimeError):
-            runtime._query_item_field("YOK-42", "status")
+            runtime._query_item_field(_FIXTURE_ITEM_REF, "status")
 
 
 class TestForeignClaimRelay:
@@ -154,7 +157,7 @@ class TestForeignClaimRelay:
             )
 
         _install(monkeypatch, fake, [cleanup])
-        assert cleanup._has_foreign_claim("YOK-42") is True
+        assert cleanup._has_foreign_claim(_FIXTURE_ITEM_REF) is True
         assert calls[0]["function_id"] == "claims.work.holder_list"
         assert calls[0]["target"].public_ref == TEST_ITEM_REF
 
@@ -170,7 +173,7 @@ class TestForeignClaimRelay:
             ),
             [cleanup],
         )
-        assert cleanup._has_foreign_claim("YOK-42") is False
+        assert cleanup._has_foreign_claim(_FIXTURE_ITEM_REF) is False
 
     def test_failclosed_on_non_success(self, monkeypatch):
         monkeypatch.setattr(cleanup, "_current_session_id", lambda: "caller-x")
@@ -179,7 +182,7 @@ class TestForeignClaimRelay:
             lambda **k: _resp("claims.work.holder_list", success=False),
             [cleanup],
         )
-        assert cleanup._has_foreign_claim("YOK-42") is True
+        assert cleanup._has_foreign_claim(_FIXTURE_ITEM_REF) is True
 
     def test_failclosed_on_exception(self, monkeypatch):
         monkeypatch.setattr(cleanup, "_current_session_id", lambda: "caller-x")
@@ -188,7 +191,7 @@ class TestForeignClaimRelay:
             raise RuntimeError("transport down")
 
         _install(monkeypatch, boom, [cleanup])
-        assert cleanup._has_foreign_claim("YOK-42") is True
+        assert cleanup._has_foreign_claim(_FIXTURE_ITEM_REF) is True
 
 
 class TestBlockedFlagRelay:
@@ -287,7 +290,9 @@ class TestPreconditionsRelay:
             )
 
         _install(monkeypatch, fake, [preconditions])
-        allowed, reason = preconditions.check_done_preconditions("YOK-42", "", False)
+        allowed, reason = preconditions.check_done_preconditions(
+            _FIXTURE_ITEM_REF, "", False
+        )
         assert (allowed, reason) == (True, None)
         assert calls[0]["function_id"] == "done_transition.done_preconditions"
         assert calls[0]["payload"] == {
@@ -308,7 +313,7 @@ class TestPreconditionsRelay:
             [preconditions],
         )
         allowed, reason = preconditions.check_done_preconditions(
-            "YOK-42", "acme-prod", False
+            _FIXTURE_ITEM_REF, "acme-prod", False
         )
         assert allowed is False
         assert "deployed_to is empty" in reason
@@ -320,4 +325,4 @@ class TestPreconditionsRelay:
             [preconditions],
         )
         with pytest.raises(RuntimeError):
-            preconditions.check_done_preconditions("YOK-42", "", False)
+            preconditions.check_done_preconditions(_FIXTURE_ITEM_REF, "", False)

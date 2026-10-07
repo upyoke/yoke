@@ -18,6 +18,9 @@ from yoke_contracts.api.function_call import (
 )
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 _CAPTURED_REQUESTS: List[FunctionCallRequest] = []
 
 
@@ -65,7 +68,7 @@ class TestDbClaimAmendDispatch:
             _stub_ok,
             "db-claim",
             "amend",
-            "YOK-42",
+            _FIXTURE_ITEM_REF,
             "--reason",
             "no governed work",
             "--state",
@@ -75,7 +78,7 @@ class TestDbClaimAmendDispatch:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "db_claim.amend"
         assert req.target.kind == "item"
-        assert req.target.public_ref == "YOK-42"
+        assert req.target.public_ref == _FIXTURE_ITEM_REF
         assert req.payload == {
             "claim": {"state": "none"},
             "reason": "no governed work",
@@ -103,12 +106,12 @@ class TestDbClaimAmendDispatch:
 
 class TestDbClaimProseCheckDispatch:
     def test_prose_check_dispatches(self) -> None:
-        rc = _run(_stub_ok, "db-claim", "prose-check", "YOK-42")
+        rc = _run(_stub_ok, "db-claim", "prose-check", _FIXTURE_ITEM_REF)
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "db_claim.prose_check"
         assert req.target.kind == "item"
-        assert req.target.public_ref == "YOK-42"
+        assert req.target.public_ref == _FIXTURE_ITEM_REF
         assert req.payload == {}
 
     def test_prose_check_stdin_runs_locally(self) -> None:
@@ -134,12 +137,12 @@ class TestDbClaimProseCheckDispatch:
 
 class TestDbClaimAmendErrors:
     def test_missing_payload_selector_returns_two(self) -> None:
-        rc = _run(_stub_ok, "db-claim", "amend", "YOK-42", "--reason", "x")
+        rc = _run(_stub_ok, "db-claim", "amend", _FIXTURE_ITEM_REF, "--reason", "x")
         assert rc == 2
         assert _CAPTURED_REQUESTS == []
 
     def test_missing_reason_returns_two(self) -> None:
-        rc = _run(_stub_ok, "db-claim", "amend", "YOK-42", "--state", "none")
+        rc = _run(_stub_ok, "db-claim", "amend", _FIXTURE_ITEM_REF, "--state", "none")
         assert rc == 2
         assert _CAPTURED_REQUESTS == []
 
@@ -148,7 +151,7 @@ class TestDbClaimAmendErrors:
             _stub_ok,
             "db-claim",
             "amend",
-            "YOK-42",
+            _FIXTURE_ITEM_REF,
             "--reason",
             "x",
             "--payload",
@@ -162,7 +165,7 @@ class TestDbClaimAmendErrors:
             _stub_ok,
             "db-claim",
             "amend",
-            "YOK-42",
+            _FIXTURE_ITEM_REF,
             "--reason",
             "x",
             "--payload",
@@ -176,7 +179,7 @@ class TestDbClaimAmendErrors:
             _stub_fail,
             "db-claim",
             "amend",
-            "YOK-42",
+            _FIXTURE_ITEM_REF,
             "--reason",
             "x",
             "--state",

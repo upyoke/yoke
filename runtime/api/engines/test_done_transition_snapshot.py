@@ -18,6 +18,9 @@ from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_core.engines import done_transition_snapshot
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 def _resp(function_id, result=None, *, success=True):
     return FunctionCallResponse(
         success=success, function=function_id, version="v1", result=result or {}
@@ -49,7 +52,7 @@ def test_ensure_snapshot_resolves_checkout_and_relays_write(monkeypatch):
 
     monkeypatch.setattr(done_transition_snapshot.subprocess, "run", fake_git)
 
-    done_transition_snapshot.ensure_snapshot_for_item("YOK-42")
+    done_transition_snapshot.ensure_snapshot_for_item(_FIXTURE_ITEM_REF)
 
     # The project slug read + snapshot write both relay through the transport.
     fids = [c["function_id"] for c in calls]
@@ -71,4 +74,4 @@ def test_ensure_snapshot_advisory_on_missing_checkout(monkeypatch):
         lambda project, **_kwargs: None,
     )
     # No checkout -> no git, no write; the prewarm stays advisory (no raise).
-    done_transition_snapshot.ensure_snapshot_for_item("YOK-42")
+    done_transition_snapshot.ensure_snapshot_for_item(_FIXTURE_ITEM_REF)

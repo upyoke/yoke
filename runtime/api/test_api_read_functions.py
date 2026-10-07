@@ -64,7 +64,9 @@ class TestItemsGet(unittest.TestCase):
             captured.setdefault(item_id, []).append(col)
             return {"id": "42", "title": "fake"}.get(col, "")
 
-        with patch.object(reads, "__name__", reads.__name__):
+        with patch(
+            "yoke_core.domain.project_identity.render_item_ref", return_value="ITEM-81"
+        ):
             with patch(
                 "yoke_core.domain.items_queries.query_item",
                 side_effect=fake_query_item,
@@ -79,7 +81,7 @@ class TestItemsGet(unittest.TestCase):
         self.assertEqual(outcome.result_payload["item_id"], 42)
         self.assertEqual(
             outcome.result_payload["fields"],
-            {"id": "42", "title": "fake"},
+            {"id": "ITEM-81", "title": "fake"},
         )
 
     def test_accepts_additional_scalar_fields(self):

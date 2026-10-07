@@ -18,6 +18,9 @@ from yoke_contracts.api.function_call import (
 )
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 def _request(payload=None) -> FunctionCallRequest:
     return FunctionCallRequest(
         function="items.get.run",
@@ -45,7 +48,7 @@ class TestItemsGetDefaultProjection(unittest.TestCase):
         with (
             patch(
                 "yoke_core.domain.project_identity.render_item_ref",
-                return_value="YOK-42",
+                return_value=_FIXTURE_ITEM_REF,
             ),
             patch(
                 "yoke_core.domain.items_queries.query_item",
@@ -78,7 +81,7 @@ class TestItemsGetDefaultProjection(unittest.TestCase):
             fields["deployment_flow"],
             {"value": "default-flow", "source": "project_default"},
         )
-        self.assertEqual(fields["id"], "YOK-42")
+        self.assertEqual(fields["id"], _FIXTURE_ITEM_REF)
         self.assertEqual(set(fields), set(DEFAULT_GET_FIELDS))
 
     def test_explicit_field_subset_still_projects_only_requested(self):

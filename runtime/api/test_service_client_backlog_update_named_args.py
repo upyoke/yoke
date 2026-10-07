@@ -24,38 +24,46 @@ from yoke_core.api.service_client_backlog_update_args import (
 )
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 # ---------- normalize_update_args (pure) ------------------------------------
 
 
 def test_normalize_passthrough_when_no_named_flags():
-    args = ["YOK-42", "title", "Hello", "--no-rebuild"]
+    args = [_FIXTURE_ITEM_REF, "title", "Hello", "--no-rebuild"]
     assert normalize_update_args(args) == args
 
 
 def test_normalize_all_named():
-    args = ["--id", "YOK-42", "--field", "title", "--value", "Hello"]
-    assert normalize_update_args(args) == ["YOK-42", "title", "Hello"]
+    args = ["--id", _FIXTURE_ITEM_REF, "--field", "title", "--value", "Hello"]
+    assert normalize_update_args(args) == [_FIXTURE_ITEM_REF, "title", "Hello"]
 
 
 def test_normalize_positional_id_with_named_field_value():
-    args = ["YOK-42", "--field", "title", "--value", "Hello"]
-    assert normalize_update_args(args) == ["YOK-42", "title", "Hello"]
+    args = [_FIXTURE_ITEM_REF, "--field", "title", "--value", "Hello"]
+    assert normalize_update_args(args) == [_FIXTURE_ITEM_REF, "title", "Hello"]
 
 
 def test_normalize_named_id_with_positional_field_value():
-    args = ["--id", "YOK-42", "spec", "--stdin"]
-    assert normalize_update_args(args) == ["YOK-42", "spec", "--stdin"]
+    args = ["--id", _FIXTURE_ITEM_REF, "spec", "--stdin"]
+    assert normalize_update_args(args) == [_FIXTURE_ITEM_REF, "spec", "--stdin"]
 
 
 def test_normalize_preserves_global_flags_order():
-    args = ["YOK-42", "--field", "status", "--value", "done", "--no-rebuild"]
-    assert normalize_update_args(args) == ["YOK-42", "status", "done", "--no-rebuild"]
+    args = [_FIXTURE_ITEM_REF, "--field", "status", "--value", "done", "--no-rebuild"]
+    assert normalize_update_args(args) == [
+        _FIXTURE_ITEM_REF,
+        "status",
+        "done",
+        "--no-rebuild",
+    ]
 
 
 def test_normalize_mixed_named_id_with_value_only_flag():
-    args = ["--id", "YOK-42", "spec", "--source", "test", "--stdin"]
+    args = ["--id", _FIXTURE_ITEM_REF, "spec", "--source", "test", "--stdin"]
     assert normalize_update_args(args) == [
-        "YOK-42",
+        _FIXTURE_ITEM_REF,
         "spec",
         "--source",
         "test",
@@ -74,7 +82,7 @@ def test_normalize_tail_named_flag_without_value_passes_through():
     # Malformed input: --field at the tail with no value. The normalizer
     # must surface the bad token to the legacy parser rather than
     # silently dropping it.
-    args = ["YOK-42", "--field"]
+    args = [_FIXTURE_ITEM_REF, "--field"]
     out = normalize_update_args(args)
     assert "--field" in out
 
@@ -112,7 +120,7 @@ def test_cli_positional_form_still_works(capsys):
     with _patched_backlog() as m, mock.patch.dict(os.environ, {}, clear=False):
         _set_mock_success(m)
         rc = service_client_backlog_update.cmd_execute_update_cli(
-            ["YOK-42", "title", "Hello"]
+            [_FIXTURE_ITEM_REF, "title", "Hello"]
         )
     assert rc == 0
     call = m.call_args
@@ -125,7 +133,7 @@ def test_cli_named_id_field_value_form():
     with _patched_backlog() as m, mock.patch.dict(os.environ, {}, clear=False):
         _set_mock_success(m)
         rc = service_client_backlog_update.cmd_execute_update_cli(
-            ["--id", "YOK-42", "--field", "title", "--value", "Hello"]
+            ["--id", _FIXTURE_ITEM_REF, "--field", "title", "--value", "Hello"]
         )
     assert rc == 0
     call = m.call_args
@@ -138,7 +146,7 @@ def test_cli_positional_id_with_named_field_value():
     with _patched_backlog() as m, mock.patch.dict(os.environ, {}, clear=False):
         _set_mock_success(m)
         rc = service_client_backlog_update.cmd_execute_update_cli(
-            ["YOK-42", "--field", "priority", "--value", "high"]
+            [_FIXTURE_ITEM_REF, "--field", "priority", "--value", "high"]
         )
     assert rc == 0
     call = m.call_args
@@ -151,7 +159,7 @@ def test_cli_raw_body_write_denied_through_named_flags(capsys):
     # Invariant: raw body writes must remain denied even when
     # reached via the new --id/--stdin entrypoint.
     rc = service_client_backlog_update.cmd_execute_update_cli(
-        ["--id", "YOK-42", "body", "--stdin"]
+        ["--id", _FIXTURE_ITEM_REF, "body", "--stdin"]
     )
     captured = capsys.readouterr()
     assert rc == 1
@@ -170,11 +178,11 @@ def test_cli_structured_field_write_routes_to_dispatcher():
     ):
         dispatch_mock.return_value = 0
         rc = service_client_backlog_update.cmd_execute_update_cli(
-            ["--id", "YOK-42", "spec", "--stdin"]
+            ["--id", _FIXTURE_ITEM_REF, "spec", "--stdin"]
         )
     assert rc == 0
     dispatch_mock.assert_called_once()
     call = dispatch_mock.call_args
-    assert call.kwargs["public_ref"] == "YOK-42"
+    assert call.kwargs["public_ref"] == _FIXTURE_ITEM_REF
     assert call.kwargs["field"] == "spec"
     assert call.kwargs["content"] == "# spec content"

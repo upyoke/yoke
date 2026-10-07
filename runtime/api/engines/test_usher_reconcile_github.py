@@ -11,6 +11,9 @@ from yoke_core.engines import usher_reconcile_github as mod
 from yoke_core.engines import usher_reconcile_github_verdict as verdict_mod
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 def _proc(returncode: int = 0, stdout: str = "", stderr: str = "") -> SimpleNamespace:
     return SimpleNamespace(returncode=returncode, stdout=stdout, stderr=stderr)
 
@@ -83,7 +86,7 @@ def wired(monkeypatch):
     monkeypatch.setattr(
         mod,
         "_display_item_ref",
-        lambda item_id: f"YOK-{item_id}",
+        lambda item_id: str(item_id) if isinstance(item_id, str) else f"YOK-{item_id}",
     )
     monkeypatch.setattr(verdict_mod, "call_dispatcher", fake_call_dispatcher)
 
@@ -95,11 +98,13 @@ def wired(monkeypatch):
 
 
 def test_alignment_emits_event_and_clears_deploy_stage(wired):
-    result = mod.reconcile_item("ITEM-42")
+    result = mod.reconcile_item(_FIXTURE_ITEM_REF)
 
     assert result.outcome == "aligned"
     assert result.workflow_run_id == "987654321"
-    assert "Resume usher with: /yoke usher YOK-42 --resume" in result.message
+    assert (
+        f"Resume usher with: /yoke usher {_FIXTURE_ITEM_REF} --resume" in result.message
+    )
 
     assert len(wired.emitted_events) == 1
     event = wired.emitted_events[0]
@@ -138,7 +143,7 @@ def test_github_failure_does_not_mutate(wired, monkeypatch, gh_stdout):
 
     monkeypatch.setattr(mod, "_github_actions", gh)
 
-    result = mod.reconcile_item("ITEM-42")
+    result = mod.reconcile_item(_FIXTURE_ITEM_REF)
 
     assert result.outcome == "gh-failure"
     assert result.gh_conclusion in {"failure", "cancelled", "timed_out"}
@@ -160,7 +165,7 @@ def test_github_running_does_not_mutate(wired, monkeypatch, rc, status):
 
     monkeypatch.setattr(mod, "_github_actions", gh)
 
-    result = mod.reconcile_item("ITEM-42")
+    result = mod.reconcile_item(_FIXTURE_ITEM_REF)
 
     assert result.outcome == "gh-running"
     assert result.gh_status == status
@@ -177,7 +182,7 @@ def test_unresolved_run_id_errors_without_mutating(wired, monkeypatch):
 
     monkeypatch.setattr(mod, "_github_actions", gh)
 
-    result = mod.reconcile_item("ITEM-42")
+    result = mod.reconcile_item(_FIXTURE_ITEM_REF)
 
     assert result.outcome == "error"
     assert "--workflow-run-id" in result.message
@@ -188,7 +193,7 @@ def test_unresolved_run_id_errors_without_mutating(wired, monkeypatch):
 def test_missing_deployment_run_errors(wired, monkeypatch):
     monkeypatch.setattr(mod, "_resolve_run_for_item", lambda _item_id: "")
 
-    result = mod.reconcile_item("ITEM-42")
+    result = mod.reconcile_item(_FIXTURE_ITEM_REF)
 
     assert result.outcome == "error"
     assert "deployment_run_items" in result.message
@@ -198,7 +203,7 @@ def test_missing_deployment_run_errors(wired, monkeypatch):
 def test_missing_registered_repo_errors_before_actions(wired, monkeypatch):
     monkeypatch.setattr(mod.control_plane, "project_field", lambda _project, _field: "")
 
-    result = mod.reconcile_item("ITEM-42")
+    result = mod.reconcile_item(_FIXTURE_ITEM_REF)
 
     assert result.outcome == "error"
     assert "no registered github_repo" in result.message
@@ -222,7 +227,7 @@ def test_missing_release_lineage_errors_before_actions(wired, monkeypatch):
 
     monkeypatch.setattr(mod.control_plane, "execution_context", fake_execution_context)
 
-    result = mod.reconcile_item("ITEM-42")
+    result = mod.reconcile_item(_FIXTURE_ITEM_REF)
 
     assert result.outcome == "error"
     assert "no recorded release_lineage" in result.message
@@ -232,11 +237,10 @@ def test_missing_release_lineage_errors_before_actions(wired, monkeypatch):
 
 
 def test_alignment_message_names_resume_command(wired):
-    result = mod.reconcile_item("ITEM-42")
+    result = mod.reconcile_item(_FIXTURE_ITEM_REF)
     assert result.outcome == "aligned"
     assert result.message == (
-        "Yoke records aligned with GitHub truth. "
-        "Resume usher with: /yoke usher YOK-42 --resume"
+        f"Yoke records aligned with GitHub truth. Resume usher with: /yoke usher {_FIXTURE_ITEM_REF} --resume"
     )
 
 
@@ -257,7 +261,9 @@ def test_operator_override_skips_find_run(wired, monkeypatch):
 
     monkeypatch.setattr(mod, "_github_actions", gh)
 
-    result = mod.reconcile_item("ITEM-42", workflow_run_id_override="operator-555")
+    result = mod.reconcile_item(
+        _FIXTURE_ITEM_REF, workflow_run_id_override="operator-555"
+    )
 
     assert result.outcome == "aligned"
     assert result.workflow_run_id == "operator-555"
@@ -278,7 +284,7 @@ def test_source_never_names_phantom_column():
 
 def test_no_action_when_deploy_stage_empty(wired, monkeypatch):
     monkeypatch.setattr(mod, "_item_deploy_stage", lambda _item_id: "")
-    result = mod.reconcile_item("ITEM-42")
+    result = mod.reconcile_item(_FIXTURE_ITEM_REF)
     assert result.outcome == "no-action"
     assert wired.emitted_events == []
     assert wired.dispatched == []
@@ -290,7 +296,7 @@ def test_no_action_when_deploy_stage_not_failed_shape(wired, monkeypatch):
         "_item_deploy_stage",
         lambda _item_id: "complete",
     )
-    result = mod.reconcile_item("ITEM-42")
+    result = mod.reconcile_item(_FIXTURE_ITEM_REF)
     assert result.outcome == "no-action"
     assert "<stage>-failed" in result.message
     assert wired.dispatched == []
@@ -316,14 +322,17 @@ def test_main_exits_with_usage_code_on_bad_arg(wired, capsys):
 
 
 def test_main_returns_zero_on_alignment(wired, monkeypatch, capsys):
-    monkeypatch.setattr(mod, "_parse_item_argument", lambda _arg: 42)
+    monkeypatch.setattr(mod, "_parse_item_argument", lambda _arg: _FIXTURE_ITEM_REF)
     rc = mod.main(["42"])
     assert rc == mod.EXIT_OK
-    assert "Resume usher with: /yoke usher YOK-42 --resume" in capsys.readouterr().out
+    assert (
+        f"Resume usher with: /yoke usher {_FIXTURE_ITEM_REF} --resume"
+        in capsys.readouterr().out
+    )
 
 
 def test_main_returns_running_code_when_gh_in_progress(wired, monkeypatch, capsys):
-    monkeypatch.setattr(mod, "_parse_item_argument", lambda _arg: 42)
+    monkeypatch.setattr(mod, "_parse_item_argument", lambda _arg: _FIXTURE_ITEM_REF)
 
     def gh(*args, project, sd=None, timeout=60):
         del sd, timeout

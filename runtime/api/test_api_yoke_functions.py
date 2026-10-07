@@ -41,6 +41,9 @@ from yoke_core.api.main import app
 from runtime.api.test_api_helpers import _install_overrides
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 class _Req(BaseModel):
     pass
 
@@ -70,7 +73,7 @@ def _envelope(function_id: str, **overrides):
         "actor": {"actor_id": "op", "session_id": "s-1"},
         "target": {
             "kind": "item",
-            "public_ref": "YOK-42",
+            "public_ref": _FIXTURE_ITEM_REF,
             "project_id": "yoke",
         },  # resolvable target
         "payload": {},

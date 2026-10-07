@@ -17,7 +17,6 @@ from yoke_core.domain import (
 )
 from yoke_core.domain.handlers import claims_work_holders
 from yoke_core.domain.handlers.__init_register__ import register_all_handlers
-from yoke_core.domain.work_claim_targets import item_id_from_row
 from yoke_core.domain.yoke_function_dispatch import dispatch
 from yoke_core.domain.yoke_function_registry import reset_registry_for_tests
 
@@ -59,6 +58,10 @@ def test_holder_list_envelope_keeps_scope_exact_and_decodable(
         "_current_item_before_implementation",
         lambda _conn, _session_id: False,
     )
+    monkeypatch.setattr(
+        "yoke_core.domain.function_response_refs.render_item_refs",
+        lambda _conn, ids: {42: "ITEM-81"},
+    )
     lookup = MagicMock(side_effect=AssertionError("contract id was enriched"))
     monkeypatch.setattr(
         "yoke_core.domain.item_ref_render.render_item_ref_lookup",
@@ -79,6 +82,6 @@ def test_holder_list_envelope_keeps_scope_exact_and_decodable(
 
     assert response.success, response.error
     holder = response.result["holders"][0]
-    assert holder["scope"] == {"item_id": 42}
-    assert item_id_from_row(holder) == 42
+    assert holder["scope"] == {"public_ref": "ITEM-81"}
+    assert "item_id" not in holder["scope"]
     lookup.assert_not_called()

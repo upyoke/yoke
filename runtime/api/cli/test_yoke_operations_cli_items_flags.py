@@ -31,6 +31,9 @@ from yoke_core.domain.handlers.__init_register__ import register_all_handlers
 from yoke_core.domain.yoke_function_dispatch_claims import verify_claim
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 FLAG_FUNCTION_IDS = (
     "items.freeze.run",
     "items.thaw.run",
@@ -90,22 +93,25 @@ class TestFlagRoutes:
         verb: str,
         function_id: str,
     ) -> None:
-        assert _run("items", verb, "YOK-42") == 0
+        assert _run("items", verb, _FIXTURE_ITEM_REF) == 0
         request = _CAPTURED_REQUESTS[-1]
         assert request.function == function_id
         assert request.target.kind == "item"
-        assert request.target.public_ref == "YOK-42"
+        assert request.target.public_ref == _FIXTURE_ITEM_REF
         assert request.payload == {}
         assert request.actor.session_id == "test-session"
 
     def test_block_carries_the_reason(self) -> None:
-        assert _run("items", "block", "YOK-42", "--reason", "Awaiting sign-off") == 0
+        assert (
+            _run("items", "block", _FIXTURE_ITEM_REF, "--reason", "Awaiting sign-off")
+            == 0
+        )
         request = _CAPTURED_REQUESTS[-1]
         assert request.function == "items.block.run"
         assert request.payload == {"reason": "Awaiting sign-off"}
 
     def test_block_without_a_reason_is_a_usage_error(self) -> None:
-        assert _run("items", "block", "YOK-42") == 2
+        assert _run("items", "block", _FIXTURE_ITEM_REF) == 2
         assert _CAPTURED_REQUESTS == []
 
     def test_item_ref_relays_verbatim(self) -> None:
@@ -119,16 +125,24 @@ class TestFlagRoutes:
 
     def test_cancel_carries_reason_and_optional_ref(self) -> None:
         assert (
-            _run("items", "cancel", "YOK-42", "--reason", "superseded", "--ref", "7")
+            _run(
+                "items",
+                "cancel",
+                _FIXTURE_ITEM_REF,
+                "--reason",
+                "superseded",
+                "--ref",
+                "7",
+            )
             == 0
         )
         request = _CAPTURED_REQUESTS[-1]
         assert request.function == "items.cancel.run"
-        assert request.target.public_ref == "YOK-42"
+        assert request.target.public_ref == _FIXTURE_ITEM_REF
         assert request.payload == {"reason": "superseded", "ref": "7"}
 
     def test_cancel_without_a_reason_is_a_usage_error(self) -> None:
-        assert _run("items", "cancel", "YOK-42") == 2
+        assert _run("items", "cancel", _FIXTURE_ITEM_REF) == 2
         assert _CAPTURED_REQUESTS == []
 
     def test_cancel_usage_line_is_registered(self) -> None:

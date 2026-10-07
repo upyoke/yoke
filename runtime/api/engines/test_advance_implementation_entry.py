@@ -15,6 +15,9 @@ from yoke_contracts.api.function_call import (
 from yoke_core.engines import advance_implementation_entry as orch
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 def _item(item_id=42, status="refined-idea", type_="issue", title="t", project="yoke"):
     return {
         "public_ref": f"YOK-{item_id}",
@@ -32,7 +35,7 @@ class _WtStub:
         self,
         *,
         ok=True,
-        branch="YOK-42",
+        branch=_FIXTURE_ITEM_REF,
         worktree_path="/tmp/yok-42",
         actions=None,
         block_kind="",
@@ -208,7 +211,7 @@ def test_run_preflight_failure_stops_before_worktree(monkeypatch, emits):
         return _WtStub()
 
     monkeypatch.setattr("yoke_core.domain.worktree_preflight.run_preflight", fake)
-    assert orch.run("YOK-42", session_id="s1", out=io.StringIO()) == 1
+    assert orch.run(_FIXTURE_ITEM_REF, session_id="s1", out=io.StringIO()) == 1
     assert counter["n"] == 0
     assert emits.phases() == ["preflight"]
     assert emits.outcomes()["preflight"] == "blocked"
@@ -237,10 +240,10 @@ def test_run_worktree_create_failure_releases_claim(
             {"item": item_id, "reason": reason, "session": sid}
         ),
     )
-    assert orch.run("YOK-42", session_id="s1", out=io.StringIO()) == 1
+    assert orch.run(_FIXTURE_ITEM_REF, session_id="s1", out=io.StringIO()) == 1
     assert release_calls == [
         {
-            "item": "YOK-42",
+            "item": _FIXTURE_ITEM_REF,
             "reason": orch.RELEASE_WORKTREE_CREATE_FAILED,
             "session": "s1",
         }
@@ -263,7 +266,7 @@ def test_run_finalize_failure_keeps_claim(
     monkeypatch.setattr(
         orch, "_release_claim", lambda *a, **kw: release_calls.append((a, kw))
     )
-    assert orch.run("YOK-42", session_id="s1", out=io.StringIO()) == 1
+    assert orch.run(_FIXTURE_ITEM_REF, session_id="s1", out=io.StringIO()) == 1
     assert release_calls == []
     assert emits.outcomes()["finalize"].startswith("blocked:")
 
@@ -290,7 +293,7 @@ def test_run_reentry_skips_status_flip(
 
     monkeypatch.setattr("yoke_core.domain.yoke_function_dispatch.dispatch", fake)
     out = io.StringIO()
-    assert orch.run("YOK-42", session_id="s1", out=out) == 0
+    assert orch.run(_FIXTURE_ITEM_REF, session_id="s1", out=out) == 0
     summary = json.loads(out.getvalue())
     assert summary["reentry"] is True
     assert summary["post_status"] == "implementing"
@@ -309,11 +312,18 @@ def test_run_no_worktree_still_flips_status(
     captured: Dict[str, Any] = {}
     _patch_run_preflight(
         monkeypatch,
-        stub=_WtStub(worktree_path="", branch="YOK-42", actions=["worktree:skipped"]),
+        stub=_WtStub(
+            worktree_path="", branch=_FIXTURE_ITEM_REF, actions=["worktree:skipped"]
+        ),
         capture=captured,
     )
     _patch_dispatch(monkeypatch)
-    assert orch.run("YOK-42", no_worktree=True, session_id="s1", out=io.StringIO()) == 0
+    assert (
+        orch.run(
+            _FIXTURE_ITEM_REF, no_worktree=True, session_id="s1", out=io.StringIO()
+        )
+        == 0
+    )
     assert captured["no_worktree"] is True
 
 

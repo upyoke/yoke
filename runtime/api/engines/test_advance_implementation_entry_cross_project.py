@@ -23,6 +23,9 @@ from yoke_contracts.api.function_call import (
 )
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 def _item(
     item_id=42,
     status="refined-idea",
@@ -46,8 +49,8 @@ class _WtStub:
         self,
         *,
         ok=True,
-        branch="YOK-42",
-        worktree_path="/Users/dev/externalwebapp/.worktrees/YOK-42",
+        branch=_FIXTURE_ITEM_REF,
+        worktree_path=f"/Users/dev/externalwebapp/.worktrees/{_FIXTURE_ITEM_REF}",
         actions=None,
         block_kind="",
         narrative="",
@@ -148,7 +151,7 @@ def test_orchestrator_forwards_item_project_to_run_preflight(
         fake_run_preflight,
     )
     _patch_dispatch(monkeypatch)
-    assert orch.run("YOK-42", session_id="s1", out=io.StringIO()) == 0
+    assert orch.run(_FIXTURE_ITEM_REF, session_id="s1", out=io.StringIO()) == 0
     assert captured["project"] == want_project
 
 
@@ -176,7 +179,7 @@ def test_worktree_preflight_resolves_project_checkout(monkeypatch):
             success=True,
             function="items.detail.get",
             version="v1",
-            result={"item": {"public_ref": "YOK-42", "blocked": False}},
+            result={"item": {"public_ref": _FIXTURE_ITEM_REF, "blocked": False}},
         ),
     )
     monkeypatch.setattr(
@@ -190,7 +193,7 @@ def test_worktree_preflight_resolves_project_checkout(monkeypatch):
         lambda item_id: (True, "", []),
     )
     result = worktree_preflight.run_preflight(
-        item_id="YOK-42", project="externalwebapp", no_worktree=True
+        item_id=_FIXTURE_ITEM_REF, project="externalwebapp", no_worktree=True
     )
     assert result.ok is True
     assert normalized == ["/tmp/externalwebapp-repo"]
@@ -215,7 +218,7 @@ def test_failure_envelope_drops_empty_fields_and_emits_error_payload(
         lambda _id, force: (False, "BLOCKED: missing AC presence"),
     )
     out = io.StringIO()
-    assert orch.run("YOK-42", session_id="s1", out=out) == 1
+    assert orch.run(_FIXTURE_ITEM_REF, session_id="s1", out=out) == 1
     envelope = json.loads(out.getvalue())
     assert "worktree_path" not in envelope, (
         "blocked outcome must not include an empty worktree_path string"
@@ -245,7 +248,7 @@ def test_worktree_block_envelope_carries_block_kind(
         ),
     )
     out = io.StringIO()
-    assert orch.run("YOK-42", session_id="s1", out=out) == 1
+    assert orch.run(_FIXTURE_ITEM_REF, session_id="s1", out=out) == 1
     envelope = json.loads(out.getvalue())
     assert "worktree_path" not in envelope
     assert envelope["error"]["phase"] == "worktree"
@@ -269,7 +272,7 @@ def test_finalize_block_envelope_carries_error_code(
         monkeypatch, _err_response("qa_block", "QA requirements not satisfied")
     )
     out = io.StringIO()
-    assert orch.run("YOK-42", session_id="s1", out=out) == 1
+    assert orch.run(_FIXTURE_ITEM_REF, session_id="s1", out=out) == 1
     envelope = json.loads(out.getvalue())
     assert envelope["error"]["phase"] == "finalize"
     assert envelope["error"]["kind"] == "qa_block"

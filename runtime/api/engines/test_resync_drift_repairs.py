@@ -12,16 +12,29 @@ from runtime.api.engines.test_resync_repair import (
 )
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 class TestRepairDrift:
     def test_title_drift_backlog_edits_issue(self, populated_db):
         from yoke_core.domain.github_rest import Issue
 
         drift = DriftRecord(
-            "YOK-42", "title", "Correct title", "Wrong title", public_ref="YOK-42"
+            _FIXTURE_ITEM_REF,
+            "title",
+            "Correct title",
+            "Wrong title",
+            public_ref=_FIXTURE_ITEM_REF,
         )
         paired = [
             PairedItem(
-                "YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", public_ref="YOK-42"
+                _FIXTURE_ITEM_REF,
+                "/tmp/042.md",
+                100,
+                "backlog",
+                "yoke",
+                "",
+                public_ref=_FIXTURE_ITEM_REF,
             )
         ]
         with (
@@ -29,7 +42,9 @@ class TestRepairDrift:
             mock.patch(
                 "yoke_core.engines.resync_repair.github_rest.update_issue",
                 return_value=Issue(
-                    number=100, title="[YOK-42] Correct title", state="OPEN"
+                    number=100,
+                    title=f"[{_FIXTURE_ITEM_REF}] Correct title",
+                    state="OPEN",
                 ),
             ) as update_issue,
         ):
@@ -38,7 +53,7 @@ class TestRepairDrift:
         assert update_issue.call_args.kwargs == {
             "project": "yoke",
             "number": 100,
-            "title": "[YOK-42] Correct title",
+            "title": f"[{_FIXTURE_ITEM_REF}] Correct title",
         }
 
     def test_title_drift_epic_task_uses_parent_prefix(self, populated_db):
@@ -78,17 +93,21 @@ class TestRepairDrift:
 
     def test_body_drift_backlog_uses_domain_sync(self, populated_db):
         drift = DriftRecord(
-            "YOK-42", "body", "<local>", "<github>", public_ref="YOK-42"
+            _FIXTURE_ITEM_REF,
+            "body",
+            "<local>",
+            "<github>",
+            public_ref=_FIXTURE_ITEM_REF,
         )
         paired = [
             PairedItem(
-                "YOK-42",
+                _FIXTURE_ITEM_REF,
                 "/tmp/042.md",
                 100,
                 "backlog",
                 "externalwebapp",
                 "",
-                public_ref="YOK-42",
+                public_ref=_FIXTURE_ITEM_REF,
             )
         ]
         with mock.patch(
@@ -97,7 +116,7 @@ class TestRepairDrift:
         ) as sync_body:
             assert resync_mod._repair_drift(drift, paired, populated_db) is True
         sync_body.assert_called_once()
-        assert sync_body.call_args.args == ("YOK-42",)
+        assert sync_body.call_args.args == (_FIXTURE_ITEM_REF,)
 
     def test_body_drift_epic_task_uses_python_sync(self, populated_db):
         drift = DriftRecord(
@@ -129,15 +148,21 @@ class TestRepairDrift:
 
     def test_label_drift_backlog_uses_domain_sync(self, populated_db):
         drift = DriftRecord(
-            "YOK-42",
+            _FIXTURE_ITEM_REF,
             "label-status",
             "status:done",
             "status:implementing",
-            public_ref="YOK-42",
+            public_ref=_FIXTURE_ITEM_REF,
         )
         paired = [
             PairedItem(
-                "YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", public_ref="YOK-42"
+                _FIXTURE_ITEM_REF,
+                "/tmp/042.md",
+                100,
+                "backlog",
+                "yoke",
+                "",
+                public_ref=_FIXTURE_ITEM_REF,
             )
         ]
         with mock.patch(
@@ -146,7 +171,7 @@ class TestRepairDrift:
         ) as sync_labels:
             assert resync_mod._repair_drift(drift, paired, populated_db) is True
         sync_labels.assert_called_once()
-        assert sync_labels.call_args.args == ("YOK-42",)
+        assert sync_labels.call_args.args == (_FIXTURE_ITEM_REF,)
 
     def test_label_owner_drift_routes_through_sync_labels(self, populated_db):
         """``label-owner`` drift uses the same `sync_labels`
@@ -154,11 +179,21 @@ class TestRepairDrift:
         recognise the new field name or owner drift would silently
         fall through to the no-op default."""
         drift = DriftRecord(
-            "YOK-42", "label-owner", "owner:ben", "owner:yoke-core", public_ref="YOK-42"
+            _FIXTURE_ITEM_REF,
+            "label-owner",
+            "owner:ben",
+            "owner:yoke-core",
+            public_ref=_FIXTURE_ITEM_REF,
         )
         paired = [
             PairedItem(
-                "YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", public_ref="YOK-42"
+                _FIXTURE_ITEM_REF,
+                "/tmp/042.md",
+                100,
+                "backlog",
+                "yoke",
+                "",
+                public_ref=_FIXTURE_ITEM_REF,
             )
         ]
         with mock.patch(
@@ -167,29 +202,43 @@ class TestRepairDrift:
         ) as sync_labels:
             assert resync_mod._repair_drift(drift, paired, populated_db) is True
         sync_labels.assert_called_once()
-        assert sync_labels.call_args.args == ("YOK-42",)
+        assert sync_labels.call_args.args == (_FIXTURE_ITEM_REF,)
 
     def test_label_frozen_dry_run_returns_true(self, populated_db):
         drift = DriftRecord(
-            "YOK-42",
+            _FIXTURE_ITEM_REF,
             "label-frozen",
             "frozen:true",
             "frozen:absent",
-            public_ref="YOK-42",
+            public_ref=_FIXTURE_ITEM_REF,
         )
         paired = [
             PairedItem(
-                "YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", public_ref="YOK-42"
+                _FIXTURE_ITEM_REF,
+                "/tmp/042.md",
+                100,
+                "backlog",
+                "yoke",
+                "",
+                public_ref=_FIXTURE_ITEM_REF,
             )
         ]
         with mock.patch("yoke_core.engines.resync._is_dry_run", return_value=True):
             assert resync_mod._repair_drift(drift, paired, populated_db) is True
 
     def test_state_drift_backlog_uses_domain_close(self, populated_db):
-        drift = DriftRecord("YOK-42", "state", "CLOSED", "OPEN", public_ref="YOK-42")
+        drift = DriftRecord(
+            _FIXTURE_ITEM_REF, "state", "CLOSED", "OPEN", public_ref=_FIXTURE_ITEM_REF
+        )
         paired = [
             PairedItem(
-                "YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", public_ref="YOK-42"
+                _FIXTURE_ITEM_REF,
+                "/tmp/042.md",
+                100,
+                "backlog",
+                "yoke",
+                "",
+                public_ref=_FIXTURE_ITEM_REF,
             )
         ]
         with mock.patch(
@@ -198,7 +247,7 @@ class TestRepairDrift:
         ) as close_issue:
             assert resync_mod._repair_drift(drift, paired, populated_db) is True
         close_issue.assert_called_once()
-        assert close_issue.call_args.args == ("YOK-42",)
+        assert close_issue.call_args.args == (_FIXTURE_ITEM_REF,)
 
     def test_state_drift_epic_task_uses_issue_close(self, populated_db):
         from yoke_core.domain.github_rest import Issue
@@ -239,11 +288,21 @@ class TestRepairDrift:
 
     def test_comment_drift_backlog_posts_via_domain_sync(self, populated_db):
         drift = DriftRecord(
-            "YOK-42", "comment", "has-status-comment", "missing", public_ref="YOK-42"
+            _FIXTURE_ITEM_REF,
+            "comment",
+            "has-status-comment",
+            "missing",
+            public_ref=_FIXTURE_ITEM_REF,
         )
         paired = [
             PairedItem(
-                "YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", public_ref="YOK-42"
+                _FIXTURE_ITEM_REF,
+                "/tmp/042.md",
+                100,
+                "backlog",
+                "yoke",
+                "",
+                public_ref=_FIXTURE_ITEM_REF,
             )
         ]
         with (
@@ -257,8 +316,10 @@ class TestRepairDrift:
         ):
             assert resync_mod._repair_drift(drift, paired, populated_db) is True
         post_comment.assert_called_once()
-        assert post_comment.call_args.args == ("YOK-42", "unknown", "done")
+        assert post_comment.call_args.args == (_FIXTURE_ITEM_REF, "unknown", "done")
 
     def test_unknown_drift_returns_false(self, populated_db):
-        drift = DriftRecord("YOK-42", "mystery", "a", "b", public_ref="YOK-42")
+        drift = DriftRecord(
+            _FIXTURE_ITEM_REF, "mystery", "a", "b", public_ref=_FIXTURE_ITEM_REF
+        )
         assert resync_mod._repair_drift(drift, [], populated_db) is False

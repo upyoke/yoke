@@ -16,6 +16,9 @@ from yoke_contracts.api.function_call import (
 )
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 _CAPTURED_REQUESTS: List[FunctionCallRequest] = []
 
 
@@ -90,7 +93,7 @@ def test_sessions_checkpoint_dispatches() -> None:
             "--chainable",
             "true",
             "--item",
-            "YOK-42",
+            _FIXTURE_ITEM_REF,
             "--task-num",
             "3",
             "--outcome",
@@ -114,7 +117,7 @@ def test_sessions_checkpoint_dispatches() -> None:
         "action": "charge",
         "chainable": True,
         "outcome": "completed",
-        "public_ref": "YOK-42",
+        "public_ref": _FIXTURE_ITEM_REF,
         "task_num": 3,
         "status": "implemented",
         "required_path": "runtime/api/foo.py",
@@ -262,7 +265,7 @@ def test_reclaim_stale_help_distinguishes_a_zero_and_names_terminate() -> None:
     assert "yoke sessions terminate" in SESSIONS_RECLAIM_STALE_DESCRIPTION
 
 
-@pytest.mark.parametrize("selector", [None, "YOK-42", "42"])
+@pytest.mark.parametrize("selector", [None, _FIXTURE_ITEM_REF, "42"])
 def test_checkpoint_optional_item_uses_only_public_selectors(selector):
     argv = [
         "sessions",

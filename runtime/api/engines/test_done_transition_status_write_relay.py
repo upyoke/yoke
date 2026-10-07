@@ -20,6 +20,9 @@ from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_core.engines import done_transition as dt
 from yoke_core.engines import done_transition_status as status
 
+
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
 # Synthetic fixture id kept off the literal so the doc-hygiene drift guard stays clean.
 TEST_ITEM_ID = 42
 TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
@@ -84,7 +87,8 @@ class TestItemDirectRelay:
         assert len(calls) == 1
         call = calls[0]
         assert call["function_id"] == "done_transition.item_status_set"
-        assert call["target"].item_id == 44
+        assert call["target"].public_ref == "YOK-44"
+        assert call["target"].item_id is None
         payload = call["payload"]
         assert payload["field"] == "status"
         assert payload["value"] == "done"
@@ -179,9 +183,10 @@ class TestTaskDirectRelay:
         assert len(calls) == 1
         call = calls[0]
         assert call["function_id"] == "done_transition.epic_task_status_set"
-        assert call["target"].item_id == 823
+        assert call["target"].public_ref == "ITEM-823"
+        assert call["target"].item_id is None
         payload = call["payload"]
-        assert payload["epic_id"] == "823"
+        assert payload["epic_id"] == "ITEM-823"
         assert payload["task_num"] == "1"
         assert payload["status"] == "done"
         assert payload["claim_bypass"] == f"done-cascade:{TEST_ITEM_REF}"
@@ -218,7 +223,9 @@ class TestSetterEndToEndRelay:
 
         _patch_adapter(monkeypatch, fake)
         assert (
-            dt._update_status_to_done("YOK-42", skip_qa=True, public_ref=TEST_ITEM_REF)
+            dt._update_status_to_done(
+                _FIXTURE_ITEM_REF, skip_qa=True, public_ref=TEST_ITEM_REF
+            )
             is True
         )
 
@@ -265,7 +272,7 @@ class TestSetterEndToEndRelay:
         monkeypatch.setattr("time.sleep", lambda _s: None)
 
         settled = dt._update_status_to_done(
-            "YOK-42",
+            _FIXTURE_ITEM_REF,
             skip_qa=False,
             max_retries=2,
             public_ref=TEST_ITEM_REF,
@@ -288,7 +295,7 @@ class TestSetterEndToEndRelay:
 
         _patch_adapter(monkeypatch, fake)
         monkeypatch.setattr(status, "_batch_github_sync_tasks", lambda *a, **k: None)
-        dt._cascade_epic_tasks_to_done("YOK-42", public_ref=TEST_ITEM_REF)
+        dt._cascade_epic_tasks_to_done(_FIXTURE_ITEM_REF, public_ref=TEST_ITEM_REF)
 
         relays = [
             c

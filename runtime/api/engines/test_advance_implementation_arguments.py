@@ -9,6 +9,9 @@ import pytest
 from yoke_core.engines import advance_implementation_entry as orch
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 def test_parse_item_argument_accepts_typed_internal_id():
     assert orch._parse_item_argument(1730) == 1730
 
@@ -79,7 +82,7 @@ def test_main_delegates_to_run(monkeypatch):
         orch.main(
             [
                 "--item",
-                "YOK-42",
+                _FIXTURE_ITEM_REF,
                 "--no-worktree",
                 "--force",
                 "--qa-bypass",
@@ -89,7 +92,7 @@ def test_main_delegates_to_run(monkeypatch):
         )
         == 0
     )
-    assert calls["item_id"] == "YOK-42"
+    assert calls["item_id"] == _FIXTURE_ITEM_REF
     assert calls["no_worktree"] and calls["force"] and calls["qa_bypass"]
     assert calls["session_id"] == "manual-id"
 

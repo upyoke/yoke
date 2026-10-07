@@ -203,7 +203,12 @@ def check_path_claim_gate(item_id: int | str, db_path: Optional[str]) -> Optiona
     try:
         from yoke_core.domain.item_ref_resolution import resolve_item_ref
 
-        check_worktree_create_gate(gate_conn, resolve_item_ref(gate_conn, item_id))
+        key = (
+            item_id
+            if isinstance(item_id, int)
+            else resolve_item_ref(gate_conn, item_id)
+        )
+        check_worktree_create_gate(gate_conn, key)
     except PathClaimGateBlocked as exc:
         return str(exc)
     finally:

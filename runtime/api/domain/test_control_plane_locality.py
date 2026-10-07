@@ -19,6 +19,9 @@ from yoke_core.domain import project_github_auth_state, yok_n_parser
 from yoke_core.domain.db_helpers import connect as db_helpers_connect
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 def test_unmarked_context_admits_a_direct_connection() -> None:
     # A server process and a local-Postgres machine both hold the authority
     # they are connecting to, so neither marks the context.
@@ -227,7 +230,9 @@ def test_done_closeout_relays_instead_of_failing_the_step(monkeypatch) -> None:
     monkeypatch.setattr(control_plane_transport, "relay", fake_relay)
 
     with remote_control_plane():
-        rc = backlog_github_done_sync.sync_done_item("YOK-4242", "reviewing")
+        rc = backlog_github_done_sync.sync_done_item(
+            f"{_FIXTURE_ITEM_REF}42", "reviewing"
+        )
 
     assert rc == 0
     assert seen == [
@@ -235,7 +240,7 @@ def test_done_closeout_relays_instead_of_failing_the_step(monkeypatch) -> None:
             backlog_github_done_sync.DONE_SYNC_FUNCTION_ID,
             {"old_status": "reviewing"},
             None,
-            "YOK-4242",
+            f"{_FIXTURE_ITEM_REF}42",
         ),
     ]
 

@@ -18,6 +18,9 @@ from yoke_core.domain.qa_review_verdict_modes import (
 )
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 def test_plan_engine_cli_requires_environment_bound_agent_review_dispatch(
     capsys,
     monkeypatch,
@@ -54,7 +57,7 @@ def test_plan_engine_cli_requires_environment_bound_agent_review_dispatch(
         code = qa_plan_execution_cli.run(
             [
                 "--item",
-                "YOK-42",
+                _FIXTURE_ITEM_REF,
                 "--transition",
                 "implemented",
             ]
@@ -104,7 +107,7 @@ def test_review_submit_cli_sends_complete_stdin_batch(capsys) -> None:
         code = qa_plan_review_cli.run(
             [
                 "--item",
-                "YOK-42",
+                _FIXTURE_ITEM_REF,
                 "--execution-id",
                 "execution-1",
                 "--bundle-id",
@@ -120,7 +123,7 @@ def test_review_submit_cli_sends_complete_stdin_batch(capsys) -> None:
     assert code == 0
     assert json.loads(capsys.readouterr().out)["state"] == "passed"
     assert submit.call_args.kwargs["function_id"] == "qa.plan_review.submit"
-    assert submit.call_args.kwargs["target"].public_ref == "YOK-42"
+    assert submit.call_args.kwargs["target"].public_ref == _FIXTURE_ITEM_REF
     assert submit.call_args.kwargs["target"].item_id is None
     assert submit.call_args.kwargs["payload"]["verdicts"] == payload["verdicts"]
 
@@ -154,7 +157,7 @@ def test_review_submit_exits_zero_when_verdicts_persisted_on_needs_review(
         code = qa_plan_review_cli.run(
             [
                 "--item",
-                "YOK-42",
+                _FIXTURE_ITEM_REF,
                 "--execution-id",
                 "execution-1",
                 "--bundle-id",
@@ -168,7 +171,7 @@ def test_review_submit_exits_zero_when_verdicts_persisted_on_needs_review(
     assert code == 0
     assert json.loads(capsys.readouterr().out)["submission"] == "persisted"
     assert submit.call_args.kwargs["function_id"] == "qa.plan_review.submit"
-    assert submit.call_args.kwargs["target"].public_ref == "YOK-42"
+    assert submit.call_args.kwargs["target"].public_ref == _FIXTURE_ITEM_REF
     assert submit.call_args.kwargs["target"].item_id is None
     assert submit.call_args.kwargs["payload"]["verdicts"] == payload["verdicts"]
 

@@ -31,6 +31,7 @@ class TestRunQaGates:
 
     def test_unsatisfied_blocking_qa_blocks(self, dt_db):
         db_path, _ = dt_db
+        _insert_item(db_path, self.ITEM_ID)
         conn = connect_dt_db(db_path)
         conn.execute(
             "INSERT INTO deployment_runs (id, project_id, status, created_at) "
@@ -43,10 +44,11 @@ class TestRunQaGates:
         conn.commit()
         conn.close()
 
-        assert done_transition.check_run_qa_gates(f"ITEM-{self.ITEM_ID}", "r5") is True
+        assert done_transition.check_run_qa_gates(f"YOK-{self.ITEM_ID}", "r5") is True
 
     def test_all_passed_qa_passes(self, dt_db):
         db_path, _ = dt_db
+        _insert_item(db_path, self.ITEM_ID)
         conn = connect_dt_db(db_path)
         conn.execute(
             "INSERT INTO deployment_runs (id, project_id, status, created_at) "
@@ -59,10 +61,11 @@ class TestRunQaGates:
         conn.commit()
         conn.close()
 
-        assert done_transition.check_run_qa_gates(f"ITEM-{self.ITEM_ID}", "r6") is False
+        assert done_transition.check_run_qa_gates(f"YOK-{self.ITEM_ID}", "r6") is False
 
     def test_waived_qa_passes(self, dt_db):
         db_path, _ = dt_db
+        _insert_item(db_path, self.ITEM_ID)
         conn = connect_dt_db(db_path)
         conn.execute(
             "INSERT INTO deployment_runs (id, project_id, status, created_at) "
@@ -75,7 +78,7 @@ class TestRunQaGates:
         conn.commit()
         conn.close()
 
-        assert done_transition.check_run_qa_gates(f"ITEM-{self.ITEM_ID}", "r7") is False
+        assert done_transition.check_run_qa_gates(f"YOK-{self.ITEM_ID}", "r7") is False
 
 
 class TestEmptyBranchGuard:

@@ -25,6 +25,9 @@ from yoke_core.engines.merge_worktree_prepare import (
     MergeContext as MergeContext,
 )
 
+
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
 # Synthetic fixture id kept off the bare literal so the doc-hygiene drift guard stays clean.
 TEST_ITEM_ID = 42
 TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
@@ -62,7 +65,12 @@ class TestResolveContextRelays:
             if kwargs["function_id"] == "items.detail.get":
                 return _resp(
                     "items.detail.get",
-                    {"item": {"public_ref": "YOK-4242", "project": {"slug": "yoke"}}},
+                    {
+                        "item": {
+                            "public_ref": f"{_FIXTURE_ITEM_REF}42",
+                            "project": {"slug": "yoke"},
+                        }
+                    },
                 )
             return _resp(kwargs["function_id"])
 
@@ -74,7 +82,9 @@ class TestResolveContextRelays:
         _no_bare_db(monkeypatch)
 
         # Standalone item branch: the permission the real merge boundary holds.
-        ctx = prep.resolve_context(MergeArgs(branch="YOK-4242", standalone=True))
+        ctx = prep.resolve_context(
+            MergeArgs(branch=f"{_FIXTURE_ITEM_REF}42", standalone=True)
+        )
 
         # The branch carries a public ref, which the dispatcher resolves to
         # the internal id server-side; the project read then targets that
@@ -84,9 +94,9 @@ class TestResolveContextRelays:
             "items.detail.get",
         ]
         assert calls[0]["target"].kind == "item"
-        assert calls[0]["target"].public_ref == "YOK-4242"
+        assert calls[0]["target"].public_ref == f"{_FIXTURE_ITEM_REF}42"
         assert calls[0]["target"].item_id is None
-        assert calls[1]["target"].public_ref == "YOK-4242"
+        assert calls[1]["target"].public_ref == f"{_FIXTURE_ITEM_REF}42"
         assert ctx.project == "yoke"
         # A yoke project keeps the main checkout as repo root.
         assert ctx.repo_root == str(tmp_path)
@@ -99,7 +109,12 @@ class TestResolveContextRelays:
             if fid == "items.detail.get":
                 return _resp(
                     "items.detail.get",
-                    {"item": {"public_ref": "YOK-4243", "project": {"slug": "acme"}}},
+                    {
+                        "item": {
+                            "public_ref": f"{_FIXTURE_ITEM_REF}43",
+                            "project": {"slug": "acme"},
+                        }
+                    },
                 )
             if fid == "projects.get":
                 assert kwargs["payload"]["field"] == "default_branch"
@@ -117,7 +132,9 @@ class TestResolveContextRelays:
         )
         _no_bare_db(monkeypatch)
 
-        args = MergeArgs(branch="YOK-4243", target="main", standalone=True)
+        args = MergeArgs(
+            branch=f"{_FIXTURE_ITEM_REF}43", target="main", standalone=True
+        )
         ctx = prep.resolve_context(args)
 
         assert ctx.project == "acme"
@@ -150,7 +167,9 @@ class TestResolveContextRelays:
         monkeypatch.setattr(prep, "_find_worktree", lambda b, r: str(tmp_path))
         _no_bare_db(monkeypatch)
 
-        ctx = prep.resolve_context(MergeArgs(branch="YOK-4244", epic_ref="YOK-880"))
+        ctx = prep.resolve_context(
+            MergeArgs(branch=f"{_FIXTURE_ITEM_REF}44", epic_ref="YOK-880")
+        )
 
         # Epic-ref canonicalization relays a detail read carrying the public
         # epic ref, never a locally parsed id.

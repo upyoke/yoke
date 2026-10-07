@@ -27,6 +27,9 @@ from yoke_core.domain.github_app_dispatch_context import (
 from yoke_core.domain.project_github_auth_models import ProjectGithubState
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 def _state(api_url: str = "https://api.github.com") -> ProjectGithubState:
     return ProjectGithubState(
         project_slug="yoke",
@@ -92,12 +95,12 @@ def test_adapter_launches_authority_binding_child_without_secret_arguments(
 
     monkeypatch.setattr(merge_item.subprocess, "run", fake_run)
 
-    assert merge_item.merge_item(["YOK-42", "--skip-status"]) == 7
+    assert merge_item.merge_item([_FIXTURE_ITEM_REF, "--skip-status"]) == 7
     assert seen["command"] == [
         merge_item.sys.executable,
         "-m",
         "yoke_cli.commands.merge_item_local_runtime",
-        "YOK-42",
+        _FIXTURE_ITEM_REF,
         "--skip-status",
     ]
     assert seen["kwargs"] == {"check": False}
@@ -155,7 +158,7 @@ def test_https_child_binds_lazy_user_provider_for_entire_merge(
             result={
                 "holder": {
                     "target_kind": "item",
-                    "scope": {"public_ref": "YOK-42"},
+                    "scope": {"public_ref": _FIXTURE_ITEM_REF},
                     "session_id": "session-1",
                 }
             },
@@ -165,11 +168,11 @@ def test_https_child_binds_lazy_user_provider_for_entire_merge(
     monkeypatch.setattr(local_runtime, "call_dispatcher", claim_lookup)
 
     def child_main(argv):
-        assert argv == ["YOK-42", "--session-id", "session-1"]
+        assert argv == [_FIXTURE_ITEM_REF, "--session-id", "session-1"]
         assert os.environ.get(ENV_OVERRIDE) == "prod"
         from yoke_core.domain import standalone_item_merge_recovery as recovery
 
-        assert recovery.claim_error(42, "session-1") == ""
+        assert recovery.claim_error(_FIXTURE_ITEM_REF, "session-1") == ""
         endpoint = LOCAL_API_ENDPOINT.get()
         provider = LOCAL_USER_TOKEN_PROVIDER.get()
         assert endpoint is not None
@@ -188,7 +191,7 @@ def test_https_child_binds_lazy_user_provider_for_entire_merge(
 
     monkeypatch.setattr(local_runtime.importlib, "import_module", import_module)
 
-    assert local_runtime.run(["YOK-42", "--session-id", "session-1"]) == 19
+    assert local_runtime.run([_FIXTURE_ITEM_REF, "--session-id", "session-1"]) == 19
     assert claim_calls[0]["function_id"] == "claims.work.holder_get"
     assert token_calls == [
         {
@@ -237,8 +240,8 @@ def test_https_child_loads_engine_without_paired_admin(monkeypatch) -> None:
 
     monkeypatch.setattr(local_runtime.importlib, "import_module", import_module)
 
-    assert local_runtime.main(["YOK-42"]) == 0
-    assert loaded == ["YOK-42"]
+    assert local_runtime.main([_FIXTURE_ITEM_REF]) == 0
+    assert loaded == [_FIXTURE_ITEM_REF]
     assert os.environ.get(ENV_OVERRIDE) == "prod"
     assert "yoke_core.domain.close_out_control_plane_authority" in imported
     assert "yoke_core.domain.connected_env_readiness" not in imported

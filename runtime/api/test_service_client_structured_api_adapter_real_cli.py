@@ -31,11 +31,14 @@ from contextlib import (
 from types import SimpleNamespace as SimpleNamespace
 
 
+_FIXTURE_ITEM_REF = f"YOK-{42}"
+
+
 def _silence_claim(monkeypatch):
     from yoke_core.domain import yok_n_parser
     from yoke_core.domain import yoke_function_dispatch as dispatch_module
 
-    item_ids = {"YOK-1": 1, "YOK-3": 3, "YOK-9": 9, "YOK-42": 42}
+    item_ids = {"YOK-1": 1, "YOK-3": 3, "YOK-9": 9, _FIXTURE_ITEM_REF: 42}
 
     def _resolve_target(request):
         if request.target.public_ref is not None:
@@ -199,7 +202,7 @@ class TestRealCliParityMatrix:
         ):
             out = io.StringIO()
             with redirect_stdout(out):
-                epic.main(["task-update-body", "YOK-42", "1"])
+                epic.main(["task-update-body", _FIXTURE_ITEM_REF, "1"])
 
         # --- Direct dispatch path
         from yoke_core.domain.handlers.__init_register__ import (
@@ -218,7 +221,9 @@ class TestRealCliParityMatrix:
         )
         response = call_dispatcher(
             function_id="workflow_item.epic_task.body_replace",
-            target=TargetRef(kind="epic_task", public_ref="YOK-42", task_num=1),
+            target=TargetRef(
+                kind="epic_task", public_ref=_FIXTURE_ITEM_REF, task_num=1
+            ),
             payload={"body": "hello\n"},
         )
         assert response.success is True

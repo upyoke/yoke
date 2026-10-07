@@ -98,3 +98,18 @@ def test_schema_teaches_public_refs_and_retains_unrelated_ids():
     assert schema["properties"]["public_ref"]["type"] == "string"
     assert schema["properties"]["member_public_refs"]["items"]["type"] == "string"
     assert schema["properties"]["plan_id"]["type"] == "integer"
+
+
+@pytest.mark.parametrize("item", ["42", "invalid", True, -1])
+def test_engine_target_rejects_untyped_identity_before_reading(monkeypatch, item):
+    from yoke_core.domain import control_plane_transport
+    from yoke_core.domain.public_item_target import public_item_target
+
+    def unavailable(_connect):
+        raise AssertionError("invalid identity must not open a connection")
+
+    monkeypatch.setattr(
+        control_plane_transport, "local_connection_or_none", unavailable
+    )
+    with pytest.raises(ValueError, match="public_item_ref_required"):
+        public_item_target(item)

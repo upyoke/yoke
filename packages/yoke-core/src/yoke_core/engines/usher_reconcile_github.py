@@ -23,17 +23,11 @@ EXIT_OK, EXIT_ERROR, EXIT_RUNNING, EXIT_USAGE = 0, 1, 2, 3
 _FAILED_SUFFIX = "-failed"
 
 
-def _parse_item_argument(arg: str | int) -> int:
-    """Resolve an item ref to the internal ``items.id``.
-
-    ``PREFIX-N`` maps to the project's ``public_item_prefix`` +
-    ``items.project_sequence``; a bare number uses the mapped checkout project.
-    """
+def _parse_item_argument(arg: str) -> str:
+    """Retain a complete public item reference through client calls."""
     if arg is None or (isinstance(arg, str) and not arg.strip()):
         raise ValueError("missing item id")
-    from yoke_core.domain.yok_n_parser import parse_item_argument
-
-    return parse_item_argument(arg)
+    return str(public_item_target(arg).public_ref)
 
 
 def _resolve_run_for_item(item_id: int) -> str:
@@ -85,11 +79,9 @@ def _find_workflow_run(
     return "" if not run_id or run_id == "not_found" else run_id
 
 
-def _display_item_ref(item_id: int) -> str:
+def _display_item_ref(item_id: int | str) -> str:
     """Render a public item ref without making reconciliation depend on it."""
-    from yoke_core.domain.project_identity_item_ref import item_ref_for_id
-
-    return item_ref_for_id(int(item_id))
+    return str(public_item_target(item_id).public_ref)
 
 
 def reconcile_item(
