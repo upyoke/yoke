@@ -148,6 +148,14 @@ def test_project_structure_patch_still_requires_project_admin(
             },
         ),
         (
+            "github_actions.dispatch_tag.ensure",
+            {
+                "repo": "example-org/externalwebapp",
+                "tag": "yoke-deploy/run-20261007-001",
+                "sha": "a" * 40,
+            },
+        ),
+        (
             "github_actions.run.jobs_count",
             {
                 "repo": "example-org/externalwebapp",

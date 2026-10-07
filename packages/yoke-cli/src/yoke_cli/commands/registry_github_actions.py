@@ -18,6 +18,9 @@ from yoke_cli.commands.adapters.github_actions_workflow import (
 from yoke_cli.commands.adapters.github_actions_commit_runs import (
     github_actions_commit_runs,
 )
+from yoke_cli.commands.adapters.github_actions_dispatch_tag import (
+    github_actions_dispatch_tag_ensure,
+)
 from yoke_cli.commands.adapters.github_actions_failed_log import (
     github_actions_failed_log,
 )
@@ -43,6 +46,8 @@ GITHUB_ACTIONS_SUBCOMMAND_REGISTRY: Dict[
         ("github_actions.workflow.find_run", github_actions_find_run),
     ("github-actions", "run", "jobs-count"):
         ("github_actions.run.jobs_count", github_actions_jobs_count),
+    ("github-actions", "dispatch-tag", "ensure"):
+        ("github_actions.dispatch_tag.ensure", github_actions_dispatch_tag_ensure),
     ("github-actions", "wait-run"):
         ("github_actions.wait_run", _adapters.github_actions_wait_run),
     ("github-actions", "runners", "status"):

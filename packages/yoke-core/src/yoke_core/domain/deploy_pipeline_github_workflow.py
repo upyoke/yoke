@@ -37,6 +37,7 @@ from yoke_core.domain.deploy_pipeline_github_workflow_inputs import (
 )
 from yoke_core.domain.deploy_pipeline_bound_inputs import bound_inputs_for_dispatch
 from yoke_core.domain.deploy_pipeline_events import emit_run_event as _emit_run_event
+from yoke_core.domain.deploy_pipeline_release_commit_ref import dispatch_ref
 from yoke_core.domain.deploy_pipeline_reporting import (
     _github_actions,
     _poll_github_actions,
@@ -99,12 +100,6 @@ def _dispatch_github_actions_workflow(
             "using one-shot dispatch without durable response-loss recovery"
         )
     raw_workflow_inputs = _workflow_inputs(config)
-    # The ref names which branch of the DEPLOY repo (github_repo) to run the
-    # workflow file from, not a product branch — a split deploy/product repo
-    # has no gate_branch on the deploy side, so the workflow ref defaults to
-    # the deploy repo's own default branch instead. gate_branch stays the
-    # separate source-sha/CI-gate branch (a product concept) used below.
-    workflow_ref = str(config.get("ref", "") or "main")
     default_timeout_min = (
         max(timeout_min, CORRELATED_WORKFLOW_TIMEOUT_MIN)
         if correlation_input
@@ -164,6 +159,13 @@ def _dispatch_github_actions_workflow(
     resolved_bindings, diagnostic = bound_inputs_for_dispatch(
         config, name=name, run_id=run_id, bound_inputs=bound_inputs
     )
+    workflow_ref = ""
+    if not diagnostic:  # Where in the DEPLOY repo the workflow file runs from.
+        workflow_ref, diagnostic = dispatch_ref(
+            config, name=name, run_id=run_id, github_repo=github_repo,
+            head_sha=head_sha, project=project, sd=sd,
+            github_actions=_github_actions,
+        )
     if diagnostic:
         print(f"Error: {diagnostic}", file=sys.stderr)
         return 1, diagnostic

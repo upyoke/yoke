@@ -21,6 +21,10 @@ from yoke_core.domain.deployment_flow_policy import (
 
 WORKFLOW_STEP_RUNNER = "github-actions-workflow"
 
+#: A github-actions-workflow stage key: dispatch at the run's tag on its
+#: release commit instead of at a branch (see deploy_pipeline_release_commit_ref).
+RUN_FROM_RELEASE_COMMIT = "run_from_release_commit"
+
 VALID_STEP_RUNNERS = frozenset(
     {
         "auto",
@@ -52,6 +56,7 @@ WORKFLOW_STAGE_RUNNER_FIELDS = (
     "inputs",
     "wait_for_ci",
     "dispatch_correlation_input",
+    RUN_FROM_RELEASE_COMMIT,
 )
 
 NESTED_STAGE_CONFIG = (
@@ -130,6 +135,22 @@ def require_top_level_runner_fields(stages_json: str) -> None:
             )
 
 
+def _validate_run_from_release_commit(index: int, stage: dict[str, Any]) -> None:
+    if RUN_FROM_RELEASE_COMMIT not in stage:
+        return
+    field = f'stage {index} field "{RUN_FROM_RELEASE_COMMIT}"'
+    if stage["step_runner"] != WORKFLOW_STEP_RUNNER:
+        raise ValueError(f'{field} applies only to step_runner "{WORKFLOW_STEP_RUNNER}"')
+    if not isinstance(stage[RUN_FROM_RELEASE_COMMIT], bool):
+        raise ValueError(f"{field} must be a boolean")
+    if stage[RUN_FROM_RELEASE_COMMIT] and "ref" in stage:
+        raise ValueError(
+            f'{field} dispatches at the run\'s yoke-deploy/<run-id> tag on its '
+            'release commit, so the stage\'s "ref" would never be used; '
+            'remove "ref" from the stage'
+        )
+
+
 def validate_stages(stages_json: str) -> None:
     """Validate stages JSON.
 
@@ -170,6 +191,7 @@ def validate_stages(stages_json: str) -> None:
                 )
             if not isinstance(stage["wait_for_ci"], bool):
                 raise ValueError(f'stage {i} field "wait_for_ci" must be a boolean')
+        _validate_run_from_release_commit(i, stage)
         if "approvals" in stage:
             parse_stage_approvals(
                 stage["approvals"],

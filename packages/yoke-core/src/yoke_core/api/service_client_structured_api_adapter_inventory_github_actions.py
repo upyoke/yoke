@@ -139,6 +139,17 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
         notes="Audited post-window repo-secret retirement through bound GitHub App authority.",
     ),
     AdapterEntry(
+        function_id="github_actions.dispatch_tag.ensure",
+        cli_invocation=(
+            "yoke github-actions dispatch-tag ensure <owner/repo> "
+            "<yoke-deploy/run-id> <commit-sha> --project <project>"
+        ),
+        notes=(
+            "Create-only lightweight dispatch tag for a stage declaring "
+            "run_from_release_commit; refuses a conflicting existing tag."
+        ),
+    ),
+    AdapterEntry(
         function_id="github_actions.variable.get",
         cli_invocation=(
             "yoke github-actions variable get <owner/repo> <variable-name> "
