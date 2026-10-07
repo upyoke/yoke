@@ -1,16 +1,11 @@
 """migration_audit table DDL + idempotent bootstrap helper.
 
-Yoke's governed migration apply contract writes audit rows to the
-model's authoritative DB. For
-Yoke-as-project the authoritative DB and the control plane DB
-coincide, so `schema_init_tables.create_governed_tables` covers the
-table at control-plane init. Project-configured recipes and runners let
-webapp projects declare their own authoritative DB; that webapp
-authoritative DB also needs `migration_audit` bootstrapped. This module is that
-bootstrap — called from `migration_apply_rehearse._rehearse_inner`
-after the audit
-connection opens, and reused by `create_governed_tables` so the DDL
-has one source of truth.
+``migration_audit`` holds two kinds of row. Rehearsal receipts live on the
+control plane that holds the item
+(:mod:`yoke_core.domain.migration_rehearsal_evidence` bootstraps the table
+there before the first receipt). Boot-apply rows live on the database being
+converged, beside its ledger. `schema_init_tables.create_governed_tables`
+reuses this DDL at control-plane init, so the table has one source of truth.
 """
 
 from __future__ import annotations

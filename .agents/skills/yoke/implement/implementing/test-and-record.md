@@ -168,9 +168,9 @@ The agent covers all file types in test directories — `*.ts`, `*.tsx`, `*.js`,
 
 ---
 
-## a4. DB Mutation Evidence — authoritative-DB apply for exception-pathway modules
+## a4. DB Mutation Evidence — rehearsal receipts on the item's control plane
 
-If the item declares `mutation_intent="apply"` with one or more entries in `migration_modules` (see the `db_mutation_profile` JSON-nested-field schema in your packet), the `check_implementing_to_reviewing_implementation_gate` requires a completed migration-audit row keyed on each module name **on the model's authoritative DB**, not the worktree's validation surface. The authoritative DB is declared by the project's `migration_model` capability; for Yoke's `primary` model it is the connected Postgres authority.
+If the item declares `mutation_intent="apply"` with one or more entries in `migration_modules` (see the `db_mutation_profile` JSON-nested-field schema in your packet), the `check_implementing_to_reviewing_implementation_gate` requires each module in the ordered history of the item's own lane and a passing rehearsal receipt for it **in `migration_audit` on the control plane that holds the item** — not on the model's authoritative DB and not on the worktree's validation surface. `yoke migration rehearse` writes exactly that receipt, for every project's models alike.
 
 **Governed-runner modules** (runner kind = `governed_migration_module`):
 

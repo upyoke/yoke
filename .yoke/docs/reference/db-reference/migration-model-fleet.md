@@ -41,7 +41,13 @@ the project's `migration_model` does not declare: an undeclared fleet and an
 empty one are different facts. Create the document with
 `yoke projects capability-settings set --project P --cap-type migration_fleet
 --new --settings-json '{"models": {...}}'`; change one model with
-`capability-settings merge --set models.<model>=<fleet JSON>`.
+`capability-settings merge --set models.<model>=<fleet JSON>`. Writing the
+capability takes project-admin authority (`projects.capability_settings.set` /
+`merge`), because a `named_databases` fleet names commands the release
+machinery runs on an operator's machine. Those commands receive a minimal
+environment — locale, home, temp, certificate paths, the project's `UV_*`
+settings, the copy's DSN, and its restore point — never the operator's
+credentials, and their failure output has the copy's DSN and password removed.
 
 The admin cluster is the environment's `release.admin_connection` setting on
 the project's own environment. A `named_databases` fleet runs from the
@@ -60,14 +66,16 @@ yoke watch preflight -- --project P [--model M] [--checkout PATH] \
 
 `--model` defaults to the capability's `default_model`. `--checkout` names the
 checkout a `named_databases` fleet converges from (default: the project's
-checkout registered on this machine); the release gate passes the repository
-it read the release commit from. The live databases are
+checkout registered on this machine). The live databases are
 only read: each is dumped, restored into the local embedded cluster, converged,
 verified, and dropped. A passing run with `--record-receipt` writes the
 covered history entry names and the schema-shape digest onto that project
-environment's own settings document under `release.fleet_rehearsal`, on the
-prod release-gate control plane. Coverage is the union of passing runs and
-never ages out; one environment's receipt never satisfies another.
+environment's own settings document under `release.fleet_rehearsal.<model>`,
+on the prod release-gate control plane. Coverage is the union of passing runs
+and never ages out; one environment's receipt never satisfies another, and one
+model's never covers a sibling model that shares an entry name. A receipt
+claims the whole declared fleet, so naming databases is a diagnostic run and
+`--record-receipt` refuses it.
 
 ## Release gate
 
@@ -76,9 +84,15 @@ declares a `migration_model`, it reads every model's fleet. A `none` fleet is
 skipped with its reason printed. An undeclared fleet refuses the dispatch with
 the declaration recipe. Otherwise the gate reads the release commit's history
 entries (from the model's `runner.config.modules_dir`) and schema-shape digest,
-and when the target environment's receipts do not cover both it runs the
-preflight for that model before dispatching, then re-reads coverage and
-refuses if the receipt still falls short.
+and when the target environment's receipts do not cover both it rehearses
+exactly the release commit's code before dispatching: a `named_databases` fleet
+converges from a disposable checkout of that commit, and an `engine_tenants`
+fleet rehearses only after the dispatching engine's history bytes and schema
+shape are proven identical to the commit's (otherwise it refuses and names the
+release-driver recovery). It then re-reads coverage and refuses if the receipt
+still falls short. The Yoke release workflow's pre-tag check,
+`require_fleet_migration_preflight --project P <environment>`, reads the same
+declarations and model-scoped receipts from a checkout of the release commit.
 
 ## Item rehearsal is a different receipt
 
