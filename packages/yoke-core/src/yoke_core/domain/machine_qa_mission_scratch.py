@@ -3,11 +3,13 @@
 Mission preparation creates one owner-only directory for the lease and the
 mission teardown removes it, so a secret a walker must hand to a command
 through a file never outlives the walk as a loose file under ``/tmp``.
+Preparation also claims the host's test-project owner marker, which the
+teardown clears after retiring the projects that owner created.
 """
 
 from __future__ import annotations
 
-from typing import Any, Protocol, Sequence
+from typing import Any, Callable, Protocol, Sequence
 import json
 from pathlib import Path
 from yoke_contracts.qa_project_ownership import OWNER_FILE, OWNER_CAPABILITY
@@ -36,6 +38,11 @@ class MissionScratchHostControl(Protocol):
     ) -> Any: ...
 
 
+# Answers {"state": ..., "terminal": bool} for an execution id, from the
+# control plane that issued this mission's lease.
+OwnerStateLookup = Callable[[str], dict[str, Any]]
+
+
 class MissionScratchUnavailableError(RuntimeError):
     """Refusal naming the scratch path, the failure, and the recovery."""
 
@@ -48,9 +55,16 @@ def create_mission_scratch(
     control: MissionScratchHostControl,
     *,
     execution_id: str,
+    continues_execution_id: str | None = None,
+    owner_state: OwnerStateLookup | None = None,
     timeout_seconds: int = 60,
-) -> str:
-    """Create the lease's owner-only staging directory and return its path."""
+) -> dict[str, Any]:
+    """Create the lease's staging directory and claim the host's owner marker.
+
+    A marker left by another execution is replaced only once ``owner_state``
+    confirms that execution is terminal in the control plane, after the same
+    teardown ``yoke qa mission scratch-teardown`` performs for it.
+    """
     path = mission_scratch_path(execution_id)
     for argv in (
         mission_scratch_create_argv(path),
@@ -68,24 +82,109 @@ def create_mission_scratch(
                 "to the scratch root on the host, or free that path, then "
                 "re-run the mission."
             )
-    script = (
-        "import json,sys; from pathlib import Path; "
-        f"p=Path.home()/'.yoke'/{OWNER_FILE!r}; "
-        "p.parent.mkdir(parents=True,exist_ok=True); "
-        "previous=json.loads(p.read_text()) if p.exists() else {}; "
-        "assert not previous or previous.get('owner')==sys.argv[1], 'qa_project_owner_conflict'; "
-        "p.write_text(json.dumps({'owner':sys.argv[1]})); p.chmod(0o600)"
+    previous = None
+    completed = _claim_owner_marker(
+        control, execution_id, continues_execution_id, timeout_seconds
     )
-    completed = control.run_command(
-        ["python3", "-c", script, execution_id], timeout=timeout_seconds
-    )
+    if int(completed.returncode) == _OWNER_CONFLICT_EXIT:
+        previous = _replace_finished_owner(
+            control,
+            owner=json.loads(completed.stdout)["conflict"],
+            owner_state=owner_state,
+            timeout_seconds=timeout_seconds,
+        )
+        completed = _claim_owner_marker(
+            control, execution_id, continues_execution_id, timeout_seconds
+        )
     if int(completed.returncode) != 0:
         raise MissionScratchUnavailableError(
             "qa_project_owner_unavailable: could not mark this leased host's test "
             "projects; resolve the existing case owner or host write access and "
             "re-prepare the mission. " + _evidence(completed)
         )
-    return path
+    claimed = json.loads(completed.stdout)
+    return {
+        "scratch_path": path,
+        "owner_marker": {
+            "owner": execution_id,
+            "previous_owner": claimed["previous_owner"],
+            "inherited_owners": claimed["inherited_owners"],
+            "replaced_finished_owner": previous,
+        },
+    }
+
+
+# Exit status the host script uses for "another execution owns this host".
+_OWNER_CONFLICT_EXIT = 3
+
+# Runs on the leased host: claim the owner marker for argv[1]. A marker held
+# by the continued execution (argv[2]) is inherited, so its projects retire
+# with this mission; any other owner refuses with _OWNER_CONFLICT_EXIT.
+_CLAIM_OWNER_SCRIPT = (
+    "import json,sys; from pathlib import Path; "
+    f"p=Path.home()/'.yoke'/{OWNER_FILE!r}; "
+    "p.parent.mkdir(parents=True,exist_ok=True); "
+    "previous=json.loads(p.read_text()) if p.exists() else {}; "
+    "owner=previous.get('owner'); "
+    "inherited=list(previous.get('inherited_owners') or []); "
+    "conflict=owner and owner!=sys.argv[1] and owner not in sys.argv[2:]; "
+    "conflict and (print(json.dumps({'conflict':owner})), sys.exit(3)); "
+    "inherited+=[owner] if owner and owner!=sys.argv[1] else []; "
+    "p.write_text(json.dumps({'owner':sys.argv[1],'inherited_owners':inherited})); "
+    "p.chmod(0o600); "
+    "print(json.dumps({'previous_owner':owner,'inherited_owners':inherited}))"
+)
+
+
+def _claim_owner_marker(
+    control: MissionScratchHostControl,
+    execution_id: str,
+    continues_execution_id: str | None,
+    timeout_seconds: int,
+) -> Any:
+    argv = ["python3", "-c", _CLAIM_OWNER_SCRIPT, execution_id]
+    if continues_execution_id:
+        argv.append(continues_execution_id)
+    return control.run_command(argv, timeout=timeout_seconds)
+
+
+def _replace_finished_owner(
+    control: MissionScratchHostControl,
+    *,
+    owner: str,
+    owner_state: OwnerStateLookup | None,
+    timeout_seconds: int,
+) -> dict[str, Any]:
+    """Tear down a terminal execution's leftovers; refuse a live owner."""
+    if owner_state is None:
+        raise MissionScratchUnavailableError(
+            f"qa_project_owner_conflict: execution {owner} still marks this "
+            "leased host's test projects and this caller cannot ask the "
+            "control plane whether it finished; run the mission through "
+            "`yoke qa plan run` so preparation can confirm the owner is "
+            "terminal before replacing its marker."
+        )
+    state = owner_state(owner)
+    if not state.get("terminal"):
+        raise MissionScratchUnavailableError(
+            f"qa_project_owner_conflict: execution {owner} owns this leased "
+            f"host's test projects and is {state.get('state') or 'unknown'} in "
+            "the control plane; use its lease and do not remove its ownership "
+            "marker. Wait for that execution to finish, or abort it, then "
+            "re-run this mission."
+        )
+    teardown = remove_mission_scratch(
+        control, execution_id=owner, timeout_seconds=timeout_seconds
+    )
+    if not teardown["project_cleanup_ok"] or not teardown["removed"]:
+        raise MissionScratchUnavailableError(
+            f"qa_project_owner_replacement_failed: execution {owner} is "
+            f"{state['state']} but its leftovers on this host did not tear "
+            f"down ({teardown['project_cleanup']}; scratch removed="
+            f"{teardown['removed']}). Resolve the named blocker on the host, "
+            "then re-run this mission."
+        )
+    return {"execution_id": owner, "state": state["state"], "teardown": teardown}
 
 
 def remove_mission_scratch(
@@ -131,6 +230,7 @@ def remove_mission_scratch(
 __all__ = [
     "MissionScratchHostControl",
     "MissionScratchUnavailableError",
+    "OwnerStateLookup",
     "create_mission_scratch",
     "remove_mission_scratch",
 ]

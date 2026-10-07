@@ -34,7 +34,9 @@ def mission(monkeypatch):
     monkeypatch.setattr(local, "_mission_contract", lambda raw: contract)
     monkeypatch.setattr(local, "_execution", lambda *args, **kwargs: execution)
     monkeypatch.setattr(
-        local, "create_mission_scratch", lambda *args, **kwargs: "/tmp/scratch"
+        local,
+        "create_mission_scratch",
+        lambda *args, **kwargs: {"scratch_path": "/tmp/scratch", "owner_marker": {}},
     )
     monkeypatch.setattr(
         qa_host_package_fixture, "restore_host_packages", lambda *args, **kwargs: {}

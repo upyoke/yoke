@@ -43,7 +43,7 @@ def prepare_mission(
     contract: Any,
     *,
     execution_factory: Callable[..., Any],
-    scratch_factory: Callable[..., str],
+    scratch_factory: Callable[..., dict[str, Any]],
     progress_callback: Callable[[], None] | None = None,
 ) -> dict[str, Any]:
     """Return a submittable result even when local host preparation fails."""
@@ -107,10 +107,14 @@ def prepare_mission(
         else:
             preparation["evidence"]["os_packages"] = {}
         phase = "mission_scratch"
-        preparation["scratch_path"] = scratch_factory(
-            execution.control, execution_id=str(contract.plan_execution_id)
+        scratch = scratch_factory(
+            execution.control,
+            execution_id=str(contract.plan_execution_id),
+            continues_execution_id=contract.continues_execution_id,
         )
+        preparation["scratch_path"] = scratch["scratch_path"]
         preparation["evidence"]["scratch_created"] = True
+        preparation["evidence"]["owner_marker"] = scratch["owner_marker"]
     except Exception as error:
         failure = _failure(error, phase, secrets)
         preparation.update(ok=False, error_code=failure["error_code"])

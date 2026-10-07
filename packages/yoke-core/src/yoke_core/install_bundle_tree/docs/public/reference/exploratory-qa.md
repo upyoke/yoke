@@ -98,9 +98,7 @@ Choose the executor per case:
 Run the attached plan at its transition:
 
 ```text
-yoke qa plan run \
-  --item PREFIX-N \
-  --transition <transition> \
+yoke qa plan run --item PREFIX-N --transition <transition> \
   --machine <registered-name>
 ```
 
@@ -192,11 +190,8 @@ declares a baseline, because that resets the host.
 The review dispatch supplies an exact host command template:
 
 ```text
-yoke --env <connection> qa mission host-command \
-  --item-id <id> \
-  --execution-id <execution-id> \
-  --requirement-id <requirement-id> \
-  -- ARGV...
+yoke --env <connection> qa mission host-command --item-id <id> \
+  --execution-id <execution-id> --requirement-id <requirement-id> -- ARGV...
 ```
 
 This command revalidates subject ownership, the parked execution, immutable
@@ -212,10 +207,8 @@ Preparation creates it `0700` before the walker is dispatched, and the walker
 dispatch carries both its exact path and the teardown command:
 
 ```text
-yoke --env <connection> qa mission scratch-teardown \
-  --item-id <id> \
-  --execution-id <execution-id> \
-  --requirement-id <requirement-id>
+yoke --env <connection> qa mission scratch-teardown --item-id <id> \
+  --execution-id <execution-id> --requirement-id <requirement-id>
 ```
 
 Where the product reads a secret on stdin, pipe it and touch no disk at all.
@@ -223,10 +216,18 @@ Otherwise every file carrying a token or password is staged inside that
 directory and nowhere else — never a loose path under `/tmp`, which is how a
 first-boot admin token once outlived its walk on a shared machine. The walker
 runs the teardown before returning and states the scratch path and its
-confirmed removal in the report; the command removes the directory, proves it
-is gone, and exits non-zero with `mission_scratch_not_removed` when it is not.
-A walker returning while its scratch still exists is a finding against its own
-walk.
+confirmed removal; the command retires the test projects the mission created,
+clears the host's `~/.yoke/qa-project-owner.json` owner marker, removes the
+directory, and exits non-zero with `mission_scratch_not_removed` when it
+survives. A walker returning while its scratch still exists is a finding
+against its own walk. `yoke qa plan review-submit` repeats that teardown for
+every live mission before the verdict finishes the execution and releases the
+lease, and prints `mission_teardown_incomplete` with the recovery when it
+cannot. Preparation replaces a marker whose owner the control plane reports
+finished (`test_machine.mission.owner_state`) after the same teardown, and
+records it as `owner_marker.replaced_finished_owner` in the preparation
+evidence; a live or unknown owner still refuses `qa_project_owner_conflict`,
+and a continued walk inherits its predecessor's marker and projects.
 
 On macOS, append `--gui-session` when a command needs the login keychain or
 window server. Three apparently different failures share one diagnosis:

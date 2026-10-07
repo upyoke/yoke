@@ -67,6 +67,61 @@ def _help_epilogue() -> str:
     )
 
 
+def _tear_down_mission(
+    target: TargetRef,
+    actor: Any,
+    *,
+    execution_id: str,
+    requirement_id: Any,
+) -> None:
+    """Clear a mission's host leftovers while its lease is still held.
+
+    The verdict makes the execution terminal and releases the lease, after
+    which nothing may touch the host for it. A case with no live mission
+    lease (a deterministic case, or one already settled) has nothing here.
+    """
+    if not isinstance(requirement_id, int):
+        return
+    from yoke_core.domain.qa_composed_dispatch import call_qa_function
+
+    access = call_qa_function(
+        function_id="test_machine.mission.access",
+        target=target,
+        payload={"execution_id": execution_id, "requirement_id": requirement_id},
+        actor=actor,
+    )
+    contract = (access.result or {}).get("execution") if access.success else None
+    if not isinstance(contract, dict):
+        return
+    try:
+        from yoke_core.domain.machine_qa_host_control import (
+            register_test_machine_host_control,
+        )
+        from yoke_core.domain.machine_qa_local_execution import (
+            execute_agent_mission_scratch_teardown,
+        )
+
+        register_test_machine_host_control()
+        teardown = execute_agent_mission_scratch_teardown(contract)
+        failure = (
+            None
+            if teardown["removed"] and teardown["project_cleanup_ok"]
+            else f"{teardown['project_cleanup']}; scratch removed={teardown['removed']}"
+        )
+    except Exception as exc:
+        failure = f"{type(exc).__name__}: {exc}"
+    if failure is not None:
+        print(
+            "yoke qa plan review-submit: mission_teardown_incomplete: "
+            f"requirement {requirement_id} left host state behind ({failure}). "
+            "The next mission on this host tears it down once the control "
+            "plane confirms this execution finished; to clear it now, resolve "
+            "the named blocker and run `yoke qa mission scratch-teardown` "
+            "before submitting.",
+            file=sys.stderr,
+        )
+
+
 def run(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa plan review-submit",
@@ -101,6 +156,14 @@ def run(args: List[str]) -> int:
     )
     from yoke_core.api.service_client_structured_api_adapter import build_actor
 
+    actor = build_actor(session_id=parsed.session_id)
+    for verdict in submission.get("verdicts") or ():
+        _tear_down_mission(
+            target,
+            actor,
+            execution_id=parsed.execution_id,
+            requirement_id=verdict.get("requirement_id"),
+        )
     try:
         result = _call_plan_function(
             function_id="qa.plan_review.submit",
@@ -111,7 +174,7 @@ def run(args: List[str]) -> int:
                 "bundle_digest": parsed.bundle_digest,
                 **submission,
             },
-            actor=build_actor(session_id=parsed.session_id),
+            actor=actor,
         )
     except QaPlanExecutionError as exc:
         print(f"yoke qa plan review-submit: {exc}", file=sys.stderr)

@@ -75,8 +75,10 @@ def test_scratch_path_refuses_an_identity_it_cannot_make_safe(
 
 def test_creation_makes_the_directory_owner_only() -> None:
     control = FakeHostControl()
-    path = create_mission_scratch(control, execution_id=EXECUTION_ID)
+    scratch = create_mission_scratch(control, execution_id=EXECUTION_ID)
+    path = scratch["scratch_path"]
     assert path == mission_scratch_path(EXECUTION_ID)
+    assert scratch["owner_marker"]["previous_owner"] is None
     assert control.commands[:2] == [
         ["/bin/mkdir", "-p", "-m", "700", path],
         ["/bin/chmod", "700", path],
@@ -98,7 +100,7 @@ def test_creation_refuses_and_names_the_recovery_when_the_host_cannot() -> None:
 
 def test_teardown_removes_the_scratch_and_everything_staged_inside() -> None:
     control = FakeHostControl()
-    path = create_mission_scratch(control, execution_id=EXECUTION_ID)
+    path = create_mission_scratch(control, execution_id=EXECUTION_ID)["scratch_path"]
     control.existing_paths.add(f"{path}/first-boot-admin-token")
 
     result = remove_mission_scratch(control, execution_id=EXECUTION_ID)
@@ -119,7 +121,7 @@ def test_teardown_removes_the_scratch_and_everything_staged_inside() -> None:
 
 def test_teardown_reports_a_scratch_that_survived_removal() -> None:
     control = _RefusingHostControl(refuse_prefix=["/bin/rm"])
-    path = create_mission_scratch(control, execution_id=EXECUTION_ID)
+    path = create_mission_scratch(control, execution_id=EXECUTION_ID)["scratch_path"]
 
     result = remove_mission_scratch(control, execution_id=EXECUTION_ID)
 
