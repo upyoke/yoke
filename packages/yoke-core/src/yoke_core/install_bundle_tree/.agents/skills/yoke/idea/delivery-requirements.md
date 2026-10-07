@@ -18,12 +18,14 @@ Skip when the request is ordinary implementation work with no delivery
 evidence. Pre-merge branch previews stay workflow review/QA; they are not
 this path.
 
-## Keep the two QA families apart
+## Choose where the case runs
 
-| Request | `--qa-phase` | `--target-env` | Do not |
-|---|---|---|---|
-| Pre-merge preview / implementation check | `verification` | omit, or the pre-merge target | treat it as release proof |
-| Deployed merged candidate (stage / prod / release preview) | `post_deploy` | the requested environment name | run it before that target exists; move an existing verification row into release |
+[Where a Browser case runs](../../../../.yoke/docs/reference/browser-scenarios.md#where-a-browser-case-runs)
+selects the phase, target, and transition for a screenshot request from where
+the change becomes visible, and names the approval that replaces a Browser
+case when no server serves the change. A `post_deploy` case is release proof
+for the environment it names; a pre-merge `verification` case proves the
+candidate server it ran against.
 
 A screenshot request specializes the case. It does not clone a flow when
 the selected flow's sequence and verdict already fit. `--requirement-source
@@ -73,11 +75,17 @@ a single item succeed. Those are shared.
 
 ## Persist the item-specific case
 
-Dash's QA policy is optional item attachment. A screenshot Dash must select
-the method before `qa.requirement.add` will accept the row:
+Dash's QA policy is optional item attachment. Select the Dash posture the
+placement section chose. A Browser case needs the method selected before
+`qa.requirement.add` will accept the row:
 
 - at file time: `yoke dash "TITLE" "INSTRUCTION" --execution-instructions-considered --verification-method browser-inspection`
 - afterwards: `yoke workflows item-posture amend PREFIX-N --verification-method browser-inspection --reason "intake screenshot request"`
+
+A change no server serves takes the approval instead:
+
+- at file time: `yoke dash "TITLE" "INSTRUCTION" --execution-instructions-considered --approval-on-done`
+- afterwards: `yoke workflows item-posture amend PREFIX-N --key approval_on_done --value true --reason "operator signs off on an unserved change"`
 
 Issue / Epic / Blitz already carry a `qa_verification` gate; do not invent a
 Dash-style posture there.
@@ -127,8 +135,8 @@ yoke qa requirement add --item PREFIX-N \
 ```
 
 Non-visual deployed evidence uses `--method-id command` with the same
-`post_deploy` + `--target-env`. Pre-merge visual checks use `--qa-phase
-verification` and omit `--target-env` unless a pre-merge target was named.
+`post_deploy` + `--target-env`. A pre-merge visual check takes the
+`verification` form the placement section names.
 
 Read back `yoke qa requirement list --item PREFIX-N --json` and confirm
 `qa_phase`, `target_env`, and instructions survived. Intake persists the
@@ -137,8 +145,8 @@ deployment run.
 
 ## Approval is a flow verdict, not a QA add-on
 
-An evidence-only request does **not** add approval, `--approval-on-done`,
-or a human reviewer.
+An evidence request answered by a Browser case does **not** add approval,
+`--approval-on-done`, or a human reviewer.
 
 "Have me approve it" requires `verdict.mode=required_human` on the
 **item-scoped QA stage** (`scope: item`) whose `target` is the deployed

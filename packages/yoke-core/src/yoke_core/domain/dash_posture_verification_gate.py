@@ -126,8 +126,8 @@ def verification_gate(
     pre_merge = target_status == ITEM_POSTURE_VERIFICATION_TRANSITION
     phase_sql = "AND r.qa_phase = 'verification' " if pre_merge else ""
     # Pre-merge stays on the review transition. At done, keep those review
-    # rows (YOK-3182 post_deploy-on-review intake) and also consume
-    # post-merge phases bound to release or done.
+    # rows (post_deploy-on-review intake) and also consume post-merge phases
+    # bound to release or done.
     transition_sql = (
         f"AND r.workflow_transition_id = {marker} "
         if pre_merge
@@ -163,14 +163,18 @@ def verification_gate(
         scored.append(item)
     rows = scored
     if not rows:
+        # A change visible only once deployed selects a post_deploy case bound
+        # to the release stage. It binds the posture here and is consumed at
+        # done by the completion run's admitted copy, like any post_deploy row.
         if (
             pre_merge
             and conn.execute(
                 "SELECT 1 FROM qa_requirements r "
                 f"WHERE r.item_id = {marker} AND {selector} "
                 "AND r.blocking_mode = 'blocking' "
-                f"AND r.workflow_transition_id = {marker} "
-                "AND r.qa_phase <> 'verification' LIMIT 1",
+                f"AND ((r.workflow_transition_id = {marker} "
+                "AND r.qa_phase <> 'verification') "
+                "OR r.qa_phase = 'post_deploy') LIMIT 1",
                 params,
             ).fetchone()
         ):
@@ -178,7 +182,10 @@ def verification_gate(
         return _failure(
             "GATE_DASH_VERIFICATION_REQUIRED",
             "The selected Dash verification is not bound to a blocking QA case.",
-            "Author or materialize the selected case for the review transition.",
+            "Author or materialize the selected case where the Browser "
+            "placement reference puts it: a verification case on the review "
+            "transition, or a post_deploy case with --target-env bound to the "
+            "release stage.",
         )
     unsatisfied_rows = [
         row

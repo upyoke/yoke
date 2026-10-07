@@ -12,6 +12,19 @@ Use:
 Items do not carry a second browser-testability classification. A Browser case
 exists only when a plan attachment or explicit requirement declares it.
 
+## Where a Browser case runs
+
+A Browser case runs where the change becomes visible, against a server whose
+own `/served-build` reports the commit the capture shows (see
+[Proving which candidate the evidence shows](#proving-which-candidate-the-evidence-shows)).
+Every surface that authors a Browser case chooses its phase here:
+
+| Where the change becomes visible | The case to author |
+|---|---|
+| A deployed environment (stage, production) | A `post_deploy` case with `--target-env ENV`, bound to the release stage. The deployed server's own `/served-build` proves the commit. |
+| Also a server the project runs from its unmerged candidate, reporting that commit at `/served-build` | A pre-merge `verification` case against that server is also available, bound to the review stage. |
+| Nowhere — a prototype, design document, or other change no server serves | No Browser case. Select the `approval_on_done` posture (`--approval-on-done` at file time, or `yoke workflows item-posture amend PREFIX-N --key approval_on_done --value true --reason "..."`) so the operator signs off before the item closes. |
+
 ## Method configuration
 
 `method_config` must be a JSON object with a non-empty `steps` array. An
@@ -209,7 +222,9 @@ yoke qa item-plan attach \
   --transition reviewing-implementation
 ```
 
-For a one-off check, add an explicit method-backed requirement:
+For a one-off check, add an explicit method-backed requirement in the phase
+[Where a Browser case runs](#where-a-browser-case-runs) selects. A pre-merge
+case against a candidate server:
 
 ```bash
 yoke qa requirement add \
@@ -300,48 +315,5 @@ baseline when the host packet has no build identity.
 
 ## Evidence and gates
 
-Read captured evidence with the command the capture already reported under
-`artifact_reads`:
-
-```bash
-yoke qa artifact read \
-  --requirement-id <requirement-id> \
-  --artifact-id <artifact-id>
-```
-
-It lands the bytes under this machine's temp root and reports that path as
-`path`. The printed result omits the presigned download URL. Open that path,
-not the capture's own `artifacts` scratch paths. Add `--output PATH` to choose
-the destination yourself.
-
-A full-page capture of a long screen is one very tall image, and a viewer
-that scales it to fit makes every label in it unreadable. Read the part being
-judged instead:
-
-```bash
-yoke qa artifact read \
-  --requirement-id <requirement-id> \
-  --artifact-id <artifact-id> \
-  --region 0,900,1440,600 \
-  --scale 1.5
-```
-
-`--region x,y,w,h` is a pixel rectangle measured from the top-left of the
-capture; `--scale` multiplies the rendered size and applies after the region,
-so one panel can be enlarged to read its small text. The stored artifact is
-never modified — a view is a way of reading evidence — and the response
-reports the `artifact_view` it rendered (source size, region, scale, rendered
-size), so a finding can name the region it was seen in. A region falling
-outside the image, an unreadable scale, and a non-image artifact each refuse
-by name and say where the recorded bytes landed.
-
-Captures store their screenshots through the build serving the universe, so a
-hosted reviewer sees the same images through the configured evidence plane. No review request is raised against a screenshot a hosted reviewer
-cannot open. Evidence already recorded only on the capture machine is moved in
-place from that machine with
-`yoke qa artifact rehome --requirement-id <id> --artifact-id <id>`.
-
-The transition remains blocked until every blocking, materialized or explicit
-requirement has passed or been waived. Capture success alone is not a visual
-quality verdict: inspection checks both visible defects and consistency with
-the expected outcome.
+Reading a capture, viewing part of a tall one, rehoming evidence, and what
+the transition waits for are in [Browser Evidence](browser-evidence.md).

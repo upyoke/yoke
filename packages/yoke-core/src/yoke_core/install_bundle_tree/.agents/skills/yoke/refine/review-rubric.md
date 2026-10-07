@@ -116,6 +116,10 @@ Evaluate each non-empty artifact against these dimensions:
 - Browser routes, waits, assertions, and captures belong in
   `browser-check` or `browser-inspection` method configuration. Do not infer a
   parallel item classification field.
+- Does each Browser case run where
+  [Where a Browser case runs](../../../../.yoke/docs/reference/browser-scenarios.md#where-a-browser-case-runs)
+  places it, and does a change no server serves select `approval_on_done`
+  instead?
 
 **Shepherd caveats**
 - Open question resolution: For `REFINE_ARTIFACT_SCOPE=item_artifact`, ALL open questions MUST be resolved or given explicit default answers before the item reaches its execution-ready handoff state. Heuristic: if resolving an open question would change the number of files touched or the data model, it is a spec decision that MUST be resolved. If it only changes task ordering, it can be deferred. FRs must never reference unresolved open questions as firm requirements.

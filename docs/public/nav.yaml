@@ -31,4 +31,5 @@ sections:
       - reference/qa-platform.md
       - reference/github-sync.md
       - reference/browser-scenarios.md
+      - reference/browser-evidence.md
       - reference/db-reference.md
