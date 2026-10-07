@@ -14,6 +14,7 @@ from typing import Any
 from unittest import mock
 
 from runtime.api.domain.test_deployment_qa_stage_dispatch_wake import _member, _run
+from yoke_core.domain import deployment_qa_result_notice as result_notice_mod
 from yoke_core.domain import deployment_qa_stage_dispatch as dispatch_mod
 from yoke_core.domain.deployment_qa_result_notice import (
     OUTCOME_PASSED,
@@ -56,7 +57,7 @@ def _dispatch(conn, stage, *, run_id, status):
             dispatch_mod, "notify_run_scoped_qa_wait", return_value="delivered"
         ),
         mock.patch.object(
-            dispatch_mod,
+            result_notice_mod,
             "notify_qa_stage_result",
             return_value={"notified": [7], "message_id": "m-1", "reason": ""},
         ) as report,
@@ -158,7 +159,7 @@ def test_a_report_failure_does_not_fail_the_stage(test_db: Any, capsys) -> None:
             ".materialize_deployment_qa_stage"
         ),
         mock.patch.object(
-            dispatch_mod,
+            result_notice_mod,
             "notify_qa_stage_result",
             side_effect=RuntimeError("inbox unavailable"),
         ),
