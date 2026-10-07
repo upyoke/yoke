@@ -178,6 +178,27 @@ def test_each_member_answers_only_for_its_own_item_scoped_stage(test_db) -> None
     assert item_qa_acceptance_blockers(test_db, run_id="run-members", item_id=9814)
 
 
+def test_a_created_run_that_never_started_has_reached_no_item_qa(test_db) -> None:
+    plan_id = _plan(test_db, "not-started-smoke")
+    _seed_run(test_db, run_id="run-unstarted", stages=_stages(plan_id), members=(9816,))
+    test_db.execute(
+        "UPDATE deployment_runs SET status='created',current_stage=NULL WHERE id=%s",
+        ("run-unstarted",),
+    )
+    test_db.commit()
+
+    for current_stage in ("", None):
+        assert (
+            current_item_qa(
+                test_db,
+                run_id="run-unstarted",
+                item_id=9816,
+                current_stage=current_stage,
+            )
+            is None
+        )
+
+
 def test_run_scoped_stage_blocks_every_member_until_it_settles(test_db) -> None:
     plan_id = _plan(test_db, "shared-release-smoke")
     _seed_run(

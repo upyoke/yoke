@@ -180,6 +180,10 @@ export function appendItemDelivery(documentNode, card, row, deployments, project
       merged.appendChild(pr);
     }
     box.appendChild(merged);
+  } else if (row.delivery?.no_code_change) {
+    // The item's own record says it shipped no code, so there is no merge to
+    // wait for — an absent merge line alone would read as unfinished work.
+    box.appendChild(el(documentNode, "small", "item-delivery-no-change", "no code change"));
   }
   const itemId = row.internal_id ?? row.item_id ?? row.id;
   const runs = shownDeliveryRuns(deployments?.get(String(itemId)) || []);

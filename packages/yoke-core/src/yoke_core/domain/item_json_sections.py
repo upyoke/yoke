@@ -10,7 +10,7 @@ behind ``items.section.upsert``.
 from __future__ import annotations
 
 import json
-from typing import Any, Mapping, Optional
+from typing import Any, Iterable, Mapping, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
@@ -92,8 +92,37 @@ def read_json_section(
     ).fetchone()
     if row is None:
         return None
+    return _parsed(row[0])
+
+
+def read_json_sections(
+    conn: Any,
+    *,
+    item_ids: Iterable[int],
+    section: str,
+) -> dict[int, dict[str, Any]]:
+    """Read one JSON-shaped section for many items in a single query.
+
+    Items whose record is missing or unparseable are absent from the result,
+    exactly as :func:`read_json_section` answers ``None`` for them.
+    """
+    ids = sorted({int(item_id) for item_id in item_ids})
+    if not ids or not _table_exists(conn, "item_sections"):
+        return {}
+    marker = _placeholder(conn)
+    rows = conn.execute(
+        "SELECT item_id, content FROM item_sections "
+        f"WHERE section_name = {marker} "
+        f"AND item_id IN ({', '.join(marker for _ in ids)})",
+        (section, *ids),
+    ).fetchall()
+    parsed = {int(row[0]): _parsed(row[1]) for row in rows}
+    return {item_id: record for item_id, record in parsed.items() if record}
+
+
+def _parsed(content: Any) -> Optional[dict[str, Any]]:
     try:
-        parsed = json.loads(str(row[0]))
+        parsed = json.loads(str(content))
     except (TypeError, ValueError):
         return None
     return dict(parsed) if isinstance(parsed, Mapping) else None
@@ -102,6 +131,7 @@ def read_json_section(
 __all__ = [
     "SECTION_SOURCE",
     "read_json_section",
+    "read_json_sections",
     "upsert_json_section",
     "upsert_section",
 ]

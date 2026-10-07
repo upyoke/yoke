@@ -160,8 +160,11 @@ def _applicable_item_stage(
 
     The one the run is standing on, else the last one it has already passed.
     Before the run reaches any, there is no item QA to report — which is not
-    the same as reporting that none passed.
+    the same as reporting that none passed. A run that has not started has
+    no current stage at all, so it has reached none of them either.
     """
+    if not str(current_stage or "").strip():
+        return None
     item_stages = [
         (index, stage)
         for index, stage in enumerate(stages)
@@ -172,8 +175,9 @@ def _applicable_item_stage(
     positions = {
         str(stage.get("name") or ""): index for index, stage in enumerate(stages)
     }
-    # An unrecognized current stage (a finished run's terminal label) means
-    # the run is past every stage it pinned, so the last one answers.
+    # A named current stage the run did not pin (a finished run's terminal
+    # label) means the run is past every stage it pinned, so the last one
+    # answers.
     here = positions.get(str(current_stage), len(stages))
     reached = [stage for index, stage in item_stages if index <= here]
     return reached[-1] if reached else None
