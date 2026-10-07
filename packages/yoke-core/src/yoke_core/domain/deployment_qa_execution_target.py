@@ -8,13 +8,10 @@ from typing import Any
 
 from yoke_contracts.machine_qa_case_target import DEPLOYMENT_TARGET_SCHEMA
 from yoke_core.domain import db_backend
-from yoke_core.domain.deployment_qa_stage_contract import (
-    deployment_qa_stage_subject,
-)
+from yoke_core.domain.deployment_qa_release_version import pinned_release_endpoints
+from yoke_core.domain.deployment_qa_stage_contract import deployment_qa_stage_subject
 from yoke_core.domain.deployment_qa_target_project import target_project
-from yoke_core.domain.deployment_stage_receipts import (
-    deployment_stage_receipt_for_qa,
-)
+from yoke_core.domain.deployment_stage_receipts import deployment_stage_receipt_for_qa
 from yoke_core.domain.qa_execution_environment_target import (
     _decode,
     _generic_endpoints,
@@ -59,7 +56,7 @@ def _persistent_target(conn: Any, project_id: int, environment: str) -> dict:
             "kind": "persistent_environment",
         },
         "site": {"name": str(row["site_name"])},
-        "endpoints": persistent_environment_endpoints(row),
+        "endpoints": pinned_release_endpoints(conn, project_id, environment, row),
     }
 
 

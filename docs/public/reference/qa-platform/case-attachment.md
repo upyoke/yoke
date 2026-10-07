@@ -215,6 +215,16 @@ target. A case bound this way carries a deployment execution target whose
 alongside its name, which is the shape Machine QA contracts accept beside a
 plan's own environment target.
 
+When the project declares the `release_pin` capability, a persistent target
+also freezes the Yoke release the deployed candidate pins (the environment
+settings leaf its `desired_pin_path` names) as `endpoints.release_version`.
+A channel such as `latest` moves whenever another release publishes, so an
+install step passes `{{release_version}}` to the installer (`--version` or
+`YOKE_VERSION`) through the bound `installer_url`. Freezing refuses
+`deployment_qa_release_pin_missing` when the environment records no pin, and
+`deployment_qa_release_unpublished` when that release is absent from the
+bound installer origin; each refusal names its recovery.
+
 That snapshot is frozen at first materialization for the run, stage, and
 member **while the producer receipt is unchanged**. Later target resolution
 reuses it, so a live edit to `environments.url` or environment settings
