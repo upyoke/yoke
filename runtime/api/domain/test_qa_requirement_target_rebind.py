@@ -71,7 +71,7 @@ def _hosted_prod_pair(conn) -> tuple[int, int]:
     )
     hosted = json.dumps(
         {
-            "qa": {"hosted_runtime": True},
+            "qa": {"hosted_runtime": True, "hosted_runtime_consumer": "yoke"},
             "hosts": {"app": "http://app.upyoke.com", "api": "https://api.upyoke.com"},
             "distribution": {
                 "base_url": "https://dist.example.test",

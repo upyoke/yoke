@@ -174,7 +174,7 @@ class TestFetchGhIssuesPerProjectFailClosed:
         for project in ("yoke", "externalwebapp"):
             assert result[project]["_github_unavailable"] == "true"
 
-    def test_non_yoke_transport_failure_is_explicit_unavailable_state(self):
+    def test_one_project_transport_failure_leaves_the_other_fetched(self):
         def fake_resolve(project, *args, **kwargs):
             return _fake_auth(project=project)
 
@@ -185,9 +185,10 @@ class TestFetchGhIssuesPerProjectFailClosed:
             ),
             mock.patch(
                 "yoke_core.engines.resync_detect_fetch.request_with_retry",
+                # Projects are fetched in sorted order: externalwebapp, then yoke.
                 side_effect=[
-                    _yoke_one_issue_response(),
                     RestNetworkError("network down"),
+                    _yoke_one_issue_response(),
                 ],
             ),
         ):
