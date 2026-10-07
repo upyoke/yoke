@@ -29,7 +29,11 @@
    `--content-file` so the shell cannot substitute it.
 
    When the instruction asks for a screenshot or other visual evidence, pass
-   `--verification-method browser-inspection` on that same file command.
+   the posture
+   [Where a Browser case runs](../../../../.yoke/docs/reference/browser-scenarios.md#where-a-browser-case-runs)
+   selects on that same file command:
+   `--verification-method browser-inspection` for a served change,
+   `--approval-on-done` for a change no server serves.
 
    When the item will ship in a release on a flow other than the project
    default — a shared release the operator named, say — pass

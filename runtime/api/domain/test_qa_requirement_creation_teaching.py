@@ -110,3 +110,33 @@ def test_ci_recovery_recipe_preserves_repository_and_qa_authority() -> None:
     assert "force-cancel endpoint for an orphaned run" in prose
     assert "yoke qa case run --requirement-id REQUIREMENT_ID" in prose
     assert "yoke watch pytest -- <CI pytest paths and options> --collect-only" in prose
+
+
+_BROWSER_PLACEMENT_ANCHOR = "browser-scenarios.md#where-a-browser-case-runs"
+
+
+def test_browser_case_placement_has_one_home() -> None:
+    home = (REPO_ROOT / "docs/public/reference/browser-scenarios.md").read_text(
+        encoding="utf-8"
+    )
+    compact = " ".join(home.split())
+    assert "## Where a Browser case runs" in home
+    assert "A `post_deploy` case with `--target-env ENV`" in compact
+    assert "A pre-merge `verification` case against that server" in compact
+    assert "No Browser case. Select the `approval_on_done` posture" in compact
+
+
+@pytest.mark.parametrize(
+    "relative_path",
+    (
+        ".agents/skills/yoke/idea/delivery-requirements.md",
+        ".agents/skills/yoke/dash/file-and-claim.md",
+        ".agents/skills/yoke/implement/implementing/browser-seeding.md",
+        ".agents/skills/yoke/refine/review-rubric.md",
+    ),
+)
+def test_browser_case_authoring_surfaces_link_the_placement_home(
+    relative_path: str,
+) -> None:
+    body = (REPO_ROOT / relative_path).read_text(encoding="utf-8")
+    assert _BROWSER_PLACEMENT_ANCHOR in body
