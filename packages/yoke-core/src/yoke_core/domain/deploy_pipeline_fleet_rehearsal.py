@@ -1,4 +1,12 @@
-"""Rehearse a hosted release the fleet receipts do not yet cover.
+"""Rehearse a release the fleet receipts do not yet cover.
+
+Every GitHub workflow a deployment run dispatches for a project that declares
+a ``migration_model`` is a release of that project's databases, so before it
+dispatches, the fleet each model declares in ``migration_fleet`` is checked against what the release
+commit carries. A model whose fleet is ``none`` is skipped with its declared
+reason; a model that declares no fleet at all refuses the dispatch with the
+declaration recipe, because an undeclared fleet and an empty one are
+different facts.
 
 Coverage is decided from what the release commit carries: its ordered
 migration history entries and its boot-converge schema shape. An entry that
@@ -9,74 +17,119 @@ output and must write through their readers' canonical serializer. Asking both
 questions makes an unrehearsed entry visible the way an unrehearsed shape
 already was.
 
-A receipt is stale for an environment when that environment's coverage
-document does not record something this release commit carries: any history
-entry name, or the schema-shape digest. It is not stale because the shape
-moved, and it does not age out — coverage is the union the store accumulates,
-so entries the fleet rehearsed on an earlier release stay covered and are not
-rehearsed again.
+A receipt is stale for an environment when that project environment's
+coverage document does not record something this release commit carries: any
+history entry name, or the schema-shape digest. It is not stale because the
+shape moved, and it does not age out — coverage is the union the store
+accumulates, so entries the fleet rehearsed on an earlier release stay covered
+and are not rehearsed again.
 """
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, List, Mapping, Sequence, Tuple
 
-from yoke_contracts.api.function_call import TargetRef
 from yoke_core.domain import deploy_pipeline_environment
+from yoke_core.domain import deploy_pipeline_fleet_release_source as release_source
+from yoke_core.domain import migration_model_fleet as fleets
 from yoke_core.domain import migration_preflight_receipt as receipt
+from yoke_core.domain.migration_model_fleet_read import read_declared
 from yoke_core.domain.migration_preflight_receipt_store import read_coverage
-from yoke_core.domain.schema_shape_source import (
-    SchemaShapeSourceError,
-    digest_schema_shape_commit,
-)
+from yoke_core.domain.schema_shape_source import SchemaShapeSourceError
 
-HOSTED_RELEASE_STAGE = "hosted-release"
-HOSTED_RELEASE_WORKFLOW = "platform-release-bridge.yml"
-
-#: Registered read serving a project's declared migration history location.
-CAPABILITY_FUNCTION_ID = "projects.capability_settings.get"
+DeclaredFleet = Tuple[str, Mapping[str, Any], Mapping[str, Any]]
 
 
 def ensure_before_dispatch(
-    config: Mapping[str, Any],
     *,
-    stage_name: str,
     project: str,
     environment: str,
     repository: str,
     release_lineage: str,
 ) -> tuple[int, str]:
     """Run and record fleet rehearsal for whatever this release is missing."""
-    if not _owns_fleet_rehearsal(config, stage_name):
+    due, refusal = _declared_fleets(project)
+    if refusal:
+        return 1, refusal
+    if not due:
         return 0, ""
     if not environment.strip():
-        return 1, "hosted release fleet rehearsal requires a target environment"
-
-    release_sha, lineage_error = _release_sha(
-        release_lineage,
-        repository,
-    )
+        return 1, (
+            f"release fleet rehearsal for project {project!r} requires a "
+            "target environment"
+        )
+    release_sha, lineage_error = _release_sha(release_lineage, repository)
     if lineage_error:
         return 1, lineage_error
-    try:
-        schema_digest = digest_schema_shape_commit(Path(repository or "."), release_sha)
-    except SchemaShapeSourceError as exc:
-        return 1, f"hosted release schema digest unavailable: {exc}"
+    for model_name, model, fleet in due:
+        rc, diagnostic = _ensure_model(
+            project,
+            model_name,
+            model,
+            fleet,
+            environment=environment,
+            repository=repository,
+            release_sha=release_sha,
+        )
+        if rc != 0:
+            return rc, diagnostic
+    return 0, ""
 
-    history, history_error = _release_history(project, repository, release_sha)
+
+def _declared_fleets(project: str) -> tuple[List[DeclaredFleet], str]:
+    """The project's models owing a fleet rehearsal, or why none can be named."""
+    declared, unreadable = read_declared(project)
+    if unreadable:
+        return [], unreadable
+    due: List[DeclaredFleet] = []
+    for name, model in sorted(declared.models.items()):
+        fleet = declared.fleet(name)
+        if fleet is None:
+            return [], fleets.undeclared_refusal(project, name)
+        if fleet["kind"] == fleets.FLEET_NONE:
+            print(
+                f"  Fleet rehearsal: {project} model {name} declares no live "
+                f"fleet ({fleet['reason']}); skipping"
+            )
+            continue
+        due.append((name, model, fleet))
+    return due, ""
+
+
+def _ensure_model(
+    project: str,
+    model_name: str,
+    model: Mapping[str, Any],
+    fleet: Mapping[str, Any],
+    *,
+    environment: str,
+    repository: str,
+    release_sha: str,
+) -> tuple[int, str]:
+    modules_dir = str(
+        ((model.get("runner") or {}).get("config") or {}).get("modules_dir") or ""
+    )
+    history, history_error = _release_history(repository, release_sha, modules_dir)
     if history_error:
         return 1, history_error
+    try:
+        schema_digest = fleets.schema_shape_digest_at(
+            fleet, Path(repository or "."), release_sha
+        )
+    except SchemaShapeSourceError as exc:
+        return 1, f"release schema digest unavailable: {exc}"
 
-    values, read_error = _coverage(project, environment, history, schema_digest)
+    values, read_error = _coverage(
+        project, model_name, environment, history, schema_digest
+    )
     if read_error:
         return 1, read_error
-    target = receipt.target_environment_for_admin_env(environment)
-    missing = _uncovered_summary(history, schema_digest, values)
+    target = f"{project}/{receipt.target_environment_for_admin_env(environment)}"
+    missing = _uncovered_summary(model_name, history, schema_digest, values)
     if not missing:
         print(
-            f"  Fleet rehearsal: covered for {target} "
+            f"  Fleet rehearsal: covered for {target} model {model_name} "
             f"({len(history)} history entries, schema shape {schema_digest}); "
             "skipping"
         )
@@ -84,50 +137,103 @@ def ensure_before_dispatch(
 
     receipt_environment = deploy_pipeline_environment.release_control_plane_env()
     if not receipt_environment or receipt_environment == "unbound":
-        return 1, "hosted release fleet rehearsal has no release control plane"
+        return 1, "release fleet rehearsal has no release control plane"
     print(
-        f"  Fleet rehearsal: uncovered for {target} ({missing}); "
-        "running before dispatch"
+        f"  Fleet rehearsal: uncovered for {target} model {model_name} "
+        f"({missing}); running before dispatch"
     )
-    rc = _run_preflight(
-        [
-            environment,
-            "--record-receipt",
-            "--product-sha",
-            release_sha,
-            "--receipt-env",
-            receipt_environment,
-        ]
+    rc, refusal = _rehearse_release_source(
+        project,
+        model_name,
+        fleet,
+        environment=environment,
+        repository=repository,
+        release_sha=release_sha,
+        modules_dir=modules_dir,
+        history=history,
+        schema_digest=schema_digest,
+        receipt_environment=receipt_environment,
     )
+    if refusal:
+        return 1, refusal
     if rc != 0:
         return rc, (
-            "hosted release fleet rehearsal failed before dispatch "
-            f"(exit code {rc})"
+            f"release fleet rehearsal of {target} model {model_name} failed "
+            f"before dispatch (exit code {rc})"
         )
 
-    values, read_error = _coverage(project, environment, history, schema_digest)
+    values, read_error = _coverage(
+        project, model_name, environment, history, schema_digest
+    )
     if read_error:
         return 1, read_error
-    still_missing = _uncovered_summary(history, schema_digest, values)
+    still_missing = _uncovered_summary(model_name, history, schema_digest, values)
     if still_missing:
         return 1, (
             "fleet rehearsal passed but its receipt does not cover "
-            f"{still_missing}; the selected engine source may differ from "
-            "the release commit"
+            f"{still_missing}; the receipt was not recorded where this gate reads"
         )
     print(
-        f"  Fleet rehearsal: receipt covers this release for {target} "
-        f"({len(history)} history entries, schema shape {schema_digest})"
+        f"  Fleet rehearsal: receipt covers this release for {target} model "
+        f"{model_name} ({len(history)} history entries, schema shape "
+        f"{schema_digest})"
     )
     return 0, ""
 
 
+def _rehearse_release_source(
+    project: str,
+    model_name: str,
+    fleet: Mapping[str, Any],
+    *,
+    environment: str,
+    repository: str,
+    release_sha: str,
+    modules_dir: str,
+    history: Sequence[str],
+    schema_digest: str,
+    receipt_environment: str,
+) -> tuple[int, str]:
+    """Run the preflight on exactly the release commit's code.
+
+    Returns the preflight's exit code, or a refusal when the release
+    commit's source cannot be the code that rehearses.
+    """
+    args = [
+        "--project",
+        project,
+        "--model",
+        model_name,
+        environment,
+        "--record-receipt",
+        "--product-sha",
+        release_sha,
+        "--receipt-env",
+        receipt_environment,
+    ]
+    try:
+        if fleet["kind"] == fleets.FLEET_ENGINE_TENANTS:
+            mismatch = release_source.engine_source_mismatch(
+                repository, release_sha, modules_dir, history, schema_digest
+            )
+            if mismatch:
+                return 1, f"release fleet rehearsal refused: {mismatch}"
+            return _run_preflight(args), ""
+        with release_source.release_checkout(repository, release_sha) as checkout:
+            return _run_preflight(["--checkout", str(checkout), *args]), ""
+    except release_source.ReleaseSourceError as exc:
+        return 1, f"release fleet rehearsal refused: {exc}"
+
+
 def _uncovered_summary(
-    history: Sequence[str], schema_digest: str, values: Mapping[str, Any]
+    model: str,
+    history: Sequence[str],
+    schema_digest: str,
+    values: Mapping[str, Any],
 ) -> str:
     """Name what this environment has never rehearsed; empty when nothing."""
-    missing_entries = receipt.uncovered(history, values)
-    missing_shape = receipt.uncovered_schema_shape(schema_digest, values)
+    missing_entries = receipt.uncovered(model, history, values)
+    missing_shape = receipt.uncovered_schema_shape(model, schema_digest, values)
     parts = []
     if missing_entries:
         parts.append(
@@ -140,14 +246,6 @@ def _uncovered_summary(
     return " and ".join(parts)
 
 
-def _owns_fleet_rehearsal(config: Mapping[str, Any], stage_name: str) -> bool:
-    """True only for the hosted bridge contract that builds Yoke releases."""
-    return (
-        stage_name == HOSTED_RELEASE_STAGE
-        and str(config.get("workflow") or "") == HOSTED_RELEASE_WORKFLOW
-    )
-
-
 def _release_sha(lineage: str, repository: str) -> tuple[str, str]:
     from yoke_core.domain.deploy_pipeline_github_workflow import (
         _resolve_release_lineage_sha,
@@ -158,6 +256,7 @@ def _release_sha(lineage: str, repository: str) -> tuple[str, str]:
 
 def _coverage(
     project: str,
+    model: str,
     environment: str,
     history: Sequence[str],
     schema_digest: str,
@@ -166,7 +265,7 @@ def _coverage(
     values, unreadable = read_coverage(
         project=project,
         environment=environment,
-        paths=receipt.coverage_paths(history, schema_digest),
+        paths=receipt.coverage_paths(model, history, schema_digest),
     )
     if unreadable:
         return {}, f"could not read fleet rehearsal receipts: {unreadable}"
@@ -174,20 +273,22 @@ def _coverage(
 
 
 def _release_history(
-    project: str, repository: str, release_sha: str
+    repository: str, release_sha: str, modules_dir: str
 ) -> tuple[tuple[str, ...], str]:
     """Ordered history entry names the release commit carries, or why not.
 
     Read from the commit rather than from this process's installed history,
     for the same reason the schema-shape digest is: the control plane
     dispatching a release is not necessarily running the build it dispatches.
+    The directory is the model's declared one, never a guess: a guess that
+    missed it would report a release as carrying no entries — the same silent
+    pass this gate exists to remove.
     """
     from yoke_core.domain.migration_history import HistoryError
     from yoke_core.domain.migration_history_integration import history_names_at_ref
 
-    modules_dir, capability_error = _modules_dir(project)
-    if capability_error:
-        return (), capability_error
+    if not modules_dir:
+        return (), "the declared migration model has no runner.config.modules_dir"
     try:
         return (
             history_names_at_ref(Path(repository or "."), release_sha, modules_dir),
@@ -195,67 +296,8 @@ def _release_history(
         )
     except HistoryError as exc:
         return (), (
-            "hosted release migration history unavailable for commit "
-            f"{release_sha}: {exc}"
+            f"migration history unavailable for release commit {release_sha}: {exc}"
         )
-
-
-def _modules_dir(project: str) -> tuple[str, str]:
-    """The project's declared history directory, or why it is unknown.
-
-    Declared, never assumed: the directory is where this project keeps its
-    ordered history, and a guess that missed it would report a release as
-    carrying no entries — the same silent pass this gate exists to remove.
-    """
-    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
-    from yoke_core.domain.migration_model_capability import (
-        MigrationModelCapabilityError,
-        resolve_model,
-        validate,
-    )
-
-    unknown = (
-        f"could not resolve the migration_model history directory for "
-        f"project {project!r}"
-    )
-    try:
-        response = call_dispatcher(
-            function_id=CAPABILITY_FUNCTION_ID,
-            target=TargetRef(kind="global"),
-            payload={"project": project, "cap_type": "migration_model"},
-        )
-    except Exception as exc:  # noqa: BLE001 - unreadable declaration fails closed
-        return "", f"{unknown}: {exc}"
-    if not response.success:
-        detail = (
-            response.error.message
-            if response.error is not None
-            else "capability read refused"
-        )
-        return "", f"{unknown}: {detail}"
-    result = response.result if isinstance(response.result, Mapping) else {}
-    try:
-        capability = validate(json.loads(str(result.get("settings_json") or "")))
-        model_name = str(capability.get("default_model") or "")
-        if not model_name:
-            return "", (
-                f"{unknown}: the capability declares no default_model, so the "
-                "release cannot say which history it carries"
-            )
-        config = (resolve_model(capability, model_name).get("runner") or {}).get(
-            "config"
-        ) or {}
-        modules_dir = str(config.get("modules_dir") or "")
-    except (
-        KeyError,
-        MigrationModelCapabilityError,
-        TypeError,
-        ValueError,
-    ) as exc:
-        return "", f"{unknown}: {exc}"
-    if not modules_dir:
-        return "", f"{unknown}: the declared model has no modules_dir"
-    return modules_dir, ""
 
 
 def _run_preflight(args: list[str]) -> int:
@@ -265,9 +307,4 @@ def _run_preflight(args: list[str]) -> int:
     return watch_preflight.main(["--", *args])
 
 
-__all__ = [
-    "CAPABILITY_FUNCTION_ID",
-    "HOSTED_RELEASE_STAGE",
-    "HOSTED_RELEASE_WORKFLOW",
-    "ensure_before_dispatch",
-]
+__all__ = ["ensure_before_dispatch"]

@@ -3,9 +3,9 @@
 
 The apply variant exercises ``mutation_intent="apply"``: advancing
 ``implementing → reviewing-implementation`` must fail with the missing
-``migration_audit`` row message.  Once an audit row with
-a rehearsal recorded for the listed module on the model's authoritative DB,
-and the module present in the ordered history, the same advance succeeds.
+rehearsal-receipt message. Once a passing receipt for the listed module sits
+in ``migration_audit`` on the control plane that holds the item, the same
+advance succeeds.
 
 Shared fixtures and helpers live in
 :mod:`runtime.api.migration_applied_evidence_test_helpers`.
@@ -66,7 +66,7 @@ class TestApplyEvidenceGate:
         )
         assert result["success"] is False
         assert result.get("error_code") == "GATE_DB_MUTATION_EVIDENCE"
-        assert "no rehearsal recorded" in result["error"]
+        assert "no passing rehearsal receipt" in result["error"]
         assert "new_governed_module" in result["error"]
 
     def test_advance_passes_after_rehearsal_recorded(self, regression_db) -> None:

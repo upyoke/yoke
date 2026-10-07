@@ -1,7 +1,7 @@
 """Run the fleet migration preflight under the shared watcher.
 
-The preflight copies and converges every live tenant database before a
-release carrying migration history. It can take minutes, so direct execution
+The preflight copies and converges every live database a project's migration
+model declares as its fleet before a release carrying migration history. It can take minutes, so direct execution
 leaves callers choosing between buffered output and a hand-authored follower
 that cannot observe the watcher exit sentinel.
 
@@ -81,14 +81,18 @@ def _preflight_argv(args: Sequence[str]) -> list[str]:
 
 
 HELP_EPILOG = """\
-The positional names the registered environment whose fleet to rehearse.
+``--project`` names the project whose declared migration-model fleet to
+rehearse; ``--model`` defaults to its ``default_model``; ``--checkout``
+names the checkout a ``named_databases`` fleet converges from (default: the
+project's registered checkout). The positional
+names the project's registered environment whose fleet to rehearse.
 The paired admin connection is that environment's
 ``release.admin_connection`` setting, not a name suffix. ``--receipt-env``
 names the control plane that records the receipt. ``--record-receipt``
 writes the receipt the release gate reads for that environment.
 one environment's receipt never satisfies another, so rehearse each
 environment a release targets. The receipt lands on that environment's
-own settings document under ``release.fleet_rehearsal``, so coverage is
+own settings document under ``release.fleet_rehearsal.<model>``, so coverage is
 durable state rather than telemetry that can expire.
 
 Ordinary pre-release rehearsal uses the source tree (no ``--engine-wheel``).
@@ -96,17 +100,17 @@ The release wheel does not exist until after tag allocation.
 ``--engine-wheel`` pins an already-built artifact when you have one.
 
 examples:
-  yoke watch preflight -- stage --record-receipt \\
+  yoke watch preflight -- --project yoke stage --record-receipt \\
       --product-sha SHA --receipt-env <control-plane>
 
-  yoke watch preflight -- prod --record-receipt \\
-      --product-sha SHA --receipt-env <control-plane>
+  yoke watch preflight -- --project platform --model registry prod \\
+      --record-receipt --product-sha SHA --receipt-env <control-plane>
 
-  yoke watch preflight -- stage \\
+  yoke watch preflight -- --project yoke stage \\
       --engine-wheel /path/to/yoke_core-release.whl --record-receipt \\
       --product-sha SHA --receipt-env <control-plane>
 
-  yoke watch preflight --print-streaming-pair -- \\
+  yoke watch preflight --print-streaming-pair -- --project yoke \\
       stage --record-receipt --product-sha SHA --receipt-env <control-plane>
 
 Pass bare preflight arguments after ``--``. The wrapper supplies

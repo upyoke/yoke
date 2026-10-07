@@ -1,6 +1,6 @@
 """Module-file resolution, decision records, and audit-row evidence helpers.
 
-Owns the disk-side primitives the §7.1 scanner and §7.2 evidence gate
+Owns the disk-side primitives the opportunistic scanner and the gates
 consume:
 
 * Module-file resolvers and a tolerant DDL extractor used by the
@@ -8,17 +8,14 @@ consume:
 * Decision-record path resolution + YAML-frontmatter parser used by the
   retire flow.  :func:`decision_record_path` is public surface (re-exported
   from :mod:`yoke_core.domain.db_mutation_gate`).
-* Audit-row completion check used by the apply flow on the model's
-  authoritative DB.
+Rehearsal receipts are read by :mod:`yoke_core.domain.migration_rehearsal_evidence`.
 """
 
 from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any, Optional
-
-from yoke_core.domain import db_backend
+from typing import Optional
 
 
 # ---------------------------------------------------------------------------
@@ -29,9 +26,7 @@ from yoke_core.domain import db_backend
 _GIT_BRANCH_BLOB_RE = re.compile(r"^[0-9a-f]{4,}$", re.IGNORECASE)
 
 
-def _resolve_module_path(
-    repo_path: Path, modules_dir: str, identifier: str
-) -> Path:
+def _resolve_module_path(repo_path: Path, modules_dir: str, identifier: str) -> Path:
     """Locate a declared module the way the applier discovers it.
 
     History entries are ``NNNN_slug.py``, so an item that names the slug does
@@ -118,43 +113,7 @@ def _parse_yaml_frontmatter(text: str) -> dict:
     return out
 
 
-def _audit_row_rehearsed_for_module(
-    audit_conn: Any,
-    project_id: int,
-    model_name: str,
-    identifier: str,
-) -> bool:
-    """True if the model's authoritative DB records a rehearsal for *identifier*.
-
-    Rehearsal is the evidence a work item can actually produce before it
-    merges. Applying is no longer something the item does: the boot converge
-    that starts a server brings its database up to the code that server runs,
-    which happens after this item lands. Demanding a completed apply here
-    would demand proof of something that has not been allowed to happen yet.
-
-    States at or past ``rehearsed`` all count -- a database that went further
-    has plainly rehearsed.
-    """
-    p = "%s" if db_backend.connection_is_postgres(audit_conn) else "?"
-    cursor = audit_conn.execute(
-        "SELECT state FROM migration_audit "
-        f"WHERE migration_name = {p} AND project_id = {p} "
-        f"AND COALESCE(model_name, {p}) = {p}",
-        (identifier, project_id, model_name, model_name),
-    )
-    settled = {
-        "rehearsed", "backup_created", "live_applied", "live_verified",
-        "completed",
-    }
-    for row in cursor.fetchall():
-        state_val = row["state"] if hasattr(row, "keys") else row[0]
-        if state_val and str(state_val) in settled:
-            return True
-    return False
-
-
 __all__ = [
-    "_audit_row_rehearsed_for_module",
     "_extract_candidate_ddl",
     "_parse_yaml_frontmatter",
     "_read_module_text",

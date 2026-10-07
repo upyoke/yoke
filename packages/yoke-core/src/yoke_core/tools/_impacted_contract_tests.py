@@ -10,6 +10,9 @@ from yoke_core.tools._impacted_contract_tests_hosted_release import (
     HOSTED_RELEASE_WORKFLOW_CONTRACT_TESTS,
     HOSTED_RELEASE_WORKFLOW_PATHS,
 )
+from yoke_core.tools._impacted_contract_tests_migration_evidence import (
+    MIGRATION_EVIDENCE_CONTRACTS,
+)
 from yoke_core.tools._impacted_contract_tests_path_claims import PATH_CLAIM_CONTRACTS
 from yoke_core.tools._impacted_contract_prefix_families import (
     AGENT_SKILL_CONTRACT_TESTS,
@@ -148,6 +151,7 @@ CURSOR_SESSION_IDENTITY_DISPATCH_TESTS = (
 PATH_CONTRACT_TESTS = (
     *CI_WORKFLOW_CONTRACTS,
     *PATH_CLAIM_CONTRACTS,
+    *MIGRATION_EVIDENCE_CONTRACTS,
     (
         "hook_guard_policy_contract",
         HOOK_GUARD_POLICY_SOURCE_PATHS,

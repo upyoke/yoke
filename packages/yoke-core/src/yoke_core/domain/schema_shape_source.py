@@ -5,8 +5,11 @@ migration history entry. The fleet-preflight receipt records this digest so
 the release gate can refuse a build whose schema shape has never been
 rehearsed against aged copies of the live fleet.
 
-Packet modules describe schema to agents; they do not emit boot DDL, so they
-are not part of the digest.
+The engine's own shape is the set of schema modules in its domain package;
+packet modules describe schema to agents and do not emit boot DDL, so they are
+not part of it. A project whose model converges its own databases names its
+schema sources explicitly on the model's fleet declaration instead, and
+:func:`digest_declared_sources` digests exactly those files.
 """
 
 from __future__ import annotations
@@ -16,7 +19,7 @@ import hashlib
 import re
 import subprocess
 from pathlib import Path
-from typing import Iterable, cast
+from typing import Iterable, Sequence, cast
 
 _DOMAIN_DIR = Path(__file__).resolve().parent
 _DOMAIN_REPOSITORY_PATH = Path("packages/yoke-core/src/yoke_core/domain")
@@ -96,6 +99,39 @@ def digest_schema_shape_commit(repository: Path, commit_sha: str) -> str:
         for path in selected
     )
     return _digest_sources(sources)
+
+
+def digest_declared_sources(checkout: Path, paths: Sequence[str]) -> str:
+    """Stable digest of declared checkout-relative schema sources."""
+    root = checkout.expanduser().resolve()
+    sources = []
+    for rel in sorted(paths):
+        path = root / rel
+        if not path.is_file():
+            raise SchemaShapeSourceError(
+                f"declared schema-shape source {rel} is missing from {root}; "
+                "correct the model's fleet.schema_shape_sources"
+            )
+        sources.append((rel, path.read_bytes()))
+    return _digest_sources(sources)
+
+
+def digest_declared_sources_commit(
+    repository: Path, commit_sha: str, paths: Sequence[str]
+) -> str:
+    """The same declared-source digest read from one exact commit."""
+    if _COMMIT_SHA.fullmatch(commit_sha) is None:
+        raise SchemaShapeSourceError(
+            "schema-shape revision must be an exact lowercase commit SHA"
+        )
+    checkout = repository.expanduser().resolve()
+    return _digest_sources(
+        (
+            rel,
+            cast(bytes, _git(checkout, "show", f"{commit_sha}:{rel}", text=False)),
+        )
+        for rel in sorted(paths)
+    )
 
 
 def _git(repository: Path, *args: str, text: bool) -> str | bytes:
@@ -178,7 +214,10 @@ def _normalized_schema_declarations(name: str, content: bytes) -> bytes:
     executable syntax is safer than trying to recognize only SQL literals.
     Python's parsed tree removes comments and formatting, and the explicit
     docstring pass keeps descriptive edits from invalidating fleet receipts.
+    A declared source that is not Python is digested byte for byte.
     """
+    if not name.endswith(".py"):
+        return content
     try:
         tree = ast.parse(content, filename=name)
     except (SyntaxError, UnicodeError, ValueError) as exc:

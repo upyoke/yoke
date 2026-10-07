@@ -16,10 +16,9 @@ lifecycle transitions where the contract is enforced:
 
 * :func:`check_implementing_to_reviewing_implementation_gate`
   Evidence gate: for each identifier in ``profile.migration_modules`` verify
-  either the matching ``migration_audit`` row is ``state=completed``
-  (apply intent on the configured runner) or a ``retired-without-apply: true``
-  decision record exists at
-  ``docs/archive/decisions/<module>.md`` (retire intent).
+  the module is in the ordered history of the item's own lane and a passing
+  rehearsal receipt for it sits in ``migration_audit`` on the control plane
+  that holds the item (:mod:`yoke_core.domain.migration_rehearsal_evidence`).
 
 * :func:`check_polishing_implementation_to_implemented_gate`
   Thin verification: re-checks the same evidence and (for ``apply`` with

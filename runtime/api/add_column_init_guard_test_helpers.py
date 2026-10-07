@@ -19,9 +19,6 @@ from yoke_core.domain import (
     db_backend,
     retired_schema_registry as rsr,
 )
-from yoke_core.domain.db_mutation_gate_implementing import (
-    CONNECTED_POSTGRES_AUDIT_TOKEN,
-)
 from yoke_core.domain.migration_audit_schema import ensure_migration_audit_table
 from runtime.api.fixtures.migration_model_test import governed_postgres_test_seed
 from runtime.api.test_backlog import (
@@ -78,19 +75,28 @@ def regression_db(tmp_db: str, tmp_path: Path):
             "INSERT INTO project_capabilities "
             "(project, type, settings, created_at) "
             f"VALUES ({p}, {p}, {p}, {p})",
-            ("yoke", "migration_model", seed_json,
-             "2026-04-24T00:00:00Z"),
+            ("yoke", "migration_model", seed_json, "2026-04-24T00:00:00Z"),
         )
-        stages_json = json.dumps([
-            {"name": "merged", "step_runner": "auto"},
-        ])
+        stages_json = json.dumps(
+            [
+                {"name": "merged", "step_runner": "auto"},
+            ]
+        )
         conn.execute(
             "INSERT INTO deployment_flows "
             "(id, project, name, description, stages, on_failure, "
             f" target_tier, created_at) VALUES ({p}, {p}, {p}, {p}, "
             f"{p}, {p}, {p}, {p})",
-            ("yoke-internal", "yoke", "Internal", "Test flow",
-             stages_json, "halt", None, "2026-04-24T00:00:00Z"),
+            (
+                "yoke-internal",
+                "yoke",
+                "Internal",
+                "Test flow",
+                stages_json,
+                "halt",
+                None,
+                "2026-04-24T00:00:00Z",
+            ),
         )
         # The destructive-post-state check reads the authoritative DB. Under
         # the Postgres model that is the connected authority, so seed the drift
@@ -124,7 +130,6 @@ def regression_db(tmp_db: str, tmp_path: Path):
         "db_path": tmp_db,
         "checkout_path": repo_path,
         "project": "yoke",
-        "audit_db_path": CONNECTED_POSTGRES_AUDIT_TOKEN,
     }
 
 
@@ -182,13 +187,16 @@ def _advance_status(
         "YOKE_CLAIM_BYPASS": "regression-test",
     }
     with mock.patch.dict(os.environ, env_patches, clear=False):
-        with _patch_externals(), mock.patch(
-            "yoke_core.domain.retired_schema_registry._resolve_registry_path",
-            return_value=repo_path
-            / "runtime"
-            / "api"
-            / "domain"
-            / "retired_schema_surfaces.yaml",
+        with (
+            _patch_externals(),
+            mock.patch(
+                "yoke_core.domain.retired_schema_registry._resolve_registry_path",
+                return_value=repo_path
+                / "runtime"
+                / "api"
+                / "domain"
+                / "retired_schema_surfaces.yaml",
+            ),
         ):
             rsr.clear_cache()
             return backlog_updates.execute_update(

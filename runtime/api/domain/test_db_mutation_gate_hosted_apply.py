@@ -14,7 +14,6 @@ from yoke_core.domain.db_mutation_gate import (
 from runtime.api.domain.db_mutation_gate_test_helpers import (
     _seed_capability,
     _seed_project,
-    gate_audit_path,
     gate_db_context,
     seed_audit_row,
 )
@@ -51,7 +50,8 @@ def _insert_profile(conn, *, item_id: int, intent: str) -> None:
 
 
 def test_hosted_postgres_apply_uses_receipt_without_checkout(
-    hosted_gate_db, monkeypatch: pytest.MonkeyPatch,
+    hosted_gate_db,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     conn, repo_path = hosted_gate_db
     _insert_profile(conn, item_id=7101, intent="apply")
@@ -63,18 +63,16 @@ def test_hosted_postgres_apply_uses_receipt_without_checkout(
     )
     monkeypatch.setattr(
         db_mutation_gate_implementing,
-        "_resolve_repo_path",
-        lambda _conn, _project: None,
+        "_item_lane_path",
+        lambda _conn, _item_id: None,
     )
 
     outcome = check_implementing_to_reviewing_implementation_gate(
         7101,
         conn=conn,
-        audit_db_path=gate_audit_path(repo_path),
     )
 
     assert outcome.passed, outcome.errors
-
 
 
 def test_retired_schema_registry_ships_with_core_package() -> None:

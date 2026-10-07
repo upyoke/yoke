@@ -102,7 +102,7 @@ jobs:
           TARGET_ENVIRONMENT: ${{ inputs.target_environment }}
         run: |
           python3 -m runtime.api.tools.require_fleet_migration_preflight \
-            "$TARGET_ENVIRONMENT" "$PRODUCT_SHA"
+            --project yoke "$TARGET_ENVIRONMENT" "$PRODUCT_SHA"
 
       # Also before the tag, and unconditional. A producer-only green run
       # proves the producer and nothing else: a bundle declaring a contract

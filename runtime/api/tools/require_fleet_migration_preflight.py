@@ -1,37 +1,37 @@
 """Refuse a release whose migration history or schema shape is unsafe to publish.
 
-Run this before the release train allocates its annotated tag. The tag is the
-first irreversible act, and a release refused after it leaves a tag naming a
-build that never deployed — which has happened, and which cleaning up costs
-more than the check does.
+Run this before the release train allocates its annotated tag: the tag is the
+first irreversible act, and a release refused after it names a build that
+never deployed.
 
 Usage::
 
     python3 -m runtime.api.tools.require_fleet_migration_preflight \\
-        <target-environment> [product-sha]
+        --project P <target-environment> [product-sha]
 
-*target-environment* is the registered name of the environment the release is
-bound for — the same name receipts are keyed by, which the release train
-resolves from the deployment run's typed environment reference. The optional
-*product-sha* only enriches the refusal.
+Run from a checkout of the release commit. *target-environment* is the
+registered name of the project environment the release is bound for — the
+same name receipts are keyed by. The optional *product-sha* only enriches the
+refusal.
 
-This submits the checked-out name/digest set to the connected control plane's
-semantic identity verifier, reads that target environment's own fleet
-rehearsal coverage, and reads the checked-out history plus schema-shape
-sources. It does not accept SQL or expose ledger digests. It does not rehearse
-anything, so it runs anywhere the control plane is reachable — which is what
-lets it sit in a release job that could never host the rehearsal itself.
+Every migration model the project declares is checked against the fleet it
+declares in the ``migration_fleet`` capability: a ``none`` fleet passes with
+its reason, an undeclared fleet refuses with the declaration recipe, and any
+other fleet must have this checkout's history entries and schema-shape digest
+covered by that model's receipts for the target environment. For the engine's
+own model the checked-out entry bytes are also submitted to the connected
+control plane's semantic identity verifier. It does not accept SQL, expose
+ledger digests, or rehearse anything, so it runs anywhere the control plane is
+reachable — which is what lets it sit in a release job that could never host
+the rehearsal itself.
 
-Reading coverage needs ``items.read`` on the project, because coverage lives
-in that project's environment settings. A deploy identity that holds only the
-narrower release permissions is refused with that reason rather than treated
-as an unrehearsed build.
+Reading the declarations and coverage needs ``items.read`` on the project; a
+deploy identity without it is refused with that reason, not treated as an
+unrehearsed build.
 
-Exits 0 when permanent packaged bytes match the live ledger and every history
-entry plus this build's schema-shape digest is covered. Exits 1 when verified
-evidence is unsafe (content mismatch or missing coverage). Exits 2 when
-verification is unavailable (authorization, transport, unreadable response, or
-an unreadable schema-shape digest) or arguments are invalid.
+Exits 0 when every model's evidence is complete, 1 when verified evidence is
+unsafe (undeclared fleet, content mismatch, missing coverage), and 2 when
+verification is unavailable or arguments are invalid.
 """
 
 from __future__ import annotations
@@ -47,14 +47,16 @@ _QUERY_TIMEOUT_SECONDS = 120
 _BUILD_ARTIFACTS_WORKFLOW = "yoke-build-artifacts.yml"
 
 
-def _yoke_fleet_rehearse_command(environment: str, receipt_connection: str = "") -> str:
-    """Yoke source-dev fleet adapter recipe for the refusal unblock line."""
+def _fleet_rehearse_command(
+    project: str, model: str, environment: str, receipt_connection: str = ""
+) -> str:
+    """The fleet preflight recipe for the refusal unblock line."""
     receipt_env = receipt_connection.strip()
     receipt_env_arg = (
         shlex.quote(receipt_env) if receipt_env else "<control-plane-connection>"
     )
     return (
-        "yoke watch preflight -- "
+        f"yoke watch preflight -- --project {project} --model {model} "
         f"{environment} --record-receipt --product-sha <sha> "
         f"--receipt-env {receipt_env_arg}"
     )
@@ -75,6 +77,7 @@ def _engine_wheel_source(product_sha: str) -> str:
 
 def _read_coverage(
     project: str,
+    model: str,
     environments: Sequence[str],
     history: Sequence[str],
     schema_digest: str,
@@ -89,7 +92,7 @@ def _read_coverage(
     from yoke_core.domain import migration_preflight_receipt as receipt
     from yoke_core.domain.migration_preflight_receipt_store import read_coverage
 
-    paths = receipt.coverage_paths(history, schema_digest)
+    paths = receipt.coverage_paths(model, history, schema_digest)
     coverage: Dict[str, Dict[str, Any]] = {}
     for environment in environments:
         name = receipt.target_environment_for_admin_env(environment)
@@ -169,36 +172,158 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if not args or args[0] in {"-h", "--help"}:
         print(__doc__)
         return 0 if args else 2
-
-    from yoke_core.domain import migration_preflight_receipt as receipt
-    from yoke_core.domain import migration_preflight_refusal as refusal
-    from yoke_core.domain.schema_shape_source import (
-        SchemaShapeSourceError,
-        digest_schema_shape,
-    )
-    from runtime.api.tools import yoke_migration_fleet
-
-    environment = receipt.target_environment_for_admin_env(args[0])
-    product_sha = args[1] if len(args) > 1 else ""
-    project = "yoke"
-
-    # The same reader the rehearsal uses, so a receipt and a gate can never
-    # disagree about what "the history" is.
-    history_entries = yoke_migration_fleet.history_entries()
-    history = tuple(entry.name for entry in history_entries)
-    print(f"target environment: {environment}")
-    print(f"history entries carried by this build: {len(history)}")
-    try:
-        schema_digest = digest_schema_shape()
-    except SchemaShapeSourceError as exc:
+    project = ""
+    if "--project" in args:
+        index = args.index("--project")
+        project = args[index + 1] if index + 1 < len(args) else ""
+        del args[index : index + 2]
+    if not project or not args:
         print(
-            "release verification unavailable before tag: schema-shape "
-            f"digest could not be computed: {exc}",
+            "usage: require_fleet_migration_preflight --project P "
+            "<target-environment> [product-sha]",
             file=sys.stderr,
         )
         return 2
-    print(f"schema-shape digest: {schema_digest}")
 
+    from yoke_core.domain import migration_preflight_receipt as receipt
+    from yoke_core.domain.migration_model_fleet_read import read_declared
+
+    environment = receipt.target_environment_for_admin_env(args[0])
+    product_sha = args[1] if len(args) > 1 else ""
+    print(f"project: {project}; target environment: {environment}")
+    declared, unreadable = read_declared(project)
+    if unreadable:
+        print(
+            f"release verification unavailable before tag: {unreadable}",
+            file=sys.stderr,
+        )
+        return 2
+    if not declared.models:
+        print(f"project {project} declares no migration model; nothing to verify")
+        return 0
+    return max(
+        _verify_model(
+            project, name, model, declared.fleet(name), environment, product_sha
+        )
+        for name, model in sorted(declared.models.items())
+    )
+
+
+def _verify_model(
+    project: str,
+    model_name: str,
+    model: Dict[str, Any],
+    fleet: Optional[Dict[str, Any]],
+    environment: str,
+    product_sha: str,
+) -> int:
+    """0 when this model's release evidence is complete, 1 unsafe, 2 unknown."""
+    from yoke_core.domain import migration_model_fleet as fleets
+    from yoke_core.domain import migration_preflight_receipt as receipt
+    from yoke_core.domain import migration_preflight_refusal as refusal
+    from yoke_core.domain.migration_history import HistoryError
+    from yoke_core.domain.schema_shape_source import SchemaShapeSourceError
+
+    if fleet is None:
+        print(
+            "release unsafe before tag: "
+            + fleets.undeclared_refusal(project, model_name),
+            file=sys.stderr,
+        )
+        return 1
+    if fleet["kind"] == fleets.FLEET_NONE:
+        print(f"model {model_name}: declares no live fleet ({fleet['reason']})")
+        return 0
+    try:
+        history_entries, schema_digest = _release_inputs(model, fleet)
+    except HistoryError as exc:
+        print(
+            f"release verification unavailable before tag: model {model_name} "
+            f"history is unreadable: {exc}",
+            file=sys.stderr,
+        )
+        return 2
+    except SchemaShapeSourceError as exc:
+        print(
+            f"release verification unavailable before tag: model {model_name} "
+            f"schema-shape digest could not be computed: {exc}",
+            file=sys.stderr,
+        )
+        return 2
+    history = tuple(entry.name for entry in history_entries)
+    print(f"model {model_name}: history entries carried by this build: {len(history)}")
+    print(f"schema-shape digest: {schema_digest}")
+    if fleet["kind"] == fleets.FLEET_ENGINE_TENANTS:
+        # Only the engine's own model is applied to the connected control
+        # plane, so only its packaged bytes can be checked against that ledger.
+        rc = _verify_engine_content(history_entries)
+        if rc:
+            return rc
+
+    coverage, unreadable_environment, unreadable = _read_coverage(
+        project, model_name, (environment,), history, schema_digest
+    )
+    if unreadable:
+        print(
+            "release verification unavailable before tag: "
+            + refusal.unreadable_message(unreadable_environment, unreadable),
+            file=sys.stderr,
+        )
+        return 2
+    receipt_env = os.environ.get("YOKE_ENV", "")
+    rehearse = _fleet_rehearse_command(project, model_name, environment, receipt_env)
+    missing = receipt.uncovered(model_name, history, coverage[environment])
+    print(
+        f"covered by a passing fleet preflight: {len(history) - len(missing)} of {len(history)}"
+    )
+    if missing:
+        message = refusal.release_refusal_message(
+            environment,
+            {environment: missing},
+            product_sha=product_sha,
+            rehearse_commands={environment: rehearse},
+            engine_wheel_source=_engine_wheel_source(product_sha),
+        )
+        print(f"release unsafe before tag: {message}", file=sys.stderr)
+        return 1
+    if receipt.uncovered_schema_shape(model_name, schema_digest, coverage[environment]):
+        print(
+            "release unsafe before tag: "
+            + refusal.schema_shape_refusal_message(
+                environment,
+                schema_digest,
+                product_sha=product_sha,
+                rehearse_command=rehearse,
+            ),
+            file=sys.stderr,
+        )
+        return 1
+    print(
+        f"model {model_name}: every history entry and this build's "
+        "schema shape has been rehearsed against the fleet"
+    )
+    return 0
+
+
+def _release_inputs(
+    model: Dict[str, Any], fleet: Dict[str, Any]
+) -> Tuple[Tuple[Any, ...], str]:
+    """The checked-out release commit's history entries and schema digest.
+
+    Read the same way for every fleet kind: the checkout is the release.
+    """
+    from pathlib import Path
+
+    from yoke_core.domain import migration_model_fleet as fleets
+    from yoke_core.domain.migration_history import ordered_entries
+
+    checkout = Path.cwd()
+    modules_dir = str(model["runner"]["config"]["modules_dir"])
+    entries = tuple(ordered_entries(checkout / modules_dir))
+    return entries, fleets.schema_shape_digest(fleet, checkout)
+
+
+def _verify_engine_content(history_entries: Sequence[Any]) -> int:
     candidate_entries = [
         {"name": entry.name, "content_sha256": entry.content_sha256}
         for entry in history_entries
@@ -218,62 +343,6 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "packaged migration content matches the connected applied ledger: "
         f"{content_status['verified_count']} verified"
     )
-
-    # Target first, so an unreadable store names the environment this
-    # release is actually bound for rather than whichever sibling came first.
-    environments = (environment,)
-    coverage, unreadable_environment, unreadable = _read_coverage(
-        project, environments, history, schema_digest
-    )
-    if unreadable:
-        print(
-            "release verification unavailable before tag: "
-            + refusal.unreadable_message(unreadable_environment, unreadable),
-            file=sys.stderr,
-        )
-        return 2
-
-    missing_by_env = receipt.coverage_by_environment(history, coverage, environments)
-    target_missing = missing_by_env[environment]
-    covered = len(history) - len(target_missing)
-    print(f"covered by a passing fleet preflight: {covered} of {len(history)}")
-    for env, missing in missing_by_env.items():
-        if env == environment:
-            continue
-        print(f"also {env}: {len(history) - len(missing)} of {len(history)} covered")
-    if target_missing:
-        receipt_env = os.environ.get("YOKE_ENV", "")
-        message = refusal.release_refusal_message(
-            environment,
-            missing_by_env,
-            product_sha=product_sha,
-            rehearse_commands={
-                env: _yoke_fleet_rehearse_command(env, receipt_env)
-                for env, missing in missing_by_env.items()
-                if missing
-            },
-            engine_wheel_source=_engine_wheel_source(product_sha),
-        )
-        print(f"release unsafe before tag: {message}", file=sys.stderr)
-        return 1
-    schema_missing = receipt.uncovered_schema_shape(
-        schema_digest, coverage.get(environment) or {}
-    )
-    if schema_missing:
-        receipt_env = os.environ.get("YOKE_ENV", "")
-        print(
-            "release unsafe before tag: "
-            + refusal.schema_shape_refusal_message(
-                environment,
-                schema_digest,
-                product_sha=product_sha,
-                rehearse_command=_yoke_fleet_rehearse_command(environment, receipt_env),
-            ),
-            file=sys.stderr,
-        )
-        return 1
-    print("every history entry this build carries has been rehearsed against the fleet")
-    print("this build's schema shape has been rehearsed against the fleet")
     return 0
 
 

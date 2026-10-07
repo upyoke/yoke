@@ -24,8 +24,6 @@ from runtime.api.domain.db_mutation_gate_test_helpers import (
     _seed_capability,
     _seed_project,
     _write_module,
-    ensure_audit_table,
-    gate_audit_path,
     gate_db_context,
     seed_audit_row,
 )
@@ -50,7 +48,9 @@ class TestStampClear:
     def test_stamp_writes_then_idempotent(self, gate_db) -> None:
         conn, _ = gate_db
         insert_item(
-            conn, id=1, project="yoke",
+            conn,
+            id=1,
+            project="yoke",
             db_compatibility_attestation="{}",
         )
         stamp1 = stamp_attestation_frozen_at(1, conn=conn)
@@ -65,16 +65,22 @@ class TestStampClear:
     def test_stamp_appends_escalations(self, gate_db) -> None:
         conn, _ = gate_db
         insert_item(
-            conn, id=2, project="yoke",
+            conn,
+            id=2,
+            project="yoke",
             db_compatibility_attestation="{}",
         )
         stamp_attestation_frozen_at(
-            2, conn=conn,
+            2,
+            conn=conn,
             extra_escalations=[
-                {"from": "pre_merge_safe", "to": "pre_merge_breaking",
-                 "reason": "scanner: drop_table",
-                 "source": "scanner",
-                 "observed_at": "2026-04-23T00:00:00Z"},
+                {
+                    "from": "pre_merge_safe",
+                    "to": "pre_merge_breaking",
+                    "reason": "scanner: drop_table",
+                    "source": "scanner",
+                    "observed_at": "2026-04-23T00:00:00Z",
+                },
             ],
         )
         parsed = json.loads(
@@ -87,8 +93,12 @@ class TestStampClear:
     def test_clear_removes_stamp(self, gate_db) -> None:
         conn, _ = gate_db
         insert_item(
-            conn, id=3, project="yoke",
-            db_compatibility_attestation=json.dumps({"frozen_at": "2026-04-23T00:00:00Z"}),
+            conn,
+            id=3,
+            project="yoke",
+            db_compatibility_attestation=json.dumps(
+                {"frozen_at": "2026-04-23T00:00:00Z"}
+            ),
         )
         cleared = clear_attestation_frozen_at(3, conn=conn)
         assert cleared
@@ -102,7 +112,9 @@ class TestStampClear:
     def test_clear_returns_false_when_no_stamp(self, gate_db) -> None:
         conn, _ = gate_db
         insert_item(
-            conn, id=4, project="yoke",
+            conn,
+            id=4,
+            project="yoke",
             db_compatibility_attestation="{}",
         )
         assert clear_attestation_frozen_at(4, conn=conn) is False
@@ -152,42 +164,37 @@ class TestEvidenceGate:
             "migration_strategy": "additive_only",
         }
         insert_item(
-            conn, id=4242, project="yoke", status="implementing",
+            conn,
+            id=4242,
+            project="yoke",
+            status="implementing",
             db_mutation_profile=json.dumps(profile, sort_keys=True),
         )
         return 4242
-
-    def _audit_path(self, gate_db) -> str:
-        # The gate's items+audit database is one per-test DB (see
-        # gate_db_context). migration_audit already exists there; the path token
-        # matches init_test_db's db_path so the gate's own connection lands on
-        # the same database on both backends.
-        _conn, repo_path = gate_db
-        return gate_audit_path(repo_path)
 
     def test_state_none_passes(self, gate_db) -> None:
         conn, repo_path = gate_db
         _seed_project(conn, "yoke", repo_path)
         insert_item(conn, id=1, project="yoke", status="implementing")
         outcome = check_implementing_to_reviewing_implementation_gate(
-            1, conn=conn,
+            1,
+            conn=conn,
         )
         assert outcome.passed
 
     def test_apply_missing_audit_blocks(self, gate_db) -> None:
         conn, _ = gate_db
         item_id = self._stage_apply(gate_db)
-        audit_path = self._audit_path(gate_db)
         outcome = check_implementing_to_reviewing_implementation_gate(
-            item_id, conn=conn, audit_db_path=audit_path,
+            item_id,
+            conn=conn,
         )
         assert not outcome.passed
-        assert any("no rehearsal recorded" in e for e in outcome.errors)
+        assert any("no passing rehearsal receipt" in e for e in outcome.errors)
 
     def test_apply_with_rehearsed_state_passes(self, gate_db) -> None:
         conn, repo_path = gate_db
         item_id = self._stage_apply(gate_db)
-        audit_path = self._audit_path(gate_db)
         seed_audit_row(
             repo_path,
             columns="migration_name, state, project_id, model_name, started_at",
@@ -195,13 +202,12 @@ class TestEvidenceGate:
             values=("demo_module", 1, "2026-04-23T00:00:00Z"),
         )
         outcome = check_implementing_to_reviewing_implementation_gate(
-            item_id, conn=conn, audit_db_path=audit_path,
+            item_id,
+            conn=conn,
         )
         assert outcome.passed, outcome.errors
 
-    def test_apply_uses_project_configured_webapp_python_model(
-        self, gate_db
-    ) -> None:
+    def test_apply_uses_project_configured_webapp_python_model(self, gate_db) -> None:
         conn, repo_path = gate_db
         identifier = "001_create_accounts"
         _seed_project(conn, "externalwebapp", repo_path)
@@ -216,27 +222,25 @@ class TestEvidenceGate:
             "migration_strategy": "additive_only",
         }
         insert_item(
-            conn, id=4343, project="externalwebapp", status="implementing",
+            conn,
+            id=4343,
+            project="externalwebapp",
+            status="implementing",
             db_mutation_profile=json.dumps(profile, sort_keys=True),
         )
-        # This test does not pass audit_db_path: the gate resolves the
-        # authoritative DB from the externalwebapp capability config (app/data/app.db).
-        # On SQLite the gate opens that file, so migration_audit must exist
-        # there; on Postgres db_helpers.connect ignores the path and reaches the
-        # per-test DSN database (table already present, ensure is a no-op).
-        audit_path = repo_path / "app" / "data" / "app.db"
-        audit_path.parent.mkdir(parents=True, exist_ok=True)
-        ensure_audit_table(str(audit_path))
+        # The model's authority is a project-local SQLite file the control
+        # plane never opens. The receipt is item evidence and lives on the
+        # control plane that holds the item, which is where the gate reads it.
         seed_audit_row(
             repo_path,
             columns="migration_name, state, project_id, model_name, started_at",
             placeholders="?, 'rehearsed', ?, 'primary', ?",
             values=(identifier, 2, "2026-04-23T00:00:00Z"),
-            audit_path=str(audit_path),
         )
 
         outcome = check_implementing_to_reviewing_implementation_gate(
-            4343, conn=conn,
+            4343,
+            conn=conn,
         )
 
         assert outcome.passed, outcome.errors
@@ -246,7 +250,6 @@ class TestEvidenceGate:
         # past ``rehearsed`` count; earlier ones do not.
         conn, repo_path = gate_db
         item_id = self._stage_apply(gate_db)
-        audit_path = self._audit_path(gate_db)
         seed_audit_row(
             repo_path,
             columns=(
@@ -254,14 +257,12 @@ class TestEvidenceGate:
                 "backup_path, tables_declared, expected_deltas, "
                 "pre_row_counts, started_at"
             ),
-            placeholders=(
-                "?, 'planned', ?, 'primary', "
-                "'', '[]', '{}', '{}', ?"
-            ),
+            placeholders=("?, 'planned', ?, 'primary', '', '[]', '{}', '{}', ?"),
             values=("demo_module", 1, "2026-04-23T00:00:00Z"),
         )
         outcome = check_implementing_to_reviewing_implementation_gate(
-            item_id, conn=conn, audit_db_path=audit_path,
+            item_id,
+            conn=conn,
         )
         assert not outcome.passed
-        assert any("no rehearsal recorded" in e for e in outcome.errors)
+        assert any("no passing rehearsal receipt" in e for e in outcome.errors)

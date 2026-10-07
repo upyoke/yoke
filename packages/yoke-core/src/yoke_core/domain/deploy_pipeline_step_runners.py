@@ -155,8 +155,6 @@ def _dispatch_step_runner(
     if step_runner == "github-actions-workflow":
         rehearsal_rc, rehearsal_diag = (
             deploy_pipeline_fleet_rehearsal.ensure_before_dispatch(
-                config,
-                stage_name=name,
                 project=project,
                 environment=environment_name,
                 repository=project_repo_path,

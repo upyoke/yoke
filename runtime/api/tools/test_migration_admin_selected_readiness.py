@@ -9,9 +9,10 @@ from typing import Any
 import pytest
 from psycopg import conninfo
 
+from runtime.api.tools import fleet_rehearsal_receipt_write as receipt_write
+from runtime.api.tools import migration_fleet_selection
 from runtime.api.tools import preflight_fleet_migrations as preflight
 from runtime.api.tools import report_yoke_tenant_migration_state as reporter
-from runtime.api.tools import yoke_migration_fleet
 from runtime.api.tools.test_adopt_migration_content_identity import (
     _argv,
     _artifact,
@@ -27,19 +28,33 @@ from yoke_core.tools import yoke_migration_fleet as fleet_selector
 SELECTED_DSN = "host=selected.example user=admin dbname=postgres"
 
 
-def _declare_admin(
-    monkeypatch: pytest.MonkeyPatch, mapping: dict[str, str]
-) -> None:
+def _declare_admin(monkeypatch: pytest.MonkeyPatch, mapping: dict[str, str]) -> None:
     def read(*, project: str, environment: str) -> tuple[str, str]:
         del project
         admin = mapping.get(environment, "")
         if not admin:
-            return "", f"environment {environment!r} does not declare release.admin_connection"
+            return (
+                "",
+                f"environment {environment!r} does not declare release.admin_connection",
+            )
         return admin, ""
 
     monkeypatch.setattr(
         "yoke_core.domain.migration_preflight_receipt_store.read_declared_admin_connection",
         read,
+    )
+
+
+def _select_yoke_fleet(monkeypatch: pytest.MonkeyPatch) -> None:
+    target = migration_fleet_selection.FleetTarget(
+        project="yoke",
+        model_name="primary",
+        plan=SimpleNamespace(history=("0001_existing",)),
+        databases=lambda _dsn_for: ["yoke_alpha"],
+        schema_shape_digest=lambda: "digest-for-test",
+    )
+    monkeypatch.setattr(
+        migration_fleet_selection, "resolve", lambda *_args, **_kw: (target, "")
     )
 
 
@@ -130,7 +145,7 @@ def test_preflight_keeps_receipt_on_preexisting_control_plane(
     monkeypatch.setenv("YOKE_ENV", "release")
     _declare_admin(monkeypatch, {"prod": "prod-db-admin"})
     monkeypatch.setattr(
-        preflight.machine_config,
+        receipt_write.machine_config,
         "load_config",
         lambda: _machine_config("release"),
     )
@@ -143,15 +158,11 @@ def test_preflight_keeps_receipt_on_preexisting_control_plane(
         "cluster_spec",
         lambda **_kwargs: SimpleNamespace(sock_dir=tmp_path / "socket"),
     )
-    monkeypatch.setattr(
-        yoke_migration_fleet,
-        "rehearsal_plan",
-        lambda: SimpleNamespace(history=("0001_existing",)),
-    )
+    _select_yoke_fleet(monkeypatch)
     monkeypatch.setattr(migration_fleet_preflight, "rehearse_fleet", rehearse)
     monkeypatch.setattr(
-        preflight,
-        "_record_receipt",
+        receipt_write,
+        "record_receipt",
         lambda **kwargs: (
             receipts.append(kwargs["receipt_env"]),
             ("20260101T000000Z", ""),
@@ -160,7 +171,14 @@ def test_preflight_keeps_receipt_on_preexisting_control_plane(
 
     assert (
         preflight.main(
-            ["prod", "yoke_alpha", "--record-receipt", "--product-sha", "abc"]
+            [
+                "--project",
+                "yoke",
+                "prod",
+                "--record-receipt",
+                "--product-sha",
+                "abc",
+            ]
         )
         == 0
     )
@@ -189,7 +207,7 @@ def test_preflight_records_receipt_on_registered_environment_not_admin(
         "transport": "local-postgres",
         "prod": False,
     }
-    monkeypatch.setattr(preflight.machine_config, "load_config", lambda: config)
+    monkeypatch.setattr(receipt_write.machine_config, "load_config", lambda: config)
     monkeypatch.setattr(readiness, "activate_selected_postgres", activate)
     monkeypatch.setattr(
         local_universe, "ensure_engine_binaries", lambda _emit: tmp_path
@@ -199,19 +217,11 @@ def test_preflight_records_receipt_on_registered_environment_not_admin(
         "cluster_spec",
         lambda **_kwargs: SimpleNamespace(sock_dir=tmp_path / "socket"),
     )
-    monkeypatch.setattr(
-        yoke_migration_fleet,
-        "rehearsal_plan",
-        lambda: SimpleNamespace(history=("0001_existing",)),
-    )
+    _select_yoke_fleet(monkeypatch)
     monkeypatch.setattr(migration_fleet_preflight, "rehearse_fleet", rehearse)
     monkeypatch.setattr(
-        "yoke_core.domain.schema_shape_source.digest_schema_shape",
-        lambda: "digest-for-test",
-    )
-    monkeypatch.setattr(
-        preflight,
-        "_record_receipt",
+        receipt_write,
+        "record_receipt",
         lambda **kwargs: (
             recorded.append(kwargs["environment"]),
             ("20260101T000000Z", ""),
@@ -221,8 +231,9 @@ def test_preflight_records_receipt_on_registered_environment_not_admin(
     assert (
         preflight.main(
             [
+                "--project",
+                "yoke",
                 "review-west",
-                "yoke_alpha",
                 "--record-receipt",
                 "--product-sha",
                 "abc",
@@ -250,7 +261,7 @@ def test_preflight_resolves_an_environment_name_to_the_admin_connection(
     monkeypatch.setenv("YOKE_ENV", "release")
     _declare_admin(monkeypatch, {"stage": "stage-db-admin"})
     monkeypatch.setattr(
-        preflight.machine_config,
+        receipt_write.machine_config,
         "load_config",
         lambda: _machine_config("release"),
     )
@@ -263,15 +274,11 @@ def test_preflight_resolves_an_environment_name_to_the_admin_connection(
         "cluster_spec",
         lambda **_kwargs: SimpleNamespace(sock_dir=tmp_path / "socket"),
     )
-    monkeypatch.setattr(
-        yoke_migration_fleet,
-        "rehearsal_plan",
-        lambda: SimpleNamespace(history=("0001_existing",)),
-    )
+    _select_yoke_fleet(monkeypatch)
     monkeypatch.setattr(migration_fleet_preflight, "rehearse_fleet", rehearse)
-    monkeypatch.setattr(preflight, "_record_receipt", lambda **_kwargs: "")
+    monkeypatch.setattr(receipt_write, "record_receipt", lambda **_kwargs: "")
 
-    assert preflight.main(["stage", "yoke_alpha"]) == 0
+    assert preflight.main(["--project", "yoke", "stage", "yoke_alpha"]) == 0
     assert events == ["activate:stage-db-admin", "rehearse"]
 
 
@@ -280,19 +287,22 @@ def test_preflight_refuses_receipt_on_test_control_plane(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     monkeypatch.setattr(
-        preflight.machine_config,
+        receipt_write.machine_config,
         "load_config",
         lambda: _machine_config("release"),
     )
     _declare_admin(monkeypatch, {"stage": "stage-db-admin"})
+    _select_yoke_fleet(monkeypatch)
 
     assert (
-        preflight.main(["stage", "--record-receipt", "--receipt-env", "stage"])
+        preflight.main(
+            ["--project", "yoke", "stage", "--record-receipt", "--receipt-env", "stage"]
+        )
         == 2
     )
 
     refusal = capsys.readouterr().err
-    assert "yoke watch preflight -- stage" in refusal
+    assert "yoke watch preflight -- --project yoke stage" in refusal
     assert "--receipt-env release" in refusal
 
 
@@ -302,8 +312,10 @@ def test_preflight_help_teaches_both_receipt_coverage_shapes(
     assert preflight.main(["--help"]) == 0
 
     help_text = capsys.readouterr().out
-    assert "yoke watch preflight -- <environment> [db ...]" in help_text
-    assert "The positional names the registered environment" in help_text
+    assert (
+        "yoke watch preflight -- --project P [--model M] [--checkout PATH]" in help_text
+    )
+    assert "The positional names the project's" in help_text
     assert "release.admin_connection" in help_text
     assert "--receipt-env`` names the" in help_text
     assert "control plane that records the receipt" in help_text
@@ -311,3 +323,19 @@ def test_preflight_help_teaches_both_receipt_coverage_shapes(
     assert "Receipts always write to the release-gate control plane" in help_text
     assert "Ordinary pre-release rehearsal uses the source tree" in help_text
     assert "--engine-wheel`` pins an already-built artifact" in help_text
+
+
+def test_preflight_refuses_to_record_a_narrowed_run(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _select_yoke_fleet(monkeypatch)
+
+    assert (
+        preflight.main(["--project", "yoke", "prod", "yoke_alpha", "--record-receipt"])
+        == 2
+    )
+
+    refusal = capsys.readouterr().err
+    assert "whole declared fleet" in refusal
+    assert "yoke_alpha" in refusal

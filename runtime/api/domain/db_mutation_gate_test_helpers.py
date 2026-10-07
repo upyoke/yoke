@@ -117,10 +117,8 @@ def gate_db_context(tmp_path: Path) -> Iterator[Tuple[sqlite3.Connection, Path]]
     Routes the gate's items+audit database through :func:`init_test_db` so the
     same per-test database carries the seeded items / projects / capabilities /
     flows *and* the ``migration_audit`` rows the gate reads via
-    ``db_helpers.connect(audit_path)``. On SQLite that is a real file under
-    ``tmp_path``; on Postgres a disposable per-test DSN database. Tests use
-    :func:`gate_audit_path` for the ``audit_db_path`` argument so the gate's own
-    connection lands on the same database on both backends.
+    the gate's own connection. On SQLite that is a real file under
+    ``tmp_path``; on Postgres a disposable per-test DSN database.
     """
     with init_test_db(tmp_path, apply_schema=_apply_gate_schema) as db_path:
         conn = connect_test_db(db_path)
@@ -141,42 +139,21 @@ def gate_audit_path(tmp_path: Path) -> str:
     return str(tmp_path / "yoke.db")
 
 
-def ensure_audit_table(audit_path: str) -> None:
-    """Idempotently create the relaxed ``migration_audit`` on ``audit_path``.
-
-    Needed for the project-configured-model test whose authoritative DB is a
-    fresh path (``app/data/app.db``) the fixture strategy never touched. On
-    SQLite this creates the table in that file; on Postgres the ``IF NOT
-    EXISTS`` DDL is a harmless no-op against the per-test DSN database that
-    already carries the table.
-    """
-    conn = connect_test_db(audit_path)
-    try:
-        execute_schema_script(conn, _EXTRA_DDL)
-        conn.commit()
-    finally:
-        conn.close()
-
-
 def seed_audit_row(
     tmp_path: Path,
     *,
     columns: str,
     placeholders: str,
     values: tuple,
-    audit_path: str | None = None,
 ) -> None:
     """Insert one ``migration_audit`` row through the backend-aware connection.
 
     Replaces the raw ``sqlite3.connect(audit_path)`` seeding the gate suites
     used: on Postgres that wrote a SQLite file the gate never read. Routes
     through :func:`connect_test_db` so the row lands in the per-test database
-    the gate resolves. ``audit_path`` defaults to :func:`gate_audit_path`; pass
-    an explicit path for the project-configured-model test whose gate resolves a
-    different authoritative-DB path.
+    the gate reads: the control plane holding the item.
     """
-    path = audit_path or gate_audit_path(tmp_path)
-    conn = connect_test_db(path)
+    conn = connect_test_db(gate_audit_path(tmp_path))
     try:
         marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
         native_placeholders = placeholders.replace("?", marker)
@@ -203,7 +180,9 @@ def create_table_on_audit_db(tmp_path: Path, ddl: str) -> None:
         conn.close()
 
 
-def _seed_capability(conn: sqlite3.Connection, project: str, settings: Mapping[str, Any]) -> None:
+def _seed_capability(
+    conn: sqlite3.Connection, project: str, settings: Mapping[str, Any]
+) -> None:
     raw = json.dumps(settings, sort_keys=True)
     p = _placeholder(conn)
     project_id = resolve_project_id(conn, project)
@@ -217,15 +196,11 @@ def _seed_capability(conn: sqlite3.Connection, project: str, settings: Mapping[s
     conn.commit()
 
 
-def _seed_project(
-    conn: sqlite3.Connection, project: str, repo_path: Path
-) -> None:
+def _seed_project(conn: sqlite3.Connection, project: str, repo_path: Path) -> None:
     p = _placeholder(conn)
     project_id = SEED_PROJECT_IDS.get(project)
     if project_id is None:
-        row = conn.execute(
-            "SELECT COALESCE(MAX(id), 0) + 1 FROM projects"
-        ).fetchone()
+        row = conn.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM projects").fetchone()
         project_id = int(row[0])
     register_machine_checkout(repo_path.parent, repo_path, project_id)
     conn.execute(
@@ -246,7 +221,7 @@ def _write_module(
     repo_path: Path,
     modules_dir: str,
     identifier: str,
-    body: str = '',
+    body: str = "",
     sequence: int = 1,
 ) -> Path:
     """Write a history entry, named the way the applier discovers them.
@@ -256,8 +231,10 @@ def _write_module(
     the evidence gate checks for, so the helper produces the real shape rather
     than a placeholder that would pass by accident.
     """
-    stem = identifier if _ENTRY_NAME_RE.match(identifier) else (
-        f"{sequence:04d}_{identifier}"
+    stem = (
+        identifier
+        if _ENTRY_NAME_RE.match(identifier)
+        else (f"{sequence:04d}_{identifier}")
     )
     target = repo_path / modules_dir / f"{stem}.py"
     target.parent.mkdir(parents=True, exist_ok=True)

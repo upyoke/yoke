@@ -37,14 +37,14 @@ def test_the_read_asks_the_registered_environment_settings_projection(monkeypatc
     store.read_coverage(
         project="yoke",
         environment="prod",
-        paths=[receipt.entry_coverage_path("0001_a")],
+        paths=[receipt.entry_coverage_path("primary", "0001_a")],
     )
 
     assert calls[0]["function_id"] == store.COVERAGE_FUNCTION_ID
     assert calls[0]["payload"] == {
         "project": "yoke",
         "environment": "prod",
-        "paths": [receipt.entry_coverage_path("0001_a")],
+        "paths": [receipt.entry_coverage_path("primary", "0001_a")],
     }
 
 
@@ -56,7 +56,7 @@ def test_one_function_id_serves_both_the_local_and_the_relayed_authority():
 
 
 def test_recorded_leaves_come_back_as_coverage(monkeypatch):
-    path = receipt.entry_coverage_path("0001_a")
+    path = receipt.entry_coverage_path("primary", "0001_a")
     _patched_dispatcher(monkeypatch, _response({path: "20260101T000000Z"}))
 
     values, unreadable = store.read_coverage(
@@ -64,7 +64,7 @@ def test_recorded_leaves_come_back_as_coverage(monkeypatch):
     )
 
     assert unreadable == ""
-    assert receipt.uncovered(["0001_a"], values) == ()
+    assert receipt.uncovered("primary", ["0001_a"], values) == ()
 
 
 def test_a_refused_read_is_reported_rather_than_returned_empty(monkeypatch):
