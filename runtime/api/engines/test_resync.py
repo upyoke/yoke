@@ -89,9 +89,10 @@ class TestHelpers:
                 "body": "ExternalWebapp body",
             }
         ]
+        # Projects are fetched in sorted order: externalwebapp, then yoke.
         responses = [
-            RestResponse(status=200, headers={}, body=yoke_body),
             RestResponse(status=200, headers={}, body=externalwebapp_body),
+            RestResponse(status=200, headers={}, body=yoke_body),
         ]
         with (
             mock.patch(
