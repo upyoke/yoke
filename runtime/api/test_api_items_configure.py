@@ -126,6 +126,7 @@ class TestConfigureCapability:
         conn.execute.return_value.fetchone.return_value = {"id": 1, "project_id": None}
         monkeypatch.setattr(items_capability._main, "get_db_readwrite", lambda: conn)
         monkeypatch.setattr(items_capability, "_p", lambda _conn: "%s")
+        monkeypatch.setattr(items_capability, "resolve_http_item", lambda *_args: 1)
         monkeypatch.setattr(
             "yoke_core.domain.project_selection.missing_project_on_connection",
             lambda _conn, **_kwargs: (

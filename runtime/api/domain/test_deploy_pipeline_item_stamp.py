@@ -92,7 +92,7 @@ def test_set_deploy_stage_stamps_member_then_run(db, monkeypatch):
         seen.append((run_id, field, value))
 
     monkeypatch.setattr(run_updates, "update_run_field", _fake_update_run_field)
-    _set_deploy_stage("warm-up", "run-20260822-001", [str(item_id)])
+    _set_deploy_stage("warm-up", "run-20260822-001", ["EXT-5"])
     assert (
         _scalar(db, "SELECT deploy_stage FROM items WHERE id = %s", (item_id,))
         == "warm-up"

@@ -61,6 +61,7 @@ def _wire_close_out(monkeypatch, *, already: bool, cleanup_result=()):
         ),
     )
     monkeypatch.setattr(merge_cli.evidence, "record", lambda **_k: "")
+    monkeypatch.setattr(merge_cli.landings, "_record", lambda *_a, **_k: "")
     monkeypatch.setattr(merge_cli.evidence, "authoritative_status_is", lambda *_a: True)
     monkeypatch.setattr(
         merge_cli.release_flow,

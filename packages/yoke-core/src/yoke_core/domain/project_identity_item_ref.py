@@ -43,10 +43,9 @@ def item_ref_for_id(item_id: int) -> str:
 def item_subject_ref(token: int | str) -> str:
     """Name an item from a token that is either an id or a public ref.
 
-    Boundary surfaces (browser QA, sync CLIs, relayed handlers) accept both
-    shapes from their caller. A public ref already names the item, so it
-    passes through; a bare id is resolved through :func:`item_ref_for_id`
-    so the text a person reads is never the storage key.
+    Display callers may hold an owned storage key or a complete public ref.
+    Public refs pass through; owned keys are rendered before display. This
+    helper does not validate client selectors, which require full public refs.
     """
     text = str(token).strip()
     return item_ref_for_id(int(text)) if text.isdigit() else text

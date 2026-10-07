@@ -52,6 +52,9 @@ def test_local_merge_item_records_evidence_and_reaches_done(
         # wait's merge-record gate reads this recorded landing instead.
         merged_at="2026-01-01T00:00:00Z",
     )
+    test_db.execute(
+        "UPDATE projects SET public_item_prefix='LOC' WHERE slug='local-project'"
+    )
     ref = project_identity.render_item_ref(test_db, item_id)
     target = make_item_target(item_id)
     test_db.execute(

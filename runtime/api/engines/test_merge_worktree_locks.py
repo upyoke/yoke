@@ -167,7 +167,7 @@ class TestMergeLockIntegration:
         handle = merge_lock.acquire("YOK-9999", epic_id="YOK-100", conn=mw_db["conn"])
         msg = merge_lock.check(mw_db["conn"])
         assert msg is not None
-        assert "epic: 100" in msg
+        assert "epic: YOK-100" in msg
         merge_lock.release(handle, conn=mw_db["conn"])
 
     def test_stale_pid_auto_cleanup(self, mw_db):
@@ -224,7 +224,17 @@ class TestExtractGeneratedFiles:
         conn.commit()
 
         ctx = MergeContext(args=MergeArgs(branch="YOK-9999"), epic_id="YOK-100")
-        files = extract_generated_files(ctx)
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        with patch(
+            "yoke_core.engines.merge_worktree_prepare_state.call_dispatcher",
+            return_value=SimpleNamespace(
+                success=True, result={"fields": {"body": body}}
+            ),
+        ) as read:
+            files = extract_generated_files(ctx)
+        assert read.call_args.kwargs["target"].public_ref == "YOK-100"
         assert "dist/bundle.js" in files
         assert "dist/styles.css" in files
 
@@ -245,7 +255,17 @@ class TestExtractGeneratedFiles:
         conn.commit()
 
         ctx = MergeContext(args=MergeArgs(branch="YOK-9999"), epic_id="YOK-100")
-        files = extract_generated_files(ctx)
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        with patch(
+            "yoke_core.engines.merge_worktree_prepare_state.call_dispatcher",
+            return_value=SimpleNamespace(
+                success=True, result={"fields": {"body": body}}
+            ),
+        ) as read:
+            files = extract_generated_files(ctx)
+        assert read.call_args.kwargs["target"].public_ref == "YOK-100"
         assert files == []
 
 

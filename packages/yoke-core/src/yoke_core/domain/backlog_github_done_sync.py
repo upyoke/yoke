@@ -78,19 +78,8 @@ def _connect() -> Any:
 
 
 def _done_sync_target(item_id: str | int):
-    """Address the item the way the caller named it.
-
-    Bare digits are internal ids on this surface, so they go on
-    ``item_id`` rather than ``public_ref``: the dispatcher reads a bare
-    number under ``public_ref`` as a project-local sequence and would
-    resolve a different item.
-    """
-    from yoke_contracts.api.function_call import TargetRef
-
-    text = str(item_id).strip()
-    if text.isdigit():
-        return public_item_target(text)
-    return TargetRef(kind="item", public_ref=text)
+    """Retain a public ref or render an owned integer key before dispatch."""
+    return public_item_target(item_id)
 
 
 def _relay_done_sync(

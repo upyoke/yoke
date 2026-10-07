@@ -258,7 +258,9 @@ class TestSteerSkillContract:
         assert "activation dependencies do not send their own go-signal" in loop
         assert "deployment-runs create" in _read(_STEER_DIR / "release-batches.md")
         assert "--source-ref {PINNED_SHA}" in _read(_STEER_DIR / "release-batches.md")
-        assert "yoke merge item PREFIX-N --result" in loop
+        assert "yoke merge item PREFIX-N --result" in _read(
+            _STEER_DIR / "release-batches.md"
+        )
         assert "done-transition --skip-deploy" in _read(
             _STEER_DIR / "release-batches.md"
         )

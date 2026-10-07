@@ -123,7 +123,7 @@ def test_alignment_emits_event_and_clears_deploy_stage(wired):
     req = wired.dispatched[0]
     assert req.function == "items.scalar.update"
     assert req.target.kind == "item"
-    assert req.target.item_id == 42
+    assert req.target.public_ref == "YOK-42"
     assert req.payload == {"field": "deploy_stage", "value": "prod-deploy"}
     assert wired.item_state["deploy_stage"] == "prod-deploy"
 

@@ -91,7 +91,7 @@ class TestListErgonomics:
         monkeypatch.setenv("YOKE_DB", db_path)
         _insert_event(db_path, event_id="id-evt-1", item_id=4444)
         assert ec.main(["list", "--item-id", "4444", "--project", "yoke"]) == 2
-        assert "unknown filter flag" in capsys.readouterr().err
+        assert "public_item_ref_required" in capsys.readouterr().err
 
     def test_list_limit_with_filter_is_bounded(self, db_path, monkeypatch, capsys):
         """--limit applies after filters and produces bounded output."""

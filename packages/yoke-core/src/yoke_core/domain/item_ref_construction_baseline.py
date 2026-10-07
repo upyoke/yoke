@@ -26,16 +26,6 @@ BASELINE: dict[str, dict[str, object]] = {
         "reason": "next_id_display_fallback",
         "note": "next-id output before a project-specific prefix is available",
     },
-    "packages/yoke-core/src/yoke_core/domain/deploy_pipeline_gates.py": {
-        "count": 2,
-        "reason": "commit_grep_token",
-        "note": "commit-message grep keeps legacy internal-id token beside rendered ref",
-    },
-    "packages/yoke-core/src/yoke_core/domain/discovery_scan.py": {
-        "count": 1,
-        "reason": "scratch_path_convention",
-        "note": "stable /tmp discovery-scan filename keyed by normalized item number",
-    },
     "packages/yoke-core/src/yoke_core/domain/ephemeral_environment_item_binding.py": {
         "count": 1,
         "reason": "legacy_key_lookup",

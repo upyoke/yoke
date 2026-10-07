@@ -42,7 +42,11 @@ def _silence_claim(monkeypatch):
 
     def _resolve_target(request):
         if request.target.public_ref is not None:
-            request.target.item_id = item_ids[request.target.public_ref]
+            key = item_ids[request.target.public_ref]
+            if request.target.kind == "epic_task":
+                request.target.epic_id = key
+            else:
+                request.target.item_id = key
             request.target.project_id = None
         return None
 

@@ -2,14 +2,9 @@
 
 The deployment pipeline runs as a machine process with no work claim on
 the member items, so ``items.scalar.update``'s claim gate refuses its
-stamps. The pipeline used to route around that through a legacy
-subprocess router whose bare-digit item argument is parsed as a
-public sequence under the default project — a stamp that lands on no
-row, or on the wrong one, while the caller prints success.
-
-This handler is the sanctioned write those stamps go through instead:
-one function per member-item scalar, addressed by an integer
-``target.public_ref`` the server resolves before any permission check,
+stamps. This handler provides one sanctioned function per member-item scalar,
+addressed by a complete ``target.public_ref``. The dispatcher resolves its
+owned integer key before permission checks. The handler verifies each write,
 writing through the same multi-field updater every other item write
 uses, then reading the row back before commit so the response can
 state whether the value actually landed. The pipeline refuses its

@@ -114,7 +114,7 @@ def test_an_empty_project_leaves_an_external_item_where_it_is(client, test_db):
     assert assigned.status_code == 200
 
     response = client.patch(
-        "/v1/items/YOK-1",
+        "/v1/items/EXT-1",
         json={"project": ""},
     )
 
@@ -141,7 +141,7 @@ def test_an_empty_project_refuses_the_whole_patch(client, test_db):
     assert moved.status_code == 200
 
     response = client.patch(
-        "/v1/items/YOK-1",
+        "/v1/items/EXT-1",
         json={
             "project": "",
             "deployment_flow": "test-approval-flow",
@@ -150,7 +150,7 @@ def test_an_empty_project_refuses_the_whole_patch(client, test_db):
 
     assert response.status_code == 422
     assert "names no project" in response.json()["error"]["message"]
-    current = client.get("/v1/items/YOK-1")
+    current = client.get("/v1/items/EXT-1")
     assert current.json()["project"] == "externalwebapp"
     assert current.json()["deployment_flow"] is None
 

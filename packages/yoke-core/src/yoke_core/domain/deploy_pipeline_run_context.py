@@ -117,10 +117,10 @@ def finalize_run_success(
 
         for raw in member_items:
             print(
-                f"Run {run_id}: stamping member items.id={raw} deployed_to={delivered_to}",
+                f"Run {run_id}: stamping member {raw} deployed_to={delivered_to}",
                 flush=True,
             )
-            stamp_item_field(int(raw), "deployed_to", delivered_to)
+            stamp_item_field(raw, "deployed_to", delivered_to)
         print(f"Auto-set deployed_to={delivered_to} from flow {flow_id}")
     _update_run_succeeded(run_id, sd)
     _emit_run_event(

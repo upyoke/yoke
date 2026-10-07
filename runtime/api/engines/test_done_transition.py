@@ -326,7 +326,7 @@ class TestDeploymentFlowGuard:
         stamp.assert_called_once_with(226)
         upd.assert_called_once()
         args, kwargs = upd.call_args
-        assert args[0] == "YOK-226"
+        assert args[0] == 226
         assert args[1] == "status"
         assert args[2] == "ship-ready"
         assert kwargs["env_overrides"] == {"YOKE_STATUS_SOURCE": "done-transition"}

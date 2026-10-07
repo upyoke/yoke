@@ -262,12 +262,12 @@ class TestQueryBuilder:
             events_crud._build_where(["--item", "--since", "2026-05-07T00:00:00Z"])
 
     def test_invalid_item_filter_value_fails_closed(self):
-        """Item filters accept refs or project-local sequences with context."""
+        """Item filters require complete public refs."""
         with pytest.raises(ValueError, match="requires PREFIX-N"):
             events_crud._build_where(["--item", "not-an-item"])
 
     def test_item_alias_normalizes_through_item_id(self, db_path):
-        """``--item`` resolves public refs and project-local numeric refs."""
+        """``--item`` resolves complete public refs with optional project filters."""
         where, params = events_crud._build_where(
             ["--item", TEST_ITEM_REF],
             db_path=db_path,
@@ -275,14 +275,14 @@ class TestQueryBuilder:
         assert "item_id=%s" in where
         assert params == [str(TEST_ITEM_ID)]
         where, params = events_crud._build_where(
-            ["--item", str(TEST_ITEM_ID), "--project", "yoke"],
+            ["--item", TEST_ITEM_REF, "--project", "yoke"],
             db_path=db_path,
         )
         assert "item_id=%s" in where
         assert "project_id=%s" in where
         assert params == [str(TEST_ITEM_ID), 1]
         where, params = events_crud._build_where(
-            ["--project", "yoke", "--item", str(TEST_ITEM_ID)],
+            ["--project", "yoke", "--item", TEST_ITEM_REF],
             db_path=db_path,
         )
         assert "item_id=%s" in where
@@ -296,7 +296,7 @@ class TestQueryBuilder:
     def test_item_alias_missing_project_sequence_reports_not_found(self, db_path):
         with pytest.raises(ValueError, match="not found"):
             events_crud._build_where(
-                ["--item", "999999", "--project", "yoke"],
+                ["--item", "YOK-999999", "--project", "yoke"],
                 db_path=db_path,
             )
 

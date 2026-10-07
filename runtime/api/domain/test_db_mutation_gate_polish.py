@@ -313,9 +313,7 @@ class TestPolishGateActingItemRef:
         )
         assert not any("test_results is empty" in e for e in outcome.errors)
 
-    def test_bare_sequence_ref_agrees_with_rendered_prefix(
-        self, gate_db, monkeypatch
-    ) -> None:
+    def test_bare_sequence_ref_is_refused(self, gate_db, monkeypatch) -> None:
         conn, repo_path = gate_db
         _seed_project(conn, "yoke", repo_path)
         self._stub_quick(monkeypatch)
@@ -334,7 +332,8 @@ class TestPolishGateActingItemRef:
                 6200,
                 conn=conn,
             )
-        assert outcome.passed, outcome.errors
+        assert not outcome.passed
+        assert any("does not name" in error for error in outcome.errors)
 
 
 def test_governed_postgres_seed_round_trips_through_capability_validator() -> None:
