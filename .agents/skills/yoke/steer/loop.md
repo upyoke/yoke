@@ -374,7 +374,8 @@ yoke --env <cp> deployment-runs create {_project} {FLOW} --retry-of {RUN_ID} --i
 A create that yielded is still running — continue that invocation; only if it
 exited without a run id, repeat it verbatim with the SAME key to get the
 original run back. A new key is a deliberate new run.
-A retry copies the frozen bound sources, so when the failure trace prints
+A retry copies the frozen bound sources, so when a bound stage fails before
+dispatch with `bound source ... is stale`, or the failure trace prints
 `Stale bound source: ...`, neither re-drive nor `--retry-of` can pass: create
 a new run, which binds the current commit.
 

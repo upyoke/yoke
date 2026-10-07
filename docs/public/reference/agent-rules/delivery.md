@@ -59,10 +59,16 @@ the run's own candidate, so the run delivers two projects, not one.
   revalidates before stage dispatch. If a stored carried-work record omits a recorded bound
   project, start refuses it by name; cancel that stale run and create a new one.
   A bound source stays frozen for the run's life and a `--retry-of` copies it,
-  so a failure caused by that commit going stale cannot pass on re-drive or
-  retry: `yoke deployment-runs failure-trace RUN-ID` (also printed when the
-  stage fails) names it as `Stale bound source: ...` — leave the run failed and
-  create a new run, which binds the current commit.
+  so once its branch moves the run cannot pass on re-drive or retry. A stage
+  that consumes bound sources therefore asks the control plane
+  (`deployment_runs.execution.bound_sources_current`) immediately before it
+  dispatches and fails at once — `stage 'S' was not dispatched: bound source P
+  SHA is stale (current SHA)` — rather than spending the downstream workflow's
+  whole run reaching the same refusal; an unreadable branch head refuses by
+  name with its repair instead of dispatching blind. Nothing rebinds. A failure
+  that surfaces later still shows in `yoke deployment-runs failure-trace RUN-ID`
+  (also printed when the stage fails) as `Stale bound source: ...`. Either way,
+  leave the run failed and create a new run, which binds the current commit.
   A carried delivery-ready item with no completion flow also refuses: select
   its project workflow default with `yoke workflows delivery-default set
   --project P --workflow W --flow F`, then retry the start. Unreadable source

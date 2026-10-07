@@ -30,6 +30,9 @@ from yoke_core.domain.deployment_run_bound_sources import (
     parse_bound_sources,
 )
 
+#: The control-plane read a deploy driver asks before a bound stage dispatches.
+BOUND_SOURCES_CURRENT_FUNCTION_ID = "deployment_runs.execution.bound_sources_current"
+
 #: The shortest commit prefix a failure may use to name the frozen commit.
 _MIN_NAMED_PREFIX = 12
 
@@ -59,40 +62,16 @@ def _branches_by_project(stages_text: str) -> dict[str, str]:
     return {entry["project"]: entry["branch"] for entry in declared.values()}
 
 
-def diagnose_stale_bound_sources(
-    conn: Any, run_id: str, *, failure_text: str
+def _compare_to_branch_heads(
+    conn: Any,
+    run_id: str,
+    entries: list[dict[str, Any]],
+    branches: dict[str, str],
 ) -> tuple[list[dict[str, str]], str]:
-    """Stale bound sources the failure names, and why the check stopped if it did.
-
-    Returns ``(stale, unverified)``. ``stale`` holds one entry per bound
-    project whose recorded commit differs from its branch's current head and
-    is named in ``failure_text``. ``unverified`` is empty when every bound
-    source the failure names was compared, and otherwise names the source
-    whose current head could not be read, with the repair — never a silent
-    "not stale".
-    """
-    if not failure_text.strip() or not bound_sources_recorded(conn):
-        return [], ""
-    row = conn.execute(
-        f"SELECT COALESCE(dr.{BOUND_SOURCES_FIELD},'') AS {BOUND_SOURCES_FIELD}, "
-        "df.stages FROM deployment_runs dr "
-        "JOIN deployment_flows df ON df.id=dr.flow WHERE dr.id=%s",
-        (run_id,),
-    ).fetchone()
-    if row is None:
-        return [], ""
-    recorded = parse_bound_sources(_cell(row, BOUND_SOURCES_FIELD, 0))
-    named = [
-        entry
-        for entry in recorded.get("projects") or []
-        if _names_commit(failure_text, str(entry.get("commit_sha") or ""))
-    ]
-    if not named:
-        return [], ""
-    branches = _branches_by_project(str(_cell(row, "stages", 1) or ""))
+    """Compare each recorded commit with its branch's current head."""
     stale: list[dict[str, str]] = []
     unverified: list[str] = []
-    for entry in named:
+    for entry in entries:
         project = str(entry.get("project") or "")
         frozen = str(entry.get("commit_sha") or "")
         branch = branches.get(project, "")
@@ -128,4 +107,68 @@ def diagnose_stale_bound_sources(
     return stale, "; ".join(unverified)
 
 
-__all__ = ["diagnose_stale_bound_sources", "stale_bound_source_reason"]
+def _recorded_sources(
+    conn: Any, run_id: str
+) -> tuple[list[dict[str, Any]], dict[str, str]]:
+    """The run's recorded bound commits and the branch each was resolved from."""
+    if not bound_sources_recorded(conn):
+        return [], {}
+    row = conn.execute(
+        f"SELECT COALESCE(dr.{BOUND_SOURCES_FIELD},'') AS {BOUND_SOURCES_FIELD}, "
+        "df.stages FROM deployment_runs dr "
+        "JOIN deployment_flows df ON df.id=dr.flow WHERE dr.id=%s",
+        (run_id,),
+    ).fetchone()
+    if row is None:
+        return [], {}
+    recorded = parse_bound_sources(_cell(row, BOUND_SOURCES_FIELD, 0))
+    entries = [dict(entry) for entry in recorded.get("projects") or []]
+    if not entries:
+        return [], {}
+    return entries, _branches_by_project(str(_cell(row, "stages", 1) or ""))
+
+
+def check_bound_sources_current(
+    conn: Any, run_id: str
+) -> tuple[list[dict[str, str]], str]:
+    """Every recorded bound source whose branch has moved, before a dispatch.
+
+    Returns ``(stale, unverified)`` over all of the run's bound sources. A
+    stage that consumes them asks this immediately before dispatching, so a
+    run that can no longer pass fails at once instead of after the downstream
+    workflow spends its whole run discovering the same thing. Nothing is
+    rebound: the recorded commits stay frozen, and the remedy is a new run.
+    """
+    entries, branches = _recorded_sources(conn, run_id)
+    return _compare_to_branch_heads(conn, run_id, entries, branches)
+
+
+def diagnose_stale_bound_sources(
+    conn: Any, run_id: str, *, failure_text: str
+) -> tuple[list[dict[str, str]], str]:
+    """Stale bound sources the failure names, and why the check stopped if it did.
+
+    Returns ``(stale, unverified)``. ``stale`` holds one entry per bound
+    project whose recorded commit differs from its branch's current head and
+    is named in ``failure_text``. ``unverified`` is empty when every bound
+    source the failure names was compared, and otherwise names the source
+    whose current head could not be read, with the repair — never a silent
+    "not stale".
+    """
+    if not failure_text.strip():
+        return [], ""
+    entries, branches = _recorded_sources(conn, run_id)
+    named = [
+        entry
+        for entry in entries
+        if _names_commit(failure_text, str(entry.get("commit_sha") or ""))
+    ]
+    return _compare_to_branch_heads(conn, run_id, named, branches)
+
+
+__all__ = [
+    "BOUND_SOURCES_CURRENT_FUNCTION_ID",
+    "check_bound_sources_current",
+    "diagnose_stale_bound_sources",
+    "stale_bound_source_reason",
+]

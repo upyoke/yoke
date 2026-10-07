@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from typing import Any, Callable, Dict, Optional
 
 from yoke_contracts.github_workflow_dispatch import (
@@ -9,6 +10,7 @@ from yoke_contracts.github_workflow_dispatch import (
     WORKFLOW_DISPATCH_DISPATCHED_MARKER,
     WORKFLOW_DISPATCH_RECOVERED_MARKER,
 )
+
 FRESH_DISPATCH_CLAIM = "No existing run found, triggering workflow_dispatch..."
 RECOVERED_RUN_NARRATION = "Recovered existing workflow run by correlation token"
 DISPATCHED_RUN_NARRATION = "Dispatched new workflow run"
@@ -54,7 +56,10 @@ def narrate_sha_only_search_skip(*, reconcile_disabled: bool) -> None:
 
 
 def narrate_trigger_result(
-    run_id: str, dispatched: Optional[bool], *, correlated: bool,
+    run_id: str,
+    dispatched: Optional[bool],
+    *,
+    correlated: bool,
 ) -> None:
     """Print recovered vs dispatched only when the trigger named the outcome."""
     del run_id
@@ -84,13 +89,20 @@ def run_correlated_or_oneshot_trigger(
     if not correlation_input:
         print(f"  {FRESH_DISPATCH_CLAIM}")
     trigger_args = _trigger_args(
-        github_repo, workflow, workflow_ref, workflow_inputs,
-        request_id=request_id, correlation_input=correlation_input,
+        github_repo,
+        workflow,
+        workflow_ref,
+        workflow_inputs,
+        request_id=request_id,
+        correlation_input=correlation_input,
     )
     if correlation_input:
         result = trigger_with_retries(
-            trigger_args, github_actions=github_actions, project=project,
-            sd=sd, timeout_sec=timeout_sec,
+            trigger_args,
+            github_actions=github_actions,
+            project=project,
+            sd=sd,
+            timeout_sec=timeout_sec,
         )
     else:
         result = github_actions(*trigger_args, project=project, sd=sd)
@@ -126,8 +138,7 @@ def _reconciliation_failure(
     detail = (result.stderr or result.stdout or "").strip()
     suffix = f": {detail}" if detail else ""
     return _WorkflowReconciliationError(
-        f"GitHub Actions {operation} failed with exit code "
-        f"{result.returncode}{suffix}"
+        f"GitHub Actions {operation} failed with exit code {result.returncode}{suffix}"
     )
 
 
@@ -143,7 +154,8 @@ def _found_run_id(
         return ""
     if result.returncode != 0:
         raise _reconciliation_failure(
-            f"find-run for {workflow} @ {head_sha[:8]}", result,
+            f"find-run for {workflow} @ {head_sha[:8]}",
+            result,
         )
     if not value or value == "not_found":
         raise _WorkflowReconciliationError(
@@ -164,7 +176,12 @@ def _find_existing_workflow_run(
 ) -> tuple[str, bool, str]:
     """Return a reusable run or a deterministic fresh-dispatch scope."""
     result = github_actions(
-        "find-run", github_repo, workflow, head_sha, project=project, sd=sd,
+        "find-run",
+        github_repo,
+        workflow,
+        head_sha,
+        project=project,
+        sd=sd,
     )
     ga_run_id = _found_run_id(result, workflow=workflow, head_sha=head_sha)
     if not ga_run_id:
@@ -172,11 +189,16 @@ def _find_existing_workflow_run(
 
     print(f"  Found existing run {ga_run_id} for {workflow} @ {head_sha[:8]}")
     jobs_result = github_actions(
-        "jobs-count", github_repo, ga_run_id, project=project, sd=sd,
+        "jobs-count",
+        github_repo,
+        ga_run_id,
+        project=project,
+        sd=sd,
     )
     if jobs_result.returncode != 0:
         raise _reconciliation_failure(
-            f"jobs-count for workflow run {ga_run_id}", jobs_result,
+            f"jobs-count for workflow run {ga_run_id}",
+            jobs_result,
         )
     raw_job_count = jobs_result.stdout.strip()
     try:
@@ -197,7 +219,11 @@ def _find_existing_workflow_run(
         return "", False, f"empty:{ga_run_id}"
 
     poll_result = github_actions(
-        "poll", github_repo, ga_run_id, project=project, sd=sd,
+        "poll",
+        github_repo,
+        ga_run_id,
+        project=project,
+        sd=sd,
     )
     status = poll_result.stdout.strip()
     if poll_result.returncode == 0 and status == "success":
@@ -212,7 +238,8 @@ def _find_existing_workflow_run(
     if poll_result.returncode not in (2, 3):
         if poll_result.returncode != 0:
             raise _reconciliation_failure(
-                f"poll for workflow run {ga_run_id}", poll_result,
+                f"poll for workflow run {ga_run_id}",
+                poll_result,
             )
         raise _WorkflowReconciliationError(
             "GitHub Actions poll returned an invalid successful response for "
@@ -228,6 +255,50 @@ def _find_existing_workflow_run(
     return ga_run_id, False, ""
 
 
+def find_run_with_backoff(
+    github_actions: Callable[..., Any],
+    github_repo: str,
+    workflow: str,
+    head_sha: str,
+    *,
+    project: str,
+    sd: Optional[str],
+    sleep: Callable[[float], None],
+) -> tuple[str, str]:
+    """Look for the run a failed trigger may still have created.
+
+    Returns ``(run_id, lookup_error)``. Both are empty when six attempts five
+    seconds apart found nothing and no lookup failed; ``lookup_error`` names
+    why the search could not establish GitHub's answer.
+    """
+    print("  Trigger failed, retrying find-run with backoff...")
+    errors: list[str] = []
+    result: Any = None
+    for attempt in range(1, 7):
+        result = github_actions(
+            "find-run", github_repo, workflow, head_sha, project=project, sd=sd
+        )
+        try:
+            run_id = _found_run_id(result, workflow=workflow, head_sha=head_sha)
+        except _WorkflowReconciliationError as exc:
+            errors.append(str(exc))
+            print(
+                f"  Workflow run lookup failed (attempt {attempt}/6): {exc}",
+                file=sys.stderr,
+            )
+            run_id = ""
+        if run_id:
+            return run_id, ""
+        print(f"  Waiting for workflow run to appear... (attempt {attempt}/6)")
+        sleep(5)  # Registration is an answer that moves in seconds.
+    if not errors:
+        return "", ""
+    diagnostic = (result.stderr or result.stdout or "").strip()
+    return "", (
+        diagnostic or errors[-1] or f"could not reconcile workflow run for '{workflow}'"
+    )
+
+
 __all__ = [
     "DISPATCHED_RUN_NARRATION",
     "FRESH_DISPATCH_CLAIM",
@@ -238,6 +309,7 @@ __all__ = [
     "_found_run_id",
     "_trigger_args",
     "decode_trigger_result",
+    "find_run_with_backoff",
     "narrate_sha_only_search_skip",
     "narrate_trigger_result",
     "run_correlated_or_oneshot_trigger",

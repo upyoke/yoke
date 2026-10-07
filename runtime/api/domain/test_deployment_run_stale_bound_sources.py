@@ -20,6 +20,7 @@ from runtime.api.fixtures.bound_source_release import (
 from runtime.api.fixtures.carried_release_candidate import git
 from yoke_core.domain.deployment_run_bound_sources import record_bound_sources
 from yoke_core.domain.deployment_run_stale_bound_sources import (
+    check_bound_sources_current,
     diagnose_stale_bound_sources,
 )
 
@@ -101,6 +102,49 @@ def test_an_unreadable_current_commit_is_named_rather_than_called_current(
     stale, unverified = diagnose_stale_bound_sources(
         test_db, "run-candidate", failure_text=f"proven at {frozen}"
     )
+
+    assert stale == []
+    assert unverified == (
+        f"bound source {CONSUMER_PROJECT} {frozen}: could not resolve branch 'main'"
+    )
+
+
+def test_before_dispatch_a_moved_branch_is_stale_whatever_any_failure_says(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    frozen, current = _frozen_then_moved(test_db, tmp_path, monkeypatch)
+
+    stale, unverified = check_bound_sources_current(test_db, "run-candidate")
+
+    assert unverified == ""
+    assert [(e["project"], e["frozen_sha"], e["current_sha"]) for e in stale] == [
+        (CONSUMER_PROJECT, frozen, current)
+    ]
+    assert "create a new run" in stale[0]["reason"]
+
+
+def test_before_dispatch_an_unmoved_branch_is_current(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    two_project_release(test_db, tmp_path, monkeypatch)
+    record_bound_sources(test_db, "run-candidate")
+    test_db.commit()
+
+    assert check_bound_sources_current(test_db, "run-candidate") == ([], "")
+
+
+def test_before_dispatch_an_unreadable_head_is_named_not_assumed_current(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    frozen, _current = _frozen_then_moved(test_db, tmp_path, monkeypatch)
+    from yoke_core.domain import deployment_run_stale_bound_sources as module
+
+    def unreadable(*_args: Any, **_kwargs: Any) -> str:
+        raise ValueError("could not resolve branch 'main'")
+
+    monkeypatch.setattr(module, "_resolve_branch_head", unreadable)
+
+    stale, unverified = check_bound_sources_current(test_db, "run-candidate")
 
     assert stale == []
     assert unverified == (
