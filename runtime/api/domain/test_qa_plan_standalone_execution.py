@@ -204,7 +204,12 @@ def _machine_chain(conn, plan_id):
     )
 
 
-def _plan_case_request(execution, ordinal, function="test_machine.plan_case.begin"):
+def _plan_case_request(
+    execution,
+    ordinal,
+    function="test_machine.plan_case.begin",
+    actor=("2", "session-machine-plan"),
+):
     from yoke_contracts.api.function_call import (
         ActorContext,
         FunctionCallRequest,
@@ -213,7 +218,7 @@ def _plan_case_request(execution, ordinal, function="test_machine.plan_case.begi
 
     return FunctionCallRequest(
         function=function,
-        actor=ActorContext(actor_id="2", session_id="session-machine-plan"),
+        actor=ActorContext(actor_id=actor[0], session_id=actor[1]),
         target=TargetRef(kind="global", project_id="yoke"),
         payload={
             "execution_id": execution["id"],
@@ -223,13 +228,14 @@ def _plan_case_request(execution, ordinal, function="test_machine.plan_case.begi
     )
 
 
-def test_inheriting_case_names_only_its_own_standalone_predecessor(
+def test_inheriting_case_is_blocked_when_its_own_predecessor_failed(
     test_db, tmp_path, monkeypatch
 ):
     from runtime.api.domain.machine_qa_host_test_support import (
         configure_test_machine,
     )
     from yoke_core.domain.handlers.machine_qa_plan_case import handle_plan_case_begin
+    from yoke_core.domain.qa_plan_execution_state import advance_plan_execution
 
     configure_test_machine(test_db, tmp_path, monkeypatch)
     plan = _plan(test_db)
@@ -241,18 +247,37 @@ def test_inheriting_case_names_only_its_own_standalone_predecessor(
         "baseline",
         "inherit",
     ]
-    # The predecessor never ran in this execution, so the follower is
-    # recorded blocked without touching the machine.
-    blocked = handle_plan_case_begin(_plan_case_request(current, 1))
+    first = current["roster"][0]
+    advance_plan_execution(
+        test_db,
+        lock_plan_execution(test_db, current["id"]),
+        ordinal=0,
+        requirement_id=int(first["requirement_id"]),
+        result={
+            "requirement_id": int(first["requirement_id"]),
+            "plan_id": first["plan_id"],
+            "case_key": first["case_key"],
+            "case_position": 1,
+            "baseline_position": 1,
+            "host_baseline": "fresh-host",
+            "case_outcome": "failed",
+            "verdict": "fail",
+        },
+        commit=True,
+    )
+    # The follower is recorded blocked without touching the machine, naming
+    # the predecessor from this execution and not the aborted one.
+    blocked = handle_plan_case_begin(
+        _plan_case_request(current, 1, actor=("7", "manual-owner"))
+    )
     assert blocked.primary_success, blocked.error
     assert blocked.result_payload["state"] == "blocked"
     result = blocked.result_payload["result"]
     assert result["case_outcome"] == "blocked_on_precondition"
-    blocker = result["evidence"]["inherit_blocker"]
-    assert blocker["predecessor_requirement_id"] == (
-        current["roster"][0]["requirement_id"]
-    )
-    assert blocker["predecessor_requirement_id"] not in {
+    assert result["error_code"] == "inherited_predecessor_not_passed"
+    assert "first" in result["error"]
+    assert result["requirement_id"] == current["roster"][1]["requirement_id"]
+    assert first["requirement_id"] not in {
         case["requirement_id"] for case in old["roster"]
     }
 

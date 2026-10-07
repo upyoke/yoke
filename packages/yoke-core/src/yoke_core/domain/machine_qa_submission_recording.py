@@ -8,6 +8,7 @@ from typing import Any, Literal, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from yoke_contracts.qa_case_starting_state import reset_baselines
 from yoke_core.domain import db_backend
 from yoke_core.domain.handlers.machine_qa_case_evidence import (
     record_machine_case_result,
@@ -138,7 +139,10 @@ def validate_case_submission(
             raise ValueError("blocked Machine QA evidence must remain unstarted")
     elif evidence.get("method_id") != str(case["method_id"]):
         raise ValueError("Machine QA evidence names the wrong method")
-    if evidence.get("baseline") != case.get("host_baseline"):
+    # Only a case that opens a chain resets; an inheriting row carries its
+    # chain's baseline name but runs on the machine its predecessor left.
+    reset = reset_baselines(case)
+    if evidence.get("baseline") != (reset[0] if reset else None):
         raise ValueError("Machine QA evidence names the wrong host baseline")
     ensure_secret_free_result(result.model_dump(mode="json"))
 

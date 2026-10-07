@@ -180,8 +180,7 @@ def test_stage_order_survives_catalog_reordering_and_baseline_edits() -> None:
             (int(first["id"]),),
         )
         conn.execute(
-            "UPDATE qa_methods SET runner_id='worktree_run' "
-            "WHERE id='terminal-check'"
+            "UPDATE qa_methods SET runner_id='worktree_run' WHERE id='terminal-check'"
         )
         after = qa_plan_execution.ordered_plan_requirements(
             conn,

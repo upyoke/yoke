@@ -1,4 +1,4 @@
-"""Mission preparation preserves live state unless the case declares a reset."""
+"""Mission preparation keeps the host; the walk resets only a declared baseline."""
 
 from types import SimpleNamespace
 
@@ -6,6 +6,7 @@ import pytest
 
 from runtime.api.domain.machine_qa_test_support import FakeHostControl
 from yoke_core.domain import machine_qa_local_execution as local
+from yoke_core.domain import machine_qa_mission_walk as walk
 from yoke_core.domain.machine_qa_method_contracts import (
     MachineQaExecutionError,
     validate_machine_method_config,
@@ -41,6 +42,8 @@ def mission(monkeypatch):
     )
     monkeypatch.setattr(local, "_mission_contract", lambda raw: contract)
     monkeypatch.setattr(local, "_execution", lambda contract, **kwargs: execution)
+    monkeypatch.setattr(walk, "_mission_contract", lambda raw: contract)
+    monkeypatch.setattr(walk, "_execution", lambda contract, **kwargs: execution)
     monkeypatch.setattr(
         qa_host_package_fixture,
         "restore_host_packages",
@@ -73,14 +76,17 @@ def test_empty_baseline_preserves_home_and_package_state(mission):
 
 
 @pytest.mark.parametrize("baseline", ["fresh-host", "shell-preconfigured"])
-def test_explicit_baseline_still_resets_and_manages_packages(mission, baseline):
+def test_explicit_baseline_resets_at_walk_start_not_at_plan_time(mission, baseline):
     contract, _, resets, packages = mission
     contract.baselines = [baseline]
     contract.cases[0].host_baseline = baseline
-    prepared = local.prepare_agent_mission_contract({})["preparation"]
-    assert prepared["baseline"] == baseline
+    planned = local.prepare_agent_mission_contract({})["preparation"]
+    assert planned["baseline"] is None
+    assert resets == []
+    walked = walk.execute_agent_mission_walk_start({})["preparation"]
+    assert walked["baseline"] == baseline
     assert resets == [baseline]
-    assert packages == [("restore", None)]
+    assert packages == [("restore", None), ("restore", None)]
 
 
 def test_explicit_package_fixture_preserves_home_but_restores_packages(mission):

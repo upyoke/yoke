@@ -73,6 +73,8 @@ def _review_execution(conn, item_id: int):
                 },
                 "entry_surface": "public-installer",
                 "required_completion": "review-frame",
+                "starting_state": "as_is",
+                "starting_state_reason": "review reads a recorded capture",
             }
         ],
     )
@@ -176,12 +178,12 @@ def test_bundle_is_immutable_complete_and_does_not_ask_a_human() -> None:
                 "case_key": "review-frame",
                 "case_position": 1,
                 "baseline_position": 1,
-                    "host_baseline": None,
-                    "method_id": "terminal-inspection",
-                    "runner_id": "host_control",
-                    "method_config": bundle["cases"][0]["method_config"],
-                    "executor": None,
-                    "instructions": "Inspect the final review frame.",
+                "host_baseline": None,
+                "method_id": "terminal-inspection",
+                "runner_id": "host_control",
+                "method_config": bundle["cases"][0]["method_config"],
+                "executor": None,
+                "instructions": "Inspect the final review frame.",
                 "expected_outcome": "The frame summarizes the selected project.",
                 "capture_run_id": capture_run_id,
                 "capture_runner": "host_control",
@@ -208,9 +210,7 @@ def test_bundle_is_immutable_complete_and_does_not_ask_a_human() -> None:
                             }
                         ),
                         "metadata": {"checkpoint": "review-frame"},
-                        "read_command": bundle["dispatch"][
-                            "artifact_read_commands"
-                        ][0],
+                        "read_command": bundle["dispatch"]["artifact_read_commands"][0],
                     }
                 ],
                 "qa_kind": "plan_case",

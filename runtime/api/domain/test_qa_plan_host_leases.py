@@ -107,11 +107,12 @@ def test_mission_review_retains_and_heartbeats_every_host(
     finish_plan_execution(
         test_db, current, state="awaiting_agent_review", reason="review"
     )
-    assert test_db.execute(
+    recipient = test_db.execute(
         "SELECT session_id FROM session_message_recipients r JOIN session_messages m "
         "ON m.message_id=r.message_id WHERE m.idempotency_key=%s",
         (f"qa-plan-agent-review:{execution['id']}",),
-    ).fetchone()[0] == SESSION
+    ).fetchone()[0]
+    assert recipient == SESSION
     assert len(execution_host_leases(test_db, current)) == 2
     for claim in leases:
         test_db.execute(
