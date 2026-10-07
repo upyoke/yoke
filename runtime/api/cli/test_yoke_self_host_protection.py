@@ -210,7 +210,6 @@ def test_github_app_private_key_rotation_is_atomic_and_preserves_db_secret(
     assert (
         commands.self_host_init(
             [
-                *ADMIN_NAME_ARGS,
                 *base_args,
                 "--github-app-private-key",
                 str(source_one),
@@ -223,7 +222,6 @@ def test_github_app_private_key_rotation_is_atomic_and_preserves_db_secret(
     assert (
         commands.self_host_init(
             [
-                *ADMIN_NAME_ARGS,
                 *base_args,
                 "--github-app-private-key",
                 str(source_two),
@@ -267,7 +265,6 @@ def test_github_app_private_key_rejects_invalid_source_without_replacement(
     assert (
         commands.self_host_init(
             [
-                *ADMIN_NAME_ARGS,
                 *args,
                 "--github-app-private-key",
                 str(valid),
@@ -280,7 +277,6 @@ def test_github_app_private_key_rejects_invalid_source_without_replacement(
     assert (
         commands.self_host_init(
             [
-                *ADMIN_NAME_ARGS,
                 *args,
                 "--github-app-private-key",
                 str(invalid),

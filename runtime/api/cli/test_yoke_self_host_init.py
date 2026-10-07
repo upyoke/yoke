@@ -294,7 +294,7 @@ def test_init_refuses_clobber_without_force(target, capsys):
 
 def test_default_directory_lands_under_cwd(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    report = bundle.write_bundle()
+    report = bundle.write_bundle(admin_name="Ada Lovelace")
     assert report["directory"] == str((tmp_path / bundle.DEFAULT_BUNDLE_DIR).resolve())
 
 
