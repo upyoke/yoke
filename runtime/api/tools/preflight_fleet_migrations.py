@@ -123,7 +123,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     if not project or not positional:
         print(
             "name the project and its registered environment whose fleet to "
-            "rehearse: yoke watch preflight -- --project P <environment>",
+            "rehearse: yoke watch preflight -- --project P <environment>. "
+            f"Yoke source-adapter receipts use --project {RECEIPT_PROJECT}.",
             file=sys.stderr,
         )
         return 2

@@ -27,7 +27,7 @@ async function bandCard(t, bandKey, overrides) {
 
 function blockedRow(blocker, why) {
   return {
-    item_id: claimingSession().current_item,
+    public_ref: claimingSession().current_item,
     project_id: 1,
     project: "yoke",
     why,
