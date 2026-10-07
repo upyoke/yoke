@@ -73,7 +73,16 @@ FOLLOW_DESCRIPTION = (
 )
 
 
+USAGE_BY_FUNCTION_ID = {
+    "workflows.canon_status.list": WORKFLOWS_CANON_STATUS_LIST_USAGE,
+    "workflows.canon_update.preview": WORKFLOWS_CANON_UPDATE_PREVIEW_USAGE,
+    "workflows.canon_update.apply": WORKFLOWS_CANON_UPDATE_APPLY_USAGE,
+    "workflows.canon_update.apply_all": WORKFLOWS_CANON_UPDATE_APPLY_ALL_USAGE,
+    "workflows.canon_follow.set": WORKFLOWS_CANON_FOLLOW_SET_USAGE,
+}
+
 __all__ = [
+    "USAGE_BY_FUNCTION_ID",
     "APPLY_ALL_DESCRIPTION",
     "APPLY_DESCRIPTION",
     "CANON_STATUS_LIST_DESCRIPTION",

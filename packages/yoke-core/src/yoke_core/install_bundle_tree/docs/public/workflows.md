@@ -47,7 +47,8 @@ yoke workflows canon-status list --pending
 yoke workflows canon-update preview <workflow>
 yoke workflows canon-update apply <workflow> --expected-current-version <current_version>
 yoke workflows canon-update apply-all <workflow>=<current_version> ...
-yoke workflows canon-follow set <workflow> auto|manual
+yoke workflows canon-follow set <workflow> manual
+yoke workflows canon-follow set <workflow> auto
 ```
 
 The Workbench **Workflows** page offers the same actions. Detail:

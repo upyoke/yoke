@@ -23,6 +23,7 @@ from yoke_cli.commands.adapters import (
     test_machine_desktop,
     workflow_execution_instructions,
     workflow_mechanics,
+    workflows_canon_help,
     workflows_read,
 )
 
@@ -53,6 +54,7 @@ USAGE_BY_FUNCTION_ID = {
         items_merge_provenance.ITEMS_MERGE_PROVENANCE_OPERATOR_CORRECT_USAGE
     ),
     **direct_workflow_usage.USAGE_BY_FUNCTION_ID,
+    **workflows_canon_help.USAGE_BY_FUNCTION_ID,
     **harness_machine_report.USAGE_BY_FUNCTION_ID,
     **machine.USAGE_BY_FUNCTION_ID,
     **machine_authorization.USAGE_BY_FUNCTION_ID,

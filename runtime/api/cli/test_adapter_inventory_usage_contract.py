@@ -42,6 +42,9 @@ from yoke_cli.commands.adapters.workflows_item_posture import (
     WORKFLOWS_ITEM_POSTURE_AMEND_HELP,
     WORKFLOWS_ITEM_POSTURE_AMEND_USAGE,
 )
+from yoke_cli.commands.adapters.workflows_canon_help import (
+    USAGE_BY_FUNCTION_ID as canon_usage,
+)
 from yoke_cli.commands.adapters.workflows_versions import (
     WORKFLOWS_CURRENT_SET_USAGE,
     WORKFLOWS_POLICY_DEFAULTS_PUBLISH_USAGE,
@@ -71,6 +74,7 @@ def test_workflow_inventory_matches_public_cli_usage() -> None:
         "workflows.item.migrate": WORKFLOWS_ITEM_MIGRATE_USAGE,
         "workflows.item_posture.amend": WORKFLOWS_ITEM_POSTURE_AMEND_USAGE,
         **mechanics_usage,
+        **canon_usage,
         **execution_instruction_usage,
     }
     actual = {entry.function_id: entry.cli_invocation for entry in WORKFLOW_ADAPTERS}
