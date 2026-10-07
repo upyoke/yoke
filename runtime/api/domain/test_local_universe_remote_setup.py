@@ -126,7 +126,7 @@ def test_birth_under_remote_plane_bootstraps_real_schema(monkeypatch):
 def test_run_local_init_names_remote_connection_refusal(monkeypatch, tmp_path):
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
 
-    def boom(*, org_name, emit):
+    def boom(*, org_name, admin_name, emit):
         raise RemoteControlPlaneConnectionError(
             "db_backend.connect() cannot open the active control plane"
         )

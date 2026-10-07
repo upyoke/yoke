@@ -234,8 +234,8 @@ def test_ensure_human_actor_seeds_once(test_db):
     test_db.execute("DELETE FROM actors WHERE kind = 'human'")
     test_db.commit()
 
-    first = lu._ensure_human_actor(lambda _l: None)
-    second = lu._ensure_human_actor(lambda _l: None)
+    first = lu._ensure_human_actor(lambda _l: None, "Ada Lovelace")
+    second = lu._ensure_human_actor(lambda _l: None)  # kept: asks no name
 
     assert first == second
     count = test_db.execute(
