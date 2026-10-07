@@ -64,17 +64,12 @@ class TestGetDefaultFlow:
         assert dd.get_default_flow("solo", db_path=initialized_db) is None
 
     def test_returns_seeded_yoke_default(self, initialized_db: str) -> None:
-        ps.cmd_seed("yoke", db_path=initialized_db)
-        assert (
-            dd.get_default_flow("yoke", db_path=initialized_db)
-            == "yoke-internal"
-        )
+        ps.cmd_seed("yoke", "yoke-source", db_path=initialized_db)
+        assert dd.get_default_flow("yoke", db_path=initialized_db) == "yoke-internal"
 
     def test_returns_explicitly_written_value(self, initialized_db: str) -> None:
         dd.set_default_flow("solo", "solo-prod", db_path=initialized_db)
-        assert (
-            dd.get_default_flow("solo", db_path=initialized_db) == "solo-prod"
-        )
+        assert dd.get_default_flow("solo", db_path=initialized_db) == "solo-prod"
 
 
 class TestSetDefaultFlow:
@@ -87,9 +82,7 @@ class TestSetDefaultFlow:
         dd.set_default_flow("solo", "second", db_path=initialized_db)
         assert dd.get_default_flow("solo", db_path=initialized_db) == "second"
 
-    def test_rejects_unknown_family_payload_shape(
-        self, initialized_db: str
-    ) -> None:
+    def test_rejects_unknown_family_payload_shape(self, initialized_db: str) -> None:
         """``deploy_defaults`` payload must carry ``deployment_flow``; the
         helper owns that invariant by always writing the right shape."""
         # The helper never constructs a bad payload itself — but the
@@ -98,12 +91,14 @@ class TestSetDefaultFlow:
         with pytest.raises(ps.ValidationError):
             ps.apply_patch(
                 "solo",
-                ops=[{
-                    "op": "put",
-                    "family": "deploy_defaults",
-                    "attachment": "project",
-                    "payload": {"wrong_key": "x"},
-                }],
+                ops=[
+                    {
+                        "op": "put",
+                        "family": "deploy_defaults",
+                        "attachment": "project",
+                        "payload": {"wrong_key": "x"},
+                    }
+                ],
                 actor="test",
                 db_path=initialized_db,
             )

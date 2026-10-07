@@ -9,6 +9,8 @@ Schema scaffolding is shared via _doctor_hc_git_test_helpers (private module).
 
 from __future__ import annotations
 
+import pytest
+
 from pathlib import Path
 from unittest.mock import patch
 
@@ -27,6 +29,18 @@ from yoke_core.engines.doctor import (
     hc_stale_remote_branches,
     hc_worktree_health,
 )
+
+
+@pytest.fixture(autouse=True)
+def _projects_map_to_a_checkout(monkeypatch, tmp_path):
+    """Each project's checkout is mapped; tests narrow it where they need to."""
+    from yoke_core.engines import doctor_hc_worktrees_branches
+
+    monkeypatch.setattr(
+        doctor_hc_worktrees_branches,
+        "checkout_for_project_id",
+        lambda project_id: str(tmp_path),
+    )
 
 
 class TestWorktreeHealth:

@@ -28,26 +28,30 @@ def _request(payload: dict) -> FunctionCallRequest:
 def _base_payload() -> dict:
     return {
         "project_id": "demo",
-        "snapshots": [{
-            "ref": "HEAD",
-            "commit_sha": "a" * 40,
-            "files": [{"path": "README.md", "line_count": 1}],
-        }],
+        "snapshots": [
+            {
+                "ref": "HEAD",
+                "commit_sha": "a" * 40,
+                "files": [{"path": "README.md", "line_count": 1}],
+            }
+        ],
     }
 
 
 def _symlink_payload(symlinks: list[dict]) -> dict:
     return {
         "project_id": "demo",
-        "snapshots": [{
-            "ref": "HEAD",
-            "commit_sha": "b" * 40,
-            "files": [
-                {"path": "AGENTS.md", "line_count": 1},
-                {"path": "CLAUDE.md", "line_count": 1},
-            ],
-            "symlinks": symlinks,
-        }],
+        "snapshots": [
+            {
+                "ref": "HEAD",
+                "commit_sha": "b" * 40,
+                "files": [
+                    {"path": "AGENTS.md", "line_count": 1},
+                    {"path": "CLAUDE.md", "line_count": 1},
+                ],
+                "symlinks": symlinks,
+            }
+        ],
     }
 
 
@@ -92,12 +96,18 @@ def test_rejects_duplicate_symlink_facts() -> None:
 
 def test_rejects_inconsistent_symlink_fact() -> None:
     outcome = handler.handle_project_snapshot_sync(
-        _request(_symlink_payload([{
-            "path": "CLAUDE.md",
-            "reason": "canonicalized",
-            "target_attempt": "missing.md",
-            "canonical_path": "missing.md",
-        }])),
+        _request(
+            _symlink_payload(
+                [
+                    {
+                        "path": "CLAUDE.md",
+                        "reason": "canonicalized",
+                        "target_attempt": "missing.md",
+                        "canonical_path": "missing.md",
+                    }
+                ]
+            )
+        ),
     )
 
     assert outcome.primary_success is False
@@ -124,7 +134,10 @@ def test_head_snapshot_refreshes_yoke_render_relationships(
     warnings: list[str] = []
 
     result = handler._refresh_render_relationship_context(
-        conn, 1, [{"ref": "HEAD"}], warnings,
+        conn,
+        1,
+        [{"ref": "HEAD"}],
+        warnings,
     )
 
     assert result == {"status": "ok", "written": 1055}
@@ -132,17 +145,38 @@ def test_head_snapshot_refreshes_yoke_render_relationships(
     assert warnings == []
 
 
-def test_snapshot_skips_render_relationships_for_other_projects(
+def test_snapshot_refreshes_render_relationships_for_any_project(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
         "yoke_core.domain.project_identity.resolve_project_slug",
         lambda _conn, _project_id: "demo",
     )
+    recorded: list = []
+    monkeypatch.setattr(
+        "yoke_core.domain.agents_render_path_context.record_render_relationships",
+        lambda _conn, *, project_id: recorded.append(project_id) or 0,
+    )
 
     assert handler._refresh_render_relationship_context(
-        object(), 3, [{"ref": "HEAD"}], [],
-    ) is None
+        object(),
+        3,
+        [{"ref": "HEAD"}],
+        [],
+    ) == {"status": "ok", "written": 0}
+    assert recorded == ["demo"]
+
+
+def test_snapshot_without_head_row_skips_render_relationships() -> None:
+    assert (
+        handler._refresh_render_relationship_context(
+            object(),
+            3,
+            [{"ref": "refs/heads/feature"}],
+            [],
+        )
+        is None
+    )
 
 
 def test_chunk_upload_materializes_only_after_finalize(tmp_path) -> None:
@@ -159,49 +193,62 @@ def test_chunk_upload_materializes_only_after_finalize(tmp_path) -> None:
         "line_count": 1,
         "language": "python",
         "module_name": "src.app",
-        "dependency_edges": [{
-            "source_module": "src.app",
-            "imported_module": "json",
-            "imported_name": "json",
-        }],
+        "dependency_edges": [
+            {
+                "source_module": "src.app",
+                "imported_module": "json",
+                "imported_name": "json",
+            }
+        ],
     }
     with path_snapshot_db(tmp_path, repo) as conn:
-        begin = handler.handle_project_snapshot_sync(_request({
-            "project_id": "demo",
-            "upload_id": upload_id,
-            "operation": "begin",
-            "snapshot": {
-                "ref": "HEAD",
-                "commit_sha": "c" * 40,
-                "file_count": 2,
-                "chunk_count": 2,
-                "warnings": ["kept dependency metadata"],
-            },
-        }))
+        begin = handler.handle_project_snapshot_sync(
+            _request(
+                {
+                    "project_id": "demo",
+                    "upload_id": upload_id,
+                    "operation": "begin",
+                    "snapshot": {
+                        "ref": "HEAD",
+                        "commit_sha": "c" * 40,
+                        "file_count": 2,
+                        "chunk_count": 2,
+                        "warnings": ["kept dependency metadata"],
+                    },
+                }
+            )
+        )
         assert begin.primary_success is True
 
         p = _p(conn)
         assert conn.execute("SELECT COUNT(*) FROM path_snapshots").fetchone()[0] == 0
 
         for chunk_index, files in enumerate(([first_file], [second_file])):
-            outcome = handler.handle_project_snapshot_sync(_request({
-                "project_id": "demo",
-                "upload_id": upload_id,
-                "operation": "append",
-                "chunk_index": chunk_index,
-                "files": files,
-            }))
+            outcome = handler.handle_project_snapshot_sync(
+                _request(
+                    {
+                        "project_id": "demo",
+                        "upload_id": upload_id,
+                        "operation": "append",
+                        "chunk_index": chunk_index,
+                        "files": files,
+                    }
+                )
+            )
             assert outcome.primary_success is True
             assert (
-                conn.execute("SELECT COUNT(*) FROM path_snapshots").fetchone()[0]
-                == 0
+                conn.execute("SELECT COUNT(*) FROM path_snapshots").fetchone()[0] == 0
             )
 
-        finalize = handler.handle_project_snapshot_sync(_request({
-            "project_id": "demo",
-            "upload_id": upload_id,
-            "operation": "finalize",
-        }))
+        finalize = handler.handle_project_snapshot_sync(
+            _request(
+                {
+                    "project_id": "demo",
+                    "upload_id": upload_id,
+                    "operation": "finalize",
+                }
+            )
+        )
 
         assert finalize.primary_success is True
         assert finalize.result_payload["status"] == "chunk_upload_finalized"
@@ -216,15 +263,17 @@ def test_chunk_upload_materializes_only_after_finalize(tmp_path) -> None:
             ("src/app.py",),
         ).fetchone()
         assert row is not None
-        assert json.loads(tuple(row)[0]) == [{
-            "source_module": "src.app",
-            "imported_module": "json",
-            "imported_name": "json",
-        }]
+        assert json.loads(tuple(row)[0]) == [
+            {
+                "source_module": "src.app",
+                "imported_module": "json",
+                "imported_name": "json",
+            }
+        ]
         assert (
-            conn.execute(
-                "SELECT COUNT(*) FROM path_snapshot_sync_uploads"
-            ).fetchone()[0]
+            conn.execute("SELECT COUNT(*) FROM path_snapshot_sync_uploads").fetchone()[
+                0
+            ]
             == 0
         )
         assert (
@@ -250,35 +299,41 @@ def test_chunk_begin_reuses_existing_snapshot_without_staging(tmp_path) -> None:
         snapshot_id = int(tuple(inserted)[0])
         conn.commit()
 
-        begin = handler.handle_project_snapshot_sync(_request({
-            "project_id": "demo",
-            "upload_id": upload_id,
-            "operation": "begin",
-            "snapshot": {
-                "ref": "HEAD",
-                "commit_sha": commit_sha,
-                "file_count": 5,
-                "chunk_count": 2,
-                "warnings": ["dirty tree warning"],
-            },
-        }))
+        begin = handler.handle_project_snapshot_sync(
+            _request(
+                {
+                    "project_id": "demo",
+                    "upload_id": upload_id,
+                    "operation": "begin",
+                    "snapshot": {
+                        "ref": "HEAD",
+                        "commit_sha": commit_sha,
+                        "file_count": 5,
+                        "chunk_count": 2,
+                        "warnings": ["dirty tree warning"],
+                    },
+                }
+            )
+        )
 
         assert begin.primary_success is True
         assert begin.result_payload["status"] == "reused"
         assert begin.result_payload["snapshot_id"] == snapshot_id
         assert begin.result_payload["warnings"] == ["dirty tree warning"]
-        assert begin.result_payload["snapshots"] == [{
-            "status": "reused",
-            "snapshot_id": snapshot_id,
-            "ref": "HEAD",
-            "commit_sha": commit_sha,
-            "entry_count": 0,
-            "symlink_count": 0,
-        }]
+        assert begin.result_payload["snapshots"] == [
+            {
+                "status": "reused",
+                "snapshot_id": snapshot_id,
+                "ref": "HEAD",
+                "commit_sha": commit_sha,
+                "entry_count": 0,
+                "symlink_count": 0,
+            }
+        ]
         assert (
-            conn.execute(
-                "SELECT COUNT(*) FROM path_snapshot_sync_uploads"
-            ).fetchone()[0]
+            conn.execute("SELECT COUNT(*) FROM path_snapshot_sync_uploads").fetchone()[
+                0
+            ]
             == 0
         )
         assert (

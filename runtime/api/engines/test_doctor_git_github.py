@@ -12,17 +12,12 @@ import json
 import textwrap
 from unittest.mock import patch
 
+import pytest
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ISSUES_READ_PERMISSION_LEVELS,
     GITHUB_METADATA_READ_PERMISSION_LEVELS,
 )
-from runtime.api.fixtures import pg_testdb
-from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
-from runtime.api.api_workflow_test_helpers import (
-    install_workflow_registry_and_pin_items,
-)
 from yoke_core.domain.item_worktree_schema import ITEM_WORKTREES_TABLE_SQL
-
 from yoke_core.engines._project_identity_test_helpers import (
     _insert_item,
     _seed_project,
@@ -30,11 +25,25 @@ from yoke_core.engines._project_identity_test_helpers import (
 from yoke_core.engines.doctor import (
     DoctorArgs,
     RecordCollector,
-    hc_delegated_sync,
     hc_gh_orphan_detection,
     hc_orphaned_gh_issues,
     hc_wrong_repo_issues,
 )
+
+from runtime.api.api_workflow_test_helpers import (
+    install_workflow_registry_and_pin_items,
+)
+from runtime.api.fixtures import pg_testdb
+from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
+
+
+@pytest.fixture(autouse=True)
+def _self_project_is_yoke(monkeypatch):
+    """The installation's self project is ``yoke`` in these fixtures."""
+    monkeypatch.setattr(
+        "yoke_core.engines.doctor_hc_worktrees_gh_repo.self_project_names",
+        lambda conn: frozenset({"1", "yoke"}),
+    )
 
 
 def _make_conn():
@@ -300,43 +309,3 @@ class TestHcWrongRepoIssues:
         rec = _run_hc(hc_wrong_repo_issues, conn)
         assert rec.results[0].result == "WARN"
         assert "wrong repo" in rec.results[0].detail.lower()
-
-
-class TestHcDelegatedSync:
-    """Tests for hc_delegated_sync (resync engine delegation)."""
-
-    @patch("yoke_core.engines.doctor_report._run")
-    def test_parses_doctor_format(self, mock_run):
-        mock_run.return_value = _make_completed(
-            stdout=(
-                "HC-title-drift|Title drift|PASS|\n"
-                "HC-body-drift|Body drift|WARN|YOK-1: body mismatch\n"
-                "HC-missing-gh-issues|Missing GitHub issues|PASS|\n"
-                "HC-orphan-epic-tasks|Orphan epic tasks|PASS|\n"
-                "HC-reverse-completeness|Reverse completeness|PASS|\n"
-                "HC-comment-sync|Comment sync|PASS|\n"
-                "HC-label-drift|Label drift|PASS|\n"
-                "HC-state-drift|State drift|PASS|\n"
-                "HC-frozen-label-drift|Frozen label drift|PASS|\n"
-                "HC-task-label-drift|Task label drift|PASS|\n"
-            ),
-        )
-        conn = _make_conn()
-        rec = RecordCollector()
-        fn_args = DoctorArgs()
-        hc_delegated_sync(conn, fn_args, rec)
-        slugs = [r.check_id for r in rec.results]
-        assert "HC-title-drift" in slugs
-        assert "HC-body-drift" in slugs
-        body_drift = [r for r in rec.results if r.check_id == "HC-body-drift"][0]
-        assert body_drift.result == "WARN"
-
-    @patch("yoke_core.engines.doctor_report._run")
-    def test_fallback_on_no_output(self, mock_run):
-        mock_run.return_value = _make_completed(returncode=2, stdout="")
-        conn = _make_conn()
-        rec = RecordCollector()
-        fn_args = DoctorArgs()
-        hc_delegated_sync(conn, fn_args, rec)
-        assert all(r.result == "WARN" for r in rec.results)
-        assert len(rec.results) == 11  # 10 + blocked-label-drift

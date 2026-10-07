@@ -131,20 +131,34 @@ def test_handler_ignores_unknown_config_field(populated_db):
 
 def test_handler_vision_count_shapes_zen_plan(populated_db):
     """The vision count feeds zen zone width, which is a SQL parameter —
-    payloads recorded with different counts carry different plans."""
+    payloads recorded with different counts carry different plans. The
+    vision belongs to the checkout's own project, named by its settings
+    project id."""
+    from yoke_contracts.board.config import config_from_values
+
     config_values = {"timeline_widget": "always"}
 
     def entries_for(count: int):
-        outcome = orchestration.handle_board_data_get(
-            _request(
-                {
-                    "scope": "all",
-                    "config_values": config_values,
-                    "zen_vision_count": count,
-                }
+        with (
+            mock.patch(
+                "yoke_core.domain.board_policy_read.resolve_board_config",
+                return_value=config_from_values(config_values),
+            ),
+            mock.patch(
+                "yoke_core.domain.board_policy_read.resolve_board_scope",
+                return_value="all",
+            ),
+        ):
+            outcome = orchestration.handle_board_data_get(
+                _request(
+                    {
+                        "settings_project_id": 1,
+                        "zen_vision_count": count,
+                    }
+                )
             )
-        )
         assert outcome.primary_success
+        assert outcome.result_payload["vision_project"] == "yoke"
         return outcome.result_payload["entries"]
 
     def zen_position_params(entries):
@@ -155,6 +169,21 @@ def test_handler_vision_count_shapes_zen_plan(populated_db):
         ]
 
     assert zen_position_params(entries_for(0)) != zen_position_params(entries_for(3))
+
+
+def test_handler_without_settings_project_draws_no_vision(populated_db):
+    outcome = orchestration.handle_board_data_get(
+        _request(
+            {
+                "scope": "all",
+                "config_values": {"timeline_widget": "always"},
+                "zen_vision_count": 3,
+            }
+        )
+    )
+
+    assert outcome.primary_success
+    assert "vision_project" not in outcome.result_payload
 
 
 def test_handler_all_scope_filters_to_visible_project_ids(populated_db):

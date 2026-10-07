@@ -16,6 +16,9 @@ def setup_check(monkeypatch, rows, inventories):
     monkeypatch.setattr(check._base, "_table_exists", lambda *a: True)
     monkeypatch.setattr(check, "query_rows", lambda *a: rows)
     monkeypatch.setattr(check, "github_sync_enabled", lambda *a, **k: True)
+    monkeypatch.setattr(
+        check, "self_project_names", lambda conn: frozenset({"1", "yoke"})
+    )
     auth = Mock(
         side_effect=lambda project, **k: SimpleNamespace(
             repo="org/source" if project == "yoke" else "org/shared", token="test-token"
@@ -116,3 +119,14 @@ def test_malformed_inventory_is_not_empty_success(monkeypatch, body):
     )
     with pytest.raises(RestTransportError, match="repository_issue_inventory_invalid"):
         rest.repository_issue_states(repo="org/repo", token="test-token")
+
+
+def test_runner_without_self_project_reports_not_applicable(monkeypatch):
+    setup_check(monkeypatch, [], {})
+    monkeypatch.setattr(check, "self_project_names", lambda conn: frozenset())
+    rec = RecordCollector()
+
+    check.hc_wrong_repo_issues(object(), DoctorArgs(project="yoke"), rec)
+
+    assert rec.results[0].result == "N/A"
+    assert "no self project" in rec.results[0].detail

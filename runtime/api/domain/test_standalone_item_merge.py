@@ -5,13 +5,24 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from yoke_core.domain import standalone_item_merge as sim
+from yoke_core.domain import standalone_item_merge_cli as sim_cli
+from yoke_core.domain import (
+    standalone_item_merge_close_out_transition as close_out_transition,
+)
+from yoke_core.domain import standalone_item_merge_lane as sim_lane
+from yoke_core.domain.standalone_item_merge_release_status import CloseOutRoute
 
 from runtime.api.domain.standalone_merge_simulation_support import (
     git as _git,
+)
+from runtime.api.domain.standalone_merge_simulation_support import (
     make_checkout,
-    merge as _merge,
     stub_candidate_review,
     stub_receipts,
+)
+from runtime.api.domain.standalone_merge_simulation_support import (
+    merge as _merge,
 )
 from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_cli as sim_cli

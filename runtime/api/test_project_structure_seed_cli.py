@@ -193,9 +193,13 @@ class TestCli:
         assert len(data["applied_ops"]) == 1
 
     def test_seed_cli_is_idempotent(self, initialized_db: str, monkeypatch, capsys):
-        rc1 = self._run(["seed", "yoke", "--recipe", "yoke-source"], monkeypatch, initialized_db)
+        rc1 = self._run(
+            ["seed", "yoke", "--recipe", "yoke-source"], monkeypatch, initialized_db
+        )
         assert rc1 == 0
-        rc2 = self._run(["seed", "yoke", "--recipe", "yoke-source"], monkeypatch, initialized_db)
+        rc2 = self._run(
+            ["seed", "yoke", "--recipe", "yoke-source"], monkeypatch, initialized_db
+        )
         assert rc2 == 0
         # Second output signals the noop.
         out = capsys.readouterr().out

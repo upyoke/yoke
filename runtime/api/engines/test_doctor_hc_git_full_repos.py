@@ -9,6 +9,8 @@ Schema scaffolding is shared via _doctor_hc_git_test_helpers (private module).
 
 from __future__ import annotations
 
+import pytest
+
 from unittest.mock import patch
 
 from yoke_contracts.github_app_installation_permissions import (
@@ -25,6 +27,15 @@ from runtime.api.engines._doctor_hc_git_test_helpers import (
 from yoke_core.engines.doctor import (
     hc_wrong_repo_issues,
 )
+
+
+@pytest.fixture(autouse=True)
+def _self_project_is_yoke(monkeypatch):
+    """The installation's self project is ``yoke`` in these fixtures."""
+    monkeypatch.setattr(
+        "yoke_core.engines.doctor_hc_worktrees_gh_repo.self_project_names",
+        lambda conn: frozenset({"1", "yoke"}),
+    )
 
 
 class TestWrongRepoIssues:

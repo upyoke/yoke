@@ -83,15 +83,11 @@ class TestTopLevelShape:
             )
             assert row["dispatch_kind"] == expected, row["function_id"]
 
-    def test_cli_dispatch_counts_match_tracker_dispositions(
-        self, report: dict
-    ) -> None:
+    def test_cli_dispatch_counts_match_tracker_dispositions(self, report: dict) -> None:
         cli_rows = report["yoke_cli"]["rows"]
         tracker_rows = report["operation_tracker"]["rows"]
         dispatcher_forms = {
-            row["cli_form"]
-            for row in cli_rows
-            if row["dispatch_kind"] == "dispatcher"
+            row["cli_form"] for row in cli_rows if row["dispatch_kind"] == "dispatcher"
         }
         client_local_forms = {
             row["cli_form"]
@@ -99,14 +95,10 @@ class TestTopLevelShape:
             if row["dispatch_kind"] == "client_local"
         }
         wrapped_forms = {
-            row["shell_form"]
-            for row in tracker_rows
-            if row["status"] == "wrapped"
+            row["shell_form"] for row in tracker_rows if row["status"] == "wrapped"
         }
         permanent_forms = {
-            row["shell_form"]
-            for row in tracker_rows
-            if row["status"] == "permanent"
+            row["shell_form"] for row in tracker_rows if row["status"] == "permanent"
         }
 
         assert wrapped_forms == dispatcher_forms
@@ -164,7 +156,7 @@ class TestFieldNoteCollection:
         assert result["rows"] == [{"id": 1, "agent": "tester"}]
         assert seen["function_id"] == "ouroboros.field_note.list"
         assert seen["target"].kind == "global"
-        assert seen["target"].project_id == "yoke"
+        assert seen["target"].project_id is None
         assert seen["payload"] == {
             "category_prefix": "field-note-",
             "limit": 50,
@@ -188,7 +180,9 @@ class TestSeedContradictionResolution:
             for seed in aia.SEED_CONTRADICTIONS
         ]
         by_id = {row["id"]: row for row in rows}
-        assert by_id["function-inventory-empty-registry-mismatch"]["status"] == "resolved"
+        assert (
+            by_id["function-inventory-empty-registry-mismatch"]["status"] == "resolved"
+        )
 
     def test_function_inventory_resolves_when_doc_no_longer_claims_empty(self) -> None:
         row = aia._resolve_seed_contradiction(
@@ -226,10 +220,15 @@ class TestSeedContradictionResolution:
 class TestFollowupCandidates:
     def test_pending_rows_produce_cloud_blocker_candidate(self) -> None:
         candidates = aia._build_followup_candidates(
-            operation_tracker={"rows": [
-                {"status": "pending", "shell_form": "python3 -m foo",
-                 "proposed_function_id": "foo.bar.baz"},
-            ]},
+            operation_tracker={
+                "rows": [
+                    {
+                        "status": "pending",
+                        "shell_form": "python3 -m foo",
+                        "proposed_function_id": "foo.bar.baz",
+                    },
+                ]
+            },
             contradictions=[],
             field_notes={"read_surface_status": "agent_facing"},
             recipes={"verdicts": []},
@@ -253,10 +252,17 @@ class TestFollowupCandidates:
             operation_tracker={"rows": []},
             contradictions=[],
             field_notes={"read_surface_status": "agent_facing"},
-            recipes={"verdicts": [{
-                "ok": False, "file": "x.md", "line_number": 1,
-                "recipe": "yoke boom", "error": "kaboom",
-            }]},
+            recipes={
+                "verdicts": [
+                    {
+                        "ok": False,
+                        "file": "x.md",
+                        "line_number": 1,
+                        "recipe": "yoke boom",
+                        "error": "kaboom",
+                    }
+                ]
+            },
         )
         assert any(c["id"] == "failing-skill-recipes" for c in candidates)
 

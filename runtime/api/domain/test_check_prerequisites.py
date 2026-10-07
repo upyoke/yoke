@@ -4,7 +4,18 @@ import shutil
 from pathlib import Path
 from subprocess import CompletedProcess
 
+import pytest
+
 from yoke_core.domain.check_prerequisites import run_checks
+
+
+@pytest.fixture(autouse=True)
+def _checkout_maps_to_a_project(monkeypatch):
+    """The seeded checkout is registered to project 1 unless a test says otherwise."""
+    monkeypatch.setattr(
+        "yoke_core.domain.check_prerequisites.default_project_for_directory",
+        lambda directory: "1",
+    )
 
 
 def _seed_repo(root: Path, *, include_settings: bool = True) -> None:
@@ -99,7 +110,9 @@ def test_all_critical_pass_with_no_gh(tmp_path, monkeypatch, capsys):
 
 
 def test_pre_commit_hook_uses_common_git_dir_for_linked_worktree(
-    tmp_path, monkeypatch, capsys,
+    tmp_path,
+    monkeypatch,
+    capsys,
 ):
     _seed_repo(tmp_path)
     shutil.rmtree(tmp_path.joinpath(".git"))
@@ -210,6 +223,7 @@ def test_warns_when_canonical_resolver_missing_app_auth(tmp_path, monkeypatch, c
     )
 
     from yoke_core.domain import project_github_auth as pga
+
     monkeypatch.setattr(
         "yoke_core.domain.check_prerequisites.resolve_project_github_auth",
         lambda *_a, **_kw: (_ for _ in ()).throw(
@@ -228,7 +242,9 @@ def test_warns_when_canonical_resolver_missing_app_auth(tmp_path, monkeypatch, c
 
 
 def test_strict_promotes_missing_app_credentials_to_critical_fail(
-    tmp_path, monkeypatch, capsys,
+    tmp_path,
+    monkeypatch,
+    capsys,
 ):
     """``--strict`` upgrades resolver WARN to FAIL so CI trips on the same gap."""
     _seed_repo(tmp_path)
@@ -255,6 +271,7 @@ def test_strict_promotes_missing_app_credentials_to_critical_fail(
     )
 
     from yoke_core.domain import project_github_auth as pga
+
     monkeypatch.setattr(
         "yoke_core.domain.check_prerequisites.resolve_project_github_auth",
         lambda *_a, **_kw: (_ for _ in ()).throw(
@@ -294,3 +311,30 @@ def test_accepts_legacy_claude_md_compat_path(tmp_path, monkeypatch, capsys):
     assert run_checks(tmp_path) == 0
     out = capsys.readouterr().out
     assert "AGENTS.md rules" in out
+
+
+def test_unregistered_checkout_warns_with_register_recovery(
+    tmp_path, monkeypatch, capsys
+):
+    _seed_repo(tmp_path)
+    monkeypatch.setattr(
+        "yoke_core.domain.check_prerequisites.default_project_for_directory",
+        lambda directory: None,
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.check_prerequisites.shutil.which",
+        lambda name: f"/usr/bin/{name}" if name == "git" else None,
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.check_prerequisites.subprocess.run",
+        lambda cmd, **_: CompletedProcess(
+            cmd, 0, stdout="git version 2.39.1\n", stderr=""
+        ),
+    )
+
+    rc = run_checks(tmp_path)
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    assert "not a registered project checkout" in out
+    assert "yoke project register" in out

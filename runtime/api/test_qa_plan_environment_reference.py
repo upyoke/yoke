@@ -64,9 +64,7 @@ def test_bare_name_resolves_within_the_shared_hosted_runtime() -> None:
         )
 
         assert target["site_name"] == "Yoke API"
-        assert target["environment_id"] == _environment_id(
-            conn, site_name="Yoke API"
-        )
+        assert target["environment_id"] == _environment_id(conn, site_name="Yoke API")
 
 
 def test_site_qualified_reference_selects_the_projects_own_target() -> None:
@@ -144,11 +142,14 @@ def test_plan_create_stores_the_site_qualified_target() -> None:
             "SELECT target_environment_id FROM qa_plans WHERE id=%s",
             (int(plan["id"]),),
         ).fetchone()
-        assert int(
-            stored["target_environment_id"]
-            if hasattr(stored, "keys")
-            else stored[0]
-        ) == own
+        assert (
+            int(
+                stored["target_environment_id"]
+                if hasattr(stored, "keys")
+                else stored[0]
+            )
+            == own
+        )
 
 
 def test_hosted_runtime_not_declaring_the_plan_project_is_not_eligible() -> None:

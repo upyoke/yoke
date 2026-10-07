@@ -46,9 +46,16 @@ class TestHcStaleRemoteBranches:
         "yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo"
     )
     @patch("yoke_core.engines.doctor_report._run")
-    def test_stale_branch_warns(self, mock_run, mock_root, mock_remote):
+    def test_stale_branch_warns(
+        self, mock_run, mock_root, mock_remote, monkeypatch, tmp_path
+    ):
         conn = _make_conn()
         _seed_project(conn, "yoke")
+        monkeypatch.setattr(
+            doctor_hc_worktrees_branches,
+            "checkout_for_project_id",
+            lambda project_id: str(tmp_path),
+        )
         _insert_item(
             conn, TEST_ITEM_ID, "Done item", workflow_id="issue", status="done"
         )
@@ -66,7 +73,7 @@ class TestHcStaleRemoteBranches:
     )
     @patch("yoke_core.engines.doctor_report._run")
     def test_fix_uses_proof_gated_remote_cleanup(
-        self, mock_run, mock_root, mock_remote, monkeypatch
+        self, mock_run, mock_root, mock_remote, monkeypatch, tmp_path
     ):
         conn = _make_conn()
         _seed_project(conn, "yoke")
@@ -79,7 +86,7 @@ class TestHcStaleRemoteBranches:
         monkeypatch.setattr(
             doctor_hc_worktrees_branches,
             "checkout_for_project_id",
-            lambda project_id: None,
+            lambda project_id: str(tmp_path),
         )
         calls = []
 
@@ -108,7 +115,7 @@ class TestHcStaleRemoteBranches:
     )
     @patch("yoke_core.engines.doctor_report._run")
     def test_fix_preserves_branch_with_active_authority(
-        self, mock_run, mock_root, mock_remote, monkeypatch
+        self, mock_run, mock_root, mock_remote, monkeypatch, tmp_path
     ):
         conn = _make_conn()
         _seed_project(conn, "yoke")
@@ -128,7 +135,7 @@ class TestHcStaleRemoteBranches:
         monkeypatch.setattr(
             doctor_hc_worktrees_branches,
             "checkout_for_project_id",
-            lambda project_id: None,
+            lambda project_id: str(tmp_path),
         )
 
         rec = _run_hc(hc_stale_remote_branches, conn, fix=True)
@@ -144,7 +151,7 @@ class TestHcStaleRemoteBranches:
     )
     @patch("yoke_core.engines.doctor_report._run")
     def test_fix_preserves_branch_when_authority_proof_is_unavailable(
-        self, mock_run, mock_root, mock_remote, monkeypatch
+        self, mock_run, mock_root, mock_remote, monkeypatch, tmp_path
     ):
         conn = _make_conn()
         _seed_project(conn, "yoke")
@@ -158,7 +165,7 @@ class TestHcStaleRemoteBranches:
         monkeypatch.setattr(
             doctor_hc_worktrees_branches,
             "checkout_for_project_id",
-            lambda project_id: None,
+            lambda project_id: str(tmp_path),
         )
 
         rec = _run_hc(hc_stale_remote_branches, conn, fix=True)
@@ -203,4 +210,5 @@ class TestHcStaleRemoteBranches:
 
         assert rec.results[0].result == "PASS"
         delete.assert_not_called()
-        assert mock_remote.call_count == 1
+        # No project maps a checkout, so no remote is read at all.
+        assert mock_remote.call_count == 0
