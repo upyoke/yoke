@@ -233,7 +233,7 @@ def test_index_retirement_is_idempotent_and_preserves_rows(test_db):
         "CREATE UNIQUE INDEX idx_qa_requirement_materialization ON qa_requirements(item_id,plan_id,plan_case_key,COALESCE(host_baseline,''),workflow_transition_id) WHERE item_id IS NOT NULL AND plan_id IS NOT NULL"
     )
     migration = importlib.import_module(
-        "yoke_core.domain.migrations.0057_qa_case_environment_materialization"
+        "yoke_core.domain.migrations.0058_qa_case_environment_materialization"
     )
     migration.apply(test_db)
     migration.apply(test_db)
