@@ -181,11 +181,14 @@ establishes that diagnosis independently.
 ### Browser
 
 Use the declared browser-control substrate to navigate, inspect, interact, and
-capture deliberate proof. Use the dispatch's exact browser setup and browser
-step commands; choose each step JSON at run time instead of turning the mission
-into an authored scenario. If the packaged runtime is absent, its setup command
-materializes it on the target as expected for a fresh machine. Treat setup
-friction as an observation and continue when setup succeeds.
+capture deliberate proof. Test Machines start without Yoke. When this walk
+installed Yoke on the target, use the dispatch's exact browser setup and
+browser step commands, choosing each step JSON at run time instead of turning
+the mission into an authored scenario; treat setup friction as an observation
+and continue when setup succeeds. Otherwise open the host's own browser
+(Safari on macOS; the desktop's default browser elsewhere) and drive it with
+screenshots and keystrokes through the host command (`--gui-session` on
+macOS). Never install Yoke on a Test Machine to get a browser.
 
 You never sign in. The operator authorizes the project's persistent browser
 profile once, headed, with `yoke browser authorize`, and the contexts you

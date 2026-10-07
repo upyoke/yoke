@@ -27,10 +27,9 @@ resolve differently. `macos-examplehine` is a project registration: materializat
 resolves it against the project capability rows, and admission refuses a
 mission whose project has registered no Test Machine. `browser-control` needs no project
 capability row, because this method's own runner is declared to supply it on
-the host the mission walks: admission admits the mission, and the dispatch
-contract below requires the walker to run `yoke qa browser setup` on that
-target host — which installs Node, Playwright, and Chromium there on first
-use — before any browser step.
+the host the mission walks: admission admits the mission, and the walker
+drives the host's own browser, or the Yoke browser runtime when the walk
+installed Yoke there, as the dispatch contract below describes.
 The Test Machine connection comes from the `QA_HOST:` coordination lease
 recorded on `qa_plan_executions.machine_lease_id`; the mission does not open
 an undeclared host or browser path.
@@ -241,13 +240,14 @@ window server. Three apparently different failures share one diagnosis:
 They mean the command ran in the wrong session. Retry through the Terminal
 GUI-session bridge before diagnosing broken credentials or privacy settings.
 
-Use the declared browser-control substrate for web interaction. A fresh Test
-Machine may not yet have its packaged browser runtime; `yoke qa browser setup`
-materializes it. Setup friction is observable mission behavior, not authority
-to route around the capability. The dispatch supplies both that setup command
-and a lease-routed `yoke qa browser step --base-url URL --step-json JSON`
-template. The walker chooses and submits one step at a time; no scenario is
-authored in advance.
+Use the declared browser-control substrate for web interaction. Test Machines
+start without Yoke. When the walk installed Yoke on the target, the dispatch's
+lease-routed `yoke qa browser setup` materializes the packaged runtime and
+`yoke qa browser step --base-url URL --step-json JSON` drives it one chosen
+step at a time; no scenario is authored in advance. Otherwise the walker opens
+the host's own browser (Safari on macOS; the desktop's default elsewhere) and
+drives it by screenshots and keystrokes through the host command. It never
+installs Yoke on a Test Machine to get a browser.
 
 Agents complete setup and application steps that do not need the user.
 The user supplies personal credentials. Password, MFA, passkey and personal
