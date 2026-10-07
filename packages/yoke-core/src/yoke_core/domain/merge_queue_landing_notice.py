@@ -33,6 +33,13 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
+#: Live work claims joined to the sessions holding them.
+_LIVE_CLAIMS = (
+    " FROM work_claims wc JOIN harness_sessions hs ON hs.session_id=wc.session_id "
+    "WHERE wc.released_at IS NULL AND hs.terminated_at IS NULL "
+)
+
+
 def resolve_lane_recipient(
     conn: Any, *, item_id: int, project_id: int, owner_session_id: str | None = None
 ) -> tuple[str, int, str]:
@@ -48,10 +55,7 @@ def resolve_lane_recipient(
     marker = _p(conn)
     item_scope = scope_int_sql(conn, "wc.scope", "item_id")
     project_scope = scope_int_sql(conn, "wc.scope", "project_id")
-    common = (
-        " FROM work_claims wc JOIN harness_sessions hs ON hs.session_id=wc.session_id "
-        "WHERE wc.released_at IS NULL AND hs.terminated_at IS NULL "
-    )
+    common = _LIVE_CLAIMS
     liveness = (
         "ORDER BY CASE WHEN hs.ended_at IS NULL THEN 0 ELSE 1 END, wc.id DESC LIMIT 1"
     )
@@ -84,6 +88,38 @@ def resolve_lane_recipient(
     if row is None or row[1] is None:
         return "", 0, ""
     return str(row[0]), int(row[1]), route
+
+
+def addressable_items(conn: Any, *, item_ids: Any, project_id: int) -> set[int]:
+    """Which items :func:`resolve_lane_recipient` would reach, in two reads.
+
+    A live project steering seat reaches every item; otherwise only items
+    with a live claim holder are addressable. Bounded by the item set, not
+    one resolution per item.
+    """
+    ids = sorted({int(item_id) for item_id in item_ids})
+    if not ids:
+        return set()
+    marker = _p(conn)
+    live = _LIVE_CLAIMS + "AND hs.actor_id IS NOT NULL "
+    project_scope = scope_int_sql(conn, "wc.scope", "project_id")
+    seat = conn.execute(
+        "SELECT 1"
+        + live
+        + f"AND wc.target_kind='steering' AND {project_scope}={marker} LIMIT 1",
+        (project_id,),
+    ).fetchone()
+    if seat is not None:
+        return set(ids)
+    item_scope = scope_int_sql(conn, "wc.scope", "item_id")
+    rows = conn.execute(
+        f"SELECT DISTINCT {item_scope}"
+        + live
+        + f"AND wc.target_kind='item' AND {item_scope} IN "
+        + f"({','.join([marker] * len(ids))})",
+        tuple(ids),
+    ).fetchall()
+    return {int(row[0]) for row in rows}
 
 
 def landing_message(
@@ -209,6 +245,7 @@ def push_notice(
 
 __all__ = [
     "HOLDER",
+    "addressable_items",
     "STEERING",
     "notice_already_sent",
     "landing_message",

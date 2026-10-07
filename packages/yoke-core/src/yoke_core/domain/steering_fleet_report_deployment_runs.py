@@ -40,7 +40,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from yoke_core.domain.deployment_qa_stage_outstanding import qa_stage_outstanding
-from yoke_core.domain.deployment_qa_stage_wake_state import member_wake_state
+from yoke_core.domain.deployment_qa_stage_wake_state import member_wake_states
 from yoke_core.domain.deployment_run_completion_preconditions import redrive_recovery
 from yoke_core.domain.deployment_run_driver_attachment import (
     is_live,
@@ -218,19 +218,24 @@ def run_progress(
             if attached is not None and is_live(attached, now=now)
             else ""
         )
-        wake_lines = tuple(
-            f"member {member} wake: "
-            + member_wake_state(
+        waiting = [
+            member
+            for member in (qa.waiting_members if qa is not None else ())
+            if member is not None
+        ]
+        wakes = (
+            member_wake_states(
                 conn,
                 run_id=run_id,
                 stage_name=stage,
-                item_id=member,
+                item_ids=waiting,
                 project_id=project_id,
                 driver_live=bool(driver_phase),
             )
-            for member in (qa.waiting_members if qa is not None else ())
-            if member is not None
+            if waiting
+            else {}
         )
+        wake_lines = tuple(f"member {m} wake: {wakes[m]}" for m in waiting)
         rows.append(
             DeploymentRunProgress(
                 run_id=run_id,

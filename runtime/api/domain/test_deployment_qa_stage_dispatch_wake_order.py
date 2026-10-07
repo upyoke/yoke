@@ -93,6 +93,31 @@ def test_owner_wakes_go_out_before_any_member_close_out() -> None:
     assert conn.commits >= 2
 
 
+def test_a_later_member_error_still_closes_members_accepted_before_it() -> None:
+    def failing(conn, *, member_item_id, **kw):
+        if member_item_id == WAITING_MEMBER:
+            raise ValueError("pinned plan is invalid")
+        return _status(conn, member_item_id=member_item_id, **kw)
+
+    closed: list[int] = []
+    with (
+        patch.object(gate, "deployment_qa_stage_status", side_effect=failing),
+        patch.object(dispatch, "removed_item_ids", return_value=set()),
+        patch.object(dispatch, "report_stage_result"),
+        patch(
+            "yoke_core.domain.deployment_qa_member_acceptance_notice."
+            "notify_item_qa_accepted",
+            side_effect=lambda conn, **kw: closed.append(kw["item_id"]),
+        ),
+    ):
+        code, message = dispatch.materialize_and_gate_deployment_qa_stage(
+            _Conn(), STAGE, run_id=RUN_ID
+        )
+
+    assert (code, message) == (1, "pinned plan is invalid")
+    assert closed == [SETTLED_MEMBER]
+
+
 def test_the_gate_leaves_acceptance_to_a_caller_that_defers_it() -> None:
     accepted = {"accepted": True, "reasons": []}
     with (

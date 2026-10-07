@@ -144,6 +144,7 @@ def materialize_and_gate_deployment_qa_stage(
     # Owner wakes go out before any accepted member's close-out, which can
     # sync GitHub per member: a waiting owner learns within seconds.
     accepted_members: list[int] = []
+    failure = ""
     for member in members:
         try:
             existing = conn.execute(
@@ -203,8 +204,10 @@ def materialize_and_gate_deployment_qa_stage(
                     continue
             # Every other refusal is a real stage failure: an invalid
             # pinned plan, an unresolvable target identity, a permission
-            # denial. None of those becomes truer by waiting.
-            return 1, str(exc)
+            # denial. None of those becomes truer by waiting. Members
+            # already accepted on this pass still close out below.
+            failure = str(exc)
+            break
         label = f"member {member}" if member is not None else "run"
         if project_id is not None:
             report_stage_result(
@@ -263,6 +266,8 @@ def materialize_and_gate_deployment_qa_stage(
         for member in accepted_members:
             notify_item_qa_accepted(conn, run_id=run_id, item_id=member)
         conn.commit()
+    if failure:
+        return 1, failure
     if waiting:
         return -4, "; ".join(waiting)
     return 0, ""
