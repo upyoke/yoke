@@ -178,10 +178,12 @@ def test_unrestored_detail_parses_a_bounded_sanitized_summary() -> None:
     assert unrestored_detail("YOKE_RESET_UNRESTORED_2 Library Application_Support") == {
         "unrestored_entry_count": 2,
         "unrestored_entries": ["Library", "Application_Support"],
+        "entry_errors": [],
     }
     assert unrestored_detail("YOKE_RESET_UNRESTORED_0") == {
         "unrestored_entry_count": 0,
         "unrestored_entries": [],
+        "entry_errors": [],
     }
     # A name that escaped sanitizing would reopen the closed output contract.
     assert unrestored_detail("YOKE_RESET_UNRESTORED_1 has;semicolon") is None

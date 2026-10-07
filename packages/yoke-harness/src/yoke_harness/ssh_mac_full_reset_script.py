@@ -48,8 +48,12 @@ from yoke_harness.ssh_mac_full_reset_contract import (
     RESET_SELF_HOST_CONTAINERS_PREFIX,
     RESET_SELF_HOST_IMAGES_PREFIX,
     RESET_SELF_HOST_VOLUMES_PREFIX,
+    RESET_RESTORE_ERROR_PREFIX,
+    RESTORE_ERROR_EXCERPT_CHAR_CAP,
+    RESTORE_ERROR_EXCERPT_LINES,
     RESTORE_REPORT_ENTRY_CAP,
     SELF_HOST_COMPOSE_PROJECT,
+    SIMULATOR_DEVICE_SET_SUFFIX,
     YOKE_ABSENT_RELATIVE_DIRECTORIES,
     YOKE_ABSENT_TEMP_FILES,
     YOKE_STATE_DIR_NAME,
@@ -92,15 +96,39 @@ restore_entry() {
 
 # The aggregate error log decides the outcome; this names WHICH captured entry
 # produced each report, because the aggregate is a wall of copier diagnostics
-# and the entry that stopped the restore is the fact an operator needs.
+# and the entry that stopped the restore is the fact an operator needs. It also
+# keeps a bounded excerpt of that entry's stderr, because the scratch logs are
+# removed on exit and the excerpt is the only copy that reaches the receipt.
+closed_entry_name() {
+  print -r -- "$1" | /usr/bin/sed -E 's/[^A-Za-z0-9._-]+/_/g'
+}
+
+restore_error_excerpt() {
+  local excerpt
+  excerpt=$(
+    /usr/bin/head -n "$restore_error_excerpt_lines" -- "$1" |
+      LC_ALL=C /usr/bin/tr -c '[:print:]' ' ' |
+      LC_ALL=C /usr/bin/tr -s ' '
+  )
+  excerpt="${excerpt## }"
+  excerpt="${excerpt%% }"
+  print -r -- "${excerpt[1,$restore_error_excerpt_char_cap]}"
+}
+
+record_restore_errors() {
+  local name="$1" entry_log="$2"
+  [[ -s "$entry_log" ]] || return 0
+  print -r -- "$name" >> "$restore_failure_report"
+  print -r -- "$(closed_entry_name "$name") $(restore_error_excerpt "$entry_log")" \
+    >> "$restore_failure_report.errors"
+  /bin/cat -- "$entry_log" >> "$restore_error_log"
+}
+
 restore_captured_entry() {
   local captured="$1" target_dir="$2" entry_log="$restore_error_log.entry"
   : > "$entry_log"
   restore_entry "$captured" "$target_dir" 2>"$entry_log" || true
-  if [[ -s "$entry_log" ]]; then
-    print -r -- "${captured:t}" >> "$restore_failure_report"
-    /bin/cat -- "$entry_log" >> "$restore_error_log"
-  fi
+  record_restore_errors "${captured:t}" "$entry_log"
   /bin/rm -f -- "$entry_log" 2>/dev/null || true
   return 0
 }
@@ -158,6 +186,7 @@ def render_level_functions(
     restore_lines = ["restore_golden_levels() {"]
     for directory, names in levels:
         home_level, golden_level, target = _level_paths(directory)
+        level_name = shlex.quote(directory or ".")
         keep = _kept_predicate(names)
         clear_lines.append(
             f"  /usr/bin/find {home_level} -mindepth 1 -maxdepth 1 {keep} "
@@ -166,7 +195,10 @@ def render_level_functions(
         restore_lines.extend(
             (
                 f"  if [[ -d {golden_level} ]]; then",
-                f'    /bin/mkdir -p -- {home_level} 2>>"$restore_error_log" || return 1',
+                f'    if ! /bin/mkdir -p -- {home_level} 2>"$restore_error_log.entry"; then',
+                f'      record_restore_errors {level_name} "$restore_error_log.entry"',
+                "      return 1",
+                "    fi",
                 "  while IFS= read -r -d '' captured; do",
                 f'    restore_captured_entry "$captured" {target}',
                 "  done < <(",
@@ -204,6 +236,10 @@ def render_full_reset_script(contract: FullResetPathContract) -> str:
             f"restored_entries_prefix={shlex.quote(RESET_RESTORED_ENTRIES_PREFIX)}",
             "restore_unrestored_prefix=" + shlex.quote(RESET_RESTORE_UNRESTORED_PREFIX),
             f"restore_report_entry_cap={RESTORE_REPORT_ENTRY_CAP}",
+            "restore_error_prefix=" + shlex.quote(RESET_RESTORE_ERROR_PREFIX),
+            f"restore_error_excerpt_lines={RESTORE_ERROR_EXCERPT_LINES}",
+            f"restore_error_excerpt_char_cap={RESTORE_ERROR_EXCERPT_CHAR_CAP}",
+            "simulator_device_set_suffix=" + shlex.quote(SIMULATOR_DEVICE_SET_SUFFIX),
             f"yoke_state_suffix={shlex.quote(YOKE_STATE_DIR_NAME)}",
             "self_host_containers_prefix="
             + shlex.quote(RESET_SELF_HOST_CONTAINERS_PREFIX),

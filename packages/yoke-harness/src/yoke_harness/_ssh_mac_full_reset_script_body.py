@@ -112,6 +112,7 @@ unrestored_entry_summary() {
 restore_golden() {
   : > "$restore_error_log"
   : > "$restore_failure_report"
+  : > "$restore_failure_report.errors"
   restore_golden_levels
   # A restore that cannot prove it copied everything is the enumeration problem
   # this design exists to escape, reintroduced at the last step. Every skipped
@@ -120,6 +121,11 @@ restore_golden() {
   # to learn which entry it stopped on.
   if [[ -s "$restore_failure_report" ]]; then
     failure_detail="$restore_unrestored_prefix$(unrestored_entry_summary)"
+    failure_excerpts=$(
+      /usr/bin/sort -u "$restore_failure_report.errors" |
+        /usr/bin/head -"$restore_report_entry_cap" |
+        /usr/bin/sed -e "s/^/$restore_error_prefix/"
+    )
     return 1
   fi
   [[ ! -s "$restore_error_log" ]] || return 1
@@ -195,7 +201,8 @@ verify_restored_home() {
 }
 
 cleanup_scratch() {
-  /bin/rm -f -- "$restore_error_log" "$restore_failure_report" 2>/dev/null || true
+  /bin/rm -f -- "$restore_error_log" "$restore_failure_report" \
+    "$restore_failure_report.errors" 2>/dev/null || true
   return 0
 }
 
@@ -216,6 +223,9 @@ finish() {
     if [[ -n "${failure_detail:-}" ]]; then
       print -r -- "$failure_detail"
     fi
+    if [[ -n "${failure_excerpts:-}" ]]; then
+      print -r -- "$failure_excerpts"
+    fi
   fi
   exit "$finish_rc"
 }
@@ -233,6 +243,7 @@ if ! validate_home; then
 fi
 tool_bin_dir="$home/$tool_bin_suffix"
 yoke_state_dir="$home/$yoke_state_suffix"
+simulator_device_set_dir="$home/$simulator_device_set_suffix"
 restore_error_log="/tmp/yoke-machine-qa-restore-errors.$$"
 restore_failure_report="/tmp/yoke-machine-qa-unrestored-entries.$$"
 golden_entry_count=0
@@ -249,6 +260,7 @@ self_host_containers_removed=0
 self_host_volumes_removed=0
 self_host_images_removed=0
 failure_detail=""
+failure_excerpts=""
 trap finish EXIT
 trap 'exit 1' HUP INT TERM
 

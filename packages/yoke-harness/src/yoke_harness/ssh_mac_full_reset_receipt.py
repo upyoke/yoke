@@ -27,7 +27,10 @@ from yoke_harness.ssh_mac_full_reset_contract import (
     RESET_RELAY_SERVICE_RECOVERY,
     RESET_RELAY_UNLOADED_PREFIX,
     RESET_RESTORED_ENTRIES_PREFIX,
+    RESET_RESTORE_ERROR_PREFIX,
     RESET_RESTORE_UNRESTORED_PREFIX,
+    RESTORE_ERROR_EXCERPT_CHAR_CAP,
+    RESTORE_REPORT_ENTRY_CAP,
     SELF_HOST_COMPOSE_PROJECT,
     RESET_SELF_HOST_CONTAINERS_PREFIX,
     RESET_SELF_HOST_IMAGES_PREFIX,
@@ -56,16 +59,46 @@ _CLOSED_NAME_CHARACTERS = frozenset(
 )
 
 
+def _restore_error(line: str) -> dict[str, str] | None:
+    body = line.removeprefix(RESET_RESTORE_ERROR_PREFIX)
+    entry, _separator, excerpt = body.partition(" ")
+    if (
+        not entry
+        or set(entry) - _CLOSED_NAME_CHARACTERS
+        or len(excerpt) > RESTORE_ERROR_EXCERPT_CHAR_CAP
+        or not excerpt.isprintable()
+        or not excerpt.isascii()
+    ):
+        return None
+    return {"entry": entry, "error_excerpt": excerpt}
+
+
 def unrestored_detail(detail: str) -> dict[str, object] | None:
-    """Parse the captured entries a stopped restore could not return."""
-    body = detail.removeprefix(RESET_RESTORE_UNRESTORED_PREFIX)
+    """Parse the captured entries a stopped restore could not return.
+
+    The summary line names the entries; each following line carries the bounded
+    copier stderr excerpt for one of them, which is the cause an operator needs.
+    """
+    summary, *error_lines = detail.split("\n")
+    body = summary.removeprefix(RESET_RESTORE_UNRESTORED_PREFIX)
     count, _separator, names = body.partition(" ")
     if not count.isdigit():
         return None
     entries = tuple(name for name in names.split(" ") if name)
     if any(set(entry) - _CLOSED_NAME_CHARACTERS for entry in entries):
         return None
-    return {"unrestored_entry_count": int(count), "unrestored_entries": list(entries)}
+    if len(error_lines) > RESTORE_REPORT_ENTRY_CAP or any(
+        not line.startswith(RESET_RESTORE_ERROR_PREFIX) for line in error_lines
+    ):
+        return None
+    errors = [_restore_error(line) for line in error_lines]
+    if any(error is None for error in errors):
+        return None
+    return {
+        "unrestored_entry_count": int(count),
+        "unrestored_entries": list(entries),
+        "entry_errors": errors,
+    }
 
 
 def relay_service_detail(detail: str) -> dict[str, str] | None:
@@ -149,15 +182,21 @@ def closed_outcomes(stdout: str) -> dict[str, str | int | float] | None:
 
 
 def failure_outcome(stdout: str) -> tuple[str, bool, str | None] | None:
-    """Parse a closed failure marker, optionally with process-table detail."""
+    """Parse a closed failure marker, optionally with process-table detail.
+
+    Only an unrestored-entry detail spans more than one line: its copier error
+    excerpts follow it, and ``unrestored_detail`` validates them.
+    """
     lines = tuple(line.strip() for line in stdout.splitlines() if line.strip())
-    if len(lines) not in {1, 2} or not lines[0].startswith(RESET_FAILURE_PREFIX):
+    if not lines or not lines[0].startswith(RESET_FAILURE_PREFIX):
+        return None
+    if len(lines) > 2 and not lines[1].startswith(RESET_RESTORE_UNRESTORED_PREFIX):
         return None
     phase = lines[0].removeprefix(RESET_FAILURE_PREFIX)
     phase_names = {value: name for name, value in RESET_PHASES.items()}
     if phase not in phase_names:
         return None
-    detail = lines[1] if len(lines) == 2 else None
+    detail = "\n".join(lines[1:]) if len(lines) > 1 else None
     recovery_failed = detail is not None and detail == RESET_RECOVERY_FAILURE_MARKER
     if detail is not None and detail.startswith(RESET_RESTORE_UNRESTORED_PREFIX):
         if unrestored_detail(detail) is None:

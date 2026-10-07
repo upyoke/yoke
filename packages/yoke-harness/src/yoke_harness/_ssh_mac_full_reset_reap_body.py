@@ -13,6 +13,10 @@ reap_candidate_pids() {
       # directory on its own command line, and it keeps writing there while the
       # clear removes it unless it is stopped first.
       *"$yoke_state_dir"*) ;;
+      # A booted iOS Simulator device: its launchd_sim names the device's data
+      # directory under this home, and the device keeps writing there through
+      # the clear and the restore. Reaping it takes down the whole device tree.
+      *"$simulator_device_set_dir/"*) ;;
       *) continue ;;
     esac
     print -r -- "$pid"

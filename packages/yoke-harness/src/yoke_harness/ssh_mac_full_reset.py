@@ -206,7 +206,8 @@ def execute_full_test_machine_reset(
         if detail is not None and detail.startswith(RESET_RESTORE_UNRESTORED_PREFIX):
             # The restore names what it could not return. Without this the
             # receipt carried only the phase, and diagnosis meant repeating the
-            # whole restore on the host just to watch where it stopped.
+            # whole restore on the host just to watch where it stopped. Each
+            # entry also carries its copier error excerpt, which is the cause.
             failure_evidence["restore_state"] = unrestored_detail(detail)
         elif detail is not None and detail.startswith(RESET_ABSENT_PATH_PREFIX):
             failure_evidence["absent_state"] = absent_path_detail(detail)
