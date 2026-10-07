@@ -101,6 +101,7 @@ def _lock_submission_claim(conn: Any, claim_id: int) -> CoordinationClaim:
 
 
 def _issue(
+    conn: Any,
     machine: TestMachineContract,
     lease: CoordinationClaim,
     *,
@@ -141,7 +142,7 @@ def _issue(
         selection_reason=selection_reason,
         checks=list(checks),
         baselines=list(baselines),
-        cases=public_case_snapshots(cases),
+        cases=public_case_snapshots(conn, cases),
         golden_destination=golden_destination,
         capture_component=capture_component,
         plan_execution_id=plan_execution_id,
@@ -201,6 +202,7 @@ def begin_host_control_execution(
             contention=held.contention,
         ) from None
     return _issue(
+        conn,
         admission.contract,
         admission.lease,
         operation=operation,
@@ -294,6 +296,7 @@ def validate_host_control_submission(
         allow_released=allow_recorded_replay,
     )
     expected = _issue(
+        conn,
         machine,
         lease,
         operation=operation,

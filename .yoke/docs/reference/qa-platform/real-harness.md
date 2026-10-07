@@ -6,5 +6,6 @@ For project QA, use `yoke qa plan run --plan PLAN --project P`; read its `--help
 
 Machine QA execution contracts carry `public_ref` and
 `deployment_member_public_ref` for item subjects. The engine composes those
-refs before sealing the case target and execution digests; clients reject
+refs through the issuance transaction before sealing the case target and
+execution digests; clients reject
 internal item fields and incomplete refs.

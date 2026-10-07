@@ -197,7 +197,7 @@ def test_client_shell_baseline_uses_the_published_installer_recipe() -> None:
     assert [timeout for _command, timeout in commands] == [300, 1200, 300]
 
 
-def test_case_contract_keeps_its_digest_after_public_dispatch(test_db):
+def test_case_contract_keeps_its_digest_after_public_dispatch(test_db, monkeypatch):
     from runtime.api.fixtures.backlog import insert_item
     from runtime.api.domain.machine_qa_fixture_lifecycle_test_support import (
         case_contract,
@@ -211,7 +211,11 @@ def test_case_contract_keeps_its_digest_after_public_dispatch(test_db):
     internal, sequence = 901, 7
     seed_project_identities(test_db)
     insert_item(test_db, id=internal, project_id=1, project_sequence=sequence)
-    test_db.commit()
+
+    def unexpected_connection():
+        raise AssertionError("signing must use the issuance transaction")
+
+    monkeypatch.setattr("yoke_core.domain.db_helpers.connect", unexpected_connection)
     case = case_contract().model_dump(mode="json")
     case.pop("public_ref")
     case["item_id"] = internal
@@ -223,7 +227,7 @@ def test_case_contract_keeps_its_digest_after_public_dispatch(test_db):
         project_id=1,
         project="yoke",
         settings=_verification_contract()["settings"],
-        cases=public_case_snapshots([case]),
+        cases=public_case_snapshots(test_db, [case]),
     )
     result = public_response(
         FunctionCallResponse(

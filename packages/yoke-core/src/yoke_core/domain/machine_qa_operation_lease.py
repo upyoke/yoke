@@ -98,7 +98,7 @@ def begin_operation_execution(
         lease_id=lease.id,
         allow_released=False,
     )
-    contract = _issue(candidate, lease, cases=(), **shape)
+    contract = _issue(conn, candidate, lease, cases=(), **shape)
     heartbeat_plan_execution(conn, mission)
     return contract
 
