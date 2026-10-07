@@ -6,7 +6,7 @@ import sqlite3
 import pytest
 
 MIGRATION = importlib.import_module(
-    "yoke_core.domain.migrations.0061_one_org_role_per_person"
+    "yoke_core.domain.migrations.0062_one_org_role_per_person"
 )
 
 ROLES = ["admin", "operator", "viewer", "migration_verification_ci", "deployment_ci"]
