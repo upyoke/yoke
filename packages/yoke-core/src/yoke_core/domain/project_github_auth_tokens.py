@@ -36,12 +36,12 @@ from yoke_core.domain.github_app_token_models import (
     GitHubAppTokenError,
     InstallationToken,
 )
+from yoke_core.domain.project_github_token_mint_failure import token_mint_failure
 from yoke_core.domain.project_github_auth_models import (
     AppCredentials,
     MissingAppCredentials,
     MissingRepoMetadata,
     ProjectGithubState,
-    TokenMintFailed,
     TokenMinter,
     UserAuthorizationTransient,
     UserAuthorizationUnavailable,
@@ -221,10 +221,7 @@ def mint_bound_installation_token(
             force_refresh=force_refresh,
         )
     except GitHubAppTokenError as exc:
-        raise TokenMintFailed(
-            state.project_slug,
-            f"project '{state.project_slug}' GitHub App token mint failed: {exc}",
-        ) from exc
+        raise token_mint_failure(state.project_slug, exc) from exc
 
 
 def installation_contract_permissions(

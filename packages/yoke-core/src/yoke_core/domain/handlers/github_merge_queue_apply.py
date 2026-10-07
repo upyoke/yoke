@@ -73,7 +73,6 @@ def handle_merge_queue_apply(request: FunctionCallRequest) -> HandlerOutcome:
 
     from yoke_core.domain.project_github_auth import (
         ProjectGithubAuthError,
-        repair_command_hint,
         resolve_project_github_auth,
     )
 
@@ -83,10 +82,7 @@ def handle_merge_queue_apply(request: FunctionCallRequest) -> HandlerOutcome:
             required_permissions=GITHUB_ADMINISTRATION_WRITE_PERMISSION_LEVELS,
         )
     except ProjectGithubAuthError as exc:
-        return _auth_failed(
-            f"{exc.code}: {exc}",
-            repair_hint=repair_command_hint(exc, payload.project),
-        )
+        return _auth_failed(exc, payload.project)
 
     from yoke_core.domain import gh_rest_transport
     from yoke_core.domain.gh_rest_transport import RestTransportError
