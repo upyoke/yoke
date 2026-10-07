@@ -10,8 +10,8 @@ from yoke_core.domain.deployment_item_completion_runs import (
     completion_runs,
     latest_qa_member_run,
 )
-from yoke_core.domain.deployment_qa_admission_materialization import (
-    admitted_requirement_identity_clause,
+from yoke_core.domain.qa_requirement_source_retirement import (
+    lineage_identity_clause,
 )
 from yoke_core.domain.deployment_qa_execution_target import (
     deployment_qa_execution_target,
@@ -87,8 +87,7 @@ def _row_value(row: Any, key: str, position: int) -> Any:
 def latest_deployment_run_for_item(conn: Any, item_id: int) -> dict[str, str]:
     """Return the registered ``done_transition.latest_deployment_run`` binding.
 
-    Empty ``run_id`` and ``status`` mean the item has no completion-flow run.
-    """
+    Empty ``run_id`` and ``status`` mean the item has no completion-flow run."""
     row = latest_completion_run(conn, int(item_id))
     if row is None:
         return {"run_id": "", "status": ""}
@@ -101,7 +100,8 @@ def source_obligation_consumed(
     """Require accepted proof from the member answering this source's target.
 
     A newer active member holds the wait; a containment-only release has no
-    copies. Scoped runs match exact source/member identity. Schema-1 runs
+    copies. Scoped runs match source/member identity, including copies of any
+    source retired in this one's favor on the run that admitted it. Schema-1 runs
     answer through their nonempty shared blocking post-deploy set, using the
     same reader as settlement. Every copy and replacement must pass or be
     discharged; an unsettled duplicate or bad replacement still blocks done.
@@ -154,9 +154,7 @@ def source_obligation_consumed(
         identity = "qa_phase='post_deploy' AND blocking_mode='blocking'"
         identity_params = ()
     else:
-        identity, identity_params = admitted_requirement_identity_clause(
-            source, marker=marker
-        )
+        identity, identity_params = lineage_identity_clause(conn, source, marker=marker)
     member_scope = f"deployment_member_item_id={marker}"
     if legacy:
         member_scope = f"({member_scope} OR deployment_member_item_id IS NULL)"

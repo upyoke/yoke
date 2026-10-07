@@ -15,11 +15,13 @@ from yoke_core.domain.dash_posture_read import failure as _failure, marker as _p
 from yoke_core.domain.deployment_qa_source_obligation import (
     POST_DEPLOY_RECOVERY,
     blocking_row_unsatisfied_at_done,
+    source_obligation_consumed,
 )
 from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 from yoke_core.domain.qa_obligation_settlement import obligation_settled
 from yoke_core.domain.qa_merging_identity import recorded_head_sha
 from yoke_core.domain.qa_requirement_replacement import replacement_note
+from yoke_core.domain.qa_requirement_source_retirement import is_source_retirement
 from yoke_core.domain.qa_requirement_supersession import latest_verdict, same_scope
 from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
 from yoke_core.domain.qa_workflow_binding_validation import (
@@ -39,7 +41,9 @@ def _requirement_consumed(
     """Whether this blocking row is satisfied at the boundary being crossed.
 
     Shared settlement discharges history; a superseding case still needs its
-    own current, same-scope pass. At done the source-obligation reading is
+    own current, same-scope pass. A retired ``post_deploy`` source never
+    runs, so its corrected item requirement answers through the source
+    obligation instead. At done the source-obligation reading is
     asked even for a row that has passed: a ``post_deploy`` pass proves the candidate
     that was deployed when it ran, not the one being closed out.
     """
@@ -48,6 +52,10 @@ def _requirement_consumed(
         if row.get("waived_at") or row.get("retracted_at"):
             return True
         replacement_id = int(row["superseded_by_requirement_id"])
+        if is_source_retirement(row):
+            return not pre_merge and source_obligation_consumed(
+                conn, item_id=int(item_id), source_requirement_id=replacement_id
+            )
         replacement = conn.execute(
             f"SELECT * FROM qa_requirements WHERE id={_p(conn)}",
             (replacement_id,),

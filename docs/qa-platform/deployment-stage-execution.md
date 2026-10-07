@@ -254,15 +254,16 @@ case is materialized:
 
   The superseded row is left exactly as it is, so what went wrong stays
   readable. The superseding row is graded on its own evidence in the same
-  pass, so a link cannot carry a failure through. Supersession is run-local
-  and never reaches the item requirement an admitted copy was frozen from —
-  that row is a real outstanding obligation, and discharging it from here
-  would drop it forever — so when the discharged case is an admitted copy the
-  receipt returns `admitted_from_requirement_id` and a `next_admission_notice`
-  naming that row and the `yoke qa requirement update` that corrects it.
-  Without it the correction reaches one run and the next release admits the
-  same body again. A source that is missing, or itself already discharged, is
-  named by neither, because no future release admits it. Supersession refuses a
+  pass, so a link cannot carry a failure through. Superseding an admitted
+  copy is run-local: its item source stays outstanding, so the receipt's
+  `next_admission_notice` names the source and how to retire it — add the
+  corrected body as an item requirement for the same item, transition, phase
+  and target, then supersede the source with it. Post-deploy item rows never
+  execute, so retirement requires an admitted copy already superseded by a
+  passing run case (`run_replacement_requirement_id`), which still answers its
+  run at `done`; later releases admit only the corrected requirement. A
+  source that is missing, or itself already discharged, is named by neither,
+  because no future release admits it. Supersession refuses a
   replacement in another subject, one that is non-blocking, waived, already
   superseded, or that has not recorded a passing verdict. A case's evidence is
   counted first on the run whose verdict the gate accepted — the newest run

@@ -245,22 +245,22 @@ def test_supersession_leaves_the_next_release_admitting_it_and_says_so(
     )
     assert receipt["admitted_from_requirement_id"] == intake_id
     assert str(intake_id) in receipt["next_admission_notice"]
-    assert "yoke qa requirement update" in receipt["next_admission_notice"]
+    assert "yoke qa requirement supersede" in receipt["next_admission_notice"]
     succeed_run(test_db, "run-supersede-first")
     broken_config = test_db.execute(
         "SELECT method_config FROM qa_requirements WHERE id=%s", (broken_id,)
     ).fetchone()[0]
 
     _seed_selected_requirement_run(
-        test_db, run_id="run-supersede-next", item_id=item_id,
+        test_db,
+        run_id="run-supersede-next",
+        item_id=item_id,
         requirement_id=intake_id,
     )
     assert intake_id in admissible_post_deploy_requirement_ids(
         test_db, run_id="run-supersede-next", item_id=item_id
     )
-    next_copy_id = admitted_copy(
-        test_db, run_id="run-supersede-next", item_id=item_id
-    )
+    next_copy_id = admitted_copy(test_db, run_id="run-supersede-next", item_id=item_id)
     next_row = test_db.execute(
         "SELECT plan_case_key,method_config,superseded_by_requirement_id "
         "FROM qa_requirements WHERE id=%s",

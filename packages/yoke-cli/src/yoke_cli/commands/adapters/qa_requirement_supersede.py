@@ -52,11 +52,15 @@ _EPILOG = (
     "A case that has not yet recorded a "
     "determinate verdict is still correctable in place with "
     "'yoke qa requirement update' -- supersession is for one that has already "
-    "answered. Supersession is run-local: when the discharged case was "
-    "admitted from an item requirement, that source row is untouched and "
-    "still outstanding, so the next release admits the same body again. The "
-    "receipt names that row and the command that corrects it whenever there "
-    "is one."
+    "answered. Superseding an admitted copy is run-local: its item source "
+    "row is untouched and still outstanding, so the next release admits the "
+    "same body again. The receipt names that row and how to retire it. To "
+    "retire a post_deploy item source, record the corrected body as a new "
+    "item requirement for the same item, transition, phase and --target-env "
+    "('yoke qa requirement add --item ...'), then supersede the source with "
+    "it. Neither item row ever executes, so this needs one admitted copy of "
+    "the source already superseded by a passing run case; that case answers "
+    "its own run, and later releases admit only the corrected requirement."
 )
 
 
@@ -79,6 +83,13 @@ def _write_supersede_result(
         notice = result.get("next_admission_notice")
         if notice:
             print(f"Next release: {notice}", file=stdout)
+        run_answer = result.get("run_replacement_requirement_id")
+        if run_answer:
+            print(
+                f"Source retired: passing run case {run_answer} answers its run; "
+                "later releases admit the corrected item requirement.",
+                file=stdout,
+            )
     else:
         print(json.dumps(result, sort_keys=True), file=stdout)
 
@@ -95,14 +106,14 @@ def qa_requirement_supersede(args: List[str]) -> int:
         dest="requirement_id",
         type=int,
         required=True,
-        help="The frozen qa_requirements.id being discharged.",
+        help="The frozen qa_requirements.id being discharged, or the post_deploy item source being retired.",
     )
     parser.add_argument(
         "--superseded-by-requirement-id",
         dest="superseded_by_requirement_id",
         type=int,
         required=True,
-        help="The corrected qa_requirements.id that passed in its place.",
+        help="The corrected qa_requirements.id that passed in its place, or the corrected item requirement retiring a source.",
     )
     rationale_group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(

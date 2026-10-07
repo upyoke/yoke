@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from yoke_core.domain.db_helpers import query_one
+
 # Re-pointing a requirement admitted into a started run would move the
 # target its recorded evidence was judged against, so it is refused with
 # the same frozen-snapshot code the content path uses.
@@ -34,9 +35,15 @@ def _prepare_target_env(
             f"FROM deployment_runs WHERE id={_marker(conn)}",
             (str(run_id),),
         )
-        if run is None or str(run["status"] or "") != "created" or str(
-            run["composition_frozen_at"] or existing.get("execution_target_digest") or ""
-        ).strip():
+        if (
+            run is None
+            or str(run["status"] or "") != "created"
+            or str(
+                run["composition_frozen_at"]
+                or existing.get("execution_target_digest")
+                or ""
+            ).strip()
+        ):
             return None, FROZEN_REQUIREMENT_MESSAGE
         project_id = int(run["project_id"])
     name = str(value or "").strip() or None
@@ -50,9 +57,7 @@ def _prepare_target_env(
     )
 
     owner = (
-        existing["item_id"]
-        if existing["item_id"] is not None
-        else existing["epic_id"]
+        existing["item_id"] if existing["item_id"] is not None else existing["epic_id"]
     )
     if owner is not None and project_id is None and _table_exists(conn, "items"):
         project_row = query_one(
@@ -70,7 +75,10 @@ def _prepare_target_env(
         snapshot = None
         if name and project_id is not None and _table_exists(conn, "environments"):
             snapshot = persistable_named_environment_target(
-                conn, project_id=int(project_id), environment_name=name
+                conn,
+                project_id=int(project_id),
+                environment_name=name,
+                require_runtime_match=False,
             )
     except QaExecutionTargetError as exc:
         return None, str(exc)
