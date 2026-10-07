@@ -223,7 +223,7 @@ else
 fi
 ```
 
-**Engine contract:** an item branch with no epic lane is a standalone merge, and every standalone merge routes through one operation — `yoke merge item`, wrapped here as `watch_merge merge-item`. The operation declares the standalone permission to the merge engine as an argument, so the engine's refusal for an unpermitted standalone branch stays intact for every other caller. Contract and portability constraints: [`docs/archive/decisions/standalone-item-merge.md`](../../../../docs/archive/decisions/standalone-item-merge.md).
+**Engine contract:** an item branch with no epic lane is a standalone merge, and every standalone merge routes through one operation — `yoke merge item`, wrapped here as `watch_merge merge-item`. The operation declares the standalone permission to the merge engine as an argument, so the engine's refusal for an unpermitted standalone branch stays intact for every other caller. It resolves the item over the transport-aware dispatcher, so it behaves the same against a local or an https control plane.
 
 A preflight refusal whose only issues are missing or stale commit-bound verdicts
 is recovered inside `yoke merge item` only for proof the merge can produce: it

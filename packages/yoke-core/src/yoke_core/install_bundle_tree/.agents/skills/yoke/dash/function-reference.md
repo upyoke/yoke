@@ -55,6 +55,4 @@ standalone-item merge boundary: it takes the merge lock, lands the branch on
 the project base branch, stamps `merged_at`, publishes, records execution
 evidence with the merge identity it just resolved, and then transitions the
 item — through the `dash_evidence` gate, not around it. Run
-`yoke merge item --help` for the flag matrix, and see
-[`docs/archive/decisions/standalone-item-merge.md`](../../../../docs/archive/decisions/standalone-item-merge.md)
-for the contract.
+`yoke merge item --help` for the flag matrix.
