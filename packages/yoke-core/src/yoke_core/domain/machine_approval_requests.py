@@ -15,12 +15,14 @@ from yoke_core.domain.decision_request_contract import MACHINE_APPROVAL
 from yoke_core.domain.decision_request_resolution import (
     resolve_decision_request,
     withdraw_decision_request,
+    withdraw_for_ended_subject,
 )
 from yoke_core.domain.decision_request_subject_state import (
     _instant,
     _MACHINE_END_TIMESTAMPS,
     _MACHINE_ENDED_STATES,
 )
+from yoke_core.domain.hosted_service_authority import hosted_service_org_ids
 from yoke_core.domain.decision_requests import (
     RoleAuthority,
     create_decision_request,
@@ -224,7 +226,14 @@ def apply_machine_approval_lifecycle(
         observed_at=occurred_at,
         reason=withdrawal_reason,
     )
-    withdrawn = withdraw_decision_request(
+    # The hosted service's own identity ends it without org-admin authority
+    # (the subject-ended contract still applies); others need the request's.
+    withdraw = (
+        withdraw_for_ended_subject
+        if int(org_id) in hosted_service_org_ids(conn, actor_id)
+        else withdraw_decision_request
+    )
+    withdrawn = withdraw(
         conn,
         int(request["id"]),
         reason=withdrawal_reason,

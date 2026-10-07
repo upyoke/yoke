@@ -38,6 +38,12 @@ Self-hosted users approve their own code on the workbench's **Connect your machi
 page. Approval binds the new machine and credential to that signed-in actor.
 The existing org-admin approval path on Cloud retains its authority.
 
+On Cloud the roster also shows the hosted service's own system actor,
+`hosted_service`, holding only the `hosted_service` org role. It delivers
+GitHub App lifecycle changes and machine-authorization expiry or withdrawal,
+and nothing else. No member or admin token can stand in for it, including the
+universe's first `initial-admin` token.
+
 ## Members (Cloud)
 
 Platform-fed. People in the organization, seats, invites. Not present as a

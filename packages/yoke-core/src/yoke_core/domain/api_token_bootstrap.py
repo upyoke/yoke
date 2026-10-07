@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 from yoke_core.domain import db_backend
@@ -11,6 +12,7 @@ from yoke_core.domain.actor_permissions import (
     ROLE_OWNER,
     grant_actor_org_role,
     grant_actor_project_role,
+    role_id_by_name,
     seed_roles_and_permissions,
 )
 from yoke_core.domain.actors import (
@@ -19,8 +21,17 @@ from yoke_core.domain.actors import (
     sole_human_actor_id,
 )
 from yoke_core.domain.api_tokens import CreatedToken, mint_token
+from yoke_core.domain.hosted_service_authority import (
+    HOSTED_SERVICE_COMPONENT,
+    HOSTED_SERVICE_TOKEN_NAME,
+    ROLE_HOSTED_SERVICE,
+)
 from yoke_core.domain.org_schema import seed_default_org
 from yoke_core.domain.project_identity import resolve_project_id
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _required_name(value: str, *, field: str) -> str:
@@ -78,9 +89,7 @@ def _assert_service_actor_scope(
 
 def _human_actors_present(conn: Any) -> bool:
     return (
-        conn.execute(
-            "SELECT 1 FROM actors WHERE kind = 'human' LIMIT 1"
-        ).fetchone()
+        conn.execute("SELECT 1 FROM actors WHERE kind = 'human' LIMIT 1").fetchone()
         is not None
     )
 
@@ -184,4 +193,46 @@ def bootstrap_project_service_token(
     return mint_token(conn, actor_id=actor_id, name=name)
 
 
-__all__ = ["bootstrap_admin_token", "bootstrap_project_service_token"]
+def bootstrap_hosted_service_token(
+    conn: Any,
+    *,
+    token_name: str = HOSTED_SERVICE_TOKEN_NAME,
+) -> CreatedToken:
+    """Ensure the hosted service identity on this universe's org and mint once.
+
+    The ``hosted_service`` system actor and its single org grant are
+    idempotent; every call mints another active token whose raw value is
+    returned only here. Rotation installs the new secret, then revokes the
+    superseded token id. A universe whose actor already carries any other
+    grant is refused rather than minted for, because that identity is no
+    longer least-privilege.
+    """
+    name = _required_name(token_name, field="token_name")
+    seed_roles_and_permissions(conn)
+    org_id = seed_default_org(conn)
+    actor_id = seed_system_actor(conn, HOSTED_SERVICE_COMPONENT)
+    p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    conn.execute(
+        "INSERT INTO actor_org_roles (actor_id, org_id, role_id, granted_at) "
+        f"VALUES ({p}, {p}, {p}, {p}) "
+        "ON CONFLICT(actor_id, org_id, role_id) DO NOTHING",
+        (actor_id, org_id, role_id_by_name(conn, ROLE_HOSTED_SERVICE), _now()),
+    )
+    conn.commit()
+    project_grants, org_grants = _service_actor_authority(conn, actor_id)
+    if project_grants or org_grants != {(org_id, ROLE_HOSTED_SERVICE)}:
+        raise ValueError(
+            f"hosted_service_identity_not_least_privilege: system actor "
+            f"{HOSTED_SERVICE_COMPONENT!r} (id {actor_id}) carries grants beyond "
+            f"org role {ROLE_HOSTED_SERVICE!r} on org {org_id}; revoke the extra "
+            "grants (`python3 -m yoke_core.domain.actor_grants_cli list --actor "
+            f"{actor_id}` names them), then mint again"
+        )
+    return mint_token(conn, actor_id=actor_id, name=name)
+
+
+__all__ = [
+    "bootstrap_admin_token",
+    "bootstrap_hosted_service_token",
+    "bootstrap_project_service_token",
+]

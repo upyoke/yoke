@@ -50,6 +50,16 @@ def decision_request_connection():
             granted_at TEXT NOT NULL,
             PRIMARY KEY(actor_id, org_id, role_id)
         );
+        CREATE TABLE permissions (
+            id INTEGER PRIMARY KEY, key TEXT UNIQUE, description TEXT,
+            created_at TEXT NOT NULL
+        );
+        CREATE TABLE role_permissions (
+            role_id INTEGER NOT NULL REFERENCES roles(id),
+            permission_id INTEGER NOT NULL REFERENCES permissions(id),
+            created_at TEXT NOT NULL,
+            PRIMARY KEY(role_id, permission_id)
+        );
         CREATE TABLE items (
             id INTEGER PRIMARY KEY,
             project_id INTEGER NOT NULL REFERENCES projects(id),
@@ -87,6 +97,17 @@ def decision_request_connection():
     value.execute("INSERT INTO actor_project_roles VALUES (2, 10, 1, 'now')")
     value.execute("INSERT INTO actor_project_roles VALUES (4, 10, 4, 'now')")
     value.execute("INSERT INTO actor_org_roles VALUES (5, 1, 3, 'now')")
+    # Actor 6 is the hosted service's own system identity on org 1.
+    value.execute(
+        "INSERT INTO actors (id, kind, system_component, created_at) "
+        "VALUES (6, 'system', 'hosted_service', 'now')"
+    )
+    value.execute("INSERT INTO roles VALUES (5, 'hosted_service', '', 'now')")
+    value.execute(
+        "INSERT INTO permissions VALUES (1, 'hosted_service.deliver', '', 'now')"
+    )
+    value.execute("INSERT INTO role_permissions VALUES (5, 1, 'now')")
+    value.execute("INSERT INTO actor_org_roles VALUES (6, 1, 5, 'now')")
     # Row 7 carries version 1 on purpose: an item pins a workflow_versions
     # row id, and a fixture where id and version happen to match cannot tell
     # which of the two a reader-facing string names.
