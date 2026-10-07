@@ -15,7 +15,7 @@ from yoke_core.domain.session_routing_validation import (
 
 
 MIGRATION = importlib.import_module(
-    "yoke_core.domain.migrations.0057_rename_session_lanes_to_levels"
+    "yoke_core.domain.migrations.0059_rename_session_lanes_to_levels"
 )
 
 

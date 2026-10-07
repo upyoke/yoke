@@ -16,7 +16,7 @@ MIGRATION = importlib.import_module(
 )
 
 LEVEL_RENAME = importlib.import_module(
-    "yoke_core.domain.migrations.0057_rename_session_lanes_to_levels"
+    "yoke_core.domain.migrations.0059_rename_session_lanes_to_levels"
 )
 
 

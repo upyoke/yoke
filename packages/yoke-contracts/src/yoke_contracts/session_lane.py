@@ -4,7 +4,7 @@ Migration entries ``0054_remove_lane_allowlists`` and
 ``0055_remove_process_offer_settings`` import this module by name, and an
 applied entry's bytes are pinned by its ledger digest, so the module must
 keep answering exactly what those entries asked of it at the point in
-history where they run — before ``0057_rename_session_lanes_to_levels``
+history where they run — before ``0059_rename_session_lanes_to_levels``
 renamed the stored ``lane_metadata`` key. Live code reads
 :mod:`yoke_contracts.session_level`; nothing else may import this module.
 """
