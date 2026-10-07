@@ -156,7 +156,7 @@ function edge(blocker, dependent, facts = {}) {
   return {
     blocking_item: blocker, dependent_item: dependent, gate_point: "activation",
     satisfaction: "fact:merged", rationale: `${dependent} needs ${blocker}`,
-    blocking_stage: "idea", blocking_terminal: false, blocking_title: "",
+    blocking_stage: "idea", blocking_terminal: false, blocking_abandoned: false, blocking_title: "",
     blocking_project_id: 1, blocking_project_sequence: Number(blocker.split("-")[1]),
     dependent_project_id: 1, dependent_project_sequence: Number(dependent.split("-")[1]),
     environment: null, ...facts,
@@ -239,7 +239,7 @@ test("a serving build without dependency edges refuses the graph by its floor", 
     assert.equal(ownTextContent(byClass(band(key), "work-band-error")[0]), DEPENDENCY_GRAPH_FLOOR_MESSAGE);
     assert.equal(count(key), "");
   }
-  assert.match(DEPENDENCY_GRAPH_FLOOR_MESSAGE, /serving floor: next-release/);
+  assert.match(DEPENDENCY_GRAPH_FLOOR_MESSAGE, /Update that server/);
   assert.equal(byClass(band("waiting"), "fdv-tile").length, 0);
 });
 
@@ -258,4 +258,36 @@ test("an item only its merge waits on stays Ready, with its edge in the graph", 
   );
   assert.equal(tile.getAttribute("data-band"), "ready");
   assert.equal(ownTextContent(byClass(tile, "fdv-tile-meta")[0]), "Stuck upstream: YOK-7");
+});
+
+test("each repaint stops watching the canvas it replaced", async (t) => {
+  const watched = [];
+  const original = globalThis.ResizeObserver;
+  t.after(() => { globalThis.ResizeObserver = original; });
+  globalThis.ResizeObserver = class {
+    constructor() { this.live = false; watched.push(this); }
+    observe() { this.live = true; }
+    disconnect() { this.live = false; }
+  };
+  // The first paint draws before delivery settles, the second after it.
+  await mount(t, "/frontier?project=1", waitingOnFrozen);
+  assert.ok(watched.length >= 2);
+  assert.deepEqual(watched.map((observer) => observer.live).filter(Boolean), [true]);
+});
+
+test("a blocker that no longer resolves draws as a ghost its dependent waits on", async (t) => {
+  const { band, count } = await mount(t, "/frontier?project=1", {
+    ready_rows: [],
+    blocked_rows: [{ item_id: "YOK-12", project_id: 1, project: "yoke", blocking_item: "GONE-9", why: "z" }],
+    dependency_edges: [edge("GONE-9", "YOK-12", {
+      blocking_stage: null, blocking_title: null, blocking_project_id: null,
+      blocking_project_sequence: null,
+    })],
+  });
+  assert.equal(count("waiting"), "1");
+  const ghost = byClass(band("waiting"), "fdv-tile").find(
+    (node) => node.getAttribute("data-fdv-ref") === "GONE-9",
+  );
+  assert.ok(ghost.classList.contains("is-ghost"));
+  assert.equal(ownTextContent(byClass(ghost, "fdv-tile-stage")[0]), "not on this Frontier");
 });

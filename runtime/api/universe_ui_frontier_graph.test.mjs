@@ -12,6 +12,8 @@ import {
   frontierColumnPlan,
   frontierFilter,
   frontierGraphColumns,
+  frontierIndex,
+  frontierOutline,
   frontierTileMeta,
   frontierWaitingSplit,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/frontier_dependency_model.js";
@@ -29,8 +31,8 @@ function columns(model) {
 
 function criticalEdges(model) {
   return model.edges
-    .filter((e) => model.critical.has(e.from) && model.critical.has(e.to))
-    .map((e) => `${e.from}>${e.to}`);
+    .map((e) => `${e.from}>${e.to}`)
+    .filter((pair) => model.criticalEdges.has(pair));
 }
 
 const byPrefix = (...prefixes) => (node) => prefixes.includes(node.ref.split("-")[0]);
@@ -135,9 +137,9 @@ test("stuck, broken and deadlocked chains say why on their own tiles", () => {
   assert.equal(model.edges.length, 12);
   // A stuck chain is raised as stuck, never as the longest one.
   assert.deepEqual(criticalEdges(model), []);
-  // The cancelled blocker is not on this Frontier; it is a terminal ghost.
+  // The cancelled blocker is not on this Frontier, and it is dead.
   assert.equal(model.nodes.get("YOK-3840").band, "off");
-  assert.equal(model.nodes.get("YOK-3840").terminal, true);
+  assert.equal(model.nodes.get("YOK-3840").dead, true);
 });
 
 test("stuck: the Platform filter keeps the Buzz blocker its item waits on", () => {
@@ -169,4 +171,41 @@ test("nothing waiting draws no graph and holds nothing", () => {
   const { held, graphCount } = frontierWaitingSplit(model);
   assert.deepEqual(held, []);
   assert.equal(graphCount, 0);
+});
+
+const plain = (nodes, edges) => frontierIndex(
+  new Map(nodes.map(([ref, band, extra = {}]) => [ref, { ref, band, stage: "idea", title: ref, ...extra }])),
+  edges.map(([from, to, sat = "fact:merged", env = null]) => ({ from, to, gate: "activation", sat, why: "", env })),
+);
+
+test("a shortcut across the longest chain is an ordinary line", () => {
+  const model = plain(
+    [["A-1", "active"], ["A-2", "waiting"], ["A-3", "waiting"]],
+    [["A-1", "A-2"], ["A-2", "A-3"], ["A-1", "A-3"]],
+  );
+  assert.deepEqual([...model.critical].sort(), ["A-1", "A-2", "A-3"]);
+  assert.deepEqual(criticalEdges(model), ["A-1>A-2", "A-2>A-3"]);
+});
+
+test("an item that waits on itself is a deadlock of one", () => {
+  const model = plain([["A-1", "waiting"], ["A-2", "waiting"]], [["A-1", "A-1"], ["A-1", "A-2"]]);
+  assert.equal(model.nodes.get("A-1").stall, "Deadlock — A-1 waits on itself");
+  assert.equal(model.nodes.get("A-2").stuck, "Stuck upstream: A-1");
+  assert.deepEqual(columns(model)[0].deadlocked, ["A-1"]);
+  assert.deepEqual(frontierOutline(model).map((tree) => tree.ref), ["A-1"]);
+});
+
+test("a completed blocker still owing a deploy is waiting, not dead", () => {
+  const live = { name: "prod", delivery_state: "not deployed", in_delivery_flow: true };
+  const model = plain(
+    [["A-1", "done"], ["A-2", "waiting"]],
+    [["A-1", "A-2", "fact:deployed:prod", live]],
+  );
+  assert.equal(model.nodes.get("A-2").stuck, null);
+  assert.equal(frontierTileMeta(model.nodes.get("A-2")), "Starts after A-1 is live on prod");
+  const abandoned = plain(
+    [["A-1", "done", { dead: true, stage: "cancelled" }], ["A-2", "waiting"]],
+    [["A-1", "A-2", "fact:deployed:prod", live]],
+  );
+  assert.equal(abandoned.nodes.get("A-2").stuck, "A-1 was cancelled — it will never be live on prod");
 });

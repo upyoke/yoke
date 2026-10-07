@@ -128,6 +128,7 @@ export function frontierGraphSection(documentNode, model, helpers) {
     section, layout, detail, tiles, edges, helpers,
   });
   section.addEventListener("pointerleave", () => interact.hover(null));
+  section.dispose = edges.dispose;
   return section;
 }
 

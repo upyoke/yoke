@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from yoke_core.domain.dependency_planning import BlockerDetail
 from yoke_core.domain.frontier_dependency_edges import (
     FRONTIER_EDGE_FIELDS,
     frontier_dependency_edges,
@@ -82,6 +83,7 @@ def test_unsatisfied_edges_at_every_gate_carry_their_rationale(test_db):
     assert edge["blocking_stage"] == "implementing"
     assert edge["blocking_title"] == "item 1"
     assert edge["blocking_terminal"] is False
+    assert edge["blocking_abandoned"] is False
     assert edge["blocking_project_id"] == 1
     assert edge["blocking_project_sequence"] == 1
     assert edge["dependent_project_sequence"] == 2
@@ -129,6 +131,59 @@ def test_a_terminal_blocker_is_named_and_a_terminal_dependent_dropped(test_db):
     assert _pairs(edges) == {("YOK-1", "YOK-2", "activation")}
     assert edges[0]["blocking_stage"] == "cancelled"
     assert edges[0]["blocking_terminal"] is True
+    # Cancelled ends the blocker without completing it: the edge never clears.
+    assert edges[0]["blocking_abandoned"] is True
+
+
+def test_a_completed_blocker_is_told_apart_from_an_abandoned_one(test_db):
+    _items(test_db, (1, "done"), (2, "idea"))
+    _depend(test_db, 2, 1, satisfaction="fact:deployed:prod")
+
+    edges = frontier_dependency_edges(test_db)
+
+    assert _pairs(edges) == {("YOK-1", "YOK-2", "activation")}
+    assert edges[0]["blocking_terminal"] is True
+    assert edges[0]["blocking_abandoned"] is False
+
+
+def test_an_item_depending_on_itself_is_returned_as_its_own_cycle(test_db):
+    _items(test_db, (1, "idea"))
+    _depend(test_db, 1, 1)
+
+    assert _pairs(frontier_dependency_edges(test_db)) == {
+        ("YOK-1", "YOK-1", "activation")
+    }
+
+
+def test_a_blocker_that_no_longer_resolves_still_draws_its_edge(test_db):
+    _items(test_db, (2, "idea"))
+    unresolved = BlockerDetail(
+        blocking_item="GONE-99",
+        blocking_status=None,
+        gate_point="activation",
+        satisfaction="fact:merged",
+        rationale="waits on retired work",
+        reason="",
+    )
+
+    edges = frontier_dependency_edges(
+        test_db,
+        gate_blocks={
+            "activation": {"YOK-2": [unresolved]},
+            "integration": {},
+            "closure": {},
+        },
+    )
+
+    assert len(edges) == 1
+    edge = edges[0]
+    assert (edge["blocking_item"], edge["dependent_item"]) == ("GONE-99", "YOK-2")
+    assert edge["rationale"] == "waits on retired work"
+    assert edge["blocking_stage"] is None
+    assert edge["blocking_title"] is None
+    assert edge["blocking_project_id"] is None
+    assert edge["blocking_terminal"] is False
+    assert edge["environment"] is None
 
 
 def _environments(conn) -> None:

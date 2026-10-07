@@ -26,7 +26,6 @@ function rowNode(row, band, extra = {}) {
     href: href(row.project_id, row.project_sequence, ref),
     projectId: row.project_id,
     project: row.project,
-    terminal: Boolean(row.terminal),
     ...extra,
   };
 }
@@ -50,7 +49,7 @@ function edgeOf(row) {
     blockerFacts: {
       stage: row.blocking_stage,
       title: row.blocking_title,
-      terminal: row.blocking_terminal,
+      dead: row.blocking_abandoned,
       projectId: row.blocking_project_id,
       href: href(row.blocking_project_id, row.blocking_project_sequence, row.blocking_item),
     },
@@ -89,10 +88,15 @@ export function frontierGraphModel(bandRows, edgeRows, deploy) {
       band: "off",
       stage: "not on this Frontier",
       title: "",
-      terminal: false,
       projectId: row.dependent_project_id,
       href: href(row.dependent_project_id, row.dependent_project_sequence, row.dependent_item),
     });
+  }
+  // Whether a blocker was abandoned is the server's reading, on or off the
+  // Frontier: a cancelled item in Done is as dead as one off the page.
+  for (const row of edgeRows) {
+    const blocker = nodes.get(row.blocking_item);
+    if (blocker) blocker.dead = Boolean(row.blocking_abandoned);
   }
   return frontierIndex(nodes, edges);
 }

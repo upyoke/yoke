@@ -39,11 +39,12 @@ export function frontierGatePhrase(edge) {
   }[edge.gate];
 }
 
-// Why an edge can never clear on its own, or null. A terminal blocker never
-// changes again; an environment no delivery flow of the blocker reaches can
-// never make it live there.
+// Why an edge can never clear on its own, or null. An abandoned blocker
+// (cancelled or stopped, not completed) never changes again; an environment no
+// delivery flow of the blocker reaches can never make it live there. A
+// blocker that completed is not dead: its edge is still waiting on a fact.
 export function frontierNever(edge, blocker) {
-  if (blocker.terminal) {
+  if (blocker.dead) {
     return `${blocker.ref} was ${blocker.stage} — it will never ${frontierConditionVerb(edge.sat)}`;
   }
   if (edge.env && edge.env.in_delivery_flow === false) {
@@ -67,7 +68,7 @@ function ghost(ref, facts = {}) {
     band: "off",
     stage: facts.stage || "not on this Frontier",
     title: facts.title || "",
-    terminal: Boolean(facts.terminal),
+    dead: Boolean(facts.dead),
     href: facts.href || "",
     projectId: facts.projectId,
   };
@@ -98,7 +99,8 @@ export function frontierIndex(nodes, edges) {
       const g = [];
       let w;
       do { w = stack.pop(); on.delete(w); g.push(w); } while (w !== v);
-      if (g.length > 1) cycles.push(g);
+      // An item that depends on itself is a deadlock of one.
+      if (g.length > 1 || nodes.get(v).dependents.some((e) => e.to === v)) cycles.push(g);
     }
   };
   for (const r of nodes.keys()) if (!index.has(r)) visit(r);
@@ -110,7 +112,9 @@ export function frontierIndex(nodes, edges) {
     n.cycle = inCycle.has(n.ref) ? cycles[inCycle.get(n.ref)] : null;
     n.never = n.blockers.map((e) => frontierNever(e, nodes.get(e.from))).find(Boolean) || null;
     n.stall = n.cycle
-      ? `Deadlock — ${n.cycle.join(" ⇄ ")} wait on each other`
+      ? (n.cycle.length > 1
+        ? `Deadlock — ${n.cycle.join(" ⇄ ")} wait on each other`
+        : `Deadlock — ${n.ref} waits on itself`)
       : n.never || (n.dependents.length && n.held ? `${n.held}` : null);
   }
   const stuckMemo = new Map();
@@ -151,17 +155,21 @@ export function frontierIndex(nodes, edges) {
   const linked = [...nodes.values()].filter((n) => n.blockers.length || n.dependents.length);
   // The longest chain that can still move: a stuck chain is raised as stuck, not as critical.
   const deepest = linked.filter((n) => !n.cycle && !n.stuck).sort((a, b) => b.depth - a.depth)[0];
-  const critical = new Set();
+  const chain = [];
   for (let n = deepest; n;) {
-    critical.add(n.ref);
+    chain.push(n.ref);
     n = n.blockers.map((e) => nodes.get(e.from)).filter((b) => !b.cycle).sort((a, b) => b.depth - a.depth)[0];
   }
+  // Only consecutive links of the chain are heavy: a shortcut edge between
+  // two chain items that skips the middle is an ordinary line.
+  const long = chain.length > 2;
   return {
     nodes,
     edges,
     cycles,
     linked,
-    critical: critical.size > 2 ? critical : new Set(),
+    critical: long ? new Set(chain) : new Set(),
+    criticalEdges: long ? new Set(chain.slice(1).map((ref, i) => `${ref}>${chain[i]}`)) : new Set(),
     roots: linked.filter((n) => !n.blockers.length && !n.cycle)
       .sort((a, b) => b.unblocks - a.unblocks || a.ref.localeCompare(b.ref)),
     lineage: (ref) => {

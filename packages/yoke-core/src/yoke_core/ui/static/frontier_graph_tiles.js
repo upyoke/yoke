@@ -28,7 +28,7 @@ export function frontierTile(documentNode, model, ref, helpers) {
   if (model.critical.has(ref)) tile.classList.add("is-critical");
   if (node.stall) tile.classList.add("is-stall");
   else if (node.stuck) tile.classList.add("is-stuck");
-  if (node.band === "off") tile.classList.add(node.terminal ? "is-dead" : "is-ghost");
+  if (node.band === "off") tile.classList.add(node.dead ? "is-dead" : "is-ghost");
   const head = el(documentNode, "span", "fdv-tile-head");
   const link = el(documentNode, "a", "fdv-tile-ref", ref);
   link.href = node.href;

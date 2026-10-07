@@ -24,9 +24,8 @@ export function frontierEdgeLayer(documentNode, canvas, grid, model, locate) {
   svg.setAttribute("aria-hidden", "true");
   const paths = model.edges.map((edge) => {
     const path = documentNode.createElementNS(SVG, "path");
-    const critical = model.critical.has(edge.from) && model.critical.has(edge.to);
     path.classList.add("fdv-edge");
-    if (critical) path.classList.add("is-critical");
+    if (model.criticalEdges.has(`${edge.from}>${edge.to}`)) path.classList.add("is-critical");
     path.setAttribute("data-from", edge.from);
     path.setAttribute("data-to", edge.to);
     svg.appendChild(path);
@@ -52,7 +51,11 @@ export function frontierEdgeLayer(documentNode, canvas, grid, model, locate) {
       }
       let ra = a.getBoundingClientRect();
       let rb = b.getBoundingClientRect();
-      if (rb.left >= ra.right - 4 || ra.left >= rb.right - 4) {
+      if (a === b) {
+        // An item waiting on itself: a loop off its right edge.
+        const x = ra.right + ox, y = ra.top + ra.height / 2 + oy;
+        path.setAttribute("d", `M${x},${y - 10} C${x + 28},${y - 18} ${x + 28},${y + 18} ${x},${y + 10}`);
+      } else if (rb.left >= ra.right - 4 || ra.left >= rb.right - 4) {
         if (ra.left > rb.left) [ra, rb] = [rb, ra];
         const x1 = ra.right + ox, y1 = ra.top + ra.height / 2 + oy;
         const x2 = rb.left + ox, y2 = rb.top + rb.height / 2 + oy;
@@ -69,8 +72,14 @@ export function frontierEdgeLayer(documentNode, canvas, grid, model, locate) {
   };
   // First draw on a timer: animation frames and resize observations pause
   // while the page is in a background tab, timers do not.
-  if (typeof ResizeObserver === "function") new ResizeObserver(draw).observe(canvas);
+  const observer = typeof ResizeObserver === "function" ? new ResizeObserver(draw) : null;
+  observer?.observe(canvas);
   canvas.addEventListener("scroll", draw, { passive: true });
   setTimeout(draw);
-  return { paths: paths.map(({ path }) => path), draw };
+  // A repaint replaces the canvas; the replaced one stops being watched.
+  const dispose = () => {
+    observer?.disconnect();
+    canvas.removeEventListener("scroll", draw);
+  };
+  return { paths: paths.map(({ path }) => path), draw, dispose };
 }

@@ -25,10 +25,10 @@ import { frontierGraphSection } from "./frontier_graph.js";
 
 // A serving build older than the dependency graph returns no edges. The
 // graph is refused by name rather than rebuilt from reason prose.
-export const DEPENDENCY_GRAPH_FLOOR_MESSAGE = "Waiting and On hold need "
-  + "frontier.list dependency_edges, which this serving build does not return "
-  + "(serving floor: next-release). Deploy a build at or above that floor to "
-  + "draw the dependency graph.";
+export const DEPENDENCY_GRAPH_FLOOR_MESSAGE = "Waiting and On hold need the "
+  + "dependency edges frontier.list returns, and the server answering this page "
+  + "is an older build that does not return them. Update that server to the "
+  + "release these page assets came from, then reload the Frontier.";
 
 // The overflow card is navigation, not a statistic: the band above it already
 // carries its own count, so this one says only where the rest of them are.
@@ -69,7 +69,14 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
     sessionRoster,
   ]);
   if (!context.isMounted()) return null;
+  // The graph drawn by the previous paint, released before the next one.
+  let graph = null;
+  const disposeGraph = () => {
+    graph?.dispose();
+    graph = null;
+  };
   const paint = () => {
+    disposeGraph();
     const itemsResult = successfulResult(callResults[0]);
     const frontierResult = successfulResult(callResults[1]);
     const sessionsResult = successfulResult(sessionCalls.callResults[0]);
@@ -169,7 +176,7 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
       const { held, graphCount } = frontierWaitingSplit(model);
       bands.waiting.setCount(graphCount);
       if (model.linked.length) {
-        bands.waiting.body.replaceChildren(frontierGraphSection(documentNode, model, {
+        graph = frontierGraphSection(documentNode, model, {
           cardFor: (ref) => cardBuilders.get(ref)?.() || null,
           claimantFor: (ref) => {
             const host = el(documentNode, "div");
@@ -178,7 +185,8 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
             );
             return host.children[0] || null;
           },
-        }));
+        });
+        bands.waiting.body.replaceChildren(graph);
       } else {
         bands.waiting.renderCards([], "Nothing is waiting on other work.");
       }

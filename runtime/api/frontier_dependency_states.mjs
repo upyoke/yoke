@@ -222,11 +222,11 @@ const TERMINAL_STAGES = new Set(["cancelled", "stopped", "failed"]);
 
 // A state as the model the Frontier builds from served rows: an edge waiting
 // on an environment carries whether the blocker's flow reaches it, and an
-// item not on the Frontier in a terminal stage is a terminal ghost.
+// item not on the Frontier that was cancelled or stopped is dead.
 export function stateModel(state) {
   const nodes = new Map(state.nodes.map(([ref, band, stage, title, o = {}]) => [ref, {
     ref, band, stage, title, href: `/items/${ref}`, projectId: ref.split("-")[0],
-    terminal: band === "off" && TERMINAL_STAGES.has(stage), ...o,
+    dead: band === "off" && TERMINAL_STAGES.has(stage), ...o,
   }]));
   const edges = state.edges.map(([from, to, gate = "activation", sat = "fact:merged"]) => {
     const env = sat.startsWith("fact:deployed:") ? sat.slice(14) : null;
