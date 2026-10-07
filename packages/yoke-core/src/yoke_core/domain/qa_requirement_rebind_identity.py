@@ -274,6 +274,7 @@ def _live_target(
 ) -> tuple[dict[str, Any], int, str]:
     from yoke_core.domain.deployment_qa_execution_target import (
         is_deployment_execution_target,
+        persistent_environment_endpoints,
     )
     from yoke_core.domain.qa_environment_execution_target import (
         environment_execution_target,
@@ -314,9 +315,7 @@ def _live_target(
                 )
             )
         overlaid = json.loads(canonical_target(stored))
-        overlaid["endpoints"] = live["endpoints"]
-        if "role" in live:
-            overlaid["role"] = live["role"]
+        overlaid["endpoints"] = persistent_environment_endpoints(env_row)
         return overlaid, environment_id, resolved_from
     if same_environment_identity(stored, live) or stale_label_rebind_applies(
         stored, live
