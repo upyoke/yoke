@@ -26,7 +26,7 @@ from yoke_core.domain.workflow_definition_codec import (
 from yoke_core.domain.workflow_schema import ensure_workflow_schema
 
 REPIN = importlib.import_module(
-    "yoke_core.domain.migrations.0057_repin_advance_bound_items"
+    "yoke_core.domain.migrations.0060_repin_advance_bound_items"
 )
 RETIRE = importlib.import_module(
     "yoke_core.domain.migrations.0053_retire_advance_skill"
@@ -210,7 +210,7 @@ def test_declares_order_and_serving_floor():
 
 def test_boot_applies_repin_before_retire_on_a_pre_0053_universe(tmp_path: Path):
     source = history_dir(migration_history_package)
-    for name in ("0053_retire_advance_skill", "0057_repin_advance_bound_items"):
+    for name in ("0053_retire_advance_skill", "0060_repin_advance_bound_items"):
         shutil.copy(source / f"{name}.py", tmp_path / f"{name}.py")
     history = ordered_entries(tmp_path)
     conn = _schema(ledger_connection())
@@ -230,7 +230,7 @@ def test_boot_applies_repin_before_retire_on_a_pre_0053_universe(tmp_path: Path)
     )
 
     assert outcome.applied == (
-        "0057_repin_advance_bound_items",
+        "0060_repin_advance_bound_items",
         "0053_retire_advance_skill",
     )
     assert applied_names(conn) == set(outcome.applied)

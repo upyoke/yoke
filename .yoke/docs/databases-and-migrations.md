@@ -56,7 +56,7 @@ declarer. The entry must therefore be correct in either order.
 ### Open items pinned to the retired `advance` skill
 
 `0053_retire_advance_skill` refuses while a non-terminal item is pinned to a
-workflow definition binding `advance`. `0057_repin_advance_bound_items` runs
+workflow definition binding `advance`. `0060_repin_advance_bound_items` runs
 before it and re-pins every such item whose definition Yoke published —
 `issue` generations 1–7 to generation 8, `task` generation 1 to generation 2,
 stages unchanged — so local and self-hosted universes upgrade without manual

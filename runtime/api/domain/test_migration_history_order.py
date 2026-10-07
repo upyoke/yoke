@@ -86,5 +86,5 @@ def test_malformed_declarations_refuse_by_name(
 def test_packaged_repin_runs_immediately_before_retire_advance() -> None:
     names = _names(ordered_entries(history_dir(migration_history_package)))
 
-    position = names.index("0057_repin_advance_bound_items")
+    position = names.index("0060_repin_advance_bound_items")
     assert names[position + 1] == "0053_retire_advance_skill"
