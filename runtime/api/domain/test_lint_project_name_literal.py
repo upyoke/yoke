@@ -7,10 +7,12 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain.lint_project_name_literal import (
+    ProjectLiteralHit,
     is_exempt_relpath,
     scan,
     scan_source,
 )
+from yoke_core.domain.lint_project_name_literal_allowances import Allowance, classify
 
 _REL = "packages/example/src/example/module.py"
 
@@ -90,3 +92,62 @@ def test_scan_walks_roots_and_skips_exempt_files(tmp_path: Path) -> None:
     assert [(hit.relpath, hit.line) for hit in hits] == [
         ("packages/pkg/src/pkg/branch.py", 1)
     ]
+
+
+_NAMES = {"acme", "hostco"}
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        'if pid == "acme":\n    pass\n',
+        'if slug != "acme":\n    pass\n',
+        'if env.deploy_namespace == "acme":\n    pass\n',
+        'merge(project="acme")\n',
+        'resolve(project_id="acme")\n',
+        'RECEIPT_PROJECT = "acme"\n',
+        'HOST_SLUG = "hostco"\n',
+        'conn.execute("SELECT 1 FROM projects WHERE slug = %s", ("acme",))\n',
+        "Q = \"SELECT id FROM projects WHERE slug <> 'acme'\"\n",
+        "Q = \"SELECT 'acme' as project FROM epic_tasks\"\n",
+        'event = {"project": "acme"}\n',
+        'resolve_project_github_auth("acme")\n',
+        'def _canonical_project_label():\n    return "acme"\n',
+    ],
+)
+def test_registered_project_name_bindings_are_flagged(source: str) -> None:
+    hits = scan_source(_REL, source, _NAMES)
+    assert len(hits) == 1, hits
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        'if command_base != "acme":\n    pass\n',
+        'if slug != "delegated-sync":\n    pass\n',
+        'LAUNCHER = "acme"\n',
+        'merge(project="unregistered")\n',
+        'conn.execute("SELECT 1 WHERE name = %s", ("other",))\n',
+    ],
+)
+def test_unregistered_names_and_cli_comparisons_pass(source: str) -> None:
+    assert scan_source(_REL, source, _NAMES) == []
+
+
+def test_classify_separates_violations_pending_and_stale_allowances() -> None:
+    allowed = ProjectLiteralHit("a.py", 1, "X = 'acme'", "X")
+    pending = ProjectLiteralHit("b.py", 2, "Y = 'acme'", "Y")
+    violation = ProjectLiteralHit("c.py", 3, "Z = 'acme'", "Z")
+    allowances = (
+        Allowance("a.py", "X", "named reason"),
+        Allowance("b.py", "Y", "replacement in flight", pending=True),
+        Allowance("d.py", "W", "no longer present"),
+    )
+
+    violations, pending_hits, stale = classify(
+        [allowed, pending, violation], allowances
+    )
+
+    assert violations == [violation]
+    assert pending_hits == [pending]
+    assert [a.relpath for a in stale] == ["d.py"]

@@ -117,9 +117,7 @@ class TestRetiredSchemaResurrection:
         # Remediation text names the reason.
         assert "Remediation" in detail
 
-    def test_malformed_registry_surfaces_as_warn(
-        self, tmp_path: Path
-    ) -> None:
+    def test_malformed_registry_surfaces_as_warn(self, tmp_path: Path) -> None:
         auth = tmp_path / "authoritative.db"
         auth.touch()
         with mock.patch(
@@ -162,15 +160,12 @@ class TestRetiredSchemaResurrection:
                 conn.close()
         assert rec.results[0].result == "PASS"
 
-    def test_warn_when_retired_table_present(
-        self, tmp_path: Path
-    ) -> None:
+    def test_warn_when_retired_table_present(self, tmp_path: Path) -> None:
         # Authoritative DB still exposes the retired table — drift!
         auth = tmp_path / "authoritative.db"
         with sqlite3.connect(str(auth)) as probe:
             probe.execute(
-                "CREATE TABLE legacy_backup "
-                "(id INTEGER PRIMARY KEY, payload TEXT)"
+                "CREATE TABLE legacy_backup (id INTEGER PRIMARY KEY, payload TEXT)"
             )
             probe.commit()
         _write_registry(
@@ -201,19 +196,16 @@ class TestRetiredSchemaResurrection:
         assert "Remediation" in detail
 
     def test_mixed_table_and_column_entries_evaluated_independently(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         # One table-level entry that is still present (drift), one
         # column-level entry whose column is absent (clean). The HC must
         # surface only the table-level finding.
         auth = tmp_path / "authoritative.db"
         with sqlite3.connect(str(auth)) as probe:
-            probe.execute(
-                "CREATE TABLE legacy_backup (id INTEGER PRIMARY KEY)"
-            )
-            probe.execute(
-                "CREATE TABLE other_table (id TEXT PRIMARY KEY)"
-            )
+            probe.execute("CREATE TABLE legacy_backup (id INTEGER PRIMARY KEY)")
+            probe.execute("CREATE TABLE other_table (id TEXT PRIMARY KEY)")
             probe.commit()
         _write_registry(
             tmp_path,
@@ -264,7 +256,8 @@ class TestRetiredSchemaResurrection:
 
         db_name = pg_testdb.create_test_database()
         conn = pg_testdb.drop_database_on_close(
-            pg_testdb.connect_test_database(db_name), db_name,
+            pg_testdb.connect_test_database(db_name),
+            db_name,
         )
         apply_fixture_ddl(
             conn,
@@ -281,7 +274,7 @@ class TestRetiredSchemaResurrection:
             );
             INSERT INTO projects (id, slug, name, public_item_prefix)
             VALUES (2, 'externalwebapp', 'ExternalWebapp', 'EXT');
-            """
+            """,
         )
         with mock.patch(
             "yoke_core.engines.doctor_hc_retired_schema.load_registry",
@@ -293,7 +286,7 @@ class TestRetiredSchemaResurrection:
         assert rec.results[0].result == "WARN"
         assert "skipped" in rec.results[0].detail.lower()
 
-    def test_yoke_sqlite_file_model_is_not_probed(
+    def test_sqlite_file_model_is_probed_whatever_the_project_name(
         self, tmp_path: Path
     ) -> None:
         auth = tmp_path / "authoritative.db"
@@ -324,5 +317,4 @@ class TestRetiredSchemaResurrection:
                 conn.close()
         assert rec.results[0].result == "WARN"
         detail = rec.results[0].detail
-        assert "could not resolve schema target" in detail
-        assert "still present" not in detail
+        assert "yoke/projects.retired_col still present" in detail
