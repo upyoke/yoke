@@ -82,7 +82,7 @@ class RunRowLockHolder:
 
 
 class DeploymentRunRowLockBusy(Exception):
-    """The run row was not free within the bound, and the caller must not wait."""
+    """The run row was not writable within the bound, and the caller must not wait."""
 
     def __init__(self, run_id: str, holder: Optional[RunRowLockHolder]) -> None:
         self.run_id = run_id
@@ -148,12 +148,19 @@ def run_row_lock_holder(conn) -> Optional[RunRowLockHolder]:
 
 
 def lock_run_bounded(conn, run_id: str) -> Optional[str]:
-    """Take the run row lock, or refuse by name instead of waiting for it.
+    """Take every lock a run-row write needs, or refuse by name instead of waiting.
 
-    Raises :class:`DeploymentRunRowLockBusy` when the row does not come free
+    Raises :class:`DeploymentRunRowLockBusy` when the locks do not come free
     within :data:`RUN_ROW_LOCK_TIMEOUT_MS`. The attempt runs inside a savepoint
     so the timeout rolls back only the failed lock, leaving the caller's
     transaction usable for the diagnostic read and its own refusal reporting.
+
+    The row lock alone is not enough. ``SELECT ... FOR UPDATE`` holds the
+    table in ROW SHARE mode, which a SHARE-mode holder or waiter does not
+    block, but the caller's ``UPDATE`` then needs ROW EXCLUSIVE, which it
+    does. Taking ROW EXCLUSIVE here, under the same bound, leaves the write
+    nothing further to wait for; otherwise it waited outside this savepoint
+    and its lock timeout escaped as a raw ``LockNotAvailable``.
     """
     if not db_backend.connection_is_postgres(conn):
         return lock_run(conn, run_id)
@@ -166,6 +173,7 @@ def lock_run_bounded(conn, run_id: str) -> Optional[str]:
             "SELECT set_config('lock_timeout', %s, true)",
             (f"{RUN_ROW_LOCK_TIMEOUT_MS}ms",),
         )
+        conn.execute("LOCK TABLE deployment_runs IN ROW EXCLUSIVE MODE")
         status = lock_run(conn, run_id)
     except (psycopg.errors.LockNotAvailable, psycopg.errors.QueryCanceled):
         conn.execute(f"ROLLBACK TO SAVEPOINT {_LOCK_SAVEPOINT}")

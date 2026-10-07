@@ -10,7 +10,7 @@ is deliberately not an identity: an operator may create another run of the
 same candidate on purpose, and does so with a new key.
 
 The key lives on the ``deployment_runs`` row itself, written in the creation
-transaction that already holds the table lock, so the check and the insert are
+transaction that already holds the creation lock, so the check and the insert are
 one atomic step under concurrent retries. A partial unique index backs that
 serialization at the storage layer.
 
@@ -18,7 +18,7 @@ Those columns are additive, so they arrive when the serving build's boot
 converge runs. A self-deploy creates the production run from a driver already
 at the new release against a database still serving the old one — the release
 that converges the columns is the run being created. Until then the key cannot
-be stored, and creation matches by request instead: under the same table lock,
+be stored, and creation matches by request instead: under the same creation lock,
 a never-started run with the identical stored request is the one a repeat
 returns. The receipt names that basis so a caller never mistakes it for a
 recorded key.
@@ -174,8 +174,7 @@ def unconverged_match(
         clauses.append("artifact_identity IS NOT DISTINCT FROM %s")
         params.append(artifact_identity or None)
     rows = conn.execute(
-        f"SELECT id FROM deployment_runs WHERE {' AND '.join(clauses)} "
-        "ORDER BY id",
+        f"SELECT id FROM deployment_runs WHERE {' AND '.join(clauses)} ORDER BY id",
         tuple(params),
     ).fetchall()
     run_ids = [str(row[0]) for row in rows]

@@ -2,23 +2,12 @@
 
 from __future__ import annotations
 
-import os
 import sys
 from typing import Any, Dict, List, Optional
 
 from yoke_core.domain.deployment_start_timing import emit_records
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
-from yoke_core.domain.control_plane_function_degradation import REGISTRY_SKEW_CODES
-from yoke_core.domain.deployment_run_driver_attachment import (
-    ATTACH_FUNCTION_ID,
-    RELEASE_FUNCTION_ID,
-    ROW_LOCK_BUSY_CODE,
-)
-from yoke_core.domain.session_liveness_pump import (
-    HEARTBEAT_INTERVAL_SECONDS,
-    SessionLivenessPump,
-)
 
 
 class DeploymentControlPlaneError(RuntimeError):
@@ -247,88 +236,9 @@ def project_field(project: str, field: str) -> str:
     return "" if value is None else str(value)
 
 
-def attach_driver(
-    run_id: str, *, phase: str, progress_capture: str = ""
-) -> Dict[str, Any]:
-    """Record this process as the run's driver, or refuse a live other one.
-
-    A registry-skew answer means this client is ahead of the plane; the
-    caller proceeds without recording, matching an unconverged column.
-
-    A busy run row is also not a failure to retry: the plane refused rather
-    than queueing, so this attempt prints the named holder and returns nothing
-    recorded. Saying it out loud is the point -- the driver's own liveness
-    stream is the only progress signal a deploy watcher has, and the silence
-    while one waited on an abandoned transaction is what made an eleven-minute
-    stall unreadable.
-    """
-    response = call_dispatcher(
-        function_id=ATTACH_FUNCTION_ID,
-        target=TargetRef(kind="workflow_run", workflow_run_id=run_id),
-        payload={
-            "phase": phase,
-            "pid": os.getpid(),
-            "progress_capture": progress_capture,
-        },
-    )
-    if response.success:
-        result = dict(response.result or {})
-        return result
-    code = response.error.code if response.error else ""
-    if code in REGISTRY_SKEW_CODES:
-        return {}
-    message = response.error.message if response.error else "request failed"
-    if code == ROW_LOCK_BUSY_CODE:
-        print(message, file=sys.stderr)
-        return {}
-    raise DeploymentControlPlaneError(f"{ATTACH_FUNCTION_ID} failed: {message}")
-
-
-def release_driver(run_id: str) -> None:
-    """Drop this process's driver attachment; a miss is not a pipeline failure."""
-    try:
-        _call(RELEASE_FUNCTION_ID, run_id, {"pid": os.getpid()})
-    except DeploymentControlPlaneError as exc:
-        print(f"warning: could not release deploy driver: {exc}", file=sys.stderr)
-
-
-class DriverLivenessPump(SessionLivenessPump):
-    """Refresh the run's driver attachment for as long as this process is."""
-
-    def __init__(
-        self,
-        run_id: str,
-        *,
-        phase: str,
-        progress_capture: str = "",
-        interval_seconds: float = HEARTBEAT_INTERVAL_SECONDS,
-    ) -> None:
-        super().__init__(interval_seconds=interval_seconds)
-        self._run_id = run_id
-        self._phase = phase
-        self._progress_capture = progress_capture
-
-    def tick(self) -> bool:
-        now = self._clock()
-        due = now - self._last_refresh >= self._interval
-        refreshed = super().tick()
-        if due:
-            try:
-                attach_driver(
-                    self._run_id,
-                    phase=self._phase,
-                    progress_capture=self._progress_capture,
-                )
-            except DeploymentControlPlaneError:
-                pass
-        return refreshed
-
-
 __all__ = [
     "DeploymentControlPlaneError",
-    "DriverLivenessPump",
     "allocate_stage_receipt",
-    "attach_driver",
     "complete_stage_receipt",
     "execution_context",
     "held_qa_report_lines",
@@ -336,7 +246,6 @@ __all__ = [
     "latest_stage_receipt",
     "project_field",
     "record_qa_stage",
-    "release_driver",
     "run_pin",
     "seed_qa",
     "unresolved_qa",
