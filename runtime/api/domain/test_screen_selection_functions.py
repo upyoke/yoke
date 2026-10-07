@@ -256,3 +256,26 @@ def test_ouroboros_sort_uses_shared_actor_store_and_view_specific_columns(test_d
     assert not _set(
         {"view_id": "items", "sort": chosen}, actor_id=actor
     ).primary_success
+
+
+def test_actors_sort_is_saved_per_actor_with_actor_roster_columns(test_db):
+    from yoke_core.domain.actors import seed_human_actor
+
+    first = str(seed_human_actor(test_db, name="Roster sorter"))
+    second = str(seed_human_actor(test_db, name="Other roster sorter"))
+    chosen = {"column": "email", "direction": "asc"}
+    assert _set({"view_id": "actors", "sort": chosen}, actor_id=first).primary_success
+    listed = handle_screen_selection_list(
+        _request("ui_preferences.screen_selection.list", actor_id=first)
+    ).result_payload
+    assert listed["sorts"]["actors"] == chosen
+    assert (
+        "actors"
+        not in handle_screen_selection_list(
+            _request("ui_preferences.screen_selection.list", actor_id=second)
+        ).result_payload["sorts"]
+    )
+    assert not _set(
+        {"view_id": "actors", "sort": {"column": "timestamp", "direction": "asc"}},
+        actor_id=first,
+    ).primary_success

@@ -59,52 +59,59 @@ async function mountActors(answer, mode = "local") {
   return { root, reads, mounted };
 }
 
+// Header labels without the active sort arrow.
 function headings(root) {
   return allNodes(root).filter((node) => node.tagName === "TH")
-    .map((node) => node.textContent);
+    .map((node) => node.textContent.replace(/ [↑↓]$/, ""));
 }
 
-test("Actors route renders the live roster with the shared page title", async () => {
+const panelTitles = (root) => byClass(root, "actors-panel")
+  .map((panel) => byClass(panel, "panel-header")[0].textContent);
+
+test("Actors route groups people and machine accounts with readable grants", async () => {
   const { root, reads, mounted } = await mountActors(() => ok(roster), "hosted");
   assert.deepEqual(byClass(root, "page-head").map((node) => node.textContent), ["Actors"]);
-  assert.equal(byClass(root, "actors-panel").length, 1);
-  assert.deepEqual(headings(byClass(root, "actors-panel")[0]), [
-    "Actor", "Kind", "State", "Org role", "Project access", "Account",
-    "API keys", "Action",
+  assert.deepEqual(panelTitles(root), ["People· 1", "Machine accounts· 1"]);
+  const [people, machines] = byClass(root, "actors-panel");
+  assert.deepEqual(headings(people), [
+    "Actor", "State", "Org role", "Project access", "Member email", "API keys", "Action",
+  ]);
+  assert.deepEqual(headings(machines), [
+    "Actor", "State", "Org role", "Project access", "API keys",
   ]);
   assert.deepEqual(byClass(root, "actors-name").map((node) => node.textContent), [
     "Ben (you)", "deploy-ci",
   ]);
-  assert.ok(byClass(root, "actors-panel")[0].textContent.includes("deployment_ci · yoke"));
-  assert.ok(byClass(root, "actors-panel")[0].textContent.includes("ben@example.test"));
+  assert.ok(people.textContent.includes("all projects, yoke (owner)"));
+  assert.ok(people.textContent.includes("ben@example.test"));
+  assert.ok(machines.textContent.includes("yoke (deployment_ci)"));
   assert.deepEqual(reads.requests.filter((request) => request.function === "actors.roster")
     .map((request) => request.payload), [{}]);
   const text = root.textContent;
   for (const removed of [
     "Grant access", "engine roles · two scopes", "Accounts come from Members.",
-    "Actors · 4",
+    "Actors · 4", "deployment_ci · yoke", "Account",
+    "Everyone and everything that can act in this universe",
   ]) assert.ok(!text.includes(removed), removed);
-  assert.equal(byClass(root, "panel-header").filter(
-    (header) => header.textContent.includes("Actors"),
-  ).length, 0);
   mounted.unmount();
 });
 
-test("local roster omits Account and explains a sole human actor", async () => {
+test("local roster omits Member email and names a sole human actor", async () => {
   const onlyHuman = { ...roster, rows: [roster.rows[0]] };
   const { root, mounted } = await mountActors(() => ok(onlyHuman));
+  assert.deepEqual(panelTitles(root), ["People· 1"]);
   assert.deepEqual(headings(byClass(root, "actors-panel")[0]), [
-    "Actor", "Kind", "State", "Org role", "Project access", "API keys", "Action",
+    "Actor", "State", "Org role", "Project access", "API keys", "Action",
   ]);
-  assert.equal(byClass(root, "actors-local-notice")[0].hidden, false);
+  const notice = byClass(root, "actors-local-notice")[0];
+  assert.equal(notice.hidden, false);
+  assert.equal(notice.textContent, "You are the only actor in this universe.");
   mounted.unmount();
 });
 
 test("empty, loading and refused reads retain a meaningful Actors screen", async () => {
   const empty = await mountActors(() => ok({ rows: [], current_actor_id: null }));
-  assert.deepEqual(headings(byClass(empty.root, "actors-panel")[0]), [
-    "Actor", "Kind", "State", "Org role", "Project access", "API keys", "Action",
-  ]);
+  assert.equal(byClass(empty.root, "actors-panel").length, 0);
   assert.ok(empty.root.textContent.includes("No actors are registered"));
   empty.mounted.unmount();
 

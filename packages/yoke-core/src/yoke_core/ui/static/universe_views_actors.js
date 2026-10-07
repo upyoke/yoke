@@ -1,177 +1,81 @@
 // Actor authority and nonsecret credential inventory for this universe.
 
+import { normalizeActorSort, sortActors } from "./actor_roster_sort.js";
+import { renderActorTable } from "./actors_roster_table.js";
+import { refreshScreenSort } from "./universe_app_shell_support.js";
 import {
-  callFunction, el, labelCellsByColumn, portabilityMode, renderError,
+  callFunction, el, portabilityMode, renderError,
 } from "./universe_view_support.js";
 
-function pill(documentNode, label, tone) {
-  return el(documentNode, "span", `pill ${tone}`, label);
+const SORT_VIEW = "actors";
+
+function groups(hosted) {
+  return [
+    {
+      title: "People", includes: (actor) => actor.kind === "human",
+      columns: [
+        "Actor", "State", "Org role", "Project access",
+        ...(hosted ? ["Member email"] : []), "API keys", "Action",
+      ],
+    },
+    {
+      title: "Machine accounts", includes: (actor) => actor.kind !== "human",
+      columns: ["Actor", "State", "Org role", "Project access", "API keys"],
+    },
+  ];
 }
 
-function actorCell(documentNode, actor, currentActorId) {
-  const isCurrent = actor.id === currentActorId;
-  const cell = el(documentNode, "td");
-  const identity = el(documentNode, "div", "actors-identity");
-  const avatar = el(
-    documentNode, "span",
-    `actor-avatar${actor.kind === "system" || !isCurrent ? " sys" : " current"}`,
-    actor.kind === "system" ? "⚙" : (actor.name || "?").slice(0, 1),
-  );
-  avatar.setAttribute("aria-hidden", "true");
-  identity.appendChild(avatar);
-  const details = el(documentNode, "div");
-  const name = el(documentNode, "div", "actors-name", actor.name);
-  if (isCurrent) name.appendChild(el(documentNode, "span", "actors-muted", " (you)"));
-  details.appendChild(name);
-  details.appendChild(el(documentNode, "div", "actors-muted", `actor #${actor.id}`));
-  identity.appendChild(details);
-  cell.appendChild(identity);
-  return cell;
+function showDisabledToggle(documentNode, disabledCount, view, redraw) {
+  const label = el(documentNode, "label", "actors-show-disabled");
+  const input = el(documentNode, "input");
+  input.type = "checkbox";
+  input.checked = view.showDisabled;
+  input.addEventListener("change", () => { view.showDisabled = input.checked; redraw(); });
+  label.appendChild(input);
+  label.appendChild(el(documentNode, "span", null, `Show disabled (${disabledCount})`));
+  return label;
 }
 
-function projectAccess(actor) {
-  const grants = (actor.roles?.projects || []).map(
-    (row) => `${row.role} · ${row.project}`,
-  );
-  if ((actor.roles?.org || []).some((row) => row.role === "admin")) {
-    grants.unshift("all projects");
-  }
-  return grants.length ? grants.join(", ") : "—";
+function groupPanel(documentNode, title, shown, table) {
+  const panel = el(documentNode, "section", "panel actors-panel");
+  const header = el(documentNode, "div", "panel-header");
+  const heading = el(documentNode, "h2", null, title);
+  heading.appendChild(el(documentNode, "span", "panel-count", `· ${shown}`));
+  header.appendChild(heading);
+  const body = el(documentNode, "div", "panel-body actors-group-body");
+  body.appendChild(shown ? table() : el(documentNode, "p", "empty actors-empty", "None active."));
+  panel.appendChild(header);
+  panel.appendChild(body);
+  return panel;
 }
 
-function renderRoster(body, result, hosted, context, main, feedback) {
-  const documentNode = body.ownerDocument;
-  const rows = Array.isArray(result.rows) ? result.rows : [];
-  const tableWrap = el(documentNode, "div", "table-wrap");
-  const table = el(documentNode, "table", "items actors-table table-stacks-narrow");
-  const head = el(documentNode, "thead");
-  const headings = el(documentNode, "tr");
-  for (const label of [
-    "Actor", "Kind", "State", "Org role", "Project access",
-    ...(hosted ? ["Account"] : []), "API keys", "Action",
-  ]) headings.appendChild(el(documentNode, "th", null, label));
-  head.appendChild(headings);
-  table.appendChild(head);
-  const tbody = el(documentNode, "tbody");
-  for (const actor of rows) {
-    const tr = el(documentNode, "tr");
-    tr.appendChild(actorCell(documentNode, actor, result.current_actor_id));
-    const kind = el(documentNode, "td");
-    kind.appendChild(pill(
-      documentNode, actor.kind, actor.kind === "human" ? "good" : "idle",
-    ));
-    tr.appendChild(kind);
-    const state = el(documentNode, "td");
-    state.appendChild(pill(
-      documentNode, actor.status || "active",
-      actor.status === "disabled" ? "idle" : "good",
-    ));
-    tr.appendChild(state);
-    const orgRole = el(documentNode, "td");
-    const orgRoles = actor.roles?.org || [];
-    if (orgRoles.length) {
-      for (const role of orgRoles) orgRole.appendChild(pill(
-        documentNode, role.role, role.role === "admin" ? "run" : "idle",
-      ));
-    } else orgRole.appendChild(el(documentNode, "span", "actors-muted", "—"));
-    tr.appendChild(orgRole);
-    tr.appendChild(el(documentNode, "td", "actors-muted", projectAccess(actor)));
-    if (hosted) tr.appendChild(el(
-      documentNode, "td", "actors-muted", actor.identity?.email || "—",
-    ));
-    const keys = el(documentNode, "td", "actors-keys");
-    if (actor.tokens?.length) {
-      for (const token of actor.tokens) {
-        const machine = token.machine_id
-          ? ` · machine ${token.machine_name || token.machine_id}` : "";
-        keys.appendChild(el(
-          documentNode, "div", "actors-key",
-          `${token.name} (#${token.token_id}) · last used ${token.last_used_at || "never"}${machine}`,
-        ));
-      }
-    } else keys.appendChild(el(documentNode, "span", "actors-muted", "No active keys"));
-    tr.appendChild(keys);
-    const action = el(documentNode, "td");
-    if (result.can_manage_actors && actor.kind === "human"
-        && actor.id !== result.current_actor_id) {
-      const enabling = actor.status === "disabled";
-      const button = el(documentNode, "button", "button", enabling ? "Enable" : "Disable");
-      button.type = "button";
-      const change = async (confirm, cancel) => {
-        if (confirm.disabled) return;
-        confirm.disabled = true;
-        if (cancel) cancel.disabled = true;
-        feedback.textContent = enabling ? "Enabling actor…" : "Disabling actor…";
-        try {
-          const changed = await callFunction(context.client, "actors.state.set", {
-            actor_id: actor.id, enabled: enabling,
-          });
-          if (changed.status !== 200 || !changed.envelope?.success) {
-            feedback.textContent = changed.envelope?.error?.message || "Actor update failed; retry.";
-          } else if (context.isMounted() && main.contains(body)) {
-            await renderActorsView(context, main);
-            return;
-          }
-        } catch (error) {
-          feedback.textContent = `${error}; retry the action.`;
-        }
-        confirm.disabled = false;
-        if (cancel) cancel.disabled = false;
-      };
-      button.addEventListener("click", () => {
-        if (enabling) { change(button); return; }
-        const warning = el(documentNode, "p", "actors-confirm-copy",
-          `Disable ${actor.name}? Their access will stop and API keys will be revoked. Enabling again will not restore those keys.`);
-        const confirm = el(documentNode, "button", "item-button danger", `Disable ${actor.name}`);
-        const cancel = el(documentNode, "button", "item-button", "Cancel");
-        confirm.type = cancel.type = "button";
-        confirm.addEventListener("click", () => change(confirm, cancel));
-        cancel.addEventListener("click", () => { action.replaceChildren(button); button.focus(); });
-        action.replaceChildren(warning, confirm, cancel);
-        confirm.focus();
-      });
-      action.appendChild(button);
-    } else action.appendChild(el(documentNode, "span", "actors-muted", "—"));
-    tr.appendChild(action);
-    labelCellsByColumn(tr, [...headings.children].map((heading) => heading.textContent));
-    tbody.appendChild(tr);
-  }
-  table.appendChild(tbody);
-  tableWrap.appendChild(table);
-  body.replaceChildren(tableWrap);
-  if (!rows.length) body.appendChild(el(
-    documentNode, "p", "empty actors-empty", "No actors are registered in this universe.",
-  ));
-  return rows;
+export function renderActorsView(context, main) {
+  return renderActors(context, main, { showDisabled: false });
 }
 
-export async function renderActorsView(context, main) {
+// `view` carries the Show disabled choice across the re-read that follows an
+// enable or disable, so acting on a disabled actor keeps it in sight.
+async function renderActors(context, main, view) {
   const documentNode = context.document;
   const mode = portabilityMode(context.capabilities);
-  const lead = el(
-    documentNode, "p", "actors-lead",
-    "Everyone and everything that can act in this universe, and what each may do.",
-  );
+  const hosted = mode === "hosted";
+  const preferences = context.screenPreferences;
   const localNotice = el(documentNode, "div", "panel actors-local-notice");
   localNotice.hidden = true;
-  const panel = el(documentNode, "section", "panel actors-panel");
-  const body = el(documentNode, "div", "panel-body actors-body", "Loading actors…");
+  const controls = el(documentNode, "div", "actors-controls");
+  const body = el(documentNode, "div", "actors-body", "Loading actors…");
   const feedback = el(documentNode, "p", "actors-muted");
   feedback.setAttribute("role", "status");
   body.setAttribute("role", "status");
-  panel.appendChild(body);
-  main.replaceChildren(lead, localNotice, panel, feedback);
+  main.replaceChildren(localNotice, controls, body, feedback);
 
-  let callResult;
-  try {
-    callResult = await callFunction(context.client, "actors.roster", {});
-  } catch (error) {
-    callResult = {
-      status: 0,
-      envelope: { success: false, error: { message: String(error) } },
-    };
-  }
-  if (!context.isMounted() || !main.contains(panel)) return;
+  const readRoster = callFunction(context.client, "actors.roster", {}).catch((error) => ({
+    status: 0, envelope: { success: false, error: { message: String(error) } },
+  }));
+  const [callResult, sortNotice] = await Promise.all([
+    readRoster, preferences ? refreshScreenSort(context.client, preferences, SORT_VIEW) : "",
+  ]);
+  if (!context.isMounted() || !main.contains(body)) return;
   body.removeAttribute("role");
   if (callResult.status !== 200 || !callResult.envelope?.success) {
     body.replaceChildren();
@@ -182,20 +86,46 @@ export async function renderActorsView(context, main) {
     ));
     return;
   }
-  const rows = renderRoster(
-    body, callResult.envelope.result || {}, mode === "hosted", context, main, feedback,
-  );
-  if (rows.some((row) => row.status === "disabled")) {
-    feedback.textContent = "Enabling restores access, but revoked API keys stay revoked. Sign in again and reconnect affected machines.";
-  }
-  if (mode === "local" && rows.length === 1 && rows[0].kind === "human") {
-    const noticeBody = el(documentNode, "div", "panel-body actors-local-body");
-    noticeBody.appendChild(pill(documentNode, "sole actor", "idle"));
-    noticeBody.appendChild(el(
-      documentNode, "span", "actors-muted",
-      "You hold the database, so there is nothing to grant. This screen fills in when a second actor exists — a teammate, or an API token for CI.",
+  const result = callResult.envelope.result || {};
+  const rows = Array.isArray(result.rows) ? result.rows : [];
+  const roster = { ...result, client: context.client };
+  const disabledCount = rows.filter((row) => row.status === "disabled").length;
+  let sort = normalizeActorSort(preferences?.sortFor(SORT_VIEW));
+  feedback.textContent = sortNotice;
+  const reload = async () => {
+    if (context.isMounted() && main.contains(body)) await renderActors(context, main, view);
+  };
+  const onSort = (column) => {
+    const direction = sort.column === column && sort.direction === "asc" ? "desc" : "asc";
+    const chosen = normalizeActorSort({ column, direction });
+    sort = chosen;
+    feedback.textContent = "";
+    preferences?.saveSortFor(SORT_VIEW, chosen).then((notice) => {
+      if (chosen === sort && context.isMounted() && main.contains(body)) feedback.textContent = notice;
+    });
+    draw();
+  };
+  const draw = () => {
+    controls.replaceChildren();
+    if (disabledCount) controls.appendChild(showDisabledToggle(documentNode, disabledCount, view, draw));
+    const visible = view.showDisabled ? rows : rows.filter((row) => row.status !== "disabled");
+    body.replaceChildren();
+    for (const group of groups(hosted)) {
+      if (!rows.some(group.includes)) continue;
+      const actors = sortActors(visible.filter(group.includes), sort);
+      body.appendChild(groupPanel(documentNode, group.title, actors.length, () => renderActorTable(
+        documentNode, { actors, columns: group.columns, roster, sort, onSort, feedback, reload },
+      )));
+    }
+    if (!rows.length) body.appendChild(el(
+      documentNode, "p", "empty actors-empty", "No actors are registered in this universe.",
     ));
-    localNotice.replaceChildren(noticeBody);
+  };
+  draw();
+  if (mode === "local" && rows.length === 1 && rows[0].kind === "human") {
+    localNotice.replaceChildren(el(
+      documentNode, "div", "panel-body actors-muted", "You are the only actor in this universe.",
+    ));
     localNotice.hidden = false;
   }
 }
