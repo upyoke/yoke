@@ -39,11 +39,14 @@ def cleanup(owner: str, owner_file: str, owner_capability: str) -> dict:
     marker = Path.home() / ".yoke" / owner_file
     if not marker.exists():
         return {"retired_projects": [], "owner_marker_removed": True}
-    if json.loads(marker.read_text()).get("owner") != owner:
+    claimed = json.loads(marker.read_text())
+    if claimed.get("owner") != owner:
         raise RuntimeError(
             "qa_project_owner_conflict: another case owns this host; "
             "use its lease and do not remove its ownership marker"
         )
+    # A continued mission inherits the walk it resumed, projects included.
+    owners = {owner, *(claimed.get("inherited_owners") or [])}
     inventory = _call(["projects", "list", "--include-retired"])
     retired, failures = [], []
     for row in inventory["rows"]:
@@ -63,7 +66,7 @@ def cleanup(owner: str, owner_file: str, owner_capability: str) -> dict:
             if (
                 settings is None
                 or json.loads(settings.get("settings_json") or "{}").get("owner")
-                != owner
+                not in owners
             ):
                 continue
             _call(
