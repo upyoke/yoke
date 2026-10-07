@@ -32,6 +32,7 @@ class TestRegistrationShape:
 
         register_all_handlers()
         assert ui_server.UI_MUTATION_FUNCTION_ALLOWLIST == {
+            "actors.role.set",
             "actors.state.set",
             "overview.module.dismiss",
             "overview.module.restore",

@@ -231,6 +231,7 @@ MACHINE_SUBCOMMAND_REGISTRY = {
 }
 
 ACTORS_SUBCOMMAND_REGISTRY = {
+    ("actors", "role", "set"): ("actors.role.set", actors.actors_role_set),
     ("actors", "state", "set"): ("actors.state.set", actors.actors_state_set),
 }
 

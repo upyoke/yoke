@@ -101,7 +101,7 @@ def identity_invite_create(args: List[str]) -> int:
     parser.add_argument(
         "--role",
         default=None,
-        help="Org role name granted on acceptance (e.g. admin, viewer).",
+        help="The person's one org role on acceptance: admin, operator, or viewer.",
     )
     parser.add_argument(
         "--actor",

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 #: function_id -> minimum serving version. Do not copy already-served ids here.
 FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
+    "actors.role.set": "next-release",
     "actors.roster": "next-release",
     "actors.state.set": "next-release",
     "events.performance.aggregate": "next-release",

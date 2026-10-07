@@ -70,24 +70,27 @@ def grant_actor_org_role(
     role_name: str,
     granted_by_actor_id: int | None = None,
 ) -> None:
-    """Grant org ``role_name`` to ``actor_id`` in ``org_id`` idempotently.
+    """Grant org ``role_name`` and commit; a person's grant replaces their one role.
 
-    Raises ``ValueError`` when ``role_name`` is not in ``ORG_GRANTABLE_ROLES``.
+    A system actor's org roles accumulate idempotently. Raises ``ValueError``
+    for a role outside ``ORG_ROLES`` or a refused person grant
+    (``actor_role.ActorRoleRefused``).
     """
     catalog = _catalog()
-    if role_name not in catalog.ORG_GRANTABLE_ROLES:
+    if role_name not in catalog.ORG_ROLES:
         raise ValueError(
             f"role_not_grantable_at_org_scope: {role_name!r} is not one of "
-            f"{', '.join(catalog.ORG_GRANTABLE_ROLES)}"
+            f"{', '.join(catalog.ORG_ROLES)}"
         )
-    role_id = catalog.role_id_by_name(conn, role_name)
-    p = catalog._p(conn)
-    conn.execute(
-        "INSERT INTO actor_org_roles "
-        "(actor_id, org_id, role_id, granted_at, granted_by_actor_id) "
-        f"VALUES ({p}, {p}, {p}, {p}, {p}) "
-        "ON CONFLICT(actor_id, org_id, role_id) DO NOTHING",
-        (actor_id, org_id, role_id, catalog._now(), granted_by_actor_id),
+    from yoke_core.domain.actor_role import record_org_grant
+
+    record_org_grant(
+        conn,
+        actor_id=actor_id,
+        org_id=org_id,
+        role=role_name,
+        granted_by_actor_id=granted_by_actor_id,
+        now=catalog._now(),
     )
     conn.commit()
 

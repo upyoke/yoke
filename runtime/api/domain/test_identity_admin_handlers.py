@@ -100,16 +100,20 @@ def test_invite_create_list_revoke_round_trip(unique):
     assert not again.primary_success
 
 
-def test_invite_create_rejects_non_org_role(unique):
+@pytest.mark.parametrize(
+    ("role", "reason"),
+    [("owner", "not a person's org role"), ("deployment_ci", "machine-only role")],
+)
+def test_invite_create_rejects_a_role_a_person_cannot_hold(unique, role, reason):
     outcome = handle_identity_invite_create(
         _request(
             "identity.invite.create",
-            {"email": f"m-{unique}@example.com", "role": "operator"},
+            {"email": f"m-{unique}@example.com", "role": role},
         ),
     )
     assert not outcome.primary_success
     assert outcome.error.code == "payload_invalid"
-    assert "org role" in outcome.error.message
+    assert reason in outcome.error.message
 
 
 def test_link_set_identity_shape_binds_issuer_subject(unique):

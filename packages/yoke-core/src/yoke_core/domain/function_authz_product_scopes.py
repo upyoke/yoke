@@ -28,6 +28,7 @@ PRODUCT_AUTHZ_BY_ID = {
     # Actor-visible lists and personal decision/preference surfaces.
     "actors.roster": AuthzSpec(ACTOR_SESSION, None),
     "actors.state.set": AuthzSpec(ACTOR_SESSION, None),
+    "actors.role.set": AuthzSpec(ACTOR_SESSION, None),
     "items.overview.list": AuthzSpec(ACTOR_SESSION, None),
     "items.detail.get": AuthzSpec(ACTOR_SESSION, None),
     "inbox.list": AuthzSpec(ACTOR_SESSION, None),

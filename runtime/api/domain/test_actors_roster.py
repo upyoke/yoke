@@ -41,6 +41,7 @@ def test_roster_reads_every_actor_with_roles_and_linked_identity(test_db):
     assert result.primary_success, result.error
     payload = result.result_payload
     assert payload["current_actor_id"] == human
+    assert payload["person_org_roles"] == ["admin", "operator", "viewer"]
     rows = payload["rows"]
     assert [row["id"] for row in rows] == sorted(row["id"] for row in rows)
     dana = next(row for row in rows if row["id"] == human)
