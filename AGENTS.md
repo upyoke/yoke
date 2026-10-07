@@ -176,15 +176,14 @@ Observe → `ouroboros_entries` → `/yoke curate` → `/yoke doctor` → `/yoke
 ## Interaction Style
 - **Prefer inline chat for summaries, checkpoints, and design iteration;** reserve structured chooser UIs for short binary or ternary decisions. **The work item is the plan:** when running a `/yoke` skill, the item's structured fields are the plan, so never enter plan mode on your own, and if the plan is insufficient, stop and escalate.
 <!-- END YOKE MANAGED BLOCK -->
-# Yoke Repo Internals
-<!-- KEEP IN SYNC: an identical copy of this block lives in the platform repo (hand-copied). Edit both together. -->
+<!-- KEEP IN SYNC: hand-copied, identical in the yoke and platform repos. Edit both together. -->
 ## Control-Plane Authority — Hard Rule (this installation)
-- **All non-testing control-plane operations run on prod** (`prod` / `prod-db-admin`) — releases, receipts, deployment-run and delivery records, GitHub relays — whichever environment is being deployed. **Stage exists only to test the live control plane:** nothing real routes through it, and anything on `stage-db-admin` is disposable rehearsal state read by nothing live.
-<!-- Not shipped. -->
+- **All non-testing control-plane operations run on prod** (`prod` / `prod-db-admin`) — releases, receipts, deployment-run and delivery records, GitHub relays — whichever environment is being deployed. **Stage exists only to test the live control plane:** nothing real routes through or depends on it; `stage-db-admin` holds only disposable rehearsal state.
+- **Platform's own database (`yoke_platform`) is readable here, read-only:** `yoke --env platform-prod-registry-db-admin db read "SELECT ..."` (stage: `platform-stage-registry-db-admin`; `yoke env list` shows connections). No writes.
+# Yoke Repo Internals
 - Source-maintainer manifest contract: `runtime/harness/manifest-schema.md`.
-- **Sync install-bundle edits in this Yoke source checkout — this file included — in the same commit:** author docs under `docs/public/`; run `yoke dev run -- python3 -m yoke_core.domain.install_bundle_tree_sync sync --target-root <checkout>`, then stage every changed path. Byte drift fails CI.
+- **Sync install-bundle edits — this file included — in the same commit:** author docs under `docs/public/`; run `yoke dev run -- python3 -m yoke_core.domain.install_bundle_tree_sync sync --target-root <checkout>`, then stage every changed path. Byte drift fails CI.
 ## Source-Dev Doctrine
-- **Direct control-plane authority is source-dev/operator only.** Use the configured paired `prod-db-admin` connection for Yoke self-deploys and migration rehearsal. Missing registered mutations reach the audited operator-debug query path only under that authority. Setup, project-database access, and recovery: [`docs/source-dev-doctrine.md`](docs/source-dev-doctrine.md).
-[`docs/source-dev-doctrine.md`](docs/source-dev-doctrine.md). **Read it before a test selection, release, render, deploy, preflight, or cleanup.**
+- **Direct control-plane authority is source-dev/operator only.** Use paired `prod-db-admin` for Yoke self-deploys and migration rehearsal; missing registered mutations reach the audited operator-debug query path only under it. Setup, project-database access, and recovery: [`docs/source-dev-doctrine.md`](docs/source-dev-doctrine.md) — **read it before a test selection, release, render, deploy, preflight, or cleanup.**
 - **Lane source before merge: `yoke dev run -- <command>`.** Post-deploy Command tests: `yoke watch pytest -- <test paths>` directly; it binds candidate cwd to source. `--local`: small targeted check expected to finish in about one minute; uncommitted work does not justify a slow one; inject xdist `-n auto`. CI: `yoke watch pytest -- runtime/api/ runtime/harness/ tests/` (`python3 -m yoke_core.tools.run_tests`); `yoke dev ruff-changed --base <ref>`.
-- **A release here is two concurrent runs on one lineage** — stage on HTTPS control-plane connection, production on paired `prod-db-admin` (replaces the serving API). Stage runs carry only members owing stage-targeted QA; records stay on prod, and completion waits for both stage proof and production delivery. Do not lift it onto a project whose stage is a real pre-production gate.
+- **A release here is two concurrent runs on one lineage** — stage on HTTPS, production on paired `prod-db-admin` (replaces the serving API). Stage runs carry only members owing stage-targeted QA; completion waits for both stage proof and production delivery. Do not lift it onto a project whose stage is a real pre-production gate.
