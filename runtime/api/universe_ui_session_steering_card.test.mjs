@@ -114,6 +114,9 @@ test("the group hue lightly fills the worker label and never the card itself", (
   assert.match(
     css, /\.session-steered-row \{[\s\S]*?flex-direction: row/,
   );
+  // A long slug or a phone-width card wraps the scope under the label
+  // rather than pushing the scope chip past the dashed border.
+  assert.match(css, /\.session-steered-row \{[^}]*flex-wrap: wrap/);
   assert.match(css, /\.steering-symbol svg \{[\s\S]*?height: 14px/);
   assert.match(css, /\.steering-symbol svg \{[\s\S]*?width: auto/);
 });

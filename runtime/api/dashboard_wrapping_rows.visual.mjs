@@ -54,6 +54,25 @@ const html = (assets) => `<!doctype html><html><head>
     import { workflowPanel } from "${assets}workflow_view_primitives.js";
     import { renderInboxView } from "${assets}universe_views_inbox.js";
     import { qaPanel } from "${assets}qa_view_primitives.js";
+    import { sessionCard } from "${assets}universe_views_sessions.js";
+    // A steered worker carries the card's widest rows at once: identity,
+    // model facts, the steering scope chip, and the latest-message badge.
+    const steeredSession = (index) => ({
+      session_id: "worker-" + index, liveness: "active", mode: "dash",
+      turn_posture: "running", executor: "claude-code",
+      executor_surface: "claude-desktop", executor_mark: "C",
+      executor_class_name: "h-claude", execution_lane: "DARIUS",
+      actor_label: "Production deployment owner", model: "claude-opus-5-5",
+      model_effort: "medium", usage_tokens: 9300000, usage_cost_usd: 3.33,
+      claims: [], holdings: { current: [], previous: [], previous_remainder: 0 },
+      messageability: { messageable: true, relay_connected: true },
+      relay: "connected", machine_name: "operator-workstation-sixteen-inch",
+      latest_message: { created_at: new Date(Date.now() - 660000).toISOString(),
+        message_id: "message-" + index, state: "acknowledged" },
+      steering_group_session_id: "seat",
+      steering_group_scope: { project: "platform", project_id: 1,
+        scope: { project_id: 1 }, strategy_docs: [] },
+    });
     const { panel } = workflowPanel(document, "Delivery", { detail: ${JSON.stringify(flowName)} });
     document.getElementById("delivery").append(panel, qaPanel(document, "Test plans", 2).root);
     const samples = ${JSON.stringify(rows)};
@@ -117,9 +136,14 @@ const html = (assets) => `<!doctype html><html><head>
         const grid = document.createElement("div");
         grid.className = gridClass;
         for (let index = 0; index < count; index += 1) {
-          const card = document.createElement("article");
-          card.className = cardClass;
-          card.textContent = "Card " + (index + 1);
+          const card = cardClass === "session-card"
+            ? sessionCard(document, steeredSession(index), () => {},
+              [{ id: 1, slug: "platform" }], new Map([["seat", "#7c3aed"]]))
+            : document.createElement("article");
+          if (cardClass !== "session-card") {
+            card.className = cardClass;
+            card.textContent = "Card " + (index + 1);
+          }
           grid.append(card);
         }
         specimen.append(grid);
@@ -153,7 +177,7 @@ try {
   await page.goto(`http://127.0.0.1:${server.address().port}/`);
   await page.waitForFunction(() => window.proofReady
     && document.querySelector('[data-fold="section:inbox-waiting"] .approval-carried'));
-  for (const width of [268, 350, 1100, 1250]) {
+  for (const width of [268, 350, 1100, 1250, 1388]) {
     await page.setViewportSize({ width: width + 40, height: 1000 });
     await page.evaluate((value) => {
       document.documentElement.style.setProperty("--proof-width", `${value}px`);
@@ -200,7 +224,20 @@ try {
             sparseLeftGap: sparseCard.left - cards[0].left,
             sparseWidthGap: sparseCard.width - cards[0].width,
             overflowing: full.scrollWidth > full.clientWidth + 1
-              || sparse.scrollWidth > sparse.clientWidth + 1 };
+              || sparse.scrollWidth > sparse.clientWidth + 1,
+            // How far any card's own content runs past that card's edge, or
+            // past the edge of a row inside it, such as the steering chip.
+            contentOverflow: Math.max(0, ...[...full.children].flatMap((card) => {
+              const edge = card.getBoundingClientRect();
+              return [...card.querySelectorAll("*")].map((node) => {
+                const box = node.getBoundingClientRect();
+                if (!box.width) return 0;
+                const own = getComputedStyle(node).overflowX === "visible"
+                  && node.clientWidth ? node.scrollWidth - node.clientWidth : 0;
+                return Math.max(box.right - edge.right, edge.left - box.left, own);
+              });
+            })),
+            width: cards[0].width };
         }),
         captions: document.querySelectorAll(".qa-panel-context,.panel-hint").length,
         pendingCarried: document.querySelector('[data-fold="section:inbox-waiting"] .approval-carried') !== null,
@@ -234,8 +271,12 @@ try {
       assert(Math.abs(grid.sparseLeftGap) < 1, `${grid.label} sparse band must align with populated bands`);
       assert(Math.abs(grid.sparseWidthGap) < 1, `${grid.label} sparse band must preserve empty column slots`);
       assert.equal(grid.overflowing, false, `${grid.label} must not scroll horizontally`);
+      assert(grid.contentOverflow < 1,
+        `${grid.label} card content runs ${grid.contentOverflow}px past its card at ${width}px`);
       if (width === 268) assert.equal(grid.columns, 1, `${grid.label} must stack on phones`);
       if (width >= 1100) assert(grid.columns >= 3, `${grid.label} must exercise desktop columns`);
+      if (width >= 1100 && grid.label.endsWith("essions")) assert(grid.width >= 319.5,
+        `${grid.label} cards narrowed to ${grid.width}px at ${width}px`);
     }
     for (const row of result.measurements) {
       assert.equal(row.align, "left", row.label);

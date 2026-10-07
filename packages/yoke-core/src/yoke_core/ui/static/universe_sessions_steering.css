@@ -28,12 +28,15 @@
    width, one line where the words fit, and optically centred on the mark
    beside them. It used to be a pill in the usage line, where it competed
    with two numbers for the same glance and said nothing about which
-   document it was steered from. */
+   document it was steered from. Where the words do not fit — a long
+   project slug, a card at phone width — the scope wraps under the label
+   instead of running past the border. */
 .universe-app-root .session-steering-lead.session-steered-row {
   display: flex;
   flex-direction: row;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 9px;
+  gap: 4px 9px;
   padding: 9px 12px;
   min-width: 0;
   white-space: nowrap;

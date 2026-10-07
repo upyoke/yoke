@@ -31,15 +31,24 @@ def test_shared_card_tracks_hold_still_whatever_a_section_holds():
 def test_card_tracks_fill_width_with_collection_minima_and_gaps():
     """Fractional tracks fill the available width while retaining empty slots.
 
-    Work and session cards keep a 268px minimum and 12px gaps. Strategy
-    documents keep a 280px minimum and 10px gaps; machines keep a 340px
-    minimum. Every collection inherits the shared fractional maximum.
+    With a 1fr maximum, auto-fill counts columns from the minimum, so each
+    minimum is the width that collection's cards actually get wherever one
+    more column only just fits. Work cards keep a 268px minimum and 12px
+    gaps; session cards need 320px for their identity, steering and message
+    rows. Strategy documents keep a 280px minimum and 10px gaps; machines
+    keep a 340px minimum. Every collection inherits the shared fractional
+    maximum.
     """
     responsive = _responsive()
     shared = responsive.split(".universe-app-root {", 1)[1].split("}", 1)[0]
     assert "--yoke-card-track-min: 268px" in shared
     assert "--yoke-card-track-max: 1fr" in shared
     assert "--yoke-card-grid-gap: 12px" in shared
+    sessions = responsive.split(
+        ".universe-app-root .work-session-grid {", 1
+    )[1].split("}", 1)[0]
+    assert "--yoke-card-track-min: 320px" in sessions
+    assert "--yoke-card-track-max" not in sessions
     # Each collection names itself twice: once in the shared selector list and
     # once in its own override, which is the later of the two.
     docs = responsive.rsplit(".strategy-doc-grid {", 1)[1].split("}", 1)[0]
