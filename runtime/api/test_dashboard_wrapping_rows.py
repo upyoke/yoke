@@ -43,6 +43,13 @@ def test_trailing_alignment_is_reserved_for_non_wrapping_geometry():
             "text-align",
             "right",
         ),
+        # A graph tile's age is one nowrap phrase that ends its head line.
+        (
+            "frontier_graph.css",
+            ".universe-app-root .fdv-tile-age",
+            "margin-left",
+            "auto",
+        ),
     }
     found = set()
     for path in static.iterdir():
