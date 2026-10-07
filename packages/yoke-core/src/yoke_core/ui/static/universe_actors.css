@@ -1,7 +1,5 @@
 /* Actors keeps the prototype's flush roster table in the shared dashboard. */
 .universe-app-root .actors-controls {
-  display: flex;
-  justify-content: flex-end;
   margin: 0 0 10px;
 }
 
