@@ -171,7 +171,7 @@ def _cleanup_trial_branches(project_repo: Path, item_id: int | None = None) -> b
         match = re.fullmatch(r"trial/YOK-(\d+)", ref)
         if not match:
             continue
-        trial_item = int(match.group(1))
+        trial_item = ref.removeprefix("trial/")
         if _parent()._query_item_field(trial_item, "status") != "done":
             complete = False
             continue

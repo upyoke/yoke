@@ -24,6 +24,7 @@ from yoke_core.domain import worktree_preflight_upstream as gate
 
 DEFAULT_BRANCH = "trunk"
 ITEM_ID = 9101
+ITEM_REF = f"YOK-{ITEM_ID}"
 
 
 def _git(cwd: Path, *args: str) -> str:
@@ -45,11 +46,19 @@ def project(tmp_path: Path) -> SimpleNamespace:
     origin = tmp_path / "origin.git"
     seed = tmp_path / "seed"
     subprocess.run(
-        ["git", "init", "-q", "--bare", f"--initial-branch={DEFAULT_BRANCH}", str(origin)],
+        [
+            "git",
+            "init",
+            "-q",
+            "--bare",
+            f"--initial-branch={DEFAULT_BRANCH}",
+            str(origin),
+        ],
         check=True,
     )
     subprocess.run(
-        ["git", "init", "-q", f"--initial-branch={DEFAULT_BRANCH}", str(seed)], check=True
+        ["git", "init", "-q", f"--initial-branch={DEFAULT_BRANCH}", str(seed)],
+        check=True,
     )
     _git(seed, "config", "user.email", "test@example.com")
     _git(seed, "config", "user.name", "Test")
@@ -85,7 +94,9 @@ def _patch_preflight(
     monkeypatch.setattr(
         structured_api_adapter,
         "call_dispatcher",
-        lambda **_kwargs: SimpleNamespace(success=True, result={"item": item}, error=None),
+        lambda **_kwargs: SimpleNamespace(
+            success=True, result={"item": item}, error=None
+        ),
     )
     monkeypatch.setattr(
         wp, "resolve_item_branch_and_lane", lambda _i: (f"YOK-{ITEM_ID}", recorded_lane)
@@ -118,7 +129,7 @@ def _patch_preflight(
 
 def _run(project: SimpleNamespace, *, no_worktree: bool = False):
     return wp.run_preflight(
-        item_id=ITEM_ID,
+        item_id=ITEM_REF,
         repo_root=str(project.root),
         session_id="sess",
         actual_cwd=str(project.root),
@@ -138,9 +149,7 @@ def test_new_lane_is_cut_from_the_fetched_upstream_revision(project, monkeypatch
     assert _git(project.root, "rev-parse", DEFAULT_BRANCH) == remote_sha
 
 
-def test_resumed_lane_reports_freshness_without_touching_the_lane(
-    project, monkeypatch
-):
+def test_resumed_lane_reports_freshness_without_touching_the_lane(project, monkeypatch):
     _advance_remote(project)
     _git(project.root, "branch", f"YOK-{ITEM_ID}")
     lane = project.root / ".worktrees" / f"YOK-{ITEM_ID}"
@@ -199,9 +208,7 @@ def test_laneless_work_proceeds_once_the_branch_is_current(project, monkeypatch)
     assert _git(project.root, "rev-parse", DEFAULT_BRANCH) == remote_sha
 
 
-def test_a_diverged_branch_cannot_start_a_lane_from_stale_local(
-    project, monkeypatch
-):
+def test_a_diverged_branch_cannot_start_a_lane_from_stale_local(project, monkeypatch):
     """The lane would be missing the commits just fetched, so it refuses."""
     _advance_remote(project)
     local_sha = _commit(project.root, "local.txt", "mine\n")

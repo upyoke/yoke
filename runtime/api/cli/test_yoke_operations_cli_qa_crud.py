@@ -75,7 +75,7 @@ class TestQaRequirementList:
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.target.kind == "global"
-        assert req.payload == {"epic_id": 1704}
+        assert req.payload == {"epic_public_ref": "YOK-1704"}
 
     def test_no_filter_is_global(self) -> None:
         rc = _run(_stub_ok, "qa", "requirement", "list")
@@ -91,7 +91,7 @@ class TestQaRequirementList:
         req = _CAPTURED_REQUESTS[-1]
         assert req.target.kind == "global"
         assert req.target.project_id == "yoke"
-        assert req.payload == {"epic_id": 1704}
+        assert req.payload == {"epic_public_ref": "YOK-1704"}
 
 
 class TestQaRequirementGet:

@@ -1,9 +1,8 @@
 """Harness-universal implementation-entry preflight primitive.
 
-Owns the operator-required steps for ``/yoke implement YOK-N``: (1) resolve/acquire work claim, (2) activate/
-reconcile path claim, (3) resolve or create the item worktree
-(canonical ``YOK-N``), (4) record the descriptive worktree/cwd relationship,
-(5) return a machine-readable envelope with ``item_id``, ``branch``,
+Owns work-claim acquisition, path-claim activation, item-lane preparation,
+and the descriptive cwd relationship. Its machine-readable envelope carries
+``public_ref``, ``branch``,
 ``worktree_path``, ``semantic_scope`` (descriptive label only), and
 ``physical_cwd_mode`` (``matched`` when harness cwd is inside the
 worktree; ``static`` when it stayed in main).
@@ -13,8 +12,7 @@ active ``work_claims`` row, validated per tool call by
 ``lint_session_cwd``. The preflight no longer binds a session-scope
 envelope, and no ``scope:entered`` action is emitted.
 
-Dirty-main guard runs only when creating a new worktree — re-entry
-does not touch main. Tracked dirt blocks on needed-path overlap.
+Dirty-main checks run on new lanes; tracked dirt blocks on path overlap.
 Untracked files under source/package roots always block; untracked
 files outside those roots warn via envelope notes. Errors surface as
 ``ok=False`` outcomes with a ``block_kind`` and rendered ``narrative``.
@@ -71,7 +69,7 @@ from yoke_core.domain.worktree_preflight_steps import (
 
 def run_preflight(
     *,
-    item_id: int,
+    item_id: int | str,
     project: Optional[str] = None,
     repo_root: Optional[str] = None,
     session_id: str = "",
@@ -80,17 +78,15 @@ def run_preflight(
     prepare_path_claims: Optional[Callable[[], Optional[str]]] = None,
 ) -> WorktreePreflightOutcome:
     """Run the harness-universal advance implementation-entry preflight."""
-    from yoke_contracts.public_ref import unresolved_item_ref
-    from yoke_core.domain.claim_recovery import canonical_item_ref
 
     # This name reaches the claim and path-claim refusals below, so an
     # unresolvable item says so rather than showing its storage key.
-    public_ref = canonical_item_ref(item_id) or unresolved_item_ref()
+    public_ref = public_item_target(item_id).public_ref
     # The worktree/branch name is the item's public ref; a recorded active
     # lane (if any) locates an existing worktree created under either the
     # public-ref or legacy naming scheme so re-entry never mis-detects it.
     branch, recorded_lane_path = resolve_item_branch_and_lane(item_id)
-    out = WorktreePreflightOutcome(item_id=item_id, branch=branch)
+    out = WorktreePreflightOutcome(public_ref=public_ref, branch=branch)
 
     # Step 0 — item detail: the blocked refusal fires before claim
     # acquisition, and the item's own project owns lane repo resolution —
@@ -110,7 +106,11 @@ def run_preflight(
             target=public_item_target(item_id),
             payload={},
         )
-        item = (detail.result or {}).get("item") or {} if detail.success else {}
+        if not detail.success:
+            raise RuntimeError(
+                detail.error.message if detail.error else "item read refused"
+            )
+        item = (detail.result or {}).get("item") or {}
         if item.get("public_ref"):
             public_ref = str(item["public_ref"])
         if item.get("blocked"):
@@ -122,8 +122,14 @@ def run_preflight(
                 public_ref=public_ref,
             )
             return out
-    except Exception:  # noqa: BLE001 - degrade if the detail read is unavailable
-        item = {}
+    except Exception as exc:  # noqa: BLE001 - preserve a named preparation refusal
+        out.ok = False
+        out.block_kind = BLOCK_INPUT
+        out.narrative = (
+            f"item_detail_unavailable: cannot prepare {public_ref}: {exc}. "
+            "Read the item through `yoke items detail get`, then retry preparation."
+        )
+        return out
 
     from yoke_core.domain.worktree_preflight_repo_resolution import (
         resolve_preflight_lane_target,
@@ -303,7 +309,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument(
         "--item",
         required=True,
-        help="PREFIX-N or project-local sequence",
+        help="Complete public item ref (PREFIX-N)",
     )
     parser.add_argument("--project", default=None)
     parser.add_argument("--no-worktree", action="store_true")

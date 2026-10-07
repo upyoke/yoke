@@ -131,7 +131,7 @@ def lane_needed_paths(item_id: int) -> tuple[str, ...]:
             "items.section.get",
             TargetRef(
                 kind="section",
-                item_id=int(item_id),
+                public_ref=item.public_ref,
                 section_name=FILE_BUDGET_SECTION,
             ),
         )

@@ -89,7 +89,7 @@ def install_lane_dependencies(
 def provision_planned_lanes(
     plan: WorktreeCreationPlan,
     *,
-    item_id: int,
+    item_id: int | str,
     repo_root: str,
     base_branch: str,
     project: str,
@@ -165,13 +165,13 @@ def provision_planned_lanes(
 
 def _record_lane_paths(
     entries: Sequence[WorktreeCreationEntry],
-    item_id: int,
+    item_id: int | str,
     db_path: Optional[str],
 ) -> str:
     """Persist every lane's path, returning a blocking error narrative."""
     try:
         persist_item_worktrees(
-            int(item_id),
+            item_id,
             [
                 (entry.lane_id, entry.branch, entry.path, entry.lane_role)
                 for entry in entries
@@ -180,8 +180,7 @@ def _record_lane_paths(
         )
     except Exception as exc:  # noqa: BLE001 - preserve physical lane evidence
         return (
-            "worktree provisioning completed but item-lane persistence "
-            f"failed: {exc}"
+            f"worktree provisioning completed but item-lane persistence failed: {exc}"
         )
     return ""
 

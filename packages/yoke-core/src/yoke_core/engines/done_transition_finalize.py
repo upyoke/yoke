@@ -291,7 +291,7 @@ def _run_closeout(
                 ensure_snapshot_for_item,
             )
 
-            ensure_snapshot_for_item(item_id)
+            ensure_snapshot_for_item(ref)
     result.add_step("12")
 
     print("\n=== Step 13: Push ===")

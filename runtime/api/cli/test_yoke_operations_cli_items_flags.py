@@ -86,7 +86,9 @@ class TestFlagRoutes:
         ),
     )
     def test_bare_verb_dispatches_with_an_empty_payload(
-        self, verb: str, function_id: str,
+        self,
+        verb: str,
+        function_id: str,
     ) -> None:
         assert _run("items", verb, "YOK-42") == 0
         request = _CAPTURED_REQUESTS[-1]
@@ -97,13 +99,13 @@ class TestFlagRoutes:
         assert request.actor.session_id == "test-session"
 
     def test_block_carries_the_reason(self) -> None:
-        assert _run("items", "block", "42", "--reason", "Awaiting sign-off") == 0
+        assert _run("items", "block", "YOK-42", "--reason", "Awaiting sign-off") == 0
         request = _CAPTURED_REQUESTS[-1]
         assert request.function == "items.block.run"
         assert request.payload == {"reason": "Awaiting sign-off"}
 
     def test_block_without_a_reason_is_a_usage_error(self) -> None:
-        assert _run("items", "block", "42") == 2
+        assert _run("items", "block", "YOK-42") == 2
         assert _CAPTURED_REQUESTS == []
 
     def test_item_ref_relays_verbatim(self) -> None:
@@ -116,16 +118,17 @@ class TestFlagRoutes:
             assert ADAPTER_USAGE[function_id].startswith("yoke items ")
 
     def test_cancel_carries_reason_and_optional_ref(self) -> None:
-        assert _run(
-            "items", "cancel", "42", "--reason", "superseded", "--ref", "7"
-        ) == 0
+        assert (
+            _run("items", "cancel", "YOK-42", "--reason", "superseded", "--ref", "7")
+            == 0
+        )
         request = _CAPTURED_REQUESTS[-1]
         assert request.function == "items.cancel.run"
-        assert request.target.public_ref == "42"
+        assert request.target.public_ref == "YOK-42"
         assert request.payload == {"reason": "superseded", "ref": "7"}
 
     def test_cancel_without_a_reason_is_a_usage_error(self) -> None:
-        assert _run("items", "cancel", "42") == 2
+        assert _run("items", "cancel", "YOK-42") == 2
         assert _CAPTURED_REQUESTS == []
 
     def test_cancel_usage_line_is_registered(self) -> None:
@@ -161,7 +164,9 @@ class TestFlagClaimContract:
 
     @pytest.mark.parametrize("function_id", FLAG_FUNCTION_IDS)
     def test_the_dispatcher_gate_defers_to_the_handler(
-        self, function_id: str, monkeypatch,
+        self,
+        function_id: str,
+        monkeypatch,
     ) -> None:
         """No dispatcher refusal — the handler owns the claim decision.
 
@@ -178,7 +183,8 @@ class TestFlagClaimContract:
         assert verify_claim(entry, self._request(function_id)) is None
 
     def test_a_foreign_session_claim_still_refuses_a_scalar_update(
-        self, monkeypatch,
+        self,
+        monkeypatch,
     ) -> None:
         monkeypatch.setattr(
             "yoke_core.domain.yoke_function_dispatch_claims.who_claims_for_item",
@@ -186,7 +192,8 @@ class TestFlagClaimContract:
         )
         entry = self._entry("items.scalar.update")
         refusal: Optional[FunctionCallResponse] = verify_claim(
-            entry, self._request("items.scalar.update"),
+            entry,
+            self._request("items.scalar.update"),
         )
         assert refusal is not None
         error: Dict[str, Any] = refusal.error.model_dump()

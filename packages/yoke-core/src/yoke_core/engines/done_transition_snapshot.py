@@ -17,7 +17,7 @@ from __future__ import annotations
 import subprocess
 
 
-def ensure_snapshot_for_item(item_id: int) -> None:
+def ensure_snapshot_for_item(public_ref: str) -> None:
     """Pre-warm the path-snapshot cache for the item's project at HEAD.
 
     The DB touches route through the connected transport: the item's
@@ -40,7 +40,7 @@ def ensure_snapshot_for_item(item_id: int) -> None:
         )
         from yoke_core.engines.done_transition_runtime import _query_item_field
 
-        project_slug = _query_item_field(item_id, "project")
+        project_slug = _query_item_field(public_ref, "project")
         if not project_slug:
             return
         checkout = checkout_for_project_slug(project_slug)
@@ -48,7 +48,9 @@ def ensure_snapshot_for_item(item_id: int) -> None:
             return
         head = subprocess.run(
             ["git", "-C", str(checkout), "rev-parse", "HEAD"],
-            capture_output=True, text=True, check=False,
+            capture_output=True,
+            text=True,
+            check=False,
         )
         if head.returncode != 0 or not head.stdout.strip():
             return

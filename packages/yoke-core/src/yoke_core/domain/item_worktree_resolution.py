@@ -13,9 +13,13 @@ from typing import Any, Optional
 from yoke_core.domain import db_backend
 from yoke_core.domain.worktree_paths import _run, is_git_worktree
 
+ACTIVE_LANE_PRIORITY = {"integration": 0, "implementation": 1, "worker": 2}
 ACTIVE_LANE_ORDER_SQL = (
-    "CASE lane_role WHEN 'integration' THEN 0 "
-    "WHEN 'implementation' THEN 1 WHEN 'worker' THEN 2 ELSE 3 END"
+    "CASE lane_role "
+    + " ".join(
+        f"WHEN '{role}' THEN {rank}" for role, rank in ACTIVE_LANE_PRIORITY.items()
+    )
+    + f" ELSE {len(ACTIVE_LANE_PRIORITY)} END"
 )
 
 

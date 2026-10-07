@@ -113,7 +113,7 @@ class TestAcquireEpicTask:
             "work",
             "acquire",
             "--epic",
-            "1872",
+            "YOK-1872",
             "--task-num",
             "20",
             "--reason",
@@ -126,7 +126,7 @@ class TestAcquireEpicTask:
         assert req.target.public_ref == "YOK-1872" and req.target.task_num == 20
         assert req.payload["target"] == {
             "kind": "epic_task",
-            "epic_id": 1872,
+            "epic_public_ref": "YOK-1872",
             "task_num": 20,
         }
         assert req.payload["reason"] == "engineer dispatch"
@@ -137,7 +137,7 @@ class TestAcquireEpicTask:
             "work",
             "acquire",
             "--epic",
-            "100",
+            "YOK-100",
             "--task-num",
             "1",
         )
@@ -151,13 +151,13 @@ class TestAcquireEpicTask:
             "work",
             "acquire",
             "--epic",
-            "1872",
+            "YOK-1872",
             "--reason",
             "missing task-num",
         )
         assert rc == 2 and _CAPTURED == []
 
-    def test_acquire_epic_task_rejects_non_integer(self) -> None:
+    def test_acquire_epic_task_rejects_invalid_public_ref(self) -> None:
         rc, *_ = _run(
             "claims",
             "work",
@@ -169,7 +169,7 @@ class TestAcquireEpicTask:
             "--reason",
             "bad",
         )
-        assert rc == 2 and _CAPTURED == []
+        assert rc == 1 and _CAPTURED == []
 
 
 # ---------------------------------------------------------------------------
@@ -189,7 +189,7 @@ class TestReleaseEpicTask:
             "work",
             "release",
             "--epic",
-            "1872",
+            "YOK-1872",
             "--task-num",
             "20",
             "--reason",

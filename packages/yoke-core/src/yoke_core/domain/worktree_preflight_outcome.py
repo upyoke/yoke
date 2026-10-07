@@ -21,7 +21,7 @@ class WorktreePreflightOutcome:
     ok: bool = True
     block_kind: str = ""
     narrative: str = ""
-    item_id: int = 0
+    public_ref: str = ""
     branch: str = ""
     worktree_path: str = ""
     semantic_scope: str = "main"
@@ -36,11 +36,11 @@ class WorktreePreflightOutcome:
                 "ok": False,
                 "block_kind": self.block_kind,
                 "narrative": self.narrative,
-                "item_id": self.item_id,
+                "public_ref": self.public_ref,
             }
         return {
             "ok": True,
-            "item_id": self.item_id,
+            "public_ref": self.public_ref,
             "branch": self.branch,
             "worktree_path": self.worktree_path,
             "semantic_scope": self.semantic_scope,

@@ -39,9 +39,7 @@ def run(
     skip_deploy: bool = False,
     skip_qa: bool = False,
 ) -> int:
-    """Execute the done-transition state machine.
-    This is the semantic core. Returns the process exit code.
-    """
+    """Execute the done-transition state machine; return its exit code."""
     mw = _parent()
     TransitionResult = mw.TransitionResult
     _resolve_repo_root = mw._resolve_repo_root
@@ -68,15 +66,13 @@ def run(
     _cascade_epic_tasks_to_done = mw._cascade_epic_tasks_to_done
     _finalize_done_local_side_effects = mw._finalize_done_local_side_effects
 
-    # The public item ref is resolved once, server-side, by the transport
-    # context relay (project-sequence aware, no local connection). Until that
-    # load completes the only identity available is the bare items.id, so the
-    # temp result-file name and the "item not found" error carry the raw id
-    # (not a fabricated ref); every user-facing ref below is context.public_ref.
-    result = TransitionResult(item=str(item_id))
+    from yoke_core.domain.public_item_target import public_item_target
+
+    item_ref = public_item_target(item_id).public_ref
+    result = TransitionResult(item=item_ref)
     result_file = os.path.join(
         os.environ.get("TMPDIR", "/tmp"),
-        f"done-transition-result.{item_id}.json",
+        f"done-transition-result.{item_ref}.json",
     )
 
     repo_root = _resolve_repo_root()
@@ -87,7 +83,7 @@ def run(
     _reseat_runtime_paths(repo_root)
     result.add_step("1")
     print(f"YOKE_REPO_ROOT={repo_root}")
-    context = load_done_item_context_over_transport(item_id)
+    context = load_done_item_context_over_transport(item_ref)
     if context is None:
         print(f"Error: {ITEM_NOT_FOUND}.", file=sys.stderr)
         return result.fail(result_file, 2, "2")
@@ -99,10 +95,7 @@ def run(
     lane_branch = context.lane_branch
     workflow = context.workflow
     has_task_graph = generates_task_graph(workflow)
-    # The merge boundary resolves this token as a public ref, so it carries
-    # PREFIX-N rather than the internal id — a digit string there is a
-    # project-local sequence and can address a different row entirely. The
-    # empty value still means "standalone lane, no epic".
+    # A task graph addresses its parent by the resolved public reference.
     task_parent_ref = public_ref if has_task_graph else ""
     item_project = context.project
     result.old_status = result.new_status = old_status
@@ -120,7 +113,7 @@ def run(
     if item_project != "yoke":
         print(f"Project: {item_project} (repo: {project_repo})")
 
-    deploy_flow = _query_item_field(item_id, "deployment_flow")
+    deploy_flow = _query_item_field(public_ref, "deployment_flow")
     if deploy_flow in ("null", ""):
         deploy_flow = ""
 
@@ -248,7 +241,7 @@ def run(
 
     print("\n=== Step 4s: Merge and delivery satisfiers ===")
     satisfier_block = check_done_satisfiers(
-        item_id,
+        public_ref,
         merge_ran=merge_ran,
         branch_already_merged=bool(branch_already_merged or resume_from_step6),
         branch_exists=lane_branch_exists,
@@ -260,7 +253,8 @@ def run(
     result.add_step("4s")
 
     from yoke_core.engines.done_transition_cleanup import _has_foreign_claim
-    cleanup_foreign_claim = _has_foreign_claim(item_id)
+
+    cleanup_foreign_claim = _has_foreign_claim(public_ref)
     cwd = _verify_cwd_after_merge(merge_ran, merge_output, project_repo)
     if cwd is None:
         print(f"RESULT_FILE={result_file}")
@@ -290,7 +284,7 @@ def run(
     result.add_step("5b")
 
     if _enforce_preconditions(
-        item_id,
+        public_ref,
         deploy_flow,
         requires_plan_simulation(workflow),
     ):
@@ -298,11 +292,11 @@ def run(
         return result.fail(result_file, 7, "5c-preconditions")
     result.add_step("5c")
     print("\n=== Step 6: Update status to done ===")
-    _populate_merged_at(item_id)
+    _populate_merged_at(public_ref)
 
     success = _update_status_to_done(item_id, skip_qa, public_ref=public_ref)
     if not success:
-        verify = _query_item_field(item_id, "status")
+        verify = _query_item_field(public_ref, "status")
         print(
             f"Error: Status update failed after retries — item is still '{verify}'.",
             file=sys.stderr,
@@ -323,7 +317,11 @@ def run(
     result.add_step("6a")  # reserved result slot
 
     _finalize_done_local_side_effects(
-        item_id, release_note_category(workflow), title, item_project, env_name,
+        public_ref,
+        release_note_category(workflow),
+        title,
+        item_project,
+        env_name,
         result=result,
     )
 
@@ -343,7 +341,10 @@ def run(
         merge_ran=merge_ran,
         public_ref=public_ref,
         prune_lane=lambda: _cleanup_stale_branches(
-            item_id, lane_branch, project_repo, base_branch,
+            item_id,
+            lane_branch,
+            project_repo,
+            base_branch,
             authority_block=lane_authority_block,
         ),
     )

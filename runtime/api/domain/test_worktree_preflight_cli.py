@@ -40,7 +40,7 @@ def test_main_emits_envelope_json_on_success(
     )
     monkeypatch.setattr(
         "yoke_core.domain.yok_n_parser.parse_item_argument",
-        lambda *_args, **_kwargs: 9001,
+        lambda *_args, **_kwargs: "YOK-9001",
     )
     monkeypatch.chdir(repo_layout.root)
 
@@ -49,5 +49,5 @@ def test_main_emits_envelope_json_on_success(
     assert result == 0
     envelope = json.loads(capsys.readouterr().out)
     assert envelope["ok"] is True
-    assert envelope["item_id"] == 9001
+    assert envelope["public_ref"] == "YOK-9001"
     assert envelope["worktree_path"] == repo_layout.worktree

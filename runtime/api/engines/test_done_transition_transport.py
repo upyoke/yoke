@@ -83,9 +83,9 @@ class TestItemContextRelay:
             )
 
         _install(monkeypatch, fake, [item_context])
-        ctx = item_context.load_done_item_context_over_transport(42)
+        ctx = item_context.load_done_item_context_over_transport("YOK-42")
         assert calls[0]["function_id"] == "done_transition.item_context"
-        assert calls[0]["target"].item_id == 42
+        assert calls[0]["target"].public_ref == TEST_ITEM_REF
         assert ctx is not None
         assert ctx.title == "Ship it"
         assert ctx.stage_id == "implementing"
@@ -100,7 +100,7 @@ class TestItemContextRelay:
             lambda **k: _resp("done_transition.item_context", {"found": False}),
             [item_context],
         )
-        assert item_context.load_done_item_context_over_transport(43) is None
+        assert item_context.load_done_item_context_over_transport("YOK-43") is None
 
     def test_failure_raises(self, monkeypatch):
         _install(
@@ -109,7 +109,7 @@ class TestItemContextRelay:
             [item_context],
         )
         with pytest.raises(RuntimeError):
-            item_context.load_done_item_context_over_transport(44)
+            item_context.load_done_item_context_over_transport("YOK-44")
 
 
 class TestItemFieldRelay:
@@ -121,10 +121,13 @@ class TestItemFieldRelay:
             return _resp("done_transition.item_field", {"value": "yoke-hosted-stage"})
 
         _install(monkeypatch, fake, [runtime])
-        assert runtime._query_item_field(42, "deployment_flow") == "yoke-hosted-stage"
+        assert (
+            runtime._query_item_field("YOK-42", "deployment_flow")
+            == "yoke-hosted-stage"
+        )
         assert calls[0]["function_id"] == "done_transition.item_field"
         assert calls[0]["payload"] == {"field": "deployment_flow"}
-        assert calls[0]["target"].item_id == 42
+        assert calls[0]["target"].public_ref == TEST_ITEM_REF
 
     def test_failure_raises(self, monkeypatch):
         _install(
@@ -133,7 +136,7 @@ class TestItemFieldRelay:
             [runtime],
         )
         with pytest.raises(RuntimeError):
-            runtime._query_item_field(42, "status")
+            runtime._query_item_field("YOK-42", "status")
 
 
 class TestForeignClaimRelay:
@@ -151,9 +154,9 @@ class TestForeignClaimRelay:
             )
 
         _install(monkeypatch, fake, [cleanup])
-        assert cleanup._has_foreign_claim(42) is True
+        assert cleanup._has_foreign_claim("YOK-42") is True
         assert calls[0]["function_id"] == "claims.work.holder_list"
-        assert calls[0]["target"].item_id == 42
+        assert calls[0]["target"].public_ref == TEST_ITEM_REF
 
     def test_false_when_only_caller_holds(self, monkeypatch):
         monkeypatch.setattr(cleanup, "_current_session_id", lambda: "caller-x")
@@ -167,7 +170,7 @@ class TestForeignClaimRelay:
             ),
             [cleanup],
         )
-        assert cleanup._has_foreign_claim(42) is False
+        assert cleanup._has_foreign_claim("YOK-42") is False
 
     def test_failclosed_on_non_success(self, monkeypatch):
         monkeypatch.setattr(cleanup, "_current_session_id", lambda: "caller-x")
@@ -176,7 +179,7 @@ class TestForeignClaimRelay:
             lambda **k: _resp("claims.work.holder_list", success=False),
             [cleanup],
         )
-        assert cleanup._has_foreign_claim(42) is True
+        assert cleanup._has_foreign_claim("YOK-42") is True
 
     def test_failclosed_on_exception(self, monkeypatch):
         monkeypatch.setattr(cleanup, "_current_session_id", lambda: "caller-x")
@@ -185,7 +188,7 @@ class TestForeignClaimRelay:
             raise RuntimeError("transport down")
 
         _install(monkeypatch, boom, [cleanup])
-        assert cleanup._has_foreign_claim(42) is True
+        assert cleanup._has_foreign_claim("YOK-42") is True
 
 
 class TestBlockedFlagRelay:
@@ -284,7 +287,7 @@ class TestPreconditionsRelay:
             )
 
         _install(monkeypatch, fake, [preconditions])
-        allowed, reason = preconditions.check_done_preconditions(42, "", False)
+        allowed, reason = preconditions.check_done_preconditions("YOK-42", "", False)
         assert (allowed, reason) == (True, None)
         assert calls[0]["function_id"] == "done_transition.done_preconditions"
         assert calls[0]["payload"] == {
@@ -304,7 +307,9 @@ class TestPreconditionsRelay:
             ),
             [preconditions],
         )
-        allowed, reason = preconditions.check_done_preconditions(42, "acme-prod", False)
+        allowed, reason = preconditions.check_done_preconditions(
+            "YOK-42", "acme-prod", False
+        )
         assert allowed is False
         assert "deployed_to is empty" in reason
 
@@ -315,4 +320,4 @@ class TestPreconditionsRelay:
             [preconditions],
         )
         with pytest.raises(RuntimeError):
-            preconditions.check_done_preconditions(42, "", False)
+            preconditions.check_done_preconditions("YOK-42", "", False)

@@ -73,7 +73,7 @@ class TestClaimWork:
         assert msg  # non-empty status string
         assert calls[0]["function_id"] == "claims.work.acquire"
         assert calls[0]["target"].kind == "item"
-        assert calls[0]["target"].item_id == 1599
+        assert calls[0]["target"].public_ref == "YOK-1599"
 
     def test_other_session_holding_returns_failure(self, monkeypatch):
         self._patch_dispatch(

@@ -55,33 +55,30 @@ def resolve_item_branch_and_lane(item_id: int) -> Tuple[str, Optional[str]]:
     rather than a refusal — lane creation refuses at the point it would name
     something, in :func:`resolve_worktree_lanes_for_item`.
     """
-    from yoke_core.domain.worktree_naming import (
-        ItemWorktreeIdentityUnresolved,
-        worktree_name_for_item,
+    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+    from yoke_core.domain.item_worktree_resolution import ACTIVE_LANE_PRIORITY
+
+    target = public_item_target(item_id)
+    response = call_dispatcher(
+        function_id="item_worktrees.list", target=target, payload={}
     )
-
-    branch = ""
-    lane = None
-    try:
-        from yoke_core.domain.db_helpers import connect
-        from yoke_core.domain.item_worktrees import primary_item_worktree
-
-        with connect() as conn:
-            lane = primary_item_worktree(conn, int(item_id))
-            try:
-                branch = worktree_name_for_item(conn, item_id)
-            except ItemWorktreeIdentityUnresolved:
-                branch = ""
-    except Exception:  # noqa: BLE001 - degrade if DB unavailable
-        lane = None
-    branch_out = branch
-    path_out = None
-    if lane:
-        if lane.get("branch"):
-            branch_out = str(lane["branch"])
-        if lane.get("path"):
-            path_out = str(lane["path"])
-    return branch_out, path_out
+    if not response.success:
+        raise RuntimeError(
+            response.error.message if response.error else "item worktree read refused"
+        )
+    lanes = sorted(
+        [
+            lane
+            for lane in (response.result or {}).get("worktrees") or []
+            if lane.get("state") == "active"
+        ],
+        key=lambda lane: (
+            ACTIVE_LANE_PRIORITY.get(lane.get("lane_role"), len(ACTIVE_LANE_PRIORITY)),
+            lane.get("id", 0),
+        ),
+    )
+    lane = lanes[0] if lanes else {}
+    return str(lane.get("branch") or target.public_ref), lane.get("path") or None
 
 
 def claim_work(item_id: int) -> Tuple[bool, str]:

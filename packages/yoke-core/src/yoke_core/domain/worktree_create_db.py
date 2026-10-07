@@ -29,7 +29,7 @@ def _response_error(response: Any) -> str:
     return f"{code}: {message}"
 
 
-def prepare_authoritative_item_worktrees(item_id: int) -> list[dict[str, Any]]:
+def prepare_authoritative_item_worktrees(item_id: int | str) -> list[dict[str, Any]]:
     """Ensure the remote default lane and list every active authoritative lane."""
     from yoke_core.api.service_client_structured_api_adapter import (
         call_dispatcher,
@@ -57,7 +57,7 @@ def prepare_authoritative_item_worktrees(item_id: int) -> list[dict[str, Any]]:
 
 
 def persist_item_worktrees(
-    item_id: int,
+    item_id: int | str,
     lanes: Iterable[Tuple[Any, ...]],
     db_path: Optional[str],
 ) -> None:
@@ -77,7 +77,10 @@ def persist_item_worktrees(
         return
     conn = connect(db_path)
     try:
+        from yoke_core.domain.item_ref_resolution import resolve_item_ref
         from yoke_core.domain.item_worktrees import record_item_worktree
+
+        item_id = resolve_item_ref(conn, item_id)
 
         for raw in lane_rows:
             if len(raw) == 3:
@@ -102,7 +105,7 @@ def persist_item_worktrees(
 
 
 def _record_authoritative_item_worktree_paths(
-    item_id: int,
+    item_id: int | str,
     lanes: Sequence[Tuple[Any, ...]],
 ) -> None:
     from yoke_core.api.service_client_structured_api_adapter import (
@@ -134,7 +137,7 @@ def _record_authoritative_item_worktree_paths(
             raise RuntimeError(_response_error(response))
 
 
-def item_project_slug(item_id: int, db_path: Optional[str]) -> str:
+def item_project_slug(item_id: int | str, db_path: Optional[str]) -> str:
     """Return the slug of the project that owns an item, or ``""``.
 
     Reads the same authority the rest of creation uses: the relayed item
@@ -164,6 +167,9 @@ def item_project_slug(item_id: int, db_path: Optional[str]) -> str:
     except Exception:  # noqa: BLE001 - an unreachable database names no project
         return ""
     try:
+        from yoke_core.domain.item_ref_resolution import resolve_item_ref
+
+        item_id = resolve_item_ref(conn, item_id)
         row = conn.execute(
             "SELECT p.slug FROM items i JOIN projects p ON p.id = i.project_id "
             "WHERE i.id = " + ("%s" if _is_postgres(conn) else "?") + " LIMIT 1",
@@ -184,7 +190,7 @@ def _is_postgres(conn: Any) -> bool:
     return bool(connection_is_postgres(conn))
 
 
-def check_path_claim_gate(item_id: int, db_path: Optional[str]) -> Optional[str]:
+def check_path_claim_gate(item_id: int | str, db_path: Optional[str]) -> Optional[str]:
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.path_claims_gate import (
         PathClaimGateBlocked,
@@ -193,7 +199,9 @@ def check_path_claim_gate(item_id: int, db_path: Optional[str]) -> Optional[str]
 
     gate_conn = connect(db_path)
     try:
-        check_worktree_create_gate(gate_conn, int(item_id))
+        from yoke_core.domain.item_ref_resolution import resolve_item_ref
+
+        check_worktree_create_gate(gate_conn, resolve_item_ref(gate_conn, item_id))
     except PathClaimGateBlocked as exc:
         return str(exc)
     finally:
@@ -202,7 +210,7 @@ def check_path_claim_gate(item_id: int, db_path: Optional[str]) -> Optional[str]
 
 
 def provisioning_project(
-    item_id: int,
+    item_id: int | str,
     project: Optional[str],
     db_path: Optional[str],
 ) -> Tuple[str, str]:
@@ -215,7 +223,7 @@ def provisioning_project(
     """
     if project:
         return str(project), ""
-    slug = item_project_slug(int(item_id), db_path)
+    slug = item_project_slug(item_id, db_path)
     if slug:
         return slug, ""
     return "", (
