@@ -2,7 +2,7 @@
 name: amend
 description: Add, split, reassign, or remove tasks after sync. Re-verifies overlap and updates GitHub.
 # argument-hint is generated from yoke_contracts.skill_registry.
-argument-hint: "{epic-id}"
+argument-hint: "{epic-ref}"
 ---
 
 # Internal sub-skill -- called by conduct. Not operator-facing.

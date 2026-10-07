@@ -38,7 +38,12 @@ class Skill:
 
 SKILLS: tuple[Skill, ...] = (
     Skill(
-        "amend", "internal", "shepherd", False, "amend a synced task graph", "{epic-ref}"
+        "amend",
+        "internal",
+        "shepherd",
+        False,
+        "amend a synced task graph",
+        "{epic-ref}",
     ),
     Skill(
         "approve",
