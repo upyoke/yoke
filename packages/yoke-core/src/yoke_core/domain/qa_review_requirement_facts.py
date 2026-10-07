@@ -26,7 +26,35 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def frozen_target_facts(execution_target_json: Any) -> dict[str, Any]:
+def _candidate_revision(conn: Any, target: dict[str, Any]) -> Any:
+    """The commit the frozen target's run delivered for the target's project.
+
+    The frozen ``release_lineage`` is the run's own lineage, which is the
+    candidate only for the run's own project. A member carried from a bound
+    project is checked against that project's build, so its candidate is the
+    commit the run delivered for that project.
+    """
+    from yoke_core.domain.deployment_run_project_sources import (
+        delivered_source_sha,
+        run_source_facts,
+    )
+
+    deployment = target.get("deployment")
+    if not isinstance(deployment, dict):
+        return None
+    frozen = deployment.get("release_lineage") or None
+    project = target.get("project")
+    project_id = project.get("id") if isinstance(project, dict) else None
+    run_id = str(deployment.get("run_id") or "")
+    if not run_id or project_id is None:
+        return frozen
+    run = run_source_facts(conn, run_id)
+    if run is None or int(run["project_id"]) == int(project_id):
+        return frozen
+    return delivered_source_sha(run, int(project_id)) or None
+
+
+def frozen_target_facts(conn: Any, execution_target_json: Any) -> dict[str, Any]:
     """The deployment facts a requirement froze at materialization.
 
     A release check's environment and candidate are not on the requirement's
@@ -36,7 +64,10 @@ def frozen_target_facts(execution_target_json: Any) -> dict[str, Any]:
     which is the same document the gate judges against. Reading them there
     reports what was actually checked; reading the project's current
     environment instead would report what is true now, which is not the same
-    claim and is exactly what a frozen target exists to prevent.
+    claim and is exactly what a frozen target exists to prevent. The one
+    fact read beside it is a carried member's candidate: the frozen lineage
+    is the carrying run's, so the member's project answers from the commit
+    that run delivered for it.
     """
     try:
         target = loads_text(execution_target_json or "") or {}
@@ -45,22 +76,18 @@ def frozen_target_facts(execution_target_json: Any) -> dict[str, Any]:
     if not isinstance(target, dict):
         target = {}
     environment = target.get("environment")
-    deployment = target.get("deployment")
     return {
         "execution_environment": (
             environment.get("name") if isinstance(environment, dict) else None
         )
         or None,
-        "execution_candidate_revision": (
-            deployment.get("release_lineage") if isinstance(deployment, dict) else None
-        )
-        or None,
+        "execution_candidate_revision": _candidate_revision(conn, target),
         "execution_observed_url": target.get("observed_url") or None,
     }
 
 
-def _apply_frozen_target(value: dict[str, Any]) -> None:
-    facts = frozen_target_facts(value.get("execution_target_json"))
+def _apply_frozen_target(conn: Any, value: dict[str, Any]) -> None:
+    facts = frozen_target_facts(conn, value.get("execution_target_json"))
     if not value.get("target_env"):
         value["target_env"] = facts["execution_environment"]
     value["candidate_revision"] = facts["execution_candidate_revision"]
@@ -81,7 +108,7 @@ def requirement_facts(conn: Any, requirement_id: int) -> dict[str, Any]:
     if row is None:
         raise LookupError(f"QA requirement {requirement_id} does not exist")
     value = {key: row[key] for key in row.keys()}
-    _apply_frozen_target(value)
+    _apply_frozen_target(conn, value)
     if value.get("plan_id") is not None:
         project = conn.execute(
             f"SELECT project_id, name FROM qa_plans WHERE id = {p}",

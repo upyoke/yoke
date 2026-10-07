@@ -30,8 +30,12 @@ delivery flows. They bind the evidence to the deployed code identity; do not
 omit them to bypass freshness validation.
 
 A case attached to a deployment run takes that expectation from the run
-instead, and the arguments are unnecessary: the run records the commit it was
-pinned to deliver, and that is what its evidence is judged against. Naming a
+instead, and the arguments are unnecessary: the run records the commit it
+delivered for the case's own project, and that is what its evidence is judged
+against. A member carried from a bound project is judged against that
+project's build — the release output the run recorded for it (such as a
+materialized version pin), or the commit it bound when it produced none —
+never the carrying run's own lineage. Naming a
 different commit for such a case refuses (`deployment_source_contradicted`)
 rather than choosing one, and a run pinned to no commit refuses too
 (`deployment_source_unpinned`) — there would be nothing for the environment's

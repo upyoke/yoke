@@ -119,17 +119,15 @@ def handle_qa_requirement_get(request: FunctionCallRequest) -> HandlerOutcome:
             f"FROM qa_requirements WHERE id = {_p(conn)}",
             (int(req_id),),
         )
+        # What this check was pointed at, read from the target it froze
+        # rather than from the project's environments today.
+        facts = frozen_target_facts(conn, row["execution_target_json"]) if row else {}
     finally:
         conn.close()
     if row is None:
         return _error("not_found", f"requirement {req_id} not found")
     requirement = {col: row[col] for col in REQ_COLUMNS}
-    # What this check was actually pointed at, read from the target it froze
-    # rather than from whatever the project's environments say today. A
-    # release check against a run preview names no registered environment in
-    # its own column, and a page that fell back to the current one would
-    # report a different environment than the one that was checked.
-    requirement.update(frozen_target_facts(row["execution_target_json"]))
+    requirement.update(facts)
     return HandlerOutcome(
         result_payload={"requirement": requirement},
         primary_success=True,

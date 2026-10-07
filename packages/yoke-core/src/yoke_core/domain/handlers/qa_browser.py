@@ -9,9 +9,9 @@ routes through registered function ids:
   about. A case that names a persistent environment — a frozen snapshot,
   ``target_env``, a run, or a run-member stage — is returned as
   ``deployment_target`` so freshness asks that host, never a branch
-  preview. A run case also carries ``run_source``: the commit that run was
-  pinned to deliver, which is the expectation its evidence is judged
-  against. Only an unbound item case is about the branch preview: (when
+  preview. A run case also carries ``run_source``: the commit that run
+  delivered for the case's own project (a carried member's project serves
+  its own build), which is the expectation its evidence is judged against. Only an unbound item case is about the branch preview: (when
   ``expected_branch`` is supplied) the latest
   ``ephemeral_environments.deployed_sha`` for the freshness gate and the
   branch's latest recorded ephemeral preview URL (``ephemeral_url`` — the
@@ -73,7 +73,8 @@ class QaBrowserContextGetResponse(BaseModel):
     # The environment this case verifies when it names one (snapshot,
     # target_env, run, or run-member stage). None for an unbound preview.
     deployment_target: Optional[Dict[str, Any]] = None
-    # The commit a run was pinned to deliver, and the branch labelling it.
+    # The commit a run delivered for the case's project, the branch labelling
+    # it, and that project's slug.
     # Present only for a deployment-run case, which is judged against what
     # the run froze rather than against anything a caller supplies.
     run_source: Optional[Dict[str, str]] = None
@@ -151,10 +152,12 @@ def handle_qa_browser_context_get(request: FunctionCallRequest) -> HandlerOutcom
         deployment_target: Optional[Dict[str, Any]] = None
         run_source: Optional[Dict[str, str]] = None
         if deployment_run_id is not None:
-            # What the run was pinned to deliver. The deployment path had no
-            # expectation of its own before this, so a stage that certifies
-            # production recorded captures bound to no commit at all.
-            run_source = resolve_run_pinned_source(conn, str(deployment_run_id))
+            # What the run delivered for this case's own project: a member
+            # carried from a bound project is judged against that project's
+            # build, never the carrier's lineage.
+            run_source = resolve_run_pinned_source(
+                conn, str(deployment_run_id), requirement_id=int(requirement_id)
+            )
         bound = resolve_case_deployment_under_test(
             conn,
             requirement_id=int(requirement_id),

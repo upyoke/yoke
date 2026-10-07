@@ -155,34 +155,51 @@ def resolve_deployment_under_test(conn: Any, run_id: str) -> DeploymentUnderTest
     )
 
 
-def resolve_run_pinned_source(conn: Any, run_id: str) -> dict[str, str]:
-    """Return the commit *run_id* was pinned to deliver, and its branch.
+def resolve_run_pinned_source(
+    conn: Any, run_id: str, *, requirement_id: int
+) -> dict[str, str]:
+    """Return the commit *run_id* delivered for this case's project, and its branch.
 
     This is what the deployment under test is supposed to be serving, and it
     is the only expectation a run-bound Browser case may be judged against:
     an expectation supplied on the command line describes whatever the caller
     believed, while the run records what was actually frozen and shipped.
 
-    ``sha`` is empty when the run pins no commit — a fact the caller refuses
-    on, because there is then nothing for the environment's own answer to be
-    compared with.
+    A run can carry members of more than one project, and each project's
+    target serves that project's own build. A member's case is judged against
+    the commit the run delivered for the member's project (see
+    :func:`~yoke_core.domain.deployment_run_project_sources.delivered_source_sha`);
+    a case with no member is about the run's own project.
+
+    ``sha`` is empty when the run delivered no commit for that project -- a
+    fact the caller refuses on, because there is then nothing for the
+    environment's own answer to be compared with. ``project`` names whose
+    commit ``sha`` is, so a refusal can say so.
     """
+    from yoke_core.domain.deployment_run_project_sources import run_delivered_sha
+
     marker = _p(conn)
     row = conn.execute(
-        "SELECT release_lineage,project_id FROM deployment_runs "
-        f"WHERE id={marker}",
-        (str(run_id),),
+        "SELECT COALESCE(i.project_id, dr.project_id) AS project_id "
+        "FROM deployment_runs dr "
+        "LEFT JOIN qa_requirements r "
+        f"ON r.deployment_run_id = dr.id AND r.id = {marker} "
+        "LEFT JOIN items i ON i.id = r.deployment_member_item_id "
+        f"WHERE dr.id = {marker}",
+        (int(requirement_id), str(run_id)),
     ).fetchone()
     if row is None:
-        return {"sha": "", "branch": ""}
-    branch_row = conn.execute(
-        f"SELECT default_branch FROM projects WHERE id={marker}",
-        (int(_scalar(row, 1, "project_id") or 0),),
+        return {"sha": "", "branch": "", "project": ""}
+    project_id = int(_scalar(row, 0, "project_id") or 0)
+    project_row = conn.execute(
+        f"SELECT slug, default_branch FROM projects WHERE id={marker}",
+        (project_id,),
     ).fetchone()
     return {
-        "sha": str(_scalar(row, 0, "release_lineage") or "").strip(),
+        "sha": run_delivered_sha(conn, str(run_id), project_id).strip(),
         # The branch labels the commit for a reader; the commit is the proof.
-        "branch": str(_scalar(branch_row, 0, "default_branch") or "").strip(),
+        "branch": str(_scalar(project_row, 1, "default_branch") or "").strip(),
+        "project": str(_scalar(project_row, 0, "slug") or "").strip(),
     }
 
 
@@ -190,11 +207,13 @@ def validate_deployment_identity(
     expected_sha: str,
     *,
     target: DeploymentUnderTest,
+    project: str = "",
     fetch: Optional[Callable[[str], object]] = None,
 ) -> Optional[FreshnessFailure]:
     """Judge whether the run's deployment is serving *expected_sha* NOW.
 
     Returns ``None`` only when the environment itself said so on this call.
+    ``project`` names whose build both commits are, for the refusal.
     """
     from yoke_core.domain import browser_qa as _bqa
 
@@ -261,7 +280,14 @@ def validate_deployment_identity(
         return FreshnessFailure(
             SHA_MISMATCH,
             f"The environment at {outcome.url} is serving {outcome.served}, not "
-            f"the expected {expected_sha}. This is the commit it reported "
+            f"the expected {expected_sha}"
+            + (
+                f" (both are project {project!r} commits: the served one, and "
+                "the one the run delivered for that project)"
+                if project
+                else ""
+            )
+            + ". This is the commit it reported "
             "about itself just now, so a later release to this environment has "
             "replaced what the run under test deployed; run this case against "
             "the deployment that is actually live.",
