@@ -101,6 +101,7 @@ def collect_board_data(
     config: Any,
     repo_root: Optional[str] = None,
     vision_entries: Iterable[Tuple[str, str]] = (),
+    vision_project: Optional[str] = None,
     visible_project_ids: Optional[Iterable[int]] = None,
 ) -> Dict[str, Any]:
     """Execute the board's full query plan and return the recorded payload.
@@ -109,7 +110,9 @@ def collect_board_data(
     discarded; only the recorded seam reads matter. ``config``,
     ``repo_root`` and ``vision_entries`` must be the CLIENT's values
     (shipped in the ``board.data.get`` payload) because they shape which
-    queries run and with which parameters. Art config and seed shape
+    queries run and with which parameters. ``vision_project`` names the
+    project the client's checkout maps to — the owner of its VISION — and
+    travels in the payload so replay draws the same zone. Art config and seed shape
     only the discarded text, so collection always uses an empty art
     config and no seed.
     """
@@ -131,6 +134,7 @@ def collect_board_data(
             None,
             repo_root,
             list(vision_entries),
+            vision_project=vision_project,
         )
     from yoke_contracts.engine_version import installed_engine_version
 
@@ -146,6 +150,8 @@ def collect_board_data(
     }
     if normalized_visible is not None:
         payload["visible_project_ids"] = list(normalized_visible)
+    if vision_project:
+        payload["vision_project"] = vision_project
     return payload
 
 

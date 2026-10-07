@@ -104,9 +104,7 @@ def hc_project_gh_secrets(
 
 def hc_project_vps_reachable(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """Check VPS SSH connectivity for projects that declare the capability."""
-    if args.project == "yoke" or not doctor_report._table_exists(
-        conn, "project_capabilities"
-    ):
+    if not doctor_report._table_exists(conn, "project_capabilities"):
         return
     project_id = resolve_project_id(conn, args.project)
     rows = query_rows(

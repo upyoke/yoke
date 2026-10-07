@@ -23,13 +23,17 @@ _YOKE_FULL_TEST_COMMAND = (
 )
 
 
-#: Seed data for the Yoke control-plane project.
+#: Seed recipes, keyed by the source layout they describe — never by the
+#: project they are applied to. ``yoke-source`` describes a checkout of the
+#: Yoke source tree.
 #:
-#: The seeds are ordered lists of op dicts — the same shape :func:`apply_patch`
-#: accepts, minus the ``op`` field (always ``put`` for seeding).  This keeps
-#: the seed surface dogfooded against the same write contract operators use.
-_SEEDS: Dict[str, List[Dict[str, Any]]] = {
-    "yoke": [
+#: Each recipe's ``entries`` are ordered op dicts — the same shape
+#: :func:`apply_patch` accepts, minus the ``op`` field (always ``put`` for
+#: seeding).  This keeps the seed surface dogfooded against the same write
+#: contract operators use. A recipe's optional ``full_test_command`` is
+#: registered as the project's full-scope QA command plan.
+_RECIPES: Dict[str, Dict[str, Any]] = {
+    "yoke-source": {"full_test_command": _YOKE_FULL_TEST_COMMAND, "entries": [
         {"family": "areas", "attachment": "project", "entry_key": "api",
          "payload": {"description": "Yoke core API surface: domain, engines, CLI."}},
         {"family": "areas", "attachment": "project", "entry_key": "harness",
@@ -91,12 +95,14 @@ _SEEDS: Dict[str, List[Dict[str, Any]]] = {
         {"family": "context_routing", "attachment": "project",
          "entry_key": "always",
          "payload": {"docs": ["CLAUDE.md", "yoke/README.md"]}},
-    ],
+    ]},
 }
 
 
-def cmd_seed(project_id: str, db_path: Optional[str] = None) -> Dict[str, Any]:
-    """Seed a project with legible default entries.
+def cmd_seed(
+    project_id: str, recipe: str, db_path: Optional[str] = None
+) -> Dict[str, Any]:
+    """Seed *project_id* with the legible default entries of *recipe*.
 
     Idempotent per identity: only absent entries are seeded, so re-running
     ``seed`` after operator edits does not clobber them.  Runs through the
@@ -106,12 +112,14 @@ def cmd_seed(project_id: str, db_path: Optional[str] = None) -> Dict[str, Any]:
     Returns the patch result dict on success, or a noop-result dict when
     every seed entry is already present.
     """
-    seeds = _SEEDS.get(project_id)
-    if seeds is None:
+    selected = _RECIPES.get(recipe)
+    if selected is None:
         raise UsageError(
-            f"No frozen seed recipe for project '{project_id}'. "
-            f"Known seeds: {', '.join(sorted(_SEEDS))}."
+            f"No frozen seed recipe named '{recipe}'. "
+            f"Known recipes: {', '.join(sorted(_RECIPES))}. "
+            "Recovery: pass --recipe with one of them."
         )
+    seeds = selected["entries"]
 
     existing = read_structure(project_id, db_path=db_path)
     present: Dict[Tuple[str, str, str], bool] = {}
@@ -144,7 +152,8 @@ def cmd_seed(project_id: str, db_path: Optional[str] = None) -> Dict[str, Any]:
             actor="seed",
             db_path=db_path,
         )
-    if project_id == "yoke":
+    full_test_command = selected.get("full_test_command")
+    if full_test_command:
         conn = connect(path=db_path)
         try:
             if (
@@ -162,7 +171,7 @@ def cmd_seed(project_id: str, db_path: Optional[str] = None) -> Dict[str, Any]:
                     project_id=int(identity.id),
                     project=identity.slug,
                     scope="full",
-                    command=_YOKE_FULL_TEST_COMMAND,
+                    command=full_test_command,
                 )
         finally:
             conn.close()

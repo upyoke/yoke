@@ -16,9 +16,9 @@ The target is resolved by the migration-model database declaration:
   doctor already holds. This is the live shape for Yoke's ``primary``
   model.
 * ``sqlite_file`` — an external project SQLite file or archived import
-  artifact. Presence is probed by opening that file directly. Yoke itself
-  never uses this branch; ``project='yoke'`` with ``sqlite_file`` and root
-  ``data/yoke.db`` paths fail closed as unresolvable.
+  artifact. Presence is probed by opening that file directly. A declaration
+  resolving to the retired root ``data/yoke.db`` path fails closed as
+  unresolvable, whichever project declares it.
 
 Emits WARN with concrete drift details so the operator can:
 
@@ -131,8 +131,6 @@ def _resolve_authority(
         return _Authority(kind="postgres")
 
     if kind == "sqlite_file":
-        if project == "yoke":
-            return None
         location = auth.get("location") or {}
         rel = location.get("path")
         if not isinstance(rel, str) or not rel.strip():

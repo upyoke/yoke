@@ -90,7 +90,10 @@ def handle_board_data_get(request: FunctionCallRequest) -> HandlerOutcome:
             conn.commit()
         finally:
             conn.close()
+    vision_project = None
     if payload.settings_project_id is not None:
+        from yoke_core.domain.project_identity import resolve_project_slug
+
         conn = connect()
         try:
             config = resolve_board_config(conn, payload.settings_project_id)
@@ -98,6 +101,9 @@ def handle_board_data_get(request: FunctionCallRequest) -> HandlerOutcome:
                 conn,
                 payload.settings_project_id,
                 explicit=payload.scope or None,
+            )
+            vision_project = resolve_project_slug(
+                conn, int(payload.settings_project_id)
             )
         finally:
             conn.close()
@@ -114,6 +120,7 @@ def handle_board_data_get(request: FunctionCallRequest) -> HandlerOutcome:
                 config=config,
                 repo_root=payload.repo_root_token,
                 vision_entries=vision_entries,
+                vision_project=vision_project,
                 visible_project_ids=visible_project_ids,
             )
     except BoardDataError as exc:

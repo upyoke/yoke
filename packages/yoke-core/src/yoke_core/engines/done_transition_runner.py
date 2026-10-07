@@ -110,7 +110,7 @@ def run(
     project_repo, project_default_branch = _resolve_project_context(
         item_id, item_project, repo_root
     )
-    if item_project != "yoke":
+    if item_project:
         print(f"Project: {item_project} (repo: {project_repo})")
 
     deploy_flow = _query_item_field(public_ref, "deployment_flow")

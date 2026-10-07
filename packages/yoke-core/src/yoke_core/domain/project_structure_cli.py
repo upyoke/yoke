@@ -35,7 +35,7 @@ Subcommands:
   get <project-id> [--family F]       Whole structure or family slice (JSON)
   patch <project-id> (--stdin | --ops-file PATH) [--actor A]
                                       Apply an op list atomically
-  seed <project-id>                   Seed legible default entries (idempotent)
+  seed <project-id> --recipe R        Seed a recipe's default entries (idempotent)
   family-list                         Print the frozen family vocabulary"""
 
 
@@ -89,7 +89,7 @@ def cmd_patch(args: argparse.Namespace) -> int:
 
 def cmd_seed_cli(args: argparse.Namespace) -> int:
     try:
-        result = cmd_seed(args.project_id)
+        result = cmd_seed(args.project_id, args.recipe)
     except (ValidationError, UsageError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
@@ -134,6 +134,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p_seed = sub.add_parser("seed", help="Seed legible default entries")
     p_seed.add_argument("project_id")
+    p_seed.add_argument("--recipe", required=True)
 
     sub.add_parser("family-list", help="Print the frozen family vocabulary")
     return parser

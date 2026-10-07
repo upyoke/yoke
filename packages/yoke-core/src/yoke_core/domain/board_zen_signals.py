@@ -49,11 +49,9 @@ class ConnBoardDB:
         return rows[0][0] if rows else None
 
 
-def _vision_for_project(conn: Any, project_id: int, slug: str) -> List[Tuple[str, str]]:
-    """VISION horizons for zen — board applies VISION only to ``yoke``."""
+def _vision_for_project(conn: Any, project_id: int) -> List[Tuple[str, str]]:
+    """VISION horizons for zen, read from the project's own VISION doc."""
 
-    if slug != "yoke":
-        return []
     row = conn.execute(
         "SELECT content FROM strategy_docs "
         "WHERE project_id = %s AND slug = 'VISION' "
@@ -182,7 +180,7 @@ def build_zen_payloads(
         project_id = int(project["id"])
         slug = str(project["slug"])
         emoji = str(project["emoji"] or "")
-        vision = _vision_for_project(conn, project_id, slug)
+        vision = _vision_for_project(conn, project_id)
         built = _project_zen(
             db,
             project_id=project_id,

@@ -109,8 +109,6 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
             )
         ]
 
-    repo_root = _base._resolve_repo_root()
-
     # Cache each successfully inspected project's branches with the exact
     # checkout and integration target. A missing project checkout must never
     # fall back to a different repository merely because both use YOK-N refs.
@@ -136,34 +134,6 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
                 branches,
                 str(rpath),
                 proj["default_branch"],
-            )
-
-    # Default repo cache
-    default_branches: set = set()
-    if repo_root:
-        lr = _credentialed_git.run(
-            ["-C", str(repo_root), "ls-remote", "--heads", "origin"],
-            timeout=_REMOTE_READ_TIMEOUT,
-        )
-        if lr.returncode == 0:
-            for line in lr.stdout.strip().splitlines():
-                parts = line.split()
-                if len(parts) >= 2:
-                    ref = parts[1]
-                    if ref.startswith("refs/heads/"):
-                        default_branches.add(ref[len("refs/heads/"):])
-            yoke_target = next(
-                (
-                    proj["default_branch"]
-                    for proj in projects
-                    if proj["slug"] == "yoke"
-                ),
-                "main",
-            )
-            remote_caches["yoke"] = (
-                default_branches,
-                str(repo_root),
-                yoke_target,
             )
 
     # Check done/cancelled items
@@ -195,7 +165,7 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
         if not present:
             continue
 
-        proj_label = f" [{proj}]" if proj and proj != "null" and proj != "yoke" else ""
+        proj_label = f" [{proj}]" if proj and proj != "null" else ""
 
         for pattern in present:
             if args.fix:

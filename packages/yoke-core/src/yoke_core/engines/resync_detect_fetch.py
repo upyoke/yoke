@@ -2,7 +2,7 @@
 
 The :func:`_fetch_gh_issues_per_project` helper returns a per-project mapping.
 On normal fetch the per-project value is ``{issue_number: issue}``; when a
-non-control-plane project's GitHub state cannot be read, the value is an
+project's GitHub state cannot be read, the value is an
 explicit unavailable sentinel.  Downstream stages must skip classification
 and repair for unavailable projects instead of treating a failed read as an
 empty repository.
@@ -173,40 +173,13 @@ def _list_issues_via_rest(
 def _fetch_gh_issues_per_project(projects: Iterable[str]) -> Dict[str, Dict]:
     """Fetch GitHub issues per project; record per-project read failures.
 
-    Yoke (the control plane) re-raises ``ProjectGithubAuthError`` so the
-    engine boundary can fail-closed before any classification work happens.
-    Non-Yoke failures land in the result dict as the unavailable sentinel and
-    the loop continues with the remaining projects. Repository and token
-    always come from the same canonical auth resolution.
+    Every project is treated alike: a project whose auth or issues read fails
+    lands in the result dict as the unavailable sentinel and the loop
+    continues with the remaining projects. Repository and token always come
+    from the same canonical auth resolution.
     """
     by_project: Dict[str, Dict] = {}
-    project_slugs = tuple(sorted(set(projects)))
-
-    # Yoke auth failures propagate at the engine boundary.
-    if "yoke" in project_slugs:
-        yoke_auth = resolve_project_github_auth(
-            "yoke",
-            required_permissions=GITHUB_ISSUES_READ_PERMISSION_LEVELS,
-        )
-        try:
-            yoke_issues = _list_issues_via_rest(
-                yoke_auth.repo,
-                token=yoke_auth.token,
-            )
-        except RestAuthError as exc:
-            raise InvalidToken(
-                "yoke", f"REST rejected token for project 'yoke': {exc}"
-            ) from exc
-        except RestTransportError as exc:
-            raise TransportFailure(
-                "yoke", f"GitHub issues read failed for project 'yoke': {exc}"
-            ) from exc
-        by_project["yoke"] = {i["number"]: i for i in yoke_issues}
-
-    # Non-yoke projects -- per-project catch keeps the loop alive.
-    for proj in project_slugs:
-        if proj == "yoke":
-            continue
+    for proj in sorted(set(projects)):
         try:
             auth = resolve_project_github_auth(
                 proj,

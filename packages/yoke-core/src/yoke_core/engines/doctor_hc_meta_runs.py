@@ -65,7 +65,6 @@ def hc_undeployed_done(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     rows = query_rows(
         conn,
         "SELECT i.id, i.status, i.deployed_to, i.updated_at, i.project_id, "
-        "COALESCE(p.slug, 'yoke') AS project, "
         + _PINNED_WORKFLOW_COLUMNS
         + " FROM items i LEFT JOIN projects p ON p.id = i.project_id "
         "JOIN workflow_versions v ON v.id = i.workflow_version_id",
@@ -77,11 +76,7 @@ def hc_undeployed_done(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         deployed = row["deployed_to"]
         if deployed and deployed != "null":
             continue
-        # Check if project has deployment envs (simplified: skip projects without flows)
-        project = row["project"] or ""
-        if project == "null":
-            project = ""
-        # For Python version, we check if deployment_flows exist for this project
+        # Skip projects without deployment flows.
         flow_count = (
             query_scalar(
                 conn,

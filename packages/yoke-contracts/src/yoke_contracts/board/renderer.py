@@ -59,7 +59,9 @@ def render_board_from_payload(
     ``repo_root`` and ``vision_entries`` MUST be the same values the
     payload was collected with — they shape the query plan, and a
     divergent plan raises
-    :class:`yoke_contracts.board.data.BoardDataMissError`.
+    :class:`yoke_contracts.board.data.BoardDataMissError`. The vision's
+    project is the payload's own ``vision_project``; a payload without one
+    renders no vision zone.
     """
     from yoke_contracts.board.data import ReplayBoardDB
     from yoke_contracts.board.project_scope import scoped_project_visibility
@@ -76,6 +78,7 @@ def render_board_from_payload(
             seed,
             repo_root,
             list(vision_entries or []),
+            vision_project=payload.get("vision_project") or None,
         )
 
 
@@ -87,6 +90,8 @@ def _assemble(
     seed: Optional[int],
     repo_root: Optional[str],
     vision_entries: Optional[List] = None,
+    *,
+    vision_project: Optional[str] = None,
 ) -> str:
     """Core assembly — both the recording and replay passes run this.
 
@@ -180,6 +185,7 @@ def _assemble(
             pipeline_count,
             backlog_count,
             vision_entries or [],
+            vision_project,
         )
     if zen_lines:
         lines.append("")

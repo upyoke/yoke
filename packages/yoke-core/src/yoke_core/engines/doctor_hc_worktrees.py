@@ -20,7 +20,11 @@ from pathlib import Path
 from typing import List
 
 from yoke_core.domain.db_helpers import query_rows
-from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.project_identity import (
+    placeholder,
+    render_item_ref,
+    resolve_project_id,
+)
 from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
     resolve_project_github_auth,
@@ -170,12 +174,24 @@ def hc_cross_project_commits(conn, args: DoctorArgs, rec: RecordCollector) -> No
     }
     min_commit_date = _base._read_str_cutoff("hc_cross_project_commits_min_commit_date")
 
-    # Get done items with non-yoke projects
+    if not args.project:
+        rec.record(
+            "HC-cross-project-commits",
+            "Cross-project commit contamination",
+            "N/A",
+            "needs a target project to tell its own commits from other "
+            "projects'; re-run with --project <slug>",
+        )
+        return
+    # Done items owned by any project other than the one whose checkout
+    # this run reads.
+    checkout_project_id = resolve_project_id(conn, args.project)
     rows = query_rows(
         conn,
         "SELECT i.id, p.slug AS project FROM items i "
         "JOIN projects p ON p.id = i.project_id "
-        "WHERE i.status='done' AND p.slug <> 'yoke'",
+        f"WHERE i.status='done' AND p.id <> {placeholder(conn)}",
+        (checkout_project_id,),
     )
     for row in rows:
         item_id = row["id"]

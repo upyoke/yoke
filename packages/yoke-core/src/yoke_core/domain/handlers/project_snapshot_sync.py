@@ -300,14 +300,16 @@ def _refresh_render_relationship_context(
     rows: List[Dict[str, Any]],
     warnings: List[str],
 ) -> Optional[Dict[str, Any]]:
-    """Refresh Yoke's generated-file provenance after a HEAD snapshot."""
+    """Refresh the project's generated-file provenance after a HEAD snapshot.
+
+    Relationships derive from the project's own tracked paths, so a project
+    with no generated outputs records none.
+    """
     if not any(row.get("ref") == "HEAD" for row in rows):
         return None
     from yoke_core.domain.project_identity import resolve_project_slug
 
     project_slug = resolve_project_slug(conn, project_id)
-    if project_slug != "yoke":
-        return None
     try:
         from yoke_core.domain.agents_render_path_context import (
             record_render_relationships,

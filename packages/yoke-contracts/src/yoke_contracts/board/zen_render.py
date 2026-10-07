@@ -8,7 +8,7 @@ data from :mod:`zen_data` and labels/vision from :mod:`zen_labels`.
 
 from __future__ import annotations
 
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from yoke_contracts.board.config import BoardConfig
 from yoke_contracts.board.board_db import BoardDBLike
@@ -48,6 +48,7 @@ def render_zen_widget(
     pipeline_count: int,
     backlog_count: int,
     vision_entries: List[Tuple[str, str]] = (),
+    vision_project: Optional[str] = None,
 ) -> List[str]:
     """Return timeline widget lines, or ``[]`` when hidden.
 
@@ -71,6 +72,10 @@ def render_zen_widget(
         the zone layout, which feeds the timeline-position SQL, is fully
         determined by the caller's inputs on both the record and replay
         sides of the board data layer.
+    vision_project:
+        Slug of the project whose VISION produced *vision_entries* — the
+        project the caller's checkout maps to. Only that project's timeline
+        carries the vision zone; ``None`` renders no vision.
     """
     if not _zen_check_visibility(
         config.timeline_widget, active_count, pipeline_count, backlog_count
@@ -96,17 +101,14 @@ def render_zen_widget(
         if not first:
             lines.append("")
         first = False
-        # Vision applies only to the "yoke" project
-        if pid == "yoke":
-            project_lines = _zen_render_project(
-                db, pid, emoji, _WIDTH, vision_entries, vision_count,
-                label_days, df_cap_pct, extra_stops, min_labels,
-            )
-        else:
-            project_lines = _zen_render_project(
-                db, pid, emoji, _WIDTH, [], 0,
-                label_days, df_cap_pct, extra_stops, min_labels,
-            )
+        # Vision belongs to the project whose checkout rendered it.
+        owns_vision = vision_project is not None and pid == vision_project
+        project_lines = _zen_render_project(
+            db, pid, emoji, _WIDTH,
+            vision_entries if owns_vision else [],
+            vision_count if owns_vision else 0,
+            label_days, df_cap_pct, extra_stops, min_labels,
+        )
         lines.extend(project_lines)
 
     return lines

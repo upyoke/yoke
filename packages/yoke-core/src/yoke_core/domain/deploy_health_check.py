@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import sys
 import uuid as _uuid
+from pathlib import Path
 from typing import Any, Dict
 
+from yoke_contracts.install_binding import is_yoke_source_checkout
 from yoke_core.domain.deploy_cli_manifest_gate import verify_deployed_cli_manifest
 from yoke_core.tools import step_runners as _step_runners
 
@@ -122,7 +124,12 @@ def dispatch_health_check(
     )
     if rc != 0:
         return rc, ""
-    if env.deploy_namespace == "yoke":
+    if not project_repo_path:
+        print(
+            "cli-manifest gate skipped: no project repo path to tell whether "
+            "this deployment ships the Yoke CLI",
+        )
+    elif is_yoke_source_checkout(Path(project_repo_path)):
         manifest_gate = verify_deployed_cli_manifest(environment_name)
         print(manifest_gate.message)
         if manifest_gate.checked and not manifest_gate.ok:
