@@ -30,13 +30,11 @@ class ProjectsUpsertRequest(BaseModel):
     emoji: Optional[str] = None
     github_sync_mode: Optional[str] = None
     allow_public_github_sync: StrictBool = False
-    test_owner: Optional[str] = None
 
 
 class ProjectsUpsertResponse(BaseModel):
     created: bool
     project: Dict[str, Any]
-    test_owner: Optional[str] = None
 
 
 def _handle_projects_write(

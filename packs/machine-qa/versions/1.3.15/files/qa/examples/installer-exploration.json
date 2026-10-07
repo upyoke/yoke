@@ -1,0 +1,17 @@
+[
+  {
+    "case_key": "installer-exploration",
+    "position": 1,
+    "method_id": "exploratory-mission",
+    "instructions": "Start from the fresh dedicated test machine with no supplied project context. Install the application candidate as a new user and choose your own sequence through the terminal, browser and real desktop. Explore welcome and prerequisite framing, PATH diagnosis and repair, review and apply behavior, successful handoff, credential-file permissions without reading credentials, and resulting application status. Look for confusing, broken, missing, unsafe or unnecessarily difficult behavior. Follow the product as a user would; do not turn these landmarks into a scripted checklist. After candidate installation, restore the separate browser-profile baseline when this project uses one. Agents complete setup and application steps that do not need the user; personal credential entry is a human gate.",
+    "expected_outcome": "Return a ranked, actionable report grounded in observed behavior, with enough detail to reproduce each finding. Name every important area that could not be verified and why. Use available declared substrates, discard routine perception and stay within the runtime-supplied artifact limit using only deliberate proof. Record each Yoke project the walk creates in the item's Progress Log as it is created, and before returning pass or fail retire each one with your own control-plane CLI, never Yoke on the Test Machine, then run the mission's printed scratch-teardown command. Name any retirement blocker and its recovery. Return HUMAN_GATE with the exact personal action and resume state when the user must enter credentials or answer a personal permission prompt.",
+    "method_config": {
+      "executor": "naive_target_session"
+    },
+    "host_baselines": [
+      "fresh-host"
+    ],
+    "entry_surface": null,
+    "required_completion": null
+  }
+]

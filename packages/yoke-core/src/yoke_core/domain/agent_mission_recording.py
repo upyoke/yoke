@@ -250,9 +250,6 @@ def handle_agent_mission_access(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 def register(registry: Any) -> None:
-    from yoke_core.domain import agent_mission_owner_state
-
-    agent_mission_owner_state.register(registry)
     for function_id, handler, request_model, response_model, events in (
         (
             "test_machine.mission.ready",

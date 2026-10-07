@@ -7,7 +7,10 @@ import json
 import sys
 from typing import Optional
 
-from yoke_contracts.qa_mission_scratch import MissionScratchIdentityError
+from yoke_contracts.qa_mission_scratch import (
+    STALE_OWNER_MARKER,
+    MissionScratchIdentityError,
+)
 from yoke_core.domain.agent_mission_host_command_cli import (
     add_mission_subject_arguments,
     resolve_mission_contract,
@@ -69,9 +72,11 @@ def run(args: list[str]) -> int:
             sort_keys=True,
         )
     )
-    if not result.get("project_cleanup_ok", True):
+    if not result["stale_owner_marker_removed"]:
         print(
-            f"{PROG}: qa_project_cleanup_incomplete: {result['project_cleanup']}",
+            f"{PROG}: stale_owner_marker_not_removed: ~/{STALE_OWNER_MARKER} "
+            "is still on the Test Machine. Nothing reads it; restore the host "
+            "user's write access to that file, then re-run this command.",
             file=sys.stderr,
         )
         return 3

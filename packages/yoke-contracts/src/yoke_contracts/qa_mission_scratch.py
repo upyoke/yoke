@@ -57,13 +57,32 @@ def mission_scratch_probe_argv(path: str) -> list[str]:
     return [HOST_TEST_COMMAND, "-e", path]
 
 
+# Earlier builds left a test-project owner marker in the host's Yoke home.
+# Nothing reads it any more; preparation and teardown delete it, and delete
+# that home too when the marker was all it held, so a never-installed
+# baseline carries no Yoke folder just from being tested.
+STALE_OWNER_MARKER = ".yoke/qa-project-owner.json"
+
+
+def stale_owner_marker_remove_argv() -> list[str]:
+    """Delete the stale owner marker, then its Yoke home if left empty."""
+    return [
+        "/bin/sh",
+        "-c",
+        f'rm -f "$HOME/{STALE_OWNER_MARKER}" || exit 1; '
+        'rmdir "$HOME/.yoke" 2>/dev/null; exit 0',
+    ]
+
+
 __all__ = [
     "MISSION_SCRATCH_MODE",
     "MISSION_SCRATCH_ROOT",
     "MissionScratchIdentityError",
+    "STALE_OWNER_MARKER",
     "mission_scratch_create_argv",
     "mission_scratch_path",
     "mission_scratch_probe_argv",
     "mission_scratch_remove_argv",
     "mission_scratch_secure_argv",
+    "stale_owner_marker_remove_argv",
 ]

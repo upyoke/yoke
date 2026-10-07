@@ -88,14 +88,6 @@ def create_project(
         public_item_prefix=public_item_prefix,
         github_sync_mode=github_sync_mode(github_adoption),
     )
-    from yoke_cli.config.qa_project_ownership import test_project_owner
-
-    try:
-        owner = test_project_owner()
-    except ValueError as exc:
-        raise ProjectOnboardError(str(exc)) from exc
-    if owner:
-        payload["test_owner"] = owner
     if not apply:
         return project_dry_run(
             "project.create",
@@ -130,12 +122,6 @@ def create_project(
             )
     with onboard_apply_progress.step(progress, scaffold_action):
         result = operations.dispatch("projects.create", payload, config_path)
-        if owner and result.get("test_owner") != owner:
-            raise ProjectOnboardError(
-                "qa_project_owner_not_recorded: the serving build did not confirm "
-                "case ownership. Deploy the build carrying project retirement, "
-                "then re-run the machine case; retain the created project's history."
-            )
         report = project_onboard_apply.finish_after_dispatch(
             operation="project.create",
             root=root,
