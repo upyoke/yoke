@@ -45,7 +45,7 @@ yoke qa plan run --deployment-run-id RUN --stage item-qa \
 # Submit the complete verdict batch requested by an exit-12 review descriptor
 printf '%s' '{"verdicts":[{"requirement_id":1,"verdict":"pass","rationale":"The captured frame matches the expected outcome."}]}' |
  yoke qa plan review-submit \
- --item-id N --execution-id <execution-id> --bundle-id <bundle-id> \
+ --item-id PREFIX-N --execution-id <execution-id> --bundle-id <bundle-id> \
  --bundle-digest <sha256> --stdin
 
 # Execute one materialized case
@@ -58,7 +58,7 @@ yoke qa requirement waive \
 
 # List requirements for an item, epic, or deployment run
 yoke qa requirement list --item YOK-N
-yoke qa requirement list --epic-id 833 --json
+yoke qa requirement list --epic PREFIX-N --json
 yoke qa requirement list --deployment-run-id run-20260616-001 --json
 
 # Get or update a single requirement
@@ -134,9 +134,9 @@ the exact deployed candidate; a newer deployment cannot certify an older run.
 | `yoke qa plan materialize` | `--item PREFIX-N --transition T` | Materialize project-default and item-attached plan cases |
 | `yoke qa plan rematerialize` | `--item PREFIX-N --transition T` | Bring live rows to their plan's current text, retaining QA run history; refuses by name rather than move a row a live walk or an in-flight admitted copy has frozen |
 | `yoke qa plan run` | `--item PREFIX-N --transition T [--machine NAME] [--continue-mission] [runner opts]` | Execute one durable roster; without a pin, prefer a verified free Test Machine. `--continue-mission` resumes a mission walk the stale sweep settled while its walker was parked, reaching no host baseline so the machine keeps that walk's state |
-| `yoke qa plan review-submit` | `(--item-id N \| --deployment-run-id RUN) --execution-id ID --bundle-id ID --bundle-digest SHA256 --stdin` | Persist one complete agent-verdict batch for an immutable review bundle |
+| `yoke qa plan review-submit` | `(--item-id PREFIX-N \| --deployment-run-id RUN) --execution-id ID --bundle-id ID --bundle-digest SHA256 --stdin` | Persist one complete agent-verdict batch for an immutable review bundle |
 | `yoke qa case run` | `--requirement-id N [runner opts]` | Authorize and execute one immutable case snapshot locally |
-| `yoke qa requirement list` | `[--item PREFIX-N \| --epic-id N \| --deployment-run-id ID]` | List requirements, each materialized row reporting `plan_currency` and `plan_diverging_fields` against its plan case |
+| `yoke qa requirement list` | `[--item PREFIX-N \| --epic PREFIX-N \| --deployment-run-id ID]` | List requirements, each materialized row reporting `plan_currency` and `plan_diverging_fields` against its plan case |
 | `yoke qa requirement get` | `N` or `--requirement-id N` | Get one requirement |
 | `yoke qa plan get` | `PLAN_ID_OR_SLUG --project P` or `--plan-id PLAN_ID_OR_SLUG --project P` | Get one project plan |
 | `yoke qa requirement update` | `--requirement-id N --field FIELD (--value VALUE \| --null)` | Update one mutable field |
@@ -303,7 +303,7 @@ registered `yoke qa ...` adapter is present in this branch:
 
 Public requirement creation is item-scoped. Epic-task and deployment-run
 requirements are materialized by their owning lifecycle/deployment flows; the
-public read surface can list them with `--epic-id` or `--deployment-run-id`.
+public read surface can list them with `--epic PREFIX-N` or `--deployment-run-id`.
 
 ## Gate Summary
 
@@ -314,7 +314,7 @@ teaching internal `qa_gates` commands.
 ```sh
 # Preview verification-phase gaps before reviewed-implementation
 yoke qa gate-summary --item YOK-N --target reviewed-implementation --json
-yoke qa gate-summary --epic-id 833 --task-num 5 --target reviewed-implementation
+yoke qa gate-summary --epic PREFIX-N --task-num 5 --target reviewed-implementation
 
 # Preview blocking requirements across phases before the implemented handoff
 yoke qa gate-summary --item YOK-N --target implemented --json
@@ -328,7 +328,7 @@ yoke qa gate-summary --item YOK-N --target implemented --json
 **Argument format:**
 
 - Item: `--item PREFIX-N` (for example, `--item YOK-N`)
-- Epic task: `--epic-id N --task-num K` (for example, `--epic-id 833 --task-num 5`)
+- Epic task: `--epic PREFIX-N --task-num K` (for example, `--epic YOK-N --task-num 5`)
 
 **Environment:**
 
