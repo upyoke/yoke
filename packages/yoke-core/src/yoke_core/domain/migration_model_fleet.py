@@ -4,11 +4,15 @@ Rehearsing a history entry against the model's validation surface proves
 nothing about the databases behind it, because that surface is current. Before
 a release carries an entry, a throwaway copy of every live database the model
 owns is converged through that model's real boot sequence. This module is the
-declaration of what "every live database" and "its real boot sequence" mean
-for one model, so the same preflight and the same release gate serve every
-project.
+contract for declaring what "every live database" and "its real boot
+sequence" mean for one model, so one preflight and one release gate serve
+every project.
 
-A model declares one ``fleet`` of three kinds:
+Each model named in the project's ``migration_model`` capability declares one
+fleet in the project's ``migration_fleet`` capability,
+``{"models": {"<model>": <fleet>}}``. The fleet is release evidence
+configuration, so it is its own document beside the authoring declaration
+rather than a key inside it. A fleet is one of three kinds:
 
 ``engine_tenants``
     The engine's own tenant databases on the environment's admin cluster,
@@ -28,9 +32,8 @@ A model declares one ``fleet`` of three kinds:
     single database on a host the admin cluster cannot copy. ``reason`` says
     why, and the release gate prints it rather than rehearsing.
 
-The fleet lives on the model in the project's ``migration_model`` capability
-settings. A release gate refuses a model that declares no fleet at all: an
-undeclared fleet and an empty one are different facts.
+A release gate refuses a model that declares no fleet at all: an undeclared
+fleet and an empty one are different facts.
 """
 
 from __future__ import annotations
@@ -38,21 +41,54 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, Tuple
+from typing import Any, Dict, List, Mapping
 
 FLEET_ENGINE_TENANTS = "engine_tenants"
 FLEET_NAMED_DATABASES = "named_databases"
 FLEET_NONE = "none"
 FLEET_KINDS = (FLEET_ENGINE_TENANTS, FLEET_NAMED_DATABASES, FLEET_NONE)
 
-#: Registered read serving a project's migration_model declaration.
-CAPABILITY_FUNCTION_ID = "projects.capability_settings.get"
+#: ``project_capabilities.type`` of the per-model fleet declarations.
+CAPABILITY_TYPE = "migration_fleet"
 
 _DATABASE_NAME_RE = re.compile(r"^[a-z_][a-z0-9_]*$")
+_MODEL_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
 
-def validate_fleet(value: Any, error: type) -> Dict[str, Any]:
-    """Normalize one model's ``fleet`` declaration, raising *error* on refusal."""
+class MigrationFleetError(ValueError):
+    """A ``migration_fleet`` capability payload fails validation."""
+
+
+def validate_capability(payload: Any) -> Dict[str, Any]:
+    """Validate and normalize a ``migration_fleet`` settings document."""
+    if not isinstance(payload, dict) or set(payload) != {"models"}:
+        raise MigrationFleetError(
+            'migration_fleet settings must be {"models": {"<model>": <fleet>}}'
+        )
+    models = payload["models"]
+    if not isinstance(models, dict) or not models:
+        raise MigrationFleetError("migration_fleet requires a non-empty 'models' dict")
+    out: Dict[str, Any] = {}
+    for name in sorted(models):
+        if not isinstance(name, str) or not _MODEL_NAME_RE.match(name):
+            raise MigrationFleetError(f"models key {name!r} is not a model name")
+        out[name] = validate_fleet(models[name])
+    return {"models": out}
+
+
+def validate_json_string(raw: str) -> str:
+    """Parse, validate, and return compact canonical capability JSON."""
+    try:
+        payload = json.loads(raw or "")
+    except json.JSONDecodeError as exc:
+        raise MigrationFleetError(f"malformed JSON: {exc}") from exc
+    return json.dumps(
+        validate_capability(payload), sort_keys=True, separators=(",", ":")
+    )
+
+
+def validate_fleet(value: Any, error: type = MigrationFleetError) -> Dict[str, Any]:
+    """Normalize one model's fleet declaration, raising *error* on refusal."""
     if not isinstance(value, dict):
         raise error(f"fleet must be a JSON object; got {type(value).__name__}")
     kind = value.get("kind")
@@ -128,68 +164,20 @@ def _checkout_relative(path: str, *, error: type) -> str:
     return pure.as_posix()
 
 
-def fleet_of(model: Mapping[str, Any]) -> Optional[Dict[str, Any]]:
-    """The model's declared fleet, or ``None`` when it declares none at all."""
-    fleet = model.get("fleet")
-    return dict(fleet) if isinstance(fleet, Mapping) else None
-
-
 def undeclared_refusal(project: str, model_name: str) -> str:
     """Why a release cannot proceed for a model with no fleet, and the fix."""
     return (
         f"migration model {model_name!r} of project {project!r} declares no "
         "fleet, so the release cannot say which live databases must be "
-        "rehearsed. Declare one on the model with `yoke projects "
-        f"capability-settings merge --project {project} --cap-type "
-        f"migration_model` — `fleet.kind` is `{FLEET_ENGINE_TENANTS}`, "
-        f"`{FLEET_NAMED_DATABASES}` (names, converge_argv, "
-        f"schema_shape_sources), or `{FLEET_NONE}` with a reason. Contract: "
+        "rehearsed. Declare it in the project's migration_fleet capability: "
+        f"`yoke projects capability-settings merge --project {project} "
+        f"--cap-type {CAPABILITY_TYPE} --set models.{model_name}=<fleet JSON>` "
+        "(`capability-settings set --new` creates the document). The fleet "
+        f"kind is `{FLEET_ENGINE_TENANTS}`, `{FLEET_NAMED_DATABASES}` (names, "
+        f"converge_argv, schema_shape_sources), or `{FLEET_NONE}` with a "
+        "reason. Contract: "
         ".yoke/docs/reference/db-reference/migration-model-fleet.md."
     )
-
-
-def read_capability(project: str) -> Tuple[Dict[str, Any], str]:
-    """The project's validated ``migration_model`` capability, or why not.
-
-    ``({}, "")`` means the project declares no migration model at all.
-
-    Read through the registered capability read, so a gate on a relayed
-    control plane and a preflight beside a local one read the same document.
-    An unreadable declaration fails closed: guessing it would report a release
-    as carrying nothing to rehearse.
-    """
-    from yoke_contracts.api.function_call import TargetRef
-    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
-    from yoke_core.domain.migration_model_capability_validation import (
-        MigrationModelCapabilityError,
-        validate,
-    )
-
-    unknown = f"could not read the migration_model capability of project {project!r}"
-    try:
-        response = call_dispatcher(
-            function_id=CAPABILITY_FUNCTION_ID,
-            target=TargetRef(kind="global"),
-            payload={"project": project, "cap_type": "migration_model"},
-        )
-    except Exception as exc:  # noqa: BLE001 - unreadable declaration fails closed
-        return {}, f"{unknown}: {exc}"
-    if not response.success:
-        if response.error is not None and response.error.code == "not_found":
-            # No declaration means the project governs no database migrations.
-            return {}, ""
-        detail = (
-            response.error.message
-            if response.error is not None
-            else "capability read refused"
-        )
-        return {}, f"{unknown}: {detail}"
-    result = response.result if isinstance(response.result, Mapping) else {}
-    raw = str(result.get("settings_json") or "")
-    try:
-        return validate(json.loads(raw)), ""
-    except (MigrationModelCapabilityError, TypeError, ValueError) as exc:
-        return {}, f"{unknown}: {exc}"
 
 
 def schema_shape_digest(fleet: Mapping[str, Any], checkout: Path) -> str:
@@ -217,15 +205,16 @@ def schema_shape_digest_at(
 
 
 __all__ = [
-    "CAPABILITY_FUNCTION_ID",
+    "CAPABILITY_TYPE",
     "FLEET_ENGINE_TENANTS",
     "FLEET_KINDS",
     "FLEET_NAMED_DATABASES",
     "FLEET_NONE",
-    "fleet_of",
-    "read_capability",
+    "MigrationFleetError",
     "schema_shape_digest",
     "schema_shape_digest_at",
     "undeclared_refusal",
+    "validate_capability",
     "validate_fleet",
+    "validate_json_string",
 ]

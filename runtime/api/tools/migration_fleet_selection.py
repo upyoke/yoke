@@ -1,7 +1,8 @@
 """Turn one project's declared migration-model fleet into a rehearsal.
 
-The fleet preflight is one path for every project: it reads the model's
-``fleet`` declaration (see :mod:`yoke_core.domain.migration_model_fleet`) and
+The fleet preflight is one path for every project: it reads the fleet the
+model declares in the project's ``migration_fleet`` capability (see
+:mod:`yoke_core.domain.migration_model_fleet`) and
 binds the generic rehearsal kernel to it. An ``engine_tenants`` fleet uses the
 engine's own tenant roster and boot convergence; a ``named_databases`` fleet
 uses the databases and boot command the project declares, run from that
@@ -33,16 +34,18 @@ def resolve(
     project: str, model_name: Optional[str] = None
 ) -> Tuple[Optional[FleetTarget], str]:
     """The project's model fleet as a rehearsal, or why there is none to run."""
-    capability, unreadable = fleets.read_capability(project)
+    from yoke_core.domain.migration_model_fleet_read import read_declared
+
+    declared, unreadable = read_declared(project)
     if unreadable:
         return None, unreadable
-    models: Mapping[str, Any] = capability.get("models") or {}
+    models: Mapping[str, Any] = declared.models
     if not models:
         return None, (
             f"project {project!r} declares no migration_model capability, so "
             "it has no governed databases to rehearse"
         )
-    name = model_name or str(capability.get("default_model") or "")
+    name = model_name or declared.default_model
     if not name:
         return None, (
             f"project {project!r} declares no default_model; name the model "
@@ -54,7 +57,7 @@ def resolve(
             f"project {project!r} declares no migration model {name!r}; "
             f"declared: {sorted(models)}"
         )
-    fleet = fleets.fleet_of(model)
+    fleet = declared.fleet(name)
     if fleet is None:
         return None, fleets.undeclared_refusal(project, name)
     if fleet["kind"] == fleets.FLEET_NONE:

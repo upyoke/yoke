@@ -2,7 +2,7 @@
 
 Every GitHub workflow a deployment run dispatches for a project that declares
 a ``migration_model`` is a release of that project's databases, so before it
-dispatches, each declared model's fleet is checked against what the release
+dispatches, the fleet each model declares in ``migration_fleet`` is checked against what the release
 commit carries. A model whose fleet is ``none`` is skipped with its declared
 reason; a model that declares no fleet at all refuses the dispatch with the
 declaration recipe, because an undeclared fleet and an empty one are
@@ -33,6 +33,7 @@ from typing import Any, List, Mapping, Sequence, Tuple
 from yoke_core.domain import deploy_pipeline_environment
 from yoke_core.domain import migration_model_fleet as fleets
 from yoke_core.domain import migration_preflight_receipt as receipt
+from yoke_core.domain.migration_model_fleet_read import read_declared
 from yoke_core.domain.migration_preflight_receipt_store import read_coverage
 from yoke_core.domain.schema_shape_source import SchemaShapeSourceError
 
@@ -77,12 +78,12 @@ def ensure_before_dispatch(
 
 def _declared_fleets(project: str) -> tuple[List[DeclaredFleet], str]:
     """The project's models owing a fleet rehearsal, or why none can be named."""
-    capability, unreadable = fleets.read_capability(project)
+    declared, unreadable = read_declared(project)
     if unreadable:
         return [], unreadable
     due: List[DeclaredFleet] = []
-    for name, model in sorted((capability.get("models") or {}).items()):
-        fleet = fleets.fleet_of(model)
+    for name, model in sorted(declared.models.items()):
+        fleet = declared.fleet(name)
         if fleet is None:
             return [], fleets.undeclared_refusal(project, name)
         if fleet["kind"] == fleets.FLEET_NONE:

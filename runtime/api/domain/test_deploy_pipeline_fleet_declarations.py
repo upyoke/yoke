@@ -6,7 +6,7 @@ from unittest import mock
 
 from yoke_core.domain import deploy_pipeline_fleet_rehearsal as rehearsal
 from yoke_core.domain import deploy_pipeline_step_runners
-from runtime.api.domain.test_deploy_pipeline_fleet_rehearsal import (
+from runtime.api.domain.fleet_rehearsal_dispatch_test_helpers import (
     _covered,
     _declare,
     _dispatch,
@@ -66,7 +66,7 @@ def test_model_with_undeclared_fleet_refuses_with_the_declaration_recipe(
 
     assert rc == 1
     assert "declares no fleet" in diagnostic
-    assert "capability-settings merge --project platform" in diagnostic
+    assert "--project platform --cap-type migration_fleet" in diagnostic
     coverage.assert_not_called()
     workflow.assert_not_called()
 

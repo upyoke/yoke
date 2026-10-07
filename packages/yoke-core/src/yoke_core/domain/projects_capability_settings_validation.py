@@ -15,12 +15,20 @@ from yoke_contracts.machine_config.test_machine import (
     test_machine_capability_type,
 )
 from yoke_core.domain import json_helper
+from yoke_core.domain.migration_model_fleet import (
+    CAPABILITY_TYPE as MIGRATION_FLEET_CAPABILITY_TYPE,
+)
 
 
 def canonicalize_capability_settings(cap_type: str, raw_json: str) -> str:
     """Validate and canonicalize settings JSON for typed capabilities."""
     if cap_type == "migration_model":
         from yoke_core.domain.migration_model_capability import validate_json_string
+
+        return validate_json_string(raw_json)
+
+    if cap_type == MIGRATION_FLEET_CAPABILITY_TYPE:
+        from yoke_core.domain.migration_model_fleet import validate_json_string
 
         return validate_json_string(raw_json)
 
@@ -91,9 +99,7 @@ def canonicalize_capability_settings(cap_type: str, raw_json: str) -> str:
     return raw_json
 
 
-_CONTAINER_REGISTRY_KEYS = frozenset(
-    {"repository", "manage_platform_image_lifecycle"}
-)
+_CONTAINER_REGISTRY_KEYS = frozenset({"repository", "manage_platform_image_lifecycle"})
 
 
 def _canonicalize_container_registry(raw_json: str) -> str:

@@ -13,14 +13,11 @@ from yoke_core.domain.migration_fleet_declared_plan import (
     declared_plan,
     run_declared,
 )
-from yoke_core.domain.migration_model_capability_validation import (
-    MigrationModelCapabilityError,
-    validate,
-)
 from yoke_core.domain.migration_model_fleet import (
     FLEET_NAMED_DATABASES,
-    fleet_of,
+    MigrationFleetError,
     undeclared_refusal,
+    validate_capability,
     validate_fleet,
 )
 from yoke_core.domain.schema_shape_source import (
@@ -38,13 +35,6 @@ _NAMED = {
 }
 
 
-def _capability(fleet: dict | None) -> dict:
-    seed = governed_postgres_test_seed()
-    if fleet is not None:
-        seed["models"]["primary"]["fleet"] = fleet
-    return seed
-
-
 @pytest.mark.parametrize(
     "fleet",
     [
@@ -54,16 +44,25 @@ def _capability(fleet: dict | None) -> dict:
     ],
 )
 def test_capability_accepts_each_fleet_kind(fleet: dict) -> None:
-    model = validate(_capability(fleet))["models"]["primary"]
-    assert fleet_of(model) == fleet
+    assert validate_capability({"models": {"primary": fleet}}) == {
+        "models": {"primary": fleet}
+    }
 
 
-def test_capability_without_fleet_stays_valid_and_reads_as_undeclared() -> None:
-    model = validate(_capability(None))["models"]["primary"]
-    assert fleet_of(model) is None
+@pytest.mark.parametrize(
+    "payload",
+    [{}, {"models": {}}, {"models": {"Primary": {"kind": "engine_tenants"}}}, []],
+)
+def test_capability_document_shape_is_enforced(payload) -> None:
+    with pytest.raises(MigrationFleetError):
+        validate_capability(payload)
+
+
+def test_undeclared_refusal_names_the_declaration_recipe() -> None:
     refusal = undeclared_refusal("platform", "registry")
     assert "declares no fleet" in refusal
-    assert "capability-settings merge --project platform" in refusal
+    assert "--project platform --cap-type migration_fleet" in refusal
+    assert "models.registry=" in refusal
 
 
 @pytest.mark.parametrize(
@@ -80,10 +79,8 @@ def test_capability_without_fleet_stays_valid_and_reads_as_undeclared() -> None:
     ],
 )
 def test_malformed_fleet_is_refused_by_name(fleet: dict, fragment: str) -> None:
-    with pytest.raises(
-        MigrationModelCapabilityError, match=fragment.replace(".", r"\.")
-    ):
-        validate_fleet(fleet, MigrationModelCapabilityError)
+    with pytest.raises(MigrationFleetError, match=fragment.replace(".", r"\.")):
+        validate_fleet(fleet)
 
 
 def test_declared_source_digest_follows_content_and_names_missing_files(
@@ -195,3 +192,40 @@ def test_missing_command_names_where_it_was_run(tmp_path: Path) -> None:
             env_var="SERVICE_DSN",
             dsn="dbname=copy",
         )
+
+
+def test_capability_write_validates_and_canonicalizes_migration_fleet() -> None:
+    from yoke_core.domain.projects_capability_settings_validation import (
+        canonicalize_capability_settings,
+    )
+
+    raw = '{"models": {"registry": {"reason": " host-local ", "kind": "none"}}}'
+    assert canonicalize_capability_settings("migration_fleet", raw) == (
+        '{"models":{"registry":{"kind":"none","reason":"host-local"}}}'
+    )
+    with pytest.raises(MigrationFleetError, match="fleet.kind"):
+        canonicalize_capability_settings(
+            "migration_fleet", '{"models": {"registry": {"kind": "all"}}}'
+        )
+
+
+def test_reader_refuses_a_fleet_for_a_model_the_project_does_not_declare(
+    monkeypatch,
+) -> None:
+    from yoke_core.domain import migration_model_fleet_read as reader
+
+    documents = {
+        "migration_model": {"default_model": "primary", "models": {"primary": {}}},
+        "migration_fleet": {"models": {"registry": {"kind": "engine_tenants"}}},
+    }
+    monkeypatch.setattr(
+        reader,
+        "_read_document",
+        lambda _project, cap_type, _validate, _invalid: (documents[cap_type], ""),
+    )
+
+    declared, error = reader.read_declared("platform")
+
+    assert declared.models == {}
+    assert "['registry']" in error
+    assert "does not declare" in error

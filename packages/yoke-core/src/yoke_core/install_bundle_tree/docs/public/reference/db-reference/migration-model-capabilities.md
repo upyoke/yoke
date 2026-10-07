@@ -19,8 +19,7 @@ variables; Yoke owns lifecycle gates, leases, freshness checks,
     "primary": {
       "authoritative_db": {"kind": "sqlite_file", "location": {...}},
       "validation_surface": {"kind": "worktree_local_sqlite", "provisioning": {...}},
-      "runner": {"kind": "governed_migration_module", "config": {...}},
-      "fleet": {"kind": "...", ...}
+      "runner": {"kind": "governed_migration_module", "config": {...}}
     }
   }
 }
@@ -29,8 +28,9 @@ variables; Yoke owns lifecycle gates, leases, freshness checks,
 `default_model`, if present, must name a key inside `models`. Model names
 are slug-shape (`^[a-z0-9][a-z0-9_-]*$`). Validator output is normalized
 to canonical key order so settings JSON round-trips deterministically.
-`fleet` declares the live databases a release must rehearse and the boot
-sequence that converges them; its contract, the fleet preflight, and the
+Each model's release fleet — the live databases a release must rehearse and
+the boot sequence that converges them — is declared in the separate
+`migration_fleet` capability; its contract, the fleet preflight, and the
 release gate that reads it are in [`migration-model-fleet.md`](migration-model-fleet.md).
 
 ## Validation Recipes

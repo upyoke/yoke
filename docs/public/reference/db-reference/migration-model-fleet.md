@@ -5,24 +5,26 @@ nothing about the live databases behind it, because that surface is current
 and a current database has nothing pending. Before a release carries an
 entry, a throwaway copy of every live database the model owns is converged
 through that model's real boot sequence. Each model in a project's
-`migration_model` capability declares what that means for it, under `fleet`.
-There is one preflight and one release gate for every project; the
-declaration is the only per-project part.
+`migration_model` capability declares what that means for it in the project's
+`migration_fleet` capability, `{"models": {"<model>": <fleet>}}`. The fleet is
+release-evidence configuration, so it is its own document beside the
+authoring declaration. There is one preflight and one release gate for every
+project; the declaration is the only per-project part.
 
 ## Declaration
 
-| `fleet.kind` | Databases rehearsed | Boot sequence | Other keys |
+| `kind` | Databases rehearsed | Boot sequence | Other keys |
 |---|---|---|---|
 | `engine_tenants` | The engine's tenant databases on the environment's admin cluster, rostered with the reason each candidate is or is not a member | The engine's boot-time schema and history convergence | none |
 | `named_databases` | `names`: databases on the environment's admin cluster | `converge_argv`, run from the project checkout with the copy's DSN bound to `runner.config.connection_env_var`; optional `verify_argv` runs the same way afterwards and must exit 0 | `schema_shape_sources`: checkout-relative files whose content is the schema the boot converges |
 | `none` | Nothing | Nothing | `reason`: why this model has no live databases a release can rehearse |
 
 ```jsonc
-// The engine's own model.
-"fleet": {"kind": "engine_tenants"}
+// The engine's own model, under "models": {"primary": ...}.
+{"kind": "engine_tenants"}
 
 // A service converging its own registry database at boot.
-"fleet": {
+{
   "kind": "named_databases",
   "names": ["service_registry"],
   "converge_argv": ["uv", "run", "--project", "services/svc", "python", "-m", "svc.schema", "init"],
@@ -31,13 +33,15 @@ declaration is the only per-project part.
 }
 
 // One database on a host the admin cluster cannot copy.
-"fleet": {"kind": "none", "reason": "single SQLite database on the production host"}
+{"kind": "none", "reason": "single SQLite database on the production host"}
 ```
 
-`fleet` is optional to the capability validator, so existing documents stay
-valid, but a release gate refuses a model that declares none: an undeclared
-fleet and an empty one are different facts. Declare it with
-`yoke projects capability-settings merge --project P --cap-type migration_model`.
+A release gate refuses a model that declares no fleet, and a fleet for a model
+the project's `migration_model` does not declare: an undeclared fleet and an
+empty one are different facts. Create the document with
+`yoke projects capability-settings set --project P --cap-type migration_fleet
+--new --settings-json '{"models": {...}}'`; change one model with
+`capability-settings merge --set models.<model>=<fleet JSON>`.
 
 The admin cluster is the environment's `release.admin_connection` setting on
 the project's own environment. A `named_databases` fleet runs from the

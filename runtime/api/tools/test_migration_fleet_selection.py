@@ -6,8 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.domain import migration_model_fleet as fleets
-from yoke_core.domain import project_checkout_locations
+from yoke_core.domain import migration_model_fleet_read, project_checkout_locations
 from runtime.api.tools import migration_fleet_selection as selection
 from runtime.api.fixtures.migration_model_test import governed_postgres_test_seed
 
@@ -16,9 +15,14 @@ def _declare(monkeypatch: pytest.MonkeyPatch, fleet: dict | None) -> None:
     capability = governed_postgres_test_seed()
     model = capability["models"]["primary"]
     model["runner"]["config"]["modules_dir"] = "service/migrations"
-    if fleet is not None:
-        model["fleet"] = fleet
-    monkeypatch.setattr(fleets, "read_capability", lambda _project: (capability, ""))
+    declared = migration_model_fleet_read.DeclaredFleets(
+        models=capability["models"],
+        default_model=capability["default_model"],
+        fleets={} if fleet is None else {"primary": fleet},
+    )
+    monkeypatch.setattr(
+        migration_model_fleet_read, "read_declared", lambda _project: (declared, "")
+    )
 
 
 def test_undeclared_fleet_is_refused_with_the_declaration_recipe(monkeypatch) -> None:

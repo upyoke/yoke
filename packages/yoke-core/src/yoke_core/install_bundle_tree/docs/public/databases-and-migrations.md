@@ -49,9 +49,9 @@ makes those databases refuse to boot on a content mismatch.
 ## Item vs fleet
 
 Rehearsal against the validation surface does not prove every live database.
-Each migration model declares its `fleet` — the engine's tenant databases,
-databases the project names and converges with its own boot command, or
-`none` with a reason — and `yoke watch preflight -- --project P <environment>`
+Each migration model declares its fleet in the project's `migration_fleet`
+capability — the engine's tenant databases, databases the project names and
+converges with its own boot command, or `none` with a reason — and `yoke watch preflight -- --project P <environment>`
 rehearses exactly that fleet for every project
 ([reference/db-reference/migration-model-fleet.md](reference/db-reference/migration-model-fleet.md)).
 Fleet preflight exists for release trains carrying a history entry or a

@@ -258,9 +258,9 @@ Query-time time-window predicates route through `yoke_core.domain.time_sql.now_s
 
 ## `migration_model` capability — recipe + runner vocabulary
 
-Validation recipes, migration runners, and each model's release `fleet` live
-behind the `migration_model` `project_capabilities` row: vocabulary, pairing
-matrix, and webapp Pack contract in
+Validation recipes and migration runners live behind the `migration_model`
+row, each model's release fleet behind the `migration_fleet` row: vocabulary,
+pairing matrix, and webapp Pack contract in
 [db-reference/migration-model-capabilities.md](db-reference/migration-model-capabilities.md);
 the fleet in [db-reference/migration-model-fleet.md](db-reference/migration-model-fleet.md).
 

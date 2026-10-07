@@ -13,8 +13,7 @@ Schema shape::
             "<slug>": {
                 "authoritative_db":  {"kind": "...", "location": {...}},
                 "validation_surface": {"kind": "...", "provisioning": {...}},
-                "runner":            {"kind": "...", "config": {...}},
-                "fleet":             {"kind": "...", ...}   # optional; see migration_model_fleet
+                "runner":            {"kind": "...", "config": {...}}
             },
             ...
         }

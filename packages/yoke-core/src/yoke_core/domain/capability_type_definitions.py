@@ -19,6 +19,9 @@ from yoke_contracts.project_contract.project_keys import (
 from yoke_core.domain.migration_model_capability_validation import (
     CAPABILITY_TYPE as MIGRATION_MODEL_CAPABILITY_TYPE,
 )
+from yoke_core.domain.migration_model_fleet import (
+    CAPABILITY_TYPE as MIGRATION_FLEET_CAPABILITY_TYPE,
+)
 
 KIND_DECLARED_MODEL = "declared_model"
 KIND_PROVIDER_ACCESS = "provider_access"
@@ -56,6 +59,12 @@ CAPABILITY_TYPE_DEFINITIONS: dict[str, dict[str, Any]] = {
         "kind": KIND_DECLARED_MODEL,
         "settings_summary": "migration_model",
         "used_by": "all workflows",
+    },
+    MIGRATION_FLEET_CAPABILITY_TYPE: {
+        "display_label": "Migration fleet",
+        "display_order": 31,
+        "kind": KIND_DECLARED_MODEL,
+        "used_by": "Delivery · release fleet rehearsal",
     },
     GITHUB_CAPABILITY_TYPE: {
         "display_label": "GitHub",
