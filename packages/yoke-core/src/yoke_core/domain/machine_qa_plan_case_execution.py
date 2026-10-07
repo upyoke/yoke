@@ -237,12 +237,6 @@ def execute_plan_agent_mission_case(
                 actor=actor,
                 payload={"execution_id": execution_id},
             ),
-            owner_state=lambda owner: _dispatch(
-                "test_machine.mission.owner_state",
-                target=target,
-                actor=actor,
-                payload={"execution_id": execution_id, "owner_execution_id": owner},
-            ),
         )
         submitted = _dispatch(
             "test_machine.mission.ready",

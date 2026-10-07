@@ -1,7 +1,4 @@
 from __future__ import annotations
-from runtime.api.domain.machine_qa_project_cleanup_test_support import (
-    fake_project_cleanup_stdout,
-)
 
 import json
 import sqlite3
@@ -204,7 +201,7 @@ class FakeHostControl(FakeOperatorOperations):
         return subprocess.CompletedProcess(
             args=command,
             returncode=returncode,
-            stdout=fake_project_cleanup_stdout(command),
+            stdout="",
             stderr="",
         )
 

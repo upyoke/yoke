@@ -105,8 +105,11 @@ def _tear_down_mission(
         teardown = execute_agent_mission_scratch_teardown(contract)
         failure = (
             None
-            if teardown["removed"] and teardown["project_cleanup_ok"]
-            else f"{teardown['project_cleanup']}; scratch removed={teardown['removed']}"
+            if teardown["removed"] and teardown["stale_owner_marker_removed"]
+            else (
+                f"scratch removed={teardown['removed']}; stale owner marker "
+                f"removed={teardown['stale_owner_marker_removed']}"
+            )
         )
     except Exception as exc:
         failure = f"{type(exc).__name__}: {exc}"
@@ -114,10 +117,9 @@ def _tear_down_mission(
         print(
             "yoke qa plan review-submit: mission_teardown_incomplete: "
             f"requirement {requirement_id} left host state behind ({failure}). "
-            "The next mission on this host tears it down once the control "
-            "plane confirms this execution finished; to clear it now, resolve "
-            "the named blocker and run `yoke qa mission scratch-teardown` "
-            "before submitting.",
+            "Nothing else removes this mission's scratch once the verdict "
+            "releases the lease: resolve the named blocker and run "
+            "`yoke qa mission scratch-teardown` before submitting.",
             file=sys.stderr,
         )
 

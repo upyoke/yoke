@@ -108,11 +108,16 @@ def _walker_dispatch(
         f"--requirement-id {int(case['requirement_id'])}"
     )
     prompt = (
-        "Walk this mission atomically. Any newly onboarded project is case-owned. "
-        "Before returning a pass or failure, run the scratch-teardown command; "
-        "it retires only this case's projects through the registered surface "
-        "and preserves their evidence. Report a retirement blocker as a finding. "
-        "Choose the sequence and use every "
+        "Walk this mission atomically. Every Yoke project you create during "
+        "the walk is yours to clean up: the moment one exists, append its "
+        "slug to the Progress Log of the item this mission verifies "
+        "(`yoke items progress-log append PREFIX-N --headline "
+        "'QA created project SLUG' --stdin`), so a replacement walker can "
+        "finish the cleanup; before returning a pass or failure, retire each "
+        "one with your own control-plane CLI (`yoke projects retire --project "
+        "SLUG --reason 'QA mission finished'`), never with Yoke on the Test "
+        "Machine, and list them in `created_projects`. Report a retirement "
+        "blocker as a finding. Choose the sequence and use every "
         "available declared substrate that helps. Do not issue the verdict; "
         "return a ranked findings report as the primary deliverable to the "
         "main mission owner. If another item holds a required host, do nothing "
@@ -178,6 +183,7 @@ def _walker_dispatch(
             "walk_status": "COMPLETE|HUMAN_GATE|HOST_WAIT|UNDETERMINED",
             "report": "ranked findings and unverified areas",
             "host_wait": "machine name and holder evidence for HOST_WAIT",
+            "created_projects": "slug and retirement result of every Yoke project the walk created",
             "needed_action": "required for HUMAN_GATE",
             "resume_state": "required for HUMAN_GATE",
         },

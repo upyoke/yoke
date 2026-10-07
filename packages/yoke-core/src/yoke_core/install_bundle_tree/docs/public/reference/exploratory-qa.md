@@ -216,18 +216,19 @@ Otherwise every file carrying a token or password is staged inside that
 directory and nowhere else — never a loose path under `/tmp`, which is how a
 first-boot admin token once outlived its walk on a shared machine. The walker
 runs the teardown before returning and states the scratch path and its
-confirmed removal; the command retires the test projects the mission created,
-clears the host's `~/.yoke/qa-project-owner.json` owner marker, removes the
-directory, and exits non-zero with `mission_scratch_not_removed` when it
-survives. A walker returning while its scratch still exists is a finding
-against its own walk. `yoke qa plan review-submit` repeats that teardown for
-every live mission before the verdict finishes the execution and releases the
-lease, and prints `mission_teardown_incomplete` with the recovery when it
-cannot. Preparation replaces a marker whose owner the control plane reports
-finished (`test_machine.mission.owner_state`) after the same teardown, and
-records it as `owner_marker.replaced_finished_owner` in the preparation
-evidence; a live or unknown owner still refuses `qa_project_owner_conflict`,
-and a continued walk inherits its predecessor's marker and projects.
+confirmed removal; the command removes the directory with plain OS commands,
+so the Test Machine needs no Yoke install, and exits non-zero with
+`mission_scratch_not_removed` when it survives. A walker returning while its
+scratch still exists is a finding against its own walk. `yoke qa plan
+review-submit` repeats that teardown for every live mission before the verdict
+finishes the execution and releases the lease, and prints
+`mission_teardown_incomplete` with the recovery when it cannot. Preparation and
+teardown delete a stale `~/.yoke/qa-project-owner.json` and an emptied `~/.yoke`.
+
+The lease holder owns every Yoke project it creates: it appends each slug to
+the item's Progress Log as created, so a replacement can finish the cleanup,
+and before returning retires each with its own control-plane CLI (`yoke
+projects retire --project SLUG --reason ...`), never Yoke on the Test Machine.
 
 On macOS, append `--gui-session` when a command needs the login keychain or
 window server. Three apparently different failures share one diagnosis:

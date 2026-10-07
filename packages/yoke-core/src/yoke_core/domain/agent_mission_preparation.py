@@ -110,11 +110,9 @@ def prepare_mission(
         scratch = scratch_factory(
             execution.control,
             execution_id=str(contract.plan_execution_id),
-            continues_execution_id=contract.continues_execution_id,
         )
         preparation["scratch_path"] = scratch["scratch_path"]
         preparation["evidence"]["scratch_created"] = True
-        preparation["evidence"]["owner_marker"] = scratch["owner_marker"]
     except Exception as error:
         failure = _failure(error, phase, secrets)
         preparation.update(ok=False, error_code=failure["error_code"])

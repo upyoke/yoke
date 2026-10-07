@@ -13,6 +13,7 @@ from yoke_contracts.qa_mission_scratch import (
     MISSION_SCRATCH_ROOT,
     MissionScratchIdentityError,
     mission_scratch_path,
+    stale_owner_marker_remove_argv,
 )
 from yoke_core.domain import agent_mission_scratch_cli
 from yoke_core.domain.agent_mission_review import agent_mission_dispatch_contract
@@ -78,12 +79,12 @@ def test_creation_makes_the_directory_owner_only() -> None:
     scratch = create_mission_scratch(control, execution_id=EXECUTION_ID)
     path = scratch["scratch_path"]
     assert path == mission_scratch_path(EXECUTION_ID)
-    assert scratch["owner_marker"]["previous_owner"] is None
-    assert control.commands[:2] == [
+    assert scratch == {"scratch_path": path}
+    assert control.commands == [
         ["/bin/mkdir", "-p", "-m", "700", path],
         ["/bin/chmod", "700", path],
+        stale_owner_marker_remove_argv(),
     ]
-    assert control.commands[2][:2] == ["python3", "-c"]
     assert path in control.existing_paths
 
 
@@ -110,8 +111,7 @@ def test_teardown_removes_the_scratch_and_everything_staged_inside() -> None:
         "removed": True,
         "removal_exit_code": 0,
         "removal_stderr": "",
-        "project_cleanup_ok": True,
-        "project_cleanup": {"retired_projects": [], "owner_marker_removed": True},
+        "stale_owner_marker_removed": True,
     }
     assert not any(
         existing == path or existing.startswith(f"{path}/")
@@ -200,6 +200,7 @@ def test_teardown_command_exits_named_when_the_scratch_survives(
         "removed": False,
         "removal_exit_code": 1,
         "removal_stderr": "Read-only file system",
+        "stale_owner_marker_removed": True,
     }
     monkeypatch.setattr(
         agent_mission_scratch_cli,
@@ -270,3 +271,7 @@ def test_walker_dispatch_names_the_scratch_and_its_teardown() -> None:
     assert path in walker["prompt"]
     assert walker["scratch_teardown_command"] in walker["prompt"]
     assert "never a loose path under /tmp" in walker["prompt"]
+    assert "yoke projects retire --project SLUG" in walker["prompt"]
+    assert "yoke items progress-log append" in walker["prompt"]
+    assert "never with Yoke on the Test" in walker["prompt"]
+    assert "created_projects" in walker["result_schema"]

@@ -196,16 +196,6 @@ def run(args) -> None:
         )
         env["PATH"] = str(venv / "bin") + os.pathsep + env["PATH"]
         yoke = str(venv / "bin/yoke")
-        owner_key = commands.run(
-            "project-owner-contract",
-            [
-                str(venv / "bin/python3"),
-                "-c",
-                "from yoke_contracts.qa_project_ownership import OWNER_ENV; print(OWNER_ENV)",
-            ],
-            cwd=root,
-        ).stdout.strip()
-        env[owner_key] = root.name
         project.mkdir()
         commands.run("git-init", ["git", "init", "--initial-branch=main"], cwd=project)
         (project / "README.md").write_text(

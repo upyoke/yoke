@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from functools import partial
 from pathlib import Path
 import time
 from collections.abc import Callable
@@ -34,7 +33,6 @@ from yoke_core.domain.machine_qa_fixture_lifecycle import (
     execute_case_with_fixture_lifecycle,
 )
 from yoke_core.domain.machine_qa_mission_scratch import (
-    OwnerStateLookup,
     create_mission_scratch,
     remove_mission_scratch,
 )
@@ -204,13 +202,12 @@ def prepare_agent_mission_contract(
     raw_contract: dict[str, Any],
     *,
     progress_callback: Callable[[], None] | None = None,
-    owner_state: OwnerStateLookup | None = None,
 ) -> dict[str, Any]:
     """Reach the mission baseline and stage its owner-only scratch."""
     return prepare_mission(
         _mission_contract(raw_contract),
         execution_factory=_execution,
-        scratch_factory=partial(create_mission_scratch, owner_state=owner_state),
+        scratch_factory=create_mission_scratch,
         progress_callback=progress_callback,
     )
 
