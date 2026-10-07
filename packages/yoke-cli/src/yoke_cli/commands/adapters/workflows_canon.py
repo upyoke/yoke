@@ -34,7 +34,6 @@ from yoke_cli.commands.adapters.workflows_canon_help import (
 from yoke_contracts.api.function_call import TargetRef
 
 
-
 def _parser(prog: str, description: str) -> argparse.ArgumentParser:
     return argparse.ArgumentParser(
         prog=prog,
@@ -43,8 +42,9 @@ def _parser(prog: str, description: str) -> argparse.ArgumentParser:
     )
 
 
-def _dispatch(function_id: str, payload: Dict[str, Any], parsed, writer,
-              **extra: Any) -> int:
+def _dispatch(
+    function_id: str, payload: Dict[str, Any], parsed, writer, **extra: Any
+) -> int:
     return dispatch_and_emit(
         function_id=function_id,
         target=TargetRef(kind="global"),
@@ -75,14 +75,11 @@ def _print_applied(stdout, row: Dict[str, Any], from_version: Any) -> None:
 
 
 def workflows_canon_status_list(args: List[str]) -> int:
-    parser = _parser("yoke workflows canon-status list",
-                     CANON_STATUS_LIST_DESCRIPTION)
+    parser = _parser("yoke workflows canon-status list", CANON_STATUS_LIST_DESCRIPTION)
     parser.add_argument("--pending", action="store_true")
     add_session_arg(parser)
     add_json_arg(parser)
-    parsed = parse_or_usage_error(
-        parser, args, WORKFLOWS_CANON_STATUS_LIST_USAGE
-    )
+    parsed = parse_or_usage_error(parser, args, WORKFLOWS_CANON_STATUS_LIST_USAGE)
     if parsed is None:
         return 2
 
@@ -92,20 +89,24 @@ def workflows_canon_status_list(args: List[str]) -> int:
         if not rows:
             print(
                 "no workflow has a pending published update"
-                if parsed.pending else "no workflow has a published canon",
+                if parsed.pending
+                else "no workflow has a published canon",
                 file=stdout,
             )
         for row in rows:
             print(
-                "|".join(str(value) for value in (
-                    "workflow-canon",
-                    row.get("workflow_id", ""),
-                    f"current_version={row.get('current_version', '')}",
-                    row.get("state", ""),
-                    f"follow={row.get('follow', '')}",
-                    f"latest_canon_version={row.get('latest_canon_version', '')}",
-                    f"pending={str(bool(row.get('pending'))).lower()}",
-                )),
+                "|".join(
+                    str(value)
+                    for value in (
+                        "workflow-canon",
+                        row.get("workflow_id", ""),
+                        f"current_version={row.get('current_version', '')}",
+                        row.get("state", ""),
+                        f"follow={row.get('follow', '')}",
+                        f"latest_canon_version={row.get('latest_canon_version', '')}",
+                        f"pending={str(bool(row.get('pending'))).lower()}",
+                    )
+                ),
                 file=stdout,
             )
 
@@ -122,9 +123,7 @@ def workflows_canon_update_preview(args: List[str]) -> int:
     parser.add_argument("workflow")
     add_session_arg(parser)
     add_json_arg(parser)
-    parsed = parse_or_usage_error(
-        parser, args, WORKFLOWS_CANON_UPDATE_PREVIEW_USAGE
-    )
+    parsed = parse_or_usage_error(parser, args, WORKFLOWS_CANON_UPDATE_PREVIEW_USAGE)
     if parsed is None:
         return 2
 
@@ -142,8 +141,7 @@ def workflows_canon_update_preview(args: List[str]) -> int:
         _print_paths(stdout, workflow_id, result)
         conflicts = result.get("conflicts") or []
         for conflict in conflicts:
-            print(f"conflict|{workflow_id}|{conflict.get('path', '')}",
-                  file=stdout)
+            print(f"conflict|{workflow_id}|{conflict.get('path', '')}", file=stdout)
         if conflicts:
             print(
                 "this update conflicts with local edits and will refuse to "
@@ -166,17 +164,13 @@ def workflows_canon_update_apply(args: List[str]) -> int:
     parser.add_argument("--expected-current-version", type=int, required=True)
     add_session_arg(parser)
     add_json_arg(parser)
-    parsed = parse_or_usage_error(
-        parser, args, WORKFLOWS_CANON_UPDATE_APPLY_USAGE
-    )
+    parsed = parse_or_usage_error(parser, args, WORKFLOWS_CANON_UPDATE_APPLY_USAGE)
     if parsed is None:
         return 2
 
     def _writer(response, stdout, stderr) -> None:
         del stderr
-        _print_applied(
-            stdout, response.result or {}, parsed.expected_current_version
-        )
+        _print_applied(stdout, response.result or {}, parsed.expected_current_version)
 
     return _dispatch(
         "workflows.canon_update.apply",
@@ -199,30 +193,28 @@ def _apply_all_entries(raw: List[str]) -> List[Dict[str, Any]] | str:
                 "workflow's current_version from "
                 "`yoke workflows canon-status list --pending`"
             )
-        entries.append({
-            "workflow_id": workflow_id,
-            "expected_current_version": int(version),
-        })
+        entries.append(
+            {
+                "workflow_id": workflow_id,
+                "expected_current_version": int(version),
+            }
+        )
     return entries
 
 
 def workflows_canon_update_apply_all(args: List[str]) -> int:
-    parser = _parser("yoke workflows canon-update apply-all",
-                     APPLY_ALL_DESCRIPTION)
+    parser = _parser("yoke workflows canon-update apply-all", APPLY_ALL_DESCRIPTION)
     parser.add_argument("entries", nargs="+", metavar="WORKFLOW=VERSION")
     add_session_arg(parser)
     add_json_arg(parser)
-    parsed = parse_or_usage_error(
-        parser, args, WORKFLOWS_CANON_UPDATE_APPLY_ALL_USAGE
-    )
+    parsed = parse_or_usage_error(parser, args, WORKFLOWS_CANON_UPDATE_APPLY_ALL_USAGE)
     if parsed is None:
         return 2
     entries = _apply_all_entries(parsed.entries)
     if isinstance(entries, str):
         return usage_error(entries)
     expected = {
-        entry["workflow_id"]: entry["expected_current_version"]
-        for entry in entries
+        entry["workflow_id"]: entry["expected_current_version"] for entry in entries
     }
     refused: List[Dict[str, Any]] = []
 
@@ -270,9 +262,7 @@ def workflows_canon_follow_set(args: List[str]) -> int:
     parser.add_argument("follow", choices=("auto", "manual"))
     add_session_arg(parser)
     add_json_arg(parser)
-    parsed = parse_or_usage_error(
-        parser, args, WORKFLOWS_CANON_FOLLOW_SET_USAGE
-    )
+    parsed = parse_or_usage_error(parser, args, WORKFLOWS_CANON_FOLLOW_SET_USAGE)
     if parsed is None:
         return 2
 

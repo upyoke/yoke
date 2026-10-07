@@ -29,7 +29,8 @@ from yoke_core.domain.workflow_registry import (
 
 def _set(workflow_id: str, follow: str, *, target_kind: str = "global"):
     target = (
-        TargetRef(kind="global") if target_kind == "global"
+        TargetRef(kind="global")
+        if target_kind == "global"
         else TargetRef(kind="item", item_id=1)
     )
     return handle_workflows_canon_follow_set(
@@ -43,9 +44,7 @@ def _set(workflow_id: str, follow: str, *, target_kind: str = "global"):
 
 
 def _workflow(conn, workflow_id: str = "issue") -> dict:
-    return next(
-        row for row in list_current_workflows(conn) if row["id"] == workflow_id
-    )
+    return next(row for row in list_current_workflows(conn) if row["id"] == workflow_id)
 
 
 def _canon(conn, workflow_id: str = "issue") -> dict:
@@ -81,9 +80,7 @@ def test_the_read_reports_following_and_the_last_automatic_adoption(test_db):
 
 def test_a_workflow_with_no_canon_reports_no_following_setting(test_db):
     """A following setting for a workflow nothing publishes describes nothing."""
-    test_db.execute(
-        "UPDATE workflows SET source = 'project' WHERE id = 'issue'"
-    )
+    test_db.execute("UPDATE workflows SET source = 'project' WHERE id = 'issue'")
     test_db.commit()
 
     assert _canon(test_db) == {"state": "not_applicable"}
@@ -126,9 +123,7 @@ def test_selecting_the_newest_generation_keeps_following(test_db):
     """Convergence has nowhere to move a universe already on the newest
     generation, so that selection carries no divergence to record."""
     _publish_older_generation(test_db)
-    newest = _version_holding(
-        test_db, canon_generations("issue")[-1].canon_version
-    )
+    newest = _version_holding(test_db, canon_generations("issue")[-1].canon_version)
     assert _set("issue", "auto").primary_success
 
     set_current_workflow_version(test_db, workflow_id="issue", version=newest)
@@ -142,9 +137,7 @@ def test_selecting_a_version_never_turns_following_back_on(test_db):
     """Re-enabling an automatic behavior an operator switched off is their
     call, not a side effect of picking a version."""
     _publish_older_generation(test_db)
-    newest = _version_holding(
-        test_db, canon_generations("issue")[-1].canon_version
-    )
+    newest = _version_holding(test_db, canon_generations("issue")[-1].canon_version)
     assert _canon(test_db)["follow"] == "manual"
 
     set_current_workflow_version(test_db, workflow_id="issue", version=newest)
@@ -161,7 +154,9 @@ def test_selecting_a_version_clears_a_stale_adoption_notice(test_db):
     assert adopted_from is not None, "the boot should have adopted and said so"
 
     set_current_workflow_version(
-        test_db, workflow_id="issue", version=adopted_from,
+        test_db,
+        workflow_id="issue",
+        version=adopted_from,
     )
 
     assert _canon(test_db)["adopted_from_version"] is None
@@ -191,9 +186,7 @@ def test_following_again_lets_the_next_boot_take_the_update(test_db):
 
 
 def test_a_workflow_without_a_canon_refuses_a_following_setting(test_db):
-    test_db.execute(
-        "UPDATE workflows SET source = 'project' WHERE id = 'issue'"
-    )
+    test_db.execute("UPDATE workflows SET source = 'project' WHERE id = 'issue'")
     test_db.commit()
 
     outcome = _set("issue", "auto")

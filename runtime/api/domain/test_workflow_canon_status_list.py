@@ -17,7 +17,8 @@ from yoke_core.domain.handlers.workflows_canon_status import (
 
 def _list(payload: dict | None = None, *, target_kind: str = "global"):
     target = (
-        TargetRef(kind="global") if target_kind == "global"
+        TargetRef(kind="global")
+        if target_kind == "global"
         else TargetRef(kind="item", item_id=1)
     )
     return handle_workflows_canon_status_list(
@@ -62,9 +63,7 @@ def test_a_workflow_behind_the_canon_is_pending_with_its_current_version(test_db
 
 
 def test_a_workflow_without_a_canon_is_not_listed(test_db):
-    test_db.execute(
-        "UPDATE workflows SET source = 'project' WHERE id = 'issue'"
-    )
+    test_db.execute("UPDATE workflows SET source = 'project' WHERE id = 'issue'")
     test_db.commit()
 
     assert "issue" not in _rows()

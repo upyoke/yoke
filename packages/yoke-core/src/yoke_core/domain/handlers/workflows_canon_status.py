@@ -43,9 +43,7 @@ def handle_workflows_canon_status_list(
             ),
         )
     try:
-        payload = WorkflowCanonStatusListRequest.model_validate(
-            request.payload or {}
-        )
+        payload = WorkflowCanonStatusListRequest.model_validate(request.payload or {})
     except ValueError as exc:
         return HandlerOutcome(
             primary_success=False,
@@ -68,13 +66,15 @@ def handle_workflows_canon_status_list(
         pending = state in PENDING_CANON_STATES
         if payload.pending_only and not pending:
             continue
-        rows.append({
-            "workflow_id": workflow["id"],
-            "name": workflow["name"],
-            "current_version": workflow["current_version"],
-            "pending": pending,
-            **status,
-        })
+        rows.append(
+            {
+                "workflow_id": workflow["id"],
+                "name": workflow["name"],
+                "current_version": workflow["current_version"],
+                "pending": pending,
+                **status,
+            }
+        )
     return HandlerOutcome(result_payload={"rows": rows}, primary_success=True)
 
 

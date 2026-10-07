@@ -70,9 +70,7 @@ def handle_workflows_canon_follow_set(
             "$.target.kind",
         )
     try:
-        payload = WorkflowCanonFollowSetRequest.model_validate(
-            request.payload or {}
-        )
+        payload = WorkflowCanonFollowSetRequest.model_validate(request.payload or {})
     except ValueError as exc:
         return _error("payload_invalid", str(exc), "$.payload")
     from yoke_core.domain.db_helpers import connect, iso8601_now
@@ -91,8 +89,7 @@ def handle_workflows_canon_follow_set(
             # nothing, so storing one would invent a relationship.
             return _error(
                 "incompatible",
-                f"workflow {payload.workflow_id!r} has no published canon "
-                "to follow",
+                f"workflow {payload.workflow_id!r} has no published canon to follow",
                 "$.payload.workflow_id",
             )
         bind = marker(conn)

@@ -18,8 +18,7 @@ WORKFLOWS_CANON_UPDATE_APPLY_ALL_USAGE = (
     "[WORKFLOW=VERSION ...] [--session-id S] [--json]"
 )
 WORKFLOWS_CANON_FOLLOW_SET_USAGE = (
-    "yoke workflows canon-follow set WORKFLOW (auto|manual) "
-    "[--session-id S] [--json]"
+    "yoke workflows canon-follow set WORKFLOW (auto|manual) [--session-id S] [--json]"
 )
 
 _RECIPE = (

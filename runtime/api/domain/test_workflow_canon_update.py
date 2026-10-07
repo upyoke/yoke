@@ -42,9 +42,7 @@ def _preview(payload: dict):
 
 
 def _workflow(conn, workflow_id="issue"):
-    return next(
-        row for row in list_current_workflows(conn) if row["id"] == workflow_id
-    )
+    return next(row for row in list_current_workflows(conn) if row["id"] == workflow_id)
 
 
 def _publish_older_generation(conn, workflow_id="issue"):
@@ -140,8 +138,7 @@ def test_applying_an_update_the_universe_lacks_publishes_it(test_db):
         f"{WORKFLOW_VERSIONS_IMMUTABLE_TRIGGER}"
     )
     test_db.execute(
-        "DELETE FROM workflow_versions WHERE workflow_id = 'issue' "
-        "AND id <> %s",
+        "DELETE FROM workflow_versions WHERE workflow_id = 'issue' AND id <> %s",
         (int(published["version_id"]),),
     )
     test_db.execute(
@@ -222,7 +219,9 @@ def test_rolling_back_to_an_older_stored_version_reopens_the_update(test_db):
     assert _workflow(test_db)["canon_status"]["state"] == "update_available"
 
     set_current_workflow_version(
-        test_db, workflow_id="issue", version=current - 1,
+        test_db,
+        workflow_id="issue",
+        version=current - 1,
     )
     assert _workflow(test_db)["canon_status"]["state"] == "up_to_date"
     assert older.canon_version < canon_generations("issue")[-1].canon_version
