@@ -41,6 +41,7 @@ from yoke_core.domain.actor_permissions import (
     PERM_PROJECT_RENDER_READ,
 )
 from yoke_core.domain.db_read_constants import DB_READ_FUNCTION_ID
+from yoke_core.domain.hosted_service_authority import PERM_HOSTED_SERVICE_DELIVER
 from yoke_core.domain.function_authz_product_scopes import PRODUCT_AUTHZ_BY_ID
 from yoke_core.domain.function_authz_scope_client_local import (
     CLIENT_LOCAL_BY_ID,
@@ -131,13 +132,13 @@ _BY_ID: dict[str, AuthzSpec] = {
     "projects.resolve_by_github_repo": AuthzSpec(ACTOR_SESSION, None),
     "projects.checkout_context.run": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "projects.github_binding.bind": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
-    # Hosted lifecycle deliveries mutate one verified project binding. The
-    # HTTP boundary separately requires the hosted service token; dispatch
-    # authority follows payload.project so tenant universes never depend on a
-    # project literally named ``yoke``.
+    # Hosted lifecycle deliveries mutate one verified project binding, and
+    # only the hosted service's own identity delivers them. Authority is that
+    # identity's service-only permission on the org owning payload.project,
+    # so tenant universes never depend on a project literally named ``yoke``.
     "projects.github_binding.lifecycle": AuthzSpec(
-        PROJECT,
-        PERM_PROJECT_ADMIN,
+        ORG,
+        PERM_HOSTED_SERVICE_DELIVER,
     ),
     "projects.github_binding.unbind": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     # Repository binding status contains project identity and non-secret App

@@ -16,6 +16,7 @@ from yoke_contracts.self_host_bootstrap_output import (
 
 from yoke_core.domain import db_backend, json_helper
 from yoke_core.domain.actor_state import actor_is_active, require_actor_active
+from yoke_core.domain.hosted_service_authority import HOSTED_SERVICE_TOKEN_NAME
 
 
 TOKEN_STATUS_ACTIVE = "active"
@@ -312,6 +313,17 @@ def bootstrap_admin_token(
         project=project,
         token_name=token_name,
     )
+
+
+def bootstrap_hosted_service_token(
+    conn: Any,
+    *,
+    token_name: str = HOSTED_SERVICE_TOKEN_NAME,
+) -> CreatedToken:
+    """Mint a token for the hosted service's least-privilege system identity."""
+    from yoke_core.domain import api_token_bootstrap as bootstrap
+
+    return bootstrap.bootstrap_hosted_service_token(conn, token_name=token_name)
 
 
 def bootstrap_project_service_token(

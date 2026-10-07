@@ -17,23 +17,25 @@ def _placeholder(conn: Any) -> str:
 def resolve_org_context(conn: Any, request: FunctionCallRequest) -> int | None:
     """Resolve the target org for an org-scoped op.
 
-    Requests may name an org directly. Otherwise the org is the owning org of
-    the named project (``payload.project`` / ``target.project_id``), or absent
-    an explicit project, yoke's org (the default org in the single-org world).
+    A named project (``payload.project`` / ``target.project_id``) decides: the
+    org is that project's owning org, so a payload ``org_id`` can never point
+    an org-scoped check at a different org than the project it acts on.
+    Otherwise the request may name an org directly, or absent both, yoke's org
+    (the default org in the single-org world).
     A universe with no yoke project (a fresh self-host install before any
     project onboarding) falls back to its identity-card org — only when the
     request named NO project or org; an explicit ref that fails still refuses.
     """
     target = request.target
-    explicit_org = request.payload.get("org_id") or request.payload.get("org")
-    if explicit_org:
-        return _resolve_explicit_org(conn, str(explicit_org))
     explicit = (
         target.project_id
         or request.payload.get("project_id")
         or request.payload.get("project")
     )
     if not explicit:
+        explicit_org = request.payload.get("org_id") or request.payload.get("org")
+        if explicit_org:
+            return _resolve_explicit_org(conn, str(explicit_org))
         return _identity_card_org(conn)
     try:
         project_id = resolve_project_id(conn, str(explicit))

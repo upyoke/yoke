@@ -60,7 +60,11 @@ AUTH_TABLES: dict[str, dict] = {
             "CI role can only compare candidate migration digests with the "
             "control-plane ledger. The all-access role is admin "
             "(renamed from the retired 'system'); it lives at org scope, never "
-            "on a project."
+            "on a project, and carries every permission except the "
+            "service-only hosted_service.deliver. Org role hosted_service is "
+            "held only by the hosted service's own system actor (component "
+            "hosted_service), granted by its token bootstrap, never by member "
+            "grants or invites; it carries only hosted_service.deliver."
         ),
     },
     "permissions": {
@@ -75,9 +79,11 @@ AUTH_TABLES: dict[str, dict] = {
             "...). project.render.read belongs to infrastructure_ci; the "
             "three github_actions.* relay permissions and release_pin.record "
             "belong to deployment_ci. Org-scoped permissions are "
-            "migration.content_identity.verify, project.create, and org.admin "
-            "(renamed from the retired 'system.admin'). They are never carried "
-            "by a project role; only org roles hold them."
+            "migration.content_identity.verify, project.create, "
+            "hosted_service.deliver, and org.admin (renamed from the retired "
+            "'system.admin'). They are never carried by a project role; only "
+            "org roles hold them. hosted_service.deliver is service-only: no "
+            "org-admin or project-owner wildcard carries it."
         ),
     },
     "role_permissions": {

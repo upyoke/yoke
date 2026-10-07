@@ -109,6 +109,11 @@ record intact so another project or a later rebind can use it. Rebinding
 requires selecting and live-verifying the exact repository; GitHub sync can be
 enabled only after that binding is active.
 
+On Cloud, installation suspension, deletion, and repository-access changes
+reach a bound project as hosted lifecycle deliveries, made by the hosted
+service's own least-privilege identity. See
+[Hosted Service Identity](hosted-service-identity.md).
+
 For the safe order when changing an already-bound project's repository, see
 [GitHub sync](../.yoke/docs/reference/github-sync.md). For why Yoke requests each repository permission
 and what it does with them, see

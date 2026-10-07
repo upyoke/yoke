@@ -86,7 +86,7 @@ def call_function_as_web_session(
 def _credential_refusal(envelope: Dict[str, Any]) -> Optional[FunctionCallResponse]:
     """Refuse calls whose credential a browser session can never be.
 
-    Service-token functions answer only the hosted service token, and
+    Service-only functions answer only the hosted service identity, and
     machine relay functions only that machine's credential. Both are
     credential facts, not permissions, so the actor's permission model
     cannot decide them.
@@ -96,8 +96,8 @@ def _credential_refusal(envelope: Dict[str, Any]) -> Optional[FunctionCallRespon
     if entry is not None and "service_token_required" in entry.guardrails:
         code, message = (
             "permission_denied",
-            f"function {function_id!r} requires the hosted service token; "
-            "a browser session cannot call it",
+            f"function {function_id!r} is delivered only by the hosted "
+            "service identity; a browser session cannot call it",
         )
     elif function_id in MACHINE_CREDENTIAL_FUNCTIONS:
         code, message = (

@@ -17,6 +17,7 @@ from yoke_core.domain.actor_permissions import (
     PermissionDenied,
     ROLE_ADMIN,
     ROLE_OWNER,
+    SERVICE_ONLY_PERMISSIONS,
     _p,
 )
 
@@ -96,6 +97,9 @@ def permission_decision(
     * a project ``owner`` carries every *project-grantable* permission on its
       own project (org-scoped permissions are never carried by a project role).
 
+    Neither wildcard carries a service-only permission: only the role the
+    hosted service's own system actor holds does.
+
     Otherwise the decision allows when an explicitly-granted org or project role
     carries the permission, exactly as before.
     """
@@ -109,7 +113,9 @@ def permission_decision(
         )
     # Wildcard 1 — org admin (all-access), drift-proof: the admin role is defined
     # as every permission, so we never consult role_permissions for it.
-    if _holds_org_admin(conn, project_id=project_id, actor_id=actor_id):
+    if permission_key not in SERVICE_ONLY_PERMISSIONS and _holds_org_admin(
+        conn, project_id=project_id, actor_id=actor_id
+    ):
         return PermissionDecision(
             actor_id=actor_id,
             project_id=project_id,
@@ -203,8 +209,9 @@ def org_permission_decision(
 
     Used for operations whose blast radius is an org itself — managing the org,
     granting org roles, creating projects, listing all projects. The org
-    ``admin`` role is all-access by construction (drift-proof wildcard);
-    otherwise an explicitly-granted org role must carry the permission.
+    ``admin`` role is all-access by construction (drift-proof wildcard) except
+    for service-only permissions; otherwise an explicitly-granted org role
+    must carry the permission.
     """
     p = _p(conn)
     if not actor_is_active(conn, actor_id):
@@ -222,7 +229,7 @@ def org_permission_decision(
         f"WHERE aor.org_id = {p} AND aor.actor_id = {p} AND r.name = {p} LIMIT 1",
         (org_id, actor_id, ROLE_ADMIN),
     ).fetchone()
-    if admin_row is not None:
+    if admin_row is not None and permission_key not in SERVICE_ONLY_PERMISSIONS:
         return PermissionDecision(
             actor_id=actor_id,
             project_id=None,

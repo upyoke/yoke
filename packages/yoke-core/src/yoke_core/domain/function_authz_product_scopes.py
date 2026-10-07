@@ -29,8 +29,9 @@ PRODUCT_AUTHZ_BY_ID = {
     "items.detail.get": AuthzSpec(ACTOR_SESSION, None),
     "items.public_ref.lookup": AuthzSpec(ACTOR_SESSION, None),
     "inbox.list": AuthzSpec(ACTOR_SESSION, None),
-    # A tenant member may create the pending request. Terminal decisions and
-    # withdrawals still pass through the request's live org-admin authority.
+    # A tenant member may create the pending request. Decisions pass through
+    # the request's live org-admin authority; expiry and withdrawal also accept
+    # the hosted service identity on the request's org.
     "machine_approval.lifecycle.apply": AuthzSpec(ACTOR_SESSION, None),
     "machine_authorization.get": AuthzSpec(ACTOR_SESSION, None),
     "machine_authorization.resolve": AuthzSpec(ACTOR_SESSION, None),
