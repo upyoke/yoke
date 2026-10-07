@@ -181,8 +181,11 @@ def apply_env(tmp_db: str, tmp_path: Path, monkeypatch):
             "public_item_prefix = excluded.public_item_prefix, "
             "created_at = excluded.created_at",
             (
-                SEED_PROJECT_IDS["yoke"], "yoke", "Yoke",
-                "YOK", "2026-04-23T00:00:00Z",
+                SEED_PROJECT_IDS["yoke"],
+                "yoke",
+                "Yoke",
+                "YOK",
+                "2026-04-23T00:00:00Z",
             ),
         )
         seed = governed_postgres_test_seed()
@@ -191,8 +194,12 @@ def apply_env(tmp_db: str, tmp_path: Path, monkeypatch):
             "INSERT INTO project_capabilities "
             "(project_id, type, settings, created_at) "
             f"VALUES ({p}, {p}, {p}, {p})",
-            (SEED_PROJECT_IDS["yoke"], "migration_model", seed_json,
-             "2026-04-23T00:00:00Z"),
+            (
+                SEED_PROJECT_IDS["yoke"],
+                "migration_model",
+                seed_json,
+                "2026-04-23T00:00:00Z",
+            ),
         )
         conn.commit()
     finally:
@@ -287,20 +294,19 @@ def _seed_apply_item(
         conn.close()
 
 
-def _audit_row(authoritative_db: str, audit_id: int) -> Optional[Dict[str, Any]]:
-    # Postgres models write audit rows to the model's authoritative DB through
-    # raw psycopg. Read back through the same native connection family rather
-    # than the generic backend compatibility seam.
-    conn = db_backend.connect_psycopg(authoritative_db)
+def _audit_row(control_db: str, audit_id: int) -> Optional[Dict[str, Any]]:
+    # Rehearsal receipts are item evidence and live on the control plane that
+    # holds the item (migration_rehearsal_evidence), not on the model authority.
+    conn = _conn(control_db)
     try:
         cur = conn.execute(
-            "SELECT * FROM migration_audit WHERE id = %s", (audit_id,),
+            f"SELECT * FROM migration_audit WHERE id = {_placeholder(conn)}",
+            (audit_id,),
         )
         row = cur.fetchone()
-        columns = []
-        for desc in cur.description or []:
-            name = getattr(desc, "name", None)
-            columns.append(name if name is not None else desc[0])
+        columns = [
+            getattr(desc, "name", None) or desc[0] for desc in cur.description or []
+        ]
     finally:
         conn.close()
     return dict(zip(columns, row)) if row else None

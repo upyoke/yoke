@@ -86,7 +86,7 @@ class TestDbTargets:
 
 
 class TestRehearseHappyPath:
-    def test_rehearse_creates_audit_row_with_rehearsed_state(self, apply_env) -> None:
+    def test_rehearse_records_receipt_on_the_control_plane(self, apply_env) -> None:
         _seed_apply_item(apply_env["control_db"], item_id=5001)
         result = rehearse(
             5001,
@@ -100,7 +100,7 @@ class TestRehearseHappyPath:
         mod = result.modules[0]
         assert mod.state == STATE_REHEARSED
         assert mod.audit_id is not None
-        row = _audit_row(apply_env["authoritative_db"], mod.audit_id)
+        row = _audit_row(apply_env["control_db"], mod.audit_id)
         assert row["state"] == STATE_REHEARSED
         assert row["source_fingerprint"] is not None
         assert row["rehearsed_at"] is not None

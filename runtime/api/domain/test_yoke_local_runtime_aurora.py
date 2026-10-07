@@ -14,7 +14,6 @@ from yoke_core.domain import (
     backlog_github_fetch,
     db_backend,
     db_helpers,
-    db_mutation_gate_implementing,
     machine_config,
     merge_lock,
     qa_gates,
@@ -174,21 +173,6 @@ def test_github_sync_item_fields_casts_values_before_coalescing() -> None:
     assert conn.params == (1897,)
 
 
-def test_migration_evidence_gate_resolves_connected_postgres_audit_target(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    _clear(monkeypatch)
-    repo = _connected_repo(tmp_path, monkeypatch)
-    monkeypatch.chdir(repo)
-    audit_target = db_mutation_gate_implementing._resolve_audit_db_path(
-        repo,
-        {"authoritative_db": {"kind": "aws_aurora_postgres"}},
-    )
-
-    assert audit_target == db_mutation_gate_implementing.CONNECTED_POSTGRES_AUDIT_TOKEN
-    assert not (repo / "data" / "yoke.db").exists()
-
-
 def test_qa_gate_cli_resolver_does_not_request_sqlite_path_in_postgres_mode(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -207,9 +191,7 @@ def test_service_client_child_env_forwards_connected_authority(
     monkeypatch.chdir(repo)
 
     assert service_client_shared_io._subprocess_backend_env() == {
-        machine_config.CONFIG_FILE_ENV: str(
-            repo / ".yoke" / "config.json"
-        ),
+        machine_config.CONFIG_FILE_ENV: str(repo / ".yoke" / "config.json"),
         db_backend.PG_DSN_FILE_ENV: str(tmp_path / "aurora.dsn"),
     }
 

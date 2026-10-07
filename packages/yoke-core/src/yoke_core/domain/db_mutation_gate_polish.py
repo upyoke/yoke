@@ -41,7 +41,6 @@ def check_polishing_implementation_to_implemented_gate(
     item_id: int,
     *,
     conn: Optional[Any] = None,
-    audit_db_path: Optional[str] = None,
 ) -> GateOutcome:
     """Thin post-implementation verification.
 
@@ -52,7 +51,8 @@ def check_polishing_implementation_to_implemented_gate(
     Verification only — never applies anything.
     """
     base = check_implementing_to_reviewing_implementation_gate(
-        item_id, conn=conn, audit_db_path=audit_db_path,
+        item_id,
+        conn=conn,
     )
     if not base.passed:
         return base
@@ -99,9 +99,7 @@ def check_polishing_implementation_to_implemented_gate(
 
 def _ci_routed_case_satisfies(conn: Any, item_id: int) -> bool:
     """True when a command-ci case already recorded a passing head sha."""
-    if not (
-        _table_exists(conn, "qa_requirements") and _table_exists(conn, "qa_runs")
-    ):
+    if not (_table_exists(conn, "qa_requirements") and _table_exists(conn, "qa_runs")):
         return False
     from yoke_core.domain import db_backend
 
@@ -169,7 +167,7 @@ def _check_test_results_evidence(item: dict, conn: Any) -> Optional[str]:
             "before advancing past polishing-implementation. Re-run the "
             "project's quick Command-plan case "
             "and write the capture via the `items.structured_field.replace` "
-            "function call with `payload.field=\"test_results\"` "
+            'function call with `payload.field="test_results"` '
             "(see `.agents/skills/yoke/polish/verify-and-commit.md`)."
         )
     return (
@@ -177,7 +175,7 @@ def _check_test_results_evidence(item: dict, conn: Any) -> Optional[str]:
         "pytest verdict before advancing past polishing-implementation. "
         "Run the project's quick Command-plan case "
         "and write the capture via the `items.structured_field.replace` "
-        "function call with `payload.field=\"test_results\"` "
+        'function call with `payload.field="test_results"` '
         "(see `.agents/skills/yoke/polish/verify-and-commit.md`)."
     )
 
