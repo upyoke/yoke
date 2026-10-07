@@ -1,8 +1,10 @@
 """Prove the deployed hosted collector admits only its public browser origin.
 
 Behind the hosted relay the engine sees its upstream address as Host, so this
-passes only when trusted forwarding restores the public host. One page view is
-written, marked by its URL; no publishable key or cookie value is logged.
+passes only when trusted forwarding restores the public host. The hosted relay
+rewrites Origin on reads and refuses foreign-origin writes itself, so the
+foreign-origin checks are writes. One page view is written, marked by its URL;
+no publishable key or cookie value is logged.
 """
 
 import argparse
@@ -29,6 +31,15 @@ def expect(response, status, reason=None):
             f"hosted_origin_probe_status_changed: expected {status}"
             f"{' ' + reason if reason else ''}, got {response.status_code}; "
             "check YOKE_API_TRUSTED_PROXIES and X-Forwarded-Host at the hosted relay"
+        )
+
+
+def expect_refused(response):
+    expect(response, 403, "origin_not_allowed")
+    if "set-cookie" in response.headers:
+        raise ValueError(
+            "hosted_origin_probe_cookie_mutated: a refused foreign-origin write "
+            "must never set a cookie"
         )
 
 
@@ -63,15 +74,19 @@ def prove(origin, api):
             client.post(api + "/api/events", headers=admitted, json=page_view(origin)),
             200,
         )
-        expect(client.get(attribution, headers=foreign), 403, "origin_not_allowed")
-        expect(
-            client.post(api + "/api/events", headers=foreign, json=page_view(origin)),
-            403,
-            "origin_not_allowed",
+        expect_refused(
+            client.post(api + "/api/events", headers=foreign, json=page_view(origin))
+        )
+        expect_refused(
+            client.post(
+                attribution,
+                headers=foreign,
+                json={"url": origin + "/?qa=hosted-origin-admission", "referrer": ""},
+            )
         )
     print(
         "hosted origin admission passed: public origin admitted for attribution "
-        "and page views; foreign origin refused"
+        "and page views; foreign-origin writes refused"
     )
 
 
