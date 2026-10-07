@@ -66,7 +66,7 @@ class TestApplyEvidenceGate:
         )
         assert result["success"] is False
         assert result.get("error_code") == "GATE_DB_MUTATION_EVIDENCE"
-        assert "no rehearsal recorded" in result["error"]
+        assert "no passing rehearsal receipt" in result["error"]
         assert "new_governed_module" in result["error"]
 
     def test_advance_passes_after_rehearsal_recorded(self, regression_db) -> None:
