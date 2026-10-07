@@ -44,6 +44,10 @@ class TestItemsGetDefaultProjection(unittest.TestCase):
 
         with (
             patch(
+                "yoke_core.domain.project_identity.render_item_ref",
+                return_value="YOK-42",
+            ),
+            patch(
                 "yoke_core.domain.items_queries.query_item",
                 side_effect=fake_query_item,
             ),
@@ -64,12 +68,17 @@ class TestItemsGetDefaultProjection(unittest.TestCase):
             self.assertIn(field, fields)
         self.assertEqual(
             queried,
-            [field for field in DEFAULT_GET_FIELDS if field != "deployment_flow"],
+            [
+                field
+                for field in DEFAULT_GET_FIELDS
+                if field not in {"id", "deployment_flow"}
+            ],
         )
         self.assertEqual(
             fields["deployment_flow"],
             {"value": "default-flow", "source": "project_default"},
         )
+        self.assertEqual(fields["id"], "YOK-42")
         self.assertEqual(set(fields), set(DEFAULT_GET_FIELDS))
 
     def test_explicit_field_subset_still_projects_only_requested(self):

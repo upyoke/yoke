@@ -8,13 +8,24 @@ import io
 import json
 import sys
 
+import pytest
+
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
 from runtime.api.test_service_client_delivery import mutation_db  # noqa: F401,F811
 
 
 class TestExecuteStructuredWriteCli:
-    def test_execute_structured_write_routes_stdin_to_backlog(self, monkeypatch, capsys):
+    @pytest.fixture(autouse=True)
+    def _resolve_public_selector(self, monkeypatch):
+        monkeypatch.setattr(
+            "yoke_core.api.service_client_shared_session_resolver._parse_item_id_arg",
+            lambda ref: {"YOK-1": 1}[ref],
+        )
+
+    def test_execute_structured_write_routes_stdin_to_backlog(
+        self, monkeypatch, capsys
+    ):
         import yoke_core.api.service_client as service_client
         from yoke_core.domain import backlog
 
@@ -25,11 +36,13 @@ class TestExecuteStructuredWriteCli:
             print("Structured write complete", file=kwargs["out"])
             return {"success": True}
 
-        monkeypatch.setattr(backlog, "execute_structured_write", _record_structured_write)
+        monkeypatch.setattr(
+            backlog, "execute_structured_write", _record_structured_write
+        )
         monkeypatch.setattr(sys, "stdin", io.StringIO("# Spec\n"))
 
         rc = service_client.cmd_execute_structured_write(
-            ["1", "--field", "spec", "--stdin", "--force", "--source", "tester"]
+            ["YOK-1", "--field", "spec", "--stdin", "--force", "--source", "tester"]
         )
 
         captured = capsys.readouterr()
@@ -51,7 +64,7 @@ class TestExecuteStructuredWriteCli:
         spec_path.write_text("# Spec\n", encoding="utf-8")
 
         rc = service_client.cmd_execute_structured_write(
-            ["1", "--field", "spec", "--file", str(spec_path), "--stdin"]
+            ["YOK-1", "--field", "spec", "--file", str(spec_path), "--stdin"]
         )
 
         captured = capsys.readouterr()
@@ -63,7 +76,7 @@ class TestExecuteStructuredWriteCli:
     def test_execute_structured_write_requires_input(self, capsys):
         import yoke_core.api.service_client as service_client
 
-        rc = service_client.cmd_execute_structured_write(["1", "--field", "spec"])
+        rc = service_client.cmd_execute_structured_write(["YOK-1", "--field", "spec"])
 
         captured = capsys.readouterr()
         data = json.loads(captured.out)
@@ -89,7 +102,16 @@ class TestExecuteCreateCli:
         monkeypatch.setattr(backlog, "execute_create", _record_execute_create)
 
         rc = service_client.cmd_execute_create_cli(
-            ["--project", "yoke", "--deployment-flow", "main-flow", "Title", "issue", "idea", "high"]
+            [
+                "--project",
+                "yoke",
+                "--deployment-flow",
+                "main-flow",
+                "Title",
+                "issue",
+                "idea",
+                "high",
+            ]
         )
 
         captured = capsys.readouterr()
@@ -104,7 +126,9 @@ class TestExecuteCreateCli:
         assert called["deployment_flow"] == "main-flow"
         assert "Created item" in data["log"]
 
-    def test_execute_create_cli_shell_mode_prints_log_not_json(self, monkeypatch, capsys):
+    def test_execute_create_cli_shell_mode_prints_log_not_json(
+        self, monkeypatch, capsys
+    ):
         import yoke_core.api.service_client as service_client
         from yoke_core.domain import backlog
 
@@ -125,7 +149,9 @@ class TestExecuteCreateCli:
     def test_execute_create_cli_rejects_retired_epic_arg(self, capsys):
         import yoke_core.api.service_client as service_client
 
-        rc = service_client.cmd_execute_create_cli(["Title", "issue", "idea", "high", "123"])
+        rc = service_client.cmd_execute_create_cli(
+            ["Title", "issue", "idea", "high", "123"]
+        )
 
         captured = capsys.readouterr()
         data = json.loads(captured.out)
@@ -149,7 +175,9 @@ class TestExecuteBatchUpdateCli:
             print("Batch updated", file=kwargs["out"])
             return {"success": True, "updated_count": len(kwargs["item_ids"])}
 
-        monkeypatch.setattr(backlog, "execute_batch_update", _record_execute_batch_update)
+        monkeypatch.setattr(
+            backlog, "execute_batch_update", _record_execute_batch_update
+        )
         monkeypatch.setattr(
             service_client_backlog_batch_update,
             "_parse_item_id_arg",
@@ -186,7 +214,7 @@ class TestApplyApproval:
     def test_approval_success_with_run(self, mutation_db):
         """Approving item with active run returns next_stage and run_id."""
         result = _run_client(
-            ["apply-approval", "10"],
+            ["apply-approval", "YOK-10"],
             db_path=mutation_db["db_path"],
         )
         assert result.returncode == 0
@@ -206,7 +234,7 @@ class TestApplyApproval:
     def test_approval_no_deploy_stage_rejected(self, mutation_db):
         """Item without deploy_stage should be rejected."""
         result = _run_client(
-            ["apply-approval", "11"],
+            ["apply-approval", "YOK-11"],
             db_path=mutation_db["db_path"],
         )
         assert result.returncode == 1
@@ -217,7 +245,7 @@ class TestApplyApproval:
     def test_approval_nonexistent_item_rejected(self, mutation_db):
         """Nonexistent item should return NOT_FOUND."""
         result = _run_client(
-            ["apply-approval", "9999"],
+            ["apply-approval", "YOK-9999"],
             db_path=mutation_db["db_path"],
         )
         assert result.returncode == 1
@@ -234,14 +262,12 @@ class TestApplyApproval:
         """Item at a non-human-approval stage should be rejected."""
         # Update item 10 to be at the 'merged' stage (auto executor)
         conn = connect_test_db(mutation_db["db_path"])
-        conn.execute(
-            "UPDATE items SET deploy_stage = 'merged' WHERE id = 10"
-        )
+        conn.execute("UPDATE items SET deploy_stage = 'merged' WHERE id = 10")
         conn.commit()
         conn.close()
 
         result = _run_client(
-            ["apply-approval", "10"],
+            ["apply-approval", "YOK-10"],
             db_path=mutation_db["db_path"],
         )
         assert result.returncode == 1

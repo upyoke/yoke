@@ -247,6 +247,7 @@ def test_http_status_adapters_surface_the_relayed_scan_warning(
     conn, repo_path = _stage(gate_db)
     _seed_work_claim(conn)
     envelope = request_factory().model_dump(mode="json")
+    envelope["target"].pop("item_id", None)
     claim = {"id": 1, "session_id": SESSION_ID}
     with (
         mock.patch.object(idea_gate, "_resolve_repo_path", return_value=None),

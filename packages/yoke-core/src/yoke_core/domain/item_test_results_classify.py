@@ -75,38 +75,47 @@ def read_item_test_results(
     *,
     db_path: Optional[str] = None,
 ) -> str:
-    """Return the ``items.test_results`` column for ``item_id``.
+    """Read verdict evidence by public ref, or by a locally owned join key."""
+    from yoke_contracts.public_ref import parse_public_item_ref
+    from yoke_core.domain.control_plane_transport import local_connection_or_none
 
-    ``item_id`` is an internal value. A digit string remains accepted only
-    because ``MergeContext.item_id`` is a resolved transport envelope field;
-    public refs must resolve before reaching this reader. Returns ``""`` for
-    invalid/missing rows or NULL content.
-    """
-    if item_id is None:
+    text = str(item_id or "").strip()
+    prefix, sequence = parse_public_item_ref(text)
+    public_selector = prefix is not None and sequence is not None
+    if not public_selector and (not text.isdigit() or int(text) <= 0):
         return ""
-    if isinstance(item_id, int):
-        numeric_id = item_id
-    else:
-        text = str(item_id).strip()
-        if not text:
-            return ""
-        if not text.isdigit():
-            return ""
-        numeric_id = int(text)
-    if numeric_id <= 0:
-        return ""
-    conn: Any = db_helpers.connect(db_path)
+    conn: Any = local_connection_or_none(lambda: db_helpers.connect(db_path))
+    if conn is None:
+        from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+        from yoke_core.domain.public_item_target import public_item_target
+
+        response = call_dispatcher(
+            function_id="items.get.run",
+            target=public_item_target(item_id),
+            payload={"fields": ["test_results"]},
+        )
+        if not response.success:
+            message = response.error.message if response.error else "read refused"
+            raise RuntimeError(f"test_results read failed: {message}")
+        value = ((response.result or {}).get("fields") or {}).get("test_results")
+        return value if isinstance(value, str) else ""
     try:
-        p = _p(conn)
+        if public_selector:
+            from yoke_core.domain.item_ref_resolution import resolve_item_ref
+
+            try:
+                numeric_id = resolve_item_ref(conn, text)
+            except ValueError:
+                return ""
+        else:
+            numeric_id = int(text)
         row = conn.execute(
-            f"SELECT test_results FROM items WHERE id={p}", (numeric_id,)
+            f"SELECT test_results FROM items WHERE id={_p(conn)}", (numeric_id,)
         ).fetchone()
+        value = row[0] if row else None
+        return value if isinstance(value, str) else ""
     finally:
         conn.close()
-    if not row:
-        return ""
-    value = row[0]
-    return value if isinstance(value, str) else ""
 
 
 def format_verdict_head_sha_trailer(head_sha: str) -> str:

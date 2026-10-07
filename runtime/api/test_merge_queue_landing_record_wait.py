@@ -38,7 +38,7 @@ def test_observe_call_uses_the_merge_registry_skew_degradation(monkeypatch):
 
     record, result, error = wait_mod._read_server_record(
         sent,
-        item_id=1,
+        item_id="YOK-200",
         announce=announced.append,
     )
 
@@ -107,7 +107,7 @@ def test_default_wait_invokes_the_server_observer_once_per_minute():
     refusal = wait_mod.wait_for_queue_landing(
         pr_num="42",
         target="main",
-        item_id=1,
+        item_id="YOK-200",
         public_ref="YOK-200",
         resume_command="yoke merge item YOK-200 --wait",
         dispatch=dispatch,

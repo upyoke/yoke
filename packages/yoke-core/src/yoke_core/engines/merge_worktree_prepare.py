@@ -81,12 +81,7 @@ def resolve_context(args: MergeArgs) -> MergeContext:
         raise RuntimeError("Not in a git repository")
     ctx.yoke_repo_root = ctx.repo_root
 
-    # Resolve the branch's public item ref to the internal items.id every
-    # downstream consumer expects. The ref carries the project sequence,
-    # which is not the internal id once the two diverge, so it is passed
-    # as ``public_ref`` for the dispatcher to resolve server-side — that
-    # keeps resolution authoritative over an https control plane as well
-    # as an in-process local connection, with no client DB read.
+    # Keep the public selector through client-side merge orchestration.
     ctx.item_id = str(args.item_id) if args.item_id is not None else None
     match = re.search(r"([A-Za-z][A-Za-z0-9]*-\d+)", args.branch)
     if ctx.item_id is None and match:
@@ -103,8 +98,7 @@ def resolve_context(args: MergeArgs) -> MergeContext:
         except Exception:  # noqa: BLE001 - DB context is advisory here.
             pass
 
-    # Resolve epic ID the same way: PREFIX-N resolves through the project
-    # sequence, a bare number is a project-local ref, both server-side.
+    # Resolve the epic through its complete public selector, server-side.
     ctx.epic_id = args.epic_ref
     if ctx.epic_id:
         try:

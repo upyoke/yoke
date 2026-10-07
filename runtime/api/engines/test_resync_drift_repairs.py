@@ -97,7 +97,7 @@ class TestRepairDrift:
         ) as sync_body:
             assert resync_mod._repair_drift(drift, paired, populated_db) is True
         sync_body.assert_called_once()
-        assert sync_body.call_args.args == ("42",)
+        assert sync_body.call_args.args == ("YOK-42",)
 
     def test_body_drift_epic_task_uses_python_sync(self, populated_db):
         drift = DriftRecord(
@@ -125,7 +125,7 @@ class TestRepairDrift:
         ) as sync:
             assert resync_mod._repair_drift(drift, paired, populated_db) is True
         sync.assert_called_once()
-        assert sync.call_args.args == ("1246", 1)
+        assert sync.call_args.args == ("YOK-1246", 1)
 
     def test_label_drift_backlog_uses_domain_sync(self, populated_db):
         drift = DriftRecord(
@@ -146,10 +146,10 @@ class TestRepairDrift:
         ) as sync_labels:
             assert resync_mod._repair_drift(drift, paired, populated_db) is True
         sync_labels.assert_called_once()
-        assert sync_labels.call_args.args == ("42",)
+        assert sync_labels.call_args.args == ("YOK-42",)
 
     def test_label_owner_drift_routes_through_sync_labels(self, populated_db):
-        """Slice 7: ``label-owner`` drift uses the same `sync_labels`
+        """``label-owner`` drift uses the same `sync_labels`
         sibling that owns ``label-source``. The repair branch must
         recognise the new field name or owner drift would silently
         fall through to the no-op default."""
@@ -167,7 +167,7 @@ class TestRepairDrift:
         ) as sync_labels:
             assert resync_mod._repair_drift(drift, paired, populated_db) is True
         sync_labels.assert_called_once()
-        assert sync_labels.call_args.args == ("42",)
+        assert sync_labels.call_args.args == ("YOK-42",)
 
     def test_label_frozen_dry_run_returns_true(self, populated_db):
         drift = DriftRecord(
@@ -198,7 +198,7 @@ class TestRepairDrift:
         ) as close_issue:
             assert resync_mod._repair_drift(drift, paired, populated_db) is True
         close_issue.assert_called_once()
-        assert close_issue.call_args.args == ("42",)
+        assert close_issue.call_args.args == ("YOK-42",)
 
     def test_state_drift_epic_task_uses_issue_close(self, populated_db):
         from yoke_core.domain.github_rest import Issue
@@ -257,7 +257,7 @@ class TestRepairDrift:
         ):
             assert resync_mod._repair_drift(drift, paired, populated_db) is True
         post_comment.assert_called_once()
-        assert post_comment.call_args.args == ("42", "unknown", "done")
+        assert post_comment.call_args.args == ("YOK-42", "unknown", "done")
 
     def test_unknown_drift_returns_false(self, populated_db):
         drift = DriftRecord("YOK-42", "mystery", "a", "b", public_ref="YOK-42")

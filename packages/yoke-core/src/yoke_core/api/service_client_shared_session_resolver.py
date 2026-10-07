@@ -52,7 +52,7 @@ def current_session_id() -> str:
     return _resolve_session_id(None) or ""
 
 
-def _parse_item_id_arg(raw: str) -> int:
+def _parse_item_id_arg(raw: str) -> int | str:
     """Resolve a complete public ref, retaining join keys only inside engines."""
     from yoke_contracts.public_ref import parse_public_item_ref
 

@@ -71,7 +71,7 @@ class _AdvisoryDispatcher:
         if function_id == "items.detail.get":
             row = (
                 self.owner
-                if getattr(target, "item_id", None) == self.owner["id"]
+                if target.public_ref == self.owner["public_ref"]
                 else self.item
             )
             return _resp(function_id, {"item": row})
@@ -82,12 +82,11 @@ class _AdvisoryDispatcher:
 
 def test_path_claim_survey_contact_advises_and_prepares(monkeypatch, capsys):
     owner = {
-        "id": 4200,
         "public_ref": "YOK-4200",
         "status": "implementing",
         "workflow": {"id": "issue"},
     }
-    item = {"id": 4103, "workflow": {"id": "dash"}}
+    item = {"public_ref": "YOK-4103", "workflow": {"id": "dash"}}
     dispatcher = _AdvisoryDispatcher(
         item=item,
         owner=owner,
@@ -99,13 +98,13 @@ def test_path_claim_survey_contact_advises_and_prepares(monkeypatch, capsys):
             "blockers": [
                 {
                     "kind": "path_claim",
-                    "owner_item_id": 4200,
+                    "owner_public_ref": "YOK-4200",
                     "path": SHARED,
                     "state": "active",
                 },
                 {
                     "kind": "work_claim",
-                    "owner_item_id": 4200,
+                    "owner_public_ref": "YOK-4200",
                     "path": SHARED,
                     "state": "active",
                 },

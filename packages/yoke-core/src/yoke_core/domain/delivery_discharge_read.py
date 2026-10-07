@@ -81,13 +81,13 @@ def delivery_discharge(
     dispatch: Callable[..., Any] = call_dispatcher,
 ) -> DeliveryDischarge:
     """Whether a succeeded run of the item's selected flow delivered it."""
-    item_id = item.get("id")
-    if item_id is None:
-        return _unread("the item carries no id to ask about")
+    public_ref = item.get("public_ref")
+    if not public_ref:
+        return _unread("the item carries no public ref to ask about")
     try:
         response = dispatch(
             function_id="done_transition.delivery_evidence",
-            target=public_item_target(item_id),
+            target=public_item_target(public_ref),
             payload={},
         )
     except Exception as exc:  # noqa: BLE001 - an unread delivery is not a no

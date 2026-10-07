@@ -72,7 +72,7 @@ class TestExecuteUpdateCli:
         spec_path.write_text("# Spec\n", encoding="utf-8")
 
         rc = service_client.cmd_execute_update_cli(
-            ["1", "spec", "--body-file", str(spec_path), "--stdin"]
+            ["YOK-1", "spec", "--body-file", str(spec_path), "--stdin"]
         )
 
         captured = capsys.readouterr()
@@ -88,7 +88,7 @@ class TestExecuteUpdateCli:
         body_path.write_text("hello\n", encoding="utf-8")
 
         rc = service_client.cmd_execute_update_cli(
-            ["1", "body", "--body-file", str(body_path)]
+            ["YOK-1", "body", "--body-file", str(body_path)]
         )
 
         captured = capsys.readouterr()
@@ -100,7 +100,7 @@ class TestExecuteUpdateCli:
     def test_execute_update_cli_rejects_raw_body_writes_from_stdin(self, capsys):
         import yoke_core.api.service_client as service_client
 
-        rc = service_client.cmd_execute_update_cli(["1", "body", "--stdin"])
+        rc = service_client.cmd_execute_update_cli(["YOK-1", "body", "--stdin"])
 
         captured = capsys.readouterr()
         data = json.loads(captured.out)
@@ -146,7 +146,7 @@ class TestExecuteUpdateCli:
         monkeypatch.setenv("YOKE_CLAIM_BYPASS", "test")
         monkeypatch.delenv("YOKE_ROOT", raising=False)
 
-        rc = service_client.cmd_execute_update_cli(["7", "status", "implementing"])
+        rc = service_client.cmd_execute_update_cli(["YOK-7", "status", "implementing"])
 
         captured = capsys.readouterr()
         data = json.loads(captured.out)
@@ -163,7 +163,7 @@ class TestExecuteUpdateCli:
         monkeypatch.delenv("YOKE_ROOT", raising=False)
         monkeypatch.setenv("YOKE_SERVICE_CLIENT_SHELL", "1")
 
-        rc = service_client.cmd_execute_update_cli(["7", "status", "implementing"])
+        rc = service_client.cmd_execute_update_cli(["YOK-7", "status", "implementing"])
 
         captured = capsys.readouterr()
         assert rc == 1
@@ -207,7 +207,7 @@ class TestExecuteUpdateForceFinalize:
         with _patch_externals():
             rc = service_client.cmd_execute_update(
                 [
-                    str(item_id),
+                    f"YOK-{item_id}",
                     "--field",
                     "status",
                     "--value",
@@ -238,7 +238,7 @@ class TestExecuteUpdateForceFinalize:
 
         with _patch_externals():
             rc = service_client.cmd_execute_update(
-                [str(item_id), "--field", "status", "--value", "implemented", "--force"]
+                [public_ref, "--field", "status", "--value", "implemented", "--force"]
             )
 
         data = json.loads(capsys.readouterr().out)
@@ -265,7 +265,7 @@ class TestExecuteUpdateForceFinalize:
         with _patch_externals():
             rc = service_client.cmd_execute_update(
                 [
-                    str(item_id),
+                    f"YOK-{item_id}",
                     "--field",
                     "status",
                     "--value",

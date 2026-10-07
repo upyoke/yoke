@@ -75,7 +75,7 @@ def _capture_queue_landing(monkeypatch) -> dict:
 
 def _route(**overrides):
     kwargs = {
-        "item_id": 1,
+        "item_id": "YOK-200",
         "branch": "YOK-200",
         "target": "main",
         "repo_root": CHECKOUT,
@@ -208,7 +208,7 @@ def _wire_close_out(monkeypatch, *, pr_files) -> dict:
 def _close_out(monkeypatch):
     return close_out_mod.record_landing(
         ctx(repo_root=CHECKOUT),
-        item_id=1,
+        item_id="YOK-200",
         commit_sha=LANE_SHA,
         pr_num="42",
     )

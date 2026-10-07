@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 
+from runtime.api.domain.test_no_change_dash_close_out import _NonClosingConnection
+
 from runtime.api.domain.test_status_transition_preflight import (
     _isolate_status_effects,
 )
@@ -55,7 +57,7 @@ def test_dash_done_keeps_rung_rows_events_and_converged_facts(
     monkeypatch.setattr(
         db_helpers,
         "connect",
-        lambda: nullcontext(test_db),
+        lambda: _NonClosingConnection(test_db),
     )
     monkeypatch.setattr(
         dash_posture_gate,
@@ -163,7 +165,7 @@ def test_registered_rung_resolver_uses_the_shared_server_path(
     monkeypatch.setattr(
         gate_satisfier_rung,
         "_connect_rw",
-        lambda: nullcontext(test_db),
+        lambda: _NonClosingConnection(test_db),
     )
 
     outcome = gate_satisfier_rung.handle_resolve(
@@ -226,7 +228,7 @@ def test_merge_close_out_stamps_through_the_dispatched_evidence_call(
         workflow_id="dash",
         status="reviewing-implementation",
     )
-    monkeypatch.setattr(db_helpers, "connect", lambda: nullcontext(test_db))
+    monkeypatch.setattr(db_helpers, "connect", lambda: _NonClosingConnection(test_db))
 
     def dispatch(*, function_id, target, payload=None, **_kwargs):
         assert function_id == "direct_workflow.dash.evidence"
@@ -234,7 +236,7 @@ def test_merge_close_out_stamps_through_the_dispatched_evidence_call(
             FunctionCallRequest(
                 function=function_id,
                 actor=ActorContext(actor_id="2", session_id="merge-close-out"),
-                target=target,
+                target=target.model_copy(update={"item_id": item_id}),
                 payload=dict(payload or {}),
             )
         )
@@ -247,7 +249,7 @@ def test_merge_close_out_stamps_through_the_dispatched_evidence_call(
     monkeypatch.setattr(merge_evidence, "call_dispatcher", dispatch)
 
     refusal, warning = close_out.record_execution_evidence(
-        item_id=item_id,
+        item_id=f"YOK-{item_id}",
         outcome=SimpleNamespace(
             commit_sha="c" * 40,
             merge_sha="d" * 40,

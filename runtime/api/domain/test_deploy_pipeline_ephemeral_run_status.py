@@ -40,12 +40,12 @@ class _Harness:
         self.stamps = []
         self.releases = []
 
-    def stamp_item_field(self, item_id, field, value):
-        self.stamps.append((int(item_id), field, value))
-        return {"verified": True, "item_id": int(item_id)}
+    def stamp_item_field(self, public_ref, field, value):
+        self.stamps.append((public_ref, field, value))
+        return {"verified": True, "public_ref": public_ref}
 
-    def transition_member_to_release(self, item_id, run_id):
-        self.releases.append((int(item_id), run_id))
+    def transition_member_to_release(self, public_ref, run_id):
+        self.releases.append((public_ref, run_id))
 
     def update_run_field(self, run_id, field, value):
         self.run_mutations.append((run_id, field, value))
@@ -56,7 +56,6 @@ class _Harness:
     def run(self, exec_rc):
         members = [
             {
-                "item_id": int(item),
                 "public_ref": f"YOK-{item}",
                 "status": "implemented",
                 "branch": "item-branch",
@@ -236,10 +235,10 @@ class TestEphemeralRunStatusItemBound:
             revision="",
         )
         assert "Ephemeral tier" in capsys.readouterr().out
-        assert harness.releases == [(42, _RUN_ID)]
+        assert harness.releases == [("YOK-42", _RUN_ID)]
         assert [row for row in harness.stamps if row[1] == "deploy_stage"] == [
-            (42, "deploy_stage", "ephemeral-deploy"),
-            (42, "deploy_stage", "complete"),
-            (42, "deploy_stage", "complete"),
+            ("YOK-42", "deploy_stage", "ephemeral-deploy"),
+            ("YOK-42", "deploy_stage", "complete"),
+            ("YOK-42", "deploy_stage", "complete"),
         ]
-        assert (42, "deployed_to", "ephemeral") in harness.stamps
+        assert ("YOK-42", "deployed_to", "ephemeral") in harness.stamps

@@ -42,12 +42,8 @@ IMPLEMENTATION_PHASE_STATUSES = frozenset(
 )
 
 
-def _parse_item_argument(raw: Any) -> int:
-    """Resolve an item ref to the internal ``items.id``.
-
-    ``PREFIX-N`` resolves through the project's ``public_item_prefix`` +
-    ``items.project_sequence``; a bare number is a project-local sequence.
-    """
+def _parse_item_argument(raw: Any) -> int | str:
+    """Retain public selectors on HTTPS; resolve local engine joins locally."""
     from yoke_core.domain.yok_n_parser import parse_item_argument
 
     return parse_item_argument(raw)

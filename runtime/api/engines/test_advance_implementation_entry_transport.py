@@ -49,7 +49,7 @@ def _record_calls(monkeypatch) -> List[Dict[str, Any]]:
         if function_id == "items.detail.get":
             return _detail_response(
                 {
-                    "id": 1920,
+                    "public_ref": "YOK-1920",
                     "status": "idea",
                     "title": "T",
                     "project": {"id": 1, "slug": "yoke", "name": "Yoke"},
@@ -67,9 +67,9 @@ def test_read_item_relays_items_detail_get(monkeypatch):
     item = orch._read_item("YOK-1920")
     assert calls[0]["function_id"] == "items.detail.get"
     target = calls[0]["target"]
-    assert target.kind == "item" and target.item_id == 1920
+    assert target.kind == "item" and target.public_ref == "YOK-1920"
     assert item == {
-        "id": 1920,
+        "public_ref": "YOK-1920",
         "workflow_id": "dash",
         "workflow_version_id": 41,
         "status": "idea",
@@ -117,7 +117,7 @@ def test_flip_status_routes_through_call_dispatcher(monkeypatch):
     assert call["intent"] == "advance_finalize"
     assert call["actor"].session_id == "sess"
     assert (call["actor"].actor_id or "") == ""
-    assert call["target"].kind == "item" and call["target"].item_id == 42
+    assert call["target"].kind == "item" and call["target"].public_ref == "YOK-42"
     assert call["payload"]["target_status"] == "implementing"
     assert call["payload"]["source_status"] == "refined-idea"
     assert call["payload"]["force"] is False
@@ -130,7 +130,7 @@ def test_release_claim_routes_through_call_dispatcher(monkeypatch):
     orch._release_claim("YOK-42", "sess", orch.RELEASE_WORKTREE_CREATE_FAILED)
     call = calls[0]
     assert call["function_id"] == "claims.work.release"
-    assert call["target"].kind == "item" and call["target"].item_id == 42
+    assert call["target"].kind == "item" and call["target"].public_ref == "YOK-42"
     assert call["actor"].session_id == "sess"
     assert call["payload"]["reason"] == orch.RELEASE_WORKTREE_CREATE_FAILED
 

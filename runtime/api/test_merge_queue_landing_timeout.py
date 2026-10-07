@@ -38,7 +38,7 @@ def message(holder_dispatch, *, resume=RESUME, last_observed=""):
     return timeout_mod.timeout_message(
         pr_num="42",
         deadline_seconds=2700.0,
-        item_id=1,
+        item_id="YOK-200",
         public_ref="YOK-200",
         resume_command=resume,
         dispatch=holder_dispatch,

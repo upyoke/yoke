@@ -22,7 +22,7 @@ def run(
 ) -> int:
     """Orchestrate the implementation-entry phases. Returns CLI exit code."""
     try:
-        item_id_int = entry._parse_item_argument(item_id)
+        public_ref = entry.public_item_target(item_id).public_ref
     except ValueError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
@@ -40,7 +40,7 @@ def run(
         print(
             json.dumps(
                 {
-                    "public_ref": entry.public_item_target(item_id_int).public_ref,
+                    "public_ref": public_ref,
                     "phases": [],
                     "session_id": "",
                     "error": error,
@@ -49,7 +49,7 @@ def run(
             file=out,
         )
         return 1
-    item = entry._read_item(item_id_int)
+    item = entry._read_item(public_ref)
     if item is None:
         print(f"ERROR: no item for {item_id!r}.", file=sys.stderr)
         return 2
@@ -59,7 +59,7 @@ def run(
     # worktree_path / branch populated only on worktree-phase completion;
     # failure envelopes carry a structured ``error`` instead.
     summary: Dict[str, Any] = {
-        "public_ref": entry.public_item_target(item_id_int).public_ref,
+        "public_ref": public_ref,
         "title": item.get("title") or "",
         "pre_status": pre_status,
         "phases": [],
@@ -69,11 +69,11 @@ def run(
 
     # Preflight gates ------------------------------------------
     t0 = time.monotonic()
-    ok, narrative = entry._run_preflight_gates(item_id_int, force=force)
+    ok, narrative = entry._run_preflight_gates(public_ref, force=force)
     dur = int((time.monotonic() - t0) * 1000)
     entry._record_phase(
         summary,
-        item_id=item_id_int,
+        item_id=public_ref,
         phase=entry.PHASE_PREFLIGHT,
         outcome="completed" if ok else "blocked",
         duration_ms=dur,
@@ -95,7 +95,7 @@ def run(
 
     t0 = time.monotonic()
     wt = run_preflight(
-        item_id=item_id_int,
+        item_id=public_ref,
         project=item.get("project"),
         session_id=resolved_session,
         actual_cwd=actual_cwd or "",
@@ -106,7 +106,7 @@ def run(
         outcome = f"blocked:{wt.block_kind}"
         entry._record_phase(
             summary,
-            item_id=item_id_int,
+            item_id=public_ref,
             phase=entry.PHASE_WORKTREE,
             outcome=outcome,
             duration_ms=dur,
@@ -116,7 +116,7 @@ def run(
         print(wt.narrative, file=sys.stderr)
         if wt.block_kind == "worktree-create-failed":
             entry._release_claim(
-                item_id_int, resolved_session, entry.RELEASE_WORKTREE_CREATE_FAILED
+                public_ref, resolved_session, entry.RELEASE_WORKTREE_CREATE_FAILED
             )
         summary["error"] = {
             "phase": entry.PHASE_WORKTREE,
@@ -127,7 +127,7 @@ def run(
         return 1
     entry._record_phase(
         summary,
-        item_id=item_id_int,
+        item_id=public_ref,
         phase=entry.PHASE_WORKTREE,
         outcome="completed",
         duration_ms=dur,
@@ -157,7 +157,7 @@ def run(
     dur = int((time.monotonic() - t0) * 1000)
     entry._record_phase(
         summary,
-        item_id=item_id_int,
+        item_id=public_ref,
         phase=entry.PHASE_ENVIRONMENT,
         outcome=env_outcome,
         duration_ms=dur,
@@ -170,7 +170,7 @@ def run(
     if is_reentry:
         entry._record_phase(
             summary,
-            item_id=item_id_int,
+            item_id=public_ref,
             phase=entry.PHASE_FINALIZE,
             outcome="skipped:already-past-refined-idea",
             duration_ms=int((time.monotonic() - t0) * 1000),
@@ -183,7 +183,7 @@ def run(
 
     target_status = "implementing"
     response = entry._flip_status(
-        item_id_int,
+        public_ref,
         from_status=pre_status,
         to_status=target_status,
         session_id=resolved_session,
@@ -196,7 +196,7 @@ def run(
         msg = response.error.message if response.error else "transition failed"
         entry._record_phase(
             summary,
-            item_id=item_id_int,
+            item_id=public_ref,
             phase=entry.PHASE_FINALIZE,
             outcome=f"blocked:{code}",
             duration_ms=dur,
@@ -216,7 +216,7 @@ def run(
 
     entry._record_phase(
         summary,
-        item_id=item_id_int,
+        item_id=public_ref,
         phase=entry.PHASE_FINALIZE,
         outcome="completed",
         duration_ms=dur,

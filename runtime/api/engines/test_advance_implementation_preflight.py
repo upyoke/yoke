@@ -43,6 +43,7 @@ _SPEC_COVERAGE = "advance.preflight.spec_coverage"
 # Synthetic fixture item id. Narratives are built from it via f-strings so no
 # literal "YOK-N" appears in assertions (keeps the doc-hygiene drift guard clean).
 TEST_ITEM_ID = 42
+TEST_ITEM_REF = f"BUZ-{TEST_ITEM_ID}"
 
 _PASS_RESULTS: Dict[str, Dict[str, Any]] = {
     _HARD_BLOCKS: {"blockers": []},
@@ -81,7 +82,7 @@ def test_unresolvable_identity_refuses_before_item_claim_or_lane(
         lambda _item_id: pytest.fail("item read ran"),
     )
     out = io.StringIO()
-    assert entry.run(TEST_ITEM_ID, session_id="declared", out=out) == 1
+    assert entry.run(TEST_ITEM_REF, session_id="declared", out=out) == 1
     error = json.loads(out.getvalue())["error"]
     assert error["kind"] == gates.IDENTITY_UNRESOLVED
     assert "before work-claim or lane creation" in error["narrative"]
@@ -162,13 +163,13 @@ def _install(monkeypatch, overrides: Dict[str, Dict[str, Any]]):
 
 def test_force_skips_all_gates(monkeypatch):
     calls = _install(monkeypatch, {})
-    assert gates._run_preflight_gates(TEST_ITEM_ID, force=True) == (True, "")
+    assert gates._run_preflight_gates(TEST_ITEM_REF, force=True) == (True, "")
     assert calls == []
 
 
 def test_all_gates_pass_relays_each_in_order(monkeypatch):
     calls = _install(monkeypatch, {})
-    ok, narrative = gates._run_preflight_gates(TEST_ITEM_ID, force=False)
+    ok, narrative = gates._run_preflight_gates(TEST_ITEM_REF, force=False)
     assert (ok, narrative) == (True, "")
     assert [c["function_id"] for c in calls] == [
         _HARD_BLOCKS,
@@ -177,7 +178,9 @@ def test_all_gates_pass_relays_each_in_order(monkeypatch):
         _SPEC_COVERAGE,
     ]
     for call in calls:
-        assert call["target"].kind == "item" and call["target"].item_id == TEST_ITEM_ID
+        assert (
+            call["target"].kind == "item" and call["target"].public_ref == TEST_ITEM_REF
+        )
     assert calls[0]["payload"] == {"gate_filter": "activation"}
 
 
@@ -192,7 +195,7 @@ def test_hard_blocks_short_circuits_before_later_gates(monkeypatch):
             }
         },
     )
-    ok, narrative = gates._run_preflight_gates(TEST_ITEM_ID, force=False)
+    ok, narrative = gates._run_preflight_gates(TEST_ITEM_REF, force=False)
     assert ok is False
     assert narrative.startswith("Blocked by dependencies:\n  BLOCKED|YOK-99")
     assert [c["function_id"] for c in calls] == [_HARD_BLOCKS]
@@ -205,7 +208,7 @@ def test_optional_budget_skips_budget_and_coverage(monkeypatch):
             _WORKFLOW: {"effective_policies": {"file_budget": "optional"}},
         },
     )
-    assert gates._run_preflight_gates(TEST_ITEM_ID, force=False) == (True, "")
+    assert gates._run_preflight_gates(TEST_ITEM_REF, force=False) == (True, "")
     assert [c["function_id"] for c in calls] == [_HARD_BLOCKS, _WORKFLOW]
 
 
@@ -219,7 +222,7 @@ def test_file_budget_block_narrative_preserved(monkeypatch):
             }
         },
     )
-    ok, narrative = gates._run_preflight_gates(TEST_ITEM_ID, force=False)
+    ok, narrative = gates._run_preflight_gates(TEST_ITEM_REF, force=False)
     assert (ok, narrative) == (
         False,
         "BLOCKED: effective File Budget is missing",
@@ -247,7 +250,7 @@ def test_spec_coverage_block_narrative_preserved(monkeypatch, serves_public_ref)
             "items.detail.get": {"item": {"public_ref": f"BUZ-{TEST_ITEM_ID}"}},
         },
     )
-    ok, narrative = gates._run_preflight_gates(TEST_ITEM_ID, force=False)
+    ok, narrative = gates._run_preflight_gates(TEST_ITEM_REF, force=False)
     assert ok is False
     assert narrative == (
         f"BLOCKED: BUZ-{TEST_ITEM_ID} File Budget lists 2 path(s) not covered by any "
@@ -259,8 +262,6 @@ def test_spec_coverage_block_narrative_preserved(monkeypatch, serves_public_ref)
         _FILE_BUDGET,
         _SPEC_COVERAGE,
     ]
-    if not serves_public_ref:
-        expected.append("items.detail.get")
     assert [c["function_id"] for c in calls] == expected
 
 
@@ -277,4 +278,4 @@ def test_gate_relay_failure_fails_closed(monkeypatch):
 
     monkeypatch.setattr(gates, "call_dispatcher", fake)
     with pytest.raises(RuntimeError, match=_HARD_BLOCKS):
-        gates._run_preflight_gates(TEST_ITEM_ID, force=False)
+        gates._run_preflight_gates(TEST_ITEM_REF, force=False)
