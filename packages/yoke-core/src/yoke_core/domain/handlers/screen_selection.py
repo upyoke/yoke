@@ -69,16 +69,38 @@ def _valid_selection(selection: Any) -> bool:
     return isinstance(selection, list) and all(isinstance(v, str) for v in selection)
 
 
-def _valid_sort(value: Any, view_id: str = "items") -> bool:
-    from yoke_core.domain.item_roster_order import SORT_COLUMNS, SORT_DIRECTIONS
+#: Sortable Actors roster columns; the roster is one full read ordered by
+#: the dashboard, so only the saved preference is validated here.
+ACTOR_SORT_COLUMNS = (
+    "name",
+    "status",
+    "org_role",
+    "project_access",
+    "email",
+    "api_keys",
+)
 
+
+def _sort_columns(view_id: str) -> Any:
+    if view_id == "items":
+        from yoke_core.domain.item_roster_order import SORT_COLUMNS
+
+        return SORT_COLUMNS
     if view_id == "ouroboros":
         from yoke_core.domain.ouroboros_roster_order import SORT_COLUMNS
-    elif view_id != "items":
-        return False
+
+        return SORT_COLUMNS
+    if view_id == "actors":
+        return ACTOR_SORT_COLUMNS
+    return ()
+
+
+def _valid_sort(value: Any, view_id: str = "items") -> bool:
+    from yoke_core.domain.item_roster_order import SORT_DIRECTIONS
+
     return (
         isinstance(value, dict)
-        and value.get("column") in SORT_COLUMNS
+        and value.get("column") in _sort_columns(view_id)
         and value.get("direction") in SORT_DIRECTIONS
     )
 

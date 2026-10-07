@@ -5,8 +5,11 @@
 // screen's choice survives reload, a new tab, or a different browser for
 // the same actor — `saveView` (bound by the caller to the live
 // function-call client) is the only way values leave this module.
+import { normalizeActorSort } from "./actor_roster_sort.js";
 import { normalizeOuroborosSort } from "./ouroboros_roster_sort.js";
 import { normalizeItemSort } from "./item_roster_sort.js";
+
+const SORT_NORMALIZERS = { actors: normalizeActorSort, ouroboros: normalizeOuroborosSort };
 
 const SORT_UNAVAILABLE = "Sort persistence unavailable. Update the server and reload to save sorting.";
 
@@ -77,7 +80,7 @@ export function createProjectSelection(saveView, onNotice, saveSort) {
     if (!entry) { entry = { selection: "all", focus: null }; views.set(viewId, entry); }
     return entry;
   };
-  state.sortFor = (viewId) => (viewId === "ouroboros" ? normalizeOuroborosSort : normalizeItemSort)(sorts.get(viewId));
+  state.sortFor = (viewId) => (SORT_NORMALIZERS[viewId] || normalizeItemSort)(sorts.get(viewId));
   state.seedSort = (viewId, sort) => { sortRevision += 1; sorts.set(viewId, sort); };
   // A returning tab reads the actor's current choice, but a local click
   // while that read is in flight wins. Flush this mount's writes first.

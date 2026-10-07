@@ -6,10 +6,17 @@ Who and what may act on the universe and per project: machine connect,
 approvals, tokens. On Cloud, CLI connect and machine authorization start
 at the platform routes (`/connect`, `/machine`).
 
-The dashboard's **Actors** page reads the live actor roster. It shows each
-actor's kind, active or disabled state, organization role, project grants,
-and every unrevoked API key by name, ID, last use, and machine association.
-Hosted mode also shows the linked sign-in email when one exists. An org admin
+The dashboard's **Actors** page reads the live actor roster in two groups:
+**People** (human actors) and **Machine accounts** (system actors). Each row
+shows the actor's active or disabled state, organization role, project
+grants as `project (role)` — `all projects` for an org admin — and every
+unrevoked API key by name, ID, last use, and machine association. Hosted
+mode adds a **Member email** column to People: the linked sign-in email when
+one exists. Disabled actors are hidden by default; **Show disabled (N)** names
+how many are hidden and reveals them. Every column but Action sorts from its
+header, and the chosen sort is saved to your actor's preferences under the
+Actors screen, the same store the Items table uses, so it follows you across
+tabs, browsers, and reloads rather than staying in one browser. An org admin
 can disable or enable a human actor other than themselves. The last active
 org admin cannot be disabled. A retired system actor can be disabled through
 `yoke actors state set ACTOR-ID --disable --confirm-system-retirement` after
@@ -20,10 +27,10 @@ Disabling immediately blocks
 the actor's browser sessions and other authority and revokes all its API keys,
 including machine keys. Enabling restores role access but does not restore
 those keys: the person must sign in again and reconnect affected machines.
-A local universe with one human actor explains that it has no access to grant yet.
+A local universe with one human actor says you are the only actor.
 
-Disable opens a confirmation naming the actor and the key-revocation
-consequences. Cancel changes nothing; a failed confirmation remains retryable.
+Disable opens a confirmation naming the actor and stating that its API keys
+will be revoked. Cancel changes nothing; a failed confirmation remains retryable.
 On narrow screens the roster becomes labeled cards, retaining the first actor
 and every access fact.
 
