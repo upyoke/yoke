@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any, get_args, Literal, Mapping, Optional
 
 from yoke_contracts.api.function_call import (
@@ -12,17 +11,13 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain import db_backend
 from yoke_core.domain.decision_request_contract import MACHINE_APPROVAL
-from yoke_core.domain.decision_request_resolution import (
-    resolve_decision_request,
-    withdraw_decision_request,
-    withdraw_for_ended_subject,
-)
+from yoke_core.domain.decision_request_resolution import resolve_decision_request
 from yoke_core.domain.decision_request_subject_state import (
     _instant,
     _MACHINE_END_TIMESTAMPS,
     _MACHINE_ENDED_STATES,
 )
-from yoke_core.domain.hosted_service_authority import hosted_service_org_ids
+from yoke_core.domain.machine_approval_withdrawal import withdraw_machine_approval
 from yoke_core.domain.decision_requests import (
     RoleAuthority,
     create_decision_request,
@@ -89,26 +84,6 @@ def _terminal_state(request: Mapping[str, Any]) -> Optional[str]:
             return "expired"
         return "withdrawn"
     return None
-
-
-def _record_terminal_context(
-    conn: Any,
-    request: Mapping[str, Any],
-    *,
-    status: str,
-    observed_at: str,
-    reason: Optional[str],
-) -> None:
-    context = request.get("subject_context")
-    updated = dict(context) if isinstance(context, Mapping) else {}
-    updated["status"] = status
-    updated[f"{status}_at"] = observed_at
-    if reason:
-        updated["reason"] = reason
-    conn.execute(
-        f"UPDATE decision_requests SET subject_context = {_p(conn)} WHERE id = {_p(conn)}",
-        (json.dumps(updated, separators=(",", ":")), int(request["id"])),
-    )
 
 
 def ensure_machine_approval(
@@ -218,30 +193,21 @@ def apply_machine_approval_lifecycle(
         )
         return resolved, created, True
 
-    withdrawal_reason = (reason or f"machine authorization {state}").strip()
-    _record_terminal_context(
-        conn,
-        request,
-        status=state,
-        observed_at=occurred_at,
-        reason=withdrawal_reason,
+    return (
+        withdraw_machine_approval(
+            conn,
+            request,
+            org_id=org_id,
+            state=state,
+            occurred_at=occurred_at,
+            actor_id=actor_id,
+            reason=reason,
+            session_id=session_id,
+            opened_by_this_delivery=created,
+        ),
+        created,
+        True,
     )
-    # The hosted service's own identity ends it without org-admin authority
-    # (the subject-ended contract still applies); others need the request's.
-    withdraw = (
-        withdraw_for_ended_subject
-        if int(org_id) in hosted_service_org_ids(conn, actor_id)
-        else withdraw_decision_request
-    )
-    withdrawn = withdraw(
-        conn,
-        int(request["id"]),
-        reason=withdrawal_reason,
-        actor_id=actor_id,
-        session_id=session_id,
-        withdrawn_at=occurred_at,
-    )
-    return withdrawn, created, True
 
 
 def apply_machine_approval_lifecycle_request(

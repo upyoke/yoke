@@ -117,6 +117,9 @@ def authenticate_request(request: Request) -> HttpAuthContext | JSONResponse:
                 token.strip(),
                 diagnostic_metadata=_request_metadata(request),
             )
+            service_outside_scope = _hosted_service_outside_scope(
+                conn, request, verified.actor_id
+            )
     except ValueError:
         _record_failed_verify(request, "malformed")
         return auth_error_response(
@@ -161,7 +164,27 @@ def authenticate_request(request: Request) -> HttpAuthContext | JSONResponse:
             message=f"token verification unavailable: {exc}",
         )
 
+    if service_outside_scope:
+        return auth_error_response(
+            status_code=403,
+            code="hosted_service_scope",
+            message=(
+                f"{request.url.path} is outside the hosted service identity's "
+                "scope: it calls only its delivery functions through "
+                "/v1/functions/call. Use a member's or operator's own token"
+            ),
+        )
     return _context_from_verified(verified)
+
+
+def _hosted_service_outside_scope(conn: Any, request: Request, actor_id: int) -> bool:
+    """The hosted service identity reaches only the function-call route."""
+    from yoke_core.api.web_session_auth import WEB_SESSION_FUNCTION_CALL_PATH
+    from yoke_core.domain.hosted_service_authority import is_hosted_service_actor
+
+    if request.url.path == WEB_SESSION_FUNCTION_CALL_PATH:
+        return False
+    return is_hosted_service_actor(conn, actor_id)
 
 
 def require_auth_context(request: Request) -> HttpAuthContext:

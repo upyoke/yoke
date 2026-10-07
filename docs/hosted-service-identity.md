@@ -55,13 +55,54 @@ mints another active token. If the actor already carries any other grant, the
 operation refuses with `hosted_service_identity_not_least_privilege` and names
 the grants to revoke.
 
-To rotate a tenant:
+To rotate a tenant that already runs this identity:
 
 1. Mint a new token.
 2. Install it as the tenant's service credential.
 3. Verify a delivery.
 4. Revoke the superseded token id with `api_tokens_cli revoke --token-id <id>`.
 
-A tenant whose service credential is still the human `initial-admin` token
-must rotate onto this identity before its engine moves to a release with this
-recognition. The old token is refused on the first call afterwards.
+## Moving a tenant onto this identity
+
+An engine without this identity has no role, permission, mint operation, or
+guard path for it. It accepts only its `initial-admin` token as the service
+credential. An engine with it refuses that token. No single credential passes
+on both, so a tenant moves in this order:
+
+1. **Mint ahead, with this build's code.** Run
+   `bootstrap_hosted_service_token` from this release's `yoke_core` against the
+   tenant database while the tenant still serves its old engine. It only adds
+   rows the old engine ignores: the role, its permission, the system actor, its
+   org grant, and a token. The old engine keeps serving deliveries with the
+   `initial-admin` token.
+2. **Swap the credential at pin time.** When the tenant's engine pin moves to
+   this release, install the minted token as the tenant's service credential
+   in the same step.
+3. **Retry inside the window.** Between the new engine starting to serve and
+   the swapped credential taking effect, every service delivery fails on one
+   side or the other. The new engine refuses the old token with
+   `permission_denied`. The old engine refuses the new token, because it is not
+   named `initial-admin`. The hosted service retries refused GitHub lifecycle
+   and machine-authorization deliveries until the swap completes, so nothing
+   delivered in the window is lost.
+4. **Retire the old token.** After the first delivery on the new identity
+   succeeds, revoke the tenant's `initial-admin` token as a service credential.
+
+The window lasts from the moment the new engine serves until the hosted service
+holds the swapped credential. Keep it to the repin step itself.
+
+## What the service may reach
+
+The identity calls only `projects.github_binding.lifecycle` and
+`machine_approval.lifecycle.apply`, and only through `/v1/functions/call`.
+
+- Any other function is refused at dispatch, including the baseline every
+  signed-in actor gets: minting its own tokens, sessions, decision requests,
+  and models.
+- Any other HTTP route is refused at authentication with `hosted_service_scope`.
+- A disabled service actor is refused like any disabled actor.
+
+A machine-approval `expired`/`withdrawn` delivery from the service succeeds
+only when the universe's own stored expiry for that authorization has passed,
+by the engine's clock. A delivery about a live authorization is refused as
+`hosted_service_withdrawal_subject_live`. An org admin withdraws one early.
