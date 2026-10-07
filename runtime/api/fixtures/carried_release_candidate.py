@@ -45,6 +45,9 @@ def release_repository(
 
     ``item_ref`` names only the repository's purpose; the landing commit's
     message attributes nothing. Record the landing receipt to credit it.
+    ``name`` is committed into the content, so two repositories built in the
+    same second never share a commit: a cross-project mixup cannot pass by
+    hashing identically.
     """
     repo = tmp_path / name
     repo.mkdir(parents=True)
@@ -56,17 +59,19 @@ def release_repository(
     )
     git(repo, "config", "user.name", "Yoke Test")
     git(repo, "config", "user.email", "test@example.com")
-    (repo / "release.txt").write_text("baseline\n", encoding="utf-8")
+    (repo / "release.txt").write_text(f"{name} baseline\n", encoding="utf-8")
     git(repo, "add", "release.txt")
     git(repo, "commit", "-m", "Release baseline")
     baseline = git(repo, "rev-parse", "HEAD")
-    (repo / "release.txt").write_text("landed\n", encoding="utf-8")
+    (repo / "release.txt").write_text(f"{name} landed\n", encoding="utf-8")
     git(repo, "commit", "-am", "Land product changes")
     return repo, baseline, git(repo, "rev-parse", "HEAD")
 
 
 def bound_source_repository(
-    tmp_path: Path, name: str, item_ref: str,
+    tmp_path: Path,
+    name: str,
+    item_ref: str,
 ) -> tuple[Path, str, str]:
     """A second project's repository, reachable as its own ``origin``.
 
@@ -79,9 +84,7 @@ def bound_source_repository(
     return repo, baseline, tip
 
 
-def serve_repositories(
-    monkeypatch: pytest.MonkeyPatch, repos: dict[int, Path]
-) -> None:
+def serve_repositories(monkeypatch: pytest.MonkeyPatch, repos: dict[int, Path]) -> None:
     """Map each project id to the checkout this machine holds for it."""
     from yoke_core.domain import project_checkout_locations
 
@@ -91,14 +94,10 @@ def serve_repositories(
     monkeypatch.setattr(
         deployment_run_carried_work_source, "checkout_for_project_id", lookup
     )
-    monkeypatch.setattr(
-        project_checkout_locations, "checkout_for_project_id", lookup
-    )
+    monkeypatch.setattr(project_checkout_locations, "checkout_for_project_id", lookup)
 
 
-def serve_repository(
-    monkeypatch: pytest.MonkeyPatch, repo: Path | None
-) -> None:
+def serve_repository(monkeypatch: pytest.MonkeyPatch, repo: Path | None) -> None:
     """Point carried-work derivation at ``repo``, or at no checkout at all."""
     monkeypatch.setattr(
         deployment_run_carried_work_source,
@@ -128,19 +127,37 @@ def insert_run(
         "INSERT INTO deployment_runs("
         "id,project_id,flow,release_lineage,bound_sources,status,created_at,"
         "completed_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
-        (run_id, project_id, flow, lineage, bound_sources, status,
-         "2026-09-14T00:00:00Z", completed_at),
+        (
+            run_id,
+            project_id,
+            flow,
+            lineage,
+            bound_sources,
+            status,
+            "2026-09-14T00:00:00Z",
+            completed_at,
+        ),
     )
     conn.commit()
 
 
 def record_landing_receipt(
-    conn: Any, item_id: int, *, branch: str, tip: str, target: str = "main",
+    conn: Any,
+    item_id: int,
+    *,
+    branch: str,
+    tip: str,
+    target: str = "main",
 ) -> None:
     """Record the receipt a landing of ``tip`` leaves on its item."""
     record_entry(
-        conn, item_id=int(item_id), branch=branch, target=target,
-        commit_sha=tip, merge_sha=tip, contributed_commits=[tip],
+        conn,
+        item_id=int(item_id),
+        branch=branch,
+        target=target,
+        commit_sha=tip,
+        merge_sha=tip,
+        contributed_commits=[tip],
     )
     conn.commit()
 
