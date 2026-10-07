@@ -206,6 +206,64 @@ def notify_qa_stage_result(
     }
 
 
+def report_stage_result(
+    conn: Any,
+    *,
+    stage: Mapping[str, Any],
+    run_id: str,
+    member: int | None,
+    project_id: int,
+    outcome: str,
+    target_tier: str,
+    revision: str,
+    target_digest: str,
+) -> None:
+    """Report a settled result to the audience the stage configured.
+
+    Distinct from the stage-wait wake in recipient and in purpose: that
+    one asks an agent to act, this one tells people what was decided. A
+    failure to report is not a QA-status failure, so it degrades to a
+    printed note the same way the wake does.
+    """
+    if outcome not in REPORTABLE_OUTCOMES:
+        return
+    from yoke_core.domain.project_identity import render_item_ref
+
+    subject = (
+        render_item_ref(conn, member)
+        if member is not None
+        else "the whole release batch"
+    )
+    try:
+        result = notify_qa_stage_result(
+            conn,
+            notification=stage.get("notification"),
+            run_id=run_id,
+            stage_name=str(stage["name"]),
+            member_item_id=member,
+            project_id=project_id,
+            outcome=outcome,
+            subject=subject,
+            target_tier=target_tier,
+            revision=revision,
+            target_digest=target_digest,
+        )
+        conn.commit()
+    except Exception as exc:  # noqa: BLE001 - degrade, don't abort
+        conn.rollback()
+        print(
+            f"Warning: could not report run {run_id!r} stage "
+            f"{str(stage['name'])!r} result to its notification audience: {exc}"
+        )
+        return
+    if result["notified"]:
+        print(
+            f"Reported run {run_id!r} stage {str(stage['name'])!r} {outcome} "
+            f"for {subject} to {len(result['notified'])} configured "
+            "recipient(s)."
+        )
+
+
 __all__ = [
     "OUTCOME_DISCHARGED",
     "OUTCOME_PASSED",
@@ -215,4 +273,5 @@ __all__ = [
     "notify_qa_stage_result",
     "qa_result_idempotency_key",
     "qa_result_message",
+    "report_stage_result",
 ]

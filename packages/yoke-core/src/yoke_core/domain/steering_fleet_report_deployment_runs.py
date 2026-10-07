@@ -13,8 +13,8 @@ Off that stage, ``unresolved_blocking_qa`` and
 ``blocking_obligation_total`` in
 :mod:`deployment_run_completion_preconditions` still answer the
 completion-boundary question. This detector adds the stage age and the
-red requirements with the members they belong to, and renders one row
-per live run.
+red requirements with the members they belong to, whether each waiting
+item-QA member's owner was woken, and renders one row per live run.
 
 It decides nothing. There is no timeout and no auto-cancel here on
 purpose: a run that has been at a stage for hours is *reported*, and a
@@ -40,6 +40,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from yoke_core.domain.deployment_qa_stage_outstanding import qa_stage_outstanding
+from yoke_core.domain.deployment_qa_stage_wake_state import member_wake_states
 from yoke_core.domain.deployment_run_completion_preconditions import redrive_recovery
 from yoke_core.domain.deployment_run_driver_attachment import (
     is_live,
@@ -121,6 +122,8 @@ class DeploymentRunProgress:
     #: "nobody started this" from "started, inside a long silent phase".
     driver_phase: str = ""
     no_obligation_lines: tuple[str, ...] = ()
+    #: One line per waiting item-QA member: was its owner woken.
+    wake_lines: tuple[str, ...] = ()
 
     @property
     def needs_action(self) -> bool:
@@ -215,6 +218,24 @@ def run_progress(
             if attached is not None and is_live(attached, now=now)
             else ""
         )
+        waiting = [
+            member
+            for member in (qa.waiting_members if qa is not None else ())
+            if member is not None
+        ]
+        wakes = (
+            member_wake_states(
+                conn,
+                run_id=run_id,
+                stage_name=stage,
+                item_ids=waiting,
+                project_id=project_id,
+                driver_live=bool(driver_phase),
+            )
+            if waiting
+            else {}
+        )
+        wake_lines = tuple(f"member {m} wake: {wakes[m]}" for m in waiting)
         rows.append(
             DeploymentRunProgress(
                 run_id=run_id,
@@ -234,6 +255,7 @@ def run_progress(
                     else PinQaDiagnosis()
                 ),
                 driver_phase=driver_phase,
+                wake_lines=wake_lines,
             )
         )
     return tuple(rows)

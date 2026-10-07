@@ -13,8 +13,15 @@ from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
     item_qa_stage_definitions,
     seed_run_standing_on_qa_stage,
 )
-from runtime.api.steering_fleet_test_helpers import compose, seed_steering_scope
+from runtime.api.steering_fleet_test_helpers import (
+    JUST_NOW,
+    WORKER_SESSION,
+    compose,
+    seed_message,
+    seed_steering_scope,
+)
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.deployment_qa_stage_wake import stage_wait_idempotency_key
 from yoke_core.domain.deployment_run_completion_preconditions import (
     blocking_obligation_total,
     unresolved_blocking_qa,
@@ -76,6 +83,19 @@ def test_a_qa_stage_reports_the_gate_not_the_settled_requirement_count(test_db) 
     _passed_requirement(
         conn, requirement_id=9103, member_item_id=GATE_MEMBER, method_id="command"
     )
+    # The gate member's owner was woken and acknowledged; the others never
+    # were, and with no live driver nothing will send theirs until re-drive.
+    seed_message(
+        conn,
+        "gate-member-wake",
+        sender=None,
+        to=WORKER_SESSION,
+        at=JUST_NOW,
+        state="acknowledged",
+        idempotency_key=stage_wait_idempotency_key(
+            RUN_ID, ITEM_QA_STAGE, GATE_MEMBER, "digest"
+        ),
+    )
     conn.commit()
 
     assert unresolved_blocking_qa(conn, RUN_ID) == []
@@ -98,3 +118,10 @@ def test_a_qa_stage_reports_the_gate_not_the_settled_requirement_count(test_db) 
         assert f"member {member}: {refusal}" in body
     assert f"member {GATE_MEMBER}: no completed scoped QA execution exists" in body
     assert f"member {GATE_MEMBER}: no concrete QA cases are materialized" in body
+    assert f"member {GATE_MEMBER} wake: woken 11:58Z, acknowledged" in body
+    for member in NO_CASES_MEMBERS:
+        assert (
+            f"member {member} wake: not woken: driver gone or stale; "
+            f"re-drive {RUN_ID} to send it"
+        ) in body
+    assert len(run.wake_lines) == len(MEMBERS)

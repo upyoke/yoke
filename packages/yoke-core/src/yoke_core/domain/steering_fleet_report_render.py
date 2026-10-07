@@ -105,6 +105,7 @@ def _run_lines(report: FleetReport) -> list[str]:
             f"outstanding, {len(run.red)} red"
         )
         lines.extend(f"      {detail}" for detail in run.unresolved)
+        lines.extend(f"      {detail}" for detail in run.wake_lines)
         lines.extend(f"      {detail}" for detail in run.no_obligation_lines)
         if run.red:
             lines.append(f"      red: {', '.join(r.describe() for r in run.red)}")

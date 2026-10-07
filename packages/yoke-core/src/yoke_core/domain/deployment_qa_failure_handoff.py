@@ -10,13 +10,16 @@ from yoke_core.domain.json_helper import loads_text
 from yoke_core.domain.merge_queue_landing_notice import resolve_lane_recipient
 from yoke_core.domain.project_identity import render_item_ref, resolve_project
 
+#: Identity every member QA failure handoff shares, ahead of its run/stage/item.
+FAILURE_HANDOFF_PREFIX = "deployment-qa-member-failure:"
+
 
 def failure_handoff_key(
     run_id: str, stage: str, item_id: int, target_digest: str, verdict_run_id: int
 ) -> str:
     """One handoff per failed verdict on the stage's frozen target."""
     return (
-        f"deployment-qa-member-failure:{run_id}:{stage}:{item_id}:"
+        f"{FAILURE_HANDOFF_PREFIX}{run_id}:{stage}:{item_id}:"
         f"{target_digest}:{verdict_run_id}"
     )
 
@@ -139,6 +142,7 @@ def notify_member_qa_failure(
 
 
 __all__ = [
+    "FAILURE_HANDOFF_PREFIX",
     "failure_handoff_key",
     "failure_handoff_message",
     "notify_member_qa_failure",

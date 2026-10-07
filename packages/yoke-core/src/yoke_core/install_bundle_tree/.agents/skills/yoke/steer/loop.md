@@ -399,6 +399,8 @@ unscoped `yoke qa plan run --deployment-run-id {RUN_ID}` and never
 `yoke qa case run --requirement-id N`, both of which leave the stage
 unsatisfied. Depth: `yoke qa plan run --help`.
 
+System-owned waits wake their owners; a missing wake is a defect.
+
 Add `--plan PLAN` to the scoped QA command only when the stage names no
 cases and asks the agent to select them. A selected stage already has its
 own cases. Completed scoped execution settles the stage acceptance on the

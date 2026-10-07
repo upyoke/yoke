@@ -128,8 +128,13 @@ def deployment_qa_stage_status(
     run_id: str,
     stage_name: str,
     member_item_id: int | None,
+    notify_acceptance: bool = True,
 ) -> dict[str, Any]:
     """Settle or describe one stage/member acceptance boundary.
+
+    An accepted member is closed out through its acceptance notice.
+    ``notify_acceptance=False`` leaves that to the caller, so a stage walk
+    can wake every waiting owner before any slower member close-out.
 
     ``target_digest`` rides along: stable while this is the same wait,
     different when the stage's own pinned target identity changes within
@@ -155,7 +160,7 @@ def deployment_qa_stage_status(
         member_item_id=member_item_id,
     )
     result["target_digest"] = digest
-    if result.get("accepted") and member_item_id is not None:
+    if notify_acceptance and result.get("accepted") and member_item_id is not None:
         from yoke_core.domain.deployment_qa_member_acceptance_notice import (
             notify_item_qa_accepted,
         )
