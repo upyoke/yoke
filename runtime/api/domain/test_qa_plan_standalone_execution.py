@@ -180,21 +180,11 @@ def test_bad_source_refuses_before_materialization_commits():
         )
 
 
-def test_machine_baseline_group_selects_only_its_standalone_execution(
-    test_db, tmp_path, monkeypatch
-):
-    from runtime.api.domain.machine_qa_host_test_support import (
-        configure_test_machine,
-    )
-    from yoke_core.domain.handlers.machine_qa_baseline_group_context import (
-        baseline_group_cases,
-    )
-
-    configure_test_machine(test_db, tmp_path, monkeypatch)
-    plan = _plan(test_db)
+def _machine_chain(conn, plan_id):
+    """A fresh-host case and the case that continues on the machine it leaves."""
     replace_plan_cases(
-        test_db,
-        plan_id=plan["id"],
+        conn,
+        plan_id=plan_id,
         cases=[
             {
                 "case_key": key,
@@ -203,39 +193,77 @@ def test_machine_baseline_group_selects_only_its_standalone_execution(
                 "expected_outcome": "Done",
                 "entry_surface": "/usr/bin/true",
                 "required_completion": "done",
-                "host_baselines": ["fresh-host"],
+                **start,
                 "method_config": {"steps": [{"key": "done", "expect": "done"}]},
             }
-            for key in ("first", "second")
+            for key, start in (
+                ("first", {"host_baselines": ["fresh-host"]}),
+                ("second", {"starting_state": "inherit"}),
+            )
         ],
     )
-    old = _begin(test_db)
-    finish_plan_execution(test_db, old, state="aborted", reason="new-run")
-    current = _begin(test_db)
-    anchor = get_case_execution_context(
-        test_db,
-        requirement_id=current["roster"][0]["requirement_id"],
-    )
-    grouped = baseline_group_cases(test_db, anchor=anchor)
-    assert [case["requirement_id"] for case in grouped] == [
-        case["requirement_id"] for case in current["roster"]
-    ]
-    assert {case["standalone_execution_id"] for case in grouped} == {current["id"]}
-    assert {case["requirement_id"] for case in grouped}.isdisjoint(
-        case["requirement_id"] for case in old["roster"]
-    )
 
 
-def test_standalone_machine_cases_restore_each_baseline(test_db, tmp_path, monkeypatch):
-    from runtime.api.domain.machine_qa_host_test_support import (
-        configure_test_machine,
-    )
-    from runtime.api.domain.machine_qa_test_support import FakeHostControl
+def _plan_case_request(execution, ordinal, function="test_machine.plan_case.begin"):
     from yoke_contracts.api.function_call import (
         ActorContext,
         FunctionCallRequest,
         TargetRef,
     )
+
+    return FunctionCallRequest(
+        function=function,
+        actor=ActorContext(actor_id="2", session_id="session-machine-plan"),
+        target=TargetRef(kind="global", project_id="yoke"),
+        payload={
+            "execution_id": execution["id"],
+            "ordinal": ordinal,
+            "requirement_id": execution["roster"][ordinal]["requirement_id"],
+        },
+    )
+
+
+def test_inheriting_case_names_only_its_own_standalone_predecessor(
+    test_db, tmp_path, monkeypatch
+):
+    from runtime.api.domain.machine_qa_host_test_support import (
+        configure_test_machine,
+    )
+    from yoke_core.domain.handlers.machine_qa_plan_case import handle_plan_case_begin
+
+    configure_test_machine(test_db, tmp_path, monkeypatch)
+    plan = _plan(test_db)
+    _machine_chain(test_db, plan["id"])
+    old = _begin(test_db)
+    finish_plan_execution(test_db, old, state="aborted", reason="new-run")
+    current = _begin(test_db)
+    assert [case["starting_state"] for case in current["roster"]] == [
+        "baseline",
+        "inherit",
+    ]
+    # The predecessor never ran in this execution, so the follower is
+    # recorded blocked without touching the machine.
+    blocked = handle_plan_case_begin(_plan_case_request(current, 1))
+    assert blocked.primary_success, blocked.error
+    assert blocked.result_payload["state"] == "blocked"
+    result = blocked.result_payload["result"]
+    assert result["case_outcome"] == "blocked_on_precondition"
+    blocker = result["evidence"]["inherit_blocker"]
+    assert blocker["predecessor_requirement_id"] == (
+        current["roster"][0]["requirement_id"]
+    )
+    assert blocker["predecessor_requirement_id"] not in {
+        case["requirement_id"] for case in old["roster"]
+    }
+
+
+def test_standalone_machine_chain_resets_once_and_restores_after_its_last_case(
+    test_db, tmp_path, monkeypatch
+):
+    from runtime.api.domain.machine_qa_host_test_support import (
+        configure_test_machine,
+    )
+    from runtime.api.domain.machine_qa_test_support import FakeHostControl
     from yoke_core.domain.handlers.machine_qa_plan_case import (
         handle_plan_case_begin,
         handle_plan_case_submit,
@@ -250,63 +278,42 @@ def test_standalone_machine_cases_restore_each_baseline(test_db, tmp_path, monke
 
     configure_test_machine(test_db, tmp_path, monkeypatch)
     plan = _plan(test_db)
-    replace_plan_cases(
-        test_db,
-        plan_id=plan["id"],
-        cases=[
-            {
-                "case_key": key,
-                "method_id": "terminal-check",
-                "instructions": "Check the terminal",
-                "expected_outcome": "Done",
-                "entry_surface": "/usr/bin/true",
-                "required_completion": "done",
-                "host_baselines": ["fresh-host"],
-                "method_config": {"steps": [{"key": "done", "expect": "done"}]},
-            }
-            for key in ("first", "second")
-        ],
-    )
-    actor = ActorContext(actor_id="2", session_id="session-machine-plan")
+    _machine_chain(test_db, plan["id"])
     execution = begin_standalone_execution(
         test_db,
         plan="manual-proof",
         project="yoke",
-        actor_id=actor.actor_id,
-        session_id=actor.session_id,
+        actor_id="2",
+        session_id="session-machine-plan",
         source_revision=SHA,
     )
     control = FakeHostControl()
     register_host_control_factory(lambda _material: control)
+    evidence = []
+    resets_before_case = []
     try:
-        for ordinal, case in enumerate(execution["roster"]):
-            payload = {
-                "execution_id": execution["id"],
-                "ordinal": ordinal,
-                "requirement_id": case["requirement_id"],
-            }
-            begun = handle_plan_case_begin(
-                FunctionCallRequest(
-                    function="test_machine.plan_case.begin",
-                    actor=actor,
-                    target=TargetRef(kind="global", project_id="yoke"),
-                    payload=payload,
-                )
-            )
+        for ordinal, _case in enumerate(execution["roster"]):
+            begun = handle_plan_case_begin(_plan_case_request(execution, ordinal))
             assert begun.primary_success, begun.error
-            submission = execute_machine_case_contract(
-                begun.result_payload["execution"]
+            contract = begun.result_payload["execution"]
+            resets_before_case.append(list(contract["baselines"]))
+            submission = execute_machine_case_contract(contract)
+            evidence.append(submission.payload["results"][0]["evidence"])
+            request = _plan_case_request(
+                execution, ordinal, "test_machine.plan_case.submit"
             )
             submitted = handle_plan_case_submit(
-                FunctionCallRequest(
-                    function="test_machine.plan_case.submit",
-                    actor=actor,
-                    target=TargetRef(kind="global", project_id="yoke"),
-                    payload={**payload, **submission.payload},
+                request.model_copy(
+                    update={"payload": {**request.payload, **submission.payload}}
                 )
             )
             assert submitted.primary_success, submitted.error
-        assert control.full_reset_calls == len(execution["roster"])
+        # One reset opens the chain; one restore closes it after the last case.
+        assert resets_before_case == [["fresh-host"], []]
+        assert control.full_reset_calls == 2
+        assert "starting_state_restore" not in evidence[0]
+        assert evidence[1]["starting_state_restore"]["restored"] is True
+        assert evidence[1]["starting_state_restore"]["baseline"] == "fresh-host"
         finish_plan_execution(
             test_db,
             lock_plan_execution(test_db, execution["id"]),

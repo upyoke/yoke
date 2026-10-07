@@ -12,8 +12,9 @@ from runtime.api.domain.qa_plan_execution_test_support import (
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_contracts.api.function_call import ActorContext
+from runtime.api.domain.machine_qa_host_test_support import _terminal_recipe
 from yoke_core.domain import (
-    machine_qa_case_execution,
+    machine_qa_plan_case_execution,
     qa_case_execution,
     qa_plan_execution,
 )
@@ -128,21 +129,14 @@ def test_stage_order_survives_catalog_reordering_and_baseline_edits() -> None:
             plan_id=first["id"],
             cases=[
                 {
-                    "case_key": "browser",
+                    "case_key": "terminal",
                     "position": 1,
-                    "method_id": "browser-check",
-                    "instructions": "Inspect both baselines.",
-                    "expected_outcome": "The page passes.",
-                    "method_config": {
-                        "steps": [
-                            {"action": "navigate", "route": "/"},
-                            {
-                                "action": "assert",
-                                "target": "main",
-                                "check": "visible",
-                            },
-                        ],
-                    },
+                    "method_id": "terminal-check",
+                    "instructions": "Check the terminal on both baselines.",
+                    "expected_outcome": "The terminal check passes.",
+                    "method_config": _terminal_recipe(),
+                    "entry_surface": "printf done",
+                    "required_completion": "complete",
                     "host_baselines": [
                         "shell-preconfigured",
                         "fresh-host",
@@ -180,12 +174,14 @@ def test_stage_order_survives_catalog_reordering_and_baseline_edits() -> None:
             transition_id="implemented",
         )
         conn.execute(
-            "UPDATE qa_plan_cases SET position=8, host_baselines='[]' "
-            "WHERE plan_id=%s AND case_key='browser'",
+            "UPDATE qa_plan_cases SET position=8, host_baselines='[]', "
+            "starting_state='as_is' "
+            "WHERE plan_id=%s AND case_key='terminal'",
             (int(first["id"]),),
         )
         conn.execute(
-            "UPDATE qa_methods SET runner_id='host_control' WHERE id='browser-check'"
+            "UPDATE qa_methods SET runner_id='worktree_run' "
+            "WHERE id='terminal-check'"
         )
         after = qa_plan_execution.ordered_plan_requirements(
             conn,
@@ -203,9 +199,10 @@ def test_stage_order_survives_catalog_reordering_and_baseline_edits() -> None:
         )
         for row in before
     ] == [
-        (int(first["id"]), "browser", 1, 1),
-        (int(first["id"]), "browser", 1, 2),
+        # A plan runs every case at one baseline position before the next.
+        (int(first["id"]), "terminal", 1, 1),
         (int(first["id"]), "command", 2, 1),
+        (int(first["id"]), "terminal", 1, 2),
         (int(second["id"]), "final", 1, 1),
     ]
 
@@ -238,6 +235,7 @@ def test_client_runner_preserves_order_and_actor_until_waiting() -> None:
             "case_position": 1,
             "baseline_position": 1,
             "host_baseline": "fresh-host",
+            "starting_state": "baseline",
             "runner_id": "host_control",
         },
         {
@@ -299,15 +297,10 @@ def test_client_runner_preserves_order_and_actor_until_waiting() -> None:
             side_effect=lambda case, **_kwargs: outcomes[case["requirement_id"]],
         ) as execute,
         mock.patch.object(
-            machine_qa_case_execution,
-            "execute_materialized_machine_baseline_group",
-            return_value={
-                "anchor_requirement_id": 13,
-                "baseline_ok": None,
-                "requirement_ids": [13],
-                "results": [outcomes[13]],
-            },
-        ) as execute_group,
+            machine_qa_plan_case_execution,
+            "execute_plan_machine_case",
+            return_value=outcomes[13],
+        ) as execute_machine,
     ):
         result = qa_plan_execution.execute_plan(
             public_ref=TEST_ITEM_REF,
@@ -324,8 +317,10 @@ def test_client_runner_preserves_order_and_actor_until_waiting() -> None:
         12,
     ]
     assert all(call.kwargs["actor"] == actor for call in execute.call_args_list)
-    execute_group.assert_called_once_with(
+    execute_machine.assert_called_once_with(
         requirements[2],
+        execution_id="plan-execution-1",
+        ordinal=2,
         actor=actor,
         machine="mac-studio-lab",
     )

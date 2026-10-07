@@ -98,6 +98,7 @@ def machine_plan(conn) -> int:
                 "method_config": _terminal_recipe(),
                 "entry_surface": "printf done",
                 "required_completion": "complete",
+                "host_baselines": ["fresh-host"],
             }
         ],
     )

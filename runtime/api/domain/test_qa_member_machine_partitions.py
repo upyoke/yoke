@@ -83,6 +83,10 @@ def _seed(
                     },
                     "entry_surface": "printf done",
                     "required_completion": "complete",
+                    "starting_state": "as_is",
+                    "starting_state_reason": (
+                        "The check reads host identity only and needs no reset."
+                    ),
                 }
                 for position, machine in enumerate(machines, 1)
             ],

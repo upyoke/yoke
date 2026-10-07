@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import psycopg
 import pytest
 
@@ -46,10 +48,16 @@ def _create_requirement_source(
                 "instructions": "Run the portable command.",
                 "expected_outcome": "The portable command passes.",
                 "method_config": {"command": "true"},
-                "host_baselines": host_baselines,
             }
         ],
     )
+    if host_baselines:
+        # An older archive predates per-case starting states, so its plan
+        # cases may still name baselines that authoring now refuses.
+        conn.execute(
+            "UPDATE qa_plan_cases SET host_baselines=%s WHERE plan_id=%s",
+            (json.dumps(host_baselines), plan["id"]),
+        )
     return int(plan["id"]), item_id
 
 

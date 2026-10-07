@@ -5,6 +5,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 
+from yoke_core.domain.host_baseline_operations import HostBaselineResult
 from yoke_core.domain.host_control_runner import HostActionResult
 from yoke_core.domain.machine_qa_execution import MachineCaseResult
 from yoke_core.domain.machine_qa_execution_contract import MachineQaCaseContract
@@ -93,8 +94,10 @@ class FakeExecution:
         primary_error: Exception | None = None,
         baseline: Any = None,
         secrets: dict[str, str] | None = None,
+        reach_outcomes: dict[str, HostBaselineResult | Exception] | None = None,
     ) -> None:
         self.fixture = fixture
+        self.reach_outcomes = dict(reach_outcomes or {})
         self.fixture_create_calls = 0
         self.control = SimpleNamespace(
             create_fixture_operation_runner=self._create_fixture_operation_runner
@@ -117,6 +120,17 @@ class FakeExecution:
     def _create_fixture_operation_runner(self) -> FakeFixtureRunner:
         self.fixture_create_calls += 1
         return self.fixture
+
+    def reach_baseline(self, name: str) -> HostBaselineResult:
+        """Record the reset/restore and answer from ``reach_outcomes``."""
+        self.events.append(f"reach:{name}")
+        outcome = self.reach_outcomes.get(name) or HostBaselineResult(
+            name=name, ok=True, evidence={"baseline": name}
+        )
+        if isinstance(outcome, Exception):
+            raise outcome
+        self.baseline = outcome
+        return outcome
 
     def execute(self, **kwargs: Any) -> MachineCaseResult:
         self.events.append("primary")

@@ -1,4 +1,8 @@
-"""Plan-owned release obligations retain grouped baselines and member scope."""
+"""Plan-owned release obligations retain grouped baselines and member scope.
+
+Only a machine-run case fans out across host baselines, so the grouped case
+here is a host-control machine-state check.
+"""
 
 import json
 
@@ -45,15 +49,10 @@ def test_plan_owned_grouped_requirement_materializes_ordered_plan_once(
             {
                 "case_key": "grouped-inspection",
                 "position": 1,
-                "method_id": "browser-inspection",
+                "method_id": "machine-state-check",
                 "instructions": "Inspect the deployed release on both hosts.",
                 "expected_outcome": "The deployed release is visible.",
-                "method_config": {
-                    "steps": [
-                        {"action": "navigate", "route": "/"},
-                        {"action": "screenshot", "capture": True},
-                    ]
-                },
+                "method_config": {"assertions": [{"argv": ["/usr/bin/true"]}]},
                 "host_baselines": ["shell-preconfigured", "fresh-host"],
             },
             {
@@ -73,12 +72,13 @@ def test_plan_owned_grouped_requirement_materializes_ordered_plan_once(
         (item_id, plan_id, "2026-09-14T00:00:00Z"),
     )
     source_id = _original_requirement(
-        test_db, item_id=item_id, method_id="browser-inspection"
+        test_db, item_id=item_id, method_id="machine-state-check"
     )
     test_db.execute(
         "UPDATE qa_requirements SET qa_kind='plan_case',plan_id=%s,"
         "plan_case_key='grouped-inspection',case_position=1,baseline_position=1,"
-        "host_baseline='shell-preconfigured' WHERE id=%s",
+        "host_baseline='shell-preconfigured',starting_state='baseline' "
+        "WHERE id=%s",
         (plan_id, source_id),
     )
     _seed_selected_requirement_run(

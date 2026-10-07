@@ -52,9 +52,9 @@ def _mission_obligation(conn: Any, *, item_id: int) -> int:
         "INSERT INTO qa_requirements(item_id,qa_kind,qa_phase,target_env,"
         "blocking_mode,requirement_source,instructions,expected_outcome,"
         "created_at,method_id,method_name,runner_id,capability_requirements,"
-        "verdict_path,method_config) VALUES "
+        "verdict_path,method_config,starting_state,starting_state_reason) VALUES "
         "(%s,'acceptance','post_deploy','stage','blocking','explicit',%s,%s,"
-        "%s,'exploratory-mission',%s,%s,%s,%s,%s) RETURNING id",
+        "%s,'exploratory-mission',%s,%s,%s,%s,%s,'as_is',%s) RETURNING id",
         (
             item_id,
             "Walk the deployed release as a new user and rank what blocks them.",
@@ -65,6 +65,7 @@ def _mission_obligation(conn: Any, *, item_id: int) -> int:
             method["required_capability_kinds"],
             method["verdict_path"],
             json.dumps({"executor": "naive_target_session"}),
+            "A new user meets the deployed release on the machine as found.",
         ),
     ).fetchone()
     conn.commit()

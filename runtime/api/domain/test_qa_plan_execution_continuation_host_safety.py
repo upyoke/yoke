@@ -121,11 +121,15 @@ def test_continuation_preparation_preserves_populated_host_state(
     assert operation_receipts(test_db) == []
 
 
-def test_fresh_mission_preparation_resets_and_records_its_receipt(
+def test_fresh_mission_docket_leaves_the_reset_to_its_walk(
     test_db: Any,
     tmp_path: Any,
     monkeypatch: Any,
 ) -> None:
+    from yoke_core.domain.machine_qa_mission_walk import (
+        execute_agent_mission_walk_start,
+    )
+
     item_id = 4911
     configure_test_machine(test_db, tmp_path, monkeypatch)
     _materialize_mission(test_db, item_id=item_id)
@@ -138,14 +142,30 @@ def test_fresh_mission_preparation_resets_and_records_its_receipt(
     )
     control = FakeHostControl()
     control.existing_paths.add(SENTINEL)
+    begun = handle_plan_case_begin(_request(item_id, execution))
+    assert begun.primary_success, begun.error
+    contract = begun.result_payload["execution"]
+    assert contract["baselines"] == ["fresh-host"]
 
-    prepared, ready_request = _prepare(item_id, execution, control)
+    register_host_control_factory(lambda _material: control)
+    try:
+        prepared = prepare_agent_mission_contract(contract)
+        # The mission is walked after the plan's other cases, so recording
+        # its docket must not reset the machine those cases still use.
+        assert control.full_reset_calls == 0
+        assert SENTINEL in control.existing_paths
+        assert prepared["preparation"]["baseline"] is None
+        ready = handle_agent_mission_ready(
+            _request(item_id, execution, payload=prepared)
+        )
+        assert ready.primary_success, ready.error
+        assert operation_receipts(test_db) == []
+
+        started = execute_agent_mission_walk_start(contract)
+    finally:
+        clear_host_control_factory()
 
     assert control.full_reset_calls == 1
     assert SENTINEL not in control.existing_paths
-    ready = handle_agent_mission_ready(ready_request)
-    assert ready.primary_success, ready.error
-    [receipt] = operation_receipts(test_db)
-    assert receipt["operation"] == "reset"
-    assert receipt["status"] == "verified"
-    assert receipt["checks"][0]["name"] == "fresh-host"
+    assert started["preparation"]["baseline"] == "fresh-host"
+    assert started["preparation"]["ok"] is True

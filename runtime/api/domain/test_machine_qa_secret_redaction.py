@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
+
 from runtime.api.domain.machine_qa_fixture_lifecycle_test_support import (
     FakeExecution,
     FakeFixtureRunner,
@@ -50,6 +52,8 @@ def _issued_case_contract():
                 "expected_outcome": "The machine is ready.",
                 "method_config": {"assertions": [{"argv": ["/usr/bin/true"]}]},
                 "host_baseline": None,
+                "starting_state": "as_is",
+                "starting_state_reason": "the machine is checked as found",
                 "entry_surface": None,
                 "required_completion": None,
                 "workflow_transition_id": "implemented",
@@ -69,6 +73,7 @@ def test_fixture_augmented_evidence_is_redacted_before_submission(monkeypatch):
     secret = "credential-that-must-not-leave-the-client"
     execution = SimpleNamespace(
         material=SimpleNamespace(secrets={"ssh_private_key": secret}),
+        reach_baseline=lambda name: pytest.fail(f"unexpected reset to {name}"),
     )
     monkeypatch.setattr(
         machine_qa_local_execution,

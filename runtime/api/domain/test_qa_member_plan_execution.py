@@ -105,6 +105,7 @@ def test_scoped_client_executes_each_host_roster_under_its_own_plan_lease():
                         "case_position": index + 1,
                         "baseline_position": 1,
                         "host_baseline": "fresh-host",
+                        "starting_state": "baseline",
                         "runner_id": "host_control",
                         "required_capability_kinds": [f"test-machine:{machine}"],
                     }
@@ -131,9 +132,6 @@ def test_scoped_client_executes_each_host_roster_under_its_own_plan_lease():
             "yoke_core.domain.machine_qa_plan_case_execution.execute_plan_machine_case",
             side_effect=run_case,
         ) as execute,
-        mock.patch(
-            "yoke_core.domain.machine_qa_case_execution.execute_materialized_machine_baseline_group"
-        ) as group,
     ):
         result = qa_plan_execution.execute_plan(
             deployment_run_id="run-hosts",
@@ -144,7 +142,6 @@ def test_scoped_client_executes_each_host_roster_under_its_own_plan_lease():
         )
     assert result["state"] == "passed" and result["execution_ids"] == list(machines)
     assert execute.call_count == 2
-    group.assert_not_called()
     assert [
         call["payload"]["execution_id"]
         for call in calls
