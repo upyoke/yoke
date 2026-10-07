@@ -140,6 +140,10 @@ def _error_score(text: str) -> tuple[int, int]:
         return 100, len(text)
     if "assertionerror:" in folded:
         return 90, len(text)
+    if "must be the same commit" in folded:
+        # A workflow's source-identity guard: the dispatched ref, the
+        # workflow file and the checkout name different commits.
+        return 88, len(text)
     if "error response from daemon:" in folded:
         return 85, len(text)
     if "failed " in folded and " - " in text:

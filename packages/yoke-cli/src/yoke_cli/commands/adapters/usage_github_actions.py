@@ -14,6 +14,9 @@ from yoke_cli.commands.adapters.github_actions_delete import (
     GITHUB_ACTIONS_SECRET_DELETE_USAGE,
     GITHUB_ACTIONS_VARIABLE_DELETE_USAGE,
 )
+from yoke_cli.commands.adapters.github_actions_dispatch_tag import (
+    GITHUB_ACTIONS_DISPATCH_TAG_ENSURE_USAGE,
+)
 from yoke_cli.commands.adapters.github_actions_run_wait import (
     GITHUB_ACTIONS_WAIT_RUN_USAGE,
 )
@@ -42,6 +45,7 @@ USAGE_BY_FUNCTION_ID: Dict[str, str] = {
     "github_actions.commit_runs.list": GITHUB_ACTIONS_COMMIT_RUNS_USAGE,
     "github_actions.workflow.find_run": GITHUB_ACTIONS_FIND_RUN_USAGE,
     "github_actions.run.jobs_count": GITHUB_ACTIONS_JOBS_COUNT_USAGE,
+    "github_actions.dispatch_tag.ensure": GITHUB_ACTIONS_DISPATCH_TAG_ENSURE_USAGE,
     "github_actions.wait_run": GITHUB_ACTIONS_WAIT_RUN_USAGE,
     "github_actions.runners.status": GITHUB_ACTIONS_RUNNERS_STATUS_USAGE,
     "github_actions.secret.set": GITHUB_ACTIONS_SECRET_SET_USAGE,

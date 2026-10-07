@@ -49,6 +49,13 @@ RELEASE_CI_AUTHZ_BY_ID = {
         PROJECT,
         PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH,
     ),
+    # The dispatch tag exists only to name the commit a dispatch runs at,
+    # and the handler writes nothing outside the yoke-deploy/ namespace
+    # and never moves a tag, so it rides the dispatch permission.
+    "github_actions.dispatch_tag.ensure": AuthzSpec(
+        PROJECT,
+        PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH,
+    ),
     "github_actions.workflow.find_run": AuthzSpec(
         PROJECT,
         PERM_GITHUB_ACTIONS_RUN_READ,
