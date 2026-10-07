@@ -50,6 +50,9 @@ class WorkflowCanonUpdateApplyResponse(BaseModel):
     version: int
     version_id: int
     definition_digest: str
+    canon_version: int
+    taken: list[str]
+    kept: list[str]
 
 
 class WorkflowCanonUpdateApplyAllRequest(BaseModel):
@@ -119,7 +122,9 @@ def _existing_version(conn: Any, workflow_id: str, definition: Any):
     from yoke_core.domain.workflow_registry_rows import version_row_by_digest
 
     return version_row_by_digest(
-        conn, workflow_id, definition_digest(definition),
+        conn,
+        workflow_id,
+        definition_digest(definition),
     )
 
 
@@ -150,9 +155,7 @@ def handle_workflows_canon_update_preview(
             "workflow_id": payload.workflow_id,
             "state": status["state"],
             "latest_canon_version": newest.canon_version,
-            "derived_from_canon_version": status.get(
-                "derived_from_canon_version"
-            ),
+            "derived_from_canon_version": status.get("derived_from_canon_version"),
             **merged.as_dict(),
         },
         primary_success=True,
@@ -180,7 +183,7 @@ def _apply_one(
     plan, failure = _plan(conn, entry.workflow_id)
     if plan is None:
         return _error("not_found", failure, "$.payload.workflow_id")
-    _workflow, _status, _newest, merged = plan
+    _workflow, _status, newest, merged = plan
     if not merged.clean:
         # Publishing over an unresolved conflict would silently pick a side.
         # The operator resolves it by editing, then publishes.
@@ -214,7 +217,17 @@ def _apply_one(
             )
     except WorkflowRegistryError as exc:
         return _error("incompatible", str(exc), "$.payload")
-    return HandlerOutcome(result_payload=result, primary_success=True)
+    # What the take changed travels with it, so the receipt can say which
+    # generation arrived and which local edits survived it.
+    return HandlerOutcome(
+        result_payload={
+            **result,
+            "canon_version": newest.canon_version,
+            "taken": list(merged.taken),
+            "kept": list(merged.kept),
+        },
+        primary_success=True,
+    )
 
 
 def handle_workflows_canon_update_apply(
@@ -227,9 +240,7 @@ def handle_workflows_canon_update_apply(
             "$.target.kind",
         )
     try:
-        payload = WorkflowCanonUpdateApplyRequest.model_validate(
-            request.payload or {}
-        )
+        payload = WorkflowCanonUpdateApplyRequest.model_validate(request.payload or {})
     except ValueError as exc:
         return _error("payload_invalid", str(exc), "$.payload")
     from yoke_core.domain.db_helpers import connect
@@ -274,8 +285,7 @@ def handle_workflows_canon_update_apply_all(
         # the version the first one just moved off.
         return _error(
             "payload_invalid",
-            "each workflow may be named once; repeated: "
-            + ", ".join(repeated),
+            "each workflow may be named once; repeated: " + ", ".join(repeated),
             "$.payload.workflows",
         )
     from yoke_core.domain.db_helpers import connect
@@ -288,11 +298,13 @@ def handle_workflows_canon_update_apply_all(
             if outcome.primary_success:
                 applied.append(outcome.result_payload)
             else:
-                refused.append({
-                    "workflow_id": entry.workflow_id,
-                    "code": outcome.error.code,
-                    "message": outcome.error.message,
-                })
+                refused.append(
+                    {
+                        "workflow_id": entry.workflow_id,
+                        "code": outcome.error.code,
+                        "message": outcome.error.message,
+                    }
+                )
     return HandlerOutcome(
         result_payload={"applied": applied, "refused": refused},
         primary_success=True,

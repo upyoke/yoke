@@ -98,6 +98,44 @@ WORKFLOW_ADAPTERS = [
         ),
         notes="Publishes a new immutable version with bounded approval defaults.",
     ),
+    read_entry(
+        function_id="workflows.canon_status.list",
+        cli_invocation=(
+            "yoke workflows canon-status list [--pending] [--session-id S] [--json]"
+        ),
+        notes="Where each built-in workflow stands against its published canon.",
+    ),
+    read_entry(
+        function_id="workflows.canon_update.preview",
+        cli_invocation=(
+            "yoke workflows canon-update preview WORKFLOW [--session-id S] [--json]"
+        ),
+        notes="Shows the merge a take would publish: taken, kept, conflicts.",
+    ),
+    AdapterEntry(
+        function_id="workflows.canon_update.apply",
+        cli_invocation=(
+            "yoke workflows canon-update apply WORKFLOW "
+            "--expected-current-version N [--session-id S] [--json]"
+        ),
+        notes="Takes the newest published generation, preserving local edits.",
+    ),
+    AdapterEntry(
+        function_id="workflows.canon_update.apply_all",
+        cli_invocation=(
+            "yoke workflows canon-update apply-all WORKFLOW=VERSION "
+            "[WORKFLOW=VERSION ...] [--session-id S] [--json]"
+        ),
+        notes="Takes several published updates, reporting each entry on its own.",
+    ),
+    AdapterEntry(
+        function_id="workflows.canon_follow.set",
+        cli_invocation=(
+            "yoke workflows canon-follow set WORKFLOW (auto|manual) "
+            "[--session-id S] [--json]"
+        ),
+        notes="Chooses whether new published generations arrive by themselves.",
+    ),
     AdapterEntry(
         function_id="workflow.execution_instruction.create",
         cli_invocation=(

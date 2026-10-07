@@ -9,6 +9,13 @@ from yoke_cli.commands.adapters.workflows_read import (
     workflows_version_get,
     workflows_version_list,
 )
+from yoke_cli.commands.adapters.workflows_canon import (
+    workflows_canon_follow_set,
+    workflows_canon_status_list,
+    workflows_canon_update_apply,
+    workflows_canon_update_apply_all,
+    workflows_canon_update_preview,
+)
 from yoke_cli.commands.adapters.workflows_item_posture import (
     workflows_item_posture_amend,
 )
@@ -63,6 +70,26 @@ WORKFLOW_SUBCOMMAND_REGISTRY = {
     ("workflows", "delivery-default", "set"): (
         "workflows.delivery_default.set",
         workflows_delivery_default_set,
+    ),
+    ("workflows", "canon-status", "list"): (
+        "workflows.canon_status.list",
+        workflows_canon_status_list,
+    ),
+    ("workflows", "canon-update", "preview"): (
+        "workflows.canon_update.preview",
+        workflows_canon_update_preview,
+    ),
+    ("workflows", "canon-update", "apply"): (
+        "workflows.canon_update.apply",
+        workflows_canon_update_apply,
+    ),
+    ("workflows", "canon-update", "apply-all"): (
+        "workflows.canon_update.apply_all",
+        workflows_canon_update_apply_all,
+    ),
+    ("workflows", "canon-follow", "set"): (
+        "workflows.canon_follow.set",
+        workflows_canon_follow_set,
     ),
     ("workflows", "approval-defaults", "publish"): (
         "workflows.approval_defaults.publish",

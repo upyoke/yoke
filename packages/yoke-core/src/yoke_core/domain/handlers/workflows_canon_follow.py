@@ -35,6 +35,7 @@ class WorkflowCanonFollowSetRequest(BaseModel):
 class WorkflowCanonFollowSetResponse(BaseModel):
     workflow_id: str
     follow: str
+    previous_follow: str
 
 
 def _error(code: str, message: str, jsonpath: str) -> HandlerOutcome:
@@ -44,8 +45,8 @@ def _error(code: str, message: str, jsonpath: str) -> HandlerOutcome:
     )
 
 
-def _canon_state(conn, workflow_id: str) -> Optional[str]:
-    """This workflow's canon state, or ``None`` when it has no row.
+def _canon_status(conn, workflow_id: str) -> Optional[dict]:
+    """This workflow's canon status, or ``None`` when it has no row.
 
     Read through the same registry surface the workflows page reads, so
     "has a canon at all" is answered once, in one place, rather than
@@ -55,7 +56,7 @@ def _canon_state(conn, workflow_id: str) -> Optional[str]:
 
     for row in list_current_workflows(conn):
         if row["id"] == workflow_id:
-            return str((row.get("canon_status") or {}).get("state") or "")
+            return dict(row.get("canon_status") or {})
     return None
 
 
@@ -69,29 +70,26 @@ def handle_workflows_canon_follow_set(
             "$.target.kind",
         )
     try:
-        payload = WorkflowCanonFollowSetRequest.model_validate(
-            request.payload or {}
-        )
+        payload = WorkflowCanonFollowSetRequest.model_validate(request.payload or {})
     except ValueError as exc:
         return _error("payload_invalid", str(exc), "$.payload")
     from yoke_core.domain.db_helpers import connect, iso8601_now
     from yoke_core.domain.workflow_registry_sql import marker
 
     with connect() as conn:
-        state = _canon_state(conn, payload.workflow_id)
-        if state is None:
+        status = _canon_status(conn, payload.workflow_id)
+        if status is None:
             return _error(
                 "not_found",
                 f"unknown workflow {payload.workflow_id!r}",
                 "$.payload.workflow_id",
             )
-        if state == "not_applicable":
+        if status.get("state") in (None, "not_applicable"):
             # A following setting for a workflow nothing publishes describes
             # nothing, so storing one would invent a relationship.
             return _error(
                 "incompatible",
-                f"workflow {payload.workflow_id!r} has no published canon "
-                "to follow",
+                f"workflow {payload.workflow_id!r} has no published canon to follow",
                 "$.payload.workflow_id",
             )
         bind = marker(conn)
@@ -105,6 +103,7 @@ def handle_workflows_canon_follow_set(
         result_payload={
             "workflow_id": payload.workflow_id,
             "follow": payload.follow,
+            "previous_follow": status["follow"],
         },
         primary_success=True,
     )
