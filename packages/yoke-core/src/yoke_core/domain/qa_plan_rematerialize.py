@@ -21,9 +21,7 @@ from typing import Any
 
 from yoke_core.domain.db_helpers import iso8601_now, query_rows
 from yoke_core.domain.project_identity import render_item_ref
-from yoke_core.domain.qa_execution_environment_target import (
-    resolve_plan_execution_target,
-)
+from yoke_core.domain.qa_plan_case_targets import case_variants
 from yoke_core.domain.qa_plan_attachment_validation import (
     validate_attached_item_transition,
 )
@@ -79,7 +77,7 @@ def rematerialize_for_item(
     marker = _placeholder(conn)
     rows = query_rows(
         conn,
-        "SELECT id, plan_id, plan_case_key, host_baseline, waived_at, "
+        "SELECT id, plan_id, plan_case_key, host_baseline, target_env, waived_at, "
         "execution_target_json, execution_target_digest FROM qa_requirements "
         f"WHERE item_id={marker} AND workflow_transition_id={marker} "
         "AND plan_id IS NOT NULL ORDER BY id",
@@ -125,34 +123,29 @@ def rematerialize_for_item(
     now = iso8601_now()
     for plan_id, attachment in attachments.items():
         plan = _plan_row(conn, plan_id)
-        execution_target = resolve_plan_execution_target(
-            conn, plan_id=plan_id, require_runtime_match=False
-        )
-        # Before the strict reuse check, let go of any stored target the plan
-        # no longer resolves to. Rematerializing is exactly the moment a moved
-        # environment binding can be honored, because every retained row is
-        # refreshed against the current target further down.
-        plan_rows = rebind_unresolvable_targets(
-            conn,
-            rows_by_plan.get(plan_id, []),
-            execution_target=execution_target,
-        )
-        require_existing_target(
-            plan_rows,
-            execution_target=execution_target,
-            subject=subject,
-            conn=conn,
-        )
-        existing_ids = {
-            (str(row["plan_case_key"]), row["host_baseline"]): int(row["id"])
-            for row in plan_rows
-        }
         cases = plan_cases(conn, plan_id)
         if not cases:
             raise QaPlanError(
                 f"QA plan {plan_id} has no cases and cannot be materialized"
             )
-        for case in cases:
+        variants = case_variants(conn, plan=plan, cases=cases)
+        for case, target_env, execution_target in variants:
+            plan_rows = [
+                row
+                for row in rows_by_plan.get(plan_id, [])
+                if (row["target_env"] or None) == target_env
+                and row["plan_case_key"] == case["case_key"]
+            ]
+            plan_rows = rebind_unresolvable_targets(
+                conn, plan_rows, execution_target=execution_target
+            )
+            require_existing_target(
+                plan_rows, execution_target=execution_target, subject=subject, conn=conn
+            )
+            existing_ids = {
+                (str(row["plan_case_key"]), row["host_baseline"]): int(row["id"])
+                for row in plan_rows
+            }
             for baseline_position, baseline in enumerate(case_baselines(case), start=1):
                 key = (str(case["case_key"]), baseline)
                 requirement_id = existing_ids.get(key)
@@ -170,6 +163,7 @@ def rematerialize_for_item(
                         baseline_position=baseline_position,
                         now=now,
                         execution_target=execution_target,
+                        target_env=target_env,
                     )
                     if requirement_id is not None:
                         created_requirement_ids.append(requirement_id)
@@ -181,6 +175,7 @@ def rematerialize_for_item(
                             case_key=key[0],
                             baseline=baseline,
                             transition_id=transition_id,
+                            target_env=target_env,
                         )
                         if requirement_id is None:
                             raise QaPlanError("could not refresh QA plan requirement")
@@ -201,6 +196,7 @@ def rematerialize_for_item(
                         baseline=baseline,
                         baseline_position=baseline_position,
                         execution_target=execution_target,
+                        target_env=target_env,
                     )
                     refreshed_requirement_ids.append(requirement_id)
                     corrected_admitted_copy_ids.extend(

@@ -261,20 +261,21 @@ def list_plans(conn: Any, *, project: Optional[str] = None) -> list[dict]:
         plan_id = int(row["id"])
         cases = query_rows(
             conn,
-            "SELECT c.method_id, c.host_baselines, c.starting_state, m.display_icon, "
+            "SELECT c.method_id, c.host_baselines, c.starting_state, c.target_envs, "
+            "m.display_icon, "
             "m.display_order, m.display_group "
             "FROM qa_plan_cases c JOIN qa_methods m ON m.id=c.method_id "
             f"WHERE c.plan_id={marker} ORDER BY c.position",
             (plan_id,),
         )
         materialized_count = sum(
-            len(rows)
-            for rows in stored_fan_out(
+            len(fan_out) * max(1, len(_json_value(case["target_envs"], [])))
+            for case, fan_out in zip(cases, stored_fan_out(
                 [
                     {**case, "host_baselines": _json_value(case["host_baselines"], [])}
                     for case in cases
                 ]
-            )
+            ))
         )
         last_outcome, last_at, last_verdict_reason = _latest_requirement_outcome(
             conn, plan_id

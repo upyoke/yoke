@@ -95,11 +95,22 @@ def _member_plans(
             continue
         if int(plan["id"]) in withdrawn_plans:
             continue
-        if not plan_matches_stage_environment(
+        from yoke_core.domain.qa_plan_case_targets import (
+            case_applies_to_target,
+            case_target_envs,
+        )
+
+        default_matches = plan_matches_stage_environment(
             plan.get("target_environment_id"), stage_environment_id
-        ):
-            continue
-        selected.append(dict(value))
+        )
+        cases = [
+            case
+            for case in value.get("cases", ())
+            if case_applies_to_target(case, target)
+            and (case_target_envs(case) or default_matches)
+        ]
+        if cases:
+            selected.append({**dict(value), "cases": cases})
     return selected
 
 

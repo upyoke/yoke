@@ -81,6 +81,7 @@ _SUBJECT_COLUMNS = (
     "plan_case_key",
     "host_baseline",
     "qa_phase",
+    "target_env",
     "workflow_transition_id",
     "waived_at",
 )
@@ -182,6 +183,10 @@ def _divergence_for_row(conn: Any, row: Any) -> Optional[PlanCaseDivergence]:
     if case is None:
         return PlanCaseDivergence(state=ORPHANED, **common)
     baselines = case_baselines(case)
+    from yoke_core.domain.qa_plan_case_targets import case_target_envs
+
+    if (row["target_env"] or None) not in (case_target_envs(case) or [None]):
+        return PlanCaseDivergence(state=ORPHANED, **common)
     if baseline not in baselines:
         return PlanCaseDivergence(state=ORPHANED, **common)
     try:
@@ -192,6 +197,7 @@ def _divergence_for_row(conn: Any, row: Any) -> Optional[PlanCaseDivergence]:
             baseline=baseline,
             baseline_position=baselines.index(baseline) + 1,
             transition_id=row["workflow_transition_id"],
+            target_env=row["target_env"],
         )
     except (QaPlanError, ValueError) as exc:
         return PlanCaseDivergence(state=UNREADABLE, detail=str(exc), **common)

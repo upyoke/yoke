@@ -107,6 +107,9 @@ def _roster(
             "standalone_empty_plan: add cases before running this plan"
         )
     target = resolve_plan_execution_target(conn, plan_id=int(plan["id"]))
+    from yoke_core.domain.qa_plan_case_targets import require_single_execution_target
+
+    require_single_execution_target(cases, target)
     capabilities = execution_host_capability_kinds(conn, session_id=session_id)
     roster = []
     for case in cases:

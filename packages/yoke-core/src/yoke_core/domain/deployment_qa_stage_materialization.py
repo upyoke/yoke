@@ -108,7 +108,19 @@ def _selected_plans(
         unique[key] = snapshot
     if not unique and not allow_empty:
         raise QaCasesNotSelectedError(cases_not_selected_refusal())
-    return list(unique.values())
+    from yoke_core.domain.qa_plan_case_targets import case_applies_to_target
+
+    return [
+        {**snapshot, "cases": cases}
+        for snapshot in unique.values()
+        if (
+            cases := [
+                case
+                for case in snapshot["cases"]
+                if case_applies_to_target(case, target)
+            ]
+        )
+    ]
 
 
 def _existing_rows(

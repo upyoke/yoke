@@ -32,6 +32,7 @@ _CASE_FIELDS = (
     "host_baselines",
     "starting_state",
     "starting_state_reason",
+    "target_envs",
     "entry_surface",
     "required_completion",
 )
@@ -43,6 +44,7 @@ _PROOF_FIELDS = (
     "deployment_run_id",
     "standalone_execution_id",
     "host_baseline",
+    "target_env",
     "outcome",
     "happened_at",
 )

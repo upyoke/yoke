@@ -85,6 +85,10 @@ QA_TABLES: dict[str, dict] = {
             ("created_at", "TEXT"),
         ],
         "notes": (
+            "Plan detail reads use qa_plan_detail.get_plan(conn, plan_id=...); "
+            "the guessed qa_plan_detail.plan_detail helper does not exist. "
+            "QA cases declare target_envs as a JSON list; each environment "
+            "materializes a separate target_env obligation and done requires every target. "
             "Requirements describe what passing looks like; verdicts and "
             "raw results live on qa_runs (joined via qa_requirement_id). "
             "Reviewed-implementation gate verifies a passing run exists "
