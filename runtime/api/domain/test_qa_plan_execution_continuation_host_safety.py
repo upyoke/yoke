@@ -121,7 +121,7 @@ def test_continuation_preparation_preserves_populated_host_state(
     assert operation_receipts(test_db) == []
 
 
-def test_fresh_mission_docket_leaves_the_reset_to_its_walk(
+def test_fresh_mission_resets_for_its_docket_and_again_at_walk_start(
     test_db: Any,
     tmp_path: Any,
     monkeypatch: Any,
@@ -150,22 +150,22 @@ def test_fresh_mission_docket_leaves_the_reset_to_its_walk(
     register_host_control_factory(lambda _material: control)
     try:
         prepared = prepare_agent_mission_contract(contract)
-        # The mission is walked after the plan's other cases, so recording
-        # its docket must not reset the machine those cases still use.
-        assert control.full_reset_calls == 0
-        assert SENTINEL in control.existing_paths
-        assert prepared["preparation"]["baseline"] is None
+        # The docket's receipt proves the declared baseline.
+        assert control.full_reset_calls == 1
+        assert SENTINEL not in control.existing_paths
+        assert prepared["preparation"]["baseline"] == "fresh-host"
         ready = handle_agent_mission_ready(
             _request(item_id, execution, payload=prepared)
         )
         assert ready.primary_success, ready.error
-        assert operation_receipts(test_db) == []
-
+        # Later plan cases may change the machine before the walk begins,
+        # so walk-start reaches the baseline again.
+        control.existing_paths.add(SENTINEL)
         started = execute_agent_mission_walk_start(contract)
     finally:
         clear_host_control_factory()
 
-    assert control.full_reset_calls == 1
+    assert control.full_reset_calls == 2
     assert SENTINEL not in control.existing_paths
     assert started["preparation"]["baseline"] == "fresh-host"
     assert started["preparation"]["ok"] is True
