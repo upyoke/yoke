@@ -1,0 +1,92 @@
+/* The Sessions roster toolbar: a search, four filters, and the roster
+   actions led by Clear. Laid out on a grid sized by the page's width, so
+   every row ends on the same edges and where a control lands never depends
+   on how long the longest machine or harness name in a select happens to be.
+
+   Narrow: the search takes a row, the filters pair up two to a row, and the
+   actions take the last row.
+   From 760px the search and the actions share the first row.
+   From 900px the four filters split their row evenly.
+   The page is the size container, since a grid cannot query its own width
+   to choose its columns. */
+.universe-app-root .sessions-view {
+  container: sessions-view / inline-size;
+}
+.universe-app-root .session-roster-filters.sessions-toolbar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+}
+
+.universe-app-root .sessions-toolbar > .session-roster-filter {
+  width: auto;
+  max-width: none;
+}
+/* A select gives up its intrinsic width, so a long option truncates inside
+   the control instead of widening it. */
+.universe-app-root .sessions-toolbar .session-filter-control {
+  flex: 1 1 0;
+  min-width: 0;
+  text-overflow: ellipsis;
+}
+
+.universe-app-root .sessions-toolbar > .session-filter-search {
+  grid-column: 1 / -1;
+}
+.universe-app-root .session-roster-filters.sessions-toolbar
+  > .session-filter-actions {
+  grid-column: 1 / -1;
+  justify-self: start;
+  margin: 0;
+}
+
+/* On a phone the actions fill their row, so a button that wraps takes the
+   line's full width rather than hanging off its left edge. */
+@container sessions-view (max-width: 479px) {
+  .universe-app-root .session-roster-filters.sessions-toolbar
+    > .session-filter-actions {
+    justify-self: stretch;
+    width: auto;
+    gap: 6px;
+  }
+  .universe-app-root .sessions-toolbar > .session-filter-actions
+    > :not(.session-filter-clear) {
+    display: flex;
+    flex: 1 1 auto;
+  }
+  .universe-app-root .sessions-toolbar > .session-filter-actions > * > button {
+    flex: 1 1 auto;
+  }
+}
+/* Below two readable filters per row, each filter takes the full row. */
+@container sessions-view (max-width: 319px) {
+  .universe-app-root .sessions-toolbar > .session-roster-filter {
+    grid-column: 1 / -1;
+  }
+}
+
+@container sessions-view (min-width: 760px) {
+  .universe-app-root .session-roster-filters.sessions-toolbar {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .universe-app-root .sessions-toolbar > .session-roster-filter {
+    grid-column: span 2;
+  }
+  .universe-app-root .sessions-toolbar > .session-filter-search {
+    grid-row: 1;
+    grid-column: 1 / 3;
+  }
+  .universe-app-root .session-roster-filters.sessions-toolbar
+    > .session-filter-actions {
+    grid-row: 1;
+    grid-column: 3 / -1;
+    justify-self: end;
+  }
+}
+
+@container sessions-view (min-width: 900px) {
+  .universe-app-root .sessions-toolbar
+    > .session-roster-filter:not(.session-filter-search) {
+    grid-column: span 1;
+  }
+}

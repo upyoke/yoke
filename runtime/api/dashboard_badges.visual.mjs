@@ -27,7 +27,7 @@ const html = `<!doctype html><html><head><meta name="viewport" content="width=de
 .sample{border:1px solid #aaa;padding:10px;min-width:0}.sample label,footer{font:12px sans-serif}
 .sample-row{display:flex;gap:10px;margin:8px 0}.sample-row>.long{flex-basis:100%}</style></head>
 <body><main class="universe-app-root"><div class="content">
-<h1>Populated dashboard layout evidence</h1><div id="session" class="proof"></div>
+<h1>Populated dashboard layout evidence</h1><div id="session" class="proof sessions-view"></div>
 <div id="launches" class="proof"></div><div id="projects" class="proof"></div><div id="strategy" class="proof"></div><div id="actors" class="proof"></div>
 <div id="workflows" class="proof"></div><div id="card" class="proof"></div>
 <div id="item" class="proof"></div><div id="actions" class="proof"></div><div id="rows"></div>

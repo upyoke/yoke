@@ -53,7 +53,9 @@ const alignmentMeasurements=async(page)=>page.evaluate(()=>{
    groupLeft:rect(n).left-rect(n.parentElement).left,groupRight:rect(n.parentElement).right-rect(n).right})),
   footer:{right:rect(document.querySelector(".app-footer")).right-rect(document.querySelector(".app-footer-links")).right
    -parseFloat(getComputedStyle(document.querySelector(".app-footer")).paddingRight)},
-  searchWidth:rect(document.querySelector(".session-filter-search")).width};
+  toolbar:(()=>{const bar=document.querySelector(".sessions-toolbar"),kids=[...bar.children].map(rect);
+   return {left:rect(document.querySelector(".session-filter-search")).left-rect(bar).left,
+    right:rect(bar).right-Math.max(...kids.filter((k)=>Math.abs(k.top-kids.at(-1).top)<1).map((k)=>k.right))};})()};
 });
 
 export async function captureAlignmentProof({freshPage,output,baseline}){
@@ -65,7 +67,7 @@ export async function captureAlignmentProof({freshPage,output,baseline}){
    for(const row of data.actions){assert(Math.abs(row.wrapped?row.groupLeft:row.groupRight)<1,JSON.stringify(row));
     if(row.wrapped)assert(Math.abs(row.left)<1,JSON.stringify(row));}
    assert(Math.abs(data.footer.right)<1,"Fitting footer links must reach right edge");
-   assert(data.searchWidth<=340,"Sessions search cap must remain340px");
+   assert(Math.abs(data.toolbar.left)<1&&Math.abs(data.toolbar.right)<1,`Sessions toolbar rows must share its edges: ${JSON.stringify(data.toolbar)}`);
   }
   measured[width]=data;
   await page.locator("#alignment").screenshot({path:path.join(output,`alignment-${width}.png`)});await page.close();

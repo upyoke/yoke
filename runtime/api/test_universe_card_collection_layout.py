@@ -44,9 +44,9 @@ def test_card_tracks_fill_width_with_collection_minima_and_gaps():
     assert "--yoke-card-track-min: 268px" in shared
     assert "--yoke-card-track-max: 1fr" in shared
     assert "--yoke-card-grid-gap: 12px" in shared
-    sessions = responsive.split(
-        ".universe-app-root .work-session-grid {", 1
-    )[1].split("}", 1)[0]
+    sessions = responsive.split(".universe-app-root .work-session-grid {", 1)[1].split(
+        "}", 1
+    )[0]
     assert "--yoke-card-track-min: 320px" in sessions
     assert "--yoke-card-track-max" not in sessions
     # Each collection names itself twice: once in the shared selector list and

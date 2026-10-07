@@ -51,7 +51,7 @@ function matchesState(liveness, selected) {
 }
 
 export function sessionRosterFilters(documentNode, onChange) {
-  const host = el(documentNode, "div", "session-roster-filters");
+  const host = el(documentNode, "div", "session-roster-filters sessions-toolbar");
   host.setAttribute("role", "search");
   host.setAttribute("aria-label", "Filter sessions");
   const controls = {};
@@ -106,8 +106,10 @@ export function sessionRosterFilters(documentNode, onChange) {
     controls.state.value = DEFAULT_STATE;
     changed("clear");
   });
-  host.appendChild(clear);
+  // Clear leads the roster actions rather than standing alone, so the
+  // toolbar lays out as search, actions, and four equal filters.
   const actions = el(documentNode, "span", "session-filter-actions");
+  actions.appendChild(clear);
   host.appendChild(actions);
   const applyRows = (rows, includeState) => {
     const query = String(controls.search.value || "").toLowerCase();

@@ -3,6 +3,7 @@
 @import url("./universe_sessions_steering.css");
 @import url("./universe_sessions_holdings.css");
 @import url("./universe_sessions_usage.css");
+@import url("./universe_sessions_toolbar.css");
 
 /* A session reads as one compact card in the order the questions are asked:
    what is running it and under what directive, then what it is assigned to,
