@@ -1,8 +1,9 @@
-// Frontier is the work itself, in the five states work is actually in:
-// stopped and why, free to pick up, being worked on right now, merged and
-// waiting on its deployment, and finished in the last day. Deployment runs
-// are their own page — what is shipping is a different question from what is
-// being built, and Release answers only which items are between the two.
+// Frontier is the work itself, in the states work is actually in: waiting on
+// other work (drawn as the dependency graph), held for a reason of its own,
+// free to pick up, being worked on right now, merged and waiting on its
+// deployment, and finished in the last day. Deployment runs are their own
+// page — what is shipping is a different question from what is being built,
+// and Release answers only which items are between the two.
 
 import { successfulResult, workBand } from "./universe_band_primitives.js";
 import { loadFrontier } from "./universe_frontier_bands.js";
@@ -17,8 +18,9 @@ import { el, settledScopedCalls } from "./universe_view_support.js";
 export function renderFrontierView(context, main, scope) {
   const documentNode = context.document;
   const waiting = workBand(
-    documentNode, "waiting", "Waiting", "Nothing is stopped.",
+    documentNode, "waiting", "Waiting", "Nothing is waiting on other work.",
   );
+  const onHold = workBand(documentNode, "hold", "On hold", "Nothing is on hold.");
   const ready = workBand(
     documentNode, "ready", "Ready", "Nothing is ready to pick up.",
   );
@@ -35,7 +37,7 @@ export function renderFrontierView(context, main, scope) {
     documentNode, "done", "Done (24h)", "Nothing finished in the last 24 hours.",
   );
   const dialogHost = el(documentNode, "div", "work-session-dialog-host");
-  main.replaceChildren(waiting, ready, active, release, done, dialogHost);
+  main.replaceChildren(waiting, onHold, ready, active, release, done, dialogHost);
 
   let currentScope = scope;
   const getScope = () => currentScope;
@@ -78,7 +80,7 @@ export function renderFrontierView(context, main, scope) {
   ));
   hold(loadFrontier(
     context,
-    { waiting, ready, active, release, done },
+    { waiting, hold: onHold, ready, active, release, done },
     getScope,
     sessionRoster,
     {

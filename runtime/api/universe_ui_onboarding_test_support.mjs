@@ -133,6 +133,7 @@ export function activationClient(activation, overrides = {}) {
         run_command: "yoke implement YOK-9", why_ready: "no blockers",
       }],
       blocked_rows: [],
+      dependency_edges: [],
     },
     "sessions.list": { rows: [] },
     "strategy.surface.list": {

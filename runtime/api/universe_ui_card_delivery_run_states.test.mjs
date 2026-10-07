@@ -72,7 +72,7 @@ test("an older in-flight run shows its stage and elapsed time", async (t) => {
         created_at: ago(90),
       }],
     },
-    "frontier.list": { ready_rows: [], blocked_rows: [] },
+    "frontier.list": { ready_rows: [], blocked_rows: [], dependency_edges: [] },
     "sessions.list": { rows: [] },
     "deployment_runs.list": {
       rows: [{

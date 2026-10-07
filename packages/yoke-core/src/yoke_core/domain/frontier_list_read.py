@@ -2,7 +2,8 @@
 
 Ready rows carry ranks, routed commands, and readiness reasons. Blocked rows
 cover unsatisfied activation, integration, and closure dependencies, plus
-operator blocks and incomplete bodies. Polling does not emit events.
+operator blocks and incomplete bodies. Dependency edges serve the Waiting
+graph (:mod:`frontier_dependency_edges`). Polling does not emit events.
 """
 
 from __future__ import annotations
@@ -14,6 +15,11 @@ from yoke_core.domain import db_helpers
 from yoke_core.domain.dependency_planning import (
     BlockerDetail,
     evaluate_batch_gates,
+)
+from yoke_core.domain.frontier_dependency_edges import (
+    BLOCKING_GATE_POINTS,
+    FRONTIER_EDGE_FIELDS,
+    frontier_dependency_edges,
 )
 from yoke_core.domain.item_ref_resolution import internal_ids_for_refs
 from yoke_core.domain.project_identity import placeholder
@@ -224,18 +230,19 @@ def list_frontier(
             blocked_specs.extend(
                 (step, gate) for gate in (step.gate_evaluations or [None])
             )
+        # Each gate is evaluated once per read; the dependency edges reuse it.
+        gate_blocks = {
+            gate: evaluate_batch_gates(conn, gate_point=gate, emit_events=False)
+            for gate in BLOCKING_GATE_POINTS
+        }
         for gate_point in _LATER_GATE_POINTS:
-            gate_blocks = evaluate_batch_gates(
-                conn,
-                gate_point=gate_point,
-                emit_events=False,
-            )
-            dependent_ids = internal_ids_for_refs(conn, gate_blocks.keys())
-            for dependent_item in sorted(gate_blocks):
+            blocks = gate_blocks[gate_point]
+            dependent_ids = internal_ids_for_refs(conn, blocks.keys())
+            for dependent_item in sorted(blocks):
                 step = tracked_steps.get(dependent_ids.get(dependent_item, -1))
                 if step is None:
                     continue
-                for detail in gate_blocks[dependent_item]:
+                for detail in blocks[dependent_item]:
                     blocked_specs.append((step, detail))
 
         blocking_ids = internal_ids_for_refs(
@@ -310,9 +317,13 @@ def list_frontier(
             "fields": {
                 "ready": list(FRONTIER_READY_FIELDS),
                 "blocked": list(FRONTIER_BLOCKED_FIELDS),
+                "dependency_edges": list(FRONTIER_EDGE_FIELDS),
             },
             "ready_rows": ready_rows,
             "blocked_rows": blocked_rows,
+            "dependency_edges": frontier_dependency_edges(
+                conn, scope, gate_blocks=gate_blocks
+            ),
             "frozen_count": len(schedule.frozen_steps),
             "wip_cap": schedule.wip_cap,
             "wip_active": schedule.wip_active,

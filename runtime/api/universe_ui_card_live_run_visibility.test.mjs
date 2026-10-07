@@ -55,7 +55,7 @@ async function mount(runs) {
   globalThis.fetch = () => response(200, {});
   const client = workbenchClient({
     "items.overview.list": { rows: [itemRow()] },
-    "frontier.list": { ready_rows: [], blocked_rows: [] },
+    "frontier.list": { ready_rows: [], blocked_rows: [], dependency_edges: [] },
     "sessions.list": { rows: [] },
     "deployment_runs.list": { rows: runs },
   });

@@ -1,0 +1,92 @@
+/* The Frontier's Waiting graph: tiles, edges, canvas, detail panel, phone
+   outline, and the session-card popover every Frontier chip opens. Built on
+   the theme tokens (--yoke-*), with tiles edged in the same stage tones the
+   band titles use (theme.css). */
+.universe-app-root{--fdv-line:color-mix(in srgb,var(--yoke-muted) 50%,transparent)}
+
+.universe-app-root [data-band=waiting]{--fdv-tone:var(--yoke-stage-waiting)}
+.universe-app-root [data-band=ready]{--fdv-tone:var(--yoke-stage-ready)}
+.universe-app-root [data-band=active]{--fdv-tone:var(--yoke-stage-active)}
+.universe-app-root [data-band=release]{--fdv-tone:var(--yoke-stage-release)}
+.universe-app-root [data-band=done]{--fdv-tone:var(--yoke-stage-done)}
+.universe-app-root [data-band=off]{--fdv-tone:var(--yoke-muted)}
+.universe-app-root .fdv-unblocks{display:inline-flex;align-items:center;gap:4px;padding:1px 7px;border-radius:999px;background:var(--yoke-accent-weak);color:var(--yoke-accent);font:650 11px/18px var(--yoke-font-sans);white-space:nowrap}
+.universe-app-root .fdv-unblocks::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
+.universe-app-root .fdv-lane-jump{all:unset;align-self:flex-end;font-size:12px;font-weight:550;color:var(--yoke-accent);cursor:pointer}
+.universe-app-root .fdv-lane-jump:hover{text-decoration:underline}
+.universe-app-root .fdv-lane-jump:focus-visible{outline:2px solid var(--yoke-accent);outline-offset:2px;border-radius:3px}
+
+/* Tiles */
+.universe-app-root .fdv-tile{all:unset;box-sizing:border-box;display:flex;flex-direction:column;gap:5px;width:100%;padding:9px 11px 10px;border:1px solid var(--yoke-border);border-left:3px solid var(--fdv-tone);border-radius:8px;background:var(--yoke-surface);cursor:pointer;position:relative;z-index:1;transition:opacity .15s,box-shadow .15s,border-color .15s}
+.universe-app-root .fdv-tile:hover{border-color:var(--yoke-accent-line);border-left-color:var(--fdv-tone)}
+.universe-app-root .fdv-tile:focus-visible{outline:2px solid var(--yoke-accent);outline-offset:2px}
+.universe-app-root .fdv-tile-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.universe-app-root .fdv-tile-ref{font:650 12px/1.3 var(--yoke-font-mono);color:var(--yoke-accent);text-decoration:none;cursor:pointer}
+.universe-app-root .fdv-tile-ref:hover{text-decoration:underline}
+.universe-app-root .fdv-tile-age{margin-left:auto;font-size:11px;color:var(--yoke-muted);white-space:nowrap}
+.universe-app-root .fdv-tile-stage{font-size:11px;color:var(--yoke-muted)}
+.universe-app-root .fdv-tile-title{font:600 12.5px/1.35 var(--yoke-font-sans);color:var(--yoke-ink)}
+.universe-app-root .fdv-tile-meta{font-size:11px;line-height:1.35;color:var(--yoke-muted)}
+.universe-app-root .fdv-tile .item-claimant-row{margin:2px 0 0;position:relative}
+.universe-app-root .fdv-tile .item-claimant{display:inline-block;max-width:100%}
+.universe-app-root .fdv-tile .item-claimant-mini{display:inline-flex;flex-wrap:wrap;align-items:center;row-gap:4px;min-height:0;max-width:100%}
+.universe-app-root .fdv-tile .item-claimant-mini>*{flex-shrink:0;white-space:nowrap}
+.universe-app-root .fdv-tile .item-claimant-mini .tooltip-info{display:none}
+.universe-app-root .item-claimant-preview:popover-open{position:fixed;inset:auto;margin:0;padding:0;width:min(380px,calc(100vw - 16px));overflow:hidden;background:var(--yoke-surface);color:var(--yoke-ink);border:1px solid var(--yoke-border);border-radius:12px;box-shadow:0 12px 32px rgba(15,23,42,.18),0 2px 6px rgba(15,23,42,.08)}
+.universe-app-root .item-claimant-preview:popover-open>.reveal-close{display:block;margin:8px 8px 0 auto}
+.universe-app-root .item-claimant-preview:popover-open>.session-card{margin:0;border:0;border-radius:0;box-shadow:none;background:transparent}
+.universe-app-root .fdv-tile .item-claimant-mini:not(:has(+ .item-claimant-preview)){cursor:default}
+.universe-app-root .fdv-tile.is-stall{border-color:color-mix(in srgb,var(--yoke-crit) 55%,transparent);border-left-color:var(--yoke-crit);background:var(--yoke-crit-bg)}
+.universe-app-root .fdv-tile.is-stall .fdv-tile-meta,.universe-app-root .fdv-tile.is-stuck .fdv-tile-meta{color:var(--yoke-crit)}
+.universe-app-root .fdv-tile.is-stuck{border-left-style:dashed}
+.universe-app-root .fdv-tile.is-ghost{border-style:dashed;background:transparent}
+.universe-app-root .fdv-tile.is-dead{border-style:dashed;background:transparent;border-left-color:var(--yoke-crit)}
+.universe-app-root .fdv-tile.is-dead .fdv-tile-title{text-decoration:line-through;color:var(--yoke-muted)}
+.universe-app-root .fdv-tile.is-selected{box-shadow:0 0 0 2px var(--yoke-accent)}
+.universe-app-root .fdv-stack{all:unset;box-sizing:border-box;display:flex;flex-direction:column;gap:3px;width:100%;padding:9px 11px;border:1px dashed var(--yoke-border);border-left:3px solid var(--yoke-stage-waiting);border-radius:8px;font-size:11.5px;color:var(--yoke-muted);cursor:pointer;position:relative;z-index:1;box-shadow:0 3px 0 -1px var(--yoke-surface),0 3px 0 0 var(--yoke-border)}
+.universe-app-root .fdv-stack strong{font:650 12.5px/1.3 var(--yoke-font-sans);color:var(--yoke-ink)}
+.universe-app-root .fdv-stack:focus-visible{outline:2px solid var(--yoke-accent);outline-offset:2px}
+.universe-app-root .fdv-stack-items{display:flex;flex-direction:column;gap:10px}
+.universe-app-root .fdv-stack-items[hidden]{display:none}
+
+/* Edges: uniform, except the longest chain */
+.universe-app-root .fdv-edges{position:absolute;left:0;top:0;pointer-events:none;z-index:0;overflow:visible}
+.universe-app-root .fdv-edge{fill:none;stroke:var(--fdv-line);stroke-width:1.5;transition:stroke .15s,opacity .15s}
+.universe-app-root .fdv-edge.is-critical{stroke:color-mix(in srgb,var(--yoke-ink) 62%,transparent);stroke-width:2.75}
+.universe-app-root .has-focus .fdv-edge{opacity:.12}
+.universe-app-root .has-focus .fdv-edge.is-lit{opacity:1;stroke:var(--yoke-accent);stroke-width:2.25}
+.universe-app-root .has-focus .fdv-tile:not(.is-lit),.universe-app-root .has-focus .fdv-stack{opacity:.35}
+
+/* Canvas */
+.universe-app-root .fdv-graph-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;align-items:start}
+.universe-app-root .fdv-graph-layout.has-detail{grid-template-columns:minmax(0,1fr) 330px}
+.universe-app-root .fdv-graph-layout:not(.has-detail)>.fdv-graph-detail{display:none}
+/* Wide graphs scroll sideways inside the canvas; height always grows with
+   the page, so there is never a scroll inside the page's own scroll. */
+.universe-app-root .fdv-graph-canvas{position:relative;overflow-x:auto;overflow-y:hidden;padding:4px 4px 12px;border:1px solid var(--yoke-border);border-radius:var(--yoke-radius,10px);background:var(--yoke-bg)}
+.universe-app-root .fdv-graph-grid{position:relative;display:grid;grid-template-columns:repeat(var(--fdv-cols),minmax(170px,240px));column-gap:44px;padding:12px 40px 12px 12px}
+.universe-app-root .fdv-graph-col{display:flex;flex-direction:column;gap:10px;min-width:0}
+.universe-app-root .fdv-graph-col-head{padding:4px 0 8px;font:700 10px/1.2 var(--yoke-font-sans);letter-spacing:.08em;text-transform:uppercase;color:var(--yoke-muted);background:var(--yoke-bg)}
+.universe-app-root .fdv-graph-divider{margin:8px 0 0;padding-top:8px;border-top:1px dashed var(--yoke-border);font:700 10px/1.2 var(--yoke-font-sans);letter-spacing:.08em;text-transform:uppercase;color:var(--yoke-muted)}
+.universe-app-root .fdv-graph-divider.is-stuck{color:var(--yoke-crit);border-top-color:color-mix(in srgb,var(--yoke-crit) 40%,transparent)}
+
+/* Detail */
+.universe-app-root .fdv-graph-detail{position:sticky;top:12px;display:flex;flex-direction:column;gap:8px}
+.universe-app-root .fdv-graph-detail .work-item-card{height:auto;margin-top:6px}
+.universe-app-root .fdv-detail-alert{margin:0;padding:9px 11px;border-radius:8px;background:var(--yoke-crit-bg);color:var(--yoke-crit);font-size:12.5px;line-height:1.45}
+.universe-app-root .fdv-detail-h{margin:6px 0 0;font:700 10px/1.2 var(--yoke-font-sans);letter-spacing:.08em;text-transform:uppercase;color:var(--yoke-muted)}
+.universe-app-root .fdv-detail-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.universe-app-root .fdv-detail-list li{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;font-size:12px;line-height:1.4}
+.universe-app-root .fdv-detail-list li[data-action]{cursor:pointer}
+.universe-app-root .fdv-detail-copy{flex-basis:100%;color:var(--yoke-ink-2)}
+.universe-app-root .fdv-detail-why{flex-basis:100%;padding-left:8px;border-left:2px solid var(--yoke-border);color:var(--yoke-muted);font-style:italic}
+.universe-app-root .fdv-gate{padding:0 6px;border-radius:4px;border:1px solid var(--yoke-border);font:600 10.5px/16px var(--yoke-font-sans);color:var(--yoke-muted)}
+.universe-app-root .fdv-detail-empty{margin:0;padding:14px;border:1px dashed var(--yoke-border);border-radius:var(--yoke-radius,10px);font-size:12.5px;line-height:1.5;color:var(--yoke-muted)}
+
+/* Phone outline */
+.universe-app-root .fdv-graph-outline{display:none}
+.universe-app-root .fdv-outline,.universe-app-root .fdv-outline ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.universe-app-root .fdv-outline{margin-bottom:14px}
+.universe-app-root .fdv-outline ul{margin:8px 0 0 10px;padding-left:12px;border-left:2px solid var(--fdv-line)}
+@media (max-width:1100px){.universe-app-root .fdv-graph-layout.has-detail{grid-template-columns:minmax(0,1fr)}.universe-app-root .fdv-graph-detail{position:static}}
+@media (max-width:720px){.universe-app-root .fdv-graph-layout:not(.has-detail),.universe-app-root .fdv-graph-canvas{display:none}.universe-app-root .fdv-graph-outline{display:block}}

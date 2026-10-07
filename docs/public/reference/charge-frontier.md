@@ -176,7 +176,19 @@ GET /v1/charge/frontier?project=yoke&wip_cap=30
 
 ### Registered frontier read
 
-`frontier.list` serves the ranked frontier. Adapter:
+`frontier.list` serves the ranked frontier: `ready_rows`, `blocked_rows`,
+and `dependency_edges`, every unsatisfied edge at the `activation`,
+`integration` and `closure` gates whose dependent is not terminal, evaluated by
+the shared dependency kernel. Each edge carries the blocker and dependent
+refs, `gate_point`, `satisfaction`, `rationale`, the blocker's stage and title,
+`blocking_terminal`, and `blocking_abandoned` (cancelled or stopped rather
+than completed: only an abandoned blocker's edge can never clear). A blocker
+that no longer resolves to an item still yields its edge, with empty blocker
+details. For `fact:deployed:<env>` an `environment` with its
+`delivery_state` (`live`, `deploying`, `not deployed`, `unregistered`) and
+`in_delivery_flow` (whether any active flow of the blocker's project, or its
+closing flow, reaches that environment). The Frontier page's Waiting graph
+draws these edges; each gate is evaluated once per read. Adapter:
 
 ```text
 yoke frontier list --project P --wip-cap 5 --json

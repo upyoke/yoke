@@ -30,6 +30,12 @@
   --yoke-run: #3b5bdb;   --yoke-run-bg: rgba(59, 91, 219, .12);
   --yoke-idle: #6b7280;  --yoke-idle-bg: rgba(107, 114, 128, .12);
   --yoke-park: #ea580c;  --yoke-park-bg: rgba(234, 88, 12, .12);
+  /* Work stages: one tone per Frontier band, shared by band titles and
+     graph tiles. Waiting is orange so it reads apart from the neutral On
+     hold; red stays a status colour, never a stage. */
+  --yoke-stage-waiting: #c2410c;  --yoke-stage-hold: #6b7280;
+  --yoke-stage-ready: #0f766e;    --yoke-stage-active: #3b5bdb;
+  --yoke-stage-release: #7c3aed;  --yoke-stage-done: #16a34a;
   /* Harness brand marks — theme-invariant, deliberately not overridden
      in dark: a brand color is a fact about the harness, not the theme. */
   --yoke-h-claude: #c8622a;
@@ -55,6 +61,9 @@
     --yoke-run: #6183ff;   --yoke-run-bg: rgba(97, 131, 255, .16);
     --yoke-idle: #9aa1ab;  --yoke-idle-bg: rgba(154, 161, 171, .14);
     --yoke-park: #f0883e;  --yoke-park-bg: rgba(240, 136, 62, .16);
+    --yoke-stage-waiting: #fb923c;  --yoke-stage-hold: #8b929c;
+    --yoke-stage-ready: #2dd4bf;    --yoke-stage-active: #6183ff;
+    --yoke-stage-release: #a78bfa;  --yoke-stage-done: #3fb950;
   }
 }
 :root[data-theme="light"] {
@@ -76,6 +85,9 @@
   --yoke-run: #3b5bdb;   --yoke-run-bg: rgba(59, 91, 219, .12);
   --yoke-idle: #6b7280;  --yoke-idle-bg: rgba(107, 114, 128, .12);
   --yoke-park: #ea580c;  --yoke-park-bg: rgba(234, 88, 12, .12);
+  --yoke-stage-waiting: #c2410c;  --yoke-stage-hold: #6b7280;
+  --yoke-stage-ready: #0f766e;    --yoke-stage-active: #3b5bdb;
+  --yoke-stage-release: #7c3aed;  --yoke-stage-done: #16a34a;
 }
 :root[data-theme="dark"] {
   --yoke-ink: #f5f5f5;
@@ -96,4 +108,7 @@
   --yoke-run: #6183ff;   --yoke-run-bg: rgba(97, 131, 255, .16);
   --yoke-idle: #9aa1ab;  --yoke-idle-bg: rgba(154, 161, 171, .14);
   --yoke-park: #f0883e;  --yoke-park-bg: rgba(240, 136, 62, .16);
+  --yoke-stage-waiting: #fb923c;  --yoke-stage-hold: #8b929c;
+  --yoke-stage-ready: #2dd4bf;    --yoke-stage-active: #6183ff;
+  --yoke-stage-release: #a78bfa;  --yoke-stage-done: #3fb950;
 }

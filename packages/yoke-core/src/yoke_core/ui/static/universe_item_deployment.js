@@ -63,11 +63,21 @@ export function shownDeliveryRuns(carried) {
   });
 }
 
+// The flow id an item read's flow field names. Item reads project
+// `deployment_flow` as `{value, source}`, and an older serving build returns
+// the bare stored string, so the id is taken from either, never by
+// stringifying the field.
+export function flowId(field) {
+  const value = field && typeof field === "object" ? field.value : field;
+  return String(value ?? "").trim();
+}
+
 export function deliveryFlowLabel(row) {
   if (row.completion_flow_source === "unreadable") {
     return "its project default could not be read";
   }
-  return String(row.completion_flow || row.deployment_flow || row.delivery?.flow || "no flow");
+  return flowId(row.completion_flow) || flowId(row.deployment_flow)
+    || flowId(row.delivery?.flow) || "no flow";
 }
 
 function runStage(run) {
@@ -177,11 +187,35 @@ export function appendItemDelivery(documentNode, card, row, deployments, project
     box.appendChild(environmentRow(documentNode, runEnvironment(run), itemOutcome(run), run, row));
   }
   const environment = String(row.completion_environment || "");
-  if (!runs.length || (environment && !runs.some((run) => runEnvironment(run) === environment))) {
+  // "Next release" is a promise only a flow can keep: an item that resolves
+  // no completion flow has no release coming, so it shows no placeholder.
+  const flow = flowId(row.completion_flow) || flowId(row.deployment_flow) || flowId(row.delivery?.flow);
+  const awaiting = !runs.length || (environment && !runs.some((run) => runEnvironment(run) === environment));
+  if (flow && awaiting) {
     box.appendChild(environmentRow(documentNode, environment, {
       symbol: "○", text: "not yet · next release",
     }, null, row));
   }
   card.appendChild(box);
   return box;
+}
+
+// Where an item's delivery stands, one environment per part, for a surface
+// too compact for the delivery box: "stage ✓ · prod deploying".
+export function deliverySummary(row, deployments) {
+  const itemId = row.internal_id ?? row.item_id ?? row.id;
+  const runs = shownDeliveryRuns(deployments?.get(String(itemId)) || [])
+    .filter((run) => run.delivery_relation !== "removed");
+  const parts = runs.map((run) => {
+    const outcome = itemOutcome(run);
+    const environment = runEnvironment(run) || NO_ENVIRONMENT_LABEL;
+    if (outcome.finished) return `${environment} ✓`;
+    if (outcome.symbol === "✗") return `${environment} ✗`;
+    return `${environment} deploying`;
+  });
+  const environment = String(row.completion_environment || "");
+  if (environment && !runs.some((run) => runEnvironment(run) === environment)) {
+    parts.push(`${environment} not yet`);
+  }
+  return parts.join(" · ");
 }
