@@ -71,6 +71,11 @@ class QaRequirementAddRequest(BaseModel):
     instructions: Optional[str] = None
     expected_outcome: Optional[str] = None
     method_config: Optional[Dict[str, Any]] = None
+    #: A machine-run case names the registered baseline it resets to, or
+    #: runs ``as_is`` with a reason (see yoke_contracts.qa_case_starting_state).
+    host_baseline: Optional[str] = None
+    starting_state: Optional[str] = None
+    starting_state_reason: Optional[str] = None
     #: An item-attached case names the pinned workflow stage it governs. A
     #: run-attached one is governed by its deployment run instead, so the
     #: field is absent there rather than filled with a stage it does not

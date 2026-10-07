@@ -21,9 +21,11 @@ INSERT_SQL = (
     "blocking_mode, requirement_source, success_policy, "
     "capability_requirements, suite_id, method_id, instructions, "
     "expected_outcome, method_config, workflow_transition_id, method_name, "
-    "runner_id, verdict_path, created_at) "
+    "runner_id, verdict_path, host_baseline, starting_state, "
+    "starting_state_reason, created_at) "
     "VALUES ({p}, NULL, NULL, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, "
-    "{p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
+    "{p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, "
+    "{p}, {p}) "
     "RETURNING id"
 )
 
@@ -81,6 +83,9 @@ def insert_params(
         row.get("method_name"),
         row.get("runner_id"),
         row.get("verdict_path"),
+        row.get("host_baseline"),
+        row.get("starting_state"),
+        row.get("starting_state_reason"),
         now_iso,
     )
 
