@@ -20,7 +20,6 @@
 
 .universe-app-root .sessions-toolbar > .session-roster-filter {
   width: auto;
-  max-width: none;
 }
 /* A select gives up its intrinsic width, so a long option truncates inside
    the control instead of widening it. */
