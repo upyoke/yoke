@@ -77,7 +77,7 @@ test("Sessions renders resolved local identity and the exact empty state", async
   const filterHost = byClass(emptyRoot, "session-roster-filters")[0];
   assert.deepEqual(
     filterHost.children.map((node) => node.tagName),
-    ["LABEL", "LABEL", "LABEL", "LABEL", "LABEL", "BUTTON", "SPAN"],
+    ["LABEL", "LABEL", "LABEL", "LABEL", "LABEL", "SPAN"],
   );
   const filterControls = byClass(filterHost, "session-filter-control");
   assert.deepEqual(
@@ -272,7 +272,9 @@ test("Sessions sizes its stats and keeps the message row to one text line", () =
   assert.match(css, /\.session-item-title \{[^}]*font-weight: 700;/s);
   assert.match(
     css,
-    /\.session-latest-message \{[^}]*flex-wrap: nowrap;[^}]*line-height: 1\.2;[^}]*white-space: nowrap;/,
+    // Whole pieces on one text line where they fit; the badge wraps under
+    // the button on a card too narrow for the line instead of overflowing.
+    /\.session-latest-message \{[^}]*flex-wrap: wrap;[^}]*line-height: 1\.2;[^}]*white-space: nowrap;/,
   );
   assert.match(
     css,

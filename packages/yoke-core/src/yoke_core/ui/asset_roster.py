@@ -281,6 +281,7 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "universe_sessions_steering.css": "text/css; charset=utf-8",
     "universe_sessions_holdings.css": "text/css; charset=utf-8",
     "universe_sessions_usage.css": "text/css; charset=utf-8",
+    "universe_sessions_toolbar.css": "text/css; charset=utf-8",
     "universe_session_control.css": "text/css; charset=utf-8",
     "universe_session_launches.css": "text/css; charset=utf-8",
     "universe_organization_fleet.css": "text/css; charset=utf-8",

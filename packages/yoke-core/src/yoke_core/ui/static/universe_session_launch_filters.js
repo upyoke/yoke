@@ -4,13 +4,13 @@ import { el } from "./universe_view_support.js";
 // the options offered here are only ever the values already on screen plus
 // whatever is currently chosen.
 const FILTER_FIELDS = [
-  ["state", "State", "Any state", (row) => [row.state]],
+  ["state", "State", "Any", (row) => [row.state]],
   [
-    "surface", "Surface", "Any surface",
+    "surface", "Surface", "Any",
     (row) => [row.requested_surface, row.selected_surface],
   ],
   [
-    "machine", "Machine", "Any machine",
+    "machine", "Machine", "Any",
     (row) => [row.assigned_machine_id, row.requested_machine_id],
   ],
 ];

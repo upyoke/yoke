@@ -115,7 +115,11 @@
    their columns line up whatever each one holds. min(100%, min-track) stacks
    on a pane narrower than the track without clipping. Fractional tracks
    distribute leftover width to the right edge while empty slots preserve
-   matching column edges across sparse and populated sections. */
+   matching column edges across sparse and populated sections.
+   With a 1fr maximum, auto-fill counts columns from the minimum, so the
+   minimum is the width a card actually gets wherever one more column only
+   just fits. Each collection's minimum is therefore the narrowest width its
+   own content reads at, not a phone floor. */
 .universe-app-root {
   --yoke-card-track-min: 268px;
   --yoke-card-track-max: 1fr;
@@ -131,6 +135,12 @@
     min(100%, var(--yoke-card-track-min)), var(--yoke-card-track-max)
   ));
   gap: var(--yoke-card-grid-gap);
+}
+/* A session card carries an identity row, a steering row and a message row
+   that each read on one line from about 310px. */
+.universe-app-root .session-grid,
+.universe-app-root .work-session-grid {
+  --yoke-card-track-min: 320px;
 }
 .universe-app-root .strategy-doc-grid {
   --yoke-card-track-min: 280px;

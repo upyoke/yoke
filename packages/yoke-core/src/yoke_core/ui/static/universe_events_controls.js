@@ -32,7 +32,7 @@ export function eventsControls(documentNode, loader, onSearch) {
   clear.addEventListener("click", () => { search.value = ""; onSearch(); search.focus(); });
   primary.appendChild(clear);
   primary.appendChild(selectField(documentNode, "Severity", [
-    ["", "Any severity"], ...SEVERITY_CHOICES.map((value) => [value, `${value} and above`]),
+    ["", "Any"], ...SEVERITY_CHOICES.map((value) => [value, `${value} and above`]),
   ], (value) => loader.setCriterion("min_severity", value)));
   primary.appendChild(selectField(documentNode, "Since", SINCE_CHOICES,
     (value) => loader.setCriterion("since", value)));

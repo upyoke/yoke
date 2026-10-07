@@ -3,6 +3,7 @@
 @import url("./universe_sessions_steering.css");
 @import url("./universe_sessions_holdings.css");
 @import url("./universe_sessions_usage.css");
+@import url("./universe_sessions_toolbar.css");
 
 /* A session reads as one compact card in the order the questions are asked:
    what is running it and under what directive, then what it is assigned to,
@@ -160,11 +161,14 @@
   color: inherit;
 }
 
+/* One text line wherever it fits. Each piece stays whole, and on a card
+   too narrow for the line the delivery badge drops under the button rather
+   than running past the card edge. */
 .universe-app-root .session-latest-message {
   display: flex;
   align-items: center;
-  flex-wrap: nowrap;
-  gap: 7px;
+  flex-wrap: wrap;
+  gap: 5px 7px;
   min-width: 0;
   line-height: 1.2;
   white-space: nowrap;
