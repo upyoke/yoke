@@ -62,20 +62,6 @@ def _authority(environment: str) -> SimpleNamespace:
     return SimpleNamespace(environment=environment, dsn=SELECTED_DSN)
 
 
-def _machine_config(release_env: str = "prod") -> dict[str, Any]:
-    return {
-        "connections": {
-            release_env: {"transport": "https"},
-            f"{release_env}-db-admin": {
-                "transport": "local-postgres",
-                "prod": True,
-            },
-            "stage": {"transport": "https"},
-            "stage-db-admin": {"transport": "local-postgres", "prod": False},
-        }
-    }
-
-
 def test_reporter_activates_before_fleet_discovery(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -144,11 +130,7 @@ def test_preflight_keeps_receipt_on_preexisting_control_plane(
 
     monkeypatch.setenv("YOKE_ENV", "release")
     _declare_admin(monkeypatch, {"prod": "prod-db-admin"})
-    monkeypatch.setattr(
-        receipt_write.machine_config,
-        "load_config",
-        lambda: _machine_config("release"),
-    )
+    monkeypatch.setattr(receipt_write, "receipt_plane_refusal", lambda **_kw: "")
     monkeypatch.setattr(readiness, "activate_selected_postgres", activate)
     monkeypatch.setattr(
         local_universe, "ensure_engine_binaries", lambda _emit: tmp_path
@@ -201,13 +183,7 @@ def test_preflight_records_receipt_on_registered_environment_not_admin(
 
     monkeypatch.setenv("YOKE_ENV", "release")
     _declare_admin(monkeypatch, {"review-west": "cluster-admin"})
-    config = _machine_config("release")
-    config["connections"]["review-west"] = {"transport": "https"}
-    config["connections"]["cluster-admin"] = {
-        "transport": "local-postgres",
-        "prod": False,
-    }
-    monkeypatch.setattr(receipt_write.machine_config, "load_config", lambda: config)
+    monkeypatch.setattr(receipt_write, "receipt_plane_refusal", lambda **_kw: "")
     monkeypatch.setattr(readiness, "activate_selected_postgres", activate)
     monkeypatch.setattr(
         local_universe, "ensure_engine_binaries", lambda _emit: tmp_path
@@ -260,11 +236,7 @@ def test_preflight_resolves_an_environment_name_to_the_admin_connection(
 
     monkeypatch.setenv("YOKE_ENV", "release")
     _declare_admin(monkeypatch, {"stage": "stage-db-admin"})
-    monkeypatch.setattr(
-        receipt_write.machine_config,
-        "load_config",
-        lambda: _machine_config("release"),
-    )
+    monkeypatch.setattr(receipt_write, "receipt_plane_refusal", lambda **_kw: "")
     monkeypatch.setattr(readiness, "activate_selected_postgres", activate)
     monkeypatch.setattr(
         local_universe, "ensure_engine_binaries", lambda _emit: tmp_path
@@ -282,30 +254,6 @@ def test_preflight_resolves_an_environment_name_to_the_admin_connection(
     assert events == ["activate:stage-db-admin", "rehearse"]
 
 
-def test_preflight_refuses_receipt_on_test_control_plane(
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    monkeypatch.setattr(
-        receipt_write.machine_config,
-        "load_config",
-        lambda: _machine_config("release"),
-    )
-    _declare_admin(monkeypatch, {"stage": "stage-db-admin"})
-    _select_yoke_fleet(monkeypatch)
-
-    assert (
-        preflight.main(
-            ["--project", "yoke", "stage", "--record-receipt", "--receipt-env", "stage"]
-        )
-        == 2
-    )
-
-    refusal = capsys.readouterr().err
-    assert "yoke watch preflight -- --project yoke stage" in refusal
-    assert "--receipt-env release" in refusal
-
-
 def test_preflight_help_teaches_both_receipt_coverage_shapes(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -320,7 +268,7 @@ def test_preflight_help_teaches_both_receipt_coverage_shapes(
     assert "--receipt-env`` names the" in help_text
     assert "control plane that records the receipt" in help_text
     assert "one environment's receipt never satisfies another" in help_text
-    assert "Receipts always write to the release-gate control plane" in help_text
+    assert "Receipts write to the control plane ``--receipt-env``" in help_text
     assert "Ordinary pre-release rehearsal uses the source tree" in help_text
     assert "--engine-wheel`` pins an already-built artifact" in help_text
 
