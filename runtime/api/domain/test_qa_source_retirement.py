@@ -199,3 +199,21 @@ def test_prod_records_a_stage_requirement_but_does_not_execute_it(
         resolve_named_environment_execution_target(
             test_db, project_id=1, environment_name="stage"
         )
+
+
+def test_prod_rebinds_a_requirement_to_stage(test_db, monkeypatch) -> None:
+    from yoke_core.domain.qa_requirement_config_update import apply_requirement_update
+
+    item_id = 2373
+    sources = _pair(test_db, item_id=item_id)
+    _restrict_prod_runtime(test_db, monkeypatch)
+
+    outcome = apply_requirement_update(test_db, sources["prod"], "target_env", "stage")
+
+    assert outcome.ok, f"{outcome.error_code}: {outcome.message}"
+    stored = test_db.execute(
+        "SELECT target_env,execution_target_digest FROM qa_requirements WHERE id=%s",
+        (sources["prod"],),
+    ).fetchone()
+    assert stored["target_env"] == "stage"
+    assert stored["execution_target_digest"]
