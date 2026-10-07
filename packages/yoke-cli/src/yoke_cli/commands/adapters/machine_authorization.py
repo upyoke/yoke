@@ -25,7 +25,7 @@ def _call(args, *, resolve=False):
         description=(
             "Read a device code, or approve or deny it as the signed-in actor. "
             "A self-hosted server lets you decide your own machine; on a hosted "
-            "upyoke.com connection an org admin decides any code waiting for "
+            "Yoke Cloud connection an org admin decides any code waiting for "
             "the org."
         ),
     )

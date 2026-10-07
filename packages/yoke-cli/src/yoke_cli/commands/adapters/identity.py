@@ -9,7 +9,7 @@ Function ids handled here (all org-admin-gated at dispatch):
 * ``identity.link.set`` — bind an external identity (issuer+subject) or
   pre-link an email to an existing actor.
 
-On a hosted upyoke.com connection Platform answers the invite ids with the
+On a hosted Yoke Cloud connection Platform answers the invite ids with the
 same invites its Members page manages; a hosted universe's engine refuses
 them as ``hosted_invites_platform_owned``.
 """
@@ -92,7 +92,7 @@ def identity_invite_create(args: List[str]) -> int:
             "the next verified OIDC sign-in with that email; --role grants "
             "an org role on acceptance; --actor pre-links the sign-in to an "
             "existing actor instead of creating a new one. On a hosted "
-            "upyoke.com connection Platform answers this with the site's "
+            "Yoke Cloud connection Platform answers this with the site's "
             "own invite: --role is admin or member, and a full org refuses "
             "as hosted_seat_limit_reached."
         ),

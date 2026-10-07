@@ -24,6 +24,8 @@ from yoke_contracts.api.function_call import (
     HandlerOutcome,
 )
 
+from yoke_contracts.api_urls import HOSTED_PLATFORM_URL
+
 from yoke_core.domain.universe_startup_lock import (
     hosted_tenant_container_process,
 )
@@ -82,8 +84,9 @@ def _hosted_refusal() -> Optional[HandlerOutcome]:
             message=(
                 "on a hosted universe Platform owns invites; run `yoke "
                 "identity invite ...` from a machine connected to this org "
-                "on upyoke.com, whose hosted connection Platform answers, "
-                "or use the org's Members page"
+                f"with `yoke setup --connect {HOSTED_PLATFORM_URL}`, whose "
+                "hosted connection Platform answers, or use the org's "
+                "Members page"
             ),
         ),
     )

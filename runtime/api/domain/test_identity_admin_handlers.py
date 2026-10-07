@@ -295,4 +295,4 @@ def test_hosted_tenant_refuses_invites_platform_owns(
     outcome = handler(_request(function_id, payload))
     assert outcome.primary_success is False
     assert outcome.error.code == identity_invites.HOSTED_INVITES_PLATFORM_OWNED
-    assert "upyoke.com" in outcome.error.message
+    assert "yoke setup --connect" in outcome.error.message

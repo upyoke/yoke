@@ -11,6 +11,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
 
 from yoke_cli.main import main as cli_main
+from yoke_contracts.api_urls import HOSTED_PLATFORM_URL
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -35,7 +36,7 @@ def test_engine_refuses_with_hosted_recovery():
     )
     assert outcome.primary_success is False
     assert outcome.error.code == ORGANIZATION_CREATE_HOSTED_ONLY
-    assert "yoke connect https://upyoke.com" in outcome.error.message
+    assert f"yoke setup --connect {HOSTED_PLATFORM_URL}" in outcome.error.message
 
 
 def test_cli_sends_name_and_slug():

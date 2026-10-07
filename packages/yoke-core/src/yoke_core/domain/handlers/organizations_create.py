@@ -20,6 +20,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_contracts.api_urls import HOSTED_PLATFORM_URL
 
 ORGANIZATION_CREATE_HOSTED_ONLY = "organization_create_hosted_only"
 
@@ -41,12 +42,12 @@ def handle_organizations_create(request: FunctionCallRequest) -> HandlerOutcome:
         error=FunctionError(
             code=ORGANIZATION_CREATE_HOSTED_ONLY,
             message=(
-                "founding an organization is a hosted operation that "
-                "upyoke.com answers; this universe engine never creates "
-                "orgs (a local or self-hosted universe has exactly one). "
-                "Run `yoke organizations create NAME` from a machine "
-                "connected to upyoke.com (`yoke connect https://upyoke.com`), "
-                "or found the org on the site"
+                "founding an organization is a hosted operation that Yoke "
+                "Cloud answers; this universe engine never creates orgs (a "
+                "local or self-hosted universe has exactly one). Run `yoke "
+                "organizations create NAME` from a machine connected with "
+                f"`yoke setup --connect {HOSTED_PLATFORM_URL}`, or found the "
+                "org on the site"
             ),
         ),
     )

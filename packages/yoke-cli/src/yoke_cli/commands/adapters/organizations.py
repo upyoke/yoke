@@ -3,7 +3,7 @@
 Function ids handled here:
 
 * ``organizations.create`` — found a new hosted org with the caller as its
-  founding admin. Platform answers it on a machine's upyoke.com
+  founding admin. Platform answers it on a machine's Yoke Cloud
   connection; a local or self-hosted universe refuses it by name.
 * ``organizations.get`` — read the org identity card (slug, name, domain,
   created_at). Default reads the universe's identity card; ``--slug``
@@ -24,6 +24,7 @@ from yoke_cli.commands._helpers import (
     usage_error,
 )
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.api_urls import HOSTED_PLATFORM_URL
 
 
 __all__ = [
@@ -99,13 +100,13 @@ def organizations_create(args: List[str]) -> int:
         prog="yoke organizations create",
         description=(
             "Found a new hosted organization with you as its founding admin. "
-            "upyoke.com answers this on this machine's hosted connection with "
+            "Yoke Cloud answers this on this machine's hosted connection with "
             "the site's founding checks: a redeemed beta code, an unused slug, "
             "and a name of 1-80 characters. Resubmitting the same slug resumes "
             "your own unfinished founding. A local or self-hosted universe has "
             "exactly one org and refuses as organization_create_hosted_only. "
             "Then connect a machine to the new org with "
-            "`yoke connect https://upyoke.com`."
+            f"`yoke setup --connect {HOSTED_PLATFORM_URL}`."
         ),
     )
     parser.add_argument("name", help="Organization display name (1-80 chars).")

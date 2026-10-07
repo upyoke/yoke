@@ -1,14 +1,14 @@
 # Hosted org administration from the CLI
 
-On upyoke.com, Platform owns organizations, invites, and machine approvals.
+On Yoke Cloud, Platform owns organizations, invites, and machine approvals.
 The CLI reaches the same operations the site uses, with the same permission
 checks, over a machine's existing hosted connection
-(`https://upyoke.com/api/orgs/<slug>`). Platform answers these function ids
+(`https://app.upyoke.com/api/orgs/<slug>`). Platform answers these function ids
 itself and never forwards them to the org's universe, so an invite created on
 the CLI and one created on the Members page are the same invite, counted
 against the same seat limit.
 
-Connect a machine first with `yoke connect https://upyoke.com`. Each command
+Connect a machine first with `yoke setup --connect https://app.upyoke.com`. Each command
 acts for the person who approved that machine, within the org it connected to.
 
 ## Found an organization
@@ -22,7 +22,7 @@ becomes its admin. The slug defaults to one derived from the name. Resubmitting
 the same slug resumes your own unfinished founding. Refusals:
 `beta_grant_required`, `slug_taken`, `invalid_name`, `invalid_slug`,
 `provisioning_pending` (resubmit to resume), and `provisioning_failed`. Then
-connect a machine to the new org with `yoke connect https://upyoke.com`.
+connect a machine to the new org with `yoke setup --connect https://app.upyoke.com`.
 
 ## Invite and revoke
 
