@@ -114,6 +114,8 @@ def materialized_definition(
         "runner_id": str(case["runner_id"]),
         "verdict_path": str(case["verdict_path"]),
         "host_baseline": baseline,
+        "starting_state": case["starting_state"],
+        "starting_state_reason": case["starting_state_reason"],
         "entry_surface": case["entry_surface"],
         "required_completion": case["required_completion"],
         "workflow_transition_id": transition_id,
@@ -143,35 +145,88 @@ def case_target_subject(case: Any, definition: Mapping[str, Any]) -> dict[str, A
     }
 
 
-def plan_cases(conn: Any, plan_id: int) -> list[Any]:
+def plan_cases(conn: Any, plan_id: int) -> list[dict[str, Any]]:
     """Every case of this plan, joined to the method that supplies its runner.
 
     The join is what makes ``method_name`` / ``runner_id`` / ``verdict_path``
     available at all; both rematerialize paths and the drift reader need the
-    identical projection, so it is written once here.
+    identical projection, so it is written once here. Each case also carries
+    ``materialized_baselines``, its row fan-out, and a plan with a machine-run
+    case that declares no starting state is refused here, before any writer
+    can mint a requirement that would run on whatever the machine holds.
     """
+    from yoke_contracts.qa_case_starting_state import (
+        StartingStateError,
+        chain_baselines,
+    )
     from yoke_core.domain.db_helpers import query_rows
     from yoke_core.domain.qa_plan_management import _placeholder
 
-    return query_rows(
-        conn,
-        "SELECT c.*, m.name AS method_name, m.runner_id, "
-        "m.required_capability_kinds, m.verdict_path, m.config_contract_id "
-        "FROM qa_plan_cases c JOIN qa_methods m ON m.id=c.method_id "
-        f"WHERE c.plan_id={_placeholder(conn)} ORDER BY c.position",
-        (int(plan_id),),
+    rows = [
+        dict(row)
+        for row in query_rows(
+            conn,
+            "SELECT c.*, p.slug AS plan_slug, m.name AS method_name, "
+            "m.runner_id, m.required_capability_kinds, m.verdict_path, "
+            "m.config_contract_id "
+            "FROM qa_plan_cases c JOIN qa_methods m ON m.id=c.method_id "
+            "JOIN qa_plans p ON p.id=c.plan_id "
+            f"WHERE c.plan_id={_placeholder(conn)} ORDER BY c.position",
+            (int(plan_id),),
+        )
+    ]
+    try:
+        fan_out = chain_baselines(
+            [
+                {
+                    **row,
+                    "host_baselines": json.loads(str(row["host_baselines"] or "[]")),
+                }
+                for row in rows
+            ]
+        )
+    except StartingStateError as exc:
+        slug = rows[0]["plan_slug"] if rows else plan_id
+        raise QaPlanError(f"QA plan {slug!r} cannot materialize: {exc}") from exc
+    for row in rows:
+        row["materialized_baselines"] = fan_out[str(row["case_key"])]
+    return rows
+
+
+def snapshot_fan_out(
+    plan: Mapping[str, Any], cases: list[Mapping[str, Any]]
+) -> dict[str, list[Optional[str]]]:
+    """Each case's row fan-out for a deployment run's frozen plan snapshot.
+
+    A snapshot frozen before cases declared a starting state carries none, so
+    it is refused with the way forward rather than run on whatever the
+    machine holds.
+    """
+    from yoke_contracts.qa_case_starting_state import (
+        StartingStateError,
+        chain_baselines,
     )
+
+    try:
+        return chain_baselines(cases)
+    except StartingStateError as exc:
+        raise QaPlanError(
+            f"QA plan {plan.get('slug') or plan.get('id')!r} snapshot cannot "
+            f"materialize: {exc}. A deployment run freezes its plans when it "
+            "is created, so a run frozen before the plan declared its starting "
+            "states needs a new deployment run after the plan is corrected"
+        ) from exc
 
 
 def case_baselines(case: Any) -> list[Optional[str]]:
-    """The host baselines this case fans out across, always at least one.
+    """The host baselines this case's rows run on, always at least one.
 
-    A case with no declared baseline still materializes exactly one row, with
-    ``host_baseline`` NULL — so the plan-to-row fan-out is total and the
-    comparison never has a case with no row to be behind.
+    A ``baseline`` case fans out across its declared baselines; an
+    ``inherit`` case follows its predecessor's fan-out, so each of its rows
+    names the baseline its chain started from; an ``as_is`` or non-machine
+    case materializes exactly one row with ``host_baseline`` NULL.
     """
-    declared = json.loads(str(case["host_baselines"] or "[]"))
-    return list(declared) if declared else [None]
+    return list(case["materialized_baselines"])
 
 
 __all__ = [
@@ -180,4 +235,5 @@ __all__ = [
     "materialized_definition",
     "plan_cases",
     "require_runnable_case",
+    "snapshot_fan_out",
 ]

@@ -66,6 +66,7 @@ def _require_exact_contract() -> None:
     }
     if baseline_cases != {
         "cold-start-hosted": ["fresh-host", "shell-preconfigured"],
+        "hosted-connect": ["fresh-host"],
         "path-on-shell": ["fresh-host", "shell-preconfigured"],
     }:
         raise RuntimeError(

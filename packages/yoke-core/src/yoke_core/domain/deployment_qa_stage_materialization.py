@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
 from typing import Any
 
@@ -39,6 +38,7 @@ from yoke_core.domain.post_deploy_verification_answer import (
     member_post_deploy_answer,
 )
 from yoke_core.domain.qa_plan_management import QaPlanError
+from yoke_core.domain.qa_plan_case_definition import snapshot_fan_out
 from yoke_core.domain.qa_execution_environment_target import target_digest
 from yoke_core.domain.qa_plan_requirement_snapshot import (
     existing_requirement_id,
@@ -246,8 +246,10 @@ def materialize_deployment_qa_stage(
                 )
                 continue
             attachment = {"qa_phase": "post_deploy"}
+            fan_out = snapshot_fan_out(plan, snapshot["cases"])
             for case_value in snapshot["cases"]:
                 case = dict(case_value)
+                baselines = fan_out[str(case["case_key"])]
                 if rows:
                     # Already-materialized plan: a case added since gets its
                     # first row under its own key; of the rest, only a case
@@ -258,12 +260,6 @@ def materialize_deployment_qa_stage(
                         case["case_key"] = fresh_key
                     elif str(case["case_key"]) in materialized_keys:
                         continue
-                raw_baselines = case.get("host_baselines") or []
-                baselines = (
-                    list(raw_baselines)
-                    if isinstance(raw_baselines, list)
-                    else json.loads(str(raw_baselines))
-                ) or [None]
                 for position, baseline in enumerate(baselines, start=1):
                     requirement_id = insert_requirement(
                         conn,

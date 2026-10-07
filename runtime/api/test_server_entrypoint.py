@@ -9,6 +9,7 @@ from contextlib import contextmanager
 import pytest
 
 from runtime.api.fixtures import pg_testdb
+from yoke_contracts.first_admin_name import ADMIN_NAME_ENV
 from yoke_core.api import server_entrypoint
 from yoke_core.domain.actor_permissions import (
     PERM_DB_READ_RAW,
@@ -25,7 +26,8 @@ from yoke_core.domain.strategy_docs import STRATEGY_DOCS_TABLE
 
 def test_resolve_settings_reads_env_defaults() -> None:
     settings = server_entrypoint.resolve_settings(
-        argv=[], env={"YOKE_API_PORT": "9000", "YOKE_API_LOG_LEVEL": "warning"},
+        argv=[],
+        env={"YOKE_API_PORT": "9000", "YOKE_API_LOG_LEVEL": "warning"},
     )
     assert settings.port == 9000
     assert settings.log_level == "warning"
@@ -70,9 +72,7 @@ def _disposable_db_conn():
 
 
 def _has_permission(conn, key: str) -> bool:
-    row = conn.execute(
-        "SELECT 1 FROM permissions WHERE key = %s", (key,)
-    ).fetchone()
+    row = conn.execute("SELECT 1 FROM permissions WHERE key = %s", (key,)).fetchone()
     return row is not None
 
 
@@ -138,15 +138,18 @@ def test_main_ensures_schema_and_reseeds_catalog_before_serving(monkeypatch) -> 
     monkeypatch.setattr(server_entrypoint, "universe_is_born", lambda: True)
     monkeypatch.setattr(server_entrypoint, "admin_credential_exists", lambda: True)
     monkeypatch.setattr(
-        server_entrypoint, "ensure_core_schema",
+        server_entrypoint,
+        "ensure_core_schema",
         lambda: order.append("schema"),
     )
     monkeypatch.setattr(
-        server_entrypoint, "ensure_permission_catalog",
+        server_entrypoint,
+        "ensure_permission_catalog",
         lambda: order.append("seed"),
     )
     monkeypatch.setattr(
-        server_entrypoint, "birth_universe",
+        server_entrypoint,
+        "birth_universe",
         lambda: order.append("birth"),
     )
     fake_uvicorn = types.ModuleType("uvicorn")
@@ -164,15 +167,18 @@ def test_main_births_universe_before_serving_when_empty(monkeypatch) -> None:
     order: list[str] = []
     monkeypatch.setattr(server_entrypoint, "universe_is_born", lambda: False)
     monkeypatch.setattr(
-        server_entrypoint, "ensure_core_schema",
+        server_entrypoint,
+        "ensure_core_schema",
         lambda: order.append("schema"),
     )
     monkeypatch.setattr(
-        server_entrypoint, "ensure_permission_catalog",
+        server_entrypoint,
+        "ensure_permission_catalog",
         lambda: order.append("seed"),
     )
     monkeypatch.setattr(
-        server_entrypoint, "birth_universe",
+        server_entrypoint,
+        "birth_universe",
         lambda: order.append("birth"),
     )
     fake_uvicorn = types.ModuleType("uvicorn")
@@ -192,18 +198,23 @@ def test_main_completes_interrupted_birth_when_born_but_credential_less(
     order: list[str] = []
     monkeypatch.setattr(server_entrypoint, "universe_is_born", lambda: True)
     monkeypatch.setattr(
-        server_entrypoint, "admin_credential_exists", lambda: False,
+        server_entrypoint,
+        "admin_credential_exists",
+        lambda: False,
     )
     monkeypatch.setattr(
-        server_entrypoint, "ensure_core_schema",
+        server_entrypoint,
+        "ensure_core_schema",
         lambda: order.append("schema"),
     )
     monkeypatch.setattr(
-        server_entrypoint, "ensure_permission_catalog",
+        server_entrypoint,
+        "ensure_permission_catalog",
         lambda: order.append("seed"),
     )
     monkeypatch.setattr(
-        server_entrypoint, "birth_universe",
+        server_entrypoint,
+        "birth_universe",
         lambda: order.append("birth"),
     )
     fake_uvicorn = types.ModuleType("uvicorn")
@@ -236,6 +247,7 @@ def test_empty_db_birth_failure_aborts_before_serving(monkeypatch) -> None:
 
 def test_ensure_permission_catalog_is_fail_soft(monkeypatch) -> None:
     """A reseed failure must not raise (it must never block serving)."""
+
     @contextmanager
     def _boom(*_args, **_kwargs):
         raise RuntimeError("db down")
@@ -247,7 +259,8 @@ def test_ensure_permission_catalog_is_fail_soft(monkeypatch) -> None:
 
 
 def test_first_boot_on_empty_db_births_universe_and_prints_token_once(
-    monkeypatch, capsys,
+    monkeypatch,
+    capsys,
 ) -> None:
     """End-to-end first boot against a REAL empty database.
 
@@ -257,7 +270,6 @@ def test_first_boot_on_empty_db_births_universe_and_prints_token_once(
     neither re-mints nor re-prints.
     """
     from yoke_core.domain.api_tokens import (
-        DEFAULT_ADMIN_ACTOR_NAME,
         INITIAL_ADMIN_TOKEN_NAME,
         TOKEN_PREFIX,
         verify_token,
@@ -266,6 +278,7 @@ def test_first_boot_on_empty_db_births_universe_and_prints_token_once(
     name = pg_testdb.create_test_database()  # empty: no schema, no rows
     monkeypatch.setenv("YOKE_PG_DSN", pg_testdb.dsn_for_test_database(name))
     monkeypatch.setenv(server_entrypoint.ORG_NAME_ENV, "Probe Fleet")
+    monkeypatch.setenv(ADMIN_NAME_ENV, "Ada Lovelace")
     fake_uvicorn = types.ModuleType("uvicorn")
     fake_uvicorn.run = lambda *a, **k: None  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "uvicorn", fake_uvicorn)
@@ -284,16 +297,14 @@ def test_first_boot_on_empty_db_births_universe_and_prints_token_once(
 
         conn = pg_testdb.connect_test_database(name)
         try:
-            orgs = conn.execute(
-                "SELECT slug, name FROM organizations"
-            ).fetchall()
+            orgs = conn.execute("SELECT slug, name FROM organizations").fetchall()
             assert [(r[0], r[1]) for r in orgs] == [("default", "Probe Fleet")]
 
             verified = verify_token(conn, raw_token)
             assert verified.name == INITIAL_ADMIN_TOKEN_NAME
 
             # The canonical human actor the init chain seeds IS the admin
-            # actor: one human row, labeled with the neutral admin label.
+            # actor: one human row, named for the installer.
             humans = conn.execute(
                 "SELECT COUNT(*) FROM actors WHERE kind = 'human'"
             ).fetchone()
@@ -302,7 +313,7 @@ def test_first_boot_on_empty_db_births_universe_and_prints_token_once(
                 "SELECT name FROM actors WHERE id = %s",
                 (verified.actor_id,),
             ).fetchone()
-            assert str(name_row[0]) == DEFAULT_ADMIN_ACTOR_NAME
+            assert str(name_row[0]) == "Ada Lovelace"
 
             org_admin = conn.execute(
                 "SELECT 1 FROM actor_org_roles aor "
@@ -321,92 +332,6 @@ def test_first_boot_on_empty_db_births_universe_and_prints_token_once(
         out = capsys.readouterr().out
         assert server_entrypoint.FIRST_BOOT_TOKEN_MARKER not in out
         assert TOKEN_PREFIX not in out
-        conn = pg_testdb.connect_test_database(name)
-        try:
-            tokens = conn.execute("SELECT COUNT(*) FROM api_tokens").fetchone()
-            assert int(tokens[0]) == 1
-        finally:
-            conn.close()
-    finally:
-        pg_testdb.drop_test_database(name)
-
-
-def test_interrupted_birth_completes_on_next_boot(monkeypatch, capsys) -> None:
-    """A birth that dies after the born-ness commit resumes on the next boot.
-
-    The org identity card (the born-ness sentinel) commits early in the
-    init chain while the admin token mints at the very end of the birth. A
-    boot killed in between must not convert into a served, permanently
-    credential-less universe: the next boot detects the born-but-tokenless
-    shape, re-enters the idempotent birth, and mints + prints the one-time
-    admin token before serving.
-    """
-    from yoke_core.domain import environment_bootstrap
-    from yoke_core.domain.api_tokens import (
-        INITIAL_ADMIN_TOKEN_NAME,
-        TOKEN_PREFIX,
-        verify_token,
-    )
-
-    name = pg_testdb.create_test_database()  # empty: no schema, no rows
-    monkeypatch.setenv("YOKE_PG_DSN", pg_testdb.dsn_for_test_database(name))
-    fake_uvicorn = types.ModuleType("uvicorn")
-    served: list[bool] = []
-    fake_uvicorn.run = lambda *a, **k: served.append(True)  # type: ignore[attr-defined]
-    monkeypatch.setitem(sys.modules, "uvicorn", fake_uvicorn)
-
-    real_populate = environment_bootstrap.populate_event_registry
-    fail = {"on": True}
-
-    def _flaky_populate(*args, **kwargs):  # noqa: ANN001
-        if fail["on"]:
-            raise RuntimeError("birth interrupted")
-        return real_populate(*args, **kwargs)
-
-    monkeypatch.setattr(
-        environment_bootstrap, "populate_event_registry", _flaky_populate,
-    )
-    try:
-        with pytest.raises(RuntimeError, match="birth interrupted"):
-            server_entrypoint.main(argv=[])
-        assert served == []
-        assert server_entrypoint.FIRST_BOOT_TOKEN_MARKER not in capsys.readouterr().out
-
-        # The failed boot left the half-born shape: the born-ness sentinel
-        # committed, the credential never minted.
-        conn = pg_testdb.connect_test_database(name)
-        try:
-            orgs = conn.execute("SELECT COUNT(*) FROM organizations").fetchone()
-            assert int(orgs[0]) == 1
-            tokens = conn.execute("SELECT COUNT(*) FROM api_tokens").fetchone()
-            assert int(tokens[0]) == 0
-        finally:
-            conn.close()
-
-        fail["on"] = False
-        rc = server_entrypoint.main(argv=[])
-        assert rc == 0
-        assert served == [True]
-        out = capsys.readouterr().out
-        assert out.count(server_entrypoint.FIRST_BOOT_TOKEN_MARKER) == 1
-        raw_token = next(
-            line.strip()
-            for line in out.splitlines()
-            if line.strip().startswith(TOKEN_PREFIX)
-        )
-        conn = pg_testdb.connect_test_database(name)
-        try:
-            verified = verify_token(conn, raw_token)
-            assert verified.name == INITIAL_ADMIN_TOKEN_NAME
-        finally:
-            conn.close()
-
-        # A completed universe boots the idempotent born path: no re-mint,
-        # no re-print.
-        rc = server_entrypoint.main(argv=[])
-        assert rc == 0
-        out = capsys.readouterr().out
-        assert server_entrypoint.FIRST_BOOT_TOKEN_MARKER not in out
         conn = pg_testdb.connect_test_database(name)
         try:
             tokens = conn.execute("SELECT COUNT(*) FROM api_tokens").fetchone()

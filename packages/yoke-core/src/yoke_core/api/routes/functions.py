@@ -13,7 +13,7 @@ Mounts three endpoints under ``/v1``:
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -52,7 +52,11 @@ from yoke_core.domain.yoke_function_registry import (
     lookup,
     schema_for,
 )
-from yoke_core.domain.api_tokens import INITIAL_ADMIN_TOKEN_NAME
+from yoke_core.domain import db_helpers
+from yoke_core.domain.hosted_service_authority import (
+    hosted_service_denial_message,
+    hosted_service_org_ids,
+)
 from yoke_core.api.machine_function_auth import machine_credential_refusal
 from yoke_core.api.launch_machine_actor import bind_actor_for_session
 from yoke_core.api.web_session_auth import web_session_context
@@ -124,11 +128,24 @@ def _service_token_guard_response(
     envelope: Dict[str, Any],
     entry: RegistryEntry | None,
     auth: HttpAuthContext,
+    *,
+    conn: Optional[Any] = None,
 ) -> FunctionCallResponse | None:
-    """Deny service-only functions unless the bootstrap service token called."""
+    """Deny service-only functions unless the hosted service identity called.
+
+    Recognition is the verified token's actor, never the token's name: the
+    caller must be the ``hosted_service`` system actor holding its
+    service-only permission on some org. Dispatch then checks that authority
+    against the org the call targets.
+    """
     if entry is None or "service_token_required" not in entry.guardrails:
         return None
-    if auth.token_name == INITIAL_ADMIN_TOKEN_NAME:
+    if conn is not None:
+        recognized = bool(hosted_service_org_ids(conn, auth.actor_id))
+    else:
+        with db_helpers.connect() as owned:
+            recognized = bool(hosted_service_org_ids(owned, auth.actor_id))
+    if recognized:
         return None
     request_id = envelope.get("request_id")
     return FunctionCallResponse(
@@ -138,9 +155,7 @@ def _service_token_guard_response(
         request_id=str(request_id) if request_id is not None else None,
         error=FunctionError(
             code="permission_denied",
-            message=(
-                f"function {entry.function_id!r} requires the hosted service token"
-            ),
+            message=hosted_service_denial_message(entry.function_id),
         ),
     )
 

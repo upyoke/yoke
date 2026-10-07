@@ -66,6 +66,8 @@ QA_TABLES: dict[str, dict] = {
             ("runner_id", "TEXT"),
             ("verdict_path", "TEXT"),
             ("host_baseline", "TEXT"),
+            ("starting_state", "TEXT"),
+            ("starting_state_reason", "TEXT"),
             ("entry_surface", "TEXT"),
             ("required_completion", "TEXT"),
             ("workflow_transition_id", "TEXT"),
@@ -100,12 +102,11 @@ QA_TABLES: dict[str, dict] = {
             "Manual plan snapshots use `qa_standalone_execution."
             "begin_standalone_execution`; its guessed `host_capability_kinds` "
             "argument does not exist. Host capabilities are resolved internally "
-            "from the acting session. `handlers.machine_qa_baseline_group_context."
-            "baseline_group_cases` owns subject-scoped machine case selection. "
-            "Its `_is_machine_case` import must remain deferred inside the "
-            "function: a module-level import from `handlers.machine_qa_case` "
-            "cycles through `handlers.machine_qa_baseline_group` and prevents "
-            "`baseline_group_cases` from importing. "
+            "from the acting session. Machine-run cases (host_control and "
+            "agent_mission runners) carry `starting_state` (`baseline`, "
+            "`inherit`, `as_is`) and `starting_state_reason`; "
+            "`yoke_core.domain.qa_plan_case_chain` owns chain ends and the "
+            "inherit blocker. "
             "Plan bindings live in qa_plan_item_attachments; its timestamp is "
             "attached_at, not created_at. Attachment fixture inserts use attached_at and transition_id; wrong guesses created_at and workflow_transition are not its columns. "
             "A retracted row (`retracted_at`) is withdrawn history from "

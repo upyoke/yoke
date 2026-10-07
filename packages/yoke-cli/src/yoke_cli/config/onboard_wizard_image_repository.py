@@ -9,7 +9,17 @@ def preview_lines(setup) -> list[str]:
         f"Docker Compose · local-only URL {setup.url}",
         f"Files: {setup.directory}",
         f"Image repository: {setup.image_repository}",
-        "Start writes the bundle and privately hands host-opened secrets to Docker.",
+        *(
+            [
+                "Existing bundle: Start restarts it and reconnects this machine "
+                "with its first-boot admin token."
+            ]
+            if setup.bundle_created
+            else [
+                "Start asks your name: first boot makes you this server's first admin.",
+                "Start writes the bundle and privately hands host-opened secrets to Docker.",
+            ]
+        ),
         "Requires Docker + Compose; Yoke does not install them.",
         "You own reachable networking and TLS for team access.",
     ]

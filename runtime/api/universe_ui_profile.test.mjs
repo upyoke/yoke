@@ -108,7 +108,9 @@ function button(root, text) {
 }
 
 function tokenCells(root) {
-  return byClass(root, "profile-tokens")[0].children.slice(1)
+  const body = byClass(root, "profile-tokens")[0].children
+    .find((node) => node.tagName === "TBODY");
+  return body.children
     .map((row) => row.children.slice(0, 4).map((cell) => cell.textContent));
 }
 
@@ -221,6 +223,41 @@ test("New token opens its form above the table and shows the raw token once", as
   const create = client.requests.find((r) => r.function === "profile.token.create");
   assert.deepEqual(create.payload, { name: "ci" });
   assert.equal(byClass(root, "profile-token-value")[0].textContent, "yk_raw_once");
+  mounted.unmount();
+});
+
+test("the token table keeps its header in thead and its rows in tbody", async () => {
+  const { root, mounted } = await mountProfile(profileClient());
+  const table = byClass(root, "profile-tokens")[0];
+  assert.deepEqual(table.children.map((node) => node.tagName), ["THEAD", "TBODY"]);
+  const headings = allNodes(table.children[0]).filter((n) => n.tagName === "TH")
+    .map((n) => n.textContent);
+  assert.deepEqual(headings, ["Name", "Kind", "Created", "Last used", ""]);
+  mounted.unmount();
+});
+
+test("a failed reload withdraws New token instead of opening a form into the error", async () => {
+  const client = profileClient();
+  const original = client.call.bind(client);
+  let failReads = false;
+  client.call = async (request) => {
+    if (request.function === "profile.get" && failReads) {
+      return { status: 503, envelope: { success: false, error: { message: "Profile unavailable" } } };
+    }
+    return original(request);
+  };
+  const { root, mounted } = await mountProfile(client);
+  assert.equal(button(root, "New token").hidden, false);
+  failReads = true;
+  button(root, "Revoke…").dispatchEvent(new Event("click"));
+  button(root, "Revoke").dispatchEvent(new Event("click"));
+  await settle();
+  await settle();
+  assert.match(root.textContent, /Profile unavailable/);
+  const action = button(root, "New token");
+  assert.equal(action.hidden, true);
+  action.dispatchEvent(new Event("click"));
+  assert.equal(byClass(root, "profile-new-token").length, 0);
   mounted.unmount();
 });
 

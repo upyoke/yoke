@@ -104,8 +104,11 @@ submits a `host_wait` object through the bundle's review-submit command,
 without verdicts. Host contention keeps requirements open even when a stage
 accepts only pass/fail; it is never a product finding or an undetermined verdict.
 The durable execution queues a FIFO turn and wakes its owner when reserved.
-A fresh mission restores its golden home and declared OS-package fixture;
-a `--continue-mission` walk preserves the held walk's starting state instead.
+The dispatch's `yoke qa mission walk-start` command, run before any other
+host command, puts the machine in the mission's declared starting state: its
+named host baseline (golden home) and declared OS-package fixture, or the
+machine as found when the mission declares `as_is`. In a `--continue-mission`
+walk it keeps the held walk's state instead.
 All package-changing commands must use the leased host-command surface so
 its journal records direct and transitive packages outside the golden home.
 
@@ -179,10 +182,12 @@ wherever the product accepts a secret on stdin. When a secret must reach disk,
 it goes in the one owner-only staging directory this lease owns on the target
 host — the dispatch names its exact path — and never in a loose file under
 `/tmp` or a home directory. Before you return, run the dispatch's exact
-scratch-teardown command, and state the scratch path and its confirmed removal
-in your report. Returning while that directory still exists leaves a
-live-looking credential on a shared machine, so it is a finding against your
-own walk.
+`yoke qa mission walk-end` command: it removes that directory, restores the
+mission's declared starting state, and records the restore on the mission's
+run. State the scratch removal and the restore in your report. Returning
+before it succeeds leaves a live-looking credential and a dirty machine for
+the next walk, so it is a finding against your own walk, and the main owner's
+review-submit refuses until it has run.
 
 Treat these failures as one diagnosis—wrong session context:
 
@@ -235,8 +240,8 @@ that makes the highest-ranked findings independently understandable. Use the
 exact artifact-add recipe supplied by the dispatch and never create a parallel
 run.
 
-Attach bytes, never a path on the test host. That host's home is restored to
-its baseline between missions, so an artifact naming one of its paths outlives
+Attach bytes, never a path on the test host. walk-end restores that host's
+declared starting state, so an artifact naming one of its paths outlives
 its own file — the row survives and the evidence does not. The dispatch recipe
 already carries the bytes; a handle naming the target is refused.
 
@@ -548,7 +553,7 @@ _Compact depth. For per-table/command notes, caveats and corrected wrong guesses
 
 **Schema cheat sheet:**
 
-- **`qa_requirements`** — `id, item_id, epic_id, task_num, deployment_run_id, deployment_stage, deployment_member_item_id, qa_kind, qa_phase, target_env, blocking_mode, requirement_source, success_policy, capability_requirements, suite_id, waived_at, waiver_rationale, waiver_source, retracted_at, retraction_rationale, retraction_source, replacement_requirement_id, plan_id, plan_case_key, case_position, baseline_position, method_id, method_name, runner_id, verdict_path, host_baseline, entry_surface, required_completion, workflow_transition_id, instructions, expected_outcome, method_config, execution_target_json, execution_target_digest, rebound_at, rebound_from_digest, rebind_rationale, rebind_actor_id, rebound_from_target_json, rebind_endpoint_delta_json, created_at`
+- **`qa_requirements`** — `id, item_id, epic_id, task_num, deployment_run_id, deployment_stage, deployment_member_item_id, qa_kind, qa_phase, target_env, blocking_mode, requirement_source, success_policy, capability_requirements, suite_id, waived_at, waiver_rationale, waiver_source, retracted_at, retraction_rationale, retraction_source, replacement_requirement_id, plan_id, plan_case_key, case_position, baseline_position, method_id, method_name, runner_id, verdict_path, host_baseline, starting_state, starting_state_reason, entry_surface, required_completion, workflow_transition_id, instructions, expected_outcome, method_config, execution_target_json, execution_target_digest, rebound_at, rebound_from_digest, rebind_rationale, rebind_actor_id, rebound_from_target_json, rebind_endpoint_delta_json, created_at`
 - **`qa_runs`** — `id, qa_requirement_id, performed_by, qa_kind, verdict, verdict_reason, score, confidence, raw_result, duration_ms, started_at, completed_at, created_at, execution_status, case_outcome, capture_degraded_reason`
 - **`doctor_runs`** — `id, ran_at, project, scope, runtime, fail_count, pass_count, warn_count, na_count, results`
 

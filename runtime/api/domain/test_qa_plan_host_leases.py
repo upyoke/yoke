@@ -107,11 +107,12 @@ def test_mission_review_retains_and_heartbeats_every_host(
     finish_plan_execution(
         test_db, current, state="awaiting_agent_review", reason="review"
     )
-    assert test_db.execute(
+    recipient = test_db.execute(
         "SELECT session_id FROM session_message_recipients r JOIN session_messages m "
         "ON m.message_id=r.message_id WHERE m.idempotency_key=%s",
         (f"qa-plan-agent-review:{execution['id']}",),
-    ).fetchone()[0] == SESSION
+    ).fetchone()[0]
+    assert recipient == SESSION
     assert len(execution_host_leases(test_db, current)) == 2
     for claim in leases:
         test_db.execute(
@@ -302,7 +303,7 @@ def test_mission_config_preserves_validated_simultaneous_hosts():
     assert config["machine"] == MACHINES[1]
 
 
-def test_scoped_cases_reach_a_shared_baseline_once():
+def test_each_chain_resets_and_an_inheriting_case_keeps_the_machine():
     from yoke_core.domain.machine_qa_plan_protocol import plan_case_contract_arguments
 
     first = {
@@ -311,21 +312,25 @@ def test_scoped_cases_reach_a_shared_baseline_once():
         "case_position": 1,
         "baseline_position": 1,
         "host_baseline": "fresh-host",
+        "starting_state": "baseline",
     }
-    second = {**first, "case_position": 2}
-    execution = {
-        "id": "host-plan",
-        "roster_digest": "frozen",
-        "deployment_member_item_id": 42,
-        "roster": [first, second],
-    }
-    assert plan_case_contract_arguments(execution, first, ordinal=0)["baselines"] == (
-        "fresh-host",
-    )
-    assert plan_case_contract_arguments(execution, second, ordinal=1)["baselines"] == ()
-    assert plan_case_contract_arguments(execution, {**second, "plan_id": 2}, ordinal=1)[
-        "baselines"
-    ] == ("fresh-host",)
+    inheriting = {**first, "case_position": 2, "starting_state": "inherit"}
+    fresh_again = {**first, "case_position": 3}
+
+    def arguments(roster, ordinal):
+        execution = {"id": "host-plan", "roster_digest": "frozen", "roster": roster}
+        execution["deployment_member_item_id"] = 42
+        return plan_case_contract_arguments(execution, roster[ordinal], ordinal=ordinal)
+
+    chained = [first, inheriting]
+    assert arguments(chained, 0)["baselines"] == ("fresh-host",)
+    assert arguments(chained, 0)["cases"][0]["ends_chain"] is False
+    assert arguments(chained, 1)["baselines"] == ()
+    assert arguments(chained, 1)["cases"][0]["ends_chain"] is True
+    # A later same-baseline case in the same member run opens its own chain.
+    separate = [first, fresh_again]
+    assert arguments(separate, 0)["cases"][0]["ends_chain"] is True
+    assert arguments(separate, 1)["baselines"] == ("fresh-host",)
 
 
 def test_acquisition_order_does_not_depend_on_driving_host(

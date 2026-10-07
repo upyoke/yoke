@@ -39,6 +39,9 @@ from yoke_cli.config.onboard_wizard_widgets import (  # noqa: E402
 )
 from yoke_contracts.api_urls import HOSTED_PROD_API_URL  # noqa: E402
 
+from runtime.api.cli.onboard_wizard_admin_name_test_helpers import (  # noqa: E402
+    enter_admin_name,
+)
 from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     advance_past_path,
     make_app,
@@ -119,6 +122,7 @@ def test_local_pick_swaps_sign_in_for_universe_summary() -> None:
             stepper = app.query_one(Stepper)
             assert stepper.account_label == (ACCOUNT_STEP_LABELS[DESTINATION_LOCAL])
             await pilot.press("enter")  # summary: Continue -> GitHub step
+            await enter_admin_name(pilot)
             await pilot.pause()
             assert stepper.active == STEP_GITHUB
 
@@ -244,6 +248,7 @@ def test_local_flow_applies_local_destination_field_set() -> None:
             await advance_past_path(pilot)
             await pilot.press("enter")
             await pilot.press("enter")  # universe summary: Continue
+            await enter_admin_name(pilot)
             await pilot.press("down")  # github: Skip for now
             await pilot.press("enter")
             for _ in range(4):  # project: machine-only
@@ -258,6 +263,7 @@ def test_local_flow_applies_local_destination_field_set() -> None:
     assert applied is not None
     assert applied["destination"] == DESTINATION_LOCAL
     assert applied["env_name"] == local_universe_setup.LOCAL_ENV
+    assert applied["admin_name"] == "Ada Lovelace"
     assert applied["api_url"] == ""
     assert applied["token"] is None
 
@@ -297,6 +303,7 @@ def test_wizard_local_apply_lands_config_like_yoke_init_local(
             await pilot.press("enter")  # PATH all clear: continue
             await pilot.press("enter")
             await pilot.press("enter")  # universe summary: Continue
+            await enter_admin_name(pilot)
             await pilot.press("down")  # github: Skip for now
             await pilot.press("enter")
             for _ in range(4):  # project: machine-only

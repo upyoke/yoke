@@ -190,6 +190,8 @@ QA_ADAPTERS: List[AdapterEntry] = [
         "[--required-capability KIND ...] [--suite-id ID] "
         "[--instructions TEXT | --instructions-file PATH | --stdin] "
         "[--expected-outcome TEXT | --expected-outcome-file PATH] "
+        "[--host-baseline NAME | --starting-state as_is "
+        "--starting-state-reason TEXT] "
         "[--workflow-transition STAGE] [--deployment-stage STAGE] "
         "[--deployment-member-item PREFIX-N] [--session-id S] [--json]",
     ),

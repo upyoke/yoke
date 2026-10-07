@@ -13,15 +13,20 @@ from yoke_core.domain import json_helper
 from yoke_core.domain.actor_permissions import PROJECT_ROLES
 from yoke_core.domain.actor_state import ActorDisabledError
 from yoke_core.domain.api_tokens import (
-    DEFAULT_ADMIN_ACTOR_NAME,
     INITIAL_ADMIN_TOKEN_NAME,
     TokenError,
     bootstrap_admin_token,
+    bootstrap_hosted_service_token,
     bootstrap_project_service_token,
     mint_token,
     revoke_token,
 )
 from yoke_core.domain.db_helpers import connect
+from yoke_core.domain.hosted_service_authority import (
+    HOSTED_SERVICE_COMPONENT,
+    HOSTED_SERVICE_TOKEN_NAME,
+    ROLE_HOSTED_SERVICE,
+)
 
 
 class _RawTokenFileWriteError(ValueError):
@@ -158,12 +163,37 @@ def cmd_mint(args: argparse.Namespace) -> int:
         conn.close()
 
 
-def cmd_bootstrap_project_service(args: argparse.Namespace) -> int:
-    token_path = (
-        _validated_raw_token_path(args.raw_token_file)
-        if args.raw_token_file is not None
-        else None
+def _raw_token_path(args: argparse.Namespace):
+    if args.raw_token_file is None:
+        return None
+    return _validated_raw_token_path(args.raw_token_file)
+
+
+def _deliver_service_token(conn: Any, created: Any, token_path: Any) -> None:
+    """Write the raw token to its file or stdout; revoke it if the file fails."""
+    if token_path is not None:
+        try:
+            _write_raw_token_file(token_path, created.raw_token)
+        except ValueError as exc:
+            replacement_committed = (
+                isinstance(exc, _RawTokenFileWriteError) and exc.replacement_committed
+            )
+            if not replacement_committed:
+                revoke_token(
+                    conn,
+                    token_id=created.token_id,
+                    actor_id=created.actor_id,
+                )
+            raise
+    _emit_token(
+        token_id=created.token_id,
+        actor_id=created.actor_id,
+        raw_token=None if token_path is not None else created.raw_token,
     )
+
+
+def cmd_bootstrap_project_service(args: argparse.Namespace) -> int:
+    token_path = _raw_token_path(args)
     conn = connect()
     try:
         created = bootstrap_project_service_token(
@@ -173,26 +203,18 @@ def cmd_bootstrap_project_service(args: argparse.Namespace) -> int:
             role_name=args.role,
             token_name=args.name,
         )
-        if token_path is not None:
-            try:
-                _write_raw_token_file(token_path, created.raw_token)
-            except ValueError as exc:
-                replacement_committed = (
-                    isinstance(exc, _RawTokenFileWriteError)
-                    and exc.replacement_committed
-                )
-                if not replacement_committed:
-                    revoke_token(
-                        conn,
-                        token_id=created.token_id,
-                        actor_id=created.actor_id,
-                    )
-                raise
-        _emit_token(
-            token_id=created.token_id,
-            actor_id=created.actor_id,
-            raw_token=None if token_path is not None else created.raw_token,
-        )
+        _deliver_service_token(conn, created, token_path)
+        return 0
+    finally:
+        conn.close()
+
+
+def cmd_hosted_service(args: argparse.Namespace) -> int:
+    token_path = _raw_token_path(args)
+    conn = connect()
+    try:
+        created = bootstrap_hosted_service_token(conn, token_name=args.name)
+        _deliver_service_token(conn, created, token_path)
         return 0
     finally:
         conn.close()
@@ -216,7 +238,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "bootstrap-admin",
         help="Create/resolve the initial admin actor, grant authority, and mint a token",
     )
-    bootstrap.add_argument("--actor-name", default=DEFAULT_ADMIN_ACTOR_NAME)
+    bootstrap.add_argument(
+        "--actor-name",
+        required=True,
+        help="The person the admin is created as when the universe has no human.",
+    )
     bootstrap.add_argument(
         "--project",
         default=None,
@@ -257,6 +283,20 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     service.set_defaults(func=cmd_bootstrap_project_service)
+
+    hosted_help = (
+        "Idempotently ensure the hosted service identity (system actor "
+        f"{HOSTED_SERVICE_COMPONENT!r}, org role {ROLE_HOSTED_SERVICE!r}) and "
+        "mint a fresh token; every invocation creates another active token."
+    )
+    hosted = sub.add_parser("hosted-service", help=hosted_help, description=hosted_help)
+    hosted.add_argument("--name", default=HOSTED_SERVICE_TOKEN_NAME)
+    hosted.add_argument(
+        "--raw-token-file",
+        default=None,
+        help="Atomically create/replace this 0600 file; omit the raw token from stdout.",
+    )
+    hosted.set_defaults(func=cmd_hosted_service)
 
     revoke = sub.add_parser("revoke", help="Revoke a token by id")
     revoke.add_argument("--token-id", type=int, required=True)

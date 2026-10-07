@@ -287,7 +287,7 @@ def test_init_preserves_other_active_env_on_unchanged_rerun(
 def test_engine_setup_error_is_reported_cleanly(monkeypatch, machine_home, capsys):
     def failing_engine():
         return SimpleNamespace(
-            birth=lambda org_name, emit: (_ for _ in ()).throw(
+            birth=lambda org_name, admin_name, emit: (_ for _ in ()).throw(
                 _EngineError("embedded Postgres failed to start (exit 1)")
             ),
             LocalUniverseError=_EngineError,

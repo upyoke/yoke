@@ -9,6 +9,7 @@ import pytest
 from fastapi import Request
 
 from yoke_cli.self_host import bundle
+from yoke_cli.self_host.env_template import env_text
 from yoke_core.api import server_entrypoint, trusted_proxy
 from yoke_core.domain import db_backend, universe_startup_lock
 
@@ -143,8 +144,8 @@ def test_worker_factory_uses_inherited_app_and_proxy_settings(monkeypatch):
 
 
 def test_bundle_exposes_setting_and_preserves_empty_value():
-    assert "YOKE_API_TRUSTED_PROXIES=127.0.0.1" in bundle._env_text(
-        image="test", publish_spec="127.0.0.1:8765"
+    assert "YOKE_API_TRUSTED_PROXIES=127.0.0.1" in env_text(
+        image="test", publish_spec="127.0.0.1:8765", admin_name="Ada Lovelace"
     )
     assert (
         "YOKE_API_TRUSTED_PROXIES: ${YOKE_API_TRUSTED_PROXIES-127.0.0.1}"

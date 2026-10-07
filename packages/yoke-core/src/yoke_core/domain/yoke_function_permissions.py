@@ -23,6 +23,11 @@ from yoke_core.domain.function_authz_scope import (
     classify,
     permission_key_for,
 )
+from yoke_core.domain.hosted_service_authority import (
+    HOSTED_SERVICE_FUNCTIONS,
+    hosted_service_scope_denial,
+    is_hosted_service_actor,
+)
 from yoke_core.domain.function_target_resolution import (
     resolve_org_context,
     resolve_project_context,
@@ -68,6 +73,22 @@ def check_dispatch_permission(
                 "actor_disabled",
                 f"actor {actor_id} is disabled or unavailable; ask an org admin "
                 "to enable the actor, then sign in again or reconnect its machine",
+            ),
+        )
+    if (
+        actor_id is not None
+        and entry.function_id not in HOSTED_SERVICE_FUNCTIONS
+        and is_hosted_service_actor(conn, actor_id)
+    ):
+        return DispatchPermission(
+            spec.permission_key,
+            None,
+            None,
+            error=_error_response(
+                request,
+                entry,
+                "permission_denied",
+                hosted_service_scope_denial(entry.function_id),
             ),
         )
     if spec.scope == CLIENT_LOCAL:

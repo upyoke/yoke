@@ -35,6 +35,11 @@
    flush table the shared panel rule gives the slot the card's inset. */
 .universe-app-root .profile-token-slot { margin-bottom: 12px; }
 .universe-app-root .profile-token-slot:empty { display: none; }
+/* The shared table rule drops the last row's rule line, which in a thead
+   is the header's own underline; the token header keeps it. */
+.universe-app-root table.profile-tokens thead tr:last-child th {
+  border-bottom: 1px solid var(--yoke-border);
+}
 .universe-app-root table.profile-tokens td.profile-token-name {
   font-weight: 600;
   overflow-wrap: anywhere;

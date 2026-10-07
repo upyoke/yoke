@@ -34,6 +34,8 @@ def test_plan_detail_requires_every_case_baseline_proof_to_satisfy_union() -> No
                 {
                     **CATALOG_CASES[0],
                     "case_key": "cold-start-hosted",
+                    "method_id": "machine-state-check",
+                    "method_config": {"assertions": [{"argv": ["/usr/bin/true"]}]},
                     "host_baselines": ["fresh-host", "shell-preconfigured"],
                 },
                 {

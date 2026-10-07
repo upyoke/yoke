@@ -41,6 +41,7 @@ import pytest
 from runtime.api.fixtures import pg_testdb
 from yoke_core.api.health_payload_contract import migration_readiness_problem
 from yoke_core.api.repo_root import find_repo_root
+from yoke_contracts.first_admin_name import ADMIN_NAME_ENV
 from yoke_core.domain import db_backend
 
 #: The distribution that carries the engine, named as the release build names
@@ -185,6 +186,7 @@ def _birth_universe(site_packages: Path, dsn: str, root: Path) -> dict:
         [str(site_packages), *filter(None, [env.get("PYTHONPATH", "")])]
     )
     env[db_backend.PG_DSN_ENV] = dsn
+    env[ADMIN_NAME_ENV] = "Ada Lovelace"
     _run([sys.executable, str(script), str(report)], env=env)
     return json.loads(report.read_text(encoding="utf-8"))
 

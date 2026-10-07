@@ -10,7 +10,9 @@ import { setDisplayTimeZone } from "./universe_time.js";
 import {
   callFunction, el, renderError, section,
 } from "./universe_view_support.js";
-import { newTokenAction, renderTokens } from "./universe_views_profile_tokens.js";
+import {
+  newTokenAction, renderTokens, withdrawTokenAction,
+} from "./universe_views_profile_tokens.js";
 
 const READ_FAILED = { status: 0, envelope: { success: false, error: {} } };
 
@@ -159,6 +161,7 @@ export function renderProfileView(context, main, scope, chrome) {
     if (!context.isMounted()) return;
     const ok = result.status === 200 && result.envelope.success;
     if (!ok) {
+      withdrawTokenAction(newToken);
       for (const panel of panels) panel.renderEnvelope(result, renderError);
       return;
     }

@@ -72,6 +72,7 @@ def _import_engine():
 def run_local_init(
     *,
     org_name: Optional[str] = None,
+    admin_name: Optional[str] = None,
     force: bool = False,
     config_path: Optional[str] = None,
     emit: Callable[[str], None] = lambda _line: None,
@@ -82,7 +83,9 @@ def run_local_init(
     leaves an existing matching ``local`` connection untouched. A socket-only
     DSN relocation reported by the engine is updated automatically because it
     still addresses the same durable cluster. Any other conflicting local
-    connection is never clobbered without ``force``.
+    connection is never clobbered without ``force``. ``admin_name`` is the
+    installer's name; a new universe's first admin is created as that person,
+    and creating one without it refuses by name.
     """
     try:
         machine_config_file.ensure_owner_only_directory(machine_config.yoke_home())
@@ -90,7 +93,7 @@ def run_local_init(
         raise LocalUniverseSetupError(str(exc)) from exc
     engine = _engine()
     try:
-        report = dict(engine.birth(org_name=org_name, emit=emit))
+        report = dict(engine.birth(org_name=org_name, admin_name=admin_name, emit=emit))
     except RemoteControlPlaneConnectionError as exc:
         # BaseException: a leftover ambient connect would traceback past
         # RuntimeError. Named setup error plus retry is the product recovery.

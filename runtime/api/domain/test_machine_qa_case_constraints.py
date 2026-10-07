@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from runtime.api.domain.machine_qa_baseline_group_test_support import (
+from runtime.api.domain.machine_qa_host_test_support import (
     configure_test_machine,
 )
 from runtime.api.fixtures.backlog_inserts import insert_item
@@ -42,6 +42,7 @@ def _machine_case(machine: str) -> dict[str, Any]:
             "machine": machine,
             "assertions": [{"argv": ["/usr/bin/true"]}],
         },
+        "host_baselines": ["fresh-host"],
     }
 
 
@@ -106,6 +107,10 @@ def test_execution_honors_case_machine_with_or_without_specific_capability_snaps
         test_db,
         requirement_id=requirement_id,
         host_capability_kinds=["test-machine"],
+    )
+    assert (context["starting_state"], context["starting_state_reason"]) == (
+        "baseline",
+        None,
     )
     assert resolve_case_machine(context, None) == "mac-mini-lab"
     assert resolve_plan_machine([context], None) == "mac-mini-lab"

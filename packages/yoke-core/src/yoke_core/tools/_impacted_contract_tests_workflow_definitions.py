@@ -48,6 +48,7 @@ WORKFLOW_CANON_CONSUMER_TESTS = (
     "runtime/api/domain/test_workflow_canon_follow.py",
     "runtime/api/domain/test_workflow_canon_merge.py",
     "runtime/api/domain/test_workflow_canon_read.py",
+    "runtime/api/domain/test_workflow_canon_status_list.py",
     "runtime/api/domain/test_workflow_canon_update.py",
     "runtime/api/domain/test_workflow_canon_update_batch.py",
 )

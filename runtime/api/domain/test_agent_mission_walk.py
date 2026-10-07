@@ -1,9 +1,10 @@
-"""Lease-scoped secret staging: creation, teardown, and its refusals."""
+"""Mission walks: scratch staging, walk-start, walk-end, and their refusals."""
 
 from __future__ import annotations
 
 import json
 import subprocess
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -15,7 +16,7 @@ from yoke_contracts.qa_mission_scratch import (
     mission_scratch_path,
     stale_owner_marker_remove_argv,
 )
-from yoke_core.domain import agent_mission_scratch_cli
+from yoke_core.domain import agent_mission_walk_cli, machine_qa_mission_walk
 from yoke_core.domain.agent_mission_review import agent_mission_dispatch_contract
 from yoke_core.domain.machine_qa_mission_scratch import (
     MissionScratchUnavailableError,
@@ -157,82 +158,154 @@ class _LeakingHostControl(FakeHostControl):
         )
 
 
-def test_teardown_result_never_carries_a_secret_out_of_the_host(
-    monkeypatch: Any,
-) -> None:
-    from types import SimpleNamespace
+def _walk_contract(starting_state: str = "baseline") -> Any:
+    case = SimpleNamespace(
+        starting_state=starting_state,
+        host_baseline="fresh-host" if starting_state == "baseline" else None,
+        project="yoke",
+    )
+    return SimpleNamespace(
+        plan_execution_id=EXECUTION_ID,
+        cases=[case],
+        settings={"resource_name": "mac-mini-lab"},
+    )
 
-    from yoke_core.domain import machine_qa_local_execution
 
-    control = _LeakingHostControl()
+def _patch_execution(monkeypatch: Any, control: Any, contract: Any) -> list[str]:
+    reached: list[str] = []
+
+    def reach(name: str) -> Any:
+        reached.append(name)
+        return SimpleNamespace(ok=True, error_code=None, evidence={"name": name})
+
     execution = SimpleNamespace(
         control=control,
         material=SimpleNamespace(secrets={"host_token": "top-secret"}),
+        reach_baseline=reach,
     )
     monkeypatch.setattr(
-        machine_qa_local_execution,
-        "_mission_contract",
-        lambda raw: SimpleNamespace(plan_execution_id=EXECUTION_ID),
+        machine_qa_mission_walk, "_mission_contract", lambda raw: contract
     )
-    monkeypatch.setattr(
-        machine_qa_local_execution,
-        "_execution",
-        lambda contract: execution,
-    )
+    monkeypatch.setattr(machine_qa_mission_walk, "_execution", lambda c: execution)
+    return reached
 
-    result = machine_qa_local_execution.execute_agent_mission_scratch_teardown(
-        {"contract": "issued"}
-    )
+
+def test_walk_end_removes_scratch_then_restores_the_declared_baseline(
+    monkeypatch: Any,
+) -> None:
+    control = _LeakingHostControl()
+    reached = _patch_execution(monkeypatch, control, _walk_contract())
+
+    result = machine_qa_mission_walk.execute_agent_mission_walk_end({"c": 1})
 
     assert result["scratch_path"] == mission_scratch_path(EXECUTION_ID)
     assert "top-secret" not in result["removal_stderr"]
     assert "cannot remove token" in result["removal_stderr"]
+    assert reached == ["fresh-host"]
+    assert result["starting_state_restore"]["restored"] is True
+    assert result["starting_state_restore"]["baseline"] == "fresh-host"
 
 
-def test_teardown_command_exits_named_when_the_scratch_survives(
+def test_walk_end_of_an_as_is_mission_says_there_is_nothing_to_restore(
     monkeypatch: Any,
-    capsys: Any,
 ) -> None:
-    from yoke_core.domain import machine_qa_local_execution
+    reached = _patch_execution(monkeypatch, FakeHostControl(), _walk_contract("as_is"))
 
-    surviving = {
-        "scratch_path": mission_scratch_path(EXECUTION_ID),
-        "removed": False,
-        "removal_exit_code": 1,
-        "removal_stderr": "Read-only file system",
-        "stale_owner_marker_removed": True,
-    }
+    result = machine_qa_mission_walk.execute_agent_mission_walk_end({"c": 1})
+
+    assert reached == []
+    assert result["starting_state_restore"]["restored"] is False
+    assert "no declared starting state" in result["starting_state_restore"]["reason"]
+
+
+def _run_walk_end(monkeypatch: Any, result: dict, unrecorded: str | None) -> int:
+    recorded: list[dict] = []
     monkeypatch.setattr(
-        agent_mission_scratch_cli,
+        agent_mission_walk_cli,
         "resolve_mission_contract",
         lambda parsed, *, prog: {"contract": "issued"},
     )
     monkeypatch.setattr(
-        machine_qa_local_execution,
-        "execute_agent_mission_scratch_teardown",
-        lambda contract, *, timeout_seconds: surviving,
+        machine_qa_mission_walk,
+        "execute_agent_mission_walk_end",
+        lambda contract, *, timeout_seconds: result,
     )
 
-    exit_code = agent_mission_scratch_cli.run(
-        [
-            "--item",
-            "ITEM-4550",
-            "--execution-id",
-            EXECUTION_ID,
-            "--requirement-id",
-            "18152",
-        ]
-    )
+    def record(**kwargs: Any) -> str | None:
+        recorded.append(kwargs)
+        return unrecorded
 
-    captured = capsys.readouterr()
+    monkeypatch.setattr(machine_qa_mission_walk, "record_mission_restore", record)
+    exit_code = agent_mission_walk_cli.main(
+        ["end", "--item", f"ITEM-{4550}", "--execution-id", EXECUTION_ID]
+        + ["--requirement-id", "18152", "--run-id", "991"]
+    )
+    assert recorded and recorded[0]["run_id"] == 991
+    return exit_code
+
+
+def _walk_result(**overrides: Any) -> dict:
+    return {
+        "scratch_path": mission_scratch_path(EXECUTION_ID),
+        "removed": True,
+        "removal_exit_code": 0,
+        "removal_stderr": "",
+        "stale_owner_marker_removed": True,
+        "starting_state_restore": {"restored": True, "baseline": "fresh-host"},
+        **overrides,
+    }
+
+
+def test_walk_end_records_the_restore_and_exits_clean(monkeypatch, capsys):
+    assert _run_walk_end(monkeypatch, _walk_result(), None) == 0
+    assert json.loads(capsys.readouterr().out)["starting_state_restore"]["restored"]
+
+
+def test_walk_end_names_each_thing_it_could_not_finish(monkeypatch, capsys):
+    failed = {
+        "restored": False,
+        "baseline": "fresh-host",
+        "error_code": "starting_state_restore_failed",
+        "recovery": "run `yoke test-machine reset --project yoke`",
+    }
+    result = _walk_result(removed=False, starting_state_restore=failed)
+
+    assert _run_walk_end(monkeypatch, result, "not_found: run 991") == 3
+    err = capsys.readouterr().err
+    assert "mission_scratch_not_removed" in err and "your own walk" in err
+    assert "starting_state_restore_failed" in err
+    assert "yoke test-machine reset" in err
+    assert "starting_state_restore_unrecorded: not_found: run 991" in err
+
+
+def test_walk_start_refuses_to_walk_when_preparation_failed(monkeypatch, capsys):
+    monkeypatch.setattr(
+        agent_mission_walk_cli,
+        "resolve_mission_contract",
+        lambda parsed, *, prog: {"contract": "issued"},
+    )
+    failure = {"diagnostic": "baseline did not prove", "recovery": "reset it"}
+    monkeypatch.setattr(
+        machine_qa_mission_walk,
+        "execute_agent_mission_walk_start",
+        lambda contract: {
+            "preparation": {
+                "ok": False,
+                "error_code": "baseline_operation_failed",
+                "evidence": {"preparation_failure": failure},
+            }
+        },
+    )
+    exit_code = agent_mission_walk_cli.main(
+        ["start", "--item", f"ITEM-{4550}", "--execution-id", EXECUTION_ID]
+        + ["--requirement-id", "18152"]
+    )
     assert exit_code == 3
-    assert json.loads(captured.out)["removed"] is False
-    assert "mission_scratch_not_removed" in captured.err
-    assert mission_scratch_path(EXECUTION_ID) in captured.err
-    assert "finding against your own walk" in captured.err
+    err = capsys.readouterr().err
+    assert "baseline_operation_failed" in err and "Do not walk" in err
 
 
-def test_walker_dispatch_names_the_scratch_and_its_teardown() -> None:
+def test_walker_dispatch_names_the_walk_commands_and_sequential_walks() -> None:
     execution_target = {
         "project": {"id": 1, "slug": "yoke"},
         "environment": {"name": "stage"},
@@ -260,18 +333,17 @@ def test_walker_dispatch_names_the_scratch_and_its_teardown() -> None:
         ],
     }
 
-    walker = agent_mission_dispatch_contract(bundle)["walker_dispatches"][0]
+    contract = agent_mission_dispatch_contract(bundle)
+    walker = contract["walker_dispatches"][0]
 
-    path = mission_scratch_path(EXECUTION_ID)
-    assert walker["scratch_path"] == path
-    assert walker["scratch_teardown_command"] == (
-        "yoke qa mission scratch-teardown --item ITEM-4550 "
-        f"--execution-id {EXECUTION_ID} --requirement-id 18152"
+    flags = f"--item ITEM-{4550} --execution-id {EXECUTION_ID} --requirement-id 18152"
+    assert walker["walk_start_command"] == f"yoke qa mission walk-start {flags}"
+    assert walker["walk_end_command"] == (
+        f"yoke qa mission walk-end {flags} --run-id 991"
     )
-    assert path in walker["prompt"]
-    assert walker["scratch_teardown_command"] in walker["prompt"]
+    for expected in ("walk_start_command", "walk_end_command"):
+        assert walker[expected] in walker["prompt"]
+    assert mission_scratch_path(EXECUTION_ID) in walker["prompt"]
     assert "never a loose path under /tmp" in walker["prompt"]
     assert "yoke projects retire --project SLUG" in walker["prompt"]
-    assert "yoke items progress-log append" in walker["prompt"]
-    assert "never with Yoke on the Test" in walker["prompt"]
-    assert "created_projects" in walker["result_schema"]
+    assert "one walker at a time" in contract["prompt"]

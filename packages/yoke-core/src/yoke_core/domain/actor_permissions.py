@@ -8,6 +8,12 @@ from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.actor_permission_exports import ACTOR_PERMISSION_EXPORTS
+from yoke_core.domain.hosted_service_authority import (
+    PERM_HOSTED_SERVICE_DELIVER,
+    PERM_HOSTED_SERVICE_DELIVER_DESCRIPTION,
+    ROLE_HOSTED_SERVICE,
+    ROLE_HOSTED_SERVICE_DESCRIPTION,
+)
 from yoke_core.domain.migration_content_identity_authority import (
     PERM_MIGRATION_CONTENT_IDENTITY_VERIFY,
     ROLE_MIGRATION_VERIFICATION_CI,
@@ -51,9 +57,13 @@ ORG_SCOPED_PERMISSIONS = (
     PERM_ORG_ADMIN,
     PERM_PROJECT_CREATE,
     PERM_MIGRATION_CONTENT_IDENTITY_VERIFY,
+    PERM_HOSTED_SERVICE_DELIVER,
 )
+# Carried by no wildcard: org admin and project owner never pass them.
+SERVICE_ONLY_PERMISSIONS = (PERM_HOSTED_SERVICE_DELIVER,)
 
-# Roles grantable at each scope.
+# Roles grantable at each scope. ``hosted_service`` is seeded but granted
+# only by its own bootstrap, never through member grants or invites.
 ORG_ROLES = (ROLE_ADMIN, ROLE_VIEWER, ROLE_MIGRATION_VERIFICATION_CI)
 # Hosted membership grants ``operator`` org-wide; permission checks honor it.
 ORG_GRANTABLE_ROLES = (*ORG_ROLES, ROLE_OPERATOR)
@@ -77,6 +87,7 @@ ROLE_DESCRIPTIONS = {
     ROLE_MIGRATION_VERIFICATION_CI: (
         "Verify candidate migration content against the control-plane ledger."
     ),
+    ROLE_HOSTED_SERVICE: ROLE_HOSTED_SERVICE_DESCRIPTION,
     ROLE_ADMIN: "Org-wide administration across all of the org's projects.",
 }
 PERMISSION_DESCRIPTIONS = {
@@ -116,6 +127,7 @@ PERMISSION_DESCRIPTIONS = {
     ),
     PERM_ORG_ADMIN: "Administer the org and all of its projects.",
     PERM_PROJECT_CREATE: "Create new projects in the org.",
+    PERM_HOSTED_SERVICE_DELIVER: PERM_HOSTED_SERVICE_DELIVER_DESCRIPTION,
 }
 
 # Project-scoped permission set carried by the project ``owner`` role.
@@ -173,8 +185,11 @@ ROLE_PERMISSION_KEYS = {
     ),
     ROLE_INFRASTRUCTURE_CI: (PERM_PROJECT_RENDER_READ,),
     ROLE_MIGRATION_VERIFICATION_CI: (PERM_MIGRATION_CONTENT_IDENTITY_VERIFY,),
-    # Org role — every permission, incl. org-scoped ones.
-    ROLE_ADMIN: tuple(PERMISSION_DESCRIPTIONS),
+    ROLE_HOSTED_SERVICE: (PERM_HOSTED_SERVICE_DELIVER,),
+    # Org role — every permission, incl. org-scoped ones, except service-only.
+    ROLE_ADMIN: tuple(
+        key for key in PERMISSION_DESCRIPTIONS if key not in SERVICE_ONLY_PERMISSIONS
+    ),
 }
 
 
@@ -261,82 +276,13 @@ def permission_id_by_key(conn: Any, permission_key: str) -> int:
     return int(row[0])
 
 
-def grant_actor_project_role(
-    conn: Any,
-    *,
-    actor_id: int,
-    project_id: int,
-    role_name: str,
-    granted_by_actor_id: int | None = None,
-) -> None:
-    """Grant ``role_name`` to ``actor_id`` in ``project_id`` idempotently."""
-    role_id = role_id_by_name(conn, role_name)
-    p = _p(conn)
-    conn.execute(
-        "INSERT INTO actor_project_roles "
-        "(actor_id, project_id, role_id, granted_at, granted_by_actor_id) "
-        f"VALUES ({p}, {p}, {p}, {p}, {p}) "
-        "ON CONFLICT(actor_id, project_id, role_id) DO NOTHING",
-        (actor_id, project_id, role_id, _now(), granted_by_actor_id),
-    )
-    conn.commit()
-
-
-def revoke_actor_project_role(
-    conn: Any,
-    *,
-    actor_id: int,
-    project_id: int,
-    role_name: str,
-) -> bool:
-    """Remove one project role grant, returning whether a row existed.
-
-    Absence is success: operators may safely repeat a least-privilege cutover
-    after losing the previous command result.
-    """
-    role_id = role_id_by_name(conn, role_name)
-    p = _p(conn)
-    cursor = conn.execute(
-        "DELETE FROM actor_project_roles "
-        f"WHERE actor_id = {p} AND project_id = {p} AND role_id = {p}",
-        (actor_id, project_id, role_id),
-    )
-    conn.commit()
-    return bool(cursor.rowcount)
-
-
-def grant_actor_org_role(
-    conn: Any,
-    *,
-    actor_id: int,
-    org_id: int,
-    role_name: str,
-    granted_by_actor_id: int | None = None,
-) -> None:
-    """Grant org ``role_name`` to ``actor_id`` in ``org_id`` idempotently.
-
-    Raises ``ValueError`` when ``role_name`` is not in ``ORG_GRANTABLE_ROLES``.
-    """
-    if role_name not in ORG_GRANTABLE_ROLES:
-        raise ValueError(
-            f"role_not_grantable_at_org_scope: {role_name!r} is not one of "
-            f"{', '.join(ORG_GRANTABLE_ROLES)}"
-        )
-    role_id = role_id_by_name(conn, role_name)
-    p = _p(conn)
-    conn.execute(
-        "INSERT INTO actor_org_roles "
-        "(actor_id, org_id, role_id, granted_at, granted_by_actor_id) "
-        f"VALUES ({p}, {p}, {p}, {p}, {p}) "
-        "ON CONFLICT(actor_id, org_id, role_id) DO NOTHING",
-        (actor_id, org_id, role_id, _now(), granted_by_actor_id),
-    )
-    conn.commit()
-
-
-# Permission decisions live in the sibling module to keep this file below the
-# line cap; re-export them here so callers retain their existing import path.
-# The checks module only pulls back the constants and dataclasses defined above.
+# Grant writers and permission decisions live in sibling modules (line cap);
+# both are re-exported here so callers keep one import path.
+from yoke_core.domain.actor_role_grants import (  # noqa: E402, F401
+    grant_actor_org_role,
+    grant_actor_project_role,
+    revoke_actor_project_role,
+)
 from yoke_core.domain.actor_permission_checks import (  # noqa: E402, F401
     org_permission_decision,
     permission_decision,

@@ -204,6 +204,7 @@ HOSTED_CONNECT = terminal_case(
     ),
     entry_surface=HOSTED_ONBOARD,
     required_completion="machine-github",
+    host_baselines=(FRESH_HOST,),
 )
 
 
@@ -236,6 +237,7 @@ PATH_REPAIR = terminal_case(
     ),
     entry_surface=PATH_REPAIR_COMMAND,
     required_completion="path-repaired",
+    starting_state="inherit",
 )
 
 
@@ -306,6 +308,7 @@ APPLY_HANDOFF = terminal_case(
     ),
     entry_surface=PUBLIC_INSTALL_LOCAL,
     required_completion="complete-onboarding",
+    starting_state="inherit",
 )
 
 

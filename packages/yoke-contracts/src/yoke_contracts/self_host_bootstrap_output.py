@@ -63,7 +63,8 @@ def first_boot_admin_token_notice(*, host_path: str, connect_url: str) -> str:
             "  It is minted once and never rewritten. Connect a client with:",
             f"      yoke connect {connect_url} --token-stdin < {host_path}",
             "",
-            "  Then remove that file; it is the only copy of the credential.",
+            "  Keep that owner-only file on this host: rerunning `yoke setup`",
+            "  here reconnects with it and restores admin access.",
         )
     )
 

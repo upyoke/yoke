@@ -26,6 +26,7 @@ def build(kwargs: Mapping[str, Any]) -> dict[str, Any]:
         "env_name": _text(kwargs.get("env_name")),
         "api_url": _text(kwargs.get("api_url")),
         "destination": _text(kwargs.get("destination")),
+        "admin_name": _text(kwargs.get("admin_name")),
         "mode": _text(kwargs.get("mode")),
         "check_identity": bool(kwargs.get("check_identity")),
         "credential_sources": _credential_sources(kwargs),

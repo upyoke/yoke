@@ -73,7 +73,7 @@ def _release(
 
     mission = (
         operation_mission(conn, lease_id=lease_id, project=project, actor=request.actor)
-        if operation not in {"case", "baseline_group"}
+        if operation != "case"
         else None
     )
     lease, _contract = validate_host_control_submission(
@@ -200,55 +200,10 @@ def handle_case_abort(request: FunctionCallRequest) -> HandlerOutcome:
     return HandlerOutcome(primary_success=True, result_payload=result)
 
 
-def handle_baseline_group_abort(
-    request: FunctionCallRequest,
-) -> HandlerOutcome:
-    target = _case_target(request, "test_machine.baseline_group.abort")
-    if isinstance(target, HandlerOutcome):
-        return target
-    try:
-        parsed = TestMachineCaseAbortRequest.model_validate(
-            request.payload or {},
-        )
-    except ValidationError as exc:
-        return _failure("payload_invalid", str(exc))
-    from yoke_core.domain import db_helpers
-    from yoke_core.domain.handlers.machine_qa_case import (
-        _baseline_group_cases,
-        _load_case,
-    )
-    from yoke_core.domain.machine_qa_execution_protocol import (
-        MachineQaProtocolError,
-    )
-
-    conn = db_helpers.connect()
-    try:
-        anchor = _load_case(conn, target)
-        cases = _baseline_group_cases(conn, anchor=anchor)
-        result = _release(
-            conn,
-            request=request,
-            project=str(anchor["project"]),
-            lease_id=parsed.lease_id,
-            contract_digest=parsed.contract_digest,
-            reason=parsed.reason,
-            operation="baseline_group",
-            baselines=(str(anchor["host_baseline"]),),
-            cases=tuple(cases),
-        )
-    except (MachineQaProtocolError, TestMachineCapabilityError, ValueError) as exc:
-        conn.rollback()
-        return _failure("test_machine_baseline_group_abort_failed", str(exc))
-    finally:
-        conn.close()
-    return HandlerOutcome(primary_success=True, result_payload=result)
-
-
 __all__ = [
     "TestMachineCaseAbortRequest",
     "TestMachineExecutionAbortResponse",
     "TestMachineOperationAbortRequest",
-    "handle_baseline_group_abort",
     "handle_case_abort",
     "handle_operation_abort",
 ]

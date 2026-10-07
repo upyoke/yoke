@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 from unittest import mock
 
-from runtime.api.domain.machine_qa_baseline_group_test_support import (
+from runtime.api.domain.machine_qa_host_test_support import (
     configure_test_machine,
     materialize_installer_campaign,
 )

@@ -49,6 +49,7 @@ def test_built_image_restores_archive_and_issues_usable_token(tmp_path, capsys):
         dump_universe(source_dsn, archive)
         archive.chmod(0o600)
         bundle.write_bundle(
+            admin_name="Ada Lovelace",
             directory=str(directory),
             image=image,
             port=_free_port(),

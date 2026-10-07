@@ -187,7 +187,7 @@ def token_plan(image: str, env_file: str) -> list[str]:
         "-m",
         "yoke_core.domain.api_tokens_cli",
         "bootstrap-admin",
-        "--actor-label",
+        "--actor-name",
         "local-core",
         "--project",
         "yoke",

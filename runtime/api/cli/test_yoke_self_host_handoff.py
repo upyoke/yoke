@@ -19,7 +19,9 @@ TOKEN = TOKEN_PREFIX + "C" * TOKEN_BODY_LENGTH
 @pytest.fixture
 def target(tmp_path):
     directory = tmp_path / "bundle"
-    bundle.write_bundle(directory=str(directory), image="candidate:immutable")
+    bundle.write_bundle(
+        admin_name="Ada Lovelace", directory=str(directory), image="candidate:immutable"
+    )
     return directory
 
 

@@ -2,7 +2,7 @@
 
 import json
 
-from runtime.api.domain.machine_qa_baseline_group_test_support import (
+from runtime.api.domain.machine_qa_host_test_support import (
     configure_test_machine,
 )
 from runtime.api.domain.test_agent_mission_qa import (

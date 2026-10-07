@@ -28,8 +28,9 @@ PRODUCT_AUTHZ_BY_ID = {
     "items.overview.list": AuthzSpec(ACTOR_SESSION, None),
     "items.detail.get": AuthzSpec(ACTOR_SESSION, None),
     "inbox.list": AuthzSpec(ACTOR_SESSION, None),
-    # A tenant member may create the pending request. Terminal decisions and
-    # withdrawals still pass through the request's live org-admin authority.
+    # A tenant member may create the pending request. Decisions pass through
+    # the request's live org-admin authority; expiry and withdrawal also accept
+    # the hosted service identity on the request's org.
     "machine_approval.lifecycle.apply": AuthzSpec(ACTOR_SESSION, None),
     "machine_authorization.get": AuthzSpec(ACTOR_SESSION, None),
     "machine_authorization.resolve": AuthzSpec(ACTOR_SESSION, None),
@@ -217,22 +218,6 @@ PRODUCT_AUTHZ_BY_ID = {
     "test_machine.operation.abort": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "test_machine.operation.begin": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "test_machine.operation.submit": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
-    "test_machine.baseline_group.abort": AuthzSpec(
-        PROJECT,
-        PERM_ITEMS_WRITE,
-    ),
-    "test_machine.baseline_group_execute": AuthzSpec(
-        PROJECT,
-        PERM_ITEMS_WRITE,
-    ),
-    "test_machine.baseline_group.begin": AuthzSpec(
-        PROJECT,
-        PERM_ITEMS_WRITE,
-    ),
-    "test_machine.baseline_group.submit": AuthzSpec(
-        PROJECT,
-        PERM_ITEMS_WRITE,
-    ),
     "test_machine.case.abort": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "test_machine.case_execute": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "test_machine.case.begin": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),

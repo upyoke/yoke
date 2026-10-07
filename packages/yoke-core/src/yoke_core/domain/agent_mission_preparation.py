@@ -46,7 +46,13 @@ def prepare_mission(
     scratch_factory: Callable[..., dict[str, Any]],
     progress_callback: Callable[[], None] | None = None,
 ) -> dict[str, Any]:
-    """Return a submittable result even when local host preparation fails."""
+    """Return a submittable result even when local host preparation fails.
+
+    It runs when the plan records the mission's docket, whose receipt proves
+    the declared baseline, and again at ``yoke qa mission walk-start``: a
+    mission is walked after its plan's other cases, which may have changed
+    the machine since.
+    """
     baseline_name = contract.baselines[0] if contract.baselines else None
     outcome: dict[str, Any] = {
         "name": baseline_name,

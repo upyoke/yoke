@@ -45,11 +45,10 @@ def contract_baselines(
     execution: Mapping[str, Any],
     case: Mapping[str, Any],
 ) -> tuple[str, ...]:
-    """Return baselines unless the continuation preserves the prior host state."""
-    if skips_host_baseline(execution):
-        return ()
-    baseline = str(case.get("host_baseline") or "")
-    return (baseline,) if baseline else ()
+    """Return the case's reset unless the continuation keeps the prior host."""
+    from yoke_contracts.qa_case_starting_state import reset_baselines
+
+    return tuple(reset_baselines(case, continues=skips_host_baseline(execution)))
 
 
 def continuation_abort_reason(

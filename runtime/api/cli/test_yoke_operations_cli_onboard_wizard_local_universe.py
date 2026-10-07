@@ -15,6 +15,9 @@ from yoke_cli.config import onboard_wizard_steps as steps  # noqa: E402
 from yoke_cli.config.onboard_destinations import DESTINATION_LOCAL  # noqa: E402
 from yoke_cli.config.onboard_wizard import WizardDefaults  # noqa: E402
 
+from runtime.api.cli.onboard_wizard_admin_name_test_helpers import (  # noqa: E402
+    enter_admin_name,
+)
 from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     advance_past_path,
     complete_board_art,
@@ -86,6 +89,7 @@ def test_local_destination_manifest_project_id_uses_local_universe(
             await advance_past_path(pilot)
             assert "Your Yoke lives on this machine." in _body_text(app)
             await pilot.press("enter")  # universe summary: Continue
+            await enter_admin_name(pilot)
             await pilot.press("down")  # machine github: Skip for now
             await pilot.press("enter")
             await pilot.press("enter")  # project: existing folder

@@ -138,14 +138,15 @@ def test_an_undeletable_stale_marker_refuses_by_name(host) -> None:
     assert "re-run the mission" in message
 
 
-def test_review_submission_tears_down_each_live_mission_first(
-    monkeypatch: Any, capsys: Any
+@pytest.mark.parametrize("unfinished", [False, True])
+def test_review_submission_refuses_while_a_mission_walk_is_unfinished(
+    monkeypatch: Any, capsys: Any, unfinished: bool
 ) -> None:
     from types import SimpleNamespace
 
     from yoke_core.domain import (
         machine_qa_host_control,
-        machine_qa_local_execution,
+        machine_qa_mission_walk,
         qa_composed_dispatch,
         qa_plan_review_cli,
     )
@@ -162,18 +163,16 @@ def test_review_submission_tears_down_each_live_mission_first(
             return SimpleNamespace(success=False, result=None)
         raise AssertionError(function_id)
 
-    def teardown(contract):
-        calls.append(("teardown", contract["mission"]))
-        return {"removed": True, "stale_owner_marker_removed": True}
+    def probe(contract):
+        calls.append(("probe", contract["mission"]))
+        return unfinished
 
     def submit(**kwargs):
         calls.append((kwargs["function_id"], None))
         return {"submission": "persisted"}
 
     monkeypatch.setattr(qa_composed_dispatch, "call_qa_function", dispatch)
-    monkeypatch.setattr(
-        machine_qa_local_execution, "execute_agent_mission_scratch_teardown", teardown
-    )
+    monkeypatch.setattr(machine_qa_mission_walk, "mission_walk_unfinished", probe)
     monkeypatch.setattr(
         machine_qa_host_control, "register_test_machine_host_control", lambda: None
     )
@@ -206,11 +205,18 @@ def test_review_submission_tears_down_each_live_mission_first(
         ]
     )
 
-    assert exit_code == 0
-    assert calls == [
+    probed = [
         ("test_machine.mission.access", 7),
-        ("teardown", 7),
+        ("probe", 7),
         ("test_machine.mission.access", 8),
-        ("qa.plan_review.submit", None),
     ]
-    assert "mission_teardown_incomplete" not in capsys.readouterr().err
+    err = capsys.readouterr().err
+    if unfinished:
+        assert exit_code == 2
+        assert calls == probed
+        assert "mission_walk_unfinished: requirement 7" in err
+        assert "yoke qa mission walk-end" in err
+    else:
+        assert exit_code == 0
+        assert calls == [*probed, ("qa.plan_review.submit", None)]
+        assert "mission_walk_unfinished" not in err

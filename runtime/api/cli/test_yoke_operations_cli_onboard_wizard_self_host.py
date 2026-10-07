@@ -71,6 +71,14 @@ async def _open_preview(pilot) -> None:
     await pilot.press("enter")
 
 
+async def _start(pilot) -> None:
+    """Start, then answer the first-admin name prompt it opens."""
+    await _open_preview(pilot)
+    await pilot.press("enter")
+    await type_text(pilot, "Ada Lovelace")
+    await pilot.press("enter")
+
+
 def _stub_success(monkeypatch, calls: list[str]) -> None:
     monkeypatch.setattr(
         docker,
@@ -79,6 +87,7 @@ def _stub_success(monkeypatch, calls: list[str]) -> None:
     )
 
     def provision(setup, prerequisites):
+        assert setup.admin_name == "Ada Lovelace"
         calls.append("provision")
         setup.bundle_created = True
         setup.raw_token = RAW_TOKEN
@@ -129,8 +138,7 @@ def test_success_shows_handoff_and_continue_rejoins_project_setup(
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await _open_preview(pilot)
-            await pilot.press("enter")
+            await _start(pilot)
             text = await _wait_for_text(
                 app, pilot, "Your self-hosting Yoke server is ready."
             )
@@ -165,8 +173,7 @@ def test_finish_with_handoff_exits_successfully_without_a_project(
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await _open_preview(pilot)
-            await pilot.press("enter")
+            await _start(pilot)
             await _wait_for_text(app, pilot, "Finish with server handoff")
             await pilot.press("down", "enter")
 
@@ -197,8 +204,7 @@ def test_prerequisite_refusal_names_docker_and_allows_back(
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await _open_preview(pilot)
-            await pilot.press("enter")
+            await _start(pilot)
             text = await _wait_for_text(app, pilot, "engine is not running")
             assert "Open Docker Desktop" in text
             assert app.query_one(SelectionList).rows[0].label == "Try again"
@@ -236,8 +242,7 @@ def test_connect_recovery_names_the_token_file_and_retries_it_in_memory(
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await _open_preview(pilot)
-            await pilot.press("enter")
+            await _start(pilot)
             text = await _wait_for_text(app, pilot, "Retry connection")
             assert RAW_TOKEN not in text
             token_file = str(

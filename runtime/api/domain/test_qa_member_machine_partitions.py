@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.domain.machine_qa_baseline_group_test_support import (
+from runtime.api.domain.machine_qa_host_test_support import (
     TEST_MACHINE_SETTINGS,
     _terminal_recipe,
     configure_test_machine,
@@ -83,6 +83,10 @@ def _seed(
                     },
                     "entry_surface": "printf done",
                     "required_completion": "complete",
+                    "starting_state": "as_is",
+                    "starting_state_reason": (
+                        "The check reads host identity only and needs no reset."
+                    ),
                 }
                 for position, machine in enumerate(machines, 1)
             ],

@@ -17,6 +17,7 @@ from yoke_core.domain.actor_permissions import (
     grant_actor_project_role,
     seed_roles_and_permissions,
 )
+from yoke_core.domain.api_tokens import bootstrap_hosted_service_token
 from yoke_core.domain.github_app_user_verification import (
     VerifiedProjectGitHubBinding,
 )
@@ -283,8 +284,15 @@ def test_deleted_installation_cannot_be_reactivated_by_delayed_event(
     assert result["automation"]["reason"] == "installation_deleted"
 
 
-def test_registered_lifecycle_dispatch_reaches_real_domain(binding_db) -> None:
-    actor_id = _project_owner_actor(binding_db, "externalwebapp")
+def _hosted_service_actor(database_name: str) -> str:
+    conn = pg_testdb.connect_test_database(database_name)
+    try:
+        return str(bootstrap_hosted_service_token(conn).actor_id)
+    finally:
+        conn.close()
+
+
+def _dispatch_lifecycle(binding_db: str, actor_id: str):
     conn = pg_testdb.connect_test_database(binding_db)
     try:
         conn.execute("UPDATE projects SET slug='control-plane' WHERE slug='yoke'")
@@ -294,14 +302,11 @@ def test_registered_lifecycle_dispatch_reaches_real_domain(binding_db) -> None:
     reset_registry_for_tests()
     register_all_handlers()
     try:
-        response = dispatch(
+        return dispatch(
             FunctionCallRequest(
                 function="projects.github_binding.lifecycle",
                 target=TargetRef(kind="global"),
-                actor=ActorContext(
-                    actor_id=actor_id,
-                    session_id="hosted-webhook",
-                ),
+                actor=ActorContext(actor_id=actor_id, session_id="hosted-webhook"),
                 payload={
                     "project": "2",
                     "installation_id": "77",
@@ -311,8 +316,21 @@ def test_registered_lifecycle_dispatch_reaches_real_domain(binding_db) -> None:
                 },
             )
         )
-        assert response.success is True
-        assert response.result["installation"]["status"] == "deleted"
-        assert response.result["automation"]["reason"] == "installation_deleted"
     finally:
         reset_registry_for_tests()
+
+
+def test_registered_lifecycle_dispatch_reaches_real_domain(binding_db) -> None:
+    response = _dispatch_lifecycle(binding_db, _hosted_service_actor(binding_db))
+    assert response.success is True
+    assert response.result["installation"]["status"] == "deleted"
+    assert response.result["automation"]["reason"] == "installation_deleted"
+
+
+def test_project_owner_cannot_deliver_hosted_lifecycle(binding_db) -> None:
+    owner = _project_owner_actor(binding_db, "externalwebapp")
+    response = _dispatch_lifecycle(binding_db, owner)
+    assert response.success is False
+    assert response.error is not None
+    assert response.error.code == "permission_denied"
+    assert "hosted_service.deliver" in response.error.message

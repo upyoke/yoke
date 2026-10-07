@@ -85,6 +85,8 @@ def _case(target: dict, **overrides) -> dict:
         "expected_outcome": "seen",
         "method_config": {},
         "host_baseline": None,
+        "starting_state": "as_is",
+        "starting_state_reason": "the released host is inspected as found",
         "entry_surface": None,
         "required_completion": None,
         "workflow_transition_id": None,

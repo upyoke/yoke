@@ -43,6 +43,7 @@ class SelfHostSetup:
     port: int = bundle.DEFAULT_API_PORT
     image_repository: str = server_image_repository.PUBLISHED_SERVER_IMAGE_REPOSITORY
     bundle_created: bool = False
+    admin_name: str | None = None
     raw_token: str | None = field(default=None, repr=False)
     connection: dict[str, Any] | None = None
 
@@ -72,6 +73,20 @@ def new_setup(*, config_path: str, directory: str | None = None) -> SelfHostSetu
         directory=target,
         config_path=config_path,
         image_repository=server_image_repository.configured(path=config_path),
+        bundle_created=existing_bundle(target),
+    )
+
+
+def existing_bundle(directory: Path) -> bool:
+    """Whether a bundle this host already runs sits at the planned location.
+
+    Rerunning setup on the host adopts it — restart, then reconnect with the
+    first-boot admin token its owner-only file still holds — rather than
+    refusing, so the host can always restore its own admin access.
+    """
+    return all(
+        (directory / name).is_file()
+        for name in (bundle.COMPOSE_FILE_NAME, bundle.ENV_FILE_NAME)
     )
 
 
@@ -161,7 +176,14 @@ def stop_preserving_bundle(
 
 def _ensure_wizard_bundle(setup: SelfHostSetup) -> None:
     if setup.bundle_created:
-        bundle.validate_existing_bundle(directory=str(setup.directory))
+        try:
+            bundle.protect_existing_bundle(directory=str(setup.directory))
+        except bundle.SelfHostBundleError as exc:
+            raise SelfHostSetupError(
+                "bundle-adopt",
+                "The existing self-host bundle could not be reused.",
+                (str(exc), *recovery_commands_for_directory(setup.directory)),
+            ) from exc
         return
     collisions = tuple(
         path for path in bundle.bundle_file_paths(setup.directory) if path.exists()
@@ -182,6 +204,7 @@ def _ensure_wizard_bundle(setup: SelfHostSetup) -> None:
             directory=str(setup.directory),
             port=setup.port,
             image_repository=setup.image_repository,
+            admin_name=setup.admin_name,
             force=False,
         )
     except (
@@ -215,6 +238,8 @@ def _wait_for_first_boot_token(setup: SelfHostSetup, *, timeout_s: float) -> str
                 "The server did not write its first-boot admin token in time.",
                 (
                     "The bundle was preserved; choose Try again or Back.",
+                    "A server that was already born mints no new token: keep "
+                    "its token file, or connect with another admin token.",
                     *recovery_commands(setup),
                 ),
             )

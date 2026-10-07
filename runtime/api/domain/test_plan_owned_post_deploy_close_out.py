@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
+
+from runtime.api.domain.machine_qa_host_test_support import TEST_MACHINE_SETTINGS
+from yoke_core.domain.machine_qa_capability import replace_test_machine_settings
+
 
 from runtime.api.domain import test_independent_member_delivery_close_out as delivery
 from runtime.api.domain.test_deployment_qa_admission_execution import (
@@ -27,6 +33,9 @@ from yoke_core.domain.qa_plan_management import replace_plan_cases
 from yoke_core.domain.qa_requirement_pass_currency import stamp_executed_method_config
 
 
+_HOST_CHECK = {"assertions": [{"argv": ["/usr/bin/true"]}]}
+
+
 def _pass_case(conn, execution, ordinal):
     requirement_id = int(execution["roster"][ordinal]["requirement_id"])
     requirement = conn.execute(
@@ -42,8 +51,15 @@ def _pass_case(conn, execution, ordinal):
     qa_run_id = conn.execute(
         "INSERT INTO qa_runs(qa_requirement_id,performed_by,qa_kind,verdict,"
         "raw_result,started_at,completed_at,created_at) "
-        "VALUES (%s,'worktree_run','plan_case','pass',%s,%s,%s,%s) RETURNING id",
-        (requirement_id, currency, now, now, now),
+        "VALUES (%s,%s,'plan_case','pass',%s,%s,%s,%s) RETURNING id",
+        (
+            requirement_id,
+            execution["roster"][ordinal]["runner_id"],
+            currency,
+            now,
+            now,
+            now,
+        ),
     ).fetchone()["id"]
     conn.execute(
         "INSERT INTO qa_artifacts(qa_run_id,artifact_type,content_type,"
@@ -73,6 +89,9 @@ def test_accepted_admitted_copies_auto_close_the_member(
     plan_owned = admission != "direct"
     plan_id = _plan(test_db, f"source-{admission}")
     if grouped:
+        replace_test_machine_settings(
+            test_db, project="yoke", settings=TEST_MACHINE_SETTINGS, base_settings=None
+        )
         replace_plan_cases(
             test_db,
             plan_id=plan_id,
@@ -80,15 +99,10 @@ def test_accepted_admitted_copies_auto_close_the_member(
                 {
                     "case_key": "command-smoke",
                     "position": 1,
-                    "method_id": "browser-inspection",
+                    "method_id": "machine-state-check",
                     "instructions": "Inspect the deployed release on both hosts.",
                     "expected_outcome": "The deployed release is visible.",
-                    "method_config": {
-                        "steps": [
-                            {"action": "navigate", "route": "/"},
-                            {"action": "screenshot", "capture": True},
-                        ]
-                    },
+                    "method_config": _HOST_CHECK,
                     "host_baselines": ["shell-preconfigured", "fresh-host"],
                 }
             ],
@@ -99,9 +113,8 @@ def test_accepted_admitted_copies_auto_close_the_member(
     member = delivery.MEMBER_A
     source_ids = []
     for baseline in ["shell-preconfigured", "fresh-host"] if grouped else [None]:
-        source_id = _original_requirement(
-            test_db, item_id=member, method_id="browser-inspection"
-        )
+        method_id = "machine-state-check" if grouped else "browser-inspection"
+        source_id = _original_requirement(test_db, item_id=member, method_id=method_id)
         test_db.execute(
             "UPDATE qa_requirements SET target_env='prod',workflow_transition_id='release',"
             "plan_id=%s,plan_case_key=%s,host_baseline=%s WHERE id=%s",
@@ -112,6 +125,12 @@ def test_accepted_admitted_copies_auto_close_the_member(
                 source_id,
             ),
         )
+        if grouped:
+            test_db.execute(
+                "UPDATE qa_requirements SET method_config=%s,"
+                "starting_state='baseline' WHERE id=%s",
+                (json.dumps(_HOST_CHECK), source_id),
+            )
         source_ids.append(source_id)
     snapshot = snapshot_member_requirements(
         test_db,

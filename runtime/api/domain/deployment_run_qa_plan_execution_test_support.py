@@ -1,6 +1,6 @@
 """Shared fixtures for deployment-run QA plan execution tests."""
 
-from runtime.api.domain.machine_qa_baseline_group_test_support import (
+from runtime.api.domain.machine_qa_host_test_support import (
     _terminal_recipe,
 )
 from yoke_core.domain.qa_plan_management import (
@@ -98,6 +98,7 @@ def machine_plan(conn) -> int:
                 "method_config": _terminal_recipe(),
                 "entry_surface": "printf done",
                 "required_completion": "complete",
+                "host_baselines": ["fresh-host"],
             }
         ],
     )
