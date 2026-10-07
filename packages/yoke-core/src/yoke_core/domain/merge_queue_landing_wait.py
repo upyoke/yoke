@@ -15,7 +15,7 @@ from yoke_core.domain.github_poll_schedule import (
 )
 from yoke_core.domain.merge_queue_entry_checks import entry_checks_refusal
 from yoke_core.domain.merge_queue_landing_record import (
-    LandingRecord,
+    PublicLandingRecord,
     record_from_payload,
 )
 from yoke_core.domain.merge_queue_landing_timeout import timeout_message
@@ -53,9 +53,9 @@ def _response_error(response: Any) -> str:
 def _read_server_record(
     dispatch: Callable[..., Any],
     *,
-    item_id: int,
+    item_id: str,
     announce: Callable[[str], None],
-) -> tuple[LandingRecord | None, dict[str, Any], str]:
+) -> tuple[PublicLandingRecord | None, dict[str, Any], str]:
     """Refresh the project if due and read this lane through one function."""
     response = control_plane_function_degradation.dispatch_through_paired_admin_on_skew(
         function_id=OBSERVE_FUNCTION_ID,
@@ -78,7 +78,7 @@ def _stale_refusal(
     *,
     pr_num: str,
     result: dict[str, Any],
-    record: LandingRecord | None,
+    record: PublicLandingRecord | None,
 ) -> WaitRefusal:
     refresh = result.get("refresh") or {}
     observed_at = record.observed_at if record is not None else "never"
@@ -95,7 +95,7 @@ def _stale_refusal(
 
 
 def _record_refusal(
-    record: LandingRecord,
+    record: PublicLandingRecord,
     *,
     pr_num: str,
     target: str,
@@ -147,7 +147,7 @@ def wait_for_queue_landing(
     *,
     pr_num: str,
     target: str,
-    item_id: int,
+    item_id: str,
     public_ref: str,
     resume_command: str,
     dispatch: Callable[..., Any],

@@ -32,10 +32,9 @@ from yoke_core.engines.merge_worktree_pr_check_runs import LandingCheck, check_p
 
 
 @dataclass(frozen=True)
-class LandingRecord:
-    """One server observation consumed by every waiter for this lane."""
+class LandingObservation:
+    """Queue state shared by persisted and public landing records."""
 
-    item_id: int
     project_id: int
     pr_number: str
     state: str
@@ -48,6 +47,20 @@ class LandingRecord:
     disarm_note: str = ""
     observed_at: str = ""
     changed_at: str = ""
+
+
+@dataclass(frozen=True, kw_only=True)
+class PublicLandingRecord(LandingObservation):
+    """A client observation identifies its item by its complete public ref."""
+
+    public_ref: str
+
+
+@dataclass(frozen=True, kw_only=True)
+class LandingRecord(LandingObservation):
+    """The persisted observation owns the item join key inside the engine."""
+
+    item_id: int
 
     def with_disarm_note(self, note: str) -> "LandingRecord":
         return replace(self, disarm_note=str(note or ""))
@@ -272,12 +285,18 @@ def delete_landing_record(conn: Any, item_id: int) -> None:
     )
 
 
-def record_from_payload(payload: Any) -> LandingRecord | None:
+def record_from_payload(payload: Any) -> PublicLandingRecord | None:
     """Parse the registered function's record payload on the waiting client."""
     if not isinstance(payload, dict) or not payload:
         return None
-    return LandingRecord(
-        item_id=int(payload["item_id"]),
+    from yoke_contracts.public_ref import parse_public_item_ref
+
+    public_ref = str(payload["public_ref"])
+    prefix, sequence = parse_public_item_ref(public_ref)
+    if prefix is None or sequence is None:
+        raise ValueError("public_item_ref_required: landing record requires PREFIX-N")
+    return PublicLandingRecord(
+        public_ref=public_ref,
         project_id=int(payload["project_id"]),
         pr_number=str(payload["pr_number"]),
         state=str(payload["state"]),
@@ -295,6 +314,7 @@ def record_from_payload(payload: Any) -> LandingRecord | None:
 
 __all__ = [
     "LandingRecord",
+    "PublicLandingRecord",
     "delete_landing_record",
     "from_readback",
     "read_landing_record",

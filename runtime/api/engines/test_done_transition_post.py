@@ -118,7 +118,7 @@ class TestCascadeEpicTasksToDone:
         assert task_nums == {"1", "3"}
         for call in mock_task_direct.call_args_list:
             # Positional: epic_id, task_num, new_status, note
-            assert call.args[0] == 823
+            assert call.args[0] == f"YOK-{823}"
             assert call.args[2] == "done"
 
     def test_cascade_noop_when_no_tasks(self, dt_db):

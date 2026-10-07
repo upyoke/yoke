@@ -222,7 +222,7 @@ class TestSimulationGate:
         self,
         merge_env: MergeEnv,
         db_path: Path,
-        extra_args_str: str = "42",
+        extra_args_str: str = TEST_BRANCH,
     ):
         """Run merge with custom sim DB and epic ID.
 

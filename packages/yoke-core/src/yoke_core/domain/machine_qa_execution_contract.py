@@ -39,7 +39,7 @@ def public_case_snapshots(cases):
             success=True,
             function="test_machine.case.begin",
             version="v1",
-            result=snapshots,
+            result={"cases": snapshots},
         )
     )
     if not response.success:
@@ -48,6 +48,6 @@ def public_case_snapshots(cases):
             if response.error
             else "Cannot compose Machine QA identities"
         )
-    for case in response.result:
+    for case in response.result["cases"]:
         case["execution_target_digest"] = target_digest(case["execution_target"])
-    return response.result
+    return response.result["cases"]

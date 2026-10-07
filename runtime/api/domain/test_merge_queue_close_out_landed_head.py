@@ -208,3 +208,15 @@ def _applied(kwargs: dict):
         receipt_commit_sha=head,
         receipt_error="" if head else gap,
     )
+
+
+def test_landed_record_rejects_numeric_item_identity():
+    record = _record(REBASED)
+    record["item_id"] = 7
+    record.pop("public_ref")
+
+    head, reason = landed_candidate_head(f"ITEM-{7}", dispatch=_dispatch(record))
+
+    assert head == ""
+    assert "landing record response was invalid" in reason
+    assert "public_ref" in reason

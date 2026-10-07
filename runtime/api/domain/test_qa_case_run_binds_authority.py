@@ -104,7 +104,7 @@ def test_begin_pins_the_sessions_claim_onto_the_contract() -> None:
         mock.patch("yoke_core.domain.db_helpers.connect", _connect),
         mock.patch(
             "yoke_core.domain.qa_case_execution_context.get_case_execution_context",
-            return_value=_case(None),
+            return_value={**_case(None), "item_id": _ITEM},
         ),
         mock.patch(
             "yoke_core.domain.qa_case_execution_context.execution_host_capability_kinds",
@@ -119,5 +119,5 @@ def test_begin_pins_the_sessions_claim_onto_the_contract() -> None:
 
     assert outcome.primary_success
     assert outcome.result_payload["case"][PAYLOAD_KEY] == _CLAIM
-    assert resolve.call_args.kwargs["item_id"] == f"ITEM-{_ITEM}"
+    assert resolve.call_args.kwargs["item_id"] == _ITEM
     assert resolve.call_args.kwargs["session_id"] == _SESSION
