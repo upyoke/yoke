@@ -28,7 +28,6 @@ from yoke_core.domain.db_mutation_gate_loaders import (
     ItemIdRefMismatch,
     _load_capability_settings,
     _load_item_row,
-    _resolve_repo_path,
 )
 from yoke_core.domain.db_mutation_gate_shared import (
     GateOutcome,
@@ -109,14 +108,14 @@ def check_implementing_to_reviewing_implementation_gate(
         errors: List[str] = []
         intent = profile["mutation_intent"]
         identifiers: List[str] = list(profile["migration_modules"])
-        repo_path = _resolve_repo_path(c, project)
+        lane_path = _item_lane_path(c, item_id)
 
         if intent == MUTATION_INTENT_APPLY:
             from yoke_core.domain.project_identity import render_item_ref
 
             item_ref = render_item_ref(c, item_id)
             for identifier in identifiers:
-                missing = _history_membership_error(repo_path, model, identifier)
+                missing = _history_membership_error(lane_path, model, identifier)
                 if missing is not None:
                     errors.append(missing)
                     continue
@@ -148,6 +147,19 @@ def check_implementing_to_reviewing_implementation_gate(
         return _evaluate(owned)
 
 
+def _item_lane_path(conn: Any, item_id: int) -> Optional[Path]:
+    """The item's own lane on this machine, or ``None`` where none is mapped.
+
+    The entry under review is authored in the item's lane and reaches the
+    project's default branch only when the item merges, so the project
+    checkout never holds it at this gate.
+    """
+    from yoke_core.domain.project_checkout_locations import item_worktree_path
+
+    lane = item_worktree_path(conn, item_id)
+    return lane if lane is not None and lane.is_dir() else None
+
+
 def _history_membership_error(
     repo_path: Optional[Path], model: Mapping[str, Any], identifier: str
 ) -> Optional[str]:
@@ -167,7 +179,8 @@ def _history_membership_error(
 
     modules_rel = ((model.get("runner") or {}).get("config") or {}).get("modules_dir")
     if repo_path is None or not modules_rel:
-        # A runner with no checkout cannot read the history directory at all.
+        # A process with no lane for the item (the hosted server) cannot read
+        # the history directory at all.
         # That is "cannot inspect", not "the module is missing", so it does not
         # manufacture a failure -- the rehearsal receipt, which this gate still
         # requires, is evidence the module existed and ran somewhere.
