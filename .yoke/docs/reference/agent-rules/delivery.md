@@ -125,7 +125,11 @@ learns the other's part from its own skill. The split is the whole rule:
   `release_lineage` with `--source-ref`; stage refuses a missing lineage. An
   explicit commit with no run of its own is refused
   `release_source_untested` on every path that binds one, naming the newest
-  tested commit. The CI gate itself never dispatches CI: a release commit
+  tested commit. These reads use the project's GitHub App access scoped to
+  `actions: read` and `contents: read` (a private repository's commits need
+  the second); a read GitHub refuses for authorization is
+  `release_source_unverifiable` naming that access and its repair, never a
+  retry. The CI gate itself never dispatches CI: a release commit
   with no run of its own fails it by name, and the recovery is a new run. Creation provisionally enrolls every delivery-ready item
   its candidate carries that no live or succeeded release already holds —
   whether the work landed since the last release or long before it — and
