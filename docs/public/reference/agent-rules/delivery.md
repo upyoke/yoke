@@ -58,6 +58,11 @@ the run's own candidate, so the run delivers two projects, not one.
   transaction. A refusal rolls back before a run ID is committed; start
   revalidates before stage dispatch. If a stored carried-work record omits a recorded bound
   project, start refuses it by name; cancel that stale run and create a new one.
+  A bound source stays frozen for the run's life and a `--retry-of` copies it,
+  so a failure caused by that commit going stale cannot pass on re-drive or
+  retry: `yoke deployment-runs failure-trace RUN-ID` (also printed when the
+  stage fails) names it as `Stale bound source: ...` — leave the run failed and
+  create a new run, which binds the current commit.
   A carried delivery-ready item with no completion flow also refuses: select
   its project workflow default with `yoke workflows delivery-default set
   --project P --workflow W --flow F`, then retry the start. Unreadable source

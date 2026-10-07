@@ -9,7 +9,7 @@ historically intuitive group; they do not dispatch a guessed mutation.
 |---|---|
 | `yoke deployment-flows list` | Registered `deployment_flows.list` read. |
 | `yoke deployment-runs find-by-item` | Registered `deployment_runs.find_by_item` read. |
-| `yoke deployment-runs failure-trace` | Registered dispatch-chain read; traverses nested Actions runs and prints the terminal diagnostic with its failed-job URL, or a bounded partial-stop reason. |
+| `yoke deployment-runs failure-trace` | Registered dispatch-chain read; traverses nested Actions runs and prints the terminal diagnostic with its failed-job URL, or a bounded partial-stop reason. When that diagnostic names a frozen bound-source commit whose branch has since moved, it adds a `Stale bound source:` line saying re-drive and `--retry-of` cannot pass and a new run is required. |
 | `yoke deployment-runs stages` | Registered `deployment_runs.stages` progress read. |
 | `yoke deployments` | Navigation to the deployment-flow and deployment-run groups. |
 | `yoke workflows version list` | Registered `workflows.version.list` inventory read. |

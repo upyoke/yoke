@@ -134,3 +134,31 @@ def test_failure_trace_human_output_names_terminal_cause_and_chain() -> None:
     assert "Terminal error: unauthorized: authentication required" in rendered
     assert "https://github.com/owner/repo/actions/runs/123" in rendered
     assert "job: https://github.com/owner/repo/actions/runs/123/job/456" in rendered
+
+
+def test_failure_trace_names_a_stale_bound_source_and_the_new_run() -> None:
+    reason = (
+        "bound source consumer aaa is stale (current bbb); re-driving run-x cannot pass"
+    )
+    result = {
+        "deployment_run_id": "run-x",
+        "stage": "hosted-release",
+        "complete": True,
+        "chain": [],
+        "terminal_job": "validate",
+        "terminal_error": "pair was proven at aaa",
+        "stale_bound_sources": [{"project": "consumer", "reason": reason}],
+    }
+    stdout = StringIO()
+
+    def dispatch(**kwargs):
+        kwargs["human_writer"](Mock(result=result), stdout, StringIO())
+        return 0
+
+    with patch(
+        "yoke_cli.commands.adapters.deployment_inspection.dispatch_and_emit",
+        side_effect=dispatch,
+    ):
+        assert deployment_runs_failure_trace(["run-x"]) == 0
+
+    assert f"Stale bound source: {reason}" in stdout.getvalue().splitlines()

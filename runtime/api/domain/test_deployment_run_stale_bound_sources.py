@@ -1,0 +1,108 @@
+"""A failure caused by a frozen bound source says a new run is required.
+
+The run keeps the bound commit it resolved at start, and a retry copies it,
+so once the bound branch has moved a failure naming that commit reproduces on
+every re-drive. These tests freeze a real bound commit, move the real branch,
+and read the diagnosis a failure trace carries.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+from runtime.api.fixtures.bound_source_release import (
+    CONSUMER_PROJECT,
+    two_project_release,
+)
+from runtime.api.fixtures.carried_release_candidate import git
+from yoke_core.domain.deployment_run_bound_sources import record_bound_sources
+from yoke_core.domain.deployment_run_stale_bound_sources import (
+    diagnose_stale_bound_sources,
+)
+
+
+def _frozen_then_moved(
+    conn: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[str, str]:
+    release = two_project_release(conn, tmp_path, monkeypatch)
+    record_bound_sources(conn, "run-candidate")
+    conn.commit()
+    repo = release["consumer_repo"]
+    git(repo, "commit", "--allow-empty", "-m", "Consumer trunk moves on")
+    current = git(repo, "rev-parse", "HEAD").strip()
+    return release["consumer_tip"], current
+
+
+def test_a_failure_naming_the_frozen_commit_says_a_new_run_is_required(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    frozen, current = _frozen_then_moved(test_db, tmp_path, monkeypatch)
+
+    stale, unverified = diagnose_stale_bound_sources(
+        test_db,
+        "run-candidate",
+        failure_text=f"main moved, but the pair was proven at {frozen}.",
+    )
+
+    assert unverified == ""
+    assert len(stale) == 1
+    entry = stale[0]
+    assert entry["project"] == CONSUMER_PROJECT
+    assert entry["frozen_sha"] == frozen
+    assert entry["current_sha"] == current
+    assert entry["reason"].startswith(
+        f"bound source {CONSUMER_PROJECT} {frozen} is stale (current {current}); "
+        "re-driving run-candidate cannot pass"
+    )
+    assert "create a new run" in entry["reason"]
+
+
+def test_an_unrelated_failure_is_not_blamed_on_the_moved_source(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _frozen_then_moved(test_db, tmp_path, monkeypatch)
+
+    stale, unverified = diagnose_stale_bound_sources(
+        test_db, "run-candidate", failure_text="unit tests failed: 3 errors"
+    )
+
+    assert (stale, unverified) == ([], "")
+
+
+def test_a_frozen_commit_still_current_is_not_stale(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    release = two_project_release(test_db, tmp_path, monkeypatch)
+    record_bound_sources(test_db, "run-candidate")
+    test_db.commit()
+    frozen = release["consumer_tip"]
+
+    stale, unverified = diagnose_stale_bound_sources(
+        test_db, "run-candidate", failure_text=f"pair refused at {frozen}"
+    )
+
+    assert (stale, unverified) == ([], "")
+
+
+def test_an_unreadable_current_commit_is_named_rather_than_called_current(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    frozen, _current = _frozen_then_moved(test_db, tmp_path, monkeypatch)
+    from yoke_core.domain import deployment_run_stale_bound_sources as module
+
+    def unreadable(*_args: Any, **_kwargs: Any) -> str:
+        raise ValueError("could not resolve branch 'main'")
+
+    monkeypatch.setattr(module, "_resolve_branch_head", unreadable)
+
+    stale, unverified = diagnose_stale_bound_sources(
+        test_db, "run-candidate", failure_text=f"proven at {frozen}"
+    )
+
+    assert stale == []
+    assert unverified == (
+        f"bound source {CONSUMER_PROJECT} {frozen}: could not resolve branch 'main'"
+    )
