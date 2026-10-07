@@ -43,7 +43,6 @@ def identity_db(test_db):
 @pytest.mark.parametrize(
     ("raw", "project", "expected"),
     [
-        ("2318", "yoke", YOKE_INTERNAL_ID),
         ("YOK-2318", None, YOKE_INTERNAL_ID),
         ("EXT-2318", None, FOREIGN_INTERNAL_ID),
         (YOKE_INTERNAL_ID, None, YOKE_INTERNAL_ID),
@@ -64,14 +63,17 @@ def test_explicit_project_wins_over_checkout_mapping(
 ) -> None:
     monkeypatch.setattr(machine_config, "project_id", lambda *_a, **_k: 2)
     assert (
-        parse_item_argument("2318", project="yoke", conn=identity_db)
+        parse_item_argument("YOK-2318", project="yoke", conn=identity_db)
         == YOKE_INTERNAL_ID
     )
 
 
-def test_checkout_mapping_resolves_bare_sequence(identity_db, monkeypatch) -> None:
+def test_checkout_mapping_cannot_supply_missing_prefix(
+    identity_db, monkeypatch
+) -> None:
     monkeypatch.setattr(machine_config, "project_id", lambda *_a, **_k: 2)
-    assert parse_item_argument("2318", conn=identity_db) == FOREIGN_INTERNAL_ID
+    with pytest.raises(ValueError, match="public_item_ref_required"):
+        parse_item_argument("2318", conn=identity_db)
 
 
 def test_missing_context_refuses_before_identity_read(monkeypatch) -> None:
@@ -81,7 +83,7 @@ def test_missing_context_refuses_before_identity_read(monkeypatch) -> None:
     identity_read = Mock(side_effect=AssertionError("identity read must not run"))
     monkeypatch.setattr(yok_n_parser, "_resolve_over_open_path", identity_read)
 
-    with pytest.raises(ValueError, match="names a project sequence but no project"):
+    with pytest.raises(ValueError, match="public_item_ref_required"):
         parse_item_argument("2318")
     identity_read.assert_not_called()
 
@@ -89,7 +91,6 @@ def test_missing_context_refuses_before_identity_read(monkeypatch) -> None:
 @pytest.mark.parametrize(
     ("raw", "expected"),
     [
-        ("2318", YOKE_INTERNAL_ID),
         ("YOK-2318", YOKE_INTERNAL_ID),
         ("EXT-2318", FOREIGN_INTERNAL_ID),
     ],
@@ -122,7 +123,7 @@ def test_done_transition_missing_context_has_no_side_effect(
     monkeypatch.setattr(done_transition, "run", run)
 
     assert done_transition.main(["2318"]) == 2
-    assert "names a project sequence but no project" in capsys.readouterr().err
+    assert "public_item_ref_required" in capsys.readouterr().err
     run.assert_not_called()
 
 
@@ -248,11 +249,7 @@ def test_operator_boundaries_preserve_missing_context_teaching(
     captured = capsys.readouterr()
 
     refusal = detail + captured.out + captured.err
-    assert (
-        "public_item_ref_required"
-        if boundary == "usher-reconcile"
-        else "names a project sequence but no project"
-    ) in refusal
+    assert "public_item_ref_required" in refusal
     identity_read.assert_not_called()
 
 

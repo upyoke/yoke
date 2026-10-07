@@ -23,7 +23,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Arguments
 
-- `{PREFIX-N}` -- Backlog item ID. Accepts prefixed IDs, zero-padded prefixed IDs, or bare numeric IDs.
+- `{PREFIX-N}` -- Backlog item ID. Requires a complete `PREFIX-N` public ref; bare numbers are refused.
 
 ## Constants
 

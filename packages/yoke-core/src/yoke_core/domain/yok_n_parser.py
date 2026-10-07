@@ -20,7 +20,6 @@ from yoke_core.domain import control_plane_transport
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.item_ref_resolution import (
     ItemRefError,
-    check_item_ref_shape,
     resolve_item_ref,
 )
 
@@ -44,7 +43,12 @@ def parse_item_id(
     """
     if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
         return value
-    check_item_ref_shape(value, project=project)
+    from yoke_core.domain.public_item_target import public_item_target
+
+    try:
+        public_item_target(value)
+    except ValueError as exc:
+        raise ItemRefError("public_item_ref_required", str(exc)) from exc
     return _resolve_over_open_path(value.strip(), project=project, conn=conn)
 
 

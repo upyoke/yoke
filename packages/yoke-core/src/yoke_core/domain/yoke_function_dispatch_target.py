@@ -10,10 +10,8 @@ here through :func:`yoke_core.domain.item_ref_resolution.resolve_item_ref`
 kind. An ``epic_task`` target's ref names its epic, so it fills
 ``target.epic_id``; every other kind fills ``target.item_id``.
 
-Bare numeric refs resolve only from ``target.project_id`` — the explicit
-``--project`` flag or the machine checkout-to-project map supplied by the
-client. Missing context is refused with the fix named; session state is
-not item-identity authority.
+The public ref must include its project prefix. Project context never supplies
+a missing prefix; bare numeric selectors are refused before database lookup.
 """
 
 from __future__ import annotations
@@ -57,16 +55,18 @@ def resolve_target_public_ref(
     if target.public_ref is None:
         return None
     from yoke_core.domain import db_helpers
-    from yoke_core.domain.item_ref_resolution import ItemRefError, resolve_item_ref
+    from yoke_core.domain.item_ref_resolution import resolve_item_ref
+    from yoke_core.domain.public_item_target import public_item_target
 
     try:
+        public_item_target(target.public_ref)
         with db_helpers.connect() as conn:
             resolved = resolve_item_ref(
                 conn,
                 target.public_ref,
                 project=target.project_id or None,
             )
-    except ItemRefError as exc:
+    except ValueError as exc:
         return _error(
             request,
             "public_ref_unresolved",
@@ -100,8 +100,8 @@ def resolve_request_item_refs(
 ) -> Optional[FunctionCallResponse]:
     """Resolve every caller item ref on ``request`` — target, then payload.
 
-    The payload's bare numbers read the caller's ``target.project_id`` as it
-    arrived, before target resolution consumes it.
+    Payload public refs retain the original project authorization hint before
+    target resolution consumes it. Numeric client identities are refused.
     """
     from yoke_core.domain.yoke_function_dispatch_payload_refs import (
         resolve_payload_public_refs,

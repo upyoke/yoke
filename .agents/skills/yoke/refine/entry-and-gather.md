@@ -20,7 +20,7 @@ Register the work claim BEFORE the status transition (claim-before-status orderi
 
 ```bash
 # Reuse ITEM_REF from step 1. The items.get dispatcher already
-# resolved prefixed, zero-padded, and project-local bare-number input.
+# requires a complete public ref, including its project prefix.
 # Session touch + claim
 yoke sessions touch --mode refine
 yoke claims work acquire \

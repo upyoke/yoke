@@ -113,17 +113,20 @@ def test_scheduler_item_keys_are_engine_currency(conn):
     assert internal_item_key(conn, None) is None
 
 
-def test_argument_bare_sequence_via_cwd_checkout(conn, monkeypatch):
+def test_argument_bare_sequence_refused_in_mapped_checkout(conn, monkeypatch):
     monkeypatch.setattr(machine_config, "project_id", lambda *_a, **_k: 2)
-    assert parse_item_argument("5", conn=conn) == EXT_ITEM_ID
+    with pytest.raises(ValueError, match="public_item_ref_required"):
+        parse_item_argument("5", conn=conn)
 
 
 def test_argument_without_mapped_context_fails_loudly(conn, monkeypatch):
     monkeypatch.setattr(machine_config, "project_id", lambda *_a, **_k: None)
-    with pytest.raises(ValueError, match="names a project sequence but no project"):
+    with pytest.raises(ValueError, match="public_item_ref_required"):
         parse_item_argument("5", conn=conn)
 
 
 def test_argument_explicit_context_wins_over_mapped_checkout(conn, monkeypatch):
     monkeypatch.setattr(machine_config, "project_id", lambda *_a, **_k: 1)
-    assert parse_item_argument("5", project="externalwebapp", conn=conn) == EXT_ITEM_ID
+    assert (
+        parse_item_argument("EXT-5", project="externalwebapp", conn=conn) == EXT_ITEM_ID
+    )

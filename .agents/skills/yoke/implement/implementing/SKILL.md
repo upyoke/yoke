@@ -16,7 +16,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 Called by `implement/entry.md` (or `implement/reentry.md`) after the item is at its implementation stage and the current harness session has provisioned the worktree (same session, no relaunch). The session's authority over the worktree is its work-claim on the item, validated per tool call by `lint_session_cwd`. The sub-skill handles QA seeding and directs the agent to begin implementation.
 
 **Context variables** (passed by the parent skill):
-- `{N}` — numeric item ID
+- `{PREFIX-N}` — complete public item ref
 - `{NNN}` — zero-padded filename (e.g., `939`)
 - `{title}` — item title
 - `{WORKTREE_PATH}` — absolute worktree path
@@ -32,7 +32,7 @@ Called by `implement/entry.md` (or `implement/reentry.md`) after the item is at 
 **Widen-before-edit loop:** At the start of each implementation slice, and before every sibling-module create/edit that was not already named in the current slice, run:
 
 ```bash
-yoke claims path list --item PREFIX-{N} --state planned --state active --state blocked
+yoke claims path list --item PREFIX-N --state planned --state active --state blocked
 ```
 
 Mentally diff the declared coverage against the files you are about to touch. If any file is not covered by a non-terminal claim, widen first with a specific rationale, then edit. This is a recurring checklist item, not a once-at-entry declaration. A future PreToolUse advisory on `Write`/`Edit` is the natural follow-up enforcement layer; blocking enforcement remains the end-of-implementation boundary gate.

@@ -14,7 +14,7 @@ from typing import Any
 from fastapi.responses import JSONResponse
 
 from yoke_core.api.main_models import ErrorDetail, ErrorResponse, ItemObject
-from yoke_core.domain.item_ref_render import render_item_ref
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.public_item_target import public_item_target
 from yoke_core.domain.item_ref_resolution import (
     ITEM_REF_NOT_FOUND,

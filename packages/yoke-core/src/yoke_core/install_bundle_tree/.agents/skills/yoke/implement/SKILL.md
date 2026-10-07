@@ -17,7 +17,7 @@ not a session boundary, so stopping at `implementing` and announcing a later
 step as "next" is the hand-off-to-operator anti-pattern this contract exists
 to prevent.
 
-`{PREFIX-N}` accepts prefixed, zero-padded, or bare numeric ids. The flags are
+`{PREFIX-N}` requires a complete public ref; bare numbers are refused. The flags are
 read only at implementation entry; [`entry.md`](entry.md) owns them.
 
 <!-- BEGIN GENERATED: field-note-directive -->
