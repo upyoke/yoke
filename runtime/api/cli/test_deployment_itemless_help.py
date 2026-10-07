@@ -39,7 +39,8 @@ def _assert_itemless_recipe(text: str) -> None:
     assert "watch deploy --" in text
     assert "--env CONTROL-PLANE" in text
     assert "serving API" in text
-    assert "*-db-admin" in text
+    assert "db-admin" not in text
+    assert "operator" in text
     # Shared constant must be the single source for the recipe body.
     assert ITEMLESS_RELEASE_RECIPE.strip() in text
     assert INTERRUPTED_RUN_RECOVERY.strip() in text

@@ -64,11 +64,9 @@ def render_invariant_block() -> list[str]:
         "linked worktree paths. Product/normal prod reads stay on "
         "wrapped HTTPS/API-backed surfaces (`yoke <subcommand>` and "
         "`yoke db read`); do not retry by switching to a local-Postgres "
-        "prod env. Local-Postgres surfaces (`db_router query`, doctor, "
-        "capability resolvers, module-form tools) are source-dev/admin or "
-        "audited break-glass only; use `YOKE_ENV=<env>-db-admin` / "
-        "`--env <env>-db-admin` only when a sanctioned admin recipe explicitly "
-        "requires direct DB authority.",
+        "prod env. When a required mutation has no registered command, "
+        "escalate the missing command to the control-plane operator, naming "
+        "the required operation and registered surfaces checked.",
     ]
 
 

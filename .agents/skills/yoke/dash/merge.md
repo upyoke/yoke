@@ -220,9 +220,8 @@ yoke merge item ITEM --skip-status --json
 
 Start item-bound delivery for the returned `merge_sha`, run it through the
 project executor, and wait for `succeeded`. Use the selected control-plane
-connection for ordinary external delivery, including HTTPS. Only when the
-target is that control plane's own serving API should you switch to the paired
-local `*-db-admin` connection named by the executor's refusal:
+connection for ordinary external delivery, including HTTPS. A target replacing that control plane's own serving API requires operator
+authority; escalate its named refusal and recovery:
 
 ```text
 yoke --env <control-plane> deployment-runs start-for-item ITEM \

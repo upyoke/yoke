@@ -292,7 +292,7 @@ correcting afterwards.
 ### 6. Deploy merged work in batches
 
 Workers merge but never create or dispatch deployment runs. The steerer owns batch delivery through the **prod control-plane** connection even when the target environment is stage.
-Ordinary external delivery works over HTTPS; only a release replacing prod's own serving API uses `prod-db-admin` named by the refusal.
+Ordinary external delivery works over HTTPS. When steering a Yoke source release, read [source-dev-delivery.md](source-dev-delivery.md) before creating or driving its self-deploy pair.
 
 **Take the project's deploy lock before the first run and hold it through the
 whole pair.** Creating a run and executing one both refuse without it, so one

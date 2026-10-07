@@ -1,19 +1,4 @@
-"""Deployment teaching must not send an ordinary project after db-admin.
-
-A `*-db-admin` connection is direct authority over the database behind a
-control plane. Only whoever operates that control plane has one, so teaching
-it as the way to run a deployment tells every managed project to go find
-credentials that are not its own application database's and that it cannot
-obtain. Ordinary delivery — create, start-for-item, execute, watch, retry,
-close-out — runs over whichever connection holds the run row, HTTPS included.
-
-The one true exception is a deploy that replaces the API serving its own
-control plane: run state must stay writable while that API is replaced. The
-executor detects exactly that case and names the connection when it refuses,
-so the exception is taught at the moment it applies rather than up front. The
-tests below check both halves — that the up-front teaching is gone from every
-surface a project reads, and that the scoped exception survived the scrub.
-"""
+"""Product teaching leaves database-admin recipes in the source-dev layer."""
 
 from __future__ import annotations
 
@@ -56,28 +41,15 @@ SHIPPED_SUFFIXES = {".md", ".toml", ".json"}
 # project, and this repo's own release shape lives below it.
 MANAGED_BLOCK_FILES = (REPO / "AGENTS.md", BUNDLE / "AGENTS.md")
 
-# Phrases that name a deployment operation rather than database authority.
-DEPLOY_OPERATION_PHRASES = (
-    "deployment-runs",
-    "deployment run",
-    "watch deploy",
-    "deploy --",
-    "deploy surface",
-    "deployment flow",
-    "start-for-item",
-)
-# Wording that scopes the admin connection to the self-deploy it is for.
-SELF_DEPLOY_QUALIFIERS = ("serving api", "serving-api", "self-deploy")
-# Prose wraps, so a qualifier one or two lines away still scopes the mention.
-QUALIFIER_WINDOW = 2
-# Prose names the connection family without the env-name hyphen, so the
-# label is derived from the suffix rather than spelled a second time.
+# Steering's explicit source-dev guide is read only for Yoke source releases.
+SOURCE_DEV_GUIDE = ".agents/skills/yoke/steer/source-dev-delivery.md"
 DB_ADMIN_LABEL = DB_ADMIN_ENV_SUFFIX.lstrip("-")
 
 
 def _shipped_texts() -> list[tuple[str, str]]:
     """Every shipped surface as (label, text), managed blocks extracted."""
-    managed = {path.resolve() for path in MANAGED_BLOCK_FILES}
+    # The packaged rules are entirely product content, including their prefix.
+    managed = {(REPO / "AGENTS.md").resolve()}
     texts: list[tuple[str, str]] = []
     seen: set[Path] = set()
     for root in SHIPPED_ROOTS:
@@ -103,49 +75,32 @@ def _shipped_texts() -> list[tuple[str, str]]:
     return texts
 
 
-def _unscoped_deploy_authority() -> list[str]:
-    """Shipped lines naming db-admin as a deployment authority, unqualified."""
+def test_product_surfaces_leave_admin_teaching_to_source_development() -> None:
     offenders = []
     for label, text in _shipped_texts():
-        lines = text.splitlines()
-        for index, line in enumerate(lines):
-            lowered = line.lower()
-            if DB_ADMIN_LABEL not in lowered:
-                continue
-            if not any(phrase in lowered for phrase in DEPLOY_OPERATION_PHRASES):
-                continue
-            window = " ".join(
-                lines[max(0, index - QUALIFIER_WINDOW) : index + QUALIFIER_WINDOW + 1]
-            ).lower()
-            if any(qualifier in window for qualifier in SELF_DEPLOY_QUALIFIERS):
-                continue
-            offenders.append(f"{label}:{index + 1}: {line.strip()[:160]}")
-    return offenders
-
-
-def test_shipped_surfaces_never_teach_db_admin_as_deployment_authority() -> None:
-    """The defect this guards is silent: the copy reaches every project."""
-    offenders = _unscoped_deploy_authority()
+        if label.endswith(SOURCE_DEV_GUIDE):
+            continue
+        for index, line in enumerate(text.splitlines(), start=1):
+            if DB_ADMIN_LABEL in line.lower():
+                offenders.append(f"{label}:{index}: {line.strip()[:160]}")
     assert offenders == [], (
-        "installed surfaces name a *-db-admin connection as deployment "
-        f"authority without scoping it to a serving-API self-deploy: {offenders}. "
-        "Ordinary delivery drives over the connection holding the run row, "
-        "HTTPS included; say so, and let the executor's refusal name the "
-        "admin connection for the self-deploy case."
+        "Product installs do not provision database-admin connections. "
+        "Teach registered commands and escalation; keep operator recipes "
+        f"in the source-dev layer: {offenders}"
     )
 
 
-def test_the_scan_sees_the_wording_it_exists_to_catch() -> None:
-    """A guard that matches nothing would pass on a fully stale tree."""
-    stale = (
-        "The HTTPS environment is the normal relayed authority; a "
-        "local-Postgres `*-db-admin` environment is write authority for "
-        "break-glass SQL and command-shaped deploy surfaces."
-    )
-    lowered = stale.lower()
-    assert DB_ADMIN_LABEL in lowered
-    assert any(phrase in lowered for phrase in DEPLOY_OPERATION_PHRASES)
-    assert not any(qualifier in lowered for qualifier in SELF_DEPLOY_QUALIFIERS)
+def test_source_dev_rules_retain_operator_authority() -> None:
+    doctrine = (REPO / "docs/source-dev-doctrine.md").read_text()
+    guide = (REPO / SOURCE_DEV_GUIDE).read_text()
+    for text in (doctrine, guide):
+        assert "prod-db-admin" in text
+        assert "yoke dev db-admin setup" in text
+    assert "migration rehearse" in doctrine
+    assert "db_router query" in doctrine
+    assert "--dsn-var APP_DSN" in doctrine
+    assert "release_lineage" in guide
+    assert "yoke --env prod deployment-runs create" in guide
 
 
 class TestTheExecuteRecipeRuntimeTeaching:
@@ -173,20 +128,19 @@ class TestTheExecuteRecipeRuntimeTeaching:
         assert "`--env` selecting that control plane" in message
 
 
-class TestTheAdministratorExceptionSurvives:
-    """Scrubbing the default must not erase the case that is genuinely true."""
+class TestProductDeploymentHelp:
+    """Default deployment help keeps operator recovery reachable by escalation."""
 
     @pytest.mark.parametrize(
         "teaching",
         [CREATE_DESCRIPTION, WATCH_DEPLOY_DESCRIPTION, ITEMLESS_RELEASE_RECIPE],
         ids=["create", "watch-deploy", "itemless-recipe"],
     )
-    def test_the_self_deploy_case_still_names_its_admin_connection(
-        self, teaching: str
-    ) -> None:
+    def test_self_deploy_help_escalates_to_the_operator(self, teaching: str) -> None:
         lowered = teaching.lower()
-        assert DB_ADMIN_LABEL in lowered
-        assert any(qualifier in lowered for qualifier in SELF_DEPLOY_QUALIFIERS)
+        assert DB_ADMIN_LABEL not in lowered
+        assert "operator" in lowered
+        assert "refusal" in lowered or "refuses" in lowered
 
     def test_ordinary_delivery_is_taught_as_the_transport_it_uses(self) -> None:
         assert "HTTPS" in CREATE_DESCRIPTION

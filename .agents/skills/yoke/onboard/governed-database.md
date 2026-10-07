@@ -100,7 +100,7 @@ before it serves. Rehearsal belongs to a work item that authors a migration
 entry, and validates it against the model's separate validation database:
 
 ```bash
-yoke --env {local-postgres-or-db-admin-connection} migration rehearse {ITEM}
+yoke --env {configured-local-postgres-authority} migration rehearse {ITEM}
 ```
 
 Run `yoke migration rehearse --help` for the full binding order and recovery.

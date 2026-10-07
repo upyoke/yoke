@@ -6,8 +6,8 @@ with the item-bound batch path; creation composes membership from the
 candidate, and start revalidates it. Keep wording project-generic. The resolved environment is the
 deploy destination; the selected ``--env`` connection at execute time is the
 control plane that owns the run row — verify the resolved destination rather
-than assuming the two names match. Only a deployment targeting that control
-plane's own serving API needs its paired local ``*-db-admin`` connection.
+than assuming the two names match. A deployment targeting that control
+plane's own serving API requires control-plane operator authority.
 """
 
 from __future__ import annotations
@@ -57,8 +57,8 @@ Itemless environment release (project-generic):
   # Verify the environment name is the deploy destination — do not assume
   # it matches the selected control-plane connection name. Ordinary external
   # delivery is fully supported over HTTPS. If the target is this control
-  # plane's own serving API, the CLI refuses and names the paired *-db-admin
-  # connection required for that self-deploy. The run copies the flow's
+  # plane's own serving API, escalate the named refusal and recovery to its
+  # operator. The run copies the flow's
   # registered environment; pass --environment ENV only to override it.
   # With no --source-ref, a flow that waits for CI binds the newest commit
   # on its gate branch's first-parent line that has its own branch CI run
@@ -132,8 +132,8 @@ CREATE_DESCRIPTION = (
     "delivery. Creation does not execute: the run stays 'created' until an "
     "operator drives it through the same control-plane connection with "
     "`yoke watch deploy`. A true self-deploy of that connection's serving "
-    "API requires its paired local `*-db-admin` connection; the CLI "
-    "identifies it when refusing HTTPS."
+    "API requires operator authority; escalate the named refusal and recovery "
+    "to the control-plane operator."
 )
 
 WATCH_DEPLOY_DESCRIPTION = (
@@ -146,8 +146,8 @@ WATCH_DEPLOY_DESCRIPTION = (
     "revalidates it before stage dispatch. Verify the resolved environment rather than assuming "
     "it matches the --env connection name. Re-driving the same run "
     "recovers an interrupted driver by correlation token instead of "
-    "dispatching a second release. Only serving-API self-deploys require "
-    "the paired local db-admin env; that path freezes the driver at the "
+    "dispatching a second release. Escalate a serving-API self-deploy "
+    "refusal to the control-plane operator. That path freezes the driver at the "
     "run's release_lineage so a merge landing mid-run cannot mix source. "
     "The wrapper records the live driver on the run before that freeze, "
     "so a second execute refuses by name and a tail on the printed "

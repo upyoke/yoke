@@ -89,8 +89,8 @@ When: transient failure, cause resolved. Re-run pipeline (reads `current_stage`,
 yoke --env {control-plane} deployment-runs execute {run-id}
 ```
 
-Use the paired local `*-db-admin` env only when the executor identifies this
-as a serving-API self-deploy.
+Escalate a serving-API self-deploy refusal to the control-plane operator,
+including its named recovery.
 
 ### Option B: Abort the run
 

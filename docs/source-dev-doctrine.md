@@ -27,6 +27,74 @@ Repo-relative paths:
 
 ## Source-dev doctrine
 
+### Direct database authority for source development and operators
+
+Discover configured connections with `yoke env list`. HTTPS `prod` owns normal
+registered operations. The paired `prod-db-admin` connection administers that
+same control plane directly; every real durable record stays on prod, including
+stage-targeted release and rehearsal receipts. Stage is disposable test state.
+
+When a sanctioned operator mutation has no registered command, the audited
+source-dev query path is
+`yoke --env prod-db-admin dev run -- python3 -m yoke_core.cli.db_router query "SQL"`.
+Governed schema/data changes still require their
+migration history and rehearsal; this query path does not replace that contract.
+For a function the serving API predates, use an existing served command or the
+paired authority only when the operator already holds this control plane.
+
+Only source-dev/admin setup creates these machine-local profiles:
+
+```text
+yoke dev db-admin setup prod --control-plane-env prod --yes
+yoke dev db-admin setup stage --project P --database MODEL --yes
+yoke dev db-admin exec P-stage-MODEL-db-admin --dsn-var APP_DSN -- <command>
+```
+
+Control-plane setup reads `current_database()` through the exact named HTTPS
+connection's tenant route; deploy environment settings supply stack, region,
+endpoint, and secret ARN, not the tenant database identity. Project database
+setup instead reads the `migration_model` declaration's `authoritative_db`
+(`database_name`, `endpoint_output`, `secret_arn_output`) and the environment's
+stack, bastion, and region. Profiles store only the managed secret ARN. `exec`
+resolves that secret through the project's `aws-admin` capability, opens the SSH
+forward, and passes the DSN to one subprocess. Never print, log, or store the DSN;
+named refusals identify the missing profile, capability, secret, or connection
+and its recovery. Product setup does not create these operator profiles.
+
+Rehearse Yoke migrations from the claimed lane through the paired authority:
+
+```text
+yoke --env prod-db-admin dev run -- yoke migration rehearse PREFIX-N
+```
+
+The item and durable lease/audit receipts live on prod. Migration code runs only
+against the separately bound disposable validation database, whose live cluster
+and database identity must differ from the authority. Preserve the rehearsal's
+`LIVE_DB_MIGRATION:<model>` hold and each environment's fleet-preflight receipt.
+Yoke self-deploys use the same paired authority because they replace the API
+that otherwise serves run state. Follow the release-pair rule below and the
+steering skill's source-dev delivery guide; ordinary projects deliver over HTTPS.
+
+Tenant-fleet content-identity adoption is also an attested operator operation:
+
+```text
+python3 -m yoke_core.tools.adopt_migration_content_identity stage-db-admin \
+  --wheel <attested-yoke-core-wheel> \
+  --manifest <attested-migration-history.json> \
+  --release-evidence <attested-migration-history-record.json> \
+  --repository owner/example-project --source-commit <full-commit> \
+  --manifest-sha256 <sha256> --adopted-by operator:<name> --prepare
+```
+
+Select the fleet's configured admin environment, then authenticate the exact
+wheel, manifest, and release record before opening any database. Missing or
+mismatched attestation refuses; retain the secret-free identity receipt.
+Evidence writes from admin connections relay to their configured HTTPS evidence
+plane so hosted reviewers can open captures. GitHub status and local merge
+authorization likewise prove through that paired HTTPS plane.
+
+### Source execution and release rules
+
 - **Actor-state bootstrap during a self-deploy.** The paired `prod-db-admin` connection creates and drives a production run against the existing database before the new server boots and converges additive columns. An actor row without `status` therefore has legacy active authority; once the column exists, only an explicit `active` value has authority. Keep authorization, approver, notification-audience, and roster reads compatible across that boundary. Actor enable/disable itself refuses until boot convergence. Do not apply the column manually. A correction merged while an earlier Stage run is executing needs a new Stage/Production pair pinned to the corrected candidate; the old Stage receipt does not prove the new build.
 - **Environment behavior is declared, never inferred from the name.** Endpoints, QA execution gating, release membership, the paired admin connection, the warm-up serving connection, observability, and the production role live on that environment's settings document (`yoke projects environment-settings`). A missing declaration is a named refusal, not an empty mapping and not production behavior borrowed from a conventional name.
 - The generic runner is the source-dev `uv run --frozen python3 -m yoke_core.tools.run_tests` helper; use project-provided commands or the retained watcher wrappers when they are named in your packet. `uv run --frozen` makes a clean worktree use its locked development dependencies and its own source packages without requiring an activated virtualenv. Run `yoke dev ruff-changed --base <ref>` for changed-path lint; add `--fix-format` to write the formatting CI checks, or `--format-check` to only report it. `yoke dev import-check <module> ...` imports named modules from the lane and names the file that answered each one, which is the sanctioned shape for smoke-testing source you are editing. Detailed recipes: [`docs/testing-verification.md`](testing-verification.md).
