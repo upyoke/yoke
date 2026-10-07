@@ -13,8 +13,8 @@ The target is resolved by the migration-model database declaration:
 * ``postgres`` — the authority is Yoke's connected control-plane DB.
   Presence is probed through the backend-aware ``schema_common`` catalog
   helpers (``information_schema`` on Postgres), i.e. the same connection
-  doctor already holds. This is the live shape for Yoke's ``primary``
-  model.
+  doctor already holds. Surfaces owned by ``control-plane`` — the
+  install's own control-plane schema — always resolve here.
 * ``sqlite_file`` — an external project SQLite file or archived import
   artifact. Presence is probed by opening that file directly. A declaration
   resolving to the retired root ``data/yoke.db`` path fails closed as
@@ -44,6 +44,7 @@ import sqlite3
 from yoke_core.domain import db_backend
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.retired_schema_registry import (
+    CONTROL_PLANE_OWNER,
     RetiredSchemaRegistryError,
     RetiredSurface,
     load_registry,
@@ -103,8 +104,11 @@ def _resolve_authority(
 
     Returns ``None`` when any step fails or the kind is unsupported — the
     HC surfaces a per-surface skip with the reason rather than treating a
-    resolution miss as drift.
+    resolution miss as drift. The :data:`CONTROL_PLANE_OWNER` names the
+    install's own control-plane schema, whose authority is the connected DB.
     """
+    if project == CONTROL_PLANE_OWNER:
+        return _Authority(kind="postgres")
     try:
         p = _p(conn)
         project_id = resolve_project_id(conn, project)

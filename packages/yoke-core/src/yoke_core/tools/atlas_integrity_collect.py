@@ -277,7 +277,7 @@ def collect_field_notes() -> Dict[str, Any]:
 
         response = call_dispatcher(
             function_id="ouroboros.field_note.list",
-            target=TargetRef(kind="global", project_id="yoke"),
+            target=TargetRef(kind="global"),
             payload={
                 "category_prefix": "field-note-",
                 "limit": 50,

@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+from yoke_contracts.project_defaults import default_project_for_directory
 from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
     repair_command_hint,
@@ -106,23 +107,31 @@ def run_checks(repo_root: Path, *, strict: bool = False) -> int:
     results: list[tuple[str, str]] = []
     auth_repair_hint: Optional[str] = None
 
-    # Resolve project GitHub auth: PASS when Yoke's repo binding can produce a
-    # bearer token, WARN with concrete repair text on resolver failures.
-    # ``--strict`` upgrades WARN to FAIL so CI trips on the same gap.
+    # Resolve the checkout's project GitHub auth: PASS when its repo binding
+    # can produce a bearer token, WARN with concrete repair text on resolver
+    # failures. ``--strict`` upgrades WARN to FAIL so CI trips on the same gap.
     github_authed = False
-    try:
-        resolve_project_github_auth("yoke")
-        github_authed = True
-    except ProjectGithubAuthError as exc:
+    project = default_project_for_directory(repo_root) or ""
+    if not project:
         auth_repair_hint = (
-            f"project 'yoke' github auth not resolvable: {exc}. "
-            f"Repair: {repair_command_hint(exc, 'yoke')}"
+            f"{repo_root} is not a registered project checkout, so no GitHub "
+            "binding applies. Repair: yoke project register "
+            f"{repo_root} --project-id <id>"
         )
-    except Exception as exc:
-        auth_repair_hint = (
-            "project 'yoke' github auth not resolvable: "
-            f"{type(exc).__name__}: {exc}"
-        )
+    else:
+        try:
+            resolve_project_github_auth(project)
+            github_authed = True
+        except ProjectGithubAuthError as exc:
+            auth_repair_hint = (
+                f"project {project} github auth not resolvable: {exc}. "
+                f"Repair: {repair_command_hint(exc, project)}"
+            )
+        except Exception as exc:
+            auth_repair_hint = (
+                f"project {project} github auth not resolvable: "
+                f"{type(exc).__name__}: {exc}"
+            )
     if github_authed:
         _add_result(results, "Project GitHub App auth configured", "✅")
     elif strict:

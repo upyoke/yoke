@@ -42,6 +42,9 @@ _REGISTRY_REL_PATH = (
 )
 
 
+CONTROL_PLANE_OWNER = "control-plane"  # ``project`` of the install's own schema
+
+
 class RetiredSchemaRegistryError(Exception):
     """Raised when the registry file is malformed."""
 

@@ -21,7 +21,10 @@ from yoke_core.domain.project_github_capability_settings import (
 from yoke_core.domain.project_github_auth_models import GITHUB_CAPABILITY_TYPE
 from yoke_core.domain.projects_restart_schema import create_project_registry_tables
 from yoke_core.domain.projects_seed_data import seed_all
-from yoke_core.domain.retired_schema_registry import guard_add_column
+from yoke_core.domain.retired_schema_registry import (
+    CONTROL_PLANE_OWNER,
+    guard_add_column,
+)
 from yoke_core.domain.schema_common import (
     _column_exists as _schema_column_exists,
     _table_exists as _schema_table_exists,
@@ -29,7 +32,6 @@ from yoke_core.domain.schema_common import (
 from yoke_core.domain.sql_json import json_get
 
 
-_RESTART_PROJECT = "yoke"
 _RESTART_CALLER = "yoke_core.domain.projects_restart"
 
 
@@ -48,7 +50,7 @@ def _ensure_column(conn, table: str, column: str, ddl: str) -> None:
     """
     if _has_column(conn, table, column):
         return
-    if not guard_add_column(_RESTART_PROJECT, table, column, caller=_RESTART_CALLER):
+    if not guard_add_column(CONTROL_PLANE_OWNER, table, column, caller=_RESTART_CALLER):
         return
     conn.execute(ddl)
     conn.commit()

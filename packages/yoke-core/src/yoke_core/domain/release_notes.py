@@ -72,7 +72,7 @@ def _p(conn) -> str:
 
 
 def _resolve_item_project(conn, item_id: int) -> str:
-    """Resolve project for an item, falling back to 'yoke'."""
+    """Resolve the item's project slug, or ``""`` when it has none."""
     row = query_scalar(
         conn,
         "SELECT p.slug FROM items i LEFT JOIN projects p ON p.id = i.project_id "

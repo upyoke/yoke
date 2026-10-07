@@ -55,7 +55,7 @@ def _board_project(repo_root: Path, conn: Any | None = None) -> str:
             except Exception:
                 pass
         return str(project_id)
-    return "yoke"
+    return ""
 
 
 def _event_id_from_result(result: object) -> str | None:

@@ -64,7 +64,6 @@ def emit_harness_session_stopped(script_dir: str, session_id: str, ctx: StopCont
             "severity": "INFO",
             "outcome": determine_stop_outcome(ctx.final_status),
             "session_id": session_id,
-            "project": "yoke",
             "context": context_obj,
         }
         if ctx.item_id:

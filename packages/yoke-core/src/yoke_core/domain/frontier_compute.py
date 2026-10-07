@@ -276,7 +276,7 @@ def compute_frontier(
 def _canonical_project_label(conn: Any, project_scope: List[int]) -> str:
     """Pick the legacy single project label for event/payload surfaces."""
     if not project_scope:
-        return "yoke"
+        return "all"
     if len(project_scope) == 1:
         try:
             return resolve_project_slug(conn, int(project_scope[0]))

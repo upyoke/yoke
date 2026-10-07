@@ -24,7 +24,6 @@ from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 _DEFAULT_SPEC_TRUNCATION_BYTES = 4096
 _TRUNCATION_CONFIG_KEY = "coordination_context_spec_truncation_bytes"
-_PROJECT_ID = "yoke"
 DECISION_OPTIONS: List[str] = ["coordination_only", "directional", "escalate"]
 
 
@@ -82,12 +81,22 @@ def _conflicting_claim_row(conn: Any, claim_id: int) -> dict:
     }
 
 
+def _item_project_id(conn: Any, item_id: int) -> int:
+    row = conn.execute(
+        f"SELECT project_id FROM items WHERE id = {_p(conn)}", (item_id,),
+    ).fetchone()
+    if row is None:
+        raise ValueError(ITEM_NOT_FOUND)
+    return int(row["project_id"])
+
+
 def _shared_path_metadata(
-    conn: Any, shared_paths: List[str],
+    conn: Any, project_id: int, shared_paths: List[str],
 ) -> List[dict]:
+    """Path-registry facts for each shared path in the candidate's project."""
     out: List[dict] = []
     for path in shared_paths:
-        target_id = target_at(conn, _PROJECT_ID, path)
+        target_id = target_at(conn, project_id, path)
         if target_id is None:
             out.append({"path": path, "kind": "unknown", "lineage_depth": 0})
             continue
@@ -181,7 +190,9 @@ def build_coordination_context(
         conflicting_item_spec=_trunc(other_spec, limit),
         conflicting_claim_state=claim["state"],
         shared_paths=list(shared_paths),
-        shared_path_metadata=_shared_path_metadata(conn, shared_paths),
+        shared_path_metadata=_shared_path_metadata(
+            conn, _item_project_id(conn, candidate_item_id), shared_paths,
+        ),
         suggested_commands=_suggested_commands(
             conn, candidate_item_id, other_id, list(shared_paths),
             conflicting_claim_id,
