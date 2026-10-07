@@ -180,14 +180,15 @@ def approvals_conn():
         yield value
 
 
-def _pending(conn, *, expires_at: str) -> None:
+def _pending(conn, *, expires_at: str, member: int = 2) -> None:
+    """Open an approval for ``member``; actor 2 owns a project in org 1."""
     approvals.apply_machine_approval_lifecycle(
         conn,
         auth_request_id=_AUTH_ID,
         org_id=1,
         state="pending",
         occurred_at="2026-07-28T12:00:00Z",
-        actor_id=1,
+        actor_id=member,
         context={"expires_at": expires_at},
     )
 
@@ -214,6 +215,24 @@ def test_service_cannot_end_a_live_machine_approval(approvals_conn, state) -> No
         0
     ]
     assert status == "pending"
+
+
+@pytest.mark.parametrize(
+    "departure",
+    (
+        "UPDATE actors SET status = 'disabled' WHERE id = 2",
+        "DELETE FROM actor_project_roles WHERE actor_id = 2",
+    ),
+)
+def test_service_ends_a_live_approval_whose_member_left_the_org(
+    approvals_conn, departure
+) -> None:
+    """The member's own rows, not the delivery, show the subject ended."""
+    _pending(approvals_conn, expires_at="2099-01-01T00:00:00Z")
+    approvals_conn.execute(departure)
+    withdrawn, _, applied = _end(approvals_conn, actor_id=6, state="withdrawn")
+    assert withdrawn is not None
+    assert (withdrawn["status"], applied) == ("withdrawn", True)
 
 
 def test_disabled_service_actor_cannot_end_a_machine_approval(approvals_conn) -> None:

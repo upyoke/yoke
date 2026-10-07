@@ -103,6 +103,9 @@ The identity calls only `projects.github_binding.lifecycle` and
 - A disabled service actor is refused like any disabled actor.
 
 A machine-approval `expired`/`withdrawn` delivery from the service succeeds
-only when the universe's own stored expiry for that authorization has passed,
-by the engine's clock. A delivery about a live authorization is refused as
-`hosted_service_withdrawal_subject_live`. An org admin withdraws one early.
+only when the universe's own rows show the authorization has ended. Either the
+expiry stored when it opened has passed by the engine's clock, or the
+requesting member has left the org: their actor is disabled, or holds no org
+role and no project role there. A delivery about a live authorization is
+refused as `hosted_service_withdrawal_subject_live`. An org admin withdraws
+one early.
