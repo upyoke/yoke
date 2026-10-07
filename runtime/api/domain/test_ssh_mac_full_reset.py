@@ -25,6 +25,7 @@ from yoke_harness.ssh_mac_full_reset_contract import (
     RESET_ABSENT_KIND_LEFTOVER,
     RESET_ABSENT_PATH_PREFIX,
     RESET_ABSENT_RECOVERY,
+    RESET_RESTORE_ERROR_PREFIX,
     RESET_RESTORE_UNRESTORED_PREFIX,
     SELF_HOST_COMPOSE_PROJECT,
 )
@@ -251,6 +252,8 @@ def test_reset_names_the_entries_a_stopped_restore_could_not_return() -> None:
             (
                 RESET_FAILURE_PREFIX + RESET_PHASES["restore_golden"],
                 RESET_RESTORE_UNRESTORED_PREFIX + "2 Library Documents",
+                RESET_RESTORE_ERROR_PREFIX
+                + "Library cp: Library/Developer: Permission denied",
             )
         ),
         reset_returncode=1,
@@ -266,6 +269,14 @@ def test_reset_names_the_entries_a_stopped_restore_could_not_return() -> None:
     assert result.evidence["restore_state"] == {
         "unrestored_entry_count": 2,
         "unrestored_entries": ["Library", "Documents"],
+        # The copier's own words ride the receipt; its scratch log does not
+        # survive the program's exit.
+        "entry_errors": [
+            {
+                "entry": "Library",
+                "error_excerpt": "cp: Library/Developer: Permission denied",
+            }
+        ],
     }
 
 

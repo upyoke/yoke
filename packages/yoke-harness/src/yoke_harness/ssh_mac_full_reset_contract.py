@@ -174,6 +174,20 @@ RESET_RELAY_SERVICE_RECOVERY = {
 # restore just to learn where it stopped, so the report rides the failure.
 RESET_RESTORE_UNRESTORED_PREFIX = "YOKE_RESET_UNRESTORED_"
 RESTORE_REPORT_ENTRY_CAP = 12
+# Each unrestored entry also carries what the copier said about it. The scratch
+# log holding that stderr is removed on exit, so without this line the cause
+# was gone by the time anyone read the receipt and finding it meant repeating
+# the restore. The excerpt is the first few stderr lines, reduced to printable
+# ASCII and bounded, so it carries copier diagnostics and never file contents.
+RESET_RESTORE_ERROR_PREFIX = "YOKE_RESET_RESTORE_ERROR_"
+RESTORE_ERROR_EXCERPT_LINES = 3
+RESTORE_ERROR_EXCERPT_CHAR_CAP = 400
+
+# Home-relative device set of the iOS Simulator. A booted simulator device runs
+# from inside the home and keeps writing its data there, so a reset that leaves
+# it running clears a directory the device immediately repopulates and the
+# restore then collides with those fresh writes.
+SIMULATOR_DEVICE_SET_SUFFIX = "Library/Developer/CoreSimulator/Devices"
 
 
 @dataclass(frozen=True)
