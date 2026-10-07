@@ -89,7 +89,7 @@ class TestResolveTargetItemRef(unittest.TestCase):
 
     def test_resolves_ref_with_target_project_context(self):
         request = _request(
-            TargetRef(kind="item", public_ref="123", project_id="yoke"),
+            TargetRef(kind="item", public_ref=f"YOK-{123}", project_id="yoke"),
         )
         captured = {}
 
@@ -114,14 +114,14 @@ class TestResolveTargetItemRef(unittest.TestCase):
         ):
             self.assertIsNone(resolve_target_public_ref(request))
         self.assertEqual(request.target.item_id, 4242)
-        self.assertEqual(captured["ref"], "123")
+        self.assertEqual(captured["ref"], f"YOK-{123}")
         self.assertEqual(captured["project"], "yoke")
         # The ambient context hint is cleared after resolution so
         # permission scoping derives from the item's own project.
         self.assertIsNone(request.target.project_id)
 
     def test_unresolved_ref_returns_typed_error(self):
-        request = _request(TargetRef(kind="item", public_ref="123"))
+        request = _request(TargetRef(kind="item", public_ref=f"YOK-{123}"))
 
         @contextmanager
         def _cm(*_a, **_k):
@@ -135,8 +135,8 @@ class TestResolveTargetItemRef(unittest.TestCase):
             patch(
                 "yoke_core.domain.item_ref_resolution.resolve_item_ref",
                 side_effect=ItemRefError(
-                    "item_ref_needs_project",
-                    "bare item number 123 names a project sequence but no project",
+                    "item_ref_not_found",
+                    "no item for the requested reference",
                 ),
             ),
         ):
@@ -145,7 +145,7 @@ class TestResolveTargetItemRef(unittest.TestCase):
         self.assertFalse(response.success)
         assert response.error is not None
         self.assertEqual(response.error.code, "public_ref_unresolved")
-        self.assertIn("names a project sequence", response.error.message)
+        self.assertIn("no item for the requested reference", response.error.message)
 
     def test_epic_task_ref_resolves_onto_epic_id(self):
         request = _request(

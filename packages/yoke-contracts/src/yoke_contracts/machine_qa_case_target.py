@@ -156,6 +156,13 @@ def require_case_execution_target(case: Any) -> None:
     because that model imports this check and naming its type here would
     close the cycle.
     """
+    from yoke_contracts.public_ref import parse_public_item_ref
+
+    for ref in (case.public_ref, case.deployment_member_public_ref):
+        if ref is not None and parse_public_item_ref(ref)[0] is None:
+            raise MachineQaCaseTargetError(
+                "Machine QA item identities require complete public refs"
+            )
     problems = case_target_mismatches(
         case.execution_target,
         project_id=case.project_id,
@@ -173,7 +180,7 @@ def require_case_execution_target(case: Any) -> None:
             plan_id=case.plan_id,
             deployment_run_id=case.deployment_run_id,
             deployment_stage=case.deployment_stage,
-            deployment_member=case.deployment_member_item_id,
+            deployment_member=case.deployment_member_public_ref,
             workflow_transition_id=case.workflow_transition_id,
             standalone_execution_id=case.standalone_execution_id,
         )

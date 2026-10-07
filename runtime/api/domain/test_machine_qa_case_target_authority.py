@@ -69,10 +69,10 @@ def _deployment_target() -> dict:
 def _case(target: dict, **overrides) -> dict:
     case = {
         "requirement_id": 4321,
-        "item_id": None,
+        "public_ref": None,
         "deployment_run_id": RUN_ID,
         "deployment_stage": "item-qa",
-        "deployment_member_item_id": 77,
+        "deployment_member_public_ref": f"ITEM-{77}",
         "plan_id": 431,
         "case_key": "released-skill-tree-routing",
         "method_id": "terminal-inspection",
@@ -113,11 +113,11 @@ def test_a_plan_environment_target_still_executes() -> None:
         _environment_target(),
         deployment_run_id=None,
         deployment_stage=None,
-        deployment_member_item_id=None,
-        item_id=3400,
+        deployment_member_public_ref=None,
+        public_ref=f"ITEM-{3400}",
     )
 
-    assert MachineQaCaseContract.model_validate(case).item_id == 3400
+    assert MachineQaCaseContract.model_validate(case).public_ref == f"ITEM-{3400}"
 
 
 def test_a_standalone_case_has_one_saved_plan_owner() -> None:
@@ -125,7 +125,7 @@ def test_a_standalone_case_has_one_saved_plan_owner() -> None:
         _environment_target(),
         deployment_run_id=None,
         deployment_stage=None,
-        deployment_member_item_id=None,
+        deployment_member_public_ref=None,
         standalone_execution_id="standalone-walk",
     )
     assert (
@@ -133,7 +133,7 @@ def test_a_standalone_case_has_one_saved_plan_owner() -> None:
         == "standalone-walk"
     )
     for overrides in (
-        {"item_id": 3400},
+        {"public_ref": f"ITEM-{3400}"},
         {"plan_id": None},
         {"deployment_stage": "item-qa"},
     ):
@@ -184,7 +184,7 @@ def test_a_refused_deployment_case_names_the_command_that_rebinds_it() -> None:
     message = str(refusal.value)
     assert "environment.name: target names no environment" in message
     assert (
-        f"--deployment-run-id {RUN_ID} --stage item-qa --member 77 "
+        f"--deployment-run-id {RUN_ID} --stage item-qa --member ITEM-{77} "
         f"--plan 431 --project {PROJECT}" in message
     )
     # The refusal reads as itself, not as a pydantic dump of the whole case.
@@ -199,8 +199,8 @@ def test_an_item_case_refusal_names_the_rematerialize_path() -> None:
         target,
         deployment_run_id=None,
         deployment_stage=None,
-        deployment_member_item_id=None,
-        item_id=3400,
+        deployment_member_public_ref=None,
+        public_ref=f"ITEM-{3400}",
         workflow_transition_id="release",
     )
 

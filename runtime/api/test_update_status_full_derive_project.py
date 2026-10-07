@@ -10,7 +10,7 @@ import pytest
 import yoke_core.engines.done_transition_runner as done_transition_runner
 from yoke_core.domain.update_status_auto_derive import auto_derive_epic_status
 from runtime.api.fixtures.file_test_db import connect_test_db
-from runtime.api.update_status_full_test_helpers import UpdateStatusEnv
+from runtime.api.update_status_full_test_helpers import TEST_EPIC_REF, UpdateStatusEnv
 
 
 @pytest.fixture
@@ -53,7 +53,7 @@ class TestAutoDerive:
             )
         env.init_git()
         r = env.run(
-            "42",
+            TEST_EPIC_REF,
             "003",
             "done",
             extra_env={
@@ -84,7 +84,7 @@ class TestAutoDerive:
                 dispatch_attempts=attempts,
             )
         env.init_git()
-        r = env.run("42", "002", "implementing")
+        r = env.run(TEST_EPIC_REF, "002", "implementing")
         assert r.returncode == 0
         assert env.query("SELECT status FROM items WHERE id=42") == "implementing"
 

@@ -313,7 +313,7 @@ class TestMain(unittest.TestCase):
     def test_invalid_id_exits_2(self) -> None:
         rc, _, err = self._run(["--item-id", ""])
         self.assertEqual(rc, 2)
-        self.assertIn("pass the public ref (PREFIX-N", err)
+        self.assertIn("public_item_ref_required", err)
 
     def test_emits_json_envelope(self) -> None:
         with (

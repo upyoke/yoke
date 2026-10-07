@@ -34,7 +34,7 @@ def _ctx() -> MergeContext:
 
 def _record(head: str, *, state: str = LANDED) -> dict:
     return {
-        "item_id": 7,
+        "public_ref": f"ITEM-{7}",
         "project_id": 1,
         "pr_number": "42",
         "state": state,
@@ -107,14 +107,14 @@ def _wire(monkeypatch, *, merge_sha: str):
 
 
 def test_landed_record_names_its_candidate_head():
-    head, gap = landed_candidate_head(7, dispatch=_dispatch(_record(REBASED)))
+    head, gap = landed_candidate_head(f"ITEM-{7}", dispatch=_dispatch(_record(REBASED)))
 
     assert gap == ""
     assert head == REBASED
 
 
 def test_landed_record_without_a_head_does_not_invent_one():
-    head, gap = landed_candidate_head(7, dispatch=_dispatch(_record("")))
+    head, gap = landed_candidate_head(f"ITEM-{7}", dispatch=_dispatch(_record("")))
 
     assert head == ""
     assert "names no candidate head" in gap

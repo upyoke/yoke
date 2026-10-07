@@ -25,7 +25,7 @@ WATCHED_COMMAND = (
 def _case() -> dict:
     return {
         "requirement_id": 41,
-        "item_id": 9,
+        "public_ref": f"ITEM-{9}",
         "case_key": "quick",
         "project": "yoke",
         "method_config": {"command": WATCHED_COMMAND},

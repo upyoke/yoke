@@ -12,7 +12,7 @@ import textwrap
 
 import pytest
 
-from runtime.api.update_status_full_test_helpers import UpdateStatusEnv
+from runtime.api.update_status_full_test_helpers import TEST_EPIC_REF, UpdateStatusEnv
 
 
 @pytest.fixture
@@ -31,7 +31,9 @@ class TestTerminalSuccess:
         """TEST 1: PATCH /issues/100 with state=closed when task transitions to done."""
         env.insert_task("implementing")
         env.init_git()
-        r = env.run("42", "003", "done", extra_env={"YOKE_TASK_DONE_VERIFIED": "1"})
+        r = env.run(
+            TEST_EPIC_REF, "003", "done", extra_env={"YOKE_TASK_DONE_VERIFIED": "1"}
+        )
         assert r.returncode == 0
         log = env.gh_log.read_text()
         assert "PATCH /repos/upyoke/yoke/issues/100" in log
@@ -40,7 +42,9 @@ class TestTerminalSuccess:
         """TEST 2: REST POSTs status:done label, never status:completed."""
         env.insert_task("implementing")
         env.init_git()
-        r = env.run("42", "003", "done", extra_env={"YOKE_TASK_DONE_VERIFIED": "1"})
+        r = env.run(
+            TEST_EPIC_REF, "003", "done", extra_env={"YOKE_TASK_DONE_VERIFIED": "1"}
+        )
         assert r.returncode == 0
         log = env.gh_log.read_text()
         # POST /labels with name 'status:done' is recorded as a label-create
@@ -52,8 +56,10 @@ class TestTerminalSuccess:
         """TEST 4: sequential reviewed-impl -> done exits 0 with two closes."""
         env.insert_task("reviewing-implementation")
         env.init_git()
-        r1 = env.run("42", "003", "reviewed-implementation")
-        r2 = env.run("42", "003", "done", extra_env={"YOKE_TASK_DONE_VERIFIED": "1"})
+        r1 = env.run(TEST_EPIC_REF, "003", "reviewed-implementation")
+        r2 = env.run(
+            TEST_EPIC_REF, "003", "done", extra_env={"YOKE_TASK_DONE_VERIFIED": "1"}
+        )
         assert r1.returncode == 0
         assert r2.returncode == 0
         log = env.gh_log.read_text()
@@ -67,24 +73,39 @@ class TestTerminalSuccess:
         velocity / execution status / lifecycle HCs read post telemetry-only-events."""
         env.insert_task("reviewing-implementation")
         env.init_git()
-        assert env.run("42", "003", "reviewed-implementation").returncode == 0
-        assert env.run(
-            "42", "003", "done", extra_env={"YOKE_TASK_DONE_VERIFIED": "1"},
-        ).returncode == 0
-        assert env.query_int(
-            "SELECT COUNT(*) FROM item_status_transitions "
-            "WHERE item_id=42 AND task_num=3"
-        ) == 2
-        assert env.query_int(
-            "SELECT COUNT(*) FROM item_status_transitions "
-            "WHERE item_id=42 AND task_num=3 "
-            "AND from_status='reviewing-implementation' "
-            "AND to_status='reviewed-implementation'"
-        ) == 1
-        assert env.query_int(
-            "SELECT COUNT(*) FROM item_status_transitions "
-            "WHERE item_id=42 AND task_num=3 AND to_status='done'"
-        ) == 1
+        assert env.run(TEST_EPIC_REF, "003", "reviewed-implementation").returncode == 0
+        assert (
+            env.run(
+                TEST_EPIC_REF,
+                "003",
+                "done",
+                extra_env={"YOKE_TASK_DONE_VERIFIED": "1"},
+            ).returncode
+            == 0
+        )
+        assert (
+            env.query_int(
+                "SELECT COUNT(*) FROM item_status_transitions "
+                "WHERE item_id=42 AND task_num=3"
+            )
+            == 2
+        )
+        assert (
+            env.query_int(
+                "SELECT COUNT(*) FROM item_status_transitions "
+                "WHERE item_id=42 AND task_num=3 "
+                "AND from_status='reviewing-implementation' "
+                "AND to_status='reviewed-implementation'"
+            )
+            == 1
+        )
+        assert (
+            env.query_int(
+                "SELECT COUNT(*) FROM item_status_transitions "
+                "WHERE item_id=42 AND task_num=3 AND to_status='done'"
+            )
+            == 1
+        )
         # A transition is item activity: the rollup gains one epic row per
         # UTC day a transition landed on — two when the pair straddles midnight.
         assert env.query_int(
@@ -99,7 +120,8 @@ class TestLabelReconciliation:
     """Tests 3, 26 — stale label removal, underscore normalization."""
 
     def _write_label_mock(self, env, label_name: str) -> None:
-        env._write_mock_gh(textwrap.dedent(f"""\
+        env._write_mock_gh(
+            textwrap.dedent(f"""\
             #!/usr/bin/env sh
             _log_file="$MOCK_GH_LOG"
             echo "ARGS=$*" >> "$_log_file"
@@ -132,26 +154,32 @@ class TestLabelReconciliation:
                 esac ;;
               *) exit 0 ;;
             esac
-        """))
+        """)
+        )
 
     def _seed_existing_label(self, env, label_name: str) -> None:
         """Seed the REST GET /issues/100/labels response with the named label."""
         import json
+
         rest_dir = env.tmp / "rest-fakes"
         rest_dir.mkdir(exist_ok=True)
         # GET /repos/upyoke/yoke/issues/100/labels -> [{name: label_name}]
         labels_file = rest_dir / "GET_repos_upyoke_yoke_issues_100_labels.json"
-        labels_file.write_text(json.dumps({
-            "status": 200,
-            "body": [{"name": label_name}],
-        }))
+        labels_file.write_text(
+            json.dumps(
+                {
+                    "status": 200,
+                    "body": [{"name": label_name}],
+                }
+            )
+        )
 
     def test_stale_label_removed(self, env):
         """TEST 3: old status:done label is removed on new transition."""
         env.insert_task("implementing")
         env.init_git()
         self._seed_existing_label(env, "status:done")
-        r = env.run("42", "003", "reviewed-implementation")
+        r = env.run(TEST_EPIC_REF, "003", "reviewed-implementation")
         assert r.returncode == 0
         log = env.gh_log.read_text()
         assert "labels/status%3Adone" in log
@@ -161,7 +189,7 @@ class TestLabelReconciliation:
         env.insert_task("planned")
         env.init_git()
         self._seed_existing_label(env, "status:in_progress")
-        r = env.run("42", "3", "implementing")
+        r = env.run(TEST_EPIC_REF, "3", "implementing")
         assert r.returncode == 0
         log = env.gh_log.read_text()
         assert "labels/status%3Ain_progress" in log
@@ -175,12 +203,17 @@ class TestErrorLogging:
     def _seed_failing_rest(self, env, *, fail_path: str, status: int = 500) -> None:
         """Seed a 5xx response for the named REST endpoint filename."""
         import json
+
         rest_dir = env.tmp / "rest-fakes"
         rest_dir.mkdir(exist_ok=True)
-        (rest_dir / fail_path).write_text(json.dumps({
-            "status": status,
-            "body": "simulated REST failure",
-        }))
+        (rest_dir / fail_path).write_text(
+            json.dumps(
+                {
+                    "status": status,
+                    "body": "simulated REST failure",
+                }
+            )
+        )
 
     def test_comment_post_failure(self, env):
         """TEST 10: REST POST /comments failure is warned; script exits 0."""
@@ -190,7 +223,9 @@ class TestErrorLogging:
             env,
             fail_path="POST_repos_upyoke_yoke_issues_100_comments.json",
         )
-        r = env.run("42", "003", "done", extra_env={"YOKE_TASK_DONE_VERIFIED": "1"})
+        r = env.run(
+            TEST_EPIC_REF, "003", "done", extra_env={"YOKE_TASK_DONE_VERIFIED": "1"}
+        )
         assert r.returncode == 0
         output = r.stdout + r.stderr
         assert "Warning: failed to post comment on #100" in output
@@ -203,7 +238,9 @@ class TestErrorLogging:
             env,
             fail_path="POST_repos_upyoke_yoke_issues_100_labels.json",
         )
-        r = env.run("42", "003", "done", extra_env={"YOKE_TASK_DONE_VERIFIED": "1"})
+        r = env.run(
+            TEST_EPIC_REF, "003", "done", extra_env={"YOKE_TASK_DONE_VERIFIED": "1"}
+        )
         assert r.returncode == 0
         output = r.stdout + r.stderr
         assert "Warning: failed to add label status:done to #100" in output
@@ -216,8 +253,13 @@ class TestErrorLogging:
             env,
             fail_path="PATCH_repos_upyoke_yoke_issues_100.json",
         )
-        r = env.run("42", "003", "done", extra_env={"YOKE_TASK_DONE_VERIFIED": "1"})
+        r = env.run(
+            TEST_EPIC_REF, "003", "done", extra_env={"YOKE_TASK_DONE_VERIFIED": "1"}
+        )
         assert r.returncode == 0
-        assert env.query_int(
-            "SELECT COUNT(*) FROM events WHERE event_name='GitHubCloseFailure'"
-        ) == 1
+        assert (
+            env.query_int(
+                "SELECT COUNT(*) FROM events WHERE event_name='GitHubCloseFailure'"
+            )
+            == 1
+        )

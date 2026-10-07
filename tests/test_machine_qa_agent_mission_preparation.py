@@ -184,7 +184,7 @@ def test_local_capture_stops_even_when_serving_build_returns_unjudged_docket(
         lambda: None,
     )
     result = client.execute_plan_agent_mission_case(
-        {"requirement_id": 15, "item_id": 11},
+        {"requirement_id": 15, "public_ref": f"ITEM-{11}"},
         execution_id="diagnostic-mission",
         ordinal=0,
         actor=None,

@@ -28,7 +28,7 @@ REFUSAL = "REFUSAL: cd to the claimed worktree"
 def _case() -> dict:
     return {
         "requirement_id": 41,
-        "item_id": 9,
+        "public_ref": f"ITEM-{9}",
         "plan_id": 5,
         "case_key": "registered",
         "method_id": "command",
@@ -47,7 +47,9 @@ def test_binding_refusal_stops_the_run_before_the_command(
 
     with (
         mock.patch.object(
-            qa_case_execution, "_execution_checkout", return_value=tmp_path,
+            qa_case_execution,
+            "_execution_checkout",
+            return_value=tmp_path,
         ),
         mock.patch.object(
             qa_case_worktree_run.verification_tree_binding,
@@ -70,7 +72,8 @@ def test_binding_refusal_stops_the_run_before_the_command(
 
 
 def test_run_record_names_the_tree_that_produced_the_verdict(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
     calls: list[tuple[str, dict]] = []
@@ -85,7 +88,9 @@ def test_run_record_names_the_tree_that_produced_the_verdict(
 
     with (
         mock.patch.object(
-            qa_case_execution, "_execution_checkout", return_value=tmp_path,
+            qa_case_execution,
+            "_execution_checkout",
+            return_value=tmp_path,
         ),
         mock.patch.object(
             qa_case_worktree_run.verification_tree_binding,
@@ -93,7 +98,9 @@ def test_run_record_names_the_tree_that_produced_the_verdict(
             return_value=identity,
         ),
         mock.patch.object(
-            qa_case_execution, "_dispatch", side_effect=dispatch,
+            qa_case_execution,
+            "_dispatch",
+            side_effect=dispatch,
         ),
     ):
         result = qa_case_execution.execute_case_context(_case())
@@ -107,7 +114,8 @@ def test_run_record_names_the_tree_that_produced_the_verdict(
 
 
 def test_unidentifiable_tree_records_null_rather_than_guessing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
     calls: list[tuple[str, dict]] = []
@@ -120,7 +128,9 @@ def test_unidentifiable_tree_records_null_rather_than_guessing(
 
     with (
         mock.patch.object(
-            qa_case_execution, "_execution_checkout", return_value=tmp_path,
+            qa_case_execution,
+            "_execution_checkout",
+            return_value=tmp_path,
         ),
         mock.patch.object(
             qa_case_worktree_run.verification_tree_binding,
@@ -128,7 +138,9 @@ def test_unidentifiable_tree_records_null_rather_than_guessing(
             return_value=None,
         ),
         mock.patch.object(
-            qa_case_execution, "_dispatch", side_effect=dispatch,
+            qa_case_execution,
+            "_dispatch",
+            side_effect=dispatch,
         ),
     ):
         result = qa_case_execution.execute_case_context(_case())
@@ -139,7 +151,8 @@ def test_unidentifiable_tree_records_null_rather_than_guessing(
 
 
 def test_checkout_under_the_claimed_lane_runs(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # The pass-through case the refusal must never swallow: the case
     # runs in exactly the worktree the session claimed.
@@ -147,7 +160,9 @@ def test_checkout_under_the_claimed_lane_runs(
     lane = tmp_path / ".worktrees" / "lane"
     lane.mkdir(parents=True)
     monkeypatch.setattr(
-        verification_tree_binding, "ambient_session_id", lambda: "sess-1",
+        verification_tree_binding,
+        "ambient_session_id",
+        lambda: "sess-1",
     )
     monkeypatch.setattr(
         verification_tree_binding,
@@ -157,7 +172,9 @@ def test_checkout_under_the_claimed_lane_runs(
 
     with (
         mock.patch.object(
-            qa_case_execution, "_execution_checkout", return_value=lane,
+            qa_case_execution,
+            "_execution_checkout",
+            return_value=lane,
         ),
         mock.patch.object(
             qa_case_execution,

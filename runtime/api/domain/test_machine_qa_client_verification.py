@@ -195,3 +195,49 @@ def test_client_shell_baseline_uses_the_published_installer_recipe() -> None:
         "--yes",
     ]
     assert [timeout for _command, timeout in commands] == [300, 1200, 300]
+
+
+def test_case_contract_keeps_its_digest_after_public_dispatch(test_db):
+    from runtime.api.fixtures.backlog import insert_item
+    from runtime.api.domain.machine_qa_fixture_lifecycle_test_support import (
+        case_contract,
+    )
+    from yoke_contracts.api.function_call import FunctionCallResponse
+    from yoke_contracts.machine_qa_execution import HostControlExecutionContract
+    from yoke_core.domain.function_response_refs import public_response
+    from yoke_core.domain.machine_qa_execution_contract import public_case_snapshots
+    from yoke_core.domain.project_seed_test_helpers import seed_project_identities
+
+    internal, sequence = 901, 7
+    seed_project_identities(test_db)
+    insert_item(test_db, id=internal, project_id=1, project_sequence=sequence)
+    test_db.commit()
+    case = case_contract().model_dump(mode="json")
+    case.pop("public_ref")
+    case["item_id"] = internal
+    case["execution_target"]["deployment"] = {"member_item_id": internal}
+    issued = issue_execution_contract(
+        operation="case",
+        lease_id=19,
+        lease_key="QA_HOST:mac-mini-lab",
+        project_id=1,
+        project="yoke",
+        settings=_verification_contract()["settings"],
+        cases=public_case_snapshots([case]),
+    )
+    result = public_response(
+        FunctionCallResponse(
+            success=True,
+            function="test_machine.case.begin",
+            version="v1",
+            result={"execution": issued.model_dump(mode="json")},
+        )
+    )
+    assert result.success, result.error
+    received = HostControlExecutionContract.model_validate(result.result["execution"])
+    assert received.contract_digest == issued.contract_digest
+    assert received.cases[0].public_ref == f"YOK-{sequence}"
+    assert received.cases[0].execution_target["deployment"] == {
+        "member_public_ref": f"YOK-{sequence}",
+    }
+    assert "item_id" not in received.cases[0].model_dump()

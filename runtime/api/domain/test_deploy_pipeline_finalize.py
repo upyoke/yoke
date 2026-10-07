@@ -109,16 +109,16 @@ def test_complete_run_finalization_returns_pending_exit(monkeypatch, capsys):
 def test_member_wrap_up_is_visible_before_each_slow_write(monkeypatch, capsys):
     from yoke_core.domain import deployment_item_stamp
 
-    members = ["441", "442"]
+    members = [f"ITEM-{n}" for n in (441, 442)]
     seen = []
 
     def stamp(item_id, field, value):
         output = capsys.readouterr().out
-        assert f"stamping member items.id={item_id} deployed_to=prod" in output
+        assert f"stamping member {item_id} deployed_to=prod" in output
         seen.append(item_id)
 
     def succeed(run_id, field, value):
-        assert seen == [int(member) for member in members]
+        assert seen == members
         assert "settling member close-outs" in capsys.readouterr().out
 
     monkeypatch.setattr(deployment_item_stamp, "stamp_item_field", stamp)

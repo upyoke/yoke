@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain import update_status_helpers
-from runtime.api.update_status_full_test_helpers import UpdateStatusEnv
+from runtime.api.update_status_full_test_helpers import TEST_EPIC_REF, UpdateStatusEnv
 
 
 @pytest.fixture
@@ -24,14 +24,15 @@ class TestDBFailure:
         """CHECK constraint rejects invalid status; no GitHub ops run."""
         env.insert_task("implementing")
         env.init_git()
-        r = env.run("42", "003", "passed")
+        r = env.run(TEST_EPIC_REF, "003", "passed")
         assert r.returncode != 0
         output = r.stdout + r.stderr
         assert "Status updated:" not in output
         assert "Error" in output
-        assert env.query(
-            "SELECT status FROM epic_tasks WHERE epic_id=42 AND task_num=3"
-        ) == "implementing"
+        assert (
+            env.query("SELECT status FROM epic_tasks WHERE epic_id=42 AND task_num=3")
+            == "implementing"
+        )
         log = env.gh_log.read_text()
         assert "issue comment" not in log
         assert "issue close" not in log
@@ -52,26 +53,38 @@ class TestDispatchRetry:
         env.insert_task("planned")
         env.init_git()
 
-        env.run("42", "005", "implementing", "Initial dispatch")
-        assert env.query_int(
-            "SELECT dispatch_attempts FROM epic_tasks WHERE epic_id=42 AND task_num=5"
-        ) == 1
+        env.run(TEST_EPIC_REF, "005", "implementing", "Initial dispatch")
+        assert (
+            env.query_int(
+                "SELECT dispatch_attempts FROM epic_tasks WHERE epic_id=42 AND task_num=5"
+            )
+            == 1
+        )
 
-        env.run("42", "005", "reviewing-implementation", "Engineer complete")
-        assert env.query_int(
-            "SELECT dispatch_attempts FROM epic_tasks WHERE epic_id=42 AND task_num=5"
-        ) == 1
+        env.run(TEST_EPIC_REF, "005", "reviewing-implementation", "Engineer complete")
+        assert (
+            env.query_int(
+                "SELECT dispatch_attempts FROM epic_tasks WHERE epic_id=42 AND task_num=5"
+            )
+            == 1
+        )
 
-        env.run("42", "005", "implementing", "Retry 2 of 5")
-        assert env.query_int(
-            "SELECT dispatch_attempts FROM epic_tasks WHERE epic_id=42 AND task_num=5"
-        ) == 2
+        env.run(TEST_EPIC_REF, "005", "implementing", "Retry 2 of 5")
+        assert (
+            env.query_int(
+                "SELECT dispatch_attempts FROM epic_tasks WHERE epic_id=42 AND task_num=5"
+            )
+            == 2
+        )
 
-        env.run("42", "005", "reviewing-implementation", "Engineer retry")
-        env.run("42", "005", "implementing", "Retry 3 of 5")
-        assert env.query_int(
-            "SELECT dispatch_attempts FROM epic_tasks WHERE epic_id=42 AND task_num=5"
-        ) == 3
+        env.run(TEST_EPIC_REF, "005", "reviewing-implementation", "Engineer retry")
+        env.run(TEST_EPIC_REF, "005", "implementing", "Retry 3 of 5")
+        assert (
+            env.query_int(
+                "SELECT dispatch_attempts FROM epic_tasks WHERE epic_id=42 AND task_num=5"
+            )
+            == 3
+        )
 
         count = env.query_int(
             "SELECT COUNT(*) FROM epic_task_history WHERE epic_id=42 AND task_num=5"

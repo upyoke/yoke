@@ -67,8 +67,8 @@ class TestClaimItem:
         assert row[2] == "exclusive"
         assert attribution[0] == "10"
 
-    def test_claim_item_resolves_project_scoped_bare_sequence(self, session_test_db):
-        """An explicitly project-scoped bare sequence resolves before claiming."""
+    def test_claim_item_rejects_project_scoped_bare_sequence(self, session_test_db):
+        """A project hint cannot authorize a bare sequence to acquire a claim."""
         db_path = session_test_db["db_path"]
         sid = "claim-test-bare-numeric"
 
@@ -95,7 +95,8 @@ class TestClaimItem:
             ],
             db_path=db_path,
         )
-        assert result.returncode == 0, f"stderr: {result.stderr}"
+        assert result.returncode != 0
+        assert "public_item_ref_required" in result.stderr
 
         conn = connect_test_db(db_path)
         row = conn.execute(
@@ -104,8 +105,7 @@ class TestClaimItem:
             (sid,),
         ).fetchone()
         conn.close()
-        assert row is not None
-        assert json.loads(row[0]) == {"item_id": 10}
+        assert row is None
 
     def test_claim_work_rejects_non_numeric_item_id(self, session_test_db):
         """Process sentinels like STRATEGIZE are not items — claim-work --item rejects them.

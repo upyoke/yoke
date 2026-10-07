@@ -6,7 +6,7 @@ import os
 
 import pytest
 
-from runtime.api.update_status_full_test_helpers import UpdateStatusEnv
+from runtime.api.update_status_full_test_helpers import TEST_EPIC_REF, UpdateStatusEnv
 
 
 @pytest.fixture
@@ -42,30 +42,37 @@ class TestAutoUnblock:
     def test_auto_unblock_from_db(self, env):
         """TEST 23: completing task 1 auto-unblocks task 2."""
         self._setup_blocked_pair(env)
-        r = env.run("42", "001", "done", extra_env={"YOKE_TASK_DONE_VERIFIED": "1"})
+        r = env.run(
+            TEST_EPIC_REF, "001", "done", extra_env={"YOKE_TASK_DONE_VERIFIED": "1"}
+        )
         assert r.returncode == 0
-        assert env.query(
-            "SELECT status FROM epic_tasks WHERE epic_id=42 AND task_num=2"
-        ) == "planned"
+        assert (
+            env.query("SELECT status FROM epic_tasks WHERE epic_id=42 AND task_num=2")
+            == "planned"
+        )
         assert "Auto-unblocking" in r.stderr or "Auto-unblocking" in r.stdout
 
     def test_auto_unblock_on_done(self, env):
         """TEST 29: auto-unblock triggers specifically on done status."""
         self._setup_blocked_pair(env)
-        r = env.run("42", "001", "done", extra_env={"YOKE_TASK_DONE_VERIFIED": "1"})
+        r = env.run(
+            TEST_EPIC_REF, "001", "done", extra_env={"YOKE_TASK_DONE_VERIFIED": "1"}
+        )
         assert r.returncode == 0
-        assert env.query(
-            "SELECT status FROM epic_tasks WHERE epic_id=42 AND task_num=2"
-        ) == "planned"
+        assert (
+            env.query("SELECT status FROM epic_tasks WHERE epic_id=42 AND task_num=2")
+            == "planned"
+        )
 
     def test_auto_unblock_on_reviewed_implementation(self, env):
         """TEST 30: auto-unblock triggers on reviewed-implementation."""
         self._setup_blocked_pair(env)
-        r = env.run("42", "001", "reviewed-implementation")
+        r = env.run(TEST_EPIC_REF, "001", "reviewed-implementation")
         assert r.returncode == 0
-        assert env.query(
-            "SELECT status FROM epic_tasks WHERE epic_id=42 AND task_num=2"
-        ) == "planned"
+        assert (
+            env.query("SELECT status FROM epic_tasks WHERE epic_id=42 AND task_num=2")
+            == "planned"
+        )
 
 
 class TestGitHubSync:
@@ -75,7 +82,7 @@ class TestGitHubSync:
         """TEST 24: REST POST adds the new status:implementing label + comment."""
         env.insert_task("planned")
         env.init_git()
-        r = env.run("42", "003", "implementing")
+        r = env.run(TEST_EPIC_REF, "003", "implementing")
         assert r.returncode == 0
         log = env.gh_log.read_text()
         # POST /labels (label-create idempotent) + POST /issues/100/labels.
@@ -90,6 +97,7 @@ class TestGitHubSync:
         ``replace`` find-and-flip logic exercises the PATCH writeback.
         """
         import json
+
         env.exec_sql("""
             UPDATE items
             SET github_issue = '#200',
@@ -104,17 +112,21 @@ class TestGitHubSync:
         rest_dir = env.tmp / "rest-fakes"
         rest_dir.mkdir(exist_ok=True)
         (rest_dir / "GET_repos_upyoke_yoke_issues_200.json").write_text(
-            json.dumps({
-                "status": 200,
-                "body": {
-                    "number": 200,
-                    "body": "- [ ] #100 Test task\n",
-                    "state": "open",
-                },
-            }),
+            json.dumps(
+                {
+                    "status": 200,
+                    "body": {
+                        "number": 200,
+                        "body": "- [ ] #100 Test task\n",
+                        "state": "open",
+                    },
+                }
+            ),
         )
 
-        r = env.run("42", "003", "done", extra_env={"YOKE_TASK_DONE_VERIFIED": "1"})
+        r = env.run(
+            TEST_EPIC_REF, "003", "done", extra_env={"YOKE_TASK_DONE_VERIFIED": "1"}
+        )
         assert r.returncode == 0
         log = env.gh_log.read_text()
         # GET parent issue body via REST.

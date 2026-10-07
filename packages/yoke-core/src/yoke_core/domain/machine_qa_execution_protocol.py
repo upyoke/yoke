@@ -129,6 +129,8 @@ def _issue(
 
         settings.pop(GOLDEN_BASELINE_PATH_KEY, None)
         settings.pop(BROWSER_PROFILE_BASELINE_PATH_KEY, None)
+    from yoke_core.domain.machine_qa_execution_contract import public_case_snapshots
+
     return issue_execution_contract(
         operation=operation,
         lease_id=lease.id,
@@ -139,7 +141,7 @@ def _issue(
         selection_reason=selection_reason,
         checks=list(checks),
         baselines=list(baselines),
-        cases=list(cases),
+        cases=public_case_snapshots(cases),
         golden_destination=golden_destination,
         capture_component=capture_component,
         plan_execution_id=plan_execution_id,

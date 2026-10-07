@@ -32,7 +32,7 @@ _RECORDING_LEGS = ("qa.run.add", "qa.artifact.add", "qa.run.complete")
 def _case(bound_claim_id: int | None) -> dict:
     case = {
         "requirement_id": _REQUIREMENT,
-        "item_id": _ITEM,
+        "public_ref": f"ITEM-{_ITEM}",
         "plan_id": 5,
         "case_key": "registered",
         "method_id": "command",
@@ -82,9 +82,7 @@ def test_every_recording_leg_carries_the_bound_claim(
         assert payload[PAYLOAD_KEY] == _CLAIM
 
 
-def test_an_unclaimed_case_carries_no_authority(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_an_unclaimed_case_carries_no_authority(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
     calls = _run_case(tmp_path, _case(None))
 
@@ -121,5 +119,5 @@ def test_begin_pins_the_sessions_claim_onto_the_contract() -> None:
 
     assert outcome.primary_success
     assert outcome.result_payload["case"][PAYLOAD_KEY] == _CLAIM
-    assert resolve.call_args.kwargs["item_id"] == _ITEM
+    assert resolve.call_args.kwargs["item_id"] == f"ITEM-{_ITEM}"
     assert resolve.call_args.kwargs["session_id"] == _SESSION

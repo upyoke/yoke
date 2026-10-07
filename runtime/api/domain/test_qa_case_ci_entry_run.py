@@ -1,8 +1,7 @@
 """The CI gate's shared rebase and queue-entry path, piece by piece.
 
-Every live lane rebases before its only push. A merge-queue project also
-opens the landing pull request and takes its entry run as the verdict; the
-sibling ``test_qa_case_ci_run_queue_gate`` covers that assembled path.
+A merge-queue lane rebases, publishes once, and takes its pull-request entry
+run as the verdict. The assembled path is covered by the queue-gate tests.
 """
 
 from __future__ import annotations
@@ -19,9 +18,6 @@ from yoke_core.domain import qa_case_ci_covering_run
 from yoke_core.domain import qa_case_ci_entry_run as entry_run
 from yoke_core.domain import qa_case_ci_lane
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
-
-
-# Selecting the path
 
 
 def test_a_project_outside_the_queue_keeps_the_dispatch_path(monkeypatch):
@@ -78,9 +74,6 @@ def test_an_unreadable_capability_probe_keeps_the_dispatch_path(monkeypatch):
     assert entry_run.routes_through_merge_queue("yoke") is False
 
 
-# Rebasing the lane
-
-
 def _git_results(monkeypatch, results: dict[str, subprocess.CompletedProcess]):
     calls: list[tuple[str, ...]] = []
 
@@ -119,8 +112,8 @@ def test_opening_the_pull_request_binds_this_machines_github_authority(
     )
     monkeypatch.setattr(
         "yoke_core.domain.merge_queue_landing_pull_request.ensure_landing_pull_request",
-        lambda _ctx, _ref, lane_head="", item_id=0: (
-            ("213", None) if bound == ["enter"] and item_id else ("", "unbound")
+        lambda _ctx, _ref, lane_head="", item_public_ref="": (
+            ("213", None) if bound == ["enter"] and item_public_ref else ("", "unbound")
         ),
     )
 
@@ -130,7 +123,7 @@ def test_opening_the_pull_request_binds_this_machines_github_authority(
         branch="PRJ-9",
         target="main",
         lane_head=LANE_HEAD,
-        item_id=7,
+        public_ref=f"ITEM-{7}",
     )
 
     assert pr_num == "213"
@@ -308,18 +301,23 @@ def _find_entry(monkeypatch, runs):
 
 @pytest.mark.parametrize("absences", [0, 2])
 def test_the_run_is_returned_in_whatever_state_it_appears_in(
-    monkeypatch, absences,
+    monkeypatch,
+    absences,
 ):
     """Concluding it is the runner's job; appearing is this one's."""
     pending = qa_case_ci_lane.WorkflowRun(
-        "77", "in_progress", "", "https://github.test/actions/runs/77",
+        "77",
+        "in_progress",
+        "",
+        "https://github.test/actions/runs/77",
         LANE_HEAD,
     )
     scripted = [None] * absences
 
     assert _find_entry(monkeypatch, [*scripted, pending]) == pending
     assert _find_entry(
-        monkeypatch, [*scripted, completed_run(LANE_HEAD)],
+        monkeypatch,
+        [*scripted, completed_run(LANE_HEAD)],
     ) == completed_run(LANE_HEAD)
 
 

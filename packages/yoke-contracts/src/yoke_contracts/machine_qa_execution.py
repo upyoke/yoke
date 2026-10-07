@@ -50,12 +50,11 @@ class MachineQaCaseContract(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     requirement_id: int = Field(ge=1)
-    item_id: int | None = Field(default=None, ge=1)
+    public_ref: str | None = None
     deployment_run_id: str | None = None
     standalone_execution_id: str | None = Field(default=None, min_length=1)
     deployment_stage: str | None = None
-    deployment_member_item_id: int | None = Field(default=None, ge=1)
-    deployment_member_ref: str | None = None
+    deployment_member_public_ref: str | None = None
     plan_id: int | None
     case_key: str
     method_id: str
@@ -85,7 +84,7 @@ class MachineQaCaseContract(BaseModel):
             sum(
                 value is not None
                 for value in (
-                    self.item_id,
+                    self.public_ref,
                     self.deployment_run_id,
                     self.standalone_execution_id,
                 )
@@ -97,14 +96,14 @@ class MachineQaCaseContract(BaseModel):
             )
         if self.deployment_run_id is None and (
             self.deployment_stage is not None
-            or self.deployment_member_item_id is not None
+            or self.deployment_member_public_ref is not None
         ):
             raise ValueError(
                 "non-deployment Machine QA cases cannot name deployment scope"
             )
         if self.standalone_execution_id is not None and self.plan_id is None:
             raise ValueError("standalone Machine QA cases require a saved plan")
-        if self.deployment_member_item_id is not None and not self.deployment_stage:
+        if self.deployment_member_public_ref is not None and not self.deployment_stage:
             raise ValueError(
                 "deployment member Machine QA cases require a deployment stage"
             )

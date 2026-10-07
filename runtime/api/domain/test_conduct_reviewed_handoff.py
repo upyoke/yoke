@@ -151,7 +151,7 @@ class TestMain(unittest.TestCase):
         with redirect_stderr(err_buf):
             rc = mod.main(["not-an-id"])
         self.assertEqual(rc, 1)
-        self.assertIn("pass the public ref (PREFIX-N", err_buf.getvalue())
+        self.assertIn("public_item_ref_required", err_buf.getvalue())
 
     def test_forwards_to_run(self) -> None:
         with (

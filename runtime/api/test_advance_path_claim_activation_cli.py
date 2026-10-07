@@ -118,9 +118,7 @@ def test_cli_reports_diverged_refs(fake_db, monkeypatch, capsys):
 
     captured = capsys.readouterr()
     assert rc == 1
-    assert "DIVERGED: origin/main and refs/heads/main have diverged" in (
-        captured.err
-    )
+    assert "DIVERGED: origin/main and refs/heads/main have diverged" in (captured.err)
 
 
 def test_cli_blocks_item_without_actor(fake_db, monkeypatch, capsys):
@@ -156,4 +154,4 @@ def test_cli_returns_2_for_invalid_item(fake_db, monkeypatch, capsys):
 
     captured = capsys.readouterr()
     assert rc == 2
-    assert "pass the public ref (PREFIX-N" in captured.err
+    assert "public_item_ref_required" in captured.err
