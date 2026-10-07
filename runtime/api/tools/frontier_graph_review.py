@@ -179,6 +179,14 @@ def _seed_item(conn, node: dict, pin: tuple) -> None:
             f"fgr-{slug}-{target}" if target else None,
         ),
     )
+    if band == "done":
+        # Done dates a finish from the transition that put the item there.
+        conn.execute(
+            "INSERT INTO item_status_transitions (id, item_id, from_status, to_status, "
+            "source, project_id, created_at) VALUES (%s,%s,'release','done','review fixture',%s,%s) "
+            "ON CONFLICT (id) DO UPDATE SET created_at=excluded.created_at",
+            (_item_id(ref), _item_id(ref), project_id, _stamp(hours=sequence % 9 + 1)),
+        )
     # Active is earned by a live claim; an Active item with no named session gets one.
     claim = node.get("claim") or ("codex-cli · active" if band == "active" else None)
     if claim:
