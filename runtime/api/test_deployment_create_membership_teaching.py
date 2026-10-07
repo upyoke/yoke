@@ -26,6 +26,11 @@ def test_create_description_teaches_that_a_held_item_is_skipped_by_name() -> Non
     assert "naming the run that holds it" in CREATE_DESCRIPTION
 
 
+def test_create_description_teaches_stage_custody_follows_the_commit() -> None:
+    assert "production run on the same commit holds" in CREATE_DESCRIPTION
+    assert "pinned a different commit, naming that commit" in CREATE_DESCRIPTION
+
+
 def test_release_role_recipe_teaches_validate_composition_composes_now() -> None:
     assert "optional preview" not in RELEASE_ROLE_RECIPE
     assert "composes the run now" in RELEASE_ROLE_RECIPE

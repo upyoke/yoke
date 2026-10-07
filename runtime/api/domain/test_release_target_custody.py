@@ -184,3 +184,76 @@ def test_plan_selections_read_identity_without_snapshotting_cases(test_db, froze
     assert not any(
         "FOR UPDATE" in str(call.args[0]).upper() for call in reads.call_args_list
     )
+
+
+def _pin(conn, run_id, *, project_id, sha):
+    """Record *sha* as the commit *run_id* ships for *project_id*."""
+    if project_id == 1:
+        conn.execute(
+            "UPDATE deployment_runs SET release_lineage=%s WHERE id=%s", (sha, run_id)
+        )
+    else:
+        conn.execute(
+            "UPDATE deployment_runs SET bound_sources=%s WHERE id=%s",
+            (
+                json.dumps(
+                    {
+                        "schema": 1,
+                        "projects": [{"project_id": project_id, "commit_sha": sha}],
+                    }
+                ),
+                run_id,
+            ),
+        )
+
+
+@pytest.mark.parametrize("project_id", [1, 2])
+@pytest.mark.parametrize("same_commit", [True, False])
+def test_production_holder_keeps_stage_owing_item_only_off_another_commit(
+    test_db, project_id, same_commit
+):
+    """Production custody yields to the stage run on its own commit only.
+
+    Close-out credits stage proof against the commit production ships, so the
+    stage half of a release pair enrolls a stage-owing member the production
+    half already holds, while a stage run on any other commit leaves it alone.
+    """
+    item_id = 9693 + project_id + (10 if same_commit else 0)
+    _pair(test_db, item_id=item_id)
+    test_db.execute("UPDATE items SET project_id=%s WHERE id=%s", (project_id, item_id))
+    _pin(test_db, "run-prod", project_id=project_id, sha="a" * 40)
+    _pin(
+        test_db,
+        "run-stage",
+        project_id=project_id,
+        sha="a" * 40 if same_commit else "b" * 40,
+    )
+    test_db.commit()
+    assert needed_member_ids(
+        test_db, run_id="run-stage", item_ids=(item_id,)
+    ) == frozenset({item_id})
+    assert (
+        holder_covers_run(
+            test_db, holder_id="run-prod", run_id="run-stage", item_id=item_id
+        )
+        is not same_commit
+    )
+
+
+def test_skip_notice_names_the_commit_a_production_holder_pinned(test_db):
+    from yoke_core.domain.deployment_run_skipped_candidates import _describe_held
+    from yoke_core.domain.deployment_run_unheld_candidates import HeldCandidate
+
+    item_id = 9720
+    _pair(test_db, item_id=item_id)
+    _pin(test_db, "run-prod", project_id=1, sha="a" * 40)
+    test_db.commit()
+    record = HeldCandidate(
+        item_id=item_id, item_ref="YOK-1", run_id="run-prod", run_status="executing"
+    )
+    line = _describe_held(test_db, "run-stage", record)
+    assert line.startswith("YOK-1 held by run-prod (executing) on commit " + "a" * 40)
+    assert "stage proof credits only against that commit" in line
+    assert _describe_held(test_db, "run-prod", record) == (
+        "YOK-1 held by run-prod (executing)"
+    )
