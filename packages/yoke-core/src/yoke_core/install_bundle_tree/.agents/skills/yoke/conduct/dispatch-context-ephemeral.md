@@ -89,9 +89,8 @@ For `flow`:
    --json` and record its run id plus `status=starting` on the environment.
 3. Execute `yoke --env <connection> deployment-runs execute <run-id>
    --product-repo-path <worktree-path>`. Ordinary external delivery works over
-   HTTPS. If this is a serving-API self-deploy, use the paired
-   `<connection>-db-admin` profile named by the refusal; never store that
-   machine-local profile name in project settings. The generic `ephemeral-deploy`
+   HTTPS. Escalate a serving-API self-deploy refusal to the control-plane
+   operator with its named recovery. The generic `ephemeral-deploy`
    step runner reads the source project's policy and project-owned Pack files,
    while `host_project` supplies the environment and provider authority.
 

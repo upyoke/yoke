@@ -1,6 +1,3 @@
-<!-- KEEP IN SYNC: an identical copy of this block lives in the platform repo (hand-copied). Edit both together. -->
-## Control-Plane Authority — Hard Rule (this installation)
-- **All non-testing control-plane operations run on prod** (`prod` / `prod-db-admin`) — releases, receipts, deployment-run and delivery records, GitHub relays — whichever environment is being deployed. **Stage exists only to test the live control plane:** nothing real routes through it, and anything on `stage-db-admin` is disposable rehearsal state read by nothing live.
 # Yoke — Project Rules
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
@@ -31,12 +28,12 @@ Deep homes, at `.yoke/docs/reference/agent-rules/`: `code-and-cli.md` · `databa
 ## Worktree DB Authority — Hard Rule
 - **Control-plane authority is Postgres, never a constructed file path.** Use registered `yoke <subcommand>` commands; raw diagnostic SELECTs are `yoke db read "SELECT ..."`. Discover connections with `yoke env list`. **Raw SQL is an escape hatch:** never hardcode a DB path or DSN, and never use `!=` — use `<>`.
 - **A linked worktree is not a control plane.** `.worktrees/<branch>/` paths are code execution surfaces; never read or write worktree-local DB files for control-plane state.
-- **When a mutation has no registered command,** reach the paired local-Postgres `*-db-admin` connection (`--env NAME`) and the operator-debug query path `yoke db` `--help` names. That exists only where you already operate the control plane — a project relaying to someone else's has none, so escalate rather than seeking control-plane database credentials.
+- **When a mutation has no registered command,** escalate the missing command to the control-plane operator, naming the required operation and the registered surfaces you checked.
 - **Environment settings are projected, never dumped:** `yoke projects environment-settings get --project P --environment E --path key.path`; the read refuses root or container projections.
 
 ## Deployment Runs — Hard Rule
 - **Hold `DEPLOY:<project>` before creating/executing runs, release afterward:** `yoke claims coordination-claim acquire --project P --key DEPLOY:P --reason R`. Run ids differ from flow ids. Stranded holds require human release; read `delivery.md` first.
-- **The HTTPS product/API environment is the normal relayed authority** and drives ordinary delivery end to end. A local `*-db-admin` environment is needed only when the run replaces that control plane's own serving API, which the executor refuses by name. Never seek control-plane database credentials to deploy a project.
+- **The HTTPS product/API environment is the normal relayed authority** and drives ordinary delivery end to end. A refusal requiring operator authority goes to the control-plane operator with the named recovery. Depth: `delivery.md`.
 - **Disable definitions; retain history** (`yoke deployment-flows set-status <flow-id> disabled`); a definition a run has referenced is immutable. Depth: `delivery.md`.
 
 ## Path Claims — Hard Rule
@@ -180,10 +177,14 @@ Observe → `ouroboros_entries` → `/yoke curate` → `/yoke doctor` → `/yoke
 - **Prefer inline chat for summaries, checkpoints, and design iteration;** reserve structured chooser UIs for short binary or ternary decisions. **The work item is the plan:** when running a `/yoke` skill, the item's structured fields are the plan, so never enter plan mode on your own, and if the plan is insufficient, stop and escalate.
 <!-- END YOKE MANAGED BLOCK -->
 # Yoke Repo Internals
+<!-- KEEP IN SYNC: an identical copy of this block lives in the platform repo (hand-copied). Edit both together. -->
+## Control-Plane Authority — Hard Rule (this installation)
+- **All non-testing control-plane operations run on prod** (`prod` / `prod-db-admin`) — releases, receipts, deployment-run and delivery records, GitHub relays — whichever environment is being deployed. **Stage exists only to test the live control plane:** nothing real routes through it, and anything on `stage-db-admin` is disposable rehearsal state read by nothing live.
 <!-- Not shipped. -->
 - Source-maintainer manifest contract: `runtime/harness/manifest-schema.md`.
 - **Sync install-bundle edits in this Yoke source checkout — this file included — in the same commit:** author docs under `docs/public/`; run `yoke dev run -- python3 -m yoke_core.domain.install_bundle_tree_sync sync --target-root <checkout>`, then stage every changed path. Byte drift fails CI.
 ## Source-Dev Doctrine
+- **Direct control-plane authority is source-dev/operator only.** Use the configured paired `prod-db-admin` connection for Yoke self-deploys and migration rehearsal. Missing registered mutations reach the audited operator-debug query path only under that authority. Setup, project-database access, and recovery: [`docs/source-dev-doctrine.md`](docs/source-dev-doctrine.md).
 [`docs/source-dev-doctrine.md`](docs/source-dev-doctrine.md). **Read it before a test selection, release, render, deploy, preflight, or cleanup.**
 - **Lane source before merge: `yoke dev run -- <command>`.** Post-deploy Command tests: `yoke watch pytest -- <test paths>` directly; it binds candidate cwd to source. `--local`: small targeted check expected to finish in about one minute; uncommitted work does not justify a slow one; inject xdist `-n auto`. CI: `yoke watch pytest -- runtime/api/ runtime/harness/ tests/` (`python3 -m yoke_core.tools.run_tests`); `yoke dev ruff-changed --base <ref>`.
 - **A release here is two concurrent runs on one lineage** — stage on HTTPS control-plane connection, production on paired `prod-db-admin` (replaces the serving API). Stage runs carry only members owing stage-targeted QA; records stay on prod, and completion waits for both stage proof and production delivery. Do not lift it onto a project whose stage is a real pre-production gate.

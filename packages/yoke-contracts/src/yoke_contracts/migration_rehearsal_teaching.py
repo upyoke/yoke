@@ -42,11 +42,14 @@ preflight -- rehearsal needs three bindings, in this order:
 1. Authority. Rehearsal executes project-local code, so it is never relayed
    over HTTPS. `{CONNECTION_READER}` names every registered connection with
    its transport and prod flag, and prints no credentials; pick the direct
-   local-postgres or db-admin authority that owns the item and its durable
+   local-postgres authority that owns the item and its durable
    lease/audit receipts, then rerun as
    `yoke --env <name> migration rehearse ITEM`. A prod flag is valid for that
    metadata authority: migration code still runs only against the distinct
    validation database verified in step 3.
+
+   If no such authority is configured, escalate to the control-plane operator
+   with the item and required rehearsal; an HTTPS connection cannot run it.
 
    When the migration imports code authored in a claimed Yoke source lane,
    preserve that authority selection while binding the lane's source with:

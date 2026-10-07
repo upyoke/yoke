@@ -39,7 +39,8 @@ converge after your work merges and deploys.
 3. **Never delete it afterwards.** Entries are permanent. A module that is
    gone cannot be applied by a universe that never received it.
 4. **Rehearse before merging:** `yoke migration rehearse PREFIX-N` from a
-   local-Postgres or matching db-admin connection. That runs
+   configured local-Postgres authority that owns the item. If none is
+   configured, escalate to the control-plane operator. That runs
    the entry against the model's validation surface and records the receipt
    the evidence gate reads. It also takes the migration-territory lease and
    holds it, so a second work item cannot start a migration on the same model

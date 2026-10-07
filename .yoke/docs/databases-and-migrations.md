@@ -22,33 +22,16 @@ When an item mutates a declared authoritative DB:
 
 1. Amend the DB claim (profile + compatibility attestation as required)
 2. Author the migration module in history
-3. Rehearse from a local-postgres / db-admin connection (holds the live
-   migration lease). In a claimed Yoke source lane, run
-   `yoke --env <name> dev run -- yoke migration rehearse PREFIX-N`; other
-   projects run `yoke --env <name> migration rehearse PREFIX-N` directly.
+3. Rehearse from the configured local-Postgres authority that owns the item
+   with `yoke --env <name> migration rehearse PREFIX-N` (holds the live
+   migration lease). If none is configured, escalate to the control-plane
+   operator; rehearsal executes project-local code and is not relayed over HTTPS.
 4. Ship; boot converge applies pending entries fail-hard
 
 Never apply destructive migrations without a named restore point. Never use
 ad hoc write SQL against a declared authoritative DB.
 
-## Running an admin command against a project database
-
-A command that needs a project's own Postgres database (not the Yoke control
-plane) gets its DSN from a machine-local db-admin profile, never from a stored
-password:
-
-```text
-yoke dev db-admin setup stage --project P --database MODEL --yes
-yoke dev db-admin exec P-stage-MODEL-db-admin --dsn-var APP_DSN -- <command>
-```
-
-`setup --database MODEL` reads `models.MODEL.authoritative_db` from the
-project's `migration_model` declaration and pairs it with the environment's
-stack, bastion, and region; the profile records only the managed secret's ARN.
-`exec` reads the secret from AWS through the project's `aws-admin` capability
-at run time, brings up the SSH forward, and sets `APP_DSN` for that one
-subprocess. The DSN is never printed, logged, or written to disk; refusals
-name the reason and the recovery step.
+## Migration invariants
 
 A module's optional `invariants(conn)` hook is a permanent claim, not a
 post-apply snapshot. It re-runs on every fleet preflight against a copy of a

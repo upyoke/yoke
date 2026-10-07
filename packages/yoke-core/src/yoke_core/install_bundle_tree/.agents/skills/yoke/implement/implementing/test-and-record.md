@@ -175,8 +175,9 @@ If the item declares `mutation_intent="apply"` with one or more entries in `migr
 **Governed-runner modules** (runner kind = `governed_migration_module`):
 
   **Rehearse, then merge. You do not apply.** Run
-  `yoke migration rehearse PREFIX-{N}` from a local-Postgres or matching
-  db-admin connection. The command refuses HTTPS product connections because
+  `yoke migration rehearse PREFIX-{N}` from the configured local-Postgres
+  authority that owns the item; if none is configured, escalate to the
+  control-plane operator. The command refuses HTTPS product connections because
   it executes the checked-out project's code and validation surface locally.
   Rehearsal runs the module
   against the model's validation surface and records the receipt the evidence

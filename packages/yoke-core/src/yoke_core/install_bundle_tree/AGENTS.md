@@ -1,6 +1,3 @@
-<!-- KEEP IN SYNC: an identical copy of this block lives in the platform repo (hand-copied). Edit both together. -->
-## Control-Plane Authority — Hard Rule (this installation)
-- **All non-testing control-plane operations run on prod** (`prod` / `prod-db-admin`) — releases, receipts, deployment-run and delivery records, GitHub relays — whichever environment is being deployed. **Stage exists only to test the live control plane:** nothing real routes through it, and anything on `stage-db-admin` is disposable rehearsal state read by nothing live.
 # Yoke — Project Rules
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
@@ -31,12 +28,12 @@ Deep homes, at `.yoke/docs/reference/agent-rules/`: `code-and-cli.md` · `databa
 ## Worktree DB Authority — Hard Rule
 - **Control-plane authority is Postgres, never a constructed file path.** Use registered `yoke <subcommand>` commands; raw diagnostic SELECTs are `yoke db read "SELECT ..."`. Discover connections with `yoke env list`. **Raw SQL is an escape hatch:** never hardcode a DB path or DSN, and never use `!=` — use `<>`.
 - **A linked worktree is not a control plane.** `.worktrees/<branch>/` paths are code execution surfaces; never read or write worktree-local DB files for control-plane state.
-- **When a mutation has no registered command,** reach the paired local-Postgres `*-db-admin` connection (`--env NAME`) and the operator-debug query path `yoke db` `--help` names. That exists only where you already operate the control plane — a project relaying to someone else's has none, so escalate rather than seeking control-plane database credentials.
+- **When a mutation has no registered command,** escalate the missing command to the control-plane operator, naming the required operation and the registered surfaces you checked.
 - **Environment settings are projected, never dumped:** `yoke projects environment-settings get --project P --environment E --path key.path`; the read refuses root or container projections.
 
 ## Deployment Runs — Hard Rule
 - **Hold `DEPLOY:<project>` before creating/executing runs, release afterward:** `yoke claims coordination-claim acquire --project P --key DEPLOY:P --reason R`. Run ids differ from flow ids. Stranded holds require human release; read `delivery.md` first.
-- **The HTTPS product/API environment is the normal relayed authority** and drives ordinary delivery end to end. A local `*-db-admin` environment is needed only when the run replaces that control plane's own serving API, which the executor refuses by name. Never seek control-plane database credentials to deploy a project.
+- **The HTTPS product/API environment is the normal relayed authority** and drives ordinary delivery end to end. A refusal requiring operator authority goes to the control-plane operator with the named recovery. Depth: `delivery.md`.
 - **Disable definitions; retain history** (`yoke deployment-flows set-status <flow-id> disabled`); a definition a run has referenced is immutable. Depth: `delivery.md`.
 
 ## Path Claims — Hard Rule

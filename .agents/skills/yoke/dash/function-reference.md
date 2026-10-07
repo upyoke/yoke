@@ -22,7 +22,7 @@ operation authority.
 | `qa.requirement.list` | Item target; empty payload — the materialized requirement ids | `yoke qa requirement list --item ITEM --json` |
 | `qa.requirement.add` | Item target; selected method, executable case contract, and workflow transition | `yoke qa requirement add --item ITEM ...` |
 | `lifecycle.transition.execute` | Item target; `source_status`, `target_status`, and `reason` | `yoke lifecycle transition ITEM --from STATUS --to STATUS --reason TEXT` |
-| `deployment_runs.start_for_item` | Item target; selected/default flow and merged release lineage | `yoke --env <control-plane> deployment-runs start-for-item ITEM ...`; use paired `*-db-admin` only for a serving-API self-deploy |
+| `deployment_runs.start_for_item` | Item target; selected/default flow and merged release lineage | `yoke --env <control-plane> deployment-runs start-for-item ITEM ...`; escalate a serving-API self-deploy refusal to the control-plane operator |
 | `direct_workflow.dash.evidence` | `result_summary`, `verification_summary`, `verification_status`, `commit_sha`, `merge_sha`, `touched_files`, and `no_changes` | `yoke direct-workflow dash evidence ITEM ...` |
 | `claims.work.release` | Current item or claim target; `reason` | `yoke claims work release --item ITEM --reason TEXT` |
 | `direct_workflow.dash.escalate` | `issue_title`, `findings`, and optional `priority` | `yoke direct-workflow dash escalate ITEM ...` |

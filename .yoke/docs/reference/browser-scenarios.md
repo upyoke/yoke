@@ -336,9 +336,7 @@ outside the image, an unreadable scale, and a non-image artifact each refuse
 by name and say where the recorded bytes landed.
 
 Captures store their screenshots through the build serving the universe, so a
-hosted reviewer sees the same images: from a `*-db-admin` connection the
-evidence writes relay to its paired https connection (`prod-db-admin` →
-`prod`). No review request is raised against a screenshot a hosted reviewer
+hosted reviewer sees the same images through the configured evidence plane. No review request is raised against a screenshot a hosted reviewer
 cannot open. Evidence already recorded only on the capture machine is moved in
 place from that machine with
 `yoke qa artifact rehome --requirement-id <id> --artifact-id <id>`.

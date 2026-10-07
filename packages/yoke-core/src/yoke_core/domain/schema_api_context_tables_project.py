@@ -64,15 +64,7 @@ PROJECT_TABLES: dict[str, dict] = {
             "not an auth failure. "
             "Project-scoped settings do NOT live on a `projects.settings` "
             "column; use `project_structure`, `project_capabilities.settings`, "
-            "or environment settings surfaces for those aggregates. "
-            "Source-dev/admin database connector setup uses `yoke dev "
-            "db-admin setup <deploy-env> --control-plane-env "
-            "<https-connection> --yes`; it reads `current_database()` through "
-            "that exact named HTTPS connection's `db.read.run` tenant route. "
-            "The deploy environment still owns stack, region, endpoint, and "
-            "secret ARN. Never substitute the declared deploy database, "
-            "active connection, a local admin env, or a deploy DSN for the "
-            "HTTPS control-plane database identity."
+            "or environment settings surfaces for those aggregates."
         ),
     },
     "sites": {

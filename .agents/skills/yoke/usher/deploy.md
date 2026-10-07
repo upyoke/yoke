@@ -122,8 +122,8 @@ yoke --env {control-plane} deployment-runs start-for-item {item-id} \
 ```
 
 Create and start-for-item use the selected control-plane transport. Ordinary
-external delivery is supported over HTTPS. A serving-API self-deploy requires
-the paired local `*-db-admin` env named by the executor's refusal.
+external delivery is supported over HTTPS. A serving-API self-deploy refusal
+goes to the control-plane operator with its named recovery.
 
 Remaining items in the `(project, flow)` group need no membership step: the
 start enrolls every delivery-ready item the candidate carries that no live or
@@ -181,8 +181,7 @@ fi
 ```
 
 If execution refuses because the target is the selected control plane's own
-serving API, rerun through the paired local `*-db-admin` env named in that
-refusal. Do not switch transports for an ordinary external target.
+serving API, escalate that named refusal and recovery to its operator.
 
 **Exit 0:** Close each member out through the one agent-facing close-out,
 carrying the run as its evidence:

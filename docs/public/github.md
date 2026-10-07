@@ -66,11 +66,7 @@ true only when both are `ok`; see `yoke github status --help`. A third binding
 reports the stored access token git commands actually present and when it next
 renews. That one is read locally and rotates nothing, so a status check never
 breaks a push in flight — and it never gates `ready`, because a machine with no
-token cached yet simply mints one on its next command. Under an
-owner-only `<env>-db-admin` connection, status and a local merge both prove
-through the https plane that connection administers, so
-`yoke --env prod-db-admin github status` answers the same as
-`yoke github status` on a machine connected to `prod`.
+token cached yet simply mints one on its next command.
 
 ## Sync modes
 
