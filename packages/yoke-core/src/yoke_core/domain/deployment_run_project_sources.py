@@ -6,6 +6,13 @@ is the same question about one commit. A run answers it for its own project
 from ``release_lineage`` and for every project it binds from the commit it
 recorded at start, so callers ask here instead of deciding per project which
 column to read.
+
+What a run *delivered* for a project can differ from what it pinned: a
+promotion that materializes a version pin onto a bound project's trunk ships
+that release output, so the bound project's target serves the output commit,
+not the bound one. Served-identity questions ask
+:func:`delivered_source_sha`; containment and checkout questions keep asking
+for the pin.
 """
 
 from __future__ import annotations
@@ -18,6 +25,7 @@ from yoke_core.domain.deployment_run_bound_sources import (
     bound_sources_recorded,
     parse_bound_sources,
 )
+from yoke_core.domain.deployment_run_release_output import project_release_outputs
 
 
 def _p(conn: Any) -> str:
@@ -48,6 +56,24 @@ def recorded_source_sha(run: Mapping[str, Any], project_id: int) -> str:
     if own is not None and int(own) == int(project_id):
         return str(run.get("release_lineage") or "").strip()
     payload = parse_bound_sources(run.get(BOUND_SOURCES_FIELD))
+    return bound_project_shas(payload).get(int(project_id), "")
+
+
+def delivered_source_sha(run: Mapping[str, Any], project_id: int) -> str:
+    """The commit this run delivered for ``project_id``, or ``""``.
+
+    The run's own project serves its release lineage. A bound project serves
+    the last commit the run recorded producing for it -- a release pin it
+    materialized onto that project's trunk -- and, where the run produced
+    nothing there, the commit it bound.
+    """
+    own = run.get("project_id")
+    if own is not None and int(own) == int(project_id):
+        return str(run.get("release_lineage") or "").strip()
+    payload = parse_bound_sources(run.get(BOUND_SOURCES_FIELD))
+    outputs = project_release_outputs(payload).get(int(project_id), ())
+    if outputs:
+        return outputs[-1]["commit_sha"]
     return bound_project_shas(payload).get(int(project_id), "")
 
 
@@ -88,6 +114,12 @@ def run_source_sha(conn: Any, run_id: str, project_id: int) -> str:
     """The commit this run pinned for a project, with operation-local sharing."""
     run = run_source_facts(conn, run_id)
     return recorded_source_sha(run, int(project_id)) if run is not None else ""
+
+
+def run_delivered_sha(conn: Any, run_id: str, project_id: int) -> str:
+    """The commit this run delivered for a project, with operation-local sharing."""
+    run = run_source_facts(conn, run_id)
+    return delivered_source_sha(run, int(project_id)) if run is not None else ""
 
 
 def carried_project_ids(conn: Any, run_id: str) -> tuple[int, ...]:
@@ -190,7 +222,9 @@ def environment_name(conn: Any, environment_id: Any) -> str:
 __all__ = [
     "carried_project_ids",
     "carrying_runs_for_project",
+    "delivered_source_sha",
     "environment_name",
     "recorded_source_sha",
+    "run_delivered_sha",
     "run_source_sha",
 ]

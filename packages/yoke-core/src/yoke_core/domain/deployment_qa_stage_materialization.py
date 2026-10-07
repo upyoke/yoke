@@ -6,6 +6,7 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
+from yoke_core.domain.deployment_run_project_sources import run_delivered_sha
 from yoke_core.domain.deployment_qa_frozen_plan_selection import (
     frozen_stage_plans,
     member_requirements,
@@ -310,7 +311,11 @@ def materialize_deployment_qa_stage(
         "deployment_run_id": str(deployment_run_id),
         "deployment_stage": str(deployment_stage),
         "deployment_member_item_id": deployment_member_item_id,
-        "candidate_revision": str(subject["release_lineage"]),
+        # The commit the run delivered for the member's project: a member
+        # carried from a bound project is checked against that build.
+        "candidate_revision": run_delivered_sha(
+            conn, str(deployment_run_id), int(target["project"]["id"])
+        ),
         "execution_target": target,
         "created_requirement_ids": created,
         "existing_requirement_ids": existing,

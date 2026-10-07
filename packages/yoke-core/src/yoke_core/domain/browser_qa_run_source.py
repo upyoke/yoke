@@ -37,12 +37,14 @@ def run_bound_identity(
     """
     source = context.get("run_source") or {}
     pinned = str(source.get("sha") or "").strip()
+    project = str(source.get("project") or "").strip()
+    whose = f" for project {project!r}" if project else ""
     if not pinned:
         return (
             FreshnessFailure(
                 DEPLOYMENT_SOURCE_UNPINNED,
-                f"Deployment run {deployment_run_id} names no commit it was "
-                "pinned to deliver, so there is nothing for this case's "
+                f"Deployment run {deployment_run_id} names no commit it "
+                f"delivered{whose}, so there is nothing for this case's "
                 "evidence to be bound to and no way to tell whether the "
                 "environment is serving what the run shipped. Bind the run to "
                 "its release lineage before running its QA.",
@@ -56,7 +58,7 @@ def run_bound_identity(
             FreshnessFailure(
                 DEPLOYMENT_SOURCE_CONTRADICTED,
                 f"This case verifies deployment run {deployment_run_id}, which "
-                f"was pinned to deliver {pinned}, but {supplied} was named for "
+                f"delivered {pinned}{whose}, but {supplied} was named for "
                 "it. A run is authority over what it shipped. Drop the "
                 "expected-commit argument and let the run supply it, or run "
                 "the case against the run that delivered that commit.",

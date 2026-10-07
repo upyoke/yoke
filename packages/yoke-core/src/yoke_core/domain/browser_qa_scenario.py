@@ -179,7 +179,7 @@ def execute_scenario(
     _bqa._log("Found browser requirements")
 
     # A case that hangs off a deployment run is judged against what that run
-    # was pinned to deliver. The deployment stage passes no expectation of its
+    # delivered for the case's project. The deployment stage passes no expectation of its
     # own -- it is certifying a run, and the run already knows its commit.
     if deployment_run_id is not None:
         identity_failure, expected_branch, expected_sha = run_bound_identity(

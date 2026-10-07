@@ -108,7 +108,7 @@ class TestRunBoundIdentityResolution:
         )
         assert failure is not None
         assert failure.reason == "deployment_source_unpinned"
-        assert "pinned to deliver" in failure.message
+        assert "names no commit it delivered" in failure.message
 
     def test_a_contradicting_commit_refuses_rather_than_choosing(self) -> None:
         failure, _, _ = run_bound_identity(
@@ -133,9 +133,7 @@ class TestRunBoundIdentityResolution:
 
 
 class TestDeploymentStageBindsItsEvidence:
-    def test_run_case_proves_and_records_the_run_commit(
-        self, db_path: str
-    ) -> None:
+    def test_run_case_proves_and_records_the_run_commit(self, db_path: str) -> None:
         seed_deployment_run(db_path, RUN_ID, release_lineage=PINNED_SHA)
         req_id = _seed_run_requirement(db_path, RUN_ID)
         proved: list[tuple] = []
@@ -169,9 +167,7 @@ class TestDeploymentStageBindsItsEvidence:
         assert payload["code_identity"] == {"branch": "main", "sha": PINNED_SHA}
         assert payload["freshness_validated"] is True
 
-    def test_unpinned_run_refuses_before_any_browser_starts(
-        self, db_path: str
-    ) -> None:
+    def test_unpinned_run_refuses_before_any_browser_starts(self, db_path: str) -> None:
         seed_deployment_run(db_path, RUN_ID, release_lineage="")
         req_id = _seed_run_requirement(db_path, RUN_ID)
         opened: list[dict] = []

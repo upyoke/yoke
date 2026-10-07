@@ -37,13 +37,13 @@ IDENTITY_PROOF_MALFORMED = "identity_proof_malformed"
 #: case that landed on an authentication wall: that page is not the signed-in
 #: target either, and the recovery is ``yoke browser authorize``.
 EXECUTION_TARGET_UNAUTHORIZED = "execution_target_unauthorized"
-#: A deployment run names no commit it was pinned to deliver, so its
+#: A deployment run names no commit it delivered for the case's project, so its
 #: evidence has nothing to be bound to. Distinct from a deployment that
 #: cannot prove itself: here it is the expectation that is missing, not the
 #: answer.
 DEPLOYMENT_SOURCE_UNPINNED = "deployment_source_unpinned"
 #: A caller named a commit for a run-bound case that is not the commit the
-#: run was pinned to deliver. The run is authority over what it shipped, so
+#: run delivered for the case's project. The run is authority over what it shipped, so
 #: the contradiction refuses rather than picking one.
 DEPLOYMENT_SOURCE_CONTRADICTED = "deployment_source_contradicted"
 #: The project's identity configuration could not be read — denied,

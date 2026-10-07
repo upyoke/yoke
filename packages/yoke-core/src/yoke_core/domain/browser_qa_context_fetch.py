@@ -2,7 +2,7 @@
 
 ``qa.browser_context.get`` answers with the named Browser method case, the
 deployment the case is about, and — for a case hanging off a deployment run —
-the commit that run was pinned to deliver. It goes through the Yoke
+the commit that run delivered for the case's own project. It goes through the Yoke
 function-call dispatcher, so it works identically from a Yoke checkout on a
 local-postgres env and from an external project over the https relay.
 """

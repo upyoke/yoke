@@ -27,7 +27,9 @@ def _placeholder(conn) -> str:
 def ensure_ephemeral_table(db_path: str) -> None:
     """Create the ephemeral_environments table and its project row."""
     conn = connect_test_db(db_path)
-    execute_schema_script(conn, """
+    execute_schema_script(
+        conn,
+        """
         CREATE TABLE IF NOT EXISTS ephemeral_environments (
             id INTEGER PRIMARY KEY,
             project_id INTEGER NOT NULL,
@@ -46,7 +48,8 @@ def ensure_ephemeral_table(db_path: str) -> None:
             created_at TEXT NOT NULL,
             UNIQUE(project_id, branch)
         );
-    """)
+    """,
+    )
     conn.execute(
         "INSERT INTO projects (id, slug, name, public_item_prefix, created_at) "
         "VALUES (100, 'testproj', 'Test Project', 'YOK', '2026-01-01T00:00:00Z') "
@@ -100,7 +103,9 @@ def seed_deployment_run(
     ensure_ephemeral_table(db_path)
     conn = connect_test_db(db_path)
     p = _placeholder(conn)
-    execute_schema_script(conn, """
+    execute_schema_script(
+        conn,
+        """
         CREATE TABLE IF NOT EXISTS deployment_runs (
             id TEXT PRIMARY KEY,
             project_id INTEGER NOT NULL,
@@ -109,7 +114,8 @@ def seed_deployment_run(
             status TEXT NOT NULL DEFAULT 'created',
             created_at TEXT NOT NULL
         );
-    """)
+    """,
+    )
     conn.execute(
         f"UPDATE projects SET default_branch = {p} WHERE id = {p}",
         (default_branch, project_id),
@@ -170,8 +176,10 @@ def _fetch_context_from_test_db(
         run_source = None
         if deployment_run_id is not None:
             # Mirrors the handler: a run case is judged against the commit
-            # the run was pinned to deliver.
-            run_source = resolve_run_pinned_source(conn, str(deployment_run_id))
+            # the run delivered for the case's own project.
+            run_source = resolve_run_pinned_source(
+                conn, str(deployment_run_id), requirement_id=int(requirement_id)
+            )
         deployed_sha = None
         deployment_recorded = False
         ephemeral_url = None

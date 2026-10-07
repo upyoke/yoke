@@ -32,6 +32,24 @@ def _timestamp(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
+def _delivered_commits(deployment: dict) -> set[str]:
+    """Every commit the run delivered: its lineage, and each bound project's build.
+
+    A bound project serves the last release output the run recorded for it
+    (a materialized version pin), else the commit the run bound, matching
+    the server's ``execution_candidate_revision`` for a carried member.
+    """
+    commits = {str(deployment.get("release_lineage") or "")}
+    bound = deployment.get("bound_sources") or {}
+    bound = json.loads(bound) if isinstance(bound, str) else bound
+    for project in bound.get("projects") or []:
+        outputs = [o for o in project.get("outputs") or [] if o.get("commit_sha")]
+        source = outputs[-1]["commit_sha"] if outputs else project.get("commit_sha")
+        commits.add(str(source or "").strip().lower())
+    commits.discard("")
+    return commits
+
+
 def verify(args: argparse.Namespace) -> dict:
     run_id = os.environ.get("DEPLOYMENT_RUN_ID")
     base_url = os.environ.get("BASE_URL", "").rstrip("/")
@@ -79,7 +97,8 @@ def verify(args: argparse.Namespace) -> dict:
     if (
         requirement["deployment_run_id"] != run_id
         or requirement["deployment_stage"] != args.stage
-        or requirement["execution_candidate_revision"] != deployment["release_lineage"]
+        or requirement["execution_candidate_revision"]
+        not in _delivered_commits(deployment)
         or requirement["plan_id"] != plan["id"]
         or requirement["plan_case_key"] != args.case_key
     ):

@@ -269,9 +269,11 @@ def _establish_deployment_freshness(
         # a deployment run, or an item case whose --base-url is that same
         # origin. A pre-merge candidate on another origin returned above.
         target = DeploymentUnderTest.from_payload(context.get("deployment_target"))
+        run_source = context.get("run_source") or {}
         failure = validate_deployment_identity(
             expected_sha,
             target=target,
+            project=str(run_source.get("project") or project),
             fetch=fetch_identity,
         )
         if failure is not None:
