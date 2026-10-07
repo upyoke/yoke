@@ -96,6 +96,7 @@ yoke qa gate-summary --item PREFIX-N --target reviewed-implementation --json
 | `yoke qa requirement add-batch` | `--item PREFIX-N (--rows-file PATH \| --stdin)` | Insert item-attached requirements atomically; every row requires `workflow_transition_id` |
 | `yoke qa plan materialize` | `--item PREFIX-N --transition T`, legacy `--deployment-run-id RUN --plan PLAN --project P`, or scoped `--deployment-run-id RUN --stage STAGE [--member PREFIX-N] [--plan PLAN] --project P` | Materialize attached item plans, one run-wide plan (refused when the run pins any QA stage, since every stage counts only rows carrying its own name), or frozen stage/member obligations; each case stays on the shared QA authority. For a stage already naming admitted cases, a correction-only `--plan` is accepted when repeatable `--replaces CASE_KEY=FAILED_REQUIREMENT_ID` names every plan case. Materialization and declaration commit together: the failed case keeps blocking, leaves the roster, and is superseded when the corrected case passes independent review |
 | `yoke qa plan run` | The same item, legacy run, or scoped stage/member selectors as materialize | Execute one server-issued durable roster against its exact subject and target; a run subject also accepts `--replaces` for the cases its `--plan` materializes |
+| `yoke qa requirement supersede` | `--requirement-id N --superseded-by-requirement-id N --rationale TEXT` | Discharge a failed case with a passing same-scope corrected case, or retire a post_deploy item source in favor of a corrected item requirement once a passing run case superseded one of its admitted copies; later releases admit only the corrected body |
 | `yoke qa requirement supersede --declare-replacement` | `--requirement-id FAILED_ID --superseded-by-requirement-id CORRECTED_ID --rationale TEXT` | Declare an existing corrected case (a direct run case, or an item case of the same item, transition and phase) as the replacement of a failed one before it passes; the scoped plan runner skips the old capture, grades the corrected blocking case, and supersedes the failure only after its pass. |
 | `yoke qa requirement list` | `[--item PREFIX-N \| --epic-id N \| --deployment-run-id ID]` | List requirements |
 | `yoke qa requirement get` | `--requirement-id N` | Get one requirement |
@@ -127,7 +128,12 @@ case. Frozen deployment-run requirements refuse `method_config` updates.
 Use `requirement-add` when the *verification surface itself* needs to change
 — for example, swapping from `unit_test` to `integration` — since that is a
 different requirement. `requirement-update` refuses to mutate `qa_kind` for
-exactly that reason.
+exactly that reason. It cannot change `instructions` or `expected_outcome`
+either: a post_deploy item source worded wrong is corrected by adding the
+corrected requirement and retiring the source with `yoke qa requirement
+supersede` after a passing run case answered its failed admitted copy.
+Recording a requirement never checks the runtime against `--target-env`;
+only executing the case does.
 
 Exit codes: 0 = success, 1 = error/not found, 2 = usage error
 

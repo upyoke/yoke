@@ -22,14 +22,15 @@ the same evaluated scope, so it is graded on its own evidence in the same
 pass. A link to a row that later stops passing therefore cannot launder a
 failure through -- that row fails for itself.
 
-What supersession deliberately does NOT do is reach the item requirement an
-admitted copy was frozen from. That row is a real outstanding obligation and
-discharging it from here would drop it forever. But leaving it unmentioned
-was how a correction failed to stick: the next release admitted a fresh copy
-of the same defective body and asked the same owner to run the same case. So
-the receipt names that row and the command that corrects it, at the one
-moment the operator is holding the corrected configuration. Naming it is all
-this does; only the operator running that command changes the source.
+What superseding an admitted copy deliberately does NOT do is reach the
+item requirement the copy was frozen from. That row is a real outstanding
+obligation and discharging it from here would drop it forever. But leaving
+it unmentioned was how a correction failed to stick: the next release
+admitted a fresh copy of the same defective body. So the receipt names that
+row and the command that retires it, at the one moment the operator holds
+the corrected body. Retiring it is its own explicit supersession of the
+source by a corrected item requirement
+(:mod:`yoke_core.domain.qa_requirement_source_retirement`).
 """
 
 from __future__ import annotations
@@ -37,30 +38,17 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain.db_helpers import iso8601_now, query_one, query_rows
-from yoke_core.domain.deployment_qa_admission_materialization import (
-    admitted_source_requirement_id,
-)
 from yoke_core.domain.qa_events import emit_qa_requirement_event
-from yoke_core.domain.qa_obligation_settlement import (
-    obligation_settled,
-    requirement_retracted_at_select,
+from yoke_core.domain.qa_obligation_settlement import requirement_retracted_at_select
+from yoke_core.domain.qa_requirement_source_retirement import (
+    SOURCE_RETIREMENT_REFUSAL,
+    admitted_source_correction,
+    is_source_retirement,
+    passing_run_replacement,
 )
 
 
 SUPERSESSION_SOURCES = ("agent", "operator")
-
-#: Said when the discharged row is an admitted copy whose intake row is still
-#: outstanding. Supersession is run-local by design, so this is the one moment
-#: the operator holds the corrected configuration AND the system knows which
-#: row the next release will copy it from.
-NEXT_ADMISSION_NOTICE = (
-    "requirement {copy_id} was admitted from requirement {source_id}, which "
-    "this supersession does not touch. Correcting only this copy leaves "
-    "requirement {source_id} outstanding, so the next release admits a fresh "
-    "copy of the same body and asks its owner to run the same case. Correct "
-    "the source too: yoke qa requirement update --requirement-id {source_id} "
-    "--field method_config --value '<corrected-config>'"
-)
 
 #: Columns that together answer "is this row discharged, and by what".
 SUPERSESSION_FIELDS = (
@@ -78,7 +66,7 @@ class QaSupersessionError(ValueError):
 def _requirement(conn: Any, requirement_id: int, *, label: str) -> dict[str, Any]:
     row = query_one(
         conn,
-        "SELECT id,item_id,epic_id,task_num,"
+        "SELECT id,item_id,epic_id,task_num,plan_id,"
         "deployment_run_id,deployment_stage,deployment_member_item_id,"
         "execution_target_digest,blocking_mode,plan_case_key,method_id,"
         "qa_kind,qa_phase,workflow_transition_id,replacement_requirement_id,"
@@ -120,36 +108,6 @@ def same_scope(broken: dict[str, Any], corrected: dict[str, Any]) -> list[str]:
     return mismatches
 
 
-def admitted_source_correction(
-    conn: Any, broken: dict[str, Any]
-) -> dict[str, Any]:
-    """Name the intake row this discharged copy was frozen from, if any.
-
-    Returns empty when there is nothing true to say: a run-bound case that is
-    not an admitted copy names no upstream, and neither does one whose intake
-    row has been deleted or is itself already settled -- a settled row is not
-    outstanding, so no future release admits it and there is nothing left to
-    correct. The notice is never invented to fill the field.
-    """
-    source_id = admitted_source_requirement_id(broken.get("plan_case_key"))
-    if source_id is None:
-        return {}
-    source = query_one(
-        conn,
-        f"SELECT id,waived_at,superseded_by_requirement_id,{requirement_retracted_at_select(conn)} "
-        "FROM qa_requirements WHERE id=%s",
-        (int(source_id),),
-    )
-    if source is None or obligation_settled(dict(source)):
-        return {}
-    return {
-        "admitted_from_requirement_id": int(source_id),
-        "next_admission_notice": NEXT_ADMISSION_NOTICE.format(
-            copy_id=int(broken["id"]), source_id=int(source_id)
-        ),
-    }
-
-
 def latest_verdict(conn: Any, requirement_id: int) -> str:
     row = query_one(
         conn,
@@ -174,9 +132,11 @@ def record_supersession(
 
     Refuses rather than guessing: the two rows must be the same
     obligation, the replacement must be a real blocking case that has
-    passed, and neither may already be discharged another way. Every
-    refusal names what to do instead. Returns the receipt and the
-    discharged row; the caller commits and then emits the event.
+    passed, and neither may already be discharged another way. A
+    post-deploy item source never runs, so retiring one needs a passing run
+    replacement of its admitted copy instead. Every refusal names what to do
+    instead. Returns the receipt and the discharged row; the caller commits
+    and then emits the event.
     """
     rationale = str(rationale or "").strip()
     if not rationale:
@@ -224,8 +184,15 @@ def record_supersession(
                 f"by requirement {corrected[column]}. Name that case directly "
                 "rather than chaining through an earlier attempt."
             )
-    verdict = latest_verdict(conn, int(superseded_by_requirement_id))
-    if verdict != "pass":
+    run_answer: dict[str, int] = {}
+    if is_source_retirement(broken):
+        answer_id = passing_run_replacement(conn, broken)
+        if answer_id is None:
+            raise QaSupersessionError(
+                SOURCE_RETIREMENT_REFUSAL.format(source_id=int(requirement_id))
+            )
+        run_answer = {"run_replacement_requirement_id": answer_id}
+    elif (verdict := latest_verdict(conn, int(superseded_by_requirement_id))) != "pass":
         raise QaSupersessionError(
             f"requirement {superseded_by_requirement_id} latest verdict is "
             f"{verdict or 'missing'}, not pass. Run the corrected case to a "
@@ -266,6 +233,7 @@ def record_supersession(
         "supersession_rationale": rationale,
         "supersession_source": str(source),
         **admitted_source_correction(conn, broken),
+        **run_answer,
     }, broken
 
 
@@ -288,9 +256,7 @@ def emit_supersession_event(
         source=str(receipt["supersession_source"]),
         target_row=broken,
         extra_detail={
-            "superseded_by_requirement_id": int(
-                receipt["superseded_by_requirement_id"]
-            )
+            "superseded_by_requirement_id": int(receipt["superseded_by_requirement_id"])
         },
     )
 
@@ -334,11 +300,9 @@ def supersession_history(conn: Any, *, run_id: str) -> list[dict[str, Any]]:
 
 
 __all__ = [
-    "NEXT_ADMISSION_NOTICE",
     "SUPERSESSION_FIELDS",
     "SUPERSESSION_SOURCES",
     "QaSupersessionError",
-    "admitted_source_correction",
     "emit_supersession_event",
     "latest_verdict",
     "record_supersession",

@@ -38,6 +38,10 @@ class QaRequirementSupersedeResponse(BaseModel):
     #: the next release admits that row again untouched.
     admitted_from_requirement_id: Optional[int] = None
     next_admission_notice: Optional[str] = None
+    #: Present only when the superseded row was a post_deploy item source
+    #: retired in favor of a corrected item requirement: the passing run case
+    #: that proved the corrected body and answers for its own run.
+    run_replacement_requirement_id: Optional[int] = None
 
 
 def handle_qa_requirement_supersede(

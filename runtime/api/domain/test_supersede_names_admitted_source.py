@@ -8,15 +8,11 @@ stick, because the next release admitted a fresh copy of the same defective
 body and asked the same owner to run the same case.
 
 Saying it is only half a fix, and the dangerous half to ship alone. The
-amendment the receipt names runs through
-:func:`qa_admitted_case_reconciliation.admitted_copies_in_flight`, which
-selected admitted copies on ``waived_at`` alone. The copy the operator had
-just superseded therefore still counted as in flight, was reported
-unreachable because it carries a determinate ``fail``, and refused the
-amendment -- offering, as its recovery, the supersession that had just
-happened. These walk that command end to end on the exact case the receipt
-is about rather than asserting its wording, because wording is what passes
-while an exit stays shut.
+receipt names retiring the source in favor of a corrected item requirement,
+and these walk that command end to end on the exact case the receipt is
+about rather than asserting its wording, because wording is what passes
+while an exit stays shut. An in-place ``method_config`` amendment of the
+source stays guarded while an undischarged copy is still owed an answer.
 """
 
 from __future__ import annotations
@@ -33,6 +29,7 @@ from yoke_core.domain.qa_admitted_case_reconciliation import (
 )
 from yoke_core.domain.qa_requirement_config_update import apply_requirement_update
 from yoke_core.domain.qa_requirement_supersession import supersede_requirement
+from runtime.api.domain.test_qa_source_retirement import _corrected_item_requirement
 
 #: The shape the worked defect had: routes relative to a bare origin that
 #: serves the marketing site, so every navigate landed off the workbench.
@@ -76,8 +73,8 @@ def test_receipt_names_the_intake_row_and_the_command_that_corrects_it(
     notice = receipt["next_admission_notice"]
     assert str(intake_id) in notice
     assert str(broken_id) in notice
-    assert f"--requirement-id {intake_id}" in notice
-    assert "yoke qa requirement update" in notice
+    assert f"yoke qa requirement supersede --requirement-id {intake_id}" in notice
+    assert "yoke qa requirement add --item" in notice
 
 
 def test_the_correction_the_receipt_names_actually_runs(test_db) -> None:
@@ -95,17 +92,17 @@ def test_the_correction_the_receipt_names_actually_runs(test_db) -> None:
     receipt = _supersede(test_db, broken_id=broken_id, corrected_id=corrected_id)
     assert receipt["admitted_from_requirement_id"] == intake_id
 
-    outcome = apply_requirement_update(
-        test_db, intake_id, "method_config", json.dumps(CORRECTED_CONFIG)
-    )
+    corrected_source = _corrected_item_requirement(test_db, source_id=intake_id)
+    retired = _supersede(test_db, broken_id=intake_id, corrected_id=corrected_source)
 
-    assert outcome.ok, f"{outcome.error_code}: {outcome.message}"
-    assert _method_config(test_db, intake_id)["steps"][0]["route"] == (
-        "/workbench/releases/current"
-    )
-    # The discharged copy is left exactly as it was: the correction reaches
-    # the source the next release reads, never the frozen acceptance record.
+    assert retired["superseded_by_requirement_id"] == corrected_source
+    assert retired["run_replacement_requirement_id"] == corrected_id
+    # The discharged copy and the retired source are left exactly as they
+    # were: the correction is a new row the next release reads.
     assert _method_config(test_db, broken_id)["steps"][0]["route"] == (
+        "/releases/current"
+    )
+    assert _method_config(test_db, intake_id)["steps"][0]["route"] == (
         "/releases/current"
     )
 
