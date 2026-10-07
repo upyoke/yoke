@@ -113,14 +113,15 @@ def connect(args: List[str]) -> int:
     )
     if not explicit_token and parsed.self_host:
         try:
-            enabled = team_server_authorization.browser_sign_in_available(parsed.url)
+            methods = team_server_authorization.sign_in_methods(parsed.url)
         except hosted_machine_authorization.HostedMachineAuthorizationError as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
-        if not enabled:
+        if not methods.device_code:
             return usage_error(
-                "oidc_not_configured: this server uses API tokens; connect with --token-file PATH or --token-stdin: "
-                + CONNECT_USAGE
+                "machine_approval_unavailable: this server predates machine "
+                "approval without company sign-in; upgrade it, or connect with "
+                "--token-file PATH or --token-stdin: " + CONNECT_USAGE
             )
     if not explicit_token:
         return _connect_hosted(parsed)
@@ -161,13 +162,21 @@ def _connect_hosted(parsed: argparse.Namespace) -> int:
         stream = sys.stderr if parsed.json_mode else sys.stdout
         print(f"Open {pending.verification_uri_complete}", file=stream)
         print(f"One-time code: {pending.user_code}", file=stream)
+        if parsed.self_host:
+            print(
+                "Or approve from your own machine already connected to this "
+                f"server: yoke machine-authorization resolve {pending.user_code} "
+                "--action approve. The approver's identity is the one this "
+                "machine receives; a first machine connects with --token-stdin.",
+                file=stream,
+            )
         if not browser.opened:
             print(
                 f"The browser did not open ({browser.reason}); open the URL above "
                 "yourself.",
                 file=stream,
             )
-        print("Waiting for browser approval…", file=stream)
+        print("Waiting for approval…", file=stream)
 
     try:
         credential = hosted_machine_authorization.authorize(

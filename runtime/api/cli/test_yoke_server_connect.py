@@ -297,15 +297,19 @@ def test_connect_token_file_source(monkeypatch, machine_home, tmp_path, capsys):
     assert stored.read_text(encoding="utf-8").strip() == _TOKEN
 
 
-def test_connect_without_oidc_teaches_explicit_token(machine_home, capsys, monkeypatch):
+def test_connect_to_a_server_without_machine_approval_teaches_explicit_token(
+    machine_home, capsys, monkeypatch
+):
     from yoke_cli.config import team_server_authorization
 
     monkeypatch.setattr(
-        team_server_authorization, "browser_sign_in_available", lambda _url: False
+        team_server_authorization,
+        "sign_in_methods",
+        lambda _url: team_server_authorization.SignInMethods(False, False),
     )
     assert commands.connect(["http://127.0.0.1:8765"]) == 2
     err = capsys.readouterr().err
-    assert "oidc_not_configured" in err
+    assert "machine_approval_unavailable" in err
     assert "--token-file" in err
     assert not (machine_home / "config.json").exists()
 
