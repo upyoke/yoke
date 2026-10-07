@@ -15,7 +15,7 @@ and binds the calling actor. Envelope and dispatch rules are in
 A person holds exactly one org role from
 `yoke_core.domain.actor_role.HUMAN_ORG_ROLES`: `admin`, `operator`, or
 `viewer`. `operator` at org scope is normal Yoke work across every project in
-the org. `deployment_ci`, `infrastructure_ci`, and
+the org. `deployment_ci`, `hosted_service`, `infrastructure_ci`, and
 `migration_verification_ci` are `MACHINE_ONLY_ROLES`; a system actor's org
 roles accumulate.
 

@@ -43,8 +43,9 @@ roster, or with `yoke actors role set ACTOR-ID --role ROLE` (or
 `--member EMAIL` to name the person by the email they sign in with). The new
 role replaces the old one. The change is refused, with the reason named,
 when it would demote the last active admin (make someone else admin first),
-when the role is machine-only (`deployment_ci`, `infrastructure_ci`,
-`migration_verification_ci` belong to machine credentials), when the role is
+when the role is machine-only (`deployment_ci`, `hosted_service`,
+`infrastructure_ci`, `migration_verification_ci` belong to machine
+credentials), when the role is
 not one of the three above, or when the actor is a system actor. An email
 with no linked actor is refused until that person signs in once. Project
 roles (`owner`, `operator`, `viewer` on one project) remain separate grants.
