@@ -233,7 +233,13 @@ def _resolve_environment_database_binding(
             "source checkout"
         ) from exc
     try:
-        aws_env = deploy_remote.aws_capability_env(env.project, env.aws_region)
+        aws_env = deploy_remote.aws_machine_capability_env(env.project, env.aws_region)
+    except Exception as exc:  # noqa: BLE001 - every failure here is the same refusal
+        raise DbAdminSetupError(
+            f"could not resolve {env.project} aws-admin authority from this "
+            f"machine's capability store: {exc}"
+        ) from exc
+    try:
         runner = deploy_remote.CommandRunner()
         return deploy_core.resolve_environment_database_binding(
             runner,
