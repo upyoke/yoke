@@ -94,6 +94,7 @@ def previous_release(project: str, environment: str) -> Optional[Tuple[str, str]
 
 
 def _compare_status(target: "CiGateTarget", base: str, head: str) -> str:
+    from yoke_core.domain.deployment_run_ci_gate_github import read_refusal
     from yoke_core.domain.deployment_run_ci_tested_source import (
         UNVERIFIABLE,
         ReleaseSourceRefused,
@@ -105,12 +106,10 @@ def _compare_status(target: "CiGateTarget", base: str, head: str) -> str:
     try:
         body = rest_get(path, query={"per_page": "1"}, token=target.token)
     except RestTransportError as exc:
-        raise ReleaseSourceRefused(
-            UNVERIFIABLE,
-            f"could not read {path} to confirm release commit {head} carries "
-            f"the previous release {base}: {exc}. Retry the create; nothing "
-            "was created.",
-        ) from exc
+        purpose = (
+            f"to confirm release commit {head} carries the previous release {base}"
+        )
+        raise read_refusal(target, path, exc, purpose) from exc
     status = body.get("status") if isinstance(body, dict) else None
     if not isinstance(status, str) or not status:
         raise ReleaseSourceRefused(

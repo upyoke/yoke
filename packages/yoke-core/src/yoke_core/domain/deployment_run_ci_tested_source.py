@@ -18,8 +18,11 @@ from dataclasses import dataclass
 from typing import Any, Dict, Mapping, Optional
 
 from yoke_contracts.github_app_installation_permissions import (
-    GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
     GITHUB_ACTIONS_WRITE_PERMISSION_LEVELS,
+)
+from yoke_core.domain.deployment_run_ci_gate_github import (
+    CI_GATE_READ_PERMISSIONS,
+    read_refusal,
 )
 from yoke_core.domain.deployment_run_gate_branch_lineage import (
     first_parent_line,
@@ -143,7 +146,7 @@ def ci_gate_target(
     )
     if not branch:
         return None
-    auth = _auth(project, flow, GITHUB_ACTIONS_READ_PERMISSION_LEVELS)
+    auth = _auth(project, flow, CI_GATE_READ_PERMISSIONS)
     return CiGateTarget(project, flow, auth.repo, workflow, branch, auth.token, env)
 
 
@@ -154,11 +157,8 @@ def _read(target: CiGateTarget, path: str, query: Dict[str, str]) -> Any:
     try:
         data = rest_get(path, query=query, token=target.token)
     except RestTransportError as exc:
-        raise ReleaseSourceRefused(
-            UNVERIFIABLE,
-            f"could not read {path} in {target.repo} to find a CI-tested "
-            f"release commit: {exc}. Retry the create; nothing was created.",
-        ) from exc
+        purpose = f"in {target.repo} to find a CI-tested release commit"
+        raise read_refusal(target, path, exc, purpose) from exc
     if data is None:
         raise ReleaseSourceRefused(
             UNVERIFIABLE,
