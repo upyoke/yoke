@@ -85,10 +85,14 @@ class TestTerminalSuccess:
             "SELECT COUNT(*) FROM item_status_transitions "
             "WHERE item_id=42 AND task_num=3 AND to_status='done'"
         ) == 1
-        # A transition is item activity: the rollup gains the epic's day row.
+        # A transition is item activity: the rollup gains one epic row per
+        # UTC day a transition landed on — two when the pair straddles midnight.
         assert env.query_int(
             "SELECT COUNT(*) FROM item_activity_days WHERE item_id=42"
-        ) == 1
+        ) == env.query_int(
+            "SELECT COUNT(DISTINCT substring(created_at, 1, 10)) "
+            "FROM item_status_transitions WHERE item_id=42"
+        )
 
 
 class TestLabelReconciliation:
