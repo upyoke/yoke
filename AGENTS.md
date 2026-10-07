@@ -176,10 +176,11 @@ Observe → `ouroboros_entries` → `/yoke curate` → `/yoke doctor` → `/yoke
 ## Interaction Style
 - **Prefer inline chat for summaries, checkpoints, and design iteration;** reserve structured chooser UIs for short binary or ternary decisions. **The work item is the plan:** when running a `/yoke` skill, the item's structured fields are the plan, so never enter plan mode on your own, and if the plan is insufficient, stop and escalate.
 <!-- END YOKE MANAGED BLOCK -->
-# Yoke Repo Internals
-<!-- KEEP IN SYNC: an identical copy of this block lives in the platform repo (hand-copied). Edit both together. -->
+<!-- KEEP IN SYNC: an identical copy of this block lives in both the yoke and platform repos (hand-copied; no machinery syncs it). Edit both together. -->
 ## Control-Plane Authority — Hard Rule (this installation)
-- **All non-testing control-plane operations run on prod** (`prod` / `prod-db-admin`) — releases, receipts, deployment-run and delivery records, GitHub relays — whichever environment is being deployed. **Stage exists only to test the live control plane:** nothing real routes through it, and anything on `stage-db-admin` is disposable rehearsal state read by nothing live.
+- **All non-testing control-plane operations run on prod** (`prod` / `prod-db-admin`) — releases, receipts, deployment-run and delivery records, GitHub relays — whichever environment is being deployed or fleet rehearsed. **Stage exists only to test the live control plane:** nothing real routes through or depends on it, and anything on `stage-db-admin` is disposable rehearsal state read by nothing live.
+- **Platform's own database (`yoke_platform`) is readable on this operator machine, read-only:** `yoke --env platform-prod-registry-db-admin db read "SELECT ..."` (stage: `platform-stage-registry-db-admin`). `yoke env list` shows the configured connections. Never write through them.
+# Yoke Repo Internals
 <!-- Not shipped. -->
 - Source-maintainer manifest contract: `runtime/harness/manifest-schema.md`.
 - **Sync install-bundle edits in this Yoke source checkout — this file included — in the same commit:** author docs under `docs/public/`; run `yoke dev run -- python3 -m yoke_core.domain.install_bundle_tree_sync sync --target-root <checkout>`, then stage every changed path. Byte drift fails CI.
