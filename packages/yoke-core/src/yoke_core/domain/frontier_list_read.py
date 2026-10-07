@@ -2,7 +2,9 @@
 
 Ready rows carry ranks, routed commands, and readiness reasons. Blocked rows
 cover unsatisfied activation, integration, and closure dependencies, plus
-operator blocks and incomplete bodies. Polling does not emit events.
+operator blocks and incomplete bodies. Dependency edges are every unsatisfied
+blocking edge as structured data, for the Frontier's Waiting graph (see
+:mod:`frontier_dependency_edges`). Polling does not emit events.
 """
 
 from __future__ import annotations
@@ -14,6 +16,10 @@ from yoke_core.domain import db_helpers
 from yoke_core.domain.dependency_planning import (
     BlockerDetail,
     evaluate_batch_gates,
+)
+from yoke_core.domain.frontier_dependency_edges import (
+    FRONTIER_EDGE_FIELDS,
+    frontier_dependency_edges,
 )
 from yoke_core.domain.item_ref_resolution import internal_ids_for_refs
 from yoke_core.domain.project_identity import placeholder
@@ -310,9 +316,11 @@ def list_frontier(
             "fields": {
                 "ready": list(FRONTIER_READY_FIELDS),
                 "blocked": list(FRONTIER_BLOCKED_FIELDS),
+                "dependency_edges": list(FRONTIER_EDGE_FIELDS),
             },
             "ready_rows": ready_rows,
             "blocked_rows": blocked_rows,
+            "dependency_edges": frontier_dependency_edges(conn, scope),
             "frozen_count": len(schedule.frozen_steps),
             "wip_cap": schedule.wip_cap,
             "wip_active": schedule.wip_active,

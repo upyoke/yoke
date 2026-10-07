@@ -29,6 +29,7 @@ class FrontierListResponse(BaseModel):
     fields: Dict[str, List[str]]
     ready_rows: List[Dict[str, Any]]
     blocked_rows: List[Dict[str, Any]]
+    dependency_edges: List[Dict[str, Any]]
     frozen_count: int
     wip_cap: int
     wip_active: int
