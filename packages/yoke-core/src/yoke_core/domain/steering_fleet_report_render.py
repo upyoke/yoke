@@ -65,9 +65,7 @@ REPORT_PREAMBLE = (
 )
 
 
-def _holder_lines(
-    holders: tuple[ClaimHolder, ...], *, with_wake: bool = False
-) -> list[str]:
+def _holder_lines(holders: tuple[ClaimHolder, ...], *, idle: bool = False) -> list[str]:
     lines = []
     for holder in holders[:SECTION_LIMIT]:
         line = (
@@ -78,15 +76,13 @@ def _holder_lines(
             line += f", {holder.quiet_reason}"
         if holder.hand_started:
             line += "  hand-started (no launch record)"
-        if holder.contained_by_sweep:
-            # Not a worker that went quiet: its own machine ended it. Saying
-            # "idle" here sent a seat looking for a stalled agent when the
-            # finding was that containment had reaped a claim-holding one.
-            line += f"  contained by sweep: {holder.contained_reason}, claims held"
-        elif holder.native_process_gone:
-            line += "  process gone, claims held — terminate deliberately if dead"
-        elif with_wake:
-            line += f"  wake `yoke say --item {holder.public_ref} --stdin`"
+        if phrase := holder.process_phrase():
+            line += f"  {phrase}"
+        elif idle:
+            line += (
+                "  idle, process running — message it "
+                f"`yoke say --item {holder.public_ref} --stdin`"
+            )
         lines.append(line)
     return capped(lines, len(holders))
 
@@ -187,7 +183,10 @@ def _scope_work_lines(report: FleetReport) -> list[str]:
         *_section(
             f"idle holders — claim held, no tool call in over {idle}; process-gone "
             "holders included even when parked; live landing waits excluded",
-            _holder_lines(tuple(h for h in report.idle if h.item_id not in landed_ids)),
+            _holder_lines(
+                tuple(h for h in report.idle if h.item_id not in landed_ids),
+                idle=True,
+            ),
         ),
         *_in_flight.in_flight_section(report.in_flight),
         *_section(
@@ -205,7 +204,7 @@ def _scope_work_lines(report: FleetReport) -> list[str]:
                     for h in report.suspected_orphaned_waiters
                     if h.item_id not in landed_ids
                 ),
-                with_wake=True,
+                idle=True,
             ),
         ),
         *_section(

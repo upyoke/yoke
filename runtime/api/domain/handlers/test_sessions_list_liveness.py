@@ -15,6 +15,10 @@ from runtime.api.domain.handlers.test_sessions_list_handler import (
     _LONG_AGO_MINUTES,
     _insert_session,
 )
+from runtime.api.steering_fleet_test_helpers import (
+    seed_delivery_attempt,
+    seed_message,
+)
 from yoke_core.domain.sessions_list_read import ENDED_CAUSES, list_sessions
 
 
@@ -90,6 +94,7 @@ class TestLivenessDerivation:
             "state": "gone",
             "observed_at": observed,
             "evidence": {"pids": [42]},
+            "resumable_from_transcript": False,
         }
 
         test_db.execute(
@@ -98,6 +103,34 @@ class TestLivenessDerivation:
         )
         test_db.commit()
         assert list_sessions()[0]["native_process"] is None
+
+    def test_a_wake_answering_the_exit_projects_resuming(self, test_db):
+        exited = _iso(10)
+        _insert_session(test_db, "s-resuming", last_heartbeat=_iso(_LONG_AGO_MINUTES))
+        test_db.execute(
+            "UPDATE harness_sessions SET native_process_gone_at=%s, "
+            "native_process_gone_evidence='{}' WHERE session_id='s-resuming'",
+            (exited,),
+        )
+        seed_message(
+            test_db, "m-resume", sender="s-resuming", to="s-resuming", at=_iso(1)
+        )
+        seed_delivery_attempt(
+            test_db,
+            "wake-resume",
+            message_id="m-resume",
+            to="s-resuming",
+            result_code="wake_delivered",
+            started_at=_iso(1),
+        )
+        test_db.commit()
+
+        assert list_sessions()[0]["native_process"] == {
+            "state": "resuming",
+            "observed_at": exited,
+            "resume_started_at": _iso(1),
+            "resume_attempt_id": "wake-resume",
+        }
 
     def test_liveness_filter_and_rejection(self, test_db):
         _insert_session(test_db, "s-active", last_heartbeat=_iso())

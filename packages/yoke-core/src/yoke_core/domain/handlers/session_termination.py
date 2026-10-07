@@ -41,6 +41,7 @@ def handle_session_terminate(request: FunctionCallRequest) -> HandlerOutcome:
             actor_id=numeric_actor_id(request),
             caller_session_id=caller_session_id,
             reason=body.reason,
+            allow_resume_in_flight=body.allow_resume_in_flight,
         )
         conn.commit()
         return HandlerOutcome(result_payload=result)

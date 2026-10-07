@@ -111,13 +111,23 @@ def test_parked_release_is_compact_even_after_hours_of_tool_silence(
         ({"status": "implementing"}, "holder is not driving this"),
         ({"custody_state": UNDETERMINED}, "release custody unreadable"),
         ({"completion_flow_available": False}, "no active completion flow"),
-        ({"holder_native_process_gone": True}, "process gone, claims held"),
         (
             {
                 "holder_native_process_gone": True,
-                "holder_contained_reason": "no_authority",
+                "holder_process_phrase": "process gone, claims held",
+            },
+            "process gone, claims held",
+        ),
+        (
+            {
+                "holder_native_process_gone": True,
+                "holder_process_phrase": "contained by sweep: no_authority",
             },
             "contained by sweep: no_authority",
+        ),
+        (
+            {"holder_native_process_gone": True, "holder_resumable": True},
+            "message the holder `yoke say --item",
         ),
     ],
 )

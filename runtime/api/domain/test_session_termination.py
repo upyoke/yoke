@@ -178,6 +178,7 @@ def test_operator_termination_ends_silences_releases_and_queues_reap(
                 "cancelled_recipient_count": 1,
                 "reap_state": "pending",
                 "was_ended": False,
+                "allow_resume_in_flight": False,
             },
         )
     ]

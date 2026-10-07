@@ -22,7 +22,12 @@ What the report gives you is a finding; what to do with each one is yours:
   the provider stopped under **Vendor-stopped sessions**, and one that cannot
   resume — exhausted meter, rejected credentials, or a removed model — under
   **Stranded sessions**; none of
-  those appears here. Verify the recorded state before dismissing an idle or
+  those appears here. Each row names its process state and the move:
+  *idle, process running — message it*; *idle, process exited — message it
+  to resume from transcript* (a headless worker's process exits between
+  turns, and the message is the resume); *resuming now* (a wake already
+  answered the exit — let it start). None of those is a reason to terminate;
+  see [`worker-lifecycle.md`](worker-lifecycle.md). Verify the recorded state before dismissing an idle or
   stale row as an already-explained wait: read the holder's live `mode` and
   `quiet_reason` (`yoke sessions list --json`), not a memory of an earlier
   pass or a note already sitting in {SLUG} — knowing the reason, or having

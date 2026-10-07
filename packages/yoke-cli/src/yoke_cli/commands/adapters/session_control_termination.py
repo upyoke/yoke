@@ -15,11 +15,16 @@ from yoke_cli.commands.adapters.session_control_human_output import write_summar
 from yoke_contracts.api.function_call import TargetRef
 
 
-SESSION_TERMINATE_USAGE = "yoke sessions terminate SESSION-ID --reason R [--json]"
+SESSION_TERMINATE_USAGE = (
+    "yoke sessions terminate SESSION-ID --reason R [--allow-resume-in-flight] [--json]"
+)
 SESSION_TERMINATE_DESCRIPTION = (
     "Permanently end one top-level session, cancel its undelivered "
     "messages, request best-effort native-process reaping, and release "
-    "the session's held work claims."
+    "the session's held work claims. A session a wake is resuming is "
+    "refused as TERMINATION_RESUME_IN_FLIGHT: a headless worker's process "
+    "exits between turns and a message resumes it from its transcript, so "
+    "message it instead."
 )
 
 
@@ -48,6 +53,14 @@ def session_terminate(args: List[str]) -> int:
     )
     parser.add_argument("target_session_id", metavar="SESSION-ID")
     parser.add_argument("--reason", required=True)
+    parser.add_argument(
+        "--allow-resume-in-flight",
+        action="store_true",
+        help=(
+            "Terminate even while a wake is resuming the session. Use only "
+            "with evidence it cannot resume, or for a deliberate restaff."
+        ),
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, SESSION_TERMINATE_USAGE)
@@ -57,6 +70,10 @@ def session_terminate(args: List[str]) -> int:
         "session_id": parsed.target_session_id,
         "reason": parsed.reason,
     }
+    if parsed.allow_resume_in_flight:
+        # Sent only when set, so an ordinary termination stays readable by a
+        # serving build whose request contract predates the field.
+        payload["allow_resume_in_flight"] = True
     return dispatch_and_emit(
         function_id="session_control.session.terminate",
         target=TargetRef(kind="global"),
