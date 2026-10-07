@@ -66,7 +66,9 @@ def _resolve_item(public_ref: str, project: Optional[str]) -> tuple[Any, str]:
     if not response.success:
         error = response.error
         return None, error.message if error is not None else "item resolution failed"
-    return (response.result or {}).get("item") or {}, ""
+    item = (response.result or {}).get("item") or {}
+    recovery.record_resolved_item(item)
+    return item, ""
 
 
 def run(argv: List[str]) -> int:
@@ -88,10 +90,8 @@ def run(argv: List[str]) -> int:
     workflow_id = str((item.get("workflow") or {}).get("id") or "")
     status = str(item.get("status") or "")
     evidence_workflow = terminal_transition_is_evidence_gated(workflow_id)
-    # The close-out that will transition needs the summaries up front. The
-    # write itself is owed by the merge, not by the transition: evidence
-    # describes the landing, so a caller that supplied it gets it recorded
-    # even when the status change is postponed to a later command.
+    # Evidence describes the landing, so record supplied summaries even when
+    # the terminal transition waits. Evidence-gated close-out requires both.
     close_out_gated = evidence_workflow and not args.skip_status
     record_evidence = evidence_workflow and bool(args.result and args.verification)
 

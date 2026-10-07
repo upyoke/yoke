@@ -61,6 +61,14 @@ and digest pass unchanged through server and client composition so the local
 deploy driver can answer and the server can validate the exact question set.
 These attested IDs are never client-supplied item selectors.
 
+Clients also tolerate the previous released response shape without accepting
+internal keys as public selectors. Merge CI sends the context's resolved public
+ref. A legacy claim holder's owned key must match the item detail read in the
+same operation; session ownership still applies. Landing observations missing
+a ref use the complete ref on the request, while conflicting refs refuse. QA
+plan readers copy that known subject into legacy roster rows after checking
+their owned keys against the execution; the target and digest stay as issued.
+
 
 ## Registry, schema, and dispatch endpoints
 

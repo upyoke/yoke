@@ -57,6 +57,7 @@ def validate_begun_execution(
     *,
     machine: Optional[str],
     base_url: str,
+    public_ref: Optional[str] = None,
 ) -> BegunPlanExecution:
     """Refuse a begun execution this client cannot run as issued."""
     requirements = execution.get("requirements")
@@ -66,6 +67,18 @@ def validate_begun_execution(
         raise QaPlanExecutionError(
             "qa.plan_execution.begin returned an invalid requirement roster"
         )
+    if public_ref:
+        # The response is bound to this request's item. Older servers return
+        # owned keys in the roster; attach the known selector to copied rows,
+        # leaving the immutable execution target and digest untouched.
+        requirements = [dict(row) for row in requirements]
+        for row in requirements:
+            if row.get("public_ref") not in (None, public_ref):
+                raise QaPlanExecutionError("QA roster named a different item")
+            if row.get("item_id") is not None:
+                if row["item_id"] != execution.get("item_id"):
+                    raise QaPlanExecutionError("QA roster named a different item")
+                row["public_ref"] = public_ref
     try:
         selected_machine = resolve_plan_machine(requirements, machine)
     except ValueError as exc:

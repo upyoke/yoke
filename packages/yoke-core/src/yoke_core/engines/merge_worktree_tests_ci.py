@@ -79,7 +79,7 @@ def _record_ci_run(
     raw_result: str,
     duration_ms: int,
 ) -> Optional[int]:
-    item_id_raw = getattr(ctx, "item_id", None)
+    item_id_raw = getattr(ctx, "public_ref", None) or getattr(ctx, "item_id", None)
     if not item_id_raw:
         return None
     item_id = str(item_id_raw)
@@ -144,7 +144,7 @@ def run_ci_verification(
     # a second source of truth for the same fact.
     try:
         workflow_inputs = qa_case_ci_candidate_inputs.item_inputs(
-            item_id=str(ctx.item_id),
+            item_id=str(getattr(ctx, "public_ref", None) or ctx.item_id),
             workflow=workflow,
         )
     except (QaCaseExecutionError, TypeError, ValueError) as exc:

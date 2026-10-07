@@ -189,7 +189,7 @@ def _registered_verification_command(
     merge with no item identity may use the legacy local runner detection
     below.
     """
-    item_id_raw = getattr(ctx, "item_id", None)
+    item_id_raw = getattr(ctx, "public_ref", None) or getattr(ctx, "item_id", None)
     item_id = str(item_id_raw) if item_id_raw else None
     if item_id is None:
         args = getattr(ctx, "args", None)

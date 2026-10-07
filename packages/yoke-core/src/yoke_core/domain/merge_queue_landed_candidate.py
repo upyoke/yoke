@@ -50,7 +50,9 @@ def landed_candidate_head(
         )
     result = dict(getattr(response, "result", None) or {})
     try:
-        record = record_from_payload(result.get("record"))
+        record = record_from_payload(
+            result.get("record"), expected_public_ref=public_ref
+        )
     except (KeyError, TypeError, ValueError) as exc:
         return "", (
             f"landing record response was invalid: {exc}. Re-run the same "

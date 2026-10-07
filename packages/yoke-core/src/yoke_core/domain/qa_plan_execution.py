@@ -107,7 +107,9 @@ def execute_plan(
         return completed_member_result(execution)
     execution_id = begun_execution_id(execution)
     try:
-        begun = validate_begun_execution(execution, machine=machine, base_url=base_url)
+        begun = validate_begun_execution(
+            execution, machine=machine, base_url=base_url, public_ref=public_ref
+        )
         from yoke_core.domain.qa_standalone_command import preflight_standalone_runners
 
         preflight_standalone_runners(
