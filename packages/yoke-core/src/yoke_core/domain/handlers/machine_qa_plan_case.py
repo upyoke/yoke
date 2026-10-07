@@ -131,6 +131,26 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
         )
         if case.get("runner_id") not in {"host_control", "agent_mission"}:
             raise ValueError("the ordered plan case is not machine-backed")
+        from yoke_core.domain.qa_plan_case_chain import (
+            inherit_blocker,
+            record_blocked_case,
+        )
+
+        blocker = inherit_blocker(conn, execution, case, ordinal=parsed.ordinal)
+        if blocker is not None:
+            blocked = record_blocked_case(
+                conn, execution, case, ordinal=parsed.ordinal, blocker=blocker
+            )
+            conn.commit()
+            return HandlerOutcome(
+                primary_success=True,
+                result_payload={
+                    "state": "blocked",
+                    "execution_id": str(execution["id"]),
+                    "cursor_ordinal": parsed.ordinal + 1,
+                    "result": blocked,
+                },
+            )
         selection_new = execution.get("machine_lease_id") is None
         from yoke_core.domain.qa_plan_host_leases import begin_case_host_contract
 

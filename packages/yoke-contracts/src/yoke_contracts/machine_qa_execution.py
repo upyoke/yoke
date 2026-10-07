@@ -26,6 +26,10 @@ from yoke_contracts.machine_qa_case_target import (
 )
 
 
+from yoke_contracts.qa_case_starting_state import (
+    require_materialized_starting_state,
+    reset_baselines,
+)
 from yoke_contracts.machine_qa_host_control import (
     HOST_CONTROL_PROTOCOL,
     HOST_TEST_COMMAND,
@@ -68,6 +72,12 @@ class MachineQaCaseContract(BaseModel):
     expected_outcome: str
     method_config: dict[str, Any]
     host_baseline: str | None
+    starting_state: Literal["baseline", "inherit", "as_is"] | None = None
+    starting_state_reason: str | None = None
+    #: False only while the next case of the same plan run inherits this
+    #: case's machine; the runner restores the chain's starting state after
+    #: a case that ends its chain, or after one that did not pass.
+    ends_chain: bool = True
     entry_surface: str | None
     required_completion: str | None
     workflow_transition_id: str | None
@@ -117,6 +127,7 @@ class MachineQaCaseContract(BaseModel):
         if not hmac.compare_digest(self.execution_target_digest, expected_digest):
             raise ValueError("Machine QA execution target digest is invalid")
         require_case_execution_target(self)
+        require_materialized_starting_state(self)
         return self
 
 
@@ -173,28 +184,15 @@ class HostControlExecutionContract(BaseModel):
                 raise ValueError(
                     f"{self.operation} contracts carry no cases, checks, or baselines"
                 )
-        elif self.operation in {"case", "plan_case"}:
+        else:
             if len(self.cases) != 1:
                 raise ValueError("case contracts require exactly one case")
             if self.checks:
                 raise ValueError("case contracts cannot contain checks")
-            expected = (
-                []
-                if self.continues_execution_id
-                else (
-                    [self.cases[0].host_baseline] if self.cases[0].host_baseline else []
-                )
-            )
-            if self.baselines != expected:
+            if self.baselines != reset_baselines(
+                self.cases[0], continues=bool(self.continues_execution_id)
+            ):
                 raise ValueError("case contract baseline does not match its case")
-        elif not self.cases:
-            raise ValueError("baseline-group contracts require cases")
-        elif len(self.baselines) != 1 or any(
-            case.host_baseline != self.baselines[0] for case in self.cases
-        ):
-            raise ValueError(
-                "baseline-group cases must share their registered baseline"
-            )
         if (self.golden_destination is None) == (
             self.operation == GOLDEN_CAPTURE_OPERATION
         ):

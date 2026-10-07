@@ -141,14 +141,12 @@ def _validate_starting_state(
             jsonpath=f"{jsonpath}.starting_state",
         )
     try:
-        row["starting_state"], row["starting_state_reason"] = (
-            normalize_starting_state(
-                case_key=str(row["method_id"]),
-                runner_id=row["runner_id"],
-                host_baselines=[str(baseline)] if baseline else [],
-                starting_state=row.get("starting_state"),
-                starting_state_reason=row.get("starting_state_reason"),
-            )
+        row["starting_state"], row["starting_state_reason"] = normalize_starting_state(
+            case_key=str(row["method_id"]),
+            runner_id=row["runner_id"],
+            host_baselines=[str(baseline)] if baseline else [],
+            starting_state=row.get("starting_state"),
+            starting_state_reason=row.get("starting_state_reason"),
         )
     except StartingStateError as exc:
         return _error(

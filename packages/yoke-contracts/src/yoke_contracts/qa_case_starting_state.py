@@ -26,10 +26,11 @@ BASELINE = "baseline"
 INHERIT = "inherit"
 AS_IS = "as_is"
 STARTING_STATES = (BASELINE, INHERIT, AS_IS)
-MACHINE_RUNNER_IDS = frozenset({"host_control", "agent_mission"})
+MISSION_RUNNER_ID = "agent_mission"
+MACHINE_RUNNER_IDS = frozenset({"host_control", MISSION_RUNNER_ID})
 STARTING_STATE_RECOVERY = (
     "declare it on the case: `host_baselines` naming a registered baseline "
-    f"({', '.join(HOST_BASELINES)}), `starting_state: \"inherit\"` to start "
+    f'({", ".join(HOST_BASELINES)}), `starting_state: "inherit"` to start '
     "on the machine as the preceding case left it, or `starting_state: "
     '"as_is"` with a `starting_state_reason`; edit the plan with `yoke qa '
     "plan edit PLAN_SLUG --project P` or replace its cases with `yoke qa "
@@ -138,6 +139,14 @@ def chain_baselines(
                     "plan's first case and nothing runs before it; declare "
                     "host_baselines or starting_state 'as_is' instead"
                 )
+            if MISSION_RUNNER_ID in (case.get("runner_id"), previous.get("runner_id")):
+                raise StartingStateError(
+                    f"case {key!r} inherits from case "
+                    f"{str(previous['case_key'])!r}, but an exploratory "
+                    "mission is walked after the plan's other cases, so no "
+                    "case runs directly before or after it on the machine; "
+                    "declare host_baselines or starting_state 'as_is' instead"
+                )
             if not is_machine_runner(previous.get("runner_id")):
                 raise StartingStateError(
                     f"case {key!r} inherits from case "
@@ -165,9 +174,7 @@ def require_selected_chains(
     inheriting case immediately behind its plan predecessor.
     """
     order = [str(case["case_key"]) for case in plan_cases]
-    states = {
-        str(case["case_key"]): case.get("starting_state") for case in plan_cases
-    }
+    states = {str(case["case_key"]): case.get("starting_state") for case in plan_cases}
     for index, key in enumerate(selected_keys):
         if states.get(key) != INHERIT:
             continue
@@ -178,6 +185,42 @@ def require_selected_chains(
                 "leaves behind, so it can only be selected directly after "
                 f"{predecessor!r}; select {predecessor!r} before it"
             )
+
+
+def _field(case: Any, name: str) -> Any:
+    return case.get(name) if isinstance(case, Mapping) else getattr(case, name)
+
+
+def reset_baselines(case: Any, *, continues: bool = False) -> list[str]:
+    """The baseline a materialized case resets to before it runs, if any.
+
+    Only a case that starts a chain from a named baseline resets; an
+    inheriting case keeps its predecessor's machine, an ``as_is`` case runs
+    on the machine as found, and a continued mission walk keeps its host.
+    """
+    baseline = _field(case, "host_baseline")
+    if continues or _field(case, "starting_state") != BASELINE or not baseline:
+        return []
+    return [str(baseline)]
+
+
+def require_materialized_starting_state(case: Any) -> None:
+    """Refuse a materialized machine case that cannot say where it starts."""
+    requirement_id = _field(case, "requirement_id")
+    state = _field(case, "starting_state")
+    if state is None:
+        raise StartingStateError(
+            f"Machine QA requirement {requirement_id} declares no starting "
+            f"state; {STARTING_STATE_RECOVERY}, then refresh the materialized "
+            "case (yoke qa plan rematerialize) or add it again with "
+            "--host-baseline or --starting-state as_is"
+        )
+    baseline = _field(case, "host_baseline")
+    if (state == BASELINE and not baseline) or (state == AS_IS and baseline):
+        raise StartingStateError(
+            f"Machine QA requirement {requirement_id} starting state "
+            f"{state!r} disagrees with its host baseline {baseline!r}"
+        )
 
 
 __all__ = [
@@ -191,5 +234,7 @@ __all__ = [
     "chain_baselines",
     "is_machine_runner",
     "normalize_starting_state",
+    "require_materialized_starting_state",
     "require_selected_chains",
+    "reset_baselines",
 ]

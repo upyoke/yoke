@@ -148,15 +148,19 @@ def handle_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
                 session_id=request.actor.session_id,
             ),
         )
+        if case.get("starting_state") == "inherit":
+            raise ValueError(
+                f"requirement {target} inherits the machine the case before it "
+                "in its plan leaves, so it runs only inside that plan's run: "
+                "use `yoke qa plan run`, which runs the chain in order"
+            )
         try:
             contract = begin_host_control_execution(
                 conn,
                 project=str(case["project"]),
                 session_id=request.actor.session_id,
                 operation="case",
-                baselines=(
-                    (str(case["host_baseline"]),) if case.get("host_baseline") else ()
-                ),
+                baselines=tuple(contract_baseline(case)),
                 cases=(case,),
             )
         except MachineQaProtocolLeaseHeld as held:
@@ -267,36 +271,17 @@ def handle_case_submit(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 def contract_baseline(case: dict[str, Any]) -> list[str]:
-    baseline = str(case.get("host_baseline") or "")
-    return [baseline] if baseline else []
+    from yoke_contracts.qa_case_starting_state import reset_baselines
 
-
-from yoke_core.domain.handlers.machine_qa_baseline_group import (  # noqa: E402
-    TestMachineBaselineGroupBeginResponse,
-    TestMachineBaselineGroupExecuteRequest,
-    TestMachineBaselineGroupExecuteResponse,
-    TestMachineBaselineGroupSubmitRequest,
-    _baseline_group_cases,
-    handle_baseline_group_begin,
-    handle_baseline_group_execute,
-    handle_baseline_group_submit,
-)
+    return reset_baselines(case)
 
 
 __all__ = [
-    "TestMachineBaselineGroupBeginResponse",
-    "TestMachineBaselineGroupExecuteRequest",
-    "TestMachineBaselineGroupExecuteResponse",
-    "TestMachineBaselineGroupSubmitRequest",
     "TestMachineCaseBeginResponse",
     "TestMachineCaseExecuteRequest",
     "TestMachineCaseExecuteResponse",
     "TestMachineCaseSubmitRequest",
-    "_baseline_group_cases",
     "_record_machine_case_result",
-    "handle_baseline_group_begin",
-    "handle_baseline_group_execute",
-    "handle_baseline_group_submit",
     "handle_case_begin",
     "handle_case_execute",
     "handle_case_submit",

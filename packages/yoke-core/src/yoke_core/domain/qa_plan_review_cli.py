@@ -67,21 +67,22 @@ def _help_epilogue() -> str:
     )
 
 
-def _tear_down_mission(
+def _unfinished_walk(
     target: TargetRef,
     actor: Any,
     *,
     execution_id: str,
     requirement_id: Any,
-) -> None:
-    """Clear a mission's host leftovers while its lease is still held.
+) -> str | None:
+    """Name a mission whose walk left the Test Machine unrestored.
 
     The verdict makes the execution terminal and releases the lease, after
-    which nothing may touch the host for it. A case with no live mission
-    lease (a deterministic case, or one already settled) has nothing here.
+    which nothing may touch the host for it, so the walk's own ``walk-end``
+    must have removed its scratch and restored its starting state first. A
+    case with no live mission lease has nothing here.
     """
     if not isinstance(requirement_id, int):
-        return
+        return None
     from yoke_core.domain.qa_composed_dispatch import call_qa_function
 
     access = call_qa_function(
@@ -92,36 +93,26 @@ def _tear_down_mission(
     )
     contract = (access.result or {}).get("execution") if access.success else None
     if not isinstance(contract, dict):
-        return
+        return None
     try:
         from yoke_core.domain.machine_qa_host_control import (
             register_test_machine_host_control,
         )
-        from yoke_core.domain.machine_qa_local_execution import (
-            execute_agent_mission_scratch_teardown,
-        )
+        from yoke_core.domain.machine_qa_mission_walk import mission_walk_unfinished
 
         register_test_machine_host_control()
-        teardown = execute_agent_mission_scratch_teardown(contract)
-        failure = (
-            None
-            if teardown["removed"] and teardown["stale_owner_marker_removed"]
-            else (
-                f"scratch removed={teardown['removed']}; stale owner marker "
-                f"removed={teardown['stale_owner_marker_removed']}"
-            )
-        )
+        unfinished = mission_walk_unfinished(contract)
     except Exception as exc:
-        failure = f"{type(exc).__name__}: {exc}"
-    if failure is not None:
-        print(
-            "yoke qa plan review-submit: mission_teardown_incomplete: "
-            f"requirement {requirement_id} left host state behind ({failure}). "
-            "Nothing else removes this mission's scratch once the verdict "
-            "releases the lease: resolve the named blocker and run "
-            "`yoke qa mission scratch-teardown` before submitting.",
-            file=sys.stderr,
-        )
+        return f"requirement {requirement_id}: host probe failed ({exc})"
+    if not unfinished:
+        return None
+    return (
+        f"requirement {requirement_id}: its walk never ran `yoke qa mission "
+        f"walk-end ... --execution-id {execution_id} --requirement-id "
+        f"{requirement_id} --run-id RUN`, so its scratch is still on the Test "
+        "Machine and its starting state was not restored; run that command "
+        "(the dispatch contract names the run id) and submit again"
+    )
 
 
 def run(args: List[str]) -> int:
@@ -159,13 +150,25 @@ def run(args: List[str]) -> int:
     from yoke_core.api.service_client_structured_api_adapter import build_actor
 
     actor = build_actor(session_id=parsed.session_id)
-    for verdict in submission.get("verdicts") or ():
-        _tear_down_mission(
-            target,
-            actor,
-            execution_id=parsed.execution_id,
-            requirement_id=verdict.get("requirement_id"),
+    unfinished = [
+        reason
+        for verdict in submission.get("verdicts") or ()
+        if (
+            reason := _unfinished_walk(
+                target,
+                actor,
+                execution_id=parsed.execution_id,
+                requirement_id=verdict.get("requirement_id"),
+            )
         )
+    ]
+    if unfinished:
+        for reason in unfinished:
+            print(
+                f"yoke qa plan review-submit: mission_walk_unfinished: {reason}",
+                file=sys.stderr,
+            )
+        return 2
     try:
         result = _call_plan_function(
             function_id="qa.plan_review.submit",

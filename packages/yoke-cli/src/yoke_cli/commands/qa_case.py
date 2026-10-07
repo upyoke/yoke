@@ -12,7 +12,7 @@ from yoke_cli.transport.dispatcher import build_actor
 
 
 _QA_MISSION_HOST_COMMAND_MODULE = "yoke_core.domain.agent_mission_host_command_cli"
-_QA_MISSION_SCRATCH_MODULE = "yoke_core.domain.agent_mission_scratch_cli"
+_QA_MISSION_WALK_MODULE = "yoke_core.domain.agent_mission_walk_cli"
 
 
 QA_CASE_RUN_USAGE = (
@@ -46,10 +46,15 @@ QA_MISSION_HOST_COMMAND_USAGE = (
     "--execution-id ID --requirement-id N [--gui-session] "
     "[--timeout-seconds N] -- ARGV..."
 )
-QA_MISSION_SCRATCH_TEARDOWN_USAGE = (
-    "yoke qa mission scratch-teardown "
+QA_MISSION_WALK_START_USAGE = (
+    "yoke qa mission walk-start "
     "(--item PREFIX-N | --item-id N | --deployment-run-id RUN) "
-    "--execution-id ID --requirement-id N [--timeout-seconds N]"
+    "--execution-id ID --requirement-id N"
+)
+QA_MISSION_WALK_END_USAGE = (
+    "yoke qa mission walk-end "
+    "(--item PREFIX-N | --item-id N | --deployment-run-id RUN) "
+    "--execution-id ID --requirement-id N --run-id N [--timeout-seconds N]"
 )
 
 
@@ -88,11 +93,12 @@ def qa_mission_host_command(args: List[str]) -> int:
     )
 
 
-def qa_mission_scratch_teardown(args: List[str]) -> int:
-    return _run_execution_module(
-        _QA_MISSION_SCRATCH_MODULE,
-        args,
-    )
+def qa_mission_walk_start(args: List[str]) -> int:
+    return _run_execution_module(_QA_MISSION_WALK_MODULE, ["start", *args])
+
+
+def qa_mission_walk_end(args: List[str]) -> int:
+    return _run_execution_module(_QA_MISSION_WALK_MODULE, ["end", *args])
 
 
 def _pin_execution_session(args: List[str]) -> Tuple[List[str], str]:
@@ -175,7 +181,8 @@ TOOL_COMMANDS = {
     ("qa", "plan", "review-submit"): qa_plan_review_submit,
     ("qa", "plan", "run"): qa_plan_run,
     ("qa", "mission", "host-command"): qa_mission_host_command,
-    ("qa", "mission", "scratch-teardown"): qa_mission_scratch_teardown,
+    ("qa", "mission", "walk-start"): qa_mission_walk_start,
+    ("qa", "mission", "walk-end"): qa_mission_walk_end,
 }
 
 USAGE = {
@@ -184,7 +191,8 @@ USAGE = {
     "yoke qa plan review-submit": QA_PLAN_REVIEW_SUBMIT_USAGE,
     "yoke qa plan run": QA_PLAN_RUN_USAGE,
     "yoke qa mission host-command": QA_MISSION_HOST_COMMAND_USAGE,
-    "yoke qa mission scratch-teardown": QA_MISSION_SCRATCH_TEARDOWN_USAGE,
+    "yoke qa mission walk-start": QA_MISSION_WALK_START_USAGE,
+    "yoke qa mission walk-end": QA_MISSION_WALK_END_USAGE,
 }
 
 
@@ -194,12 +202,14 @@ __all__ = [
     "QA_PLAN_RUN_USAGE",
     "QA_PLAN_REVIEW_SUBMIT_USAGE",
     "QA_MISSION_HOST_COMMAND_USAGE",
-    "QA_MISSION_SCRATCH_TEARDOWN_USAGE",
+    "QA_MISSION_WALK_END_USAGE",
+    "QA_MISSION_WALK_START_USAGE",
     "TOOL_COMMANDS",
     "USAGE",
     "qa_case_run",
     "qa_mission_host_command",
-    "qa_mission_scratch_teardown",
+    "qa_mission_walk_end",
+    "qa_mission_walk_start",
     "qa_plan_abort",
     "qa_plan_review_submit",
     "qa_plan_run",

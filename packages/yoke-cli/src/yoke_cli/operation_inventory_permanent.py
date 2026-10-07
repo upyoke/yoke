@@ -121,7 +121,8 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     _p("yoke qa case run", "qa.case", REASON_TOOL_SHAPED),
     _p("yoke qa plan run", "qa.plan", REASON_TOOL_SHAPED),
     _p("yoke qa mission host-command", "qa.mission", REASON_TOOL_SHAPED),
-    _p("yoke qa mission scratch-teardown", "qa.mission", REASON_TOOL_SHAPED),
+    _p("yoke qa mission walk-start", "qa.mission", REASON_TOOL_SHAPED),
+    _p("yoke qa mission walk-end", "qa.mission", REASON_TOOL_SHAPED),
     # SSH from this machine's own agent identity to a registered Test Machine.
     _p("yoke test-machine exec", "test_machine", REASON_TOOL_SHAPED),
     _p("yoke qa plan review-submit", "qa.plan", REASON_TOOL_SHAPED),

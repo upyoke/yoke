@@ -47,6 +47,5 @@ HostControlOperation = Literal[
     "bridge_diagnose",
     "screenshot",
     "case",
-    "baseline_group",
     "plan_case",
 ]

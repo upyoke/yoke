@@ -151,9 +151,7 @@ class AdmittedCaseDivergence:
         refusal says so instead of promising one.
         """
         reachable = reachable_in_place_fields()
-        unreachable = tuple(
-            field for field in self.fields if field not in reachable
-        )
+        unreachable = tuple(field for field in self.fields if field not in reachable)
         if unreachable and self.source_refresh_invocation:
             recovery = PLAN_SOURCE_REFRESH_RECOVERY.format(
                 fields=", ".join(unreachable),

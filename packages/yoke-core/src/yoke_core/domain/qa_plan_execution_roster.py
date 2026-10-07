@@ -79,7 +79,9 @@ def ordered_plan_requirements(
         "AND method_id IS NOT NULL AND waived_at IS NULL "
         f"AND {unanswered_attempt_sql(conn)} "
         "ORDER BY CASE WHEN plan_id IS NULL THEN 0 ELSE 1 END,"
-        "COALESCE(plan_id,0),case_position,baseline_position,id",
+        # A plan runs every case at one baseline position before the next,
+        # so each inheriting case directly follows the case it inherits.
+        "COALESCE(plan_id,0),baseline_position,case_position,id",
         params,
     )
     names = [

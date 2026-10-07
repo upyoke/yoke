@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import time
 from collections.abc import Callable
 from typing import Any
@@ -29,13 +28,18 @@ from yoke_core.domain.machine_qa_execution import MachineQaLease
 from yoke_core.domain.machine_qa_execution_contract import (
     HostControlExecutionContract,
 )
+from yoke_core.domain.machine_qa_chain_restore import (
+    STARTING_STATE_RESET_FAILED,
+    STARTING_STATE_RESTORE,
+    baseline_receipt,
+    restore_chain_start,
+    restore_due,
+    restore_summary,
+)
 from yoke_core.domain.machine_qa_fixture_lifecycle import (
     execute_case_with_fixture_lifecycle,
 )
-from yoke_core.domain.machine_qa_mission_scratch import (
-    create_mission_scratch,
-    remove_mission_scratch,
-)
+from yoke_core.domain.machine_qa_mission_scratch import create_mission_scratch
 from yoke_core.domain.machine_qa_result_safety import (
     redact_machine_qa_value,
 )
@@ -126,39 +130,77 @@ def execute_host_operation_contract(
     )
 
 
+def _unstarted_reset_failure(case: Any, machine: str, reset: dict[str, Any]) -> Any:
+    from yoke_core.domain.machine_qa_case_result import MachineCaseResult
+
+    return MachineCaseResult(
+        case_outcome="blocked_on_precondition",
+        verdict="blocked",
+        evidence={
+            "runner_id": "host_control",
+            "machine": machine,
+            "baseline": case.host_baseline,
+            "case_started": False,
+            "starting_state_reset": reset,
+        },
+        error_code=STARTING_STATE_RESET_FAILED,
+    )
+
+
 def execute_machine_case_contract(
     raw_contract: dict[str, Any],
     *,
     progress_callback: Callable[[], None] | None = None,
 ) -> LocalHostControlSubmission:
-    """Run one case or one baseline group under its server-owned lease."""
+    """Run one case under its server-owned lease, inside its chain.
+
+    The case resets to its declared baseline first when it opens a chain;
+    a reset that does not prove the baseline leaves the case unstarted. The
+    chain's starting state is restored after the case when it ends its chain
+    or did not pass, including when local execution raises.
+    """
     contract = HostControlExecutionContract.model_validate(raw_contract)
-    if contract.operation not in {"case", "plan_case", "baseline_group"}:
+    if contract.operation not in {"case", "plan_case"}:
         raise ValueError("expected a Machine QA case contract")
     execution = (
         _execution(contract)
         if progress_callback is None
         else _execution(contract, progress_callback=progress_callback)
     )
-    result_payloads: list[dict[str, Any]] = []
-    artifact_paths: list[Path] = []
+    case = contract.cases[0]
+    machine = contract.settings["resource_name"]
     secret_values = tuple(execution.material.secrets.values())
-    baseline_ok = True
-    if contract.operation == "baseline_group":
-        baseline_ok = execution.reach_baseline(contract.baselines[0]).ok
-    for case in contract.cases:
-        if contract.operation != "baseline_group" and case.host_baseline:
-            baseline_ok = execution.reach_baseline(case.host_baseline).ok
-        started = time.monotonic()
-        result = execute_case_with_fixture_lifecycle(
-            execution,
-            case,
+    started = time.monotonic()
+    reset = (
+        baseline_receipt(
+            contract.baselines[0],
+            execution.reach_baseline,
+            failure_code=STARTING_STATE_RESET_FAILED,
         )
-        evidence, artifacts, paths = pack_local_artifacts(
-            redact_machine_qa_value(result.evidence, secret_values)
+        if contract.baselines
+        else None
+    )
+    try:
+        if reset is not None and not reset["ok"]:
+            result = _unstarted_reset_failure(case, machine, reset)
+        else:
+            result = execute_case_with_fixture_lifecycle(execution, case)
+    except BaseException as exc:
+        restore = restore_chain_start(case, execution.reach_baseline, machine=machine)
+        exc.add_note(restore_summary(restore))
+        raise
+    evidence = dict(result.evidence)
+    if restore_due(case, result.case_outcome):
+        evidence[STARTING_STATE_RESTORE] = restore_chain_start(
+            case, execution.reach_baseline, machine=machine
         )
-        artifact_paths.extend(paths)
-        result_payloads.append(
+    evidence, artifacts, artifact_paths = pack_local_artifacts(
+        redact_machine_qa_value(evidence, secret_values)
+    )
+    payload: dict[str, Any] = {
+        "lease_id": contract.lease_id,
+        "contract_digest": contract.contract_digest,
+        "results": [
             {
                 "requirement_id": case.requirement_id,
                 "case_outcome": result.case_outcome,
@@ -171,14 +213,8 @@ def execute_machine_case_contract(
                     artifact.model_dump(mode="json") for artifact in artifacts
                 ],
             }
-        )
-    payload: dict[str, Any] = {
-        "lease_id": contract.lease_id,
-        "contract_digest": contract.contract_digest,
-        "results": result_payloads,
+        ],
     }
-    if contract.operation == "baseline_group":
-        payload["baseline_ok"] = baseline_ok
     ensure_secret_free_result(payload)
     return LocalHostControlSubmission(
         payload=payload,
@@ -203,12 +239,13 @@ def prepare_agent_mission_contract(
     *,
     progress_callback: Callable[[], None] | None = None,
 ) -> dict[str, Any]:
-    """Reach the mission baseline and stage its owner-only scratch."""
+    """Record the mission docket's host preparation; the walk resets later."""
     return prepare_mission(
         _mission_contract(raw_contract),
         execution_factory=_execution,
         scratch_factory=create_mission_scratch,
         progress_callback=progress_callback,
+        reset=False,
     )
 
 
@@ -267,31 +304,10 @@ def execute_agent_mission_host_command(
     return redacted
 
 
-def execute_agent_mission_scratch_teardown(
-    raw_contract: dict[str, Any],
-    *,
-    timeout_seconds: int = 60,
-) -> dict[str, Any]:
-    """Remove the mission's secret-staging scratch and prove it is gone."""
-    contract = _mission_contract(raw_contract)
-    execution = _execution(contract)
-    redacted = redact_machine_qa_value(
-        remove_mission_scratch(
-            execution.control,
-            execution_id=str(contract.plan_execution_id),
-            timeout_seconds=timeout_seconds,
-        ),
-        tuple(execution.material.secrets.values()),
-    )
-    ensure_secret_free_result(redacted)
-    return redacted
-
-
 __all__ = [
     "LocalHostControlSubmission",
     "execute_machine_case_contract",
     "execute_agent_mission_host_command",
-    "execute_agent_mission_scratch_teardown",
     "prepare_agent_mission_contract",
     "execute_host_operation_contract",
 ]

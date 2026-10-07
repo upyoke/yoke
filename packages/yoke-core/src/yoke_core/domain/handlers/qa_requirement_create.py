@@ -153,9 +153,7 @@ def handle_qa_requirement_add(request: FunctionCallRequest) -> HandlerOutcome:
 
         refused = bind_item_named_target(conn, item_id=int(item_id), row=row)
         if refused:
-            return _error(
-                "payload_invalid", refused, jsonpath="$.payload.target_env"
-            )
+            return _error("payload_invalid", refused, jsonpath="$.payload.target_env")
         cur = conn.execute(
             INSERT_SQL.format(p=p),
             insert_params(RequirementSubject.for_item(item_id), row, iso8601_now()),
@@ -282,9 +280,7 @@ def handle_qa_requirement_add_batch(
                 if invalid is not None:
                     conn.rollback()
                     return invalid
-                refused = bind_item_named_target(
-                    conn, item_id=int(item_id), row=row
-                )
+                refused = bind_item_named_target(conn, item_id=int(item_id), row=row)
                 if refused:
                     conn.rollback()
                     return _error(

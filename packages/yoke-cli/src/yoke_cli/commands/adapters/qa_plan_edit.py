@@ -48,9 +48,8 @@ CAS and recovery:
   changes. Reopen the command on the latest plan and reapply the intended edit.
   Editor, document-validation, and save failures preserve the temporary JSON.
 
-Machine-run cases declare their starting state: host_baselines, or
-starting_state "inherit" (start as the preceding case left the machine; never
-the first case), or "as_is" with a starting_state_reason.
+Machine-run cases declare host_baselines, starting_state "inherit" (never the
+first case), or "as_is" with a starting_state_reason.
 
 Flag guidance:
   PLAN_SLUG     required, immutable plan slug
@@ -62,10 +61,10 @@ Flag guidance:
 Exit codes: 0 saved or unchanged; 1 editor, validation, CAS, or dispatch failure;
 2 command-line usage error.
 """
-_DOCUMENT_KEYS = {
-    "slug", "name", "description", "success_policy_id",
-    "success_policy_params", "target_environment", "cases",
-}
+_DOCUMENT_KEYS = set(
+    "slug name description success_policy_id success_policy_params "
+    "target_environment cases".split()
+)
 _CASE_KEYS = (
     "case_key",
     "position",
@@ -76,7 +75,8 @@ _CASE_KEYS = (
     "success_policy_id",
     "success_policy_params",
     "host_baselines",
-    *("starting_state", "starting_state_reason"),
+    "starting_state",
+    "starting_state_reason",
     "entry_surface",
     "required_completion",
 )

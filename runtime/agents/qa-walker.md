@@ -78,8 +78,11 @@ submits a `host_wait` object through the bundle's review-submit command,
 without verdicts. Host contention keeps requirements open even when a stage
 accepts only pass/fail; it is never a product finding or an undetermined verdict.
 The durable execution queues a FIFO turn and wakes its owner when reserved.
-A fresh mission restores its golden home and declared OS-package fixture;
-a `--continue-mission` walk preserves the held walk's starting state instead.
+The dispatch's `yoke qa mission walk-start` command, run before any other
+host command, puts the machine in the mission's declared starting state: its
+named host baseline (golden home) and declared OS-package fixture, or the
+machine as found when the mission declares `as_is`. In a `--continue-mission`
+walk it keeps the held walk's state instead.
 All package-changing commands must use the leased host-command surface so
 its journal records direct and transitive packages outside the golden home.
 
@@ -153,10 +156,12 @@ wherever the product accepts a secret on stdin. When a secret must reach disk,
 it goes in the one owner-only staging directory this lease owns on the target
 host — the dispatch names its exact path — and never in a loose file under
 `/tmp` or a home directory. Before you return, run the dispatch's exact
-scratch-teardown command, and state the scratch path and its confirmed removal
-in your report. Returning while that directory still exists leaves a
-live-looking credential on a shared machine, so it is a finding against your
-own walk.
+`yoke qa mission walk-end` command: it removes that directory, restores the
+mission's declared starting state, and records the restore on the mission's
+run. State the scratch removal and the restore in your report. Returning
+before it succeeds leaves a live-looking credential and a dirty machine for
+the next walk, so it is a finding against your own walk, and the main owner's
+review-submit refuses until it has run.
 
 Treat these failures as one diagnosis—wrong session context:
 
@@ -209,8 +214,8 @@ that makes the highest-ranked findings independently understandable. Use the
 exact artifact-add recipe supplied by the dispatch and never create a parallel
 run.
 
-Attach bytes, never a path on the test host. That host's home is restored to
-its baseline between missions, so an artifact naming one of its paths outlives
+Attach bytes, never a path on the test host. walk-end restores that host's
+declared starting state, so an artifact naming one of its paths outlives
 its own file — the row survives and the evidence does not. The dispatch recipe
 already carries the bytes; a handle naming the target is refused.
 
