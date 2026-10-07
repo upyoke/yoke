@@ -42,7 +42,6 @@ def _reason(result) -> str:
     return detail.splitlines()[0] if detail else f"exit {result.returncode}"
 
 
-
 def hc_branch_divergence(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-branch-divergence: Local/remote branch divergence."""
     issues: List[str] = []
@@ -57,7 +56,8 @@ def hc_branch_divergence(conn, args: DoctorArgs, rec: RecordCollector) -> None:
 
     if default_branch:
         fetched = _credentialed_git.run(
-            ["fetch", "origin", default_branch], timeout=_REMOTE_READ_TIMEOUT,
+            ["fetch", "origin", default_branch],
+            timeout=_REMOTE_READ_TIMEOUT,
         )
         if fetched.returncode != 0:
             issues.append(f"- could not reach origin: {_reason(fetched)}")
@@ -67,8 +67,22 @@ def hc_branch_divergence(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         remote_head = remote_r.stdout.strip() if remote_r.returncode == 0 else ""
 
         if local_head and remote_head and local_head != remote_head:
-            ahead_r = _base._run(["git", "rev-list", f"origin/{default_branch}..{default_branch}", "--count"])
-            behind_r = _base._run(["git", "rev-list", f"{default_branch}..origin/{default_branch}", "--count"])
+            ahead_r = _base._run(
+                [
+                    "git",
+                    "rev-list",
+                    f"origin/{default_branch}..{default_branch}",
+                    "--count",
+                ]
+            )
+            behind_r = _base._run(
+                [
+                    "git",
+                    "rev-list",
+                    f"{default_branch}..origin/{default_branch}",
+                    "--count",
+                ]
+            )
             ahead = ahead_r.stdout.strip() if ahead_r.returncode == 0 else "?"
             behind = behind_r.stdout.strip() if behind_r.returncode == 0 else "?"
             issues.append(
@@ -81,8 +95,12 @@ def hc_branch_divergence(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             )
 
     if issues:
-        rec.record("HC-branch-divergence", "Local/remote branch divergence", "WARN",
-                    "\n".join(issues))
+        rec.record(
+            "HC-branch-divergence",
+            "Local/remote branch divergence",
+            "WARN",
+            "\n".join(issues),
+        )
     else:
         rec.record("HC-branch-divergence", "Local/remote branch divergence", "PASS", "")
 
@@ -129,7 +147,7 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
                 if len(parts) >= 2:
                     ref = parts[1]
                     if ref.startswith("refs/heads/"):
-                        branches.add(ref[len("refs/heads/"):])
+                        branches.add(ref[len("refs/heads/") :])
             remote_caches[pid] = (
                 branches,
                 str(rpath),
@@ -215,13 +233,25 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
             summary = f"- --fix: deleted {fixed} stale remote branch(es)"
             if preserved > 0:
                 summary += f", {preserved} preserved"
-                rec.record("HC-stale-remote-branches", "Stale remote branches", "WARN",
-                            summary + "\n" + "\n".join(issues))
+                rec.record(
+                    "HC-stale-remote-branches",
+                    "Stale remote branches",
+                    "WARN",
+                    summary + "\n" + "\n".join(issues),
+                )
             else:
-                rec.record("HC-stale-remote-branches", "Stale remote branches", "PASS",
-                            summary + "\n" + "\n".join(issues))
+                rec.record(
+                    "HC-stale-remote-branches",
+                    "Stale remote branches",
+                    "PASS",
+                    summary + "\n" + "\n".join(issues),
+                )
         else:
-            rec.record("HC-stale-remote-branches", "Stale remote branches", "WARN",
-                        "\n".join(issues))
+            rec.record(
+                "HC-stale-remote-branches",
+                "Stale remote branches",
+                "WARN",
+                "\n".join(issues),
+            )
     else:
         rec.record("HC-stale-remote-branches", "Stale remote branches", "PASS", "")

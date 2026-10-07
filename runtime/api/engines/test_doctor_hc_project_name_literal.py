@@ -13,7 +13,9 @@ _CHECK_ID = "HC-project-name-literal"
 
 def _run(root: Path) -> RecordCollector:
     rec = RecordCollector()
-    args = DoctorArgs(file=None, fix=False, only=None, quick=False, project="p", db_path="")
+    args = DoctorArgs(
+        file=None, fix=False, only=None, quick=False, project="p", db_path=""
+    )
     with mock.patch.object(hc, "_resolve_repo_root", return_value=str(root)):
         hc.hc_project_name_literal(None, args, rec)
     return rec

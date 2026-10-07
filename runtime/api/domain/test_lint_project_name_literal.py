@@ -25,9 +25,9 @@ _REL = "packages/example/src/example/module.py"
         'x = project.strip().lower() == "acme"\n',
         'x = "acme" in project_slugs\n',
         'x = project_id in {"acme", "other"}\n',
-        'Q = "SELECT id FROM items i JOIN projects p ON p.id=i.project_id WHERE p.slug <> \'acme\'"\n',
-        'Q = "SELECT id FROM projects WHERE slug=\'acme\'"\n',
-        'Q = "LEFT JOIN projects owner ON owner.slug=\'acme\'"\n',
+        "Q = \"SELECT id FROM items i JOIN projects p ON p.id=i.project_id WHERE p.slug <> 'acme'\"\n",
+        "Q = \"SELECT id FROM projects WHERE slug='acme'\"\n",
+        "Q = \"LEFT JOIN projects owner ON owner.slug='acme'\"\n",
     ],
 )
 def test_project_name_branch_is_flagged(source: str) -> None:
@@ -43,11 +43,11 @@ def test_project_name_branch_is_flagged(source: str) -> None:
         'if project == "":\n    pass\n',
         'if project == "all":\n    pass\n',
         'if project_slug in ("null", "none"):\n    pass\n',
-        'if project == other_project:\n    pass\n',
+        "if project == other_project:\n    pass\n",
         'if command_base != "yoke":\n    pass\n',
         'if row.name == "yoke":\n    pass\n',
         'if part in {".", ".."}:\n    pass\n',
-        'Q = "SELECT content FROM strategy_docs WHERE slug = \'VISION\'"\n',
+        "Q = \"SELECT content FROM strategy_docs WHERE slug = 'VISION'\"\n",
         'merge(project="acme")\n',
     ],
 )

@@ -72,9 +72,7 @@ class TestInit:
         conn = connect_test_db(initialized_db)
         try:
             for table in ("projects", "sites", "environments"):
-                count = conn.execute(
-                    f"SELECT COUNT(*) FROM {table}"
-                ).fetchone()[0]
+                count = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
                 assert count == 0, f"{table} must start empty, has {count}"
         finally:
             conn.close()
@@ -87,8 +85,7 @@ class TestInit:
             ).fetchone()[0]
             assert count >= 5  # ssh, docker, github, etc.
             ci_row = conn.execute(
-                "SELECT COUNT(*) FROM capability_templates "
-                "WHERE id='ci_workflow_file'"
+                "SELECT COUNT(*) FROM capability_templates WHERE id='ci_workflow_file'"
             ).fetchone()[0]
             assert ci_row == 1
         finally:
@@ -102,9 +99,7 @@ class TestInit:
         conn = connect_test_db(initialized_db)
         try:
             assert "project_structure" in set(_get_tables(conn))
-            count = conn.execute(
-                "SELECT COUNT(*) FROM project_structure"
-            ).fetchone()[0]
+            count = conn.execute("SELECT COUNT(*) FROM project_structure").fetchone()[0]
             assert count == 0
         finally:
             conn.close()
@@ -137,21 +132,27 @@ class TestInit:
             seed_project_identities(conn)
         finally:
             conn.close()
-        ps.cmd_seed("yoke", db_path=empty_db)
+        ps.cmd_seed("yoke", "yoke-source", db_path=empty_db)
 
         ps.apply_patch(
             "yoke",
-            ops=[{
-                "op": "put",
-                "family": "deploy_defaults",
-                "attachment": "project",
-                "payload": {"deployment_flow": "custom-flow"},
-            }],
+            ops=[
+                {
+                    "op": "put",
+                    "family": "deploy_defaults",
+                    "attachment": "project",
+                    "payload": {"deployment_flow": "custom-flow"},
+                }
+            ],
             db_path=empty_db,
         )
 
         projects.cmd_init(db_path=empty_db)
 
-        assert deploy_defaults.get_default_flow(
-            "yoke", db_path=empty_db,
-        ) == "custom-flow"
+        assert (
+            deploy_defaults.get_default_flow(
+                "yoke",
+                db_path=empty_db,
+            )
+            == "custom-flow"
+        )

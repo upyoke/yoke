@@ -7,8 +7,6 @@ from __future__ import annotations
 
 from unittest import mock
 
-import pytest
-
 import yoke_core.engines.resync as resync_mod
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.domain.gh_rest_transport import RestNetworkError, RestResponse
@@ -189,8 +187,8 @@ class TestHeavyFetchUnavailable:
         repair.assert_not_called()
 
 
-class TestWrapperPropagation:
-    def test_fetch_wrapper_propagates_yoke_auth_error(self):
+class TestWrapperUnavailableState:
+    def test_fetch_wrapper_records_auth_error_as_unavailable(self):
         with mock.patch(
             "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
             side_effect=MissingAppCredentials(
@@ -198,10 +196,11 @@ class TestWrapperPropagation:
                 "App credentials unavailable",
             ),
         ):
-            with pytest.raises(MissingAppCredentials):
-                resync_mod._fetch_gh_issues_per_project({"yoke"})
+            result = resync_mod._fetch_gh_issues_per_project({"yoke"})
 
-    def test_linkage_wrapper_propagates_yoke_auth_error(
+        assert result["yoke"]["_github_unavailable"] == "true"
+
+    def test_linkage_wrapper_skips_auth_failed_project(
         self,
         populated_db,
         tmp_path,
@@ -212,8 +211,12 @@ class TestWrapperPropagation:
             "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
             side_effect=MissingCapability("yoke", "no yoke capability"),
         ):
-            with pytest.raises(MissingCapability):
-                resync_mod.stage1_linkage(populated_db, str(yoke_root))
+            paired, local_orphans, gh_orphans, states = resync_mod.stage1_linkage(
+                populated_db, str(yoke_root)
+            )
+
+        assert paired == [] and local_orphans == [] and gh_orphans == []
+        assert states["yoke"]["_github_unavailable"] == "true"
 
 
 class TestEngineMultiProjectPartialAuthFailure:

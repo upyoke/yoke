@@ -50,7 +50,8 @@ class CoordinationContext(TypedDict):
 def _truncation_limit() -> int:
     try:
         return runtime_settings.get_int(
-            _TRUNCATION_CONFIG_KEY, _DEFAULT_SPEC_TRUNCATION_BYTES)
+            _TRUNCATION_CONFIG_KEY, _DEFAULT_SPEC_TRUNCATION_BYTES
+        )
     except Exception:
         return _DEFAULT_SPEC_TRUNCATION_BYTES
 
@@ -70,12 +71,14 @@ def _conflicting_claim_row(conn: Any, claim_id: int) -> dict:
     row = conn.execute(
         "SELECT id, state, owner_item_id, integration_target FROM path_claims "
         "WHERE owner_kind = 'item' "
-        f"AND id = {_p(conn)}", (claim_id,),
+        f"AND id = {_p(conn)}",
+        (claim_id,),
     ).fetchone()
     if row is None:
         raise ValueError(f"path_claim {claim_id} not found")
     return {
-        "id": int(row["id"]), "state": str(row["state"]),
+        "id": int(row["id"]),
+        "state": str(row["state"]),
         "item_id": int(row["owner_item_id"]) if row["owner_item_id"] is not None else 0,
         "integration_target": str(row["integration_target"]),
     }
@@ -83,7 +86,8 @@ def _conflicting_claim_row(conn: Any, claim_id: int) -> dict:
 
 def _item_project_id(conn: Any, item_id: int) -> int:
     row = conn.execute(
-        f"SELECT project_id FROM items WHERE id = {_p(conn)}", (item_id,),
+        f"SELECT project_id FROM items WHERE id = {_p(conn)}",
+        (item_id,),
     ).fetchone()
     if row is None:
         raise ValueError(ITEM_NOT_FOUND)
@@ -91,7 +95,9 @@ def _item_project_id(conn: Any, item_id: int) -> int:
 
 
 def _shared_path_metadata(
-    conn: Any, project_id: int, shared_paths: List[str],
+    conn: Any,
+    project_id: int,
+    shared_paths: List[str],
 ) -> List[dict]:
     """Path-registry facts for each shared path in the candidate's project."""
     out: List[dict] = []
@@ -105,8 +111,13 @@ def _shared_path_metadata(
             (target_id,),
         ).fetchone()
         kind = str(kind_row["kind"]) if kind_row is not None else "unknown"
-        out.append({"path": path, "kind": kind,
-                    "lineage_depth": len(ancestors_of(conn, target_id))})
+        out.append(
+            {
+                "path": path,
+                "kind": kind,
+                "lineage_depth": len(ancestors_of(conn, target_id)),
+            }
+        )
     return out
 
 
@@ -122,7 +133,10 @@ _RATIONALE_CHECKLIST: List[str] = [
 
 
 def _suggested_commands(
-    conn: Any, cand_id: int, other_id: int, shared_paths: List[str],
+    conn: Any,
+    cand_id: int,
+    other_id: int,
+    shared_paths: List[str],
     conflicting_claim_id: int,
 ) -> List[str]:
     # Public refs, rendered from each item's own project — the pasted
@@ -147,18 +161,18 @@ def _suggested_commands(
         "# option: coordination_only (independent same-file edits, "
         "path-claim mutex with no lifecycle gate)",
         f"{dep_add} {cand} {other} <source> --gate-point {co} "
-        f"--rationale \"{coord_rationale}\"",
+        f'--rationale "{coord_rationale}"',
         "# option: directional activation (order-dependent edits, "
         "lifecycle gate + path-claim mutex)",
         f"{dep_add} {cand} {other} <source> --gate-point activation "
-        f"--satisfaction {merged} --rationale \"{dir_rationale}\"",
+        f'--satisfaction {merged} --rationale "{dir_rationale}"',
         "# fact:merged is correct for trunk ordering; use "
         "fact:deployed:<environment-name> only when the dependent needs "
         "the blocker running in that registered environment",
         "# option: escalate (operator override, last resort)",
         "python3 -m yoke_core.api.service_client path-claim-override "
-        f"--item {cand} --reason \"<operator-authored rationale per "
-        "AGENTS.md ## Path Claims — Hard Rule>\"",
+        f'--item {cand} --reason "<operator-authored rationale per '
+        'AGENTS.md ## Path Claims — Hard Rule>"',
     ]
 
 
@@ -167,8 +181,11 @@ def _trunc(text: str, limit: int) -> str:
 
 
 def build_coordination_context(
-    conn: Any, *, candidate_item_id: int,
-    conflicting_claim_id: int, shared_paths: List[str],
+    conn: Any,
+    *,
+    candidate_item_id: int,
+    conflicting_claim_id: int,
+    shared_paths: List[str],
 ) -> CoordinationContext:
     """Gather the evidence packet for an LLM-agent coordination decision.
 
@@ -191,10 +208,15 @@ def build_coordination_context(
         conflicting_claim_state=claim["state"],
         shared_paths=list(shared_paths),
         shared_path_metadata=_shared_path_metadata(
-            conn, _item_project_id(conn, candidate_item_id), shared_paths,
+            conn,
+            _item_project_id(conn, candidate_item_id),
+            shared_paths,
         ),
         suggested_commands=_suggested_commands(
-            conn, candidate_item_id, other_id, list(shared_paths),
+            conn,
+            candidate_item_id,
+            other_id,
+            list(shared_paths),
             conflicting_claim_id,
         ),
         decision_options=list(DECISION_OPTIONS),

@@ -30,9 +30,7 @@ class ConnBoardDB:
     def __init__(self, conn: Any) -> None:
         self._conn = conn
 
-    def query(
-        self, sql: str, params: Optional[Sequence[Any]] = None
-    ) -> List[Tuple]:
+    def query(self, sql: str, params: Optional[Sequence[Any]] = None) -> List[Tuple]:
         cur = self._conn.execute(sql, tuple(params) if params else ())
         return [tuple(row) for row in cur.fetchall()]
 
@@ -125,13 +123,18 @@ def _project_zen(
         entry["label"] = label
 
     labels = _zen_compute_labels(
-        db, slug, window, label_days, df_cap_pct, extra_stops, min_labels,
+        db,
+        slug,
+        window,
+        label_days,
+        df_cap_pct,
+        extra_stops,
+        min_labels,
     )
     positions = _zen_item_positions(db, slug, window, past_width)
     denom = max(past_width - 1, 1)
     done_pct = [
-        round(min(100.0, max(0.0, pos / denom * 100.0)), 1)
-        for pos in positions
+        round(min(100.0, max(0.0, pos / denom * 100.0)), 1) for pos in positions
     ]
     return {
         "project_id": project_id,
@@ -141,9 +144,7 @@ def _project_zen(
         "done_positions": done_pct,
         "labels": _label_positions(labels, past_width),
         "queued_count": queued,
-        "vision_zones": [
-            {"key": key, "label": label} for key, label in vision_entries
-        ],
+        "vision_zones": [{"key": key, "label": label} for key, label in vision_entries],
     }
 
 

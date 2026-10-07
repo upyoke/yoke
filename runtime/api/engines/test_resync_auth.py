@@ -5,8 +5,8 @@ Covers the canonical-resolver propagation chain end-to-end:
 - ``_call_domain_sync`` propagates
   :class:`ProjectGithubAuthError` from
   :func:`yoke_core.domain.project_github_auth.resolve_project_github_auth`.
-- ``_fetch_gh_issues_per_project`` re-raises for Yoke (the control plane)
-  and records explicit unavailable state for other projects.
+- ``_fetch_gh_issues_per_project`` records explicit unavailable state for
+  every project whose auth or issues read fails, treating every project alike.
 - ``stage1_linkage`` does not manufacture orphans for unavailable projects.
 - The patch-friendly wrappers in :mod:`resync_wrappers` do not swallow.
 
@@ -31,7 +31,6 @@ from yoke_core.domain.project_github_auth import (
     MissingCapability,
     MissingRepoBinding,
     ProjectGithubAuth,
-    TransportFailure,
 )
 
 from runtime.api.engines._resync_test_helpers import (
@@ -52,6 +51,7 @@ def _fake_auth(token: str = "test-token", project: str = "yoke") -> ProjectGithu
 class TestCallDomainSyncFailClosed:
     def test_call_domain_sync_resolves_project_before_call(self):
         called = False
+
         def fake_func(*args, **kwargs):
             nonlocal called
             called = True
@@ -61,9 +61,14 @@ class TestCallDomainSyncFailClosed:
             "yoke_core.engines.resync_runtime.resolve_project_github_auth",
             return_value=_fake_auth("new-token", "externalwebapp"),
         ) as resolver:
-            assert resync_mod._call_domain_sync(
-                fake_func, "42", project="externalwebapp",
-            ) is True
+            assert (
+                resync_mod._call_domain_sync(
+                    fake_func,
+                    "42",
+                    project="externalwebapp",
+                )
+                is True
+            )
         resolver.assert_called_once_with("externalwebapp")
         assert called is True
 
@@ -88,12 +93,15 @@ class TestCallDomainSyncFailClosed:
             "yoke_core.engines.resync_runtime.resolve_project_github_auth",
             return_value=_fake_auth("tmp", "externalwebapp"),
         ):
-            assert resync_mod._call_domain_sync(helper, project="externalwebapp") is False
+            assert (
+                resync_mod._call_domain_sync(helper, project="externalwebapp") is False
+            )
         captured = capsys.readouterr()
         assert "reason: helper failed: typed REST said nope" in captured.err
 
     def test_call_domain_sync_propagates_missing_binding(self):
         """:class:`ProjectGithubAuthError` propagates out of _call_domain_sync."""
+
         def never_called(*args, **kwargs):  # pragma: no cover - asserts call shape
             raise AssertionError("should not be called when auth fails")
 
@@ -107,26 +115,40 @@ class TestCallDomainSyncFailClosed:
 
 def _yoke_one_issue_response() -> RestResponse:
     return RestResponse(
-        status=200, headers={},
-        body=[{"number": 1, "title": "[YOK-1] ok", "labels": [],
-               "state": "OPEN", "body": ""}],
+        status=200,
+        headers={},
+        body=[
+            {
+                "number": 1,
+                "title": "[YOK-1] ok",
+                "labels": [],
+                "state": "OPEN",
+                "body": "",
+            }
+        ],
     )
 
 
 class TestFetchGhIssuesPerProjectFailClosed:
     def test_records_per_project_auth_failure_sentinel(self):
         """Non-Yoke auth failure becomes explicit unavailable state."""
+
         def fake_resolve(project, *args, **kwargs):
             if project == "yoke":
                 return _fake_auth()
-            raise MissingRepoBinding(project, f"repository is not bound for '{project}'")
+            raise MissingRepoBinding(
+                project, f"repository is not bound for '{project}'"
+            )
 
-        with mock.patch(
-            "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
-            side_effect=fake_resolve,
-        ), mock.patch(
-            "yoke_core.engines.resync_detect_fetch.request_with_retry",
-            return_value=_yoke_one_issue_response(),
+        with (
+            mock.patch(
+                "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
+                side_effect=fake_resolve,
+            ),
+            mock.patch(
+                "yoke_core.engines.resync_detect_fetch.request_with_retry",
+                return_value=_yoke_one_issue_response(),
+            ),
         ):
             result = resync_mod._fetch_gh_issues_per_project(
                 {"yoke", "externalwebapp"},
@@ -137,30 +159,37 @@ class TestFetchGhIssuesPerProjectFailClosed:
         assert result["externalwebapp"]["_unavailable_code"] == "missing_repo_binding"
         assert "github-binding bind" in result["externalwebapp"]["_repair_hint"]
 
-    def test_reraises_yoke_auth_failure(self):
-        """Yoke is the control plane -- its auth failure must propagate."""
+    def test_every_project_auth_failure_is_explicit_unavailable_state(self):
+        def fake_resolve(project, *args, **kwargs):
+            raise MissingCapability(project, f"no {project} capability")
+
         with mock.patch(
             "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
-            side_effect=MissingCapability("yoke", "no yoke capability"),
+            side_effect=fake_resolve,
         ):
-            with pytest.raises(MissingCapability):
-                resync_mod._fetch_gh_issues_per_project(
-                    {"yoke", "externalwebapp"},
-                )
+            result = resync_mod._fetch_gh_issues_per_project(
+                {"yoke", "externalwebapp"},
+            )
+
+        for project in ("yoke", "externalwebapp"):
+            assert result[project]["_github_unavailable"] == "true"
 
     def test_non_yoke_transport_failure_is_explicit_unavailable_state(self):
         def fake_resolve(project, *args, **kwargs):
             return _fake_auth(project=project)
 
-        with mock.patch(
-            "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
-            side_effect=fake_resolve,
-        ), mock.patch(
-            "yoke_core.engines.resync_detect_fetch.request_with_retry",
-            side_effect=[
-                _yoke_one_issue_response(),
-                RestNetworkError("network down"),
-            ],
+        with (
+            mock.patch(
+                "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
+                side_effect=fake_resolve,
+            ),
+            mock.patch(
+                "yoke_core.engines.resync_detect_fetch.request_with_retry",
+                side_effect=[
+                    _yoke_one_issue_response(),
+                    RestNetworkError("network down"),
+                ],
+            ),
         ):
             result = resync_mod._fetch_gh_issues_per_project(
                 {"yoke", "externalwebapp"},
@@ -171,16 +200,20 @@ class TestFetchGhIssuesPerProjectFailClosed:
         assert result["externalwebapp"]["_unavailable_stage"] == "issues"
         assert result["externalwebapp"] != {}
 
-    def test_yoke_transport_failure_becomes_typed_control_plane_error(self):
-        with mock.patch(
-            "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
-            return_value=_fake_auth(),
-        ), mock.patch(
-            "yoke_core.engines.resync_detect_fetch.request_with_retry",
-            side_effect=RestNetworkError("network down"),
+    def test_any_project_transport_failure_is_explicit_unavailable_state(self):
+        with (
+            mock.patch(
+                "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
+                return_value=_fake_auth(),
+            ),
+            mock.patch(
+                "yoke_core.engines.resync_detect_fetch.request_with_retry",
+                side_effect=RestNetworkError("network down"),
+            ),
         ):
-            with pytest.raises(TransportFailure):
-                resync_mod._fetch_gh_issues_per_project({"yoke"})
+            result = resync_mod._fetch_gh_issues_per_project({"yoke"})
+
+        assert result["yoke"]["_unavailable_code"] == "transport_failure"
 
 
 class TestStage1LinkageAuthSentinel:
@@ -190,7 +223,13 @@ class TestStage1LinkageAuthSentinel:
         (yoke_root / "backlog").mkdir(parents=True)
         gh_map = {
             "yoke": {
-                100: {"number": 100, "title": "[YOK-42] Test item", "labels": [], "state": "OPEN", "body": ""},
+                100: {
+                    "number": 100,
+                    "title": "[YOK-42] Test item",
+                    "labels": [],
+                    "state": "OPEN",
+                    "body": "",
+                },
             },
             # externalwebapp auth failed -- sentinel instead of issues map.
             "externalwebapp": {
@@ -204,13 +243,19 @@ class TestStage1LinkageAuthSentinel:
             "yoke_core.engines.resync._fetch_gh_issues_per_project",
             return_value=gh_map,
         ):
-            paired, local_orphans, gh_orphans, gh_by_project = resync_mod.stage1_linkage(
-                populated_db, str(yoke_root),
+            paired, local_orphans, gh_orphans, gh_by_project = (
+                resync_mod.stage1_linkage(
+                    populated_db,
+                    str(yoke_root),
+                )
             )
 
         non_yoke_local_orphans = [o for o in local_orphans if o[3] not in ("yoke", "")]
         assert non_yoke_local_orphans == []
-        assert gh_by_project["externalwebapp"]["_unavailable_code"] == "missing_repo_binding"
+        assert (
+            gh_by_project["externalwebapp"]["_unavailable_code"]
+            == "missing_repo_binding"
+        )
 
     def test_skips_transport_unavailable_projects(self, populated_db, tmp_path):
         yoke_root = tmp_path / "state"
@@ -226,14 +271,17 @@ class TestStage1LinkageAuthSentinel:
             return_value={"yoke": {}, "externalwebapp": unavailable},
         ):
             _, local_orphans, gh_orphans, _ = resync_mod.stage1_linkage(
-                populated_db, str(yoke_root),
+                populated_db,
+                str(yoke_root),
             )
 
         assert [entry for entry in local_orphans if entry[3] == "externalwebapp"] == []
         assert [entry for entry in gh_orphans if entry[3] == "externalwebapp"] == []
 
     def test_missing_fetch_result_is_unavailable_not_empty_state(
-        self, populated_db, tmp_path,
+        self,
+        populated_db,
+        tmp_path,
     ):
         yoke_root = tmp_path / "state"
         (yoke_root / "backlog").mkdir(parents=True)
@@ -241,8 +289,8 @@ class TestStage1LinkageAuthSentinel:
             "yoke_core.engines.resync._fetch_gh_issues_per_project",
             return_value={},
         ):
-            paired, local_orphans, gh_orphans, states = (
-                resync_mod.stage1_linkage(populated_db, str(yoke_root))
+            paired, local_orphans, gh_orphans, states = resync_mod.stage1_linkage(
+                populated_db, str(yoke_root)
             )
 
         assert paired == []

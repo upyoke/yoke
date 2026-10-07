@@ -99,9 +99,7 @@ def cmd_seed_cli(args: argparse.Namespace) -> int:
 
 def cmd_family_list(_: argparse.Namespace) -> int:
     registry = {
-        "net_new": {
-            name: dict(env) for name, env in NET_NEW_FAMILIES.items()
-        },
+        "net_new": {name: dict(env) for name, env in NET_NEW_FAMILIES.items()},
         "attachment_branches": list(ATTACHMENT_BRANCHES),
         "path_selector_kinds": list(PATH_SELECTOR_KINDS),
         "multiplicities": list(MULTIPLICITIES),

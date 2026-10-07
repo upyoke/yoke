@@ -88,9 +88,7 @@ def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _resolve_authority(
-    conn, project: str, model: str
-) -> Optional[_Authority]:
+def _resolve_authority(conn, project: str, model: str) -> Optional[_Authority]:
     """Resolve the authoritative-DB binding for (project, model).
 
     Reads ``project_capabilities.settings`` for the ``migration_model``
@@ -261,8 +259,7 @@ def hc_retired_schema_resurrection(
             present = _control_plane_surface_present(conn, record)
             if present is None:
                 skips.append(
-                    f"- {surface_label}: "
-                    f"control-plane catalog probe failed — skipped"
+                    f"- {surface_label}: control-plane catalog probe failed — skipped"
                 )
                 continue
         else:  # sqlite_file
@@ -281,8 +278,7 @@ def hc_retired_schema_resurrection(
                 )
             if present is None:
                 skips.append(
-                    f"- {surface_label}: "
-                    f"schema probe failed on {db_path} — skipped"
+                    f"- {surface_label}: schema probe failed on {db_path} — skipped"
                 )
                 continue
 
@@ -294,9 +290,7 @@ def hc_retired_schema_resurrection(
 
     detail_lines: List[str] = []
     if findings:
-        detail_lines.append(
-            "Retired schema surfaces still exposed on schema target:"
-        )
+        detail_lines.append("Retired schema surfaces still exposed on schema target:")
         detail_lines.extend(findings)
         detail_lines.append("")
         detail_lines.append(

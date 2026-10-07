@@ -30,25 +30,28 @@ def collect_function_registry() -> Dict[str, Any]:
     is honoured. Returns a stable rows list plus counts.
     """
     from yoke_core.domain.yoke_function_dispatch import _ensure_handlers_registered
+
     _ensure_handlers_registered()
     from yoke_core.domain.yoke_function_registry import list_entries
 
     rows: List[Dict[str, Any]] = []
     for entry in list_entries():
-        rows.append({
-            "function_id": entry.function_id,
-            "version": entry.version,
-            "stability": entry.stability,
-            "owner_module": entry.owner_module,
-            "target_kinds": list(entry.target_kinds),
-            "side_effects": list(entry.side_effects),
-            "emitted_event_names": list(entry.emitted_event_names),
-            "guardrails": list(entry.guardrails),
-            "adapter_status": entry.adapter_status,
-            "replacement_function_id": entry.replacement_function_id,
-            "removal_target_version": entry.removal_target_version,
-            "claim_required_kind": entry.claim_required_kind,
-        })
+        rows.append(
+            {
+                "function_id": entry.function_id,
+                "version": entry.version,
+                "stability": entry.stability,
+                "owner_module": entry.owner_module,
+                "target_kinds": list(entry.target_kinds),
+                "side_effects": list(entry.side_effects),
+                "emitted_event_names": list(entry.emitted_event_names),
+                "guardrails": list(entry.guardrails),
+                "adapter_status": entry.adapter_status,
+                "replacement_function_id": entry.replacement_function_id,
+                "removal_target_version": entry.removal_target_version,
+                "claim_required_kind": entry.claim_required_kind,
+            }
+        )
     rows.sort(key=lambda r: r["function_id"])
     by_stability: Dict[str, int] = {}
     by_adapter: Dict[str, int] = {}
@@ -101,7 +104,9 @@ def collect_subcommand_registry() -> Dict[str, Any]:
     rows: List[Dict[str, Any]] = []
     for cli_tokens, (function_id, _adapter) in sorted(SUBCOMMAND_REGISTRY.items()):
         rows.append(_row(cli_tokens, function_id, False))
-    for cli_tokens, (function_id, _adapter) in sorted(SUBCOMMAND_ALIAS_REGISTRY.items()):
+    for cli_tokens, (function_id, _adapter) in sorted(
+        SUBCOMMAND_ALIAS_REGISTRY.items()
+    ):
         rows.append(_row(cli_tokens, function_id, True))
     by_dispatch_kind: Dict[str, int] = {}
     for row in rows:
@@ -117,16 +122,19 @@ def collect_subcommand_registry() -> Dict[str, Any]:
 def collect_operation_tracker() -> Dict[str, Any]:
     """Read every classified row from ``yoke_operation_inventory``."""
     from yoke_cli.operation_inventory import all_entries
+
     rows: List[Dict[str, Any]] = []
     for entry in all_entries():
-        rows.append({
-            "shell_form": entry.shell_form,
-            "family": entry.family,
-            "status": entry.status,
-            "reason": entry.reason,
-            "proposed_function_id": entry.proposed_function_id,
-            "source_owner": entry.source_owner,
-        })
+        rows.append(
+            {
+                "shell_form": entry.shell_form,
+                "family": entry.family,
+                "status": entry.status,
+                "reason": entry.reason,
+                "proposed_function_id": entry.proposed_function_id,
+                "source_owner": entry.source_owner,
+            }
+        )
     by_status: Dict[str, int] = {}
     for r in rows:
         by_status[r["status"]] = by_status.get(r["status"], 0) + 1
@@ -136,6 +144,7 @@ def collect_operation_tracker() -> Dict[str, Any]:
 def _capture_cli_help(argv: List[str]) -> Tuple[str, int, str]:
     """Invoke the in-process yoke CLI with ``argv`` and capture output."""
     from yoke_cli.main import main as cli_main
+
     buf_out, buf_err = io.StringIO(), io.StringIO()
     rc: int
     try:
@@ -183,7 +192,8 @@ def collect_teaching_places(target_root: Path) -> Dict[str, Any]:
     for glob in _TEACHING_GLOBS:
         matched = sorted(
             p.relative_to(target_root).as_posix()
-            for p in target_root.glob(glob) if p.is_file()
+            for p in target_root.glob(glob)
+            if p.is_file()
         )
         paths[glob] = matched
     return {
@@ -195,11 +205,15 @@ def collect_teaching_places(target_root: Path) -> Dict[str, Any]:
 def collect_recipes(target_root: Path) -> Dict[str, Any]:
     """Run the skill-recipe smoke harness and surface every verdict."""
     from yoke_core.tools.verify_skill_recipes import verify_skill_root
+
     skill_root = target_root / ".agents" / "skills" / "yoke"
     if not skill_root.is_dir():
         return {
-            "total": 0, "template_skipped": 0, "failed": 0,
-            "verdicts": [], "skill_root_missing": True,
+            "total": 0,
+            "template_skipped": 0,
+            "failed": 0,
+            "verdicts": [],
+            "skill_root_missing": True,
         }
     verdicts = verify_skill_root(skill_root)
     rows = [asdict(v) for v in verdicts]
@@ -255,14 +269,18 @@ def collect_lints(target_root: Path) -> Dict[str, Any]:
             continue
         has_field_note = any(hint in body for hint in _FIELD_NOTE_FOOTER_HINTS)
         has_denial_text = "BLOCKED" in body or "deny" in body or "denied" in body
-        rows.append({
-            "module": path.relative_to(target_root).as_posix(),
-            "has_field_note_reference": has_field_note,
-            "has_denial_text": has_denial_text,
-        })
+        rows.append(
+            {
+                "module": path.relative_to(target_root).as_posix(),
+                "has_field_note_reference": has_field_note,
+                "has_denial_text": has_denial_text,
+            }
+        )
     return {
         "count": len(rows),
-        "with_field_note_reference": sum(1 for r in rows if r["has_field_note_reference"]),
+        "with_field_note_reference": sum(
+            1 for r in rows if r["has_field_note_reference"]
+        ),
         "with_denial_text": sum(1 for r in rows if r["has_denial_text"]),
         "rows": rows,
     }
@@ -286,19 +304,22 @@ def collect_field_notes() -> Dict[str, Any]:
         )
     except Exception as exc:
         return {
-            "count": 0, "rows": [],
+            "count": 0,
+            "rows": [],
             "read_surface_status": "agent_facing_error",
             "error": f"{type(exc).__name__}: {exc}",
         }
     if not response.success:
         message = response.error.message if response.error else "unknown error"
         return {
-            "count": 0, "rows": [],
+            "count": 0,
+            "rows": [],
             "read_surface_status": "agent_facing_error",
             "error": message,
         }
     rows = response.result.get("entries", [])
     return {
-        "count": len(rows), "rows": rows,
+        "count": len(rows),
+        "rows": rows,
         "read_surface_status": surface_status,
     }

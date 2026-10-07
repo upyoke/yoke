@@ -86,7 +86,7 @@ def _git_common_dir(repo_root: Path) -> Path:
     if not first_line.lower().startswith(prefix):
         return dot_git
 
-    git_dir_text = first_line[len(prefix):].strip()
+    git_dir_text = first_line[len(prefix) :].strip()
     git_dir = Path(git_dir_text)
     if not git_dir.is_absolute():
         git_dir = repo_root.joinpath(git_dir).resolve()
@@ -148,7 +148,10 @@ def run_checks(repo_root: Path, *, strict: bool = False) -> int:
     _add_result(results, "Directory structure", "✅" if dirs_ok else "❌")
     critical_fail = critical_fail or not dirs_ok
 
-    agents_ok = all((repo_root / ".claude" / "agents" / f"{agent}.md").is_file() for agent in AGENT_FILES)
+    agents_ok = all(
+        (repo_root / ".claude" / "agents" / f"{agent}.md").is_file()
+        for agent in AGENT_FILES
+    )
     _add_result(results, "Agent files in .claude/agents/", "✅" if agents_ok else "❌")
     critical_fail = critical_fail or not agents_ok
 
@@ -163,7 +166,9 @@ def run_checks(repo_root: Path, *, strict: bool = False) -> int:
     )
     critical_fail = critical_fail or not canonical_agents_ok
 
-    entrypoints_ok = all((repo_root / rel_path).is_file() for rel_path in ENTRYPOINT_CHECKS)
+    entrypoints_ok = all(
+        (repo_root / rel_path).is_file() for rel_path in ENTRYPOINT_CHECKS
+    )
     _add_result(results, "Python entrypoints present", "✅" if entrypoints_ok else "❌")
     critical_fail = critical_fail or not entrypoints_ok
 
@@ -177,7 +182,9 @@ def run_checks(repo_root: Path, *, strict: bool = False) -> int:
     critical_fail = critical_fail or not pre_commit_ok
 
     settings = repo_root / ".claude" / "settings.json"
-    settings_ok = settings.is_file() and all(rule in settings.read_text() for rule in PERMISSION_RULES)
+    settings_ok = settings.is_file() and all(
+        rule in settings.read_text() for rule in PERMISSION_RULES
+    )
     _add_result(results, "Permission rules configured", "✅" if settings_ok else "❌")
     critical_fail = critical_fail or not settings_ok
 

@@ -154,7 +154,8 @@ def resolve_plan_environment_reference(
     """
     reference = str(environment or "").strip()
     rows = eligible_plan_environment_rows(
-        conn, plan_project_id=int(plan_project_id),
+        conn,
+        plan_project_id=int(plan_project_id),
     )
     rendered = _rendered_candidates(rows)
     if reference.isdigit():

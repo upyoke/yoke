@@ -182,6 +182,7 @@ Observe → `ouroboros_entries` → `/yoke curate` → `/yoke doctor` → `/yoke
 - **Platform's own database (`yoke_platform`) is readable here, read-only:** `yoke --env platform-prod-registry-db-admin db read "SELECT ..."` (stage: `platform-stage-registry-db-admin`; `yoke env list` shows connections). No writes.
 # Yoke Repo Internals
 - Source-maintainer manifest contract: `runtime/harness/manifest-schema.md`.
+- **Product code never branches on a literal project name** — read the declared fact it stands in for (capability, environment setting, self project, checkout property); `HC-project-name-literal` fails the comparison.
 - **Sync install-bundle edits — this file included — in the same commit:** author docs under `docs/public/`; run `yoke dev run -- python3 -m yoke_core.domain.install_bundle_tree_sync sync --target-root <checkout>`, then stage every changed path. Byte drift fails CI.
 ## Source-Dev Doctrine
 - **Direct control-plane authority is source-dev/operator only.** Use paired `prod-db-admin` for Yoke self-deploys and migration rehearsal; missing registered mutations reach the audited operator-debug query path only under it. Setup, project-database access, and recovery: [`docs/source-dev-doctrine.md`](docs/source-dev-doctrine.md) — **read it before a test selection, release, render, deploy, preflight, or cleanup.**

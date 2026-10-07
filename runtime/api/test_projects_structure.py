@@ -129,7 +129,7 @@ class TestProjectStructureCoexistence:
         from yoke_core.domain import project_structure as ps
 
         ps.cmd_init(db_path=initialized_db)
-        ps.cmd_seed("yoke", db_path=initialized_db)
+        ps.cmd_seed("yoke", "yoke-source", db_path=initialized_db)
         # Coarse-project reads still work.
         assert projects.cmd_get("yoke", db_path=initialized_db) is not None
         assert projects.cmd_get("externalwebapp", db_path=initialized_db) is not None

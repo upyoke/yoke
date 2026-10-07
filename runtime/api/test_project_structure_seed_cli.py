@@ -24,7 +24,9 @@ def db_path(tmp_path: Path):
 def initialized_db(db_path: str) -> str:
     ps.cmd_init(db_path=db_path)
     seed_project(db_path, 1, "yoke", "Yoke", github_repo="org/yoke")
-    seed_project(db_path, 2, "externalwebapp", "ExternalWebapp", github_repo="org/externalwebapp")
+    seed_project(
+        db_path, 2, "externalwebapp", "ExternalWebapp", github_repo="org/externalwebapp"
+    )
     seed_project(db_path, 100, "fresh", "Fresh", github_repo="org/fresh")
     return db_path
 
@@ -53,14 +55,16 @@ class TestSeed:
     # attestation, so seeding one would assert something about the project that
     # nobody said.
     _SEED_COVERAGE_OPTIONAL = {
-        "deploy_defaults", "architecture_model", "hosting_posture",
+        "deploy_defaults",
+        "architecture_model",
+        "hosting_posture",
         "verification_posture",
     }
 
     def test_seed_yoke_populates_every_required_net_new_family(
         self, initialized_db: str
     ):
-        ps.cmd_seed("yoke", db_path=initialized_db)
+        ps.cmd_seed("yoke", "yoke-source", db_path=initialized_db)
         structure = ps.read_structure("yoke", db_path=initialized_db)
         for family in ps.NET_NEW_FAMILIES:
             if family in self._SEED_COVERAGE_OPTIONAL:
@@ -73,7 +77,7 @@ class TestSeed:
         """Yoke ships with a `deploy_defaults` entry pointing at its
         internal delivery flow. Other projects may legitimately have no
         entry — the helper returns None in that case."""
-        ps.cmd_seed("yoke", db_path=initialized_db)
+        ps.cmd_seed("yoke", "yoke-source", db_path=initialized_db)
         structure = ps.read_structure(
             "yoke", family="deploy_defaults", db_path=initialized_db
         )
@@ -82,26 +86,30 @@ class TestSeed:
             "deployment_flow": "yoke-internal"
         }
 
-    def test_external_project_has_no_source_owned_seed(self, initialized_db: str):
-        with pytest.raises(ps.UsageError, match="Known seeds: yoke"):
-            ps.cmd_seed("externalwebapp", db_path=initialized_db)
+    def test_recipe_applies_to_any_project(self, initialized_db: str):
+        ps.cmd_seed("externalwebapp", "yoke-source", db_path=initialized_db)
+        structure = ps.read_structure(
+            "externalwebapp", family="deploy_defaults", db_path=initialized_db
+        )
+        assert len(structure["entries"]) == 1
 
     def test_seed_populates_context_routing(self, initialized_db: str):
         """Seed materializes Yoke's project-wide context entry."""
-        ps.cmd_seed("yoke", db_path=initialized_db)
-        yoke_cr = ps.read_structure("yoke", family="context_routing",
-                                      db_path=initialized_db)
+        ps.cmd_seed("yoke", "yoke-source", db_path=initialized_db)
+        yoke_cr = ps.read_structure(
+            "yoke", family="context_routing", db_path=initialized_db
+        )
         yoke_keys = {e["entry_key"] for e in yoke_cr["entries"]}
         assert "always" in yoke_keys
 
     def test_seed_is_idempotent(self, initialized_db: str):
-        ps.cmd_seed("yoke", db_path=initialized_db)
-        second = ps.cmd_seed("yoke", db_path=initialized_db)
+        ps.cmd_seed("yoke", "yoke-source", db_path=initialized_db)
+        second = ps.cmd_seed("yoke", "yoke-source", db_path=initialized_db)
         assert second["applied_ops"] == []
 
-    def test_seed_unknown_project_errors(self, initialized_db: str):
-        with pytest.raises(ps.UsageError, match="No frozen seed recipe"):
-            ps.cmd_seed("nonexistent", db_path=initialized_db)
+    def test_seed_unknown_recipe_errors_with_known_recipes(self, initialized_db: str):
+        with pytest.raises(ps.UsageError, match="Known recipes: yoke-source"):
+            ps.cmd_seed("yoke", "nonexistent", db_path=initialized_db)
 
     def test_seed_dogfoods_apply_patch_contract(self, initialized_db: str):
         """Seed goes through apply_patch, so structure rows exist post-seed.
@@ -109,13 +117,13 @@ class TestSeed:
         The invariant is that seed flowed through ``apply_patch`` and
         persisted entries in ``project_structure``.
         """
-        ps.cmd_seed("yoke", db_path=initialized_db)
+        ps.cmd_seed("yoke", "yoke-source", db_path=initialized_db)
         from yoke_core.domain.db_helpers import connect
+
         conn = connect(initialized_db)
         try:
             count = conn.execute(
-                "SELECT COUNT(*) FROM project_structure "
-                "WHERE project_id=1"
+                "SELECT COUNT(*) FROM project_structure WHERE project_id=1"
             ).fetchone()[0]
         finally:
             conn.close()
@@ -131,6 +139,7 @@ class TestCli:
         rc = self._run(["init"], monkeypatch, db_path)
         assert rc == 0
         from yoke_core.domain.db_helpers import connect
+
         conn = connect(db_path)
         try:
             exists = _table_exists(conn, "project_structure")
@@ -138,7 +147,9 @@ class TestCli:
             conn.close()
         assert exists
 
-    def test_family_list_prints_registry(self, initialized_db: str, monkeypatch, capsys):
+    def test_family_list_prints_registry(
+        self, initialized_db: str, monkeypatch, capsys
+    ):
         rc = self._run(["family-list"], monkeypatch, initialized_db)
         assert rc == 0
         out = capsys.readouterr().out
@@ -163,20 +174,25 @@ class TestCli:
         self, initialized_db: str, monkeypatch, capsys, tmp_path: Path
     ):
         ops_path = tmp_path / "ops.json"
-        ops_path.write_text(json.dumps({
-            "ops": [_put("areas", "project", {"description": "x"}, entry_key="a")],
-        }))
+        ops_path.write_text(
+            json.dumps(
+                {
+                    "ops": [
+                        _put("areas", "project", {"description": "x"}, entry_key="a")
+                    ],
+                }
+            )
+        )
         rc = self._run(
             ["patch", "fresh", "--ops-file", str(ops_path)],
-            monkeypatch, initialized_db,
+            monkeypatch,
+            initialized_db,
         )
         assert rc == 0
         data = json.loads(capsys.readouterr().out)
         assert len(data["applied_ops"]) == 1
 
-    def test_seed_cli_is_idempotent(
-        self, initialized_db: str, monkeypatch, capsys
-    ):
+    def test_seed_cli_is_idempotent(self, initialized_db: str, monkeypatch, capsys):
         rc1 = self._run(["seed", "yoke"], monkeypatch, initialized_db)
         assert rc1 == 0
         rc2 = self._run(["seed", "yoke"], monkeypatch, initialized_db)

@@ -64,12 +64,14 @@ class RecordingBoardDB:
         value = self._inner.scalar(sql, params)
         if key not in self._recorded:
             self._recorded.add(key)
-            self._entries.append({
-                "kind": "scalar",
-                "sql": sql,
-                "params": _encode_params(params),
-                "value": _encode_value(value),
-            })
+            self._entries.append(
+                {
+                    "kind": "scalar",
+                    "sql": sql,
+                    "params": _encode_params(params),
+                    "value": _encode_value(value),
+                }
+            )
         return value
 
     def _record(self, kind: str, sql: str, params, run) -> List[Tuple]:
@@ -77,12 +79,14 @@ class RecordingBoardDB:
         rows = run(sql, params)
         if key not in self._recorded:
             self._recorded.add(key)
-            self._entries.append({
-                "kind": kind,
-                "sql": sql,
-                "params": _encode_params(params),
-                "rows": [[_encode_value(v) for v in row] for row in rows],
-            })
+            self._entries.append(
+                {
+                    "kind": kind,
+                    "sql": sql,
+                    "params": _encode_params(params),
+                    "rows": [[_encode_value(v) for v in row] for row in rows],
+                }
+            )
         return rows
 
     def encoded_entries(self) -> List[Dict[str, Any]]:
@@ -122,7 +126,8 @@ def collect_board_data(
 
     recorder = RecordingBoardDB(db)
     normalized_visible = (
-        None if visible_project_ids is None
+        None
+        if visible_project_ids is None
         else tuple(sorted({int(project_id) for project_id in visible_project_ids}))
     )
     with scoped_project_visibility(normalized_visible):

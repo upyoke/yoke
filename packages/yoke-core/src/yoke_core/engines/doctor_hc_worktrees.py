@@ -51,9 +51,17 @@ from yoke_core.domain.worktree_naming import legacy_worktree_name
 
 # Slugs for delegated sync HCs (dispatched to resync engine)
 _DELEGATED_SYNC_HCS = [
-    "missing-gh-issues", "orphan-epic-tasks", "title-drift", "body-drift",
-    "reverse-completeness", "comment-sync", "label-drift", "state-drift",
-    "frozen-label-drift", "blocked-label-drift", "task-label-drift",
+    "missing-gh-issues",
+    "orphan-epic-tasks",
+    "title-drift",
+    "body-drift",
+    "reverse-completeness",
+    "comment-sync",
+    "label-drift",
+    "state-drift",
+    "frozen-label-drift",
+    "blocked-label-drift",
+    "task-label-drift",
 ]
 
 
@@ -86,7 +94,9 @@ def hc_main_checkout(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         r = _base._run(["git", "-C", main_root, "rev-parse", "--abbrev-ref", "HEAD"])
         branch = r.stdout.strip() if r.returncode == 0 else ""
         if not branch:
-            issues.append(f"- Could not determine current branch of main repo at {main_root}")
+            issues.append(
+                f"- Could not determine current branch of main repo at {main_root}"
+            )
         elif branch == "HEAD":
             issues.append(
                 f"- Main repo at {main_root} is in detached HEAD state. "
@@ -101,10 +111,11 @@ def hc_main_checkout(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             )
 
     if issues:
-        rec.record("HC-main-checkout", "Main repo branch checkout", "WARN", "\n".join(issues))
+        rec.record(
+            "HC-main-checkout", "Main repo branch checkout", "WARN", "\n".join(issues)
+        )
     else:
         rec.record("HC-main-checkout", "Main repo branch checkout", "PASS", "")
-
 
 
 def hc_uncaptured_discoveries(conn, args: DoctorArgs, rec: RecordCollector) -> None:
@@ -125,11 +136,14 @@ def hc_uncaptured_discoveries(conn, args: DoctorArgs, rec: RecordCollector) -> N
                 issues.append(f"- Commit without YOK-N reference: {line}")
 
     if issues:
-        rec.record("HC-uncaptured-discoveries", "Uncaptured discoveries", "WARN",
-                    "\n".join(issues))
+        rec.record(
+            "HC-uncaptured-discoveries",
+            "Uncaptured discoveries",
+            "WARN",
+            "\n".join(issues),
+        )
     else:
         rec.record("HC-uncaptured-discoveries", "Uncaptured discoveries", "PASS", "")
-
 
 
 def hc_orphaned_stashes(conn, args: DoctorArgs, rec: RecordCollector) -> None:
@@ -147,9 +161,7 @@ def hc_orphaned_stashes(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     without touching the numeric reflog selector.
     """
     issues: List[str] = []
-    r = _base._run(
-        ["git", "stash", "list", "--format=%gd | %cs | %gs"]
-    )
+    r = _base._run(["git", "stash", "list", "--format=%gd | %cs | %gs"])
     if r.returncode == 0 and r.stdout.strip():
         issues = [f"- {line}" for line in r.stdout.strip().splitlines()]
 
@@ -165,12 +177,13 @@ def hc_orphaned_stashes(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         rec.record("HC-orphaned-stashes", "Unreclaimed stashes", "PASS", "")
 
 
-
 def hc_cross_project_commits(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-cross-project-commits: Cross-project commit contamination."""
     issues: List[str] = []
     bookkeeping = {
-        "ouroboros/", ".agents/", ".claude/",
+        "ouroboros/",
+        ".agents/",
+        ".claude/",
     }
     min_commit_date = _base._read_str_cutoff("hc_cross_project_commits_min_commit_date")
 
@@ -209,8 +222,13 @@ def hc_cross_project_commits(conn, args: DoctorArgs, rec: RecordCollector) -> No
         search_keys = sorted(keys)
         # Find commits on base branch referencing this item
         log_cmd = [
-            "git", "log", "main", "--oneline", "-E",
-            f"--grep={'|'.join(search_keys)}", "--format=%H",
+            "git",
+            "log",
+            "main",
+            "--oneline",
+            "-E",
+            f"--grep={'|'.join(search_keys)}",
+            "--format=%H",
         ]
         if min_commit_date:
             log_cmd.append(f"--since={min_commit_date}")
@@ -221,7 +239,9 @@ def hc_cross_project_commits(conn, args: DoctorArgs, rec: RecordCollector) -> No
         for commit_hash in cr.stdout.strip().splitlines():
             if not commit_hash:
                 continue
-            fr = _base._run(["git", "diff-tree", "--no-commit-id", "--name-only", "-r", commit_hash])
+            fr = _base._run(
+                ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", commit_hash]
+            )
             if fr.returncode != 0:
                 continue
             for fname in fr.stdout.strip().splitlines():
@@ -246,7 +266,13 @@ def hc_cross_project_commits(conn, args: DoctorArgs, rec: RecordCollector) -> No
             )
 
     if issues:
-        rec.record("HC-cross-project-commits", "Cross-project commit contamination", "WARN",
-                    "\n".join(issues))
+        rec.record(
+            "HC-cross-project-commits",
+            "Cross-project commit contamination",
+            "WARN",
+            "\n".join(issues),
+        )
     else:
-        rec.record("HC-cross-project-commits", "Cross-project commit contamination", "PASS", "")
+        rec.record(
+            "HC-cross-project-commits", "Cross-project commit contamination", "PASS", ""
+        )

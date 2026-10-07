@@ -48,11 +48,14 @@ def determine_stop_outcome(final_status: str) -> str:
     return "stopped"
 
 
-def emit_harness_session_stopped(script_dir: str, session_id: str, ctx: StopContext) -> None:
+def emit_harness_session_stopped(
+    script_dir: str, session_id: str, ctx: StopContext
+) -> None:
     """Emit HarnessSessionStopped via the native Python emitter."""
     del script_dir  # The native emitter resolves DB context internally.
     try:
         from yoke_core.domain.events import emit_event as _native_emit
+
         try:
             context_obj = json.loads(build_stop_event_context(ctx))
         except (ValueError, TypeError):

@@ -243,7 +243,10 @@ def test_service_client_project_structure_get(project_structure_db: str):
 
 def test_service_client_project_structure_seed(project_structure_db: str):
     """Seed succeeds through the service-client Project Structure surface."""
-    seed = _run_client(["project-structure-seed", "yoke"], db_path=project_structure_db)
+    seed = _run_client(
+        ["project-structure-seed", "yoke", "--recipe", "yoke-source"],
+        db_path=project_structure_db,
+    )
     assert seed.returncode == 0, seed.stderr
     json.loads(seed.stdout)
 
