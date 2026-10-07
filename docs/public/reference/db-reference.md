@@ -258,11 +258,11 @@ Query-time time-window predicates route through `yoke_core.domain.time_sql.now_s
 
 ## `migration_model` capability — recipe + runner vocabulary
 
-Project-configured validation recipes and migration runners live behind
-the `migration_model` `project_capabilities` row. The canonical recipe
-and runner vocabulary, pairing matrix, and webapp Pack configuration
-contract are documented at
-[db-reference/migration-model-capabilities.md](db-reference/migration-model-capabilities.md).
+Validation recipes, migration runners, and each model's release `fleet` live
+behind the `migration_model` `project_capabilities` row: vocabulary, pairing
+matrix, and webapp Pack contract in
+[db-reference/migration-model-capabilities.md](db-reference/migration-model-capabilities.md);
+the fleet in [db-reference/migration-model-fleet.md](db-reference/migration-model-fleet.md).
 
 ## Live-apply provenance on `migration_audit`
 
@@ -309,10 +309,10 @@ A work item authors the entry and rehearses it:
 yoke --env <name> dev run -- yoke migration rehearse PREFIX-N
 ```
 
-Rehearsal runs the entry against the model's validation surface, records the
-receipt the evidence gate reads, and takes the `LIVE_DB_MIGRATION:<model>`
-coordination claim — holding it so a second work item cannot enter migration
-territory while this one is in flight. A failing rehearsal releases it.
+Rehearsal applies the entry to the validation surface, records the gate's
+receipt in `migration_audit` on the control plane that holds the item, and
+holds the `LIVE_DB_MIGRATION:<model>` coordination claim so a second item cannot
+enter migration territory while this one is in flight; failure releases it.
 
 ## JSON-payload columns
 

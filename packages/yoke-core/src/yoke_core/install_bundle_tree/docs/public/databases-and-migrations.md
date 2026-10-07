@@ -48,7 +48,12 @@ makes those databases refuse to boot on a content mismatch.
 
 ## Item vs fleet
 
-Rehearsal against the validation surface does not prove every tenant DB.
+Rehearsal against the validation surface does not prove every live database.
+Each migration model declares its `fleet` — the engine's tenant databases,
+databases the project names and converges with its own boot command, or
+`none` with a reason — and `yoke watch preflight -- --project P <environment>`
+rehearses exactly that fleet for every project
+([reference/db-reference/migration-model-fleet.md](reference/db-reference/migration-model-fleet.md)).
 Fleet preflight exists for release trains carrying a history entry or a
 schema shape no current receipt covers for the target environment; after converging each
 throwaway copy of a live database it also re-runs callable invariants for
@@ -58,8 +63,8 @@ it covered on the rehearsed environment's own settings document, so coverage
 is durable state rather than telemetry that can expire out from under a build
 that was already rehearsed. The pre-tag release gate refuses unless both the
 history names and this build's schema-shape digest are covered for the target
-environment, and the hosted release dispatch runs the rehearsal itself when it
-finds either uncovered. Both ask the same question, because an entry that only
+environment, and every project's release dispatch runs the rehearsal itself
+when it finds either uncovered. Both ask the same question, because an entry that only
 rewrites rows moves no schema shape — so a shape-only check reports the
 riskiest entry as already covered.
 
@@ -76,7 +81,7 @@ passwords stay out of process arguments; fleet dumps use the shared libpq
 environment mapping, while local copy clients name only the socket, user, and
 database in their arguments. Dump failure diagnostics redact the password.
 
-The fleet is tenant databases only. Names carrying the reserved
+An `engine_tenants` fleet is tenant databases only. Names carrying the reserved
 `yoke_test_run` scratch prefix are disposable by construction — a test or
 rehearsal run created them and nothing owns them once it exits — so the
 enumeration skips them and reports how many it skipped. Converging one
@@ -85,5 +90,6 @@ enough to fail a release's rehearsal against the ledger of a run that had
 already gone. The reported count is the signal to clean them up: the skip
 keeps them out of the fleet, it does not hide that they are there.
 
-Deep reference: [reference/db-reference.md](reference/db-reference.md) and
-`reference/db-reference/migration-model-capabilities.md`.
+Deep reference: [reference/db-reference.md](reference/db-reference.md),
+`reference/db-reference/migration-model-capabilities.md`, and
+`reference/db-reference/migration-model-fleet.md`.

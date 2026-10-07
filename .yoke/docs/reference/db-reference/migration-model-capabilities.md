@@ -19,7 +19,8 @@ variables; Yoke owns lifecycle gates, leases, freshness checks,
     "primary": {
       "authoritative_db": {"kind": "sqlite_file", "location": {...}},
       "validation_surface": {"kind": "worktree_local_sqlite", "provisioning": {...}},
-      "runner": {"kind": "governed_migration_module", "config": {...}}
+      "runner": {"kind": "governed_migration_module", "config": {...}},
+      "fleet": {"kind": "...", ...}
     }
   }
 }
@@ -28,6 +29,9 @@ variables; Yoke owns lifecycle gates, leases, freshness checks,
 `default_model`, if present, must name a key inside `models`. Model names
 are slug-shape (`^[a-z0-9][a-z0-9_-]*$`). Validator output is normalized
 to canonical key order so settings JSON round-trips deterministically.
+`fleet` declares the live databases a release must rehearse and the boot
+sequence that converges them; its contract, the fleet preflight, and the
+release gate that reads it are in [`migration-model-fleet.md`](migration-model-fleet.md).
 
 ## Validation Recipes
 
@@ -148,7 +152,8 @@ yoke --env <name> dev run -- yoke migration rehearse PREFIX-N
 ```
 
 Rehearsal runs the declared entries against the validation surface and records
-the receipt the evidence gate reads. There is no second invocation and no
+the receipt the evidence gate reads in `migration_audit` on the control plane
+that holds the item. There is no second invocation and no
 operator checkpoint to hold, because rehearsal is the only thing a work item
 performs: the apply happens on the boot converge of a server running the merged
 code.
@@ -231,25 +236,21 @@ than trusting object names alone.
 
 ## `migration_audit` Bootstrap
 
-Audit rows live on the **model's authoritative DB**, not the
-Yoke control plane. For Yoke-as-project the authoritative DB and the
-control plane DB coincide, so `yoke_core.domain.schema_init_tables.create_governed_tables`
-covers `migration_audit` at control-plane init. For non-Yoke projects
-(e.g. a webapp with `authoritative_db.location.path = "app/data/app.db"`)
-the two diverge.
+`migration_audit` carries two kinds of row in two places. **Rehearsal
+receipts are item evidence** and live on the control plane that holds the
+item, keyed by `project_id` and `model_name`:
+`yoke_core.domain.migration_rehearsal_evidence` owns that location for the
+rehearsal that writes them and the evidence gate that reads them, so a project
+whose authority is a database the control plane cannot open is gated the same
+way as Yoke itself. **Boot-apply rows** live on the database being converged,
+written by `yoke_core.domain.migration_boot_apply.apply_pending` beside the
+ledger row they describe.
 
 `yoke_core.domain.migration_audit_schema.ensure_migration_audit_table(conn)`
-is the canonical idempotent helper. Both
-`yoke_core.domain.migration_apply_rehearse._rehearse_inner`
-and
-`yoke_core.domain.migration_boot_apply.apply_pending`
-call it on `audit_conn` immediately after opening, so a webapp project's
-first governed apply bootstraps the table automatically. Operators and
-agents do not declare or provision `migration_audit` themselves; the
-project capability only names the authoritative DB. The migration-territory claim
-stays Yoke-side (`LIVE_DB_MIGRATION:<model_name>` leases live on the
-control plane), so the helper deliberately does not bootstrap it on
-project authoritative DBs.
+(and its Postgres sibling) is the canonical idempotent helper; both writers
+call it before their first row, so operators and agents never provision
+`migration_audit` themselves. The migration-territory claim stays on the
+control plane too (`LIVE_DB_MIGRATION:<model_name>`).
 
 ## Pairing Matrix
 
