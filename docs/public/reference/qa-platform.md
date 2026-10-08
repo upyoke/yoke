@@ -195,7 +195,7 @@ NULL`). **Public preview:** `yoke qa gate-summary --item PREFIX-N --target revie
 
 **Public preview:** `yoke qa gate-summary --item PREFIX-N --target done --json`
 
-Terminal settlement ignores a closed, verdict-less run only when its superseding requirement has completed passing evidence or a recorded discharge; post-deploy successors need accepted admitted copies on the completion member (run-wide copies for a legacy schema-1 run). An unsettled successor is named in the refusal. Live runs and active plan executions still block, and the old run remains unchanged as history.
+Terminal settlement ignores a closed, verdict-less run only when its superseding requirement has completed passing evidence or a recorded discharge; post-deploy successors need accepted admitted copies on the completion member (run-wide copies for a legacy schema-1 run). An unsettled successor is named in the refusal. Latest latest live runs and active plan executions still block, and the old run remains unchanged as history. Each requirement counts once, by its newest execution; older runs never block. Browser reviews use the capture verdict and code identity, so a detached agent row cannot mask it.
 
 ### Bypass
 
