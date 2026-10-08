@@ -83,15 +83,14 @@ def test_ensure_creates_default_capabilities(policy_conn: Any) -> None:
     assert policy["base_branch"] == "stage"
     assert policy["wip_cap"] == 30
     assert policy["disposable_generated_paths"] == []
-    routing = _settings(policy_conn, 1, SESSION_ROUTING_CAPABILITY)
-    assert routing["executor_default_levels"]["claude*"] == "DARIUS"
-    assert routing["executor_default_levels"]["DARIUS"] == "DARIUS"
-    assert "lane_paths" not in routing
-    assert "process_offers" not in routing
-    assert routing["level_metadata"] == {
-        "DARIUS": {"label": "DARIUS", "glyph": "🐎"},
-        "ALTMAN": {"label": "ALTMAN", "glyph": "👓"},
-    }
+    # Levels are universe defaults with an opt-in project override, so a
+    # project is never seeded with a session-routing capability.
+    assert SESSION_ROUTING_CAPABILITY not in report["1"]
+    routing = policy_conn.execute(
+        "SELECT 1 FROM project_capabilities WHERE project_id=%s AND type=%s",
+        (1, SESSION_ROUTING_CAPABILITY),
+    ).fetchone()
+    assert routing is None
 
 
 def test_ensure_repairs_missing_keys_without_overwriting(policy_conn: Any) -> None:

@@ -14,10 +14,15 @@ from __future__ import annotations
 from typing import Any, Mapping, Optional
 
 from yoke_contracts.session_level import (
-    LEGACY_LEVEL_PRESENTATION,
     retired_lane_setting_keys,
     retired_process_offer_keys,
 )
+
+# Glyphs the pre-rename lanes rendered with when their metadata named none.
+LEGACY_LEVEL_PRESENTATION: Mapping[str, Mapping[str, str]] = {
+    "DARIUS": {"label": "DARIUS", "glyph": "\U0001f40e"},
+    "ALTMAN": {"label": "ALTMAN", "glyph": "\U0001f453"},
+}
 
 
 def lane_presentation(

@@ -16,7 +16,6 @@ from yoke_contracts.project_contract.project_keys import (
     LOCAL_PROJECT_KEYS,
     PROJECT_POLICY_CAPABILITY,
     RECOGNIZED_PROJECT_KEYS,
-    SESSION_ROUTING_CAPABILITY,
 )
 
 
@@ -41,8 +40,16 @@ def test_local_project_keys_resolve_their_project_default() -> None:
 def test_db_owned_keys_name_their_owning_capability() -> None:
     assert db_owned_capability_for("wip_cap") == PROJECT_POLICY_CAPABILITY
     assert db_owned_capability_for("base_branch") == PROJECT_POLICY_CAPABILITY
-    for key in ("executor_default_level_codex*",):
-        assert db_owned_capability_for(key) == SESSION_ROUTING_CAPABILITY
+
+
+def test_retired_executor_default_level_keys_are_not_db_owned() -> None:
+    # Levels are a universe setting with a session-routing override; a
+    # machine executor-default key no longer twins either, so it reads as an
+    # unrecognized key rather than a DB-owned one.
+    key = "executor_default_level_codex*"
+    assert db_owned_capability_for(key) is None
+    assert not is_recognized(key)
+    assert unrecognized_settings({key: "ALTMAN"}) == (key,)
 
 
 def test_machine_owned_keys_are_not_db_owned() -> None:
@@ -64,10 +71,7 @@ def test_db_owned_settings_reports_key_and_capability() -> None:
             "max_chain_steps": 3,
         },
     )
-    assert found == (
-        ("executor_default_level_codex*", SESSION_ROUTING_CAPABILITY),
-        ("wip_cap", PROJECT_POLICY_CAPABILITY),
-    )
+    assert found == (("wip_cap", PROJECT_POLICY_CAPABILITY),)
 
 
 def test_unrecognized_settings_excludes_db_owned_twins() -> None:

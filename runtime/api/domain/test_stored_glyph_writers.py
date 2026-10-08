@@ -12,6 +12,8 @@ from copy import deepcopy
 
 import pytest
 
+from yoke_contracts.levels import default_levels, levels_payload
+
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_schema
 from yoke_contracts.glyph_contract import SAFE_GLYPH_EXAMPLES
@@ -128,10 +130,12 @@ class TestWorkflowStageGlyph:
 
 class TestLevelGlyph:
     def _settings(self, glyph: str) -> dict:
-        return {"level_metadata": {"RESEARCH": {"label": "RESEARCH", "glyph": glyph}}}
+        levels = levels_payload(default_levels()[:1])
+        levels[0]["glyph"] = glyph
+        return {"levels": levels}
 
     def test_an_unsafe_level_glyph_is_refused(self) -> None:
-        with pytest.raises(ValueError, match="level_metadata.RESEARCH.glyph"):
+        with pytest.raises(ValueError, match=r"levels\[0\]\.glyph"):
             validate_session_routing_settings(self._settings(_UNSAFE))
 
     def test_a_safe_level_glyph_validates(self) -> None:

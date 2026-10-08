@@ -1,83 +1,17 @@
+"""Session level resolution inputs and the machine config path helper."""
+
 from pathlib import Path
 
+import pytest
+
+from yoke_contracts.levels import default_levels
 from yoke_core.api.routing_config import (
     config_path_from_db_path,
-    load_routing_config,
-    normalize_token,
     resolve_execution_level,
+    routing_effort_of,
+    routing_model_of,
+    session_levels,
 )
-
-
-def test_normalize_token_rewrites_harness_names():
-    assert normalize_token("claude-code") == "claude_code"
-    assert normalize_token("Codex Desktop") == "codex_desktop"
-
-
-def test_load_routing_config_parses_executor_defaults(tmp_path):
-    config_path = tmp_path / "config"
-    config_path.write_text(
-        "\n".join(
-            [
-                "executor_default_level_claude_code=DARIUS",
-                "executor_default_level_codex=ALTMAN",
-            ],
-        ),
-        encoding="utf-8",
-    )
-
-    routing = load_routing_config(config_path)
-
-    assert routing.default_level_for_executor("claude-code") == "DARIUS"
-    assert routing.default_level_for_executor("codex") == "ALTMAN"
-    assert routing.default_level_for_executor("unknown-harness") == "primary"
-
-
-def test_resolve_execution_level_prefers_explicit_override(tmp_path):
-    config_path = tmp_path / "config"
-    config_path.write_text("executor_default_level_codex=ALTMAN\n", encoding="utf-8")
-    routing = load_routing_config(config_path)
-
-    assert (
-        resolve_execution_level(
-            executor="codex",
-            explicit_level="DARIUS",
-            routing_config=routing,
-        )
-        == "DARIUS"
-    )
-    assert (
-        resolve_execution_level(
-            executor="codex",
-            explicit_level=None,
-            routing_config=routing,
-        )
-        == "ALTMAN"
-    )
-
-
-def test_resolve_execution_level_treats_default_as_executor_default(tmp_path):
-    config_path = tmp_path / "config"
-    config_path.write_text(
-        "executor_default_level_claude_code=DARIUS\n", encoding="utf-8"
-    )
-    routing = load_routing_config(config_path)
-
-    assert (
-        resolve_execution_level(
-            executor="claude-code",
-            explicit_level="default",
-            routing_config=routing,
-        )
-        == "DARIUS"
-    )
-    assert (
-        resolve_execution_level(
-            executor="claude-code",
-            explicit_level=" DEFAULT ",
-            routing_config=routing,
-        )
-        == "DARIUS"
-    )
 
 
 def test_config_path_from_db_path_points_at_sibling_config(tmp_path):
@@ -91,152 +25,58 @@ def test_config_path_from_db_path_points_at_sibling_config(tmp_path):
     )
 
 
-# wildcard level resolution + fallback chain ---------------------------------
+class TestMatchingFacts:
+    def test_an_attested_model_wins_over_the_ask(self):
+        assert routing_model_of("claude-opus-5-5", "claude-haiku-4-5") == (
+            "claude-opus-5-5"
+        )
+
+    def test_the_ask_is_the_fallback_with_its_context_tier_removed(self):
+        assert routing_model_of(None, "claude-opus-5-5[1m]") == "claude-opus-5-5"
+
+    def test_neither_model_fact_yields_none(self):
+        assert routing_model_of("", "  ") is None
+
+    def test_an_attested_effort_wins_and_is_folded(self):
+        assert routing_effort_of("HIGH", "low") == "high"
+        assert routing_effort_of(None, "max") == "max"
+        assert routing_effort_of(None, None) is None
 
 
-def test_default_level_wildcard_resolves_unconfigured_surfaces(tmp_path):
-    """Wildcard keys cover every surface that shares a prefix."""
-    config_path = tmp_path / "config"
-    config_path.write_text(
-        "executor_default_level_claude*=DARIUS\nexecutor_default_level_codex*=ALTMAN\n",
-        encoding="utf-8",
-    )
-    routing = load_routing_config(config_path)
-    assert routing.default_level_for_executor("claude-code") == "DARIUS"
-    assert routing.default_level_for_executor("claude-desktop") == "DARIUS"
-    assert routing.default_level_for_executor("claude-vscode") == "DARIUS"
-    assert routing.default_level_for_executor("claude-cli") == "DARIUS"
-    assert routing.default_level_for_executor("codex") == "ALTMAN"
-    assert routing.default_level_for_executor("codex-desktop") == "ALTMAN"
-    assert routing.default_level_for_executor("codex-vscode") == "ALTMAN"
-    assert routing.default_level_for_executor("codex-cli") == "ALTMAN"
+class TestResolution:
+    @pytest.mark.parametrize("explicit", [None, "", "default", "primary", "PRIMARY"])
+    def test_a_non_choice_yields_to_the_option_match(self, explicit):
+        assert (
+            resolve_execution_level(
+                executor="codex",
+                explicit_level=explicit,
+                levels=default_levels(),
+                model="gpt-6-astra",
+            )
+            == "PRINCIPAL"
+        )
 
+    def test_a_real_explicit_level_wins(self):
+        assert (
+            resolve_execution_level(
+                executor="codex",
+                explicit_level="SENIOR",
+                levels=default_levels(),
+                model="gpt-6-astra",
+            )
+            == "SENIOR"
+        )
 
-def test_default_level_exact_key_wins_over_wildcard(tmp_path):
-    """A specific override key beats a wildcard default that would also match."""
-    config_path = tmp_path / "config"
-    config_path.write_text(
-        "executor_default_level_claude*=DARIUS\n"
-        "executor_default_level_claude_vscode=ALTMAN\n",
-        encoding="utf-8",
-    )
-    routing = load_routing_config(config_path)
-    assert routing.default_level_for_executor("claude-vscode") == "ALTMAN"
-    # Other claude surfaces still pick up the wildcard default.
-    assert routing.default_level_for_executor("claude-desktop") == "DARIUS"
-    assert routing.default_level_for_executor("claude-code") == "DARIUS"
+    def test_no_matching_option_stamps_the_unresolved_sentinel(self):
+        assert (
+            resolve_execution_level(
+                executor="codex",
+                explicit_level=None,
+                levels=default_levels(),
+                model=None,
+            )
+            == "primary"
+        )
 
-
-def test_default_level_longer_wildcard_prefix_wins(tmp_path):
-    """When multiple wildcards match a token, the longest prefix wins."""
-    config_path = tmp_path / "config"
-    config_path.write_text(
-        "executor_default_level_claude*=DARIUS\n"
-        "executor_default_level_claude_v*=ALTMAN\n",
-        encoding="utf-8",
-    )
-    routing = load_routing_config(config_path)
-    assert routing.default_level_for_executor("claude-vscode") == "ALTMAN"
-    assert routing.default_level_for_executor("claude-desktop") == "DARIUS"
-
-
-def test_default_level_wildcard_preserves_star_through_config_loading(tmp_path):
-    """A naive normalize that strips ``*`` would store ``claude`` as an exact
-    token and miss every actual surface. This regression test pins down that
-    failure mode."""
-    config_path = tmp_path / "config"
-    config_path.write_text("executor_default_level_claude*=DARIUS\n", encoding="utf-8")
-    routing = load_routing_config(config_path)
-    # No exact match was stored under ``claude`` — the wildcard form must win.
-    assert "claude" not in routing.executor_default_levels
-    assert "claude" in routing.executor_wildcard_levels
-    # Surfaces with a separator after ``claude`` still resolve via wildcard.
-    assert routing.default_level_for_executor("claude-vscode") == "DARIUS"
-    assert routing.default_level_for_executor("claude-code") == "DARIUS"
-
-
-def test_default_level_claude_code_remains_valid_exact_token(tmp_path):
-    """``claude_code`` still works as a literal exact key, but it is no longer a
-    hidden fallback target — sibling surfaces like ``claude-desktop`` must NOT
-    inherit from it without a wildcard."""
-    config_path = tmp_path / "config"
-    config_path.write_text(
-        "executor_default_level_claude_code=DARIUS\n",
-        encoding="utf-8",
-    )
-    routing = load_routing_config(config_path)
-    assert routing.default_level_for_executor("claude-code") == "DARIUS"
-    # Without a wildcard, sibling surfaces fall to ``primary`` — there is no
-    # implicit fallback from one specific surface to another.
-    assert routing.default_level_for_executor("claude-desktop") == "primary"
-    assert routing.default_level_for_executor("claude-vscode") == "primary"
-
-
-def test_default_level_underscore_wildcard_distinguishes_from_bare_prefix(tmp_path):
-    """``claude_*`` is more specific than ``claude*``: it requires a separator
-    after ``claude`` and must NOT match a hypothetical bare ``claude`` token."""
-    config_path = tmp_path / "config"
-    config_path.write_text(
-        "executor_default_level_claude*=DARIUS\nexecutor_default_level_claude_*=ALTMAN\n",
-        encoding="utf-8",
-    )
-    routing = load_routing_config(config_path)
-    # ``claude_vscode`` has the separator, longer prefix wins.
-    assert routing.default_level_for_executor("claude-vscode") == "ALTMAN"
-    # Bare ``claude`` token only matches the shorter wildcard.
-    assert routing.default_level_for_executor("claude") == "DARIUS"
-
-
-def test_default_level_malformed_mid_string_wildcard_is_ignored(tmp_path):
-    """Mid-string ``*`` is not supported; the line is silently dropped so a
-    malformed config cannot crash session registration."""
-    config_path = tmp_path / "config"
-    config_path.write_text(
-        "executor_default_level_cla*ude=DARIUS\nexecutor_default_level_codex*=ALTMAN\n",
-        encoding="utf-8",
-    )
-    routing = load_routing_config(config_path)
-    # The malformed key did not register as a wildcard or as an exact key.
-    assert "cla" not in routing.executor_wildcard_levels
-    assert "cla_ude" not in routing.executor_default_levels
-    # The well-formed wildcard still resolves.
-    assert routing.default_level_for_executor("codex-desktop") == "ALTMAN"
-    # Tokens that would have matched the malformed key fall through to primary.
-    assert routing.default_level_for_executor("claude-desktop") == "primary"
-
-
-def test_default_level_uses_unknown_fallback_for_unrelated_executors(tmp_path):
-    config_path = tmp_path / "config"
-    config_path.write_text(
-        "executor_default_level_claude*=DARIUS\nexecutor_default_level_unknown=ALTMAN\n",
-        encoding="utf-8",
-    )
-    routing = load_routing_config(config_path)
-    # Unknown executor with no exact or wildcard match uses the unknown fallback.
-    assert routing.default_level_for_executor("acme-bot") == "ALTMAN"
-    assert routing.default_level_for_executor("mystery") == "ALTMAN"
-
-
-def test_default_level_returns_primary_when_no_keys_match(tmp_path):
-    config_path = tmp_path / "config"
-    config_path.write_text("", encoding="utf-8")  # no executor keys at all
-    routing = load_routing_config(config_path)
-    # Nothing configured; the sentinel level remains available.
-    assert routing.default_level_for_executor("claude-desktop") == "primary"
-    assert routing.default_level_for_executor("codex-cli") == "primary"
-    assert routing.default_level_for_executor("acme-bot") == "primary"
-
-
-def test_default_level_unknown_key_only_fires_when_no_exact_or_wildcard_match(tmp_path):
-    """Synthetic unknown executor exercises unknown and primary fallback paths."""
-    config_with_unknown = tmp_path / "with-unknown"
-    config_with_unknown.write_text(
-        "executor_default_level_unknown=DARIUS\n", encoding="utf-8"
-    )
-    routing_with = load_routing_config(config_with_unknown)
-    assert routing_with.default_level_for_executor("acme-bot") == "DARIUS"
-
-    config_without_unknown = tmp_path / "without-unknown"
-    config_without_unknown.write_text("", encoding="utf-8")
-    routing_without = load_routing_config(config_without_unknown)
-    assert routing_without.default_level_for_executor("acme-bot") == "primary"
+    def test_without_a_connection_the_shipped_scheme_labels(self):
+        assert session_levels(None, None) == default_levels()

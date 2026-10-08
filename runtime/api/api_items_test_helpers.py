@@ -138,6 +138,9 @@ def _apply_schema_and_seed() -> None:
         seed_default_org(conn)
         ensure_event_schema(conn)
         create_decision_request_tables(conn)
+        from runtime.api.fixtures.level_store import create_level_store_tables
+
+        create_level_store_tables(conn)
         _seed_rows(conn)
         _sync_postgres_sequences(conn)
         conn.commit()

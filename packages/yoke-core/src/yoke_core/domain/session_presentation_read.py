@@ -2,69 +2,66 @@
 
 from __future__ import annotations
 
-import json
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Mapping, Optional
 
 from yoke_contracts.executor_labels import executor_presentation
-from yoke_contracts.project_contract.project_keys import (
-    SESSION_ROUTING_CAPABILITY,
+from yoke_contracts.levels import (
+    Level,
+    LevelsError,
+    level_presentation,
+    resolve_effective_levels,
 )
-from yoke_contracts.session_level import level_presentation
-from yoke_core.domain import db_backend
+from yoke_core.domain.universe_levels import (
+    UniverseLevelsError,
+    project_routing_settings,
+    stored_universe_levels,
+)
 
 
-def _parse_settings(raw: Any) -> dict[str, Any]:
-    try:
-        parsed = raw if isinstance(raw, dict) else json.loads(str(raw or "{}"))
-    except (TypeError, ValueError):
-        return {}
-    return parsed if isinstance(parsed, dict) else {}
-
-
-def level_settings_by_project(
+def levels_by_project(
     conn: Any,
     project_ids: Iterable[Any],
-) -> dict[int, dict[str, Any]]:
-    """Session-routing settings for the named projects, read in one query.
+) -> dict[Optional[int], tuple[Level, ...]]:
+    """The levels each named project reads, resolved once per project.
 
-    A roster page holds many sessions per project, and the level label of
-    every one of them comes from that project's single routing capability
-    row. Resolving the distinct projects once here is what keeps the read's
-    cost proportional to the projects on the page rather than to its rows.
+    A roster page holds many sessions per project, and every row's level
+    glyph comes from its project's effective levels. Resolving the distinct
+    projects once here keeps the read's cost proportional to the projects on
+    the page rather than to its rows. An unreadable stored document labels
+    nothing; ``yoke projects level-summary get`` names its repair.
     """
     distinct = [int(value) for value in dict.fromkeys(project_ids) if value is not None]
-    if not distinct:
-        return {}
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    rows = conn.execute(
-        "SELECT project_id, settings FROM project_capabilities "
-        f"WHERE type={marker} AND project_id IN ("
-        + ",".join(marker for _ in distinct)
-        + ")",
-        (SESSION_ROUTING_CAPABILITY, *distinct),
-    ).fetchall()
-    return {
-        int(dict(row)["project_id"]): _parse_settings(dict(row)["settings"])
-        for row in rows
-    }
+    try:
+        universe = stored_universe_levels(conn)
+    except UniverseLevelsError:
+        universe = None
+    resolved: dict[Optional[int], tuple[Level, ...]] = {}
+    for project_id in [None, *distinct]:
+        try:
+            resolved[project_id] = resolve_effective_levels(
+                project_routing_settings(conn, project_id), universe
+            )[0]
+        except (LevelsError, UniverseLevelsError):
+            resolved[project_id] = ()
+    return resolved
 
 
 def session_presentation(
     row: Mapping[str, Any],
     *,
-    level_settings: Mapping[int, Mapping[str, Any]],
+    levels: Mapping[Optional[int], tuple[Level, ...]],
 ) -> dict[str, Any]:
     """Return execution and observed-presentation metadata for a session.
 
-    *level_settings* is the already-resolved
-    :func:`level_settings_by_project` map; a project absent from it simply
-    has no routing capability, which renders the same as an empty one.
+    *levels* is the already-resolved :func:`levels_by_project` map.
     """
     display_name = str(row.get("executor_surface") or row.get("executor") or "")
     executor = executor_presentation(display_name)
     project_id = row.get("project_id")
-    settings = level_settings.get(int(project_id), {}) if project_id is not None else {}
-    level = level_presentation(str(row.get("execution_level") or ""), dict(settings))
+    key = int(project_id) if project_id is not None else None
+    level = level_presentation(
+        levels.get(key, levels.get(None, ())), row.get("execution_level")
+    )
     return {
         "level_label": level["label"],
         "level_glyph": level["glyph"],
@@ -78,4 +75,4 @@ def session_presentation(
     }
 
 
-__all__ = ["level_settings_by_project", "session_presentation"]
+__all__ = ["levels_by_project", "session_presentation"]

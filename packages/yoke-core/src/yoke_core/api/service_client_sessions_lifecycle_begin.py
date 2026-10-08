@@ -13,13 +13,16 @@ from yoke_contracts.session_model_facts import (
     facts_from_mapping,
 )
 
-from yoke_core.domain.session_routing_rules import routing_model_of
+from yoke_core.api.routing_config import (
+    resolve_execution_level,
+    routing_effort_of,
+    routing_model_of,
+    session_levels,
+)
 from yoke_core.api.service_client_shared import (
     SESSION_REQUIRED_ERROR,
     _get_db_readwrite,
-    _load_routing_config,
     _resolve_session_id,
-    resolve_execution_level,
 )
 
 
@@ -82,12 +85,14 @@ def begin_session(
     """
     from yoke_core.domain.sessions import SessionError, register_session
 
-    routing_config = _load_routing_config(conn=conn, project_id=project_id)
     resolved_level = resolve_execution_level(
         executor=executor,
         explicit_level=None,
-        routing_config=routing_config,
+        levels=session_levels(conn, project_id),
         model=routing_model_of(model_facts.model, model_facts.requested_model),
+        reasoning_effort=routing_effort_of(
+            model_facts.reasoning_effort, model_facts.requested_reasoning_effort
+        ),
     )
     try:
         result = register_session(

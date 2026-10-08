@@ -33,7 +33,6 @@ from yoke_core.api.service_client_shared_io import (  # noqa: F401
     _get_db_path,
     _get_db_readonly,
     _get_db_readwrite,
-    _load_routing_config,
     _repo_root,
     _subprocess_backend_env,
     _subprocess_pythonpath,
@@ -132,6 +131,5 @@ from yoke_core.api.session_chain_policy import (  # noqa: F401
 )
 from yoke_core.api.routing_config import (  # noqa: F401
     config_path_from_db_path,
-    load_routing_config,
     resolve_execution_level,
 )

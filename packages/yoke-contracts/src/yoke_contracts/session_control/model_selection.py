@@ -27,7 +27,7 @@ _CONTEXT_TOKEN = re.compile(r"^([1-9][0-9]*)([km]?)$", re.IGNORECASE)
 _MODEL_TOKEN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._/-]*$")
 
 SURFACE_EFFORT_LEVELS: Mapping[str, tuple[str, ...]] = {
-    "claude-cli": ("low", "medium", "high", "max"),
+    "claude-cli": ("low", "medium", "high", "xhigh", "max"),
     "codex-cli": (
         "none",
         "minimal",

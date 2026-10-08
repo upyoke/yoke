@@ -263,7 +263,8 @@ Also observed: `Grep` as a distinct tool name. MCP tools surface as
 - Board/labels: new `EXECUTOR_EMOJI` entry (glyph must satisfy the glyph
   contract in `yoke_contracts.glyph_contract`), surface labels for IDE vs CLI
   (`CURSOR_INVOKED_AS` is the discriminator), and a
-  charge-frontier `executor_default_level_<token>` decision.
+  Cursor options in the execution levels (see
+  `public/reference/session-level-routing.md`).
 - Doctor updates: `HC-executor-canonicalization` (hardcoded `claude-%` /
   `codex-%` patterns), `HC-session-identity-provenance` label roster,
   `HC-harness-substrate-drift` render coverage, `HC-install-bundle-drift`.

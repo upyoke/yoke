@@ -76,6 +76,10 @@ availability and each model's supported reasoning levels still come from
 the surface API; tier-to-model routing still comes from
 `session_model_routing` in machine config.
 
+## Execution levels
+
+`yoke universe levels get|set` reads and replaces the universe levels ([execution levels](reference/session-level-routing.md)).
+
 ## Machine config
 
 `~/.yoke/config.json` holds machine-local connections and tunables: which

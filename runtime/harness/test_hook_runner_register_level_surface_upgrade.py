@@ -71,7 +71,7 @@ def test_wire_version_without_surface_does_not_drive_reregister(monkeypatch):
 
     assert (
         register_module.ensure_registered_from_hook(
-            _Conn([{"execution_level": "DARIUS", "executor": "codex"}]),
+            _Conn([{"execution_level": "SENIOR", "executor": "codex"}]),
             '{"executor_version": "0.150.0"}',
             "s-version-only",
         )
@@ -105,7 +105,7 @@ def test_existing_resolved_surface_is_never_replaced(
             _Conn(
                 [
                     {"executor_surface": stored_surface},
-                    {"execution_level": "DARIUS", "executor": executor},
+                    {"execution_level": "SENIOR", "executor": executor},
                 ]
             ),
             f'{{"entrypoint": "{wire_surface}"}}',
@@ -126,7 +126,7 @@ def test_existing_primary_level_with_wire_level_drives_reregister(monkeypatch):
 
     drove = register_module.ensure_registered_from_hook(
         _Conn([{"execution_level": "primary"}]),
-        '{"execution_level": "DARIUS"}',
+        '{"execution_level": "SENIOR"}',
         "s-level",
     )
 
@@ -134,12 +134,39 @@ def test_existing_primary_level_with_wire_level_drives_reregister(monkeypatch):
     assert calls == ["s-level"]
 
 
-def test_unresolved_level_drives_reregister_from_project_routing(monkeypatch):
+def _unresolved_row(executor: str, **facts) -> dict:
+    """A stored row the sentinel left unroutable, with its model facts."""
+    row = {
+        "execution_level": "primary",
+        "executor": executor,
+        "model": None,
+        "requested_model": None,
+        "reasoning_effort": None,
+        "requested_reasoning_effort": None,
+    }
+    row.update(facts)
+    return row
+
+
+# Nothing is stored in either level store: the project override read and the
+# universe read each find no row, so the shipped options decide.
+_NO_STORED_LEVELS = (None, None)
+
+
+@pytest.mark.parametrize(
+    "facts",
+    [
+        {"model": "claude-opus-5-5", "reasoning_effort": "medium"},
+        {"requested_model": "claude-opus-5-5[1m]"},
+    ],
+)
+def test_unresolved_level_drives_reregister_from_matching_option(monkeypatch, facts):
     """A row the sentinel left unroutable repairs itself on any hook event.
 
-    Nothing rides the wire here — the executor on the row plus the project's
-    routing policy are the whole input, which is what lets a session stamped
-    before its policy could be read heal without operator action.
+    Nothing rides the wire here: the row's executor and model facts matched
+    against the levels the project reads are the whole input, which is what
+    lets a session stamped before a matching option existed heal without
+    operator action.
     """
     _patch_existing_row(monkeypatch)
     calls: list[str] = []
@@ -148,13 +175,9 @@ def test_unresolved_level_drives_reregister_from_project_routing(monkeypatch):
         "_register_from_hook",
         lambda payload, sid, **_kw: calls.append(sid) or ("", "c", "p", "m", None),
     )
-    monkeypatch.setattr(
-        "yoke_core.hooks.registration_identity.project_level_for_session",
-        lambda _conn, _project, _executor, **_kw: "DARIUS",
-    )
 
     drove = register_module.ensure_registered_from_hook(
-        _Conn([{"execution_level": "primary", "executor": "claude-code"}]),
+        _Conn([_unresolved_row("claude-code", **facts), *_NO_STORED_LEVELS]),
         "{}",
         "s-level-heal",
         project_id=1,
@@ -174,12 +197,12 @@ def test_healed_level_stops_driving_reregister(monkeypatch):
     )
     monkeypatch.setattr(
         "yoke_core.hooks.registration_identity.project_level_for_session",
-        lambda *_a, **_kw: pytest.fail("resolved rows must not consult routing"),
+        lambda *_a, **_kw: pytest.fail("resolved rows must not read the levels"),
     )
 
     assert (
         register_module.ensure_registered_from_hook(
-            _Conn([{"execution_level": "DARIUS", "executor": "claude-code"}]),
+            _Conn([{"execution_level": "SENIOR", "executor": "claude-code"}]),
             "{}",
             "s-level-healed",
             project_id=1,
@@ -188,22 +211,26 @@ def test_healed_level_stops_driving_reregister(monkeypatch):
     )
 
 
-def test_unresolvable_level_does_not_drive_reregister(monkeypatch):
-    """A project with no mapping for this executor must not loop forever."""
+@pytest.mark.parametrize(
+    "executor,facts",
+    [
+        ("claude-code", {"model": "claude-unlisted"}),
+        ("claude-code", {}),
+        ("some-other-harness", {"model": "claude-opus-5-5"}),
+    ],
+)
+def test_unresolvable_level_does_not_drive_reregister(monkeypatch, executor, facts):
+    """A session no option matches must not re-register on every event."""
     _patch_existing_row(monkeypatch)
     monkeypatch.setattr(
         register_module,
         "_register_from_hook",
         lambda *_a, **_kw: pytest.fail("an unresolvable level must not re-register"),
     )
-    monkeypatch.setattr(
-        "yoke_core.hooks.registration_identity.project_level_for_session",
-        lambda _conn, _project, _executor, **_kw: "primary",
-    )
 
     assert (
         register_module.ensure_registered_from_hook(
-            _Conn([{"execution_level": "primary", "executor": "some-other-harness"}]),
+            _Conn([_unresolved_row(executor, **facts), *_NO_STORED_LEVELS]),
             "{}",
             "s-level-unmapped",
             project_id=1,
@@ -222,8 +249,8 @@ def test_existing_real_level_with_other_wire_level_skips(monkeypatch):
 
     assert (
         register_module.ensure_registered_from_hook(
-            _Conn([{"execution_level": "DARIUS"}]),
-            '{"execution_level": "ALTMAN"}',
+            _Conn([{"execution_level": "SENIOR"}]),
+            '{"execution_level": "INTERN"}',
             "s-level-real",
         )
         is False

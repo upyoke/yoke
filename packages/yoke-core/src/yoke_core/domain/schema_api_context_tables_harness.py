@@ -101,6 +101,22 @@ HARNESS_TABLES: dict[str, dict] = {
             "native availability or machine session_model_routing."
         ),
     },
+    "universe_settings": {
+        "columns": [
+            ("key", "TEXT"),
+            ("value", "TEXT"),
+            ("updated_at", "TEXT"),
+            ("updated_by_actor_id", "INTEGER"),
+        ],
+        "notes": (
+            "Universe-wide settings, one row per key. Key `levels` holds the "
+            "execution levels JSON list (lowest first); no row means the "
+            "shipped INTERN < JUNIOR < SENIOR < PRINCIPAL scheme. A project's "
+            'session-routing capability may override it with {"levels": '
+            "[...]}. Read with `yoke universe levels get`, write with `yoke "
+            "universe levels set --stdin`; never update rows directly."
+        ),
+    },
 }
 
 

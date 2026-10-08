@@ -4,9 +4,12 @@ The rules file every session loads carries the short normative form of each rule
 
 ## Execution levels and worktree lanes
 
-An execution level groups registering sessions by harness and model through
-`session-routing` settings. Its label and glyph identify the group on the
-board and dashboard; it carries no skill permissions. Workflow bindings
+An execution level is an ordered capability band whose options are exact
+launchable selections; a registering session is labeled with the level whose
+option matches its harness, model, and effort (universe levels, or a
+project's `session-routing` override — see
+[execution levels](../session-level-routing.md)). Its name and glyph identify
+the group on the board and dashboard; it carries no skill permissions. Workflow bindings
 select stage skills, and explicit staffing assigns work.
 
 A worktree lane is a registered code checkout protected by the item work

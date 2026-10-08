@@ -1,4 +1,4 @@
-"""``yoke projects level-summary get`` — the effective level routing read."""
+"""``yoke projects level-summary get`` — the execution levels a project reads."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from yoke_cli.commands._helpers import (
     dispatch_and_emit,
     parse_or_usage_error,
 )
+from yoke_cli.commands.adapters.universe_levels import write_levels
 from yoke_contracts.api.function_call import TargetRef
 
 
@@ -21,53 +22,23 @@ PROJECTS_LEVEL_SUMMARY_GET_USAGE = (
 
 def _write_summary(response, stdout, stderr) -> None:
     del stderr
-    if not response.success:
-        return None
-    result = response.result or {}
-    levels = result.get("levels") or []
-    if not levels:
-        stdout.write("no levels configured\n")
-        return None
-    for level in levels:
-        glyph = level.get("glyph") or " "
-        stdout.write(f"{glyph} {level.get('label') or level.get('id')}\n")
-        stdout.write(f"  identity      {level.get('id')}\n")
-        matches = level.get("matches") or []
-        stdout.write(
-            "  matches       "
-            + (
-                "; ".join(
-                    f"harness={match.get('harness') or 'any'} "
-                    f"model={match.get('model') or 'any'}"
-                    for match in matches
-                )
-                or "no custom matches"
-            )
-            + "\n"
-        )
-        actions = level.get("actions") or []
-        stdout.write(f"  actions       {', '.join(actions) or 'None'}\n")
-        defaults = level.get("default_for") or []
-        stdout.write(f"  default for   {', '.join(defaults) or 'None'}\n")
-    if not result.get("configured"):
-        stdout.write(
-            "\nThis project stores no session-routing capability; the summary "
-            "above is the built-in default.\n"
-        )
+    if response.success:
+        write_levels(response.result or {}, stdout)
     return None
 
 
 def projects_level_summary_get(args: List[str]) -> int:
-    """Print the levels a project routes onto, with their effective settings."""
+    """Print the levels a project reads and whether they are its override."""
     parser = argparse.ArgumentParser(
         prog="yoke projects level-summary get",
         description=(
-            "Read one project's effective session level routing: each level's "
-            "label and glyph, the harness/model selectors that route to it, "
-            "and the harnesses that default to it. "
-            "This is the same composition the Project settings screen shows. "
-            "Edit any of it with `yoke projects capability-settings merge "
-            "--project NAME --cap-type session-routing --set KEY.PATH=VALUE`."
+            "Read the execution levels one project uses, lowest first, with "
+            "each level's glyph and ordered launchable options, and whether "
+            "they come from the project's override or the universe. Set an "
+            "override with `yoke projects capability-settings set --project "
+            "NAME --cap-type session-routing --settings-json "
+            "'{\"levels\": [...]}' --new`; remove it with `yoke projects "
+            "capability-settings remove` to read the universe levels again."
         ),
     )
     parser.add_argument("--project", required=True)

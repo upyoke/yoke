@@ -45,6 +45,16 @@ MODELS_ADAPTERS: List[AdapterEntry] = [
         cli_invocation="yoke models restore REV --expected-base REV --source-note TEXT",
         notes="Copy an older catalog into a new revision; org admin required.",
     ),
+    _read_entry(
+        function_id="universe.levels.get",
+        cli_invocation="yoke universe levels get",
+        notes="Read the universe execution levels, lowest first, and whether they are stored or the shipped default.",
+    ),
+    _read_entry(
+        function_id="universe.levels.set",
+        cli_invocation="yoke universe levels set --stdin",
+        notes="Replace the universe execution levels; each option is validated against what its surface accepts. Org admin required.",
+    ),
 ]
 
 __all__ = ["MODELS_ADAPTERS"]

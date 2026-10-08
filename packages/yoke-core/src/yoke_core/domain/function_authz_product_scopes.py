@@ -25,6 +25,10 @@ PRODUCT_AUTHZ_BY_ID = {
     "models.restore.run": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "models.diff.run": AuthzSpec(ACTOR_SESSION, None),
     "models.revisions.run": AuthzSpec(ACTOR_SESSION, None),
+    # Universe levels label every session and choose every launch in every
+    # project that has no override of its own.
+    "universe.levels.get": AuthzSpec(ACTOR_SESSION, None),
+    "universe.levels.set": AuthzSpec(ORG, PERM_ORG_ADMIN),
     # Actor-visible lists and personal decision/preference surfaces.
     "actors.roster": AuthzSpec(ACTOR_SESSION, None),
     "actors.state.set": AuthzSpec(ACTOR_SESSION, None),

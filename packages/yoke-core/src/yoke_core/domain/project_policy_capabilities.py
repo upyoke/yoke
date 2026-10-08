@@ -28,9 +28,6 @@ from yoke_contracts.project_contract.project_keys import (
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.project_identity import row_value
-from yoke_core.domain.project_session_routing_defaults import (
-    session_routing_defaults,
-)
 
 _INT_POLICY_KEYS = frozenset(
     {
@@ -116,7 +113,6 @@ def default_project_capability_settings(
             project_id,
             base_branch=base_branch,
         ),
-        SESSION_ROUTING_CAPABILITY: session_routing_defaults(),
     }
 
 
@@ -340,6 +336,5 @@ __all__ = [
     "load_project_policy_settings",
     "project_policy_defaults",
     "project_policy_value",
-    "session_routing_defaults",
     "set_project_policy_value",
 ]

@@ -6,7 +6,6 @@ import json
 from typing import Any, Optional
 
 from yoke_contracts.session_level import level_is_unresolved
-from yoke_core.domain.session_routing_rules import routing_model_of
 
 
 def project_level_for_session(
@@ -16,38 +15,29 @@ def project_level_for_session(
     *,
     explicit_level: Optional[str] = None,
     model: Optional[str] = None,
+    reasoning_effort: Optional[str] = None,
 ) -> Optional[str]:
-    """Resolve this session's level from the project's routing policy.
+    """Resolve this session's level from the levels its project reads.
 
-    Routing policy is project-scoped shared authority (the
-    ``session-routing`` capability), so the level is resolved here — at stamp
-    time, against the connection that is about to write the row — rather
-    than trusted from whatever the caller carried in. Returns ``None`` when
-    the project declares no routing policy, leaving the caller's own
-    fallback in charge.
+    The levels are shared authority (the project's ``session-routing``
+    override, else the universe definition), so the level is resolved here
+    — at stamp time, against the connection about to write the row — rather
+    than trusted from whatever the caller carried in. Returns ``None`` only
+    without a project.
 
-    ``model`` is the model the session is serving, which the project's
-    ``level_rules`` selectors may route on; omitting it leaves the session
-    to the harness tiers.
+    ``model`` and ``reasoning_effort`` are what the session serves, matched
+    against each level's options.
     """
     if project_id is None:
         return None
-    from yoke_core.api.routing_config import (
-        load_project_routing_settings,
-        load_routing_config,
-        resolve_execution_level,
-    )
+    from yoke_core.api.routing_config import resolve_execution_level, session_levels
 
-    settings = load_project_routing_settings(conn, project_id)
-    if not settings:
-        return None
     return resolve_execution_level(
         executor=executor,
         explicit_level=explicit_level,
-        # Project settings are the complete routing authority; the machine
-        # config path is unread whenever they are supplied.
-        routing_config=load_routing_config("", project_settings=settings),
+        levels=session_levels(conn, project_id),
         model=model,
+        reasoning_effort=reasoning_effort,
     )
 
 
@@ -60,6 +50,14 @@ def _wire_level(payload_json: str) -> str:
         return ""
     level = payload.get("execution_level", "")
     return level.strip() if isinstance(level, str) else ""
+
+
+_LABEL_FACT_COLUMNS = (
+    "model",
+    "requested_model",
+    "reasoning_effort",
+    "requested_reasoning_effort",
+)
 
 
 def _level_can_upgrade(
@@ -75,8 +73,8 @@ def _level_can_upgrade(
     Registration is idempotent and already upgrades an unresolved stored level
     in place, so reporting True lets any hook event repair the row. Two
     sources can supply the replacement: a level the payload carried, and the
-    project's own routing policy resolved against the row's executor — the
-    authority that outlives whatever the caller knew. Once the row carries a
+    levels the project reads matched against the row's executor and model —
+    the authority that outlives whatever the caller knew. Once the row carries a
     real level this returns False, which keeps a healed session from
     re-registering on every event.
     """
@@ -85,7 +83,8 @@ def _level_can_upgrade(
 
         p = "%s" if db_backend.connection_is_postgres(conn) else "?"
         row = conn.execute(
-            "SELECT execution_level, executor, model, requested_model "
+            "SELECT execution_level, executor, model, requested_model, "
+            "reasoning_effort, requested_reasoning_effort "
             f"FROM harness_sessions "
             f"WHERE session_id = {p}",
             (session_id,),
@@ -102,16 +101,20 @@ def _level_can_upgrade(
             return True
         if not executor:
             return False
-        if hasattr(row, "get"):
-            served, requested = row.get("model"), row.get("requested_model")
-        else:
-            served, requested = row[2], row[3]
+        from yoke_core.api.routing_config import routing_effort_of, routing_model_of
+
+        values = (
+            [row.get(key) for key in _LABEL_FACT_COLUMNS]
+            if hasattr(row, "get")
+            else list(row[2:6])
+        )
         return not level_is_unresolved(
             project_level_for_session(
                 conn,
                 project_id,
                 executor,
-                model=routing_model_of(served, requested),
+                model=routing_model_of(values[0], values[1]),
+                reasoning_effort=routing_effort_of(values[2], values[3]),
             )
         )
     except Exception:  # noqa: BLE001 - probe must never break dispatch
@@ -247,8 +250,8 @@ def placeholder_identity_can_upgrade(
 
     Model facts and level heal from different authorities: the facts ride
     the wire from the client that can read the harness artifact, while the
-    level's last word is project routing policy, which only the control
-    plane can read.
+    level's last word is the levels the project reads, which only the
+    control plane can read.
     """
     return (
         _model_facts_can_upgrade(

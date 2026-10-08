@@ -6,6 +6,8 @@ import json
 
 import pytest
 
+from yoke_contracts.session_level import UNRESOLVED_EXECUTION_LEVEL
+
 from runtime.api.api_items_test_helpers import _client_for_db, make_test_db_fixture
 
 pytestmark = pytest.mark.usefixtures("bound_project_context")
@@ -69,7 +71,8 @@ def test_hooks_evaluate_wire_level_heals_primary_and_registers_fresh(client) -> 
         ).status_code
         == 200
     )
-    assert _level_for(session_id) == "DARIUS"
+    # No model is attested, so no level option matches yet.
+    assert _level_for(session_id) == UNRESOLVED_EXECUTION_LEVEL
 
     assert (
         client.post(
@@ -77,12 +80,12 @@ def test_hooks_evaluate_wire_level_heals_primary_and_registers_fresh(client) -> 
             json=_body(
                 session_id,
                 event_name="UserPromptSubmit",
-                execution_level="DARIUS",
+                execution_level="SENIOR",
             ),
         ).status_code
         == 200
     )
-    assert _level_for(session_id) == "DARIUS"
+    assert _level_for(session_id) == "SENIOR"
 
     fresh = "wire-level-fresh-session"
     assert (
@@ -91,9 +94,9 @@ def test_hooks_evaluate_wire_level_heals_primary_and_registers_fresh(client) -> 
             json=_body(
                 fresh,
                 event_name="SessionStart",
-                execution_level="ALTMAN",
+                execution_level="PRINCIPAL",
             ),
         ).status_code
         == 200
     )
-    assert _level_for(fresh) == "ALTMAN"
+    assert _level_for(fresh) == "PRINCIPAL"

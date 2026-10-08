@@ -1,7 +1,7 @@
 """Reads ask each shared question once, not once per row they show.
 
 Every read covered here used to issue a query per row for something the
-rows share — the project's level settings, the actor's name, the item's
+rows share — the project's levels, the actor's name, the item's
 public ref, the document an item is linked to. Counting statements is the
 only way to state that property: a timing drifts with the machine, while
 "one statement however many rows" is what the code is supposed to hold.
@@ -20,7 +20,7 @@ from yoke_core.domain.deployment_item_flow_resolution import (
     item_completion_flow,
     item_completion_flows,
 )
-from yoke_core.domain.session_presentation_read import level_settings_by_project
+from yoke_core.domain.session_presentation_read import levels_by_project
 from yoke_core.domain.sessions_list_rows import render_session_roster_rows
 from yoke_core.domain.steering_scope_membership import (
     item_document_link,
@@ -89,7 +89,7 @@ def _render(conn, rows):
 
 
 class TestRosterPageQuestions:
-    def test_level_settings_read_once_for_every_project_on_the_page(self, test_db):
+    def test_levels_resolve_once_for_every_project_on_the_page(self, test_db):
         for project_id in (1, 2):
             test_db.execute(
                 "INSERT INTO project_capabilities (project_id, type, settings, created_at) "
@@ -97,12 +97,16 @@ class TestRosterPageQuestions:
                 (project_id, SESSION_ROUTING_CAPABILITY, "{}", _iso()),
             )
         test_db.commit()
-        counting = CountingConnection(test_db)
+        distinct = CountingConnection(test_db)
+        levels_by_project(distinct, [1, 2])
+        repeated = CountingConnection(test_db)
 
-        settings = level_settings_by_project(counting, [1, 2, 1, 2, 1, None])
+        levels = levels_by_project(repeated, [1, 2, 1, 2, 1, None])
 
-        assert set(settings) == {1, 2}
-        assert counting.count == 1
+        assert set(levels) == {None, 1, 2}
+        # One universe read plus one override read per distinct project,
+        # however many rows name each project.
+        assert repeated.count == distinct.count == 3
 
     def test_roster_render_cost_does_not_grow_with_row_count(self, test_db):
         from runtime.api.fixtures.backlog import insert_item

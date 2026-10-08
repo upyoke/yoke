@@ -21,8 +21,8 @@ from yoke_contracts.glyph_contract import (
     glyph_contract_error,
     validate_glyph,
 )
+from yoke_contracts.level_defaults import DEFAULT_LEVELS
 from yoke_contracts.lifecycle_status import LEGACY_STATUS_GLYPHS
-from yoke_contracts.session_level import DEFAULT_LEVEL_METADATA
 
 
 class TestAcceptedGlyphs:
@@ -38,10 +38,11 @@ class TestAcceptedGlyphs:
 
     @pytest.mark.parametrize(
         "level",
-        sorted(DEFAULT_LEVEL_METADATA),
+        DEFAULT_LEVELS,
+        ids=[level["name"] for level in DEFAULT_LEVELS],
     )
     def test_the_shipped_level_defaults_are_accepted(self, level):
-        assert glyph_contract_error(DEFAULT_LEVEL_METADATA[level]["glyph"]) is None
+        assert glyph_contract_error(level["glyph"]) is None
 
     @pytest.mark.parametrize("stage", sorted(LEGACY_STATUS_GLYPHS))
     def test_the_shipped_stage_glyphs_are_accepted(self, stage):
@@ -90,9 +91,9 @@ class TestRefusedSequences:
 class TestRefusalWording:
     def test_the_refusal_names_the_field_and_offers_safe_glyphs(self):
         with pytest.raises(GlyphContractError) as caught:
-            validate_glyph("⚠️", field="level_metadata.X.glyph")
+            validate_glyph("⚠️", field="levels[0].glyph")
         message = str(caught.value)
-        assert message.startswith("level_metadata.X.glyph ")
+        assert message.startswith("levels[0].glyph ")
         for example in SAFE_GLYPH_EXAMPLES:
             assert example in message
 

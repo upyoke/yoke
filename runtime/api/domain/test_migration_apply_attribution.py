@@ -171,7 +171,7 @@ def test_declared_model_name_that_collides_with_the_level_sentinel_is_kept() -> 
 
 def test_execution_level_is_refused_as_model_name() -> None:
     with pytest.raises(LevelAsModelNameError, match="execution level"):
-        refuse_level_as_model_name("DARIUS")
+        refuse_level_as_model_name("SENIOR")
     with pytest.raises(LevelAsModelNameError, match="execution level"):
         refuse_level_as_model_name("MUSKY", execution_levels=["MUSKY"])
 
@@ -180,13 +180,13 @@ def test_apply_refuses_a_level_value_in_model_name(tmp_path: Path) -> None:
     conn = connection()
     history = build_history(tmp_path, "0001_first")
 
-    with pytest.raises(LevelAsModelNameError, match="DARIUS"):
+    with pytest.raises(LevelAsModelNameError, match="SENIOR"):
         apply_pending(
             conn,
             history=history,
             applied_by="test",
             running_version="",
-            model_name="DARIUS",
+            model_name="SENIOR",
             external_restore_point=RESTORE_POINT,
         )
 

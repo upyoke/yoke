@@ -9,9 +9,9 @@ from yoke_core.domain.sessions_list_query import build_sessions_query
 
 
 def test_roster_keeps_execution_and_observed_presentation_independent():
-    # The page's level settings are resolved once by the roster read and
-    # handed in; a row whose project names none renders the same as one
-    # whose project declares an empty routing capability.
+    # The page's levels are resolved once per project by the roster read and
+    # handed in; a row whose project the map does not name renders against
+    # the universe entry, and an unknown level renders its name alone.
     result = session_presentation(
         {
             "executor": "claude-code",
@@ -23,8 +23,10 @@ def test_roster_keeps_execution_and_observed_presentation_independent():
             "presentation_source": "claude-job-state",
             "presentation_observed_at": "2026-08-28T18:00:00Z",
         },
-        level_settings={},
+        levels={},
     )
+
+    assert (result["level_label"], result["level_glyph"]) == ("primary", "")
 
     assert result["presentation_surface"] == "remote-control"
     assert result["presentation_state"] == "attached"
@@ -34,6 +36,17 @@ def test_roster_keeps_execution_and_observed_presentation_independent():
     assert "s.presentation_surface" in query
     assert "s.turn_posture" in query
     assert "s.turn_posture_at" in query
+
+
+def test_row_without_a_project_entry_reads_the_universe_levels():
+    from yoke_contracts.levels import default_levels
+
+    result = session_presentation(
+        {"executor": "claude-code", "execution_level": "INTERN", "project_id": 9},
+        levels={None: default_levels()},
+    )
+
+    assert (result["level_label"], result["level_glyph"]) == ("INTERN", "\U0001f423")
 
 
 def test_fleet_holder_and_delivery_queries_select_waiting_chronology():

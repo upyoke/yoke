@@ -6,11 +6,11 @@ thresholds. This module is one source of truth for each key's source
 default and one-line meaning — the machine-local sibling of
 :mod:`yoke_contracts.project_contract.project_keys`.
 
-Two DB capability rows own everything else. ``project-policy`` owns shared
-project behavior; ``session-routing`` owns level and offer routing. A machine
-settings key naming one of those concerns is a dead twin: every live reader
-resolves those from the DB, so editing the machine copy silently changes
-nothing. :func:`db_owned_capability_for` names the real authority so callers
+Shared project behavior is owned by the DB ``project-policy`` capability, and
+execution levels by the universe ``levels`` setting with an optional project
+``session-routing`` override. A machine settings key naming a ``project-policy``
+concern is a dead twin: every live reader resolves it from the DB, so editing
+the machine copy silently changes nothing. :func:`db_owned_capability_for` names the real authority so callers
 can point an operator at the surface that decides.
 """
 
@@ -23,10 +23,7 @@ from yoke_contracts.project_contract.project_keys import (
     LOCAL_PROJECT_KEYS,
     PROJECT_POLICY_CAPABILITY,
     RECOGNIZED_PROJECT_KEYS,
-    SESSION_ROUTING_CAPABILITY,
 )
-
-from yoke_contracts.session_level import EXECUTOR_DEFAULT_LEVEL_PREFIX
 
 SESSION_STALE_TTL_WITH_HOLDINGS_KEY = "session_stale_ttl_with_holdings_minutes"
 
@@ -201,12 +198,6 @@ MACHINE_SETTING_PREFIXES: Dict[str, str] = {
     "hc_": "per-check doctor cutoff bounding one health check's scan window",
 }
 
-# Prefix families whose authority is a DB capability row. The machine copy is
-# never consulted once a project id is known, which is every live call path.
-_DB_OWNED_PREFIXES: Dict[str, str] = {
-    EXECUTOR_DEFAULT_LEVEL_PREFIX: SESSION_ROUTING_CAPABILITY,
-}
-
 
 def machine_setting_default(key: str) -> str:
     """Return one machine-owned key's source default."""
@@ -223,9 +214,6 @@ def db_owned_capability_for(key: str) -> str | None:
     """
     if key in DB_PROJECT_POLICY_KEYS:
         return PROJECT_POLICY_CAPABILITY
-    for prefix, capability in _DB_OWNED_PREFIXES.items():
-        if key.startswith(prefix):
-            return capability
     return None
 
 

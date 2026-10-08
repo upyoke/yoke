@@ -233,6 +233,10 @@ def apply_fixture_schema(conn: Any) -> None:
         STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL.replace(" REFERENCES projects(id)", "")
     )
     ensure_strategy_execution_schema(conn)
+    from yoke_core.domain.universe_levels import create_universe_settings_table
+
+    create_universe_settings_table(conn)
+    conn.commit()
 
 
 __all__ = ("SCHEMA_DDL", "apply_fixture_ddl", "apply_fixture_schema")  # noqa: F822

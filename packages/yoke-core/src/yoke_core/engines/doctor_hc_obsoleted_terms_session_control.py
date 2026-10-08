@@ -11,6 +11,11 @@ LANE_ROUTING_KEY_PATTERN = (
 LANE_SUMMARY_PATTERN = r"\blane[-_]" + "summary" + r"\b"
 LANE_GLYPH_PATTERN = r"\blane_" + "glyph" + r"\b"
 SESSION_LANE_MODULE_PATTERN = r"\byoke_contracts\.session_" + "lane" + r"\b"
+# Levels became ordered option lists held as universe settings; the declared
+# metadata, selector rules, and harness defaults they replaced are hunted.
+LEVEL_ROUTING_KEY_PATTERN = (
+    r"\b(?:level_" + "metadata|level_" + "rules|executor_default_" + r"level)"
+)
 
 EXECUTION_LEVEL_RETIREMENT_PATTERNS = (
     EXECUTION_LANE_PATTERN,
@@ -24,6 +29,7 @@ SESSION_CONTROL_RETIREMENT_PATTERNS = (
     SESSION_DISPLAY_COLUMN_PATTERN,
     ORGANIZATION_ADMISSION_COLUMN_PATTERN,
     *EXECUTION_LEVEL_RETIREMENT_PATTERNS,
+    LEVEL_ROUTING_KEY_PATTERN,
 )
 
 SESSION_CONTROL_RETIREMENT_LABELS = {
@@ -35,8 +41,12 @@ SESSION_CONTROL_RETIREMENT_LABELS = {
     ),
     EXECUTION_LANE_PATTERN: "retired session grouping name (renamed to execution level)",
     LANE_ROUTING_KEY_PATTERN: (
-        "retired session-routing lane key (renamed to level_metadata, "
-        "level_rules, executor_default_levels)"
+        "retired session-routing lane key (levels are now ordered option lists; "
+        "see docs/public/reference/session-level-routing.md)"
+    ),
+    LEVEL_ROUTING_KEY_PATTERN: (
+        "retired level routing key (levels hold ordered launchable options; "
+        "sessions are labeled by the option they match)"
     ),
     LANE_SUMMARY_PATTERN: "retired project lane summary (renamed to level summary)",
     LANE_GLYPH_PATTERN: "retired lane glyph contract (renamed to level glyph)",
@@ -61,12 +71,24 @@ _LEVEL_RENAME_SUBJECT_PATHS = _RENAME_SUBJECT_PATHS + (
     "packages/yoke-contracts/src/yoke_contracts/session_control/recipient_selector.py",
     "packages/yoke-core/src/yoke_core/domain/function_serving_floor_ids.py",
     "packages/yoke-core/src/yoke_core/domain/schema_init_tables_sessions.py",
-    "packages/yoke-core/src/yoke_core/domain/session_routing_rules.py",
     "packages/yoke-core/src/yoke_core/domain/session_routing_validation.py",
     "runtime/api/domain/test_migration_remove_lane_allowlists.py",
     "runtime/api/domain/test_migration_remove_process_offer_settings.py",
     "runtime/api/domain/test_migration_rename_session_lanes_to_levels.py",
     "runtime/api/domain/test_session_control_contracts.py",
+    "runtime/api/test_session_routing_validation.py",
+)
+
+# Where the retired level routing keys are the subject: the frozen key list
+# and refusal that name them, and the tests proving convergence and refusal.
+_LEVEL_ROUTING_SUBJECT_PATHS = _RENAME_SUBJECT_PATHS + (
+    "packages/yoke-contracts/src/yoke_contracts/session_level.py",
+    "packages/yoke-core/src/yoke_core/domain/session_routing_validation.py",
+    "runtime/api/domain/test_migration_converge_levels_to_universe.py",
+    "runtime/api/domain/test_machine_settings_keys.py",
+    "runtime/api/domain/test_migration_remove_lane_allowlists.py",
+    "runtime/api/domain/test_migration_remove_process_offer_settings.py",
+    "runtime/api/domain/test_migration_rename_session_lanes_to_levels.py",
     "runtime/api/test_session_routing_validation.py",
 )
 
@@ -82,6 +104,7 @@ SESSION_CONTROL_RETIREMENT_ALLOWLIST = {
         pattern: _LEVEL_RENAME_SUBJECT_PATHS
         for pattern in EXECUTION_LEVEL_RETIREMENT_PATTERNS
     },
+    LEVEL_ROUTING_KEY_PATTERN: _LEVEL_ROUTING_SUBJECT_PATHS,
 }
 
 __all__ = [

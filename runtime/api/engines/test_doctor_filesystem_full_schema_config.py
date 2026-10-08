@@ -110,16 +110,13 @@ class TestSchemaAndConfigChecks:
     def test_config_validation_warns_on_db_owned_settings_twin(self, tmp_path):
         config_path = self._config_with_settings(
             tmp_path,
-            {"executor_default_level_codex*": "CUSTOM", "wip_cap": 5},
+            {"base_branch": "release", "wip_cap": 5},
         )
         with patch.dict(os.environ, {"YOKE_MACHINE_CONFIG_FILE": str(config_path)}):
             rec = _run_hc(hc_config_validation)
         assert rec.results[0].result == "WARN"
         detail = rec.results[0].detail
-        assert (
-            "settings.executor_default_level_codex* duplicates DB authority" in detail
-        )
-        assert "session-routing" in detail
+        assert "settings.base_branch duplicates DB authority" in detail
         assert "settings.wip_cap duplicates DB authority" in detail
         assert "project-policy" in detail
 
