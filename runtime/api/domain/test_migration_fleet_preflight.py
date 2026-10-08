@@ -14,11 +14,13 @@ from typing import Any, Sequence
 
 from yoke_core.domain import local_universe, migration_fleet_preflight
 from yoke_core.domain.migration_fleet_preflight import (
-    RESTORE_POINT_ENV,
     RehearsalPlan,
     Verdict,
-    _restore_point_named,
     rehearse,
+)
+from yoke_core.domain.migration_restore_point import (
+    RESTORE_POINT_ENV,
+    named_restore_point,
 )
 from runtime.api.tools.yoke_migration_fleet import (
     pending_names as _pending_names,
@@ -92,7 +94,7 @@ class TestRestorePointNamed:
         previous = os.environ.get(RESTORE_POINT_ENV)
         os.environ[RESTORE_POINT_ENV] = "snapshot:already-set"
         try:
-            with _restore_point_named(Path("/tmp/example.dump")):
+            with named_restore_point(Path("/tmp/example.dump")):
                 assert os.environ[RESTORE_POINT_ENV] == "/tmp/example.dump"
             assert os.environ[RESTORE_POINT_ENV] == "snapshot:already-set"
         finally:
@@ -104,7 +106,7 @@ class TestRestorePointNamed:
     def test_leaves_no_value_behind_when_there_was_none(self) -> None:
         previous = os.environ.pop(RESTORE_POINT_ENV, None)
         try:
-            with _restore_point_named(Path("/tmp/example.dump")):
+            with named_restore_point(Path("/tmp/example.dump")):
                 pass
             assert RESTORE_POINT_ENV not in os.environ
         finally:
@@ -325,9 +327,7 @@ class TestAppliedHistoryInvariants:
             pending_names=lambda _conn, _history: (),
             converge=lambda _conn, _dsn: None,
             load_module=lambda name: (
-                _FailModule("serializer drift")
-                if name == "0001_first"
-                else _OkModule()
+                _FailModule("serializer drift") if name == "0001_first" else _OkModule()
             ),
         )
 
