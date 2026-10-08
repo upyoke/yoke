@@ -266,19 +266,16 @@ OPERATIONAL_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Verify Python imports/tests against linked worktree source",
         "recipe": (
-            "uv run --frozen python3 -m "
-            "yoke_core.tools.module_source_path yoke_core\n"
-            "uv run --frozen python3 -m yoke_core.tools.watch_pytest -- "
-            "<project-test-path> -q"
+            "yoke dev import-check yoke_core\n"
+            "yoke dev run -- yoke watch pytest --local -- <project-test-path> -q"
         ),
         "notes": (
-            "Fallback shape. `yoke watch pytest -- <paths>` already binds "
-            "the worktree in a uv-managed checkout. Use the command from "
-            "the linked worktree when the interpreter's editable install "
-            "could still point at main, or when an externally-managed Python "
-            "blocks `python3 -m pip install -e .`. Confirm the printed "
-            "`yoke_core.__file__` path is under the worktree before "
-            "trusting a green test run."
+            "Source verification uses the selected checkout's declared locked .venv "
+            "and QA extras/groups, verifies Python identity and source origins, and "
+            "refuses missing/stale/incompatible environments with checkout-local "
+            "uv sync --locked recovery. Checks never rewrite locks or borrow main "
+            "dependencies. Use canonical yoke watch pytest, not direct watcher modules. "
+            "Ordinary installed control-plane commands keep the installed interpreter."
         ),
     },
     {

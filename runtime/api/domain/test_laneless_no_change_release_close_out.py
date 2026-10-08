@@ -60,7 +60,10 @@ def _at_release_wait(test_db, monkeypatch, *, item_id: int, session_id: str) -> 
         ).fetchone()[0]
     )
     insert_item(
-        test_db, id=item_id, workflow_id="dash", status="implementing",
+        test_db,
+        id=item_id,
+        workflow_id="dash",
+        status="implementing",
         title="Laneless no-change release",
     )
     insert_session(test_db, session_id)
@@ -103,6 +106,49 @@ def _close(test_db, *, item_id: int, session_id: str, actor_id: str):
     )
 
 
+def test_absent_worktree_without_no_changes_evidence_is_not_laneless():
+    from yoke_core.domain.dash_execution import proved_laneless_no_change
+
+    assert (
+        proved_laneless_no_change(
+            workflow_id="dash", no_changes=False, active_worktree_present=False
+        )
+        is False
+    )
+    assert (
+        proved_laneless_no_change(
+            workflow_id="dash", no_changes=True, active_worktree_present=False
+        )
+        is True
+    )
+    assert (
+        proved_laneless_no_change(
+            workflow_id="dash", no_changes=True, active_worktree_present=True
+        )
+        is False
+    )
+    assert (
+        proved_laneless_no_change(
+            workflow_id="task", no_changes=True, active_worktree_present=False
+        )
+        is False
+    )
+
+
+def test_merge_help_names_the_laneless_and_existing_lane_routes():
+    from yoke_cli.commands.merge_item import MERGE_ITEM_USAGE
+    from yoke_core.domain.standalone_item_merge_cli_parser import build_parser
+
+    help_text = " ".join(build_parser().format_help().split())
+    assert "dash evidence" in help_text
+    assert "unique forward" in help_text
+    assert "lane that already exists" in help_text
+    assert "does not attest no_changes" in help_text
+    assert "workflow_next_stage_ambiguous" in help_text
+    assert "existing lane only" in MERGE_ITEM_USAGE
+    assert "unique lifecycle edge" in MERGE_ITEM_USAGE
+
+
 def test_laneless_no_change_dash_closes_its_release_wait(test_db, monkeypatch):
     actor = _at_release_wait(test_db, monkeypatch, item_id=7120, session_id="ll-a")
 
@@ -141,7 +187,10 @@ def test_deployment_posture_holds_a_no_change_member_until_its_run_succeeds(
         conn.commit()
         held = evaluate(item_id=8701, target_status="done", db_path=dash_db_path)
         insert_deployment_run(
-            conn, id="run-no-change", flow="flow-test", status="succeeded",
+            conn,
+            id="run-no-change",
+            flow="flow-test",
+            status="succeeded",
             release_lineage="f" * 40,
         )
         conn.execute(
@@ -149,9 +198,7 @@ def test_deployment_posture_holds_a_no_change_member_until_its_run_succeeds(
             "VALUES ('run-no-change', 8701, '2026-01-01T00:00:00Z')"
         )
         conn.commit()
-        delivered = evaluate(
-            item_id=8701, target_status="done", db_path=dash_db_path
-        )
+        delivered = evaluate(item_id=8701, target_status="done", db_path=dash_db_path)
     finally:
         conn.close()
 

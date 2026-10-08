@@ -40,6 +40,7 @@ from yoke_core.domain.standalone_item_merge_landed import LandedLane
 from yoke_core.domain.standalone_item_merge_release_status import (
     close_out_route,
 )
+from yoke_core.domain.workflow_level_handoff import capture_level_handoffs
 
 
 def run_terminal_transition(
@@ -113,16 +114,17 @@ def run_terminal_transition(
         # status cannot legally reach it yet, so nothing here applies.
         envelope["status"] = status
         return None
-    new_status, transition_error = close_out.transition_to_done(
-        item_id=item_id,
-        source_status=status,
-        repo_root=str(repo_root),
-        lane=close_lane,
-        session_id=session_id,
-        stages=route.stages,
-        delivery_discharged=route.delivery_discharged,
-        release_lineage=route.release_lineage,
-    )
+    with capture_level_handoffs() as handoffs:
+        new_status, transition_error = close_out.transition_to_done(
+            item_id=item_id,
+            source_status=status,
+            repo_root=str(repo_root),
+            lane=close_lane,
+            session_id=session_id,
+            stages=route.stages,
+            delivery_discharged=route.delivery_discharged,
+            release_lineage=route.release_lineage,
+        )
     if transition_error:
         # A transition refused on an item another close-out has already
         # finished is a lost race, not a failure: the landing is complete
@@ -161,6 +163,10 @@ def run_terminal_transition(
         retain_if_waiting(envelope, **waiting)
         return 1
     envelope["status"] = new_status
+    if handoffs:
+        envelope["handoff"] = handoffs[-1]
+        announce("level-change handoff")
+        return None
     if new_status == evidence.CLOSED_OUT_STATUS:
         announce("lane cleanup")
         record_terminal_lane_close_out(

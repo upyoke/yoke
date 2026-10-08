@@ -14,6 +14,8 @@ from yoke_core.domain.qa_case_worktree_run import execute_worktree_case
 from yoke_core.domain.qa_case_command_stream import product_command_environment
 from yoke_core.domain.verification_tree_binding import TreeBindingVerdict, TreeIdentity
 from yoke_core.tools._source_pythonpath import PACKAGE_SRC_RELS, source_entries
+from runtime.api.source_pythonpath_test_helpers import provision_stub_environment
+from yoke_core.domain.qa_environment_declaration import TestEnvironmentDeclaration
 
 
 def _candidate(root):
@@ -27,6 +29,7 @@ def _candidate(root):
     (root / "packages/yoke-cli/src/yoke_cli/main.py").write_text(
         "import yoke_core\nprint(yoke_core.marker, yoke_core.__file__)\n"
     )
+    provision_stub_environment(root)
 
 
 def _execute(root, command, *, lane=False, endpoint_only=False):
@@ -42,6 +45,10 @@ def _execute(root, command, *, lane=False, endpoint_only=False):
         "method_config": {"command": command},
     }
     with (
+        patch(
+            "yoke_core.domain.source_python_environment.load_declaration",
+            return_value=TestEnvironmentDeclaration(project="fixture"),
+        ),
         patch(
             "yoke_core.domain.qa_case_worktree_run.verification_tree_binding.resolve_tree_identity",
             return_value=TreeIdentity(root=str(root), head_sha=head),
@@ -102,7 +109,7 @@ def test_partial_candidate_records_refusal_instead_of_running_command(
     assert result["verdict"] == record["verdict"] == "fail"
     assert result["exit_code"] == 1
     evidence = result["candidate_source"]
-    assert not Path(evidence["before"]["yoke_cli"]).is_relative_to(root)
+    assert evidence["before"]["yoke_cli"] == "<missing>"
     assert "QA-CANDIDATE-IMPORT-ORIGIN REFUSAL" in evidence["refusal"]
     assert "Repair the candidate checkout" in record["output"]
     assert "[output]\ncommand-executed" not in record["output"]
@@ -122,7 +129,7 @@ def test_zero_exit_cannot_pass_when_candidate_origins_change_during_command(
     result, record = _execute(root, "python3 -c " + shlex.quote(body))
     assert result["verdict"] == record["verdict"] == "fail"
     assert "after" in result["candidate_source"]
-    assert "outside" in result["candidate_source"]["refusal"]
+    assert "missing" in result["candidate_source"]["refusal"]
 
 
 @pytest.mark.parametrize("scope", ["lane", "endpoint", "external"])

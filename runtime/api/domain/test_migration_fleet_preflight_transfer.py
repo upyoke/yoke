@@ -53,7 +53,11 @@ def test_run_transfer_redacts_dsn(monkeypatch) -> None:
         returncode = 1
         stderr = "failed host=db password=secret"
 
-    monkeypatch.setattr(transfer.subprocess, "run", lambda *_args, **_kwargs: _Result())
+    monkeypatch.setattr(
+        transfer.migration_rehearsal_copy_lock,
+        "run_child",
+        lambda *_args, **_kwargs: _Result(),
+    )
     with pytest.raises(RuntimeError) as excinfo:
         transfer.run_transfer(
             ["/bin/pg_dump"],
@@ -68,7 +72,7 @@ def test_run_transfer_names_timeout(monkeypatch) -> None:
     def _boom(*_args, **_kwargs):
         raise subprocess.TimeoutExpired(cmd="pg_dump", timeout=9)
 
-    monkeypatch.setattr(transfer.subprocess, "run", _boom)
+    monkeypatch.setattr(transfer.migration_rehearsal_copy_lock, "run_child", _boom)
     with pytest.raises(RuntimeError, match="timed out after 9s"):
         transfer.run_transfer(["/opt/pg_dump"], timeout=9)
 

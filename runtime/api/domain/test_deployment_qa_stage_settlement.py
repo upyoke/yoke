@@ -19,12 +19,10 @@ from yoke_core.domain.deployment_qa_stage_materialization import (
 )
 from yoke_core.domain.deployment_qa_stage_settlement import (
     continuation_message,
-    member_settled_message,
     settle_execution,
     settle_subject,
 )
 from yoke_core.domain.deployment_qa_stage_wake import run_stage_wait_message
-from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 
 
@@ -244,11 +242,12 @@ def test_continuation_keeps_existing_run_and_lock():
     assert "watch deploy -- run-existing" in message
 
 
-def test_one_member_passing_names_the_members_still_owing_without_redrive(test_db):
-    """A member's acceptance is not the stage's; the notice says so.
+def test_one_member_passing_while_siblings_owe_sends_no_message(test_db):
+    """A member's acceptance is not the stage's, and is not a message.
 
-    The stage stays current while a sibling still owes QA, so the notice
-    names this member and the sibling, and hands nobody a re-drive recipe.
+    The stage stays current while a sibling still owes QA. The fleet report
+    carries that progress; a notice per passing member only costs the
+    steerer an acknowledgement and changes nothing it would do.
     """
     run_id = "run-settlement-member-progress"
     passed, owing = 9893, 9894
@@ -277,14 +276,7 @@ def test_one_member_passing_names_the_members_still_owing_without_redrive(test_d
         return_value="delivered",
     ) as notify:
         _complete_case(test_db, execution)
-    notify.assert_called_once()
-    body = notify.call_args.kwargs["body_for_route"]("driver")
-    assert f"member {render_item_ref(test_db, passed)} settled passed" in body
-    assert f"Still owing QA: {render_item_ref(test_db, owing)}" in body
-    assert "The stage itself has not settled" in body
-    assert "Continue this same run" not in body
-    assert "watch deploy" not in body
-    assert "member-settled" in notify.call_args.kwargs["idempotency_key"]
+    notify.assert_not_called()
     assert (
         test_db.execute(
             "SELECT current_stage FROM deployment_runs WHERE id=%s", (run_id,)
@@ -293,14 +285,49 @@ def test_one_member_passing_names_the_members_still_owing_without_redrive(test_d
     )
 
 
-def test_member_notice_with_unreadable_owing_withholds_the_redrive_verdict():
-    message = member_settled_message(
-        run_id="run-unread",
-        stage="item-qa",
-        member_ref="YOK-1",
-        outcome="passed",
-        owing_refs=None,
+@pytest.mark.parametrize(
+    ("owing", "failure", "notified"),
+    [
+        ((7,), "", False),
+        ((7,), "lock refused", True),
+        (None, "", True),
+        ((), "", True),
+    ],
+)
+def test_member_pass_notifies_only_on_settlement_or_a_stuck_continuation(
+    monkeypatch, owing, failure, notified
+):
+    calls = []
+    monkeypatch.setattr(
+        "yoke_core.domain.deployment_qa_stage_gate.deployment_qa_stage_status",
+        lambda *args, **kwargs: {"outcome": "passed", "target_digest": "t"},
     )
-    assert "could not be read" in message
-    assert "yoke deployment-runs stages run-unread" in message
-    assert "nothing to re-drive" not in message
+    monkeypatch.setattr(
+        "yoke_core.domain.deployment_run_auto_completion.continue_after_settlement",
+        lambda *args, **kwargs: SimpleNamespace(completed=False, failure=failure),
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.deployment_qa_stage_settlement.members_still_owing",
+        lambda *args, **kwargs: owing,
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.deployment_qa_stage_settlement.status_project_id",
+        lambda *args: 1,
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.project_identity.resolve_project",
+        lambda *args: SimpleNamespace(id=1, slug="yoke"),
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.deployment_run_driver_notice.push_run_scoped_notice",
+        lambda *args, **kwargs: calls.append(kwargs) or "delivered",
+    )
+    settle_subject(mock.Mock(), run_id="run-m", stage="item-qa", member=42)
+    assert bool(calls) is notified
+    if notified:
+        message = calls[0]["body_for_route"]("driver")
+        if failure:
+            assert failure in message
+        if owing is None:
+            assert "qa_stage_outstanding_unavailable" in message
+            assert "settled passed" not in message

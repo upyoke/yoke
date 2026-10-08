@@ -101,3 +101,7 @@ The retained internal QA waiver path is **operator-debug only**, not normal prod
 
 
 **Multi-turn / multi-task progress notes.** Conduct frequently spans many turns and dispatches multiple subagents against the same epic. For session-continuity context that successor agents need to resume after compaction or a session swap, write to the **Progress Log** section on the epic item — see `AGENTS.md > Progress Log — long-running execution context on items`. Per-task progress notes still go to `epic_progress_notes` (already wired into the engineer-tester loop); the Progress Log on the epic item itself captures cross-task state (which tasks are stuck, which decisions were made at the epic level, where to resume).
+
+A `handoff` with `reason=level_change` takes precedence over a release wait.
+Follow the harness-neutral Stage-level handoff rule in
+`.yoke/docs/reference/session-level-routing.md`; workers may launch their own successor.

@@ -17,8 +17,8 @@ def refusal(root: Path) -> str | None:
     recovery = (
         "Drop the `yoke dev run --` wrapper from the Command case; run "
         "`yoke watch pytest -- <test paths>` directly because it binds its own "
-        "cwd to source. Other commands keep the candidate cwd and the product "
-        "interpreter; cwd alone does not bind their imports to candidate source."
+        "cwd and locked environment to source. Candidate commands keep the "
+        "candidate's verified interpreter, dependencies, and import origins."
     )
     try:
         binding = json.loads(raw)

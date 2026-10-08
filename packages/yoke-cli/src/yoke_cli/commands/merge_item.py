@@ -11,7 +11,9 @@ AdapterFn = Callable[[List[str]], int]
 MERGE_ITEM_USAGE = (
     "yoke merge item ITEM --result TEXT --verification TEXT "
     "[--no-changes] [--target BRANCH] [--project P] [--skip-status] [--pr] "
-    "[--wait]  (default queue route enqueues and exits; re-enter after landing)"
+    "[--wait]  (default queue route enqueues and exits; re-enter after "
+    "landing; --no-changes is an existing lane only; a laneless no-change "
+    "Dash uses dash evidence and its unique lifecycle edge)"
 )
 
 

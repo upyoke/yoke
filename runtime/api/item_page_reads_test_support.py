@@ -23,6 +23,8 @@ def _connection() -> sqlite3.Connection:
           default_branch TEXT,
           public_item_prefix TEXT
         );
+        CREATE TABLE project_capabilities (project_id INTEGER, type TEXT, settings TEXT);
+        CREATE TABLE universe_settings (key TEXT PRIMARY KEY, value TEXT);
         CREATE TABLE workflows (
           id TEXT PRIMARY KEY,
           name TEXT

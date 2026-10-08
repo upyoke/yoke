@@ -178,8 +178,8 @@ class TestPrintStreamingPair:
         monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path))
         monkeypatch.setattr(
             watch_pytest._source_pythonpath,
-            "import_origin_refusal",
-            lambda *args, **kwargs: None,
+            "verified_source_environment",
+            lambda _root, env: (dict(env), None),
         )
         from yoke_core.tools import _pytest_parallel
 

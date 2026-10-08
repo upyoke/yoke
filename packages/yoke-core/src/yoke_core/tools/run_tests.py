@@ -44,7 +44,9 @@ from typing import List, Sequence, TextIO
 from yoke_contracts import schema_authority
 from yoke_core.domain import process_group_reaping
 from yoke_core.domain import verification_tree_binding
-from yoke_core.domain import verification_tree_binding_pytest_startup as _tree_binding_startup
+from yoke_core.domain import (
+    verification_tree_binding_pytest_startup as _tree_binding_startup,
+)
 from yoke_core.tools._pytest_parallel import (
     apply_parallel_default,
     apply_postgres_xdist_auto_env,
@@ -234,7 +236,10 @@ def run(
     )
     # Collection alone is cheap on every axis and stays on this machine.
     route = pytest_remote_selection.resolve_route(
-        root, pytest_args=argv, impacted_base=None, local=local or list_only,
+        root,
+        pytest_args=argv,
+        impacted_base=None,
+        local=local or list_only,
     )
     if isinstance(route, pytest_remote_selection.Refusal):
         print(route.message, file=sys.stderr)
@@ -251,15 +256,13 @@ def run(
     )
     # Ensure pytest imports Yoke packages from this checkout, even when an
     # editable install still points at the main tree.
-    env = _source_pythonpath.with_source_pythonpath(env, root)
     env = apply_postgres_xdist_auto_env(argv, env)
     # Already judged above; the child's startup check inherits that answer.
     env = _tree_binding_startup.with_binding_evaluated(env)
-    if _source_pythonpath.is_yoke_shaped_tree(root):
-        refusal = _source_pythonpath.import_origin_refusal(root, env=env)
-        if refusal is not None:
-            print(f"Error: {refusal}", file=sys.stderr)
-            return 1
+    env, refusal = _source_pythonpath.verified_source_environment(root, env)
+    if refusal is not None:
+        print(f"Error: {refusal}", file=sys.stderr)
+        return 1
 
     import contextlib
 
@@ -279,7 +282,13 @@ def run(
     )
     with admission, budget as grant:
         argv = grant.apply(argv)
-        cmd = pytest_argv(argv, cwd=root)
+        from yoke_core.domain.source_python_environment import SourceEnvironmentRefusal
+
+        try:
+            cmd = pytest_argv(argv, cwd=root)
+        except SourceEnvironmentRefusal as exc:
+            print(f"run_tests: {exc}", file=sys.stderr)
+            return 1
         # Own the process group so an interrupted run takes its xdist workers
         # down with it. Workers that outlive the runner keep their test
         # databases open, and the next run then blocks on databases nobody is

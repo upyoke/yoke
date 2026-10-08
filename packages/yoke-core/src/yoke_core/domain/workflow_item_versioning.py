@@ -92,7 +92,11 @@ def _inspect_item_workflow_pin(
 def inspect_item_workflow_pin(conn: Any, item_id: int) -> dict[str, Any]:
     """Return the exact immutable version and interpreted lane policy."""
     runtime = load_item_workflow_runtime(conn, int(item_id))
-    return _inspect_item_workflow_pin(conn, int(item_id), runtime)
+    from yoke_core.domain.workflow_stage_levels import item_stage_level
+
+    result = _inspect_item_workflow_pin(conn, int(item_id), runtime)
+    result["level"] = item_stage_level(conn, int(item_id))
+    return result
 
 
 def _target_version_row(

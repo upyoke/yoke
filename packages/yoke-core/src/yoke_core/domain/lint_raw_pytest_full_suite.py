@@ -11,45 +11,13 @@ import re
 import sys
 from typing import List, Optional, Sequence, Tuple
 
-from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS, cli_form
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
-from yoke_core.domain.lint_raw_pytest_full_suite_shell import (
-    mask_data_sink_lines,
-    strip_heredoc_bodies,
-)
+from yoke_core.domain.lint_raw_pytest_invocations import raw_pytest_invocations
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 
 CHECK_ID = HOOK_NAME = "lint-raw-pytest-full-suite"
 SUPPRESSION_TOKEN = "# lint:no-raw-pytest-check"
-
-#: Admitted paths already hold the machine-wide test-gate slot.
-_ADMITTED_INVOCATIONS = (
-    "yoke_core.tools.watch_pytest",
-    "yoke_core.tools.run_tests",
-    "yoke qa case run",
-    *(cli_form(module) for module in WATCH_CLI_TOKENS),
-)
-
-#: Command separators that end one invocation.
-_SEGMENT_SPLIT = re.compile(r"(?:;|&&|\|\||\||\n)")
-
-#: Words that may precede the actual program in a pipeline stage.
-_LAUNCHER_TOKENS = frozenset(
-    {
-        "uv",
-        "run",
-        "env",
-        "nice",
-        "time",
-        "command",
-        "exec",
-        "poetry",
-        "hatch",
-        "pdm",
-        "rye",
-    }
-)
 
 #: Flags that take a separate value; their operand is not a path.
 _VALUE_FLAGS = frozenset(
@@ -141,64 +109,25 @@ def _pytest_paths(tokens: Sequence[str]) -> List[str]:
     return paths
 
 
-def _pytest_tokens(segment: str) -> Optional[List[str]]:
-    """Return the arguments of a raw pytest invocation in *segment*.
-
-    The program is rarely the first word: environment assignments and
-    launchers (``uv run --frozen``, ``env``, ``nice``) sit in front of it,
-    and missing them is how a guard silently stops matching the spelling
-    people actually type.
-    """
-    tokens = [token.lstrip("({") for token in segment.split() if token]
-    index = 0
-    while index < len(tokens):
-        token = tokens[index]
-        if token.startswith("-"):
-            index += 1
-            continue
-        if "=" in token or token.rsplit("/", 1)[-1] in _LAUNCHER_TOKENS:
-            index += 1
-            continue
-        break
-    if index >= len(tokens):
-        return None
-    program = tokens[index].rsplit("/", 1)[-1]
-    rest = tokens[index + 1 :]
-    if program == "pytest":
-        return rest
-    if program.startswith("python"):
-        for offset, token in enumerate(rest[:-1]):
-            if token == "-m" and rest[offset + 1] == "pytest":
-                return rest[offset + 2 :]
-    return None
-
-
 def _classify(command: str) -> Optional[Tuple[str, str]]:
     """Return ``(severity, detail)`` for a raw sweep, else ``None``.
 
     ``severity`` is ``"full"`` for a run covering every declared anchor
     and ``"sweep"`` for any other directory-shaped run.
     """
-    if any(marker in command for marker in _ADMITTED_INVOCATIONS):
-        return None
     anchors = full_sweep_anchors()
-    # A data-writing heredoc body or sink-redirected line is written
-    # data, not a shell invocation, however much it may read like one.
-    scannable = mask_data_sink_lines(strip_heredoc_bodies(command))
-    for segment in _SEGMENT_SPLIT.split(scannable):
-        tokens = _pytest_tokens(segment)
-        if tokens is None:
-            continue
+    advisory = None
+    for tokens in raw_pytest_invocations(command):
         paths = _pytest_paths(tokens)
         if anchors and set(anchors).issubset(set(paths)):
             return ("full", " ".join(anchors))
         directories = [path for path in paths if not path.endswith(".py")]
         if not paths:
             # No path operands at all: pytest sweeps its whole rootdir.
-            return ("sweep", "the whole rootdir")
+            advisory = ("sweep", "the whole rootdir")
         if directories:
-            return ("sweep", " ".join(directories))
-    return None
+            advisory = ("sweep", " ".join(directories))
+    return advisory
 
 
 def _format_reason(
@@ -224,6 +153,7 @@ def _format_reason(
         "  yoke watch pytest -- <CI shard args> --collect-only -q\n"
         "The item's blocking gate is its QA case run, not a hand-run sweep:\n"
         "  yoke qa case run --requirement-id <id>\n"
+        "Admission is per invocation; quoted wrapper names do not exempt raw tests.\n"
         "Doctrine: AGENTS.md `## Testing`"
     )
     if mode == "warn" or severity != "full":

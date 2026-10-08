@@ -67,3 +67,7 @@ the critique applies, are in [`doctrine.md`](doctrine.md) — read before step 5
 ## Start
 
 Read [`workflow-context.md`](workflow-context.md) and follow it.
+
+A `handoff` with `reason=level_change` takes precedence over a release wait.
+Follow the harness-neutral Stage-level handoff rule in
+`.yoke/docs/reference/session-level-routing.md`; workers may launch their own successor.

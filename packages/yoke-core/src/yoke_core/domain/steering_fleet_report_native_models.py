@@ -172,31 +172,9 @@ def native_model_lines(rows: tuple[MachineNativeModels, ...]) -> list[str]:
     return lines
 
 
-def fingerprint_material(
-    rows: tuple[MachineNativeModels, ...],
-) -> list[tuple[Any, ...]]:
-    """What must change for the seat to be told availability changed.
-
-    The sample alone would hide a new model that sorts past it, so the count
-    and the status ride the fingerprint too.
-    """
-    return sorted(
-        (
-            row.machine_id,
-            row.surface,
-            row.status,
-            row.reason,
-            row.model_count,
-            row.sample_models,
-        )
-        for row in rows
-    )
-
-
 __all__ = [
     "NAMED_MODEL_SAMPLE",
     "MachineNativeModels",
-    "fingerprint_material",
     "load_native_models",
     "native_model_lines",
 ]

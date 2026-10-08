@@ -31,7 +31,11 @@ from yoke_core.domain.workspace_authority import (
 
 YOKE_CORE_MARKER = Path("packages") / "yoke-core" / "src" / "yoke_core"
 LANE_SEED_REL = (
-    Path("packages") / "yoke-core" / "src" / "yoke_core" / "domain"
+    Path("packages")
+    / "yoke-core"
+    / "src"
+    / "yoke_core"
+    / "domain"
     / "schema_api_context_seed.py"
 )
 
@@ -62,7 +66,8 @@ def test_mixed_source_none_for_external_tree(tmp_path: Path) -> None:
 
 
 def test_mixed_source_reports_other_yoke_checkout(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     lane = _yoke_shaped_lane(tmp_path)
     monkeypatch.setattr(
@@ -81,7 +86,8 @@ def test_mixed_source_reports_other_yoke_checkout(
 
 
 def test_detect_substrate_drift_refuses_mixed_yoke_checkout(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _not_free(monkeypatch)
     lane = _yoke_shaped_lane(tmp_path)
@@ -90,7 +96,8 @@ def test_detect_substrate_drift_refuses_mixed_yoke_checkout(
 
 
 def test_write_all_dry_run_refuses_mixed_yoke_checkout(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _not_free(monkeypatch)
     lane = _yoke_shaped_lane(tmp_path)
@@ -99,7 +106,8 @@ def test_write_all_dry_run_refuses_mixed_yoke_checkout(
 
 
 def test_ungated_seed_check_refuses_without_session(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv(SESSION_ID_ENV_VAR, raising=False)
     _not_free(monkeypatch)
@@ -134,7 +142,8 @@ def test_invoke_renderer_same_tree_stays_in_process(
 
 
 def test_invoke_renderer_rebinds_mixed_checkout(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     lane = _yoke_shaped_lane(tmp_path)
     monkeypatch.setattr(
@@ -143,7 +152,12 @@ def test_invoke_renderer_rebinds_mixed_checkout(
     )
     monkeypatch.setattr(
         "yoke_core.domain.agents_render_source_bind._source_pythonpath.import_origin_refusal",
-        lambda _root, env: None,
+        lambda _root, env, python: None,
+    )
+    selected_python = str(lane / ".venv" / "bin" / "python3")
+    monkeypatch.setattr(
+        "yoke_core.domain.agents_render_source_bind.source_python_environment.resolve",
+        lambda root, env: SimpleNamespace(python=selected_python, env=dict(env)),
     )
     captured: dict[str, object] = {}
 
@@ -164,13 +178,15 @@ def test_invoke_renderer_rebinds_mixed_checkout(
     )
     assert invoke_renderer(target_root=lane, mode="check") == []
     assert captured["cwd"] == str(lane.resolve())
+    assert captured["args"][0][0] == selected_python
     env = captured["env"]
     assert isinstance(env, dict)
     assert env.get(RENDER_SOURCE_BOUND_ENV) == "1"
 
 
 def test_invoke_renderer_refuses_when_already_bound(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     lane = _yoke_shaped_lane(tmp_path)
     monkeypatch.setattr(

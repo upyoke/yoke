@@ -145,25 +145,7 @@ def load_plan_limits(
     return tuple(found)
 
 
-def fingerprint_material(limits: tuple[MachinePlanLimit, ...]) -> list[tuple[Any, ...]]:
-    return sorted(
-        (
-            row.machine_id,
-            row.surface,
-            row.status,
-            row.reason,
-            row.window_kind,
-            row.scope,
-            row.meter,
-            row.remaining_percent,
-            row.resets_at,
-        )
-        for row in limits
-    )
-
-
 __all__ = [
     "MachinePlanLimit",
-    "fingerprint_material",
     "load_plan_limits",
 ]

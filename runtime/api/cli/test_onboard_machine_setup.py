@@ -54,6 +54,9 @@ def test_wizard_runs_after_preparation_even_when_browser_setup_fails(
 ):
     events = []
     monkeypatch.setattr(
+        onboard_interactive, "require_foreground_terminal", lambda: None
+    )
+    monkeypatch.setattr(
         setup, "setup_directories", lambda path: events.append("directories")
     )
 
@@ -106,6 +109,9 @@ def test_interactive_permission_choice_reaches_preview_and_apply(
     from yoke_cli.config.onboard_wizard_app import OnboardWizardApp
 
     monkeypatch.setattr(setup, "prepare", lambda *_: None)
+    monkeypatch.setattr(
+        onboard_interactive, "require_foreground_terminal", lambda: None
+    )
     monkeypatch.setattr(adapter, "_should_prompt", lambda *_: True)
     monkeypatch.setattr(
         onboard_interactive, "finish_pending_source_install", lambda _: None

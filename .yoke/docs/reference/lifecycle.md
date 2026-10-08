@@ -66,7 +66,6 @@ planning
 ```
 
 Task exceptional states:
-
 - `blocked`
 - `stopped`
 - `failed`
@@ -74,7 +73,6 @@ Task exceptional states:
 Epic tasks do **not** use item-only statuses such as `cancelled`.
 
 ## Ownership Boundaries
-
 ### Definition-bound segments
 
 At a live item stage, the owner is the registered skill binding whose
@@ -287,6 +285,8 @@ segments. For a live item:
 4. Invoke `/yoke <skill_id>` and let the target-stage gate references and
    [structural gates](lifecycle-gates.md) govern each move; a crossed segment
    comes back as `skill_handoff`, naming the next skill's command and claim.
+
+A changed effective stage level returns `handoff` with `reason=level_change` and an exact successor launch command; follow the [harness-neutral worker rule](session-level-routing.md#stage-level-handoff) before continuing or retaining a delivery wait.
 
 The registered skills have these behavioral contracts; their source and
 target stages always come from the binding:

@@ -12,7 +12,7 @@ import time
 from pathlib import Path
 from typing import Callable, Mapping, Optional, Sequence
 
-from yoke_core.domain import postgres_cluster
+from yoke_core.domain import migration_rehearsal_copy_lock, postgres_cluster
 from yoke_core.domain.connected_env_readiness_connector import (
     CONNECTION_FAILURE_MARKERS,
 )
@@ -65,9 +65,8 @@ def run_transfer(
 ) -> subprocess.CompletedProcess:
     try:
         if progress_file is None and resource_guard is None:
-            result = subprocess.run(
+            result = migration_rehearsal_copy_lock.run_child(
                 list(argv),
-                capture_output=True,
                 text=True,
                 timeout=timeout,
                 env=None if env is None else dict(env),
@@ -75,6 +74,7 @@ def run_transfer(
         else:
             with subprocess.Popen(
                 list(argv),
+                pass_fds=migration_rehearsal_copy_lock.child_descriptors(),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
@@ -303,7 +303,7 @@ def _listed_schema(line: str) -> Optional[str]:
 
 
 def drop_copy(spec: ClusterSpec, copy_name: str) -> None:
-    subprocess.run(
+    run_transfer(
         [
             postgres_cluster.binary(spec, "dropdb"),
             "-h",
@@ -314,7 +314,5 @@ def drop_copy(spec: ClusterSpec, copy_name: str) -> None:
             "--force",
             copy_name,
         ],
-        capture_output=True,
-        text=True,
         timeout=RESTORE_TIMEOUT_SECONDS,
     )

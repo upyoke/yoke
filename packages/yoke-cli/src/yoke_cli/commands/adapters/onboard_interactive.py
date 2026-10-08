@@ -9,6 +9,10 @@ from typing import Any, Callable
 from yoke_cli.config import machine_config
 from yoke_cli.config import onboard_machine_setup
 from yoke_cli.config import onboard_wizard
+from yoke_cli.config.onboard_terminal import (
+    SetupTerminalError,
+    require_foreground_terminal,
+)
 
 
 def run_wizard(
@@ -20,6 +24,11 @@ def run_wizard(
     apply_with_report: Callable[..., dict],
     print_failure: Callable[[Any], None],
 ) -> int:
+    try:
+        require_foreground_terminal()
+    except SetupTerminalError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
     onboard_machine_setup.prepare(machine_config.config_path(parsed.config_path))
     defaults = onboard_wizard.WizardDefaults(
         config_path=str(machine_config.config_path(parsed.config_path)),
@@ -49,7 +58,7 @@ def run_wizard(
 
     try:
         result = onboard_wizard.run_wizard(defaults, apply_report=apply_report)
-    except onboard_wizard.WizardCancelled as exc:
+    except (onboard_wizard.WizardCancelled, SetupTerminalError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     if result.error:

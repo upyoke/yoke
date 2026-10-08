@@ -1,62 +1,45 @@
-"""Shell-text preprocessing for :mod:`lint_raw_pytest_full_suite`.
+"""Separate known data-reader heredocs from executable shell source.
 
-A command that only WRITES a pytest command string as data — a QA
-plan-case JSON payload authored via heredoc, or piped through
-``printf``/``cat`` into a scratch file — reads, to a naive scan, as if
-it ran that invocation: the guard's segment splitter does not respect
-quoting or heredoc bodies, so text that is really a stored argument or
-file body gets treated as a fresh, executable statement.
-
-The two passes below POSITIVELY recognize the evidenced inert-write
-shapes rather than guessing from a negative signal ("not a known
-shell", "line starts with a sink"): each requires an unquoted ``>``
-(the "this becomes a file" signal) on a single, self-contained
-statement with no OTHER unquoted ``;``/``&``/``|`` riding along, AND —
-for a heredoc — that the exact reading program is one of the two known
-to only write or print its input (`cat`, `python3`), not merely absent
-from a shell denylist. A compound or uncertain form — a heredoc read by a
-launcher-wrapped or piped shell (``env bash <<EOF``, ``env bash >
-out.log <<EOF``, ``cat <<EOF | bash``), or a sink-leading line that
-also carries a second, different statement (``echo ok > /tmp/x; bash
--c '... && pytest ...'``) — fails that shape and is left completely
-untouched, so it is scanned exactly as before by the guard's existing
-(if incomplete) segment split. Recursing into a quoted, genuinely
-executable payload (``bash -c "..."``, ``eval "..."``) to decide
-whether IT invokes pytest is deliberately out of scope: that is a new
-detection capability, not a fix to the false-positive shapes below.
-
-* :func:`strip_heredoc_bodies` removes a heredoc body only when its
-  launch line is that single, self-contained, redirected-to-a-file
-  statement AND its reading program is exactly one of
-  `_HEREDOC_DATA_READERS`. Every other reader — `sh`/`bash`/`zsh` (which
-  interpret their heredoc body as shell commands line by line, so a
-  standalone ``pytest ...`` line there is a real invocation),
-  `env`-launched anything, and anything unrecognized — is left alone,
-  redirect or not.
-* :func:`mask_data_sink_lines` blanks quoted interiors only on that
-  same shape of physical line, with a known data-writing program
-  (`cat`/`printf`/`echo`/`tee`) in place of a heredoc's reading
-  program — the shape a QA plan-case JSON payload actually takes.
+Direct cat/Python readers and registered item-content stdin writers consume
+data, even without a file redirect. Shell, piped, launcher-wrapped and unknown
+readers remain scannable. Unquoted data bodies retain executable substitutions;
+quoted delimiters keep bodies literal. Ordinary argv needs no masking.
 """
 
 from __future__ import annotations
 
 import re
+import shlex
 from typing import List, Optional
+
+from yoke_core.domain.path_claim_bash_substitution import executable_substitutions
+from yoke_core.domain.path_claim_bash_splitter import split_pipeline
 
 _HEREDOC_START = re.compile(
     r"<<-?\s*(?:'(?P<sq>[^']*)'|\"(?P<dq>[^\"]*)\"|(?P<bare>[A-Za-z_]\w*))"
 )
 
-#: Readers whose own heredoc is proven inert: ``cat`` writing it to a
-#: scratch file, ``python3`` printing one. Anything else, including a
-#: launcher-wrapped or unrecognized reader, is a burden-of-proof
-#: failure and is left untouched: a positive admit list, never a
-#: "not a known shell" guess.
+# Direct known readers consume text or Python source rather than shell source.
+# Unknown readers and pipes retain conservative inspection.
 _HEREDOC_DATA_READERS = frozenset({"cat", "python3"})
 
-#: Programs whose ordinary job is writing their argument/stdin as data.
-_DATA_SINK_PROGRAMS = frozenset({"cat", "printf", "echo", "tee"})
+_STDIN_DATA_WRITERS = (
+    ("yoke", "items", "progress-log", "append"),
+    ("yoke", "items", "structured-field", "replace"),
+)
+
+
+def _stdin_data_writer(line: str) -> bool:
+    """Recognize registered item content writers, never arbitrary stdin use."""
+    try:
+        argv = shlex.split(line)
+    except ValueError:
+        return False
+    if argv:
+        argv[0] = argv[0].rsplit("/", 1)[-1]
+    return "--stdin" in argv and any(
+        tuple(argv[: len(prefix)]) == prefix for prefix in _STDIN_DATA_WRITERS
+    )
 
 
 def _leading_program(text: str) -> str:
@@ -69,121 +52,14 @@ def _leading_program(text: str) -> str:
     return ""
 
 
-def mask_quoted_spans(text: str) -> str:
-    """Blank the interior of every single/double-quoted span in *text*.
-
-    Quote delimiters are kept so a flag that consumes "the next token"
-    (``-k ''``) still has an (empty) token to consume. Backslash escapes
-    a following character outside quotes and inside double quotes
-    (``\\"`` does not close the span); single quotes have no escape in
-    real shell syntax, so a backslash there is just another masked char.
-    """
-    out: List[str] = []
-    i, n = 0, len(text)
-    in_single = in_double = False
-    while i < n:
-        ch = text[i]
-        if ch == "\\" and not in_single and i + 1 < n:
-            if in_double:
-                i += 2
-                continue
-            out.append(text[i:i + 2])
-            i += 2
-            continue
-        if ch == "'" and not in_double:
-            in_single = not in_single
-            out.append(ch)
-            i += 1
-            continue
-        if ch == '"' and not in_single:
-            in_double = not in_double
-            out.append(ch)
-            i += 1
-            continue
-        if in_single or in_double:
-            i += 1
-            continue
-        out.append(ch)
-        i += 1
-    return "".join(out)
-
-
-#: Characters this module's guards look for outside quotes: ``>`` is the
-#: positive "written to a file" signal; ``;``/``&``/``|`` each end one
-#: statement, so any of them means another statement rides along.
-_WATCHED_CHARS = frozenset({">", ";", "&", "|"})
-
-
-def _unquoted_chars(text: str) -> frozenset[str]:
-    """Return the subset of `_WATCHED_CHARS` appearing outside quotes."""
-    found: set = set()
-    i, n = 0, len(text)
-    in_single = in_double = False
-    while i < n:
-        ch = text[i]
-        if ch == "\\" and not in_single and i + 1 < n:
-            i += 2
-            continue
-        if ch == "'" and not in_double:
-            in_single = not in_single
-            i += 1
-            continue
-        if ch == '"' and not in_single:
-            in_double = not in_double
-            i += 1
-            continue
-        if not in_single and not in_double and ch in _WATCHED_CHARS:
-            found.add(ch)
-        i += 1
-    return frozenset(found)
-
-
-def mask_data_sink_lines(command: str) -> str:
-    """Blank quoted interiors on a standalone data-sink line.
-
-    A line qualifies only when it is a single, self-contained statement:
-    its leading word is a data-sink program, it has an unquoted ``>``,
-    and it carries no OTHER unquoted ``;``/``&``/``|`` — the positive
-    shape a QA plan-case JSON payload actually takes
-    (``printf '...' > file``). Anything else is returned unchanged,
-    including ``echo ok > /tmp/x; bash -c '... && pytest ...'``, whose
-    second statement is a different, uncertain command riding the same
-    physical line, and ``bash -c "... && pytest ..."`` on its own,
-    whose quoted argument this guard's existing segment scan already
-    reads as ordinary text.
-    """
-    out_lines = []
-    for line in command.split("\n"):
-        chars = _unquoted_chars(line)
-        qualifies = (
-            _leading_program(line) in _DATA_SINK_PROGRAMS
-            and ">" in chars
-            and not (chars & {";", "&", "|"})
-        )
-        out_lines.append(mask_quoted_spans(line) if qualifies else line)
-    return "\n".join(out_lines)
-
-
 def strip_heredoc_bodies(command: str) -> str:
-    """Remove a heredoc body from *command* when it is written data.
+    """Remove known data bodies while retaining their shell expansions.
 
-    Scans for the next unquoted ``<<``/``<<-`` operator (a here-string
-    ``<<<`` takes no body block and is left untouched). The body is
-    stripped only when BOTH hold: its launch line is a single,
-    self-contained statement redirected to a file — an unquoted ``>``
-    present and no OTHER unquoted ``;``/``&``/``|`` — and its exact
-    reading program is one proven inert by evidence (`_HEREDOC_DATA_
-    READERS`). A launch line with no redirect (``bash <<'EOF'``, a
-    genuine sweep), one riding a pipe into another program (``cat
-    <<'EOF' | bash``), or one whose reader is unrecognized or
-    launcher-wrapped even WITH a redirect (``env bash > out.log
-    <<'EOF'`` still forwards to bash, which executes the body) fails
-    this shape and is left completely untouched, so its body stays
-    scannable exactly as before. Otherwise the full launch line is kept
-    intact and every line up to and including the terminator — tab-
-    stripped when the operator is ``<<-`` — is discarded; an
-    unterminated heredoc discards the remainder as still-open data
-    rather than guessing where it ends.
+    Recognition requires a direct known reader or a registered item-content
+    writer, on a standalone launch line without another statement or pipe.
+    Shell interpreters, launcher-wrapped readers, pipes and unknown readers
+    stay scannable. Quoted delimiters suppress expansions; unquoted delimiters
+    retain executable substitution bodies. Unterminated data stays data.
     """
     out: List[str] = []
     i, n = 0, len(command)
@@ -191,7 +67,7 @@ def strip_heredoc_bodies(command: str) -> str:
     while i < n:
         ch = command[i]
         if ch == "\\" and not in_single and i + 1 < n:
-            out.append(command[i:i + 2])
+            out.append(command[i : i + 2])
             i += 2
             continue
         if ch == "'" and not in_double:
@@ -205,7 +81,8 @@ def strip_heredoc_bodies(command: str) -> str:
             i += 1
             continue
         if (
-            in_single or in_double
+            in_single
+            or in_double
             or not command.startswith("<<", i)
             or command.startswith("<<<", i)
         ):
@@ -217,11 +94,12 @@ def strip_heredoc_bodies(command: str) -> str:
         if line_end == -1:
             line_end = n
         launch_line = command[line_start:line_end]
-        chars = _unquoted_chars(launch_line)
+        data_reader = (
+            _leading_program(command[line_start:i]) in _HEREDOC_DATA_READERS
+        ) or _stdin_data_writer(launch_line)
         if (
-            _leading_program(command[line_start:i]) not in _HEREDOC_DATA_READERS
-            or ">" not in chars
-            or (chars & {";", "&", "|"})
+            not data_reader
+            or len(split_pipeline(launch_line, split_background=True)) != 1
         ):
             out.append(ch)
             i += 1
@@ -252,8 +130,16 @@ def _consume_heredoc(command: str, i: int, out: List[str]) -> Optional[int]:
     term_match = terminator.search(command, launch_line_end + 1)
     if term_match is None:
         return len(command)
+    if match.group("bare"):
+        # An unquoted heredoc expands substitutions even though its plain
+        # text is written data. Quotes in that body are literal characters.
+        _, sources = executable_substitutions(
+            command[launch_line_end + 1 : term_match.start()],
+            literal_quotes=True,
+        )
+        out.extend("\n" + source for source in sources)
     out.append("\n")
     return term_match.end()
 
 
-__all__ = ["mask_data_sink_lines", "mask_quoted_spans", "strip_heredoc_bodies"]
+__all__ = ["strip_heredoc_bodies"]

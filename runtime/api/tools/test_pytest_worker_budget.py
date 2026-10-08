@@ -201,8 +201,11 @@ def test_local_postgres_auto_worker_env_reaches_runner(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(
         watch_pytest._source_pythonpath,
-        "import_origin_refusal",
-        lambda *args, **kwargs: None,
+        "verified_source_environment",
+        lambda root, env: (
+            watch_pytest._source_pythonpath.with_source_pythonpath(env, root),
+            None,
+        ),
     )
     monkeypatch.setattr(
         watch_pytest._watch_runner,

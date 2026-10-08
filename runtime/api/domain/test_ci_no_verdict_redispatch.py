@@ -94,7 +94,8 @@ def test_a_rejoined_run_with_a_verdict_is_kept(monkeypatch):
     )
 
     assert (run_id, dispatched) == ("10", False)
-    assert keys == ["qa-case:7:abc"]
+    assert len(keys) == 1
+    assert keys[0].startswith("qa-case:7:abc:dispatch:")
 
 
 def test_a_rejoined_in_flight_run_is_kept(monkeypatch):
@@ -103,7 +104,8 @@ def test_a_rejoined_in_flight_run_is_kept(monkeypatch):
     )
 
     assert run_id == "10"
-    assert keys == ["qa-case:7:abc"]
+    assert len(keys) == 1
+    assert keys[0].startswith("qa-case:7:abc:dispatch:")
 
 
 def test_a_rejoined_no_verdict_run_is_redispatched_through_the_chain(monkeypatch):
@@ -118,9 +120,9 @@ def test_a_rejoined_no_verdict_run_is_redispatched_through_the_chain(monkeypatch
 
     assert (run_id, dispatched) == ("12", True)
     assert keys == [
-        "qa-case:7:abc",
-        "qa-case:7:abc:redispatch:10",
-        "qa-case:7:abc:redispatch:11",
+        keys[0],
+        f"{keys[0]}:redispatch:10",
+        f"{keys[0]}:redispatch:11",
     ]
 
 

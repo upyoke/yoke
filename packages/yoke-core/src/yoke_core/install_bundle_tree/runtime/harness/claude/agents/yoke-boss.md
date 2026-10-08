@@ -180,8 +180,8 @@ NEVER rely on shell variables persisting across separate Bash tool calls. Each B
 - _Where to put a project Python script_
   - `# put it under the project's tracked tools directory — never /tmp/*.py`
 - _Verify Python imports/tests against linked worktree source_
-  - `uv run --frozen python3 -m yoke_core.tools.module_source_path yoke_core`
-  - `uv run --frozen python3 -m yoke_core.tools.watch_pytest -- <project-test-path> -q`
+  - `yoke dev import-check yoke_core`
+  - `yoke dev run -- yoke watch pytest --local -- <project-test-path> -q`
 - _Re-render agent files after editing packet seeds_
   - `uv run --frozen python3 -m yoke_core.domain.agents_render render --target-root <checkout>`
 - _authored-file line limit (file_line_check)_

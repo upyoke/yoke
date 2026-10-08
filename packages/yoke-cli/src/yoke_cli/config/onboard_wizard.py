@@ -288,13 +288,12 @@ def run_wizard(
 ) -> WizardRunResult:
     """Drive the wizard to a confirmed apply (or a clean cancel).
 
-    ``apply_report`` receives the final ``build_report`` keyword dict and is
-    responsible for calling ``build_report`` and rendering its result. Returning
-    a falsy value or raising is the caller's contract; the wizard only collects
-    fields, previews the plan, and gates the single apply confirm.
+    ``apply_report`` receives the final ``build_report`` keyword dict and
+    renders its result; the wizard collects fields and gates apply.
     """
     try:
         from yoke_cli.config.onboard_wizard_app import OnboardWizardApp
+        from yoke_cli.config.onboard_terminal_driver import run_wizard_app
     except ImportError as exc:  # textual missing from an unusual install
         raise WizardCancelled(
             "the onboarding wizard requires the 'textual' package; reinstall the "
@@ -305,7 +304,7 @@ def run_wizard(
     # Mouse reporting stays on so the wheel/trackpad scroll an overflowing step
     # everywhere; that costs native drag-select of a URL or code, so ^y suspends
     # to selectable scrollback (on SSH, ^o shows the link there too).
-    app.run()
+    run_wizard_app(app)
     if app.cancelled:
         return WizardRunResult(
             exit_code=130,

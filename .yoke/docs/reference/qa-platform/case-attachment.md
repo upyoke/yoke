@@ -329,7 +329,7 @@ Exploratory mission `method_config` can declare an apt package fixture:
 ```
 
 `method_config.machine` selects that registered host even when this direct
-requirement has only the generic `macos-examplehine` capability. Admitted deployment
+requirement has only the generic <!-- qa:test-machine-capability -->`test-machine` capability. Admitted deployment
 copies retain the pin; omitting `--machine` does not permit another host, and a
 conflicting run pin is refused before a lease is acquired.
 

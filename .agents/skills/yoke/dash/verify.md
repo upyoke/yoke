@@ -36,7 +36,8 @@ directly: the QA runner supplies the candidate cwd and the watcher binds that
 cwd to source. The candidate root and SHA travel to subprocesses in
 `YOKE_QA_CANDIDATE_TREE`; source wrappers refuse a switch to a different root.
 Candidate-bound Yoke cases also bind bare `python3` and `yoke` to candidate
-packages and record their import origins; missing or outside-candidate origins
+packages and its declared locked .venv, recording interpreter identity and
+import origins; missing/stale environments or outside-candidate origins
 record a named refusal instead of a pass. Lane, external-project, and endpoint-only
 `--allow-tree-mismatch` cases keep product imports.
 

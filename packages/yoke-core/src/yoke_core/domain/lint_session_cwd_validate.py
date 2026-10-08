@@ -1,22 +1,11 @@
-"""Per-tool-call claim-based validation for the session-cwd policy.
+"""Validate targets against claims, lane occupancy, status, and machine context.
 
-Authority comes from active work claims, project control planes, and free paths.
-The slim hook-policy glue lives in :mod:`lint_session_cwd`. Behaviour:
-
-* A write or state move into a lane another session holds is refused,
-  whether or not the caller holds a claim. Reads of that lane are allowed.
-* Read-only Git inspection of a lane → exempt from every test here.
-* Read-shaped calls to ordinary home material and sanctioned installed paths
-  use the executing machine's home. Project paths, dot-directories, and every
-  write shape stay governed.
-* Session with no claims → allowed everywhere except another session's
-  live lane.
-* Session with claims → each target must land under a claimed worktree, a
-  recorded project's control plane, or a free path.
-* Bash with no extractable targets → the caller passes ``fallback_cwd``
-  as a synthetic target so a worktree-binding session that runs a
-  control-plane read from outside its worktree still validates against
-  the same rules.
+Known capacity operands inspect totals without granting content or mutation.
+Unresolved home operands are refused. Writes and state moves into foreign lanes
+are refused; established plain Git inspection and foreign-lane reads remain
+exempt. Ordinary home reads use executing-machine facts. Other claimed-call
+paths must be in a held lane, control plane, or free root; a call with no
+operands uses its declared cwd as the synthetic target.
 """
 
 from __future__ import annotations
@@ -64,6 +53,8 @@ from yoke_core.domain.session_claimed_worktrees import (
     ClaimedWorktree,
     claimed_worktrees,
 )
+from yoke_core.domain.lint_shell_path_use import PathUse, is_capacity_target
+from yoke_core.domain.lint_payload_path_use import UNRESOLVED_HOME_PATH
 from yoke_core.domain.lint_session_cwd_item_lookup import (
     lookup_item_status,
     lookup_item_workflow,
@@ -106,6 +97,7 @@ def validate_targets(
     read_only: bool = False,
     command: str = "",
     tool_name: str = "",
+    path_uses: tuple[PathUse, ...] = (),
 ) -> ValidationVerdict:
     """Validate every target path against the session's claim authority.
 
@@ -129,11 +121,25 @@ def validate_targets(
     claims = claimed_worktrees(conn, session_id=session_id)
     repo_roots = tuple(_recorded_repo_roots(conn) or _derive_repo_roots(conn, claims))
 
+    for use in path_uses:
+        if use.path.startswith("~"):
+            return ValidationVerdict(
+                False,
+                use.path,
+                claims,
+                repo_roots,
+                session_id,
+                failure_class=UNRESOLVED_HOME_PATH,
+            )
     targets_to_check: List[str] = [
         t for t in targets if isinstance(t, str) and t.strip()
     ]
     if not targets_to_check and fallback_cwd.strip():
         targets_to_check = [fallback_cwd]
+
+    targets_to_check = [
+        raw for raw in targets_to_check if not is_capacity_target(raw, path_uses)
+    ]
 
     targets_to_check = governed_targets(targets_to_check, repo_roots, command)
     # A read of a foreign lane is not a write, so it must not fail scope either.

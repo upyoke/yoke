@@ -8,7 +8,11 @@ import pytest
 
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.pg_testdb import test_database
-from yoke_core.domain.item_level_override import describe_level_override
+from yoke_core.domain.item_level_override import (
+    LevelOverrideError,
+    describe_level_override,
+    resolve_level_override,
+)
 from yoke_core.domain.item_posture_amend import amend_item_posture
 from yoke_core.domain.item_posture_amend_guards import ItemPostureAmendError
 
@@ -87,3 +91,48 @@ def test_override_reads_as_one_line() -> None:
     assert describe_level_override(posture) == "level shift +1 · min JUNIOR (hard bug)"
     assert describe_level_override({}) == ""
     assert describe_level_override(None) == ""
+
+
+@pytest.mark.parametrize(
+    ("baseline", "override", "expected"),
+    [
+        ("SENIOR", None, "SENIOR"),
+        ("SENIOR", {"shift": -1}, "JUNIOR"),
+        ("JUNIOR", {"shift": 1}, "SENIOR"),
+        ("PRINCIPAL", {"max": "SENIOR"}, "SENIOR"),
+        ("INTERN", {"min": "SENIOR"}, "SENIOR"),
+        ("SENIOR", {"shift": -100}, "INTERN"),
+        ("JUNIOR", {"shift": 100}, "PRINCIPAL"),
+        ("SENIOR", {"shift": -2, "min": "JUNIOR", "max": "SENIOR"}, "JUNIOR"),
+        ("INTERN", {"shift": 3, "min": "JUNIOR", "max": "SENIOR"}, "SENIOR"),
+    ],
+)
+def test_default_level_resolution_applies_shift_then_bounds(
+    baseline, override, expected
+):
+    with test_database() as conn:
+        project_id = int(_dash_project(conn))
+        value = {**override, "reason": "stage staffing"} if override else None
+        result = resolve_level_override(
+            conn, project_id=project_id, baseline_level=baseline, override=value
+        )
+        assert result["baseline_level"] == baseline
+        assert result["level"] == expected
+        assert result["override"] == (value or {})
+        assert result["glyph"] and result["baseline_glyph"]
+
+
+def _dash_project(conn) -> int:
+    row = insert_item(conn, id=2904, workflow_id="dash", status="idea")
+    return int(row["project_id"])
+
+
+def test_default_level_resolution_refuses_invalid_stored_override() -> None:
+    with test_database() as conn:
+        with pytest.raises(LevelOverrideError, match="min PRINCIPAL is above max"):
+            resolve_level_override(
+                conn,
+                project_id=_dash_project(conn),
+                baseline_level="SENIOR",
+                override={"min": "PRINCIPAL", "max": "JUNIOR", "reason": "invalid"},
+            )

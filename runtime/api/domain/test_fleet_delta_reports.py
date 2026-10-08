@@ -128,3 +128,46 @@ def test_unreadable_report_preserves_previously_displayed_rows():
     )
     assert output.getvalue().count("no longer listed — run finished") == 1
     assert state.rows == {}
+
+
+def test_a_report_the_session_already_received_is_not_printed_again():
+    """The shared record says the hook delivered it; only departures print."""
+    state = ReportState()
+    output = io.StringIO()
+    scope = {
+        "descriptor": "project",
+        "idle_after_seconds": 1200,
+        "holders": [{"public_ref": REF, "idle_seconds": 0}],
+        "landings": [{"public_ref": REF, "pr_number": "17"}],
+    }
+    reports = [
+        {"fingerprint": "a", "digest": "first", "delivered": True, "scopes": [scope]},
+        {"fingerprint": "a", "digest": "first", "delivered": False, "scopes": [scope]},
+        {
+            "fingerprint": "b",
+            "digest": "second",
+            "delivered": False,
+            "scopes": [{**scope, "landings": []}],
+        },
+    ]
+
+    def call(function, payload):
+        result = (
+            reports.pop(0)
+            if function == STEERING_REPORT_FUNCTION
+            else {"settings_json": "{}"}
+        )
+        return SimpleNamespace(success=True, result=result)
+
+    for minutes in (0, 5, 10):
+        append_steering_reports(
+            ["project"],
+            observed_at=NOW + timedelta(minutes=minutes),
+            stream=output,
+            call=call,
+            state=state,
+        )
+    text = output.getvalue()
+    assert text.count("first") == 1
+    assert "second" not in text
+    assert text.count("no longer listed:") == 1

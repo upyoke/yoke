@@ -271,7 +271,7 @@ Replaces every hand-authored `python3 -m yoke_core.domain.epic task-update-body 
 | `claims.steering.acquire` | `None` (payload `document` narrows the seat to one strategy document and atomically pairs its lock; omit it for the whole project) | `yoke_core.domain.handlers.claims_steering.handle_acquire`; a seat or document conflict rolls back both |
 | `claims.steering.release` | `"self_only"` | same handler; releases the steering claim and its paired document lock together |
 | `claims.steering.list` | `None` (project-scoped read) | same handler; project/holder/active filters |
-| `steering.report.get` | `None` (handler requires the caller's live steering claim) | `yoke_core.domain.handlers.steering_report.handle_get` — composes one report covering every held steering claim, or a single scope when `--project` is set; see [steering-fleet-report.md](steering-fleet-report.md). |
+| `steering.report.get` | `None` (handler requires the caller's live steering claim) | `yoke_core.domain.handlers.steering_report.handle_get` — composes one report covering every held steering claim, or a single scope when `--project` is set. Payload `deliver: true` (the fleet watcher) stamps the combined report onto the session's delivery record shared with the hook and returns `delivered` — false when the session already received this content; see [steering-fleet-report.md](steering-fleet-report.md). |
 | `claims.path.register` | `"item"` | `yoke_core.domain.handlers.claims_path.register` (routes through `path_claims_resolve`) |
 | `claims.path.widen` | `"item"` | same handler → `claims_path.widen` |
 | `claims.path.release` | `"item"` | same handler → `claims_path.release` |

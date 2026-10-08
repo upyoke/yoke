@@ -306,6 +306,10 @@ def test_onboard_post_install_flag_parses(monkeypatch, capsys) -> None:
 
     monkeypatch.setattr("yoke_cli.config.onboard_wizard.run_wizard", fake_run_wizard)
     monkeypatch.setattr(
+        "yoke_cli.commands.adapters.onboard_interactive.require_foreground_terminal",
+        lambda: None,
+    )
+    monkeypatch.setattr(
         "yoke_cli.config.onboard_wizard.is_interactive", lambda *_: True
     )
 

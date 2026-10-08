@@ -23,7 +23,6 @@ from yoke_core.domain.session_launch_machine_models import machine_native_models
 from yoke_core.domain.steering_fleet_report_native_models import (
     NAMED_MODEL_SAMPLE,
     MachineNativeModels,
-    fingerprint_material,
     load_native_models,
     native_model_lines,
 )
@@ -183,18 +182,3 @@ def test_render_omits_declared_absences_but_keeps_a_surface_that_failed() -> Non
     )
 
     assert lines[1].endswith("codex-cli: unknown — app_server_timeout")
-
-
-def test_a_new_model_changes_the_fingerprint_so_the_seat_is_told() -> None:
-    before = fingerprint_material((_row(),))
-    after = fingerprint_material(
-        (_row(model_count=3, sample_models=("gpt-6-astra", "gpt-5.5", "gpt-7")),)
-    )
-
-    assert before != after
-
-
-def test_a_surface_going_stale_changes_the_fingerprint() -> None:
-    assert fingerprint_material((_row(),)) != fingerprint_material(
-        (_row(status="stale", reason="app_server_timeout"),)
-    )

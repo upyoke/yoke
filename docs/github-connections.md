@@ -62,8 +62,13 @@ it, or uninstalling it.
 The baseline product App deliberately lacks repository Administration. It can
 work with repositories granted to the installation, but it cannot silently
 create or fork a repository. The onboarding flow therefore opens GitHub for
-manual repository creation and App access, then lets the user return and check
-the exact live repository. A separately configured development/operator App
+manual repository creation, then defaults to **Check repositories** for live
+App access and exact repository selection. Already accessible repositories need
+no settings visit. If **My repository isn't listed** identifies an absent
+`owner/repo` after a successful check, **Grant repo access** opens that owner's
+App settings; add the repo, return, and check again. Refresh failures teach a
+retry and never prove missing access. Skip GitHub and Back remain available.
+A separately configured development/operator App
 may offer privileged operations only when its verified permissions allow them.
 
 ## 3. Project repository binding

@@ -141,14 +141,14 @@ def run_declared(argv: Sequence[str], *, cwd: Path, env_var: str, dsn: str) -> N
     """Run one declared command against one copy, or raise why it failed."""
     shown = redact_dsn(" ".join(argv), dsn)
     try:
-        result = subprocess.run(
+        from yoke_core.domain.migration_rehearsal_copy_lock import run_child
+
+        result = run_child(
             list(argv),
             cwd=str(cwd),
             env=declared_environment(env_var, dsn),
-            capture_output=True,
             text=True,
             timeout=COMMAND_TIMEOUT_SECONDS,
-            check=False,
         )
     except subprocess.TimeoutExpired as exc:
         raise DeclaredCommandError(

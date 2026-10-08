@@ -67,8 +67,8 @@ def create_launch(
     eligibility: LaunchEligibilityPort = derive_launch_eligibility,
 ) -> LaunchCreateOutcome:
     ensure_operator(auth)
-    request = managed_presentation.normalize_launch_presentation(request)
-    request = validate_launch_request(request, max_body_bytes=max_body_bytes)
+    from yoke_core.domain.workflow_stage_levels import default_launch_level
+
     current = utc_now() if now is None else parse_instant(now)
     begin_mutation(conn)
     try:
@@ -78,6 +78,9 @@ def create_launch(
             lock_assigned_item(
                 conn, public_ref=request.item, project_id=request.project_id
             )
+        request = default_launch_level(conn, request)
+        request = managed_presentation.normalize_launch_presentation(request)
+        request = validate_launch_request(request, max_body_bytes=max_body_bytes)
         existing = get_launch_by_dedupe(conn, auth.actor_id, request.idempotency_key)
         if request.level:
             request, preview = preview_level_launch(
@@ -115,7 +118,11 @@ def create_launch(
             )
 
             refuse_held_assigned_item(
-                conn, public_ref=request.item, project_id=request.project_id
+                conn,
+                public_ref=request.item,
+                project_id=request.project_id,
+                predecessor_session_id=auth.session_id,
+                successor_level=request.level,
             )
         if not preview.launchable:
             from yoke_core.domain.session_surface_policy import launch_refusal_message

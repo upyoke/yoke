@@ -148,7 +148,7 @@ def git_write_targets(
 ) -> Tuple[List[str], bool]:
     """Write paths for one git segment, plus unresolved-operand status."""
     from yoke_core.domain.lint_session_cwd_target_extract_shell import (
-        resolve_command_targets,
+        resolve_operand_targets,
         strip_env_prefixes,
     )
 
@@ -159,7 +159,7 @@ def git_write_targets(
     sub = git_subcommand(tokens)
     if sub not in GIT_MUTATING_SUBS:
         return [], False
-    return resolve_command_targets(segment, bindings=bindings)
+    return resolve_operand_targets(segment, bindings=bindings)
 
 
 def _classify_git(tokens: List[str]) -> Optional[str]:

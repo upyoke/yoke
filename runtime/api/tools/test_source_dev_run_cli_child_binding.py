@@ -16,6 +16,8 @@ from pathlib import Path
 import pytest
 
 from yoke_core.tools import _source_pythonpath, source_dev_run, watch_qa_case
+from runtime.api.source_pythonpath_test_helpers import provision_stub_environment
+from yoke_core.domain.qa_environment_declaration import TestEnvironmentDeclaration
 
 
 LANE_MARKER = "child-ran-from"
@@ -39,7 +41,7 @@ def _stub_source_tree(root: Path) -> Path:
         (package_dir / "__init__.py").touch()
     (root / "runtime").mkdir()
     (root / "runtime" / "__init__.py").touch()
-    (root / "pyproject.toml").touch()
+    provision_stub_environment(root)
     cli_main = root / "packages/yoke-cli/src/yoke_cli/main.py"
     cli_main.write_text(STUB_CLI_MAIN)
     return root.resolve()
@@ -49,9 +51,7 @@ def _shadowing_launcher(directory: Path) -> None:
     """Put a ``yoke`` launcher on PATH that announces itself when run."""
     directory.mkdir(parents=True, exist_ok=True)
     launcher = directory / "yoke"
-    launcher.write_text(
-        f"#!{sys.executable}\nprint('{LAUNCHER_MARKER}')\n"
-    )
+    launcher.write_text(f"#!{sys.executable}\nprint('{LAUNCHER_MARKER}')\n")
     launcher.chmod(0o755)
 
 
@@ -65,6 +65,10 @@ def _select_root(
         source_dev_run,
         "_claimed_root",
         lambda *_args: (root, None, fallback_project_id),
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.source_python_environment.load_declaration",
+        lambda **_kwargs: TestEnvironmentDeclaration(project="fixture"),
     )
 
 

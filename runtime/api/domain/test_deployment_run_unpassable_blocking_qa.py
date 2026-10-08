@@ -203,7 +203,7 @@ def test_the_report_names_an_unpassable_pin_and_moves_the_fingerprint(
     before = compose(conn).fingerprint()
     body_before = report_body(compose(conn))
     assert "cannot pass against this pin" not in body_before
-    assert "Settle or waive each one; the run finishes automatically" in body_before
+    assert "Settle or waive each; the run finishes by itself" in body_before
 
     _record_fix(conn, item_id=1)
     monkeypatch.setattr(
@@ -216,7 +216,7 @@ def test_the_report_names_an_unpassable_pin_and_moves_the_fingerprint(
     assert report.deployment_runs[0].pin_qa.unpassable[0].merge_sha == FIX
     assert "YOK-1 #901 cannot pass against this pin" in body
     assert f"Supersede {RUN_ID} with a run pinned above the remediation" in body
-    assert "Settle or waive each one; the run finishes automatically" not in body
+    assert "Settle or waive each; the run finishes by itself" not in body
     assert report.fingerprint() != before
 
 
@@ -320,7 +320,9 @@ class _UnpublishedSource:
 class _ProviderRefusingWalk(CandidateContainment):
     def __init__(self, conn, project_id, *, candidate_lineage):
         super().__init__(
-            conn, project_id, candidate_lineage=candidate_lineage,
+            conn,
+            project_id,
+            candidate_lineage=candidate_lineage,
             source=_UnpublishedSource(),
         )
 

@@ -36,8 +36,16 @@ Three `project-policy` keys tune each scope. `steering_report_staffing_minutes`
 marks it overdue. `steering_report_idle_minutes` (default 20) is how long a
 claim holder stays quiet before the report presumes it stuck. And
 `steering_report_interval_minutes` (default 2) is the shortest gap between
-reports appended to one session; one combined report per interval, attached
-when any held scope changed or needs a decision.
+reports appended to one session.
+
+A session receives a report only when what its digest shows changed. The
+hook and the fleet watcher share one delivery record per session, so a report
+one of them delivered is not delivered again by the other. Deployment runs,
+landed items, undelivered messages and launch failures belong to a project,
+not a seat: they render once per project, under its first held scope. A
+landed item already listed as a run member is not repeated, and each waiting
+run member is one line with its blocker count — the per-requirement detail
+is `yoke deployment-runs stages RUN`.
 
   yoke steering report get
   yoke steering report get --project yoke

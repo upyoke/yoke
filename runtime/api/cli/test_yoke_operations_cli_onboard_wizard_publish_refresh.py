@@ -30,11 +30,15 @@ def publish_stubs(monkeypatch):
     _source_stubs.__wrapped__(monkeypatch)
 
 
+@pytest.mark.parametrize("repository_selection", ["all", "selected"])
 def test_manual_create_refresh_selects_exact_repo_and_continues_in_run(
     monkeypatch,
+    repository_selection,
 ) -> None:
     opened: list[str] = []
-    github = _github_config(administration=False)
+    github = _github_config(
+        administration=False, repository_selection=repository_selection
+    )
     github["api_url"] = github_origin.DEFAULT_GITHUB_API_URL
     github["web_url"] = github_origin.DEFAULT_GITHUB_WEB_URL
     github["repositories"] = [
@@ -91,12 +95,14 @@ def test_manual_create_refresh_selects_exact_repo_and_continues_in_run(
             app._on_publish_choice(screens.PUBLISH_YES)
             await pilot.pause()
             assert "Check repositories" in _body_text(app)
+            assert "grant the Yoke GitHub App access" not in _body_text(app)
             await pilot.press("enter")
             await app.workers.wait_for_complete()
             await pilot.pause()
             body = _body_text(app)
             assert "acme/manual-target" in body
             assert "other/widget" in body
+            assert "Grant repo access" not in body
             await pilot.press("enter")  # pick acme/manual-target
             assert "How should Yoke manage this project on GitHub?" in _body_text(app)
             await pilot.press("enter")  # GitHub binding

@@ -119,6 +119,17 @@ never-started redispatch, and the merge boundary's post-rebase run, which
 reads them back from this same requirement rather than from anything the
 merge command was told.
 
+Correlated CI identity includes a deterministic digest of the effective
+dispatch arguments (project, repository, workflow, ref, and all resolved
+inputs). Correcting `product_ref` on an unchanged requirement and consumer
+commit starts a fresh dispatch. Identical retries, including reordered input
+keys, recover the same run; never-started retries and merge-boundary dispatches
+use the same binding. No-input cases keep their existing adoption and rejoin
+behavior. Historical run records are retained. A genuinely different payload
+under the same bound identity still refuses `idempotency_key_collision`:
+review the differing payload and its recorded intent rather than retrying it
+unchanged or altering old run history.
+
 **A case declaring inputs never reuses a run it finds.** GitHub's run record
 does not expose the inputs a `workflow_dispatch` run was posted with, so a run
 sitting on the right commit cannot be shown to have built against the right

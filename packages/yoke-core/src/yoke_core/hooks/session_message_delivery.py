@@ -8,7 +8,7 @@ from typing import Iterable
 from yoke_contracts.hook_context_compose import (
     FLEET_REPORT_CONTEXT_FIELD,
     compose_context_list,
-    reply_is_well_formed,
+    token_delivered,
 )
 from yoke_contracts.hook_runner.config_owner import CURSOR_MODEL_CONTEXT_NATIVE_EVENTS
 from yoke_contracts.hook_runner.model_context_channel import (
@@ -26,6 +26,7 @@ from yoke_core.domain.session_message_delivery_probe import (
     PROBE_NO_LEASABLE_RECEIPT,
     PROBE_SESSION_NOT_DELIVERABLE,
 )
+from yoke_core.domain.steering_fleet_report_render import REPORT_BEGIN
 from yoke_core.hooks.fleet_watcher_presence import maybe_append_fleet_watcher_nudge
 from yoke_core.hooks.session_message_delivery_port import (
     CoreSessionMessageDeliveryPort,
@@ -292,9 +293,9 @@ def settle_after_render(
         # A malformed or denied reply must not spend the report's interval:
         # the composed candidate is best-effort until this confirms the
         # reply that carried it was actually well-formed and undenied, so a
-        # dropped report leaves the next hook free to retry instead of
+        # byte-ceiling-omitted report leaves the hook or watcher free to retry instead of
         # waiting out a whole interval for nothing.
-        if fingerprint and not denied and reply_is_well_formed(rendered_text):
+        if fingerprint and not denied and token_delivered(rendered_text, REPORT_BEGIN):
             if delivery_port is None:
                 delivery_port = _delivery_port()
             try:

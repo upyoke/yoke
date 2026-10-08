@@ -44,6 +44,14 @@ def _usage(capsys) -> dict:
     return json.loads(capsys.readouterr().err.strip().splitlines()[-1])
 
 
+def test_create_without_selector_requests_the_live_stage_default(monkeypatch):
+    code, calls = _create(monkeypatch)
+    assert code == 0
+    assert calls[0]["payload"]["use_stage_level"] is True
+    assert "level" not in calls[0]["payload"]
+    assert "executor_surface" not in calls[0]["payload"]
+
+
 def test_a_surface_launch_without_model_leaves_the_vendor_default(
     monkeypatch,
 ) -> None:
@@ -138,14 +146,6 @@ def test_a_level_with_any_exact_knob_is_refused_locally(
     refusal = _usage(capsys)
     assert refusal["message"].startswith("level_selection_conflict")
     assert flag in refusal["message"]
-
-
-def test_naming_neither_level_nor_surface_is_refused(monkeypatch, capsys) -> None:
-    code, calls = _create(monkeypatch)
-
-    assert code == 2
-    assert calls == []
-    assert _usage(capsys)["message"].startswith("launch_selection_missing")
 
 
 def test_a_preview_naming_neither_is_refused(monkeypatch, capsys) -> None:

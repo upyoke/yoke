@@ -95,9 +95,40 @@ def describe_level_override(posture: Mapping[str, Any] | None) -> str:
     return f"level {' · '.join(parts)}" + (f" ({reason})" if reason else "")
 
 
+def resolve_level_override(
+    conn: Any, *, project_id: int, baseline_level: str, override: Any = None
+) -> dict[str, Any]:
+    """Apply one item's shift and bounds to a named launch baseline once.
+
+    Automatic stage defaults and stage readouts share this calculation.
+    Explicit level and exact surface/model requests bypass the item default.
+    """
+    levels, _source = effective_levels(conn, int(project_id))
+    names = tuple(level.name for level in levels)
+    name = _level_name(baseline_level, field="baseline", names=names)
+    normalized = (
+        validate_level_override(conn, project_id=project_id, raw=override)
+        if override is not None
+        else {}
+    )
+    index = names.index(name) + normalized.get("shift", 0)
+    low = names.index(normalized["min"]) if "min" in normalized else 0
+    high = names.index(normalized["max"]) if "max" in normalized else len(names) - 1
+    baseline = levels[names.index(name)]
+    selected = levels[max(low, min(high, index))]
+    return {
+        "baseline_level": baseline.name,
+        "baseline_glyph": baseline.glyph,
+        "level": selected.name,
+        "glyph": selected.glyph,
+        "override": normalized,
+    }
+
+
 __all__ = [
     "LEVEL_POSTURE_KEY",
     "LevelOverrideError",
     "describe_level_override",
+    "resolve_level_override",
     "validate_level_override",
 ]

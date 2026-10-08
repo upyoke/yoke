@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+import re
 from pathlib import Path
 
 import pytest
@@ -16,18 +17,24 @@ from yoke_core.tools import pytest_remote_selection as routing
 from yoke_core.tools import pytest_remote_selection_run as engine
 
 
-def _run(monkeypatch, *, conclusion: str, publish_ok=True, dispatched=("42", engine.DISPATCHED)):
+def _run(
+    monkeypatch,
+    *,
+    conclusion: str,
+    publish_ok=True,
+    dispatched=("42", engine.DISPATCHED),
+):
     seen: dict = {"resolve": []}
-    monkeypatch.setattr(
-        engine, "publish", lambda root, branch, head, **_kw: publish_ok
-    )
+    monkeypatch.setattr(engine, "publish", lambda root, branch, head, **_kw: publish_ok)
     monkeypatch.setattr(
         "yoke_core.domain.qa_case_ci_entry_run.base_branch", lambda _p, _r: "main"
     )
     monkeypatch.setattr(engine, "dispatch", lambda **kwargs: dispatched)
     monkeypatch.setattr(engine, "await_conclusion", lambda **kwargs: conclusion)
     monkeypatch.setattr(
-        engine, "relay_failed_log", lambda **kwargs: seen.setdefault("failed_log", kwargs),
+        engine,
+        "relay_failed_log",
+        lambda **kwargs: seen.setdefault("failed_log", kwargs),
     )
     monkeypatch.setattr(
         "yoke_core.domain.session_ci_wait_record.record_ci_run_wait",
@@ -38,8 +45,14 @@ def _run(monkeypatch, *, conclusion: str, publish_ok=True, dispatched=("42", eng
         lambda **kwargs: seen["resolve"].append(kwargs) or "",
     )
     code = engine.run(
-        root=Path("/tmp/lane"), project="yoke", workflow="sel.yml", repo="acme/widgets",
-        branch="PRJ-7", head_sha="a" * 40, base_sha="b" * 40, pytest_args=["-q"],
+        root=Path("/tmp/lane"),
+        project="yoke",
+        workflow="sel.yml",
+        repo="acme/widgets",
+        branch="PRJ-7",
+        head_sha="a" * 40,
+        base_sha="b" * 40,
+        pytest_args=["-q"],
         dispatch_id="watch-pytest:x",
     )
     return code, seen
@@ -55,7 +68,9 @@ def _run(monkeypatch, *, conclusion: str, publish_ok=True, dispatched=("42", eng
         ("startup_failure", routing.EXIT_UNREACHABLE),
     ],
 )
-def test_exit_status_mirrors_the_conclusion(monkeypatch, capsys, conclusion, exit_code) -> None:
+def test_exit_status_mirrors_the_conclusion(
+    monkeypatch, capsys, conclusion, exit_code
+) -> None:
     code, seen = _run(monkeypatch, conclusion=conclusion)
 
     assert code == exit_code
@@ -73,7 +88,9 @@ def test_exit_status_mirrors_the_conclusion(monkeypatch, capsys, conclusion, exi
 
 def test_publish_refusal_stops_before_dispatch(monkeypatch) -> None:
     monkeypatch.setattr(
-        engine, "dispatch", lambda **kwargs: pytest.fail("must not dispatch"),
+        engine,
+        "dispatch",
+        lambda **kwargs: pytest.fail("must not dispatch"),
     )
     code, _ = _run(monkeypatch, conclusion="success", publish_ok=False)
 
@@ -82,7 +99,9 @@ def test_publish_refusal_stops_before_dispatch(monkeypatch) -> None:
 
 def test_dispatch_refusal_is_unreachable(monkeypatch) -> None:
     monkeypatch.setattr(
-        engine, "await_conclusion", lambda **kwargs: pytest.fail("must not poll"),
+        engine,
+        "await_conclusion",
+        lambda **kwargs: pytest.fail("must not poll"),
     )
     code, _ = _run(monkeypatch, conclusion="success", dispatched=None)
 
@@ -97,10 +116,12 @@ def test_rejoined_run_is_named_as_such(monkeypatch, capsys) -> None:
 
 
 def _completed(stdout: str, stderr: str = "", returncode: int = 0):
-    return subprocess.CompletedProcess(args=[], returncode=returncode, stdout=stdout, stderr=stderr)
+    return subprocess.CompletedProcess(
+        args=[], returncode=returncode, stdout=stdout, stderr=stderr
+    )
 
 
-def _dispatch(monkeypatch, result):
+def _dispatch(monkeypatch, result, **overrides):
     seen: dict = {}
 
     def fake_trigger(args, *, github_actions, project, sd, timeout_sec):
@@ -109,17 +130,25 @@ def _dispatch(monkeypatch, result):
         return result
 
     monkeypatch.setattr(dispatch_layer, "trigger_with_recovery_retries", fake_trigger)
-    outcome = engine.dispatch(
-        project="yoke", repo="acme/widgets", workflow="sel.yml", branch="PRJ-7",
-        head_sha="a" * 40, base_sha="b" * 40, pytest_args=["-q", "-k", "x y"],
-        dispatch_id="watch-pytest:a:1", timeout_seconds=60,
+    options = dict(
+        project="yoke",
+        repo="acme/widgets",
+        workflow="sel.yml",
+        branch="PRJ-7",
+        head_sha="a" * 40,
+        base_sha="b" * 40,
+        pytest_args=["-q", "-k", "x y"],
+        dispatch_id="watch-pytest:a:1",
+        timeout_seconds=60,
     )
+    outcome = engine.dispatch(**{**options, **overrides})
     return outcome, seen
 
 
 def test_dispatch_carries_the_selection_inputs_and_correlation(monkeypatch) -> None:
     outcome, seen = _dispatch(
-        monkeypatch, _completed("42\n", WORKFLOW_DISPATCH_DISPATCHED_MARKER),
+        monkeypatch,
+        _completed("42\n", WORKFLOW_DISPATCH_DISPATCHED_MARKER),
     )
 
     assert outcome == ("42", engine.DISPATCHED)
@@ -129,20 +158,44 @@ def test_dispatch_carries_the_selection_inputs_and_correlation(monkeypatch) -> N
     assert f"base_sha={'b' * 40}" in args
     assert f"head_sha={'a' * 40}" in args
     assert "pytest_args=-q -k 'x y'" in args
-    assert args[args.index("--request-id") + 1] == "watch-pytest:a:1"
+    assert re.fullmatch(
+        r"watch-pytest:a:1:dispatch:[0-9a-f]{64}",
+        args[args.index("--request-id") + 1],
+    )
     assert args[args.index("--correlation-input") + 1] == "yoke_dispatch_id"
+
+
+def test_selection_identity_repeats_only_for_the_same_effective_inputs(
+    monkeypatch,
+) -> None:
+    result = _completed("42\n", WORKFLOW_DISPATCH_DISPATCHED_MARKER)
+    keys = []
+    for overrides in (
+        {},
+        {},
+        {"pytest_args": ["-q", "-k", "other"]},
+        {"base_sha": "c" * 40},
+    ):
+        _, seen = _dispatch(monkeypatch, result, **overrides)
+        args = seen["args"]
+        keys.append(args[args.index("--request-id") + 1])
+
+    assert keys[0] == keys[1]
+    assert len({keys[0], keys[2], keys[3]}) == 3
 
 
 def test_recovered_dispatch_is_a_rejoin(monkeypatch) -> None:
     outcome, _ = _dispatch(
-        monkeypatch, _completed("42\n", WORKFLOW_DISPATCH_RECOVERED_MARKER),
+        monkeypatch,
+        _completed("42\n", WORKFLOW_DISPATCH_RECOVERED_MARKER),
     )
     assert outcome == ("42", engine.REJOINED)
 
 
 def test_refused_dispatch_names_the_detail_and_the_opt_out(monkeypatch, capsys) -> None:
     outcome, _ = _dispatch(
-        monkeypatch, _completed("", "workflow not found on ref", returncode=1),
+        monkeypatch,
+        _completed("", "workflow not found on ref", returncode=1),
     )
 
     assert outcome is None
@@ -155,11 +208,15 @@ def test_await_conclusion_reads_the_poll(monkeypatch, capsys) -> None:
     from yoke_core.domain import deploy_pipeline_reporting
 
     monkeypatch.setattr(
-        deploy_pipeline_reporting, "_poll_github_actions",
+        deploy_pipeline_reporting,
+        "_poll_github_actions",
         lambda *a, **k: (1, "Run failed: failure\nsee log"),
     )
     conclusion = engine.await_conclusion(
-        project="yoke", repo="acme/widgets", run_id="42", timeout_seconds=5,
+        project="yoke",
+        repo="acme/widgets",
+        run_id="42",
+        timeout_seconds=5,
     )
 
     assert conclusion == "failure"
@@ -174,11 +231,28 @@ def test_main_splits_pytest_args_after_the_separator(monkeypatch) -> None:
         return 0
 
     monkeypatch.setattr(engine, "run", fake_run)
-    code = engine.main([
-        "--root", "/tmp/lane", "--project", "yoke", "--workflow", "sel.yml",
-        "--repo", "acme/widgets", "--branch", "PRJ-7", "--head-sha", "a" * 40,
-        "--dispatch-id", "d", "--", "-q", "-k", "x",
-    ])
+    code = engine.main(
+        [
+            "--root",
+            "/tmp/lane",
+            "--project",
+            "yoke",
+            "--workflow",
+            "sel.yml",
+            "--repo",
+            "acme/widgets",
+            "--branch",
+            "PRJ-7",
+            "--head-sha",
+            "a" * 40,
+            "--dispatch-id",
+            "d",
+            "--",
+            "-q",
+            "-k",
+            "x",
+        ]
+    )
 
     assert code == 0
     assert seen["pytest_args"] == ["-q", "-k", "x"]
@@ -215,7 +289,10 @@ class TestFailureDetail:
 
     def test_advisory_only_output_says_there_was_no_diagnostic(self) -> None:
         result = subprocess.CompletedProcess(
-            args=[], returncode=1, stdout="", stderr="yoke: a hint\n",
+            args=[],
+            returncode=1,
+            stdout="",
+            stderr="yoke: a hint\n",
         )
 
         assert "no diagnostic" in engine.failure_detail(result)

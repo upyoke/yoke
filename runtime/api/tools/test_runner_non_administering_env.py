@@ -17,6 +17,8 @@ from pathlib import Path
 from yoke_contracts.machine_config import runtime as machine_config_runtime
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 from yoke_core.domain.verification_tree_binding import TreeBindingVerdict
+from yoke_core.domain import source_python_environment
+from yoke_core.domain.qa_environment_declaration import TestEnvironmentDeclaration
 from yoke_core.tools import gate_admission, run_tests, watch_pytest
 from yoke_core.tools._impacted_selection import Selection
 
@@ -88,6 +90,13 @@ def test_impacted_selection_collects_under_prod_flagged_ambient_env(
     monkeypatch.setenv(machine_config_runtime.CONFIG_FILE_ENV, str(config))
     monkeypatch.setenv(ENV_OVERRIDE, SERVED_ENV)
     checkout = Path(__file__).resolve().parents[3]
+    # This synthetic connection tests collection/schema isolation, not a live
+    # capability relay. Keep the real locked-environment and collection checks.
+    monkeypatch.setattr(
+        source_python_environment,
+        "load_declaration",
+        lambda **_kwargs: TestEnvironmentDeclaration(project="yoke"),
+    )
     selected = "runtime/api/domain/test_schema_authority.py"
     monkeypatch.setattr(watch_pytest, "_impacted_tree", lambda: checkout)
     monkeypatch.setattr(

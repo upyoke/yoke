@@ -104,23 +104,31 @@ def test_core_topic_includes_dependency_wrappers() -> None:
     assert "yoke items dependency remove" not in body
 
 
-def test_every_role_packet_teaches_worktree_source_pythonpath() -> None:
+def test_every_role_packet_teaches_locked_worktree_source_verification() -> None:
     body = sac.render_topic_packet("core", detail=PACKET_DETAIL_FULL)
     for token in (
         "Verify Python imports/tests against linked worktree source",
-        "uv run --frozen",
+        "yoke dev import-check yoke_core",
+        "yoke dev run -- yoke watch pytest --local --",
         "<project-test-path>",
-        "yoke_core.__file__",
-        "python3 -m yoke_core.tools.watch_pytest",
-        "python3 -m yoke_core.domain.agents_render",
-        "externally-managed Python",
+        "declared locked .venv",
+        "QA extras/groups",
+        "Python identity and source origins",
+        "uv sync --locked",
+        "Checks never rewrite locks or borrow main dependencies",
+        "installed control-plane commands keep the installed interpreter",
     ):
         assert token in body
+    assert "python3 -m yoke_core.tools.watch_pytest" not in body
 
     for role in seed.ROLE_TOPICS:
         role_body = sac.render_role_packet(role, detail=PACKET_DETAIL_FULL)
         assert "Verify Python imports/tests against linked worktree source" in role_body
-        assert "yoke_core.__file__" in role_body
+        assert "yoke dev import-check yoke_core" in role_body
+        assert "yoke dev run -- yoke watch pytest --local --" in role_body
+        assert "declared locked .venv" in role_body
+        assert "Python identity and source origins" in role_body
+        assert "python3 -m yoke_core.tools.watch_pytest" not in role_body
 
 
 def test_main_packet_includes_learning_log_and_deployment_runs() -> None:

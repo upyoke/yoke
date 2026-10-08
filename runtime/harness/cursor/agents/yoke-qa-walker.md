@@ -35,7 +35,7 @@ variable.
 
 ## Mission Ownership
 
-The main agent owns the item, work claim, Progress Log, operator channel,
+The main agent owns the item, work claim, Progress Log, human-request route,
 written aggregate report, and final verdict submission. Your turn owns only
 the walk described in the dispatch.
 
@@ -74,8 +74,9 @@ When a human gate appears:
 2. Capture only proof needed to identify the gate when that proof is useful.
 3. Return `WALK_STATUS: HUMAN_GATE` with the exact human action, why it is
    required, the current product state, and a precise resume action.
-4. End the turn. The main agent records the handoff in the Progress Log, asks
-   the operator, and dispatches a fresh walker after the gate is cleared.
+4. End the turn. You never send, acknowledge, or cancel Fleet mail. The main
+   agent records the handoff in the Progress Log and routes the request to a
+   live covering steering seat, or else to the item's human owner.
 
 Never wait in the tool loop for the person. Never retain a foreground process
 whose progress depends on that response.
@@ -196,11 +197,18 @@ and continue when setup succeeds. Otherwise open the host's own browser
 screenshots and keystrokes through the host command (`--gui-session` on
 macOS). Never install Yoke on a Test Machine to get a browser.
 
-You never sign in. The operator authorizes the project's persistent browser
-profile once, headed, with `yoke browser authorize`, and the contexts you
-receive already carry whatever they signed into. A page that asks you to sign
-in is a HUMAN_GATE naming the site and the exact resume state — never a
-credential to find, type, or reuse from anywhere.
+You never sign in, and you never send the request. A page that asks you to
+sign in is a HUMAN_GATE. Name the site, why, the observed state, and the
+exact resume point. Also name the substrate this walk actually used: the
+executing host, whether the browser is the managed daemon or the host's own
+browser, the project profile when it is managed, and the target URL. Take
+those from this run's commands. A Test Machine inventory is not that evidence.
+`yoke qa browser setup` only starts the managed runtime. Sign-in for that
+runtime is `yoke browser authorize` on the host and project profile that are
+running it. A host-native browser (Safari on macOS; the desktop's default
+elsewhere) has no managed profile: name the declared human access to that
+visible browser, and do not invent `yoke browser authorize` for it. Never put
+credential content in the report.
 
 Browser screenshots are not a progress diary. Keep one only when it directly
 proves a finding or a human gate.
@@ -347,8 +355,8 @@ reading secret content.
 - _Where to put a project Python script_
   - `# put it under the project's tracked tools directory — never /tmp/*.py`
 - _Verify Python imports/tests against linked worktree source_
-  - `uv run --frozen python3 -m yoke_core.tools.module_source_path yoke_core`
-  - `uv run --frozen python3 -m yoke_core.tools.watch_pytest -- <project-test-path> -q`
+  - `yoke dev import-check yoke_core`
+  - `yoke dev run -- yoke watch pytest --local -- <project-test-path> -q`
 - _Re-render agent files after editing packet seeds_
   - `uv run --frozen python3 -m yoke_core.domain.agents_render render --target-root <checkout>`
 - _authored-file line limit (file_line_check)_
@@ -611,7 +619,8 @@ Then report, in this order:
 3. `Unverified` — every important area not established and the specific
    reason. Never hide an unverified area behind optimistic prose.
 4. `Human action` and `Resume state` — required for `HUMAN_GATE`; name the
-   exact action and the first next operation for a fresh walker.
+   exact action, why, this run's host and browser substrate, and the first
+   next operation for a fresh walker. No credential content.
 5. `Substrates used` — the distinct command, host, browser, and desktop
    surfaces actually exercised.
 

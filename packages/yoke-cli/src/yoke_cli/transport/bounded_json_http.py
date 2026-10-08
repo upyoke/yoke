@@ -22,6 +22,7 @@ from yoke_cli.transport.bounded_http_open_policy import (
     open_bounded_request,
     require_requested_final_url,
 )
+from yoke_cli.transport.https_relay_outcome import certificate_diagnostic
 from yoke_cli.transport.json_error_safety import (
     decode_error_payload,
     error_detail,
@@ -187,10 +188,12 @@ def request_json(
         urllib.error.URLError,
         http.client.HTTPException,
         OSError,
-    ):
-        raise BoundedJsonHttpNetworkError(
-            "JSON request endpoint is unreachable"
-        ) from None
+    ) as exc:
+        certificate = certificate_diagnostic(exc, sensitive_values=secrets)
+        detail = "JSON request endpoint is unreachable"
+        if certificate is not None:
+            detail = " ".join(certificate)
+        raise BoundedJsonHttpNetworkError(detail) from None
 
     if status < 200 or status >= 300:
         raise BoundedJsonHttpStatusError(

@@ -215,7 +215,7 @@ yoke github connect
 yoke github status
 ```
 
-Machine authorization, App installation, and project binding are separate.
+Machine authorization, App installation, and project binding are separate; after browser repo creation, Check repositories first.
 [GitHub Connection Layers](github-connections.md) explains their storage,
 permissions, local overrides, and disconnect/unbind/revoke operations.
 

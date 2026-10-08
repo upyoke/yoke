@@ -180,3 +180,46 @@ def test_digest_does_not_remember_inventory_or_suppressed_idle_rows():
     assert {row.section for row in shown_rows(before, digest=True).values()} == {
         "landed_open"
     }
+
+
+@pytest.mark.parametrize("section", ["deployment_runs", "landed_open"])
+def test_project_rows_do_not_disappear_when_actionable_seats_reorder(section):
+    row = {"run_id": "run-one"} if section == "deployment_runs" else HOLDER
+    seats = [
+        {"descriptor": name, "project_id": 1, section: [row]}
+        for name in ("project · a", "project · b")
+    ]
+    before = {"scopes": seats}
+    after = {"scopes": list(reversed(seats))}
+    assert len(shown_rows(before, digest=True)) == 1
+    assert removed(before, after) == []
+    assert (
+        len(
+            removed(
+                before, {"scopes": [{**seat, section: []} for seat in reversed(seats)]}
+            )
+        )
+        == 1
+    )
+
+
+def test_project_landed_union_is_capped_once_and_covered_runs_are_suppressed():
+    seats = [
+        {
+            "descriptor": "project · b",
+            "project_id": 1,
+            "deployment_runs": [{"run_id": "run-one"}],
+            "landed_open": [{**HOLDER, "custody_run_id": "run-one"}],
+        },
+        {
+            "descriptor": "project · a",
+            "project_id": 1,
+            "landed_open": [
+                {**HOLDER, "public_ref": f"candidate-{i}"}
+                for i in range(SECTION_LIMIT + 1)
+            ],
+        },
+    ]
+    rows = shown_rows({"scopes": seats}, digest=True)
+    assert len(rows) == SECTION_LIMIT + 1
+    assert all(row.subject != REF for row in rows.values())

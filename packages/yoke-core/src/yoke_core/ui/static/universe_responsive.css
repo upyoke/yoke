@@ -12,10 +12,12 @@
 }
 /* The header wraps rather than running off the side. It only ever wraps
    when its own parts do not fit, so a full-width desktop header is still
-   one row. */
+   one row. Vertical padding keeps the last wrapped row off the divider;
+   the shared minimum height alone only gives a single row that space. */
 .universe-app-root .topbar {
   flex-wrap: wrap;
   row-gap: 7px;
+  padding-block: 8px;
 }
 .universe-app-root .context-side {
   min-width: 0;

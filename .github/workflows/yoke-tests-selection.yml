@@ -184,8 +184,11 @@ jobs:
 
       - name: Start Postgres (durability off, dynamic host port)
         run: |
+          socket_dir="$(mktemp -d /tmp/yoke-ci-pg.XXXXXX)"
+          echo "YOKE_PG_SOCKET_DIR=${socket_dir}" >> "$GITHUB_ENV"
           docker run -d \
             --name "$PG_CONTAINER" \
+            -v "${socket_dir}:/var/run/postgresql" \
             -e POSTGRES_USER=yoke \
             -e POSTGRES_PASSWORD=yoke \
             -e POSTGRES_DB=postgres \
@@ -242,4 +245,6 @@ jobs:
 
       - name: Stop Postgres
         if: always()
-        run: docker rm -f "$PG_CONTAINER" || true
+        run: |
+          docker rm -f "$PG_CONTAINER" || true
+          if [ -n "${YOKE_PG_SOCKET_DIR:-}" ]; then sudo rm -rf -- "$YOKE_PG_SOCKET_DIR"; fi

@@ -56,6 +56,19 @@ the declared commands find the code they converge with. A non-Python schema
 source is digested byte for byte; a Python one by its syntax tree, so comments
 and docstrings do not invalidate coverage.
 
+Fleet copy admission is automatic at the shared rehearsal kernel: an exclusive
+OS file lock identifies the physical local cluster and disposable database name.
+It refuses immediately with `rehearsal_copy_busy`, holder diagnostics and a retry
+after the holder finishes; the refused runner neither copies nor cleans up.
+Admission covers dump, restore, the entire pending-history batch, invariants or
+diagnostic callbacks, connection close and cleanup. Transfer and declared-command
+children retain admission if their parent dies, until the children stop. Stable
+lock files are retained; metadata is diagnostic and never decides ownership.
+Distinct clusters and copy names proceed independently. This protects callers of
+the kernel, including `yoke watch preflight`, not manual/ad hoc database operations.
+The persistent `yoke migration rehearse ITEM` validation database and its existing
+migration-territory claim remain reusable and unchanged.
+
 ## Preflight
 
 ```bash

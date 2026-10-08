@@ -44,6 +44,9 @@ by naming the next one.
 
 ## Invariants — these bind at every phase
 
+Follow any `handoff.reason=level_change` returned by a transition or merge
+through the [harness-neutral worker rule](../../../../.yoke/docs/reference/session-level-routing.md#stage-level-handoff).
+
 - Treat the stored instruction as the complete requested scope.
 - Obey the `# Workflow Execution Instructions` operator block at the top of
   fetched item content; it layers on top of, and never replaces, the item's own
