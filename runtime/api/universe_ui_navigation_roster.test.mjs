@@ -26,6 +26,7 @@ test("navigation is three groups, and every entry declares one", () => {
       ["machine-approval", "Connect your machine", "none", "focus"],
 
       ["organization", "Universe", "none", "settings"],
+      ["levels", "Levels", "none", "settings"],
       ["workflows", "Workflows", "none", "settings"],
       ["projects", "Projects", "none", "settings"],
       ["github", "GitHub", "multi", "settings"],

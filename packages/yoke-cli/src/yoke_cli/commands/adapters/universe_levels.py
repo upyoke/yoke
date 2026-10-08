@@ -1,4 +1,4 @@
-"""``yoke universe levels get|set`` — the universe execution levels."""
+"""``yoke universe levels get|set`` and ``yoke universe level-capacity get``."""
 
 from __future__ import annotations
 
@@ -18,7 +18,9 @@ from yoke_contracts.api.function_call import TargetRef
 
 GET_FUNCTION_ID = "universe.levels.get"
 SET_FUNCTION_ID = "universe.levels.set"
+CAPACITY_FUNCTION_ID = "universe.level_capacity.get"
 GET_USAGE = "yoke universe levels get [--session-id S] [--json]"
+CAPACITY_USAGE = "yoke universe level-capacity get [--session-id S] [--json]"
 SET_USAGE = "yoke universe levels set --stdin [--session-id S] [--json]"
 
 _SOURCE_LINES = {
@@ -83,6 +85,97 @@ def universe_levels_get(args: List[str]) -> int:
     )
 
 
+def _pool_text(pool: Mapping[str, Any]) -> str:
+    headroom = pool.get("headroom")
+    left = pool.get("left")
+    return (
+        f"{pool.get('label')} "
+        f"(headroom {'unreadable' if headroom is None else f'{headroom}%'}, "
+        f"{'unreadable' if left is None else f'{left}%'} left)"
+    )
+
+
+def _blocker_text(blocker: Mapping[str, Any]) -> str:
+    if blocker.get("kind") == "no_machine":
+        return f"no usable machine offers {blocker.get('surface')}"
+    return f"{blocker.get('label')} 0% left"
+
+
+def write_capacity(result: Mapping[str, Any], stdout: TextIO) -> None:
+    """Print each level's launch standing, then the project overrides."""
+    workers = result.get("live_workers") or {}
+    stdout.write(
+        f"capacity read {result.get('read_at')} · "
+        f"{result.get('usable_machines')} usable machine(s) · live workers "
+        + " · ".join(f"{surface} {count}" for surface, count in workers.items())
+        + "\n"
+    )
+    for level in result.get("levels") or []:
+        stdout.write(f"{level.get('glyph') or ' '} {level.get('name')}\n")
+        nxt = level.get("next_launch")
+        if nxt:
+            stdout.write(
+                f"  next launch -> {nxt.get('surface')} {nxt.get('model')} "
+                f"(option {int(nxt.get('option_index', 0)) + 1}): {nxt.get('reason')}\n"
+            )
+        else:
+            stdout.write("  NO CAPACITY: a launch at this level refuses\n")
+        for index, option in enumerate(level.get("options") or [], start=1):
+            now = option.get("now") or {}
+            if now.get("state") == "blocked":
+                state = "blocked: " + ", ".join(
+                    _blocker_text(b) for b in now.get("blockers") or []
+                )
+            else:
+                via = f" via {now['via']}" if now.get("via") else ""
+                state = f"can launch{via}"
+            stdout.write(f"  {index}. {_option_line(option)}  [{state}]\n")
+            for pool in option.get("pools") or []:
+                stdout.write(f"     draws on {_pool_text(pool)}\n")
+    for project in result.get("projects") or []:
+        if project.get("override"):
+            changes = "; ".join(
+                f"{name} {change}" for name, change in project.get("changes") or []
+            )
+            stdout.write(
+                f"override: {project.get('project')}: {changes or 'same levels'}\n"
+            )
+
+
+def _write_capacity(response: Any, stdout: TextIO, stderr: TextIO) -> None:
+    del stderr
+    if response.success:
+        write_capacity(response.result or {}, stdout)
+
+
+def universe_levels_capacity(args: List[str]) -> int:
+    """Print what each universe level can launch right now, and why."""
+    parser = argparse.ArgumentParser(
+        prog="yoke universe level-capacity get",
+        description=(
+            "Read each universe level's launch standing: per option the quota "
+            "pools its model draws on, whether it can launch now or which pool "
+            "or machine gap blocks it, and where the next launch at the level "
+            "goes (spread rule, then most headroom; option order breaks ties). "
+            "Also lists projects whose session-routing capability overrides "
+            "the levels."
+        ),
+    )
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(parser, args, CAPACITY_USAGE)
+    if parsed is None:
+        return 2
+    return dispatch_and_emit(
+        function_id=CAPACITY_FUNCTION_ID,
+        target=TargetRef(kind="global"),
+        payload={},
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
+        human_writer=_write_capacity,
+    )
+
+
 def universe_levels_set(args: List[str]) -> int:
     """Store the universe levels from a JSON list on stdin."""
     parser = argparse.ArgumentParser(
@@ -126,12 +219,18 @@ def universe_levels_set(args: List[str]) -> int:
     )
 
 
-USAGE_BY_FUNCTION_ID = {GET_FUNCTION_ID: GET_USAGE, SET_FUNCTION_ID: SET_USAGE}
+USAGE_BY_FUNCTION_ID = {
+    GET_FUNCTION_ID: GET_USAGE,
+    CAPACITY_FUNCTION_ID: CAPACITY_USAGE,
+    SET_FUNCTION_ID: SET_USAGE,
+}
 
 
 __all__ = [
     "USAGE_BY_FUNCTION_ID",
+    "universe_levels_capacity",
     "universe_levels_get",
     "universe_levels_set",
+    "write_capacity",
     "write_levels",
 ]

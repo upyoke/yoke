@@ -212,6 +212,10 @@ UNIVERSE_LEVELS_SUBCOMMAND_REGISTRY = {
         "universe.levels.get",
         universe_levels.universe_levels_get,
     ),
+    ("universe", "level-capacity", "get"): (
+        "universe.level_capacity.get",
+        universe_levels.universe_levels_capacity,
+    ),
     ("universe", "levels", "set"): (
         "universe.levels.set",
         universe_levels.universe_levels_set,

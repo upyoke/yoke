@@ -10,9 +10,6 @@ import {
   labelledFact,
   metricStrip,
 } from "./universe_secondary_primitives.js";
-import {
-  renderProjectLevelSummary,
-} from "./universe_views_project_levels.js";
 
 export function renderProjectsView(context, main, includeRetired = false) {
   const documentNode = context.document;
@@ -150,9 +147,7 @@ export function titleLimitCard(context, scope, effectiveLimit) {
 export function renderProjectView(context, main, scope) {
   const documentNode = context.document;
   const panel = section(documentNode, "Project settings");
-  // The level summary reads the project the route opened, not the remembered
-  // list selection, so opening a second project shows that project's levels.
-  main.replaceChildren(panel, renderProjectLevelSummary(context, scope));
+  main.replaceChildren(panel);
   loadSection(
     context,
     panel,

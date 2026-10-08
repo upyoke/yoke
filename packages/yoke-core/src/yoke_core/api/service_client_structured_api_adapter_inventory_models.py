@@ -51,6 +51,11 @@ MODELS_ADAPTERS: List[AdapterEntry] = [
         notes="Read the universe execution levels, lowest first, and whether they are stored or the shipped default.",
     ),
     _read_entry(
+        function_id="universe.level_capacity.get",
+        cli_invocation="yoke universe level-capacity get",
+        notes="Read what each level can launch now: per option its pools, standing and blocking pool, and where the next launch goes; plus each project's override.",
+    ),
+    _read_entry(
         function_id="universe.levels.set",
         cli_invocation="yoke universe levels set --stdin",
         notes="Replace the universe execution levels; each option is validated against what its surface accepts. Org admin required.",

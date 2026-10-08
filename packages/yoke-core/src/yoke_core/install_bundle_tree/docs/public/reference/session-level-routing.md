@@ -90,8 +90,34 @@ path to correct.
 
 Read what a project actually uses — the override when present, else the
 universe levels — with `yoke projects level-summary get --project NAME`. The
-result names its `source` (`project`, `universe`, or `default`). The Project
-settings screen shows the same read.
+result names its `source` (`project`, `universe`, or `default`).
+
+## Launch capacity per level
+
+Read what each universe level can launch right now with
+`yoke universe level-capacity get [--json]` (`universe.level_capacity.get`).
+For every option it names the quota pools that option's model draws on
+(Claude rolling 5h, weekly all-models and weekly model-specific; Cursor Models
+or Cursor Other Models; Codex weekly), each pool's quota left and headroom,
+and the option's standing:
+
+- **Can launch** — every readable pool it draws on has quota left on a usable
+  machine. A Cursor option whose own pool is exhausted launches its fallback,
+  shown as `via` the fallback model.
+- **Blocked** — a pool it draws on reads 0% left, or no usable machine offers
+  its surface. Each blocker is named. An unreadable or unpublished meter never
+  blocks; it leaves the headroom unknown.
+
+Per level it names the next launch and why: the **spread rule** first (a
+surface above 100% headroom with no live worker gets it), otherwise **most
+headroom** across the option's pools, with option order breaking ties. A level
+with no launchable option has **no capacity**. Usable machines, meters and
+live workers are the union across the universe's live projects. The read also
+lists every project and what its override, if any, changes.
+
+The dashboard's **Settings → Levels** page, directly under Universe, shows
+this read: levels, options, capacity, and project overrides with the override
+command. It is view only; edit levels with the commands above.
 
 ## Glyph contract
 

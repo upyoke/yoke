@@ -78,7 +78,7 @@ the surface API; tier-to-model routing still comes from
 
 ## Execution levels
 
-`yoke universe levels get|set` reads and replaces the universe levels ([execution levels](reference/session-level-routing.md)).
+`yoke universe levels get|set` reads and replaces the universe levels, and `yoke universe level-capacity get` reads what each can launch now and why ([execution levels](reference/session-level-routing.md)).
 
 ## Machine config
 

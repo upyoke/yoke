@@ -85,6 +85,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "test_machine.screenshot": "next-release",
     "test_machine.settings_replace": "next-release",
     "test_machine.verify": "next-release",
+    "universe.level_capacity.get": "next-release",
     "universe.levels.get": "next-release",
     "universe.levels.set": "next-release",
     "workflows.canon_status.list": "next-release",

@@ -95,32 +95,32 @@ def test_the_scan_finds_the_call_sites_it_is_guarding():
     assert len(called) > 40, f"only found {len(called)} call sites"
     assert "items.search.run" in called
     assert "profile.get" in called
-    assert called["projects.level_summary.get"] == {"universe_views_project_levels.js"}
+    assert called["universe.level_capacity.get"] == {"universe_views_levels.js"}
     assert "machine.detail" in called
     assert "overview.module.restore" in called
     assert "ui_preferences.search_history.record" in called
 
 
-def test_missing_level_summary_entry_fails_the_roster_check(monkeypatch):
+def test_missing_level_capacity_entry_fails_the_roster_check(monkeypatch):
     monkeypatch.setattr(
         function_proxy,
         "UI_READ_FUNCTION_ALLOWLIST",
-        function_proxy.UI_READ_FUNCTION_ALLOWLIST - {"projects.level_summary.get"},
+        function_proxy.UI_READ_FUNCTION_ALLOWLIST - {"universe.level_capacity.get"},
     )
-    with pytest.raises(AssertionError, match=r"projects\.level_summary\.get"):
+    with pytest.raises(AssertionError, match=r"universe\.level_capacity\.get"):
         test_every_called_function_is_on_a_roster()
 
 
-def test_level_summary_read_passes_through_the_local_ui_proxy(ui_client, test_db):
+def test_level_capacity_read_passes_through_the_local_ui_proxy(ui_client, test_db):
     response = ui_client.post(
         f"/api/functions/call?token={_TOKEN}",
-        json={"function": "projects.level_summary.get", "payload": {"project": "yoke"}},
+        json={"function": "universe.level_capacity.get", "payload": {}},
     )
     assert response.status_code == 200
     envelope = response.json()
     assert envelope["success"] is True, envelope
     result = envelope["result"]
-    assert (result["source"], result["configured"]) == ("default", False)
+    assert result["source"] == "default"
     assert [level["name"] for level in result["levels"]] == [
         "INTERN",
         "JUNIOR",
@@ -128,3 +128,4 @@ def test_level_summary_read_passes_through_the_local_ui_proxy(ui_client, test_db
         "PRINCIPAL",
     ]
     assert all(level["glyph"] and level["options"] for level in result["levels"])
+    assert any(project["project"] == "yoke" for project in result["projects"])

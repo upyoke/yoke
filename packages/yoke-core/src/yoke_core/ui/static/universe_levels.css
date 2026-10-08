@@ -1,0 +1,156 @@
+/* Settings → Levels. The page borrows the workbench panel, table and pill
+   faces; these rules cover what a level needs beyond them — a numbered head
+   with its glyph, the launch summary under it, and an options table whose
+   cells stack several facts. Its seven columns fit any content pane wider
+   than a phone, so rows become labelled blocks only below 600px. */
+
+.universe-app-root .levels { display: grid; gap: 18px; margin-bottom: 24px; }
+.universe-app-root .levels-view-only {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--yoke-muted);
+}
+.universe-app-root .levels-panel > .panel-body,
+.universe-app-root .levels-overrides-panel > .panel-body { padding: 0; }
+.universe-app-root .panel-body > .levels-read {
+  margin: 0;
+  padding: 13px 15px;
+  font-size: 12px;
+  color: var(--yoke-muted);
+}
+
+.universe-app-root .level { border-top: 1px solid var(--yoke-border); }
+.universe-app-root .level-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 15px 6px;
+}
+.universe-app-root .level-order {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--yoke-surface-2);
+  color: var(--yoke-muted);
+  font: 600 11px/1 var(--yoke-font-mono);
+}
+.universe-app-root .level-glyph { font-size: 21px; line-height: 1; }
+.universe-app-root .level-name { letter-spacing: 0.04em; font-size: 14px; }
+.universe-app-root .level-count {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--yoke-muted);
+}
+.universe-app-root .level-muted { color: var(--yoke-muted); }
+
+.universe-app-root .level-surfaces {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 15px 12px 45px;
+  font-size: 12px;
+}
+.universe-app-root .level-surfaces .pill {
+  font-family: var(--yoke-font-mono);
+  font-weight: 500;
+}
+.universe-app-root .level-next { flex-basis: 100%; color: var(--yoke-ink-2); }
+.universe-app-root .level-exhausted { color: var(--yoke-ink-2); line-height: 1.5; }
+.universe-app-root .level-exhausted .pill {
+  font-family: var(--yoke-font-sans);
+  font-weight: 600;
+}
+.universe-app-root .level-exhausted ul {
+  flex-basis: 100%;
+  margin: 4px 0 0;
+  padding-left: 18px;
+  color: var(--yoke-muted);
+}
+
+.universe-app-root table.level-options { table-layout: fixed; min-width: 680px; }
+.universe-app-root table.level-options th:nth-child(1) { width: 26px; }
+.universe-app-root table.level-options th:nth-child(2) { width: 13%; }
+.universe-app-root table.level-options th:nth-child(3) { width: 25%; }
+.universe-app-root table.level-options th:nth-child(4) { width: 10%; }
+.universe-app-root table.level-options th:nth-child(5) { width: 9%; }
+.universe-app-root table.level-options th:nth-child(6) { width: 20%; }
+.universe-app-root table.level-options td,
+.universe-app-root table.level-overrides td {
+  vertical-align: top;
+  font-size: 12px;
+}
+.universe-app-root table.level-options code,
+.universe-app-root .levels-cli code {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--yoke-ink);
+  font: 11px/1.7 var(--yoke-font-mono);
+  overflow-wrap: anywhere;
+}
+.universe-app-root table.level-options small {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--yoke-muted);
+}
+.universe-app-root table.level-options .level-headroom b {
+  color: var(--yoke-ink);
+  font-weight: 600;
+}
+.universe-app-root table.level-options .level-rank {
+  font: 600 11px var(--yoke-font-mono);
+  color: var(--yoke-muted);
+}
+.universe-app-root table.level-options .level-pools span {
+  display: block;
+  white-space: nowrap;
+}
+.universe-app-root table.level-options .level-pools span + span { margin-top: 3px; }
+.universe-app-root table.level-overrides .pill { margin: 0 8px 4px 0; }
+.universe-app-root .levels-overrides-panel > .panel-body > .levels-cli {
+  margin: 0;
+  padding: 13px 15px;
+  border-top: 1px solid var(--yoke-border);
+  font-size: 12px;
+}
+
+/* A phone shows every fact as a labelled block, without sideways scrolling. */
+@container dashboard-content (max-width: 600px) {
+  .universe-app-root .level-surfaces { padding-left: 15px; }
+  .universe-app-root .levels table,
+  .universe-app-root .levels tbody,
+  .universe-app-root .levels tr,
+  .universe-app-root .levels td {
+    display: block;
+    width: auto;
+    min-width: 0;
+  }
+  .universe-app-root .levels thead { display: none; }
+  .universe-app-root .levels tr {
+    padding: 10px 15px;
+    border-top: 1px solid var(--yoke-border);
+  }
+  .universe-app-root .levels table.items td {
+    position: relative;
+    min-height: 18px;
+    padding: 4px 0 4px 94px;
+    border: 0;
+    white-space: normal;
+  }
+  .universe-app-root .levels table.items td::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 0;
+    top: 6px;
+    width: 84px;
+    color: var(--yoke-muted);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .universe-app-root table.level-options .level-rank { display: none; }
+}

@@ -200,7 +200,7 @@ export interface UniverseAppMount {
  * their content is host-owned: each renders the host's `sections` entry as
  * its body, and its nav entry appears exactly when that section is supplied.
  */
-export type UniverseRouteView = "strategy" | "frontier" | "shipping" | "machines" | "sessions" | "inbox" | "profile" | "organization" | "workflows" | "projects" | "github" | "actors" | "members" | "billing" | "items" | "deployments" | "environments" | "databases" | "qa-methods" | "qa-plans" | "qa-activity" | "capabilities" | "packs" | "architecture" | "messages" | "launches" | "events" | "doctor" | "ouroboros";
+export type UniverseRouteView = "strategy" | "frontier" | "shipping" | "machines" | "sessions" | "inbox" | "profile" | "organization" | "levels" | "workflows" | "projects" | "github" | "actors" | "members" | "billing" | "items" | "deployments" | "environments" | "databases" | "qa-methods" | "qa-plans" | "qa-activity" | "capabilities" | "packs" | "architecture" | "messages" | "launches" | "events" | "doctor" | "ouroboros";
 /**
  * The optional second segment identifies a detail within a destination.
  * Views interpret that identifier, including the workflow being inspected.
