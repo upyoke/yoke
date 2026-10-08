@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
-
 from runtime.api.domain.test_steering_fleet_report_compose import NOW, _report
 from yoke_core.domain.steering_fleet_plan_capacity import PLAN_LIMIT_HEADING
 from yoke_core.domain.steering_fleet_report_capacity import (
@@ -132,23 +129,26 @@ def test_scopes_sharing_a_level_readout_render_it_once_after_machines() -> None:
     assert "live workers: codex-cli 2" in body
 
 
-def test_combined_fingerprint_is_the_per_scope_hashes_not_the_body() -> None:
-    combined = _combined(
-        ScopedFleetReport("alpha", _report(1, NOW, launchable=(_ready("machine-a"),))),
-        ScopedFleetReport("beta", _report(2, NOW, launchable=(_ready("machine-a"),))),
+def test_combined_fingerprint_ignores_sections_the_digest_does_not_show() -> None:
+    """A launchable pair, balance, or plan limit moving is not a new digest."""
+    before = _combined(
+        ScopedFleetReport("alpha", _report(1, NOW, launchable=(_ready("machine-a"),)))
     )
-    encoded = json.dumps(
-        [
-            *[
-                (section.descriptor, section.report.fingerprint())
-                for section in combined.sections
-            ],
-            ("unacked_injected", []),
-        ],
-        separators=(",", ":"),
+    after = _combined(
+        ScopedFleetReport(
+            "alpha",
+            _report(
+                1,
+                NOW,
+                launchable=(_ready("machine-b"),),
+                session_counts=(_count("machine-b", 3),),
+                plan_limits=(_limit("machine-b"),),
+            ),
+        )
     )
-    assert combined.fingerprint() == hashlib.sha256(encoded.encode("utf-8")).hexdigest()
-    assert combined_body(combined) not in encoded
+    assert combined_body(before) != combined_body(after)
+    assert combined_hook_digest(before) == combined_hook_digest(after)
+    assert before.fingerprint() == after.fingerprint()
 
 
 def test_combined_dict_keeps_machine_facts_on_each_scope() -> None:

@@ -92,8 +92,8 @@ def _drive(
         if function_id == PROJECT_POLICY_FUNCTION:
             return _policy()
         if function_id == STEERING_REPORT_FUNCTION:
-            assert payload == {}, (
-                "pull every held document seat, not a first project seat"
+            assert payload == {"deliver": True}, (
+                "pull every held document seat through the shared delivery record"
             )
             return report_queue.pop(0) if report_queue else _report()
         return remaining.pop(0) if remaining else _ok({})

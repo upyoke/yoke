@@ -36,7 +36,8 @@ def test_stages_complete_awaiting_qa_is_a_wait_naming_its_continuation(
     assert "failure" not in outcome
     assert "terminal cause not diagnosed" not in outcome
     assert "blocking QA unresolved" in outcome
-    assert f"re-drive {RUN_ID}" in outcome
+    assert f"yoke deployment-runs get {RUN_ID}" in outcome
+    assert "yoke deployment-runs remove-item --help" in outcome
 
 
 def test_a_final_stage_held_before_it_ran_is_the_same_wait(tmp_path: Path) -> None:
@@ -50,7 +51,8 @@ def test_a_final_stage_held_before_it_ran_is_the_same_wait(tmp_path: Path) -> No
 
     assert "outcome: waiting" in outcome
     assert "final stage held" in outcome
-    assert f"re-drive {RUN_ID}" in outcome
+    assert f"yoke deployment-runs get {RUN_ID}" in outcome
+    assert "yoke deployment-runs remove-item --help" in outcome
 
 
 def test_a_resume_refused_for_skipping_qa_stays_a_failure(tmp_path: Path) -> None:
@@ -74,9 +76,7 @@ def test_another_watch_kind_at_the_same_exit_code_is_not_a_wait(
     capture = _capture(tmp_path, awaiting_qa_report_lines(RUN_ID, [OBLIGATION]))
 
     assert (
-        designed_wait(
-            kind="merge", exit_code=EXIT_AWAITING_QA, raw_capture=capture
-        )
+        designed_wait(kind="merge", exit_code=EXIT_AWAITING_QA, raw_capture=capture)
         is None
     )
 
@@ -85,16 +85,12 @@ def test_a_deploy_failure_exit_is_never_read_as_the_qa_wait(tmp_path: Path) -> N
     """Only the pipeline's own awaiting-QA exit selects the wait reading."""
     capture = _capture(tmp_path, awaiting_qa_report_lines(RUN_ID, [OBLIGATION]))
 
-    assert (
-        designed_wait(kind="deploy", exit_code=1, raw_capture=capture) is None
-    )
+    assert designed_wait(kind="deploy", exit_code=1, raw_capture=capture) is None
 
 
 def test_a_successful_deploy_still_reports_completion(tmp_path: Path) -> None:
     capture = _capture(tmp_path, awaiting_qa_report_lines(RUN_ID, [OBLIGATION]))
 
-    outcome = format_terminal_outcome(
-        kind="deploy", exit_code=0, raw_capture=capture
-    )
+    outcome = format_terminal_outcome(kind="deploy", exit_code=0, raw_capture=capture)
 
     assert "completed successfully" in outcome

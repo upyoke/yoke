@@ -20,6 +20,7 @@ from yoke_core.domain.steering_fleet_report_capacity import SurfaceReadiness
 from yoke_core.domain.steering_fleet_report_deployment_runs import (
     DeploymentRunProgress,
 )
+from yoke_core.domain.steering_fleet_report_project_rows import ProjectRows
 from yoke_core.domain.steering_fleet_report_render_landed import landed_lines
 
 from yoke_core.domain.steering_fleet_report_render_launches import (
@@ -88,7 +89,7 @@ def _holder_lines(holders: tuple[ClaimHolder, ...], *, idle: bool = False) -> li
     return capped(lines, len(holders))
 
 
-def _run_lines(report: FleetReport) -> list[str]:
+def _run_lines(runs: tuple[DeploymentRunProgress, ...]) -> list[str]:
     """One block per live run: where it is, for how long, and what holds it.
 
     Every live run gets a row, not only a troubled one. The seat's question
@@ -97,7 +98,7 @@ def _run_lines(report: FleetReport) -> list[str]:
     which is indistinguishable from the section not working.
     """
     lines: list[str] = []
-    for run in report.deployment_runs[:SECTION_LIMIT]:
+    for run in runs[:SECTION_LIMIT]:
         driver = f"  driver {run.driver_phase}" if run.driver_phase else ""
         lines.append(
             f"  {OVERDUE_MARK if run.needs_action else ' '} {run.run_id}  "
@@ -106,7 +107,7 @@ def _run_lines(report: FleetReport) -> list[str]:
             f"outstanding, {len(run.red)} red"
         )
         lines.extend(f"      {detail}" for detail in run.unresolved)
-        lines.extend(f"      {detail}" for detail in run.wake_lines)
+        lines.extend(f"      {detail}" for detail in run.member_lines)
         lines.extend(f"      {detail}" for detail in run.no_obligation_lines)
         if run.red:
             lines.append(f"      red: {', '.join(r.describe() for r in run.red)}")
@@ -123,7 +124,7 @@ def _run_lines(report: FleetReport) -> list[str]:
             )
         if run.needs_action:
             lines.append(f"      {run.recovery()}")
-    return capped(lines, len(report.deployment_runs))
+    return capped(lines, len(runs))
 
 
 def _stage_age(run: DeploymentRunProgress) -> str:
@@ -171,7 +172,12 @@ def _project_header(report: FleetReport) -> str:
     )
 
 
-def _scope_work_lines(report: FleetReport) -> list[str]:
+def _scope_work_lines(report: FleetReport, shared: ProjectRows) -> list[str]:
+    """Seat sections, with the project-wide ones drawn from ``shared``.
+
+    ``shared`` is empty for every seat after the first of its project, so a
+    run, a launch failure, a landing, or an envelope renders once.
+    """
     idle = minutes(report.idle_after_seconds)
     landed_ids = {entry.item_id for entry in report.landed_open}
     available = available_lines(report)
@@ -212,7 +218,7 @@ def _scope_work_lines(report: FleetReport) -> list[str]:
         *_section(
             "undelivered messages — sent, not yet read, with why each is "
             "waiting, failed, or lost",
-            undelivered_lines(report),
+            undelivered_lines(shared.undelivered),
         ),
         *_section(
             "vendor-stopped sessions — turn ended by the model provider, not "
@@ -222,15 +228,15 @@ def _scope_work_lines(report: FleetReport) -> list[str]:
         *_stranded.stranded_section(report),
         *_section(
             "unregistered launches — launch/session binding absent",
-            unregistered_launch_lines(report.unregistered_launches),
+            unregistered_launch_lines(shared.unregistered_launches),
         ),
         *_section(
             "abandoned launches — mandate delivered, worker never started",
-            abandoned_launch_lines(report.abandoned_launches),
+            abandoned_launch_lines(shared.abandoned_launches),
         ),
         *_section(
             "landed without close-out — branch merged, item still open; each row names which release holds it",
-            landed_lines(report),
+            landed_lines(shared, idle_after_seconds=report.idle_after_seconds),
         ),
         *_section(
             "dead waits — idle holder's last question, and whether an answer "
@@ -240,7 +246,7 @@ def _scope_work_lines(report: FleetReport) -> list[str]:
         *_section(
             f"deployment runs — stage, time there, outstanding blocking QA "
             f"({OVERDUE_MARK} cannot move without a decision)",
-            _run_lines(report),
+            _run_lines(shared.deployment_runs),
         ),
         *_awaiting_seat_lines(report),
         *_section(CLAIMS_HEADING, _holder_lines(unlisted_holders(report))),
@@ -259,9 +265,15 @@ def launchable_line(
     return f"launchable machine/surface pairs: {joined or 'none'}"
 
 
-def scope_actionable_digest(report: FleetReport) -> str:
-    """Quiet detectors and available work only — no live claims or balances."""
-    work = _scope_work_lines(report)
+def scope_actionable_digest(
+    report: FleetReport, shared: ProjectRows | None = None
+) -> str:
+    """Quiet detectors and available work only — no live claims or balances.
+
+    ``shared`` defaults to the report's own project-wide rows; a combined
+    report passes the merged or empty set for each held seat.
+    """
+    work = _scope_work_lines(report, shared or ProjectRows.of(report))
     if work[:1] == ["available: none"]:
         work = work[2:] if work[1:2] == [""] else work[1:]
     claims = _section(CLAIMS_HEADING, _holder_lines(unlisted_holders(report)))
@@ -270,13 +282,13 @@ def scope_actionable_digest(report: FleetReport) -> str:
     return "\n".join(work).strip()
 
 
-def scope_inner_body(report: FleetReport) -> str:
+def scope_inner_body(report: FleetReport, shared: ProjectRows) -> str:
     """Scope facts under a combined heading: no preamble, no shared machine block."""
     return "\n".join(
         [
             _project_header(report),
             "",
-            *_scope_work_lines(report),
+            *_scope_work_lines(report, shared),
             *test_machine_lines(report.test_machines),
             *level_override_lines(report.level_overrides),
             *launch_balance_lines(report, with_capacity=False),
@@ -291,7 +303,7 @@ def report_body(report: FleetReport) -> str:
         _project_header(report),
         REPORT_PREAMBLE,
         "",
-        *_scope_work_lines(report),
+        *_scope_work_lines(report, ProjectRows.of(report)),
         *test_machine_lines(report.test_machines),
         launchable_line(report.launchable, machine_names=dict(report.machine_names)),
         *relay_health_lines(report.relay_health),

@@ -7,6 +7,10 @@ its way and reaches every harness through the delivery plane they all share.
 Nothing here schedules, ticks, or polls. The standing fleet watcher separately
 checks due reports during quiet periods, when timer-only findings can appear.
 
+Both deliver through one record per session — ``last_steering_report_at`` and
+``last_steering_report_fingerprint`` on ``harness_sessions`` — so a report
+the hook attached is not printed again by the watcher, and the reverse.
+
 Two gates keep that ride cheap and quiet. Composition is real work — it ranks
 the project's schedule — so it happens at most once per interval per steering
 session. A composed report is only attached when the picture changed since
@@ -200,6 +204,38 @@ def confirm_steering_report_delivery(
     )
 
 
+def record_report_delivery(
+    conn: Any, *, session_id: str, fingerprint: str, now: str
+) -> bool:
+    """Stamp a report onto this session's record unless it already carries it.
+
+    The fleet watcher's half of the shared record. True means this caller is
+    the first to deliver this content and should show it; False means the
+    session already received it, from the hook or an earlier watcher pass.
+    Compare-and-set suppresses a later watcher once delivery is recorded.
+    A narrow race remains: a hook can render its provisional candidate before
+    either writer records it, while a watcher records and prints that same
+    content before hook settlement. The interval CAS then rejects the hook's
+    stamp, but cannot retract its rendered reply. This can duplicate one report;
+    the shared fingerprint suppresses subsequent deliveries. Different-content
+    candidates can similarly race; this record is not a rendering lock.
+    """
+    marker = _p(conn)
+    cursor = conn.execute(
+        "UPDATE harness_sessions SET last_steering_report_at = "
+        + marker
+        + ", last_steering_report_fingerprint = "
+        + marker
+        + " WHERE session_id = "
+        + marker
+        + " AND COALESCE(last_steering_report_fingerprint, '') <> "
+        + marker,
+        (now, fingerprint, session_id, fingerprint),
+    )
+    conn.commit()
+    return cursor.rowcount == 1
+
+
 def steering_report_for_delivery(
     conn: Any,
     *,
@@ -223,6 +259,7 @@ def steering_report_for_delivery(
 __all__ = [
     "SteeringReportCandidate",
     "confirm_steering_report_delivery",
+    "record_report_delivery",
     "steered_project_id",
     "steering_report_candidate",
     "steering_report_for_delivery",

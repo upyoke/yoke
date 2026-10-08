@@ -93,12 +93,8 @@ def _blocked(reasons: list[str], failures: tuple[CaseFailure, ...]) -> dict[str,
             *reasons,
             f"this stage cannot finish as it stands: {len(red)} scoped case(s) "
             f"hold a determinate failing verdict ({named}).",
-            "Settle or waive each one through its registered QA surface, then "
-            "re-drive the run. At independent item QA, use `yoke deployment-runs "
-            "remove-item RUN ITEM --reason R` to let the run finish while a red "
-            "member rides the next release (depth: `remove-item --help`); settlement "
-            "automatically releases members whose current candidate is outside "
-            "the frozen lineage.",
+            "Read `yoke deployment-runs get RUN` and "
+            "`yoke deployment-runs remove-item --help` for recovery.",
         ],
         failures=failures,
     )

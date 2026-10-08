@@ -50,6 +50,9 @@ class QaStageOutstanding:
 
     ``waiting_members`` names each subject still owed QA: a member item id on
     an item-scoped stage, ``None`` for the run itself on a run-scoped one.
+    ``blocker_counts`` is parallel to it: how many wait lines each subject
+    contributed, so a report can show one counted line per member instead
+    of every line.
     """
 
     lines: tuple[str, ...]
@@ -57,6 +60,7 @@ class QaStageOutstanding:
     waiting: int
     waiting_members: tuple[int | None, ...] = ()
     no_obligation_lines: tuple[str, ...] = ()
+    blocker_counts: tuple[int, ...] = ()
 
 
 def qa_stage_outstanding(
@@ -206,6 +210,7 @@ def _evaluate(
         )
     lines: list[str] = []
     waiting_members: list[int | None] = []
+    blocker_counts: list[int] = []
     no_obligation_lines: list[str] = []
     for member in members:
         member_lines, notes = _member_lines(
@@ -214,6 +219,7 @@ def _evaluate(
         no_obligation_lines.extend(notes)
         if member_lines:
             waiting_members.append(member)
+            blocker_counts.append(len(member_lines))
             lines.extend(member_lines)
     return QaStageOutstanding(
         lines=tuple(lines),
@@ -221,6 +227,7 @@ def _evaluate(
         waiting=len(waiting_members),
         waiting_members=tuple(waiting_members),
         no_obligation_lines=tuple(no_obligation_lines),
+        blocker_counts=tuple(blocker_counts),
     )
 
 

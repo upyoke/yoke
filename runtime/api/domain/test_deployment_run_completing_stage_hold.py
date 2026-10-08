@@ -126,4 +126,5 @@ class TestRunCompletingStageHold:
         assert "stages complete" not in "\n".join(lines)
         assert "succeeded" not in "\n".join(lines)
         assert "stays pending" in lines[0]
-        assert "re-drive run-1" in lines[-1]
+        assert "yoke deployment-runs get run-1" in lines[-1]
+        assert "yoke deployment-runs remove-item --help" in lines[-1]

@@ -16,9 +16,11 @@ and stops, because there is no route to suggest and nothing to revive.
 
 from __future__ import annotations
 
+from typing import Sequence
+
 from yoke_contracts.session_control.evidence_fetch import evidence_pull_suffix
 from yoke_core.domain.session_message_ended_recipient import cancel_recovery
-from yoke_core.domain.steering_fleet_report import FleetReport, UndeliveredMessages
+from yoke_core.domain.steering_fleet_report import UndeliveredMessages
 from yoke_core.domain.steering_fleet_report_render_text import (
     SECTION_LIMIT,
     capped,
@@ -168,9 +170,9 @@ def undelivered_line(entry: UndeliveredMessages) -> str:
     )
 
 
-def undelivered_lines(report: FleetReport) -> list[str]:
-    lines = [undelivered_line(entry) for entry in report.undelivered[:SECTION_LIMIT]]
-    return capped(lines, len(report.undelivered))
+def undelivered_lines(entries: Sequence[UndeliveredMessages]) -> list[str]:
+    lines = [undelivered_line(entry) for entry in entries[:SECTION_LIMIT]]
+    return capped(lines, len(entries))
 
 
 __all__ = ["undelivered_line", "undelivered_lines"]

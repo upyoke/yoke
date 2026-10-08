@@ -295,7 +295,9 @@ class TestPipelineWaitingReport:
         assert "2 blocking QA" in lines[0]
         assert lines[1] == "  - check 'smoke-test' is pending"
         assert lines[2] == "  - requirement #7 (smoke): no passing run"
-        assert "run finishes automatically" in lines[3]
+        assert "run finishes by itself" in lines[3]
+        assert "yoke deployment-runs get run-20260909-001" in lines[3]
+        assert "yoke deployment-runs remove-item --help" in lines[3]
 
     def test_report_does_not_claim_the_deploy_succeeded(self):
         lines = precond.awaiting_qa_report_lines("run-1", ["check 'x' is failed"])

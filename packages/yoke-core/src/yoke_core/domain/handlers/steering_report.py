@@ -19,7 +19,15 @@ from yoke_contracts.api.function_call import (
 
 
 class SteeringReportGetRequest(BaseModel):
-    """Read the fleet report for the scopes this caller steers."""
+    """Read the fleet report for the scopes this caller steers.
+
+    ``deliver`` marks a caller that will show the combined report to the
+    session, as the fleet watcher does. The reply's ``delivered`` then says
+    whether this content is new to the session's shared delivery record —
+    the one the hook stamps too — so the session sees each report once.
+    """
+
+    deliver: bool = False
 
 
 class SteeringReportGetResponse(BaseModel):
@@ -28,6 +36,7 @@ class SteeringReportGetResponse(BaseModel):
     idle_after_seconds: int = 0
     actionable: bool = False
     fingerprint: str = ""
+    delivered: Optional[bool] = None
     body: str = ""
     project_id: Optional[int] = None
     available: List[Dict[str, Any]] = Field(default_factory=list)
@@ -78,7 +87,7 @@ def _claim_required(project_id: int | None) -> HandlerOutcome:
 def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
     """Compose held-scope reports, or one scope when --project is set."""
     try:
-        SteeringReportGetRequest.model_validate(request.payload or {})
+        payload = SteeringReportGetRequest.model_validate(request.payload or {})
     except ValidationError as exc:
         return _error("payload_invalid", f"report payload invalid: {exc}")
     session_id = request.actor.session_id
@@ -121,7 +130,19 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
             return HandlerOutcome(
                 result_payload={**report_dict(report), "body": report_body(report)}
             )
-        return HandlerOutcome(result_payload=combined_dict(combined))
+        result = combined_dict(combined)
+        if payload.deliver:
+            from yoke_core.domain.steering_fleet_report_delivery import (
+                record_report_delivery,
+            )
+
+            result["delivered"] = record_report_delivery(
+                conn,
+                session_id=session_id,
+                fingerprint=str(result["fingerprint"]),
+                now=combined.composed_at,
+            )
+        return HandlerOutcome(result_payload=result)
     finally:
         conn.close()
 
