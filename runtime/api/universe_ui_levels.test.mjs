@@ -34,6 +34,10 @@ function canLaunch(pool) {
   };
 }
 
+const SPREAD_REASON =
+  "level JUNIOR: spread rule: no live worker on cursor-cli and headroom " +
+  "998% (Cursor Models) above 100%; chose cursor-cli grok-4.7-high high on m1";
+
 const CAPACITY = {
   read_at: "2026-10-06T18:43:00Z",
   source: "universe",
@@ -44,11 +48,18 @@ const CAPACITY = {
       name: "JUNIOR",
       glyph: "🐥",
       launchable_surfaces: ["claude-cli", "codex-cli", "cursor-cli"],
-      next_launch: {
-        option_index: 0, surface: "cursor-cli", model: "grok-4.7-high",
-        display_name: "Grok 4.7",
-        reason: "spread rule: no live worker on cursor-cli, 998% headroom",
-      },
+      next_launches: [
+        {
+          project: "yoke", launchable: true, code: "selected", option_index: 0,
+          fallback: false, surface: "cursor-cli", model: "grok-4.7-high",
+          display_name: "Grok 4.7", machine_id: "m1", rule: "spread",
+          reason: SPREAD_REASON,
+        },
+        {
+          project: "buzz", launchable: false, code: "level_unknown",
+          reason: "Level 'JUNIOR' is not defined",
+        },
+      ],
       options: [
         option(
           "cursor-cli", "grok-4.7-high", "Grok 4.7", "high", null,
@@ -70,7 +81,12 @@ const CAPACITY = {
       name: "PRINCIPAL",
       glyph: "🦅",
       launchable_surfaces: [],
-      next_launch: null,
+      next_launches: [
+        {
+          project: "yoke", launchable: false, code: "level_no_capacity",
+          reason: "No PRINCIPAL option has capacity",
+        },
+      ],
       options: [
         option(
           "codex-cli", "gpt-6-astra", "GPT-6 Astra", "xhigh", null,
@@ -152,7 +168,7 @@ test("the read line names capacity time, machines and live workers", async (t) =
   assert.ok(visibleText(root, "\n").includes("View only"));
 });
 
-test("a launchable level names its surfaces, next launch and reason", async (t) => {
+test("a launchable level names its surfaces and each project's next launch", async (t) => {
   const root = await mount(t, "/levels", client());
   const junior = level(root, "JUNIOR");
   const text = visibleText(junior, " ");
@@ -162,11 +178,11 @@ test("a launchable level names its surfaces, next launch and reason", async (t) 
     byClass(junior, "pill").slice(0, 3).map((p) => p.textContent),
     ["claude-cli", "codex-cli", "cursor-cli"],
   );
-  assert.equal(
-    visibleText(byClass(junior, "level-next")[0], ""),
-    "Next launch → cursor-cli · Grok 4.7 (option 1): spread rule: no live " +
-      "worker on cursor-cli, 998% headroom",
-  );
+  const next = byClass(junior, "level-next").map((line) => visibleText(line, ""));
+  assert.deepEqual(next, [
+    `Next launch in yoke → cursor-cli · Grok 4.7 (option 1) on m1: ${SPREAD_REASON}`,
+    "Next launch in buzz → Refused level_unknown: Level 'JUNIOR' is not defined",
+  ]);
   assert.ok(text.includes("Cursor Models exhausted →"));
   assert.ok(text.includes("claude-opus-5-5-medium"));
   assert.ok(text.includes("high / medium"));
@@ -174,7 +190,7 @@ test("a launchable level names its surfaces, next launch and reason", async (t) 
   assert.ok(text.includes("Cursor Other Models"));
   assert.ok(text.includes("1M"));
   const now = byClass(junior, "level-now");
-  assert.equal(byClass(now[0], "pill")[0].textContent, "Next launch");
+  assert.equal(byClass(now[0], "pill")[0].textContent, "Can launch");
   assert.equal(byClass(now[1], "pill")[0].textContent, "Can launch");
   assert.equal(
     visibleText(byClass(now[1], "level-headroom")[0], ""),
@@ -193,6 +209,10 @@ test("a level with no capacity names each option's blocking pool", async (t) => 
   const now = byClass(principal, "level-now")[0];
   assert.equal(byClass(now, "pill")[0].textContent, "Blocked");
   assert.ok(visibleText(now, " ").includes("Codex weekly · 0% left"));
+  assert.equal(
+    visibleText(byClass(principal, "level-next")[0], ""),
+    "Next launch in yoke → Refused level_no_capacity: No PRINCIPAL option has capacity",
+  );
 });
 
 test("project overrides list each project and point at the override command", async (t) => {

@@ -189,9 +189,9 @@ run must satisfy its own admitted item cases and stage acceptance. A failing
 case on that current run still blocks done unless its same-target replacement
 passes and that stage is accepted.
 
-A closed verdict-less item attempt stops blocking terminal settlement when its
+A closed verdict-less item attempt stops blocking terminal settlement when its Within each requirement, only its newest execution counts for settlement and code identity; older attempts never block. Browser reviews use the capture itself, excluding detached agent verdict rows.
 successor has completed passing evidence or is discharged; post-deploy successors need accepted completion-member copies. An unsettled successor
-is named; live runs and active plan executions still block without rewriting history.
+is named; latest live runs and active plan executions still block without rewriting history.
 
 Completion of a target-bound scoped QA execution settles its active stage
 gate on the control plane. The same happens after an agent review bundle is

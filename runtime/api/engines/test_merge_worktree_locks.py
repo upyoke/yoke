@@ -164,11 +164,21 @@ class TestMergeLockIntegration:
     def test_acquire_with_epic(self, mw_db):
         from yoke_core.domain import merge_lock
 
-        handle = merge_lock.acquire("YOK-9999", epic_id="YOK-100", conn=mw_db["conn"])
-        msg = merge_lock.check(mw_db["conn"])
-        assert msg is not None
-        assert "epic: YOK-100" in msg
-        merge_lock.release(handle, conn=mw_db["conn"])
+        conn = mw_db["conn"]
+        conn.execute(
+            "INSERT INTO projects (id, slug, name, public_item_prefix, created_at) "
+            "VALUES (1, 'yoke', 'Yoke', 'YOK', '2025-01-01')"
+        )
+        conn.execute(
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, "
+            "project_id, project_sequence, created_at, updated_at) VALUES (7, 'Epic', "
+            "'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), "
+            "'implementing', 1, 100, '2025-01-01', '2025-01-01')"
+        )
+        handle = merge_lock.acquire("YOK-9999", "YOK-100", conn=conn)
+        assert str(conn.execute("SELECT epic_id FROM merge_locks").fetchone()[0]) == "7"
+        assert "epic: YOK-100" in (merge_lock.check(conn) or "")
+        merge_lock.release(handle, conn=conn)
 
     def test_stale_pid_auto_cleanup(self, mw_db):
         """Locks from dead PIDs are automatically cleaned."""

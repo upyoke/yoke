@@ -40,6 +40,7 @@ WORKFLOW_DEFINITION_VALIDATION_SOURCE_PATHS = frozenset(
 
 #: Tests that publish, follow, merge, or converge canon generations.
 WORKFLOW_CANON_CONSUMER_TESTS = (
+    "runtime/api/test_blitz_release_stage_close.py",
     "runtime/api/domain/test_builtin_workflow_canon_baseline.py",
     "runtime/api/domain/test_builtin_workflow_convergence.py",
     "runtime/api/domain/test_builtin_workflow_history.py",

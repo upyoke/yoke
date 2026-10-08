@@ -4,8 +4,10 @@ Capacity is the union of what every live project can reach: the machines a
 launch could land on per surface (the same eligibility the launch plane
 derives), the quota meters those machines publish, and the live workers per
 surface. :mod:`yoke_core.domain.universe_level_capacity` turns that into each
-level's launch standing. Projects whose ``session-routing`` capability
-carries a levels override are listed with what their override changes.
+level's launch standing, and :mod:`yoke_core.domain.universe_level_next_launch`
+previews, per project, where the caller's next launch at each level goes.
+Projects whose ``session-routing`` capability carries a levels override are
+listed with what their override changes.
 """
 
 from __future__ import annotations
@@ -25,6 +27,7 @@ from yoke_core.domain.steering_fleet_report_capacity import (
 )
 from yoke_core.domain.steering_fleet_report_limits import load_plan_limits
 from yoke_core.domain.universe_level_capacity import Meter, evaluate_level_capacity
+from yoke_core.domain.universe_level_next_launch import Authorize, next_launches
 from yoke_core.domain.universe_levels import effective_levels
 
 
@@ -73,8 +76,9 @@ def _override_changes(override: tuple[Level, ...], universe: tuple[Level, ...]):
     return changes
 
 
-def read_level_capacity(conn: Any) -> dict[str, Any]:
-    """The Levels read: each level's launch standing and the project overrides."""
+def read_level_capacity(conn: Any, *, authorize: Authorize) -> dict[str, Any]:
+    """The Levels read: each level's launch standing, the next launch per
+    project as ``authorize``'s caller would place it, and the overrides."""
     now = _now()
     universe, source = effective_levels(conn, None)
     projects = _projects(conn)
@@ -111,18 +115,28 @@ def read_level_capacity(conn: Any) -> dict[str, Any]:
                 "changes": _override_changes(levels, universe) if overridden else [],
             }
         )
+    display = _display_names(conn)
+    levels = evaluate_level_capacity(
+        universe,
+        meters=tuple(meters.values()),
+        offered=tuple(offered),
+        display=display,
+    )
+    placed = next_launches(
+        conn,
+        universe,
+        [(project_id, slug) for project_id, slug, _ in projects],
+        authorize=authorize,
+        display=display,
+    )
+    for level in levels:
+        level["next_launches"] = placed[level["name"]]
     return {
         "read_at": now,
         "source": source,
         "usable_machines": len({machine for machine, _ in offered}),
         "live_workers": live_workers,
-        "levels": evaluate_level_capacity(
-            universe,
-            meters=tuple(meters.values()),
-            offered=tuple(offered),
-            live_workers=live_workers,
-            display=_display_names(conn),
-        ),
+        "levels": levels,
         "projects": overrides,
     }
 

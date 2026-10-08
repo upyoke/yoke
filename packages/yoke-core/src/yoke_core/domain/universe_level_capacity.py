@@ -3,14 +3,11 @@
 For every level option this evaluates the quota pools that option's model
 actually draws on, on every machine that can launch its surface, and says
 whether it can launch, through which selection (a Cursor option falls back
-only when its own pool is exhausted), and how much headroom it has. Then it
-names where the next launch at that level would go:
-
-- **Spread rule:** a surface above 100% headroom with no live worker gets the
-  launch, so every harness with room stays exercised.
-- **Most headroom** otherwise, across the option's own pools.
-- Option order only breaks ties. A level with no launchable option has no
-  capacity, and each option names the pool or machine gap that blocked it.
+only when its own pool is exhausted), and how much headroom it has. A level
+with no launchable option has no capacity, and each option names the pool or
+machine gap that blocked it. Where the next launch goes is not decided here:
+the launcher's own placement answers that
+(:mod:`yoke_core.domain.universe_level_next_launch`).
 
 Exhaustion is affirmative only: an unreadable or unpublished meter never
 blocks an option, it just leaves its headroom unknown. This module is pure;
@@ -20,7 +17,7 @@ blocks an option, it just leaves its headroom unknown. This module is pure;
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping, Optional, Sequence
+from typing import Any, Callable, Optional, Sequence
 
 from yoke_contracts.levels import Level, LevelOption
 from yoke_contracts.session_control.model_billing_pools import (
@@ -32,9 +29,6 @@ from yoke_contracts.session_control.plan_limits import (
     CLI_PLAN_LIMIT_SURFACES,
 )
 from yoke_core.domain.steering_fleet_plan_capacity import WINDOW_LABELS, scope_label
-
-#: Above this headroom a surface with no live worker takes the next launch.
-SPREAD_HEADROOM_PERCENT = 100.0
 
 SURFACE_VENDORS = {"claude-cli": "Claude", "codex-cli": "Codex", "cursor-cli": "Cursor"}
 
@@ -186,64 +180,14 @@ def _evaluate_option(
     return payload
 
 
-def _next_launch(
-    options: Sequence[dict[str, Any]], live_workers: Mapping[str, int]
-) -> Optional[dict[str, Any]]:
-    candidates = [
-        (index, option)
-        for index, option in enumerate(options)
-        if option["now"]["state"] == "can_launch"
-    ]
-    if not candidates:
-        return None
-
-    def headroom(candidate: tuple[int, dict[str, Any]]) -> Optional[int]:
-        pool = candidate[1]["now"]["binding_pool"]
-        return pool["headroom"] if pool else None
-
-    def best(pool: list[tuple[int, dict[str, Any]]]) -> tuple[int, dict[str, Any]]:
-        # max() keeps the first of equals, so option order breaks ties.
-        return max(pool, key=lambda candidate: _rank(headroom(candidate)))
-
-    spread = [
-        c
-        for c in candidates
-        if (headroom(c) or 0) > SPREAD_HEADROOM_PERCENT
-        and not live_workers.get(c[1]["surface"])
-    ]
-    if spread:
-        index, option = best(spread)
-        reason = (
-            f"spread rule: no live worker on {option['surface']}, "
-            f"{headroom((index, option))}% headroom"
-        )
-    else:
-        index, option = best(candidates)
-        pool = option["now"]["binding_pool"]
-        reason = (
-            f"most headroom: {pool['headroom']}% on {pool['label']}"
-            if pool
-            else "option order: no option publishes a readable headroom"
-        )
-    now = option["now"]
-    return {
-        "option_index": index,
-        "surface": option["surface"],
-        "model": now["via"] or option["model"],
-        "display_name": now["via_display_name"] or option["display_name"],
-        "reason": reason,
-    }
-
-
 def evaluate_level_capacity(
     levels: Sequence[Level],
     *,
     meters: Sequence[Meter],
     offered: Sequence[tuple[str, str]],
-    live_workers: Mapping[str, int],
     display: Callable[[str], str],
 ) -> list[dict[str, Any]]:
-    """Each level with its options' launch standing and its next launch."""
+    """Each level with its options' launch standing."""
     fleet = _Fleet(meters, offered)
     out: list[dict[str, Any]] = []
     for level in levels:
@@ -260,7 +204,6 @@ def evaluate_level_capacity(
                         for o in options
                     )
                 ],
-                "next_launch": _next_launch(options, live_workers),
                 "options": options,
             }
         )
@@ -269,7 +212,6 @@ def evaluate_level_capacity(
 
 __all__ = [
     "Meter",
-    "SPREAD_HEADROOM_PERCENT",
     "SURFACE_VENDORS",
     "evaluate_level_capacity",
     "pool_label",

@@ -18,10 +18,9 @@ The choice, in order:
 3. **Order.** The level's option order, then machine id, break ties.
 
 When no option can launch anywhere, the launch is refused with every option
-and the pool or eligibility rule that blocked it. The Levels page's capacity
-read (:mod:`universe_level_capacity`) applies the same rule universe-wide;
-this module applies it to the machines one caller may launch on. A level never borrows
-another level's options: steering decides whether to relaunch elsewhere.
+and the pool or eligibility rule that blocked it. The Levels page previews its
+next launch through here, so it never predicts a different answer. A level
+never borrows another level's options: steering decides whether to relaunch.
 """
 
 from __future__ import annotations
@@ -50,13 +49,14 @@ from yoke_core.domain.session_launch_types import (
     SessionLaunchError,
 )
 from yoke_core.domain.steering_fleet_report_limits import load_plan_limits
-from yoke_core.domain.universe_level_capacity import SPREAD_HEADROOM_PERCENT
 from yoke_core.domain.universe_levels import effective_levels
 
 LEVEL_NO_CAPACITY = "level_no_capacity"
 LEVEL_UNKNOWN = "level_unknown"
 RULE_SPREAD = "spread"
 RULE_HEADROOM = "most_headroom"
+#: Above this headroom a surface with no live worker takes the launch.
+SPREAD_HEADROOM_PERCENT = 100.0
 
 
 @dataclass(frozen=True)

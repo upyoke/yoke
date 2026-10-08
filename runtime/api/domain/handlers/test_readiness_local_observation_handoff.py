@@ -31,7 +31,6 @@ def _item_request(function: str, payload: dict | None = None) -> FunctionCallReq
 
 
 _LOCAL_REQUEST = {
-    "item_id": 1800,
     "item_ref": "YOK-1800",
     "project_id": 7,
     "spec_sha256": "abc",

@@ -60,7 +60,7 @@ class _Tee:
 
 
 def _update_task_status_direct(
-    epic_id: str,
+    epic_ref: str,
     task_num: str,
     new_status: str,
     note: str,
@@ -76,8 +76,8 @@ def _update_task_status_direct(
     claim-bypass / done-verified values the engine used to set as process env
     vars (``env_overrides``) travel as a typed payload and are posted on a
     request-scoped ContextVar server-side; ``os.environ`` is never mutated. The
-    complete public epic reference targets the relay and stays public in its
-    payload. The server resolves its own join key.
+    complete public epic reference targets the relay and travels as
+    ``epic_public_ref``; the dispatcher resolves it onto the handler's join key.
     """
     from yoke_core.api.service_client_structured_api_adapter import (
         call_dispatcher,
@@ -86,9 +86,9 @@ def _update_task_status_direct(
     overrides = env_overrides or {}
     resp = call_dispatcher(
         function_id="done_transition.epic_task_status_set",
-        target=public_item_target(epic_id),
+        target=public_item_target(epic_ref),
         payload={
-            "epic_id": epic_id,
+            "epic_public_ref": epic_ref,
             "task_num": str(task_num),
             "status": new_status,
             "note": note,

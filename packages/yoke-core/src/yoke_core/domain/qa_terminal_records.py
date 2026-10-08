@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
 from yoke_core.domain.deployment_qa_source_obligation import source_obligation_consumed
 from yoke_core.domain.qa_obligation_settlement import requirement_retracted_at_select
 
@@ -29,8 +30,7 @@ def unsettled_supersession_runs(
         f"{requirement_retracted_at_select(conn, 'q')}, "
         "r.verdict, r.completed_at, r.case_outcome, q.qa_phase, q.deployment_run_id "
         "FROM qa_requirements q LEFT JOIN qa_runs r ON r.id = ("
-        "SELECT latest.id FROM qa_runs latest WHERE latest.qa_requirement_id = q.id "
-        "ORDER BY latest.id DESC LIMIT 1) "
+        f"{latest_execution_id_sql('q.id')}) "
         f"WHERE q.item_id = {marker}",
         (int(item_id),),
     ).fetchall()

@@ -190,11 +190,9 @@ def _entries(directory: Path, *, strict_names: bool) -> Tuple[MigrationEntry, ..
     return tuple(entries)
 
 
-#: Module-level names that would claim to reorder the history. The sequence
-#: number is the only order, so an entry assigning one of these is refused.
-ORDERING_OVERRIDE_NAMES = frozenset(
-    {"PRECEDES", "FOLLOWS", "RUN_BEFORE", "RUN_AFTER", "DEPENDS_ON"}
-)
+#: Module-level name that would claim to reorder the history. The sequence
+#: number is the only order, so an entry assigning it is refused.
+PRECEDES = "PRECEDES"
 
 
 def require_sequence_order_only(name: str, source: bytes) -> None:
@@ -210,7 +208,7 @@ def require_sequence_order_only(name: str, source: bytes) -> None:
     for node in tree.body:
         targets = getattr(node, "targets", None) or [getattr(node, "target", None)]
         for target in targets:
-            if isinstance(target, ast.Name) and target.id in ORDERING_OVERRIDE_NAMES:
+            if isinstance(target, ast.Name) and target.id == PRECEDES:
                 raise HistoryError(
                     f"migration_ordering_override: {name} declares {target.id}, "
                     "but the sequence number is the only migration order — an "
@@ -332,7 +330,7 @@ __all__ = [
     "ENTRY_NAME_PATTERN",
     "HistoryError",
     "MigrationEntry",
-    "ORDERING_OVERRIDE_NAMES",
+    "PRECEDES",
     "history_dir",
     "load_migration_module",
     "ordinal_entries",

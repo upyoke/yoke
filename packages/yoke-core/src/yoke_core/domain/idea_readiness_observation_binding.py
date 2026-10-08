@@ -49,7 +49,7 @@ UNADMISSIBLE_FINDING_REASON = "local_observations_unadmissible_finding"
 class ObservationBinding:
     """The control plane's own facts, against which an answer is checked."""
 
-    item_id: int
+    item_ref: str
     project_id: Optional[int]
     spec_text: str
 
@@ -76,14 +76,15 @@ def _as_int(value: Any) -> Optional[int]:
 
 
 def binding_mismatch_reason(
-    observations: Any, binding: ObservationBinding,
+    observations: Any,
+    binding: ObservationBinding,
 ) -> str:
     """Name why an answer cannot stand in for this run, or ``""`` when it can."""
     if not isinstance(observations, dict):
         return INCOMPLETE_REASON
     if str(observations.get("spec_sha256") or "") != _digest(binding.spec_text):
         return STALE_SPEC_REASON
-    if _as_int(observations.get("item_id")) != int(binding.item_id):
+    if str(observations.get("item_ref") or "") != binding.item_ref:
         return WRONG_ITEM_REASON
     if binding.project_id is not None and (
         _as_int(observations.get("project_id")) != int(binding.project_id)
@@ -136,11 +137,18 @@ def findings_from_observations(
         rehearsal_commands=rehearsal_commands,
     )
     if rejected:
-        return ([], [], unbound_observations(
-            UNADMISSIBLE_FINDING_REASON, item_ref, context={"rejected": rejected},
-        ))
+        return (
+            [],
+            [],
+            unbound_observations(
+                UNADMISSIBLE_FINDING_REASON,
+                item_ref,
+                context={"rejected": rejected},
+            ),
+        )
     advisories = admit_advisories(
-        observations.get("advisories"), spec_text=binding.spec_text,
+        observations.get("advisories"),
+        spec_text=binding.spec_text,
     )
     return (issues, advisories, [])
 

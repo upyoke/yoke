@@ -47,46 +47,56 @@ class TestCheck:
         assert [call[0] for call in relayed] == ["merge.lock.list"]
 
     def test_a_live_holder_blocks_with_its_identity(self, relayed) -> None:
-        relayed.rows.append({
-            "id": 1,
-            "session_id": f"{os.getpid()}-1700000000",
-            "branch": "ITEM-1",
-            "epic_id": "",
-        })
+        relayed.rows.append(
+            {
+                "id": 1,
+                "session_id": f"{os.getpid()}-1700000000",
+                "branch": "ITEM-1",
+                "epic_public_ref": None,
+            }
+        )
         message = merge_lock.check()
         assert message is not None
         assert "ITEM-1" in message
 
     def test_an_epic_holder_names_its_epic(self, relayed) -> None:
-        relayed.rows.append({
-            "id": 1,
-            "session_id": f"{os.getpid()}-1700000000",
-            "branch": "ITEM-1",
-            "epic_id": "42",
-        })
-        assert "(epic: 42)" in (merge_lock.check() or "")
+        relayed.rows.append(
+            {
+                "id": 1,
+                "session_id": f"{os.getpid()}-1700000000",
+                "branch": "ITEM-1",
+                "epic_public_ref": "EPIC-42",
+            }
+        )
+        assert "(epic: EPIC-42)" in (merge_lock.check() or "")
 
     def test_a_dead_holder_is_retired_rather_than_blocking(
-        self, relayed, monkeypatch: pytest.MonkeyPatch,
+        self,
+        relayed,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         monkeypatch.setattr(contention, "holder_is_alive", lambda session_id: False)
-        relayed.rows.append({
-            "id": 7,
-            "session_id": "999999-1700000000",
-            "branch": "ITEM-1",
-            "epic_id": "",
-        })
+        relayed.rows.append(
+            {
+                "id": 7,
+                "session_id": "999999-1700000000",
+                "branch": "ITEM-1",
+                "epic_public_ref": None,
+            }
+        )
         assert merge_lock.check() is None
         assert ("merge.lock.release", {"lock_ids": [7]}) in relayed
 
     def test_an_unparseable_holder_is_left_alone(self, relayed) -> None:
         """Without a usable pid the row is treated as live, never guessed away."""
-        relayed.rows.append({
-            "id": 3,
-            "session_id": "not-a-pid",
-            "branch": "ITEM-1",
-            "epic_id": "",
-        })
+        relayed.rows.append(
+            {
+                "id": 3,
+                "session_id": "not-a-pid",
+                "branch": "ITEM-1",
+                "epic_public_ref": None,
+            }
+        )
         assert merge_lock.check() is not None
         assert [call[0] for call in relayed] == ["merge.lock.list"]
 
@@ -99,7 +109,7 @@ class TestScope:
             "id": 1,
             "session_id": f"{os.getpid()}-1700000000",
             "branch": "OTHER-9",
-            "epic_id": "",
+            "epic_public_ref": None,
             "project_slug": project,
             "target_branch": branch,
         }
@@ -130,7 +140,9 @@ class TestScope:
         assert merge_lock.check() is not None
 
     def test_a_non_contending_dead_holder_is_left_for_its_own_scope(
-        self, relayed, monkeypatch: pytest.MonkeyPatch,
+        self,
+        relayed,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Out-of-scope rows are never retired here — they are not ours to judge."""
         monkeypatch.setattr(contention, "holder_is_alive", lambda session_id: False)
@@ -149,13 +161,20 @@ class TestScope:
 
 class TestAcquireAndRelease:
     def test_acquire_relays_the_row_and_returns_the_handle(self, relayed) -> None:
-        handle = merge_lock.acquire("ITEM-1", "42")
+        handle = merge_lock.acquire("ITEM-1", "EPIC-42")
         function_id, payload = relayed[0]
         assert function_id == "merge.lock.acquire"
         assert payload["branch"] == "ITEM-1"
-        assert payload["epic_id"] == "42"
+        assert payload["epic_public_ref"] == "EPIC-42"
+        assert "epic_id" not in payload
         assert payload["session_id"] == handle.session_id
         assert payload["acquired_at"] and payload["expires_at"]
+
+    def test_a_standalone_acquire_names_no_epic(self, relayed) -> None:
+        merge_lock.acquire("ITEM-1")
+        _, payload = relayed[0]
+        assert "epic_public_ref" not in payload
+        assert "epic_id" not in payload
 
     def test_acquire_still_refuses_an_empty_branch(self, relayed) -> None:
         with pytest.raises(ValueError):
@@ -166,10 +185,12 @@ class TestAcquireAndRelease:
         merge_lock.release(
             merge_lock.LockHandle(session_id="123-1700000000", branch="ITEM-1"),
         )
-        assert relayed == [(
-            "merge.lock.release",
-            {"session_id": "123-1700000000", "branch": "ITEM-1"},
-        )]
+        assert relayed == [
+            (
+                "merge.lock.release",
+                {"session_id": "123-1700000000", "branch": "ITEM-1"},
+            )
+        ]
 
     def test_release_of_an_empty_handle_relays_nothing(self, relayed) -> None:
         merge_lock.release(merge_lock.LockHandle(session_id="", branch=""))
@@ -182,7 +203,8 @@ class TestAcquireAndRelease:
 
 class TestRelayFailure:
     def test_a_refused_relay_raises_rather_than_merging_unlocked(
-        self, monkeypatch: pytest.MonkeyPatch,
+        self,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """An unavailable lock must stop the merge, never silently proceed."""
         from yoke_contracts.api.function_call import FunctionError
@@ -193,12 +215,72 @@ class TestRelayFailure:
             result = None
 
         monkeypatch.setattr(
-            "yoke_core.api.service_client_structured_api_adapter."
-            "call_dispatcher",
+            "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
             lambda **_kwargs: _Refused(),
         )
         monkeypatch.setattr(
-            merge_lock, "_local_connection_or_none", lambda: None,
+            merge_lock,
+            "_local_connection_or_none",
+            lambda: None,
         )
         with pytest.raises(RuntimeError, match="control plane refused"):
             merge_lock.check()
+
+
+class TestPublicItemContract:
+    """A relayed acquire passes the client and HTTP identity boundary."""
+
+    @staticmethod
+    def _request(payload: dict):
+        from yoke_contracts.api.function_call import FunctionCallRequest
+
+        return FunctionCallRequest.model_validate(
+            {
+                "function": "merge.lock.acquire",
+                "version": "v1",
+                "target": {"kind": "global"},
+                "actor": {"actor_id": "test", "session_id": ""},
+                "payload": payload,
+            }
+        )
+
+    @pytest.mark.parametrize("epic_ref", ["EPIC-42", None])
+    def test_the_relayed_payload_carries_no_internal_join_key(
+        self,
+        relayed,
+        epic_ref,
+    ) -> None:
+        from yoke_contracts.public_item_contract import public_item_request_error
+
+        merge_lock.acquire("ITEM-1", epic_ref)
+        _, payload = relayed[0]
+        assert public_item_request_error(self._request(payload)) is None
+
+    def test_the_dispatcher_resolves_the_epic_ref_onto_the_row_key(self) -> None:
+        from yoke_core.domain.handlers.merge_lock_ops import LockAcquireRequest
+        from yoke_core.domain.yoke_function_dispatch_payload_refs import (
+            _translated_keys,
+        )
+
+        payload = {"branch": "ITEM-1", "epic_public_ref": "EPIC-42"}
+        assert _translated_keys(payload, LockAcquireRequest) == ["epic_public_ref"]
+        resolved = LockAcquireRequest.model_validate(
+            {
+                "session_id": "1-1",
+                "branch": "ITEM-1",
+                "epic_id": 42,
+                "acquired_at": "a",
+                "expires_at": "b",
+            }
+        )
+        assert resolved.epic_id == "42"
+
+    def test_an_internal_epic_id_is_refused_by_name(self) -> None:
+        from yoke_contracts.public_item_contract import public_item_request_error
+
+        refused = public_item_request_error(
+            self._request({"branch": "ITEM-1", "epic_id": None}),
+        )
+        assert refused is not None
+        assert refused.code == "internal_item_id_forbidden"
+        assert "epic_public_ref" in refused.message

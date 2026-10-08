@@ -57,14 +57,14 @@ def emit_retroactive_completion(
     )
 
 
-def clear_deploy_stage(item_id: int, stage_name: str) -> str:
+def clear_deploy_stage(public_ref: str, stage_name: str) -> str:
     # Relay-aware, like every other call in this recovery command: an
     # ordinary HTTPS-connected recovery run has no local database to
     # dispatch against, and the caller's own session/actor identity — not
     # a fabricated actor — is what should attribute this write.
     response = call_dispatcher(
         function_id="items.scalar.update",
-        target=public_item_target(item_id),
+        target=public_item_target(public_ref),
         payload={"field": "deploy_stage", "value": stage_name},
     )
     if response.success:
@@ -87,14 +87,14 @@ def reconcile_from_gh_poll(
     rc, gh_message = gh.returncode, (gh.stdout or "").strip()
 
     if rc == 0 and gh_message == "success":
-        clear_error = clear_deploy_stage(item_id, stage_name)
+        clear_error = clear_deploy_stage(public_ref, stage_name)
         if clear_error:
             return error(item_id, deploy_stage, clear_error)
         emit_retroactive_completion(
             run_id=run_id,
             stage_name=stage_name,
             workflow_run_id=workflow_run_id,
-            member_items=[str(item_id)],
+            member_items=[public_ref],
             project=project,
         )
         return ReconcileResult(

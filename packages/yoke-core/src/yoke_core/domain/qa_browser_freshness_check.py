@@ -19,6 +19,7 @@ import json
 from typing import Any, List, Optional, Tuple
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
 from yoke_core.domain.qa_obligation_settlement import unretracted_requirement_sql
 from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.deployment_run_candidate_containment import (
@@ -166,19 +167,20 @@ def _browser_run_is_fresh(
 
 
 def _latest_browser_run(conn, requirement_id: int):
-    """Return the latest passing browser-substrate run for a requirement."""
+    """Return the latest execution when it is a passing browser capture."""
     return query_one(
         conn,
-        """
+        f"""
         SELECT id, created_at, raw_result
         FROM qa_runs
         WHERE qa_requirement_id = %s
+          AND id = ({latest_execution_id_sql("%s")})
           AND verdict = 'pass'
           AND performed_by <> 'agent'
         ORDER BY created_at DESC, id DESC
         LIMIT 1
         """,
-        (requirement_id,),
+        (requirement_id, requirement_id, requirement_id),
     )
 
 
