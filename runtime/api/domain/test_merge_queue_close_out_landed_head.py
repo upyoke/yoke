@@ -210,13 +210,23 @@ def _applied(kwargs: dict):
     )
 
 
-def test_landed_record_rejects_numeric_item_identity():
+def test_released_landed_record_keeps_the_known_request_ref():
     record = _record(REBASED)
     record["item_id"] = 7
     record.pop("public_ref")
 
     head, reason = landed_candidate_head(f"ITEM-{7}", dispatch=_dispatch(record))
 
+    assert head == REBASED
+    assert reason == ""
+
+
+def test_landed_record_rejects_an_explicit_numeric_public_ref():
+    record = _record(REBASED)
+    record["public_ref"] = "7"
+
+    head, reason = landed_candidate_head(f"ITEM-{7}", dispatch=_dispatch(record))
+
     assert head == ""
     assert "landing record response was invalid" in reason
-    assert "public_ref" in reason
+    assert "public_item_ref_required" in reason
