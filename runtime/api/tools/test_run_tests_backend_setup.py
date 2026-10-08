@@ -63,7 +63,7 @@ def _yoke_shaped_checkout(tmp_path: Path, monkeypatch) -> Path:
     monkeypatch.setattr(
         run_tests._source_pythonpath,
         "verified_source_environment",
-        lambda root, env: (_source_pythonpath.with_source_pythonpath(root, env), None),
+        lambda root, env: (_source_pythonpath.with_source_pythonpath(env, root), None),
     )
     return root
 
@@ -125,7 +125,7 @@ class TestCanonicalYokeDbSetup:
             run_tests._source_pythonpath,
             "verified_source_environment",
             lambda root, env: (
-                _source_pythonpath.with_source_pythonpath(root, env),
+                _source_pythonpath.with_source_pythonpath(env, root),
                 None,
             ),
         )

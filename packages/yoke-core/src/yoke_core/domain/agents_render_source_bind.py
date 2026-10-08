@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Literal, Mapping
 
 from yoke_core.domain.workspace_authority import assert_seed_source_under_target_root
+from yoke_core.domain import source_python_environment
 from yoke_core.tools import _source_pythonpath
 
 RENDER_SOURCE_BOUND_ENV = "YOKE_RENDER_SOURCE_BOUND"
@@ -78,7 +79,7 @@ def mixed_source_message(origin: Path, target: Path) -> str:
         f"agents render source mismatch: seed loaded from {origin}, "
         f"target is {target}. Repair: `{_source_pythonpath.SOURCE_RUN_RECIPE}` "
         "so both origins match, or re-run `yoke agents render` so it binds "
-        "PYTHONPATH to the target checkout."
+        "the locked Python environment and PYTHONPATH to the target checkout."
     )
 
 
@@ -102,13 +103,13 @@ def reexec_cli_if_mixed(target_root: Path) -> None:
     if os.environ.get(RENDER_SOURCE_BOUND_ENV) == "1":
         print(mixed_source_message(origin, root), file=sys.stderr)
         raise SystemExit(2)
-    env = _bound_env(root)
-    refusal = _source_pythonpath.import_origin_refusal(root, env=env)
-    if refusal is not None:
-        print(f"{mixed_source_message(origin, root)} {refusal}", file=sys.stderr)
+    try:
+        python, env = _bound_environment(root)
+    except RuntimeError as exc:
+        print(f"{mixed_source_message(origin, root)} {exc}", file=sys.stderr)
         raise SystemExit(2)
     completed = subprocess.run(
-        [sys.executable, "-m", "yoke_core.domain.agents_render", *sys.argv[1:]],
+        [python, "-m", "yoke_core.domain.agents_render", *sys.argv[1:]],
         env=env,
         cwd=str(root),
         check=False,
@@ -116,10 +117,19 @@ def reexec_cli_if_mixed(target_root: Path) -> None:
     raise SystemExit(int(completed.returncode))
 
 
-def _bound_env(root: Path) -> dict[str, str]:
-    env = _source_pythonpath.with_source_pythonpath(None, root)
+def _bound_environment(root: Path) -> tuple[str, dict[str, str]]:
+    try:
+        binding = source_python_environment.resolve(root, os.environ)
+    except source_python_environment.SourceEnvironmentRefusal as exc:
+        raise RuntimeError(str(exc)) from exc
+    env = _source_pythonpath.with_source_pythonpath(binding.env, root)
     env[RENDER_SOURCE_BOUND_ENV] = "1"
-    return env
+    refusal = _source_pythonpath.import_origin_refusal(
+        root, env=env, python=binding.python
+    )
+    if refusal is not None:
+        raise RuntimeError(refusal)
+    return binding.python, env
 
 
 def _run_inprocess(target_root: Path, mode: RendererMode) -> Any:
@@ -137,12 +147,9 @@ def _run_inprocess(target_root: Path, mode: RendererMode) -> Any:
 
 
 def _run_bound_child(root: Path, mode: RendererMode, *, origin: Path) -> Any:
-    env = _bound_env(root)
-    refusal = _source_pythonpath.import_origin_refusal(root, env=env)
-    if refusal is not None:
-        raise RuntimeError(f"{mixed_source_message(origin, root)} {refusal}")
+    python, env = _bound_environment(root)
     completed = subprocess.run(
-        [sys.executable, "-c", _CHILD],
+        [python, "-c", _CHILD],
         input=json.dumps({"target_root": str(root), "mode": mode}),
         env=env,
         cwd=str(root),
@@ -160,8 +167,7 @@ def _run_bound_child(root: Path, mode: RendererMode, *, origin: Path) -> Any:
         payload: Mapping[str, Any] = json.loads(completed.stdout)
     except (TypeError, json.JSONDecodeError) as exc:
         raise RuntimeError(
-            f"{mixed_source_message(origin, root)} bound child returned "
-            "unreadable JSON"
+            f"{mixed_source_message(origin, root)} bound child returned unreadable JSON"
         ) from exc
     if payload.get("kind") == "check":
         return list(payload.get("drift") or [])

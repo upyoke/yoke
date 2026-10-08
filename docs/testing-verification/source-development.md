@@ -47,6 +47,8 @@ generic test runner isolate fixture-owned databases from any administering
 selection, so use those runners for tests instead of relying on `dev run` to
 sanitize their environment.
 
+Agent rendering that rebinds to another Yoke checkout validates and uses that
+checkout's locked Python environment for both its origin check and child.
 For example, validate the agent renderer from the lane with:
 
 ```bash

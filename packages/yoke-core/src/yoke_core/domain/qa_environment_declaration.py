@@ -93,8 +93,9 @@ def load_declaration(
 ) -> TestEnvironmentDeclaration:
     """Read the capability over the connected control plane.
 
-    A missing capability (or a relay failure) is the default: empty
-    extras/groups and nested uv-project discovery.
+    An absent capability uses empty extras/groups and nested discovery.
+    Strict source verification refuses unreadable declarations; provisioning
+    callers retain their existing default on relay failure.
     """
     slug = required_local_project(checkout or Path.cwd(), project)
     settings = _read_settings(slug, strict=True) if strict else _read_settings(slug)
