@@ -5,6 +5,9 @@ from __future__ import annotations
 import json
 import subprocess
 
+import pytest
+from yoke_contracts.timestamps import InvalidInstant
+
 from runtime.api.domain.item_execution_status_test_support import (
     NOW,
     add_item as _add_item,
@@ -34,11 +37,13 @@ from yoke_contracts.public_ref import ITEM_NOT_FOUND
 _conn = connect_test_db
 
 
-def test_helpers_handle_z_naive_garbage_and_clamp() -> None:
+def test_helpers_require_qualified_instants_and_clamp_future_age() -> None:
     assert parse_iso("2026-05-08T12:00:00Z").tzinfo is not None
-    assert parse_iso("2026-05-08T12:00:00").tzinfo is not None
+    with pytest.raises(InvalidInstant):
+        parse_iso("2026-05-08T12:00:00")
     assert parse_iso(None) is None
-    assert parse_iso("garbage") is None
+    with pytest.raises(InvalidInstant):
+        parse_iso("garbage")
     assert age_seconds("2050-01-01T00:00:00Z", now=NOW) == 0
     assert age_seconds("2026-05-08T11:55:00Z", now=NOW) == 5 * 60
     assert age_seconds(None, now=NOW) is None
@@ -183,7 +188,7 @@ def test_progress_log_present_with_latest_entry(core_db) -> None:
     pl = build_projection(40, db_path=core_db, now=NOW)["progress_log"]
     assert pl["state"] == "present"
     assert pl["latest_headline"] == "second headline"
-    assert pl["latest_entry_at"] == "2026-05-07T11:50:00Z"
+    assert pl["latest_entry_at"] == "2026-05-07T11:50:00.000000Z"
     assert pl["latest_entry_age_seconds"] == (24 * 60 + 10) * 60
     assert pl["is_stale"] is True
 

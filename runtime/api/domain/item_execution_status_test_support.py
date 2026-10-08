@@ -20,18 +20,18 @@ CREATE TABLE items (id INTEGER PRIMARY KEY, title TEXT NOT NULL,
 CREATE TABLE item_worktrees (id INTEGER PRIMARY KEY,
     item_id INTEGER NOT NULL, branch TEXT NOT NULL, path TEXT,
     lane_role TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'active',
-    created_at TEXT NOT NULL, updated_at TEXT NOT NULL, released_at TEXT);
+    created_at TIMESTAMPTZ NOT NULL, updated_at TIMESTAMPTZ NOT NULL, released_at TIMESTAMPTZ);
 CREATE TABLE work_claims (id INTEGER PRIMARY KEY, session_id TEXT,
     target_kind TEXT, scope TEXT, claim_type TEXT,
-    claimed_at TEXT, last_heartbeat TEXT, released_at TEXT);
+    claimed_at TIMESTAMPTZ, last_heartbeat TIMESTAMPTZ, released_at TIMESTAMPTZ);
 CREATE TABLE path_claims (id INTEGER PRIMARY KEY, state TEXT,
     blocked_reason TEXT, owner_kind TEXT, owner_item_id INTEGER);
 CREATE TABLE item_sections (item_id INTEGER, section_name TEXT,
-    content TEXT, updated_at TEXT, PRIMARY KEY (item_id, section_name));
+    content TEXT, updated_at TIMESTAMPTZ, PRIMARY KEY (item_id, section_name));
 CREATE TABLE item_status_transitions (id INTEGER PRIMARY KEY,
     item_id INTEGER NOT NULL, task_num INTEGER, from_status TEXT,
     to_status TEXT NOT NULL, source TEXT, session_id TEXT,
-    actor_id INTEGER, project_id INTEGER, created_at TEXT NOT NULL);
+    actor_id INTEGER, project_id INTEGER, created_at TIMESTAMPTZ NOT NULL);
 """
 
 

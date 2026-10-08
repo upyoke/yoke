@@ -21,7 +21,9 @@ malformed evidence."""
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
+
+from yoke_contracts.timestamps import as_utc, parse_instant, utc_now
 from typing import Any, Optional
 
 from .runtime_settings import get_seconds
@@ -88,21 +90,8 @@ def resolve_freshness_window_s(*, override_s: Optional[int] = None) -> int:
 
 
 def _parse_iso(ts: object) -> Optional[datetime]:
-    """Parse an ISO-8601 timestamp tolerantly; return None on malformed input."""
-    if ts is None:
-        return None
-    text = str(ts).strip()
-    if not text:
-        return None
-    if text.endswith("Z"):
-        text = text[:-1] + "+00:00"
-    try:
-        parsed = datetime.fromisoformat(text)
-    except (ValueError, TypeError):
-        return None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+    """Require a qualified instant; only null is missing activity."""
+    return None if ts is None else parse_instant(ts)
 
 
 def _age_seconds(ts: object, now: datetime) -> Optional[int]:
@@ -110,7 +99,7 @@ def _age_seconds(ts: object, now: datetime) -> Optional[int]:
     if parsed is None:
         return None
     delta = now - parsed
-    return int(delta.total_seconds())
+    return delta // timedelta(seconds=1)
 
 
 def _connect_default() -> Any:
@@ -220,7 +209,7 @@ def evaluate_chain_head_freshness(
     only concern is whether the in-flight status is stale.
     """
     window = resolve_freshness_window_s(override_s=freshness_window_s)
-    now_dt = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    now_dt = as_utc(now) if now is not None else utc_now()
 
     holder = who_claims_for_item(int(epic_id))
     holder_session_id: Optional[str] = None
@@ -313,9 +302,7 @@ def evaluate_chain_head_freshness(
     if prior_sid is None:
         rationale_parts.append("no prior session row")
     elif prior_age_s is None:
-        rationale_parts.append(
-            f"prior session {prior_sid!r} activity unparseable or missing"
-        )
+        rationale_parts.append(f"prior session {prior_sid!r} activity missing")
     else:
         rationale_parts.append(
             f"prior session {prior_sid!r} activity age {prior_age_s}s "

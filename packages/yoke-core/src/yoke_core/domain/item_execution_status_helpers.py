@@ -6,7 +6,9 @@ small enough for Yoke's authored-file line cap.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
+
+from yoke_contracts.timestamps import as_utc, format_instant, parse_instant
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -31,21 +33,16 @@ def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def parse_iso(ts: Optional[str]) -> Optional[datetime]:
-    if not ts:
-        return None
-    try:
-        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+def parse_iso(ts: datetime | str | None) -> Optional[datetime]:
+    """Normalize a supplied instant; only null means unknown."""
+    return None if ts is None else parse_instant(ts)
 
 
-def age_seconds(ts: Optional[str], *, now: datetime) -> Optional[int]:
+def age_seconds(ts: datetime | str | None, *, now: datetime) -> Optional[int]:
     parsed = parse_iso(ts)
     if parsed is None:
         return None
-    return max(0, int((now - parsed).total_seconds()))
+    return max(0, (as_utc(now) - parsed) // timedelta(seconds=1))
 
 
 def normalize_item_id(raw: str) -> int:
@@ -155,9 +152,11 @@ def collect_work_claim(conn: Any, item_id: int, *, now: datetime) -> Dict[str, A
         "claim_id": int(row["id"]),
         "holder_session_id": str(row["session_id"]),
         "claim_type": str(row["claim_type"]),
-        "claimed_at": str(row["claimed_at"]),
+        "claimed_at": format_instant(parse_instant(row["claimed_at"])),
         "claim_age_seconds": age_seconds(row["claimed_at"], now=now),
-        "last_heartbeat": str(activity_at) if activity_at else "",
+        "last_heartbeat": format_instant(parse_instant(activity_at))
+        if activity_at is not None
+        else None,
         "heartbeat_age_seconds": age_seconds(activity_at, now=now),
     }
 
@@ -227,10 +226,13 @@ def collect_progress_log(conn: Any, item_id: int, *, now: datetime) -> Dict[str,
     if row is None or not (row["content"] or "").strip():
         return {"state": "missing"}
     headline, entry_at = latest_progress_entry(row["content"])
+    entry_at = format_instant(parse_instant(entry_at)) if entry_at is not None else None
     entry_age = age_seconds(entry_at, now=now)
     return {
         "state": "present",
-        "updated_at": str(row["updated_at"]) if row["updated_at"] else None,
+        "updated_at": format_instant(parse_instant(row["updated_at"]))
+        if row["updated_at"] is not None
+        else None,
         "latest_headline": headline,
         "latest_entry_at": entry_at,
         "latest_entry_age_seconds": entry_age,
@@ -317,6 +319,6 @@ def collect_latest_transition(
         "from_status": row["from_status"],
         "to_status": str(row["to_status"]),
         "source": row["source"],
-        "latest_at": str(row["created_at"]),
+        "latest_at": format_instant(parse_instant(row["created_at"])),
         "latest_age_seconds": age_seconds(row["created_at"], now=now),
     }

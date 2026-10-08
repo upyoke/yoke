@@ -26,7 +26,9 @@ conditional auto-reacquire path in
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
+
+from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
 from typing import Any, Dict, Optional
 
 from . import db_backend
@@ -69,12 +71,7 @@ ORDER BY wc.id DESC
 
 
 def _parse_iso(raw: Any) -> Optional[datetime]:
-    if not raw:
-        return None
-    try:
-        return datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
-    except (ValueError, TypeError):
-        return None
+    return None if raw is None else parse_instant(raw)
 
 
 def _checkpoint_outcome(offer_envelope_raw: Any) -> Optional[str]:
@@ -127,7 +124,7 @@ def routed_ownership_exclusions(
     when the schema is missing or no rows qualify — frontier callers
     treat empty as "no defense".
     """
-    now = datetime.now(timezone.utc)
+    now = utc_now()
     excluded: Dict[int, Dict[str, Any]] = {}
     try:
         claim_columns = set(_schema_get_columns(conn, "work_claims"))
@@ -167,18 +164,18 @@ def routed_ownership_exclusions(
         if defense_class is None:
             continue
         released_dt = _parse_iso(row["released_at"])
-        if released_dt is None or (now - released_dt).total_seconds() > window_s:
+        if released_dt is None or now - released_dt > timedelta(seconds=window_s):
             continue
         activity_at = latest_activity(conn, owner_session)
         hb_dt = _parse_iso(activity_at)
-        if hb_dt is None or (now - hb_dt).total_seconds() > window_s:
+        if hb_dt is None or now - hb_dt > timedelta(seconds=window_s):
             continue
         seen_items.add(item_num)
         excluded[item_num] = {
             "item_id": item_num,
             "prior_owner_session_id": owner_session,
-            "released_at": str(row["released_at"]),
-            "last_heartbeat": str(activity_at) if activity_at else "",
+            "released_at": format_instant(released_dt),
+            "last_heartbeat": format_instant(hb_dt) if hb_dt is not None else None,
             "release_reason": row["release_reason"],
             "release_reason_intent": intent,
             "latest_claim_id": int(row["claim_id"]),

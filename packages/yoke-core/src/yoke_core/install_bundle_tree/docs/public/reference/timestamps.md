@@ -125,6 +125,11 @@ execution allocation ties; mutable queue timestamps require governed conversion.
 Pipe diagnostics format native clocks at presentation, without timestamp
 empty-string SQL predicates. New result JSON uses shared temporal encoding;
 opaque strings and finalized historical roster/digest bytes remain unchanged.
+Item execution-status clocks and finishing-time views emit canonical wire values;
+finished-window SQL parameters retain the native cutoff microseconds. Frontier
+ownership defense, resumed-claim recovery and chain-head freshness compare aware
+activity clocks with their existing boundary rules. Only null is missing evidence;
+invalid supplied clocks refuse rather than implying a resumable or stale state.
 The universe fingerprint formats its organization creation instant canonically,
 so a database session timezone cannot change identity. Earlier recorded actor
 bindings that name another timestamp representation refuse the identity match;
