@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
+
+from yoke_contracts.timestamps import InvalidInstant, utc_now
 
 from yoke_contracts.api.function_call import (
     ActorContext,
@@ -62,6 +65,48 @@ def _people(conn):
     return caller, subject, org_id
 
 
+@pytest.mark.parametrize("now", ["2026-10-08T00:00:00Z", datetime(2026, 10, 8)])
+def test_actor_state_refuses_non_native_instants_before_database_work(now):
+    conn = SimpleNamespace(
+        execute=lambda *args: pytest.fail("invalid instant reached SQL")
+    )
+    with pytest.raises(InvalidInstant):
+        set_actor_enabled(conn, actor_id=2, caller_actor_id=1, enabled=False, now=now)
+
+
+def test_actor_state_binds_aware_utc_revocation_and_audit_instants(monkeypatch):
+    from yoke_core.domain import actor_state
+
+    bindings = []
+    rows = iter([[], ("human", None, True, "active"), None, [(9,)]])
+
+    def execute(sql, params=()):
+        if sql.startswith("SELECT"):
+            value = next(rows)
+            return SimpleNamespace(fetchone=lambda: value, fetchall=lambda: value)
+        bindings.append(params)
+
+    conn = SimpleNamespace(execute=execute, commit=lambda: None, rollback=lambda: None)
+    monkeypatch.setattr(
+        actor_state.db_backend, "connection_is_postgres", lambda conn: True
+    )
+    supplied = datetime(2026, 10, 8, 12, 0, 0, 123456, timezone(timedelta(hours=-4)))
+    assert (
+        set_actor_enabled(
+            conn, actor_id=2, caller_actor_id=1, enabled=False, now=supplied
+        )
+        == 1
+    )
+    instants = [
+        value for params in bindings for value in params if isinstance(value, datetime)
+    ]
+    assert len(instants) == 3
+    assert all(
+        value == supplied.astimezone(timezone.utc) and value.tzinfo is timezone.utc
+        for value in instants
+    )
+
+
 def _keyless_request(actor_id):
     return FunctionCallRequest(
         function="actors.state.set",
@@ -99,7 +144,7 @@ def test_disable_retires_personal_and_machine_keys_and_blocks_browser_and_keyles
             actor_id=subject,
             caller_actor_id=caller,
             enabled=False,
-            now=iso8601_now(),
+            now=utc_now(),
         )
         == 2
     )
@@ -142,7 +187,7 @@ def test_disable_retires_personal_and_machine_keys_and_blocks_browser_and_keyles
         actor_id=subject,
         caller_actor_id=caller,
         enabled=True,
-        now=iso8601_now(),
+        now=utc_now(),
     )
     assert (
         check_dispatch_permission(test_db, entry, _keyless_request(subject)).error
@@ -167,7 +212,7 @@ def test_disable_rejects_self_core_and_last_active_admin(test_db):
             actor_id=caller,
             caller_actor_id=caller,
             enabled=False,
-            now=iso8601_now(),
+            now=utc_now(),
         )
     with pytest.raises(ActorStateRefused, match="canonical core actor"):
         set_actor_enabled(
@@ -175,7 +220,7 @@ def test_disable_rejects_self_core_and_last_active_admin(test_db):
             actor_id=system,
             caller_actor_id=caller,
             enabled=False,
-            now=iso8601_now(),
+            now=utc_now(),
             confirm_system_retirement=True,
         )
     set_actor_enabled(
@@ -183,7 +228,7 @@ def test_disable_rejects_self_core_and_last_active_admin(test_db):
         actor_id=caller,
         caller_actor_id=subject,
         enabled=False,
-        now=iso8601_now(),
+        now=utc_now(),
     )
     with pytest.raises(ActorStateRefused, match="last active admin"):
         set_actor_enabled(
@@ -191,7 +236,7 @@ def test_disable_rejects_self_core_and_last_active_admin(test_db):
             actor_id=subject,
             caller_actor_id=caller,
             enabled=False,
-            now=iso8601_now(),
+            now=utc_now(),
         )
 
 
@@ -219,7 +264,7 @@ def test_obsolete_system_actor_requires_confirmation_and_loses_authority(test_db
             actor_id=system,
             caller_actor_id=caller,
             enabled=False,
-            now=iso8601_now(),
+            now=utc_now(),
         )
     assert (
         set_actor_enabled(
@@ -227,7 +272,7 @@ def test_obsolete_system_actor_requires_confirmation_and_loses_authority(test_db
             actor_id=system,
             caller_actor_id=caller,
             enabled=False,
-            now=iso8601_now(),
+            now=utc_now(),
             confirm_system_retirement=True,
         )
         == 1
@@ -253,7 +298,7 @@ def test_obsolete_system_actor_requires_confirmation_and_loses_authority(test_db
         actor_id=system,
         caller_actor_id=caller,
         enabled=True,
-        now=iso8601_now(),
+        now=utc_now(),
     )
     with pytest.raises(TokenRevoked):
         verify_token(test_db, token.raw_token)
@@ -277,7 +322,7 @@ def test_live_deployment_actor_requires_credential_retirement(test_db):
             actor_id=system,
             caller_actor_id=caller,
             enabled=False,
-            now=iso8601_now(),
+            now=utc_now(),
             confirm_system_retirement=True,
         )
     revoke_token(test_db, token_id=token.token_id)
@@ -287,7 +332,7 @@ def test_live_deployment_actor_requires_credential_retirement(test_db):
             actor_id=system,
             caller_actor_id=caller,
             enabled=False,
-            now=iso8601_now(),
+            now=utc_now(),
             confirm_system_retirement=True,
         )
         == 0

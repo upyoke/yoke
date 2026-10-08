@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
+from yoke_contracts.timestamps import as_utc, format_instant
 from yoke_core.domain import db_backend
 from yoke_core.domain.actors import SYSTEM_COMPONENT_YOKE_CORE
 
@@ -79,7 +81,7 @@ def set_actor_enabled(
     actor_id: int,
     caller_actor_id: int,
     enabled: bool,
-    now: str,
+    now: datetime,
     confirm_system_retirement: bool = False,
 ) -> int:
     """Change actor authority and revoke all live credentials in one transaction.
@@ -88,6 +90,10 @@ def set_actor_enabled(
     issuance locks the same actor row, so a concurrent mint cannot escape the
     disabling transaction.
     """
+    instant = as_utc(now)
+    stored_now = (
+        instant if db_backend.connection_is_postgres(conn) else format_instant(instant)
+    )
     p = _p(conn)
     lock = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
     status_present = (
@@ -165,7 +171,7 @@ def set_actor_enabled(
             conn.execute(
                 f"UPDATE web_sessions SET revoked_at = {p} "
                 f"WHERE actor_id = {p} AND revoked_at IS NULL",
-                (now, actor_id),
+                (stored_now, actor_id),
             )
             token_rows = conn.execute(
                 f"SELECT id FROM api_tokens WHERE actor_id = {p} AND status = 'active'",
@@ -175,13 +181,13 @@ def set_actor_enabled(
                 conn.execute(
                     f"UPDATE api_tokens SET status = 'revoked', revoked_at = {p} "
                     f"WHERE id = {p}",
-                    (now, token_id),
+                    (stored_now, token_id),
                 )
                 conn.execute(
                     "INSERT INTO api_token_audit "
                     "(api_token_id, actor_id, event_type, outcome, created_at) "
                     f"VALUES ({p}, {p}, {p}, {p}, {p})",
-                    (token_id, actor_id, "revoked", "actor_disabled", now),
+                    (token_id, actor_id, "revoked", "actor_disabled", stored_now),
                 )
                 revoked += 1
         conn.commit()

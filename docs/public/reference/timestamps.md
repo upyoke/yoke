@@ -12,6 +12,12 @@ microseconds refuse as `invalid_instant`; supply a qualified instant instead.
 Offset-qualified inputs normalize to the same UTC instant without dropping
 microseconds. The runtime parser never guesses a timezone or repairs history.
 
+`actor_state.set_actor_enabled(..., now=...)` requires an aware `datetime`.
+Its owning handler uses `utc_now()`; an adapter with a qualified wire input
+calls `parse_instant` before invoking the domain operation. Revocation and audit
+parameters bind as native UTC datetimes on PostgreSQL and canonical fixed-six
+strings on SQLite. A string or naive datetime refuses before any state change.
+
 One-time governed conversion lives in `stored_instant_conversion`, with a
 frozen column roster supplied by permanent migration history. It checks all
 source columns before changing types and combines each table's alterations
