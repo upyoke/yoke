@@ -55,11 +55,12 @@ Responses project item joins to public refs; other record ids remain numeric.
 JSON and human CLI output share this contract. Clients tolerate absent optional
 identity fields from an older serving build without ID lookup. Transport dispatch
 redacts secrets while preserving machine-consumed responses; identity display
-filtering runs only when CLI output is emitted. The digest-bound
-`candidate_containment_basis` is an engine attestation protocol: its owned IDs
-and digest pass unchanged through server and client composition so the local
-deploy driver can answer and the server can validate the exact question set.
-These attested IDs are never client-supplied item selectors.
+filtering runs only when CLI output is emitted. Outgoing requests are forwarded
+without response projection or client DB reads; their producers compose public
+selectors. The digest-bound `candidate_containment_basis` and its
+`candidate_containment` answer retain owned IDs unchanged. The local driver
+answers the server's exact question set; these IDs are attested engine facts,
+never client-supplied item selectors.
 
 Clients also tolerate the previous released response shape without accepting
 internal keys as public selectors. Merge CI sends the context's resolved public

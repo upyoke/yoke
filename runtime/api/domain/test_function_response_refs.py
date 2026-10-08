@@ -1,5 +1,7 @@
 """Server result projection uses actual project sequences, never id tails."""
 
+import pytest
+
 from yoke_core.domain.function_response_refs import collect_item_ids, public_result
 
 
@@ -40,11 +42,14 @@ def test_other_records_with_public_item_refs_keep_their_primary_ids():
     assert projected["item"] == {"public_ref": "APP-7"}
 
 
-def test_containment_protocol_does_not_become_public_item_rows():
+@pytest.mark.parametrize(
+    "field", ["candidate_containment_basis", "candidate_containment"]
+)
+def test_containment_protocol_does_not_become_public_item_rows(field):
     basis = {"projects": [{"items": [{"id": 99, "merge_sha": "a" * 40}]}]}
-    result = {"candidate_containment_basis": basis, "items": [{"id": 100}]}
+    result = {field: basis, "items": [{"id": 100}]}
     assert collect_item_ids(result) == {100}
     assert public_result(result, {100: "APP-7"}) == {
-        "candidate_containment_basis": basis,
+        field: basis,
         "items": [{"public_ref": "APP-7"}],
     }
