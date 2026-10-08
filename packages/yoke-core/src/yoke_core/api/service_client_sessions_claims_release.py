@@ -12,7 +12,7 @@ The execution-owned single-claim release moved to the typed-target
 
 from __future__ import annotations
 
-import json
+from yoke_core.domain.json_helper import dumps_compact
 import subprocess
 import sys
 
@@ -41,15 +41,16 @@ def cmd_release_all_claims(args: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="release-all-claims", add_help=False)
     parser.add_argument("--session-id", default=None)
     parser.add_argument(
-        "--reason", "--intent",
-        dest="reason", required=True,
+        "--reason",
+        "--intent",
+        dest="reason",
+        required=True,
     )
 
     try:
         parsed = parser.parse_args(args)
     except SystemExit:
-        print("Usage: release-all-claims [--session-id S] --reason R",
-              file=sys.stderr)
+        print("Usage: release-all-claims [--session-id S] --reason R", file=sys.stderr)
         return 2
 
     parsed.session_id = _resolve_session_id(parsed.session_id)
@@ -67,25 +68,36 @@ def cmd_release_all_claims(args: list[str]) -> int:
         conn.close()
 
     if row is None or row["ended_at"] is not None:
-        print(json.dumps({"success": True, "no_session": True}))
+        print(dumps_compact({"success": True, "no_session": True}))
         return 0
 
     proc = subprocess.run(
-        [sys.executable, "-m", "yoke_core.hooks.sessions_cli",
-         "release-all", parsed.session_id, parsed.reason],
+        [
+            sys.executable,
+            "-m",
+            "yoke_core.hooks.sessions_cli",
+            "release-all",
+            parsed.session_id,
+            parsed.reason,
+        ],
         capture_output=True,
         text=True,
         env=_subprocess_service_env(),
     )
 
     if proc.returncode == 0:
-        print(json.dumps({"success": True, "released": proc.stdout.strip()}))
+        print(dumps_compact({"success": True, "released": proc.stdout.strip()}))
         return 0
     else:
-        print(json.dumps({
-            "success": False,
-            "error": proc.stderr.strip(),
-        }), file=sys.stderr)
+        print(
+            dumps_compact(
+                {
+                    "success": False,
+                    "error": proc.stderr.strip(),
+                }
+            ),
+            file=sys.stderr,
+        )
         return 1
 
 
@@ -115,8 +127,10 @@ def cmd_claim_release(args: list[str]) -> int:
     target.add_argument("--item-id", dest="item_id")
     target.add_argument("--item", dest="item_id")
     parser.add_argument(
-        "--reason", "--intent",
-        dest="reason", required=True,
+        "--reason",
+        "--intent",
+        dest="reason",
+        required=True,
     )
     parser.add_argument("--session-id", default=None)
     parser.add_argument("--claim-id", type=int, default=None)
@@ -139,9 +153,7 @@ def cmd_claim_release(args: list[str]) -> int:
 
     conn = _get_db_readwrite()
     try:
-        item_id = parse_item_argument(
-            parsed.item_id, project=parsed.project, conn=conn
-        )
+        item_id = parse_item_argument(parsed.item_id, project=parsed.project, conn=conn)
         result = operator_override_release_claim(
             conn,
             item_id,
@@ -149,21 +161,29 @@ def cmd_claim_release(args: list[str]) -> int:
             session_id=parsed.session_id,
             claim_id=parsed.claim_id,
         )
-        print(json.dumps({"success": True, **result}))
+        print(dumps_compact({"success": True, **result}))
         return 0
     except SessionError as exc:
-        print(json.dumps({
-            "success": False,
-            "code": exc.code,
-            "message": exc.message,
-        }))
+        print(
+            dumps_compact(
+                {
+                    "success": False,
+                    "code": exc.code,
+                    "message": exc.message,
+                }
+            )
+        )
         return 1
     except ValueError as exc:
-        print(json.dumps({
-            "success": False,
-            "code": "INVALID_ITEM",
-            "message": str(exc),
-        }))
+        print(
+            dumps_compact(
+                {
+                    "success": False,
+                    "code": "INVALID_ITEM",
+                    "message": str(exc),
+                }
+            )
+        )
         return 1
     finally:
         conn.close()
@@ -197,11 +217,15 @@ def cmd_release_done_claims(args: list[str]) -> int:
             print(f"Error: {exc}", file=sys.stderr)
             return 2
         released = domain_release_done_claims(conn, item_id)
-        print(json.dumps({
-            "success": True,
-            "released": released,
-            "item_id": str(item_id),
-        }))
+        print(
+            dumps_compact(
+                {
+                    "success": True,
+                    "released": released,
+                    "item_id": str(item_id),
+                }
+            )
+        )
         return 0
     finally:
         conn.close()

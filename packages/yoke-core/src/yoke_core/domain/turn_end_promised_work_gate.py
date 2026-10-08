@@ -7,7 +7,9 @@ event can never continue the turn, so there it only records the deferral.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+
+from yoke_contracts.timestamps import as_utc, parse_instant
 from typing import Any, Optional
 
 from yoke_contracts.turn_end_evidence import (
@@ -32,9 +34,8 @@ from yoke_core.domain.turn_end_unfinished_work import (
     stop_is_legitimate,
     unfinished_work_name,
 )
-from yoke_core.domain.session_message_types import timestamp, utc_now
+from yoke_core.domain.session_message_types import utc_now
 from yoke_core.domain.session_recovery_facts import record_promised_work_hold
-from yoke_core.domain.time_parse import parse_timestamp_utc
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
@@ -133,7 +134,7 @@ def _reinjection_history(
     conn: Any,
     session_id: str,
     item_id: Any,
-) -> tuple[Optional[str], int]:
+) -> tuple[datetime | None, int]:
     """How often this session has already been held on this item, and when.
 
     The ceiling and the cooldown are the only thing standing between a
@@ -161,13 +162,11 @@ def _at_reinjection_cap(
         return False
     if hold_count >= REINJECTION_CEILING:
         return True
-    last_hold_at = parse_timestamp_utc(stamped)
+    last_hold_at = parse_instant(stamped) if stamped is not None else None
     if last_hold_at is None:
         return True
-    anchor = now or datetime.now(timezone.utc)
-    if anchor.tzinfo is None:
-        anchor = anchor.replace(tzinfo=timezone.utc)
-    return anchor.astimezone(timezone.utc) < last_hold_at + REINJECTION_COOLDOWN
+    anchor = as_utc(now) if now is not None else utc_now()
+    return anchor < last_hold_at + REINJECTION_COOLDOWN
 
 
 def _emit_deferred(
@@ -203,7 +202,7 @@ def _emit_deferred(
             conn,
             session_id=session_id,
             item_id=item_id,
-            at=timestamp(utc_now()),
+            at=utc_now(),
         )
         conn.commit()
     emit_chain_end_deferred(

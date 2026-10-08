@@ -97,6 +97,18 @@ arithmetic rather than floating-point conversion. Hook command acquisition,
 release, heartbeat and focus rotation bind the same native instant adapters;
 pipe output formats native instants canonically. Active-session and released-claim
 guards test SQL null directly, without empty-string timestamp fallbacks.
+Prompt/completed-work facts, tool-call endpoints and promised-work holds use
+native instants. Replayed calls retain one count, and late starts correct only
+the endpoint. Invalid ingress refuses before state changes. Captured duration
+uses exact integer microseconds with nearest millisecond ties rounded to even;
+negative and over-ceiling intervals are rejected before rounding. Provider
+recovery compares native activity and turn-end clocks, preserves exact backoff
+boundaries and canonicalizes owned observation timestamps. Its resume budget
+key is canonical UTC or an empty no-tool-activity identity; the governed migration
+must normalize existing nonempty keys without changing attempt counts.
+Process evidence normalizes its owned native-exit clock while retaining opaque
+OS process-start identity bytes. Session and claim service-client JSON uses
+shared temporal serialization rather than a generic datetime string conversion.
 The universe fingerprint formats its organization creation instant canonically,
 so a database session timezone cannot change identity. Earlier recorded actor
 bindings that name another timestamp representation refuse the identity match;

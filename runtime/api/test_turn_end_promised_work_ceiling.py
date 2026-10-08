@@ -109,7 +109,7 @@ def test_reinjection_history_reads_the_hold_ledger_for_this_session_and_item(
         lambda conn: True,
     )
     assert gate._reinjection_history(_HistoryConn(), "sess-1", 6) == (
-        _NOW.isoformat(),
+        _NOW,
         2,
     )
     query = str(captured["query"])

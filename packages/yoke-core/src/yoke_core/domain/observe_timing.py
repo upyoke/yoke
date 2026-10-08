@@ -22,7 +22,9 @@ was captured at all or synthesized by a completion that arrived first.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+
+from yoke_contracts.timestamps import InvalidInstant, as_utc, parse_instant, utc_now
 from typing import Optional, Union
 
 CapturedTimestamp = Union[str, datetime, None]
@@ -63,26 +65,8 @@ class ElapsedMeasurement:
 
 
 def parse_captured_timestamp(value: CapturedTimestamp) -> Optional[datetime]:
-    """Read one captured endpoint as an aware UTC datetime.
-
-    Endpoints reach this module from several writers — an ISO string on a
-    telemetry envelope, a ``session_tool_calls`` column, a live
-    ``HookContext.now``. A stored value without an offset is read as UTC,
-    matching how every writer stamps it; anything unparseable returns
-    ``None`` so the caller can name the format failure.
-    """
-    if isinstance(value, datetime):
-        parsed = value
-    elif isinstance(value, str) and value.strip():
-        try:
-            parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
-        except ValueError:
-            return None
-    else:
-        return None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+    """Read a qualified endpoint; only null denotes an unknown instant."""
+    return parse_instant(value) if value is not None else None
 
 
 def measure_elapsed(
@@ -96,19 +80,24 @@ def measure_elapsed(
     ``missing_start_status`` lets a caller say what a missing start means in
     its own vocabulary; the classification of the interval itself is shared.
     """
-    if start is None or (isinstance(start, str) and not start.strip()):
+    if start is None:
         return ElapsedMeasurement(None, missing_start_status)
-    if end is None or (isinstance(end, str) and not end.strip()):
+    if end is None:
         return ElapsedMeasurement(None, TIMING_UNKNOWN_NO_CAPTURED_END)
-    started = parse_captured_timestamp(start)
-    ended = parse_captured_timestamp(end)
-    if started is None or ended is None:
+    try:
+        started = parse_instant(start)
+        ended = parse_instant(end)
+    except InvalidInstant:
         return ElapsedMeasurement(None, TIMING_INVALID_ENDPOINT_FORMAT)
-    elapsed_ms = int(round((ended - started).total_seconds() * 1000))
-    if elapsed_ms < 0:
+    delta = ended - started
+    elapsed_us = (delta.days * 86400 + delta.seconds) * 1_000_000 + delta.microseconds
+    if elapsed_us < 0:
         return ElapsedMeasurement(None, TIMING_INVALID_NEGATIVE_ELAPSED)
-    if elapsed_ms > MAX_PLAUSIBLE_ELAPSED_MS:
+    if elapsed_us > MAX_PLAUSIBLE_ELAPSED_MS * 1000:
         return ElapsedMeasurement(None, TIMING_INVALID_IMPLAUSIBLE_ELAPSED)
+    elapsed_ms, remainder = divmod(elapsed_us, 1000)
+    if remainder > 500 or (remainder == 500 and elapsed_ms % 2):
+        elapsed_ms += 1
     return ElapsedMeasurement(elapsed_ms, TIMING_MEASURED)
 
 
@@ -121,10 +110,9 @@ def arriving_start_supersedes(
     Observations do not always arrive in the order they happened: a
     completion delivered ahead of its own call's opening observation writes
     the row first, so the genuine start meets a row that already exists. The
-    earlier of two valid starts is the one the call actually began at, and a
-    start that cannot be read as a timestamp is not evidence of anything —
-    so a valid arrival replaces an unreadable stored value, and a stored
-    value that is already earlier or equal stands.
+    earlier of two valid starts is the one the call actually began at. Only
+    null denotes a missing stored start; invalid owned values refuse. A
+    stored instant that is already earlier or equal stands.
 
     Replay is covered by the same rule rather than by a separate one: a
     re-delivered start carries the instant it always carried, which is never
@@ -153,7 +141,7 @@ def start_endpoint_is_synthesized(
 
     The two endpoints hold the same instant only when one write produced
     both — they are otherwise captured by separate hook invocations at
-    millisecond resolution — so the placeholder identifies itself and needs
+    their captured resolution — so the placeholder identifies itself and needs
     no column to mark it. Once the genuine start arrives and supersedes it,
     the endpoints differ and the same read measures the real interval.
     """
@@ -173,11 +161,7 @@ def delivery_is_pending(
     observed = parse_captured_timestamp(observed_at)
     if observed is None:
         return False
-    current = now if now is not None else datetime.now(timezone.utc)
-    if current.tzinfo is None:
-        current = current.replace(tzinfo=timezone.utc)
-    else:
-        current = current.astimezone(timezone.utc)
+    current = as_utc(now) if now is not None else utc_now()
     return current - observed <= PENDING_DELIVERY_WINDOW
 
 
@@ -194,11 +178,7 @@ def report_owner_elapsed(
     reconciled. A placeholder or missing start still inside the delivery
     window is pending delivery, not a permanently absent measurement.
     """
-    if (
-        started_at is None
-        or (isinstance(started_at, str) and not started_at.strip())
-        or start_endpoint_is_synthesized(started_at, completed_at)
-    ):
+    if started_at is None or start_endpoint_is_synthesized(started_at, completed_at):
         if delivery_is_pending(observed_at, now=now):
             return ElapsedMeasurement(None, TIMING_PENDING_START_DELIVERY)
         return ElapsedMeasurement(None, TIMING_UNKNOWN_NO_RECORDED_START)

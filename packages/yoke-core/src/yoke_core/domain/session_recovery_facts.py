@@ -1,56 +1,24 @@
-"""Durable session facts that recovery decisions read instead of telemetry.
+"""Durable session facts used by recovery instead of disposable telemetry.
 
-Six decisions used to reconstruct themselves from the ``events`` table:
-whether a session ever did work, whether its operator ever sent a prompt,
-what the model provider said when it ended a turn, how many automatic
-resumes that failure has already bought, whether a waiter is armed, and
-how often a Stop has already been held for one item. Events are
-disposable telemetry — they expire, they can be filtered, and a dropped
-emission is not an error — so every one of those decisions could change
-answer because a row aged out rather than because anything happened.
+Prompt and completed-work markers survive pruning of individual calls.
+The newest relay-observed turn end retains bounded provider evidence.
+Automatic-resume attempts are reserved before waking and keyed to the last
+real tool activity; only progress starts a fresh budget. Stop holds are
+counted per session and item with their own cooldown instant.
 
-This module owns the columns and the one table those decisions read
-instead. Each fact is written by the code that makes the thing true, at
-the moment it becomes true, next to the state it describes:
-
-``first_user_prompt_at``
-    Stamped by the first ``UserPromptSubmit`` a session handles. A probe
-    is a harness startup artifact that never received a prompt; this is
-    how a reader tells one from a real short conversation.
-
-``first_completed_work_at`` / ``last_completed_work_at``
-    Stamped when a tool call actually completes. Launch settlement asks
-    "did this worker ever work?" long after the rolling
-    ``session_tool_calls`` rows have been pruned, so the marker outlives
-    them while the rows carry the detail.
-
-``native_turn_end_recorded_at`` / ``native_turn_end_observation``
-    The latest relay-observed native turn end: when it was recorded, and
-    a bounded JSON body carrying the provider's own message and error
-    info. Recovery cannot classify a failure it cannot read.
-
-``vendor_resume_episode_key`` / ``vendor_resume_attempts``
-    The automatic-resume budget. The key is the session's last tool call,
-    so real progress starts a new episode and refunds the budget while a
-    provider refusing again does not. Attempts are reserved atomically
-    *before* the wake is requested, so a crash between reserving and
-    waking spends the attempt rather than refunding it.
-
-``session_promised_work_holds``
-    How many times the Stop gate has already held one session on one
-    item, and when it last did. Session-and-item scoped because the
-    ceiling is: a claim's worth of holds, not a session's.
-
-Every column is additive, so a boot converge propagates it and no
-governed migration is required. Absence is a legitimate reading on a
-database that has not converged yet: each writer introspects before
-writing, matching the schema-tolerance contract in
-:mod:`yoke_core.domain.session_activity_state`.
+Writers introspect minimal fixture schemas before writing. Native database
+instants and canonical owned observation fields retain microseconds;
+changing existing storage requires the governed migration, including the
+timestamp-derived resume key so formatting cannot refund spent attempts.
 """
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Mapping, Optional
+
+from yoke_contracts.timestamps import format_instant, parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 
 from yoke_core.domain import db_backend, json_helper
 from yoke_core.domain.schema_common import _get_columns as _schema_get_columns
@@ -99,24 +67,24 @@ def promised_work_holds_table_present(conn: Any) -> bool:
     return bool(_columns(conn, PROMISED_WORK_HOLDS_TABLE))
 
 
-def stamp_first_user_prompt(conn: Any, session_id: str, at: str) -> None:
+def stamp_first_user_prompt(conn: Any, session_id: str, at: datetime | str) -> None:
     """Record that this session's operator has now sent a prompt.
 
     Write-once: a later prompt must not move the stamp, because the fact
     is *when the conversation began*, and a probe is defined by never
     having one at all.
     """
-    if not session_id or not at or not recovery_columns_present(conn):
+    if not session_id or not recovery_columns_present(conn):
         return
     p = _p(conn)
     conn.execute(
         "UPDATE harness_sessions SET first_user_prompt_at = "
         f"COALESCE(first_user_prompt_at, {p}) WHERE session_id = {p}",
-        (at, session_id),
+        (instant_parameter(conn, parse_instant(at)), session_id),
     )
 
 
-def stamp_completed_work(conn: Any, session_id: str, at: str) -> None:
+def stamp_completed_work(conn: Any, session_id: str, at: datetime | str) -> None:
     """Record that a tool call completed for this session.
 
     ``first_completed_work_at`` is write-once and
@@ -124,8 +92,9 @@ def stamp_completed_work(conn: Any, session_id: str, at: str) -> None:
     that arrives out of order can neither invent earlier work nor undo
     later work.
     """
-    if not session_id or not at or not recovery_columns_present(conn):
+    if not session_id or not recovery_columns_present(conn):
         return
+    at = instant_parameter(conn, parse_instant(at))
     p = _p(conn)
     conn.execute(
         "UPDATE harness_sessions SET "
@@ -143,7 +112,7 @@ def record_native_turn_end(
     session_id: str,
     *,
     observation: Mapping[str, Any],
-    recorded_at: str,
+    recorded_at: datetime | str,
 ) -> None:
     """Store the newest native turn-end observation on the session.
 
@@ -151,9 +120,13 @@ def record_native_turn_end(
     replace a newer one — the relay reports per poll and two polls can
     overlap.
     """
-    if not session_id or not recorded_at or not recovery_columns_present(conn):
+    if not session_id or not recovery_columns_present(conn):
         return
-    body = json_helper.dumps_compact(dict(observation))[:OBSERVATION_MAX_CHARS]
+    recorded_at = instant_parameter(conn, parse_instant(recorded_at))
+    owned = dict(observation)
+    if owned.get("observed_at") is not None:
+        owned["observed_at"] = format_instant(owned["observed_at"])
+    body = json_helper.dumps_compact(owned)[:OBSERVATION_MAX_CHARS]
     p = _p(conn)
     conn.execute(
         "UPDATE harness_sessions SET "
@@ -171,8 +144,8 @@ def native_turn_end(row: Mapping[str, Any]) -> dict[str, Any]:
     nothing rather than raising: one malformed row must not stop every
     other session on the machine from being recovered.
     """
-    recorded_at = str(row.get("native_turn_end_recorded_at") or "")
-    if not recorded_at:
+    recorded_at = row.get("native_turn_end_recorded_at")
+    if recorded_at is None:
         return {}
     raw = row.get("native_turn_end_observation")
     stored: Any = raw
@@ -183,10 +156,10 @@ def native_turn_end(row: Mapping[str, Any]) -> dict[str, Any]:
             return {}
     if not isinstance(stored, Mapping):
         return {}
-    return {"recorded_at": recorded_at, **dict(stored)}
+    return {**dict(stored), "recorded_at": parse_instant(recorded_at)}
 
 
-def resume_episode_key(last_tool_call_at: Optional[str]) -> str:
+def resume_episode_key(last_tool_call_at: datetime | str | None) -> str:
     """The budget episode a session is currently in.
 
     The session's own last tool call, because that is the only stamp that
@@ -195,7 +168,7 @@ def resume_episode_key(last_tool_call_at: Optional[str]) -> str:
     that refuses again changes nothing and the attempt counts against the
     same budget.
     """
-    return str(last_tool_call_at or "")
+    return format_instant(last_tool_call_at) if last_tool_call_at is not None else ""
 
 
 def reserve_resume_attempt(
@@ -280,10 +253,10 @@ def resume_attempts_spent(row: Mapping[str, Any], *, episode_key: str) -> int:
 
 
 def record_promised_work_hold(
-    conn: Any, *, session_id: str, item_id: Any, at: str
+    conn: Any, *, session_id: str, item_id: Any, at: datetime | str
 ) -> None:
     """Count one Stop hold against this session and item."""
-    if not session_id or item_id is None or not at:
+    if not session_id or item_id is None:
         return
     if not promised_work_holds_table_present(conn):
         return
@@ -295,13 +268,13 @@ def record_promised_work_hold(
         "ON CONFLICT(session_id, item_id) DO UPDATE SET "
         f"hold_count = {PROMISED_WORK_HOLDS_TABLE}.hold_count + 1, "
         "last_hold_at = EXCLUDED.last_hold_at",
-        (session_id, int(item_id), at),
+        (session_id, int(item_id), instant_parameter(conn, parse_instant(at))),
     )
 
 
 def promised_work_holds(
     conn: Any, *, session_id: str, item_id: Any
-) -> tuple[Optional[str], int]:
+) -> tuple[datetime | None, int]:
     """``(last_hold_at, hold_count)`` for one session and item."""
     if not session_id or item_id is None:
         return None, 0
@@ -320,7 +293,11 @@ def promised_work_holds(
         if isinstance(row, Mapping)
         else {"last_hold_at": row[0], "hold_count": row[1]}
     )
-    stamped = str(entry["last_hold_at"]) if entry["last_hold_at"] else None
+    stamped = (
+        parse_instant(entry["last_hold_at"])
+        if entry["last_hold_at"] is not None
+        else None
+    )
     return stamped, int(entry["hold_count"] or 0)
 
 

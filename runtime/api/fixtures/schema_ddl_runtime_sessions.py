@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS {PROMISED_WORK_HOLDS_TABLE} (
     session_id TEXT NOT NULL,
     item_id INTEGER NOT NULL,
     hold_count INTEGER NOT NULL DEFAULT 0,
-    last_hold_at TEXT NOT NULL,
+    last_hold_at TIMESTAMPTZ NOT NULL,
     PRIMARY KEY (session_id, item_id)
 );
 

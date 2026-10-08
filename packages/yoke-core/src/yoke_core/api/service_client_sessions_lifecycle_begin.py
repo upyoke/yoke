@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import json
+from yoke_core.domain.json_helper import dumps_compact
 import sys
 from pathlib import Path
 
@@ -207,10 +207,10 @@ def cmd_session_begin(args: list[str]) -> int:
                 native_thread_id=parsed.native_thread_id,
                 launch_id=parsed.launch_id,
             )
-            print(json.dumps(result, default=str))
+            print(dumps_compact(result))
         except SessionError as exc:
             print(
-                json.dumps(
+                dumps_compact(
                     {
                         "success": False,
                         "code": exc.code,

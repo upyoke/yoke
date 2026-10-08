@@ -1,26 +1,18 @@
-"""Session & tool-call activity state — the post telemetry-only-events app-state owner.
+"""Durable tool-call activity projected in the observation transaction.
 
-The telemetry-only events cutover makes the ``events`` table telemetry-only: session liveness, tool-call
-counts, and the open-tool-call ledger move to first-class state —
-``harness_sessions.last_tool_call_at`` / ``tool_call_count`` and the
-rolling ``session_tool_calls`` table. The observe pipeline
-(:func:`yoke_core.domain.observe_event_emission.insert_event`) calls
-:func:`apply_envelope_state` in the same transaction as each telemetry
-insert; readers (``session_reclaim_activity``, ``sessions_cleanup``,
-claim-acquire freshness, the orphan sweep, and the PreToolUse lint
-guardrails) consume only this state, never the events ledger.
-
-Schema-tolerance contract: many test fixtures build minimal
-``harness_sessions`` / no ``session_tool_calls`` shapes. Every writer here
-introspects via ``information_schema`` (the codebase's established
-minimal-fixture pattern) and silently skips what the schema cannot hold —
-mirroring how ``insert_event`` no-ops without an ``events`` table.
+Liveness, counts and open calls read this state without retained telemetry.
+Each call identity closes once; replay does not recount completed work.
+Writers introspect minimal fixtures and skip unavailable state tables.
+Owned endpoints parse strictly before mutation and bind native instants.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
 from typing import Any, Dict, Optional, Tuple
+
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _get_columns as _schema_get_columns
@@ -29,7 +21,7 @@ from yoke_core.domain.session_tool_call_start_reconcile import (
     adopt_earlier_start,
 )
 
-# Bounded command text retained for the PreToolUse lint guardrails (R4).
+# Bounded command text retained for the PreToolUse lint guardrails.
 # Partially duplicates telemetry's envelope tool_input on purpose: the
 # lints must keep their signal after the events ledger becomes
 # telemetry-only.
@@ -132,7 +124,7 @@ def record_tool_call_started(
     session_id: str,
     tool_use_id: str,
     tool_name: Optional[str],
-    started_at: str,
+    started_at: datetime | str,
     command_summary: Optional[str] = None,
 ) -> bool:
     """Open a ``session_tool_calls`` row, or give an existing one its start.
@@ -149,6 +141,7 @@ def record_tool_call_started(
         return False
     if not has_session_tool_calls_table(conn):
         return False
+    started_at = parse_instant(started_at)
     p = _p(conn)
     cursor = conn.execute(
         "INSERT INTO session_tool_calls "
@@ -159,7 +152,7 @@ def record_tool_call_started(
             session_id,
             tool_use_id,
             tool_name,
-            started_at,
+            instant_parameter(conn, started_at),
             truncate_command_summary(command_summary),
         ),
     )
@@ -182,7 +175,7 @@ def record_tool_call_finished(
     tool_name: Optional[str],
     event_name: str,
     outcome: Optional[str],
-    completed_at: str,
+    completed_at: datetime | str,
     command_summary: Optional[str] = None,
     bump_activity: bool = True,
 ) -> bool:
@@ -214,6 +207,8 @@ def record_tool_call_finished(
     """
     if not session_id:
         return False
+    completed_at = parse_instant(completed_at)
+    completed_parameter = instant_parameter(conn, completed_at)
     p = _p(conn)
     transitioned = True
     if tool_use_id and has_session_tool_calls_table(conn):
@@ -224,7 +219,7 @@ def record_tool_call_finished(
             f"    command_summary = COALESCE(command_summary, {p}) "
             f"WHERE session_id = {p} AND tool_use_id = {p} "
             "  AND completed_at IS NULL",
-            (completed_at, outcome, summary, session_id, tool_use_id),
+            (completed_parameter, outcome, summary, session_id, tool_use_id),
         )
         transitioned = getattr(cursor, "rowcount", 0) > 0
         if not transitioned:
@@ -238,8 +233,8 @@ def record_tool_call_finished(
                     session_id,
                     tool_use_id,
                     tool_name,
-                    completed_at,
-                    completed_at,
+                    completed_parameter,
+                    completed_parameter,
                     outcome,
                     summary,
                 ),
@@ -258,7 +253,9 @@ def record_tool_call_finished(
     return True
 
 
-def bump_session_tool_activity(conn: Any, *, session_id: str, at: str) -> None:
+def bump_session_tool_activity(
+    conn: Any, *, session_id: str, at: datetime | str
+) -> None:
     """Stamp ``last_tool_call_at`` and increment ``tool_call_count``.
 
     The stamp only ever moves forward. An observation can arrive out of
@@ -269,6 +266,7 @@ def bump_session_tool_activity(conn: Any, *, session_id: str, at: str) -> None:
     """
     if not session_activity_columns_present(conn):
         return
+    at = instant_parameter(conn, parse_instant(at))
     p = _p(conn)
     conn.execute(
         "UPDATE harness_sessions "
@@ -290,35 +288,33 @@ def apply_envelope_state(conn: Any, envelope: Dict[str, Any]) -> None:
     session_id = envelope.get("session_id")
     if not isinstance(event_name, str) or not isinstance(session_id, str):
         return
-    event_time = str(envelope.get("event_time") or "")
-    observed_at = None
-    if event_time and event_name in _TOOL_ACTIVITY_EVENT_NAMES:
-        try:
-            observed_at = datetime.fromisoformat(event_time.replace("Z", "+00:00"))
-        except ValueError:
-            observed_at = None
-    if observed_at is not None:
-        from yoke_core.domain.session_turn_posture import stamp_turn_posture
+    if event_name not in _TOOL_ACTIVITY_EVENT_NAMES:
+        return
+    event_time = envelope.get("event_time")
+    if event_time is None:
+        return
+    observed_at = parse_instant(event_time)
+    from yoke_core.domain.session_turn_posture import stamp_turn_posture
 
-        stamp_turn_posture(
-            conn,
-            session_id=session_id,
-            posture="running",
-            observed_at=observed_at,
-        )
+    stamp_turn_posture(
+        conn,
+        session_id=session_id,
+        posture="running",
+        observed_at=observed_at,
+    )
     if event_name == _STARTED_EVENT_NAME:
         tool_use_id = envelope.get("tool_use_id")
-        if isinstance(tool_use_id, str) and tool_use_id and event_time:
+        if isinstance(tool_use_id, str) and tool_use_id:
             record_tool_call_started(
                 conn,
                 session_id=session_id,
                 tool_use_id=tool_use_id,
                 tool_name=envelope.get("tool_name"),
-                started_at=event_time,
+                started_at=observed_at,
                 command_summary=_envelope_command_summary(envelope),
             )
         return
-    if event_name in COMPLETION_EVENT_NAMES and event_time:
+    if event_name in COMPLETION_EVENT_NAMES:
         tool_use_id = envelope.get("tool_use_id")
         record_tool_call_finished(
             conn,
@@ -327,7 +323,7 @@ def apply_envelope_state(conn: Any, envelope: Dict[str, Any]) -> None:
             tool_name=envelope.get("tool_name"),
             event_name=event_name,
             outcome=envelope.get("event_outcome"),
-            completed_at=event_time,
+            completed_at=observed_at,
             command_summary=_envelope_command_summary(envelope),
         )
 

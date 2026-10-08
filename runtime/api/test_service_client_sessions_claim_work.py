@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 
 import pytest
 
+from yoke_contracts.timestamps import format_instant, parse_instant
+
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
 from runtime.api.test_service_client_sessions_helpers import session_test_db  # noqa: F401,F811
@@ -47,6 +49,9 @@ class TestClaimItem:
 
         out = json.loads(result.stdout)
         assert out["success"] is True
+        assert out["claim"]["claimed_at"] == format_instant(
+            parse_instant(out["claim"]["claimed_at"])
+        )
 
         # Verify the work_claims row exists
         conn = connect_test_db(db_path)

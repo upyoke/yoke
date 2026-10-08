@@ -58,6 +58,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, List, Mapping, Sequence
 
+from yoke_contracts.timestamps import as_utc
+
 from yoke_contracts.session_control.vendor_error_signatures import (
     classify_vendor_error,
 )
@@ -110,10 +112,8 @@ def _candidate_sessions(
     The ``EXISTS`` clause is what keeps this cheap on a healthy machine:
     a session with no recorded turn-end observation newer than its own
     last tool call is excluded in SQL, so the per-session reads below run
-    only for the handful of sessions actually stopped. The stamp
-    comparison there is a text one and so only approximate within a
-    second, which is why the decision re-checks it as parsed instants —
-    the coarse test is a filter, not the answer.
+    only for sessions actually stopped. Native instant comparisons retain
+    microseconds; a missing last tool call is explicit SQL null.
     """
     marker = _p(conn)
     project_slots = ",".join(marker for _ in projects)
@@ -130,7 +130,7 @@ def _candidate_sessions(
         "AND hs.terminated_at IS NULL "
         f"AND hs.project_id IN ({project_slots}) "
         "AND hs.native_turn_end_recorded_at IS NOT NULL "
-        "AND hs.native_turn_end_recorded_at>COALESCE(hs.last_tool_call_at,'') "
+        "AND (hs.last_tool_call_at IS NULL OR hs.native_turn_end_recorded_at>hs.last_tool_call_at) "
         "ORDER BY hs.session_id",
         (
             *((machine_id,) if machine_id else ()),
@@ -158,9 +158,9 @@ def _decision(
     error_message = str(observation.get("error_message") or "")
     if not error_message:
         return None
-    observed_at = parse_timestamp(
-        str(observation.get("observed_at") or "")
-    ) or parse_timestamp(str(observation.get("recorded_at") or ""))
+    observed_at = parse_timestamp(observation.get("observed_at")) or parse_timestamp(
+        observation.get("recorded_at")
+    )
     if observed_at is None:
         return None
     signature = classify_vendor_error(
@@ -190,14 +190,16 @@ def _decision(
         return {**state, "status": "seat_required", "reason": signature.summary}
     if attempts >= len(RESUME_BACKOFF_SECONDS):
         return {**state, "status": "budget_spent", "reason": signature.summary}
-    if session_call_is_live(row, started_at=str(row.get(OPEN_TOOL_CALL_COLUMN) or "")):
+    if session_call_is_live(row, started_at=row.get(OPEN_TOOL_CALL_COLUMN)):
         # The turn is executing. Whatever ended the previous one, this
         # session is working now and a resume would fork its conversation.
         return {
             **state,
             "status": "turn_in_flight",
             "reason": "recipient is inside an unreturned tool call",
-            "in_flight_since": str(row.get(OPEN_TOOL_CALL_COLUMN) or ""),
+            "in_flight_since": timestamp(
+                parse_timestamp(row.get(OPEN_TOOL_CALL_COLUMN))
+            ),
         }
     due_at = observed_at + timedelta(seconds=RESUME_BACKOFF_SECONDS[attempts])
     state["due_at"] = timestamp(due_at)
@@ -225,7 +227,7 @@ def vendor_error_states(
     is what the relay must do before resuming anything; the report leaves
     it out and sees the whole project.
     """
-    current = now or utc_now()
+    current = as_utc(now) if now is not None else utc_now()
     projects = tuple(sorted({int(value) for value in authorized_projects}))
     if not projects:
         return []
@@ -234,9 +236,9 @@ def vendor_error_states(
         observation = native_turn_end(row)
         if not observation:
             continue
-        acted = str(row.get("last_tool_call_at") or "")
-        recorded_at = str(observation.get("recorded_at") or "")
-        if acted and recorded_at and acted >= recorded_at:
+        acted = parse_timestamp(row.get("last_tool_call_at"))
+        recorded_at = parse_timestamp(observation.get("recorded_at"))
+        if acted is not None and recorded_at is not None and acted >= recorded_at:
             # The session has run a tool since its turn end was recorded,
             # so whatever that observation described is over and done.
             continue

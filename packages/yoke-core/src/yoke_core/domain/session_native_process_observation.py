@@ -72,12 +72,18 @@ NATIVE_EXIT_AT_KEY = "native_exit_at"
 
 def _decoded_evidence(value: Any) -> dict[str, Any]:
     if isinstance(value, Mapping):
-        return dict(value)
-    try:
-        decoded = json.loads(str(value or "{}"))
-    except (TypeError, ValueError, json.JSONDecodeError):
-        return {}
-    return dict(decoded) if isinstance(decoded, Mapping) else {}
+        decoded = dict(value)
+    else:
+        try:
+            decoded = json.loads(str(value or "{}"))
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return {}
+    result = dict(decoded) if isinstance(decoded, Mapping) else {}
+    if result.get(NATIVE_EXIT_AT_KEY) is not None:
+        result[NATIVE_EXIT_AT_KEY] = timestamp(
+            parse_timestamp(result[NATIVE_EXIT_AT_KEY])
+        )
+    return result
 
 
 def _process_identity(evidence: Mapping[str, Any]) -> tuple[tuple[str, ...], ...]:
@@ -167,6 +173,7 @@ def record_native_process_gone(
     crash with some older native's clean exit, which a declared wait then
     reads as accounted for.
     """
+    evidence = _decoded_evidence(evidence)
     stored_at, stored_evidence = _stored_observation(conn, session_id)
     identity = _process_identity(evidence)
     exited_at = parse_timestamp(evidence.get(NATIVE_EXIT_AT_KEY))

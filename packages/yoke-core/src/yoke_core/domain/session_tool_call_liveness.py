@@ -8,6 +8,7 @@ normally, and even a clean native exit leaves no running call behind it.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Mapping
 
 from yoke_core.domain.session_native_process_observation import (
@@ -16,7 +17,9 @@ from yoke_core.domain.session_native_process_observation import (
 from yoke_core.domain.session_reclaim_progress import open_tool_call_is_live
 
 
-def session_call_is_live(record: Mapping[str, Any], *, started_at: str) -> bool:
+def session_call_is_live(
+    record: Mapping[str, Any], *, started_at: datetime | str | None
+) -> bool:
     """Require a running session, current call, and no observed process death."""
     return (
         record.get("turn_posture") == "running"
