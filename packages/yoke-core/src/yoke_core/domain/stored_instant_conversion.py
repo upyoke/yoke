@@ -12,6 +12,9 @@ from typing import Any, Iterable
 
 from psycopg import sql
 
+from yoke_contracts.schema_authority import refuse_without_serving_build_authority
+from yoke_core.domain import administered_postgres
+
 
 _OWNER_CREATION_REPAIRS = {
     ("items", "updated_at"),
@@ -114,6 +117,10 @@ def convert_stored_instants(conn: Any, columns: Iterable[tuple[str, str]]) -> No
     ALTER per table avoids rewriting a multi-instant table once per column.
     Native output is idempotent. UPDATE/DELETE guards are never suspended.
     """
+    refuse_without_serving_build_authority(
+        "converting governed stored instants",
+        administering_env=administered_postgres.administering_target(connection=conn),
+    )
     catalog = _catalog(conn)
     present = sorted(set(columns) & catalog.keys())
     conn.execute("SET LOCAL TIME ZONE 'UTC'")

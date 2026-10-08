@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import pytest
 
 from yoke_core.domain import db_helpers, stored_instant_conversion as conversion
+from yoke_contracts.schema_authority import SchemaAuthorityRefused
 
 
 _TABLE = "instant_conversion_fixture"
@@ -12,6 +13,22 @@ _ROSTER = tuple(
     (_TABLE, name)
     for name in ("created_at", "updated_at", "observed_at", "expires_at", "optional_at")
 )
+
+
+def test_administered_target_refuses_before_read_or_write(monkeypatch):
+    class UnusedConnection:
+        def execute(self, *args):
+            pytest.fail("administered target was read or changed")
+
+    monkeypatch.setattr(
+        conversion.administered_postgres,
+        "administering_target",
+        lambda **_: "admin-target",
+    )
+    with pytest.raises(
+        SchemaAuthorityRefused, match="converting governed stored instants"
+    ):
+        conversion.convert_stored_instants(UnusedConnection(), _ROSTER)
 
 
 def _fixture(conn, monkeypatch, *, native_creation=False):
