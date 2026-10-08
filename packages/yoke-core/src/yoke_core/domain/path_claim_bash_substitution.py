@@ -67,57 +67,128 @@ def classify_substitution_bodies(segment: str) -> str:
     return "ok"
 
 
-def _outer_substitutions(segment: str) -> List[Tuple[int, str]]:
-    """Return ``(start_index, body)`` for outer ``$(...)`` substitutions.
-
-    Quote-aware: ``$(...)`` inside single quotes is skipped. Inside
-    double quotes ``$(...)`` is still parsed by shell semantics so the
-    body is captured. Nested parens inside the body are balanced.
-    """
-    out: List[Tuple[int, str]] = []
-    n = len(segment)
-    i = 0
-    in_single = False
-    in_double = False
-    while i < n:
-        ch = segment[i]
-        if ch == "\\" and not in_single and i + 1 < n:
+def _substitution_end(text: str, start: int, *, tick: bool = False) -> int | None:
+    """Find the closing delimiter, respecting body quotes and nested sources."""
+    depth = 1
+    single = double = False
+    i = start
+    while i < len(text):
+        ch = text[i]
+        if ch == "\\" and not single:
             i += 2
             continue
-        if ch == "'" and not in_double:
-            in_single = not in_single
-            i += 1
+        if tick:
+            if ch == chr(96):
+                return i
+        elif not single and text.startswith("$(", i):
+            end = _substitution_end(text, i + 2)
+            if end is None:
+                return None
+            i = end + 1
             continue
-        if ch == '"' and not in_single:
-            in_double = not in_double
-            i += 1
+        elif not single and ch == chr(96):
+            end = _substitution_end(text, i + 1, tick=True)
+            if end is None:
+                return None
+            i = end + 1
             continue
-        if in_single:
-            i += 1
-            continue
-        if ch == "$" and i + 1 < n and segment[i + 1] == "(":
-            depth = 1
-            j = i + 2
-            body_start = j
-            while j < n and depth > 0:
-                cj = segment[j]
-                if cj == "\\" and j + 1 < n:
-                    j += 2
-                    continue
-                if cj == "(":
-                    depth += 1
-                elif cj == ")":
-                    depth -= 1
-                    if depth == 0:
-                        break
-                j += 1
-            if depth == 0:
-                out.append((i, segment[body_start:j]))
-                i = j + 1
-                continue
-            break
+        elif ch == "'" and not double:
+            single = not single
+        elif ch == '"' and not single:
+            double = not double
+        elif not single and not double:
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+                if depth == 0:
+                    return i
         i += 1
-    return out
+    return None
+
+
+def _substitution_spans(
+    text: str,
+    *,
+    literal_quotes: bool = False,
+) -> List[Tuple[int, int, str, str]]:
+    """Extract executable outer spans once for all substitution consumers."""
+    spans: List[Tuple[int, int, str, str]] = []
+    i = 0
+    single = double = False
+    while i < len(text):
+        ch = text[i]
+        if ch == "\\" and not single:
+            i += 2
+            continue
+        if not literal_quotes:
+            if ch == "'" and not double:
+                single = not single
+            elif ch == '"' and not single:
+                double = not double
+            elif (
+                ch == "#"
+                and not single
+                and not double
+                and (i == 0 or text[i - 1].isspace() or text[i - 1] in ";|&(")
+            ):
+                end = text.find("\n", i)
+                i = len(text) if end < 0 else end
+                continue
+        kind = ""
+        if not single:
+            if text.startswith("$(", i):
+                kind = "command"
+            elif ch == chr(96):
+                kind = "tick"
+            elif not double and text[i : i + 2] in ("<(", ">("):
+                kind = "process"
+        if kind:
+            body_start = i + (1 if kind == "tick" else 2)
+            end = _substitution_end(text, body_start, tick=kind == "tick")
+            if end is None:
+                # Retain malformed syntax in the outer command for a named
+                # unresolved-syntax verdict instead of granting an exemption.
+                break
+            spans.append((i, end + 1, text[body_start:end], kind))
+            i = end + 1
+            continue
+        i += 1
+    return spans
+
+
+def _outer_substitutions(segment: str) -> List[Tuple[int, str]]:
+    """Return command substitution bodies for the path mutation classifier."""
+    return [
+        (start, body)
+        for start, _end, body, kind in _substitution_spans(segment)
+        if kind == "command"
+    ]
+
+
+def executable_substitutions(
+    command: str,
+    *,
+    literal_quotes: bool = False,
+) -> Tuple[str, List[str]]:
+    """Mask expansions in outer argv and return the shell sources they run.
+
+    Single quotes and escapes are inert; double quotes still expand.
+    Unquoted heredoc bodies have literal quote characters, which callers name
+    explicitly. This is source extraction, never evaluation or execution.
+    """
+    parts: List[str] = []
+    bodies: List[str] = []
+    previous = 0
+    for start, end, body, _kind in _substitution_spans(
+        command,
+        literal_quotes=literal_quotes,
+    ):
+        parts.extend((command[previous:start], "__shell_expansion__"))
+        bodies.append(body)
+        previous = end
+    parts.append(command[previous:])
+    return "".join(parts), bodies
 
 
 def _is_mktemp_body(body: str) -> bool:
@@ -139,14 +210,14 @@ def _consumer_is_text_flag(segment: str, substitution_start: int) -> bool:
     before = segment[:substitution_start]
     # Trim trailing whitespace and any single opening quote.
     j = len(before) - 1
-    while j >= 0 and before[j] in (' ', '\t', '\n', '"', "'"):
+    while j >= 0 and before[j] in (" ", "\t", "\n", '"', "'"):
         j -= 1
     end = j + 1
     # Walk backward to the previous whitespace boundary to capture the
     # preceding token.
-    while j >= 0 and before[j] not in (' ', '\t', '\n'):
+    while j >= 0 and before[j] not in (" ", "\t", "\n"):
         j -= 1
-    last_token = before[j + 1:end].strip("'\"")
+    last_token = before[j + 1 : end].strip("'\"")
     if last_token in _TEXT_FLAG_CONSUMERS:
         return True
     # ``--message=...`` shape: token has ``=`` and base name is in the set.
@@ -173,4 +244,4 @@ def _git_subcmd_is_mutating(body: str) -> bool:
     return False
 
 
-__all__ = ["classify_substitution_bodies"]
+__all__ = ["classify_substitution_bodies", "executable_substitutions"]

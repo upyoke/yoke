@@ -25,7 +25,12 @@ from __future__ import annotations
 from typing import List
 
 
-def split_pipeline(command: str) -> List[str]:
+def split_pipeline(
+    command: str,
+    *,
+    split_background: bool = False,
+    shell_comments: bool = False,
+) -> List[str]:
     """Split a Bash command on quote-aware ``;`` / ``&&`` / ``||`` / ``|`` / ``\\n``.
 
     Operators inside single-quoted, double-quoted, or backslash-escaped
@@ -56,7 +61,9 @@ def split_pipeline(command: str) -> List[str]:
     - ``"a\\nb"`` -> ``["a", "b"]`` (newline is a statement separator)
     - ``"cat <<EOF\\nbody\\nEOF"`` -> single segment (heredoc body is opaque)
     """
-    split_on_newline = not has_unquoted_heredoc(command)
+    # Invocation consumers also split a background command; quoted ampersands
+    # remain argv data. Path consumers retain their established boundary shape.
+    split_on_newline = split_background or not has_unquoted_heredoc(command)
     out: List[str] = []
     buf: List[str] = []
     i = 0
@@ -85,12 +92,15 @@ def split_pipeline(command: str) -> List[str]:
             buf.append(ch)
             i += 1
             continue
+        if shell_comments and ch == "#" and (not buf or buf[-1].isspace()):
+            end = command.find("\n", i)
+            if end < 0:
+                end = n
+            buf.append(command[i:end])
+            i = end
+            continue
         # Two-character operators: ``&&`` / ``||`` / ``;;``.
-        if (
-            ch in ";|&"
-            and i + 1 < n
-            and command[i + 1] == ch
-        ):
+        if ch in ";|&" and i + 1 < n and command[i + 1] == ch:
             seg = "".join(buf).strip()
             if seg:
                 out.append(seg)
@@ -100,7 +110,16 @@ def split_pipeline(command: str) -> List[str]:
         # Single-character pipeline operators: ``;`` / ``|`` / ``\n``.
         # Newline split is gated on absence of heredoc so heredoc body
         # lines stay opaque (see docstring).
-        if ch in (";", "|") or (ch == "\n" and split_on_newline):
+        if (
+            ch in (";", "|")
+            or (
+                ch == "&"
+                and split_background
+                and (not buf or buf[-1] != ">")
+                and (i + 1 >= n or command[i + 1] != ">")
+            )
+            or (ch == "\n" and split_on_newline)
+        ):
             seg = "".join(buf).strip()
             if seg:
                 out.append(seg)
@@ -146,7 +165,9 @@ def has_unquoted_heredoc(segment: str) -> bool:
     return False
 
 
-def iter_pipeline_groups(command: str) -> List[List[str]]:
+def iter_pipeline_groups(
+    command: str, *, shell_comments: bool = False, split_background: bool = False
+) -> List[List[str]]:
     """Yield each statement as its quote-aware ``|`` stages.
 
     Statement boundaries (unquoted): ``;`` / ``&&`` / ``||`` / newline.
@@ -154,7 +175,7 @@ def iter_pipeline_groups(command: str) -> List[List[str]]:
     Quoted operators stay literal, so
     ``cmd --evidence 'a | pytest | head'`` is one stage, not a live pipeline.
     """
-    split_on_newline = not has_unquoted_heredoc(command)
+    split_on_newline = split_background or not has_unquoted_heredoc(command)
     groups: List[List[str]] = []
     stages: List[str] = []
     buf: List[str] = []
@@ -196,9 +217,25 @@ def iter_pipeline_groups(command: str) -> List[List[str]]:
             buf.append(ch)
             i += 1
             continue
+        if shell_comments and ch == "#" and (not buf or buf[-1].isspace()):
+            end = command.find("\n", i)
+            if end < 0:
+                end = n
+            buf.append(command[i:end])
+            i = end
+            continue
         if ch in ";|&" and i + 1 < n and command[i + 1] == ch:
             flush_group()
             i += 2
+            continue
+        if (
+            split_background
+            and ch == "&"
+            and (i == 0 or command[i - 1] != ">")
+            and (i + 1 == n or command[i + 1] != ">")
+        ):
+            flush_group()
+            i += 1
             continue
         if ch == "|" or ch == ";" or (ch == "\n" and split_on_newline):
             if ch == "|":
