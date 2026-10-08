@@ -75,7 +75,12 @@ path to correct.
   ```
 
   `universe.levels.set` replaces the whole definition and requires an org
-  admin.
+  admin. It also refuses an option whose effort or context window its
+  model's published catalog values contradict
+  (`level_option_reasoning_effort_unpublished`,
+  `level_option_context_window_tokens_unpublished`). Model refresh proposes
+  level changes with `yoke models level-proposal`; the operator approves
+  before the proposed document is stored here.
 - **Project override** — a project may carry its own levels in its
   `session-routing` capability, set only through the CLI. The document holds
   exactly one key, `levels`:

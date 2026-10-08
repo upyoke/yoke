@@ -13,6 +13,7 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_contracts.levels import LevelsError, default_levels, levels_payload
+from yoke_contracts.model_reference_data import MODEL_RECORDS
 from yoke_core.domain import universe_levels
 from yoke_core.domain.handlers import projects_level_summary
 from yoke_core.domain.handlers.universe_levels import (
@@ -75,6 +76,10 @@ def handlers(conn, monkeypatch):
     )
     monkeypatch.setattr(
         projects_level_summary, "_authorized_project_ref", lambda *_a: str(PROJECT_ID)
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.model_reference_store.revision_at",
+        lambda *_a, **_k: {"records": MODEL_RECORDS},
     )
     return conn
 

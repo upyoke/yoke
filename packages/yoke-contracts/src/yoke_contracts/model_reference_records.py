@@ -17,10 +17,15 @@ inference is labelled, and neither is quietly presented as published.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Any, Literal, Optional
+from typing import Any, Optional
 
-ProposedTier = Literal["tier1", "tier2", "excluded"]
-PROPOSED_TIERS: tuple[ProposedTier, ...] = ("tier1", "tier2", "excluded")
+#: Keys a record no longer carries. Models are described here; which level
+#: launches a model is decided by the execution levels, never the catalog.
+RETIRED_RECORD_KEYS: tuple[str, ...] = (
+    "proposed_tier",
+    "tier_evidence",
+    "tier_provisional",
+)
 
 #: Every rate an ``ApiPrice`` may carry, and therefore every name its
 #: ``estimated_fields`` may label. Readers price from these names too.
@@ -131,9 +136,12 @@ class ModelRecord:
     provider: str
     aliases: tuple[str, ...] = ()
     replacement_model_id: Optional[str] = None
-    proposed_tier: Optional[ProposedTier] = None
-    tier_evidence: Optional[str] = None
-    tier_provisional: bool = False
+    #: Reasoning efforts the provider publishes for this model. Empty means
+    #: unpublished, so no level option can be checked against it.
+    reasoning_efforts: tuple[str, ...] = ()
+    #: Context windows, in tokens, the provider publishes for this model.
+    #: Empty means unpublished; a level option naming no window always fits.
+    context_window_tokens: tuple[int, ...] = ()
     operator_notes: Optional[str] = None
     api_price: Optional[ApiPrice] = None
     benchmarks: tuple[BenchmarkScore, ...] = ()
@@ -180,7 +188,6 @@ __all__ = [
     "ModelRecord",
     "ModelReferenceError",
     "PRICE_FIELDS",
-    "PROPOSED_TIERS",
-    "ProposedTier",
+    "RETIRED_RECORD_KEYS",
     "SubscriptionRule",
 ]

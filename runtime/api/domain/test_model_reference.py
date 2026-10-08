@@ -27,37 +27,12 @@ def test_unknown_model_is_explicitly_unresearched() -> None:
     assert lookup_api_price("not-a-real-model") is None
 
 
-def _proposed_tier(model_id: str) -> str | None:
-    lookup = lookup_model_reference(model_id)
-    assert lookup.researched is True
-    assert lookup.record is not None
-    return lookup.record.proposed_tier
-
-
 def test_cursor_effort_suffix_hits_the_canonical_grok_record() -> None:
     lookup = lookup_model_reference("cursor-grok-4.7-high")
     assert lookup.researched is True
     assert lookup.record is not None
     assert lookup.record.model_id == "cursor-grok-4.7"
-    assert lookup.record.proposed_tier == "tier2"
     assert "operator_preferences" not in lookup.record.to_dict()
-
-
-def test_global_tiers_match_operator_approved_frontier() -> None:
-    assert _proposed_tier("claude-fable-5-1") == "tier1"
-    assert _proposed_tier("gpt-6-astra") == "tier1"
-    assert _proposed_tier("claude-opus-5-5") == "tier2"
-    assert _proposed_tier("cursor-grok-4.7") == "tier2"
-    assert _proposed_tier("gpt-6-sol") == "tier2"
-    assert _proposed_tier("claude-opus-5") == "excluded"
-    assert _proposed_tier("cursor-grok-4.6") == "excluded"
-    assert _proposed_tier("gpt-5.6-sol") == "excluded"
-    assert _proposed_tier("claude-sonnet-5") == "excluded"
-    assert _proposed_tier("gpt-5.5") == "excluded"
-    cursor_tiers = {
-        record.proposed_tier for record in MODEL_RECORDS if record.provider == "cursor"
-    }
-    assert "tier1" not in cursor_tiers
 
 
 _TEACHING_FILES = (
@@ -81,14 +56,12 @@ def _prose_sentences(path: Path) -> list[str]:
 
 
 def test_teaching_prose_never_claims_a_models_tier() -> None:
-    """Tier membership belongs to the catalog, never to taught prose.
+    """Which model sits in a tier is live configuration, never taught prose.
 
-    The catalog publishes ``proposed_tier`` per model and a refresh is
-    DB-only by design, so prose naming which models sit in a tier goes
-    stale with no lane to correct it in — which is how ``gpt-6-sol`` went
-    on being taught as tier2 after the catalog moved it to excluded.
-    Naming a model as a selector-syntax example stays fine; claiming its
-    tier in the same sentence does not.
+    Routing changes without a code lane, so prose naming which models sit
+    in a tier goes stale with nothing to correct it. Naming a model as a
+    selector-syntax example stays fine; claiming its tier in the same
+    sentence does not.
     """
     root = Path(__file__).resolve().parents[3]
     names = sorted(
@@ -105,22 +78,16 @@ def test_teaching_prose_never_claims_a_models_tier() -> None:
                 claims.append(f"{rel}: {named} in {sentence!r}")
     assert not claims, (
         "taught prose claims a tier for a specific model; state the tier's "
-        "meaning and send the reader to `yoke models get` instead:\n"
+        "meaning and send the reader to the live routing read instead:\n"
         + "\n".join(claims)
     )
-
-
-def test_reference_teaching_sends_readers_to_the_catalog() -> None:
-    """Each tier-teaching surface names the read that answers membership."""
-    root = Path(__file__).resolve().parents[3]
-    for rel in _TEACHING_FILES:
-        body = (root / rel).read_text()
-        assert "yoke models get" in body or "yoke models lookup" in body, rel
 
 
 def test_reference_teaching_retains_its_settled_corrections() -> None:
     root = Path(__file__).resolve().parents[3]
     joined = "\n".join((root / rel).read_text() for rel in _TEACHING_FILES)
+    for rel in _TEACHING_FILES[1:]:
+        assert "proposed_tier" not in (root / rel).read_text(), rel
     assert "Grok 4.6 is tier 1" not in joined
     assert "bounded-work default" not in joined
     assert "do not exclude" not in joined.lower()
@@ -137,15 +104,32 @@ def test_claude_cache_write_fields_split_five_minute_and_one_hour() -> None:
     assert grok_price.cache_write_long_per_million_usd is None
 
 
-def test_validate_refuses_unknown_tier_and_missing_identity() -> None:
-    with pytest.raises(ModelReferenceError) as raised:
-        validate_model_record(
-            {"model_id": "x", "provider": "y", "proposed_tier": "gold"}
-        )
-    assert raised.value.code == "tier_invalid"
+def test_validate_refuses_unknown_efforts_windows_and_missing_identity() -> None:
+    for extra, code in (
+        ({"reasoning_efforts": ["turbo"]}, "reasoning_efforts_invalid"),
+        ({"context_window_tokens": [0]}, "context_windows_invalid"),
+        ({"context_window_tokens": "1M"}, "context_windows_invalid"),
+    ):
+        with pytest.raises(ModelReferenceError) as raised:
+            validate_model_record({"model_id": "x", "provider": "y", **extra})
+        assert raised.value.code == code
     with pytest.raises(ModelReferenceError) as raised:
         validate_model_record({"model_id": "", "provider": ""})
     assert raised.value.code == "record_invalid"
+
+
+def test_validate_reads_published_efforts_and_windows() -> None:
+    record = validate_model_record(
+        {
+            "model_id": "example-model",
+            "provider": "example",
+            "reasoning_efforts": ["LOW", "high"],
+            "context_window_tokens": [1_000_000, 200_000, 200_000],
+        }
+    )
+    assert record.reasoning_efforts == ("low", "high")
+    assert record.context_window_tokens == (200_000, 1_000_000)
+    assert validate_model_record(record.to_dict()) == record
 
 
 def test_validate_accepts_null_unknown_leaves() -> None:
@@ -153,13 +137,15 @@ def test_validate_accepts_null_unknown_leaves() -> None:
         {
             "model_id": "example-model",
             "provider": "example",
-            "proposed_tier": None,
+            "reasoning_efforts": None,
+            "context_window_tokens": None,
             "api_price": None,
             "benchmarks": [],
         }
     )
     assert record.model_id == "example-model"
-    assert record.proposed_tier is None
+    assert record.reasoning_efforts == ()
+    assert record.context_window_tokens == ()
     assert record.api_price is None
     assert record.benchmarks == ()
 

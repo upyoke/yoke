@@ -82,11 +82,12 @@ def test_record_validator_keeps_named_refusal():
     outcome = model_reference.handle_models_validate(
         _request(
             model_reference.VALIDATE_FUNCTION_ID,
-            {"record": {"model_id": "x", "provider": "y", "proposed_tier": "gold"}},
+            {"record": {"model_id": "x", "provider": "y", "proposed_tier": "tier1"}},
         )
     )
     assert outcome.primary_success is False
-    assert outcome.error.code == "tier_invalid"
+    assert outcome.error.code == "tier_classification_retired"
+    assert "yoke models level-proposal" in outcome.error.message
 
 
 def test_catalog_publication_functions_are_registered():

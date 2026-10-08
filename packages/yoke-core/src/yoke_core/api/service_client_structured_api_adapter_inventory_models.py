@@ -31,6 +31,11 @@ MODELS_ADAPTERS: List[AdapterEntry] = [
         notes="Validate and compare a complete candidate against the latest revision.",
     ),
     _read_entry(
+        function_id="models.level_proposal.run",
+        cli_invocation="yoke models level-proposal [--stdin] [--levels-only] [--json]",
+        notes="Propose level changes from the catalog; approval stores the levels.",
+    ),
+    _read_entry(
         function_id="models.revisions.run",
         cli_invocation="yoke models revisions [--json]",
         notes="List immutable effective-dated catalog revisions.",

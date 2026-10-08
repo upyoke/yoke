@@ -1,4 +1,4 @@
-"""Published current-model facts and the separate routing annotation."""
+"""Published current-model facts."""
 
 from __future__ import annotations
 
@@ -54,14 +54,13 @@ def test_cursor_models_pool_rule_and_classifier_share_one_family_list() -> None:
 
 
 def test_gpt6_workhorse_and_small_model_keep_credits_distinct_from_api_usd() -> None:
-    for model_id, tier, dollars, credits in (
-        ("gpt-6-sol", "tier2", (2, 10), (50, 5, 250)),
-        ("gpt-6-luna", "excluded", (0.1, 0.5), (2.5, 0.25, 12.5)),
+    for model_id, dollars, credits in (
+        ("gpt-6-sol", (2, 10), (50, 5, 250)),
+        ("gpt-6-luna", (0.1, 0.5), (2.5, 0.25, 12.5)),
     ):
         lookup = lookup_model_reference(model_id)
         assert lookup.record is not None
         assert validate_model_record(lookup.record.to_dict()) == lookup.record
-        assert lookup.record.proposed_tier == tier
         price = lookup.record.api_price
         assert price is not None
         assert (price.input_per_million_usd, price.output_per_million_usd) == dollars
@@ -73,10 +72,3 @@ def test_gpt6_workhorse_and_small_model_keep_credits_distinct_from_api_usd() -> 
             weight.cached_input_per_million,
             weight.output_per_million,
         ) == credits
-
-
-def test_approved_cursor_route_is_annotation_despite_older_model_tier() -> None:
-    lookup = lookup_model_reference("cursor-grok-4.6-high")
-    assert lookup.record is not None
-    assert lookup.record.proposed_tier == "excluded"
-    assert "Grok 4.6 at high" in (lookup.record.operator_notes or "")

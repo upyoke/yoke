@@ -52,11 +52,13 @@ def _print_lookup(response: Any, stdout: TextIO, stderr: TextIO) -> None:
     if not researched or not isinstance(record, dict):
         print(f"{result.get('model_id', '')} researched=false", file=stdout)
         return
-    tier = record.get("proposed_tier") or "unclassified"
+    efforts = ",".join(record.get("reasoning_efforts") or ()) or "unpublished"
+    windows = record.get("context_window_tokens") or ()
+    context = ",".join(str(n) for n in windows) or "unpublished"
     price = record.get("api_price") or {}
     estimated = price.get("estimated_fields") or ()
     print(
-        f"{record.get('model_id')} tier={tier} "
+        f"{record.get('model_id')} efforts={efforts} context={context} "
         f"replacement={record.get('replacement_model_id') or '-'} "
         f"input={price.get('input_per_million_usd')} "
         f"output={price.get('output_per_million_usd')} "
@@ -81,7 +83,10 @@ def models_lookup(args: List[str]) -> int:
     return dispatch_and_emit(
         function_id=LOOKUP_FUNCTION_ID,
         target=TargetRef(kind="global"),
-        payload={"model_id": parsed.model_id, **({"at": parsed.at} if parsed.at else {})},
+        payload={
+            "model_id": parsed.model_id,
+            **({"at": parsed.at} if parsed.at else {}),
+        },
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         human_writer=None if parsed.json_mode else _print_lookup,
