@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_harness.session_launch_admission import NativeCapacityRefusal
+
 import json
 import os
 import subprocess
@@ -15,6 +17,7 @@ from yoke_harness.session_relay_detached_worker import (
     run_detached_json_worker,
 )
 from yoke_harness.session_relay_codex_worker_protocol import (
+    capacity_refusal_outcome,
     initial_failure as _initial_failure,
     outcome_from_payload as _outcome_from_payload,
     outcome_payload as _outcome_payload,
@@ -92,6 +95,8 @@ def worker_main(
         outcome = (
             _initial_failure(request) if hydrated is None else _run_in_worker(hydrated)
         )
+    except NativeCapacityRefusal as refusal:
+        outcome = capacity_refusal_outcome(request, refusal)
     except Exception:
         outcome = CodexNativeOutcome("outcome_unknown")
     destination.write(json.dumps(_outcome_payload(outcome), separators=(",", ":")))

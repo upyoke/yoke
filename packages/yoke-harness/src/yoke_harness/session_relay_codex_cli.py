@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_harness.session_launch_admission import spawn_admitted_process
+
 import json
 import os
 import selectors
@@ -172,7 +174,7 @@ class CodexCliTransport:
         command.append("-")
         process: subprocess.Popen[bytes] | None = None
         try:
-            process = subprocess.Popen(
+            process = spawn_admitted_process(
                 command,
                 cwd=request.checkout,
                 env=strip_relay_owned_python_state(codex_launch_environment(request)),

@@ -124,3 +124,79 @@ def test_supervised_spawn_refusal_starts_no_process(monkeypatch, tmp_path):
             process_factory=lambda *a, **kw: spawned.append(True),
         )
     assert spawned == []
+
+
+@pytest.mark.parametrize("surface", ["codex-cli", "codex-desktop"])
+def test_detached_codex_worker_preserves_capacity_refusal(
+    monkeypatch, tmp_path, surface
+):
+    from io import BytesIO, StringIO
+    import json
+    from yoke_harness import session_relay_codex_cli_process as cli
+    from yoke_harness import session_relay_codex_app_server_process as desktop
+    from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
+    from yoke_harness.session_relay_codex import CodexNativeRequest
+    from yoke_harness.session_relay_codex_worker_protocol import request_payload
+
+    request = CodexNativeRequest(
+        "launch",
+        "launch",
+        surface,
+        "supported",
+        tmp_path,
+        None,
+        None,
+        None,
+        None,
+        None,
+        "instruction",
+        "instruction",
+        launch_attestation="secret",
+    )
+    module = cli if surface == "codex-cli" else desktop
+
+    def refuse(_):
+        admission.spawn_admitted_process(["vendor"])
+
+    monkeypatch.setattr(module, "_run_in_worker", refuse)
+    monkeypatch.setattr(
+        admission, "observe_native_capacity", lambda: capacity.NativeCapacity(1, 0, 0)
+    )
+    output = StringIO()
+    assert (
+        module.worker_main(
+            stdin=BytesIO(json.dumps(request_payload(request)).encode()),
+            stdout=output,
+            environ={
+                LAUNCH_CONTEXT_ENV: json.dumps(
+                    {"launch_id": "launch", "attestation": "secret"}
+                )
+            },
+        )
+        == 0
+    )
+    outcome = json.loads(output.getvalue())
+    assert outcome["state"] == "not_created"
+    assert outcome["failure_code"] == "native_memory_headroom_low"
+    assert outcome["pid"] is None
+
+
+def test_detached_owner_refusal_starts_no_process(monkeypatch, tmp_path):
+    from yoke_harness.session_relay_detached_worker import run_detached_json_worker
+
+    monkeypatch.setattr(
+        admission, "observe_native_capacity", lambda: capacity.NativeCapacity(1, 0, 0)
+    )
+    started = []
+    with pytest.raises(admission.NativeCapacityRefusal):
+        run_detached_json_worker(
+            module="vendor",
+            checkout=tmp_path,
+            environment={},
+            payload={},
+            decode=lambda value: value,
+            initial_failure=None,
+            uncertain_failure=None,
+            process_factory=lambda *a, **kw: started.append(True),
+        )
+    assert started == []

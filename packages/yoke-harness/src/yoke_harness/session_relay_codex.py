@@ -6,6 +6,8 @@ app-server details live behind narrow ports so tests never create a real task.
 
 from __future__ import annotations
 
+from yoke_harness.session_launch_admission import NativeCapacityRefusal
+
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Literal, Protocol
@@ -143,13 +145,7 @@ def _request(context: Any) -> tuple[CodexNativeRequest, str]:
     presentation = _text(_extended(context, "presentation"))
     liveness = _text(getattr(context, "target_liveness", None))
     target_session_id = _text(context.target_session_id)
-    # The stored native thread id (captured at session registration, see
-    # ``sessions_lifecycle_registry.register_session``) is the real Codex
-    # app-server/CLI thread identity. It equals ``target_session_id`` for a
-    # plane-launched session (launch asserts that agreement), but an
-    # operator-started session registers its own session id while the
-    # app-server keys the thread on a different value — so fall back to
-    # ``target_session_id`` only when no stored mapping exists.
+    # Prefer the registered vendor thread ID, then the target session ID.
     native_thread_id = _text(getattr(context, "target_native_thread_id", None))
     target_thread_id = native_thread_id or target_session_id
     instruction = str(context.native_instruction or "").strip()
@@ -301,6 +297,8 @@ def build_codex_relay_adapter(
                 if request.job_kind == "launch"
                 else transport.wake(request)
             )
+        except NativeCapacityRefusal:
+            raise
         except Exception as exc:
             code = "outcome_unknown" if request.job_kind == "launch" else "failed"
             return RelayAdapterResult(

@@ -42,7 +42,11 @@ def run_admitted_adapter(context, adapter):
     from yoke_harness.session_relay_runtime import RelayAdapterResult
 
     try:
-        if context.job_kind == "launch" and not context.surface.endswith("-cli"):
+        if (
+            context.job_kind == "launch"
+            and not context.surface.endswith("-cli")
+            and context.surface != "codex-desktop"
+        ):
             with native_spawn_admission():
                 return adapter(context)
         return adapter(context)
@@ -54,3 +58,11 @@ def run_admitted_adapter(context, adapter):
                 "skip_reason": "Recovery: free memory/swap and retry launch; restore the OS probe if unreadable.",
             },
         )
+
+
+def spawn_admitted_process(*args, process_factory=None, **kwargs):
+    """Probe and stagger only the process creation, leaving identity waits parallel."""
+    import subprocess
+
+    with native_spawn_admission():
+        return (process_factory or subprocess.Popen)(*args, **kwargs)
