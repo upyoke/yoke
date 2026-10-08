@@ -23,7 +23,9 @@ standing write capability on an item that has moved on.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+
+from yoke_contracts.timestamps import as_utc, utc_now
 from typing import Any, Optional
 
 from yoke_core.domain.qa_constants import MAX_CASE_COMMAND_TIMEOUT_SECONDS
@@ -132,9 +134,7 @@ def start_bound_claim_grants(
     released = parse_timestamp_utc(released_at)
     if released is None:
         return False
-    reference = now or datetime.now(timezone.utc)
-    if reference.tzinfo is None:
-        reference = reference.replace(tzinfo=timezone.utc)
+    reference = as_utc(now) if now is not None else utc_now()
     return released >= reference - timedelta(seconds=AUTHORITY_WINDOW_SECONDS)
 
 

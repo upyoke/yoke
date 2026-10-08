@@ -109,6 +109,13 @@ must normalize existing nonempty keys without changing attempt counts.
 Process evidence normalizes its owned native-exit clock while retaining opaque
 OS process-start identity bytes. Session and claim service-client JSON uses
 shared temporal serialization rather than a generic datetime string conversion.
+QA selection orders native actual starts before considering verdicts, with ids
+breaking equal starts and null starts remaining ambiguous. QA summaries format
+owned run, waiver and retraction clocks canonically. Shared age displays and
+start-bound authority use strict instant parsing and exact elapsed units; only
+null is absent. Harness health windows compare native clocks and format the
+selected last-seen instant. Debug capture expiry requires a qualified instant
+and closes at its exact deadline.
 The universe fingerprint formats its organization creation instant canonically,
 so a database session timezone cannot change identity. Earlier recorded actor
 bindings that name another timestamp representation refuse the identity match;

@@ -12,7 +12,9 @@ import logging
 import os
 import threading
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
+
+from yoke_contracts.timestamps import as_utc, format_instant, utc_now
 from typing import Any, Mapping, Optional
 
 from yoke_core.domain.time_parse import parse_timestamp_utc
@@ -52,7 +54,9 @@ class DebugCampaign:
 
     @property
     def identity(self) -> str:
-        return f"{self.kind}:{self.value}:{self.until.isoformat()}:{self.max_records}"
+        return (
+            f"{self.kind}:{self.value}:{format_instant(self.until)}:{self.max_records}"
+        )
 
 
 class DebugCaptureFilter(logging.Filter):
@@ -86,7 +90,9 @@ def parse_debug_campaign(
     *,
     now: Optional[datetime] = None,
 ) -> Optional[DebugCampaign]:
-    """Return the live campaign, or ``None`` when unset, invalid, or expired."""
+    """Return a live campaign; unset scope or expiry is inactive.
+
+    Supplied invalid instants refuse as ``invalid_instant``."""
     source = os.environ if env is None else env
     raw_scope = str(source.get(DEBUG_SCOPE_ENV, "")).strip()
     raw_until = str(source.get(DEBUG_UNTIL_ENV, "")).strip()
@@ -100,10 +106,8 @@ def parse_debug_campaign(
     until = parse_timestamp_utc(raw_until)
     if until is None:
         return None
-    anchor = now or datetime.now(timezone.utc)
-    if anchor.tzinfo is None:
-        anchor = anchor.replace(tzinfo=timezone.utc)
-    if until <= anchor.astimezone(timezone.utc):
+    anchor = as_utc(now) if now is not None else utc_now()
+    if until <= anchor:
         return None
     return DebugCampaign(
         kind=kind,
