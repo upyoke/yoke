@@ -93,8 +93,14 @@ class ProjectGithubAccessFlow:
         owner = str(self.result.project_github_repo or "").split("/", 1)[0]
         return github_state.repository_access_url(self.result, owner=owner)
 
-    def _open_project_github_access(self) -> tuple[str, bool]:
-        url = self._project_github_access_url()
+    def _open_project_github_access(
+        self, *, owner: str | None = None
+    ) -> tuple[str, bool]:
+        url = (
+            github_state.repository_access_url(self.result, owner=owner)
+            if owner
+            else self._project_github_access_url()
+        )
         try:
             opened = open_url(url, browser_open=webbrowser.open).opened
         except Exception:

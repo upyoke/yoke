@@ -10,6 +10,11 @@ from yoke_cli.config import github_machine
 from yoke_cli.config import onboard_github_copy
 from yoke_cli.config import onboard_wizard_github_state as github_state
 from yoke_cli.config import onboard_wizard_steps as steps
+from yoke_cli.config.onboard_wizard_manual_access import (
+    GRANT_ACCESS,
+    MISSING_REPOSITORY,
+    ManualRepositoryAccessFlow,
+)
 from yoke_cli.config.onboard_wizard_widgets import (
     STEP_PROJECT,
     SelectionRow,
@@ -21,12 +26,15 @@ DISABLED = "manual-disabled"
 BACK = "manual-back"
 
 
-class ManualPublishFlow:
+class ManualPublishFlow(ManualRepositoryAccessFlow):
     """Refresh, select, and attach one exact manually created repository."""
 
     def _goto_publish_cannot_create(self) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
+        self._manual_publish_expected_repository = ""
+        self._manual_publish_access_missing = False
+        self._manual_publish_live_report = None
         url = str(getattr(self, "_manual_repository_url", "") or "")
         if not url:
             from yoke_cli.config.onboard_wizard_github_state import endpoint_pair
@@ -47,7 +55,7 @@ class ManualPublishFlow:
                             else "The browser did not open; copy the repository URL below."
                         ),
                         f"Repository URL: {url}",
-                        "After creating it, grant the Yoke GitHub App access.",
+                        "After creating it, check live GitHub App access here.",
                         "Return here and choose Check repositories.",
                     ],
                     [
@@ -79,16 +87,24 @@ class ManualPublishFlow:
         self._on_manual_publish_recovery(choice)
 
     def _on_manual_publish_recovery(self, choice: str) -> None:
+        if choice == MISSING_REPOSITORY:
+            self._identify_manual_repository()
+            return
+        if choice == GRANT_ACCESS:
+            self._grant_manual_repository_access()
+            return
         if choice == CHECK_REPOSITORIES:
             self._check_manual_publish_repositories(replace_current=True)
             return
         if choice == DISABLED:
+            self._manual_publish_access_missing = False
             steps.reset_project_publish_fields(self.result)
             self.result.project_github_repository_id = None
             self.result.project_github_installation_id = None
             self._after_repo("")
             return
         if choice == BACK:
+            self._manual_publish_access_missing = False
             asyncio.ensure_future(self.action_back())
             return
         self._goto_publish_cannot_create()
@@ -98,6 +114,9 @@ class ManualPublishFlow:
         *,
         replace_current: bool,
     ) -> None:
+        self._manual_publish_access_missing = False
+        self._manual_publish_live_report = None
+        self._manual_publish_repositories = {}
         self._run_checking(
             step=STEP_PROJECT,
             title="Checking GitHub repositories.",
@@ -115,6 +134,7 @@ class ManualPublishFlow:
         )
 
     def _after_manual_publish_refresh(self, report: Any) -> None:
+        self._manual_publish_access_missing = False
         repositories = _live_writable_app_repositories(report)
         if repositories is None:
             self._manual_publish_refresh_error(
@@ -122,6 +142,7 @@ class ManualPublishFlow:
             )
             return
         self.result.machine_github_verification = report
+        self._manual_publish_live_report = report
         self.result.machine_github_api_url = str(
             report.get("api_url") or self.result.machine_github_api_url or ""
         )
@@ -132,6 +153,13 @@ class ManualPublishFlow:
         self._manual_publish_repositories = {
             str(repo["full_name"]).casefold(): repo for repo in repositories
         }
+        expected = getattr(self, "_manual_publish_expected_repository", "")
+        if expected:
+            repository = self._manual_publish_repositories.get(expected.casefold())
+            if repository is None:
+                self._manual_repository_unavailable(report)
+                return
+            repositories = [repository]
         self._show_manual_publish_repositories(repositories)
 
     def _show_manual_publish_repositories(
@@ -156,6 +184,11 @@ class ManualPublishFlow:
             (
                 SelectionRow(
                     CHECK_REPOSITORIES, "Check again", "refresh GitHub access"
+                ),
+                SelectionRow(
+                    MISSING_REPOSITORY,
+                    "My repository isn't listed",
+                    "check access for its exact owner/repo",
                 ),
                 SelectionRow(
                     DISABLED,
@@ -183,13 +216,16 @@ class ManualPublishFlow:
         )
 
     def _on_manual_publish_repository(self, choice: str) -> None:
-        if choice in {CHECK_REPOSITORIES, DISABLED, BACK}:
+        if choice in {CHECK_REPOSITORIES, MISSING_REPOSITORY, DISABLED, BACK}:
             self._on_manual_publish_recovery(choice)
             return
         repository = getattr(self, "_manual_publish_repositories", {}).get(
             choice.casefold()
         )
-        if not isinstance(repository, Mapping):
+        expected = getattr(self, "_manual_publish_expected_repository", "")
+        if not isinstance(repository, Mapping) or (
+            expected and choice.casefold() != expected.casefold()
+        ):
             self._manual_publish_refresh_error(
                 RuntimeError(
                     "The selected GitHub repository changed; check repositories again."
@@ -216,13 +252,18 @@ class ManualPublishFlow:
     def _manual_publish_refresh_error(self, exc: BaseException) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
+        self._manual_publish_access_missing = False
+        self._manual_publish_live_report = None
+        self._manual_publish_repositories = {}
         self._goto(
             _View(
                 STEP_PROJECT,
                 lambda: steps.verification_body(
                     "Couldn't verify the new repository.",
                     str(exc),
-                    ["Finish creating the repo and granting App access, then retry."],
+                    [
+                        "Live access check failed; retry Check repositories. Access is unknown."
+                    ],
                     [
                         SelectionRow(
                             CHECK_REPOSITORIES, "Check again", "retry live access"
