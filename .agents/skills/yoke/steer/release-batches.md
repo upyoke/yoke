@@ -118,9 +118,10 @@ own cases. Completed scoped execution settles the stage acceptance on the
 server and opens its configured human review immediately. A resolved review
 also reaches this run's driver; re-enter the pinned runner on the same run
 after a continuation notice, without repeating passing QA or deployment
-stages. A notice that one member settled while its stage has not is not a
-continuation: it names the members still owing QA, and the stage settles,
-and the run continues, only once their QA is accepted.
+stages. A member settling while its stage still waits on others sends the
+seat no notice: the fleet report's run row shows which members still owe QA,
+and a notice arrives when the stage settles, goes red, or its automatic
+continuation fails.
 
 **The deploy driver owns run-scoped visual QA.** Inspect the run's live
 target as an agent, or assign a capable QA agent through Yoke. Record the
