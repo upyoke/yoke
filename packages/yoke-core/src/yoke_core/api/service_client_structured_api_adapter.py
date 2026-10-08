@@ -51,28 +51,9 @@ def call_dispatcher(
 
     from yoke_cli.transport.dispatcher import call_dispatcher as _call
 
-    # Internal join keys are rendered while the engine owns their connection;
-    # every transport invocation carries only the public identity.
-    from yoke_core.domain.public_item_target import public_item_target
-    from yoke_core.domain.function_response_refs import public_response
-
-    if target.item_id is not None or target.epic_id is not None:
-        target = public_item_target(
-            target.epic_id if target.kind == "epic_task" else target.item_id,
-            kind=target.kind,
-            **target.model_dump(
-                exclude_none=True, exclude={"kind", "item_id", "epic_id", "public_ref"}
-            ),
-        )
-    if payload:
-        projected = public_response(
-            FunctionCallResponse(
-                success=True, function=function_id, version="v1", result=payload
-            )
-        )
-        if not projected.success:
-            return projected
-        payload = projected.result
+    # Producers compose public selectors while they own engine state. A
+    # transport facade forwards that request; it never opens a DB to rewrite
+    # selectors or digest-bound machine attestations. The client validates it.
 
     return _call(
         function_id=function_id,

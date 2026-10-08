@@ -71,7 +71,7 @@ def is_engine_protocol_field(key: str) -> bool:
     The driver echoes their owned IDs in an attestation checked against the
     server basis. Rewriting any identity changes that protocol and its digest.
     """
-    return key == "candidate_containment_basis"
+    return key in {"candidate_containment_basis", "candidate_containment"}
 
 
 def item_record_context(key: str) -> bool:

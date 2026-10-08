@@ -89,10 +89,6 @@ def test_start_attests_dispatched_basis_without_rewriting_it(
             lambda request, _connection, **_: dispatch(request),
         )
 
-        def client_call(**kwargs):
-            return dispatcher.call_dispatcher(**kwargs, _local_dispatch=dispatch)
-
-        monkeypatch.setattr(control_plane, "call_dispatcher", client_call)
         received = (
             control_plane.execution_context("run-stage")["candidate_containment_basis"]
             if read == "context"
@@ -109,3 +105,89 @@ def test_start_attests_dispatched_basis_without_rewriting_it(
         assert (
             loads_text(row["candidate_containment"])["items"] == submitted[0]["items"]
         )
+
+
+@pytest.mark.parametrize("read", ["context", "containment_basis"])
+def test_https_start_uses_the_core_facade_without_client_database_authority(
+    monkeypatch, read
+):
+    from yoke_core.domain import db_helpers, db_backend
+
+    def no_client_database(*args, **kwargs):
+        raise AssertionError("HTTPS request composition must not open Postgres")
+
+    monkeypatch.setattr(db_helpers, "connect", no_client_database)
+    monkeypatch.setattr(db_backend, "connect", no_client_database)
+    monkeypatch.setattr(
+        containment, "LocalCheckoutSource", lambda _: _LocalAnswer(True)
+    )
+    monkeypatch.setattr(dispatcher, "_client_label_overrides", lambda: {})
+    monkeypatch.setattr(
+        dispatcher.local_github_dispatch,
+        "call_with_machine_github_authorization",
+        lambda request, dispatch, **_: dispatch(request),
+    )
+    monkeypatch.setattr(https_transport, "resolve_https_connection", lambda: object())
+    basis = {
+        "basis_digest": "b" * 64,
+        "primary_project": "platform",
+        "projects": [
+            {
+                "project_id": 2,
+                "project": "platform",
+                "candidate_lineage": "c" * 40,
+                "items": [{"id": ITEM_ID, "merge_sha": "d" * 40}],
+            }
+        ],
+    }
+    requests = []
+
+    def relay(request, _connection, **kwargs):
+        requests.append(request)
+        if request.function == "deployment_runs.execution.update":
+            answer = request.payload["candidate_containment"]
+            assert answer["basis_digest"] == basis["basis_digest"]
+            assert answer["items"] == [{"id": ITEM_ID, "project_id": 2}]
+            result = {"updated": True}
+        else:
+            result = {"candidate_containment_basis": basis}
+        return FunctionCallResponse(
+            success=True, function=request.function, version="v1", result=result
+        )
+
+    monkeypatch.setattr(https_transport, "relay_https", relay)
+    received = (
+        control_plane.execution_context("run-stage")["candidate_containment_basis"]
+        if read == "context"
+        else control_plane.containment_basis("run-stage")
+    )
+    deploy_pipeline_run_updates.start_run("run-stage", received, "/repo")
+    assert len(requests) == 2
+    assert requests[-1].target.workflow_run_id == "run-stage"
+
+
+def test_core_facade_refuses_numeric_selectors_without_database_reads(monkeypatch):
+    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+    from yoke_core.domain import db_helpers
+    from yoke_contracts.api.function_call import ActorContext, TargetRef
+
+    def no_database(*args, **kwargs):
+        raise AssertionError("invalid client selectors must not open Postgres")
+
+    monkeypatch.setattr(db_helpers, "connect", no_database)
+    for target, payload in [
+        (TargetRef(kind="item", item_id=ITEM_ID), {}),
+        (TargetRef(kind="item", public_ref=str(ITEM_ID)), {}),
+        (TargetRef(kind="global"), {"item_id": ITEM_ID}),
+    ]:
+        response = call_dispatcher(
+            function_id="items.get.run",
+            target=target,
+            payload=payload,
+            actor=ActorContext(actor_id="test", session_id=""),
+        )
+        assert not response.success
+        assert response.error.code in {
+            "internal_item_id_forbidden",
+            "public_item_ref_required",
+        }
