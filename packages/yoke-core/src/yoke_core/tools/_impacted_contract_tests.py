@@ -208,6 +208,7 @@ PATH_CONTRACT_TESTS = (
         frozenset(
             {
                 "packages/yoke-core/src/yoke_core/domain/qa_plan_review_schema.py",
+                "packages/yoke-core/src/yoke_core/domain/qa_catalog_schema.py",
                 "packages/yoke-core/src/yoke_core/domain/qa_plan_execution_schema.py",
                 "packages/yoke-core/src/yoke_core/domain/qa_schema.py",
                 "packages/yoke-core/src/yoke_core/domain/schema_init_tables.py",

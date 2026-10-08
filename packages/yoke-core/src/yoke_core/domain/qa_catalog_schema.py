@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from yoke_core.domain import db_backend
+from yoke_core.domain import db_backend, qa_plan_requirement_identity
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.schema_common import (
     _add_column_if_not_exists,
@@ -77,6 +77,7 @@ CREATE TABLE IF NOT EXISTS qa_plan_cases (
     success_policy_id TEXT,
     success_policy_params TEXT,
     host_baselines TEXT NOT NULL DEFAULT '[]',
+    target_envs TEXT NOT NULL DEFAULT '[]',
     entry_surface TEXT,
     required_completion TEXT,
     created_at TEXT NOT NULL,
@@ -309,6 +310,9 @@ def create_qa_catalog_tables(
     )
     for column in ("starting_state", "starting_state_reason"):
         _add_column_if_not_exists(conn, "qa_plan_cases", column, "TEXT")
+    _add_column_if_not_exists(
+        conn, "qa_plan_cases", "target_envs", "TEXT NOT NULL DEFAULT '[]'"
+    )
     for column, definition in _REQUIREMENT_COLUMNS:
         _add_column_if_not_exists(conn, "qa_requirements", column, definition)
     for column, definition in _RUN_COLUMNS:
@@ -327,14 +331,7 @@ def create_qa_catalog_tables(
         )
     for column, definition in _ATTACHMENT_RETRACT_COLUMNS:
         _add_column_if_not_exists(conn, "qa_plan_item_attachments", column, definition)
-    conn.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS "
-        "idx_qa_requirement_materialization "
-        "ON qa_requirements("
-        "item_id, plan_id, plan_case_key, "
-        "COALESCE(host_baseline, ''), workflow_transition_id"
-        ") WHERE item_id IS NOT NULL AND plan_id IS NOT NULL"
-    )
+    qa_plan_requirement_identity.ensure_materialization_index(conn)
     execute_schema_script(conn, REQUIREMENT_SCOPE_INDEX_SQL)
     if commit:
         conn.commit()

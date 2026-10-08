@@ -143,6 +143,7 @@ def insert_requirement(
     baseline_position: int,
     now: str,
     execution_target: dict[str, Any],
+    target_env: Optional[str] = None,
 ) -> Optional[int]:
     """Insert one immutable plan-case snapshot, returning its new id."""
     marker = _placeholder(conn)
@@ -154,6 +155,7 @@ def insert_requirement(
         baseline_position=baseline_position,
         transition_id=transition_id,
         execution_target=execution_target,
+        target_env=target_env,
     )
     require_case_target(case_target_subject(case, definition), execution_target)
     stored = converged_values(conn, "qa_requirements", definition)
@@ -209,6 +211,7 @@ def refresh_requirement(
     baseline: Optional[str],
     baseline_position: int,
     execution_target: dict[str, Any],
+    target_env: Optional[str] = None,
 ) -> dict[str, Any]:
     """Refresh a materialized case without severing its run history.
 
@@ -226,6 +229,7 @@ def refresh_requirement(
         baseline_position=baseline_position,
         transition_id=transition_id,
         execution_target=execution_target,
+        target_env=target_env,
     )
     require_case_target(case_target_subject(case, definition), execution_target)
     stored = converged_values(conn, "qa_requirements", definition)
@@ -254,6 +258,7 @@ def existing_requirement_id(
     baseline: Optional[str],
     transition_id: Optional[str] = None,
     execution_target_digest: Optional[str] = None,
+    target_env: Optional[str] = None,
 ) -> Optional[int]:
     """Resolve the snapshot that won a concurrent idempotent insert."""
     marker = _placeholder(conn)
@@ -277,6 +282,10 @@ def existing_requirement_id(
         baseline or "",
         transition_id or "",
     )
+    environment_clause = ""
+    if item_id is not None or target_env is not None:
+        environment_clause = f"AND COALESCE(target_env, '')={marker} "
+        params += (target_env or "",)
     if execution_target_digest is not None:
         params += (execution_target_digest,)
     row = query_one(
@@ -289,6 +298,7 @@ def existing_requirement_id(
         f"AND plan_case_key={marker} "
         f"AND COALESCE(host_baseline, '')={marker} "
         f"AND COALESCE(workflow_transition_id, '')={marker} "
+        f"{environment_clause}"
         f"{target_clause}",
         params,
     )

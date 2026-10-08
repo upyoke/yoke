@@ -1,4 +1,4 @@
-"""Stored QA plan cases: their starting-state declaration and their rows."""
+"""Validated QA plan case storage."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from yoke_contracts.qa_case_starting_state import (
     chain_baselines,
     normalize_starting_state,
 )
-from yoke_core.domain.qa_converging_columns import converged_values
+from yoke_core.domain.qa_converging_columns import converged_values, present_columns
 from yoke_core.domain.qa_plan_management import QaPlanError, _json, _placeholder
 
 
@@ -50,6 +50,13 @@ def insert_plan_cases(
 ) -> None:
     """Replace a plan's stored cases with validated ones."""
     marker = _placeholder(conn)
+    target_column_present = "target_envs" in present_columns(conn, "qa_plan_cases")
+    if not target_column_present and any(case["target_envs"] for case in cases):
+        raise QaPlanError(
+            "qa_case_environment_schema_unavailable: install the release declaring "
+            "qa_plan_cases.target_envs and let boot converge it, then retry "
+            "`yoke qa plan-cases replace`"
+        )
     conn.execute(f"DELETE FROM qa_plan_cases WHERE plan_id={marker}", (plan_id,))
     for case in cases:
         values = converged_values(
@@ -68,6 +75,11 @@ def insert_plan_cases(
                 if case.get("success_policy_params") is not None
                 else None,
                 "host_baselines": _json(case["host_baselines"]),
+                **(
+                    {"target_envs": _json(case["target_envs"])}
+                    if target_column_present
+                    else {}
+                ),
                 "starting_state": case.get("starting_state"),
                 "starting_state_reason": case.get("starting_state_reason"),
                 "entry_surface": case.get("entry_surface"),

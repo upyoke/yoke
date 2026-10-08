@@ -30,9 +30,7 @@ from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
     rollback_workflow_binding_write_errors,
 )
-from yoke_core.domain.qa_execution_environment_target import (
-    resolve_plan_execution_target,
-)
+from yoke_core.domain.qa_plan_case_targets import case_variants
 from yoke_core.domain.qa_plan_project_defaults import (
     set_project_default,
     unset_project_default,
@@ -220,37 +218,40 @@ def materialize_for_item(
     # is not skipped: a case added after the first materialization still owes
     # its own row, while an existing row is confirmed rather than rewritten
     # (``qa.plan.rematerialize`` is what brings an amended row current).
-    snapshots: list[tuple[int, Any, dict, list[Any], dict]] = []
+    snapshots: list[tuple[int, Any, dict, list[tuple[Any, str | None, dict]]]] = []
     for plan_id, attachment in attachments.items():
-        execution_target = resolve_plan_execution_target(
-            conn, plan_id=plan_id, require_runtime_match=False
-        )
-        existing.extend(
-            require_existing_target(
-                query_rows(
-                    conn,
-                    "SELECT id,execution_target_json,execution_target_digest "
-                    "FROM qa_requirements "
-                    f"WHERE item_id={marker} AND plan_id={marker} "
-                    f"AND workflow_transition_id={marker} ORDER BY id",
-                    (item_id, plan_id, transition_id),
-                ),
-                execution_target=execution_target,
-                subject=subject,
-                conn=conn,
-            )
-        )
         cases = plan_cases(conn, plan_id)
         if not cases:
             raise QaPlanError(
                 f"QA plan {plan_id} has no cases and cannot be materialized"
             )
-        snapshots.append(
-            (plan_id, _plan_row(conn, plan_id), attachment, cases, execution_target)
-        )
+        plan = _plan_row(conn, plan_id)
+        variants = case_variants(conn, plan=plan, cases=cases)
+        for case, target_env, execution_target in variants:
+            existing.extend(
+                require_existing_target(
+                    query_rows(
+                        conn,
+                        "SELECT id,execution_target_json,execution_target_digest FROM qa_requirements "
+                        f"WHERE item_id={marker} AND plan_id={marker} AND workflow_transition_id={marker} "
+                        f"AND plan_case_key={marker} AND COALESCE(target_env,'')={marker} ORDER BY id",
+                        (
+                            item_id,
+                            plan_id,
+                            transition_id,
+                            case["case_key"],
+                            target_env or "",
+                        ),
+                    ),
+                    execution_target=execution_target,
+                    subject=subject,
+                    conn=conn,
+                )
+            )
+        snapshots.append((plan_id, plan, attachment, variants))
 
-    for plan_id, plan, attachment, cases, execution_target in snapshots:
-        for case in cases:
+    for plan_id, plan, attachment, variants in snapshots:
+        for case, target_env, execution_target in variants:
             for baseline_position, baseline in enumerate(case_baselines(case), start=1):
                 requirement_id = insert_requirement(
                     conn,
@@ -263,6 +264,7 @@ def materialize_for_item(
                     baseline_position=baseline_position,
                     now=now,
                     execution_target=execution_target,
+                    target_env=target_env,
                 )
                 if requirement_id is not None:
                     created.append(requirement_id)
@@ -274,6 +276,7 @@ def materialize_for_item(
                     case_key=str(case["case_key"]),
                     baseline=baseline,
                     transition_id=transition_id,
+                    target_env=target_env,
                 )
                 if requirement_id is not None and requirement_id not in existing:
                     existing.append(

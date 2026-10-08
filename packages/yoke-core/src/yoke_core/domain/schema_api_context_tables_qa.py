@@ -85,6 +85,10 @@ QA_TABLES: dict[str, dict] = {
             ("created_at", "TEXT"),
         ],
         "notes": (
+            "Plan detail reads use qa_plan_detail.get_plan(conn, plan_id=...); "
+            "the guessed qa_plan_detail.plan_detail helper does not exist. "
+            "QA cases declare target_envs as a JSON list; each environment "
+            "materializes a separate target_env obligation and done requires every target. "
             "Requirements describe what passing looks like; verdicts and "
             "raw results live on qa_runs (joined via qa_requirement_id). "
             "Reviewed-implementation gate verifies a passing run exists "
@@ -107,9 +111,13 @@ QA_TABLES: dict[str, dict] = {
             "`inherit`, `as_is`) and `starting_state_reason`; "
             "`yoke_core.domain.qa_plan_case_chain` owns chain ends and the "
             "inherit blocker. A source-bound materializer reading a serving "
-            "database before those columns converge must refuse with the "
-            "serving-schema requirement; indexing a SELECT c.* row directly "
-            "causes KeyError starting_state. `qa_case_starting_state_schema` "
+            "database before those columns converge uses "
+            "qa_converging_columns.converged_select/converged_values; "
+            "qa_converged_columns is a guessed, nonexistent module. "
+            "Environment authoring before target_envs converges refuses "
+            "qa_case_environment_schema_unavailable rather than dropping targets. "
+            "Indexing a SELECT c.* row directly causes KeyError starting_state. "
+            "`qa_case_starting_state_schema` "
             "and `schema_sql` are guessed modules, not schema owners. "
             "Plan bindings live in qa_plan_item_attachments; its timestamp is "
             "attached_at, not created_at. Attachment fixture inserts use attached_at and transition_id; wrong guesses created_at and workflow_transition are not its columns. "

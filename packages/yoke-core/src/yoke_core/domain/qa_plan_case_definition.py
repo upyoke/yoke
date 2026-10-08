@@ -83,6 +83,7 @@ def materialized_definition(
     baseline_position: int,
     transition_id: Optional[str],
     execution_target: Optional[Mapping[str, Any]] = None,
+    target_env: Optional[str] = None,
 ) -> dict[str, Any]:
     """Every column this plan case materializes onto one requirement row.
 
@@ -123,6 +124,21 @@ def materialized_definition(
         "expected_outcome": str(case["expected_outcome"]),
         "method_config": _json(method_config),
     }
+    from yoke_core.domain.qa_plan_case_targets import (
+        case_target_envs,
+        case_applies_to_target,
+    )
+
+    if execution_target is not None and not case_applies_to_target(
+        case, execution_target
+    ):
+        raise QaPlanError(
+            f"case_target_not_selected: case {case['case_key']!r} does not name "
+            "this execution environment. Select the case on a matching QA stage."
+        )
+    if target_env is None and execution_target is not None and case_target_envs(case):
+        target_env = str((execution_target.get("environment") or {}).get("name") or "")
+    definition["target_env"] = target_env
     if execution_target is not None:
         definition["execution_target_json"] = canonical_target(execution_target)
         definition["execution_target_digest"] = target_digest(execution_target)

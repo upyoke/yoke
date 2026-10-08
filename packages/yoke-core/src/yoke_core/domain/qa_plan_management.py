@@ -212,6 +212,9 @@ def _validated_cases(cases: list[dict]) -> list[dict]:
             raise QaPlanError(
                 f"case {key!r} requires instructions and expected_outcome"
             )
+        from yoke_core.domain.qa_plan_case_targets import validated_target_envs
+
+        target_envs = validated_target_envs(raw.get("target_envs", []), case_key=key)
         baselines = raw.get("host_baselines") or []
         if not isinstance(baselines, list) or any(
             not isinstance(value, str) or not value for value in baselines
@@ -243,6 +246,7 @@ def _validated_cases(cases: list[dict]) -> list[dict]:
                 "host_baselines": list(dict.fromkeys(baselines)),
                 "starting_state": raw.get("starting_state"),
                 "starting_state_reason": raw.get("starting_state_reason"),
+                "target_envs": target_envs,
                 "entry_surface": raw.get("entry_surface"),
                 "required_completion": raw.get("required_completion"),
             }
@@ -283,7 +287,10 @@ def _validated_plan_cases(
         validate_method_config,
     )
 
+    from yoke_core.domain.qa_plan_case_targets import resolve_case_targets
+
     for case in cases:
+        resolve_case_targets(conn, plan=plan, case=case, resolve_default=False)
         contract = contracts[case["method_id"]]
         try:
             case["method_config"] = validate_method_config(

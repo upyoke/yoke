@@ -41,6 +41,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from runtime.api.domain.test_dash_post_deploy_review_isolation import _insert_dash
 from runtime.api.fixtures.deployment_admitted_case_fixture import (
     deliver_with_failing_admitted_copy,
@@ -130,17 +132,17 @@ def test_rendered_done_refusal_states_a_condition_on_every_exit(test_db) -> None
         carrying = [sentence for sentence in sentences if action in sentence]
         assert carrying, f"{action!r} is not inside any sentence"
         assert any(
-            marker in sentence
-            for sentence in carrying
-            for marker in CONDITION_MARKERS
+            marker in sentence for sentence in carrying for marker in CONDITION_MARKERS
         ), (
             f"the {action!r} exit is named with no condition attached; a reader "
             "cannot tell whether it is available to them"
         )
 
 
+@pytest.mark.parametrize("target_env", [None, "stage"])
 def test_refusal_does_not_read_per_case_to_decide_which_exits_to_print(
     test_db,
+    target_env,
 ) -> None:
     """Two deliveries differing only in admitted-copy state render identically.
 
@@ -166,8 +168,11 @@ def test_refusal_does_not_read_per_case_to_decide_which_exits_to_print(
     for requirement_id in (with_corrected, without_corrected):
         counting = _CountingConn(test_db)
         errors = done_gate_refusal_errors(
-            counting, [_post_deploy_row(requirement_id)], name="YOKE item"
+            counting,
+            [dict(_post_deploy_row(requirement_id), target_env=target_env)],
+            name="YOKE item",
         )
+        assert ("missing_target_proof" in "\n".join(errors)) == bool(target_env)
         rendered.append((_recovery_line(errors), counting.queries))
 
     (corrected_text, corrected_queries), (absent_text, absent_queries) = rendered
@@ -186,7 +191,9 @@ def test_refusal_does_not_read_per_case_to_decide_which_exits_to_print(
     # phase that appends no recovery isolates exactly what the exits cost.
     baseline = _CountingConn(test_db)
     done_gate_refusal_errors(
-        baseline, [_verification_row(with_corrected)], name="YOKE item"
+        baseline,
+        [dict(_verification_row(with_corrected), target_env=target_env)],
+        name="YOKE item",
     )
     assert corrected_queries == baseline.queries, (
         "rendering the post_deploy exits issued "

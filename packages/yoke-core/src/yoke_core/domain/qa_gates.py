@@ -217,7 +217,7 @@ def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
             conn,
             f"""
             SELECT r.id, r.qa_kind, r.qa_phase, r.deployment_run_id,
-                   r.item_id, r.plan_case_key
+                   r.item_id, r.plan_case_key, r.target_env, r.execution_target_json
             FROM qa_requirements r
             WHERE {where}
               AND r.blocking_mode = 'blocking'

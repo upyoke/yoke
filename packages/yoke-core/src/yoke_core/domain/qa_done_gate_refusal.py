@@ -30,9 +30,7 @@ def _run_id(row: Any) -> str:
     return str(value or "").strip()
 
 
-def done_gate_refusal_errors(
-    conn: Any, rows: Sequence[Any], *, name: str
-) -> list[str]:
+def done_gate_refusal_errors(conn: Any, rows: Sequence[Any], *, name: str) -> list[str]:
     """The operator-facing refusal for rows that still hold ``done``."""
     errors = [
         f"Error: Cannot transition {name} to 'done' -- {len(rows)} blocking "
@@ -52,6 +50,10 @@ def done_gate_refusal_errors(
             else "no passing run"
         )
         run = _run_id(row)
+        if _phase(row) == POST_DEPLOY_PHASE:
+            target_recovery = _target_recovery(row)
+            if target_recovery:
+                errors.append(target_recovery)
         bound = f", run={run}" if run else ""
         errors.append(
             f"  - Requirement #{row['id']} ({row['qa_kind']}, "
@@ -62,16 +64,32 @@ def done_gate_refusal_errors(
     return errors
 
 
-def done_gate_refusal_text(
-    conn: Any, rows: Sequence[Any], *, item_id: int
-) -> str:
+def _target_recovery(row: Any) -> str:
+    from yoke_core.domain.deployment_member_post_deploy_admission import (
+        requirement_target_environment,
+    )
+
+    facts = dict(row)
+    name = requirement_target_environment(
+        facts.get("target_env"), facts.get("execution_target_json")
+    )
+    if not name:
+        return ""
+    return (
+        f"    missing_target_proof: requirement #{row['id']} needs accepted "
+        f"{name!r} proof; deliver the same candidate through an active delivery "
+        f"flow with an item QA stage targeting {name!r} and accept that stage. "
+        "If none exists, configure an active delivery flow with that target "
+        "before retrying delivery."
+    )
+
+
+def done_gate_refusal_text(conn: Any, rows: Sequence[Any], *, item_id: int) -> str:
     """Render :func:`done_gate_refusal_errors` for one item id."""
     from yoke_core.domain.project_identity import render_item_ref
 
     return "\n".join(
-        done_gate_refusal_errors(
-            conn, rows, name=render_item_ref(conn, int(item_id))
-        )
+        done_gate_refusal_errors(conn, rows, name=render_item_ref(conn, int(item_id)))
     )
 
 

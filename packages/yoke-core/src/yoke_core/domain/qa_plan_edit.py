@@ -51,6 +51,7 @@ def _case_document(row: Any) -> dict[str, Any]:
         "host_baselines": _decode(row["host_baselines"], []),
         "starting_state": row["starting_state"],
         "starting_state_reason": row["starting_state_reason"],
+        "target_envs": _decode(row["target_envs"], []),
         "entry_surface": row["entry_surface"],
         "required_completion": row["required_completion"],
     }
@@ -65,7 +66,7 @@ def _current_cases(conn: Any, plan_id: int) -> list[dict[str, Any]]:
             "SELECT case_key, position, method_id, instructions, "
             "expected_outcome, method_config, success_policy_id, "
             "success_policy_params, host_baselines, "
-            f"{converged_select(conn, 'qa_plan_cases', STARTING_STATE_COLUMNS)}, "
+            f"{converged_select(conn, 'qa_plan_cases', (*STARTING_STATE_COLUMNS, 'target_envs'))}, "
             "entry_surface, "
             f"required_completion FROM qa_plan_cases WHERE plan_id={marker} "
             "ORDER BY position",

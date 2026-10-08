@@ -108,7 +108,18 @@ def attached_member_plan_ids(
         if not plan_matches_stage_environment(
             row["target_environment_id"], environment_id
         ):
-            continue
+            from yoke_core.domain.qa_plan_case_definition import plan_cases
+            from yoke_core.domain.qa_plan_case_targets import case_target_envs
+
+            environment = conn.execute(
+                "SELECT name FROM environments WHERE id=%s", (environment_id,)
+            ).fetchone()
+            name = str(environment[0]) if environment else ""
+            if not any(
+                name in case_target_envs(case)
+                for case in plan_cases(conn, int(row["plan_id"]))
+            ):
+                continue
         selected.append(int(row["plan_id"]))
     return selected
 
@@ -138,17 +149,31 @@ def delivery_answered_plan_ids(
     placeholders = ", ".join(["%s"] * len(wanted))
     rows = query_rows(
         conn,
-        f"SELECT id,plan_id,waived_at,superseded_by_requirement_id,{requirement_retracted_at_select(conn)} "
+        f"SELECT id,plan_id,plan_case_key,host_baseline,target_env,waived_at,superseded_by_requirement_id,{requirement_retracted_at_select(conn)} "
         "FROM qa_requirements "
         "WHERE deployment_member_item_id=%s AND deployment_run_id IS NOT NULL "
         f"AND plan_id IN ({placeholders})",
         (int(member_item_id), *wanted),
     )
     answered: dict[int, bool] = {}
+    targeted: dict[tuple, bool] = {}
     for row in rows:
         plan_id = int(row["plan_id"])
         settled = obligation_settled(row) or _latest_verdict(conn, row["id"]) == "pass"
         answered[plan_id] = answered.get(plan_id, True) and settled
+        key = (plan_id, row["plan_case_key"], row["host_baseline"], row["target_env"])
+        targeted[key] = targeted.get(key, True) and settled
+    from yoke_core.domain.qa_plan_case_definition import case_baselines, plan_cases
+    from yoke_core.domain.qa_plan_case_targets import case_target_envs
+
+    for plan_id in wanted:
+        for case in plan_cases(conn, plan_id):
+            for name in case_target_envs(case):
+                for baseline in case_baselines(case):
+                    if not targeted.get(
+                        (plan_id, case["case_key"], baseline, name), False
+                    ):
+                        answered[plan_id] = False
     return {plan_id for plan_id, every_case in answered.items() if every_case}
 
 

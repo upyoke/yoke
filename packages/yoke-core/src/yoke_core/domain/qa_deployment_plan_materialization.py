@@ -63,6 +63,9 @@ def materialize_deployment_plan(
     cases = plan_cases(conn, plan_id)
     if not cases:
         raise QaPlanError(f"QA plan {plan_id} has no cases and cannot be materialized")
+    from yoke_core.domain.qa_plan_case_targets import require_single_execution_target
+
+    require_single_execution_target(cases, execution_target)
     existing_rows = query_rows(
         conn,
         "SELECT id,execution_target_json,execution_target_digest "
@@ -95,9 +98,7 @@ def materialize_deployment_plan(
     now = iso8601_now()
     try:
         for case in cases:
-            for baseline_position, baseline in enumerate(
-                case_baselines(case), start=1
-            ):
+            for baseline_position, baseline in enumerate(case_baselines(case), start=1):
                 requirement_id = insert_requirement_fn(
                     conn,
                     deployment_run_id=str(deployment_run_id),

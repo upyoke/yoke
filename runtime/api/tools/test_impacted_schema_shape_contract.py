@@ -8,6 +8,7 @@ from yoke_core.tools import _impacted_contract_tests as contracts
 @pytest.mark.parametrize(
     "module",
     [
+        "qa_catalog_schema",
         "qa_plan_execution_schema",
         "deployment_runs_schema_init",
         "flow_init",

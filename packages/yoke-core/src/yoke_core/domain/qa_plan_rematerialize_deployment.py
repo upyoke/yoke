@@ -240,11 +240,16 @@ def rematerialize_for_deployment_stage(
             groups.setdefault(
                 (base_case_key(row["plan_case_key"]), row["host_baseline"]), []
             ).append(row)
+        from yoke_core.domain.qa_plan_case_targets import case_applies_to_target
+
         cases = plan_cases(conn, plan_id)
         if not cases:
             raise QaPlanError(
                 f"QA plan {plan_id} has no cases and cannot be rematerialized"
             )
+        cases = [
+            case for case in cases if case_applies_to_target(case, execution_target)
+        ]
         for case in cases:
             for baseline_position, baseline in enumerate(case_baselines(case), start=1):
                 group = groups.get((str(case["case_key"]), baseline), [])

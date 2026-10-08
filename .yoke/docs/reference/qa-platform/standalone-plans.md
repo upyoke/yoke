@@ -44,3 +44,30 @@ Responses carry `standalone_plan_id`; snapshots and proof reads carry
 `standalone_execution_id`. Requirement-targeted recording verifies the same
 owner, and browser context accepts a standalone `qa_requirement` target.
 Standalone execution uses existing QA records and never credits item or deployment gates.
+
+## Case environment obligations
+
+A case can declare `"target_envs": ["stage", "prod"]` in the JSON supplied to
+`yoke qa plan-cases replace` or `yoke qa plan edit`. These are unique registered
+environment names on the plan's project, each with a reviewable URL. Omit the
+field or use `[]` to keep the plan's default target.
+
+Item materialization creates one requirement per environment and host baseline,
+with `target_env` and an immutable execution target on each row. Rematerializing
+keeps matching case key, baseline, and environment identities, and waives only
+variants removed from the definition. Deployment stages materialize only cases
+applicable to their own target; evidence from Production cannot prove Stage.
+
+Attach delivery cases at the workflow's release transition with
+`--qa-phase post_deploy`, then materialize them before release composition so
+Stage-targeted obligations enroll the item on a matching supplemental run.
+The item stays at its release wait until every blocking target is accepted.
+`missing_target_proof` names the missing environment and matching active flows;
+if no flow can carry it, configure an item QA stage for that environment and
+deliver the same candidate through it. Use target-relative commands such as
+`BASE_URL` rather than hardcoded Stage or Production endpoints in shared cases.
+
+A standalone execution has one immutable target. A plan requiring other
+environments refuses with `qa_plan_requires_environment_scopes` before writing
+cases. Use each item requirement or matching deployment QA stage to collect
+those separate proofs; a standalone plan run never completes an item gate.
