@@ -1,13 +1,11 @@
 """Resolve a launch's model selection on the machine that will run it.
 
-A launch executes on the chosen machine, so every default comes from that
-machine's advertised preferences -- not the config on whichever machine
-composed the request. The requester's config can name models and effort levels
-that the target machine's provider account cannot use.
-
-Each explicit launch knob still wins independently. This module joins those
-explicit values to the selected machine's model, effort, and encoded context
-defaults and returns the exact effective selection the relay must carry.
+A launch carries an explicit selection: the option its level placement chose,
+or the exact values the caller named. Any knob left unnamed falls to the
+surface's own vendor default. The chosen machine then checks the selection
+against what its surface last said it can run, because a model the provider
+account behind that machine cannot select would launch a session that never
+registers.
 """
 
 from __future__ import annotations
@@ -15,15 +13,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from yoke_contracts.machine_config.preferred_session_models import (
-    EXPLICIT_SOURCE,
-    PREFERRED_SESSION_MODELS_KEY,
-    PREFERRED_SESSION_REASONING_EFFORTS_KEY,
-    VENDOR_DEFAULT_SOURCE,
-    resolve_launch_selection,
-)
 from yoke_contracts.session_control.model_selection import (
+    LaunchModelSelection,
     LaunchModelSelectionError,
+    validate_launch_model_selection,
 )
 from yoke_contracts.session_control.native_models import sanitize_native_models
 from yoke_contracts.session_control.observed_model_selection import (
@@ -31,10 +24,12 @@ from yoke_contracts.session_control.observed_model_selection import (
 )
 from yoke_core.domain import db_backend, json_helper
 from yoke_core.domain.session_launch_types import SessionLaunchError
-from yoke_core.domain.session_relay_types import (
-    advertised_session_models,
-    advertised_session_reasoning_efforts,
-)
+
+#: Where a knob came from when the caller named it for this one launch.
+EXPLICIT_SOURCE = "explicit launch request"
+#: Where a knob came from when nobody named it.
+VENDOR_DEFAULT_SOURCE = "vendor default"
+_FIELDS = ("model", "reasoning_effort", "context_window_tokens")
 
 
 @dataclass(frozen=True)
@@ -73,53 +68,6 @@ def _decode_document(raw: Any) -> Any:
         return {}
 
 
-def machine_preference_payload(conn: Any, *, machine_id: str) -> dict[str, Any]:
-    """Read the model and effort maps from one latest heartbeat."""
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    row = conn.execute(
-        "SELECT preferred_session_models, preferred_session_reasoning_efforts "
-        "FROM session_relays "
-        f"WHERE machine_id = {marker} "
-        "ORDER BY last_seen_at DESC, relay_id ASC",
-        (str(machine_id),),
-    ).fetchone()
-    if row is None:
-        return {
-            PREFERRED_SESSION_MODELS_KEY: {},
-            PREFERRED_SESSION_REASONING_EFFORTS_KEY: {},
-        }
-    return {
-        PREFERRED_SESSION_MODELS_KEY: advertised_session_models(
-            _decode_document(_cell(row, "preferred_session_models", 0))
-        ),
-        PREFERRED_SESSION_REASONING_EFFORTS_KEY: (
-            advertised_session_reasoning_efforts(
-                _decode_document(_cell(row, "preferred_session_reasoning_efforts", 1))
-            )
-        ),
-    }
-
-
-def machine_preferred_models(conn: Any, *, machine_id: str) -> dict[str, str]:
-    """Return the model selectors from the machine's latest heartbeat."""
-    return dict(
-        machine_preference_payload(conn, machine_id=machine_id)[
-            PREFERRED_SESSION_MODELS_KEY
-        ]
-    )
-
-
-def machine_preferred_reasoning_efforts(
-    conn: Any, *, machine_id: str
-) -> dict[str, str]:
-    """Return the effort defaults from the machine's latest heartbeat."""
-    return dict(
-        machine_preference_payload(conn, machine_id=machine_id)[
-            PREFERRED_SESSION_REASONING_EFFORTS_KEY
-        ]
-    )
-
-
 def machine_native_models(conn: Any, *, machine_id: str) -> dict[str, dict[str, Any]]:
     """Return what each surface on this machine last said it can select.
 
@@ -151,20 +99,26 @@ def resolve_machine_selection(
     requested_context_window_tokens: int | None,
     machine_id: str | None,
     surface: str,
+    explicit_source: str = EXPLICIT_SOURCE,
 ) -> ResolvedMachineSelection:
-    """Resolve explicit knobs over defaults advertised by the selected machine."""
-    payload = (
-        machine_preference_payload(conn, machine_id=machine_id) if machine_id else {}
+    """Resolve the named knobs over vendor defaults on the selected machine.
+
+    ``explicit_source`` names where the named knobs came from, so a level
+    launch reports its level option rather than an explicit request.
+    """
+    explicit = LaunchModelSelection(
+        str(requested_model or "").strip() or None,
+        str(requested_reasoning_effort or "").strip().lower() or None,
+        requested_context_window_tokens,
     )
+    sources = {
+        field: explicit_source
+        if getattr(explicit, field) is not None
+        else VENDOR_DEFAULT_SOURCE
+        for field in _FIELDS
+    }
     try:
-        resolved = resolve_launch_selection(
-            requested_model,
-            requested_reasoning_effort,
-            requested_context_window_tokens,
-            surface,
-            payload=payload,
-        )
-        selected = resolved.selection()
+        selected = validate_launch_model_selection(surface, explicit)
         if machine_id:
             selected = resolve_observed_model_selection(
                 surface,
@@ -173,14 +127,6 @@ def resolve_machine_selection(
             )
     except LaunchModelSelectionError as exc:
         raise SessionLaunchError(exc.code, str(exc)) from exc
-    sources = {
-        field: (
-            source
-            if source in {EXPLICIT_SOURCE, VENDOR_DEFAULT_SOURCE}
-            else f"{machine_id} {source}"
-        )
-        for field, source in resolved.sources.items()
-    }
     return ResolvedMachineSelection(
         model=selected.model,
         reasoning_effort=selected.reasoning_effort,
@@ -190,10 +136,9 @@ def resolve_machine_selection(
 
 
 __all__ = [
+    "EXPLICIT_SOURCE",
     "ResolvedMachineSelection",
+    "VENDOR_DEFAULT_SOURCE",
     "machine_native_models",
-    "machine_preference_payload",
-    "machine_preferred_models",
-    "machine_preferred_reasoning_efforts",
     "resolve_machine_selection",
 ]

@@ -11,10 +11,6 @@ from yoke_cli.config import machine_config
 from yoke_contracts.engine_version import local_handshake_version
 from yoke_contracts.machine_config.machine_capacity import observe_machine_capacity
 from yoke_contracts.machine_config.machine_name import machine_display_name
-from yoke_contracts.machine_config.preferred_session_models import (
-    preferred_session_models,
-    preferred_session_reasoning_efforts,
-)
 from yoke_contracts.machine_config.runtime import (
     ensure_machine_id,
     load_config,
@@ -47,9 +43,7 @@ class RelayInventory:
     surface_confirmed_absent: tuple[str, ...] = ()
     surface_plan_limits: dict[str, dict[str, object]] = field(default_factory=dict)
     machine_capacity: dict[str, object] = field(default_factory=dict)
-    preferred_session_models: dict[str, str] = field(default_factory=dict)
     relay_health: dict[str, object] = field(default_factory=dict)
-    preferred_session_reasoning_efforts: dict[str, str] = field(default_factory=dict)
     surface_native_models: dict[str, dict[str, object]] = field(default_factory=dict)
     credential_presence: dict[str, object] = field(default_factory=dict)
 
@@ -70,11 +64,7 @@ class RelayInventory:
             "surfaces_confirmed_absent": list(self.surface_confirmed_absent),
             "plan_limits": dict(self.surface_plan_limits),
             "capacity": dict(self.machine_capacity),
-            "preferred_models": dict(self.preferred_session_models),
             "health": dict(self.relay_health),
-            "preferred_reasoning_efforts": dict(
-                self.preferred_session_reasoning_efforts
-            ),
             "native_models": dict(self.surface_native_models),
             "credential_presence": dict(self.credential_presence),
         }
@@ -140,12 +130,7 @@ def _inventory(
         surface_confirmed_absent=confirmed_absent,
         surface_plan_limits=dict(plan_limits or {}),
         machine_capacity=capacity.to_dict(),
-        # This machine's own preferred models travel with the heartbeat so a
-        # launch placed here resolves the default this machine named, not the
-        # one configured on whichever machine asked for the launch.
-        preferred_session_models=preferred_session_models(config),
         relay_health=observe_relay_health(state_dir),
-        preferred_session_reasoning_efforts=preferred_session_reasoning_efforts(config),
         # Refreshed on its own cadence inside the observer, so a machine that
         # polls every few seconds spends one listing per minute rather than one
         # per poll, and a model published mid-session is still visible within

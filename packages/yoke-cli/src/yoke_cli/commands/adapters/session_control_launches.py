@@ -17,6 +17,8 @@ from yoke_cli.commands.adapters.session_control_common import (
     write_launch_result,
 )
 from yoke_cli.commands.adapters.session_control_launch_selection import (
+    add_launch_selector as _add_launch_selector,
+    maybe_list_models as _maybe_list_models,
     selector_payload,
 )
 from yoke_contracts.api.function_call import TargetRef
@@ -24,24 +26,23 @@ from yoke_contracts.session_control.models import LaunchState
 from yoke_contracts.session_control.sender_surface import CLI_SENDER_SURFACE
 
 
+_SELECTION_USAGE = (
+    "(--level LEVEL | --surface S [--model M] [--reasoning-effort E] "
+    "[--context-window N] [--allow-surface-fallback]) [--machine M]"
+)
 LAUNCH_PREVIEW_USAGE = (
-    "yoke session-control launch preview --project P --surface S "
-    "[--machine M] [--model M] [--reasoning-effort E] [--context-window N] "
-    "[--allow-surface-fallback] [--list-models] [--json]"
+    f"yoke session-control launch preview --project P {_SELECTION_USAGE} "
+    "[--list-models] [--json]"
 )
 LAUNCH_CREATE_USAGE = (
-    "yoke session-control launch create --project P --surface S "
+    f"yoke session-control launch create --project P {_SELECTION_USAGE} "
     "(--item PREFIX-N | --raw-instructions --stdin) --idempotency-key K "
-    "[--machine M] [--model M] [--reasoning-effort E] [--context-window N] "
-    "[--presentation P] "
-    "[--allow-surface-fallback] [--list-models] [--json]"
+    "[--presentation P] [--list-models] [--json]"
 )
 SESSIONS_CREATE_USAGE = (
-    "yoke sessions create --project P --surface S "
+    f"yoke sessions create --project P {_SELECTION_USAGE} "
     "(--preview | --idempotency-key K [--item PREFIX-N] [--stdin] [--raw-instructions]) "
-    "[--machine M] [--model M] [--reasoning-effort E] [--context-window N] "
-    "[--presentation P] "
-    "[--allow-surface-fallback] [--list-models] [--json]"
+    "[--presentation P] [--list-models] [--json]"
 )
 LAUNCH_GET_USAGE = "yoke session-control launch get LAUNCH-ID [--json]"
 LAUNCH_LIST_USAGE = (
@@ -53,53 +54,6 @@ LAUNCH_RETRY_USAGE = "yoke session-control launch retry LAUNCH-ID [--json]"
 LAUNCH_RECONCILE_USAGE = (
     "yoke session-control launch reconcile LAUNCH-ID [--observed-native-id ID] [--json]"
 )
-
-
-def _add_launch_selector(parser: argparse.ArgumentParser) -> None:
-    from yoke_contracts.session_control.model_selection import (
-        parse_context_window_tokens,
-    )
-
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--surface", required=True, dest="executor_surface")
-    parser.add_argument(
-        "--machine",
-        default=None,
-        dest="machine_id",
-        metavar="NAME",
-        help="Registered name or machine id (`yoke machine list`).",
-    )
-    parser.add_argument("--model", default=None)
-    parser.add_argument("--reasoning-effort", default=None)
-    parser.add_argument(
-        "--context-window",
-        dest="context_window_tokens",
-        type=parse_context_window_tokens,
-        default=None,
-        metavar="TOKENS",
-    )
-    parser.add_argument("--allow-surface-fallback", action="store_true")
-
-
-def _maybe_list_models(args: List[str]) -> int | None:
-    if "--list-models" not in args:
-        return None
-    from yoke_contracts.machine_config.preferred_session_models import (
-        list_preferred_models,
-        render_list_models,
-    )
-
-    parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("--surface", dest="executor_surface", default=None)
-    add_json_arg(parser)
-    parsed, _unknown = parser.parse_known_args(args)
-    from yoke_harness.session_relay_native_models import observe_native_models
-
-    report = list_preferred_models(
-        parsed.executor_surface, availability=observe_native_models()
-    )
-    print(render_list_models(report, json_mode=parsed.json_mode), end="")
-    return 0
 
 
 def _dispatch_launch(

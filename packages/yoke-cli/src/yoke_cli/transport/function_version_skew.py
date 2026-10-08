@@ -25,16 +25,28 @@ registry, so this gate applies only to the HTTPS relay.
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import Callable, Mapping
 
-from yoke_contracts.api.function_call import FunctionError
-from yoke_contracts.engine_version import compare_engine_versions
+from yoke_contracts.api.function_call import (
+    FunctionCallRequest,
+    FunctionCallResponse,
+    FunctionError,
+)
+from yoke_contracts.engine_version import (
+    compare_engine_versions,
+    local_handshake_version,
+)
 from yoke_contracts.function_serving_floors import (
     FUNCTION_MINIMUM_SERVING_VERSIONS,
+    ArgumentFloor,
+    declared_argument_floors,
     declared_minimum_serving_version,
 )
 
 #: Error code replacing a relayed ``function_not_registered``.
 SKEW_ERROR_CODE = "function_version_skew"
+#: Error code replacing a relayed ``payload_invalid`` for a floored argument.
+ARGUMENT_SKEW_ERROR_CODE = "function_argument_version_skew"
 
 #: Rendered in place of an engine version that does not resolve — a
 #: source-run process or a server that advertises no handshake value.
@@ -124,6 +136,87 @@ def skew_error(
     )
 
 
+def argument_skew_error(
+    *,
+    function_id: str,
+    floors: Mapping[str, ArgumentFloor],
+    client_version: str,
+    server_version: str,
+    env_name: str = "",
+    server_message: str = "",
+) -> FunctionError:
+    """Name the floor when an older server rejects a newly added argument."""
+    env = f"env {env_name!r}" if env_name else "env"
+    named = ", ".join(
+        f"{name} (minimum serving version {floor.minimum_serving_version})"
+        for name, floor in sorted(floors.items())
+    )
+    older = "; ".join(sorted({floor.older_form for floor in floors.values()}))
+    message = (
+        f"the active HTTPS {env} does not accept argument {named} of function "
+        f"{function_id!r}: client engine version {client_version or UNKNOWN_VERSION}, "
+        f"server engine version {server_version or UNKNOWN_VERSION}"
+    )
+    if server_message:
+        message = f"{message}; the server answered: {server_message[:300]}"
+    return FunctionError(
+        code=ARGUMENT_SKEW_ERROR_CODE,
+        message=message,
+        recovery_hint=(
+            f"The deployed server predates that argument. Send {older} "
+            "instead, which this env still accepts. If that cannot do the "
+            "required operation, escalate to the control-plane operator, "
+            "naming the function, argument, and versions above."
+        ),
+    )
+
+
+def retype_skew(
+    response: FunctionCallResponse,
+    request: FunctionCallRequest,
+    *,
+    server_version: str,
+    env_name: str,
+    function_hint: Callable[[str], str] | None = None,
+) -> FunctionCallResponse:
+    """Retype a relayed answer that is really client/server registry skew.
+
+    The server says ``function_not_registered`` about its own registry; for a
+    function this build can dispatch, that answer is a version-skew fact and
+    is replaced with the typed error naming both engine versions and the
+    direction-matched recovery. A function id this build does not know is a
+    genuine unknown function, so the server's answer stands. A
+    ``payload_invalid`` for a call carrying a floored argument is the same
+    fact one level down: the server's request model predates the argument.
+    """
+    if response.success or response.error is None:
+        return response
+    floors = declared_argument_floors(request.function, request.payload)
+    if response.error.code == "payload_invalid" and floors:
+        error = argument_skew_error(
+            function_id=request.function,
+            floors=floors,
+            client_version=local_handshake_version(),
+            server_version=server_version,
+            env_name=env_name,
+            server_message=response.error.message,
+        )
+        return response.model_copy(update={"error": error})
+    if response.error.code != "function_not_registered":
+        return response
+    if request.function not in local_function_ids():
+        return response
+    extra_hint = function_hint(request.function) if function_hint else ""
+    error = skew_error(
+        function_id=request.function,
+        client_version=local_handshake_version(),
+        server_version=server_version,
+        env_name=env_name,
+        extra_hint=extra_hint or "",
+    )
+    return response.model_copy(update={"error": error})
+
+
 def _recovery_for_direction(client_version: str, server_version: str) -> str:
     comparison = compare_engine_versions(client_version, server_version)
     if comparison is None or comparison == 0:
@@ -132,8 +225,11 @@ def _recovery_for_direction(client_version: str, server_version: str) -> str:
 
 
 __all__ = [
+    "ARGUMENT_SKEW_ERROR_CODE",
     "SKEW_ERROR_CODE",
+    "argument_skew_error",
     "UNKNOWN_VERSION",
     "local_function_ids",
+    "retype_skew",
     "skew_error",
 ]

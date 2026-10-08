@@ -4,14 +4,49 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.session_launch_machine_models import resolve_machine_selection
+from yoke_core.domain import json_helper
+from yoke_core.domain.session_launch_level_selection import level_source
+from yoke_core.domain.session_launch_machine_models import (
+    EXPLICIT_SOURCE,
+    resolve_machine_selection,
+)
 from yoke_core.domain.session_launch_origin import derived_launch_origin
 from yoke_core.domain.session_launch_store import marker
 from yoke_core.domain.session_launch_types import (
     LaunchAuthorization,
     LaunchPreview,
+    LaunchRecord,
     LaunchRequest,
 )
+
+
+def stored_level_placement(preview: LaunchPreview) -> str | None:
+    """The preview's level placement evidence as stored JSON, if any."""
+    if preview.level_placement is None:
+        return None
+    return json_helper.dumps_compact(preview.level_placement)
+
+
+def retry_request(launch: LaunchRecord) -> LaunchRequest:
+    """The ask a stored launch made, so a retry places it the same way.
+
+    A level launch is placed again from its level, because the option and
+    machine that fit at create time may not fit now; an explicit launch
+    repeats its exact selection.
+    """
+    return LaunchRequest(
+        project_id=launch.project_id,
+        executor_surface="" if launch.requested_level else launch.requested_surface,
+        instructions="",
+        idempotency_key=str(launch.idempotency_key or ""),
+        machine_id=launch.requested_machine_id,
+        model=launch.requested_model,
+        reasoning_effort=launch.requested_reasoning_effort,
+        context_window_tokens=launch.requested_context_window_tokens,
+        presentation=launch.presentation_preference,
+        allow_surface_fallback=launch.allow_surface_fallback,
+        level=launch.requested_level,
+    )
 
 
 def insert_launch_request(
@@ -34,6 +69,20 @@ def insert_launch_request(
         requested_context_window_tokens=request.context_window_tokens,
         machine_id=relay.machine_id,
         surface=relay.surface,
+        explicit_source=level_source(request.level)
+        if request.level
+        else EXPLICIT_SOURCE,
+    )
+    # A level launch asked for a level, not for the option placement chose:
+    # the option is the resolved selection, and the ask stays the level.
+    asked = (
+        (None, None, None)
+        if request.level
+        else (
+            request.model,
+            request.reasoning_effort,
+            request.context_window_tokens,
+        )
     )
     p = marker(conn)
     columns = (
@@ -44,7 +93,7 @@ def insert_launch_request(
         "idempotency_key, state, assigned_relay_id, assigned_machine_id, "
         "deadline_at, created_at, assigned_at, origin, placement_reason, "
         "resolved_model, resolved_reasoning_effort, "
-        "resolved_context_window_tokens"
+        "resolved_context_window_tokens, requested_level, level_placement"
     )
     values = (
         launch_id,
@@ -54,9 +103,7 @@ def insert_launch_request(
         request.executor_surface,
         relay.surface,
         request.machine_id,
-        request.model,
-        request.reasoning_effort,
-        request.context_window_tokens,
+        *asked,
         request.presentation,
         request.session_name,
         int(request.allow_surface_fallback),
@@ -77,6 +124,8 @@ def insert_launch_request(
         resolved.model,
         resolved.reasoning_effort,
         resolved.context_window_tokens,
+        request.level,
+        stored_level_placement(preview),
     )
     row = conn.execute(
         f"INSERT INTO session_launches ({columns}) "
@@ -87,4 +136,4 @@ def insert_launch_request(
     return row is not None
 
 
-__all__ = ["insert_launch_request"]
+__all__ = ["insert_launch_request", "retry_request", "stored_level_placement"]

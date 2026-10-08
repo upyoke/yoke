@@ -9,10 +9,6 @@ from yoke_cli.config import install_binding
 from yoke_cli.config.machine_registration import REGISTER_RECOVERY_COMMAND
 from yoke_cli.config import status_release_lineage
 from yoke_contracts.machine_config import schema as contract
-from yoke_contracts.machine_config.preferred_session_models import (
-    PREFERRED_SESSION_MODELS_KEY,
-    PREFERRED_SESSION_REASONING_EFFORTS_KEY,
-)
 from yoke_contracts.runtime_identity import human_identity_line
 
 
@@ -21,8 +17,6 @@ def render_human(report: Mapping[str, Any]) -> str:
         "Yoke status",
         f"  ok: {str(report.get('ok')).lower()}",
         f"  config: {report.get('config_path')}",
-        f"  launch defaults: {PREFERRED_SESSION_MODELS_KEY} + "
-        f"{PREFERRED_SESSION_REASONING_EFFORTS_KEY}; blank = vendor default",
         f"  checkout: {report.get('repo_root')}",
     ]
     install = report.get("install")

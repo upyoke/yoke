@@ -28,17 +28,28 @@ from yoke_core.domain.session_launch_types import (
 
 
 def same_request(conn: Any, launch: LaunchRecord, request: LaunchRequest) -> bool:
-    """Compare a stored launch against the request that would create it."""
+    """Compare a stored launch against the request that would create it.
+
+    A level launch is the same request when it names the same level: the
+    option placement chose is derived, so it is not compared.
+    """
     body, body_hash, _ = instruction_message(conn, launch.message_id)
-    return all(
-        (
-            launch.project_id == request.project_id,
+    selection = (
+        (launch.requested_level == request.level,)
+        if request.level or launch.requested_level
+        else (
             launch.requested_surface == request.executor_surface,
-            launch.requested_machine_id == request.machine_id,
             launch.requested_model == request.model,
             launch.requested_reasoning_effort == request.reasoning_effort,
             launch.requested_context_window_tokens == request.context_window_tokens,
             launch.presentation_preference == request.presentation,
+        )
+    )
+    return all(
+        (
+            launch.project_id == request.project_id,
+            *selection,
+            launch.requested_machine_id == request.machine_id,
             launch.session_name == request.session_name,
             launch.allow_surface_fallback == request.allow_surface_fallback,
             body_hash == sha256_text(request.instructions),

@@ -1,4 +1,4 @@
-"""Client-readable serving floors for function ids.
+"""Client-readable serving floors for function ids and their arguments.
 
 The engine registry is the write-time check: ``register()`` refuses an id
 absent from the previous serving set that omits ``minimum_serving_version``.
@@ -8,6 +8,9 @@ floors on registered entries; the registry tests bind the two.
 """
 
 from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any, Mapping
 
 #: function_id -> minimum serving version. Do not copy already-served ids here.
 FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
@@ -93,12 +96,60 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
 }
 
 
+@dataclass(frozen=True)
+class ArgumentFloor:
+    """The first serving version that accepts one argument of a served function.
+
+    ``older_form`` names what to send a server below the floor instead, so the
+    refusal can teach the form that server still accepts.
+    """
+
+    minimum_serving_version: str
+    older_form: str
+
+
+#: function_id -> {argument: floor}, for arguments added to an already-served
+#: function. A server below the floor rejects the payload outright, because its
+#: request model does not know the argument; the HTTPS client then names the
+#: floor instead of the server's bare validation error. A command only sends a
+#: floored argument after checking it against this build's own request model,
+#: so a payload refusal for it can only come from a server that predates it.
+FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS: dict[str, dict[str, ArgumentFloor]] = {
+    "session_control.launch.create": {
+        "level": ArgumentFloor(
+            "next-release", "an exact selection with --surface S [--model M]"
+        ),
+    },
+    "session_control.launch.preview": {
+        "level": ArgumentFloor(
+            "next-release", "an exact selection with --surface S [--model M]"
+        ),
+    },
+}
+
+
+def declared_argument_floors(
+    function_id: str, payload: Mapping[str, Any] | None
+) -> dict[str, ArgumentFloor]:
+    """The floors of every floored argument ``payload`` actually carries."""
+    floors = FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS.get(function_id) or {}
+    present = payload or {}
+    return {
+        name: floor
+        for name, floor in floors.items()
+        if present.get(name) not in (None, "", [], {})
+    }
+
+
 def declared_minimum_serving_version(function_id: str) -> str:
     """Return the client-readable floor for *function_id*, or empty."""
     return str(FUNCTION_MINIMUM_SERVING_VERSIONS.get(function_id) or "").strip()
 
 
 __all__ = [
+    "ArgumentFloor",
+    "FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS",
     "FUNCTION_MINIMUM_SERVING_VERSIONS",
+    "declared_argument_floors",
     "declared_minimum_serving_version",
 ]

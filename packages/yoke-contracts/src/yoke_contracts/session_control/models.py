@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
-from yoke_contracts.executor_labels import KNOWN_SURFACE_LABELS
 from yoke_contracts.read_detail import DETAIL_SUMMARY, ReadDetail
 from yoke_contracts.session_control.recipient_selector import RecipientSelector
 from yoke_contracts.session_control.states import (
@@ -29,6 +28,10 @@ from yoke_contracts.session_control.relay_models import (
     RelayReclaimedHost,
     RelayReportRequest,
     RelayReportResponse,
+)
+from yoke_contracts.session_control.launch_requests import (
+    LaunchCreateRequest,
+    LaunchPreviewRequest,
 )
 from yoke_contracts.session_control.sender_surface import SenderSurface
 
@@ -163,46 +166,6 @@ class MessageLeaseResponse(BaseModel):
     lease_id: str
     messages: List[Dict[str, Any]]
     remaining_count: int = Field(default=0, ge=0)
-
-
-class LaunchPreviewRequest(BaseModel):
-    project: str
-    executor_surface: str
-    machine_id: Optional[str] = None
-    model: Optional[str] = None
-    reasoning_effort: Optional[str] = None
-    context_window_tokens: Optional[int] = Field(default=None, gt=0)
-    allow_surface_fallback: bool = False
-
-    @field_validator("executor_surface")
-    @classmethod
-    def _known_launch_surface(cls, value: str) -> str:
-        if value not in KNOWN_SURFACE_LABELS:
-            raise ValueError(f"unknown executor surface: {value}")
-        return value
-
-
-class LaunchCreateRequest(LaunchPreviewRequest):
-    item: Optional[str] = Field(default=None, min_length=1, max_length=64)
-    instructions: str = ""
-    compose_mandate: bool = True
-    idempotency_key: str
-    sender_surface: Optional[SenderSurface] = None
-    presentation: Optional[str] = Field(
-        default=None,
-        min_length=1,
-        max_length=64,
-        pattern=r"^[a-zA-Z0-9][a-zA-Z0-9._-]*$",
-    )
-
-    @model_validator(mode="after")
-    def _item_or_raw_body(self) -> "LaunchCreateRequest":
-        if self.compose_mandate:
-            if not (self.item or "").strip():
-                raise ValueError("composed launches require item")
-        elif not str(self.instructions or "").strip():
-            raise ValueError("raw instruction launches require non-empty instructions")
-        return self
 
 
 class LaunchMutationRequest(BaseModel):

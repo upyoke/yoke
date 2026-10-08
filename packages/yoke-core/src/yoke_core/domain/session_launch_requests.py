@@ -7,9 +7,21 @@ from uuid import uuid4
 
 from yoke_core.domain.session_launch_eligibility import derive_launch_eligibility
 from yoke_core.domain.session_launch_idempotency import deduplicated_outcome
-from yoke_core.domain.session_launch_machine_models import resolve_machine_selection
+from yoke_core.domain.session_launch_level_placement import LEVEL_NO_CAPACITY
+from yoke_core.domain.session_launch_level_selection import (
+    level_source,
+    preview_level_launch,
+)
+from yoke_core.domain.session_launch_machine_models import (
+    EXPLICIT_SOURCE,
+    resolve_machine_selection,
+)
 from yoke_core.domain import session_launch_native_progress as native_progress
-from yoke_core.domain.session_launch_request_storage import insert_launch_request
+from yoke_core.domain.session_launch_request_storage import (
+    insert_launch_request,
+    retry_request,
+    stored_level_placement,
+)
 from yoke_core.domain.session_launch_surface_selection import preview_launch
 from yoke_core.domain.session_launch_validation import (
     validate_launch_request,
@@ -63,18 +75,27 @@ def create_launch(
                 conn, public_ref=request.item, project_id=request.project_id
             )
         existing = get_launch_by_dedupe(conn, auth.actor_id, request.idempotency_key)
-        preview = preview_launch(
-            conn,
-            auth=auth,
-            project_id=request.project_id,
-            surface=request.executor_surface,
-            machine_id=request.machine_id,
-            allow_surface_fallback=request.allow_surface_fallback,
-            surface_fallback_enabled=surface_fallback_enabled,
-            now=current,
-            model=request.model,
-            eligibility=eligibility,
-        )
+        if request.level:
+            request, preview = preview_level_launch(
+                conn, auth=auth, request=request, now=current, eligibility=eligibility
+            )
+            if preview.launchable:
+                request = validate_launch_request(
+                    request, max_body_bytes=max_body_bytes
+                )
+        else:
+            preview = preview_launch(
+                conn,
+                auth=auth,
+                project_id=request.project_id,
+                surface=request.executor_surface,
+                machine_id=request.machine_id,
+                allow_surface_fallback=request.allow_surface_fallback,
+                surface_fallback_enabled=surface_fallback_enabled,
+                now=current,
+                model=request.model,
+                eligibility=eligibility,
+            )
         if existing is not None:
             outcome = deduplicated_outcome(
                 conn,
@@ -96,7 +117,10 @@ def create_launch(
             from yoke_core.domain.session_surface_policy import launch_refusal_message
 
             raise SessionLaunchError(
-                preview.outcome, launch_refusal_message(conn, preview)
+                preview.outcome,
+                str(preview.placement_reason)
+                if preview.outcome == LEVEL_NO_CAPACITY
+                else launch_refusal_message(conn, preview),
             )
         validate_model_selection(
             str(preview.selected_surface),
@@ -237,35 +261,47 @@ def retry_launch(
                 "invalid_state",
                 f"launch in state {launch.state!r} cannot be retried",
             )
-        preview = preview_launch(
-            conn,
-            auth=auth,
-            project_id=launch.project_id,
-            surface=launch.requested_surface,
-            machine_id=launch.requested_machine_id,
-            allow_surface_fallback=launch.allow_surface_fallback,
-            surface_fallback_enabled=surface_fallback_enabled,
-            now=current,
-            model=launch.requested_model,
-            eligibility=eligibility,
-        )
+        ask = retry_request(launch)
+        if ask.level:
+            ask, preview = preview_level_launch(
+                conn, auth=auth, request=ask, now=current, eligibility=eligibility
+            )
+        else:
+            preview = preview_launch(
+                conn,
+                auth=auth,
+                project_id=launch.project_id,
+                surface=launch.requested_surface,
+                machine_id=launch.requested_machine_id,
+                allow_surface_fallback=launch.allow_surface_fallback,
+                surface_fallback_enabled=surface_fallback_enabled,
+                now=current,
+                model=launch.requested_model,
+                eligibility=eligibility,
+            )
         if not preview.launchable:
-            raise SessionLaunchError(preview.outcome, "no relay is eligible for retry")
+            raise SessionLaunchError(
+                preview.outcome,
+                str(preview.placement_reason)
+                if preview.outcome == LEVEL_NO_CAPACITY
+                else "no relay is eligible for retry",
+            )
         validate_model_selection(
             str(preview.selected_surface),
-            model=launch.requested_model,
-            reasoning_effort=launch.requested_reasoning_effort,
-            context_window_tokens=launch.requested_context_window_tokens,
+            model=ask.model,
+            reasoning_effort=ask.reasoning_effort,
+            context_window_tokens=ask.context_window_tokens,
         )
         relay = preview.selected_relay
         assert relay is not None
         resolved = resolve_machine_selection(
             conn,
-            requested_model=launch.requested_model,
-            requested_reasoning_effort=launch.requested_reasoning_effort,
-            requested_context_window_tokens=(launch.requested_context_window_tokens),
+            requested_model=ask.model,
+            requested_reasoning_effort=ask.reasoning_effort,
+            requested_context_window_tokens=ask.context_window_tokens,
             machine_id=relay.machine_id,
             surface=relay.surface,
+            explicit_source=(level_source(ask.level) if ask.level else EXPLICIT_SOURCE),
         )
         result = update_launch(
             conn,
@@ -278,6 +314,7 @@ def retry_launch(
             assigned_relay_id=relay.relay_id,
             assigned_machine_id=relay.machine_id,
             placement_reason=preview.placement_reason,
+            level_placement=stored_level_placement(preview),
             native_session_id=None,
             attestation_hash=None,
             attestation_consumed_at=None,

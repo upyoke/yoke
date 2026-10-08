@@ -26,7 +26,8 @@ LAUNCH_COLUMNS = (
     "awaiting_registration_at, completed_at, result_code, result_evidence, origin, "
     "native_launch_pid, native_launch_phase, native_launch_observed_at, "
     "spawn_duration_ms, spawn_hold_reason, placement_reason, resolved_model, "
-    "resolved_reasoning_effort, resolved_context_window_tokens"
+    "resolved_reasoning_effort, resolved_context_window_tokens, requested_level, "
+    "level_placement"
 )
 _MUTABLE_LAUNCH_COLUMNS = frozenset(
     {
@@ -54,6 +55,7 @@ _MUTABLE_LAUNCH_COLUMNS = frozenset(
         "resolved_model",
         "resolved_reasoning_effort",
         "resolved_context_window_tokens",
+        "level_placement",
     }
 )
 
@@ -150,6 +152,8 @@ def row_to_launch(row: Any) -> LaunchRecord:
         resolved_model=value(row, "resolved_model", 37),
         resolved_reasoning_effort=value(row, "resolved_reasoning_effort", 38),
         resolved_context_window_tokens=value(row, "resolved_context_window_tokens", 39),
+        requested_level=value(row, "requested_level", 40),
+        level_placement=value(row, "level_placement", 41),
     )
 
 

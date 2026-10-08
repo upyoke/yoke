@@ -73,11 +73,7 @@ def heartbeat_relay(
     projects = json_helper.dumps_compact(list(heartbeat.project_ids))
     plan_limits = json_helper.dumps_compact(dict(heartbeat.surface_plan_limits))
     capacity = json_helper.dumps_compact(dict(heartbeat.machine_capacity))
-    preferred = json_helper.dumps_compact(dict(heartbeat.preferred_session_models))
     health = json_helper.dumps_compact(dict(heartbeat.relay_health))
-    preferred_efforts = json_helper.dumps_compact(
-        dict(heartbeat.preferred_session_reasoning_efforts)
-    )
     native_models = json_helper.dumps_compact(dict(heartbeat.surface_native_models))
     credentials = json_helper.dumps_compact(dict(heartbeat.credential_presence))
     conn.execute(
@@ -85,10 +81,9 @@ def heartbeat_relay(
         "(relay_id,actor_id,machine_id,hostname,relay_version,surface_versions,"
         "surface_confirmed_absent,project_checkouts,"
         "first_seen_at,last_seen_at,connected_until,state,surface_plan_limits,"
-        "machine_capacity,preferred_session_models,relay_health,"
-        "preferred_session_reasoning_efforts,surface_native_models,"
+        "machine_capacity,relay_health,surface_native_models,"
         "credential_presence) "
-        f"VALUES ({','.join(p for _ in range(19))}) "
+        f"VALUES ({','.join(p for _ in range(17))}) "
         "ON CONFLICT(relay_id) DO UPDATE SET "
         "actor_id=excluded.actor_id,machine_id=excluded.machine_id,"
         "hostname=excluded.hostname,relay_version=excluded.relay_version,"
@@ -99,10 +94,7 @@ def heartbeat_relay(
         "connected_until=excluded.connected_until,state=excluded.state,"
         "surface_plan_limits=excluded.surface_plan_limits,"
         "machine_capacity=excluded.machine_capacity,"
-        "preferred_session_models=excluded.preferred_session_models,"
         "relay_health=excluded.relay_health,"
-        "preferred_session_reasoning_efforts="
-        "excluded.preferred_session_reasoning_efforts,"
         "surface_native_models=excluded.surface_native_models,"
         "credential_presence=excluded.credential_presence",
         (
@@ -120,9 +112,7 @@ def heartbeat_relay(
             state,
             plan_limits,
             capacity,
-            preferred,
             health,
-            preferred_efforts,
             native_models,
             credentials,
         ),

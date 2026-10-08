@@ -21,11 +21,7 @@ from yoke_core.domain.session_launch_types import (
     SessionLaunchError,
 )
 from yoke_core.domain.session_launch_projection import public_launch_record
-from yoke_core.domain.session_launch_validation import (
-    preview_model_selection_payload,
-    require_launch_id,
-    validate_preview_model_selection,
-)
+from yoke_core.domain.session_launch_validation import require_launch_id
 
 
 def _failure(code: str, message: str, path: str = "$.payload") -> HandlerOutcome:
@@ -126,44 +122,29 @@ def handle_launch_preview(request: FunctionCallRequest) -> HandlerOutcome:
     parsed = _parse(LaunchPreviewRequest, request)
     if isinstance(parsed, HandlerOutcome):
         return parsed
-    from yoke_core.domain.session_launch_machine_models import (
-        resolve_machine_selection,
+    from yoke_core.domain.session_launch_preview_payload import (
+        explicit_preview_payload,
+        level_preview_payload,
     )
-    from yoke_core.domain.session_launch_requests import preview_launch
 
     conn = _open()
     try:
         project_id = _resolve_project(conn, parsed.project)
-        selection = validate_preview_model_selection(parsed.executor_surface, parsed)
-        preview = preview_launch(
-            conn,
-            auth=_authorization(conn, request, project_id),
-            project_id=project_id,
-            surface=parsed.executor_surface,
-            machine_id=parsed.machine_id,
-            allow_surface_fallback=parsed.allow_surface_fallback,
-            surface_fallback_enabled=bool(
-                _fleet_policy(conn, project_id, "fleet.surface_fallback")
-            ),
-            model=parsed.model,
-        )
-        if preview.selected_surface:
-            selection = validate_preview_model_selection(
-                preview.selected_surface, parsed
+        auth = _authorization(conn, request, project_id)
+        if parsed.level:
+            payload = level_preview_payload(
+                conn, auth=auth, project_id=project_id, level=parsed.level
             )
-        payload = preview.to_dict()
-        payload.update(preview_model_selection_payload(selection))
-        relay = preview.selected_relay
-        payload.update(
-            resolve_machine_selection(
+        else:
+            payload = explicit_preview_payload(
                 conn,
-                requested_model=parsed.model,
-                requested_reasoning_effort=parsed.reasoning_effort,
-                requested_context_window_tokens=parsed.context_window_tokens,
-                machine_id=relay.machine_id if relay else None,
-                surface=relay.surface if relay else parsed.executor_surface,
-            ).to_dict()
-        )
+                auth=auth,
+                project_id=project_id,
+                parsed=parsed,
+                surface_fallback_enabled=bool(
+                    _fleet_policy(conn, project_id, "fleet.surface_fallback")
+                ),
+            )
         return HandlerOutcome(result_payload=payload)
     except Exception as exc:
         return _domain_error(exc)

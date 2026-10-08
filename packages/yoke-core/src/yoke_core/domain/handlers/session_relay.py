@@ -137,11 +137,7 @@ def handle_relay_claim(request: FunctionCallRequest) -> HandlerOutcome:
                     project_ids=payload.projects,
                     surface_plan_limits=payload.plan_limits,
                     machine_capacity=payload.capacity,
-                    preferred_session_models=payload.preferred_models,
                     relay_health=payload.health,
-                    preferred_session_reasoning_efforts=(
-                        payload.preferred_reasoning_efforts
-                    ),
                     surface_native_models=payload.native_models,
                     credential_presence=payload.credential_presence,
                 ),

@@ -2,7 +2,7 @@
 
 A wake against an exhausted meter dies. Rejected credentials or a model
 the surface no longer offers are the same wall. Differing from the
-machine's preferred default is not: that default is a launch choice. A
+options of a level is not: those are a launch choice. A
 session still inside its launch deadline and still registering has not
 been observed yet, so it is not named here. This detector never
 relaunches and never substitutes a model; those stay the operator's call.
@@ -19,7 +19,6 @@ from yoke_contracts.session_control.native_models import (
     sanitize_native_models,
 )
 from yoke_core.domain.item_ref_render import render_item_refs
-from yoke_core.domain.session_relay_types import advertised_session_models
 from yoke_core.domain.session_wake_meter import (
     MeterWall,
     RECOVERY,
@@ -58,7 +57,6 @@ class StrandedSession:
     surface: str
     model: str
     kind: str
-    preferred_model: str
     meter: str
     remaining_percent: float | None
     resets_at: str
@@ -130,25 +128,17 @@ def _still_registering(conn: Any, session_ids: list[str], *, now: str) -> set[st
     return {str(dict(row)["registered_session_id"]) for row in rows}
 
 
-def _relay_maps(
-    conn: Any, *, machine_id: str, now: str
-) -> tuple[dict[str, str], Mapping[str, Any]]:
+def _native_models(conn: Any, *, machine_id: str, now: str) -> Mapping[str, Any]:
     placeholder = marker(conn)
     row = conn.execute(
-        "SELECT preferred_session_models, surface_native_models "
-        "FROM session_relays "
+        "SELECT surface_native_models FROM session_relays "
         f"WHERE machine_id={placeholder} AND connected_until>={placeholder} "
         "ORDER BY last_seen_at DESC, relay_id DESC",
         (machine_id, now),
     ).fetchone()
     if row is None:
-        return {}, {}
-    record = dict(row)
-    preferred = advertised_session_models(
-        _document(record.get("preferred_session_models"))
-    )
-    native = sanitize_native_models(_document(record.get("surface_native_models")))
-    return preferred, native
+        return {}
+    return sanitize_native_models(_document(dict(row).get("surface_native_models")))
 
 
 def _kinds_for(
@@ -221,7 +211,7 @@ def stranded_sessions(
     registering = _still_registering(conn, live_ids, now=now)
     refs = render_item_refs(conn, sorted(set(claimed.values())))
     found: list[StrandedSession] = []
-    relay_cache: dict[str, tuple[dict[str, str], Mapping[str, Any]]] = {}
+    relay_cache: dict[str, Mapping[str, Any]] = {}
     for row in live:
         session_id = str(row["session_id"])
         if session_id in registering:
@@ -230,9 +220,10 @@ def stranded_sessions(
         surface = str(row.get("executor_surface") or "").strip()
         model = pinned_model(row)
         if machine_id not in relay_cache:
-            relay_cache[machine_id] = _relay_maps(conn, machine_id=machine_id, now=now)
-        preferred_map, native_doc = relay_cache[machine_id]
-        preferred = preferred_map.get(surface, "")
+            relay_cache[machine_id] = _native_models(
+                conn, machine_id=machine_id, now=now
+            )
+        native_doc = relay_cache[machine_id]
         native_models = available_models(
             native_doc.get(surface) if native_doc else None
         )
@@ -256,7 +247,6 @@ def stranded_sessions(
                 surface=surface,
                 model=model,
                 kind=kind,
-                preferred_model=preferred,
                 meter=wall.meter if wall is not None else "",
                 remaining_percent=wall.remaining_percent if wall is not None else None,
                 resets_at=(wall.resets_at or "") if wall is not None else "",
@@ -306,7 +296,6 @@ def stranded_dicts(rows: tuple[StrandedSession, ...]) -> list[dict[str, Any]]:
             "surface": entry.surface,
             "model": entry.model,
             "kind": entry.kind,
-            "preferred_model": entry.preferred_model or None,
             "meter": entry.meter or None,
             "remaining_percent": entry.remaining_percent,
             "resets_at": entry.resets_at or None,
