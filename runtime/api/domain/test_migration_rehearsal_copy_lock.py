@@ -76,6 +76,18 @@ def test_actual_postgres_identifier_truncation_coordinates(tmp_path, monkeypatch
     )
 
 
+def test_malformed_diagnostics_cannot_change_busy_admission(tmp_path, monkeypatch):
+    monkeypatch.setattr(admission.machine_config, "yoke_home", lambda: tmp_path)
+    spec = ClusterSpec(tmp_path / "cluster", "test")
+    with admission.copy_lock(spec, "copy"):
+        admission.lock_path(spec, "copy").write_text('{"pid":1e999,"started_at":0}')
+        with pytest.raises(
+            admission.RehearsalCopyBusy, match="diagnostics unavailable.*retry"
+        ):
+            with admission.copy_lock(spec, "copy"):
+                pytest.fail("diagnostic metadata admitted a competing copy")
+
+
 def _transfer_parent(spec, home, ready, release, finished, runner):
     admission.machine_config.yoke_home = lambda: home
     script = (

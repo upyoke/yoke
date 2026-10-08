@@ -85,7 +85,7 @@ def _holder(descriptor: int) -> str:
         return (
             f"driver pid={pid}, held={elapsed}s (a surviving child may hold admission)"
         )
-    except (OSError, ValueError, KeyError, TypeError):
+    except (OSError, ValueError, KeyError, TypeError, OverflowError):
         return (
             "holder diagnostics unavailable (driver or surviving child holds admission)"
         )
