@@ -158,7 +158,7 @@ def test_failed_admitted_case_accepts_only_an_explicit_correction(test_db) -> No
     )
     failed_id = initial["created_requirement_ids"][0]
     record_case_verdict(test_db, failed_id, "fail", evidence=True)
-    plan_id = _plan(test_db, "correct-ambiguous-selector")
+    plan_id = _plan(test_db, "correct-ambiguous-selector", target_envs=["stage"])
 
     with pytest.raises(QaPlanError, match="exactly those corrected case keys"):
         materialize_deployment_qa_stage(
@@ -179,10 +179,12 @@ def test_failed_admitted_case_accepts_only_an_explicit_correction(test_db) -> No
         replacement_keys={"command-smoke"},
         commit=False,
     )
-    # A corrected case inherits the frozen subject's target environment.
-    test_db.execute(
-        "UPDATE qa_requirements SET target_env=(SELECT target_env FROM qa_requirements WHERE id=%s) WHERE id=%s",
-        (failed_id, corrected["created_requirement_ids"][0]),
+    assert (
+        test_db.execute(
+            "SELECT target_env FROM qa_requirements WHERE id=%s",
+            (corrected["created_requirement_ids"][0],),
+        ).fetchone()[0]
+        == "stage"
     )
     declaration = declare_replacements(
         test_db,

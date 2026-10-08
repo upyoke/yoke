@@ -43,7 +43,9 @@ def _environment(conn: Any) -> None:
     )
 
 
-def _plan(conn: Any, slug: str = "release-smoke") -> int:
+def _plan(
+    conn: Any, slug: str = "release-smoke", *, target_envs: list[str] | None = None
+) -> int:
     plan = create_plan(
         conn,
         project="yoke",
@@ -62,6 +64,7 @@ def _plan(conn: Any, slug: str = "release-smoke") -> int:
                 "instructions": "run the frozen smoke command",
                 "expected_outcome": "the command passes",
                 "method_config": {"command": "true"},
+                "target_envs": target_envs or [],
             }
         ],
     )
