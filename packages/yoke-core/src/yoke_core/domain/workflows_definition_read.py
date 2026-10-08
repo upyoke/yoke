@@ -88,7 +88,9 @@ def _stage_actor_ids(stages: List[dict[str, Any]]) -> set[int]:
     for stage in stages:
         verdict = stage.get("verdict") if isinstance(stage.get("verdict"), dict) else {}
         notification = (
-            stage.get("notification") if isinstance(stage.get("notification"), dict) else {}
+            stage.get("notification")
+            if isinstance(stage.get("notification"), dict)
+            else {}
         )
         for policy in (
             verdict.get("reviewers"),
@@ -112,9 +114,14 @@ def _actor_names(conn: Any, actor_ids: set[int]) -> Dict[str, str]:
     ordered = sorted(actor_ids)
     marks = ", ".join(["%s"] * len(ordered))
     rows = conn.execute(
-        f"SELECT id, name FROM actors WHERE id IN ({marks})", tuple(ordered),
+        f"SELECT id, name FROM actors WHERE id IN ({marks})",
+        tuple(ordered),
     ).fetchall()
-    return {str(dict(row)["id"]): str(dict(row)["name"]) for row in rows if dict(row).get("name")}
+    return {
+        str(dict(row)["id"]): str(dict(row)["name"])
+        for row in rows
+        if dict(row).get("name")
+    }
 
 
 def _flow_stages(raw_stages: Any) -> List[dict[str, Any]]:
@@ -203,6 +210,11 @@ def get_workflows_definition(
             {actor for flow in flows for actor in _stage_actor_ids(flow["stages"])},
         )
         workflows = list_current_workflows(conn)
+        from yoke_core.domain.universe_levels import effective_levels
+
+        levels, _source = effective_levels(conn, project_id)
+        for workflow in workflows:
+            workflow["level_glyphs"] = {level.name: level.glyph for level in levels}
         title_limit = resolve_title_max_length(conn, project_id)
     finally:
         conn.close()

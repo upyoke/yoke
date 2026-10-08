@@ -37,6 +37,37 @@ def _transitions(monkeypatch) -> list:
     return calls
 
 
+def test_merge_stops_at_and_propagates_level_change_handoff(monkeypatch):
+    from yoke_core.domain.workflow_level_handoff import capture_level_handoffs
+
+    monkeypatch.setattr(terminal.git, "is_landed", lambda *_a: True)
+    monkeypatch.setattr(terminal.recovery, "claim_error", lambda *_a: "")
+    calls = []
+    handoff = {
+        "reason": "level_change",
+        "stage_id": "release",
+        "level": "JUNIOR",
+        "next_command": "successor command",
+    }
+
+    def dispatch(**kwargs):
+        calls.append(kwargs["payload"]["target_status"])
+        return SimpleNamespace(success=True, result={"handoff": handoff}, error=None)
+
+    monkeypatch.setattr(terminal, "call_dispatcher", dispatch)
+    with capture_level_handoffs() as captured:
+        result = terminal.transition_to_done(
+            item_id=7,
+            source_status="reviewing-implementation",
+            repo_root="/repo",
+            lane=LANE,
+            stages=("release", "done"),
+        )
+    assert result == ("release", "")
+    assert calls == ["release"]
+    assert captured == [handoff]
+
+
 def test_an_item_already_terminal_owes_nothing(monkeypatch):
     monkeypatch.setattr(
         terminal,

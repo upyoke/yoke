@@ -1,8 +1,9 @@
 # /yoke steer — choosing a level for a launch
 
-Every `session_control.launch.create` names a **level**, and Yoke chooses the
-option and the machine. This file is how the steering seat decides which
-level to name. It applies to **new launches only** — a running session keeps
+`session_control.launch.create` defaults to the item's live effective stage
+level, and Yoke chooses the option and machine. Use `--level` only for a
+deliberate one-launch override. This file is how the steering seat decides
+an item's override. It applies to **new launches only** — a running session keeps
 the selection it started with, and changing a worker's level means launching
 a replacement, never editing a live one.
 

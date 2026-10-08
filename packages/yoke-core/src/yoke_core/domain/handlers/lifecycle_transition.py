@@ -28,11 +28,13 @@ path.
 from __future__ import annotations
 
 import io
-from typing import Any, Dict, List, Mapping, Optional, Sequence
-
-from pydantic import BaseModel, Field
+from typing import Any, Dict, List, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.handlers.lifecycle_transition_models import (
+    LifecycleTransitionRequest,
+    LifecycleTransitionResponse,
+)
 from yoke_core.domain.handlers.items_scalar import (
     _map_error_code,
     gate_failure_message,
@@ -51,54 +53,6 @@ def _p(conn) -> str:
 # ---------------------------------------------------------------------------
 # Pydantic models
 # ---------------------------------------------------------------------------
-
-
-class LifecycleTransitionRequest(BaseModel):
-    """Payload for ``lifecycle.transition``."""
-
-    target_status: str = Field(
-        ..., description="New value for items.status (the canonical lifecycle name)."
-    )
-    source_status: Optional[str] = Field(
-        None,
-        description=(
-            "Optional precondition: handler verifies items.status matches "
-            "before issuing the write."
-        ),
-    )
-    reason: Optional[str] = Field(
-        None,
-        description=(
-            "Human-readable rationale recorded with the call. When cancelling, "
-            "this must be a non-empty one-line reason and is stored in "
-            "items.resolution."
-        ),
-    )
-    done_nonce_verified: bool = False
-    force: bool = False
-    qa_bypass: bool = False
-    containment_attestations: Optional[Sequence[Mapping[str, Any]]] = Field(
-        None,
-        description=(
-            "Containment verdicts the caller's own checkout answered, for "
-            "gates on a control plane that holds none. Consulted only where "
-            "this host's repository sources could not answer, and only for "
-            "the exact pair of commits each one names."
-        ),
-    )
-
-
-class LifecycleTransitionResponse(BaseModel):
-    """Successful result envelope."""
-
-    item_id: int
-    from_status: str
-    to_status: str
-    reason: Optional[str] = None
-    execution_instructions: list[dict] = Field(default_factory=list)
-    log: str = ""
-    #: The bound skill whose segment the target entered, when it changed.
-    skill_handoff: Optional[Dict[str, str]] = None
 
 
 # ---------------------------------------------------------------------------
@@ -277,6 +231,11 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
     handoff, handoff_warnings = item_skill_handoff(
         item_id, current, payload.target_status
     )
+    from yoke_core.domain.workflow_level_handoff import item_level_handoff
+
+    level_change, level_warnings = item_level_handoff(
+        item_id, request.actor.session_id, payload.target_status
+    )
     response = LifecycleTransitionResponse(
         item_id=item_id,
         from_status=current,
@@ -291,11 +250,15 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
             stage_id=payload.target_status,
         ),
         skill_handoff=handoff,
+        handoff=level_change,
     )
     return HandlerOutcome(
-        result_payload=response.model_dump(),
+        result_payload={
+            **response.model_dump(exclude={"handoff"}),
+            **({"handoff": level_change} if level_change else {}),
+        },
         primary_success=True,
-        warnings=[*gate_warnings, *handoff_warnings],
+        warnings=[*gate_warnings, *handoff_warnings, *level_warnings],
     )
 
 

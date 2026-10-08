@@ -138,6 +138,11 @@ def definition_fixture(
             stage["board_bucket"] = LEGACY_STATUS_BUCKETS.get(stage_id, "unknown")
     stage_ids = [stage["id"] for stage in normalized_stages]
     normalized_policies = dict(policies)
+    for stage in normalized_stages[:-1]:
+        stage["level"] = "SENIOR"
+    normalized_policies["item_posture_allowlist"] = list(
+        dict.fromkeys([*normalized_policies["item_posture_allowlist"], "level"])
+    )
     if approval_defaults is not None:
         normalized_policies["approval_defaults"] = dict(approval_defaults)
     return {

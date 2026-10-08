@@ -67,11 +67,26 @@ def _explicit_payload(parsed: argparse.Namespace) -> dict[str, Any]:
     return payload
 
 
-def selector_payload(parsed: argparse.Namespace) -> dict[str, Any] | None:
+def selector_payload(
+    parsed: argparse.Namespace, *, stage_default: bool = False
+) -> dict[str, Any] | None:
     """Send a level, or only the explicit values a named surface accepts."""
     if getattr(parsed, "level", None):
         return _level_payload(parsed)
     if not parsed.executor_surface:
+        if stage_default:
+            named = [
+                flag for attr, flag in _EXPLICIT_FLAGS if getattr(parsed, attr, None)
+            ]
+            if named:
+                usage_error(
+                    f"launch_selection_missing: {', '.join(named)} needs --surface S; omit selection flags to use the item stage level"
+                )
+                return None
+            payload = {"project": parsed.project, "use_stage_level": True}
+            if parsed.machine_id:
+                payload["machine_id"] = parsed.machine_id
+            return payload
         usage_error(
             "launch_selection_missing: name --level LEVEL for Yoke to place the "
             "launch, or --surface S to launch an exact selection"
@@ -103,7 +118,7 @@ def add_launch_selector(parser: argparse.ArgumentParser) -> None:
         "--level",
         default=None,
         help="Let Yoke choose the option and machine from this level "
-        "(`yoke universe levels get`).",
+        "(`yoke universe levels get`); create defaults to the item's effective stage level.",
     )
     parser.add_argument(
         "--surface",

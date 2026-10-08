@@ -179,7 +179,7 @@ def test_dash_merge_phase_continues_a_call_its_harness_handed_back():
 
 
 def test_worker_lifecycle_teaches_the_continuation_it_mandates():
-    content = _read(WORKER_LIFECYCLE)
+    content = _read(WORKER_LIFECYCLE) + _read(SKILLS / "steer" / "worker-launch.md")
     assert HEADLESS_TOOL_CONTINUATION_TEACHING in content
     collapsed = _words(content)
     assert "a launched turn is the whole life of every command it starts" in collapsed
@@ -268,7 +268,7 @@ def test_every_launched_worker_mandate_carries_the_landing_handoff():
 
 
 def test_worker_lifecycle_copy_of_the_mandate_matches_the_composed_one():
-    content = _read(WORKER_LIFECYCLE)
+    content = _read(WORKER_LIFECYCLE) + _read(SKILLS / "steer" / "worker-launch.md")
     assert HEADLESS_LANDING_WAIT_TEACHING in content
     collapsed = _words(content)
     assert "Every launched worker, whatever its origin, is a headless command" in (
@@ -320,9 +320,11 @@ def test_no_teaching_surface_still_carries_the_retired_blanket_prohibition():
         DASH_MERGE,
         USHER_MERGE,
         WORKER_LIFECYCLE,
+        SKILLS / "steer" / "worker-launch.md",
         BUNDLE_SKILLS / "dash" / "merge.md",
         BUNDLE_SKILLS / "usher" / "merge.md",
         BUNDLE_SKILLS / "steer" / "worker-lifecycle.md",
+        BUNDLE_SKILLS / "steer" / "worker-launch.md",
         COMMAND_REFERENCE,
         BUNDLE_COMMAND_REFERENCE,
         WATCH_MERGE_SOURCE,

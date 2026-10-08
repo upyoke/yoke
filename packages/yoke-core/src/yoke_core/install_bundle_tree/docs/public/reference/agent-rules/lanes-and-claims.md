@@ -15,6 +15,8 @@ select stage skills, and explicit staffing assigns work.
 A worktree lane is a registered code checkout protected by the item work
 claim. Its branch, path claims, verification, and merge contracts isolate
 implementation work. An execution-level label never grants checkout authority.
+Stage-level changes return a successor handoff; follow the single
+[worker rule](../session-level-routing.md#stage-level-handoff) before continuing.
 
 ## Worktree discipline
 

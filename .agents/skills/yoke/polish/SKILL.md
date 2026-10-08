@@ -69,3 +69,7 @@ Polish frequently spans multiple turns when the diff is large or the simplify pa
 ## Start
 
 Read [`parse-and-claim.md`](parse-and-claim.md) and execute it.
+
+A `handoff` with `reason=level_change` takes precedence over a release wait.
+Follow the harness-neutral Stage-level handoff rule in
+`.yoke/docs/reference/session-level-routing.md`; workers may launch their own successor.

@@ -116,6 +116,10 @@ class ArgumentFloor:
 #: so a payload refusal for it can only come from a server that predates it.
 FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS: dict[str, dict[str, ArgumentFloor]] = {
     "session_control.launch.create": {
+        "use_stage_level": ArgumentFloor(
+            "next-release",
+            "an explicit --level LEVEL or exact selection with --surface S",
+        ),
         "level": ArgumentFloor(
             "next-release", "an exact selection with --surface S [--model M]"
         ),

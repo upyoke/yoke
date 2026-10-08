@@ -32,6 +32,12 @@ def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def _worker_rules() -> str:
+    return _read(_STEER_DIR / "worker-lifecycle.md") + _read(
+        _STEER_DIR / "worker-launch.md"
+    )
+
+
 def _packet_prose(path: Path) -> str:
     """Rejoin adjacent string literals so a sentence spans source line breaks."""
     return re.sub(r'"\s*\n\s*"', "", _read(path))
@@ -44,14 +50,14 @@ def _words(text: str) -> str:
 
 class TestSteerWorkerLifecycle:
     def test_worker_rules_and_launcher_recipe_cover_steering_contract(self):
-        text = _read(_STEER_DIR / "worker-lifecycle.md")
+        text = _worker_rules()
         assert "Encode dependency edges" in text
         assert "Keep the frontier maxed out" in text
         assert "Launch CLI surfaces only" in text
         assert "Route one item through its pinned workflow" in text
         assert "Workers self-end after their DONE report" in text
         assert "Every new item gets a fresh session" in text
-        assert "Choose a level per item at launch" in text
+        assert "Use the effective stage level at launch" in text
         assert "yoke session-control launch create" in text
         assert "yoke session-control launch get" in text
         assert "yoke session-control launch reconcile" in text
@@ -87,7 +93,7 @@ class TestSteerWorkerLifecycle:
         assert "the server composes it" in text
 
     def test_every_worker_is_taught_to_report_deliberately(self):
-        text = _words(_read(_STEER_DIR / "worker-lifecycle.md"))
+        text = _words(_worker_rules())
         assert "Every worker sends the report deliberately" in text
         assert "The PREFIX-N in the heading is the report identity" in text
         assert "Ending a turn sends no Fleet message" in text
@@ -99,7 +105,7 @@ class TestSteerWorkerLifecycle:
         assert "session_control.launch.list" in reference
 
     def test_surfaces_are_not_exclusive_and_balance_is_not_a_quota(self):
-        text = _words(_read(_STEER_DIR / "worker-lifecycle.md"))
+        text = _words(_worker_rules())
         assert "Surfaces are not exclusive" in text
         assert "as many concurrent sessions as the work needs" in text
         assert "one-session-per-surface cap" in text
@@ -107,7 +113,7 @@ class TestSteerWorkerLifecycle:
         assert "never withholds a launch" in text
 
     def test_launch_preview_is_mandatory_and_names_surface_refusals(self):
-        text = _words(_read(_STEER_DIR / "worker-lifecycle.md"))
+        text = _words(_worker_rules())
         assert "Preview every launch by level" in text
         assert "never the calling session's own" in text
         assert "level_no_capacity" in text
@@ -119,7 +125,7 @@ class TestSteerWorkerLifecycle:
 
 class TestSteerRestaff:
     def test_restaff_recipe_terminates_then_launches_a_successor(self):
-        text = _words(_read(_STEER_DIR / "worker-lifecycle.md"))
+        text = _words(_worker_rules())
         assert "Restaff an in-flight item on a different model" in text
         assert "no claim surgery" in text
         assert "yoke items section get PREFIX-N --section 'Progress Log'" in text
@@ -134,7 +140,7 @@ class TestSteerRestaff:
             PROGRESS_CHECKPOINT_TEACHING,
         )
 
-        assert PROGRESS_CHECKPOINT_TEACHING in _read(_STEER_DIR / "worker-lifecycle.md")
+        assert PROGRESS_CHECKPOINT_TEACHING in _worker_rules()
 
     def test_model_selection_points_a_live_item_at_the_restaff_recipe(self):
         text = _words(_read(_STEER_DIR / "model-selection.md"))

@@ -61,3 +61,7 @@ yoke sessions touch --mode blitz
 ```
 
 Read [`read-and-survey.md`](read-and-survey.md) and follow it.
+
+A `handoff` with `reason=level_change` takes precedence over a release wait.
+Follow the harness-neutral Stage-level handoff rule in
+`.yoke/docs/reference/session-level-routing.md`; workers may launch their own successor.

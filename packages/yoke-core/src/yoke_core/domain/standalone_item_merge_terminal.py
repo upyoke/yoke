@@ -37,6 +37,10 @@ from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import standalone_item_merge_recovery as recovery
 from yoke_core.domain.lane_containment_attestation import lane_containment
 from yoke_core.domain.standalone_item_merge_landed import LandedLane
+from yoke_core.domain.workflow_level_handoff import (
+    capture_level_handoffs,
+    record_level_handoff,
+)
 
 TERMINAL_STATUS = evidence.CLOSED_OUT_STATUS
 TRANSITION_REASON = "Merged and evidence recorded"
@@ -67,6 +71,7 @@ def _execute(
         },
     )
     if response.success:
+        record_level_handoff(dict(response.result or {}))
         return ""
     return _relay_error(response, "terminal transition refused")
 
@@ -141,17 +146,20 @@ def transition_to_done(
             )
     attestations = _lane_verdicts(repo_root, release_lineage, lane)
     reached = source_status
-    for target in stages:
-        refusal = _execute(
-            item_id,
-            reached,
-            target,
-            done_nonce_verified=delivery_discharged and target == TERMINAL_STATUS,
-            containment_attestations=attestations,
-        )
-        if refusal:
-            return "", refusal
-        reached = target
+    with capture_level_handoffs() as handoffs:
+        for target in stages:
+            refusal = _execute(
+                item_id,
+                reached,
+                target,
+                done_nonce_verified=delivery_discharged and target == TERMINAL_STATUS,
+                containment_attestations=attestations,
+            )
+            if refusal:
+                return "", refusal
+            reached = target
+            if handoffs:
+                break
     return reached, ""
 
 

@@ -267,6 +267,12 @@ function stageButton(
       documentNode, "span", "workflow-stage-count", "entry",
     ));
   }
+  if (stage.level) {
+    control.appendChild(el(
+      documentNode, "span", "workflow-stage-count workflow-stage-level",
+      [workflow.level_glyphs?.[stage.level], stage.level].filter(Boolean).join(" "),
+    ));
+  }
   control.addEventListener("click", () => selectStage(stage.id));
   return control;
 }

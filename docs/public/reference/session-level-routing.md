@@ -171,13 +171,58 @@ clamp to the named bounds and the project's level range. An explicit
 `--level` or exact surface/model request wins for that launch and bypasses
 the item default. Changing an override never changes a running worker.
 
+## Stage levels
+
+Each workflow stage may declare `level`, naming an execution level. Every
+non-terminal stage of the shipped workflows defaults to `SENIOR`; terminal
+stages carry no level. New immutable versions carry these defaults; existing
+item pins and historical definitions stay unchanged. The Workflows stage
+strip shows the level glyph and name below the checks.
+
+An item's effective level is its stage level plus the override's `shift`,
+clamped to `min` and `max` and the project's lowest and highest available
+levels. The item page shows the effective level after Status, its stage
+default, and the override and reason in Execution posture. Clearing the
+override restores the stage default.
+
+## Stage-level handoff
+
+A lifecycle transition into a different effective level from the registered
+worker returns `handoff` with `reason: level_change`, `stage_id`, `level`,
+and the exact successor `next_command`. A merge close-out returns that same
+handoff and stops walking stages. Same level and terminal targets return no
+handoff. This worker rule applies to every harness and takes precedence over
+retaining a release-wait claim:
+
+1. Write a Progress Log checkpoint naming the live stage, committed and
+   uncommitted lane work, and the next concrete step:
+   `yoke items progress-log append PREFIX-N --headline "level-change handoff" --stdin`.
+2. Release your claims with `yoke claims work release --all-mine --json`;
+   read the receipt before continuing. Read `--help` for the release scope.
+3. Run the returned `next_command` exactly. It launches this item's
+   successor from the new stage's effective level. Read `launch create
+   --help` for selectors and idempotency. Workers may launch their own
+   successor after release; other workers and in-flight launches still block.
+4. Verify the launch was accepted, then end the session. A refusal names its
+   recovery: report it to steering and preserve the checkpoint; do not claim
+   success or continue at the previous level. If the predecessor dies before
+   launching, steering staffs the now-unclaimed item normally.
+
+The successor reads the Progress Log and the preserved lane's status and log
+before acting, then resumes from the checkpoint. The handoff is runtime
+staffing, not an operator execution instruction or a workflow skill binding.
+
 ## Launching by level
 
-A launch names a level, and Yoke chooses the option and the machine:
+A create with no selector uses the item's live effective stage level, and
+Yoke chooses the option and machine. An explicit `--level` overrides one
+launch. A missing stage level without an explicit selector refuses as
+`stage_level_missing`, naming `--level` or publishing and pinning a corrected
+workflow version as recovery:
 
 ```text
 yoke session-control launch preview --project P --level SENIOR [--machine M] --json
-yoke session-control launch create --project P --level SENIOR --item PREFIX-N --idempotency-key K
+yoke session-control launch create --project P --item PREFIX-N --idempotency-key K
 ```
 
 Placement weighs every option of the level on every machine the caller may
@@ -215,7 +260,10 @@ recorded as `selection: override`. A level and explicit knobs are exclusive
 (`level_selection_conflict`). `level` is a new argument of the launch
 functions: an HTTPS server older than its serving floor rejects it, and the
 CLI refuses as `function_argument_version_skew`, naming the floor and the
-explicit `--surface` form that server still accepts.
+explicit form that server still accepts. The CLI marks a selector-free create
+with `use_stage_level: true`, an argument with its own serving floor, so an
+older server names the unavailable stage default and the explicit selector
+recovery rather than silently launching another level.
 
 ## Glyph contract
 

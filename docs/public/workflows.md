@@ -2,6 +2,10 @@
 
 Workbench **Workflows** shows versioned definitions: stages, gates, posture,
 testing and delivery defaults.
+Each non-terminal stage card shows its level glyph and name beneath its
+checks. Shipped workflows default every non-terminal stage to SENIOR;
+terminal stages have no level. Item overrides and worker handoffs follow
+[execution levels](reference/session-level-routing.md#stage-level-handoff).
 
 Saving workflow settings keeps the workflow currently selected. The view
 does not jump back to the definition originally named by the route.
