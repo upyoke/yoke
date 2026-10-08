@@ -76,8 +76,7 @@ cost is derived at read time from the catalog revision effective at that
 session's initial `offered_at`, and the result names the revision. Later
 publications leave earlier sessions' estimates stable. Native model
 availability and each model's supported reasoning levels still come from
-the surface API; tier-to-model routing still comes from
-`session_model_routing` in machine config.
+the surface API; which model a launch uses comes from the level options.
 
 ## Execution levels
 
@@ -98,106 +97,24 @@ Relays connected to a private API host also require this record and install
 from `origin/simple/`; they do not infer an index from the API host. See
 [Maintaining a private fork](private-forks.md) for artifacts and recovery.
 
-Launch defaults retain the scalar `preferred_session_models` map that the
-previous release can read. The model ids below are illustrative selector
-syntax, not recommended models. Context stays encoded in each native model
-selector, while effort lives in the additive
-`preferred_session_reasoning_efforts` map:
-
-```json
-{
-  "preferred_session_models": {
-    "claude-cli": "claude-opus-4-8[1m]",
-    "codex-cli": "gpt-5.6-sol"
-  },
-  "preferred_session_reasoning_efforts": {
-    "claude-cli": "max",
-    "codex-cli": "xhigh"
-  }
-}
-```
-
-Both maps are machine-local and travel on that machine's relay heartbeat.
-After placement, each knob resolves independently: its explicit launch flag >
-the chosen machine's advertised value > the vendor default. The caller's map
-never decides a launch running elsewhere. Preview shows the raw request and
-the effective selection with the machine setting that supplied each default;
-the launch record retains both, and the bound session shows the effective ask
-beside provider-attested served facts.
-
-A fresh installer/onboard write seeds both keys with every launchable harness
-surface. Blank model or effort means unset. Validation rejects non-string
-entries, invalid selectors, unsupported effort values, and combinations the
-named CLI cannot encode. Existing machine files are not rewritten during
-rollout. `yoke status` and `--list-models` describe this machine's maps;
-preview a launch to see another machine's effective defaults.
-
-`session_model_routing` is the separate, optional key that says which model
-each tier of work asks for on a surface. It is a policy about work rather than
-a fact about a provider account, so it is read from the machine composing the
-launch — unlike the two default maps above, which come from the machine that
-will run it:
-
-**The block below is illustrative, not a current route.** Its model ids
-show the selector syntax each surface accepts — the `[1m]` context suffix,
-the `-high` effort suffix — and nothing about which models a machine
-routes to today. Read the live routing default for a surface with
-`--list-models`. A model catalog refresh changes neither a configured
-selector nor an active session.
-
-```json
-{
-  "session_model_routing": {
-    "cursor-cli": {
-      "tier2": "cursor-grok-4.6-high",
-      "excluded": ["cursor-auto"],
-      "fallbacks": ["claude-opus-5-thinking-high"]
-    },
-    "claude-cli": {
-      "tier1": "claude-fable-5-1",
-      "tier2": "claude-opus-5",
-      "worker_tier": "tier2"
-    },
-    "codex-cli": {
-      "tier1": "gpt-6-astra",
-      "tier2": "gpt-5.6-sol",
-      "worker_tier": "tier2"
-    }
-  }
-}
-```
-
-Tiers are global capability relative to the absolute frontier, not a vendor
-ladder and not the best model a harness happens to offer. `tier1` is
-frontier-equivalent; `tier2` is the band immediately below it. Models under
-that band are `excluded` — not extra usable ranks. Which models sit in each
-band is the operator's choice in these keys; the model catalog holds facts
-about models only. A `fallbacks` entry is reachable only when the preferred model's own billing
-pool is confirmed empty. An unreadable meter, a low headroom reading, or
-room in a different pool is not confirmation, so a fallback never starts
-spending a separate
-allowance by accident. Every key is optional and a surface with no entry
-keeps the defaults above.
-
-`worker_tier` is how a surface reserves its global tier-1 model: ordinary
-work placed on that surface routes to the named model in that tier's
-operator policy, while the steering seat still takes tier1, as does a launch that
-names its model explicitly. The example above reserves Claude and Codex
-tier-1 models for steering or an explicit instruction and routes ordinary
-workers through the operator's tier2 keys (Opus / Sol), not Sonnet. Cursor
-omits `tier1` and
-leaves Grok as the ordinary worker, with the Claude fallback reachable only
-on confirmed pool exhaustion. That split is a machine-local operator choice,
-not a Yoke default: a surface with no `worker_tier` routes every work kind
-to the tier that kind asks for. Steering still judges the task, supported
-reasoning, cost/benefit, and applicable quota rather than always launching
-`preferred_session_models`.
+Launch model choice does not live in machine config. A launch names a level
+(`--level LEVEL`) and Yoke places it on one of that level's options — see
+[launching by level](reference/session-level-routing.md#launching-by-level) —
+or names an exact selection with `--surface` and the knobs below, recorded as
+an override. A knob an explicit launch leaves unnamed takes the surface's
+vendor default. Preview shows the raw request and the effective selection with
+the source of each knob (`level SENIOR option`, `explicit launch request`, or
+`vendor default`); the launch record retains both, and the bound session shows
+the effective ask beside provider-attested served facts. A machine file that
+still carries a retired launch-default key keeps loading; `yoke status` warns
+`machine_config_key_retired`, and the next config write removes the key.
 
 `yoke session-control launch preview --model M` reports each machine's quota
 in the pool `M` actually bills to, under `REQUESTED MODEL POOL`, and ranks
 machines by that pool's meter rather than by whichever window reads lowest.
 
-`yoke session-control launch preview` and `create` accept the three flags.
+`yoke session-control launch preview` and `create` accept `--level LEVEL`, or
+`--surface S` with the three flags.
 `create --idempotency-key K` replays the launch already named by K. If its
 session ended or was terminated, `launch_replay_finished` names that launch
 and says no new worker started. Repeat create with a new key to relaunch.
@@ -206,9 +123,8 @@ holds its claim or an earlier launch is pending or has a live session. The
 refusal names the session and launch: wake or message that worker, or terminate
 it first when a fresh worker is required. Same-key replay still deduplicates.
 `--context-window` accepts a token count or compact form such as `1m`.
-`--list-models --surface SURFACE` prints this machine's configured defaults
-beside its observed native availability (below), plus accepted effort and
-context values. Claude maps context 1M to the
+`--list-models --surface SURFACE` prints this machine's observed native
+availability (below), plus accepted effort and context values. Claude maps context 1M to the
 model's `[1m]` selector and effort to `--effort`; Codex maps effort to
 `-c model_reasoning_effort=...` and refuses explicit context. Cursor passes an
 exact advertised selector, such as `cursor-grok-4.6-high`; a separate matching
@@ -275,7 +191,7 @@ Read it three ways:
 
 ```bash
 yoke relay probe-models [--surface S] [--json]   # refresh this machine now
-yoke session-control launch --list-models        # defaults beside availability
+yoke session-control launch preview --list-models  # accepted flags beside availability
 yoke steering report get                         # every machine in the scope
 ```
 

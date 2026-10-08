@@ -9,10 +9,7 @@ from yoke_contracts.machine_config.machine_capacity import (
     CAP_SOURCE_SETTING,
     CAP_SOURCE_UNREADABLE,
 )
-from yoke_contracts.machine_config.preferred_session_models import (
-    PREFERRED_SESSION_MODELS_KEY,
-    PREFERRED_SESSION_REASONING_EFFORTS_KEY,
-)
+from yoke_contracts.machine_config.retired_keys import RETIRED_MACHINE_CONFIG_KEYS
 from yoke_harness import session_relay_inventory as inventory_module
 from yoke_harness import session_relay_surface_probe_cache as probe_cache
 from yoke_harness import session_relay_surface_probes as probe_module
@@ -199,7 +196,7 @@ def test_claim_payload_derives_a_cap_when_no_setting_names_one(
     assert capacity["max_worker_lanes"] is None or capacity["max_worker_lanes"] >= 1
 
 
-def test_claim_payload_advertises_this_machines_selection_defaults(
+def test_claim_payload_never_advertises_retired_launch_defaults(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
@@ -219,9 +216,11 @@ def test_claim_payload_advertises_this_machines_selection_defaults(
     monkeypatch.setattr(
         inventory_module,
         "load_config",
+        # A config that still carries every retired key: none of it may
+        # reach the heartbeat, because level options choose launch models.
         lambda: {
-            PREFERRED_SESSION_MODELS_KEY: {"claude-cli": "claude-opus-4-8[1m]"},
-            PREFERRED_SESSION_REASONING_EFFORTS_KEY: {"claude-cli": "max"},
+            key: {"claude-cli": "claude-opus-4-8[1m]"}
+            for key in RETIRED_MACHINE_CONFIG_KEYS
         },
     )
 
@@ -229,8 +228,9 @@ def test_claim_payload_advertises_this_machines_selection_defaults(
         state_dir=tmp_path
     ).claim_payload()
 
-    assert payload["preferred_models"] == {"claude-cli": "claude-opus-4-8[1m]"}
-    assert payload["preferred_reasoning_efforts"] == {"claude-cli": "max"}
+    assert "preferred_models" not in payload
+    assert "preferred_reasoning_efforts" not in payload
+    assert not set(RETIRED_MACHINE_CONFIG_KEYS) & set(payload)
 
 
 def test_claim_payload_names_a_confirmed_removal_without_masking_it(

@@ -8,7 +8,6 @@ from typing import Any, Protocol
 from yoke_contracts.organization_contract.fleet_keys import FLEET_KEY_SPECS
 from yoke_contracts.session_control.launch_origin import LAUNCH_ORIGIN_OPERATOR
 from yoke_core.domain.session_launch_capacity import MachineCapacity
-from yoke_core.domain.session_launch_surface_readings import SurfaceHeadroomReading
 
 
 MAX_LAUNCH_LEASE_SECONDS = 300
@@ -116,6 +115,9 @@ class LaunchEligibilityPort(Protocol):
 
 @dataclass(frozen=True)
 class LaunchRequest:
+    """One launch ask. ``level`` asks Yoke to place it; until placement
+    fills it in, ``executor_surface`` is blank for a level launch."""
+
     project_id: int
     executor_surface: str
     instructions: str
@@ -130,6 +132,7 @@ class LaunchRequest:
     allow_surface_fallback: bool = False
     deadline_seconds: int = DEFAULT_LAUNCH_DEADLINE_SECONDS
     item: str | None = None
+    level: str | None = None
 
 
 @dataclass(frozen=True)
@@ -144,10 +147,10 @@ class LaunchPreview:
     placement_reason: str | None = None
     machine_candidates: tuple[MachineCandidate, ...] = ()
     rejection_details: tuple[str, ...] = ()
-    #: Headroom on the surfaces this launch did not ask about. Empty when no
-    #: machine was weighed, because the readings come from the same meter load
-    #: that ranks candidates rather than from a query of their own.
-    unrequested_surface_headroom: tuple[SurfaceHeadroomReading, ...] = ()
+    #: How a level launch chose its option and machine: the level, every
+    #: option weighed with the pools it read, and why the winner won. ``None``
+    #: for a launch that named its exact selection.
+    level_placement: dict[str, Any] | None = None
 
     @property
     def launchable(self) -> bool:
@@ -178,9 +181,7 @@ class LaunchPreview:
                 candidate.to_dict() for candidate in self.machine_candidates
             ],
             "rejection_details": list(self.rejection_details),
-            "unrequested_surface_headroom": [
-                reading.to_dict() for reading in self.unrequested_surface_headroom
-            ],
+            "level_placement": self.level_placement,
             "eligible_relays": [relay.to_dict() for relay in self.eligible_relays],
             "selected_relay": (
                 self.selected_relay.to_dict() if self.selected_relay else None
@@ -232,6 +233,10 @@ class LaunchRecord:
     #: Set while the launch waits in ``assigned`` for its machine's spawn
     #: spacing window; cleared the moment a relay leases it.
     spawn_hold_reason: str | None = None
+    #: The level a level launch asked for; ``None`` for an explicit selection.
+    requested_level: str | None = None
+    #: The stored placement evidence, as JSON text.
+    level_placement: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

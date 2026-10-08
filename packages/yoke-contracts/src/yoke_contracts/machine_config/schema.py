@@ -111,26 +111,6 @@ def normalize_payload(payload: Mapping[str, Any] | None) -> dict[str, Any]:
     else:
         normalized["projects"] = []
     normalized["settings"] = dict(settings) if isinstance(settings, Mapping) else {}
-    from yoke_contracts.machine_config.preferred_session_models import (
-        PREFERRED_SESSION_MODELS_KEY,
-        PREFERRED_SESSION_REASONING_EFFORTS_KEY,
-        preferred_session_models,
-        preferred_session_reasoning_efforts,
-    )
-
-    if PREFERRED_SESSION_MODELS_KEY in raw:
-        normalized[PREFERRED_SESSION_MODELS_KEY] = preferred_session_models(raw)
-    if PREFERRED_SESSION_REASONING_EFFORTS_KEY in raw:
-        normalized[PREFERRED_SESSION_REASONING_EFFORTS_KEY] = (
-            preferred_session_reasoning_efforts(raw)
-        )
-    from yoke_contracts.session_control.model_routing import (
-        SESSION_MODEL_ROUTING_KEY,
-        normalize_session_model_routing,
-    )
-
-    if SESSION_MODEL_ROUTING_KEY in raw:
-        normalized[SESSION_MODEL_ROUTING_KEY] = normalize_session_model_routing(raw)
     normalize_github_payload(raw, normalized)
     if isinstance(connections, Mapping):
         normalized["connections"] = {
@@ -251,11 +231,9 @@ def validate_payload(
         issues.append(
             _error("settings_invalid", "settings must be an object", path="settings")
         )
-    from yoke_contracts.machine_config.preferred_session_models import (
-        validate_preferred_session_models,
-    )
+    from yoke_contracts.machine_config.retired_keys import retired_key_issues
 
-    issues.extend(validate_preferred_session_models(raw))
+    issues.extend(retired_key_issues(raw))
     return issues
 
 

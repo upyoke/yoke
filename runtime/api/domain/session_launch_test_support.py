@@ -186,8 +186,6 @@ def add_relay(
     actor_id: int = 1,
     hostname: str = "relay-host",
     plan_limits: dict[str, Any] | None = None,
-    preferred_models: dict[str, str] | None = None,
-    preferred_reasoning_efforts: dict[str, str] | None = None,
     registered: bool = True,
     access: dict[str, Any] | None = None,
 ) -> None:
@@ -199,9 +197,8 @@ def add_relay(
         "INSERT INTO session_relays "
         "(relay_id, actor_id, machine_id, hostname, surface_versions, "
         "project_checkouts, first_seen_at, last_seen_at, connected_until, state, "
-        "surface_plan_limits, preferred_session_models, "
-        "preferred_session_reasoning_efforts) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)",
+        "surface_plan_limits) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)",
         (
             relay_id,
             actor_id,
@@ -213,8 +210,6 @@ def add_relay(
             last_seen_at,
             connected_until,
             json.dumps(plan_limits or {}),
-            json.dumps(preferred_models or {}),
-            json.dumps(preferred_reasoning_efforts or {}),
         ),
     )
     conn.commit()

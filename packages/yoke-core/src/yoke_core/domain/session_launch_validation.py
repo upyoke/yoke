@@ -44,8 +44,21 @@ def require_launch_id(launch_id: str) -> str:
 def validate_launch_request(
     request: LaunchRequest, *, max_body_bytes: int
 ) -> LaunchRequest:
+    """Validate a launch ask; a level ask is validated again once placed.
+
+    A level launch arrives with no surface, because placement chooses it, so
+    the surface-bound checks wait until the chosen option fills it in.
+    """
+    if request.level:
+        request = replace(request, level=request.level.strip().upper())
     if not request.executor_surface.strip():
-        raise SessionLaunchError("payload_invalid", "executor surface is required")
+        if not request.level:
+            raise SessionLaunchError(
+                "launch_selection_missing",
+                "name --level LEVEL for Yoke to place, or --surface to launch "
+                "an exact selection",
+            )
+        return _validate_body(request, max_body_bytes=max_body_bytes)
     if request.executor_surface not in KNOWN_SURFACE_LABELS:
         raise SessionLaunchError("unsupported_surface", "executor surface is unknown")
     selection = validate_model_selection(
@@ -54,6 +67,25 @@ def validate_launch_request(
         reasoning_effort=request.reasoning_effort,
         context_window_tokens=request.context_window_tokens,
     )
+    request = _validate_body(request, max_body_bytes=max_body_bytes)
+    if (
+        request.executor_surface.startswith("claude-")
+        and request.presentation != CLAUDE_LOCAL_PRESENTATION
+    ):
+        raise SessionLaunchError(
+            "presentation_unsupported",
+            "Claude launches require local presentation; omit --presentation "
+            "or pass --presentation local",
+        )
+    return replace(
+        request,
+        model=selection.model,
+        reasoning_effort=selection.reasoning_effort,
+        context_window_tokens=selection.context_window_tokens,
+    )
+
+
+def _validate_body(request: LaunchRequest, *, max_body_bytes: int) -> LaunchRequest:
     if not request.instructions.strip():
         raise SessionLaunchError("payload_invalid", "instructions must be non-empty")
     if len(request.instructions.encode("utf-8")) > max_body_bytes:
@@ -68,26 +100,12 @@ def validate_launch_request(
             "session_name_invalid",
             f"session name must be 1-{MAX_SESSION_NAME_LENGTH} characters",
         )
-    if (
-        request.executor_surface.startswith("claude-")
-        and request.presentation != CLAUDE_LOCAL_PRESENTATION
-    ):
-        raise SessionLaunchError(
-            "presentation_unsupported",
-            "Claude launches require local presentation; omit --presentation "
-            "or pass --presentation local",
-        )
     if not 60 <= request.deadline_seconds <= MAX_LAUNCH_DEADLINE_SECONDS:
         raise SessionLaunchError(
             "deadline_invalid",
             f"deadline must be between 60 and {MAX_LAUNCH_DEADLINE_SECONDS} seconds",
         )
-    return replace(
-        request,
-        model=selection.model,
-        reasoning_effort=selection.reasoning_effort,
-        context_window_tokens=selection.context_window_tokens,
-    )
+    return request
 
 
 def validate_model_selection(

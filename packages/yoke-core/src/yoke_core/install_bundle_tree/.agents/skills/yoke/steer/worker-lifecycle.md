@@ -61,7 +61,7 @@ Surfaces are not exclusive. Each of `claude-cli`, `codex-cli`, and
 `cursor-cli` hosts as many concurrent sessions as the work needs. Do
 not invent a one-session-per-surface cap — nothing states one and no
 mechanism enforces one. Staff every runnable unclaimed item. The bound
-is that item set plus whether the chosen CLI surface is launchable
+is that item set plus whether the level has an option with capacity
 (preview in rule 3). Balance never withholds a launch.
 
 Staff what this seat files in the same pass that files it, as soon as the
@@ -75,13 +75,13 @@ Steering-launched sessions use `claude-cli`, `codex-cli`, or
 `cursor-cli`. Desktop surfaces only when the operator directs it or a
 named exception scenario requires it.
 
-Preview the chosen CLI surface before every launch. Pass that target
-`--surface` explicitly; never the calling session's own surface. A
-steering session commonly runs on a desktop surface that cannot create
-sessions.
+Preview every launch by level. Level options name CLI surfaces, so a level
+launch never lands on the desktop surface a steering session commonly runs
+on. An operator override that names `--surface` must name a CLI surface,
+never the calling session's own.
 
 ```text
-yoke session-control launch preview --project {_project} --surface {_surface} --json
+yoke session-control launch preview --project {_project} --level {_level} --json
 ```
 
 Read `launchable`, `rejection_codes`, and `eligible_relays`.
@@ -104,25 +104,25 @@ Read `launchable`, `rejection_codes`, and `eligible_relays`.
   is a memory fact about that box, not a transient race.
 - `machine_access_denied` — no eligible machine is one this actor may use;
   `placement_reason` says why per machine.
+- `level_no_capacity` — no option of the level can launch anywhere; the
+  refusal names each option and the pool or rule that blocked it. Relaunch
+  at another level if the work allows, or wait for the named reset.
+- `level_unknown` — the project reads no such level; it lists the ones it
+  does.
 
 A refusal names the surface, not the item. Do not skip remaining work
 because one surface refused.
 
-**Do not pick the machine.** A launch naming no `--machine` is placed for
-you: among the machines this actor may use that offer the surface, the one
-with the most headroom wins, and the requester's own machine wins a tie.
-Headroom is the lowest meter that machine publishes for the surface — the
-soonest wall is the one a launch can hit. `placement_reason` names the winner,
-the readings it beat and the deciding meter; `machine_candidates` carries those
-per machine. Both land on the launch row. Pass `--machine` only to override.
-
-Choosing the SURFACE is still yours.
-Allocate by headroom, not by leveling counts. Read the headroom table in the
-fleet report: keep one session on every surface above 100% so each harness
-stays exercised, then send the rest to the surface with the most headroom and
-run it down. Level counts only when headrooms are comparable, and avoid a
-surface under 100% for long items. There is no per-surface session cap; a
-surface absent from the launch-balance line cannot accept one at all.
+**Do not pick the machine or the surface.** A level launch is placed for
+you: every option of the level is weighed on every machine this actor may use,
+against only the quota pools that option's model draws on.
+Allocate by headroom, not by leveling counts: placement keeps one worker on
+every surface above 100% headroom so each harness stays exercised, then sends
+the rest to the option with the most headroom. `placement_reason` names the
+winner and why; `level_placement` carries every option, machine, and pool it
+read. Both land on the launch row. Pass `--machine` only to narrow placement,
+and `--surface` only for an operator override. There is no per-surface
+session cap.
 
 ## 4. Route one item through its pinned workflow
 
@@ -210,23 +210,22 @@ new `session_control.launch.create`.
 
 ## 7. Choose model, effort, and context per item at launch
 
-Which model and effort each item asks for — the three kinds of work, the
-operator's per-surface routing preference, Cursor's Grok-first rule and what
-counts as a confirmed empty pool, adopting a new model, and why a resume keeps
-its selection — is [`model-selection.md`](model-selection.md). Read it before
-naming a model. The mechanics of how a named knob resolves are here.
+Name a level per item; the level's options carry the model, effort, and
+context. Which level each leg asks for, what counts as a confirmed empty
+Cursor pool, adopting a new model, and why a resume keeps its selection is
+[`model-selection.md`](model-selection.md). Read it before naming a level.
+The mechanics of an operator override are here.
 
-Resolve each knob independently: its explicit launch flag > the value
-advertised by the machine the launch was placed on > the vendor default. The
-target machine owns these defaults because it owns the provider account and
-installed models, never this seat's config. Context uses that machine's scalar
-`preferred_session_models` selector and effort uses its additive
-`preferred_session_reasoning_efforts` map. Blank values are unset.
-Override per item when risk warrants. Preview shows the raw request and its
-effective selection; the launch retains both, and the session shows the ask
-beside served facts. `--list-models` reports local maps; preview reads remote defaults.
-Preview also ranks each machine by the meter the requested model actually
-bills to, and names that pool's own quota under `REQUESTED MODEL POOL`.
+An override names `--surface` with `--model`, `--reasoning-effort`, and
+`--context-window` as needed; a knob it leaves unnamed takes the surface's
+vendor default. It is recorded as `selection: override`. Preview shows the raw
+request and its effective selection with each knob's source (`level SENIOR
+option`, `explicit launch request`, `vendor default`); the launch retains both,
+and the session shows the ask beside served facts. `--list-models` reports the
+efforts and context windows the surface accepts and this machine's observed
+models. An override preview ranks each machine by the meter the requested
+model actually bills to, and names that pool's own quota under
+`REQUESTED MODEL POOL`.
 Claude accepts model, effort, and the 1M context tier; Codex accepts model and
 its advertised effort levels but no explicit context window. Cursor preserves
 the exact native selector: effort resolves to an advertised variant, and an
@@ -294,7 +293,7 @@ work that still has implementation or verification left to do.
    the launch that staffed the item:
 
    ```text
-   yoke sessions terminate {WORKER_SESSION_ID} --reason "restaff PREFIX-N onto {_model}: <why>"
+   yoke sessions terminate {WORKER_SESSION_ID} --reason "restaff PREFIX-N at {_level}: <why>"
    yoke claims work holder-get PREFIX-N
    ```
 
@@ -305,12 +304,12 @@ work that still has implementation or verification left to do.
    The holder read must show no live holder before you launch.
 
 3. **Launch the successor** with the launcher recipe below, naming the new
-   model, effort, and context. Give the idempotency key the predecessor's
-   launch id, so a restaff onto a selection the item already had is a new
-   launch rather than a replay of the old one:
+   level. Give the idempotency key the predecessor's launch id, so a restaff
+   onto a level the item already had is a new launch rather than a replay of
+   the old one:
 
    ```text
-   --idempotency-key "steer:{_project}:{ITEM}:restaff:{PREVIOUS_LAUNCH_ID}:{_surface}:{_model}:{_effort}:{_context}"
+   --idempotency-key "steer:{_project}:{ITEM}:restaff:{PREVIOUS_LAUNCH_ID}:{_level}"
    ```
 
    The server composes the mandate from the item's live stage, so the
@@ -327,8 +326,8 @@ work that still has implementation or verification left to do.
 ## Launcher recipe
 
 Preview is mandatory for every steering-staffed session, including itemless
-ones. Do not create until preview returns `launchable=true` for the chosen
-CLI surface. Use `session_control.launch.create` for every launch. An
+ones. Do not create until preview returns `launchable=true` for the level.
+Use `session_control.launch.create` for every launch. An
 item-bound composed mandate requires `--item`; the server composes the
 canonical single-item mandate from that ref and the charge-schedule route.
 An explicitly itemless raw mandate requires `--raw-instructions --stdin` and
@@ -343,26 +342,24 @@ body. Optional extras append after a composed mandate via `--stdin`.
 ```text
 yoke session-control launch create \
   --project {_project} \
-  --surface {_surface} \
+  --level {_level} \
   --item {ITEM} \
-  --idempotency-key "steer:{_project}:{ITEM}:{_surface}:{_model}:{_effort}:{_context}" \
-  --model {_model} \
-  --reasoning-effort {_effort} \
-  --context-window {_context} \
+  --idempotency-key "steer:{_project}:{ITEM}:{_level}" \
   --json
 ```
+
+An operator override replaces `--level {_level}` with `--surface {_surface}
+--model {_model} --reasoning-effort {_effort} [--context-window {_context}]`
+and names that selection in the idempotency key.
 
 Itemless raw-instructions (explicit body, no `--item`):
 
 ```text
 yoke session-control launch create \
   --project {_project} \
-  --surface {_surface} \
+  --level {_level} \
   --raw-instructions --stdin \
-  --idempotency-key "steer:{_project}:raw:{_surface}:{_model}:{_effort}:{_context}" \
-  --model {_model} \
-  --reasoning-effort {_effort} \
-  --context-window {_context} \
+  --idempotency-key "steer:{_project}:raw:{_level}:{_purpose}" \
   --json <<'EOF'
 <complete itemless mandate>
 EOF

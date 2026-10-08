@@ -12,9 +12,7 @@ from yoke_cli.config import machine_config
 from yoke_cli.config import machine_config_file
 from yoke_contracts.machine_config import runtime as machine_runtime
 from yoke_contracts.machine_config import schema as contract
-from yoke_contracts.machine_config.preferred_session_models import (
-    seed_preferred_session_models,
-)
+from yoke_contracts.machine_config.retired_keys import strip_retired_keys
 
 
 class MachineConfigWriteError(RuntimeError):
@@ -45,32 +43,12 @@ def serialized_mutation(
 
 
 def load_payload(path: str | Path | None) -> tuple[dict[str, Any], Path]:
-    """Load the selected config, seeding a fresh document when empty.
-
-    A missing file is a fresh write: schema version plus the real
-    rollout-compatible model and effort maps with blank values for every
-    launchable surface. An existing document is returned unchanged when those
-    keys are absent — backfill is fresh writes and explicit repair only.
-    """
+    """Load the selected config, starting a fresh document when empty."""
     cfg_path = machine_config.config_path(path)
     payload = machine_config.load_config(path)
     if not payload:
         payload = {"schema_version": contract.SCHEMA_VERSION}
-        seed_preferred_session_models(payload)
     return payload, cfg_path
-
-
-@serialized_mutation
-def repair_preferred_session_models(
-    *,
-    path: str | Path | None = None,
-) -> dict[str, Any]:
-    """Seed the real key on an existing document that lacks it."""
-    payload, cfg_path = load_payload(path)
-    seeded = seed_preferred_session_models(payload)
-    if seeded:
-        write_payload(payload, cfg_path)
-    return {"path": str(cfg_path), "seeded": seeded}
 
 
 @serialized_mutation
@@ -109,9 +87,11 @@ def write_payload(
     connection is selected and retirement of the last connection. Neither
     operation may invent authority just to persist directories or identity.
     The shape stays an error for ``yoke status``, where an unconfigured
-    machine should be reported.
+    machine should be reported. Retired keys nothing reads any more are
+    dropped here, so a machine converges on its next config write.
     """
     payload.setdefault(contract.MACHINE_ID_KEY, str(uuid.uuid4()))
+    strip_retired_keys(payload)
     tolerated = (
         {"active_env_required", "connections_required"}
         if allow_unconfigured and not payload.get("connections")
@@ -141,7 +121,6 @@ __all__ = [
     "MachineConfigWriteError",
     "ensure_local_machine_identity",
     "load_payload",
-    "repair_preferred_session_models",
     "serialized_mutation",
     "write_payload",
 ]

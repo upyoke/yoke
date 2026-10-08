@@ -22,7 +22,6 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_contracts import qa_evidence_plane
-from yoke_contracts.engine_version import local_handshake_version
 from yoke_contracts.session_identity import (
     ANCHORS_DIR_NAME,
     CURSOR_SESSION_MAP_DIR_NAME,
@@ -287,31 +286,13 @@ def _apply_version_skew_gate(
     handshake: "https_transport.ServerHandshake",
     function_hint: Optional[HintResolver],
 ) -> FunctionCallResponse:
-    """Retype a relayed unserved-function answer as client/server skew.
-
-    The server says ``function_not_registered`` about its own registry;
-    for a function this build can dispatch, that answer is a version-skew
-    fact and is replaced with the typed error naming both engine versions
-    and the direction-matched recovery. A function id this build does not
-    know is a genuine unknown function, so the server's answer stands.
-    """
-    if response.success or response.error is None:
-        return response
-    if response.error.code != "function_not_registered":
-        return response
-    if request.function not in function_version_skew.local_function_ids():
-        return response
-    extra_hint = function_hint(request.function) if function_hint else ""
-    return response.model_copy(
-        update={
-            "error": function_version_skew.skew_error(
-                function_id=request.function,
-                client_version=local_handshake_version(),
-                server_version=handshake.engine_version,
-                env_name=connection.env,
-                extra_hint=extra_hint or "",
-            )
-        }
+    """Retype a relayed skew answer; see ``function_version_skew.retype_skew``."""
+    return function_version_skew.retype_skew(
+        response,
+        request,
+        server_version=getattr(handshake, "engine_version", ""),
+        env_name=getattr(connection, "env", ""),
+        function_hint=function_hint,
     )
 
 

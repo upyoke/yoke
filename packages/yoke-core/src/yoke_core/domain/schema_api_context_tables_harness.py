@@ -98,7 +98,7 @@ HARNESS_TABLES: dict[str, dict] = {
             "change the price revision. `yoke models diff`, `publish`, "
             "`revisions`, and `restore` own publication; never update rows "
             "directly. The catalog contains researched model facts, not "
-            "native availability or machine session_model_routing."
+            "native availability or the level options that route launches."
         ),
     },
     "universe_settings": {

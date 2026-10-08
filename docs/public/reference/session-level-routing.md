@@ -124,6 +124,52 @@ The dashboard's **Settings → Levels** page, directly under Universe, shows
 this read: levels, options, capacity, and project overrides with the override
 command. It is view only; edit levels with the commands above.
 
+## Launching by level
+
+A launch names a level, and Yoke chooses the option and the machine:
+
+```text
+yoke session-control launch preview --project P --level SENIOR [--machine M] --json
+yoke session-control launch create --project P --level SENIOR --item PREFIX-N --idempotency-key K
+```
+
+Placement weighs every option of the level on every machine the caller may
+use that offers its surface and has lane capacity. Each option is read
+against **only the quota pools its model draws on**: a Claude model draws on
+the rolling 5-hour window, the weekly all-models window, and the weekly
+window scoped to its own family; a Cursor model draws on Cursor Models or on
+Other Models; Codex meters the whole account weekly. Then:
+
+1. **Spread.** An option on a surface with no live worker (or
+   launch in flight) and more than 100% headroom wins first, so quota that
+   cannot run out before its reset is put to work.
+2. **Most headroom.** Otherwise the option with the most headroom on its
+   binding pool wins; an option whose pools publish no readable meter ranks
+   below every readable one.
+3. **Order** — the level's option order, then machine id — breaks ties.
+
+An option is blocked on a machine only by a readable pool with no quota
+left; an unreadable or missing meter is unknown, never exhaustion. A Cursor
+option's `fallback` is weighed only where the option's own pool is
+exhausted. When no option can launch anywhere the launch refuses as
+`level_no_capacity`, naming each option and the pool or eligibility rule
+that blocked it. Yoke never moves a launch to another level; relaunch at a
+different `--level` or wait for the named reset. An unknown level refuses as
+`level_unknown` with the levels the project reads.
+
+The launch result and `launch get` name the level, the chosen option, every
+pool each option read, and why the winner won (`level_placement`); the
+stored launch keeps the level as its ask, and `launch retry` places the
+level again. `--machine` narrows placement to one machine.
+
+An explicit `--surface` (with `--model`, `--reasoning-effort`,
+`--context-window` as needed) still launches exactly as asked and is
+recorded as `selection: override`. A level and explicit knobs are exclusive
+(`level_selection_conflict`). `level` is a new argument of the launch
+functions: an HTTPS server older than its serving floor rejects it, and the
+CLI refuses as `function_argument_version_skew`, naming the floor and the
+explicit `--surface` form that server still accepts.
+
 ## Glyph contract
 
 Every glyph Yoke stores renders inside fixed-width board columns, so one
@@ -173,5 +219,9 @@ metadata, selector rules, and harness defaults. Boot removes them from every
 stored project document through the ordered migration history and deletes a
 document left without levels, so every project reads the universe levels
 unless it holds a real override. A write that still uses a retired key is
-refused as `level_routing_keys_retired` with the override recipe above; the
-machine config carries no level routing.
+refused as `level_routing_keys_retired` with the override recipe above.
+
+Machine config carries no launch routing either. A machine file that still
+holds a retired launch-default key keeps loading; `yoke status` warns
+`machine_config_key_retired` naming each one, and the next config write
+removes it.

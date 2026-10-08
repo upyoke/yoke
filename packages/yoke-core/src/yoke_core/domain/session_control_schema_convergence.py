@@ -37,6 +37,8 @@ def converge_session_control_schema(conn: Any) -> None:
         ("resolved_model", "TEXT"),
         ("resolved_reasoning_effort", "TEXT"),
         ("resolved_context_window_tokens", "INTEGER"),
+        ("requested_level", "TEXT"),
+        ("level_placement", "TEXT"),
     ):
         if not _column_exists(conn, "session_launches", name):
             conn.execute(
@@ -45,9 +47,7 @@ def converge_session_control_schema(conn: Any) -> None:
     for name in (
         "surface_plan_limits",
         "machine_capacity",
-        "preferred_session_models",
         "relay_health",
-        "preferred_session_reasoning_efforts",
         "surface_confirmed_absent",
         "surface_native_models",
     ):

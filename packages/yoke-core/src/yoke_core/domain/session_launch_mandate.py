@@ -232,7 +232,7 @@ def launch_request_for_create(
         )
     return LaunchRequest(
         project_id=project_id,
-        executor_surface=parsed.executor_surface,
+        executor_surface=parsed.executor_surface or "",
         instructions=_instructions_for_create(
             conn,
             parsed,
@@ -251,6 +251,7 @@ def launch_request_for_create(
         allow_surface_fallback=parsed.allow_surface_fallback,
         deadline_seconds=deadline_seconds,
         item=str(parsed.item) if parsed.item else None,
+        level=parsed.level,
     )
 
 

@@ -46,9 +46,12 @@ class RelayClaimRequest(BaseModel):
     surfaces_confirmed_absent: List[str] = Field(default_factory=list)
     plan_limits: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     capacity: Dict[str, Any] = Field(default_factory=dict)
-    preferred_models: Dict[str, str] = Field(default_factory=dict)
     health: Dict[str, Any] = Field(default_factory=dict)
-    preferred_reasoning_efforts: Dict[str, str] = Field(default_factory=dict)
+    # A relay older than this server still sends these two retired
+    # launch-default maps. They are accepted so its heartbeat keeps landing,
+    # and never read: level options choose launch models now.
+    preferred_models: Dict[str, Any] = Field(default_factory=dict)
+    preferred_reasoning_efforts: Dict[str, Any] = Field(default_factory=dict)
     native_models: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     credential_presence: Dict[str, Any] = Field(default_factory=dict)
     wait_seconds: int = Field(default=55, ge=0, le=55)

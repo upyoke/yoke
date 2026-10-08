@@ -13,12 +13,6 @@ import json
 from typing import Any
 
 from yoke_contracts.api_urls import HOSTED_PROD_API_URL, HOSTED_STAGE_API_URL
-from yoke_contracts.machine_config.preferred_session_models import (
-    PREFERRED_SESSION_MODELS_KEY,
-    PREFERRED_SESSION_REASONING_EFFORTS_KEY,
-    blank_preferred_session_models,
-    blank_preferred_session_reasoning_efforts,
-)
 
 
 def canonical_example_payload() -> dict[str, Any]:
@@ -102,10 +96,6 @@ def canonical_example_payload() -> dict[str, Any]:
                 },
             ],
             "settings": {},
-            PREFERRED_SESSION_MODELS_KEY: blank_preferred_session_models(),
-            PREFERRED_SESSION_REASONING_EFFORTS_KEY: (
-                blank_preferred_session_reasoning_efforts()
-            ),
         }
     )
 

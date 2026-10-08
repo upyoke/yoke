@@ -47,6 +47,7 @@ _PUBLIC_FIELDS = (
     "native_launch_observed_at",
     "spawn_duration_ms",
     "spawn_hold_reason",
+    "requested_level",
 )
 
 
@@ -73,7 +74,20 @@ def public_launch_record(launch: LaunchRecord) -> dict[str, Any]:
         )
     )
     result["result_evidence"] = _safe_result_evidence(launch.result_evidence)
+    result["selection"] = "level" if launch.requested_level else "override"
+    result["level_placement"] = _level_placement(launch.level_placement)
     return result
+
+
+def _level_placement(value: str | None) -> dict[str, Any] | None:
+    """The stored placement evidence, or ``None`` for an explicit launch."""
+    if not value:
+        return None
+    try:
+        decoded = json_helper.loads_text(value)
+    except (TypeError, ValueError):
+        return None
+    return decoded if isinstance(decoded, dict) else None
 
 
 #: What a list row shows before it is expanded. Everything a reader needs to

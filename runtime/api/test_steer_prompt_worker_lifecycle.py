@@ -64,7 +64,7 @@ class TestSteerWorkerLifecycle:
         assert "Do not pick the machine" in text
         assert "placement_reason" in text
         assert "machine_access_denied" in text
-        assert "preferred_session_models" in text
+        assert "--level {_level}" in text
         assert "yoke sessions terminate" in text
         assert "reserved for an unresponsive worker" in text
         assert "Single-item mandate (steering)" in text
@@ -107,8 +107,9 @@ class TestSteerWorkerLifecycle:
 
     def test_launch_preview_is_mandatory_and_names_surface_refusals(self):
         text = _words(_read(_STEER_DIR / "worker-lifecycle.md"))
-        assert "Preview the chosen CLI surface before every launch" in text
-        assert "never the calling session's own surface" in text
+        assert "Preview every launch by level" in text
+        assert "never the calling session's own" in text
+        assert "level_no_capacity" in text
         assert "unsupported_surface" in text
         assert "A refusal names the surface, not the item" in text
         assert "launchable=true" in text

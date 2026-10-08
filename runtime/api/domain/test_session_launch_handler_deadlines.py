@@ -216,6 +216,7 @@ def test_preview_refuses_a_knob_the_named_harness_cannot_encode(monkeypatch) -> 
     conn = launch_connection()
     add_relay(conn, surface="codex-cli")
     _wire_handler(monkeypatch, conn)
+    monkeypatch.setattr(handlers, "_fleet_policy", lambda *_args: False)
 
     result = handlers.handle_launch_preview(
         _request(

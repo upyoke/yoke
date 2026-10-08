@@ -45,7 +45,6 @@ def _entry(**overrides) -> StrandedSession:
         surface="cursor-cli",
         model=OPUS,
         kind=KIND_METER_EXHAUSTED,
-        preferred_model="",
         meter=OTHER_METER,
         remaining_percent=0.0,
         resets_at=RESET,
@@ -56,7 +55,7 @@ def _entry(**overrides) -> StrandedSession:
     return StrandedSession(**fields)
 
 
-def _pin_worker(conn, *, windows=None, preferred=None, native=None, model=OPUS):
+def _pin_worker(conn, *, windows=None, native=None, model=OPUS):
     conn.execute(
         "UPDATE harness_sessions SET executor_surface=%s, model=%s WHERE session_id=%s",
         ("cursor-cli", model, WORKER_SESSION),
@@ -73,8 +72,6 @@ def _pin_worker(conn, *, windows=None, preferred=None, native=None, model=OPUS):
                 }
             }
         )
-    if preferred is not None:
-        payload["preferred_session_models"] = json.dumps(preferred)
     if native is not None:
         payload["surface_native_models"] = json.dumps(native)
     if payload:
@@ -163,15 +160,6 @@ def test_the_wrong_cursor_pool_at_zero_does_not_strand_opus(test_db) -> None:
     assert compose(conn).stranded == ()
 
 
-def test_an_off_default_model_is_not_stranded(test_db) -> None:
-    conn = seed_steering_scope(test_db)
-    claim_work(conn, session_id=WORKER_SESSION, target=make_item_target(1))
-    _pin_worker(conn, preferred={"cursor-cli": "composer-1"})
-
-    report = compose(conn)
-    assert report.stranded == ()
-
-
 def _still_registering_launch(conn, *, deadline: str) -> None:
     conn.execute(
         "INSERT INTO session_messages "
@@ -196,11 +184,7 @@ def _still_registering_launch(conn, *, deadline: str) -> None:
 
 def test_a_session_still_registering_is_not_stranded(test_db) -> None:
     conn = seed_steering_scope(test_db)
-    _pin_worker(
-        conn,
-        windows=_exhausted_other_models(),
-        preferred={"cursor-cli": "composer-1"},
-    )
+    _pin_worker(conn, windows=_exhausted_other_models())
     _still_registering_launch(conn, deadline="2026-08-26T13:00:00Z")
 
     assert compose(conn).stranded == ()
