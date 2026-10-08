@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import json
 
-from yoke_core.domain.db_helpers import query_one, query_rows
+from yoke_contracts.timestamps import format_instant, utc_now
+
+from yoke_core.domain.db_helpers import instant_parameter, query_one, query_rows
 from yoke_core.domain.sessions_render_attribution import (
     release_current_item_focus,
     release_item_focus_if_current,
@@ -35,7 +37,6 @@ from yoke_core.hooks.sessions_event_emit import (
 )
 from yoke_core.hooks.sessions_focus import (
     _format_row,
-    _now_iso,
 )
 from yoke_core.domain.work_claim_target_sql import LIVENESS_BOUND_SQL
 
@@ -62,10 +63,10 @@ def _event_item(target: WorkClaimTarget) -> object:
 
 
 def cmd_release(conn, claim_id: int, reason: str = "released") -> str:
-    now = _now_iso()
+    now = utc_now()
     row = query_one(
         conn,
-        "SELECT COALESCE(session_id, '') as sid, COALESCE(released_at, '') as rel, "
+        "SELECT COALESCE(session_id, '') as sid, released_at as rel, "
         "target_kind, scope "
         "FROM work_claims WHERE id=%s",
         (claim_id,),
@@ -81,14 +82,13 @@ def cmd_release(conn, claim_id: int, reason: str = "released") -> str:
     conn.execute(
         "UPDATE work_claims SET released_at=%s, release_reason=%s "
         "WHERE id=%s AND released_at IS NULL",
-        (now, reason, claim_id),
+        (instant_parameter(conn, now), reason, claim_id),
     )
     # The caller's release intent is first-class claim state.
     from yoke_core.domain.claim_chain_state import record_release_intent
 
     record_release_intent(conn, claim_id=claim_id, intent=reason)
-    # Deliberate claim release is real item activity (R1 board-activity
-    # semantics); process-target releases are not item-scoped.
+    # Deliberate claim release is real item activity; process-target releases are not item-scoped.
     _activity_target = target.item_id or target.epic_id
     if _activity_target:
         from yoke_core.domain.item_activity import touch_item_activity
@@ -110,7 +110,7 @@ def cmd_release(conn, claim_id: int, reason: str = "released") -> str:
 
 
 def cmd_release_all(conn, session_id: str, reason: str = "released") -> str:
-    now = _now_iso()
+    now = utc_now()
     active_claims = query_rows(
         conn,
         "SELECT id, target_kind, scope "
@@ -122,7 +122,7 @@ def cmd_release_all(conn, session_id: str, reason: str = "released") -> str:
         "UPDATE work_claims SET released_at=%s, release_reason=%s "
         "WHERE session_id=%s AND released_at IS NULL "
         f"AND {LIVENESS_BOUND_SQL}",
-        (now, reason, session_id),
+        (instant_parameter(conn, now), reason, session_id),
     )
     # The caller's release intent is first-class claim state.
     from yoke_core.domain.claim_chain_state import (
@@ -142,8 +142,7 @@ def cmd_release_all(conn, session_id: str, reason: str = "released") -> str:
     # typed release siblings so the path-claim pre-edit guard does not
     # read a dangling focus link after a release.
     release_current_item_focus(conn, session_id, commit=False)
-    # Deliberate claim release is real item activity (R1 board-activity
-    # semantics); process-target releases are not item-scoped.
+    # Deliberate claim release is real item activity; process-target releases are not item-scoped.
     from yoke_core.domain.item_activity import touch_item_activity
 
     for claim in active_claims:
@@ -253,7 +252,7 @@ def cmd_who_claims(
                 f"for session '{holder}')"
             )
         else:
-            lines.append(f"episode_boundary={boundary}")
+            lines.append(f"episode_boundary={format_instant(boundary)}")
     if caller_session_id is None:
         caller_session_id = current_session_id()
     if holder and caller_session_id != holder:

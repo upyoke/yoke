@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import json
 
+from yoke_contracts.timestamps import parse_instant
+
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
 from runtime.api.test_service_client_sessions_helpers import (
@@ -66,7 +68,7 @@ class TestSessionTouchCommand:
             (sid,),
         ).fetchone()
         conn.close()
-        assert row[0] != "2026-04-01T00:00:00Z"
+        assert row[0] > parse_instant("2026-04-01T00:00:00Z")
 
     def test_session_touch_with_mode_updates_mode(self, session_test_db):
         """Session-touch with --mode heartbeats AND updates mode."""

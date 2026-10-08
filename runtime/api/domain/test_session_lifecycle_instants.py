@@ -86,3 +86,52 @@ def test_reclaim_order_is_native_and_duration_keeps_integer_milliseconds():
         newest_activity_stamp("1970-01-01T00:00:00", epoch)
     with pytest.raises(InvalidInstant):
         compute_duration_ms("1970-01-01T00:00:00", epoch)
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+def test_hook_claims_focus_and_pipe_output_keep_native_instants(
+    test_db, monkeypatch, zone
+):
+    from yoke_core.hooks import sessions_claims_acquire as acquiring
+    from yoke_core.hooks import sessions_claims as releasing
+    from yoke_core.hooks import sessions_focus as focus
+    from yoke_core.hooks import sessions_lifecycle as lifecycle
+
+    test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
+    clock = [MOMENT]
+    for owner in (registry, acquiring, releasing, focus, lifecycle):
+        monkeypatch.setattr(owner, "utc_now", lambda: clock[0])
+    session_id = str(uuid4())
+    item_id = 91002
+    _insert_claimable_item(test_db, item_id)
+    _register(test_db, session_id=session_id)
+    assert "Claimed:" in acquiring.cmd_claim(
+        test_db, session_id, "item", item_id=item_id
+    )
+    row = test_db.execute(
+        "SELECT id,claimed_at,last_heartbeat FROM work_claims WHERE session_id=%s",
+        (session_id,),
+    ).fetchone()
+    assert row["claimed_at"] == MOMENT
+    assert format_instant(MOMENT) in releasing.cmd_list_claims(test_db, session_id)
+    assert format_instant(MOMENT) in lifecycle.cmd_get(test_db, session_id)
+    clock[0] += timedelta(microseconds=1)
+    lifecycle.cmd_touch(test_db, session_id)
+    focus._set_current_item(test_db, session_id, item_id)
+    assert test_db.execute(
+        "SELECT current_item_set_at,recent_item_recorded_at FROM harness_sessions WHERE session_id=%s",
+        (session_id,),
+    ).fetchone() == (clock[0], MOMENT)
+    assert (
+        test_db.execute(
+            "SELECT last_heartbeat FROM work_claims WHERE id=%s", (row["id"],)
+        ).fetchone()[0]
+        == clock[0]
+    )
+    assert "Released claim:" in releasing.cmd_release(test_db, row["id"])
+    assert (
+        test_db.execute(
+            "SELECT released_at FROM work_claims WHERE id=%s", (row["id"],)
+        ).fetchone()[0]
+        == clock[0]
+    )

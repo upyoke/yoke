@@ -8,17 +8,18 @@ path), and read a single row by session id.
 from __future__ import annotations
 
 import json
+
+from yoke_contracts.timestamps import utc_now
 from typing import Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import query_one
+from yoke_core.domain.db_helpers import instant_parameter, query_one
 from yoke_core.domain.sessions import SessionError, end_session
 from yoke_core.domain.sessions_lifecycle_canonicalize import canonicalize_executor
 
 from yoke_core.hooks.sessions_event_emit import _emit_event
 from yoke_core.hooks.sessions_focus import (
     _format_row,
-    _now_iso,
     _require_active_session,
 )
 
@@ -39,7 +40,7 @@ def cmd_begin(
     executor_version: Optional[str] = None,
     machine_id: Optional[str] = None,
 ) -> str:
-    now = _now_iso()
+    now = instant_parameter(conn, utc_now())
     p = _placeholder(conn)
     canonical_executor, display_name = canonicalize_executor(executor, None)
     conn.execute(
@@ -86,7 +87,7 @@ def cmd_begin(
 
 
 def cmd_touch(conn, session_id: str, mode: Optional[str] = None) -> str:
-    now = _now_iso()
+    now = instant_parameter(conn, utc_now())
     p = _placeholder(conn)
     _require_active_session(conn, session_id)
     conn.execute(
@@ -124,7 +125,7 @@ def cmd_get(conn, session_id: str) -> str:
         "SELECT session_id, executor, executor_surface, executor_version, "
         "machine_id, provider, model, execution_level, workspace, mode, "
         "offered_at, last_heartbeat, "
-        "COALESCE(ended_at, '') "
+        "ended_at "
         f"FROM harness_sessions WHERE session_id={p}",
         (session_id,),
     )

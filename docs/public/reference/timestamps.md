@@ -93,7 +93,10 @@ intent matches the same native release instant. Reclaim decisions compare aware
 activity across session, claim and open-call signals; their evidence formats
 canonical wire values. Orphan-call closure keeps native endpoints and serializes
 its sentinel envelope canonically. Claim duration milliseconds use integer
-arithmetic rather than floating-point conversion.
+arithmetic rather than floating-point conversion. Hook command acquisition,
+release, heartbeat and focus rotation bind the same native instant adapters;
+pipe output formats native instants canonically. Active-session and released-claim
+guards test SQL null directly, without empty-string timestamp fallbacks.
 The universe fingerprint formats its organization creation instant canonically,
 so a database session timezone cannot change identity. Earlier recorded actor
 bindings that name another timestamp representation refuse the identity match;
