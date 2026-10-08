@@ -274,10 +274,13 @@ def _live_target(
 ) -> tuple[dict[str, Any], int, str]:
     from yoke_core.domain.deployment_qa_execution_target import (
         is_deployment_execution_target,
-        persistent_environment_endpoints,
     )
+    from yoke_core.domain.deployment_qa_release_version import RELEASE_VERSION_KEY
     from yoke_core.domain.qa_environment_execution_target import (
         environment_execution_target,
+    )
+    from yoke_core.domain.qa_execution_environment_target import (
+        environment_row_endpoints,
     )
 
     environment_id, resolved_from = _resolve_live_environment_id(
@@ -315,7 +318,12 @@ def _live_target(
                 )
             )
         overlaid = json.loads(canonical_target(stored))
-        overlaid["endpoints"] = persistent_environment_endpoints(env_row)
+        endpoints = environment_row_endpoints(env_row)
+        # The pinned release is a candidate fact frozen at materialization.
+        pinned = _mapping(stored.get("endpoints")).get(RELEASE_VERSION_KEY)
+        overlaid["endpoints"] = (
+            {**endpoints, RELEASE_VERSION_KEY: pinned} if pinned else endpoints
+        )
         return overlaid, environment_id, resolved_from
     if same_environment_identity(stored, live) or stale_label_rebind_applies(
         stored, live

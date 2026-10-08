@@ -49,8 +49,10 @@ export function renderExecutionTarget(documentNode, plan) {
   result.body.appendChild(identity);
   const endpoints = target.endpoints || {};
   for (const key of [
-    "app_url", "api_url", "installer_url", "release_channel",
+    "app_url", "api_url", "installer_url", "release_channel", "release_version",
   ]) {
+    // Only a candidate that pins a Yoke release carries release_version.
+    if (key === "release_version" && !endpoints[key]) continue;
     result.body.appendChild(el(
       documentNode,
       "div",
