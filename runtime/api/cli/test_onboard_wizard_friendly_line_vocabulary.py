@@ -68,7 +68,7 @@ def test_friendly_line_covers_full_action_vocabulary() -> None:
         (
             "project-install-agent-rules",
             "",
-        ): "Add Yoke's rules to AGENTS.md, CLAUDE.md, CODEX.md, and CURSOR.md (keeps any existing content)",
+        ): "Add Yoke's rules to canonical AGENTS.md (keeps any existing content)",
         (
             "project-install-tool-permissions",
             "",

@@ -97,8 +97,6 @@ COPY runtime/harness/claude/rules /srv/yoke-tree/runtime/harness/claude/rules
 COPY runtime/harness/codex/agents /srv/yoke-tree/runtime/harness/codex/agents
 COPY runtime/harness/cursor/agents /srv/yoke-tree/runtime/harness/cursor/agents
 COPY AGENTS.md /srv/yoke-tree/AGENTS.md
-COPY CODEX.md /srv/yoke-tree/CODEX.md
-COPY CURSOR.md /srv/yoke-tree/CURSOR.md
 # Install-bundle docs resolve from docs/public (DOCS_SOURCE) under the
 # server tree. .yoke/docs stays for dogfood source-tree teaching mirrors.
 COPY docs/public /srv/yoke-tree/docs/public

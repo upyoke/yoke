@@ -1,8 +1,8 @@
 """The Yoke-managed Markdown block: markers, rendering, and extraction.
 
 A managed block is the marker-delimited region ``yoke project install`` owns
-inside a co-owned Markdown file (``AGENTS.md`` / ``CLAUDE.md`` / ``CODEX.md`` /
-``CURSOR.md``).
+inside the co-owned canonical ``AGENTS.md``. The same sentinel contract
+identifies baseline-owned regions in legacy installation records.
 The contract lives here, in the shared base package, because two sides need it
 and must agree byte-for-byte:
 

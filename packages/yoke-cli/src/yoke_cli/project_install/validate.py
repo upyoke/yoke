@@ -58,8 +58,12 @@ def _validate_bundle(bundle: Dict[str, Any]) -> None:
             "skill_discovery_contract_unsupported: regular skill copies are "
             "unsupported; rebuild the bundle from the canonical source"
         )
-    targets = (bundle.get("managed_markdown") or {}).get("targets") or []
-    if any(e.get("path") in {"CLAUDE.md", "CODEX.md", "CURSOR.md"} for e in targets):
+    markdown = bundle.get("managed_markdown")
+    targets = (markdown.get("targets") or []) if isinstance(markdown, dict) else []
+    if isinstance(targets, list) and any(
+        isinstance(e, dict) and e.get("path") in {"CLAUDE.md", "CODEX.md", "CURSOR.md"}
+        for e in targets
+    ):
         raise ProjectInstallError(
             "instruction_discovery_contract_unsupported: shared doctrine must "
             "target AGENTS.md only; rebuild the serving bundle"

@@ -27,7 +27,7 @@ python3 -m yoke_core.hooks.bootstrap render-full --spec runtime/harness/bootstra
 
 **Verify:**
 - [ ] Output includes `=== AGENTS.md ===` section
-- [ ] Output includes `=== CODEX.md ===` section
+- [ ] Shared doctrine comes from native `AGENTS.md`; the compact bootstrap does not repeat a Codex instruction shell
 - [ ] Output includes `=== harness-bootstrap.md ===` section
 - [ ] Output includes the generated `main_agent` packet block
 
@@ -219,7 +219,7 @@ The following test scripts validate the matrix programmatically:
 | Test file | Coverage |
 |-----------|----------|
 | `runtime/harness/test_bootstrap.py` | Neutral bootstrap spec/helper: ordering, doctrine rendering, drift guard |
-| `runtime/api/test_capability_consistency.py` | Shared registry, Codex manifest limitations, and CODEX.md capability drift guards |
+| `runtime/api/test_capability_consistency.py` | Shared registry, Codex manifest limitations, and docs/public/guides/codex-harness.md capability drift guards |
 | `runtime/harness/test_hook_runner.py` | Shared hook runner: dispatch, identity, lifecycle, graceful degradation |
 | `runtime/harness/test_hook_runner_runner.py` | Hook runner chain execution: per-event sub-handler ordering and fanout |
 | `runtime/harness/test_hook_runner_telemetry.py` | Hook runner telemetry: tool-call denial events, latency, payload shaping |

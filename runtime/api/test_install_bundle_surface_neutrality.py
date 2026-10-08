@@ -201,7 +201,7 @@ def test_installed_project_rules_exclude_source_bundle_sync(tmp_path, packaged):
     managed = managed_bundle_keys(root)["managed_markdown"]
     apply_managed_markdown(tmp_path, managed, None)
 
-    for name in ("AGENTS.md", "CLAUDE.md"):
+    for name in ("AGENTS.md",):
         assert "install_bundle_tree_sync" not in (tmp_path / name).read_text()
     source_rules = (REPO / "AGENTS.md").read_text()
     assert "install_bundle_tree_sync sync" in source_rules.split(BLOCK_END, 1)[1]
