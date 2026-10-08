@@ -104,9 +104,6 @@ def allowed_inspection_lines() -> List[str]:
     ]
 
 
-_DELETE_BASES = frozenset({"rm", "rmdir", "unlink"})
-
-
 def is_lane_mutation(tool_name: str, command: str) -> bool:
     """True when the call writes or moves state in a lane.
 
@@ -118,27 +115,13 @@ def is_lane_mutation(tool_name: str, command: str) -> bool:
     from yoke_core.domain.lint_lane_main_write_classify import (
         is_write_operation,
     )
-    from yoke_core.domain.lint_shell_target_tokens import shell_command_segments
+    from yoke_core.domain.lint_shell_path_use import analyze_shell_path_use
 
     payload = {"tool_name": tool_name, "tool_input": {"command": command}}
-    if is_write_operation(tool_name, payload):
-        return True
-    if not command or not command.strip():
-        return False
-    if not is_read_only_git_inspection(command):
-        for segment in shell_command_segments(command):
-            base = next(
-                (tok.rsplit("/", 1)[-1] for tok in segment if not tok.startswith("-")),
-                "",
-            )
-            if base == "git" or base in _DELETE_BASES:
-                return True
-            if base == "sed" and any(
-                tok == "-i" or tok.startswith("-i") or tok.startswith("--in-place")
-                for tok in segment
-            ):
-                return True
-    return False
+    return (
+        is_write_operation(tool_name, payload)
+        or analyze_shell_path_use(command).mutation
+    )
 
 
 def _payload_is_write(payload: Mapping[str, Any] | None) -> bool:

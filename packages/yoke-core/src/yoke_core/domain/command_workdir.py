@@ -29,8 +29,8 @@ from yoke_core.domain.lint_shell_target_tokens import shell_command_segments
 _CD_OPTIONS = frozenset({"-L", "-P", "-e", "-@"})
 
 
-def _absolute(raw: str) -> str:
-    return str(Path(expand_machine_home(raw, machine_home=None)).resolve())
+def _absolute(raw: str, machine_home: str | None = None) -> str:
+    return str(Path(expand_machine_home(raw, machine_home=machine_home)).resolve())
 
 
 def _cd_destination(segment: list[str]) -> str | None:
@@ -43,10 +43,17 @@ def _cd_destination(segment: list[str]) -> str | None:
     return operands[0]
 
 
-def command_execution_cwd(payload: Mapping[str, Any]) -> str:
+def command_execution_cwd(
+    payload: Mapping[str, Any], *, machine_home: str | None = None
+) -> str:
     """Return the absolute directory the payload's command runs in, or ``""``."""
     declared = resolve_authority_cwd(payload)
-    cwd = _absolute(declared) if declared else ""
+    expanded_base = expand_machine_home(declared, machine_home=machine_home)
+    cwd = (
+        _absolute(expanded_base, machine_home)
+        if expanded_base and not expanded_base.startswith("~")
+        else ""
+    )
     command = extract_command(payload)
     if not command:
         return cwd
@@ -54,14 +61,19 @@ def command_execution_cwd(payload: Mapping[str, Any]) -> str:
         destination = _cd_destination(segment)
         if destination is None:
             break
-        expanded = expand_machine_home(destination, machine_home=None)
-        if "$" in expanded or "`" in expanded or expanded == "-":
+        expanded = expand_machine_home(destination, machine_home=machine_home)
+        if (
+            "$" in expanded
+            or "`" in expanded
+            or expanded == "-"
+            or expanded.startswith("~")
+        ):
             break
         if not os.path.isabs(expanded):
             if not cwd:
                 break
             expanded = os.path.join(cwd, expanded)
-        cwd = _absolute(expanded)
+        cwd = _absolute(expanded, machine_home)
     return cwd
 
 

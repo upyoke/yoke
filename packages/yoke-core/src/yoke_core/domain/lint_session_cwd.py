@@ -1,13 +1,4 @@
-"""PreToolUse + orientation guard: refuse tool calls whose target paths
-fall outside the session's claim-based authority.
-
-The policy first refuses targets in another session's live lane. For a caller
-holding claims, other targets must land in a claimed worktree, a project
-control plane, or a free path; sessions without claims are otherwise
-unconstrained. Pre-implementing worktree writes use their dedicated policy.
-
-Hook failures open and emit ``SessionCwdBindingFailOpen``.
-"""
+"""Claim-authority hook; unexpected failures emit SessionCwdBindingFailOpen."""
 
 from __future__ import annotations
 
@@ -18,12 +9,10 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Optional, Sequence
 
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
-from yoke_core.domain.lint_lane_main_write_classify import (
-    is_write_operation,
-)
+from yoke_core.domain.lint_lane_main_write_classify import is_write_operation
 from yoke_core.domain.lint_session_cwd_control_plane import (
     ORIENTATION_HEADING,
-    SCOPE_MISMATCH_TEMPLATE,
+    SCOPE_MISMATCH_TEMPLATE as SCOPE_MISMATCH_TEMPLATE,
     build_scope_mismatch_block,
     resolve_authority_cwd,
 )
@@ -38,12 +27,7 @@ from yoke_core.domain.lint_session_cwd_pre_implementing import (
 from yoke_core.domain.lint_session_cwd_read_only_signatures import (
     match_read_only_signature,
 )
-from yoke_core.domain.lint_session_cwd_repo_command import repo_command_block
 from yoke_core.domain.lane_occupancy import LaneOccupant
-from yoke_core.domain.lint_session_cwd_foreign_lane import (
-    FAILURE_CLASS as FOREIGN_LANE_FAILURE_CLASS,
-    build_denial_message as build_foreign_lane_message,
-)
 from yoke_core.domain.lint_session_cwd_identity import (
     FAILURE_CLASS as IDENTITY_FAILURE_CLASS,
     build_denial_message as build_identity_failure_message,
@@ -51,10 +35,13 @@ from yoke_core.domain.lint_session_cwd_identity import (
 from yoke_core.domain.lint_session_cwd_status import (
     FAILURE_CLASS as PRE_IMPL_FAILURE_CLASS,
 )
-from yoke_core.domain.lint_session_cwd_target_extract import (
-    extract_payload_command,
-    extract_payload_targets,
+from yoke_core.domain.lint_session_cwd_target_extract import extract_payload_command
+from yoke_core.domain.lint_session_cwd_denial import (
+    build_denial_reason,
+    CLIENT_HOME_AUTHORITY_UNAVAILABLE as CLIENT_HOME_AUTHORITY_UNAVAILABLE,
 )
+from yoke_core.domain.lint_payload_path_use import extract_payload_path_uses
+from yoke_core.domain.lint_shell_path_use import PathRole
 from yoke_core.domain.lint_session_cwd_validate import (
     ValidationVerdict,
     validate_targets,
@@ -73,7 +60,6 @@ from yoke_contracts.hook_runner.session_cwd import (
 
 
 _ORIENTATION_EVENTS = frozenset({"SessionStart", "UserPromptSubmit"})
-CLIENT_HOME_AUTHORITY_UNAVAILABLE = "client_home_metadata_missing_or_invalid"
 
 
 @dataclass(frozen=True)
@@ -105,6 +91,7 @@ class OrientationBlock:
 
 def _open_conn():
     from yoke_core.domain import db_helpers
+
     return db_helpers.connect()
 
 
@@ -125,11 +112,13 @@ def evaluate_pre_tool_use(
         return Verdict(
             allow=False,
             reason=attach_check_id(
-                build_identity_failure_message(), check_id="lint-session-cwd",
+                build_identity_failure_message(),
+                check_id="lint-session-cwd",
             ),
             failure_class=IDENTITY_FAILURE_CLASS,
         )
-    targets = extract_payload_targets(payload, machine_home=machine_home)
+    path_uses = extract_payload_path_uses(payload, machine_home=machine_home)
+    targets = [use.path for use in path_uses if use.role != PathRole.REMOTE]
     command = extract_payload_command(payload)
     fallback_cwd = resolve_authority_cwd(payload)
 
@@ -146,6 +135,7 @@ def evaluate_pre_tool_use(
                 read_only=not write_operation,
                 command=command,
                 tool_name=tool_name,
+                path_uses=path_uses,
             )
     except Exception as exc:
         emit_fail_open(
@@ -157,19 +147,16 @@ def evaluate_pre_tool_use(
 
     if outcome.allow:
         return Verdict(
-            allow=True, session_id=outcome.session_id,
-            claims=outcome.claims, repo_roots=outcome.repo_roots,
+            allow=True,
+            session_id=outcome.session_id,
+            claims=outcome.claims,
+            repo_roots=outcome.repo_roots,
         )
-
-    authority_reason = ""
 
     if outcome.failure_class == PRE_IMPL_FAILURE_CLASS:
         return build_pre_implementing_verdict(outcome, payload)
 
-    # When extract_payload_targets returned nothing, the deny is driven by
-    # the harness cwd alone — but Yoke Authority authorises read-only /
-    # self-orientation calls regardless of cwd. Short-circuit before
-    # composing the deny payload when the command matches one.
+    # Orientation with no operands may use its established read signature.
     if not targets:
         signature = match_read_only_signature(command)
         if signature:
@@ -179,39 +166,20 @@ def evaluate_pre_tool_use(
                 claim_count=len(outcome.claims),
             )
             return Verdict(
-                allow=True, session_id=outcome.session_id,
-                claims=outcome.claims, repo_roots=outcome.repo_roots,
+                allow=True,
+                session_id=outcome.session_id,
+                claims=outcome.claims,
+                repo_roots=outcome.repo_roots,
             )
 
-    if outcome.failure_class == FOREIGN_LANE_FAILURE_CLASS and outcome.occupant:
-        body = build_foreign_lane_message(
-            offending_target=outcome.offending_target,
-            occupant=outcome.occupant,
-            payload=payload,
-        )
-    else:
-        body = build_scope_mismatch_block(
-            offending_target=outcome.offending_target,
-            claims=outcome.claims,
-            repo_roots=outcome.repo_roots,
-            command=command,
-        )
-        body += repo_command_block(payload, outcome.claims) if not targets else ""
-        if (
-            machine_home == ""
-            and not write_operation
-            and tool_name.strip()
-            and (not command.strip() or match_read_only_signature(command))
-        ):
-            authority_reason = CLIENT_HOME_AUTHORITY_UNAVAILABLE
-            body += (
-                "\nAuthority classification: the relayed client machine-home "
-                "metadata was missing or invalid, so this read cannot be "
-                "classified as ordinary reference material under the client "
-                "home. Restore the canonical client-home fact in the hook "
-                "relay and retry."
-            )
-    reason = attach_check_id(body, check_id="lint-session-cwd")
+    reason, authority_reason = build_denial_reason(
+        outcome,
+        payload,
+        has_targets=bool(targets),
+        command=command,
+        read_only=not write_operation,
+        machine_home=machine_home,
+    )
     return Verdict(
         allow=False,
         reason=reason,
@@ -220,7 +188,8 @@ def evaluate_pre_tool_use(
         claims=outcome.claims,
         repo_roots=outcome.repo_roots,
         failure_class=outcome.failure_class,
-        occupant=outcome.occupant, authority_reason=authority_reason,
+        occupant=outcome.occupant,
+        authority_reason=authority_reason,
     )
 
 
@@ -230,10 +199,7 @@ def evaluate_orientation(
     *,
     cwd: Optional[str] = None,
 ) -> Optional[OrientationBlock]:
-    """Return a warning block when the orientation render's cwd is not
-    covered by any of the session's claims; ``None`` when the session
-    has no claims or cwd is already authorised.
-    """
+    """Warn when the orientation cwd is outside the session's claims."""
     actual_cwd = cwd if cwd is not None else os.getcwd()
     session_id = ""
     if session is not None:
@@ -275,7 +241,6 @@ def _build_deny_response(reason: str) -> dict:
 
 
 def evaluate(record: HookContext) -> HookDecision:
-    """Typed entry. Dispatches by ``record.event_name``."""
     payload = record.payload if isinstance(record.payload, dict) else {}
     job_dir = "" if record.remote else os.environ.get("CLAUDE_JOB_DIR", "")
     if record.event_name == "PreToolUse":
@@ -300,7 +265,10 @@ def evaluate(record: HookContext) -> HookDecision:
         envelope = json.dumps(_build_deny_response(verdict.reason))
         audit_fields = emit_deny_and_build_audit(verdict)
         return HookDecision(
-            outcome=Outcome.DENY, message=envelope, block=True, next=Next.STOP,
+            outcome=Outcome.DENY,
+            message=envelope,
+            block=True,
+            next=Next.STOP,
             audit_fields=audit_fields,
         )
     if record.event_name in _ORIENTATION_EVENTS:
@@ -327,10 +295,17 @@ def main() -> int:
         return 0
     if not isinstance(payload, dict):
         return 0
-    cwd, sid, tool = payload.get("cwd"), payload.get("session_id"), payload.get("tool_name")
+    cwd, sid, tool = (
+        payload.get("cwd"),
+        payload.get("session_id"),
+        payload.get("tool_name"),
+    )
     record = HookContext(
-        event_name="PreToolUse", executor_family="claude", executor_surface="claude",
-        payload=payload, tool_name=tool if isinstance(tool, str) else None,
+        event_name="PreToolUse",
+        executor_family="claude",
+        executor_surface="claude",
+        payload=payload,
+        tool_name=tool if isinstance(tool, str) else None,
         cwd=cwd if isinstance(cwd, str) else None,
         session_id=sid if isinstance(sid, str) else None,
     )
@@ -340,10 +315,17 @@ def main() -> int:
     return 0
 
 
-__all__ = ["ORIENTATION_HEADING", "OrientationBlock", "SCOPE_MISMATCH_TEMPLATE",
-           "Verdict", "build_scope_mismatch_block", "evaluate",
-           "evaluate_orientation", "evaluate_pre_tool_use", "main"]
-
+__all__ = [
+    "ORIENTATION_HEADING",
+    "OrientationBlock",
+    "SCOPE_MISMATCH_TEMPLATE",
+    "Verdict",
+    "build_scope_mismatch_block",
+    "evaluate",
+    "evaluate_orientation",
+    "evaluate_pre_tool_use",
+    "main",
+]
 
 if __name__ == "__main__":  # pragma: no cover - CLI shim
     sys.exit(main())

@@ -34,31 +34,16 @@ FLAG_EQUALS_PREFIXES = (
 )
 
 
-def resolve_command_targets(
+def resolve_operand_targets(
     command: str,
     *,
     bindings: Optional[Mapping[str, str]] = None,
 ) -> Tuple[List[str], bool]:
-    """Return a command body's target paths plus its unresolved status.
+    """Resolve generic local operands with the existing tokenizer.
 
-    Walks the tokens, surfaces ``-C <path>`` / ``--rootdir <path>`` /
-    ``--target-root <path>`` / ``--worktree-path <path>`` / ``-w <path>``
-    bindings and ``--flag=<path>`` short forms, plus absolute-path
-    positional arguments that appear after the command name (skipping
-    flags). No target signal means an empty list, which the caller reads
-    as "fall through to cwd"; the flag says an operand named a path this
-    layer could not settle, so that fallback must be withheld instead.
-
-    Invocation boundaries come from :func:`shell_command_segments`,
-    so an operator written without surrounding whitespace still
-    ends the statement instead of gluing onto the path before it.
-
-    Heredoc body and closing-tag lines are stripped first. The opener's
-    own line survives, including local redirects (``cat <<EOF > /tmp/out``).
-
-    A token naming a shell variable — positional or path-valued flag —
-    resolves through its assignment (:mod:`lint_shell_target_tokens`); pass
-    ``bindings`` when that assignment lives in a wider body than ``command``.
+    Flags and absolute positionals retain their existing semantics. Remote
+    argv is omitted; shell redirects stay local. Unresolved operands report
+    uncertainty instead of manufacturing a cwd target.
     """
     sanitized = strip_heredoc_body_lines(command)
     if not _safe_split(sanitized):
@@ -73,6 +58,14 @@ def resolve_command_targets(
         out.extend(targets)
         unresolved = unresolved or segment_unresolved
     return out, unresolved
+
+
+def resolve_command_targets(command: str, *, bindings=None) -> Tuple[List[str], bool]:
+    """Project local operands from the shared path-use analysis."""
+    from yoke_core.domain.lint_shell_path_use import analyze_shell_path_use
+
+    result = analyze_shell_path_use(command, bindings=bindings)
+    return list(result.local_targets), result.unresolved
 
 
 def extract_command_targets(
@@ -241,6 +234,8 @@ def _extract_segment_targets(
             positional_index += 1
             if not skip_arg_targets and positional_index != sed_script_index:
                 target = path_target_from_token(tok, bindings)
+                if target is None and tok.startswith("~"):
+                    target = tok
                 if target is not None:
                     out.append(target)
         i += 1
