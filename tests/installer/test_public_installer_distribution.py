@@ -6,6 +6,7 @@ import subprocess
 import pytest
 
 from public_installer_helpers import (
+    PUBLISHED_RELEASE_RECORD,
     RecordingRunner,
     branded_installer_glyphs as branded_installer_glyphs,
     load_installer,
@@ -91,6 +92,7 @@ def test_dry_run_never_records_distribution(monkeypatch, tmp_path):
     monkeypatch.setenv("YOKE_MACHINE_CONFIG_FILE", str(path))
     runner = RecordingRunner()
     _, instance = _installer(runner=runner, dry_run=True)
+    instance.fetcher = lambda _url: PUBLISHED_RELEASE_RECORD
     instance.run()
     assert runner.commands == []
     assert not path.exists()

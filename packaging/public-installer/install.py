@@ -22,6 +22,11 @@ from dataclasses import dataclass
 
 DEFAULT_BASE_URL = "https://api.upyoke.com"
 DEFAULT_CHANNEL = "stable"
+# Immutable per-release record the distribution publishes beside its wheels.
+# Same path as yoke_core.tools.release_artifacts; this bootstrap installer
+# cannot import installed yoke-core just to share that helper.
+_RELEASE_RECORD_DIR = "dist/releases"
+_RELEASE_RECORD_FILENAME = "release-records.json"
 GUTTER_ICON = "☀"
 PLAIN_GUTTER_ICON = "*"
 # Every Yoke-emitted setup line wears this amber-sun gutter so it stands out
@@ -144,7 +149,16 @@ def parse_args(argv: Iterable[str] | None = None) -> InstallOptions:
     parser.add_argument(
         "--yes", action="store_true", default=_env_truthy("YOKE_INSTALL_YES")
     )
-    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help=(
+            "Confirm the resolved version is published at the installer origin "
+            "and print the install plan. Does not install packages or write "
+            "configuration. A published release is not proof the install would "
+            "succeed."
+        ),
+    )
     parser.add_argument(
         "--no-setup", action="store_true", default=_env_truthy("YOKE_NO_SETUP")
     )
@@ -249,16 +263,16 @@ class Installer:
             raise
         spec = product_spec(version)
         if self.options.dry_run:
+            self._require_published_release(version)
             command = self.install_command(spec, config_path="<temporary uv config>")
-            print(
-                f"Resolved Yoke {version}"
-                if version
-                else f"Installing latest Yoke from {_safe_url(self.index_url)}",
-                file=self.stdout,
-            )
+            print(f"Resolved Yoke {version}", file=self.stdout)
             print(f"Install command: {shlex.join(command)}", file=self.stdout)
             print(
-                "Dry run: resolved the install plan; no changes were made.",
+                f"Dry run: confirmed Yoke {version} is published at "
+                f"{_safe_url(self.options.base_url)}. "
+                "No package was installed and no configuration was written. "
+                "Publication does not prove dependencies, wheel integrity, or "
+                "that installation would succeed.",
                 file=self.stdout,
             )
             return
@@ -382,6 +396,46 @@ class Installer:
             )
         _require_channel_release_evidence(channel, self.options.channel)
         return version
+
+    def _require_published_release(self, version: str | None) -> None:
+        """Refuse a dry-run whose exact version is not published at this origin."""
+        origin = _safe_url(self.options.base_url)
+        if not version:
+            raise InstallError(
+                "installer_release_unpublished: dry-run resolved no Yoke version "
+                f"at {origin}; pass --version or a channel that names a published "
+                "release, then rerun the installer"
+            )
+        url = _release_records_url(self.options.base_url, version)
+        try:
+            payload_bytes = self.fetcher(url)
+        except InstallError as exc:
+            raise _publication_fetch_error(version, origin, exc) from None
+        except (urllib.error.URLError, OSError, TimeoutError) as exc:
+            raise _publication_fetch_error(version, origin, exc) from None
+        try:
+            payload = json.loads(payload_bytes.decode("utf-8"))
+        except (AttributeError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise _publication_error(
+                kind="unverified",
+                version=version,
+                origin=origin,
+                detail=f"release record is not valid JSON ({exc})",
+            ) from None
+        if not isinstance(payload, list):
+            raise _publication_error(
+                kind="unverified",
+                version=version,
+                origin=origin,
+                detail="release record is not a JSON list",
+            )
+        if not payload:
+            raise _publication_error(
+                kind="unpublished",
+                version=version,
+                origin=origin,
+                detail="release record lists no published wheels",
+            )
 
     def _run_uv_install(self, command: Sequence[str]) -> bool:
         result = self.capture_runner(list(command))
@@ -708,6 +762,82 @@ def _failure_reason(result: subprocess.CompletedProcess[str]) -> str:
         if lines:
             return _bounded_diagnostic(lines[-1], FAILURE_REASON_MAX_CHARS)
     return f"uv exited with status {result.returncode}."
+
+
+def _release_records_url(base_url: str, version: str) -> str:
+    quoted = urllib.parse.quote(version, safe="")
+    return (
+        f"{base_url.rstrip('/')}/{_RELEASE_RECORD_DIR}/{quoted}/"
+        f"{_RELEASE_RECORD_FILENAME}"
+    )
+
+
+def _publication_error(
+    *,
+    kind: str,
+    version: str,
+    origin: str,
+    detail: str,
+) -> InstallError:
+    safe_origin = _safe_url(origin)
+    safe_detail = _sanitize_diagnostic(detail)
+    if kind == "unpublished":
+        return InstallError(
+            "installer_release_unpublished: "
+            f"Yoke {version} is not published at {safe_origin} ({safe_detail}); "
+            f"publish Yoke {version} at {safe_origin}, or correct the requested "
+            "version, then rerun the installer"
+        )
+    return InstallError(
+        "installer_release_unverified: "
+        f"could not confirm Yoke {version} is published at {safe_origin} "
+        f"({safe_detail}); restore access to {safe_origin} and rerun the installer"
+    )
+
+
+def _iter_exceptions(exc: BaseException):
+    seen: set[int] = set()
+    stack = [exc]
+    while stack:
+        current = stack.pop()
+        if current is None or id(current) in seen:
+            continue
+        seen.add(id(current))
+        yield current
+        cause = current.__cause__
+        if isinstance(cause, BaseException):
+            stack.append(cause)
+        reason = getattr(current, "reason", None)
+        if isinstance(reason, BaseException):
+            stack.append(reason)
+
+
+def _publication_fetch_error(
+    version: str, origin: str, exc: BaseException
+) -> InstallError:
+    for item in _iter_exceptions(exc):
+        if isinstance(item, urllib.error.HTTPError):
+            kind = "unpublished" if item.code in {404, 410} else "unverified"
+            return _publication_error(
+                kind=kind,
+                version=version,
+                origin=origin,
+                detail=f"HTTP {item.code}",
+            )
+    for item in _iter_exceptions(exc):
+        if "SSL" in type(item).__name__:
+            return _publication_error(
+                kind="unverified",
+                version=version,
+                origin=origin,
+                detail="TLS error",
+            )
+    return _publication_error(
+        kind="unverified",
+        version=version,
+        origin=origin,
+        detail=_sanitize_diagnostic(str(exc)),
+    )
 
 
 def fetch_url(url: str) -> bytes:

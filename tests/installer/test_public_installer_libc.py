@@ -6,6 +6,7 @@ import pytest
 
 from public_installer_helpers import (
     FAKE_INSTALL_PY,
+    PUBLISHED_RELEASE_RECORD,
     linux_stub_bin,
     load_installer,
     run_shim,
@@ -68,7 +69,7 @@ def test_python_helper_allows_glibc_with_musl_loader_installed(monkeypatch, caps
     )
     options = installer.parse_args(["--dry-run", "--version", "1.2.3"])
 
-    installer.Installer(options).run()
+    installer.Installer(options, fetcher=lambda _url: PUBLISHED_RELEASE_RECORD).run()
 
     assert "Resolved Yoke 1.2.3" in capsys.readouterr().out
 
