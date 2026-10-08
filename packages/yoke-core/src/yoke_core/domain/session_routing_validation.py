@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import Any, Iterable, Mapping, Optional
 
-from yoke_contracts.level_glyph import LevelGlyphError, validate_level_glyph
+from yoke_contracts.glyph_contract import GlyphContractError, validate_glyph
 from yoke_contracts.session_level import (
     EXECUTOR_DEFAULT_LEVEL_PREFIX,
     level_is_unresolved,
@@ -127,8 +127,8 @@ def _validate_level_metadata(settings: Mapping[str, Any]) -> tuple[str, ...]:
         labels[label] = level_id
         if "glyph" in entry:
             try:
-                validate_level_glyph(entry.get("glyph"), field="glyph")
-            except LevelGlyphError as exc:
+                validate_glyph(entry.get("glyph"), field="glyph")
+            except GlyphContractError as exc:
                 raise SessionRoutingSettingsError(
                     str(exc), field=f"{field}.glyph"
                 ) from exc

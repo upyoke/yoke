@@ -108,7 +108,15 @@ def _projects_write(
         action="store_true",
         help="Explicitly allow enabled issue sync for a verified public repository.",
     )
-    parser.add_argument("--emoji", default=None)
+    parser.add_argument(
+        "--emoji",
+        default=None,
+        help=(
+            "Board label glyph: one Emoji_Presentation emoji with no variation "
+            "selector, skin tone, ZWJ, flag, or keycap (for example 🐎 or 🚀); "
+            "an empty value clears it."
+        ),
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, usage)

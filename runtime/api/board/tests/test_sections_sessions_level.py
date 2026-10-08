@@ -70,10 +70,10 @@ def test_a_custom_level_glyph_occupies_one_board_column() -> None:
     asserted here, because only those can reach a level.
     """
     from yoke_contracts.board.utils import display_width
-    from yoke_contracts.level_glyph import BOARD_GLYPH_CELLS, validate_level_glyph
+    from yoke_contracts.glyph_contract import BOARD_GLYPH_CELLS, validate_glyph
 
     for glyph in ("\U0001f52c", "\U0001f680", "\U0001f40e"):
-        validate_level_glyph(glyph)
+        validate_glyph(glyph)
         presentation = level_presentation(
             "RESEARCH",
             {"level_metadata": {"RESEARCH": {"label": "RESEARCH", "glyph": glyph}}},

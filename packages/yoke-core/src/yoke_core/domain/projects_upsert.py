@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from yoke_contracts.glyph_contract import validate_glyph
+
 from yoke_core.domain.db_helpers import (
     connect,
     iso8601_now,
@@ -56,6 +58,8 @@ def cmd_upsert(
         raise ValueError("project_id must be a positive integer")
     if mode == "update" and selected_org is not None:
         raise ValueError("org is only valid when creating a project")
+    if _clean_optional(emoji) is not None:
+        validate_glyph(_clean_optional(emoji), field="emoji")
     selected_sync_mode: Optional[str] = None
     if _clean_optional(github_sync_mode) is not None:
         from yoke_core.domain.projects_github_sync_mode import (

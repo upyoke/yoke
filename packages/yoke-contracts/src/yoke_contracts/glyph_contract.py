@@ -1,17 +1,19 @@
-"""Write-time contract for the glyph a project may give an execution level.
+"""The glyph contract: one rule for every glyph Yoke stores or renders.
 
-The board renders a session row as ``<glyph> <label>`` inside fixed-width
-columns, so a glyph that occupies a different number of terminal cells in
-one emulator than another shears every row beneath it. The glyph
-vocabulary Yoke ships is restricted to ``Emoji_Presentation=Yes``
+The board renders glyphs inside fixed-width columns — a project's
+``{emoji} {slug}`` label, a workflow stage's status glyph, a session row's
+``<glyph> <label>`` level — so a glyph that occupies a different number of
+terminal cells in one emulator than another shears every row beneath it.
+The glyph vocabulary Yoke ships is restricted to ``Emoji_Presentation=Yes``
 characters — colour emoji that need no variation selector — and
 :mod:`yoke_contracts.executor_labels` documents that convention for the
 values held in source.
 
-A scan over source cannot protect a glyph an operator types into project
-settings, which is why this module exists: it is the same convention
-applied at the moment a value is written, and every settings writer runs
-it before storage.
+A scan over source cannot protect a glyph an operator or a source document
+supplies at write time, which is why this module exists: every glyph
+writer — project emoji, workflow stage glyphs, level glyphs — runs it
+before storage, and ``HC-stored-glyph-contract`` runs it over what is
+already stored.
 
 Acceptance is deliberately narrow — exactly one code point whose Unicode
 category is ``So`` and whose East Asian Width is ``W``. That pair is how
@@ -42,7 +44,7 @@ SAFE_GLYPH_EXAMPLES: tuple[str, ...] = (
     "\U0001f6f8",  # flying saucer
     "\U0001f680",  # rocket
 )
-"""Glyphs an operator can copy straight into a level that are known safe."""
+"""Glyphs an operator can copy straight into any glyph field that are known safe."""
 
 BOARD_GLYPH_CELLS = 2
 """Terminal cells one board glyph must occupy for the columns to line up."""
@@ -59,8 +61,8 @@ _RECOVERY = (
 )
 
 
-class LevelGlyphError(ValueError):
-    """Raised when a level glyph would not render safely on the board."""
+class GlyphContractError(ValueError):
+    """Raised when a glyph would not render safely on the board."""
 
 
 def _describe(code_point: int) -> str:
@@ -137,10 +139,10 @@ def _base_reason(code_point: int) -> str | None:
     return None
 
 
-def level_glyph_error(glyph: object) -> str | None:
+def glyph_contract_error(glyph: object) -> str | None:
     """Return why ``glyph`` is unsafe for the board, or ``None`` when it is safe.
 
-    Exposed beside :func:`validate_level_glyph` so a caller assembling a
+    Exposed beside :func:`validate_glyph` so a caller assembling a
     field-by-field report can collect reasons without catching one
     exception per field.
     """
@@ -178,22 +180,22 @@ def level_glyph_error(glyph: object) -> str | None:
     return None
 
 
-def validate_level_glyph(glyph: object, *, field: str = "glyph") -> str:
+def validate_glyph(glyph: object, *, field: str = "glyph") -> str:
     """Return ``glyph`` unchanged when it is board-safe, else raise.
 
-    ``field`` names the settings path the value came from so the refusal
+    ``field`` names the stored path the value came from so the refusal
     points at the key an operator has to edit.
     """
-    reason = level_glyph_error(glyph)
+    reason = glyph_contract_error(glyph)
     if reason is None:
         return str(glyph)
-    raise LevelGlyphError(f"{field} {reason}. {_RECOVERY}")
+    raise GlyphContractError(f"{field} {reason}. {_RECOVERY}")
 
 
 __all__ = [
     "BOARD_GLYPH_CELLS",
-    "LevelGlyphError",
+    "GlyphContractError",
     "SAFE_GLYPH_EXAMPLES",
-    "level_glyph_error",
-    "validate_level_glyph",
+    "glyph_contract_error",
+    "validate_glyph",
 ]
