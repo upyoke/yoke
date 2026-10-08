@@ -1,19 +1,10 @@
 """Whether a materialized QA requirement still matches the plan case behind it.
 
-Materialization copies a plan case onto ``qa_requirements`` and nothing read
-that link in the edit direction, so a corrected plan reached the plan alone.
-The row kept the body it was materialized with, a deployment run later froze
-an admitted copy of that row, and the walker failed on the very defect the
-correction had removed — nine hours after the edit read back correct.
-
-The comparison cannot be a field digest, because the two shapes do not line
-up: one ``success_policy`` document against a case's id plus params, one row
-per host baseline against the case's array, and ``method_name`` /
-``runner_id`` / ``verdict_path`` / ``capability_requirements`` that exist on no
-plan case at all. So this re-runs the materialization transform
-(:mod:`qa_plan_case_definition`) to derive what the row SHOULD be, and diffs
-that against what it IS. Same derivation the writers use, so a row can only be
-reported stale when a refresh would genuinely change it.
+Requirement rows copy plan cases and can outlive edits to those cases.
+The shapes differ: policy ids and params become one document, baselines
+fan out, and method fields come from the method catalog. This comparison
+uses :mod:`qa_plan_case_definition`, the writers' materialization transform,
+to derive the expected row. A row is stale only when refresh would change it.
 
 Four answers, never a silent fifth: ``current``, ``stale`` with the fields that
 moved, ``orphaned`` when the plan no longer carries the case, and

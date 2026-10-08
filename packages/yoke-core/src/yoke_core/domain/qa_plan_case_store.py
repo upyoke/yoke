@@ -75,7 +75,11 @@ def insert_plan_cases(
                 if case.get("success_policy_params") is not None
                 else None,
                 "host_baselines": _json(case["host_baselines"]),
-                **({"target_envs": _json(case["target_envs"])} if target_column_present else {}),
+                **(
+                    {"target_envs": _json(case["target_envs"])}
+                    if target_column_present
+                    else {}
+                ),
                 "starting_state": case.get("starting_state"),
                 "starting_state_reason": case.get("starting_state_reason"),
                 "entry_surface": case.get("entry_surface"),
@@ -88,3 +92,7 @@ def insert_plan_cases(
             f"INSERT INTO qa_plan_cases({', '.join(values)}) "
             f"VALUES ({', '.join([marker] * len(values))})",
             tuple(values.values()),
+        )
+
+
+__all__ = ["apply_starting_states", "insert_plan_cases"]

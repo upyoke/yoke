@@ -68,3 +68,182 @@ def _current_cases(conn: Any, plan_id: int) -> list[dict[str, Any]]:
             "success_policy_params, host_baselines, "
             f"{converged_select(conn, 'qa_plan_cases', (*STARTING_STATE_COLUMNS, 'target_envs'))}, "
             "entry_surface, "
+            f"required_completion FROM qa_plan_cases WHERE plan_id={marker} "
+            "ORDER BY position",
+            (plan_id,),
+        )
+    ]
+
+
+def edit_plan(
+    conn: Any,
+    *,
+    project: str,
+    slug: str,
+    base_updated_at: str,
+    name: str,
+    description: str,
+    success_policy_id: str,
+    success_policy_params: dict[str, Any],
+    target_environment: str | None = None,
+    cases: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Replace one authoring document with CAS and true no-op semantics."""
+    if not str(base_updated_at).strip():
+        raise QaPlanError("base_updated_at is required for plan editing")
+    if not str(name).strip():
+        raise QaPlanError("plan name must not be empty")
+    if success_policy_id != "all-pass":
+        raise QaPlanError("v1 supports only the all-pass success policy")
+    if not isinstance(success_policy_params, dict):
+        raise QaPlanError("success_policy_params must be a JSON object")
+
+    project_id = _project_id(conn, project)
+    marker = _placeholder(conn)
+    plan = query_one(
+        conn,
+        "SELECT p.*, pr.slug AS project FROM qa_plans p "
+        "JOIN projects pr ON pr.id=p.project_id "
+        f"WHERE p.project_id={marker} AND p.slug={marker}",
+        (project_id, slug),
+    )
+    if plan is None:
+        raise QaPlanError(f"QA plan {project}/{slug} not found")
+    if plan["retired_at"] is not None:
+        raise QaPlanError(f"QA plan {project}/{slug} is retired")
+    if target_environment is not None:
+        from yoke_core.domain.qa_hosted_runtime_identity import (
+            resolve_plan_environment_reference,
+        )
+
+        try:
+            target = resolve_plan_environment_reference(
+                conn,
+                plan_project_id=project_id,
+                environment=target_environment,
+            )
+        except ValueError as exc:
+            raise QaPlanError(str(exc)) from exc
+        target_environment_id = int(target["environment_id"])
+    else:
+        raw_target_id = plan["target_environment_id"]
+        target_environment_id = (
+            int(raw_target_id) if raw_target_id is not None else None
+        )
+    if target_environment_id is not None:
+        _validate_target_environment(
+            conn,
+            project_id=project_id,
+            environment_id=target_environment_id,
+        )
+
+    normalized_cases = _validated_plan_cases(
+        conn,
+        plan=plan,
+        cases=cases,
+    )
+    current_updated_at = str(plan["updated_at"])
+    desired_plan = {
+        "name": str(name),
+        "description": str(description),
+        "success_policy_id": success_policy_id,
+        "success_policy_params": dict(success_policy_params),
+        "target_environment_id": target_environment_id,
+    }
+    current_plan = {
+        "name": str(plan["name"]),
+        "description": str(plan["description"]),
+        "success_policy_id": str(plan["success_policy_id"]),
+        "success_policy_params": _decode(
+            plan["success_policy_params"],
+            {},
+        ),
+        "target_environment_id": (
+            int(plan["target_environment_id"])
+            if plan["target_environment_id"] is not None
+            else None
+        ),
+    }
+    current_cases = _current_cases(conn, int(plan["id"]))
+    if str(base_updated_at) != current_updated_at:
+        raise QaPlanConflictError(
+            f"QA plan {slug!r} changed after it was read; reopen the editor "
+            "from the latest plan before writing again"
+        )
+    if desired_plan == current_plan and normalized_cases == current_cases:
+        try:
+            live_token = conn.execute(
+                "UPDATE qa_plans SET updated_at=updated_at "
+                f"WHERE id={marker} AND updated_at={marker} "
+                "RETURNING updated_at",
+                (int(plan["id"]), str(base_updated_at)),
+            ).fetchone()
+            if live_token is None:
+                raise QaPlanConflictError(
+                    f"QA plan {slug!r} changed while the edit was being "
+                    "saved; reopen the editor from the latest plan"
+                )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        return {
+            "plan_id": int(plan["id"]),
+            "project_id": project_id,
+            "project": str(plan["project"]),
+            "slug": str(plan["slug"]),
+            "case_count": len(normalized_cases),
+            "updated_at": current_updated_at,
+            "unchanged": True,
+        }
+
+    stamp = _next_updated_at()
+    try:
+        cursor = conn.execute(
+            "UPDATE qa_plans SET name={m}, description={m}, "
+            "success_policy_id={m}, success_policy_params={m}, "
+            "target_environment_id={m}, updated_at={m} "
+            "WHERE id={m} AND updated_at={m}".format(
+                m=marker,
+            ),
+            (
+                desired_plan["name"],
+                desired_plan["description"],
+                desired_plan["success_policy_id"],
+                _json(desired_plan["success_policy_params"]),
+                desired_plan["target_environment_id"],
+                stamp,
+                int(plan["id"]),
+                str(base_updated_at),
+            ),
+        )
+        if cursor.rowcount == 0:
+            raise QaPlanConflictError(
+                f"QA plan {slug!r} changed while the edit was being saved; "
+                "reopen the editor from the latest plan"
+            )
+        insert_plan_cases(
+            conn,
+            plan_id=int(plan["id"]),
+            cases=normalized_cases,
+            stamp=stamp,
+        )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return {
+        "plan_id": int(plan["id"]),
+        "project_id": project_id,
+        "project": str(plan["project"]),
+        "slug": str(plan["slug"]),
+        "case_count": len(normalized_cases),
+        "updated_at": stamp,
+        "unchanged": False,
+    }
+
+
+__all__ = [
+    "QaPlanConflictError",
+    "edit_plan",
+]

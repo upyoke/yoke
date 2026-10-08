@@ -12,6 +12,7 @@ from runtime.api.domain.test_deployment_qa_admission_execution import (
 from runtime.api.domain.test_deployment_qa_stage_execution import _environment
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain.deployment_item_completion_runs import latest_qa_member_run
+from yoke_core.domain.deployment_requirement_snapshots import _plan_snapshot
 from yoke_core.domain.deployment_qa_source_obligation import source_obligation_consumed
 from yoke_core.domain.deployment_run_member_targeting import (
     run_needs_member,
@@ -146,6 +147,21 @@ def test_targets_cross_product_with_host_baselines(test_db):
         for baseline in baselines
     }
     assert {row["starting_state"] for row in rows} == {"baseline"}
+
+
+def test_source_reads_and_default_case_writes_before_environment_schema_converges(
+    test_db,
+):
+    _item, plan, case = _setup(test_db)
+    test_db.execute("ALTER TABLE qa_plan_cases DROP COLUMN target_envs")
+    assert _current_cases(test_db, plan["id"])[0]["target_envs"] == []
+    snapshot = _plan_snapshot(test_db, plan["id"], project_id=1)
+    assert snapshot["cases"][0]["target_envs"] is None
+    with pytest.raises(QaPlanError, match="qa_case_environment_schema_unavailable"):
+        replace_plan_cases(test_db, plan_id=plan["id"], cases=[case])
+    assert len(_current_cases(test_db, plan["id"])) == 1
+    replace_plan_cases(test_db, plan_id=plan["id"], cases=[{**case, "target_envs": []}])
+    assert _current_cases(test_db, plan["id"])[0]["target_envs"] == []
 
 
 def test_refresh_waives_only_a_removed_environment(test_db):
