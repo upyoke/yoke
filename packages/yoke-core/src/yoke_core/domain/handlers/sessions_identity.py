@@ -2,7 +2,7 @@
 
 Identity is resolved once, at registration: ``register_session`` stores the
 canonical executor id and its display alias, the provider, the model
-SessionStart observed, the execution lane the project's routing policy maps
+SessionStart observed, the execution level the project's routing policy maps
 that executor to, the workspace, the project, and the actor. This handler
 reads those stored facts back through the shared projection and adds the
 values derived from them — the stored checkpoint budget and whether a Yoke
@@ -10,7 +10,7 @@ relay started this session as a headless command.
 
 Nothing here re-derives, so nothing returned is advisory. A caller that
 cannot reach the authority is refused with its recovery command rather than
-handed a locally guessed value: a lane, model, or executor invented on the
+handed a locally guessed value: a level, model, or executor invented on the
 client disagrees with the row every other surface reads, and a wrong value
 that looks authoritative is harder to catch than a missing one — the caller
 reasons correctly from a false input and nothing downstream misbehaves.
@@ -45,7 +45,7 @@ class IdentityResponse(BaseModel):
     #: The launch request. A caller showing this where ``model`` is null
     #: must say it is showing a request.
     requested_model: Optional[str] = None
-    execution_lane: Optional[str] = None
+    execution_level: Optional[str] = None
     workspace: Optional[str] = None
     project_id: Optional[int] = None
     project_slug: Optional[str] = None
@@ -120,7 +120,7 @@ def handle_identity(request: FunctionCallRequest) -> HandlerOutcome:
             "provider": identity.provider,
             "model": identity.model or None,
             "requested_model": identity.requested_model or None,
-            "execution_lane": identity.execution_lane,
+            "execution_level": identity.execution_level,
             "workspace": identity.workspace,
             "project_id": identity.project_id,
             "project_slug": _project_slug(conn, identity.project_id),

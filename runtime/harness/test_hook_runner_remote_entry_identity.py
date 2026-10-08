@@ -45,11 +45,11 @@ def test_remote_merges_wire_identity_into_payload(monkeypatch) -> None:
         2000,
         entrypoint="claude-desktop",
         model_facts=SessionModelFacts(requested_model="claude-fable-5[1m]"),
-        execution_lane="DARIUS",
+        execution_level="DARIUS",
     )
 
     assert result.outcome == "completed"
     assert seen[0]["entrypoint"] == "claude-desktop"
     # A tier selector is an ask, so it merges into the requested column.
     assert seen[0]["requested_model"] == "claude-fable-5[1m]"
-    assert seen[0]["execution_lane"] == "DARIUS"
+    assert seen[0]["execution_level"] == "DARIUS"

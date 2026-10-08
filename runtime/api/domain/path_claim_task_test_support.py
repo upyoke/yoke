@@ -157,7 +157,7 @@ def seed_session(
     now = iso8601_now()
     conn.execute(
         "INSERT INTO harness_sessions "
-        "(session_id, executor, provider, model, project_id, execution_lane, "
+        "(session_id, executor, provider, model, project_id, execution_level, "
         "executor_version, machine_id, workspace, mode, offered_at, last_heartbeat, actor_id, "
         "current_item_id) "
         "VALUES (%s, 'claude-code', 'test', 'test', "

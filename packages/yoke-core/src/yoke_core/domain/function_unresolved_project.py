@@ -27,12 +27,11 @@ class ProjectNotRegisteredError(LookupError):
         self.project_ref = project_ref
         self.plane = plane
         super().__init__(
-            f"project {project_ref!r} is not registered on the "
-            f"{plane!r} control plane"
+            f"project {project_ref!r} is not registered on the {plane!r} control plane"
         )
 
 
-def control_plane_label() -> str:
+def control_plevel_label() -> str:
     """Name the plane the running process is answering for."""
     env = (
         os.environ.get("YOKE_ENVIRONMENT", "").strip()
@@ -65,6 +64,6 @@ def permission_error_response(
 __all__ = [
     "GENERIC_UNRESOLVED_PROJECT",
     "ProjectNotRegisteredError",
-    "control_plane_label",
+    "control_plevel_label",
     "permission_error_response",
 ]

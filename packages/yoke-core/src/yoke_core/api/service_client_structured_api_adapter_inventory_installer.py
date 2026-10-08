@@ -147,9 +147,9 @@ INSTALLER_ADAPTERS: List[AdapterEntry] = [
         notes="CAS-protected removal for an ordinary capability. GitHub bindings and Pulumi operator state retain their dedicated lifecycle surfaces.",
     ),
     _read_entry(
-        function_id="projects.lane_summary.get",
-        cli_invocation="yoke projects lane-summary get --project NAME",
-        notes="Composes the project's effective session lane routing — label and glyph per lane, the harness/model selectors routing to it, the harnesses defaulting to it, and any harness with no configured grouping. Read-only; edits go through projects capability-settings on the session-routing capability.",
+        function_id="projects.level_summary.get",
+        cli_invocation="yoke projects level-summary get --project NAME",
+        notes="Composes the project's effective session level routing — label and glyph per level, the harness/model selectors routing to it, the harnesses defaulting to it, and any harness with no configured grouping. Read-only; edits go through projects capability-settings on the session-routing capability.",
     ),
     _read_entry(
         function_id="projects.environment_settings.get",

@@ -33,7 +33,7 @@ _SELECT = (
     "s.usage_totals, "
     "s.presentation_surface, s.presentation_state, s.presentation_mode, "
     "s.presentation_source, s.presentation_observed_at, "
-    "s.execution_lane, "
+    "s.execution_level, "
     "s.mode, s.quiet_reason, s.keepalive_until, s.keepalive_reason, "
     f"{holds_work_claim_sql('s')} AS holds_work_claim, "
     "s.workspace, s.project_id, pr.slug AS project, "

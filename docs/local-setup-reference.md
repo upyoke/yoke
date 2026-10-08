@@ -135,7 +135,7 @@ Shared project behavior lives in the Yoke DB, not checkout files:
 - `session-routing` capability settings own the project's lanes: their
   labels and glyphs, the harness/model selectors that route sessions onto
   them. Read the composed result with
-  `yoke projects lane-summary get --project <slug>`; edit it with
+  `yoke projects level-summary get --project <slug>`; edit it with
   `yoke projects capability-settings merge --project <slug> --cap-type session-routing --set '<key.path>=<value>'`.
   Writes are validated as a whole document — an unknown action, an
   undeclared lane, a duplicate selector, or a lane glyph the board cannot

@@ -202,7 +202,7 @@ test("roster filters are named, clearable, and distinguish filtered emptiness", 
   const row = {
     session_id: "session-1", project: "yoke", project_id: 1,
     liveness: "active", executor: "codex", executor_surface: "codex-desktop",
-    execution_lane: "DARIUS", mode: "wait", role: "integration",
+    execution_level: "DARIUS", mode: "wait", role: "integration",
     actor_id: 1, actor_kind: "human", actor_label: "Ben", claims: [],
     messageability: { messageable: true },
   };
@@ -230,7 +230,7 @@ test("roster filters are named, clearable, and distinguish filtered emptiness", 
 test("roster State uses accepted liveness values while kill cause stays on the card", async (t) => {
   const base = {
     project: "yoke", project_id: 1, executor: "codex",
-    executor_surface: "codex-desktop", execution_lane: "DARIUS", mode: "wait",
+    executor_surface: "codex-desktop", execution_level: "DARIUS", mode: "wait",
     actor_id: 1, actor_kind: "human", actor_label: "Ben", claims: [],
     messageability: { messageable: false },
   };

@@ -14,7 +14,11 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
+from yoke_contracts.api.function_call import (
+    ActorContext,
+    FunctionCallRequest,
+    TargetRef,
+)
 from yoke_contracts.session_usage_facts import (
     USAGE_COMPLETE,
     ModelUsage,
@@ -31,10 +35,12 @@ def _iso(hours_ago: float = 0) -> str:
 
 
 def _usage(tokens: int) -> str:
-    return usage_document(SessionUsage(
-        status=USAGE_COMPLETE,
-        models=(ModelUsage(model="test-model", input=tokens),),
-    ))
+    return usage_document(
+        SessionUsage(
+            status=USAGE_COMPLETE,
+            models=(ModelUsage(model="test-model", input=tokens),),
+        )
+    )
 
 
 def _insert_session(
@@ -51,14 +57,23 @@ def _insert_session(
     activity = offered_at or ended_at or _iso()
     conn.execute(
         "INSERT INTO harness_sessions ("
-        "session_id, executor, provider, model, execution_lane, workspace, "
+        "session_id, executor, provider, model, execution_level, workspace, "
         "project_id, mode, offered_at, last_heartbeat, tool_call_count, "
         "ended_at, machine_id, usage_totals"
         ") VALUES (%s, %s, %s, %s, %s, %s, 1, %s, %s, %s, 1, %s, %s, %s)",
         (
-            session_id, "claude-code", "anthropic", "test-model", "primary",
-            "/tmp/workspace", "wait", activity, activity, ended_at,
-            "machine-one", _usage(usage_tokens),
+            session_id,
+            "claude-code",
+            "anthropic",
+            "test-model",
+            "primary",
+            "/tmp/workspace",
+            "wait",
+            activity,
+            activity,
+            ended_at,
+            "machine-one",
+            _usage(usage_tokens),
         ),
     )
     conn.commit()
@@ -105,7 +120,10 @@ def test_each_session_is_counted_once_across_both_halves(test_db):
     # complements on whether a session has ended, so the union cannot
     # double-count this row and its tokens land once.
     _insert_session(
-        test_db, "started-and-ended", offered_at=_iso(4), ended_at=_iso(1),
+        test_db,
+        "started-and-ended",
+        offered_at=_iso(4),
+        ended_at=_iso(1),
         usage_tokens=1_200,
     )
     _insert_session(test_db, "open-recent", offered_at=_iso(2), usage_tokens=300)
@@ -124,16 +142,26 @@ def test_window_boundary_includes_both_halves_at_the_cutoff(test_db):
     outside = 24 + 1 / 3600
     _insert_session(test_db, "ended-at-cutoff", ended_at=_iso(inside), usage_tokens=1)
     _insert_session(
-        test_db, "ended-past-cutoff", ended_at=_iso(outside), usage_tokens=2,
+        test_db,
+        "ended-past-cutoff",
+        ended_at=_iso(outside),
+        usage_tokens=2,
     )
     _insert_session(
-        test_db, "open-at-cutoff", offered_at=_iso(inside), usage_tokens=4,
+        test_db,
+        "open-at-cutoff",
+        offered_at=_iso(inside),
+        usage_tokens=4,
     )
     _insert_session(
-        test_db, "open-past-cutoff", offered_at=_iso(outside), usage_tokens=8,
+        test_db,
+        "open-past-cutoff",
+        offered_at=_iso(outside),
+        usage_tokens=8,
     )
 
     rows = handle_sessions_list(_request()).result_payload["rows"]
     assert sorted(row["session_id"] for row in rows) == [
-        "ended-at-cutoff", "open-at-cutoff",
+        "ended-at-cutoff",
+        "open-at-cutoff",
     ]

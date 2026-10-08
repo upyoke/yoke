@@ -41,7 +41,7 @@ def seed_session(conn: Any, session_id: str, project_id: int) -> None:
     now = iso8601_now()
     conn.execute(
         "INSERT INTO harness_sessions "
-        "(session_id, executor, provider, model, execution_lane, workspace, "
+        "(session_id, executor, provider, model, execution_level, workspace, "
         "project_id, mode, offered_at, last_heartbeat, actor_id) "
         "VALUES (%s, 'codex', 'openai', 'test-model', 'primary', %s, %s, "
         "'wait', %s, %s, 2)",

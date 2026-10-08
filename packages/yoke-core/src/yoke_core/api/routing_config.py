@@ -2,16 +2,16 @@
 
 This module resolves where a session runs:
 
-- session (harness, model) -> lane, through ``lane_rules`` selectors
-  and the ``executor_default_lanes`` harness default beneath them
-- lane -> its operator-facing label and glyph
+- session (harness, model) -> level, through ``level_rules`` selectors
+  and the ``executor_default_levels`` harness default beneath them
+- level -> its operator-facing label and glyph
 
 Project authority lives in the ``project_capabilities`` row whose type is
 ``session-routing``; machine ``~/.yoke/config.json`` remains the source-dev /
 operator fallback when no project policy is available. Explicit test/operator
-config fixtures may use the simple ``key=value`` format. Executor default-lane
+config fixtures may use the simple ``key=value`` format. Executor default-level
 keys may use a trailing ``*`` wildcard (for example
-``executor_default_lane_claude*=DARIUS``) to cover every executor surface that
+``executor_default_level_claude*=DARIUS``) to cover every executor surface that
 shares a prefix; specific override keys without ``*`` win against wildcard
 defaults.
 """
@@ -23,12 +23,13 @@ from pathlib import Path
 import re
 from typing import Any, Dict, Mapping, Optional, Tuple
 
-from yoke_contracts.session_lane import UNRESOLVED_EXECUTION_LANE
+from yoke_contracts.session_level import UNRESOLVED_EXECUTION_LEVEL
 from yoke_core.domain.session_routing_rules import (
-    LaneRule,
-    parse_lane_rules_for_routing,
-    resolve_rule_lane,
+    LevelRule,
+    parse_level_rules_for_routing,
+    resolve_rule_level,
 )
+from yoke_contracts.session_level import EXECUTOR_DEFAULT_LEVEL_PREFIX
 from yoke_core.domain import json_helper
 from yoke_core.domain.project_policy_capabilities import (
     SESSION_ROUTING_CAPABILITY as PROJECT_ROUTING_CAPABILITY,
@@ -37,16 +38,16 @@ from yoke_core.domain.project_policy_capabilities import (
 from yoke_core.domain import runtime_settings
 
 
-_EXECUTOR_PREFIX = "executor_default_lane_"
+_EXECUTOR_PREFIX = EXECUTOR_DEFAULT_LEVEL_PREFIX
 
 # Settings whose value is a nested document rather than a scalar. The
 # key/value grammar the rest of this module speaks cannot carry one, so
 # they ride through it as JSON text and are parsed back below.
-_JSON_VALUED_KEYS = ("lane_rules", "lane_metadata")
+_JSON_VALUED_KEYS = ("level_rules", "level_metadata")
 
 
 def normalize_token(value: str) -> str:
-    """Normalize executor/lane identifiers into config-key-safe tokens."""
+    """Normalize executor/level identifiers into config-key-safe tokens."""
     token = re.sub(r"[^a-z0-9]+", "_", value.strip().lower())
     return token.strip("_")
 
@@ -84,9 +85,9 @@ def _settings_to_raw_map(settings: Mapping[str, Any]) -> Dict[str, str]:
     The capability accepts either the existing flat keys directly or readable
     grouped aliases:
 
-    - ``executor_default_lanes: {"claude*": "DARIUS"}``
+    - ``executor_default_levels: {"claude*": "DARIUS"}``
 
-    ``lane_rules`` and ``lane_metadata`` are nested documents that the
+    ``level_rules`` and ``level_metadata`` are nested documents that the
     flat grammar cannot express, so they are carried as JSON text.
     """
     raw: Dict[str, str] = {}
@@ -96,9 +97,9 @@ def _settings_to_raw_map(settings: Mapping[str, Any]) -> Dict[str, str]:
                 value if isinstance(value, str) else json_helper.dumps_compact(value)
             )
             continue
-        if key == "executor_default_lanes" and isinstance(value, Mapping):
-            for executor, lane in value.items():
-                raw[f"{_EXECUTOR_PREFIX}{executor}"] = _stringify_setting(lane)
+        if key == "executor_default_levels" and isinstance(value, Mapping):
+            for executor, level in value.items():
+                raw[f"{_EXECUTOR_PREFIX}{executor}"] = _stringify_setting(level)
             continue
         raw[str(key)] = _stringify_setting(value)
     return raw
@@ -179,7 +180,7 @@ def _json_setting(raw: Mapping[str, str], key: str) -> Any:
 
 def _routing_config_from_raw(raw: Mapping[str, str]) -> "RoutingConfig":
     executor_defaults: Dict[str, str] = {}
-    executor_wildcard_lanes: Dict[str, str] = {}
+    executor_wildcard_levels: Dict[str, str] = {}
 
     for key, value in raw.items():
         if key.startswith(_EXECUTOR_PREFIX):
@@ -193,16 +194,16 @@ def _routing_config_from_raw(raw: Mapping[str, str]) -> "RoutingConfig":
                 if not executor_key.endswith("*"):
                     continue
                 prefix = _normalize_prefix_token(executor_key[:-1])
-                executor_wildcard_lanes[prefix] = value.strip()
+                executor_wildcard_levels[prefix] = value.strip()
                 continue
             executor_defaults[normalize_token(executor_key)] = value.strip()
             continue
 
     return RoutingConfig(
-        executor_default_lanes=executor_defaults,
-        executor_wildcard_lanes=executor_wildcard_lanes,
-        lane_rules=parse_lane_rules_for_routing(_json_setting(raw, "lane_rules")),
-        lane_metadata=_json_setting(raw, "lane_metadata") or {},
+        executor_default_levels=executor_defaults,
+        executor_wildcard_levels=executor_wildcard_levels,
+        level_rules=parse_level_rules_for_routing(_json_setting(raw, "level_rules")),
+        level_metadata=_json_setting(raw, "level_metadata") or {},
     )
 
 
@@ -210,28 +211,28 @@ def _routing_config_from_raw(raw: Mapping[str, str]) -> "RoutingConfig":
 class RoutingConfig:
     """Resolved Yoke-global routing policy."""
 
-    executor_default_lanes: Dict[str, str] = field(default_factory=dict)
-    executor_wildcard_lanes: Dict[str, str] = field(default_factory=dict)
-    lane_rules: Tuple[LaneRule, ...] = ()
-    lane_metadata: Mapping[str, Any] = field(default_factory=dict)
+    executor_default_levels: Dict[str, str] = field(default_factory=dict)
+    executor_wildcard_levels: Dict[str, str] = field(default_factory=dict)
+    level_rules: Tuple[LevelRule, ...] = ()
+    level_metadata: Mapping[str, Any] = field(default_factory=dict)
 
-    def default_lane_for_executor(self, executor: str) -> str:
-        """Return the configured default lane for an executor.
+    def default_level_for_executor(self, executor: str) -> str:
+        """Return the configured default level for an executor.
 
         Resolution order:
-          1. Exact key match (``executor_default_lane_<token>``).
-          2. Wildcard match — among ``executor_default_lane_*`` keys whose
+          1. Exact key match (``executor_default_level_<token>``).
+          2. Wildcard match — among ``executor_default_level_*`` keys whose
              non-wildcard prefix prefixes the normalized executor token, the
              longest wins; ties break alphabetically for determinism.
-          3. Global ``executor_default_lane_unknown`` key.
+          3. Global ``executor_default_level_unknown`` key.
           4. The unresolved sentinel — no config key matched at all.
         """
         token = normalize_token(executor)
-        if token in self.executor_default_lanes:
-            return self.executor_default_lanes[token]
+        if token in self.executor_default_levels:
+            return self.executor_default_levels[token]
 
         matched_prefix: Optional[str] = None
-        for prefix in self.executor_wildcard_lanes:
+        for prefix in self.executor_wildcard_levels:
             if not token.startswith(prefix):
                 continue
             if matched_prefix is None:
@@ -242,26 +243,26 @@ class RoutingConfig:
             ):
                 matched_prefix = prefix
         if matched_prefix is not None:
-            return self.executor_wildcard_lanes[matched_prefix]
+            return self.executor_wildcard_levels[matched_prefix]
 
-        if "unknown" in self.executor_default_lanes:
-            return self.executor_default_lanes["unknown"]
-        return UNRESOLVED_EXECUTION_LANE
+        if "unknown" in self.executor_default_levels:
+            return self.executor_default_levels["unknown"]
+        return UNRESOLVED_EXECUTION_LEVEL
 
-    def lane_for_session(self, *, executor: str, model: Optional[str] = None) -> str:
-        """Return the lane a session with these facts routes onto.
+    def level_for_session(self, *, executor: str, model: Optional[str] = None) -> str:
+        """Return the level a session with these facts routes onto.
 
-        A ``lane_rules`` selector wins over the harness default, because
+        A ``level_rules`` selector wins over the harness default, because
         every selector is narrower than "any session on this harness";
         :mod:`yoke_core.domain.session_routing_rules` owns which of
         several matching selectors is narrowest. With no rules
         configured this is exactly the harness default, which is how a
         project that has never declared a rule keeps its behaviour.
         """
-        matched = resolve_rule_lane(self.lane_rules, executor=executor, model=model)
+        matched = resolve_rule_level(self.level_rules, executor=executor, model=model)
         if matched is not None:
             return matched
-        return self.default_lane_for_executor(executor)
+        return self.default_level_for_executor(executor)
 
 
 def load_routing_config(
@@ -269,7 +270,7 @@ def load_routing_config(
     *,
     project_settings: Optional[Mapping[str, str]] = None,
 ) -> RoutingConfig:
-    """Load executor default lanes, lane rules, and presentation metadata.
+    """Load executor default levels, level rules, and presentation metadata.
 
     Machine config is the no-project fallback.  When project settings are
     supplied from the ``session-routing`` capability, they are the complete
@@ -278,7 +279,7 @@ def load_routing_config(
     Supplied settings pass through the same normalizer the DB read uses, so
     the grouped capability shape and the flat key/value grammar mean the
     same thing here. Stringifying them instead would silently flatten the
-    nested documents — ``lane_rules`` most visibly — into a Python repr no
+    nested documents — ``level_rules`` most visibly — into a Python repr no
     reader can parse, and the caller would get a session routed by the
     harness default with nothing said about why.
     """
@@ -288,30 +289,30 @@ def load_routing_config(
     return _routing_config_from_raw(raw)
 
 
-def resolve_execution_lane(
+def resolve_execution_level(
     *,
     executor: str,
-    explicit_lane: Optional[str],
+    explicit_level: Optional[str],
     routing_config: RoutingConfig,
     model: Optional[str] = None,
 ) -> str:
     """Resolve the grouping for a registering session.
 
-    An explicit lane wins only when it names a real choice: ``default`` and
-    the unresolved sentinel both mean "nothing chose a lane" and yield to
+    An explicit level wins only when it names a real choice: ``default`` and
+    the unresolved sentinel both mean "nothing chose a level" and yield to
     routing policy, so a caller that could not resolve one locally cannot
     overrule the project's mapping with an unresolved grouping.
 
     ``model`` is the model the session is actually serving, and it is
-    what ``lane_rules`` model selectors match against. Omitting it is
+    what ``level_rules`` model selectors match against. Omitting it is
     the honest answer when nothing attested one, and leaves the session
     to the harness tiers rather than guessing a model for it.
     """
-    if explicit_lane and explicit_lane.strip():
-        resolved = explicit_lane.strip()
-        if normalize_token(resolved) not in ("default", UNRESOLVED_EXECUTION_LANE):
+    if explicit_level and explicit_level.strip():
+        resolved = explicit_level.strip()
+        if normalize_token(resolved) not in ("default", UNRESOLVED_EXECUTION_LEVEL):
             return resolved
-    return routing_config.lane_for_session(executor=executor, model=model)
+    return routing_config.level_for_session(executor=executor, model=model)
 
 
 def config_path_from_db_path(db_path: str | Path) -> Path:

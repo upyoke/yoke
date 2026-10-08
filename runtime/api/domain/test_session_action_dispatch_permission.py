@@ -51,7 +51,7 @@ def _add_interactive_session(
     conn.execute(
         "INSERT INTO harness_sessions ("
         "session_id,project_id,actor_id,executor,executor_surface,"
-        "execution_lane,last_heartbeat,offered_at"
+        "execution_level,last_heartbeat,offered_at"
         ") VALUES (?,1,?,'claude-code','claude-desktop','direct',?,?)",
         (session_id, actor_id, NOW_TEXT, NOW_TEXT),
     )

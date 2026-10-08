@@ -132,7 +132,7 @@ def compose_executor_from_entrypoint(
     This is the write-path companion to :func:`detect_executor`.  Hook bridges
     sometimes invoke ``session-begin`` with a coarse family executor plus a
     specific entrypoint (`codex` + `codex-desktop`).  The stored
-    ``harness_sessions.executor`` value should still be specific so config lane
+    ``harness_sessions.executor`` value should still be specific so config level
     resolution and board rendering see the real surface.
 
     Unknown/non-family executors are returned verbatim.

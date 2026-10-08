@@ -33,7 +33,7 @@ CREATE TABLE harness_sessions (
     provider TEXT NOT NULL DEFAULT 'anthropic',
     model TEXT,
     reasoning_effort TEXT DEFAULT NULL, context_window_tokens INTEGER DEFAULT NULL, requested_model TEXT DEFAULT NULL, requested_reasoning_effort TEXT DEFAULT NULL, requested_context_window_tokens INTEGER DEFAULT NULL,
-    execution_lane TEXT NOT NULL DEFAULT 'primary',
+    execution_level TEXT NOT NULL DEFAULT 'primary',
     executor_version TEXT, machine_id TEXT,
     workspace TEXT NOT NULL DEFAULT '',
     mode TEXT NOT NULL DEFAULT 'wait',

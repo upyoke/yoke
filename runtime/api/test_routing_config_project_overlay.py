@@ -31,26 +31,26 @@ class TestRoutingPolicy:
     def test_project_routing_is_complete_authority(self, tmp_path: Path) -> None:
         cfg = _machine_cfg(
             tmp_path,
-            "executor_default_lane_claude*=LOCAL\n",
+            "executor_default_level_claude*=LOCAL\n",
         )
         routing = load_routing_config(
             cfg,
             project_settings={
-                "executor_default_lane_claude*": "DARIUS",
+                "executor_default_level_claude*": "DARIUS",
             },
         )
-        assert routing.default_lane_for_executor("claude-code") == "DARIUS"
+        assert routing.default_level_for_executor("claude-code") == "DARIUS"
 
     def test_machine_routing_is_no_project_fallback(self, tmp_path: Path) -> None:
-        cfg = _machine_cfg(tmp_path, "executor_default_lane_codex*=ALTMAN\n")
+        cfg = _machine_cfg(tmp_path, "executor_default_level_codex*=ALTMAN\n")
         routing = load_routing_config(cfg)
-        assert routing.default_lane_for_executor("codex-desktop") == "ALTMAN"
+        assert routing.default_level_for_executor("codex-desktop") == "ALTMAN"
 
     def test_project_routing_reader_fills_missing_defaults(self) -> None:
         class _Cursor:
             def fetchone(self) -> dict[str, str]:
                 return {
-                    "settings": '{"executor_default_lanes":{"claude*":"ALT"}}',
+                    "settings": '{"executor_default_levels":{"claude*":"ALT"}}',
                 }
 
         class _Conn:
@@ -59,15 +59,15 @@ class TestRoutingPolicy:
 
         settings = load_project_routing_settings(_Conn(), 2)
         routing = load_routing_config("unused", project_settings=settings)
-        assert routing.default_lane_for_executor("claude-code") == "ALT"
-        assert routing.default_lane_for_executor("codex") == "ALTMAN"
-        assert "DARIUS" in routing.lane_metadata
+        assert routing.default_level_for_executor("claude-code") == "ALT"
+        assert routing.default_level_for_executor("codex") == "ALTMAN"
+        assert "DARIUS" in routing.level_metadata
 
-    def test_lane_rules_and_metadata_survive_the_shared_double_normalization(
+    def test_level_rules_and_metadata_survive_the_shared_double_normalization(
         self,
     ) -> None:
-        # ``load_project_routing_settings`` flattens ``lane_rules`` and
-        # ``lane_metadata`` into JSON text; every registered caller then
+        # ``load_project_routing_settings`` flattens ``level_rules`` and
+        # ``level_metadata`` into JSON text; every registered caller then
         # hands that flat map straight to ``load_routing_config``, which
         # normalizes it again. Both nested documents must come out the far
         # side intact rather than as a JSON string of themselves.
@@ -75,8 +75,8 @@ class TestRoutingPolicy:
             def fetchone(self) -> dict[str, str]:
                 return {
                     "settings": (
-                        '{"lane_metadata": {"MUSKY": {"label": "MUSKY"}}, '
-                        '"lane_rules": [{"harness": "cursor", "lane": "MUSKY"}]}'
+                        '{"level_metadata": {"MUSKY": {"label": "MUSKY"}}, '
+                        '"level_rules": [{"harness": "cursor", "level": "MUSKY"}]}'
                     ),
                 }
 
@@ -87,12 +87,12 @@ class TestRoutingPolicy:
         settings = load_project_routing_settings(_Conn(), 2)
         routing = load_routing_config("unused", project_settings=settings)
 
-        assert routing.lane_metadata == {"MUSKY": {"label": "MUSKY"}}
-        assert routing.lane_for_session(executor="cursor-cli") == "MUSKY"
-        # A broken double-encode would have handed lane_metadata back as a
-        # JSON string; iterating it in ``_declared_lanes`` yields one
-        # phantom lane per character instead of the real "MUSKY" key.
-        assert list(routing.lane_metadata) == ["MUSKY"]
+        assert routing.level_metadata == {"MUSKY": {"label": "MUSKY"}}
+        assert routing.level_for_session(executor="cursor-cli") == "MUSKY"
+        # A broken double-encode would have handed level_metadata back as a
+        # JSON string; iterating it in ``_declared_levels`` yields one
+        # phantom level per character instead of the real "MUSKY" key.
+        assert list(routing.level_metadata) == ["MUSKY"]
 
 
 class TestLocalOnlySettings:

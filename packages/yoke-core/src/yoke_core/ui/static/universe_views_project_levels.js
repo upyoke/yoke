@@ -1,7 +1,7 @@
-// The read-only lane summary on a project's settings screen. Everything it
+// The read-only level summary on a project's settings screen. Everything it
 // shows — effective labels and glyphs, which selectors route where, which
-// harnesses default to a lane — is composed by
-// `projects.lane_summary.get`, so this module renders and never resolves.
+// harnesses default to a level — is composed by
+// `projects.level_summary.get`, so this module renders and never resolves.
 // Editing belongs to a harness through the project capability-settings
 // commands, which is why there is no control here that writes.
 
@@ -13,31 +13,31 @@ const PRIORITY_DETAIL =
   "An ending * matches a model family. Exact models beat prefixes; " +
   "longer prefixes beat shorter ones.";
 
-function laneCell(documentNode, lane) {
+function levelCell(documentNode, level) {
   const cell = el(documentNode, "td");
-  const caption = el(documentNode, "span", "lane-caption");
-  if (lane.glyph) {
-    caption.appendChild(el(documentNode, "span", "lane-glyph", lane.glyph));
+  const caption = el(documentNode, "span", "level-caption");
+  if (level.glyph) {
+    caption.appendChild(el(documentNode, "span", "level-glyph", level.glyph));
   }
-  caption.appendChild(el(documentNode, "b", null, lane.label || lane.id));
+  caption.appendChild(el(documentNode, "b", null, level.label || level.id));
   cell.appendChild(caption);
   return cell;
 }
 
-function matchesCell(documentNode, lane, harnessLabels) {
+function matchesCell(documentNode, level, harnessLabels) {
   const cell = el(documentNode, "td");
-  const matches = lane.matches || [];
+  const matches = level.matches || [];
   if (!matches.length) {
     cell.appendChild(
-      el(documentNode, "span", "lane-muted", "No custom matches"),
+      el(documentNode, "span", "level-muted", "No custom matches"),
     );
     return cell;
   }
-  // Several matches on one lane are alternatives: a session landing here
+  // Several matches on one level are alternatives: a session landing here
   // satisfied any one of them, never all of them.
-  const list = el(documentNode, "div", "lane-matches");
+  const list = el(documentNode, "div", "level-matches");
   for (const match of matches) {
-    const row = el(documentNode, "div", "lane-match-summary");
+    const row = el(documentNode, "div", "level-match-summary");
     row.appendChild(el(
       documentNode,
       "span",
@@ -45,7 +45,7 @@ function matchesCell(documentNode, lane, harnessLabels) {
       match.harness ? (harnessLabels.get(match.harness) || match.harness)
         : "Any harness",
     ));
-    row.appendChild(el(documentNode, "span", "lane-muted", "·"));
+    row.appendChild(el(documentNode, "span", "level-muted", "·"));
     row.appendChild(el(
       documentNode, "code", null, match.model || "Any model",
     ));
@@ -55,88 +55,88 @@ function matchesCell(documentNode, lane, harnessLabels) {
   return cell;
 }
 
-function defaultsCell(documentNode, lane) {
+function defaultsCell(documentNode, level) {
   const cell = el(documentNode, "td");
-  const defaults = lane.default_for || [];
+  const defaults = level.default_for || [];
   if (!defaults.length) {
-    cell.appendChild(el(documentNode, "span", "lane-muted", "None"));
+    cell.appendChild(el(documentNode, "span", "level-muted", "None"));
     return cell;
   }
   for (const label of defaults) {
-    cell.appendChild(el(documentNode, "div", "lane-default-summary", label));
+    cell.appendChild(el(documentNode, "div", "level-default-summary", label));
   }
   return cell;
 }
 
-function laneTable(documentNode, result) {
+function levelTable(documentNode, result) {
   const harnessLabels = new Map(
     (result.harnesses || []).map((harness) => [harness.id, harness.label]),
   );
   const wrap = el(documentNode, "div", "table-wrap");
-  const table = el(documentNode, "table", "items lane-table");
+  const table = el(documentNode, "table", "items level-table");
   const head = el(documentNode, "tr");
-  head.appendChild(el(documentNode, "th", null, "Lane"));
+  head.appendChild(el(documentNode, "th", null, "Level"));
   const matchHead = el(documentNode, "th", null, "Matches");
   matchHead.appendChild(
-    el(documentNode, "span", "lane-th-note", "Harness · model"),
+    el(documentNode, "span", "level-th-note", "Harness · model"),
   );
   head.appendChild(matchHead);
   head.appendChild(el(documentNode, "th", null, "Default for"));
   table.appendChild(head);
-  for (const lane of result.lanes || []) {
+  for (const level of result.levels || []) {
     const row = el(documentNode, "tr");
-    row.setAttribute("data-lane-row", lane.id);
-    row.appendChild(laneCell(documentNode, lane));
-    row.appendChild(matchesCell(documentNode, lane, harnessLabels));
-    row.appendChild(defaultsCell(documentNode, lane));
+    row.setAttribute("data-level-row", level.id);
+    row.appendChild(levelCell(documentNode, level));
+    row.appendChild(matchesCell(documentNode, level, harnessLabels));
+    row.appendChild(defaultsCell(documentNode, level));
     table.appendChild(row);
   }
   wrap.appendChild(table);
   return wrap;
 }
 
-export function renderProjectLaneSummary(context, scope) {
+export function renderProjectLevelSummary(context, scope) {
   const documentNode = context.document;
-  const panel = section(documentNode, "Lanes");
-  panel.classList.add("lane-settings");
+  const panel = section(documentNode, "Levels");
+  panel.classList.add("level-settings");
   loadSection(
     context,
     panel,
-    "projects.lane_summary.get",
+    "projects.level_summary.get",
     { project: String(scope) },
     (body, callResult) => {
       const result = (callResult.envelope.result || {});
-      const lanes = result.lanes || [];
-      panel.setCount(lanes.length);
-      if (!lanes.length) {
+      const levels = result.levels || [];
+      panel.setCount(levels.length);
+      if (!levels.length) {
         body.appendChild(el(
           documentNode,
           "p",
           "empty",
-          "No lanes configured for this project.",
+          "No levels configured for this project.",
         ));
       } else {
-        body.appendChild(laneTable(documentNode, result));
+        body.appendChild(levelTable(documentNode, result));
       }
       const unrouted = result.unrouted_harnesses || [];
       if (unrouted.length) {
-        // A harness that resolves to no lane is otherwise just absent from
-        // every row, which reads like a lane nobody defaults to.
+        // A harness that resolves to no level is otherwise just absent from
+        // every row, which reads like a level nobody defaults to.
         body.appendChild(el(
           documentNode,
           "p",
-          "lane-unrouted",
+          "level-unrouted",
           `${unrouted.join(", ")} ${unrouted.length === 1 ? "matches" : "match"}`
-            + " no configured lane grouping.",
+            + " no configured level grouping.",
         ));
       }
-      const priority = el(documentNode, "div", "lane-priority");
+      const priority = el(documentNode, "div", "level-priority");
       priority.appendChild(el(documentNode, "b", null, "Priority:"));
       priority.appendChild(el(documentNode, "span", null, ` ${PRIORITY_ORDER}`));
-      priority.appendChild(el(documentNode, "div", "lane-muted", PRIORITY_DETAIL));
+      priority.appendChild(el(documentNode, "div", "level-muted", PRIORITY_DETAIL));
       body.appendChild(priority);
 
-      const editing = el(documentNode, "div", "lane-cli");
+      const editing = el(documentNode, "div", "level-cli");
       editing.appendChild(el(documentNode, "b", null, "Edit with your harness"));
       const instruction = el(documentNode, "p", null, "tell your agent to use ");
       instruction.appendChild(

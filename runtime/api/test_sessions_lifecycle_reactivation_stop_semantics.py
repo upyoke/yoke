@@ -53,7 +53,7 @@ def _insert_session(
         )
         conn.execute(
             """INSERT INTO harness_sessions
-               (session_id, executor, provider, model, execution_lane,
+               (session_id, executor, provider, model, execution_level,
                 workspace, project_id, mode, offered_at, last_heartbeat, ended_at,
                 offer_envelope)
                VALUES (%s, 'codex', 'openai', 'gpt-5.4', 'primary',
@@ -217,7 +217,7 @@ class TestReactivationAfterStop:
                 executor="codex",
                 provider="openai",
                 model_facts=SessionModelFacts(requested_model="gpt-5.4"),
-                execution_lane="primary",
+                execution_level="primary",
                 workspace=workspace,
                 project_id=1,
                 mode="wait",
@@ -253,7 +253,7 @@ class TestReactivationAfterStop:
                 executor="codex",
                 provider="openai",
                 model_facts=SessionModelFacts(requested_model="gpt-5.4"),
-                execution_lane="primary",
+                execution_level="primary",
                 workspace=workspace,
                 project_id=1,
                 mode="wait",

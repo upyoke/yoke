@@ -38,7 +38,7 @@ class ItemWorktreesCreateRequest(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def _explicit_lane_pair(self) -> "ItemWorktreesCreateRequest":
+    def _explicit_level_pair(self) -> "ItemWorktreesCreateRequest":
         if (self.lane_role is None) != (self.branch is None):
             raise ValueError(
                 "lane_role and branch must be provided together, or both "

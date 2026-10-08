@@ -89,7 +89,7 @@ def _request_payload(request: Mapping[str, Any]) -> tuple[Any, dict[str, Any]]:
         "requested_model",
         "requested_reasoning_effort",
         "requested_context_window_tokens",
-        "execution_lane",
+        "execution_level",
         "project_id",
         "executor_version",
         "machine_id",

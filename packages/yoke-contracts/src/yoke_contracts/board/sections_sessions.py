@@ -1,7 +1,7 @@
 """Sessions and claims rendering for the board.
 
 Owns the active-session and recently-closed-session tables, the keycap
-numbering for grouped claims, executor / mode / lane emoji mappings,
+numbering for grouped claims, executor / mode / level emoji mappings,
 and the aligned-table helpers the sessions section depends on.
 """
 
@@ -15,11 +15,11 @@ from yoke_contracts.board.sections_sessions_cells import session_common_cells
 from yoke_contracts.board.sections_sessions_holdings import session_holding_labels
 from yoke_contracts.board.sections_sessions_layout import _chunk_claims
 from yoke_contracts.board.sections_sessions_scope import session_rows
-from yoke_contracts.board.sections_sessions_scope import session_lane_presentation
+from yoke_contracts.board.sections_sessions_scope import session_level_presentation
 from yoke_contracts.board.sections_sessions_rendering import (
     _aligned_table,
     _format_session_age,
-    _render_lane,
+    _render_level,
 )
 
 
@@ -27,7 +27,7 @@ def _parked_cell(mode: str | None) -> str:
     """Parked is the one mode worth a column; every other reads as noise.
 
     A session's mode names the command it happens to be running, which the
-    lane and its claims already say. Parked is different: it is a state the
+    level and its claims already say. Parked is different: it is a state the
     session declared about itself and holds until it takes it back. The
     reason it parked stays on the session card, which reads one session at
     a time and has the width for it.
@@ -75,7 +75,7 @@ def render_sessions_section(
                 requested_model,
                 usage_totals,
                 mode,
-                lane,
+                level,
                 offered_at,
                 last_hb,
                 workspace,
@@ -87,9 +87,9 @@ def render_sessions_section(
             claim_rows = _chunk_claims(keycaps) if keycaps else ["—"]
 
             parked_str = _parked_cell(mode)
-            lane_str = _render_lane(
-                lane,
-                session_lane_presentation(db, project_id, lane),
+            level_str = _render_level(
+                level,
+                session_level_presentation(db, project_id, level),
             )
             common_cells = session_common_cells(
                 db,
@@ -108,7 +108,7 @@ def render_sessions_section(
                     table_rows.append(
                         [
                             *common_cells,
-                            lane_str,
+                            level_str,
                             parked_str,
                             age,
                             claims_str,
@@ -125,7 +125,7 @@ def render_sessions_section(
                     "Executor",
                     "Model",
                     "Usage",
-                    "Lane",
+                    "Level",
                     "Parked",
                     "Age",
                     "Claims",
@@ -150,7 +150,7 @@ def render_sessions_section(
                 requested_model,
                 usage_totals,
                 mode,
-                lane,
+                level,
                 offered_at,
                 last_hb,
                 workspace,
@@ -190,9 +190,9 @@ def render_sessions_section(
                 offered_at,
                 project_id,
             )
-            lane_str = _render_lane(
-                lane,
-                session_lane_presentation(db, project_id, lane),
+            level_str = _render_level(
+                level,
+                session_level_presentation(db, project_id, level),
             )
 
             for idx, claims_str in enumerate(claim_rows):
@@ -200,7 +200,7 @@ def render_sessions_section(
                     table_rows_closed.append(
                         [
                             *common_cells,
-                            lane_str,
+                            level_str,
                             f"{ended_age} ago",
                             duration,
                             claims_str,
@@ -219,7 +219,7 @@ def render_sessions_section(
                     "Executor",
                     "Model",
                     "Usage",
-                    "Lane",
+                    "Level",
                     "Ended",
                     "Duration",
                     "Claims",

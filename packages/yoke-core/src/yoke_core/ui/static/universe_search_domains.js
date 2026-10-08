@@ -136,7 +136,7 @@ async function searchSessions(client, query, needle, sessionWindow) {
     if (!exact && !matches(needle, [
       sessionId, row.current_item, row.current_item_title, row.actor_label,
       row.executor, row.model, row.requested_model, row.project,
-      row.execution_lane,
+      row.execution_level,
     ])) continue;
     seen.add(sessionId);
     entries.push({

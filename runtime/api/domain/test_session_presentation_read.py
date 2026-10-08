@@ -9,21 +9,21 @@ from yoke_core.domain.sessions_list_query import build_sessions_query
 
 
 def test_roster_keeps_execution_and_observed_presentation_independent():
-    # The page's lane settings are resolved once by the roster read and
+    # The page's level settings are resolved once by the roster read and
     # handed in; a row whose project names none renders the same as one
     # whose project declares an empty routing capability.
     result = session_presentation(
         {
             "executor": "claude-code",
             "executor_surface": "claude-cli",
-            "execution_lane": "primary",
+            "execution_level": "primary",
             "presentation_surface": "remote-control",
             "presentation_state": "attached",
             "presentation_mode": "bidirectional",
             "presentation_source": "claude-job-state",
             "presentation_observed_at": "2026-08-28T18:00:00Z",
         },
-        lane_settings={},
+        level_settings={},
     )
 
     assert result["presentation_surface"] == "remote-control"

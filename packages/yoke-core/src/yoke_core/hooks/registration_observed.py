@@ -16,7 +16,7 @@ class HookRegistrationFacts:
     #: caller then resolves against this machine's own evidence.
     model_facts: SessionModelFacts = field(default_factory=SessionModelFacts)
     entrypoint: str = ""
-    execution_lane: str = ""
+    execution_level: str = ""
     executor_version: str = ""
     machine_id: str = ""
     native_thread_id: str = ""
@@ -68,7 +68,7 @@ def parse_hook_registration_facts(
     return HookRegistrationFacts(
         model_facts=reclassify_unservable_model(facts_from_mapping(payload)),
         entrypoint=_text("entrypoint"),
-        execution_lane=_text("execution_lane"),
+        execution_level=_text("execution_level"),
         executor_version=_text("executor_version"),
         machine_id=_text("machine_id"),
         native_thread_id=_text("native_thread_id"),

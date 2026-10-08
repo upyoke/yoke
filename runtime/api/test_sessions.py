@@ -183,7 +183,7 @@ def _register(conn, session_id="sess-1", **kwargs):
         model_facts=SessionModelFacts(requested_model=TEST_MODEL_ID),
         workspace="/tmp/work",
         project_id=1,
-        execution_lane="primary",
+        execution_level="primary",
         mode="wait",
     )
     defaults.update(kwargs)
@@ -326,7 +326,7 @@ def _ensure_active_session(
     executor: str = "claude-code",
     provider: str = "anthropic",
     model: str = TEST_MODEL_ID,
-    execution_lane: str = "primary",
+    execution_level: str = "primary",
 ) -> None:
     row = conn.execute(
         f"SELECT session_id FROM harness_sessions WHERE session_id = {_p(conn)} "
@@ -343,5 +343,5 @@ def _ensure_active_session(
         model_facts=SessionModelFacts(requested_model=model),
         workspace=workspace,
         project_id=1,
-        execution_lane=execution_lane,
+        execution_level=execution_level,
     )

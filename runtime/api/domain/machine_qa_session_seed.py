@@ -30,7 +30,7 @@ def seed_qa_session(
         for session_id in session_ids:
             conn.execute(
                 "INSERT INTO harness_sessions "
-                "(session_id, executor, provider, model, execution_lane, "
+                "(session_id, executor, provider, model, execution_level, "
                 "workspace, project_id, mode, offered_at, last_heartbeat, "
                 "actor_id) VALUES (%s, 'codex', 'openai', 'test-model', "
                 "'primary', %s, 1, 'wait', %s, %s, %s) "

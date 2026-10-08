@@ -102,13 +102,10 @@ def test_handler_records_only_generated_children_policy(populated_db):
     item_entry = next(
         entry
         for entry in result["entries"]
-        if entry["kind"] == "query"
-        and "LEFT JOIN workflow_versions wv" in entry["sql"]
+        if entry["kind"] == "query" and "LEFT JOIN workflow_versions wv" in entry["sql"]
     )
     assert "wv.definition_json::jsonb #>>" in item_entry["sql"]
-    generated_children_by_item = {
-        int(row[0]): row[-1] for row in item_entry["rows"]
-    }
+    generated_children_by_item = {int(row[0]): row[-1] for row in item_entry["rows"]}
     assert generated_children_by_item[1] == "none"
     assert generated_children_by_item[3] == "epic_tasks"
 
@@ -138,11 +135,15 @@ def test_handler_vision_count_shapes_zen_plan(populated_db):
     config_values = {"timeline_widget": "always"}
 
     def entries_for(count: int):
-        outcome = orchestration.handle_board_data_get(_request({
-            "scope": "all",
-            "config_values": config_values,
-            "zen_vision_count": count,
-        }))
+        outcome = orchestration.handle_board_data_get(
+            _request(
+                {
+                    "scope": "all",
+                    "config_values": config_values,
+                    "zen_vision_count": count,
+                }
+            )
+        )
         assert outcome.primary_success
         return outcome.result_payload["entries"]
 
@@ -153,9 +154,7 @@ def test_handler_vision_count_shapes_zen_plan(populated_db):
             if e["kind"] == "query" and "pos_raw" in e["sql"]
         ]
 
-    assert zen_position_params(entries_for(0)) != zen_position_params(
-        entries_for(3)
-    )
+    assert zen_position_params(entries_for(0)) != zen_position_params(entries_for(3))
 
 
 def test_handler_all_scope_filters_to_visible_project_ids(populated_db):
@@ -198,15 +197,17 @@ def test_dispatcher_routes_board_data_get(populated_db):
     register_all_handlers()
     try:
         with mock.patch.object(events_module, "emit_event"):
-            response = dispatch_module.dispatch({
-                "function": "board.data.get",
-                "version": "v1",
-                "actor": {"actor_id": None, "session_id": ""},
-                "target": {"kind": "global"},
-                "payload": {"scope": "yoke"},
-                "preconditions": {},
-                "options": {},
-            })
+            response = dispatch_module.dispatch(
+                {
+                    "function": "board.data.get",
+                    "version": "v1",
+                    "actor": {"actor_id": None, "session_id": ""},
+                    "target": {"kind": "global"},
+                    "payload": {"scope": "yoke"},
+                    "preconditions": {},
+                    "options": {},
+                }
+            )
     finally:
         reset_registry_for_tests()
     assert response.success, response.error
@@ -224,15 +225,15 @@ class TestBoardDataOverHttpBoundary:
         from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
         from yoke_core.api.main import app
 
-        with mock.patch.dict(
-            os.environ, {"YOKE_DB": populated_db}, clear=False
-        ):
+        with mock.patch.dict(os.environ, {"YOKE_DB": populated_db}, clear=False):
             reset_registry_for_tests()
             register_all_handlers()
             patches = [
                 mock.patch.object(events_module, "emit_event"),
                 mock.patch.object(
-                    dispatch_module, "_idempotency_lookup", return_value=None,
+                    dispatch_module,
+                    "_idempotency_lookup",
+                    return_value=None,
                 ),
             ]
             for p in patches:
@@ -242,20 +243,23 @@ class TestBoardDataOverHttpBoundary:
                 # The roster section reads these columns whether or not any
                 # session row exists, and a column it cannot read is now a
                 # loud failure rather than an empty section.
-                apply_fixture_ddl(conn, (
-                    "CREATE TABLE IF NOT EXISTS harness_sessions ("
-                    " session_id TEXT PRIMARY KEY, actor_id TEXT,"
-                    " current_item_id TEXT, recent_item_id TEXT,"
-                    " executor TEXT, executor_surface TEXT, model TEXT,"
-                    " reasoning_effort TEXT, context_window_tokens INTEGER,"
-                    " requested_model TEXT, requested_reasoning_effort TEXT,"
-                    " requested_context_window_tokens INTEGER,"
-                    " usage_totals TEXT,"
-                    " mode TEXT, execution_lane TEXT, workspace TEXT,"
-                    " project_id INTEGER, offered_at TEXT,"
-                    " last_heartbeat TEXT, last_tool_call_at TEXT,"
-                    " ended_at TEXT, terminated_at TEXT)"
-                ))
+                apply_fixture_ddl(
+                    conn,
+                    (
+                        "CREATE TABLE IF NOT EXISTS harness_sessions ("
+                        " session_id TEXT PRIMARY KEY, actor_id TEXT,"
+                        " current_item_id TEXT, recent_item_id TEXT,"
+                        " executor TEXT, executor_surface TEXT, model TEXT,"
+                        " reasoning_effort TEXT, context_window_tokens INTEGER,"
+                        " requested_model TEXT, requested_reasoning_effort TEXT,"
+                        " requested_context_window_tokens INTEGER,"
+                        " usage_totals TEXT,"
+                        " mode TEXT, execution_level TEXT, workspace TEXT,"
+                        " project_id INTEGER, offered_at TEXT,"
+                        " last_heartbeat TEXT, last_tool_call_at TEXT,"
+                        " ended_at TEXT, terminated_at TEXT)"
+                    ),
+                )
                 auth = mint_api_auth_context(conn)
             finally:
                 conn.close()

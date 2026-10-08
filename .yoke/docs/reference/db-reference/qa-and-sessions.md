@@ -173,7 +173,7 @@ session_id TEXT PRIMARY KEY -- globally unique session ID (from contract)
 executor TEXT NOT NULL -- executor identity (e.g., claude-code, codex)
 provider TEXT NOT NULL -- model provider (e.g., anthropic, openai)
 model TEXT NOT NULL -- model identifier (e.g., claude-opus-4-7)
-execution_lane TEXT NOT NULL DEFAULT 'primary' -- session grouping identity stamped by session-routing settings
+execution_level TEXT NOT NULL DEFAULT 'primary' -- session grouping identity stamped by session-routing settings
 capabilities TEXT DEFAULT '[]' -- JSON array of capability tags
 workspace TEXT NOT NULL -- absolute path to working directory
 mode TEXT DEFAULT 'wait' -- session mode (charge, feed, strategize, wait)
@@ -194,7 +194,7 @@ The process-gone columns record machine evidence without ending a claim holder. 
 
 **Probe sessions are audit rows.** A probe has ended within `PROBE_MAX_LIFETIME_SECONDS` (30) of `offered_at`, has `tool_call_count = 0`, and has no `first_user_prompt_at` stamp. The stamp is written on the session row at the prompt boundary. Probe rows remain in `harness_sessions` for audit; operator-facing session lists and steering counts exclude them through the shared `session_probe` predicate. Live sessions are never classified as probes.
 
-Indexes: `idx_harness_sessions_lane(execution_lane)`, `idx_harness_sessions_heartbeat(last_heartbeat)`.
+Indexes: `idx_harness_sessions_level(execution_level)`, `idx_harness_sessions_heartbeat(last_heartbeat)`.
 
 Shell access: the Python harness-session CLI (`begin|touch|end|get|list|stale|reclaim`). API: `/v1/sessions` endpoints.
 

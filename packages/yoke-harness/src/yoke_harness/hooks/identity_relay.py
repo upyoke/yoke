@@ -10,6 +10,7 @@ from typing import Any, Optional
 
 from yoke_cli.config import machine_config
 from yoke_contracts.session_execution import SUBAGENT_EXECUTION_PAYLOAD_KEY
+from yoke_contracts.session_level import EXECUTOR_DEFAULT_LEVEL_PREFIX
 from yoke_contracts.cursor_session_map import (
     CURSOR_CONVERSATION_ENV_VAR,
     CURSOR_SESSION_MAP_DIR_NAME,
@@ -41,7 +42,7 @@ from yoke_harness.hooks.identity_model_facts import (
 from yoke_harness.hooks.identity_usage_facts import client_usage_facts
 
 
-_EXECUTOR_PREFIX = "executor_default_lane_"
+_EXECUTOR_PREFIX = EXECUTOR_DEFAULT_LEVEL_PREFIX
 
 
 def _normalize_config_token(value: str) -> str:
@@ -61,14 +62,14 @@ def _routing_settings() -> dict[str, str]:
     return {str(k): str(v) for k, v in settings.items()}
 
 
-def client_lane(event_name: str, executor: str) -> Optional[str]:
-    """Return the machine-config lane for ``executor``, or ``None``.
+def client_level(event_name: str, executor: str) -> Optional[str]:
+    """Return the machine-config level for ``executor``, or ``None``.
 
-    ``None`` means "this client has no lane opinion" and is the answer
+    ``None`` means "this client has no level opinion" and is the answer
     whenever machine config declares no matching executor key — the common
     case, because routing policy normally lives in the project's
     ``session-routing`` capability, which only the server can read. Inventing
-    a placeholder here instead would ship an explicit lane on the wire and
+    a placeholder here instead would ship an explicit level on the wire and
     overrule that project policy at registration.
     """
     if event_name not in REGISTRATION_EVENTS:
@@ -207,7 +208,7 @@ def relay_identity_payload(
         "entrypoint": entrypoint,
         **client_model_facts(event_name, payload, executor),
         **client_usage_facts(payload, executor),
-        "execution_lane": client_lane(event_name, executor),
+        "execution_level": client_level(event_name, executor),
         "project_id": client_project_id(payload),
         "executor_version": client_executor_version(executor, entrypoint),
         "machine_id": client_machine_id(),
@@ -224,7 +225,7 @@ __all__ = [
     "REGISTRATION_EVENTS",
     "client_entrypoint",
     "client_executor_version",
-    "client_lane",
+    "client_level",
     "client_machine_id",
     "client_model_facts",
     "client_usage_facts",

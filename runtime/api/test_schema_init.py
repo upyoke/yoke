@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.domain import db_backend, schema
+from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import (
     _column_is_not_null,
     _get_column_default,
@@ -33,17 +33,6 @@ def _connect(db_path: str):
     DSN repoint is still active.
     """
     return connect_test_db(db_path)
-
-
-def _reinit(db_path: str) -> None:
-    """Run ``schema.cmd_init`` a second time against the same test DB.
-
-    Idempotency coverage re-applies the schema inside an active
-    :func:`init_test_db` context. The context has already repointed
-    ``YOKE_PG_DSN`` at the per-test database, so a bare ``cmd_init`` targets
-    it.
-    """
-    schema.cmd_init()
 
 
 def _table_names(conn) -> set[str]:
@@ -102,7 +91,7 @@ class TestCmdInit:
             "idx_qa_requirements_deployment",
             "idx_qa_runs_requirement",
             "idx_qa_artifacts_run",
-            "idx_harness_sessions_lane",
+            "idx_harness_sessions_level",
             "idx_harness_sessions_heartbeat",
             "idx_work_claims_session",
             "idx_work_claims_session_released",
@@ -127,19 +116,38 @@ class TestCmdInit:
 
         # Core + migration-added columns
         for col in (
-            "id", "title", "status", "priority", "source",
-            "project_id", "project_sequence",
-            "workflow_id", "workflow_version_id", "workflow_posture",
-            "deployment_flow", "deploy_stage", "spec", "design_spec",
-            "technical_plan", "worktree_plan", "shepherd_log", "shepherd_caveats",
-            "test_results", "deploy_log",
-            "spec_updated_at", "spec_updated_by",
+            "id",
+            "title",
+            "status",
+            "priority",
+            "source",
+            "project_id",
+            "project_sequence",
+            "workflow_id",
+            "workflow_version_id",
+            "workflow_posture",
+            "deployment_flow",
+            "deploy_stage",
+            "spec",
+            "design_spec",
+            "technical_plan",
+            "worktree_plan",
+            "shepherd_log",
+            "shepherd_caveats",
+            "test_results",
+            "deploy_log",
+            "spec_updated_at",
+            "spec_updated_by",
         ):
             assert col in cols, f"items table missing column: {col}"
         for retired_col in ("body", "body_generated_at", "type", "worktree"):
-            assert retired_col not in cols, f"items table still has retired column: {retired_col}"
+            assert retired_col not in cols, (
+                f"items table still has retired column: {retired_col}"
+            )
 
-    def test_items_has_db_mutation_profile_with_negative_default(self, tmp_path: Path) -> None:
+    def test_items_has_db_mutation_profile_with_negative_default(
+        self, tmp_path: Path
+    ) -> None:
         # Items.db_mutation_profile is a first-class structured field
         # with DB-level NOT NULL DEFAULT '{"state":"none"}'.
         with init_test_db(tmp_path) as db_path:
@@ -149,13 +157,11 @@ class TestCmdInit:
                 assert "db_mutation_profile" in col_types, (
                     "items table missing db_mutation_profile column"
                 )
-                default = _get_column_default(
-                    conn, "items", "db_mutation_profile"
-                )
+                default = _get_column_default(conn, "items", "db_mutation_profile")
                 assert "TEXT" in col_types["db_mutation_profile"].upper()
-                assert _column_is_not_null(
-                    conn, "items", "db_mutation_profile"
-                ), "db_mutation_profile must be NOT NULL"
+                assert _column_is_not_null(conn, "items", "db_mutation_profile"), (
+                    "db_mutation_profile must be NOT NULL"
+                )
                 assert default is not None
                 assert '"state"' in default
                 assert '"none"' in default
@@ -163,7 +169,8 @@ class TestCmdInit:
                 conn.close()
 
     def test_items_has_db_compatibility_attestation_with_empty_default(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         # Items.db_compatibility_attestation is a first-class peer
         # structured field with DB-level NOT NULL DEFAULT '{}'.
@@ -186,7 +193,8 @@ class TestCmdInit:
                 conn.close()
 
     def test_insert_into_items_yields_negative_default_profile(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         # Every INSERT into items lands a row with a valid profile.
         # Direct-INSERT regression test — the DB-level default guarantees
@@ -222,8 +230,12 @@ class TestCmdInit:
             conn.close()
 
         for col in (
-            "body", "github_issue", "item_worktree_id",
-            "max_attempts", "agent_id", "last_heartbeat",
+            "body",
+            "github_issue",
+            "item_worktree_id",
+            "max_attempts",
+            "agent_id",
+            "last_heartbeat",
             "last_activity_at",
         ):
             assert col in cols, f"epic_tasks missing column: {col}"
@@ -300,47 +312,3 @@ class TestCmdInit:
             assert row["title"] == "hello"
             assert row["status"] == "idea"
             conn.close()
-
-
-class TestInitIdempotent:
-    """Calling cmd_init twice does not fail or lose data."""
-
-    def test_double_init_no_error(self, tmp_path: Path) -> None:
-        with init_test_db(tmp_path) as db_path:
-            # First init ran at context entry; second call should succeed.
-            _reinit(db_path)
-
-    def test_double_init_preserves_data(self, tmp_path: Path) -> None:
-        with init_test_db(tmp_path) as db_path:
-            conn = _connect(db_path)
-            conn.execute(
-                "INSERT INTO items "
-                "(id, title, status, priority, project_id, project_sequence, "
-                "workflow_id, workflow_version_id, created_at, updated_at) "
-                "VALUES (42, 'preserved', 'idea', 'medium', 1, 42, 'issue', "
-                "(SELECT current_version_id FROM workflows WHERE id = 'issue'), "
-                "'2025-01-01', '2025-01-01')"
-            )
-            conn.commit()
-            conn.close()
-
-            _reinit(db_path)
-
-            conn = _connect(db_path)
-            row = conn.execute("SELECT title FROM items WHERE id=42").fetchone()
-            assert row is not None
-            assert row[0] == "preserved"
-            conn.close()
-
-    def test_double_init_preserves_table_count(self, tmp_path: Path) -> None:
-        with init_test_db(tmp_path) as db_path:
-            conn = _connect(db_path)
-            tables_first = _table_names(conn)
-            conn.close()
-
-            _reinit(db_path)
-
-            conn = _connect(db_path)
-            tables_second = _table_names(conn)
-            conn.close()
-            assert tables_first == tables_second

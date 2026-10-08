@@ -1,12 +1,12 @@
 """The one projection of a session row into resolved identity.
 
 Registration resolves a session's identity once — canonical executor id and
-display alias, provider, model, the execution lane the project's routing
+display alias, provider, model, the execution level the project's routing
 policy maps that executor to, workspace, project, and actor — and writes it
 to ``harness_sessions``. Every later consumer reads it back through here.
 
 Reading the registered row keeps later consumers on the same identity and
-lane without re-deriving either from local environment variables.
+level without re-deriving either from local environment variables.
 """
 
 from __future__ import annotations
@@ -49,7 +49,7 @@ class SessionIdentity:
     #: ``model`` must say which it is showing.
     requested_model: str
     workspace: str
-    execution_lane: str
+    execution_level: str
     capabilities: List[str] = field(default_factory=list)
     project_id: Optional[int] = None
     actor_id: Optional[int] = None
@@ -82,7 +82,7 @@ def resolve_session_identity(conn: Any, session_id: str) -> SessionIdentity:
 
     row = conn.execute(
         "SELECT executor, executor_surface, executor_version, machine_id, "
-        "provider, model, requested_model, workspace, execution_lane, "
+        "provider, model, requested_model, workspace, execution_level, "
         "project_id, actor_id, mode, ended_at "
         f"FROM harness_sessions WHERE session_id = {_p(conn)}",
         (session_id,),
@@ -108,7 +108,7 @@ def resolve_session_identity(conn: Any, session_id: str) -> SessionIdentity:
         model=_text(row[5]),
         requested_model=_text(row[6]),
         workspace=_text(row[7]),
-        execution_lane=_text(row[8]),
+        execution_level=_text(row[8]),
         capabilities=[str(value) for value in derived["downstream_paths"]],
         project_id=_optional_int(row[9]),
         actor_id=_optional_int(row[10]),

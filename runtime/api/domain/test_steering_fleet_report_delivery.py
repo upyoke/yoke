@@ -28,7 +28,7 @@ ACTOR_ID = 2
 def _seed_session(conn, session_id: str) -> None:
     conn.execute(
         "INSERT INTO harness_sessions "
-        "(session_id, executor, provider, model, execution_lane, workspace, "
+        "(session_id, executor, provider, model, execution_level, workspace, "
         "project_id, mode, offered_at, last_heartbeat, actor_id, "
         "executor_surface) "
         "VALUES (%s, 'codex', 'openai', 'test-model', 'primary', %s, %s, "

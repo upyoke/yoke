@@ -33,7 +33,7 @@ class ResolvedRecipient:
     authorized_project_ids: set[int] = field(default_factory=set)
     work_roles: set[str] = field(default_factory=set)
     worktree_lanes: set[str] = field(default_factory=set)
-    execution_lane: str = ""
+    execution_level: str = ""
 
     def public(self) -> dict[str, Any]:
         return {
@@ -53,7 +53,7 @@ class ResolvedRecipient:
             "project_id": self.project_id,
             "authorized_project_ids": sorted(self.authorized_project_ids),
             "executor_version": self.executor_version,
-            "execution_lane": self.execution_lane,
+            "execution_level": self.execution_level,
             "work_roles": sorted(self.work_roles),
             "worktree_lanes": sorted(self.worktree_lanes),
         }

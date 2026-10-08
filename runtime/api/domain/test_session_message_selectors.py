@@ -57,7 +57,7 @@ def test_project_anchor_includes_session_holding_steering_claim() -> None:
         ({"executor_families": ["cursor"]}, ["s3"]),
         ({"executor_surfaces": ["claude-cli"]}, ["s2"]),
         ({"work_roles": ["worker"]}, ["s2"]),
-        ({"execution_lanes": ["direct"]}, ["s1", "s3", "s4"]),
+        ({"execution_levels": ["direct"]}, ["s1", "s3", "s4"]),
         ({"worktree_lanes": ["alpha-worker"]}, ["s2"]),
         ({"machine_ids": ["m1"]}, ["s1"]),
     ],

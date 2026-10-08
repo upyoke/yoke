@@ -1,9 +1,9 @@
 """Identity-enrichment tests for the HTTPS hook relay client.
 
-``client_lane`` lives in ``yoke_harness.hooks.identity_relay`` and the
+``client_level`` lives in ``yoke_harness.hooks.identity_relay`` and the
 model-facts half in ``yoke_harness.hooks.identity_model_facts``; both
-surface through ``yoke_harness.hooks.identity``. Lane resolution reads
-machine-config ``settings`` keys (``executor_default_lane_<token>``, with
+surface through ``yoke_harness.hooks.identity``. Level resolution reads
+machine-config ``settings`` keys (``executor_default_level_<token>``, with
 ``*`` wildcard suffixes and an ``unknown`` default), and answers ``None``
 when nothing matches so the server's project routing policy decides. Model
 facts split into the ask and whatever the harness artifact attested, so the
@@ -17,7 +17,7 @@ import json
 from yoke_contracts.session_model_facts import SessionModelFacts
 from yoke_harness.hooks.identity import (
     client_entrypoint,
-    client_lane,
+    client_level,
     client_model_facts,
     record_model_facts_shipped,
 )
@@ -26,40 +26,40 @@ _RELAY = "yoke_harness.hooks.identity_relay"
 _MACHINE_CONFIG = "yoke_cli.config.machine_config"
 
 
-def test_client_lane_resolves_registration_events_from_machine_config(
+def test_client_level_resolves_registration_events_from_machine_config(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(
         f"{_MACHINE_CONFIG}.load_config",
-        lambda: {"settings": {"executor_default_lane_codex_desktop": "DARIUS"}},
+        lambda: {"settings": {"executor_default_level_codex_desktop": "DARIUS"}},
     )
 
-    assert client_lane("SessionStart", "codex-desktop") == "DARIUS"
+    assert client_level("SessionStart", "codex-desktop") == "DARIUS"
 
 
-def test_client_lane_without_machine_config_match_is_none(monkeypatch) -> None:
-    """No local match must not invent a lane for the wire.
+def test_client_level_without_machine_config_match_is_none(monkeypatch) -> None:
+    """No local match must not invent a level for the wire.
 
     Routing policy normally lives in the project's session-routing
     capability, which the client cannot read, so a placeholder shipped from
-    here would arrive server-side as an explicit lane and overrule it.
+    here would arrive server-side as an explicit level and overrule it.
     """
     monkeypatch.setattr(
         f"{_MACHINE_CONFIG}.load_config",
         lambda: {"settings": {}},
     )
 
-    assert client_lane("SessionStart", "claude-desktop") is None
-    assert client_lane("UserPromptSubmit", "codex-desktop") is None
+    assert client_level("SessionStart", "claude-desktop") is None
+    assert client_level("UserPromptSubmit", "codex-desktop") is None
 
 
-def test_client_lane_skips_tool_call_events(monkeypatch) -> None:
+def test_client_level_skips_tool_call_events(monkeypatch) -> None:
     monkeypatch.setattr(
         f"{_RELAY}._routing_settings",
         lambda: (_ for _ in ()).throw(AssertionError("must not read settings")),
     )
 
-    assert client_lane("PreToolUse", "codex-desktop") is None
+    assert client_level("PreToolUse", "codex-desktop") is None
 
 
 def _claude_transcript(tmp_path, model: str) -> str:

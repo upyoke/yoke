@@ -16,6 +16,15 @@ MIGRATION = importlib.import_module(
     "yoke_core.domain.migrations.0054_remove_lane_allowlists"
 )
 
+LEVEL_RENAME = importlib.import_module(
+    "yoke_core.domain.migrations.0059_rename_session_lanes_to_levels"
+)
+
+
+def converged_to_levels(settings):
+    """Apply the later lanes -> levels rename the live validator reads."""
+    return LEVEL_RENAME._converged(1, settings)
+
 
 def database(settings, *, capability="session-routing"):
     conn = sqlite3.connect(":memory:")
@@ -53,7 +62,7 @@ def test_grouped_and_flat_permissions_are_removed_preserving_routing():
         assert result[key] == settings[key]
     assert result["lane_metadata"]["CUSTOM"] == settings["lane_metadata"]["CUSTOM"]
     assert set(result["lane_metadata"]) == {"DARIUS", "ALTMAN", "CUSTOM"}
-    validate_session_routing_settings(result)
+    validate_session_routing_settings(converged_to_levels(result))
     before = conn.total_changes
     MIGRATION.apply(conn)
     assert conn.total_changes == before
@@ -66,7 +75,7 @@ def test_lane_declared_only_by_permissions_becomes_metadata_grouping():
     MIGRATION.apply(conn)
     result = stored(conn)
     assert result["lane_metadata"]["CUSTOM"]["label"] == "CUSTOM"
-    validate_session_routing_settings(result)
+    validate_session_routing_settings(converged_to_levels(result))
 
 
 def test_already_converged_and_other_capabilities_are_untouched():

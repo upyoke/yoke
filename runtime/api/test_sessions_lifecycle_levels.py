@@ -1,4 +1,4 @@
-"""Lane healing and lane stamping coverage for session registration."""
+"""Level healing and level stamping coverage for session registration."""
 
 from __future__ import annotations
 
@@ -11,23 +11,23 @@ from runtime.api.test_sessions import _p, _register, conn  # noqa: F401
 from yoke_contracts.session_model_facts import SessionModelFacts
 
 _PROJECT_ROUTING = {
-    "executor_default_lane_claude*": "DARIUS",
-    "executor_default_lane_codex*": "ALTMAN",
+    "executor_default_level_claude*": "DARIUS",
+    "executor_default_level_codex*": "ALTMAN",
 }
 
 
-def _stored_lane(connection, session_id: str) -> str:
+def _stored_level(connection, session_id: str) -> str:
     row = connection.execute(
-        "SELECT execution_lane FROM harness_sessions WHERE session_id = "
+        "SELECT execution_level FROM harness_sessions WHERE session_id = "
         f"{_p(connection)}",
         (session_id,),
     ).fetchone()
     assert row is not None
-    return row["execution_lane"]
+    return row["execution_level"]
 
 
-class TestBeginSessionStampsRoutedLane:
-    """The wrapper-begin entry path resolves the lane from project policy."""
+class TestBeginSessionStampsRoutedLevel:
+    """The wrapper-begin entry path resolves the level from project policy."""
 
     @pytest.fixture(autouse=True)
     def _project_routing(self, monkeypatch):
@@ -49,7 +49,7 @@ class TestBeginSessionStampsRoutedLane:
             ("codex", "ALTMAN"),
         ],
     )
-    def test_each_executor_surface_stamps_its_family_lane(
+    def test_each_executor_surface_stamps_its_family_level(
         self,
         conn,  # noqa: F811
         executor,
@@ -65,67 +65,67 @@ class TestBeginSessionStampsRoutedLane:
             project_id=1,
         )
 
-        assert result["session"]["execution_lane"] == expected
-        assert _stored_lane(conn, f"begin-{executor}") == expected
+        assert result["session"]["execution_level"] == expected
+        assert _stored_level(conn, f"begin-{executor}") == expected
 
 
-class TestRegisterSessionLaneHealing:
-    def test_duplicate_upgrades_primary_lane_to_real_lane(self, conn):  # noqa: F811
-        _register(conn, session_id="lane-upgrade")
-
-        with pytest.raises(SessionError) as exc_info:
-            _register(conn, session_id="lane-upgrade", execution_lane="DARIUS")
-
-        assert exc_info.value.code == "SESSION_EXISTS"
-        assert _stored_lane(conn, "lane-upgrade") == "DARIUS"
-
-    def test_duplicate_never_downgrades_real_lane_to_primary(self, conn):  # noqa: F811
-        _register(conn, session_id="lane-stable", execution_lane="ALTMAN")
+class TestRegisterSessionLevelHealing:
+    def test_duplicate_upgrades_primary_level_to_real_level(self, conn):  # noqa: F811
+        _register(conn, session_id="level-upgrade")
 
         with pytest.raises(SessionError) as exc_info:
-            _register(conn, session_id="lane-stable", execution_lane="primary")
+            _register(conn, session_id="level-upgrade", execution_level="DARIUS")
 
         assert exc_info.value.code == "SESSION_EXISTS"
-        assert _stored_lane(conn, "lane-stable") == "ALTMAN"
+        assert _stored_level(conn, "level-upgrade") == "DARIUS"
 
-    def test_duplicate_never_swaps_real_lane_laterally(self, conn):  # noqa: F811
-        _register(conn, session_id="lane-lateral", execution_lane="DARIUS")
+    def test_duplicate_never_downgrades_real_level_to_primary(self, conn):  # noqa: F811
+        _register(conn, session_id="level-stable", execution_level="ALTMAN")
 
         with pytest.raises(SessionError) as exc_info:
-            _register(conn, session_id="lane-lateral", execution_lane="ALTMAN")
+            _register(conn, session_id="level-stable", execution_level="primary")
 
         assert exc_info.value.code == "SESSION_EXISTS"
-        assert _stored_lane(conn, "lane-lateral") == "DARIUS"
+        assert _stored_level(conn, "level-stable") == "ALTMAN"
 
-    def test_reactivation_never_downgrades_real_lane_to_primary(self, conn):  # noqa: F811
-        _register(conn, session_id="lane-reactivate", execution_lane="ALTMAN")
-        end_session(conn, "lane-reactivate")
+    def test_duplicate_never_swaps_real_level_laterally(self, conn):  # noqa: F811
+        _register(conn, session_id="level-lateral", execution_level="DARIUS")
 
-        result = _register(conn, session_id="lane-reactivate")
+        with pytest.raises(SessionError) as exc_info:
+            _register(conn, session_id="level-lateral", execution_level="ALTMAN")
 
-        assert result["execution_lane"] == "ALTMAN"
-        assert _stored_lane(conn, "lane-reactivate") == "ALTMAN"
+        assert exc_info.value.code == "SESSION_EXISTS"
+        assert _stored_level(conn, "level-lateral") == "DARIUS"
 
-    def test_reactivation_upgrades_primary_lane_to_real_lane(self, conn):  # noqa: F811
-        _register(conn, session_id="lane-reactivate-upgrade")
-        end_session(conn, "lane-reactivate-upgrade")
+    def test_reactivation_never_downgrades_real_level_to_primary(self, conn):  # noqa: F811
+        _register(conn, session_id="level-reactivate", execution_level="ALTMAN")
+        end_session(conn, "level-reactivate")
+
+        result = _register(conn, session_id="level-reactivate")
+
+        assert result["execution_level"] == "ALTMAN"
+        assert _stored_level(conn, "level-reactivate") == "ALTMAN"
+
+    def test_reactivation_upgrades_primary_level_to_real_level(self, conn):  # noqa: F811
+        _register(conn, session_id="level-reactivate-upgrade")
+        end_session(conn, "level-reactivate-upgrade")
 
         result = _register(
             conn,  # noqa: F811
-            session_id="lane-reactivate-upgrade",
-            execution_lane="DARIUS",
+            session_id="level-reactivate-upgrade",
+            execution_level="DARIUS",
         )
 
-        assert result["execution_lane"] == "DARIUS"
-        assert _stored_lane(conn, "lane-reactivate-upgrade") == "DARIUS"
+        assert result["execution_level"] == "DARIUS"
+        assert _stored_level(conn, "level-reactivate-upgrade") == "DARIUS"
 
 
 _MODEL_ROUTING = {
-    "executor_default_lanes": {"claude*": "DARIUS", "codex*": "ALTMAN"},
-    "lane_metadata": {"DARIUS": {}, "ALTMAN": {}, "MUSKY": {}},
-    "lane_rules": [
-        {"model": "claude-opus-*", "lane": "MUSKY"},
-        {"harness": "codex", "model": "gpt-5", "lane": "MUSKY"},
+    "executor_default_levels": {"claude*": "DARIUS", "codex*": "ALTMAN"},
+    "level_metadata": {"DARIUS": {}, "ALTMAN": {}, "MUSKY": {}},
+    "level_rules": [
+        {"model": "claude-opus-*", "level": "MUSKY"},
+        {"harness": "codex", "model": "gpt-5", "level": "MUSKY"},
     ],
 }
 
@@ -179,7 +179,7 @@ class TestBeginSessionRoutesOnModel:
             ),
         ],
     )
-    def test_the_registering_session_lands_on_its_selector_lane(
+    def test_the_registering_session_lands_on_its_selector_level(
         self,
         conn,  # noqa: F811
         session_id,
@@ -197,16 +197,16 @@ class TestBeginSessionRoutesOnModel:
             project_id=1,
         )
 
-        assert result["session"]["execution_lane"] == expected
-        assert _stored_lane(conn, session_id) == expected
+        assert result["session"]["execution_level"] == expected
+        assert _stored_level(conn, session_id) == expected
 
     def test_a_routing_change_leaves_an_already_stamped_session_alone(
         self,
         conn,  # noqa: F811
         monkeypatch,  # noqa: F811
     ):
-        # Lane is stamped once, at registration. Rewriting a live session's
-        # lane would move work away from a session already running it.
+        # Level is stamped once, at registration. Rewriting a live session's
+        # level would move work away from a session already running it.
         begin_session(
             conn,  # noqa: F811
             session_id="stamped-before-change",
@@ -216,7 +216,7 @@ class TestBeginSessionRoutesOnModel:
             workspace="/tmp/work",
             project_id=1,
         )
-        assert _stored_lane(conn, "stamped-before-change") == "DARIUS"
+        assert _stored_level(conn, "stamped-before-change") == "DARIUS"
 
         monkeypatch.setattr(
             "yoke_core.api.service_client_sessions_lifecycle_begin"
@@ -225,8 +225,8 @@ class TestBeginSessionRoutesOnModel:
                 "",
                 project_settings={
                     **_MODEL_ROUTING,
-                    "lane_rules": [
-                        {"model": "claude-sonnet-*", "lane": "ALTMAN"},
+                    "level_rules": [
+                        {"model": "claude-sonnet-*", "level": "ALTMAN"},
                     ],
                 },
             ),
@@ -241,5 +241,5 @@ class TestBeginSessionRoutesOnModel:
             project_id=1,
         )
 
-        assert _stored_lane(conn, "stamped-before-change") == "DARIUS"
-        assert _stored_lane(conn, "stamped-after-change") == "ALTMAN"
+        assert _stored_level(conn, "stamped-before-change") == "DARIUS"
+        assert _stored_level(conn, "stamped-after-change") == "ALTMAN"

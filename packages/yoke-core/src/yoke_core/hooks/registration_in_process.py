@@ -15,7 +15,7 @@ from typing import Optional
 from yoke_contracts.session_model_facts import SessionModelFacts
 
 from yoke_core.domain.session_routing_rules import routing_model_of
-from yoke_core.hooks.registration_identity import project_lane_for_session
+from yoke_core.hooks.registration_identity import project_level_for_session
 
 
 def _register_in_process(
@@ -27,7 +27,7 @@ def _register_in_process(
     entrypoint: Optional[str],
     *,
     actor_id: Optional[int] = None,
-    execution_lane: Optional[str] = None,
+    execution_level: Optional[str] = None,
     project_id: Optional[int] = None,
     executor_version: Optional[str] = None,
     machine_id: Optional[str] = None,
@@ -48,8 +48,8 @@ def _register_in_process(
     that revived it whether or not a wake attempt was in flight.
 
     Project routing policy is server-side shared authority: when a project
-    declares ``session-routing``, resolve the executor's lane from that DB
-    capability. ``execution_lane`` is only a no-policy fallback for older
+    declares ``session-routing``, resolve the executor's level from that DB
+    capability. ``execution_level`` is only a no-policy fallback for older
     source-dev/test paths.
     """
     try:
@@ -60,19 +60,19 @@ def _register_in_process(
             return "session registration requires project_id"
         conn = db_helpers.connect()
         try:
-            resolved_lane = (
-                project_lane_for_session(
+            resolved_level = (
+                project_level_for_session(
                     conn,
                     project_id,
                     executor,
-                    explicit_lane=execution_lane,
+                    explicit_level=execution_level,
                     model=routing_model_of(
                         model_facts.model, model_facts.requested_model
                     ),
                 )
-                or execution_lane
+                or execution_level
             )
-            lane_kwargs = {"execution_lane": resolved_lane} if resolved_lane else {}
+            level_kwargs = {"execution_level": resolved_level} if resolved_level else {}
             register_session(
                 conn,
                 session_id=session_id,
@@ -88,7 +88,7 @@ def _register_in_process(
                 native_thread_id=native_thread_id,
                 driver=driver,
                 launch_id=launch_id,
-                **lane_kwargs,
+                **level_kwargs,
             )
         finally:
             conn.close()

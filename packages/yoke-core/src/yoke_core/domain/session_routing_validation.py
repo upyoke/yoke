@@ -8,7 +8,7 @@ runs from the one canonicalization hook every capability writer passes
 through, so ``set``, ``merge``, and a create all get the same answer.
 
 Refusals name the settings path that has to change and what to change it
-to. A lane glyph is the clearest case: the terminal-safe convention is not
+to. A level glyph is the clearest case: the terminal-safe convention is not
 guessable from the value an operator typed, so the refusal quotes the
 offending code point and offers glyphs that work.
 """
@@ -17,18 +17,20 @@ from __future__ import annotations
 
 from typing import Any, Iterable, Mapping, Optional
 
-from yoke_contracts.lane_glyph import LaneGlyphError, validate_lane_glyph
-from yoke_contracts.session_lane import (
-    lane_is_unresolved,
+from yoke_contracts.level_glyph import LevelGlyphError, validate_level_glyph
+from yoke_contracts.session_level import (
+    EXECUTOR_DEFAULT_LEVEL_PREFIX,
+    level_is_unresolved,
+    renamed_routing_keys,
     retired_lane_setting_keys,
     retired_process_offer_keys,
 )
 from yoke_core.domain import json_helper
-from yoke_core.domain.session_routing_rules import LaneRuleError, parse_lane_rules
+from yoke_core.domain.session_routing_rules import LevelRuleError, parse_level_rules
 
 
-MAX_LANE_LABEL_CHARS = 32
-"""Longest lane label the board's session column can carry without the
+MAX_LEVEL_LABEL_CHARS = 32
+"""Longest level label the board's session column can carry without the
 label alone deciding the width of every row."""
 
 
@@ -40,49 +42,49 @@ class SessionRoutingSettingsError(ValueError):
         self.field = field
 
 
-def _lane_identity_error(lane: object) -> Optional[str]:
-    if not isinstance(lane, str) or not lane.strip():
-        return "a lane identity must be a non-empty string"
-    lane_id = lane.strip()
-    if lane_is_unresolved(lane_id):
+def _level_identity_error(level: object) -> Optional[str]:
+    if not isinstance(level, str) or not level.strip():
+        return "a level identity must be a non-empty string"
+    level_id = level.strip()
+    if level_is_unresolved(level_id):
         return (
-            f"{lane_id!r} is the reserved identity for a session whose lane "
-            "nothing resolved, so it cannot name a real lane. Pick another "
+            f"{level_id!r} is the reserved identity for a session whose level "
+            "nothing resolved, so it cannot name a real level. Pick another "
             "identity"
         )
-    normalized = "".join(char if char.isalnum() else "_" for char in lane_id).upper()
-    if lane_id != normalized:
+    normalized = "".join(char if char.isalnum() else "_" for char in level_id).upper()
+    if level_id != normalized:
         return (
-            f"{lane_id!r} is stored as {normalized!r} by routing, so the two "
-            "spellings would name one lane under two names. Write the "
+            f"{level_id!r} is stored as {normalized!r} by routing, so the two "
+            "spellings would name one level under two names. Write the "
             "identity as uppercase letters, digits, and underscores"
         )
     return None
 
 
-def _require_lane_identity(lane: object, *, field: str) -> str:
-    error = _lane_identity_error(lane)
+def _require_level_identity(level: object, *, field: str) -> str:
+    error = _level_identity_error(level)
     if error is not None:
         raise SessionRoutingSettingsError(error + ".", field=field)
-    return str(lane).strip()
+    return str(level).strip()
 
 
-def _validate_lane_metadata(settings: Mapping[str, Any]) -> tuple[str, ...]:
-    """Validate lane presentation and return the lanes it declares."""
-    raw = settings.get("lane_metadata")
+def _validate_level_metadata(settings: Mapping[str, Any]) -> tuple[str, ...]:
+    """Validate level presentation and return the levels it declares."""
+    raw = settings.get("level_metadata")
     if raw is None:
         return ()
     if not isinstance(raw, Mapping):
         raise SessionRoutingSettingsError(
-            "must be an object keyed by lane identity, each value carrying "
-            f"that lane's label and glyph; got {type(raw).__name__}.",
-            field="lane_metadata",
+            "must be an object keyed by level identity, each value carrying "
+            f"that level's label and glyph; got {type(raw).__name__}.",
+            field="level_metadata",
         )
     labels: dict[str, str] = {}
-    lanes: list[str] = []
-    for lane, entry in raw.items():
-        field = f"lane_metadata.{lane}"
-        lane_id = _require_lane_identity(lane, field="lane_metadata")
+    levels: list[str] = []
+    for level, entry in raw.items():
+        field = f"level_metadata.{level}"
+        level_id = _require_level_identity(level, field="level_metadata")
         if not isinstance(entry, Mapping):
             raise SessionRoutingSettingsError(
                 "must be an object with a label and a glyph; got "
@@ -92,11 +94,11 @@ def _validate_lane_metadata(settings: Mapping[str, Any]) -> tuple[str, ...]:
         unknown = sorted(set(entry) - {"label", "glyph"})
         if unknown:
             raise SessionRoutingSettingsError(
-                f"carries unsupported key(s) {', '.join(unknown)}; lane "
+                f"carries unsupported key(s) {', '.join(unknown)}; level "
                 "presentation is a label and a glyph.",
                 field=field,
             )
-        label = entry.get("label", lane_id)
+        label = entry.get("label", level_id)
         if not isinstance(label, str) or not label.strip():
             raise SessionRoutingSettingsError(
                 "label must be a non-empty string.", field=f"{field}.label"
@@ -104,75 +106,74 @@ def _validate_lane_metadata(settings: Mapping[str, Any]) -> tuple[str, ...]:
         label = label.strip()
         if label != label.upper():
             raise SessionRoutingSettingsError(
-                f"label {label!r} must be uppercase — lane labels are read as "
+                f"label {label!r} must be uppercase — level labels are read as "
                 f"identities on the board. Use {label.upper()!r}.",
                 field=f"{field}.label",
             )
-        if len(label) > MAX_LANE_LABEL_CHARS:
+        if len(label) > MAX_LEVEL_LABEL_CHARS:
             raise SessionRoutingSettingsError(
                 f"label {label!r} is {len(label)} characters; the board's "
-                f"session column holds at most {MAX_LANE_LABEL_CHARS}.",
+                f"session column holds at most {MAX_LEVEL_LABEL_CHARS}.",
                 field=f"{field}.label",
             )
         claimed_by = labels.get(label)
         if claimed_by is not None:
             raise SessionRoutingSettingsError(
-                f"label {label!r} is already used by lane {claimed_by!r}. Two "
-                "lanes reading the same on every surface cannot be told "
+                f"label {label!r} is already used by level {claimed_by!r}. Two "
+                "levels reading the same on every surface cannot be told "
                 "apart; give this one its own label.",
                 field=f"{field}.label",
             )
-        labels[label] = lane_id
+        labels[label] = level_id
         if "glyph" in entry:
             try:
-                validate_lane_glyph(entry.get("glyph"), field="glyph")
-            except LaneGlyphError as exc:
+                validate_level_glyph(entry.get("glyph"), field="glyph")
+            except LevelGlyphError as exc:
                 raise SessionRoutingSettingsError(
                     str(exc), field=f"{field}.glyph"
                 ) from exc
-        lanes.append(lane_id)
-    return tuple(lanes)
+        levels.append(level_id)
+    return tuple(levels)
 
 
-EXECUTOR_LANE_PREFIX = "executor_default_lane_"
-
-
-def _lane_reference_entries(settings: Mapping[str, Any]) -> tuple[tuple[str, Any], ...]:
-    """Yield ``(field, lane)`` for every harness-default lane reference."""
+def _level_reference_entries(
+    settings: Mapping[str, Any],
+) -> tuple[tuple[str, Any], ...]:
+    """Yield ``(field, level)`` for every harness-default level reference."""
     entries: list[tuple[str, Any]] = []
-    grouped = settings.get("executor_default_lanes")
+    grouped = settings.get("executor_default_levels")
     if grouped is not None:
         if not isinstance(grouped, Mapping):
             raise SessionRoutingSettingsError(
                 "must be an object mapping an executor or executor prefix to "
-                f"a lane; got {type(grouped).__name__}.",
-                field="executor_default_lanes",
+                f"a level; got {type(grouped).__name__}.",
+                field="executor_default_levels",
             )
         entries.extend(
-            (f"executor_default_lanes.{selector}", lane)
-            for selector, lane in grouped.items()
+            (f"executor_default_levels.{selector}", level)
+            for selector, level in grouped.items()
         )
     entries.extend(
         (str(key), value)
         for key, value in settings.items()
         if isinstance(key, str)
-        and key.startswith(EXECUTOR_LANE_PREFIX)
-        and key != EXECUTOR_LANE_PREFIX
+        and key.startswith(EXECUTOR_DEFAULT_LEVEL_PREFIX)
+        and key != EXECUTOR_DEFAULT_LEVEL_PREFIX
     )
     return tuple(entries)
 
 
-def _validate_lane_references(
+def _validate_level_references(
     entries: tuple[tuple[str, Any], ...], *, declared: Iterable[str]
 ) -> None:
-    declared_lanes = set(declared)
-    for field, lane in entries:
-        if not isinstance(lane, str) or lane.strip() not in declared_lanes:
+    declared_levels = set(declared)
+    for field, level in entries:
+        if not isinstance(level, str) or level.strip() not in declared_levels:
             raise SessionRoutingSettingsError(
-                f"routes to lane {lane!r}, which this project does not "
-                f"declare. Declared lanes are "
-                f"{', '.join(sorted(declared_lanes)) or '(none)'}; declare "
-                "the lane in lane_metadata first.",
+                f"routes to level {level!r}, which this project does not "
+                f"declare. Declared levels are "
+                f"{', '.join(sorted(declared_levels)) or '(none)'}; declare "
+                "the level in level_metadata first.",
                 field=field,
             )
 
@@ -182,7 +183,7 @@ def validate_session_routing_settings(settings: Mapping[str, Any]) -> None:
 
     Validates the document as a whole rather than the keys one writer
     happened to touch, because a merge that adds one rule can only be
-    judged against the lane_metadata identities the document declares.
+    judged against the level_metadata identities the document declares.
     """
     if not isinstance(settings, Mapping):
         raise SessionRoutingSettingsError(
@@ -201,16 +202,25 @@ def validate_session_routing_settings(settings: Mapping[str, Any]) -> None:
     if retired:
         raise SessionRoutingSettingsError(
             "lane_action_allowlists_retired: remove these settings keys; "
-            "execution lanes group sessions by harness and model. "
-            "Use lane_metadata to declare lanes and workflow bindings to "
+            "execution levels group sessions by harness and model. "
+            "Use level_metadata to declare levels and workflow bindings to "
             "select stage skills.",
             field=", ".join(retired),
         )
-    declared = _validate_lane_metadata(settings)
-    _validate_lane_references(_lane_reference_entries(settings), declared=declared)
+    renamed = renamed_routing_keys(settings)
+    if renamed:
+        raise SessionRoutingSettingsError(
+            "lane_routing_keys_renamed: execution lanes are now execution "
+            "levels. Rename "
+            + ", ".join(f"{old} to {new}" for old, new in sorted(renamed.items()))
+            + " and write the document again.",
+            field=", ".join(sorted(renamed)),
+        )
+    declared = _validate_level_metadata(settings)
+    _validate_level_references(_level_reference_entries(settings), declared=declared)
     try:
-        parse_lane_rules(settings.get("lane_rules"), declared_lanes=declared)
-    except LaneRuleError as exc:
+        parse_level_rules(settings.get("level_rules"), declared_levels=declared)
+    except LevelRuleError as exc:
         raise SessionRoutingSettingsError(str(exc), field=exc.field) from exc
 
 
@@ -226,7 +236,7 @@ def validate_json_string(raw_json: str) -> str:
 
 
 __all__ = [
-    "MAX_LANE_LABEL_CHARS",
+    "MAX_LEVEL_LABEL_CHARS",
     "SessionRoutingSettingsError",
     "validate_json_string",
     "validate_session_routing_settings",

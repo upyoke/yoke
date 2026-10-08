@@ -53,7 +53,7 @@ def _add_desktop_session(conn, *, session_id: str = CLAUDE_DESKTOP_SESSION_ID) -
     conn.execute(
         "INSERT INTO harness_sessions ("
         "session_id,project_id,actor_id,executor,executor_surface,"
-        "executor_version,machine_id,execution_lane,last_heartbeat,"
+        "executor_version,machine_id,execution_level,last_heartbeat,"
         "last_tool_call_at,offered_at) "
         "VALUES (?,1,10,'claude-code','claude-desktop',?,'m5','direct',?,?,?)",
         (session_id, CLAUDE_DESKTOP_VERSION, NOW_TEXT, NOW_TEXT, NOW_TEXT),

@@ -5,29 +5,29 @@ from __future__ import annotations
 import json
 from typing import Any, Optional
 
-from yoke_contracts.session_lane import lane_is_unresolved
+from yoke_contracts.session_level import level_is_unresolved
 from yoke_core.domain.session_routing_rules import routing_model_of
 
 
-def project_lane_for_session(
+def project_level_for_session(
     conn: Any,
     project_id: Any,
     executor: str,
     *,
-    explicit_lane: Optional[str] = None,
+    explicit_level: Optional[str] = None,
     model: Optional[str] = None,
 ) -> Optional[str]:
-    """Resolve this session's lane from the project's routing policy.
+    """Resolve this session's level from the project's routing policy.
 
     Routing policy is project-scoped shared authority (the
-    ``session-routing`` capability), so the lane is resolved here — at stamp
+    ``session-routing`` capability), so the level is resolved here — at stamp
     time, against the connection that is about to write the row — rather
     than trusted from whatever the caller carried in. Returns ``None`` when
     the project declares no routing policy, leaving the caller's own
     fallback in charge.
 
     ``model`` is the model the session is serving, which the project's
-    ``lane_rules`` selectors may route on; omitting it leaves the session
+    ``level_rules`` selectors may route on; omitting it leaves the session
     to the harness tiers.
     """
     if project_id is None:
@@ -35,15 +35,15 @@ def project_lane_for_session(
     from yoke_core.api.routing_config import (
         load_project_routing_settings,
         load_routing_config,
-        resolve_execution_lane,
+        resolve_execution_level,
     )
 
     settings = load_project_routing_settings(conn, project_id)
     if not settings:
         return None
-    return resolve_execution_lane(
+    return resolve_execution_level(
         executor=executor,
-        explicit_lane=explicit_lane,
+        explicit_level=explicit_level,
         # Project settings are the complete routing authority; the machine
         # config path is unread whenever they are supplied.
         routing_config=load_routing_config("", project_settings=settings),
@@ -51,33 +51,33 @@ def project_lane_for_session(
     )
 
 
-def _wire_lane(payload_json: str) -> str:
-    """Return the lane the hook payload carried, or ``""``."""
+def _wire_level(payload_json: str) -> str:
+    """Return the level the hook payload carried, or ``""``."""
     if not payload_json:
         return ""
     payload = json.loads(payload_json)
     if not isinstance(payload, dict):
         return ""
-    lane = payload.get("execution_lane", "")
-    return lane.strip() if isinstance(lane, str) else ""
+    level = payload.get("execution_level", "")
+    return level.strip() if isinstance(level, str) else ""
 
 
-def _lane_can_upgrade(
+def _level_can_upgrade(
     conn: Any,
     payload_json: str,
     session_id: str,
     project_id: Any,
 ) -> bool:
-    """True when a stored lane left unresolved can heal to a real one.
+    """True when a stored level left unresolved can heal to a real one.
 
-    The stored lane is the authority the offer gate reads, so a row holding
+    The stored level is the authority the offer gate reads, so a row holding
     the unresolved sentinel is unroutable until something re-resolves it.
-    Registration is idempotent and already upgrades an unresolved stored lane
+    Registration is idempotent and already upgrades an unresolved stored level
     in place, so reporting True lets any hook event repair the row. Two
-    sources can supply the replacement: a lane the payload carried, and the
+    sources can supply the replacement: a level the payload carried, and the
     project's own routing policy resolved against the row's executor — the
     authority that outlives whatever the caller knew. Once the row carries a
-    real lane this returns False, which keeps a healed session from
+    real level this returns False, which keeps a healed session from
     re-registering on every event.
     """
     try:
@@ -85,7 +85,7 @@ def _lane_can_upgrade(
 
         p = "%s" if db_backend.connection_is_postgres(conn) else "?"
         row = conn.execute(
-            "SELECT execution_lane, executor, model, requested_model "
+            "SELECT execution_level, executor, model, requested_model "
             f"FROM harness_sessions "
             f"WHERE session_id = {p}",
             (session_id,),
@@ -93,12 +93,12 @@ def _lane_can_upgrade(
         if row is None:
             return False
         if hasattr(row, "get"):
-            stored, executor = row.get("execution_lane"), row.get("executor")
+            stored, executor = row.get("execution_level"), row.get("executor")
         else:
             stored, executor = row[0], row[1]
-        if not lane_is_unresolved(stored):
+        if not level_is_unresolved(stored):
             return False
-        if not lane_is_unresolved(_wire_lane(payload_json)):
+        if not level_is_unresolved(_wire_level(payload_json)):
             return True
         if not executor:
             return False
@@ -106,8 +106,8 @@ def _lane_can_upgrade(
             served, requested = row.get("model"), row.get("requested_model")
         else:
             served, requested = row[2], row[3]
-        return not lane_is_unresolved(
-            project_lane_for_session(
+        return not level_is_unresolved(
+            project_level_for_session(
                 conn,
                 project_id,
                 executor,
@@ -245,9 +245,9 @@ def placeholder_identity_can_upgrade(
 ) -> bool:
     """True when identity resolution can improve the stored row.
 
-    Model facts and lane heal from different authorities: the facts ride
+    Model facts and level heal from different authorities: the facts ride
     the wire from the client that can read the harness artifact, while the
-    lane's last word is project routing policy, which only the control
+    level's last word is project routing policy, which only the control
     plane can read.
     """
     return (
@@ -266,8 +266,8 @@ def placeholder_identity_can_upgrade(
             payload_json,
             session_id,
         )
-        or _lane_can_upgrade(conn, payload_json, session_id, project_id)
+        or _level_can_upgrade(conn, payload_json, session_id, project_id)
     )
 
 
-__all__ = ["placeholder_identity_can_upgrade", "project_lane_for_session"]
+__all__ = ["placeholder_identity_can_upgrade", "project_level_for_session"]

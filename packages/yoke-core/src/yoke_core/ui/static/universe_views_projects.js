@@ -11,8 +11,8 @@ import {
   metricStrip,
 } from "./universe_secondary_primitives.js";
 import {
-  renderProjectLaneSummary,
-} from "./universe_views_project_lanes.js";
+  renderProjectLevelSummary,
+} from "./universe_views_project_levels.js";
 
 export function renderProjectsView(context, main, includeRetired = false) {
   const documentNode = context.document;
@@ -150,9 +150,9 @@ export function titleLimitCard(context, scope, effectiveLimit) {
 export function renderProjectView(context, main, scope) {
   const documentNode = context.document;
   const panel = section(documentNode, "Project settings");
-  // The lane summary reads the project the route opened, not the remembered
-  // list selection, so opening a second project shows that project's lanes.
-  main.replaceChildren(panel, renderProjectLaneSummary(context, scope));
+  // The level summary reads the project the route opened, not the remembered
+  // list selection, so opening a second project shows that project's levels.
+  main.replaceChildren(panel, renderProjectLevelSummary(context, scope));
   loadSection(
     context,
     panel,

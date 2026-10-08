@@ -19,7 +19,7 @@ from yoke_core.api.service_client_shared import (
     _get_db_readwrite,
     _load_routing_config,
     _resolve_session_id,
-    resolve_execution_lane,
+    resolve_execution_level,
 )
 
 
@@ -57,7 +57,7 @@ def begin_session(
 ) -> dict:
     """Register (or idempotently refresh) a session row; return a result dict.
 
-    Resolves the execution lane from the project's routing config and
+    Resolves the execution level from the project's routing config and
     registers the session — the identical steps the operator-debug
     ``session-begin`` command and the transport-keyed ``sessions.begin``
     function handler both need. The already-registered case returns a
@@ -77,15 +77,15 @@ def begin_session(
     from the entrypoint. Composing here first would destroy that preference:
     a ``codex-desktop`` surface plus a ``dash`` entrypoint would arrive as
     ``codex-dash``, and the surface the session actually ran on would be
-    unrecoverable. Lane routing reads the same verbatim value, which matches
+    unrecoverable. Level routing reads the same verbatim value, which matches
     both exact surface keys and family wildcards in the routing config.
     """
     from yoke_core.domain.sessions import SessionError, register_session
 
     routing_config = _load_routing_config(conn=conn, project_id=project_id)
-    resolved_lane = resolve_execution_lane(
+    resolved_level = resolve_execution_level(
         executor=executor,
-        explicit_lane=None,
+        explicit_level=None,
         routing_config=routing_config,
         model=routing_model_of(model_facts.model, model_facts.requested_model),
     )
@@ -99,7 +99,7 @@ def begin_session(
             workspace=workspace,
             project_id=project_id,
             mode=mode,
-            execution_lane=resolved_lane,
+            execution_level=resolved_level,
             entrypoint=entrypoint,
             executor_version=executor_version,
             machine_id=machine_id,
@@ -153,10 +153,12 @@ def cmd_session_begin(args: list[str]) -> int:
     try:
         parsed = parser.parse_args(args)
     except SystemExit:
-        print("Usage: session-begin [--session-id S] --executor E "
-              "--provider P --workspace W [--requested-model M] "
-              "[--model SERVED] [--mode MODE]",
-              file=sys.stderr)
+        print(
+            "Usage: session-begin [--session-id S] --executor E "
+            "--provider P --workspace W [--requested-model M] "
+            "[--model SERVED] [--mode MODE]",
+            file=sys.stderr,
+        )
         return 2
 
     parsed.session_id = _resolve_session_id(parsed.session_id)
@@ -183,6 +185,7 @@ def cmd_session_begin(args: list[str]) -> int:
     conn = _get_db_readwrite()
     try:
         from yoke_core.domain.sessions import SessionError
+
         try:
             result = begin_session(
                 conn,
@@ -201,11 +204,16 @@ def cmd_session_begin(args: list[str]) -> int:
             )
             print(json.dumps(result, default=str))
         except SessionError as exc:
-            print(json.dumps({
-                "success": False,
-                "code": exc.code,
-                "message": exc.message,
-            }), file=sys.stderr)
+            print(
+                json.dumps(
+                    {
+                        "success": False,
+                        "code": exc.code,
+                        "message": exc.message,
+                    }
+                ),
+                file=sys.stderr,
+            )
             return 1
         return 0
     finally:

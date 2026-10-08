@@ -34,7 +34,7 @@ class _RaceConn:
                     "terminated_at": None,
                     "model": "gpt",
                     "actor_id": None,
-                    "execution_lane": "primary",
+                    "execution_level": "primary",
                     "project_id": 1,
                 }
             )
@@ -69,12 +69,15 @@ def test_reactivation_loser_does_not_emit_started_event():
     emitted = []
     conn = _RaceConn()
 
-    with patch(
-        "yoke_core.domain.sessions_lifecycle_registry.resolve_session_actor_id",
-        return_value=None,
-    ), patch(
-        "yoke_core.domain.sessions_analytics._emit_session_event",
-        side_effect=lambda *args, **kwargs: emitted.append((args, kwargs)),
+    with (
+        patch(
+            "yoke_core.domain.sessions_lifecycle_registry.resolve_session_actor_id",
+            return_value=None,
+        ),
+        patch(
+            "yoke_core.domain.sessions_analytics._emit_session_event",
+            side_effect=lambda *args, **kwargs: emitted.append((args, kwargs)),
+        ),
     ):
         with pytest.raises(SessionError) as exc_info:
             register_session(

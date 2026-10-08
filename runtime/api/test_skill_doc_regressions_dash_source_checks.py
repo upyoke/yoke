@@ -18,7 +18,7 @@ def test_dash_scopes_source_checks_before_teaching_commands() -> None:
     assert "A change with no Python" in text
 
 
-def test_workflow_source_check_recipes_have_explicit_lane_scope() -> None:
+def test_workflow_source_check_recipes_have_explicit_level_scope() -> None:
     for path in SKILLS.rglob("*.md"):
         text = _read(path)
         if any(

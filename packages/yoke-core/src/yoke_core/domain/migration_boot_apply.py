@@ -23,7 +23,7 @@ from yoke_core.domain import (
     migration_serving_version,
 )
 from yoke_core.domain.migration_apply_attribution import (
-    refuse_lane_as_model_name,
+    refuse_level_as_model_name,
     require_attribution,
 )
 from yoke_core.domain.migration_apply_contract import MigrationApplyError
@@ -174,7 +174,7 @@ def apply_pending(
         return ApplyOutcome(applied=(), restore_point=None)
 
     provenance = require_attribution(attribution)
-    model = refuse_lane_as_model_name(model_name)
+    model = refuse_level_as_model_name(model_name)
 
     restore_point = migration_restore_point.establish(
         conn,

@@ -14,13 +14,13 @@ from runtime.api.domain.migration_boot_test_helpers import (
     history as build_history,
     marks,
 )
-from yoke_contracts.session_lane import UNRESOLVED_EXECUTION_LANE
+from yoke_contracts.session_level import UNRESOLVED_EXECUTION_LEVEL
 from yoke_core.domain.migration_apply_attribution import (
     IncompleteAttributionError,
-    LaneAsModelNameError,
+    LevelAsModelNameError,
     collect_boot_attribution,
     collect_operator_attribution,
-    refuse_lane_as_model_name,
+    refuse_level_as_model_name,
     require_attribution,
 )
 from yoke_core.domain.migration_boot_apply import apply_pending as kernel_apply_pending
@@ -162,25 +162,25 @@ def test_completed_receipt_records_attribution(tmp_path: Path) -> None:
     )
 
 
-def test_declared_model_name_that_collides_with_the_lane_sentinel_is_kept() -> None:
-    assert refuse_lane_as_model_name(UNRESOLVED_EXECUTION_LANE) == "primary"
+def test_declared_model_name_that_collides_with_the_level_sentinel_is_kept() -> None:
+    assert refuse_level_as_model_name(UNRESOLVED_EXECUTION_LEVEL) == "primary"
     assert (
-        refuse_lane_as_model_name("primary", declared_models=["primary"]) == "primary"
+        refuse_level_as_model_name("primary", declared_models=["primary"]) == "primary"
     )
 
 
-def test_execution_lane_is_refused_as_model_name() -> None:
-    with pytest.raises(LaneAsModelNameError, match="execution lane"):
-        refuse_lane_as_model_name("DARIUS")
-    with pytest.raises(LaneAsModelNameError, match="execution lane"):
-        refuse_lane_as_model_name("MUSKY", execution_lanes=["MUSKY"])
+def test_execution_level_is_refused_as_model_name() -> None:
+    with pytest.raises(LevelAsModelNameError, match="execution level"):
+        refuse_level_as_model_name("DARIUS")
+    with pytest.raises(LevelAsModelNameError, match="execution level"):
+        refuse_level_as_model_name("MUSKY", execution_levels=["MUSKY"])
 
 
-def test_apply_refuses_a_lane_value_in_model_name(tmp_path: Path) -> None:
+def test_apply_refuses_a_level_value_in_model_name(tmp_path: Path) -> None:
     conn = connection()
     history = build_history(tmp_path, "0001_first")
 
-    with pytest.raises(LaneAsModelNameError, match="DARIUS"):
+    with pytest.raises(LevelAsModelNameError, match="DARIUS"):
         apply_pending(
             conn,
             history=history,

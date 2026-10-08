@@ -10,7 +10,7 @@ from yoke_contracts.board.project_scope import (
     scope_project_id,
     visible_project_ids,
 )
-from yoke_contracts.session_lane import lane_presentation
+from yoke_contracts.session_level import level_presentation
 from yoke_contracts.project_contract.project_keys import (
     SESSION_ROUTING_CAPABILITY,
 )
@@ -86,7 +86,7 @@ def _session_rows_sql(
     return f"""
         SELECT hs.session_id, hs.executor{surface_col}, hs.model,
                hs.requested_model, hs.usage_totals,
-               hs.mode, hs.execution_lane, hs.offered_at, hs.last_heartbeat,
+               hs.mode, hs.execution_level, hs.offered_at, hs.last_heartbeat,
                hs.workspace, hs.project_id
                {ended_col}
         FROM harness_sessions hs
@@ -113,26 +113,26 @@ def session_project_label(
     return _format_project_label(project) if project else "—"
 
 
-def session_lane_presentation(
+def session_level_presentation(
     db: BoardDBLike,
     project_id: Any,
-    lane: Any,
+    level: Any,
 ) -> dict[str, str]:
-    """Read one lane's display metadata from its project capability."""
+    """Read one level's display metadata from its project capability."""
     try:
         normalized_project_id = int(project_id)
     except (TypeError, ValueError):
-        return lane_presentation(str(lane or ""))
+        return level_presentation(str(level or ""))
     sql = (
         "SELECT settings FROM project_capabilities WHERE project_id = %s AND type = %s"
     )
     params = (normalized_project_id, SESSION_ROUTING_CAPABILITY)
     has_query_quiet = getattr(db, "has_query_quiet", None)
     if callable(has_query_quiet) and not has_query_quiet(sql, params):
-        return lane_presentation(str(lane or ""))
+        return level_presentation(str(level or ""))
     rows = db.query_quiet(sql, params)
     if not rows:
-        return lane_presentation(str(lane or ""))
+        return level_presentation(str(level or ""))
     raw_settings = rows[0][0]
     try:
         settings = (
@@ -142,7 +142,7 @@ def session_lane_presentation(
         )
     except (TypeError, ValueError):
         settings = {}
-    return lane_presentation(str(lane or ""), settings)
+    return level_presentation(str(level or ""), settings)
 
 
 def _scope_filter(

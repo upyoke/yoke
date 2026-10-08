@@ -58,7 +58,7 @@ test("Sessions contains a long relay name and unequal multi-claim cards", async 
     client: sessionsClient([
       {
         session_id: "steering-1", liveness: "active",
-        execution_lane: "DARIUS", mode: "steer", executor: "codex",
+        execution_level: "DARIUS", mode: "steer", executor: "codex",
         model: "gpt-5.6-sol", actor_id: 2, actor_kind: "human",
         actor_label: "Ben", project_id: 1, project: "yoke",
         current_item: "YOK-2552", current_item_project_id: 1,
@@ -99,7 +99,7 @@ test("Sessions contains a long relay name and unequal multi-claim cards", async 
       },
       {
         session_id: "single-1", liveness: "active",
-        execution_lane: "ALTMAN", mode: "feed", executor: "claude-code",
+        execution_level: "ALTMAN", mode: "feed", executor: "claude-code",
         model: "claude-opus-4-8", actor_id: 2, actor_kind: "human",
         actor_label: "Ben", project_id: 1, project: "yoke",
         current_item: null, activity_at: "2026-07-26T12:04:00Z",
@@ -147,7 +147,7 @@ test("Sessions lists every work claim and coordination lease a session holds", a
     client: sessionsClient([
       {
         session_id: "multi-1", liveness: "active",
-        execution_lane: "ALTMAN", lane_label: "Integration", lane_glyph: "🧭",
+        execution_level: "ALTMAN", level_label: "Integration", level_glyph: "🧭",
         mode: "dash", executor: "claude-code",
         executor_surface: "cursor-desktop",
         model: "claude-opus-4-8",
@@ -253,7 +253,7 @@ test("Sessions separates a filed item's attribution from the claim it holds", as
     client: sessionsClient([
       {
         session_id: "filer-1", liveness: "active",
-        execution_lane: "DARIUS", mode: "wait", executor: "claude-code",
+        execution_level: "DARIUS", mode: "wait", executor: "claude-code",
         executor_surface: "claude-desktop", model: "claude-opus-4-8",
         executor_mark: "A", executor_class_name: "h-claude",
         actor_id: 2, actor_kind: "human", actor_label: "Ben",

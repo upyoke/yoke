@@ -1,4 +1,4 @@
-"""session-begin lane resolution tests for yoke_core.api.service_client.
+"""session-begin level resolution tests for yoke_core.api.service_client.
 
 Sibling files:
 - test_service_client_sessions_touch.py (session-touch)
@@ -20,18 +20,18 @@ from runtime.api.test_service_client_sessions_helpers import (
 from runtime.api.test_constants import TEST_MODEL_ID
 
 
-class TestSessionBeginLane:
-    """Verify session-begin resolves execution_lane from config."""
+class TestSessionBeginLevel:
+    """Verify session-begin resolves execution_level from config."""
 
-    def test_session_begin_resolves_lane_from_config_codex(self, session_test_db):
+    def test_session_begin_resolves_level_from_config_codex(self, session_test_db):
         """Codex executor should resolve to ALTMAN via config."""
         config_path = os.path.join(
             os.path.dirname(session_test_db["db_path"]), "config"
         )
         with open(config_path, "w", encoding="utf-8") as handle:
-            handle.write("executor_default_lane_codex=ALTMAN\n")
+            handle.write("executor_default_level_codex=ALTMAN\n")
 
-        sid = "reg-lane-codex"
+        sid = "reg-level-codex"
         result = _run_client(
             [
                 "session-begin",
@@ -54,7 +54,7 @@ class TestSessionBeginLane:
 
         conn = connect_test_db(session_test_db["db_path"])
         row = conn.execute(
-            "SELECT execution_lane FROM harness_sessions WHERE session_id = %s",
+            "SELECT execution_level FROM harness_sessions WHERE session_id = %s",
             (sid,),
         ).fetchone()
         conn.close()
@@ -62,15 +62,17 @@ class TestSessionBeginLane:
         assert row is not None
         assert row[0] == "ALTMAN"
 
-    def test_session_begin_resolves_lane_from_config_claude_code(self, session_test_db):
+    def test_session_begin_resolves_level_from_config_claude_code(
+        self, session_test_db
+    ):
         """Claude Code executor should resolve to DARIUS via config."""
         config_path = os.path.join(
             os.path.dirname(session_test_db["db_path"]), "config"
         )
         with open(config_path, "w", encoding="utf-8") as handle:
-            handle.write("executor_default_lane_claude_code=DARIUS\n")
+            handle.write("executor_default_level_claude_code=DARIUS\n")
 
-        sid = "reg-lane-claude"
+        sid = "reg-level-claude"
         result = _run_client(
             [
                 "session-begin",
@@ -93,7 +95,7 @@ class TestSessionBeginLane:
 
         conn = connect_test_db(session_test_db["db_path"])
         row = conn.execute(
-            "SELECT execution_lane FROM harness_sessions WHERE session_id = %s",
+            "SELECT execution_level FROM harness_sessions WHERE session_id = %s",
             (sid,),
         ).fetchone()
         conn.close()
@@ -109,9 +111,9 @@ class TestSessionBeginLane:
             os.path.dirname(session_test_db["db_path"]), "config"
         )
         with open(config_path, "w", encoding="utf-8") as handle:
-            handle.write("")  # no lane mappings
+            handle.write("")  # no level mappings
 
-        sid = "reg-lane-fallback"
+        sid = "reg-level-fallback"
         result = _run_client(
             [
                 "session-begin",
@@ -134,7 +136,7 @@ class TestSessionBeginLane:
 
         conn = connect_test_db(session_test_db["db_path"])
         row = conn.execute(
-            "SELECT execution_lane FROM harness_sessions WHERE session_id = %s",
+            "SELECT execution_level FROM harness_sessions WHERE session_id = %s",
             (sid,),
         ).fetchone()
         conn.close()
@@ -188,15 +190,15 @@ class TestSessionBeginLane:
         assert envelope["context"]["executor_surface"] == "codex-desktop"
         assert envelope["context"]["entrypoint"] == "codex-desktop"
 
-    def test_session_begin_promotes_claude_executor_from_entrypoint_and_uses_project_lane(
+    def test_session_begin_promotes_claude_executor_from_entrypoint_and_uses_project_level(
         self, session_test_db
     ):
         config_path = os.path.join(
             os.path.dirname(session_test_db["db_path"]), "config"
         )
         with open(config_path, "w", encoding="utf-8") as handle:
-            handle.write("executor_default_lane_claude*=DARIUS\n")
-            handle.write("executor_default_lane_claude_vscode=ALTMAN\n")
+            handle.write("executor_default_level_claude*=DARIUS\n")
+            handle.write("executor_default_level_claude_vscode=ALTMAN\n")
 
         sid = "reg-claude-surface"
         result = _run_client(
@@ -223,7 +225,7 @@ class TestSessionBeginLane:
 
         conn = connect_test_db(session_test_db["db_path"])
         row = conn.execute(
-            "SELECT executor, executor_surface, execution_lane "
+            "SELECT executor, executor_surface, execution_level "
             "FROM harness_sessions WHERE session_id = %s",
             (sid,),
         ).fetchone()
@@ -254,7 +256,7 @@ class TestSessionBeginLane:
             os.path.dirname(session_test_db["db_path"]), "config"
         )
         with open(config_path, "w", encoding="utf-8") as handle:
-            handle.write("executor_default_lane_claude_desktop=DARIUS\n")
+            handle.write("executor_default_level_claude_desktop=DARIUS\n")
 
         sid = "reg-legacy-claude"
         result = _run_client(
@@ -281,7 +283,7 @@ class TestSessionBeginLane:
 
         conn = connect_test_db(session_test_db["db_path"])
         row = conn.execute(
-            "SELECT executor, executor_surface, execution_lane "
+            "SELECT executor, executor_surface, execution_level "
             "FROM harness_sessions WHERE session_id = %s",
             (sid,),
         ).fetchone()

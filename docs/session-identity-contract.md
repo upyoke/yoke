@@ -84,12 +84,12 @@ yoke sessions identity
 The call takes no arguments — it resolves the caller through the ambient
 chain below, works on both transports (relaying rather than opening a local
 database), and is available to any session at any time. It returns session
-id, canonical executor and display alias, provider, model, execution lane,
+id, canonical executor and display alias, provider, model, execution level,
 workspace, project, actor, and `max_chain_steps`. Every field comes from the
 authority.
 
 **A session reads its stored identity rather than reconstructing it.** The
-execution lane is stamped at registration from the project's harness/model
+execution level is stamped at registration from the project's harness/model
 selectors and defaults, or from a deliberate registration override. It is a
 grouping label, with no downstream skill permissions. Work assignment follows
 pinned workflow bindings and explicit staffing.
@@ -98,7 +98,7 @@ pinned workflow bindings and explicit staffing.
 authority holds no row for the calling id, the read is refused with the
 recovery command. Hooks register at session start and re-register on any
 later hook event, so a missing row means hook installation — never a reason
-to fall back to a locally detected executor, lane, or model. A wrong value
+to fall back to a locally detected executor, level, or model. A wrong value
 that looks authoritative is harder to catch than a missing one: the caller
 reasons correctly from a false input and nothing downstream misbehaves.
 
@@ -256,19 +256,19 @@ registry there — the server's process context is not the caller's. The
 relay client writes the anchor locally before the POST and carries the
 client-only identity fields (`entrypoint`, real `model`, and — only when
 this machine's own config declares a matching executor key —
-`execution_lane`) on the wire so server-side registration can heal
+`execution_level`) on the wire so server-side registration can heal
 placeholder rows without reading client-local state.
 
-The lane is the one field the client usually has no opinion about.
+The level is the one field the client usually has no opinion about.
 Routing policy lives in the project's `session-routing` capability — its
 selectors read the session's model as well as its harness — and only the
-control plane can read it, so `client_lane` answers `None` on a local miss
+control plane can read it, so `client_level` answers `None` on a local miss
 rather than shipping a placeholder. That placeholder would arrive as an
-*explicit* lane and outrank the project's own routing, stamping a session
+*explicit* level and outrank the project's own routing, stamping a session
 with the unresolved sentinel rather than its configured grouping. Defence in
-depth sits on the server too: `resolve_execution_lane` treats the sentinel
+depth sits on the server too: `resolve_execution_level` treats the sentinel
 like `default`, so an older client's placeholder yields to policy. Precedence:
-[`public/reference/session-lane-routing.md`](public/reference/session-lane-routing.md).
+[`public/reference/session-level-routing.md`](public/reference/session-level-routing.md).
 
 ## Session Reactivation and Work Claims
 

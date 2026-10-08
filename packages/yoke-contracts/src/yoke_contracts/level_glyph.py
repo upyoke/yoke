@@ -1,4 +1,4 @@
-"""Write-time contract for the glyph a project may give an execution lane.
+"""Write-time contract for the glyph a project may give an execution level.
 
 The board renders a session row as ``<glyph> <label>`` inside fixed-width
 columns, so a glyph that occupies a different number of terminal cells in
@@ -42,7 +42,7 @@ SAFE_GLYPH_EXAMPLES: tuple[str, ...] = (
     "\U0001f6f8",  # flying saucer
     "\U0001f680",  # rocket
 )
-"""Glyphs an operator can copy straight into a lane that are known safe."""
+"""Glyphs an operator can copy straight into a level that are known safe."""
 
 BOARD_GLYPH_CELLS = 2
 """Terminal cells one board glyph must occupy for the columns to line up."""
@@ -55,14 +55,12 @@ _REGIONAL_INDICATORS = range(0x1F1E6, 0x1F200)
 
 _RECOVERY = (
     "Use a single Emoji_Presentation glyph that needs no variation "
-    "selector — for example "
-    + " ".join(SAFE_GLYPH_EXAMPLES)
-    + "."
+    "selector — for example " + " ".join(SAFE_GLYPH_EXAMPLES) + "."
 )
 
 
-class LaneGlyphError(ValueError):
-    """Raised when a lane glyph would not render safely on the board."""
+class LevelGlyphError(ValueError):
+    """Raised when a level glyph would not render safely on the board."""
 
 
 def _describe(code_point: int) -> str:
@@ -139,10 +137,10 @@ def _base_reason(code_point: int) -> str | None:
     return None
 
 
-def lane_glyph_error(glyph: object) -> str | None:
+def level_glyph_error(glyph: object) -> str | None:
     """Return why ``glyph`` is unsafe for the board, or ``None`` when it is safe.
 
-    Exposed beside :func:`validate_lane_glyph` so a caller assembling a
+    Exposed beside :func:`validate_level_glyph` so a caller assembling a
     field-by-field report can collect reasons without catching one
     exception per field.
     """
@@ -180,22 +178,22 @@ def lane_glyph_error(glyph: object) -> str | None:
     return None
 
 
-def validate_lane_glyph(glyph: object, *, field: str = "glyph") -> str:
+def validate_level_glyph(glyph: object, *, field: str = "glyph") -> str:
     """Return ``glyph`` unchanged when it is board-safe, else raise.
 
     ``field`` names the settings path the value came from so the refusal
     points at the key an operator has to edit.
     """
-    reason = lane_glyph_error(glyph)
+    reason = level_glyph_error(glyph)
     if reason is None:
         return str(glyph)
-    raise LaneGlyphError(f"{field} {reason}. {_RECOVERY}")
+    raise LevelGlyphError(f"{field} {reason}. {_RECOVERY}")
 
 
 __all__ = [
     "BOARD_GLYPH_CELLS",
-    "LaneGlyphError",
+    "LevelGlyphError",
     "SAFE_GLYPH_EXAMPLES",
-    "lane_glyph_error",
-    "validate_lane_glyph",
+    "level_glyph_error",
+    "validate_level_glyph",
 ]

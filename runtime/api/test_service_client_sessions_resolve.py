@@ -39,7 +39,7 @@ def _clear_chain(monkeypatch):
 #: whichever harness family is running the tests. One started from
 #: another harness correctly refuses an injected Claude variable — the
 #: behaviour under test elsewhere, not a failure here.
-_CLAUDE_LANE_REACHABLE = nearest_harness_family() in (None, CLAUDE_FAMILY)
+_CLAUDE_LEVEL_REACHABLE = nearest_harness_family() in (None, CLAUDE_FAMILY)
 
 
 class TestResolveSessionId:
@@ -215,7 +215,7 @@ class TestSessionIdAutoResolutionIntegration:
         conn = connect_test_db(db)
         conn.execute(
             "INSERT INTO harness_sessions (session_id, executor, provider, model, "
-            "project_id, execution_lane, workspace, mode, offered_at, last_heartbeat) "
+            "project_id, execution_level, workspace, mode, offered_at, last_heartbeat) "
             "VALUES (%s, 'claude-code', 'anthropic', 'opus', 1, 'primary', %s, 'hook', "
             "'2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')",
             (sid, session_test_db["tmp_dir"]),
@@ -307,7 +307,7 @@ class TestSessionIdAutoResolutionIntegration:
             )
 
     @pytest.mark.skipif(
-        not _CLAUDE_LANE_REACHABLE,
+        not _CLAUDE_LEVEL_REACHABLE,
         reason="suite runs under a harness whose family is not Claude",
     )
     def test_claude_session_id_fallback_works(self, session_test_db):

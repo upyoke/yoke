@@ -25,7 +25,7 @@ test("Message button explains a quiet desktop chat waits on its operator", async
   const rows = [
     {
       session_id: "desk-1", liveness: "stale",
-      execution_lane: "ALTMAN", mode: "wait",
+      execution_level: "ALTMAN", mode: "wait",
       executor: "claude-code", model: "claude-opus-4-8",
       executor_mark: "A", executor_class_name: "h-claude",
       actor_id: 2, actor_kind: "human", actor_label: "Ben",

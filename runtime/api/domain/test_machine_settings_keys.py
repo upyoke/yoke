@@ -41,7 +41,7 @@ def test_local_project_keys_resolve_their_project_default() -> None:
 def test_db_owned_keys_name_their_owning_capability() -> None:
     assert db_owned_capability_for("wip_cap") == PROJECT_POLICY_CAPABILITY
     assert db_owned_capability_for("base_branch") == PROJECT_POLICY_CAPABILITY
-    for key in ("executor_default_lane_codex*",):
+    for key in ("executor_default_level_codex*",):
         assert db_owned_capability_for(key) == SESSION_ROUTING_CAPABILITY
 
 
@@ -58,10 +58,14 @@ def test_prefix_families_are_recognized() -> None:
 
 def test_db_owned_settings_reports_key_and_capability() -> None:
     found = db_owned_settings(
-        {"wip_cap": 30, "executor_default_lane_codex*": "ALTMAN", "max_chain_steps": 3},
+        {
+            "wip_cap": 30,
+            "executor_default_level_codex*": "ALTMAN",
+            "max_chain_steps": 3,
+        },
     )
     assert found == (
-        ("executor_default_lane_codex*", SESSION_ROUTING_CAPABILITY),
+        ("executor_default_level_codex*", SESSION_ROUTING_CAPABILITY),
         ("wip_cap", PROJECT_POLICY_CAPABILITY),
     )
 

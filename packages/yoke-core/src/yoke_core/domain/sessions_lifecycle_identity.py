@@ -1,11 +1,11 @@
-"""Model/lane healing helpers for session registration."""
+"""Model/level healing helpers for session registration."""
 
 from __future__ import annotations
 
 from typing import Any, Optional
 import uuid
 
-from yoke_contracts.session_lane import lane_is_unresolved
+from yoke_contracts.session_level import level_is_unresolved
 from yoke_contracts.session_model_facts import SessionModelFacts
 
 from yoke_core.domain.session_model_columns import MODEL_COLUMNS, changed_columns
@@ -154,21 +154,21 @@ def _stored_value(row: Any, key: str, default: str = "") -> str:
     return value or default
 
 
-def lane_should_upgrade(stored_lane: str, incoming_lane: str) -> bool:
-    """True when an opt-out stored lane can heal to a real incoming lane."""
-    return lane_is_unresolved(stored_lane) and not lane_is_unresolved(incoming_lane)
+def level_should_upgrade(stored_level: str, incoming_level: str) -> bool:
+    """True when an opt-out stored level can heal to a real incoming level."""
+    return level_is_unresolved(stored_level) and not level_is_unresolved(incoming_level)
 
 
-def resolve_reactivation_lane(existing: Any, *, execution_lane: str) -> str:
-    """Return the lane a reactivating session should carry.
+def resolve_reactivation_level(existing: Any, *, execution_level: str) -> str:
+    """Return the level a reactivating session should carry.
 
-    An opt-out incoming lane yields to a real stored one; anything else
+    An opt-out incoming level yields to a real stored one; anything else
     the caller resolved wins.
     """
-    stored_lane = _stored_value(existing, "execution_lane")
-    if lane_is_unresolved(execution_lane) and not lane_is_unresolved(stored_lane):
-        return stored_lane
-    return execution_lane
+    stored_level = _stored_value(existing, "execution_level")
+    if level_is_unresolved(execution_level) and not level_is_unresolved(stored_level):
+        return stored_level
+    return execution_level
 
 
 def existing_registration_row(
@@ -182,7 +182,7 @@ def existing_registration_row(
     thread_select = ", native_thread_id" if include_native_thread else ""
     return conn.execute(
         "SELECT ended_at, terminated_at, " + ", ".join(MODEL_COLUMNS) + ", "
-        "actor_id, execution_lane, project_id, executor, executor_version, "
+        "actor_id, execution_level, project_id, executor, executor_version, "
         f"machine_id, executor_surface{thread_select} "
         f"FROM harness_sessions WHERE session_id = {placeholder}",
         (session_id,),
@@ -216,7 +216,7 @@ def refresh_active_duplicate_identity(
     existing: Any,
     session_id: str,
     model_facts: SessionModelFacts,
-    execution_lane: str,
+    execution_level: str,
     resolved_actor_id: int,
     executor_surface: Optional[str],
     executor_version: Optional[str],
@@ -240,12 +240,12 @@ def refresh_active_duplicate_identity(
         )
         conn.commit()
 
-    stored_lane = _stored_value(existing, "execution_lane")
-    if lane_should_upgrade(stored_lane, execution_lane):
+    stored_level = _stored_value(existing, "execution_level")
+    if level_should_upgrade(stored_level, execution_level):
         conn.execute(
-            f"UPDATE harness_sessions SET execution_lane = {placeholder} "
+            f"UPDATE harness_sessions SET execution_level = {placeholder} "
             f"WHERE session_id = {placeholder}",
-            (execution_lane, session_id),
+            (execution_level, session_id),
         )
         conn.commit()
 
@@ -292,11 +292,11 @@ def refresh_active_duplicate_identity(
 
 __all__ = [
     "existing_registration_row",
-    "lane_should_upgrade",
+    "level_should_upgrade",
     "normalize_observed_identity",
     "refresh_active_duplicate_identity",
     "resolve_session_actor_id",
     "resolve_session_project_id",
     "resolve_reactivation_executor_version",
-    "resolve_reactivation_lane",
+    "resolve_reactivation_level",
 ]

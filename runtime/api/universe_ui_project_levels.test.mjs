@@ -25,7 +25,7 @@ const SUMMARY = {
     { id: "codex", label: "Codex" },
     { id: "cursor", label: "Cursor" },
   ],
-  lanes: [
+  levels: [
     {
       id: "DARIUS",
       label: "DARIUS",
@@ -38,8 +38,8 @@ const SUMMARY = {
       label: "SPECS",
       glyph: "👓",
       matches: [
-        { lane: "ALTMAN", harness: "cursor", model: "gpt-*" },
-        { lane: "ALTMAN", harness: null, model: "claude-opus-5" },
+        { level: "ALTMAN", harness: "cursor", model: "gpt-*" },
+        { level: "ALTMAN", harness: null, model: "claude-opus-5" },
       ],
       default_for: [],
     },
@@ -47,7 +47,7 @@ const SUMMARY = {
       id: "MUSKY",
       label: "MUSKY",
       glyph: "🛸",
-      matches: [{ lane: "MUSKY", harness: "cursor", model: null }],
+      matches: [{ level: "MUSKY", harness: "cursor", model: null }],
       default_for: ["Cursor"],
     },
   ],
@@ -76,7 +76,7 @@ function client(handlers = {}, requests = []) {
       }
       if (request.function === "projects.get") return ok({ row: PROJECT_ROW });
       if (handlers[request.function]) return handlers[request.function](request);
-      if (request.function === "projects.lane_summary.get") return ok(SUMMARY);
+      if (request.function === "projects.level_summary.get") return ok(SUMMARY);
       if (request.function === "workflows.definition.get") {
         return ok({ title_max_length: 100 });
       }
@@ -97,13 +97,13 @@ async function mountProject(t, projectId, apiClient) {
   return root;
 }
 
-function laneRow(root, laneId) {
+function levelRow(root, levelId) {
   return allNodes(root).find(
-    (node) => node.getAttribute?.("data-lane-row") === laneId,
+    (node) => node.getAttribute?.("data-level-row") === levelId,
   );
 }
 
-test("the lane summary keeps every production project fact", async (t) => {
+test("the level summary keeps every production project fact", async (t) => {
   const root = await mountProject(t, 1, client());
   const text = visibleText(root, "\n");
   for (const fact of [
@@ -114,18 +114,18 @@ test("the lane summary keeps every production project fact", async (t) => {
   }
 });
 
-test("each lane shows its glyph, label, matches and defaults", async (t) => {
+test("each level shows its glyph, label, matches and defaults", async (t) => {
   const root = await mountProject(t, 1, client());
 
-  const darius = laneRow(root, "DARIUS");
+  const darius = levelRow(root, "DARIUS");
   assert.ok(darius, "DARIUS row missing");
-  assert.equal(byClass(darius, "lane-glyph")[0].textContent, "🐎");
+  assert.equal(byClass(darius, "level-glyph")[0].textContent, "🐎");
   // Presentation is the configured label; the identity stays DARIUS.
-  const altman = laneRow(root, "ALTMAN");
+  const altman = levelRow(root, "ALTMAN");
   assert.ok(visibleText(altman, "\n").includes("SPECS"));
 
-  // Several matches on one lane are alternatives, and all are shown.
-  const matches = byClass(altman, "lane-match-summary");
+  // Several matches on one level are alternatives, and all are shown.
+  const matches = byClass(altman, "level-match-summary");
   assert.equal(matches.length, 2);
   assert.ok(visibleText(matches[0], " ").includes("Cursor"));
   assert.ok(visibleText(matches[0], " ").includes("gpt-*"));
@@ -134,12 +134,12 @@ test("each lane shows its glyph, label, matches and defaults", async (t) => {
   assert.ok(visibleText(darius, "\n").includes("Claude Code"));
 });
 
-test("lane rows contain three grouping columns", async (t) => {
+test("level rows contain three grouping columns", async (t) => {
   const root = await mountProject(t, 1, client());
-  for (const lane of SUMMARY.lanes) {
-    assert.equal(laneRow(root, lane.id).children.length, 3);
+  for (const level of SUMMARY.levels) {
+    assert.equal(levelRow(root, level.id).children.length, 3);
   }
-  const panelText = visibleText(byClass(root, "lane-settings")[0], "\n");
+  const panelText = visibleText(byClass(root, "level-settings")[0], "\n");
   assert.ok(!panelText.includes("Allowed actions"));
 });
 
@@ -150,7 +150,7 @@ test(
     const root = await mountProject(t, 1, client());
     // Scoped to the settings content: the app shell's own navigation
     // controls are not part of what this screen offers an operator.
-    const main = byClass(root, "lane-settings")[0].parentNode;
+    const main = byClass(root, "level-settings")[0].parentNode;
     const titleLimitCard = byClass(main, "project-settings-title-limit")[0];
     assert.ok(titleLimitCard, "the approved title-limit editor is missing");
     const titleLimitNodes = new Set(allNodes(titleLimitCard));
@@ -163,17 +163,17 @@ test(
     );
 
     // Every other omission still holds outside the approved editor.
-    const laneSettingsText = visibleText(byClass(main, "lane-settings")[0], "\n");
-    assert.ok(laneSettingsText.includes("Edit with your harness"));
-    assert.ok(laneSettingsText.includes("tell your agent to use"));
-    assert.ok(laneSettingsText.includes("yoke projects capability-settings"));
-    assert.ok(laneSettingsText.includes(
+    const levelSettingsText = visibleText(byClass(main, "level-settings")[0], "\n");
+    assert.ok(levelSettingsText.includes("Edit with your harness"));
+    assert.ok(levelSettingsText.includes("tell your agent to use"));
+    assert.ok(levelSettingsText.includes("yoke projects capability-settings"));
+    assert.ok(levelSettingsText.includes(
       "explicit override → harness + model → model → harness → default.",
     ));
-    assert.ok(!laneSettingsText.includes("Project lane settings"));
-    assert.ok(!laneSettingsText.includes("Save"));
-    assert.ok(!laneSettingsText.includes("Delivery defaults"));
-    assert.ok(!laneSettingsText.includes("Architecture"));
+    assert.ok(!levelSettingsText.includes("Project level settings"));
+    assert.ok(!levelSettingsText.includes("Save"));
+    assert.ok(!levelSettingsText.includes("Delivery defaults"));
+    assert.ok(!levelSettingsText.includes("Architecture"));
   },
 );
 
@@ -183,14 +183,14 @@ test("the summary follows the opened project, not a remembered filter", async (t
     "projects.get": () => ok({ row: { ...PROJECT_ROW, id: 7 } }),
   }, requests));
   const summaryCall = requests.find(
-    (request) => request.function === "projects.lane_summary.get",
+    (request) => request.function === "projects.level_summary.get",
   );
   assert.deepEqual(summaryCall.payload, { project: "7" });
 });
 
 test("a read failure says so rather than showing an empty settings table", async (t) => {
   const root = await mountProject(t, 1, client({
-    "projects.lane_summary.get": () => ({
+    "projects.level_summary.get": () => ({
       status: 500,
       envelope: { success: false, error: { message: "routing read failed" } },
     }),
@@ -198,17 +198,17 @@ test("a read failure says so rather than showing an empty settings table", async
   const text = visibleText(root, "\n");
   assert.ok(text.includes("read failed"));
   assert.ok(text.includes("routing read failed"));
-  assert.ok(!text.includes("No lanes configured"));
+  assert.ok(!text.includes("No levels configured"));
 });
 
 test("a harness that routes nowhere is named", async (t) => {
   const root = await mountProject(t, 1, client({
-    "projects.lane_summary.get": () => ok({
+    "projects.level_summary.get": () => ok({
       ...SUMMARY, unrouted_harnesses: ["Codex", "Cursor"],
     }),
   }));
-  const notice = byClass(root, "lane-unrouted")[0];
+  const notice = byClass(root, "level-unrouted")[0];
   assert.ok(notice);
   assert.ok(notice.textContent.includes("Codex, Cursor"));
-  assert.ok(notice.textContent.includes("no configured lane grouping"));
+  assert.ok(notice.textContent.includes("no configured level grouping"));
 });

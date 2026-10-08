@@ -111,7 +111,7 @@ def _seed_session(path, session_id="sess-1"):
     conn.execute(
         f"""
         INSERT INTO harness_sessions
-          (session_id, executor, provider, model, execution_lane, executor_version, machine_id, workspace, mode, offered_at, last_heartbeat)
+          (session_id, executor, provider, model, execution_level, executor_version, machine_id, workspace, mode, offered_at, last_heartbeat)
         VALUES
           ({p}, 'codex', 'openai', 'test-model', 'primary', NULL, NULL, '/tmp/test', 'test', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')
         """,

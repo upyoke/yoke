@@ -36,7 +36,7 @@ _REQUIRED_TABLE_COLUMNS = {
     "harness_sessions": (
         "session_id",
         "executor",
-        "execution_lane",
+        "execution_level",
         "offer_envelope",
         "current_item_id",
         "actor_id",

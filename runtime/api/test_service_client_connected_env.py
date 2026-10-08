@@ -14,7 +14,9 @@ _RETIRED_BACKEND_ENV = "YOKE_" + "BACKEND"
 def _write_binding(root: Path) -> Path:
     root.mkdir(parents=True, exist_ok=True)
     dsn = root / ".secret.dsn"
-    dsn.write_text("postgresql://user:pass@127.0.0.1:6547/yoke_prod\n", encoding="utf-8")
+    dsn.write_text(
+        "postgresql://user:pass@127.0.0.1:6547/yoke_prod\n", encoding="utf-8"
+    )
     binding_dir = root / ".yoke"
     binding_dir.mkdir(parents=True, exist_ok=True)
     binding = binding_dir / "config.json"
@@ -33,7 +35,7 @@ def _write_binding(root: Path) -> Path:
     "__ROOT__": {"project_id": 1}
   },
   "settings": {
-    "executor_default_lane_codex*": "ALTMAN"
+    "executor_default_level_codex*": "ALTMAN"
   }
 }
 """.strip().replace("__ROOT__", str(root.resolve())),
@@ -57,7 +59,7 @@ def test_load_routing_config_does_not_require_sqlite_db_under_connected_env(
 
     routing = io._load_routing_config()
 
-    assert routing.default_lane_for_executor("codex-desktop") == "ALTMAN"
+    assert routing.default_level_for_executor("codex-desktop") == "ALTMAN"
 
 
 def test_subprocess_backend_env_uses_pytest_checkout_binding(
@@ -82,10 +84,12 @@ def test_subprocess_backend_env_uses_pytest_checkout_binding(
     assert Path(env["YOKE_PG_DSN_FILE"]).resolve() == root / ".secret.dsn"
 
 
-def test_api_config_path_does_not_require_sqlite_db(monkeypatch, tmp_path: Path) -> None:
+def test_api_config_path_does_not_require_sqlite_db(
+    monkeypatch, tmp_path: Path
+) -> None:
     config = tmp_path / ".yoke" / "config"
     config.parent.mkdir()
-    config.write_text("executor_default_lane_codex*=ALTMAN\n", encoding="utf-8")
+    config.write_text("executor_default_level_codex*=ALTMAN\n", encoding="utf-8")
 
     def boom():
         raise RuntimeError("SQLite authority retired")

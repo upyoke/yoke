@@ -46,7 +46,7 @@ class HookEvaluateRequest(BaseModel):
     #: This session's consumption as the relaying client's own machine
     #: read it, serialized by ``session_usage_facts.usage_document``.
     usage_totals: Optional[str] = None
-    execution_lane: Optional[str] = None
+    execution_level: Optional[str] = None
     project_id: Optional[int] = None
     executor_version: Optional[str] = None
     machine_id: Optional[str] = None

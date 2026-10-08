@@ -30,7 +30,7 @@ SELECTOR_ARGUMENTS = (
     ("executor_families", "--executor"),
     ("executor_surfaces", "--surface"),
     ("work_roles", "--role"),
-    ("execution_lanes", "--execution-lane"),
+    ("execution_levels", "--execution-level"),
     ("worktree_lanes", "--worktree"),
     ("machine_ids", "--machine"),
     ("liveness", "--liveness"),
@@ -39,7 +39,7 @@ SELECTOR_ARGUMENTS = (
 
 
 #: The shape --steering-scope names, quoted for a shell.
-STEERING_SCOPE_EXAMPLE = '\'{"project_id": 1}\''
+STEERING_SCOPE_EXAMPLE = "'{\"project_id\": 1}'"
 
 
 def steering_scope_argument(raw: str) -> dict[str, Any]:
@@ -53,8 +53,7 @@ def steering_scope_argument(raw: str) -> dict[str, Any]:
         ) from exc
     if not isinstance(scope, dict):
         raise argparse.ArgumentTypeError(
-            "--steering-scope must be a JSON object such as "
-            f"{STEERING_SCOPE_EXAMPLE}"
+            f"--steering-scope must be a JSON object such as {STEERING_SCOPE_EXAMPLE}"
         )
     return scope
 
@@ -87,7 +86,7 @@ def add_selector_arguments(parser: argparse.ArgumentParser) -> None:
         "executor_families": "FILTER. Keep recipients from this executor family.",
         "executor_surfaces": "FILTER. Keep recipients on this exact surface (repeatable).",
         "work_roles": "FILTER. Keep recipients with this work role (repeatable).",
-        "execution_lanes": "FILTER. Keep recipients in this execution lane (repeatable).",
+        "execution_levels": "FILTER. Keep recipients in this execution level (repeatable).",
         "worktree_lanes": "FILTER. Keep recipients on this worktree or branch (repeatable).",
         "machine_ids": "FILTER. Keep recipients on this machine (repeatable).",
         "liveness": (
@@ -131,7 +130,7 @@ def add_selector_arguments(parser: argparse.ArgumentParser) -> None:
         default=None,
         help=(
             "ANCHOR (union). The steering scope to address when you hold no "
-            'item, as JSON: \'{"project_id": N}\'. Implies --steering.'
+            "item, as JSON: '{\"project_id\": N}'. Implies --steering."
         ),
     )
 
@@ -165,9 +164,7 @@ def write_message_result(response: Any, stdout: TextIO, stderr: TextIO) -> None:
     write_human_message_result(response.result or {}, stdout)
 
 
-def write_message_detail_result(
-    response: Any, stdout: TextIO, stderr: TextIO
-) -> None:
+def write_message_detail_result(response: Any, stdout: TextIO, stderr: TextIO) -> None:
     """The authorized read of one message, where the body is the answer."""
     del stderr
     write_human_message_result(response.result or {}, stdout, with_body=True)

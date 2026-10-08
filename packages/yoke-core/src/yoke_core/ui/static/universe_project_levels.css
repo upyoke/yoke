@@ -1,0 +1,88 @@
+/* The project level summary. It borrows the workbench panel and table faces;
+   these rules only cover what a level row needs that an ordinary row does
+   not — a glyph beside its label, several stacked selectors in one cell,
+   and an action list that discloses its descriptions. */
+
+.universe-app-root .level-settings { margin-top: 18px; }
+
+.universe-app-root table.level-table { table-layout: fixed; min-width: 670px; }
+.universe-app-root table.level-table th:nth-child(1) { width: 22%; }
+.universe-app-root table.level-table th:nth-child(2) { width: 35%; }
+.universe-app-root table.level-table th:nth-child(3) { width: 28%; }
+.universe-app-root table.level-table td { vertical-align: top; }
+
+.universe-app-root .level-caption {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.universe-app-root .level-caption b {
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
+}
+.universe-app-root .level-glyph { font-size: 20px; line-height: 1; }
+
+.universe-app-root .level-th-note {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--yoke-muted);
+}
+
+.universe-app-root .level-matches { display: grid; gap: 8px; }
+.universe-app-root .level-match-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+.universe-app-root .level-match-summary code {
+  font-family: var(--yoke-font-mono);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.universe-app-root .level-muted { color: var(--yoke-muted); }
+.universe-app-root .level-default-summary + .level-default-summary {
+  margin-top: 7px;
+}
+
+.universe-app-root .level-actions summary { cursor: pointer; }
+.universe-app-root .level-actions > div {
+  display: grid;
+  gap: 11px;
+  padding-top: 12px;
+}
+.universe-app-root .level-actions small {
+  display: block;
+  margin-top: 3px;
+  line-height: 1.5;
+  color: var(--yoke-muted);
+}
+
+.universe-app-root .level-priority,
+.universe-app-root .level-cli {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--yoke-border);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.universe-app-root .level-cli p {
+  margin: 6px 0 0;
+  color: var(--yoke-muted);
+}
+.universe-app-root .level-cli code {
+  font-family: var(--yoke-font-mono);
+  font-size: 11px;
+  color: var(--yoke-ink);
+}
+
+.universe-app-root .level-unrouted {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: var(--yoke-warn);
+}

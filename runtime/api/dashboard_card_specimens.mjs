@@ -16,7 +16,7 @@ export const cardSpecimenSource = (assets) => `
     session_id: "worker-" + index, liveness: "active", mode: "dash",
     turn_posture: "running", executor: "claude-code",
     executor_surface: "claude-desktop", executor_mark: "C",
-    executor_class_name: "h-claude", execution_lane: "DARIUS",
+    executor_class_name: "h-claude", execution_level: "DARIUS",
     actor_label: "Production deployment owner", model: "claude-opus-5-5",
     model_effort: "medium", usage_tokens: 9300000, usage_cost_usd: 3.33,
     claims: [], holdings: { current: [], previous: [], previous_remainder: 0 },

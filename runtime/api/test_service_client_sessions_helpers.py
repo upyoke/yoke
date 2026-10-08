@@ -35,7 +35,7 @@ _SESSION_SCHEMA_DDL = f"""
         requested_model TEXT DEFAULT NULL,
         requested_reasoning_effort TEXT DEFAULT NULL,
         requested_context_window_tokens INTEGER DEFAULT NULL,
-        execution_lane TEXT NOT NULL DEFAULT 'DARIUS',
+        execution_level TEXT NOT NULL DEFAULT 'DARIUS',
         executor_version TEXT, machine_id TEXT,
         workspace TEXT,
         project_id INTEGER NOT NULL DEFAULT 1 REFERENCES projects(id),
@@ -280,7 +280,7 @@ def _pre_register_session(
     provider: str = "anthropic",
     requested_model: str = TEST_MODEL_ID,
     workspace: str = "/tmp",
-    lane: str = "primary",
+    level: str = "primary",
 ):
     """Pre-register a session in the DB for lifecycle command tests.
 

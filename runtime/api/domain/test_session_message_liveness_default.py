@@ -29,7 +29,7 @@ def _connection_with_inactive_sessions():
     conn.execute(
         "INSERT INTO harness_sessions ("
         "session_id,project_id,executor,executor_surface,executor_version,"
-        "machine_id,execution_lane,last_heartbeat,last_tool_call_at,offered_at,"
+        "machine_id,execution_level,last_heartbeat,last_tool_call_at,offered_at,"
         "ended_at) VALUES "
         f"('{ENDED}',1,'codex','codex-desktop','26.814.41407','m1','direct',"
         f"'{NOW_TEXT}','{NOW_TEXT}','{NOW_TEXT}','{NOW_TEXT}'),"

@@ -2,16 +2,16 @@
 
 The rules file every session loads carries the short normative form of each rule. This document is the deep home the rules file points at: the same rules with the reasoning, the worked failure modes, the flag matrices, and the edge cases that decide close calls. Read the section you need before the action it governs — nothing here is optional background, it is simply longer than a startup channel can carry.
 
-## Execution lanes and worktree lanes
+## Execution levels and worktree lanes
 
-An execution lane groups registering sessions by harness and model through
+An execution level groups registering sessions by harness and model through
 `session-routing` settings. Its label and glyph identify the group on the
 board and dashboard; it carries no skill permissions. Workflow bindings
 select stage skills, and explicit staffing assigns work.
 
 A worktree lane is a registered code checkout protected by the item work
 claim. Its branch, path claims, verification, and merge contracts isolate
-implementation work. An execution-lane label never grants checkout authority.
+implementation work. An execution-level label never grants checkout authority.
 
 ## Worktree discipline
 

@@ -1,7 +1,7 @@
 """Reads ask each shared question once, not once per row they show.
 
 Every read covered here used to issue a query per row for something the
-rows share — the project's lane settings, the actor's name, the item's
+rows share — the project's level settings, the actor's name, the item's
 public ref, the document an item is linked to. Counting statements is the
 only way to state that property: a timing drifts with the machine, while
 "one statement however many rows" is what the code is supposed to hold.
@@ -20,7 +20,7 @@ from yoke_core.domain.deployment_item_flow_resolution import (
     item_completion_flow,
     item_completion_flows,
 )
-from yoke_core.domain.session_presentation_read import lane_settings_by_project
+from yoke_core.domain.session_presentation_read import level_settings_by_project
 from yoke_core.domain.sessions_list_rows import render_session_roster_rows
 from yoke_core.domain.steering_scope_membership import (
     item_document_link,
@@ -67,7 +67,7 @@ def _roster_row(session_id: str, *, project_id: int, actor_id: int, item_id: int
         "current_item_id": str(item_id),
         "executor": "claude-code",
         "executor_surface": "claude-cli",
-        "execution_lane": "primary",
+        "execution_level": "primary",
         "mode": "wait",
         "holds_work_claim": True,
         "last_heartbeat": _iso(),
@@ -89,7 +89,7 @@ def _render(conn, rows):
 
 
 class TestRosterPageQuestions:
-    def test_lane_settings_read_once_for_every_project_on_the_page(self, test_db):
+    def test_level_settings_read_once_for_every_project_on_the_page(self, test_db):
         for project_id in (1, 2):
             test_db.execute(
                 "INSERT INTO project_capabilities (project_id, type, settings, created_at) "
@@ -99,7 +99,7 @@ class TestRosterPageQuestions:
         test_db.commit()
         counting = CountingConnection(test_db)
 
-        settings = lane_settings_by_project(counting, [1, 2, 1, 2, 1, None])
+        settings = level_settings_by_project(counting, [1, 2, 1, 2, 1, None])
 
         assert set(settings) == {1, 2}
         assert counting.count == 1

@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse
 from fastapi.routing import APIRouter
 from pydantic import BaseModel
 
-from yoke_contracts.session_lane import UNRESOLVED_EXECUTION_LANE
+from yoke_contracts.session_level import UNRESOLVED_EXECUTION_LEVEL
 from yoke_contracts.session_model_facts import facts_from_mapping
 from yoke_core.domain import db_backend
 from yoke_core.domain.sessions import (
@@ -28,7 +28,7 @@ from yoke_core.domain.session_routing_rules import routing_model_of
 from yoke_core.api.routing_config import (
     load_project_routing_settings,
     load_routing_config,
-    resolve_execution_lane,
+    resolve_execution_level,
 )
 
 router = APIRouter()
@@ -52,7 +52,7 @@ class RegisterSessionRequest(BaseModel):
     model: Optional[str] = None
     reasoning_effort: Optional[str] = None
     context_window_tokens: Optional[int] = None
-    execution_lane: str = UNRESOLVED_EXECUTION_LANE
+    execution_level: str = UNRESOLVED_EXECUTION_LEVEL
     executor_version: Optional[str] = None
     machine_id: Optional[str] = None
     workspace: str
@@ -67,19 +67,19 @@ def api_register_session(req: RegisterSessionRequest) -> JSONResponse:
     _main = _main_api()
     conn = _main.get_db_readwrite()
     try:
-        execution_lane = req.execution_lane
+        execution_level = req.execution_level
         project_routing = load_project_routing_settings(conn, req.project_id)
         if project_routing:
             routing_config = load_routing_config(
                 _main.get_config_path(),
                 project_settings=project_routing,
             )
-            # The request's own lane is passed as the explicit choice: a real
-            # lane is honoured, while the unresolved sentinel yields to the
+            # The request's own level is passed as the explicit choice: a real
+            # level is honoured, while the unresolved sentinel yields to the
             # project's executor mapping instead of overruling it.
-            execution_lane = resolve_execution_lane(
+            execution_level = resolve_execution_level(
                 executor=req.executor,
-                explicit_lane=req.execution_lane,
+                explicit_level=req.execution_level,
                 routing_config=routing_config,
                 model=routing_model_of(req.model, req.requested_model),
             )
@@ -89,7 +89,7 @@ def api_register_session(req: RegisterSessionRequest) -> JSONResponse:
             executor=req.executor,
             provider=req.provider,
             model_facts=facts_from_mapping(req.model_dump()),
-            execution_lane=execution_lane,
+            execution_level=execution_level,
             executor_version=req.executor_version,
             machine_id=req.machine_id,
             workspace=req.workspace,

@@ -144,7 +144,7 @@ When a harness connects to Yoke, Yoke records session identity during registrati
 
 | Field | Description | Source |
 |-------|-------------|--------|
-| `executor` | The harness identity declared at registration (`sessions begin`) time. Surface-specific values such as `claude-desktop`, `codex-vscode`, or `codex-cli` are accepted as input; Yoke canonicalizes the value at write time so `harness_sessions.executor` stores only `claude-code` or `codex`, and the original surface alias is preserved in `harness_sessions.executor_surface` for operator-facing rendering. A session whose surface was not resolvable when it registered is not stuck NULL: the hook tail observes the existing row on every later event, terminal ones included, and fills the surface once the harness names it — on the machine actually running the session. A relayed evaluation records only the surface the client sent, because the surface a server can see is its own. Surface-specific input continues to drive lane resolution via `executor_default_lane_<surface>` overrides. | Harness self-declaration |
+| `executor` | The harness identity declared at registration (`sessions begin`) time. Surface-specific values such as `claude-desktop`, `codex-vscode`, or `codex-cli` are accepted as input; Yoke canonicalizes the value at write time so `harness_sessions.executor` stores only `claude-code` or `codex`, and the original surface alias is preserved in `harness_sessions.executor_surface` for operator-facing rendering. A session whose surface was not resolvable when it registered is not stuck NULL: the hook tail observes the existing row on every later event, terminal ones included, and fills the surface once the harness names it — on the machine actually running the session. A relayed evaluation records only the surface the client sent, because the surface a server can see is its own. Surface-specific input continues to drive level resolution via `executor_default_level_<surface>` overrides. | Harness self-declaration |
 | `provider` | The model provider (e.g., `anthropic`, `openai`) | Runtime or harness configuration |
 | `model` | The specific model identifier (e.g., `claude-opus-4-7`, `o3-pro`) | Runtime or harness configuration |
 | `workspace` | The git repository root path | `git rev-parse --show-toplevel` |
@@ -157,7 +157,7 @@ When a harness connects to Yoke, Yoke records session identity during registrati
 | `supported_paths` | Which downstream Yoke paths this harness can execute | Yoke core derives this server-side from the shared registry plus any limitations in the coarse harness manifest. Surface-specific executors normalize back to the family manifest (`codex-desktop` -> `runtime/harness/codex/manifest.json`, `claude-vscode` -> `runtime/harness/claude/manifest.json`). Harness-passed values are ignored for Yoke-owned harnesses. Harnesses without a manifest fall into the backward-compat branch (empty list = all paths supported). |
 | `hook_affordances` | Which hook events the harness supports | Harness capability manifest |
 | `agent_wake` | Whether an ended turn can be resumed out of band, and by which primitive | Harness capability manifest, sourced from `yoke_contracts.harness_wake_capability` |
-| `lane` | Execution lane identity (e.g., `DARIUS`) | Harness or operator configuration |
+| `execution_level` | Execution level identity (e.g., `DARIUS`) | Harness or operator configuration |
 
 ### Requested launch selection versus served identity
 

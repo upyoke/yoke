@@ -54,11 +54,11 @@ test("the status pill leads the second header row, beside the model", () => {
   assert.equal(byClass(top, "session-status-pill").length, 0);
   assert.deepEqual(
     top.children.map((node) => node.className),
-    ["session-harness h-other", "session-executor", "session-lane has-tooltip"],
+    ["session-harness h-other", "session-executor", "session-level has-tooltip"],
   );
 });
 
-test("both header rows share one alignment and the lane keeps its whole name", () => {
+test("both header rows share one alignment and the level keeps its whole name", () => {
   const css = readFileSync(new URL(
     "../../packages/yoke-core/src/yoke_core/ui/static/universe_sessions.css",
     import.meta.url,
@@ -68,11 +68,11 @@ test("both header rows share one alignment and the lane keeps its whole name", (
     /\.session-top,\s*\n\.universe-app-root \.session-state-line \{[^}]*align-items: center;/s,
   );
   assert.match(css, /\.session-state-line \{[^}]*min-height: 22px;/s);
-  // The lane keeps the shared pill's non-shrinking box so a long lane name
+  // The level keeps the shared pill's non-shrinking box so a long level name
   // moves to the next row of the wrapping identity line instead of squeezing.
   assert.match(
     css,
-    /\.session-lane,[\s\S]*?\.session-model-tag \{[^}]*flex: 0 0 auto;/,
+    /\.session-level,[\s\S]*?\.session-model-tag \{[^}]*flex: 0 0 auto;/,
   );
-  assert.doesNotMatch(css, /\.session-lane \{/);
+  assert.doesNotMatch(css, /\.session-level \{/);
 });

@@ -121,7 +121,7 @@ def relay_connection(
     conn.execute(
         "ALTER TABLE harness_sessions ADD COLUMN executor TEXT DEFAULT 'codex'"
     )
-    conn.execute("ALTER TABLE harness_sessions ADD COLUMN execution_lane TEXT")
+    conn.execute("ALTER TABLE harness_sessions ADD COLUMN execution_level TEXT")
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN last_heartbeat TEXT")
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN offered_at TEXT")
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN last_tool_call_at TEXT")

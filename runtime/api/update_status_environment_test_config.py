@@ -32,7 +32,7 @@ HARNESS_SESSION_UPSERT_SET = _upsert_set(
     "executor",
     "provider",
     "model",
-    "execution_lane",
+    "execution_level",
     "executor_version",
     "machine_id",
     "workspace",

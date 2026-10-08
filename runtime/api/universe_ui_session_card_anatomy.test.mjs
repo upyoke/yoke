@@ -16,7 +16,7 @@ import {
   visibleText,
 } from "./universe_ui_sessions_view_test_support.mjs";
 
-test("Sessions matches the prototype's runtime, assignment, lane, and operator anatomy", async (t) => {
+test("Sessions matches the prototype's runtime, assignment, level, and operator anatomy", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -32,7 +32,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
     const result = [
       {
         session_id: "a7b4pl", liveness: "active",
-        execution_lane: "ALTMAN", lane_label: "Integration", lane_glyph: "🧭",
+        execution_level: "ALTMAN", level_label: "Integration", level_glyph: "🧭",
         mode: "resume", executor: "claude-code", model: "claude-opus-4-8",
         executor_mark: "A", executor_class_name: "h-claude",
         actor_id: 2, actor_kind: "human", actor_label: "Ben",
@@ -63,7 +63,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
       },
       {
         session_id: "v8c2qa", liveness: reclaimed ? "ended" : "stale", reclaimable: !reclaimed,
-        execution_lane: "DARIUS", mode: "wait",
+        execution_level: "DARIUS", mode: "wait",
         executor: "codex", model: "gpt-5.6-sol",
         executor_mark: "X", executor_class_name: "h-codex",
         actor_id: 7, actor_kind: "system", actor_label: "preview-ci",
@@ -158,10 +158,10 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   );
   // Modes without a quiet reason render no explanation or invented state.
   assert.equal(byClass(root, "tooltip-info").length, 0);
-  // The mode pill is gone; the lane names the session beside its harness and
+  // The mode pill is gone; the level names the session beside its harness and
   // the relay pill is the one reachability fact the card keeps.
   assert.deepEqual(
-    byClass(root, "session-lane").map((lane) => lane.textContent),
+    byClass(root, "session-level").map((level) => level.textContent),
     ["🧭 Integration", "DARIUS"],
   );
   assert.deepEqual(
@@ -290,7 +290,7 @@ test("Sessions cards fold every state signal into one pill", async (t) => {
   const rows = [
     {
       session_id: "parked-1", liveness: "active",
-      execution_lane: "DARIUS", mode: "parked",
+      execution_level: "DARIUS", mode: "parked",
       quiet_reason: "waiting on a blocking claim",
       executor: "codex", model: "gpt-5.6-sol",
       executor_mark: "X", executor_class_name: "h-codex",
@@ -301,7 +301,7 @@ test("Sessions cards fold every state signal into one pill", async (t) => {
     },
     {
       session_id: "wait-1", liveness: "active",
-      execution_lane: "ALTMAN", mode: "wait",
+      execution_level: "ALTMAN", mode: "wait",
       quiet_reason: "Waiting for the merge queue to validate a deliberately long explanation without clipping any of its recovery context.",
       executor: "claude-code", model: "claude-opus-4-8",
       executor_mark: "A", executor_class_name: "h-claude",
@@ -310,7 +310,7 @@ test("Sessions cards fold every state signal into one pill", async (t) => {
       activity_at: "2026-07-26T12:04:00Z",
       claims: [],
     },
-    { session_id: "cursor-1", liveness: "active", execution_lane: "TURING",
+    { session_id: "cursor-1", liveness: "active", execution_level: "TURING",
       mode: "dash", quiet_reason: null, executor: "cursor", model: "gpt-5.6-sol",
       executor_mark: "C", executor_class_name: "h-cursor", project_id: 1,
       project: "yoke", activity_at: "2026-07-26T12:03:00Z", claims: [] },

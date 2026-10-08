@@ -25,7 +25,7 @@ test("Sessions renders resolved local identity and the exact empty state", async
   const root = documentNode.createElement("div");
   let rows = [{
     session_id: "local-1", liveness: "active",
-    execution_lane: "DARIUS", mode: "charge",
+    execution_level: "DARIUS", mode: "charge",
     executor: "codex", model: "gpt-5.6-sol",
     executor_mark: "X", executor_class_name: "h-codex",
     actor_id: 2, actor_kind: "human", actor_label: "Ben",
@@ -228,7 +228,7 @@ test("The session card identity line wraps instead of truncating its labels", ()
     "../../packages/yoke-core/src/yoke_core/ui/static/universe_sessions.css",
     import.meta.url,
   ), "utf8");
-  // A card whose harness, lane, and operator each render as an initial plus an
+  // A card whose harness, level, and operator each render as an initial plus an
   // ellipsis names nothing; the row breaks to a second line instead.
   assert.match(
     css,
