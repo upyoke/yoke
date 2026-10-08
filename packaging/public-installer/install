@@ -77,6 +77,7 @@ usage() {
   printf '%s\n' "usage: install [--channel CHANNEL] [--version VERSION] [--yes] [--dry-run] [--no-setup]"
   printf '%s\n' "Install Yoke, or rerun the same command to upgrade/reinstall it."
   printf '%s\n' "The installer selects Yoke packages from the Yoke index and dependencies from public PyPI."
+  printf '%s\n' "--dry-run confirms the resolved version is published at this origin and prints the install plan. It does not install packages or write configuration, and publication is not proof the install would succeed."
 }
 
 fail() {
@@ -601,9 +602,9 @@ esac
 # environment from supplying stale Yoke packages to the helper. The runner is a
 # string of external-command tokens (intentionally word-split when expanded),
 # never a shell function. A --dry-run on a host without uv falls back to any
-# system python3 just to render the plan.
+# system python3 just to confirm the published release and print the plan.
 if [ -n "$dry_run" ] && ! need_command uv; then
-  need_command python3 || fail "uv (or, for --dry-run only, python3) is required to render the install plan"
+  need_command python3 || fail "uv (or, for --dry-run only, python3) is required to confirm the published release and print the install plan"
   python_runner="python3"
 else
   python_runner="uv run --isolated --no-project python"

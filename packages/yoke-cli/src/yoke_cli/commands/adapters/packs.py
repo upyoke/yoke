@@ -142,7 +142,10 @@ def _pack_write(operation: str, args: List[str], usage: str) -> int:
         prog=f"yoke packs {operation}",
         description=(
             f"Preview or apply one Pack {operation}. Project files remain "
-            "project-owned; updates three-way-merge normal customizations."
+            "project-owned; updates three-way-merge normal customizations. "
+            "Explicit Pack blocks compose only root AGENTS.md and .gitignore, "
+            "preserving bytes outside their boundaries. Malformed boundaries "
+            "must be repaired before apply. See the Pack's installed docs."
         ),
     )
     parser.add_argument("pack", help="Pack slug from `yoke packs list`.")
@@ -160,7 +163,8 @@ def _pack_write(operation: str, args: List[str], usage: str) -> int:
             metavar="PATH",
             help=(
                 "After resolving this exact conflict in the project, keep the "
-                "current file and advance its Pack baseline; repeat per path."
+                "current file and advance its Pack baseline; repeat per path. "
+                "Contribution boundary conflicts require repair and cannot be bypassed."
             ),
         )
     parser.add_argument(

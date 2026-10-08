@@ -9,6 +9,7 @@ from typing import Any
 
 from yoke_cli.packs.catalog_baseline import baseline_bundle
 from yoke_cli.packs.catalog_source import PackCatalog
+from yoke_cli.packs.contributions import contribution_markers
 from yoke_cli.packs.errors import PackClientError
 from yoke_cli.packs.merge import file_state
 from yoke_cli.packs.receipt import (
@@ -65,6 +66,12 @@ def run_pack_relink(
     if not matches:
         raise PackClientError(
             f"Pack {pack!r} does not currently record project path {from_path!r}"
+        )
+    pack_path = matches[0][0]
+    entry = next(row for row in bundle["files"] if row["path"] == pack_path)
+    if contribution_markers(entry) is not None:
+        raise PackClientError(
+            "pack_contribution_target_fixed: Pack guidance and ignore contributions must stay at their canonical root paths; restore the original file before retrying"
         )
     if (root / from_path).exists():
         raise PackClientError(

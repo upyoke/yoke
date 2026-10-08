@@ -6,7 +6,12 @@ import subprocess
 
 import pytest
 
-from public_installer_helpers import RecordingRunner, load_installer, write_channel
+from public_installer_helpers import (
+    RecordingRunner,
+    load_installer,
+    write_channel,
+    write_published_release,
+)
 from test_public_installer import _options
 from yoke_core.tools import ci_shards
 from packaging.specifiers import SpecifierSet
@@ -60,6 +65,7 @@ def test_install_command_uses_only_supported_python() -> None:
 def test_dry_run_resolves_stable_channel_and_writes_nothing(tmp_path) -> None:
     installer_mod = load_installer()
     release = write_channel(tmp_path, version="1.2.3")
+    write_published_release(tmp_path, version="1.2.3")
     output = io.StringIO()
     runner = RecordingRunner()
     installer = installer_mod.Installer(
@@ -79,7 +85,8 @@ def test_dry_run_resolves_stable_channel_and_writes_nothing(tmp_path) -> None:
     assert "--with yoke-harness==1.2.3" in rendered
     assert "--with yoke-core==1.2.3" in rendered
     assert "--reinstall" in rendered
-    assert "Dry run" in rendered
+    assert "confirmed Yoke 1.2.3 is published" in rendered
+    assert "No package was installed" in rendered
     assert runner.commands == []
 
 
