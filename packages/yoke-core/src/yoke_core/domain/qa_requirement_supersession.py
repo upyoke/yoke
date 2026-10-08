@@ -204,8 +204,8 @@ def record_supersession(
     elif not has_current_passing_run(conn, int(superseded_by_requirement_id)):
         verdict = latest_verdict(conn, int(superseded_by_requirement_id))
         raise QaSupersessionError(
-            f"requirement {superseded_by_requirement_id} latest verdict is "
-            f"{verdict or 'missing'}, not pass. Run the corrected case to a "
+            f"requirement {superseded_by_requirement_id} has no completed current "
+            f"configuration-and-target-qualified pass (recorded verdict: {verdict or 'missing'}). Run the corrected case to a "
             "recorded pass with evidence, then record the supersession: "
             f"yoke qa case run --requirement-id {superseded_by_requirement_id}"
         )

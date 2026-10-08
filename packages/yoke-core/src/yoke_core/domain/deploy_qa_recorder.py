@@ -180,28 +180,28 @@ def cmd_run_smoke_status(
     db_path: Optional[str] = None,
 ) -> None:
     """Print smoke QA status for a deployment run."""
+    from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
+
     conn = connect(db_path)
     try:
         rows = query_rows(
             conn,
-            """
+            f"""
             SELECT
                 qr.deployment_run_id,
                 qr.qa_kind,
                 qr.id AS requirement_id,
                 COALESCE(
                     (SELECT qrun.verdict FROM qa_runs qrun
-                     WHERE qrun.qa_requirement_id = qr.id
-                     ORDER BY qrun.created_at DESC LIMIT 1),
+                     WHERE qrun.id=({latest_execution_id_sql("qr.id")})),
                     'pending') AS latest_verdict,
                 COALESCE(
                     (SELECT qrun.completed_at FROM qa_runs qrun
-                     WHERE qrun.qa_requirement_id = qr.id
-                     ORDER BY qrun.created_at DESC LIMIT 1),
+                     WHERE qrun.id=({latest_execution_id_sql("qr.id")})),
                     '') AS latest_run_at,
                 (SELECT COUNT(*) FROM qa_runs qrun
                  JOIN qa_artifacts qa ON qa.qa_run_id = qrun.id
-                 WHERE qrun.qa_requirement_id = qr.id) AS artifact_count
+                 WHERE qrun.id=({latest_execution_id_sql("qr.id")})) AS artifact_count
             FROM qa_requirements qr
             WHERE qr.deployment_run_id = %s
               AND qr.qa_phase = 'post_deploy'

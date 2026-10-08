@@ -76,12 +76,9 @@ def is_source_retirement(broken: Mapping[str, Any]) -> bool:
 
 
 def _latest_verdict(conn: Any, requirement_id: int) -> str:
-    row = query_one(
-        conn,
-        "SELECT verdict FROM qa_runs WHERE qa_requirement_id=%s "
-        "ORDER BY created_at DESC,id DESC LIMIT 1",
-        (int(requirement_id),),
-    )
+    from yoke_core.domain.qa_latest_execution import latest_executions
+
+    row = latest_executions(conn, [requirement_id]).get(requirement_id)
     return str(row["verdict"] or "") if row is not None else ""
 
 

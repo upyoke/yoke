@@ -151,6 +151,9 @@ def handle_deployment_execution_ephemeral_qa_ready(
         return resolved
     from yoke_core.domain.db_helpers import connect, query_scalar
     from yoke_core.domain.qa_constants import browser_requirement_predicate
+    from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
+    from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
+    from yoke_core.domain.qa_browser_evidence_check import _browser_proof_exists
 
     with connect() as conn:
         missing = query_scalar(
@@ -161,7 +164,10 @@ def handle_deployment_execution_ephemeral_qa_ready(
             "ON qr.qa_requirement_id=qreq.id "
             "WHERE qreq.item_id=dri.item_id AND "
             f"{browser_requirement_predicate('qreq')} "
-            "AND qreq.qa_phase='verification' AND qr.verdict='pass')",
+            f"AND qr.id=({latest_execution_id_sql('qreq.id')}) "
+            f"AND NOT {settled_obligation_sql(conn, 'qreq')} "
+            f"AND {_browser_proof_exists('qreq')} "
+            "AND qreq.qa_phase='verification' AND qr.verdict='pass' AND qr.completed_at IS NOT NULL)",
             (resolved,),
         )
     return HandlerOutcome(

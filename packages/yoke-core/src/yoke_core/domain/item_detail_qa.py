@@ -132,12 +132,11 @@ def qa_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
             else "NULL AS latest_evidence_type"
         ),
     ]
+    from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
+
     joins = [
         "FROM qa_requirements q",
-        "LEFT JOIN qa_runs r ON r.id = ("
-        "  SELECT MAX(latest.id) FROM qa_runs latest "
-        "  WHERE latest.qa_requirement_id = q.id"
-        ")",
+        f"LEFT JOIN qa_runs r ON r.id=({latest_execution_id_sql('q.id')})",
     ]
     if has_plans:
         joins.append("LEFT JOIN qa_plans p ON p.id = q.plan_id")
@@ -150,17 +149,12 @@ def qa_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
         params.append(item_id)
     rows = _dict_rows(
         conn.execute(
-            f"SELECT {', '.join(select)} {' '.join(joins)} "
-            f"{where} ORDER BY q.id",
+            f"SELECT {', '.join(select)} {' '.join(joins)} {where} ORDER BY q.id",
             tuple(params),
         )
     )
-    # A review verdict's own run rarely holds the screenshots it verifies —
-    # it embeds a ``capture_run_id`` back to the immutable run that captured
-    # them (or, for a human override, to the agent run it overrode). Resolve
-    # each row's evidence run before batching the artifact fetch, so a
-    # requirement's evidence follows that reference instead of stopping at
-    # the requirement's bare latest ``run_id``.
+    # Actual capture selection precedes grading. Durable historical review
+    # association may resolve audit evidence, but never invents an execution.
     evidence_run_ids = [
         (
             qa_evidence_run_id(

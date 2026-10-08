@@ -279,7 +279,13 @@ def discharge_declared_replacements(
     discharged: list[tuple[dict[str, Any], dict[str, Any]]] = []
     if not _column_exists(conn, "qa_requirements", "replacement_requirement_id"):
         return discharged
+    from yoke_core.domain.qa_requirement_scope import lock_requirement_scope
+    from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
+
     for replacement_id in sorted({int(rid) for rid in passing_requirement_ids}):
+        lock_requirement_scope(conn, replacement_id)
+        if not has_current_passing_run(conn, replacement_id):
+            continue
         waiting = query_rows(
             conn,
             "SELECT id FROM qa_requirements WHERE replacement_requirement_id=%s "

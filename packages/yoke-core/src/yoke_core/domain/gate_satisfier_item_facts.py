@@ -156,12 +156,17 @@ def _no_deployment_target(conn: Any, item_id: int) -> Fact:
 def load_item_facts(conn: Any, item_id: int) -> Dict[str, Fact]:
     """Return the item-scoped facts every migrated ladder may consult."""
     p = _p(conn)
+    from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
+    from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
+
     ci = _count(
         conn,
         "SELECT COUNT(*) FROM qa_runs r "
         "JOIN qa_requirements q ON q.id = r.qa_requirement_id "
         f"WHERE q.item_id = {p} AND r.performed_by = 'ci_run' "
-        "AND r.verdict = 'pass'",
+        f"AND r.id=({latest_execution_id_sql('q.id')}) "
+        f"AND NOT {settled_obligation_sql(conn, 'q')} "
+        "AND r.verdict='pass' AND r.completed_at IS NOT NULL",
         (item_id,),
         ("qa_runs", "performed_by"),
         ("qa_requirements", "item_id"),
