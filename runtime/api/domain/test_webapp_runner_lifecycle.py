@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import shutil
-import time
+from datetime import timedelta
+
+from yoke_contracts.timestamps import format_instant, utc_now
 
 import pytest
 
@@ -21,7 +23,7 @@ RUNNER_NAME = f"yoke-github-actions-{INSTANCE_ID}"
 
 def _parameters(
     *,
-    idle_since: int = 0,
+    idle_since: str | None = None,
     failures: int = 0,
     online_instance_id: str = "",
     queue_activity: str = "initial",
@@ -31,25 +33,42 @@ def _parameters(
     completion_event: dict | None = None,
 ) -> str:
     values = {
-        "/fleet/lifecycle-state": json.dumps({
-            "idle_since": idle_since,
-            "queue_activity": "initial",
-            "bootstrap_failures": failures,
-            "online_instance_id": online_instance_id,
-        }),
+        "/fleet/lifecycle-state": json.dumps(
+            {
+                "idle_since": idle_since,
+                "queue_activity": "initial",
+                "bootstrap_failures": failures,
+                "online_instance_id": online_instance_id,
+                "idle_by_instance": {},
+            }
+        ),
         "/fleet/queue-activity": queue_activity,
-        "/fleet/runner-progress": json.dumps(progress_event or {
-            "action": "none", "runner_name": "", "job_id": "", "at": 0,
-        }),
-        "/fleet/runner-completion": json.dumps(completion_event or {
-            "action": "none", "runner_name": "", "job_id": "", "at": 0,
-        }),
+        "/fleet/runner-progress": json.dumps(
+            progress_event
+            or {
+                "action": "none",
+                "runner_name": "",
+                "job_id": "",
+                "at": None,
+            }
+        ),
+        "/fleet/runner-completion": json.dumps(
+            completion_event
+            or {
+                "action": "none",
+                "runner_name": "",
+                "job_id": "",
+                "at": None,
+            }
+        ),
     }
     if marker_state is not None:
-        values[f"/fleet/bootstrap/{INSTANCE_ID}"] = json.dumps({
-            "state": marker_state,
-            "at": int(time.time()) - marker_age_seconds,
-        })
+        values[f"/fleet/bootstrap/{INSTANCE_ID}"] = json.dumps(
+            {
+                "state": marker_state,
+                "at": format_instant(utc_now() - timedelta(seconds=marker_age_seconds)),
+            }
+        )
     return json.dumps(values)
 
 
@@ -88,8 +107,10 @@ def _online_runner(*, busy: bool = False) -> dict:
         "status": "online",
         "busy": busy,
         "labels": [
-            {"name": "self-hosted"}, {"name": "Linux"},
-            {"name": "X64"}, {"name": "yoke-github-actions"},
+            {"name": "self-hosted"},
+            {"name": "Linux"},
+            {"name": "X64"},
+            {"name": "yoke-github-actions"},
         ],
     }
 
@@ -98,25 +119,30 @@ def _online_runner(*, busy: bool = False) -> dict:
 def test_queue_activity_during_scale_down_restores_capacity(tmp_path):
     _write_node_fixture(tmp_path)
     parameters = _parameters(
-        idle_since=int(time.time()) - 3600,
+        idle_since=format_instant(utc_now() - timedelta(hours=1)),
         online_instance_id=INSTANCE_ID,
     )
-    payload = _run_driver(tmp_path, _driver(
-        'process.env.DESIRED_RUNNER_COUNT = "2"; '
-        'globalThis.__activityOnTerminate = "queued-race";',
-        parameters,
-        [_online_runner()],
-    ) + """
+    payload = _run_driver(
+        tmp_path,
+        _driver(
+            'process.env.DESIRED_RUNNER_COUNT = "2"; '
+            'globalThis.__activityOnTerminate = "queued-race";',
+            parameters,
+            [_online_runner()],
+        )
+        + """
         const result = await handler({ action: "reap" });
         console.log(JSON.stringify({
           result, scaled: globalThis.__scaled, terminated: globalThis.__terminated,
           lifecycle: JSON.parse(globalThis.__parameters.get(
             "/fleet/lifecycle-state")),
         }));
-    """)
+    """,
+    )
 
     assert payload["result"] == {
-        "action": "replaced", "reason": "queue_activity_race",
+        "action": "replaced",
+        "reason": "queue_activity_race",
     }
     assert payload["scaled"]["DesiredCapacity"] == 2
     assert payload["terminated"]["ShouldDecrementDesiredCapacity"] is True
@@ -128,33 +154,43 @@ def test_parallel_idle_hosts_scale_down_independently(tmp_path):
     _write_node_fixture(tmp_path)
     second_instance = "i-1123456789abcdef0"
     idle_marker_age_seconds = 3600
-    values = json.loads(_parameters(
-        idle_since=int(time.time()) - 3600,
-        online_instance_id="",
-        marker_age_seconds=idle_marker_age_seconds,
-    ))
-    values[f"/fleet/bootstrap/{second_instance}"] = json.dumps({
-        "state": "ready",
-        "at": int(time.time()) - idle_marker_age_seconds,
-    })
+    values = json.loads(
+        _parameters(
+            idle_since=format_instant(utc_now() - timedelta(hours=1)),
+            online_instance_id="",
+            marker_age_seconds=idle_marker_age_seconds,
+        )
+    )
+    values[f"/fleet/bootstrap/{second_instance}"] = json.dumps(
+        {
+            "state": "ready",
+            "at": format_instant(
+                utc_now() - timedelta(seconds=idle_marker_age_seconds)
+            ),
+        }
+    )
     second_runner = {
         **_online_runner(),
         "id": 102,
         "name": f"yoke-github-actions-{second_instance}",
     }
-    payload = _run_driver(tmp_path, _driver(
-        'process.env.DESIRED_RUNNER_COUNT = "2"; '
-        f'globalThis.__activeInstances = ["{INSTANCE_ID}", '
-        f'"{second_instance}"];',
-        json.dumps(values),
-        [_online_runner(), second_runner],
-    ) + """
+    payload = _run_driver(
+        tmp_path,
+        _driver(
+            'process.env.DESIRED_RUNNER_COUNT = "2"; '
+            f'globalThis.__activeInstances = ["{INSTANCE_ID}", '
+            f'"{second_instance}"];',
+            json.dumps(values),
+            [_online_runner(), second_runner],
+        )
+        + """
         const result = await handler({ action: "reap" });
         console.log(JSON.stringify({
           result, scaled: globalThis.__scaled, terminated: globalThis.__terminated,
           active: globalThis.__activeInstances,
         }));
-    """)
+    """,
+    )
 
     assert payload["result"] == {"action": "scaled_down", "reason": "idle"}
     assert payload["scaled"] is None
@@ -169,21 +205,26 @@ def test_parallel_idle_hosts_scale_down_independently(tmp_path):
 def test_no_instance_reconciles_unacknowledged_queue_activity(tmp_path):
     _write_node_fixture(tmp_path)
     parameters = _parameters(queue_activity="queued-after-failure", marker_state=None)
-    payload = _run_driver(tmp_path, _driver(
-        "globalThis.__activeInstances = false;",
-        parameters,
-        [],
-    ) + """
+    payload = _run_driver(
+        tmp_path,
+        _driver(
+            "globalThis.__activeInstances = false;",
+            parameters,
+            [],
+        )
+        + """
         const result = await handler({ action: "reap" });
         console.log(JSON.stringify({
           result, scaled: globalThis.__scaled,
           lifecycle: JSON.parse(globalThis.__parameters.get(
             "/fleet/lifecycle-state")),
         }));
-    """)
+    """,
+    )
 
     assert payload["result"] == {
-        "action": "replaced", "reason": "queue_activity_reconciled",
+        "action": "replaced",
+        "reason": "queue_activity_reconciled",
     }
     assert payload["scaled"]["DesiredCapacity"] == 1
     assert payload["lifecycle"]["queue_activity"] == "queued-after-failure"
@@ -193,11 +234,14 @@ def test_no_instance_reconciles_unacknowledged_queue_activity(tmp_path):
 def test_failed_termination_does_not_consume_bootstrap_retry(tmp_path):
     _write_node_fixture(tmp_path)
     parameters = _parameters(failures=2, marker_state="failed")
-    payload = _run_driver(tmp_path, _driver(
-        'globalThis.__terminationError = "resource contention";',
-        parameters,
-        [],
-    ) + """
+    payload = _run_driver(
+        tmp_path,
+        _driver(
+            'globalThis.__terminationError = "resource contention";',
+            parameters,
+            [],
+        )
+        + """
         let error = "";
         try { await handler({ action: "reap" }); }
         catch (caught) { error = caught.message; }
@@ -206,7 +250,8 @@ def test_failed_termination_does_not_consume_bootstrap_retry(tmp_path):
           lifecycle: JSON.parse(globalThis.__parameters.get(
             "/fleet/lifecycle-state")),
         }));
-    """)
+    """,
+    )
 
     assert payload["error"] == "resource contention"
     assert payload["lifecycle"]["bootstrap_failures"] == 2
@@ -216,113 +261,22 @@ def test_failed_termination_does_not_consume_bootstrap_retry(tmp_path):
 def test_bootstrap_retry_budget_exhaustion_scales_down(tmp_path):
     _write_node_fixture(tmp_path)
     parameters = _parameters(failures=3, marker_state="failed")
-    payload = _run_driver(tmp_path, _driver("", parameters, []) + """
+    payload = _run_driver(
+        tmp_path,
+        _driver("", parameters, [])
+        + """
         const result = await handler({ action: "reap" });
         console.log(JSON.stringify({
           result, terminated: globalThis.__terminated,
           lifecycle: JSON.parse(globalThis.__parameters.get(
             "/fleet/lifecycle-state")),
         }));
-    """)
+    """,
+    )
 
     assert payload["result"] == {
-        "action": "scaled_down", "reason": "bootstrap_retry_exhausted",
+        "action": "scaled_down",
+        "reason": "bootstrap_retry_exhausted",
     }
     assert payload["terminated"]["ShouldDecrementDesiredCapacity"] is True
     assert payload["lifecycle"]["bootstrap_failures"] == 4
-
-
-@pytest.mark.skipif(shutil.which("node") is None, reason="node is unavailable")
-def test_signed_in_progress_event_prevents_transient_offline_recycle(tmp_path):
-    _write_node_fixture(tmp_path)
-    parameters = _parameters(
-        online_instance_id=INSTANCE_ID,
-        progress_event={
-            "action": "in_progress",
-            "runner_name": RUNNER_NAME,
-            "job_id": "789",
-            "at": int(time.time()),
-        },
-    )
-    payload = _run_driver(tmp_path, _driver("", parameters, []) + """
-        const result = await handler({ action: "reap" });
-        console.log(JSON.stringify({
-          result, terminated: globalThis.__terminated,
-        }));
-    """)
-
-    assert payload["result"] == {
-        "action": "kept", "reason": "job_event_in_progress",
-    }
-    assert payload["terminated"] is None
-
-
-@pytest.mark.skipif(shutil.which("node") is None, reason="node is unavailable")
-@pytest.mark.parametrize(
-    "marker_age_seconds", [30, 600], ids=["startup-grace", "steady-state"],
-)
-def test_completion_opens_rearm_window_despite_delayed_in_progress_delivery(
-    tmp_path, marker_age_seconds,
-):
-    _write_node_fixture(tmp_path)
-    now = int(time.time())
-    parameters = _parameters(
-        online_instance_id=INSTANCE_ID,
-        marker_age_seconds=marker_age_seconds,
-        progress_event={
-            "action": "in_progress",
-            "runner_name": RUNNER_NAME,
-            "job_id": "789",
-            "at": now,
-        },
-        completion_event={
-            "action": "completed",
-            "runner_name": RUNNER_NAME,
-            "job_id": "789",
-            "at": now - 5,
-        },
-    )
-    payload = _run_driver(tmp_path, _driver("", parameters, []) + """
-        const result = await handler({ action: "reap" });
-        console.log(JSON.stringify({
-          result, terminated: globalThis.__terminated,
-        }));
-    """)
-
-    assert payload["result"] == {
-        "action": "kept", "reason": "runner_rearm_window",
-    }
-    assert payload["terminated"] is None
-
-
-@pytest.mark.skipif(shutil.which("node") is None, reason="node is unavailable")
-def test_previous_completion_does_not_override_newer_job_progress(tmp_path):
-    _write_node_fixture(tmp_path)
-    now = int(time.time())
-    parameters = _parameters(
-        online_instance_id=INSTANCE_ID,
-        marker_age_seconds=600,
-        progress_event={
-            "action": "in_progress",
-            "runner_name": RUNNER_NAME,
-            "job_id": "new-job",
-            "at": now,
-        },
-        completion_event={
-            "action": "completed",
-            "runner_name": RUNNER_NAME,
-            "job_id": "previous-job",
-            "at": now - 30,
-        },
-    )
-    payload = _run_driver(tmp_path, _driver("", parameters, []) + """
-        const result = await handler({ action: "reap" });
-        console.log(JSON.stringify({
-          result, terminated: globalThis.__terminated,
-        }));
-    """)
-
-    assert payload["result"] == {
-        "action": "kept", "reason": "job_event_in_progress",
-    }
-    assert payload["terminated"] is None

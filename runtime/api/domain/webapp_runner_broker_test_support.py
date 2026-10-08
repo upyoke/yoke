@@ -27,15 +27,16 @@ INFRA_ROOT = _latest_infra_root()
 def _module(tmp_path: Path, package: str, source: str) -> None:
     root = tmp_path / f"node_modules/@aws-sdk/{package}"
     root.mkdir(parents=True)
-    (root / "package.json").write_text(
-        '{"type":"module","exports":"./index.mjs"}\n'
-    )
+    (root / "package.json").write_text('{"type":"module","exports":"./index.mjs"}\n')
     (root / "index.mjs").write_text(textwrap.dedent(source))
 
 
 def _write_node_fixture(tmp_path: Path) -> None:
     (tmp_path / "package.json").write_text('{"type":"module"}\n')
-    _module(tmp_path, "client-secrets-manager", """
+    _module(
+        tmp_path,
+        "client-secrets-manager",
+        """
         export class GetSecretValueCommand { constructor(input) { this.input = input; } }
         export class SecretsManagerClient {
           async send(command) {
@@ -45,8 +46,12 @@ def _write_node_fixture(tmp_path: Path) -> None:
             return { SecretString: globalThis.__privateKey };
           }
         }
-    """)
-    _module(tmp_path, "client-auto-scaling", """
+    """,
+    )
+    _module(
+        tmp_path,
+        "client-auto-scaling",
+        """
         export class DescribeAutoScalingInstancesCommand {
           constructor(input) { this.input = input; }
         }
@@ -107,8 +112,12 @@ def _write_node_fixture(tmp_path: Path) -> None:
             return {};
           }
         }
-    """)
-    _module(tmp_path, "client-ec2", """
+    """,
+    )
+    _module(
+        tmp_path,
+        "client-ec2",
+        """
         export class DescribeInstancesCommand { constructor(input) { this.input = input; } }
         export class EC2Client {
           async send(command) {
@@ -118,8 +127,12 @@ def _write_node_fixture(tmp_path: Path) -> None:
             }] }] };
           }
         }
-    """)
-    _module(tmp_path, "client-ssm", """
+    """,
+    )
+    _module(
+        tmp_path,
+        "client-ssm",
+        """
         class Command { constructor(input) { this.input = input; } }
         export class DeleteParameterCommand extends Command {}
         export class GetParameterCommand extends Command {}
@@ -165,8 +178,11 @@ def _write_node_fixture(tmp_path: Path) -> None:
             return {};
           }
         }
-    """)
+    """,
+    )
     for name in (
+        "webapp_runner_clock.mjs",
+        "webapp_runner_timestamps.mjs",
         "webapp_runner_aws_state.mjs",
         "webapp_runner_github_api.mjs",
         "webapp_runner_github_broker.mjs",

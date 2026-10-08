@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import shutil
-import time
+from datetime import timedelta
+
+from yoke_contracts.timestamps import format_instant, utc_now
 
 import pytest
 
@@ -41,16 +43,22 @@ def _driver(parameters: str, setup: str) -> str:
           if (url.includes("/access_tokens")) {{
             body = {{ token: "installation-secret", expires_at: "2099-01-01T00:00:00Z" }};
           }} else if (url.includes("/actions/runners?")) {{
-            const runners = globalThis.__runnerPresent ? [{json.dumps({
+            const runners = globalThis.__runnerPresent ? [{
+        json.dumps(
+            {
                 "id": 101,
                 "name": RUNNER_NAME,
                 "status": "online",
                 "busy": False,
                 "labels": [
-                    {"name": "self-hosted"}, {"name": "Linux"},
-                    {"name": "X64"}, {"name": "yoke-github-actions"},
+                    {"name": "self-hosted"},
+                    {"name": "Linux"},
+                    {"name": "X64"},
+                    {"name": "yoke-github-actions"},
                 ],
-            })}] : [];
+            }
+        )
+    }] : [];
             body = {{ total_count: runners.length, runners }};
           }} else if (options.method === "DELETE") {{
             globalThis.__deleteAttempts = (globalThis.__deleteAttempts || 0) + 1;
@@ -72,7 +80,7 @@ def _driver(parameters: str, setup: str) -> str:
 
 def _idle_parameters() -> str:
     return _parameters(
-        idle_since=int(time.time()) - 3600,
+        idle_since=format_instant(utc_now() - timedelta(hours=1)),
         online_instance_id=INSTANCE_ID,
     )
 
@@ -83,26 +91,40 @@ def _idle_parameters() -> str:
     [
         (
             "globalThis.__failQueueReadAfterTerminationOnce = true;",
-            "queue read failed after termination", "idle", 0, 1,
+            "queue read failed after termination",
+            "idle",
+            0,
+            1,
         ),
         (
             'globalThis.__activityOnTerminate = "queued-race";\n'
             'globalThis.__restoreErrorOnce = "capacity restore failed";',
-            "capacity restore failed", "queue_activity_race", 1, 1,
+            "capacity restore failed",
+            "queue_activity_race",
+            1,
+            1,
         ),
         (
             "globalThis.__failRunnerDeleteOnce = true;",
-            "runner deletion failed", "idle", 0, 2,
+            "runner deletion failed",
+            "idle",
+            0,
+            2,
         ),
         (
             "globalThis.__failLifecycleWriteAfterTerminationOnce = true;",
-            "lifecycle write failed after termination", "idle", 0, 1,
+            "lifecycle write failed after termination",
+            "idle",
+            0,
+            1,
         ),
         (
             'globalThis.__activityOnTerminate = "queued-race";\n'
             "globalThis.__failLifecycleWriteAfterTerminationOnce = true;",
             "lifecycle write failed after termination",
-            "queue_activity_race", 1, 1,
+            "queue_activity_race",
+            1,
+            1,
         ),
     ],
 )
@@ -115,7 +137,10 @@ def test_post_termination_failures_resume_without_reterminating(
     deletes,
 ):
     _write_node_fixture(tmp_path)
-    payload = _run_driver(tmp_path, _driver(_idle_parameters(), setup) + f"""
+    payload = _run_driver(
+        tmp_path,
+        _driver(_idle_parameters(), setup)
+        + f"""
         let firstError = "";
         try {{ await handler({{ action: "reap" }}); }}
         catch (error) {{ firstError = error.message; }}
@@ -129,7 +154,8 @@ def test_post_termination_failures_resume_without_reterminating(
           markerRemaining: globalThis.__parameters.has("{MARKER_NAME}"),
           lifecycle: JSON.parse(globalThis.__parameters.get("/fleet/lifecycle-state")),
         }}));
-    """)
+    """,
+    )
 
     assert expected_error in payload["firstError"]
     assert payload["firstMarker"]["state"] == "termination_acknowledged"
@@ -145,10 +171,13 @@ def test_post_termination_failures_resume_without_reterminating(
 @pytest.mark.skipif(shutil.which("node") is None, reason="node is unavailable")
 def test_ack_write_failure_recovers_from_requested_marker(tmp_path):
     _write_node_fixture(tmp_path)
-    payload = _run_driver(tmp_path, _driver(
-        _idle_parameters(),
-        "globalThis.__failTerminationAckWriteOnce = true;",
-    ) + f"""
+    payload = _run_driver(
+        tmp_path,
+        _driver(
+            _idle_parameters(),
+            "globalThis.__failTerminationAckWriteOnce = true;",
+        )
+        + f"""
         let firstError = "";
         try {{ await handler({{ action: "reap" }}); }}
         catch (error) {{ firstError = error.message; }}
@@ -159,7 +188,8 @@ def test_ack_write_failure_recovers_from_requested_marker(tmp_path):
           terminationCalls: globalThis.__terminationCalls.length,
           markerRemaining: globalThis.__parameters.has("{MARKER_NAME}"),
         }}));
-    """)
+    """,
+    )
 
     assert payload["firstError"] == "termination acknowledgement write failed"
     assert payload["firstMarker"]["state"] == "termination_requested"
@@ -171,10 +201,13 @@ def test_ack_write_failure_recovers_from_requested_marker(tmp_path):
 @pytest.mark.skipif(shutil.which("node") is None, reason="node is unavailable")
 def test_termination_api_retries_are_persisted_and_bounded(tmp_path):
     _write_node_fixture(tmp_path)
-    payload = _run_driver(tmp_path, _driver(
-        _idle_parameters(),
-        'globalThis.__terminationError = "resource contention";',
-    ) + f"""
+    payload = _run_driver(
+        tmp_path,
+        _driver(
+            _idle_parameters(),
+            'globalThis.__terminationError = "resource contention";',
+        )
+        + f"""
         const errors = [];
         for (let attempt = 0; attempt < 4; attempt += 1) {{
           try {{ await handler({{ action: "reap" }}); }}
@@ -186,7 +219,8 @@ def test_termination_api_retries_are_persisted_and_bounded(tmp_path):
           terminationAttempts: globalThis.__terminationAttempts || 0,
           runnerPresent: globalThis.__runnerPresent,
         }}));
-    """)
+    """,
+    )
 
     assert payload["errors"] == [
         "resource contention",

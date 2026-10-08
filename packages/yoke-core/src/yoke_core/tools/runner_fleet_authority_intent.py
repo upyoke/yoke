@@ -73,12 +73,13 @@ def authority_intent_envelope_from_values(
             "runner-fleet deployment SSH stacks must map names to established "
             "Elastic IP outputs"
         )
-    deployment_ssh_stack_outputs = dict(
-        sorted(deployment_ssh_stack_outputs.items())
-    )
+    deployment_ssh_stack_outputs = dict(sorted(deployment_ssh_stack_outputs.items()))
     routing_text = values["runner_fleet_routing_enabled"]
     if routing_text not in {"false", "true"}:
         raise ValueError("runner-fleet routing intent must be true or false")
+    paused_text = values["runner_fleet_lifecycle_writers_paused"]
+    if paused_text not in {"false", "true"}:
+        raise ValueError("runner-fleet writer pause intent must be true or false")
     authority = {
         "project": project,
         "deploy_namespace": deploy_namespace,
@@ -99,6 +100,7 @@ def authority_intent_envelope_from_values(
         "runner_labels": labels,
         "runner_variable_name": values["runner_fleet_variable_name"],
         "routing_enabled": routing_text == "true",
+        "lifecycle_writers_paused": paused_text == "true",
         "runner_count": int(values["runner_fleet_runner_count"]),
         "max_runner_count": int(values["runner_fleet_max_runner_count"]),
         "instance_type": values["runner_fleet_instance_type"],

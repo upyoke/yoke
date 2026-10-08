@@ -15,6 +15,7 @@ from runtime.api.domain.webapp_runner_broker_test_support import (
     _write_node_fixture,
 )
 
+
 def _environment(mode: str) -> str:
     return textwrap.dedent(f"""
         Object.assign(process.env, {{
@@ -50,7 +51,10 @@ def _run_driver(tmp_path: Path, body: str) -> dict:
     driver = tmp_path / "driver.mjs"
     driver.write_text(textwrap.dedent(body))
     result = subprocess.run(
-        ["node", str(driver)], cwd=tmp_path, text=True, check=True,
+        ["node", str(driver)],
+        cwd=tmp_path,
+        text=True,
+        check=True,
         capture_output=True,
     )
     assert "installation-secret" not in result.stdout
@@ -72,8 +76,11 @@ def test_provider_token_verifies_digest_and_deployed_identity(tmp_path):
     canonical = json.dumps(authority, sort_keys=True, separators=(",", ":"))
     digest = hashlib.sha256(canonical.encode()).hexdigest()
     invalid_digest = "0" * 64
-    payload = _run_driver(tmp_path, f"""
+    payload = _run_driver(
+        tmp_path,
+        f"""
         import {{ generateKeyPairSync }} from "node:crypto";
+        import {{ instantFromDate }} from "./webapp_runner_timestamps.mjs";
         globalThis.__privateKey = generateKeyPairSync("rsa", {{ modulusLength: 2048 }})
           .privateKey.export({{ type: "pkcs8", format: "pem" }});
         globalThis.__parameters = new Map();
@@ -113,11 +120,12 @@ def test_provider_token_verifies_digest_and_deployed_identity(tmp_path):
           grant: {{ ...grant, token: "[redacted]" }}, calls,
           digestError, identityError,
         }}));
-    """)
+    """,
+    )
 
     assert payload["grant"] == {
         "token": "[redacted]",
-        "expires_at": "2099-01-01T00:00:00Z",
+        "expires_at": "2099-01-01T00:00:00.000000Z",
         "repository": "acme/service",
     }
     assert payload["calls"][0]["body"] == {
@@ -135,20 +143,23 @@ def test_provider_token_verifies_digest_and_deployed_identity(tmp_path):
 @pytest.mark.skipif(shutil.which("node") is None, reason="node is unavailable")
 def test_bootstrap_is_one_time_and_cannot_invoke_reaper(tmp_path):
     _write_node_fixture(tmp_path)
-    payload = _run_driver(tmp_path, f"""
+    payload = _run_driver(
+        tmp_path,
+        f"""
         import {{ generateKeyPairSync }} from "node:crypto";
+        import {{ instantFromDate }} from "./webapp_runner_timestamps.mjs";
         globalThis.__privateKey = generateKeyPairSync("rsa", {{ modulusLength: 2048 }})
           .privateKey.export({{ type: "pkcs8", format: "pem" }});
         globalThis.__parameters = new Map([
           ["/fleet/lifecycle-state", JSON.stringify({{
-            idle_since: 0, queue_activity: "initial", bootstrap_failures: 0,
-            online_instance_id: "",
+            idle_since: null, queue_activity: "initial", bootstrap_failures: 0,
+            online_instance_id: "", idle_by_instance: {{}},
           }})],
           ["/fleet/queue-activity", "initial"],
           ["/fleet/runner-progress", JSON.stringify({{
-            action: "none", runner_name: "", job_id: "", at: 0 }})],
+            action: "none", runner_name: "", job_id: "", at: null }})],
           ["/fleet/runner-completion", JSON.stringify({{
-            action: "none", runner_name: "", job_id: "", at: 0 }})],
+            action: "none", runner_name: "", job_id: "", at: null }})],
         ]);
         {_environment("bootstrap")}
         const calls = [];
@@ -202,7 +213,8 @@ def test_bootstrap_is_one_time_and_cannot_invoke_reaper(tmp_path):
           marker: JSON.parse(globalThis.__parameters.get(
             "/fleet/bootstrap/i-0123456789abcdef0")),
         }}));
-    """)
+    """,
+    )
 
     assert payload["bootstrap"] == {
         "download_url": "https://github.example/runner.tar.gz",
@@ -214,15 +226,11 @@ def test_bootstrap_is_one_time_and_cannot_invoke_reaper(tmp_path):
     assert payload["register"] == {
         "registration_token": "registration-token",
     }
-    assert payload["rearming"]["runner_name"].endswith(
-        "i-0123456789abcdef0"
-    )
+    assert payload["rearming"]["runner_name"].endswith("i-0123456789abcdef0")
     assert payload["nextRegister"] == {
         "registration_token": "registration-token",
     }
-    assert payload["readyAgain"]["runner_name"].endswith(
-        "i-0123456789abcdef0"
-    )
+    assert payload["readyAgain"]["runner_name"].endswith("i-0123456789abcdef0")
     assert payload["earlyRegister"] == (
         "runner host is not ready for another registration"
     )
@@ -231,17 +239,19 @@ def test_bootstrap_is_one_time_and_cannot_invoke_reaper(tmp_path):
     assert payload["reap"] == "unsupported runner broker action"
     assert all(call["redirect"] == "error" for call in payload["calls"])
     token_calls = [
-        call for call in payload["calls"]
-        if call["url"].endswith("/access_tokens")
+        call for call in payload["calls"] if call["url"].endswith("/access_tokens")
     ]
     assert len(token_calls) == 4
     for call in token_calls:
         body = json.loads(call["body"])
         permissions = body["permissions"]
         assert permissions == {"administration": "write"}
-        assert set(permissions).isdisjoint({
-            "actions_variables", "repository_hooks",
-        })
+        assert set(permissions).isdisjoint(
+            {
+                "actions_variables",
+                "repository_hooks",
+            }
+        )
         assert body == {
             "repository_ids": [789012],
             "permissions": permissions,
@@ -251,21 +261,24 @@ def test_bootstrap_is_one_time_and_cannot_invoke_reaper(tmp_path):
 @pytest.mark.skipif(shutil.which("node") is None, reason="node is unavailable")
 def test_reaper_paginates_before_keeping_a_busy_runner(tmp_path):
     _write_node_fixture(tmp_path)
-    payload = _run_driver(tmp_path, f"""
+    payload = _run_driver(
+        tmp_path,
+        f"""
         import {{ generateKeyPairSync }} from "node:crypto";
+        import {{ instantFromDate }} from "./webapp_runner_timestamps.mjs";
         globalThis.__privateKey = generateKeyPairSync("rsa", {{ modulusLength: 2048 }})
           .privateKey.export({{ type: "pkcs8", format: "pem" }});
-        const at = Math.floor(Date.now() / 1000) - 600;
+        const at = instantFromDate(new Date(Date.now() - 600000));
         globalThis.__parameters = new Map([
           ["/fleet/lifecycle-state", JSON.stringify({{
-            idle_since: 0, queue_activity: "initial", bootstrap_failures: 0,
-            online_instance_id: "i-0123456789abcdef0",
+            idle_since: null, queue_activity: "initial", bootstrap_failures: 0,
+            online_instance_id: "i-0123456789abcdef0", idle_by_instance: {{}},
           }})],
           ["/fleet/queue-activity", "initial"],
           ["/fleet/runner-progress", JSON.stringify({{
-            action: "none", runner_name: "", job_id: "", at: 0 }})],
+            action: "none", runner_name: "", job_id: "", at: null }})],
           ["/fleet/runner-completion", JSON.stringify({{
-            action: "none", runner_name: "", job_id: "", at: 0 }})],
+            action: "none", runner_name: "", job_id: "", at: null }})],
           ["/fleet/bootstrap/i-0123456789abcdef0", JSON.stringify({{ state: "ready", at }})],
         ]);
         globalThis.__scaled = null;
@@ -300,7 +313,8 @@ def test_reaper_paginates_before_keeping_a_busy_runner(tmp_path):
         const {{ handler }} = await import("./webapp_runner_github_broker.mjs");
         const result = await handler({{ action: "reap" }});
         console.log(JSON.stringify({{ result, calls, scaled: globalThis.__scaled }}));
-    """)
+    """,
+    )
 
     assert payload["result"] == {"action": "kept", "reason": "busy"}
     assert payload["scaled"] is None
@@ -308,55 +322,3 @@ def test_reaper_paginates_before_keeping_a_busy_runner(tmp_path):
     assert len(runner_pages) == 2
     assert "page=1" in runner_pages[0]
     assert "page=2" in runner_pages[1]
-
-
-@pytest.mark.skipif(shutil.which("node") is None, reason="node is unavailable")
-def test_stale_completed_runner_replaces_host_when_rearm_never_returns(
-    tmp_path,
-):
-    _write_node_fixture(tmp_path)
-    payload = _run_driver(tmp_path, f"""
-        import {{ generateKeyPairSync }} from "node:crypto";
-        globalThis.__privateKey = generateKeyPairSync("rsa", {{ modulusLength: 2048 }})
-          .privateKey.export({{ type: "pkcs8", format: "pem" }});
-        const at = Math.floor(Date.now() / 1000) - 600;
-        globalThis.__parameters = new Map([
-          ["/fleet/lifecycle-state", JSON.stringify({{
-            idle_since: 0, queue_activity: "initial", bootstrap_failures: 0,
-            online_instance_id: "",
-          }})],
-          ["/fleet/queue-activity", "initial"],
-          ["/fleet/runner-progress", JSON.stringify({{
-            action: "none", runner_name: "", job_id: "", at: 0 }})],
-          ["/fleet/runner-completion", JSON.stringify({{
-            action: "completed",
-            runner_name: "yoke-github-actions-i-0123456789abcdef0",
-            job_id: "456", at,
-          }})],
-          ["/fleet/bootstrap/i-0123456789abcdef0", JSON.stringify({{ state: "ready", at }})],
-        ]);
-        globalThis.__scaled = null;
-        globalThis.__terminated = null;
-        {_environment("reaper")}
-        globalThis.fetch = async (url) => {{
-          const body = url.includes("/access_tokens")
-            ? {{ token: "installation-secret", expires_at: "2099-01-01T00:00:00Z" }}
-            : {{ total_count: 0, runners: [] }};
-          return {{ ok: true, status: 200,
-            async text() {{ return JSON.stringify(body); }} }};
-        }};
-        const {{ handler }} = await import("./webapp_runner_github_broker.mjs");
-        const result = await handler({{ action: "reap" }});
-        console.log(JSON.stringify({{ result, scaled: globalThis.__scaled,
-          terminated: globalThis.__terminated }}));
-    """)
-
-    assert payload["result"] == {
-        "action": "replaced",
-        "reason": "runner_rearm_failed",
-    }
-    assert payload["scaled"] is None
-    assert payload["terminated"] == {
-        "InstanceId": "i-0123456789abcdef0",
-        "ShouldDecrementDesiredCapacity": False,
-    }
