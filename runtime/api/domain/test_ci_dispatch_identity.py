@@ -2,6 +2,7 @@
 
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -199,6 +200,6 @@ def test_merge_boundary_changed_producer_on_same_tree_dispatches_fresh(
             candidate={"product_ref": producer * 40},
         )
         assert run_verification(tmp_path) is None
-    runs = [row["ci_run_id"] for row in recorded]
+    runs = [json.loads(row["raw_result"])["ci_run_id"] for row in recorded]
     assert runs[0] == runs[1] != runs[2]
     assert all(key.startswith("merge-gate:") for key, _ in dispatch_store[1])
