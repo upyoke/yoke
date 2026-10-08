@@ -129,7 +129,7 @@ def apply_pending(
     backup_target_dsn: Optional[str] = None,
     external_restore_point: Optional[str] = None,
 ) -> ApplyOutcome:
-    """Apply every entry this database still owes, oldest first.
+    """Apply every entry this database still owes, in history order.
 
     Exactly one restore-point source must be supplied. ``backup_root`` plus a
     caller-resolved ``backup_target_dsn`` makes the kernel take a ``pg_dump``

@@ -102,7 +102,8 @@ def validate_psycopg_migration_sql(
             if not isinstance(node, ast.Call) or not node.args:
                 continue
             if not isinstance(node.func, ast.Attribute) or node.func.attr not in {
-                "execute", "executemany",
+                "execute",
+                "executemany",
             }:
                 continue
             has_params = len(node.args) > 1 or any(
@@ -190,14 +191,18 @@ def _entries(directory: Path, *, strict_names: bool) -> Tuple[MigrationEntry, ..
 
 
 def ordered_entries(directory: Path) -> Tuple[MigrationEntry, ...]:
-    """Return every entry in *directory*, ordered by sequence prefix.
+    """Return every entry in *directory* in the order they apply.
 
-    Gaps in the sequence are fine — numbers order the history, they do not
-    count it. Duplicates are rejected: two entries claiming one number have
-    no defined order, which is the collision that matters when two work
-    items author migrations in parallel.
+    That is sequence-prefix order, except that an entry declaring
+    ``PRECEDES`` runs immediately before the earlier-numbered entries it names
+    (see ``migration_history_order``). Gaps in the sequence are fine — numbers
+    order the history, they do not count it. Duplicates are rejected: two
+    entries claiming one number have no defined order, which is the collision
+    that matters when two work items author migrations in parallel.
     """
-    return _entries(directory, strict_names=True)
+    from yoke_core.domain.migration_history_order import apply_declared_precedence
+
+    return apply_declared_precedence(_entries(directory, strict_names=True))
 
 
 def ordinal_entries(directory: Path) -> Tuple[MigrationEntry, ...]:
@@ -217,7 +222,11 @@ def resolve_migration_path(directory: Path, identifier: str) -> Path:
     if exact.is_file():
         return exact
     suffix = f"_{identifier}"
-    matches = [entry.path for entry in ordinal_entries(directory) if entry.name.endswith(suffix)]
+    matches = [
+        entry.path
+        for entry in ordinal_entries(directory)
+        if entry.name.endswith(suffix)
+    ]
     if len(matches) > 1:
         names = ", ".join(path.name for path in matches)
         raise ModuleResolutionError(
@@ -257,7 +266,9 @@ def load_migration_module(
     content = path.read_bytes() if source_bytes is None else source_bytes
     if check_psycopg_sql:
         validate_psycopg_migration_sql(
-            path.parent, override_path=path, override_source=content,
+            path.parent,
+            override_path=path,
+            override_source=content,
         )
     spec_name = f"_governed_migration_{identifier}"
     spec = importlib.util.spec_from_file_location(spec_name, str(path))
