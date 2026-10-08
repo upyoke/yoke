@@ -61,6 +61,19 @@ capability — the engine's tenant databases, databases the project names and
 converges with its own boot command, or `none` with a reason — and `yoke watch preflight -- --project P <environment>`
 rehearses exactly that fleet for every project
 ([reference/db-reference/migration-model-fleet.md](reference/db-reference/migration-model-fleet.md)).
+Fleet copy admission is automatic at the shared rehearsal kernel: an exclusive
+OS file lock identifies the physical local cluster and disposable database name.
+It refuses immediately with `rehearsal_copy_busy`, holder diagnostics and a retry
+after the holder finishes; the refused runner neither copies nor cleans up.
+Admission covers dump, restore, the entire pending-history batch, invariants or
+diagnostic callbacks, connection close and cleanup. Transfer and declared-command
+children retain admission if their parent dies, until the children stop. Stable
+lock files are retained; metadata is diagnostic and never decides ownership.
+Distinct clusters and copy names proceed independently. This protects callers of
+the kernel, including `yoke watch preflight`, not manual/ad hoc database operations.
+The persistent `yoke migration rehearse ITEM` validation database and its existing
+migration-territory claim remain reusable and unchanged.
+
 Fleet preflight exists for release trains carrying a history entry or a
 schema shape no current receipt covers for the target environment; after converging each
 throwaway copy of a live database it also re-runs callable invariants for

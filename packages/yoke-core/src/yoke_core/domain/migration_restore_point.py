@@ -23,8 +23,9 @@ deployer already sets.
 from __future__ import annotations
 
 import os
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Optional, Tuple
+from typing import Any, Iterator, Optional, Tuple
 
 from yoke_contracts.machine_config.runtime import yoke_home
 
@@ -42,6 +43,20 @@ RESTORE_POINT_ENV = "YOKE_MIGRATION_RESTORE_POINT"
 BACKUP_ROOT_ENV = "YOKE_MIGRATION_BACKUP_ROOT"
 
 BACKUP_REASON = "pre-migration-apply"
+
+
+@contextmanager
+def named_restore_point(dump: Path) -> Iterator[None]:
+    """Bind the copy's own dump as its destructive-history restore point."""
+    previous = os.environ.get(RESTORE_POINT_ENV)
+    os.environ[RESTORE_POINT_ENV] = str(dump)
+    try:
+        yield
+    finally:
+        if previous is None:
+            os.environ.pop(RESTORE_POINT_ENV, None)
+        else:
+            os.environ[RESTORE_POINT_ENV] = previous
 
 
 class RestorePointRequired(MigrationApplyError):

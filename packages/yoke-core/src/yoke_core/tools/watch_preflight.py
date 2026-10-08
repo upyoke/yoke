@@ -113,6 +113,11 @@ examples:
   yoke watch preflight --print-streaming-pair -- --project yoke \\
       stage --record-receipt --product-sha SHA --receipt-env <control-plane>
 
+Copy admission is automatic for each physical local cluster/copy name through
+cleanup. rehearsal_copy_busy refuses without touching the copy; retry after the
+named holder or its surviving transfer child finishes. Manual database operations
+outside the rehearsal kernel are not covered.
+
 Pass bare preflight arguments after ``--``. The wrapper supplies
 ``python3 -m runtime.api.tools.preflight_fleet_migrations``.
 

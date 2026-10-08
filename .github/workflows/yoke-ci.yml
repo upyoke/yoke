@@ -215,8 +215,11 @@ jobs:
         # dynamic host port (`-p 5432`, no host side) keeps two matrix lanes on
         # one self-hosted instance off a fixed 5432; the next step reads it back.
         run: |
+          socket_dir="$(mktemp -d /tmp/yoke-ci-pg.XXXXXX)"
+          echo "YOKE_PG_SOCKET_DIR=${socket_dir}" >> "$GITHUB_ENV"
           docker run -d \
             --name "$PG_CONTAINER" \
+            -v "${socket_dir}:/var/run/postgresql" \
             -e POSTGRES_USER=yoke \
             -e POSTGRES_PASSWORD=yoke \
             -e POSTGRES_DB=postgres \
@@ -296,7 +299,9 @@ jobs:
         # takes it, so remove the manually-started container a `services:` one
         # would have had reaped. `|| true` tolerates an already-gone container.
         if: always()
-        run: docker rm -f "$PG_CONTAINER" || true
+        run: |
+          docker rm -f "$PG_CONTAINER" || true
+          if [ -n "${YOKE_PG_SOCKET_DIR:-}" ]; then sudo rm -rf -- "$YOKE_PG_SOCKET_DIR"; fi
   browser_runtime:
     needs: [repo_contracts, reuse_coverage]
     if: ${{ !cancelled() && needs.repo_contracts.result == 'success' }}

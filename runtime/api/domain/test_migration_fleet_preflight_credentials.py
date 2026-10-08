@@ -90,6 +90,7 @@ def test_local_rehearsal_clients_have_only_nonsecret_connection_arguments(
         )
 
     monkeypatch.setattr(transfer.subprocess, "run", run)
+    monkeypatch.setattr(transfer.migration_rehearsal_copy_lock, "run_child", run)
     spec = SimpleNamespace(sock_dir=tmp_path / "socket", superuser="admin")
     dump = tmp_path / "dump"
     transfer.create_copy(spec, "scratch")
@@ -111,8 +112,8 @@ def test_local_rehearsal_clients_have_only_nonsecret_connection_arguments(
 
 def test_transfer_failure_redacts_password_without_full_conninfo(monkeypatch):
     monkeypatch.setattr(
-        transfer.subprocess,
-        "run",
+        transfer.migration_rehearsal_copy_lock,
+        "run_child",
         lambda argv, **_kwargs: subprocess.CompletedProcess(
             argv, 1, stderr="authentication failed: dump secret"
         ),
