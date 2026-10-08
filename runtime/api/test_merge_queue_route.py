@@ -19,6 +19,8 @@ from yoke_core.domain import session_liveness_pump as liveness_mod
 from yoke_core.domain.merge_queue_landing_record_state import PENDING
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
 from yoke_core.engines.merge_worktree_pr_queue import QueueMember
+from yoke_core.engines.merge_worktree_pr_train_run import TrainRun
+from runtime.api.merge_queue_landing_test_helpers import LANE_SHA
 
 
 AWAITING_CHECKS = (
@@ -301,10 +303,21 @@ def test_timeout_reports_the_held_claim_and_the_resume_command(monkeypatch):
 def test_unchanged_failed_train_refuses_before_queue_entry(monkeypatch):
     entered: list[str] = []
     wire_happy_path(monkeypatch, landing_states=[UNARMED, MERGED])
+    train_sha, base_sha = "4" * 40, "3" * 40
+    run_url = "https://github.com/example/project/actions/runs/123"
+    refusal = failed_train_mod.unchanged_failed_train_refusal(
+        None,
+        "42",
+        lane_head=LANE_SHA,
+        base_branch="main",
+        train=TrainRun(conclusion="failure", head_sha=train_sha, url=run_url),
+        parents=[base_sha, LANE_SHA],
+        base_sha=base_sha,
+    )
     monkeypatch.setattr(
         route_mod,
         "unchanged_failed_train_refusal",
-        lambda *_a, **_k: f"{failed_train_mod.FAILED_TRAIN_UNCHANGED}: held",
+        lambda *_a, **_k: refusal,
     )
     monkeypatch.setattr(
         route_mod,
@@ -315,4 +328,7 @@ def test_unchanged_failed_train_refuses_before_queue_entry(monkeypatch):
     assert not outcome.ok
     assert outcome.exit_code == 1
     assert failed_train_mod.FAILED_TRAIN_UNCHANGED in outcome.error
+    assert outcome.error == refusal
+    assert run_url in outcome.error and train_sha in outcome.error
+    assert "correct the actual cause" in outcome.error
     assert entered == []
