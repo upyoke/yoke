@@ -77,6 +77,8 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset(
         "session_control.surface_policy.list",
         "frontier.list",
         "events.query.run",
+        "events.performance.aggregate",
+        "events.performance.detail",
         "doctor.last_run.get",
         "qa.method.list",
         "qa.method.get",

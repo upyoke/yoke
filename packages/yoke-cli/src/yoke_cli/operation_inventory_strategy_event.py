@@ -14,6 +14,8 @@ from yoke_cli.operation_inventory_model import (
 
 WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke events emit", "events"),
+    _w("yoke events performance aggregate", "events.performance"),
+    _w("yoke events performance detail", "events.performance"),
     _w("yoke ouroboros entry insert", "ouroboros"),
     _w("yoke ouroboros entry mark-reviewed", "ouroboros"),
     _w("yoke ouroboros entry mark-archived", "ouroboros"),
@@ -28,10 +30,16 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
 
 
 PERMANENT_ROWS: Tuple[_Row, ...] = (
-    _p("python3 -m yoke_core.tools.atlas_render_docs render",
-       "tools.atlas", REASON_TOOL_SHAPED),
-    _p("python3 -m yoke_core.tools.atlas_render_docs check",
-       "tools.atlas", REASON_TOOL_SHAPED),
+    _p(
+        "python3 -m yoke_core.tools.atlas_render_docs render",
+        "tools.atlas",
+        REASON_TOOL_SHAPED,
+    ),
+    _p(
+        "python3 -m yoke_core.tools.atlas_render_docs check",
+        "tools.atlas",
+        REASON_TOOL_SHAPED,
+    ),
 )
 
 

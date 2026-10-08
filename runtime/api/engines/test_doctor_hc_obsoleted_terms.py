@@ -10,6 +10,7 @@ shape tests.
 
 from __future__ import annotations
 
+import re
 import subprocess
 from pathlib import Path
 
@@ -126,7 +127,9 @@ def _retired_parent_epic_cli_pattern() -> str:
     return r"items\s+(get|update|set)\s+\S+\s+" + "epic" + r"\b"
 
 
-def _db_router_items_cmd(verb: str, public_ref: str, field: str, value: str = "") -> str:
+def _db_router_items_cmd(
+    verb: str, public_ref: str, field: str, value: str = ""
+) -> str:
     parts = [
         "python3 -m yoke_core.cli.db_router",
         "items",
@@ -224,9 +227,56 @@ def test_yoke_db_sh_has_no_live_prose_residue():
     )
 
 
+_CHART_ASSET_PATH = "packages/yoke-core/src/yoke_core/ui/static/uplot.js"
+_CHART_WEEKDAYS = (
+    '["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]'
+)
+_RETIRED_PRODUCT_PATTERN = r"\b[Ss]unday\b"
+
+
+def _is_bundled_chart_weekday_table(line: str) -> bool:
+    """Accept the upstream calendar vocabulary, never a product reference."""
+    path, _, content = line.split(":", 2)
+    if path != _CHART_ASSET_PATH:
+        return False
+    return (
+        _CHART_WEEKDAYS in content
+        and re.search(_RETIRED_PRODUCT_PATTERN, content.replace(_CHART_WEEKDAYS, "", 1))
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    "path, extra, expected",
+    [
+        (_CHART_ASSET_PATH, "", True),
+        (_CHART_ASSET_PATH, 'var product="Sunday";', False),
+        ("packages/yoke-core/src/yoke_core/ui/static/app.js", "", False),
+    ],
+)
+def test_calendar_exception_is_specific_to_the_bundled_weekday_table(
+    path, extra, expected
+):
+    assert (
+        _is_bundled_chart_weekday_table(
+            f"{path}:2:const days={_CHART_WEEKDAYS};{extra}"
+        )
+        is expected
+    )
+
+
+def test_calendar_exception_rejects_a_bare_product_name():
+    path = _CHART_ASSET_PATH
+    assert not _is_bundled_chart_weekday_table(f'{path}:2:const product="Sunday";')
+
+
 def test_retired_product_name_has_no_live_residue():
     """The retired product name belongs only in archive/audit surfaces."""
-    hits = _run_git_grep(r"\b[Ss]unday\b")
+    hits = [
+        line
+        for line in _run_git_grep(_RETIRED_PRODUCT_PATTERN)
+        if not _is_bundled_chart_weekday_table(line)
+    ]
     tolerated = _filter_tolerated(
         hits, allow_path_substrings=_AUTHORIZED_DECLARATION_PATHS
     )
