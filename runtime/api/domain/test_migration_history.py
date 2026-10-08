@@ -20,7 +20,6 @@ from yoke_core.domain.migration_history import (
     ordinal_entries,
     validate_psycopg_migration_sql,
 )
-from yoke_core.domain.migration_history_order import apply_declared_precedence
 
 
 def _write_entry(directory: Path, name: str, body: str = "") -> Path:
@@ -115,6 +114,27 @@ def test_module_load_rejects_a_duplicate_ordinal_before_import(tmp_path: Path) -
         load_migration_module(first, "0001_first")
 
 
+@pytest.mark.parametrize(
+    "declaration", ["PRECEDES = ('0001_first',)", "RUN_AFTER: tuple = ()"]
+)
+def test_ordering_override_is_refused_with_the_fix(
+    tmp_path: Path, declaration: str
+) -> None:
+    _write_entry(tmp_path, "0001_first")
+    path = _write_entry(
+        tmp_path, "0002_second", f"{declaration}\ndef apply(conn):\n    pass\n"
+    )
+
+    for refuse in (
+        lambda: ordered_entries(tmp_path),
+        lambda: load_migration_module(path, "0002_second"),
+    ):
+        with pytest.raises(HistoryError, match="migration_ordering_override") as err:
+            refuse()
+        assert "sequence number is the only migration order" in str(err.value)
+        assert "0002_second" in str(err.value)
+
+
 def test_missing_history_directory_is_an_error(tmp_path: Path) -> None:
     with pytest.raises(HistoryError, match="directory not found"):
         ordered_entries(tmp_path / "absent")
@@ -133,11 +153,8 @@ def test_packaged_history_is_well_formed() -> None:
     entries = ordered_entries(history_dir(migration_history_package))
 
     assert entries, "the packaged migration history should not be empty"
-    # Apply order is ordinal order adjusted only by declared PRECEDES, and the
-    # ordinal view still sees exactly the same entries.
-    numeric = ordinal_entries(history_dir(migration_history_package))
-    assert entries == apply_declared_precedence(numeric)
-    assert sorted(entries, key=lambda e: e.sequence) == list(numeric)
+    # Apply order is sequence order, so it equals the ordinal view exactly.
+    assert entries == ordinal_entries(history_dir(migration_history_package))
 
 
 def test_packaged_history_passes_psycopg_authoring_check() -> None:
