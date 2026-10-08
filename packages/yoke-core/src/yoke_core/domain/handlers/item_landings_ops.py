@@ -8,6 +8,9 @@ that boundary as a registered call exactly as the merge receipt does.
 done-transition finalize writes are: the item claim and the merge lock are
 enforced upstream by the merge boundary, and a landing record that could be
 refused here would take the audit trail down with the merge it describes.
+Recording a landing also releases the item's ``LIVE_DB_MIGRATION:<model>``
+territory in the same transaction: the entry is now in the base branch's
+history, so the next migration item may rehearse on top of it.
 ``item_landings.list`` is an ordinary read — the item page and the operator
 CLI both ask it who landed what, and when.
 """
@@ -32,6 +35,7 @@ from yoke_core.domain.item_landings import (
 )
 from yoke_core.domain.item_landings_delivery import delivery_by_landing
 from yoke_core.domain.item_landings_schema import LANDING_ROUTES
+from yoke_core.domain.migration_territory_claim import release_for_landed_item
 from yoke_core.domain.session_message_types import row_dict
 from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
@@ -51,6 +55,8 @@ class RecordItemLandingResponse(BaseModel):
     #: False when this landing was already recorded — a re-entered close-out
     #: converging, not a failure.
     appended: bool
+    #: The migration-territory claim this landing released, when it held one.
+    migration_territory_released: Optional[int] = None
 
 
 class ListItemLandingsRequest(BaseModel):
@@ -121,6 +127,9 @@ def handle_record_item_landing(request: FunctionCallRequest) -> HandlerOutcome:
                     landed_at=body.landed_at,
                 ),
             )
+            territory = release_for_landed_item(
+                conn, item_id=item_id, merge_sha=body.merge_sha
+            )
             conn.commit()
     except Exception as exc:  # noqa: BLE001 - surfaced as an advisory refusal
         return _err("item_landing_record_failed", str(exc))
@@ -129,6 +138,7 @@ def handle_record_item_landing(request: FunctionCallRequest) -> HandlerOutcome:
             "item_id": item_id,
             "merge_sha": body.merge_sha,
             "appended": appended,
+            "migration_territory_released": territory,
         },
         primary_success=True,
     )

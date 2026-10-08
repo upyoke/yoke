@@ -2,10 +2,18 @@
 
 This is *workflow* serialization: it stops a second work item authoring a
 migration against the same model while one is already mid-flight. The window
-it has to cover is "from starting a migration until it lands", not "while a
-command runs", which is why the claim is held past the call that takes it —
-and why its kind is sticky, exempt from the stale-session sweep that would
-otherwise hand the model to a second lane mid-authorship.
+it has to cover is "from rehearsal until the entry lands on the base branch",
+not "while a command runs", which is why the claim is held past the call that
+takes it — and why its kind is sticky, exempt from the stale-session sweep
+that would otherwise hand the model to a second lane mid-authorship.
+
+The window closes at the merge, not at delivery. Once the entry is in the
+base branch's history, the next item rebases onto it, takes the next sequence
+number, and rehearses its own entry alone on the validation surface; nothing
+after the merge reads the hold. Production safety for a build carrying several
+unreleased entries is the release-time fleet preflight, which converges every
+live universe through all of them. A terminal status still releases a claim
+the item never landed — a cancelled or stopped rehearsal.
 
 That makes it a different lock from the one the boot applier uses. The
 applier takes a per-database advisory lock for *execution* correctness — two
@@ -105,15 +113,8 @@ def _declared_model(raw: Any) -> str | None:
     return str(profile["model_name"])
 
 
-def release_for_terminal_item(
-    conn: Any,
-    *,
-    item_id: int,
-    holder_session_ids: Collection[str],
-    target_status: str,
-) -> int | None:
-    """Release migration territory owned by this terminal item."""
-    del holder_session_ids
+def _release_owned(conn: Any, *, item_id: int, reason: str) -> int | None:
+    """Release the territory this item owns for its declared model, if any."""
     row = conn.execute(
         f"SELECT project_id, db_mutation_profile FROM items WHERE id={_p(conn)}",
         (int(item_id),),
@@ -125,9 +126,7 @@ def release_for_terminal_item(
         return None
     claim = active_claim(
         conn,
-        make_migration_serialization_target(
-            int(row[0]), model_name, int(item_id)
-        ),
+        make_migration_serialization_target(int(row[0]), model_name, int(item_id)),
         for_update=True,
     )
     if claim is None or claim.owner_item_id != int(item_id):
@@ -135,16 +134,36 @@ def release_for_terminal_item(
     release(
         conn,
         claim.id,
-        f"item-terminal:{target_status}",
+        reason,
         canonical_reason="completed",
         commit=False,
     )
     return claim.id
 
 
+def release_for_landed_item(conn: Any, *, item_id: int, merge_sha: str) -> int | None:
+    """Release migration territory once this item's merge has landed."""
+    return _release_owned(conn, item_id=item_id, reason=f"item-landed:{merge_sha}")
+
+
+def release_for_terminal_item(
+    conn: Any,
+    *,
+    item_id: int,
+    holder_session_ids: Collection[str],
+    target_status: str,
+) -> int | None:
+    """Release migration territory owned by this terminal item."""
+    del holder_session_ids
+    return _release_owned(
+        conn, item_id=item_id, reason=f"item-terminal:{target_status}"
+    )
+
+
 __all__ = [
     "ACQUIRE_REASON",
     "enter",
     "leave",
+    "release_for_landed_item",
     "release_for_terminal_item",
 ]
