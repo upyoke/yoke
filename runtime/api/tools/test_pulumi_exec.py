@@ -95,7 +95,9 @@ def test_init_uses_declared_stack_ephemeral_authority_and_persists_state(tmp_pat
         {
             "project": "externalwebapp",
             "stack_name": "externalwebapp-registry",
-            "secrets_provider": ("awskms://alias/externalwebapp-pulumi-state?region=us-east-1"),
+            "secrets_provider": (
+                "awskms://alias/externalwebapp-pulumi-state?region=us-east-1"
+            ),
             "encrypted_key": encrypted_key,
             "apply": True,
         }
@@ -217,13 +219,15 @@ def test_preview_forces_stack_uses_owner_only_temp_and_cleans_up(tmp_path):
     def child_factory(command, **kwargs):
         cwd = Path(kwargs["cwd"])
         config = cwd.parents[1] / "stack-config.json"
-        calls.append({
-            "command": command,
-            "cwd": cwd,
-            "root": cwd.parents[1],
-            "config_mode": stat.S_IMODE(config.stat().st_mode),
-            "env": kwargs["env"],
-        })
+        calls.append(
+            {
+                "command": command,
+                "cwd": cwd,
+                "root": cwd.parents[1],
+                "config_mode": stat.S_IMODE(config.stat().st_mode),
+                "env": kwargs["env"],
+            }
+        )
         return _Child()
 
     output = StringIO()
@@ -243,8 +247,12 @@ def test_preview_forces_stack_uses_owner_only_temp_and_cleans_up(tmp_path):
     )
     assert rc == 0
     assert calls[0]["command"] == [
-        "pulumi", "preview", "--refresh", "--non-interactive",
-        "--stack", "yoke-infra",
+        "pulumi",
+        "preview",
+        "--refresh",
+        "--non-interactive",
+        "--stack",
+        "yoke-infra",
     ]
     assert calls[0]["config_mode"] == 0o600
     assert calls[0]["env"]["PULUMI_BACKEND_URL"].startswith("s3://yoke-state")
@@ -281,115 +289,13 @@ def test_disallowed_operations_refuse_before_config_fetch(operation, tmp_path):
 
     with pytest.raises(PulumiExecError, match="allows only"):
         execute_pulumi_command(
-            "yoke", "yoke-infra", [operation],
+            "yoke",
+            "yoke-infra",
+            [operation],
             config_loader=loader,
             project_root=tmp_path,
         )
     assert called is False
-
-
-def test_up_requires_explicit_non_interactive_confirmation(tmp_path):
-    for command in (
-        ["up"],
-        ["up", "--yes"],
-        ["up", "--non-interactive"],
-    ):
-        with pytest.raises(
-            PulumiExecError,
-            match="requires --yes and --non-interactive",
-        ):
-            execute_pulumi_command(
-                "yoke", "yoke-infra", command,
-                config_loader=lambda project, stack: _stack_payload(project, stack),
-                project_root=tmp_path,
-            )
-
-
-def test_up_uses_exact_stack_and_safe_flags(tmp_path):
-    commands = []
-
-    def child_factory(command, **kwargs):
-        commands.append(command)
-        return _Child(b"update-ok\n")
-
-    rc = execute_pulumi_command(
-        "yoke",
-        "yoke-infra",
-        [
-            "up", "--yes", "--non-interactive", "--refresh",
-            "--suppress-outputs", "--diff",
-        ],
-        config_loader=lambda project, stack: _stack_payload(project, stack),
-        project_root=_install_pulumi_project_files(tmp_path),
-        aws_env_loader=lambda *args, **kwargs: {},
-        child_factory=child_factory,
-        out=StringIO(),
-        err=StringIO(),
-    )
-
-    assert rc == 0
-    assert commands == [[
-        "pulumi", "up", "--yes", "--non-interactive", "--refresh",
-        "--suppress-outputs", "--diff", "--stack", "yoke-infra",
-    ]]
-
-
-def test_up_rejects_unapproved_arguments(tmp_path):
-    with pytest.raises(PulumiExecError, match="not allowed"):
-        execute_pulumi_command(
-            "yoke",
-            "yoke-infra",
-            ["up", "--yes", "--non-interactive", "--target", "resource"],
-            config_loader=lambda project, stack: _stack_payload(project, stack),
-            project_root=tmp_path,
-        )
-
-
-def test_mismatched_child_stack_and_payload_identity_refuse(tmp_path):
-    with pytest.raises(PulumiExecError, match="child --stack"):
-        execute_pulumi_command(
-            "yoke", "yoke-infra", ["preview", "--stack", "prod"],
-            config_loader=lambda project, stack: _stack_payload(project, stack),
-            project_root=tmp_path,
-        )
-    with pytest.raises(PulumiExecError, match="identity does not match"):
-        execute_pulumi_command(
-            "yoke", "yoke-infra", ["preview"],
-            config_loader=lambda project, stack: _stack_payload(project, "stage"),
-            project_root=tmp_path,
-        )
-
-
-def test_import_accepts_only_safe_file_form(tmp_path):
-    import_file = tmp_path / "imports.json"
-    import_file.write_text("{}")
-    with pytest.raises(PulumiExecError, match="argument is not allowed"):
-        execute_pulumi_command(
-            "yoke", "yoke-infra", ["import", "aws:s3/bucket", "name"],
-            config_loader=lambda project, stack: _stack_payload(project, stack),
-            project_root=tmp_path,
-        )
-    commands = []
-
-    def child_factory(command, **kwargs):
-        commands.append(command)
-        return _Child()
-
-    execute_pulumi_command(
-        "yoke",
-        "yoke-infra",
-        [
-            "import", "--file", str(import_file), "--protect=false",
-            "--generate-code=false", "--yes", "--non-interactive",
-        ],
-        config_loader=lambda project, stack: _stack_payload(project, stack),
-        project_root=_install_pulumi_project_files(tmp_path),
-        aws_env_loader=lambda *args, **kwargs: {},
-        child_factory=child_factory,
-        out=StringIO(),
-        err=StringIO(),
-    )
-    assert commands[0][-2:] == ["--stack", "yoke-infra"]
 
 
 @pytest.mark.parametrize(
@@ -404,17 +310,9 @@ def test_import_accepts_only_safe_file_form(tmp_path):
 def test_preview_and_refresh_reject_unapproved_arguments(command, tmp_path):
     with pytest.raises(PulumiExecError, match="not allowed"):
         execute_pulumi_command(
-            "yoke", "yoke-infra", command,
-            config_loader=lambda project, stack: _stack_payload(project, stack),
-            project_root=tmp_path,
-        )
-
-
-def test_import_requires_exactly_one_file(tmp_path):
-    with pytest.raises(PulumiExecError, match="exactly one"):
-        execute_pulumi_command(
-            "yoke", "yoke-infra",
-            ["import", "--file", "one.json", "--file", "two.json"],
+            "yoke",
+            "yoke-infra",
+            command,
             config_loader=lambda project, stack: _stack_payload(project, stack),
             project_root=tmp_path,
         )

@@ -6,6 +6,7 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 import sys
 import tempfile
+import yaml
 from typing import Any, TextIO
 
 from yoke_core.domain.deploy_remote import (
@@ -37,7 +38,10 @@ from yoke_core.tools.pulumi_exec_github_failure import (
     named_github_provider_failure,
 )
 from yoke_core.tools.pulumi_exec_source import announce_render_source
-from yoke_core.tools.pulumi_exec_validation import validated_command
+from yoke_core.tools.pulumi_exec_validation import (
+    validated_command,
+    validate_target_project,
+)
 from yoke_core.tools.pulumi_exec_types import PulumiExecError
 from yoke_core.tools.runner_fleet_redacted_process import run_redacted_child
 from yoke_core.tools.runner_fleet_exec import resolve_local_runner_fleet_github_auth
@@ -78,9 +82,7 @@ def execute_pulumi_command(
     selected_stack = str(stack or "").strip()
     if not selected_project or not selected_stack:
         raise PulumiExecError("project and stack are required")
-    announce_render_source(
-        project_root, caller_root=caller_root, err=err or sys.stderr
-    )
+    announce_render_source(project_root, caller_root=caller_root, err=err or sys.stderr)
     if command and str(command[0]) == "init":
         from yoke_core.tools.pulumi_exec_init import execute_pulumi_stack_init
 
@@ -115,6 +117,23 @@ def execute_pulumi_command(
             )
         except RenderedProgramIncomplete as exc:
             raise PulumiExecError(str(exc)) from exc
+        if any(arg == "--target" or arg.startswith("--target=") for arg in argv):
+            try:
+                declaration = yaml.safe_load(
+                    (render_root / "infra" / "Pulumi.yaml").read_text()
+                )
+            except yaml.YAMLError as exc:
+                raise PulumiExecError(
+                    "pulumi_target_project_invalid: rendered Pulumi.yaml is invalid YAML; repair the project declaration and retry"
+                ) from exc
+            project_name = (
+                declaration.get("name") if isinstance(declaration, Mapping) else None
+            )
+            if not isinstance(project_name, str) or not project_name.strip():
+                raise PulumiExecError(
+                    "pulumi_target_project_missing: rendered Pulumi.yaml must declare name; repair the project declaration and retry"
+                )
+            validate_target_project(argv, selected_stack, project_name)
         child_env, redaction_terms = _authority_env(
             selected_project,
             authority,

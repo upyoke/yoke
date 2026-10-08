@@ -191,6 +191,17 @@ unknown or still-unlisted paths are refused.
 source installed under the selected project's `infra/` directory, while stack
 YAML and operator state remain exact-stack outputs of `yoke pulumi exec`.
 
+For a resource-scoped preview, repeat `--target URN` or `--target=URN` after
+`preview`. Each target must be a complete literal resource URN from the exact
+requested stack and the project declared in the rendered `infra/Pulumi.yaml`;
+that Pulumi project name can differ from the Yoke project slug. Wildcard targets
+are refused. Inspect the targeted preview for unrelated changes before applying
+the same targets with `up --yes --non-interactive`, after operator confirmation.
+Both operations retain capability-owned stack authority. The Pulumi runner and
+validation execute in the local CLI; stack configuration is read through the
+selected control plane. Prove the local CLI's source and successful targeted
+preview rather than assuming a server deployment enables targeting.
+
 Generated views such as `.yoke/BOARD.md` are read-only output. Regenerate
 them through Yoke commands; do not edit them directly.
 
