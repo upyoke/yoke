@@ -50,7 +50,8 @@ def test_the_body_leads_with_the_work_a_steerer_can_staff(steering_scope):
     assert "launch balance  machine-1" in body
     assert "codex-cli 2" in body
     assert "origin operator 0 · steering 0" in body
-    assert "send the rest to the surface with the most headroom and run it down" in body
+    assert "launch with --level; live workers:" in body
+    assert "allocate by headroom" not in body
 
 
 def test_process_gone_holder_is_actionable_without_offering_a_wake(steering_scope):

@@ -7,8 +7,8 @@ reset, and where the next launch at that level would go and why. Each level
 is a dry run of :func:`session_launch_level_placement.place_level` — the
 same weighing ``launch create --level`` performs, under the seat's own
 launch authorization — so the report never predicts a placement the launch
-would not make. The fleet-wide live worker count per surface beside it is
-the count the spread rule reads.
+would not make. The fleet-wide live worker count beside it, for every
+surface a level launches on, is the count the spread rule reads.
 
 Items the seat is staffing that carry a ``level`` posture override are listed
 with it, so a seat can see which launches will not run at the stage level.
@@ -74,7 +74,9 @@ def read_level_readout(
 ) -> LevelReadout:
     """Dry-run a launch at every level the project reads, as this seat."""
     levels, source = effective_levels(conn, int(project_id))
-    workers = tuple(sorted(live_workers(conn).items()))
+    surfaces = {option.surface for level in levels for option in level.options}
+    counts = live_workers(conn)
+    workers = tuple((surface, counts.get(surface, 0)) for surface in sorted(surfaces))
     actor_id = _session_actor(conn, session_id)
     if actor_id is None:
         return LevelReadout(
