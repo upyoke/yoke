@@ -186,3 +186,12 @@ microsecond change remains a conflict. Plan detail and method-rollup timestamps
 are canonical view fields. Deployment-flow succession compares native creation
 instants and keeps the existing identity tie-break; composition freeze tests
 SQL nullness rather than substituting text for a native clock.
+
+Release candidate reads retain native completion and freeze clocks, combine
+own-project and bound-project candidates by instant, and place null completions
+last. Delivery membership keeps its precedence over recency, honest carried work,
+freeze exclusion, and ancestry; all cutoff comparisons use native instants.
+The deployment-run pipe boundary prints canonical native clocks and blank nulls;
+the structured run view emits canonical clocks and null, while opaque strings
+retain their existing representation. Overview completion windows bind the
+exact native 24-hour cutoff, including microseconds.

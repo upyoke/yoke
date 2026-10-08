@@ -56,6 +56,7 @@ from yoke_core.domain.deployment_run_project_sources import (
 )
 from yoke_core.domain.delivery_release_candidates import (
     succeeded_persistent_runs,
+    completion_order,
 )
 from yoke_core.domain.item_merge_receipt_document import (
     merge_shas_for_items as receipt_merge_shas_for_items,
@@ -135,9 +136,8 @@ def succeeded_runs_for_environment(
     project's own release, so the two sides of one release line match up
     without either project naming the other.
 
-    Ordered by completion with the empty string sorting last, which every
-    backend agrees on — a run missing its completion is the oldest thing
-    here, not the newest.
+    Native completion instants sort newest first, with null last on every
+    backend. A run missing its completion remains the oldest thing here.
     """
     if environment_id is None:
         return []
@@ -145,12 +145,12 @@ def succeeded_runs_for_environment(
     runs = query_rows(
         conn,
         "SELECT id, release_lineage, carried_work, COALESCE(flow, '') AS flow, "
-        "COALESCE(completed_at, '') AS completed_at, "
-        "COALESCE(composition_frozen_at, '') AS composition_frozen_at "
+        "completed_at, "
+        "composition_frozen_at "
         "FROM deployment_runs "
         f"WHERE project_id={marker} AND target_environment_id={marker} "
         f"AND status={marker} "
-        "ORDER BY COALESCE(completed_at, '') DESC, id DESC",
+        "ORDER BY completed_at DESC NULLS LAST, id DESC",
         (int(project_id), environment_id, SUCCEEDED),
     )
     runs.extend(
@@ -171,7 +171,7 @@ def succeeded_runs_for_environment(
             environment_name=environment_name(conn, environment_id),
         )
     )
-    runs.sort(key=lambda run: str(run.get("completed_at") or ""), reverse=True)
+    runs.sort(key=completion_order, reverse=True)
     return runs
 
 

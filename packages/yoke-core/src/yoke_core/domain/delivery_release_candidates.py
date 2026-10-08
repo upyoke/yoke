@@ -30,6 +30,7 @@ from yoke_core.domain.deployment_run_project_sources import (
     carrying_runs_for_project,
 )
 from yoke_core.domain.schema_common import _column_exists
+from yoke_core.domain.time_parse import parse_timestamp_utc
 
 
 #: The ``deployment_runs.target_tier`` that outlives the run. Its counterpart,
@@ -42,12 +43,12 @@ PERSISTENT_TARGET_TIER = "persistent"
 #: while a card that has no flow of its own has nowhere else to read them.
 _RELEASE_COLUMNS = (
     "SELECT id, COALESCE(release_lineage, '') AS release_lineage, "
-    "COALESCE(completed_at, '') AS completed_at, COALESCE(flow, '') AS flow, "
+    "completed_at, COALESCE(flow, '') AS flow, "
     "COALESCE(carried_work, '') AS carried_work, "
-    "COALESCE(composition_frozen_at, '') AS composition_frozen_at "
+    "composition_frozen_at "
     "FROM deployment_runs "
 )
-_NEWEST_FIRST = "ORDER BY completed_at DESC, created_at DESC, id DESC LIMIT "
+_NEWEST_FIRST = "ORDER BY completed_at DESC NULLS LAST, created_at DESC, id DESC LIMIT "
 
 
 def sql_marker(conn: Any) -> str:
@@ -65,15 +66,21 @@ def _releases(rows: Any) -> list[dict[str, Any]]:
         {
             "id": str(row_cell(row, "id", 0) or ""),
             "release_lineage": str(row_cell(row, "release_lineage", 1) or ""),
-            "completed_at": str(row_cell(row, "completed_at", 2) or ""),
+            "completed_at": parse_timestamp_utc(row_cell(row, "completed_at", 2)),
             "flow": str(row_cell(row, "flow", 3) or ""),
             "carried_work": row_cell(row, "carried_work", 4),
-            "composition_frozen_at": str(
-                row_cell(row, "composition_frozen_at", 5) or ""
+            "composition_frozen_at": parse_timestamp_utc(
+                row_cell(row, "composition_frozen_at", 5)
             ),
         }
         for row in rows
     ]
+
+
+def completion_order(run: dict[str, Any]) -> tuple:
+    """Known native completion first; missing completion stays last."""
+    stamp = parse_timestamp_utc(run.get("completed_at"))
+    return stamp is not None, stamp
 
 
 def succeeded_flow_runs(
@@ -113,7 +120,7 @@ def succeeded_flow_runs(
         }
         for run in carrying_runs_for_project(conn, int(project_id))
     )
-    releases.sort(key=lambda release: release["completed_at"], reverse=True)
+    releases.sort(key=completion_order, reverse=True)
     return releases[: int(limit)]
 
 

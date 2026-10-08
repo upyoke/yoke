@@ -2,9 +2,19 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+from yoke_contracts.timestamps import format_instant
+
 
 def pipe_row(row) -> str:
-    return "|".join(str(value) for value in row)
+    return "|".join(
+        ""
+        if value is None
+        else format_instant(value)
+        if isinstance(value, datetime)
+        else str(value)
+        for value in row
+    )
 
 
 def pipe_rows(rows) -> str:

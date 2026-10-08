@@ -11,6 +11,8 @@ times, never a member, not honestly carried.
 from __future__ import annotations
 
 from typing import Any, Callable
+from datetime import datetime
+from yoke_core.domain.time_parse import parse_timestamp_utc
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
@@ -145,8 +147,8 @@ class ReleaseDeliveryIndex:
         self._carriage = carriage_by_sha(runs)
         newest = newest_lineage_run(runs)
         self._newest_lineage = str(newest.get("release_lineage") or "").strip()
-        self._newest_completed = str(newest.get("completed_at") or "").strip()
-        self._newest_frozen = str(newest.get("composition_frozen_at") or "").strip()
+        self._newest_completed = parse_timestamp_utc(newest.get("completed_at"))
+        self._newest_frozen = parse_timestamp_utc(newest.get("composition_frozen_at"))
         self._newest_carrier = (
             _carrier(newest)
             if self._newest_lineage
@@ -156,7 +158,7 @@ class ReleaseDeliveryIndex:
             }
         )
         self._containment: Any = None
-        self._merged_at: dict[int, str] = {}
+        self._merged_at: dict[int, datetime | None] = {}
 
     def carrier_for(
         self,
@@ -198,10 +200,10 @@ class ReleaseDeliveryIndex:
         merged_at = self._item_merged_at(item_id)
         return bool(merged_at) and merged_at > self._newest_completed
 
-    def _item_merged_at(self, item_id: int) -> str:
+    def _item_merged_at(self, item_id: int) -> datetime | None:
         if item_id in self._merged_at:
             return self._merged_at[item_id]
-        stamp = ""
+        stamp = None
         if _table_exists(self._conn, "items") and _column_exists(
             self._conn,
             "items",
@@ -214,7 +216,7 @@ class ReleaseDeliveryIndex:
                 (item_id,),
             )
             if rows:
-                stamp = str(rows[0].get("merged_at") or "").strip()
+                stamp = parse_timestamp_utc(rows[0].get("merged_at"))
         self._merged_at[item_id] = stamp
         return stamp
 

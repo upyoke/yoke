@@ -8,10 +8,12 @@ No mutation. No state-machine logic. Imports row-shape primitives from
 from __future__ import annotations
 
 from typing import List, Optional
+from yoke_contracts.timestamps import format_instant
 
 from yoke_core.domain.db_helpers import connect, query_one, query_rows, query_scalar
 from yoke_core.domain.deployment_runs_schema import (
     RUN_FIELDS,
+    RUN_INSTANT_FIELDS,
     _pipe_row,
     _pipe_rows,
     _run_field_available,
@@ -73,7 +75,11 @@ def cmd_get(
                 val = query_scalar(
                     conn, f"SELECT {field} FROM deployment_runs WHERE id=%s", (run_id,)
                 )
-            return str(val or "")
+            return (
+                (format_instant(val) or "")
+                if field in RUN_INSTANT_FIELDS
+                else str(val or "")
+            )
         else:
             row = query_one(
                 conn,
@@ -160,8 +166,8 @@ def cmd_find_by_item(
             conn,
             f"SELECT dr.id, dr.status, COALESCE(dr.current_stage,''), "
             f"dr.created_at, dr.flow, COALESCE(e.name,''), "
-            f"COALESCE(dr.target_tier,''), COALESCE(dr.started_at,''), "
-            f"COALESCE(dr.completed_at,'') "
+            f"COALESCE(dr.target_tier,''), dr.started_at, "
+            f"dr.completed_at "
             f"FROM deployment_runs dr "
             f"JOIN deployment_run_items dri ON dri.run_id = dr.id "
             f"LEFT JOIN environments e ON e.id = dr.target_environment_id "
