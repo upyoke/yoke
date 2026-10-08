@@ -24,13 +24,6 @@ from runtime.api.domain.standalone_merge_simulation_support import (
 from runtime.api.domain.standalone_merge_simulation_support import (
     merge as _merge,
 )
-from yoke_core.domain import standalone_item_merge as sim
-from yoke_core.domain import standalone_item_merge_cli as sim_cli
-from yoke_core.domain import (
-    standalone_item_merge_close_out_transition as close_out_transition,
-)
-from yoke_core.domain.standalone_item_merge_release_status import CloseOutRoute
-from yoke_core.domain import standalone_item_merge_lane as sim_lane
 
 
 @pytest.fixture(autouse=True)
