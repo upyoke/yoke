@@ -171,38 +171,31 @@ test("relay tab renders public machine facts without native controls", async (t)
   mounted.unmount();
 });
 
-test("organization Fleet edits only changed registry-backed settings", async (t) => {
+test("organization membership edits its single choice without fleet tuning", async (t) => {
   const requests = [];
-  let pollSeconds = 60;
+  let autoJoin = false;
   const client = shellClient(requests, {
     "organizations.settings.catalog": () => ok({
       org_id: 1,
       settings: [{
-        path: "fleet.relay_poll_seconds", value: pollSeconds, default: 60,
-        defaulted: pollSeconds === 60, value_type: "int", minimum: 5,
-        meaning: "relay poll interval",
-      }, {
-        path: "fleet.surface_fallback", value: false, default: false,
-        defaulted: true, value_type: "bool", minimum: null,
-        meaning: "permit explicit surface fallback",
+        path: "membership.auto_join_domain_verified", value: autoJoin, default: false,
+        defaulted: !autoJoin, value_type: "bool", minimum: null,
+        meaning: "Admit verified organization email.",
       }],
     }),
     "organizations.settings.merge": (request) => {
-      pollSeconds = request.payload.assignments["fleet.relay_poll_seconds"];
-      return ok({ org_id: 1, changed_paths: ["fleet.relay_poll_seconds"] });
+      autoJoin = request.payload.assignments["membership.auto_join_domain_verified"];
+      return ok({ org_id: 1, changed_paths: ["membership.auto_join_domain_verified"] });
     },
   });
   const { root, mounted } = await mountAt(t, "/organization", client);
+  assert.equal(byClass(root, "session-control-input").length, 1);
   const controls = byClass(root, "session-control-input");
-  controls[0].value = "45";
-  button(root, "Save fleet policy").dispatchEvent(new Event("click"));
+  controls[0].value = "true";
+  button(root, "Save membership policy").dispatchEvent(new Event("click"));
   await settle();
-  const merge = requests.find(
-    (request) => request.function === "organizations.settings.merge",
-  );
-  assert.deepEqual(merge.payload.assignments, {
-    "fleet.relay_poll_seconds": 45,
-  });
+  const merge = requests.find((request) => request.function === "organizations.settings.merge");
+  assert.deepEqual(merge.payload.assignments, { "membership.auto_join_domain_verified": true });
   mounted.unmount();
 });
 

@@ -24,7 +24,7 @@ from yoke_core.domain.session_relay_jobs import (
     report_wake_job,
 )
 from yoke_core.domain.session_relay_launch_lease import claim_next_launch
-from yoke_core.domain.session_relay_policy import effective_relay_policy
+from yoke_core.domain.session_relay_policy import relay_policy
 from yoke_core.domain.session_wake_drain_cadence import (
     RELAY_DRAIN_POLL_SECONDS,
     wake_work_pending,
@@ -67,14 +67,10 @@ def claim_relay_job(
     monotonic: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
 ) -> RelayClaimOutcome:
-    """Heartbeat, long-poll, lease one job, and return server cadence.
+    """Heartbeat and lease serial control work alongside assigned launches.
 
-    A poll leases at most one job of any kind. Native creates on one machine
-    are spaced apart by the launch lease, and wakes touch shared session
-    state, so neither is ever handed out in bulk. The cadence returned with
-    that job keeps one-at-a-time from meaning one-a-minute: a poll leaving
-    wake work behind asks the relay straight back, per
-    :mod:`session_wake_drain_cadence`.
+    A pending wake does not monopolize launch admission. Every launch in the
+    batch is checked against live machine headroom immediately before spawn.
     """
     heartbeat = validate_heartbeat(heartbeat)
     if broker_only != bool(broker_lease_id):
@@ -92,7 +88,7 @@ def claim_relay_job(
         if broker_only
         else max(0, min(int(wait_seconds), MAX_RELAY_LONG_POLL_SECONDS))
     )
-    policy = effective_relay_policy(conn, heartbeat.project_ids)
+    policy = relay_policy()
     current = now_provider()
     connected = heartbeat_relay(
         conn,
@@ -149,38 +145,23 @@ def claim_relay_job(
             conn.rollback()
             _LOG.warning("pending CI verdict observation skipped: %s", exc)
 
-    if relay_has_live_batch(conn, relay_id=heartbeat.relay_id, now=current):
-        connected = heartbeat_relay(
-            conn,
-            heartbeat,
-            state="active",
-            next_poll_seconds=policy.poll_seconds,
-            now=current,
-        )
-        return RelayClaimOutcome(
-            relay_id=heartbeat.relay_id,
-            machine_id=heartbeat.machine_id,
-            state="active",
-            connected_until=connected,
-            next_poll_seconds=policy.poll_seconds,
-        )
-
+    live_batch = relay_has_live_batch(conn, relay_id=heartbeat.relay_id, now=current)
     started = monotonic()
     while True:
         current = now_provider()
         termination = (
             None
-            if broker_only
+            if broker_only or live_batch
             else claim_termination_reap(conn, heartbeat, now=current)
         )
         jobs: tuple[Any, ...] = (termination,) if termination is not None else ()
-        if not jobs and not broker_only:
+        if not jobs and not broker_only and not live_batch:
             # A seat's dispatch is blocked on this read and it costs the
             # machine one file tail, so it goes ahead of the minutes-long
             # native work rather than behind it.
             evidence = claim_evidence_fetch(conn, heartbeat, now=current)
             jobs = (evidence,) if evidence is not None else ()
-        if not jobs:
+        if not jobs and not live_batch:
             wake = claim_wake_job(
                 conn,
                 heartbeat,
@@ -190,9 +171,8 @@ def claim_relay_job(
                 broker_session_id=broker_session_id,
             )
             jobs = (wake,) if wake is not None else ()
-        if not jobs and not broker_only:
-            # Deliver existing workers' mail before staffing new work.
-            jobs = tuple(claim_next_launch(conn, heartbeat, now=current))
+        if not broker_only:
+            jobs += tuple(claim_next_launch(conn, heartbeat, now=current))
         if jobs:
             # Handing out one job does not mean the machine is done.
             next_poll = (
@@ -224,7 +204,7 @@ def claim_relay_job(
         # Never hold a read transaction open across the long-poll sleep.
         conn.commit()
         elapsed = monotonic() - started
-        if elapsed >= wait_seconds:
+        if live_batch or elapsed >= wait_seconds:
             break
         sleep(min(RELAY_LONG_POLL_STEP_SECONDS, wait_seconds - elapsed))
 

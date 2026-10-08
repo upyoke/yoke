@@ -96,7 +96,6 @@ def test_retry_mutation_settles_deadline_before_applying_retry(monkeypatch) -> N
     )
     launch = assigned_launch(conn, key="handler-retry")
     _wire_handler(monkeypatch, conn)
-    monkeypatch.setattr(handlers, "_fleet_policy", lambda *_args: 10)
     # A connected relay keeps a queued launch waiting, so only the queue
     # bound closes it for the retry to reopen.
     monkeypatch.setattr(
@@ -182,7 +181,6 @@ def test_preview_places_an_unpinned_launch_and_names_the_reason(
         connected_until="2026-08-24T12:00:00Z",
     )
     _wire_handler(monkeypatch, conn)
-    monkeypatch.setattr(handlers, "_fleet_policy", lambda *_args: False)
 
     result = handlers.handle_launch_preview(
         _request(
@@ -216,7 +214,6 @@ def test_preview_refuses_a_knob_the_named_harness_cannot_encode(monkeypatch) -> 
     conn = launch_connection()
     add_relay(conn, surface="codex-cli")
     _wire_handler(monkeypatch, conn)
-    monkeypatch.setattr(handlers, "_fleet_policy", lambda *_args: False)
 
     result = handlers.handle_launch_preview(
         _request(

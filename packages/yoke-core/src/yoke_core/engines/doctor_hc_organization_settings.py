@@ -1,4 +1,4 @@
-"""Doctor validation for organization-wide fleet settings documents."""
+"""Doctor validation for organization membership settings documents."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 
 HC_SLUG = "HC-organization-settings"
-HC_LABEL = "Organization settings match the closed fleet-key registry"
+HC_LABEL = "Organization settings match the closed membership registry"
 
 
 def hc_organization_settings(

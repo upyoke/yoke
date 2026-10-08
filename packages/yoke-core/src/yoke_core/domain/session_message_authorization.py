@@ -1,6 +1,16 @@
-"""Per-recipient authorization and organization fleet policy."""
+"""Per-recipient authorization and product-owned message limits."""
 
 from __future__ import annotations
+
+from yoke_contracts.fleet_policy import (
+    BROADCAST_REQUIRES_CONFIRMATION,
+    MAX_BODY_BYTES,
+    MAX_WAKE_ATTEMPTS,
+    MESSAGE_EXPIRY_HOURS,
+    STALE_ALIVE_PROBE_SECONDS,
+    WAKE_ACK_GRACE_SECONDS,
+    WAKE_AFTER_IDLE_SECONDS,
+)
 
 from dataclasses import dataclass
 from typing import Any, Iterable
@@ -12,7 +22,6 @@ from yoke_core.domain.actor_permissions import (
     permission_decision,
     require_org_permission,
 )
-from yoke_core.domain.organization_settings import read_organization_setting
 from yoke_core.domain.session_action_authority import authorize_session_action
 from yoke_core.domain.session_message_types import (
     ResolvedRecipient,
@@ -56,21 +65,16 @@ def _sqlite(conn: Any) -> bool:
 def project_policy(conn: Any, project_id: int) -> MessageProjectPolicy:
     org_id = _org_id(conn, project_id)
 
-    def setting(path: str):
-        return read_organization_setting(conn, org_id, path)[0]
-
     return MessageProjectPolicy(
         project_id=project_id,
         org_id=org_id,
-        expiry_hours=int(setting("fleet.message_expiry_hours")),
-        wake_after_idle_seconds=int(setting("fleet.wake_after_idle_seconds")),
-        max_body_bytes=int(setting("fleet.max_body_bytes")),
-        wake_ack_grace_seconds=int(setting("fleet.wake_ack_grace_seconds")),
-        stale_alive_probe_seconds=int(setting("fleet.stale_alive_probe_seconds")),
-        max_wake_attempts=int(setting("fleet.max_wake_attempts")),
-        broadcast_requires_confirmation=bool(
-            setting("fleet.broadcast_requires_confirmation")
-        ),
+        expiry_hours=MESSAGE_EXPIRY_HOURS,
+        wake_after_idle_seconds=WAKE_AFTER_IDLE_SECONDS,
+        max_body_bytes=MAX_BODY_BYTES,
+        wake_ack_grace_seconds=WAKE_ACK_GRACE_SECONDS,
+        stale_alive_probe_seconds=STALE_ALIVE_PROBE_SECONDS,
+        max_wake_attempts=MAX_WAKE_ATTEMPTS,
+        broadcast_requires_confirmation=BROADCAST_REQUIRES_CONFIRMATION,
     )
 
 

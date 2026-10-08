@@ -10,7 +10,7 @@ from yoke_contracts.session_control.models import RecipientSelector
 from yoke_core.domain import db_backend
 from yoke_core.domain.actor_render import render_actor_name
 from yoke_core.domain.actors import resolve_actors_by_name, validate_actor_id
-from yoke_core.domain.organization_settings import read_organization_setting
+from yoke_contracts.fleet_policy import MESSAGE_EXPIRY_HOURS, MAX_BODY_BYTES
 from yoke_core.domain.session_message_types import (
     SessionMessageError,
     row_dict,
@@ -150,16 +150,8 @@ def actor_message_limits(
     )
     if not org_ids:
         return None
-    expiries = [
-        int(read_organization_setting(conn, org_id, "fleet.message_expiry_hours")[0])
-        for org_id in org_ids
-    ]
-    body_limits = [
-        int(read_organization_setting(conn, org_id, "fleet.max_body_bytes")[0])
-        for org_id in org_ids
-    ]
     return ActorMessageLimits(
-        expiry_hours=min(expiries), max_body_bytes=min(body_limits)
+        expiry_hours=MESSAGE_EXPIRY_HOURS, max_body_bytes=MAX_BODY_BYTES
     )
 
 

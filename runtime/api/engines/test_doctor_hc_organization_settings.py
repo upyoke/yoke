@@ -33,7 +33,7 @@ def test_passes_valid_explicit_overrides() -> None:
     )
     conn.execute(
         "INSERT INTO organizations VALUES "
-        "(1, 'default', '{\"fleet\": {\"relay_poll_seconds\": 30}}')"
+        "(1, 'default', '{\"membership\": {\"auto_join_domain_verified\": true}}')"
     )
 
     result = _run(conn)

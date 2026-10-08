@@ -34,7 +34,6 @@ from runtime.api.domain.session_launch_test_support import (
 from runtime.api.domain.test_session_launch_terminal_admission import (
     _NoCloseConnection,
     _create_payload,
-    _fleet_policy,
     _write_counts,
 )
 
@@ -219,7 +218,6 @@ def test_steering_create_refuses_missing_coverage_before_any_write(monkeypatch) 
     monkeypatch.setattr(
         handlers, "launch_authorization", lambda *_a, **_k: authorization()
     )
-    monkeypatch.setattr(handlers, "_fleet_policy", _fleet_policy)
     before = _write_counts(conn)
     outcome = handlers.handle_launch_create(
         FunctionCallRequest(
