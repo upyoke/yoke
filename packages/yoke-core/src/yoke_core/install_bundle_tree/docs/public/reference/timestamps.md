@@ -21,6 +21,10 @@ missing item updates or malformed Ouroboros observations. These are explicit
 historical assumptions, not recovered facts or future input fallbacks. The
 caller retains the restore point, transaction, serving floor and receipts;
 append-only UPDATE/DELETE guards remain enabled during type conversion.
+The serving catalog probe also checks declared native instant types: matching
+column names with TEXT or timestamp-without-zone storage cannot prove that a
+build requiring TIMESTAMPTZ can serve that database. The governed serving floor
+remains an independent requirement.
 
 `temporal_wire(value)` converts native datetimes within result dictionaries and
 sequences, preserving nulls. It leaves strings untouched: timestamp-shaped

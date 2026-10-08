@@ -16,7 +16,8 @@ database is the one its code was written against".
 
 :func:`unreadable_serving_surfaces` asks the question the first two cannot,
 and asks it of the database rather than of a constant: *is every table and
-column this build reads still present?* A build stranded behind a destructive
+column this build reads still present, with its required native instant type?*
+A build stranded behind a destructive
 migration answers no, whatever any declared version floor says — and a floor
 is hand-authored, so a wrong one reported a fleet healthy while every request
 touching a renamed column failed. The probe cannot be wrong in that direction:
@@ -110,7 +111,7 @@ def unreadable_serving_surfaces(
         expected = parse_expected_schema()
     try:
         rows = conn.execute(
-            "SELECT table_name, column_name FROM information_schema.columns "
+            "SELECT table_name, column_name, data_type FROM information_schema.columns "
             "WHERE table_schema = current_schema()"
         ).fetchall()
     except Exception:  # noqa: BLE001 — public health must not expose DB details
@@ -118,11 +119,12 @@ def unreadable_serving_surfaces(
             "the database catalog is unreadable, so serving compatibility "
             "cannot be proven"
         ]
-    live: dict[str, set] = {}
+    live: dict[str, dict[str, str]] = {}
     for row in rows:
         table = str(row["table_name"] if isinstance(row, dict) else row[0])
         column = str(row["column_name"] if isinstance(row, dict) else row[1])
-        live.setdefault(table, set()).add(column)
+        data_type = str(row["data_type"] if isinstance(row, dict) else row[2])
+        live.setdefault(table, {})[column] = data_type
     findings: List[str] = []
     for table, columns in expected.items():
         present = live.get(table)
@@ -134,6 +136,19 @@ def unreadable_serving_surfaces(
             findings.append(
                 f"{table}: this build reads {', '.join(missing)}, which "
                 "this database does not have"
+            )
+        wrong_instants = [
+            name
+            for name, declared in columns.items()
+            if name in present
+            and str(declared).upper() in {"TIMESTAMPTZ", "TIMESTAMP WITH TIME ZONE"}
+            and present[name] != "timestamp with time zone"
+        ]
+        if wrong_instants:
+            findings.append(
+                f"{table}: this build requires native timestamptz for "
+                f"{', '.join(wrong_instants)}; complete governed native conversion "
+                "before serving this build"
             )
     return findings
 
@@ -246,9 +261,7 @@ def stranded_by_applied_migrations(
     unresolved = version_is_unresolved(running_version)
     findings: List[str] = []
     for row in rows:
-        name = str(
-            row[ledger.entry_column] if isinstance(row, dict) else row[0]
-        )
+        name = str(row[ledger.entry_column] if isinstance(row, dict) else row[0])
         raw_floor = (
             row[ledger.serving_floor_column] if isinstance(row, dict) else row[1]
         )
