@@ -10,12 +10,14 @@ from runtime.api.fixtures import pg_testdb
 
 from yoke_core.domain.actor_invites import (
     INVITE_STATUS_ACCEPTED,
+    INVITE_STATUS_PENDING,
     create_invite,
     get_invite,
 )
 from yoke_core.domain.actor_permissions import (
     PERM_ORG_ADMIN,
     ROLE_ADMIN,
+    grant_actor_org_role,
     require_org_permission,
     role_id_by_name,
     seed_roles_and_permissions,
@@ -45,6 +47,7 @@ from yoke_core.domain.sign_in_resolution import (
     OUTCOME_LINKED_IDENTITY,
     OUTCOME_REFUSED,
     REFUSAL_EMAIL_UNVERIFIED,
+    REFUSAL_INVITE_ROLE_REFUSED,
     REFUSAL_MISSING_EMAIL_CLAIM,
     REFUSAL_MISSING_REQUIRED_CLAIMS,
     REFUSAL_NO_ADMISSION_MATCH,
@@ -104,7 +107,10 @@ def _enable_domain_admission(conn, *, org_id: int, domain: str) -> None:
 def test_rung_one_linked_identity_wins(conn):
     actor_id = seed_human_actor(conn)
     link_external_identity(
-        conn, actor_id=actor_id, issuer=_ISSUER, subject="sub-1",
+        conn,
+        actor_id=actor_id,
+        issuer=_ISSUER,
+        subject="sub-1",
     )
     result = resolve_sign_in(conn, _claims())
     assert result.succeeded
@@ -127,9 +133,14 @@ def test_rung_two_invite_creates_actor_links_identity_and_grants_role(conn):
     assert result.outcome == OUTCOME_INVITE_ACCEPTED
     assert result.actor_id is not None
     # Identity is linked to the new actor.
-    assert resolve_external_identity(
-        conn, issuer=_ISSUER, subject="sub-1",
-    ) == result.actor_id
+    assert (
+        resolve_external_identity(
+            conn,
+            issuer=_ISSUER,
+            subject="sub-1",
+        )
+        == result.actor_id
+    )
     # Invite flipped to accepted and recorded who accepted it.
     accepted = get_invite(conn, invite.invite_id)
     assert accepted.status == INVITE_STATUS_ACCEPTED
@@ -175,9 +186,14 @@ def test_domain_verified_membership_creates_actor_without_role(conn):
         (result.actor_id,),
     ).fetchone()[0]
     assert int(org_roles) == 0
-    assert resolve_external_identity(
-        conn, issuer=_ISSUER, subject="sub-1",
-    ) == result.actor_id
+    assert (
+        resolve_external_identity(
+            conn,
+            issuer=_ISSUER,
+            subject="sub-1",
+        )
+        == result.actor_id
+    )
 
 
 def test_domain_alone_does_not_enable_membership_admission(conn):
@@ -202,7 +218,9 @@ def test_unverified_email_never_matches_invite_or_domain(conn):
     inviter = _admin(conn)
     org_id = default_org_id(conn)
     create_invite(
-        conn, email="casey@example.com", org_id=org_id,
+        conn,
+        email="casey@example.com",
+        org_id=org_id,
         invited_by_actor_id=inviter,
     )
     _enable_domain_admission(conn, org_id=org_id, domain="example.com")
@@ -238,12 +256,14 @@ def test_string_typed_email_verified_is_read_by_value_not_truthiness(conn):
     org_id = default_org_id(conn)
     _enable_domain_admission(conn, org_id=org_id, domain="example.com")
     refused = resolve_sign_in(
-        conn, _claims(subject="sub-str-false", email_verified="false"),
+        conn,
+        _claims(subject="sub-str-false", email_verified="false"),
     )
     assert refused.outcome == OUTCOME_REFUSED
     assert refused.refusal_reason == REFUSAL_EMAIL_UNVERIFIED
     admitted = resolve_sign_in(
-        conn, _claims(subject="sub-str-true", email_verified="true"),
+        conn,
+        _claims(subject="sub-str-true", email_verified="true"),
     )
     assert admitted.outcome == OUTCOME_AUTO_JOINED
 
@@ -272,3 +292,55 @@ def test_an_existing_member_with_the_same_name_is_not_disambiguated(conn):
     assert result.actor_id != taken
     assert actor_name(conn, result.actor_id) == "Casey"
     assert actor_name(conn, taken) == "Casey"
+
+
+def _actor_count(conn) -> int:
+    return int(conn.execute("SELECT COUNT(*) FROM actors").fetchone()[0])
+
+
+def test_machine_role_invite_is_refused_before_any_admission(conn):
+    inviter = seed_human_actor(conn)
+    invite = create_invite(
+        conn,
+        email="casey@example.com",
+        org_id=default_org_id(conn),
+        invited_by_actor_id=inviter,
+        role_id=role_id_by_name(conn, "migration_verification_ci"),
+    )
+    before = _actor_count(conn)
+
+    result = resolve_sign_in(conn, _claims())
+
+    assert result.outcome == OUTCOME_REFUSED
+    assert result.refusal_reason == REFUSAL_INVITE_ROLE_REFUSED
+    assert "machine-only role" in result.detail
+    assert f"yoke identity invite revoke {invite.invite_id}" in result.detail
+    assert _actor_count(conn) == before
+    assert get_invite(conn, invite.invite_id).status == INVITE_STATUS_PENDING
+    assert resolve_external_identity(conn, issuer=_ISSUER, subject="sub-1") is None
+
+
+def test_invite_demoting_the_last_admin_is_refused(conn):
+    org_id = default_org_id(conn)
+    admin = seed_human_actor(conn)
+    grant_actor_org_role(conn, actor_id=admin, org_id=org_id, role_name=ROLE_ADMIN)
+    invite = create_invite(
+        conn,
+        email="casey@example.com",
+        org_id=org_id,
+        invited_by_actor_id=admin,
+        role_id=role_id_by_name(conn, "viewer"),
+        actor_id=admin,
+    )
+
+    result = resolve_sign_in(conn, _claims())
+
+    assert result.refusal_reason == REFUSAL_INVITE_ROLE_REFUSED
+    assert "last active admin" in result.detail
+    assert get_invite(conn, invite.invite_id).status == INVITE_STATUS_PENDING
+    roles = conn.execute(
+        "SELECT r.name FROM actor_org_roles aor JOIN roles r ON r.id = aor.role_id "
+        "WHERE aor.actor_id = %s",
+        (admin,),
+    ).fetchall()
+    assert [row[0] for row in roles] == [ROLE_ADMIN]

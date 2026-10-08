@@ -110,6 +110,11 @@ CLI_ADAPTERS: List[AdapterEntry] = [
         notes="org-admin actor lifecycle; system retirement requires explicit dependency attestation",
     ),
     AdapterEntry(
+        "actors.role.set",
+        "yoke actors role set (ACTOR-ID | --member EMAIL) --role ROLE",
+        notes="org-admin; sets a person's one org role",
+    ),
+    AdapterEntry(
         "machine.register",
         "yoke machine register [--name NAME]",
         notes="registers this host and rotates its machine-bound bearer",

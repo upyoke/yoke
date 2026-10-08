@@ -17,6 +17,7 @@ WRAPPED_ROWS = (
     *DIRECT_WORKFLOW_WRAPPED_ROWS,
     *ITEM_STRATEGY_SURFACE_WRAPPED_ROWS,
     *QA_CATALOG_WRAPPED_ROWS,
+    _w("yoke actors role set", "actors"),
     _w("yoke actors state set", "actors"),
     _w("yoke inbox list", "inbox"),
     _w("yoke machine-authorization get", "machine_authorization"),

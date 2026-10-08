@@ -104,7 +104,8 @@ def _parse(model, request: FunctionCallRequest):
 
 def handle_identity_invite_create(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.actor_invites import InviteError, create_invite
-    from yoke_core.domain.actor_permissions import ORG_ROLES, role_id_by_name
+    from yoke_core.domain.actor_permissions import role_id_by_name
+    from yoke_core.domain.actor_role import ActorRoleRefused, require_human_org_role
     from yoke_core.domain.db_helpers import connect
 
     hosted = _hosted_refusal()
@@ -121,14 +122,12 @@ def handle_identity_invite_create(request: FunctionCallRequest) -> HandlerOutcom
         role_id: Optional[int] = None
         if parsed.role:
             role_name = str(parsed.role).strip()
-            if role_name not in ORG_ROLES:
+            try:
+                require_human_org_role(role_name)
+            except ActorRoleRefused as exc:
                 return HandlerOutcome(
                     primary_success=False,
-                    error=payload_error(
-                        f"invite role must be an org role {ORG_ROLES}, "
-                        f"got {role_name!r}",
-                        "$.payload.role",
-                    ),
+                    error=payload_error(str(exc), "$.payload.role"),
                 )
             role_id = role_id_by_name(conn, role_name)
         target_actor_id: Optional[int] = None

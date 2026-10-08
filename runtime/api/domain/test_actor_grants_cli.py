@@ -15,7 +15,7 @@ from yoke_core.domain.actor_permissions import (
     ROLE_MIGRATION_VERIFICATION_CI,
     seed_roles_and_permissions,
 )
-from yoke_core.domain.actors import seed_human_actor
+from yoke_core.domain.actors import seed_human_actor, seed_system_actor
 from yoke_core.domain.org_schema import org_id_by_slug, seed_default_org
 from yoke_core.domain.project_seed_test_helpers import seed_project_identities
 
@@ -72,8 +72,12 @@ def test_grant_org_happy_path(grantdb, capsys):
     assert granted is not None
 
 
-def test_grant_org_accepts_the_migration_verification_role(grantdb):
-    conn, actor_id = grantdb
+def test_grant_org_accepts_the_migration_verification_role_for_a_system_actor(
+    grantdb,
+):
+    conn, _ = grantdb
+    actor_id = seed_system_actor(conn, "migration-verifier")
+    conn.commit()
 
     rc = actor_grants_cli.main(
         [
@@ -95,6 +99,48 @@ def test_grant_org_accepts_the_migration_verification_role(grantdb):
     ).fetchone()
     assert row is not None
     assert row["name"] == ROLE_MIGRATION_VERIFICATION_CI
+
+
+def test_grant_org_refuses_a_machine_role_for_a_person(grantdb, capsys):
+    _, actor_id = grantdb
+    rc = actor_grants_cli.main(
+        [
+            "grant-org",
+            "--actor",
+            str(actor_id),
+            "--org",
+            "default",
+            "--role",
+            ROLE_MIGRATION_VERIFICATION_CI,
+        ]
+    )
+    assert rc == 2
+    assert "machine-only role" in capsys.readouterr().err
+
+
+def test_grant_org_replaces_a_person_role(grantdb):
+    conn, actor_id = grantdb
+    for role in ("operator", "viewer"):
+        assert (
+            actor_grants_cli.main(
+                [
+                    "grant-org",
+                    "--actor",
+                    str(actor_id),
+                    "--org",
+                    "default",
+                    "--role",
+                    role,
+                ]
+            )
+            == 0
+        )
+    rows = conn.execute(
+        "SELECT r.name FROM actor_org_roles aor "
+        "JOIN roles r ON r.id = aor.role_id WHERE aor.actor_id = %s",
+        (actor_id,),
+    ).fetchall()
+    assert [row["name"] for row in rows] == ["viewer"]
 
 
 def test_grant_project_and_list(grantdb, capsys):

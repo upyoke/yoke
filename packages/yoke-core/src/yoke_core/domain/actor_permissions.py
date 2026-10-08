@@ -62,11 +62,11 @@ ORG_SCOPED_PERMISSIONS = (
 # Carried by no wildcard: org admin and project owner never pass them.
 SERVICE_ONLY_PERMISSIONS = (PERM_HOSTED_SERVICE_DELIVER,)
 
-# Roles grantable at each scope. ``hosted_service`` is seeded but granted
-# only by its own bootstrap, never through member grants or invites.
-ORG_ROLES = (ROLE_ADMIN, ROLE_VIEWER, ROLE_MIGRATION_VERIFICATION_CI)
-# Hosted membership grants ``operator`` org-wide; permission checks honor it.
-ORG_GRANTABLE_ROLES = (*ORG_ROLES, ROLE_OPERATOR)
+# Roles grantable at each scope. ``operator`` is the org role of a non-admin
+# person: normal Yoke operations across every project in the org.
+# ``hosted_service`` is seeded but granted only by its own bootstrap, never
+# through member grants or invites.
+ORG_ROLES = (ROLE_ADMIN, ROLE_OPERATOR, ROLE_VIEWER, ROLE_MIGRATION_VERIFICATION_CI)
 PROJECT_ROLES = (
     ROLE_OWNER,
     ROLE_OPERATOR,
@@ -76,7 +76,7 @@ PROJECT_ROLES = (
 )
 ROLE_DESCRIPTIONS = {
     ROLE_OWNER: "Project admin and normal operator work.",
-    ROLE_OPERATOR: "Normal Yoke operations for a project.",
+    ROLE_OPERATOR: "Normal Yoke operations: org-wide at org scope, else one project.",
     ROLE_VIEWER: "Read-only access.",
     ROLE_DEPLOYMENT_CI: (
         "Create immutable release tags, trigger deployment workflows, read "

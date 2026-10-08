@@ -74,13 +74,17 @@ def cmd_grant_org(args: argparse.Namespace) -> int:
     try:
         _assert_actor_exists(conn, args.actor)
         org_id = _resolve_org_id(conn, args.org)
-        grant_actor_org_role(
-            conn,
-            actor_id=args.actor,
-            org_id=org_id,
-            role_name=args.role,
-            granted_by_actor_id=args.granted_by,
-        )
+        try:
+            grant_actor_org_role(
+                conn,
+                actor_id=args.actor,
+                org_id=org_id,
+                role_name=args.role,
+                granted_by_actor_id=args.granted_by,
+            )
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 2
         print(f"Granted org role {args.role} to actor {args.actor} on org {org_id}")
         return 0
     finally:
@@ -178,7 +182,13 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="actor_grants_cli")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    g_org = sub.add_parser("grant-org", help="Grant an org role to an actor")
+    g_org = sub.add_parser(
+        "grant-org",
+        help=(
+            "Grant an org role to an actor; a person's grant replaces their one "
+            "org role (the product surface is `yoke actors role set`)"
+        ),
+    )
     g_org.add_argument("--actor", type=int, required=True)
     g_org.add_argument("--org", required=True, help="org slug or id")
     g_org.add_argument("--role", required=True, help=f"one of: {', '.join(ORG_ROLES)}")

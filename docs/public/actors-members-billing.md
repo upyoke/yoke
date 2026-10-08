@@ -29,6 +29,27 @@ including machine keys. Enabling restores role access but does not restore
 those keys: the person must sign in again and reconnect affected machines.
 A local universe with one human actor says you are the only actor.
 
+Each person holds exactly one org role, and the engine owns it in every mode —
+local, self-hosted, and Cloud alike:
+
+| Org role | What it allows |
+|---|---|
+| `admin` | Administer the org and every project in it. |
+| `operator` | Normal Yoke work across every project in the org. |
+| `viewer` | Read items and events. |
+
+An org admin changes a person's role from the role control in the Actors
+roster, or with `yoke actors role set ACTOR-ID --role ROLE` (or
+`--member EMAIL` to name the person by the email they sign in with). The new
+role replaces the old one. The change is refused, with the reason named,
+when it would demote the last active admin (make someone else admin first),
+when the role is machine-only (`deployment_ci`, `hosted_service`,
+`infrastructure_ci`, `migration_verification_ci` belong to machine
+credentials), when the role is
+not one of the three above, or when the actor is a system actor. An email
+with no linked actor is refused until that person signs in once. Project
+roles (`owner`, `operator`, `viewer` on one project) remain separate grants.
+
 Disable opens a confirmation naming the actor and stating that its API keys
 will be revoked. Cancel changes nothing; a failed confirmation remains retryable.
 On narrow screens the roster becomes labeled cards, retaining the first actor

@@ -1,6 +1,7 @@
 // One Actors roster table: people or machine accounts, with sortable headers.
 
 import { ACTOR_SORT_COLUMNS, projectAccess } from "./actor_roster_sort.js";
+import { roleControl } from "./actor_role_control.js";
 import { sortHeader } from "./item_roster_sort.js";
 import { callFunction, el, labelCellsByColumn } from "./universe_view_support.js";
 
@@ -29,8 +30,16 @@ function actorCell(documentNode, actor, currentActorId) {
   return cell;
 }
 
-function orgRoleCell(documentNode, actor) {
+// A person's role is a control for an org admin; a server that does not
+// yet send person_org_roles shows every grant read-only.
+function orgRoleCell(documentNode, actor, roster, feedback, reload) {
   const cell = el(documentNode, "td");
+  const personRoles = roster.person_org_roles;
+  if (roster.can_manage_actors && actor.kind === "human"
+      && Array.isArray(personRoles) && personRoles.length) {
+    cell.appendChild(roleControl(documentNode, actor, personRoles, roster, feedback, reload));
+    return cell;
+  }
   const roles = actor.roles?.org || [];
   if (!roles.length) cell.appendChild(el(documentNode, "span", "actors-muted", "—"));
   for (const role of roles) cell.appendChild(pill(
@@ -107,7 +116,7 @@ const CELLS = {
     cell.appendChild(pill(d, actor.status || "active", actor.status === "disabled" ? "idle" : "good"));
     return cell;
   },
-  "Org role": (d, actor) => orgRoleCell(d, actor),
+  "Org role": (d, actor, roster, feedback, reload) => orgRoleCell(d, actor, roster, feedback, reload),
   "Project access": (d, actor) => el(d, "td", "actors-muted", projectAccess(actor) || "—"),
   "Member email": (d, actor) => el(d, "td", "actors-muted", actor.identity?.email || "—"),
   "API keys": (d, actor) => keysCell(d, actor),
@@ -115,7 +124,7 @@ const CELLS = {
 };
 
 // `roster` is the actors.roster result plus the live `client`; `reload`
-// re-reads the roster after an enable or disable lands.
+// re-reads the roster after an enable, disable, or role change lands.
 export function renderActorTable(documentNode, {
   actors, columns, roster, sort, onSort, feedback, reload,
 }) {

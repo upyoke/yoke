@@ -7,7 +7,7 @@ import { FakeDocument, allNodes, byClass } from "./universe_ui_dom_test_support.
 function actor(status, tokens = [], overrides = {}) {
   return {
     id: 2, kind: "human", name: "Member", status, tokens,
-    roles: { org: [{ org: "Test", role: "member" }], projects: [] },
+    roles: { org: [{ org: "Test", role: "operator" }], projects: [] },
     identity: { email: "member@example.test" },
     ...overrides,
   };
@@ -160,4 +160,81 @@ test("a server that does not save the actors sort keeps the header sort without 
   assert.deepEqual(writes, []);
   assert.match(main.textContent, /does not save this page's sort; it applies until you leave the page/);
   assert.doesNotMatch(main.textContent, /retry/);
+});
+
+const PERSON_ROLES = ["admin", "operator", "viewer"];
+const roleSelect = (main) => allNodes(main).find((node) => node.tagName === "SELECT");
+
+test("an org admin changes a person's one org role and the roster reloads", async () => {
+  const roster = {
+    current_actor_id: 1, can_manage_actors: true, person_org_roles: PERSON_ROLES,
+    rows: [actor("active")],
+  };
+  const promoted = { ...roster, rows: [actor("active", [], {
+    roles: { org: [{ org: "Test", role: "admin" }], projects: [] },
+  })] };
+  const { context, main, calls } = fixture([roster, promoted], preferences());
+  await renderActorsView(context, main);
+  const select = roleSelect(main);
+  assert.equal(select.value, "operator");
+  assert.deepEqual(select.children.map((option) => option.value), PERSON_ROLES);
+  select.value = "admin";
+  select.dispatchEvent(new Event("change"));
+  await settle();
+  assert.deepEqual(calls[1], {
+    function: "actors.role.set", payload: { actor_id: 2, role: "admin" },
+  });
+  assert.equal(calls[2].function, "actors.roster");
+  assert.equal(roleSelect(main).value, "admin");
+});
+
+test("a refused role change names the reason and restores the current role", async () => {
+  const roster = {
+    current_actor_id: 1, can_manage_actors: true, person_org_roles: PERSON_ROLES,
+    rows: [actor("active")],
+  };
+  const { context, main } = fixture([roster], preferences());
+  const original = context.client.call;
+  context.client.call = async (request) => (
+    request.function === "actors.roster" ? original(request) : {
+      status: 200,
+      envelope: { success: false, error: { message: "actor 2 is the last active admin of the org" } },
+    }
+  );
+  await renderActorsView(context, main);
+  const select = roleSelect(main);
+  select.value = "viewer";
+  select.dispatchEvent(new Event("change"));
+  await settle();
+  assert.match(main.textContent, /last active admin/);
+  assert.equal(select.value, "operator");
+  assert.equal(select.disabled, false);
+});
+
+test("an older server without person_org_roles shows every org grant read-only", async () => {
+  const { context, main } = fixture([{
+    current_actor_id: 1, can_manage_actors: true,
+    rows: [actor("active", [], {
+      roles: { org: [{ org: "Test", role: "admin" }, { org: "Test", role: "operator" }], projects: [] },
+    })],
+  }], preferences());
+  await renderActorsView(context, main);
+  assert.equal(roleSelect(main), undefined);
+  assert.match(main.textContent, /admin/);
+  assert.match(main.textContent, /operator/);
+});
+
+test("a person still holding several org roles shows them and asks for one", async () => {
+  const roster = {
+    current_actor_id: 1, can_manage_actors: true, person_org_roles: PERSON_ROLES,
+    rows: [actor("active", [], {
+      roles: { org: [{ org: "Test", role: "admin" }, { org: "Test", role: "operator" }], projects: [] },
+    })],
+  };
+  const { context, main } = fixture([roster], preferences());
+  await renderActorsView(context, main);
+  const select = roleSelect(main);
+  assert.equal(select.value, "");
+  assert.equal(select.children[0].textContent, "admin, operator");
+  assert.equal(select.children[0].disabled, true);
 });
