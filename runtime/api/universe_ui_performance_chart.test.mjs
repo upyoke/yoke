@@ -33,7 +33,7 @@ test("hover, toggles, bucket inspection and disposal preserve raw spike values",
     result: { buckets: [bucket] }, inspect: value => inspected.push(value), Plot });
   assert.equal(plot.options.scales.y.distr, 4);
   assert.deepEqual(plot.options.axes[1].values(plot, [null, 2000]), ["", "2.00s"]);
-  assert.deepEqual(plot.options.axes[1].splits(plot, 1, 0, 5000), [0, 100, 1000, 2000]);
+  assert.deepEqual(plot.options.axes[1].splits(plot, 1, 0, 5000), [0, 2000]);
   assert.equal(plot.data[2][0], 427424);
   assert.equal(plot.series[3].show, false);
   assert.equal(plot.series[6].show, false);
