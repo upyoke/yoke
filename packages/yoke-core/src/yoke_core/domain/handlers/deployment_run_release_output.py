@@ -11,7 +11,7 @@ attribution's clothes.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -31,6 +31,7 @@ class DeploymentRunReleaseOutputRecordRequest(BaseModel):
     project: str = Field(min_length=1)
     commit_sha: str = Field(default="", max_length=64)
     reason: str = Field(default=REASON_RELEASE_PIN, min_length=1, max_length=120)
+    promotion_receipt: Optional[dict[str, Any]] = None
 
 
 class DeploymentRunReleaseOutputRecordResponse(BaseModel):
@@ -72,6 +73,7 @@ def handle_deployment_run_release_output_record(
             project=project,
             commit_sha=commit_sha,
             reason=reason or REASON_RELEASE_PIN,
+            promotion_receipt=payload.get("promotion_receipt"),
         )
         conn.commit()
     except ReleaseOutputRefused as exc:

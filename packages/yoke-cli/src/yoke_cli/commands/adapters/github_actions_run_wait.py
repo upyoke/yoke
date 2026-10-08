@@ -21,7 +21,7 @@ from yoke_contracts.api.function_call import FunctionCallResponse, TargetRef
 
 GITHUB_ACTIONS_WAIT_RUN_USAGE = (
     "yoke github-actions wait-run <repo-slug> <run-id> "
-    "[--timeout SEC] --project P [--session-id S] [--json]"
+    "[--timeout SEC] [--receipt-artifact-prefix PREFIX] --project P [--session-id S] [--json]"
 )
 RUN_WAIT_POLL_INTERVAL_SEC = 15
 
@@ -41,11 +41,26 @@ def github_actions_wait_run(args: List[str]) -> int:
     parser.add_argument("repo", help="GitHub repo slug, e.g. upyoke/yoke.")
     parser.add_argument("run_id", help="GitHub Actions run id.")
     parser.add_argument(
-        "--timeout", type=int, default=1800, dest="timeout_sec", metavar="SEC",
+        "--receipt-artifact-prefix",
+        default="",
+        help=(
+            "After success, read one immutable PREFIX-RUN_ID-RUN_ATTEMPT artifact "
+            "containing one small JSON receipt. Missing, expired, or mismatched "
+            "evidence refuses without redispatching the completed run. Use --json "
+            "to read the receipt and artifact provenance."
+        ),
+    )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=1800,
+        dest="timeout_sec",
+        metavar="SEC",
         help="Wait budget in seconds (default: 1800).",
     )
     parser.add_argument(
-        "--project", required=True,
+        "--project",
+        required=True,
         help="Project capability owning the GitHub App repo binding.",
     )
     add_session_arg(parser)
@@ -56,12 +71,15 @@ def github_actions_wait_run(args: List[str]) -> int:
     if "/" not in parsed.repo:
         return usage_error(f"repo must be owner/name, got {parsed.repo!r}")
 
+    payload = {
+        "repo": parsed.repo,
+        "run_id": parsed.run_id,
+        "project": parsed.project,
+    }
+    if parsed.receipt_artifact_prefix:
+        payload["receipt_artifact_prefix"] = parsed.receipt_artifact_prefix
     return wait_for_run_completion(
-        {
-            "repo": parsed.repo,
-            "run_id": parsed.run_id,
-            "project": parsed.project,
-        },
+        payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         timeout_sec=max(0, parsed.timeout_sec),
@@ -93,11 +111,28 @@ def wait_for_run_completion(
         result = response.result or {}
         if response.success:
             state = str(result.get("state") or "")
+            if (
+                state == "success"
+                and payload.get("receipt_artifact_prefix")
+                and not result.get("receipt")
+            ):
+                response = response.model_copy(
+                    update={
+                        "result": {
+                            **result,
+                            "state": "failed",
+                            "message": (
+                                "workflow_receipt_reader_unavailable: serving build returned no receipt; "
+                                "install the build carrying the receipt reader on this API authority, "
+                                "then re-read this completed run; do not redispatch deployment"
+                            ),
+                        }
+                    }
+                )
+                return _emit_terminal(response, json_mode=json_mode)
             if state in {"success", "failed"}:
                 return _emit_terminal(response, json_mode=json_mode)
-            status_message = str(
-                result.get("message") or state or "running"
-            )
+            status_message = str(result.get("message") or state or "running")
         else:
             # A status read that cannot reach the relay is not a verdict on
             # the GitHub run. Surface the transport diagnostic, then let the

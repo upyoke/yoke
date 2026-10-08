@@ -62,15 +62,30 @@ def recorded_source_sha(run: Mapping[str, Any], project_id: int) -> str:
 def delivered_source_sha(run: Mapping[str, Any], project_id: int) -> str:
     """The commit this run delivered for ``project_id``, or ``""``.
 
-    The run's own project serves its release lineage. A bound project serves
-    the last commit the run recorded producing for it -- a release pin it
-    materialized onto that project's trunk -- and, where the run produced
-    nothing there, the commit it bound.
+    The run's own project serves its release lineage. Hosted promotions use
+    their verified attempt receipt, including no-op delivery. Other bound
+    projects use the last recorded output or their initial source binding.
     """
     own = run.get("project_id")
     if own is not None and int(own) == int(project_id):
         return str(run.get("release_lineage") or "").strip()
     payload = parse_bound_sources(run.get(BOUND_SOURCES_FIELD))
+    from yoke_core.domain.hosted_promotion_receipt import (
+        PromotionReceiptRefused,
+        project_promotion_receipts,
+        requires_promotion_identity,
+    )
+
+    promotions = project_promotion_receipts(payload, int(project_id))
+    if promotions:
+        return str(promotions[-1]["payload"]["platform_sha"])
+    if requires_promotion_identity(run, payload, int(project_id)):
+        raise PromotionReceiptRefused(
+            "promotion_delivery_identity_missing",
+            "hosted bound-project QA cannot use the pre-promotion source; "
+            "recover the successful promotion artifact and record it with "
+            "deployment-runs release-output record --commit SHA --promotion-receipt-file PATH",
+        )
     outputs = project_release_outputs(payload).get(int(project_id), ())
     if outputs:
         return outputs[-1]["commit_sha"]

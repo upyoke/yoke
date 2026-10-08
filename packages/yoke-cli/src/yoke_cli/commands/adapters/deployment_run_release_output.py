@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import json
+from pathlib import Path
 from typing import List
 
 from yoke_cli.commands._helpers import (
@@ -16,7 +18,7 @@ from yoke_contracts.api.function_call import TargetRef
 
 DEPLOYMENT_RUNS_RELEASE_OUTPUT_RECORD_USAGE = (
     "yoke deployment-runs release-output record RUN-ID --project P "
-    "[--commit REF] [--reason R] [--session-id S] [--json]"
+    "[--commit REF] [--promotion-receipt-file PATH] [--reason R] [--session-id S] [--json]"
 )
 
 _DESCRIPTION = """\
@@ -38,6 +40,13 @@ pinned and does descend from it, and no backlog item already owns it. That
 last one matters most — such a commit is the item's work however it is
 labelled here, and recording it would waive the delivery proof the item owes.
 Every refusal names itself and the repair.
+
+Hosted promotions pass --commit with the exact deployed full SHA and
+--promotion-receipt-file with the immutable successful workflow receipt
+returned by github-actions wait-run --receipt-artifact-prefix. The server
+rechecks GitHub provenance, target environment, product identity and bound
+candidate ancestry. A no-op records delivered identity without inventing a
+produced commit. Re-reading and recording the same attempt is idempotent.
 """
 
 
@@ -48,6 +57,11 @@ def deployment_runs_release_output_record(args: List[str]) -> int:
         description=_DESCRIPTION,
     )
     parser.add_argument("run_id")
+    parser.add_argument(
+        "--promotion-receipt-file",
+        type=Path,
+        help="Verified promotion receipt/provenance JSON; requires exact --commit.",
+    )
     parser.add_argument(
         "--project",
         required=True,
@@ -74,6 +88,21 @@ def deployment_runs_release_output_record(args: List[str]) -> int:
     )
     if parsed is None:
         return 2
+    payload = {
+        "project": parsed.project,
+        "commit_sha": parsed.commit,
+        "reason": parsed.reason,
+    }
+    if parsed.promotion_receipt_file:
+        try:
+            receipt = json.loads(parsed.promotion_receipt_file.read_text())
+            if not isinstance(receipt, dict):
+                raise ValueError("receipt must be a JSON object")
+        except (OSError, ValueError) as exc:
+            parser.error(
+                f"promotion_receipt_unreadable: {exc}; read the exact workflow receipt and retry"
+            )
+        payload["promotion_receipt"] = receipt
 
     def _human_writer(response, stdout, stderr) -> None:
         result = response.result or {}
@@ -81,9 +110,8 @@ def deployment_runs_release_output_record(args: List[str]) -> int:
         project = result.get("project")
         if result.get("outcome") == "no_commit_produced":
             print(
-                f"{run} added no commit to {project}; its bound branch still "
-                "points at the source it pinned, so there is no release "
-                "output to record",
+                f"{run} added no commit to {project}; there is no produced "
+                "release output to record",
                 file=stdout,
             )
             return None
@@ -98,11 +126,7 @@ def deployment_runs_release_output_record(args: List[str]) -> int:
     return dispatch_and_emit(
         function_id="deployment_runs.release_output.record",
         target=TargetRef(kind="workflow_run", workflow_run_id=parsed.run_id),
-        payload={
-            "project": parsed.project,
-            "commit_sha": parsed.commit,
-            "reason": parsed.reason,
-        },
+        payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         human_writer=_human_writer,

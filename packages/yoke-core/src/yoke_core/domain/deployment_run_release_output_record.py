@@ -167,6 +167,7 @@ def record_release_output(
     project: str,
     commit_sha: str = "",
     reason: str = REASON_RELEASE_PIN,
+    promotion_receipt: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Record that ``run_id``'s own automation produced a commit.
 
@@ -182,6 +183,19 @@ def record_release_output(
     commit a backlog item already owns is that item's work however the caller
     labelled it.
     """
+    if promotion_receipt is not None:
+        from yoke_core.domain.deployment_run_promotion_receipt import (
+            record_promotion_receipt,
+        )
+
+        return record_promotion_receipt(
+            conn,
+            run_id=run_id,
+            project=project,
+            commit_sha=commit_sha,
+            receipt=promotion_receipt,
+            reason=reason,
+        )
     from yoke_core.domain.deployment_run_carried_work_source import (
         CarriedWorkSourceUnavailable,
         open_carried_work_source,
@@ -232,14 +246,18 @@ def record_release_output(
             f"{ref!r} does not resolve in project {project!r}; push the "
             "commit, or name one this project's source can read",
         )
-    pinned = recorded_source_sha(
-        {
-            "project_id": run["project_id"],
-            "release_lineage": run["release_lineage"],
-            BOUND_SOURCES_FIELD: stored_text,
-        },
-        project_id,
-    ).strip().lower()
+    pinned = (
+        recorded_source_sha(
+            {
+                "project_id": run["project_id"],
+                "release_lineage": run["release_lineage"],
+                BOUND_SOURCES_FIELD: stored_text,
+            },
+            project_id,
+        )
+        .strip()
+        .lower()
+    )
     if pinned and sha == pinned:
         # The branch still points where this run pinned it, so the release
         # added no commit to that project. That is an ordinary outcome for a
