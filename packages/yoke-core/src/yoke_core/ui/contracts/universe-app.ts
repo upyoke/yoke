@@ -248,7 +248,7 @@ export interface UniverseAppMount {
  */
 export type UniverseRouteView =
   | "strategy" | "frontier" | "shipping" | "machines" | "sessions" | "inbox"
-  | "profile" | "organization" | "workflows" | "projects" | "github" | "actors"
+  | "profile" | "organization" | "levels" | "workflows" | "projects" | "github" | "actors"
   | "members" | "billing" | "items" | "deployments" | "environments" | "databases"
   | "qa-methods" | "qa-plans" | "qa-activity" | "capabilities" | "packs"
   | "architecture" | "messages" | "launches" | "events" | "doctor" | "ouroboros";

@@ -1,4 +1,4 @@
-"""Register the universe execution levels read and write."""
+"""Register the universe execution levels reads and write."""
 
 from __future__ import annotations
 
@@ -11,6 +11,22 @@ def register(registry) -> None:
         _levels.handle_universe_levels_get,
         _levels.UniverseLevelsGetRequest,
         _levels.UniverseLevelsResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.universe_levels",
+        minimum_serving_version="next-release",
+        target_kinds=["global"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[],
+        adapter_status="live",
+        claim_required_kind=None,
+        ambient_session_required=False,
+    )
+    registry.register(
+        _levels.CAPACITY_FUNCTION_ID,
+        _levels.handle_universe_levels_capacity_get,
+        _levels.UniverseLevelsGetRequest,
+        _levels.UniverseLevelsCapacityResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.universe_levels",
         minimum_serving_version="next-release",

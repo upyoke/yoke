@@ -94,6 +94,12 @@ export const NAV = [
     id: "organization", label: "Universe", scope: SCOPE_NONE,
     group: GROUP_SETTINGS,
   },
+  // The universe's launch levels and what each can launch right now. Read
+  // only: levels are edited from a harness through the CLI.
+  {
+    id: "levels", label: "Levels", scope: SCOPE_NONE,
+    group: GROUP_SETTINGS,
+  },
   {
     id: "workflows", label: "Workflows", scope: SCOPE_NONE,
     group: GROUP_SETTINGS,

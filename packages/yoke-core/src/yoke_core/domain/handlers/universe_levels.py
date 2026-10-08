@@ -16,6 +16,7 @@ from yoke_core.domain.pydantic_validation_safety import safe_validation_message
 
 GET_FUNCTION_ID = "universe.levels.get"
 SET_FUNCTION_ID = "universe.levels.set"
+CAPACITY_FUNCTION_ID = "universe.level_capacity.get"
 
 
 class UniverseLevelsGetRequest(BaseModel):
@@ -30,6 +31,15 @@ class UniverseLevelsSetRequest(BaseModel):
 class UniverseLevelsResponse(BaseModel):
     source: str
     levels: List[Dict[str, Any]]
+
+
+class UniverseLevelsCapacityResponse(BaseModel):
+    read_at: str
+    source: str
+    usable_machines: int
+    live_workers: Dict[str, int]
+    levels: List[Dict[str, Any]]
+    projects: List[Dict[str, Any]]
 
 
 def _failure(code: str, message: str, jsonpath: str = "$.payload") -> HandlerOutcome:
@@ -65,6 +75,32 @@ def handle_universe_levels_get(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
+def handle_universe_levels_capacity_get(request: FunctionCallRequest) -> HandlerOutcome:
+    """Return what each level can launch now, and which projects override."""
+    try:
+        UniverseLevelsGetRequest(**(request.payload or {}))
+    except ValidationError as exc:
+        return _failure("payload_invalid", safe_validation_message(exc))
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.universe_level_capacity_read import read_level_capacity
+    from yoke_core.domain.universe_levels import UniverseLevelsError
+
+    try:
+        with connect() as conn:
+            result = read_level_capacity(conn)
+    except LevelsError as exc:
+        return _failure(
+            exc.code,
+            f"stored levels no longer validate at {exc.field}: {exc.detail} "
+            "Recovery: rewrite the universe levels with `yoke universe levels "
+            "set --stdin`, or the project override with `yoke projects "
+            "capability-settings set --cap-type session-routing`.",
+        )
+    except UniverseLevelsError as exc:
+        return _failure(exc.code, str(exc))
+    return HandlerOutcome(result_payload=result)
+
+
 def handle_universe_levels_set(request: FunctionCallRequest) -> HandlerOutcome:
     """Validate and store the universe levels, replacing the prior definition."""
     try:
@@ -90,11 +126,14 @@ def handle_universe_levels_set(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 __all__ = [
+    "CAPACITY_FUNCTION_ID",
     "GET_FUNCTION_ID",
     "SET_FUNCTION_ID",
+    "UniverseLevelsCapacityResponse",
     "UniverseLevelsGetRequest",
     "UniverseLevelsResponse",
     "UniverseLevelsSetRequest",
+    "handle_universe_levels_capacity_get",
     "handle_universe_levels_get",
     "handle_universe_levels_set",
 ]
