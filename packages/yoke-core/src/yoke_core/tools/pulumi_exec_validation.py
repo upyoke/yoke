@@ -53,12 +53,14 @@ def validated_command(
         args = _absolute_option_path(args, "--file")
     elif operation == "preview":
         args, json_output = _preview_output_args(args)
-        _validate_flag_args(args, _PREVIEW_FLAGS, path_options={"--import-file"})
+        _validate_flag_args(
+            args, _PREVIEW_FLAGS, path_options={"--import-file"}, target_stack=stack
+        )
         args = _absolute_option_path(args, "--import-file")
         if json_output is not None:
             args.append("--json")
     elif operation == "up":
-        _validate_up_args(args)
+        _validate_up_args(args, stack)
     else:
         _validate_flag_args(args, _REFRESH_FLAGS)
     args = _without_stack_flag(args)
@@ -144,6 +146,7 @@ def _validate_flag_args(
     allowed_flags: frozenset[str],
     *,
     path_options: frozenset[str] | set[str] = frozenset(),
+    target_stack: str | None = None,
 ) -> None:
     index = 0
     while index < len(args):
@@ -153,6 +156,21 @@ def _validate_flag_args(
             continue
         if value.startswith("--stack="):
             index += 1
+            continue
+        if target_stack is not None and (
+            value == "--target" or value.startswith("--target=")
+        ):
+            if value == "--target":
+                if index + 1 >= len(args):
+                    raise PulumiExecError(
+                        "pulumi_target_missing: --target requires a complete resource URN; supply one from the requested stack"
+                    )
+                target = args[index + 1]
+                index += 2
+            else:
+                target = value.split("=", 1)[1]
+                index += 1
+            _validate_target(target, target_stack)
             continue
         if value in path_options:
             if index + 1 >= len(args):
@@ -169,8 +187,53 @@ def _validate_flag_args(
         index += 1
 
 
-def _validate_up_args(args: Sequence[str]) -> None:
-    _validate_flag_args(args, _UP_FLAGS)
+def _validate_target(target: str, stack: str) -> str:
+    parts = target.split("::")
+    type_token = r"[A-Za-z0-9_.-]+:[A-Za-z0-9_./-]*:[A-Za-z0-9_.-]+"
+    if (
+        len(parts) != 4
+        or not parts[0].startswith("urn:pulumi:")
+        or not all(parts)
+        or any(
+            character.isspace()
+            or ord(character) < 32
+            or ord(character) == 127
+            or character in "*?[]"
+            for character in target
+        )
+        or not re.fullmatch(rf"{type_token}(\${type_token})*", parts[2])
+        or not parts[0][len("urn:pulumi:") :]
+    ):
+        raise PulumiExecError(
+            "pulumi_target_invalid: --target requires a complete literal resource "
+            "URN (urn:pulumi:STACK::PROJECT::TYPE::NAME); copy it from the requested stack"
+        )
+    if parts[0] != f"urn:pulumi:{stack}":
+        raise PulumiExecError(
+            "pulumi_target_stack_mismatch: target must belong to the requested "
+            f"stack {stack}; select a resource from that stack"
+        )
+    return parts[1]
+
+
+def validate_target_project(command: Sequence[str], stack: str, project: str) -> None:
+    """Check admitted literal targets against the rendered Pulumi declaration."""
+    for index, value in enumerate(command):
+        if value == "--target":
+            target = command[index + 1]
+        elif value.startswith("--target="):
+            target = value.split("=", 1)[1]
+        else:
+            continue
+        if _validate_target(target, stack) != project:
+            raise PulumiExecError(
+                "pulumi_target_project_mismatch: target must belong to the "
+                f"declared Pulumi project {project}; copy its URN from this project's stack"
+            )
+
+
+def _validate_up_args(args: Sequence[str], stack: str) -> None:
+    _validate_flag_args(args, _UP_FLAGS, target_stack=stack)
     selected = set(_without_stack_flag(args))
     missing = [
         required
@@ -211,4 +274,4 @@ def _absolute_option_path(args: Sequence[str], option: str) -> list[str]:
     return result
 
 
-__all__ = ["validated_command"]
+__all__ = ["validated_command", "validate_target_project"]

@@ -44,7 +44,10 @@ def pulumi_exec(args: List[str]) -> int:
             "single-output read, file import, or operator-confirmed update with ephemeral "
             "capability-owned authority. Initialization is a local "
             "source-dev/admin boundary for an exact declared stack and requires "
-            "`init --secrets-provider <awskms URI>`."
+            "`init --secrets-provider <awskms URI>`. Preview and up accept repeated "
+            "`--target URN` or `--target=URN` for literal resources in the requested "
+            "stack and rendered Pulumi.yaml project. Up still requires operator "
+            "confirmation with `--yes --non-interactive`."
         ),
     )
     parser.add_argument("--project", required=True)
