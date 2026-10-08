@@ -61,6 +61,10 @@ def main():
     static = Path(yoke_core.__file__).parent / "ui" / "static"
 
     class Handler(SimpleHTTPRequestHandler):
+        def end_headers(self):
+            self.send_header("Cache-Control", "no-store")
+            super().end_headers()
+
         def do_GET(self):
             path = urlsplit(self.path).path
             if path == "/served-build":
