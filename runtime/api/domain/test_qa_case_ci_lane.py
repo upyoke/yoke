@@ -24,8 +24,19 @@ def _repo(tmp_path: Path, *, remote: str) -> Path:
     (checkout / "file.txt").write_text("x", encoding="utf-8")
     subprocess.run(["git", "-C", str(checkout), "add", "-A"], check=True)
     subprocess.run(
-        ["git", "-C", str(checkout), "-c", "user.email=t@example.com",
-         "-c", "user.name=T", "commit", "-q", "-m", "seed"],
+        [
+            "git",
+            "-C",
+            str(checkout),
+            "-c",
+            "user.email=t@example.com",
+            "-c",
+            "user.name=T",
+            "commit",
+            "-q",
+            "-m",
+            "seed",
+        ],
         check=True,
     )
     return checkout
@@ -70,7 +81,9 @@ def test_lane_branch_refuses_a_detached_head(tmp_path):
     checkout = _repo(tmp_path, remote="git@github.com:acme/widgets.git")
     head = subprocess.run(
         ["git", "-C", str(checkout), "rev-parse", "HEAD"],
-        capture_output=True, text=True, check=True,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout.strip()
     subprocess.run(
         ["git", "-C", str(checkout), "checkout", "-q", "--detach", head],
@@ -90,11 +103,15 @@ def test_push_lane_publishes_the_head_under_the_lane_name(tmp_path):
 
     published = subprocess.run(
         ["git", "-C", str(origin), "rev-parse", "refs/heads/PRJ-9"],
-        capture_output=True, text=True, check=True,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout.strip()
     local = subprocess.run(
         ["git", "-C", str(checkout), "rev-parse", "HEAD"],
-        capture_output=True, text=True, check=True,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout.strip()
     assert published == local
 
@@ -110,9 +127,7 @@ def test_workflow_file_requires_a_declaration():
     with pytest.raises(QaCaseExecutionError, match="ci_workflow_file"):
         lane.workflow_file({"method_config": {"command": "pytest"}})
 
-    assert lane.workflow_file(
-        {"method_config": {"ci_workflow": "ci.yml"}}
-    ) == "ci.yml"
+    assert lane.workflow_file({"method_config": {"ci_workflow": "ci.yml"}}) == "ci.yml"
 
 
 def test_authority_uses_the_active_https_connection(monkeypatch):
@@ -144,7 +159,8 @@ def test_authority_leaves_an_explicit_selection_alone(monkeypatch):
         raise AssertionError("explicit selection must win")
 
     monkeypatch.setattr(
-        "yoke_cli.transport.https.resolve_https_connection", _unexpected,
+        "yoke_cli.transport.https.resolve_https_connection",
+        _unexpected,
     )
 
     with lane.github_actions_authority():
@@ -206,9 +222,14 @@ def test_run_head_sha_reads_through_the_relay(monkeypatch):
         _fake_github_actions,
     )
 
-    assert lane.run_head_sha(
-        project="yoke", repo="acme/widgets", run_id="55",
-    ) == "a" * 40
+    assert (
+        lane.run_head_sha(
+            project="yoke",
+            repo="acme/widgets",
+            run_id="55",
+        )
+        == "a" * 40
+    )
     assert seen["args"] == ("poll", "acme/widgets", "55", "--json")
     assert seen["kwargs"]["project"] == "yoke"
 
@@ -219,15 +240,21 @@ def test_run_head_sha_reports_a_control_plane_without_the_field(monkeypatch):
     monkeypatch.setattr(
         "yoke_core.domain.deploy_pipeline_reporting._github_actions",
         lambda *a, **k: subprocess.CompletedProcess(
-            list(a), 0,
+            list(a),
+            0,
             json.dumps({"success": True, "result": {"state": "success"}}),
             "",
         ),
     )
 
-    assert lane.run_head_sha(
-        project="yoke", repo="acme/widgets", run_id="55",
-    ) == ""
+    assert (
+        lane.run_head_sha(
+            project="yoke",
+            repo="acme/widgets",
+            run_id="55",
+        )
+        == ""
+    )
 
 
 def test_run_head_sha_raises_when_the_relay_refuses(monkeypatch):
@@ -235,7 +262,8 @@ def test_run_head_sha_raises_when_the_relay_refuses(monkeypatch):
     monkeypatch.setattr(
         "yoke_core.domain.deploy_pipeline_reporting._github_actions",
         lambda *a, **k: subprocess.CompletedProcess(
-            list(a), 4,
+            list(a),
+            4,
             json.dumps({"success": False}),
             "no GitHub Actions authority selected",
         ),
@@ -259,15 +287,19 @@ def test_dispatch_passes_the_correlation_input_and_returns_the_run_id(monkeypatc
     )
 
     run_id = lane.dispatch_workflow(
-        project="yoke", repo="acme/widgets", workflow="ci.yml",
-        branch="PRJ-9", request_id="qa-case:7:abc", timeout_seconds=60,
+        project="yoke",
+        repo="acme/widgets",
+        workflow="ci.yml",
+        branch="PRJ-9",
+        request_id="qa-case:7:abc",
+        timeout_seconds=60,
     )
 
     assert run_id == "9182736"
     args = seen["args"]
     assert args[0] == "trigger"
     assert "--ref" in args and "PRJ-9" in args
-    assert "--request-id" in args and "qa-case:7:abc" in args
+    assert args[args.index("--request-id") + 1].startswith("qa-case:7:abc:dispatch:")
     assert "--correlation-input" in args and "yoke_dispatch_id" in args
 
 
@@ -275,12 +307,19 @@ def test_dispatch_reports_a_refused_trigger(monkeypatch):
     monkeypatch.setattr(
         "yoke_core.domain.deploy_pipeline_reporting._github_actions",
         lambda *a, **k: subprocess.CompletedProcess(
-            list(a), 1, "", "workflow not found",
+            list(a),
+            1,
+            "",
+            "workflow not found",
         ),
     )
 
     with pytest.raises(QaCaseExecutionError, match="workflow not found"):
         lane.dispatch_workflow(
-            project="yoke", repo="acme/widgets", workflow="ci.yml",
-            branch="PRJ-9", request_id="qa-case:7:abc", timeout_seconds=1,
+            project="yoke",
+            repo="acme/widgets",
+            workflow="ci.yml",
+            branch="PRJ-9",
+            request_id="qa-case:7:abc",
+            timeout_seconds=1,
         )
