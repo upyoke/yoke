@@ -34,11 +34,16 @@ def test_atlas_consumers_are_on_the_generated_artifact_floor() -> None:
     assert expected <= set(impacted_tests.ALWAYS_RUN_TESTS)
 
 
-def test_harness_manifest_parity_survives_bounded_document_deferral(
-    tmp_path: Path,
+@pytest.mark.parametrize(
+    ("changed", "consumer"),
+    [
+        ("docs/harness-substrate.md", "runtime/api/test_harness_cli_manifest.py"),
+        ("AGENTS.md", "runtime/api/domain/test_startup_rules_headroom.py"),
+    ],
+)
+def test_generated_artifact_parity_survives_bounded_document_deferral(
+    tmp_path: Path, changed: str, consumer: str
 ) -> None:
-    changed = "docs/harness-substrate.md"
-    consumer = "runtime/api/test_harness_cli_manifest.py"
     _write(tmp_path, changed, "Harness resume contract\n")
     for test_path in {*impacted_tests.ALWAYS_RUN_TESTS, consumer}:
         _write(tmp_path, test_path, "def test_contract(): pass\n")
