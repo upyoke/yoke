@@ -201,6 +201,7 @@ def _process_requirement(
             route=current_route,
             actor=actor,
             project=project,
+            color_scheme=scheme,
         )
         if failed is not None:
             step_errors += failed.errors

@@ -11,6 +11,7 @@ from yoke_contracts.browser_qa_contract import (
     BrowserMethodContractViolation,
 )
 from yoke_core.domain import browser_client, browser_qa
+from yoke_core.domain.browser_qa_failure_capture import capture_failed_assertion_page
 from yoke_core.domain.browser_qa_case_config import color_scheme_failure
 from yoke_core.domain.qa_method_config_validation import (
     validate_method_config,
@@ -167,3 +168,47 @@ def test_invalid_stored_scheme_refuses_before_opening_or_steps(tmp_path):
         assert "case_color_scheme_invalid" in result.runs[0].errors
         assert opened == []
         executed.assert_not_called()
+
+
+@pytest.mark.parametrize("observed", ["dark", "light", None])
+def test_automatic_failure_capture_keeps_and_validates_its_own_scheme(
+    tmp_path, observed
+):
+    shot = tmp_path / "failed.png"
+    shot.write_bytes(b"PNG")
+    evidence = {"requested": "dark", "observed": observed}
+    with (
+        mock.patch.object(
+            browser_qa,
+            "_execute_step",
+            return_value={
+                "success": True,
+                "artifacts": [str(shot)],
+                "color_scheme": evidence,
+            },
+        ),
+        mock.patch.object(
+            browser_qa, "_record_artifact_file", return_value=123
+        ) as record,
+    ):
+        errors, _, _, captured = capture_failed_assertion_page(
+            step_idx=1,
+            error="assertion failed",
+            page_id="owned",
+            base_url="http://localhost:9999",
+            artifact_dir=str(tmp_path),
+            run_id=12,
+            requirement_id=13,
+            qa_kind="plan_case",
+            subject=14,
+            route="/fixture",
+            color_scheme="dark",
+        )
+    if observed == "dark":
+        assert captured
+        metadata = json.loads(record.call_args.args[5])
+        assert metadata["color_scheme"] == evidence
+    else:
+        assert not captured
+        assert "color_scheme_" in errors
+        record.assert_not_called()
