@@ -38,7 +38,7 @@ SAY_USAGE = (
     "yoke say (--preview | --stdin) "
     "(--steering | --steering-scope JSON | --actor ACTOR | --item ITEM | "
     "--epic-task ITEM:N | --process P | --project P | --session S | "
-    "--universe) [--liveness active|stale|ended|all] "
+    "--universe) [--liveness active|waiting|stale|ended|all] "
     "[recipient filters] [--json]"
 )
 MESSAGE_PREVIEW_USAGE = "yoke session-control message preview [selector] [--json]"

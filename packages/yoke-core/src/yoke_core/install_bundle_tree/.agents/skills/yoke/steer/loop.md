@@ -107,9 +107,11 @@ Two things the report deliberately does not do, so do them yourself:
   resume the moment the reason clears.
 
 The dashboard session card carries one primary status in the identity line:
-`active` for any live session, confirmed `stale` when the server has
-classified it, and `possibly stale` only while still server-active past the
-window with claims and no wait or probe. A claim-holding card's primary
+`active` for any live session, `parked` for a session that parked itself
+(its server liveness is `waiting` while it holds a claim, never `stale`),
+confirmed `stale` when the server has classified it, and `possibly stale`
+only while still server-active past the window with claims and no wait or
+probe. A claim-holding card's primary
 becomes `waiting` or `probed` when those facts explain the quiet. Age, relay,
 and latest-message stay labelled subordinates and never restate that status
 word. Recency instead lives on the age line: `active now` under a minute,

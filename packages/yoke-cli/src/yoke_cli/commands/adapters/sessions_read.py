@@ -21,7 +21,7 @@ from yoke_contracts.session_control.liveness import ENDED_CAUSES, LIVENESS_STATE
 
 
 SESSIONS_LIST_USAGE = (
-    "yoke sessions list [--project P] [--liveness active|stale|ended] "
+    "yoke sessions list [--project P] [--liveness active|waiting|stale|ended] "
     "[--ended-cause killed|wound_down] "
     "[--limit N] [--session S] [--session-id S] [--json]"
 )

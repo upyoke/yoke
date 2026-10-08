@@ -47,7 +47,7 @@ SESSION_ADAPTERS = [
         function_id="sessions.list",
         cli_invocation=(
             "yoke sessions list [--project P] "
-            "[--liveness active|stale|ended] [--ended-cause killed|wound_down] "
+            "[--liveness active|waiting|stale|ended] [--ended-cause killed|wound_down] "
             "[--limit N] [--session S]"
         ),
     ),

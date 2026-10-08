@@ -19,6 +19,7 @@ from yoke_core.domain.session_message_liveness import (
     narrows_bulk_by_default,
 )
 from yoke_core.domain.session_message_routing import messageability
+from yoke_core.domain.session_activity_state import session_mode_column_present
 from yoke_core.domain.session_staleness import activity_liveness, session_liveness
 from yoke_core.domain.session_relay_machine_versions import (
     connected_relay_routes,
@@ -37,10 +38,13 @@ def _p(conn: Any) -> str:
 
 
 def _session_rows(conn: Any) -> dict[str, dict[str, Any]]:
+    # A fixture composed by hand carries no declared posture, so no session
+    # there reads as parked and none is waiting.
+    mode_select = "mode, " if session_mode_column_present(conn) else ""
     rows = conn.execute(
         "SELECT session_id, project_id, executor, executor_surface, "
-        "executor_version, machine_id, execution_lane, mode, last_heartbeat, "
-        "last_tool_call_at, ended_at, terminated_at, "
+        f"executor_version, machine_id, execution_lane, {mode_select}"
+        "last_heartbeat, last_tool_call_at, ended_at, terminated_at, "
         f"{holds_work_claim_sql('harness_sessions')} AS holds_work_claim "
         "FROM harness_sessions ORDER BY session_id"
     ).fetchall()
