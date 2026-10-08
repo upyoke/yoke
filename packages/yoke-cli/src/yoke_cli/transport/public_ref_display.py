@@ -80,7 +80,8 @@ def redact_response(
     response: FunctionCallResponse,
     sensitive_values: tuple[str, ...],
 ) -> FunctionCallResponse:
-    response = prepare_human_response(response)
+    # Transport redacts secrets but preserves the server-owned machine payload.
+    # Human identity projection belongs to emit_response, not dispatch.
     secrets = tuple(value for value in sensitive_values if value)
     if not secrets:
         return response

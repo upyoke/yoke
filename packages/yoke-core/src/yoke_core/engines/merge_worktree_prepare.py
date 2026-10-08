@@ -84,7 +84,7 @@ def resolve_context(args: MergeArgs) -> MergeContext:
     # Keep the public selector through client-side merge orchestration.
     ctx.item_id = str(args.item_id) if args.item_id is not None else None
     match = re.search(r"([A-Za-z][A-Za-z0-9]*-\d+)", args.branch)
-    if ctx.item_id is None and match:
+    if (ctx.item_id is None or ctx.item_id.isdecimal()) and match:
         try:
             detail = call_dispatcher(
                 function_id="items.detail.get",
@@ -94,7 +94,14 @@ def resolve_context(args: MergeArgs) -> MergeContext:
             if detail.success:
                 item = (detail.result or {}).get("item") or {}
                 if item.get("public_ref") is not None:
+                    if (
+                        ctx.item_id
+                        and item.get("id") is not None
+                        and str(item["id"]) != ctx.item_id
+                    ):
+                        raise ValueError("merge branch resolved a different item")
                     ctx.item_id = str(item["public_ref"])
+                    ctx.public_ref = ctx.item_id
         except Exception:  # noqa: BLE001 - DB context is advisory here.
             pass
 

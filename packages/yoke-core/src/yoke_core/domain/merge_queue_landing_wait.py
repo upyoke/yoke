@@ -68,7 +68,7 @@ def _read_server_record(
         return None, {}, _response_error(response)
     result = dict(getattr(response, "result", None) or {})
     try:
-        record = record_from_payload(result.get("record"))
+        record = record_from_payload(result.get("record"), expected_public_ref=item_id)
     except (KeyError, TypeError, ValueError) as exc:
         return None, result, f"landing record response was invalid: {exc}"
     return record, result, ""

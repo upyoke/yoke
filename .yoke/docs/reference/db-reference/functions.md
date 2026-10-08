@@ -53,7 +53,21 @@ role-prefixed/plural ref fields. Bare numbers and internal keys are refused.
 The dispatcher resolves refs to integers only inside the serving engine.
 Responses project item joins to public refs; other record ids remain numeric.
 JSON and human CLI output share this contract. Clients tolerate absent optional
-identity fields from an older serving build without ID lookup.
+identity fields from an older serving build without ID lookup. Transport dispatch
+redacts secrets while preserving machine-consumed responses; identity display
+filtering runs only when CLI output is emitted. The digest-bound
+`candidate_containment_basis` is an engine attestation protocol: its owned IDs
+and digest pass unchanged through server and client composition so the local
+deploy driver can answer and the server can validate the exact question set.
+These attested IDs are never client-supplied item selectors.
+
+Clients also tolerate the previous released response shape without accepting
+internal keys as public selectors. Merge CI sends the context's resolved public
+ref. A legacy claim holder's owned key must match the item detail read in the
+same operation; session ownership still applies. Landing observations missing
+a ref use the complete ref on the request, while conflicting refs refuse. QA
+plan readers copy that known subject into legacy roster rows after checking
+their owned keys against the execution; the target and digest stay as issued.
 
 
 ## Registry, schema, and dispatch endpoints

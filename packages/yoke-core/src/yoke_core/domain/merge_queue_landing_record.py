@@ -285,16 +285,20 @@ def delete_landing_record(conn: Any, item_id: int) -> None:
     )
 
 
-def record_from_payload(payload: Any) -> PublicLandingRecord | None:
+def record_from_payload(
+    payload: Any, *, expected_public_ref: str | None = None
+) -> PublicLandingRecord | None:
     """Parse the registered function's record payload on the waiting client."""
     if not isinstance(payload, dict) or not payload:
         return None
     from yoke_contracts.public_ref import parse_public_item_ref
 
-    public_ref = str(payload["public_ref"])
+    public_ref = str(payload.get("public_ref", expected_public_ref))
     prefix, sequence = parse_public_item_ref(public_ref)
     if prefix is None or sequence is None:
         raise ValueError("public_item_ref_required: landing record requires PREFIX-N")
+    if expected_public_ref is not None and public_ref != expected_public_ref:
+        raise ValueError("landing record named a different item")
     return PublicLandingRecord(
         public_ref=public_ref,
         project_id=int(payload["project_id"]),

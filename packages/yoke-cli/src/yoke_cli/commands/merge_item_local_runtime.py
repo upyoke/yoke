@@ -75,6 +75,7 @@ def _work_claim_lookup(argv: List[str]) -> Optional[dict[str, Any]]:
     )
     return {
         "caller_session_id": str(actor.session_id or ""),
+        "requested_public_ref": str(parsed.item),
         "connection": str(machine_config.active_env() or "unknown"),
         "function_id": "claims.work.holder_get",
         "response": response,

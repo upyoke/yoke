@@ -20,6 +20,7 @@ from yoke_cli.transport.dispatcher import (
     call_dispatcher,
     response_to_dict,
 )
+from yoke_cli.transport.public_ref_display import prepare_human_response
 from yoke_contracts.api.function_call import FunctionCallResponse
 
 
@@ -136,6 +137,7 @@ def _emit_prd_validate(
     *,
     json_mode: bool,
 ) -> int:
+    response = prepare_human_response(response)
     if json_mode:
         print(json.dumps(response_to_dict(response), sort_keys=True))
         return 0 if response.success else 1

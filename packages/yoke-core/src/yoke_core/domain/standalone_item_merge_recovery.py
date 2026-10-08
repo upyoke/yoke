@@ -53,6 +53,35 @@ def bind_work_claim_lookup(
         _WORK_CLAIM_LOOKUP.reset(token)
 
 
+def record_resolved_item(item: Mapping[str, Any]) -> None:
+    """Bind an older holder's join key to the detail response already read."""
+    lookup = _WORK_CLAIM_LOOKUP.get()
+    if lookup is not None:
+        _WORK_CLAIM_LOOKUP.set({**lookup, "resolved_item": dict(item)})
+
+
+def _holder_matches_item(holder, expected_ref, lookup) -> bool:
+    scope = holder.get("scope") or {}
+    if not isinstance(scope, Mapping):
+        return False
+    public_ref = scope.get("public_ref") or holder.get("public_ref")
+    if public_ref is not None:
+        return str(public_ref) == expected_ref
+    # Released servers return the owned key. It is evidence only when the
+    # same operation's item-detail read supplies its complete public ref.
+    item = lookup.get("resolved_item") or {}
+    owned_id = scope.get("item_id", holder.get("item_id"))
+    return (
+        isinstance(item, Mapping)
+        and item.get("public_ref") == expected_ref
+        and lookup.get("requested_public_ref", expected_ref) == expected_ref
+        and isinstance(owned_id, int)
+        and not isinstance(owned_id, bool)
+        and owned_id > 0
+        and item.get("id") == owned_id
+    )
+
+
 def _value(subject: Any, name: str, default: Any = None) -> Any:
     if isinstance(subject, Mapping):
         return subject.get(name, default)
@@ -88,9 +117,9 @@ def _claim_error_from_lookup(
     if not isinstance(holder, Mapping):
         return _lookup_failure(connection, "holder response was malformed")
     try:
-        matches_item = str(
-            (holder.get("scope") or {}).get("public_ref") or holder.get("public_ref")
-        ) == str(public_item_target(item_id).public_ref)
+        matches_item = _holder_matches_item(
+            holder, str(public_item_target(item_id).public_ref), lookup
+        )
     except (KeyError, TypeError, ValueError):
         matches_item = False
     if not matches_item:
@@ -227,6 +256,7 @@ __all__ = [
     "claim_error",
     "claim_is_missing",
     "reacquire_landed_claim",
+    "record_resolved_item",
     "restore_close_out_claim",
     "with_recorded_head",
 ]

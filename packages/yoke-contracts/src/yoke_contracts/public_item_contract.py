@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from typing import Any, Callable
 
 from yoke_contracts.api.function_call import FunctionCallRequest, FunctionError
@@ -62,6 +63,15 @@ def public_item_request_error(request: FunctionCallRequest) -> FunctionError | N
         return None
 
     return inspect(request.payload, "$.payload")
+
+
+def is_engine_protocol_field(key: str) -> bool:
+    """Containment questions are digest-bound engine facts, not item selectors.
+
+    The driver echoes their owned IDs in an attestation checked against the
+    server basis. Rewriting any identity changes that protocol and its digest.
+    """
+    return key == "candidate_containment_basis"
 
 
 def item_record_context(key: str) -> bool:
@@ -131,6 +141,9 @@ def project_public_identities(
     item_row = is_public_item_record(node, context=item_context)
     out = {}
     for key, value in node.items():
+        if is_engine_protocol_field(key):
+            out[key] = deepcopy(value)
+            continue
         wire = wire_key_for_engine(key)
         if (
             key == "internal_id"

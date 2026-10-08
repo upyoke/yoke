@@ -151,7 +151,9 @@ def repoint_to_landing_carrier(
         )
     if carrier == recorded:
         return ""
-    error = record_landing_pull_request(int(item_id), carrier)
+    error = record_landing_pull_request(
+        getattr(ctx, "public_ref", None) or item_id, carrier
+    )
     if error:
         return (
             f"pull request marker still names {recorded}, but merge "

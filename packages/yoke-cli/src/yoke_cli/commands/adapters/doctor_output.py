@@ -22,6 +22,7 @@ from contextlib import AbstractContextManager
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Optional
 
+from yoke_cli.transport.public_ref_display import prepare_human_response
 from yoke_contracts.api.function_call import FunctionCallResponse
 
 from yoke_cli.transport.dispatcher import response_to_dict
@@ -69,6 +70,7 @@ def emit_doctor_response(
     report_file: Optional[str] = None,
 ) -> int:
     """Print one doctor run's outcome and return its exit status."""
+    response = prepare_human_response(response)
     result = response.result or {}
     if json_mode:
         print(json.dumps(response_to_dict(response), sort_keys=True))
