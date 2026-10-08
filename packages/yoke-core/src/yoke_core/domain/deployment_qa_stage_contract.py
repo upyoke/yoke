@@ -165,16 +165,15 @@ def deployment_qa_stage_subject(
         member_project_id = int(member["project_id"])
         if member_project_id not in carried_project_ids(conn, str(run_id)):
             raise ValueError(
-                "deployment member belongs to a project this run ships no "
-                "source for"
+                "deployment member belongs to a project this run ships no source for"
             )
         snapshot = _object(
             member.get("requirement_snapshot"),
-            subject=f"member {member_item_id} requirement snapshot",
+            subject=f"member {render_item_ref(conn, member_item_id)} requirement snapshot",
         )
         if snapshot.get("schema") != 1:
             raise ValueError(
-                f"member {member_item_id} lacks a schema-1 frozen QA snapshot"
+                f"member {render_item_ref(conn, member_item_id)} lacks a schema-1 frozen QA snapshot"
             )
         run["member_item_id"] = int(member_item_id)
         run["member_snapshot"] = snapshot

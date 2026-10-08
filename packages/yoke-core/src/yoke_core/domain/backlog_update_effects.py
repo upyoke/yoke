@@ -205,7 +205,7 @@ def run_post_commit_update_effects(
         except Exception as exc:  # noqa: BLE001 - committed close-out stays durable
             conn.rollback()
             print(
-                f"Advisory: settling-run continuation deferred for item {item_id}: {exc}; "
+                f"Advisory: settling-run continuation deferred for item {render_item_ref(conn, item_id)}: {exc}; "
                 "read its completion run and re-drive it under the project deploy lock.",
                 file=out,
             )

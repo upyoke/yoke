@@ -31,6 +31,7 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.db_helpers import iso8601_now, query_rows
 from yoke_core.domain.qa_deployment_case_correction_window import (
     determinate_verdict,
@@ -189,7 +190,7 @@ def rematerialize_for_deployment_stage(
     """Refresh this subject's plan cases from their current plan definitions."""
     subject = (
         f"deployment run {str(deployment_run_id)!r} stage "
-        f"{str(deployment_stage)!r} member {deployment_member_item_id!r}"
+        f"{str(deployment_stage)!r} member {render_item_ref(conn, deployment_member_item_id) if deployment_member_item_id is not None else 'run'}"
     )
     rows = _scoped_rows(
         conn,

@@ -6,6 +6,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any, Callable, Mapping
 
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain import db_backend
 from yoke_core.domain import decision_request_merge_candidate as _merge_candidate
 from yoke_core.domain.decision_request_contract import (
@@ -114,7 +115,7 @@ def _lifecycle_transition_ended(
         (int(item_text),),
     ).fetchone()
     if row is None:
-        return True, f"item {item_text} no longer exists"
+        return True, f"item {render_item_ref(conn, int(item_text))} no longer exists"
     expected = (
         str(context.get("from_stage") or ""),
         str(context.get("workflow_id") or ""),
@@ -127,7 +128,7 @@ def _lifecycle_transition_ended(
     current = (str(row[0]), str(row[1]), int(row[2]))
     ended = current != expected or request.get("consumed_at") is not None
     return ended, (
-        f"item {item_text} snapshot is {current[0]} on {current[1]}@{current[2]}"
+        f"item {render_item_ref(conn, int(item_text))} snapshot is {current[0]} on {current[1]}@{current[2]}"
     )
 
 
@@ -174,9 +175,7 @@ def _qa_review_ended(
     return _qa_walk_ended(conn, requirement_id, int(run_text))
 
 
-def _qa_review_execution_id(
-    conn: Any, requirement_id: int, run_id: int
-) -> str | None:
+def _qa_review_execution_id(conn: Any, requirement_id: int, run_id: int) -> str | None:
     """Resolve the one execution whose walk actually produced this run.
 
     Two existing durable relations carry this identity, checked in the order

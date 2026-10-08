@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now, query_rows
 from yoke_core.domain.item_terminal_resources import item_is_terminal
@@ -53,7 +54,7 @@ def retirement_blockers(conn: Any, project_id: int) -> list[str]:
         conn, f"SELECT id, status FROM items WHERE project_id={marker}", (project_id,)
     )
     blockers = [
-        f"open item {row['id']} ({row['status']})"
+        f"open item {render_item_ref(conn, row['id'])} ({row['status']})"
         for row in items
         if item_is_terminal(conn, int(row["id"])) is not True
     ]

@@ -70,7 +70,7 @@ def notify_member_qa_failure(
         "SELECT project_id FROM items WHERE id=%s", (int(item_id),)
     ).fetchone()
     if item is None:
-        return f"failed: member item {item_id} is missing; inspect run {run_id}"
+        return f"failed: member item {render_item_ref(conn, item_id)} is missing; inspect run {run_id}"
     project_id = int(item["project_id"] if hasattr(item, "keys") else item[0])
     project = resolve_project(conn, project_id)
     item_ref = render_item_ref(conn, int(item_id))
