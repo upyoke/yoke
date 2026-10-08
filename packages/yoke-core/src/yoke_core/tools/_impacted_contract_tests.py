@@ -36,6 +36,7 @@ from yoke_core.tools._impacted_contract_tests_workflow_definitions import (
 
 REPO_CLEANLINESS_TESTS = (
     "runtime/api/engines/test_doctor_hc_obsoleted_terms_real_tree.py",
+    "runtime/api/engines/test_doctor_hc_obsoleted_terms.py",
     "runtime/api/test_doc_hygiene.py",
 )
 _ALWAYS_RUN_CONTRACTS = (
