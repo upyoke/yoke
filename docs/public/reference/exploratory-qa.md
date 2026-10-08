@@ -121,7 +121,7 @@ wait notice cannot suppress it.
 While parked, the execution retains and heartbeats its Test Machine lease. The
 returned dispatch has `dispatch_kind=main_agent_mission`. The main agent owns:
 
-- the item, work claim, Progress Log, and operator channel;
+- the item, work claim, Progress Log, and the human-request route;
 - dispatching each case's walker according to its executor;
 - combining walker returns into the primary written report;
 - choosing and submitting the final verdict for every bundled case.
@@ -135,19 +135,19 @@ The walker never issues the verdict. Its turn returns one status:
 
 ## Human-Gate Handoff
 
-Subagent turns are atomic and cannot pause for the operator. At a permission
-dialog, missing/expired personal sign-in, or other human-only action, the walker
-returns immediately with:
-
-1. the exact action the person must take;
-2. why it is required;
-3. the current product state;
-4. the first operation a fresh walker should perform afterward.
-
-The main agent appends that handoff to the item's Progress Log, asks the
-operator through the main channel, and dispatches a fresh walker after the gate
-is cleared. The next walker reads the Progress Log. The walker never blocks a
-turn waiting for the response and never silently skips the gated area.
+The walker returns `WALK_STATUS: HUMAN_GATE` with the action, why, observed
+state, and resume point, then stops. It never sends Fleet mail. The parent
+records that on the Progress Log and reads this run for host, browser
+substrate, project profile, URL, and access route — not a Test Machine list.
+Managed sign-in is `yoke browser authorize` on that host and profile; setup
+only starts the runtime. A host-native browser uses its declared access
+surface. Preview `yoke say --preview --steering`: `delivered` means a live
+covering seat, so send `--steering` and read the receipt. `awaiting_seat` is
+not delivery — cancel it, then `yoke say --preview --actor` and `--actor` for
+the numeric human `items.owner`. A non-numeric, nonhuman, or refused owner is
+a named recovery. `--item` returns the answer to the holder. Acknowledgement
+is not proof. Dispatch a fresh walker, continuing when the held host must
+keep its state.
 
 ## Holding a Walk, and Continuing a Settled One
 
@@ -251,7 +251,7 @@ installs Yoke on a Test Machine to get a browser.
 
 Agents complete setup and application steps that do not need the user.
 The user supplies personal credentials. Password, MFA, passkey and personal
-permission prompts return a human gate naming the machine and resume state.
+permission prompts return a human gate for this run's host, substrate, and resume state.
 Prepare and restore saved browser profiles through the
 Machine QA Pack per-OS procedures at `docs/packs/machine-qa/browser-profile-baseline.md` (installed by the Machine QA Pack).
 The mission execution contract above governs every host command.

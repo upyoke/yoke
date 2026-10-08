@@ -76,8 +76,11 @@ immutable bundle to the named `subagent_type`. When the dispatch kind is
 according to its informed or target-naive executor, aggregate its report, and
 send the complete verdict batch through the returned `submit_command`. A walker
 `HUMAN_GATE` return is the one exception to the no-operator rule: append its
-exact action and resume state to the Progress Log, ask from the main session,
-then dispatch a fresh walker. Do not waive or recapture evidence merely because
+exact action and resume state to the Progress Log, then send that request to
+a live covering steering seat or else the item's human owner. The walker
+never sends Fleet mail. `--item` addresses the current holder, not the owner.
+Acknowledgement is read, not sign-in proof. After the action is verified,
+dispatch a fresh walker with the saved resume state. Do not waive or recapture evidence merely because
 review is pending. Choose `undetermined` only with attached evidence: it halts
 the item until an owner/operator resolves the Inbox request. An unexecuted case
 records failed/`blocked_on_precondition` and returns without human work.
