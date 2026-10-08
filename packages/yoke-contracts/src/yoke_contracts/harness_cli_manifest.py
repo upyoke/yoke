@@ -6,6 +6,8 @@ from dataclasses import dataclass
 
 from yoke_contracts.executor_labels import CANONICAL_HARNESS_IDS
 
+CLAUDE_AGENTS_MINIMUM_VERSION = "2.1.281"
+
 
 @dataclass(frozen=True)
 class HarnessCliManifest:
@@ -21,6 +23,21 @@ class HarnessCliManifest:
             "executable": self.executable,
             "version_args": list(self.version_args),
             "bundled_candidates": list(self.bundled_candidates),
+            "project_discovery": {
+                "instruction_file": "AGENTS.md",
+                "skill_source": ".agents/skills/yoke",
+                "native_skill_entry": (
+                    ".claude/skills/yoke"
+                    if self.harness_id == "claude-code"
+                    else ".agents/skills/yoke"
+                ),
+                "minimum_engine_version": (
+                    CLAUDE_AGENTS_MINIMUM_VERSION
+                    if self.harness_id == "claude-code"
+                    else None
+                ),
+                "recovery_doc": ".yoke/docs/reference/harness-discovery.md",
+            },
         }
 
 

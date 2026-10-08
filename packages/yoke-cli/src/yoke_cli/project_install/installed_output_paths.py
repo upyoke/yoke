@@ -36,6 +36,8 @@ def owned_paths(report: Mapping[str, Any] | None) -> list[str]:
         "contract_files_adopted",
         "strategy_files_written",
         "managed_markdown_written",
+        "skill_discovery_written",
+        "retired_instruction_paths",
         "created_settings_files",
     ):
         paths.extend(_string_list(report.get(key)))
@@ -87,7 +89,7 @@ def manifest_owned_paths(manifest: Mapping[str, Any] | None) -> list[str]:
     """
     manifest = manifest if isinstance(manifest, Mapping) else {}
     paths: list[str] = []
-    for key in ("files", "strategy_files", "git_hook_hashes"):
+    for key in ("files", "strategy_files", "git_hook_hashes", "skill_discovery_links"):
         section = manifest.get(key)
         if isinstance(section, Mapping):
             paths.extend(str(path) for path in section if path)
@@ -160,6 +162,7 @@ def managed_region_paths(
     if isinstance(section, Mapping):
         paths.extend(str(path) for path in section if path)
     paths.extend(_string_list(report.get("managed_markdown_written")))
+    paths.extend(_string_list(report.get("retired_instruction_paths")))
     return normalized(paths)
 
 

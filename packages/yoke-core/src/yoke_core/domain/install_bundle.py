@@ -6,9 +6,9 @@ deterministically from the server's OWN code tree plus the ``projects`` row.
 The bundle carries:
 
 * **Skills** — the full Yoke skill tree copied verbatim from
-  ``.agents/skills/yoke/`` into that same canonical project path plus both
-  harness discovery dirs (``.claude/skills/yoke/<rel>`` and
-  ``.codex/skills/yoke/<rel>``). Skill-to-skill references therefore resolve
+  ``.agents/skills/yoke/`` into that same canonical project path. Claude's
+  native discovery entry links to it; no second skill tree is copied.
+  Skill-to-skill references therefore resolve
   identically in the Yoke source repo and every installed managed project.
 * **Agent adapters** — the rendered subagent bodies the lifecycle dispatch
   needs: ``.claude/agents/yoke-*.md`` (plus the ``references/`` tree) and
@@ -46,9 +46,7 @@ from yoke_contracts.project_contract.installed_layer import (
     CANONICAL_SKILLS_DEST,
     CLAUDE_AGENTS_DEST,
     CLAUDE_RULES_DEST,
-    CLAUDE_SKILLS_DEST,
     CODEX_AGENTS_DEST,
-    CODEX_SKILLS_DEST,
     CURSOR_AGENTS_DEST,
 )
 from yoke_contracts.packs import PACKS_SOURCE
@@ -144,14 +142,7 @@ def _read_text(path: Path) -> Optional[str]:
 
 
 def _skill_files(root: Path) -> List[Dict[str, str]]:
-    """Emit the full skill tree under its canonical and discovery paths.
-
-    Every file under ``.agents/skills/yoke/`` is emitted as a real file entry
-    at the same canonical path and at both harness discovery paths. The three
-    copies are byte-identical: the canonical copy makes absolute intra-skill
-    references portable, while the harness copies make the root skill
-    discoverable without relying on symlink support in installed projects.
-    """
+    """Emit the full skill tree once, at its canonical project path."""
     source = root / SKILLS_SOURCE
     if not source.is_dir():
         raise InstallBundleError(
@@ -166,8 +157,6 @@ def _skill_files(root: Path) -> List[Dict[str, str]]:
             raise InstallBundleError(f"skill source is missing or non-text: {path}")
         rel = path.relative_to(source).as_posix()
         files.append({"path": f"{CANONICAL_SKILLS_DEST}/{rel}", "content": content})
-        files.append({"path": f"{CLAUDE_SKILLS_DEST}/{rel}", "content": content})
-        files.append({"path": f"{CODEX_SKILLS_DEST}/{rel}", "content": content})
     return files
 
 

@@ -8,6 +8,10 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 <!-- BEGIN YOKE MANAGED BLOCK -->
 <!-- Managed by `yoke project install`. Everything between the BEGIN and END markers is overwritten on refresh — do not edit it here. Your own content outside the markers is always preserved. -->
 ## How to read these rules
+Shared instructions load from this canonical `AGENTS.md`; skills live once in
+`.agents/skills/yoke`, with Claude's required native discovery link. Read
+`.yoke/docs/reference/harness-discovery.md` for supported versions, configuration,
+ownership-safe refresh, and native menu verification.
 **Standing rules bind you now** — authority, security, scoping, commit and destructive-operation discipline, the naming and verification conventions — stated in full below. **Operation rules bind you when you perform that operation**: each section carries its non-negotiables plus a deep home to read *before* acting. This file arrives through a finite startup channel, so a rule that is short and read beats one that is complete and truncated.
 
 Deep homes, at `.yoke/docs/reference/agent-rules/`: `code-and-cli.md` · `databases.md` · `verification.md` · `lanes-and-claims.md` · `architecture-model.md` · `item-writes.md` · `delivery.md`. Per-operation depth is that operation's `--help`; live schema and commands are `yoke packets render --role main_agent`.

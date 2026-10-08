@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from yoke_contracts.project_contract.install_bundle import (
+    BUNDLE_SCHEMA,
+    SKILL_DISCOVERY_LINKS,
+)
+
 import hashlib
 import http.server
 import json
@@ -43,8 +48,7 @@ def _write_https_config(machine_home: Path, token_file: Path, api_url: str) -> P
 
 def _assert_installed(checkout: Path, config: Path) -> None:
     for rel in (
-        ".claude/skills/yoke/idea/SKILL.md",
-        ".codex/skills/yoke/idea/SKILL.md",
+        ".agents/skills/yoke/idea/SKILL.md",
         ".claude/agents/yoke-engineer.md",
         ".claude/settings.json",
         ".codex/hooks.json",
@@ -62,8 +66,7 @@ def _assert_installed(checkout: Path, config: Path) -> None:
     assert manifest["project_slug"] == "demo"
     assert sorted(manifest["files"]) == [
         ".claude/agents/yoke-engineer.md",
-        ".claude/skills/yoke/idea/SKILL.md",
-        ".codex/skills/yoke/idea/SKILL.md",
+        ".agents/skills/yoke/idea/SKILL.md",
     ]
     assert sorted(manifest["contract_files"]) == [".yoke/lint-config"]
     assert sorted(manifest["strategy_files"]) == [".yoke/strategy/MISSION.md"]
@@ -76,17 +79,14 @@ def _assert_installed(checkout: Path, config: Path) -> None:
 def _bundle(files: list[dict[str, str]] | None = None) -> dict[str, Any]:
     body = "# Mission\n\nKeep the product installer clean.\n"
     return {
-        "bundle_schema": 1,
+        "bundle_schema": BUNDLE_SCHEMA,
+        "skill_discovery_links": dict(SKILL_DISCOVERY_LINKS),
         "yoke_version": "9.9.9",
         "project_id": 7,
         "project_slug": "demo",
         "files": files
         or [
-            {"path": ".claude/skills/yoke/idea/SKILL.md", "content": "# idea\n"},
-            {
-                "path": ".codex/skills/yoke/idea/SKILL.md",
-                "content": "# idea codex\n",
-            },
+            {"path": ".agents/skills/yoke/idea/SKILL.md", "content": "# idea\n"},
             {"path": ".claude/agents/yoke-engineer.md", "content": "engineer\n"},
         ],
         "project_contract_files": [

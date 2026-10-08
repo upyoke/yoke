@@ -40,6 +40,9 @@ def _validate_bundle(bundle: Dict[str, Any]) -> None:
     if not isinstance(bundle.get("project_slug"), str) or not bundle["project_slug"]:
         raise ProjectInstallError("bundle project_slug must be a non-empty string")
     files = bundle.get("files")
+    from yoke_cli.project_install.skill_discovery import validate_links
+
+    validate_links(bundle.get("skill_discovery_links"))
     if not isinstance(files, list) or not all(
         isinstance(e, dict)
         and isinstance(e.get("path"), str)
@@ -48,6 +51,18 @@ def _validate_bundle(bundle: Dict[str, Any]) -> None:
     ):
         raise ProjectInstallError(
             "bundle 'files' must be a list of {path, content} objects"
+        )
+    obsolete = (".claude/skills/yoke/", ".codex/skills/yoke/", ".cursor/skills/yoke/")
+    if any(e["path"].startswith(obsolete) for e in files):
+        raise ProjectInstallError(
+            "skill_discovery_contract_unsupported: regular skill copies are "
+            "unsupported; rebuild the bundle from the canonical source"
+        )
+    targets = (bundle.get("managed_markdown") or {}).get("targets") or []
+    if any(e.get("path") in {"CLAUDE.md", "CODEX.md", "CURSOR.md"} for e in targets):
+        raise ProjectInstallError(
+            "instruction_discovery_contract_unsupported: shared doctrine must "
+            "target AGENTS.md only; rebuild the serving bundle"
         )
     hooks = bundle.get("hooks")
     if not isinstance(hooks, dict):

@@ -9,7 +9,14 @@
     ],
     "bundled_candidates": [
       "/Applications/ChatGPT.app/Contents/Resources/codex"
-    ]
+    ],
+    "project_discovery": {
+      "instruction_file": "AGENTS.md",
+      "skill_source": ".agents/skills/yoke",
+      "native_skill_entry": ".agents/skills/yoke",
+      "minimum_engine_version": null,
+      "recovery_doc": ".yoke/docs/reference/harness-discovery.md"
+    }
   },
   "runtime_minimums": {
     "wrapper_only": "any codex build with bash tool support",

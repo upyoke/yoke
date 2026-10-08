@@ -1,6 +1,5 @@
-# Yoke -- Cursor Harness Guide
-<!-- BEGIN YOKE MANAGED BLOCK -->
-<!-- Managed by `yoke project install`. Everything between the BEGIN and END markers is overwritten on refresh — do not edit it here. Your own content outside the markers is always preserved. -->
+# Cursor harness operations
+
 This file is the Cursor-facing entry point for Yoke. It references the shared bootstrap contract and lists the safe command surface for Cursor sessions.
 
 For the full project rules, read `AGENTS.md` — the harness-neutral shared doctrine file. Cursor loads `AGENTS.md` natively (including nested per-directory `AGENTS.md`), so everything there applies to Cursor sessions unless noted otherwise below. In this repo `CLAUDE.md` is a symlink to `AGENTS.md`; in a managed project they are separate real files, so content outside the managed markers must be added to each shell or the other harnesses never see it.
@@ -86,19 +85,3 @@ Both files are regular files, never symlinks (Cursor refuses project config path
 ## Lifecycle & Routing
 
 The canonical lifecycle guide is [.yoke/docs/reference/lifecycle.md](.yoke/docs/reference/lifecycle.md). For a live item, read `yoke workflows item get PREFIX-N` then `yoke workflows version get WORKFLOW VERSION`; the pinned definition is the source of truth for which executor owns the current stage. Frontier computation lives in [.yoke/docs/reference/charge-frontier.md](.yoke/docs/reference/charge-frontier.md). Yoke core derives Cursor's supported-path set server-side from the shared registry plus any limitations declared in the Cursor manifest; the adapter does not self-report capabilities.
-
-<!-- END YOKE MANAGED BLOCK -->
-
-# Yoke Repo Internals (Cursor)
-<!-- Not shipped to managed projects — specific to the yoke source repo. The managed block above is the project-agnostic Cursor shell `yoke project install` ships; the harness-build references below are yoke-source-dev material. -->
-
-## Harness contract references (yoke source dev)
-
-These describe how Yoke's harness adapters are built, measured, and compared.
-They live in `docs/`, which the install bundle does not ship, so they stay out
-of the managed block above:
-
-- [Cursor Harness Integration Assessment](docs/harness-cursor-assessment.md) -- measured substrate mapping for Cursor
-- [Harness Bootstrap Contract](docs/harness-bootstrap.md) -- neutral startup expectations
-- [Harness Adapter Template](docs/harness-adapter-template.md) -- five-part adapter template
-- [Hook Parity Map](docs/hook-parity-map.md) -- hook classification across harnesses

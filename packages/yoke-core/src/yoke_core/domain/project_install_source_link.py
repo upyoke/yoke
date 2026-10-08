@@ -10,7 +10,7 @@ path keep them byte-identical to their canonical runtime files.
 
 1. Dev links — ``.claude/`` + ``.codex/`` surfaces pointing at the
    canonical ``runtime/harness/...`` targets, the
-   ``.claude/skills/yoke`` compatibility link, and the tester-browser
+   ``.claude/skills/yoke`` native discovery link, and the tester-browser
    reference link. ``.claude/settings.json`` and ``.cursor/hooks.json`` are
    materialized from their canonical runtime files so Cursor's symlink refusal
    cannot disable either native or Claude-compatible hooks. The links and
@@ -51,6 +51,7 @@ from yoke_cli.filesystem_safety import (
     first_symlink_component,
 )
 from yoke_contracts.cursor_permissions import CURSOR_PERMISSIONS_MANIFEST_KEY
+from yoke_contracts.project_contract.install_bundle import SKILL_DISCOVERY_LINKS
 from yoke_core.domain import project_install_files as files_layer
 from yoke_core.domain.project_install_files import (
     MODE_COPY,
@@ -69,7 +70,7 @@ from yoke_core.domain.project_install_git_hooks import (
 DEV_SYMLINKS: Tuple[Tuple[str, str], ...] = (
     (".claude/agents", "../runtime/harness/claude/agents"),
     (".claude/rules", "../runtime/harness/claude/rules"),
-    (".claude/skills/yoke", "../../.agents/skills/yoke"),
+    *SKILL_DISCOVERY_LINKS.items(),
     (".codex/agents", "../runtime/harness/codex/agents"),
     (".codex/hooks.json", "../runtime/harness/codex/hooks.json"),
     (
@@ -89,16 +90,18 @@ SOURCE_DISPLAY_NAME = "Yoke"
 
 # Manifest keys the source-link writer owns; anything else found in an
 # existing manifest is carried forward verbatim on rewrite.
-_SOURCE_LINK_OWNED_KEYS = frozenset({
-    "manifest_schema",
-    "yoke_version",
-    MODE_KEY,
-    "symlinks",
-    "materialized_files",
-    "git_hooks",
-    "contract_files",
-    CURSOR_PERMISSIONS_MANIFEST_KEY,
-})
+_SOURCE_LINK_OWNED_KEYS = frozenset(
+    {
+        "manifest_schema",
+        "yoke_version",
+        MODE_KEY,
+        "symlinks",
+        "materialized_files",
+        "git_hooks",
+        "contract_files",
+        CURSOR_PERMISSIONS_MANIFEST_KEY,
+    }
+)
 
 
 def is_yoke_source_checkout(root: Path) -> bool:
@@ -129,7 +132,10 @@ def resolve_mode(root: Path, explicit: Optional[str]) -> Tuple[str, str]:
 
 
 def ensure_dev_symlink(
-    target_root: Path, rel: str, link_target: str, result: BootstrapResult,
+    target_root: Path,
+    rel: str,
+    link_target: str,
+    result: BootstrapResult,
 ) -> None:
     """Create *rel* -> *link_target* under *target_root*; repair-safe.
 
@@ -237,7 +243,9 @@ def source_link_uninstall_refusal(root: Path) -> ProjectInstallError:
 
 
 def install_source_link(
-    repo_root: Path, *, operation: str = "install",
+    repo_root: Path,
+    *,
+    operation: str = "install",
 ) -> Dict[str, Any]:
     """Apply the source-link strategy to *repo_root* (no bundle, no fetch)."""
     from yoke_core.domain import project_contract
@@ -260,26 +268,21 @@ def install_source_link(
     # Cursor's command-approval and network-sandbox regions. Same merge pass
     # the copy strategy runs, so the source checkout and an installed project
     # get identical policy without a second implementation.
-    cursor_permissions_records, cursor_permissions_report = (
-        apply_cursor_permissions(
-            repo_root,
-            prior_records=old_manifest.get(CURSOR_PERMISSIONS_MANIFEST_KEY),
-        )
+    cursor_permissions_records, cursor_permissions_report = apply_cursor_permissions(
+        repo_root,
+        prior_records=old_manifest.get(CURSOR_PERMISSIONS_MANIFEST_KEY),
     )
     hooks = BootstrapResult()
     install_git_hooks(repo_root, hooks)
 
     # Same seed-if-missing pass copy-mode runs — the Yoke repo tracks
     # its own contract files, so this normally reports them all existing.
-    contract_entries = project_contract.bundle_contract_files(
-        SOURCE_DISPLAY_NAME
-    )
-    files_layer.assert_safe_contract_paths(
-        entry["path"] for entry in contract_entries
-    )
+    contract_entries = project_contract.bundle_contract_files(SOURCE_DISPLAY_NAME)
+    files_layer.assert_safe_contract_paths(entry["path"] for entry in contract_entries)
     contract_map, contract_written, contract_existing, contract_adopted = (
         files_layer.apply_contract_files(
-            repo_root, contract_entries,
+            repo_root,
+            contract_entries,
             dict(old_manifest.get("contract_files") or {}),
         )
     )
@@ -289,18 +292,20 @@ def install_source_link(
         for key, value in old_manifest.items()
         if key not in _SOURCE_LINK_OWNED_KEYS
     }
-    manifest.update({
-        "manifest_schema": files_layer.MANIFEST_SCHEMA,
-        "yoke_version": yoke_version(),
-        MODE_KEY: MODE_SOURCE_LINK,
-        "symlinks": {rel: target for rel, target in DEV_SYMLINKS},
-        "materialized_files": {
-            rel: source_rel for rel, source_rel in DEV_MATERIALIZED_FILES
-        },
-        "git_hooks": list(GIT_HOOK_NAMES),
-        "contract_files": contract_map,
-        CURSOR_PERMISSIONS_MANIFEST_KEY: cursor_permissions_records,
-    })
+    manifest.update(
+        {
+            "manifest_schema": files_layer.MANIFEST_SCHEMA,
+            "yoke_version": yoke_version(),
+            MODE_KEY: MODE_SOURCE_LINK,
+            "symlinks": {rel: target for rel, target in DEV_SYMLINKS},
+            "materialized_files": {
+                rel: source_rel for rel, source_rel in DEV_MATERIALIZED_FILES
+            },
+            "git_hooks": list(GIT_HOOK_NAMES),
+            "contract_files": contract_map,
+            CURSOR_PERMISSIONS_MANIFEST_KEY: cursor_permissions_records,
+        }
+    )
     manifest_file = files_layer.write_manifest(repo_root, manifest)
     return {
         "operation": operation,

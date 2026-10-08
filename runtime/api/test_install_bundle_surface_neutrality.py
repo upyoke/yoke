@@ -152,7 +152,7 @@ def test_shipped_surfaces_use_the_generic_item_prefix() -> None:
     )
 
 
-MANAGED_BLOCK_FILES = (REPO / "AGENTS.md", REPO / "CODEX.md")
+MANAGED_BLOCK_FILES = (REPO / "AGENTS.md",)
 BLOCK_BEGIN = "<!-- BEGIN YOKE MANAGED BLOCK -->"
 BLOCK_END = "<!-- END YOKE MANAGED BLOCK -->"
 

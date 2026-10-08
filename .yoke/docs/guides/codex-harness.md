@@ -1,9 +1,8 @@
-# Yoke -- Codex Harness Guide
-<!-- BEGIN YOKE MANAGED BLOCK -->
-<!-- Managed by `yoke project install`. Everything between the BEGIN and END markers is overwritten on refresh — do not edit it here. Your own content outside the markers is always preserved. -->
+# Codex harness operations
+
 This file is the Codex-facing entry point for Yoke. It references the shared bootstrap contract and lists the narrow safe command surface for Codex sessions.
 
-For the full project rules, read `AGENTS.md` — the harness-neutral shared doctrine file, and the one Codex loads. `CLAUDE.md` carries the same Yoke-managed block for Claude, which reads that file and does not fall back to `AGENTS.md`. In this repo the two are one file behind a symlink; in a managed project they are two real files, so anything written outside the managed markers has to be added to both or one harness never sees it. Everything in `AGENTS.md` applies to Codex sessions unless noted otherwise below.
+Shared project rules load from the canonical `AGENTS.md`. This guide explains Codex-specific operations; it is an ordinary reference, not an additional auto-loaded instruction file.
 
 Each standing rule in `AGENTS.md` names a deep home under `.yoke/docs/reference/agent-rules/` carrying the reasoning, recovery paths, and worked failure modes behind it; `AGENTS.md` lists which file covers which operation. Read the one that governs an operation before performing it, and read an operation's own `--help` for its variants and flags.
 
@@ -11,11 +10,11 @@ The `## Simplify — three-axis doctrine` section in `AGENTS.md` defines the sha
 
 ## Bootstrap
 
-Codex loads its Yoke orientation automatically from the auto-loaded rules files (`AGENTS.md` shared doctrine + this `CODEX.md` shell) plus the session-start hook, which injects the same orientation and the generated `main_agent` packet block other supported harness sessions receive. That gives Codex's main session the same compact `core` + `claims` schema/API spine the Bash-capable subagents see. Substrate capability truth (hooks, env / session identity, cwd binding, adapter render format, supported commands, parity limits) is documented separately as the `harness_contract` manifest, which the Codex adapter carries alongside this shell. `harness_contract` is the manifest layer; `main_agent` and `*_agent` are the LLM-facing packet layer — the two never overlap.
+Codex loads its Yoke orientation automatically from the canonical auto-loaded `AGENTS.md` plus the session-start hook, which injects the same orientation and the generated `main_agent` packet block other supported harness sessions receive. That gives Codex's main session the same compact `core` + `claims` schema/API spine the Bash-capable subagents see. Substrate capability truth (hooks, env / session identity, cwd binding, adapter render format, supported commands, parity limits) is documented separately as the `harness_contract` manifest, which the Codex adapter carries alongside this shell. `harness_contract` is the manifest layer; `main_agent` and `*_agent` are the LLM-facing packet layer — the two never overlap.
 
 ### Repo-local skill discovery
 
-Yoke skills live canonically in the hidden directory `.agents/skills/yoke/`. Codex treats that repo-local `.agents/skills` tree as a native skill source, so no `.codex/skills` mirror or plugin install is required for ordinary Yoke work. Codex progressive disclosure loads each skill's frontmatter first and reads the full `SKILL.md` only when the skill is invoked. `.claude/skills/yoke` is a discovery copy — a symlink in this repo, a real byte-identical copy in a managed project, since installs cannot rely on symlink support — and must not be treated as the authoritative location; Codex reads the same `SKILL.md` frontmatter Claude reads, so Yoke keeps no duplicate `.codex/skills` tree or per-skill Codex metadata sidecars.
+Yoke skills live canonically in the hidden directory `.agents/skills/yoke/`. Codex treats that repo-local `.agents/skills` tree as a native skill source, so no `.codex/skills` mirror or plugin install is required for ordinary Yoke work. Codex progressive disclosure loads each skill's frontmatter first and reads the full `SKILL.md` only when the skill is invoked. Claude requires `.claude/skills/yoke`, a native discovery symlink to the canonical tree in both source and installed projects. Codex and Cursor discover `.agents/skills` directly. No regular discovery copies are installed; native symlink support is required. See [native discovery](../reference/harness-discovery.md).
 
 ## Approval and sandbox posture
 
@@ -186,4 +185,3 @@ Frontier computation lives in [.yoke/docs/reference/charge-frontier.md](.yoke/do
 
 - [Lifecycle & Command Boundaries](.yoke/docs/reference/lifecycle.md) -- canonical human lifecycle guide
 - [Charge Frontier](.yoke/docs/reference/charge-frontier.md) -- frontier computation and status-to-adapter map
-<!-- END YOKE MANAGED BLOCK -->

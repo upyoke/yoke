@@ -105,8 +105,7 @@ def test_pyproject_package_data_covers_root_source_files() -> None:
 
 
 def test_bundle_ships_managed_markdown_and_permissions(conn) -> None:
-    # A managed project needs the agnostic doctrine (AGENTS.md/CLAUDE.md) and the
-    # Codex shell (CODEX.md) as marker-delimited blocks, plus the Claude tool
+    # A managed project needs canonical AGENTS.md plus the Claude tool
     # permissions — a fresh install otherwise has no rules files and prompts on
     # every Bash/Write/Edit/Monitor call. The block bodies are extracted from
     # this repo's OWN doctrine files (dogfooding), so what ships is what yoke runs.
@@ -120,12 +119,9 @@ def test_bundle_ships_managed_markdown_and_permissions(conn) -> None:
     bundle = install_bundle.build_bundle(1, conn)
 
     mm = bundle["managed_markdown"]
-    assert set(mm["blocks"]) == {"doctrine", "codex_shell", "cursor_shell"}
+    assert set(mm["blocks"]) == {"doctrine"}
     assert mm["targets"] == [
         {"path": "AGENTS.md", "block": "doctrine"},
-        {"path": "CLAUDE.md", "block": "doctrine"},
-        {"path": "CODEX.md", "block": "codex_shell"},
-        {"path": "CURSOR.md", "block": "cursor_shell"},
     ]
     for body in mm["blocks"].values():
         # Bodies are block *bodies*, not blocks — non-empty and marker-free.
@@ -137,8 +133,6 @@ def test_bundle_ships_managed_markdown_and_permissions(conn) -> None:
     assert mm["blocks"]["doctrine"].startswith(authored)
     # ...and re-rendering that authored region reproduces the source file's block.
     assert render_block(authored) in agents_text
-    codex_text = (root / "CODEX.md").read_text("utf-8")
-    assert mm["blocks"]["codex_shell"] == extract_block_body(codex_text)
 
     perms = bundle["claude_settings_permissions"]
     assert perms["allow"] == list(CLAUDE_PERMISSIONS["allow"])

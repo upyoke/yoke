@@ -297,7 +297,7 @@ Because the directory is hidden, generic discovery (e.g. `rg --files`, plain `ls
 - `.agents/skills/yoke/{name}/{nested}/SKILL.md` — nested internal skills may be visible to Codex's native scanner even when Yoke's resolver hides them. They still use their own `SKILL.md` frontmatter as the shared metadata source.
 - `.agents/skills/yoke/{scripts,shared}/` — supporting directories without a top-level `SKILL.md`. Discovery ignores them.
 
-`.claude/skills/yoke` is a **compatibility symlink** that points at `../../.agents/skills/yoke`. Claude Code's built-in skill loader follows it, but wrappers, thin docs, and operator tooling must treat `.claude/skills/yoke/...` as compatibility-only — the canonical form is always the `.agents/...` path.
+`.claude/skills/yoke` is a **native discovery symlink** that points at `../../.agents/skills/yoke`. Claude Code's built-in skill loader follows it, but wrappers, thin docs, and operator tooling must treat `.claude/skills/yoke/...` as discovery-only — the canonical form is always the `.agents/...` path.
 
 ### Discovery surface
 

@@ -51,13 +51,14 @@ def install_bundle(project):
         + strategy_body
     )
     bundle = {
-        "bundle_schema": 1,
+        "bundle_schema": 2,
+        "skill_discovery_links": {".claude/skills/yoke": "../../.agents/skills/yoke"},
         "yoke_version": "9.9.9",
         "project_id": int(project.get("id") or 91),
         "project_slug": project.get("slug") or "recipe-meta",
         "files": [
             {
-                "path": ".codex/skills/yoke/onboard/SKILL.md",
+                "path": ".agents/skills/yoke/onboard/SKILL.md",
                 "content": "# onboard\n",
             }
         ],
