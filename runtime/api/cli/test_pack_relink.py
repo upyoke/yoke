@@ -47,6 +47,7 @@ def _install_transport_fakes(monkeypatch: pytest.MonkeyPatch) -> None:
             "project_id": 9,
             "project_slug": "sample",
             "content_digest": _digest("baseline\n"),
+            "files": [{"path": "feature.txt", "content": "baseline\n", "mode": 0o644}],
         },
     )
     monkeypatch.setattr(relink, "_assert_checkout_project", lambda *args: None)
