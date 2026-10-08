@@ -22,6 +22,7 @@ from yoke_core.domain.qa_deployment_member_attached_plans import (
     delivery_answered_plan_ids,
 )
 from yoke_core.domain.qa_gates import GateTarget, check_done_gate
+from yoke_core.domain.qa_catalog_reads import list_plans
 from yoke_core.domain.qa_plan_attachments import (
     materialize_for_item,
     set_project_default,
@@ -35,6 +36,7 @@ from yoke_core.domain.qa_plan_management import (
 )
 from yoke_core.domain.qa_plan_rematerialize import rematerialize_for_item
 from yoke_core.domain.qa_plan_case_currency import plan_case_divergence
+from yoke_core.domain.qa_plan_summary import plan_summary
 
 
 CASE = {
@@ -162,6 +164,49 @@ def test_source_reads_and_default_case_writes_before_environment_schema_converge
     assert len(_current_cases(test_db, plan["id"])) == 1
     replace_plan_cases(test_db, plan_id=plan["id"], cases=[{**case, "target_envs": []}])
     assert _current_cases(test_db, plan["id"])[0]["target_envs"] == []
+
+
+def test_inheriting_case_reads_every_environment_and_chain_baseline(test_db):
+    baselines = ("fresh-host", "shell-preconfigured")
+    item, plan, case = _setup(test_db, baselines=baselines)
+    replace_plan_cases(
+        test_db,
+        plan_id=plan["id"],
+        cases=[
+            case,
+            {
+                **case,
+                "case_key": "follow",
+                "position": 2,
+                "host_baselines": [],
+                "starting_state": "inherit",
+            },
+        ],
+    )
+    materialized = materialize_for_item(
+        test_db, item_id=item["id"], transition_id="release"
+    )
+    assert len(materialized["created_requirement_ids"]) == 8
+    detail = get_plan(test_db, plan_id=plan["id"])
+    follow = detail["cases"][1]
+    assert {
+        (proof["target_env"], proof["host_baseline"]) for proof in follow["proofs"]
+    } == {
+        (environment, baseline)
+        for environment in ("stage", "prod")
+        for baseline in baselines
+    }
+    assert len({proof["requirement_id"] for proof in follow["proofs"]}) == 4
+    assert all(proof["requirement_id"] is not None for proof in follow["proofs"])
+    assert "last_result" not in follow
+    summary = plan_summary(detail, project="yoke")["cases"][1]
+    assert summary["starting_state"] == "inherit"
+    assert summary["starting_state_reason"] is None
+    assert summary["target_envs"] == ["stage", "prod"]
+    listed = next(
+        row for row in list_plans(test_db, project="yoke") if row["id"] == plan["id"]
+    )
+    assert listed["materialized_requirement_count"] == 8
 
 
 def test_refresh_waives_only_a_removed_environment(test_db):

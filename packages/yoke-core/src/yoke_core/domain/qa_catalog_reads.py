@@ -270,12 +270,18 @@ def list_plans(conn: Any, *, project: Optional[str] = None) -> list[dict]:
         )
         materialized_count = sum(
             len(fan_out) * max(1, len(_json_value(case["target_envs"], [])))
-            for case, fan_out in zip(cases, stored_fan_out(
-                [
-                    {**case, "host_baselines": _json_value(case["host_baselines"], [])}
-                    for case in cases
-                ]
-            ))
+            for case, fan_out in zip(
+                cases,
+                stored_fan_out(
+                    [
+                        {
+                            **case,
+                            "host_baselines": _json_value(case["host_baselines"], []),
+                        }
+                        for case in cases
+                    ]
+                ),
+            )
         )
         last_outcome, last_at, last_verdict_reason = _latest_requirement_outcome(
             conn, plan_id
