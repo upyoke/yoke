@@ -36,14 +36,14 @@ class TestRequirementAddBatch:
                 "item_id": 100,
                 "qa_kind": "ac_verification",
                 "qa_phase": "verification",
-                "success_policy": "Test policy A",
+                "success_policy": "all-pass",
                 "workflow_transition_id": QA_GATED_TRANSITION,
             },
             {
                 "item_id": 100,
                 "qa_kind": "ac_verification",
                 "qa_phase": "verification",
-                "success_policy": "Test policy B",
+                "success_policy": "all-pass",
                 "workflow_transition_id": QA_GATED_TRANSITION,
             },
             {
@@ -52,7 +52,7 @@ class TestRequirementAddBatch:
                 "qa_phase": "verification",
                 "blocking_mode": "non_blocking",
                 "requirement_source": "seeded_default",
-                "success_policy": "Smoke passes",
+                "success_policy": "all-pass",
                 "workflow_transition_id": QA_GATED_TRANSITION,
             },
         ]
@@ -83,7 +83,7 @@ class TestRequirementAddBatch:
                 "item_id": 100,
                 "qa_kind": "ac_verification",
                 "qa_phase": "verification",
-                "success_policy": "AC check",
+                "success_policy": "all-pass",
                 "workflow_transition_id": QA_GATED_TRANSITION,
             },
         ]
@@ -160,7 +160,7 @@ class TestRequirementAddBatch:
                 "qa_kind": "ac_verification",
                 "qa_phase": "verification",
                 "blocking_mode": "blocking",
-                "success_policy": "Test policy A",
+                "success_policy": "all-pass",
                 "workflow_transition_id": QA_GATED_TRANSITION,
             },
             {
@@ -168,7 +168,7 @@ class TestRequirementAddBatch:
                 "qa_kind": "ac_verification",
                 "qa_phase": "verification",
                 "blocking_mode": "invalid_mode",
-                "success_policy": "Test policy B",
+                "success_policy": "all-pass",
                 "workflow_transition_id": QA_GATED_TRANSITION,
             },
         ]
@@ -192,14 +192,14 @@ class TestRequirementAddBatch:
                 "item_id": 100,
                 "qa_kind": "ac_verification",
                 "qa_phase": "verification",
-                "success_policy": "Test policy A",
+                "success_policy": "all-pass",
                 "workflow_transition_id": QA_GATED_TRANSITION,
             },
             {
                 "item_id": 100,
                 "qa_kind": "ac_verification",
                 "qa_phase": "verification",
-                "success_policy": "Test policy B",
+                "success_policy": "all-pass",
                 "workflow_transition_id": QA_GATED_TRANSITION,
             },
         ]
@@ -232,7 +232,7 @@ class TestRequirementAddBatch:
                 "task_num": 1,
                 "qa_kind": "integration",
                 "qa_phase": "verification",
-                "success_policy": "Task integration passes",
+                "success_policy": "all-pass",
                 "workflow_transition_id": QA_GATED_TRANSITION,
             },
         ]

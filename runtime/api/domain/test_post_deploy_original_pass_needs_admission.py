@@ -329,7 +329,17 @@ def test_a_verification_row_is_still_satisfied_by_its_own_passing_run(
         (source_id,),
     )
     test_db.commit()
-    insert_qa_run(test_db, qa_requirement_id=source_id, verdict="pass")
+    from yoke_core.domain.qa_requirement_pass_currency import (
+        stamp_executed_method_config,
+    )
+
+    config = test_db.execute(
+        "SELECT method_config FROM qa_requirements WHERE id=%s", (source_id,)
+    ).fetchone()[0]
+    raw = stamp_executed_method_config(
+        "verification passed", config, conn=test_db, requirement_id=source_id
+    )
+    insert_qa_run(test_db, qa_requirement_id=source_id, verdict="pass", raw_result=raw)
     _record_evidence(test_db, item_id=item_id)
 
     db_path = str(test_db.info.dsn)

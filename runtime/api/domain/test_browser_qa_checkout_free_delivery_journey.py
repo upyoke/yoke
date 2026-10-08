@@ -96,9 +96,9 @@ def _capture(conn, requirement_id: int, *, sha: str, handle=DURABLE_HANDLE) -> i
 
     cursor = conn.execute(
         "INSERT INTO qa_runs(qa_requirement_id,performed_by,qa_kind,verdict,"
-        "execution_status,case_outcome,raw_result,completed_at,created_at) "
+        "execution_status,case_outcome,raw_result,started_at,completed_at,created_at) "
         "VALUES (%s,'browser_substrate','plan_case','pass','captured','passed',"
-        "%s,'2026-01-01T00:01:00Z','2026-01-01T00:01:00Z') RETURNING id",
+        "%s,'2026-01-01T00:00:00Z','2026-01-01T00:01:00Z','2026-01-01T00:01:00Z') RETURNING id",
         (
             requirement_id,
             json.dumps(
@@ -106,6 +106,7 @@ def _capture(conn, requirement_id: int, *, sha: str, handle=DURABLE_HANDLE) -> i
                     "project": PROJECT,
                     "base_url": PREVIEW_ORIGIN,
                     "freshness_validated": True,
+                    "method_config": {"base_url": PREVIEW_ORIGIN},
                     "code_identity": {"branch": BRANCH, "sha": sha},
                 }
             ),

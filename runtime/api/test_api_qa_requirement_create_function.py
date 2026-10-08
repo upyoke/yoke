@@ -64,7 +64,7 @@ class TestRequirementAdd(unittest.TestCase):
                             "qa_kind": "ac_verification",
                             "qa_phase": "verification",
                             "requirement_source": "ac_derived",
-                            "success_policy": "Verified end to end",
+                            "success_policy": "all-pass",
                         },
                     ),
                 ),

@@ -60,10 +60,13 @@ def _passed_requirement(
         ),
     )
     conn.execute(
-        "INSERT INTO qa_runs("
-        "qa_requirement_id,performed_by,qa_kind,verdict,created_at,completed_at"
-        ") VALUES (%s,'agent','browser','pass',%s,%s)",
-        (requirement_id, now, now),
+        "INSERT INTO qa_runs(qa_requirement_id,performed_by,qa_kind,verdict,created_at,completed_at,started_at) VALUES (%s,'agent','browser','pass',%s,%s,%s)",
+        (
+            requirement_id,
+            now,
+            now,
+            now,
+        ),
     )
 
 

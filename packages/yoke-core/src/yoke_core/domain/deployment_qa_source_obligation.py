@@ -6,6 +6,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.qa_item_obligation_queries import (
+    unsatisfied_blocking as unsatisfied_blocking,
+)
 from yoke_core.domain.deployment_item_completion_runs import (
     completion_runs,
     latest_qa_member_run,
@@ -29,12 +32,9 @@ from yoke_core.domain.deployment_qa_stage_contract import (
     deployment_qa_stage_subject,
 )
 from yoke_core.domain.qa_obligation_settlement import (
-    item_supersession_open_sql,
     obligation_settled,
     requirement_retracted_at_select,
-    unretracted_requirement_sql,
 )
-from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 
 # Intake recovery wording is pinned in test_post_deploy_recovery_exit_conditions.py.
 POST_DEPLOY_RECOVERY = (
@@ -282,58 +282,6 @@ class UnsatisfiedBlocking:
     count: int = 0
     includes_post_deploy: bool = False
     rows: tuple[dict[str, Any], ...] = ()
-
-
-def unsatisfied_blocking(
-    conn: Any, *, item_id: int, target_status: str
-) -> UnsatisfiedBlocking:
-    """Which of the item's blocking requirements are still unsatisfied.
-
-    At ``done`` each row is answered by :func:`row_unsatisfied_at_done`.
-    Item-bound and member-scoped run-bound rows share
-    :meth:`GateTarget.where_clause`; admitted copies are not independent.
-    """
-    from yoke_core.domain.qa_gate_definitions import (
-        GateTarget,
-        independent_item_obligation,
-        status_settles_blocking_qa,
-    )
-
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    where, params = GateTarget(item_id=int(item_id)).where_clause()
-    if marker != "%s":
-        where = where.replace("%s", marker)
-    fetched = conn.execute(
-        "SELECT qr.id, qr.qa_kind, qr.qa_phase, qr.deployment_run_id, "
-        "qr.item_id, qr.plan_case_key "
-        "FROM qa_requirements qr "
-        f"WHERE {where} AND qr.blocking_mode = 'blocking' "
-        f"AND qr.waived_at IS NULL AND {unretracted_requirement_sql(conn, 'qr')} "
-        f"AND {item_supersession_open_sql(conn, 'qr')}",
-        params,
-    ).fetchall()
-    scored = []
-    for row in fetched:
-        item = dict(row)
-        if not independent_item_obligation(item):
-            continue
-        item["passed"] = has_current_passing_run(conn, int(item["id"]))
-        scored.append(item)
-    if status_settles_blocking_qa(target_status):
-        unsatisfied = [
-            row
-            for row in scored
-            if row_unsatisfied_at_done(conn, row, item_id=int(item_id))
-        ]
-    else:
-        unsatisfied = [row for row in scored if not row["passed"]]
-    return UnsatisfiedBlocking(
-        count=len(unsatisfied),
-        includes_post_deploy=any(
-            str(row["qa_phase"] or "") == "post_deploy" for row in unsatisfied
-        ),
-        rows=tuple(unsatisfied),
-    )
 
 
 __all__ = [

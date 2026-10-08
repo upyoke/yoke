@@ -118,9 +118,11 @@ def _corrected_case(conn: Any, *, broken_id: int) -> int:
         ).fetchall()
     ]
     projected = [
-        "%s" if column == "plan_case_key" else
-        "case_position+1" if column == "case_position" else
-        column
+        "%s"
+        if column == "plan_case_key"
+        else "case_position+1"
+        if column == "case_position"
+        else column
         for column in columns
     ]
     row = conn.execute(
@@ -250,7 +252,7 @@ def test_supersession_refuses_a_replacement_that_did_not_pass(test_db) -> None:
             rationale="hoping the replacement counts",
         )
     message = str(excinfo.value)
-    assert "latest verdict is fail" in message
+    assert "recorded verdict: fail" in message
     assert f"yoke qa case run --requirement-id {corrected_id}" in message
 
 
@@ -292,14 +294,8 @@ def test_supersession_refuses_itself_and_an_empty_rationale(test_db) -> None:
         )
 
 
-def test_corrected_case_evidence_counts_from_its_own_execution(test_db) -> None:
-    """A corrected case usually runs under its own plan, so its own execution.
-
-    Reading evidence only through the subject's newest execution made that
-    passing case report "no attached evidence" and hold the stage it had
-    just satisfied -- the supersession would name a row the gate still
-    refused.
-    """
+def test_corrected_case_latest_attempt_needs_its_own_evidence(test_db) -> None:
+    """Supersession does not let a later attempt borrow older artifacts."""
     run_id = "run-discharge-second-execution"
     broken_id = _seed(test_db, run_id)
     corrected_id = _corrected_case(test_db, broken_id=broken_id)
@@ -321,4 +317,5 @@ def test_corrected_case_evidence_counts_from_its_own_execution(test_db) -> None:
         rationale="corrected case passed under its own execution",
     )
     status = _status(test_db, run_id)
-    assert status["accepted"], status["reasons"]
+    assert not status["accepted"]
+    assert any("no attached evidence" in reason for reason in status["reasons"])

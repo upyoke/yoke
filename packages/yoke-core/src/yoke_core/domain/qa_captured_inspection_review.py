@@ -208,7 +208,7 @@ def attach_agent_review_to_capture(
 
     stamp_reviewed_capture(
         conn,
-        {"capture_run_id": int(capture["id"])},
+        {"capture_run_id": int(capture["id"]), "requirement_id": int(requirement_id)},
         verdict=verdict,
         rationale=rationale or "captured inspection reviewed",
         created_at=now,

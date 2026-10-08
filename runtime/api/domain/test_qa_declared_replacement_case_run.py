@@ -119,7 +119,9 @@ def test_case_run_pass_discharges_the_failed_case_and_clears_the_stage(test_db) 
 
 
 @pytest.mark.parametrize("verdict", ["fail", "undetermined"])
-def test_case_run_non_pass_leaves_the_failed_case_blocking(test_db, verdict) -> None:
+def test_case_run_non_pass_keeps_the_corrected_obligation_blocking(
+    test_db, verdict
+) -> None:
     run_id = f"run-replacement-case-run-{verdict}"
     failed_id, corrected_id = _failed_with_correction(test_db, run_id)
 
@@ -130,4 +132,4 @@ def test_case_run_non_pass_leaves_the_failed_case_blocking(test_db, verdict) -> 
     assert row["replacement_requirement_id"] == corrected_id
     status = _status(test_db, run_id)
     assert not status["accepted"]
-    assert any(f"#{failed_id}" in reason for reason in status["reasons"]), status
+    assert any(f"#{corrected_id}" in reason for reason in status["reasons"]), status

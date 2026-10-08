@@ -144,11 +144,16 @@ def test_failed_admitted_case_accepts_only_an_explicit_correction(test_db) -> No
     item_id = 9725
     run_id = "run-admitted-case-correction"
     _member(
-        test_db, run_id=run_id, item_id=item_id, sequence=725,
+        test_db,
+        run_id=run_id,
+        item_id=item_id,
+        sequence=725,
         method_id="browser-inspection",
     )
     initial = materialize_deployment_qa_stage(
-        test_db, deployment_run_id=run_id, deployment_stage=STAGE,
+        test_db,
+        deployment_run_id=run_id,
+        deployment_stage=STAGE,
         deployment_member_item_id=item_id,
     )
     failed_id = initial["created_requirement_ids"][0]
@@ -157,19 +162,35 @@ def test_failed_admitted_case_accepts_only_an_explicit_correction(test_db) -> No
 
     with pytest.raises(QaPlanError, match="exactly those corrected case keys"):
         materialize_deployment_qa_stage(
-            test_db, deployment_run_id=run_id, deployment_stage=STAGE,
-            deployment_member_item_id=item_id, agent_plan=str(plan_id),
+            test_db,
+            deployment_run_id=run_id,
+            deployment_stage=STAGE,
+            deployment_member_item_id=item_id,
+            agent_plan=str(plan_id),
             replacement_keys={"wrong-key"},
         )
 
     corrected = materialize_deployment_qa_stage(
-        test_db, deployment_run_id=run_id, deployment_stage=STAGE,
-        deployment_member_item_id=item_id, agent_plan=str(plan_id),
-        replacement_keys={"command-smoke"}, commit=False,
+        test_db,
+        deployment_run_id=run_id,
+        deployment_stage=STAGE,
+        deployment_member_item_id=item_id,
+        agent_plan=str(plan_id),
+        replacement_keys={"command-smoke"},
+        commit=False,
+    )
+    # A corrected case inherits the frozen subject's target environment.
+    test_db.execute(
+        "UPDATE qa_requirements SET target_env=(SELECT target_env FROM qa_requirements WHERE id=%s) WHERE id=%s",
+        (failed_id, corrected["created_requirement_ids"][0]),
     )
     declaration = declare_replacements(
-        test_db, [{"case_key": "command-smoke", "requirement_id": failed_id}],
+        test_db,
+        [{"case_key": "command-smoke", "requirement_id": failed_id}],
         materialized_requirement_ids=corrected["created_requirement_ids"],
     )
     test_db.commit()
-    assert declaration[0]["replacement_requirement_id"] == corrected["created_requirement_ids"][0]
+    assert (
+        declaration[0]["replacement_requirement_id"]
+        == corrected["created_requirement_ids"][0]
+    )

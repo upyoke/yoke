@@ -136,6 +136,9 @@ def _apply_schema_and_seed() -> None:
         create_actor_identity_tables(conn)
         create_auth_tables(conn)
         seed_default_org(conn)
+        from runtime.api.fixtures.qa_attempt_history import ensure_qa_attempt_history
+
+        ensure_qa_attempt_history(conn)
         ensure_event_schema(conn)
         create_decision_request_tables(conn)
         from runtime.api.fixtures.level_store import create_level_store_tables

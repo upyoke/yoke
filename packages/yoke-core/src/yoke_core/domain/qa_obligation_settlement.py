@@ -96,7 +96,7 @@ def unanswered_attempt_sql(conn: Any, alias: str = "") -> str:
 
 def item_supersession_settled(row: Mapping[str, Any]) -> bool:
     """Row form of :func:`item_supersession_open_sql`, negated."""
-    return (
+    return not row.get("replacement_graph_error") and (
         bool(row.get("superseded_by_requirement_id"))
         or bool(row.get("replacement_requirement_id"))
         or bool(row.get("triage_discharge"))
@@ -105,7 +105,7 @@ def item_supersession_settled(row: Mapping[str, Any]) -> bool:
 
 def obligation_settled(row: Mapping[str, Any]) -> bool:
     """Whether this requirement row is already settled without evidence."""
-    return (
+    return not row.get("replacement_graph_error") and (
         bool(row.get("waived_at"))
         or bool(row.get("superseded_by_requirement_id"))
         or bool(row.get("retracted_at"))
@@ -156,6 +156,22 @@ def effective_requirement(conn: Any, requirement_id: int) -> dict[str, Any]:
         if not edges:
             return row
         previous, requirement_id = row, edges.pop()
+
+
+def effective_obligations(
+    conn: Any, rows: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Normalize selected obligations while retaining named graph refusals."""
+    selected = {}
+    for row in rows:
+        try:
+            effective = effective_requirement(conn, int(row["id"]))
+        except ValueError as exc:
+            if not str(exc).startswith("replacement_graph_invalid:"):
+                raise
+            effective = dict(row, replacement_graph_error=str(exc))
+        selected[int(effective["id"])] = effective
+    return list(selected.values())
 
 
 __all__ = [

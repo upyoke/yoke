@@ -80,6 +80,13 @@ def _issue_for_requirement(
     accepted_shas: Sequence[str],
 ) -> BlockingRequirementIssue | None:
     requirement_id = str(requirement.get("id") or "<unknown>")
+    if error := requirement.get("replacement_graph_error"):
+        return BlockingRequirementIssue(
+            requirement_id,
+            "replacement-graph-invalid",
+            error,
+            "Reconcile the durable correction chain through registered correction surfaces",
+        )
     review = requirement.get("human_review")
     if review:
         return BlockingRequirementIssue(

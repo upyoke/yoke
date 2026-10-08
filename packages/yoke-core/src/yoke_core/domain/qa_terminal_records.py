@@ -8,6 +8,7 @@ from typing import Any
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.qa_latest_execution import latest_executions
 from yoke_core.domain.qa_obligation_settlement import (
+    effective_obligations,
     item_supersession_settled,
     requirement_retracted_at_select,
 )
@@ -94,12 +95,19 @@ def _blocking_requirement_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
         dict(row) if hasattr(row, "keys") else dict(zip(columns, row))
         for row in cursor.fetchall()
     ]
+    rows = effective_obligations(conn, rows)
+    from yoke_core.domain.qa_simulation_triage import current_simulation_triage
+
+    for row in rows:
+        row["retracted_at"] = row.get("retracted_at")
+        row["triage_discharge"] = bool(current_simulation_triage(conn, int(row["id"])))
     attempts = latest_executions(
         conn,
         [
             row["id"]
             for row in rows
-            if not row["waived_at"]
+            if not row.get("replacement_graph_error")
+            and not row["waived_at"]
             and not row["retracted_at"]
             and not item_supersession_settled(row)
         ],

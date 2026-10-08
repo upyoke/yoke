@@ -135,7 +135,7 @@ def test_matching_plan_correction_still_invalidates_unstamped_historical_green()
             raw_result=attach_execution_target_digest(None, digest),
         )
         conn.commit()
-        assert has_current_passing_run(conn, requirement_id)
+        assert not has_current_passing_run(conn, requirement_id)
 
         assert apply_requirement_update(
             conn, requirement_id, "method_config", CORRECTED_CONFIG

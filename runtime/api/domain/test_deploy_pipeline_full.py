@@ -76,7 +76,7 @@ class TestParseStagesQa:
             ]
         )
         result = deploy_qa_recorder._parse_stages_qa(stages)
-        assert "conclusion=success" in result[0]["success_policy"]
+        assert result[0]["success_policy"] == "all-pass"
 
 
 class TestResolveQaKind:

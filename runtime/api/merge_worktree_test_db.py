@@ -306,5 +306,8 @@ def _create_epic_tasks_db(db_path: Path, task_status: str = "implementing") -> N
         ),
         (TEST_ITEM_ID, TEST_ITEM_ID, task_status),
     )
+    from runtime.api.fixtures.qa_attempt_history import ensure_qa_attempt_history
+
+    ensure_qa_attempt_history(conn)
     conn.commit()
     conn.close()

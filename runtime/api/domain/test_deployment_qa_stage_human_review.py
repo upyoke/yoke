@@ -177,12 +177,25 @@ def test_human_if_unsure_waits_for_authorized_case_decision(test_db) -> None:
     )
     requirement_id = int(execution["roster"][0]["requirement_id"])
     now = "2026-09-14T00:02:00Z"
+    from yoke_core.domain.qa_requirement_pass_currency import (
+        stamp_executed_method_config,
+    )
+
+    requirement = test_db.execute(
+        "SELECT method_config FROM qa_requirements WHERE id=%s", (requirement_id,)
+    ).fetchone()
+    raw = stamp_executed_method_config(
+        json.dumps({"evidence": "ambiguous"}),
+        requirement[0],
+        conn=test_db,
+        requirement_id=requirement_id,
+    )
     capture_run_id = int(
         test_db.execute(
             "INSERT INTO qa_runs(qa_requirement_id,performed_by,qa_kind,"
             "case_outcome,raw_result,started_at,completed_at,created_at) VALUES "
             "(%s,'host_control','plan_case','needs_review',%s,%s,%s,%s) RETURNING id",
-            (requirement_id, json.dumps({"evidence": "ambiguous"}), now, now, now),
+            (requirement_id, raw, now, now, now),
         ).fetchone()[0]
     )
     test_db.execute(

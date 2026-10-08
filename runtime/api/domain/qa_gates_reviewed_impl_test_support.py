@@ -209,6 +209,15 @@ def link_agent_review(
         ") VALUES ('bundle-1',%s,%s,%s,'pass')",
         (requirement_id, capture_run_id, review_run_id),
     )
+    from yoke_core.domain.qa_capture_settlement import stamp_reviewed_capture
+
+    stamp_reviewed_capture(
+        conn,
+        {"requirement_id": requirement_id, "capture_run_id": capture_run_id},
+        verdict="pass",
+        rationale="Read the actual capture",
+        created_at="2026-04-20T00:00:00Z",
+    )
     conn.commit()
     conn.close()
 

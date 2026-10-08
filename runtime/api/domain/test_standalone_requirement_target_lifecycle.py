@@ -16,7 +16,11 @@ from runtime.api.domain.test_standalone_requirement_execution_target import (
 )
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.pg_testdb import test_database
-from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
+from yoke_contracts.api.function_call import (
+    ActorContext,
+    FunctionCallRequest,
+    TargetRef,
+)
 from yoke_core.domain.handlers import qa_browser_writes, qa_requirement_create
 from yoke_core.domain.qa_browser_evidence_check import check_browser_evidence_present
 from yoke_core.domain.qa_plan_execution_state import (
@@ -70,9 +74,7 @@ def test_bound_item_case_reaches_gate_after_linked_review() -> None:
         outcome = qa_requirement_create.handle_qa_requirement_add(
             _request(
                 6409,
-                _bound_browser_payload(
-                    conn, 6409, workflow_transition_id=TRANSITION
-                ),
+                _bound_browser_payload(conn, 6409, workflow_transition_id=TRANSITION),
             )
         )
         assert outcome.primary_success, outcome.error
@@ -111,8 +113,11 @@ def test_bound_item_case_reaches_gate_after_linked_review() -> None:
                     function="qa.run.complete",
                     actor=ActorContext(actor_id="op", session_id="s-1"),
                     target=TargetRef(kind="qa_requirement", qa_requirement_id=req_id),
-                    payload={"run_id": capture_id, "execution_status": "captured",
-                             "capture_degraded_reason": "fixture_no_shot"},
+                    payload={
+                        "run_id": capture_id,
+                        "execution_status": "captured",
+                        "capture_degraded_reason": "fixture_no_shot",
+                    },
                 )
             )
             assert completed.primary_success, completed.error
@@ -166,6 +171,15 @@ def test_bound_item_case_reaches_gate_after_linked_review() -> None:
                 now,
             ),
         )
+        from yoke_core.domain.qa_capture_settlement import stamp_reviewed_capture
+
+        stamp_reviewed_capture(
+            conn,
+            {"requirement_id": req_id, "capture_run_id": capture_id},
+            verdict="pass",
+            rationale="read the capture",
+            created_at=now,
+        )
         conn.commit()
         assert has_current_passing_run(conn, req_id)
         gate = check_browser_evidence_present(
@@ -194,8 +208,7 @@ def test_recorded_green_on_target_a_does_not_satisfy_target_b() -> None:
             (req_id,),
         ).fetchone()["execution_target_digest"]
         conn.execute(
-            "INSERT INTO qa_runs (qa_requirement_id, performed_by, qa_kind, "
-            "verdict, raw_result, created_at) VALUES (%s, %s, %s, %s, %s, %s)",
+            "INSERT INTO qa_runs (qa_requirement_id, performed_by, qa_kind, verdict, raw_result, created_at,started_at,completed_at) VALUES (%s, %s, %s, %s, %s, %s,%s,%s)",
             (
                 req_id,
                 "browser_substrate",
@@ -205,6 +218,8 @@ def test_recorded_green_on_target_a_does_not_satisfy_target_b() -> None:
                     "{}", config, execution_target_digest=digest_a
                 ),
                 "2026-09-17T00:00:00Z",
+                "2026-09-17T00:00:00Z",
+                "2026-09-17T00:00:00Z",
             ),
         )
         conn.commit()
@@ -212,20 +227,22 @@ def test_recorded_green_on_target_a_does_not_satisfy_target_b() -> None:
         result = apply_requirement_update(conn, req_id, "target_env", "preview")
         assert result.ok, result.message
         assert not has_current_passing_run(conn, req_id)
-        assert int(
-            conn.execute(
-                "SELECT COUNT(*) AS n FROM qa_runs WHERE qa_requirement_id=%s",
-                (req_id,),
-            ).fetchone()["n"]
-        ) == 1
+        assert (
+            int(
+                conn.execute(
+                    "SELECT COUNT(*) AS n FROM qa_runs WHERE qa_requirement_id=%s",
+                    (req_id,),
+                ).fetchone()["n"]
+            )
+            == 1
+        )
         digest_b = conn.execute(
             "SELECT execution_target_digest FROM qa_requirements WHERE id=%s",
             (req_id,),
         ).fetchone()["execution_target_digest"]
         assert digest_b != digest_a
         conn.execute(
-            "INSERT INTO qa_runs (qa_requirement_id, performed_by, qa_kind, "
-            "verdict, raw_result, created_at) VALUES (%s, %s, %s, %s, %s, %s)",
+            "INSERT INTO qa_runs (qa_requirement_id, performed_by, qa_kind, verdict, raw_result, created_at,started_at,completed_at) VALUES (%s, %s, %s, %s, %s, %s,%s,%s)",
             (
                 req_id,
                 "browser_substrate",
@@ -235,16 +252,21 @@ def test_recorded_green_on_target_a_does_not_satisfy_target_b() -> None:
                     "{}", config, execution_target_digest=digest_b
                 ),
                 "2026-09-17T00:00:01Z",
+                "2026-09-17T00:00:01Z",
+                "2026-09-17T00:00:01Z",
             ),
         )
         conn.commit()
         assert has_current_passing_run(conn, req_id)
-        assert int(
-            conn.execute(
-                "SELECT COUNT(*) AS n FROM qa_runs WHERE qa_requirement_id=%s",
-                (req_id,),
-            ).fetchone()["n"]
-        ) == 2
+        assert (
+            int(
+                conn.execute(
+                    "SELECT COUNT(*) AS n FROM qa_runs WHERE qa_requirement_id=%s",
+                    (req_id,),
+                ).fetchone()["n"]
+            )
+            == 2
+        )
 
 
 def test_approving_pending_review_keeps_capture_target_not_live() -> None:
@@ -263,15 +285,14 @@ def test_approving_pending_review_keeps_capture_target_not_live() -> None:
             (req_id,),
         ).fetchone()["execution_target_digest"]
         capture_id = conn.execute(
-            "INSERT INTO qa_runs (qa_requirement_id, performed_by, qa_kind, "
-            "verdict, verdict_reason, raw_result, created_at) VALUES "
-            "(%s, 'browser_substrate', 'method_case', 'undetermined', "
-            "'needs human review of the capture', %s, %s) RETURNING id",
+            "INSERT INTO qa_runs (qa_requirement_id, performed_by, qa_kind, verdict, verdict_reason, raw_result, created_at,started_at,completed_at) VALUES (%s, 'browser_substrate', 'method_case', 'undetermined', 'needs human review of the capture', %s, %s,%s,%s) RETURNING id",
             (
                 req_id,
                 stamp_executed_method_config(
                     "{}", config, execution_target_digest=digest_a
                 ),
+                "2026-09-17T00:00:00Z",
+                "2026-09-17T00:00:00Z",
                 "2026-09-17T00:00:00Z",
             ),
         ).fetchone()["id"]
@@ -292,16 +313,17 @@ def test_approving_pending_review_keeps_capture_target_not_live() -> None:
             reviewed_run_id=int(capture_id),
         )
         human = conn.execute(
-            "SELECT raw_result FROM qa_runs WHERE qa_requirement_id=%s "
-            "AND performed_by='human_review'",
-            (req_id,),
+            "SELECT raw_result FROM qa_runs WHERE qa_requirement_id=%s AND id=%s",
+            (req_id, capture_id),
         ).fetchone()
         assert recorded_execution_target_digest(human["raw_result"]) == digest_a
         assert not has_current_passing_run(conn, req_id)
-        assert int(
-            conn.execute(
-                "SELECT COUNT(*) AS n FROM qa_runs WHERE qa_requirement_id=%s",
-                (req_id,),
-            ).fetchone()["n"]
-        ) == 2
-
+        assert (
+            int(
+                conn.execute(
+                    "SELECT COUNT(*) AS n FROM qa_runs WHERE qa_requirement_id=%s",
+                    (req_id,),
+                ).fetchone()["n"]
+            )
+            == 1
+        )
