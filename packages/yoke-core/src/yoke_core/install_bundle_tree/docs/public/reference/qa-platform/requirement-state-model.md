@@ -71,7 +71,16 @@ admitted copy or the source obligation from which it came.
 
 Proof must describe the same selected attempt and subject. Code proof records
 the observed build identity; an expected release SHA is not an observation.
-Machine, resource, configuration and document checks retain their appropriate
+Terminal settlement checks code/build SHA only for a code subject. Frozen
+Machine/mission runners prove the same actual capture through the admitted
+case result, baseline, host lease and contract; a direct Machine case uses its
+own canonical machine artifact and leased resource without a plan wrapper.
+Reviews inherit that identity.
+Endpoint Command cases record the URL actually passed to their command and
+prove it belongs to the frozen target. Generic hand writers do not stamp an
+ambient lane SHA onto these resource subjects. Missing resource proof refuses
+with `qa_machine_*` or `qa_endpoint_*`; rerun the named actual case against its
+required target. Configuration and document checks retain their appropriate
 actual evidence. Do not borrow an old screenshot, passing verdict or unrelated
 execution result to complete a current proof chain.
 

@@ -83,7 +83,9 @@ def _blocking_requirement_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
         "q.superseded_by_requirement_id, q.replacement_requirement_id, "
         f"{requirement_retracted_at_select(conn, 'q')}, "
         f"{triage_discharge_sql(conn, 'q')} AS triage_discharge, "
-        "q.qa_phase, q.method_id, q.method_config FROM qa_requirements q "
+        "q.qa_phase, q.method_id, q.method_config, q.item_id, q.runner_id, "
+        "q.host_baseline, q.execution_target_json, q.execution_target_digest, "
+        "q.workflow_transition_id FROM qa_requirements q "
         f"WHERE q.item_id = {placeholder} ORDER BY q.id",
         (int(item_id),),
     )
@@ -114,7 +116,23 @@ def _blocking_requirement_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
             "raw_result",
         ):
             row[key] = attempt.get(key)
+    from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
+    from yoke_core.domain.qa_subject_proof import (
+        requires_code_identity,
+        subject_proof_error,
+    )
+
     for row in rows:
+        attempt = attempts.get(int(row["id"]))
+        row["current_passing_proof"] = (
+            has_current_passing_run(conn, int(row["id"])) if attempt else False
+        )
+        row["requires_code_identity"] = requires_code_identity(row)
+        row["subject_proof_error"] = (
+            subject_proof_error(conn, row, attempt)
+            if attempt and row["current_passing_proof"]
+            else ""
+        )
         if row["qa_phase"] == "post_deploy" and not row["deployment_run_id"]:
             row["post_deploy_consumed"] = source_obligation_consumed(
                 conn, item_id=item_id, source_requirement_id=int(row["id"])

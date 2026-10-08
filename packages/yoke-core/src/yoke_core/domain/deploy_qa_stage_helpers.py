@@ -71,7 +71,7 @@ def parse_stages_qa(stages_json: str) -> List[Dict[str, str]]:
             qa_kind = "smoke"
         if qa_kind:
             if not success_policy:
-                success_policy = "Workflow completes with conclusion=success"
+                success_policy = "all-pass"
             qa_stages.append(
                 {
                     "name": name,

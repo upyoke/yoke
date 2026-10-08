@@ -56,7 +56,8 @@ def test_clean_lane_stamps_head_and_keeps_prose_as_evidence():
 
 def test_explicit_head_sha_skips_dirty_lane():
     bound, error = _bind(
-        head_sha=OTHER, resolve_lane=lambda: ("/lane", "", "dirty_tree"),
+        head_sha=OTHER,
+        resolve_lane=lambda: ("/lane", "", "dirty_tree"),
     )
     assert error == ""
     assert recorded_head_sha(bound) == OTHER
@@ -65,7 +66,8 @@ def test_explicit_head_sha_skips_dirty_lane():
 def test_existing_json_sha_is_kept():
     raw = wrap_evidence("already bound", SHA)
     bound, error = _bind(
-        raw_result=raw, resolve_lane=lambda: ("/lane", "", "dirty_tree"),
+        raw_result=raw,
+        resolve_lane=lambda: ("/lane", "", "dirty_tree"),
     )
     assert error == ""
     assert recorded_head_sha(bound) == SHA
@@ -81,6 +83,19 @@ def test_non_blocking_and_fail_are_left_alone():
 
 def test_runner_empty_pass_is_not_forced_without_a_lane():
     bound, error = _bind(
-        performed_by="pytest", raw_result=None, resolve_lane=lambda: ("", "", "no_lane"),
+        performed_by="pytest",
+        raw_result=None,
+        resolve_lane=lambda: ("", "", "no_lane"),
     )
     assert (bound, error) == (None, "")
+
+
+def test_machine_judgment_does_not_fabricate_lane_identity():
+    raw = '{"evidence":{"host_control_submission":{"lease_id":17,"contract_digest":"issued"}}}'
+    bound, error = _bind(
+        raw_result=raw,
+        requirement={"runner_id": "host_control", "method_config": {}},
+        resolve_lane=lambda: (_ for _ in ()).throw(AssertionError("ambient lane read")),
+    )
+    assert (bound, error) == (raw, "")
+    assert recorded_head_sha(bound) == ""

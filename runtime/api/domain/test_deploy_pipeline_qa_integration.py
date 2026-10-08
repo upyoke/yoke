@@ -299,7 +299,7 @@ class TestQaRecorderIntegration:
             "INSERT INTO qa_requirements (deployment_run_id, qa_kind, qa_phase, "
             "blocking_mode, requirement_source, success_policy) "
             "VALUES ('run-test-001', 'smoke', 'post_deploy', 'blocking', "
-            "'flow_derived', 'Workflow completes with conclusion=success')",
+            "'flow_derived', 'all-pass')",
         )
         deploy_db.commit()
 

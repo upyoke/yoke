@@ -123,6 +123,19 @@ def _issue_for_requirement(
             f"latest run #{run_id} concluded {actual!r}{reason_text}, not completed success",
             recovery,
         )
+    if requirement.get("current_passing_proof") is False:
+        return BlockingRequirementIssue(
+            requirement_id,
+            "stale-proof",
+            f"passing run #{run_id} does not prove the frozen configuration and target",
+            recovery,
+        )
+    if requirement.get("requires_code_identity") is False:
+        if issue := requirement.get("subject_proof_error"):
+            return BlockingRequirementIssue(
+                requirement_id, "subject-unproven", issue, recovery
+            )
+        return None
     run_sha = str(requirement.get("recorded_head_sha") or "").strip()
     if run_sha not in set(accepted_shas) or not run_sha:
         return BlockingRequirementIssue(

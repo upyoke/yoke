@@ -210,6 +210,7 @@ def execute_worktree_case(
             output += f"\n[timeout]\n{timeout_summary}\n"
         record = {
             "command": command,
+            "base_url": base_url,
             "cwd": str(checkout),
             "exit_code": exit_code,
             "timed_out": streamed.timed_out,
