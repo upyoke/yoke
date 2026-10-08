@@ -1,5 +1,7 @@
 """Anonymous start/poll requests have independent transport-client budgets."""
 
+from types import SimpleNamespace
+
 from fastapi.testclient import TestClient
 import pytest
 
@@ -13,6 +15,15 @@ db_conn = door.db_conn
 client = door.client
 door_env = door.door_env
 provider = door.provider
+
+
+@pytest.fixture(autouse=True)
+def fixed_admission_window(monkeypatch):
+    # These tests exercise client identity and independent operation budgets.
+    # Window expiry is covered by the domain tests with explicit now values.
+    monkeypatch.setattr(
+        limits, "time", SimpleNamespace(time=lambda: limits.RATE_WINDOW_SECONDS + 1)
+    )
 
 
 @pytest.mark.parametrize("path,operation", [(START_PATH, "start"), (POLL_PATH, "poll")])
