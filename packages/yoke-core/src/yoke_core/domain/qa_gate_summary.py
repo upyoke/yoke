@@ -171,6 +171,13 @@ def render_gate_summary(
 
             evidence = latest_row
 
+            from yoke_core.domain.qa_simulation_triage import current_simulation_triage
+
+            triage = (
+                current_simulation_triage(conn, req_id)
+                if qa_kind == "simulation"
+                else None
+            )
             summary["requirements"].append(
                 {
                     "id": req_id,
@@ -183,6 +190,7 @@ def render_gate_summary(
                     if r["retracted_at"]
                     else None,
                     "satisfied": satisfied,
+                    "triage_discharge": triage,
                     "latest_run": _format_run(evidence),
                     "human_review": waiting.as_dict() if waiting else None,
                 }

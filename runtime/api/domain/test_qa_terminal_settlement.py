@@ -60,8 +60,8 @@ def test_detached_review_does_not_mask_latest_capture_identity(test_db):
         raw_result="{}",
     )
     test_db.execute(
-        "INSERT INTO qa_plan_executions(id,item_id,session_id,roster_digest,roster_json,"
-        "state,created_at,heartbeat_at) VALUES(%s,%s,'review-owner','digest','[]',"
+        "INSERT INTO qa_plan_executions(id,item_id,transition_id,session_id,roster_digest,roster_json,"
+        "state,created_at,heartbeat_at) VALUES(%s,%s,'done','review-owner','digest','[]',"
         "'completed',%s,%s)",
         (
             "historical-execution",

@@ -298,7 +298,7 @@ class TestReviewAndSimulationWrites:
             raw_result='{"body":"SIMULATION: CLEAN","phase":"plan"}',
         )
 
-    def test_simulation_upsert_reuses_existing_requirement_and_deletes_prior_runs(
+    def test_simulation_upsert_reuses_existing_requirement_and_retains_prior_runs(
         self, db
     ):
         db.execute(
@@ -329,7 +329,7 @@ class TestReviewAndSimulationWrites:
             db.execute(
                 "SELECT COUNT(*) FROM qa_runs WHERE qa_requirement_id = 11"
             ).fetchone()[0]
-            == 0
+            == 1
         )
         add_req.assert_not_called()
         add_run.assert_called_once_with(

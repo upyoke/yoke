@@ -75,11 +75,14 @@ def live_qa_leases(conn: Any, item_id: int) -> list[tuple[int, str]]:
 
 
 def _blocking_requirement_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
+    from yoke_core.domain.qa_simulation_triage import triage_discharge_sql
+
     placeholder = marker(conn)
     cursor = conn.execute(
         "SELECT q.id, q.blocking_mode, q.waived_at, q.requirement_source, q.deployment_run_id, "
         "q.superseded_by_requirement_id, q.replacement_requirement_id, "
         f"{requirement_retracted_at_select(conn, 'q')}, "
+        f"{triage_discharge_sql(conn, 'q')} AS triage_discharge, "
         "q.qa_phase, q.method_id, q.method_config FROM qa_requirements q "
         f"WHERE q.item_id = {placeholder} ORDER BY q.id",
         (int(item_id),),

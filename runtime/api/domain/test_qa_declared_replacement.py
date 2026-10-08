@@ -163,7 +163,7 @@ def test_failing_replacement_grades_only_the_successor(test_db) -> None:
     assert any(f"#{corrected_id}" in reason for reason in status["reasons"])
 
 
-def test_retry_correction_inherits_every_earlier_attempt(test_db) -> None:
+def test_retry_correction_retains_each_immediate_successor(test_db) -> None:
     run_id = "run-replacement-retry"
     failed_id, first_fix = _failed_with_correction(test_db, run_id)
     record_case_verdict(test_db, first_fix, "fail", evidence=True)
@@ -172,14 +172,14 @@ def test_retry_correction_inherits_every_earlier_attempt(test_db) -> None:
     declare(test_db, first_fix, "smoke-fixed-2", [second_fix])
 
     assert (
-        requirement_row(test_db, failed_id)["replacement_requirement_id"] == second_fix
+        requirement_row(test_db, failed_id)["replacement_requirement_id"] == first_fix
     )
     assert (
         requirement_row(test_db, first_fix)["replacement_requirement_id"] == second_fix
     )
     assert _roster(test_db, run_id) == [second_fix]
 
-    assert _pass(test_db, run_id) == sorted([failed_id, first_fix])
+    assert _pass(test_db, run_id) == [first_fix]
     status = _status(test_db, run_id)
     assert status["accepted"], status["reasons"]
 

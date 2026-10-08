@@ -14,7 +14,7 @@ from yoke_core.domain.qa_latest_execution import latest_executions
 
 
 def check_epic_simulation_gate(epic_id: int, db_path: str) -> GateResult:
-    """Every effective integration simulation must have a completed current pass."""
+    """Every effective simulation needs a completed pass or its explicit bounded triage discharge."""
     if os.environ.get("YOKE_SKIP_SIMULATION") == "1":
         from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 

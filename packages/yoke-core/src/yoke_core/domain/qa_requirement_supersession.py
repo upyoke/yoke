@@ -159,6 +159,10 @@ def record_supersession(
             "corrected case that actually passed"
         )
 
+    from yoke_core.domain.qa_requirement_scope import lock_requirement_scope
+    from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
+
+    lock_requirement_scope(conn, requirement_id)
     broken = _requirement(conn, requirement_id, label="superseded")
     corrected = _requirement(conn, superseded_by_requirement_id, label="superseding")
 
@@ -197,7 +201,8 @@ def record_supersession(
                 SOURCE_RETIREMENT_REFUSAL.format(source_id=int(requirement_id))
             )
         run_answer = {"run_replacement_requirement_id": answer_id}
-    elif (verdict := latest_verdict(conn, int(superseded_by_requirement_id))) != "pass":
+    elif not has_current_passing_run(conn, int(superseded_by_requirement_id)):
+        verdict = latest_verdict(conn, int(superseded_by_requirement_id))
         raise QaSupersessionError(
             f"requirement {superseded_by_requirement_id} latest verdict is "
             f"{verdict or 'missing'}, not pass. Run the corrected case to a "

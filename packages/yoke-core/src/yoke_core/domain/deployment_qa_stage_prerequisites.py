@@ -32,16 +32,14 @@ def _object(value: Any) -> dict[str, Any]:
 
 
 def _latest_verdict(conn: Any, requirement_id: int) -> dict[str, Any]:
-    row = conn.execute(
-        "SELECT verdict,raw_result FROM qa_runs WHERE qa_requirement_id=%s "
-        "ORDER BY created_at DESC,id DESC LIMIT 1",
-        (int(requirement_id),),
-    ).fetchone()
-    if row is None:
+    from yoke_core.domain.qa_latest_execution import latest_executions
+
+    row = latest_executions(conn, [requirement_id]).get(requirement_id)
+    if row is None or not row["completed_at"]:
         return {"verdict": "", "raw_result": {}}
     return {
-        "verdict": str(row["verdict"] if hasattr(row, "keys") else row[0] or ""),
-        "raw_result": _object(row["raw_result"] if hasattr(row, "keys") else row[1]),
+        "verdict": str(row["verdict"] or ""),
+        "raw_result": _object(row["raw_result"]),
     }
 
 
@@ -92,23 +90,6 @@ def _binding_refusal(
     if verdict.get("verdict") != "pass":
         return None
     execution_id = str(verdict.get("raw_result", {}).get("execution_id") or "")
-    if not execution_id:
-        requirement_id = int(
-            requirement["id"] if hasattr(requirement, "keys") else requirement[0]
-        )
-        history = conn.execute(
-            "SELECT raw_result FROM qa_runs WHERE qa_requirement_id=%s "
-            "ORDER BY created_at DESC,id DESC",
-            (requirement_id,),
-        ).fetchall()
-        execution_id = next(
-            (
-                str(_object(row["raw_result"])["execution_id"])
-                for row in history
-                if _object(row["raw_result"]).get("execution_id")
-            ),
-            "",
-        )
     execution = conn.execute(
         "SELECT state,deployment_run_id,deployment_stage,"
         "deployment_member_item_id,execution_target_json "

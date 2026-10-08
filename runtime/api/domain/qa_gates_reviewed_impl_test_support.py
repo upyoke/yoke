@@ -46,6 +46,9 @@ CREATE TABLE qa_requirements (
     method_id TEXT,
     verdict_path TEXT,
     waived_at TEXT,
+    superseded_by_requirement_id INTEGER,
+    replacement_requirement_id INTEGER,
+    retracted_at TEXT,
     created_at TEXT
 );
 CREATE TABLE qa_runs (

@@ -228,11 +228,6 @@ def simulation_upsert(
 
     if row:
         req_id = row["id"]
-        conn.execute(
-            f"DELETE FROM qa_runs WHERE qa_requirement_id={_placeholder(conn)}",
-            (req_id,),
-        )
-        conn.commit()
     else:
         req_id = None
 

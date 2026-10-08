@@ -41,7 +41,9 @@ def settled_obligation_sql(conn: Any, alias: str = "") -> str:
         rendered = rendered.replace(
             f"OR {prefix}replacement_requirement_id IS NOT NULL ", ""
         )
-    return rendered
+    from yoke_core.domain.qa_simulation_triage import triage_discharge_sql
+
+    return f"({rendered} OR {triage_discharge_sql(conn, alias)})"
 
 
 def unretracted_requirement_sql(conn: Any, alias: str = "") -> str:
@@ -70,8 +72,6 @@ def item_supersession_open_sql(conn: Any, alias: str = "") -> str:
     passing replacement), so this predicate never drops one. A table without
     the column has superseded nothing.
     """
-    if not _column_exists(conn, "qa_requirements", "superseded_by_requirement_id"):
-        return "TRUE"
     return unanswered_attempt_sql(conn, alias)
 
 
@@ -88,13 +88,18 @@ def unanswered_attempt_sql(conn: Any, alias: str = "") -> str:
         for column in ("superseded_by_requirement_id", "replacement_requirement_id")
         if _column_exists(conn, "qa_requirements", column)
     ]
-    return " AND ".join(clauses) or "TRUE"
+    from yoke_core.domain.qa_simulation_triage import triage_discharge_sql
+
+    clauses.append(f"NOT {triage_discharge_sql(conn, alias)}")
+    return " AND ".join(clauses)
 
 
 def item_supersession_settled(row: Mapping[str, Any]) -> bool:
     """Row form of :func:`item_supersession_open_sql`, negated."""
-    return bool(row.get("superseded_by_requirement_id")) or bool(
-        row.get("replacement_requirement_id")
+    return (
+        bool(row.get("superseded_by_requirement_id"))
+        or bool(row.get("replacement_requirement_id"))
+        or bool(row.get("triage_discharge"))
     )
 
 
@@ -105,6 +110,7 @@ def obligation_settled(row: Mapping[str, Any]) -> bool:
         or bool(row.get("superseded_by_requirement_id"))
         or bool(row.get("retracted_at"))
         or bool(row.get("replacement_requirement_id"))
+        or bool(row.get("triage_discharge"))
     )
 
 

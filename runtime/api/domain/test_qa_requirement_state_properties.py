@@ -233,6 +233,9 @@ def test_native_current_currency_and_effective_conjunction_match_oracle(cases):
                 conn,
                 qa_requirement_id=requirement_id,
                 verdict=verdict,
+                verdict_reason="Evidence is inconclusive"
+                if verdict == "undetermined"
+                else None,
                 started_at=instant.isoformat(),
                 completed_at=instant.isoformat() if complete else None,
                 raw_result=json.dumps(

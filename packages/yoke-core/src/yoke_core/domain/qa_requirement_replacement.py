@@ -117,9 +117,9 @@ def point_at_replacement(conn: Any, failed_id: int, replacement_id: int) -> None
         )
     conn.execute(
         "UPDATE qa_requirements SET replacement_requirement_id=%s "
-        "WHERE (id=%s OR replacement_requirement_id=%s) "
+        "WHERE id=%s "
         "AND superseded_by_requirement_id IS NULL",
-        (int(replacement_id), int(failed_id), int(failed_id)),
+        (int(replacement_id), int(failed_id)),
     )
 
 
