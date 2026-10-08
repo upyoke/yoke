@@ -26,7 +26,9 @@ def test_byte_ceiling_omission_leaves_the_report_delivery_record_unspent(
     surface = {"claude": "claude-code", "codex": "codex-cli", "cursor": "cursor-cli"}[
         family
     ]
-    decision = delivery.evaluate(hook_context("PostToolUse", family=family, surface=surface))
+    decision = delivery.evaluate(
+        hook_context("PostToolUse", family=family, surface=surface)
+    )
     # Sibling delivery has priority; composing may omit the report entirely.
     rendered = compose_hook_context(["delivery"], [], [report], harness_id=family)
     delivery.settle_after_render(
