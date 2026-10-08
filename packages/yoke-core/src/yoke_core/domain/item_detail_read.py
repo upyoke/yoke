@@ -34,6 +34,7 @@ from yoke_core.domain.workflow_effective_policies import (
     resolve_effective_workflow_policies,
 )
 from yoke_core.domain.workflow_runtime import workflow_runtime_from_row
+from yoke_core.domain.workflow_stage_levels import item_stage_level
 from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 _NARRATIVE_FIELDS = (
@@ -241,6 +242,7 @@ def get_item_detail(item_id: int, *, include: Sequence[str] = ()) -> dict[str, A
                 "default_branch": str(row.get("default_branch") or "main"),
             },
             "workflow": _workflow_model(row),
+            "level": item_stage_level(conn, item_id),
             "claim": claim,
             "worktrees": _worktrees(conn, item_id),
             "path_claims": _path_claims(conn, item_id),

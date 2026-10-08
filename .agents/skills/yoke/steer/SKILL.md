@@ -70,8 +70,8 @@ Do not invoke `/yoke feed`. Feed and steer are unrelated.
 - **Workers merge; the steerer batches delivery.** Worker mandates prohibit
   deployment-run creation. The loop pins one release SHA, deploys batches,
   and completes any item parked at its release boundary afterward.
-- **Yoke launches every staffed session.** Set the item's level override and
-  preview its level (an exact selection is an operator override),
+- **Yoke launches every staffed session.** Read the item's effective stage level (including its override) and
+  preview that level; item-bound create omits `--level` (an exact selection is an operator override),
   then use `session_control.launch.create` for both item-bound composed mandates
   (`--item`) and itemless raw mandates (`--raw-instructions --stdin`). After a
   Yoke refusal, use its named recovery through Yoke; never substitute the

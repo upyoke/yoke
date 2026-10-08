@@ -35,7 +35,7 @@ LAUNCH_PREVIEW_USAGE = (
     "[--list-models] [--json]"
 )
 LAUNCH_CREATE_USAGE = (
-    f"yoke session-control launch create --project P {_SELECTION_USAGE} "
+    f"yoke session-control launch create --project P [{_SELECTION_USAGE}] "
     "(--item PREFIX-N | --raw-instructions --stdin) --idempotency-key K "
     "[--presentation P] [--list-models] [--json]"
 )
@@ -149,7 +149,7 @@ def _create(args: List[str], *, alias: bool) -> int:
     parsed = parse_or_usage_error(parser, args, usage)
     if parsed is None:
         return 2
-    selector = selector_payload(parsed)
+    selector = selector_payload(parsed, stage_default=not (alias and parsed.preview))
     if selector is None:
         return 2
     if alias and parsed.preview:

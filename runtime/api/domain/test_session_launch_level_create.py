@@ -233,9 +233,9 @@ def test_a_level_beside_any_exact_knob_is_a_request_conflict(knob) -> None:
         LaunchPreviewRequest(project="yoke", level="SENIOR", **knob)
 
 
-def test_a_request_naming_neither_level_nor_surface_is_refused() -> None:
+def test_a_preview_naming_neither_level_nor_surface_is_refused() -> None:
     with pytest.raises(ValueError, match="launch_selection_missing"):
-        LaunchCreateRequest(project="yoke", item="YOK-1", idempotency_key="k")
+        LaunchPreviewRequest(project="yoke")
 
 
 def test_a_requested_level_is_normalized_to_upper_case() -> None:

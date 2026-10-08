@@ -16,6 +16,24 @@ import {
   itemText,
 } from "./universe_ui_items_test_support.mjs";
 
+test("item details show effective level after status and the override reason in posture", async () => {
+  const documentNode = new FakeDocument();
+  const root = documentNode.createElement("div");
+  const item = detailItem("dash");
+  const override = { shift: -1, max: "SENIOR", reason: "Well-specified edits" };
+  item.workflow.item_posture.level = override;
+  item.level = { level: "JUNIOR", glyph: "🐥", stage_level: "SENIOR", stage_glyph: "🦉", stage_id: "implementing", override };
+  renderItemDetailView(itemContext(documentNode, async () => ({
+    status: 200, envelope: { success: true, result: { item } },
+  })), root, String(item.project.id), item.public_ref);
+  await settle();
+  const labels = allNodes(byClass(root, "item-facts")[0]).filter((node) => node.tagName === "TH").map((node) => node.textContent);
+  assert.equal(labels[labels.indexOf("Status") + 1], "Level");
+  assert.match(itemText(root), /🐥 JUNIOR implementing · 🦉 SENIOR · shift -1 · max SENIOR/);
+  assert.equal(byClass(root, "item-posture-label")[0].textContent, "Level");
+  assert.match(itemText(byClass(root, "item-posture-grid")[0]), /Well-specified edits/);
+});
+
 test("Epic detail reports task completion and its narrower fact spine", async () => {
   const documentNode = new FakeDocument();
   const root = documentNode.createElement("div");

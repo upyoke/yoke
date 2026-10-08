@@ -151,6 +151,10 @@ STANDING_TEACHINGS = (
     # First: a successor launched onto an in-flight item must resume from
     # the predecessor's checkpoint before it commits or merges anything.
     PROGRESS_CHECKPOINT_TEACHING,
+    "A transition or merge result may carry handoff with reason level_change. "
+    "That takes precedence over retaining a release wait: follow the "
+    "harness-neutral worker rule in `.yoke/docs/reference/session-level-routing.md` "
+    "under Stage-level handoff. Workers may launch their own item's successor.",
     COMMITTED_GATE_TEACHING,
     # Before the waits: a refusal here means nothing was armed, enqueued, or
     # merged, so the worker needs it before it learns how to wait on any of

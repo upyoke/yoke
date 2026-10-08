@@ -59,7 +59,11 @@ class LaunchPreviewRequest(BaseModel):
                 f"effort, and context itself; drop {', '.join(explicit)} to "
                 "launch by level, or drop level to launch that exact selection"
             )
-        if self.level is None and self.executor_surface is None:
+        if (
+            self.level is None
+            and self.executor_surface is None
+            and (not isinstance(self, LaunchCreateRequest) or explicit)
+        ):
             raise ValueError(
                 "launch_selection_missing: name a level for Yoke to place, or "
                 "an executor surface to launch exactly as asked"
@@ -68,6 +72,7 @@ class LaunchPreviewRequest(BaseModel):
 
 
 class LaunchCreateRequest(LaunchPreviewRequest):
+    use_stage_level: bool = False
     item: Optional[str] = Field(default=None, min_length=1, max_length=64)
     instructions: str = ""
     compose_mandate: bool = True

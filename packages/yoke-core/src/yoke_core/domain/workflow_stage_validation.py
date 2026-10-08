@@ -18,7 +18,7 @@ from yoke_core.domain.workflow_gate_catalog import workflow_gate_catalog
 
 _ID_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 _STAGE_KEYS = frozenset(
-    {"id", "label", "glyph", "board_bucket", "description", "gates"}
+    {"id", "label", "glyph", "board_bucket", "description", "gates", "level"}
 )
 _GATE_REF_KEYS = frozenset({"id", "mode"})
 
@@ -40,6 +40,12 @@ def validate_stages(definition: Mapping[str, Any]) -> tuple[list[str], set[str]]
             raise WorkflowDefinitionError(f"{path}.id must use lowercase kebab-case")
         ids.append(stage_id)
         labels.append(require_nonempty_text(stage.get("label"), f"{path}.label"))
+        if "level" in stage:
+            require_nonempty_text(stage["level"], f"{path}.level")
+            if stage_id in definition.get("terminal_stage_ids", []):
+                raise WorkflowDefinitionError(
+                    f"{path}.level is not allowed on a terminal stage"
+                )
         if "glyph" in stage:
             try:
                 validate_glyph(stage.get("glyph"), field=f"{path}.glyph")

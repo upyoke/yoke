@@ -56,7 +56,7 @@ def test_the_retention_teaching_is_one_of_the_standing_mandate_paragraphs():
 
 
 def test_the_worker_lifecycle_copy_matches_the_composed_teaching():
-    content = _read(WORKER_LIFECYCLE)
+    content = _read(WORKER_LIFECYCLE) + _read(SKILLS / "steer" / "worker-launch.md")
     assert RELEASE_WAIT_RETENTION_TEACHING in content
     collapsed = _words(content)
     assert "the worker stays the owner through delivery" in collapsed
@@ -90,6 +90,10 @@ def test_the_close_out_park_recipe_is_the_reason_the_product_stamps():
 
 
 def test_the_install_bundle_copies_teach_the_same_retention():
-    for relative in ("dash/close-out.md", "steer/worker-lifecycle.md"):
+    for relative in (
+        "dash/close-out.md",
+        "steer/worker-lifecycle.md",
+        "steer/worker-launch.md",
+    ):
         packaged = _read(BUNDLE / relative)
         assert packaged == _read(SKILLS / relative), relative

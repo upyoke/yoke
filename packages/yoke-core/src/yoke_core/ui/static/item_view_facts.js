@@ -49,6 +49,21 @@ function statusFact(documentNode, item) {
   );
 }
 
+function levelOverrideText(override = {}) {
+  return [override.shift ? `shift ${override.shift > 0 ? "+" : ""}${override.shift}` : "",
+    override.min ? `min ${override.min}` : "", override.max ? `max ${override.max}` : "",
+  ].filter(Boolean).join(" · ");
+}
+
+function levelFact(documentNode, level) {
+  const host = el(documentNode, "span", "item-inline");
+  host.appendChild(el(documentNode, "b", null, `${level.glyph} ${level.level}`));
+  host.appendChild(el(documentNode, "span", "item-muted",
+    [level.stage_id, `${level.stage_glyph} ${level.stage_level}`, levelOverrideText(level.override)]
+      .filter(Boolean).join(" · ")));
+  return host;
+}
+
 function claimFact(documentNode, claim) {
   if (!claim) return "none";
   const host = el(documentNode, "span", "item-inline");
@@ -108,6 +123,7 @@ export function factsPanel(documentNode, item) {
   );
   appendFact(documentNode, table, "Workflow", workflowFact(documentNode, item));
   appendFact(documentNode, table, "Status", statusFact(documentNode, item));
+  if (item.level) appendFact(documentNode, table, "Level", levelFact(documentNode, item.level));
   appendFact(documentNode, table, "Owner", item.owner || "unassigned");
   const workflowId = String(item.workflow.id || "").toLowerCase();
   if (workflowId !== "epic") {
@@ -159,6 +175,14 @@ const POSTURE_LABELS = {
 export function posturePanel(documentNode, item) {
   const { panel, body } = workflowPanel(documentNode, "Execution posture");
   const grid = el(documentNode, "div", "item-posture-grid");
+  const override = item.workflow.item_posture?.level;
+  if (override) {
+    const cell = el(documentNode, "div", "item-posture-cell");
+    cell.appendChild(el(documentNode, "div", "item-posture-label", "Level"));
+    cell.appendChild(el(documentNode, "div", "item-posture-value", levelOverrideText(override)));
+    cell.appendChild(el(documentNode, "div", "item-muted", override.reason));
+    grid.appendChild(cell);
+  }
   const effectivePolicies = item.workflow.effective_policies || {};
   const workflowId = String(item.workflow.id || "").toLowerCase();
   const preferredKeys = workflowId === "dash"

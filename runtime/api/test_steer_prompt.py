@@ -222,14 +222,6 @@ class TestSteerSkillContract:
         corpus = _corpus()
         assert "every envelope this steerer sent" not in corpus
 
-    def test_steering_seat_is_the_only_staffing_path(self):
-        loop = _read(_STEER_DIR / "loop.md")
-        assert "unclaimed" in loop
-        assert "yoke steering report get" in loop
-        assert "this seat's to staff; nothing else" in loop
-        lifecycle = _read(_STEER_DIR / "worker-lifecycle.md")
-        assert "There is no second staffing" in lifecycle
-
     def test_blitz_handoff_releases_and_reacquires_paired_authority(self):
         blitz_handoff = _read(_STEER_DIR / "blitz-handoff.md")
         release_at = blitz_handoff.index("yoke claims steering release")

@@ -86,3 +86,7 @@ Read and follow each phase file in order. Each phase may halt the pipeline (bloc
 
 **Phase 5 — Finalize:** Read `.agents/skills/yoke/usher/finalize.md`
 - Completion report, idempotency rules, pipeline failure recovery, operational notes
+
+A `handoff` with `reason=level_change` takes precedence over a release wait.
+Follow the harness-neutral Stage-level handoff rule in
+`.yoke/docs/reference/session-level-routing.md`; workers may launch their own successor.

@@ -61,6 +61,8 @@ def refuse_held_assigned_item(
     *,
     public_ref: str,
     project_id: int,
+    predecessor_session_id: str | None = None,
+    successor_level: str | None = None,
 ) -> None:
     """Refuse existing staffing or a live holder inside the create transaction."""
     if not workflow_pin_schema_present(conn):
@@ -74,6 +76,18 @@ def refuse_held_assigned_item(
     from yoke_core.domain.work_claim_holder import holder_session_for_item
 
     p = placeholder(conn)
+    from yoke_core.domain.workflow_level_handoff import released_level_predecessor
+
+    predecessor = (
+        released_level_predecessor(
+            conn,
+            item_id=item_id,
+            session_id=predecessor_session_id,
+            level=successor_level,
+        )
+        if predecessor_session_id and successor_level
+        else None
+    )
     holder = holder_session_for_item(conn, item_id)
     holder_id = str(holder.get("holder_session_id") or "")
     live_holder = (
@@ -94,10 +108,11 @@ def refuse_held_assigned_item(
         "FROM session_launches l LEFT JOIN harness_sessions s "
         "ON s.session_id=COALESCE(l.registered_session_id,l.native_session_id) "
         f"WHERE l.project_id={p} AND l.session_name LIKE {p} "
+        f"AND ({p} IS NULL OR COALESCE(l.registered_session_id,l.native_session_id,'') <> {p}) "
         f"AND (l.state IN ({holes}) OR l.state='outcome_unknown' "
         f"OR (s.session_id IS NOT NULL AND {live_session_sql('s')})) "
         "ORDER BY l.created_at, l.launch_id LIMIT 1",
-        (project_id, f"{ref}: %", *states),
+        (project_id, f"{ref}: %", predecessor, predecessor, *states),
     ).fetchone()
     if not live_holder and launch is None:
         return
