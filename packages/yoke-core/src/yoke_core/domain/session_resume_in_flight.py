@@ -37,6 +37,7 @@ from yoke_contracts.session_control.wake_delivery import (
     NATIVE_RESUME_ACCEPTED_RESULT,
     WAKE_DELIVERED_RESULT,
 )
+from yoke_contracts.timestamps import as_utc, format_instant, parse_instant
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_message_types import parse_timestamp, row_dict
 
@@ -72,13 +73,13 @@ class ResumeInFlight:
 
     session_id: str
     attempt_id: str
-    started_at: str
+    started_at: datetime
     #: ``open`` while the relay has not reported; otherwise the stored code.
     attempt_state: str
 
     def describe(self) -> str:
         return (
-            f"wake attempt {self.attempt_id} started {self.started_at} "
+            f"wake attempt {self.attempt_id} started {format_instant(self.started_at)} "
             f"({self.attempt_state})"
         )
 
@@ -100,7 +101,7 @@ def _in_flight(record: Mapping[str, Any], *, now: datetime) -> bool:
         if (stamp := parse_timestamp(record.get(field))) is not None
     ]
     latest = max([started, *activity])
-    return now - latest <= timedelta(seconds=RESUME_INACTIVITY_SECONDS)
+    return as_utc(now) - latest <= timedelta(seconds=RESUME_INACTIVITY_SECONDS)
 
 
 def resumes_in_flight(
@@ -140,7 +141,7 @@ def resumes_in_flight(
         found[session_id] = ResumeInFlight(
             session_id=session_id,
             attempt_id=str(record["attempt_id"]),
-            started_at=str(record["started_at"]),
+            started_at=parse_instant(record["started_at"]),
             attempt_state=(
                 "open"
                 if record.get("completed_at") is None
@@ -175,7 +176,7 @@ def native_process_projection(
         return {
             "state": RESUMING_PROCESS_STATE,
             "observed_at": observation.get("observed_at"),
-            "resume_started_at": resume.started_at,
+            "resume_started_at": format_instant(resume.started_at),
             "resume_attempt_id": resume.attempt_id,
         }
     return {

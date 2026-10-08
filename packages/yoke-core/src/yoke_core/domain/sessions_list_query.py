@@ -11,9 +11,8 @@ from __future__ import annotations
 
 from yoke_contracts.session_control.liveness import holds_work_claim_sql
 
-#: The activity stamp every read orders by: the later of the two timestamps as
-#: uniform ISO-8601 text (lexicographic order matches chronological order).
-_ACTIVITY = "GREATEST(COALESCE(s.last_tool_call_at, ''), s.last_heartbeat)"
+#: Order by the later native instant; PostgreSQL GREATEST ignores nulls.
+_ACTIVITY = "GREATEST(s.last_tool_call_at, s.last_heartbeat)"
 
 #: Whether the session holds a live item work claim. The windowed roster keeps
 #: these rows past its per-project cap: a holder parked at its item's release
@@ -72,7 +71,7 @@ def build_sessions_query(where: str, *, windowed: bool) -> str:
             f"{_JOINS} {where}) ranked "
             "WHERE _rn <= %s OR _holds_item "
             "ORDER BY _holds_item DESC, "
-            "GREATEST(COALESCE(last_tool_call_at, ''), "
+            "GREATEST(last_tool_call_at, "
             "last_heartbeat) DESC LIMIT %s"
         )
     return f"{_SELECT} {_JOINS} {where} ORDER BY {_ACTIVITY} DESC LIMIT %s"

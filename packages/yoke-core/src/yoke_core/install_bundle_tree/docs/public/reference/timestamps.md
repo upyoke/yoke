@@ -73,13 +73,17 @@ fixed days/hours/minutes count 86400/3600/60 seconds across session timezones.
 Calendar buckets declare their timezone at their owner rather than replacing
 the instant clock with LOCALTIMESTAMP. Event envelopes and cursor payloads use
 canonical fixed-six timestamps; cursor bounds parse back to native instants.
-Old event, settled-message and launch-history cursors refuse with an instruction to clear
+Old event, settled-message, ended-session and launch-history cursors refuse with an instruction to clear
 them and reload. Settled-message history orders and binds native creation
 instants, then uses the message id to resolve equal-instant ties. Launch records
 and relay leases retain aware instants internally; their public projections
 format UTC wire values. Launch-history bounds use native creation instants
 and launch ids for ties. Relay expiry and registration windows compare
 native instants at their half-open boundaries without truncating microseconds.
+Session roster and history order native activity instants, preserving nulls in
+PostgreSQL GREATEST. Ended-history cursors version and encode the exact canonical
+instant plus session id; bounds bind native values. Effective model schedules
+compare aware instants and keep their canonical catalog digest inputs unchanged.
 Turn-posture ordering and coordination-claim acquisition, heartbeat, release,
 and stale thresholds bind native instants. Claim records retain aware datetimes;
 public claim and wait evidence format fixed-six UTC strings and preserve null.

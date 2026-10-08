@@ -20,6 +20,7 @@ from runtime.api.steering_fleet_test_helpers import (
     seed_delivery_attempt,
     seed_message,
 )
+from yoke_contracts.timestamps import format_instant
 from yoke_core.domain.sessions_list_read import ENDED_CAUSES, list_sessions
 
 
@@ -31,7 +32,7 @@ _WORKED_A_WHILE_MINUTES = 60 * 24 * 31
 
 def _iso(minutes_ago: int = 0) -> str:
     stamp = datetime.now(timezone.utc) - timedelta(minutes=minutes_ago)
-    return stamp.strftime("%Y-%m-%dT%H:%M:%SZ")
+    return format_instant(stamp)
 
 
 class TestLivenessDerivation:

@@ -8,6 +8,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from yoke_contracts.timestamps import format_instant
+
 from runtime.api.sessions_api_stale_test_helpers import _ago_minutes
 from runtime.api.test_sessions import (
     _insert_claimable_items,
@@ -193,7 +195,7 @@ def test_desktop_and_headless_claim_holders_are_spared(conn, executor_surface):
     assert row["ended_at"] is None
     assert current_native_process_observation(row) == {
         "state": "gone",
-        "observed_at": row["native_process_gone_at"],
+        "observed_at": format_instant(row["native_process_gone_at"]),
         "evidence": EVIDENCE,
     }
     assert (

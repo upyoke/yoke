@@ -50,10 +50,10 @@ LATER_PROCESS = {
 #: first death so each case states its own activity rather than "now".
 BEFORE_THE_DEATH = "2026-09-09T12:00:00Z"
 FIRST_SEEN = datetime(2026, 9, 9, 12, 24, 45, tzinfo=timezone.utc)
-FIRST_SEEN_TEXT = "2026-09-09T12:24:45Z"
+FIRST_SEEN_TEXT = "2026-09-09T12:24:45.000000Z"
 RESUMED_AT = "2026-09-09T13:56:58Z"
 POLLED_AGAIN = datetime(2026, 9, 9, 14, 13, 55, tzinfo=timezone.utc)
-POLLED_AGAIN_TEXT = "2026-09-09T14:13:55Z"
+POLLED_AGAIN_TEXT = "2026-09-09T14:13:55.000000Z"
 
 
 @pytest.fixture
@@ -114,7 +114,7 @@ def test_re_reporting_one_death_keeps_the_time_it_was_first_seen(conn):
     conn.commit()
 
     assert repeat["observed_at"] == FIRST_SEEN_TEXT
-    assert _stored(conn, session_id)["native_process_gone_at"] == FIRST_SEEN_TEXT
+    assert _stored(conn, session_id)["native_process_gone_at"] == FIRST_SEEN
 
 
 def test_a_session_that_resumed_after_the_death_no_longer_reads_as_gone(conn):
@@ -157,7 +157,7 @@ def test_a_late_report_of_an_older_death_leaves_the_newer_one_standing(conn):
 
     assert dropped["observed_at"] == POLLED_AGAIN_TEXT
     row = _stored(conn, session_id)
-    assert row["native_process_gone_at"] == POLLED_AGAIN_TEXT
+    assert row["native_process_gone_at"] == POLLED_AGAIN
     assert json.loads(row["native_process_gone_evidence"])["exit_code"] == 1
     # The park must not swallow the crash the older report tried to overwrite.
     assert current_native_process_observation({**row, "mode": "parked"}) is not None
@@ -184,7 +184,7 @@ def test_a_known_exit_time_corrects_this_processs_own_polling_stamp(conn):
     conn.commit()
 
     row = _stored(conn, session_id)
-    assert row["native_process_gone_at"] == FIRST_SEEN_TEXT
+    assert row["native_process_gone_at"] == FIRST_SEEN
     assert current_native_process_observation(row) is None
 
 
@@ -210,7 +210,7 @@ def test_a_late_first_report_is_stamped_when_the_native_exited(conn):
     conn.commit()
 
     row = _stored(conn, session_id)
-    assert row["native_process_gone_at"] == FIRST_SEEN_TEXT
+    assert row["native_process_gone_at"] == FIRST_SEEN
     assert current_native_process_observation(row) is None
 
 
@@ -235,7 +235,7 @@ def test_a_later_process_dying_is_stamped_when_it_was_seen(conn):
 
 
 def test_activity_at_the_moment_of_the_death_does_not_supersede_it():
-    """Second-precision stamps tie; only strictly later activity is proof."""
+    """Equal instants tie; only strictly later activity is proof."""
     assert current_native_process_observation(
         _row(last_tool_call_at=FIRST_SEEN_TEXT)
     ) == {

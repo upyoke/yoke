@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_contracts.session_control.liveness import (
     ENDED_CAUSE_KILLED,
     ENDED_CAUSE_WOUND_DOWN,
     LIVENESS_ENDED,
+)
+from yoke_contracts.timestamps import (
+    format_instant,
+    parse_instant,
+    temporal_wire,
+    utc_now,
 )
 from yoke_core.domain.actor_render import render_actor_names
 from yoke_core.domain.session_focus_attribution import focus_attribution
@@ -40,27 +46,14 @@ from yoke_core.domain.sessions_queries_base import normalize_claim_item_id
 
 
 def _parse_timestamp(value: Any) -> Optional[datetime]:
-    if value is None:
-        return None
-    text = str(value).strip()
-    if not text:
-        return None
-    if text.endswith("Z"):
-        text = text[:-1] + "+00:00"
-    try:
-        parsed = datetime.fromisoformat(text)
-    except ValueError:
-        return None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+    return parse_instant(value) if value is not None else None
 
 
 def _latest_activity(
     last_heartbeat: Any,
     last_tool_call_at: Any,
 ) -> Tuple[Optional[str], Optional[datetime]]:
-    """Pick the later of the two activity stamps, keeping the raw string."""
+    """Compare native instants and format the selected public activity stamp."""
     candidates = [
         (value, _parse_timestamp(value))
         for value in (last_heartbeat, last_tool_call_at)
@@ -69,7 +62,7 @@ def _latest_activity(
     if not dated:
         return None, None
     raw, parsed = max(dated, key=lambda pair: pair[1])
-    return str(raw), parsed
+    return format_instant(parsed), parsed
 
 
 def render_session_roster_rows(
@@ -105,7 +98,7 @@ def render_session_roster_rows(
     resumes = resumes_in_flight(
         conn,
         (str(row["session_id"]) for row in page if row.get("native_process_gone_at")),
-        now=datetime.now(timezone.utc),
+        now=utc_now(),
     )
     result: List[Dict[str, Any]] = []
     empty_holdings = {
@@ -163,7 +156,7 @@ def render_session_roster_rows(
                 ),
                 "activity_at": activity_at,
                 "last_tool_call_at": (
-                    str(row["last_tool_call_at"])
+                    format_instant(row["last_tool_call_at"])
                     if row.get("last_tool_call_at")
                     else None
                 ),
@@ -230,7 +223,7 @@ def render_session_roster_rows(
                 ),
             }
         )
-    return result
+    return temporal_wire(result)
 
 
 __all__ = ["render_session_roster_rows"]

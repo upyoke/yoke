@@ -47,6 +47,8 @@ from yoke_core.domain.session_message_types import (
     timestamp,
     utc_now,
 )
+from yoke_contracts.timestamps import as_utc
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.session_mode import session_is_parked
 from yoke_core.domain.session_relay_evidence import merge_redacted_evidence
 from yoke_core.domain.session_relay_storage import marker
@@ -94,7 +96,9 @@ def _process_identity(evidence: Mapping[str, Any]) -> tuple[tuple[str, ...], ...
     )
 
 
-def _stored_observation(conn: Any, session_id: str) -> tuple[str, dict[str, Any]]:
+def _stored_observation(
+    conn: Any, session_id: str
+) -> tuple[datetime | None, dict[str, Any]]:
     """The observation already on this session's row, if it carries one."""
     placeholder = marker(conn)
     row = conn.execute(
@@ -104,10 +108,10 @@ def _stored_observation(conn: Any, session_id: str) -> tuple[str, dict[str, Any]
         (session_id,),
     ).fetchone()
     if row is None:
-        return "", {}
+        return None, {}
     record = row_dict(row)
     return (
-        str(record.get("observed_at") or ""),
+        parse_timestamp(record.get("observed_at")),
         _decoded_evidence(record.get("evidence")),
     )
 
@@ -166,13 +170,13 @@ def record_native_process_gone(
     stored_at, stored_evidence = _stored_observation(conn, session_id)
     identity = _process_identity(evidence)
     exited_at = parse_timestamp(evidence.get(NATIVE_EXIT_AT_KEY))
-    death = timestamp(exited_at or observed_at or utc_now())
+    death = as_utc(exited_at or observed_at or utc_now())
     if any(identity) and _process_identity(stored_evidence) == identity:
         stamp = death if exited_at is not None else (stored_at or death)
     elif stored_at and death < stored_at:
         return {
             "state": NATIVE_PROCESS_GONE_STATE,
-            "observed_at": stored_at,
+            "observed_at": timestamp(stored_at),
             "evidence": stored_evidence,
         }
     else:
@@ -183,11 +187,11 @@ def record_native_process_gone(
         f"UPDATE harness_sessions SET {NATIVE_PROCESS_GONE_AT_COLUMN}={placeholder}, "
         f"{NATIVE_PROCESS_GONE_EVIDENCE_COLUMN}={placeholder} "
         f"WHERE session_id={placeholder}",
-        (stamp, payload, session_id),
+        (instant_parameter(conn, stamp), payload, session_id),
     )
     return {
         "state": NATIVE_PROCESS_GONE_STATE,
-        "observed_at": stamp,
+        "observed_at": timestamp(stamp),
         "evidence": dict(evidence),
     }
 
@@ -218,7 +222,7 @@ def absorb_completed_wake_report(
     row: Any,
     incoming_code: str,
     incoming_evidence: Mapping[str, Any] | None,
-    now: str,
+    now: datetime | str,
 ) -> dict[str, Any]:
     """Keep ``wake_delivered`` and record a later native-exit settlement."""
     stored_code = str(row[2] or "")
@@ -272,8 +276,8 @@ def current_native_process_observation(
         for field in ("last_heartbeat", "last_tool_call_at", "episode_started_at")
         if (parsed := parse_timestamp(row.get(field))) is not None
     ]
-    # Timestamps have second precision. Equal stamps can be the report and
-    # the episode that just died; only strictly later activity proves a
+    # Equal instants can be the report and the episode that just died;
+    # only strictly later activity, including one microsecond, proves a
     # replacement process or subsequent tool call.
     if activity and max(activity) > observed:
         return None
@@ -285,7 +289,7 @@ def current_native_process_observation(
         return None
     return {
         "state": NATIVE_PROCESS_GONE_STATE,
-        "observed_at": str(row.get(NATIVE_PROCESS_GONE_AT_COLUMN) or ""),
+        "observed_at": timestamp(observed),
         "evidence": evidence,
     }
 
