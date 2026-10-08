@@ -191,7 +191,7 @@ Read it three ways:
 
 ```bash
 yoke relay probe-models [--surface S] [--json]   # refresh this machine now
-yoke session-control launch --list-models        # defaults beside availability
+yoke session-control launch preview --list-models  # accepted flags beside availability
 yoke steering report get                         # every machine in the scope
 ```
 

@@ -290,8 +290,8 @@ def _apply_version_skew_gate(
     return function_version_skew.retype_skew(
         response,
         request,
-        server_version=handshake.engine_version,
-        env_name=connection.env,
+        server_version=getattr(handshake, "engine_version", ""),
+        env_name=getattr(connection, "env", ""),
         function_hint=function_hint,
     )
 
