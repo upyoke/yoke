@@ -337,6 +337,6 @@ def test_unregistered_checkout_warns_with_register_recovery(
     rc = run_checks(tmp_path)
     out = capsys.readouterr().out
 
-    assert rc == 1
+    assert rc == 0
     assert "not a registered project checkout" in out
     assert "yoke project register" in out

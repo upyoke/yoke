@@ -77,10 +77,11 @@ references retain their separate owners and canonical relative paths.
 ## Verify native discovery
 
 After fresh install and repeated refresh, inspect the native skills menu:
-each Yoke skill should appear once. For Codex, open the skill picker and search
+each native Yoke entry should appear once. For Codex, open the skill picker and search
 Onboard. For Cursor, type `/onboard` without submitting it; distinguish Yoke's
-description from Cursor's built-in Onboard. For Claude Code, inspect `/` and
-`/memory` in a fresh supported session. Directory counts alone do not prove
+description from Cursor's built-in Onboard. Claude Code discovers one `/yoke` router through its native link; invoke
+nested commands as `/yoke onboard`. Inspect `/config` for Project instructions
+and `/memory` in a fresh supported session. Directory counts alone do not prove
 native discovery or instruction loading.
 
 Official sources checked 2026-10-08:

@@ -109,10 +109,13 @@ def assert_claude_loading(
     plugin_ids = ("agents-md@builtin", "cc-plugin-agents-md@builtin")
     if any(plugins.get(key) is False for key in plugin_ids):
         _loading_refusal("the built-in AGENTS.md plugin is disabled")
-    configured = {
-        (configs.get(key) or {}).get("options", {}).get("instructionFiles")
-        for key in plugin_ids
-    } - {None}
+    configured = set()
+    for key in plugin_ids:
+        value = (configs.get(key) or {}).get("options", {}).get("instructionFiles")
+        if value is not None:
+            if not isinstance(value, str):
+                _loading_refusal("Project instructions must be a supported string")
+            configured.add(value)
     if len(configured) > 1:
         _loading_refusal("the built-in plugin has conflicting configuration entries")
     mode = next(iter(configured), "claude-md-or-agents-md")

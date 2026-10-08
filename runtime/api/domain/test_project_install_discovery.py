@@ -162,6 +162,11 @@ def test_ancestor_claude_files_refuse_default_loading(tmp_path, rel):
             }
         },
         {"claudeMdExcludes": ["**/AGENTS.md"]},
+        {
+            "pluginConfigs": {
+                "cc-plugin-agents-md@builtin": {"options": {"instructionFiles": []}}
+            }
+        },
     ],
 )
 def test_disabled_or_excluded_native_instructions_refuse(tmp_path, settings):
