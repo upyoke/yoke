@@ -16,6 +16,7 @@ from typing import Any, Dict, Optional, Sequence
 from yoke_core.domain.db_helpers import connect, query_one, query_rows
 from yoke_core.domain.qa_constants import is_browser_method_requirement
 from yoke_core.domain.qa_latest_execution import latest_executions
+from yoke_core.domain.qa_browser_evidence_check import _browser_proof_exists
 from yoke_core.domain.qa_gate_definitions import GateTarget
 from yoke_core.domain.qa_gate_helpers import _qa_tables_exist
 from yoke_core.domain.qa_gate_summary_text import _format_text
@@ -152,8 +153,8 @@ def render_gate_summary(
                 if pass_row
                 and query_one(
                     conn,
-                    "SELECT 1 FROM qa_artifacts WHERE qa_run_id=%s LIMIT 1",
-                    (pass_row["id"],),
+                    f"SELECT 1 FROM qa_requirements r WHERE r.id=%s AND {_browser_proof_exists('r')}",
+                    (req_id,),
                 )
                 else None
             )

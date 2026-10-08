@@ -9,8 +9,6 @@ each case is.
 
 from __future__ import annotations
 
-import json
-from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain.project_identity import render_item_ref
@@ -88,32 +86,6 @@ def obligations_fully_discharged(
     return bool(rows) and all(obligation_settled(row) for row in rows)
 
 
-#: A case's evidence as the execution record names it: any completed
-#: execution of this same subject and target rather than one chosen
-#: execution. A corrected case typically runs under its own plan, and
-#: therefore its own execution; reading only the newest execution's results
-#: made that passing case report "no attached evidence" and hold the stage it
-#: had just satisfied. This is the fallback behind the accepted verdict's own
-#: run. The digest predicate still carries the target-identity guarantee, so
-#: evidence recorded against a replaced target is no more visible than before.
-_CASE_EVIDENCE_SQL = (
-    "SELECT r.requirement_id,r.result_json FROM qa_plan_execution_results r "
-    "JOIN qa_plan_executions e ON e.id=r.execution_id "
-    "WHERE r.requirement_id IN ({placeholders}) AND e.deployment_run_id=%s "
-    "AND e.deployment_stage=%s "
-    "AND COALESCE(e.deployment_member_item_id,0)=%s "
-    "AND e.execution_target_digest=%s AND e.state='completed' "
-    "ORDER BY r.requirement_id,r.completed_at DESC,r.ordinal DESC"
-)
-
-
-#: Each case's accepted verdict and the run that carries it, for the whole
-#: case set at once. A subject's cases are known before any of them is
-#: graded, so this is one statement per subject rather than one per case.
-def _placeholders(values: tuple[int, ...]) -> str:
-    return ",".join("%s" for _ in values)
-
-
 def _latest_verdicts(
     conn: Any, requirement_ids: tuple[int, ...]
 ) -> dict[int, tuple[int, str]]:
@@ -124,74 +96,14 @@ def _latest_verdicts(
 
     rows = latest_executions(conn, requirement_ids).values()
     return {
-        int(row["qa_requirement_id"]): (int(row["id"]), str(row["verdict"] or ""))
+        int(row["qa_requirement_id"]): (
+            int(row["id"]),
+            str(row["verdict"] or "")
+            if row["completed_at"] and row["case_outcome"] not in {"running", "waiting"}
+            else "",
+        )
         for row in rows
     }
-
-
-def _execution_evidence_runs(
-    conn: Any,
-    requirement_ids: tuple[int, ...],
-    *,
-    run_id: str,
-    stage_name: str,
-    member_item_id: int | None,
-    execution_target_digest: str,
-) -> dict[int, list[int]]:
-    """Per case, the run ids its completed execution results name, in order."""
-    if not requirement_ids:
-        return {}
-    rows = query_rows(
-        conn,
-        _CASE_EVIDENCE_SQL.format(placeholders=_placeholders(requirement_ids)),
-        (
-            *requirement_ids,
-            run_id,
-            stage_name,
-            member_item_id or 0,
-            execution_target_digest,
-        ),
-    )
-    grouped: dict[int, list[int]] = {}
-    for row in rows:
-        raw_result = row["result_json"]
-        result = (
-            dict(raw_result)
-            if isinstance(raw_result, Mapping)
-            else json.loads(str(raw_result or "{}"))
-        )
-        evidence_run_id = result.get("qa_run_id") or result.get("run_id")
-        if evidence_run_id is not None:
-            grouped.setdefault(int(row["requirement_id"]), []).append(
-                int(evidence_run_id)
-            )
-    return grouped
-
-
-def _inspect_evidence(
-    candidates: list[int],
-    runs_with_artifacts: set[int],
-) -> tuple[bool, list[int]]:
-    """Whether any candidate run carries artifacts, and the runs inspected.
-
-    The run whose verdict this gate accepted is inspected first, because that
-    is the run the gate's evidence question is about and the one a reviewer
-    attaches evidence to. Asking only the execution record instead named a
-    different run — the capture run the execution wrote — and refused a member
-    whose evidence was already attached where the accepted pass lived. The
-    execution-scoped walk stays behind it, so a corrected case that ran under
-    its own plan and execution keeps passing on that evidence.
-
-    The inspected ids are returned so a refusal can say where it looked.
-    """
-    inspected: list[int] = []
-    for candidate in candidates:
-        if candidate in inspected:
-            continue
-        inspected.append(candidate)
-        if candidate in runs_with_artifacts:
-            return True, inspected
-    return False, inspected
 
 
 #: Stands in for a case set that was never materialized. It has no
@@ -259,14 +171,6 @@ def case_failures(
     # case set rather than once per case.
     graded = tuple(int(row["id"]) for row in rows if not obligation_settled(row))
     verdicts = _latest_verdicts(conn, graded)
-    evidence = _execution_evidence_runs(
-        conn,
-        graded,
-        run_id=run_id,
-        stage_name=stage_name,
-        member_item_id=member_item_id,
-        execution_target_digest=execution_target_digest,
-    )
     runs_with_artifacts = {
         qa_run_id
         for qa_run_id, counts in qa_artifact_counts_by_run(
@@ -280,7 +184,6 @@ def case_failures(
                         if requirement_id in verdicts
                         else ()
                     ),
-                    *evidence.get(requirement_id, []),
                 )
             },
         ).items()
@@ -310,12 +213,8 @@ def case_failures(
             )
             continue
         accepted_run_id = latest[0]
-        found, inspected = _inspect_evidence(
-            [accepted_run_id, *evidence.get(int(row["id"]), [])],
-            runs_with_artifacts,
-        )
-        if not found:
-            looked = ", ".join(f"#{candidate}" for candidate in inspected)
+        if accepted_run_id not in runs_with_artifacts:
+            looked = f"#{accepted_run_id}"
             failures.append(
                 CaseFailure(
                     requirement_id=int(row["id"]),

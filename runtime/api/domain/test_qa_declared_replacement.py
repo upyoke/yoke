@@ -112,7 +112,7 @@ def _failed_with_correction(
     return failed_id, corrected_id
 
 
-def test_declared_case_leaves_the_roster_but_keeps_blocking(test_db) -> None:
+def test_declared_case_leaves_grading_to_its_pending_successor(test_db) -> None:
     run_id = "run-replacement-declared"
     failed_id, corrected_id = _failed_with_correction(test_db, run_id)
 
@@ -123,10 +123,9 @@ def test_declared_case_leaves_the_roster_but_keeps_blocking(test_db) -> None:
     assert _roster(test_db, run_id) == [corrected_id]
     status = _status(test_db, run_id)
     assert not status["accepted"]
-    assert any(
-        f"#{failed_id}" in reason and f"declared replacement #{corrected_id}" in reason
-        for reason in status["reasons"]
-    ), status["reasons"]
+    assert any(f"#{corrected_id}" in reason for reason in status["reasons"]), status[
+        "reasons"
+    ]
 
 
 @pytest.mark.parametrize("verdict", ["fail", "error"])
@@ -150,7 +149,7 @@ def test_passing_replacement_supersedes_the_failed_case(test_db, verdict) -> Non
     assert status["accepted"], status["reasons"]
 
 
-def test_failing_replacement_leaves_the_failed_case_blocking(test_db) -> None:
+def test_failing_replacement_grades_only_the_successor(test_db) -> None:
     run_id = "run-replacement-fail"
     failed_id, corrected_id = _failed_with_correction(test_db, run_id)
 
@@ -161,7 +160,9 @@ def test_failing_replacement_leaves_the_failed_case_blocking(test_db) -> None:
     assert row["replacement_requirement_id"] == corrected_id
     status = _status(test_db, run_id)
     assert not status["accepted"]
-    assert any(f"#{failed_id}" in reason for reason in status["reasons"])
+    assert not any(
+        f"requirement #{failed_id} " in reason for reason in status["reasons"]
+    )
     assert any(f"#{corrected_id}" in reason for reason in status["reasons"])
 
 
@@ -283,6 +284,8 @@ def test_deployment_replacement_requires_fail_or_error_verdict(
             verdict_reason="Capture could not be judged"
             if verdict == "undetermined"
             else None,
+            started_at=iso8601_now(),
+            completed_at=iso8601_now(),
             created_at=iso8601_now(),
         )
         test_db.commit()

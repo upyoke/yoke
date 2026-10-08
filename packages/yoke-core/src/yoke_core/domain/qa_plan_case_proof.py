@@ -13,9 +13,9 @@ from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.qa_catalog_reads import _outcome
 from yoke_core.domain.qa_execution_proof import (
     qa_evidence_run_id,
-    qa_overridden_verdict_run,
 )
 from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.sql_json import json_get
 
 
 def _placeholder(conn: Any) -> str:
@@ -148,18 +148,6 @@ def _review_state(
             agent_run_id = capture_run_id
             agent_verdict = reviewed["verdict"]
             rationale = reviewed["rationale"]
-    if performed_by == "human_review" and run["run_id"] is not None:
-        overridden = qa_overridden_verdict_run(
-            conn,
-            requirement_id=requirement_id,
-            before_run_id=int(run["run_id"]),
-        )
-        if overridden is not None:
-            agent_run_id = int(overridden["id"])
-            overridden_raw = _decode(overridden["raw_result"], {})
-            capture_run_id = overridden_raw.get("capture_run_id")
-            agent_verdict = overridden["verdict"]
-            rationale = overridden["verdict_reason"]
     request = None
     if agent_run_id is not None and _table_exists(conn, "decision_requests"):
         marker = _placeholder(conn)
@@ -169,8 +157,10 @@ def _review_state(
             "resolution_note,resolved_at "
             "FROM decision_requests "
             "WHERE kind='qa_needs_review' AND subject_type='qa_requirement' "
-            f"AND subject_key={marker} ORDER BY created_at DESC,id DESC LIMIT 1",
-            (str(requirement_id),),
+            f"AND subject_key={marker} "
+            f"AND CAST({json_get('subject_context', '$.run_id')} AS TEXT)={marker} "
+            "ORDER BY created_at DESC,id DESC LIMIT 1",
+            (str(requirement_id), str(agent_run_id)),
         )
         context = (
             _decode(request_row["subject_context"], {})

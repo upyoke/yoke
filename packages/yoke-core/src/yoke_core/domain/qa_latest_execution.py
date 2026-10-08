@@ -14,7 +14,10 @@ def actual_execution_sql(alias: str) -> str:
     """
     return (
         "NOT EXISTS (SELECT 1 FROM qa_plan_review_verdicts judgment "
+        "JOIN qa_runs capture ON capture.id=judgment.capture_run_id "
         f"WHERE judgment.review_run_id={alias}.id "
+        f"AND judgment.requirement_id={alias}.qa_requirement_id "
+        f"AND capture.qa_requirement_id={alias}.qa_requirement_id "
         "AND judgment.capture_run_id <> judgment.review_run_id)"
     )
 

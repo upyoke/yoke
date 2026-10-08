@@ -21,7 +21,7 @@ from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain.qa_execution_proof import qa_evidence_run_id
 
 
-def test_evidence_falls_back_to_self_capturing_agent_run_on_human_review() -> None:
+def test_unassociated_judgment_cannot_borrow_another_attempts_artifacts() -> None:
     with test_database() as conn:
         insert_item(conn, id=4601, title="Self-capturing agent run")
         requirement = insert_qa_requirement(
@@ -57,7 +57,7 @@ def test_evidence_falls_back_to_self_capturing_agent_run_on_human_review() -> No
             raw_result=human_review["raw_result"],
         )
 
-        assert resolved == int(agent_run["id"])
+        assert resolved == int(human_review["id"])
 
 
 def test_evidence_rejects_capture_reference_from_another_requirement() -> None:

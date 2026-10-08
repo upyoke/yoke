@@ -14,14 +14,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from yoke_core.domain.db_helpers import query_scalar
+from yoke_core.domain.db_helpers import query_scalar, query_rows
 from yoke_core.domain.deployment_qa_member_scope import legacy_run_credits_run_wide
 from yoke_core.domain.post_deploy_verification_answer import answer_for_item
 from yoke_core.domain.qa_obligation_settlement import (
     settled_obligation_sql,
     unretracted_requirement_sql,
 )
-from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
+from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 from yoke_core.domain.schema_common import _table_exists
 
 
@@ -75,18 +75,15 @@ def satisfied_delivery_member(conn: Any, *, item_id: int, run_id: str) -> bool:
         return discharges_without_cases or bool(
             carried_member_no_item_qa_reason(conn, run_id=run_id, item_id=item_id)
         )
-    unresolved = query_scalar(
+    effective = query_rows(
         conn,
-        "SELECT COUNT(*) FROM qa_requirements r "
+        "SELECT r.id FROM qa_requirements r "
         f"WHERE r.deployment_run_id=%s AND {member_scope} "
         "AND r.qa_phase='post_deploy' AND r.blocking_mode='blocking' "
-        f"AND NOT {settled_obligation_sql(conn, 'r')} "
-        "AND NOT EXISTS (SELECT 1 FROM qa_runs qr "
-        f"WHERE qr.id=({latest_execution_id_sql('r.id')}) "
-        "AND qr.verdict='pass' AND qr.completed_at IS NOT NULL)",
+        f"AND NOT {settled_obligation_sql(conn, 'r')}",
         (str(run_id), int(item_id)),
     )
-    return int(unresolved or 0) == 0
+    return all(has_current_passing_run(conn, int(row["id"])) for row in effective)
 
 
 def close_out_satisfied_delivery_member(

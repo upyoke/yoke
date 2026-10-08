@@ -32,7 +32,7 @@ from typing import Any, List, Optional
 
 from yoke_core.domain.db_helpers import query_rows, query_scalar
 from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
-from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
+from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 from yoke_core.domain.schema_common import _table_exists
 
 #: Flow-derived ``deployment_run_qa`` statuses that settle a blocking check.
@@ -93,16 +93,11 @@ def _unresolved_plan_cases(conn: Any, run_id: str) -> List[str]:
         WHERE r.deployment_run_id = %s
           AND r.blocking_mode = 'blocking'
           AND NOT {settled_obligation_sql(conn, "r")}
-          AND NOT EXISTS (
-            SELECT 1 FROM qa_runs qr
-            WHERE qr.qa_requirement_id = r.id
-              AND qr.id = ({latest_execution_id_sql("r.id")})
-              AND qr.verdict = 'pass' AND qr.completed_at IS NOT NULL
-          )
         ORDER BY r.id ASC
         """,
         (run_id,),
     )
+    rows = [row for row in rows if not has_current_passing_run(conn, int(row["id"]))]
     if not rows:
         return []
     from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
