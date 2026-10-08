@@ -51,12 +51,11 @@ class ShellPathUse:
     inspection_only: bool = False
     direct_write: bool = False
     write_operands: tuple[str, ...] = ()
+    operand_targets: tuple[str, ...] = ()
 
     @property
     def local_targets(self) -> tuple[str, ...]:
-        return tuple(
-            dict.fromkeys(u.path for u in self.uses if u.role != PathRole.REMOTE)
-        )
+        return self.operand_targets
 
     @property
     def write_targets(self) -> tuple[str, ...]:
@@ -169,6 +168,7 @@ def analyze_shell_path_use(
         PathUse(path, PathRole.UNKNOWN)
         for path in extract_gh_repo_selector_targets(sanitized)
     ]
+    local_targets = [use.path for use in uses]
     unresolved = unresolved_writes
     mutation = bool(writes) or unresolved_writes
     direct_write = mutation
@@ -195,9 +195,13 @@ def analyze_shell_path_use(
             remote = remote_resource_indexes(base, tokens)
             uses.extend(PathUse(tokens[i], PathRole.REMOTE) for i in sorted(remote))
             targets, unknown = _extract_segment_targets(raw_tokens, bindings)
+            local_targets.extend(targets)
             unresolved = unresolved or unknown
             capacity = _capacity_operands(tokens, segment, bindings)
-            capacity_segments.append(capacity is not None)
+            capacity_settled = capacity is not None and not any(
+                any(mark in path for mark in "*?{[") for path in capacity
+            )
+            capacity_segments.append(capacity_settled)
             state_move = (
                 git_subcommand(tokens) in GIT_MUTATING_SUBS | _GIT_LOCAL_STATE_MOVES
                 if base == "git"
@@ -232,12 +236,20 @@ def analyze_shell_path_use(
             )
             for target in targets:
                 target_role = PathRole.WRITE if target in writes else role
-                if capacity is not None and target in capacity and target not in writes:
+                if capacity_settled and target in capacity and target not in writes:
                     target_role = PathRole.CAPACITY
                 uses.append(PathUse(target, target_role))
             if capacity is not None:
-                uses.extend(PathUse(path, PathRole.CAPACITY) for path in capacity)
+                uses.extend(
+                    PathUse(
+                        path,
+                        PathRole.CAPACITY if capacity_settled else PathRole.UNKNOWN,
+                    )
+                    for path in capacity
+                )
+                local_targets.extend(path for path in capacity if path not in targets)
     uses.extend(PathUse(path, PathRole.WRITE) for path in writes)
+    local_targets.extend(path for path in writes if path not in local_targets)
     if unsupported or unresolved:
         uses = [
             PathUse(
@@ -257,6 +269,7 @@ def analyze_shell_path_use(
         and not unresolved,
         direct_write,
         tuple(dict.fromkeys(writes)),
+        tuple(local_targets),
     )
 
 

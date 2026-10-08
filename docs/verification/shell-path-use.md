@@ -94,11 +94,13 @@ Capacity exposes filesystem totals, not installation contents. Expected
 permission was assigned from that access distinction, independently of the
 observed refusal.
 
-The comparison changed 20 of 147 classifier projections, all explained in the matrix:
+The comparison changed 36 of 147 classifier projections, all explained in the matrix:
 six expose already-resolved variable redirects in the same free temporary
 root; ten expose existing relative write positions (including supported
 leading-cd resolution); one exposes an existing embedded Python write; two
-remove inert heredoc text previously mistaken for absolute paths. In addition, known state moves carry their path operands to write consumers,
+remove inert heredoc text previously mistaken for absolute paths. Sixteen further projections retain previously missed home-relative read/traversal
+operands using executing-machine home. In addition, known state moves carry
+their path operands to write consumers,
 and Git fetch now receives source-main mutation protection. Unresolved-write
 facts, read signatures, path-claim mutations and the established conservative
 compound-Git lane judgment remain unchanged. No other guard transition is asserted: missing
@@ -117,3 +119,9 @@ authority and real embedded Python writes. Fail-open is an assertion failure.
 Existing source-main, privacy, parser and adapter suites provide the remaining
 guard-chain checks on the committed candidate. The evidence does not claim
 exhaustive execution coverage from the sample or recover inaccessible history.
+
+An unresolved executing-machine home operand refuses by name as
+`unresolved_executing_machine_home`, with recovery to canonical client-home
+metadata or a literal absolute client path. It never becomes a relative path
+under the held lane. Capacity operands with glob expansion retain ordinary
+authority because expansion can traverse a protected directory.

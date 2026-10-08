@@ -234,6 +234,8 @@ def _extract_segment_targets(
             positional_index += 1
             if not skip_arg_targets and positional_index != sed_script_index:
                 target = path_target_from_token(tok, bindings)
+                if target is None and tok.startswith("~"):
+                    target = tok
                 if target is not None:
                     out.append(target)
         i += 1

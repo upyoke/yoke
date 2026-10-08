@@ -9,9 +9,13 @@ from yoke_core.domain.lint_session_cwd_target_extract import (
     _tool_input,
     _resolve_target_paths,
     extract_payload_command,
+    resolve_payload_cwd,
     analyze_payload_write_targets,
 )
 from yoke_core.domain.observe_apply_patch_parser import parse_patch
+from yoke_core.domain.lint_session_cwd_home import expand_machine_home
+
+UNRESOLVED_HOME_PATH = "unresolved_executing_machine_home"
 
 
 def extract_payload_path_uses(
@@ -36,6 +40,9 @@ def extract_payload_path_uses(
         else PathRole.READ
     )
     uses = []
+    declared = resolve_payload_cwd(payload)
+    if expand_machine_home(declared, machine_home=machine_home).startswith("~"):
+        uses.append(PathUse(declared, PathRole.UNKNOWN))
     file_path = _tool_input(payload).get("file_path")
     if isinstance(file_path, str) and file_path.strip():
         uses.append(PathUse(file_path, role))
@@ -55,7 +62,10 @@ def extract_payload_path_uses(
                 uses.append(PathUse(cwd, PathRole.CAPACITY))
     resolved = []
     for use in uses:
-        if use.role == PathRole.REMOTE:
+        expanded = expand_machine_home(use.path, machine_home=machine_home)
+        if use.role != PathRole.REMOTE and expanded.startswith("~"):
+            resolved.append(PathUse(use.path, PathRole.UNKNOWN))
+        elif use.role == PathRole.REMOTE:
             resolved.append(use)
         else:
             resolved.extend(

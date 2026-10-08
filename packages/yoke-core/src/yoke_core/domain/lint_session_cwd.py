@@ -27,12 +27,7 @@ from yoke_core.domain.lint_session_cwd_pre_implementing import (
 from yoke_core.domain.lint_session_cwd_read_only_signatures import (
     match_read_only_signature,
 )
-from yoke_core.domain.lint_session_cwd_repo_command import repo_command_block
 from yoke_core.domain.lane_occupancy import LaneOccupant
-from yoke_core.domain.lint_session_cwd_foreign_lane import (
-    FAILURE_CLASS as FOREIGN_LANE_FAILURE_CLASS,
-    build_denial_message as build_foreign_lane_message,
-)
 from yoke_core.domain.lint_session_cwd_identity import (
     FAILURE_CLASS as IDENTITY_FAILURE_CLASS,
     build_denial_message as build_identity_failure_message,
@@ -41,6 +36,10 @@ from yoke_core.domain.lint_session_cwd_status import (
     FAILURE_CLASS as PRE_IMPL_FAILURE_CLASS,
 )
 from yoke_core.domain.lint_session_cwd_target_extract import extract_payload_command
+from yoke_core.domain.lint_session_cwd_denial import (
+    build_denial_reason,
+    CLIENT_HOME_AUTHORITY_UNAVAILABLE as CLIENT_HOME_AUTHORITY_UNAVAILABLE,
+)
 from yoke_core.domain.lint_payload_path_use import extract_payload_path_uses
 from yoke_core.domain.lint_shell_path_use import PathRole
 from yoke_core.domain.lint_session_cwd_validate import (
@@ -61,7 +60,6 @@ from yoke_contracts.hook_runner.session_cwd import (
 
 
 _ORIENTATION_EVENTS = frozenset({"SessionStart", "UserPromptSubmit"})
-CLIENT_HOME_AUTHORITY_UNAVAILABLE = "client_home_metadata_missing_or_invalid"
 
 
 @dataclass(frozen=True)
@@ -155,8 +153,6 @@ def evaluate_pre_tool_use(
             repo_roots=outcome.repo_roots,
         )
 
-    authority_reason = ""
-
     if outcome.failure_class == PRE_IMPL_FAILURE_CLASS:
         return build_pre_implementing_verdict(outcome, payload)
 
@@ -176,35 +172,14 @@ def evaluate_pre_tool_use(
                 repo_roots=outcome.repo_roots,
             )
 
-    if outcome.failure_class == FOREIGN_LANE_FAILURE_CLASS and outcome.occupant:
-        body = build_foreign_lane_message(
-            offending_target=outcome.offending_target,
-            occupant=outcome.occupant,
-            payload=payload,
-        )
-    else:
-        body = build_scope_mismatch_block(
-            offending_target=outcome.offending_target,
-            claims=outcome.claims,
-            repo_roots=outcome.repo_roots,
-            command=command,
-        )
-        body += repo_command_block(payload, outcome.claims) if not targets else ""
-        if (
-            machine_home == ""
-            and not write_operation
-            and tool_name.strip()
-            and (not command.strip() or match_read_only_signature(command))
-        ):
-            authority_reason = CLIENT_HOME_AUTHORITY_UNAVAILABLE
-            body += (
-                "\nAuthority classification: the relayed client machine-home "
-                "metadata was missing or invalid, so this read cannot be "
-                "classified as ordinary reference material under the client "
-                "home. Restore the canonical client-home fact in the hook "
-                "relay and retry."
-            )
-    reason = attach_check_id(body, check_id="lint-session-cwd")
+    reason, authority_reason = build_denial_reason(
+        outcome,
+        payload,
+        has_targets=bool(targets),
+        command=command,
+        read_only=not write_operation,
+        machine_home=machine_home,
+    )
     return Verdict(
         allow=False,
         reason=reason,
@@ -340,11 +315,17 @@ def main() -> int:
     return 0
 
 
-__all__ = (
-    "ORIENTATION_HEADING OrientationBlock SCOPE_MISMATCH_TEMPLATE Verdict "
-    "build_scope_mismatch_block evaluate evaluate_orientation evaluate_pre_tool_use main"
-).split()
-
+__all__ = [
+    "ORIENTATION_HEADING",
+    "OrientationBlock",
+    "SCOPE_MISMATCH_TEMPLATE",
+    "Verdict",
+    "build_scope_mismatch_block",
+    "evaluate",
+    "evaluate_orientation",
+    "evaluate_pre_tool_use",
+    "main",
+]
 
 if __name__ == "__main__":  # pragma: no cover - CLI shim
     sys.exit(main())

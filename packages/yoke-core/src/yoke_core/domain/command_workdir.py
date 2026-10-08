@@ -48,7 +48,12 @@ def command_execution_cwd(
 ) -> str:
     """Return the absolute directory the payload's command runs in, or ``""``."""
     declared = resolve_authority_cwd(payload)
-    cwd = _absolute(declared, machine_home) if declared else ""
+    expanded_base = expand_machine_home(declared, machine_home=machine_home)
+    cwd = (
+        _absolute(expanded_base, machine_home)
+        if expanded_base and not expanded_base.startswith("~")
+        else ""
+    )
     command = extract_command(payload)
     if not command:
         return cwd
@@ -57,7 +62,12 @@ def command_execution_cwd(
         if destination is None:
             break
         expanded = expand_machine_home(destination, machine_home=machine_home)
-        if "$" in expanded or "`" in expanded or expanded == "-":
+        if (
+            "$" in expanded
+            or "`" in expanded
+            or expanded == "-"
+            or expanded.startswith("~")
+        ):
             break
         if not os.path.isabs(expanded):
             if not cwd:

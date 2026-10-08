@@ -1,23 +1,11 @@
-"""Per-tool-call claim-based validation for the session-cwd policy.
+"""Validate targets against claims, lane occupancy, status, and machine context.
 
-Authority comes from active work claims, project control planes, and free paths.
-The slim hook-policy glue lives in :mod:`lint_session_cwd`. Behaviour:
-
-* A write or state move into a lane another session holds is refused,
-  whether or not the caller holds a claim. Reads of that lane are allowed.
-* Read-only Git inspection of a lane → exempt from every test here.
-* Read-shaped calls to ordinary home material and sanctioned installed paths
-  use the executing machine's home. Project paths, dot-directories, and every
-  write shape stay governed.
-* Session with no claims → allowed everywhere except another session's
-  live lane.
-* Settled capacity operands inspect totals without granting content or mutation.
-* Session with claims → other targets must land under a claimed worktree, a
-  recorded project's control plane, or a free path.
-* Bash with no extractable targets → the caller passes ``fallback_cwd``
-  as a synthetic target so a worktree-binding session that runs a
-  control-plane read from outside its worktree still validates against
-  the same rules.
+Known capacity operands inspect totals without granting content or mutation.
+Unresolved home operands are refused. Writes and state moves into foreign lanes
+are refused; established plain Git inspection and foreign-lane reads remain
+exempt. Ordinary home reads use executing-machine facts. Other claimed-call
+paths must be in a held lane, control plane, or free root; a call with no
+operands uses its declared cwd as the synthetic target.
 """
 
 from __future__ import annotations
@@ -66,6 +54,7 @@ from yoke_core.domain.session_claimed_worktrees import (
     claimed_worktrees,
 )
 from yoke_core.domain.lint_shell_path_use import PathUse, is_capacity_target
+from yoke_core.domain.lint_payload_path_use import UNRESOLVED_HOME_PATH
 from yoke_core.domain.lint_session_cwd_item_lookup import (
     lookup_item_status,
     lookup_item_workflow,
@@ -132,6 +121,16 @@ def validate_targets(
     claims = claimed_worktrees(conn, session_id=session_id)
     repo_roots = tuple(_recorded_repo_roots(conn) or _derive_repo_roots(conn, claims))
 
+    for use in path_uses:
+        if use.path.startswith("~"):
+            return ValidationVerdict(
+                False,
+                use.path,
+                claims,
+                repo_roots,
+                session_id,
+                failure_class=UNRESOLVED_HOME_PATH,
+            )
     targets_to_check: List[str] = [
         t for t in targets if isinstance(t, str) and t.strip()
     ]

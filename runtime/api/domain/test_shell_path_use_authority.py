@@ -93,6 +93,7 @@ def test_original_capacity_refusal_and_permitted_counterpart(
         f"df -k {HOME}/.yoke > {HOME}/.yoke/out",
         f"df -k {HOME}/.yoke && touch {HOME}/.yoke",
         f"df -k {HOME}/.yoke && touch $unknown",
+        f"df -k {HOME}/.yoke/*",
         f"df -k {HOME}/.yoke && bash -c 'opaque action'",
     ],
 )
@@ -179,3 +180,40 @@ def test_leading_cd_home_is_the_executing_machine(isolated_authority, monkeypatc
 def test_embedded_python_write_retains_local_authority(isolated_authority):
     command = f"python3 - <<'PY'\nfrom pathlib import Path\nPath('{HOME}/.yoke/out').write_text('value')\nPY"
     assert evaluate(command).outcome is Outcome.DENY
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "touch ~/.yoke/out",
+        "cd ~/.yoke && touch out",
+        "cat ~/.yoke/private",
+        "df -k ~/.yoke",
+        "touch ~other/private",
+    ],
+)
+def test_unresolved_home_never_becomes_a_lane_path(isolated_authority, command):
+    payload = {
+        "session_id": SESSION,
+        "cwd": LANE,
+        "tool_name": "Bash",
+        "tool_input": {"command": command},
+    }
+    verdict = guard.evaluate_pre_tool_use(payload, machine_home="")
+    assert not verdict.allow
+    assert verdict.authority_reason == "unresolved_executing_machine_home"
+    assert "absolute path" in verdict.reason
+
+
+def test_unresolved_cwd_home_never_becomes_a_lane_path(isolated_authority):
+    verdict = guard.evaluate_pre_tool_use(
+        {
+            "session_id": SESSION,
+            "cwd": "~/lane",
+            "tool_name": "Write",
+            "tool_input": {"file_path": "out"},
+        },
+        machine_home="",
+    )
+    assert not verdict.allow
+    assert verdict.authority_reason == "unresolved_executing_machine_home"

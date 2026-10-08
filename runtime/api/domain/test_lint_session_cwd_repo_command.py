@@ -103,7 +103,11 @@ class TestQuotedRepositorySelector:
         ],
     )
     def test_selector_text_outside_exact_gh_shape_is_not_trusted(self, command):
-        assert extract_command_targets(command) == []
+        targets = extract_command_targets(command)
+        assert "/opt/claimed" not in targets
+        assert targets == (
+            ["relative-file"] if "; touch relative-file" in command else []
+        )
 
 
 class TestClaimedLaneCommands:
