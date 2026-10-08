@@ -14,19 +14,29 @@ import {
   attachRevealPanel,
   revealCloseButton,
 } from "./universe_reveal_panel.js";
-import { appendSessionPrimaryStatus } from "./universe_session_diagnostics.js";
+import {
+  appendSessionPrimaryStatus,
+  sessionIsLive,
+} from "./universe_session_diagnostics.js";
 import { harnessIdentity } from "./universe_session_presentation.js";
 import { el } from "./universe_view_support.js";
 
 let claimantPanelSequence = 0;
 
-// A session is a qualifying claimant when the roster still calls it live and
-// this machine has not seen its process die. Parked does not disqualify it: a
-// parked session is waiting by declaration, and its claim is still its own.
+// A holder is abandoned only when nothing accounts for its silence: the
+// server calls it stale — past its activity TTL and not parked on its claim —
+// and its process has been seen gone. A parked holder is `waiting`, never
+// stale, so an exited process alone never makes it abandoned: the next
+// message resumes it from its transcript.
+export function isAbandonedHolder(row) {
+  return String(row.liveness || "").toLowerCase() === "stale"
+    && String(row.native_process?.state || "") === "gone";
+}
+
+// A session is a qualifying claimant — its item counts as being worked on —
+// when the roster still calls it live and it is not an abandoned holder.
 export function isQualifyingClaimant(row) {
-  const liveness = String(row.liveness || "").toLowerCase();
-  if (liveness !== "active" && liveness !== "stale") return false;
-  return String(row.native_process?.state || "") !== "gone";
+  return sessionIsLive(row) && !isAbandonedHolder(row);
 }
 
 export function itemClaimsOf(row) {
@@ -142,7 +152,11 @@ export function itemClaimantControl(
 }
 
 /**
- * Append every qualifying claimant of `reference` to `card`.
+ * Append every live claimant of `reference` to `card`.
+ *
+ * Every live holder gets its chip, an abandoned one included: the card always
+ * names who holds the item, and the chip's own status says whether it is
+ * working, waiting, exited or gone.
  *
  * Returns how many were drawn, so a caller can say "unclaimed" where that is
  * the fact rather than inferring it from an empty element. `popover` is
@@ -151,7 +165,7 @@ export function itemClaimantControl(
 export function appendItemClaimants(
   documentNode, card, reference, claimants, renderFullSession, { popover = false } = {},
 ) {
-  const rows = (claimants.get(reference) || []).filter(isQualifyingClaimant);
+  const rows = (claimants.get(reference) || []).filter(sessionIsLive);
   if (!rows.length) return 0;
   const host = el(documentNode, "div", "item-claimant-row");
   for (const row of rows) {

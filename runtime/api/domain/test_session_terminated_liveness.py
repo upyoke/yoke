@@ -20,7 +20,8 @@ from runtime.api.test_sessions import _register
 from yoke_contracts.session_control.liveness import LIVENESS_ENDED, LIVENESS_STATES
 from yoke_core.domain.session_message_delivery import lease_for_hook
 from yoke_core.domain.session_message_liveness import applied_liveness
-from yoke_core.domain.session_message_routing import messageability, session_liveness
+from yoke_core.domain.session_message_routing import messageability
+from yoke_core.domain.session_staleness import session_liveness
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
 from yoke_core.domain.sessions import SessionError, end_session

@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from yoke_contracts.session_control.models import RecipientSelector
+from yoke_contracts.session_control.liveness import holds_work_claim_sql
 from yoke_core.domain import db_backend
 from yoke_core.domain.project_identity import resolve_project_slug
 from yoke_core.domain.session_message_anchors import anchor_hits
@@ -17,7 +18,8 @@ from yoke_core.domain.session_message_liveness import (
     is_bulk_evidence,
     narrows_bulk_by_default,
 )
-from yoke_core.domain.session_message_routing import messageability, session_liveness
+from yoke_core.domain.session_message_routing import messageability
+from yoke_core.domain.session_staleness import activity_liveness, session_liveness
 from yoke_core.domain.session_relay_machine_versions import (
     connected_relay_routes,
     machine_surface_versions,
@@ -37,8 +39,10 @@ def _p(conn: Any) -> str:
 def _session_rows(conn: Any) -> dict[str, dict[str, Any]]:
     rows = conn.execute(
         "SELECT session_id, project_id, executor, executor_surface, "
-        "executor_version, machine_id, execution_lane, last_heartbeat, "
-        "last_tool_call_at, ended_at, terminated_at FROM harness_sessions ORDER BY session_id"
+        "executor_version, machine_id, execution_lane, mode, last_heartbeat, "
+        "last_tool_call_at, ended_at, terminated_at, "
+        f"{holds_work_claim_sql('harness_sessions')} AS holds_work_claim "
+        "FROM harness_sessions ORDER BY session_id"
     ).fetchall()
     return {str(row["session_id"]): row_dict(row) for row in rows}
 
@@ -174,7 +178,7 @@ def resolve_recipients(
             liveness=liveness,
             messageability=messageability(
                 row,
-                liveness=liveness,
+                liveness=activity_liveness(row, now=current),
                 machine_surface_versions=machine_surface_versions(
                     relay_routes,
                     machine_id=row.get("machine_id"),

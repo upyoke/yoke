@@ -37,9 +37,8 @@ from typing import Any, Dict, Iterable, List, Sequence
 from yoke_contracts.session_control.liveness import LIVENESS_STALE
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_message_authorization import project_policy
-from yoke_core.domain.session_message_routing import session_liveness
 from yoke_core.domain.session_message_types import row_dict, utc_now
-from yoke_core.domain.session_staleness import activity_is_stale
+from yoke_core.domain.session_staleness import activity_is_stale, activity_liveness
 from yoke_core.domain.session_mode import SESSION_MODE_PARKED
 
 
@@ -166,7 +165,7 @@ def probe_stale_alive_sessions(
         session_id = str(row["session_id"])
         if str(row.get("mode") or "") == SESSION_MODE_PARKED:
             continue
-        if session_liveness(row, now=current) != LIVENESS_STALE:
+        if activity_liveness(row, now=current) != LIVENESS_STALE:
             continue
         # The probe threshold is time spent stale, not time spent quiet.
         # Quiet is already what staleness measures, and its TTL varies by

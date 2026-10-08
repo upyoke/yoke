@@ -8,7 +8,7 @@ import pytest
 
 from yoke_contracts.session_model_facts import SessionModelFacts
 from runtime.api.test_sessions import _p, _register
-from yoke_core.domain.session_message_routing import session_liveness
+from yoke_core.domain.session_staleness import session_liveness
 from yoke_core.domain.session_reclaim_activity import latest_activity
 from yoke_core.domain.sessions import SessionError, end_session, heartbeat
 

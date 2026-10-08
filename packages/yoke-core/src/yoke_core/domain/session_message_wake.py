@@ -29,8 +29,8 @@ from yoke_core.domain.session_operator_wake_notice import notify_operator_to_wak
 from yoke_core.domain.session_message_routing import (
     latest_observed_activity,
     messageability,
-    session_liveness,
 )
+from yoke_core.domain.session_staleness import activity_liveness
 from yoke_core.domain.session_message_starvation import (
     PARKED_WITHOUT_IDLE_WAKE,
     STARVED_HOOK_ROUTE,
@@ -198,7 +198,7 @@ def wake_eligible_recipients(
             notify_failed_wake(
                 conn, row, now=current, max_attempts=policy.max_wake_attempts
             )
-            liveness = session_liveness(row, now=current)
+            liveness = activity_liveness(row, now=current)
             explicit_wake = explicit_stopped_wake_requested(row.get("routing_snapshot"))
             attempt_count = int(row["wake_attempt_count"] or 0)
             at_limit = attempt_count >= policy.max_wake_attempts

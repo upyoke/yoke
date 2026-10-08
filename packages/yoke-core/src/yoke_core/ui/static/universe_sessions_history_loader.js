@@ -7,6 +7,7 @@ import {
   holdingsDisclosureFocusId,
   restoreHoldingsDisclosureFocus,
 } from "./universe_sessions_holdings_disclosure.js";
+import { sessionIsLive } from "./universe_session_diagnostics.js";
 import { callFunction, el } from "./universe_view_support.js";
 
 const HISTORY_PAGE_SIZE = 50;
@@ -197,9 +198,7 @@ export function sessionsHistoryLoader(context, scope, filters, onChange) {
       emit();
       return false;
     }
-    openRows = (result.envelope.result?.rows || []).filter(
-      (row) => row.liveness === "active" || row.liveness === "stale",
-    );
+    openRows = (result.envelope.result?.rows || []).filter(sessionIsLive);
     openError = null;
     filters.setFacets(mergeFacets(rowFacets(openRows), historyFacets));
     emit();

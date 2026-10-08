@@ -8,9 +8,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from yoke_contracts.session_control.liveness import (
     ENDED_CAUSE_KILLED,
     ENDED_CAUSE_WOUND_DOWN,
-    LIVENESS_ACTIVE,
     LIVENESS_ENDED,
-    LIVENESS_STALE,
 )
 from yoke_core.domain.actor_render import render_actor_names
 from yoke_core.domain.session_focus_attribution import focus_attribution
@@ -34,7 +32,10 @@ from yoke_core.domain.session_presentation_read import (
     lane_settings_by_project,
     session_presentation,
 )
-from yoke_core.domain.session_staleness import activity_is_stale
+from yoke_core.domain.session_staleness import (
+    session_liveness,
+    stale_reclaim_candidate,
+)
 from yoke_core.domain.sessions_queries_base import normalize_claim_item_id
 
 
@@ -121,17 +122,12 @@ def render_session_roster_rows(
             row.get("last_heartbeat"),
             row.get("last_tool_call_at"),
         )
+        state = session_liveness(row)
         cause: Optional[str] = None
         if row.get("terminated_at"):
-            state = LIVENESS_ENDED
             cause = ENDED_CAUSE_KILLED
         elif row.get("ended_at"):
-            state = LIVENESS_ENDED
             cause = ENDED_CAUSE_WOUND_DOWN
-        elif activity_is_stale(activity_at, executor=row.get("executor")):
-            state = LIVENESS_STALE
-        else:
-            state = LIVENESS_ACTIVE
         if liveness is not None and state != liveness:
             continue
         session_id = str(row["session_id"])
@@ -160,6 +156,14 @@ def render_session_roster_rows(
                 "session_id": session_id,
                 "liveness": state,
                 "ended_cause": cause,
+                # Whether the stale reclaim sweep would act on this session:
+                # the Sessions page counts these, never every stale row.
+                "reclaimable": state != LIVENESS_ENDED
+                and stale_reclaim_candidate(
+                    activity_at,
+                    executor=row.get("executor"),
+                    holds_work_claim=bool(row.get("holds_work_claim")),
+                ),
                 "activity_at": activity_at,
                 "last_tool_call_at": (
                     str(row["last_tool_call_at"])

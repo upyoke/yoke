@@ -4,7 +4,14 @@ One spelling of the states a session row can be in, so the roster, the
 recipient selector, and every adapter that offers a ``--liveness`` flag
 accept and report the same words.
 
-Deadness has three states; how a session became dead is a separate facet.
+A live session is ``active`` or ``stale`` by its activity, except one that
+has parked (declared a quiet reason) while holding an active work claim: that
+session is ``waiting`` on purpose — a deploy, a landing, a migration slot —
+whatever its age, because its claim protects it from the reclaim sweep and it
+resumes on the next prompt. ``stale`` therefore never names a parked claim
+holder.
+
+How a session became dead is a separate facet.
 A session killed through ``session_control.session.terminate`` is ``ended``
 like any other gone session — its ``terminated_at`` mechanics (no revival,
 no wake, claims already released) are unchanged — and the kill shows up as
@@ -14,14 +21,24 @@ the ``killed`` ended cause rather than as a fourth liveness value.
 from __future__ import annotations
 
 LIVENESS_ACTIVE = "active"
+LIVENESS_WAITING = "waiting"
 LIVENESS_STALE = "stale"
 LIVENESS_ENDED = "ended"
 
 #: The states a session row can be in, in narrowing-to-widening order.
 LIVENESS_STATES: tuple[str, ...] = (
     LIVENESS_ACTIVE,
+    LIVENESS_WAITING,
     LIVENESS_STALE,
     LIVENESS_ENDED,
+)
+
+#: The not-ended states: every surface that splits the roster into live and
+#: gone reads this set rather than listing the live states itself.
+LIVE_LIVENESS_STATES: tuple[str, ...] = (
+    LIVENESS_ACTIVE,
+    LIVENESS_WAITING,
+    LIVENESS_STALE,
 )
 
 #: Widening sentinel: every state, named explicitly by the caller.
@@ -56,6 +73,20 @@ def ended_session_sql(alias: str) -> str:
     return f"({alias}.ended_at IS NOT NULL OR {alias}.terminated_at IS NOT NULL)"
 
 
+def holds_work_claim_sql(alias: str) -> str:
+    """SQL for whether the session holds any active work claim.
+
+    Liveness reads this fact off the row (selected ``AS holds_work_claim``):
+    a parked session holding a claim is ``waiting``, never ``stale``. It is the
+    same fact that protects a session from the stale reclaim sweep.
+    """
+    return (
+        "EXISTS (SELECT 1 FROM work_claims holds_wc "
+        f"WHERE holds_wc.session_id = {alias}.session_id "
+        "AND holds_wc.released_at IS NULL)"
+    )
+
+
 def ended_at_sql(alias: str) -> str:
     """When an ended session ended: its ordinary end stamp, else its kill stamp.
 
@@ -75,7 +106,10 @@ __all__ = [
     "LIVENESS_ENDED",
     "LIVENESS_STALE",
     "LIVENESS_STATES",
+    "LIVENESS_WAITING",
+    "LIVE_LIVENESS_STATES",
     "ended_at_sql",
     "ended_session_sql",
+    "holds_work_claim_sql",
     "live_session_sql",
 ]

@@ -2,6 +2,16 @@ import { attachTooltip, infoTooltip } from "./universe_tooltip.js";
 import { relativeAge } from "./universe_time.js";
 import { el, statePill } from "./universe_view_support.js";
 
+// The not-ended liveness states, exactly as the server classifies them. A
+// waiting session is parked on its work claim on purpose — a deploy, a
+// landing, a migration slot — and is as live as an active one; only `ended`
+// is gone. Every screen that splits live from gone asks this one question.
+const LIVE_LIVENESS = new Set(["active", "waiting", "stale"]);
+
+export function sessionIsLive(row) {
+  return LIVE_LIVENESS.has(String(row.liveness || "").toLowerCase());
+}
+
 const MESSAGE_STATES = new Set([
   "pending", "injected", "acknowledged", "cancelled", "expired",
 ]);
@@ -170,6 +180,13 @@ export function sessionPrimaryStatus(row, now = Date.now()) {
   const parked = selfParkedStatus(row);
   if (parked) return carrying(parked);
   if (health) return carrying(health);
+  if (liveness === "waiting") {
+    return carrying({
+      state: "waiting",
+      label: "waiting",
+      detail: "parked holding its claim; the next message resumes it",
+    });
+  }
   if (liveness === "stale") {
     return carrying({ state: "stale", label: "stale", detail: null });
   }

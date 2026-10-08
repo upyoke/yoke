@@ -19,7 +19,7 @@ from typing import Any, Iterable, Mapping
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _column_exists, _table_exists
-from yoke_core.domain.session_message_routing import session_liveness
+from yoke_core.domain.session_staleness import session_liveness
 from yoke_core.domain.sessions_holdings_claim_facts import steered_document_slugs
 from yoke_core.domain.steering_scope_coverage import covering_seat, live_steering_claims
 from yoke_core.domain.steering_scope_membership import (
@@ -71,7 +71,8 @@ def _scope_rows(
         "SELECT claim.id AS claim_id,claim.session_id,claim.claimed_at,"
         "project.id AS project_id,project.slug AS project,"
         "holder.last_heartbeat,holder.last_tool_call_at,holder.ended_at,"
-        "holder.terminated_at,holder.executor "
+        "holder.terminated_at,holder.executor,holder.mode,"
+        "TRUE AS holds_work_claim "
         "FROM work_claims claim "
         f"JOIN projects project ON project.id={project_id} "
         "JOIN harness_sessions holder ON holder.session_id=claim.session_id "

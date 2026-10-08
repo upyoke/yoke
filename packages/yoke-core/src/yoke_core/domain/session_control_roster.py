@@ -27,6 +27,7 @@ from yoke_core.domain.session_item_stage_states import (
 )
 from yoke_core.domain.sessions_steering_visibility import steering_visibility
 from yoke_core.domain.session_message_routing import messageability
+from yoke_core.domain.session_staleness import activity_liveness
 from yoke_core.domain.session_relay_machine_versions import (
     connected_relay_routes,
     surface_versions_for,
@@ -212,7 +213,8 @@ def _project_row(
     machine_id = str(merged.get("machine_id") or "")
     routes = connected_relays.get(machine_id, ())
     relay_connected = bool(machine_id and routes)
-    liveness = str(row.get("liveness") or "ended")
+    # Wake routing keys on activity; the row's own liveness is for display.
+    liveness = activity_liveness(merged)
     versions = surface_versions_for(routes, project_id=merged.get("project_id"))
     routing = messageability(
         merged,

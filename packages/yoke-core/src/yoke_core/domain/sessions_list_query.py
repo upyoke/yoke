@@ -9,6 +9,8 @@ holding a live item work claim rides along whatever its rank).
 
 from __future__ import annotations
 
+from yoke_contracts.session_control.liveness import holds_work_claim_sql
+
 #: The activity stamp every read orders by: the later of the two timestamps as
 #: uniform ISO-8601 text (lexicographic order matches chronological order).
 _ACTIVITY = "GREATEST(COALESCE(s.last_tool_call_at, ''), s.last_heartbeat)"
@@ -33,6 +35,7 @@ _SELECT = (
     "s.presentation_source, s.presentation_observed_at, "
     "s.execution_lane, "
     "s.mode, s.quiet_reason, s.keepalive_until, s.keepalive_reason, "
+    f"{holds_work_claim_sql('s')} AS holds_work_claim, "
     "s.workspace, s.project_id, pr.slug AS project, "
     "s.offered_at, s.last_heartbeat, s.last_tool_call_at, "
     "s.episode_started_at, s.turn_posture, s.turn_posture_at, "

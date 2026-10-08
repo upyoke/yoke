@@ -29,6 +29,7 @@ from yoke_core.domain.session_message_authorization import (
     authorize_recipients,
 )
 from yoke_core.domain.session_message_routing import messageability
+from yoke_core.domain.session_staleness import activity_liveness
 from yoke_core.domain.session_message_selectors import resolve_recipients
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_store import (
@@ -109,7 +110,7 @@ def _stopped_route(
     )
     routing = messageability(
         target,
-        liveness=recipient.liveness,
+        liveness=activity_liveness(target),
         machine_surface_versions=versions,
         force_stopped_route=True,
     )

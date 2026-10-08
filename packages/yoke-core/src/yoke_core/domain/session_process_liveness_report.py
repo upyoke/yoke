@@ -49,7 +49,7 @@ from yoke_contracts.session_control.liveness import LIVENESS_ENDED, LIVENESS_STA
 from yoke_core.domain.session_launch_abandonment import (
     settle_and_notify_native_death,
 )
-from yoke_core.domain.session_message_routing import session_liveness
+from yoke_core.domain.session_staleness import activity_liveness
 from yoke_core.domain.session_message_store import cancel_open_recipients
 from yoke_core.domain.session_message_types import row_dict
 from yoke_core.domain.session_mode import session_is_parked
@@ -142,7 +142,7 @@ def _skip_reason(
     )
     if denial is not None or row is None:
         return denial
-    liveness = session_liveness(row, now=now)
+    liveness = activity_liveness(row, now=now)
     if liveness == LIVENESS_ENDED:
         return f"liveness_{liveness}"
     if liveness != LIVENESS_STALE and not launch_named:
