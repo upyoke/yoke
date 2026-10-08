@@ -25,6 +25,27 @@ class ItemPostureAmendError(ValueError):
     """A posture amendment would strand recorded state, or is not allowed."""
 
 
+def disallowed_posture_message(
+    conn: Any, *, item_id: int, runtime: Any, key: str
+) -> str:
+    """Name the immutable pin and the authority needed to change it."""
+    from yoke_core.domain.project_identity import render_item_ref
+    from yoke_core.domain.refusal_recovery import compose_refusal
+
+    ref = render_item_ref(conn, item_id, required=True)
+    return compose_refusal(
+        f"{runtime.workflow_id}@{runtime.version} does not allow posture key {key!r}",
+        evaluated=f"Allowed on this item: {sorted(runtime.policies['item_posture_allowlist'])}. "
+        "Deploying new workflow versions does not change this item's immutable pin",
+        recovery=f"Ask the control-plane operator to inspect `yoke workflows version list {runtime.workflow_id}` "
+        f"and select a version allowing {key!r}, then preview `yoke workflows item migrate {ref} "
+        "--version N --preview`. Only apply that migration without --preview after "
+        "its compatibility checks pass, then retry the amendment. If no suitable "
+        "version is published, the workflow owner must publish one first. "
+        "Migration requires operator-started authority; a worker cannot self-authorize",
+    )
+
+
 def verification_selector(
     conn: Any,
     verification: Mapping[str, Any],
@@ -200,6 +221,7 @@ def guard_merge_candidate_review(
 
 __all__ = [
     "ItemPostureAmendError",
+    "disallowed_posture_message",
     "guard_approval",
     "guard_merge_candidate_review",
     "guard_path_claims",

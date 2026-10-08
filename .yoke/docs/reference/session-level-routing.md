@@ -154,8 +154,22 @@ The value is `{shift, min, max, reason}`: `shift` moves the level up
 levels the result is clamped to, and `reason` is required. At least one of
 `shift`, `min`, or `max` is required; a non-integer or zero shift, an unknown
 key, a name the project's levels do not include, or `min` above `max` refuses
-by name. Every built-in workflow allows the key. The steering report lists
-each override beside its level block.
+by name. The steering report lists each override beside its level block.
+
+Current published built-in definitions allow the key. Existing items keep
+their immutable workflow pins when a new definition is deployed, so an old
+pin may refuse the amendment. Read `yoke workflows item get PREFIX-N` for
+its actual allowlist. The control-plane operator must select a compatible
+published version and preview `yoke workflows item migrate PREFIX-N
+--version N --preview` before applying the migration and retrying the
+amendment. This requires operator-started authority; workers cannot
+self-authorize it. `yoke workflows item-posture amend --help` carries the
+recovery decision tree. Publishing a definition never blanket-repins items.
+
+The override applies once to an automatic stage default: shift first, then
+clamp to the named bounds and the project's level range. An explicit
+`--level` or exact surface/model request wins for that launch and bypasses
+the item default. Changing an override never changes a running worker.
 
 ## Launching by level
 

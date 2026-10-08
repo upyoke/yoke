@@ -71,7 +71,15 @@ Which form to use
 
 What it refuses, and why
   * A key the item's pinned workflow does not allow. The refusal names the
-    allowlist that definition actually carries.
+    allowlist that definition actually carries. Deploying a new definition
+    does not change existing pins. Read `yoke workflows item get PREFIX-N`,
+    then ask the control-plane operator to inspect `yoke workflows version
+    list WORKFLOW` and `yoke workflows version get WORKFLOW N` for a version
+    allowing the key. Preview `yoke workflows item migrate PREFIX-N --version
+    N --preview`; only apply without --preview after compatibility checks
+    pass, then retry the amendment. If none allows it, the workflow owner
+    must publish a definition first. Migration requires operator-started
+    authority; a worker cannot self-authorize or blanket-repin items.
   * A key the vocabulary knows but no amendment guard declares. Amending it
     could strand records nothing checks, so it refuses by name instead.
   * An item at a terminal stage. Every posture gate has already run there.
