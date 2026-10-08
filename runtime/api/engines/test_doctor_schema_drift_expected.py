@@ -56,6 +56,7 @@ def test_expected_catalog_includes_additive_workflow_and_lane_columns() -> None:
     }
     assert expected["item_worktrees"]["commit_sha"] == "TEXT"
     assert expected["workflow_versions"]["derived_from_canon_version"] == "INTEGER"
+    assert expected["qa_plan_cases"]["target_envs"] == "TEXT"
 
 
 def test_bootstrapped_schema_matches_doctor_catalog(
