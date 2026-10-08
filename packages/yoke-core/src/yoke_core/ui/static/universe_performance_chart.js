@@ -1,10 +1,12 @@
 import { el } from "./universe_view_support.js";
 
 export const ORDINARY_TARGET_MS = 2000;
+const ORDINARY_LINEAR_MS = 100;
+const TARGET_COLOR = "#d88a2d";
 const targetLabel = `${ORDINARY_TARGET_MS / 1000}s diagnostic target · ordinary latency only`;
 export const SERIES = [
   ["function", "avg_ms", "Function avg", "#5468dc"],
-  ["function", "p95_ms", "Function p95", "#d88a2d"],
+  ["function", "p95_ms", "Function p95", TARGET_COLOR],
   ["relay", "p95_ms", "Relay long-poll p95 · right axis", "#d59647", "wait"],
   ["tool", "avg_ms", "Tool avg", "#319984"],
   ["tool", "p95_ms", "Tool p95", "#9a68c7"],
@@ -62,7 +64,7 @@ export async function drawPerformanceChart({ documentNode, host, result, signal,
   const plot = new uPlot({
     width: Math.max(260, host.clientWidth), height: 340,
     legend: { show: false }, cursor: { drag: { x: false, y: false } },
-    series: [{}, ...SERIES.map(([family, metric, label, stroke, scale], index) => ({
+    series: [{}, ...SERIES.map(([family, metric, label, stroke, scale]) => ({
       label, stroke, scale: scale || "y", width: metric === "avg_ms" ? 1.5 : 1, spanGaps: false,
       show: !scale,
       points: { show: true, filter: (_, seriesIndex) => {
@@ -73,15 +75,15 @@ export async function drawPerformanceChart({ documentNode, host, result, signal,
            ((values[n - 1] ?? null) === null && (values[n + 1] ?? null) === null)) ? [n] : []);
       }, size: 4, width: 1 },
       dash: metric === "p95_ms" && !scale ? [3, 2] : [],
-    })), { label: targetLabel, stroke: "#d88a2d",
+    })), { label: targetLabel, stroke: TARGET_COLOR,
       scale: "y", width: 2, dash: [5, 5], points: { show: false } }],
-    scales: { x: { time: true, range: () => range }, y: { auto: true, distr: 4, asinh: 100, range: (_, min, max) => [0, Math.max(4000, max * 1.1)] }, wait: { auto: true } },
+    scales: { x: { time: true, range: () => range }, y: { auto: true, distr: 4, asinh: ORDINARY_LINEAR_MS, range: (_, min, max) => [0, Math.max(ORDINARY_TARGET_MS * 2, max * 1.1)] }, wait: { auto: true } },
     axes: [{ stroke: color, space: 100, size: 60, grid: { show: false }, values: (_, ticks) => ticks.map(tickLabel) },
       { stroke: color, grid: { stroke: color, width: .25 }, size: 65, space: 45,
         filter: (_, ticks) => ticks,
-        splits: (_, __, min, max) => [0, 2000, 10000, 100000, 1000000, 10000000].filter(value => value >= min && value <= max),
+        splits: (_, __, min, max) => [0, ORDINARY_TARGET_MS, 10000, 100000, 1000000, 10000000].filter(value => value >= min && value <= max),
         values: (_, ticks) => ticks.map(value => value == null ? "" : durationLabel(value)) },
-      { scale: "wait", side: 1, size: 65, stroke: "#b27944", 
+      { scale: "wait", side: 1, size: 65, stroke: "#b27944",
         grid: { show: false }, values: (_, ticks) => ticks.map(value => value == null ? "" : durationLabel(value)) }],
     hooks: { setCursor: [hover] },
   }, data, host);
@@ -100,7 +102,7 @@ export async function drawPerformanceChart({ documentNode, host, result, signal,
   });
   toggles.appendChild(el(documentNode, "small", "performance-target", targetLabel));
   toggles.appendChild(el(documentNode, "small", "performance-target",
-    "Ordinary latency · compressed scale (linear near zero, logarithmic above 100ms). Intentional waits · right axis, toggle to show. Click to inspect observations."));
+    `Ordinary latency · compressed scale (linear near zero, logarithmic above ${ORDINARY_LINEAR_MS}ms). Intentional waits · right axis, toggle to show. Click to inspect observations.`));
   host.after(toggles);
   host.tabIndex = 0;
   host.setAttribute("role", "group");

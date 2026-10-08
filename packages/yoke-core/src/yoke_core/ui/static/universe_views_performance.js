@@ -44,7 +44,7 @@ export function renderPerformanceView(context, main, scope) {
   coverage.appendChild(el(documentNode, "summary", null, "Collection and timing coverage"));
   const note = el(documentNode, "p");
   coverage.appendChild(note);
-  for (const node of [windows, custom, dates]) toolbar.appendChild(node);
+  for (const node of [windows, dates]) toolbar.appendChild(node);
   for (const node of [header, toolbar, status, chartHost, coverage]) panel.appendChild(node);
   main.replaceChildren(panel);
   const scopePayload = { project_ids: scope === "all" ? null : scope.map(Number) };
@@ -68,6 +68,7 @@ export function renderPerformanceView(context, main, scope) {
     buttons.push([button, hours]);
     windows.appendChild(button);
   }
+  windows.appendChild(custom);
   async function load() {
     controller?.abort();
     controller = new AbortController();
