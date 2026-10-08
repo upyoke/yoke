@@ -175,18 +175,23 @@ def test_a_row_names_the_envelopes_it_counts():
     assert "5 message(s) [msg-1 msg-2 msg-3 +2]" in line
 
 
-def test_a_held_wake_names_the_native_holding_it_and_how_to_end_it():
-    """The state that used to read as a delivery moments away.
-
-    Held wakes were classified as an attempt in flight, so the row said
-    "waiting" every time the machine refused for the same reason -- and the
-    observed runs of this repeat for hours, not moments. The line now says
-    what is holding the envelope and names the one lever the seat has.
-    """
-    line = _row(delivery_state=WAKE_HELD_FOR_NATIVE_TURN, wake_escalation="starved_hook_route")
+def test_a_held_wake_preserves_delivery_facts_without_termination_advice():
+    """A running native turn holds delivery without authorizing its end."""
+    line = _row(
+        delivery_state=WAKE_HELD_FOR_NATIVE_TURN,
+        wake_escalation="starved_hook_route",
+        message_ids=("msg-held",),
+        held_native_silent_for_seconds=1800,
+        evidence_id="nd-held",
+    )
     assert "wake held" in line
     assert "a native turn is already running" in line
-    assert f"yoke sessions terminate {SESSION}" in line
+    assert f"session {SESSION}  1 message(s) [msg-held], oldest 10m" in line
+    assert "silent for 30m" in line
+    assert "delivery waits for that turn to end" in line
+    assert f"yoke session-control evidence get --session {SESSION}" in line
+    assert "--evidence-id nd-held" in line
+    assert "yoke sessions terminate" not in line
     # The escalation note would read as a wake still on its way, which is
     # the exact misreading this state exists to end.
     assert "wake escalated" not in line

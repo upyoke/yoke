@@ -86,15 +86,12 @@ def _state_phrase(entry: UndeliveredMessages) -> str:
     if entry.delivery_state == ATTEMPT_FAILED:
         return f"never injected, last attempt failed ({entry.diagnostic})"
     if entry.delivery_state == WAKE_HELD_FOR_NATIVE_TURN:
-        # Say what is holding it, whether that thing is moving, and what ends
-        # the hold. The seat's only lever is the native itself, so the line
-        # names it rather than suggesting another wake, which the machine
-        # would hold for the same reason.
+        # Report the running turn and observed silence without treating
+        # either as authority to terminate the recipient or wake it again.
         return (
             "never injected, wake held — a native turn is already running "
-            f"for this session{_held_silence(entry)}; it delivers when that "
-            "turn ends, or end it with "
-            f"`yoke sessions terminate {entry.session_id} --reason ...`"
+            f"for this session{_held_silence(entry)}; delivery waits for "
+            "that turn to end"
         )
     phrase = _STATE_PHRASES[entry.delivery_state]
     if entry.recipient_gone_at:
