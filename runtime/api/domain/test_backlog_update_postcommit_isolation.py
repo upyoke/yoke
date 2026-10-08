@@ -5,6 +5,8 @@ from __future__ import annotations
 from io import StringIO
 from unittest.mock import Mock
 
+from yoke_contracts.public_ref import unresolved_item_ref
+
 import pytest
 
 from yoke_core.domain import (
@@ -156,5 +158,9 @@ def test_continuation_failure_cannot_skip_terminal_cleanup(monkeypatch) -> None:
 
     assert calls == ["closeout", 31, 32, "telemetry"]
     conn.rollback.assert_called_once()
-    assert "settling-run continuation deferred for item 72" in out.getvalue()
+    assert (
+        f"settling-run continuation deferred for item {unresolved_item_ref()}"
+        in out.getvalue()
+    )
+    assert "item 72" not in out.getvalue()
     assert "re-drive it under the project deploy lock" in out.getvalue()
