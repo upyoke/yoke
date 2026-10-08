@@ -11,7 +11,8 @@ The slim hook-policy glue lives in :mod:`lint_session_cwd`. Behaviour:
   write shape stay governed.
 * Session with no claims → allowed everywhere except another session's
   live lane.
-* Session with claims → each target must land under a claimed worktree, a
+* Settled capacity operands inspect totals without granting content or mutation.
+* Session with claims → other targets must land under a claimed worktree, a
   recorded project's control plane, or a free path.
 * Bash with no extractable targets → the caller passes ``fallback_cwd``
   as a synthetic target so a worktree-binding session that runs a
@@ -64,6 +65,7 @@ from yoke_core.domain.session_claimed_worktrees import (
     ClaimedWorktree,
     claimed_worktrees,
 )
+from yoke_core.domain.lint_shell_path_use import PathUse, is_capacity_target
 from yoke_core.domain.lint_session_cwd_item_lookup import (
     lookup_item_status,
     lookup_item_workflow,
@@ -106,6 +108,7 @@ def validate_targets(
     read_only: bool = False,
     command: str = "",
     tool_name: str = "",
+    path_uses: tuple[PathUse, ...] = (),
 ) -> ValidationVerdict:
     """Validate every target path against the session's claim authority.
 
@@ -134,6 +137,10 @@ def validate_targets(
     ]
     if not targets_to_check and fallback_cwd.strip():
         targets_to_check = [fallback_cwd]
+
+    targets_to_check = [
+        raw for raw in targets_to_check if not is_capacity_target(raw, path_uses)
+    ]
 
     targets_to_check = governed_targets(targets_to_check, repo_roots, command)
     # A read of a foreign lane is not a write, so it must not fail scope either.

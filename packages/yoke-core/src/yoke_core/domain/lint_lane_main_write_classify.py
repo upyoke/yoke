@@ -24,21 +24,11 @@ from yoke_core.domain.lint_session_cwd_path_authority import (
     resolve_for_display,
 )
 from yoke_core.domain.lint_session_cwd_home import expand_machine_home
-from yoke_core.domain.lint_session_cwd_read_only_signatures import (
-    GIT_MUTATING_SUBS,
-    git_subcommand,
-    match_read_only_signature,
-)
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 from yoke_core.domain.lint_session_cwd_target_extract import (
-    SHELL_WRITE_COMMAND_BASES,
     analyze_payload_write_targets,
     extract_payload_command,
     payload_has_embedded_python_write,
-    _split_redirect_targets,
-)
-from yoke_core.domain.lint_session_cwd_target_extract_shell import (
-    strip_heredoc_syntax,
 )
 from yoke_core.domain.lint_shell_target_tokens import shell_command_segments
 from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
@@ -164,27 +154,6 @@ def _segment_command_base(tokens: List[str]) -> str:
     return ""
 
 
-def _bash_has_file_redirect(command: str) -> bool:
-    # Strip heredoc bodies first: shlex.split of the full command fails on
-    # an apostrophe in the body (``don't``), which used to hide ``cat > path``.
-    _clean, targets = _split_redirect_targets(
-        _safe_split(strip_heredoc_syntax(command)),
-    )
-    return bool(targets)
-
-
-def _bash_has_write_verb(command: str) -> bool:
-    """True when a segment's leading command is a filesystem write verb."""
-    for segment in shell_command_segments(command):
-        base = _segment_command_base(segment)
-        if base in SHELL_WRITE_COMMAND_BASES:
-            return True
-        if base == "git":
-            if git_subcommand(_strip_env_prefixes(segment)) in GIT_MUTATING_SUBS:
-                return True
-    return False
-
-
 def is_yoke_adapter_command(command: str) -> bool:
     """True when every shell segment is a ``yoke`` CLI adapter invocation."""
     if not command or not command.strip():
@@ -230,13 +199,9 @@ def is_write_operation(tool_name: str, payload: dict) -> bool:
     analysis = analyze_payload_write_targets(payload)
     if analysis.targets or analysis.unresolved_variable:
         return True
-    if _bash_has_file_redirect(command):
-        return True
-    if match_read_only_signature(command):
-        return False
-    if is_yoke_adapter_command(command):
-        return False
-    return _bash_has_write_verb(command)
+    from yoke_core.domain.lint_shell_path_use import analyze_shell_path_use
+
+    return analyze_shell_path_use(command).direct_write
 
 
 def collect_main_write_targets(

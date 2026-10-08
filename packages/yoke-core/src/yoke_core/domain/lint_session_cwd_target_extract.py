@@ -44,6 +44,9 @@ APPLY_PATCH_TOOL_NAMES = frozenset({"apply_patch", "ApplyPatch"})
 _ALL_POSITIONAL_WRITE_COMMANDS = frozenset(
     {
         "touch",
+        "rm",
+        "rmdir",
+        "unlink",
         "mkdir",
         "tee",
         "truncate",
@@ -159,42 +162,22 @@ def extract_payload_targets(
     *,
     machine_home: str | None = None,
 ) -> List[str]:
-    """Return the list of target paths for a PreToolUse payload."""
-    if not isinstance(payload, Mapping):
-        return []
-    tool_input = _tool_input(payload)
+    """Project local paths from the shared operand roles."""
+    from yoke_core.domain.lint_shell_path_use import PathRole
+    from yoke_core.domain.lint_payload_path_use import extract_payload_path_uses
 
-    out: List[str] = []
-
-    file_path = tool_input.get("file_path")
-    if isinstance(file_path, str) and file_path.strip():
-        out.append(file_path)
-
-    command = extract_payload_command(payload)
-    if command:
-        if _is_apply_patch_payload(payload):
-            out.extend(parse_patch(command).all_paths())
-        else:
-            out.extend(extract_command_targets(command))
-
-    cwd = resolve_payload_cwd(payload, fallback=str(Path.cwd()))
-    return _dedupe_paths(_resolve_target_paths(out, cwd, machine_home=machine_home))
+    return _dedupe_paths(
+        [
+            use.path
+            for use in extract_payload_path_uses(payload, machine_home=machine_home)
+            if use.role != PathRole.REMOTE
+        ]
+    )
 
 
 @dataclass(frozen=True)
 class PayloadWriteTargets:
-    """Write targets in a tool payload, plus what could not be resolved.
-
-    ``unresolved_variable`` reports that the body wrote through a variable
-    reference this layer could not expand. A caller that would otherwise
-    fall back to the harness cwd must not do so on that signal: the write
-    lands wherever the variable points, which is precisely what we failed
-    to determine, so cwd is a manufactured verdict rather than a fallback.
-
-    ``unresolved_writes`` names the embedded-Python write expressions whose
-    destination stayed unreadable, so a caller that does fall back to cwd
-    can say which write it could not follow.
-    """
+    """Resolved write positions and uncertainty requiring restrictive handling."""
 
     targets: List[str]
     unresolved_variable: bool
@@ -246,13 +229,18 @@ def payload_has_embedded_python_write(payload: Mapping[str, Any]) -> bool:
 
 
 def _extract_shell_write_targets(command: str) -> Tuple[List[str], bool]:
-    """Return write-position paths plus whether an expansion went unresolved.
+    from yoke_core.domain.lint_shell_path_use import analyze_shell_path_use
 
-    Variable bindings come from the whole command body, not the segment:
-    the capture-first recipe assigns in one statement and redirects in the
-    next, so a per-segment scan would never see the assignment.
-    """
-    bindings = shell_variable_bindings(command)
+    result = analyze_shell_path_use(command)
+    return list(result.write_targets), result.unresolved_writes
+
+
+def resolve_shell_write_operands(
+    command: str, *, bindings=None
+) -> Tuple[List[str], bool]:
+    """Resolve existing write positions using bindings from the whole body."""
+    if bindings is None:
+        bindings = shell_variable_bindings(command)
     out: List[str] = []
     unresolved = False
     for segment in split_pipeline(strip_heredoc_syntax(command)):
