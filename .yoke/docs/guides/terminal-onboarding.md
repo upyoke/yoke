@@ -46,8 +46,9 @@ If another job takes the terminal during the wizard, setup restores terminal
 input and mouse modes and exits with `setup_terminal_ownership_lost`. Return to
 the foreground shell and run `yoke setup` again. Completed setup changes remain;
 the diagnostic does not imply rollback. If restoration fails, the diagnostic
-names the failure and asks you to run `stty sane` before retrying. Ordinary
-Ctrl-Z/`fg` suspension and the copy view below preserve your wizard state.
+names the failure and asks you to run `stty sane` before retrying. Suspension
+by `SIGTSTP` and foreground resumption by `SIGCONT` preserve your wizard state,
+as does the copy view below.
 
 Before opening the wizard, onboarding prepares its scratch and cache directories.
 On Linux it also runs the existing Python venv and browser runtime setup,
