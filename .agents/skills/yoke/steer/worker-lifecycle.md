@@ -208,7 +208,7 @@ Resolve `{WORKER_SESSION_ID}` from the launch that staffed the item
 Never re-task an existing worker onto a different item. A new item is a
 new `session_control.launch.create`.
 
-## 7. Choose model, effort, and context per item at launch
+## 7. Choose a level per item at launch
 
 Name a level per item; the level's options carry the model, effort, and
 context. Which level each leg asks for, what counts as a confirmed empty
