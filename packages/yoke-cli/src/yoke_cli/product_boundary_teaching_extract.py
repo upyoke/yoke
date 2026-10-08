@@ -132,7 +132,11 @@ def _quoted_recipe_lines(block: str) -> Iterable[tuple[int, str]]:
     start = 0
     for line_number, line in _join_continuations(block):
         if not pending:
+            if _command_from_line(line) is None:
+                yield line_number, line
+                continue
             start = line_number
+            line = line.split(" #", 1)[0]
         current = pending + " " + line if pending else line
         try:
             shlex.split(current)

@@ -59,6 +59,11 @@ def probe_recipe(recipe: str, normalize: Callable[[str], str]) -> SemanticProbe:
             payloads.append(token.split("=", 1)[1])
     checked = False
     for raw in payloads:
+        if re.fullmatch(r"\{[^{}\":]+\}", raw):
+            return SemanticProbe(
+                "unverifiable",
+                "documentation placeholder; supply a literal payload for semantic validation",
+            )
         if not raw.startswith(("{", "[")):
             return SemanticProbe(
                 "unverifiable",

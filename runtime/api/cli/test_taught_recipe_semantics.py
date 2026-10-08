@@ -81,6 +81,24 @@ def test_dynamic_payload_is_explicitly_unverifiable(no_dispatch):
     assert probe_recipe(recipe, normalize).status == "unverifiable"
 
 
+def test_policy_description_placeholder_is_explicitly_unverifiable(no_dispatch):
+    recipe = (
+        "yoke qa requirement add --item PREFIX-N --qa-kind ac_verification "
+        "--qa-phase verification --workflow-transition reviewing-implementation "
+        '--success-policy "{brief description of what passing looks like}"'
+    )
+    ok, _, detail = parse_probe(recipe)
+    assert ok
+    assert "semantic_unverifiable" in detail
+
+
+def test_malformed_literal_json_is_rejected(no_dispatch):
+    assert (
+        probe_recipe(_recipe({}).replace("'{}'", "'{\"steps\":['"), normalize).status
+        == "invalid"
+    )
+
+
 def test_multiline_literal_keeps_original_keys(tmp_path, no_dispatch):
     recipe = _recipe(
         {"steps": [{"action": "screenshot", "capture": True, "name": "bad"}]}
@@ -91,6 +109,14 @@ def test_multiline_literal_keeps_original_keys(tmp_path, no_dispatch):
     assert len(rows) == 1
     assert rows[0][1] == 2
     assert "step_key_unrecognized" in parse_probe(rows[0][2])[2]
+
+
+def test_comment_apostrophes_do_not_swallow_following_commands(tmp_path):
+    (tmp_path / "example.md").write_text(
+        "```bash\n# It's a comment\nyoke items get PREFIX-N status # it's still a command\n```\n"
+    )
+    rows = list(extract_recipe_rows(tmp_path, ("*.md",)))
+    assert [(row[1], row[2]) for row in rows] == [(3, "yoke items get PREFIX-N status")]
 
 
 def test_literal_css_selector_survives_placeholder_normalization(no_dispatch):
