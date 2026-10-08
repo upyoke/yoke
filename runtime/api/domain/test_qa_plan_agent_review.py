@@ -55,6 +55,8 @@ def test_bundle_is_immutable_complete_and_does_not_ask_a_human() -> None:
                 "capture_runner": "host_control",
                 "capture_degraded_reason": None,
                 "transcript": {
+                    "method_config": bundle["cases"][0]["method_config"],
+                    "execution_target_digest": execution["execution_target_digest"],
                     "evidence": {
                         "steps": [
                             {
@@ -62,7 +64,7 @@ def test_bundle_is_immutable_complete_and_does_not_ask_a_human() -> None:
                                 "transcript": "Project: yoke",
                             }
                         ]
-                    }
+                    },
                 },
                 "artifacts": [
                     {

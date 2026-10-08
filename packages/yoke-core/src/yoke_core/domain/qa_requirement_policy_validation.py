@@ -36,7 +36,7 @@ def validate_success_policy(
     label: str = "",
 ) -> list[str]:
     """Reject policies that authorize from historical attempts or voting."""
-    if not success_policy:
+    if not success_policy or success_policy == "all-pass":
         return []
     prefix = f"{label}: " if label else ""
     try:

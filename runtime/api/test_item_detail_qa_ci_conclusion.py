@@ -74,6 +74,7 @@ def test_detail_qa_does_not_treat_an_agent_capture_pointer_as_ci(
         "raw_result) VALUES (109, 9, 'agent', 'pass', "
         "'{\"capture_run_id\": 108}')"
     )
+    conn.execute("INSERT INTO qa_plan_review_verdicts VALUES (9, 108, 109)")
     conn.commit()
     monkeypatch.setattr(item_detail_read.db_helpers, "connect", lambda: conn)
 
@@ -81,7 +82,7 @@ def test_detail_qa_does_not_treat_an_agent_capture_pointer_as_ci(
     rows = {row["requirement_source"]: row for row in item["qa_requirements"]}
     row = rows["agent-review"]
 
-    assert row["run_id"] == 109
+    assert row["run_id"] == 108
     assert [artifact["artifact_type"] for artifact in row["artifacts"]] == (
         ["terminal_screenshot"]
     )

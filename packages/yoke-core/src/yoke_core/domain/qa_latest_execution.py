@@ -3,6 +3,7 @@
 from datetime import datetime
 from typing import Any, Iterable
 
+from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
 
 
@@ -63,10 +64,11 @@ def latest_executions(
     ids = tuple(sorted(set(int(value) for value in requirement_ids)))
     if not ids:
         return {}
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     rows = query_rows(
         conn,
         "SELECT run.* FROM qa_runs run WHERE run.qa_requirement_id IN ("
-        + ",".join("%s" for _ in ids)
+        + ",".join(marker for _ in ids)
         + f") AND {actual_execution_sql('run')}",
         ids,
     )

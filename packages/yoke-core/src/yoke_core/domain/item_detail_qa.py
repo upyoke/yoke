@@ -132,21 +132,29 @@ def qa_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
             else "NULL AS latest_evidence_type"
         ),
     ]
-    from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
+    from yoke_core.domain.qa_latest_execution import latest_executions
 
-    joins = [
-        "FROM qa_requirements q",
-        f"LEFT JOIN qa_runs r ON r.id=({latest_execution_id_sql('q.id')})",
-    ]
-    if has_plans:
-        joins.append("LEFT JOIN qa_plans p ON p.id = q.plan_id")
-    if has_methods:
-        joins.append("LEFT JOIN qa_methods m ON m.id = q.method_id")
     where = f"WHERE q.item_id = {marker} OR q.epic_id = {marker}"
     params: list[Any] = [item_id, item_id]
     if _column_exists(conn, "qa_requirements", "deployment_member_item_id"):
         where += f" OR q.deployment_member_item_id = {marker}"
         params.append(item_id)
+    requirement_ids = [
+        int(row["id"])
+        for row in _dict_rows(
+            conn.execute(f"SELECT q.id FROM qa_requirements q {where}", tuple(params))
+        )
+    ]
+    current = latest_executions(conn, requirement_ids)
+    run_ids = ",".join(str(int(run["id"])) for run in current.values()) or "NULL"
+    joins = [
+        "FROM qa_requirements q",
+        f"LEFT JOIN qa_runs r ON r.qa_requirement_id=q.id AND r.id IN ({run_ids})",
+    ]
+    if has_plans:
+        joins.append("LEFT JOIN qa_plans p ON p.id = q.plan_id")
+    if has_methods:
+        joins.append("LEFT JOIN qa_methods m ON m.id = q.method_id")
     rows = _dict_rows(
         conn.execute(
             f"SELECT {', '.join(select)} {' '.join(joins)} {where} ORDER BY q.id",

@@ -195,9 +195,9 @@ def test_the_report_names_an_unpassable_pin_and_moves_the_fingerprint(
     )
     conn.execute(
         "INSERT INTO qa_runs"
-        "(qa_requirement_id,performed_by,qa_kind,verdict,created_at,completed_at) "
-        "VALUES (901,'agent','browser','fail',%s,%s)",
-        ("2026-08-26T08:00:00Z", "2026-08-26T08:00:00Z"),
+        "(qa_requirement_id,performed_by,qa_kind,verdict,created_at,started_at,completed_at) "
+        "VALUES (901,'agent','browser','fail',%s,%s,%s)",
+        ("2026-08-26T08:00:00Z",) * 3,
     )
     conn.commit()
     before = compose(conn).fingerprint()
