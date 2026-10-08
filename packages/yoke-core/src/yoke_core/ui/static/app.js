@@ -85,7 +85,7 @@ export function mountUniverseApp(rootNode, options = {}) {
   const resolvedSections = materializeSections(
     options.sections || {}, rootNode, hostContentNodes,
   );
-  const sectionNodes = Object.values(resolvedSections)
+  const sectionNodes = () => Object.values(resolvedSections)
     .map((hostSection) => hostSection.content);
   const mountedSlotNodes = [];
   let mounted = true;
@@ -146,15 +146,11 @@ export function mountUniverseApp(rootNode, options = {}) {
 
   loadOrganizationName(client, orgContext, () => mounted);
 
-  // A host section renders inside the view host, after whatever the view
-  // renders for itself — one seam every view shares, so the host never
-  // reaches into a renderer's own output. `scoped` marks the renderers with
-  // an above-scope content slot. Other views keep both section placements
-  // in the view host, so no section can silently go unplaced.
+  // Host sections share route scope and cancel their prior render.
   const {
     append: appendViewSection,
-    beforeScope: beforeScopeSections,
-  } = createHostSectionPlacement(resolvedSections);
+    beforeScope: beforeScopeSections, begin: beginHostSection, dispose: disposeHostSection,
+  } = createHostSectionPlacement(resolvedSections, { rootNode, universeId: options.universeId });
 
   const heldScope = createHeldScopeController({
     windowNode, scopeSelections, renderRoute, projectsRef: () => projects,
@@ -169,13 +165,14 @@ export function mountUniverseApp(rootNode, options = {}) {
     const project = route.detail ? route.project : (entry.scope === SCOPE_SINGLE ? scope : null);
     navigation.replace(selectionRoute(route, scopeSelections, project, navigation.current()));
     locationPreference.remember();
+    beginHostSection(entry, scope, scopeSelections.selectionFor(entry.id));
     return scope;
   }
 
   function renderRoute() {
     if (!mounted || !projectsLoaded) return;
     replaceViewAbort(context);
-    detachMountedSlots(rootNode, sectionNodes);
+    detachMountedSlots(rootNode, sectionNodes());
     heldScope.reset(); // a full render drops any held scoped view
     context.routeInPlace = null;
     setScopeVisible(false);
@@ -221,7 +218,7 @@ export function mountUniverseApp(rootNode, options = {}) {
       // destinations are unscoped, so the shared topbar hides the project
       // selector — it does not filter this body.
       const hostSection = resolvedSections[entry.id];
-      if (hostSection) viewHost.appendChild(hostSection.content);
+      if (hostSection) appendViewSection(entry, viewHost);
       else renderStubView(context, viewHost);
       return;
     }
@@ -336,6 +333,7 @@ export function mountUniverseApp(rootNode, options = {}) {
 
   return createUnmountHandle(UNIVERSE_APP_CONTRACT_VERSION, () => {
     mounted = false;
+    disposeHostSection();
     disposeTelemetry();
     disposeBuildUpdate();
     if (typeof context.abortView === "function") context.abortView();
@@ -343,7 +341,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     windowNode.removeEventListener("popstate", heldScope.onRouteChange);
     windowNode.removeEventListener(ROUTE_NAVIGATION_EVENT, heldScope.onRouteChange);
     disposeChrome();
-    detachMountedSlots(rootNode, [...mountedSlotNodes, ...sectionNodes]);
+    detachMountedSlots(rootNode, [...mountedSlotNodes, ...sectionNodes()]);
     rootNode.replaceChildren();
     detachRootClass();
   });

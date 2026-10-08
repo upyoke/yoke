@@ -125,8 +125,7 @@ export interface UniverseCapabilities {
 }
 
 /**
- * Slot and section nodes are host-owned. Mount moves each supplied node into
- * the app; unmount detaches it, leaving the original node reference reusable.
+ * Slot nodes are host-owned; unmount detaches them for reuse.
  */
 export type UniverseSlotContent =
   | Element
@@ -157,8 +156,17 @@ export interface UniverseAppSlots {
  */
 export type UniverseViewSectionPlacement = "inView" | "beforeScope";
 
+/** Factories run when their page renders; signals abort on scope/route change or unmount. */
+export interface UniverseSectionContext {
+  readonly universeId: string | null;
+  readonly scope: "all" | string | readonly string[] | null;
+  readonly projectSelection: "all" | readonly string[];
+  readonly signal: AbortSignal;
+}
+export type UniverseSectionContent = Element | ((context: UniverseSectionContext) => Element | null | undefined);
+
 export interface UniverseViewSectionSpec {
-  readonly content: UniverseSlotContent;
+  readonly content: UniverseSectionContent;
   readonly placement?: UniverseViewSectionPlacement;
 }
 
@@ -171,14 +179,10 @@ export interface UniverseViewSectionSpec {
  * section is supplied, and the section is that view's whole body.
  */
 export type UniverseViewSections =
-  Readonly<Record<string, UniverseSlotContent | UniverseViewSectionSpec>>;
+  Readonly<Record<string, UniverseSectionContent | UniverseViewSectionSpec>>;
 
 /**
- * Whoever is acting, as the engine models them: an `actors` row is only an
- * id and a kind. A human actor has no name in the engine at all — a name
- * belongs to an account, and accounts are the host's, not the universe's.
- * That is why `label` is host-owned and optional rather than a field the app
- * could read for itself.
+ * Actor identity is engine-owned; its optional display label is host-owned.
  */
 export interface UniverseActor {
   readonly id: number;
@@ -208,6 +212,8 @@ export interface UniverseRuntimeIdentity {
 export interface UniverseAppOptions {
   /** Absolute mount path without query/fragment; empty for the local workbench. */
   readonly basePath?: string;
+  /** Host-selected universe; omit for a standalone universe. Remount when it changes. */
+  readonly universeId?: string;
   readonly client?: UniverseFunctionClient;
   readonly capabilities?: UniverseCapabilities;
   readonly slots?: UniverseAppSlots;
@@ -279,7 +285,7 @@ export interface UniverseRoute {
 export type UniverseScope = "multi" | "single" | "none";
 
 /** Canonical value; the runtime module is emitted from this source. */
-export const UNIVERSE_APP_CONTRACT_VERSION = 10 as const;
+export const UNIVERSE_APP_CONTRACT_VERSION = 11 as const;
 
 export declare function createHttpFunctionClient(
   options?: HttpFunctionClientOptions,

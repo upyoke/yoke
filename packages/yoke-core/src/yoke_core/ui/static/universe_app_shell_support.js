@@ -144,21 +144,56 @@ export function loadOrganizationName(client, orgContext, isMounted) {
     .catch(() => { if (isMounted()) orgContext.textContent = ""; });
 }
 
-export function createHostSectionPlacement(resolvedSections) {
+export function createHostSectionPlacement(resolvedSections, { rootNode, universeId = null }) {
+  let current = null, controller = null, context = null, rendered = false;
+  function dispose() { controller?.abort(); }
+  function content() {
+    if (!current) return null;
+    if (!rendered && current.render) {
+      rendered = true;
+      try {
+        current.content = current.render(context);
+        if (!current.content) {
+          current.content = rootNode.ownerDocument.createElement("span");
+          current.content.hidden = true;
+        }
+      } catch (error) {
+        controller.abort();
+        const notice = rootNode.ownerDocument.createElement("p");
+        notice.className = "error-banner";
+        notice.textContent = `host_section_render_failed: ${error?.message || String(error)}. Fix the host section factory and reload to retry.`;
+        current.content = notice;
+      }
+    }
+    return current.content;
+  }
+  function begin(entry, scope, projectSelection) {
+    dispose();
+    const next = resolvedSections[entry.id] || null;
+    const previousNode = current?.content;
+    const parent = current === next ? previousNode?.parentNode : null;
+    current?.release(previousNode);
+    current = next;
+    controller = new AbortController();
+    context = { universeId, scope: Array.isArray(scope) ? [...scope] : scope,
+      projectSelection: projectSelection === "all" ? "all" : [...projectSelection], signal: controller.signal };
+    rendered = false;
+    if (parent && current?.render) {
+      const node = content();
+      parent.replaceChildren(...Array.from(parent.children).flatMap((child) =>
+        child === previousNode ? (node ? [node] : []) : [child]));
+    }
+  }
   function append(entry, viewHost, { scoped = false } = {}) {
-    const hostSection = resolvedSections[entry.id];
-    if (!hostSection) return;
-    if (scoped && hostSection.placement === "beforeScope") return;
-    viewHost.appendChild(hostSection.content);
+    if (!current || (scoped && current.placement === "beforeScope")) return;
+    const node = content();
+    if (node) viewHost.appendChild(node);
   }
-
-  function beforeScope(entry) {
-    const hostSection = resolvedSections[entry.id];
-    return (hostSection && hostSection.placement === "beforeScope")
-      ? [hostSection.content] : [];
+  function beforeScope() {
+    const node = current?.placement === "beforeScope" ? content() : null;
+    return node ? [node] : [];
   }
-
-  return { append, beforeScope };
+  return { append, beforeScope, begin, dispose };
 }
 
 // Owns the one scoped view that repaints in place from held data (the

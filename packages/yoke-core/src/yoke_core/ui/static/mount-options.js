@@ -122,11 +122,14 @@ export function materializeSections(sections, rootNode, seen = new Set()) {
   const resolved = {};
   for (const name of Object.keys(sections)) {
     const spec = sectionSpec(sections[name]);
-    const content = materializeContent(
-      spec.content, rootNode, seen, "section",
-    );
-    if (content !== null) {
-      resolved[name] = { content, placement: spec.placement ?? "inView" };
+    const factory = typeof spec.content === "function" ? spec.content : null;
+    const content = factory ? null : materializeContent(spec.content, rootNode, seen, "section");
+    if (factory || content !== null) {
+      resolved[name] = {
+        content, placement: spec.placement ?? "inView",
+        render: factory ? (context) => materializeContent(factory(context), rootNode, seen, "section") : null,
+        release(node) { if (factory && node) seen.delete(node); },
+      };
     }
   }
   return resolved;
