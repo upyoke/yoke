@@ -96,9 +96,12 @@ def test_an_artifact_read_goes_to_the_server_over_https(relayed):
 
 
 def test_a_local_connection_still_dispatches_in_process(local):
-    payload, status = function_proxy.proxy_function_call({
-        "function": "items.list.run", "payload": {},
-    })
+    payload, status = function_proxy.proxy_function_call(
+        {
+            "function": "items.list.run",
+            "payload": {},
+        }
+    )
 
     assert status == 200
     route, request, kwargs = local.calls[0]
@@ -116,18 +119,45 @@ def test_the_local_operator_still_fills_an_actor_bound_read(local):
     assert request.actor.actor_id == "2"
 
 
+def test_level_capacity_binds_a_numeric_local_operator(local):
+    function_proxy.proxy_function_call(
+        {"function": "universe.level_capacity.get", "payload": {}},
+    )
+
+    _, request, _ = local.calls[0]
+    assert request.actor.actor_id == "2"
+
+
+def test_level_capacity_stays_answerable_without_an_operator(local, monkeypatch):
+    monkeypatch.setattr(
+        "yoke_core.ui.local_operator_actor.resolve_local_operator_actor",
+        lambda: None,
+    )
+    payload, status = function_proxy.proxy_function_call(
+        {"function": "universe.level_capacity.get", "payload": {}},
+    )
+
+    assert status == 200
+    _, request, _ = local.calls[0]
+    assert request.actor.actor_id is None
+
+
 @pytest.mark.parametrize(
     "function_id",
     ["items.delete", "qa.case.run", "lifecycle.transition", ""],
 )
 def test_a_function_off_the_roster_is_refused_on_either_transport(
-    function_id, relayed,
+    function_id,
+    relayed,
 ):
     """The closed roster is the security boundary and the transport must
     not become a way around it."""
-    payload, status = function_proxy.proxy_function_call({
-        "function": function_id, "payload": {},
-    })
+    payload, status = function_proxy.proxy_function_call(
+        {
+            "function": function_id,
+            "payload": {},
+        }
+    )
 
     assert status == 403
     assert payload["error"]["code"] == "function_not_allowed"
@@ -138,10 +168,12 @@ def test_a_caller_supplied_actor_never_travels_to_the_server(relayed):
     """A loopback session token stands for a machine, not a person. An
     actor named in the envelope is a claim, and the relay's own credential
     is the only identity the server may act on."""
-    function_proxy.proxy_function_call({
-        **ARTIFACT_ENVELOPE,
-        "actor": {"actor_id": "999", "session_id": "forged-session"},
-    })
+    function_proxy.proxy_function_call(
+        {
+            **ARTIFACT_ENVELOPE,
+            "actor": {"actor_id": "999", "session_id": "forged-session"},
+        }
+    )
 
     _, kwargs = relayed.calls[0]
     assert "actor" not in kwargs
@@ -154,11 +186,13 @@ def test_a_caller_supplied_actor_never_travels_to_the_server(relayed):
 
 
 def test_a_caller_supplied_actor_is_dropped_in_process_too(local):
-    function_proxy.proxy_function_call({
-        "function": "items.list.run",
-        "payload": {},
-        "actor": {"actor_id": "999", "session_id": "forged-session"},
-    })
+    function_proxy.proxy_function_call(
+        {
+            "function": "items.list.run",
+            "payload": {},
+            "actor": {"actor_id": "999", "session_id": "forged-session"},
+        }
+    )
 
     _, request, _ = local.calls[0]
     assert request.actor.actor_id is None
@@ -198,7 +232,8 @@ def test_a_local_postgres_binding_dispatches_in_process(monkeypatch):
     from yoke_core.domain import db_backend, yoke_connected_env
 
     monkeypatch.setattr(
-        yoke_connected_env, "load_active",
+        yoke_connected_env,
+        "load_active",
         lambda *a, **k: _binding(db_backend.POSTGRES),
     )
     assert proxy_transport.relays_to_server() is False
@@ -208,6 +243,8 @@ def test_an_https_binding_relays(monkeypatch):
     from yoke_core.domain import yoke_connected_env
 
     monkeypatch.setattr(
-        yoke_connected_env, "load_active", lambda *a, **k: _binding("https"),
+        yoke_connected_env,
+        "load_active",
+        lambda *a, **k: _binding("https"),
     )
     assert proxy_transport.relays_to_server() is True
