@@ -5,7 +5,11 @@ import subprocess
 
 import pytest
 
-from public_installer_helpers import RecordingRunner, load_installer
+from public_installer_helpers import (
+    PUBLISHED_RELEASE_RECORD,
+    RecordingRunner,
+    load_installer,
+)
 
 
 def test_installer_runs_wsl_setup_before_ready(monkeypatch):
@@ -62,6 +66,7 @@ def test_dry_run_does_not_execute_wsl_setup():
     installer = module.Installer(
         module.parse_args(["--version", "1.2.3", "--dry-run"]),
         runner=runner,
+        fetcher=lambda _url: PUBLISHED_RELEASE_RECORD,
         stdout=io.StringIO(),
     )
     installer.run()

@@ -15,6 +15,10 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 INSTALLER_PATH = REPO_ROOT / "packaging" / "public-installer" / "install.py"
 INSTALL_SHIM_PATH = REPO_ROOT / "packaging" / "public-installer" / "install"
 FAKE_INSTALL_PY = "import sys\nprint('FAKE_INSTALL_RAN ' + ' '.join(sys.argv[1:]))\n"
+PUBLISHED_RELEASE_RECORD = (
+    b'[{"project":"yoke-cli","name":"yoke-cli","version":"1.2.3",'
+    b'"filename":"yoke_cli-1.2.3-py3-none-any.whl","sha256":"ab","size":1}]'
+)
 RunResult = subprocess.CompletedProcess[str]
 
 
@@ -102,6 +106,13 @@ def write_channel(
         "version": version,
         "channel": channel,
     }
+
+
+def write_published_release(tmp_path: Path, *, version: str) -> None:
+    """Write the immutable per-release record beside a ``write_channel`` site."""
+    record = tmp_path / "site" / "dist" / "releases" / version / "release-records.json"
+    record.parent.mkdir(parents=True, exist_ok=True)
+    record.write_bytes(PUBLISHED_RELEASE_RECORD)
 
 
 def run_shim(
