@@ -66,7 +66,9 @@ def _git(repo_root: Path, *args: str) -> Optional[str]:
     try:
         proc = subprocess.run(
             ["git", "-C", str(repo_root), *args],
-            capture_output=True, text=True, check=False,
+            capture_output=True,
+            text=True,
+            check=False,
         )
     except (OSError, ValueError):
         return None
@@ -91,27 +93,30 @@ def collect(request: Dict[str, Any], repo_root: Path) -> Dict[str, Any]:
 
     spec_text = str(request.get("spec_text") or "")
     before = checkout_revision(repo_root)
-    issues = ReadinessOutcome(issues=[
-        *verify_function_owners(
-            spec_text,
+    issues = ReadinessOutcome(
+        issues=[
+            *verify_function_owners(
+                spec_text,
+                repo_root=repo_root,
+                suppressed_refs=set(request.get("suppressed_refs") or ()),
+            ),
+            *verify_file_budget_line_counts(spec_text, repo_root=repo_root),
+        ]
+    ).issue_payloads()
+    issues.extend(
+        issue_payloads_for_commands(
+            [str(cmd) for cmd in (request.get("rehearsal_commands") or ())],
             repo_root=repo_root,
-            suppressed_refs=set(request.get("suppressed_refs") or ()),
-        ),
-        *verify_file_budget_line_counts(spec_text, repo_root=repo_root),
-    ]).issue_payloads()
-    issues.extend(issue_payloads_for_commands(
-        [str(cmd) for cmd in (request.get("rehearsal_commands") or ())],
-        repo_root=repo_root,
-        planned_paths=set(request.get("rehearsal_planned_paths") or ()),
-        public_ref=str(request.get("item_ref") or ""),
-    ))
+            planned_paths=set(request.get("rehearsal_planned_paths") or ()),
+            public_ref=str(request.get("item_ref") or ""),
+        )
+    )
     advisories: List[Dict[str, Any]] = (
-        collect_symlink_advisories(spec_text, repo_root=repo_root)
-        if spec_text else []
+        collect_symlink_advisories(spec_text, repo_root=repo_root) if spec_text else []
     )
     after = checkout_revision(repo_root)
     return {
-        "item_id": int(request.get("item_id") or 0),
+        "item_ref": str(request.get("item_ref") or ""),
         "project_id": request.get("project_id"),
         "spec_sha256": str(request.get("spec_sha256") or ""),
         "checks": list(request.get("checks") or ()),

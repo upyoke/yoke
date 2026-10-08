@@ -186,7 +186,8 @@ class TestTaskDirectRelay:
         assert call["target"].public_ref == "ITEM-823"
         assert call["target"].item_id is None
         payload = call["payload"]
-        assert payload["epic_id"] == "ITEM-823"
+        assert payload["epic_public_ref"] == "ITEM-823"
+        assert "epic_id" not in payload
         assert payload["task_num"] == "1"
         assert payload["status"] == "done"
         assert payload["claim_bypass"] == f"done-cascade:{TEST_ITEM_REF}"

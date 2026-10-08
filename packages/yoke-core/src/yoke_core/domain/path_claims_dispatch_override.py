@@ -17,6 +17,7 @@ Usage:
     [--blocking-claim-id M]
     [--blocking-path-targets ID,ID,...]
     [--conflict-reason upstream_delete|hostile_upstream_touch|claim_overlap|continuity_unknown]
+    [--item PREFIX-N] [--project P]
 
 Returns exit codes:
 
@@ -30,6 +31,7 @@ from __future__ import annotations
 import argparse
 from typing import List, Sequence
 
+from yoke_core.domain.item_ref_resolution import ItemRefError, resolve_item_ref
 from yoke_core.domain.path_claims_dispatch_io import (
     open_conn,
     print_error,
@@ -68,9 +70,10 @@ def _relay_override(args: argparse.Namespace) -> int:
             else []
         ),
         "conflict_reason": args.conflict_reason,
-        "item_id": args.item_id,
         "project": args.project,
     }
+    if args.item:
+        payload["public_ref"] = args.item
     actor = ActorContext(session_id=args.session_id or "")
     response = call_dispatcher(
         function_id="claims.path.override",
@@ -79,37 +82,35 @@ def _relay_override(args: argparse.Namespace) -> int:
         actor=actor,
     )
     if not response.success:
-        code = (
-            response.error.code
-            if response.error is not None
-            else "override_failed"
-        )
+        code = response.error.code if response.error is not None else "override_failed"
         message = (
-            response.error.message
-            if response.error is not None
-            else "override failed"
+            response.error.message if response.error is not None else "override failed"
         )
         print_error(str(code).upper(), message, claim_id=args.claim_id)
         return 1
 
     result = response.result or {}
-    print_json({
-        "success": True,
-        "event_id": result.get("override_event_id"),
-        "claim_id": args.claim_id,
-        "blocking_claim_id": args.blocking_claim_id,
-        "override_point": args.override_point,
-    })
+    print_json(
+        {
+            "success": True,
+            "event_id": result.get("override_event_id"),
+            "claim_id": args.claim_id,
+            "blocking_claim_id": args.blocking_claim_id,
+            "override_point": args.override_point,
+        }
+    )
     return 0
 
 
 def cmd_override(argv: Sequence[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="path-claims override", add_help=False,
+        prog="path-claims override",
+        add_help=False,
     )
     parser.add_argument("claim_id", type=int)
     parser.add_argument(
-        "--override-point", required=True,
+        "--override-point",
+        required=True,
         choices=("creation", "amend", "revalidation_conflict"),
     )
     parser.add_argument("--integration-target", required=True)
@@ -117,7 +118,8 @@ def cmd_override(argv: Sequence[str]) -> int:
     parser.add_argument("--actor-reason", required=True)
     parser.add_argument("--blocking-claim-id", type=int, default=None)
     parser.add_argument(
-        "--blocking-path-targets", default="",
+        "--blocking-path-targets",
+        default="",
         help=(
             "Comma-separated path_targets ids representing the anchor "
             "roots involved in the collision (NOT a full descendant "
@@ -125,13 +127,17 @@ def cmd_override(argv: Sequence[str]) -> int:
         ),
     )
     parser.add_argument(
-        "--conflict-reason", default=None,
+        "--conflict-reason",
+        default=None,
         choices=(
-            None, "upstream_delete", "hostile_upstream_touch",
-            "claim_overlap", "continuity_unknown",
+            None,
+            "upstream_delete",
+            "hostile_upstream_touch",
+            "claim_overlap",
+            "continuity_unknown",
         ),
     )
-    parser.add_argument("--item-id", type=int, default=None)
+    parser.add_argument("--item", default=None, help="Item public ref (PREFIX-N).")
     parser.add_argument("--project", default=None)
     parser.add_argument("--session-id", default=None)
     try:
@@ -161,44 +167,54 @@ def cmd_override(argv: Sequence[str]) -> int:
                     else []
                 ),
                 conflict_reason=args.conflict_reason,
-                item_id=args.item_id,
+                item_id=(
+                    resolve_item_ref(conn, args.item, project=args.project)
+                    if args.item
+                    else None
+                ),
                 project=args.project,
                 session_id=args.session_id,
             )
         except HookContextRejection as exc:
             print_error(
-                "HOOK_CONTEXT", str(exc),
+                "HOOK_CONTEXT",
+                str(exc),
                 claim_id=args.claim_id,
             )
             return 1
         except EmptyActorReason as exc:
             print_error(
-                "EMPTY_ACTOR_REASON", str(exc),
+                "EMPTY_ACTOR_REASON",
+                str(exc),
                 claim_id=args.claim_id,
             )
             return 1
         except ClaimNotFound as exc:
             print_error(
-                "CLAIM_NOT_FOUND", str(exc),
+                "CLAIM_NOT_FOUND",
+                str(exc),
                 claim_id=args.claim_id,
             )
             return 1
-        except (PathClaimOverrideError, ValueError) as exc:
+        except (PathClaimOverrideError, ItemRefError, ValueError) as exc:
             print_error(
-                "VALIDATION", str(exc),
+                "VALIDATION",
+                str(exc),
                 claim_id=args.claim_id,
             )
             return 1
     finally:
         conn.close()
 
-    print_json({
-        "success": True,
-        "event_id": event_id,
-        "claim_id": args.claim_id,
-        "blocking_claim_id": args.blocking_claim_id,
-        "override_point": args.override_point,
-    })
+    print_json(
+        {
+            "success": True,
+            "event_id": event_id,
+            "claim_id": args.claim_id,
+            "blocking_claim_id": args.blocking_claim_id,
+            "override_point": args.override_point,
+        }
+    )
     return 0
 
 

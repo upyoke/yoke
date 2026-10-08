@@ -20,7 +20,6 @@ from yoke_cli.commands.adapters.readiness import (
 from yoke_contracts.api.function_call import FunctionCallResponse
 
 _REQUEST = {
-    "item_id": 1800,
     "item_ref": "YOK-1800",
     "project_id": 7,
     "spec_sha256": "abc",
@@ -66,14 +65,19 @@ def _run(adapter, args, responses, observations):
 
 
 def test_observations_are_collected_and_the_same_call_re_dispatched() -> None:
-    unavailable = _response({
-        "verdict": "unavailable",
-        "local_execution_request": _REQUEST,
-    })
+    unavailable = _response(
+        {
+            "verdict": "unavailable",
+            "local_execution_request": _REQUEST,
+        }
+    )
     resolved = _response({"verdict": "pass"})
 
     calls = _run(
-        readiness_check, ["YOK-1800"], [unavailable, resolved], _OBSERVATIONS,
+        readiness_check,
+        ["YOK-1800"],
+        [unavailable, resolved],
+        _OBSERVATIONS,
     )
 
     assert len(calls) == 2
@@ -83,10 +87,12 @@ def test_observations_are_collected_and_the_same_call_re_dispatched() -> None:
 
 def test_a_machine_without_the_checkout_leaves_the_first_answer_standing() -> None:
     """No observations to send, so the unperformed verdict is the answer."""
-    unavailable = _response({
-        "verdict": "unavailable",
-        "local_execution_request": _REQUEST,
-    })
+    unavailable = _response(
+        {
+            "verdict": "unavailable",
+            "local_execution_request": _REQUEST,
+        }
+    )
 
     calls = _run(readiness_check, ["YOK-1800"], [unavailable], None)
 
@@ -96,7 +102,10 @@ def test_a_machine_without_the_checkout_leaves_the_first_answer_standing() -> No
 def test_a_host_that_ran_the_checks_is_not_asked_again() -> None:
     """No request published means nothing was left unperformed."""
     calls = _run(
-        readiness_check, ["YOK-1800"], [_response({"verdict": "pass"})], _OBSERVATIONS,
+        readiness_check,
+        ["YOK-1800"],
+        [_response({"verdict": "pass"})],
+        _OBSERVATIONS,
     )
 
     assert len(calls) == 1
@@ -104,11 +113,13 @@ def test_a_host_that_ran_the_checks_is_not_asked_again() -> None:
 
 def test_the_repairs_take_the_same_route() -> None:
     """Repair rewrites from disk, so it needs the same observations."""
-    refused = _response({
-        "success": False,
-        "rerun_verdict": "unavailable",
-        "local_execution_request": _REQUEST,
-    })
+    refused = _response(
+        {
+            "success": False,
+            "rerun_verdict": "unavailable",
+            "local_execution_request": _REQUEST,
+        }
+    )
     repaired = _response({"success": True, "rerun_verdict": "pass"})
 
     calls = _run(
@@ -129,16 +140,20 @@ def test_a_repair_that_asks_twice_is_answered_twice() -> None:
     Answering the second request is what verifies the repair; stopping
     after one round would report a repair that worked as unverified.
     """
-    refused = _response({
-        "success": False,
-        "rerun_verdict": "unavailable",
-        "local_execution_request": _REQUEST,
-    })
-    applied = _response({
-        "success": False,
-        "rerun_verdict": "unavailable",
-        "local_execution_request": _REQUEST,
-    })
+    refused = _response(
+        {
+            "success": False,
+            "rerun_verdict": "unavailable",
+            "local_execution_request": _REQUEST,
+        }
+    )
+    applied = _response(
+        {
+            "success": False,
+            "rerun_verdict": "unavailable",
+            "local_execution_request": _REQUEST,
+        }
+    )
     verified = _response({"success": True, "rerun_verdict": "pass"})
 
     calls = _run(
@@ -153,11 +168,13 @@ def test_a_repair_that_asks_twice_is_answered_twice() -> None:
 
 def test_a_host_that_keeps_asking_does_not_spin() -> None:
     """The rounds are bounded, because the loop is driven by the host asking."""
-    asking = _response({
-        "success": False,
-        "rerun_verdict": "unavailable",
-        "local_execution_request": _REQUEST,
-    })
+    asking = _response(
+        {
+            "success": False,
+            "rerun_verdict": "unavailable",
+            "local_execution_request": _REQUEST,
+        }
+    )
 
     calls = _run(
         readiness_repair_stale_count,
@@ -173,7 +190,5 @@ def test_the_client_survives_an_install_without_the_engine() -> None:
     """A thin client cannot observe; it must not fail trying."""
     from yoke_cli.commands.adapters import readiness_local_compose
 
-    with patch(
-        "importlib.import_module", side_effect=ImportError("no yoke_core")
-    ):
+    with patch("importlib.import_module", side_effect=ImportError("no yoke_core")):
         assert readiness_local_compose.collect_observations(_REQUEST) is None
