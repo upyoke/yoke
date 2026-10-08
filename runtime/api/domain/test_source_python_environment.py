@@ -122,6 +122,17 @@ def test_python_pin_mismatch_cannot_replace_the_environment(lane):
 
 
 @pytest.mark.parametrize(
+    "request",
+    [f"{sys.version_info.major}.{sys.version_info.minor}", sys.version.split()[0]],
+)
+def test_matching_python_request_keeps_the_candidate_interpreter(lane, request):
+    (lane / ".python-version").write_text(request + "\n")
+    assert environment.resolve(lane, os.environ).python == str(
+        lane / ".venv/bin/python3"
+    )
+
+
+@pytest.mark.parametrize(
     "path,missing", [("$.payload.cap_type", True), ("$.payload.project", False)]
 )
 def test_only_absent_capability_can_use_default_groups(

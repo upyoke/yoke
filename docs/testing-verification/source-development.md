@@ -19,7 +19,9 @@ partial source binding immediately.
 The selected checkout supplies dependencies too. `dev run`, `dev import-check`,
 `dev ruff-changed`, and local source pytest use its declared locked `.venv`,
 with the existing test-environment extras/groups and Python requirements.
-The check runs `uv sync --check --locked --offline` without installing or
+The check first uses `uv python find --offline --no-python-downloads` to
+confirm that the declared Python request selects the candidate interpreter,
+then runs `uv sync --check --locked --offline` without installing or
 rewriting the lock, and reports interpreter, Python version, lock digest, and
 environment identity alongside source origins. Missing, stale, incompatible,
 or redirected environments refuse with `SOURCE-ENVIRONMENT-*` and a lane-local

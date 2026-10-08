@@ -35,14 +35,8 @@ def test_is_heavy_invocation_classification(tmp_path):
     assert gate_admission.is_heavy_invocation(["-k", "expr", "-q"]) is True
     assert gate_admission.is_heavy_invocation([str(suite_dir)]) is True
     assert gate_admission.is_heavy_invocation([str(test_file)]) is False
-    assert (
-        gate_admission.is_heavy_invocation([f"{test_file}::test_a", "-q"])
-        is False
-    )
-    assert (
-        gate_admission.is_heavy_invocation([str(test_file), str(suite_dir)])
-        is True
-    )
+    assert gate_admission.is_heavy_invocation([f"{test_file}::test_a", "-q"]) is False
+    assert gate_admission.is_heavy_invocation([str(test_file), str(suite_dir)]) is True
 
 
 def test_try_acquire_slot_exhaustion_and_crash_release():
@@ -110,13 +104,21 @@ def test_queued_gate_gets_its_whole_budget_once_admitted(tmp_path, monkeypatch):
     monkeypatch.setattr(gate_admission, "GATE_SLOT_LOCK_BASE", base)
     monkeypatch.setenv(gate_admission.CAP_ENV, "1")
     monkeypatch.delenv(gate_admission.ADMITTED_ENV, raising=False)
-    monkeypatch.setenv(
-        qa_gate_timeout.WATCH_EXECUTION_TIMEOUT_ENV, str(budget_seconds)
-    )
+    monkeypatch.setenv(qa_gate_timeout.WATCH_EXECUTION_TIMEOUT_ENV, str(budget_seconds))
     suite_dir = tmp_path / "suite"
     suite_dir.mkdir()
 
     from yoke_core.tools import watch_pytest
+    from yoke_core.domain import source_python_environment
+    from yoke_core.domain.qa_environment_declaration import TestEnvironmentDeclaration
+
+    # Admission and execution timing use the real checkout environment; this
+    # fixture supplies its declaration without requiring a live project relay.
+    monkeypatch.setattr(
+        source_python_environment,
+        "load_declaration",
+        lambda **_kwargs: TestEnvironmentDeclaration(project="fixture"),
+    )
 
     holder = psycopg.connect(dsn, autocommit=True)
     release = threading.Timer(hold_seconds, holder.close)

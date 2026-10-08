@@ -72,6 +72,27 @@ def resolve(root: Path, env: Mapping[str, str]) -> SourcePythonEnvironment:
     # An ambient environment cannot redirect uv to main or disable groups.
     clean["UV_PROJECT_ENVIRONMENT"] = str(prefix)
     try:
+        # A synchronized package set alone does not prove .python-version.
+        # Delegate every supported Python request format to uv, without letting
+        # it provision another interpreter or use that interpreter for checks.
+        requested = subprocess.run(
+            [UV_EXECUTABLE, "python", "find", "--offline", "--no-python-downloads"],
+            cwd=project,
+            env=clean,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+        if (
+            requested.returncode
+            or not requested.stdout.strip()
+            or Path(requested.stdout.strip()).resolve() != python.resolve()
+        ):
+            refuse(
+                "SOURCE-ENVIRONMENT-OUT-OF-DATE",
+                f"declared Python request does not select the interpreter at {python}",
+            )
         checked = subprocess.run(
             [
                 UV_EXECUTABLE,
