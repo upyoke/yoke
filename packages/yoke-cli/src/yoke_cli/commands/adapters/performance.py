@@ -12,10 +12,16 @@ from yoke_cli.commands._helpers import (
 )
 from yoke_contracts.api.function_call import TargetRef
 
+_RANGE_USAGE = "--since ISO --until ISO [--project-ids ID,ID] [--points N]"
+PERFORMANCE_AGGREGATE_USAGE = (
+    f"yoke events performance aggregate {_RANGE_USAGE} [--session-id S] [--json]"
+)
+PERFORMANCE_DETAIL_USAGE = f"yoke events performance detail {_RANGE_USAGE} [--family FAMILY] [--offset N] [--limit N] [--session-id S] [--json]"
+
 
 def _run(args: list[str], detail: bool) -> int:
     verb = "detail" if detail else "aggregate"
-    usage = f"yoke events performance {verb} --since ISO --until ISO [--project-ids ID,ID] [--points N] [--json]"
+    usage = PERFORMANCE_DETAIL_USAGE if detail else PERFORMANCE_AGGREGATE_USAGE
     parser = argparse.ArgumentParser(
         prog=f"yoke events performance {verb}",
         description=(

@@ -13,6 +13,8 @@ from __future__ import annotations
 FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "actors.roster": "next-release",
     "actors.state.set": "next-release",
+    "events.performance.aggregate": "next-release",
+    "events.performance.detail": "next-release",
     "decision_requests.get": "next-release",
     "machine_authorization.get": "next-release",
     "machine_authorization.resolve": "next-release",
