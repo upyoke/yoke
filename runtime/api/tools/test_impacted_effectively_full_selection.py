@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from math import ceil
 from pathlib import Path
 
 from yoke_core.tools import impacted_tests
+from yoke_core.tools._impacted_selection import MAX_BOUNDED_FILE_FRACTION
 from yoke_core.tools.impacted_tests import (
     build_import_index,
     is_effectively_full,
@@ -16,11 +18,19 @@ from yoke_core.tools.impacted_tests import (
 from runtime.api.tools.test_impacted_tests import _tiny_repo, _with_floor, _write
 
 
+def _broad_fanout() -> range:
+    """Keep the broad branch dominant as the always-run floor grows."""
+    unrelated = len(impacted_tests.ALWAYS_RUN_TESTS) + 6
+    fraction = MAX_BOUNDED_FILE_FRACTION
+    count = ceil(fraction * unrelated / (1 - fraction))
+    return range(max(impacted_tests.MIN_EFFECTIVELY_FULL_FILE_UNIVERSE, count))
+
+
 def test_bounded_selection_keeps_individually_reachable_change(tmp_path: Path) -> None:
     root = _tiny_repo(tmp_path)
     broad_source = "runtime/api/foundation.py"
     _write(root, broad_source, "VALUE = 1\n")
-    for number in range(impacted_tests.MIN_EFFECTIVELY_FULL_FILE_UNIVERSE):
+    for number in _broad_fanout():
         _write(
             root,
             f"runtime/api/test_foundation_{number}.py",
@@ -47,18 +57,17 @@ def test_bounded_deferral_keeps_small_direct_importer_set(tmp_path: Path) -> Non
     _write(root, source, "VALUE = 1\n")
     _write(root, bridge, "from runtime.api import foundation\n")
     _write(root, direct_test, "from runtime.api import foundation\n")
-    for number in range(impacted_tests.MIN_EFFECTIVELY_FULL_FILE_UNIVERSE):
+    for number in _broad_fanout():
         _write(
             root,
             f"runtime/api/test_bridge_{number}.py",
             "from runtime.api import foundation_bridge\n",
         )
 
-    selection = select(
-        ["docs/lifecycle.md", source],
-        build_import_index(root),
-        bounded=True,
-    )
+    index = build_import_index(root)
+    total = sum(is_test_file(path) for path in index.module_of)
+    assert is_effectively_full(len(reachable_tests((bridge,), index) or ()), total)
+    selection = select(["docs/lifecycle.md", source], index, bounded=True)
 
     assert selection.bounded_deferral is True
     assert selection.fallback_rule == "unmapped_file_kind"
@@ -77,14 +86,19 @@ def test_bounded_deferral_keeps_tests_on_a_narrow_importer_branch(
     _write(root, broad_bridge, "from runtime.api import foundation\n")
     _write(root, narrow_bridge, "from runtime.api import foundation\n")
     _write(root, narrow_test, "from runtime.api import narrow_bridge\n")
-    for number in range(impacted_tests.MIN_EFFECTIVELY_FULL_FILE_UNIVERSE):
+    for number in _broad_fanout():
         _write(
             root,
             f"runtime/api/test_broad_bridge_{number}.py",
             "from runtime.api import broad_bridge\n",
         )
 
-    selection = select([source], build_import_index(root), bounded=True)
+    index = build_import_index(root)
+    total = sum(is_test_file(path) for path in index.module_of)
+    assert is_effectively_full(
+        len(reachable_tests((broad_bridge,), index) or ()), total
+    )
+    selection = select([source], index, bounded=True)
 
     assert selection.fallback_rule == "effectively_full_selection"
     assert selection.bounded_deferral is True
@@ -115,7 +129,7 @@ def test_bounded_keeps_a_broad_importer_s_own_test(tmp_path: Path) -> None:
     # A hub above the consumer makes the consumer's own branch near-total
     # without the consumer itself being broad.
     _write(root, "runtime/api/hub.py", "from runtime.api import consumer\n")
-    for number in range(impacted_tests.MIN_EFFECTIVELY_FULL_FILE_UNIVERSE):
+    for number in _broad_fanout():
         _write(
             root,
             f"runtime/api/test_hub_{number}.py",
@@ -139,7 +153,7 @@ def test_unmapped_file_does_not_drop_python_reachability(tmp_path: Path) -> None
     root = _tiny_repo(tmp_path)
     broad = "runtime/api/foundation.py"
     _write(root, broad, "VALUE = 1\n")
-    for number in range(impacted_tests.MIN_EFFECTIVELY_FULL_FILE_UNIVERSE):
+    for number in _broad_fanout():
         _write(
             root,
             f"runtime/api/test_foundation_{number}.py",
@@ -180,7 +194,7 @@ def _broad_importer_repo(tmp_path: Path) -> tuple[Path, str]:
     _write(root, changed, "VALUE = 1\n")
     _write(root, "runtime/api/consumer.py", "from runtime.api import changed_core\n")
     _write(root, "runtime/api/hub.py", "from runtime.api import consumer\n")
-    for number in range(impacted_tests.MIN_EFFECTIVELY_FULL_FILE_UNIVERSE):
+    for number in _broad_fanout():
         _write(
             root, f"runtime/api/test_hub_{number}.py", "from runtime.api import hub\n"
         )
@@ -272,7 +286,7 @@ def test_helper_closure_still_obeys_the_caller_s_bound(tmp_path: Path) -> None:
         "runtime/api/test_shared_fixtures.py",
         "from runtime.api import consumer\n\ndef fixture():\n    return consumer\n",
     )
-    for number in range(120):
+    for number in _broad_fanout():
         _write(
             root,
             f"runtime/api/test_fixture_user_{number}.py",
