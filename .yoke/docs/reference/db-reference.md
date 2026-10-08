@@ -311,8 +311,8 @@ yoke --env <name> dev run -- yoke migration rehearse PREFIX-N
 
 Rehearsal applies the entry to the validation surface, records the gate's
 receipt in `migration_audit` on the control plane that holds the item, and
-holds the `LIVE_DB_MIGRATION:<model>` coordination claim so a second item cannot
-enter migration territory while this one is in flight; failure releases it.
+holds the `LIVE_DB_MIGRATION:<model>` coordination claim until the merge lands so
+a second item cannot enter migration territory meanwhile; failure releases it.
 
 ## JSON-payload columns
 

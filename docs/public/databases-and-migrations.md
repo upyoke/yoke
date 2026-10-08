@@ -24,7 +24,7 @@ When an item mutates a declared authoritative DB:
 2. Author the migration module in history
 3. Rehearse from the configured local-Postgres authority that owns the item
    with `yoke --env <name> migration rehearse PREFIX-N` (holds the live
-   migration lease). If none is configured, escalate to the control-plane
+   migration lease until the merge lands). If none is configured, escalate to the control-plane
    operator; rehearsal executes project-local code and is not relayed over HTTPS.
 4. Ship; boot converge applies pending entries fail-hard
 
