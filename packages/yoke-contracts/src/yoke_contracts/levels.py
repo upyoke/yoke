@@ -8,9 +8,9 @@ accepts, so a wildcard or an effort the harness cannot pass never reaches
 storage. A Cursor option may name a ``fallback`` on the same surface: the
 selection used only when the option's own pool is exhausted.
 
-The same options label sessions: a session is stamped with the level whose
-option matches its harness, model, and (when known) effort. There is no
-separately maintained rule list.
+The same options label sessions: a session is stamped with the lowest level
+whose option matches its harness and model, preferring an option at its own
+effort. There is no separately maintained rule list.
 
 One document holds the levels for the whole universe; a project may carry an
 override in its ``session-routing`` capability. Both stores hold the same

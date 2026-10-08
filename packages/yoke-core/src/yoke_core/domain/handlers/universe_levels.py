@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
@@ -39,11 +39,6 @@ def _failure(code: str, message: str, jsonpath: str = "$.payload") -> HandlerOut
     )
 
 
-def _actor_id(request: FunctionCallRequest) -> Optional[int]:
-    raw = str(request.actor.actor_id or "").strip()
-    return int(raw) if raw.isdigit() else None
-
-
 def handle_universe_levels_get(request: FunctionCallRequest) -> HandlerOutcome:
     """Return the universe levels and whether they are stored or shipped."""
     try:
@@ -77,12 +72,13 @@ def handle_universe_levels_set(request: FunctionCallRequest) -> HandlerOutcome:
     except ValidationError as exc:
         return _failure("payload_invalid", safe_validation_message(exc))
     from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.handlers.identity_common import caller_actor_id
     from yoke_core.domain.universe_levels import write_universe_levels
 
     try:
         with connect() as conn:
             levels = write_universe_levels(
-                conn, parsed.levels, actor_id=_actor_id(request)
+                conn, parsed.levels, actor_id=caller_actor_id(conn, request)
             )
     except LevelsError as exc:
         return _failure(

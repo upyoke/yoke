@@ -89,8 +89,10 @@ workspace, project, actor, and `max_chain_steps`. Every field comes from the
 authority.
 
 **A session reads its stored identity rather than reconstructing it.** The
-execution level is stamped at registration from the project's harness/model
-selectors and defaults, or from a deliberate registration override. It is a
+execution level is stamped at registration from the level options the
+project reads (its override, else the universe levels) matched against the
+session's harness, model, and effort, or from a deliberate registration
+override. It is a
 grouping label, with no downstream skill permissions. Work assignment follows
 pinned workflow bindings and explicit staffing.
 

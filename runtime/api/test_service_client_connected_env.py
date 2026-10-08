@@ -33,33 +33,12 @@ def _write_binding(root: Path) -> Path:
   },
   "projects": {
     "__ROOT__": {"project_id": 1}
-  },
-  "settings": {
-    "executor_default_level_codex*": "ALTMAN"
   }
 }
 """.strip().replace("__ROOT__", str(root.resolve())),
         encoding="utf-8",
     )
     return binding
-
-
-def test_load_routing_config_does_not_require_sqlite_db_under_connected_env(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
-    root = tmp_path / "repo"
-    binding = _write_binding(root)
-    monkeypatch.setattr(io, "_repo_root", str(root))
-    monkeypatch.setenv(yoke_connected_env.PYTEST_ENABLE_ENV, "1")
-    monkeypatch.setenv(machine_config.CONFIG_FILE_ENV, str(binding))
-    monkeypatch.delenv("YOKE_DB", raising=False)
-    monkeypatch.delenv("YOKE_PG_DSN", raising=False)
-    monkeypatch.delenv("YOKE_PG_DSN_FILE", raising=False)
-
-    routing = io._load_routing_config()
-
-    assert routing.default_level_for_executor("codex-desktop") == "ALTMAN"
 
 
 def test_subprocess_backend_env_uses_pytest_checkout_binding(
@@ -89,7 +68,7 @@ def test_api_config_path_does_not_require_sqlite_db(
 ) -> None:
     config = tmp_path / ".yoke" / "config"
     config.parent.mkdir()
-    config.write_text("executor_default_level_codex*=ALTMAN\n", encoding="utf-8")
+    config.write_text("api_base_url=http://127.0.0.1:1\n", encoding="utf-8")
 
     def boom():
         raise RuntimeError("SQLite authority retired")

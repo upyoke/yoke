@@ -1,64 +1,97 @@
-# Session level routing
+# Execution levels
 
-Execution levels are named groupings of harnesses and models. A project can
-group its sessions by model tier or harness without changing workflow
-settings. Levels carry identity and presentation; workflow bindings select
-stage skills, and steering or explicit operator staffing assigns work.
+An execution level is a named, ordered capability band. Each level holds an
+ordered list of **options**, and each option is one exact launchable
+selection. The same options label sessions: a session is stamped with the
+level whose option matches its harness, model, and effort. Levels carry
+identity, presentation, and launch selections; workflow bindings select stage
+skills, and steering or explicit operator staffing assigns work.
 
 Execution levels are distinct from the claimed worktree lanes that isolate
 code changes. See [worktree lanes and claims](agent-rules/lanes-and-claims.md).
 
-## Resolution
+## The shipped scheme
 
-A project declares level identities, labels, and optional glyphs in
-`level_metadata` on its `session-routing` capability and decides
-which session lands on which one. Two surfaces answer that, and the narrower
-one wins:
+Every universe reads this scheme until an operator stores its own, lowest
+level first:
 
-- **`level_rules`** — an optional list of selectors, each naming a level and
-  matching on `harness`, on `model`, or on both. A harness value is a
-  canonical harness id; surface aliases (`claude-cli`) resolve to their
-  family before matching. A model value is either an exact identifier or a
-  trailing-star family prefix (`claude-opus-*`).
-- **`executor_default_levels`** — the harness default beneath the rules,
-  resolved as exact key (`executor_default_level_claude_vscode`) -> wildcard
-  key with the longest non-wildcard prefix (`executor_default_level_claude*`)
-  -> global `executor_default_level_unknown` -> the unresolved sentinel.
+| Level | Surface | Model or selector | Effort | Context |
+|---|---|---|---|---|
+| INTERN 🐣 | claude-cli | `claude-haiku-4-5` | max | default |
+| | codex-cli | `gpt-6-luna` | max | default |
+| JUNIOR 🐥 | cursor-cli | `grok-4.7-high`; when its pool is exhausted, `claude-opus-5-5-medium` | high / medium | default |
+| | codex-cli | `gpt-5.6-terra` | xhigh | default |
+| | claude-cli | `claude-sonnet-5-5` | xhigh | 1,000,000 |
+| SENIOR 🦉 | claude-cli | `claude-opus-5-5` | medium | 1,000,000 |
+| | codex-cli | `gpt-6.1-sol` | medium | default |
+| PRINCIPAL 🦅 | claude-cli | `claude-fable-5-1` | xhigh | 1,000,000 |
+| | codex-cli | `gpt-6-astra` | xhigh | default |
 
-Precedence, most specific first:
+## Document shape
 
-1. an explicit level the caller supplied (a deliberate operator re-route);
-2. `level_rules` matching harness **and** model;
-3. `level_rules` matching model alone;
-4. `level_rules` matching harness alone;
-5. the `executor_default_levels` harness default.
+Levels are a JSON list, lowest first:
 
-Within a tier an exact model identifier outranks a trailing-star prefix, and
-a longer prefix outranks a shorter one. **Row order never affects the
-answer**: two entries that would tie carry the same selector, which the
-settings validator refuses.
-
-The model matched is the provider-attested `model` when one exists, and the
-`requested_model` (with its context-tier suffix removed) otherwise, because
-the level is stamped at registration and the attestation is read back after.
-A session with neither matches only the harness tiers — model selectors do
-not apply to a model nobody stated.
-
-**When an edit takes effect.** A level is stamped once, at registration, so a
-routing edit reaches only sessions that register after it; a live session is
-never silently re-routed. Work assignment uses pinned workflow bindings and explicit staffing.
-
-Editing is a harness job through the existing capability commands:
-
-```text
-yoke projects capability-settings get --project NAME --cap-type session-routing
-yoke projects capability-settings merge --project NAME --cap-type session-routing --set '<key.path>=<value>'
+```json
+[
+  {
+    "name": "SENIOR",
+    "glyph": "🦉",
+    "options": [
+      {"surface": "claude-cli", "model": "claude-opus-5-5",
+       "reasoning_effort": "medium", "context_window_tokens": 1000000},
+      {"surface": "codex-cli", "model": "gpt-6.1-sol",
+       "reasoning_effort": "medium", "context_window_tokens": null}
+    ]
+  }
+]
 ```
 
-Read the composed result — effective labels and glyphs, selectors per level,
-harness defaults, and any harness with no configured grouping —
-with `yoke projects level-summary get --project NAME`. That same read backs
-the read-only level summary on the Project settings screen.
+- `name` is uppercase letters, digits, and underscores, unique, and never the
+  reserved unresolved name `primary`.
+- `glyph` satisfies the [glyph contract](#glyph-contract).
+- An option names a launch `surface` (`claude-cli`, `codex-cli`,
+  `cursor-cli`), one exact `model` or native selector (no wildcard), the
+  `reasoning_effort`, and `context_window_tokens` (`null` for the model's
+  default window). Effort and context are validated against what that
+  surface's CLI accepts — claude-cli takes `low`, `medium`, `high`, `xhigh`,
+  `max` and a 1,000,000-token window; a Cursor selector that encodes an effort
+  must name the same effort.
+- A Cursor option may carry a `fallback` on the same surface, used only when
+  the option's own pool is exhausted.
+- One surface, model, and effort belongs to at most one level.
+
+A refusal names its code (for example `claude_reasoning_effort_unsupported`,
+`level_option_model_not_launchable`, `level_glyph_unsafe`) and the document
+path to correct.
+
+## Where levels live
+
+- **Universe levels** — one definition per universe, in universe settings.
+  With nothing stored, the universe reads the shipped scheme.
+
+  ```text
+  yoke universe levels get [--json]
+  yoke universe levels get --json | <edit> | yoke universe levels set --stdin
+  ```
+
+  `universe.levels.set` replaces the whole definition and requires an org
+  admin.
+- **Project override** — a project may carry its own levels in its
+  `session-routing` capability, set only through the CLI. The document holds
+  exactly one key, `levels`:
+
+  ```text
+  yoke projects capability-settings set --project NAME --cap-type session-routing \
+    --settings-json '{"levels": [...]}' --new
+  yoke projects capability-settings remove --project NAME --cap-type session-routing --base AS_READ_JSON
+  ```
+
+  Removing the capability returns the project to the universe levels.
+
+Read what a project actually uses — the override when present, else the
+universe levels — with `yoke projects level-summary get --project NAME`. The
+result names its `source` (`project`, `universe`, or `default`). The Project
+settings screen shows the same read.
 
 ## Glyph contract
 
@@ -72,23 +105,42 @@ such as 🐎 or 🚀 — rather than silently stripping it:
 
 | Stored glyph | Writer | Correction command |
 |---|---|---|
-| Level glyph, `level_metadata.<LEVEL>.glyph` | `session-routing` capability settings | `yoke projects capability-settings merge --project P --cap-type session-routing --set level_metadata.<LEVEL>.glyph=<glyph>` |
+| Universe level glyph, `levels[N].glyph` | `universe.levels.set` | `yoke universe levels get --json`, correct the glyph, then `yoke universe levels set --stdin` |
+| Project override level glyph, `levels[N].glyph` | `session-routing` capability settings | `yoke projects capability-settings set --project P --cap-type session-routing --settings-json '{"levels": [...]}' --base AS_READ_JSON` |
 | Project emoji, `projects.emoji` (empty clears it) | `projects.create` / `projects.update` | `yoke projects update --slug S --name N --emoji <glyph>` |
 | Workflow stage glyph, `stages[].glyph` | Workflow version publish | Publish a corrected version through the workflow's source (built-in fixture plus `yoke workflows canon-update apply`, or the owning Pack plus `yoke packs update`), then `yoke workflows item migrate ITEM` |
 
 `HC-stored-glyph-contract` FAILs on every stored value that breaks the
 contract and prints its location with the correction command above.
 
+## Session labeling
+
+A session is stamped once, at registration, with the lowest level holding an
+option that matches it:
+
+1. an explicit level the caller supplied (a deliberate operator re-route)
+   wins;
+2. otherwise an option on the session's harness family with the session's
+   exact model **and** effort;
+3. otherwise an option on the session's harness family with its exact model
+   (effort unknown, or one no option lists);
+4. otherwise the session stays unresolved (`primary`), shown as a warning.
+
+Harness family means any surface of the same harness: a `claude-desktop`
+session matches a `claude-cli` option. A fallback selection labels its
+option's level. The model matched is the provider-attested model when one
+exists, else the requested model with its context-tier suffix (`[1m]`)
+removed; the effort is the attested effort, else the requested one.
+
+A level is stamped once, so an edit reaches only sessions that register after
+it; a live session is never silently relabeled.
 
 ## Stored settings convergence
 
-Boot removes retired action-permission settings from stored routing documents
-through the ordered migration history. Levels declared only through those
-settings become metadata entries so custom groupings survive. New settings
-writes refuse the removed keys and name the correction.
-
-Boot also renames the keys of documents stored before the level rename to
-the level keys above, including each rule's target field, and the
-`harness_sessions` column every session row stamps is `execution_level`. A
-write that still uses a pre-rename key refuses and names the level key that
-replaces it.
+Levels replaced three older `session-routing` keys — declared level
+metadata, selector rules, and harness defaults. Boot removes them from every
+stored project document through the ordered migration history and deletes a
+document left without levels, so every project reads the universe levels
+unless it holds a real override. A write that still uses a retired key is
+refused as `level_routing_keys_retired` with the override recipe above; the
+machine config carries no level routing.

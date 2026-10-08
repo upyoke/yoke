@@ -119,4 +119,12 @@ def test_level_summary_read_passes_through_the_local_ui_proxy(ui_client, test_db
     assert response.status_code == 200
     envelope = response.json()
     assert envelope["success"] is True, envelope
-    assert isinstance(envelope["result"]["levels"], list)
+    result = envelope["result"]
+    assert (result["source"], result["configured"]) == ("default", False)
+    assert [level["name"] for level in result["levels"]] == [
+        "INTERN",
+        "JUNIOR",
+        "SENIOR",
+        "PRINCIPAL",
+    ]
+    assert all(level["glyph"] and level["options"] for level in result["levels"])

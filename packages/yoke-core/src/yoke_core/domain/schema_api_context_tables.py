@@ -17,7 +17,7 @@ public export):
   work_claims, path_claims, path_claim_targets, path_claim_task_bindings,
   path_targets, path_claim_amendments, actors.
 - :mod:`schema_api_context_tables_harness` — harness_machine_reports,
-  model_reference_revisions.
+  model_reference_revisions, universe_settings.
 - :mod:`schema_api_context_tables_auth` — roles, permissions,
   role_permissions, actor_project_roles, organizations, actor_org_roles.
 - :mod:`schema_api_context_tables_qa` — qa_requirements, qa_runs.

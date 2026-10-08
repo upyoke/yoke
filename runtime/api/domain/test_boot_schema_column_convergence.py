@@ -88,8 +88,10 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # single-use nonce and expiry columns are all born with that table.
 # The session grouping column harness_sessions.execution_level is delivered by
 # an ordered history entry that renames the earlier born-with spelling in place.
+# The universe settings table is net-new; its key, value and update stamp are
+# all born with that table.
 _BORN_WITH_COLUMN_DIGEST = (
-    "e9176436bce4dba4b4928d4de47de962275c8cdc88fddfab8d8f7fc30a429522"
+    "2a230ecaac83fe922e54909aca7eb5a90ca5d9056ea3a574ab69416c6ff2b031"
 )
 
 

@@ -175,9 +175,11 @@ def _apply_session_schema() -> None:
             resolve_current_workflow_pin,
         )
         from yoke_core.domain.workflow_schema import ensure_workflow_schema
+        from runtime.api.fixtures.level_store import create_level_store_tables
 
         ensure_workflow_schema(conn)
         converge_builtin_workflows(conn)
+        create_level_store_tables(conn)
 
         # Seed items: one runnable, one done, one blocked
         conn.execute(
