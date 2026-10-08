@@ -115,12 +115,12 @@ because one surface refused.
 
 **Do not pick the machine or the surface.** A level launch is placed for
 you: every option of the level is weighed on every machine this actor may use,
-against only the quota pools that option's model draws on.
-Allocate by headroom, not by leveling counts: placement keeps one worker on
-every surface above 100% headroom so each harness stays exercised, then sends
-the rest to the option with the most headroom. `placement_reason` names the
-winner and why; `level_placement` carries every option, machine, and pool it
-read. Both land on the launch row. Pass `--machine` only to narrow placement,
+against only the quota pools that option's model draws on, and the spread and
+headroom rules choose. `placement_reason` names the winner and why;
+`level_placement` carries every option, machine, and pool it read. Both land
+on the launch row. The fleet report's **levels** block is that same dry run
+for every level, with live workers per surface: read it to see which levels
+have capacity before naming one. Pass `--machine` only to narrow placement,
 and `--surface` only for an operator override. There is no per-surface
 session cap.
 
@@ -214,7 +214,8 @@ Name a level per item; the level's options carry the model, effort, and
 context. Which level each leg asks for, what counts as a confirmed empty
 Cursor pool, adopting a new model, and why a resume keeps its selection is
 [`model-selection.md`](model-selection.md). Read it before naming a level.
-The mechanics of an operator override are here.
+Set the item's level override when you staff it (same file). The mechanics
+of an operator override are here.
 
 An override names `--surface` with `--model`, `--reasoning-effort`, and
 `--context-window` as needed; a knob it leaves unnamed takes the surface's
@@ -268,8 +269,9 @@ the first command named.
 
 ## 9. Restaff an in-flight item on a different model
 
-When to move an item onto a stronger or cheaper model is
-[`model-selection.md`](model-selection.md)'s question. This is the how: one
+When to move an item onto a stronger or cheaper model — the restaff ladder,
+or a changed level override — is [`model-selection.md`](model-selection.md)'s
+question. This is the how: one
 item, one worker at a time, the same lane, no claim surgery. A parked
 release-wait or landing holder is waiting on delivery, not failing; restaff
 work that still has implementation or verification left to do.
