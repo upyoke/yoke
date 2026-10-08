@@ -102,26 +102,6 @@ PLAN_CASE_COLUMNS = (
 )
 
 
-def converged_select(
-    conn: Any, table: str, fields: Iterable[str], alias: str = ""
-) -> str:
-    """Select each field, or NULL for a column this database has not gained yet.
-
-    A deployment run freezes its members in-process against the authoritative
-    database before the release that adds a column boots and converges it, so
-    a freeze that named a new column outright would refuse every run started
-    from that source — the converging release included.
-    """
-    from yoke_core.domain.schema_common import _get_columns
-
-    present = set(_get_columns(conn, table))
-    prefix = f"{alias}." if alias else ""
-    return ",".join(
-        f"{prefix}{field}" if field in present else f"NULL AS {field}"
-        for field in fields
-    )
-
-
 def semantic_row(row: Mapping[str, Any], fields: Iterable[str]) -> dict[str, Any]:
     """Return only configured acceptance fields with decoded JSON values."""
     result = {field: row.get(field) for field in fields}

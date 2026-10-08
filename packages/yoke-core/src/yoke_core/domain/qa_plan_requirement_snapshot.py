@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 from typing import Any, Iterable, Mapping, Optional
 
+from yoke_core.domain.qa_converging_columns import converged_values
 from yoke_core.domain.db_helpers import query_one
 from yoke_core.domain.qa_plan_management import QaPlanError, _placeholder
 from yoke_core.domain.qa_events import emit_qa_requirement_event
@@ -155,6 +156,7 @@ def insert_requirement(
         execution_target=execution_target,
     )
     require_case_target(case_target_subject(case, definition), execution_target)
+    stored = converged_values(conn, "qa_requirements", definition)
     subject = {
         "standalone_execution_id": standalone_execution_id,
         "item_id": item_id,
@@ -162,8 +164,8 @@ def insert_requirement(
         "deployment_stage": deployment_stage,
         "deployment_member_item_id": deployment_member_item_id,
     }
-    columns = (*subject, *definition, "created_at")
-    values = (*subject.values(), *definition.values(), now)
+    columns = (*subject, *stored, "created_at")
+    values = (*subject.values(), *stored.values(), now)
     row = conn.execute(
         f"INSERT INTO qa_requirements({', '.join(columns)}) "
         f"VALUES ({', '.join([marker] * len(values))}) "
@@ -226,12 +228,13 @@ def refresh_requirement(
         execution_target=execution_target,
     )
     require_case_target(case_target_subject(case, definition), execution_target)
-    assignments = ", ".join(f"{column}={marker}" for column in definition)
+    stored = converged_values(conn, "qa_requirements", definition)
+    assignments = ", ".join(f"{column}={marker}" for column in stored)
     conn.execute(
         f"UPDATE qa_requirements SET {assignments}, "
         "waived_at=NULL, waiver_rationale=NULL, waiver_source=NULL "
         f"WHERE id={marker}",
-        (*definition.values(), int(requirement_id)),
+        (*stored.values(), int(requirement_id)),
     )
     # Returned so the caller can carry the same derivation onward — an
     # admitted copy of this row needs the body that was just written, not a

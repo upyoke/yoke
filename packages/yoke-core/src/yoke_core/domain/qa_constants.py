@@ -178,7 +178,7 @@ REQ_COLUMNS = (
     "created_at",
 )
 
-_REQ_SELECT = (
+_REQ_SELECT_TEMPLATE = (
     "id, COALESCE(CAST(item_id AS TEXT),''), COALESCE(CAST(epic_id AS TEXT),''), "
     "COALESCE(CAST(task_num AS TEXT),''), "
     "COALESCE(deployment_run_id,''), COALESCE(standalone_execution_id,''), COALESCE(deployment_stage,''), "
@@ -194,12 +194,29 @@ _REQ_SELECT = (
     "COALESCE(method_id,''), COALESCE(method_name,''), "
     "COALESCE(runner_id,''), COALESCE(verdict_path,''), "
     "COALESCE(host_baseline,''), "
-    "COALESCE(starting_state,''), COALESCE(starting_state_reason,''), "
+    "{starting_state}"
     "COALESCE(entry_surface,''), COALESCE(required_completion,''), "
     "COALESCE(workflow_transition_id,''), "
     "COALESCE(instructions,''), COALESCE(expected_outcome,''), "
     "COALESCE(method_config,''), created_at"
 )
+_STARTING_STATE_SELECT = (
+    "COALESCE(starting_state,''), COALESCE(starting_state_reason,''), "
+)
+_REQ_SELECT = _REQ_SELECT_TEMPLATE.format(starting_state=_STARTING_STATE_SELECT)
+
+
+def requirement_select(conn: Any) -> str:
+    """``_REQ_SELECT``, reading the starting-state columns as empty until the
+    database has converged them (see ``qa_converging_columns``)."""
+    from yoke_core.domain.qa_converging_columns import (
+        STARTING_STATE_COLUMNS,
+        present_columns,
+    )
+
+    if set(STARTING_STATE_COLUMNS) <= present_columns(conn, "qa_requirements"):
+        return _REQ_SELECT
+    return _REQ_SELECT_TEMPLATE.format(starting_state="'', '', ")
 
 
 # Canonical qa_runs column roster for typed reads. Superset note:

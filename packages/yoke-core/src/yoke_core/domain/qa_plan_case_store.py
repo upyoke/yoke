@@ -9,6 +9,7 @@ from yoke_contracts.qa_case_starting_state import (
     chain_baselines,
     normalize_starting_state,
 )
+from yoke_core.domain.qa_converging_columns import converged_values
 from yoke_core.domain.qa_plan_management import QaPlanError, _json, _placeholder
 
 
@@ -51,34 +52,34 @@ def insert_plan_cases(
     marker = _placeholder(conn)
     conn.execute(f"DELETE FROM qa_plan_cases WHERE plan_id={marker}", (plan_id,))
     for case in cases:
-        conn.execute(
-            "INSERT INTO qa_plan_cases("
-            "plan_id, case_key, position, method_id, instructions, "
-            "expected_outcome, method_config, success_policy_id, "
-            "success_policy_params, host_baselines, starting_state, "
-            "starting_state_reason, entry_surface, required_completion, "
-            "created_at, updated_at"
-            f") VALUES ({', '.join([marker] * 16)})",
-            (
-                plan_id,
-                case["case_key"],
-                case["position"],
-                case["method_id"],
-                case["instructions"],
-                case["expected_outcome"],
-                _json(case.get("method_config") or {}),
-                case.get("success_policy_id"),
-                _json(case["success_policy_params"])
+        values = converged_values(
+            conn,
+            "qa_plan_cases",
+            {
+                "plan_id": plan_id,
+                "case_key": case["case_key"],
+                "position": case["position"],
+                "method_id": case["method_id"],
+                "instructions": case["instructions"],
+                "expected_outcome": case["expected_outcome"],
+                "method_config": _json(case.get("method_config") or {}),
+                "success_policy_id": case.get("success_policy_id"),
+                "success_policy_params": _json(case["success_policy_params"])
                 if case.get("success_policy_params") is not None
                 else None,
-                _json(case["host_baselines"]),
-                case.get("starting_state"),
-                case.get("starting_state_reason"),
-                case.get("entry_surface"),
-                case.get("required_completion"),
-                stamp,
-                stamp,
-            ),
+                "host_baselines": _json(case["host_baselines"]),
+                "starting_state": case.get("starting_state"),
+                "starting_state_reason": case.get("starting_state_reason"),
+                "entry_surface": case.get("entry_surface"),
+                "required_completion": case.get("required_completion"),
+                "created_at": stamp,
+                "updated_at": stamp,
+            },
+        )
+        conn.execute(
+            f"INSERT INTO qa_plan_cases({', '.join(values)}) "
+            f"VALUES ({', '.join([marker] * len(values))})",
+            tuple(values.values()),
         )
 
 

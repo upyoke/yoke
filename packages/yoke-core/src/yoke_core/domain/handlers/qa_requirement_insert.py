@@ -13,20 +13,33 @@ import json
 from typing import Any, Optional
 
 
-INSERT_SQL = (
-    "INSERT INTO qa_requirements "
-    "(item_id, epic_id, task_num, deployment_run_id, deployment_stage, "
-    "deployment_member_item_id, qa_kind, qa_phase, "
-    "target_env, execution_target_json, execution_target_digest, "
-    "blocking_mode, requirement_source, success_policy, "
-    "capability_requirements, suite_id, method_id, instructions, "
-    "expected_outcome, method_config, workflow_transition_id, method_name, "
-    "runner_id, verdict_path, host_baseline, starting_state, "
-    "starting_state_reason, created_at) "
-    "VALUES ({p}, NULL, NULL, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, "
-    "{p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, "
-    "{p}, {p}) "
-    "RETURNING id"
+_COLUMNS = (
+    "item_id",
+    "deployment_run_id",
+    "deployment_stage",
+    "deployment_member_item_id",
+    "qa_kind",
+    "qa_phase",
+    "target_env",
+    "execution_target_json",
+    "execution_target_digest",
+    "blocking_mode",
+    "requirement_source",
+    "success_policy",
+    "capability_requirements",
+    "suite_id",
+    "method_id",
+    "instructions",
+    "expected_outcome",
+    "method_config",
+    "workflow_transition_id",
+    "method_name",
+    "runner_id",
+    "verdict_path",
+    "host_baseline",
+    "starting_state",
+    "starting_state_reason",
+    "created_at",
 )
 
 
@@ -55,7 +68,7 @@ def insert_params(
     row: dict[str, Any],
     now_iso: str,
 ) -> tuple[Any, ...]:
-    """Return parameters in :data:`INSERT_SQL` column order."""
+    """Return parameters in :data:`_COLUMNS` order."""
     return (
         subject.item_id,
         subject.deployment_run_id,
@@ -90,4 +103,27 @@ def insert_params(
     )
 
 
-__all__ = ["INSERT_SQL", "RequirementSubject", "insert_params"]
+def execute_insert(
+    conn: Any,
+    subject: RequirementSubject,
+    row: dict[str, Any],
+    now_iso: str,
+) -> Any:
+    """Insert one requirement row and return the cursor holding its id."""
+    from yoke_core.domain import db_backend
+    from yoke_core.domain.qa_converging_columns import converged_values
+
+    stored = converged_values(
+        conn,
+        "qa_requirements",
+        dict(zip(_COLUMNS, insert_params(subject, row, now_iso))),
+    )
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    return conn.execute(
+        f"INSERT INTO qa_requirements ({', '.join(stored)}) "
+        f"VALUES ({', '.join(marker for _ in stored)}) RETURNING id",
+        tuple(stored.values()),
+    )
+
+
+__all__ = ["RequirementSubject", "execute_insert", "insert_params"]
