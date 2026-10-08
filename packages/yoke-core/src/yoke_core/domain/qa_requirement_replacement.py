@@ -19,6 +19,7 @@ from yoke_core.domain.qa_requirement_supersession import (
     same_scope,
 )
 from yoke_core.domain.schema_common import _column_exists
+from yoke_core.domain.qa_requirement_scope import lock_requirement_scope
 
 _REPLACEABLE_DEPLOYMENT_VERDICTS = {"fail", "error"}
 
@@ -85,6 +86,7 @@ def _replacement_for(
 
 def point_at_replacement(conn: Any, failed_id: int, replacement_id: int) -> None:
     """Validate a same-scope acyclic edge under row locks, then transfer grading."""
+    lock_requirement_scope(conn, failed_id)
     locked = query_rows(
         conn,
         "SELECT id FROM qa_requirements WHERE id IN (%s,%s) ORDER BY id FOR UPDATE",

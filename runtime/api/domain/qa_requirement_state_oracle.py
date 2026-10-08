@@ -16,6 +16,8 @@ class Obligation:
     display: str = "case"
     successor: int | None = None
     discharged: bool = False
+    required: bool = True
+    frozen_behavior: str | None = None
 
 
 @dataclass(frozen=True)
@@ -32,6 +34,13 @@ class Attempt:
 
 
 def current_attempt(attempts: list[Attempt], requirement: int) -> Attempt | None:
+    for attempt in attempts:
+        if attempt.requirement == requirement and attempt.review_of in (
+            None,
+            attempt.id,
+        ):
+            if attempt.start.tzinfo is None or attempt.start.utcoffset() is None:
+                raise ValueError("ambiguous start")
     actual = [
         a
         for a in attempts
@@ -57,16 +66,32 @@ def effective(obligations: list[Obligation]) -> list[Obligation]:
     return list(final.values())
 
 
-def authorized(obligations: list[Obligation], attempts: list[Attempt]) -> bool:
+def authorized(
+    obligations: list[Obligation],
+    attempts: list[Attempt],
+    *,
+    qa_required: bool = True,
+    required_setup: bool = True,
+    live_ownership: bool = False,
+    terminal_sealed: bool = False,
+) -> bool:
+    if terminal_sealed:
+        return True
+    if live_ownership:
+        return False
+    if not qa_required:
+        return True
+    if not required_setup or not obligations:
+        return False
     for row in effective(obligations):
-        if row.discharged:
+        if row.discharged or not row.required:
             continue
         attempt = current_attempt(attempts, row.id)
         if attempt is None or not (
             attempt.completed
             and attempt.verdict == "pass"
             and attempt.proof
-            and attempt.behavior == row.behavior
+            and attempt.behavior == (row.frozen_behavior or row.behavior)
             and attempt.subject == row.scope
         ):
             return False

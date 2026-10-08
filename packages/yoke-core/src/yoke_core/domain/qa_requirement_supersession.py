@@ -100,6 +100,12 @@ _ITEM_SCOPE = (
 )
 
 
+def requirement_scope(row: dict[str, Any]) -> tuple[str, ...]:
+    """Canonical obligation scope, shared by comparison and mutation locking."""
+    fields = _RUN_SCOPE if row.get("deployment_run_id") else _ITEM_SCOPE
+    return tuple(str(row.get(column) or "") for column, _label in fields)
+
+
 def same_scope(broken: dict[str, Any], corrected: dict[str, Any]) -> list[str]:
     """Every way the two rows fail to answer for the same obligation."""
     mismatches: list[str] = []

@@ -26,6 +26,8 @@ owns discharged and replaced requirement predicates.
 5. Require all applicable effective requirements to pass, then honor independent
    delivery, acceptance and live ownership prerequisites.
 
+Attempt insertion, judgment and replacement validation serialize within the obligation scope so a concurrent write cannot change the selected attempt underneath automatic discharge or close a correction cycle.
+
 An older unfinished attempt is history after a newer actual attempt. A live
 plan execution, process or lease remains separately owned and must finish or
 abort before terminal settlement. Selecting an attempt does not release it.

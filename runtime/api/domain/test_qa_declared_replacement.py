@@ -1,10 +1,7 @@
-"""A corrected QA case declared to replace an exact failed one.
+"""Declared replacement retires predecessor grading immediately.
 
-The failed case keeps blocking but leaves the roster, so no later execution
-captures or reviews it again; the corrected case's passing independent
-verdict supersedes it on that verdict's own transaction, and a failing one
-leaves it blocking with its evidence. Every verdict here is written through
-the production run writer, so no test discharges anything by hand.
+Only the final corrected case is graded while its actual passing verdict may
+also record automatic predecessor supersession for audit.
 """
 
 from __future__ import annotations

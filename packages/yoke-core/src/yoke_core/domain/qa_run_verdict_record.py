@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from yoke_core.domain.qa_plan_execution_store import marker
+from yoke_core.domain.qa_requirement_scope import lock_requirement_scope
 
 PASS_VERDICT = "pass"
 
@@ -65,6 +66,7 @@ def _discharge_on_pass(
 
 def insert_qa_run(conn: Any, **columns: Any) -> QaRunWrite:
     """Insert one run on the caller's transaction; a pass discharges its replacements."""
+    lock_requirement_scope(conn, int(columns["qa_requirement_id"]))
     p = marker(conn)
     names = list(columns)
     row = conn.execute(
@@ -95,6 +97,11 @@ def update_qa_run(
     ``default_completed_at`` fills ``completed_at`` only where it is empty.
     """
     p = marker(conn)
+    subject = conn.execute(
+        f"SELECT qa_requirement_id FROM qa_runs WHERE id={p}", (int(run_id),)
+    ).fetchone()
+    if subject is not None:
+        lock_requirement_scope(conn, int(subject[0]))
     assignments = [f"{name}={p}" for name in columns]
     params: list[Any] = list(columns.values())
     if default_completed_at is not None:
