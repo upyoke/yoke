@@ -99,7 +99,7 @@ def test_interleaved_environment_outputs_and_qa_use_exact_deployed_commits(
             (site, target),
         ).fetchone()[0]
         test_db.execute(
-            "UPDATE deployment_runs SET target_environment_id=%s WHERE id=%s",
+            "UPDATE deployment_runs SET target_tier='persistent',target_environment_id=%s WHERE id=%s",
             (env_id, run_id),
         )
     monkeypatch.setattr(
@@ -198,7 +198,7 @@ def test_validated_promotion_records_noop_and_retry_without_inventing_output(
         (site,),
     ).fetchone()[0]
     test_db.execute(
-        "UPDATE deployment_runs SET target_environment_id=%s,bound_sources=%s WHERE id=%s",
+        "UPDATE deployment_runs SET target_tier='persistent',target_environment_id=%s,bound_sources=%s WHERE id=%s",
         (
             environment,
             json.dumps(

@@ -106,7 +106,7 @@ def test_failed_run_never_reads_receipt(monkeypatch):
         lambda *a, **k: {"id": 123, "status": "completed", "conclusion": "failure"},
     )
     monkeypatch.setattr(
-        "yoke_core.domain.ci_job_outcome.with_effective_conclusion", lambda r, d, **k: d
+        github_actions_run, "with_effective_conclusion", lambda r, d, **k: d
     )
     monkeypatch.setattr(
         receipts,
