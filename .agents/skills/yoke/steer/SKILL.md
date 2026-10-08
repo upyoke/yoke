@@ -35,7 +35,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 | 4. Run the standing loop | Both halves of the seat are held | [`loop.md`](loop.md) |
 | 5. Close out | An explicit stop, or an orderly handoff | [`close-out.md`](close-out.md) |
 | — Staff a worker | The loop is about to launch, judge, or restaff one | [`worker-lifecycle.md`](worker-lifecycle.md) |
-| — Pick a model for a launch | A launch needs a model or effort choice | [`model-selection.md`](model-selection.md) |
+| — Choose a level for a launch | A launch needs a level, an item level override, or a restaff up or down | [`model-selection.md`](model-selection.md) |
 | — Watch the fleet | The loop is arming or reading the fleet watcher | [`watching.md`](watching.md) |
 | — Read a fleet finding | A worker reported something the seat must triage | [`fleet-findings.md`](fleet-findings.md) |
 | — Hand a Blitz to its executor | The staffed item's pinned workflow is Blitz | [`blitz-handoff.md`](blitz-handoff.md) |
@@ -70,7 +70,8 @@ Do not invoke `/yoke feed`. Feed and steer are unrelated.
 - **Workers merge; the steerer batches delivery.** Worker mandates prohibit
   deployment-run creation. The loop pins one release SHA, deploys batches,
   and completes any item parked at its release boundary afterward.
-- **Yoke launches every staffed session.** Preview an explicit CLI surface,
+- **Yoke launches every staffed session.** Set the item's level override and
+  preview its level (an exact selection is an operator override),
   then use `session_control.launch.create` for both item-bound composed mandates
   (`--item`) and itemless raw mandates (`--raw-instructions --stdin`). After a
   Yoke refusal, use its named recovery through Yoke; never substitute the

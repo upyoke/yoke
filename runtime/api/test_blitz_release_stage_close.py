@@ -25,7 +25,7 @@ ARCHIVE = (
 )
 
 
-def test_blitz_10_refuses_reviewing_implementation_to_done() -> None:
+def test_blitz_refuses_reviewing_implementation_to_done() -> None:
     workflow = builtin_workflow_runtime("blitz")
     refusal = declared.undeclared_forward_transition(
         workflow,
@@ -33,7 +33,6 @@ def test_blitz_10_refuses_reviewing_implementation_to_done() -> None:
         to_stage_id="done",
     )
 
-    assert workflow.version == 10
     assert "declares no transition" in refusal
     assert "reviewing-implementation" in refusal
     assert declared.declared_next_stage_ids(workflow, "reviewing-implementation") == (

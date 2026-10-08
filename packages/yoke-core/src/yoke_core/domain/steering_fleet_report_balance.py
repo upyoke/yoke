@@ -17,14 +17,6 @@ from yoke_core.domain.steering_fleet_report_capacity import (
 )
 
 
-LAUNCH_BALANCE_NOTE = (
-    "allocate by headroom: keep one session on every surface above 100% so "
-    "each harness stays exercised, then send the rest to the surface with the "
-    "most headroom and run it down; level counts only when headrooms are "
-    "comparable; no per-surface session cap"
-)
-
-
 class BalanceReport(Protocol):
     launchable: tuple[object, ...]
     session_counts: tuple[SessionCount, ...]
@@ -173,7 +165,7 @@ def selection_fingerprint_rows(
     )
 
 
-def launch_balance_lines(report: BalanceReport, *, note: bool) -> list[str]:
+def launch_balance_lines(report: BalanceReport, *, with_capacity: bool) -> list[str]:
     totals: dict[tuple[str, str], int] = defaultdict(int)
     for row in report.session_counts:
         totals[(row.machine_id, row.surface)] += row.count
@@ -193,7 +185,7 @@ def launch_balance_lines(report: BalanceReport, *, note: bool) -> list[str]:
         for entry in getattr(report, "machine_capacity", ())
     }
     machine_ids = set(by_machine)
-    if note:
+    if with_capacity:
         machine_ids.update(capacity)
     names = dict(report.machine_names)
     lines: list[str] = []
@@ -202,10 +194,8 @@ def launch_balance_lines(report: BalanceReport, *, note: bool) -> list[str]:
         lines.append(
             f"  {' · '.join(sorted(by_machine[machine])) or 'no launchable surface'}"
         )
-        if note and machine in capacity:
+        if with_capacity and machine in capacity:
             lines.append(f"  {capacity_line(capacity[machine])}")
-        if note:
-            lines.append(f"  {LAUNCH_BALANCE_NOTE}")
     if report.origin_counts:
         lines.append(
             "origin "
@@ -215,7 +205,6 @@ def launch_balance_lines(report: BalanceReport, *, note: bool) -> list[str]:
 
 
 __all__ = [
-    "LAUNCH_BALANCE_NOTE",
     "aggregate_session_counts",
     "context_label",
     "launch_balance_lines",

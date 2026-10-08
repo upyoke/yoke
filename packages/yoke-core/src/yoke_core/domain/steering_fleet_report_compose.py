@@ -25,6 +25,10 @@ from yoke_core.domain.steering_claims import list_session_claims
 from yoke_core.domain.steering_scope_membership import scope_document
 from yoke_core.domain import steering_fleet_report as fleet_report
 from yoke_core.domain.steering_fleet_report import FleetReport
+from yoke_core.domain.steering_fleet_report_levels import (
+    LevelReadout,
+    level_readout_lines,
+)
 from yoke_core.domain.steering_fleet_report_machine_block import machine_shared_lines
 from yoke_core.domain.steering_fleet_report_projection import report_dict
 from yoke_core.domain.steering_fleet_report_reads import FleetReportReads
@@ -198,6 +202,19 @@ def compose_held_reports(
     )
 
 
+def _level_lines(reports: tuple[FleetReport, ...]) -> list[str]:
+    """Each distinct level readout once: scopes on one project share it."""
+    names = {key: value for report in reports for key, value in report.machine_names}
+    seen: list[LevelReadout] = []
+    lines: list[str] = []
+    for report in reports:
+        if report.levels is None or report.levels in seen:
+            continue
+        seen.append(report.levels)
+        lines.extend(["", *level_readout_lines(report.levels, machine_names=names)])
+    return lines
+
+
 def combined_body(combined: CombinedFleetReport) -> str:
     """One envelope: per-scope facts, then one machine block per machine_id.
 
@@ -226,6 +243,7 @@ def combined_body(combined: CombinedFleetReport) -> str:
     for section in combined.sections:
         parts.extend([f"## {section.descriptor}", scope_inner_body(section.report), ""])
     parts.extend(machine_shared_lines(reports, now=combined.composed_at))
+    parts.extend(_level_lines(reports))
     if parts[-1] != "":
         parts.append("")
     parts.append(REPORT_END)

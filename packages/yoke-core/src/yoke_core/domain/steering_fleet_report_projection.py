@@ -285,6 +285,11 @@ def report_dict(report: FleetReport) -> dict[str, Any]:
             session_counts=report.session_counts,
         ),
         "machine_capacity": [entry.to_dict() for entry in report.machine_capacity],
+        "levels": report.levels.to_dict() if report.levels else None,
+        "level_overrides": [
+            {"public_ref": ref, "override": text}
+            for ref, text in report.level_overrides
+        ],
         "origin_counts": list(report.origin_counts),
         "relay_health": [
             {

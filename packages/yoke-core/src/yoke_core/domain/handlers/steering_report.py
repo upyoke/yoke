@@ -41,6 +41,8 @@ class SteeringReportGetResponse(BaseModel):
     landings_needing_action: List[Dict[str, Any]] = Field(default_factory=list)
     dead_waits: List[Dict[str, Any]] = Field(default_factory=list)
     launchable: List[Dict[str, Any]] = Field(default_factory=list)
+    levels: Optional[Dict[str, Any]] = None
+    level_overrides: List[Dict[str, Any]] = Field(default_factory=list)
     scopes: List[Dict[str, Any]] = Field(default_factory=list)
 
 

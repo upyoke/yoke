@@ -54,6 +54,8 @@ _INTAKE_STAGES = (
         ),
     ),
 )
+
+
 def _reviewing_implementation_stage(description: str) -> dict:
     return workflow_stage(
         "reviewing-implementation",
@@ -142,10 +144,14 @@ ISSUE_WORKFLOW_DEFINITION = definition_fixture(
     skill_bindings=(
         skill_binding("refine", "idea", "refined-idea"),
         skill_binding(
-            "implement", "refined-idea", "reviewed-implementation",
+            "implement",
+            "refined-idea",
+            "reviewed-implementation",
         ),
         skill_binding(
-            "polish", "reviewed-implementation", "implemented",
+            "polish",
+            "reviewed-implementation",
+            "implemented",
         ),
         skill_binding("usher", "implemented", "done"),
     ),
@@ -163,6 +169,7 @@ ISSUE_WORKFLOW_DEFINITION = definition_fixture(
             "approval",
             "deployment",
             "merge_candidate_review",
+            "level",
         ],
     },
     approval_defaults={},
@@ -242,7 +249,9 @@ EPIC_WORKFLOW_DEFINITION = definition_fixture(
         skill_binding("refine", "plan-drafted", "planned"),
         skill_binding("conduct", "planned", "reviewed-implementation"),
         skill_binding(
-            "polish", "reviewed-implementation", "implemented",
+            "polish",
+            "reviewed-implementation",
+            "implemented",
         ),
         skill_binding("usher", "implemented", "done"),
     ),
@@ -255,7 +264,12 @@ EPIC_WORKFLOW_DEFINITION = definition_fixture(
         "qa": "project_and_task_attachments",
         "approvals": "definition_transitions",
         "delivery": "release_stage",
-        "item_posture_allowlist": ["verification", "approval", "deployment"],
+        "item_posture_allowlist": [
+            "verification",
+            "approval",
+            "deployment",
+            "level",
+        ],
     },
     approval_defaults={},
 )

@@ -18,9 +18,37 @@ level that started it.
 | Trivial, fully specified changes | `INTERN` |
 | Genuinely very complex debugging or architectural decisions | `PRINCIPAL` |
 
-When the remaining work becomes mechanical, downshift the next leg to a lower
-level with the restaff recipe below rather than waiting for a new item. These
-are staffing judgments, not static per-skill routing.
+These are staffing judgments, not static per-skill routing; the ladder below
+moves a running item up or down a level.
+
+Before naming a level, read the fleet report's **levels** block: for every
+level it is a dry run of the placement a launch would make, naming each
+option's machine, pools (left, headroom, reset), blocker, and where the next
+launch goes and why, beside the live workers per surface. A level reading
+`no capacity` will refuse; choose by that read rather than re-deriving it.
+
+## Set the item's level override when you staff it
+
+On every item you staff, set its level override before the launch, and
+record why:
+
+```text
+yoke workflows item-posture amend PREFIX-N --key level \
+  --value '{"max": "SENIOR", "reason": "<why SENIOR is enough>"}' \
+  --reason "steering staffing default"
+```
+
+`max: SENIOR` is the default. Leave the max off only when the task is
+genuinely very complex — then the override still records the reason, as
+`{"min": "SENIOR", "reason": "..."}` or a `shift` up. The value is
+`{shift, min, max, reason}`; `yoke workflows item-posture amend --help` has
+the shape. The report lists every item's override. Name each launch's
+`--level` within it.
+
+Changing an override mid-stage does not touch the running worker, which
+keeps the selection it launched with: amend the override, then restaff the
+item through rule 9 in [`worker-lifecycle.md`](worker-lifecycle.md) so the
+successor launches at the new level.
 
 The levels a project reads, and each level's options, are data:
 
@@ -99,27 +127,35 @@ stores the approved document. `/yoke models` reviews the researched catalog
 (`yoke models get`, or one model with `yoke models lookup <model-id>`); the
 catalog holds facts about models and never moves a level option by itself.
 
-## Retry once, then restaff the same item
+## The restaff ladder
 
-A local implementation or verification failure gets one retry from the same
-worker: diagnose the named failure, correct it, and rerun the failed check.
-A second failure, or a spec/design misunderstanding on the first attempt,
-gets a fresh session one level up, seeded from the Progress Log. Do not spend
-another retry on a misunderstanding or treat a parked delivery/landing wait
-as a failure.
+Move a running item between levels mechanically, never on a hunch:
 
-Use rule 9 in [`worker-lifecycle.md`](worker-lifecycle.md): read or request the
-checkpoint, terminate the predecessor, verify its claim is released, preview
-and launch the successor on the same item at its current stage, then confirm
-registration and claim ownership. The checkpoint names the live stage,
-committed and uncommitted work, the failure evidence or misunderstanding, and
-the next concrete step. The successor reads it and the preserved lane before
-acting; it continues the item rather than repeating completed legs.
+1. **First failure** — a local implementation or verification failure gets
+   one retry from the same worker: diagnose the named failure, correct it,
+   and rerun the failed check.
+2. **Second failure, or a spec/design misunderstanding** on any attempt —
+   relaunch the item **one level up**. Do not spend another retry on a
+   misunderstanding.
+3. **Only mechanical legs remain** (merge, close-out, documentation sync,
+   routine cleanup) — relaunch the next leg **one level down**.
+4. **A PRINCIPAL failure** has no level above it: report the failure
+   evidence to the operator for a decision. Do the same when the next level
+   up has no capacity. Never promote or demote silently.
 
-If the worker is already at the highest level, or the next level has no
-capacity, report that ceiling and the failure evidence to the operator for a
-decision; do not promote silently. Use the same handoff when downshifting the
-next mechanical leg.
+A parked delivery or landing wait is not a failure and never climbs the
+ladder. When a step changes the level beyond the item's override (a climb
+past its `max`), amend the override first and record why.
+
+Every step is a restaff through rule 9 in
+[`worker-lifecycle.md`](worker-lifecycle.md): read or request the checkpoint,
+terminate the predecessor, verify its claim is released, preview and launch
+the successor on the same item at its current stage and the new level, then
+confirm registration and claim ownership. The checkpoint names the live
+stage, committed and uncommitted work, the failure evidence or
+misunderstanding, and the next concrete step. The successor reads it and the
+preserved lane before acting; it continues the item rather than repeating
+completed legs.
 
 A native resume retains that session's attested selection: Claude restores
 it, and Codex and Cursor re-send it. To change the level for the item,

@@ -1,9 +1,8 @@
 """What the steering seat cannot see from inside its own turn.
 
 Composes available work, idle holders, five silent failure classes,
-launchable surfaces, and live session counts into one report. It decides
-nothing and launches nothing. The only detector used to be the steerer's own
-memory to go and look, which is a habit rather than a guarantee.
+launchable surfaces, level capacity and live session counts into one report.
+It decides nothing and launches nothing.
 
 Two thresholds, because two different questions
 -----------------------------------------------
@@ -15,9 +14,8 @@ boundary releases a claim and reacquires moments later, and a report that
 fires on that window teaches the seat to ignore it.
 
 ``idle_after_seconds`` answers "how long must a claim holder be quiet before
-it is presumed stuck". That is a judgment about a worker mid-task, not about
-a queue, and it is legitimately a longer number. The two shared one value
-once; they are unrelated concepts that happened to share a default.
+it is presumed stuck" — a judgment about a worker mid-task, not a queue, and
+legitimately a longer number.
 
 Quiet is not the same as stuck
 ------------------------------
@@ -40,8 +38,7 @@ forever. The report does not guess at intent: the frontier composition it
 reads already drops frozen and operator-blocked items before they reach it,
 so ``yoke items freeze`` and ``yoke items block`` are the whole hold
 mechanism. Work that will never resume is ``yoke items cancel``, not
-freeze. An item that has read "waiting 30h12m" all day is one nobody flagged, and
-teaching the report to infer a hold from age would hide real unstaffed work.
+freeze. Inferring a hold from age would hide real unstaffed work.
 """
 
 from __future__ import annotations
@@ -75,6 +72,10 @@ from yoke_core.domain.steering_fleet_report_landings import (
     FleetLandingReadback,
     landing_wait_pending,
     seat_landing_readbacks,
+)
+from yoke_core.domain.steering_fleet_report_levels import (
+    LevelReadout,
+    read_level_overrides,
 )
 from yoke_core.domain.steering_fleet_report_limits import MachinePlanLimit
 from yoke_core.domain.steering_fleet_report_members import read_seat_items
@@ -116,9 +117,8 @@ class FleetReport:
     in_flight: tuple[InFlightCall, ...] = ()
     abandoned_launches: tuple[AbandonedLaunch, ...] = ()
     plan_limits: tuple[MachinePlanLimit, ...] = ()
-    #: What each machine's surfaces say they can select right now, observed
-    #: natively. A seat naming a model reads this rather than a compiled-in
-    #: catalog, which cannot know what an account gained or lost today.
+    #: What each machine's surfaces can select right now, observed natively
+    #: rather than from a catalog that cannot know today's account.
     native_models: tuple[MachineNativeModels, ...] = ()
     #: Every connected machine's lanes against its cap, full ones included.
     machine_capacity: tuple[MachineCapacity, ...] = ()
@@ -136,17 +136,17 @@ class FleetReport:
     #: not this.
     stranded: tuple[StrandedSession, ...] = ()
     relay_health: tuple[RelayHealthCondition, ...] = ()
-    #: Role-addressed messages in this scope that no live seat is acting on.
-    #: Unowned work used to be invisible precisely here: a report addressed
-    #: to a seat that has ended is not anyone's inbox item until a seat
-    #: acquires the scope and drains it.
+    #: Role-addressed messages in this scope no live seat is acting on: a
+    #: report addressed to an ended seat is nobody's until a seat drains it.
     messages_awaiting_seat: int = 0
     #: Open landing pull requests, with the queue entry and arming read together.
     landings: tuple[FleetLandingReadback, ...] = ()
-    #: Every live deployment run, whether or not anything is wrong with it.
-    #: A healthy run in flight is reported without an alarm precisely so a
+    #: Every live deployment run, healthy ones without an alarm, so a
     #: stalled one is visible as an exception rather than as silence.
     deployment_runs: tuple[DeploymentRunProgress, ...] = ()
+    #: Each level's launch standing, and items carrying a level override.
+    levels: LevelReadout | None = None
+    level_overrides: tuple[tuple[str, str], ...] = ()
 
     def waited_too_long(self) -> tuple[FrontierEntry, ...]:
         """Available work past the staffing threshold: the alarm, not the list.
@@ -290,12 +290,14 @@ def compose_report(
         for holder in split.alive_idle
         if holder.session_id not in stranded_ids and holder.item_id not in waiting
     )
+    available = members_only(item_facts.available, members)
+    refs = {row.item_id: row.public_ref for row in (*available, *holders)}
     return FleetReport(
         project_id=int(project_id),
         composed_at=now,
         staffing_after_seconds=int(staffing_after_seconds),
         idle_after_seconds=int(idle_after_seconds),
-        available=members_only(item_facts.available, members),
+        available=available,
         holders=holders,
         idle=idle,
         undelivered=sessions_only(
@@ -326,6 +328,8 @@ def compose_report(
         machine_names=tuple(sorted(facts.machine_names.items())),
         test_machines=facts.test_machines,
         relay_health=facts.relay_health,
+        levels=facts.levels,
+        level_overrides=read_level_overrides(conn, refs),
         messages_awaiting_seat=awaiting_seat_count(
             conn,
             project_id=int(project_id),

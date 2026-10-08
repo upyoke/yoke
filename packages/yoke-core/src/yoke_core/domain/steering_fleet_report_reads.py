@@ -56,6 +56,10 @@ from yoke_core.domain.steering_fleet_report_landed_open import (
     landed_without_closeout,
 )
 from yoke_core.domain.steering_fleet_report_holders import ClaimHolder, claim_holders
+from yoke_core.domain.steering_fleet_report_levels import (
+    LevelReadout,
+    read_level_readout,
+)
 from yoke_core.domain.steering_fleet_report_limits import (
     MachinePlanLimit,
     load_plan_limits,
@@ -106,6 +110,7 @@ class ProjectFleetFacts:
     relay_health: tuple[RelayHealthCondition, ...]
     machine_names: Mapping[str, str]
     test_machines: tuple[tuple[str, str], ...] = ()
+    levels: LevelReadout | None = None
 
 
 def read_project_facts(
@@ -154,6 +159,9 @@ def read_project_facts(
         relay_health=relay_health_conditions(conn, project_id=project_id, now=now),
         machine_names=registered_names,
         test_machines=read_test_machines(conn, project_id),
+        levels=read_level_readout(
+            conn, project_id=project_id, session_id=session_id, now=now
+        ),
     )
 
 
