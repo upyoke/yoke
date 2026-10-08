@@ -67,11 +67,16 @@ def _scope_rows(
         return {}
     marker = _marker(conn)
     project_id = scope_int_sql(conn, "claim.scope", "project_id")
+    # A roster schema without the posture column has no parked holder, so the
+    # seat reads active or stale there; the claim fact holds by construction.
+    mode_select = (
+        "holder.mode," if _column_exists(conn, "harness_sessions", "mode") else ""
+    )
     rows = conn.execute(
         "SELECT claim.id AS claim_id,claim.session_id,claim.claimed_at,"
         "project.id AS project_id,project.slug AS project,"
         "holder.last_heartbeat,holder.last_tool_call_at,holder.ended_at,"
-        "holder.terminated_at,holder.executor,holder.mode,"
+        f"holder.terminated_at,holder.executor,{mode_select}"
         "TRUE AS holds_work_claim "
         "FROM work_claims claim "
         f"JOIN projects project ON project.id={project_id} "
