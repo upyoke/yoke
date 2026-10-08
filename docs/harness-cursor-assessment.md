@@ -260,8 +260,8 @@ Also observed: `Grep` as a distinct tool name. MCP tools surface as
   print-mode gaps (no `beforeSubmitPrompt`/`stop`) belong in
   per-surface affordance declarations, not disabled paths.
 - Registration requires the canonical session identity; Cursor resolves its conversation mapping when the process hosts multiple sessions.
-- Board/labels: new `EXECUTOR_EMOJI` entry (glyph must satisfy
-  `HC-board-emoji-universality`), surface labels for IDE vs CLI
+- Board/labels: new `EXECUTOR_EMOJI` entry (glyph must satisfy the glyph
+  contract in `yoke_contracts.glyph_contract`), surface labels for IDE vs CLI
   (`CURSOR_INVOKED_AS` is the discriminator), and a
   charge-frontier `executor_default_level_<token>` decision.
 - Doctor updates: `HC-executor-canonicalization` (hardcoded `claude-%` /

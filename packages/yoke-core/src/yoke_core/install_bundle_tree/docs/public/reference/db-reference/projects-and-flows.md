@@ -15,7 +15,7 @@ Every registered slug uses the same project commands and capability resolution. 
 ```sql
 id TEXT PRIMARY KEY -- short slug (e.g., 'yoke', 'external-webapp')
 name TEXT NOT NULL -- display name
-emoji TEXT DEFAULT '' -- project emoji (e.g., '🐂', '🧩'); shown in BOARD.md title
+emoji TEXT DEFAULT '' -- project emoji (e.g., '🐂', '🧩'); shown in BOARD.md title; obeys the glyph contract (session-level-routing.md)
 github_repo TEXT -- GitHub repo in owner/repo format (e.g., 'example-org/external-webapp')
 default_branch TEXT DEFAULT 'main'
 github_sync_mode TEXT NOT NULL DEFAULT 'disabled' -- 'enabled' | 'disabled'; legacy NULL/empty values normalize to disabled

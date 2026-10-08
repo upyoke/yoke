@@ -134,7 +134,7 @@ def definition_fixture(
     if schema_version >= 4:
         for stage in normalized_stages:
             stage_id = str(stage["id"])
-            stage["glyph"] = LEGACY_STATUS_GLYPHS.get(stage_id, "▫")
+            stage["glyph"] = LEGACY_STATUS_GLYPHS.get(stage_id, "\U0001f539")
             stage["board_bucket"] = LEGACY_STATUS_BUCKETS.get(stage_id, "unknown")
     stage_ids = [stage["id"] for stage in normalized_stages]
     normalized_policies = dict(policies)

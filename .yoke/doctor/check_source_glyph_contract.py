@@ -1,41 +1,46 @@
-"""HC-board-emoji-universality: keep VS16/skin-tone emoji out of board renders.
+"""HC-source-glyph-contract: keep contract-breaking glyphs out of board sources.
 
 Background
 ----------
 macOS Terminal renders text-default emoji (the ones that require a U+FE0F
 variation selector to show in emoji form) and skin-tone-modified sequences
 inconsistently versus VSCode/GitHub — they collapse toward one cell, shearing
-the board's emoji-grid alignment. The board vocabulary was migrated to glyphs
-with ``Emoji_Presentation=Yes`` (render as a 2-cell color emoji with no VS16),
-which look identical everywhere. This HC stops VS16/skin-tone glyphs from
-silently re-entering the board render path (e.g. a future ``shield`` badge added
-as the text-default U+1F6E1 + VS16, or a hand emoji with a Fitzpatrick modifier).
+the board's emoji-grid alignment. The glyph contract
+(:mod:`yoke_contracts.glyph_contract`) restricts every glyph Yoke stores or
+renders to one ``Emoji_Presentation=Yes`` code point; its writers and
+``HC-stored-glyph-contract`` hold stored values to it. This check holds the
+literals in Yoke's own board render sources to the same contract, so a
+VS16/skin-tone glyph cannot silently re-enter the render path (e.g. a
+``shield`` badge added as the text-default U+1F6E1 + VS16, or a hand emoji
+with a Fitzpatrick modifier).
 
 Scope
 -----
 Top-level board render modules
 (``packages/yoke-core/src/yoke_core/board/*.py``) plus the seeded art-column
 data
-(``packages/yoke-contracts/src/yoke_contracts/project_contract/board_art/data/mixed_emoji_columns.txt``).
-The ``board/tests/`` subtree is intentionally out of scope: test assertions
-legitimately name glyphs (including ones they assert are absent).
+(``packages/yoke-contracts/src/yoke_contracts/project_contract/board_art/data/mixed_emoji_columns.txt``)
+and the baseline test-fixture project seed. The ``board/tests/`` subtree is
+intentionally out of scope: test assertions legitimately name glyphs
+(including ones they assert are absent).
 
 What is flagged
 ---------------
-Only the two classes that actually render inconsistently:
+Only the contract-forbidden code points that can hide inside an otherwise
+ordinary literal:
   * any U+FE0F (VS16) — its preceding base is text-default, so the cluster is
     non-universal; and
   * any Fitzpatrick skin-tone modifier (U+1F3FB..U+1F3FF), standalone or
     sequenced.
 Box-drawing, block elements, math symbols, and ``Emoji_Presentation=Yes`` emoji
 (colored squares, circles, moons, the curated chrome set) render the same in
-every surface and are NOT flagged.
+every surface and are NOT flagged. Shipped glyph vocabularies (status, executor,
+and level glyphs) are held to the full contract by its own tests.
 
 Posture
 -------
-WARN for the first release (matching ``HC-obsoleted-terms``). Doctor exits
-nonzero only on FAILs; this surfaces regressions in the report so an owner can
-swap the glyph before it ships. Promote to FAIL once the tree has stayed clean.
+FAIL: a violation is corrected in source by swapping the glyph for a
+contract-safe one before it ships.
 """
 
 from __future__ import annotations
@@ -43,6 +48,7 @@ from __future__ import annotations
 import unicodedata
 from pathlib import Path
 
+from yoke_contracts.glyph_contract import SAFE_GLYPH_EXAMPLES
 from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,
@@ -68,8 +74,8 @@ _SCAN_EXTRA_FILES: tuple[str, ...] = (
 )
 
 _SELF_PATH = Path(__file__).resolve()
-_HC_SLUG = "HC-board-emoji-universality"
-_HC_NAME = "Board emoji render universally (no VS16 / skin-tone)"
+_HC_SLUG = "HC-source-glyph-contract"
+_HC_NAME = "Board source glyphs obey the glyph contract"
 
 
 def _char_name(ch: str) -> str:
@@ -92,7 +98,7 @@ def _iter_scan_paths(repo_root: Path):
             yield f
 
 
-def scan_board_emoji(repo_root: Path) -> list[str]:
+def scan_source_glyphs(repo_root: Path) -> list[str]:
     """Return ``path:line: detail`` strings for VS16/skin-tone glyphs.
 
     Exposed so tests and operators can run the same scan the HC uses.
@@ -118,40 +124,39 @@ def scan_board_emoji(repo_root: Path) -> list[str]:
                     )
                 elif _SKIN_LO <= cp <= _SKIN_HI:
                     hits.append(
-                        f"{rel}:{lineno}: skin-tone modifier {ch!r} "
-                        f"({_char_name(ch)})"
+                        f"{rel}:{lineno}: skin-tone modifier {ch!r} ({_char_name(ch)})"
                     )
     return hits
 
 
-def hc_board_emoji_universality(
-    conn, args: DoctorArgs, rec: RecordCollector
-) -> None:
-    """HC-board-emoji-universality: VS16/skin-tone glyphs in board renders."""
+def hc_source_glyph_contract(conn, args: DoctorArgs, rec: RecordCollector) -> None:
+    """HC-source-glyph-contract: VS16/skin-tone glyphs in board render sources."""
     repo_root_str = _resolve_repo_root()
     if not repo_root_str:
         rec.record(_HC_SLUG, _HC_NAME, "PASS", "No repo root resolved — skipping.")
         return
-    hits = scan_board_emoji(Path(repo_root_str))
+    hits = scan_source_glyphs(Path(repo_root_str))
     if hits:
         rec.record(
             _HC_SLUG,
             _HC_NAME,
-            "WARN",
-            "Non-universal emoji in board render sources "
-            "(render inconsistently in macOS Terminal):\n" + "\n".join(hits[:40]),
+            "FAIL",
+            "Board render sources carry glyphs the glyph contract forbids "
+            "(they render inconsistently in macOS Terminal):\n"
+            + "\n".join(hits[:40])
+            + "\nReplace each with one Emoji_Presentation glyph that needs no "
+            "selector or modifier, for example " + " ".join(SAFE_GLYPH_EXAMPLES) + ".",
         )
     else:
         rec.record(_HC_SLUG, _HC_NAME, "PASS", "")
 
 
-__all__ = ["hc_board_emoji_universality", "scan_board_emoji"]
+__all__ = ["hc_source_glyph_contract", "scan_source_glyphs"]
 
-# Slug and display name are the ones this check has always reported under.
 from yoke_project_checks._declare import (  # noqa: E402
     self_project_checks,
 )
 
 PROJECT_HEALTH_CHECKS = self_project_checks(
-    ('board-emoji-universality', 'Board emoji render universally (no VS16/skin-tone)', hc_board_emoji_universality),
+    ("source-glyph-contract", _HC_NAME, hc_source_glyph_contract),
 )

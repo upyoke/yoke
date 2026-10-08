@@ -22,8 +22,9 @@ engine core depends on this package, never the other way round.
 
 Glyphs are restricted to ``Emoji_Presentation=Yes`` characters (no
 variation selectors, no skin-tone modifiers) so board columns keep their
-width in every terminal — the invariant ``HC-board-emoji-universality``
-enforces over the board render sources.
+width in every terminal — the glyph contract in
+:mod:`yoke_contracts.glyph_contract`, which every stored glyph and every
+shipped vocabulary obeys.
 """
 
 from __future__ import annotations

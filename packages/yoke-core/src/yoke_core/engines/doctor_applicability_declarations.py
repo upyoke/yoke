@@ -172,6 +172,7 @@ _SHAPES = (
             "stale-sessions",
             "status-consistency",
             "stop-hook-chain-end-deferred",
+            "stored-glyph-contract",
             "synthetic-event-contamination",
             "title-length",
             "undeployed-done",

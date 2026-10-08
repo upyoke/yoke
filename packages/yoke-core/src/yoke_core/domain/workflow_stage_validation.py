@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from typing import Any, Mapping, Optional
 
+from yoke_contracts.glyph_contract import GlyphContractError, validate_glyph
+
 from yoke_core.domain.workflow_definition_validation_support import (
     WorkflowDefinitionError,
     require_exact_keys,
@@ -39,7 +41,10 @@ def validate_stages(definition: Mapping[str, Any]) -> tuple[list[str], set[str]]
         ids.append(stage_id)
         labels.append(require_nonempty_text(stage.get("label"), f"{path}.label"))
         if "glyph" in stage:
-            require_nonempty_text(stage.get("glyph"), f"{path}.glyph")
+            try:
+                validate_glyph(stage.get("glyph"), field=f"{path}.glyph")
+            except GlyphContractError as exc:
+                raise WorkflowDefinitionError(str(exc)) from exc
         if "board_bucket" in stage:
             bucket = require_nonempty_text(
                 stage.get("board_bucket"), f"{path}.board_bucket"

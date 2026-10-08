@@ -60,10 +60,24 @@ harness defaults, and any harness with no configured grouping —
 with `yoke projects level-summary get --project NAME`. That same read backs
 the read-only level summary on the Project settings screen.
 
-Level glyphs are validated at write time against the board's own convention:
-one `Emoji_Presentation=Yes` code point, no variation selector, no skin-tone
-modifier, no ZWJ/flag/keycap sequence. An unsafe glyph is refused by name
-rather than silently stripped.
+## Glyph contract
+
+Every glyph Yoke stores renders inside fixed-width board columns, so one
+contract (`yoke_contracts.glyph_contract`) governs all of them: exactly one
+`Emoji_Presentation=Yes` code point (Unicode category `So`, East Asian Width
+`W`), with no variation selector, skin-tone modifier, ZWJ, flag, keycap, or
+combining mark. Each writer validates at write time and refuses an unsafe
+glyph by name — quoting the offending code point and offering safe examples
+such as 🐎 or 🚀 — rather than silently stripping it:
+
+| Stored glyph | Writer | Correction command |
+|---|---|---|
+| Level glyph, `level_metadata.<LEVEL>.glyph` | `session-routing` capability settings | `yoke projects capability-settings merge --project P --cap-type session-routing --set level_metadata.<LEVEL>.glyph=<glyph>` |
+| Project emoji, `projects.emoji` (empty clears it) | `projects.create` / `projects.update` | `yoke projects update --slug S --name N --emoji <glyph>` |
+| Workflow stage glyph, `stages[].glyph` | Workflow version publish | Publish a corrected version through the workflow's source (built-in fixture plus `yoke workflows canon-update apply`, or the owning Pack plus `yoke packs update`), then `yoke workflows item migrate ITEM` |
+
+`HC-stored-glyph-contract` FAILs on every stored value that breaks the
+contract and prints its location with the correction command above.
 
 
 ## Stored settings convergence
