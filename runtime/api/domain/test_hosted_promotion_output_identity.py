@@ -262,7 +262,7 @@ def test_validated_promotion_records_noop_and_retry_without_inventing_output(
     assert len(entry["promotion_receipts"]) == 2
     assert len(entry.get("outputs", [])) == int(pushed)
     assert entry["promotion_receipts"][-1] == proof
-    with pytest.raises(ReleaseOutputRefused, match="promotion_attempt_stale"):
+    with pytest.raises(ReleaseOutputRefused) as stale:
         record_release_output(
             test_db,
             run_id=run_id,
@@ -270,9 +270,8 @@ def test_validated_promotion_records_noop_and_retry_without_inventing_output(
             commit_sha=deployed,
             promotion_receipt=envelope({**proof["payload"], "run_attempt": 1}),
         )
-    with pytest.raises(
-        ReleaseOutputRefused, match="promotion_candidate_ancestry_unproven"
-    ):
+    assert stale.value.reason == "promotion_attempt_stale"
+    with pytest.raises(ReleaseOutputRefused) as ancestry:
         invalid = envelope(
             payload(
                 product_sha=baseline,
@@ -287,3 +286,5 @@ def test_validated_promotion_records_noop_and_retry_without_inventing_output(
             commit_sha="9" * 40,
             promotion_receipt=invalid,
         )
+
+    assert ancestry.value.reason == "promotion_candidate_ancestry_unproven"
