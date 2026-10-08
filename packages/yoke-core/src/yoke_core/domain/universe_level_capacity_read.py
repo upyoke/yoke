@@ -100,15 +100,15 @@ def read_level_capacity(conn: Any) -> dict[str, Any]:
         for count in live_session_counts(conn, project_id=project_id):
             if count.surface in live_workers:
                 live_workers[count.surface] += count.count
-        levels, project_source = effective_levels(conn, project_id)
+        levels, levels_source = effective_levels(conn, project_id)
+        # "project" is the levels source an override reports, not a project name.
+        overridden = levels_source == "project"
         overrides.append(
             {
                 "project": slug,
                 "name": name,
-                "override": project_source == "project",
-                "changes": _override_changes(levels, universe)
-                if project_source == "project"
-                else [],
+                "override": overridden,
+                "changes": _override_changes(levels, universe) if overridden else [],
             }
         )
     return {
