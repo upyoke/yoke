@@ -59,6 +59,16 @@ or moving to Project does not mark GitHub done. A private clone after
 connect uses the App authorization; if status is not ready, the clone
 preflight names `yoke github connect`.
 
+When one-step repository creation is unavailable, setup opens GitHub's new
+repository page. Create the repo, return, and choose **Check repositories**
+(the default). Select the exact live, writable repository to continue. Existing
+all-repositories or selected access needs no settings visit. If your repo is
+absent, choose **My repository isn't listed** and enter its exact `owner/repo`.
+Only a successful check that excludes it offers **Grant repo access**. Add the
+repo in the opened App settings, return, and choose **Check repositories** again.
+A failed refresh leaves access unknown and offers retry; **Skip GitHub** and
+**Back** remain available throughout recovery.
+
 Status reports one verdict per binding: user authorization for the merge path
 (`ok` / `busy` / `broken`, proven through the same connection and token read a
 local merge uses) and App installation access (`ok` / `broken`). `ready` is
