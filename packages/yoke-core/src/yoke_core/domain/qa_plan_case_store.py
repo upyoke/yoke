@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from typing import Any, Mapping
+from datetime import datetime
+from yoke_core.domain.db_helpers import instant_parameter
 
 from yoke_contracts.qa_case_starting_state import (
     StartingStateError,
@@ -46,9 +48,10 @@ def insert_plan_cases(
     *,
     plan_id: int,
     cases: list[dict[str, Any]],
-    stamp: str,
+    stamp: datetime | str,
 ) -> None:
     """Replace a plan's stored cases with validated ones."""
+    clock = instant_parameter(conn, stamp)
     marker = _placeholder(conn)
     target_column_present = "target_envs" in present_columns(conn, "qa_plan_cases")
     if not target_column_present and any(case["target_envs"] for case in cases):
@@ -84,8 +87,8 @@ def insert_plan_cases(
                 "starting_state_reason": case.get("starting_state_reason"),
                 "entry_surface": case.get("entry_surface"),
                 "required_completion": case.get("required_completion"),
-                "created_at": stamp,
-                "updated_at": stamp,
+                "created_at": clock,
+                "updated_at": clock,
             },
         )
         conn.execute(

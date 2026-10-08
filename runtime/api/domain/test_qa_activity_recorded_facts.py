@@ -9,6 +9,7 @@ keyed only on ``item_id``, so an admitted per-run copy (``item_id`` null,
 from __future__ import annotations
 
 import json
+from yoke_contracts.timestamps import parse_instant
 
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.backlog_qa_inserts import (
@@ -183,7 +184,7 @@ def test_activity_preserves_removed_requirement_state_and_reason() -> None:
         conn.commit()
         result = read_activity(conn, project="yoke", item_ids=[4840])
         row = result["rows"][0]
-        assert row["retracted_at"] == "2026-09-20T17:00:00Z"
+        assert row["retracted_at"] == parse_instant("2026-09-20T17:00:00Z")
         assert row["retraction_rationale"] == "Member removed for rework"
         assert row["retraction_source"] == "run_member_removed"
         assert row["outcome"] == "cancelled"

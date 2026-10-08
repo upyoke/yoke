@@ -6,6 +6,7 @@ from contextlib import nullcontext
 from unittest.mock import patch
 
 import pytest
+from yoke_contracts.timestamps import format_instant
 
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.pg_testdb import test_database
@@ -72,13 +73,13 @@ def test_edit_replaces_metadata_and_cases_in_one_cas_write() -> None:
         "project": "yoke",
         "slug": "release-readiness",
         "case_count": 1,
-        "updated_at": stored["updated_at"],
+        "updated_at": format_instant(stored["updated_at"]),
         "unchanged": False,
     }
     assert stored["name"] == "Release gate"
     assert stored["description"] == "The full release proof."
     assert stored["success_policy_id"] == "all-pass"
-    assert str(stored["updated_at"]) != base
+    assert format_instant(stored["updated_at"]) != base
     assert [row["case_key"] for row in cases] == ["backend-suite"]
     assert cases[0]["instructions"].startswith("Run the complete")
     assert new_case_ids != old_case_ids
@@ -126,7 +127,7 @@ def test_stale_base_refuses_even_a_coincidentally_identical_document() -> None:
         ).fetchone()
 
     assert stored["description"] == "Changed once."
-    assert str(stored["updated_at"]) == first["updated_at"]
+    assert format_instant(stored["updated_at"]) == first["updated_at"]
 
 
 def test_v1_policy_and_project_method_scope_are_enforced() -> None:

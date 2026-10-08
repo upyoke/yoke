@@ -5,7 +5,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from yoke_core.domain.db_helpers import query_one, query_rows
+from yoke_contracts.timestamps import format_instant, parse_instant
+from yoke_core.domain.db_helpers import instant_parameter, query_one, query_rows
 from yoke_core.domain.qa_converging_columns import (
     STARTING_STATE_COLUMNS,
     converged_select,
@@ -98,6 +99,7 @@ def edit_plan(
     if not isinstance(success_policy_params, dict):
         raise QaPlanError("success_policy_params must be a JSON object")
 
+    base = parse_instant(base_updated_at)
     project_id = _project_id(conn, project)
     marker = _placeholder(conn)
     plan = query_one(
@@ -142,7 +144,7 @@ def edit_plan(
         plan=plan,
         cases=cases,
     )
-    current_updated_at = str(plan["updated_at"])
+    current_updated_at = parse_instant(plan["updated_at"])
     desired_plan = {
         "name": str(name),
         "description": str(description),
@@ -165,7 +167,7 @@ def edit_plan(
         ),
     }
     current_cases = _current_cases(conn, int(plan["id"]))
-    if str(base_updated_at) != current_updated_at:
+    if base != current_updated_at:
         raise QaPlanConflictError(
             f"QA plan {slug!r} changed after it was read; reopen the editor "
             "from the latest plan before writing again"
@@ -176,7 +178,7 @@ def edit_plan(
                 "UPDATE qa_plans SET updated_at=updated_at "
                 f"WHERE id={marker} AND updated_at={marker} "
                 "RETURNING updated_at",
-                (int(plan["id"]), str(base_updated_at)),
+                (int(plan["id"]), instant_parameter(conn, base)),
             ).fetchone()
             if live_token is None:
                 raise QaPlanConflictError(
@@ -193,7 +195,7 @@ def edit_plan(
             "project": str(plan["project"]),
             "slug": str(plan["slug"]),
             "case_count": len(normalized_cases),
-            "updated_at": current_updated_at,
+            "updated_at": format_instant(current_updated_at),
             "unchanged": True,
         }
 
@@ -212,9 +214,9 @@ def edit_plan(
                 desired_plan["success_policy_id"],
                 _json(desired_plan["success_policy_params"]),
                 desired_plan["target_environment_id"],
-                stamp,
+                instant_parameter(conn, stamp),
                 int(plan["id"]),
-                str(base_updated_at),
+                instant_parameter(conn, base),
             ),
         )
         if cursor.rowcount == 0:
@@ -238,7 +240,7 @@ def edit_plan(
         "project": str(plan["project"]),
         "slug": str(plan["slug"]),
         "case_count": len(normalized_cases),
-        "updated_at": stamp,
+        "updated_at": format_instant(stamp),
         "unchanged": False,
     }
 

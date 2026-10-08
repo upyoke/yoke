@@ -243,8 +243,12 @@ def test_a_delivery_on_the_retired_pin_still_closes_the_item(test_db: Any) -> No
     _flow(test_db, "succession-delivered-a")
     _pinned_item(test_db, 9385, "succession-delivered-a")
     _run(
-        test_db, 9385, "run-delivered-a", "succession-delivered-a",
-        "succeeded", "2026-10-01",
+        test_db,
+        9385,
+        "run-delivered-a",
+        "succession-delivered-a",
+        "succeeded",
+        "2026-10-01T00:00:00.000000Z",
     )
 
     # Retire A after it delivered: version it to B, then disable A.
@@ -271,8 +275,12 @@ def test_a_run_outside_the_succession_chain_admits_qa_but_does_not_close(
     _flow(test_db, "succession-qa-stage-new", supersedes="succession-qa-stage-old")
     _pinned_item(test_db, 9387, "succession-qa-prod-old")
     _run(
-        test_db, 9387, "run-qa-stage", "succession-qa-stage-new",
-        "succeeded", "2026-10-02",
+        test_db,
+        9387,
+        "run-qa-stage",
+        "succession-qa-stage-new",
+        "succeeded",
+        "2026-10-02T00:00:00.000000Z",
     )
 
     assert completion_runs(test_db, 9387) == []

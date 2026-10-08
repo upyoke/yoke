@@ -1,5 +1,6 @@
 """Document builders and CAS helpers for QA plan editing tests."""
 
+from yoke_contracts.timestamps import format_instant
 from runtime.api.qa_catalog_test_support import CATALOG_CASES
 from yoke_core.domain.qa_plan_edit import edit_plan
 from yoke_core.domain.qa_plan_management import (
@@ -24,7 +25,7 @@ def _updated_at(conn, plan_id: int) -> str:
     row = conn.execute(
         "SELECT updated_at FROM qa_plans WHERE id=%s", (plan_id,)
     ).fetchone()
-    return str(row["updated_at"])
+    return format_instant(row["updated_at"])
 
 
 def _case_ids(conn, plan_id: int) -> list[int]:

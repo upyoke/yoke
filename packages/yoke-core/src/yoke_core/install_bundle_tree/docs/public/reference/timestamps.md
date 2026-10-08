@@ -178,3 +178,11 @@ conversion at the owning adapter. Internal signing does not turn an owned
 timestamp format into an external protocol. Preserve historical immutable
 receipt bytes; new generations use canonical UTC. Historical repairs and active
 credential or operation cutovers require evidence from their existing owners.
+
+QA catalog authoring compares native instants for its compare-and-swap token,
+binds that instant in both changed and unchanged writes, and emits a canonical
+six-digit UTC token. Equivalent qualified offsets name the same token; any
+microsecond change remains a conflict. Plan detail and method-rollup timestamps
+are canonical view fields. Deployment-flow succession compares native creation
+instants and keeps the existing identity tie-break; composition freeze tests
+SQL nullness rather than substituting text for a native clock.
