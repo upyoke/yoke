@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from yoke_contracts.timestamps import as_utc, format_instant
 from yoke_core.domain import db_backend
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.actors import SYSTEM_COMPONENT_YOKE_CORE
 
 
@@ -90,10 +90,7 @@ def set_actor_enabled(
     issuance locks the same actor row, so a concurrent mint cannot escape the
     disabling transaction.
     """
-    instant = as_utc(now)
-    stored_now = (
-        instant if db_backend.connection_is_postgres(conn) else format_instant(instant)
-    )
+    stored_now = instant_parameter(conn, now)
     p = _p(conn)
     lock = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
     status_present = (

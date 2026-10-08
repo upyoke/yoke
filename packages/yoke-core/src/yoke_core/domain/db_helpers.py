@@ -9,14 +9,30 @@ Yoke authority is Postgres: callers resolve the active database through
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, List, Optional
 
+from yoke_contracts.timestamps import as_utc, format_instant
 from yoke_contracts.timestamps import iso8601_now as iso8601_now
 from yoke_contracts.timestamps import utc_now as utc_now
 from yoke_core.domain import db_backend
 
 # Retired SQLite compatibility slot retained only for caller signatures.
 BUSY_TIMEOUT_MS = 60000
+
+
+def instant_parameter(conn: Any, value: datetime | None) -> datetime | str | None:
+    """Bind an aware instant natively, or canonically at the SQLite boundary.
+
+    SQL writers pass native datetimes. Ingress must already have parsed its
+    wire value; strings, numeric epochs and naive datetimes refuse here.
+    """
+    if value is None:
+        return None
+    instant = as_utc(value)
+    return (
+        instant if db_backend.connection_is_postgres(conn) else format_instant(instant)
+    )
 
 
 def connect(

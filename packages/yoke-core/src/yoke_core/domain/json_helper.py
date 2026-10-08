@@ -8,13 +8,15 @@ import sys
 from pathlib import Path
 from typing import Iterable, Optional, Sequence, TextIO
 
+from yoke_contracts.timestamps import temporal_wire
+
 
 def dumps_compact(value: object) -> str:
-    return json.dumps(value, separators=(",", ":"))
+    return json.dumps(temporal_wire(value), separators=(",", ":"))
 
 
 def dumps_pretty(value: object) -> str:
-    return json.dumps(value, indent=2, sort_keys=True) + "\n"
+    return json.dumps(temporal_wire(value), indent=2, sort_keys=True) + "\n"
 
 
 def loads_text(value: str) -> object:
@@ -36,7 +38,7 @@ def _load_json(path: Path) -> object:
 
 def _dump_json(path: Path, data: object) -> None:
     with path.open("w") as handle:
-        json.dump(data, handle, indent=2)
+        json.dump(temporal_wire(data), handle, indent=2)
         handle.write("\n")
 
 
@@ -155,7 +157,9 @@ def run_command(argv: Sequence[str], *, out: TextIO, err: TextIO) -> int:
             return cmd_increment(Path(args[0]), args[1])
         if cmd == "append":
             if len(args) < 3:
-                err.write("Usage: json-helper.sh append <file> <key> <json-object-string>\n")
+                err.write(
+                    "Usage: json-helper.sh append <file> <key> <json-object-string>\n"
+                )
                 return 1
             return cmd_append(Path(args[0]), args[1], args[2])
         if cmd == "create":
