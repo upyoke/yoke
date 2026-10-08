@@ -148,16 +148,17 @@ def blocking_obligation_total(conn: Any, run_id: str) -> int:
 
 
 def redrive_recovery(run_id: str, *, unresolved: int) -> str:
-    """Name automatic continuation and the explicit recovery if it stalls."""
+    """Name automatic continuation and point at the recovery surfaces.
+
+    One line, because this rides every waiting report and every red run row:
+    the options for a run that stalls live in ``yoke deployment-runs
+    remove-item --help`` and the run read, not repeated in each copy.
+    """
     if unresolved:
         return (
-            "Settle or waive each one; the run finishes automatically after "
-            "its remaining gates and members clear. If it stays executing, "
-            f"read `yoke deployment-runs get {run_id}` and re-drive {run_id}. "
-            f"At independent item QA, use `yoke deployment-runs remove-item {run_id} "
-            "ITEM --reason R` to let the run finish while a red member rides the "
-            "next release (depth: `remove-item --help`); settlement automatically "
-            "releases members whose current candidate is outside the frozen lineage."
+            "Settle or waive each; the run finishes by itself — if it stalls, "
+            f"read `yoke deployment-runs get {run_id}` (red member: "
+            "`yoke deployment-runs remove-item --help`)."
         )
     return (
         "Nothing is outstanding; automatic completion should finish this run. "
