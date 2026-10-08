@@ -166,18 +166,10 @@ def _checkout_for_project(project_id: int) -> Path | None:
 
 
 def _working_directory(job: Mapping[str, Any], project_id: int) -> Path:
-    """Return the directory this job's native must run in.
+    """Launch from the project checkout; wake from the session's own workspace.
 
-    A launch has no session yet, so it starts in the project's checkout. A
-    wake resumes a conversation that already exists, and a native session is
-    reachable only from the directory it started in — Claude keys its stored
-    transcript on that exact path, and every surface inherits its cwd from
-    it. One session legitimately works across projects, so the project on the
-    waking message is the addressed item's, not the session's: a session
-    started in one checkout and messaged about another was resumed in the
-    second project's checkout, found no transcript there, and refused three
-    deliveries while the original transcript sat where it had always been.
-    So a wake runs in the target session's own durable workspace.
+    Claude keys its transcript on that path. A session may work across
+    projects, so the project's checkout cannot stand in for its workspace.
     """
     workspace = str(job.get("target_workspace") or "").strip()
     if workspace:
@@ -318,8 +310,10 @@ def run_registered_job(job: Mapping[str, Any]) -> RelayAdapterResult:
                 "surface": context.surface,
             },
         )
+    from yoke_harness.session_launch_admission import run_admitted_adapter
+
     try:
-        return adapter(context)
+        return run_admitted_adapter(context, adapter)
     except Exception as exc:  # native failures stay private on this relay
         return RelayAdapterResult(
             "outcome_unknown" if context.job_kind == "launch" else "failed",

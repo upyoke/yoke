@@ -183,3 +183,18 @@ def no_parent_argv():
     """
     with mock.patch("yoke_core.hooks.helpers._read_parent_argv", return_value=[]):
         yield
+
+
+@pytest.fixture(autouse=True)
+def healthy_native_spawn_capacity(monkeypatch):
+    """Native adapter unit tests do not consume this host's capacity or cadence."""
+    from yoke_contracts.machine_config.native_capacity import NativeCapacity
+    from yoke_harness import session_launch_admission
+
+    monkeypatch.setattr(session_launch_admission, "_LAST_SPAWN", None)
+    monkeypatch.setattr(session_launch_admission, "NATIVE_SPAWN_STAGGER_SECONDS", 0)
+    monkeypatch.setattr(
+        session_launch_admission,
+        "observe_native_capacity",
+        lambda: NativeCapacity(2 * 1024**3, 0, 0),
+    )

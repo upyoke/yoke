@@ -42,7 +42,7 @@ from runtime.api.domain.test_session_message_support import (
 
 DESKTOP_SURFACES = ("claude-desktop", "codex-desktop", "cursor-desktop")
 CLI_SURFACES = ("claude-cli", "codex-cli", "cursor-cli")
-#: ``fleet.wake_ack_grace_seconds`` — the window every starvation test reuses.
+#: the product acknowledgement grace period — the window every starvation test reuses.
 GRACE = timedelta(seconds=300)
 STARVED = NOW + GRACE + timedelta(seconds=1)
 CLAUDE_DESKTOP_SESSION_ID = "s-desktop"

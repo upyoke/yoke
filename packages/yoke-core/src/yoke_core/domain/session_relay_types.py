@@ -13,9 +13,6 @@ from yoke_contracts.session_control.private_route_qualification import (
 
 RelayJobKind = Literal["launch", "wake", "terminate", "evidence"]
 WAKE_LEASE_SECONDS = 90
-# Consecutive native creates on one machine start at least this far apart:
-# a burst of spawns on a loaded box killed three of six in one minute.
-NATIVE_SPAWN_SPACING_SECONDS = 30
 MAX_RELAY_LONG_POLL_SECONDS = 55
 RELAY_LONG_POLL_STEP_SECONDS = 1
 
@@ -117,7 +114,7 @@ class RelayJob:
 
 @dataclass(frozen=True)
 class RelayClaimOutcome:
-    """One poll's leased work: one launch, one wake, one reap, or nothing."""
+    """One poll's leased launch batch and optional serial control job."""
 
     relay_id: str
     machine_id: str
@@ -139,7 +136,6 @@ class RelayClaimOutcome:
 
 __all__ = [
     "MAX_RELAY_LONG_POLL_SECONDS",
-    "NATIVE_SPAWN_SPACING_SECONDS",
     "RELAY_LONG_POLL_STEP_SECONDS",
     "RelayClaimOutcome",
     "RelayHeartbeat",

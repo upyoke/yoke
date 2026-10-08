@@ -2,20 +2,19 @@
 
 from __future__ import annotations
 
+from yoke_contracts.fleet_policy import LAUNCH_DEADLINE_MINUTES, MAX_BODY_BYTES
+
 from dataclasses import asdict, dataclass
 from typing import Any, Protocol
 
-from yoke_contracts.organization_contract.fleet_keys import FLEET_KEY_SPECS
 from yoke_contracts.session_control.launch_origin import LAUNCH_ORIGIN_OPERATOR
 from yoke_core.domain.session_launch_capacity import MachineCapacity
 
 
 MAX_LAUNCH_LEASE_SECONDS = 300
 LAUNCH_LEASE_SECONDS = MAX_LAUNCH_LEASE_SECONDS
-DEFAULT_LAUNCH_DEADLINE_SECONDS = (
-    int(FLEET_KEY_SPECS["fleet.launch_deadline_minutes"].default) * 60
-)
-DEFAULT_MAX_BODY_BYTES = int(FLEET_KEY_SPECS["fleet.max_body_bytes"].default)
+DEFAULT_LAUNCH_DEADLINE_SECONDS = LAUNCH_DEADLINE_MINUTES * 60
+DEFAULT_MAX_BODY_BYTES = MAX_BODY_BYTES
 MAX_LAUNCH_DEADLINE_SECONDS = 3600
 
 

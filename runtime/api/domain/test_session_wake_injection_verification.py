@@ -36,7 +36,7 @@ from yoke_core.domain.session_wake_reconciliation import (
 
 
 STARTED_AT = "2026-08-22T12:00:00Z"
-#: ``fleet.wake_ack_grace_seconds`` is 300, so this is one second past it.
+#: the product acknowledgement grace period is 300, so this is one second past it.
 PAST_GRACE = "2026-08-22T12:05:01Z"
 INSIDE_GRACE = "2026-08-22T12:04:00Z"
 

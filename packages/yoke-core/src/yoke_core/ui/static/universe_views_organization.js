@@ -7,7 +7,7 @@
 import {
   el, loadSection, portabilityMode, section,
 } from "./universe_view_support.js";
-import { renderOrganizationFleet } from "./universe_organization_fleet.js";
+import { renderOrganizationMembership } from "./universe_organization_membership.js";
 
 function invokeAction(action, option) {
   let result;
@@ -144,6 +144,6 @@ function renderPortabilityPanel(context, main) {
 export function renderOrganizationView(context, main) {
   main.replaceChildren();
   renderIdentityPanel(context, main);
-  renderOrganizationFleet(context, main);
+  renderOrganizationMembership(context, main);
   renderPortabilityPanel(context, main);
 }

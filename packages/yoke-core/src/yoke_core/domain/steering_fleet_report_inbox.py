@@ -6,12 +6,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
-from yoke_contracts.organization_contract.fleet_keys import FLEET_KEY_SPECS
+from yoke_contracts.fleet_policy import WAKE_ACK_GRACE_SECONDS
 from yoke_core.domain import db_backend
-from yoke_core.domain.session_message_authorization import (
-    SessionMessageError,
-    project_policy,
-)
 from yoke_core.domain.session_message_types import parse_timestamp, row_dict
 
 
@@ -37,14 +33,8 @@ def _age_label(seconds: int) -> str:
 
 
 def wake_ack_grace_seconds(conn: Any, project_id: int | None) -> int:
-    """Org fleet grace, or the closed default when no project is in hand."""
-    default = int(FLEET_KEY_SPECS["fleet.wake_ack_grace_seconds"].default)
-    if project_id is None:
-        return default
-    try:
-        return int(project_policy(conn, int(project_id)).wake_ack_grace_seconds)
-    except (SessionMessageError, TypeError, ValueError):
-        return default
+    """Return the product acknowledgement grace period."""
+    return WAKE_ACK_GRACE_SECONDS
 
 
 def load_unacked_injected(
@@ -87,9 +77,7 @@ def unacked_section_lines(rows: tuple[UnackedInjectedMessage, ...]) -> list[str]
     """Render the this-session unacked inbox, or nothing when empty."""
     if not rows:
         return []
-    lines = [
-        "unacked injected (this session) — already shown, still awaiting ack:"
-    ]
+    lines = ["unacked injected (this session) — already shown, still awaiting ack:"]
     for row in rows:
         lines.append(
             f"  {row.message_id}  injected {_age_label(row.age_seconds)} ago  "

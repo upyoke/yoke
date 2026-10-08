@@ -1,11 +1,4 @@
-"""Lease the next assigned launch for one relay poll, spacing native creates.
-
-One machine starts at most one native create per spacing window. The window
-is measured from the most recent attempt started there, whichever relay poll
-started it, so a burst of assignments drains at the pace a loaded box can
-absorb. A launch held back stays ``assigned`` and says why on its own row,
-so a seat reading the record sees a wait with a reason rather than a stall.
-"""
+"""Lease assigned launches together without blocking behind native wake work."""
 
 from __future__ import annotations
 
@@ -13,9 +6,8 @@ from typing import Any
 from uuid import uuid4
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.session_relay_storage import mark_relay_batch, marker, shifted
+from yoke_core.domain.session_relay_storage import mark_relay_batch, marker
 from yoke_core.domain.session_relay_types import (
-    NATIVE_SPAWN_SPACING_SECONDS,
     RelayHeartbeat,
     RelayJob,
 )
@@ -27,62 +19,31 @@ def _lock(conn: Any, alias: str) -> str:
     return ""
 
 
-def _candidate_launch_id(
+def _candidate_launch_ids(
     conn: Any,
     heartbeat: RelayHeartbeat,
-) -> str | None:
+) -> tuple[str, ...]:
     p = marker(conn)
     projects = tuple(sorted({int(value) for value in heartbeat.project_ids}))
     if not projects or not heartbeat.surface_versions:
-        return None
+        return ()
     project_slots = ",".join(p for _ in projects)
     surface_slots = ",".join(p for _ in heartbeat.surface_versions)
-    row = conn.execute(
+    rows = conn.execute(
         "SELECT l.launch_id FROM session_launches l "
         "WHERE l.state='assigned' "
         f"AND l.assigned_relay_id={p} AND l.assigned_machine_id={p} "
         f"AND l.project_id IN ({project_slots}) "
         f"AND l.selected_surface IN ({surface_slots}) "
-        "ORDER BY l.created_at,l.launch_id LIMIT 1" + _lock(conn, "l"),
+        "ORDER BY l.created_at,l.launch_id" + _lock(conn, "l"),
         (
             heartbeat.relay_id,
             heartbeat.machine_id,
             *projects,
             *sorted(heartbeat.surface_versions),
         ),
-    ).fetchone()
-    return str(row[0]) if row is not None else None
-
-
-def spawn_hold_until(conn: Any, *, machine_id: str, now: str) -> str | None:
-    """When the machine may start its next native create, or ``None`` for now."""
-    p = marker(conn)
-    row = conn.execute(
-        f"SELECT MAX(started_at) FROM session_launch_attempts WHERE machine_id={p}",
-        (machine_id,),
-    ).fetchone()
-    last_started = str(row[0]) if row is not None and row[0] else None
-    if last_started is None:
-        return None
-    resume_at = shifted(last_started, seconds=NATIVE_SPAWN_SPACING_SECONDS)
-    return resume_at if resume_at > now else None
-
-
-def _hold_assigned_launches(
-    conn: Any, heartbeat: RelayHeartbeat, *, resume_at: str
-) -> None:
-    p = marker(conn)
-    reason = (
-        f"native spawn spacing: machine {heartbeat.machine_id} started a native "
-        f"create less than {NATIVE_SPAWN_SPACING_SECONDS}s ago; next create not "
-        f"before {resume_at}"
-    )
-    conn.execute(
-        f"UPDATE session_launches SET spawn_hold_reason={p} "
-        f"WHERE state='assigned' AND assigned_machine_id={p}",
-        (reason, heartbeat.machine_id),
-    )
-    conn.commit()
+    ).fetchall()
+    return tuple(str(row[0]) for row in rows)
 
 
 def claim_next_launch(
@@ -91,59 +52,78 @@ def claim_next_launch(
     *,
     now: str,
 ) -> tuple[RelayJob, ...]:
-    """Lease the oldest eligible launch unless the machine's spacing window holds it."""
-    resume_at = spawn_hold_until(conn, machine_id=heartbeat.machine_id, now=now)
-    if resume_at is not None:
-        _hold_assigned_launches(conn, heartbeat, resume_at=resume_at)
-        return ()
-    launch_id = _candidate_launch_id(conn, heartbeat)
-    if launch_id is None:
+    """Lease every assigned launch; the machine checks capacity before each spawn."""
+    candidates = _candidate_launch_ids(conn, heartbeat)
+    conn.commit()
+    if not candidates:
         return ()
     from yoke_core.domain.session_launch_execution import claim_assigned_launch
     from yoke_core.domain.session_launch_store import update_launch
 
-    batch_id = str(uuid4())
-    try:
-        claim = claim_assigned_launch(
-            conn,
-            launch_id=launch_id,
-            relay_id=heartbeat.relay_id,
-            machine_id=heartbeat.machine_id,
-            batch_id=batch_id,
-            now=now,
-        )
-    except Exception as exc:
-        if getattr(exc, "code", "") in {"invalid_state", "relay_mismatch", "expired"}:
-            return ()
-        raise
-    update_launch(conn, launch_id, spawn_hold_reason=None)
-    job = RelayJob(
-        job_kind="launch",
-        job_id=claim.launch.launch_id,
-        lease_id=claim.lease_id,
-        machine_id=heartbeat.machine_id,
-        surface=claim.launch.selected_surface,
-        surface_version=str(heartbeat.surface_versions[claim.launch.selected_surface]),
-        project_id=claim.launch.project_id,
-        native_instruction=claim.bootstrap_prompt,
-        message_id=claim.launch.message_id,
-        requested_model=claim.launch.resolved_model,
-        requested_reasoning_effort=claim.launch.resolved_reasoning_effort,
-        requested_context_window_tokens=(claim.launch.resolved_context_window_tokens),
-        presentation=claim.launch.presentation_preference,
-        session_name=claim.launch.session_name,
-        deadline_at=claim.launch.deadline_at,
-        launch_attestation=claim.attestation,
+    p = marker(conn)
+    active = conn.execute(
+        f"SELECT lease_id,lease_expires_at FROM session_relays WHERE relay_id={p}",
+        (heartbeat.relay_id,),
+    ).fetchone()
+    batch_id = (
+        str(active[0])
+        if active and active[0] and str(active[1]) > now
+        else str(uuid4())
     )
+    expires_at = str(active[1]) if active and str(active[1] or "") > now else now
+    jobs = []
+    for launch_id in candidates:
+        try:
+            claim = claim_assigned_launch(
+                conn,
+                launch_id=launch_id,
+                relay_id=heartbeat.relay_id,
+                machine_id=heartbeat.machine_id,
+                batch_id=batch_id,
+                now=now,
+            )
+        except Exception as exc:
+            if getattr(exc, "code", "") in {
+                "invalid_state",
+                "relay_mismatch",
+                "expired",
+            }:
+                continue
+            raise
+        update_launch(conn, launch_id, spawn_hold_reason=None)
+        expires_at = max(expires_at, claim.lease_expires_at)
+        job = RelayJob(
+            job_kind="launch",
+            job_id=claim.launch.launch_id,
+            lease_id=claim.lease_id,
+            machine_id=heartbeat.machine_id,
+            surface=claim.launch.selected_surface,
+            surface_version=str(
+                heartbeat.surface_versions[claim.launch.selected_surface]
+            ),
+            project_id=claim.launch.project_id,
+            native_instruction=claim.bootstrap_prompt,
+            message_id=claim.launch.message_id,
+            requested_model=claim.launch.resolved_model,
+            requested_reasoning_effort=claim.launch.resolved_reasoning_effort,
+            requested_context_window_tokens=(
+                claim.launch.resolved_context_window_tokens
+            ),
+            presentation=claim.launch.presentation_preference,
+            session_name=claim.launch.session_name,
+            deadline_at=claim.launch.deadline_at,
+            launch_attestation=claim.attestation,
+        )
+        jobs.append(job)
     mark_relay_batch(
         conn,
         relay_id=heartbeat.relay_id,
         batch_id=batch_id,
-        expires_at=claim.lease_expires_at,
+        expires_at=expires_at,
         now=now,
     )
     conn.commit()
-    return (job,)
+    return tuple(jobs)
 
 
-__all__ = ["claim_next_launch", "spawn_hold_until"]
+__all__ = ["claim_next_launch"]

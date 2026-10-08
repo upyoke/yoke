@@ -27,7 +27,7 @@ NATIVE_WAKE_SESSION_ID = "s4"
 #: projects is exactly the case a wake has to resume in the right directory.
 ALPHA_WORKSPACE = "/checkouts/alpha"
 BETA_WORKSPACE = "/checkouts/beta"
-#: ``fleet.wake_ack_grace_seconds`` — the silence window the escalation
+#: the product acknowledgement grace period — the silence window the escalation
 #: tests measure against, and the spacing between repeat escalated wakes.
 ACK_GRACE = timedelta(seconds=300)
 

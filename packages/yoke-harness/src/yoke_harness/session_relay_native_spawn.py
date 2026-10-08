@@ -32,6 +32,10 @@ from yoke_contracts.session_control.resume import (
     RESUME_ATTEMPT_ENV,
     RESUMED_RUNNING_RESULT,
 )
+from yoke_harness.session_launch_admission import (
+    NativeCapacityRefusal,
+    native_spawn_admission,
+)
 from yoke_harness import session_relay_native_supervisor
 from yoke_harness.session_launch_containment import record_supervised_native
 from yoke_harness.session_relay_native_capture_format import (
@@ -159,19 +163,23 @@ def spawn_supervised_native(
         *(str(value) for value in argv),
     ]
     try:
-        process = process_factory(
-            supervised,
-            cwd=checkout,
-            env=_child_environment(
-                environment,
-                supervision_kind=supervision_kind,
-                attempt_id=attempt_id,
-            ),
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
-        )
+        with native_spawn_admission():
+            process = process_factory(
+                supervised,
+                cwd=checkout,
+                env=_child_environment(
+                    environment,
+                    supervision_kind=supervision_kind,
+                    attempt_id=attempt_id,
+                ),
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+    except NativeCapacityRefusal:
+        capture_path.unlink(missing_ok=True)
+        raise
     except (OSError, subprocess.SubprocessError):
         capture_path.unlink(missing_ok=True)
         return None

@@ -200,31 +200,31 @@ def test_organization_settings_default_merge_and_projection():
     defaulted = handle_organization_settings_get(
         _request(
             "organizations.settings.get",
-            {"path": "fleet.relay_poll_seconds"},
+            {"path": "membership.auto_join_domain_verified"},
         ),
     )
     assert defaulted.primary_success, defaulted.error
-    assert defaulted.result_payload["value"] == 60
+    assert defaulted.result_payload["value"] is False
     assert defaulted.result_payload["defaulted"] is True
 
     merged = handle_organization_settings_merge(
         _request(
             "organizations.settings.merge",
-            {"assignments": {"fleet.relay_poll_seconds": 30}},
+            {"assignments": {"membership.auto_join_domain_verified": True}},
         ),
     )
     assert merged.primary_success, merged.error
     assert merged.result_payload["changed_paths"] == [
-        "fleet.relay_poll_seconds",
+        "membership.auto_join_domain_verified",
     ]
 
     projected = handle_organization_settings_get(
         _request(
             "organizations.settings.get",
-            {"path": "fleet.relay_poll_seconds"},
+            {"path": "membership.auto_join_domain_verified"},
         ),
     )
-    assert projected.result_payload["value"] == 30
+    assert projected.result_payload["value"] is True
     assert projected.result_payload["defaulted"] is False
 
 
@@ -241,18 +241,18 @@ def test_organization_settings_reject_unknown_or_invalid_assignments():
     invalid = handle_organization_settings_merge(
         _request(
             "organizations.settings.merge",
-            {"assignments": {"fleet.relay_poll_seconds": 1}},
+            {"assignments": {"membership.auto_join_domain_verified": "invalid"}},
         ),
     )
     assert not invalid.primary_success
     assert invalid.error.code == "validation_error"
 
 
-def test_organization_settings_catalog_projects_closed_fleet_contract():
+def test_organization_settings_catalog_projects_closed_membership_contract():
     merged = handle_organization_settings_merge(
         _request(
             "organizations.settings.merge",
-            {"assignments": {"fleet.relay_poll_seconds": 30}},
+            {"assignments": {"membership.auto_join_domain_verified": True}},
         ),
     )
     assert merged.primary_success, merged.error
@@ -262,12 +262,12 @@ def test_organization_settings_catalog_projects_closed_fleet_contract():
 
     assert outcome.primary_success, outcome.error
     settings = {row["path"]: row for row in outcome.result_payload["settings"]}
-    poll = settings["fleet.relay_poll_seconds"]
-    assert poll["value"] == 30
-    assert poll["default"] == 60
+    poll = settings["membership.auto_join_domain_verified"]
+    assert poll["value"] is True
+    assert poll["default"] is False
     assert poll["defaulted"] is False
-    assert poll["value_type"] == "int"
-    assert poll["minimum"] == 5
+    assert poll["value_type"] == "bool"
+    assert poll["minimum"] is None
     assert "meaning" in poll
 
 

@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+from yoke_contracts.fleet_policy import (
+    LAUNCH_DEADLINE_MINUTES,
+    MAX_BODY_BYTES,
+    SURFACE_FALLBACK,
+)
+
 from typing import Any
 
 from yoke_contracts.api.function_call import (
@@ -70,21 +76,6 @@ def _resolve_project(conn: Any, project: str) -> int:
     return resolve_project_id(conn, project)
 
 
-def _fleet_policy(conn: Any, project_id: int, path: str) -> Any:
-    from yoke_core.domain.organization_settings import read_organization_setting
-    from yoke_core.domain.session_launch_store import marker, value
-
-    p = marker(conn)
-    row = conn.execute(
-        f"SELECT org_id FROM projects WHERE id = {p}",
-        (project_id,),
-    ).fetchone()
-    if row is None:
-        raise SessionLaunchError("project_not_found", "project does not exist")
-    setting, _ = read_organization_setting(conn, int(value(row, "org_id", 0)), path)
-    return setting
-
-
 def _open() -> Any:
     from yoke_core.domain.db_helpers import connect
 
@@ -122,9 +113,7 @@ def handle_launch_preview(request: FunctionCallRequest) -> HandlerOutcome:
                 auth=auth,
                 project_id=project_id,
                 parsed=parsed,
-                surface_fallback_enabled=bool(
-                    _fleet_policy(conn, project_id, "fleet.surface_fallback")
-                ),
+                surface_fallback_enabled=SURFACE_FALLBACK,
             )
         return HandlerOutcome(result_payload=payload)
     except Exception as exc:
@@ -143,10 +132,8 @@ def handle_launch_create(request: FunctionCallRequest) -> HandlerOutcome:
     conn = _open()
     try:
         project_id = _resolve_project(conn, parsed.project)
-        deadline_seconds = (
-            int(_fleet_policy(conn, project_id, "fleet.launch_deadline_minutes")) * 60
-        )
-        max_body_bytes = int(_fleet_policy(conn, project_id, "fleet.max_body_bytes"))
+        deadline_seconds = LAUNCH_DEADLINE_MINUTES * 60
+        max_body_bytes = MAX_BODY_BYTES
         auth = launch_authorization(conn, request, project_id)
         outcome = create_launch(
             conn,
@@ -160,9 +147,7 @@ def handle_launch_create(request: FunctionCallRequest) -> HandlerOutcome:
                 session_id=auth.session_id,
             ),
             max_body_bytes=max_body_bytes,
-            surface_fallback_enabled=bool(
-                _fleet_policy(conn, project_id, "fleet.surface_fallback")
-            ),
+            surface_fallback_enabled=SURFACE_FALLBACK,
         )
         return HandlerOutcome(
             result_payload={
@@ -255,21 +240,8 @@ def _mutate(request: FunctionCallRequest, model: Any, operation: str) -> Handler
                 conn,
                 launch_id=parsed.launch_id,
                 auth=auth,
-                deadline_seconds=int(
-                    _fleet_policy(
-                        conn,
-                        launch_record.project_id,
-                        "fleet.launch_deadline_minutes",
-                    )
-                )
-                * 60,
-                surface_fallback_enabled=bool(
-                    _fleet_policy(
-                        conn,
-                        launch_record.project_id,
-                        "fleet.surface_fallback",
-                    )
-                ),
+                deadline_seconds=LAUNCH_DEADLINE_MINUTES * 60,
+                surface_fallback_enabled=SURFACE_FALLBACK,
             )
         else:
             from yoke_core.domain.session_launch_execution import reconcile_launch

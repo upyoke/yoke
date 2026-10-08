@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.fleet_policy import MAX_BODY_BYTES
+
 import hashlib
 import json
 
@@ -119,16 +121,10 @@ def test_send_refuses_empty_oversized_and_unqualified_routes() -> None:
         _send(conn, body="")
     assert empty.value.code == "body_empty"
 
-    conn.execute(
-        "UPDATE organizations SET settings=? WHERE id=1",
-        (json.dumps({"fleet": {"max_body_bytes": 4}}),),
-    )
-    conn.commit()
     with pytest.raises(SessionMessageError) as oversized:
-        _send(conn, body="12345")
+        _send(conn, body="x" * (MAX_BODY_BYTES + 1))
     assert oversized.value.code == "body_too_large"
 
-    conn.execute("UPDATE organizations SET settings='{}' WHERE id=1")
     conn.execute(
         "UPDATE harness_sessions SET executor_version=NULL WHERE session_id='s1'"
     )
