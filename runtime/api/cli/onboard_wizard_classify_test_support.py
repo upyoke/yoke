@@ -8,7 +8,7 @@ from yoke_cli.config import onboard_report
 from yoke_cli.config import onboard_wizard_steps as steps
 
 AGENT_RULES_LINE = (
-    "Add Yoke's rules to canonical AGENTS.md (keeps any existing content)"
+    "Add Yoke's shared rules to canonical AGENTS.md (keeps any existing content)"
 )
 TOOL_PERMISSIONS_LINE = (
     "Allow Yoke's tools in .claude/settings.json and "

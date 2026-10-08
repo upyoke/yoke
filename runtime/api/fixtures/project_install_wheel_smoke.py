@@ -65,8 +65,8 @@ def _assert_installed(checkout: Path, config: Path) -> None:
     assert manifest["project_id"] == 7
     assert manifest["project_slug"] == "demo"
     assert sorted(manifest["files"]) == [
-        ".claude/agents/yoke-engineer.md",
         ".agents/skills/yoke/idea/SKILL.md",
+        ".claude/agents/yoke-engineer.md",
     ]
     assert sorted(manifest["contract_files"]) == [".yoke/lint-config"]
     assert sorted(manifest["strategy_files"]) == [".yoke/strategy/MISSION.md"]

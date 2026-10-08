@@ -11,6 +11,7 @@ from yoke_cli.project_install.files import (
     ProjectInstallError,
     assert_resolved_targets_within,
     sha256_text,
+    remove_empty_parents,
 )
 from yoke_contracts.project_contract.install_bundle import SKILL_DISCOVERY_LINKS
 from yoke_contracts.project_contract.installed_layer import (
@@ -132,6 +133,7 @@ def remove(root: Path, records: Any) -> list[str]:
         assert_resolved_targets_within(root, [rel], context="discovery unlink")
         if target.is_symlink() and os.readlink(target) == destination:
             target.unlink()
+            remove_empty_parents(root, rel)
             removed.append(rel)
         elif target.exists() or target.is_symlink():
             _refuse(rel, "a changed discovery entry")
