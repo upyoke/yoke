@@ -6,6 +6,9 @@ row untouched and emits ReclaimAborted with item-claim scope."""
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import utc_now
+from .db_helpers import instant_parameter
+
 from typing import Any, List
 
 from . import db_backend
@@ -20,7 +23,7 @@ from .sessions_analytics import (
     EVENT_WORK_RECLAIMED,
 )
 from .sessions_item_focus_release import release_item_focus_for_sessions
-from .sessions_queries import _now_iso, normalize_claim_item_id
+from .sessions_queries import normalize_claim_item_id
 from .time_sql import now_sql
 from .workflow_item_binding_lock import (
     lock_item_workflow_bindings,
@@ -44,7 +47,7 @@ def reclaim_stale_item_claims(
     Item-scoped only — process and epic-task targets are not reclaimed
     through this surface.  Returns the number of claims released.
     """
-    now = _now_iso()
+    now = instant_parameter(conn, utc_now())
     normalized = normalize_claim_item_id(item_id)
     if not normalized.isdigit():
         return 0
@@ -64,7 +67,7 @@ def reclaim_stale_item_claims(
              AND wc.claim_type = 'exclusive'
              AND (
                  ases.ended_at IS NOT NULL
-                 OR (wc.claimed_at)::timestamp < ({now_sql(offset_modifier=_minutes_modifier)})::timestamp
+                 OR wc.claimed_at < {now_sql(offset_modifier=_minutes_modifier)}
              )""",
         (item_id_int, f"-{stale_threshold_minutes}"),
     ).fetchall()

@@ -25,7 +25,11 @@ and silently skips what the schema cannot hold.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Optional
+
+from yoke_contracts.timestamps import parse_instant, utc_now
+from .db_helpers import instant_parameter
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _get_columns as _schema_get_columns
@@ -131,7 +135,7 @@ def record_release_intent_for_session(
     conn: Any,
     *,
     session_id: str,
-    released_at: str,
+    released_at: datetime | str,
     intent: Optional[str],
 ) -> None:
     """Bulk-release variant: stamp intent on every row this release touched."""
@@ -141,7 +145,7 @@ def record_release_intent_for_session(
     conn.execute(
         f"UPDATE work_claims SET release_reason_intent = {p} "
         f"WHERE session_id = {p} AND released_at = {p}",
-        (intent, session_id, released_at),
+        (intent, session_id, instant_parameter(conn, parse_instant(released_at))),
     )
 
 
@@ -150,7 +154,7 @@ def stamp_chain_checkpoint(
     *,
     session_id: str,
     step: int,
-    at: str,
+    at: datetime | str,
 ) -> None:
     """Stamp ``last_chain_step`` + ``last_checkpoint_at`` on the session row.
 
@@ -165,7 +169,7 @@ def stamp_chain_checkpoint(
     conn.execute(
         f"UPDATE harness_sessions SET last_chain_step = {p}, "
         f"last_checkpoint_at = {p} WHERE session_id = {p}",
-        (int(step), at, session_id),
+        (int(step), instant_parameter(conn, parse_instant(at)), session_id),
     )
 
 
@@ -174,7 +178,7 @@ def touch_epic_task_activity(
     *,
     epic_id: Any,
     task_num: Any,
-    at: Optional[str] = None,
+    at: datetime | str | None = None,
 ) -> None:
     """Stamp ``epic_tasks.last_activity_at`` for one task.
 
@@ -192,17 +196,14 @@ def touch_epic_task_activity(
         return
     if not epic_task_activity_column_present(conn):
         return
-    if at is None:
-        from datetime import datetime, timezone
-
-        at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    at = utc_now() if at is None else parse_instant(at)
     p = _p(conn)
     # str(epic_id) matches the epic CRUD convention — coerces cleanly
     # whether the fixture declared epic_id as INTEGER or TEXT.
     conn.execute(
         f"UPDATE epic_tasks SET last_activity_at = {p} "
         f"WHERE epic_id = {p} AND task_num = {p}",
-        (at, str(numeric_epic), numeric_task),
+        (instant_parameter(conn, at), str(numeric_epic), numeric_task),
     )
 
 

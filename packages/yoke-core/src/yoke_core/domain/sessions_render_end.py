@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import utc_now
+from .db_helpers import instant_parameter
+
 from typing import Any, Dict, List, Optional
 
 from . import sessions_analytics as _sa
@@ -17,7 +20,6 @@ from .sessions_lifecycle_destructive_guard import (
 )
 from .sessions_lifecycle_registry import _get_session
 from .sessions_orphan_tool_call_sweep import sweep_orphaned_tool_calls
-from .sessions_queries import _now_iso
 from .sessions_render_attribution import clear_current_item
 from .strategy_doc_session_claims import release_session_doc_claims_for_session
 from .sessions_render_end_claim_release import (
@@ -46,7 +48,7 @@ def end_session(
     Sticky claims survive; hooks use end_session_if_empty to preserve holdings
     and pending delivery. Caller presence evidence is recorded for audit.
     """
-    now = _now_iso()
+    now = instant_parameter(conn, utc_now())
 
     session_rows = lock_session_rows_for_claim_lifecycle(conn, (session_id,))
     if session_id not in session_rows:

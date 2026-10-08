@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Mapping, Optional
 
+from .session_reclaim_evidence import ReclaimActivityEvidence, ReclaimClassification
 from . import db_backend
 from .session_staleness import activity_is_stale
 from .sessions_analytics_core import DEFAULT_STALE_THRESHOLD_MINUTES
@@ -14,10 +15,9 @@ from .session_reclaim_progress import (
     current_episode_progress_stamp,
     live_activity_stamp,
     newest_activity_stamp,
-    open_tool_call_is_live,
     open_tool_call_started_at,
     read_session_state,
-    session_turn_is_running,
+    parse_stamp,
 )
 
 
@@ -38,52 +38,6 @@ def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-@dataclass(frozen=True)
-class ReclaimActivityEvidence:
-    session_id: str
-    executor: str
-    effective_ttl_minutes: int
-    last_heartbeat: Optional[str]
-    last_event_at: Optional[str]
-    claim_last_heartbeat: Optional[str]
-    claim_claimed_at: Optional[str]
-    episode_started_at: Optional[str]
-    activity_at: Optional[str]
-    ended_at: Optional[str]
-    turn_posture: Optional[str]
-    open_tool_call_at: Optional[str]
-
-    def as_payload(self) -> dict:
-        return {
-            "executor": self.executor,
-            "effective_ttl_minutes": self.effective_ttl_minutes,
-            "last_heartbeat": self.last_heartbeat,
-            "last_event_at": self.last_event_at,
-            "claim_last_heartbeat": self.claim_last_heartbeat,
-            "claim_claimed_at": self.claim_claimed_at,
-            "activity_at": self.activity_at,
-            "turn_posture": self.turn_posture,
-            "open_tool_call": self.open_tool_call_at is not None,
-            "open_tool_call_at": self.open_tool_call_at,
-        }
-
-    @property
-    def open_tool_call_live(self) -> bool:
-        """Whether the open tool-call row still evidences work in flight."""
-        return open_tool_call_is_live(self.open_tool_call_at, self.activity_at)
-
-    @property
-    def in_flight(self) -> bool:
-        return self.open_tool_call_live or session_turn_is_running(self.turn_posture)
-
-
-@dataclass(frozen=True)
-class ReclaimClassification:
-    is_reclaimable: bool
-    reason: str
-    evidence: ReclaimActivityEvidence
-
-
 def resolve_effective_ttl(
     executor: Optional[str],
     *,
@@ -102,7 +56,7 @@ def _claim_state(
     conn,
     session_id: str,
     claim_id: Optional[int] = None,
-) -> tuple[Optional[str], Optional[str]]:
+) -> tuple[datetime | None, datetime | None]:
     try:
         columns = set(_schema_get_columns(conn, "work_claims"))
     except db_backend.operational_error_types():
@@ -134,13 +88,16 @@ def _claim_state(
         ).fetchone()
     if row is None:
         return (None, None)
-    if heartbeat_col and hasattr(row, "keys"):
-        return (row["last_heartbeat"], row["claimed_at"])
-    if heartbeat_col:
-        return (row[0], row[1])
     if hasattr(row, "keys"):
-        return (None, row["claimed_at"])
-    return (None, row[0])
+        return (
+            parse_stamp(row["last_heartbeat"]) if heartbeat_col else None,
+            parse_stamp(row["claimed_at"]),
+        )
+    return (
+        (parse_stamp(row[0]), parse_stamp(row[1]))
+        if heartbeat_col
+        else (None, parse_stamp(row[0]))
+    )
 
 
 def read_activity_signals(
@@ -201,8 +158,8 @@ def latest_activity(
     session_id: str,
     *,
     executor: Optional[str] = None,
-) -> Optional[str]:
-    """Return the canonical "is this session alive?" timestamp."""
+) -> datetime | None:
+    """Return the native "is this session alive?" instant."""
     del executor  # routed via read_activity_signals
     evidence = read_activity_signals(conn, session_id)
     if evidence.in_flight and not in_flight_activity_is_hard_stale(
@@ -214,7 +171,7 @@ def latest_activity(
 
 
 def in_flight_activity_is_hard_stale(
-    activity_at: Optional[str], *, effective_ttl_minutes: int
+    activity_at: datetime | None, *, effective_ttl_minutes: int
 ) -> bool:
     """Bound crashed in-flight markers while normal liveness remains protected."""
     return activity_is_stale(

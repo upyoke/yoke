@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import pytest
 
+from yoke_contracts.timestamps import parse_instant
+
 from yoke_core.domain.session_reclaim_activity import (
     REASON_ENDED,
     REASON_FRESH,
@@ -93,7 +95,9 @@ def test_episode_progress_requires_tool_activity_and_uses_current_boundary():
     current_episode = "2026-08-24T14:00:00Z"
 
     assert current_episode_progress_stamp(None, current_episode) is None
-    assert current_episode_progress_stamp(old_tool, current_episode) == current_episode
+    assert current_episode_progress_stamp(old_tool, current_episode) == parse_instant(
+        current_episode
+    )
 
 
 class TestReadActivitySignals:

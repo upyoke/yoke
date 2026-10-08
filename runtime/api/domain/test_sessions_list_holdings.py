@@ -17,6 +17,7 @@ from runtime.api.fixtures.session_holdings import (
     iso,
 )
 from yoke_contracts.session_holdings import steering_holding_key
+from yoke_contracts.timestamps import format_instant
 from yoke_core.domain.sessions_list_read import list_sessions
 
 
@@ -258,7 +259,7 @@ def test_holdings_keep_current_target_out_of_previous_history(test_db):
     assert [row["target"] for row in holdings["current"]] == ["YOK-91"]
     assert [row["target"] for row in holdings["previous"]] == ["YOK-92"]
     assert holdings["previous"][0]["item_title"] == "previous item"
-    assert holdings["previous"][0]["released_at"] == latest_release
+    assert holdings["previous"][0]["released_at"] == format_instant(latest_release)
     assert holdings["previous"][0]["occurrence_count"] == 2
     assert "item_status" not in holdings["current"][0]
     assert "item_workflow_id" not in holdings["previous"][0]

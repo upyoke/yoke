@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+from yoke_contracts.timestamps import parse_instant, utc_now
 from typing import Any, Optional
 
 from . import db_backend
@@ -16,45 +17,30 @@ _TURN_RUNNING = "running"
 OPEN_TOOL_CALL_WRITE_SKEW_SECONDS = 60
 
 
-def parse_stamp(value: Optional[str]) -> Optional[datetime]:
-    """Parse an ISO-8601 stamp; ``None`` when absent or unreadable."""
-    if not value:
-        return None
-    text = str(value).strip()
-    if text.endswith("Z"):
-        text = text[:-1] + "+00:00"
-    try:
-        parsed = datetime.fromisoformat(text)
-    except ValueError:
-        return None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+def parse_stamp(value: datetime | str | None) -> datetime | None:
+    """Read an aware instant, preserving absence and refusing invalid values."""
+    return None if value is None else parse_instant(value)
 
 
-def newest_activity_stamp(*values: Optional[str]) -> Optional[str]:
-    """Return the newest present ISO-8601 stamp."""
-    present = [value for value in values if value]
+def newest_activity_stamp(*values: datetime | str | None) -> datetime | None:
+    """Return the newest present instant without comparing encodings."""
+    present = [parse_instant(value) for value in values if value is not None]
     return max(present) if present else None
 
 
 def current_episode_progress_stamp(
-    last_tool_call_at: Optional[str],
-    episode_started_at: Optional[str],
-) -> Optional[str]:
+    last_tool_call_at: datetime | str | None,
+    episode_started_at: datetime | str | None,
+) -> datetime | None:
     """Anchor existing tool progress to the current episode boundary."""
     if last_tool_call_at is None:
         return None
     return newest_activity_stamp(last_tool_call_at, episode_started_at)
 
 
-def live_activity_stamp() -> str:
-    """Present-moment stamp so in-flight work is not classified stale."""
-    return (
-        datetime.now(timezone.utc)
-        .isoformat(timespec="microseconds")
-        .replace("+00:00", "Z")
-    )
+def live_activity_stamp() -> datetime:
+    """Present-moment instant so in-flight work is not classified stale."""
+    return utc_now()
 
 
 def read_session_state(
@@ -62,10 +48,10 @@ def read_session_state(
     session_id: str,
 ) -> tuple[
     Optional[str],
-    Optional[str],
-    Optional[str],
-    Optional[str],
-    Optional[str],
+    datetime | None,
+    datetime | None,
+    datetime | None,
+    datetime | None,
     Optional[str],
 ]:
     """Return executor, heartbeat, end, tool-call, episode, and turn posture."""
@@ -103,15 +89,15 @@ def read_session_state(
     )
     return (
         values.get("executor"),
-        values.get("last_heartbeat"),
-        values.get("ended_at"),
-        values.get("last_tool_call_at"),
-        values.get("episode_started_at"),
+        parse_stamp(values.get("last_heartbeat")),
+        parse_stamp(values.get("ended_at")),
+        parse_stamp(values.get("last_tool_call_at")),
+        parse_stamp(values.get("episode_started_at")),
         values.get("turn_posture"),
     )
 
 
-def open_tool_call_started_at(conn: Any, session_id: str) -> Optional[str]:
+def open_tool_call_started_at(conn: Any, session_id: str) -> datetime | None:
     """Start stamp of the newest unfinished ``session_tool_calls`` row.
 
     The stamp travels with the marker so callers can ask whether the open row
@@ -138,12 +124,12 @@ def open_tool_call_started_at(conn: Any, session_id: str) -> Optional[str]:
     if row is None:
         return None
     started_at = row["started_at"] if hasattr(row, "keys") else row[0]
-    return str(started_at) if started_at else None
+    return parse_stamp(started_at)
 
 
 def open_tool_call_is_live(
-    open_tool_call_at: Optional[str],
-    activity_at: Optional[str],
+    open_tool_call_at: datetime | str | None,
+    activity_at: datetime | str | None,
 ) -> bool:
     """Whether an open tool-call row still evidences work in flight.
 

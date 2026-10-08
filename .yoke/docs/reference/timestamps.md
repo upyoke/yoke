@@ -87,6 +87,18 @@ compare aware instants and keep their canonical catalog digest inputs unchanged.
 Turn-posture ordering and coordination-claim acquisition, heartbeat, release,
 and stale thresholds bind native instants. Claim records retain aware datetimes;
 public claim and wait evidence format fixed-six UTC strings and preserve null.
+Session registration, heartbeats, work-claim acquisition and release, terminal
+checkpoint stamps and epic-task activity bind native instants. Claim release
+intent matches the same native release instant. Reclaim decisions compare aware
+activity across session, claim and open-call signals; their evidence formats
+canonical wire values. Orphan-call closure keeps native endpoints and serializes
+its sentinel envelope canonically. Claim duration milliseconds use integer
+arithmetic rather than floating-point conversion.
+The universe fingerprint formats its organization creation instant canonically,
+so a database session timezone cannot change identity. Earlier recorded actor
+bindings that name another timestamp representation refuse the identity match;
+re-record the binding with `yoke config bind-actor --actor-id <id>` against the
+verified universe. No name or old-format matching is inferred.
 Private-route qualification expiry preserves the opening instant's microseconds.
 API-token issuance, use, revocation and audit bind native instants. Optional
 expiry remains null; supplied expiry requires a qualified instant before insertion.

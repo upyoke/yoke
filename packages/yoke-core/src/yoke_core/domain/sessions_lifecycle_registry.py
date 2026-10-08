@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+from yoke_contracts.timestamps import utc_now
+from .db_helpers import instant_parameter
+
 from typing import Any, Dict, List, Optional
 
 from yoke_contracts.session_level import UNRESOLVED_EXECUTION_LEVEL
@@ -35,7 +38,7 @@ from .sessions_reactivation_driver import (
     build_reactivation_driver_stamp,
     record_reactivation_wake_driver,
 )
-from .sessions_queries import _now_iso, _row_to_dict
+from .sessions_queries import _row_to_dict
 from .work_claim_targets import from_row as target_from_row
 
 
@@ -116,7 +119,7 @@ def register_session(
     operator-started session may register under a different value. Wake
     resolves against that column rather than assuming the two agree.
     """
-    now = _now_iso()
+    now = instant_parameter(conn, utc_now())
     envelope_json = json.dumps(offer_envelope) if offer_envelope else None
     resolved_actor_id = resolve_session_actor_id(conn, actor_id, launch_id=launch_id)
     resolved_project_id = resolve_session_project_id(conn, project_id)
@@ -316,7 +319,7 @@ def heartbeat(
 
     Raises SessionError if the session does not exist or has ended.
     """
-    now = _now_iso()
+    now = instant_parameter(conn, utc_now())
 
     row = conn.execute(
         f"SELECT ended_at FROM harness_sessions WHERE session_id = {_p(conn)}",

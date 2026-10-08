@@ -15,6 +15,7 @@ claim stamps. This module reproduces that selection over a set, and the shared
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Set
 
 from . import db_backend
@@ -63,7 +64,7 @@ def _value(row: Any, name: str, index: int) -> Any:
 def latest_activity_by_session(
     conn: Any,
     session_ids: Iterable[str],
-) -> Dict[str, Optional[str]]:
+) -> Dict[str, datetime | None]:
     """Map each session id to its canonical "is this session alive?" stamp.
 
     Sessions with no activity signal at all map to ``None``, matching
@@ -75,7 +76,7 @@ def latest_activity_by_session(
 
     marker = _p(conn)
     placeholders = ", ".join(marker for _ in ids)
-    activity: Dict[str, Optional[str]] = {session_id: None for session_id in ids}
+    activity: Dict[str, datetime | None] = {session_id: None for session_id in ids}
     executors: Dict[str, Optional[str]] = {session_id: None for session_id in ids}
 
     session_columns = _columns(conn, "harness_sessions")
@@ -129,7 +130,7 @@ def latest_activity_by_session(
 def _mark_in_flight_live(
     conn: Any,
     ids: List[str],
-    activity: Dict[str, Optional[str]],
+    activity: Dict[str, datetime | None],
     executors: Dict[str, Optional[str]],
     marker: str,
     placeholders: str,

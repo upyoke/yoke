@@ -14,7 +14,7 @@ from typing import Any, Optional
 from . import db_backend
 from .claim_chain_state import stamp_chain_checkpoint
 from .item_ref_resolution import internal_item_key
-from .sessions_queries_base import _now_iso
+from yoke_contracts.timestamps import format_instant, utc_now
 
 
 OUTCOME_TERMINAL_ITEM_CLOSED = "terminal_item_closed"
@@ -71,13 +71,13 @@ def consume_terminal_item_checkpoint(
     if checkpoint.get("handler_outcome") == OUTCOME_TERMINAL_ITEM_CLOSED:
         return False
 
-    completed_at = _now_iso()
+    completed_at = utc_now()
     checkpoint.update(
         {
             "handler_outcome": OUTCOME_TERMINAL_ITEM_CLOSED,
             "chain_summary_label": TERMINAL_ITEM_CLOSED_LABEL,
             "status": terminal_status,
-            "completed_at": completed_at,
+            "completed_at": format_instant(completed_at),
         }
     )
     envelope["chain_checkpoint"] = checkpoint

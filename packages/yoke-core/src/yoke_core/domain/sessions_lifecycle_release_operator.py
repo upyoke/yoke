@@ -13,6 +13,9 @@ from __future__ import annotations
 from yoke_core.domain.project_identity import render_item_ref
 
 import os
+from yoke_contracts.timestamps import utc_now
+from .db_helpers import instant_parameter
+
 from typing import Any, Dict, Optional
 
 from . import db_backend
@@ -23,7 +26,7 @@ from .sessions_analytics import (
     SessionError,
 )
 from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
-from .sessions_queries import _now_iso, normalize_claim_item_id
+from .sessions_queries import normalize_claim_item_id
 from .sessions_render_attribution import release_current_item_focus
 from .workflow_item_binding_lock import (
     lock_item_workflow_bindings,
@@ -91,7 +94,7 @@ def operator_override_release_claim(
             f"got {item_id!r}",
         )
     item_id_int = int(normalized)
-    now = _now_iso()
+    now = instant_parameter(conn, utc_now())
     p = _p(conn)
 
     if claim_id is not None:

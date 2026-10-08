@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from yoke_contracts.timestamps import format_instant
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _table_exists
 
@@ -47,10 +48,10 @@ def universe_fingerprint(conn: Any) -> Optional[str]:
     if len(rows) != 1:
         return None
     slug = str(rows[0][0] or "").strip()
-    created_at = str(rows[0][1] or "").strip()
-    if not slug or not created_at:
+    created_at = rows[0][1]
+    if not slug or created_at is None:
         return None
-    return f"{slug}@{created_at}"
+    return f"{slug}@{format_instant(created_at)}"
 
 
 __all__ = ["universe_fingerprint"]

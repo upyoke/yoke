@@ -7,7 +7,7 @@ on the helper itself so the slow path remains independently covered.
 Post telemetry-only-events state model: orphans are OPEN ``session_tool_calls`` rows
 (``completed_at IS NULL``). The sweep closes them in place AND still
 synthesizes the sentinel ``HarnessToolCallCompleted`` telemetry rows
-(operator-locked R3: both surfaces are maintained; readers consume only
+(both surfaces are maintained; readers consume only
 the table).
 """
 
@@ -17,6 +17,8 @@ import json
 from datetime import datetime, timedelta, timezone
 
 import pytest
+
+from yoke_contracts.timestamps import format_instant, parse_instant
 
 from yoke_core.domain.events_tool_call_outcome import OUTCOME_INTERRUPTED
 from yoke_core.domain.sessions import (
@@ -38,7 +40,7 @@ pytest_plugins = ("runtime.api.test_sessions",)
 
 def _now_iso(offset_s: int = 0) -> str:
     when = datetime.now(timezone.utc) + timedelta(seconds=offset_s)
-    return when.strftime("%Y-%m-%dT%H:%M:%S.") + f"{when.microsecond // 1000:03d}Z"
+    return format_instant(when)
 
 
 def _insert_open_call(c, *, session_id, tool_use_id, tool_name="Bash", started_at=None):
@@ -95,8 +97,8 @@ class TestOrphanSweepReason:
     def test_as_dict_returns_four_named_fields(self):
         r = OrphanSweepReason(
             ending_session_id="sess-A",
-            sentinel_emitted_at="2026-05-19T10:00:00.000Z",
-            original_started_at="2026-05-19T09:59:00.000Z",
+            sentinel_emitted_at=parse_instant("2026-05-19T10:00:00.000000Z"),
+            original_started_at=parse_instant("2026-05-19T09:59:00.000000Z"),
             lifecycle_reason="session_end_destructive",
         )
         d = r.as_dict()
@@ -114,7 +116,9 @@ class TestOrphanSweepReason:
             "SELECT * FROM session_tool_calls WHERE tool_use_id = 'tu-1'"
         ).fetchone()
         reason = build_sentinel_reason(row, "sess-A", "session_end_destructive")
-        assert reason.original_started_at == "2026-05-19T09:00:00.000Z"
+        assert reason.original_started_at == parse_instant(
+            "2026-05-19T09:00:00.000000Z"
+        )
         assert reason.ending_session_id == "sess-A"
         assert reason.lifecycle_reason == "session_end_destructive"
 
@@ -205,7 +209,7 @@ class TestSweep:
         }
         assert reason["ending_session_id"] == "sess-A"
         assert reason["lifecycle_reason"] == "stop_hook_destructive"
-        assert reason["original_started_at"] == "2026-05-19T09:00:00.000Z"
+        assert reason["original_started_at"] == "2026-05-19T09:00:00.000000Z"
         assert reason["sentinel_emitted_at"]
         assert env["context"]["detail"]["tool_name"] == "Bash"
 

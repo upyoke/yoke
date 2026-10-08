@@ -17,11 +17,13 @@ the wrapper layer.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import utc_now
+from .db_helpers import instant_parameter
+
 from typing import Any
 
 from .claim_chain_state import record_release_intent_for_session
 from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
-from .sessions_queries import _now_iso
 from .sessions_render_attribution import release_current_item_focus
 from .workflow_item_binding_lock import (
     lock_work_claims_workflow_bindings,
@@ -42,7 +44,7 @@ def release_all_claims(
     Sticky kinds survive an explicit session end for the same reason they
     survive the sweep: the resource they hold is still in use.
     """
-    now = _now_iso()
+    now = utc_now()
     lock_session_rows_for_claim_lifecycle(conn, (session_id,))
     rows = conn.execute(
         "SELECT id, target_kind FROM work_claims "
@@ -69,7 +71,7 @@ def release_all_claims(
         cursor = conn.execute(
             "UPDATE work_claims SET released_at = %s, release_reason = %s "
             "WHERE id = %s AND released_at IS NULL",
-            (now, reason, claim_id),
+            (instant_parameter(conn, now), reason, claim_id),
         )
         released += int(cursor.rowcount)
     record_release_intent_for_session(
