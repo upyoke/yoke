@@ -122,11 +122,11 @@ def test_python_pin_mismatch_cannot_replace_the_environment(lane):
 
 
 @pytest.mark.parametrize(
-    "request",
+    "python_request",
     [f"{sys.version_info.major}.{sys.version_info.minor}", sys.version.split()[0]],
 )
-def test_matching_python_request_keeps_the_candidate_interpreter(lane, request):
-    (lane / ".python-version").write_text(request + "\n")
+def test_matching_python_request_keeps_the_candidate_interpreter(lane, python_request):
+    (lane / ".python-version").write_text(python_request + "\n")
     assert environment.resolve(lane, os.environ).python == str(
         lane / ".venv/bin/python3"
     )
