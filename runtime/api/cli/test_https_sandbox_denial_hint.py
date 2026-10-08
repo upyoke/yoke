@@ -1,13 +1,4 @@
-"""A control-plane call an OS sandbox refused says so, and stops retrying.
-
-Two distinct shapes reach the same conclusion. A connect the kernel refused
-on policy carries EPERM, which is conclusive: the policy that blocked it
-blocks every retry, so spending the budget only makes the wait longer before
-the same verdict. A denied *name lookup* is indistinguishable from a host
-that is genuinely unreachable, so it keeps its retries — but under a harness
-that sandboxes commands the hint says to check that first, because "retrying
-is the repair" is the one piece of advice that can never work there.
-"""
+"""Permission denial is conclusive; launcher identity does not diagnose DNS."""
 
 from __future__ import annotations
 
@@ -32,7 +23,9 @@ API_URL = "https://app.example.test/api/orgs/acme"
 
 
 def _denial() -> urllib.error.URLError:
-    return urllib.error.URLError(PermissionError(errno.EPERM, "Operation not permitted"))
+    return urllib.error.URLError(
+        PermissionError(errno.EPERM, "Operation not permitted")
+    )
 
 
 def _request() -> FunctionCallRequest:
@@ -64,36 +57,33 @@ def test_an_ordinary_refusal_is_not_a_sandbox_denial() -> None:
 
 def test_the_denial_hint_replaces_the_retry_advice() -> None:
     response = outcome.transport_error_response(
-        _request(), API_URL, "could not reach", attempts=1, error=_denial(),
+        _request(),
+        API_URL,
+        "could not reach",
+        attempts=1,
+        error=_denial(),
     )
     hint = _hint(response)
-    assert "sandbox policy" in hint
+    assert "operating system denied permission" in hint
     assert "retrying will not help" in hint
     assert "Retrying is the repair" not in hint
 
 
-def test_an_unreachable_relay_under_a_sandboxing_harness_names_it(
-    monkeypatch,
+@pytest.mark.parametrize("recovery", [None, "RECOVERY LINE."])
+def test_unknown_reachability_does_not_infer_sandbox_cause(
+    monkeypatch, recovery
 ) -> None:
-    monkeypatch.setattr(outcome, "sandbox_recovery", lambda: "RECOVERY LINE.")
+    monkeypatch.setattr(outcome, "sandbox_recovery", lambda: recovery)
     hint = _hint(
         outcome.transport_error_response(
-            _request(), API_URL, "could not reach", attempts=7,
+            _request(),
+            API_URL,
+            "could not reach",
+            attempts=7,
         )
     )
-    assert "sandboxes commands" in hint
-    assert "RECOVERY LINE." in hint
-    assert "Retrying is the repair" not in hint
-
-
-def test_an_unreachable_relay_outside_a_harness_keeps_the_old_advice(
-    monkeypatch,
-) -> None:
-    monkeypatch.setattr(outcome, "sandbox_recovery", lambda: None)
-    hint = _hint(
-        outcome.transport_error_response(
-            _request(), API_URL, "could not reach", attempts=7,
-        )
-    )
+    assert "cause is unknown" in hint
+    assert "DNS" in hint
     assert "Retrying is the repair" in hint
-    assert "sandboxes commands" not in hint
+    assert "sandbox" not in hint
+    assert "RECOVERY LINE." not in hint

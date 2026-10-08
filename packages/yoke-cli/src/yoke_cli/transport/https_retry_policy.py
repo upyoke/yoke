@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import errno
 import ipaddress
+import ssl
 import sys
 import urllib.error
 from collections.abc import Callable
@@ -123,14 +124,21 @@ def connection_refusal_is_conclusive(
     A hostname can front a fleet where one box is restarting, so a refusal
     there is worth asking again. A loopback endpoint is this machine: the
     kernel refused because no process holds that port, and it will keep
-    refusing until the operator starts one. A sandbox denial answers for
-    good wherever it happens — the policy that blocked the connect blocks
-    every retry too, so spending the budget only makes the wait longer
-    before the same verdict.
+    refusing until the operator starts one. Certificate validation and
+    permission denials also answer conclusively: the invalid certificate or
+    access policy must change before another attempt can succeed.
     """
-    if is_sandbox_denial(error):
+    if certificate_validation_error(error) is not None or is_sandbox_denial(error):
         return True
     return _is_connection_refused(error) and _host_is_loopback(api_url)
+
+
+def certificate_validation_error(
+    error: BaseException | None,
+) -> ssl.SSLCertVerificationError | None:
+    """Preserve direct and urllib-wrapped TLS verification evidence."""
+    candidate = error.reason if isinstance(error, urllib.error.URLError) else error
+    return candidate if isinstance(candidate, ssl.SSLCertVerificationError) else None
 
 
 def is_sandbox_denial(error: BaseException | None) -> bool:
@@ -143,6 +151,9 @@ def _unwrapped_errno(error: BaseException | None) -> int | None:
     if isinstance(candidate, urllib.error.URLError):
         reason = candidate.reason
         candidate = reason if isinstance(reason, BaseException) else candidate
+    # SSL error numbers belong to OpenSSL, not the OS errno namespace.
+    if isinstance(candidate, ssl.SSLError):
+        return None
     return getattr(candidate, "errno", None)
 
 
@@ -257,6 +268,7 @@ def write_retry_notice(
 __all__ = [
     "CONNECTION_ATTEMPTS",
     "attempt_budget",
+    "certificate_validation_error",
     "connection_refusal_is_conclusive",
     "is_sandbox_denial",
     "should_retry_connection",
