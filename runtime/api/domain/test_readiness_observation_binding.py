@@ -35,7 +35,7 @@ _SPEC = (
     "at-or-over-limit: false; responsibility: streaming.\n"
 )
 
-_BINDING = ObservationBinding(item_id=1, project_id=7, spec_text=_SPEC)
+_BINDING = ObservationBinding(item_ref="YOK-1", project_id=7, spec_text=_SPEC)
 
 _ISSUE = {
     "code": "STALE_LINE_COUNT",
@@ -47,7 +47,7 @@ _ISSUE = {
 
 def _observations(**overrides) -> dict:
     base = {
-        "item_id": 1,
+        "item_ref": "YOK-1",
         "project_id": 7,
         "spec_sha256": spec_digest(_SPEC),
         "checks": list(CHECKOUT_DEPENDENT_CHECKS),
@@ -68,7 +68,9 @@ def test_bound_observations_are_accepted() -> None:
 def test_a_spec_rewritten_since_the_request_is_not_a_pass() -> None:
     """The observing host read a spec the control plane no longer holds."""
     drifted = ObservationBinding(
-        item_id=1, project_id=7, spec_text=_SPEC + "\nnew section\n",
+        item_ref="YOK-1",
+        project_id=7,
+        spec_text=_SPEC + "\nnew section\n",
     )
 
     assert binding_mismatch_reason(_observations(), drifted) == STALE_SPEC_REASON
@@ -76,7 +78,7 @@ def test_a_spec_rewritten_since_the_request_is_not_a_pass() -> None:
 
 @pytest.mark.parametrize(
     "observations",
-    [_observations(item_id=2), _observations(project_id=9)],
+    [_observations(item_ref="YOK-2"), _observations(project_id=9)],
 )
 def test_an_answer_about_another_item_cannot_stand_in(observations) -> None:
     """Two items can hold identical spec text, so the digest is not enough."""
@@ -86,8 +88,8 @@ def test_an_answer_about_another_item_cannot_stand_in(observations) -> None:
 @pytest.mark.parametrize(
     "observations",
     [
-        _observations(item_id="not-a-number"),
-        _observations(item_id=None),
+        _observations(item_ref=1),
+        _observations(item_ref=None),
         _observations(project_id="7; drop table"),
         _observations(project_id=[7]),
     ],
@@ -141,10 +143,12 @@ def test_findings_pass_through_when_the_binding_holds() -> None:
     issues, advisories, unavailable = findings_from_observations(
         _observations(
             issues=[_ISSUE],
-            advisories=[{
-                "code": "SYMLINK_CANONICAL_HINT",
-                "context": {"symlink_path": _BUDGET_PATH},
-            }],
+            advisories=[
+                {
+                    "code": "SYMLINK_CANONICAL_HINT",
+                    "context": {"symlink_path": _BUDGET_PATH},
+                }
+            ],
         ),
         _BINDING,
         item_ref="YOK-1",
@@ -171,7 +175,9 @@ def test_a_broken_binding_discards_the_findings_it_carried() -> None:
 
 def test_every_unperformed_check_names_its_cause_and_a_way_forward() -> None:
     _issues, _advisories, unavailable = findings_from_observations(
-        _observations(checkout_moved=True), _BINDING, item_ref="YOK-1",
+        _observations(checkout_moved=True),
+        _BINDING,
+        item_ref="YOK-1",
     )
 
     for entry in unavailable:
@@ -185,10 +191,14 @@ def test_every_unperformed_check_names_its_cause_and_a_way_forward() -> None:
 def test_an_advisory_about_a_path_outside_the_file_budget_is_dropped() -> None:
     """Advisories are hints, so an ungrounded one is discarded, not escalated."""
     _issues, advisories, unavailable = findings_from_observations(
-        _observations(advisories=[{
-            "code": "SYMLINK_CANONICAL_HINT",
-            "context": {"symlink_path": "some/other/file.py"},
-        }]),
+        _observations(
+            advisories=[
+                {
+                    "code": "SYMLINK_CANONICAL_HINT",
+                    "context": {"symlink_path": "some/other/file.py"},
+                }
+            ]
+        ),
         _BINDING,
         item_ref="YOK-1",
     )

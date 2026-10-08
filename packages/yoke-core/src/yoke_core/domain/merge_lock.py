@@ -12,7 +12,7 @@ Provides:
 CLI usage::
 
     python3 -m yoke_core.domain.merge_lock check
-    python3 -m yoke_core.domain.merge_lock acquire <branch> [epic_id]
+    python3 -m yoke_core.domain.merge_lock acquire <branch> [epic_ref]
     python3 -m yoke_core.domain.merge_lock release <session_id> <branch>
     python3 -m yoke_core.domain.merge_lock force-clear
 """
@@ -72,22 +72,11 @@ def _p(conn) -> str:
 # Data classes
 # ---------------------------------------------------------------------------
 
-@dataclass
-class MergeLock:
-    """A single row from the merge_locks table."""
-    id: int
-    session_id: str
-    branch: str
-    epic_id: Optional[str]
-    acquired_at: str
-    expires_at: str
-    project_slug: Optional[str] = None
-    target_branch: Optional[str] = None
-
 
 @dataclass
 class LockHandle:
     """Returned by acquire(); pass to release() to release."""
+
     session_id: str
     branch: str
     scope: LockScope = field(default_factory=LockScope)
@@ -97,25 +86,36 @@ class LockHandle:
 # Core operations
 # ---------------------------------------------------------------------------
 
+
 def _rows_over_transport(now: str) -> list[dict]:
     return list(_relay("merge.lock.list", {"now": now}).get("rows") or [])
 
 
 def _rows_over_connection(conn: Any, now: str) -> list[dict]:
-    """Drop expired rows, then read whatever still holds the lock."""
+    """Drop expired rows, then read whatever still holds the lock.
+
+    Rows carry the epic as its public ref, the same shape the control plane
+    serves a relayed caller.
+    """
+    from yoke_core.domain.item_ref_render import render_item_refs
+
     p = _p(conn)
     conn.execute(f"DELETE FROM merge_locks WHERE expires_at < {p}", (now,))
     conn.commit()
     rows = conn.execute(
-        "SELECT id, session_id, branch, COALESCE(epic_id, ''), "
+        "SELECT id, session_id, branch, epic_id, "
         "project_slug, target_branch FROM merge_locks"
     ).fetchall()
+    epic_ids = {int(row[3]) for row in rows if str(row[3] or "").isdigit()}
+    refs = render_item_refs(conn, sorted(epic_ids)) if epic_ids else {}
     return [
         {
             "id": row[0],
             "session_id": row[1],
             "branch": row[2],
-            "epic_id": row[3],
+            "epic_public_ref": (
+                refs.get(int(row[3])) if str(row[3] or "").isdigit() else None
+            ),
             "project_slug": row[4],
             "target_branch": row[5],
         }
@@ -140,7 +140,8 @@ def check(
     live = conn if conn is not None else owned
     try:
         rows = (
-            _rows_over_connection(live, now) if live is not None
+            _rows_over_connection(live, now)
+            if live is not None
             else _rows_over_transport(now)
         )
         verdict = contention.evaluate(rows, scope)
@@ -165,13 +166,18 @@ def _release_ids(lock_ids: Sequence[int], conn: Optional[Any]) -> None:
 
 def acquire(
     branch: str,
-    epic_id: Optional[str] = None,
+    epic_ref: Optional[str] = None,
     *,
     conn: Optional[Any] = None,
     ttl_minutes: Optional[int] = None,
     scope: Optional[LockScope] = None,
 ) -> LockHandle:
     """Acquire a merge lock.
+
+    ``epic_ref`` is the epic's public ref (PREFIX-N), or ``None`` for a
+    standalone merge. A relayed acquire sends it as ``epic_public_ref`` and
+    the dispatcher resolves it onto the row's internal ``epic_id``; a local
+    connection resolves it the same way before inserting.
 
     Returns a LockHandle for later release.
     Raises RuntimeError if the lock cannot be acquired (table issue).
@@ -181,7 +187,8 @@ def acquire(
 
     if ttl_minutes is None:
         ttl_minutes = runtime_settings.get_int(
-            "merge_lock_ttl_minutes", DEFAULT_TTL_MINUTES,
+            "merge_lock_ttl_minutes",
+            DEFAULT_TTL_MINUTES,
         )
 
     now = datetime.now(timezone.utc)
@@ -194,28 +201,37 @@ def acquire(
     owned = _local_connection_or_none() if conn is None else None
     live = conn if conn is not None else owned
     if live is None:
-        _relay("merge.lock.acquire", {
+        payload = {
             "session_id": session_id,
             "branch": branch,
-            "epic_id": epic_id or None,
             "acquired_at": acquired_at,
             "expires_at": expires_at,
             "project_slug": scope.project_slug,
             "target_branch": scope.target_branch,
-        })
+        }
+        if epic_ref:
+            payload["epic_public_ref"] = epic_ref
+        _relay("merge.lock.acquire", payload)
         return LockHandle(session_id=session_id, branch=branch, scope=scope)
 
     conn = live
     try:
+        from yoke_core.domain.item_ref_resolution import resolve_item_ref
+
+        epic_id = str(resolve_item_ref(conn, epic_ref)) if epic_ref else None
         p = _p(conn)
         conn.execute(
             "INSERT INTO merge_locks (session_id, branch, epic_id, acquired_at, "
             "expires_at, project_slug, target_branch) "
             f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p})",
             (
-                session_id, branch, epic_id if epic_id else None,
-                acquired_at, expires_at,
-                scope.project_slug, scope.target_branch,
+                session_id,
+                branch,
+                epic_id,
+                acquired_at,
+                expires_at,
+                scope.project_slug,
+                scope.target_branch,
             ),
         )
         conn.commit()
@@ -238,9 +254,13 @@ def release(
     owned = _local_connection_or_none() if conn is None else None
     live = conn if conn is not None else owned
     if live is None:
-        _relay("merge.lock.release", {
-            "session_id": handle.session_id, "branch": handle.branch,
-        })
+        _relay(
+            "merge.lock.release",
+            {
+                "session_id": handle.session_id,
+                "branch": handle.branch,
+            },
+        )
         return
     try:
         p = _p(live)
@@ -274,10 +294,14 @@ def force_clear(conn: Optional[Any] = None) -> None:
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def main(argv: Optional[list[str]] = None) -> int:
     args = argv if argv is not None else sys.argv[1:]
     if not args:
-        print("Usage: merge_lock.py <check|acquire|release|force-clear> [args...]", file=sys.stderr)
+        print(
+            "Usage: merge_lock.py <check|acquire|release|force-clear> [args...]",
+            file=sys.stderr,
+        )
         return 2
 
     cmd = args[0]
@@ -291,11 +315,11 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     elif cmd == "acquire":
         if len(args) < 2:
-            print("Usage: merge_lock.py acquire <branch> [epic_id]", file=sys.stderr)
+            print("Usage: merge_lock.py acquire <branch> [epic_ref]", file=sys.stderr)
             return 2
         branch = args[1]
-        epic_id = args[2] if len(args) > 2 else None
-        handle = acquire(branch, epic_id)
+        epic_ref = args[2] if len(args) > 2 else None
+        handle = acquire(branch, epic_ref)
         # Output session_id so the caller can pass it to release
         print(f"{handle.session_id}")
         return 0

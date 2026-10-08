@@ -39,7 +39,8 @@ class LockRow(BaseModel):
     id: int
     session_id: str
     branch: str
-    epic_id: str = ""
+    # Rendered onto ``epic_public_ref`` at the dispatch boundary.
+    epic_id: Optional[str] = None
     project_slug: Optional[str] = None
     target_branch: Optional[str] = None
 
@@ -49,7 +50,8 @@ class LockListResponse(BaseModel):
 
 
 class LockAcquireRequest(BaseModel):
-    # A wire public ref resolves onto this engine key as an int.
+    # Callers send ``epic_public_ref`` (PREFIX-N); the dispatcher resolves it
+    # onto this engine key as an int. Omitted for a standalone merge.
     model_config = ConfigDict(coerce_numbers_to_str=True)
 
     session_id: str = Field(..., min_length=1)
@@ -117,7 +119,7 @@ def handle_lock_list(request: FunctionCallRequest) -> HandlerOutcome:
             )
             conn.commit()
             rows = conn.execute(
-                "SELECT id, session_id, branch, COALESCE(epic_id, ''), "
+                "SELECT id, session_id, branch, epic_id, "
                 "project_slug, target_branch FROM merge_locks"
             ).fetchall()
     except Exception as exc:  # noqa: BLE001 - lock state unavailable blocks merging
@@ -129,7 +131,7 @@ def handle_lock_list(request: FunctionCallRequest) -> HandlerOutcome:
                     id=int(row[0]),
                     session_id=str(row[1]),
                     branch=str(row[2]),
-                    epic_id=str(row[3] or ""),
+                    epic_id=row[3] or None,
                     project_slug=row[4] or None,
                     target_branch=row[5] or None,
                 )
@@ -170,7 +172,8 @@ def handle_lock_acquire(request: FunctionCallRequest) -> HandlerOutcome:
         return _err("merge_lock_acquire_failed", str(exc))
     return HandlerOutcome(
         result_payload=LockAcquireResponse(
-            session_id=body.session_id, branch=body.branch,
+            session_id=body.session_id,
+            branch=body.branch,
         ).model_dump(),
         primary_success=True,
     )

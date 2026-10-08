@@ -41,7 +41,8 @@ def read_spec(conn: Any, item_id: int) -> str:
 
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     row = conn.execute(
-        f"SELECT spec FROM items WHERE id = {p}", (item_id,),
+        f"SELECT spec FROM items WHERE id = {p}",
+        (item_id,),
     ).fetchone()
     if row is None or row[0] is None:
         return ""
@@ -49,7 +50,9 @@ def read_spec(conn: Any, item_id: int) -> str:
 
 
 def build_local_execution_request(
-    conn: Any, item_id: int, spec_text: str,
+    conn: Any,
+    item_id: int,
+    spec_text: str,
 ) -> Dict[str, Any]:
     """Describe the file-reading checks a host without the tree skipped.
 
@@ -69,7 +72,6 @@ def build_local_execution_request(
     project_id, project_slug = item_project_identity(conn, item_id)
     commands, planned_paths = rehearsal_command_inputs(conn, item_id)
     return {
-        "item_id": int(item_id),
         "item_ref": item_ref,
         "project_id": project_id,
         "project_slug": project_slug,
@@ -117,7 +119,9 @@ def checkout_absent_findings(
     return findings_from_observations(
         observations,
         ObservationBinding(
-            item_id=int(item_id), project_id=project_id, spec_text=spec_text,
+            item_ref=item_ref,
+            project_id=project_id,
+            spec_text=spec_text,
         ),
         item_ref=item_ref,
         rehearsal_commands=commands,

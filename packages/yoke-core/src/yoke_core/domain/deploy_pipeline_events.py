@@ -16,16 +16,21 @@ def emit_deployment_event(
     outcome: str,
     context: Dict[str, Any],
     environment: Optional[str] = None,
-    item_id: Optional[str] = None,
+    item_ref: Optional[str] = None,
     sd: Optional[str] = None,
 ) -> None:
-    """Emit a deployment event through the native event contract."""
+    """Emit a deployment event through the native event contract.
+
+    ``item_ref`` is the member's public ref (PREFIX-N); it travels as
+    ``public_ref`` and the dispatcher resolves the event's item key.
+    """
     del sd  # retained for callers that pass the pipeline's script directory
     try:
         from yoke_contracts.api.function_call import TargetRef
         from yoke_core.api.service_client_structured_api_adapter import (
             call_dispatcher,
         )
+
         payload = {
             "name": event_name,
             "kind": event_kind,
@@ -36,8 +41,8 @@ def emit_deployment_event(
             "outcome": outcome,
             "context": context,
         }
-        if item_id is not None:
-            payload["item_id"] = item_id
+        if item_ref is not None:
+            payload["public_ref"] = item_ref
         if environment is not None:
             payload["environment"] = environment
         call_dispatcher(
@@ -58,12 +63,13 @@ def emit_run_event(
     project: str = "",
     sd: Optional[str] = None,
 ) -> None:
-    """Emit stage events per item and one canonical terminal run event."""
+    """Emit stage events per member public ref and one terminal run event."""
     targets = (
-        [""] if name in {"DeploymentRunSucceeded", "DeploymentRunFailed"}
+        [""]
+        if name in {"DeploymentRunSucceeded", "DeploymentRunFailed"}
         else member_items or [""]
     )
-    for item_id in targets:
+    for item_ref in targets:
         emit_deployment_event(
             name,
             event_kind="lifecycle",
@@ -73,7 +79,7 @@ def emit_run_event(
             project=project,
             outcome=outcome,
             context=context,
-            item_id=item_id or None,
+            item_ref=item_ref or None,
             sd=sd,
         )
 

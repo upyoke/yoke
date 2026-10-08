@@ -15,6 +15,7 @@ import pytest
 
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain import idea_readiness_checkout
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.idea_readiness_check import run_all_checks
 from yoke_core.domain.idea_readiness_local_inputs import (
     build_local_execution_request,
@@ -42,7 +43,11 @@ _SPEC = (
 @pytest.fixture
 def item(test_db):
     return insert_item(
-        test_db, id=_ITEM_ID, workflow_id="dash", status="idea", spec=_SPEC,
+        test_db,
+        id=_ITEM_ID,
+        workflow_id="dash",
+        status="idea",
+        spec=_SPEC,
     )
 
 
@@ -60,8 +65,19 @@ def project_checkout(tmp_path):
     subprocess.run(["git", "init", "-q", str(root)], check=True)
     subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
     subprocess.run(
-        ["git", "-C", str(root), "-c", "user.email=t@example.com",
-         "-c", "user.name=t", "commit", "-q", "-m", "seed"],
+        [
+            "git",
+            "-C",
+            str(root),
+            "-c",
+            "user.email=t@example.com",
+            "-c",
+            "user.name=t",
+            "commit",
+            "-q",
+            "-m",
+            "seed",
+        ],
         check=True,
     )
     return root
@@ -70,7 +86,9 @@ def project_checkout(tmp_path):
 @pytest.fixture
 def host_without_a_checkout(monkeypatch):
     monkeypatch.setattr(
-        idea_readiness_checkout, "checkout_for_project_id", lambda project_id: None,
+        idea_readiness_checkout,
+        "checkout_for_project_id",
+        lambda project_id: None,
     )
 
 
@@ -82,27 +100,31 @@ def test_the_request_carries_what_the_checks_could_not_read(test_db, item) -> No
     """Everything the file-reading checks need that is not a file."""
     request = _request(test_db)
 
-    assert request["item_id"] == _ITEM_ID
+    assert request["item_ref"] == render_item_ref(test_db, _ITEM_ID)
+    assert "item_id" not in request
     assert request["spec_text"] == _SPEC
     assert request["spec_sha256"] == spec_digest(_SPEC)
     assert request["project_id"] is not None
-    assert request["checks"] == list(
-        idea_readiness_checkout.CHECKOUT_DEPENDENT_CHECKS
-    )
+    assert request["checks"] == list(idea_readiness_checkout.CHECKOUT_DEPENDENT_CHECKS)
 
 
 def test_the_answer_names_the_item_and_project_it_was_asked_about(
-    test_db, item, project_checkout,
+    test_db,
+    item,
+    project_checkout,
 ) -> None:
     """Identical spec text across two items is otherwise indistinguishable."""
     observations = local.collect(_request(test_db), project_checkout)
 
-    assert observations["item_id"] == _ITEM_ID
+    assert observations["item_ref"] == render_item_ref(test_db, _ITEM_ID)
     assert observations["project_id"] == _request(test_db)["project_id"]
 
 
 def test_observations_from_a_matching_checkout_complete_the_run(
-    test_db, item, host_without_a_checkout, project_checkout,
+    test_db,
+    item,
+    host_without_a_checkout,
+    project_checkout,
 ) -> None:
     observations = local.collect(_request(test_db), project_checkout)
 
@@ -113,7 +135,10 @@ def test_observations_from_a_matching_checkout_complete_the_run(
 
 
 def test_the_findings_are_the_ones_the_files_produce(
-    test_db, item, host_without_a_checkout, project_checkout,
+    test_db,
+    item,
+    host_without_a_checkout,
+    project_checkout,
 ) -> None:
     """A file that drifted from its recorded sizing still blocks."""
     (project_checkout / _BUDGET_PATH).write_text("x\n" * 400, encoding="utf-8")
@@ -125,7 +150,10 @@ def test_the_findings_are_the_ones_the_files_produce(
 
 
 def test_a_spec_rewritten_between_request_and_answer_is_not_a_pass(
-    test_db, item, host_without_a_checkout, project_checkout,
+    test_db,
+    item,
+    host_without_a_checkout,
+    project_checkout,
 ) -> None:
     """The observing machine read a spec this run no longer holds."""
     observations = local.collect(_request(test_db), project_checkout)
@@ -142,7 +170,9 @@ def test_a_spec_rewritten_between_request_and_answer_is_not_a_pass(
 
 
 def test_no_observations_still_reports_every_check_unperformed(
-    test_db, item, host_without_a_checkout,
+    test_db,
+    item,
+    host_without_a_checkout,
 ) -> None:
     """The existing answer is unchanged for a caller with no checkout either."""
     outcome = run_all_checks(test_db, _ITEM_ID)
@@ -155,7 +185,10 @@ def test_no_observations_still_reports_every_check_unperformed(
 
 
 def test_a_host_with_its_own_checkout_never_asks(
-    test_db, item, monkeypatch, project_checkout,
+    test_db,
+    item,
+    monkeypatch,
+    project_checkout,
 ) -> None:
     """Local mode reads its own tree; the handoff is for the case it cannot."""
     monkeypatch.setattr(
@@ -170,21 +203,30 @@ def test_a_host_with_its_own_checkout_never_asks(
 
 
 def test_a_machine_without_the_project_checkout_observes_nothing(
-    test_db, item, monkeypatch,
+    test_db,
+    item,
+    monkeypatch,
 ) -> None:
     monkeypatch.setattr(
-        local, "machine_checkout", lambda project_id: None,
+        local,
+        "machine_checkout",
+        lambda project_id: None,
     )
 
     assert local.collect_for_request(_request(test_db)) is None
 
 
 def test_a_checkout_that_moved_mid_check_is_reported_moved(
-    test_db, item, project_checkout, monkeypatch,
+    test_db,
+    item,
+    project_checkout,
+    monkeypatch,
 ) -> None:
     revisions = iter(["before", "after"])
     monkeypatch.setattr(
-        local, "checkout_revision", lambda repo_root: next(revisions),
+        local,
+        "checkout_revision",
+        lambda repo_root: next(revisions),
     )
 
     observations = local.collect(_request(test_db), project_checkout)
@@ -193,7 +235,10 @@ def test_a_checkout_that_moved_mid_check_is_reported_moved(
 
 
 def test_an_unreadable_revision_is_reported_rather_than_assumed(
-    test_db, item, project_checkout, monkeypatch,
+    test_db,
+    item,
+    project_checkout,
+    monkeypatch,
 ) -> None:
     """A directory git cannot answer for yields no revision, not a fake one."""
     monkeypatch.setattr(local, "_git", lambda repo_root, *args: None)
