@@ -83,8 +83,6 @@ where = ["src"]
 "yoke_core.frontend_events" = ["attribution_rules.json"]
 "yoke_core.install_bundle_tree" = [
     "AGENTS.md",
-    "CODEX.md",
-    "CURSOR.md",
     ".agents/skills/yoke/**/*",
     "runtime/harness/claude/agents/**/*",
     "runtime/harness/claude/rules/**/*",

@@ -3,7 +3,7 @@
 These tests cover the registry's own shape (the `HARNESS_UNIVERSE` tuple,
 per-row `harness_support`, manifest-derived limitations) — separate from
 `test_capability_consistency.py`, which locks the registry against the
-`CODEX.md` / lifecycle / harness-bootstrap doc surfaces.
+`docs/public/guides/codex-harness.md` / lifecycle / harness-bootstrap doc surfaces.
 
 Splitting the two concerns keeps each file under the file-line budget and
 gives downstream readers one obvious home for each kind of question.

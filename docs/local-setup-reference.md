@@ -8,7 +8,7 @@ reference material separate from the primary product setup path.
 `yoke project install` fetches the active env's install bundle and writes the
 project-local operating layer:
 
-- Yoke skills under `.claude/skills/yoke/` and `.codex/skills/yoke/`.
+- Yoke skills once under `.agents/skills/yoke/`, with Claude’s native discovery symlink at `.claude/skills/yoke/`.
 - Rendered agent adapters under `.claude/agents/` and `.codex/agents/`.
 - Hook entries merged into `.claude/settings.json` and `.codex/hooks.json`.
 - Git hook shims for the installed guardrails.

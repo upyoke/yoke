@@ -19,9 +19,8 @@ TEACHING_GLOBS: Tuple[str, ...] = (
     "packages/yoke-core/src/yoke_core/engines/doctor_hc*.py",
     "runtime/api/domain/lint_*.py",
     "AGENTS.md",
-    "CLAUDE.md",
-    "CODEX.md",
-    "CURSOR.md",
+    "docs/public/guides/codex-harness.md",
+    "docs/public/guides/cursor-harness.md",
     ".yoke/docs/**/*.md",
     "docs/**/*.md",
 )
@@ -38,10 +37,7 @@ def help_usage_recipes() -> tuple[str, ...]:
 def command_path_is_template(argv: Sequence[str]) -> bool:
     """Recognize namespace examples that intentionally contain metavariables."""
     metacharacters = ("<", "{", "|", "*", "…")
-    return any(
-        any(marker in token for marker in metacharacters)
-        for token in argv[:3]
-    )
+    return any(any(marker in token for marker in metacharacters) for token in argv[:3])
 
 
 __all__ = ["TEACHING_GLOBS", "command_path_is_template", "help_usage_recipes"]

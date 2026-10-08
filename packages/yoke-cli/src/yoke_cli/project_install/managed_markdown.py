@@ -1,8 +1,8 @@
 """Marker-delimited Yoke-managed blocks inside co-owned Markdown files.
 
-External projects may already own their ``AGENTS.md`` / ``CLAUDE.md`` /
-``CODEX.md`` / ``CURSOR.md``, so the installer owns exactly one marker-delimited block inside
-each file and never touches content outside the markers:
+Projects co-own AGENTS.md. The installer owns exactly one marker-delimited
+block and preserves content outside it. The same region mechanics interpret
+recorded legacy shells during removal:
 
 * file absent             -> create it with just our block
 * file present, no block  -> insert our block at the top, keep the rest below
@@ -153,8 +153,7 @@ def resolve_targets(managed_markdown: Dict[str, Any]) -> List[Dict[str, str]]:
     targets = managed_markdown.get("targets")
     if not isinstance(blocks, dict) or not isinstance(targets, list):
         raise ProjectInstallError(
-            "bundle managed_markdown must carry object 'blocks' and array "
-            "'targets'"
+            "bundle managed_markdown must carry object 'blocks' and array 'targets'"
         )
     resolved: List[Dict[str, str]] = []
     for target in targets:
@@ -170,9 +169,7 @@ def resolve_targets(managed_markdown: Dict[str, Any]) -> List[Dict[str, str]]:
             )
         content = blocks[name]
         if not isinstance(content, str) or not content.strip():
-            raise ProjectInstallError(
-                f"managed_markdown block {name!r} is empty"
-            )
+            raise ProjectInstallError(f"managed_markdown block {name!r} is empty")
         resolved.append({"path": rel, "content": content})
     assert_safe_managed_markdown_paths(entry["path"] for entry in resolved)
     return resolved
@@ -280,7 +277,9 @@ def remove_managed_markdown(
             "warnings": warnings,
         }
     assert_resolved_targets_within(
-        repo_root, list(records), context="managed markdown removal",
+        repo_root,
+        list(records),
+        context="managed markdown removal",
     )
     for rel, record in sorted(records.items()):
         target = repo_root / rel
@@ -290,9 +289,7 @@ def remove_managed_markdown(
         if current is None:
             continue
         file_created = bool(record.get("file_created"))
-        action, new_text = plan_markdown_removal(
-            current, file_created=file_created
-        )
+        action, new_text = plan_markdown_removal(current, file_created=file_created)
         if action == "absent":
             continue
         if action == "removed_file":

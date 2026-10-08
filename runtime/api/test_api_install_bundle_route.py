@@ -56,28 +56,30 @@ def test_install_bundle_serves_files_and_hooks(client) -> None:
 
     assert response.status_code == 200
     bundle = response.json()
-    assert bundle["bundle_schema"] == 1
+    assert bundle["bundle_schema"] == 2
     assert bundle["project_id"] == 2
     assert bundle["project_slug"] == "externalwebapp"
     paths = [entry["path"] for entry in bundle["files"]]
     assert paths == sorted(paths)
     assert any(p.startswith(".agents/skills/yoke/") for p in paths)
-    assert any(p.startswith(".claude/skills/yoke/") for p in paths)
-    assert any(p.startswith(".codex/skills/yoke/") for p in paths)
+    assert not any(p.startswith(".claude/skills/yoke/") for p in paths)
+    assert not any(p.startswith(".codex/skills/yoke/") for p in paths)
     assert ".agents/skills/yoke/idea/SKILL.md" in paths
     # The full operating layer ships: lifecycle skills + rendered subagents.
-    assert ".claude/skills/yoke/conduct/SKILL.md" in paths
-    assert ".codex/skills/yoke/shepherd/SKILL.md" in paths
+    assert ".agents/skills/yoke/conduct/SKILL.md" in paths
+    assert ".agents/skills/yoke/shepherd/SKILL.md" in paths
     assert ".claude/agents/yoke-engineer.md" in paths
     assert ".codex/agents/yoke-tester.toml" in paths
     assert ".cursor/agents/yoke-simulator.md" in paths
-    assert ".claude/skills/yoke/onboard/SKILL.md" in paths
-    assert ".codex/skills/yoke/onboard/SKILL.md" in paths
+    assert ".agents/skills/yoke/onboard/SKILL.md" in paths
+    assert bundle["skill_discovery_links"] == {
+        ".claude/skills/yoke": "../../.agents/skills/yoke"
+    }
     assert bundle["hooks"]["claude_settings_hooks"]
     assert bundle["hooks"]["codex_hooks"]
     assert bundle["hooks"]["cursor_hooks"]
-    assert {target["path"] for target in bundle["managed_markdown"]["targets"]} >= {
-        "CURSOR.md"
+    assert {target["path"] for target in bundle["managed_markdown"]["targets"]} == {
+        "AGENTS.md"
     }
     contract = bundle["project_contract_files"]
     assert contract, "bundle must carry the seed-if-missing project contract"

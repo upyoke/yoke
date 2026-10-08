@@ -101,14 +101,16 @@ def test_previously_tracked_view_is_dropped_from_the_index(tmp_path: Path) -> No
 def test_install_manifest_is_classified_as_a_local_view(tmp_path: Path) -> None:
     root = _repo_ignoring_strategy_views(tmp_path / "repo")
     (root / ".gitignore").write_text(
-        ".yoke/strategy/\n.yoke/install-manifest.json\n", encoding="utf-8",
+        ".yoke/strategy/\n.yoke/install-manifest.json\n",
+        encoding="utf-8",
     )
     manifest = root / ".yoke/install-manifest.json"
     manifest.parent.mkdir(parents=True, exist_ok=True)
     manifest.write_text("{}\n", encoding="utf-8")
 
     result = checkout_gate.commit_touched_paths(
-        root, {"yoke_version": "9.9.9", "files_written": [".gitignore"]},
+        root,
+        {"yoke_version": "9.9.9", "files_written": [".gitignore"]},
     )
 
     assert result["status"] == "created"
@@ -117,7 +119,8 @@ def test_install_manifest_is_classified_as_a_local_view(tmp_path: Path) -> None:
 
 
 def test_install_applies_on_a_checkout_that_ignores_strategy_views(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
     monkeypatch.delenv("YOKE_MACHINE_CONFIG_FILE", raising=False)
@@ -127,7 +130,9 @@ def test_install_applies_on_a_checkout_that_ignores_strategy_views(
     bundle = make_bundle(strategy=[strategy_entry("LANDSCAPE", "# Landscape\n")])
     monkeypatch.setattr(runner, "_resolve_bundle", lambda *_a, **_k: (bundle, "test"))
     monkeypatch.setattr(
-        runner, "_register_in_machine_config", lambda *_a, **_k: False,
+        runner,
+        "_register_in_machine_config",
+        lambda *_a, **_k: False,
     )
     root = _repo_ignoring_strategy_views(tmp_path / "repo")
 
@@ -139,5 +144,6 @@ def test_install_applies_on_a_checkout_that_ignores_strategy_views(
     assert (root / STRATEGY_VIEW_REL).is_file()
     tracked = _git(root, "ls-files")
     assert STRATEGY_VIEW_REL not in tracked
-    assert ".claude/skills/yoke/SKILL.md" in tracked
+    assert ".agents/skills/yoke/SKILL.md" in tracked
+    assert ".claude/skills/yoke" in tracked
     assert _git(root, "status", "--porcelain", "--untracked-files=all").strip() == ""

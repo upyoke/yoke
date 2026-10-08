@@ -251,8 +251,8 @@ not apply.
 
 ## Symlink-aware authoring advisory
 
-When a declared File Budget path is an in-repo symlink (for example,
-`CLAUDE.md` points at `AGENTS.md`), Yoke's registration chain
+When a declared File Budget path is an in-repo symlink to a canonical
+project file, Yoke's registration chain
 auto-pairs the symlink-name with its canonical target — the claim
 covers both target_ids so a concurrent claim on either name is detected
 as overlapping. The phase 3 path-closure validator surfaces a one-line

@@ -9,7 +9,7 @@ from typing import Iterable, List, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 AGENTS_DOC = REPO_ROOT / "AGENTS.md"
-CODEX_DOC = REPO_ROOT / "CODEX.md"
+CODEX_DOC = REPO_ROOT / "docs/codex-source-reference.md"
 HOOK_PARITY_DOC = REPO_ROOT / "docs" / "hook-parity-map.md"
 TEST_INVENTORY_DOC = REPO_ROOT / ".yoke" / "test-inventory.md"
 

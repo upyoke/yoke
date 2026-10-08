@@ -205,14 +205,8 @@ def run_checks(repo_root: Path, *, strict: bool = False) -> int:
     _add_result(results, ".gitignore updated", "✅" if gitignore_ok else "❌")
     critical_fail = critical_fail or not gitignore_ok
 
-    # AGENTS.md is the canonical harness-neutral doctrine file. CLAUDE.md is
-    # retained as a compatibility symlink so Claude Code's native auto-load
-    # resolves the same content; .claude/CLAUDE.md is an older legacy path.
-    doctrine_ok = (
-        (repo_root / "AGENTS.md").is_file()
-        or (repo_root / "CLAUDE.md").is_file()
-        or (repo_root / ".claude" / "CLAUDE.md").is_file()
-    )
+    # Native shared doctrine has one canonical source.
+    doctrine_ok = (repo_root / "AGENTS.md").is_file()
     _add_result(results, "AGENTS.md rules", "✅" if doctrine_ok else "❌")
     critical_fail = critical_fail or not doctrine_ok
 

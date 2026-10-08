@@ -2,16 +2,16 @@
 
 The Tier 1 operator surface is enumerated in three markdown
 locations (docs/harness-bootstrap.md, .yoke/docs/reference/commands.md, the help SKILL.md),
-plus the per-harness compat statement in CODEX.md. The typed source of truth
+plus the per-harness compat statement in docs/public/guides/codex-harness.md. The typed source of truth
 is :data:`yoke_core.domain.harness_capability_registry.OPERATOR_COMMANDS`.
 
 These tests catch the drift class that produced the "Codex first slice"
 tension: the docs and the typed registry growing apart over time. Each
 markdown surface MUST mention every entrypoint declared in the registry, and
-CODEX.md MUST name every registry entry that is missing the ``"codex"`` value
+docs/public/guides/codex-harness.md MUST name every registry entry that is missing the ``"codex"`` value
 in its ``harness_support`` tuple. The Codex-incompatible set may legitimately
 be empty (every safe-surface command supports both harnesses); the drift lock
-only fires when an incompatible entry exists and CODEX.md fails to name it.
+only fires when an incompatible entry exists and docs/public/guides/codex-harness.md fails to name it.
 """
 
 from __future__ import annotations
@@ -83,7 +83,7 @@ def test_board_art_terminal_helper_is_listed_in_human_help_surfaces():
 
 
 def test_codex_md_names_codex_incompatible_commands():
-    text = _read(REPO / "CODEX.md")
+    text = _read(REPO / "docs/public/guides/codex-harness.md")
     codex_compatible = {
         c.entrypoint for c in safe_operator_surface_for_harness("codex")
     }
@@ -91,9 +91,9 @@ def test_codex_md_names_codex_incompatible_commands():
     codex_incompatible = all_safe - codex_compatible
     # Empty set is the steady state when every safe-surface command supports
     # both harnesses; the drift lock only fires when a row is missing "codex"
-    # AND CODEX.md fails to name it.
+    # AND docs/public/guides/codex-harness.md fails to name it.
     for entrypoint in codex_incompatible:
         assert entrypoint in text, (
-            f"CODEX.md must name Codex-incompatible {entrypoint!r} "
+            f"docs/public/guides/codex-harness.md must name Codex-incompatible {entrypoint!r} "
             f"so operators know it is not supported"
         )

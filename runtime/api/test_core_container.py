@@ -272,7 +272,7 @@ def test_dockerfile_ships_declared_server_tree_bundle_sources() -> None:
         "COPY runtime/harness/cursor/agents "
         "/srv/yoke-tree/runtime/harness/cursor/agents" in dockerfile
     )
-    assert "COPY CURSOR.md /srv/yoke-tree/CURSOR.md" in dockerfile
+    assert "COPY AGENTS.md /srv/yoke-tree/AGENTS.md" in dockerfile
     assert "COPY docs/public /srv/yoke-tree/docs/public" in dockerfile
     assert "COPY .yoke/docs /srv/yoke-tree/.yoke/docs" in dockerfile
 

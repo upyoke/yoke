@@ -18,6 +18,7 @@ from yoke_cli.project_install import (
     settings_status_line as settings_status_line_layer,
 )
 from yoke_cli.project_install import strategy as strategy_layer
+from yoke_cli.project_install import instruction_discovery, skill_discovery
 from yoke_cli.project_install.files import (
     DISCARDED_PRIOR_CONTRACT_RECORDS_KEY,
     DISCARDED_PRIOR_STRATEGY_RECORDS_KEY,
@@ -46,6 +47,7 @@ _MANIFEST_OWNED_KEYS = frozenset(
         "worktrees_ignore_added",
         "worktrees_ignore_created_file",
         "managed_markdown",
+        "skill_discovery_links",
         "settings_permissions",
         settings_status_line_layer.STATUS_LINE_MANIFEST_KEY,
         CURSOR_PERMISSIONS_MANIFEST_KEY,
@@ -98,7 +100,14 @@ def apply_bundle(
     hashes, written = files_layer.apply_files(repo_root, bundle_files)
     hashes.update(preserved_files)
     pruned, skipped, warnings = files_layer.prune_files(
-        repo_root, dict(old_manifest.get("files") or {}), hashes
+        repo_root,
+        skill_discovery.prune_records(repo_root, dict(old_manifest.get("files") or {})),
+        hashes,
+    )
+    discovery_written = skill_discovery.apply(repo_root)
+    retired_instructions = instruction_discovery.apply_retirement(
+        repo_root,
+        preflight["instruction_retirement"],
     )
     contract_map, contract_written, contract_existing, contract_adopted = (
         files_layer.apply_contract_files(
@@ -189,8 +198,7 @@ def apply_bundle(
         or worktrees_ignore.get("created_file")
     )
 
-    # Yoke-managed Markdown blocks (AGENTS.md / CLAUDE.md / CODEX.md /
-    # CURSOR.md) and the .claude/settings.json permissions region. Both run
+    # Canonical AGENTS.md and the .claude/settings.json permissions region run
     # after the hook reconcile above so the settings file already exists; both
     # own only their marked region and preserve operator content around it.
     managed_markdown_records, managed_markdown_report = (
@@ -250,6 +258,7 @@ def apply_bundle(
             "worktrees_ignore_added": worktrees_ignore_added,
             "worktrees_ignore_created_file": worktrees_ignore_created_file,
             "managed_markdown": managed_markdown_records,
+            "skill_discovery_links": dict(bundle["skill_discovery_links"]),
             "settings_permissions": settings_permissions_record,
             settings_status_line_layer.STATUS_LINE_MANIFEST_KEY: (
                 settings_status_line_record
@@ -279,6 +288,8 @@ def apply_bundle(
         "files_written": written,
         "files_unchanged": len(hashes) - len(written),
         "files_pruned": pruned,
+        "skill_discovery_written": discovery_written,
+        "retired_instruction_paths": retired_instructions,
         "files_skipped_modified": skipped,
         "files_preserved_unrendered": sorted(preserved_files),
         "contract_files_written": contract_written,

@@ -3,8 +3,7 @@
 HC functions for detecting documentation drift, auditing doc health,
 and checking AGENTS.md (shared doctrine) semantic consistency. The
 historical HC identifier ``claudemd-drift`` is preserved for report
-consumers even though the canonical file is now AGENTS.md (with
-CLAUDE.md retained as a compatibility symlink).
+consumers; the canonical shared instruction file is AGENTS.md.
 """
 
 from __future__ import annotations
@@ -32,8 +31,10 @@ def hc_doc_drift(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         rec.record("HC-doc-drift", "Documentation drift", "PASS", "")
         return
 
-    r = _base._run(["git", "-C", repo_root, "log", "--format=COMMIT %H", "--name-only", "-30"],
-             timeout=15)
+    r = _base._run(
+        ["git", "-C", repo_root, "log", "--format=COMMIT %H", "--name-only", "-30"],
+        timeout=15,
+    )
     if r.returncode != 0:
         rec.record("HC-doc-drift", "Documentation drift", "PASS", "")
         return
@@ -60,7 +61,9 @@ def hc_doc_drift(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     def _flush():
         nonlocal cur_hash, cur_src, cur_doc
         if cur_hash and cur_src and not cur_doc:
-            issues.append(f"- Commit {cur_hash[:7]} changed source without doc update: {cur_src}")
+            issues.append(
+                f"- Commit {cur_hash[:7]} changed source without doc update: {cur_src}"
+            )
 
     for line in r.stdout.splitlines():
         if line.startswith("COMMIT "):
@@ -90,7 +93,6 @@ def hc_doc_drift(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         rec.record("HC-doc-drift", "Documentation drift", "WARN", "\n".join(issues))
     else:
         rec.record("HC-doc-drift", "Documentation drift", "PASS", "")
-
 
 
 def hc_doc_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
@@ -139,8 +141,12 @@ def hc_doc_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
                     issues.append(f"- {doc}: broken link to '{target}'")
                     escalate("FAIL")
 
-    rec.record("HC-doc-health", "Documentation health audit", severity, "\n".join(issues) if issues else "")
-
+    rec.record(
+        "HC-doc-health",
+        "Documentation health audit",
+        severity,
+        "\n".join(issues) if issues else "",
+    )
 
 
 def hc_claudemd_drift(conn, args: DoctorArgs, rec: RecordCollector) -> None:
@@ -164,15 +170,24 @@ def hc_claudemd_drift(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             doctrine_path = legacy_path
     if doctrine_path.is_file():
         text = doctrine_path.read_text(errors="replace")
-        if re.search(r"sed/awk/grep.*JSON|JSON.*sed/awk/grep|sed/awk/grep.*\(no jq", text):
-            issues.append("- AGENTS.md references sed/awk/grep for JSON — should reference json-helper.sh")
+        if re.search(
+            r"sed/awk/grep.*JSON|JSON.*sed/awk/grep|sed/awk/grep.*\(no jq", text
+        ):
+            issues.append(
+                "- AGENTS.md references sed/awk/grep for JSON — should reference json-helper.sh"
+            )
         if "no jq dependency" in text:
-            issues.append("- AGENTS.md says 'no jq dependency' — helpers now use Python 3")
+            issues.append(
+                "- AGENTS.md says 'no jq dependency' — helpers now use Python 3"
+            )
 
     if issues:
-        rec.record("HC-claudemd-drift", "AGENTS.md semantic drift", "WARN", "\n".join(issues))
+        rec.record(
+            "HC-claudemd-drift", "AGENTS.md semantic drift", "WARN", "\n".join(issues)
+        )
     else:
         rec.record("HC-claudemd-drift", "AGENTS.md semantic drift", "PASS", "")
+
 
 # Slug and display name are the ones this check has always reported under.
 from yoke_project_checks._declare import (  # noqa: E402
@@ -180,7 +195,7 @@ from yoke_project_checks._declare import (  # noqa: E402
 )
 
 PROJECT_HEALTH_CHECKS = self_project_checks(
-    ('doc-drift', 'Documentation drift', hc_doc_drift),
-    ('doc-health', 'Documentation health audit', hc_doc_health),
-    ('claudemd-drift', 'AGENTS.md semantic drift', hc_claudemd_drift),
+    ("doc-drift", "Documentation drift", hc_doc_drift),
+    ("doc-health", "Documentation health audit", hc_doc_health),
+    ("claudemd-drift", "AGENTS.md semantic drift", hc_claudemd_drift),
 )

@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from yoke_contracts.project_contract.install_bundle import BUNDLE_SCHEMA
+from yoke_contracts.project_contract.install_bundle import (
+    BUNDLE_SCHEMA,
+    SKILL_DISCOVERY_LINKS,
+)
 from yoke_contracts.project_contract.installed_layer import (
     installed_layer_receipt_entry,
 )
@@ -83,6 +86,7 @@ def build_project_bundle(project_id: int, conn: Any) -> Dict[str, Any]:
         "project_slug": slug,
         "default_branch": default_branch,
         "files": files,
+        "skill_discovery_links": dict(SKILL_DISCOVERY_LINKS),
         "project_contract_files": _contract_files(display_name),
         "strategy_files": _strategy_files(project_id, display_name, conn),
         "project_policy_capabilities": policy_capabilities,

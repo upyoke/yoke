@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
-BUNDLE_SCHEMA = 1
+BUNDLE_SCHEMA = 2
 
-__all__ = ["BUNDLE_SCHEMA"]
+# One authored tree; Claude requires its own native discovery entry. Codex
+# and Cursor read .agents directly and deduplicate this physical target.
+SKILL_DISCOVERY_LINKS = {".claude/skills/yoke": "../../.agents/skills/yoke"}
+
+__all__ = ["BUNDLE_SCHEMA", "SKILL_DISCOVERY_LINKS"]

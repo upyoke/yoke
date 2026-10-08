@@ -89,7 +89,7 @@ def test_item_creation_is_not_a_retained_boundary() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Doctrine docs — AGENTS.md and CODEX.md
+# Shared project doctrine — AGENTS.md
 # ---------------------------------------------------------------------------
 
 
@@ -101,13 +101,6 @@ def _repo_root() -> Path:
 
 def test_agents_md_carries_item_entry_rule() -> None:
     body = (_repo_root() / "AGENTS.md").read_text(encoding="utf-8")
-    assert "Work-item entry surfaces" in body
-    assert "/yoke idea" in body
-    assert "harness_skill" in body
-
-
-def test_codex_md_carries_item_entry_rule() -> None:
-    body = (_repo_root() / "CODEX.md").read_text(encoding="utf-8")
     assert "Work-item entry surfaces" in body
     assert "/yoke idea" in body
     assert "harness_skill" in body

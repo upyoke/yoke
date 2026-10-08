@@ -36,8 +36,9 @@ def _record(fn, conn) -> RecordCollector:
 # ---------------------------------------------------------------------------
 
 
-def _make_adapter_tree(tmp_path: Path, *, with_drift=False, missing_role=None,
-                       extra_file=False) -> Path:
+def _make_adapter_tree(
+    tmp_path: Path, *, with_drift=False, missing_role=None, extra_file=False
+) -> Path:
     """Build a fake repo with canonical bodies and Codex adapters."""
     canonical = tmp_path / "runtime/agents"
     codex = tmp_path / ".codex/agents"
@@ -45,7 +46,8 @@ def _make_adapter_tree(tmp_path: Path, *, with_drift=False, missing_role=None,
     codex.mkdir(parents=True)
     for agent in _CANONICAL_AGENTS:
         (canonical / f"{agent}.md").write_text(
-            f"# canonical body for {agent}\n", encoding="utf-8",
+            f"# canonical body for {agent}\n",
+            encoding="utf-8",
         )
         if missing_role == agent:
             continue
@@ -122,7 +124,7 @@ def test_adapter_drift_fail_on_stale_schema_residue(monkeypatch, tmp_path, conn)
         'name = "yoke-engineer"\n'
         'model = "opus"\n'
         'tools = "Read, Write"\n'
-        'max_turns = 120\n'
+        "max_turns = 120\n"
         'prompt = """\n# canonical body for engineer\n"""\n'
     )
     (root / ".codex/agents/yoke-engineer.toml").write_text(stale, encoding="utf-8")
@@ -139,9 +141,14 @@ def test_adapter_drift_fail_on_stale_schema_residue(monkeypatch, tmp_path, conn)
 # ---------------------------------------------------------------------------
 
 
-def _make_final_surface_root(tmp_path: Path, *, codex_disabled=False,
-                             claude_disabled=False, docs_supported=True,
-                             docs_unsupported=False) -> Path:
+def _make_final_surface_root(
+    tmp_path: Path,
+    *,
+    codex_disabled=False,
+    claude_disabled=False,
+    docs_supported=True,
+    docs_unsupported=False,
+) -> Path:
     root = tmp_path
     (root / "runtime/harness/claude").mkdir(parents=True)
     (root / "runtime/harness/codex").mkdir(parents=True)
@@ -166,12 +173,17 @@ def _make_final_surface_root(tmp_path: Path, *, codex_disabled=False,
     else:
         codex_doc = "Codex covers polish and usher."
         agents_doc = "Agents use canonical bodies."
-    (root / "CODEX.md").write_text(codex_doc, encoding="utf-8")
+    (root / "docs/public/guides").mkdir(parents=True, exist_ok=True)
+    (root / "docs/public/guides/codex-harness.md").write_text(
+        codex_doc, encoding="utf-8"
+    )
     (root / "docs/agents.md").write_text(agents_doc, encoding="utf-8")
     return root
 
 
-def test_surface_truth_pass_with_final_dual_harness_surfaces(monkeypatch, tmp_path, conn):
+def test_surface_truth_pass_with_final_dual_harness_surfaces(
+    monkeypatch, tmp_path, conn
+):
     """Final truth says conduct is supported by both harnesses."""
     root = _make_final_surface_root(tmp_path)
     monkeypatch.setattr(mod, "_root_path", lambda rel: root / rel)
@@ -181,7 +193,9 @@ def test_surface_truth_pass_with_final_dual_harness_surfaces(monkeypatch, tmp_pa
     assert "codex=True" in rec.results[0].detail
 
 
-def test_surface_truth_fail_when_registry_says_codex_unsupported(monkeypatch, tmp_path, conn):
+def test_surface_truth_fail_when_registry_says_codex_unsupported(
+    monkeypatch, tmp_path, conn
+):
     root = _make_final_surface_root(tmp_path)
     monkeypatch.setattr(mod, "_root_path", lambda rel: root / rel)
     monkeypatch.setattr(mod, "_codex_supports_conduct", lambda: False)
@@ -198,7 +212,9 @@ def test_surface_truth_fail_when_conduct_missing_from_registry(monkeypatch, conn
     assert "missing" in rec.results[0].detail
 
 
-def test_surface_truth_fail_when_codex_manifest_disables_conduct(monkeypatch, tmp_path, conn):
+def test_surface_truth_fail_when_codex_manifest_disables_conduct(
+    monkeypatch, tmp_path, conn
+):
     root = _make_final_surface_root(tmp_path, codex_disabled=True)
     monkeypatch.setattr(mod, "_root_path", lambda rel: root / rel)
     rec = _record(hc_codex_subagent_surface_truth, conn)
@@ -206,7 +222,9 @@ def test_surface_truth_fail_when_codex_manifest_disables_conduct(monkeypatch, tm
     assert "Codex manifest disables" in rec.results[0].detail
 
 
-def test_surface_truth_fail_when_claude_manifest_disables_conduct(monkeypatch, tmp_path, conn):
+def test_surface_truth_fail_when_claude_manifest_disables_conduct(
+    monkeypatch, tmp_path, conn
+):
     root = _make_final_surface_root(tmp_path, claude_disabled=True)
     monkeypatch.setattr(mod, "_root_path", lambda rel: root / rel)
     rec = _record(hc_codex_subagent_surface_truth, conn)
@@ -214,9 +232,13 @@ def test_surface_truth_fail_when_claude_manifest_disables_conduct(monkeypatch, t
     assert "Claude manifest disables" in rec.results[0].detail
 
 
-def test_surface_truth_fail_when_docs_still_say_codex_unsupported(monkeypatch, tmp_path, conn):
+def test_surface_truth_fail_when_docs_still_say_codex_unsupported(
+    monkeypatch, tmp_path, conn
+):
     root = _make_final_surface_root(
-        tmp_path, docs_supported=False, docs_unsupported=True,
+        tmp_path,
+        docs_supported=False,
+        docs_unsupported=True,
     )
     monkeypatch.setattr(mod, "_root_path", lambda rel: root / rel)
     rec = _record(hc_codex_subagent_surface_truth, conn)

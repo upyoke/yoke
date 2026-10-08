@@ -39,8 +39,10 @@ def _tree_bytes(root: Path) -> dict[str, bytes | str]:
     for path in sorted(root.rglob("*")):
         rel = path.relative_to(root).as_posix()
         snapshot[rel] = (
-            f"symlink:{path.readlink()}" if path.is_symlink()
-            else path.read_bytes() if path.is_file()
+            f"symlink:{path.readlink()}"
+            if path.is_symlink()
+            else path.read_bytes()
+            if path.is_file()
             else "directory"
         )
     return snapshot
@@ -51,16 +53,15 @@ def test_fresh_install_writes_files_manifest_and_hooks(repo) -> None:
 
     for entry in DEFAULT_FILES:
         assert (repo / entry["path"]).read_text("utf-8") == entry["content"]
-    assert sorted(report["files_written"]) == sorted(
-        e["path"] for e in DEFAULT_FILES
-    )
+    assert sorted(report["files_written"]) == sorted(e["path"] for e in DEFAULT_FILES)
     manifest = _manifest(repo)
     assert manifest["manifest_schema"] == 1
     assert manifest["yoke_version"] == "9.9.9"
     assert manifest["project_id"] == 7
     assert set(manifest["files"]) == {e["path"] for e in DEFAULT_FILES}
     assert manifest["created_settings_files"] == [
-        ".claude/settings.json", ".codex/hooks.json",
+        ".claude/settings.json",
+        ".codex/hooks.json",
     ]
     assert (repo / ".claude/settings.json").is_file()
     assert (repo / ".codex/hooks.json").is_file()
@@ -83,13 +84,13 @@ def test_second_run_is_a_no_op(repo) -> None:
 
 def test_refresh_prunes_files_dropped_from_bundle(repo) -> None:
     apply_bundle(repo, make_bundle(), source="test")
-    survivors = DEFAULT_FILES[:3]
+    survivors = DEFAULT_FILES[:-1]
 
     report = apply_bundle(
         repo, make_bundle(survivors), operation="refresh", source="test"
     )
 
-    dropped = DEFAULT_FILES[3]["path"]
+    dropped = DEFAULT_FILES[-1]["path"]
     assert report["files_pruned"] == [dropped]
     assert not (repo / dropped).exists()
     assert set(_manifest(repo)["files"]) == {e["path"] for e in survivors}
@@ -97,11 +98,11 @@ def test_refresh_prunes_files_dropped_from_bundle(repo) -> None:
 
 def test_refresh_preserves_locally_modified_dropped_file(repo) -> None:
     apply_bundle(repo, make_bundle(), source="test")
-    dropped = DEFAULT_FILES[3]["path"]
+    dropped = DEFAULT_FILES[-1]["path"]
     (repo / dropped).write_text("operator edits\n", encoding="utf-8")
 
     report = apply_bundle(
-        repo, make_bundle(DEFAULT_FILES[:3]), operation="refresh", source="test"
+        repo, make_bundle(DEFAULT_FILES[:-1]), operation="refresh", source="test"
     )
 
     assert report["files_pruned"] == []
@@ -122,12 +123,15 @@ def test_bundle_content_is_authority_over_local_edits(repo) -> None:
     assert (repo / target).read_text("utf-8") == DEFAULT_FILES[0]["content"]
 
 
-@pytest.mark.parametrize("bad_path", [
-    "../escape.md",
-    "/etc/absolute.md",
-    ".yoke/notes.md",
-    ".claude/settings.json",
-])
+@pytest.mark.parametrize(
+    "bad_path",
+    [
+        "../escape.md",
+        "/etc/absolute.md",
+        ".yoke/notes.md",
+        ".claude/settings.json",
+    ],
+)
 def test_unsafe_bundle_paths_are_refused(repo, bad_path) -> None:
     bundle = make_bundle([{"path": bad_path, "content": "x"}])
 
@@ -138,7 +142,7 @@ def test_unsafe_bundle_paths_are_refused(repo, bad_path) -> None:
 
 def test_unsupported_bundle_schema_is_refused(repo) -> None:
     with pytest.raises(ProjectInstallError) as exc_info:
-        apply_bundle(repo, make_bundle(bundle_schema=2), source="test")
+        apply_bundle(repo, make_bundle(bundle_schema=999), source="test")
     assert "rerun the public installer" in str(exc_info.value)
 
 
@@ -166,7 +170,9 @@ def test_unsupported_manifest_schema_is_refused(repo) -> None:
     ],
 )
 def test_malformed_prior_manifest_shape_fails_before_mutation(
-    repo, field, value,
+    repo,
+    field,
+    value,
 ) -> None:
     apply_bundle(repo, make_bundle(), source="test")
     manifest = _manifest(repo)
@@ -185,14 +191,16 @@ def test_prior_manifest_escape_cannot_prune_outside_repo(repo, tmp_path) -> None
     victim.write_text("outside\n", encoding="utf-8")
     (repo / ".yoke").mkdir()
     (repo / MANIFEST_REL).write_text(
-        json.dumps({
-            "manifest_schema": 1,
-            "files": {
-                str(victim): (
-                    "263c0bcd0f6c5a81149b9b65a7f4f319d80b48c704437b6125ee28e738b8b9ff"
-                ),
-            },
-        }),
+        json.dumps(
+            {
+                "manifest_schema": 1,
+                "files": {
+                    str(victim): (
+                        "263c0bcd0f6c5a81149b9b65a7f4f319d80b48c704437b6125ee28e738b8b9ff"
+                    ),
+                },
+            }
+        ),
         encoding="utf-8",
     )
     before = _tree_bytes(repo)
@@ -213,7 +221,10 @@ def test_prior_manifest_escape_cannot_prune_outside_repo(repo, tmp_path) -> None
     ],
 )
 def test_symlink_parent_escape_fails_before_any_mutation(
-    repo, tmp_path, symlink_rel, bundle_files,
+    repo,
+    tmp_path,
+    symlink_rel,
+    bundle_files,
 ) -> None:
     outside = tmp_path / "outside"
     outside.mkdir()
@@ -229,7 +240,9 @@ def test_symlink_parent_escape_fails_before_any_mutation(
 
 @pytest.mark.parametrize("git_symlink", ["git-dir", "hooks-dir"])
 def test_git_hook_symlink_escape_fails_before_apply_mutation(
-    repo, tmp_path, git_symlink,
+    repo,
+    tmp_path,
+    git_symlink,
 ) -> None:
     outside = tmp_path / "outside-git"
     (outside / "hooks").mkdir(parents=True)
@@ -238,7 +251,8 @@ def test_git_hook_symlink_escape_fails_before_apply_mutation(
     else:
         (repo / ".git").mkdir()
         (repo / ".git/hooks").symlink_to(
-            outside / "hooks", target_is_directory=True,
+            outside / "hooks",
+            target_is_directory=True,
         )
     before = _tree_bytes(repo)
 
@@ -250,13 +264,17 @@ def test_git_hook_symlink_escape_fails_before_apply_mutation(
 
 
 def test_bundle_identity_is_validated_before_machine_registration(
-    repo, tmp_path, monkeypatch,
+    repo,
+    tmp_path,
+    monkeypatch,
 ) -> None:
     cfg = tmp_path / "machine-home" / "config.json"
     mismatch = make_bundle()
     mismatch["project_id"] = 8
     monkeypatch.setattr(
-        project_install, "_resolve_bundle", lambda *_args, **_kwargs: (mismatch, "test"),
+        project_install,
+        "_resolve_bundle",
+        lambda *_args, **_kwargs: (mismatch, "test"),
     )
     before = _tree_bytes(repo)
 
@@ -267,8 +285,7 @@ def test_bundle_identity_is_validated_before_machine_registration(
     assert not cfg.exists()
 
 
-def test_install_requires_a_resolvable_project_id(repo, tmp_path,
-                                                  monkeypatch) -> None:
+def test_install_requires_a_resolvable_project_id(repo, tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
     monkeypatch.delenv("YOKE_MACHINE_CONFIG_FILE", raising=False)
     cfg = tmp_path / "machine-home" / "config.json"
@@ -290,7 +307,8 @@ def test_install_registers_checkout_mapping_for_explicit_id(
         "local", transport="local-postgres", dsn_file=str(dsn), path=cfg
     )
     monkeypatch.setattr(
-        project_install, "_resolve_bundle",
+        project_install,
+        "_resolve_bundle",
         lambda pid, **kw: (make_bundle(), "test"),
     )
 
@@ -314,7 +332,8 @@ def test_registration_failure_leaves_repo_untouched(
     cfg.parent.mkdir(parents=True)
     cfg.write_text("{}\n", encoding="utf-8")  # fails the writer contract
     monkeypatch.setattr(
-        project_install, "_resolve_bundle",
+        project_install,
+        "_resolve_bundle",
         lambda pid, **kw: (make_bundle(), "test"),
     )
 

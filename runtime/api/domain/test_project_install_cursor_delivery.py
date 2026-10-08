@@ -134,7 +134,7 @@ def test_hosted_bundle_install_and_refresh_preserve_cursor_content(
 
     cursor_md = (root / "CURSOR.md").read_text(encoding="utf-8")
     assert cursor_md.count("# Operator notes\n") == 1
-    assert "<!-- BEGIN YOKE MANAGED BLOCK -->" in cursor_md
+    assert cursor_md == "# Operator notes\n"
     cli_allow = _read_json(root, CURSOR_CLI_REL)["permissions"]["allow"]
     assert cli_allow[0] == "Shell(make *)"
     assert set(CURSOR_CLI_ALLOW) <= set(cli_allow)
@@ -161,8 +161,8 @@ def test_source_bundle_covers_cursor_managed_surfaces(
     assert ".cursor/agents/yoke-tester.md" in paths
     assert ".cursor/agents/yoke-" in SOURCE_MANAGED_PREFIXES
     assert bundle["hooks"]["cursor_hooks"] == render_cursor_hooks_block()["hooks"]
-    assert {target["path"] for target in bundle["managed_markdown"]["targets"]} >= {
-        "CURSOR.md"
+    assert {target["path"] for target in bundle["managed_markdown"]["targets"]} == {
+        "AGENTS.md"
     }
 
     root = tmp_path / "source-refreshed-project"
@@ -172,7 +172,7 @@ def test_source_bundle_covers_cursor_managed_surfaces(
     assert "YOKE_EXECUTOR=cursor" in (root / ".cursor/hooks.json").read_text(
         encoding="utf-8"
     )
-    assert "<!-- BEGIN YOKE MANAGED BLOCK -->" in (root / "CURSOR.md").read_text(
+    assert "<!-- BEGIN YOKE MANAGED BLOCK -->" in (root / "AGENTS.md").read_text(
         encoding="utf-8"
     )
     assert set(CURSOR_CLI_ALLOW) <= set(

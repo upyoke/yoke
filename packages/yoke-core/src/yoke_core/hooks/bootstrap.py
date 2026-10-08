@@ -9,7 +9,7 @@ wrapper-only harnesses and thin docs cannot reliably guess the canonical
 skill location, so this module is the single authoritative surface for
 ``skill-list`` and ``skill-path`` against the hidden ``.agents/skills/yoke``
 tree. The resolver deliberately never falls back to home-directory paths —
-``.claude/skills/yoke`` remains a compatibility symlink, but the canonical
+``.claude/skills/yoke`` remains a native discovery symlink, but the canonical
 return value is always the ``.agents/...`` path.
 
 Can be used as a module (import functions) or invoked via CLI::
@@ -37,7 +37,7 @@ from yoke_core.domain.main_agent_packet import (
 
 
 # Canonical repo-relative location of the Yoke skill tree. ``.claude/skills/yoke``
-# remains a compatibility symlink pointing at this path, but the resolver only
+# remains a native discovery symlink pointing at this path, but the resolver only
 # ever returns the ``.agents/...`` canonical form.
 SKILLS_ROOT_REL = Path(".agents/skills/yoke")
 
@@ -198,7 +198,7 @@ def _skills_root(root: Path) -> Path:
     """Return the canonical ``.agents/skills/yoke`` directory for ``root``.
 
     This is a pure path join — the resolver never walks ``.claude/skills/yoke``
-    (compatibility symlink) nor any home-directory path.
+    (native discovery symlink) nor any home-directory path.
     """
     return root / SKILLS_ROOT_REL
 
@@ -238,7 +238,7 @@ def resolve_skill_path(root: Path, name: str) -> Path:
     - any other name → ``.agents/skills/yoke/<name>/SKILL.md``
 
     Always returns the absolute ``.agents/...`` form. The resolver does not
-    follow the ``.claude/skills/yoke`` compatibility symlink and does not
+    follow the ``.claude/skills/yoke`` native discovery symlink and does not
     probe home-directory fallbacks (``~/.agents``, ``~/.codex/skills``). When
     the target file does not exist, raises ``FileNotFoundError`` with a clear
     message — callers that shell out should surface it as a non-zero exit.

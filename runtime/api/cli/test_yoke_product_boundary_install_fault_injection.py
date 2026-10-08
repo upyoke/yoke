@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from yoke_contracts.project_contract.install_bundle import (
+    BUNDLE_SCHEMA,
+    SKILL_DISCOVERY_LINKS,
+)
+
 import http.server
 import json
 import threading
@@ -36,10 +41,12 @@ class _BundleServer:
                 self.send_error(404)
 
             def do_GET(self) -> None:  # noqa: N802
-                owner.requests.append((
-                    self.path,
-                    self.headers.get("Authorization", ""),
-                ))
+                owner.requests.append(
+                    (
+                        self.path,
+                        self.headers.get("Authorization", ""),
+                    )
+                )
                 if self.path != f"/v1/projects/{PROJECT_ID}/install-bundle":
                     self.send_error(404)
                     return
@@ -81,8 +88,11 @@ def test_project_install_refuses_missing_hook_runtime_before_repo_writes(
     install = _run_product_cli(
         tmp_path,
         [
-            "project", "install", str(checkout),
-            "--project-id", str(PROJECT_ID),
+            "project",
+            "install",
+            str(checkout),
+            "--project-id",
+            str(PROJECT_ID),
         ],
         include_harness=False,
         client_cwd=checkout,
@@ -167,7 +177,8 @@ def test_project_install_https_external_repo_stays_product_client_only(
 
 @pytest.mark.parametrize("malformation", ["missing-version", "wrong-project"])
 def test_https_bundle_identity_failure_precedes_registration_and_repo_writes(
-    tmp_path: Path, malformation: str,
+    tmp_path: Path,
+    malformation: str,
 ) -> None:
     checkout = tmp_path / "external-project"
     checkout.mkdir()
@@ -184,8 +195,11 @@ def test_https_bundle_identity_failure_precedes_registration_and_repo_writes(
         install = _run_product_cli(
             tmp_path,
             [
-                "project", "install", str(checkout),
-                "--project-id", str(PROJECT_ID),
+                "project",
+                "install",
+                str(checkout),
+                "--project-id",
+                str(PROJECT_ID),
             ],
             config_payload=_https_only_config(server.url, token_path),
             client_cwd=checkout,
@@ -209,13 +223,14 @@ def _bundle() -> dict[str, Any]:
         ],
     }
     return {
-        "bundle_schema": 1,
+        "bundle_schema": BUNDLE_SCHEMA,
+        "skill_discovery_links": dict(SKILL_DISCOVERY_LINKS),
         "yoke_version": "9.9.9",
         "project_id": PROJECT_ID,
         "project_slug": "external-demo",
         "files": [
             {
-                "path": ".codex/skills/yoke/onboard/SKILL.md",
+                "path": ".agents/skills/yoke/onboard/SKILL.md",
                 "content": "# onboard\n",
             },
         ],
@@ -259,7 +274,7 @@ def _assert_installed_project_layer(checkout: Path) -> None:
         if path.is_file()
     }
     assert {
-        ".codex/skills/yoke/onboard/SKILL.md",
+        ".agents/skills/yoke/onboard/SKILL.md",
         ".claude/settings.json",
         ".codex/hooks.json",
         ".git/hooks/pre-commit",
@@ -290,8 +305,11 @@ def _assert_https_only_machine_config(config_path: Path, *, checkout: Path) -> N
     assert "postgres" not in config["connections"]["product"]
     assert "github" not in config
     assert config["projects"] == [
-        {"checkout": str(checkout.resolve()), "project_id": PROJECT_ID,
-         "env": "product"},
+        {
+            "checkout": str(checkout.resolve()),
+            "project_id": PROJECT_ID,
+            "env": "product",
+        },
     ]
 
 

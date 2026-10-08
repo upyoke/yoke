@@ -17,15 +17,11 @@ def _seed(
     *,
     doctrine_body: str,
     rules_body: str = "",
-    cursor_shell_body: str = "",
+    additional_doctrine: str = "",
 ) -> None:
     """Build a miniature tree with one shipped source of each kind."""
     (root / "AGENTS.md").write_text(
-        f"# Rules\n\n{render_block(doctrine_body)}\n\n# Repo Internals\n",
-        encoding="utf-8",
-    )
-    (root / "CURSOR.md").write_text(
-        f"# Cursor\n\n{render_block(cursor_shell_body)}\n\n# Repo Internals\n",
+        f"# Rules\n\n{render_block(doctrine_body + additional_doctrine)}\n\n# Repo Internals\n",
         encoding="utf-8",
     )
     skill = root / ".agents/skills/yoke/idea/path-claim-blocking.md"
@@ -45,7 +41,7 @@ def _seed(
     board.write_text("generated view\n", encoding="utf-8")
     for args in (
         ["init", "-q"],
-        ["add", "-A", "--", "AGENTS.md", "CURSOR.md", ".agents", "docs", "runtime"],
+        ["add", "-A", "--", "AGENTS.md", ".agents", "docs", "runtime"],
     ):
         subprocess.run(["git", "-C", str(root), *args], check=True, capture_output=True)
 
@@ -106,17 +102,17 @@ def test_fails_on_a_repo_only_path_in_the_session_rules(
     assert ".claude/rules/session.md" in detail
 
 
-def test_fails_on_a_repo_only_path_in_a_harness_shell(
+def test_fails_on_a_repo_only_path_in_additional_shared_doctrine(
     tmp_path: Path, monkeypatch
 ) -> None:
     _seed(
         tmp_path,
         doctrine_body="- Nothing cited here.",
-        cursor_shell_body="- Further reading: `docs/archive/decisions/some-topic.md`.",
+        additional_doctrine="- Further reading: `docs/archive/decisions/some-topic.md`.",
     )
     result, detail = _run(tmp_path, monkeypatch)
     assert result == "FAIL"
-    assert "CURSOR.md (managed block)" in detail
+    assert "AGENTS.md (managed block)" in detail
 
 
 def test_accepts_the_cursor_approval_and_sandbox_files(
@@ -126,7 +122,7 @@ def test_accepts_the_cursor_approval_and_sandbox_files(
     _seed(
         tmp_path,
         doctrine_body="- Nothing cited here.",
-        cursor_shell_body=(
+        additional_doctrine=(
             "- Command approvals live in `.cursor/cli.json`; the network "
             "sandbox is `.cursor/sandbox.json`.\n"
         ),
