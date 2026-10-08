@@ -118,7 +118,8 @@ def test_hook_client_wall_contains_evaluator_and_is_never_summed():
         "client_wall_ms": 150,
         "client_remainder_ms": 50,
     }
-    assert "database" in value["unavailable_spans"]
+    assert value["unavailable_spans"] == []
+    assert "Existing owner timings" in value["span_coverage"]
 
 
 def test_inspection_paginates_ranked_functions_hooks_and_tools_without_sampling():

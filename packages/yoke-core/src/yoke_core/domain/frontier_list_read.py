@@ -1,6 +1,6 @@
 """Read-only frontier projection from one scheduler pass.
 
-Ready rows carry ranks, routed commands, and readiness reasons. Blocked rows
+Ready rows carry ranks, routed steps, and readiness reasons. Blocked rows
 cover unsatisfied activation, integration, and closure dependencies, plus
 operator blocks and incomplete bodies. Dependency edges serve the Waiting
 graph (:mod:`frontier_dependency_edges`). Polling does not emit events.
@@ -49,7 +49,6 @@ FRONTIER_READY_FIELDS = (
     "stage_label",
     "priority",
     "next_step",
-    "run_command",
     "why_ready",
     "unblocks_count",
     "downstream_depth",
@@ -281,7 +280,6 @@ def list_frontier(
                     "stage_label": step.stage_label,
                     "priority": step.priority,
                     "next_step": step.next_step.value,
-                    "run_command": f"yoke {step.next_step.value} {public_ref}",
                     "why_ready": _compose_why_ready(
                         step,
                         conduct_eligible_ids=conduct_eligible_ids,

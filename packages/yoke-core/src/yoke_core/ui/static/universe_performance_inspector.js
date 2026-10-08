@@ -26,6 +26,7 @@ export function inspectBucket(context, scopePayload, bucket, trigger) {
     card.appendChild(el(documentNode, "p", null,
       `${row.family} · ${row.timing_status} · ${row.wait_reason || "Execution timing"} · ${row.harness || "Unknown harness"} / ${row.surface || "Unknown surface"} · machine ${row.machine || "Unknown"}`));
     if (row.command_summary) card.appendChild(el(documentNode, "pre", null, row.command_summary));
+    if (row.span_coverage) card.appendChild(el(documentNode, "p", null, row.span_coverage));
     const dl = el(documentNode, "dl", "performance-breakdown");
     for (const [name, value] of Object.entries(row.breakdown || {})) {
       dl.append(el(documentNode, "dt", null, name.replace(/_ms$/, "").replaceAll("_", " ")),

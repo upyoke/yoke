@@ -71,3 +71,18 @@ test("invalid custom ranges refuse without a read and presets resynchronize both
   assert.equal(Date.parse(to.value) - Date.parse(from.value), 3600000);
   assert.equal(hour.getAttribute("aria-pressed"), "true");
 });
+
+
+test("Custom is an actionable range control that keeps dates and focuses From", () => {
+  const document = new FakeDocument(), main = document.createElement("main");
+  renderPerformanceView({ document, client: { call: () => new Promise(() => {}) },
+    signal: new AbortController().signal }, main, "all");
+  const custom = byClass(main, "performance-custom")[0];
+  const from = byClass(main, "performance-dates")[0].children[0].children[0];
+  const before = from.value;
+  assert.equal(custom.tagName, "BUTTON");
+  custom.dispatchEvent(new Event("click"));
+  assert.equal(custom.getAttribute("aria-pressed"), "true");
+  assert.equal(from.value, before);
+  assert.equal(document.activeElement, from);
+});

@@ -35,8 +35,8 @@ export function renderPerformanceView(context, main, scope) {
     label.appendChild(input);
     dates.appendChild(label);
   }
-  const custom = el(documentNode, "span", "performance-custom", "Custom");
-  custom.hidden = true;
+  const custom = el(documentNode, "button", "performance-custom", "Custom");
+  custom.type = "button";
   const status = el(documentNode, "p", "performance-status");
   status.setAttribute("role", "status");
   const chartHost = el(documentNode, "div", "performance-chart");
@@ -59,7 +59,7 @@ export function renderPerformanceView(context, main, scope) {
   }
   function updateButtons() {
     for (const [button, hours] of buttons) button.setAttribute("aria-pressed", String(selected === hours));
-    custom.hidden = selected !== null;
+    custom.setAttribute("aria-pressed", String(selected === null));
   }
   for (const [hours, label] of WINDOWS) {
     const button = el(documentNode, "button", null, label);
@@ -78,7 +78,7 @@ export function renderPerformanceView(context, main, scope) {
     let range;
     try { range = validateRange(from.value, to.value); }
     catch (error) { status.textContent = error.message; return; }
-    const points = Math.max(20, Math.min(800, Math.round((chartHost.clientWidth || 800) / 2)));
+    const points = Math.max(20, Math.min(160, Math.round((chartHost.clientWidth || 800) / 7)));
     status.textContent = "Loading retained timing observations…";
     note.textContent = "";
     try {
@@ -106,6 +106,7 @@ export function renderPerformanceView(context, main, scope) {
     selected = WINDOWS.some(([value]) => value === hours) ? hours : null;
     updateButtons(); load();
   }
+  custom.addEventListener("click", () => { selected = null; updateButtons(); from.focus(); });
   from.addEventListener("change", datesChanged);
   to.addEventListener("change", datesChanged);
   refresh.addEventListener("click", () => { if (selected !== null) setWindow(selected); load(); });
