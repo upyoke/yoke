@@ -272,16 +272,6 @@ def main(argv: Optional[List[str]] = None) -> int:
                 emit=print,
             )
 
-    if parsed.instant_census_output:
-        from dataclasses import replace
-
-        verdicts = [
-            replace(v, detail="diagnostic census collected; no history applied")
-            if v.passed
-            else v
-            for v in verdicts
-        ]
-
     failed = [v for v in verdicts if not v.passed]
     print("\n" + migration_fleet_preflight.format_fleet_summary(verdicts))
     if failed or not record:

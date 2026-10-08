@@ -35,6 +35,9 @@ def test_inspection_scans_restored_values_without_applying_history(
     free = shutil.disk_usage(tmp_path).free // GIB
     assert free > 3
     diagnostic = inspection_plan(plan, tmp_path, 1, 1, "fixture", lambda _: None)
+    assert (
+        diagnostic.success_detail == "diagnostic census collected; no history applied"
+    )
     dump = tmp_path / "fixture.dump"
     dump.write_bytes(b"private archive fixture")
     diagnostic.copy_observer("start", dump)

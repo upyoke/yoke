@@ -172,4 +172,5 @@ def inspection_plan(
         post_converge_validator=inspection.inspect,
         copy_observer=inspection.observe,
         resource_guard=inspection.guard,
+        success_detail="diagnostic census collected; no history applied",
     )

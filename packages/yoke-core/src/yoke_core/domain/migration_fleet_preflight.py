@@ -73,6 +73,7 @@ class RehearsalPlan:
     post_converge_validator: Callable[[Any, str], str | None] | None = None
     copy_observer: Callable[[str, Path], None] | None = None
     resource_guard: Callable[[], None] | None = None
+    success_detail: str = "converged"
 
 
 @contextmanager
@@ -295,7 +296,7 @@ def _converge_copy(
         return Verdict(
             database,
             failure is None,
-            "converged" if failure is None else failure,
+            plan.success_detail if failure is None else failure,
             pending,
             applied,
             skipped_invariants=report.skipped,
