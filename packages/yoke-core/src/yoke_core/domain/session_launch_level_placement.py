@@ -37,6 +37,10 @@ from yoke_core.domain.session_launch_level_pools import (
     live_workers,
     option_pools,
 )
+from yoke_core.domain.session_launch_machine_pin import (
+    MACHINE_UNRESOLVED,
+    resolve_launch_machine_pin,
+)
 from yoke_core.domain.session_launch_types import (
     EligibleRelay,
     LaunchAuthorization,
@@ -302,12 +306,15 @@ def place_level(
     """Weigh every option of ``level`` and choose one, or say why none fits."""
     levels, source = effective_levels(conn, project_id)
     wanted = _level(levels, level, source)
+    pin = resolve_launch_machine_pin(conn, machine_id)
+    if pin.unresolved:
+        raise SessionLaunchError(MACHINE_UNRESOLVED, str(pin.refusal_reason))
     weighed = _candidates(
         conn,
         wanted,
         auth=auth,
         project_id=project_id,
-        machine_id=machine_id,
+        machine_id=pin.machine_id,
         now=now,
         eligibility=eligibility,
     )
