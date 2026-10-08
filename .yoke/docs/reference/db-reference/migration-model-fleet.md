@@ -87,8 +87,11 @@ This diagnostic mode does not apply history, converge schema or exercise
 release-driver writes. It inspects a read-only copy transaction, retains
 aggregate instant counts and archive/database sizes with phase timings before
 cleanup, and cannot record a release receipt. Counts include blanks, missing
-columns, unclassified candidate columns, invalid calendars and unknown offsets;
-collection success does not authorize conversion. Original row bodies are not
+columns, unclassified candidate columns, invalid calendars and unknown offsets.
+Separate format-shape counts identify qualified calendar text (including
+PostgreSQL offset spellings), calendars without offsets, dates without times,
+and other values. These shapes do not certify calendar validity or timezone
+provenance; collection success does not authorize conversion. Original row bodies are not
 logged. The explicit disk budget also counts concurrent filesystem consumption,
 and the free-space floor remains required throughout each guarded transfer.
 Put retained output on the copy filesystem. Inspect all refusals before retrying

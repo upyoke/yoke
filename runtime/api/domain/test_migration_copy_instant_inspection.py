@@ -51,6 +51,11 @@ def test_inspection_scans_restored_values_without_applying_history(
             "2026-02-29T00:00:00Z",
             "2026-10-08T24:00:00Z",
             "2026-10-08T16:30:00-00:00",
+            "2026-10-08 16:30:00.123456+00",
+            "2026-10-08 12:30:00-0400",
+            "2026-10-08T16:30:00.1234567+00:00",
+            "2026-10-08",
+            "not an instant",
         ):
             conn.execute("INSERT INTO instant_census_fixture VALUES (%s)", (value,))
         conn.commit()
@@ -61,16 +66,22 @@ def test_inspection_scans_restored_values_without_applying_history(
         assert diagnostic.post_converge_validator(conn, "never-log-this-dsn") is None
         assert (
             conn.execute("SELECT COUNT(*) FROM instant_census_fixture").fetchone()[0]
-            == 7
+            == 12
         )
     report = json.loads((tmp_path / "fixture.instants.json").read_text())
     assert report["complete"]
     column = report["columns"][0]
-    assert column["rows"] == 7
+    assert column["rows"] == 12
     assert column["blank"] == 1
-    assert column["non_rfc3339"] == 2
-    assert column["invalid_calendar_or_value"] == 1
+    assert column["non_rfc3339"] == 7
+    assert column["invalid_calendar_or_value"] == 2
     assert column["unknown_offset"] == 1
+    assert column["format_shapes"] == {
+        "qualified_calendar": 8,
+        "calendar_without_offset": 1,
+        "date_without_time": 1,
+        "other_value": 1,
+    }
     assert "never-log-this-dsn" not in (tmp_path / "fixture.resources.json").read_text()
 
 

@@ -23,6 +23,16 @@ _QUALIFIED = (
     r"([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]"
     r"(\.[0-9]{1,6})?([Zz]|[+-]([01][0-9]|2[0-3]):[0-5][0-9])$"
 )
+_CALENDAR_SHAPE = r"[0-9]{4}-[0-9]{2}-[0-9]{2}"
+_CLOCK_SHAPE = r"[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?"
+_FORMAT_SHAPES = {
+    "qualified_calendar": (
+        rf"^{_CALENDAR_SHAPE}[ Tt]{_CLOCK_SHAPE}"
+        r"([Zz]|[+-][0-9]{2}(:?[0-9]{2})?)$"
+    ),
+    "calendar_without_offset": rf"^{_CALENDAR_SHAPE}[ Tt]{_CLOCK_SHAPE}$",
+    "date_without_time": rf"^{_CALENDAR_SHAPE}$",
+}
 
 
 def _identifier(value: str) -> str:
@@ -73,6 +83,10 @@ def table_query(table: str, columns: list[dict[str, Any]]) -> str:
                 f"COUNT(*) FILTER (WHERE {name} ~ '-00:00$') AS u{index}",
             ]
         )
+        for shape, pattern in _FORMAT_SHAPES.items():
+            projections.append(
+                f"COUNT(*) FILTER (WHERE {name} ~ '{pattern}') AS {shape}{index}"
+            )
     return f"SELECT {', '.join(projections)} FROM {_identifier(table)}"
 
 
@@ -120,6 +134,16 @@ def run_census(
             result = read(table_query(table, columns))
             values = dict(zip(result["columns"], result["rows"][0]))
             for index, column in enumerate(columns):
+                shapes = {
+                    shape: values.get(f"{shape}{index}", 0) for shape in _FORMAT_SHAPES
+                }
+                if column["type"] == "text":
+                    shapes["other_value"] = (
+                        values["row_count"]
+                        - values[f"n{index}"]
+                        - values[f"b{index}"]
+                        - sum(shapes.values())
+                    )
                 report["columns"].append(
                     {
                         **column,
@@ -129,6 +153,7 @@ def run_census(
                         "non_rfc3339": values.get(f"q{index}", 0),
                         "invalid_calendar_or_value": values.get(f"m{index}", 0),
                         "unknown_offset": values.get(f"u{index}", 0),
+                        "format_shapes": shapes if column["type"] == "text" else {},
                     }
                 )
             output.write_text(json.dumps(report, indent=2) + "\n")
