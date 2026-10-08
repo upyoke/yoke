@@ -8,6 +8,8 @@ import uuid
 from datetime import datetime
 from typing import Any
 
+from yoke_core.domain.db_helpers import instant_parameter
+
 from yoke_core.domain import db_backend
 from yoke_core.domain.actor_message_recipients import (
     ResolvedActorRecipient,
@@ -23,7 +25,6 @@ from yoke_core.domain.session_message_reads import (
 from yoke_core.domain.session_message_types import (
     ResolvedRecipient,
     SessionMessageError,
-    timestamp,
 )
 
 
@@ -134,8 +135,8 @@ def insert_message(
             digest,
             selector_json,
             idempotency_key,
-            timestamp(created_at),
-            timestamp(expires_at),
+            instant_parameter(conn, created_at),
+            instant_parameter(conn, expires_at),
             sender_surface,
         ),
     )
@@ -158,7 +159,7 @@ def insert_message(
             ),
             False,
         )
-    created_stamp = timestamp(created_at)
+    created_stamp = instant_parameter(conn, created_at)
     for recipient in recipients:
         conn.execute(
             "INSERT INTO session_message_recipients (message_id, session_id, "
@@ -176,7 +177,7 @@ def insert_message(
                 recipient.machine_id,
                 "pending",
                 created_stamp,
-                timestamp(wake_after_by_project[recipient.project_id]),
+                instant_parameter(conn, wake_after_by_project[recipient.project_id]),
             ),
         )
     insert_actor_recipient_rows(
@@ -235,7 +236,7 @@ def acknowledge_recipient(
         f"WHERE message_id={marker} AND session_id={marker} "
         f"AND state IN ({slots})",
         (
-            timestamp(acknowledged_at),
+            instant_parameter(conn, acknowledged_at),
             message_id,
             session_id,
             *_UNACKNOWLEDGED_STATES,
@@ -266,7 +267,7 @@ def cancel_open_recipients(
     statement pair drifting apart.
     """
     marker = _p(conn)
-    stamp = timestamp(cancelled_at)
+    stamp = instant_parameter(conn, cancelled_at)
     row = conn.execute(
         "SELECT COUNT(*) FROM session_message_recipients "
         f"WHERE session_id = {marker} AND state IN ('pending','injected')",
@@ -301,7 +302,7 @@ def cancel_message_rows(
     details = message_details(conn, message_id)
     if details.get("cancelled_at"):
         return details
-    stamp = timestamp(cancelled_at)
+    stamp = instant_parameter(conn, cancelled_at)
     conn.execute(
         "UPDATE session_messages SET cancelled_at=" + marker + ", "
         "cancelled_by_actor_id=" + marker + ", cancellation_reason=" + marker + " "

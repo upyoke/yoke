@@ -17,6 +17,8 @@ picks it up rather than the operator re-sending it.
 
 from __future__ import annotations
 
+from yoke_core.domain.db_helpers import instant_parameter
+
 import json
 from datetime import datetime
 from typing import Any, Mapping, Sequence
@@ -25,7 +27,6 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.actor_message_recipient_schema import (
     TABLE as RECIPIENT_TABLE,
 )
-from yoke_core.domain.session_message_types import timestamp
 from yoke_core.domain.steering_recipient_candidates import (
     attach_message_bodies,
     load_unsettled_steering_rows,
@@ -96,7 +97,7 @@ def record_steering_recipient(
 ) -> None:
     """Record one role-addressed message, seated or parked."""
     marker = _marker(conn)
-    stamp = timestamp(created_at)
+    stamp = instant_parameter(conn, created_at)
     seated = seat_session_id is not None
     conn.execute(
         f"INSERT INTO {TABLE} (message_id, recipient_kind, actor_id, state, "
@@ -242,7 +243,7 @@ def hand_to_seat(
 ) -> int:
     """Mark drained rows delivered to the seat that just took the scope."""
     marker = _marker(conn)
-    stamp = timestamp(now)
+    stamp = instant_parameter(conn, now)
     lock = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
     handed = 0
     for row in rows:
@@ -287,7 +288,7 @@ def acknowledge_steering_recipient(
         f"AND seat_session_id = {marker} AND state = {marker}",
         (
             STATE_ACKNOWLEDGED,
-            timestamp(now),
+            instant_parameter(conn, now),
             STEERING_KIND,
             str(message_id),
             str(session_id),

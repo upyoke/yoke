@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from yoke_contracts.timestamps import temporal_wire
 from yoke_contracts.session_control.sender_surface import sender_surface_label
 from yoke_core.domain import db_backend
 from yoke_core.domain.actor_message_recipients import (
@@ -97,7 +98,7 @@ def message_details(conn: Any, message_id: str) -> dict[str, Any]:
         )
     )
     message.update(message_attempt_evidence(conn, message_id))
-    return message
+    return temporal_wire(message)
 
 
 def message_summary(conn: Any, message_id: str) -> dict[str, Any]:
@@ -135,7 +136,7 @@ def message_summary(conn: Any, message_id: str) -> dict[str, Any]:
             sender_surface=message.get("sender_surface"),
         )
     )
-    return message
+    return temporal_wire(message)
 
 
 _UNACKNOWLEDGED_STATES: tuple[str, ...] = ("pending", "injected")

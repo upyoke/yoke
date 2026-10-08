@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.db_helpers import instant_parameter
+
 from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
@@ -56,7 +58,7 @@ def complete_hook_lease(
     )
 
     current = utc_now()
-    stamp = timestamp(current)
+    stamp = instant_parameter(conn, current)
     marker = _p(conn)
     completed: list[dict[str, Any]] = []
     per_message = dict(message_results or {})

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.db_helpers import instant_parameter
+
 from datetime import datetime, timedelta
 from typing import Any, Mapping
 
@@ -46,7 +48,6 @@ from yoke_core.domain.session_wake_process_absence import (
 from yoke_core.domain.session_message_types import (
     parse_timestamp,
     row_dict,
-    timestamp,
     utc_now,
 )
 from yoke_core.domain.session_relay_machine_versions import (
@@ -183,9 +184,9 @@ def wake_eligible_recipients(
             + ")"
             + " ORDER BY r.wake_after,r.message_id,r.session_id",
             (
-                timestamp(current),
-                timestamp(current),
-                timestamp(current),
+                instant_parameter(conn, current),
+                instant_parameter(conn, current),
+                instant_parameter(conn, current),
                 *open_attempt_params,
             ),
         ).fetchall()

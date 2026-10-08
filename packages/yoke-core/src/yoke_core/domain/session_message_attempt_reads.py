@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_contracts.timestamps import format_instant, parse_instant
+
 from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_core.domain import db_backend, json_helper
 
@@ -44,8 +46,10 @@ def message_attempt_evidence(conn: Any, message_id: str) -> dict[str, Any]:
             "broker_session_id": str(row[2]) if row[2] is not None else None,
             "attempt_kind": str(row[3]),
             "adapter_revision": str(row[4]) if row[4] is not None else None,
-            "started_at": str(row[5]),
-            "completed_at": str(row[6]) if row[6] is not None else None,
+            "started_at": format_instant(parse_instant(row[5])),
+            "completed_at": format_instant(parse_instant(row[6]))
+            if row[6] is not None
+            else None,
             "result_code": str(row[7]) if row[7] is not None else None,
             "evidence": _evidence(row[8]),
         }

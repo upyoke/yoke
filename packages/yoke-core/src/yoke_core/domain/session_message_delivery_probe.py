@@ -19,6 +19,8 @@ per hook.
 
 from __future__ import annotations
 
+from yoke_core.domain.db_helpers import instant_parameter
+
 from datetime import datetime
 from typing import Any
 from uuid import NAMESPACE_URL, uuid5
@@ -26,7 +28,7 @@ from uuid import NAMESPACE_URL, uuid5
 from yoke_core.domain import db_backend
 from yoke_core.domain.json_helper import dumps_compact
 from yoke_core.domain.session_message_delivery import _begin_mutation
-from yoke_core.domain.session_message_types import timestamp, utc_now
+from yoke_core.domain.session_message_types import utc_now
 
 
 DELIVERY_PROBE_ADAPTER_REVISION = "session-message-delivery-probe-v1"
@@ -109,7 +111,7 @@ def record_undelivered_receipts(
     if not session:
         return 0
     current = now or utc_now()
-    stamp = timestamp(current)
+    stamp = instant_parameter(conn, current)
     marker = _p(conn)
     # The reason itself is the row's ``result_code``; evidence carries only
     # what that column cannot say. Both keys are on the shared read
