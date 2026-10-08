@@ -9,6 +9,7 @@ from typing import Any
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.qa_execution_proof import qa_run_outcome
+from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
 
 
 _RELATED_PLAN_STATE_ORDER = {
@@ -61,9 +62,7 @@ def _latest_method_results(
         "AND c.case_key=q.plan_case_key AND c.method_id=q.method_id "
         "JOIN qa_plans p ON p.id=q.plan_id "
         "LEFT JOIN qa_runs r ON r.id=("
-        "SELECT rr.id FROM qa_runs rr "
-        "WHERE rr.qa_requirement_id=q.id "
-        "ORDER BY rr.created_at DESC, rr.id DESC LIMIT 1"
+        f"{latest_execution_id_sql('q.id')}"
         ") "
         f"WHERE q.method_id={marker} AND p.retired_at IS NULL "
         + project_filter

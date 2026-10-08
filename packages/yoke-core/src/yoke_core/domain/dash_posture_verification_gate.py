@@ -69,7 +69,13 @@ def _requirement_consumed(
             return not pre_merge and source_obligation_consumed(
                 conn, item_id=int(item_id), source_requirement_id=replacement_id
             )
-        row = effective_requirement(conn, int(row["id"]))
+        try:
+            row = effective_requirement(conn, int(row["id"]))
+        except ValueError as exc:
+            if not str(exc).startswith("replacement_graph_invalid:"):
+                raise
+            row["settlement_error"] = str(exc)
+            return False
         row["triage_discharge"] = (
             current_simulation_triage(conn, int(row["id"]))
             if row.get("qa_kind") == "simulation"
@@ -253,6 +259,11 @@ def verification_gate(
             "Selected Dash QA requirement(s) are not satisfied here: "
             + "; ".join(
                 f"{row['id']}"
+                + (
+                    f" ({row['settlement_error']})"
+                    if row.get("settlement_error")
+                    else ""
+                )
                 + replacement_note(
                     {
                         "replacement_requirement_id": row.get(

@@ -17,7 +17,9 @@ import json
 import os
 from typing import Optional
 
-from yoke_core.domain.db_helpers import query_one, query_scalar
+from yoke_core.domain.db_helpers import query_one, query_rows
+from yoke_core.domain.qa_obligation_settlement import effective_requirement
+from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 from yoke_core.domain.epic_parsing import (
     _parse_simulation_result,
     _placeholder,
@@ -71,32 +73,33 @@ def _ensure_implementation_review_requirement(
     """
     _require_task_exists(conn, epic_id, task_num)
 
-    # Prefer the live blocking requirement that still needs satisfaction
-    existing = query_scalar(
+    candidates = query_rows(
         conn,
-        f"""SELECT q.id
-           FROM qa_requirements q
-           WHERE q.epic_id={_placeholder(conn)} AND q.task_num={_placeholder(conn)}
-             AND q.qa_kind='implementation_review' AND q.qa_phase='verification'
-           ORDER BY
-             CASE
-               WHEN q.waived_at IS NULL
-                 AND q.blocking_mode='blocking'
-                 AND NOT EXISTS (
-                   SELECT 1 FROM qa_runs qr
-                   WHERE qr.qa_requirement_id = q.id AND qr.verdict='pass'
-                 ) THEN 0
-               WHEN q.waived_at IS NULL AND q.blocking_mode='blocking' THEN 1
-               WHEN q.waived_at IS NULL THEN 2
-               ELSE 3
-             END,
-             q.id ASC
-           LIMIT 1""",
+        f"SELECT id FROM qa_requirements WHERE epic_id={_placeholder(conn)} "
+        f"AND task_num={_placeholder(conn)} "
+        "AND qa_kind='implementation_review' AND qa_phase='verification'",
         (str(epic_id), task_num),
     )
+    effective = {
+        int(row["id"]): row
+        for candidate in candidates
+        for row in [effective_requirement(conn, int(candidate["id"]))]
+    }
+    if effective:
 
-    if existing and existing != 0:
-        return int(existing)
+        def priority(row):
+            blocking = row["blocking_mode"] == "blocking"
+            discharged = bool(row["waived_at"] or row.get("retracted_at"))
+            return (
+                discharged,
+                not blocking,
+                has_current_passing_run(conn, int(row["id"]))
+                if not discharged
+                else False,
+                int(row["id"]),
+            )
+
+        return int(min(effective.values(), key=priority)["id"])
 
     workflow_transition_id = item_transition_for_gate(
         conn,

@@ -128,6 +128,8 @@ def test_unproven_replacement_still_blocks_and_names_the_case(dash_db_path, stat
     assert f"replacement #{replacement}" in blocked["error"]
     assert "independent verdict" in blocked["remediation_hint"]
     assert "same candidate" in blocked["remediation_hint"]
+    if state == "other_scope":
+        assert "replacement_graph_invalid" in blocked["error"]
 
 
 def test_original_without_replacement_keeps_its_own_pass_rule(dash_db_path):
