@@ -153,7 +153,7 @@ test("Active membership follows live claims, not lifecycle status", async (t) =>
   mounted.unmount();
 });
 
-test("an On hold card ends at its reason chip; Ready keeps its next step", async (t) => {
+test("On hold and Ready cards omit raw command metadata", async (t) => {
   stubFetch(t);
   const { mounted, root } = await mountAt("/frontier?project=1", workbenchClient());
 
@@ -167,13 +167,9 @@ test("an On hold card ends at its reason chip; Ready keeps its next step", async
   );
   assert.equal(byClass(held, "work-item-card-meta").length, 0);
 
-  // Ready's meta is the item's real next step, which is why that band keeps
-  // one: it tells the reader something the chip above it does not.
+  // Ready cards also omit harness command text; the card links to item detail.
   const ready = byClass(root, "work-band-ready")[0];
-  assert.deepEqual(
-    byClass(ready, "work-item-card-meta").map((node) => node.textContent),
-    ["yoke implement YOK-9"],
-  );
+  assert.equal(byClass(ready, "work-item-card-meta").length, 0);
   mounted.unmount();
 });
 

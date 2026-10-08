@@ -153,7 +153,6 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
           text: row.why_ready || "No blocker is holding this item.",
           tone: "ready",
         },
-        meta: row.run_command || row.next_step,
         timestamp: row.created_at,
         timeLabel: "filed",
       },
