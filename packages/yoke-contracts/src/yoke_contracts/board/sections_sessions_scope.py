@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any, List, Tuple
 
 from yoke_contracts.board.board_db import BoardDBLike
@@ -10,10 +9,8 @@ from yoke_contracts.board.project_scope import (
     scope_project_id,
     visible_project_ids,
 )
-from yoke_contracts.session_level import level_presentation
-from yoke_contracts.project_contract.project_keys import (
-    SESSION_ROUTING_CAPABILITY,
-)
+from yoke_contracts.board.sections_sessions_levels import board_levels
+from yoke_contracts.levels import level_presentation
 from yoke_contracts.coordination_claim_keys import (
     COORDINATION_TARGET_KINDS,
 )
@@ -118,31 +115,12 @@ def session_level_presentation(
     project_id: Any,
     level: Any,
 ) -> dict[str, str]:
-    """Read one level's display metadata from its project capability."""
+    """Read one level's label and glyph from the levels its project reads."""
     try:
-        normalized_project_id = int(project_id)
+        normalized_project_id: int | None = int(project_id)
     except (TypeError, ValueError):
-        return level_presentation(str(level or ""))
-    sql = (
-        "SELECT settings FROM project_capabilities WHERE project_id = %s AND type = %s"
-    )
-    params = (normalized_project_id, SESSION_ROUTING_CAPABILITY)
-    has_query_quiet = getattr(db, "has_query_quiet", None)
-    if callable(has_query_quiet) and not has_query_quiet(sql, params):
-        return level_presentation(str(level or ""))
-    rows = db.query_quiet(sql, params)
-    if not rows:
-        return level_presentation(str(level or ""))
-    raw_settings = rows[0][0]
-    try:
-        settings = (
-            raw_settings
-            if isinstance(raw_settings, dict)
-            else json.loads(str(raw_settings or "{}"))
-        )
-    except (TypeError, ValueError):
-        settings = {}
-    return level_presentation(str(level or ""), settings)
+        normalized_project_id = None
+    return level_presentation(board_levels(db, normalized_project_id), level)
 
 
 def _scope_filter(

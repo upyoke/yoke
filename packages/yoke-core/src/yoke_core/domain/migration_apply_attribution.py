@@ -18,10 +18,8 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, Iterable, Mapping, Optional
 
-from yoke_contracts.session_level import (
-    DEFAULT_LEVEL_METADATA,
-    UNRESOLVED_EXECUTION_LEVEL,
-)
+from yoke_contracts.level_defaults import DEFAULT_LEVELS
+from yoke_contracts.session_level import UNRESOLVED_EXECUTION_LEVEL
 from yoke_core.domain.migration_apply_contract import MigrationApplyError
 from yoke_core.domain.migration_model_capability_defaults import DEFAULT_MODEL_NAME
 
@@ -180,7 +178,7 @@ def _git_capture(worktree_path: Path, argv: list[str]) -> Optional[str]:
 
 
 def _known_execution_levels(extra: Iterable[str]) -> frozenset[str]:
-    levels = {UNRESOLVED_EXECUTION_LEVEL, *DEFAULT_LEVEL_METADATA}
+    levels = {UNRESOLVED_EXECUTION_LEVEL, *(level["name"] for level in DEFAULT_LEVELS)}
     levels.update(str(name).strip() for name in extra if str(name).strip())
     return frozenset(levels)
 

@@ -24,11 +24,11 @@ from yoke_core.domain.sessions import (
     heartbeat,
     register_session,
 )
-from yoke_core.domain.session_routing_rules import routing_model_of
 from yoke_core.api.routing_config import (
-    load_project_routing_settings,
-    load_routing_config,
     resolve_execution_level,
+    routing_effort_of,
+    routing_model_of,
+    session_levels,
 )
 
 router = APIRouter()
@@ -67,22 +67,17 @@ def api_register_session(req: RegisterSessionRequest) -> JSONResponse:
     _main = _main_api()
     conn = _main.get_db_readwrite()
     try:
-        execution_level = req.execution_level
-        project_routing = load_project_routing_settings(conn, req.project_id)
-        if project_routing:
-            routing_config = load_routing_config(
-                _main.get_config_path(),
-                project_settings=project_routing,
-            )
-            # The request's own level is passed as the explicit choice: a real
-            # level is honoured, while the unresolved sentinel yields to the
-            # project's executor mapping instead of overruling it.
-            execution_level = resolve_execution_level(
-                executor=req.executor,
-                explicit_level=req.execution_level,
-                routing_config=routing_config,
-                model=routing_model_of(req.model, req.requested_model),
-            )
+        # The request's own level is the explicit choice: a real level is
+        # honoured, while the unresolved sentinel yields to the option match.
+        execution_level = resolve_execution_level(
+            executor=req.executor,
+            explicit_level=req.execution_level,
+            levels=session_levels(conn, req.project_id),
+            model=routing_model_of(req.model, req.requested_model),
+            reasoning_effort=routing_effort_of(
+                req.reasoning_effort, req.requested_reasoning_effort
+            ),
+        )
         result = register_session(
             conn,
             session_id=req.session_id,

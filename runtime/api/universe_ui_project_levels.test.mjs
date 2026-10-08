@@ -18,37 +18,44 @@ function ok(result) {
 const SUMMARY = {
   project: "yoke",
   project_id: 1,
-  configured: true,
-  unrouted_harnesses: [],
-  harnesses: [
-    { id: "claude-code", label: "Claude Code" },
-    { id: "codex", label: "Codex" },
-    { id: "cursor", label: "Cursor" },
-  ],
+  source: "universe",
+  configured: false,
   levels: [
     {
-      id: "DARIUS",
-      label: "DARIUS",
-      glyph: "🐎",
-      matches: [],
-      default_for: ["Claude Code"],
-    },
-    {
-      id: "ALTMAN",
-      label: "SPECS",
-      glyph: "👓",
-      matches: [
-        { level: "ALTMAN", harness: "cursor", model: "gpt-*" },
-        { level: "ALTMAN", harness: null, model: "claude-opus-5" },
+      name: "JUNIOR",
+      glyph: "🐥",
+      options: [
+        {
+          surface: "cursor-cli",
+          model: "grok-4.7-high",
+          reasoning_effort: "high",
+          context_window_tokens: null,
+          fallback: {
+            surface: "cursor-cli",
+            model: "claude-opus-5-5-medium",
+            reasoning_effort: "medium",
+            context_window_tokens: null,
+          },
+        },
+        {
+          surface: "claude-cli",
+          model: "claude-sonnet-5-5",
+          reasoning_effort: "xhigh",
+          context_window_tokens: 1000000,
+        },
       ],
-      default_for: [],
     },
     {
-      id: "MUSKY",
-      label: "MUSKY",
-      glyph: "🛸",
-      matches: [{ level: "MUSKY", harness: "cursor", model: null }],
-      default_for: ["Cursor"],
+      name: "SENIOR",
+      glyph: "🦉",
+      options: [
+        {
+          surface: "claude-cli",
+          model: "claude-opus-5-5",
+          reasoning_effort: "medium",
+          context_window_tokens: 1000000,
+        },
+      ],
     },
   ],
 };
@@ -114,33 +121,39 @@ test("the level summary keeps every production project fact", async (t) => {
   }
 });
 
-test("each level shows its glyph, label, matches and defaults", async (t) => {
+test("each level shows its glyph, name, and ordered options", async (t) => {
   const root = await mountProject(t, 1, client());
 
-  const darius = levelRow(root, "DARIUS");
-  assert.ok(darius, "DARIUS row missing");
-  assert.equal(byClass(darius, "level-glyph")[0].textContent, "🐎");
-  // Presentation is the configured label; the identity stays DARIUS.
-  const altman = levelRow(root, "ALTMAN");
-  assert.ok(visibleText(altman, "\n").includes("SPECS"));
+  const junior = levelRow(root, "JUNIOR");
+  assert.ok(junior, "JUNIOR row missing");
+  assert.equal(byClass(junior, "level-glyph")[0].textContent, "🐥");
+  assert.ok(visibleText(junior, "\n").includes("JUNIOR"));
 
-  // Several matches on one level are alternatives, and all are shown.
-  const matches = byClass(altman, "level-match-summary");
-  assert.equal(matches.length, 2);
-  assert.ok(visibleText(matches[0], " ").includes("Cursor"));
-  assert.ok(visibleText(matches[0], " ").includes("gpt-*"));
-  assert.ok(visibleText(matches[1], " ").includes("Any harness"));
-
-  assert.ok(visibleText(darius, "\n").includes("Claude Code"));
+  const options = byClass(junior, "level-option");
+  assert.equal(options.length, 3, "two options plus one fallback");
+  assert.ok(visibleText(options[0], " ").includes("grok-4.7-high"));
+  assert.ok(visibleText(options[0], " ").includes("high · default context"));
+  assert.ok(options[1].className.includes("level-fallback"));
+  assert.ok(visibleText(options[1], " ").includes("claude-opus-5-5-medium"));
+  assert.ok(visibleText(options[2], " ").includes("1,000,000 tokens"));
 });
 
-test("level rows contain three grouping columns", async (t) => {
+test("level rows contain a level and an options column", async (t) => {
   const root = await mountProject(t, 1, client());
   for (const level of SUMMARY.levels) {
-    assert.equal(levelRow(root, level.id).children.length, 3);
+    assert.equal(levelRow(root, level.name).children.length, 2);
   }
-  const panelText = visibleText(byClass(root, "level-settings")[0], "\n");
-  assert.ok(!panelText.includes("Allowed actions"));
+});
+
+test("the source of the levels is named", async (t) => {
+  const universe = await mountProject(t, 1, client());
+  assert.ok(visibleText(universe, "\n").includes("Universe levels"));
+  const override = await mountProject(t, 1, client({
+    "projects.level_summary.get": () => ok({
+      ...SUMMARY, source: "project", configured: true,
+    }),
+  }));
+  assert.ok(visibleText(override, "\n").includes("This project's override"));
 });
 
 test(
@@ -162,18 +175,12 @@ test(
       "only the approved title-limit editor may carry a write control",
     );
 
-    // Every other omission still holds outside the approved editor.
     const levelSettingsText = visibleText(byClass(main, "level-settings")[0], "\n");
     assert.ok(levelSettingsText.includes("Edit with your harness"));
     assert.ok(levelSettingsText.includes("tell your agent to use"));
+    assert.ok(levelSettingsText.includes("yoke universe levels set"));
     assert.ok(levelSettingsText.includes("yoke projects capability-settings"));
-    assert.ok(levelSettingsText.includes(
-      "explicit override → harness + model → model → harness → default.",
-    ));
-    assert.ok(!levelSettingsText.includes("Project level settings"));
     assert.ok(!levelSettingsText.includes("Save"));
-    assert.ok(!levelSettingsText.includes("Delivery defaults"));
-    assert.ok(!levelSettingsText.includes("Architecture"));
   },
 );
 
@@ -192,23 +199,10 @@ test("a read failure says so rather than showing an empty settings table", async
   const root = await mountProject(t, 1, client({
     "projects.level_summary.get": () => ({
       status: 500,
-      envelope: { success: false, error: { message: "routing read failed" } },
+      envelope: { success: false, error: { message: "levels read failed" } },
     }),
   }));
   const text = visibleText(root, "\n");
   assert.ok(text.includes("read failed"));
-  assert.ok(text.includes("routing read failed"));
-  assert.ok(!text.includes("No levels configured"));
-});
-
-test("a harness that routes nowhere is named", async (t) => {
-  const root = await mountProject(t, 1, client({
-    "projects.level_summary.get": () => ok({
-      ...SUMMARY, unrouted_harnesses: ["Codex", "Cursor"],
-    }),
-  }));
-  const notice = byClass(root, "level-unrouted")[0];
-  assert.ok(notice);
-  assert.ok(notice.textContent.includes("Codex, Cursor"));
-  assert.ok(notice.textContent.includes("no configured level grouping"));
+  assert.ok(text.includes("levels read failed"));
 });

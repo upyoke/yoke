@@ -149,7 +149,7 @@ INSTALLER_ADAPTERS: List[AdapterEntry] = [
     _read_entry(
         function_id="projects.level_summary.get",
         cli_invocation="yoke projects level-summary get --project NAME",
-        notes="Composes the project's effective session level routing — label and glyph per level, the harness/model selectors routing to it, the harnesses defaulting to it, and any harness with no configured grouping. Read-only; edits go through projects capability-settings on the session-routing capability.",
+        notes="Reads the execution levels a project uses — its session-routing override when present, else the universe levels — with each level's glyph and ordered options. Read-only; the override is written through projects capability-settings on the session-routing capability.",
     ),
     _read_entry(
         function_id="projects.environment_settings.get",

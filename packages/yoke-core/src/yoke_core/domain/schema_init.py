@@ -26,6 +26,7 @@ from yoke_core.domain.model_reference_store import (
     seed_initial_catalog,
 )
 from yoke_core.domain.org_schema import seed_default_org
+from yoke_core.domain.universe_levels import create_universe_settings_table
 from yoke_core.domain.ouroboros_entry_corrections import (
     ensure_ouroboros_entry_corrections_schema,
 )
@@ -48,15 +49,12 @@ from yoke_core.domain.qa_catalog_schema import (
 from yoke_core.domain.qa_plan_execution_schema import (
     converge_qa_plan_execution_schema,
 )
-from yoke_core.domain.qa_plan_review_schema import (
-    ensure_qa_plan_review_schema,
-)
+from yoke_core.domain.qa_plan_review_schema import ensure_qa_plan_review_schema
 from yoke_contracts.schema_authority import (
     refuse_without_serving_build_authority,
 )
 from yoke_core.domain import db_backend
-from yoke_core.domain.schema_common import _connect_raw
-from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.schema_common import _connect_raw, _table_exists
 from yoke_core.domain.schema_init_actor_path_claim_tables import (
     create_actor_identity_tables,
     create_actor_path_claim_tables,
@@ -191,6 +189,7 @@ def converge_core_schema(conn, *, backup_target_dsn: str | None = None) -> None:
 
     create_core_tables(conn)
     create_model_reference_table(conn)
+    create_universe_settings_table(conn)
     apply_work_claim_scope_column(conn)
     create_actor_identity_tables(conn)
     # actor_ui_preferences FKs into actors, so this follows the identity step.

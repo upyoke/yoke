@@ -1,18 +1,14 @@
-"""The registered read behind the Project settings level summary.
+"""The registered read behind a project's execution levels.
 
-The summary shows what routing will actually do, which is a different
-document from the one stored: defaults sit underneath a partial stored
-capability, level labels and glyphs fall back when unset, and "which
-harnesses land here by default" is the answer to running each harness
-through the resolver rather than a key anyone typed. Composing that in the
-browser would mean a second implementation of precedence, so it is
-composed here and the page renders what it is handed.
-
+A project reads its ``session-routing`` override when it carries one and the
+universe levels otherwise. This read answers which, and returns the levels
+themselves — glyph and ordered options per level, lowest first — so every
+surface shows what labeling and launch will actually use.
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
@@ -21,16 +17,12 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
-from yoke_contracts.executor_labels import (
-    CANONICAL_HARNESS_IDS,
-    harness_display_name,
-)
-from yoke_contracts.session_level import level_is_unresolved, level_presentation
+from yoke_contracts.levels import LevelsError, levels_payload
 from yoke_core.domain.pydantic_validation_safety import safe_validation_message
 
 
 class LevelSummaryGetRequest(BaseModel):
-    """Select one project's effective level routing summary."""
+    """Select one project's effective execution levels."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -40,10 +32,9 @@ class LevelSummaryGetRequest(BaseModel):
 class LevelSummaryResponse(BaseModel):
     project: str
     project_id: int
+    source: str
     configured: bool
     levels: List[Dict[str, Any]]
-    unrouted_harnesses: List[str]
-    harnesses: List[Dict[str, str]]
 
 
 def _authorized_project_ref(request: FunctionCallRequest, payload_project: str) -> str:
@@ -54,128 +45,44 @@ def _authorized_project_ref(request: FunctionCallRequest, payload_project: str) 
     return str(int(authorized))
 
 
-def _declared_levels(config: Any) -> tuple[str, ...]:
-    """Return every level the effective configuration can route onto.
-
-    Ordered so the summary reads the same on every load: the levels with a
-    harness defaults first in configured order, then rules and metadata.
-    """
-    ordered: List[str] = []
-    for level in (
-        *config.executor_default_levels.values(),
-        *config.executor_wildcard_levels.values(),
-        *(rule.level for rule in config.level_rules),
-        *config.level_metadata,
-    ):
-        if level and level not in ordered:
-            ordered.append(level)
-    return tuple(ordered)
-
-
-def _harness_defaults(config: Any) -> tuple[Dict[str, List[str]], List[str]]:
-    """Resolve where each harness lands with no model attested.
-
-    Run through the resolver rather than read off ``executor_default_levels``:
-    a harness-only rule is as much a default as that key is, and only the
-    resolver knows which of them wins. A harness that resolves to the
-    unresolved sentinel lands on no level at all, and is returned separately
-    so the page can say so — otherwise it would simply be absent from every
-    row, which reads like a level nobody defaults to rather than a harness
-    that cannot be routed.
-    """
-    by_level: Dict[str, List[str]] = {}
-    unrouted: List[str] = []
-    for harness_id in CANONICAL_HARNESS_IDS:
-        level = config.level_for_session(executor=harness_id)
-        label = harness_display_name(harness_id)
-        if level_is_unresolved(level):
-            unrouted.append(label)
-            continue
-        by_level.setdefault(level, []).append(label)
-    return by_level, unrouted
-
-
-def _level_rows(
-    config: Any, settings: Dict[str, Any], defaults_by_level: Dict[str, List[str]]
-) -> List[Dict[str, Any]]:
-    rows: List[Dict[str, Any]] = []
-    for level in _declared_levels(config):
-        presentation = level_presentation(level, settings)
-        rows.append(
-            {
-                "id": level,
-                "label": presentation["label"],
-                "glyph": presentation["glyph"],
-                "matches": [
-                    rule.as_payload()
-                    for rule in config.level_rules
-                    if rule.level == level
-                ],
-                "default_for": defaults_by_level.get(level, []),
-            }
-        )
-    return rows
-
-
 def handle_level_summary_get(request: FunctionCallRequest) -> HandlerOutcome:
-    """Return the project's effective level routing, ready to render."""
+    """Return the project's effective levels and where they come from."""
     try:
         parsed = LevelSummaryGetRequest(**(request.payload or {}))
     except ValidationError as exc:
         return _failure("payload_invalid", safe_validation_message(exc), "$.payload")
 
-    from yoke_core.api.routing_config import (
-        load_project_routing_settings,
-        load_routing_config,
-    )
-    from yoke_core.domain import json_helper
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.project_identity import resolve_project_id
-    from yoke_core.domain.projects_capabilities_settings import (
-        cmd_capability_get_settings,
-    )
-    from yoke_contracts.project_contract.project_keys import (
-        SESSION_ROUTING_CAPABILITY,
-    )
+    from yoke_core.domain.universe_levels import UniverseLevelsError, effective_levels
 
     project_ref = _authorized_project_ref(request, parsed.project)
     try:
-        stored = cmd_capability_get_settings(project_ref, SESSION_ROUTING_CAPABILITY)
         with connect() as conn:
             project_id = resolve_project_id(conn, project_ref)
-            raw_settings = load_project_routing_settings(conn, project_id)
+            levels, source = effective_levels(conn, project_id)
     except LookupError as exc:
         return _failure("not_found", str(exc), "$.payload.project")
-    except ValueError as exc:
-        return _failure("validation_error", str(exc), "$.payload")
-
-    config = load_routing_config("", project_settings=raw_settings)
-    settings = _stored_settings(stored, json_helper)
-    defaults_by_level, unrouted = _harness_defaults(config)
+    except LevelsError as exc:
+        return _failure(
+            exc.code,
+            f"the stored levels no longer validate at {exc.field}: {exc.detail} "
+            "Recovery: rewrite the project override with `yoke projects "
+            "capability-settings set --cap-type session-routing`, or the "
+            "universe levels with `yoke universe levels set --stdin`.",
+            "$.payload.project",
+        )
+    except (UniverseLevelsError, ValueError) as exc:
+        return _failure(getattr(exc, "code", "validation_error"), str(exc), "$.payload")
     return HandlerOutcome(
         result_payload={
             "project": parsed.project,
             "project_id": project_id,
-            "configured": stored is not None,
-            "levels": _level_rows(config, settings, defaults_by_level),
-            "unrouted_harnesses": unrouted,
-            "harnesses": [
-                {"id": harness_id, "label": harness_display_name(harness_id)}
-                for harness_id in CANONICAL_HARNESS_IDS
-            ],
+            "source": source,
+            "configured": source == "project",
+            "levels": levels_payload(levels),
         }
     )
-
-
-def _stored_settings(stored: Optional[str], json_helper: Any) -> Dict[str, Any]:
-    """Return the stored document as a mapping, or empty when unreadable."""
-    if not stored:
-        return {}
-    try:
-        parsed = json_helper.loads_text(stored)
-    except Exception:  # noqa: BLE001 - presentation must survive a bad row
-        return {}
-    return parsed if isinstance(parsed, dict) else {}
 
 
 def _failure(code: str, message: str, jsonpath: str) -> HandlerOutcome:

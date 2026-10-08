@@ -90,7 +90,7 @@ def test_list_models_separates_flag_grammar_from_observed_availability(
 
     assert result == 0
     rendered = capsys.readouterr().out
-    assert "effort: low, medium, high, max" in rendered
+    assert "effort: low, medium, high, xhigh, max" in rendered
     assert "context: 1m" in rendered
     assert NO_ADAPTER_REASON in rendered
 

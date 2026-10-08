@@ -29,7 +29,7 @@ from yoke_core.domain.model_reference_store import (
     revision_schedule,
 )
 from yoke_core.domain.session_presentation_read import (
-    level_settings_by_project,
+    levels_by_project,
     session_presentation,
 )
 from yoke_core.domain.session_staleness import (
@@ -93,10 +93,7 @@ def render_session_roster_rows(
     page = [dict(raw) for raw in rows]
     schedule = revision_schedule(conn) if page else []
     actor_names = render_actor_names(conn, (row.get("actor_id") for row in page))
-    level_settings = level_settings_by_project(
-        conn,
-        (row.get("project_id") for row in page),
-    )
+    levels = levels_by_project(conn, (row.get("project_id") for row in page))
     item_refs = render_item_ref_lookup(
         conn,
         (
@@ -146,7 +143,7 @@ def render_session_roster_rows(
             roles=roles_by_session.get(session_id, []),
             item_holders=item_holders,
         )
-        presentation = session_presentation(row, level_settings=level_settings)
+        presentation = session_presentation(row, levels=levels)
         holdings = holdings_by_session.get(session_id) or empty_holdings
         landing_wait = any(
             entry.get(ITEM_AWAITING_LANDING_KEY) for entry in holdings["current"]

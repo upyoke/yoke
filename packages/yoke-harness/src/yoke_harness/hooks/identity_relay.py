@@ -4,13 +4,11 @@ from __future__ import annotations
 
 import json
 import os
-import re
 from pathlib import Path
 from typing import Any, Optional
 
 from yoke_cli.config import machine_config
 from yoke_contracts.session_execution import SUBAGENT_EXECUTION_PAYLOAD_KEY
-from yoke_contracts.session_level import EXECUTOR_DEFAULT_LEVEL_PREFIX
 from yoke_contracts.cursor_session_map import (
     CURSOR_CONVERSATION_ENV_VAR,
     CURSOR_SESSION_MAP_DIR_NAME,
@@ -40,68 +38,6 @@ from yoke_harness.hooks.identity_model_facts import (
     resolve_model_facts,
 )
 from yoke_harness.hooks.identity_usage_facts import client_usage_facts
-
-
-_EXECUTOR_PREFIX = EXECUTOR_DEFAULT_LEVEL_PREFIX
-
-
-def _normalize_config_token(value: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "_", value.strip().lower()).strip("_")
-
-
-def _normalize_prefix_token(prefix: str) -> str:
-    folded = re.sub(r"[^a-z0-9]+", "_", prefix.strip().lower())
-    return folded.lstrip("_")
-
-
-def _routing_settings() -> dict[str, str]:
-    cfg = machine_config.load_config()
-    settings = cfg.get("settings")
-    if not isinstance(settings, dict):
-        return {}
-    return {str(k): str(v) for k, v in settings.items()}
-
-
-def client_level(event_name: str, executor: str) -> Optional[str]:
-    """Return the machine-config level for ``executor``, or ``None``.
-
-    ``None`` means "this client has no level opinion" and is the answer
-    whenever machine config declares no matching executor key — the common
-    case, because routing policy normally lives in the project's
-    ``session-routing`` capability, which only the server can read. Inventing
-    a placeholder here instead would ship an explicit level on the wire and
-    overrule that project policy at registration.
-    """
-    if event_name not in REGISTRATION_EVENTS:
-        return None
-    try:
-        token = _normalize_config_token(executor)
-        exact: dict[str, str] = {}
-        wildcards: dict[str, str] = {}
-        for key, value in _routing_settings().items():
-            if not key.startswith(_EXECUTOR_PREFIX) or not value:
-                continue
-            raw = key[len(_EXECUTOR_PREFIX) :]
-            if "*" in raw:
-                if raw.endswith("*"):
-                    wildcards[_normalize_prefix_token(raw[:-1])] = value.strip()
-            else:
-                exact[_normalize_config_token(raw)] = value.strip()
-        if token in exact:
-            return exact[token]
-        matched = None
-        for prefix in wildcards:
-            if token.startswith(prefix) and (
-                matched is None
-                or len(prefix) > len(matched)
-                or (len(prefix) == len(matched) and prefix < matched)
-            ):
-                matched = prefix
-        if matched is not None:
-            return wildcards[matched]
-        return exact.get("unknown") or None
-    except Exception:
-        return None
 
 
 def client_entrypoint(executor: str, payload: dict[str, Any]) -> Optional[str]:
@@ -208,7 +144,6 @@ def relay_identity_payload(
         "entrypoint": entrypoint,
         **client_model_facts(event_name, payload, executor),
         **client_usage_facts(payload, executor),
-        "execution_level": client_level(event_name, executor),
         "project_id": client_project_id(payload),
         "executor_version": client_executor_version(executor, entrypoint),
         "machine_id": client_machine_id(),
@@ -225,7 +160,6 @@ __all__ = [
     "REGISTRATION_EVENTS",
     "client_entrypoint",
     "client_executor_version",
-    "client_level",
     "client_machine_id",
     "client_model_facts",
     "client_usage_facts",

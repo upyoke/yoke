@@ -25,10 +25,7 @@ def _subprocess_pythonpath() -> str:
 
 
 def _connected_env_allowed_in_this_process() -> bool:
-    if (
-        os.environ.get("PYTEST_CURRENT_TEST")
-        or "pytest" in sys.modules
-    ):
+    if os.environ.get("PYTEST_CURRENT_TEST") or "pytest" in sys.modules:
         from yoke_core.domain import yoke_connected_env
 
         return os.environ.get(yoke_connected_env.PYTEST_ENABLE_ENV) == "1"
@@ -139,21 +136,3 @@ def _get_db_readwrite():
 
     _ensure_repo_backend_env()
     return db_backend.connect()
-
-
-def _load_routing_config(conn=None, project_id=None):
-    """Load effective routing policy from project capability + machine config."""
-    from yoke_core.api.routing_config import (
-        load_project_routing_settings,
-        load_routing_config,
-    )
-
-    project_settings = (
-        load_project_routing_settings(conn, project_id)
-        if conn is not None and project_id is not None
-        else None
-    )
-    return load_routing_config(
-        _get_config_path(),
-        project_settings=project_settings,
-    )

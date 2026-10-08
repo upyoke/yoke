@@ -14,7 +14,7 @@ from typing import Optional
 
 from yoke_contracts.session_model_facts import SessionModelFacts
 
-from yoke_core.domain.session_routing_rules import routing_model_of
+from yoke_core.api.routing_config import routing_effort_of, routing_model_of
 from yoke_core.hooks.registration_identity import project_level_for_session
 
 
@@ -47,10 +47,10 @@ def _register_in_process(
     ``HarnessSessionStarted`` context, so a revived session names the process
     that revived it whether or not a wake attempt was in flight.
 
-    Project routing policy is server-side shared authority: when a project
-    declares ``session-routing``, resolve the executor's level from that DB
-    capability. ``execution_level`` is only a no-policy fallback for older
-    source-dev/test paths.
+    The level is resolved server-side from the levels the project reads,
+    matched against the session's harness, model, and effort.
+    ``execution_level`` is an explicit choice that wins when it names a
+    real level.
     """
     try:
         from yoke_core.domain import db_helpers
@@ -60,17 +60,16 @@ def _register_in_process(
             return "session registration requires project_id"
         conn = db_helpers.connect()
         try:
-            resolved_level = (
-                project_level_for_session(
-                    conn,
-                    project_id,
-                    executor,
-                    explicit_level=execution_level,
-                    model=routing_model_of(
-                        model_facts.model, model_facts.requested_model
-                    ),
-                )
-                or execution_level
+            resolved_level = project_level_for_session(
+                conn,
+                project_id,
+                executor,
+                explicit_level=execution_level,
+                model=routing_model_of(model_facts.model, model_facts.requested_model),
+                reasoning_effort=routing_effort_of(
+                    model_facts.reasoning_effort,
+                    model_facts.requested_reasoning_effort,
+                ),
             )
             level_kwargs = {"execution_level": resolved_level} if resolved_level else {}
             register_session(

@@ -9,9 +9,6 @@ import sqlite3
 import pytest
 
 from yoke_core.domain.migration_serving_version import NEXT_RELEASE, declared_minimum
-from yoke_core.domain.session_routing_validation import (
-    validate_session_routing_settings,
-)
 
 
 MIGRATION = importlib.import_module(
@@ -121,7 +118,6 @@ def test_routing_documents_converge_to_level_keys_and_validate() -> None:
         "level_rules": [{"model": "gpt-*", "level": "ALTMAN"}],
         "max_chain_steps": 3,
     }
-    validate_session_routing_settings(result)
     before = conn.total_changes
     MIGRATION.apply(conn)
     assert conn.total_changes == before

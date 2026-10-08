@@ -122,7 +122,6 @@ def test_relay_identity_payload_includes_observed_fields(monkeypatch) -> None:
     monkeypatch.setattr(
         identity_relay, "client_model_facts", lambda *_: {"model": "gpt-test"}
     )
-    monkeypatch.setattr(identity_relay, "client_level", lambda *_: "primary")
     monkeypatch.setattr(identity_relay, "client_project_id", lambda *_: 7)
     monkeypatch.setattr(
         identity_relay,
@@ -163,7 +162,6 @@ def test_a_claude_cli_hook_registers_the_version_its_shared_cache_reports(
     monkeypatch.setattr(
         identity_relay, "client_model_facts", lambda *_: {"model": "claude-opus-5"}
     )
-    monkeypatch.setattr(identity_relay, "client_level", lambda *_: "primary")
     monkeypatch.setattr(identity_relay, "client_project_id", lambda *_: 1)
     monkeypatch.setattr(identity_relay, "client_machine_id", lambda: "machine-uuid")
 

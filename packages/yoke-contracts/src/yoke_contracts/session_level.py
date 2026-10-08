@@ -1,13 +1,14 @@
 """Shared execution-level sentinel for harness sessions.
 
-Every ``harness_sessions`` row carries an ``execution_level``. When routing
-policy resolves the session's executor to a configured level, that level name
-is stored. When nothing matches, the row stores the sentinel below — which
-means the session has no configured grouping. Work assignment follows
+Every ``harness_sessions`` row carries an ``execution_level``. When one of a
+level's options matches the session's harness, model, and effort (see
+:mod:`yoke_contracts.levels`), that level name is stored. When nothing
+matches, the row stores the sentinel below — which means the session has no
+configured grouping. Work assignment follows
 workflow bindings and explicit staffing independently of this grouping.
 
 Because the sentinel means "unresolved" rather than "a level called
-primary", it must never win against a configured executor mapping during
+primary", it must never win against a matching level option during
 registration, and it must be visibly distinct wherever an operator reads a
 level.
 
@@ -21,16 +22,8 @@ from __future__ import annotations
 from typing import Any, Mapping, Optional
 
 
-# Stored when no configured executor -> level mapping matched.
+# Stored when no level option matched the session.
 UNRESOLVED_EXECUTION_LEVEL = "primary"
-
-# Compatibility only: projects created before level presentation became part
-# of the session-routing capability still render exactly as they did before.
-DEFAULT_LEVEL_METADATA: Mapping[str, Mapping[str, str]] = {
-    "DARIUS": {"label": "DARIUS", "glyph": "\U0001f40e"},
-    "ALTMAN": {"label": "ALTMAN", "glyph": "\U0001f453"},
-}
-LEGACY_LEVEL_PRESENTATION = DEFAULT_LEVEL_METADATA
 
 #: Session-routing keys retired by the lanes -> levels rename, each mapped to
 #: the key that replaced it. Flat ``executor_default_lane_<executor>`` keys
@@ -86,36 +79,35 @@ def renamed_routing_keys(settings: Mapping[str, Any]) -> dict[str, str]:
     return renamed
 
 
-def level_presentation(
-    level: Optional[str],
-    settings: Optional[Mapping[str, Any]] = None,
-) -> dict[str, str]:
-    """Resolve level-owned label/glyph metadata with a legacy fallback."""
-    level_name = str(level or "")
-    configured: Mapping[str, Any] = {}
-    if isinstance(settings, Mapping):
-        all_metadata = settings.get("level_metadata")
-        if isinstance(all_metadata, Mapping):
-            candidate = all_metadata.get(level_name)
-            if isinstance(candidate, Mapping):
-                configured = candidate
-    fallback = LEGACY_LEVEL_PRESENTATION.get(level_name, {})
-    return {
-        "label": str(configured.get("label") or level_name),
-        "glyph": str(configured.get("glyph") or fallback.get("glyph") or ""),
-    }
+#: Session-routing keys retired when levels became ordered option lists held
+#: as universe defaults: declared metadata, selector rules, and harness
+#: defaults. Labeling now derives from each level's options.
+RETIRED_LEVEL_ROUTING_KEYS: tuple[str, ...] = (
+    "level_metadata",
+    "level_rules",
+    "executor_default_levels",
+)
+
+
+def retired_level_routing_keys(settings: Mapping[str, Any]) -> tuple[str, ...]:
+    """Identify retired level routing keys for refusal and data convergence."""
+    return tuple(
+        key
+        for key in settings
+        if key in RETIRED_LEVEL_ROUTING_KEYS
+        or (isinstance(key, str) and key.startswith(EXECUTOR_DEFAULT_LEVEL_PREFIX))
+    )
 
 
 __all__ = [
-    "DEFAULT_LEVEL_METADATA",
     "EXECUTOR_DEFAULT_LEVEL_PREFIX",
-    "LEGACY_LEVEL_PRESENTATION",
     "RETIRED_EXECUTOR_DEFAULT_PREFIX",
+    "RETIRED_LEVEL_ROUTING_KEYS",
     "RETIRED_ROUTING_KEYS",
     "UNRESOLVED_EXECUTION_LEVEL",
     "level_is_unresolved",
-    "level_presentation",
     "renamed_routing_keys",
+    "retired_level_routing_keys",
     "retired_lane_setting_keys",
     "retired_process_offer_keys",
 ]
