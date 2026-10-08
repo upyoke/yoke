@@ -128,6 +128,24 @@ def test_unreadable_pool_and_no_meter_are_named_not_hidden() -> None:
     assert "live workers: none" in lines[0]
 
 
+def test_blocked_option_still_shows_every_pool() -> None:
+    candidate = _candidate(
+        blocked="weekly pool exhausted",
+        pools=(
+            _pool(),
+            _pool(window="Claude weekly", remaining_percent=0.0, exhausted=True),
+        ),
+    )
+    placement = LevelPlacement("SENIOR", "universe", (candidate,), None, None, "")
+    text = "\n".join(
+        level_readout_lines(
+            LevelReadout("universe", (), (("🦉", placement),)), machine_names={}
+        )
+    )
+    assert "weekly pool exhausted · Claude 5h 62% left" in text
+    assert "Claude weekly 0% left, headroom 140%, resets Oct 8 17:05" in text
+
+
 def test_unavailable_readout_says_why_and_how_to_check() -> None:
     lines = level_readout_lines(
         LevelReadout("universe", (), (), unavailable="no actor"), machine_names={}

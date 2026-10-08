@@ -155,9 +155,10 @@ def _candidate(candidate: LevelCandidate, names: Mapping[str, str]) -> str:
         f"{candidate.surface} {candidate.model} {candidate.reasoning_effort}"
         f"{via}{where}"
     )
-    if candidate.blocked:
-        return f"    ✗ {selection} · {candidate.blocked}"
     pools = " · ".join(_pool(pool) for pool in candidate.pools)
+    if candidate.blocked:
+        details = f" · {pools}" if pools else ""
+        return f"    ✗ {selection} · {candidate.blocked}{details}"
     mark = "→" if candidate.chosen else "✓"
     return f"    {mark} {selection} · {pools or 'no published meter'}"
 
