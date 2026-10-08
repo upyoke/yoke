@@ -17,7 +17,7 @@ DOCTOR_RUNS_TABLE = "doctor_runs"
 DOCTOR_RUNS_SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS doctor_runs (
   id INTEGER PRIMARY KEY,
-  ran_at TEXT NOT NULL,
+  ran_at TIMESTAMPTZ NOT NULL,
   project TEXT NOT NULL,
   scope TEXT,
   runtime TEXT,

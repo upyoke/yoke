@@ -14,11 +14,11 @@ def create_machine_authorization_table(conn: Any) -> None:
             device_hash TEXT PRIMARY KEY,
             user_code TEXT NOT NULL UNIQUE,
             org_id INTEGER NOT NULL REFERENCES organizations(id),
-            expires_at TEXT NOT NULL,
+            expires_at TIMESTAMPTZ NOT NULL,
             actor_id INTEGER REFERENCES actors(id),
             machine_id TEXT,
             machine_name TEXT,
-            consumed_at TEXT,
+            consumed_at TIMESTAMPTZ,
             client_key TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_machine_authorization_expiry

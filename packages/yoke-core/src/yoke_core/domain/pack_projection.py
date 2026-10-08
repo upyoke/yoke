@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS pack_catalog (
     dependencies_json TEXT NOT NULL, -- -> JSONB on Postgres
     documentation TEXT NOT NULL,
     file_count INTEGER NOT NULL,
-    observed_at TEXT NOT NULL
+    observed_at TIMESTAMPTZ NOT NULL
 )
 """
 
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS project_pack_reports (
     project_id INTEGER PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
     receipt_digest TEXT NOT NULL,
     pack_count INTEGER NOT NULL,
-    reported_at TEXT NOT NULL
+    reported_at TIMESTAMPTZ NOT NULL
 )
 """
 

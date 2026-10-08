@@ -13,7 +13,7 @@ DOCTOR_TABLES: dict[str, dict] = {
     "doctor_runs": {
         "columns": [
             ("id", "INTEGER"),
-            ("ran_at", "TEXT"),
+            ("ran_at", "TIMESTAMPTZ"),
             ("project", "TEXT"),
             ("scope", "TEXT"),
             ("runtime", "TEXT"),

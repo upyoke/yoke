@@ -43,14 +43,14 @@ def create_org_tables(conn: Any) -> None:
             name TEXT NOT NULL,
             domain TEXT DEFAULT NULL,
             settings TEXT NOT NULL DEFAULT '{}',
-            created_at TEXT NOT NULL
+            created_at TIMESTAMPTZ NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS actor_org_roles (
             actor_id INTEGER NOT NULL REFERENCES actors(id),
             org_id INTEGER NOT NULL REFERENCES organizations(id),
             role_id INTEGER NOT NULL REFERENCES roles(id),
-            granted_at TEXT NOT NULL,
+            granted_at TIMESTAMPTZ NOT NULL,
             granted_by_actor_id INTEGER REFERENCES actors(id),
             PRIMARY KEY (actor_id, org_id, role_id)
         );

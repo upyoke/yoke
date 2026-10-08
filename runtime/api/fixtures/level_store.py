@@ -26,8 +26,8 @@ CREATE TABLE IF NOT EXISTS project_capabilities (
     project_id INTEGER NOT NULL,
     type TEXT NOT NULL,
     settings TEXT DEFAULT '{}',
-    verified_at TEXT,
-    created_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00Z',
+    verified_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT '1970-01-01T00:00:00Z',
     UNIQUE(project_id, type)
 );
 """

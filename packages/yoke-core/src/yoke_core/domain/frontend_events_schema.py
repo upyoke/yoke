@@ -12,7 +12,7 @@ def create_frontend_event_tables(conn):
         CREATE TABLE IF NOT EXISTS frontend_attribution_redemptions (
             org_id INTEGER NOT NULL REFERENCES organizations(id),
             nonce TEXT NOT NULL,
-            expires_at BIGINT NOT NULL,
+            expires_at TIMESTAMPTZ NOT NULL,
             PRIMARY KEY (org_id, nonce)
         );
         CREATE INDEX IF NOT EXISTS idx_frontend_attribution_expiry

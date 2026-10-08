@@ -45,7 +45,7 @@ MIGRATION_AUDIT_DDL = """
         failure_reason TEXT,
         exception_reason TEXT,
         source_fingerprint TEXT,
-        rehearsed_at TEXT,
+        rehearsed_at TIMESTAMPTZ,
         lease_id INTEGER,
         test_copy_path TEXT,
         baseline_verify_result TEXT,  -- → JSONB on Postgres
@@ -59,8 +59,8 @@ MIGRATION_AUDIT_DDL = """
         source_commit TEXT,
         integration_target TEXT,
         change_class TEXT,
-        started_at TEXT NOT NULL,
-        completed_at TEXT,
+        started_at TIMESTAMPTZ NOT NULL,
+        completed_at TIMESTAMPTZ,
         duration_ms INTEGER
     );
 """
@@ -90,7 +90,7 @@ MIGRATION_AUDIT_POSTGRES_DDL = """
         failure_reason TEXT,
         exception_reason TEXT,
         source_fingerprint TEXT,
-        rehearsed_at TEXT,
+        rehearsed_at TIMESTAMPTZ,
         lease_id INTEGER,
         test_copy_path TEXT,
         baseline_verify_result TEXT,
@@ -104,8 +104,8 @@ MIGRATION_AUDIT_POSTGRES_DDL = """
         source_commit TEXT,
         integration_target TEXT,
         change_class TEXT,
-        started_at TEXT NOT NULL,
-        completed_at TEXT,
+        started_at TIMESTAMPTZ NOT NULL,
+        completed_at TIMESTAMPTZ,
         duration_ms INTEGER
     );
 """
@@ -168,7 +168,7 @@ def ensure_migration_ledger_table(
         f"""
         CREATE TABLE IF NOT EXISTS {ledger.table} (
             {ledger.entry_column} TEXT PRIMARY KEY,
-            {ledger.applied_at_column} TEXT NOT NULL,
+            {ledger.applied_at_column} TIMESTAMPTZ NOT NULL,
             {ledger.applied_by_column} TEXT,
             {ledger.serving_floor_column} TEXT,
             {ledger.digest_column} TEXT

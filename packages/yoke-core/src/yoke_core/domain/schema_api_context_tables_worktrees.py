@@ -12,9 +12,9 @@ ITEM_WORKTREE_TABLES: dict[str, dict] = {
             ("commit_sha", "TEXT"),
             ("lane_role", "TEXT"),
             ("state", "TEXT"),
-            ("created_at", "TEXT"),
-            ("updated_at", "TEXT"),
-            ("released_at", "TEXT"),
+            ("created_at", "TIMESTAMPTZ"),
+            ("updated_at", "TIMESTAMPTZ"),
+            ("released_at", "TIMESTAMPTZ"),
         ],
         "notes": (
             "Universal worktree-lane authority for every workflow. lane_role "

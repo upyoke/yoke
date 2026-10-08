@@ -52,8 +52,8 @@ CREATE TABLE IF NOT EXISTS ouroboros_entry_dispositions (
   requested_by_session_id TEXT,
   project_override TEXT,
   failure_reason TEXT,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  created_at TIMESTAMPTZ NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_ouroboros_entry_dispositions_item
   ON ouroboros_entry_dispositions(item_id);
@@ -100,9 +100,8 @@ def _completed(row: dict[str, Any], *, created: bool) -> FieldNotePromotion:
         entry_id=int(row["entry_id"]),
         dash_item_id=int(row["dash_item_id"]),
         dash_item_ref=format_item_ref(
-            row["project_slug"],
-            row["public_item_prefix"],
-            row["project_sequence"]),
+            row["project_slug"], row["public_item_prefix"], row["project_sequence"]
+        ),
         created=created,
     )
 

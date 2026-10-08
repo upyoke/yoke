@@ -15,6 +15,7 @@ TURN_POSTURE_COLUMN_DDL = (
     "CHECK(turn_posture IN ('running','waiting','unknown'))"
 )
 TURN_POSTURE_AT_COLUMN_DDL = "TEXT DEFAULT NULL"
+TURN_POSTURE_INSTANT_COLUMN_DDL = "TIMESTAMPTZ DEFAULT NULL"
 
 _WAITING_HOOK_EVENTS = frozenset({"Stop", "SessionEnd"})
 _RUNNING_HOOK_EVENTS = frozenset({"UserPromptSubmit"})
@@ -100,6 +101,7 @@ def stamp_turn_posture(
 __all__ = [
     "TURN_POSTURES",
     "TURN_POSTURE_AT_COLUMN_DDL",
+    "TURN_POSTURE_INSTANT_COLUMN_DDL",
     "TURN_POSTURE_COLUMN_DDL",
     "accepted_hook_posture",
     "posture_timestamp",

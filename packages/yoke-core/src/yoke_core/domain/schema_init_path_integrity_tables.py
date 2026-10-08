@@ -52,14 +52,16 @@ from yoke_core.domain.schema_init_apply import execute_schema_script
 
 def create_path_integrity_tables(conn: Any) -> None:
     """Create the path-integrity tables and indexes (idempotent)."""
-    execute_schema_script(conn, """
+    execute_schema_script(
+        conn,
+        """
         CREATE TABLE IF NOT EXISTS path_integrity_runs (
             id INTEGER PRIMARY KEY,
             project_id INTEGER REFERENCES projects(id),
             commit_sha TEXT,
             status TEXT NOT NULL,
-            started_at TEXT NOT NULL,
-            completed_at TEXT,
+            started_at TIMESTAMPTZ NOT NULL,
+            completed_at TIMESTAMPTZ,
             skip_reason TEXT,
             block_reason TEXT,
             abort_reason TEXT,
@@ -80,7 +82,7 @@ def create_path_integrity_tables(conn: Any) -> None:
             target_id INTEGER,
             details TEXT NOT NULL DEFAULT '{}',
             repair_status TEXT NOT NULL DEFAULT 'open',
-            recorded_at TEXT NOT NULL,
+            recorded_at TIMESTAMPTZ NOT NULL,
             FOREIGN KEY (run_id) REFERENCES path_integrity_runs(id),
             FOREIGN KEY (target_id) REFERENCES path_targets(id)
         );
@@ -93,8 +95,8 @@ def create_path_integrity_tables(conn: Any) -> None:
             failure_id INTEGER NOT NULL,
             operation TEXT NOT NULL,
             status TEXT NOT NULL,
-            requested_at TEXT NOT NULL,
-            applied_at TEXT,
+            requested_at TIMESTAMPTZ NOT NULL,
+            applied_at TIMESTAMPTZ,
             error_text TEXT,
             arguments TEXT NOT NULL DEFAULT '{}',
             -- opaque provenance string; deliberately NOT an FK into the
@@ -112,13 +114,14 @@ def create_path_integrity_tables(conn: Any) -> None:
             id INTEGER PRIMARY KEY,
             name TEXT NOT NULL UNIQUE,
             description TEXT NOT NULL DEFAULT '',
-            seeded_at TEXT NOT NULL,
+            seeded_at TIMESTAMPTZ NOT NULL,
             project_id INTEGER NOT NULL REFERENCES projects(id),
             expected_invariant_kind TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_path_integrity_fixtures_project
             ON path_integrity_fixtures(project_id);
-    """)
+    """,
+    )
     conn.commit()
 
 

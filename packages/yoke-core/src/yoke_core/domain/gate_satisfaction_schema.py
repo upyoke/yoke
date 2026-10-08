@@ -41,7 +41,7 @@ def create_gate_satisfaction_tables(conn: Any) -> None:
             fact_key TEXT NOT NULL,
             present INTEGER NOT NULL DEFAULT 0,
             fact_value TEXT NOT NULL DEFAULT '',
-            observed_at TEXT NOT NULL,
+            observed_at TIMESTAMPTZ NOT NULL,
             observed_from TEXT NOT NULL DEFAULT ''
         );
         CREATE UNIQUE INDEX IF NOT EXISTS idx_project_derived_facts_key
@@ -54,7 +54,7 @@ def create_gate_satisfaction_tables(conn: Any) -> None:
             target_status TEXT NOT NULL DEFAULT '',
             detail TEXT NOT NULL DEFAULT '',
             facts TEXT NOT NULL DEFAULT '{}',
-            recorded_at TEXT NOT NULL,
+            recorded_at TIMESTAMPTZ NOT NULL,
             recorded_by_session_id TEXT NOT NULL DEFAULT ''
         );
         CREATE UNIQUE INDEX IF NOT EXISTS idx_item_gate_satisfactions_obligation

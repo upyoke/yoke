@@ -15,8 +15,8 @@ CORE_TABLES: dict[str, dict] = {
             ("version", "INTEGER"),
             ("definition_json", "TEXT"),
             ("definition_digest", "TEXT"),
-            ("published_at", "TEXT"),
-            ("immutable_at", "TEXT"),
+            ("published_at", "TIMESTAMPTZ"),
+            ("immutable_at", "TIMESTAMPTZ"),
         ],
         "notes": (
             "Immutable workflow definition rows. Item reference rendering "
@@ -38,7 +38,7 @@ CORE_TABLES: dict[str, dict] = {
             ("body", "TEXT"),
             ("dependencies", "TEXT"),
             ("item_worktree_id", "INTEGER"),
-            ("last_activity_at", "TEXT"),
+            ("last_activity_at", "TIMESTAMPTZ"),
         ],
         "notes": (
             "Keyed by (epic_id, task_num). NOT item_id, NOT task_number, "
@@ -67,8 +67,8 @@ CORE_TABLES: dict[str, dict] = {
             ("current_attempt", "INTEGER"),
             ("max_attempts", "INTEGER"),
             ("no_chain", "INTEGER"),
-            ("started_at", "TEXT"),
-            ("last_updated", "TEXT"),
+            ("started_at", "TIMESTAMPTZ"),
+            ("last_updated", "TIMESTAMPTZ"),
         ],
         "notes": (
             "One row per epic-task fan-out lane. Unique on "
@@ -86,7 +86,7 @@ CORE_TABLES: dict[str, dict] = {
             ("task_num", "INTEGER"),
             ("note_num", "INTEGER"),
             ("body", "TEXT"),
-            ("created_at", "TEXT"),
+            ("created_at", "TIMESTAMPTZ"),
         ],
         "notes": "Append-only. NOT note (the content column is body).",
     },
@@ -101,7 +101,7 @@ CORE_TABLES: dict[str, dict] = {
             ("session_id", "INTEGER"),
             ("rationale", "TEXT"),
             ("evidence_json", "TEXT"),
-            ("created_at", "TEXT"),
+            ("created_at", "TIMESTAMPTZ"),
         ],
         "notes": (
             "Directional edges between items. The dependent waits on "
@@ -154,7 +154,7 @@ CORE_TABLES: dict[str, dict] = {
             ("hook_event_name", "TEXT"),
             ("client_timing_id", "TEXT"),
             ("envelope", "TEXT"),
-            ("created_at", "TEXT"),
+            ("created_at", "TIMESTAMPTZ"),
         ],
         "notes": (
             "Append-only TELEMETRY ledger — diagnosis/audit only, never "
@@ -213,7 +213,7 @@ CORE_TABLES: dict[str, dict] = {
             ("session_id", "TEXT"),
             ("actor_id", "INTEGER"),
             ("project_id", "INTEGER"),
-            ("created_at", "TEXT"),
+            ("created_at", "TIMESTAMPTZ"),
         ],
         "notes": (
             "Item/task status transition HISTORY (state, not telemetry) — "
@@ -278,7 +278,7 @@ CORE_TABLES: dict[str, dict] = {
             ("id", "INTEGER"),
             ("project_id", "INTEGER"),
             ("kind", "TEXT"),
-            ("created_at", "TEXT"),
+            ("created_at", "TIMESTAMPTZ"),
         ],
         "notes": (
             "Strategize / drift-review completion anchors per project; "
@@ -312,8 +312,8 @@ CORE_TABLES: dict[str, dict] = {
             ("section_name", "TEXT"),
             ("content", "TEXT"),
             ("ordering", "INTEGER"),
-            ("created_at", "TEXT"),
-            ("updated_at", "TEXT"),
+            ("created_at", "TIMESTAMPTZ"),
+            ("updated_at", "TIMESTAMPTZ"),
             ("source", "TEXT"),
         ],
         "notes": (

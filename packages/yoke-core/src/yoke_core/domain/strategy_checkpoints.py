@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS strategy_checkpoints (
   id INTEGER PRIMARY KEY,
   project_id INTEGER NOT NULL,
   kind TEXT NOT NULL CHECK(kind IN ('strategize', 'drift_review')),
-  created_at TEXT NOT NULL
+  created_at TIMESTAMPTZ NOT NULL
 )
 """
 

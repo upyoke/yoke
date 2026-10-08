@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS item_status_transitions (
     session_id TEXT,
     actor_id INTEGER,
     project_id INTEGER,
-    created_at TEXT NOT NULL
+    created_at TIMESTAMPTZ NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_item_status_transitions_item_created
     ON item_status_transitions(item_id, created_at);

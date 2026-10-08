@@ -166,5 +166,28 @@ class TestTheCatalogIsLoadBearing:
             run_init_chain_at_dsn(dsn, emit=lambda _line: None)
             with psycopg.connect(dsn) as conn:
                 assert schema_readiness.unreadable_serving_surfaces(conn) == []
+                from yoke_core.domain.stored_instant_columns import (
+                    STORED_INSTANT_COLUMNS,
+                )
+
+                catalog = {
+                    (table, column): data_type
+                    for table, column, data_type in conn.execute(
+                        "SELECT table_name,column_name,data_type "
+                        "FROM information_schema.columns "
+                        "WHERE table_schema='public'"
+                    ).fetchall()
+                }
+                mismatches = {
+                    f"{table}.{column}": catalog.get((table, column), "missing")
+                    for table, column in STORED_INSTANT_COLUMNS
+                    if catalog.get((table, column)) != "timestamp with time zone"
+                }
+                assert mismatches == {}
+                from runtime.api.tools.schema_catalog_render import read_catalog
+
+                assert parse_expected_schema() == read_catalog(conn)
+                assert catalog[("item_activity_days", "day")] == "text"
+                assert catalog[("session_tool_calls", "outcome")] == "text"
         finally:
             pg_testdb.drop_test_database(name)

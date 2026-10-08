@@ -21,7 +21,7 @@ GATE_SATISFIER_TABLES: dict[str, dict] = {
             ("target_status", "TEXT"),
             ("detail", "TEXT"),
             ("facts", "TEXT"),
-            ("recorded_at", "TEXT"),
+            ("recorded_at", "TIMESTAMPTZ"),
             ("recorded_by_session_id", "TEXT"),
         ],
         "notes": (
@@ -49,7 +49,7 @@ GATE_SATISFIER_TABLES: dict[str, dict] = {
             ("fact_key", "TEXT"),
             ("present", "INTEGER"),
             ("fact_value", "TEXT"),
-            ("observed_at", "TEXT"),
+            ("observed_at", "TIMESTAMPTZ"),
             ("observed_from", "TEXT"),
         ],
         "notes": (

@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS {LEDGER_TABLE} (
   authorization_scope TEXT NOT NULL DEFAULT '',
   payload_checksum TEXT NOT NULL DEFAULT '',
   result TEXT, -- → JSONB on Postgres
-  created_at TEXT NOT NULL
+  created_at TIMESTAMPTZ NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_function_call_ledger_created
   ON {LEDGER_TABLE}(created_at)

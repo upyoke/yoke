@@ -15,6 +15,11 @@ from yoke_contracts.onboard_checklist import (
     STATUS_NEEDED,
 )
 from yoke_core.domain import db_backend
+from yoke_core.domain.project_onboarding_schema import (
+    PROJECT_ONBOARDING_RUNS_CREATE_SQL,
+    PROJECT_ONBOARDING_RUN_FOREIGN_KEY_SQL,
+    PROJECT_ONBOARDING_CHECKLIST_ROWS_CREATE_SQL,
+)
 from yoke_core.domain.db_helpers import connect, iso8601_now
 from yoke_core.domain.project_onboarding_run_records import (
     ProjectOnboardingRunError,
@@ -32,46 +37,6 @@ from yoke_core.domain.project_onboarding_run_records import (
 )
 
 OPERATION_RUN = f"{OPERATION}.run"
-
-
-PROJECT_ONBOARDING_RUNS_CREATE_SQL = """
-CREATE TABLE IF NOT EXISTS project_onboarding_runs (
-    run_id TEXT PRIMARY KEY,
-    schema_version INTEGER NOT NULL,
-    project_id INTEGER,
-    branch TEXT NOT NULL,
-    checkout_path TEXT,
-    machine_config_path TEXT,
-    github_repo TEXT,
-    status TEXT NOT NULL,
-    metadata_json TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-)
-"""
-
-PROJECT_ONBOARDING_RUN_FOREIGN_KEY_SQL = (
-    "FOREIGN KEY (run_id) REFERENCES project_onboarding_runs(run_id)"
-)
-
-PROJECT_ONBOARDING_CHECKLIST_ROWS_CREATE_SQL = f"""
-CREATE TABLE IF NOT EXISTS project_onboarding_checklist_rows (
-    run_id TEXT NOT NULL,
-    row_id TEXT NOT NULL,
-    step TEXT NOT NULL,
-    title TEXT NOT NULL,
-    layer TEXT NOT NULL,
-    owner TEXT NOT NULL,
-    status TEXT NOT NULL,
-    hint TEXT,
-    evidence_json TEXT NOT NULL,
-    blocker TEXT NOT NULL DEFAULT '',
-    note TEXT NOT NULL DEFAULT '',
-    updated_at TEXT NOT NULL,
-    PRIMARY KEY (run_id, row_id),
-    {PROJECT_ONBOARDING_RUN_FOREIGN_KEY_SQL}
-)
-"""
 
 
 def create_project_onboarding_tables(conn: Any) -> None:
@@ -262,8 +227,17 @@ def _upsert_run(
         "github_repo = COALESCE(EXCLUDED.github_repo, project_onboarding_runs.github_repo), "
         "updated_at = EXCLUDED.updated_at",
         (
-            run_id, SCHEMA_VERSION, project_id, branch, checkout_path,
-            machine_config_path, github_repo, STATUS_NEEDED, metadata, now, now,
+            run_id,
+            SCHEMA_VERSION,
+            project_id,
+            branch,
+            checkout_path,
+            machine_config_path,
+            github_repo,
+            STATUS_NEEDED,
+            metadata,
+            now,
+            now,
         ),
     )
 
@@ -317,11 +291,14 @@ def _ensure_column(conn: Any, table: str, column: str, definition: str) -> None:
 def _column_exists(conn: Any, table: str, column: str) -> bool:
     if db_backend.connection_is_postgres(conn):
         p = _p(conn)
-        return conn.execute(
-            "SELECT 1 FROM information_schema.columns "
-            f"WHERE table_name = {p} AND column_name = {p}",
-            (table, column),
-        ).fetchone() is not None
+        return (
+            conn.execute(
+                "SELECT 1 FROM information_schema.columns "
+                f"WHERE table_name = {p} AND column_name = {p}",
+                (table, column),
+            ).fetchone()
+            is not None
+        )
     rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
     return any(_column_name(row) == column for row in rows)
 

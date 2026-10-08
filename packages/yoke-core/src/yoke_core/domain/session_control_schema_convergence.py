@@ -30,7 +30,7 @@ def converge_session_control_schema(conn: Any) -> None:
         ("requested_context_window_tokens", "INTEGER"),
         ("native_launch_pid", "INTEGER"),
         ("native_launch_phase", "TEXT"),
-        ("native_launch_observed_at", "TEXT"),
+        ("native_launch_observed_at", "TIMESTAMPTZ"),
         ("spawn_duration_ms", "INTEGER"),
         ("spawn_hold_reason", "TEXT"),
         ("placement_reason", "TEXT"),

@@ -62,22 +62,22 @@ def create_core_tables(conn: Any) -> None:
           blocked_reason TEXT,
           github_issue TEXT,
           deployed_to TEXT,
-          merged_at TEXT,
+          merged_at TIMESTAMPTZ,
           merge_queue_pr_number TEXT,
-          merge_queue_enqueued_at TEXT,
-          merge_queue_landed_at TEXT,
-          merge_queue_notified_at TEXT,
-          created_at TEXT NOT NULL,
-          updated_at TEXT NOT NULL,
+          merge_queue_enqueued_at TIMESTAMPTZ,
+          merge_queue_landed_at TIMESTAMPTZ,
+          merge_queue_notified_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ NOT NULL,
+          updated_at TIMESTAMPTZ NOT NULL,
           source TEXT NOT NULL DEFAULT '{DEFAULT_ITEM_ACTOR_ID}',
           project_id INTEGER NOT NULL REFERENCES projects(id),
           project_sequence INTEGER NOT NULL,
-          spec_updated_at TEXT,
+          spec_updated_at TIMESTAMPTZ,
           spec_updated_by TEXT,
           workflow_id TEXT NOT NULL REFERENCES workflows(id),
           workflow_version_id INTEGER NOT NULL REFERENCES workflow_versions(id),
           workflow_posture TEXT NOT NULL DEFAULT '{{}}',
-          {MEMBERSHIP_FINALIZED_COLUMN} TEXT,
+          {MEMBERSHIP_FINALIZED_COLUMN} TIMESTAMPTZ,
           UNIQUE(project_id, project_sequence)
         );
         {ITEM_LANDINGS_CREATE_SQL}
@@ -85,14 +85,14 @@ def create_core_tables(conn: Any) -> None:
         {SESSION_CI_RUN_WAITS_CREATE_SQL}
         CREATE TABLE IF NOT EXISTS ouroboros_entries (
           id INTEGER PRIMARY KEY,
-          timestamp TEXT NOT NULL,
+          timestamp TIMESTAMPTZ NOT NULL,
           agent TEXT NOT NULL,
           context TEXT,
           category TEXT NOT NULL,
           body TEXT NOT NULL,
-          reviewed_at TEXT,
-          archived_at TEXT,
-          created_at TEXT NOT NULL,
+          reviewed_at TIMESTAMPTZ,
+          archived_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ NOT NULL,
           project_id INTEGER DEFAULT NULL REFERENCES projects(id),
           target_project_id INTEGER DEFAULT NULL REFERENCES projects(id)
         );
@@ -105,8 +105,8 @@ def create_core_tables(conn: Any) -> None:
           project_id INTEGER NOT NULL REFERENCES projects(id),
           state TEXT NOT NULL DEFAULT 'pending'
             CHECK(state IN ('pending', 'reflected', 'dismissed')),
-          first_seen_at TEXT NOT NULL,
-          last_updated_at TEXT NOT NULL,
+          first_seen_at TIMESTAMPTZ NOT NULL,
+          last_updated_at TIMESTAMPTZ NOT NULL,
           last_session_id TEXT,
           reason TEXT,
           PRIMARY KEY (project_id, item_id)
@@ -127,7 +127,7 @@ def create_core_tables(conn: Any) -> None:
           session_id TEXT,
           actor_id INTEGER,
           project_id INTEGER,
-          created_at TEXT NOT NULL
+          created_at TIMESTAMPTZ NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_item_status_transitions_item_created
           ON item_status_transitions(item_id, created_at);
@@ -161,7 +161,7 @@ def create_core_tables(conn: Any) -> None:
           id INTEGER PRIMARY KEY,
           project_id INTEGER NOT NULL,
           kind TEXT NOT NULL CHECK(kind IN ('strategize', 'drift_review')),
-          created_at TEXT NOT NULL
+          created_at TIMESTAMPTZ NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_strategy_checkpoints_project_created
           ON strategy_checkpoints(project_id, created_at);
@@ -182,7 +182,7 @@ def create_core_tables(conn: Any) -> None:
           title TEXT NOT NULL,
           version TEXT NOT NULL,
           project_id INTEGER NOT NULL REFERENCES projects(id),
-          created_at TEXT NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL,
           UNIQUE(item_id, version, project_id)
         );
         CREATE TABLE IF NOT EXISTS epic_tasks (
@@ -197,7 +197,7 @@ def create_core_tables(conn: Any) -> None:
           dispatch_attempts INTEGER DEFAULT 0,
           scope_state TEXT NOT NULL DEFAULT 'pending'
             CHECK(scope_state IN ('pending','paths','no_files','legacy_deferred')),
-          scope_finalized_at TEXT,
+          scope_finalized_at TIMESTAMPTZ,
           UNIQUE(epic_id, task_num)
         );
         CREATE TABLE IF NOT EXISTS epic_task_files (
@@ -219,8 +219,8 @@ def create_core_tables(conn: Any) -> None:
           current_attempt INTEGER DEFAULT 1,
           max_attempts INTEGER DEFAULT 5,
           no_chain INTEGER DEFAULT 0,
-          started_at TEXT,
-          last_updated TEXT,
+          started_at TIMESTAMPTZ,
+          last_updated TIMESTAMPTZ,
           UNIQUE(epic_id, item_worktree_id)
         );
         CREATE TABLE IF NOT EXISTS epic_progress_notes (
@@ -231,7 +231,7 @@ def create_core_tables(conn: Any) -> None:
           body TEXT,
           commit_hash TEXT,
           synced_to_github INTEGER DEFAULT 0,
-          created_at TEXT NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL,
           UNIQUE(epic_id, task_num, note_num)
         );
         CREATE TABLE IF NOT EXISTS qa_requirements (
@@ -253,10 +253,10 @@ def create_core_tables(conn: Any) -> None:
           success_policy TEXT,
           capability_requirements TEXT,
           suite_id TEXT,
-          waived_at TEXT,
+          waived_at TIMESTAMPTZ,
           waiver_rationale TEXT,
           waiver_source TEXT,
-          created_at TEXT NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL,
           CONSTRAINT {REQUIREMENT_SUBJECT_CONSTRAINT}
             CHECK ({REQUIREMENT_SUBJECT_EXPRESSION})
         );
@@ -275,9 +275,9 @@ def create_core_tables(conn: Any) -> None:
           confidence REAL,
           raw_result TEXT, -- → JSONB on Postgres
           duration_ms INTEGER,
-          started_at TEXT,
-          completed_at TEXT,
-          created_at TEXT NOT NULL,
+          started_at TIMESTAMPTZ,
+          completed_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ NOT NULL,
           CHECK(verdict <> 'undetermined' OR COALESCE(LENGTH(TRIM(verdict_reason)), 0) > 0),
           FOREIGN KEY (qa_requirement_id) REFERENCES qa_requirements(id)
         );
@@ -289,7 +289,7 @@ def create_core_tables(conn: Any) -> None:
           content_type TEXT,
           artifact_handle TEXT,
           metadata TEXT, -- → JSONB on Postgres
-          created_at TEXT NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL,
           FOREIGN KEY (qa_run_id) REFERENCES qa_runs(id)
         );
         CREATE INDEX IF NOT EXISTS idx_qa_artifacts_run ON qa_artifacts(qa_run_id);
@@ -298,8 +298,8 @@ def create_core_tables(conn: Any) -> None:
           session_id TEXT NOT NULL,
           branch TEXT NOT NULL,
           epic_id TEXT,
-          acquired_at TEXT NOT NULL,
-          expires_at TEXT NOT NULL,
+          acquired_at TIMESTAMPTZ NOT NULL,
+          expires_at TIMESTAMPTZ NOT NULL,
           project_slug TEXT,
           target_branch TEXT
         );
@@ -309,8 +309,8 @@ def create_core_tables(conn: Any) -> None:
           content TEXT,
           ordering INTEGER,
           source TEXT NOT NULL DEFAULT 'operator',
-          created_at TEXT NOT NULL,
-          updated_at TEXT NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL,
+          updated_at TIMESTAMPTZ NOT NULL,
           PRIMARY KEY (item_id, section_name)
         );
     """,

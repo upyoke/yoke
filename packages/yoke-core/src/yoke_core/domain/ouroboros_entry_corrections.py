@@ -31,7 +31,7 @@ _SCHEMA_SQL = f"""
 CREATE TABLE IF NOT EXISTS {CORRECTIONS_TABLE} (
   correction_entry_id INTEGER PRIMARY KEY REFERENCES ouroboros_entries(id),
   corrected_entry_id INTEGER NOT NULL REFERENCES ouroboros_entries(id),
-  created_at TEXT NOT NULL
+  created_at TIMESTAMPTZ NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_ouroboros_entry_corrections_corrected
   ON {CORRECTIONS_TABLE}(corrected_entry_id);

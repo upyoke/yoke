@@ -6,8 +6,8 @@ CREATE TABLE IF NOT EXISTS merge_locks (
     session_id TEXT NOT NULL,
     branch TEXT NOT NULL,
     epic_id TEXT,
-    acquired_at TEXT NOT NULL,
-    expires_at TEXT NOT NULL,
+    acquired_at TIMESTAMPTZ NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
     project_slug TEXT,
     target_branch TEXT
 );

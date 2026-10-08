@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS harness_machine_reports (
         )),
     unattended_posture TEXT NOT NULL DEFAULT 'absent'
         CHECK(unattended_posture IN ('unattended', 'prompts', 'absent')),
-    reported_at TEXT NOT NULL
+    reported_at TIMESTAMPTZ NOT NULL
 )
 """
 
@@ -66,7 +66,10 @@ def ensure_harness_machine_schema(
         "TEXT NOT NULL DEFAULT 'absent'",
     )
     _add_column_if_not_exists(
-        conn, "harness_machine_reports", "machine_id", "TEXT NOT NULL DEFAULT ''",
+        conn,
+        "harness_machine_reports",
+        "machine_id",
+        "TEXT NOT NULL DEFAULT ''",
     )
     execute_schema_script(conn, HARNESS_MACHINE_REPORTS_KEY_SQL)
     execute_schema_script(conn, LEGACY_PROJECT_HARNESS_KEY_SQL)

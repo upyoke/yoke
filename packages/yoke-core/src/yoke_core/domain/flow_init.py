@@ -39,7 +39,7 @@ def _ensure_flow_schema(conn) -> None:
             description TEXT,
             stages TEXT NOT NULL,
             on_failure TEXT DEFAULT 'halt',
-            created_at TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL,
             status TEXT NOT NULL DEFAULT 'active',
             definition_schema_version INTEGER NOT NULL DEFAULT 1,
             takes_delivery_custody INTEGER NOT NULL DEFAULT 0,

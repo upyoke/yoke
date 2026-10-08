@@ -105,9 +105,9 @@ CREATE TABLE IF NOT EXISTS qa_plan_executions (
         'active','waiting','awaiting_agent_review','completed','aborted','error'
     )),
     machine_lease_id INTEGER,
-    created_at TEXT NOT NULL,
-    heartbeat_at TEXT NOT NULL,
-    completed_at TEXT,
+    created_at TIMESTAMPTZ NOT NULL,
+    heartbeat_at TIMESTAMPTZ NOT NULL,
+    completed_at TIMESTAMPTZ,
     release_reason TEXT,
     deployment_stage TEXT,
     deployment_member_item_id INTEGER,
@@ -126,7 +126,7 @@ CREATE TABLE IF NOT EXISTS qa_plan_execution_results (
     ordinal INTEGER NOT NULL,
     requirement_id INTEGER NOT NULL,
     result_json TEXT NOT NULL,
-    completed_at TEXT NOT NULL,
+    completed_at TIMESTAMPTZ NOT NULL,
     PRIMARY KEY(execution_id, ordinal){_QA_PLAN_EXECUTION_FOREIGN_KEYS}
 );
 CREATE INDEX IF NOT EXISTS idx_qa_plan_execution_results_requirement

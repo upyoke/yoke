@@ -55,7 +55,8 @@ from yoke_core.domain.session_relay_types import SessionRelayError
 
 NATIVE_PROCESS_GONE_AT_COLUMN = "native_process_gone_at"
 NATIVE_PROCESS_GONE_EVIDENCE_COLUMN = "native_process_gone_evidence"
-NATIVE_PROCESS_OBSERVATION_COLUMN_DDL = "TEXT DEFAULT NULL"
+NATIVE_PROCESS_EVIDENCE_COLUMN_DDL = "TEXT DEFAULT NULL"
+NATIVE_PROCESS_INSTANT_COLUMN_DDL = "TIMESTAMPTZ DEFAULT NULL"
 NATIVE_PROCESS_GONE_STATE = "gone"
 #: What the reporting machine read from the native's own result.  Only a
 #: measured zero says the command finished; an exit nobody captured says
@@ -297,7 +298,8 @@ __all__ = [
     "NATIVE_PROCESS_GONE_AT_COLUMN",
     "NATIVE_PROCESS_GONE_EVIDENCE_COLUMN",
     "NATIVE_PROCESS_GONE_STATE",
-    "NATIVE_PROCESS_OBSERVATION_COLUMN_DDL",
+    "NATIVE_PROCESS_EVIDENCE_COLUMN_DDL",
+    "NATIVE_PROCESS_INSTANT_COLUMN_DDL",
     "NORMAL_NATIVE_EXIT_CODE",
     "PARKED_STATUS",
     "current_native_process_observation",

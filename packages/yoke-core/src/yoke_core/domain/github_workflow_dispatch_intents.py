@@ -34,8 +34,8 @@ CREATE TABLE IF NOT EXISTS {INTENT_TABLE} (
   workflow_run_id TEXT,
   run_url TEXT,
   html_url TEXT,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL,
   PRIMARY KEY (request_id, attempt)
 );
 CREATE INDEX IF NOT EXISTS idx_github_workflow_dispatch_intents_created
@@ -246,9 +246,7 @@ def ttl_cutoff_iso(now: Optional[Any] = None) -> str:
     from datetime import datetime, timedelta, timezone
 
     base = now or datetime.now(timezone.utc)
-    return (base - timedelta(days=INTENT_TTL_DAYS)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+    return (base - timedelta(days=INTENT_TTL_DAYS)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def count_expired(conn: Any) -> int:

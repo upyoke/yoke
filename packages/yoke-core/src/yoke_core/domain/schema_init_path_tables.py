@@ -33,7 +33,9 @@ from yoke_core.domain.schema_init_apply import execute_schema_script
 
 def create_path_registry_tables(conn: Any) -> None:
     """Create the path-registry substrate tables and indexes (idempotent)."""
-    execute_schema_script(conn, """
+    execute_schema_script(
+        conn,
+        """
         CREATE TABLE IF NOT EXISTS path_targets (
             id INTEGER PRIMARY KEY,
             project_id INTEGER NOT NULL REFERENCES projects(id),
@@ -41,12 +43,12 @@ def create_path_registry_tables(conn: Any) -> None:
             path_string TEXT NOT NULL,
             generation INTEGER NOT NULL,
             parent_target_id INTEGER,
-            created_at TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL,
             materialization_state TEXT NOT NULL DEFAULT 'observed'
                 CHECK(materialization_state IN (
                     'planned','observed','abandoned','tentative'
                 )),
-            materialization_updated_at TEXT,
+            materialization_updated_at TIMESTAMPTZ,
             planned_by_item_id INTEGER,
             planned_by_claim_id INTEGER,
             FOREIGN KEY (parent_target_id) REFERENCES path_targets(id)
@@ -66,7 +68,7 @@ def create_path_registry_tables(conn: Any) -> None:
             id INTEGER PRIMARY KEY,
             project_id INTEGER NOT NULL REFERENCES projects(id),
             commit_sha TEXT NOT NULL,
-            built_at TEXT NOT NULL,
+            built_at TIMESTAMPTZ NOT NULL,
             UNIQUE(project_id, commit_sha)
         );
         CREATE TABLE IF NOT EXISTS path_snapshot_entries (
@@ -109,7 +111,7 @@ def create_path_registry_tables(conn: Any) -> None:
             -- retention-pruned events ledger (decision record:
             -- docs/archive/decisions/path-provenance-event-fk.md)
             recorded_event_id TEXT NOT NULL,
-            recorded_at TEXT NOT NULL,
+            recorded_at TIMESTAMPTZ NOT NULL,
             FOREIGN KEY (before_target_id) REFERENCES path_targets(id),
             FOREIGN KEY (after_target_id) REFERENCES path_targets(id)
         );
@@ -125,7 +127,7 @@ def create_path_registry_tables(conn: Any) -> None:
             value TEXT NOT NULL DEFAULT '{}',  -- JSONB on Postgres
             -- opaque provenance string (see path_moves note above)
             recorded_event_id TEXT NOT NULL,
-            recorded_at TEXT NOT NULL,
+            recorded_at TIMESTAMPTZ NOT NULL,
             UNIQUE(target_id, context_family, entry_key),
             FOREIGN KEY (target_id) REFERENCES path_targets(id)
         );
@@ -133,13 +135,16 @@ def create_path_registry_tables(conn: Any) -> None:
             ON path_context_values(target_id);
         CREATE INDEX IF NOT EXISTS idx_path_context_values_family
             ON path_context_values(target_id, context_family);
-    """)
+    """,
+    )
     create_path_snapshot_sync_upload_tables(conn)
 
 
 def create_path_snapshot_sync_upload_tables(conn: Any) -> None:
     """Create staging tables for chunked project snapshot uploads."""
-    execute_schema_script(conn, """
+    execute_schema_script(
+        conn,
+        """
         CREATE TABLE IF NOT EXISTS path_snapshot_sync_uploads (
             upload_id TEXT PRIMARY KEY,
             project_ref TEXT NOT NULL,
@@ -150,7 +155,7 @@ def create_path_snapshot_sync_upload_tables(conn: Any) -> None:
             expected_chunk_count INTEGER NOT NULL,
             warnings_json TEXT NOT NULL,
             symlinks_json TEXT NOT NULL,
-            created_at TEXT NOT NULL
+            created_at TIMESTAMPTZ NOT NULL
         );
         CREATE TABLE IF NOT EXISTS path_snapshot_sync_upload_chunks (
             upload_id TEXT NOT NULL,
@@ -158,7 +163,8 @@ def create_path_snapshot_sync_upload_tables(conn: Any) -> None:
             files_json TEXT NOT NULL,
             PRIMARY KEY (upload_id, chunk_index)
         );
-    """)
+    """,
+    )
     conn.commit()
 
 

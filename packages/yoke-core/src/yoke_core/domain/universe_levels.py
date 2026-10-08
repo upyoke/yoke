@@ -44,7 +44,7 @@ def create_universe_settings_table(conn: Any) -> None:
         CREATE TABLE IF NOT EXISTS {TABLE} (
           key TEXT PRIMARY KEY,
           value TEXT NOT NULL,
-          updated_at TEXT NOT NULL,
+          updated_at TIMESTAMPTZ NOT NULL,
           updated_by_actor_id INTEGER
         );
         """,

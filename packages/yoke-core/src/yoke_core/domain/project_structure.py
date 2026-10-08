@@ -216,8 +216,8 @@ def create_project_structure_tables(conn) -> None:
           attachment_kind TEXT NOT NULL DEFAULT '',
           entry_key TEXT NOT NULL DEFAULT '',
           payload TEXT NOT NULL DEFAULT '{}',
-          created_at TEXT NOT NULL,
-          updated_at TEXT NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL,
+          updated_at TIMESTAMPTZ NOT NULL,
           UNIQUE(project_id, family, attachment_value, entry_key)
         );
         CREATE INDEX IF NOT EXISTS idx_project_structure_project

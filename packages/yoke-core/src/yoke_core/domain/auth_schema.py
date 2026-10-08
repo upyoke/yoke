@@ -33,10 +33,10 @@ def create_auth_tables(conn: Any) -> None:
             name TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'active'
                 CHECK(status IN ('active','revoked')),
-            created_at TEXT NOT NULL,
-            revoked_at TEXT,
-            expires_at TEXT,
-            last_used_at TEXT,
+            created_at TIMESTAMPTZ NOT NULL,
+            revoked_at TIMESTAMPTZ,
+            expires_at TIMESTAMPTZ,
+            last_used_at TIMESTAMPTZ,
             diagnostic_metadata TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_api_tokens_actor
@@ -53,7 +53,7 @@ def create_auth_tables(conn: Any) -> None:
             outcome TEXT NOT NULL,
             permission_key TEXT,
             diagnostic_metadata TEXT,
-            created_at TEXT NOT NULL
+            created_at TIMESTAMPTZ NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_api_token_audit_token
             ON api_token_audit(api_token_id);
@@ -66,20 +66,20 @@ def create_auth_tables(conn: Any) -> None:
             id INTEGER PRIMARY KEY,
             name TEXT NOT NULL UNIQUE,
             description TEXT,
-            created_at TEXT NOT NULL
+            created_at TIMESTAMPTZ NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS permissions (
             id INTEGER PRIMARY KEY,
             key TEXT NOT NULL UNIQUE,
             description TEXT,
-            created_at TEXT NOT NULL
+            created_at TIMESTAMPTZ NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS role_permissions (
             role_id INTEGER NOT NULL REFERENCES roles(id),
             permission_id INTEGER NOT NULL REFERENCES permissions(id),
-            created_at TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL,
             PRIMARY KEY (role_id, permission_id)
         );
         CREATE INDEX IF NOT EXISTS idx_role_permissions_permission
@@ -89,7 +89,7 @@ def create_auth_tables(conn: Any) -> None:
             actor_id INTEGER NOT NULL REFERENCES actors(id),
             project_id INTEGER NOT NULL REFERENCES projects(id),
             role_id INTEGER NOT NULL REFERENCES roles(id),
-            granted_at TEXT NOT NULL,
+            granted_at TIMESTAMPTZ NOT NULL,
             granted_by_actor_id INTEGER REFERENCES actors(id),
             PRIMARY KEY (actor_id, project_id, role_id)
         );

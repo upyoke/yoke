@@ -36,9 +36,9 @@ CREATE TABLE IF NOT EXISTS item_worktrees (
     CHECK(lane_role IN ('implementation','worker','integration')),
   state TEXT NOT NULL DEFAULT 'active'
     CHECK(state IN ('active','released')),
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  released_at TEXT
+  created_at TIMESTAMPTZ NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL,
+  released_at TIMESTAMPTZ
 );
 """
 
@@ -58,7 +58,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_item_worktrees_active_single_lane
 """
 
 
-def _reference_constraint_list(tables: Sequence[str] = EPIC_LANE_REFERENCE_TABLES) -> str:
+def _reference_constraint_list(
+    tables: Sequence[str] = EPIC_LANE_REFERENCE_TABLES,
+) -> str:
     """Name the epic lane foreign keys a refusal is about."""
     return ", ".join(f"fk_{table}_item_worktree" for table in tables)
 
@@ -160,7 +162,8 @@ def ensure_epic_item_worktree_references(conn: Any) -> None:
     tables = [
         table
         for table in EPIC_LANE_REFERENCE_TABLES
-        if _table_exists(conn, table) and _column_exists(conn, table, "item_worktree_id")
+        if _table_exists(conn, table)
+        and _column_exists(conn, table, "item_worktree_id")
     ]
     if not tables:
         return
@@ -178,8 +181,12 @@ def ensure_epic_item_worktree_references(conn: Any) -> None:
         constraint = f"fk_{table}_item_worktree"
         conn.execute(
             "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint "
-            "WHERE conname = '" + constraint + "') THEN ALTER TABLE " + table
-            + " ADD CONSTRAINT " + constraint
+            "WHERE conname = '"
+            + constraint
+            + "') THEN ALTER TABLE "
+            + table
+            + " ADD CONSTRAINT "
+            + constraint
             + " FOREIGN KEY (item_worktree_id) REFERENCES item_worktrees(id) "
             "ON DELETE SET NULL; END IF; END $$;"
         )

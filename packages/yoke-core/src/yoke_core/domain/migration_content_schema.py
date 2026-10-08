@@ -88,7 +88,7 @@ def converge_migration_content_schema(
             {evidence.source_commit_column} TEXT NOT NULL,
             {evidence.manifest_digest_column} TEXT NOT NULL,
             {evidence.actor_column} TEXT NOT NULL,
-            {evidence.timestamp_column} TEXT NOT NULL
+            {evidence.timestamp_column} TIMESTAMPTZ NOT NULL
         );
         """,
     )

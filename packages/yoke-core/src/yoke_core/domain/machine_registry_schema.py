@@ -20,9 +20,9 @@ CREATE TABLE IF NOT EXISTS machines (
     name TEXT NOT NULL,
     owner_actor_id INTEGER NOT NULL REFERENCES actors(id),
     access TEXT NOT NULL DEFAULT '{}',
-    registered_at TEXT NOT NULL,
-    last_seen_at TEXT,
-    retired_at TEXT,
+    registered_at TIMESTAMPTZ NOT NULL,
+    last_seen_at TIMESTAMPTZ,
+    retired_at TIMESTAMPTZ,
     retired_by_actor_id INTEGER REFERENCES actors(id)
 );
 CREATE INDEX IF NOT EXISTS idx_machines_owner

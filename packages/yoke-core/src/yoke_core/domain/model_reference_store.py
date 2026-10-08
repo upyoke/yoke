@@ -26,8 +26,8 @@ def create_model_reference_table(conn: Any) -> None:
         f"""
         CREATE TABLE IF NOT EXISTS {TABLE} (
           revision_id TEXT PRIMARY KEY,
-          effective_at TEXT NOT NULL,
-          published_at TEXT NOT NULL,
+          effective_at TIMESTAMPTZ NOT NULL,
+          published_at TIMESTAMPTZ NOT NULL,
           published_by_actor_id INTEGER,
           catalog_json TEXT NOT NULL,
           source_note TEXT NOT NULL,

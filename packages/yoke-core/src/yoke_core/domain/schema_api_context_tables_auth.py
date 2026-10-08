@@ -33,11 +33,11 @@ AUTH_TABLES: dict[str, dict] = {
             ("device_hash", "TEXT"),
             ("user_code", "TEXT"),
             ("org_id", "INTEGER"),
-            ("expires_at", "TEXT"),
+            ("expires_at", "TIMESTAMPTZ"),
             ("actor_id", "INTEGER"),
             ("machine_id", "TEXT"),
             ("machine_name", "TEXT"),
-            ("consumed_at", "TEXT"),
+            ("consumed_at", "TIMESTAMPTZ"),
             ("client_key", "TEXT"),
         ],
         "notes": "Self-host pending personal machine approval. Device secrets are hashed, raw credentials are never stored, and consumption is single-use. client_key hashes the trusted transport client identity for pending-code admission.",
@@ -47,7 +47,7 @@ AUTH_TABLES: dict[str, dict] = {
             ("id", "INTEGER"),
             ("name", "TEXT"),
             ("description", "TEXT"),
-            ("created_at", "TEXT"),
+            ("created_at", "TIMESTAMPTZ"),
         ],
         "notes": (
             "Role catalog. Project roles: owner, operator, viewer, deployment_ci, "
@@ -75,7 +75,7 @@ AUTH_TABLES: dict[str, dict] = {
             ("id", "INTEGER"),
             ("key", "TEXT"),
             ("description", "TEXT"),
-            ("created_at", "TEXT"),
+            ("created_at", "TIMESTAMPTZ"),
         ],
         "notes": (
             "Permission catalog keyed by dotted key (items.read, claims.acquire, "
@@ -93,7 +93,7 @@ AUTH_TABLES: dict[str, dict] = {
         "columns": [
             ("role_id", "INTEGER"),
             ("permission_id", "INTEGER"),
-            ("created_at", "TEXT"),
+            ("created_at", "TIMESTAMPTZ"),
         ],
         "notes": "Role->permission catalog. Composite PK (role_id, permission_id).",
     },
@@ -102,7 +102,7 @@ AUTH_TABLES: dict[str, dict] = {
             ("actor_id", "INTEGER"),
             ("project_id", "INTEGER"),
             ("role_id", "INTEGER"),
-            ("granted_at", "TEXT"),
+            ("granted_at", "TIMESTAMPTZ"),
             ("granted_by_actor_id", "INTEGER"),
         ],
         "notes": (
@@ -115,7 +115,7 @@ AUTH_TABLES: dict[str, dict] = {
             ("id", "INTEGER"),
             ("slug", "TEXT"),
             ("name", "TEXT"),
-            ("created_at", "TEXT"),
+            ("created_at", "TIMESTAMPTZ"),
             ("events_signing_key", "TEXT"),
         ],
         "notes": (
@@ -132,7 +132,7 @@ AUTH_TABLES: dict[str, dict] = {
             ("actor_id", "INTEGER"),
             ("org_id", "INTEGER"),
             ("role_id", "INTEGER"),
-            ("granted_at", "TEXT"),
+            ("granted_at", "TIMESTAMPTZ"),
             ("granted_by_actor_id", "INTEGER"),
         ],
         "notes": (

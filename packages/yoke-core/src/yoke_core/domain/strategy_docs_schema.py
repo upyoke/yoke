@@ -35,13 +35,13 @@ CREATE TABLE IF NOT EXISTS {STRATEGY_DOCS_TABLE} (
   project_id BIGINT NOT NULL REFERENCES projects(id),
   slug TEXT NOT NULL,
   content TEXT NOT NULL DEFAULT '',
-  updated_at TEXT NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL,
   updated_by_actor_id BIGINT,
   -- archived_at: nullable ISO timestamp. NULL = active (renders to
   -- .yoke/strategy/<slug>.md); a timestamp = archived (renders to
   -- .yoke/strategy/archive/<slug>.md). Flipped by strategy.doc.archive /
   -- strategy.doc.unarchive; the doc stays a full, editable corpus row.
-  archived_at TEXT
+  archived_at TIMESTAMPTZ
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_strategy_docs_project_id_slug
   ON {STRATEGY_DOCS_TABLE}(project_id, slug)
@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS {STRATEGY_DOC_REVISIONS_TABLE} (
   source_operation TEXT NOT NULL,
   actor_id BIGINT,
   session_id TEXT,
-  created_at TEXT NOT NULL
+  created_at TIMESTAMPTZ NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_strategy_doc_revisions_doc_revision
   ON {STRATEGY_DOC_REVISIONS_TABLE}(project_id, slug, revision)

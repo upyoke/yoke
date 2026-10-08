@@ -50,7 +50,7 @@ def create_external_identity_tables(conn: Any) -> None:
             issuer TEXT NOT NULL,
             subject TEXT NOT NULL,
             email TEXT,
-            linked_at TEXT NOT NULL,
+            linked_at TIMESTAMPTZ NOT NULL,
             created_by_actor_id INTEGER REFERENCES actors(id),
             UNIQUE(issuer, subject)
         );
@@ -66,8 +66,8 @@ def create_external_identity_tables(conn: Any) -> None:
             status TEXT NOT NULL DEFAULT 'pending'
                 CHECK(status IN ('pending','accepted','revoked')),
             invited_by_actor_id INTEGER NOT NULL REFERENCES actors(id),
-            created_at TEXT NOT NULL,
-            accepted_at TEXT,
+            created_at TIMESTAMPTZ NOT NULL,
+            accepted_at TIMESTAMPTZ,
             accepted_by_actor_id INTEGER REFERENCES actors(id)
         );
         CREATE UNIQUE INDEX IF NOT EXISTS idx_actor_invites_pending_email
@@ -80,10 +80,10 @@ def create_external_identity_tables(conn: Any) -> None:
             id INTEGER PRIMARY KEY,
             token_hash TEXT NOT NULL UNIQUE,
             actor_id INTEGER NOT NULL REFERENCES actors(id),
-            created_at TEXT NOT NULL,
-            expires_at TEXT NOT NULL,
-            revoked_at TEXT,
-            last_used_at TEXT
+            created_at TIMESTAMPTZ NOT NULL,
+            expires_at TIMESTAMPTZ NOT NULL,
+            revoked_at TIMESTAMPTZ,
+            last_used_at TIMESTAMPTZ
         );
         CREATE INDEX IF NOT EXISTS idx_web_sessions_actor
             ON web_sessions(actor_id);
@@ -92,8 +92,8 @@ def create_external_identity_tables(conn: Any) -> None:
             selector TEXT PRIMARY KEY,
             code_hash TEXT NOT NULL,
             actor_id INTEGER NOT NULL REFERENCES actors(id),
-            expires_at TEXT NOT NULL,
-            consumed_at TEXT
+            expires_at TIMESTAMPTZ NOT NULL,
+            consumed_at TIMESTAMPTZ
         );
         CREATE INDEX IF NOT EXISTS idx_browser_sign_in_links_expiry
             ON browser_sign_in_links(expires_at);

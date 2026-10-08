@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS qa_requirements (
     success_policy TEXT,
     capability_requirements TEXT,
     suite_id TEXT,
-    waived_at TEXT,
+    waived_at TIMESTAMPTZ,
     waiver_rationale TEXT,
     waiver_source TEXT,
     plan_id INTEGER,
@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS qa_requirements (
     instructions TEXT,
     expected_outcome TEXT,
     method_config TEXT,
-    created_at TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
     CONSTRAINT {REQUIREMENT_SUBJECT_CONSTRAINT}
         CHECK ({REQUIREMENT_SUBJECT_EXPRESSION})
 );
@@ -109,9 +109,9 @@ CREATE TABLE IF NOT EXISTS qa_runs (
     confidence REAL,
     raw_result TEXT,
     duration_ms INTEGER,
-    started_at TEXT,
-    completed_at TEXT,
-    created_at TEXT NOT NULL,
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL,
     CHECK(verdict <> 'undetermined' OR COALESCE(LENGTH(TRIM(verdict_reason)), 0) > 0),
     FOREIGN KEY (qa_requirement_id) REFERENCES qa_requirements(id)
 );
@@ -124,7 +124,7 @@ CREATE TABLE IF NOT EXISTS qa_artifacts (
     content_type TEXT,
     artifact_handle TEXT,
     metadata TEXT,
-    created_at TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
     FOREIGN KEY (qa_run_id) REFERENCES qa_runs(id)
 );
 CREATE INDEX IF NOT EXISTS idx_qa_artifacts_run ON qa_artifacts(qa_run_id);
@@ -259,7 +259,7 @@ def _migrate_qa_vocab(conn) -> None:
             success_policy TEXT,
             capability_requirements TEXT,
             suite_id TEXT,
-            waived_at TEXT,
+            waived_at TIMESTAMPTZ,
             waiver_rationale TEXT,
             waiver_source TEXT,
             plan_id INTEGER,
@@ -277,7 +277,7 @@ def _migrate_qa_vocab(conn) -> None:
             instructions TEXT,
             expected_outcome TEXT,
             method_config TEXT,
-            created_at TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL,
             CONSTRAINT {REQUIREMENT_SUBJECT_CONSTRAINT}
                 CHECK ({REQUIREMENT_SUBJECT_EXPRESSION})
         );

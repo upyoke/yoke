@@ -9,7 +9,8 @@ from yoke_core.domain.work_claim_target_sql import TARGET_KIND_CHECK_SQL
 from yoke_core.domain.session_native_process_observation import (
     NATIVE_PROCESS_GONE_AT_COLUMN,
     NATIVE_PROCESS_GONE_EVIDENCE_COLUMN,
-    NATIVE_PROCESS_OBSERVATION_COLUMN_DDL,
+    NATIVE_PROCESS_EVIDENCE_COLUMN_DDL,
+    NATIVE_PROCESS_INSTANT_COLUMN_DDL,
 )
 
 _SESSIONS_AND_CLAIMS_DDL = f"""
@@ -50,8 +51,8 @@ _SESSIONS_AND_CLAIMS_DDL = f"""
             last_tool_call_at TEXT DEFAULT NULL,
             tool_call_count INTEGER NOT NULL DEFAULT 0,
             episode_started_at TEXT DEFAULT NULL,
-            {NATIVE_PROCESS_GONE_AT_COLUMN} {NATIVE_PROCESS_OBSERVATION_COLUMN_DDL},
-            {NATIVE_PROCESS_GONE_EVIDENCE_COLUMN} {NATIVE_PROCESS_OBSERVATION_COLUMN_DDL},
+            {NATIVE_PROCESS_GONE_AT_COLUMN} {NATIVE_PROCESS_INSTANT_COLUMN_DDL},
+            {NATIVE_PROCESS_GONE_EVIDENCE_COLUMN} {NATIVE_PROCESS_EVIDENCE_COLUMN_DDL},
             pending_resume_notice TEXT DEFAULT NULL,
             last_chain_step INTEGER DEFAULT NULL,
             last_checkpoint_at TEXT DEFAULT NULL,

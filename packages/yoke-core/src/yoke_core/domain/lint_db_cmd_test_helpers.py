@@ -74,13 +74,13 @@ def _fresh_live_db(tmp_path: Path) -> str:
             source_type TEXT,
             client_timing_id TEXT,
             envelope TEXT,
-            created_at TEXT,
+            created_at TIMESTAMPTZ,
             event_outcome TEXT
         );
         CREATE TABLE ouroboros_entries (
             id INTEGER PRIMARY KEY,
             body TEXT,
-            created_at TEXT
+            created_at TIMESTAMPTZ
         );
         CREATE TABLE shepherd_verdicts (
             id INTEGER PRIMARY KEY,

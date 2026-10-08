@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS shepherd_verdicts (
     verdict TEXT NOT NULL,
     caveats TEXT,
     attempt INTEGER DEFAULT 1,
-    created_at TEXT NOT NULL
+    created_at TIMESTAMPTZ NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS caveat_dispositions (
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS caveat_dispositions (
     disposition TEXT NOT NULL,
     resolution_details TEXT,
     verdict_id INTEGER,
-    created_at TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
     FOREIGN KEY (verdict_id) REFERENCES shepherd_verdicts(id),
     UNIQUE(public_ref, transition, attempt, caveat_num)
 );
@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS item_dependencies (
     session_id INTEGER,
     rationale TEXT NOT NULL DEFAULT '',
     evidence_json TEXT NOT NULL DEFAULT '{}',
-    created_at TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
     UNIQUE(dependent_item_id, blocking_item_id, gate_point)
 );
 CREATE INDEX IF NOT EXISTS idx_id_dependent ON item_dependencies(dependent_item_id);

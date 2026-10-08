@@ -13,7 +13,7 @@ PACK_TABLES: dict[str, dict] = {
             ("dependencies_json", "TEXT"),
             ("documentation", "TEXT"),
             ("file_count", "INTEGER"),
-            ("observed_at", "TEXT"),
+            ("observed_at", "TIMESTAMPTZ"),
         ],
         "notes": (
             "Server-shipped Pack catalog projected for UI and search. The "
@@ -28,7 +28,7 @@ PACK_TABLES: dict[str, dict] = {
             ("project_id", "INTEGER"),
             ("receipt_digest", "TEXT"),
             ("pack_count", "INTEGER"),
-            ("reported_at", "TEXT"),
+            ("reported_at", "TIMESTAMPTZ"),
         ],
         "notes": (
             "One timestamped Pack receipt report per project. `project_id` is "

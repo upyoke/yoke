@@ -1,19 +1,9 @@
-"""Idempotent schema-column and data-shape migrations.
+"""Idempotent schema convergence with separate additive and birth-only paths.
 
-Two operation classes live here, split into two entry points so the boot
-converge path can run the safe half without the destructive half:
-
-* :func:`apply_additive_schema` — additive DDL only. It cannot drop or rewrite
-  a row, so it is safe to run on every server boot of an
-  already-born universe — the mechanism that propagates a newly-deployed
-  additive column to existing prod / self-host universes.
-* :func:`apply_legacy_data_migrations` — the birth/full-init-only tail: guarded
-  destructive drops of retired surfaces, data backfills that normalize legacy
-  rows, the qa-vocabulary rebuild, and the canonical-status validators. Never
-  runs on the deploy/boot converge path.
-
-:func:`apply_idempotent_migrations` runs both, in that order, and is retained as
-the birth and test-fixture entry point so every existing caller is unchanged.
+``apply_additive_schema`` creates self-sufficient columns without row rewrites.
+``apply_legacy_data_migrations`` owns birth-only backfills and retired drops.
+``apply_idempotent_migrations`` retains their ordered combination for birth
+and fixture callers; ordinary boot convergence runs only the additive half.
 """
 
 from __future__ import annotations
@@ -83,7 +73,7 @@ def apply_additive_schema(conn: Any) -> None:
         )
     conn.commit()
 
-    _add_column_if_not_exists(conn, "projects", "retired_at", "TEXT")
+    _add_column_if_not_exists(conn, "projects", "retired_at", "TIMESTAMPTZ")
     _add_column_if_not_exists(conn, "actors", "name", "TEXT NOT NULL DEFAULT ''")
     _add_column_if_not_exists(
         conn, "actors", "status", "TEXT NOT NULL DEFAULT 'active'"
@@ -98,9 +88,9 @@ def apply_additive_schema(conn: Any) -> None:
     )
     _add_column_if_not_exists(conn, "epic_tasks", "max_attempts", "INTEGER DEFAULT 5")
     _add_column_if_not_exists(conn, "epic_tasks", "agent_id", "TEXT")
-    _add_column_if_not_exists(conn, "epic_tasks", "last_heartbeat", "TEXT")
+    _add_column_if_not_exists(conn, "epic_tasks", "last_heartbeat", "TIMESTAMPTZ")
     # task-freshness state: stamped by every epic-task mutation surface.
-    _add_column_if_not_exists(conn, "epic_tasks", "last_activity_at", "TEXT")
+    _add_column_if_not_exists(conn, "epic_tasks", "last_activity_at", "TIMESTAMPTZ")
     _add_column_if_not_exists(
         conn, "epic_dispatch_chains", "item_worktree_id", "INTEGER DEFAULT NULL"
     )
@@ -165,9 +155,9 @@ def apply_additive_schema(conn: Any) -> None:
     # Durable handoff between merge-queue admission and item close-out.
     # Nullable timestamps make the four-state marker self-sufficient on ADD.
     _add_column_if_not_exists(conn, "items", "merge_queue_pr_number", "TEXT")
-    _add_column_if_not_exists(conn, "items", "merge_queue_enqueued_at", "TEXT")
-    _add_column_if_not_exists(conn, "items", "merge_queue_landed_at", "TEXT")
-    _add_column_if_not_exists(conn, "items", "merge_queue_notified_at", "TEXT")
+    _add_column_if_not_exists(conn, "items", "merge_queue_enqueued_at", "TIMESTAMPTZ")
+    _add_column_if_not_exists(conn, "items", "merge_queue_landed_at", "TIMESTAMPTZ")
+    _add_column_if_not_exists(conn, "items", "merge_queue_notified_at", "TIMESTAMPTZ")
     conn.commit()
 
     # Add numeric project authority to ouroboros_entries.
@@ -230,8 +220,10 @@ def apply_additive_schema(conn: Any) -> None:
     # over budget) and cleared when a full-body sync lands. The repair
     # pass (backfill-oversized-bodies) reads it as its candidate queue;
     # owner: yoke_core.domain.backlog_github_body_budget.
-    _add_column_if_not_exists(conn, "items", "github_body_compact_pending", "TEXT")
-    _add_column_if_not_exists(conn, "items", MEMBERSHIP_FINALIZED_COLUMN, "TEXT")
+    _add_column_if_not_exists(
+        conn, "items", "github_body_compact_pending", "TIMESTAMPTZ"
+    )
+    _add_column_if_not_exists(conn, "items", MEMBERSHIP_FINALIZED_COLUMN, "TIMESTAMPTZ")
     conn.commit()
 
     # architecture_impact — operator-authored enum classifying the item's
@@ -252,12 +244,16 @@ def apply_additive_schema(conn: Any) -> None:
     # strategy_docs.archived_at — nullable ISO timestamp marking an archived
     # doc (NULL = active). Self-sufficient on ADD (NULL is the valid active
     # default); flipped by strategy.doc.archive / strategy.doc.unarchive.
-    _add_column_if_not_exists(conn, "strategy_docs", "archived_at", "TEXT DEFAULT NULL")
+    _add_column_if_not_exists(
+        conn, "strategy_docs", "archived_at", "TIMESTAMPTZ DEFAULT NULL"
+    )
     conn.commit()
 
     # Existing environments tables predate the delivery stamp leaf.
     if _table_exists(conn, "environments"):
-        _add_column_if_not_exists(conn, "environments", "last_deployed_at", "TEXT")
+        _add_column_if_not_exists(
+            conn, "environments", "last_deployed_at", "TIMESTAMPTZ"
+        )
     conn.commit()
 
 

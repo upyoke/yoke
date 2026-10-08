@@ -59,10 +59,10 @@ from yoke_core.domain.schema_common import _get_columns as _schema_get_columns
 #: them. Both the fresh-install DDL and the converge step read this list,
 #: so a new fact is declared once.
 SESSION_RECOVERY_COLUMNS: tuple[tuple[str, str], ...] = (
-    ("first_user_prompt_at", "TEXT DEFAULT NULL"),
-    ("first_completed_work_at", "TEXT DEFAULT NULL"),
-    ("last_completed_work_at", "TEXT DEFAULT NULL"),
-    ("native_turn_end_recorded_at", "TEXT DEFAULT NULL"),
+    ("first_user_prompt_at", "TIMESTAMPTZ DEFAULT NULL"),
+    ("first_completed_work_at", "TIMESTAMPTZ DEFAULT NULL"),
+    ("last_completed_work_at", "TIMESTAMPTZ DEFAULT NULL"),
+    ("native_turn_end_recorded_at", "TIMESTAMPTZ DEFAULT NULL"),
     ("native_turn_end_observation", "TEXT DEFAULT NULL"),
     ("vendor_resume_episode_key", "TEXT DEFAULT NULL"),
     ("vendor_resume_attempts", "INTEGER NOT NULL DEFAULT 0"),

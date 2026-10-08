@@ -46,13 +46,13 @@ CREATE TABLE IF NOT EXISTS epic_tasks (
     dispatch_attempts INTEGER DEFAULT 0,
     scope_state TEXT NOT NULL DEFAULT 'pending'
         CHECK(scope_state IN ('pending','paths','no_files','legacy_deferred')),
-    scope_finalized_at TEXT,
+    scope_finalized_at TIMESTAMPTZ,
     body TEXT,
     github_issue TEXT,
     max_attempts INTEGER DEFAULT 5,
     agent_id TEXT,
-    last_heartbeat TEXT,
-    last_activity_at TEXT,
+    last_heartbeat TIMESTAMPTZ,
+    last_activity_at TIMESTAMPTZ,
     UNIQUE(epic_id, task_num)
 );
 
@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS epic_progress_notes (
     body TEXT,
     commit_hash TEXT,
     synced_to_github INTEGER DEFAULT 0,
-    created_at TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
     UNIQUE(epic_id, task_num, note_num)
 );
 
@@ -87,8 +87,8 @@ CREATE TABLE IF NOT EXISTS epic_dispatch_chains (
     current_attempt INTEGER DEFAULT 1,
     max_attempts INTEGER DEFAULT 5,
     no_chain INTEGER DEFAULT 0,
-    started_at TEXT,
-    last_updated TEXT,
+    started_at TIMESTAMPTZ,
+    last_updated TIMESTAMPTZ,
     UNIQUE(epic_id, item_worktree_id)
 );
 
@@ -112,9 +112,9 @@ CREATE TABLE IF NOT EXISTS qa_requirements (
     success_policy TEXT,
     capability_requirements TEXT,
     suite_id TEXT,
-    waived_at TEXT,
+    waived_at TIMESTAMPTZ,
     waiver_rationale TEXT,
-    created_at TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
     waiver_source TEXT,
     plan_id INTEGER,
     plan_case_key TEXT,
@@ -152,9 +152,9 @@ CREATE TABLE IF NOT EXISTS qa_runs (
     confidence REAL,
     raw_result TEXT,
     duration_ms INTEGER,
-    started_at TEXT,
-    completed_at TEXT,
-    created_at TEXT NOT NULL,
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL,
     CHECK(verdict <> 'undetermined' OR COALESCE(LENGTH(TRIM(verdict_reason)), 0) > 0)
 );
 
@@ -165,7 +165,7 @@ CREATE TABLE IF NOT EXISTS qa_artifacts (
     content_type TEXT,
     artifact_handle TEXT,
     metadata TEXT,
-    created_at TEXT NOT NULL
+    created_at TIMESTAMPTZ NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS deployment_stage_receipts (
@@ -183,8 +183,8 @@ CREATE TABLE IF NOT EXISTS deployment_stage_receipts (
     executor TEXT NOT NULL,
     executor_receipt TEXT,
     failure_reason TEXT,
-    created_at TEXT NOT NULL,
-    completed_at TEXT,
+    created_at TIMESTAMPTZ NOT NULL,
+    completed_at TIMESTAMPTZ,
     UNIQUE(run_id,stage_name,attempt_number),
     UNIQUE(run_id,stage_name,correlation_id)
 );
@@ -205,7 +205,7 @@ CREATE TABLE IF NOT EXISTS deployment_run_qa (
     blocking INTEGER NOT NULL DEFAULT 1,
     status TEXT NOT NULL DEFAULT 'pending'
         CHECK(status IN ('pending','passed','failed','waived')),
-    updated_at TEXT,
+    updated_at TIMESTAMPTZ,
     UNIQUE(run_id, check_name)
 );
 """
