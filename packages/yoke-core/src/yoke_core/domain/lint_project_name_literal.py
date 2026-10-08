@@ -74,6 +74,15 @@ _SQL_ANY_SLUG_COMPARISON_RE = re.compile(
     r"\bslug\s*(?:=|<>|!=)\s*'([^']+)'|'([^']+)'\s+as\s+\w*proj", re.IGNORECASE
 )
 _UNWRAP_CALLS = frozenset({"str", "lower", "strip", "casefold"})
+# Cheap text gate: a file can hold a hit only if it quotes a registered name,
+# compares something on a ``proj`` line, or carries slug SQL. Parsing just
+# those files keeps a whole-tree scan from costing a full AST pass per file.
+_MAY_COMPARE_RE = re.compile(
+    r"proj[^\n]{0,120}?(?:==|!=|\bnot in\b|\bin\b)"
+    r"|(?:==|!=|\bnot in\b|\bin\b)[^\n]{0,120}?proj",
+    re.IGNORECASE,
+)
+_MAY_SQL_RE = re.compile(r"slug\s*(?:=|<>|!=)\s*'|'\s+as\s+\w*proj", re.IGNORECASE)
 
 RECOVERY = (
     "Replace the literal with the declared fact it stands in for: a project "
@@ -273,6 +282,13 @@ def scan_source(
     return sorted(set(hits), key=lambda hit: (hit.line, hit.snippet))
 
 
+def may_contain_hit(text: str, project_names: Collection[str] = ()) -> bool:
+    """Whether *text* can hold a hit; ``False`` means parsing it is wasted."""
+    if _MAY_COMPARE_RE.search(text) or _MAY_SQL_RE.search(text):
+        return True
+    return any(f'"{name}"' in text or f"'{name}'" in text for name in project_names)
+
+
 def source_paths(repo_root: Path) -> Iterable[Path]:
     """Shippable Python files under :data:`SCAN_ROOTS`."""
     for name in SCAN_ROOTS:
@@ -296,6 +312,8 @@ def scan(
             text = reader(path)
         except (OSError, UnicodeDecodeError):
             continue
+        if not may_contain_hit(text, project_names):
+            continue
         relpath = path.relative_to(repo_root).as_posix()
         hits.extend(scan_source(relpath, text, project_names))
     return hits
@@ -306,6 +324,7 @@ __all__ = [
     "RECOVERY",
     "SCAN_ROOTS",
     "is_exempt_relpath",
+    "may_contain_hit",
     "scan",
     "scan_source",
     "source_paths",

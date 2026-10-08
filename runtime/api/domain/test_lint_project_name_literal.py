@@ -9,6 +9,7 @@ import pytest
 from yoke_core.domain.lint_project_name_literal import (
     ProjectLiteralHit,
     is_exempt_relpath,
+    may_contain_hit,
     scan,
     scan_source,
 )
@@ -33,6 +34,8 @@ _REL = "packages/example/src/example/module.py"
     ],
 )
 def test_project_name_branch_is_flagged(source: str) -> None:
+    # The whole-tree scan only parses files the text gate admits.
+    assert may_contain_hit(source)
     hits = scan_source(_REL, source)
     assert len(hits) == 1
     assert hits[0].relpath == _REL
@@ -116,6 +119,7 @@ _NAMES = {"acme", "hostco"}
     ],
 )
 def test_registered_project_name_bindings_are_flagged(source: str) -> None:
+    assert may_contain_hit(source, _NAMES)
     hits = scan_source(_REL, source, _NAMES)
     assert len(hits) == 1, hits
 
@@ -151,3 +155,7 @@ def test_classify_separates_violations_pending_and_stale_allowances() -> None:
     assert violations == [violation]
     assert pending_hits == [pending]
     assert [a.relpath for a in stale] == ["d.py"]
+
+
+def test_text_gate_skips_files_that_cannot_hold_a_hit() -> None:
+    assert not may_contain_hit("def f(x):\n    return x + 1\n", _NAMES)
