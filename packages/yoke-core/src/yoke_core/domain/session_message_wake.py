@@ -224,12 +224,16 @@ def wake_eligible_recipients(
                 now=current,
                 grace_seconds=policy.wake_ack_grace_seconds,
             )
+            # Activity can age during a live call; its return still runs a
+            # hook. Ended sessions and verified orphaned calls can recover.
+            if (
+                not explicit_wake
+                and liveness != "ended"
+                and turn_in_flight(row) is not None
+            ):
+                continue
             escalation = ""
             if not explicit_wake and liveness == "active":
-                # A live open call will deliver on its return; an orphaned
-                # one left by a verified exit cannot.
-                if turn_in_flight(row) is not None:
-                    continue
                 # An active session is served by its own hooks — unless the
                 # envelope proves that route stopped running, or the session
                 # declared a wait its harness has no way to end, in which
