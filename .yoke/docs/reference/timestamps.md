@@ -10,7 +10,17 @@ Supplied inputs require a valid calendar and an explicit UTC offset. Naive
 datetimes, date-only values, unknown `-00:00` offsets and precision beyond
 microseconds refuse as `invalid_instant`; supply a qualified instant instead.
 Offset-qualified inputs normalize to the same UTC instant without dropping
-microseconds. No parser guesses a local timezone or repairs malformed history.
+microseconds. The runtime parser never guesses a timezone or repairs history.
+
+One-time governed conversion lives in `stored_instant_conversion`, with a
+frozen column roster supplied by permanent migration history. It checks all
+source columns before changing types and combines each table's alterations
+into one rewrite. Approved historical calendar values assume UTC; optional
+blanks become NULL, and specifically approved owner-creation repairs replace
+missing item updates or malformed Ouroboros observations. These are explicit
+historical assumptions, not recovered facts or future input fallbacks. The
+caller retains the restore point, transaction, serving floor and receipts;
+append-only UPDATE/DELETE guards remain enabled during type conversion.
 
 `temporal_wire(value)` converts native datetimes within result dictionaries and
 sequences, preserving nulls. It leaves strings untouched: timestamp-shaped
