@@ -66,9 +66,18 @@ class TestProceedTriageAndHandoff:
         insert_item(db, id=42, status="reviewing-implementation")
         self._seed_simulation_requirement(db, 42)
 
-        with patch("yoke_core.domain.epic.connect", return_value=self.NoCloseConnection(db)), \
-             patch("yoke_core.domain.epic._qa_run_add_silent") as run_add, \
-             patch("yoke_core.domain.conduct_reviewed_handoff.run", return_value=0) as handoff:
+        with (
+            patch(
+                "yoke_core.domain.epic.connect", return_value=self.NoCloseConnection(db)
+            ),
+            patch(
+                "yoke_core.domain.qa_simulation_triage.record_simulation_triage",
+                return_value={"event_id": "triage"},
+            ) as run_add,
+            patch(
+                "yoke_core.domain.conduct_reviewed_handoff.run", return_value=0
+            ) as handoff,
+        ):
             rc = epic.proceed_triage_and_handoff(
                 42,
                 recommendation="PROCEED",
@@ -78,14 +87,11 @@ class TestProceedTriageAndHandoff:
             )
 
         assert rc == 0
-        # Triage run was recorded
         run_add.assert_called_once()
         call_kwargs = run_add.call_args[1]
-        assert call_kwargs["verdict"] == "pass"
-        assert call_kwargs["qa_kind"] == "simulation"
-        assert "PROCEED" in call_kwargs["raw_result"]
-        assert '"filed_items"' in call_kwargs["raw_result"]
-        assert "YOK-99, YOK-100" in call_kwargs["raw_result"]
+        assert call_kwargs["recommendation"] == "PROCEED"
+        assert call_kwargs["filed_public_refs"] == ["YOK-99", "YOK-100"]
+        assert call_kwargs["rationale"] == "1 WARNING gap"
         # Handoff was called
         handoff.assert_called_once_with(42, session_id="sess-1")
 
@@ -94,8 +100,12 @@ class TestProceedTriageAndHandoff:
         insert_item(db, id=42, status="reviewing-implementation")
         # No simulation requirement seeded
 
-        with patch("yoke_core.domain.epic.connect", return_value=self.NoCloseConnection(db)), \
-             patch("yoke_core.domain.conduct_reviewed_handoff.run") as handoff:
+        with (
+            patch(
+                "yoke_core.domain.epic.connect", return_value=self.NoCloseConnection(db)
+            ),
+            patch("yoke_core.domain.conduct_reviewed_handoff.run") as handoff,
+        ):
             rc = epic.proceed_triage_and_handoff(42, recommendation="PROCEED")
 
         assert rc == 1
@@ -106,11 +116,22 @@ class TestProceedTriageAndHandoff:
         insert_item(db, id=42, status="reviewing-implementation")
         self._seed_simulation_requirement(db, 42)
 
-        with patch("yoke_core.domain.epic.connect", return_value=self.NoCloseConnection(db)), \
-             patch("yoke_core.domain.epic._qa_run_add_silent"), \
-             patch("yoke_core.domain.conduct_reviewed_handoff.run", return_value=3) as handoff:
+        with (
+            patch(
+                "yoke_core.domain.epic.connect", return_value=self.NoCloseConnection(db)
+            ),
+            patch(
+                "yoke_core.domain.qa_simulation_triage.record_simulation_triage",
+                return_value={"event_id": "triage"},
+            ),
+            patch(
+                "yoke_core.domain.conduct_reviewed_handoff.run", return_value=3
+            ) as handoff,
+        ):
             rc = epic.proceed_triage_and_handoff(
-                42, recommendation="PROCEED", session_id="sess-1",
+                42,
+                recommendation="PROCEED",
+                session_id="sess-1",
             )
 
         assert rc == 2
@@ -121,24 +142,39 @@ class TestProceedTriageAndHandoff:
         insert_item(db, id=42, status="reviewing-implementation")
         self._seed_simulation_requirement(db, 42)
 
-        with patch("yoke_core.domain.epic.connect", return_value=self.NoCloseConnection(db)), \
-             patch("yoke_core.domain.epic._qa_run_add_silent") as run_add, \
-             patch("yoke_core.domain.conduct_reviewed_handoff.run", return_value=0):
+        with (
+            patch(
+                "yoke_core.domain.epic.connect", return_value=self.NoCloseConnection(db)
+            ),
+            patch(
+                "yoke_core.domain.qa_simulation_triage.record_simulation_triage",
+                return_value={"event_id": "triage"},
+            ) as run_add,
+            patch("yoke_core.domain.conduct_reviewed_handoff.run", return_value=0),
+        ):
             rc = epic.proceed_triage_and_handoff(
-                42, recommendation="PROCEED",
+                42,
+                recommendation="PROCEED",
             )
 
         assert rc == 0
         call_kwargs = run_add.call_args[1]
-        assert '"none"' in call_kwargs["raw_result"]
+        assert call_kwargs["filed_public_refs"] == []
 
     def test_proceed_rerun_after_success_is_idempotent_noop(self, db):  # noqa: F811
         """P-2: rerunning after a clean handoff no-ops without duplicate writes."""
         insert_item(db, id=42, status="reviewed-implementation")
 
-        with patch("yoke_core.domain.epic.connect", return_value=self.NoCloseConnection(db)), \
-             patch("yoke_core.domain.epic._qa_run_add_silent") as run_add, \
-             patch("yoke_core.domain.conduct_reviewed_handoff.run") as handoff:
+        with (
+            patch(
+                "yoke_core.domain.epic.connect", return_value=self.NoCloseConnection(db)
+            ),
+            patch(
+                "yoke_core.domain.qa_simulation_triage.record_simulation_triage",
+                return_value={"event_id": "triage"},
+            ) as run_add,
+            patch("yoke_core.domain.conduct_reviewed_handoff.run") as handoff,
+        ):
             rc = epic.proceed_triage_and_handoff(
                 42,
                 recommendation="PROCEED",
@@ -159,19 +195,22 @@ class TestProceedTriageAndHandoff:
         conn.__enter__ = mock.MagicMock(return_value=conn)
         conn.__exit__ = mock.MagicMock(return_value=False)
 
-        with mock.patch.object(persist_simulation, "connect", return_value=conn), \
-             mock.patch.object(
-                 persist_simulation._epic_domain, "simulation_upsert"
-             ), \
-             mock.patch.object(
-                 persist_simulation._epic_domain, "simulation_get",
-                 return_value="1|42|integration|CLEAN|body|2026-04-09",
-             ), \
-             mock.patch(
-                 "yoke_core.domain.conduct_reviewed_handoff.run", return_value=0
-             ) as handoff, \
-             mock.patch.object(epic, "proceed_triage_and_handoff") as proceed:
-            verdict = persist_simulation.persist_and_verify("42", "integration", sim_output)
+        with (
+            mock.patch.object(persist_simulation, "connect", return_value=conn),
+            mock.patch.object(persist_simulation._epic_domain, "simulation_upsert"),
+            mock.patch.object(
+                persist_simulation._epic_domain,
+                "simulation_get",
+                return_value="1|42|integration|CLEAN|body|2026-04-09",
+            ),
+            mock.patch(
+                "yoke_core.domain.conduct_reviewed_handoff.run", return_value=0
+            ) as handoff,
+            mock.patch.object(epic, "proceed_triage_and_handoff") as proceed,
+        ):
+            verdict = persist_simulation.persist_and_verify(
+                "42", "integration", sim_output
+            )
 
         assert verdict == "CLEAN"
         # CLEAN uses direct handoff, not proceed helper
@@ -187,19 +226,20 @@ class TestProceedTriageAndHandoff:
         conn.__enter__ = mock.MagicMock(return_value=conn)
         conn.__exit__ = mock.MagicMock(return_value=False)
 
-        with mock.patch.object(persist_simulation, "connect", return_value=conn), \
-             mock.patch.object(
-                 persist_simulation._epic_domain, "simulation_upsert"
-             ), \
-             mock.patch.object(
-                 persist_simulation._epic_domain, "simulation_get",
-                 return_value="1|42|integration|GAPS FOUND|body|2026-04-09",
-             ), \
-             mock.patch(
-                 "yoke_core.domain.conduct_reviewed_handoff.run"
-             ) as handoff, \
-             mock.patch.object(epic, "proceed_triage_and_handoff") as proceed:
-            verdict = persist_simulation.persist_and_verify("42", "integration", sim_output)
+        with (
+            mock.patch.object(persist_simulation, "connect", return_value=conn),
+            mock.patch.object(persist_simulation._epic_domain, "simulation_upsert"),
+            mock.patch.object(
+                persist_simulation._epic_domain,
+                "simulation_get",
+                return_value="1|42|integration|GAPS FOUND|body|2026-04-09",
+            ),
+            mock.patch("yoke_core.domain.conduct_reviewed_handoff.run") as handoff,
+            mock.patch.object(epic, "proceed_triage_and_handoff") as proceed,
+        ):
+            verdict = persist_simulation.persist_and_verify(
+                "42", "integration", sim_output
+            )
 
         assert verdict == "GAPS FOUND"
         handoff.assert_not_called()

@@ -1,12 +1,4 @@
-"""Regression coverage for the shared review-to-capture evidence resolver.
-
-``qa_evidence_run_id`` is the one function ``item_detail_qa.py`` and
-``qa_plan_detail.py`` both call to decide which run's artifacts back a
-requirement's latest verdict. These guard its two failure classes: a
-``human_review`` overriding an ``agent`` run that captured its own evidence
-(no separate capture run to point at), and a ``capture_run_id`` reference
-that does not actually belong to the requirement it is read from.
-"""
+"""Proof belongs to its attempt or an explicit same-requirement review association."""
 
 from __future__ import annotations
 
@@ -21,7 +13,7 @@ from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain.qa_execution_proof import qa_evidence_run_id
 
 
-def test_evidence_falls_back_to_self_capturing_agent_run_on_human_review() -> None:
+def test_unassociated_judgment_cannot_borrow_another_attempts_artifacts() -> None:
     with test_database() as conn:
         insert_item(conn, id=4601, title="Self-capturing agent run")
         requirement = insert_qa_requirement(
@@ -57,7 +49,7 @@ def test_evidence_falls_back_to_self_capturing_agent_run_on_human_review() -> No
             raw_result=human_review["raw_result"],
         )
 
-        assert resolved == int(agent_run["id"])
+        assert resolved == int(human_review["id"])
 
 
 def test_evidence_rejects_capture_reference_from_another_requirement() -> None:

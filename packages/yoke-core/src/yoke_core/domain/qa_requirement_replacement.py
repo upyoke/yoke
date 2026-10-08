@@ -1,24 +1,8 @@
-"""Declare a corrected QA case for one that failed or could not be judged.
+"""Declare a corrected case and immediately move grading to its successor.
 
-A case whose capture or config was wrong cannot be edited once it has
-answered, so the fix is a corrected case beside it. Left there, every later
-execution re-captured the broken case, the review bundle graded it again,
-and the bundle failed on history nobody wanted re-judged; the stage then
-waited until someone superseded the old rows by hand.
-
-A replacement declared when the corrected case is materialized closes that
-loop without a second state system. The failed row records which case now
-carries its attempt (``replacement_requirement_id``) and keeps blocking:
-nothing is discharged by the declaration itself. Rosters stop re-running the
-declared row. When the replacement records a passing independent verdict,
-:func:`discharge_declared_replacements` writes the ordinary supersession on
-the same transaction as that verdict, so the stage gate re-evaluates against
-an already-settled obligation. Every run and verdict write goes through
-:mod:`yoke_core.domain.qa_run_verdict_record`, which calls it, so this holds
-for a case run, a review, a human approval and every other writer alike. A replacement that fails or stays
-undetermined leaves the failed row blocking with its own evidence intact; a
-further correction declares itself the replacement of that failed attempt
-and inherits every row still waiting on it.
+Historical captures and discharge audit remain intact. Only a current passing
+successor records automatic supersession; delayed review of an older capture
+cannot discharge the chain. Graph validation belongs to the declaring transaction.
 """
 
 from __future__ import annotations
@@ -35,6 +19,7 @@ from yoke_core.domain.qa_requirement_supersession import (
     same_scope,
 )
 from yoke_core.domain.schema_common import _column_exists
+from yoke_core.domain.qa_requirement_scope import lock_requirement_scope
 
 _REPLACEABLE_DEPLOYMENT_VERDICTS = {"fail", "error"}
 
@@ -52,7 +37,7 @@ def _row(conn: Any, requirement_id: int) -> dict[str, Any] | None:
     row = query_one(
         conn,
         "SELECT id,item_id,epic_id,task_num,deployment_run_id,deployment_stage,"
-        "deployment_member_item_id,execution_target_digest,workflow_transition_id,"
+        "deployment_member_item_id,execution_target_digest,target_env,host_baseline,workflow_transition_id,"
         "qa_phase,plan_case_key,blocking_mode,waived_at,retracted_at,"
         "superseded_by_requirement_id,replacement_requirement_id "
         "FROM qa_requirements WHERE id=%s",
@@ -100,17 +85,41 @@ def _replacement_for(
 
 
 def point_at_replacement(conn: Any, failed_id: int, replacement_id: int) -> None:
-    """Make the corrected case carry the failed row's attempt.
-
-    Every row still waiting on the failed one as its own replacement moves
-    to the corrected case too, so a correction of a correction inherits the
-    whole chain instead of stranding the first failure.
-    """
+    """Validate a same-scope acyclic edge under row locks, then transfer grading."""
+    lock_requirement_scope(conn, failed_id)
+    locked = query_rows(
+        conn,
+        "SELECT id FROM qa_requirements WHERE id IN (%s,%s) ORDER BY id FOR UPDATE",
+        (int(failed_id), int(replacement_id)),
+    )
+    if len(locked) != 2:
+        raise QaReplacementError(
+            "replacement_graph_invalid: missing or self-linked requirement"
+        )
+    failed = _row(conn, failed_id)
+    seen = {int(failed_id)}
+    successor_id = int(replacement_id)
+    while successor_id:
+        if successor_id in seen:
+            raise QaReplacementError(
+                "replacement_graph_invalid: replacement cycle; correct the declaration"
+            )
+        seen.add(successor_id)
+        successor = _row(conn, successor_id)
+        if successor is None or same_scope(failed, successor):
+            raise QaReplacementError(
+                "replacement_graph_invalid: missing or incompatible successor; bind the same scope and target"
+            )
+        successor_id = int(
+            successor.get("replacement_requirement_id")
+            or successor.get("superseded_by_requirement_id")
+            or 0
+        )
     conn.execute(
         "UPDATE qa_requirements SET replacement_requirement_id=%s "
-        "WHERE (id=%s OR replacement_requirement_id=%s) "
+        "WHERE id=%s "
         "AND superseded_by_requirement_id IS NULL",
-        (int(replacement_id), int(failed_id), int(failed_id)),
+        (int(replacement_id), int(failed_id)),
     )
 
 
@@ -270,7 +279,13 @@ def discharge_declared_replacements(
     discharged: list[tuple[dict[str, Any], dict[str, Any]]] = []
     if not _column_exists(conn, "qa_requirements", "replacement_requirement_id"):
         return discharged
+    from yoke_core.domain.qa_requirement_scope import lock_requirement_scope
+    from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
+
     for replacement_id in sorted({int(rid) for rid in passing_requirement_ids}):
+        lock_requirement_scope(conn, replacement_id)
+        if not has_current_passing_run(conn, replacement_id):
+            continue
         waiting = query_rows(
             conn,
             "SELECT id FROM qa_requirements WHERE replacement_requirement_id=%s "
@@ -300,8 +315,7 @@ def replacement_note(row: Mapping[str, Any]) -> str:
     if not replacement_id:
         return ""
     return (
-        f"; declared replacement #{replacement_id} supersedes it once it "
-        "records a passing independent verdict"
+        f"; declared replacement #{replacement_id} now carries its grading obligation"
     )
 
 

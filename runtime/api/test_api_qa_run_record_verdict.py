@@ -69,8 +69,10 @@ class TestQaRunRecordVerdict(unittest.TestCase):
                 with (
                     patch("yoke_core.domain.qa_events.emit_qa_run_event") as emit,
                     patch(
-                        "yoke_core.domain.qa_requirement_replacement."
-                        "discharge_declared_replacements",
+                        "yoke_core.domain.qa_run_verdict_record.lock_requirement_scope"
+                    ),
+                    patch(
+                        "yoke_core.domain.qa_run_verdict_record._discharge_on_pass",
                         return_value=[],
                     ) as discharge,
                 ):
@@ -89,7 +91,7 @@ class TestQaRunRecordVerdict(unittest.TestCase):
         self.assertEqual(outcome.result_payload["verdict"], "pass")
         emit.assert_called_once()
         # The pass discharges replacements on its own transaction.
-        self.assertEqual(discharge.call_args.args[1], [7])
+        self.assertEqual(discharge.call_args.args[1:], (7, 99, "pass"))
 
     def test_agent_undetermined_refuses_without_artifact_surface(self):
         existing = {"qa_kind": "ac_verification", "method_id": None}

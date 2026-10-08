@@ -99,10 +99,9 @@ def _list_activity(
     selection: Optional[dict[str, Any]] = None
     if item_scoped:
         rows, selection = bound_groups(rows, bounded)
-    # A review row rarely captures its own evidence — it embeds a
-    # capture_run_id back to the immutable run that did — so evidence is
-    # resolved through the same shared chain the item and plan detail pages
-    # use, rather than stopping at each row's own (often empty) run.
+    # Actual attempts own their artifacts. A durable historical judgment
+    # association may resolve its original capture through the shared reader;
+    # an untrusted raw pointer cannot lend another attempt's evidence.
     evidence_run_ids = [
         (
             qa_evidence_run_id(

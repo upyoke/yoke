@@ -18,11 +18,13 @@ from yoke_core.domain.deployment_qa_source_obligation import (
     source_obligation_consumed,
 )
 from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
-from yoke_core.domain.qa_obligation_settlement import obligation_settled
+from yoke_core.domain.qa_obligation_settlement import (
+    effective_requirement,
+    obligation_settled,
+)
 from yoke_core.domain.qa_merging_identity import recorded_head_sha
 from yoke_core.domain.qa_requirement_replacement import replacement_note
 from yoke_core.domain.qa_requirement_source_retirement import is_source_retirement
-from yoke_core.domain.qa_requirement_supersession import latest_verdict, same_scope
 from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
 from yoke_core.domain.qa_workflow_binding_validation import (
     ITEM_POSTURE_VERIFICATION_TRANSITION,
@@ -48,37 +50,49 @@ def _requirement_consumed(
     that was deployed when it ran, not the one being closed out.
     """
     passed = bool(row["passed"] if hasattr(row, "keys") else row[2])
+    from yoke_core.domain.qa_latest_execution import latest_executions
+    from yoke_core.domain.qa_simulation_triage import current_simulation_triage
+
     if obligation_settled(row):
-        if row.get("waived_at") or row.get("retracted_at"):
+        if (
+            row.get("waived_at")
+            or row.get("retracted_at")
+            or row.get("triage_discharge")
+        ):
             return True
-        replacement_id = int(row["superseded_by_requirement_id"])
         if is_source_retirement(row):
+            replacement_id = int(
+                row.get("replacement_requirement_id")
+                or row.get("superseded_by_requirement_id")
+                or 0
+            )
             return not pre_merge and source_obligation_consumed(
                 conn, item_id=int(item_id), source_requirement_id=replacement_id
             )
-        replacement = conn.execute(
-            f"SELECT * FROM qa_requirements WHERE id={_p(conn)}",
-            (replacement_id,),
-        ).fetchone()
-        latest = conn.execute(
-            "SELECT raw_result FROM qa_runs "
-            f"WHERE qa_requirement_id={_p(conn)} ORDER BY created_at DESC,id DESC LIMIT 1",
-            (replacement_id,),
-        ).fetchone()
-        return bool(
-            replacement
-            and not same_scope(dict(row), dict(replacement))
-            and replacement["blocking_mode"] == "blocking"
-            and not obligation_settled(dict(replacement))
-            and latest_verdict(conn, replacement_id) == "pass"
-            and has_current_passing_run(conn, replacement_id)
-            and (
-                not candidate_shas
-                or (
-                    latest and recorded_head_sha(latest["raw_result"]) in candidate_shas
-                )
-            )
+        try:
+            row = effective_requirement(conn, int(row["id"]))
+        except ValueError as exc:
+            if not str(exc).startswith("replacement_graph_invalid:"):
+                raise
+            row["settlement_error"] = str(exc)
+            return False
+        row["triage_discharge"] = (
+            current_simulation_triage(conn, int(row["id"]))
+            if row.get("qa_kind") == "simulation"
+            else None
         )
+        if obligation_settled(row):
+            return True
+        row["passed"] = passed = has_current_passing_run(conn, int(row["id"]))
+        from yoke_core.domain.qa_subject_proof import requires_code_identity
+
+        if candidate_shas and requires_code_identity(row):
+            latest = latest_executions(conn, [int(row["id"])]).get(int(row["id"]))
+            if (
+                not latest
+                or recorded_head_sha(latest["raw_result"]) not in candidate_shas
+            ):
+                return False
     if pre_merge:
         return passed
     phase = str(row["qa_phase"] if hasattr(row, "keys") else row[1] or "")
@@ -159,6 +173,13 @@ def verification_gate(
     scored = []
     for row in rows:
         item = dict(row)
+        from yoke_core.domain.qa_simulation_triage import current_simulation_triage
+
+        item["triage_discharge"] = (
+            current_simulation_triage(conn, int(item["id"]))
+            if item.get("qa_kind") == "simulation"
+            else None
+        )
         item["passed"] = has_current_passing_run(conn, int(item["id"]))
         scored.append(item)
     rows = scored
@@ -238,6 +259,11 @@ def verification_gate(
             "Selected Dash QA requirement(s) are not satisfied here: "
             + "; ".join(
                 f"{row['id']}"
+                + (
+                    f" ({row['settlement_error']})"
+                    if row.get("settlement_error")
+                    else ""
+                )
                 + replacement_note(
                     {
                         "replacement_requirement_id": row.get(

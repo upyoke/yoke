@@ -103,13 +103,10 @@ def _discharged_or_failed(conn: Any, row: Mapping[str, Any]) -> bool:
     """True when this row no longer answers for its case."""
     if obligation_settled(row):
         return True
-    verdict = query_rows(
-        conn,
-        "SELECT verdict FROM qa_runs WHERE qa_requirement_id=%s "
-        "ORDER BY created_at DESC,id DESC LIMIT 1",
-        (int(row["id"]),),
-    )
-    return bool(verdict) and str(verdict[0]["verdict"] or "") == "fail"
+    from yoke_core.domain.qa_latest_execution import latest_executions
+
+    attempt = latest_executions(conn, [int(row["id"])]).get(int(row["id"]))
+    return attempt is not None and attempt["verdict"] == "fail"
 
 
 def carried_by_declared_replacement(conn: Any, rows: list[Mapping[str, Any]]) -> bool:

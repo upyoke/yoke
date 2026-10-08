@@ -99,7 +99,7 @@ def test_browser_with_substrate_run_and_artifact_satisfied(qa_db):
     rid = add_requirement(
         qa_db,
         qa_kind="plan_case",
-        method_id="browser-inspection",
+        method_id="browser-check",
     )
     run_id = add_run(
         qa_db,
@@ -160,7 +160,7 @@ def test_browser_substrate_run_without_artifact_unsatisfied(qa_db):
 
 
 def test_e2e_with_passing_run_satisfied(qa_db):
-    """E2e satisfies on any passing run (no substrate-only rule)."""
+    """E2e requires its completed passing current attempt."""
     rid = add_requirement(qa_db, qa_kind="e2e")
     add_run(qa_db, rid, performed_by="ci", qa_kind="e2e")
     summary = render_gate_summary(

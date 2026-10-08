@@ -11,10 +11,10 @@ from yoke_core.domain.qa_constants import (
     case_outcome_for_verdict,
 )
 from yoke_core.domain.qa_plan_execution_result_state import aggregate_state
-from yoke_core.domain.qa_plan_execution_store import canonical, marker
+from yoke_core.domain.qa_plan_execution_store import marker
 from yoke_core.domain.qa_plan_review import QaPlanReviewError, _public_bundle
 from yoke_core.domain.qa_requirement_replacement import announce_discharges
-from yoke_core.domain.qa_run_verdict_record import QaRunWrite, insert_qa_run
+from yoke_core.domain.qa_run_verdict_record import QaRunWrite
 from yoke_core.domain.qa_undetermined_evidence import (
     require_agent_undetermined_evidence,
 )
@@ -90,44 +90,7 @@ def _record_verdict(
         verdict=verdict,
         run_ids=(int(case["capture_run_id"]),),
     )
-    from yoke_core.domain.qa_requirement_pass_currency import (
-        recorded_execution_target_digest,
-        stamp_executed_method_config,
-    )
-
-    capture = query_one(
-        conn,
-        f"SELECT raw_result FROM qa_runs WHERE id={p}",
-        (int(case["capture_run_id"]),),
-    )
-    raw_result = stamp_executed_method_config(
-        canonical(
-            {
-                "review_bundle_id": bundle_id,
-                "capture_run_id": int(case["capture_run_id"]),
-                "rationale": rationale,
-            }
-        ),
-        case.get("method_config"),
-        execution_target_digest=recorded_execution_target_digest(
-            None if capture is None else capture["raw_result"]
-        )
-        or None,
-    )
-    write = insert_qa_run(
-        conn,
-        qa_requirement_id=int(case["requirement_id"]),
-        performed_by="agent",
-        qa_kind=str(case["qa_kind"]),
-        verdict=verdict,
-        verdict_reason=rationale,
-        case_outcome=case_outcome_for_verdict(verdict),
-        raw_result=raw_result,
-        started_at=created_at,
-        completed_at=created_at,
-        created_at=created_at,
-    )
-    run_id = write.run_id
+    run_id = int(case["capture_run_id"])
     conn.execute(
         "INSERT INTO qa_plan_review_verdicts("
         "bundle_id,requirement_id,capture_run_id,review_run_id,verdict,"
@@ -142,7 +105,7 @@ def _record_verdict(
             created_at,
         ),
     )
-    stamp_reviewed_capture(
+    write = stamp_reviewed_capture(
         conn,
         case,
         verdict=verdict,
@@ -228,7 +191,7 @@ def submit_plan_review(
             if prior is not None:
                 if prior["verdict"] != verdict or prior["rationale"] != rationale:
                     raise QaPlanReviewError("agent review replay changed a verdict")
-                run_ids[requirement_id] = int(prior["review_run_id"])
+                run_ids[requirement_id] = int(case["capture_run_id"])
                 stamp_reviewed_capture(
                     conn,
                     case,

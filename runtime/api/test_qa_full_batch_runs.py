@@ -48,7 +48,7 @@ class TestRunAddBatch:
             item_id=item_id,
             qa_kind=qa_kind,
             qa_phase="verification",
-            success_policy="test policy",
+            success_policy="all-pass",
         )
         if method_id is not None:
             conn = _conn(db_path)

@@ -65,6 +65,7 @@ def insert_qa_run(
     **kwargs,
 ) -> Any:
     """Insert a row into ``qa_runs`` and return it."""
+    stamp = created_at or now()
     cols = {
         "qa_requirement_id": qa_requirement_id,
         "performed_by": performed_by,
@@ -72,7 +73,9 @@ def insert_qa_run(
         "verdict": verdict,
         "raw_result": raw_result,
         "duration_ms": duration_ms,
-        "created_at": created_at or now(),
+        "started_at": stamp,
+        "completed_at": stamp if verdict else None,
+        "created_at": stamp,
         **kwargs,
     }
     col_names = ", ".join(cols.keys())

@@ -230,10 +230,10 @@ def _seed_qa_run(
     p = _p(conn)
     cur = conn.execute(
         f"""
-        INSERT INTO qa_runs (qa_requirement_id, performed_by, qa_kind, verdict, raw_result, created_at)
-        VALUES ({p}, {p}, 'plan_case', {p}, {p}, {p}) RETURNING id
+        INSERT INTO qa_runs (qa_requirement_id, performed_by, qa_kind, verdict, raw_result, started_at, completed_at, created_at)
+        VALUES ({p}, {p}, 'plan_case', {p}, {p}, {p}, {p}, {p}) RETURNING id
         """,
-        (requirement_id, performed_by, verdict, raw_result, ts),
+        (requirement_id, performed_by, verdict, raw_result, ts, ts, ts),
     )
     run_id = cur.fetchone()[0]
     conn.commit()

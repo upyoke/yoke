@@ -241,26 +241,21 @@ def _red_members(conn: Any, run_id: str) -> tuple[_RedMember, ...]:
     if not _column_exists(conn, "qa_requirements", "deployment_member_item_id"):
         return ()
     p = _placeholder(conn)
-    superseded = ""
-    if _column_exists(conn, "qa_requirements", "superseded_by_requirement_id"):
-        superseded = "AND r.superseded_by_requirement_id IS NULL"
-    waived = ""
-    if _column_exists(conn, "qa_requirements", "waived_at"):
-        waived = "AND r.waived_at IS NULL"
+    from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
+    from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
+
     rows = conn.execute(
         f"""SELECT r.id,
                    r.deployment_member_item_id,
                    (SELECT qr.verdict FROM qa_runs qr
-                     WHERE qr.qa_requirement_id = r.id
-                     ORDER BY qr.created_at DESC, qr.id DESC LIMIT 1) AS verdict,
+                     WHERE qr.id=({latest_execution_id_sql("r.id")})) AS verdict,
                    i.project_id, p.slug, p.public_item_prefix, i.project_sequence
               FROM qa_requirements r
               LEFT JOIN items i ON i.id = r.deployment_member_item_id
               LEFT JOIN projects p ON p.id = i.project_id
              WHERE r.deployment_run_id = {p}
                AND r.blocking_mode = 'blocking'
-               {waived}
-               {superseded}
+               AND NOT {settled_obligation_sql(conn, "r")}
              ORDER BY r.id""",
         (run_id,),
     ).fetchall()

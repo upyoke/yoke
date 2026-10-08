@@ -56,6 +56,12 @@ def _apply_qa_schema() -> None:
     SQLite, the repointed ``YOKE_PG_DSN`` on Postgres).
     """
     _apply_inline_schema(QA_SCHEMA)
+    conn = db_backend.connect()
+    from runtime.api.fixtures.qa_attempt_history import ensure_qa_attempt_history
+
+    ensure_qa_attempt_history(conn)
+    conn.commit()
+    conn.close()
 
 
 def _apply_items_only_schema() -> None:
@@ -124,8 +130,8 @@ def _add_run(db_path: str, req_id: int, *, verdict: str) -> int:
     conn = connect_test_db(db_path)
     cur = conn.execute(
         "INSERT INTO qa_runs "
-        "(qa_requirement_id, performed_by, qa_kind, verdict, created_at) "
-        "VALUES (%s, 'agent', 'simulation', %s, %s) RETURNING id",
+        "(qa_requirement_id, performed_by, qa_kind, verdict, started_at, completed_at, created_at) "
+        "VALUES (%s, 'agent', 'simulation', %s, '2026-04-25T00:00:00Z', '2026-04-25T00:00:01Z', %s) RETURNING id",
         (req_id, verdict, "2026-04-25T00:00:00Z"),
     )
     run_id = int(cur.fetchone()[0])

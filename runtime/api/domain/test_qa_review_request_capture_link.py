@@ -1,9 +1,4 @@
-"""A reviewed run that names another run's capture as its evidence.
-
-Split from the review-request suite so both files stay under the authored
-line limit; these two cover the ``capture_run_id`` link and the refusal
-that keeps it from reaching across requirements.
-"""
+"""Unassociated raw capture pointers cannot lend evidence to human review."""
 
 from __future__ import annotations
 
@@ -14,10 +9,8 @@ from yoke_core.domain.qa_review_requests import ensure_qa_review_request
 from runtime.api.domain.qa_review_seed import _seed_undetermined_review
 
 
-def test_review_request_resolves_capture_linked_artifacts(test_db):
-    """A reviewed run that names its evidence through another run's capture
-    reports that capture's artifacts, not an empty set queried straight off
-    its own id."""
+def test_review_request_does_not_borrow_an_unassociated_capture(test_db):
+    """A raw pointer cannot substitute for a durable judgment association."""
     seeded = _seed_undetermined_review(
         test_db,
         item_id=9503,
@@ -35,7 +28,7 @@ def test_review_request_resolves_capture_linked_artifacts(test_db):
         "'2026-07-26T00:02:00Z') RETURNING id",
         (requirement_id,),
     ).fetchone()[0]
-    linked_artifact_id = test_db.execute(
+    test_db.execute(
         "INSERT INTO qa_artifacts "
         "(qa_run_id, artifact_type, artifact_handle, created_at) "
         "VALUES (%s, 'screenshot', %s, '2026-07-26T00:02:00Z') RETURNING id",
@@ -62,11 +55,9 @@ def test_review_request_resolves_capture_linked_artifacts(test_db):
     assert created is True
     # The request still names the exact run it reviewed, not the capture.
     assert request["subject_context"]["run_id"] == int(linked_run_id)
-    assert request["subject_context"]["evidence_state"] == "attached"
-    assert request["subject_context"]["artifact_count"] == 1
-    assert request["subject_context"]["artifacts"][0]["artifact_id"] == int(
-        linked_artifact_id
-    )
+    assert request["subject_context"]["evidence_state"] == "missing"
+    assert request["subject_context"]["artifact_count"] == 0
+    assert request["subject_context"]["artifacts"] == []
 
 
 def test_review_request_rejects_cross_requirement_capture_link(test_db):

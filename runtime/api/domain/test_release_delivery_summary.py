@@ -48,20 +48,20 @@ def _record_landing(conn, merge_sha: str, requirement_id: int, run_id: int) -> N
         (requirement_id, ITEM_ID),
     )
     conn.execute(
-        "INSERT INTO qa_runs (id, qa_requirement_id, qa_kind, performed_by, "
-        "verdict, raw_result, created_at) VALUES "
-        "(%s,%s,'plan_case','ci_run','pass',%s,'2026-09-18T00:00:00Z')",
+        "INSERT INTO qa_runs (id, qa_requirement_id, qa_kind, performed_by, verdict, raw_result, created_at,started_at,completed_at) VALUES (%s,%s,'plan_case','ci_run','pass',%s,'2026-09-18T00:00:00Z','2026-09-18T00:00:00Z','2026-09-18T00:00:00Z')",
         (
             run_id,
             requirement_id,
-            json.dumps({
-                "merge_queue_batch": {
-                    "pr_num": str(1200 + run_id),
-                    "merge_sha": merge_sha,
-                    "combined_head_sha": LINEAGE,
-                    "run_url": "https://example.test/run",
-                },
-            }),
+            json.dumps(
+                {
+                    "merge_queue_batch": {
+                        "pr_num": str(1200 + run_id),
+                        "merge_sha": merge_sha,
+                        "combined_head_sha": LINEAGE,
+                        "run_url": "https://example.test/run",
+                    },
+                }
+            ),
         ),
     )
 
@@ -82,9 +82,7 @@ def _record_standalone_landing(conn, merge_sha: str, *, branch: str) -> None:
     )
 
 
-def _succeeded_run(
-    conn, run_id: str, *, carried: list[str], flow: str = FLOW
-) -> None:
+def _succeeded_run(conn, run_id: str, *, carried: list[str], flow: str = FLOW) -> None:
     """A succeeded release to this item's environment, carrying ``carried``."""
     insert_deployment_run(
         conn,
@@ -96,10 +94,12 @@ def _succeeded_run(
         target_tier="persistent",
         release_lineage=LINEAGE,
         target_environment_id=ENVIRONMENT_ID,
-        carried_work=json.dumps({
-            "derivation": {"contents_known": True},
-            "items": [{"ref": "YOK-1", "commit_shas": carried}],
-        }),
+        carried_work=json.dumps(
+            {
+                "derivation": {"contents_known": True},
+                "items": [{"ref": "YOK-1", "commit_shas": carried}],
+            }
+        ),
         completed_at="2026-09-18T00:00:00Z",
     )
 
@@ -190,7 +190,9 @@ def test_a_merge_carried_under_another_items_landing_counts_as_deployed(
         )
 
     monkeypatch.setattr(
-        summary_module, "CandidateContainment", _containment(_contains),
+        summary_module,
+        "CandidateContainment",
+        _containment(_contains),
     )
     with test_database() as conn:
         _record_landing(conn, CROSS_ITEM_MERGE, 1, 1)
@@ -250,7 +252,8 @@ def test_only_the_newest_release_lineage_is_asked(monkeypatch) -> None:
         summary_module,
         "CandidateContainment",
         _containment(
-            lambda sha: ContainmentVerdict(state=CONTAINED), asked=asked,
+            lambda sha: ContainmentVerdict(state=CONTAINED),
+            asked=asked,
         ),
     )
     newest = "1" * 40

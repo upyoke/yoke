@@ -55,7 +55,7 @@ def test_a_completed_undetermined_review_survives_inbox_convergence() -> None:
         assert request_id not in [row["request_id"] for row in result["withdrawn"]]
 
 
-def test_a_later_conclusive_run_supersedes_the_review() -> None:
+def test_a_later_conclusive_run_does_not_dispose_another_captures_review() -> None:
     with test_database() as conn:
         execution, request_id = _undetermined_walk(
             conn, item_id=4809, session_id="supersede-session"
@@ -75,9 +75,8 @@ def test_a_later_conclusive_run_supersedes_the_review() -> None:
         result = dispose_ended_decision_requests(conn)
 
         status, reason = _status(conn, request_id)
-        assert status == "withdrawn"
-        assert "conclusive result" in reason
-        assert [row["request_id"] for row in result["withdrawn"]] == [request_id]
+        assert status == "pending"
+        assert request_id not in [row["request_id"] for row in result["withdrawn"]]
 
 
 def test_an_older_run_cannot_supersede_a_later_review() -> None:
@@ -222,9 +221,8 @@ def test_replaying_the_review_bundle_recovers_one_pending_request() -> None:
         )
         assert (
             conn.execute(
-                "SELECT COUNT(*) FROM qa_runs WHERE qa_requirement_id=%s "
-                "AND performed_by='agent'",
-                (requirement_id,),
+                "SELECT COUNT(*) FROM qa_runs WHERE qa_requirement_id=%s AND id=%s",
+                (requirement_id, _capture_run_id),
             ).fetchone()[0]
             == 1
         )
@@ -267,9 +265,8 @@ def test_replaying_the_review_bundle_recovers_one_pending_request() -> None:
         )
         assert (
             conn.execute(
-                "SELECT COUNT(*) FROM qa_runs WHERE qa_requirement_id=%s "
-                "AND performed_by='agent'",
-                (requirement_id,),
+                "SELECT COUNT(*) FROM qa_runs WHERE qa_requirement_id=%s AND id=%s",
+                (requirement_id, _capture_run_id),
             ).fetchone()[0]
             == 1
         )

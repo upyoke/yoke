@@ -128,6 +128,8 @@ def test_unproven_replacement_still_blocks_and_names_the_case(dash_db_path, stat
     assert f"replacement #{replacement}" in blocked["error"]
     assert "independent verdict" in blocked["remediation_hint"]
     assert "same candidate" in blocked["remediation_hint"]
+    if state == "other_scope":
+        assert "replacement_graph_invalid" in blocked["error"]
 
 
 def test_original_without_replacement_keeps_its_own_pass_rule(dash_db_path):
@@ -225,3 +227,21 @@ def test_checkout_free_replacement_after_merge_proves_accepted_lane_head(
     else:
         assert result["error_code"] == "GATE_DASH_VERIFICATION_UNSATISFIED"
         assert f"replacement #{replacement}" in result["error"]
+
+
+def test_declared_pending_successor_blocks_before_automatic_discharge(dash_db_path):
+    conn = connect_test_db(dash_db_path)
+    try:
+        original, replacement = _cases(conn)
+        assert (
+            conn.execute(
+                "SELECT superseded_by_requirement_id FROM qa_requirements WHERE id=%s",
+                (original,),
+            ).fetchone()[0]
+            is None
+        )
+    finally:
+        conn.close()
+    result = _gate(dash_db_path)
+    assert result["error_code"] == "GATE_DASH_VERIFICATION_UNSATISFIED"
+    assert f"replacement #{replacement}" in result["error"]

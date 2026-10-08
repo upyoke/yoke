@@ -1,12 +1,4 @@
-"""A running stage never certifies a case body the item has already corrected.
-
-Admission copies an item requirement's body onto a run-bound row, so a later
-correction to the item used to land on the source alone and leave the stage
-executing the retracted body with nothing saying so. These cover both halves
-of the answer: the amendment reaches the copy while that is still honest, and
-refuses by name the moment it is not; and a copy that diverged anyway refuses
-before the walk can certify against it.
-"""
+"""Frozen admitted cases remain executable while source drift stays visible."""
 
 from __future__ import annotations
 
@@ -22,16 +14,15 @@ from yoke_core.domain.deployment_qa_admission_materialization import (
     admitted_source_requirement_id,
 )
 from yoke_core.domain.qa_admitted_case_currency import (
-    StaleAdmittedCaseError,
     admitted_case_divergence,
     annotate_admitted_currency,
     reachable_in_place_fields,
-    require_current_admitted_case,
 )
 from yoke_core.domain.qa_admitted_case_reconciliation import (
     ADMITTED_COPY_IN_FLIGHT_CODE,
     admitted_copies_in_flight,
 )
+from yoke_core.domain.qa_plan_case_currency import require_current_requirement
 from yoke_core.domain.qa_requirement_config_update import apply_requirement_update
 from yoke_core.domain.qa_requirement_pass_currency import canonical_method_config
 
@@ -219,8 +210,8 @@ class TestAmendmentRefusesByName:
         assert _method_config(test_db, copy_id) == RETRACTED
 
 
-class TestStageRefusesASupersededBody:
-    def test_a_copy_whose_source_moved_refuses_before_it_can_certify(
+class TestFrozenStageDefinitions:
+    def test_a_copy_whose_source_moved_keeps_its_admitted_definition(
         self, test_db: Any
     ) -> None:
         source_id, copy_id = _seed(test_db)
@@ -235,14 +226,15 @@ class TestStageRefusesASupersededBody:
         assert divergence is not None
         assert divergence.source_requirement_id == source_id
         assert divergence.fields == ("method_config",)
-        with pytest.raises(StaleAdmittedCaseError) as refusal:
-            require_current_admitted_case(test_db, copy_id)
-        assert "admitted_case_superseded" in str(refusal.value)
-        assert str(source_id) in str(refusal.value)
+        require_current_requirement(test_db, copy_id)
+        stored = test_db.execute(
+            "SELECT method_config FROM qa_requirements WHERE id=%s", (copy_id,)
+        ).fetchone()
+        assert canonical_method_config(stored[0]) == canonical_method_config(RETRACTED)
 
     def test_a_matching_copy_passes_the_check(self, test_db: Any) -> None:
         _source_id, copy_id = _seed(test_db)
-        require_current_admitted_case(test_db, copy_id)
+        require_current_requirement(test_db, copy_id)
 
     def test_the_target_fields_admission_rewrites_are_not_divergence(
         self, test_db: Any
@@ -262,7 +254,9 @@ class TestRunCaseListNamesCurrency:
         self, test_db: Any
     ) -> None:
         source_id, copy_id = _seed(test_db)
-        rows = [{"id": copy_id, "plan_case_key": admitted_requirement_case_key(source_id)}]
+        rows = [
+            {"id": copy_id, "plan_case_key": admitted_requirement_case_key(source_id)}
+        ]
         assert annotate_admitted_currency(test_db, rows)[0]["source_currency"] == (
             "current"
         )
@@ -305,9 +299,10 @@ class TestTheRefusalNamesARealRecovery:
     ) -> None:
         source_id, copy_id = _seed(test_db)
         self._diverge(test_db, source_id, "instructions", "walk it differently")
-        with pytest.raises(StaleAdmittedCaseError) as refusal:
-            require_current_admitted_case(test_db, copy_id)
-        message = str(refusal.value)
+        divergence = admitted_case_divergence(test_db, copy_id)
+        assert divergence is not None
+        message = divergence.message()
+        require_current_requirement(test_db, copy_id)
         assert "cannot be written on a requirement at all" in message
         assert "not an available remedy" in message
         assert "yoke qa requirement supersede" in message
@@ -320,12 +315,11 @@ class TestTheRefusalNamesARealRecovery:
         self, test_db: Any
     ) -> None:
         source_id, copy_id = _seed(test_db)
-        self._diverge(
-            test_db, source_id, "method_config", json.dumps(CORRECTED)
-        )
-        with pytest.raises(StaleAdmittedCaseError) as refusal:
-            require_current_admitted_case(test_db, copy_id)
-        message = str(refusal.value)
+        self._diverge(test_db, source_id, "method_config", json.dumps(CORRECTED))
+        divergence = admitted_case_divergence(test_db, copy_id)
+        assert divergence is not None
+        message = divergence.message()
+        require_current_requirement(test_db, copy_id)
         assert "which then reaches the admitted copy" in message
         assert "not an available remedy" not in message
 
@@ -334,9 +328,7 @@ class TestTheRefusalNamesARealRecovery:
     ) -> None:
         source_id, copy_id = _seed(test_db)
         self._diverge(test_db, source_id, "instructions", "walk it differently")
-        self._diverge(
-            test_db, source_id, "method_config", json.dumps(CORRECTED)
-        )
+        self._diverge(test_db, source_id, "method_config", json.dumps(CORRECTED))
         message = str(admitted_case_divergence(test_db, copy_id).message())
         assert "not an available remedy" in message
         assert "which then reaches the admitted copy" not in message

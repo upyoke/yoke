@@ -58,7 +58,12 @@ class TestCLI:
     @pytest.mark.parametrize(
         ("argv", "handler_name", "expected_args", "expected_kwargs"),
         [
-            (["task-upsert", "42", "1", "CLI Title"], "task_upsert", (TEST_ITEM_ID, 1, "CLI Title", "", "", ""), {}),
+            (
+                ["task-upsert", "42", "1", "CLI Title"],
+                "task_upsert",
+                (TEST_ITEM_ID, 1, "CLI Title", "", "", ""),
+                {},
+            ),
             (["task-get", "42", "1"], "task_get", (TEST_ITEM_ID, 1), {}),
             (
                 ["task-update-status", "42", "1", "implementing"],
@@ -73,21 +78,36 @@ class TestCLI:
                 (TEST_ITEM_ID, 1, "github_issue", "123"),
                 {"pipeline": False},
             ),
-            (["file-add", "42", "1", "README.md", "modify"], "file_add", (TEST_ITEM_ID, 1, "README.md", "modify"), {}),
+            (
+                ["file-add", "42", "1", "README.md", "modify"],
+                "file_add",
+                (TEST_ITEM_ID, 1, "README.md", "modify"),
+                {},
+            ),
             (
                 ["history-insert", "42", "1", "planning", "implementing", "note"],
                 "history_insert",
                 (TEST_ITEM_ID, 1, "planning", "implementing", "note"),
                 {},
             ),
-            (["dispatch-chain-get", "42", "wt-1"], "dispatch_chain_get", (TEST_ITEM_ID, "wt-1"), {}),
+            (
+                ["dispatch-chain-get", "42", "wt-1"],
+                "dispatch_chain_get",
+                (TEST_ITEM_ID, "wt-1"),
+                {},
+            ),
             (
                 ["dispatch-chain-update", "42", "wt-1", "current_task", "2"],
                 "dispatch_chain_update",
                 (TEST_ITEM_ID, "wt-1", "current_task", "2"),
                 {},
             ),
-            (["dispatch-chain-advance", "42", "wt-1"], "dispatch_chain_advance", (TEST_ITEM_ID, "wt-1"), {}),
+            (
+                ["dispatch-chain-advance", "42", "wt-1"],
+                "dispatch_chain_advance",
+                (TEST_ITEM_ID, "wt-1"),
+                {},
+            ),
             (
                 ["dispatch-chain-refresh-activation", "42", "wt-1", "3"],
                 "dispatch_chain_refresh_for_activation",
@@ -102,7 +122,12 @@ class TestCLI:
                 (TEST_ITEM_ID, 1, 2),
                 {},
             ),
-            (["simulation-get", "42", "plan"], "simulation_get", (TEST_ITEM_ID, "plan"), {}),
+            (
+                ["simulation-get", "42", "plan"],
+                "simulation_get",
+                (TEST_ITEM_ID, "plan"),
+                {},
+            ),
             (
                 ["cascade-task-status", "42", "planning", "plan-drafted"],
                 "cascade_task_status",
@@ -121,9 +146,13 @@ class TestCLI:
         expected_args,
         expected_kwargs,
     ):
-        with patch("yoke_core.domain.epic.connect", return_value=db), patch(
-            "yoke_core.domain.epic._validate_epic_exists"
-        ), patch(f"yoke_core.domain.epic.{handler_name}", return_value="ok") as handler:
+        with (
+            patch("yoke_core.domain.epic.connect", return_value=db),
+            patch("yoke_core.domain.epic._validate_epic_exists"),
+            patch(
+                f"yoke_core.domain.epic.{handler_name}", return_value="ok"
+            ) as handler,
+        ):
             epic.main(argv)
 
         handler.assert_called_once_with(db, *expected_args, **expected_kwargs)
@@ -142,9 +171,13 @@ class TestCLI:
         ],
     )
     def test_cli_dispatches_list_commands(self, db, argv, handler_name, expected_args):
-        with patch("yoke_core.domain.epic.connect", return_value=db), patch(
-            "yoke_core.domain.epic._validate_epic_exists"
-        ), patch(f"yoke_core.domain.epic.{handler_name}", return_value="row-1") as handler:
+        with (
+            patch("yoke_core.domain.epic.connect", return_value=db),
+            patch("yoke_core.domain.epic._validate_epic_exists"),
+            patch(
+                f"yoke_core.domain.epic.{handler_name}", return_value="row-1"
+            ) as handler,
+        ):
             epic.main(argv)
 
         handler.assert_called_once_with(db, *expected_args)
@@ -166,8 +199,9 @@ class TestCLI:
         ],
     )
     def test_usage_errors_exit_with_2(self, db, argv):
-        with patch("yoke_core.domain.epic.connect", return_value=db), patch(
-            "yoke_core.domain.epic._validate_epic_exists"
+        with (
+            patch("yoke_core.domain.epic.connect", return_value=db),
+            patch("yoke_core.domain.epic._validate_epic_exists"),
         ):
             with pytest.raises(SystemExit) as exc:
                 epic.main(argv)
@@ -184,11 +218,13 @@ class TestCLI:
             (RuntimeError("boom"), 1),
         ],
     )
-    def test_cli_maps_handler_exceptions_to_expected_exit_codes(self, db, exc_value, expected_code):
-        with patch("yoke_core.domain.epic.connect", return_value=db), patch(
-            "yoke_core.domain.epic._validate_epic_exists"
-        ), patch(
-            "yoke_core.domain.epic.task_get", side_effect=exc_value
+    def test_cli_maps_handler_exceptions_to_expected_exit_codes(
+        self, db, exc_value, expected_code
+    ):
+        with (
+            patch("yoke_core.domain.epic.connect", return_value=db),
+            patch("yoke_core.domain.epic._validate_epic_exists"),
+            patch("yoke_core.domain.epic.task_get", side_effect=exc_value),
         ):
             with pytest.raises(SystemExit) as exc:
                 epic.main(["task-get", "42", "1"])
@@ -196,17 +232,27 @@ class TestCLI:
         assert exc.value.code == expected_code
 
     def test_proceed_triage_handoff_cli_dispatches_to_helper(self, db):
-        with patch("yoke_core.domain.epic.connect", return_value=db), patch(
-            "yoke_core.domain.epic.proceed_triage_and_handoff", return_value=0
-        ) as handler:
+        with (
+            patch("yoke_core.domain.epic.connect", return_value=db),
+            patch(
+                "yoke_core.domain.epic.proceed_triage_and_handoff", return_value=0
+            ) as handler,
+        ):
             with pytest.raises(SystemExit) as exc:
-                epic.main([
-                    "proceed-triage-handoff", "42",
-                    "--recommendation", "PROCEED",
-                    "--gap-summary", "test",
-                    "--filed-items", "1515,1516",
-                    "--session-id", "sess-1",
-                ])
+                epic.main(
+                    [
+                        "proceed-triage-handoff",
+                        "42",
+                        "--recommendation",
+                        "PROCEED",
+                        "--gap-summary",
+                        "test",
+                        "--filed-items",
+                        "1515,1516",
+                        "--session-id",
+                        "sess-1",
+                    ]
+                )
 
         assert exc.value.code == 0
         handler.assert_called_once_with(
@@ -221,18 +267,25 @@ class TestCLI:
         class NoCloseConnection:
             def __init__(self, conn):
                 self._conn = conn
+
             def __getattr__(self, name):
                 return getattr(self._conn, name)
+
             def __enter__(self):
                 return self._conn
+
             def __exit__(self, *args):
                 return False
+
             def close(self):
                 pass
 
         insert_item(db, id=TEST_ITEM_ID, status="reviewing-implementation")
         insert_epic_task(
-            db, epic_id=TEST_ITEM_ID, task_num=1, title="Reviewed task",
+            db,
+            epic_id=TEST_ITEM_ID,
+            task_num=1,
+            title="Reviewed task",
             status="reviewed-implementation",
         )
         p = epic._placeholder(db)
@@ -248,9 +301,14 @@ class TestCLI:
         )
         db.commit()
 
-        with patch("yoke_core.domain.epic.connect", return_value=NoCloseConnection(db)), patch(
-            "yoke_core.domain.epic._qa_run_add_silent"
-        ), patch("yoke_core.domain.conduct_reviewed_handoff.run", return_value=0):
+        with (
+            patch("yoke_core.domain.epic.connect", return_value=NoCloseConnection(db)),
+            patch(
+                "yoke_core.domain.qa_simulation_triage.record_simulation_triage",
+                return_value={"run_id": 1},
+            ),
+            patch("yoke_core.domain.conduct_reviewed_handoff.run", return_value=0),
+        ):
             with pytest.raises(SystemExit) as exc:
                 epic.main(["proceed-triage-handoff", str(TEST_ITEM_ID)])
 

@@ -381,7 +381,7 @@ _Compact depth. For per-table/command notes, caveats and corrected wrong guesses
 
 **JSON-nested-field schemas** (_parse the rendered JSON string; do NOT query nested fields as top-level columns_):
 - `qa_requirements.capability_requirements` — `(JSON array of capability tokens the runner must advertise)`:list[str]=[]. Validator: `yoke_core.domain.qa_requirement_ops`.
-- `qa_requirements.success_policy` — `kind`:'all_pass'|'any_pass'|'majority_pass'='all_pass', `threshold`:int|null=null. Validator: `yoke_core.domain.qa_requirement_ops`.
+- `qa_requirements.success_policy` — `kind`:'all_pass'='all_pass', `threshold`:int|null=null. Validator: `yoke_core.domain.qa_requirement_ops`.
 
 _Compact depth. For per-table/command notes, caveats and corrected wrong guesses, read_ `yoke packets render --role tester_agent --topic qa --detail full`.
 

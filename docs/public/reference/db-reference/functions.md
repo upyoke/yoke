@@ -224,7 +224,7 @@ Replaces every hand-authored `python3 -m yoke_core.domain.epic task-update-body 
 | `workflow_item.epic_task.review_list` | `None` (read) | same module → `epic.review_list` | Review history newest-first; `{reviews, count}` where `count` is review ROWS (bodies are multi-line); empty list is success. |
 | `workflow_item.epic_task.body_get` | `None` (read) | `yoke_core.domain.handlers.workflow_item_epic_task_state.handle_body_get` | Wraps `epic.task_get_body`; returns the body verbatim. |
 | `workflow_item.epic_task.update_status` | `"epic"` | same module → `epic.task_update_status` | Non-pipeline status write + GitHub label sync; terminal success statuses refuse with `pipeline_required`. |
-| `workflow_item.epic_task.simulation_upsert` | `"epic"` | same module → `epic.simulation_upsert` | Epic-level target (no `task_num`); payload `{phase, body}`; parses CLEAN / GAPS FOUND; replaces prior runs for the phase. |
+| `workflow_item.epic_task.simulation_upsert` | `"epic"` | same module → `epic.simulation_upsert` | Epic-level target (no `task_num`); payload `{phase, body}`; parses CLEAN / GAPS FOUND; retains every actual attempt for the phase. |
 | `workflow_item.epic_task.submission_receipt_get` | `None` (read) | same module → `epic.submission_receipt_get` | Payload `{after_note_count}`; returns the validated `PASS` receipt line; `receipt_invalid` on failing fields. |
 | `workflow_item.epic_progress_note.append` | `"epic"` | `yoke_core.domain.handlers.workflow_item_epic_progress_note.append` | Wraps `yoke_core.domain.epic.progress_note_insert`. |
 

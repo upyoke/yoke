@@ -90,6 +90,11 @@ def _apply_boundary_schema(project_repo):
         c = db_backend.connect()
         try:
             create_core_tables(c)
+            from runtime.api.fixtures.qa_attempt_history import (
+                ensure_qa_attempt_history,
+            )
+
+            ensure_qa_attempt_history(c)
             converge_builtin_workflows(c)
             _create_events_table(c)
             create_path_registry_tables(c)

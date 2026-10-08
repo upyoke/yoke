@@ -10,6 +10,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+from yoke_core.domain.item_json_sections import section_write_refusal
+from yoke_core.domain.item_field_transform_sections import _NullSink
 from yoke_core.domain import sections as _sections
 from yoke_core.domain.backlog_queries import VALID_STRUCTURED_FIELDS
 from yoke_core.domain.render_body_item_sections import (
@@ -105,22 +107,19 @@ def _line_count(text: str) -> int:
     return text.count("\n") + trailing
 
 
-class _NullSink:
-    """Discard inner-write log lines while still satisfying ``TextIO``."""
-
-    def write(self, _data: str) -> int:  # pragma: no cover - trivial
-        return 0
-
-    def flush(self) -> None:  # pragma: no cover - trivial
-        return None
-
-
 def handle_upsert(request: FunctionCallRequest) -> HandlerOutcome:
     """Upsert an item_sections row + re-render body + emit SectionUpserted."""
     resolved, err = _resolve_section_target(request)
     if err is not None:
         return err
     item_id, section_name = resolved
+    refusal = section_write_refusal(section_name)
+    if refusal:
+        return HandlerOutcome(
+            result_payload={},
+            primary_success=False,
+            error=FunctionError(code="section_authority_reserved", message=refusal),
+        )
     if section_name in VALID_STRUCTURED_FIELDS:
         return _bad_request(
             f"'{section_name}' is a structured field, not a section; "
@@ -205,6 +204,13 @@ def handle_delete(request: FunctionCallRequest) -> HandlerOutcome:
     if err is not None:
         return err
     item_id, section_name = resolved
+    refusal = section_write_refusal(section_name)
+    if refusal:
+        return HandlerOutcome(
+            result_payload={},
+            primary_success=False,
+            error=FunctionError(code="section_authority_reserved", message=refusal),
+        )
 
     existing = _sections.get_section(item_id, section_name)
     if existing is None:

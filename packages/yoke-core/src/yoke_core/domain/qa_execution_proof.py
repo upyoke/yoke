@@ -229,48 +229,6 @@ def qa_artifact_rows_by_run(
     return result
 
 
-def qa_overridden_verdict_run(
-    conn: Any, *, requirement_id: int, before_run_id: int
-) -> dict[str, Any] | None:
-    """Return the run whose verdict a ``human_review`` overrode.
-
-    A ``human_review`` records no evidence of its own, so its capture
-    reference lives on the run it replaced -- usually an ``agent`` review,
-    but for a browser case whose verdict was recorded against the capture
-    itself, that capture is both the overridden verdict and the run holding
-    the screenshots.
-    """
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    return query_one(
-        conn,
-        "SELECT id, verdict, verdict_reason, raw_result FROM qa_runs WHERE "
-        f"qa_requirement_id={marker} AND verdict IS NOT NULL "
-        f"AND performed_by IN ('agent', 'browser_substrate') AND id<{marker} "
-        "ORDER BY id DESC LIMIT 1",
-        (requirement_id, before_run_id),
-    )
-
-
-def _run_belongs_to_requirement(
-    conn: Any,
-    *,
-    run_id: int,
-    requirement_id: int,
-) -> bool:
-    """True when ``run_id`` is a real run recorded against ``requirement_id``.
-
-    A raw_result-embedded ``capture_run_id`` is untrusted data, not a
-    foreign key; unvalidated it could attach a stranger's evidence.
-    """
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    row = query_one(
-        conn,
-        f"SELECT 1 FROM qa_runs WHERE id={marker} AND qa_requirement_id={marker}",
-        (run_id, requirement_id),
-    )
-    return row is not None
-
-
 def qa_evidence_run_id(
     conn: Any,
     *,
@@ -279,35 +237,26 @@ def qa_evidence_run_id(
     performed_by: str | None,
     raw_result: Any,
 ) -> int | None:
-    """Return the run whose artifacts back a requirement's latest verdict.
+    """Read the actual run's artifacts, or a durable historical review relation.
 
-    A review's own ``raw_result`` embeds ``capture_run_id``, pointing at
-    the immutable run its screenshots came from. A ``human_review`` reads
-    that reference off the run it overrode instead of its own; when that run
-    carries none either, it was itself the capture, so its id is the
-    fallback rather than the human_review row (which owns no artifacts).
-    Every reference is verified against this same requirement, so a
-    corrupted or mismatched one falls back instead of surfacing a different
-    subject's evidence.
+    Runner labels, adjacent ids and embedded JSON pointers are not evidence
+    ownership. A missing historical association leaves that row's own proof
+    missing rather than borrowing another attempt's artifacts.
     """
     if run_id is None:
         return None
-    capture_run_id = _payload(raw_result).get("capture_run_id")
-    fallback_run_id = run_id
-    if str(performed_by or "") == "human_review":
-        overridden = qa_overridden_verdict_run(
-            conn, requirement_id=requirement_id, before_run_id=int(run_id)
-        )
-        if overridden is not None:
-            capture_run_id = _payload(overridden["raw_result"]).get("capture_run_id")
-            fallback_run_id = int(overridden["id"])
-        else:
-            capture_run_id = None
-    if str(capture_run_id or "").strip().isdigit() and _run_belongs_to_requirement(
-        conn, run_id=int(capture_run_id), requirement_id=requirement_id
-    ):
-        return int(capture_run_id)
-    return int(fallback_run_id)
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    row = query_one(
+        conn,
+        "SELECT COALESCE(capture.id,actual.id) AS id FROM qa_runs actual "
+        "LEFT JOIN qa_plan_review_verdicts judgment ON judgment.review_run_id=actual.id "
+        "AND judgment.requirement_id=actual.qa_requirement_id "
+        "LEFT JOIN qa_runs capture ON capture.id=judgment.capture_run_id "
+        "AND capture.qa_requirement_id=actual.qa_requirement_id "
+        f"WHERE actual.id={marker} AND actual.qa_requirement_id={marker}",
+        (int(run_id), int(requirement_id)),
+    )
+    return int(row["id"]) if row is not None else None
 
 
 __all__ = [
@@ -315,7 +264,6 @@ __all__ = [
     "qa_artifact_rows_by_run",
     "qa_evidence_run_id",
     "qa_precondition_reason",
-    "qa_overridden_verdict_run",
     "qa_proof_summary",
     "qa_run_outcome",
 ]

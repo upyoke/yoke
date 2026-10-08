@@ -300,6 +300,19 @@ def record_case_verdict(
     the evidence the gate looks for."""
     from yoke_core.domain.qa_run_verdict_record import insert_qa_run
 
+    from yoke_core.domain.qa_requirement_pass_currency import (
+        stamp_executed_method_config,
+    )
+
+    requirement = conn.execute(
+        "SELECT method_config,execution_target_digest FROM qa_requirements WHERE id=%s",
+        (requirement_id,),
+    ).fetchone()
+    raw = stamp_executed_method_config(
+        "{}",
+        requirement["method_config"],
+        execution_target_digest=requirement["execution_target_digest"],
+    )
     now = "2026-09-18T00:02:00Z"
     qa_run_id = insert_qa_run(
         conn,
@@ -307,6 +320,7 @@ def record_case_verdict(
         performed_by="worktree_run",
         qa_kind="plan_case",
         verdict=verdict,
+        raw_result=raw,
         started_at=now,
         completed_at=now,
         created_at=now,

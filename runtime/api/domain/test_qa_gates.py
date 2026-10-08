@@ -236,11 +236,11 @@ class TestCheckEpicSimulationGate:
         result = check_epic_simulation_gate(42, qa_db)
         assert result.passed
 
-    def test_tc_gaps_non_critical_passes(self, qa_db):
+    def test_noncritical_failed_attempt_does_not_authorize(self, qa_db):
         body = "### GAP #1: Minor spacing issue\nSeverity: [WARNING]\nRecommendation: PROCEED"
         _add_simulation(qa_db, 42, "integration", "fail", body)
         result = check_epic_simulation_gate(42, qa_db)
-        assert result.passed
+        assert not result.passed
 
     def test_tc_undetermined_never_passes(self, qa_db):
         _add_simulation(
@@ -250,24 +250,19 @@ class TestCheckEpicSimulationGate:
         assert not result.passed
         assert any("No final verdict" in error for error in result.errors)
 
-    def test_tc_gaps_non_critical_logs_summary(self, qa_db, capsys):
-        body = (
-            "## Gaps Found: 1 (0 critical, 0 warning, 1 note)\n\n"
-            "### GAP #1: Minor documentation drift\nSeverity: [NOTE]\nRecommendation: PROCEED"
-        )
-        _add_simulation(qa_db, 42, "integration", "fail", body)
+    def test_all_effective_simulations_must_pass(self, qa_db):
+        _add_simulation(qa_db, 42, "integration", "fail", "Minor gap")
+        _add_simulation(qa_db, 42, "integration", "pass", "")
         result = check_epic_simulation_gate(42, qa_db)
-        captured = capsys.readouterr()
-        assert result.passed
-        assert "## Gaps Found: 1" in captured.err
-        assert "### GAP #1: Minor documentation drift" in captured.err
+        assert not result.passed
+        assert any("Only completed pass" in error for error in result.errors)
 
     def test_tc_gaps_critical_fails(self, qa_db):
         body = "### GAP #1: Data loss\nSeverity: [CRITICAL]\nRecommendation: BLOCK"
         _add_simulation(qa_db, 42, "integration", "fail", body)
         result = check_epic_simulation_gate(42, qa_db)
         assert not result.passed
-        assert any("blocking gaps" in e for e in result.errors)
+        assert any("is fail" in e for e in result.errors)
 
     def test_tc_no_simulation_fails(self, qa_db):
         result = check_epic_simulation_gate(42, qa_db)

@@ -1,10 +1,7 @@
-"""A corrected QA case declared to replace an exact failed one.
+"""Declared replacement retires predecessor grading immediately.
 
-The failed case keeps blocking but leaves the roster, so no later execution
-captures or reviews it again; the corrected case's passing independent
-verdict supersedes it on that verdict's own transaction, and a failing one
-leaves it blocking with its evidence. Every verdict here is written through
-the production run writer, so no test discharges anything by hand.
+Only the final corrected case is graded while its actual passing verdict may
+also record automatic predecessor supersession for audit.
 """
 
 from __future__ import annotations
@@ -112,7 +109,7 @@ def _failed_with_correction(
     return failed_id, corrected_id
 
 
-def test_declared_case_leaves_the_roster_but_keeps_blocking(test_db) -> None:
+def test_declared_case_leaves_grading_to_its_pending_successor(test_db) -> None:
     run_id = "run-replacement-declared"
     failed_id, corrected_id = _failed_with_correction(test_db, run_id)
 
@@ -123,10 +120,9 @@ def test_declared_case_leaves_the_roster_but_keeps_blocking(test_db) -> None:
     assert _roster(test_db, run_id) == [corrected_id]
     status = _status(test_db, run_id)
     assert not status["accepted"]
-    assert any(
-        f"#{failed_id}" in reason and f"declared replacement #{corrected_id}" in reason
-        for reason in status["reasons"]
-    ), status["reasons"]
+    assert any(f"#{corrected_id}" in reason for reason in status["reasons"]), status[
+        "reasons"
+    ]
 
 
 @pytest.mark.parametrize("verdict", ["fail", "error"])
@@ -150,7 +146,7 @@ def test_passing_replacement_supersedes_the_failed_case(test_db, verdict) -> Non
     assert status["accepted"], status["reasons"]
 
 
-def test_failing_replacement_leaves_the_failed_case_blocking(test_db) -> None:
+def test_failing_replacement_grades_only_the_successor(test_db) -> None:
     run_id = "run-replacement-fail"
     failed_id, corrected_id = _failed_with_correction(test_db, run_id)
 
@@ -161,11 +157,13 @@ def test_failing_replacement_leaves_the_failed_case_blocking(test_db) -> None:
     assert row["replacement_requirement_id"] == corrected_id
     status = _status(test_db, run_id)
     assert not status["accepted"]
-    assert any(f"#{failed_id}" in reason for reason in status["reasons"])
+    assert not any(
+        f"requirement #{failed_id} " in reason for reason in status["reasons"]
+    )
     assert any(f"#{corrected_id}" in reason for reason in status["reasons"])
 
 
-def test_retry_correction_inherits_every_earlier_attempt(test_db) -> None:
+def test_retry_correction_retains_each_immediate_successor(test_db) -> None:
     run_id = "run-replacement-retry"
     failed_id, first_fix = _failed_with_correction(test_db, run_id)
     record_case_verdict(test_db, first_fix, "fail", evidence=True)
@@ -174,14 +172,14 @@ def test_retry_correction_inherits_every_earlier_attempt(test_db) -> None:
     declare(test_db, first_fix, "smoke-fixed-2", [second_fix])
 
     assert (
-        requirement_row(test_db, failed_id)["replacement_requirement_id"] == second_fix
+        requirement_row(test_db, failed_id)["replacement_requirement_id"] == first_fix
     )
     assert (
         requirement_row(test_db, first_fix)["replacement_requirement_id"] == second_fix
     )
     assert _roster(test_db, run_id) == [second_fix]
 
-    assert _pass(test_db, run_id) == sorted([failed_id, first_fix])
+    assert _pass(test_db, run_id) == [first_fix]
     status = _status(test_db, run_id)
     assert status["accepted"], status["reasons"]
 
@@ -283,6 +281,8 @@ def test_deployment_replacement_requires_fail_or_error_verdict(
             verdict_reason="Capture could not be judged"
             if verdict == "undetermined"
             else None,
+            started_at=iso8601_now(),
+            completed_at=iso8601_now(),
             created_at=iso8601_now(),
         )
         test_db.commit()

@@ -38,7 +38,6 @@ from yoke_core.domain.qa_requirement_pass_currency import canonical_method_confi
 #: link itself rather than content that can drift.
 PLAN_DEFINITION_COLUMNS: tuple[str, ...] = (
     "method_id",
-    "method_name",
     "runner_id",
     "verdict_path",
     "instructions",
@@ -47,7 +46,6 @@ PLAN_DEFINITION_COLUMNS: tuple[str, ...] = (
     "entry_surface",
     "required_completion",
     "starting_state",
-    "starting_state_reason",
     "success_policy",
     "capability_requirements",
     "case_position",
@@ -153,7 +151,7 @@ def _row(conn: Any, requirement_id: int) -> Any:
 
 def _divergence_for_row(conn: Any, row: Any) -> Optional[PlanCaseDivergence]:
     """Compare one materialized row against its plan case, or return ``None``."""
-    if row["plan_id"] is None:
+    if row["plan_id"] is None or row["deployment_run_id"] is not None:
         return None
     plan_id = int(row["plan_id"])
     case_key = str(row["plan_case_key"] or "")
@@ -217,7 +215,7 @@ def plan_case_divergence(
     currency belongs to :mod:`qa_admitted_case_currency` one link further down.
     """
     row = _row(conn, int(requirement_id))
-    if row is None:
+    if row is None or row["deployment_run_id"] is not None:
         return None
     return _divergence_for_row(conn, row)
 
@@ -303,23 +301,11 @@ def annotate_requirement_currency(
 
 
 def require_current_requirement(conn: Any, requirement_id: int) -> None:
-    """Refuse a row that is behind either copy edge above it, in chain order.
+    """Require live item definitions to match their explicit materialization.
 
-    A QA walk freezes the row it will run, so this is the check a runner
-    makes before it does: an admitted copy whose source moved, or an item
-    row whose plan case was amended after materialization, raises the named
-    refusal carrying the refresh command that reaches it.
-
-    A deployment-stage row answers to the plan snapshot its stage
-    materializes from -- frozen at admission for a pinned stage -- not to
-    the live plan, so its plan edge is checked where that snapshot is read:
-    stage materialization refuses an unjudged row whose snapshot case moved.
+    Deployment requirements execute their admitted immutable definition.
+    Later changes to the source are diagnostics, not execution refusals.
     """
-    from yoke_core.domain.qa_admitted_case_currency import (
-        require_current_admitted_case,
-    )
-
-    require_current_admitted_case(conn, int(requirement_id))
     row = _row(conn, int(requirement_id))
     if row is None or row["deployment_run_id"] is not None:
         return

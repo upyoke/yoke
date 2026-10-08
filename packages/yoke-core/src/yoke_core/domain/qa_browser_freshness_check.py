@@ -5,12 +5,11 @@ The two answer different questions and grow independently: resolution gained
 a control-plane fallback for hosts with no checkout, while the comparison
 below is the same judgment either way.
 
-A capture is covered when it was taken AT an accepted head, after the
-latest commit, or against a build that already CARRIES an accepted head.
-That third reading is what a checkout-less host has: it can resolve no
-commit timestamp, so without it the comparison degrades to SHA equality,
-and evidence from a deployment newer than the landing -- the only evidence
-an item that changed no source can ever produce -- is called stale.
+A capture is covered when its observed build is an accepted head or already
+CARRIES an accepted head. A later capture time proves no build identity.
+Repository containment also answers on a checkout-less host through the
+project provider, allowing a newer deployed build to prove it carries the
+accepted landing.
 """
 
 from __future__ import annotations
@@ -19,9 +18,10 @@ import json
 from typing import Any, List, Optional, Tuple
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
+from yoke_core.domain.qa_latest_execution import latest_executions
+from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 from yoke_core.domain.qa_obligation_settlement import unretracted_requirement_sql
-from yoke_core.domain.db_helpers import query_one, query_rows
+from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.deployment_run_candidate_containment import (
     UNDETERMINED,
     candidate_contains_commit,
@@ -130,9 +130,9 @@ def _run_covers_latest_code(
 ) -> Tuple[bool, str]:
     """Whether one passing browser run covers the code under verification.
 
-    The three readings are asked in cost order, and each is an acceptance on
-    its own. Containment goes last because it reads the project's
-    repository; it is also the only one a checkout-less host can answer,
+    Observed identity equality precedes repository containment. Containment
+    goes last because it reads the project's repository; it also answers
+    on a checkout-less host,
     which is why it is asked rather than skipped there.
 
     Returns the verdict plus, when containment could not be resolved, the
@@ -142,9 +142,6 @@ def _run_covers_latest_code(
     _, run_sha = _extract_code_identity(run_row["raw_result"])
     heads = _accepted_heads(latest_code)
     if run_sha and run_sha in set(heads):
-        return True, ""
-    created_at = run_row["created_at"] or ""
-    if latest_code.timestamp and created_at >= latest_code.timestamp:
         return True, ""
     if not run_sha or conn is None or project_id is None:
         return False, ""
@@ -168,20 +165,14 @@ def _browser_run_is_fresh(
 
 def _latest_browser_run(conn, requirement_id: int):
     """Return the latest execution when it is a passing browser capture."""
-    return query_one(
-        conn,
-        f"""
-        SELECT id, created_at, raw_result
-        FROM qa_runs
-        WHERE qa_requirement_id = %s
-          AND id = ({latest_execution_id_sql("%s")})
-          AND verdict = 'pass'
-          AND performed_by <> 'agent'
-        ORDER BY created_at DESC, id DESC
-        LIMIT 1
-        """,
-        (requirement_id, requirement_id, requirement_id),
-    )
+    run = latest_executions(conn, [requirement_id]).get(requirement_id)
+    if (
+        run is None
+        or run["performed_by"] == "agent"
+        or not has_current_passing_run(conn, requirement_id)
+    ):
+        return None
+    return run
 
 
 def _collect_stale_browser_requirements(
@@ -197,7 +188,7 @@ def _collect_stale_browser_requirements(
 
     ``item_id`` names the item whose project repository answers the
     containment reading; without it that reading is unavailable and the
-    comparison stays membership and timestamp only.
+    comparison requires recorded identity membership.
     """
     from yoke_core.domain.qa_constants import browser_requirement_predicate
 
@@ -260,8 +251,8 @@ def _browser_freshness_errors(
     """Build a user-facing stale browser evidence error block."""
     errors = [
         f"Error: Cannot transition {name} to '{transition_name}' -- {len(stale_rows)} browser requirement(s) have only stale passing runs.",
-        "  Browser runs must be captured at, after, or against a build that "
-        "carries the latest code on the branch.",
+        "  Browser runs must record an observed build at or carrying "
+        "the latest code on the branch.",
     ]
     if latest_code.branch:
         errors.append(f"  Branch: {latest_code.branch}")

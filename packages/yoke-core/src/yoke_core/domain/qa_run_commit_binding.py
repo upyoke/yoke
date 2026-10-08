@@ -1,9 +1,8 @@
 """Bind a hand-recorded QA run to the commit it verified.
 
-A passing blocking verdict without ``verification_tree.head_sha`` reads as
-satisfied at write time and then refuses at merge. This module stamps the
-claimed lane HEAD (or an explicit override), keeps ``raw_result`` as
-evidence text, and refuses with a named reason when no sha can be bound.
+Code/build verdicts bind their verified commit and retain evidence text.
+Machine and endpoint subjects retain their actual capture/contract identity;
+their passing writers must not manufacture an ambient repository SHA.
 """
 
 from __future__ import annotations
@@ -20,8 +19,8 @@ from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 HAND_ACTORS = frozenset({"agent", "human"})
 REQUIRED_SHAPE = (
-    'a passing verdict on a blocking requirement must name the tree it '
-    'verified: pass --head-sha <commit>, or record on a clean claimed lane '
+    "a passing verdict on a blocking requirement must name the tree it "
+    "verified: pass --head-sha <commit>, or record on a clean claimed lane "
     'so the write stamps {"verification_tree": {"head_sha": "<commit>"}}. '
     "--raw-result stays evidence text, not the run identity."
 )
@@ -36,7 +35,9 @@ ResolveLane = Callable[[], tuple[str, str, str]]
 
 
 def needs_commit_binding(
-    verdict: Optional[str], blocking_mode: Optional[str], waived_at: Any,
+    verdict: Optional[str],
+    blocking_mode: Optional[str],
+    waived_at: Any,
 ) -> bool:
     if str(verdict or "").strip().lower() != "pass":
         return False
@@ -148,8 +149,13 @@ def bind_recorded_raw_result(
     item_id: Any = None,
     conn: Any = None,
     resolve_lane: Optional[ResolveLane] = None,
+    requirement: Optional[dict[str, Any]] = None,
 ) -> tuple[Optional[str], str]:
     """Return ``(bound_raw_result, error)``. ``error`` is empty on success."""
+    from yoke_core.domain.qa_subject_proof import requires_code_identity
+
+    if requirement is not None and not requires_code_identity(requirement):
+        return raw_result, ""
     if not should_bind_raw_result(
         verdict=verdict,
         blocking_mode=blocking_mode,
@@ -191,7 +197,7 @@ def bind_cli_raw_result(
     try:
         row = query_one(
             conn,
-            "SELECT blocking_mode, waived_at, item_id, method_config "
+            "SELECT blocking_mode, waived_at, item_id, method_config, runner_id "
             "FROM qa_requirements WHERE id = %s",
             (int(requirement_id),),
         )
@@ -210,6 +216,7 @@ def bind_cli_raw_result(
             head_sha=head_sha,
             item_id=row["item_id"],
             conn=conn,
+            requirement=dict(row),
         )
         if error:
             print(f"Error: {error}", file=sys.stderr)

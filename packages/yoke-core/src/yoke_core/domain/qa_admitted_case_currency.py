@@ -1,24 +1,8 @@
-"""Whether an admitted deployment-stage QA copy still matches its source row.
+"""Compare admitted definitions with their sources for explicit refresh diagnostics.
 
-Admission (:mod:`deployment_qa_admission_materialization`) answers a member's
-post-deploy obligation by copying the item requirement's body onto a new row
-bound to the run, stage and execution target. The copy records where it came
-from in ``plan_case_key`` -- ``admitted-requirement-<source id>`` -- and that
-key is the only link there is, or needs to be.
-
-Nothing read that link in the amend direction, so a correction to the source
-landed on the source alone. The stage kept executing the body frozen at
-admission, and the run recorded the resulting failures as product defects
-rather than as a case whose author had already retracted it.
-
-This module supplies the comparison both halves of the fix need: the amend
-path uses it to decide whether it can reach the copy, and the execution path
-uses it to refuse rather than certify a superseded definition.
-
-It digests only the fields that decide what a case *executes*. ``target_env``,
-``qa_phase`` and ``qa_kind`` are deliberately excluded: admission rewrites
-those to the stage's own target on purpose, so they differ on every healthy
-copy and are drift in neither direction.
+Deployment requirements grade against the definition frozen at admission.
+Source drift is exposed for operators considering a correction or a new run;
+it does not invalidate the admitted definition or its execution evidence.
 """
 
 from __future__ import annotations
@@ -43,7 +27,6 @@ from yoke_core.domain.qa_requirement_pass_currency import (
 #: definition, whatever else the two rows disagree about.
 DEFINITION_COLUMNS: tuple[str, ...] = (
     "method_id",
-    "method_name",
     "runner_id",
     "verdict_path",
     "instructions",
@@ -52,7 +35,6 @@ DEFINITION_COLUMNS: tuple[str, ...] = (
     "required_completion",
     "host_baseline",
     "starting_state",
-    "starting_state_reason",
     "suite_id",
     "success_policy",
     "capability_requirements",
@@ -128,10 +110,6 @@ def reachable_in_place_fields() -> frozenset[str]:
     return frozenset(DEFINITION_COLUMNS) & frozenset(UPDATABLE_REQUIREMENT_FIELDS)
 
 
-class StaleAdmittedCaseError(ValueError):
-    """An admitted copy no longer matches its source; the message names why."""
-
-
 @dataclass(frozen=True)
 class AdmittedCaseDivergence:
     """An admitted copy whose body no longer matches its live source row."""
@@ -171,8 +149,9 @@ class AdmittedCaseDivergence:
             f"{STALE_ADMITTED_CASE_CODE}: admitted QA case "
             f"{self.requirement_id} was copied from item requirement "
             f"{self.source_requirement_id}, which has since been amended "
-            f"({', '.join(self.fields)}). Running it would certify against a "
-            "definition the item has already superseded. " + recovery
+            f"({', '.join(self.fields)}). The deployment keeps "
+            "its admitted definition until an explicit correction or new admission. "
+            + recovery
         )
 
 
@@ -256,13 +235,6 @@ def admitted_case_divergence(
     )
 
 
-def require_current_admitted_case(conn: Any, requirement_id: int) -> None:
-    """Raise the named refusal when this case's source has moved under it."""
-    divergence = admitted_case_divergence(conn, int(requirement_id))
-    if divergence is not None:
-        raise StaleAdmittedCaseError(divergence.message())
-
-
 def annotate_admitted_currency(
     conn: Any, rows: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
@@ -293,12 +265,10 @@ __all__ = [
     "DEFINITION_COLUMNS",
     "REACHABLE_FIELD_RECOVERY",
     "STALE_ADMITTED_CASE_CODE",
-    "StaleAdmittedCaseError",
     "UNREACHABLE_FIELD_RECOVERY",
     "admitted_case_divergence",
     "annotate_admitted_currency",
     "definition_snapshot",
     "diverging_fields",
     "reachable_in_place_fields",
-    "require_current_admitted_case",
 ]

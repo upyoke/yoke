@@ -8,6 +8,9 @@ from typing import Any
 
 from yoke_core.domain.approval_policy import parse_approval_policy
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.deployment_qa_acceptance_record import (
+    record_acceptance as _record_acceptance,
+)
 from yoke_core.domain.deployment_qa_stage_acceptance import (
     acceptance_waived,
     completed_execution,
@@ -95,31 +98,6 @@ def _acceptance_requirement(
         ),
     ).fetchone()
     return int(created["id"] if hasattr(created, "keys") else created[0])
-
-
-def _record_acceptance(
-    conn: Any,
-    *,
-    requirement_id: int,
-    execution_id: str,
-    verdict: str,
-    reason: str,
-) -> int:
-    from yoke_core.domain.qa_run_verdict_record import insert_qa_run
-
-    now = iso8601_now()
-    return insert_qa_run(
-        conn,
-        qa_requirement_id=requirement_id,
-        performed_by="agent",
-        qa_kind=ACCEPTANCE_QA_KIND,
-        verdict=verdict,
-        verdict_reason=reason,
-        raw_result=json.dumps({"execution_id": execution_id}, sort_keys=True),
-        started_at=now,
-        completed_at=now,
-        created_at=now,
-    ).run_id
 
 
 def deployment_qa_stage_status(
@@ -279,12 +257,11 @@ def _settle_stage_status(
             reason="configured deployment stage requires authorized human acceptance",
         )
     else:
-        row = conn.execute(
-            "SELECT id FROM qa_runs WHERE qa_requirement_id=%s "
-            "ORDER BY created_at DESC,id DESC LIMIT 1",
-            (requirement_id,),
-        ).fetchone()
-        review_run_id = int(row["id"] if hasattr(row, "keys") else row[0])
+        from yoke_core.domain.qa_latest_execution import latest_executions
+
+        review_run_id = int(
+            latest_executions(conn, [requirement_id])[requirement_id]["id"]
+        )
     from yoke_core.domain.qa_evidence_portability import EvidenceNotPortable
     from yoke_core.domain.qa_review_requests import ensure_qa_review_request
 

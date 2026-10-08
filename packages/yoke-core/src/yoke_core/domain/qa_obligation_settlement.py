@@ -1,20 +1,9 @@
-"""The one way a blocking QA obligation is settled without fresh evidence.
+"""Effective QA obligations: discharged rows and replaced predecessors are history.
 
-Two boundaries ask this question about the same rows. A deployment stage's
-acceptance check asks it per case, to tell "nothing left to execute" from
-"nothing was executed". The run-completing stage asks it across the whole
-run, to tell a release that may finish from one still owing an answer.
-
-They must agree, because they read the same requirements. When the final
-stage honoured only ``waived_at``, a requirement a passing replacement had
-already superseded — settled as far as the stage that examined it was
-concerned — came back as "no passing run" at the end of the release, and the
-only way past it was to waive a row nobody needed to waive.
-
-Waiver and supersession settle an obligation for different reasons and stay
-distinct records: one is an operator override, the other is a replacement
-requirement that carries the obligation now. Neither leaves evidence for the
-original row to show, which is the whole of what these boundaries ask.
+A valid declaration immediately transfers grading to its successor, including
+when that successor is pending or failing. Passing supersession remains a
+separate durable discharge record. Writers validate scope and acyclicity
+before these read predicates can exclude a predecessor.
 """
 
 from __future__ import annotations
@@ -31,10 +20,12 @@ from yoke_core.domain.schema_common import _column_exists
 SETTLED_OBLIGATION_SQL = (
     "({alias}waived_at IS NOT NULL "
     "OR {alias}superseded_by_requirement_id IS NOT NULL "
+    "OR {alias}replacement_requirement_id IS NOT NULL "
     "OR {alias}retracted_at IS NOT NULL)"
 )
 _SETTLED_WITHOUT_RETRACT_SQL = (
     "({alias}waived_at IS NOT NULL "
+    "OR {alias}replacement_requirement_id IS NOT NULL "
     "OR {alias}superseded_by_requirement_id IS NOT NULL)"
 )
 
@@ -45,7 +36,14 @@ def settled_obligation_sql(conn: Any, alias: str = "") -> str:
     template = SETTLED_OBLIGATION_SQL
     if not _column_exists(conn, "qa_requirements", "retracted_at"):
         template = _SETTLED_WITHOUT_RETRACT_SQL
-    return template.format(alias=prefix)
+    rendered = template.format(alias=prefix)
+    if not _column_exists(conn, "qa_requirements", "replacement_requirement_id"):
+        rendered = rendered.replace(
+            f"OR {prefix}replacement_requirement_id IS NOT NULL ", ""
+        )
+    from yoke_core.domain.qa_simulation_triage import triage_discharge_sql
+
+    return f"({rendered} OR {triage_discharge_sql(conn, alias)})"
 
 
 def unretracted_requirement_sql(conn: Any, alias: str = "") -> str:
@@ -74,13 +72,7 @@ def item_supersession_open_sql(conn: Any, alias: str = "") -> str:
     passing replacement), so this predicate never drops one. A table without
     the column has superseded nothing.
     """
-    prefix = f"{alias}." if alias else ""
-    if not _column_exists(conn, "qa_requirements", "superseded_by_requirement_id"):
-        return "TRUE"
-    return (
-        f"({prefix}deployment_run_id IS NOT NULL "
-        f"OR {prefix}superseded_by_requirement_id IS NULL)"
-    )
+    return unanswered_attempt_sql(conn, alias)
 
 
 def unanswered_attempt_sql(conn: Any, alias: str = "") -> str:
@@ -96,25 +88,95 @@ def unanswered_attempt_sql(conn: Any, alias: str = "") -> str:
         for column in ("superseded_by_requirement_id", "replacement_requirement_id")
         if _column_exists(conn, "qa_requirements", column)
     ]
-    return " AND ".join(clauses) or "TRUE"
+    from yoke_core.domain.qa_simulation_triage import triage_discharge_sql
+
+    clauses.append(f"NOT {triage_discharge_sql(conn, alias)}")
+    return " AND ".join(clauses)
 
 
 def item_supersession_settled(row: Mapping[str, Any]) -> bool:
     """Row form of :func:`item_supersession_open_sql`, negated."""
-    return not row.get("deployment_run_id") and bool(
-        row.get("superseded_by_requirement_id")
+    return not row.get("replacement_graph_error") and (
+        bool(row.get("superseded_by_requirement_id"))
+        or bool(row.get("replacement_requirement_id"))
+        or bool(row.get("triage_discharge"))
     )
 
 
 def obligation_settled(row: Mapping[str, Any]) -> bool:
     """Whether this requirement row is already settled without evidence."""
-    return bool(row.get("waived_at")) or bool(
-        row.get("superseded_by_requirement_id")
-    ) or bool(row.get("retracted_at"))
+    return not row.get("replacement_graph_error") and (
+        bool(row.get("waived_at"))
+        or bool(row.get("superseded_by_requirement_id"))
+        or bool(row.get("retracted_at"))
+        or bool(row.get("replacement_requirement_id"))
+        or bool(row.get("triage_discharge"))
+    )
+
+
+def effective_requirement(conn: Any, requirement_id: int) -> dict[str, Any]:
+    """Follow the durable correction graph to its final same-scope obligation."""
+    from yoke_core.domain.db_helpers import query_one
+    from yoke_core.domain.qa_plan_execution_store import marker
+    from yoke_core.domain.qa_requirement_supersession import same_scope
+
+    seen: set[int] = set()
+    previous = None
+    while True:
+        if requirement_id in seen:
+            raise ValueError(
+                "replacement_graph_invalid: correction cycle; restore an acyclic same-scope chain through registered correction surfaces"
+            )
+        seen.add(requirement_id)
+        stored = query_one(
+            conn,
+            f"SELECT * FROM qa_requirements WHERE id={marker(conn)}",
+            (requirement_id,),
+        )
+        if stored is None:
+            raise ValueError(
+                "replacement_graph_invalid: missing successor; restore the named requirement through the control-plane operator"
+            )
+        row = dict(stored)
+        if previous is not None and (
+            same_scope(previous, row) or row.get("blocking_mode") != "blocking"
+        ):
+            raise ValueError(
+                "replacement_graph_invalid: successor changes obligation scope; restore the original scope through registered correction surfaces"
+            )
+        edges = {
+            int(row[key])
+            for key in ("replacement_requirement_id", "superseded_by_requirement_id")
+            if row.get(key)
+        }
+        if len(edges) > 1:
+            raise ValueError(
+                "replacement_graph_invalid: conflicting successor links; reconcile their durable correction audit with the control-plane operator"
+            )
+        if not edges:
+            return row
+        previous, requirement_id = row, edges.pop()
+
+
+def effective_obligations(
+    conn: Any, rows: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Normalize selected obligations while retaining named graph refusals."""
+    selected = {}
+    for row in rows:
+        try:
+            effective = effective_requirement(conn, int(row["id"]))
+        except ValueError as exc:
+            if not str(exc).startswith("replacement_graph_invalid:"):
+                raise
+            effective = dict(row, replacement_graph_error=str(exc))
+        selected[int(effective["id"])] = effective
+    return list(selected.values())
 
 
 __all__ = [
     "SETTLED_OBLIGATION_SQL",
+    "effective_requirement",
     "item_supersession_open_sql",
     "item_supersession_settled",
     "unanswered_attempt_sql",

@@ -25,7 +25,8 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from yoke_core.domain.qa_obligation_settlement import unretracted_requirement_sql
+from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
+from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
 from yoke_core.domain.db_helpers import query_rows, query_scalar
 from yoke_core.domain.qa_artifact_handle import (
     ArtifactHandleError,
@@ -72,12 +73,8 @@ def _qualifying_capture(requirement: str, capture: str) -> str:
     # definition, so what this gate matches on and what the substrate writes
     # cannot drift apart.
     agent_case = agent_reviewed_case_predicate(requirement)
-    # The reviewing run is either a separate agent run -- what a plan-review
-    # bundle submits -- or the capture itself, which is what a verdict
-    # recorded against a still-unreviewed capture resolves in place. The
-    # second shape exists so the run carrying the capture's own
-    # ``code_identity.sha`` stays the requirement's latest; requiring a
-    # distinct agent row here would reject exactly that.
+    # Durable capture/review associations cover both historical separate rows
+    # and current judgments attached to the capture itself.
     linked_agent_pass = f"""
         EXISTS (
           SELECT 1 FROM qa_plan_review_verdicts prv
@@ -88,14 +85,13 @@ def _qualifying_capture(requirement: str, capture: str) -> str:
             AND prv.verdict = 'pass'
             AND prb.state = 'completed'
             AND review_run.verdict = 'pass'
-            AND (
-              review_run.performed_by = 'agent'
-              OR review_run.id = {capture}.id
-            )
         )
     """
     return f"""
-        {capture}.performed_by = 'browser_substrate'
+        {capture}.id = ({latest_execution_id_sql(f"{requirement}.id")})
+        AND {capture}.started_at IS NOT NULL
+        AND {capture}.verdict = 'pass' AND {capture}.completed_at IS NOT NULL
+        AND {capture}.performed_by = 'browser_substrate'
         AND (
           (NOT {agent_case} AND {capture}.verdict = 'pass')
           OR (
@@ -138,7 +134,7 @@ def check_browser_evidence_present(
         WHERE {where}
           AND r.qa_phase = 'verification'
           AND r.blocking_mode = 'blocking'
-          AND r.waived_at IS NULL AND {unretracted_requirement_sql(conn, "r")}
+          AND NOT {settled_obligation_sql(conn, "r")}
           AND {browser_where}
           AND NOT {proof_exists}
         """,
@@ -166,7 +162,7 @@ def check_browser_evidence_present(
         WHERE {where}
           AND r.qa_phase = 'verification'
           AND r.blocking_mode = 'blocking'
-          AND r.waived_at IS NULL AND {unretracted_requirement_sql(conn, "r")}
+          AND NOT {settled_obligation_sql(conn, "r")}
           AND {browser_where}
           AND NOT {proof_exists}
         """,
@@ -212,7 +208,7 @@ def check_browser_artifact_disk(
             SELECT DISTINCT r.id, r.method_id FROM qa_requirements r
             WHERE {where}{phase_and}
               AND r.blocking_mode = 'blocking'
-              AND r.waived_at IS NULL AND {unretracted_requirement_sql(conn, "r")}
+              AND NOT {settled_obligation_sql(conn, "r")}
               AND {browser_where}
               AND EXISTS (
                 SELECT 1 FROM qa_runs qr
@@ -251,7 +247,7 @@ def check_browser_artifact_disk(
         JOIN qa_runs qr ON qa.qa_run_id = qr.id
         JOIN qa_requirements r ON qr.qa_requirement_id = r.id
         WHERE r.blocking_mode = 'blocking'{phase_and}
-          AND r.waived_at IS NULL AND {unretracted_requirement_sql(conn, "r")}
+          AND NOT {settled_obligation_sql(conn, "r")}
           AND {browser_where}
           AND {qualifying}
           AND qa.artifact_handle IS NOT NULL

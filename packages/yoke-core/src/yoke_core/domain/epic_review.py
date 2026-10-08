@@ -59,6 +59,7 @@ __all__ = [
 # Review orchestration
 # ---------------------------------------------------------------------------
 
+
 def review_seed(
     conn,
     epic_id: str,
@@ -156,6 +157,7 @@ def review_insert(
 # Mutations: progress notes
 # ---------------------------------------------------------------------------
 
+
 def progress_note_insert(
     conn,
     epic_id: str,
@@ -178,6 +180,7 @@ def progress_note_insert(
     )
     from yoke_core.domain.claim_chain_state import touch_epic_task_activity
     from yoke_core.domain.item_activity import touch_item_activity
+
     touch_item_activity(conn, item_id=epic_id)
     touch_epic_task_activity(conn, epic_id=epic_id, task_num=task_num, at=ts)
     conn.commit()
@@ -204,6 +207,7 @@ def progress_note_mark_synced(
 # Proceed triage handoff
 # ---------------------------------------------------------------------------
 
+
 def proceed_triage_and_handoff(
     epic_id: int,
     *,
@@ -212,30 +216,7 @@ def proceed_triage_and_handoff(
     filed_item_ids: Optional[List[str]] = None,
     session_id: Optional[str] = None,
 ) -> int:
-    """Record a PROCEED triage decision and hand off the parent epic.
-
-    Called by Conduct's simulation-gate PROCEED branch after follow-up work items
-    are filed. This is the Python owner for the PROCEED-path reviewed-handoff,
-    mirroring how ``persist_and_verify`` owns the CLEAN-path auto-handoff.
-
-    Steps:
-        1. Record the PROCEED triage acceptance as a QA run on the existing
-           simulation requirement (qa_kind='simulation', phase='integration').
-        2. Invoke ``conduct_reviewed_handoff.run()`` for the canonical parent
-           status write + claim release.
-
-    Args:
-        epic_id: The parent epic item ID (bare integer).
-        recommendation: The Simulator's recommendation string (e.g. "PROCEED").
-        gap_summary: Brief summary of gaps accepted (for audit trail).
-        filed_item_ids: List of YOK-N IDs for follow-up work items filed.
-        session_id: Session ID for claim release (falls back to env vars).
-
-    Returns:
-        0 on success, non-zero on failure:
-        1 -- triage write failed (no simulation requirement found, or run-add error)
-        2 -- conduct_reviewed_handoff failed (status write, gate, or claim release)
-    """
+    """Record a bounded simulation discharge and hand off without inventing pass."""
     with _epic_connect() as conn:
         parent_status = query_scalar(
             conn,
@@ -245,8 +226,7 @@ def proceed_triage_and_handoff(
     if parent_status == "reviewed-implementation":
         print(
             "PROCEED triage already handed off for epic %d; "
-            "parent already at reviewed-implementation."
-            % epic_id
+            "parent already at reviewed-implementation." % epic_id
         )
         return 0
     if parent_status != "reviewing-implementation":
@@ -258,50 +238,22 @@ def proceed_triage_and_handoff(
         )
         return 1
 
-    items_str = ", ".join(filed_item_ids) if filed_item_ids else "none"
-    raw_result = json.dumps({
-        "triage": "PROCEED",
-        "recommendation": recommendation,
-        "gap_summary": gap_summary,
-        "filed_items": items_str,
-    }, separators=(",", ":"))
+    from yoke_core.domain.qa_simulation_triage import record_simulation_triage
 
-    # Step 1: Record PROCEED triage as a passing QA run on the integration
-    # simulation requirement (reuses the requirement that simulation_upsert
-    # already created with verdict='fail' for GAPS FOUND).
-    with _epic_connect() as conn:
-        # deliberate case-sensitive match against internal JSON-literal phase token
-        row = query_one(
-            conn,
-            "SELECT id FROM qa_requirements "
-            f"WHERE qa_kind='simulation' AND item_id={_placeholder(conn)} "
-            f"AND success_policy LIKE {_placeholder(conn)}",
-            (str(epic_id), '%"phase":"integration"%'),
-        )
-        if row is None:
-            print(
-                "Error: no integration simulation requirement found for "
-                "epic %d. Cannot record PROCEED triage." % epic_id,
-                file=sys.stderr,
+    try:
+        with _epic_connect() as conn:
+            record_simulation_triage(
+                conn,
+                epic_id,
+                recommendation=recommendation,
+                rationale=gap_summary,
+                filed_public_refs=filed_item_ids or [],
+                session_id=session_id,
             )
-            return 1
-
-        req_id = row["id"]
-        try:
-            _qa_run_add(
-                requirement_id=int(req_id),
-                performed_by="agent",
-                qa_kind="simulation",
-                verdict="pass",
-                raw_result=raw_result,
-            )
-        except SystemExit as exc:
-            print(
-                "Error: qa run-add failed for PROCEED triage on epic %d "
-                "(exit %s)." % (epic_id, exc.code),
-                file=sys.stderr,
-            )
-            return 1
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    items_str = ", ".join(filed_item_ids or []) or "none"
 
     # Step 2: Invoke the canonical reviewed-handoff (status write + claim release).
     from yoke_core.domain.conduct_reviewed_handoff import run as _handoff_run
