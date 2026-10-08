@@ -29,10 +29,9 @@ def ordered_levels(monkeypatch):
         SimpleNamespace(name=name, glyph="🦉")
         for name in ("INTERN", "JUNIOR", "SENIOR", "PRINCIPAL")
     )
-    for module in (levels, item_level_override):
-        monkeypatch.setattr(
-            module, "effective_levels", lambda *_a: (ordered, "universe")
-        )
+    monkeypatch.setattr(
+        item_level_override, "effective_levels", lambda *_a: (ordered, "universe")
+    )
     return ordered
 
 
@@ -122,3 +121,25 @@ def test_no_stage_level_and_no_explicit_level_refuses_before_writes():
     assert failure.value.code == "stage_level_missing"
     assert "--level LEVEL" in str(failure.value)
     assert conn.execute("SELECT COUNT(*) FROM session_launches").fetchone()[0] == 0
+
+
+@pytest.mark.parametrize(
+    "stage_level,override",
+    [
+        ("MISSING", None),
+        ("SENIOR", {"shift": 1}),
+        ("SENIOR", {}),
+    ],
+)
+def test_invalid_stage_or_override_returns_named_recovery(
+    ordered_levels, stage_level, override
+):
+    with pytest.raises(levels.StageLevelError) as failure:
+        levels.resolve_stage_level(
+            None,
+            project_id=10,
+            stage={"id": "work", "level": stage_level},
+            posture={} if override is None else {"level": override},
+        )
+    assert failure.value.code == "stage_level_invalid"
+    assert "Recovery:" in str(failure.value)

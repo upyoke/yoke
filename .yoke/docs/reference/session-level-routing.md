@@ -217,8 +217,9 @@ staffing, not an operator execution instruction or a workflow skill binding.
 A create with no selector uses the item's live effective stage level, and
 Yoke chooses the option and machine. An explicit `--level` overrides one
 launch. A missing stage level without an explicit selector refuses as
-`stage_level_missing`, naming `--level` or publishing and pinning a corrected
-workflow version as recovery:
+`stage_level_missing`, naming `--level` or the operator-only workflow migration
+preview/apply prerequisite for an existing old pin. Select a compatible
+published version; new versions never move existing pins automatically:
 
 ```text
 yoke session-control launch preview --project P --level SENIOR [--machine M] --json

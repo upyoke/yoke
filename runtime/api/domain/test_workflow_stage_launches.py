@@ -7,6 +7,8 @@ import pytest
 
 from yoke_contracts.level_defaults import DEFAULT_LEVELS
 from yoke_core.domain.session_launch_requests import create_launch
+from yoke_core.domain.session_launch_eligibility import derive_launch_eligibility
+from yoke_core.domain.session_launch_level_selection import preview_level_launch
 from yoke_core.domain.session_launch_types import LaunchRequest, SessionLaunchError
 from yoke_core.domain.universe_levels import write_universe_levels
 from yoke_core.domain.workflow_stage_levels import default_launch_level
@@ -62,6 +64,23 @@ def test_default_create_applies_one_shift_and_places_the_effective_level(monkeyp
     assert launch.requested_level == "JUNIOR"
     assert launch.resolved_model == "gpt-5.6-terra"
     assert json.loads(launch.level_placement)["level"] == "JUNIOR"
+
+
+def test_effective_default_preview_matches_create_without_double_shift(monkeypatch):
+    conn, request = staged_launch(monkeypatch)
+    placed, preview = preview_level_launch(
+        conn,
+        auth=authorization(),
+        request=default_launch_level(conn, request),
+        now=NOW,
+        eligibility=derive_launch_eligibility,
+    )
+    assert preview.launchable
+    assert placed.level == "JUNIOR"
+    assert placed.model == "gpt-5.6-terra"
+    assert preview.level_placement["level"] == "JUNIOR"
+    assert default_launch_level(conn, placed) == placed
+    assert conn.execute("SELECT COUNT(*) FROM session_launches").fetchone()[0] == 0
 
 
 def test_effective_default_without_capacity_names_that_level_before_writing(

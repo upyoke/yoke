@@ -6,9 +6,11 @@ import json
 from dataclasses import replace
 from typing import Any, Mapping
 
-from yoke_core.domain.item_level_override import validate_level_override
+from yoke_core.domain.item_level_override import (
+    LevelOverrideError,
+    resolve_level_override,
+)
 from yoke_core.domain.project_identity import placeholder
-from yoke_core.domain.universe_levels import effective_levels
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 
@@ -31,33 +33,27 @@ def resolve_stage_level(
     name = stage.get("level")
     if not name:
         return None
-    levels, _source = effective_levels(conn, int(project_id))
-    names = tuple(level.name for level in levels)
-    if name not in names:
-        raise StageLevelError(
-            "stage_level_unknown",
-            f"Stage {stage['id']} names level {name!r}, absent from this project's "
-            "levels. Recovery: publish a workflow version with an available "
-            "level or correct the project's session-routing levels.",
+    try:
+        resolved = resolve_level_override(
+            conn,
+            project_id=project_id,
+            baseline_level=name,
+            override=posture.get("level"),
         )
-    override = posture.get("level")
-    override = (
-        validate_level_override(conn, project_id=project_id, raw=override)
-        if override
-        else {}
-    )
-    index = names.index(name) + override.get("shift", 0)
-    low = names.index(override["min"]) if override.get("min") else 0
-    high = names.index(override["max"]) if override.get("max") else len(names) - 1
-    selected = levels[max(low, min(high, index))]
-    baseline = levels[names.index(name)]
+    except LevelOverrideError as exc:
+        raise StageLevelError(
+            "stage_level_invalid",
+            f"Stage {stage['id']} cannot resolve its effective level: {exc}. "
+            "Recovery: correct the item's level posture or publish a workflow "
+            "version naming an available project level.",
+        ) from exc
     return {
         "stage_id": stage["id"],
-        "stage_level": name,
-        "stage_glyph": baseline.glyph,
-        "level": selected.name,
-        "glyph": selected.glyph,
-        "override": override,
+        "stage_level": resolved["baseline_level"],
+        "stage_glyph": resolved["baseline_glyph"],
+        "level": resolved["level"],
+        "glyph": resolved["glyph"],
+        "override": resolved["override"],
     }
 
 
@@ -115,6 +111,6 @@ def default_launch_level(conn: Any, request: Any) -> Any:
         raise SessionLaunchError(
             "stage_level_missing",
             "Launch has neither an explicit level nor an item stage level. "
-            "Recovery: pass --level LEVEL or publish and pin a workflow version whose live stage declares a level.",
+            "Recovery: pass --level LEVEL, or ask the control-plane operator to preview and apply `yoke workflows item migrate ITEM --version N --preview` to a compatible version whose live stage declares a level. Existing pins never move automatically.",
         )
     return replace(request, level=resolved["level"])
