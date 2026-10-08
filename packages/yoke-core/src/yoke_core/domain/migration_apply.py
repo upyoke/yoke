@@ -21,8 +21,8 @@ checkpoint:
 reviews the rehearsal outcomes and the attestation's
 ``residual_risk_notes``; the rehearsal receipt is what the evidence gate
 reads.  Rehearsal takes the per-model ``LIVE_DB_MIGRATION:<model_name>``
-lease and holds it, so a second work item cannot enter migration
-territory while one is in flight.
+lease and holds it until the item's merge lands, so a second work item
+cannot enter migration territory while one is in flight.
 
 **Applying belongs to the boot converge**
 (:mod:`yoke_core.domain.migration_boot_apply`).  A container starting on

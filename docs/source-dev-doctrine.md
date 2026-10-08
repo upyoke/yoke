@@ -69,8 +69,9 @@ yoke --env prod-db-admin dev run -- yoke migration rehearse PREFIX-N
 
 The item and durable lease/audit receipts live on prod. Migration code runs only
 against the separately bound disposable validation database, whose live cluster
-and database identity must differ from the authority. Preserve the rehearsal's
-`LIVE_DB_MIGRATION:<model>` hold and each environment's fleet-preflight receipt.
+and database identity must differ from the authority. Preserve each
+environment's fleet-preflight receipt and the rehearsal's
+`LIVE_DB_MIGRATION:<model>` hold, which the item's merge landing releases.
 Yoke self-deploys use the same paired authority because they replace the API
 that otherwise serves run state. Follow the release-pair rule below and the
 steering skill's source-dev delivery guide; ordinary projects deliver over HTTPS.
