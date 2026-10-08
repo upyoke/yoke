@@ -22,6 +22,8 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, Optional, Tuple
 
+from yoke_contracts.timestamps import temporal_wire
+
 LEDGER_TABLE = "function_call_ledger"
 
 # Replay/dedup window in days. Consumed by the retention prune
@@ -46,7 +48,9 @@ CREATE INDEX IF NOT EXISTS idx_function_call_ledger_created
 
 def serialize_result(result: Dict[str, Any]) -> str:
     """Canonical-JSON form for the stored response result."""
-    return json.dumps(dict(result), sort_keys=True, separators=(",", ":"))
+    return json.dumps(
+        temporal_wire(dict(result)), sort_keys=True, separators=(",", ":")
+    )
 
 
 def ttl_cutoff_iso(now: Optional[Any] = None) -> str:
@@ -54,9 +58,7 @@ def ttl_cutoff_iso(now: Optional[Any] = None) -> str:
     from datetime import datetime, timedelta, timezone
 
     base = now or datetime.now(timezone.utc)
-    return (base - timedelta(days=LEDGER_TTL_DAYS)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+    return (base - timedelta(days=LEDGER_TTL_DAYS)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def record_call(

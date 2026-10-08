@@ -18,7 +18,9 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_serializer, model_validator
+
+from yoke_contracts.timestamps import temporal_wire
 
 
 # ``<family>.<subfamily>.<operation>`` or ``<family>.<operation>`` — each
@@ -167,6 +169,11 @@ class FunctionCallResponse(BaseModel):
     warnings: List[FunctionWarning] = Field(default_factory=list)
     error: Optional[FunctionError] = None
     event_ids: List[int] = Field(default_factory=list)
+
+    @field_serializer("result")
+    def _wire_result(self, value: Dict[str, Any]) -> Dict[str, Any]:
+        """Keep native handler values internal and every adapter's wire identical."""
+        return temporal_wire(value)
 
 
 @dataclass

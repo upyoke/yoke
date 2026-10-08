@@ -9,27 +9,14 @@ Yoke authority is Postgres: callers resolve the active database through
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Any, List, Optional
 
+from yoke_contracts.timestamps import iso8601_now as iso8601_now
+from yoke_contracts.timestamps import utc_now as utc_now
 from yoke_core.domain import db_backend
 
 # Retired SQLite compatibility slot retained only for caller signatures.
 BUSY_TIMEOUT_MS = 60000
-
-
-def iso8601_now() -> str:
-    """Return the current UTC time as ``YYYY-MM-DDTHH:MM:SSZ``.
-
-    This is the canonical Yoke timestamp format: sortable, round-trips
-    cleanly through ``datetime.fromisoformat`` after ``Z → +00:00``
-    normalization, and matches the on-disk format every pre-existing caller
-    already produces. Use this helper anywhere a table's ``created_at`` /
-    ``updated_at`` column used to rely on a SQLite-side UTC timestamp
-    default. The default is being dropped for Postgres portability, so
-    callers must supply the value at INSERT time.
-    """
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def connect(
