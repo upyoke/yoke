@@ -39,7 +39,7 @@ def outputs(root):
     target = root / "packages/yoke-core/src/yoke_core"
     if not (source / "events_capture.ts").is_file():
         raise ValueError(
-            "events_pack_not_installed: install structured-events 4.0.0 with yoke packs update, then rebuild"
+            "events_pack_not_installed: install structured-events 5.0.0 with yoke packs update, then rebuild"
         )
     result = {}
     for name in BROWSER_MODULES:
@@ -68,6 +68,13 @@ def outputs(root):
             r"^from (events_\w+) import", r"from .\1 import", text, flags=re.M
         )
         result[target / "frontend_events" / f"{name}.py"] = PYTHON_HEADER + text
+    # Standalone timestamp resources retain the installed Pack's exact bytes.
+    result[target / "ui/static/events_timestamps.mjs"] = (
+        source / "events_timestamps.mjs"
+    ).read_text()
+    result[target / "frontend_events/events_timestamps.py"] = (
+        source / "events_timestamps.py"
+    ).read_text()
     result[target / "frontend_events/attribution_rules.json"] = (
         source / "attribution_rules.json"
     ).read_text()

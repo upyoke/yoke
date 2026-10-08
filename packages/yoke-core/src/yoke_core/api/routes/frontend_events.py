@@ -2,8 +2,9 @@
 
 import json
 import logging
-from datetime import datetime
 from uuid import UUID
+
+from yoke_contracts.timestamps import format_instant, parse_instant
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -121,10 +122,10 @@ def validated_events(body, request):
             )
         try:
             UUID(event["event_id"])
-            datetime.fromisoformat(event["event_time"].replace("Z", "+00:00"))
+            event["event_time"] = format_instant(parse_instant(event["event_time"]))
         except ValueError as error:
             raise ValueError(
-                "envelope_invalid: use a UUID event_id and ISO event_time"
+                "envelope_invalid: use a UUID event_id and a qualified RFC3339 event_time with at most six fractional digits"
             ) from error
         if event.get("source_type") != "frontend" or event["event_kind"] != "analytics":
             raise ValueError(

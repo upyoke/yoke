@@ -1,9 +1,10 @@
 """Real collector admission and durable redemption across isolated HTTPS origins."""
 
 from concurrent.futures import ThreadPoolExecutor
-from types import SimpleNamespace
 from uuid import uuid4
-import time
+from datetime import timedelta
+
+from yoke_contracts.timestamps import parse_instant, utc_now
 
 from fastapi.testclient import TestClient
 
@@ -101,10 +102,10 @@ def test_forgery_expiry_wrong_audience_and_uncaptured_mint(
     destination_headers = headers(app, DESTINATION)
     forged = app.post(REDEEM, headers=destination_headers, json={"token": token + "x"})
     assert forged.json()["error"] == "attribution_handoff_invalid"
-    now = time.time()
+    now = utc_now()
     monkeypatch.setattr(
-        "yoke_core.frontend_events.events_handoff.time.time",
-        lambda: now + HANDOFF_SECONDS + 1,
+        "yoke_core.frontend_events.events_handoff.utc_now",
+        lambda: now + timedelta(seconds=HANDOFF_SECONDS + 1),
     )
     expired = app.post(REDEEM, headers=destination_headers, json={"token": token})
     assert expired.json()["error"] == "attribution_handoff_expired"
@@ -125,7 +126,7 @@ def test_atomic_durable_nonce_consumption(database, client):
         org = conn.execute(
             "SELECT id FROM organizations ORDER BY id LIMIT 1"
         ).fetchone()[0]
-    nonce, expires = str(uuid4()), int(time.time()) + HANDOFF_SECONDS
+    nonce, expires = str(uuid4()), utc_now() + timedelta(seconds=HANDOFF_SECONDS)
     with ThreadPoolExecutor(max_workers=4) as pool:
         results = list(
             pool.map(
@@ -149,10 +150,12 @@ def test_replay_crossing_expiry_keeps_its_nonce_tombstone(
         client.post(REDEEM, headers=admitted, json={"token": token}).status_code == 200
     )
     monkeypatch.setattr(
-        events_handoff, "time", SimpleNamespace(time=lambda: expires - 0.01)
+        events_handoff,
+        "utc_now",
+        lambda: parse_instant(expires) - timedelta(microseconds=1),
     )
     monkeypatch.setattr(
-        frontend_events_storage, "time", SimpleNamespace(time=lambda: expires)
+        frontend_events_storage, "utc_now", lambda: parse_instant(expires)
     )
     replay = client.post(REDEEM, headers=admitted, json={"token": token})
     assert replay.json()["error"] == "attribution_handoff_replayed"
@@ -174,7 +177,9 @@ def test_delayed_expired_redemption_cannot_insert_after_cleanup(client, database
         ).fetchone()[0]
     # A different redemption may already have purged this nonce's tombstone.
     # Storage must reject the now-expired insertion even if validation ran earlier.
-    assert not consume_attribution_handoff(org, str(uuid4()), int(time.time()) - 1)
+    assert not consume_attribution_handoff(
+        org, str(uuid4()), utc_now() - timedelta(seconds=1)
+    )
     with database() as conn:
         assert (
             conn.execute(

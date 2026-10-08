@@ -127,7 +127,7 @@ def test_get_session_props():
         session_id="sess_1", session_start_time="2026-03-12T15:30:00.000Z"
     )
     assert props["session_id"] == "sess_1"
-    assert props["session_start_time"] == "2026-03-12T15:30:00.000Z"
+    assert props["session_start_time"] == "2026-03-12T15:30:00.000000Z"
 
 
 def test_get_session_props_auto_id():
@@ -267,7 +267,7 @@ def test_build_event_custom_event_time():
         event_type="test",
         event_time="2026-01-01T00:00:00.000Z",
     )
-    assert event["event_time"] == "2026-01-01T00:00:00.000Z"
+    assert event["event_time"] == "2026-01-01T00:00:00.000000Z"
 
 
 if __name__ == "__main__":

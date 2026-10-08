@@ -20,7 +20,10 @@ _OWNER_CREATION_REPAIRS = {
     ("items", "updated_at"),
     ("ouroboros_entries", "timestamp"),
 }
-_EPOCH_SECONDS = {("frontend_attribution_redemptions", "expires_at")}
+_EPOCH_SECONDS = {
+    ("frontend_attribution_redemptions", "expires_at"),
+    ("frontend_event_rate_limits", "window_start"),
+}
 
 
 def _catalog(conn: Any) -> dict[tuple[str, str], tuple[str, bool, str | None]]:
@@ -40,7 +43,7 @@ def _text_instant(column: str) -> sql.Composed:
 
 def _expression(table: str, column: str, data_type: str) -> sql.Composable:
     name = sql.Identifier(column)
-    if data_type == "bigint":
+    if data_type in {"integer", "bigint"}:
         if (table, column) not in _EPOCH_SECONDS:
             raise RuntimeError(
                 f"instant_epoch_unit_undeclared: {table}.{column}. Recovery: "
@@ -68,7 +71,7 @@ def _admit_column(
 ) -> None:
     if data_type == "timestamp with time zone":
         return
-    if data_type == "bigint":
+    if data_type in {"integer", "bigint"}:
         _expression(table, column, data_type)
         return
     if data_type != "text":

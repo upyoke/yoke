@@ -19,7 +19,7 @@ def create_frontend_event_tables(conn):
             ON frontend_attribution_redemptions(expires_at);
         CREATE TABLE IF NOT EXISTS frontend_event_rate_limits (
             client_key TEXT PRIMARY KEY,
-            window_start INTEGER NOT NULL,
+            window_start TIMESTAMPTZ NOT NULL,
             request_count INTEGER NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_frontend_event_rate_window

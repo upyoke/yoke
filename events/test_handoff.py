@@ -1,5 +1,8 @@
 """Verified reads and cross-language single-use attribution transfers."""
 
+from datetime import timedelta
+from events_timestamps import utc_now
+
 import json
 import subprocess
 import sys
@@ -71,7 +74,8 @@ def test_handoff_expiry_forgery_and_absent_attribution(captured, monkeypatch):
     ):
         with pytest.raises(ValueError, match="origin_invalid"):
             handoff.mint(header, audience)
-    monkeypatch.setattr("events_handoff.time.time", lambda: 100)
+    now = utc_now()
+    monkeypatch.setattr("events_handoff.utc_now", lambda: now)
     token = handoff.mint(header, DESTINATION)["token"]
 
     def forbidden(*args):
@@ -80,7 +84,9 @@ def test_handoff_expiry_forgery_and_absent_attribution(captured, monkeypatch):
     for forged in ("garbage", token + "x", token.split(".")[0] + ".bad", None):
         with pytest.raises(ValueError, match="handoff_invalid"):
             handoff.redeem(forged, DESTINATION, forbidden)
-    monkeypatch.setattr("events_handoff.time.time", lambda: 100 + HANDOFF_SECONDS)
+    monkeypatch.setattr(
+        "events_handoff.utc_now", lambda: now + timedelta(seconds=HANDOFF_SECONDS)
+    )
     with pytest.raises(ValueError, match="expired"):
         handoff.redeem(token, DESTINATION, forbidden)
 

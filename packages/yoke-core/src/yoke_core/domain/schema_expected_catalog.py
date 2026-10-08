@@ -64,7 +64,7 @@ _EXPECTED_SCHEMA_STR = (
     "|event_registry:event_name/TEXT,event_kind/TEXT,event_type/TEXT,owner_service/TEXT,description/TEXT,context_schema/TEXT,severity_default/TEXT,added_in/TEXT,status/TEXT"
     "|events:id/INTEGER,event_id/TEXT,source_type/TEXT,session_id/TEXT,severity/TEXT,event_kind/TEXT,event_type/TEXT,event_name/TEXT,event_outcome/TEXT,org_id/TEXT,actor_id/INTEGER,environment/TEXT,service/TEXT,project_id/INTEGER,item_id/TEXT,task_num/INTEGER,agent/TEXT,tool_name/TEXT,duration_ms/INTEGER,exit_code/INTEGER,trace_id/TEXT,anomaly_flags/TEXT,tool_use_id/TEXT,turn_id/TEXT,hook_event_name/TEXT,client_timing_id/TEXT,envelope/TEXT,created_at/TIMESTAMPTZ"
     "|frontend_attribution_redemptions:org_id/INTEGER,nonce/TEXT,expires_at/TIMESTAMPTZ"
-    "|frontend_event_rate_limits:client_key/TEXT,window_start/INTEGER,request_count/INTEGER"
+    "|frontend_event_rate_limits:client_key/TEXT,window_start/TIMESTAMPTZ,request_count/INTEGER"
     "|function_call_ledger:request_id/TEXT,function_id/TEXT,actor_id/TEXT,authorization_scope/TEXT,payload_checksum/TEXT,result/TEXT,created_at/TIMESTAMPTZ"
     "|github_app_installations:installation_id/TEXT,api_url/TEXT,account_id/TEXT,account_login/TEXT,account_type/TEXT,repository_selection/TEXT,permissions/TEXT,status/TEXT,last_verified_at/TIMESTAMPTZ,last_error/TEXT,created_at/TIMESTAMPTZ,updated_at/TIMESTAMPTZ"
     "|github_workflow_dispatch_intents:request_id/TEXT,attempt/INTEGER,actor_id/TEXT,authorization_scope/TEXT,payload_checksum/TEXT,repo/TEXT,workflow/TEXT,workflow_ref/TEXT,inputs/TEXT,correlation_id/TEXT,state/TEXT,workflow_run_id/TEXT,run_url/TEXT,html_url/TEXT,created_at/TIMESTAMPTZ,updated_at/TIMESTAMPTZ"

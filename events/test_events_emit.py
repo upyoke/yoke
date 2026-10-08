@@ -167,7 +167,7 @@ def test_complete_user_logged_in_example():
 
     # session_props
     assert event["session_id"] == "sess_d4e5f6g7"
-    assert event["session_start_time"] == "2026-03-12T15:30:00.000Z"
+    assert event["session_start_time"] == "2026-03-12T15:30:00.000000Z"
 
     # request_props
     assert event["request_id"] == "req_h8i9j0k1"

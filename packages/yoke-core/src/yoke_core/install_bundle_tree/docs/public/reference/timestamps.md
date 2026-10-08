@@ -84,6 +84,13 @@ Turn-posture ordering and coordination-claim acquisition, heartbeat, release,
 and stale thresholds bind native instants. Claim records retain aware datetimes;
 public claim and wait evidence format fixed-six UTC strings and preserve null.
 Private-route qualification expiry preserves the opening instant's microseconds.
+Installed frontend events, signed attribution cookies and one-time handoffs
+use the same contract. Old numeric expiry payloads are refused and reminted.
+The collector validates and normalizes qualified event times before storage.
+Redemption expiry and rate-window starts are native database instants; rate
+windows retain their 60-second UTC epoch alignment, including before 1970.
+Historical INTEGER rate-window starts explicitly use epoch seconds during
+one-time governed conversion.
 Physical-copy lock metadata formats its diagnostic start instant canonically;
 the file lock remains admission authority even when diagnostics are unreadable.
 Node SQL producers import `instantWireSql` from `ui/contracts/time-sql.ts`

@@ -31,6 +31,12 @@ HttpOnly attribution cookies use tenant-specific names; HTTPS uses `__Host-`
 cookies and Secure, while the loopback HTTP door uses port-specific HttpOnly
 cookies. `frontend_event_rate_limits` stores disposable request counts (60
 requests per client/organization per minute), independently of event retention.
+Collector event times require qualified RFC3339 with at most six fractional
+digits and normalize to fixed-six UTC strings before native storage. Signed
+cookie and handoff instants use that same representation; old numeric-expiry
+payloads are discarded and attribution is captured again. Rate-window starts
+and redemption expiries are native PostgreSQL instants; rate windows preserve
+their 60-second UTC epoch alignment.
 The server stamps organization and verified actor identity; browser-supplied
 identity and project/work-item references cannot choose their durable owners.
 Accepted batches deduplicate on event UUIDs through the existing event sink.

@@ -1,6 +1,8 @@
 # Generated from the installed structured-events Pack; run build_frontend_events.
 """Attribution and URL hygiene; same rules as the browser."""
 
+from .events_timestamps import format_instant
+
 import json
 import re
 from pathlib import Path
@@ -87,7 +89,7 @@ def capture_touch(url, referrer, site_domain, now):
     domain = extract_referrer_domain(referrer)
     if domain and domain_matches(domain, site_domain):
         domain = None
-    touch.update(referrer_domain=domain, captured_at=now)
+    touch.update(referrer_domain=domain, captured_at=format_instant(now))
     touch["acquisition_channel"] = infer_channel(
         touch["utm_source"], touch["utm_medium"], domain, touch["utm_campaign"] or ""
     )

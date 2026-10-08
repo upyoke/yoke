@@ -1,4 +1,5 @@
 // Generated from the installed structured-events Pack; run build_frontend_events.
+import { instantFromDate } from "./events_timestamps.mjs";
 import { sanitizeUrl, isBot } from './events_attribution.js';
 
 let sessionId                = null;
@@ -7,7 +8,7 @@ export function getSystemProps()                          {
   return { project: 'yoke', service: 'web' };
 }
 export function getSessionProps()                          {
-  if (!sessionId) { sessionId = crypto.randomUUID(); started = new Date().toISOString(); }
+  if (!sessionId) { sessionId = crypto.randomUUID(); started = instantFromDate(new Date(Date.now())); }
   return { session_id: sessionId, session_start_time: started };
 }
 export function getOrgProps(orgId         )                          {

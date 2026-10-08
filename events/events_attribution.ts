@@ -1,3 +1,4 @@
+import { formatInstant, instantFromDate } from "./events_timestamps.mjs";
 /** Pure attribution rules; shared data is also consumed by Python. */
 import rules from './attribution_rules.json' with { type: 'json' };
 
@@ -57,7 +58,7 @@ export function inferChannel(source: string | null, medium: string | null,
 }
 
 export function captureTouch(url: string, referrer: string, siteDomain: string,
-  now = new Date().toISOString()): Touch {
+  now = instantFromDate(new Date(Date.now()))): Touch {
   const params = new URL(url).searchParams;
   const touch: Touch = Object.fromEntries(rules.campaign_keys.map(k => [k, params.get(k) || null]));
   let domain = extractReferrerDomain(referrer);
@@ -67,7 +68,7 @@ export function captureTouch(url: string, referrer: string, siteDomain: string,
   for (const [key, channel] of Object.entries(rules.paid_click_ids)) {
     if (touch[key]) { touch.acquisition_channel = channel; break; }
   }
-  touch.captured_at = now;
+  touch.captured_at = formatInstant(now);
   return touch;
 }
 

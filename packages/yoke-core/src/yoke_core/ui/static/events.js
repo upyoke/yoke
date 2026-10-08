@@ -1,4 +1,5 @@
 // Generated from the installed structured-events Pack; run build_frontend_events.
+import { instantFromDate } from "./events_timestamps.mjs";
 import rules from './attribution_rules.js';
 /** Frontend envelopes and retrying batches. One fetch per batch. */
 import { MAX_ENVELOPE_BYTES, MAX_CONTEXT_FIELD_BYTES, MAX_BATCH_SIZE } from './events_types.js';
@@ -26,7 +27,7 @@ export function buildEvent(options             )                {
     [k, typeof v === 'string' ? v.slice(0, MAX_CONTEXT_FIELD_BYTES) : v]));
   const event                = {
     event_id: crypto.randomUUID(), event_name: options.name, event_kind: options.kind,
-    event_type: options.eventType, event_time: new Date().toISOString(),
+    event_type: options.eventType, event_time: instantFromDate(new Date(Date.now())),
     event_outcome: options.outcome ?? null, severity: options.severity ?? 'INFO',
     source_type: 'frontend', duration_ms: options.durationMs ?? null,
     ...getSystemProps(), ...getSessionProps(), ...getOrgProps(options.orgId),

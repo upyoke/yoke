@@ -1,4 +1,5 @@
 // Generated from the installed structured-events Pack; run build_frontend_events.
+import { formatInstant, instantFromDate } from "./events_timestamps.mjs";
 /** Pure attribution rules; shared data is also consumed by Python. */
 import rules from './attribution_rules.js';
 
@@ -58,7 +59,7 @@ export function inferChannel(source               , medium               ,
 }
 
 export function captureTouch(url        , referrer        , siteDomain        ,
-  now = new Date().toISOString())        {
+  now = instantFromDate(new Date(Date.now())))        {
   const params = new URL(url).searchParams;
   const touch        = Object.fromEntries(rules.campaign_keys.map(k => [k, params.get(k) || null]));
   let domain = extractReferrerDomain(referrer);
@@ -68,7 +69,7 @@ export function captureTouch(url        , referrer        , siteDomain        ,
   for (const [key, channel] of Object.entries(rules.paid_click_ids)) {
     if (touch[key]) { touch.acquisition_channel = channel; break; }
   }
-  touch.captured_at = now;
+  touch.captured_at = formatInstant(now);
   return touch;
 }
 

@@ -10,6 +10,8 @@ events.py re-exports these names so existing `from events import get_*_props`
 callers continue to work without modification.
 """
 
+from events_timestamps import format_instant
+
 import os
 import traceback
 import uuid
@@ -84,7 +86,11 @@ def get_session_props(
     """Build session properties."""
     return {
         "session_id": session_id or str(uuid.uuid4()),
-        "session_start_time": session_start_time,
+        "session_start_time": (
+            format_instant(session_start_time)
+            if session_start_time is not None
+            else None
+        ),
     }
 
 

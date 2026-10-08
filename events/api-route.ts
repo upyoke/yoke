@@ -1,3 +1,4 @@
+import { formatInstant } from "./events_timestamps.mjs";
 /** Framework-neutral factories: wire returned handlers into your project's routes. */
 import { MAX_BATCH_SIZE, MAX_ENVELOPE_BYTES, MAX_REQUEST_BYTES } from './events_types.ts';
 import { sanitizeUrl, isBot } from './events_attribution.ts';
@@ -65,8 +66,17 @@ export function createCollector(config: CollectorConfig) {
       for (const event of body.events) {
         if (!event || typeof event !== 'object' || Array.isArray(event) ||
           ['event_id', 'event_name', 'event_kind', 'event_type', 'event_time', 'session_id'].some(k => typeof event[k] !== 'string' || !event[k]) ||
-          event.source_type !== 'frontend' || event.event_kind !== 'analytics' || !Number.isFinite(Date.parse(event.event_time))) {
+          event.source_type !== 'frontend' || event.event_kind !== 'analytics') {
           return reply(400, 'envelope_invalid', 'Use the frontend analytics emitter with a session id and ISO event_time.');
+        }
+        try {
+          event.event_time = formatInstant(event.event_time);
+          if (event.session_start_time != null) event.session_start_time = formatInstant(event.session_start_time);
+          for (const key of ['first_touch', 'last_touch']) {
+            if (event[key] != null) event[key].captured_at = formatInstant(event[key].captured_at);
+          }
+        } catch {
+          return reply(400, 'invalid_instant', 'Supply valid qualified RFC3339 instants with at most six fractional digits.');
         }
         if (new TextEncoder().encode(JSON.stringify(event)).length > MAX_ENVELOPE_BYTES) {
           return reply(413, 'event_too_large', 'Reduce the envelope below 64 KB.');
@@ -111,7 +121,7 @@ export async function createAttributionHandler(config: CollectorConfig & { signi
 
 export async function createAttributionHandoffHandler(config: CollectorConfig & {
   signingSecret: string; siteDomain: string;
-  consumeNonce: (nonce: string, expires: number) => Promise<boolean>;
+  consumeNonce: (nonce: string, expires: string) => Promise<boolean>;
 }) {
   validateConfig(config);
   if (!config.consumeNonce) throw new Error('attribution_handoff_storage_required: supply durable atomic nonce consumption');

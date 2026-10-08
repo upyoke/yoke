@@ -230,3 +230,41 @@ def test_local_collector_has_no_bearer_requirement_and_keeps_http_cookie(
         ).status_code
         == 200
     )
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "2026-10-08",
+        "2026-10-08T00:00:00",
+        "2026-10-08T00:00:00-00:00",
+        "2026-10-08T00:00:00.1234567Z",
+    ],
+)
+def test_collector_refuses_unqualified_or_excess_precision_instants(client, value):
+    payload = {**event(), "event_time": value}
+    response = client.post(
+        "/api/events", json={"events": [payload]}, headers=headers(client)
+    )
+    assert response.status_code == 400
+    assert response.json()["error"] == "envelope_invalid"
+
+
+def test_collector_normalizes_offset_and_microseconds_before_native_storage(
+    client, database
+):
+    payload = {**event(), "event_time": "1969-12-31T18:29:59.123456-05:30"}
+    response = client.post(
+        "/api/events", json={"events": [payload]}, headers=headers(client)
+    )
+    assert response.status_code == 200
+    with database() as conn:
+        instant, raw = conn.execute(
+            "SELECT created_at,envelope FROM events WHERE event_id=%s",
+            (payload["event_id"],),
+        ).fetchone()
+        from yoke_contracts.timestamps import parse_instant
+
+        assert instant == parse_instant("1969-12-31T23:59:59.123456Z")
+        stored = json.loads(raw) if isinstance(raw, str) else raw
+        assert stored["event_time"] == "1969-12-31T23:59:59.123456Z"

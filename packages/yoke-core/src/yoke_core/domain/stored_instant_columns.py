@@ -60,6 +60,7 @@ STORED_INSTANT_COLUMNS: tuple[tuple[str, str], ...] = (
     ("epic_tasks", "scope_finalized_at"),
     ("events", "created_at"),
     ("frontend_attribution_redemptions", "expires_at"),
+    ("frontend_event_rate_limits", "window_start"),
     ("function_call_ledger", "created_at"),
     ("github_app_installations", "last_verified_at"),
     ("github_app_installations", "created_at"),

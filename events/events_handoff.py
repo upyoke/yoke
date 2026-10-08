@@ -3,8 +3,9 @@
 import hashlib
 import hmac
 import json
-import time
 import uuid
+from datetime import timedelta
+from events_timestamps import format_instant, parse_instant, utc_now
 from urllib.parse import urlsplit
 
 from events_cookie import _decode, _encode, validate_record
@@ -43,7 +44,7 @@ class AttributionHandoff:
     def mint(self, cookie_header, audience):
         record = self.cookie.read_verified(cookie_header)
         audience = handoff_origin(audience)
-        expires = int(time.time()) + HANDOFF_SECONDS
+        expires = format_instant(utc_now() + timedelta(seconds=HANDOFF_SECONDS))
         payload = _encode(
             json.dumps(
                 {
@@ -66,7 +67,7 @@ class AttributionHandoff:
         return {"token": f"{payload}.{signature}", "expires_at": expires}
 
     def redeem(self, token, audience, consume):
-        """consume(nonce, expires) must atomically insert once in durable storage.
+        """consume(nonce, expires: aware UTC datetime) must atomically insert once in durable storage.
 
         Return true for the first insertion, false for replay; storage errors must
         raise. Never use an in-memory set or disposable event rows.
@@ -87,14 +88,18 @@ class AttributionHandoff:
             if decoded["purpose"] != HANDOFF_PURPOSE:
                 raise ValueError()
             uuid.UUID(decoded["nonce"])
-            if not isinstance(decoded["expires"], int):
+            if (
+                not isinstance(decoded["expires"], str)
+                or format_instant(decoded["expires"]) != decoded["expires"]
+            ):
                 raise ValueError()
             record = validate_record(decoded["record"])
         except (ValueError, KeyError, TypeError, AttributeError) as error:
             raise ValueError(
                 "attribution_handoff_invalid: restart sign-in from the source origin"
             ) from error
-        if decoded["expires"] <= time.time():
+        expires = parse_instant(decoded["expires"])
+        if expires <= utc_now():
             raise ValueError(
                 "attribution_handoff_expired: restart sign-in to mint a fresh token"
             )
@@ -103,7 +108,7 @@ class AttributionHandoff:
                 "attribution_handoff_audience_mismatch: redeem at the exact destination origin used when minting"
             )
         header = self.cookie.write(record)
-        if not consume(decoded["nonce"], decoded["expires"]):
+        if not consume(decoded["nonce"], expires):
             raise ValueError(
                 "attribution_handoff_replayed: restart sign-in to mint a fresh one-time token"
             )

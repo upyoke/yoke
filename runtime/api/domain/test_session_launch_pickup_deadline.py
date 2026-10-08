@@ -29,8 +29,8 @@ from runtime.api.domain.session_launch_test_support import (
 )
 
 
-CREATE_DEADLINE = "2026-08-22T12:10:00Z"
-PAST_CREATE_DEADLINE = "2026-08-22T12:15:00Z"
+CREATE_DEADLINE = "2026-08-22T12:10:00.000000Z"
+PAST_CREATE_DEADLINE = "2026-08-22T12:15:00.000000Z"
 QUEUE_CAP = add_seconds(NOW, LAUNCH_QUEUE_WAIT_SECONDS)
 
 
@@ -60,12 +60,12 @@ def _evidence(conn, launch_id: str) -> dict:
 
 def test_second_queued_launch_gets_its_full_window_from_pickup() -> None:
     conn = launch_connection()
-    add_relay(conn, connected_until="2026-08-22T13:00:00Z")
+    add_relay(conn, connected_until="2026-08-22T13:00:00.000000Z")
     first = assigned_launch(conn, key="first")
     (held,) = claim_next_launch(conn, _heartbeat(), now=NOW)
     assert held.job_id == first.launch_id
     waiting = assigned_launch(conn, key="second")
-    assert first.deadline_at == waiting.deadline_at == CREATE_DEADLINE
+    assert first.deadline_at == waiting.deadline_at == parse_instant(CREATE_DEADLINE)
 
     settle_launch_deadlines(conn, now=PAST_CREATE_DEADLINE)
     assert get_launch(conn, waiting.launch_id).state == "assigned"
@@ -73,16 +73,16 @@ def test_second_queued_launch_gets_its_full_window_from_pickup() -> None:
     (job,) = claim_next_launch(conn, _heartbeat(), now=PAST_CREATE_DEADLINE)
 
     assert job.job_id == waiting.launch_id
-    assert job.deadline_at == parse_instant("2026-08-22T12:25:00Z")
+    assert job.deadline_at == parse_instant("2026-08-22T12:25:00.000000Z")
     launched = get_launch(conn, waiting.launch_id)
     assert launched.state == "launching"
-    assert launched.deadline_at == parse_instant("2026-08-22T12:25:00Z")
-    assert _message_expiry(conn, waiting.message_id) == "2026-08-22T12:25:00Z"
+    assert launched.deadline_at == parse_instant("2026-08-22T12:25:00.000000Z")
+    assert _message_expiry(conn, waiting.message_id) == "2026-08-22T12:25:00.000000Z"
 
 
 def test_queued_launch_on_a_disconnected_relay_expires_at_its_create_deadline() -> None:
     conn = launch_connection()
-    add_relay(conn, connected_until="2026-08-22T12:05:00Z")
+    add_relay(conn, connected_until="2026-08-22T12:05:00.000000Z")
     launch = assigned_launch(conn)
 
     settle_launch_deadlines(conn, now=PAST_CREATE_DEADLINE)
@@ -96,7 +96,7 @@ def test_queued_launch_on_a_disconnected_relay_expires_at_its_create_deadline() 
 
 def test_queue_cap_closes_a_launch_a_connected_relay_never_takes() -> None:
     conn = launch_connection()
-    add_relay(conn, connected_until="2026-08-22T14:00:00Z")
+    add_relay(conn, connected_until="2026-08-22T14:00:00.000000Z")
     launch = assigned_launch(conn)
 
     assert settle_launch_deadlines(conn, now=add_seconds(QUEUE_CAP, -1)) == []
@@ -111,7 +111,7 @@ def test_queue_cap_closes_a_launch_a_connected_relay_never_takes() -> None:
 
 def test_pickup_past_the_queue_cap_is_refused_with_its_recovery() -> None:
     conn = launch_connection()
-    add_relay(conn, connected_until="2026-08-22T14:00:00Z")
+    add_relay(conn, connected_until="2026-08-22T14:00:00.000000Z")
     launch = assigned_launch(conn)
 
     with pytest.raises(SessionLaunchError) as refused:

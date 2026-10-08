@@ -1,3 +1,4 @@
+import { formatInstant, instantMicros, instantFromDate } from "./events_timestamps.mjs";
 /** Server-only signed attribution transfer; durable atomic consumption is project-owned. */
 import { createAttributionCookie, validateRecord } from './events_cookie.ts';
 
@@ -19,12 +20,12 @@ export async function createAttributionHandoff(secret: string, siteDomain: strin
   async function mint(header: string, audience: string) {
     const record = await cookie.readVerified(header);
     audience = handoffOrigin(audience);
-    const expires = Math.floor(Date.now() / 1000) + HANDOFF_SECONDS;
+    const expires = instantFromDate(new Date(Date.now() + HANDOFF_SECONDS * 1000));
     const payload = b64(encoder.encode(JSON.stringify({ purpose, audience, expires, nonce: crypto.randomUUID(), record })));
     const signature = b64(new Uint8Array(await crypto.subtle.sign('HMAC', key, encoder.encode(purpose + ':' + payload))));
     return { token: `${payload}.${signature}`, expires_at: expires };
   }
-  async function redeem(token: string, audience: string, consume: (nonce: string, expires: number) => Promise<boolean>) {
+  async function redeem(token: string, audience: string, consume: (nonce: string, expires: string) => Promise<boolean>) {
     audience = handoffOrigin(audience);
     let decoded;
     try {
@@ -34,11 +35,11 @@ export async function createAttributionHandoff(secret: string, siteDomain: strin
       const [payload, signature] = parts;
       if (!await crypto.subtle.verify('HMAC', key, unb64(signature), encoder.encode(purpose + ':' + payload))) throw new Error();
       decoded = JSON.parse(new TextDecoder().decode(unb64(payload)));
-      if (decoded.purpose !== purpose || !Number.isInteger(decoded.expires) ||
+      if (decoded.purpose !== purpose || typeof decoded.expires !== "string" || formatInstant(decoded.expires) !== decoded.expires ||
         typeof decoded.nonce !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(decoded.nonce)) throw new Error();
       decoded.record = validateRecord(decoded.record);
     } catch { throw new Error('attribution_handoff_invalid: restart sign-in from the source origin'); }
-    if (decoded.expires <= Date.now() / 1000) throw new Error('attribution_handoff_expired: restart sign-in to mint a fresh token');
+    if (instantMicros(decoded.expires) <= instantMicros(instantFromDate(new Date(Date.now())))) throw new Error('attribution_handoff_expired: restart sign-in to mint a fresh token');
     if (decoded.audience !== audience) throw new Error('attribution_handoff_audience_mismatch: redeem at the exact destination origin used when minting');
     const setCookie = await cookie.write(decoded.record);
     if (!await consume(decoded.nonce, decoded.expires)) throw new Error('attribution_handoff_replayed: restart sign-in to mint a fresh one-time token');

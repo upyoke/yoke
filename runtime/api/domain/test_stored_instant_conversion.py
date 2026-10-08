@@ -31,7 +31,7 @@ def test_administered_target_refuses_before_read_or_write(monkeypatch):
         conversion.convert_stored_instants(UnusedConnection(), _ROSTER)
 
 
-def _fixture(conn, monkeypatch, *, native_creation=False):
+def _fixture(conn, monkeypatch, *, native_creation=False, epoch_type="bigint"):
     monkeypatch.setattr(
         conversion,
         "_OWNER_CREATION_REPAIRS",
@@ -42,20 +42,21 @@ def _fixture(conn, monkeypatch, *, native_creation=False):
     conn.execute(
         f"CREATE TABLE {_TABLE} (id INTEGER PRIMARY KEY, "
         f"created_at {creation_type} NOT NULL, updated_at text NOT NULL, "
-        "observed_at text NOT NULL, expires_at bigint, optional_at text DEFAULT '')"
+        f"observed_at text NOT NULL, expires_at {epoch_type}, optional_at text DEFAULT '')"
     )
     conn.execute(f"CREATE INDEX fixture_creation_index ON {_TABLE}(created_at,id)")
 
 
 @pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("epoch_type", ["integer", "bigint"])
 def test_conversion_is_native_and_independent_of_session_zone(
-    test_db, monkeypatch, zone
+    test_db, monkeypatch, zone, epoch_type
 ):
     with db_helpers.connect() as conn:
-        _fixture(conn, monkeypatch)
+        _fixture(conn, monkeypatch, epoch_type=epoch_type)
         conn.execute(
             f"INSERT INTO {_TABLE} VALUES (%s,%s,%s,%s,%s,%s)",
-            (1, "2026-10-08T12:30:00.123456-04:00", "", "--agent", 1, ""),
+            (1, "2026-10-08T12:30:00.123456-04:00", "", "--agent", -1, ""),
         )
         conn.execute(
             f"INSERT INTO {_TABLE} VALUES (%s,%s,%s,%s,%s,%s)",
@@ -70,7 +71,7 @@ def test_conversion_is_native_and_independent_of_session_zone(
         first, second = conn.execute(f"SELECT * FROM {_TABLE} ORDER BY id").fetchall()
         expected = datetime(2026, 10, 8, 16, 30, 0, 123456, timezone.utc)
         assert first[1:4] == (expected,) * 3
-        assert first[4] == datetime(1970, 1, 1, 0, 0, 1, tzinfo=timezone.utc)
+        assert first[4] == datetime(1969, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
         assert first[5] is None
         assert second[1] == datetime(2026, 10, 8, 16, 30, 0, 654321, timezone.utc)
         assert second[2:4] == (datetime(2026, 10, 8, tzinfo=timezone.utc),) * 2

@@ -143,7 +143,7 @@ missing one of them is invalid, so capture again.
 To carry attribution between isolated __Host- cookies, POST
 /api/events/attribution/handoff at the source origin with
 {"audience":"https://app.example.com"}. It verifies the cookie and returns
-{token, expires_at}; expires_at is Unix seconds. No cookie is changed. Carry the
+{token, expires_at}; expires_at is a canonical UTC RFC3339 instant with six fractional digits and Z. No cookie is changed. Carry the
 token through the sign-in hand-off, then POST {"token":"..."} to
 /api/events/attribution/handoff/redeem at that exact destination. Redemption
 returns the verified record and sets the destination's Secure/HttpOnly cookie,
@@ -163,7 +163,7 @@ it never receives the signing key and never trusts browser attribution fields.
 Python exports AttributionCookie.read_verified and AttributionHandoff.mint /
 redeem. TypeScript exports readVerified and createAttributionHandoff; wire
 createAttributionHandoffHandler alongside createAttributionHandler. The consuming
-project supplies consumeNonce(nonce, expires), an atomic durable insert returning
+project supplies consumeNonce(nonce, expires: string), an atomic durable insert returning
 true exactly once and false for replay; failures must raise. The engine uses
 frontend_attribution_redemptions keyed by org and nonce. It stores no attribution
 payload in that ledger and deletes expired tombstones on redemption. Rate
@@ -178,3 +178,24 @@ Storage failures require restoring the durable nonce store before restarting.
 Hand-off tokens are minted only from a verified cookie. The local HTTP collector supports cookie read/capture, while cross-origin
 hand-off requires HTTPS at both ends. A minted bearer token remains redeemable
 until expiry or consumption.
+
+## Timestamp contract and hard cutover
+
+Event time, session start, touch capture, cookie expiry and handoff expiry use
+`YYYY-MM-DDTHH:MM:SS.ffffffZ`; optional unknown session clocks stay null.
+Python storage adapters receive aware UTC datetime values: the handoff
+`consume(nonce, expires)` callback receives an aware datetime, while the
+TypeScript callback receives a canonical string for its PostgreSQL driver.
+Collector input accepts only calendar-valid RFC3339 with an explicit known
+offset and at most six fractional digits, normalizing it before persistence.
+Malformed, naive or overprecision inputs refuse with `invalid_instant`.
+
+Exact canonical Python/Node helpers ship as sibling timestamp resources;
+copy them together with the emitter, cookie and handoff implementations.
+Signed cookie and handoff expiry is now canonical text. Old numeric payloads
+are rejected and attribution is captured again. Existing handoffs restart
+sign-in. There is no numeric decoder, compatibility window or drain fallback.
+Event ids, nonce ids, calendar-independent retry durations and HTTP Retry-After
+protocol values keep their own contracts. Project owners convert mutable
+stored attribution records and native expiry columns before accepting the
+new source; immutable finalized receipts and digested bytes stay unchanged.

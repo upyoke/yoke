@@ -1,3 +1,4 @@
+import { formatInstant, instantMicros, instantFromDate } from "./events_timestamps.mjs";
 import rules from './attribution_rules.json' with { type: 'json' };
 /** First-party server-set, signed HttpOnly attribution cookie. Never import into a browser bundle. */
 import { captureTouch, updateAttribution, domainMatches } from './events_attribution.ts';
@@ -21,7 +22,7 @@ export async function createAttributionCookie(secret: string, siteDomain: string
       const [payload, signature] = parts;
       if (!await crypto.subtle.verify('HMAC', key, unb64(signature), encoder.encode(payload))) throw new Error();
       const decoded = JSON.parse(new TextDecoder().decode(unb64(payload)));
-      if (typeof decoded.expires !== 'number' || decoded.expires <= Date.now() / 1000) throw new Error();
+      if (typeof decoded.expires !== 'string' || formatInstant(decoded.expires) !== decoded.expires || instantMicros(decoded.expires) <= instantMicros(instantFromDate(new Date(Date.now())))) throw new Error();
       return validateRecord(decoded.record);
     } catch {
       throw new Error('attribution_invalid: capture attribution again');
@@ -36,7 +37,7 @@ export async function createAttributionCookie(secret: string, siteDomain: string
   }
   async function write(input: AttributionData) {
     const record = validateRecord(input);
-    const payload = b64(encoder.encode(JSON.stringify({ record, expires: Math.floor(Date.now() / 1000) + COOKIE_SECONDS })));
+    const payload = b64(encoder.encode(JSON.stringify({ record, expires: instantFromDate(new Date(Date.now() + COOKIE_SECONDS * 1000)) })));
     const signature = b64(new Uint8Array(await crypto.subtle.sign('HMAC', key, encoder.encode(payload))));
     const value = `${payload}.${signature}`;
     if (value.length > rules.limits.cookie_value_chars) throw new Error('attribution_cookie_too_large: shorten campaign values or use an atomic server record keyed by visitor_id');
@@ -60,6 +61,10 @@ export function validateRecord(record: unknown): AttributionData {
     typeof r.visitor_id !== 'string' || !r.visitor_id ||
     ['first_touch', 'last_touch'].some(k => !r[k] || typeof r[k] !== 'object' || Array.isArray(r[k]) || !Object.keys(r[k] as object).length)) {
     throw new Error('attribution_invalid: capture attribution again');
+  }
+  for (const key of ["first_touch", "last_touch"]) {
+    const value = (r[key] as Record<string, unknown>).captured_at;
+    if (typeof value !== "string" || formatInstant(value) !== value) throw new Error("attribution_invalid: capture attribution again with canonical UTC instants");
   }
   const { visitor_id, first_touch, last_touch } = r as unknown as AttributionData;
   return { visitor_id, first_touch, last_touch };

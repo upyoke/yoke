@@ -3,7 +3,9 @@
 import hashlib
 import json
 import secrets
-import time
+from datetime import datetime, timedelta, timezone
+
+from yoke_contracts.timestamps import parse_instant, utc_now
 
 from yoke_core.domain import db_helpers
 from yoke_core.domain.external_identities import default_org_id
@@ -36,8 +38,10 @@ def collector_identity(conn):
 
 def admit_client(conn, *, org_id, client, now=None):
     """Atomically count in Postgres so processes/restarts share the same budget."""
-    now = int(time.time() if now is None else now)
-    window = now - now % RATE_WINDOW_SECONDS
+    current = utc_now() if now is None else parse_instant(now)
+    epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
+    width = timedelta(seconds=RATE_WINDOW_SECONDS)
+    window = epoch + ((current - epoch) // width) * width
     key = hashlib.sha256(f"{org_id}:{client}".encode()).hexdigest()
     # Atomic conflict update serializes concurrent requests for this client.
     count = conn.execute(
@@ -47,14 +51,17 @@ def admit_client(conn, *, org_id, client, now=None):
         "WHEN frontend_event_rate_limits.window_start=excluded.window_start "
         "THEN frontend_event_rate_limits.request_count+1 ELSE 1 END "
         "RETURNING request_count",
-        (key, window),
+        (key, db_helpers.instant_parameter(conn, window)),
     ).fetchone()[0]
     conn.execute(
         "DELETE FROM frontend_event_rate_limits WHERE window_start < %s",
-        (window - RATE_WINDOW_SECONDS,),
+        (db_helpers.instant_parameter(conn, window - width),),
     )
     conn.commit()
-    return RATE_WINDOW_SECONDS - (now - window) if count > RATE_REQUESTS else 0
+    remaining = window + width - current
+    return (
+        remaining.seconds + bool(remaining.microseconds) if count > RATE_REQUESTS else 0
+    )
 
 
 def write_frontend_events(events, *, org_id, actor_id=None):
@@ -106,20 +113,22 @@ def read_collector_identity():
 
 def consume_attribution_handoff(org_id, nonce, expires):
     """A unique insert is the authority for redemption across processes/restarts."""
+    expiry = parse_instant(expires)
     with db_helpers.connect() as conn:
+        expiry_value = db_helpers.instant_parameter(conn, expiry)
         # Validation may precede expiry while storage follows it. Preserve the
         # attempted nonce and check expiry again in the atomic insert, so another
         # request's cleanup cannot make a delayed replay insertable either.
         conn.execute(
             "DELETE FROM frontend_attribution_redemptions WHERE expires_at <= %s "
             "AND NOT (org_id = %s AND nonce = %s)",
-            (int(time.time()), org_id, nonce),
+            (db_helpers.instant_parameter(conn, utc_now()), org_id, nonce),
         )
         inserted = conn.execute(
             "INSERT INTO frontend_attribution_redemptions (org_id, nonce, expires_at) "
-            "SELECT %s,%s,%s WHERE %s > EXTRACT(EPOCH FROM clock_timestamp()) "
+            "SELECT %s,%s,%s WHERE %s > clock_timestamp() "
             "ON CONFLICT (org_id, nonce) DO NOTHING RETURNING nonce",
-            (org_id, nonce, expires, expires),
+            (org_id, nonce, expiry_value, expiry_value),
         ).fetchone()
         conn.commit()
         return inserted is not None

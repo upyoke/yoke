@@ -7,8 +7,8 @@ installed source is intended to be adapted to the project's event pipeline.
 Property group builders resolve fields from explicit arguments, with
 environment-variable fallbacks for system props.
 
-The reference splits across two sibling files. Copy BOTH into your project
-together: events_props.py and this file (events.py). See
+Copy events_props.py and the canonical events_timestamps.py resource into
+your project alongside this file (events.py). See
 events/README.md for details.
 
 Usage:
@@ -46,7 +46,8 @@ Usage:
 import json
 import uuid
 import warnings
-from datetime import datetime, timezone
+from datetime import datetime
+from events_timestamps import format_instant, iso8601_now
 from typing import Any, Optional
 from events_delivery import EventBatch
 from events_attribution import RULES
@@ -93,7 +94,7 @@ def build_event(
     severity: str = "INFO",
     duration_ms: Optional[int] = None,
     event_id: Optional[str] = None,
-    event_time: Optional[str] = None,
+    event_time: str | datetime | None = None,
     context: Optional[dict] = None,
     **extra_props: Any,
 ) -> dict:
@@ -113,7 +114,7 @@ def build_event(
         severity: Log severity (DEBUG, INFO, WARN, ERROR, FATAL)
         duration_ms: Operation duration in milliseconds
         event_id: Pre-generated UUID (auto-generated if omitted)
-        event_time: ISO 8601 timestamp (auto-generated if omitted)
+        event_time: qualified RFC3339 or aware datetime (UTC clock if omitted)
         context: Event-specific payload dict
         **extra_props: Fields from property group builders, merged at root
 
@@ -126,11 +127,7 @@ def build_event(
         if isinstance(value, str) and len(value) > MAX_CONTEXT_FIELD_BYTES:
             safe_context[key] = value[:MAX_CONTEXT_FIELD_BYTES]
 
-    # Build timestamp in ISO 8601 UTC with Z suffix
-    if event_time is None:
-        event_time = (
-            datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
-        )
+    event_time = iso8601_now() if event_time is None else format_instant(event_time)
 
     envelope = {
         # event_props
@@ -151,6 +148,9 @@ def build_event(
 
     # Merge extra property group fields (overrides system_props if provided)
     envelope.update(extra_props)
+    envelope["event_time"] = format_instant(envelope["event_time"])
+    if envelope.get("session_start_time") is not None:
+        envelope["session_start_time"] = format_instant(envelope["session_start_time"])
 
     # Enforce total envelope size (64 KB)
     encoded = json.dumps(envelope)
