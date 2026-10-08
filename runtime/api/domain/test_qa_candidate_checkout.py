@@ -89,7 +89,46 @@ def test_member_case_binds_to_the_candidate_without_flags(moved_checkout) -> Non
     assert _git(checkout, "rev-parse", "HEAD") != candidate, (
         "project checkout untouched"
     )
+
     assert _git(checkout, "worktree", "list").count("\n") == 0, "no worktree registered"
+
+
+def test_disposable_source_candidate_provisions_its_own_locked_python(
+    tmp_path, monkeypatch
+):
+    from runtime.api.tools.test_source_dev_run_cli_child_binding import (
+        _stub_source_tree,
+    )
+    from yoke_core.domain.qa_environment_declaration import TestEnvironmentDeclaration
+
+    root = _stub_source_tree(tmp_path / "source")
+    _git(root, "init", "--quiet")
+    _git(root, "config", "user.email", "tester@example.test")
+    _git(root, "config", "user.name", "Tester")
+    _git(root, "add", "packages", "runtime", "pyproject.toml", "uv.lock")
+    _git(root, "commit", "--quiet", "-m", "locked candidate")
+    candidate = _git(root, "rev-parse", "HEAD")
+
+    def declaration(*_args, **_kwargs):
+        return TestEnvironmentDeclaration(project="fixture")
+
+    monkeypatch.setattr(
+        "yoke_core.domain.source_python_environment.load_declaration", declaration
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.worktree_test_environment.load_declaration", declaration
+    )
+    case = _deployment_case(
+        deployment_member_item_id=9811,
+        method_config={"command": "python3 -c 'import sys; print(sys.prefix)'"},
+    )
+    case["execution_target"]["deployment"]["release_lineage"] = candidate
+    result, recorded = _run(case, root)
+    assert result["verdict"] == "pass"
+    identity = result["candidate_source"]["environment_before"]
+    assert identity["prefix"] == str(Path(recorded["cwd"]) / ".venv")
+    assert result["candidate_source"]["environment_after"] == identity
+    assert not Path(recorded["cwd"]).exists()
 
 
 def test_candidate_missing_everywhere_refuses_before_the_command(

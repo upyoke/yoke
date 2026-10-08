@@ -69,12 +69,8 @@ def with_source_pythonpath(
     out = dict(os.environ if env is None else env)
     if not is_yoke_shaped_tree(root):
         return out
-    existing = [value for value in out.get("PYTHONPATH", "").split(os.pathsep) if value]
-    ordered: list[str] = []
-    for value in [*source_entries(root), *existing]:
-        if value not in ordered:
-            ordered.append(value)
-    out["PYTHONPATH"] = os.pathsep.join(ordered)
+    out["PYTHONPATH"] = os.pathsep.join(source_entries(root))
+    out["PYTHONNOUSERSITE"] = "1"
     return out
 
 
@@ -103,13 +99,44 @@ def bound_child_command(
     return args
 
 
+def verified_source_environment(
+    root: Path, env: Mapping[str, str]
+) -> tuple[dict[str, str], str | None]:
+    """Bind pytest and its descendants to the same verified checkout Python."""
+    if not is_yoke_shaped_tree(root):
+        return dict(env), None
+    from yoke_core.domain.source_python_environment import (
+        resolve,
+        SourceEnvironmentRefusal,
+    )
+
+    try:
+        binding = resolve(root, env)
+    except SourceEnvironmentRefusal as exc:
+        return dict(env), str(exc)
+    bound = with_source_pythonpath(binding.env, root)
+    return bound, import_origin_refusal(root, env=bound, python=binding.python)
+
+
 def import_origin_refusal(
     root: Path,
     *,
     env: Mapping[str, str],
     module: str = "yoke_core",
-    python: str = sys.executable,
+    python: str | None = None,
 ) -> str | None:
+    if python is None and is_yoke_shaped_tree(root):
+        from yoke_core.domain.source_python_environment import (
+            resolve,
+            SourceEnvironmentRefusal,
+        )
+
+        try:
+            binding = resolve(root, env)
+        except SourceEnvironmentRefusal as exc:
+            return str(exc)
+        python, env = binding.python, binding.env
+    python = python or sys.executable
     code = (
         "import pathlib, " + module + "; "
         "print(pathlib.Path(" + module + ".__file__).resolve())"

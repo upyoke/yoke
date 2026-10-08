@@ -61,3 +61,15 @@ def test_different_root_refuses_before_imports(monkeypatch, tmp_path, capsys):
     assert "QA-CANDIDATE-SOURCE-REBIND REFUSAL" in error
     assert str(candidate) in error and str(lane) in error and "a" * 40 in error
     assert "Drop the" in error and "binds its own cwd" in error
+
+
+@pytest.fixture(autouse=True)
+def isolated_environment_probe(monkeypatch):
+    import sys
+    from yoke_core.domain.source_python_environment import SourcePythonEnvironment
+
+    monkeypatch.setattr(
+        source_dev_run.source_python_environment,
+        "resolve",
+        lambda root, env: SourcePythonEnvironment(sys.executable, dict(env), {}),
+    )

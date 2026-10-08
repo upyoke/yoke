@@ -35,8 +35,8 @@ def _stub_front_door(monkeypatch) -> None:
     )
     monkeypatch.setattr(
         watch_pytest._source_pythonpath,
-        "import_origin_refusal",
-        lambda *args, **kwargs: None,
+        "verified_source_environment",
+        lambda _root, env: (dict(env), None),
     )
 
 

@@ -16,6 +16,22 @@ prints the resolved origins for `yoke_contracts`, `yoke_cli`, `yoke_core`,
 This makes the recipe independent of the shell's current directory and exposes
 partial source binding immediately.
 
+The selected checkout supplies dependencies too. `dev run`, `dev import-check`,
+`dev ruff-changed`, and local source pytest use its declared locked `.venv`,
+with the existing test-environment extras/groups and Python requirements.
+The check runs `uv sync --check --locked --offline` without installing or
+rewriting the lock, and reports interpreter, Python version, lock digest, and
+environment identity alongside source origins. Missing, stale, incompatible,
+or redirected environments refuse with `SOURCE-ENVIRONMENT-*` and a lane-local
+recovery: run the printed `uv sync --locked` command in the named project
+directory, then retry. Update a stale lock deliberately in that lane first.
+Ambient main dependencies and `PYTHONPATH` cannot supply a missing lane dependency.
+
+Candidate Command QA provisions its disposable checkout through the existing
+test-environment setup, binds Python and Yoke to that exact candidate's
+environment, and records identity and origins before/after the case. Ordinary
+installed control-plane commands retain installed runtime selection.
+
 The child receives the caller's connected-environment selection and machine
 config unchanged. `dev run` changes where source resolves; it does not change
 which control plane or database the command uses. Put an explicit selection on
@@ -138,5 +154,5 @@ git diff --name-only --diff-filter=ACMR <base>...HEAD \
 ```
 
 Review the newline-delimited output, then pass the exact existing paths to
-`watch_pytest`. Do not pipe NUL-delimited Git output through `rg -z`, and never
+`yoke watch pytest`. Do not pipe NUL-delimited Git output through `rg -z`, and never
 feed a filter diagnostic to pytest as a filename.

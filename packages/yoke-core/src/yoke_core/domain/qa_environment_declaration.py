@@ -89,6 +89,7 @@ def load_declaration(
     project: str | None = None,
     *,
     checkout: Path | None = None,
+    strict: bool = False,
 ) -> TestEnvironmentDeclaration:
     """Read the capability over the connected control plane.
 
@@ -96,7 +97,8 @@ def load_declaration(
     extras/groups and nested uv-project discovery.
     """
     slug = required_local_project(checkout or Path.cwd(), project)
-    return parse_declaration(slug, _read_settings(slug))
+    settings = _read_settings(slug, strict=True) if strict else _read_settings(slug)
+    return parse_declaration(slug, settings)
 
 
 def resolve_uv_projects(
@@ -118,22 +120,45 @@ def resolve_uv_projects(
     return [target]
 
 
-def _read_settings(project: str) -> dict[str, Any]:
+def _read_settings(project: str, *, strict: bool = False) -> dict[str, Any]:
     import json
 
     from yoke_core.domain.control_plane_transport import relay
 
     try:
-        result = relay(
-            "projects.capability_settings.get",
-            {"project": project, "cap_type": CAPABILITY_TYPE},
-        )
-    except Exception:  # noqa: BLE001 — missing cap or relay failure is default
+        payload = {"project": project, "cap_type": CAPABILITY_TYPE}
+        if strict:
+            from yoke_contracts.api.function_call import TargetRef
+            from yoke_core.api.service_client_structured_api_adapter import (
+                call_dispatcher,
+            )
+
+            response = call_dispatcher(
+                function_id="projects.capability_settings.get",
+                target=TargetRef(kind="global"),
+                payload=payload,
+            )
+            if not response.success:
+                if (
+                    response.error
+                    and response.error.code == "not_found"
+                    and response.error.jsonpath == "$.payload.cap_type"
+                ):
+                    return {}
+                raise RuntimeError("test-environment declaration read refused")
+            result = response.result or {}
+        else:
+            result = relay("projects.capability_settings.get", payload)
+    except Exception:  # noqa: BLE001 — strict source checks cannot borrow defaults
+        if strict:
+            raise
         return {}
     raw = result.get("settings_json")
     try:
         parsed = json.loads(raw) if isinstance(raw, str) else (raw or {})
     except (TypeError, ValueError):
+        if strict:
+            raise
         return {}
     return parsed if isinstance(parsed, dict) else {}
 

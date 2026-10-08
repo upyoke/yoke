@@ -31,6 +31,7 @@ from yoke_contracts.project_contract.changed_path_scope import (
     untracked_paths,
 )
 from yoke_core.tools import source_dev_run
+from yoke_core.domain import source_python_environment
 
 
 @dataclass(frozen=True)
@@ -88,9 +89,15 @@ def changed_python_paths(base: str, root: Path) -> tuple[str, ...]:
 
 
 def _run_ruff(root: Path, arguments: Sequence[str], paths: Sequence[str]) -> int:
+    try:
+        binding = source_python_environment.resolve(root, os.environ)
+    except source_python_environment.SourceEnvironmentRefusal as exc:
+        print(f"ruff-changed: {exc}", file=sys.stderr)
+        return 1
     completed = subprocess.run(
-        ["uv", "run", "--frozen", "ruff", *arguments, "--", *paths],
+        [binding.python, "-m", "ruff", *arguments, "--", *paths],
         cwd=root,
+        env=binding.env,
         check=False,
     )
     return completed.returncode

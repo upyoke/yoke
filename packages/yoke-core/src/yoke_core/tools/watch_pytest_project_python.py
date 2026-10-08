@@ -10,6 +10,8 @@ from typing import Sequence
 
 from yoke_contracts.uv_project import is_uv_project, uv_run_argv
 from yoke_core.domain.qa_environment_declaration import load_declaration
+from yoke_core.domain import source_python_environment
+import os
 from yoke_core.tools import _source_pythonpath
 from yoke_core.tools.impacted_project_test_roots import (
     UNSUPPORTED_PROJECT_TEST_ROOTS,
@@ -31,7 +33,8 @@ def pytest_argv(
     if _source_pythonpath.is_yoke_shaped_tree(root) or (
         _source_pythonpath.is_yoke_shaped_tree(here)
     ):
-        return [sys.executable, "-m", "pytest", *list(args)]
+        binding = source_python_environment.resolve(root, os.environ)
+        return [binding.python, "-m", "pytest", *list(args)]
     declaration = load_declaration(checkout=here)
     trailing = ["-m", "pytest", *list(args)]
     argv = declaration.run_python_argv(trailing, cwd=here)

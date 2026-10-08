@@ -47,8 +47,8 @@ def _yoke_shaped_checkout(tmp_path: Path, monkeypatch) -> Path:
     (root / "packages" / "yoke-core" / "src" / "yoke_core").mkdir(parents=True)
     monkeypatch.setattr(
         run_tests._source_pythonpath,
-        "import_origin_refusal",
-        lambda *args, **kwargs: None,
+        "verified_source_environment",
+        lambda _root, env: (dict(env), None),
     )
     return root
 
@@ -108,8 +108,8 @@ class TestCanonicalYokeDbSetup:
         )
         monkeypatch.setattr(
             run_tests._source_pythonpath,
-            "import_origin_refusal",
-            lambda *args, **kwargs: None,
+            "verified_source_environment",
+            lambda _root, env: (dict(env), None),
         )
         monkeypatch.setattr(
             run_tests.process_group_reaping,
@@ -139,8 +139,8 @@ class TestCanonicalYokeDbSetup:
         )
         monkeypatch.setattr(
             run_tests._source_pythonpath,
-            "import_origin_refusal",
-            lambda *args, **kwargs: "yoke_core import origin is outside",
+            "verified_source_environment",
+            lambda _root, env: (dict(env), "yoke_core import origin is outside"),
         )
         monkeypatch.setattr(
             run_tests.process_group_reaping,

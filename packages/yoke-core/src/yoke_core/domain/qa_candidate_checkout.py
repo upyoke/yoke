@@ -32,6 +32,7 @@ from yoke_core.domain.qa_case_tree_binding_scope import (
 )
 from yoke_core.domain.worktree_paths import _run, captured_process_detail
 from yoke_core.domain.worktree_provision import GIT_WORKTREE_ADD_TIMEOUT_SECONDS
+from yoke_core.domain.worktree_test_environment import provision_test_environment
 
 #: Name prefix of every candidate checkout, so a leftover is recognizable.
 CANDIDATE_CHECKOUT_PREFIX = "yoke-qa-candidate-"
@@ -119,6 +120,12 @@ def candidate_checkout(case: Mapping[str, Any]) -> Iterator[Path]:
                     "Nothing was run or recorded; repair that checkout and "
                     "re-run the same command."
                 )
+        provisioned = provision_test_environment(str(root), project=case.get("project"))
+        if provisioned.error:
+            raise QaCaseExecutionError(
+                f"QA-CANDIDATE-ENVIRONMENT REFUSAL: {provisioned.error}. "
+                "Repair the declared candidate test environment and rerun the same QA case."
+            )
         yield root
     finally:
         shutil.rmtree(root, ignore_errors=True)

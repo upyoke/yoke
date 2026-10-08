@@ -49,7 +49,7 @@ def test_source_runner_rehearses_migration_with_lane_only_import(
     monkeypatch.setattr(
         _source_pythonpath,
         "import_origins",
-        lambda _root, env: ({"runtime": str(worktree / "runtime")}, None),
+        lambda _root, env, python: ({"runtime": str(worktree / "runtime")}, None),
     )
 
     probe = (
@@ -63,3 +63,15 @@ def test_source_runner_rehearses_migration_with_lane_only_import(
     )
 
     assert source_dev_run.run(["python3", "-c", probe]) == 0
+
+
+@pytest.fixture(autouse=True)
+def isolated_environment_probe(monkeypatch):
+    import sys
+    from yoke_core.domain.source_python_environment import SourcePythonEnvironment
+
+    monkeypatch.setattr(
+        source_dev_run.source_python_environment,
+        "resolve",
+        lambda root, env: SourcePythonEnvironment(sys.executable, dict(env), {}),
+    )

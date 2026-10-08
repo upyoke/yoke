@@ -7,6 +7,7 @@ Candidate-bound QA refuses a switch to another source checkout.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shlex
 import subprocess
@@ -16,9 +17,14 @@ from typing import Sequence
 
 from yoke_contracts.install_binding import SOURCE_DEV_RUN_ROOT_ENV
 from yoke_core.domain import verification_tree_binding
+from yoke_core.domain import source_python_environment
 from yoke_core.tools import _source_pythonpath, source_dev_candidate_binding
 
-MAIN_CHECKOUT_FALLBACK_EVENT = "SourceDevRunMainCheckoutFallback"
+from yoke_core.tools.source_dev_main_audit import (
+    MAIN_CHECKOUT_FALLBACK_EVENT as MAIN_CHECKOUT_FALLBACK_EVENT,
+    record_main_checkout_fallback as _record_main_checkout_fallback,
+)
+
 MAIN_CHECKOUT_READ_ONLY_SCRIPTS = frozenset(
     {
         "runtime/api/tools/scan_item_ref_construction.py",
@@ -198,54 +204,6 @@ def _main_checkout_authority_signature(
     )
 
 
-def _record_main_checkout_fallback(
-    *,
-    session_id: str,
-    root: Path,
-    project_id: int,
-    command: Sequence[str],
-    authority_signature: str,
-) -> str | None:
-    """Record the audit boundary before a registered source command reads main."""
-    try:
-        from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
-        from yoke_contracts.api.function_call import TargetRef
-
-        response = call_dispatcher(
-            function_id="events.emit",
-            target=TargetRef(kind="global"),
-            payload={
-                "name": MAIN_CHECKOUT_FALLBACK_EVENT,
-                "kind": "audit",
-                "type": "source_dev_run",
-                "source_type": "script",
-                "severity": "WARN",
-                "outcome": "completed",
-                "project": str(project_id),
-                "context": {
-                    "checkout": str(root),
-                    "command_name": str(command[0]),
-                    "argument_count": max(0, len(command) - 1),
-                    "fallback_reason": "no_live_claimed_yoke_source_lane",
-                    "authority_signature": authority_signature,
-                },
-            },
-            actor=build_actor(session_id=session_id),
-        )
-    except Exception as exc:
-        return f"could not record main-checkout fallback: {exc}"
-    if not response.success:
-        detail = response.error.message if response.error else "unknown error"
-        return f"could not record main-checkout fallback: {detail}"
-    result = response.result or {}
-    if not result.get("emitted"):
-        return (
-            "could not record main-checkout fallback: "
-            f"{result.get('reason') or 'event was not emitted'}"
-        )
-    return None
-
-
 def run(
     command: Sequence[str],
     *,
@@ -279,9 +237,17 @@ def run(
             )
             return 1
     env = dict(os.environ)
+    try:
+        binding = source_python_environment.resolve(root, env)
+    except source_python_environment.SourceEnvironmentRefusal as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    env = binding.env
     env = _source_pythonpath.with_source_pythonpath(env, root)
     env[SOURCE_DEV_RUN_ROOT_ENV] = str(root)
-    origins, origin_error = _source_pythonpath.import_origins(root, env=env)
+    origins, origin_error = _source_pythonpath.import_origins(
+        root, env=env, python=binding.python
+    )
     if origin_error:
         print(f"error: {origin_error}", file=sys.stderr)
         print(
@@ -308,7 +274,11 @@ def run(
             print(f"error: {event_error}", file=sys.stderr)
             return 1
     print(f"source imports: {rendered}", file=sys.stderr)
-    args = _source_pythonpath.bound_child_command(args)
+    print(
+        f"source environment: {json.dumps(binding.evidence, sort_keys=True)}",
+        file=sys.stderr,
+    )
+    args = _source_pythonpath.bound_child_command(args, python=binding.python)
     try:
         return subprocess.run(args, cwd=str(root), env=env, check=False).returncode
     except OSError as exc:
@@ -324,8 +294,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             "lane, or a registered scanner or claimed-target maintenance "
             "operation from its mapped main checkout when no Yoke lane "
             "exists, and report every checkout-owned import origin. A "
-            "nested `yoke` command runs on the interpreter those origins "
-            "describe, as an ambient `python3` does. Candidate-bound Command "
+            "nested `yoke` or `python3` command uses the checkout's declared "
+            "locked .venv. Missing, stale, or incompatible environments refuse "
+            "with lane-local recovery; checks never sync. Candidate-bound Command "
             "QA runs `yoke watch pytest -- <test paths>` directly: it binds "
             "its own cwd to source; a different claimed root refuses."
         ),

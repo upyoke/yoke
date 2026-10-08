@@ -10,22 +10,25 @@ from pathlib import Path
 from yoke_core.domain.qa_environment_declaration import TestEnvironmentDeclaration
 from yoke_core.domain.verification_tree_binding import ClaimLookup
 from yoke_core.tools import _source_pythonpath, watch_pytest_project_python as helper
+from runtime.api.source_pythonpath_test_helpers import provision_stub_environment
 
 
-def test_yoke_shaped_tree_uses_the_current_interpreter(
+def test_yoke_shaped_tree_uses_its_locked_interpreter(
     tmp_path: Path, monkeypatch
 ) -> None:
     marker = tmp_path / "packages" / "yoke-core" / "src" / "yoke_core"
     marker.mkdir(parents=True)
-    (tmp_path / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
+    python = provision_stub_environment(tmp_path)
+    monkeypatch.setattr(
+        "yoke_core.domain.source_python_environment.load_declaration",
+        lambda **_kwargs: TestEnvironmentDeclaration(project="fixture"),
+    )
     monkeypatch.chdir(tmp_path)
     argv = helper.pytest_argv(["runtime/api/"], cwd=tmp_path)
-    assert argv[:3] == [sys.executable, "-m", "pytest"]
+    assert argv[:3] == [str(python), "-m", "pytest"]
 
 
-def test_non_uv_tree_keeps_the_current_interpreter(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_non_uv_tree_keeps_the_current_interpreter(tmp_path: Path, monkeypatch) -> None:
     (tmp_path / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
     monkeypatch.setattr(
         helper,
@@ -44,9 +47,7 @@ def test_declared_extras_on_a_uv_project_use_uv_run(
     monkeypatch.setattr(
         helper,
         "load_declaration",
-        lambda **_k: TestEnvironmentDeclaration(
-            project="platform", extras=("engine",)
-        ),
+        lambda **_k: TestEnvironmentDeclaration(project="platform", extras=("engine",)),
     )
     argv = helper.pytest_argv(["tests/"], cwd=tmp_path)
     assert argv[:6] == [
