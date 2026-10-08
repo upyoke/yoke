@@ -25,6 +25,7 @@ from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.item_posture_amend_guards import (
     ItemPostureAmendError,
+    disallowed_posture_message,
     guard_approval,
     guard_merge_candidate_review,
     guard_path_claims,
@@ -213,8 +214,7 @@ def amend_item_posture(
     allowlist = [str(value) for value in runtime.policies["item_posture_allowlist"]]
     if key not in allowlist:
         raise ItemPostureAmendError(
-            f"{runtime.workflow_id}@{runtime.version} does not allow posture "
-            f"key {key!r}. Allowed on this item: {sorted(allowlist)}."
+            disallowed_posture_message(conn, item_id=item_id, runtime=runtime, key=key)
         )
     if key not in AMEND_GUARDS:
         raise ItemPostureAmendError(

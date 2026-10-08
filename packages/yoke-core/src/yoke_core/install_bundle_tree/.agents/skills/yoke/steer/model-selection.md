@@ -29,8 +29,19 @@ launch goes and why, beside the live workers per surface. A level reading
 
 ## Set the item's level override when you staff it
 
-On every item you staff, set its level override before the launch, and
-record why:
+On every item you staff, first read `yoke workflows item get PREFIX-N` and
+check the pinned definition's `item_posture_allowlist`. A newly deployed
+workflow version does not change an existing item's pin. If `level` is
+absent, ask the control-plane operator to select a compatible published
+version and preview `yoke workflows item migrate PREFIX-N --version N
+--preview`; apply only after the compatibility checks pass. Migration
+requires operator-started authority. Record that prerequisite for this
+item and continue staffing other eligible items; never silently omit the
+override or blanket-repin the backlog. `yoke workflows item-posture amend
+--help` carries the recovery decision tree.
+
+Once the pinned definition allows it, set the level override before the
+launch and record why:
 
 ```text
 yoke workflows item-posture amend PREFIX-N --key level \
@@ -42,8 +53,9 @@ yoke workflows item-posture amend PREFIX-N --key level \
 genuinely very complex — then the override still records the reason, as
 `{"min": "SENIOR", "reason": "..."}` or a `shift` up. The value is
 `{shift, min, max, reason}`; `yoke workflows item-posture amend --help` has
-the shape. The report lists every item's override. Name each launch's
-`--level` within it.
+the shape. The report lists every item's override. The override shifts and
+clamps an automatic stage default once. An explicit `--level` or exact
+surface/model request wins for that launch; do not clamp it again.
 
 Changing an override mid-stage does not touch the running worker, which
 keeps the selection it launched with: amend the override, then restaff the
