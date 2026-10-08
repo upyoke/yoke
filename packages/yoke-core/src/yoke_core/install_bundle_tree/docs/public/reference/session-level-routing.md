@@ -113,16 +113,22 @@ and the option's standing:
   its surface. Each blocker is named. An unreadable or unpublished meter never
   blocks; it leaves the headroom unknown.
 
-Per level it names the next launch and why: the **spread rule** first (a
-surface above 100% headroom with no live worker gets it), otherwise **most
-headroom** across the option's pools, with option order breaking ties. A level
-with no launchable option has **no capacity**. Usable machines, meters and
-live workers are the union across the universe's live projects. The read also
-lists every project and what its override, if any, changes.
+A level with no launchable option has **no capacity**. Usable machines, meters
+and live workers are the union across the universe's live projects.
+
+Per level and per live project it names where your next launch at that level
+goes and why (`next_launches`). The read does not predict placement: it runs
+the same preview `launch preview --level` runs, as you, in that project — the
+placement described under [Launching by level](#launching-by-level) — so its
+answer is the answer a launch would get. A preview that would refuse (no
+option with capacity, the level not defined by the project's override, or you
+not an operator there) is listed with its code and reason. The read also lists
+every project and what its override, if any, changes.
 
 The dashboard's **Settings → Levels** page, directly under Universe, shows
-this read: levels, options, capacity, and project overrides with the override
-command. It is view only; edit levels with the commands above.
+this read: levels, options, capacity, each project's next launch per level,
+and project overrides with the override command. It is view only; edit levels
+with the commands above.
 
 ## Launching by level
 

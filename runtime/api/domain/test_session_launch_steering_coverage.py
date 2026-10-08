@@ -216,7 +216,9 @@ def test_steering_create_refuses_missing_coverage_before_any_write(monkeypatch) 
     item = _pin_item(conn)
     monkeypatch.setattr(handlers, "_open", lambda: _NoCloseConnection(conn))
     monkeypatch.setattr(handlers, "_resolve_project", lambda _conn, _project: 10)
-    monkeypatch.setattr(handlers, "_authorization", lambda *_a, **_k: authorization())
+    monkeypatch.setattr(
+        handlers, "launch_authorization", lambda *_a, **_k: authorization()
+    )
     monkeypatch.setattr(handlers, "_fleet_policy", _fleet_policy)
     before = _write_counts(conn)
     outcome = handlers.handle_launch_create(
