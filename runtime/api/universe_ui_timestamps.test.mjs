@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { instantWireSql } from "../../packages/yoke-core/src/yoke_core/ui/static/time-sql.js";
 import {
   formatInstant, formatDatabaseInstant, instantMicros, instantFromDate,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/timestamps.js";
@@ -42,4 +43,11 @@ test("browser Date producers truthfully pad millisecond precision", () => {
   assert.equal(instantFromDate(new Date("2026-10-08T16:30:00.123Z")),
     "2026-10-08T16:30:00.123000Z");
   assert.throws(() => instantFromDate(new Date(NaN)), /invalid_instant/);
+});
+
+test("SQL projector preserves the caller expression and transaction clock", () => {
+  assert.equal(instantWireSql("now()"),
+    `to_char((now()) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`);
+  assert.equal(instantWireSql("owned.created_at"),
+    `to_char((owned.created_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`);
 });

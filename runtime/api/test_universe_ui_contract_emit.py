@@ -90,3 +90,10 @@ def test_universe_app_contract_tsc_outputs_are_current(tmp_path: Path) -> None:
     assert (tmp_path / "universe-app.js").read_bytes() == (
         _UI_ROOT / "static" / "contract-version.js"
     ).read_bytes()
+    for name in ("timestamps", "time-sql"):
+        assert (tmp_path / f"{name}.d.ts").read_bytes() == (
+            contracts / f"{name}.d.ts"
+        ).read_bytes()
+        assert (tmp_path / f"{name}.js").read_bytes() == (
+            _UI_ROOT / "static" / f"{name}.js"
+        ).read_bytes()

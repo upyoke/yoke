@@ -140,3 +140,17 @@ def test_sql_wire_projection_preserves_native_instants_and_nulls(test_db, zone):
         ).fetchone()
         assert row[0] == format_instant(instant)
         assert row[1] is None
+        row = conn.execute(
+            f"SELECT {instant_wire_sql('now()')}, "
+            f"{instant_wire_sql('transaction_timestamp()')}"
+        ).fetchone()
+        assert row[0] == row[1]
+
+
+def test_shared_typescript_sql_projection_is_generated_from_python():
+    from pathlib import Path
+    from yoke_contracts.time_sql import instant_wire_typescript
+
+    root = Path(__file__).resolve().parents[3]
+    contract = root / "packages/yoke-core/src/yoke_core/ui/contracts/time-sql.ts"
+    assert contract.read_text() == instant_wire_typescript()
