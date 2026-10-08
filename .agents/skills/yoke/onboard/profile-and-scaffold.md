@@ -2,6 +2,14 @@
 
 Step 2 derives one complete execution profile from strategy plus reality and confirms it once — the first of the two stops. Step 3 begins the unattended applying run with the scaffold Pack.
 
+Machine/project setup wires Yoke; this Onboard step chooses and installs the
+application scaffold. `webapp-scaffold` composes only its marked reference in
+canonical `AGENTS.md` and its `.gitignore` contribution, preserving the Yoke
+managed block and project bytes outside those boundaries. Application files
+retain ordinary collision protection. Read the Pack's installed README for
+preview, repeat/update and named conflict recovery; never move scaffold
+guidance into the project-install-owned block.
+
 ## Step 2: Derive The Execution Profile
 
 - **Entry:** strategy docs accepted.

@@ -237,6 +237,15 @@ def _accept_current_conflicts(plan: dict[str, Any], accepted_paths: list[str]) -
             f"--accept-current path is not an unresolved Pack conflict: {joined}"
         )
     accepted = set(accepted_paths)
+    unsafe = [
+        row
+        for row in plan["conflicts"]
+        if row["path"] in accepted and row.get("recovery")
+    ]
+    if unsafe:
+        raise PackClientError(
+            "unsafe_pack_conflict: --accept-current cannot bypass contribution boundaries; repair the named conflict and preview again"
+        )
     plan["accepted_current"] = [
         row for row in plan["conflicts"] if row["path"] in accepted
     ]

@@ -10,6 +10,8 @@ import subprocess
 import tempfile
 from typing import Any, Mapping
 
+from yoke_cli.packs.contributions import compose_contribution
+
 
 class PackMergeError(RuntimeError):
     """A Pack update cannot be planned safely."""
@@ -23,17 +25,36 @@ def plan_get(
     desired: list[dict[str, Any]],
 ) -> dict[str, Any]:
     creates: list[dict[str, Any]] = []
+    updates: list[dict[str, Any]] = []
     unchanged: list[str] = []
     conflicts: list[dict[str, Any]] = []
+    retained: list[dict[str, Any]] = []
     for wanted in desired:
         current = file_state(repo_root / wanted["path"])
+        contribution = compose_contribution(wanted, current, None, _merge_content)
+        if _record_contribution(
+            contribution,
+            wanted["path"],
+            creates,
+            updates,
+            unchanged,
+            conflicts,
+            retained,
+        ):
+            continue
         if current is None:
             creates.append(_write(wanted["path"], wanted))
         elif _matches(current, wanted):
             unchanged.append(wanted["path"])
         else:
-            conflicts.append({"path": wanted["path"], "reason": "existing_project_file"})
-    return _plan(creates, [], unchanged, conflicts, [])
+            conflicts.append(
+                {
+                    "path": wanted["path"],
+                    "reason": "existing_project_file",
+                    "recovery": "Move or reconcile the existing application file, then preview the Pack again.",
+                }
+            )
+    return _plan(creates, updates, unchanged, conflicts, retained)
 
 
 def plan_update(
@@ -53,6 +74,11 @@ def plan_update(
         wanted = new[path]
         prior = old.get(path)
         current = file_state(repo_root / path)
+        contribution = compose_contribution(wanted, current, prior, _merge_content)
+        if _record_contribution(
+            contribution, path, creates, updates, unchanged, conflicts, retained
+        ):
+            continue
         if prior is None:
             if current is None:
                 creates.append(_write(path, wanted))
@@ -88,7 +114,9 @@ def plan_update(
             conflicts.append({"path": path, "reason": "customized_binary_file"})
             continue
         merged = _merge_content(current["content"], prior["content"], wanted["content"])
-        mode, mode_conflict = _merge_mode(current["mode"], prior["mode"], wanted["mode"])
+        mode, mode_conflict = _merge_mode(
+            current["mode"], prior["mode"], wanted["mode"]
+        )
         if merged["conflicted"] or mode_conflict:
             conflicts.append(
                 {
@@ -116,8 +144,31 @@ def plan_update(
     for path in sorted(set(old) - set(new)):
         current = file_state(repo_root / path)
         if current is not None:
-            retained.append({"path": path, "reason": "removed_upstream_project_keeps_file"})
+            retained.append(
+                {"path": path, "reason": "removed_upstream_project_keeps_file"}
+            )
     return _plan(creates, updates, unchanged, conflicts, retained)
+
+
+def _record_contribution(
+    outcome, path, creates, updates, unchanged, conflicts, retained
+) -> bool:
+    if outcome is None:
+        return False
+    kind = outcome["kind"]
+    if kind == "create":
+        creates.append(outcome["write"])
+    elif kind == "update":
+        updates.append(outcome["write"])
+    elif kind == "unchanged":
+        unchanged.append(path)
+    else:
+        row = {
+            "path": path,
+            **{key: value for key, value in outcome.items() if key != "kind"},
+        }
+        (conflicts if kind == "conflict" else retained).append(row)
+    return True
 
 
 def file_state(path: Path) -> dict[str, Any] | None:
@@ -156,8 +207,13 @@ def _merge_content(current: str, base: str, incoming: str) -> dict[str, Any]:
         incoming_path.write_text(incoming, encoding="utf-8")
         result = subprocess.run(
             [
-                "git", "merge-file", "-p", "--diff3",
-                str(current_path), str(base_path), str(incoming_path),
+                "git",
+                "merge-file",
+                "-p",
+                "--diff3",
+                str(current_path),
+                str(base_path),
+                str(incoming_path),
             ],
             check=False,
             capture_output=True,

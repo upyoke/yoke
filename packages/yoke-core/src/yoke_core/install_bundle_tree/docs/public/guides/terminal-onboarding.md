@@ -19,6 +19,17 @@ and the required `--execution-instructions-considered` flag. If your account
 has no projects, it says so and omits the filing and browsing commands.
 To prepare a project's code on this machine later, run `yoke setup`.
 
+Setup wires the project to Yoke and installs its operating guidance. It does
+not install an application scaffold. `/yoke onboard` derives and confirms the
+project's execution profile, then installs the chosen application Pack when
+the repo needs one. The webapp scaffold contributes an application-docs
+reference to canonical `AGENTS.md` and a marked `.gitignore` block; project
+guidance, the Yoke managed block and custom ignore rules remain intact.
+Preview with `yoke packs get webapp-scaffold /path/to/project --project P`,
+then apply that reviewed plan with `--apply`. An installed Pack uses
+`yoke packs update` for repeats and newer versions. See the installed
+`docs/packs/webapp-scaffold/README.md` for boundaries and conflict recovery.
+
 Review names the setup commit's remote and branch before Apply. With stored
 GitHub authorization, Apply commits Yoke setup and attempts to push it; branch
 protection can require a review proposal instead. Without that authorization,
