@@ -115,7 +115,7 @@ def test_module_load_rejects_a_duplicate_ordinal_before_import(tmp_path: Path) -
 
 
 @pytest.mark.parametrize(
-    "declaration", ["PRECEDES = ('0001_first',)", "RUN_AFTER: tuple = ()"]
+    "declaration", ["PRECEDES = ('0001_first',)", "PRECEDES: tuple = ()"]
 )
 def test_ordering_override_is_refused_with_the_fix(
     tmp_path: Path, declaration: str
