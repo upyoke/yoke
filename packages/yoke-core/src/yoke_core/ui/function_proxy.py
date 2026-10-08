@@ -154,6 +154,7 @@ UI_ACTOR_BOUND_READ_FUNCTIONS = frozenset(
 UI_OPERATOR_OPTIONAL_READ_FUNCTIONS = frozenset(
     {
         "deployment_runs.list",
+        "universe.level_capacity.get",
         "ui_preferences.screen_selection.list",
         "ui_preferences.nav_group.list",
         "ui_preferences.search_history.list",
@@ -257,9 +258,8 @@ def proxy_function_call(
             403,
         )
     # Identity follows the transport. Relayed, the server binds the
-    # authenticated actor behind the credential and this process asserts
-    # nobody; in-process, it resolves the machine's operator itself, which
-    # is the only identity a loopback session token could stand for.
+    # authenticated actor and this process asserts nobody; in-process it
+    # resolves the machine operator, the only identity a loopback token stands for.
     relayed = relays_to_server()
     # Actor-scoped calls act as the machine's operator, resolved
     # server-side. Reads that surface per-actor dismissal state bind the
