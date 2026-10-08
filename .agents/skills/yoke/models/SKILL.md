@@ -60,43 +60,15 @@ changes a level without operator approval. A record carrying the retired
 `proposed_tier`, `tier_evidence`, or `tier_provisional` keys is refused by
 name. Optional `operator_notes` is annotation only.
 
-## Proposing level changes
+## Phase map
 
-`yoke models level-proposal` reads the current catalog revision and the
-universe levels and returns every change it can extrapolate:
+| Phase | You are here when | Read before acting |
+|---|---|---|
+| Research and publish | Refreshing catalog facts | This file's refresh steps |
+| Propose level changes | A revision is published, or levels need review | [level-proposals.md](level-proposals.md) |
 
-- an option whose model the catalog supersedes is retired and its successor
-  added at the same position, carrying the option's surface, selector shape,
-  effort, and context window;
-- an option whose effort or context window the model's published values do
-  not include moves to the nearest published effort the surface accepts, or
-  to the model's default window.
-
-It also lists `unverified` options (model not researched, or no published
-efforts or windows) and `unplaced_models` (catalog models no level launches
-and nothing supersedes). Placing an unplaced model, moving an option between
-levels, or retiring one is the refresh author's judgment: extrapolate from
-where today's options sit and what is known about the new and old models,
-then pass the complete change list on `--stdin`, starting from the generated
-`changes` in `--json` output. Each change is one of:
-
-```json
-{"kind": "add", "level": "SENIOR", "option": {"surface": "...", "model": "...", "reasoning_effort": "...", "context_window_tokens": null}, "position": 0, "reason": "..."}
-{"kind": "move", "option": {"surface": "...", "model": "...", "reasoning_effort": "..."}, "to_level": "JUNIOR", "reason": "..."}
-{"kind": "retire", "option": {"surface": "...", "model": "...", "reasoning_effort": "..."}, "reason": "..."}
-{"kind": "change", "option": {"surface": "...", "model": "...", "reasoning_effort": "..."}, "reasoning_effort": "high", "context_window_tokens": null, "reason": "..."}
-```
-
-Any resulting option whose effort or context window its model's published
-values contradict is refused by name (`level_option_reasoning_effort_unpublished`,
-`level_option_context_window_tokens_unpublished`); `yoke universe levels set`
-refuses the same documents. Present the proposal to the operator. Only after
-approval, store it:
-
-```bash
-yoke models level-proposal --levels-only [--stdin < changes.json] > /tmp/levels.json
-yoke universe levels set --stdin < /tmp/levels.json
-```
+After a publication, `yoke models level-proposal` proposes the level changes
+the new facts imply; nothing changes a level until the operator approves.
 
 ## Dash entry
 
@@ -152,7 +124,8 @@ yoke models revisions --json
    'reason'` publishes a new revision copied from REV; history is immutable.
    A scheduled future revision must be replaced at its effective time or later.
    No paid probes or automatic performance experiments.
-7. Run `yoke models level-proposal`, complete the change list as described
-   in "Proposing level changes", and present it to the operator. Store the
-   approved levels with `yoke universe levels set --stdin`, then record the
-   catalog revision and the level change in the Progress Log.
+7. Run `yoke models level-proposal`, complete the change list as
+   [level-proposals.md](level-proposals.md) describes, and present it to the
+   operator. Store the approved levels with `yoke universe levels set
+   --stdin`, then record the catalog revision and the level change in the
+   Progress Log.
