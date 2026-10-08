@@ -200,9 +200,17 @@ def test_merge_preparation_keeps_branch_ref_with_either_detail_shape(
         "yoke_core.domain.worktree.resolve_main_root", lambda: str(tmp_path)
     )
     monkeypatch.setattr(prepare, "_find_worktree", lambda *args: str(tmp_path))
+    monkeypatch.setattr(
+        "yoke_core.domain.project_checkout_locations.checkout_for_project_slug",
+        lambda slug: tmp_path,
+    )
     ctx = prepare.resolve_context(
         prepare.MergeArgs(branch=public_ref, item_id=3989, standalone=True)
     )
     assert ctx.item_id == public_ref and ctx.public_ref == public_ref
-    assert all(call["target"].public_ref == public_ref for call in calls)
+    # Item reads address the item by public ref; the project's default-branch
+    # read is project-scoped and carries no item identity at all.
+    item_calls = [c for c in calls if c["function_id"].startswith("items.")]
+    assert item_calls
+    assert all(call["target"].public_ref == public_ref for call in item_calls)
     assert all(call["target"].item_id is None for call in calls)
