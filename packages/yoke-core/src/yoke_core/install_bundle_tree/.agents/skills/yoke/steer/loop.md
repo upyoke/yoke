@@ -215,8 +215,9 @@ cursor-agent --resume <session-id> --print --output-format json --workspace <dir
 ```
 
 A run of deaths within a few tool calls on one installed, signed-in surface is
-vendor quota or credits exhausted. Rebalance new lanes onto the other surfaces
-until it recovers, then restore the steady-state balance.
+vendor quota or credits exhausted. Disable that surface on that machine
+(`surface-policy disable`) so level placement weighs the level's other options
+until it recovers, then enable it again.
 
 ### 3. Write the strategy document itemless
 
