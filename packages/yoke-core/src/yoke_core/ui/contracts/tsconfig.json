@@ -7,5 +7,5 @@
     "strict": true,
     "target": "ES2022"
   },
-  "files": ["universe-app.ts"]
+  "files": ["universe-app.ts", "timestamps.ts"]
 }

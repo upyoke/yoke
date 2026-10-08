@@ -52,6 +52,8 @@ def parse_instant(value: str | datetime) -> datetime:
     # RFC3339's -00:00 means the local offset is unknown, not known UTC.
     if value.endswith("-00:00"):
         raise InvalidInstant()
+    if value[-6:-5] in ("+", "-") and (int(value[-5:-3]) > 23 or int(value[-2:]) > 59):
+        raise InvalidInstant()
     try:
         parsed = datetime.fromisoformat(value.upper().replace("Z", "+00:00"))
     except ValueError:

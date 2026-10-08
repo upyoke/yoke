@@ -19,6 +19,27 @@ bytes. Each mutable document owner validates its declared timestamp fields at
 ingress. Function response serialization and the idempotency result ledger
 share this conversion, so HTTP, CLI and local response envelopes agree.
 
+Hosts share `ui/contracts/timestamps.ts` and its emitted declaration. The
+browser runtime is `ui/static/timestamps.js`, compiled from that source.
+`formatInstant` accepts qualified RFC3339; `formatDatabaseInstant` adapts
+PostgreSQL's qualified text output. Both retain all six fractional digits.
+`instantMicros` compares exact microseconds as bigint. `instantFromDate`
+truthfully pads a browser Date's millisecond precision with three zeros.
+Neither database strings nor cursor keys travel through a fractional Date parse.
+
+SQL JSON producers share `yoke_contracts.time_sql.instant_wire_sql(expression)`.
+It projects native timestamptz to the same fixed-six UTC wire form, preserving
+SQL NULL and the exact transaction clock. Native predicates keep their indexes;
+only the owned serialization boundary uses this text projection.
+
+After changing the TypeScript helper, run the pinned UI compiler from the UI
+directory, then commit its runtime and declaration output together:
+
+```text
+node node_modules/typescript/bin/tsc --project contracts/tsconfig.json
+node node_modules/typescript/bin/tsc contracts/timestamps.ts --strict --target ES2022 --module ESNext --outDir static
+```
+
 Calendar days retain an explicit bucket timezone. Durations retain their units;
 elapsed process deadlines use a monotonic clock. JWT/OIDC NumericDate, AWS,
 HTTP and native third-party formats remain external protocol encodings, with

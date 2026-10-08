@@ -58,6 +58,7 @@ def test_offset_equivalent_values_have_identical_canonical_bytes(value):
         "2026-W41-4T16:30:00Z",
         "2026-02-29T00:00:00Z",
         "2026-10-08T16:30:00+24:00",
+        "2026-10-08T16:30:00+00:99",
         "2026-10-08T16:30:00-00:00",
         "2026-10-08T16:30:60Z",
         "2026-10-08T16:30:00.1234567Z",
@@ -122,3 +123,20 @@ def test_http_cli_and_replay_ledger_serialize_identical_temporal_results():
     assert wire == json.loads(serialize_result(result))
     assert wire["at"] == "2026-10-07T19:00:00.000000Z"
     assert isinstance(response.result["at"], datetime)
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+def test_sql_wire_projection_preserves_native_instants_and_nulls(test_db, zone):
+    from yoke_contracts.time_sql import instant_wire_sql
+    from yoke_core.domain import db_helpers
+
+    instant = parse_instant("2026-10-08T16:30:00.123456Z")
+    with db_helpers.connect() as conn:
+        conn.execute("SELECT set_config('TimeZone', %s, true)", (zone,))
+        row = conn.execute(
+            f"SELECT {instant_wire_sql('%s::timestamptz')}, "
+            f"{instant_wire_sql('NULL::timestamptz')}",
+            (instant,),
+        ).fetchone()
+        assert row[0] == format_instant(instant)
+        assert row[1] is None

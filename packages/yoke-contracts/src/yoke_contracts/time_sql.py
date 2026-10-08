@@ -40,6 +40,18 @@ from __future__ import annotations
 
 from typing import Optional
 
+INSTANT_WIRE_TEMPLATE = 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
+
+
+def instant_wire_sql(expression: str) -> str:
+    """Project a native timestamptz to fixed-six UTC text, preserving SQL NULL.
+
+    The expression is SQL authored by the caller, not untrusted input. This
+    is a serialization boundary for owned JSON fields, never a predicate:
+    compare indexed native instants before projecting their wire form.
+    """
+    return f"to_char(({expression}) AT TIME ZONE 'UTC', '{INSTANT_WIRE_TEMPLATE}')"
+
 
 def _pg_now_sql(offset_days, offset_hours, offset_minutes, offset_modifier, localtime):
     """Return a Postgres timestamp string fragment.
@@ -107,4 +119,4 @@ def now_sql(
     )
 
 
-__all__ = ["now_sql"]
+__all__ = ["INSTANT_WIRE_TEMPLATE", "instant_wire_sql", "now_sql"]
