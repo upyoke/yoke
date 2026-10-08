@@ -47,6 +47,7 @@ def _runner_stack(
     stack_name="yoke-runner-fleet",
     routing_enabled=True,
     lifecycle_writers_paused=False,
+    lifecycle_code_frozen=False,
     spot_on_demand_base_capacity=0,
     spot_on_demand_percentage_above_base=0,
     authority_overrides=None,
@@ -194,6 +195,7 @@ def _runner_stack(
         runner_variable_name="YOKE_LINUX_RUNS_ON",
         routing_enabled=routing_enabled,
         lifecycle_writers_paused=lifecycle_writers_paused,
+        lifecycle_code_frozen=lifecycle_code_frozen,
         runner_count=runner_count,
         max_runner_count=max_count,
         instance_type="m7g.2xlarge",
@@ -230,7 +232,6 @@ def _runner_stack(
         "runner_labels": list(args.runner_labels),
         "runner_variable_name": args.runner_variable_name,
         "routing_enabled": args.routing_enabled,
-        "lifecycle_writers_paused": args.lifecycle_writers_paused,
         "runner_count": args.runner_count,
         "max_runner_count": args.max_runner_count,
         "instance_type": args.instance_type,
@@ -240,6 +241,10 @@ def _runner_stack(
         "shutdown_mode": args.shutdown_mode,
         "deployment_ssh_stack_outputs": dict(args.deployment_ssh_stack_outputs),
     }
+    if args.lifecycle_writers_paused:
+        authority["lifecycle_writers_paused"] = True
+    if args.lifecycle_code_frozen:
+        authority["lifecycle_code_frozen"] = True
     authority.update(authority_overrides or {})
     monkeypatch.setenv(
         authority_intent.AUTHORITY_INTENT_ENV,

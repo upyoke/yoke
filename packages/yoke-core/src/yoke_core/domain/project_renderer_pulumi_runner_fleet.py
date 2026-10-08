@@ -147,6 +147,9 @@ def runner_fleet_values(
         "runner_fleet_spot_on_demand_percentage_above_base": str(
             runner_fleet.spot.on_demand_percentage_above_base
         ),
+        "runner_fleet_lifecycle_code_frozen": (
+            "true" if runner_fleet.lifecycle.code_frozen else "false"
+        ),
         "runner_fleet_shutdown_mode": runner_fleet.lifecycle.shutdown_mode,
         "runner_fleet_lifecycle_writers_paused": (
             "true" if runner_fleet.lifecycle.writers_paused else "false"

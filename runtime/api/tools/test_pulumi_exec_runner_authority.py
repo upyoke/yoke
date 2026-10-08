@@ -33,6 +33,7 @@ def test_runner_fleet_local_bootstrap_uses_scoped_render_values():
         "runner_fleet_runner_count": "4",
         "runner_fleet_shutdown_mode": "terminate",
         "runner_fleet_lifecycle_writers_paused": "false",
+        "runner_fleet_lifecycle_code_frozen": "false",
         "runner_fleet_token_broker_function": "yoke-token-broker",
         "runner_fleet_variable_name": "YOKE_LINUX_RUNS_ON",
     }
@@ -144,6 +145,7 @@ def test_runner_fleet_actions_uses_hosted_repository_token_broker(
         "runner_fleet_runner_count": "4",
         "runner_fleet_shutdown_mode": "terminate",
         "runner_fleet_lifecycle_writers_paused": "false",
+        "runner_fleet_lifecycle_code_frozen": "false",
         "runner_fleet_token_broker_function": "yoke-token-broker",
         "runner_fleet_variable_name": "YOKE_LINUX_RUNS_ON",
     }

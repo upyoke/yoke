@@ -60,8 +60,15 @@ class RunnerFleetLifecycleSettings(BaseModel):
     start_mode: str = DEFAULT_START_MODE
     idle_shutdown_minutes: int = Field(30, ge=1)
     writers_paused: bool = Field(False, strict=True)
+    code_frozen: bool = Field(False, strict=True)
     ephemeral_runners: bool = True
     shutdown_mode: str = DEFAULT_SHUTDOWN_MODE
+
+    @model_validator(mode="after")
+    def _freeze_requires_pause(self) -> "RunnerFleetLifecycleSettings":
+        if self.code_frozen and not self.writers_paused:
+            raise ValueError("code_frozen requires writers_paused=true")
+        return self
 
     @field_validator("start_mode")
     @classmethod
@@ -81,11 +88,9 @@ class RunnerFleetLifecycleSettings(BaseModel):
 
 
 class RunnerFleetSpotSettings(BaseModel):
-    """How much of the fleet is bought on spare (spot) capacity.
+    """Spot capacity intent; disposable runners use spot by default.
 
-    Runners are disposable — reclaiming one fails a job that reruns — so the
-    whole fleet rides spot by default. Raise ``on_demand_base_capacity`` to
-    keep a floor of runners that a spot shortage cannot take away.
+    Raise ``on_demand_base_capacity`` to retain hosts during spot shortages.
     """
 
     on_demand_base_capacity: int = Field(DEFAULT_SPOT_ON_DEMAND_BASE_CAPACITY, ge=0)

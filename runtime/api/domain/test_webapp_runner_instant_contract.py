@@ -174,3 +174,47 @@ def test_signed_webhook_asset_writes_canonical_event_clock(monkeypatch, action):
     value = event["at"]
     assert timestamps.format_instant(timestamps.parse_instant(value)) == value
     assert len(value) == 27 and value.endswith("Z")
+
+
+@pytest.mark.parametrize("frozen", [True, False])
+def test_pause_only_holds_old_inputs_then_upgrades_code_while_still_paused(
+    monkeypatch, frozen
+):
+    recorder, _ = _runner_stack(
+        monkeypatch, lifecycle_writers_paused=True, lifecycle_code_frozen=frozen
+    )
+    for name in (
+        "runnerFleetWebhook",
+        "runnerFleetGithubBroker",
+        "runnerFleetGithubReaper",
+    ):
+        function = recorder.single(name)
+        assert function.kwargs["reserved_concurrent_executions"] == 0
+        assert function.opts.ignore_changes == (
+            ["code", "handler", "runtime", "environment", "timeout"] if frozen else None
+        )
+        assert "reservedConcurrentExecutions" not in (
+            function.opts.ignore_changes or []
+        )
+
+
+def test_code_freeze_cannot_leave_writers_running(monkeypatch):
+    recorder = _Recorder()
+    with pytest.raises(ValueError, match="runner_code_freeze_invalid"):
+        _runner_stack(monkeypatch, lifecycle_code_frozen=True, recorder=recorder)
+    assert recorder.resources == []
+    with pytest.raises(ValueError, match="code_frozen requires"):
+        RunnerFleetLifecycleSettings(code_frozen=True)
+
+
+def test_code_freeze_is_in_the_exact_authority_binding(monkeypatch):
+    recorder = _Recorder()
+    with pytest.raises(RuntimeError, match="lifecycle_code_frozen"):
+        _runner_stack(
+            monkeypatch,
+            lifecycle_writers_paused=True,
+            lifecycle_code_frozen=True,
+            authority_overrides={"lifecycle_code_frozen": False},
+            recorder=recorder,
+        )
+    assert recorder.resources == []

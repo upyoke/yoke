@@ -64,7 +64,7 @@ def test_runner_fleet_latest_renders_identically_from_source_and_install_bundle(
         render_values=render_values,
     )
 
-    assert canonical["version"] == "2.0.0"
+    assert canonical["version"] == "2.0.1"
     assert canonical["content_digest"] == packaged["content_digest"]
     assert canonical["files"] == packaged["files"]
     files = {row["path"]: row for row in canonical["files"]}

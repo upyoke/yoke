@@ -100,7 +100,6 @@ def authority_intent_envelope_from_values(
         "runner_labels": labels,
         "runner_variable_name": values["runner_fleet_variable_name"],
         "routing_enabled": routing_text == "true",
-        "lifecycle_writers_paused": paused_text == "true",
         "runner_count": int(values["runner_fleet_runner_count"]),
         "max_runner_count": int(values["runner_fleet_max_runner_count"]),
         "instance_type": values["runner_fleet_instance_type"],
@@ -110,6 +109,19 @@ def authority_intent_envelope_from_values(
         "shutdown_mode": values["runner_fleet_shutdown_mode"],
         "deployment_ssh_stack_outputs": deployment_ssh_stack_outputs,
     }
+    frozen_text = values["runner_fleet_lifecycle_code_frozen"]
+    if frozen_text not in {"false", "true"} or (
+        frozen_text == "true" and paused_text != "true"
+    ):
+        raise ValueError(
+            "runner-fleet code freeze requires paused writers and boolean intent"
+        )
+    # Default inactive controls add no authority: ordinary operations retain
+    # the existing exact envelope. A requested control must be bound explicitly.
+    if paused_text == "true":
+        authority["lifecycle_writers_paused"] = True
+    if frozen_text == "true":
+        authority["lifecycle_code_frozen"] = True
     canonical = json_helper.dumps_compact(dict(sorted(authority.items())))
     digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     return json_helper.dumps_compact(

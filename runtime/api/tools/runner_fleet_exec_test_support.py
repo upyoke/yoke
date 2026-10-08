@@ -120,6 +120,7 @@ def _runner_values(
         "runner_fleet_idle_shutdown_minutes": "30",
         "runner_fleet_shutdown_mode": "terminate",
         "runner_fleet_lifecycle_writers_paused": "false",
+        "runner_fleet_lifecycle_code_frozen": "false",
         "runner_fleet_deployment_ssh_stack_outputs_json": (
             json_helper.dumps_compact(deployment_ssh_stack_outputs or {})
         ),

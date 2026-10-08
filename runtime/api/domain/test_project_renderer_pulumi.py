@@ -74,6 +74,7 @@ _RUNNER_FLEET_KEYS = {
     "runner_fleet_idle_shutdown_minutes",
     "runner_fleet_shutdown_mode",
     "runner_fleet_lifecycle_writers_paused",
+    "runner_fleet_lifecycle_code_frozen",
     "runner_fleet_spot_on_demand_base_capacity",
     "runner_fleet_spot_on_demand_percentage_above_base",
     "runner_fleet_deployment_ssh_stack_outputs_json",
