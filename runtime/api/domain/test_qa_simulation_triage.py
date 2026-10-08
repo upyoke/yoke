@@ -8,6 +8,7 @@ import pytest
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.backlog_qa_inserts import insert_qa_requirement, insert_qa_run
 from runtime.api.fixtures.pg_testdb import test_database
+from runtime.api.fixtures.session_holdings import insert_item_claim
 from yoke_core.domain import actors
 from yoke_core.domain.events_acting_identity import acting_event_identity
 from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
@@ -47,6 +48,7 @@ def _seed(conn, body=REPORT):
         "SELECT public_ref FROM item_refs WHERE item_id=%s", (followup["id"],)
     ).fetchone()[0]
     _system, actor = actors.seed_canonical_actors(conn, local_human_name="triage-owner")
+    insert_item_claim(conn, "simulation-owner", item["id"])
     conn.commit()
     return item["id"], requirement["id"], attempt, str(ref), actor
 

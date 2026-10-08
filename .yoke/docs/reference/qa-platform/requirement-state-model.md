@@ -113,3 +113,10 @@ extends the existing adjudication audit instead
 of introducing a new table or approval framework. It does not manufacture a
 pass or change the failed report. A newer actual attempt invalidates that
 discharge, and summaries expose triage separately from pass and waiver.
+The authenticated PROCEED owner requires the acting session's epic claim.
+Its item-owned receipt retains the claim, actor, exact raw report, digest,
+and capture start and completion instants. Both SQL and Python invalidate it
+when any capture evidence changes or the attempt becomes unfinished.
+Generic section upsert, append, delete, and full-field replacement cannot
+author or replace the reserved `Simulation Triage` receipt namespace;
+replay preserves the original audit and refuses a changed capture.

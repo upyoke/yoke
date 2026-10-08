@@ -96,6 +96,9 @@ Satisfy parent epic verification requirements** (same logic as CLEAN path — sk
 PROCEED triage records a bounded discharge on the exact current failed report,
 with its authenticated actor, rationale, and filed follow-up refs. It preserves
 every attempt and final failed verdict; a newer attempt invalidates the discharge.
+The acting session must hold the epic work claim. The receipt namespace is
+reserved for this authenticated operation; ordinary section writes refuse it.
+A changed capture invalidates the receipt without overwriting its audit.
 The server checks the retained report itself for explicit PROCEED and zero
 CRITICAL gaps and validates all required follow-ups before handoff.
 PROCEED triage write + reviewed-implementation handoff:
